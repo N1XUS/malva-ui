@@ -1,0 +1,77 @@
+name: Bug report
+description: Something in a published package behaves incorrectly.
+labels: ['bug', 'triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: check that the behaviour is not covered by a note in the
+        component's documentation, and that you are on the latest release.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - '@malva-ui/core'
+        - '@malva-ui/cdk'
+        - '@malva-ui/i18n'
+        - '@malva-ui/editor'
+        - '@malva-ui/tailwind'
+    validations:
+      required: true
+  - type: input
+    id: component
+    attributes:
+      label: Component or entry point
+      description: e.g. `mlv-select`, `@malva-ui/cdk/overlay`
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Malva UI version
+      placeholder: 0.1.13
+    validations:
+      required: true
+  - type: input
+    id: angular
+    attributes:
+      label: Angular version
+      placeholder: 22.0.7
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+      description: Include the exact error text if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >
+        A StackBlitz, a repository, or the smallest template and component code
+        that shows the problem. Issues without a reproduction are usually closed.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 140 on macOS 15
+  - type: checkboxes
+    id: context
+    attributes:
+      label: Does it involve any of these?
+      options:
+        - label: Server-side rendering
+        - label: Zoneless change detection
+        - label: A custom theme or density override

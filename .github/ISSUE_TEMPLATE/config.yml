@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  # Requires "Private vulnerability reporting" (Settings → Code security).
+  # Without it this link 404s and security reports land in public issues.
+  - name: Security vulnerability
+    url: https://github.com/N1XUS/malva-ui/security/advisories/new
+    about: Report privately — never in a public issue.
+  # Add a Discussions link here once Discussions is enabled (Settings → General
+  # → Features), so usage questions stop arriving as bug reports.

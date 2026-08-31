@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a new component, input, or behaviour.
+labels: ['enhancement', 'triage']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the use case, not the solution you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like Malva UI to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What are you doing today instead?
+      description: Workarounds, a different library, hand-rolled code.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of change
+      options:
+        - A new input or output on an existing component
+        - A new component
+        - A new CDK primitive
+        - A theming or design-token change
+        - Something else
+    validations:
+      required: true
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: Compatibility
+      options:
+        - label: This would be a breaking change
