@@ -1,3 +1,23 @@
+## 0.1.14 (2026-08-31)
+
+### 🩹 Fixes
+
+- **ci:** restore jsdom DOM globals clobbered by platform-server ([3acdc54](https://github.com/N1XUS/malva-ui/commit/3acdc54))
+- **editor:** stub canvas getContext once instead of per spec ([db8fc55](https://github.com/N1XUS/malva-ui/commit/db8fc55))
+- **editor:** install canvas so jsdom implements getContext ([3d5e8a6](https://github.com/N1XUS/malva-ui/commit/3d5e8a6))
+
+### 📖 Documentation
+
+- add contributing guide, code of conduct, security policy and templates ([65283c4](https://github.com/N1XUS/malva-ui/commit/65283c4))
+
+### 📦 Build
+
+- **release:** add repository, homepage and bugs to published manifests ([ede0519](https://github.com/N1XUS/malva-ui/commit/ede0519))
+
+### ❤️ Thank You
+
+- Denys Severyn
+
 ## 0.1.12 (2026-08-17)
 
 ### 🚀 Features
