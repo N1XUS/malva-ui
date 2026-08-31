@@ -35,6 +35,16 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'yarn'
 
+      # node_modules itself, not just the Yarn download cache that setup-node
+      # keeps: canvas is a native module, so a clean install makes node-gyp
+      # rebuild it every run. The key covers the OS, the Node line and the
+      # lockfile, because a cached native build is only valid for the ABI it
+      # was compiled against.
+      - uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('.nvmrc') }}-${{ hashFiles('yarn.lock') }}
+
       - run: yarn install --immutable
 
       # e2e is deliberately absent — it is the slowest target and needs a browser
