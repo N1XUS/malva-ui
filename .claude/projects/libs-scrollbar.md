@@ -54,12 +54,47 @@ stop only while the scrolled content holds nothing tabbable.
   redundant stop (and a focus ring around the whole body) in front of them. This
   is what made a service-opened dialog capture focus onto its entire body.
 
-Tabbability is re-read after first render and on every content mutation
+Tabbability is re-read after first render and on relevant content mutations
 (`MutationObserver` over the content wrapper: `childList`, `subtree`, and the
 `tabindex`/`disabled`/`hidden`/`href`/`type` attributes), confirmed with the
 CDK's `InteractivityChecker` under `{ ignoreVisibility: true }` (the geometric
 visibility test never passes before first paint, nor under jsdom). The resolved
 value lives in the protected `_effectiveViewportTabIndex` computed.
+
+##### Rescan filter and debounce
+
+`mlv-scrollbar` wraps subtrees that mutate constantly (data-table rows, chat
+viewports, dropdown panels), so the scan — a full-subtree `querySelectorAll`
+plus an `InteractivityChecker` pass per candidate — is gated twice:
+
+- **Relevance.** Every batch is filtered before anything is scanned, returning
+  on the first relevant record.
+  - `childList` → relevant when an entry of `addedNodes`/`removedNodes` **is or
+    contains** a candidate. Text and comment nodes are skipped.
+  - `tabindex` / `href` attributes → always relevant. Both _define_ candidacy,
+    so removing either leaves a target that no longer matches the selector even
+    though the removal is exactly the change to re-read.
+  - `disabled` / `hidden` / `type` attributes → relevant when the target **is or
+    contains** a candidate. Every one of these that can actually move the
+    verdict sits on an element the selector already matches unqualified
+    (`disabled` on a control, `type` on an `<input>`), so the containment half
+    is deliberate over-approximation rather than a load-bearing case: under
+    this component's own configuration `hidden` on a wrapper `<div>` cannot
+    change the answer (the scan confirms candidates with
+    `ignoreVisibility: true`) and neither can `disabled` on a `<fieldset>`
+    (the CDK's `isDisabled` reads the attribute off the candidate itself, not
+    off its ancestors). Containment is kept because it is one `querySelector`
+    on an already-relevant path and it keeps the filter correct if either the
+    candidate selector or the CDK's semantics later change.
+  - Anything unrecognised is treated as relevant. A wasted scan costs a frame;
+    a dropped one is a silent WCAG 2.1.1 regression.
+- **Debounce.** Surviving batches are coalesced onto one `requestAnimationFrame`
+  (`_scheduleTabbableContentUpdate`, cancelling any frame already queued), so N
+  mutations in a frame cost exactly one scan. The pending frame is cancelled in
+  `DestroyRef.onDestroy` alongside the observer disconnects. The **first** scan
+  in `afterNextRender` still runs synchronously — the viewport's tabindex has to
+  be right on first paint. Where `requestAnimationFrame` is unavailable the scan
+  runs synchronously rather than being dropped.
 
 #### Viewport role and name (WCAG 4.1.2)
 

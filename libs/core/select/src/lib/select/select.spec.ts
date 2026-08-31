@@ -458,6 +458,15 @@ describe('MlvSelect — option groups', () => {
     select.openDropdown();
     fixture.detectChanges();
     await fixture.whenStable();
+    // The overlay's outer `mlv-popup` wraps its content in an `mlv-scrollbar`
+    // left in auto mode (the dropdown panel's own scrollbar is pinned to
+    // `[viewportTabIndex]="-1"` and never takes a role). That popup scrollbar
+    // re-reads whether its content is tabbable on an animation frame and gives
+    // up its transient `role="group"` once the options exist. Let that land
+    // before counting roles inside the overlay.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
     fixture.detectChanges();
     return { fixture, select };
   }
@@ -1654,13 +1663,7 @@ describe('MlvSelect stylesheet — chevron flip + rotation origin', () => {
 describe('MlvSelect — native mode', () => {
   @Component({
     imports: [MlvSelect],
-    template: `
-      <mlv-select
-        id="fruit"
-        native
-        [options]="options"
-      />
-    `,
+    template: ` <mlv-select id="fruit" native [options]="options" /> `,
   })
   class NativeHostComponent {
     readonly options = ['Apple', 'Banana'];
@@ -1737,7 +1740,10 @@ describe('MlvSelect — native mode API and synchronization', () => {
       imports: [NativeModesHostComponent],
       providers: [
         provideMlvI18nTesting(),
-        { provide: MlvBreakpointService, useClass: FakeSelectBreakpointService },
+        {
+          provide: MlvBreakpointService,
+          useClass: FakeSelectBreakpointService,
+        },
       ],
     }).compileComponents();
 
@@ -1761,7 +1767,9 @@ describe('MlvSelect — native mode API and synchronization', () => {
     const fixture = render(false);
 
     expect(fixture.nativeElement.querySelector('select')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.mlv-select__trigger')).toBeTruthy();
+    expect(
+      fixture.nativeElement.querySelector('.mlv-select__trigger'),
+    ).toBeTruthy();
   });
 
   it('uses native mode below md when native is auto', () => {
@@ -1819,9 +1827,8 @@ describe('MlvSelect — native mode API and synchronization', () => {
     const nativeSelect = fixture.nativeElement.querySelector(
       'select',
     ) as HTMLSelectElement;
-    expect(Array.from(nativeSelect.selectedOptions).map((option) => option.text)).toEqual([
-      'Apple',
-      'Banana',
-    ]);
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Apple', 'Banana']);
   });
 });

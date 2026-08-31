@@ -3,6 +3,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import type { MockInstance } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MlvScrollbar } from './scrollbar';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -464,9 +465,15 @@ describe('MlvScrollbar — viewport tab stop', () => {
     return viewport().getAttribute('tabindex');
   }
 
-  /** MutationObserver callbacks are microtask-scheduled. */
+  /**
+   * MutationObserver callbacks are microtask-scheduled; the rescan they queue
+   * is debounced onto the next animation frame, so both have to be flushed.
+   */
   async function flushMutations(): Promise<void> {
     await Promise.resolve();
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
     fixture.detectChanges();
     await fixture.whenStable();
   }
@@ -547,5 +554,435 @@ describe('MlvScrollbar — viewport tab stop', () => {
     expect(tabindex()).toBe('0');
     expect(viewport().getAttribute('role')).toBe('group');
     expect(viewport().getAttribute('aria-label')).toBe('Scrollable region');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tabbability rescan — relevance filter + animation-frame debounce
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvScrollbar],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <mlv-scrollbar>
+      <button class="eager-button">Act</button>
+    </mlv-scrollbar>
+  `,
+})
+class ScrollbarEagerContentHostComponent {}
+
+@Component({
+  imports: [MlvScrollbar],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <mlv-scrollbar>
+      <div class="fixture-root"><p class="fixture-text">Text only.</p></div>
+    </mlv-scrollbar>
+  `,
+})
+class ScrollbarRescanHostComponent {}
+
+describe('MlvScrollbar — first tabbability scan', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ScrollbarEagerContentHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+  });
+
+  it('resolves the viewport tabindex on first render without waiting a frame', () => {
+    // No animation frame is ever run here: the stub records callbacks and
+    // never invokes them. If the first scan were routed through the debounce
+    // the viewport would still claim to be a tab stop.
+    const queued: FrameRequestCallback[] = [];
+    const rafSpy = vi
+      .spyOn(globalThis, 'requestAnimationFrame')
+      .mockImplementation((cb: FrameRequestCallback) => queued.push(cb));
+
+    try {
+      const fixture = TestBed.createComponent(
+        ScrollbarEagerContentHostComponent,
+      );
+      fixture.detectChanges();
+
+      const viewport = fixture.nativeElement.querySelector(
+        '.mlv-scrollbar__viewport',
+      ) as HTMLElement;
+
+      expect(viewport.getAttribute('tabindex')).toBe('-1');
+      expect(viewport.getAttribute('role')).toBeNull();
+    } finally {
+      rafSpy.mockRestore();
+    }
+  });
+});
+
+describe('MlvScrollbar — tabbability rescan', () => {
+  let fixture: ComponentFixture<ScrollbarRescanHostComponent>;
+  let scanSpy: MockInstance<typeof Element.prototype.querySelectorAll> | null =
+    null;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ScrollbarRescanHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(ScrollbarRescanHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    scanSpy?.mockRestore();
+    scanSpy = null;
+  });
+
+  /** The element `_updateTabbableContent()` scans — the projection wrapper. */
+  function contentEl(): HTMLElement {
+    return fixture.nativeElement.querySelector(
+      '.mlv-scrollbar__content',
+    ) as HTMLElement;
+  }
+
+  /** The consumer-owned wrapper every mutation in these specs happens inside. */
+  function root(): HTMLElement {
+    return fixture.nativeElement.querySelector('.fixture-root') as HTMLElement;
+  }
+
+  function tabindex(): string | null {
+    return (
+      fixture.nativeElement.querySelector(
+        '.mlv-scrollbar__viewport',
+      ) as HTMLElement
+    ).getAttribute('tabindex');
+  }
+
+  function nextFrame(): Promise<void> {
+    return new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
+  }
+
+  /**
+   * One microtask (the observer's own delivery) plus two frames: the first runs
+   * the debounced scan, the second proves nothing landed a frame late.
+   */
+  async function settle(): Promise<void> {
+    await Promise.resolve();
+    await nextFrame();
+    await nextFrame();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  /**
+   * Installs the projected shape, lets the mutations it causes settle, and only
+   * then starts counting scans — so every count below is caused by the spec's
+   * own mutation and nothing else.
+   */
+  async function withContent(html: string): Promise<void> {
+    root().innerHTML = html;
+    await settle();
+    scanSpy = vi.spyOn(contentEl(), 'querySelectorAll');
+  }
+
+  // -------------------------------------------------------------------------
+  // Records that cannot move a tab stop
+  // -------------------------------------------------------------------------
+
+  describe('irrelevant mutations', () => {
+    it('does not scan when a text node changes value', async () => {
+      await withContent('<p class="text">before</p>');
+
+      const text = root().querySelector('.text') as HTMLElement;
+      (text.firstChild as Text).nodeValue = 'after';
+      await settle();
+
+      expect(scanSpy).not.toHaveBeenCalled();
+      expect(tabindex()).toBe('0');
+    });
+
+    it('does not scan when a text node is swapped out', async () => {
+      await withContent('<p class="text">before</p>');
+
+      const text = root().querySelector('.text') as HTMLElement;
+      text.removeChild(text.firstChild as Text);
+      text.appendChild(document.createTextNode('after'));
+      await settle();
+
+      expect(scanSpy).not.toHaveBeenCalled();
+      expect(tabindex()).toBe('0');
+    });
+
+    it('does not scan when a class toggles on a non-candidate element', async () => {
+      await withContent('<div class="row">Row</div>');
+
+      root().querySelector('.row')?.classList.add('row--selected');
+      await settle();
+
+      expect(scanSpy).not.toHaveBeenCalled();
+      expect(tabindex()).toBe('0');
+    });
+
+    it('does not scan when hidden toggles on an element holding no candidate', async () => {
+      await withContent(
+        '<div class="row">Row</div><button class="keeper">Keep</button>',
+      );
+      expect(tabindex()).toBe('-1');
+
+      root().querySelector('.row')?.setAttribute('hidden', '');
+      await settle();
+
+      expect(scanSpy).not.toHaveBeenCalled();
+      expect(tabindex()).toBe('-1');
+    });
+
+    it('does not scan when an element holding no candidate is added or removed', async () => {
+      await withContent('<p class="text">Text only.</p>');
+
+      const noise = document.createElement('div');
+      noise.textContent = 'noise';
+      root().appendChild(noise);
+      await settle();
+
+      expect(scanSpy).not.toHaveBeenCalled();
+
+      noise.remove();
+      await settle();
+
+      expect(scanSpy).not.toHaveBeenCalled();
+      expect(tabindex()).toBe('0');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Records that can move a tab stop
+  // -------------------------------------------------------------------------
+
+  describe('relevant mutations', () => {
+    it('scans once when a button is added', async () => {
+      await withContent('<p class="text">Text only.</p>');
+      expect(tabindex()).toBe('0');
+
+      root().appendChild(document.createElement('button'));
+      await settle();
+
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(tabindex()).toBe('-1');
+    });
+
+    it('scans once when the last button is removed', async () => {
+      await withContent('<button class="only">Act</button>');
+      expect(tabindex()).toBe('-1');
+
+      root().querySelector('.only')?.remove();
+      await settle();
+
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(tabindex()).toBe('0');
+    });
+
+    it('scans once when a nested button is added inside a wrapper', async () => {
+      await withContent('<p class="text">Text only.</p>');
+
+      const wrapper = document.createElement('div');
+      wrapper.appendChild(document.createElement('button'));
+      root().appendChild(wrapper);
+      await settle();
+
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(tabindex()).toBe('-1');
+    });
+
+    it('reaches a candidate that follows a text node in the same batch', async () => {
+      await withContent('<p class="text">Text only.</p>');
+      expect(tabindex()).toBe('0');
+
+      // The text node is delivered first. Narrowing every added node to
+      // `Element` before calling `matches()` on it is what keeps the filter
+      // from throwing here — and a MutationObserver callback that throws is
+      // swallowed, so the button behind it would be dropped in silence.
+      root().appendChild(document.createTextNode('noise'));
+      root().appendChild(document.createElement('button'));
+      await settle();
+
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(tabindex()).toBe('-1');
+    });
+
+    it('scans on each disabled toggle of a button', async () => {
+      await withContent('<button class="only">Act</button>');
+      expect(tabindex()).toBe('-1');
+
+      const button = root().querySelector('.only') as HTMLElement;
+
+      button.setAttribute('disabled', '');
+      await settle();
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(tabindex()).toBe('0');
+
+      button.removeAttribute('disabled');
+      await settle();
+      expect(scanSpy).toHaveBeenCalledTimes(2);
+      expect(tabindex()).toBe('-1');
+    });
+
+    it('scans when hidden toggles on a plain wrapper that contains a button', async () => {
+      await withContent('<div class="wrap"><button>Act</button></div>');
+      expect(tabindex()).toBe('-1');
+
+      root().querySelector('.wrap')?.setAttribute('hidden', '');
+      await settle();
+
+      // The wrapper matches no candidate selector, so a `target.matches(...)`
+      // filter would drop this record outright.
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      // The scan confirms candidates with `ignoreVisibility: true` — the CDK's
+      // visibility test is geometric and never passes under jsdom — so a hidden
+      // ancestor does not change the answer. What matters here is that the
+      // record reached the scan at all.
+      expect(tabindex()).toBe('-1');
+    });
+
+    it('scans when disabled toggles on a fieldset wrapping an input', async () => {
+      await withContent(
+        '<fieldset class="group"><input class="field" /></fieldset>',
+      );
+      expect(tabindex()).toBe('-1');
+
+      root().querySelector('.group')?.setAttribute('disabled', '');
+      await settle();
+
+      // `fieldset` is not in the candidate selector either.
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      // The CDK reads `disabled` off the candidate itself, so the inherited
+      // fieldset state leaves the verdict unchanged here.
+      expect(tabindex()).toBe('-1');
+    });
+
+    it('scans once when tabindex is added to a plain div', async () => {
+      await withContent('<div class="plain">Row</div>');
+      expect(tabindex()).toBe('0');
+
+      root().querySelector('.plain')?.setAttribute('tabindex', '0');
+      await settle();
+
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(tabindex()).toBe('-1');
+    });
+
+    it('scans once when tabindex is removed from a plain div', async () => {
+      await withContent('<div class="plain" tabindex="0">Row</div>');
+      expect(tabindex()).toBe('-1');
+
+      root().querySelector('.plain')?.removeAttribute('tabindex');
+      await settle();
+
+      // After the removal the target matches nothing and contains nothing —
+      // a filter that only asks about the post-mutation DOM drops it.
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(tabindex()).toBe('0');
+    });
+
+    it('scans once when href is removed from an anchor', async () => {
+      await withContent('<a class="link" href="#target">Link</a>');
+      expect(tabindex()).toBe('-1');
+
+      root().querySelector('.link')?.removeAttribute('href');
+      await settle();
+
+      // Same shape as the tabindex removal: the anchor stops being a candidate
+      // at the very moment the change has to be re-read.
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(tabindex()).toBe('0');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Debounce
+  // -------------------------------------------------------------------------
+
+  describe('debounce', () => {
+    it('coalesces a burst of separate mutation batches into one scan', async () => {
+      await withContent('<p class="text">Text only.</p>');
+
+      for (let i = 0; i < 5; i++) {
+        const button = document.createElement('button');
+        button.textContent = `Act ${i}`;
+        root().appendChild(button);
+        // Drain the observer's microtask so each append is delivered as its own
+        // batch. No timer can fire in between, so all five land in one frame —
+        // undebounced that is five full-subtree scans.
+        await Promise.resolve();
+      }
+
+      await settle();
+
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(tabindex()).toBe('-1');
+      expect(root().querySelectorAll('button')).toHaveLength(5);
+    });
+
+    it('scans synchronously where requestAnimationFrame is unavailable', async () => {
+      await withContent('<p class="text">Text only.</p>');
+
+      const raf = globalThis.requestAnimationFrame;
+      // The file guards `MutationObserver`/`ResizeObserver` the same way; a
+      // missing frame scheduler must cost the debounce, never the scan.
+      (
+        globalThis as { requestAnimationFrame?: unknown }
+      ).requestAnimationFrame = undefined;
+
+      try {
+        root().appendChild(document.createElement('button'));
+        // Only the observer's own microtask — no frame is available to run.
+        await Promise.resolve();
+
+        expect(scanSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        globalThis.requestAnimationFrame = raf;
+      }
+
+      fixture.detectChanges();
+      expect(tabindex()).toBe('-1');
+    });
+
+    it('scans again on the next frame after the first burst', async () => {
+      await withContent('<p class="text">Text only.</p>');
+
+      root().appendChild(document.createElement('button'));
+      await settle();
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+
+      root().querySelector('button')?.remove();
+      await settle();
+
+      expect(scanSpy).toHaveBeenCalledTimes(2);
+      expect(tabindex()).toBe('0');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Destroy safety
+  // -------------------------------------------------------------------------
+
+  describe('destroy', () => {
+    it('does not scan after the component is destroyed with a scan pending', async () => {
+      await withContent('<p class="text">Text only.</p>');
+
+      root().appendChild(document.createElement('button'));
+      // The observer has delivered and a frame is queued, but not run yet.
+      await Promise.resolve();
+      expect(scanSpy).not.toHaveBeenCalled();
+
+      expect(() => fixture.destroy()).not.toThrow();
+
+      await nextFrame();
+      await nextFrame();
+
+      expect(scanSpy).not.toHaveBeenCalled();
+    });
   });
 });

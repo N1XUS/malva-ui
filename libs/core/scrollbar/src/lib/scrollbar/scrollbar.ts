@@ -272,6 +272,17 @@ export class MlvScrollbar {
   /** @private Native MutationObserver keeping `_hasTabbableContent` in sync with projected content. */
   private _contentObserver: MutationObserver | null = null;
 
+  /**
+   * @private Handle of the animation frame a tabbability rescan is queued on,
+   * or `null` when nothing is queued.
+   *
+   * The scan walks the whole scroll region, so a burst of mutations — a data
+   * table repainting rows, a chat viewport appending messages — must collapse
+   * into a single pass. Only ever holds a handle when `requestAnimationFrame`
+   * exists; otherwise the scan runs synchronously instead of being dropped.
+   */
+  private _tabbableScanFrame: number | null = null;
+
   /** @private CDK checker used to decide whether projected content is keyboard-reachable. */
   private readonly _interactivityChecker = inject(InteractivityChecker);
 
@@ -296,9 +307,15 @@ export class MlvScrollbar {
         // Projected content is opaque to the component, so tabbability has to
         // be re-read whenever it changes shape — a lazily rendered form, a
         // button that becomes disabled, an @if that swaps text for controls.
-        this._contentObserver = new MutationObserver(() =>
-          this._updateTabbableContent(),
-        );
+        //
+        // The subtree is also where the host's own churn lives, so the records
+        // are filtered down to the ones that can move a tab stop and the
+        // surviving burst is coalesced into one scan per frame.
+        this._contentObserver = new MutationObserver((records) => {
+          if (this._affectsTabbability(records)) {
+            this._scheduleTabbableContentUpdate();
+          }
+        });
         this._contentObserver.observe(contentEl, {
           childList: true,
           subtree: true,
@@ -326,10 +343,130 @@ export class MlvScrollbar {
     this._destroyRef.onDestroy(() => {
       this._resizeObserver?.disconnect();
       this._contentObserver?.disconnect();
+      if (this._tabbableScanFrame !== null) {
+        cancelAnimationFrame(this._tabbableScanFrame);
+        this._tabbableScanFrame = null;
+      }
       if (this._scrollTimeout !== null) {
         clearTimeout(this._scrollTimeout);
       }
     });
+  }
+
+  /**
+   * @private Queues a tabbability rescan for the next animation frame,
+   * replacing any frame already queued.
+   *
+   * N mutations inside one frame therefore cost exactly one scan. The result
+   * only feeds `_effectiveViewportTabIndex`, so a frame of latency is free —
+   * the first render still calls `_updateTabbableContent()` directly, because
+   * the viewport's tabindex has to be right on first paint.
+   *
+   * Falls back to a synchronous scan where `requestAnimationFrame` is missing,
+   * matching how the file already guards `MutationObserver`/`ResizeObserver`.
+   */
+  private _scheduleTabbableContentUpdate(): void {
+    if (typeof requestAnimationFrame === 'undefined') {
+      this._updateTabbableContent();
+      return;
+    }
+
+    if (this._tabbableScanFrame !== null) {
+      cancelAnimationFrame(this._tabbableScanFrame);
+    }
+
+    this._tabbableScanFrame = requestAnimationFrame(() => {
+      this._tabbableScanFrame = null;
+      this._updateTabbableContent();
+    });
+  }
+
+  /**
+   * @private Whether any record in a mutation batch could move a tab stop.
+   *
+   * Returns on the first relevant record — the batch only has to answer
+   * "scan or not", never "how many".
+   */
+  private _affectsTabbability(records: MutationRecord[]): boolean {
+    for (const record of records) {
+      if (record.type === 'attributes') {
+        if (this._isRelevantAttributeRecord(record)) {
+          return true;
+        }
+      } else if (record.type === 'childList') {
+        if (
+          this._nodesHoldCandidate(record.addedNodes) ||
+          this._nodesHoldCandidate(record.removedNodes)
+        ) {
+          return true;
+        }
+      } else {
+        // `characterData` is not observed, so nothing else should arrive. An
+        // unrecognised record is scanned rather than dropped: a wasted scan
+        // costs a frame, a missed one is a silent WCAG 2.1.1 regression.
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * @private Whether an attribute mutation could move a tab stop.
+   *
+   * The observer's `attributeFilter` splits into two groups:
+   *
+   * - `tabindex` and `href` **define** candidacy, so removing either leaves a
+   *   target that no longer matches the selector even though that removal is
+   *   precisely the change to re-read (an `<a>` losing its `href` stops being
+   *   a tab stop). The record carries no previous value, so these always scan.
+   * - `disabled`, `hidden` and `type` change the tabbability of the target or
+   *   of its descendants only — `hidden` on a plain wrapper `<div>`, `disabled`
+   *   on a `<fieldset>`. Neither target matches the candidate selector itself,
+   *   which is why containment has to be tested as well as matching. A target
+   *   that neither is nor holds a candidate cannot matter.
+   */
+  private _isRelevantAttributeRecord(record: MutationRecord): boolean {
+    const target = record.target;
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    if (
+      record.attributeName === 'tabindex' ||
+      record.attributeName === 'href'
+    ) {
+      return true;
+    }
+
+    return this._holdsCandidate(target);
+  }
+
+  /**
+   * @private Whether any node in an added/removed list is, or contains, a
+   * focusable candidate.
+   *
+   * `addedNodes`/`removedNodes` carry text and comment nodes too — the churn
+   * this filter exists to absorb is mostly exactly that — so every entry is
+   * narrowed to `Element` first. A removed element is already detached, but
+   * `matches`/`querySelector` still work on a detached subtree.
+   */
+  private _nodesHoldCandidate(nodes: NodeList): boolean {
+    for (const node of Array.from(nodes)) {
+      if (node instanceof Element && this._holdsCandidate(node)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /** @private Whether an element is, or contains, a focusable candidate. */
+  private _holdsCandidate(element: Element): boolean {
+    return (
+      element.matches(FOCUSABLE_CANDIDATE_SELECTOR) ||
+      element.querySelector(FOCUSABLE_CANDIDATE_SELECTOR) !== null
+    );
   }
 
   /**
@@ -339,6 +476,9 @@ export class MlvScrollbar {
    * stop of its own when nothing inside it already is (WCAG 2.1.1). Keeping it
    * unconditionally tabbable put a redundant stop — and a focus ring around the
    * whole region — in front of every dialog body's form controls.
+   *
+   * Called directly for the first render and through
+   * `_scheduleTabbableContentUpdate()` for every mutation after it.
    */
   private _updateTabbableContent(): void {
     const contentEl = this._viewport().nativeElement.firstElementChild;
