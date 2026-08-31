@@ -10,6 +10,15 @@
     "malva-ui",
     "angular"
   ],
+  "homepage": "https://github.com/N1XUS/malva-ui/tree/main/libs/tailwind#readme",
+  "bugs": {
+    "url": "https://github.com/N1XUS/malva-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/N1XUS/malva-ui.git",
+    "directory": "libs/tailwind"
+  },
   "schematics": "./schematics/collection.json",
   "publishConfig": {
     "access": "public"

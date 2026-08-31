@@ -14,6 +14,15 @@
     "infinite-scroll",
     "shrink-wrap"
   ],
+  "homepage": "https://github.com/N1XUS/malva-ui/tree/main/libs/cdk#readme",
+  "bugs": {
+    "url": "https://github.com/N1XUS/malva-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/N1XUS/malva-ui.git",
+    "directory": "libs/cdk"
+  },
   "publishConfig": {
     "access": "public"
   },

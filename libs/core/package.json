@@ -17,6 +17,15 @@
     "standalone",
     "dark-mode"
   ],
+  "homepage": "https://github.com/N1XUS/malva-ui/tree/main/libs/core#readme",
+  "bugs": {
+    "url": "https://github.com/N1XUS/malva-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/N1XUS/malva-ui.git",
+    "directory": "libs/core"
+  },
   "schematics": "./schematics/collection.json",
   "publishConfig": {
     "access": "public"
