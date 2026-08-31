@@ -51,4 +51,20 @@ jobs:
       # download, so it lives in its own manually-triggered workflow (e2e.yml).
       # test-schematics is the `ng add` installer's Node-only harness; it has its
       # own target because it must not run in the Angular test environment.
-      - run: npx nx run-many -t lint test test-schematics build typecheck
+
+      # A pull request only has to prove that what it touched still works, so it
+      # runs the affected graph rather than all 70-odd projects. `--head=HEAD` is
+      # the merge result the PR would produce, not `head.sha`: comparing against
+      # the merge commit can only ever over-select (main commits landed since the
+      # base tip look changed too), and over-selecting is safe where
+      # under-selecting is not.
+      - name: Verify affected projects
+        if: github.event_name == 'pull_request'
+        run: npx nx affected -t lint test test-schematics build typecheck --base=${{ github.event.pull_request.base.sha }} --head=HEAD
+
+      # Pushes to main verify everything. main is the branch every PR bases off
+      # and the one release cuts from, so it must never be only partially
+      # verified — and after the PR run most targets are already cache hits.
+      - name: Verify all projects
+        if: github.event_name != 'pull_request'
+        run: npx nx run-many -t lint test test-schematics build typecheck
