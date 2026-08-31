@@ -138,14 +138,6 @@ describe('MlvEditor formatting popovers', () => {
   let overlayContainer: OverlayContainer;
   let editorCopy: WritableSignal<MlvEditorI18n>;
 
-  beforeAll(() => {
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
-      createLinearGradient: () => ({ addColorStop: () => undefined }),
-      fillRect: () => undefined,
-      fillStyle: '',
-    } as unknown as CanvasRenderingContext2D);
-  });
-
   afterAll(async () => {
     await new Promise((resolve) => setTimeout(resolve));
     vi.restoreAllMocks();

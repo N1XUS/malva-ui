@@ -100,12 +100,6 @@ describe('MlvEditorAiReviewBar', () => {
   const scrollIntoView = vi.fn();
 
   beforeAll(() => {
-    // The full editor toolbar mounts color pickers that paint to canvas.
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
-      createLinearGradient: () => ({ addColorStop: () => undefined }),
-      fillRect: () => undefined,
-      fillStyle: '',
-    } as unknown as CanvasRenderingContext2D);
     // jsdom has no scrollIntoView; the context guards on its presence.
     Object.defineProperty(Element.prototype, 'scrollIntoView', {
       configurable: true,
