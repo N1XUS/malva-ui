@@ -68,10 +68,12 @@ host: {
   '[class]': '"mlv-button--variant-" + effectiveVariant() + " mlv-button--shape-" + shape()',
   '[class.mlv-button--disabled]': 'disabled()',
   '[class.mlv-button--loading]': 'loading()',
+  '[class.mlv-button--selected]': 'selected()',
   '[class.mlv-button--icon-only]': '_iconOnly()',
   '[attr.disabled]': '(disabled() || loading()) || null',
   '[attr.aria-disabled]': '(disabled() || loading()) || null',
   '[attr.aria-busy]': 'loading() || null',
+  '(click)': '_handleClick($event)',
 }
 ```
 

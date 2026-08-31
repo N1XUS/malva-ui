@@ -128,7 +128,13 @@ describe('api-extractor', () => {
     it('excludes internal members and the removed size input', () => {
       const component = symbol(button, 'MlvButton');
       const names = component.inputs.map((i) => i.name);
-      expect(names).toEqual(['variant', 'shape', 'disabled', 'loading']);
+      expect(names).toEqual([
+        'variant',
+        'shape',
+        'disabled',
+        'loading',
+        'selected',
+      ]);
       expect(names).not.toContain('size');
       expect(names.every((n) => !n.startsWith('_'))).toBe(true);
     });
