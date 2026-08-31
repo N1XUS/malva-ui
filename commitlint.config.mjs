@@ -10,6 +10,7 @@ export default {
         'cdk',
         'styles',
         'i18n',
+        'tailwind',
         // leaf libraries — core
         'accessibility',
         'accordion',
@@ -72,6 +73,7 @@ export default {
         'status-indicator',
         'stepper',
         'switch',
+        'table',
         'tabs',
         'textarea',
         'tile',
