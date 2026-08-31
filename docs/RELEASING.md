@@ -1,22 +1,24 @@
 # Releasing Malva UI
 
-Releases are **manual**. A push to `main` never publishes anything — CI only lints,
-tests, builds and runs e2e. A release starts when a human runs the **Release**
+Releases are **manual**. A push to `main` never publishes anything — CI lints,
+tests, builds and typechecks. A release starts when a human runs the **Release**
 workflow (`.github/workflows/release.yml`).
+
+The release workflow only **builds and publishes**: it does not re-run the test
+suite. The gate is CI on `main` — release a commit CI has already gone green on.
 
 One run does all of this, in order:
 
-1. `yarn nx run-many -t lint test test-schematics typecheck` — refuse to release a red tree.
-2. `nx release` → `preVersionCommand` builds `cdk`, `core`, `i18n`, `editor`, `tailwind` in production mode.
-3. Versions the workspace root `package.json` (all five packages move together — `projectsRelationship: "fixed"`).
-4. Writes `CHANGELOG.md` from the conventional commits since the last tag.
-5. Commits (`chore(release): v{version}`), tags (`v{version}`), **pushes to `main`**, creates the GitHub Release.
-6. `scripts/generate-ai-docs.mjs`.
-7. `scripts/publish.mjs` — resolves version placeholders in each dist manifest,
+1. `nx release` → `preVersionCommand` builds `cdk`, `core`, `i18n`, `editor`, `tailwind` in production mode.
+2. Versions the workspace root `package.json` (all five packages move together — `projectsRelationship: "fixed"`).
+3. Writes `CHANGELOG.md` from the conventional commits since the last tag.
+4. Commits (`chore(release): v{version}`), tags (`v{version}`), **pushes to `main`**, creates the GitHub Release.
+5. `scripts/generate-ai-docs.mjs`.
+6. `scripts/publish.mjs` — resolves version placeholders in each dist manifest,
    widens exact Angular/Tiptap pins into `^X.Y.0` peer ranges, preflights every
    `exports` target, publishes in dependency order.
 
-Steps 6–7 are skipped on a dry run.
+Steps 5–6 are skipped on a dry run.
 
 ---
 

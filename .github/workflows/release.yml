@@ -106,11 +106,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # Refuse to release something that does not pass its own gates. The
-      # release itself rebuilds the packages via nx.json's preVersionCommand.
-      - name: Verify
-        run: yarn nx run-many -t lint test test-schematics typecheck
-
       # Versions the root manifest, writes CHANGELOG.md, commits, tags, pushes,
       # and creates the GitHub Release — in that order, so the Release always
       # references a tag that already exists on the remote. Publishing is a
