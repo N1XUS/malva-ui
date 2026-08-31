@@ -19,6 +19,7 @@ export default defineConfig(() => ({
     ],
     setupFiles: [
       '../../scripts/testing/setup-strip-css-layers.js',
+      '../../scripts/testing/setup-restore-dom-globals.js',
       'src/test-setup.ts',
     ],
     reporters: ['default'],

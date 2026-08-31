@@ -209,15 +209,38 @@ layered component stylesheet silently reads `''` instead of failing loudly.
 
 The test environment therefore flattens layers away; the shipped CSS keeps them.
 
-| Spec reads…                                      | What to do                                                                                                                                                              |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Computed styles from an injected `<style>`       | Nothing. `scripts/testing/setup-strip-css-layers.js` is a `setupFiles` entry in every `vite.config.mts` and strips layers from any CSS entering a `<style>` element.     |
-| Compiled CSS **text** or a PostCSS AST           | Wrap the `sass.compile(...).css` in `stripCssLayersFromText()` from `@malva-ui/internal-testing` — the wrapper's indentation is removed with it, so line anchors hold.  |
-| The `.scss` **source** text                      | Nothing — the source is read as written.                                                                                                                                |
+| Spec reads…                                | What to do                                                                                                                                                             |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Computed styles from an injected `<style>` | Nothing. `scripts/testing/setup-strip-css-layers.js` is a `setupFiles` entry in every `vite.config.mts` and strips layers from any CSS entering a `<style>` element.   |
+| Compiled CSS **text** or a PostCSS AST     | Wrap the `sass.compile(...).css` in `stripCssLayersFromText()` from `@malva-ui/internal-testing` — the wrapper's indentation is removed with it, so line anchors hold. |
+| The `.scss` **source** text                | Nothing — the source is read as written.                                                                                                                               |
 
 `@malva-ui/internal-testing` maps to `scripts/testing/strip-css-layers.js`. It is
 spec-only, never bundled, and allow-listed in `@nx/enforce-module-boundaries`.
 Its own tests run as `nx run @malva-ui/source:test`.
+
+---
+
+## Server-Rendering Specs and the Shared jsdom Window
+
+Vitest reuses **one jsdom window per worker process** — the environment is not
+rebuilt between test files. `@angular/platform-server` runs
+`Object.assign(globalThis, domino.impl)` when its DOM adapter is made current,
+replacing `Event`, `KeyboardEvent`, `HTMLElement` and every other DOM class with
+domino's. jsdom brand-checks what it is handed, so from that point on
+`element.dispatchEvent(new Event('change'))` throws
+`parameter 1 is not of type 'Event'` — in that spec **and in every later file
+that shares the worker**.
+
+How many files share a worker depends on the core count, so this reproduces on a
+2-core CI runner and passes on a dev machine. Reproduce it locally with
+`npx vitest run --config <project>/vite.config.mts --no-file-parallelism`.
+
+`scripts/testing/setup-restore-dom-globals.js` is a `setupFiles` entry in every
+`vite.config.mts`: it captures the pristine constructors the first time it loads
+in a worker and puts back any that were replaced around every test. Nothing to
+do per spec — but keep it in `setupFiles` when adding a project, and prefer
+`--no-file-parallelism` when a suite passes locally and fails in CI.
 
 ---
 

@@ -16,6 +16,7 @@ export default defineConfig(() => ({
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     setupFiles: [
       '../../../scripts/testing/setup-strip-css-layers.js',
+      '../../../scripts/testing/setup-restore-dom-globals.js',
       'src/test-setup.ts',
     ],
     reporters: ['default'],
