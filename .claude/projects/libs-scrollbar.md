@@ -173,6 +173,38 @@ Thumb drag is supported. On `pointerdown`, the thumb captures the pointer via `s
 
 A native `ResizeObserver` watches both the viewport element (host resize) and the content wrapper (content size changes). When either resizes, overflow state and thumb geometry are recalculated. In SSR/test environments without `ResizeObserver`, initial rendering and native scrolling remain available while geometry observation is skipped. The i18n token is optional, with `"Scrollable region"` as the accessible-label fallback.
 
+#### Track-metric cache (scroll fast path)
+
+`_updateThumbPositions()` runs on every scroll event. It reads **only** the
+viewport's own scroll state (`scrollTop`/`scrollLeft`,
+`clientHeight`/`clientWidth`, `scrollHeight`/`scrollWidth`). Each track's
+padding (`--mlv-sb-edge-padding`) and usable extent are cached per axis by the
+private `_trackMetrics(axis)`, because reading them costs a style recalculation
+(`getComputedStyle`) plus a forced layout (`offsetHeight`/`offsetWidth`) and
+neither can change as a result of scrolling. `_onThumbPointerDown` shares the
+same cache.
+
+The cache is dropped when — and only when — the tracks can have been laid out
+differently:
+
+| Trigger                                                  | Why                                                                                                                                                                                                 |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_updateGeometry()` (ResizeObserver)                     | The host or content resized, so a track may have resized with it.                                                                                                                                   |
+| An overflow flip, cross-axis                             | The corner-avoidance rule shortens each track by one `--mlv-sb-size` while the _other_ track is visible.                                                                                            |
+| A `scrollbarSize` change (an `effect`)                   | Same corner rule; the tracks themselves are not observed, and neither the viewport nor the content resizes when this input moves.                                                                   |
+| An `orientation` / `disabled` change (the same `effect`) | `--hidden` is bound to `!_showX() \|\| !_hasXOverflow()`, so these turn the same corner rule on and off with **no** overflow signal moving and no resize — the cross-axis flip check cannot see it. |
+
+A measurement is only cached when the track was genuinely laid out
+(`extent > 0`, finite padding). A track with no overflow carries
+`.mlv-scrollbar__track--hidden` (`display: none`, so extent `0`), and
+`_updateGeometry()` measures **synchronously**, before Angular re-renders the
+class binding it has just invalidated — so on the frame where overflow first
+appears the track is still hidden and still measures `0`. That measurement is
+used for the current frame (keeping the maths identical to the uncached
+implementation) but deliberately not cached; the next read re-measures the
+now-visible track. Caching it would pin the thumb to a zero-length track for
+the lifetime of the component.
+
 ---
 
 ## Usage Examples
