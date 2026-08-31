@@ -1,17 +1,23 @@
-name: CI
+name: E2E
 
+# Split out of CI: e2e is the slowest target in the workspace and needs a
+# Playwright browser download, so it does not run on every push. Trigger it
+# before a release, or after touching a component with an e2e suite
+# (core-button, core-checkbox, editor).
+#
+# To run it on a schedule instead, uncomment the block below. Note this
+# repository is private, so scheduled runs consume billable Actions minutes.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: '0 3 * * 1' # Mondays, 03:00 UTC
 
 permissions:
   actions: read
   contents: read
 
 jobs:
-  main:
+  e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,9 +36,6 @@ jobs:
           cache: 'yarn'
 
       - run: yarn install --immutable
+      - run: npx playwright install --only-shell
 
-      # e2e is deliberately absent — it is the slowest target and needs a browser
-      # download, so it lives in its own manually-triggered workflow (e2e.yml).
-      # test-schematics is the `ng add` installer's Node-only harness; it has its
-      # own target because it must not run in the Angular test environment.
-      - run: npx nx run-many -t lint test test-schematics build typecheck
+      - run: npx nx run-many -t e2e
