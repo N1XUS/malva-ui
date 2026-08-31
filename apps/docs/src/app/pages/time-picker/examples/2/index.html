@@ -1,0 +1,33 @@
+<div
+  class="demo-row"
+  style="align-items: flex-start; gap: 2rem; flex-wrap: wrap"
+>
+  <div class="demo-col" style="align-items: flex-start; gap: 0.5rem">
+    <mlv-time-picker label="Start time" mode="12h" [formControl]="startCtrl" />
+    <p
+      style="
+        font-size: var(--mlv-typography-body-s-size);
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Value:
+      <strong style="color: var(--mlv-text-primary)"
+        >{{ startCtrl.value }}</strong
+      >
+    </p>
+  </div>
+  <div class="demo-col" style="align-items: flex-start; gap: 0.5rem">
+    <mlv-time-picker label="End time" mode="12h" [formControl]="endCtrl" />
+    <p
+      style="
+        font-size: var(--mlv-typography-body-s-size);
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Value:
+      <strong style="color: var(--mlv-text-primary)"
+        >{{ endCtrl.value }}</strong
+      >
+    </p>
+  </div>
+</div>

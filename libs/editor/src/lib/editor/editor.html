@@ -1,0 +1,134 @@
+<mlv-form-control-wrapper (clear)="clearValue()">
+  @if (label() || hint()) {
+  <mlv-label [for]="id()" [id]="_labelId()">
+    {{ label() }} @if (hint()) {
+    <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
+  }
+
+  <ng-template mlvFormControlWrapperControl>
+    <div class="mlv-editor__surface">
+      <div
+        mlvEditorToolbarRoot
+        #toolbarRoot="mlvEditorToolbarRoot"
+        class="mlv-editor__toolbar"
+        [ariaLabel]="_toolbarAriaLabel()"
+        [disabled]="computedDisabled()"
+      >
+        @if (_hasToolbarDef()) {
+        <ng-content select="[mlvEditorToolbar]" />
+        @for (definition of _toolbarDefs(); track definition) { @if
+        (definition.templateRef; as toolbarTemplate) {
+        <ng-container
+          [ngTemplateOutlet]="toolbarTemplate"
+          [ngTemplateOutletContext]="{ $implicit: _toolbarContext }"
+        />
+        } } } @else {
+        <ng-content select="[mlvEditorToolbarStart]" />
+        @for (definition of _toolbarStartDefs(); track definition) { @if
+        (definition.templateRef; as startTemplate) {
+        <ng-container
+          [ngTemplateOutlet]="startTemplate"
+          [ngTemplateOutletContext]="{ $implicit: _toolbarContext }"
+        />
+        } }
+        <div mlvFade class="mlv-editor__toolbar-scroll">
+          <mlv-toolbar>
+            <mlv-editor-undo-redo />
+            <mlv-divider
+              class="mlv-editor-toolbar__separator"
+              orientation="vertical"
+              muted
+            />
+            <mlv-editor-zoom />
+            <mlv-divider
+              class="mlv-editor-toolbar__separator"
+              orientation="vertical"
+              muted
+            />
+            <mlv-editor-heading />
+            <mlv-editor-list />
+            <mlv-divider
+              class="mlv-editor-toolbar__separator"
+              orientation="vertical"
+              muted
+              [hidden]="toolbarRoot.narrow()"
+            />
+            <mlv-editor-inline-marks [hidden]="toolbarRoot.narrow()" />
+            <mlv-divider
+              class="mlv-editor-toolbar__separator"
+              orientation="vertical"
+              muted
+              [hidden]="toolbarRoot.narrow()"
+            />
+            <mlv-editor-text-color />
+            <mlv-editor-highlight />
+            <mlv-divider
+              class="mlv-editor-toolbar__separator"
+              orientation="vertical"
+              muted
+              [hidden]="toolbarRoot.narrow()"
+            />
+            <mlv-editor-alignment [hidden]="toolbarRoot.narrow()" />
+            <mlv-divider
+              class="mlv-editor-toolbar__separator"
+              orientation="vertical"
+              muted
+              [hidden]="toolbarRoot.narrow()"
+            />
+            <mlv-editor-link />
+            <mlv-editor-table />
+            <mlv-divider
+              class="mlv-editor-toolbar__separator"
+              orientation="vertical"
+              muted
+              [hidden]="toolbarRoot.narrow()"
+            />
+            <mlv-editor-block-insert [hidden]="toolbarRoot.narrow()" />
+            <mlv-divider
+              class="mlv-editor-toolbar__separator"
+              orientation="vertical"
+              muted
+              [hidden]="toolbarRoot.narrow()"
+            />
+            <mlv-editor-image-upload />
+          </mlv-toolbar>
+        </div>
+        <mlv-editor-toolbar-overflow />
+        @for (definition of _toolbarEndDefs(); track definition) { @if
+        (definition.templateRef; as endTemplate) {
+        <ng-container
+          [ngTemplateOutlet]="endTemplate"
+          [ngTemplateOutletContext]="{ $implicit: _toolbarContext }"
+        />
+        } }
+        <ng-content select="[mlvEditorToolbarEnd]" />
+        }
+      </div>
+
+      <div class="mlv-editor__viewport">
+        <div #view class="mlv-editor__view">
+          <div #content class="mlv-editor__content"></div>
+          <mlv-editor-table-controls [layer]="view" />
+        </div>
+      </div>
+      <mlv-editor-image-upload-status />
+    </div>
+  </ng-template>
+
+  @if (message()) {
+  <mlv-message [state]="resolvedState()" [id]="id() + '-message'">
+    {{ message() }}
+  </mlv-message>
+  }
+</mlv-form-control-wrapper>
+
+<div
+  class="mlv-editor__status"
+  [attr.aria-disabled]="computedDisabled() || null"
+>
+  <ng-content select="[mlvEditorStatus]" />
+  <mlv-spacer />
+  <mlv-editor-status [characterLimit]="characterLimit()" />
+</div>

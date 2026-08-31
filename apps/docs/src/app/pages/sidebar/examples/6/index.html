@@ -1,0 +1,144 @@
+<div class="sidebar-demo">
+  <mlv-sidebar mode="offcanvas" [(collapsed)]="collapsed">
+    <div mlvSidebarHeader>
+      <div class="workspace">
+        <div class="workspace__logo">
+          <svg lucideCommand size="20" />
+        </div>
+        <div class="workspace__meta">
+          <span class="workspace__name">Acme Inc</span>
+          <span class="workspace__plan">Enterprise</span>
+        </div>
+      </div>
+    </div>
+
+    <div mlvSidebarContent>
+      <mlv-sidebar-item label="Dashboard" [active]="true">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideLayoutDashboard size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Inbox">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideInbox size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Calendar">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideCalendar size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-group label="Projects">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideFolderOpen size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Design System">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucidePalette size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Marketing Site">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideGlobe size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Mobile App">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideSmartphone size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-sidebar-group label="Team">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideUsers size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Members">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideUser size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Invitations">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideMail size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-spacer />
+
+      <mlv-sidebar-item label="Settings">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideSettings size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Help & Support">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideCircleHelp size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+    </div>
+
+    <div mlvSidebarFooter>
+      <mlv-sidebar-item label="Jane Cooper">
+        <ng-template mlvSidebarItemIcon>
+          <mlv-avatar name="Jane Cooper" size="xs" />
+        </ng-template>
+        <ng-template mlvSidebarItemTitle>
+          <div class="user">
+            <span class="user__name">Jane Cooper</span>
+            <span class="user__email">jane&#64;acme.com</span>
+          </div>
+        </ng-template>
+      </mlv-sidebar-item>
+    </div>
+  </mlv-sidebar>
+
+  <div class="app-content">
+    <header class="app-content__header">
+      <button
+        mlvButton
+        shape="square"
+        variant="transparent"
+        aria-label="Open sidebar"
+        (click)="collapsed.set(false)"
+      >
+        <ng-template mlvButtonBefore>
+          <svg lucideMenu size="20" />
+        </ng-template>
+      </button>
+      <h3 class="app-content__title">Dashboard</h3>
+    </header>
+
+    <p class="app-content__body">
+      The sidebar slides in as a drawer over the content, backed by a dimmed
+      backdrop. Click the menu button above to open it, then use Escape, the
+      backdrop, or navigating to an item to dismiss it — common pattern on
+      mobile and compact layouts.
+    </p>
+
+    <div class="app-content__stats">
+      <div class="app-stat">
+        <span class="app-stat__label">Today's visits</span>
+        <span class="app-stat__value">12,482</span>
+      </div>
+      <div class="app-stat">
+        <span class="app-stat__label">Conversions</span>
+        <span class="app-stat__value">3.8%</span>
+      </div>
+      <div class="app-stat">
+        <span class="app-stat__label">Active users</span>
+        <span class="app-stat__value">842</span>
+      </div>
+    </div>
+  </div>
+</div>

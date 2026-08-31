@@ -1,0 +1,117 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-icon-toggle;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m),
+    0,
+    0
+  );
+
+  // AB-R7: chromeless is the defining constraint — no background in any
+  // state, ever. Do not add one under any modifier below.
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--mlv-text-secondary);
+
+  // WCAG 2.2 SC 2.5.8 — the pointer-target floor is held unconditionally, so
+  // the tightest density (or a small author-chosen glyph size) can never
+  // shrink the tap area below 24px. "Chromeless does not mean tap-target-less."
+  min-inline-size: 1.5rem;
+  min-block-size: 1.5rem;
+
+  // Density-aware padding is what grows the hit area beyond the 24px floor
+  // at looser densities — AB-R7 is explicit that this happens "via
+  // density-aware padding, not a larger glyph"; the projected svg's own
+  // size stays entirely author-controlled (its `[size]` attribute).
+  padding: var(--mlv-spacing-2);
+
+  @include density.density-tight {
+    padding: var(--mlv-spacing-1);
+  }
+  @include density.density-compact {
+    padding: var(--mlv-spacing-1-5);
+  }
+  @include density.density-spacious {
+    padding: var(--mlv-spacing-2-5);
+  }
+  @include density.density-airy {
+    padding: var(--mlv-spacing-3);
+  }
+
+  // Fill-state mechanism (AB-R7). Lucide ships no separate filled icon set,
+  // so "pressed" is expressed as a CSS `fill` on the same outlined glyph —
+  // a mechanism that only reads correctly for icons with an enclosed shape
+  // (star, heart, bookmark, pin), not for open-stroke glyphs.
+  svg {
+    fill: transparent;
+    transition: fill var(--mlv-duration-fast) var(--mlv-ease-default);
+  }
+
+  // Hover only recolours the REST (non-pressed) glyph — the "tiny fill".
+  // Scoped away from `--pressed` so hovering a pressed, toned toggle can
+  // never have this rule's `--mlv-text-primary` fight the tone colour below
+  // (both would otherwise land on the same element).
+  &:not(.#{$block}--pressed):hover {
+    color: var(--mlv-text-primary);
+
+    svg {
+      fill: color-mix(in srgb, currentColor 15%, transparent);
+    }
+  }
+
+  &--pressed {
+    color: var(--mlv-text-primary);
+
+    svg {
+      fill: currentColor;
+    }
+  }
+
+  // A `tone` recolours only the pressed glyph, never rest/hover and never a
+  // surface — AB-R1's "hue is a marker, not a surface" read through AB-R7.
+  // Two classes outrank the plain `&--pressed` rule above.
+  &--pressed.#{$block}--tone-info {
+    color: var(--mlv-text-info);
+  }
+  &--pressed.#{$block}--tone-success {
+    color: var(--mlv-text-positive);
+  }
+  &--pressed.#{$block}--tone-warning {
+    color: var(--mlv-text-warning);
+  }
+  &--pressed.#{$block}--tone-danger {
+    color: var(--mlv-text-negative);
+  }
+
+  // Focus ring Form A (SF-R3): one width token, one offset token.
+  outline: var(--mlv-stroke-width-medium) solid transparent;
+  outline-offset: var(--mlv-focus-ring-offset);
+
+  &:focus-visible {
+    outline-color: var(--mlv-border-focus);
+  }
+
+  // Disabled (native <button>, so `:disabled` is the real UA state — no
+  // separate modifier class is needed). A chromeless control has no surface
+  // to declare as disabled (SF-R4 targets surface-bearing controls); dimming
+  // the whole glyph with the shared opacity token is the equivalent move for
+  // a glyph-only control, matching mlv-tab-item's disabled treatment.
+  &:disabled {
+    opacity: var(--mlv-disabled-opacity);
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

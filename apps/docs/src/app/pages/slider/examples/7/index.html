@@ -1,0 +1,43 @@
+<div class="demo-col" style="gap: 2rem; max-width: 32rem">
+  <div class="demo-col" style="gap: 0.5rem">
+    <span
+      style="
+        color: var(--mlv-text-secondary);
+        font-size: var(--mlv-typography-body-s-size);
+      "
+    >
+      Default value
+    </span>
+    <mlv-slider
+      tooltip
+      [min]="0"
+      [max]="100"
+      [(ngModel)]="volume"
+      label="Volume"
+    />
+  </div>
+
+  <div class="demo-col" style="gap: 0.5rem">
+    <span
+      style="
+        color: var(--mlv-text-secondary);
+        font-size: var(--mlv-typography-body-s-size);
+      "
+    >
+      Custom range values
+    </span>
+    <mlv-slider
+      tooltip
+      range
+      [min]="0"
+      [max]="8000"
+      [step]="250"
+      [(ngModel)]="budget"
+    >
+      <ng-template mlvSliderTooltipDef let-value let-thumb="thumb">
+        {{ thumb === 'min' ? 'From' : 'Up to' }} {{ value | currency: 'USD' :
+        'symbol' : '1.0-0' }}
+      </ng-template>
+    </mlv-slider>
+  </div>
+</div>

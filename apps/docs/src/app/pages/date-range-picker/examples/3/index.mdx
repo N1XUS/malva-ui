@@ -1,0 +1,5 @@
+## Min/Max Date Constraints
+
+Pass `[min]` and `[max]` to restrict the selectable date range. Dates outside these bounds are rendered as disabled in both calendar panels and cannot be selected.
+
+Both inputs accept any value supported by the configured `MlvDateAdapter` (native `Date` by default). The constraint is applied symmetrically — users can neither select a start before `min` nor an end after `max`.

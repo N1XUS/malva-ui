@@ -1,0 +1,42 @@
+<div
+  class="mlv-scrollbar__viewport"
+  #viewport
+  [attr.tabindex]="_effectiveViewportTabIndex()"
+  [attr.role]="_viewportRole()"
+  [attr.aria-label]="_viewportAriaLabel()"
+  (scroll)="_onScroll()"
+>
+  <div class="mlv-scrollbar__content" #content>
+    <ng-content />
+  </div>
+</div>
+
+<!-- Custom track and thumb elements are purely visual overlays.
+     Screen readers use the viewport's native scroll semantics above. -->
+<div
+  class="mlv-scrollbar__track mlv-scrollbar__track--vertical"
+  [class.mlv-scrollbar__track--hidden]="!_showVertical() || !_hasVerticalOverflow()"
+  aria-hidden="true"
+  #trackV
+>
+  <div
+    class="mlv-scrollbar__thumb"
+    [style.top.px]="_thumbTop()"
+    [style.height.px]="_thumbHeight()"
+    (pointerdown)="_onThumbPointerDown($event, 'vertical')"
+  ></div>
+</div>
+
+<div
+  class="mlv-scrollbar__track mlv-scrollbar__track--horizontal"
+  [class.mlv-scrollbar__track--hidden]="!_showHorizontal() || !_hasHorizontalOverflow()"
+  aria-hidden="true"
+  #trackH
+>
+  <div
+    class="mlv-scrollbar__thumb"
+    [style.left.px]="_thumbLeft()"
+    [style.width.px]="_thumbWidth()"
+    (pointerdown)="_onThumbPointerDown($event, 'horizontal')"
+  ></div>
+</div>

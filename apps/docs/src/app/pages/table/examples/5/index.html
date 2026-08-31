@@ -1,0 +1,51 @@
+<div class="table-density-example">
+  <div class="table-density-example__controls" aria-label="Table density">
+    @for (density of densities; track density) {
+    <button
+      mlvButton
+      mlvDensity="compact"
+      type="button"
+      [variant]="activeDensity() === density ? 'primary' : 'secondary'"
+      [attr.aria-pressed]="activeDensity() === density"
+      (click)="setDensity(density)"
+    >
+      {{ density }}
+    </button>
+    }
+  </div>
+
+  <table
+    mlvTable
+    [mlvDensity]="activeDensity()"
+    [bordered]="true"
+    aria-label="Density preview"
+  >
+    <caption>
+      Current density: {{ activeDensity() }}
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Surface</th>
+        <th scope="col">Owner</th>
+        <th scope="col">State</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td mlvTableCell>Documentation</td>
+        <td mlvTableCell>Developer experience</td>
+        <td mlvTableCell>Published</td>
+      </tr>
+      <tr>
+        <td mlvTableCell>Component library</td>
+        <td mlvTableCell>Design systems</td>
+        <td mlvTableCell>In progress</td>
+      </tr>
+      <tr>
+        <td mlvTableCell>Application shell</td>
+        <td mlvTableCell>Core experience</td>
+        <td mlvTableCell>Planning</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

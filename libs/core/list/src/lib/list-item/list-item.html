@@ -1,0 +1,67 @@
+<!--
+  Content projection here follows the "conditional projection" pattern from the
+  Angular docs: every ng-content slot (each selector, and the wildcard default)
+  appears exactly ONCE, wrapped in an ng-template, and the exclusive layout
+  branches stamp those templates where they need them. Duplicating a selector
+  across branches silently swallows content: slot assignment is static, so the
+  nodes bind to the first matching slot even when that branch never renders.
+-->
+<ng-template #leadingContent>
+  <ng-content select="[mlvListItemMedia], [mlvListItemPrefix]" />
+</ng-template>
+<ng-template #defaultContent>
+  <ng-content />
+</ng-template>
+<ng-template #trailingContent>
+  <ng-content select="[mlvListItemActions], [mlvListItemSuffix]" />
+</ng-template>
+
+<div class="mlv-list-item__surface">
+  @if (_hasRichLayout()) { @if (_hasLeadingSlot()) {
+  <span class="mlv-list-item__media">
+    <ng-container [ngTemplateOutlet]="leadingContent" />
+  </span>
+  }
+
+  <div class="mlv-list-item__body">
+    <div class="mlv-list-item__copy">
+      <div class="mlv-list-item__headline">
+        <span class="mlv-list-item__title">
+          @if (_titleSlot()) {
+          <ng-content select="[mlvListItemTitle]" />
+          } @else {
+          <ng-container [ngTemplateOutlet]="defaultContent" />
+          }
+        </span>
+
+        @if (_metaSlot()) {
+        <span class="mlv-list-item__meta">
+          <ng-content select="[mlvListItemMeta]" />
+        </span>
+        }
+      </div>
+
+      @if (_bylineSlot()) {
+      <div class="mlv-list-item__byline">
+        <ng-content select="[mlvListItemByline]" />
+      </div>
+      }
+    </div>
+
+    @if (_hasTrailingSlot()) {
+    <div
+      class="mlv-list-item__actions"
+      [class.mlv-list-item__actions--reveal-on-hover]="_revealActions()"
+    >
+      <ng-container [ngTemplateOutlet]="trailingContent" />
+    </div>
+    }
+  </div>
+  } @else {
+  <ng-container [ngTemplateOutlet]="leadingContent" />
+  <span class="mlv-list-item__content">
+    <ng-container [ngTemplateOutlet]="defaultContent" />
+  </span>
+  <ng-container [ngTemplateOutlet]="trailingContent" />
+  }
+</div>

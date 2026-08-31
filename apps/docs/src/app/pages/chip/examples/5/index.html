@@ -1,0 +1,102 @@
+<div class="demo-col">
+  <!-- Floating chips -->
+  <div>
+    <p
+      style="
+        font-size: 0.75rem;
+        color: var(--mlv-text-secondary, #888);
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+      "
+    >
+      Floating
+    </p>
+    <div class="demo-row" style="flex-wrap: wrap; align-items: center">
+      <mlv-chip floating>
+        <ng-template mlvChipPrepend><svg lucideMapPin /></ng-template>
+        New York
+      </mlv-chip>
+      <mlv-chip tone="info" floating>
+        <ng-template mlvChipPrepend><svg lucideClock /></ng-template>
+        2 hours ago
+      </mlv-chip>
+      <mlv-chip tone="danger" floating>
+        <ng-template mlvChipPrepend><svg lucideFlame /></ng-template>
+        Trending
+      </mlv-chip>
+    </div>
+  </div>
+
+  <!-- Density scale -->
+  <div>
+    <p
+      style="
+        font-size: 0.75rem;
+        color: var(--mlv-text-secondary, #888);
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+      "
+    >
+      Density scale
+    </p>
+    <div class="demo-row" style="flex-wrap: wrap; align-items: center">
+      <mlv-chip tone="primary" muted animated mlvDensity="tight"
+        >Tight</mlv-chip
+      >
+      <mlv-chip tone="primary" muted animated mlvDensity="compact"
+        >Compact</mlv-chip
+      >
+      <mlv-chip tone="primary" muted animated>Comfortable</mlv-chip>
+      <mlv-chip tone="primary" muted animated mlvDensity="spacious"
+        >Spacious</mlv-chip
+      >
+      <mlv-chip tone="primary" muted animated mlvDensity="airy">Airy</mlv-chip>
+    </div>
+  </div>
+
+  <!-- Inherited from ancestor -->
+  <div>
+    <p
+      style="
+        font-size: 0.75rem;
+        color: var(--mlv-text-secondary, #888);
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+      "
+    >
+      Inherited from ancestor (compact)
+    </p>
+    <div
+      class="demo-row mlv--compact"
+      style="flex-wrap: wrap; align-items: center"
+    >
+      <mlv-chip tone="success" muted>Angular</mlv-chip>
+      <mlv-chip tone="info" muted>TypeScript</mlv-chip>
+      <mlv-chip tone="accent" muted>SCSS</mlv-chip>
+      <mlv-chip tone="warning" muted>Malva UI</mlv-chip>
+      <mlv-chip tone="danger" muted>Nx</mlv-chip>
+    </div>
+  </div>
+
+  <!-- Inherited from ancestor -->
+  <div>
+    <p
+      style="
+        font-size: 0.75rem;
+        color: var(--mlv-text-secondary, #888);
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+      "
+    >
+      Inherited from ancestor (spacious)
+    </p>
+    <div
+      class="demo-row mlv--spacious"
+      style="flex-wrap: wrap; align-items: center"
+    >
+      <mlv-chip tone="success">Angular</mlv-chip>
+      <mlv-chip tone="info">TypeScript</mlv-chip>
+      <mlv-chip tone="accent">SCSS</mlv-chip>
+    </div>
+  </div>
+</div>

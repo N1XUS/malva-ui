@@ -1,0 +1,91 @@
+// Module-system imports (@use) — replaces the deprecated @import syntax.
+// `animations` and `index` share no partials, so @use emits identical CSS.
+@use '../../../libs/styles/src/lib/animations';
+@use '../../../libs/styles/src/lib/index';
+@use '@angular/cdk' as cdk;
+
+// Mirrors the published `styles/malva-ui.css` asset: the toast and notification
+// services announce through the CDK LiveAnnouncer, whose live region is a
+// `.cdk-visually-hidden` element. Without these rules it renders as visible text.
+@include cdk.a11y-visually-hidden();
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+// The document surface. `mlv-layout` paints `--mlv-background-base` /
+// `--mlv-text-primary` on itself, but routes that render no layout (the
+// showcase shell) inherited whatever `body` had — which used to be a
+// hardcoded `#333` plus a dark-only background special case. In dark mode
+// that left near-black headings on a near-black card. Both colours now come
+// from the tokens unconditionally, so every route is legible in both themes.
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+    sans-serif;
+  font-size: 16px;
+  background: var(--mlv-background-base);
+  color: var(--mlv-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+.docs-page {
+  h1 {
+    font-size: 1.75rem;
+    margin: 0 0 16px;
+  }
+  h2 {
+    font-size: 1.25rem;
+    margin: 24px 0 12px;
+  }
+  h3 {
+    font-size: 1rem;
+    margin: 16px 0 8px;
+  }
+}
+
+.demo-section h3 {
+  margin-top: 0;
+}
+
+.demo-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.demo-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.docs-shell .mlv-layout__side,
+.docs-shell .docs-shell__main-area {
+  padding-top: 4.75rem;
+}
+
+.docs-shell .docs-shell__content {
+  background: var(--mlv-background-raised);
+  padding: 2rem;
+  border: 0.0625rem solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-l);
+  box-shadow: var(--mlv-shadow-2);
+}
+
+@media (max-width: 47.999rem) {
+  .docs-shell .mlv-layout__side,
+  .docs-shell .docs-shell__main-area {
+    padding-top: 4.25rem;
+  }
+
+  .docs-shell .docs-shell__content {
+    padding: 1.25rem;
+  }
+}

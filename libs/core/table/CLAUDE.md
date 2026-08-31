@@ -1,0 +1,1 @@
+../../../.claude/projects/libs-table.md

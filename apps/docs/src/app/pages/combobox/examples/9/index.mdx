@@ -1,0 +1,21 @@
+---
+title: Remote searchFn
+description: Server-side matching with a consumer-owned loading flag
+---
+
+`searchFn` — `(query) => T[] | Promise<T[]> | Observable<T[]>` — **supersedes
+`[options]`** and turns the combobox's own text field into a remote query box.
+The typed text is no longer filtered locally, so results the built-in matcher
+would reject still render exactly as the server returned them.
+
+The call is lazy (nothing runs until the panel first needs items) and debounced
+by `searchDebounce`. A newer query supersedes an in-flight one and its result is
+discarded, while the **previous results stay mounted and clickable** under the
+panel's receded loading colour — the list never blanks between keystrokes.
+Errors resolve to an empty list rather than leaving the control stuck loading.
+
+A `searchFn` reports no loading state of its own, so bind `[loading]` yourself.
+Here the flag is toggled around the observable with `tap({ subscribe })` /
+`finalize`. Bind the function as a **stable reference** (a class field, not an
+inline arrow) — the adapter tolerates re-binding, but a stable reference keeps
+the bookkeeping trivial.

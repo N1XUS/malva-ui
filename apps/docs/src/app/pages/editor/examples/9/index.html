@@ -1,0 +1,45 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <mlv-editor
+    format="json"
+    [(value)]="value"
+    label="Structured brief"
+    hint="Nullable JSON model carrying the Tiptap document"
+    ariaLabel="Structured brief editor"
+  />
+
+  <div class="demo-row">
+    <button mlvButton type="button" variant="secondary" (click)="restore()">
+      Restore sample
+    </button>
+    <button
+      mlvButton
+      type="button"
+      variant="outlined"
+      (click)="value.set(null)"
+    >
+      Clear to null
+    </button>
+  </div>
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Rendered structurally from the parsed document — no HTML is injected:
+  </p>
+  @if (blocks().length) {
+  <ul style="margin: 0; padding-inline-start: 1.25rem">
+    @for (block of blocks(); track $index) {
+    <li>
+      <strong>{{ block.type }}</strong>
+      <code>{{ block.attrs }}</code>
+      — {{ block.text }}
+    </li>
+    }
+  </ul>
+  } @else {
+  <p style="margin: 0; color: var(--mlv-text-secondary)">Empty document.</p>
+  }
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Stored value, indented for reading:
+  </p>
+  <pre style="white-space: pre-wrap">{{ prettyJson() }}</pre>
+</div>

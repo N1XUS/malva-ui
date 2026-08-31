@@ -1,0 +1,75 @@
+<div class="demo-col" style="gap: 2rem; max-width: 28rem">
+  <div class="demo-col" style="gap: 0.5rem">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      "
+    >
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-secondary);
+        "
+      >
+        Price range
+      </span>
+      @if (priceRange(); as r) {
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-primary);
+          font-weight: 500;
+        "
+      >
+        ${{ (r)[0] }} — ${{ (r)[1] }}
+      </span>
+      }
+    </div>
+    <mlv-slider
+      [range]="true"
+      [min]="0"
+      [max]="1000"
+      [step]="50"
+      [(ngModel)]="priceRange"
+    />
+  </div>
+
+  <div class="demo-col" style="gap: 0.5rem">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      "
+    >
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-secondary);
+        "
+      >
+        Year
+      </span>
+      @if (yearRange(); as r) {
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-primary);
+          font-weight: 500;
+        "
+      >
+        {{ (r)[0] }} — {{ (r)[1] }}
+      </span>
+      }
+    </div>
+    <mlv-slider
+      [range]="true"
+      [min]="2000"
+      [max]="2024"
+      [step]="1"
+      [(ngModel)]="yearRange"
+    />
+  </div>
+</div>

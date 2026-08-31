@@ -1,0 +1,27 @@
+<div class="demo-col" style="gap: 1rem; align-items: flex-start">
+  <div style="display: flex; flex-direction: column; gap: 0.5rem">
+    <span
+      style="
+        font-size: var(--mlv-typography-label-size);
+        color: var(--mlv-text-secondary);
+      "
+      >Whole stars (4 / 5)</span
+    >
+    <mlv-rating [max]="5" [readonly]="true" [ngModel]="wholeStarRating" />
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 0.5rem">
+    <span
+      style="
+        font-size: var(--mlv-typography-label-size);
+        color: var(--mlv-text-secondary);
+      "
+      >Half-star (4.5 / 5)</span
+    >
+    <mlv-rating
+      [max]="5"
+      [step]="0.5"
+      [readonly]="true"
+      [ngModel]="halfStarRating"
+    />
+  </div>
+</div>

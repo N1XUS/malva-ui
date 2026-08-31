@@ -1,0 +1,158 @@
+<div class="home-bento">
+  <article class="home-bento__tile home-bento__tile--rating">
+    <header>
+      <h3>Rating</h3>
+      <a mlvLink routerLink="/rating" aria-label="Rating documentation">
+        <svg lucideArrowRight [size]="15" aria-hidden="true" />
+      </a>
+    </header>
+    <mlv-rating [(value)]="rating" ariaLabel="Try the rating control" />
+    <p>{{ rating() }} of 5 — click a star</p>
+  </article>
+
+  <article class="home-bento__tile home-bento__tile--slider">
+    <header>
+      <h3>Slider</h3>
+      <a mlvLink routerLink="/slider" aria-label="Slider documentation">
+        <svg lucideArrowRight [size]="15" aria-hidden="true" />
+      </a>
+    </header>
+    <mlv-slider [(value)]="volume" ariaLabel="Try the slider control" />
+    <p>Focus level: {{ volume() }}%</p>
+  </article>
+
+  <article class="home-bento__tile home-bento__tile--progress">
+    <header>
+      <h3>Progress</h3>
+      <a mlvLink routerLink="/progress" aria-label="Progress documentation">
+        <svg lucideArrowRight [size]="15" aria-hidden="true" />
+      </a>
+    </header>
+    <mlv-progress
+      shape="circle"
+      size="m"
+      tone="success"
+      [value]="volume()"
+      showPercentage
+      ariaLabel="Progress mirrors the slider value"
+    />
+    <p>Mirrors the slider</p>
+  </article>
+
+  <article class="home-bento__tile home-bento__tile--switch">
+    <header>
+      <h3>Switch</h3>
+      <a mlvLink routerLink="/switch" aria-label="Switch documentation">
+        <svg lucideArrowRight [size]="15" aria-hidden="true" />
+      </a>
+    </header>
+    <mlv-switch [(checked)]="autoSave" label="Auto-save drafts" />
+    <mlv-switch [(checked)]="weeklyDigest" label="Weekly digest" />
+  </article>
+
+  <article class="home-bento__tile home-bento__tile--pin">
+    <header>
+      <h3>Pin input</h3>
+      <a mlvLink routerLink="/pin-input" aria-label="Pin input documentation">
+        <svg lucideArrowRight [size]="15" aria-hidden="true" />
+      </a>
+    </header>
+    <mlv-pin-input
+      [length]="4"
+      [(value)]="pin"
+      ariaLabel="Try the pin input control"
+    />
+    <p>Paste works too</p>
+  </article>
+
+  <article class="home-bento__tile home-bento__tile--segmented">
+    <header>
+      <h3>Segmented</h3>
+      <a mlvLink routerLink="/segmented" aria-label="Segmented documentation">
+        <svg lucideArrowRight [size]="15" aria-hidden="true" />
+      </a>
+    </header>
+    <mlv-segmented [(value)]="view" ariaLabel="Try the segmented control">
+      <button mlvSegmentedItem value="board" type="button">Board</button>
+      <button mlvSegmentedItem value="list" type="button">List</button>
+      <button mlvSegmentedItem value="table" type="button">Table</button>
+    </mlv-segmented>
+    <p>Viewing as {{ view() }}</p>
+  </article>
+
+  <article class="home-bento__tile home-bento__tile--toggles">
+    <header>
+      <h3>Icon toggle</h3>
+      <a
+        mlvLink
+        routerLink="/icon-toggle"
+        aria-label="Icon toggle documentation"
+      >
+        <svg lucideArrowRight [size]="15" aria-hidden="true" />
+      </a>
+    </header>
+    <div class="home-bento__toggle-row">
+      <button
+        mlvIconToggle
+        [(pressed)]="liked"
+        tone="danger"
+        aria-label="Like"
+      >
+        <svg lucideHeart [size]="22" aria-hidden="true" />
+      </button>
+      <button mlvIconToggle [(pressed)]="bookmarked" aria-label="Bookmark">
+        <svg lucideBookmark [size]="22" aria-hidden="true" />
+      </button>
+    </div>
+    <p>{{ liked() ? 'Liked' : 'Not liked yet' }}</p>
+  </article>
+
+  <article class="home-bento__tile home-bento__tile--tones">
+    <header>
+      <h3>Badges &amp; chips</h3>
+      <a mlvLink routerLink="/badge" aria-label="Badge documentation">
+        <svg lucideArrowRight [size]="15" aria-hidden="true" />
+      </a>
+    </header>
+    <div class="home-bento__tone-row">
+      <mlv-badge tone="success" muted>Ready</mlv-badge>
+      <mlv-badge tone="warning" muted>Review</mlv-badge>
+      <mlv-badge tone="accent" muted>Beta</mlv-badge>
+      <mlv-chip tone="primary">Design</mlv-chip>
+      <mlv-chip tone="success">Shipped</mlv-chip>
+    </div>
+    <p>Six semantic tones, two color modes</p>
+  </article>
+
+  <article class="home-bento__tile home-bento__tile--presence">
+    <header>
+      <h3>Presence</h3>
+      <a
+        mlvLink
+        routerLink="/status-indicator"
+        aria-label="Status indicator documentation"
+      >
+        <svg lucideArrowRight [size]="15" aria-hidden="true" />
+      </a>
+    </header>
+    <div class="home-bento__presence-row">
+      <mlv-avatar
+        name="Maya Chen"
+        size="m"
+        [color]="'Maya Chen' | mlvColorFromText"
+      />
+      <mlv-avatar
+        name="Jon Bell"
+        size="m"
+        [color]="'Jon Bell' | mlvColorFromText"
+      />
+      <mlv-avatar
+        name="Ana Park"
+        size="m"
+        [color]="'Ana Park' | mlvColorFromText"
+      />
+      <mlv-status-indicator tone="success" pulse />
+    </div>
+    <p>3 teammates online <mlv-kbd [keys]="['cmd', 'k']" /></p>
+  </article>
+</div>

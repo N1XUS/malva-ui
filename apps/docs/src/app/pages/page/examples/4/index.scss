@@ -1,0 +1,56 @@
+:host {
+  display: block;
+}
+
+.page-end-pane-example {
+  height: 28rem;
+
+  &__content {
+    display: grid;
+    align-content: start;
+    justify-items: start;
+    gap: var(--mlv-spacing-5);
+
+    h2,
+    p {
+      margin: 0;
+    }
+
+    p {
+      max-width: 36rem;
+      margin-top: var(--mlv-spacing-2);
+      color: var(--mlv-text-secondary);
+    }
+  }
+
+  &__details {
+    display: grid;
+    gap: var(--mlv-spacing-5);
+    padding: var(--mlv-padding-l);
+
+    h3,
+    dl {
+      margin: 0;
+    }
+
+    dl {
+      display: grid;
+      gap: var(--mlv-spacing-3);
+    }
+
+    dl div {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--mlv-spacing-3);
+    }
+
+    dt {
+      color: var(--mlv-text-secondary);
+    }
+
+    dd {
+      margin: 0;
+      font-weight: var(--mlv-typography-body-m-weight);
+    }
+  }
+}

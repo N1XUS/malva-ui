@@ -1,0 +1,11 @@
+:host {
+  display: block;
+  max-width: 28rem;
+}
+
+.docs-password-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--mlv-typography-body-l-size);
+}

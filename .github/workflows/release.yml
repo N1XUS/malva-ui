@@ -1,0 +1,145 @@
+name: Release
+
+# Manual only. A push to main never releases — you start a release from
+# Actions → Release → "Run workflow", or with:
+#   gh workflow run release.yml -f dryRun=false
+on:
+  workflow_dispatch:
+    inputs:
+      specifier:
+        description: 'Version bump. "auto" derives it from the conventional commits since the last tag.'
+        type: choice
+        default: auto
+        options: [auto, patch, minor, major, prerelease]
+      dryRun:
+        description: 'Preview only — no commit, tag, GitHub Release, or npm publish.'
+        type: boolean
+        default: true
+      distTag:
+        description: 'npm dist-tag. Use "next" for prereleases so "latest" keeps pointing at the stable line.'
+        type: choice
+        default: latest
+        options: [latest, next]
+      auth:
+        description: 'How to authenticate to npm. "trusted" uses OIDC Trusted Publishing (no stored token) and needs a PUBLIC repo plus a trusted publisher configured on every package.'
+        type: choice
+        default: token
+        options: [token, trusted]
+      provenance:
+        description: 'Publish with npm provenance. Requires a PUBLIC repository — leave off while this repo is private. Always on under "trusted".'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # push the release commit + tag, create the GitHub Release
+  id-token: write # OIDC identity for npm provenance
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    # The npm credential lives as the `AUTH` secret on this Environment, not at
+    # repository scope — a job only sees an Environment's secrets when it names
+    # that Environment, so this line is what makes `secrets.AUTH` resolve.
+    #
+    # Add yourself under Settings → Environments → release → Required reviewers
+    # to gate every run (dry runs included) behind an approval click.
+    environment: release
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # nx release derives the changelog from the commits since the last
+          # tag, so the full history and all tags have to be present.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # The workspace declares "packageManager": "yarn@4.x". Corepack has to be
+      # enabled *before* setup-node, because setup-node's yarn cache probe shells
+      # out to `yarn --version` / `yarn cache dir` and the runner's global Yarn is 1.x.
+      - run: corepack enable
+
+      # No `registry-url:` on purpose. It makes setup-node write an .npmrc line
+      # that interpolates ${NODE_AUTH_TOKEN}; with Trusted Publishing there is no
+      # token to interpolate and npm fails the config read outright. Each auth
+      # mode below sets up exactly what it needs instead.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'yarn'
+
+      # OIDC exchange landed in npm 11.5.1. The runner's bundled npm tracks the
+      # Node line in .nvmrc, so pin it forward rather than assume.
+      - name: Ensure npm supports trusted publishing
+        if: inputs.auth == 'trusted'
+        run: npm install -g npm@latest
+
+      - name: Authenticate to npm with a token
+        if: inputs.auth == 'token'
+        run: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+        env:
+          # `secrets.AUTH` is the npm token; `inputs.auth` above is the mode
+          # switch. Similar names, unrelated things.
+          NPM_TOKEN: ${{ secrets.AUTH }}
+
+      - run: yarn install --immutable
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Refuse to release something that does not pass its own gates. The
+      # release itself rebuilds the packages via nx.json's preVersionCommand.
+      - name: Verify
+        run: yarn nx run-many -t lint test test-schematics typecheck
+
+      # Versions the root manifest, writes CHANGELOG.md, commits, tags, pushes,
+      # and creates the GitHub Release — in that order, so the Release always
+      # references a tag that already exists on the remote. Publishing is a
+      # separate step below because the placeholder resolver has to run first.
+      - name: Version, changelog, tag, and GitHub Release
+        id: release
+        run: |
+          set -o pipefail
+          yarn nx release ${{ inputs.specifier != 'auto' && inputs.specifier || '' }} \
+            --skip-publish \
+            ${{ inputs.dryRun && '--dry-run' || '' }} 2>&1 | tee /tmp/nx-release-output.txt
+          if grep -q "No changes were detected" /tmp/nx-release-output.txt; then
+            echo "released=false" >> $GITHUB_OUTPUT
+          else
+            echo "released=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate AI documentation for published packages
+        if: steps.release.outputs.released == 'true' && !inputs.dryRun
+        run: node scripts/generate-ai-docs.mjs
+
+      # Resolves the version placeholders in each dist manifest, widens the
+      # exact Angular/Tiptap pins into consumer-safe peer ranges, preflights
+      # every exports target, then publishes in dependency order.
+      - name: Publish to npm
+        if: steps.release.outputs.released == 'true' && !inputs.dryRun
+        run: node scripts/publish.mjs --tag ${{ inputs.distTag }}
+        env:
+          # Trusted Publishing attaches provenance itself; the flag is redundant
+          # there but harmless, and forcing it on keeps the two paths identical.
+          NPM_PROVENANCE: ${{ inputs.auth == 'trusted' || inputs.provenance }}
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Release"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Specifier | \`${{ inputs.specifier }}\` |"
+            echo "| Dry run | \`${{ inputs.dryRun }}\` |"
+            echo "| npm dist-tag | \`${{ inputs.distTag }}\` |"
+            echo "| npm auth | \`${{ inputs.auth }}\` |"
+            echo "| Provenance | \`${{ inputs.provenance }}\` |"
+            echo "| Changes detected | \`${{ steps.release.outputs.released }}\` |"
+          } >> $GITHUB_STEP_SUMMARY

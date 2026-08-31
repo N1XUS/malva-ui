@@ -1,0 +1,8 @@
+## Keyboard Roving Focus
+
+Add `mlvToolbarRoving` to the toolbar and `mlvToolbarWidget` to each interactive
+child to make the toolbar a single Tab stop. Focus then moves **between** widgets
+with the arrow keys (and `Home` / `End`), following the WAI-ARIA toolbar pattern.
+
+This behaviour is opt-in — a plain `mlv-toolbar` keeps its previous "every button
+is its own Tab stop" behaviour, so existing toolbars are unaffected.

@@ -1,0 +1,35 @@
+<mlv-card>
+  <h3 *mlvCardHeaderDef mlvCardHeader>Register</h3>
+  <p *mlvCardSubheaderDef mlvCardSubheader>Provide your contact information</p>
+  <form
+    style="padding-top: 1rem; display: flex; flex-direction: column; gap: 1rem"
+  >
+    <mlv-form-field>
+      <mlv-input
+        label="Email"
+        placeholder="Enter your email address"
+        type="email"
+      >
+        <svg lucideMail *mlvFormControlAppend />
+      </mlv-input>
+    </mlv-form-field>
+
+    <mlv-form-field>
+      <mlv-input label="First name" placeholder="Jane" />
+    </mlv-form-field>
+
+    <mlv-form-field>
+      <mlv-input label="Last name" placeholder="Doe" />
+    </mlv-form-field>
+
+    <mlv-form-field>
+      <mlv-input label="Password" type="password" />
+    </mlv-form-field>
+
+    <mlv-toolbar equalSize>
+      <button mlvButton variant="secondary">Cancel</button>
+      <mlv-spacer />
+      <button mlvButton>Register</button>
+    </mlv-toolbar>
+  </form>
+</mlv-card>

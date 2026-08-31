@@ -1,0 +1,118 @@
+<button
+  mlvButton
+  shape="circle"
+  variant="transparent"
+  mlvDensity="compact"
+  type="button"
+  [mlvPopupTrigger]="preferencesPopup"
+  [ariaHasPopup]="'dialog'"
+  [attr.aria-expanded]="preferencesPopup.opened()"
+  aria-label="Display preferences"
+>
+  <svg lucideSettings [size]="20" aria-hidden="true" />
+</button>
+
+<mlv-popup
+  #preferencesPopup
+  [position]="preferencesPositions"
+  [hasShadow]="true"
+  width="22rem"
+  panelRole="dialog"
+  ariaLabel="Display preferences"
+  mobileMode="auto"
+  mobileTitle="Display preferences"
+  mlvDensity="compact"
+>
+  <ng-template mlvPopupContent>
+    <div class="docs-app-bar-preferences__preferences">
+      <div class="docs-app-bar-preferences__preference-field">
+        <span class="docs-app-bar-preferences__preference-label">Theme</span>
+        <mlv-tab-group
+          appearance="boxed"
+          mlvDensity="compact"
+          [activeTab]="themeMode()"
+          (activeTabChange)="_setThemeMode($event)"
+        >
+          <mlv-tab value="auto">
+            <ng-template mlvTabDef>
+              <span class="docs-app-bar-preferences__theme-option">
+                <svg lucideMonitor [size]="16" aria-hidden="true" />
+                Auto
+              </span>
+            </ng-template>
+            <ng-template mlvTabContent></ng-template>
+          </mlv-tab>
+          <mlv-tab value="light">
+            <ng-template mlvTabDef>
+              <span class="docs-app-bar-preferences__theme-option">
+                <svg lucideSun [size]="16" aria-hidden="true" />
+                Light
+              </span>
+            </ng-template>
+            <ng-template mlvTabContent></ng-template>
+          </mlv-tab>
+          <mlv-tab value="dark">
+            <ng-template mlvTabDef>
+              <span class="docs-app-bar-preferences__theme-option">
+                <svg lucideMoon [size]="16" aria-hidden="true" />
+                Dark
+              </span>
+            </ng-template>
+            <ng-template mlvTabContent></ng-template>
+          </mlv-tab>
+        </mlv-tab-group>
+      </div>
+
+      <mlv-select
+        label="Density"
+        placeholder="Density"
+        mobileMode="off"
+        mlvDensity="compact"
+        [options]="densityOptions"
+        [value]="density()"
+        (valueChange)="_setDensity($event)"
+      />
+
+      <mlv-select
+        label="Direction"
+        placeholder="Direction"
+        mobileMode="off"
+        mlvDensity="compact"
+        [options]="directionOptions"
+        [toOption]="directionToOption"
+        [value]="direction()"
+        (valueChange)="_setDirection($event)"
+      />
+
+      <mlv-select
+        label="Language"
+        placeholder="Language"
+        mobileMode="off"
+        mlvDensity="compact"
+        [options]="localeOptions"
+        [toOption]="localeToOption"
+        [value]="locale()"
+        (valueChange)="_switchLanguage($event)"
+      >
+        <ng-template mlvSelectItemTemplate let-option>
+          <span class="docs-app-bar-preferences__language-option">
+            <span [class]="_localeFlag(option.value)" aria-hidden="true"></span>
+            {{ option.label }}
+          </span>
+        </ng-template>
+        <ng-template mlvSelectSelectedTemplate>
+          <span class="docs-app-bar-preferences__language-option">
+            <span [class]="_localeFlag(locale())" aria-hidden="true"></span>
+            {{ localeMetadata[locale()].name }}
+          </span>
+        </ng-template>
+      </mlv-select>
+
+      @if (localeLoadError()) {
+      <p class="docs-app-bar-preferences__locale-status" role="status">
+        {{ localeLoadError() }}
+      </p>
+      }
+    </div>
+  </ng-template>
+</mlv-popup>

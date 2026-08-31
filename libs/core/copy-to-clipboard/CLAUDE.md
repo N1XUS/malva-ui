@@ -1,0 +1,1 @@
+../../.claude/projects/libs-copy-to-clipboard.md

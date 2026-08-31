@@ -1,0 +1,21 @@
+## State and event boundary
+
+Public models are `value: string | null` and view-only `zoom`. Inputs include
+`format`, literal `extensions`, `placeholder`, `characterLimit`, accessible
+name/description IDREFs, `readonly`, `disabled`, `imageUploader`, and
+`imageUploadOptions`. The readonly `editor` signal exposes the one browser
+Tiptap instance after `editorReady`.
+
+Outputs include `valueChange`, `touch`, `focus`, `blur`, `selectionChange`,
+`transaction`, `editorError`, and the three upload terminal events. Focus and
+blur describe the whole editor composite, including detached Malva overlays.
+
+Readonly preserves focus, selection, copying, and view-only zoom while blocking
+document commands. Disabled removes the composite from interaction, closes
+overlays, aborts uploads, and participates in all supported form APIs.
+
+The editor constructs Tiptap only in a browser. During SSR it renders the
+labelled shell without touching DOM APIs, then creates one instance after the
+content mount exists during hydration. Construction, parsing, serialization,
+unsupported-command, and upload failures are recoverable typed errors rather
+than exceptions through Angular change detection.

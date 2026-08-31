@@ -1,0 +1,61 @@
+<div class="demo-col" style="gap: 1.5rem">
+  <div class="demo-col" style="gap: 0.75rem">
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.875rem;
+        padding-bottom: 0.5rem;
+      "
+    >
+      <span>Progress</span>
+      <strong>{{ progress() }}%</strong>
+    </div>
+
+    <!-- Size variants without glow -->
+    <div style="display: flex; flex-direction: column; gap: 1rem">
+      <mlv-loader variant="bar" [value]="progress()" [size]="8" />
+      <mlv-loader variant="bar" [value]="progress()" [size]="4" />
+      <mlv-loader variant="bar" [value]="progress()" [size]="2" />
+    </div>
+
+    <!-- Same sizes with glow -->
+    <div
+      style="
+        font-size: 0.75rem;
+        font-weight: 500;
+        opacity: 0.6;
+        margin-top: 0.5rem;
+      "
+    >
+      With glow
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1rem">
+      <mlv-loader variant="bar" [value]="progress()" [size]="8" [glow]="true" />
+      <mlv-loader variant="bar" [value]="progress()" [size]="4" [glow]="true" />
+      <mlv-loader variant="bar" [value]="progress()" [size]="2" [glow]="true" />
+    </div>
+  </div>
+
+  <div class="demo-row" style="align-items: center">
+    <button
+      mlvButton
+      variant="secondary"
+      (click)="decrement()"
+      aria-label="Decrease progress"
+    >
+      <ng-template mlvButtonBefore><svg lucideMinus [size]="14" /></ng-template>
+      −10
+    </button>
+    <button
+      mlvButton
+      variant="secondary"
+      (click)="increment()"
+      aria-label="Increase progress"
+    >
+      <ng-template mlvButtonBefore><svg lucidePlus [size]="14" /></ng-template>
+      +10
+    </button>
+  </div>
+</div>

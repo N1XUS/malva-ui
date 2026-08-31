@@ -1,0 +1,29 @@
+<div
+  class="demo-row"
+  style="flex-direction: column; align-items: flex-start; gap: 16px"
+>
+  <!-- Inline with a text label — the dot is decorative; the text names the state. -->
+  <span class="status-row">
+    <mlv-status-indicator tone="success" />
+    <span>Operational</span>
+  </span>
+  <span class="status-row">
+    <mlv-status-indicator tone="warning" pulse />
+    <span>Degraded performance</span>
+  </span>
+  <span class="status-row">
+    <mlv-status-indicator tone="danger" />
+    <span>Major outage</span>
+  </span>
+
+  <!-- Overlaid on an avatar as a presence badge. -->
+  <span class="avatar-presence">
+    <mlv-avatar name="Ada Lovelace" size="l" />
+    <mlv-status-indicator
+      class="avatar-presence__dot"
+      tone="success"
+      [size]="10"
+      ariaLabel="Online"
+    />
+  </span>
+</div>

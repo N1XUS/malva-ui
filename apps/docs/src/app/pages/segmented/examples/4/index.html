@@ -1,0 +1,40 @@
+<div
+  class="demo-col"
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  "
+>
+  @for (tone of tones; track tone) {
+  <mlv-segmented [tone]="tone" [(value)]="value" [ariaLabel]="tone + ' tone'">
+    <button mlvSegmentedItem value="one">One</button>
+    <button mlvSegmentedItem value="two">{{ tone }}</button>
+    <button mlvSegmentedItem value="three">Three</button>
+  </mlv-segmented>
+  }
+
+  <mlv-segmented
+    [(value)]="value"
+    ariaLabel="Pill radius"
+    style="--mlv-segmented-radius: var(--mlv-radius-full)"
+  >
+    <button mlvSegmentedItem value="one">Pill</button>
+    <button mlvSegmentedItem value="two">Radius</button>
+    <button mlvSegmentedItem value="three">Override</button>
+  </mlv-segmented>
+
+  <mlv-segmented
+    [(value)]="value"
+    ariaLabel="Square radius"
+    style="
+      --mlv-segmented-radius: var(--mlv-radius-xs);
+      --mlv-segmented-track-bg: var(--mlv-background-neutral-1);
+    "
+  >
+    <button mlvSegmentedItem value="one">Square</button>
+    <button mlvSegmentedItem value="two">Track</button>
+    <button mlvSegmentedItem value="three">Colour</button>
+  </mlv-segmented>
+</div>

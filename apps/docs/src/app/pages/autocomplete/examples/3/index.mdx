@@ -1,0 +1,6 @@
+## Custom matcher
+
+Pass `[mlvAutocompleteMatcher]` to change how the query filters the options —
+here a prefix-only match instead of the default substring. A matcher is
+`(option, query) => boolean`; the same signature powers `filterOptions` in
+`@malva-ui/core/dropdown`, shared with `mlv-combobox`.

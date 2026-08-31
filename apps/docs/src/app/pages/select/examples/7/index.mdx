@@ -1,0 +1,21 @@
+---
+title: Searchable dropdown
+description: A search field as the first row of the open dropdown
+---
+
+`searchable` stamps a sticky search field as the **first row of the open
+dropdown**. The trigger stays a summary button — the search field lives inside
+the panel and disappears with it, so the closed control is unchanged.
+
+Over a local source (an array or `Observable`) the query filters the options by
+label through the shared matcher, and the matched substring is emphasised in
+each row. Pass `[matcher]` for fuzzy or secondary-field matching, and
+`searchPlaceholder` to override the translated default.
+
+Keyboard model: opening hands focus to the search field, then `ArrowDown` /
+`ArrowUp` move the highlighted option with wrap-around, `Home` / `End` jump to
+the ends, `Enter` commits the highlighted option, `Escape` closes and `Tab`
+closes and returns focus to the trigger. DOM focus never leaves the search
+field — the highlighted row is tracked through `aria-activedescendant`, and
+exactly one `role="combobox"` is exposed at a time (the trigger while closed,
+the search input while open).

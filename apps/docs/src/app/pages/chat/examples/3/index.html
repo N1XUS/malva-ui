@@ -1,0 +1,63 @@
+<mlv-chat
+  style="
+    height: 26rem;
+    border: 1px solid var(--mlv-border-normal);
+    border-radius: var(--mlv-radius-m);
+  "
+  [messages]="messages()"
+  [users]="users"
+  selfId="me"
+  [showAuthors]="true"
+>
+  <ng-template mlvChatAuthorDef let-user>
+    @if (user) {
+    <span style="display: inline-flex; align-items: center; gap: 6px">
+      <mlv-avatar size="xs" [name]="user.name" />
+      {{ user.name }}
+      <mlv-badge tone="info" muted>member</mlv-badge>
+    </span>
+    }
+  </ng-template>
+
+  <ng-template mlvChatDateDef let-date>
+    <span style="font-variant: all-small-caps; letter-spacing: 0.08em">
+      {{ date | date: 'EEEE, MMM d' }}
+    </span>
+  </ng-template>
+
+  <ng-template mlvChatMessageDef mlvChatMessageDefType="poll" let-message>
+    @if (asPoll(message); as poll) {
+    <div
+      style="display: flex; flex-direction: column; gap: 6px; min-width: 14rem"
+    >
+      <strong>{{ poll.question }}</strong>
+      @for (option of poll.options; track option.label) {
+      <span style="display: flex; flex-direction: column; gap: 2px">
+        <span style="display: flex; justify-content: space-between">
+          <span>{{ option.label }}</span>
+          <span>{{ votePercentage(poll, option.votes) }}%</span>
+        </span>
+        <span
+          style="
+            height: 4px;
+            border-radius: var(--mlv-radius-full);
+            background: var(--mlv-background-neutral-2);
+          "
+        >
+          <span
+            style="
+              display: block;
+              height: 100%;
+              border-radius: var(--mlv-radius-full);
+              background: var(--mlv-background-accent-1);
+            "
+            [style.width.%]="votePercentage(poll, option.votes)"
+          ></span>
+        </span>
+      </span>
+      }
+      <small>{{ totalVotes(poll) }} votes</small>
+    </div>
+    }
+  </ng-template>
+</mlv-chat>

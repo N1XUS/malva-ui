@@ -1,0 +1,231 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-combobox;
+
+.#{$block} {
+  @include mixins.base();
+
+  .mlv-form-control-wrapper__control-container {
+    padding: 0;
+    // Grow to fit wrapped selection chips in multi-select, while keeping the
+    // standard control height as the floor so the empty / single-select field
+    // matches a plain `mlv-input`.
+    height: auto;
+    min-height: var(--form-ctrl-height);
+  }
+
+  .mlv-form-control-wrapper__control-row {
+    align-items: stretch;
+  }
+
+  &__popup-container {
+    display: flex;
+    // height: 100%;
+    flex-grow: 1;
+  }
+
+  &__trigger {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    // With `flex-wrap: wrap` the single (empty / single-select) flex line packs
+    // to the top of the cross axis; `align-content: center` centres the line(s)
+    // so the field/chips sit vertically centred in the control — and the wrapped
+    // block stays centred as it grows in multi-select.
+    align-content: center;
+    gap: 0.25rem;
+    cursor: text;
+    padding: var(--mlv-control-padding);
+    min-height: 100%;
+  }
+
+  // Selected-value chips shown before the search field in multi-select mode.
+  &__chip {
+    flex-shrink: 0;
+  }
+
+  // Wraps the input (and the optional single-select display template overlay).
+  &__field {
+    position: relative;
+    flex: 1 1 6rem;
+    min-width: 3rem;
+    display: flex;
+    align-items: center;
+
+    // When the custom single-select display template is showing, hide the raw
+    // input text (kept in the a11y tree as the field's value) so only the
+    // template is visible.
+    &--template-display .mlv-input__native {
+      color: transparent;
+    }
+  }
+
+  // Layout hook for the trigger's inner `mlv-input`. The `mlv-input`
+  // component (used in `bare` mode) renders its own native `<input>` which
+  // already supplies the vertical padding, font, background and placeholder
+  // styling. Re-declaring those here (as when this was a raw `<input>`) stacked
+  // an extra `0.5625rem` of vertical padding on top of the native input's own
+  // padding and the trigger's control-padding, inflating the field past the
+  // control height and pushing the text off-centre. Keep this to layout only so
+  // the empty single-select field matches a plain `mlv-input`.
+  &__input {
+    flex: 1;
+    min-width: 0;
+    color: var(--mlv-text-primary);
+  }
+
+  // Custom single-select display template, layered over the (transparent) input.
+  &__single-display {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    color: var(--mlv-text-primary);
+  }
+
+  // Armed chip — the visual-only "selected for deletion" state driven by
+  // Backspace in the empty search input (tokenizer parity). Focus stays in
+  // the input, so this is a ring, not a focus style.
+  &__chip--armed {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+    border-radius: var(--mlv-radius-full);
+  }
+
+  // Inline clear affordance rendered in the trigger row, just before the
+  // chevron (the wrapper's trailing copy is suppressed via ownsClearButton).
+  &__clear {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  &__arrow {
+    // Shared form-control affordance-glyph ramp (2026-08-26) — was a fixed
+    // 1.25rem regardless of density.
+    width: var(--form-ctrl-icon-size, 1.25rem);
+    height: var(--form-ctrl-icon-size, 1.25rem);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    // Same wrapper-vs-glyph guard as `.mlv-select__arrow` (the reference):
+    // the inner `<svg size="20">` carries its own Lucide-set 20px attribute
+    // independent of this button's ramped size, forced to fill the button
+    // so rotation pivots on the glyph's own center at every density.
+    transform-origin: center;
+    transition:
+      color var(--mlv-duration-fast) var(--mlv-ease-out-strong),
+      transform var(--mlv-duration-normal) var(--mlv-ease-out-strong);
+    color: var(--mlv-text-tertiary);
+    cursor: pointer;
+    flex-shrink: 0;
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: var(--mlv-disabled-opacity);
+    }
+  }
+
+  // Spinner rendered in place of the chevron while a committed value's label is
+  // still resolving. Matches the chevron's box (shared affordance ramp) so the
+  // trigger row does not shift.
+  &__loader {
+    display: inline-flex;
+    flex-shrink: 0;
+    width: var(--form-ctrl-icon-size, 1.25rem);
+    height: var(--form-ctrl-icon-size, 1.25rem);
+    align-items: center;
+    justify-content: center;
+    color: var(--mlv-text-tertiary);
+  }
+
+  // Loading variant — the field is inert while the value's label resolves.
+  &--loading {
+    cursor: progress;
+
+    .#{$block}__input input {
+      cursor: progress;
+    }
+  }
+
+  // The "no results" sentence is the only content in the panel at that point,
+  // so it owes the full 4.5:1 text contrast.
+  &__empty {
+    padding: 0.75rem;
+    text-align: center;
+    color: var(--mlv-text-secondary);
+    // Matches `.mlv-select__empty` — the two "no results" rows must read at
+    // the same size (was a raw 0.875rem literal, off the caption tier).
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &--open,
+  &:hover {
+    .#{$block}__arrow:not(:disabled) {
+      color: var(--mlv-text-primary);
+    }
+  }
+
+  @at-root .mlv-form-control-wrapper--focused {
+    .#{$block}__arrow:not(:disabled) {
+      color: var(--mlv-text-primary);
+    }
+  }
+
+  &--open {
+    .#{$block}__arrow {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__popup {
+    padding: 0 !important;
+  }
+
+  // ─── Full-screen sheet header (mobileMode) ────────────────────────────────
+  // Projected into the popup's [mlvPopupHeaderContent] slot; only rendered
+  // while the dropdown is a full-screen sheet.
+  &__sheet-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-2);
+    width: 100%;
+  }
+
+  &__sheet-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  &__sheet-input {
+    display: block;
+    width: 100%;
+  }
+
+  &__sr-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

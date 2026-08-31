@@ -1,0 +1,81 @@
+@layer mlv.components {
+$block: mlv-status-indicator;
+
+.#{$block} {
+  // Component-scoped variables — overridden by tone modifiers / the size input.
+  --mlv-status-indicator-size: 0.5rem;
+  --mlv-status-indicator-color: var(--mlv-text-secondary);
+
+  box-sizing: border-box;
+  display: inline-block;
+  flex: none;
+  position: relative;
+  inline-size: var(--mlv-status-indicator-size);
+  block-size: var(--mlv-status-indicator-size);
+  border-radius: var(--mlv-radius-full);
+  background-color: var(--mlv-status-indicator-color);
+  vertical-align: middle;
+
+  // ---------------------------------------------------------------------------
+  // Tone variants — each sets the solid fill colour token.
+  // ---------------------------------------------------------------------------
+
+  &--tone-default {
+    --mlv-status-indicator-color: var(--mlv-text-secondary);
+  }
+  &--tone-primary {
+    --mlv-status-indicator-color: var(--mlv-background-accent-1);
+  }
+  &--tone-secondary {
+    --mlv-status-indicator-color: var(--mlv-text-action);
+  }
+  &--tone-accent {
+    --mlv-status-indicator-color: var(--mlv-background-accent-2);
+  }
+  &--tone-success {
+    --mlv-status-indicator-color: var(--mlv-background-success-1);
+  }
+  &--tone-info {
+    --mlv-status-indicator-color: var(--mlv-background-info-1);
+  }
+  &--tone-warning {
+    --mlv-status-indicator-color: var(--mlv-background-warning-1);
+  }
+  &--tone-danger {
+    --mlv-status-indicator-color: var(--mlv-background-danger-1);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pulse — an expanding ripple ring rendered by a decorative pseudo-element.
+  // ---------------------------------------------------------------------------
+
+  &--pulse::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-color: var(--mlv-status-indicator-color);
+    transform-origin: center;
+    animation: mlv-status-indicator-ripple 2s var(--mlv-ease-out) infinite;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &--pulse::after {
+      animation: none;
+      display: none;
+    }
+  }
+}
+
+@keyframes mlv-status-indicator-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+}

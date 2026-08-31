@@ -1,0 +1,65 @@
+<button mlvButton [mlvPopupTrigger]="accountPopup" [ariaHasPopup]="'menu'">
+  <ng-template mlvButtonBefore>
+    <svg lucideUser [size]="16" />
+  </ng-template>
+  My Account
+</button>
+
+<mlv-popup #accountPopup position="bottom-start" [hasArrow]="true">
+  <ng-template mlvPopupContent>
+    <div
+      style="padding: 1rem; min-width: 13rem"
+      role="menu"
+      aria-label="My Account"
+    >
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 0.75rem;
+        "
+      >
+        <mlv-avatar
+          name="Jane Doe"
+          [color]="'Jane Doe' | mlvColorFromText"
+        ></mlv-avatar>
+        <div>
+          <div style="font-weight: 600; font-size: 0.875rem">Jane Doe</div>
+          <div style="font-size: 0.75rem; color: var(--mlv-text-secondary)">
+            jane@example.com
+          </div>
+        </div>
+      </div>
+      <hr
+        style="
+          border: none;
+          border-top: 1px solid var(--mlv-border-normal);
+          margin: 0.5rem 0;
+        "
+      />
+      <button
+        mlvButton
+        variant="transparent"
+        role="menuitem"
+        style="width: 100%; justify-content: flex-start"
+      >
+        <ng-template mlvButtonBefore
+          ><svg lucideSettings [size]="16"
+        /></ng-template>
+        Settings
+      </button>
+      <button
+        mlvButton
+        variant="transparent"
+        role="menuitem"
+        style="width: 100%; justify-content: flex-start"
+      >
+        <ng-template mlvButtonBefore
+          ><svg lucideLogOut [size]="16"
+        /></ng-template>
+        Sign out
+      </button>
+    </div>
+  </ng-template>
+</mlv-popup>

@@ -1,0 +1,20 @@
+<mlv-input
+  label="Password"
+  type="password"
+  placeholder="Try your password policy"
+  autocomplete="new-password"
+  [mlvPasswordStrength]="rules"
+  #strength="mlvPasswordStrength"
+>
+  @if (presentations[strength.score()]; as presentation) {
+  <span
+    *mlvFormControlAppend
+    class="docs-password-emoji"
+    role="img"
+    aria-live="polite"
+    [attr.aria-label]="presentation.label + ' password strength'"
+  >
+    {{ presentation.emoji }}
+  </span>
+  }
+</mlv-input>

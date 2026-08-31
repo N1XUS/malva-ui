@@ -1,0 +1,32 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <div class="demo-row">
+    @for (candidate of formats; track candidate) {
+    <button
+      mlvButton
+      type="button"
+      [variant]="format() === candidate ? 'primary' : 'outlined'"
+      [attr.aria-pressed]="format() === candidate"
+      (click)="format.set(candidate)"
+    >
+      {{ candidate }}
+    </button>
+    }
+  </div>
+
+  <mlv-editor
+    [format]="format()"
+    [(value)]="value"
+    label="One document, three syntaxes"
+    ariaLabel="Format switching editor"
+    (editorReady)="countEditor()"
+  />
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Editors constructed so far: {{ editorsCreated() }}
+  </p>
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Serialized as <code>{{ format() }}</code>:
+  </p>
+  <pre style="white-space: pre-wrap">{{ value() ?? 'null' }}</pre>
+</div>

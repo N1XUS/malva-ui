@@ -1,0 +1,105 @@
+<div class="docs-notification-settings-scroll">
+  <mlv-list variant="inset" class="docs-notification-settings-list">
+    <mlv-list-item-group label="Alerts" open>
+      <mlv-list-item>
+        <svg mlvListItemMedia lucideBell [size]="20"></svg>
+        <span mlvListItemTitle>Push notifications</span>
+        <span mlvListItemByline
+          >Get notified the moment something needs your attention.</span
+        >
+        <div mlvListItemActions>
+          <mlv-switch
+            [(checked)]="pushNotifications"
+            ariaLabel="Push notifications"
+          ></mlv-switch>
+        </div>
+      </mlv-list-item>
+      <mlv-list-item>
+        <svg mlvListItemMedia lucideVolume2 [size]="20"></svg>
+        <span mlvListItemTitle>Sound</span>
+        <span mlvListItemByline>Play a sound when a new alert arrives.</span>
+        <div mlvListItemActions>
+          <mlv-switch [(checked)]="sound" ariaLabel="Sound"></mlv-switch>
+        </div>
+      </mlv-list-item>
+      <mlv-list-item>
+        <svg mlvListItemMedia lucideClock [size]="20"></svg>
+        <span mlvListItemTitle>Quiet hours</span>
+        <span mlvListItemByline>Pause alerts overnight and on weekends.</span>
+        <div mlvListItemActions class="docs-notification-settings-list__value">
+          <span>10 PM – 7 AM</span>
+          <svg lucideChevronRight [size]="16" aria-hidden="true"></svg>
+        </div>
+      </mlv-list-item>
+    </mlv-list-item-group>
+
+    <mlv-list-item-group label="Channels" open>
+      <mlv-list-item>
+        <svg mlvListItemMedia lucideMail [size]="20"></svg>
+        <span mlvListItemTitle>Email digest</span>
+        <span mlvListItemByline
+          >A summary of activity across your workspace.</span
+        >
+        <div mlvListItemActions class="docs-notification-settings-list__value">
+          <span>Weekly</span>
+          <svg lucideChevronRight [size]="16" aria-hidden="true"></svg>
+        </div>
+      </mlv-list-item>
+      <mlv-list-item>
+        <svg mlvListItemMedia lucideMessageCircle [size]="20"></svg>
+        <span mlvListItemTitle>Team chat notifications</span>
+        <span mlvListItemByline
+          >Mirror alerts to your #eng-alerts channel.</span
+        >
+        <div mlvListItemActions>
+          <mlv-switch
+            [(checked)]="teamChatNotifications"
+            ariaLabel="Team chat notifications"
+          ></mlv-switch>
+        </div>
+      </mlv-list-item>
+      <mlv-list-item>
+        <svg mlvListItemMedia lucideSmartphone [size]="20"></svg>
+        <span mlvListItemTitle>Mobile push</span>
+        <span mlvListItemByline
+          >Deliver alerts to your phone when the app is in the background.</span
+        >
+        <div mlvListItemActions>
+          <mlv-switch
+            [(checked)]="mobilePush"
+            ariaLabel="Mobile push"
+          ></mlv-switch>
+        </div>
+      </mlv-list-item>
+    </mlv-list-item-group>
+
+    <mlv-list-item-group label="Privacy" open>
+      <mlv-list-item>
+        <svg mlvListItemMedia lucideEyeOff [size]="20"></svg>
+        <span mlvListItemTitle>Hide previews on lock screen</span>
+        <span mlvListItemByline
+          >Message content stays hidden until you unlock your device.</span
+        >
+        <div mlvListItemActions>
+          <mlv-switch
+            [(checked)]="hidePreviews"
+            ariaLabel="Hide previews on lock screen"
+          ></mlv-switch>
+        </div>
+      </mlv-list-item>
+      <mlv-list-item>
+        <svg mlvListItemMedia lucideShieldCheck [size]="20"></svg>
+        <span mlvListItemTitle>Read receipts</span>
+        <span mlvListItemByline
+          >Let teammates see when you've read their messages.</span
+        >
+        <div mlvListItemActions>
+          <mlv-switch
+            [(checked)]="readReceipts"
+            ariaLabel="Read receipts"
+          ></mlv-switch>
+        </div>
+      </mlv-list-item>
+    </mlv-list-item-group>
+  </mlv-list>
+</div>

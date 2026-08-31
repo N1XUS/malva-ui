@@ -1,0 +1,41 @@
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.card-image-overlay {
+  color: #fff;
+  min-height: 240px;
+
+  .mlv-card__heading,
+  .mlv-card__subheading,
+  p {
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  }
+
+  .mlv-card__subheading {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.45) 0%,
+      rgba(0, 0, 0, 0.2) 40%,
+      rgba(0, 0, 0, 0.5) 100%
+    );
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+}

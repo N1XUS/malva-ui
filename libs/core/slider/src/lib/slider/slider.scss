@@ -1,0 +1,369 @@
+@use '../../../../../styles/src/lib/density' as density;
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-slider;
+
+// Component-scoped variables (comfortable defaults)
+.#{$block} {
+  --mlv-slider-track-height: 0.25rem;
+  --mlv-slider-thumb-size: 1.25rem;
+  --mlv-slider-thumb-border-width: 0.125rem;
+  --mlv-slider-tooltip-gap: 0.5rem;
+  --mlv-slider-tooltip-background: var(--mlv-palette-neutral-950);
+  --mlv-slider-tooltip-color: var(--mlv-text-primary-on-accent-1);
+
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.75rem; // Comfortable touch target
+  padding-block: 0.75rem;
+  box-sizing: border-box;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+
+  // Density: compact
+  @include density.density-compact {
+    --mlv-slider-track-height: 0.1875rem;
+    --mlv-slider-thumb-size: 1rem;
+    min-height: 2rem;
+    padding-block: 0.5rem;
+  }
+
+  // Track
+  &__track {
+    position: relative;
+    width: 100%;
+    height: var(--mlv-slider-track-height);
+    background-color: var(--mlv-border-normal, rgba(0, 0, 0, 0.16));
+    border-radius: var(--mlv-radius-full);
+    overflow: visible;
+  }
+
+  // Fill bar (visual progress indicator)
+  &__fill {
+    position: absolute;
+    top: 0;
+    inset-inline-start: var(--mlv-slider-fill-start, 0%);
+    width: calc(
+      var(--mlv-slider-fill-end, 0%) - var(--mlv-slider-fill-start, 0%)
+    );
+    height: 100%;
+    background-color: var(--mlv-background-accent-1);
+    border-radius: var(--mlv-radius-full);
+    pointer-events: none;
+    // Animate fill position/width when thumb snaps back on release.
+    // Transition is suppressed while dragging so the fill tracks the pointer instantly.
+    transition:
+      left var(--mlv-duration-normal) var(--mlv-ease-out),
+      width var(--mlv-duration-normal) var(--mlv-ease-out);
+
+    .#{$block}--dragging & {
+      transition: none;
+    }
+  }
+
+  // Tick marks
+  &__ticks {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 0;
+    pointer-events: none;
+  }
+
+  &__tick {
+    position: absolute;
+    top: calc(-0.25rem - var(--mlv-slider-track-height) / 2);
+    transform: translateX(-50%);
+    width: 0.0625rem;
+    height: 0.5rem;
+    background-color: var(--mlv-border-normal, rgba(0, 0, 0, 0.24));
+    border-radius: var(--mlv-radius-xs);
+
+    @include density.density-compact {
+      height: 0.375rem;
+    }
+  }
+
+  // Thumb
+  &__thumb {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: var(--mlv-slider-thumb-size);
+    height: var(--mlv-slider-thumb-size);
+    background-color: var(--mlv-background-accent-1);
+    border: var(--mlv-slider-thumb-border-width) solid
+      var(--mlv-background-base);
+    border-radius: var(--mlv-radius-full);
+    box-shadow: var(--mlv-shadow-raised);
+    cursor: grab;
+    // `left` transition animates the snap-back when pointer is released.
+    // Transform and box-shadow transitions remain for hover/active effects.
+    transition:
+      left var(--mlv-duration-normal) var(--mlv-ease-out),
+      transform var(--mlv-duration-fast) var(--mlv-ease-default),
+      box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
+    outline: none;
+    z-index: 1;
+
+    // Suppress position transition while dragging so the thumb tracks instantly.
+    .#{$block}--dragging & {
+      transition:
+        transform var(--mlv-duration-fast) var(--mlv-ease-default),
+        box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
+    }
+
+    &:hover {
+      box-shadow:
+        0 0 0 4px var(--mlv-muted-primary-border-1),
+        var(--mlv-shadow-floating);
+      transform: translate(-50%, -50%) scale(1.1);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+
+    &:active {
+      cursor: grabbing;
+      transform: translate(-50%, -50%) scale(0.95);
+    }
+
+    &:hover,
+    &:focus-visible,
+    &--dragging {
+      z-index: 2;
+    }
+  }
+
+  // Current-value tooltip. It is a sibling of the thumb rather than a child,
+  // so thumb hover/press transforms never distort the tooltip content.
+  &__tooltip {
+    position: absolute;
+    top: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    max-width: 15rem;
+    padding: var(--mlv-padding-xs); // same inset as mlv-tooltip
+    color: var(--mlv-slider-tooltip-color);
+    background-color: var(--mlv-slider-tooltip-background);
+    border-radius: var(--mlv-radius-tooltip);
+    box-shadow: var(--mlv-shadow-floating);
+    font-family: var(--mlv-typography-family-text);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-typography-body-s-weight);
+    line-height: var(--mlv-typography-body-s-line-height);
+    text-align: center;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    z-index: var(--mlv-z-tooltip);
+    transform: translate(
+        -50%,
+        calc(
+          -50% - var(--mlv-slider-thumb-size) /
+            2 - var(--mlv-slider-tooltip-gap)
+        )
+      )
+      scale(0.96);
+    transform-origin: center bottom;
+    transition:
+      left var(--mlv-duration-normal) var(--mlv-ease-out),
+      opacity var(--mlv-duration-fast) var(--mlv-ease-out),
+      transform var(--mlv-duration-fast) var(--mlv-ease-out),
+      visibility var(--mlv-duration-instant) linear var(--mlv-duration-fast);
+
+    &::after {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-top: 0.25rem solid var(--mlv-slider-tooltip-background);
+      border-inline-end: 0.25rem solid transparent;
+      border-inline-start: 0.25rem solid transparent;
+      content: '';
+      transform: translateX(-50%);
+    }
+  }
+
+  &__thumb:hover + &__tooltip,
+  &__thumb:focus-visible + &__tooltip,
+  &__thumb--dragging + &__tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(
+        -50%,
+        calc(
+          -50% - var(--mlv-slider-thumb-size) /
+            2 - var(--mlv-slider-tooltip-gap)
+        )
+      )
+      scale(1);
+    transition-delay: var(--mlv-duration-instant);
+  }
+
+  &--dragging &__tooltip {
+    transition:
+      opacity var(--mlv-duration-fast) var(--mlv-ease-out),
+      transform var(--mlv-duration-fast) var(--mlv-ease-out),
+      visibility var(--mlv-duration-instant) linear;
+  }
+
+  // Disabled state
+  &--disabled {
+    opacity: var(--mlv-disabled-opacity, 0.56);
+    cursor: not-allowed;
+    pointer-events: none;
+
+    .#{$block}__thumb {
+      cursor: not-allowed;
+    }
+
+    .#{$block}__tooltip {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+
+  // ─── Vertical orientation ──────────────────────────────────────────────────
+  //
+  // The host must have an explicit height (e.g. style="height: 12rem;").
+  // Track runs bottom-to-top; fill grows upward from 0%.
+  // Thumbs are positioned with `bottom` instead of `left`.
+
+  &--vertical {
+    flex-direction: column;
+    width: auto;
+    min-width: 2.75rem;
+    height: 100%;
+    min-height: 10rem;
+    padding-block: 0;
+    padding-inline: 0.75rem;
+
+    @include density.density-compact {
+      min-width: 2rem;
+      padding-inline: 0.5rem;
+    }
+
+    .#{$block}__track {
+      width: var(--mlv-slider-track-height);
+      height: 100%;
+    }
+
+    // Fill grows upward: bottom = fill-start, height = fill-end - fill-start
+    .#{$block}__fill {
+      top: auto;
+      left: 0;
+      bottom: var(--mlv-slider-fill-start, 0%);
+      width: 100%;
+      height: calc(
+        var(--mlv-slider-fill-end, 0%) - var(--mlv-slider-fill-start, 0%)
+      );
+      transition:
+        bottom var(--mlv-duration-normal) var(--mlv-ease-out),
+        height var(--mlv-duration-normal) var(--mlv-ease-out);
+    }
+
+    // Tick marks — horizontal lines to the right of the vertical track
+    .#{$block}__ticks {
+      top: 0;
+      left: 50%;
+      width: 0;
+      height: 100%;
+    }
+
+    .#{$block}__tick {
+      top: auto;
+      left: calc(var(--mlv-slider-track-height) / 2 + 0.25rem);
+      transform: translateY(50%);
+      width: 0.5rem;
+      height: 0.0625rem;
+    }
+
+    // Thumbs — centered horizontally on the track, positioned by `bottom`
+    .#{$block}__thumb {
+      top: auto;
+      left: 50%;
+      transform: translate(-50%, 50%);
+      transition:
+        bottom var(--mlv-duration-normal) var(--mlv-ease-out),
+        transform var(--mlv-duration-fast) var(--mlv-ease-default),
+        box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
+
+      &:hover {
+        transform: translate(-50%, 50%) scale(1.1);
+      }
+
+      &:active {
+        transform: translate(-50%, 50%) scale(0.95);
+      }
+    }
+
+    .#{$block}__tooltip {
+      top: auto;
+      left: 50%;
+      transform: translate(
+          calc(
+            var(--mlv-slider-thumb-size) / 2 + var(--mlv-slider-tooltip-gap)
+          ),
+          50%
+        )
+        scale(0.96);
+      transform-origin: left center;
+      transition:
+        bottom var(--mlv-duration-normal) var(--mlv-ease-out),
+        opacity var(--mlv-duration-fast) var(--mlv-ease-out),
+        transform var(--mlv-duration-fast) var(--mlv-ease-out),
+        visibility var(--mlv-duration-instant) linear var(--mlv-duration-fast);
+
+      &::after {
+        top: 50%;
+        inset-inline-end: 100%;
+        inset-inline-start: auto;
+        border-top: 0.25rem solid transparent;
+        border-inline-end: 0.25rem solid var(--mlv-slider-tooltip-background);
+        border-bottom: 0.25rem solid transparent;
+        border-inline-start: 0;
+        transform: translateY(-50%);
+      }
+    }
+
+    .#{$block}__thumb:hover + .#{$block}__tooltip,
+    .#{$block}__thumb:focus-visible + .#{$block}__tooltip,
+    .#{$block}__thumb--dragging + .#{$block}__tooltip {
+      transform: translate(
+          calc(
+            var(--mlv-slider-thumb-size) / 2 + var(--mlv-slider-tooltip-gap)
+          ),
+          50%
+        )
+        scale(1);
+    }
+
+    // Suppress position and fill transitions while dragging
+    &.#{$block}--dragging {
+      .#{$block}__fill {
+        transition: none;
+      }
+
+      .#{$block}__thumb {
+        transition:
+          transform var(--mlv-duration-fast) var(--mlv-ease-default),
+          box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
+      }
+    }
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

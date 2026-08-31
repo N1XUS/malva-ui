@@ -1,0 +1,82 @@
+{
+  "name": "styles",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/styles/src",
+  "projectType": "library",
+  "tags": ["family:styles", "type:infrastructure"],
+  "// targets": "to see all targets run: nx show project styles --web",
+  "targets": {
+    "generate-tokens": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/tokens.md"],
+      "inputs": ["default", "{workspaceRoot}/scripts/generate-tokens-md.mjs"],
+      "options": {
+        "command": "node scripts/generate-tokens-md.mjs",
+        "cwd": "{workspaceRoot}"
+      },
+      "cache": true
+    },
+    "verify-tokens": {
+      "executor": "nx:run-commands",
+      "inputs": ["default", "{workspaceRoot}/scripts/generate-tokens-md.mjs"],
+      "options": {
+        "command": "node scripts/generate-tokens-md.mjs --check",
+        "cwd": "{workspaceRoot}"
+      },
+      "cache": true
+    },
+    "check-tokens": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node scripts/check-mlv-tokens.mjs",
+        "cwd": "{workspaceRoot}"
+      },
+      "cache": false
+    },
+    "check-padding-tokens": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/scripts/check-padding-tokens.mjs",
+        "{workspaceRoot}/libs/styles/src/lib/theme.scss",
+        "{workspaceRoot}/libs/**/*.scss",
+        "{workspaceRoot}/libs/**/*.css",
+        "{workspaceRoot}/libs/**/*.html",
+        "{workspaceRoot}/apps/**/*.scss",
+        "{workspaceRoot}/apps/**/*.css",
+        "{workspaceRoot}/apps/**/*.html"
+      ],
+      "options": {
+        "command": "node scripts/check-padding-tokens.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "lint": {
+      "dependsOn": ["check-padding-tokens"]
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/scripts/check-padding-tokens.mjs",
+        "{workspaceRoot}/scripts/check-padding-tokens.spec.mjs",
+        "{projectRoot}/src/lib/theme.scss",
+        "{projectRoot}/src/lib/theme-contrast.mjs",
+        "{projectRoot}/src/lib/theme-contrast.spec.mjs",
+        "{projectRoot}/src/lib/mixins.scss",
+        "{projectRoot}/src/lib/mixins.spec.mjs",
+        "{projectRoot}/src/lib/animations.scss",
+        "{projectRoot}/src/lib/layers.scss",
+        "{projectRoot}/src/lib/index.scss",
+        "{projectRoot}/src/lib/layers.spec.mjs",
+        "{workspaceRoot}/libs/core/styles/malva-ui.scss",
+        "{workspaceRoot}/apps/docs/src/styles.scss",
+        "{workspaceRoot}/libs/**/src/**/*.{css,scss}"
+      ],
+      "options": {
+        "command": "node --test scripts/check-padding-tokens.spec.mjs libs/styles/src/lib/theme-contrast.spec.mjs libs/styles/src/lib/mixins.spec.mjs libs/styles/src/lib/layers.spec.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}

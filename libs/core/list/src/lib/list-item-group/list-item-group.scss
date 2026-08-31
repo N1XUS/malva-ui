@@ -1,0 +1,154 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-list-item-group;
+
+.#{$block} {
+  @include mixins.base();
+  --mlv-transform: rotate(0);
+
+  position: relative;
+  display: block;
+
+  &__toggler {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    width: 100%;
+    padding: var(--mlv-padding-s);
+    border: none;
+    font-size: var(--mlv-font-size-l);
+    color: var(--mlv-list-color, var(--mlv-text-primary));
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color var(--mlv-duration-fast) var(--mlv-ease-out);
+
+    &:hover {
+      background-color: var(--mlv-background-neutral-1);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      border-radius: var(--mlv-radius-s);
+    }
+  }
+
+  &__arrow {
+    display: block;
+    transform: var(--mlv-transform);
+    will-change: transform;
+    transition: transform var(--mlv-duration-normal) var(--mlv-ease-default);
+  }
+
+  &__content {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--mlv-duration-normal)
+      var(--mlv-ease-default);
+
+    > div {
+      transition:
+        padding var(--mlv-duration-normal) var(--mlv-ease-default),
+        opacity var(--mlv-duration-slow) var(--mlv-ease-default);
+      overflow: hidden;
+      min-height: 0;
+      opacity: 0;
+      // Collapsed keeps the inline inset of the open state (`--mlv-padding-s`
+      // inline half + `--mlv-padding-xl` inline half on the start side) so only
+      // the block padding animates.
+      padding: 0 var(--mlv-spacing-3);
+      padding-inline-start: var(--mlv-spacing-6);
+
+      > div {
+        border-inline-start: 0.0625rem solid var(--mlv-border-normal);
+        padding-inline-start: var(--mlv-spacing-4);
+      }
+    }
+  }
+
+  &--toggled {
+    --mlv-transform: rotate(90deg);
+
+    .#{$block}__content {
+      grid-template-rows: 1fr;
+      > div {
+        opacity: 1;
+        padding: var(--mlv-padding-s);
+        padding-inline-start: var(--mlv-spacing-6);
+      }
+    }
+  }
+}
+
+@include mixins.reduced-motion($block);
+
+/* ===========================================================================
+   variant="inset" — iOS Settings / Apple Music-style grouped card.
+
+   Inside an inset list the group transforms into a section with a sticky
+   uppercase label and a rounded, elevated card surrounding the rows. The
+   chevron caret is hidden (the group is always expanded in inset layouts —
+   sections are visually grouped rather than collapsed).
+   =========================================================================== */
+
+.mlv-list--inset .mlv-list-item-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-1);
+}
+
+.mlv-list--inset .mlv-list-item-group__toggler {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: var(--mlv-spacing-1-5) var(--mlv-spacing-1);
+  margin: 0;
+  font-size: var(--mlv-typography-body-s-size);
+  font-weight: var(--mlv-font-weight-semibold);
+  line-height: var(--mlv-typography-body-s-line-height);
+  color: var(--mlv-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background-color: color-mix(
+    in srgb,
+    var(--mlv-background-sunken) 85%,
+    transparent
+  );
+  backdrop-filter: saturate(1.4) blur(0.5rem);
+  -webkit-backdrop-filter: saturate(1.4) blur(0.5rem);
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Always expanded inside inset; hide the chevron caret. */
+.mlv-list--inset .mlv-list-item-group__arrow {
+  display: none;
+}
+
+/* Drop the left guide line + extra indentation used in the plain variant. */
+.mlv-list--inset .mlv-list-item-group__content {
+  grid-template-rows: 1fr;
+}
+
+.mlv-list--inset .mlv-list-item-group__content > div {
+  padding: 0;
+  opacity: 1;
+  overflow: visible;
+}
+
+.mlv-list--inset .mlv-list-item-group__content > div > div {
+  padding: 0;
+  border-inline-start: none;
+  background-color: var(--mlv-background-raised);
+  border-radius: var(--mlv-radius-l);
+  overflow: hidden;
+}
+
+/* Flatten list-item radii inside a group — the group card owns the corners. */
+.mlv-list--inset .mlv-list-item-group__content .mlv-list-item {
+  --mlv-list-item-radius: 0;
+  padding-inline: var(--mlv-spacing-3);
+}
+}

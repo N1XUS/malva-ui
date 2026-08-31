@@ -1,0 +1,83 @@
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+
+# worktrees
+.worktrees
+
+# compiled output
+dist
+tmp
+out-tsc
+libs/core/styles/malva-ui.css
+libs/core/styles/tokens.md
+
+# build-time generated API reference (docs:extract-api target — always regenerated)
+apps/docs/src/generated/
+
+# dependencies
+node_modules
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+
+# System Files
+.DS_Store
+Thumbs.db
+
+.nx/cache
+.nx/workspace-data
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+.angular
+.claude/*
+!.claude/projects
+!.claude/skills
+.playwright-mcp
+
+vite.config.*.timestamp*
+vitest.config.*.timestamp*
+
+# Playwright e2e artefacts
+test-results
+playwright-report
+blob-report
+playwright/.cache
+
+.nx/polygraph
+.superpowers
+
+# local Verdaccio auth (publish:local)
+.npmrc
+
+.nx/self-healing
+.nx/migrate-runs
+
+# superpowers plan-execution scratch (ledgers, briefs, review packages)
+.superpowers/
+
+# internal working docs (migrations, plans, superpowers specs) — kept local only.
+# Anchored so apps/docs and any libs/*/docs stay tracked.
+/docs/

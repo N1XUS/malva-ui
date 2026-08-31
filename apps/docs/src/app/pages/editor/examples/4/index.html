@@ -1,0 +1,27 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <mlv-editor
+    [formField]="fields.body"
+    label="Signal Forms body"
+    ariaLabel="Signal Forms editor"
+  />
+
+  <div class="demo-row">
+    <button mlvButton type="button" (click)="disabled.update(value => !value)">
+      {{ disabled() ? 'Enable field' : 'Disable field' }}
+    </button>
+    <button
+      mlvButton
+      type="button"
+      variant="outlined"
+      (click)="model.set({ body: null })"
+    >
+      Clear
+    </button>
+  </div>
+
+  <p style="margin: 0">
+    Value: {{ fields.body().value() ?? 'null' }} · Touched: {{
+    fields.body().touched() }} · Valid: {{ fields.body().valid() }} · Errors: {{
+    fields.body().errors().length }}
+  </p>
+</div>

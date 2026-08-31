@@ -1,0 +1,35 @@
+<div class="dt-density-controls">
+  @for (d of densities; track d) {
+  <button
+    mlvButton
+    [variant]="activeDensity() === d ? 'primary' : 'secondary'"
+    size="s"
+    type="button"
+    (click)="setDensity(d)"
+  >
+    {{ d }}
+  </button>
+  }
+</div>
+
+<mlv-data-table
+  [data]="orders"
+  [columns]="columns"
+  [mlvDensity]="activeDensity()"
+  [bordered]="true"
+  [stickyHeader]="true"
+>
+  <span *mlvDataTableCell="'total'; let row from orders" class="dt-amount">
+    ${{ row.total.toLocaleString() }}
+  </span>
+
+  <ng-template
+    mlvDataTableCell="status"
+    [mlvDataTableCellFrom]="orders"
+    let-row
+  >
+    <mlv-badge [tone]="statusColor(row.status)" muted
+      >{{ row.status }}</mlv-badge
+    >
+  </ng-template>
+</mlv-data-table>

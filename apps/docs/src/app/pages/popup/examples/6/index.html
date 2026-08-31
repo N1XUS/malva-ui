@@ -1,0 +1,38 @@
+<div class="scroll-strategy-demo">
+  <div class="scroll-strategy-demo__scroll-area">
+    <div class="scroll-strategy-demo__triggers">
+      @for (item of strategies; track item.strategy) {
+      <button
+        mlvButton
+        variant="outlined"
+        [mlvPopupTrigger]="popup"
+        [ariaHasPopup]="null"
+        #trigger="mlvPopupTrigger"
+      >
+        {{ item.label }}
+      </button>
+
+      <mlv-popup #popup position="bottom" [scrollStrategy]="item.strategy">
+        <ng-template mlvPopupContent>
+          <div style="padding: 0.75rem 1rem; max-width: 14rem">
+            <strong>{{ item.label }}</strong>
+            <p
+              style="
+                margin: 0.25rem 0 0;
+                font-size: 0.875rem;
+                color: var(--mlv-text-secondary);
+              "
+            >
+              {{ item.description }}
+            </p>
+          </div>
+        </ng-template>
+      </mlv-popup>
+      }
+    </div>
+
+    <div class="scroll-strategy-demo__spacer">
+      <p>↓ Scroll down to see the difference</p>
+    </div>
+  </div>
+</div>

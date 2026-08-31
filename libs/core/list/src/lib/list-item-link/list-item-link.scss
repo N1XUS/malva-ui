@@ -1,0 +1,15 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-list-item__link;
+
+.#{$block} {
+  @include mixins.base();
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+}

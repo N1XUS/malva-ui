@@ -1,0 +1,29 @@
+<div class="demo-col" style="gap: 1.5rem">
+  <mlv-pin-input
+    [length]="6"
+    separator="each"
+    label="Separator between each cell"
+    hint='separator="each"'
+    [(ngModel)]="codeEach"
+  />
+
+  <mlv-pin-input
+    [length]="6"
+    separator="3"
+    label="Grouped in halves"
+    hint='separator="3"'
+    [(ngModel)]="codeGrouped"
+  />
+
+  <mlv-pin-input
+    [length]="6"
+    separator="2,4"
+    label="Custom separator template"
+    hint='separator="2,4" with *mlvPinInputSeparator'
+    [(ngModel)]="codeCustom"
+  >
+    <ng-template mlvPinInputSeparator>
+      <span style="color: var(--mlv-text-tertiary); font-weight: 600">—</span>
+    </ng-template>
+  </mlv-pin-input>
+</div>

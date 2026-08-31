@@ -1,0 +1,63 @@
+<div class="mlv-avatar-group__list">
+  @for (member of _visibleMembers(); track member.name; let i = $index) {
+  <div class="mlv-avatar-group__item">
+    <mlv-avatar
+      [size]="size()"
+      [shape]="shape()"
+      [name]="member.name"
+      [src]="member.src ?? null"
+      [initials]="member.initials ?? ''"
+      [color]="member.color ?? (member.name | mlvColorFromText)"
+    />
+  </div>
+  } @if (_hasOverflow()) {
+  <div
+    class="mlv-avatar-group__overflow"
+    [mlvPopupTrigger]="memberPopup"
+    [triggerOn]="['hover', 'focus']"
+    [ariaHasPopup]="null"
+    tabindex="0"
+    role="button"
+    [attr.aria-label]="_overflowAriaLabel()"
+    (click)="_onOverflowClick($event)"
+    (keydown)="_onOverflowKeydown($any($event))"
+  >
+    <mlv-avatar
+      class="mlv-avatar-group__overflow-avatar"
+      [size]="size()"
+      [shape]="shape()"
+      [initials]="_overflowLabel()"
+      color="var(--mlv-background-neutral-2)"
+    />
+  </div>
+
+  <mlv-popup
+    #memberPopup
+    position="bottom-start"
+    [hasArrow]="false"
+    [hasShadow]="true"
+  >
+    <ng-template mlvPopupContent>
+      <div
+        class="mlv-avatar-group__popup-list"
+        role="list"
+        [attr.aria-label]="_allMembersLabel()"
+      >
+        @for (member of members(); track member.name) {
+        <div class="mlv-avatar-group__popup-row" role="listitem">
+          <mlv-avatar
+            size="s"
+            [shape]="shape()"
+            [name]="member.name"
+            [src]="member.src ?? null"
+            [initials]="member.initials ?? ''"
+            [color]="member.color ?? (member.name | mlvColorFromText)"
+          />
+          <span class="mlv-avatar-group__popup-name">{{ member.name }}</span>
+        </div>
+        }
+      </div>
+    </ng-template>
+  </mlv-popup>
+  }
+</div>

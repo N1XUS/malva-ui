@@ -1,0 +1,42 @@
+@use '../../../../../styles/src/lib/density' as density;
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: 'mlv-message';
+
+.#{$block} {
+  display: block;
+  font-weight: 400;
+  font-size: var(--mlv-typography-body-s-size);
+
+  &--default {
+    color: var(--mlv-text-secondary);
+  }
+
+  &--success {
+    color: var(--mlv-text-positive);
+  }
+
+  &--info {
+    color: var(--mlv-text-info);
+  }
+
+  &--warning {
+    color: var(--mlv-text-warning);
+  }
+
+  &--error {
+    color: var(--mlv-text-negative);
+  }
+}
+
+@include mixins.reduced-motion($block);
+
+.enter-animation {
+  animation: mlv-slide-down var(--mlv-duration-normal) var(--mlv-ease-default);
+}
+.leave-animation {
+  animation: mlv-slide-down var(--mlv-duration-normal) var(--mlv-ease-default)
+    reverse;
+}
+}

@@ -1,0 +1,9 @@
+<mlv-data-table
+  [data]="rows()"
+  [columns]="columns"
+  paginationMode="infinite"
+  [loading]="isLoading()"
+  [hasMore]="hasMore()"
+  maxHeight="24rem"
+  (loadMore)="onLoadMore($event)"
+/>

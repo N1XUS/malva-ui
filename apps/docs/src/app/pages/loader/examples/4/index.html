@@ -1,0 +1,64 @@
+<div class="demo-col" style="gap: 1.5rem">
+  <div
+    class="demo-row"
+    style="align-items: flex-end; gap: 1.5rem; flex-wrap: wrap"
+  >
+    <div class="demo-col" style="align-items: center; gap: 0.5rem">
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="96"
+        [strokeWidth]="8"
+      />
+      <span style="font-size: 0.75rem; opacity: 0.6">96px / 8px stroke</span>
+    </div>
+    <div class="demo-col" style="align-items: center; gap: 0.5rem">
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="64"
+        [strokeWidth]="5"
+      />
+      <span style="font-size: 0.75rem; opacity: 0.6">64px / 5px stroke</span>
+    </div>
+    <div class="demo-col" style="align-items: center; gap: 0.5rem">
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="48"
+        [strokeWidth]="4"
+      />
+      <span style="font-size: 0.75rem; opacity: 0.6">48px / 4px stroke</span>
+    </div>
+    <div class="demo-col" style="align-items: center; gap: 0.5rem">
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="32"
+        [strokeWidth]="3"
+      />
+      <span style="font-size: 0.75rem; opacity: 0.6">32px / 3px stroke</span>
+    </div>
+    <div class="demo-col" style="align-items: center; gap: 0.5rem">
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="20"
+        [strokeWidth]="2"
+      />
+      <span style="font-size: 0.75rem; opacity: 0.6">20px / 2px stroke</span>
+    </div>
+  </div>
+
+  <div class="demo-row" style="align-items: center">
+    <span style="font-size: 0.875rem; min-width: 5rem">{{ progress() }}%</span>
+    <button mlvButton variant="secondary" (click)="decrement()">
+      <ng-template mlvButtonBefore><svg lucideMinus [size]="14" /></ng-template>
+      −15
+    </button>
+    <button mlvButton variant="secondary" (click)="increment()">
+      <ng-template mlvButtonBefore><svg lucidePlus [size]="14" /></ng-template>
+      +15
+    </button>
+  </div>
+</div>

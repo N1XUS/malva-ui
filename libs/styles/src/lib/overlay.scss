@@ -1,0 +1,24 @@
+@use 'layers';
+
+/**
+ * Malva UI — dialog backdrop.
+ *
+ * The backdrop is DOM the CDK overlay creates; no Malva component owns it, so
+ * its base look lives here in the global entry point. The enter/leave
+ * transitions (`@starting-style`, `--leaving`) live in
+ * `libs/core/dialog/src/lib/dialog-container.scss`, which every dialog loads.
+ */
+@layer mlv.components {
+  .mlv-dialog-backdrop {
+    background-color: var(--mlv-background-overlay);
+    opacity: 1;
+    backdrop-filter: blur(0.375rem);
+    transition:
+      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+      backdrop-filter var(--mlv-duration-normal) var(--mlv-ease-out-strong);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+}

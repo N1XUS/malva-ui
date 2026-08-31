@@ -1,0 +1,203 @@
+@if (_active()) {
+  <button
+    #_triggerElement
+    mlvButton
+    mlvEditorToolbarWidget
+    type="button"
+    shape="square"
+    mlvDensity="tight"
+    variant="transparent"
+    selected
+    [disabled]="_disabled()"
+    [mlvMenuTrigger]="_menu"
+    [menuTriggerDisabled]="_disabled()"
+    [attr.aria-label]="_copy().table"
+    [mlvTooltip]="_copy().table"
+    (menuOpened)="_registerMenuOverlay()"
+    (menuClosed)="_unregisterMenuOverlay()"
+  >
+    <svg mlvButtonIcon lucideTable2 aria-hidden="true" />
+  </button>
+
+  <mlv-menu #_menu [label]="_copy().table">
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canAddRowBefore)"
+      (itemClick)="_run(_addRowBefore)"
+    >
+      {{ _copy().addRowBefore }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canAddRowAfter)"
+      (itemClick)="_run(_addRowAfter)"
+    >
+      {{ _copy().addRowAfter }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canDeleteRow)"
+      (itemClick)="_run(_deleteRow)"
+    >
+      {{ _copy().deleteRow }}
+    </mlv-list-item>
+
+    <mlv-divider muted />
+
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canAddColumnBefore)"
+      (itemClick)="_run(_addColumnBefore)"
+    >
+      {{ _copy().addColumnBefore }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canAddColumnAfter)"
+      (itemClick)="_run(_addColumnAfter)"
+    >
+      {{ _copy().addColumnAfter }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canDeleteColumn)"
+      (itemClick)="_run(_deleteColumn)"
+    >
+      {{ _copy().deleteColumn }}
+    </mlv-list-item>
+
+    <mlv-divider muted />
+
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canMergeCells)"
+      (itemClick)="_run(_mergeCells)"
+    >
+      {{ _copy().mergeCells }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canSplitCell)"
+      (itemClick)="_run(_splitCell)"
+    >
+      {{ _copy().splitCell }}
+    </mlv-list-item>
+
+    <mlv-divider muted />
+
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canToggleHeaderRow)"
+      (itemClick)="_run(_toggleHeaderRow)"
+    >
+      {{ _copy().toggleHeaderRow }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canToggleHeaderColumn)"
+      (itemClick)="_run(_toggleHeaderColumn)"
+    >
+      {{ _copy().toggleHeaderColumn }}
+    </mlv-list-item>
+    <!-- `aria-current` marks the state the caret's cell is already in; the row
+         paints itself from the shared selected pair. -->
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canToggleHeaderCell)"
+      [attr.aria-current]="_isHeaderCell() ? 'true' : null"
+      (itemClick)="_run(_toggleHeaderCell)"
+    >
+      {{ _copy().toggleHeaderCell }}
+    </mlv-list-item>
+
+    <mlv-divider muted />
+
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_commandDisabled(_canDeleteTable)"
+      (itemClick)="_run(_deleteTable, true)"
+    >
+      {{ _copy().deleteTable }}
+    </mlv-list-item>
+  </mlv-menu>
+} @else {
+  <button
+    #_trigger="mlvPopupTrigger"
+    #_triggerElement
+    mlvButton
+    mlvEditorToolbarWidget
+    type="button"
+    shape="square"
+    mlvDensity="tight"
+    variant="transparent"
+    [disabled]="_disabled()"
+    [mlvPopupTrigger]="_popup"
+    [ariaHasPopup]="'dialog'"
+    [attr.aria-label]="_copy().table"
+    [mlvTooltip]="_copy().table"
+  >
+    <svg mlvButtonIcon lucideTable2 aria-hidden="true" />
+  </button>
+
+  <mlv-popup
+    #_popup
+    panelRole="dialog"
+    [modal]="true"
+    [ariaLabel]="_copy().table"
+    (afterOpened)="_onOpened()"
+    (afterClosed)="_onClosed()"
+  >
+    <ng-template mlvPopupContent>
+      <div #_panel class="mlv-editor-table__panel">
+        <div
+          class="mlv-editor-table__grid"
+          role="grid"
+          tabindex="-1"
+          [attr.aria-label]="_copy().insertTable"
+          (keydown)="_onGridKeydown($event)"
+        >
+          @for (row of _gridRows; track $index) {
+            <div class="mlv-editor-table__grid-row" role="row">
+              @for (size of row; track size.cols) {
+                <button
+                  #_gridCell
+                  class="mlv-editor-table__grid-cell"
+                  type="button"
+                  role="gridcell"
+                  [class.mlv-editor-table__grid-cell--selected]="
+                    _sizeSelected(size)
+                  "
+                  [attr.aria-label]="_sizeLabel(size)"
+                  [attr.aria-selected]="_sizeSelected(size)"
+                  [attr.tabindex]="
+                    size.rows === _selectedSize().rows &&
+                    size.cols === _selectedSize().cols
+                      ? 0
+                      : -1
+                  "
+                  [disabled]="_disabled()"
+                  (focus)="_selectSize(size)"
+                  (mouseenter)="_selectSize(size)"
+                  (click)="_insertSize(size)"
+                ></button>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="mlv-editor-table__footer">
+          <span class="mlv-editor-table__size" aria-hidden="true">
+            {{ _selectedSize().rows }} × {{ _selectedSize().cols }}
+          </span>
+          <mlv-button-toggle
+            [pressed]="_withHeaderRow()"
+            [disabled]="_disabled()"
+            (pressedChange)="_withHeaderRow.set($event)"
+          >
+            {{ _copy().toggleHeaderRow }}
+          </mlv-button-toggle>
+        </div>
+      </div>
+    </ng-template>
+  </mlv-popup>
+}

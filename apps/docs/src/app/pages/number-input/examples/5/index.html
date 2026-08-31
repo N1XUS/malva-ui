@@ -1,0 +1,21 @@
+<div class="demo-col" style="gap: 1rem; max-width: 22rem">
+  <mlv-number-input
+    label="Seats"
+    hint="Vertical controls on the left"
+    stack="vertical"
+    controlAlignment="left"
+    [min]="0"
+    [max]="99"
+    [(ngModel)]="leftAligned"
+  />
+
+  <mlv-number-input
+    label="Guests"
+    hint="Vertical controls on the right"
+    stack="vertical"
+    controlAlignment="right"
+    [min]="0"
+    [max]="99"
+    [(ngModel)]="rightAligned"
+  />
+</div>

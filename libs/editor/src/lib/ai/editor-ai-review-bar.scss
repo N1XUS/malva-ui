@@ -1,0 +1,53 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-editor-ai-review-bar;
+
+.#{$block} {
+  @include mixins.base();
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mlv-spacing-2);
+  font-size: var(--mlv-typography-body-s-size);
+
+  // The host binds `[hidden]` while the AI context is idle. An author
+  // `display` declaration overrides the UA `[hidden] { display: none }` rule,
+  // so without this guard the idle bar would stay a zero-size flex item —
+  // claiming a gap slot in the status row and leaving an empty named group in
+  // the accessibility tree — wherever a host renders it.
+  &[hidden] {
+    display: none;
+  }
+
+  &__count {
+    color: var(--mlv-text-secondary);
+    white-space: nowrap;
+  }
+
+  &__group {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__stop {
+    white-space: nowrap;
+  }
+
+  // Screen-reader-only description of the current suggestion, referenced by
+  // the accept/reject buttons through aria-describedby. The standard
+  // visually-hidden clip pattern (1px is canonical here, not a design size).
+  &__current-description {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+    padding: 0;
+    margin: -1px;
+  }
+}
+}

@@ -1,0 +1,19 @@
+.tiles-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-3);
+
+  mlv-tile {
+    width: 17.5rem;
+  }
+}
+
+.tile-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mlv-spacing-1-5);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mlv-text-secondary);
+}

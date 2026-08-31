@@ -1,0 +1,55 @@
+<div class="docs-selection-demo">
+  <mlv-data-table
+    [data]="assets"
+    [columns]="columns"
+    selectable="multi"
+    [(selectedRows)]="selected"
+  />
+
+  @if (selectedCount() > 0) {
+  <nav mlvActionBar fixed position="bottom" shape="pill" contrast wrap>
+    <span class="docs-selection-demo__count">
+      <strong>{{ selectedCount() }}</strong>
+      {{ selectedCount() === 1 ? 'asset' : 'assets' }} selected
+    </span>
+
+    <div mlvActionBarSpacer></div>
+
+    <mlv-select
+      class="docs-selection-demo__control"
+      [options]="folders"
+      [(ngModel)]="targetFolder"
+      placeholder="Move to…"
+    />
+
+    <mlv-combobox
+      class="docs-selection-demo__control"
+      [options]="tags"
+      [(ngModel)]="appliedTag"
+      placeholder="Apply tag…"
+    />
+
+    <button mlvButton mlvDensity="compact" variant="transparent">
+      <svg lucideDownload [size]="16" />
+      Export
+    </button>
+    <button mlvButton mlvDensity="compact" variant="transparent">
+      <svg lucideArchive [size]="16" />
+      Archive
+    </button>
+    <button mlvButton mlvDensity="compact" variant="transparent">
+      <svg lucideTrash2 [size]="16" />
+      Delete
+    </button>
+    <button
+      mlvButton
+      variant="transparent"
+      shape="circle"
+      (click)="clearSelection()"
+      aria-label="Clear selection"
+    >
+      <svg lucideX [size]="16" />
+    </button>
+  </nav>
+  }
+</div>

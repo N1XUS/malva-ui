@@ -1,0 +1,11 @@
+// Compiled into the published `styles/malva-ui.css` asset by the core build.
+// Keep the animation emitter first to mirror the documentation application.
+@use '../../styles/src/lib/animations';
+@use '../../styles/src/lib/index';
+@use '../../../node_modules/@angular/cdk' as cdk;
+
+// `.cdk-visually-hidden` — required, not optional. MlvToastService and
+// MlvNotificationService announce through the CDK LiveAnnouncer, which appends a
+// `.cdk-visually-hidden` live region to the body. Without these rules that region
+// renders as visible text on the page.
+@include cdk.a11y-visually-hidden();

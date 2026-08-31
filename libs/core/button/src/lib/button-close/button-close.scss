@@ -1,0 +1,77 @@
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-button--close;
+
+.#{$block} {
+  --mlv-btn-font-size: var(--mlv-font-size-m);
+  --mlv-btn-height: var(--mlv-height-s);
+
+  // The shared CH-R4 icon-in-container ratio (--mlv-icon-in-container-ratio,
+  // 0.45) reads clearly on a full-size icon-only button, but this component
+  // is most commonly seen at `compact` density (dialog/drawer headers) or
+  // smaller (tile, inline clear affordances), where 0.45 of a 1.75rem/1.5rem
+  // container renders a glyph under 1rem — the X read as illegibly tiny
+  // (owner feedback 2026-08-25). Raise the *effective* glyph size for this
+  // component only, through a local ratio that overrides
+  // `--mlv-icon-font-size` directly with higher specificity — the shared
+  // token stays untouched for every other icon-only button and the tile
+  // drag handle.
+  --mlv-button-close-icon-ratio: 0.6;
+
+  &.mlv-button--icon-only {
+    --mlv-icon-font-size: calc(
+      var(--mlv-btn-height) * var(--mlv-button-close-icon-ratio)
+    );
+  }
+
+  // The close button owns no focus affordance of its own: the base
+  // `.mlv-button` neutralises the UA ring with `outline: … solid transparent`
+  // and every variant block in `button.scss` is what puts a colour back on
+  // `:focus-visible`. A close button rendered with a variant that has no
+  // `focus-outline` entry therefore falls back to `outline-color:
+  // var(--mlv-btn-bg)` — `transparent` for the default variant — leaving the
+  // control with no visible ring at all. Pinning the token ring on the block
+  // keeps the affordance identical for every variant. Qualified with
+  // `.mlv-button` so it outranks the equally specific per-variant
+  // `:focus-visible` rules regardless of stylesheet order.
+  // Only the colour is pinned: width (`var(--mlv-stroke-width-medium)`) and
+  // offset (`var(--mlv-focus-ring-offset)`) stay on the shared `.mlv-button`
+  // base so a close button's ring is identical to every other button's.
+  &.mlv-button:focus-visible {
+    outline-color: var(--mlv-border-focus);
+  }
+
+  &.mlv-button--variant-transparent {
+    --mlv-btn-text-color: var(--mlv-text-tertiary);
+    --mlv-btn-bg-hover: transparent;
+    --mlv-btn-bg-active: transparent;
+
+    &:hover,
+    &:active {
+      --mlv-btn-text-color: var(--mlv-text-secondary);
+    }
+  }
+
+  &.mlv-button--variant-secondary {
+    --mlv-btn-text-color: var(--mlv-text-secondary);
+
+    &:hover,
+    &:active {
+      --mlv-btn-text-color: var(--mlv-text-primary);
+    }
+  }
+
+  @include density.density-tight {
+    --mlv-btn-font-size: var(--mlv-font-size-xs);
+    // Off the height ramp by design (CH-R1): 24px is the WCAG 2.2 SC 2.5.8
+    // floor, one step under the tight button — not an arbitrary literal.
+    --mlv-btn-height: 1.5rem;
+  }
+
+  @include density.density-compact {
+    --mlv-btn-font-size: var(--mlv-font-size-xs);
+    --mlv-btn-height: var(--mlv-height-xs);
+  }
+}
+}

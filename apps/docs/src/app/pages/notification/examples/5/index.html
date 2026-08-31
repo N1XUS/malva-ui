@@ -1,0 +1,18 @@
+<div class="demo-row" style="flex-wrap: wrap">
+  <button mlvButton (click)="openString()">Open string</button>
+  <button mlvButton variant="secondary" (click)="openTemplate(templateContent)">
+    Open TemplateRef
+  </button>
+  <button mlvButton variant="secondary" (click)="openComponent()">
+    Open component
+  </button>
+  <button mlvButton variant="outlined" (click)="closeActive()">
+    Close active notification
+  </button>
+</div>
+
+<ng-template #templateContent let-ref let-data="data">
+  <strong>{{ data.title }}</strong>
+  <p>{{ data.description }}</p>
+  <button mlvButton (click)="ref.close()">Open release notes</button>
+</ng-template>

@@ -1,0 +1,60 @@
+<div class="row">
+  <button mlvButton (click)="dialogOpen.set(true)">Open dialog</button>
+  <button mlvButton variant="secondary" (click)="drawerOpen.set(true)">
+    Open drawer
+  </button>
+</div>
+
+<ng-template [(mlvDialog)]="dialogOpen" [mlvDialogOptions]="{ size: 's' }">
+  <mlv-dialog>
+    <mlv-dialog-header title="Invite teammate" />
+    <mlv-dialog-body>
+      <form mlvForm id="invite-form" (ngSubmit)="dialogOpen.set(false)">
+        <mlv-input
+          label="Email"
+          type="email"
+          placeholder="teammate@example.com"
+          mlvAutofocus
+        />
+        <mlv-select
+          label="Role"
+          [options]="roles"
+          placeholder="Choose a role"
+        />
+        <mlv-checkbox>Send a welcome message</mlv-checkbox>
+      </form>
+    </mlv-dialog-body>
+    <mlv-dialog-footer>
+      <button mlvButton type="button" variant="secondary" mlvDialogClose>
+        Cancel
+      </button>
+      <button mlvButton type="submit" form="invite-form">Invite</button>
+    </mlv-dialog-footer>
+  </mlv-dialog>
+</ng-template>
+
+<mlv-drawer [(opened)]="drawerOpen" position="right" size="32rem">
+  <ng-template mlvDrawerContent>
+    <div mlvDrawerHeader>
+      <h4 mlvTitle>Edit product</h4>
+      <mlv-spacer />
+      <button mlvButton type="submit" form="product-form">Save</button>
+    </div>
+    <div mlvDrawerBody>
+      <form mlvForm id="product-form" (ngSubmit)="drawerOpen.set(false)">
+        <fieldset mlvFieldset legend="Meta">
+          <mlv-input
+            label="Product name"
+            placeholder="Enter product name"
+            mlvAutofocus
+          />
+          <mlv-input label="Product URL" placeholder="Enter product URL" />
+        </fieldset>
+        <fieldset mlvFieldset legend="Inventory" [columns]="2">
+          <mlv-input type="number" label="In stock" />
+          <mlv-select label="Low quantity handler" [options]="handlers" />
+        </fieldset>
+      </form>
+    </div>
+  </ng-template>
+</mlv-drawer>

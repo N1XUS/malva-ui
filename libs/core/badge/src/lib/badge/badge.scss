@@ -1,0 +1,143 @@
+@use '../../../../../styles/src/lib/density' as density;
+@use 'sass:list';
+
+@layer mlv.components {
+$block: mlv-badge;
+
+// Semantic tone names matching the design-token palette
+$_tones: (
+  'default',
+  'primary',
+  'secondary',
+  'accent',
+  'success',
+  'info',
+  'warning',
+  'danger'
+);
+
+.#{$block} {
+  // Component-scoped variables — overridden by tone/muted modifiers below
+  --mlv-badge-bg: var(--mlv-background-neutral-1);
+  --mlv-badge-color: var(--mlv-text-primary);
+  // Icon slot: sized in `em` so it tracks the density-driven font size, and
+  // spaced by a gap that only the `--with-icon` modifier turns on.
+  --mlv-badge-gap: 0.25rem;
+  --mlv-badge-icon-size: 1em;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mlv-radius-badge);
+  font-size: var(--mlv-font-size-m);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+  background-color: var(--mlv-badge-bg);
+  color: var(--mlv-badge-color);
+  box-sizing: border-box;
+  padding: var(--mlv-padding-m);
+
+  @include density.density-tight {
+    font-size: var(--mlv-font-size-xs);
+    padding: var(--mlv-padding-xs);
+    --mlv-badge-gap: 0.125rem;
+  }
+
+  @include density.density-compact {
+    font-size: var(--mlv-font-size-s);
+    padding: var(--mlv-padding-s);
+    --mlv-badge-gap: 0.1875rem;
+  }
+
+  @include density.density-spacious {
+    font-size: var(--mlv-font-size-l);
+    padding: var(--mlv-padding-l);
+    --mlv-badge-gap: 0.375rem;
+  }
+
+  @include density.density-airy {
+    font-size: var(--mlv-font-size-xl);
+    padding: var(--mlv-padding-xl);
+    --mlv-badge-gap: 0.5rem;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Icon slot
+  // ---------------------------------------------------------------------------
+
+  // Scoped to the modifier so a badge that projects no icon keeps the exact
+  // spacing it had before the slot existed.
+  &--with-icon {
+    gap: var(--mlv-badge-gap);
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    // Overrides the intrinsic `width`/`height` attributes an icon set ships
+    // with (24px for a Lucide default), which would otherwise dwarf the label.
+    width: var(--mlv-badge-icon-size);
+    height: var(--mlv-badge-icon-size);
+
+    // Reordered rather than re-projected, so the icon can sit wherever it reads
+    // best in the consumer's template regardless of the side it renders on.
+    &--end {
+      order: 1;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Solid tone variants
+  // ---------------------------------------------------------------------------
+
+  &--tone-default {
+    --mlv-badge-bg: var(--mlv-background-neutral-1);
+    --mlv-badge-color: var(--mlv-text-primary);
+  }
+  &--tone-primary {
+    --mlv-badge-bg: var(--mlv-background-accent-1);
+    --mlv-badge-color: var(--mlv-text-primary-on-accent-1);
+  }
+  &--tone-secondary {
+    --mlv-badge-bg: var(--mlv-background-neutral-1);
+    --mlv-badge-color: var(--mlv-text-action);
+  }
+  &--tone-accent {
+    --mlv-badge-bg: var(--mlv-background-accent-2);
+    --mlv-badge-color: var(--mlv-text-primary-on-accent-2);
+  }
+  &--tone-success {
+    --mlv-badge-bg: var(--mlv-palette-success-500);
+    --mlv-badge-color: var(--mlv-text-inverse);
+  }
+  &--tone-info {
+    --mlv-badge-bg: var(--mlv-palette-info-500);
+    --mlv-badge-color: var(--mlv-text-inverse);
+  }
+  &--tone-warning {
+    --mlv-badge-bg: var(--mlv-background-warning-1);
+    --mlv-badge-color: var(--mlv-text-on-warning);
+  }
+  &--tone-danger {
+    --mlv-badge-bg: var(--mlv-background-danger-1);
+    --mlv-badge-color: var(--mlv-text-on-danger);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Muted variant — soft tint surface + matching text
+  // ---------------------------------------------------------------------------
+
+  &--muted {
+    @each $tone in $_tones {
+      &.#{$block}--tone-#{$tone} {
+        --mlv-badge-bg: var(--mlv-muted-#{$tone}-bg-2);
+        --mlv-badge-color: var(--mlv-muted-#{$tone}-text-2);
+      }
+    }
+  }
+}
+}

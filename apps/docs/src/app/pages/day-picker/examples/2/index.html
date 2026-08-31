@@ -1,0 +1,10 @@
+<div
+  class="demo-col"
+  style="gap: 0.75rem; align-items: stretch; max-width: 28rem"
+>
+  <mlv-day-picker label="Delivery date" [formField]="fields.date" />
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Value: {{ fields.date().value() }} · Touched: {{ fields.date().touched() }}
+  </p>
+</div>

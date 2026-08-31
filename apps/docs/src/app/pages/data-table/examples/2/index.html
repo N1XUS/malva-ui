@@ -1,0 +1,16 @@
+<mlv-data-table [data]="employees" [columns]="columns" [striped]="true">
+  <ng-template
+    mlvDataTableCell="status"
+    [mlvDataTableCellFrom]="employees"
+    let-row
+  >
+    <span class="dt-status-badge" [class]="'dt-status-badge--' + row.status">
+      {{ row.status === 'active' ? 'Active' : row.status === 'on-leave' ? 'On
+      Leave' : 'Inactive' }}
+    </span>
+  </ng-template>
+
+  <span *mlvDataTableCell="'salary'; let row from employees;" class="dt-salary">
+    ${{ row.salary.toLocaleString() }}
+  </span>
+</mlv-data-table>

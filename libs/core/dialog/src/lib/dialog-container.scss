@@ -1,0 +1,58 @@
+@use '../../../../styles/src/lib/mixins';
+
+@layer mlv.components {
+$block: mlv-dialog-container;
+
+// Overlay pane the CDK creates around the container. Sized by the resolved
+// size preset through inline styles; the container and surface fill it.
+.mlv-dialog-pane {
+  display: flex;
+  max-inline-size: 100vw;
+}
+
+// Element + class, not the bare class: Ivy merges the inherited
+// `cdk-dialog-container` host attribute onto this element, and the CDK's own
+// `.cdk-dialog-container { display: block; … }` rule — injected as soon as any
+// plain `CdkDialogContainer` is instantiated anywhere in the app — has equal
+// specificity to a bare `.mlv-dialog-container`. The extra element selector
+// keeps the flex layout below winning regardless of stylesheet order.
+mlv-dialog-container.#{$block} {
+  @include mixins.base();
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: inherit;
+  max-block-size: inherit;
+  outline: 0;
+
+  // Component content is a host element wrapping <mlv-dialog>; give it the
+  // same flex pass-through a template's bare surface gets, so the surface can
+  // shrink to the pane and its body can scroll.
+  > :not(.mlv-dialog) {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+}
+
+// Backdrop enter/leave. The base look lives in the global
+// `libs/styles/src/lib/overlay.scss` (overlay-created DOM has no component
+// stylesheet); the transitions live here because this container is
+// instantiated with every dialog.
+.mlv-dialog-backdrop {
+  @starting-style {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+
+  &--leaving {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

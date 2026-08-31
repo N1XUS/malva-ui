@@ -1,0 +1,32 @@
+{
+  "name": "@malva-ui/tailwind",
+  "version": "0.0.0-malva-ui-package-version",
+  "description": "Tailwind CSS v4 theme adapter for Malva UI design tokens.",
+  "license": "MIT",
+  "keywords": [
+    "tailwindcss",
+    "tailwind",
+    "design-system",
+    "malva-ui",
+    "angular"
+  ],
+  "schematics": "./schematics/collection.json",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@malva-ui/core": "0.0.0-malva-ui-package-version",
+    "tailwindcss": "^4.0.0"
+  },
+  "files": [
+    "theme.css",
+    "README.md",
+    "LICENSE",
+    "schematics"
+  ],
+  "exports": {
+    "./theme.css": "./theme.css",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": true
+}

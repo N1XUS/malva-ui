@@ -1,0 +1,19 @@
+<div class="demo-col" style="gap: 1.5rem; max-width: 20rem">
+  <mlv-number-input
+    label="Request Timeout (ms)"
+    hint="Step 100ms · Shift+Arrow steps 1000ms"
+    [min]="0"
+    [max]="30000"
+    [step]="100"
+    [largeStep]="1000"
+    [(ngModel)]="timeout"
+  />
+  <span
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+    "
+  >
+    {{ timeout() }}ms
+  </span>
+</div>

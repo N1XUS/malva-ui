@@ -1,0 +1,20 @@
+## Query appearance and grouped expressions
+
+Set `appearance="query"` to turn active fields into readable sentence chips.
+The built-in **Add filter** menu reveals optional fields without inventing an
+empty operand. `filterApplyMode` defaults to `'live'`; pass `'explicit'` when
+the query should wait for the query-level **Apply** action. With
+`autoExecute="true"`, live commits emit immediately.
+
+Every `execute` payload preserves the flat `filters` and `visibleKeys` models,
+and adds an equivalent readonly `expression`: an outer `and` group whose
+multi-condition fields retain their own `and` or `or` group. The expression is
+backend-neutral; persistence and saved-view composition remain host concerns.
+
+Renewal date replaces the built-in text input with `mlv-day-picker` through a
+keyed `<ng-template mlvFilterValueEditor="renewalDate">` projected into
+`mlv-smart-filter-bar`: the key targets that one definition, while an
+untargeted (key-less) template would instead fall back to every free-form
+field with no editor of its own. The template still receives and writes ISO
+`yyyy-MM-dd` strings — conditions stay backend-neutral — and switches to a
+paired day-picker range when the condition operator is `between`.

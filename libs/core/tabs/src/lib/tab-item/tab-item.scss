@@ -1,0 +1,63 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-tab-item;
+
+.#{$block} {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  // Content density — driven by the parent tab-group's `mlvDensity` (the
+  // density directive puts `mlv-tab-group--<density>` on the group host, which
+  // these ancestor-scoped mixins match). Comfortable is the default.
+  padding: 0.75rem 1rem;
+
+  @include density.density-tight {
+    padding: 0.375rem 0.625rem;
+    font-size: var(--mlv-font-size-s);
+  }
+  @include density.density-compact {
+    padding: 0.5rem 0.75rem;
+    font-size: var(--mlv-font-size-s);
+  }
+  @include density.density-spacious {
+    padding: 1rem 1.25rem;
+    font-size: var(--mlv-font-size-l);
+  }
+  @include density.density-airy {
+    padding: 1.25rem 1.5rem;
+    font-size: var(--mlv-font-size-l);
+  }
+
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--mlv-text-secondary);
+  white-space: nowrap;
+  position: relative;
+  // No text-colour shift on hover (by design) — hover affordance is the grey
+  // underline line / boxed tint from tabs.scss. Only the ACTIVE state recolours.
+  transition:
+    color var(--mlv-duration-normal),
+    background-color var(--mlv-duration-normal);
+  outline: none;
+
+  &:focus-visible {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    border-radius: var(--mlv-radius-xs);
+  }
+
+  &--active {
+    color: var(--mlv-text-action);
+  }
+
+  &--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

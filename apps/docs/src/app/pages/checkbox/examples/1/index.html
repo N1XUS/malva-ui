@@ -1,0 +1,4 @@
+<mlv-checkbox [formControl]="form" (checkedChange)="_record('change', $event)"
+  >Accept terms and conditions</mlv-checkbox
+>
+<docs-inspector [value]="form.value" [events]="events()" />

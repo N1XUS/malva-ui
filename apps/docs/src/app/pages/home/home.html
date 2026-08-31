@@ -1,0 +1,890 @@
+<docs-app-bar />
+
+<main id="main-content">
+  <section
+    class="malva-home__hero"
+    aria-labelledby="home-title"
+    (pointermove)="onHeroPointerMove($event)"
+    (pointerleave)="onHeroPointerLeave()"
+  >
+    <div class="malva-home__aurora" aria-hidden="true">
+      <i></i>
+      <i></i>
+      <i></i>
+    </div>
+
+    <div class="malva-home__hero-copy">
+      <p class="malva-home__eyebrow">
+        <span aria-hidden="true"></span>
+        Angular components for product teams
+      </p>
+      <h1 id="home-title">
+        Build Angular products<br />
+        <span class="malva-home__headline-line">
+          that feel
+          <span class="malva-home__word-slot" aria-hidden="true">
+            @for (word of heroWords; track word) {
+              <span
+                class="malva-home__word"
+                [class.malva-home__word--active]="
+                  heroWords[heroWordIndex()] === word
+                "
+                >{{ word }}</span
+              >
+            }
+          </span>
+          <span class="cdk-visually-hidden">finished.</span>
+        </span>
+      </h1>
+      <p class="malva-home__hero-lede">
+        A signal-first UI system with the thoughtful states, accessible
+        interactions, and visual polish real applications need.
+      </p>
+
+      <div class="malva-home__hero-actions">
+        <a
+          mlvButton
+          mlvDensity="spacious"
+          variant="primary"
+          routerLink="/getting-started"
+        >
+          Get started
+          <svg lucideArrowRight [size]="18" aria-hidden="true"></svg>
+        </a>
+        <a
+          mlvButton
+          mlvDensity="spacious"
+          variant="outlined"
+          routerLink="/button"
+        >
+          Explore components
+        </a>
+      </div>
+
+      <div class="malva-home__install" aria-label="Installation command">
+        <span class="malva-home__install-prompt" aria-hidden="true">$</span>
+        <mlv-copy-to-clipboard>ng add &#64;malva-ui/core</mlv-copy-to-clipboard>
+      </div>
+
+      <ul class="malva-home__proof" aria-label="Library highlights">
+        <li>
+          <svg lucideCheck [size]="15" aria-hidden="true"></svg> Angular 20+
+        </li>
+        <li>
+          <svg lucideCheck [size]="15" aria-hidden="true"></svg> Accessible by
+          default
+        </li>
+        <li>
+          <svg lucideCheck [size]="15" aria-hidden="true"></svg> Theme-ready
+        </li>
+      </ul>
+    </div>
+
+    <div class="malva-home__hero-visual" aria-hidden="true">
+      <img
+        class="malva-home__hero-illustration"
+        [src]="heroArt()"
+        alt=""
+        width="1024"
+        height="1536"
+      />
+
+      <div
+        class="malva-home__hero-float malva-home__hero-float--signals"
+        [style.translate]="
+          heroParallax().x * 14 + 'px ' + heroParallax().y * 10 + 'px'
+        "
+      >
+        <span class="malva-home__hero-float-icon">
+          <svg lucideSparkles [size]="17"></svg>
+        </span>
+        <span><strong>Signal-first</strong><small>Angular native</small></span>
+      </div>
+
+      <div
+        class="malva-home__hero-float malva-home__hero-float--theme"
+        [style.translate]="
+          heroParallax().x * -10 + 'px ' + heroParallax().y * 12 + 'px'
+        "
+      >
+        <span class="malva-home__hero-type-sample">Aa</span>
+        <span><strong>One system</strong><small>Light + dark</small></span>
+      </div>
+
+      <div
+        class="malva-home__hero-float malva-home__hero-float--keys"
+        [style.translate]="
+          heroParallax().x * 9 + 'px ' + heroParallax().y * -9 + 'px'
+        "
+      >
+        <mlv-kbd [keys]="['cmd', 'k']" />
+        <strong>Shortcut ready</strong>
+      </div>
+
+      <div
+        class="malva-home__hero-float malva-home__hero-float--team"
+        [style.translate]="
+          heroParallax().x * -13 + 'px ' + heroParallax().y * -8 + 'px'
+        "
+      >
+        <span class="malva-home__hero-mini-avatars">
+          <mlv-avatar
+            name="Maya Chen"
+            size="s"
+            [color]="'Maya Chen' | mlvColorFromText"
+          />
+          <mlv-avatar
+            name="Ana Park"
+            size="s"
+            [color]="'Ana Park' | mlvColorFromText"
+          />
+        </span>
+        <span><strong>WCAG AA</strong><small>By default</small></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="malva-home__rail" aria-label="Explore components">
+    <p class="malva-home__rail-kicker">From primitives to products</p>
+    <docs-home-marquee />
+  </section>
+
+  <section class="malva-home__stats-band" aria-label="Library in numbers">
+    <docs-home-stats docsReveal />
+  </section>
+
+  <section class="malva-home__showcase" aria-labelledby="showcase-title">
+    <div class="malva-home__showcase-topline" docsReveal>
+      <div>
+        <p class="malva-home__section-kicker">Composed, not staged</p>
+        <h2 id="showcase-title">
+          A launch planner built from real Malva controls.
+        </h2>
+      </div>
+      <p>
+        Stepper, list, chips, calendar, cards, and keyboard hints working as one
+        product surface.
+      </p>
+    </div>
+
+    <div class="malva-home__product-frame" docsReveal docsRevealDelay="120">
+      <div class="malva-home__product-bar">
+        <div class="malva-home__product-title">
+          <span class="malva-home__product-icon">
+            <svg lucideRocket [size]="18" aria-hidden="true" />
+          </span>
+          <span
+            ><strong>Launch planner</strong><small>Autumn release</small></span
+          >
+          <mlv-chip tone="success">Live</mlv-chip>
+        </div>
+        <div
+          class="malva-home__product-people"
+          aria-label="Project collaborators"
+        >
+          <mlv-avatar
+            name="Maya Chen"
+            size="s"
+            [color]="'Maya Chen' | mlvColorFromText"
+          />
+          <mlv-avatar
+            name="Jon Bell"
+            size="s"
+            [color]="'Jon Bell' | mlvColorFromText"
+          />
+          <mlv-avatar
+            name="Ana Park"
+            size="s"
+            [color]="'Ana Park' | mlvColorFromText"
+          />
+          <button
+            mlvButton
+            type="button"
+            variant="outlined"
+            mlvDensity="compact"
+          >
+            <svg lucideUsers [size]="15" aria-hidden="true" />
+            Share
+          </button>
+        </div>
+      </div>
+
+      <mlv-stepper #launchStepper ariaLabel="Launch workflow">
+        <mlv-step label="Plan" description="Scope and schedule">
+          <div class="malva-home__planner-grid">
+            <section
+              class="malva-home__task-panel"
+              aria-labelledby="tasks-title"
+            >
+              <div class="malva-home__panel-heading">
+                <div>
+                  <p>Today</p>
+                  <h3 id="tasks-title">Launch checklist</h3>
+                </div>
+                <mlv-chip tone="primary">3 of 5</mlv-chip>
+              </div>
+
+              <mlv-list aria-label="Launch checklist">
+                <mlv-list-item accent="positive">
+                  <span mlvListItemTitle>Approve product narrative</span>
+                  <span mlvListItemByline>Brand review completed</span>
+                  <span mlvListItemMeta>09:40</span>
+                  <span mlvListItemActions
+                    ><mlv-chip tone="success">Done</mlv-chip></span
+                  >
+                </mlv-list-item>
+                <mlv-list-item accent="primary" unread>
+                  <span mlvListItemTitle>Prepare release notes</span>
+                  <span mlvListItemByline>12 comments need resolution</span>
+                  <span mlvListItemMeta>Today</span>
+                  <span mlvListItemActions
+                    ><mlv-chip tone="accent">Active</mlv-chip></span
+                  >
+                </mlv-list-item>
+                <mlv-list-item accent="warning">
+                  <span mlvListItemTitle>Schedule customer email</span>
+                  <span mlvListItemByline>Waiting for legal sign-off</span>
+                  <span mlvListItemMeta>Tomorrow</span>
+                  <span mlvListItemActions
+                    ><mlv-chip tone="warning">Review</mlv-chip></span
+                  >
+                </mlv-list-item>
+              </mlv-list>
+
+              <div class="malva-home__quick-add">
+                <span
+                  ><svg lucideCommand [size]="15" aria-hidden="true" /> Quick
+                  add</span
+                >
+                <mlv-kbd [keys]="['cmd', 'k']" />
+              </div>
+            </section>
+
+            <aside
+              class="malva-home__calendar-panel"
+              aria-labelledby="schedule-title"
+            >
+              <div class="malva-home__panel-heading">
+                <div>
+                  <p>Schedule</p>
+                  <h3 id="schedule-title">Pick a launch date</h3>
+                </div>
+                <svg lucideCalendarDays [size]="19" aria-hidden="true" />
+              </div>
+              <mlv-calendar embedded />
+              <div class="malva-home__calendar-footer">
+                <span><i aria-hidden="true"></i> Best team availability</span>
+                <button
+                  mlvButton
+                  type="button"
+                  variant="primary"
+                  mlvDensity="compact"
+                  (click)="launchStepper.next()"
+                >
+                  Review plan
+                </button>
+              </div>
+            </aside>
+          </div>
+        </mlv-step>
+
+        <mlv-step label="Review" description="Confirm the details">
+          <div class="malva-home__step-message">
+            <svg lucideCircleCheck [size]="26" aria-hidden="true" />
+            <div>
+              <strong>Your plan is ready to review.</strong
+              ><span>All required launch details are in place.</span>
+            </div>
+            <button
+              mlvButton
+              type="button"
+              variant="secondary"
+              (click)="launchStepper.previous()"
+            >
+              Back
+            </button>
+            <button
+              mlvButton
+              type="button"
+              variant="primary"
+              (click)="launchStepper.next()"
+            >
+              Approve
+            </button>
+          </div>
+        </mlv-step>
+
+        <mlv-step label="Launch" description="Publish with confidence">
+          <div class="malva-home__step-message">
+            <svg lucideSparkles [size]="26" aria-hidden="true" />
+            <div>
+              <strong>Everything is ready.</strong
+              ><span>Your launch plan can now be published.</span>
+            </div>
+            <button
+              mlvButton
+              type="button"
+              variant="secondary"
+              (click)="launchStepper.previous()"
+            >
+              Back
+            </button>
+          </div>
+        </mlv-step>
+      </mlv-stepper>
+    </div>
+  </section>
+
+  <section class="malva-home__application" aria-labelledby="application-title">
+    <div class="malva-home__application-heading" docsReveal>
+      <div>
+        <p class="malva-home__section-kicker">Built for the whole product</p>
+        <h2 id="application-title">
+          Dark application chrome.<br />A page canvas that stays focused.
+        </h2>
+      </div>
+      <p>
+        Scope themes exactly where they belong. Navigation can feel immersive
+        while the working surface stays bright, calm, and readable.
+      </p>
+    </div>
+
+    <div
+      class="malva-home__application-stage"
+      docsReveal
+      docsRevealDelay="120"
+    >
+      <mlv-page-shell class="malva-home__application-shell" mlvTheme="dark">
+        <div class="malva-home__application-toolbar" mlvPageTopbar>
+          <div>
+            <mlv-sidebar-trigger [sidebar]="workspaceSidebar" />
+            <span><small>Workspace</small><strong>Portfolio</strong></span>
+          </div>
+          <div>
+            <mlv-kbd [keys]="['cmd', 'k']" />
+            <button
+              mlvButton
+              type="button"
+              shape="square"
+              variant="transparent"
+              aria-label="Notifications"
+            >
+              <svg lucideBell [size]="17" aria-hidden="true" />
+            </button>
+            <mlv-avatar
+              name="Maya Chen"
+              size="s"
+              [color]="'Maya Chen' | mlvColorFromText"
+            />
+          </div>
+        </div>
+
+        <mlv-sidebar
+          #workspaceSidebar
+          class="malva-home__application-sidebar"
+          mlvPageSidebar
+          ariaLabel="Example workspace navigation"
+          collapseBelow="md"
+          width="13.5rem"
+        >
+          <div mlvSidebarContent>
+            <mlv-sidebar-workspace
+              [workspaces]="previewWorkspaces"
+              [workspace]="previewWorkspaces[0]"
+            />
+
+            <mlv-sidebar-item label="Overview" active>
+              <ng-template mlvSidebarItemIcon>
+                <svg lucideLayoutDashboard [size]="17" aria-hidden="true" />
+              </ng-template>
+              <ng-template mlvSidebarItemTitle>
+                <a mlvLink variant="subtle" routerLink="/page">Overview</a>
+              </ng-template>
+            </mlv-sidebar-item>
+            <mlv-sidebar-item label="Projects" badge="6" badgeTone="accent">
+              <ng-template mlvSidebarItemIcon>
+                <svg lucideFolderKanban [size]="17" aria-hidden="true" />
+              </ng-template>
+              <ng-template mlvSidebarItemTitle>
+                <a mlvLink variant="subtle" routerLink="/card">Projects</a>
+              </ng-template>
+            </mlv-sidebar-item>
+            <mlv-sidebar-item label="Insights">
+              <ng-template mlvSidebarItemIcon>
+                <svg lucideTrendingUp [size]="17" aria-hidden="true" />
+              </ng-template>
+              <ng-template mlvSidebarItemTitle>
+                <a mlvLink variant="subtle" routerLink="/timeline">Insights</a>
+              </ng-template>
+            </mlv-sidebar-item>
+          </div>
+          <div mlvSidebarFooter>
+            <mlv-sidebar-item label="Settings">
+              <ng-template mlvSidebarItemIcon>
+                <svg lucideSettings [size]="17" aria-hidden="true" />
+              </ng-template>
+              <ng-template mlvSidebarItemTitle>
+                <a mlvLink variant="subtle" routerLink="/density">Settings</a>
+              </ng-template>
+            </mlv-sidebar-item>
+          </div>
+        </mlv-sidebar>
+
+        <section
+          class="malva-home__page-canvas"
+          mlvTheme="light"
+          aria-label="Example product page"
+        >
+          <mlv-page-header>
+            <ng-template mlvPageTitle>
+              <h3>Make the next move obvious.</h3>
+            </ng-template>
+            <ng-template mlvPageHeaderDescription>
+              Everything your team needs for a confident week.
+            </ng-template>
+            <ng-template mlvPageHeaderActions>
+              <button mlvButton type="button" variant="outlined">
+                Share report
+              </button>
+              <button mlvButton type="button" variant="primary">
+                <svg lucidePlus [size]="16" aria-hidden="true" />
+                New project
+              </button>
+            </ng-template>
+            <mlv-page-summary summaryLabel="Portfolio key facts">
+              <mlv-page-summary-item label="Active projects">
+                12
+              </mlv-page-summary-item>
+              <mlv-page-summary-item label="Team capacity">
+                84%
+              </mlv-page-summary-item>
+              <mlv-page-summary-item label="Review velocity">
+                2.4d
+                <span class="malva-home__positive-copy">18% faster</span>
+              </mlv-page-summary-item>
+            </mlv-page-summary>
+          </mlv-page-header>
+
+          <mlv-page-content>
+            <div class="malva-home__canvas-grid">
+              <mlv-card class="malva-home__canvas-projects" elevated>
+                <div class="malva-home__canvas-card-heading">
+                  <div>
+                    <strong>Priority projects</strong>
+                    <span>Moving across the studio now</span>
+                  </div>
+                  <mlv-badge tone="success" muted>On track</mlv-badge>
+                </div>
+                <mlv-list aria-label="Priority projects">
+                  <mlv-list-item accent="primary" unread>
+                    <span mlvListItemTitle>Identity refresh</span>
+                    <span mlvListItemByline
+                      >Brand systems · 8 contributors</span
+                    >
+                    <span mlvListItemMeta>78%</span>
+                    <span mlvListItemActions
+                      ><mlv-badge tone="accent" muted>Design</mlv-badge></span
+                    >
+                  </mlv-list-item>
+                  <mlv-list-item accent="positive">
+                    <span mlvListItemTitle>Mobile onboarding</span>
+                    <span mlvListItemByline>Growth · Final review</span>
+                    <span mlvListItemMeta>92%</span>
+                    <span mlvListItemActions
+                      ><mlv-badge tone="success" muted>Ready</mlv-badge></span
+                    >
+                  </mlv-list-item>
+                  <mlv-list-item accent="warning">
+                    <span mlvListItemTitle>Enterprise permissions</span>
+                    <span mlvListItemByline>Platform · 2 decisions open</span>
+                    <span mlvListItemMeta>64%</span>
+                    <span mlvListItemActions
+                      ><mlv-badge tone="warning" muted>Review</mlv-badge></span
+                    >
+                  </mlv-list-item>
+                </mlv-list>
+              </mlv-card>
+
+              <mlv-card class="malva-home__canvas-focus">
+                <div class="malva-home__canvas-card-heading">
+                  <div><strong>This week</strong><span>Team focus</span></div>
+                  <mlv-progress
+                    shape="circle"
+                    size="s"
+                    tone="success"
+                    [value]="84"
+                    showPercentage
+                    ariaLabel="Team focus score"
+                  />
+                </div>
+                <mlv-progress
+                  class="malva-home__focus-progress"
+                  tone="success"
+                  size="s"
+                  [value]="84"
+                  ariaLabel="Team focus progress"
+                />
+                <p>
+                  Review time is down and the team has protected two deep-work
+                  blocks.
+                </p>
+                <div class="malva-home__focus-team">
+                  <span>
+                    <mlv-avatar
+                      name="Ana Park"
+                      size="s"
+                      [color]="'Ana Park' | mlvColorFromText"
+                    />
+                    <mlv-avatar
+                      name="Jon Bell"
+                      size="s"
+                      [color]="'Jon Bell' | mlvColorFromText"
+                    />
+                    <mlv-avatar
+                      name="Elena Martin"
+                      size="s"
+                      [color]="'Elena Martin' | mlvColorFromText"
+                    />
+                  </span>
+                  <small>8 people in focus</small>
+                </div>
+              </mlv-card>
+            </div>
+          </mlv-page-content>
+        </section>
+      </mlv-page-shell>
+    </div>
+  </section>
+
+  <section class="malva-home__theme" aria-labelledby="theme-title">
+    <div class="malva-home__theme-heading" docsReveal>
+      <p class="malva-home__section-kicker">One attribute, two moods</p>
+      <h2 id="theme-title">Drag the divider. Same components, new light.</h2>
+    </div>
+    @defer (on viewport) {
+      <docs-home-theme-split />
+    } @placeholder {
+      <div class="malva-home__defer-slot" aria-hidden="true"></div>
+    }
+  </section>
+
+  <section class="malva-home__feature-section" aria-labelledby="forms-title">
+    <div class="malva-home__feature-copy" docsReveal>
+      <p class="malva-home__section-kicker">Forms, without the friction</p>
+      <h2 id="forms-title">
+        Product-ready inputs that still feel like Angular.
+      </h2>
+      <p>
+        Reactive forms, validation states, labels, hints, and keyboard behavior
+        are designed together—so teams spend time on the workflow, not the
+        wiring.
+      </p>
+      <ul class="malva-home__feature-list">
+        <li>
+          <svg lucideCheck [size]="17" aria-hidden="true" /><span
+            ><strong>Signal-first APIs</strong> with typed, standalone building
+            blocks.</span
+          >
+        </li>
+        <li>
+          <svg lucideCheck [size]="17" aria-hidden="true" /><span
+            ><strong>Consistent density</strong> across forms and actions.</span
+          >
+        </li>
+        <li>
+          <svg lucideCheck [size]="17" aria-hidden="true" /><span
+            ><strong>Useful defaults</strong> that remain completely
+            themeable.</span
+          >
+        </li>
+      </ul>
+      <a mlvButton variant="outlined" routerLink="/form-field">
+        Explore form controls
+        <svg lucideArrowRight [size]="17" aria-hidden="true" />
+      </a>
+    </div>
+
+    <mlv-card
+      class="malva-home__form-card"
+      elevated
+      docsReveal
+      docsRevealDelay="120"
+    >
+      <div class="malva-home__card-heading">
+        <span class="malva-home__product-icon"
+          ><svg lucideLayers3 [size]="18" aria-hidden="true"
+        /></span>
+        <div>
+          <strong>Create a project</strong
+          ><span>Set up the essentials. You can change these later.</span>
+        </div>
+      </div>
+      <form class="malva-home__form" aria-label="Example project form">
+        <mlv-input
+          label="Project name"
+          [formField]="_projectForm.projectName"
+        />
+        <mlv-select
+          label="Workspace"
+          [options]="workspaceOptions"
+          [formField]="_projectForm.workspace"
+        />
+        <mlv-input
+          label="Find collaborators"
+          placeholder="Search by name or email"
+        >
+          <svg
+            *mlvFormControlPrepend
+            lucideSearch
+            [size]="16"
+            aria-hidden="true"
+          />
+        </mlv-input>
+        <mlv-checkbox [formField]="_projectForm.includeReview"
+          >Add a review step before publishing</mlv-checkbox
+        >
+        <div class="malva-home__form-actions">
+          <button mlvButton type="button" variant="transparent">Cancel</button>
+          <button mlvButton type="button" variant="primary">
+            Create project
+          </button>
+        </div>
+      </form>
+    </mlv-card>
+  </section>
+
+  <section class="malva-home__bento-section" aria-labelledby="bento-title">
+    <div class="malva-home__bento-heading" docsReveal>
+      <div>
+        <p class="malva-home__section-kicker">Go ahead, play with it</p>
+        <h2 id="bento-title">Real components. Right here.</h2>
+      </div>
+      <p>
+        Every tile is a live Malva control — click, drag, and type. Then open
+        its documentation page.
+      </p>
+    </div>
+    @defer (on viewport) {
+      <docs-home-bento />
+    } @placeholder {
+      <div class="malva-home__defer-slot" aria-hidden="true"></div>
+    }
+  </section>
+
+  <section class="malva-home__workflow" aria-labelledby="workflow-title">
+    <div class="malva-home__workflow-card" docsReveal>
+      <div class="malva-home__workflow-heading">
+        <p class="malva-home__section-kicker">A clear history</p>
+        <h2 id="workflow-title">Progress people can understand.</h2>
+        <p>
+          Timelines make handoffs, approvals, and next steps visible without
+          adding noise.
+        </p>
+      </div>
+      <mlv-timeline>
+        <mlv-timeline-item
+          title="Creative brief approved"
+          timestamp="Today, 09:40"
+        >
+          <ng-template mlvTimelineItemIcon
+            ><svg lucideCheck [size]="18"
+          /></ng-template>
+          The brand and product teams approved the final narrative.
+          <ng-template mlvTimelineItemMeta
+            ><mlv-chip tone="success">Complete</mlv-chip></ng-template
+          >
+        </mlv-timeline-item>
+        <mlv-timeline-item
+          title="Release notes in review"
+          timestamp="Today, 11:15"
+        >
+          <ng-template mlvTimelineItemIcon
+            ><svg lucideUsers [size]="18"
+          /></ng-template>
+          Product, support, and legal are working from one review.
+          <ng-template mlvTimelineItemMeta
+            ><mlv-chip tone="accent">In review</mlv-chip></ng-template
+          >
+        </mlv-timeline-item>
+        <mlv-timeline-item title="Launch scheduled" timestamp="Friday, 10:00">
+          <ng-template mlvTimelineItemIcon
+            ><svg lucideRocket [size]="18"
+          /></ng-template>
+          The release will publish after all checks pass.
+        </mlv-timeline-item>
+      </mlv-timeline>
+    </div>
+  </section>
+
+  <section class="malva-home__states" aria-labelledby="states-title">
+    <div class="malva-home__states-heading" docsReveal>
+      <div>
+        <p class="malva-home__section-kicker">The whole experience</p>
+        <h2 id="states-title">Every state deserves design.</h2>
+      </div>
+      <p>
+        Loading, populated, and empty moments share the same visual language.
+      </p>
+    </div>
+
+    <div class="malva-home__state-grid">
+      <mlv-card class="malva-home__state-card" docsReveal>
+        <span class="malva-home__state-label">Loading</span>
+        <div class="malva-home__skeleton-person">
+          <mlv-skeleton variant="circle" width="2.75rem" height="2.75rem" />
+          <div>
+            <mlv-skeleton variant="text" width="8rem" /><mlv-skeleton
+              variant="text"
+              width="5rem"
+            />
+          </div>
+        </div>
+        <mlv-skeleton variant="rectangle" height="5.75rem" />
+        <mlv-skeleton variant="text" width="86%" />
+        <mlv-skeleton variant="text" width="62%" />
+      </mlv-card>
+
+      <mlv-card
+        class="malva-home__state-card malva-home__state-card--ready"
+        elevated
+        docsReveal
+        docsRevealDelay="110"
+      >
+        <span class="malva-home__state-label">Ready</span>
+        <div class="malva-home__ready-person">
+          <mlv-avatar
+            name="Elena Martin"
+            size="m"
+            [color]="'Elena Martin' | mlvColorFromText"
+          />
+          <div><strong>Elena Martin</strong><span>Product designer</span></div>
+          <mlv-chip tone="success">Available</mlv-chip>
+        </div>
+        <div class="malva-home__ready-preview">
+          <svg lucideSparkles [size]="22" aria-hidden="true" />
+          <span
+            ><strong>Design review</strong
+            ><small>12 thoughtful comments resolved</small></span
+          >
+        </div>
+        <div class="malva-home__ready-footer">
+          <span>Updated 3 min ago</span><mlv-kbd [keys]="['enter']" />
+        </div>
+      </mlv-card>
+
+      <mlv-card
+        class="malva-home__state-card malva-home__state-card--empty"
+        docsReveal
+        docsRevealDelay="220"
+      >
+        <span class="malva-home__state-label">Empty</span>
+        <mlv-empty-state>
+          <ng-container mlvEmptyStateIcon
+            ><svg lucideInbox [size]="38"
+          /></ng-container>
+          <span mlvEmptyStateTitle>No launch notes yet</span>
+          <span mlvEmptyStateDescription
+            >Create the first note to keep your team aligned.</span
+          >
+          <ng-container mlvEmptyStateActions
+            ><button
+              mlvButton
+              type="button"
+              variant="secondary"
+              mlvDensity="compact"
+            >
+              Create note
+            </button></ng-container
+          >
+        </mlv-empty-state>
+      </mlv-card>
+    </div>
+  </section>
+
+  <section class="malva-home__reel-section" aria-labelledby="reel-title">
+    <div class="malva-home__reel-heading" docsReveal>
+      <div>
+        <p class="malva-home__section-kicker">Beyond components</p>
+        <h2 id="reel-title">Six full products, built in the open.</h2>
+      </div>
+      <a mlvButton variant="outlined" routerLink="/showcases">
+        Browse all showcases
+        <svg lucideArrowRight [size]="17" aria-hidden="true" />
+      </a>
+    </div>
+    @defer (on viewport) {
+      <docs-home-showcase-reel />
+    } @placeholder {
+      <div class="malva-home__defer-slot" aria-hidden="true"></div>
+    }
+  </section>
+
+  <section class="malva-home__principles" aria-label="Malva UI principles">
+    <mlv-card bodyLayout="stack" docsReveal>
+      <span>01</span>
+      <h3>Angular-native</h3>
+      <p>
+        Signals, standalone components, typed forms, and CDK behavior—without a
+        parallel mental model.
+      </p>
+    </mlv-card>
+    <mlv-card bodyLayout="stack" docsReveal docsRevealDelay="110">
+      <span>02</span>
+      <h3>Accessible foundations</h3>
+      <p>
+        Semantic markup, visible focus, keyboard patterns, and screen-reader
+        context built into the primitives.
+      </p>
+    </mlv-card>
+    <mlv-card bodyLayout="stack" docsReveal docsRevealDelay="220">
+      <span>03</span>
+      <h3>Designed as a system</h3>
+      <p>
+        Density, themes, motion, states, and composition stay coherent from one
+        control to an entire workflow.
+      </p>
+    </mlv-card>
+  </section>
+
+  <section class="malva-home__cta" aria-labelledby="cta-title">
+    <img
+      class="malva-home__cta-artwork"
+      src="/malva-ui-cta-aurora.webp"
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+      loading="lazy"
+    />
+    <div docsReveal>
+      <p class="malva-home__section-kicker">Ready when you are</p>
+      <h2 id="cta-title">
+        Start with one command.<br />Build something excellent.
+      </h2>
+    </div>
+    <div class="malva-home__cta-actions" docsReveal docsRevealDelay="120">
+      <a
+        mlvButton
+        mlvDensity="spacious"
+        variant="secondary"
+        routerLink="/getting-started"
+        >Read the installation guide</a
+      >
+      <mlv-copy-to-clipboard>ng add &#64;malva-ui/core</mlv-copy-to-clipboard>
+    </div>
+  </section>
+</main>
+
+<footer class="malva-home__footer">
+  <a mlvLink variant="subtle" class="malva-home__brand" routerLink="/"
+    ><img src="/malva-ui-logo.png" width="30" height="30" alt="" /><span
+      >Malva UI</span
+    ></a
+  >
+  <p>Beautiful, accessible Angular interfaces—composed with care.</p>
+  <nav aria-label="Footer navigation">
+    <a mlvLink variant="subtle" routerLink="/getting-started">Docs</a
+    ><a mlvLink variant="subtle" routerLink="/button">Components</a
+    ><a mlvLink variant="subtle" routerLink="/density">Themes</a
+    ><a mlvLink variant="subtle" routerLink="/showcases">Showcases</a>
+  </nav>
+</footer>

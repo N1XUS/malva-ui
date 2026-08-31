@@ -1,0 +1,35 @@
+<span
+  #projectionContent
+  class="mlv-title__projection"
+  [class.mlv-title__projection--hidden]="!showProjectedContent()"
+  [attr.aria-hidden]="showProjectedContent() ? null : 'true'"
+>
+  <ng-content />
+</span>
+
+@if (showValueText()) {
+<span class="mlv-title__value">{{ currentText() }}</span>
+} @if (editable()) {
+<span class="mlv-title__editor">
+  <pre
+    class="mlv-title__pre"
+    [class.mlv-title__pre--placeholder]="editorShowsPlaceholder()"
+    aria-hidden="true"
+  >
+{{ editorMeasureText() }}</pre
+  >
+  <textarea
+    class="mlv-title__textarea"
+    rows="1"
+    [value]="textareaValue()"
+    [placeholder]="placeholder()"
+    [readonly]="readonly()"
+    [disabled]="computedDisabled()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-required]="required() || null"
+    (input)="onInput($event)"
+    (focus)="onFocus()"
+    (blur)="onBlur()"
+  ></textarea>
+</span>
+}

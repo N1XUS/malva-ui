@@ -1,0 +1,15 @@
+## Media and audio
+
+Attachments are declared on the message itself. `image` and `gif` entries and
+`video` posters share one adaptive grid: a single item renders large with its
+`width`/`height` reserving the aspect ratio before load, two to four form a
+2-column grid, and anything beyond four collapses behind a `+N` overlay. Every
+cell is a button that emits `(mediaClick)` with both the message and the
+attachment — the chat deliberately ships no lightbox, so the host decides how to
+open media.
+
+`video` shows a play badge and duration chip rather than inline player chrome;
+`gif` autoplays muted on a loop. `audio` attachments render their own player
+with a seek slider, and only one audio message plays at a time within a single
+`mlv-chat`. An attachment carrying `uploadProgress` dims and shows a progress
+overlay until the field is cleared.

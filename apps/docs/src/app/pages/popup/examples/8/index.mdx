@@ -1,0 +1,17 @@
+## Mobile Fullscreen Mode
+
+Set `mobileMode="auto"` to render the popup as a full-screen sheet on small
+viewports (below `mobileBreakpoint`, default `"md"` / 768px) while keeping the
+normal trigger-anchored panel on larger screens. Use `mobileMode="fullscreen"`
+to force it on every viewport — this example does so for demonstration.
+
+In fullscreen mode the popup covers the viewport with a solid backdrop, locks the
+page scroll behind it, respects safe-area insets, and adds a header bar. Provide a
+visible heading with `mobileTitle` and an accessible close-button label via the
+`popup.close` i18n key (override per-instance with `mobileCloseLabel`). Focus is
+trapped inside the sheet and the panel slides up from the bottom (a fade under
+`prefers-reduced-motion`). Escape, the backdrop, and the close button all dismiss
+it and restore focus to the trigger.
+
+The three date/time pickers (`mlv-day-picker`, `mlv-date-range-picker`,
+`mlv-time-picker`) already opt into `mobileMode="auto"`.

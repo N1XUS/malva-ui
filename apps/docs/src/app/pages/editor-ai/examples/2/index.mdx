@@ -1,0 +1,50 @@
+## AI suggestion review
+
+The `review` output mode collects the whole provider result first — nothing
+streams into the document — then applies it over the starting selection as
+reviewable tracked suggestions. When both the selection and the result are one
+plain paragraph, they are word-diffed: each contiguous change becomes an
+individual insert, delete, or replace suggestion. Inserted text is highlighted
+inline; removed text is taken out of the document but stays visible as a
+strikethrough affordance. Structured or formatted content on either side falls
+back to one whole-region replace suggestion.
+
+`MlvEditorAiReviewBar` (projected into the status region with
+`mlvEditorStatus`) surfaces the pending count, previous/next navigation — the
+current suggestion gets an outline and scrolls into view — accept/reject for
+the current suggestion, and accept-all/reject-all. While a transform streams,
+the same bar shows a stop button. Each reject is one undo step; accepting
+keeps content the document already contains, so accepts create no history
+entry, and the whole application is a single step one undo reverts entirely.
+Editing through a pending suggestion drops just that suggestion; the review
+ends when the last one resolves. A result identical to the selection applies
+nothing and announces "The AI suggested no changes".
+
+This page's mock provider proofreads the selection instead of returning
+canned text — try it on the misspelled paragraph and the diff lands as one
+replace (`Teh` → `The`), one delete (`basically`), and one insert
+(`expert`).
+
+### Gate saves while a review is pending
+
+The sharp edge: suggestions live in decorations, so a host save during
+`reviewing` serializes the accepted-by-default state — inserted text present,
+removed text absent. Gate saves on `hasPendingSuggestions`. The AI context is
+provided on each `mlv-editor` element, so a one-line attribute directive
+bridges it to the host template:
+
+```ts
+@Directive({ selector: '[appAiReviewGate]', exportAs: 'appAiReviewGate' })
+export class AiReviewGate {
+  readonly ai = inject(MLV_EDITOR_AI_CONTEXT);
+}
+```
+
+```html
+<mlv-editor appAiReviewGate #gate="appAiReviewGate" [aiProvider]="provider">
+  <mlv-editor-ai-review-bar mlvEditorStatus />
+</mlv-editor>
+<button [disabled]="gate.ai.hasPendingSuggestions()" (click)="save()">
+  Save
+</button>
+```

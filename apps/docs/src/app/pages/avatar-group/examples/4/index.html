@@ -1,0 +1,35 @@
+<div
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: flex-start;
+  "
+>
+  <mlv-avatar-group
+    [members]="team"
+    interactive
+    (groupClick)="onGroupClick($event)"
+    (overflowClick)="onOverflowClick($event)"
+  />
+
+  <div
+    style="
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-size: 0.875rem;
+      color: var(--mlv-text-secondary);
+    "
+  >
+    @if (lastClickedCount() !== null) {
+    <span>groupClick emitted — {{ lastClickedCount() }} total members</span>
+    } @if (lastOverflowCount() !== null) {
+    <span
+      >overflowClick emitted — {{ lastOverflowCount() }} hidden members</span
+    >
+    } @if (lastClickedCount() === null && lastOverflowCount() === null) {
+    <span>Click the group or the +N chip to see outputs</span>
+    }
+  </div>
+</div>

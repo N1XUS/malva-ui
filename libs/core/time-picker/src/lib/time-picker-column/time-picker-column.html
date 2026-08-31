@@ -1,0 +1,32 @@
+<div class="mlv-time-picker-column__track">
+  <ul
+    #listRef
+    ngListbox
+    class="mlv-time-picker-column__list"
+    focusMode="activedescendant"
+    selectionMode="follow"
+    [wrap]="true"
+    [disabled]="disabled()"
+    [tabindex]="_listboxTabIndex()"
+    [value]="_ariaValue()"
+    (valueChange)="_onAriaValueChange($event)"
+    [attr.aria-label]="label()"
+    (scroll)="_onScroll()"
+  >
+    @for (item of _displayItems(); track item.value) {
+    <li
+      ngOption
+      #itemRef
+      [id]="'tp-col-item-' + _labelKey() + '-' + item.value"
+      [value]="item.value"
+      [label]="item.label"
+      class="mlv-time-picker-column__item"
+      [class.mlv-time-picker-column__item--selected]="
+          item.value === selectedValue()
+        "
+    >
+      {{ item.label }}
+    </li>
+    }
+  </ul>
+</div>

@@ -1,0 +1,64 @@
+<button mlvButton (click)="showDrawer.set(true)">Open Drawer</button>
+<mlv-drawer [(opened)]="showDrawer" position="right" size="640px">
+  <ng-template mlvDrawerContent>
+    <div mlvDrawerHeader>
+      <button
+        mlvButton
+        variant="secondary"
+        shape="square"
+        (click)="showDrawer.set(false)"
+      >
+        <svg lucideX size="24" />
+      </button>
+      <mlv-drawer-sections></mlv-drawer-sections>
+      <mlv-spacer />
+      <div style="display: flex; gap: 4px; align-items: center">
+        <button mlvButton type="submit" form="myform">Create</button>
+        <button (click)="showDrawer.set(false)" mlvButton variant="secondary">
+          Cancel
+        </button>
+      </div>
+    </div>
+    <div mlvDrawerBody>
+      <form mlvForm (ngSubmit)="submitForm()" id="myform">
+        <section mlvDrawerSection id="meta" label="Meta">
+          <mlv-form-field>
+            <mlv-input
+              mlvAutofocus
+              label="Product name"
+              placeholder="Enter product name"
+            />
+          </mlv-form-field>
+          <mlv-form-field>
+            <mlv-input label="Product URL" placeholder="Enter product URL" />
+          </mlv-form-field>
+        </section>
+        <section mlvDrawerSection id="inventory" label="Inventory">
+          <mlv-form-field>
+            <mlv-input
+              autofocus
+              type="number"
+              label="In stock"
+              placeholder="Enter stock quantity"
+            />
+          </mlv-form-field>
+
+          <mlv-form-field>
+            <mlv-select
+              label="Low quantity handler"
+              [options]="lowQuantityOptions"
+              placeholder="Select handler"
+            />
+          </mlv-form-field>
+        </section>
+      </form>
+      <p>
+        This is the drawer content. It slides in from the right with
+        configurable animation.
+      </p>
+      <button mlvButton variant="secondary" (click)="showDrawer.set(false)">
+        Close
+      </button>
+    </div>
+  </ng-template>
+</mlv-drawer>

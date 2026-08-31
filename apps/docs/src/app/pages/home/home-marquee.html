@@ -1,0 +1,32 @@
+<nav class="home-marquee" aria-label="Component quick links">
+  @for (row of rows; track $index) {
+    <div
+      class="home-marquee__row"
+      [class.home-marquee__row--reverse]="row.reverse"
+    >
+      <ul class="home-marquee__track">
+        @for (entry of row.entries; track entry.route) {
+          <li>
+            <a class="home-marquee__chip" [routerLink]="entry.route">
+              <svg [lucideIcon]="entry.icon" [size]="16" aria-hidden="true" />
+              {{ entry.label }}
+            </a>
+          </li>
+        }
+      </ul>
+      <ul
+        class="home-marquee__track home-marquee__track--ghost"
+        aria-hidden="true"
+      >
+        @for (entry of row.entries; track entry.route) {
+          <li>
+            <span class="home-marquee__chip">
+              <svg [lucideIcon]="entry.icon" [size]="16" aria-hidden="true" />
+              {{ entry.label }}
+            </span>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+</nav>

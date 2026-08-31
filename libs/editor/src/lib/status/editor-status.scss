@@ -1,0 +1,23 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-editor-status;
+
+.#{$block} {
+  @include mixins.base();
+  display: inline-flex;
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-caption-size);
+  line-height: var(--mlv-typography-caption-line-height);
+
+  &__summary {
+    display: inline-flex;
+    gap: var(--mlv-spacing-1);
+    * {
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-caption-size);
+      line-height: var(--mlv-typography-caption-line-height);
+    }
+  }
+}
+}

@@ -1,0 +1,25 @@
+.dt-issue-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--mlv-text-action);
+  text-decoration: none;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.dt-assignee {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dt-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}

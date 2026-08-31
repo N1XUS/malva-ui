@@ -1,0 +1,50 @@
+<div class="demo-col">
+  <div class="demo-row">
+    <button
+      mlvButton
+      [variant]="densityService.density() === 'compact' ? 'primary' : 'secondary'"
+      (click)="setDensity('compact')"
+    >
+      Compact
+    </button>
+    <button
+      mlvButton
+      [variant]="densityService.density() === 'comfortable' ? 'primary' : 'secondary'"
+      (click)="setDensity('comfortable')"
+    >
+      Comfortable
+    </button>
+    <button
+      mlvButton
+      [variant]="densityService.density() === 'spacious' ? 'primary' : 'secondary'"
+      (click)="setDensity('spacious')"
+    >
+      Spacious
+    </button>
+  </div>
+
+  <div class="demo-row">
+    <docs-status-chip>Active</docs-status-chip>
+    <docs-status-chip>In Review</docs-status-chip>
+    <docs-status-chip>Closed</docs-status-chip>
+  </div>
+
+  <p class="density-host-hint">
+    Applied BEM class:
+    <code>docs-status-chip--{{ densityService.density() }}</code>
+  </p>
+</div>
+
+<style>
+  .density-host-hint {
+    font-size: var(--mlv-typography-body-s-size);
+    color: var(--mlv-text-secondary);
+    margin: 0;
+  }
+
+  .density-host-hint code {
+    background: var(--mlv-background-neutral-1);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--mlv-radius-s);
+  }
+</style>

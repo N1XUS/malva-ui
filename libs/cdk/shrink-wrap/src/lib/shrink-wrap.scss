@@ -1,0 +1,79 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+// Measurement epsilons, not spacing: the `1px`/`-1px` pair below is the
+// smallest possible probe width the scroll-driven-animation trick can use to
+// produce a measurable view-timeline range on the `::before` marker without
+// perturbing layout — the padding and margin cancel exactly, so the marker
+// occupies zero rendered space. This is inherent to the CSS mechanism itself
+// (see `shrink-wrap.ts` for the full writeup), not a `--mlv-spacing-*`/`--mlv-padding-*` design value, so it
+// stays a raw px length rather than a token reference.
+
+@layer mlv.components {
+@property --mlv-shrink-wrap-host {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --mlv-shrink-wrap-item {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@keyframes mlv-shrink-wrap-host {
+  to {
+    --mlv-shrink-wrap-host: 1;
+  }
+}
+
+@keyframes mlv-shrink-wrap-item {
+  to {
+    --mlv-shrink-wrap-item: 1;
+  }
+}
+
+// reduced-motion: this pair of keyframes drives no motion a user perceives —
+// no transform, no opacity, no transition. It only recomputes a static
+// layout offset (`--mlv-shrink-wrap`, consumed via `max-inline-size` on
+// `[mlvShrinkWrap]`) from where the browser already laid out the balanced
+// text, once, on scroll-driven-animation timeline attachment. Gating it
+// behind `prefers-reduced-motion: reduce` would not remove any motion; it
+// would silently break the width correction and return every shrink-wrapped
+// box to the wider "balanced-with-gap" rendering instead. It is therefore
+// left unconditional — measurement, not motion.
+[mlvShrinkWrap] {
+  timeline-scope: --mlv-shrink-wrap-host, --mlv-shrink-wrap-item;
+  animation: mlv-shrink-wrap-host, mlv-shrink-wrap-item;
+  animation-timing-function: linear;
+  animation-timeline: --mlv-shrink-wrap-host, --mlv-shrink-wrap-item;
+  animation-range: entry 100% exit 100%;
+  --mlv-shrink-wrap: calc(
+    -1px / (1 - var(--mlv-shrink-wrap-host)) * var(--mlv-shrink-wrap-item)
+  );
+}
+
+.mlv-shrink-wrap {
+  @include mixins.base();
+
+  display: block;
+  overflow: hidden;
+  text-wrap: balance;
+  margin-inline-end: var(--mlv-shrink-wrap, 0px);
+
+  // The item timeline: tracks how far the content span's own view has
+  // entered the (overflow: hidden) host's scrollport.
+  > * {
+    view-timeline: --mlv-shrink-wrap-item inline;
+  }
+
+  // The host timeline: a 1px probe whose padding/margin cancel out so it
+  // occupies zero rendered space (see file-level comment above).
+  &::before {
+    content: '';
+    padding-inline-start: 1px;
+    margin-inline-end: -1px;
+    view-timeline: --mlv-shrink-wrap-host inline;
+  }
+}
+}

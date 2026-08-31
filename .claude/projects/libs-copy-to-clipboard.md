@@ -1,0 +1,175 @@
+---
+# Library: copy-to-clipboard
+
+> **Keep this file up to date.** Always update this file and keep it aligned with the current implementation whenever you make any change to this library.
+
+## Overview
+
+`@malva-ui/core/copy-to-clipboard` provides the `<mlv-copy-to-clipboard>` component — an inline text wrapper that copies its projected content (or an explicit `value`) to the system clipboard on click, Enter, or Space. Visually the component is invisible chrome by default: it reads as regular inline text until the user hovers or focuses it, at which point a subtle background tint appears and a small copy icon fades in. On successful copy, the icon morphs from Copy to Check via a soft blur crossfade, the `(copied)` output fires, and a visually hidden `aria-live="polite"` region announces the confirmation.
+
+---
+
+## Public API
+
+Exported from `libs/core/copy-to-clipboard/src/index.ts`:
+
+| Export               | Kind      | Description                                                |
+| -------------------- | --------- | ---------------------------------------------------------- |
+| `MlvCopyToClipboard` | Component | `mlv-copy-to-clipboard` — inline copy-to-clipboard wrapper |
+
+---
+
+## Components
+
+### `MlvCopyToClipboard`
+
+**File:** `libs/core/copy-to-clipboard/src/lib/copy-to-clipboard/copy-to-clipboard.ts`
+**Selector:** `mlv-copy-to-clipboard` | **Change Detection:** `OnPush` | **Encapsulation:** `None`
+
+#### Inputs
+
+| Name              | Type                     | Default                 | Description                                                                                                               |
+| ----------------- | ------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `value`           | `string \| undefined`    | `undefined`             | Explicit text to copy. When omitted, the component falls back to the trimmed `textContent` of the projected default slot. |
+| `copiedDuration`  | `number`                 | `2000`                  | Milliseconds the copied state remains active after a successful write.                                                    |
+| `ariaLabel`       | `string`                 | `'Copy to clipboard'`   | Base accessible label for the host. When a resolved value is available it is appended for richer screen-reader context.   |
+| `copiedAriaLabel` | `string`                 | `'Copied to clipboard'` | Announced via the visually hidden `aria-live="polite"` region after a successful copy.                                    |
+| `disabled`        | `BooleanInput` (coerced) | `false`                 | Disables the copy action, sets `aria-disabled`, and removes the host from the tab order.                                  |
+
+#### Outputs
+
+| Name     | Type                       | Description                                                                        |
+| -------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| `copied` | `OutputEmitterRef<string>` | Emits the exact string that was written to the clipboard after a successful write. |
+
+#### Public Properties
+
+| Property   | Type              | Description                                                                                                              |
+| ---------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `isCopied` | `Signal<boolean>` | Read-only signal reflecting the current copied state — useful for template-driven UI that reacts to the transient state. |
+
+#### Methods
+
+| Method   | Returns         | Description                                                                                                                                                                                                                                                          |
+| -------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `copy()` | `Promise<void>` | Writes the resolved value to the clipboard, flips `isCopied()` to true, emits `copied`, and schedules the auto-reset timer. No-op when `disabled` is true or the resolved value is empty. Errors are swallowed silently (the idle state stays unchanged on failure). |
+
+#### Host Bindings
+
+```ts
+host: {
+  'class': 'mlv-copy-to-clipboard',
+  '[class.mlv-copy-to-clipboard--copied]': 'isCopied()',
+  '[class.mlv-copy-to-clipboard--disabled]': 'disabled()',
+  'role': 'button',
+  '[attr.tabindex]': 'disabled() ? -1 : 0',
+  '[attr.aria-label]': '_computedAriaLabel()',
+  '[attr.aria-disabled]': 'disabled() || null',
+  '(click)': 'copy()',
+  '(keydown.enter)': 'copy(); $event.preventDefault()',
+  '(keydown.space)': 'copy(); $event.preventDefault()',
+}
+```
+
+---
+
+## Template Structure
+
+```html
+<span class="mlv-copy-to-clipboard__content">
+  <ng-content />
+</span>
+<span class="mlv-copy-to-clipboard__indicator" [mlvTooltip]="isCopied() ? 'Copied' : 'Copy'" tooltipPlacement="top" aria-hidden="true">
+  <svg lucideCopy class="mlv-copy-to-clipboard__icon mlv-copy-to-clipboard__icon--idle" [size]="12" />
+  <svg lucideCheck class="mlv-copy-to-clipboard__icon mlv-copy-to-clipboard__icon--success" [size]="12" />
+</span>
+<span class="mlv-copy-to-clipboard__live" aria-live="polite"> @if (isCopied()) { {{ copiedAriaLabel() }} } </span>
+```
+
+The indicator icon stack is decorated with `[mlvTooltip]` from `@malva-ui/core/tooltip` so the small icon gets a discoverable "Copy" label on hover, flipping to "Copied" in the success state.
+
+---
+
+## CSS Classes
+
+| Class                                   | Description                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------- |
+| `.mlv-copy-to-clipboard`                | Root block — inline-flex wrapper with zero-inset hover tint                      |
+| `.mlv-copy-to-clipboard__content`       | Span wrapping the projected default slot                                         |
+| `.mlv-copy-to-clipboard__indicator`     | Relatively-positioned ~0.875rem square holding the two icons                     |
+| `.mlv-copy-to-clipboard__icon`          | Absolutely-positioned icon inside the indicator                                  |
+| `.mlv-copy-to-clipboard__icon--idle`    | Copy icon layer (visible in idle state)                                          |
+| `.mlv-copy-to-clipboard__icon--success` | Check icon layer (visible in copied state), colored with `--mlv-text-positive`   |
+| `.mlv-copy-to-clipboard__live`          | Visually hidden `aria-live="polite"` announcement region                         |
+| `.mlv-copy-to-clipboard--copied`        | Success state modifier — crossfades the two icons with a blur bridge             |
+| `.mlv-copy-to-clipboard--disabled`      | Disabled modifier — applies `--mlv-disabled-opacity` and disables pointer events |
+
+---
+
+## Motion Design
+
+The component follows Emil Kowalski's motion principles:
+
+- **Invisible by default.** The host has no visible chrome until hover or focus — the component reads as prose text.
+- **Hover tint only on fine pointers.** The hover background reveal is gated behind `@media (hover: hover) and (pointer: fine)` so touch devices never stick with a phantom hover state. `:focus-visible` reveals the tint unconditionally so keyboard users always see it.
+- **Blur crossfade between states.** The Copy and Check icons are absolutely stacked inside the indicator. Transitioning from idle to copied crossfades them while briefly applying `filter: blur(2px)` and opposing `transform: scale(...)` values — a soft bridge that hides the visual seam between the two glyphs.
+- **Press feedback.** `:active` applies `transform: scale(0.97)` so the entire inline chunk depresses slightly on click.
+- **Custom easing.** Uses `var(--mlv-ease-out-strong)` (`cubic-bezier(0.23, 1, 0.32, 1)`) for every transition (no `transition: all`, no `ease-in`).
+- **Reduced motion.** Under `@media (prefers-reduced-motion: reduce)` the scale and blur transforms drop out, leaving only opacity crossfade.
+
+---
+
+## Accessibility
+
+- Host has `role="button"`, `tabindex="0"` (or `-1` when disabled), and a computed `aria-label` that combines the base label with the resolved value when one is available.
+- Activation is supported via mouse click, `Enter`, and `Space`. `Space` calls `preventDefault()` to suppress page scroll.
+- The two absolutely-positioned icons are wrapped in a single `aria-hidden="true"` container, so screen readers do not see the "Copy/Check" SVGs as extra content.
+- A visually hidden `aria-live="polite"` region exposes the `copiedAriaLabel()` text for the duration of the copied state, giving screen-reader users an unambiguous confirmation.
+- `:focus-visible` shows an outline using `--mlv-border-focus` and reveals the hover tint so keyboard users see the same affordance as hover users.
+- When `disabled`, the host reflects `aria-disabled="true"` and copy is a no-op.
+
+---
+
+## Usage Examples
+
+```html
+<!-- Basic inline usage -->
+<p>Your API key is <mlv-copy-to-clipboard>sk_live_abc123xyz</mlv-copy-to-clipboard>.</p>
+
+<!-- Decouple visible label from copied payload -->
+<mlv-copy-to-clipboard [value]="orderId">#0042</mlv-copy-to-clipboard>
+
+<!-- Extended copied window -->
+<mlv-copy-to-clipboard [copiedDuration]="4000">pnpm add @malva-ui/core</mlv-copy-to-clipboard>
+
+<!-- Wire to toast -->
+<mlv-copy-to-clipboard [value]="webhookUrl" (copied)="onCopied($event)"> hooks.example.com </mlv-copy-to-clipboard>
+
+<!-- Disabled -->
+<mlv-copy-to-clipboard disabled>cannot copy</mlv-copy-to-clipboard>
+```
+
+---
+
+## Dependencies
+
+- `@angular/core` `[@angular/core_VERSION_PLACEHOLDER]` — `Component`, `inject`, `input`, `output`, `signal`, `computed`, `DestroyRef`, `ElementRef`
+- `@angular/cdk/coercion` `[@angular/cdk_VERSION_PLACEHOLDER]` — `BooleanInput`, `coerceBooleanProperty`
+- `@lucide/angular` `[@lucide/angular_VERSION_PLACEHOLDER]` — `LucideCopy`, `LucideCheck`
+- `@malva-ui/core/tooltip` (workspace peer) — `MlvTooltip` for the indicator hover label
+
+---
+
+## File Structure
+
+```
+libs/core/copy-to-clipboard/src/
+  index.ts                                     — public API barrel
+  test-setup.ts                                — Vitest setup
+  lib/
+    copy-to-clipboard/
+      copy-to-clipboard.ts                     — MlvCopyToClipboard
+      copy-to-clipboard.html                   — template
+      copy-to-clipboard.scss                   — BEM styles, hover reveal, blur crossfade
+      copy-to-clipboard.spec.ts                — unit tests
+```

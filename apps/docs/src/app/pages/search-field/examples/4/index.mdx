@@ -1,0 +1,13 @@
+## Overlay Search
+
+`overlay` moves the search into a full-screen surface instead of accepting input inline — a darkened, blurred backdrop with a light-on-dark input anchored near the top.
+
+Two triggers open the same overlay. `presentation="icon"` renders a circular search button only and implies `overlay`, since an icon has nowhere to type. The default `presentation="field"` keeps the familiar input, but with `overlay` it becomes a trigger: clicking it or pressing Enter/Space opens the overlay and focus moves inside. The inline input is rendered read-only so the two never compete for typing.
+
+Focus alone never opens the overlay. WAI-ARIA treats the control that opens a dialog as a button — activated by click or Enter/Space — so a keyboard user tabbing past the field is not dropped into a modal, and the focus the overlay restores on close does not reopen it. The panel is a real modal: `role="dialog"`, `aria-modal="true"`, CDK focus trap, Escape and backdrop dismissal, and focus returned to the trigger.
+
+Both `live` and `submit` triggers keep working unchanged, and `value` / `search` behave exactly as they do inline — the overlay input routes through the same debounce, dedupe and commit path.
+
+By default the overlay body is another `mlv-search-field`, restyled for the dark surface and configured as a pure input surface — no submit button, since the overlay commits on Enter and already carries a leading search glyph and a close action.
+
+To own the overlay body, project a `[mlvSearchOverlayContent]` template. It replaces that default field entirely and receives a typed context (`query`, `setQuery`, `submit`, `clear`, `close`, `loading`), so you can drop in an autocomplete input, recent searches, or grouped results while the field keeps owning the overlay lifecycle and focus restore.

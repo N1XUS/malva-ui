@@ -1,0 +1,98 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-editor-table;
+
+  .#{$block} {
+    @include mixins.base();
+    display: inline-flex;
+
+    // `mlv-popup` deliberately ships no panel padding — the projected block owns
+    // its spacing — so the inset lives here, matching the popover inset every
+    // other editor overlay uses.
+    &__panel {
+      display: grid;
+      // The insertion grid is a fixed 10 x 1.25rem swatch block; a fixed panel
+      // width leaves ~7rem of dead surface to its right. `max-content` lets the
+      // panel hug whichever branch is rendered, and `__actions` sets its own
+      // width because a 12-item command list has no natural one.
+      width: max-content;
+      max-width: calc(100vw - 3.5rem);
+      padding: var(--mlv-popover-inset);
+      gap: var(--mlv-spacing-2);
+    }
+
+    &__actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      width: min(24rem, calc(100vw - 4rem));
+      gap: var(--mlv-spacing-2);
+    }
+
+    &__grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.125rem;
+    }
+
+    &__grid-row {
+      display: grid;
+      grid-template-columns: repeat(10, 1.25rem);
+      gap: 0.125rem;
+    }
+
+    &__grid-cell {
+      appearance: none;
+      box-sizing: border-box;
+      inline-size: 1.25rem;
+      block-size: 1.25rem;
+      margin: 0;
+      padding: 0;
+      border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+      border-radius: var(--mlv-radius-xs);
+      background: var(--mlv-background-base);
+      cursor: pointer;
+      transition: background-color var(--mlv-duration-fast)
+          var(--mlv-ease-default),
+        border-color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+      // SF-R1: the swatches under the pointer are a persistent selection, not a
+      // pressed state, so they take the selected pair rather than any `-active`.
+      &--selected {
+        border-color: var(--mlv-border-focus);
+        background: var(--mlv-background-selected);
+      }
+
+      &:disabled {
+        cursor: default;
+        opacity: var(--mlv-disabled-opacity);
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+    }
+
+    &__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--mlv-spacing-3);
+    }
+
+    // Mirrors the highlighted swatch count. `aria-hidden` because every cell
+    // already carries the same dimensions in its own `aria-label`.
+    &__size {
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+  }
+
+  // Emitted at the layer root, not nested: the panel is portalled into the
+  // overlay container, so it is never a descendant of `.mlv-editor-table`.
+  // The mixin's `[class^='#{$block}__']` branch reaches it there.
+  @include mixins.reduced-motion($block);
+}

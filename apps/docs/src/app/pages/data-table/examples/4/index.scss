@@ -1,0 +1,52 @@
+.dt-file-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dt-file-icon {
+  flex-shrink: 0;
+
+  &--folder {
+    color: #f59e0b;
+  }
+
+  &--file {
+    color: var(--mlv-text-secondary);
+  }
+}
+
+.dt-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--mlv-radius-s);
+  font-size: var(--mlv-typography-body-s-size);
+  font-weight: 500;
+
+  &--folder {
+    background: color-mix(in srgb, #f59e0b 15%, transparent);
+    color: #b45309;
+  }
+
+  &--file {
+    background: var(--mlv-background-accent-1);
+    color: var(--mlv-text-secondary);
+  }
+}
+
+.dt-no-files {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2.5rem 1rem;
+  color: var(--mlv-text-secondary);
+  text-align: center;
+
+  p {
+    margin: 0;
+    font-size: var(--mlv-typography-body-m-size);
+    max-width: 280px;
+  }
+}

@@ -1,0 +1,92 @@
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+  <button mlvButton variant="outlined" (click)="showSmall.set(true)">
+    Small
+  </button>
+  <button mlvButton variant="outlined" (click)="showLarge.set(true)">
+    Large
+  </button>
+  <button mlvButton variant="outlined" (click)="showFullscreen.set(true)">
+    Fullscreen
+  </button>
+</div>
+
+<ng-template [(mlvDialog)]="showSmall" [mlvDialogOptions]="{ size: 's' }">
+  <mlv-dialog>
+    <mlv-dialog-header title="Small Dialog" />
+    <mlv-dialog-body>
+      <p>Width: 400px</p>
+      <mlv-form-field>
+        <mlv-select
+          label="Select something"
+          [options]="['One', 'Two', 'Three', 'Four']"
+        ></mlv-select>
+      </mlv-form-field>
+    </mlv-dialog-body>
+    <mlv-dialog-footer>
+      <button mlvButton mlvDialogClose>Close</button>
+    </mlv-dialog-footer>
+  </mlv-dialog>
+</ng-template>
+
+<ng-template [(mlvDialog)]="showLarge" [mlvDialogOptions]="{ size: 'l' }">
+  <mlv-dialog>
+    <mlv-dialog-header title="Large Dialog" />
+    <mlv-dialog-body>
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam non
+      interdum enim. Class aptent taciti sociosqu ad litora torquent per conubia
+      nostra, per inceptos himenaeos. Sed lacinia massa velit, nec pulvinar ante
+      fermentum lacinia. In hac habitasse platea dictumst. Maecenas vehicula ex
+      id est tincidunt vestibulum. Donec eleifend diam eget diam facilisis
+      consectetur. Sed efficitur erat at tortor imperdiet rutrum. Curabitur nec
+      lacinia turpis. Nunc blandit, risus sit amet feugiat ultricies, odio nibh
+      sagittis tortor, id aliquam dolor ex sit amet lacus. Nunc id purus
+      lacinia, ultrices est sit amet, pellentesque leo. In hac habitasse platea
+      dictumst. Etiam varius, ipsum in dignissim bibendum, orci ante mollis
+      tortor, a venenatis lectus felis nec libero. Maecenas suscipit consequat
+      eros, sed interdum massa interdum at. Vestibulum luctus, tortor id congue
+      tincidunt, libero orci feugiat lectus, sit amet aliquet sapien nisl
+      malesuada arcu. Pellentesque dapibus dolor nisl, at maximus nisi aliquet
+      at. Aliquam ornare magna molestie elit interdum aliquam. Curabitur tempus
+      posuere odio vel sollicitudin. Curabitur id ipsum venenatis, rhoncus justo
+      quis, scelerisque urna. Ut id purus non eros ultricies lacinia vel in
+      lectus. Curabitur vel elementum augue, facilisis consectetur urna.
+      Suspendisse nulla urna, pellentesque ac sem vitae, mattis pretium erat.
+      Donec ut rhoncus ante, vitae condimentum metus. Fusce eget eleifend nisl.
+      Mauris risus erat, tristique sed ligula sed, mattis feugiat erat. Nulla
+      finibus faucibus nibh, id porta sapien ultricies nec. Etiam in ipsum a
+      ipsum cursus interdum ut at tellus. Morbi et tortor ex. Nam pulvinar nunc
+      sit amet lectus interdum vulputate. Nunc pretium purus vel metus posuere
+      auctor. Phasellus neque libero, tempus sit amet ligula non, dapibus semper
+      libero. Aliquam eget mauris odio. Nam non malesuada orci, quis fringilla
+      libero. Donec et ultricies diam, a rutrum nunc. Nulla eget ex iaculis,
+      dignissim augue quis, luctus lorem. Donec justo risus, consectetur vel
+      porta ut, commodo tempus urna. Nullam at tortor in elit aliquet finibus
+      vitae vitae mi. Donec fringilla nibh non felis egestas tincidunt.
+      Suspendisse iaculis sodales justo, nec commodo quam. Donec faucibus
+      sagittis eleifend. Morbi auctor sodales lectus, non pulvinar arcu viverra
+      sit amet. Ut a ex lacus. Cras fringilla nisi ut laoreet tempus. Nunc
+      euismod urna et orci commodo, sit amet lacinia turpis aliquet. Phasellus
+      pharetra faucibus diam, sed dictum ante iaculis dignissim. In lacinia
+      felis enim, ut dictum sem cursus et. Mauris id massa vel enim vulputate
+      tincidunt.
+    </mlv-dialog-body>
+    <mlv-dialog-footer>
+      <button mlvButton mlvDialogClose>Close</button>
+    </mlv-dialog-footer>
+  </mlv-dialog>
+</ng-template>
+
+<ng-template
+  [(mlvDialog)]="showFullscreen"
+  [mlvDialogOptions]="{ size: 'fullscreen' }"
+>
+  <mlv-dialog>
+    <mlv-dialog-header title="Fullscreen Dialog" />
+    <mlv-dialog-body>
+      <p>This dialog fills the entire viewport.</p>
+    </mlv-dialog-body>
+    <mlv-dialog-footer>
+      <button mlvButton mlvDialogClose>Close</button>
+    </mlv-dialog-footer>
+  </mlv-dialog>
+</ng-template>

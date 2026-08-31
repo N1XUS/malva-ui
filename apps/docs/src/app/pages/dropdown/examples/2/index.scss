@@ -1,0 +1,30 @@
+.dropdown-multiple {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--mlv-spacing-6);
+
+  &__panel {
+    inline-size: 17rem;
+    max-inline-size: 100%;
+  }
+
+  &__summary {
+    flex: 1 1 14rem;
+    min-inline-size: 0;
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__empty {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+  }
+}

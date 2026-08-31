@@ -1,0 +1,137 @@
+<mlv-form-control-wrapper>
+  @if (label() || hint()) {
+  <mlv-label [for]="id()" [required]="required()">
+    {{ label() }} @if (hint()) {
+    <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
+  }
+
+  <ng-template mlvFormControlWrapperControl>
+    <mlv-popup-container class="mlv-time-picker__popup-container">
+      <div
+        #triggerRef
+        class="mlv-time-picker__trigger"
+        [id]="id()"
+        role="combobox"
+        [attr.aria-expanded]="isOpen()"
+        [attr.aria-haspopup]="'dialog'"
+        [attr.aria-label]="_resolvedAriaLabel()"
+        [attr.aria-disabled]="computedDisabled()"
+        [attr.aria-controls]="isOpen() ? panelId() : null"
+        [attr.aria-required]="required() || null"
+        [attr.aria-describedby]="_describedBy()"
+        [attr.tabindex]="computedDisabled() ? -1 : 0"
+        (click)="_toggleDropdown()"
+        (keydown.enter)="_toggleDropdown()"
+        (keydown.space)="_toggleDropdown(); $event.preventDefault()"
+        (keydown.escape)="isOpen.set(false)"
+        (focus)="setFocused(true)"
+        (blur)="_onTriggerBlur()"
+      >
+        <span class="mlv-time-picker__value">{{ _displayValue() }}</span>
+        <span class="mlv-time-picker__icon">
+          <svg lucideClock></svg>
+        </span>
+      </div>
+
+      <mlv-popup
+        [(opened)]="isOpen"
+        [hasShadow]="true"
+        panelRole="dialog"
+        [modal]="true"
+        mobileMode="auto"
+        [mobileTitle]="label() || _resolvedAriaLabel()"
+        [ariaLabel]="_resolvedAriaLabel()"
+        class="mlv-time-picker__popup"
+        (afterOpened)="_onPopupOpened()"
+        (afterClosed)="_onPopupClosed()"
+      >
+        <ng-template mlvPopupContent>
+          <div
+            [id]="panelId()"
+            class="mlv-time-picker__panel"
+            [class]="'mlv-time-picker__panel--' + _effectiveDensity()"
+            role="group"
+            [attr.aria-label]="_resolvedAriaLabel()"
+          >
+            <div
+              class="mlv-time-picker__columns"
+              tabindex="-1"
+              (keydown)="_onPanelKeydown($event)"
+            >
+              <!-- Hours column -->
+              <mlv-time-picker-column
+                label="Hours"
+                [items]="_hourItems()"
+                [selectedValue]="_displayHour()"
+                [disabled]="computedDisabled()"
+                (valueChange)="_onHourChange($event)"
+              />
+
+              <span class="mlv-time-picker__divider" aria-hidden="true">:</span>
+
+              <!-- Minutes column -->
+              <mlv-time-picker-column
+                label="Minutes"
+                [items]="_minuteItems()"
+                [selectedValue]="_minute()"
+                [disabled]="computedDisabled()"
+                (valueChange)="_onMinuteChange($event)"
+              />
+
+              @if (showSeconds()) {
+              <span class="mlv-time-picker__divider" aria-hidden="true">:</span>
+
+              <!-- Seconds column -->
+              <mlv-time-picker-column
+                label="Seconds"
+                [items]="_secondItems()"
+                [selectedValue]="_second()"
+                [disabled]="computedDisabled()"
+                (valueChange)="_onSecondChange($event)"
+              />
+              } @if (mode() === '12h') {
+              <!-- AM/PM toggle -->
+              <div
+                class="mlv-time-picker__ampm"
+                role="group"
+                [attr.aria-label]="_i18n().period"
+              >
+                <button
+                  type="button"
+                  mlvButton
+                  [variant]="_period() === 'AM' ? 'primary' : 'outlined'"
+                  [attr.aria-pressed]="_period() === 'AM'"
+                  [disabled]="computedDisabled()"
+                  (click)="_onPeriodChange('AM')"
+                >
+                  AM
+                </button>
+                <button
+                  type="button"
+                  mlvButton
+                  [variant]="_period() === 'PM' ? 'primary' : 'outlined'"
+                  [attr.aria-pressed]="_period() === 'PM'"
+                  [disabled]="computedDisabled()"
+                  (click)="_onPeriodChange('PM')"
+                >
+                  PM
+                </button>
+              </div>
+              }
+            </div>
+          </div>
+        </ng-template>
+      </mlv-popup>
+    </mlv-popup-container>
+  </ng-template>
+
+  @if (description()) {
+  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+  } @if (message()) {
+  <mlv-message [id]="_messageId()" [state]="resolvedState()">
+    {{ message() }}
+  </mlv-message>
+  }
+</mlv-form-control-wrapper>

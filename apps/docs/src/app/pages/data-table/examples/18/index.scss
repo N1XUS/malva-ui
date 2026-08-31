@@ -1,0 +1,11 @@
+$block: data-table-smart-filter-demo;
+
+.#{$block} {
+  display: grid;
+  gap: 0.75rem;
+
+  &__status {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+}

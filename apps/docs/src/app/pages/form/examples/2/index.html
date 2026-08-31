@@ -1,0 +1,35 @@
+<form mlvForm maxWidth="40rem">
+  <fieldset mlvFieldset legend="Name">
+    <mlv-input label="First name" placeholder="Jane" />
+    <mlv-input label="Last name" placeholder="Doe" />
+  </fieldset>
+
+  <fieldset
+    mlvFieldset
+    legend="Address"
+    description="Where should we ship your order?"
+    [columns]="2"
+  >
+    <mlv-input label="Street" mlvFieldsetSpan="full" />
+    <mlv-input label="City" />
+    <mlv-input label="Postal code" />
+    <mlv-select label="Country" [options]="countries" mlvFieldsetSpan="full" />
+  </fieldset>
+
+  <fieldset mlvFieldset [columns]="1">
+    <legend>Notifications <small>(optional)</small></legend>
+    <mlv-checkbox>Email me order updates</mlv-checkbox>
+    <mlv-checkbox>Email me offers</mlv-checkbox>
+  </fieldset>
+
+  <fieldset mlvFieldset legend="Payment" minColumnWidth="14rem">
+    <fieldset mlvFieldset legend="Card" [columns]="1" gap="xs">
+      <mlv-input label="Card number" />
+      <mlv-input label="Name on card" />
+    </fieldset>
+    <fieldset mlvFieldset legend="Expiry" [columns]="2" gap="xs">
+      <mlv-input label="MM" />
+      <mlv-input label="YY" />
+    </fieldset>
+  </fieldset>
+</form>

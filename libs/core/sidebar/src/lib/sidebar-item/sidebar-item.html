@@ -1,0 +1,55 @@
+<span class="mlv-sidebar-item__icon" aria-hidden="true">
+  <ng-template [ngTemplateOutlet]="iconRef()?.templateRef ?? null" />
+
+  <!-- Collapsed rail: status dot replaces the badge, pinned to the icon's top-right corner. Decorative — the count is folded into the host aria-label. -->
+  @if (isCollapsed() && _hasBadge()) {
+  <mlv-status-indicator
+    class="mlv-sidebar-item__status"
+    [tone]="badgeTone()"
+    [pulse]="badgePulse()"
+  />
+  }
+</span>
+
+<!-- The label stays mounted for an interruptible CSS fade, but becomes inert and clipped immediately. -->
+<span
+  class="mlv-sidebar-item__label"
+  [attr.aria-hidden]="isCollapsed() ? 'true' : null"
+  [attr.inert]="isCollapsed() ? '' : null"
+>
+  @if (titleRef()?.templateRef; as titleTpl) {
+  <ng-template [ngTemplateOutlet]="titleTpl"></ng-template>
+  } @else { {{ label() }} }
+</span>
+@if (_hasBadge()) {
+<mlv-badge
+  class="mlv-sidebar-item__badge"
+  [tone]="badgeTone()"
+  muted
+  mlvDensity="tight"
+  aria-hidden="true"
+  >{{ badge() }}</mlv-badge
+>
+}
+
+<!-- Link overlay: covers the icon area when fully collapsed so the router link is still clickable -->
+@if ( isCollapsed() && _hasProjectedFocusable() && titleRef()?.templateRef; as
+linkTpl ) {
+<span class="mlv-sidebar-item__link-overlay">
+  <ng-template [ngTemplateOutlet]="linkTpl" />
+</span>
+}
+
+<!-- Tooltip — shown on hover/focus in collapsed mode via mlv-popup -->
+<mlv-popup-container #tooltipContainer class="mlv-sidebar-item__tooltip-anchor">
+  <mlv-popup
+    panelRole="tooltip"
+    position="right-start"
+    [hasShadow]="true"
+    [hasBackdrop]="false"
+    scrollStrategy="close"
+    class="mlv-sidebar-item__tooltip-container"
+  >
+    <ng-template mlvPopupContent>{{ label() }}</ng-template>
+  </mlv-popup>
+</mlv-popup-container>

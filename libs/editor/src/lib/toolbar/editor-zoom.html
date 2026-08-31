@@ -1,0 +1,82 @@
+<button
+  mlvButton
+  mlvEditorToolbarWidget
+  type="button"
+  shape="square"
+  mlvDensity="tight"
+  variant="transparent"
+  [disabled]="_zoomOutDisabled()"
+  [attr.aria-label]="_copy().zoomOut"
+  [mlvTooltip]="_copy().zoomOut"
+  (click)="_zoomOut()"
+>
+  <svg mlvButtonIcon lucideZoomOut aria-hidden="true" />
+</button>
+
+<button
+  #_trigger="mlvPopupTrigger"
+  mlvButton
+  mlvEditorToolbarWidget
+  type="button"
+  mlvDensity="tight"
+  variant="transparent"
+  [disabled]="_disabled()"
+  [mlvPopupTrigger]="_popup"
+  [ariaHasPopup]="'dialog'"
+  [attr.aria-label]="_copy().zoom"
+  [mlvTooltip]="_copy().zoom"
+>
+  {{ zoom() }}%
+</button>
+
+<button
+  mlvButton
+  mlvEditorToolbarWidget
+  type="button"
+  shape="square"
+  mlvDensity="tight"
+  variant="transparent"
+  [disabled]="_zoomInDisabled()"
+  [attr.aria-label]="_copy().zoomIn"
+  [mlvTooltip]="_copy().zoomIn"
+  (click)="_zoomIn()"
+>
+  <svg mlvButtonIcon lucideZoomIn aria-hidden="true" />
+</button>
+
+<mlv-popup
+  #_popup
+  panelRole="dialog"
+  [modal]="true"
+  [ariaLabel]="_copy().zoom"
+  (afterOpened)="_onPopupOpened()"
+  (afterClosed)="_onPopupClosed()"
+>
+  <ng-template mlvPopupContent>
+    <div [id]="_panelId" class="mlv-editor-zoom__panel">
+      <div class="mlv-editor-zoom__field">
+        <mlv-input
+          #_input
+          type="number"
+          inputMode="numeric"
+          [ariaLabel]="_copy().zoom"
+          [min]="_bounds().min"
+          [max]="_bounds().max"
+          [disabled]="_disabled()"
+          [value]="_draft()"
+          (valueChange)="_draft.set($event)"
+          (keydown.enter)="_applyDraft($event)"
+          (inputBlur)="_applyDraft()"
+        />
+      </div>
+      <mlv-dropdown-panel
+        class="mlv-editor-zoom__levels"
+        [options]="_levelOptions()"
+        [selectedValues]="_selectedLevels()"
+        [ariaLabel]="_copy().zoom"
+        [maxHeight]="_PANEL_MAX_HEIGHT"
+        (valueChange)="_selectLevel($event)"
+      />
+    </div>
+  </ng-template>
+</mlv-popup>

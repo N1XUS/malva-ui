@@ -1,0 +1,110 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-checkbox;
+
+.#{$block} {
+  @include mixins.base();
+  color: var(--mlv-text-primary);
+  display: inline-block;
+  --check-opacity: 0;
+  --check-transform: scale(0.7) rotate(15deg);
+  --check-background: var(--mlv-elevation-bg-2);
+  --check-border-color: var(--mlv-border-normal);
+  outline: none;
+
+  // Label type scale (CH-R3) — `mixins.base()` already carries the
+  // `comfortable` default (`--mlv-font-size-m`); this only needed the
+  // missing density ramp so the label reads at the same size as the
+  // input/select text it sits beside at every density.
+  @include density.density-tight {
+    font-size: var(--mlv-font-size-s);
+  }
+  @include density.density-compact {
+    font-size: var(--mlv-font-size-m);
+  }
+  @include density.density-spacious {
+    font-size: var(--mlv-font-size-l);
+  }
+  @include density.density-airy {
+    font-size: var(--mlv-font-size-xl);
+  }
+
+  // Visually-hidden pattern: keep the native checkbox in the a11y tree so
+  // screen readers and assistive tech can interact with it, but render it
+  // off-screen via clip-path. Replaces the previous display:none which
+  // removed the input from the a11y tree entirely.
+  &__native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  // Native :focus-visible on the hidden input promotes a focus ring on the
+  // visual swatch so keyboard users see the focus target.
+  &__native:focus-visible + &__visual {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+  }
+
+  &:hover:not(.#{$block}--checked) {
+    --check-border-color: var(--mlv-border-strong);
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    cursor: pointer;
+  }
+
+  &__visual {
+    background-color: var(--check-background);
+    display: block;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--mlv-radius-s);
+    border: 0.125rem solid var(--check-border-color);
+    transition: all var(--mlv-duration-normal) var(--mlv-ease-default);
+    transition-property: background-color, border-color, box-shadow;
+  }
+
+  &__check {
+    color: var(--mlv-text-primary-on-accent-1);
+    opacity: var(--check-opacity);
+    transform: var(--check-transform);
+    transition: all var(--mlv-duration-normal) var(--mlv-ease-default);
+    transition-property: opacity, transform;
+  }
+
+  &--checked {
+    --check-background: var(--mlv-background-accent-1);
+    --check-border-color: var(--mlv-background-accent-1);
+    --check-opacity: 1;
+    --check-transform: scale(1);
+  }
+
+  // Projected content always wins over the `label` input fallback. `display:
+  // none` (rather than visibility/clip) also removes the duplicate from the
+  // accessible name computed from the wrapping <label>.
+  &__content:not(:empty) + &__label-text {
+    display: none;
+  }
+
+  &--disabled {
+    pointer-events: none;
+    cursor: not-allowed;
+    opacity: var(--mlv-disabled-opacity);
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

@@ -1,0 +1,17 @@
+---
+title: Native select
+description: Use the browser's native options picker on mobile or every viewport
+---
+
+Set `native` to `true` to use the browser's native select picker everywhere, or
+to `'auto'` to switch to it below the `md` breakpoint. A bare `native` attribute
+is shorthand for `native="true"`; the default is `false`.
+
+The example shows both modes: the first select uses `native="auto"`, while the
+second uses a bare `native` attribute to force the native picker at every
+viewport.
+
+Native mode reads choices from `[options]`. Option groups become native
+`<optgroup>` elements and disabled options remain disabled. Custom
+`mlvSelectItemTemplate` and `mlvSelectSelectedTemplate` templates are ignored;
+only native `<option>` and `<optgroup>` content is rendered.

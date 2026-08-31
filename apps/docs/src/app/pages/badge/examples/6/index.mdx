@@ -1,0 +1,16 @@
+---
+title: Icon slot
+---
+
+Mark any projected element with `mlvBadgeIcon` to put an icon in the badge. The badge sizes
+it from its own density-driven font size (`--mlv-badge-icon-size`, `1em` by default) and
+adds the label gap (`--mlv-badge-gap`), so an icon set's intrinsic `24px` never has to be
+overridden by hand.
+
+- `position="end"` moves the icon after the label. The icon is always projected into the
+  same slot, so it can be declared wherever it reads best in the template — the side is a
+  CSS `order`, not a second projection point.
+- The icon is `aria-hidden="true"`: it normally repeats what the label already says. When
+  the icon is the badge's only content, give the badge itself an accessible name.
+- Badges without an icon are untouched — the gap only comes with the `mlv-badge--with-icon`
+  modifier.

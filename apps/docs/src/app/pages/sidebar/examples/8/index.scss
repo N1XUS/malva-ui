@@ -1,0 +1,106 @@
+.sidebar-demo {
+  height: 720px;
+  border: 1px solid var(--mlv-border-normal);
+  border-radius: var(--mlv-radius-m);
+  display: flex;
+  overflow: hidden;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns:
+    var(--mlv-sidebar-icon-column-width, 2.375rem)
+    minmax(0, 1fr);
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  min-width: 0;
+
+  &__logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--mlv-radius-s);
+    background-color: var(--mlv-background-accent-1);
+    color: var(--mlv-text-primary-on-accent-1);
+    flex-shrink: 0;
+    justify-self: center;
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: var(--mlv-line-height-snug);
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+    transition:
+      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+      transform var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+      visibility var(--mlv-duration-instant) linear;
+  }
+
+  &__name,
+  &__plan {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__name {
+    font-size: var(--mlv-font-size-m);
+    font-weight: 600;
+    color: var(--mlv-text-primary);
+  }
+
+  &__plan {
+    font-size: var(--mlv-font-size-s);
+    color: var(--mlv-text-secondary);
+  }
+}
+
+.user {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: var(--mlv-line-height-snug);
+
+  &__name,
+  &__email {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__name {
+    font-size: var(--mlv-font-size-m);
+    font-weight: 600;
+    color: var(--mlv-text-primary);
+  }
+
+  &__email {
+    font-size: var(--mlv-font-size-s);
+    color: var(--mlv-text-secondary);
+  }
+}
+
+.mlv-sidebar--collapsed {
+  .workspace {
+    // Preserve the second track so the mounted label cannot be auto-placed on
+    // another row while it fades out.
+    grid-template-columns:
+      var(--mlv-sidebar-icon-column-width, 2.375rem)
+      minmax(0, 0fr);
+  }
+
+  .workspace__meta {
+    opacity: 0;
+    transform: translateX(-0.25rem);
+    visibility: hidden;
+    pointer-events: none;
+    transition-delay: 0s, 0s, var(--mlv-duration-normal);
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@malva-ui/cdk",
+  "version": "0.0.0-malva-ui-package-version",
+  "description": "Headless Angular primitives behind Malva UI — overlays, density, data sources, accessibility and observer utilities.",
+  "license": "MIT",
+  "keywords": [
+    "angular",
+    "cdk",
+    "malva-ui",
+    "overlay",
+    "accessibility",
+    "data-source",
+    "density",
+    "infinite-scroll",
+    "shrink-wrap"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@angular/cdk": "0.0.0-angular-cdk-package-version",
+    "@angular/common": "0.0.0-angular-common-package-version",
+    "@angular/core": "0.0.0-angular-core-package-version",
+    "@angular/forms": "0.0.0-angular-forms-package-version",
+    "rxjs": "0.0.0-rxjs-package-version"
+  },
+  "sideEffects": false
+}

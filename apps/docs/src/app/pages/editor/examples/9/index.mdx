@@ -1,0 +1,32 @@
+## JSON mode
+
+Set `format="json"` when the stored representation must be lossless. The model
+type is still `string | null`; the string is
+`JSON.stringify(editor.getJSON())`, the Tiptap document itself. Custom block
+nodes keep their typed attributes instead of being flattened into HTML
+attributes, so hosts can render the document structurally rather than injecting
+markup.
+
+Parse the string at your own boundary — Malva never widens the model to an
+object:
+
+```ts
+readonly document = computed(() => {
+  const json = this.value();
+  return json === null ? null : (JSON.parse(json) as JSONContent);
+});
+```
+
+JSON needs no extra extension, so it works with the default preset and with any
+literal `extensions` replacement.
+
+Loading is strict. Malformed JSON, arrays, scalars, objects without a `type`,
+nodes that are not the schema's top node, and node types outside the active
+extension set all emit a recoverable `parse` error through `editorError` and
+leave the model at its last valid value. Unknown nodes are never silently
+dropped, so a schema mismatch cannot turn into data loss on the next save. Keep
+the extension set that produced a document available to read it back.
+
+Applying an external JSON value emits no `valueChange`, even when the supplied
+JSON differs from Malva's canonical serialization only by key order or
+whitespace. An emission follows only a real edit or an explicit format change.

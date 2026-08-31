@@ -1,0 +1,255 @@
+<mlv-form-control-wrapper (clear)="onClear()">
+  @if (label() || hint()) {
+  <mlv-label [for]="id()" [required]="required()">
+    {{ label() }} @if (hint()) {
+    <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
+  }
+
+  <ng-template mlvFormControlWrapperControl>
+    <mlv-popup-container class="mlv-combobox__popup-container">
+      <div
+        class="mlv-combobox__trigger"
+        mlvResizeObserver
+        #trigger
+        [attr.aria-busy]="_awaitingValueLabel() || null"
+        (resized)="updateTriggerWidth($event)"
+      >
+        @if (multiple()) { @for (opt of _chipOptions(); track opt.value) {
+        <mlv-chip
+          class="mlv-combobox__chip"
+          [class.mlv-combobox__chip--armed]="_isChipArmed(opt)"
+          muted
+          [closable]="!computedDisabled() && !readonly()"
+          (mousedown)="$event.preventDefault()"
+          (chipClose)="removeSelected(opt.value)"
+        >
+          @if (selectedTemplate()?.templateRef; as tpl) {
+          <ng-container *ngTemplateOutlet="tpl; context: { $implicit: opt }" />
+          } @else { {{ opt.label }} }
+        </mlv-chip>
+        } }
+
+        <div
+          class="mlv-combobox__field"
+          [class.mlv-combobox__field--template-display]="_showSingleTemplate()"
+        >
+          <mlv-input
+            bare
+            class="mlv-combobox__input"
+            [id]="id()"
+            [role]="_outerIsCombobox() ? 'combobox' : null"
+            [ariaExpanded]="_outerIsCombobox() ? isOpen() : null"
+            [ariaHasPopup]="_outerIsCombobox() ? 'listbox' : null"
+            [ariaAutocomplete]="_outerIsCombobox() ? 'list' : null"
+            [ariaControls]="_outerIsCombobox() && isOpen() ? listboxId() : null"
+            [ariaActiveDescendant]="
+              _outerIsCombobox() ? _activeOptionId() : null
+            "
+            [ariaLabel]="label() ? null : ariaLabel()"
+            [required]="required()"
+            [ariaDescribedBy]="_describedBy()"
+            [placeholder]="
+              _awaitingValueLabel() ? _i18n().loading : _resolvedPlaceholder()
+            "
+            [disabled]="computedDisabled()"
+            [readonly]="readonly() || _awaitingValueLabel()"
+            [value]="_awaitingValueLabel() ? '' : searchQuery()"
+            [autocomplete]="'off'"
+            (input)="onSearchInput($event)"
+            (inputFocus)="onInputFocus()"
+            (inputBlur)="onInputBlur()"
+            (click)="onTriggerClick()"
+            (keydown.enter)="onEnterKey($event)"
+            (keydown.backspace)="onInputBackspace($event)"
+            (keydown.delete)="onInputDelete($event)"
+            (keydown.arrowDown)="onArrowDown($event)"
+            (keydown.arrowUp)="onArrowUp($event)"
+            (keydown.home)="onHome($event)"
+            (keydown.end)="onEnd($event)"
+            (keydown.escape)="onEscape($event)"
+          />
+
+          @if (_showSingleTemplate()) {
+          <div class="mlv-combobox__single-display" aria-hidden="true">
+            <ng-container
+              *ngTemplateOutlet="
+                selectedTemplate()!.templateRef;
+                context: { $implicit: selectedOptions()[0] }
+              "
+            />
+          </div>
+          }
+        </div>
+
+        @if (clearable() && hasValue() && !computedDisabled() && !readonly()) {
+        <!-- Inline clear, BEFORE the chevron (ownsClearButton suppresses the
+             wrapper's trailing copy). mousedown is prevented so the input keeps
+             focus while clearing. -->
+        <mlv-button-close
+          class="mlv-combobox__clear"
+          (mousedown)="$event.preventDefault()"
+          (click)="onClear()"
+          mlvDensity="tight"
+          [ariaLabel]="_formI18n().clear"
+        />
+        }
+        <!-- The chevron is replaced by a spinner while the committed value's
+             label is still resolving — the field is inert then, so a toggle
+             button would be a dead control. -->
+        @if (_awaitingValueLabel()) {
+        <mlv-loader
+          class="mlv-combobox__loader"
+          variant="circle"
+          indeterminate
+          [size]="18"
+          [strokeWidth]="2"
+          [ariaLabel]="_i18n().loading"
+        />
+        } @else {
+        <button
+          type="button"
+          class="mlv-combobox__arrow"
+          tabindex="-1"
+          [attr.aria-label]="_i18n().toggleOptions"
+          [disabled]="computedDisabled()"
+          (mousedown)="onChevronMousedown($event)"
+        >
+          <svg size="20" lucideChevronDown></svg>
+        </button>
+        }
+      </div>
+
+      <mlv-popup
+        [(opened)]="isOpen"
+        [width]="triggerWidth()"
+        [hasShadow]="true"
+        [hasBackdrop]="false"
+        [flexibleDimensions]="true"
+        [positions]="dropdownPositions"
+        [dismissExcludeElements]="_popupExcludeElements()"
+        [mobileMode]="mobileMode()"
+        [mobileTitle]="_resolvedMobileTitle()"
+        [mlvDensity]="mlvDensity()"
+        class="mlv-combobox__popup"
+        (afterOpened)="_onPopupOpened()"
+        (afterClosed)="_onPopupClosed()"
+      >
+        <!-- Full-screen sheet only: an in-sheet search field (and, for
+             multi-select, the selected chips) rendered in the popup header so
+             type-to-filter survives the sheet's solid backdrop + focus trap.
+             Not stamped while trigger-anchored, so desktop is unaffected. -->
+        <ng-template mlvPopupHeaderContent>
+          <div class="mlv-combobox__sheet-header">
+            @if (multiple() && _chipOptions().length) {
+            <div class="mlv-combobox__sheet-chips">
+              @for (opt of _chipOptions(); track opt.value) {
+              <mlv-chip
+                class="mlv-combobox__chip"
+                [class.mlv-combobox__chip--armed]="_isChipArmed(opt)"
+                muted
+                [closable]="!computedDisabled() && !readonly()"
+                (mousedown)="$event.preventDefault()"
+                (chipClose)="removeSelected(opt.value)"
+              >
+                @if (selectedTemplate()?.templateRef; as tpl) {
+                <ng-container
+                  *ngTemplateOutlet="tpl; context: { $implicit: opt }"
+                />
+                } @else { {{ opt.label }} }
+              </mlv-chip>
+              }
+            </div>
+            }
+
+            <mlv-input
+              class="mlv-combobox__sheet-input"
+              [id]="_sheetInputId()"
+              [role]="_isFullscreen() ? 'combobox' : null"
+              [ariaLabel]="_resolvedMobileTitle()"
+              [ariaExpanded]="_isFullscreen() ? isOpen() : null"
+              [ariaHasPopup]="_isFullscreen() ? 'listbox' : null"
+              [ariaAutocomplete]="_isFullscreen() ? 'list' : null"
+              [ariaControls]="
+                _isFullscreen() && isOpen() ? listboxId() : null
+              "
+              [ariaActiveDescendant]="
+                _isFullscreen() ? _activeOptionId() : null
+              "
+              [placeholder]="
+                _awaitingValueLabel() ? _i18n().loading : _resolvedPlaceholder()
+              "
+              [disabled]="computedDisabled()"
+              [readonly]="readonly() || _awaitingValueLabel()"
+              [value]="_awaitingValueLabel() ? '' : searchQuery()"
+              [autocomplete]="'off'"
+              (input)="onSearchInput($event)"
+              (inputFocus)="onInputFocus()"
+              (inputBlur)="onInputBlur()"
+              (keydown.enter)="onEnterKey($event)"
+              (keydown.backspace)="onInputBackspace($event)"
+              (keydown.delete)="onInputDelete($event)"
+              (keydown.arrowDown)="onArrowDown($event)"
+              (keydown.arrowUp)="onArrowUp($event)"
+              (keydown.home)="onHome($event)"
+              (keydown.end)="onEnd($event)"
+              (keydown.escape)="onEscape($event)"
+            />
+          </div>
+        </ng-template>
+
+        <ng-template mlvPopupContent>
+          <!-- Keep DOM focus in the input while pointing at the panel: prevent the
+               mousedown from blurring the field so the activedescendant model and
+               open state survive option / scrollbar clicks. -->
+          <div
+            class="mlv-combobox__panel"
+            (mousedown)="$event.preventDefault()"
+          >
+            <mlv-dropdown-panel
+              scrollMode="parent"
+              [options]="filteredOptions()"
+              [multiple]="multiple()"
+              [selectedValues]="selectionService.selectedValues()"
+              [itemTemplate]="itemTemplate()?.templateRef ?? null"
+              [highlightQuery]="_highlightQuery()"
+              [listboxId]="listboxId()"
+              [ariaLabel]="_panelAriaLabel()"
+              focusMode="activedescendant"
+              [activeIndex]="activeIndex()"
+              [loading]="_panelLoading()"
+              [loadingText]="_i18n().loading"
+              [hasMore]="_adapter.hasMore()"
+              [loadingMore]="_adapter.loadingMore()"
+              (loadMore)="_adapter.loadMore()"
+              (valueChange)="selectValues($event)"
+            >
+              <div class="mlv-combobox__empty">
+                @if (allowCreate() && searchQuery().trim()) { {{
+                _pressEnterToAdd() }} } @else { {{ _i18n().noResults }} }
+              </div>
+            </mlv-dropdown-panel>
+          </div>
+        </ng-template>
+      </mlv-popup>
+    </mlv-popup-container>
+
+    <!-- Polite announcement of the current result count for screen-reader users. -->
+    <div class="mlv-combobox__sr-status" aria-live="polite" role="status">
+      {{ _resultsAnnouncement() }}
+    </div>
+    <!-- Polite announcement of the currently armed chip (Backspace flow). -->
+    <div class="mlv-combobox__sr-status" aria-live="polite" role="status">
+      {{ _armedMessage() }}
+    </div>
+  </ng-template>
+
+  @if (description()) {
+  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+  } @if (message()) {
+  <mlv-message [id]="_messageId()" [state]="resolvedState()">
+    {{ message() }}
+  </mlv-message>
+  }
+</mlv-form-control-wrapper>

@@ -1,0 +1,40 @@
+<div style="display: flex; flex-direction: column; gap: 1rem">
+  <div style="display: flex; align-items: center; gap: 0.5rem">
+    <button mlvButton variant="secondary" (click)="toggleLayout()">
+      bodyLayout: {{ bodyLayout() }}
+    </button>
+
+    @for (option of sizes; track option) {
+    <button
+      mlvButton
+      variant="transparent"
+      [attr.aria-pressed]="size() === option"
+      (click)="size.set(option)"
+    >
+      size {{ option }}
+    </button>
+    }
+  </div>
+
+  <mlv-card
+    [size]="size()"
+    [bodyLayout]="bodyLayout()"
+    style="max-width: 26rem"
+  >
+    <h3 *mlvCardHeaderDef mlvCardHeader>Deployment</h3>
+    <p *mlvCardSubheaderDef mlvCardSubheader>web · production</p>
+
+    <p style="margin: 0">
+      The body is the default projection slot. With
+      <code>bodyLayout="stack"</code> it becomes a vertical stack separated by
+      <code>--mlv-card-body-gap</code>, which follows the card size.
+    </p>
+
+    <div style="display: flex; gap: 0.5rem">
+      <mlv-badge tone="success" muted>Healthy</mlv-badge>
+      <mlv-badge tone="info" muted>v2.14.0</mlv-badge>
+    </div>
+
+    <p style="margin: 0; opacity: 0.7">Last deployed 12 minutes ago.</p>
+  </mlv-card>
+</div>

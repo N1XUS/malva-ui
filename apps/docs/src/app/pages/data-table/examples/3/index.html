@@ -1,0 +1,18 @@
+<div class="data-table-resize-demo">
+  <p class="data-table-resize-demo__hint">
+    Drag a column divider, or focus it and use the arrow keys. Hold Shift for a
+    larger step; press Enter or double-click to restore the declared width.
+  </p>
+
+  <mlv-data-table
+    [data]="transactions"
+    [columns]="columns"
+    (columnResize)="lastResize.set($event)"
+  />
+
+  @if (resizeStatus(); as status) {
+  <output class="data-table-resize-demo__status" aria-live="polite">
+    {{ status }}
+  </output>
+  }
+</div>

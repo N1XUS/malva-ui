@@ -1,0 +1,11 @@
+<div style="max-width: 480px; display: flex; flex-direction: column; gap: 1rem">
+  <mlv-date-range-picker
+    label="Trip dates"
+    placeholder="Select start and end date"
+    [(ngModel)]="range"
+  />
+
+  <p style="font-size: 0.875rem; color: var(--mlv-text-secondary)">
+    Selected range: <strong>{{ displayValue }}</strong>
+  </p>
+</div>

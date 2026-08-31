@@ -1,0 +1,29 @@
+<div
+  class="demo-col"
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  "
+>
+  <mlv-segmented [(value)]="folder" ariaLabel="Mail folder">
+    <button mlvSegmentedItem value="inbox">
+      <svg lucideInbox [size]="16" />
+      Inbox
+      <mlv-badge tone="danger">3</mlv-badge>
+    </button>
+    <button mlvSegmentedItem value="sent">
+      <svg lucideSend [size]="16" />
+      Sent
+    </button>
+    <button mlvSegmentedItem value="archive">
+      <svg lucideArchive [size]="16" />
+      Archive
+    </button>
+  </mlv-segmented>
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Selected: {{ folder() }}
+  </p>
+</div>

@@ -1,0 +1,34 @@
+<div
+  class="demo-col"
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: flex-start;
+  "
+>
+  <mlv-segmented
+    label="Billing"
+    description="Yearly saves two months."
+    [(ngModel)]="billing"
+  >
+    <button mlvSegmentedItem value="monthly">Monthly</button>
+    <button mlvSegmentedItem value="yearly">Yearly</button>
+  </mlv-segmented>
+
+  <mlv-segmented label="Plan" [formField]="fields.plan">
+    <button mlvSegmentedItem value="starter">Starter</button>
+    <button mlvSegmentedItem value="pro">Pro</button>
+    <button mlvSegmentedItem value="enterprise" disabled>Enterprise</button>
+  </mlv-segmented>
+
+  <mlv-segmented label="Locked" disabled [value]="'b'">
+    <button mlvSegmentedItem value="a">A</button>
+    <button mlvSegmentedItem value="b">B</button>
+  </mlv-segmented>
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Billing: {{ billing() }} · Plan: {{ fields.plan().value() }} · Touched: {{
+    fields.plan().touched() }}
+  </p>
+</div>

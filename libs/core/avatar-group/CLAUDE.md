@@ -1,0 +1,1 @@
+../../../.claude/projects/libs-avatar-group.md

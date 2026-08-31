@@ -1,0 +1,6 @@
+<mlv-calendar
+  [value]="selectedDate()"
+  (valueChange)="selectedDate.set($event)"
+/>
+
+<p>Selected date: {{ selectedLabel() }}</p>

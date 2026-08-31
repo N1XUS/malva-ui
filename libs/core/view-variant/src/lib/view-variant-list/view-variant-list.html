@@ -1,0 +1,136 @@
+<div class="mlv-view-variant-list__toolbar">
+  <mlv-input
+    bare
+    type="search"
+    placeholder="Search views"
+    ariaLabel="Search views"
+    [value]="query()"
+    (valueChange)="query.set($event)"
+  />
+
+  @if (_canCreate()) { @if (createScopes().length === 1) {
+  <button
+    type="button"
+    mlvButton
+    variant="secondary"
+    class="mlv-view-variant-list__create"
+    [loading]="_isCreating()"
+    (click)="_create(createScopes()[0])"
+  >
+    <svg lucidePlus [size]="16" aria-hidden="true"></svg>
+    New view
+  </button>
+  } @else { @for (scope of createScopes(); track scope) {
+  <button
+    type="button"
+    mlvButton
+    variant="secondary"
+    class="mlv-view-variant-list__create"
+    [loading]="_isCreating()"
+    (click)="_create(scope)"
+  >
+    <svg lucidePlus [size]="16" aria-hidden="true"></svg>
+    New {{ scope }} view
+  </button>
+  } } }
+</div>
+
+@if (errorMessage(); as errorMessage) {
+<div class="mlv-view-variant-list__error" role="status" aria-live="polite">
+  <span>{{ errorMessage }}</span>
+  <span class="mlv-view-variant-list__error-actions">
+    <button
+      type="button"
+      mlvButton
+      variant="transparent"
+      (click)="retryRequest.emit()"
+    >
+      Retry
+    </button>
+    <button
+      type="button"
+      mlvButton
+      variant="transparent"
+      (click)="dismissError.emit()"
+    >
+      Dismiss
+    </button>
+  </span>
+</div>
+} @for (group of _groups(); track group.scope) {
+<section class="mlv-view-variant-list__group" [attr.aria-label]="group.label">
+  <h2 class="mlv-view-variant-list__group-title">{{ group.label }}</h2>
+  <ul class="mlv-view-variant-list__items">
+    @for (variant of group.variants; track variant.id) {
+    <li class="mlv-view-variant-list__item">
+      <button
+        type="button"
+        class="mlv-view-variant-list__row"
+        [class.mlv-view-variant-list__row--active]="_isActive(variant)"
+        [attr.aria-current]="_isActive(variant) ? 'page' : null"
+        [disabled]="_isVariantBusy(variant.id)"
+        (click)="_select(variant)"
+      >
+        <span class="mlv-view-variant-list__name">{{ variant.name }}</span>
+        @if (variant.locked) {
+        <svg
+          class="mlv-view-variant-list__lock"
+          lucideLockKeyhole
+          [size]="14"
+          aria-hidden="true"
+        ></svg>
+        <span class="mlv-view-variant-list__visually-hidden">Read-only</span>
+        } @if (variant.resultCount !== undefined) {
+        <span class="mlv-view-variant-list__count"
+          >{{ variant.resultCount }}</span
+        >
+        }
+      </button>
+
+      @if (variant.capabilities.rename || variant.capabilities.delete ||
+      variant.capabilities.share) {
+      <button
+        type="button"
+        mlvButton
+        shape="square"
+        variant="transparent"
+        class="mlv-view-variant-list__more"
+        [mlvMenuTrigger]="variantMenu"
+        [attr.aria-label]="'More actions for ' + variant.name"
+      >
+        <svg lucideEllipsis [size]="16" aria-hidden="true"></svg>
+      </button>
+      <mlv-menu #variantMenu [label]="'Actions for ' + variant.name">
+        @if (variant.capabilities.rename) {
+        <mlv-list-item
+          mlvMenuItem
+          [disabled]="_isActionBusy('rename', variant.id)"
+          (itemClick)="_requestAction('rename', variant)"
+          >Rename</mlv-list-item
+        >
+        } @if (variant.capabilities.share) {
+        <mlv-list-item
+          mlvMenuItem
+          [disabled]="_isActionBusy('share', variant.id)"
+          (itemClick)="_requestAction('share', variant)"
+          >Share</mlv-list-item
+        >
+        } @if (variant.capabilities.delete) {
+        <mlv-list-item
+          mlvMenuItem
+          [disabled]="_isActionBusy('delete', variant.id)"
+          (itemClick)="_requestAction('delete', variant)"
+          >Delete</mlv-list-item
+        >
+        }
+      </mlv-menu>
+      }
+    </li>
+    }
+  </ul>
+</section>
+} @empty {
+<p class="mlv-view-variant-list__empty" role="status">
+  No views match your search.
+</p>
+}

@@ -1,0 +1,48 @@
+.dropdown-item-template {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mlv-spacing-4);
+
+  &__panel {
+    inline-size: 22rem;
+    max-inline-size: 100%;
+  }
+
+  &__result {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+  }
+}
+
+.reviewer-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--mlv-spacing-3);
+  min-inline-size: 0;
+
+  &__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-inline-size: 0;
+  }
+
+  &__name {
+    overflow: hidden;
+    color: var(--mlv-text-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__team {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__check {
+    flex: none;
+    color: var(--mlv-text-action);
+  }
+}

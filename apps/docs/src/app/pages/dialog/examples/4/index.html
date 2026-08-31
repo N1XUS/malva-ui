@@ -1,0 +1,20 @@
+<button mlvButton variant="outlined" (click)="showCustom.set(true)">
+  Open Custom (700px &times; 400px)
+</button>
+<ng-template
+  [(mlvDialog)]="showCustom"
+  [mlvDialogOptions]="{ size: customSize }"
+>
+  <mlv-dialog>
+    <mlv-dialog-header title="Custom Size" />
+    <mlv-dialog-body>
+      <p>
+        This dialog uses an inline size config:
+        <code>{{ '{ width: 700, height: 400 }' }}</code>
+      </p>
+    </mlv-dialog-body>
+    <mlv-dialog-footer>
+      <button mlvButton mlvDialogClose>Close</button>
+    </mlv-dialog-footer>
+  </mlv-dialog>
+</ng-template>

@@ -1,0 +1,65 @@
+<section
+  class="presentation-state-demo"
+  aria-labelledby="presentation-state-demo-title"
+>
+  <header class="presentation-state-demo__header">
+    <div>
+      <p class="presentation-state-demo__eyebrow">Revenue operations</p>
+      <h3 id="presentation-state-demo-title">Renewal review presentation</h3>
+      <p>
+        Capture durable table preferences, compare a focused renewal review, and
+        restore the captured presentation without persisting a saved view.
+      </p>
+    </div>
+
+    <div
+      class="presentation-state-demo__actions"
+      role="group"
+      aria-label="Presentation actions"
+    >
+      <button
+        mlvButton
+        type="button"
+        variant="secondary"
+        (click)="capturePresentation()"
+      >
+        Capture presentation
+      </button>
+      <button
+        mlvButton
+        type="button"
+        variant="secondary"
+        (click)="showRenewalReview()"
+      >
+        Show renewal review
+      </button>
+      <button
+        mlvButton
+        type="button"
+        [disabled]="!hasCapturedPresentation()"
+        (click)="applyCapturedPresentation()"
+      >
+        Reapply captured state
+      </button>
+      <button
+        mlvButton
+        type="button"
+        variant="transparent"
+        (click)="resetPresentation()"
+      >
+        Reset example
+      </button>
+    </div>
+  </header>
+
+  <output class="presentation-state-demo__status" aria-live="polite">
+    {{ status() }}
+  </output>
+
+  <mlv-data-table
+    [data]="rows"
+    [columns]="columns"
+    filterDisplay="none"
+    [showSearch]="false"
+  />
+</section>

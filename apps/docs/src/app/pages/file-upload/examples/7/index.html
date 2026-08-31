@@ -1,0 +1,56 @@
+<div
+  class="demo-col"
+  style="gap: 1.5rem; align-items: stretch; max-width: 28rem"
+>
+  <!-- Seeded with a stored image, so the zone opens straight into cover state.
+       Hover (or Tab into) the image to reveal the [AI][Replace][Remove]
+       toolbar. -->
+  <mlv-file-upload
+    previewMode="cover"
+    title="Image"
+    subtitle="Or drag and drop in this area"
+    actionLabel="Choose image"
+    accept="image/*"
+    [multiple]="false"
+    [(value)]="cover"
+  >
+    <button
+      mlvButton
+      mlvFileUploadAction
+      type="button"
+      shape="square"
+      variant="transparent"
+      aria-label="Generate image with AI"
+      (click)="onExtraAction('Generate with AI')"
+    >
+      <svg lucideSparkles [size]="16" />
+    </button>
+  </mlv-file-upload>
+
+  <!-- Same configuration with no value: cover mode falls back to the normal
+       drop zone, and the projected actions return to the action row. -->
+  <mlv-file-upload
+    previewMode="cover"
+    title="Image"
+    subtitle="Or drag and drop in this area"
+    actionLabel="Choose image"
+    accept="image/*"
+    [multiple]="false"
+    [(value)]="empty"
+  >
+    <button
+      mlvButton
+      mlvFileUploadAction
+      type="button"
+      shape="square"
+      aria-label="Generate image with AI"
+      (click)="onExtraAction('Generate with AI (empty state)')"
+    >
+      <svg lucideSparkles [size]="16" />
+    </button>
+  </mlv-file-upload>
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Last projected action: {{ lastAction() }}
+  </p>
+</div>

@@ -1,0 +1,9 @@
+## Multi-expand, rich headers & disabled items
+
+Set `[multiExpandable]="true"` to let several sections stay open at once. For
+headers beyond plain text, project an element marked with `mlvAccordionHeader`
+(here an icon + label) instead of using the `header` input.
+
+Individual items support `[expanded]="true"` to start open and `[disabled]="true"`
+to make a section non-interactive (it keeps `aria-disabled` and, per the aria
+default `softDisabled`, remains keyboard-focusable but inert).

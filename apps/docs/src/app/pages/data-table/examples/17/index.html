@@ -1,0 +1,26 @@
+<div class="data-table-simple-filter-demo">
+  <div
+    class="data-table-simple-filter-demo__filters"
+    role="group"
+    aria-label="Table filters"
+  >
+    <mlv-filter
+      label="Status"
+      [options]="statusOptions"
+      multiple
+      [(conditions)]="statusConditions"
+    />
+    <mlv-filter
+      label="Owner"
+      [options]="ownerOptions"
+      [(conditions)]="ownerConditions"
+    />
+  </div>
+
+  <mlv-data-table
+    [data]="rows"
+    [columns]="columns"
+    filterDisplay="none"
+    [activeFilters]="activeFilters()"
+  />
+</div>

@@ -1,0 +1,88 @@
+<div
+  class="demo-row"
+  style="justify-content: space-between; align-items: flex-start"
+>
+  <div
+    style="
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.375rem;
+    "
+  >
+    <div style="font-size: 0.75rem; color: var(--mlv-text-secondary)">
+      Prefers <strong>bottom-start</strong>, falls back to
+      <strong>top-start</strong>
+    </div>
+    <button
+      mlvButton
+      variant="outlined"
+      [mlvPopupTrigger]="popLeft"
+      [ariaHasPopup]="null"
+    >
+      Near left edge
+      <ng-template mlvButtonAfter
+        ><svg lucideChevronDown [size]="16"
+      /></ng-template>
+    </button>
+    <mlv-popup
+      #popLeft
+      [position]="['bottom-start', 'top-start']"
+      [hasArrow]="true"
+    >
+      <ng-template mlvPopupContent>
+        <div style="padding: 0.75rem 1rem; min-width: 15rem">
+          <div style="font-weight: 600; margin-bottom: 0.375rem">
+            Dropdown menu
+          </div>
+          <div style="font-size: 0.875rem; color: var(--mlv-text-secondary)">
+            Opens below when there is room; flips to top-start when the viewport
+            is too small.
+          </div>
+        </div>
+      </ng-template>
+    </mlv-popup>
+  </div>
+
+  <div
+    style="
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.375rem;
+    "
+  >
+    <div style="font-size: 0.75rem; color: var(--mlv-text-secondary)">
+      Prefers <strong>bottom-end</strong>, falls back to
+      <strong>top-end</strong>
+    </div>
+    <button
+      mlvButton
+      variant="outlined"
+      [mlvPopupTrigger]="popRight"
+      [ariaHasPopup]="null"
+    >
+      Near right edge
+      <ng-template mlvButtonAfter
+        ><svg lucideChevronDown [size]="16"
+      /></ng-template>
+    </button>
+    <mlv-popup
+      #popRight
+      [position]="['bottom-end', 'top-end']"
+      [hasArrow]="true"
+    >
+      <ng-template mlvPopupContent>
+        <div style="padding: 0.75rem 1rem; min-width: 15rem">
+          <div style="font-weight: 600; margin-bottom: 0.375rem">
+            Dropdown menu
+          </div>
+          <div style="font-size: 0.875rem; color: var(--mlv-text-secondary)">
+            Opens below when there is room; flips to top-end when the viewport
+            is too small.
+          </div>
+        </div>
+      </ng-template>
+    </mlv-popup>
+  </div>
+</div>

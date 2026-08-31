@@ -1,0 +1,9 @@
+## Alternating Layout
+
+`direction` is set per item, so stepping it `left → right → left → right` places
+consecutive events on opposite sides of the spine.
+
+Mixing directions is also what opts a timeline into the full three-column
+layout. When every item shares the same `direction` — the common case, since
+items default to `'right'` — the timeline collapses to two columns
+automatically and gives the unused half of its width back to the content.

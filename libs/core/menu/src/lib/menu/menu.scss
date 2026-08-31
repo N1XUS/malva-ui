@@ -1,0 +1,139 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-menu;
+
+// The menu host uses display:contents so it does not contribute to layout.
+.#{$block} {
+  display: contents;
+
+  // Keep a small inset so item hover/focus states do not sit flush to popup chrome.
+  // The panel zeroes the list's own padding below, so this is the single inset —
+  // the same 4px select and combobox get from their list padding.
+  &__popup {
+    padding: var(--mlv-popover-inset);
+    overflow: hidden;
+  }
+
+  // Panel rendered inside the popup overlay via ng-template mlvPopupContent.
+  // Uses mlv-list for the container — overrides its defaults for menu context.
+  &__panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 10rem;
+    max-width: 20rem;
+    --mlv-list-padding-block: 0;
+    --mlv-list-padding-inline: 0;
+    gap: 0;
+    overflow: hidden;
+    font-family: var(--mlv-typography-family-text);
+    font-size: var(--mlv-font-size-m);
+    box-sizing: border-box;
+  }
+
+  &__loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: 2.5rem;
+    padding: var(--mlv-padding-s);
+  }
+}
+
+// ─── Menu Item ────────────────────────────────────────────────────────────────
+
+// mlv-list-item inside the menu panel: tighter padding with rounded hover states.
+.mlv-menu__panel .mlv-list-item {
+  // Routed through the list-item padding vars (not a direct `padding:`) so the
+  // higher-specificity density ladder in list-item.scss can still override the
+  // vars when the popup stamps a `mlv--{density}` class on its panel. The
+  // popover token keeps menu rows aligned with select/combobox rows.
+  border-radius: var(--mlv-popover-item-radius);
+  --mlv-list-item-padding-block: var(--mlv-popover-item-padding);
+  --mlv-list-item-padding-inline: var(--mlv-popover-item-padding);
+  font-size: var(--mlv-font-size-m);
+}
+
+// Form B focus ring (inset). The panel clips (`overflow: hidden`) and rows can
+// sit flush against its inline edges, which cuts the left and right sides off
+// the default outset ring from `list-item.scss`.
+// See `.claude/rules/bem-scss.md` — "Focus Ring — Forms A/B".
+.mlv-menu__panel .mlv-list-item:focus-visible {
+  outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+}
+
+.mlv-menu__panel .mlv-list-item [mlvlistitemsuffix] {
+  display: inline-flex;
+  flex: 0 0 var(--form-ctrl-icon-size, 1.25rem);
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--form-ctrl-icon-size, 1.25rem);
+  block-size: var(--form-ctrl-icon-size, 1.25rem);
+  color: var(--mlv-text-tertiary);
+}
+
+// Generated submenu rows own their affordance in the menu surface's trailing
+// area. Keep an explicit consumer-provided suffix authoritative so custom row
+// templates can supply a different icon without receiving a duplicate.
+.mlv-menu__panel
+  .mlv-menu-data-renderer__submenu-trigger:not(:has([mlvlistitemsuffix]))
+  .mlv-list-item__surface {
+  position: relative;
+  padding-inline-end: calc(
+    var(--mlv-list-item-padding-inline) + var(--form-ctrl-icon-size, 1.25rem)
+  );
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: var(--mlv-list-item-padding-inline);
+    inline-size: var(--form-ctrl-icon-size, 1.25rem);
+    block-size: var(--form-ctrl-icon-size, 1.25rem);
+    border-block-start: var(--mlv-stroke-width-medium) solid currentColor;
+    border-inline-end: var(--mlv-stroke-width-medium) solid currentColor;
+    color: var(--mlv-text-tertiary);
+    pointer-events: none;
+    transform: translateY(-50%) rotate(45deg) scale(0.6);
+    transform-origin: center;
+    transition: color var(--mlv-duration-fast) var(--mlv-ease-out);
+  }
+
+  &:hover::after,
+  &:focus-visible::after,
+  &[aria-expanded='true']::after {
+    color: var(--mlv-text-primary);
+  }
+}
+
+// ─── Menu Separator ──────────────────────────────────────────────────────────
+
+.mlv-menu-separator {
+  display: block;
+  margin: var(--mlv-spacing-1) 0;
+
+  &__line {
+    border: none;
+    border-top: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    margin: 0;
+  }
+}
+
+// ─── Menu Group ──────────────────────────────────────────────────────────────
+
+.mlv-menu-group {
+  display: block;
+
+  &__label {
+    display: block;
+    // Inline inset tracks the menu rows so the label text lines up with items.
+    padding: var(--mlv-spacing-1) var(--mlv-popover-item-padding);
+    font-size: var(--mlv-typography-ui-s-size);
+    font-weight: var(--mlv-font-weight-medium);
+    color: var(--mlv-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    pointer-events: none;
+  }
+}
+}

@@ -1,0 +1,39 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+@use './floating-container.mixins' as floating;
+
+@layer mlv.components {
+$block: mlv-floating-container;
+
+.#{$block} {
+  @include mixins.base();
+  @include floating.safe-area-block-end(var(--mlv-spacing-4));
+
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 1;
+  display: grid;
+  margin-block-start: var(--mlv-spacing-4);
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-body-s-size);
+  line-height: var(--mlv-typography-body-s-line-height);
+  text-align: center;
+
+  > * {
+    grid-area: 2 / 1;
+  }
+
+  // An optional leading hint line renders above the main content row.
+  > :first-child:not(:only-child) {
+    grid-row: 1;
+    margin-block-end: var(--mlv-spacing-2);
+  }
+
+  // Gradient-masked backdrop: content scrolling beneath fades out instead of
+  // hitting a hard separator line. It bleeds past the inline edges so the fill
+  // still covers content sitting in the host's own inline padding.
+  @include floating.backdrop(
+    var(--mlv-floating-container-background, var(--mlv-background-raised)),
+    $inset: 0 calc(-1 * var(--mlv-spacing-4))
+  );
+}
+}

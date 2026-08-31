@@ -1,0 +1,15 @@
+## Page measure and block reordering
+
+`contentWidth` centres the editable column at a reading measure and reserves a
+horizontal gutter on both sides. The gutter is present at every value, including
+`full`, because it is where the block drag handle lives.
+
+Hover a block to reveal its handle, then drag to reorder among top-level blocks.
+Blocks do not reparent into lists or table cells — reordering stays at the top
+level, which keeps the drop target unambiguous.
+
+The handle is a pointer affordance: it is `aria-hidden` and outside the tab
+order, because the content region is a single textbox tab stop. Keyboard users
+press `Alt+Shift+ArrowUp` and `Alt+Shift+ArrowDown`, which run the same
+`moveBlock` command the drag path uses and announce the result politely. Both
+paths produce one undo step. Handles are hidden on touch devices and in print.

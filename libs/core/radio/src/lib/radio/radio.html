@@ -1,0 +1,20 @@
+<label class="mlv-radio__label">
+  <input
+    #nativeInput
+    type="radio"
+    class="mlv-radio__native"
+    [name]="name()"
+    [checked]="checked()"
+    [disabled]="disabled()"
+    [attr.tabindex]="tabIndex()"
+    [attr.aria-checked]="checked()"
+    [attr.aria-label]="_resolvedAriaLabel()"
+    [attr.aria-labelledby]="_resolvedAriaLabelledBy()"
+    (change)="onSelect()"
+    (focus)="onFocus()"
+  />
+  <span class="mlv-radio__visual"></span>
+  <span class="mlv-radio__text">
+    <ng-content />
+  </span>
+</label>

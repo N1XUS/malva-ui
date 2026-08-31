@@ -1,0 +1,5 @@
+## Descriptions and unmapped validators
+
+`description` is persistent help text rendered below the control, in front of the validation message — unlike `hint`, which is a short inline aside inside the label. Both stay visible together, and the control's `aria-describedby` references whichever of them is rendered.
+
+A validator key with no built-in message (here `ibanChecksum`) resolves to a neutral, translated message rather than leaking the key name; a dev-mode console warning names the missing key once so you can supply one through `errorMessages`.

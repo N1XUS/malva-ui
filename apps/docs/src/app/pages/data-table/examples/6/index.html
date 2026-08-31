@@ -1,0 +1,55 @@
+<mlv-data-table
+  [data]="team()"
+  [columns]="columns"
+  editable
+  addRow
+  (rowEditSave)="onSave($event)"
+  (rowAdd)="onAddRow()"
+>
+  <!-- Display templates -->
+  <ng-template
+    mlvDataTableCell="status"
+    [mlvDataTableCellFrom]="team()"
+    let-row
+  >
+    <mlv-badge
+      [tone]="row.status === 'active' ? 'success' : row.status === 'on-leave' ? 'warning' : 'danger'"
+      muted
+    >
+      {{ row.status }}
+    </mlv-badge>
+  </ng-template>
+
+  <!-- Edit templates -->
+  <mlv-input
+    *mlvDataTableEditCell="'name'; let row from team()"
+    [ngModel]="row.name"
+    (ngModelChange)="row.name = $event"
+    placeholder="Full name"
+  />
+
+  <mlv-input
+    *mlvDataTableEditCell="'role'; let row from team()"
+    [ngModel]="row.role"
+    (ngModelChange)="row.role = $event"
+    placeholder="Role title"
+  />
+
+  <mlv-input
+    *mlvDataTableEditCell="'email'; let row from team()"
+    [ngModel]="row.email"
+    (ngModelChange)="row.email = $event"
+    placeholder="Email address"
+  />
+
+  <mlv-input
+    *mlvDataTableEditCell="'location'; let row from team()"
+    [ngModel]="row.location"
+    (ngModelChange)="row.location = $event"
+    placeholder="City"
+  />
+</mlv-data-table>
+
+@if (lastAction()) {
+<p class="dt-edit-log">{{ lastAction() }}</p>
+}

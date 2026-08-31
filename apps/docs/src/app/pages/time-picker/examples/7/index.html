@@ -1,0 +1,30 @@
+<div class="demo-col">
+  <div class="demo-row">
+    @for (d of densities; track d) {
+    <button
+      mlvButton
+      [variant]="density() === d ? 'primary' : 'outlined'"
+      size="s"
+      (click)="setDensity(d)"
+    >
+      {{ d }}
+    </button>
+    }
+  </div>
+
+  <div class="demo-row">
+    <mlv-time-picker
+      label="24h mode"
+      [formControl]="timeCtrl"
+      [mlvDensity]="density()"
+    />
+
+    <mlv-time-picker
+      label="12h with seconds"
+      mode="12h"
+      [showSeconds]="true"
+      [formControl]="timeCtrl12h"
+      [mlvDensity]="density()"
+    />
+  </div>
+</div>

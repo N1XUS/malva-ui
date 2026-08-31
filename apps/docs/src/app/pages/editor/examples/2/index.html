@@ -1,0 +1,17 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <mlv-editor
+    format="markdown"
+    [(value)]="value"
+    label="Markdown draft"
+    ariaLabel="Markdown draft editor"
+  />
+
+  <button mlvButton type="button" variant="outlined" (click)="value.set(null)">
+    Clear Markdown
+  </button>
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Live Markdown source:
+  </p>
+  <pre style="white-space: pre-wrap">{{ value() ?? 'null' }}</pre>
+</div>

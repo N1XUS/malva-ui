@@ -1,0 +1,19 @@
+<div class="demo-col" style="align-items: flex-start; gap: 1rem">
+  @for (density of densities; track density) {
+  <div class="demo-col" style="align-items: flex-start; gap: 0.5rem">
+    <span
+      [id]="'button-group-density-' + density"
+      style="font-size: 0.75rem; font-weight: 500; text-transform: capitalize"
+    >
+      {{ density }}
+    </span>
+    <mlv-button-group
+      [attr.aria-labelledby]="'button-group-density-' + density"
+    >
+      <button mlvButton [mlvDensity]="density">Left</button>
+      <button mlvButton [mlvDensity]="density">Center</button>
+      <button mlvButton [mlvDensity]="density">Right</button>
+    </mlv-button-group>
+  </div>
+  }
+</div>

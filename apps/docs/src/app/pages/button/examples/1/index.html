@@ -1,0 +1,19 @@
+<div class="demo-col" style="gap: 1rem">
+  <div class="demo-row">
+    @for (variant of variants; track variant) {
+    <button mlvButton [variant]="variant">{{ variant }}</button>
+    }
+  </div>
+
+  <div class="demo-col" style="gap: 0.5rem">
+    <span style="font-size: 0.75rem; color: var(--mlv-text-secondary)">
+      Reserved for a single blocking call to action — never rendered alongside
+      "primary" in the same view
+    </span>
+    <div class="demo-row">
+      @for (variant of reservedVariants; track variant) {
+      <button mlvButton [variant]="variant">{{ variant }}</button>
+      }
+    </div>
+  </div>
+</div>

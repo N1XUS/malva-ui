@@ -1,0 +1,33 @@
+<div class="mlv-alert__icon" aria-hidden="true">
+  @if (_iconSlot(); as iconSlot) {
+  <ng-container [ngTemplateOutlet]="iconSlot.templateRef" />
+  } @else { @switch (tone()) { @case ('success') {
+  <svg lucideCheckCircle [size]="18" />
+  } @case ('warning') {
+  <svg lucideTriangleAlert [size]="18" />
+  } @case ('danger') {
+  <svg lucideCircleX [size]="18" />
+  } @default {
+  <svg lucideInfo [size]="18" />
+  } } }
+</div>
+
+<div class="mlv-alert__body">
+  @if (_titleSlot(); as titleSlot) {
+  <div class="mlv-alert__title">
+    <ng-container [ngTemplateOutlet]="titleSlot.templateRef" />
+  </div>
+  }
+  <div class="mlv-alert__description">
+    <ng-content />
+  </div>
+</div>
+
+@if (dismissible()) {
+<mlv-button-close
+  class="mlv-alert__dismiss"
+  mlvDensity="tight"
+  [ariaLabel]="_i18n().dismiss"
+  (click)="_onDismiss()"
+/>
+}

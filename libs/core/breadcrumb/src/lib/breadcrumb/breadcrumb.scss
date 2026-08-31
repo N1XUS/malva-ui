@@ -1,0 +1,170 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-breadcrumb;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m),
+    0,
+    0
+  );
+
+  // Foreground of a crumb that cannot be navigated to because it was explicitly
+  // switched off (`disabled`). Exposed as a component-scoped variable because
+  // it is the one colour in this block an application may legitimately want to
+  // re-theme: the accessible default deliberately does NOT use the global
+  // `--mlv-text-disabled` ramp, which sits at 1.42:1 on `--mlv-background-base`
+  // in light and 2.29:1 in dark and is unreadable in a navigation trail.
+  --mlv-breadcrumb-disabled-color: var(--mlv-text-secondary);
+
+  display: block;
+
+  &__list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 0.25rem;
+  }
+
+  &__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+  }
+
+  &__link {
+    color: var(--mlv-text-action);
+    text-decoration: none;
+    font-size: var(--mlv-font-size-m);
+    border-radius: var(--mlv-radius-xs);
+    transition: color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    &:hover {
+      color: var(--mlv-text-action-hover);
+      text-decoration: underline;
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+
+    &--current {
+      color: var(--mlv-text-primary);
+      font-weight: var(--mlv-font-weight-medium);
+      cursor: default;
+      pointer-events: none;
+      text-decoration: none;
+
+      &:hover {
+        color: var(--mlv-text-primary);
+        text-decoration: none;
+      }
+    }
+
+    // An ancestor step that simply has nowhere to navigate to — no `href`, no
+    // `routerLink`, and not the current page. It is ordinary readable text, so
+    // it must not borrow the accent link colour or the hover underline: both
+    // are affordances promising a navigation that never happens.
+    &--plain {
+      color: var(--mlv-text-secondary);
+      cursor: default;
+      text-decoration: none;
+
+      &:hover {
+        color: var(--mlv-text-secondary);
+        text-decoration: none;
+      }
+    }
+
+    &--disabled {
+      color: var(--mlv-breadcrumb-disabled-color);
+      cursor: default;
+      pointer-events: none;
+      text-decoration: none;
+
+      &:hover {
+        color: var(--mlv-breadcrumb-disabled-color);
+        text-decoration: none;
+      }
+    }
+  }
+
+  // The separator is a non-text UI element, so it owes WCAG 2.1 AA a 3:1 ratio.
+  // `--mlv-text-tertiary` only clears that in dark (3.78:1) and fails in light
+  // (2.42:1 on `--mlv-background-base`); `--mlv-text-secondary` clears it in
+  // both (7.49:1 light / 12.09:1 dark).
+  &__separator {
+    display: inline-flex;
+    align-items: center;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-font-size-m);
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  &__ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-font-size-m);
+    background: none;
+    border: none;
+    padding: 0 0.25rem;
+    margin: 0;
+    cursor: pointer;
+    border-radius: var(--mlv-radius-xs);
+    transition:
+      color var(--mlv-duration-fast) var(--mlv-ease-default),
+      background-color var(--mlv-duration-fast) var(--mlv-ease-default);
+    font-family: inherit;
+    line-height: inherit;
+
+    &:hover {
+      color: var(--mlv-text-action);
+      background-color: var(--mlv-background-neutral-1);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+  }
+
+  // Keep overflow items inset from popup chrome. The list's own padding is
+  // zeroed below, so this is the single inset — matching select/combobox.
+  &__overflow-popup {
+    padding: var(--mlv-popover-inset);
+    overflow: hidden;
+    min-width: 10rem;
+  }
+
+  // Compact spacing for the mlv-list used in the overflow popup.
+  &__overflow-list {
+    --mlv-list-padding-block: 0;
+    --mlv-list-padding-inline: 0;
+    --mlv-list-gap: var(--mlv-spacing-0-5);
+  }
+
+  // Disabled item inside the overflow list. The popup panel is portaled to the
+  // CDK overlay container, outside this block's DOM subtree, so the block-level
+  // custom property cannot cascade into it — the accessible default is repeated
+  // as the `var()` fallback rather than left to resolve to `inherit`.
+  &__overflow-link--disabled {
+    display: block;
+    color: var(--mlv-breadcrumb-disabled-color, var(--mlv-text-secondary));
+    cursor: default;
+    pointer-events: none;
+    font-size: var(--mlv-font-size-m);
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

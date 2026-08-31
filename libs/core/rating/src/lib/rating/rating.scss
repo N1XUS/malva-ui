@@ -1,0 +1,127 @@
+@use '../../../../../styles/src/lib/mixins';
+
+@layer mlv.components {
+$block: mlv-rating;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m)
+  );
+
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+
+  // ── Star button ───────────────────────────────────────────────────────────
+
+  &__star {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    border-radius: var(--mlv-radius-s);
+    outline: none;
+
+    transition-property: transform, color, box-shadow;
+    transition-duration: var(--mlv-duration-fast);
+    transition-timing-function: var(--mlv-ease-out);
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+
+    // Interactive hover scale
+    &:hover:not(:disabled) {
+      transform: scale(1.15);
+    }
+
+    // Press feedback
+    &:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+  }
+
+  // ── Icon layers ───────────────────────────────────────────────────────────
+
+  &__icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+
+    &--empty {
+      color: var(--mlv-border-normal);
+      fill: currentcolor;
+    }
+
+    &--filled {
+      color: var(--mlv-text-warning);
+      fill: currentcolor;
+    }
+  }
+
+  // ── Validation state ──────────────────────────────────────────────────────
+  // Tints the empty-star outline to echo the surrounding form field's state.
+
+  &--state-error &__icon--empty {
+    color: var(--mlv-border-error);
+  }
+
+  &--state-warning &__icon--empty {
+    color: var(--mlv-border-warning);
+  }
+
+  &--state-success &__icon--empty {
+    color: var(--mlv-border-success);
+  }
+
+  &--state-info &__icon--empty {
+    color: var(--mlv-border-info);
+  }
+
+  // ── Read-only ─────────────────────────────────────────────────────────────
+
+  &--readonly &__star {
+    cursor: default;
+    pointer-events: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+
+  // ── Disabled ──────────────────────────────────────────────────────────────
+
+  &--disabled {
+    opacity: var(--mlv-disabled-opacity);
+    pointer-events: none;
+  }
+
+  &--disabled &__star {
+    cursor: not-allowed;
+  }
+
+  // ── Reduced motion ────────────────────────────────────────────────────────
+
+  @media (prefers-reduced-motion: reduce) {
+    .#{$block}__star {
+      transition: none;
+
+      &:hover,
+      &:active {
+        transform: none;
+      }
+    }
+  }
+}
+}

@@ -1,0 +1,18 @@
+## Nullable HTML value
+
+`MlvEditor` is a `FormValueControl<string | null>`. Bind its `value` model
+directly when no Angular form owns the field. Clearing a semantically empty
+document, an empty string, or whitespace-only content emits `null`; meaningful
+HTML remains a plain string.
+
+Install `@malva-ui/core` and keep the free, MIT-licensed Tiptap packages listed
+as editor peer dependencies in your application. Tiptap and ProseMirror remain
+consumer-owned peers so only one editor runtime is loaded.
+
+The default toolbar order is undo/redo, view-only zoom, heading, list,
+inline marks, text color, highlight, alignment, link, table, block inserts, and
+image upload. Narrow layouts move eligible commands into an overflow menu.
+
+Give the editable region an accessible name with `label`, `ariaLabel`, or
+`ariaLabelledBy`. The toolbar supports roving arrow-key navigation, Home/End,
+Escape in overlays, and visible focus states.

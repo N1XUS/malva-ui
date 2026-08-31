@@ -1,0 +1,87 @@
+<div class="rich-panels">
+  <!-- Success state trigger -->
+  <div class="rich-panel">
+    <button
+      class="rich-panel__trigger"
+      type="button"
+      [attr.aria-expanded]="security.opened()"
+      (click)="security.toggle()"
+    >
+      <div class="rich-panel__trigger-meta">
+        <svg
+          lucideCheck
+          class="rich-panel__icon rich-panel__icon--success"
+          [size]="16"
+        />
+        <span>Security Settings</span>
+        <mlv-badge tone="success" muted>Configured</mlv-badge>
+      </div>
+      <svg
+        lucideChevronDown
+        class="rich-panel__chevron"
+        [class.rich-panel__chevron--open]="security.opened()"
+        [size]="16"
+      />
+    </button>
+    <mlv-expand #security>
+      <div class="rich-panel__body">
+        Two-factor authentication is enabled. Your account is protected with an
+        authenticator app and recovery codes are safely stored.
+      </div>
+    </mlv-expand>
+  </div>
+
+  <!-- Warning state trigger -->
+  <div class="rich-panel">
+    <button
+      class="rich-panel__trigger"
+      type="button"
+      [attr.aria-expanded]="billing.opened()"
+      (click)="billing.toggle()"
+    >
+      <div class="rich-panel__trigger-meta">
+        <svg
+          lucideTriangleAlert
+          class="rich-panel__icon rich-panel__icon--warning"
+          [size]="16"
+        />
+        <span>Billing Information</span>
+        <mlv-badge tone="warning" muted>Action needed</mlv-badge>
+      </div>
+      <svg
+        lucideChevronDown
+        class="rich-panel__chevron"
+        [class.rich-panel__chevron--open]="billing.opened()"
+        [size]="16"
+      />
+    </button>
+    <mlv-expand #billing>
+      <div class="rich-panel__body">
+        Your payment method expires next month. Update your card details to
+        avoid service interruption.
+      </div>
+    </mlv-expand>
+  </div>
+
+  <!-- Disabled trigger -->
+  <div class="rich-panel rich-panel--disabled">
+    <button
+      class="rich-panel__trigger"
+      type="button"
+      disabled
+      [attr.aria-expanded]="false"
+    >
+      <div class="rich-panel__trigger-meta">
+        <svg lucideShield class="rich-panel__icon" [size]="16" />
+        <span>Advanced Permissions</span>
+        <mlv-badge tone="default" muted>Admin only</mlv-badge>
+      </div>
+      <svg lucideChevronDown class="rich-panel__chevron" [size]="16" />
+    </button>
+    <mlv-expand disabled>
+      <div class="rich-panel__body">
+        This section is restricted to administrators.
+      </div>
+    </mlv-expand>
+  </div>
+</div>

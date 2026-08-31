@@ -1,0 +1,40 @@
+<label class="mlv-checkbox__label" [for]="inputId">
+  <input
+    #nativeInput
+    type="checkbox"
+    class="mlv-checkbox__native"
+    [id]="inputId"
+    [checked]="checked()"
+    [disabled]="computedDisabled()"
+    [indeterminate]="indeterminate()"
+    [attr.tabindex]="_resolvedTabIndex()"
+    [attr.aria-checked]="indeterminate() ? 'mixed' : checked()"
+    [attr.aria-required]="required() || null"
+    [attr.aria-label]="_resolvedAriaLabel()"
+    [attr.aria-labelledby]="_resolvedAriaLabelledBy()"
+    (change)="onInputChange($event)"
+    (focus)="onFocus()"
+    (blur)="onBlur()"
+    (keydown.enter)="toggle($event)"
+  />
+  <span
+    class="mlv-checkbox__visual"
+    [class]="'mlv-checkbox__visual--' + state()"
+    aria-hidden="true"
+  >
+    @if (!indeterminate()) {
+    <svg size="20" class="mlv-checkbox__check" lucideCheck />
+    } @else {
+    <svg size="20" class="mlv-checkbox__check" lucideMinus />
+    }
+  </span>
+  <span class="mlv-checkbox__text">
+    <!-- Projected text wins; the `label` fallback next to it is hidden by CSS
+         whenever this span is non-empty, which also keeps it out of the
+         accessible name computed from the wrapping <label>. -->
+    <span #content class="mlv-checkbox__content"><ng-content /></span>
+    @if (label()) {
+    <span class="mlv-checkbox__label-text">{{ label() }}</span>
+    }
+  </span>
+</label>

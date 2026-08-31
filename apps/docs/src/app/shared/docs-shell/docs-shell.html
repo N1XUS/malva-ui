@@ -1,0 +1,80 @@
+<docs-app-bar />
+
+<mlv-layout class="docs-shell" mlvDensityRoot>
+  <mlv-sidebar
+    *mlvLayoutSide
+    [mode]="sidebarMode()"
+    [collapsed]="sidebarCollapsed()"
+    (collapsedChange)="sidebarCollapsed.set($event)"
+  >
+    @if (!sidebarCollapsed() || isMobile()) {
+    <div class="docs-shell__search">
+      <mlv-search-field
+        ariaLabel="Filter documentation pages"
+        placeholder="Filter pages…"
+        mlvDensity="compact"
+        [value]="navigationQuery()"
+        (valueChange)="navigationQuery.set($event)"
+      ></mlv-search-field>
+    </div>
+    } @for (group of navigationGroups(); track group.id) {
+    <mlv-sidebar-group [label]="group.label">
+      <svg *mlvSidebarItemIcon [lucideIcon]="_icon(group.icon)" [size]="20" />
+      @for (item of group.items; track item.link) {
+      <mlv-sidebar-item [label]="item.label">
+        <a
+          *mlvSidebarItemTitle
+          [routerLink]="item.link"
+          routerLinkActive="docs-shell__nav-link--active"
+          ariaCurrentWhenActive="page"
+          [routerLinkActiveOptions]="{ exact: !!item.exact }"
+        >
+          {{ item.label }}
+        </a>
+        <svg *mlvSidebarItemIcon [lucideIcon]="_icon(item.icon)" [size]="20" />
+      </mlv-sidebar-item>
+      }
+    </mlv-sidebar-group>
+    } @if (navigationGroups().length === 0) {
+    <p class="docs-shell__empty-navigation" role="status">
+      No pages match your filter.
+    </p>
+    }
+
+    <mlv-spacer />
+
+    <mlv-sidebar-item [label]="sidebarActionLabel()" (click)="_toggleSidebar()">
+      <svg
+        *mlvSidebarItemIcon
+        [lucideIcon]="sidebarCollapsed() ? _expandIcon : _collapseIcon"
+        [size]="20"
+      />
+    </mlv-sidebar-item>
+  </mlv-sidebar>
+
+  <div class="docs-shell__main-area">
+    <button
+      class="docs-shell__mobile-menu"
+      mlvButton
+      shape="square"
+      variant="transparent"
+      type="button"
+      [attr.aria-label]="navigationToggleLabel()"
+      [attr.aria-expanded]="!sidebarCollapsed()"
+      (click)="_toggleSidebar()"
+    >
+      <svg [lucideIcon]="_expandIcon" [size]="20" aria-hidden="true" />
+    </button>
+
+    <main
+      #mainContent
+      id="main-content"
+      class="docs-shell__content"
+      tabindex="-1"
+      aria-label="Documentation content"
+    >
+      <router-outlet />
+    </main>
+    <docs-toc [entries]="tocEntries()" />
+  </div>
+</mlv-layout>

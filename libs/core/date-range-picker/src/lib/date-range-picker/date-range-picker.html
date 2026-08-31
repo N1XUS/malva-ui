@@ -1,0 +1,155 @@
+<mlv-form-control-wrapper>
+  @if (label() || hint()) {
+  <mlv-label [for]="id()" [required]="required()">
+    {{ label() }} @if (hint()) {
+    <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
+  }
+
+  <ng-template mlvFormControlWrapperControl>
+    <mlv-popup-container class="mlv-date-range-picker__popup-container">
+      <div
+        #triggerRef
+        class="mlv-date-range-picker__trigger"
+        [id]="id()"
+        role="button"
+        [attr.aria-expanded]="_isOpen()"
+        [attr.aria-haspopup]="'dialog'"
+        [attr.aria-controls]="panelId()"
+        [attr.aria-disabled]="computedDisabled() || null"
+        [attr.aria-label]="ariaLabel()"
+        [attr.aria-required]="required() || null"
+        [attr.aria-describedby]="_describedBy()"
+        [attr.tabindex]="computedDisabled() ? -1 : 0"
+        (click)="toggleDropdown()"
+        (keydown.enter)="!computedDisabled() && toggleDropdown()"
+        (keydown.space)="!computedDisabled() && toggleDropdown(); $event.preventDefault()"
+        (keydown.escape)="closeDropdown()"
+        (focus)="setFocused(true)"
+        (blur)="_onTriggerBlur()"
+      >
+        <span class="mlv-date-range-picker__trigger-icon" aria-hidden="true">
+          <svg lucideCalendarDays [size]="18" />
+        </span>
+
+        @if (startDisplayValue || endDisplayValue) {
+        <span class="mlv-date-range-picker__value">
+          <span class="mlv-date-range-picker__value-start"
+            >{{ startDisplayValue || '...' }}</span
+          >
+          <span class="mlv-date-range-picker__separator" aria-hidden="true"
+            >—</span
+          >
+          <span class="mlv-date-range-picker__value-end"
+            >{{ endDisplayValue || '...' }}</span
+          >
+        </span>
+        } @else {
+        <span class="mlv-date-range-picker__placeholder"
+          >{{ _resolvedPlaceholder() }}</span
+        >
+        }
+      </div>
+
+      <mlv-popup
+        #rangePopup
+        [(opened)]="_isOpen"
+        [hasShadow]="true"
+        [position]="['bottom-start', 'top-start', 'bottom-end', 'top-end']"
+        mobileMode="auto"
+        [mobileTitle]="label() || _i18n().selectDateRange"
+        [ariaLabel]="_i18n().selectDateRange"
+        (afterOpened)="_onPanelOpened()"
+        (afterClosed)="_onPanelClosed()"
+      >
+        <ng-template mlvPopupContent>
+          <div
+            class="mlv-date-range-picker__panel"
+            [id]="panelId()"
+            role="dialog"
+            aria-modal="true"
+            [cdkTrapFocus]="!rangePopup.isFullscreen()"
+            tabindex="-1"
+            [attr.aria-label]="_i18n().selectDateRange"
+            (keydown.escape)="closeDropdown()"
+          >
+            <div class="mlv-date-range-picker__calendars">
+              <div
+                class="mlv-date-range-picker__calendar"
+                role="group"
+                [attr.aria-label]="_i18n().startMonth"
+              >
+                <mlv-calendar
+                  embedded
+                  [range]="true"
+                  [rangeValue]="_pendingRange()"
+                  [min]="min()"
+                  [max]="max()"
+                  [disabledDates]="disabledDates()"
+                  (rangeValueChange)="onRangeChanged($event)"
+                />
+              </div>
+
+              <div
+                class="mlv-date-range-picker__divider"
+                aria-hidden="true"
+              ></div>
+
+              <div
+                class="mlv-date-range-picker__calendar"
+                role="group"
+                [attr.aria-label]="_i18n().endMonth"
+              >
+                <mlv-calendar
+                  embedded
+                  [range]="true"
+                  [rangeValue]="_pendingRange()"
+                  [min]="min()"
+                  [max]="max()"
+                  [disabledDates]="disabledDates()"
+                  (rangeValueChange)="onRangeChanged($event)"
+                />
+              </div>
+            </div>
+
+            <div class="mlv-date-range-picker__footer">
+              <button
+                mlvButton
+                variant="transparent"
+                size="s"
+                type="button"
+                class="mlv-date-range-picker__clear-btn"
+                (click)="clearSelection()"
+                [attr.aria-label]="_i18n().clearDateRange"
+              >
+                Clear
+              </button>
+
+              <button
+                mlvButton
+                variant="primary"
+                size="s"
+                type="button"
+                class="mlv-date-range-picker__apply-btn"
+                [attr.disabled]="canApply() ? null : true"
+                (click)="applySelection()"
+                [attr.aria-label]="_i18n().applyDateRange"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </ng-template>
+      </mlv-popup>
+    </mlv-popup-container>
+  </ng-template>
+
+  @if (description()) {
+  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+  } @if (message()) {
+  <mlv-message [id]="_messageId()" [state]="resolvedState()">
+    {{ message() }}
+  </mlv-message>
+  }
+</mlv-form-control-wrapper>

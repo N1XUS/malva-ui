@@ -1,0 +1,465 @@
+<div class="record-editor">
+  <main mlvPage padding="m" [snapRange]="160" class="record-editor__page">
+    <mlv-page-header size="s" tabsAlign="center" snapControls>
+      <ng-template mlvPageBreadcrumb>
+        <nav mlvBreadcrumb [items]="breadcrumbs"></nav>
+      </ng-template>
+
+      <ng-template mlvPageHeaderIcon>
+        <svg lucideHeadphones [size]="20" />
+      </ng-template>
+
+      <ng-template mlvPageTitle>
+        <h1>{{ name() }}</h1>
+      </ng-template>
+
+      <ng-template mlvPageHeaderStatus>
+        <mlv-badge tone="warning" muted mlvDensity="compact">Draft</mlv-badge>
+        @if (unsaved()) {
+        <mlv-badge tone="danger" muted mlvDensity="compact">Unsaved</mlv-badge>
+        }
+      </ng-template>
+
+      <ng-template mlvPageHeaderMeta>
+        <span>SKU-98765</span>
+        <span aria-hidden="true">·</span>
+        <span>Last edited by Mara Ellison · 4h ago</span>
+      </ng-template>
+
+      <ng-template mlvPageHeaderActions>
+        <mlv-segmented
+          mlvDensity="compact"
+          ariaLabel="Record version"
+          [value]="view()"
+          (valueChange)="setView($event)"
+        >
+          <button mlvSegmentedItem value="draft">Draft</button>
+          <button mlvSegmentedItem value="live">Live</button>
+        </mlv-segmented>
+
+        <button mlvButton variant="transparent" mlvDensity="compact">
+          <svg lucideEye [size]="16" />
+          Preview
+        </button>
+        <button mlvButton variant="transparent" mlvDensity="compact">
+          <svg lucideShare2 [size]="16" />
+          Share
+        </button>
+        <button
+          mlvButton
+          variant="outlined"
+          shape="square"
+          mlvDensity="compact"
+          aria-label="More record actions"
+          [mlvMenuTrigger]="moreMenu"
+        >
+          <svg lucideEllipsisVertical [size]="16" />
+        </button>
+      </ng-template>
+
+      <ng-template mlvPageHeaderTabs>
+        <mlv-segmented
+          [(value)]="activeTab"
+          mlvDensity="compact"
+          ariaLabel="Record sections"
+        >
+          <button mlvSegmentedItem value="details">Details</button>
+          <button mlvSegmentedItem value="changes">
+            Changes @if (changes().length > 0) {
+            <mlv-badge tone="warning" muted mlvDensity="tight">
+              {{ changes().length }}
+            </mlv-badge>
+            }
+          </button>
+          <button mlvSegmentedItem value="history">History</button>
+        </mlv-segmented>
+      </ng-template>
+
+      <mlv-page-summary summaryLabel="Key product facts">
+        <mlv-page-summary-item label="Category">
+          Audio Equipment
+        </mlv-page-summary-item>
+        <mlv-page-summary-item label="Price">
+          {{ viewed().price }} USD
+        </mlv-page-summary-item>
+        <mlv-page-summary-item label="Availability">
+          {{ viewed().availability }}
+        </mlv-page-summary-item>
+        <mlv-page-summary-item label="Lead time">
+          {{ viewed().leadTime }} days
+        </mlv-page-summary-item>
+      </mlv-page-summary>
+    </mlv-page-header>
+
+    <div class="record-editor__body">
+      @switch (activeTab()) {
+      <!-- ————— Details tab ————— -->
+      @case ('details') { @if (isLive()) {
+      <mlv-card class="record-editor__card">
+        <h2 *mlvCardHeaderDef mlvCardHeader>Live version</h2>
+        <dl class="record-editor__live-grid">
+          <div>
+            <dt>Product name</dt>
+            <dd>{{ live().name }}</dd>
+          </div>
+          <div>
+            <dt>Availability</dt>
+            <dd>{{ live().availability }}</dd>
+          </div>
+          <div>
+            <dt>Price</dt>
+            <dd>{{ live().price }} USD</dd>
+          </div>
+          <div>
+            <dt>Lead time</dt>
+            <dd>{{ live().leadTime }} days</dd>
+          </div>
+          <div class="record-editor__live-wide">
+            <dt>Description</dt>
+            <dd>{{ live().description }}</dd>
+          </div>
+        </dl>
+      </mlv-card>
+      } @else {
+      <mlv-card class="record-editor__card">
+        <h2 *mlvCardHeaderDef mlvCardHeader>General</h2>
+        <div class="record-editor__fields">
+          <div class="record-editor__field">
+            <span class="record-editor__field-label">
+              Product name @if (changedFields().has('name')) {
+              <mlv-badge tone="warning" muted mlvDensity="tight">
+                CHANGED
+              </mlv-badge>
+              }
+            </span>
+            <mlv-input ariaLabel="Product name" [(value)]="name" />
+          </div>
+
+          <div class="record-editor__field">
+            <span class="record-editor__field-label">
+              Availability @if (changedFields().has('availability')) {
+              <mlv-badge tone="warning" muted mlvDensity="tight">
+                CHANGED
+              </mlv-badge>
+              } @if (suggestionFor('availability'); as suggestion) {
+              <mlv-chip
+                tone="info"
+                muted
+                mlvDensity="tight"
+                closable
+                [mlvTooltip]="suggestion.summary + ' — press to apply'"
+                (click)="applySuggestion(suggestion)"
+                (keydown.enter)="applySuggestion(suggestion)"
+                (chipClose)="dismissSuggestion(suggestion)"
+              >
+                <svg lucideSparkles [size]="12" />
+                suggestion
+              </mlv-chip>
+              }
+            </span>
+            <mlv-select
+              ariaLabel="Availability"
+              [options]="availabilityOptions"
+              [(value)]="availability"
+            />
+          </div>
+        </div>
+      </mlv-card>
+
+      <mlv-card class="record-editor__card">
+        <h2 *mlvCardHeaderDef mlvCardHeader>Commercial</h2>
+        <div class="record-editor__fields">
+          <div class="record-editor__field">
+            <span class="record-editor__field-label">
+              Price @if (changedFields().has('price')) {
+              <mlv-badge tone="warning" muted mlvDensity="tight">
+                CHANGED
+              </mlv-badge>
+              } @if (suggestionFor('price'); as suggestion) {
+              <mlv-chip
+                tone="info"
+                muted
+                mlvDensity="tight"
+                closable
+                [mlvTooltip]="suggestion.summary + ' — press to apply'"
+                (click)="applySuggestion(suggestion)"
+                (keydown.enter)="applySuggestion(suggestion)"
+                (chipClose)="dismissSuggestion(suggestion)"
+              >
+                <svg lucideSparkles [size]="12" />
+                suggestion
+              </mlv-chip>
+              }
+            </span>
+            <mlv-input ariaLabel="Price" inputMode="decimal" [(value)]="price">
+              <span *mlvFormControlAppend>USD</span>
+            </mlv-input>
+          </div>
+
+          <div class="record-editor__field">
+            <span class="record-editor__field-label">Unit cost</span>
+            <mlv-input
+              ariaLabel="Unit cost"
+              inputMode="decimal"
+              [(value)]="unitCost"
+            >
+              <span *mlvFormControlAppend>USD</span>
+            </mlv-input>
+          </div>
+
+          <div class="record-editor__field">
+            <span class="record-editor__field-label">
+              Lead time @if (changedFields().has('leadTime')) {
+              <mlv-badge tone="warning" muted mlvDensity="tight">
+                CHANGED
+              </mlv-badge>
+              }
+            </span>
+            <mlv-input
+              ariaLabel="Lead time"
+              inputMode="numeric"
+              [(value)]="leadTime"
+            >
+              <span *mlvFormControlAppend>days</span>
+            </mlv-input>
+          </div>
+
+          <div class="record-editor__field">
+            <span class="record-editor__field-label">
+              Featured in storefront @if (changedFields().has('featured')) {
+              <mlv-badge tone="warning" muted mlvDensity="tight">
+                CHANGED
+              </mlv-badge>
+              }
+            </span>
+            <mlv-switch [(checked)]="featured">
+              {{ featured() ? 'Enabled' : 'Disabled' }}
+            </mlv-switch>
+          </div>
+        </div>
+      </mlv-card>
+
+      <mlv-card class="record-editor__card">
+        <h2 *mlvCardHeaderDef mlvCardHeader>Content</h2>
+        <div class="record-editor__fields record-editor__fields--stacked">
+          <div class="record-editor__field">
+            <span class="record-editor__field-label">
+              Description @if (changedFields().has('description')) {
+              <mlv-badge tone="warning" muted mlvDensity="tight">
+                CHANGED
+              </mlv-badge>
+              }
+            </span>
+            <mlv-textarea
+              ariaLabel="Description"
+              [rows]="3"
+              [(value)]="description"
+            />
+          </div>
+
+          <div class="record-editor__field">
+            <span class="record-editor__field-label">
+              Tags @if (changedFields().has('tags')) {
+              <mlv-badge tone="warning" muted mlvDensity="tight">
+                CHANGED
+              </mlv-badge>
+              } @if (suggestionFor('tags'); as suggestion) {
+              <mlv-chip
+                tone="info"
+                muted
+                mlvDensity="tight"
+                closable
+                [mlvTooltip]="suggestion.summary + ' — press to apply'"
+                (click)="applySuggestion(suggestion)"
+                (keydown.enter)="applySuggestion(suggestion)"
+                (chipClose)="dismissSuggestion(suggestion)"
+              >
+                <svg lucideSparkles [size]="12" />
+                suggestion
+              </mlv-chip>
+              }
+            </span>
+            <mlv-tokenizer placeholder="Add tag…" [(tokens)]="tags" />
+          </div>
+        </div>
+      </mlv-card>
+      } }
+      <!-- ————— Changes tab (diff view) ————— -->
+      @case ('changes') {
+      <mlv-card class="record-editor__card">
+        <h2 *mlvCardHeaderDef mlvCardHeader>Pending changes</h2>
+        <span *mlvCardSubheaderDef mlvCardSubheader>
+          Draft compared against the live version
+        </span>
+        @if (changes().length === 0) {
+        <p class="record-editor__empty">
+          No pending changes — the draft matches the live version.
+        </p>
+        } @else {
+        <ul class="record-editor__diff" aria-label="Pending changes">
+          @for (change of changes(); track change.field) {
+          <li class="record-editor__diff-row">
+            <span class="record-editor__diff-field">{{ change.field }}</span>
+            <del class="record-editor__diff-from">{{ change.from }}</del>
+            <ins class="record-editor__diff-to">{{ change.to }}</ins>
+          </li>
+          }
+        </ul>
+        }
+      </mlv-card>
+      }
+      <!-- ————— History tab ————— -->
+      @case ('history') {
+      <mlv-card class="record-editor__card">
+        <h2 *mlvCardHeaderDef mlvCardHeader>Version history</h2>
+        <mlv-timeline>
+          @for (version of versions(); track version.id) {
+          <mlv-timeline-item
+            [title]="version.title"
+            [timestamp]="version.timestamp"
+            [tone]="version.tone"
+          >
+            <ng-template mlvTimelineItemMeta>
+              <mlv-avatar size="xs" [initials]="version.author" />
+            </ng-template>
+            {{ version.note }}
+          </mlv-timeline-item>
+          }
+        </mlv-timeline>
+      </mlv-card>
+      } }
+    </div>
+
+    <mlv-page-dock appearance="floating">
+      <div mlvPageDockCenter>
+        <nav
+          mlvActionBar
+          shape="pill"
+          wrap
+          class="record-editor__dock-bar"
+          aria-label="Workflow actions"
+        >
+          <span class="record-editor__dock-status">
+            {{ changes().length }} pending changes · {{ suggestions().length }}
+            open suggestions @if (scheduledFor(); as scheduled) {
+            <mlv-badge tone="info" muted mlvDensity="compact">
+              Publishes {{ scheduled | date: 'MMM d' }}
+            </mlv-badge>
+            }
+          </span>
+
+          <mlv-button-group variant="transparent" aria-label="Editing mode">
+            <mlv-button-toggle
+              mlvDensity="compact"
+              ariaLabel="Edit directly"
+              [mlvTooltip]="'Edit directly'"
+              [pressed]="editMode() === 'edit'"
+              (pressedChange)="editMode.set('edit')"
+            >
+              <svg lucidePenLine [size]="16" />
+            </mlv-button-toggle>
+            <mlv-button-toggle
+              mlvDensity="compact"
+              ariaLabel="Suggest changes"
+              [mlvTooltip]="'Suggest changes'"
+              [pressed]="editMode() === 'suggest'"
+              (pressedChange)="editMode.set('suggest')"
+            >
+              <svg lucideType [size]="16" />
+            </mlv-button-toggle>
+            <mlv-button-toggle
+              mlvDensity="compact"
+              ariaLabel="Comment"
+              [mlvTooltip]="'Comment'"
+              [pressed]="editMode() === 'comment'"
+              (pressedChange)="editMode.set('comment')"
+            >
+              <svg lucideMessageSquare [size]="16" />
+            </mlv-button-toggle>
+          </mlv-button-group>
+
+          <mlv-divider
+            class="record-editor__dock-divider"
+            orientation="vertical"
+          />
+
+          <button
+            mlvButton
+            variant="transparent"
+            shape="pill"
+            mlvDensity="compact"
+            [disabled]="changes().length === 0"
+            (click)="discard()"
+          >
+            Discard
+          </button>
+          <button
+            mlvButton
+            variant="outlined"
+            shape="pill"
+            mlvDensity="compact"
+            [mlvPopupTrigger]="schedulePopup"
+          >
+            Schedule
+          </button>
+          <button
+            mlvButton
+            variant="outlined"
+            shape="pill"
+            mlvDensity="compact"
+            [disabled]="!unsaved()"
+            (click)="saveDraft()"
+          >
+            Save draft
+          </button>
+          <button
+            mlvButton
+            shape="pill"
+            mlvDensity="compact"
+            [disabled]="changes().length === 0"
+            (click)="publish()"
+          >
+            Publish
+          </button>
+        </nav>
+      </div>
+    </mlv-page-dock>
+  </main>
+
+  <mlv-menu #moreMenu label="Record actions">
+    <mlv-list-item mlvMenuItem>
+      <svg mlvListItemPrefix lucideCopy [size]="14" />
+      Duplicate
+    </mlv-list-item>
+    <mlv-list-item mlvMenuItem>
+      <svg mlvListItemPrefix lucideDownload [size]="14" />
+      Export
+    </mlv-list-item>
+    <mlv-list-item mlvMenuItem (itemClick)="activeTab.set('history')">
+      <svg mlvListItemPrefix lucideHistory [size]="14" />
+      Version history
+    </mlv-list-item>
+    <mlv-divider muted />
+    <mlv-list-item mlvMenuItem>
+      <svg mlvListItemPrefix lucideArchive [size]="14" />
+      Archive
+    </mlv-list-item>
+  </mlv-menu>
+
+  <mlv-popup #schedulePopup position="top-end" [hasArrow]="true">
+    <ng-template mlvPopupContent>
+      <div class="record-editor__schedule">
+        <strong>Delayed publish</strong>
+        <mlv-day-picker
+          label="Publish on"
+          placeholder="Pick a date…"
+          [value]="scheduledFor()"
+          (valueChange)="schedule($event)"
+        />
+        <p class="record-editor__schedule-hint">
+          The draft goes live automatically on the chosen date.
+        </p>
+      </div>
+    </ng-template>
+  </mlv-popup>
+</div>

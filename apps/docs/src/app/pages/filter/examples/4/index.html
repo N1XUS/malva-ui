@@ -1,0 +1,94 @@
+<section class="query-filter-demo" aria-labelledby="query-filter-demo-title">
+  <header class="query-filter-demo__header">
+    <div>
+      <p class="query-filter-demo__eyebrow">Renewal desk</p>
+      <h3 id="query-filter-demo-title">
+        Prioritize the accounts that need attention
+      </h3>
+      <p>
+        Start with the October renewal window, then use Add filter to refine the
+        natural-language query.
+      </p>
+    </div>
+
+    <div
+      class="query-filter-demo__mode"
+      role="group"
+      aria-label="Filter apply mode"
+    >
+      <button
+        mlvButton
+        type="button"
+        variant="secondary"
+        [attr.aria-pressed]="filterApplyMode() === 'explicit'"
+        (click)="setApplyMode('explicit')"
+      >
+        Explicit mode
+      </button>
+      <button
+        mlvButton
+        type="button"
+        variant="secondary"
+        [attr.aria-pressed]="filterApplyMode() === 'live'"
+        (click)="setApplyMode('live')"
+      >
+        Live mode
+      </button>
+    </div>
+  </header>
+
+  <mlv-smart-filter-bar
+    appearance="query"
+    [definitions]="definitions"
+    [filterApplyMode]="filterApplyMode()"
+    [autoExecute]="filterApplyMode() === 'live'"
+    [showSearch]="false"
+    [(filters)]="filters"
+    [(visibleKeys)]="visibleKeys"
+    (execute)="recordExecution($event)"
+  >
+    <ng-template
+      mlvFilterValueEditor="renewalDate"
+      let-value
+      let-operator="operator"
+      let-disabled="disabled"
+      let-set="setValue"
+    >
+      @if (operator === 'between') {
+      <div class="query-filter-demo__range">
+        <mlv-day-picker
+          [value]="toDate(rangeAt(value, 0))"
+          [disabled]="disabled"
+          [ariaLabel]="'Renewal date from'"
+          (valueChange)="setRangeAt(value, 0, toIso($event), set)"
+        />
+        <mlv-day-picker
+          [value]="toDate(rangeAt(value, 1))"
+          [disabled]="disabled"
+          [ariaLabel]="'Renewal date to'"
+          (valueChange)="setRangeAt(value, 1, toIso($event), set)"
+        />
+      </div>
+      } @else {
+      <mlv-day-picker
+        [value]="toDate(value)"
+        [disabled]="disabled"
+        [ariaLabel]="'Renewal date'"
+        (valueChange)="set(toIso($event))"
+      />
+      }
+    </ng-template>
+  </mlv-smart-filter-bar>
+
+  <div class="query-filter-demo__result">
+    <output class="query-filter-demo__status" aria-live="polite">
+      {{ executionStatus() }}
+    </output>
+    <section aria-labelledby="query-filter-demo-expression-title">
+      <h4 id="query-filter-demo-expression-title">
+        Grouped expression payload
+      </h4>
+      <pre tabindex="0">{{ payloadPreview() }}</pre>
+    </section>
+  </div>
+</section>

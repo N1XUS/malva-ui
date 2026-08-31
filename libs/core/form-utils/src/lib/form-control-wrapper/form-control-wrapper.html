@@ -1,0 +1,49 @@
+<div class="mlv-form-control-wrapper__label-container">
+  <ng-content select="mlv-label"></ng-content>
+</div>
+<div
+  class="mlv-form-control-wrapper__control-container"
+  [class.mlv-form-control-wrapper__control-container--with-inset]="
+    formControl?.inset()
+  "
+>
+  <div class="mlv-form-control-wrapper__control-row">
+    @if (formControl?.prepend(); as prependTpl) {
+    <div class="mlv-form-control-wrapper__side-content">
+      <ng-template [ngTemplateOutlet]="prependTpl.templateRef"></ng-template>
+    </div>
+    }
+
+    <ng-template [ngTemplateOutlet]="renderer().templateRef"></ng-template>
+
+    @if ( formControl?.clearable() && formControl?.hasValue() &&
+    !formControl?.ownsClearButton?.() ) {
+    <div class="mlv-form-control-wrapper__clear">
+      <mlv-button-close
+        (click)="_onClearClick()"
+        mlvDensity="tight"
+        [ariaLabel]="_i18n().clear"
+      />
+    </div>
+    } @if (formControl?.append(); as appendTpl) {
+    <div class="mlv-form-control-wrapper__side-content">
+      <ng-template [ngTemplateOutlet]="appendTpl.templateRef"></ng-template>
+    </div>
+    }
+  </div>
+
+  @if (formControl?.inset(); as insetTpl) {
+  <div class="mlv-form-control-wrapper__inset">
+    <ng-template [ngTemplateOutlet]="insetTpl.templateRef"></ng-template>
+  </div>
+  }
+</div>
+
+<!-- Below-control slots. `mlv-description` is persistent help text, `mlv-message`
+     the stateful validation line, and `[mlvFormControlWrapperAside]` any
+     control-owned auxiliary readout (e.g. the textarea character counter). -->
+<div class="mlv-form-control-wrapper__message-container">
+  <ng-content select="mlv-description"></ng-content>
+  <ng-content select="mlv-message"></ng-content>
+  <ng-content select="[mlvFormControlWrapperAside]"></ng-content>
+</div>

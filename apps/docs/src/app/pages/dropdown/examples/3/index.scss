@@ -1,0 +1,16 @@
+.dropdown-groups {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mlv-spacing-4);
+
+  &__panel {
+    inline-size: 18rem;
+    max-inline-size: 100%;
+  }
+
+  &__result {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+  }
+}

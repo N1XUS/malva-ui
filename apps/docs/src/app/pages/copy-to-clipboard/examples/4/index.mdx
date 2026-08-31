@@ -1,0 +1,15 @@
+## Custom `copiedDuration`
+
+Use `[copiedDuration]` (in milliseconds) to control how long the copied state
+lingers after a successful write. The default is **2000 ms**. Setting it
+higher is useful when users need to switch tabs or apps to paste — the
+success affordance stays visible long enough to confirm the copy succeeded.
+
+```html
+<mlv-copy-to-clipboard [copiedDuration]="4000">
+  pnpm add @malva-ui/core
+</mlv-copy-to-clipboard>
+```
+
+Triggering another copy while still in the success window resets the timer
+cleanly so repeated activations always start a fresh confirmation window.

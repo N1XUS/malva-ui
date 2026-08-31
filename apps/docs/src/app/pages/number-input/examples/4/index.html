@@ -1,0 +1,20 @@
+<div class="demo-col" style="gap: 1rem; max-width: 20rem">
+  <mlv-number-input
+    label="Disabled — with value"
+    [min]="0"
+    [max]="100"
+    [ngModel]="42"
+    disabled
+  />
+
+  <mlv-number-input label="Disabled — empty" [min]="0" [max]="100" disabled />
+
+  <mlv-number-input
+    label="Error state"
+    message="Value is out of range"
+    state="error"
+    [min]="0"
+    [max]="10"
+    [ngModel]="15"
+  />
+</div>

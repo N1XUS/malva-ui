@@ -1,0 +1,355 @@
+<div class="app-shell-example">
+  <div
+    class="app-shell-example__controls"
+    role="group"
+    aria-label="Shell background color"
+  >
+    <mlv-toolbar>
+      <button
+        mlvButton
+        type="button"
+        variant="outlined"
+        [attr.aria-pressed]="shellColorMode() === 'custom'"
+        (click)="useCustomShellColor()"
+      >
+        Custom CSS variable
+      </button>
+      <mlv-color-picker-popup
+        [value]="shellColor()"
+        [showOpacity]="false"
+        (colorChange)="setShellColor($event)"
+      />
+      <button
+        mlvButton
+        type="button"
+        variant="outlined"
+        [attr.aria-pressed]="shellColorMode() === 'auto'"
+        (click)="useAutoShellColor()"
+      >
+        Auto
+      </button>
+    </mlv-toolbar>
+  </div>
+
+  <mlv-page-shell
+    class="app-shell-preview"
+    [style.--mlv-demo-shell-color]="shellColorCustomProperty()"
+    [color]="shellColorInput()"
+  >
+    <header mlvActionBar mlvPageTopbar contrast mlvDensity="compact">
+      <div class="app-shell-preview__bar-side">
+        @if (sidebarMode() === 'offcanvas') {
+        <!-- The sidebar's own trigger lives inside the drawer, so it cannot
+             reopen a closed one. `mlv-drawer` traps focus and renders a
+             backdrop, which is what makes the dialog semantics here honest. -->
+        <button
+          mlvButton
+          variant="transparent"
+          shape="square"
+          mlvDensity="compact"
+          type="button"
+          aria-label="Open navigation"
+          aria-haspopup="dialog"
+          [attr.aria-expanded]="!collapsed()"
+          (click)="toggleSidebar()"
+        >
+          <svg lucideMenu [size]="18" />
+        </button>
+        }
+
+        <div mlvActionBarLogo>
+          <strong>Acme Studio</strong>
+          <mlv-badge mlvDensity="compact">Beta</mlv-badge>
+        </div>
+
+        <nav mlvActionBarActions aria-label="Global navigation">
+          <mlv-toolbar>
+            <a
+              mlvButton
+              variant="transparent"
+              mlvDensity="tight"
+              href="#projects"
+              >Projects</a
+            >
+            <a mlvButton variant="transparent" mlvDensity="tight" href="#teams"
+              >Teams</a
+            >
+          </mlv-toolbar>
+        </nav>
+      </div>
+
+      <mlv-search-field
+        class="app-shell-preview__search"
+        [class.app-shell-preview__search--icon]="
+          searchPresentation() === 'icon'
+        "
+        [presentation]="searchPresentation()"
+        placeholder="Search projects"
+        ariaLabel="Search projects"
+        [(value)]="searchQuery"
+      />
+
+      <div class="app-shell-preview__bar-side app-shell-preview__bar-side--end">
+        <mlv-toolbar>
+          <button mlvButton mlvDensity="compact">
+            <svg lucidePlus [size]="16" />
+            Create
+          </button>
+          <button
+            mlvButton
+            variant="transparent"
+            shape="square"
+            mlvDensity="compact"
+            aria-label="Notifications"
+          >
+            <svg lucideBell [size]="18" />
+          </button>
+          <button
+            mlvButton
+            variant="transparent"
+            shape="square"
+            mlvDensity="compact"
+            type="button"
+            [attr.aria-label]="
+              inspectorCollapsed() ? 'Open inspector' : 'Collapse inspector'
+            "
+            [attr.aria-expanded]="!inspectorCollapsed()"
+            (click)="toggleInspector()"
+          >
+            <svg lucidePanelsTopLeft [size]="18" />
+          </button>
+          <mlv-avatar size="s" initials="DS" name="Denis Severin" />
+        </mlv-toolbar>
+      </div>
+    </header>
+
+    <mlv-sidebar
+      class="app-shell-preview__rail"
+      mlvPageSidebar
+      data-slot="rail"
+      ariaLabel="Workspace rail"
+      mode="fixed"
+      width="3.5rem"
+    >
+      <div mlvSidebarContent>
+        <mlv-sidebar-item label="Home" active>
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideHouse [size]="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+        <mlv-sidebar-item label="Inbox">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideInbox [size]="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </div>
+      <div mlvSidebarFooter>
+        <button
+          mlvButton
+          variant="transparent"
+          shape="square"
+          type="button"
+          [attr.aria-label]="
+            collapsed() ? 'Open navigation' : 'Collapse navigation'
+          "
+          [attr.aria-expanded]="!collapsed()"
+          (click)="toggleSidebar()"
+        >
+          <svg lucideMenu [size]="18" />
+        </button>
+      </div>
+    </mlv-sidebar>
+
+    <mlv-sidebar
+      class="app-shell-preview__navigation"
+      mlvPageSidebar
+      data-slot="navigation"
+      ariaLabel="Project navigation"
+      [mode]="sidebarMode()"
+      [(collapsed)]="collapsed"
+      [attr.inert]="collapsed() ? '' : null"
+      [attr.aria-hidden]="collapsed() ? 'true' : null"
+      width="13rem"
+      collapsedWidth="0rem"
+    >
+      <div mlvSidebarContent>
+        <mlv-sidebar-item label="Home" active>
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideHouse [size]="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+        <mlv-sidebar-item label="Search">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideSearch [size]="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+        <mlv-sidebar-item label="Inbox">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideInbox [size]="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+        <mlv-sidebar-item label="Calendar">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideCalendarDays [size]="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </div>
+      <div mlvSidebarFooter>
+        <mlv-sidebar-item label="Settings">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideSettings [size]="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </div>
+    </mlv-sidebar>
+
+    <main mlvPage padding="m">
+      <mlv-page-header>
+        <ng-template mlvPageBreadcrumb>
+          <nav mlvBreadcrumb [items]="breadcrumbs"></nav>
+        </ng-template>
+        <ng-template mlvPageTitle>
+          <h1 mlvTitle>Website redesign</h1>
+        </ng-template>
+        <ng-template mlvPageHeaderActions>
+          <button mlvButton variant="outlined">Share</button>
+          <button mlvButton>New task</button>
+        </ng-template>
+        <ng-template mlvPageHeaderDescription>
+          <p>Coordinate the next version of the marketing experience.</p>
+        </ng-template>
+        <ng-template mlvPageHeaderTabs>
+          <mlv-tab-group [(activeTab)]="activeTab">
+            <mlv-tab value="summary">
+              <ng-template mlvTabDef>Summary</ng-template>
+            </mlv-tab>
+            <mlv-tab value="activity">
+              <ng-template mlvTabDef>Activity</ng-template>
+            </mlv-tab>
+            <mlv-tab value="files">
+              <ng-template mlvTabDef>Files</ng-template>
+            </mlv-tab>
+          </mlv-tab-group>
+        </ng-template>
+      </mlv-page-header>
+
+      <section
+        class="app-shell-preview__summary"
+        aria-labelledby="summary-title"
+      >
+        <div class="app-shell-preview__section-heading">
+          <div>
+            <h2 id="summary-title" mlvTitle>Project summary</h2>
+            <span>Updated a few minutes ago</span>
+          </div>
+          <button
+            mlvButton
+            variant="transparent"
+            shape="square"
+            aria-label="More project actions"
+          >
+            <svg lucideEllipsis [size]="18" />
+          </button>
+        </div>
+
+        <div class="app-shell-preview__metrics" aria-label="Project metrics">
+          <mlv-card>
+            <div class="app-shell-preview__metric">
+              <span>Progress</span>
+              <strong>68%</strong>
+              <span class="app-shell-preview__progress" aria-hidden="true">
+                <span></span>
+              </span>
+            </div>
+          </mlv-card>
+          <mlv-card>
+            <div class="app-shell-preview__metric">
+              <span>Open tasks</span>
+              <strong>24</strong>
+              <small>7 assigned to you</small>
+            </div>
+          </mlv-card>
+          <mlv-card>
+            <div class="app-shell-preview__metric">
+              <span>Next milestone</span>
+              <strong>Aug 14</strong>
+              <small>Design approval</small>
+            </div>
+          </mlv-card>
+        </div>
+
+        <mlv-card class="app-shell-preview__work-list">
+          <div class="app-shell-preview__work-row">
+            <svg lucideCircleCheckBig [size]="18" aria-hidden="true" />
+            <span>
+              <strong>Navigation concepts</strong>
+              <small>Completed yesterday</small>
+            </span>
+            <span class="app-shell-preview__mini-avatar">AM</span>
+          </div>
+          <div class="app-shell-preview__work-row">
+            <svg lucideCircleDashed [size]="18" aria-hidden="true" />
+            <span>
+              <strong>Responsive page shell</strong>
+              <small>In progress</small>
+            </span>
+            <span class="app-shell-preview__mini-avatar">DS</span>
+          </div>
+          <div class="app-shell-preview__work-row">
+            <svg lucideCircle [size]="18" aria-hidden="true" />
+            <span>
+              <strong>Accessibility review</strong>
+              <small>Starts next week</small>
+            </span>
+            <span class="app-shell-preview__mini-avatar">JK</span>
+          </div>
+        </mlv-card>
+      </section>
+    </main>
+
+    <mlv-sidebar
+      class="app-shell-preview__inspector"
+      mlvPageEndSidebar
+      data-slot="inspector"
+      ariaLabel="Project inspector"
+      mode="icon"
+      [collapsed]="inspectorCollapsed()"
+      [attr.inert]="inspectorCollapsed() ? '' : null"
+      [attr.aria-hidden]="inspectorCollapsed() ? 'true' : null"
+      width="14rem"
+      collapsedWidth="0rem"
+    >
+      <div mlvSidebarContent>
+        <section aria-labelledby="inspector-title">
+          <h2 id="inspector-title" mlvTitle>Details</h2>
+          <span class="app-shell-preview__inspector-label">Inspector</span>
+          <div class="app-shell-preview__inspector-visual" aria-hidden="true">
+            <svg lucidePanelsTopLeft [size]="28" />
+          </div>
+          <dl class="app-shell-preview__details">
+            <div>
+              <dt>Owner</dt>
+              <dd>
+                <span class="app-shell-preview__mini-avatar">AM</span>Alex
+              </dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>
+                <span class="app-shell-preview__status-dot"></span>In progress
+              </dd>
+            </div>
+            <div>
+              <dt>Due</dt>
+              <dd>30 Aug 2026</dd>
+            </div>
+            <div>
+              <dt>Priority</dt>
+              <dd>High</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+    </mlv-sidebar>
+  </mlv-page-shell>
+</div>

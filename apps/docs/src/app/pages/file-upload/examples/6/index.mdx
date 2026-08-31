@@ -1,0 +1,21 @@
+---
+title: Extra zone actions
+description: Project additional buttons next to the browse button
+---
+
+## Extra zone actions
+
+Mark any control with `mlvFileUploadAction` to place it in the drop zone's
+action row, next to the built-in browse button. `position="start"` (the
+default) renders it before the button, `position="end"` after it.
+
+`position` is matched by the component's content-projection selector, so write
+it as a **static attribute** — `position="end"`, not `[position]="…"` — exactly
+like the other Malva UI slot markers. DOM order equals visual order, so the tab
+sequence always follows what the user sees.
+
+Clicks on a projected action (including Enter/Space activation of a `<button>`)
+stop at the slot and never open the native file picker. Styling and the
+`disabled` state of a projected control stay with you: `mlv-file-upload` dims
+the zone and blocks pointer events while it is disabled, but it does not write
+`disabled` onto projected content.

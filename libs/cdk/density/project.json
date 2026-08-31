@@ -1,0 +1,19 @@
+{
+  "name": "cdk-density",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/cdk/density/src",
+  "prefix": "mlv",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:cdk", "type:infrastructure"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "config": "libs/cdk/density/vite.config.mts"
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-switch-group;
+
+.#{$block} {
+  // Density-scaled rhythm between the projected switches. `comfortable` keeps
+  // the historical 0.5rem gap, so the default rendering is unchanged.
+  --mlv-switch-group-gap: var(--mlv-spacing-2);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-switch-group-gap);
+
+  @include density.density-tight {
+    --mlv-switch-group-gap: var(--mlv-spacing-1);
+  }
+
+  @include density.density-compact {
+    --mlv-switch-group-gap: var(--mlv-spacing-1-5);
+  }
+
+  @include density.density-comfortable {
+    --mlv-switch-group-gap: var(--mlv-spacing-2);
+  }
+
+  @include density.density-spacious {
+    --mlv-switch-group-gap: var(--mlv-spacing-3);
+  }
+
+  @include density.density-airy {
+    --mlv-switch-group-gap: var(--mlv-spacing-4);
+  }
+}
+}

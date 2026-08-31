@@ -1,0 +1,101 @@
+.home-marquee {
+  display: grid;
+  gap: 0.875rem;
+  padding-block: 0.5rem;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+
+  &__row {
+    display: flex;
+    gap: 0.875rem;
+    width: max-content;
+
+    &:hover .home-marquee__track,
+    &:focus-within .home-marquee__track {
+      animation-play-state: paused;
+    }
+  }
+
+  &__track {
+    display: flex;
+    gap: 0.875rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    animation: home-marquee-scroll 44s linear infinite;
+
+    .home-marquee__row--reverse & {
+      animation-direction: reverse;
+    }
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1rem;
+    border: 0.0625rem solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-full);
+    background: var(--mlv-background-raised);
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-font-size-s);
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      border-color var(--mlv-duration-fast) var(--mlv-ease-default),
+      box-shadow var(--mlv-duration-fast) var(--mlv-ease-default),
+      transform var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    svg {
+      flex: 0 0 auto;
+      color: var(--mlv-text-action);
+    }
+
+    &:hover {
+      border-color: var(--mlv-border-focus);
+      box-shadow: var(--mlv-shadow-2);
+      transform: translateY(-0.125rem);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-marquee {
+    mask-image: none;
+
+    &__row {
+      width: auto;
+      overflow-x: auto;
+    }
+
+    &__track {
+      animation: none;
+
+      &--ghost {
+        display: none;
+      }
+    }
+  }
+}
+
+@keyframes home-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-100% - 0.875rem));
+  }
+}

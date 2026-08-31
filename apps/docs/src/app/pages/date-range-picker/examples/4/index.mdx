@@ -1,0 +1,7 @@
+## Reactive Forms Integration
+
+`mlv-date-range-picker` implements Angular's signal-control contract, so it works seamlessly with `FormControl` and `FormGroup` via `formControlName` or `[formControl]`.
+
+The control value is typed as `MlvDateRangePickerValue | null` where `MlvDateRangePickerValue` is `{ start: Date | null, end: Date | null }`.
+
+The `state` and `message` inputs are driven by the control's `touched` and `invalid` state so validation feedback appears only after the user has interacted with the field.

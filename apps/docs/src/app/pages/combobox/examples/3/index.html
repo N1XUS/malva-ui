@@ -1,0 +1,14 @@
+<p>Type a value and press Enter to add it to the selection.</p>
+<div
+  class="demo-col"
+  style="gap: 0.75rem; align-items: stretch; max-width: 28rem"
+>
+  <mlv-combobox
+    label="Tags"
+    [options]="tags()"
+    [multiple]="true"
+    [allowCreate]="true"
+    placeholder="Search or create tags..."
+    (valueCreated)="onTagCreated($event)"
+  />
+</div>

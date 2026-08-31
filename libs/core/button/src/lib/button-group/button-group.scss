@@ -1,0 +1,47 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-button-group;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m),
+    0,
+    0
+  );
+
+  display: inline-flex;
+  align-items: stretch;
+
+  > .mlv-button,
+  > .mlv-button-toggle > .mlv-button {
+    border-radius: 0;
+  }
+
+  > .mlv-button:first-child,
+  > .mlv-button-toggle:first-child > .mlv-button {
+    border-start-start-radius: var(--mlv-btn-radius);
+    border-end-start-radius: var(--mlv-btn-radius);
+  }
+
+  > .mlv-button:last-child,
+  > .mlv-button-toggle:last-child > .mlv-button {
+    border-start-end-radius: var(--mlv-btn-radius);
+    border-end-end-radius: var(--mlv-btn-radius);
+  }
+
+  > .mlv-button + .mlv-button,
+  > .mlv-button-toggle + .mlv-button,
+  > .mlv-button + .mlv-button-toggle > .mlv-button,
+  > .mlv-button-toggle + .mlv-button-toggle > .mlv-button {
+    margin-inline-start: -0.0625rem;
+  }
+
+  > .mlv-button:focus-visible,
+  > .mlv-button-toggle > .mlv-button:focus-visible {
+    position: relative;
+    z-index: 1;
+  }
+}
+}

@@ -1,0 +1,80 @@
+<mlv-form-control-wrapper>
+  @if (label() || hint()) {
+  <mlv-label [for]="id()" [required]="required()">
+    {{ label() }} @if (hint()) {
+    <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
+  }
+
+  <ng-template mlvFormControlWrapperControl>
+    <div
+      class="mlv-tokenizer__tokens"
+      tabindex="-1"
+      (click)="focusInput()"
+      (keydown.enter)="focusInput()"
+    >
+      @if (visibleTokens().length > 0) {
+      <div
+        class="mlv-tokenizer__token-list"
+        role="list"
+        [attr.aria-label]="label() || _i18n().selectedItems"
+      >
+        @for (token of visibleTokens(); track token.value) {
+        <mlv-token
+          [value]="token"
+          [removable]="!computedDisabled()"
+          [disabled]="computedDisabled()"
+          [armed]="_isTokenArmed(token)"
+          (removed)="removeToken(token)"
+          (keydown)="onTokenKeydown($event)"
+        >
+          @if (tokenTemplate(); as tmpl) {
+          <ng-template
+            [ngTemplateOutlet]="tmpl.templateRef"
+            [ngTemplateOutletContext]="{ $implicit: token }"
+          />
+          } @else { {{ token.label }} }
+        </mlv-token>
+        }
+      </div>
+      } @if (showOverflow() && overflowCount() > 0) {
+      <span class="mlv-tokenizer__overflow"> +{{ overflowCount() }} more </span>
+      } @if (!computedDisabled()) {
+      <mlv-input
+        #inputEl
+        bare
+        class="mlv-tokenizer__input"
+        [id]="id()"
+        [placeholder]="tokens().length === 0 ? placeholder() : ''"
+        [disabled]="computedDisabled()"
+        [state]="resolvedState()"
+        [ariaLabel]="ariaLabel() ?? _i18n().addToken"
+        [required]="required()"
+        [ariaDescribedBy]="_describedBy()"
+        (keydown.enter)="onInputEnter($event)"
+        (keydown.backspace)="onInputBackspace($event)"
+        (keydown.delete)="onInputDelete($event)"
+        (keydown.arrowleft)="_disarm()"
+        (keydown.arrowright)="_disarm()"
+        (keydown.home)="_disarm()"
+        (keydown.end)="_disarm()"
+        (input)="_disarm()"
+        (focus)="onInputFocus()"
+        (blur)="onInputBlur()"
+      />
+      }
+      <span class="mlv-tokenizer__sr" role="status" aria-live="polite"
+        >{{ _srMessage() }}</span
+      >
+    </div>
+  </ng-template>
+
+  @if (description()) {
+  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+  } @if (message()) {
+  <mlv-message [id]="_messageId()" [state]="resolvedState()">
+    {{ message() }}
+  </mlv-message>
+  }
+</mlv-form-control-wrapper>

@@ -1,0 +1,17 @@
+.no-backdrop-demo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mlv-spacing-4);
+
+  &__hint {
+    margin: 0;
+    padding: var(--mlv-padding-m);
+    background: var(--mlv-background-info-1-pale);
+    border-radius: var(--mlv-radius-m);
+    font-size: var(--mlv-typography-body-s-size);
+    color: var(--mlv-text-secondary);
+    user-select: text;
+    cursor: text;
+  }
+}

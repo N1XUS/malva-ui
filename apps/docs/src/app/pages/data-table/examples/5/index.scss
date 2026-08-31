@@ -1,0 +1,17 @@
+.dt-metric {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+
+  &--warn {
+    color: var(--mlv-text-negative);
+    font-weight: 600;
+  }
+
+  &--ok {
+    color: var(--mlv-text-tertiary);
+  }
+}
+
+.dt-metric-num {
+  font-variant-numeric: tabular-nums;
+}

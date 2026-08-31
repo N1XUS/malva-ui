@@ -1,0 +1,25 @@
+---
+title: Remote searchFn with an owned loading flag
+description: A search function that supersedes options, plus a consumer-driven spinner
+---
+
+`searchFn` is `(query) => T[] | Promise<T[]> | Observable<T[]>`. When set it
+**supersedes `[options]`** as the item source and the list is never filtered
+locally — the function owns the matching, so results that the local matcher
+would reject still render.
+
+It is **lazy**: nothing runs until the dropdown first opens (or immediately, if
+a committed value still needs its label). Keystrokes are debounced by
+`searchDebounce` (200 ms by default), a newer query supersedes an in-flight one,
+and the previous results stay on screen — and stay clickable — until the new
+ones land.
+
+Unlike a data source, a `searchFn` reports no loading state of its own, so
+**the developer owns `loading`** in this mode. Here the flag is toggled around
+the observable with `tap({ subscribe })` / `finalize` and bound with
+`[loading]`, which drives the dropdown's spinner row. Bind it only to a flag
+that is genuinely about option loading: it also feeds the trigger's loading
+variant whenever the committed value is not among the current options.
+
+Paging is not available with `searchFn` — pass an `MlvDataSource` when the
+result set needs pages.

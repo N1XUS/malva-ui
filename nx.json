@@ -1,0 +1,195 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "production": [
+      "default",
+      "!{projectRoot}/.eslintrc.json",
+      "!{projectRoot}/eslint.config.mjs",
+      "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/src/test-setup.[jt]s",
+      "!{projectRoot}/jest.config.[jt]s",
+      "!{projectRoot}/test-setup.[jt]s"
+    ],
+    "sharedGlobals": []
+  },
+  "targetDefaults": {
+    "@angular/build:application": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
+    },
+    "@nx/eslint:lint": {
+      "cache": true,
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/.eslintrc.json",
+        "{workspaceRoot}/.eslintignore",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/tools/eslint-rules/**/*"
+      ]
+    },
+    "@nx/esbuild:esbuild": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
+    },
+    "@nx/js:tsc": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
+    },
+    "@nx/vitest:test": {
+      "cache": true,
+      "inputs": ["default", "^production"]
+    },
+    "@nx/angular:package": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
+    },
+    "@nx/angular:ng-packagr-lite": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
+    }
+  },
+  "cli": {
+    "cache": {
+      "enabled": false
+    }
+  },
+  "release": {
+    "projects": ["cdk", "core", "i18n", "editor", "tailwind"],
+    "projectsRelationship": "fixed",
+    "conventionalCommits": {
+      "types": {
+        "feat": {
+          "semverBump": "minor",
+          "changelog": { "title": "🚀 Features" }
+        },
+        "fix": {
+          "semverBump": "patch",
+          "changelog": { "title": "🩹 Fixes" }
+        },
+        "perf": {
+          "semverBump": "patch",
+          "changelog": { "title": "🔥 Performance" }
+        },
+        "refactor": {
+          "semverBump": "patch",
+          "changelog": { "title": "💅 Refactors" }
+        },
+        "docs": {
+          "semverBump": "none",
+          "changelog": { "title": "📖 Documentation" }
+        },
+        "build": {
+          "semverBump": "patch",
+          "changelog": { "title": "📦 Build" }
+        },
+        "revert": {
+          "semverBump": "patch",
+          "changelog": { "title": "⏪ Reverts" }
+        },
+        "chore": { "semverBump": "none", "changelog": false },
+        "test": { "semverBump": "none", "changelog": false },
+        "ci": { "semverBump": "none", "changelog": false },
+        "style": { "semverBump": "none", "changelog": false }
+      }
+    },
+    "changelog": {
+      "workspaceChangelog": {
+        "file": "CHANGELOG.md",
+        "createRelease": "github"
+      },
+      "projectChangelogs": false,
+      "automaticFromRef": true
+    },
+    "version": {
+      "conventionalCommits": true,
+      "preVersionCommand": "yarn nx run-many -t build -p cdk,core,i18n,editor,tailwind --configuration=production",
+      "manifestRootsToUpdate": ["."],
+      "fallbackCurrentVersionResolver": "disk",
+      "versionActions": "./scripts/release-version-actions.cjs"
+    },
+    "git": {
+      "commit": true,
+      "tag": true,
+      "push": true,
+      "commitMessage": "chore(release): v{version}"
+    }
+  },
+  "plugins": [
+    {
+      "plugin": "@nx/playwright/plugin",
+      "options": {
+        "targetName": "e2e"
+      }
+    },
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint"
+      }
+    },
+    {
+      "plugin": "@nx/docker",
+      "options": {
+        "buildTarget": "docker:build",
+        "runTarget": "docker:run"
+      }
+    },
+    {
+      "plugin": "@nx/vite/plugin",
+      "options": {
+        "buildTargetName": "build",
+        "serveTargetName": "serve",
+        "devTargetName": "dev",
+        "previewTargetName": "preview",
+        "serveStaticTargetName": "serve-static",
+        "typecheckTargetName": "typecheck",
+        "buildDepsTargetName": "build-deps",
+        "watchDepsTargetName": "watch-deps"
+      }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "options": {
+        "testTargetName": "vite:test"
+      }
+    }
+  ],
+  "generators": {
+    "@nx/angular:application": {
+      "e2eTestRunner": "playwright",
+      "linter": "eslint",
+      "style": "scss",
+      "unitTestRunner": "vitest-analog"
+    },
+    "@nx/angular:library": {
+      "linter": "eslint",
+      "unitTestRunner": "vitest-analog",
+      "prefix": "mlv",
+      "style": "scss",
+      "changeDetection": "OnPush",
+      "viewEncapsulation": "None",
+      "tags": "scope:ui"
+    },
+    "@nx/angular:component": {
+      "style": "scss",
+      "prefix": "mlv",
+      "changeDetection": "OnPush",
+      "viewEncapsulation": "None"
+    },
+    "@nx/angular:directive": {
+      "prefix": "mlv"
+    },
+    "@nx/angular:pipe": {
+      "prefix": "mlv"
+    }
+  },
+  "analytics": false
+}

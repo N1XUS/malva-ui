@@ -1,0 +1,30 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-page-end-pane;
+
+.#{$block} {
+  @include mixins.base();
+
+  display: flex;
+  flex: 0 0 var(--mlv-page-end-pane-width);
+  width: var(--mlv-page-end-pane-width);
+  min-width: 0;
+  min-height: 0;
+
+  &--overlay {
+    flex-basis: 0;
+    width: 0;
+    overflow: visible;
+  }
+
+  &__surface {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    background: var(--mlv-background-base);
+    border-inline-start: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+}
+}

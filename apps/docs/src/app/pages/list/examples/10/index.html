@@ -1,0 +1,22 @@
+<mlv-list class="docs-orders-list">
+  @for (order of orders; track order.id) {
+  <mlv-list-item>
+    <mlv-avatar
+      mlvListItemMedia
+      shape="square"
+      size="xl"
+      [src]="order.imageUrl"
+      [name]="order.product"
+    ></mlv-avatar>
+    <span mlvListItemTitle>{{ order.product }}</span>
+    <span mlvListItemByline>{{ order.detail }}</span>
+    <div mlvListItemActions class="docs-orders-list__trailing">
+      <span class="docs-orders-list__amount">{{ order.amount }}</span>
+      <span class="docs-orders-list__status">
+        <mlv-status-indicator [tone]="order.statusTone" />
+        {{ order.status }}
+      </span>
+    </div>
+  </mlv-list-item>
+  }
+</mlv-list>

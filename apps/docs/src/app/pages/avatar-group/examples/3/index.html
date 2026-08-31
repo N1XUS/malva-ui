@@ -1,0 +1,23 @@
+<div
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: flex-start;
+  "
+>
+  @for (size of sizes; track size) {
+  <div style="display: flex; align-items: center; gap: 1rem">
+    <span
+      style="
+        font-size: 0.75rem;
+        color: var(--mlv-text-secondary);
+        width: 2rem;
+        text-align: right;
+      "
+      >{{ size }}</span
+    >
+    <mlv-avatar-group [members]="members" [size]="size" />
+  </div>
+  }
+</div>

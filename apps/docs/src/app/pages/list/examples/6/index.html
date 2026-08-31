@@ -1,0 +1,12 @@
+<mlv-list variant="inset" class="docs-activity-list">
+  @for (entry of entries; track entry.id) {
+  <mlv-list-item [accent]="entry.accent">
+    <span mlvListItemTitle>{{ entry.title }}</span>
+    <span mlvListItemMeta>
+      <mlv-status-indicator [tone]="entry.statusTone" />
+      {{ entry.time }}
+    </span>
+    <span mlvListItemByline>{{ entry.byline }}</span>
+  </mlv-list-item>
+  }
+</mlv-list>

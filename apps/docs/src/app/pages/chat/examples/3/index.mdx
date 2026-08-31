@@ -1,0 +1,14 @@
+## Custom templates
+
+Three structural directives override parts of the default rendering while the
+chat keeps ownership of grouping, alignment, the meta row, and animations.
+
+`[mlvChatMessageDef]` with `mlvChatMessageDefType` replaces the bubble body for
+messages carrying a matching `type`, receiving the message plus `isOwn`,
+`groupPosition`, and `quote` as context — the `quote` flag lets one template
+serve both the full bubble and its condensed form inside a reply.
+
+`[mlvChatAuthorDef]` replaces the plain author name above other-authored groups
+(here an avatar and a role badge), and `[mlvChatDateDef]` replaces the
+Today/Yesterday pill. Typeless messages keep the built-in renderers, so custom
+templates are strictly additive.

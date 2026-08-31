@@ -1,0 +1,11 @@
+<div class="demo-col" style="gap: 1rem; align-items: flex-start">
+  <mlv-rating [max]="5" [step]="0.5" [(ngModel)]="rating" />
+  <span
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+    "
+  >
+    Selected: {{ rating() }} / 5
+  </span>
+</div>

@@ -1,0 +1,43 @@
+<mlv-tab-group [(activeTab)]="activeTab">
+  <mlv-tab value="overview">
+    <ng-template mlvTabDef let-hidden>
+      @if (!hidden) { Overview } @else { Overview }
+    </ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <h4>Overview</h4>
+        <p>
+          This is the overview tab content. The active indicator smoothly
+          animates between tabs.
+        </p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+  <mlv-tab value="features">
+    <ng-template mlvTabDef let-hidden>Features</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <h4>Features</h4>
+        <p>
+          Animated indicator, overflow handling, nested tabs, vertical layout,
+          and more.
+        </p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+  <mlv-tab value="api">
+    <ng-template mlvTabDef let-hidden>API</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <h4>API Reference</h4>
+        <p>Use MlvTabGroup, MlvTab, MlvTabDef, and MlvTabContentDef.</p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+  <mlv-tab value="disabled" [disabled]="true">
+    <ng-template mlvTabDef let-hidden>Disabled</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">This should not be reachable.</div>
+    </ng-template>
+  </mlv-tab>
+</mlv-tab-group>

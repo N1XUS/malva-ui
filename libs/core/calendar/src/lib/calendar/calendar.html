@@ -1,0 +1,146 @@
+<div class="mlv-calendar__header">
+  <button
+    class="mlv-calendar__nav-button"
+    mlvButton
+    shape="circle"
+    variant="transparent"
+    mlvDensity="compact"
+    [attr.aria-label]="_i18n().previousPeriod"
+    type="button"
+    [disabled]="!canNavigatePrev()"
+    (click)="navigatePrev()"
+  >
+    <svg mlvButtonIcon lucideChevronLeft />
+  </button>
+  <div mlvFade class="mlv-calendar__nav-header-wrapper">
+    <button
+      class="mlv-calendar__header-button"
+      mlvButton
+      variant="transparent"
+      type="button"
+      (click)="switchView()"
+      [attr.aria-label]="_switchViewLabel()"
+    >
+      {{ headerLabel() }}
+    </button>
+  </div>
+  <button
+    class="mlv-calendar__nav-button"
+    mlvButton
+    shape="circle"
+    variant="transparent"
+    mlvDensity="compact"
+    [attr.aria-label]="_i18n().nextPeriod"
+    type="button"
+    [disabled]="!canNavigateNext()"
+    (click)="navigateNext()"
+  >
+    <svg mlvButtonIcon lucideChevronRight />
+  </button>
+</div>
+
+@if (currentView() === 'month') {
+<div class="mlv-calendar__month" [attr.aria-label]="headerLabel()" role="grid">
+  <div class="mlv-calendar__weekdays" role="row">
+    @for (day of weekdays(); track day) {
+    <span class="mlv-calendar__weekday" role="columnheader">{{ day }}</span>
+    }
+  </div>
+  <div
+    class="mlv-calendar__days"
+    role="rowgroup"
+    (mouseleave)="clearRangePreview()"
+  >
+    @for (week of monthWeeks(); track $index) {
+    <div class="mlv-calendar__week" role="row">
+      @for (day of week; track trackDay($index, day); let rowStart = $first; let
+      rowEnd = $last) {
+      <div
+        class="mlv-calendar__day-cell"
+        role="gridcell"
+        [attr.aria-selected]="range() ? isInRange(day.date) : isSelected(day.date)"
+      >
+        <button
+          class="mlv-calendar__cell-button mlv-calendar__day"
+          [class.mlv-calendar__day--active]="isActive(day.date)"
+          [class.mlv-calendar__day--in-range]="isInDisplayRange(day.date)"
+          [class.mlv-calendar__day--range-preview]="isRangePreviewing() && isInDisplayRange(day.date)"
+          [class.mlv-calendar__day--range-complete]="hasCompletedRange() && isInDisplayRange(day.date)"
+          [class.mlv-calendar__day--range-start]="isDisplayRangeStart(day.date)"
+          [class.mlv-calendar__day--range-end]="isDisplayRangeEnd(day.date)"
+          [class.mlv-calendar__day--range-row-start]="rowStart && isInDisplayRange(day.date)"
+          [class.mlv-calendar__day--range-row-end]="rowEnd && isInDisplayRange(day.date)"
+          [class.mlv-calendar__day--outside]="!day.currentMonth"
+          [class.mlv-calendar__day--today]="isToday(day.date)"
+          [class.mlv-calendar__day--selected]="isSelected(day.date)"
+          [class.mlv-calendar__day--disabled]="isDateDisabled(day.date)"
+          [attr.tabindex]="isActive(day.date) ? 0 : -1"
+          [attr.aria-label]="getDayLabel(day.date)"
+          [attr.aria-current]="isToday(day.date) ? 'date' : null"
+          [attr.aria-disabled]="isDateDisabled(day.date)"
+          [disabled]="isDateDisabled(day.date)"
+          mlvButton
+          shape="circle"
+          [variant]="isSelected(day.date) || isDisplayRangeStart(day.date) || isDisplayRangeEnd(day.date) ? 'primary' : 'transparent'"
+          mlvDensity="compact"
+          (mouseenter)="previewRange(day.date)"
+          (focus)="previewRange(day.date)"
+          (blur)="clearRangePreview()"
+          (click)="selectDate(day.date)"
+          type="button"
+        >
+          {{ getDayNumber(day.date) }}
+        </button>
+      </div>
+      }
+    </div>
+    }
+  </div>
+</div>
+} @if (currentView() === 'year') {
+<div
+  class="mlv-calendar__selection-grid"
+  [attr.aria-label]="getYearViewLabel()"
+  role="group"
+>
+  @for (month of months(); track month; let i = $index) {
+  <button
+    class="mlv-calendar__cell-button mlv-calendar__selection-button mlv-calendar__month-button"
+    [class.mlv-calendar__selection-button--current]="isCurrentMonthIndex(i)"
+    [attr.aria-pressed]="isCurrentMonthIndex(i)"
+    [attr.tabindex]="isCurrentMonthIndex(i) ? 0 : -1"
+    [disabled]="isMonthDisabled(i)"
+    mlvButton
+    [variant]="isCurrentMonthIndex(i) ? 'primary' : 'transparent'"
+    mlvDensity="compact"
+    (click)="selectMonth(i)"
+    type="button"
+  >
+    {{ month }}
+  </button>
+  }
+</div>
+} @if (currentView() === 'multi-year') {
+<div
+  class="mlv-calendar__selection-grid"
+  [attr.aria-label]="headerLabel()"
+  role="group"
+>
+  @for (year of years(); track year) {
+  <button
+    class="mlv-calendar__cell-button mlv-calendar__selection-button"
+    [class.mlv-calendar__selection-button--current]="isCurrentYear(year)"
+    [attr.aria-pressed]="isCurrentYear(year)"
+    [attr.tabindex]="isCurrentYear(year) ? 0 : -1"
+    [disabled]="isYearDisabled(year)"
+    mlvButton
+    [variant]="isCurrentYear(year) ? 'primary' : 'transparent'"
+    mlvDensity="compact"
+    (click)="selectYear(year)"
+    type="button"
+  >
+    {{ getYearOptionLabel(year) }}
+  </button>
+  }
+</div>
+}

@@ -1,0 +1,11 @@
+<div style="max-width: 480px">
+  <mlv-date-range-picker
+    label="Stay dates"
+    hint="Minimum 2 nights, maximum 14 nights"
+    placeholder="Check-in — Check-out"
+    [state]="validationState"
+    [message]="validationMessage"
+    [(ngModel)]="range"
+    clearable
+  />
+</div>

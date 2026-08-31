@@ -1,0 +1,5 @@
+## Lazy Content Initialization
+
+Wrap content in `<ng-template mlvExpandContent>` to defer its creation. Eager `ng-content` is constructed with the parent's view whether or not the panel ever opens; the lazy template is not constructed until the first open. Use it for panels holding heavy components — charts, data tables, complex forms — that should not run on page load.
+
+The body element only exists while the panel is open, so the lazy template is re-instantiated on every open rather than cached after the first. Lazy defers the _first_ construction; it does not keep the content alive while closed.

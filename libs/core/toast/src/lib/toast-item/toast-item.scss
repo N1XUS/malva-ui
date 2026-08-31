@@ -1,0 +1,188 @@
+@layer mlv.components {
+$block: mlv-toast-item;
+
+.#{$block} {
+  // Hug the content instead of filling the panel: a short message should render a
+  // short toast. The cap keeps long text from spanning the viewport, and the
+  // 100vw term keeps it inside the panel's 1rem margins on narrow screens.
+  // Flex, not block: the wrapper and body have to stretch to the floored height
+  // below, otherwise `min-block-size` just adds dead space under the content.
+  display: flex;
+  width: fit-content;
+  // 26rem, not 22.5: once a leading icon and a trailing action take their columns,
+  // a 22.5rem cap left only ~180px for text, wrapping a short title onto two lines.
+  max-width: min(26rem, calc(100vw - 2rem));
+
+  background: var(--mlv-elevation-bg-3);
+  border-radius: var(--mlv-radius-xl);
+  box-shadow: var(--mlv-shadow-floating);
+  color: var(--mlv-text-primary);
+  font-size: var(--mlv-font-size-l);
+  overflow: hidden;
+
+  // Unstyled in the template; here only to pass the stretch down to the body.
+  &__wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    // Floor the bar height so a one-line toast still reads as a bar rather than a
+    // thin strip, and so a row of them lines up. Logical property: follows the
+    // writing mode rather than assuming a horizontal one.
+    min-block-size: 2.5rem;
+  }
+
+  &__body {
+    display: flex;
+    flex: 1;
+    // Centred against the floored 3rem height, so the icon, text block and
+    // trailing controls share one optical baseline no matter the shape or how
+    // many lines the text wraps to.
+    align-items: center;
+    // Matches the dynamic-content column gap so the dismiss control sits the
+    // same distance off the text as a trailing action does.
+    gap: var(--mlv-spacing-3);
+    padding: var(--mlv-padding-s);
+  }
+
+  &__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-1);
+  }
+
+  // Shared by the built-in tone icon (a direct `__body` child) and by consumer
+  // content marked with `[mlvToastIcon]`, which sits inline inside the template
+  // or component content. inline-flex keeps both cases aligned without forcing a
+  // flex context onto arbitrary consumer markup.
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    vertical-align: middle;
+    color: var(--mlv-toast-item-icon-color, var(--mlv-text-secondary));
+  }
+
+  &__title {
+    font-size: var(--mlv-font-size-m);
+    font-weight: var(--mlv-font-weight-semibold);
+    color: var(--mlv-text-secondary);
+    line-height: var(--mlv-line-height-normal);
+  }
+
+  &__description {
+    font-size: var(--mlv-font-size-m);
+    font-weight: var(--mlv-font-weight-normal);
+    color: var(--mlv-text-secondary);
+    line-height: var(--mlv-line-height-relaxed);
+    word-break: break-word;
+  }
+
+  &__dismiss {
+    // Left centred by `__body`. Pinning it to the first line to match a content
+    // action was tried and reverted: it dropped the dismiss 8px above the action on
+    // every single-line toast — the common case — to tidy the multi-line one. On a
+    // single-line toast centring already puts the two on the same axis.
+    margin-inline-end: -0.25rem;
+  }
+
+  // Template/component content arrives as flat markup — an `[mlvToastIcon]`
+  // element, one or two text elements, then any actions — so a flex row would put
+  // the title and description side by side. A three-column grid instead places by
+  // role: leading icon, a text column that stacks and wraps, trailing actions.
+  // Everything unclassified falls into the text column.
+  &__dynamic-content {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--mlv-spacing-3);
+    // Row gap stays 0: the icon and actions span two rows, and a one-line message
+    // leaves the second row empty — a row gap would then show as a phantom
+    // half-gap. The title/description gap is a margin instead.
+    row-gap: 0;
+    min-width: 0;
+    color: var(--mlv-text-primary);
+    overflow-wrap: anywhere;
+
+    // `ngComponentOutlet` wraps content in the component's host element, so the
+    // grid would otherwise see one child and lay out nothing. `display: contents`
+    // (below) hoists that host's children into the grid — which is why the role
+    // rules match at either depth, listing both direct children and grandchildren.
+    > *,
+    > * > * {
+      grid-column: 2;
+      min-width: 0;
+    }
+
+    // Descendant, not child: after the host is hoisted the icon is a grandchild.
+    // Safe to widen, because grid placement only takes effect on real grid items.
+    .#{$block}__description {
+      margin-block-start: var(--mlv-spacing-1);
+    }
+
+    // Icon and actions stay on the first row and centre against it, rather than
+    // spanning rows. Spanning looked right only when a description was present:
+    // with a single line, a 40px action inflated the empty second row, so the
+    // spanning items centred over 40px while the title centred over its own 22px
+    // row — an 8-10px misalignment. Row 1 is sized by the tallest of the three,
+    // so all three share a centre; a description simply flows into row 2.
+    .#{$block}__icon {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .mlv-button,
+    .mlv-button-close {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    &--component > * {
+      display: contents;
+    }
+  }
+
+  // Fully rounded compact bar. Width already hugs the content on the base block,
+  // so the pill only changes the corners and centres the body.
+  &--pill {
+    border-radius: var(--mlv-radius-full);
+
+    // Centring is already the base behaviour; the pill only widens the inline
+    // padding so text clears the rounded ends (inline half of `--mlv-padding-m`).
+    .#{$block}__body {
+      padding-inline: var(--mlv-spacing-4);
+    }
+
+    // Square-cornered controls read as misaligned inside a fully rounded bar, so
+    // inner buttons follow the bar's shape. Done through the button's own
+    // `--mlv-btn-radius` hook rather than overriding its border-radius, so the
+    // per-size radius scale stays the single owner of that property — and
+    // `shape="circle"` / `shape="square"` buttons, which set border-radius
+    // directly, keep winning over this.
+    .mlv-button {
+      --mlv-btn-radius: var(--mlv-radius-full);
+    }
+  }
+
+  // Tone drives the icon colour only. There is no accent-bar element in the
+  // template, so no surface/indicator custom property is declared here.
+  &--success {
+    --mlv-toast-item-icon-color: var(--mlv-text-positive);
+  }
+
+  &--danger {
+    --mlv-toast-item-icon-color: var(--mlv-text-negative);
+  }
+
+  &--warning {
+    --mlv-toast-item-icon-color: var(--mlv-text-warning);
+  }
+
+  &--info {
+    --mlv-toast-item-icon-color: var(--mlv-text-info);
+  }
+}
+}

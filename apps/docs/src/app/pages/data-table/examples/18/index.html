@@ -1,0 +1,25 @@
+<div class="data-table-smart-filter-demo">
+  <mlv-smart-filter-bar
+    [definitions]="definitions"
+    searchTrigger="submit"
+    filterApplyMode="explicit"
+    [(filters)]="filters"
+    [(visibleKeys)]="visibleKeys"
+    [(searchValue)]="searchValue"
+    (execute)="execute($event)"
+    (refresh)="execute($event, 'Query refreshed')"
+  />
+
+  <output class="data-table-smart-filter-demo__status" aria-live="polite">
+    {{ lastAction() }}
+  </output>
+
+  <mlv-data-table
+    [data]="rows"
+    [columns]="columns"
+    filterDisplay="none"
+    [showSearch]="false"
+    [searchQuery]="executedSearch()"
+    [activeFilters]="tableFilters()"
+  />
+</div>

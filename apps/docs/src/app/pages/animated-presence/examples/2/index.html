@@ -1,0 +1,28 @@
+<div class="custom-anim-demo">
+  <button
+    class="custom-anim-demo__trigger"
+    type="button"
+    (click)="toggle()"
+    [attr.aria-expanded]="isOpen()"
+  >
+    Custom animation (popup-style)
+  </button>
+
+  <div
+    *mlvAnimatedPresence="isOpen();
+      enterClass: 'mlv-popup--enter';
+      leaveClass: 'mlv-popup--leave'"
+    class="custom-anim-demo__panel"
+    role="dialog"
+    aria-label="Popup panel"
+  >
+    <p>
+      This panel uses <code>mlv-popup--enter</code> /
+      <code>mlv-popup--leave</code> from <code>@malva-ui/styles</code> — the
+      same animations used by the popup overlay.
+    </p>
+    <button class="custom-anim-demo__close" type="button" (click)="toggle()">
+      Close
+    </button>
+  </div>
+</div>

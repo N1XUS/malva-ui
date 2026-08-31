@@ -1,0 +1,75 @@
+<button
+  #_trigger="mlvPopupTrigger"
+  #_triggerElement
+  mlvButton
+  mlvEditorToolbarWidget
+  type="button"
+  shape="square"
+  mlvDensity="tight"
+  variant="transparent"
+  [disabled]="_disabled()"
+  [mlvPopupTrigger]="_popup"
+  [ariaHasPopup]="'dialog'"
+  [attr.aria-label]="_copy().link"
+  [attr.aria-pressed]="_active()"
+  [mlvTooltip]="_copy().link"
+>
+  <svg mlvButtonIcon lucideLink aria-hidden="true" />
+</button>
+
+<mlv-popup
+  #_popup
+  panelRole="dialog"
+  [modal]="true"
+  [ariaLabel]="_copy().link"
+  (afterOpened)="_onOpened()"
+  (afterClosed)="_onClosed()"
+>
+  <ng-template mlvPopupContent>
+    <div #_panel class="mlv-editor-link__panel">
+      <mlv-input
+        #_urlInput
+        type="url"
+        [label]="_copy().linkUrl"
+        [value]="_urlDraft()"
+        [disabled]="_disabled()"
+        [state]="_invalid() ? 'error' : 'default'"
+        [message]="_invalid() ? _copy().invalidLink : ''"
+        (valueChange)="_onUrlChange($event)"
+        (keydown.enter)="_apply()"
+      />
+      <mlv-input
+        [label]="_copy().linkText"
+        [value]="_textDraft()"
+        [disabled]="_disabled()"
+        (valueChange)="_textDraft.set($event)"
+        (keydown.enter)="_apply()"
+      />
+      <mlv-switch [label]="_copy().openInNewTab" [(checked)]="_newTab"
+        >{{_copy().openInNewTab}}</mlv-switch
+      >
+      <div class="mlv-editor-link__actions">
+        <button
+          mlvButton
+          type="button"
+          variant="primary"
+          [disabled]="_disabled()"
+          (click)="_apply()"
+        >
+          {{ _copy().applyLink }}
+        </button>
+        @if (_canRemove()) {
+        <button
+          mlvButton
+          type="button"
+          variant="secondary"
+          [disabled]="_disabled()"
+          (click)="_remove()"
+        >
+          {{ _copy().removeLink }}
+        </button>
+        }
+      </div>
+    </div>
+  </ng-template>
+</mlv-popup>

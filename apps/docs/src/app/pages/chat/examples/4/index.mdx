@@ -1,0 +1,15 @@
+## Loading, pagination, and live arrivals
+
+While `loading` is set the chat renders skeleton bubbles instead of content. As
+the user scrolls up, the internal render window grows through the already-loaded
+array first; only once it is exhausted does `(loadOlder)` fire — gated by
+`hasOlder` and suppressed while `loadingOlder` shows the top spinner. Prepending
+a page keeps the viewport visually still by compensating for the height the new
+messages added.
+
+Messages appended at the end animate in and, while the user sits at the bottom,
+scroll into view. Scrolled up, they are counted into a "N new messages" pill
+instead; activating it jumps back to the newest message. Older pages and window
+growth never animate — only live arrivals do. `windowSize` (30 here, 150 by
+default) caps how many messages stay in the DOM; off-screen groups are skipped
+via `content-visibility`.

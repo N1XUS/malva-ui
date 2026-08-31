@@ -1,0 +1,5 @@
+## Animation Toggle
+
+Use `[animated]="false"` to disable the pulse animation. This is useful when the loading state is transient and should not draw attention, or for static placeholder mockups. The `@media (prefers-reduced-motion: reduce)` rule in the component stylesheet also suppresses animation automatically for users who prefer reduced motion.
+
+Use `[animationDuration]` to control the speed of the shimmer. Pass any valid CSS duration string (e.g. `"0.8s"` for a fast, urgent feel or `"2s"` for the default slow, professional cadence).

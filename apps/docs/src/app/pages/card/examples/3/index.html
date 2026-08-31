@@ -1,0 +1,78 @@
+<div class="cards-grid">
+  <mlv-card [elevated]="true">
+    <h3 *mlvCardHeaderDef mlvCardHeader>Project Alpha</h3>
+    <div *mlvCardActionsDef mlvCardActions>
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvDensity="tight"
+        aria-label="Edit"
+      >
+        <svg [lucideIcon]="icons.pencil" mlvButtonIcon />
+      </button>
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvDensity="tight"
+        aria-label="Delete"
+      >
+        <svg [lucideIcon]="icons.trash" mlvButtonIcon />
+      </button>
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvDensity="tight"
+        aria-label="More options"
+      >
+        <svg [lucideIcon]="icons.ellipsis" mlvButtonIcon />
+      </button>
+    </div>
+    <p *mlvCardSubheaderDef mlvCardSubheader class="mlv-card__subheading">
+      Last updated 2 hours ago
+    </p>
+    <p>A card with inline actions in the header for quick operations.</p>
+  </mlv-card>
+
+  <mlv-card [elevated]="true">
+    <h3 *mlvCardHeaderDef mlvCardHeader>Travel Blog</h3>
+    <div *mlvCardActionsDef mlvCardActions class="mlv-card__actions">
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvDensity="tight"
+        aria-label="Like"
+      >
+        <svg [lucideIcon]="icons.heart" mlvButtonIcon />
+      </button>
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvDensity="tight"
+        aria-label="Share"
+      >
+        <svg [lucideIcon]="icons.share" mlvButtonIcon />
+      </button>
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvDensity="tight"
+        aria-label="Bookmark"
+      >
+        <svg [lucideIcon]="icons.bookmark" mlvButtonIcon />
+      </button>
+    </div>
+    <p *mlvCardSubheaderDef mlvCardSubheader class="mlv-card__subheading">
+      By Jane Doe &middot; 5 min read
+    </p>
+    <p>
+      Exploring the hidden gems of the Mediterranean coast and the stories they
+      hold.
+    </p>
+  </mlv-card>
+</div>

@@ -1,0 +1,48 @@
+<div class="demo-col" style="align-items: flex-start; gap: 2rem">
+  <div class="demo-col" style="align-items: flex-start; gap: 0.5rem">
+    <mlv-time-picker
+      label="Lap time"
+      hint="Hours : Minutes : Seconds"
+      [showSeconds]="true"
+      [formControl]="lapCtrl"
+    />
+    <p
+      style="
+        font-size: var(--mlv-typography-body-s-size);
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Value:
+      <strong
+        style="
+          color: var(--mlv-text-primary);
+          font-variant-numeric: tabular-nums;
+        "
+        >{{ lapCtrl.value }}</strong
+      >
+    </p>
+  </div>
+  <div class="demo-col" style="align-items: flex-start; gap: 0.5rem">
+    <mlv-time-picker
+      label="Countdown"
+      hint="Set duration in HH:mm:ss"
+      [showSeconds]="true"
+      [formControl]="countdownCtrl"
+    />
+    <p
+      style="
+        font-size: var(--mlv-typography-body-s-size);
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Value:
+      <strong
+        style="
+          color: var(--mlv-text-primary);
+          font-variant-numeric: tabular-nums;
+        "
+        >{{ countdownCtrl.value }}</strong
+      >
+    </p>
+  </div>
+</div>

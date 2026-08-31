@@ -1,0 +1,8 @@
+## Action Rows With Overflow
+
+Each row carries exactly one trailing action, matching common "single action"
+and "multiple actions with no content on the right" cell patterns.
+Most rows spell their action out as a `variant="secondary"` button; once a
+row would need more than one action, it collapses into a single
+`variant="transparent" shape="circle"` overflow trigger that opens an
+`mlv-menu` instead of crowding the row with several buttons.

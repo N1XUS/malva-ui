@@ -1,0 +1,19 @@
+## Record editor
+
+A publishing workflow page composed entirely from Page primitives: the compact
+sticky header (`size="s"`) carries status badges, a Draft/Live `mlv-segmented`
+switch, and a centered section switcher (also `mlv-segmented`, in the tabs slot);
+`mlv-page-summary` shows pinnable key facts that snap shut on
+scroll; and `mlv-page-dock` anchors the workflow actions. Version history,
+the diff view, inline suggestions, and delayed publish are host-owned state —
+the page library only provides the structure and slots they render into.
+
+The dock runs `appearance="floating"`: it drops its own glass surface — the
+pill `mlvActionBar` inside brings that — and paints the `mlvFloatingContainer`
+recipe instead, a gradient-masked backdrop that fades the scrolling content out
+underneath the actions. The pill sets `wrap`, so on a narrow canvas the status
+line and the controls reflow onto separate rows instead of overflowing.
+
+While the dock is sticky it publishes its measured height as
+`--mlv-page-dock-height` on the document root, so bottom-anchored toasts lift
+themselves above it and never cover Save or Discard.

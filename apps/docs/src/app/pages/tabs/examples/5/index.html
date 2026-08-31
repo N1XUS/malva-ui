@@ -1,0 +1,54 @@
+<mlv-tab-group appearance="boxed" [(activeTab)]="activeTab">
+  <mlv-tab
+    value="overview"
+    routerLink="/tabs"
+    [queryParams]="{ demoTab: 'overview' }"
+  >
+    <ng-template mlvTabDef>Overview</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <h4>Overview</h4>
+        <p>
+          A <code>appearance="boxed"</code> group whose tabs are
+          <code>routerLink</code>s. The active tab is derived from the URL via
+          <code>Router.isActive</code> — watch the address bar update to
+          <code>?demoTab=overview</code>. Tabs are deep-linkable and respond to
+          browser back / forward.
+        </p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+  <mlv-tab
+    value="activity"
+    routerLink="/tabs"
+    [queryParams]="{ demoTab: 'activity' }"
+  >
+    <ng-template mlvTabDef>Activity</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <h4>Activity</h4>
+        <p>
+          The header items are real links — middle-click a tab (or use "Open in
+          new tab") and it opens at its own URL.
+        </p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+  <mlv-tab
+    value="settings"
+    routerLink="/tabs"
+    [queryParams]="{ demoTab: 'settings' }"
+  >
+    <ng-template mlvTabDef>Settings</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <h4>Settings</h4>
+        <p>
+          Activating a tab calls <code>router.navigateByUrl()</code>; the group
+          never sets <code>activeTab</code> directly, so the URL stays the
+          single source of truth.
+        </p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+</mlv-tab-group>

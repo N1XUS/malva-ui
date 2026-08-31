@@ -1,0 +1,20 @@
+<div class="demo-col" style="align-items: flex-start; gap: 1rem">
+  @for (variant of variants; track variant) {
+  <div class="demo-col" style="align-items: flex-start; gap: 0.5rem">
+    <span
+      [id]="'button-toggle-variant-' + variant"
+      style="font-size: 0.75rem; font-weight: 500; text-transform: capitalize"
+    >
+      {{ variant }}
+    </span>
+    <mlv-button-group
+      [variant]="variant"
+      [attr.aria-labelledby]="'button-toggle-variant-' + variant"
+    >
+      <mlv-button-toggle [pressed]="true">Bold</mlv-button-toggle>
+      <mlv-button-toggle>Italic</mlv-button-toggle>
+      <mlv-button-toggle>Underline</mlv-button-toggle>
+    </mlv-button-group>
+  </div>
+  }
+</div>

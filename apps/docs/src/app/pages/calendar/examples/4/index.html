@@ -1,0 +1,7 @@
+<mlv-calendar
+  [range]="true"
+  [rangeValue]="selectedRange()"
+  (rangeValueChange)="selectedRange.set($event)"
+/>
+
+<p>Selected range: {{ rangeLabel() }}</p>

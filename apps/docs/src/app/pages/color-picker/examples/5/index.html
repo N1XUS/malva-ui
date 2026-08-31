@@ -1,0 +1,8 @@
+<div class="demo-col" style="gap: 1rem; align-items: stretch; max-width: 28rem">
+  <mlv-color-picker [formField]="fields.inline" />
+  <mlv-color-picker-popup [formField]="fields.popup" />
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Inline: {{ fields.inline().value() }} · Popup: {{ fields.popup().value() }}
+  </p>
+</div>

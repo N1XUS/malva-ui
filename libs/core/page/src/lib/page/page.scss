@@ -1,0 +1,206 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-page;
+
+  // The anchored canvas border. Shared with the inner-corner radius below, which
+  // has to subtract exactly this to land on the padding-box curve.
+  $surface-border-width: 0.0625rem;
+
+  .#{$block} {
+    @include mixins.base();
+
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    color: var(--mlv-text-primary);
+    background: var(--mlv-background-base);
+    outline: none;
+    isolation: isolate;
+
+    // Radius of the page's *padding* box — the box the full-bleed top chrome
+    // occupies. Zero unless the surface is anchored; see `--surface-anchored`.
+    --mlv-page-surface-radius: 0rem;
+
+    &__scrollbar {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+    }
+
+    &__scrollbar .mlv-scrollbar__viewport {
+      overflow-x: hidden;
+      scroll-padding-top: var(--mlv-page-header-offset, 6rem);
+      // Scroll anchoring would auto-adjust scrollTop while the snap timeline
+      // resizes the top chrome, feeding the scroll position back into the
+      // progress until it runs away to 0 or 1. The snap spacer keeps geometry
+      // stable instead.
+      overflow-anchor: none;
+    }
+
+    &__inner {
+      // Size container so page chrome (header rows, docks) can adapt to the
+      // canvas width instead of the viewport.
+      container-type: inline-size;
+      width: 100%;
+      min-height: 100%;
+      max-width: var(--mlv-page-max-width, none);
+      margin-inline: auto;
+    }
+
+    &--surface-anchored {
+      --mlv-page-surface-radius: calc(
+        var(--mlv-radius-xl) - #{$surface-border-width}
+      );
+
+      border: $surface-border-width solid var(--mlv-border-subtle);
+      border-bottom: 0;
+      border-radius: var(--mlv-radius-xl) var(--mlv-radius-xl) 0 0;
+    }
+
+    &--surface-flat {
+      --mlv-page-surface-radius: 0rem;
+
+      border-radius: 0;
+    }
+
+    &--scroll-auto {
+      overflow: clip;
+    }
+
+    &--scroll-none {
+      overflow: clip;
+    }
+
+    &--scroll-none &__scrollbar .mlv-scrollbar__viewport {
+      overflow: clip;
+    }
+
+    &--padding-none &__inner {
+      --mlv-page-inset: 0rem;
+
+      padding: 0;
+    }
+
+    &--padding-s &__inner {
+      --mlv-page-inset: var(--mlv-spacing-1-5);
+
+      padding: var(--mlv-page-inset);
+    }
+
+    &--padding-m &__inner {
+      --mlv-page-inset: var(--mlv-spacing-2);
+
+      padding: var(--mlv-page-inset);
+    }
+
+    &--padding-l &__inner {
+      --mlv-page-inset: var(--mlv-spacing-3);
+
+      padding: var(--mlv-page-inset);
+    }
+
+    // Top chrome spans the full canvas width regardless of the page inset; its
+    // own inline padding (via --mlv-page-inset) re-aligns content.
+    //
+    // NOTE: unlike `mlv-page-dock` — which derives its own full-bleed margins
+    // from the inherited --mlv-page-inset and therefore tolerates any wrapper —
+    // the header and summary strip MUST stay **direct children** of the page.
+    // Their geometry is sibling-relative (the header's top bleed, the snap
+    // spacer handover below) and `MlvPage` measures the same direct children to
+    // compute --mlv-page-snap-offset. Wrapping either one in a <form>/<section>
+    // silently drops the full-bleed treatment and the snap compensation.
+    &__inner > .mlv-page-header,
+    &__inner > .mlv-page-summary {
+      margin-inline: calc(-1 * var(--mlv-page-inset, 0rem));
+    }
+
+    &__inner > .mlv-page-header {
+      margin-top: calc(-1 * var(--mlv-page-inset, 0rem));
+      // The header carries a standalone top radius of its own; full-bleed
+      // inside a page that would leave hairline gaps at the canvas edge. The
+      // first child takes the canvas curve back below.
+      border-radius: 0;
+    }
+
+    // The full-bleed top chrome's box *is* the page's padding box at the top
+    // edge, so it has to carry the page's own inner corner radius. The host's
+    // `overflow: clip` does not do it: the header and the summary strip paint a
+    // glass surface with `backdrop-filter`, and a filtered backdrop is composited
+    // into a backdrop root that an ancestor's rounded overflow clip never reaches
+    // (verified in Chromium — forcing `backdrop-filter: none` on the header
+    // rounds the corners, restoring the blur squares them off again).
+    //
+    // Clipping on `.mlv-page__inner` is NOT the alternative: `overflow` there
+    // makes `__inner` the nearest scroll container for the sticky header, and
+    // `__inner` scrolls with the content, so the header would stop sticking —
+    // and every inline-rendered overlay would be cut off at the canvas edge.
+    //
+    // `:first-child` because only the first child sits on the corner. Chrome
+    // further down the page is still full-bleed inline, but must stay square.
+    &__inner > .mlv-page-header:first-child,
+    &__inner > .mlv-page-summary:first-child {
+      border-radius: var(--mlv-page-surface-radius, 0rem)
+        var(--mlv-page-surface-radius, 0rem) 0 0;
+    }
+
+    // The height the snapping chrome gives up is re-added after it so the
+    // document geometry stays stable mid-scrub (no content jumps, no scroll
+    // anchoring feedback). A projected summary strip lives inside the header,
+    // so the header carries the spacer; a legacy sibling strip takes it over.
+    &__inner > .mlv-page-summary,
+    &__inner > .mlv-page-header:not(:has(~ .mlv-page-summary)) {
+      margin-bottom: var(--mlv-page-snap-offset, 0rem);
+    }
+
+    &--sticky-header .mlv-page-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    }
+  }
+
+  // Scroll-scrubbed snap behaviours applied by the [mlvPageSnap] directive.
+  // Each element remaps the page-level --mlv-page-snap progress into its own
+  // stagger window and interpolates with pure calc() — no time-based animation.
+  .mlv-page-snap--hide,
+  .mlv-page-snap--fade {
+    --mlv-snap-progress: clamp(
+      0,
+      (var(--mlv-page-snap, 0) - var(--mlv-snap-from, 0)) *
+        var(--mlv-snap-scale, 1),
+      1
+    );
+  }
+
+  .mlv-page-snap--fade {
+    opacity: calc(1 - var(--mlv-snap-progress));
+  }
+
+  .mlv-page-snap--hide {
+    max-height: calc(
+      var(--mlv-snap-size, 3rem) * (1 - var(--mlv-snap-progress))
+    );
+    overflow: hidden;
+    // Content fades ahead of the height collapse and drifts up slightly, so it
+    // reads as sliding away under the chrome rather than being cut off.
+    opacity: calc(1 - var(--mlv-snap-progress) * 1.5);
+    transform: translateY(calc(-0.5rem * var(--mlv-snap-progress)));
+  }
+
+  // A region holding focus steps off the timeline entirely (see MlvPageSnap):
+  // scrolling must never scrub a focused control out of sight, and the region
+  // stays visible so it also stays focusable. Declared after the behaviours so
+  // it wins the equal-specificity cascade against their own progress value.
+  .mlv-page-snap--revealed {
+    --mlv-snap-progress: 0;
+  }
+
+  @include mixins.reduced-motion($block);
+}

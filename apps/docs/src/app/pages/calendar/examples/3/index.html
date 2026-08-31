@@ -1,0 +1,12 @@
+<mlv-calendar
+  [value]="selectedDate()"
+  (valueChange)="selectedDate.set($event)"
+  [min]="minDate"
+  [max]="maxDate"
+/>
+
+<p>
+  Allowed range: {{ minDate.toLocaleDateString() }} - {{
+  maxDate.toLocaleDateString() }}
+</p>
+<p>Selected date: {{ selectedLabel() }}</p>

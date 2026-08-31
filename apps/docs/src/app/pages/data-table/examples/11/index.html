@@ -1,0 +1,13 @@
+<div class="dt-selection-summary">
+  <strong>{{ selectedCount() }}</strong> selected @if (selectedCount() > 0) {
+  <span> — total MRR: <strong>${{ totalMrr() }}</strong>/mo</span>
+  }
+</div>
+
+<mlv-data-table
+  [data]="subscribers"
+  [columns]="columns"
+  selectable="multi"
+  [(selectedRows)]="selected"
+  (selectionChange)="onSelectionChange($event)"
+/>

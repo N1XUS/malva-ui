@@ -1,0 +1,17 @@
+<div class="controls">
+  <mlv-select label="Form density" [options]="densities" [(value)]="density" />
+  <mlv-select label="Gap override" [options]="gaps" [(value)]="gap" />
+</div>
+
+<form mlvForm maxWidth="32rem" [mlvDensity]="density()" [gap]="gapOverride()">
+  <fieldset mlvFieldset legend="Contact">
+    <mlv-input label="Name" placeholder="Jane Doe" />
+    <mlv-input label="Phone" placeholder="+49 …" />
+  </fieldset>
+  <mlv-select label="Role" [options]="roles" placeholder="Choose a role" />
+  <mlv-checkbox>Notify me about changes</mlv-checkbox>
+  <footer mlvFormActions align="end">
+    <button mlvButton variant="secondary" type="button">Cancel</button>
+    <button mlvButton type="button">Save</button>
+  </footer>
+</form>

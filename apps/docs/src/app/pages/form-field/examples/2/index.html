@@ -1,0 +1,51 @@
+<form
+  [formGroup]="strategyForm"
+  (ngSubmit)="onStrategySubmit()"
+  style="display: flex; flex-direction: column; gap: 16px; max-width: 400px"
+>
+  <mlv-form-field displayStrategy="immediate">
+    <mlv-label>
+      Immediate
+      <mlv-hint>Errors shown right away</mlv-hint>
+    </mlv-label>
+    <mlv-input
+      formControlName="immediate"
+      placeholder="Errors visible immediately"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field displayStrategy="dirty">
+    <mlv-label>
+      Dirty
+      <mlv-hint>Errors shown after first input</mlv-hint>
+    </mlv-label>
+    <mlv-input
+      formControlName="dirty"
+      placeholder="Type then clear to see error"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field displayStrategy="touched">
+    <mlv-label>
+      Touched
+      <mlv-hint>Errors shown after focus + blur</mlv-hint>
+    </mlv-label>
+    <mlv-input
+      formControlName="touched"
+      placeholder="Focus then blur to see error"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field displayStrategy="submit">
+    <mlv-label>
+      Submit
+      <mlv-hint>Errors shown only after form submit</mlv-hint>
+    </mlv-label>
+    <mlv-input
+      formControlName="submit"
+      placeholder="Submit the form to see error"
+    />
+  </mlv-form-field>
+
+  <button mlvButton type="submit">Submit Strategy Form</button>
+</form>

@@ -1,0 +1,20 @@
+<div class="demo-col" style="align-items: flex-start; gap: 1rem">
+  @for (variant of variants; track variant) {
+  <div class="demo-col" style="align-items: flex-start; gap: 0.5rem">
+    <span
+      [id]="'button-group-variant-' + variant"
+      style="font-size: 0.75rem; font-weight: 500; text-transform: capitalize"
+    >
+      {{ variant }}
+    </span>
+    <mlv-button-group
+      [variant]="variant"
+      [attr.aria-labelledby]="'button-group-variant-' + variant"
+    >
+      <button mlvButton>Left</button>
+      <button mlvButton>Center</button>
+      <button mlvButton>Right</button>
+    </mlv-button-group>
+  </div>
+  }
+</div>

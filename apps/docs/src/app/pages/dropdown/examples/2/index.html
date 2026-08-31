@@ -1,0 +1,31 @@
+<div class="dropdown-multiple">
+  <mlv-dropdown-panel
+    class="mlv-dropdown-panel--surface dropdown-multiple__panel"
+    multiple
+    [options]="scopes"
+    [selectedValues]="selected()"
+    [maxHeight]="240"
+    (valueChange)="onValueChange($event)"
+  />
+
+  <div class="dropdown-multiple__summary">
+    @if (selectedOptions().length) {
+    <ul class="dropdown-multiple__chips">
+      @for (option of selectedOptions(); track option.value) {
+      <li>
+        <mlv-chip
+          muted
+          closable
+          [closeAriaLabel]="'Remove ' + option.label"
+          (chipClose)="remove(option.value)"
+        >
+          {{ option.label }}
+        </mlv-chip>
+      </li>
+      }
+    </ul>
+    } @else {
+    <p class="dropdown-multiple__empty">No scopes granted.</p>
+    }
+  </div>
+</div>

@@ -1,0 +1,10 @@
+<mlv-tiles
+  class="docs-tile-site-builder-example__tree"
+  [(tree)]="page"
+  [accepts]="canAccept"
+  layout="grid"
+>
+  @for (tile of page().children; track tile.id) {
+  <docs-tile-tree-node [tile]="tile" />
+  }
+</mlv-tiles>

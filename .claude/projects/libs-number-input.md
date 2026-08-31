@@ -1,0 +1,142 @@
+---
+# Library: number-input
+
+> **Keep this file up to date.** Always update this file and keep it aligned with the current implementation whenever you make any change to this library.
+
+## Overview
+
+The `number-input` library (`@malva-ui/core/number-input`) provides a themed numeric stepper input component (`mlv-number-input`) that extends `FormControlBase<number>` and integrates with Angular Reactive Forms via CVA.
+
+## Public API
+
+Exported from `libs/core/number-input/src/index.ts`:
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `MlvNumberInput` | Component | Numeric stepper — `mlv-number-input` |
+
+---
+
+## Components
+
+### `MlvNumberInput`
+
+**Selector:** `mlv-number-input` | **Extends:** `FormControlBase<number>` | **Change Detection:** `OnPush`
+
+#### Inputs (own)
+
+| Name               | Type                         | Default        | Description                                                                   |
+| ------------------ | ---------------------------- | -------------- | ----------------------------------------------------------------------------- |
+| `min`              | `number \| null`             | `null`         | Minimum value                                                                 |
+| `max`              | `number \| null`             | `null`         | Maximum value                                                                 |
+| `step`             | `number`                     | `1`            | Step for arrow keys and buttons                                               |
+| `largeStep`        | `number \| null`             | `null`         | Large step for Shift+Arrow; auto = 10 × step                                  |
+| `placeholder`      | `string`                     | `''`           | Placeholder text                                                              |
+| `precision`        | `number \| null`             | `null`         | Decimal precision; inferred from step when null                               |
+| `scrollable`       | `BooleanInput`               | `true`         | Enable scroll-wheel stepping when focused                                     |
+| `stack`            | `'horizontal' \| 'vertical'` | `'horizontal'` | Layout direction for the decrement/increment controls                         |
+| `controlAlignment` | `'left' \| 'right'`          | `'right'`      | Side used for the vertical control stack; no visual effect in horizontal mode |
+
+Inherited: `state`, `readonly`, `disabled`, `id`, `label`, `hint`, `message`, `loading`, `clearable`, `errors`, `touched`, `dirty`
+
+#### Computed Signals
+
+- `isAtMin` — true when value ≤ min
+- `isAtMax` — true when value ≥ max
+- `effectiveLargeStep` — largeStep ?? step × 10
+- `effectivePrecision` — precision ?? inferred from step
+- `resolvedState` — an explicit non-default `state`; otherwise `error` when a bound field has validation errors and is touched, or `default`
+
+#### Keyboard Navigation
+
+| Key               | Action      |
+| ----------------- | ----------- |
+| `ArrowUp`         | +step       |
+| `ArrowDown`       | -step       |
+| `Shift+ArrowUp`   | +largeStep  |
+| `Shift+ArrowDown` | -largeStep  |
+| `Home`            | jump to min |
+| `End`             | jump to max |
+
+#### Interaction Model
+
+- **Long-press**: 400ms delay → 150ms interval → largeStep cadence after 1500ms
+- **Scroll wheel**: when `scrollable()` && focused; always `preventDefault()`
+- **Text entry**: raw string held while typing, parsed/clamped on blur or Enter
+- **Stepper layout**: horizontal controls render as square buttons on both sides of the input; vertical controls stack increment over decrement on the configured side
+
+#### ARIA
+
+- `role="spinbutton"` on native input
+- `aria-valuenow`, `aria-valuemin`, `aria-valuemax`
+- `aria-invalid="true"` when the resolved state is error
+- Buttons: `aria-label="Decrement"` / `"Increment"`, `tabindex="-1"`
+
+#### Density
+
+`MlvCompactComfortableDensity` as hostDirective; `MLV_DENSITY_ELEMENT = 'number-input'`
+
+---
+
+## Usage Examples
+
+```html
+<!-- Basic -->
+<mlv-number-input label="Quantity" [min]="0" [max]="99" [(ngModel)]="qty" />
+
+<!-- Decimal -->
+<mlv-number-input label="Price" [step]="0.01" [precision]="2" [formControl]="priceCtrl" />
+
+<!-- Large step -->
+<mlv-number-input label="Timeout (ms)" [min]="0" [max]="30000" [step]="100" [largeStep]="1000" [(ngModel)]="t" />
+
+<!-- Vertical controls on the left -->
+<mlv-number-input label="Seats" stack="vertical" controlAlignment="left" [(ngModel)]="seats" />
+
+<!-- Disabled -->
+<mlv-number-input label="Count" disabled [ngModel]="42" />
+```
+
+---
+
+## Internationalization (i18n)
+
+The stepper button `aria-label`s resolve through `MLV_NUMBER_INPUT_I18N` (`@malva-ui/i18n`): `decrement` and `increment`. Provide `provideMlvI18nTesting()` in specs that instantiate the component.
+
+## Dependencies
+
+| Package                     | Role                                                     |
+| --------------------------- | -------------------------------------------------------- |
+| `@angular/core`             | Signals, DI, DestroyRef                                  |
+| `@angular/forms`            | CVA, NG_VALUE_ACCESSOR                                   |
+| `@angular/cdk/coercion`     | Boolean coercion                                         |
+| `@malva-ui/core/form-utils` | FormControlBase, MlvFormControlWrapper, MLV_FORM_CONTROL |
+| `@malva-ui/cdk/density`     | MlvCompactComfortableDensity, MLV_DENSITY_ELEMENT        |
+| `@lucide/angular`           | LucideMinus, LucidePlus                                  |
+
+## File Structure
+
+```
+libs/core/number-input/
+  project.json
+  ng-package.json
+  tsconfig.json / tsconfig.lib.json / tsconfig.spec.json
+  vite.config.mts
+  src/
+    index.ts
+    test-setup.ts
+    lib/number-input/
+      number-input.ts
+      number-input.html
+      number-input.scss
+      number-input.spec.ts
+```
+
+---
+
+## Field surface (2026-08)
+
+- `ariaLabel` (inherited from `MlvSignalFormUiControlBase`) is now forwarded to `[attr.aria-label]` on the `role="spinbutton"` input — previously the binding existed nowhere and was inert.
+- Inherited `required` renders the `mlv-label` marker and sets `aria-required` on the spinbutton input.
+- Inherited `description` renders `<mlv-description>` below the control; `aria-describedby` is the base's `_describedBy()` (description + message ids, `null` when neither renders).
+- The public `messageId` computed is gone — `<mlv-message>` carries the base's `_messageId()`.

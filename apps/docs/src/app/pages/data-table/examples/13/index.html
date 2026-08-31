@@ -1,0 +1,8 @@
+<mlv-data-table [data]="items" [columns]="columns">
+  <ng-template mlvDataTableFooter>
+    <th class="dt-footer-label" scope="row" colspan="2">Subtotal</th>
+    <td class="dt-footer-num">{{ totalQuantity() }}</td>
+    <td></td>
+    <td class="dt-footer-total">{{ format(subtotal()) }}</td>
+  </ng-template>
+</mlv-data-table>

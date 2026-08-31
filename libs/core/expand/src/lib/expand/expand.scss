@@ -1,0 +1,83 @@
+@layer mlv.components {
+$block: mlv-expand;
+
+.#{$block} {
+  display: block;
+
+  &__body {
+    width: 100%;
+    display: grid;
+    overflow: hidden;
+    will-change: opacity, grid-template-rows;
+
+    &-inner {
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    &--enter {
+      animation: mlv-expand--enter var(--mlv-duration-slow)
+        var(--mlv-ease-default) forwards;
+    }
+
+    &--leave {
+      animation: mlv-expand--leave var(--mlv-duration-slow)
+        var(--mlv-ease-default) forwards;
+    }
+
+    // Respect reduced-motion: show/hide instantly with no height/opacity animation.
+    @media (prefers-reduced-motion: reduce) {
+      &--enter,
+      &--leave {
+        animation: none;
+      }
+    }
+  }
+
+  // Disabled state
+  &--disabled {
+    pointer-events: none;
+    opacity: var(--mlv-disabled-opacity);
+  }
+}
+
+// Enter: grid expands first (done at 70%), opacity trails behind (done at 100%).
+// At the 70% time mark: grid-template-rows = 1fr, opacity ≈ 0.7 (and still going).
+@keyframes mlv-expand--enter {
+  0% {
+    transform: translateY(-1rem);
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(0);
+    grid-template-rows: 1fr;
+    // opacity not specified → interpolates 0→1 over the full 100%,
+    // so at 70% it is ~0.7
+  }
+  100% {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+// Leave: opacity leads (done at 70%), grid collapses last (done at 100%).
+// At the 70% time mark: opacity = 0, grid-template-rows ≈ 0.3fr (and still going).
+@keyframes mlv-expand--leave {
+  0% {
+    transform: translateY(0);
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(-1rem);
+    opacity: 0;
+    // grid-template-rows not specified → interpolates 1fr→0fr over the full 100%,
+    // so at 70% it is ~0.3fr
+  }
+  100% {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+}

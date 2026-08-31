@@ -1,0 +1,52 @@
+<div class="cards-grid">
+  <mlv-card
+    elevated
+    backgroundImage="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80"
+    class="card-image-overlay"
+  >
+    <h3 *mlvCardHeaderDef mlvCardHeader class="mlv-card__heading">
+      Mountain Escape
+    </h3>
+    <div *mlvCardActionsDef mlvCardActions class="mlv-card__actions">
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvDensity="tight"
+        aria-label="Bookmark"
+      >
+        <svg [lucideIcon]="bookmarkIcon" mlvButtonIcon />
+      </button>
+    </div>
+    <p *mlvCardSubheaderDef mlvCardSubheader class="mlv-card__subheading">
+      Swiss Alps &middot; 3,200m
+    </p>
+    <p>
+      Experience the breathtaking views from the summit. Book your adventure
+      today.
+    </p>
+    <div *mlvCardFooterDef mlvCardFooter class="mlv-card__footer">
+      <button mlvButton variant="secondary" mlvDensity="compact">
+        Learn More
+      </button>
+      <button mlvButton mlvDensity="compact">Book Now</button>
+    </div>
+  </mlv-card>
+
+  <mlv-card
+    elevated
+    backgroundImage="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=600&q=80"
+    class="card-image-overlay"
+  >
+    <ng-template mlvCardHeader>
+      <h3 class="mlv-card__heading">Starry Night</h3>
+    </ng-template>
+    <ng-template mlvCardSubheader>
+      <p class="mlv-card__subheading">Astrophotography Workshop</p>
+    </ng-template>
+    <p>
+      Capture the Milky Way with professional guidance under pristine dark
+      skies.
+    </p>
+  </mlv-card>
+</div>

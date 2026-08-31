@@ -1,0 +1,27 @@
+<div style="display: flex; flex-direction: column; gap: 16px; max-width: 400px">
+  <mlv-form-field displayStrategy="immediate">
+    <mlv-label for="ff-name">Name</mlv-label>
+    <mlv-input
+      [formControl]="name"
+      required
+      description="Shown on your public profile."
+      placeholder="Enter your name"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field displayStrategy="immediate">
+    <mlv-label for="ff-iban">IBAN</mlv-label>
+    <mlv-input
+      [formControl]="iban"
+      description="We only support German accounts in this demo."
+    />
+  </mlv-form-field>
+
+  <mlv-form-field
+    displayStrategy="immediate"
+    [errorMessages]="{ ibanChecksum: 'That IBAN checksum does not match.' }"
+  >
+    <mlv-label for="ff-iban-mapped">IBAN, with a mapped message</mlv-label>
+    <mlv-input [formControl]="iban" />
+  </mlv-form-field>
+</div>

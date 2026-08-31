@@ -1,0 +1,13 @@
+.tiles-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 320px;
+}
+
+.empty-message {
+  color: var(--mlv-text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: 1rem;
+}

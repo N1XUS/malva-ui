@@ -1,0 +1,29 @@
+<div class="accordion-control">
+  <div class="accordion-control__toolbar">
+    <button mlvButton variant="secondary" (click)="acc.expandAll()">
+      Expand all
+    </button>
+    <button mlvButton variant="secondary" (click)="acc.collapseAll()">
+      Collapse all
+    </button>
+    <mlv-badge [tone]="firstOpen() ? 'success' : 'default'" muted>
+      Billing: {{ firstOpen() ? 'open' : 'closed' }}
+    </mlv-badge>
+  </div>
+
+  <mlv-accordion #acc [multiExpandable]="true">
+    <mlv-accordion-item header="Billing" [(expanded)]="firstOpen">
+      Manage your payment method and download past invoices. This item is
+      two-way bound with <code>[(expanded)]</code>, so the badge above tracks
+      its state.
+    </mlv-accordion-item>
+
+    <mlv-accordion-item header="Shipping">
+      Set your default shipping address and delivery preferences.
+    </mlv-accordion-item>
+
+    <mlv-accordion-item header="Returns">
+      Review the 30-day return policy and start a return request.
+    </mlv-accordion-item>
+  </mlv-accordion>
+</div>

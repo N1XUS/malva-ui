@@ -1,0 +1,25 @@
+## Toast feedback integration
+
+Wire the `(copied)` output to `MlvToastService.success()` to give the user an
+out-of-band confirmation. The emitted value is the exact string that was
+written to the clipboard.
+
+```ts
+private readonly _toast = inject(MlvToastService);
+
+onCopied(value: string): void {
+  this._toast.success('Webhook URL copied', {
+    description: value,
+    displayTime: 3000,
+  });
+}
+```
+
+```html
+<mlv-copy-to-clipboard [value]="webhookUrl" (copied)="onCopied($event)"
+  >hooks.malva-ui.example.com</mlv-copy-to-clipboard
+>
+```
+
+`MlvToastService` is not a hard dependency of `<mlv-copy-to-clipboard>` — the
+component emits a plain `string` output that any handler can consume.

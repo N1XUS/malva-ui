@@ -1,0 +1,178 @@
+<div class="sidebar-demo">
+  <mlv-sidebar [(collapsed)]="collapsed">
+    <div mlvSidebarHeader>
+      <div class="workspace">
+        <div class="workspace__logo">
+          <svg lucideShield size="20" />
+        </div>
+        <div class="workspace__meta">
+          <span class="workspace__name">Admin Console</span>
+          <span class="workspace__plan">Acme Inc</span>
+        </div>
+      </div>
+    </div>
+
+    <div mlvSidebarContent>
+      <mlv-sidebar-item label="Overview" [active]="true">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideLayoutDashboard size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Activity">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideActivity size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-group label="Users & Access" badge="3" badgeTone="warning">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideUsers size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="All Users">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideUser size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Roles">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideShieldCheck size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Permissions">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideKey size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Invitations" badge="3" badgeTone="warning">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideMail size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-sidebar-group label="Content">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideFolderOpen size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Pages">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideFileText size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Posts" badge="42" badgeTone="info">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideNewspaper size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Media Library">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideImage size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Comments" badge="8" badgeTone="danger">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideMessageSquare size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-sidebar-group label="Commerce">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideShoppingBag size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Orders" badge="New" badgeTone="success">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucidePackage size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Products">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideBox size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Discounts">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideTag size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Customers">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideUsers size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-sidebar-group label="System">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideServer size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Logs">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideFileSearch size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Backups">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideDatabase size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="API Keys">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideKey size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Webhooks">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideWebhook size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-divider />
+
+      <mlv-sidebar-item label="Settings">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideSettings size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Help">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideCircleHelp size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+    </div>
+
+    <div mlvSidebarFooter>
+      <mlv-sidebar-item label="Admin User">
+        <ng-template mlvSidebarItemIcon>
+          <mlv-avatar name="Admin User" size="xs" />
+        </ng-template>
+        <ng-template mlvSidebarItemTitle>
+          <div class="user">
+            <span class="user__name">Jane Cooper</span>
+            <span class="user__email">admin&#64;acme.com</span>
+          </div>
+        </ng-template>
+      </mlv-sidebar-item>
+      <mlv-sidebar-trigger />
+    </div>
+  </mlv-sidebar>
+</div>

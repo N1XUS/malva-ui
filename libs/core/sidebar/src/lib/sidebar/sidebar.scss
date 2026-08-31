@@ -1,0 +1,237 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-sidebar;
+
+.#{$block} {
+  @include mixins.base();
+
+  --mlv-sidebar-border-width: 0.0625rem;
+  --mlv-sidebar-gutter: var(--mlv-spacing-2);
+
+  // Single source of truth for the height of every navigable row in the
+  // sidebar — items, group accordion headers, collapsed group icon buttons and
+  // the collapse trigger all resolve it, so a mixed list keeps one rhythm.
+  --mlv-sidebar-row-height: 2.25rem;
+
+  /*
+   * State surfaces — the seam a host paints the sidebar on its own chrome
+   * through.
+   *
+   * `--mlv-background-neutral-1` / `--mlv-background-selected` /
+   * `--mlv-border-normal` are resolved against the *page* surface, so a host
+   * that renders the sidebar on an arbitrary background (see `mlv-page-shell`,
+   * which puts the rail on the brand colour) gets a global grey or lavender
+   * pill floating on that background. Remapping the three globals is not an
+   * option — they are also read by anything else the consumer projects. These
+   * three variables are the narrow contract instead: override them on
+   * `.mlv-sidebar` and every row state follows the chrome.
+   *
+   * Every use site repeats the global as the `var()` fallback. The group flyout
+   * is portalled into the CDK overlay container, outside this element, so the
+   * declarations below never reach it — the fallback is what renders there.
+   */
+  --mlv-sidebar-hover-bg: var(--mlv-background-neutral-1);
+  // Selection is its own token (SF-R1) — never the pressed/`-active` fill.
+  --mlv-sidebar-active-bg: var(--mlv-background-selected);
+  --mlv-sidebar-rail-color: var(--mlv-border-normal);
+
+  /**
+   * Narrowest icon track a row may lay out in. Only reached when the collapsed
+   * width cannot host a glyph at all — override it to trade the floor for a
+   * perfectly static icon on a deliberately tiny rail.
+   */
+  --mlv-sidebar-icon-column-min: 1.75rem;
+
+  /*
+   * Rows lay their glyph out in this track in BOTH states, so the icon does not
+   * shift horizontally while the trailing edge animates. The width is therefore
+   * the collapsed rail's content box, not a constant.
+   *
+   * `max()` is what keeps that derivation honest: `collapsedWidth` is also how a
+   * consumer says "hide the sidebar rather than rail it" (`0rem`), and the
+   * subtractions below then land negative. CSS clamps a negative track to zero,
+   * every row's glyph overflows its own column to the inline-start, and the
+   * labels slide under whatever sits beside the sidebar. There is no rail to
+   * stay aligned with in that case, so the expanded track floors instead.
+   */
+  --mlv-sidebar-icon-column-width: max(
+    var(--mlv-sidebar-icon-column-min, 1.75rem),
+    calc(
+      var(--mlv-sidebar-collapsed-width, 3.5rem) - var(
+          --mlv-sidebar-gutter
+        ) - var(--mlv-sidebar-gutter) - var(--mlv-sidebar-border-width) - var(
+          --mlv-sidebar-border-width
+        )
+    )
+  );
+
+  display: block;
+  position: relative;
+  width: var(--mlv-sidebar-expanded-width, 16.25rem);
+  border: var(--mlv-sidebar-border-width) solid var(--mlv-border-subtle);
+  // outer-radius = item-radius + gutter → items sit flush against the wall
+  border-radius: calc(var(--mlv-radius-m) + var(--mlv-spacing-2));
+  box-shadow: var(--mlv-shadow-raised);
+  padding: var(--mlv-sidebar-gutter);
+  background: var(--mlv-background-raised);
+  overflow: visible;
+  transition: width var(--mlv-duration-normal) var(--mlv-ease-in-out-strong);
+
+  &__container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 0.0625rem;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  // Collapsed mode
+  &--collapsed {
+    // Child rows keep the same start-anchored icon track while the trailing
+    // edge moves. Tooltips and flyouts render in the CDK overlay, so content
+    // can remain clipped for the full transition.
+    width: var(--mlv-sidebar-collapsed-width, 3.5rem);
+  }
+
+  &--flat {
+    border-radius: 0;
+    box-shadow: var(--mlv-shadow-flat);
+  }
+
+  // ── Slot layout ──
+  &__header {
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  &__content {
+    flex: 1 1 0;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+    width: 100%;
+  }
+
+  &__scrollbar,
+  &__content-scrollbar {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+  }
+
+  &__scrollbar > .mlv-scrollbar__viewport > .mlv-scrollbar__content,
+  &__content-scrollbar > .mlv-scrollbar__viewport > .mlv-scrollbar__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.0625rem;
+  }
+
+  &__scrollbar > .mlv-scrollbar__viewport,
+  &__content-scrollbar > .mlv-scrollbar__viewport {
+    overflow-x: hidden;
+  }
+
+  &__footer {
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  // ── Mode modifiers ──
+  // The panel lives in a CDK overlay, so the host is only an anchor in the
+  // page flow — it must not reserve any inline width, or it squeezes the
+  // content beside it (and `collapseBelow` would break the layout the moment
+  // the viewport crossed the breakpoint).
+  &--offcanvas {
+    width: 0;
+    min-width: 0;
+    flex: 0 0 auto;
+    overflow: hidden;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+  }
+
+  &--floating {
+    position: absolute;
+    z-index: 100;
+    box-shadow: var(--mlv-shadow-overlay);
+    height: 100%;
+    transition:
+      width var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+      transform var(--mlv-duration-normal) var(--mlv-ease-drawer);
+
+    &.#{$block}--collapsed {
+      transform: translateX(mixins.inline-distance(-100%));
+    }
+  }
+
+  // ── Full height ──
+  &--full-height {
+    position: sticky;
+    top: var(--mlv-sidebar-offset-top, 0px);
+    height: calc(
+      100dvh - var(--mlv-sidebar-offset-top, 0px) - var(
+          --mlv-sidebar-offset-bottom,
+          0px
+        )
+    );
+    align-self: flex-start;
+
+    .#{$block}__container {
+      overflow: hidden;
+    }
+  }
+
+  // ── Density ──
+  // Only the shared row height scales; the icon column stays derived from
+  // `collapsedWidth` so the collapsed rail keeps its authored footprint.
+  @include density.density-tight {
+    // Off the height ramp by design (CH-R1): with --mlv-height-xs now 28px,
+    // the prior 30px hardcode would sit above compact, inverting the ramp.
+    // Retuned to var(--mlv-spacing-6) (24px) so the order holds: 24 / 28 / …
+    --mlv-sidebar-row-height: var(--mlv-spacing-6);
+  }
+
+  @include density.density-compact {
+    --mlv-sidebar-row-height: var(--mlv-height-xs);
+  }
+
+  @include density.density-spacious {
+    --mlv-sidebar-row-height: var(--mlv-height-s);
+  }
+
+  @include density.density-airy {
+    --mlv-sidebar-row-height: var(--mlv-height-m);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .#{$block},
+  .#{$block}--floating {
+    transition-duration: var(--mlv-duration-instant);
+  }
+}
+
+// ── Drawer context ──────────────────────────────────────────────────────────
+// When the sidebar is placed inside a drawer, it fills the drawer width
+// and always shows labels (never collapsed icon-only mode).
+// Note: label class belongs to the sidebar-item sub-component (mlv-sidebar-item__label),
+// not the sidebar block itself.
+.mlv-drawer .#{$block} {
+  width: 100%;
+
+  .#{$block}__container {
+    width: 100%;
+  }
+
+  .mlv-sidebar-item__label {
+    display: block;
+    width: auto;
+    opacity: 1;
+  }
+}
+}

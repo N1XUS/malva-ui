@@ -1,0 +1,224 @@
+@if (entry(); as e) {
+  @if (e.symbols.length > 0) {
+    @for (view of sections(); track view.slug) {
+      <section class="docs-api__symbol">
+        <h2 class="docs-api__symbol-name" [id]="view.slug">
+          <span class="docs-api__symbol-title">{{ view.symbol.name }}</span>
+          <span
+            class="docs-api__kind"
+            [class]="'docs-api__kind--' + view.symbol.kind"
+          >
+            {{ view.symbol.kind }}
+          </span>
+        </h2>
+
+        @if (view.symbol.selector; as selector) {
+          <p class="docs-api__selector">
+            <code>{{ selector }}</code>
+          </p>
+        }
+        @if (view.symbol.description; as description) {
+          <p class="docs-api__description">{{ description }}</p>
+        }
+
+        @if (view.inputs; as inputs) {
+          <h3 class="docs-api__subsection" [id]="inputs.slug">Inputs</h3>
+          <div class="docs-api__table-wrap">
+            <table class="docs-api__table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Default</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ng-container
+                  [ngTemplateOutlet]="memberRows"
+                  [ngTemplateOutletContext]="{
+                    $implicit: inputs.groups.own,
+                    cols: 4,
+                  }"
+                />
+                @for (grp of inputs.groups.inherited; track grp.from) {
+                  <tr class="docs-api__inherited-row">
+                    <td colspan="4">
+                      Inherited from <code>{{ grp.from }}</code>
+                    </td>
+                  </tr>
+                  <ng-container
+                    [ngTemplateOutlet]="memberRows"
+                    [ngTemplateOutletContext]="{
+                      $implicit: grp.members,
+                      cols: 4,
+                    }"
+                  />
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @if (view.outputs; as outputs) {
+          <h3 class="docs-api__subsection" [id]="outputs.slug">Outputs</h3>
+          <div class="docs-api__table-wrap">
+            <table class="docs-api__table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ng-container
+                  [ngTemplateOutlet]="memberRows"
+                  [ngTemplateOutletContext]="{
+                    $implicit: outputs.groups.own,
+                    cols: 3,
+                  }"
+                />
+                @for (grp of outputs.groups.inherited; track grp.from) {
+                  <tr class="docs-api__inherited-row">
+                    <td colspan="3">
+                      Inherited from <code>{{ grp.from }}</code>
+                    </td>
+                  </tr>
+                  <ng-container
+                    [ngTemplateOutlet]="memberRows"
+                    [ngTemplateOutletContext]="{
+                      $implicit: grp.members,
+                      cols: 3,
+                    }"
+                  />
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @if (view.properties; as properties) {
+          <h3 class="docs-api__subsection" [id]="properties.slug">
+            Properties
+          </h3>
+          <div class="docs-api__table-wrap">
+            <table class="docs-api__table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ng-container
+                  [ngTemplateOutlet]="memberRows"
+                  [ngTemplateOutletContext]="{
+                    $implicit: properties.groups.own,
+                    cols: 3,
+                  }"
+                />
+                @for (grp of properties.groups.inherited; track grp.from) {
+                  <tr class="docs-api__inherited-row">
+                    <td colspan="3">
+                      Inherited from <code>{{ grp.from }}</code>
+                    </td>
+                  </tr>
+                  <ng-container
+                    [ngTemplateOutlet]="memberRows"
+                    [ngTemplateOutletContext]="{
+                      $implicit: grp.members,
+                      cols: 3,
+                    }"
+                  />
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @if (view.methods; as methods) {
+          <h3 class="docs-api__subsection" [id]="methods.slug">Methods</h3>
+          <div class="docs-api__table-wrap">
+            <table class="docs-api__table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Signature</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ng-container
+                  [ngTemplateOutlet]="methodRows"
+                  [ngTemplateOutletContext]="{ $implicit: methods.groups.own }"
+                />
+                @for (grp of methods.groups.inherited; track grp.from) {
+                  <tr class="docs-api__inherited-row">
+                    <td colspan="3">
+                      Inherited from <code>{{ grp.from }}</code>
+                    </td>
+                  </tr>
+                  <ng-container
+                    [ngTemplateOutlet]="methodRows"
+                    [ngTemplateOutletContext]="{ $implicit: grp.members }"
+                  />
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @if (view.typeSlug; as typeSlug) {
+          <h3 class="docs-api__subsection" [id]="typeSlug">Type</h3>
+          <pre
+            class="docs-api__type"
+          ><code>{{ view.symbol.typeText }}</code></pre>
+        }
+      </section>
+    }
+  }
+}
+
+<ng-template #memberRows let-members let-cols="cols">
+  @for (member of members; track member.name) {
+    <tr>
+      <td class="docs-api__cell-name">
+        <code>{{ member.name }}</code>
+        @if (member.required) {
+          <span class="docs-api__required">required</span>
+        }
+      </td>
+      <td>
+        <code class="docs-api__type-text">{{ member.type }}</code>
+      </td>
+      @if (cols === 4) {
+        <td>
+          @if (member.default !== undefined) {
+            <code>{{ member.default }}</code>
+          } @else {
+            <span class="docs-api__empty">—</span>
+          }
+        </td>
+      }
+      <td class="docs-api__cell-desc">
+        {{ member.description || '—' }}
+      </td>
+    </tr>
+  }
+</ng-template>
+
+<ng-template #methodRows let-methods>
+  @for (method of methods; track method.signature) {
+    <tr>
+      <td class="docs-api__cell-name">
+        <code>{{ method.name }}</code>
+      </td>
+      <td>
+        <code class="docs-api__type-text">{{ method.signature }}</code>
+      </td>
+      <td class="docs-api__cell-desc">{{ method.description || '—' }}</td>
+    </tr>
+  }
+</ng-template>

@@ -1,0 +1,56 @@
+<div class="mlv-notification-item__header">
+  @if (toast().showIcon) {
+  <mlv-chip
+    class="mlv-notification-item__icon"
+    muted
+    [tone]="$any(toast().tone)"
+  >
+    <svg [lucideIcon]="toneIcon()" size="20" />
+  </mlv-chip>
+  }
+  <div class="mlv-notification-item__content">
+    @if (_templateContent(); as template) {
+    <div class="mlv-notification-item__dynamic-content">
+      <ng-container
+        [ngTemplateOutlet]="template"
+        [ngTemplateOutletContext]="toast().contentContext"
+        [ngTemplateOutletInjector]="toast().contentInjector"
+      />
+    </div>
+    } @else if (_componentContent(); as component) {
+    <div class="mlv-notification-item__dynamic-content">
+      <ng-container
+        [ngComponentOutlet]="component"
+        [ngComponentOutletInjector]="toast().contentInjector"
+      />
+    </div>
+    } @else {
+    <span class="mlv-notification-item__title">{{ toast().title }}</span>
+    } @if (toast().description; as description) {
+    <p class="mlv-notification-item__description">{{ description }}</p>
+    }
+  </div>
+  @if (toast().closable) {
+  <mlv-button-close
+    mlvDensity="compact"
+    [ariaLabel]="_i18n().dismiss"
+    (click)="onClose()"
+  ></mlv-button-close>
+  }
+</div>
+
+@if (toast().actions.length > 0) {
+<div class="mlv-notification-item__actions">
+  @for (action of toast().actions; track action.label) {
+  <button
+    type="button"
+    mlvButton
+    (mlvClick)="onActionClick(action)"
+    [variant]="action.variant ?? 'transparent'"
+    mlvDensity="tight"
+  >
+    {{ action.label }}
+  </button>
+  }
+</div>
+}

@@ -1,0 +1,85 @@
+<div class="demo-row">
+  <button
+    mlvButton
+    shape="circle"
+    variant="secondary"
+    size="s"
+    aria-label="Information"
+    [ariaHasPopup]="null"
+    [mlvPopupTrigger]="tipInfo"
+    triggerOn="focus"
+  >
+    <svg lucideInfo mlvButtonIcon />
+  </button>
+  <mlv-popup
+    #tipInfo
+    position="top"
+    panelRole="tooltip"
+    [hasArrow]="true"
+    [hasShadow]="false"
+  >
+    <ng-template mlvPopupContent>
+      <div
+        style="padding: 0.5rem 0.75rem; max-width: 13rem; font-size: 0.875rem"
+      >
+        Accepts ISO 8601 date strings (e.g. 2025-03-28).
+      </div>
+    </ng-template>
+  </mlv-popup>
+
+  <button
+    mlvButton
+    shape="circle"
+    variant="secondary"
+    size="s"
+    aria-label="Warning"
+    [ariaHasPopup]="null"
+    [mlvPopupTrigger]="tipWarn"
+    triggerOn="focus"
+  >
+    <svg lucideCircleAlert mlvButtonIcon />
+  </button>
+  <mlv-popup
+    #tipWarn
+    position="top"
+    panelRole="tooltip"
+    [hasArrow]="true"
+    [hasShadow]="false"
+  >
+    <ng-template mlvPopupContent>
+      <div
+        style="padding: 0.5rem 0.75rem; max-width: 13rem; font-size: 0.875rem"
+      >
+        Changes are not saved automatically — click Save to confirm.
+      </div>
+    </ng-template>
+  </mlv-popup>
+
+  <button
+    mlvButton
+    shape="circle"
+    variant="secondary"
+    size="s"
+    aria-label="Security status"
+    [ariaHasPopup]="null"
+    [mlvPopupTrigger]="tipSec"
+    triggerOn="focus"
+  >
+    <svg lucideShieldCheck mlvButtonIcon />
+  </button>
+  <mlv-popup
+    #tipSec
+    position="top"
+    panelRole="tooltip"
+    [hasArrow]="true"
+    [hasShadow]="false"
+  >
+    <ng-template mlvPopupContent>
+      <div
+        style="padding: 0.5rem 0.75rem; max-width: 13rem; font-size: 0.875rem"
+      >
+        Two-factor authentication is active on this account.
+      </div>
+    </ng-template>
+  </mlv-popup>
+</div>

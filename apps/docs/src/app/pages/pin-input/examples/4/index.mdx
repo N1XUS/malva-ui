@@ -1,0 +1,7 @@
+## Reactive Forms Integration
+
+`mlv-pin-input` integrates directly with `FormControl` and `ReactiveFormsModule` through Angular's signal-control contract. The combined string value (all cells joined) is what the control exposes.
+
+- Use `Validators.minLength(n)` to require all cells to be filled before the control is valid.
+- `formControl.reset('')` clears all cells simultaneously.
+- The `completed` output fires as a convenience when all cells are filled, without requiring a form setup.

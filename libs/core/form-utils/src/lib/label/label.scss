@@ -1,0 +1,49 @@
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-label;
+
+.#{$block} {
+  display: block;
+  margin-bottom: 0.25rem;
+  // Control-text type scale (CH-R3), the same ramp `mlv-form-control-wrapper`
+  // drives `--form-ctrl-font-size` from. `mlv-label` is a *sibling* of the
+  // wrapper (both are projected children of the owning control), not a
+  // descendant, so it cannot simply inherit that custom property — it needs
+  // its own copy of the same five values so a label reads at the same size
+  // as the input/select/checkbox text it names, at every density.
+  font-size: var(--mlv-font-size-m);
+
+  @include density.density-tight {
+    font-size: var(--mlv-font-size-s);
+  }
+  @include density.density-compact {
+    font-size: var(--mlv-font-size-m);
+  }
+  @include density.density-spacious {
+    font-size: var(--mlv-font-size-l);
+  }
+  @include density.density-airy {
+    font-size: var(--mlv-font-size-xl);
+  }
+
+  label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    color: var(--mlv-text-primary);
+  }
+
+  // `mlv-hint` renders an icon trigger, not text: it must sit on the label
+  // row's centre line rather than share the text baseline the row is built on.
+  &__hint {
+    display: inline-flex;
+    align-self: center;
+  }
+
+  &__required {
+    color: var(--mlv-text-negative);
+    margin-inline-start: -0.125rem;
+  }
+}
+}

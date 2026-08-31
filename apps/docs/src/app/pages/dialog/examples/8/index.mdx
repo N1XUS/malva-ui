@@ -1,0 +1,13 @@
+## Confirmation Dialog
+
+`MlvDialogService.confirm()` opens a titled two-action dialog and returns an
+`Observable<boolean>` that emits once and completes — so it drops straight into
+a `CanDeactivateFn` or any other guard, and replaces `window.confirm`.
+
+Escape, a backdrop click and `ref.close()` all resolve as `false`; only the
+confirm button resolves as `true`. Labels default to the dialog i18n pack, so
+`title` and `message` are the only required options.
+
+Pass `destructive: true` (or `tone: 'danger'`) for irreversible actions: the
+confirm button turns danger-coloured and initial focus goes to **Cancel**, so a
+reflexive Enter dismisses rather than destroys.

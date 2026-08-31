@@ -1,0 +1,18 @@
+<div class="demo-col" style="gap: 1.5rem; max-width: 20rem">
+  <mlv-number-input
+    label="Quantity"
+    hint="Must be between 0 and 99"
+    [min]="0"
+    [max]="99"
+    [step]="1"
+    [(ngModel)]="quantity"
+  />
+  <span
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+    "
+  >
+    Value: {{ quantity() }}
+  </span>
+</div>

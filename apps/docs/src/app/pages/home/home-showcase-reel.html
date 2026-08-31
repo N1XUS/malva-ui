@@ -1,0 +1,29 @@
+<ul class="home-reel" aria-label="Full-size showcases">
+  @for (showcase of showcases; track showcase.slug) {
+    <li class="home-reel__item">
+      <a
+        class="home-reel__card"
+        [routerLink]="['/showcases', showcase.slug]"
+      >
+        <span class="home-reel__preview">
+          @if (showcase.previewAsset; as previewAsset) {
+            <img [ngSrc]="previewAsset" width="1600" height="1000" alt="" />
+          } @else {
+            <span class="home-reel__preview-fallback" aria-hidden="true"></span>
+          }
+        </span>
+        <span class="home-reel__body">
+          <mlv-badge tone="accent" muted>{{
+            categoryLabel(showcase.category)
+          }}</mlv-badge>
+          <strong>{{ showcase.title }}</strong>
+          <small>{{ showcase.summary }}</small>
+          <span class="home-reel__cta">
+            Open showcase
+            <svg lucideArrowRight [size]="15" aria-hidden="true" />
+          </span>
+        </span>
+      </a>
+    </li>
+  }
+</ul>

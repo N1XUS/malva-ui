@@ -1,0 +1,163 @@
+# @malva-ui/core/chat
+
+> **Keep this file up to date.** Whenever the component API, behavior, or styling changes, update this file.
+
+**Path:** `libs/core/chat`
+**Import path:** `@malva-ui/core/chat` (also re-exported from `@malva-ui/core`)
+**Nx project:** `core-chat` — `lint` + `test` targets
+
+Data-driven chat surface. `mlv-chat` renders an oldest→newest `messages` array as author groups with date separators, delivery ticks, embedded reply quotes, an image/gif/video grid, audio playback, a typing indicator, loading skeletons, appear/removal animations, and reverse infinite pagination. Grouping and date insertion are computed internally — consumers only supply flat data.
+
+**Naming:** the bubble component is `MlvChatMessage`; the message _data_ interface is **`MlvChatMessageData`**. The `mlv-message` selector and `.mlv-message` BEM block are already owned by `MlvMessage` in `@malva-ui/core/form-utils`, which is why the lib is `chat` (not `message`) and every selector is `mlv-chat-*`.
+
+---
+
+## Public API
+
+| Export                                                                     | Kind                 | Description                                                                                             |
+| -------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------- |
+| `MlvChat`                                                                  | Component            | `mlv-chat` — scroll container and renderer                                                              |
+| `MlvChatMessage`                                                           | Component            | `mlv-chat-message` — one bubble; rendered internally, usable alone                                      |
+| `MlvChatMessageDef`                                                        | Structural directive | `[mlvChatMessageDef]` — custom bubble body per message `type`                                           |
+| `MlvChatAuthorDef`                                                         | Structural directive | `[mlvChatAuthorDef]` — custom author slot above other-authored groups                                   |
+| `MlvChatDateDef`                                                           | Structural directive | `[mlvChatDateDef]` — custom date separator                                                              |
+| `MlvChatMessageData<TData>`                                                | Interface            | One message                                                                                             |
+| `MlvChatUser`, `MlvChatAttachment`                                         | Interfaces           | Participant / attachment                                                                                |
+| `MlvChatMessageStatus`, `MlvChatGroupPosition`                             | Types                | `'sending' \| 'sent' \| 'delivered' \| 'read' \| 'failed'`; `'single' \| 'first' \| 'middle' \| 'last'` |
+| `MlvChatRenderItem`, `MlvChatRenderMessage`                                | Types                | Output of `buildChatRenderList`                                                                         |
+| `MlvChatMessageDefContext`, `MlvChatMessageDefRef`                         | Interfaces           | Template context / registered def                                                                       |
+| `MlvChatAuthorDefContext`, `MlvChatDateDefContext`                         | Interfaces           | Template contexts                                                                                       |
+| `MLV_CHAT_USERS`, `MLV_CHAT_MESSAGE_DEFS`                                  | Injection tokens     | Container→bubble wiring                                                                                 |
+| `buildChatRenderList`, `toChatDate`, `isSameChatDay`, `formatChatDuration` | Functions            | Pure helpers (also used by the internals)                                                               |
+
+**Internal, deliberately not exported:** `MlvChatMediaGrid`, `MlvChatAudio`, `MlvChatAudioService`, `MLV_CHAT_AUDIO_FACTORY`, `MlvChatDate`, `MlvChatTyping`.
+
+---
+
+## `MlvChat`
+
+**Files:** `libs/core/chat/src/lib/chat/{chat.ts,chat.html,chat.scss}`
+**Selector:** `mlv-chat` · `ViewEncapsulation.None` · OnPush
+
+### Inputs
+
+| Input            | Type                   | Default  | Description                                            |
+| ---------------- | ---------------------- | -------- | ------------------------------------------------------ |
+| `messages`       | `MlvChatMessageData[]` | required | Ordered oldest → newest                                |
+| `selfId`         | `string`               | required | Messages with this `authorId` render as own            |
+| `users`          | `MlvChatUser[]`        | `[]`     | Avatars, author names, typing names                    |
+| `loading`        | `BooleanInput`         | `false`  | Skeleton bubbles instead of content                    |
+| `loadingOlder`   | `BooleanInput`         | `false`  | Top spinner; also suppresses further `loadOlder`       |
+| `hasOlder`       | `BooleanInput`         | `false`  | Gates `loadOlder`                                      |
+| `typingUsers`    | `string[]`             | `[]`     | Ids resolved against `users`; unknown ids are dropped  |
+| `groupWindow`    | `number`               | `5`      | Max gap in minutes inside one author group             |
+| `showAuthors`    | `'auto' \| boolean`    | `'auto'` | `'auto'` shows the author slot once `users.length > 2` |
+| `dateSeparators` | `BooleanInput`         | `true`   | Calendar-day separators                                |
+| `windowSize`     | `number`               | `150`    | Newest messages kept in the DOM                        |
+| `mlvDensity`     | `MlvDensity`           | ambient  | Via `MlvDensityDirective` host directive               |
+
+### Outputs
+
+| Output       | Payload                   | When                                           |
+| ------------ | ------------------------- | ---------------------------------------------- |
+| `loadOlder`  | `void`                    | Near the top, window exhausted, `hasOlder` set |
+| `retry`      | `MlvChatMessageData`      | Retry on a failed own message                  |
+| `mediaClick` | `{ message, attachment }` | A media cell was activated                     |
+| `replyClick` | `{ message, replyTo }`    | A reply quote was activated                    |
+
+### Providers / host directives
+
+`MlvChatAudioService` (per-chat playback exclusivity), `MLV_DENSITY_ELEMENT: 'chat'`, `MLV_CHAT_USERS`, `MLV_CHAT_MESSAGE_DEFS`; host directive `MlvDensityDirective` (input `mlvDensity`).
+
+---
+
+## `MlvChatMessage`
+
+**Files:** `libs/core/chat/src/lib/chat-message/{chat-message.ts,chat-message.html,chat-message.scss}`
+
+| Input           | Type                   | Default    | Description                                              |
+| --------------- | ---------------------- | ---------- | -------------------------------------------------------- |
+| `message`       | `MlvChatMessageData`   | required   | The message                                              |
+| `own`           | `BooleanInput`         | `false`    | Right-aligned accent bubble; ticks render only when true |
+| `groupPosition` | `MlvChatGroupPosition` | `'single'` | Corner-tail radii                                        |
+| `quote`         | `BooleanInput`         | `false`    | Condensed reply-quote rendering                          |
+
+Outputs: `retry: void`, `mediaClick: MlvChatAttachment`, `replyClick: MlvChatMessageData`.
+
+Content order inside the bubble: reply quote → media grid → audio players → text → meta row (time + ticks; retry button when `failed`).
+
+---
+
+## Behavior
+
+### Grouping (`buildChatRenderList`)
+
+Pure function in `chat-render-list.ts`. Breaks a group on author change, on a gap larger than `groupWindow` minutes, and always at a calendar-day boundary. Emits `{ kind: 'date' }` items (ids `date-YYYY-M-D`) and `{ kind: 'group' }` items (ids `group-<first message id>`) with each message's `position`.
+
+### Scroll engine
+
+Native scroll plus `content-visibility: auto` on group rows (no view recycling, so animations and reading order stay intact).
+
+- Pinned when within 48px of the bottom. Appending while pinned smooth-scrolls down; while unpinned it increments the "N new messages" pill.
+- Pinning is re-applied from a `MlvResizeObserverService` subscription on the inner `.mlv-chat__content` wrapper, not from renders alone — media loading late and `content-visibility` revealing height both change the scroll height without a change-detection pass.
+- Within 150px of the top the render window grows by 50 messages; once the window covers the whole array and `hasOlder` is set (and `loadingOlder` is not), `loadOlder` fires.
+- Prepending compensates the scroll position by the height delta (captured before render, applied in an `afterRenderEffect`).
+- Re-pinning trims the window back to `windowSize` and clears the pill.
+- `_evaluateScroll(scrollTop, scrollHeight, clientHeight)` holds the logic separately from DOM measurement so it is testable without layout.
+
+### Replies — the citation block
+
+`replyTo` carries a **full** `MlvChatMessageData`, not an id — so a citation renders correctly even when the original sits outside the loaded pages. The citation is the same bubble in `quote` mode (clamped text, thumbnail, audio chip, no meta), wrapped in a `button.mlv-chat-message__reply` that emits `replyClick`. Recursion is one level deep: a quoted message with its own `replyTo` shows a `↩` marker (`__reply-marker`) instead of nesting.
+
+**Palette inheritance.** The citation is a _second_ `mlv-chat-message` host, so it redeclares every `--mlv-chat-message-*` variable and can never inherit the parent bubble's values through that prefix. The citation therefore reads a separate set declared on `.mlv-chat-message__reply` — an ancestor that does not redeclare them:
+
+| Variable                         | Default                                                | Purpose                            |
+| -------------------------------- | ------------------------------------------------------ | ---------------------------------- |
+| `--mlv-chat-quote-surface`       | `color-mix(--mlv-chat-message-color 8%, transparent)`  | Citation background                |
+| `--mlv-chat-quote-surface-hover` | `color-mix(--mlv-chat-message-color 14%, transparent)` | Hover state of the citation button |
+| `--mlv-chat-quote-accent`        | `--mlv-background-accent-1`                            | Leading bar                        |
+| `--mlv-chat-quote-author`        | `--mlv-text-action`                                    | Quoted author name                 |
+| `--mlv-chat-quote-fg`            | `--mlv-chat-message-color`                             | Quoted text and the audio chip     |
+
+Deriving the surface from the _parent bubble's own text colour_ is what makes one rule set cover the neutral other-bubble and the accent own-bubble in both themes — it is always a tint of something already legible on that bubble. `.mlv-chat-message--own .mlv-chat-message__reply` additionally remaps the accent, the author colour and `--mlv-border-focus` to `--mlv-text-primary-on-accent-1`, because the global action blue would otherwise sit blue-on-blue.
+
+The button carries its own background, border reset and focus ring: without them a bare `<button>` renders the UA `buttonface` surface, which is light in **both** themes.
+
+### Media
+
+1 item large (aspect ratio reserved from `width`/`height`), 2–4 in a 2-column grid, >4 collapses to four cells with a `+N` overlay. Skeleton per image until `load`. `video` renders poster + play badge + duration chip (no inline player); `gif` autoplays muted on a loop. `uploadProgress` dims the cell and overlays `mlv-progress`.
+
+### Audio
+
+Native `HTMLAudioElement` created lazily through `MLV_CHAT_AUDIO_FACTORY` (overridable in tests). `MlvChatAudioService` is provided by `mlv-chat`, so only one audio message plays per chat; a standalone bubble injects it optionally and plays without coordination.
+
+### Animations
+
+Only live-appended messages animate in — ids are recorded in `_liveIds` when the array's last id changes, so initial load, window growth, and prepended history render instantly. Enter: grid-rows collapse + fade + translateY (`--mlv-duration-slow`, `--mlv-ease-out-strong`). Leave via `animate.leave="mlv-chat__item--leave"`. `@include mixins.reduced-motion` on `mlv-chat`, `mlv-chat-message`, and `mlv-chat-typing`.
+
+---
+
+## Accessibility
+
+- Viewport: `role="log"` (polite by default), i18n `aria-label`, `tabindex="0"`.
+- Each message is an `<article>` labelled `"{author}, {time}, {status}"`; status icons are `aria-hidden`.
+- Retry and media cells are real buttons with accessible names; images always carry `alt` (i18n fallback).
+- Covered by `chat-a11y.spec.ts` (targeted `axe-core` rules plus structural assertions).
+
+---
+
+## i18n
+
+Token `MLV_CHAT_I18N` (`libs/i18n/src/lib/tokens/chat.ts`). Keys: `chatLabel`, `today`, `yesterday`, `statusSending`, `statusSent`, `statusDelivered`, `statusRead`, `statusFailed`, `retry`, `newMessages` (ICU `{count}`), `typing` (ICU `{count}`), `playAudio`, `pauseAudio`, `imageFallbackAlt`, `moreMedia` (ICU `{count}`), `loadingOlder`. Shipped in all fourteen locale packs (de, en, es, fr, id, it, ja, nl, pl, pt, ro, tr, uk, zh-Hans).
+
+---
+
+## Styling
+
+BEM blocks `.mlv-chat`, `.mlv-chat-message`, `.mlv-chat-media-grid`, `.mlv-chat-audio`, `.mlv-chat-date`, `.mlv-chat-typing`. The group avatar is `position: sticky; inset-block-end: 0`, so a tall run keeps its avatar in view. Because the global `[class*='mlv']` reset drops inherited colour, `__text`, `__meta`, `__time`, and `__status` each restate `--mlv-chat-message-color`; the read tick is the full-strength bubble colour (ticks only render on the accent own-bubble, where an info hue would sit blue-on-blue). State-driven custom properties only: `--mlv-chat-gap`, `--mlv-chat-padding`, `--mlv-chat-bubble-gap` (density), `--mlv-chat-message-bg/-color/-radius/-tail-radius` (own/other/failed), and the `--mlv-chat-quote-*` citation set declared on `__reply` (see **Replies**). Density levels tight → airy via `density.scss` mixins, comfortable being the base.
+
+---
+
+## Dependencies
+
+`@angular/{core,common,cdk}`, `@lucide/angular`, `@malva-ui/cdk/density`, `@malva-ui/i18n`, and the `@malva-ui/core` leaves `avatar`, `button`, `loader`, `progress`, `skeleton`, `slider`.

@@ -1,0 +1,23 @@
+@if (hasEntries()) {
+  <nav class="docs-toc__nav" aria-label="Table of Contents">
+    <h4 class="docs-toc__title">On this page</h4>
+    <ul class="docs-toc__list">
+      @for (entry of entries(); track entry.slug) {
+        <li
+          class="docs-toc__item"
+          [class.docs-toc__item--level-3]="entry.level === 3"
+          [class.docs-toc__item--level-4]="entry.level === 4"
+          [class.docs-toc__item--active]="activeSlug() === entry.slug"
+        >
+          <a
+            class="docs-toc__link"
+            [href]="'#' + entry.slug"
+            (click)="scrollTo(entry.slug, $event)"
+          >
+            {{ entry.text }}
+          </a>
+        </li>
+      }
+    </ul>
+  </nav>
+}

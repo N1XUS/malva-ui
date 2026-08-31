@@ -1,0 +1,45 @@
+$block: docs-tile-tree-node;
+
+.#{$block} {
+  display: block;
+  min-inline-size: 0;
+
+  &__title {
+    display: block;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__details {
+    display: flex;
+    align-items: center;
+    min-inline-size: 0;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__meta {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: var(--mlv-spacing-1);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+    text-transform: capitalize;
+  }
+
+  &__summary {
+    overflow: hidden;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__editor {
+    inline-size: min(100%, 24rem);
+  }
+}

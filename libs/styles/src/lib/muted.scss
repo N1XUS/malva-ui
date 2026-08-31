@@ -1,0 +1,704 @@
+/**
+ * Muted / Semantic Tint Tokens
+ * @import './components/muted.scss'
+ *
+ * 3 gradations per family: subtle bg (1), medium badge/tag (2), strong callout (3).
+ * Background tints derived via color-mix() so they stay in sync with palette changes.
+ *
+ * Families: default · primary · secondary · accent · success · warning · danger · info
+ */
+
+@use 'layers';
+
+// ─── Light Theme ─────────────────────────────────────────────────────────────
+// Emitted into the `mlv.tokens` cascade layer (see layers.scss).
+
+@layer mlv.tokens {
+  :root {
+    // ── Default ──
+    --mlv-muted-default-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 10%,
+      white
+    );
+    --mlv-muted-default-text-1: var(--mlv-palette-neutral-700);
+    --mlv-muted-default-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 35%,
+      white
+    );
+
+    --mlv-muted-default-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 18%,
+      white
+    );
+    --mlv-muted-default-text-2: var(--mlv-palette-neutral-800);
+    --mlv-muted-default-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 48%,
+      white
+    );
+
+    --mlv-muted-default-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 28%,
+      white
+    );
+    --mlv-muted-default-text-3: var(--mlv-palette-neutral-900);
+    --mlv-muted-default-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 60%,
+      white
+    );
+
+    // ── Primary ──
+    --mlv-muted-primary-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 10%,
+      white
+    );
+    --mlv-muted-primary-text-1: var(--mlv-palette-primary-700);
+    --mlv-muted-primary-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 35%,
+      white
+    );
+
+    --mlv-muted-primary-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 18%,
+      white
+    );
+    --mlv-muted-primary-text-2: var(--mlv-palette-primary-800);
+    --mlv-muted-primary-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 48%,
+      white
+    );
+
+    --mlv-muted-primary-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 28%,
+      white
+    );
+    --mlv-muted-primary-text-3: var(--mlv-palette-primary-900);
+    --mlv-muted-primary-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 60%,
+      white
+    );
+
+    // ── Secondary ──
+    --mlv-muted-secondary-bg-1: var(--mlv-palette-secondary-50);
+    --mlv-muted-secondary-text-1: var(--mlv-palette-secondary-700);
+    --mlv-muted-secondary-border-1: var(--mlv-palette-secondary-200);
+
+    --mlv-muted-secondary-bg-2: var(--mlv-palette-secondary-100);
+    --mlv-muted-secondary-text-2: var(--mlv-palette-secondary-800);
+    --mlv-muted-secondary-border-2: var(--mlv-palette-secondary-300);
+
+    --mlv-muted-secondary-bg-3: var(--mlv-palette-secondary-200);
+    --mlv-muted-secondary-text-3: var(--mlv-palette-secondary-900);
+    --mlv-muted-secondary-border-3: var(--mlv-palette-secondary-400);
+
+    // ── Accent ──
+    --mlv-muted-accent-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 10%,
+      white
+    );
+    --mlv-muted-accent-text-1: var(--mlv-palette-accent-700);
+    --mlv-muted-accent-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 35%,
+      white
+    );
+
+    --mlv-muted-accent-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 18%,
+      white
+    );
+    --mlv-muted-accent-text-2: var(--mlv-palette-accent-800);
+    --mlv-muted-accent-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 48%,
+      white
+    );
+
+    --mlv-muted-accent-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 28%,
+      white
+    );
+    --mlv-muted-accent-text-3: var(--mlv-palette-accent-900);
+    --mlv-muted-accent-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 60%,
+      white
+    );
+
+    // ── Success ──
+    --mlv-muted-success-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 10%,
+      white
+    );
+    --mlv-muted-success-text-1: var(--mlv-palette-success-700);
+    --mlv-muted-success-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 35%,
+      white
+    );
+
+    --mlv-muted-success-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 18%,
+      white
+    );
+    --mlv-muted-success-text-2: var(--mlv-palette-success-800);
+    --mlv-muted-success-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 48%,
+      white
+    );
+
+    --mlv-muted-success-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 28%,
+      white
+    );
+    --mlv-muted-success-text-3: var(--mlv-palette-success-900);
+    --mlv-muted-success-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 60%,
+      white
+    );
+
+    // ── Warning ──
+    --mlv-muted-warning-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 10%,
+      white
+    );
+    --mlv-muted-warning-text-1: var(--mlv-palette-warning-700);
+    --mlv-muted-warning-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 35%,
+      white
+    );
+
+    --mlv-muted-warning-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 18%,
+      white
+    );
+    --mlv-muted-warning-text-2: var(--mlv-palette-warning-800);
+    --mlv-muted-warning-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 48%,
+      white
+    );
+
+    --mlv-muted-warning-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 28%,
+      white
+    );
+    --mlv-muted-warning-text-3: var(--mlv-palette-warning-900);
+    --mlv-muted-warning-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 60%,
+      white
+    );
+
+    // ── Danger ──
+    --mlv-muted-danger-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 10%,
+      white
+    );
+    --mlv-muted-danger-text-1: var(--mlv-palette-danger-700);
+    --mlv-muted-danger-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 35%,
+      white
+    );
+
+    --mlv-muted-danger-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 18%,
+      white
+    );
+    --mlv-muted-danger-text-2: var(--mlv-palette-danger-800);
+    --mlv-muted-danger-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 48%,
+      white
+    );
+
+    --mlv-muted-danger-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 28%,
+      white
+    );
+    --mlv-muted-danger-text-3: var(--mlv-palette-danger-900);
+    --mlv-muted-danger-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 60%,
+      white
+    );
+
+    // ── Info ──
+    --mlv-muted-info-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 10%,
+      white
+    );
+    --mlv-muted-info-text-1: var(--mlv-palette-info-700);
+    --mlv-muted-info-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 35%,
+      white
+    );
+
+    --mlv-muted-info-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 18%,
+      white
+    );
+    --mlv-muted-info-text-2: var(--mlv-palette-info-800);
+    --mlv-muted-info-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 48%,
+      white
+    );
+
+    --mlv-muted-info-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 28%,
+      white
+    );
+    --mlv-muted-info-text-3: var(--mlv-palette-info-900);
+    --mlv-muted-info-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 60%,
+      white
+    );
+  }
+
+  // ─── Dark Theme ───────────────────────────────────────────────────────────────
+  // Dark tints: use dark neutral base instead of white for mixing.
+  // Text: shift to lighter palette stops for readability on dark surfaces.
+
+  @mixin muted-dark-tokens {
+    // Default
+    --mlv-muted-default-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 15%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-default-text-1: var(--mlv-palette-neutral-300);
+    --mlv-muted-default-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 30%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-default-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 25%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-default-text-2: var(--mlv-palette-neutral-200);
+    --mlv-muted-default-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 45%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-default-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 35%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-default-text-3: var(--mlv-palette-neutral-100);
+    --mlv-muted-default-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 60%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    // Primary
+    --mlv-muted-primary-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 15%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-primary-text-1: var(--mlv-palette-primary-300);
+    --mlv-muted-primary-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 30%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-primary-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 25%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-primary-text-2: var(--mlv-palette-primary-200);
+    --mlv-muted-primary-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 45%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-primary-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 35%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-primary-text-3: var(--mlv-palette-primary-100);
+    --mlv-muted-primary-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-primary-500) 60%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    // Secondary
+    --mlv-muted-secondary-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 15%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-secondary-text-1: var(--mlv-palette-secondary-300);
+    --mlv-muted-secondary-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 30%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-secondary-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 25%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-secondary-text-2: var(--mlv-palette-secondary-200);
+    --mlv-muted-secondary-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 45%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-secondary-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 35%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-secondary-text-3: var(--mlv-palette-secondary-100);
+    --mlv-muted-secondary-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-500) 60%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    // Accent
+    --mlv-muted-accent-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 15%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-accent-text-1: var(--mlv-palette-accent-300);
+    --mlv-muted-accent-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 30%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-accent-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 25%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-accent-text-2: var(--mlv-palette-accent-200);
+    --mlv-muted-accent-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 45%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-accent-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 35%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-accent-text-3: var(--mlv-palette-accent-100);
+    --mlv-muted-accent-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-accent-500) 60%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    // Success
+    --mlv-muted-success-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 15%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-success-text-1: var(--mlv-palette-success-300);
+    --mlv-muted-success-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 30%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-success-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 25%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-success-text-2: var(--mlv-palette-success-200);
+    --mlv-muted-success-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 45%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-success-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 35%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-success-text-3: var(--mlv-palette-success-100);
+    --mlv-muted-success-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-success-500) 60%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    // Warning
+    --mlv-muted-warning-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 15%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-warning-text-1: var(--mlv-palette-warning-300);
+    --mlv-muted-warning-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 30%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-warning-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 25%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-warning-text-2: var(--mlv-palette-warning-200);
+    --mlv-muted-warning-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 45%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-warning-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 35%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-warning-text-3: var(--mlv-palette-warning-100);
+    --mlv-muted-warning-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-warning-500) 60%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    // Danger
+    --mlv-muted-danger-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 15%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-danger-text-1: var(--mlv-palette-danger-300);
+    --mlv-muted-danger-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 30%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-danger-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 25%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-danger-text-2: var(--mlv-palette-danger-200);
+    --mlv-muted-danger-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 45%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-danger-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 35%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-danger-text-3: var(--mlv-palette-danger-100);
+    --mlv-muted-danger-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-danger-500) 60%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    // Info
+    --mlv-muted-info-bg-1: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 15%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-info-text-1: var(--mlv-palette-info-300);
+    --mlv-muted-info-border-1: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 30%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-info-bg-2: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 25%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-info-text-2: var(--mlv-palette-info-200);
+    --mlv-muted-info-border-2: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 45%,
+      var(--mlv-palette-neutral-900)
+    );
+
+    --mlv-muted-info-bg-3: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 35%,
+      var(--mlv-palette-neutral-900)
+    );
+    --mlv-muted-info-text-3: var(--mlv-palette-info-100);
+    --mlv-muted-info-border-3: color-mix(
+      in srgb,
+      var(--mlv-palette-info-500) 60%,
+      var(--mlv-palette-neutral-900)
+    );
+  }
+
+  [mlvTheme='dark'] {
+    @include muted-dark-tokens;
+  }
+
+  // ─── High Contrast Theme ──────────────────────────────────────────────────────
+
+  [data-theme='high-contrast'] {
+    // Default
+    --mlv-muted-default-bg-1: #f5f5f5;
+    --mlv-muted-default-text-1: #333333;
+    --mlv-muted-default-border-1: #999999;
+
+    --mlv-muted-default-bg-2: #e8e8e8;
+    --mlv-muted-default-text-2: #111111;
+    --mlv-muted-default-border-2: #666666;
+
+    --mlv-muted-default-bg-3: #d0d0d0;
+    --mlv-muted-default-text-3: #000000;
+    --mlv-muted-default-border-3: #000000;
+
+    // Primary
+    --mlv-muted-primary-bg-1: #e0e0ff;
+    --mlv-muted-primary-text-1: #000066;
+    --mlv-muted-primary-border-1: #000066;
+
+    --mlv-muted-primary-bg-2: #c8c8ff;
+    --mlv-muted-primary-text-2: #000044;
+    --mlv-muted-primary-border-2: #000044;
+
+    --mlv-muted-primary-bg-3: #aaaaff;
+    --mlv-muted-primary-text-3: #000000;
+    --mlv-muted-primary-border-3: #000000;
+
+    // Secondary
+    --mlv-muted-secondary-bg-1: #f0f0f0;
+    --mlv-muted-secondary-text-1: #111111;
+    --mlv-muted-secondary-border-1: #666666;
+
+    --mlv-muted-secondary-bg-2: #e0e0e0;
+    --mlv-muted-secondary-text-2: #000000;
+    --mlv-muted-secondary-border-2: #444444;
+
+    --mlv-muted-secondary-bg-3: #cccccc;
+    --mlv-muted-secondary-text-3: #000000;
+    --mlv-muted-secondary-border-3: #000000;
+
+    // Success
+    --mlv-muted-success-bg-1: #e0ffe0;
+    --mlv-muted-success-text-1: #006600;
+    --mlv-muted-success-border-1: #006600;
+
+    --mlv-muted-success-bg-2: #c0ffc0;
+    --mlv-muted-success-text-2: #004400;
+    --mlv-muted-success-border-2: #004400;
+
+    --mlv-muted-success-bg-3: #99ee99;
+    --mlv-muted-success-text-3: #002200;
+    --mlv-muted-success-border-3: #002200;
+
+    // Warning
+    --mlv-muted-warning-bg-1: #fff0cc;
+    --mlv-muted-warning-text-1: #804000;
+    --mlv-muted-warning-border-1: #804000;
+
+    --mlv-muted-warning-bg-2: #ffe0aa;
+    --mlv-muted-warning-text-2: #602000;
+    --mlv-muted-warning-border-2: #602000;
+
+    --mlv-muted-warning-bg-3: #ffcc77;
+    --mlv-muted-warning-text-3: #400000;
+    --mlv-muted-warning-border-3: #400000;
+
+    // Danger
+    --mlv-muted-danger-bg-1: #ffe0e0;
+    --mlv-muted-danger-text-1: #cc0000;
+    --mlv-muted-danger-border-1: #cc0000;
+
+    --mlv-muted-danger-bg-2: #ffc8c8;
+    --mlv-muted-danger-text-2: #880000;
+    --mlv-muted-danger-border-2: #880000;
+
+    --mlv-muted-danger-bg-3: #ffaaaa;
+    --mlv-muted-danger-text-3: #550000;
+    --mlv-muted-danger-border-3: #550000;
+
+    // Accent
+    --mlv-muted-accent-bg-1: #e0f8ff;
+    --mlv-muted-accent-text-1: #005577;
+    --mlv-muted-accent-border-1: #005577;
+
+    --mlv-muted-accent-bg-2: #c0f0ff;
+    --mlv-muted-accent-text-2: #003355;
+    --mlv-muted-accent-border-2: #003355;
+
+    --mlv-muted-accent-bg-3: #99e0ff;
+    --mlv-muted-accent-text-3: #001133;
+    --mlv-muted-accent-border-3: #001133;
+
+    // Info
+    --mlv-muted-info-bg-1: #e0f0ff;
+    --mlv-muted-info-text-1: #003399;
+    --mlv-muted-info-border-1: #003399;
+
+    --mlv-muted-info-bg-2: #c0e0ff;
+    --mlv-muted-info-text-2: #002277;
+    --mlv-muted-info-border-2: #002277;
+
+    --mlv-muted-info-bg-3: #99ccff;
+    --mlv-muted-info-text-3: #001155;
+    --mlv-muted-info-border-3: #001155;
+  }
+} // @layer mlv.tokens

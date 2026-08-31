@@ -1,0 +1,39 @@
+<div class="search-field-combobox">
+  <div class="search-field-combobox__anchor">
+    <mlv-search-field
+      role="combobox"
+      trigger="submit"
+      ariaAutocomplete="list"
+      ariaLabel="Search commands"
+      placeholder="Search commands"
+      [value]="query()"
+      [ariaControls]="listboxId"
+      [ariaExpanded]="open()"
+      [ariaActiveDescendant]="activeOptionId()"
+      (valueChange)="onQueryChange($event)"
+      (navigate)="onNavigate($event)"
+      (commit)="onCommit($event)"
+      (search)="onSearch($event)"
+    />
+
+    @if (open()) {
+    <mlv-dropdown-panel
+      class="search-field-combobox__panel"
+      focusMode="activedescendant"
+      [listboxId]="listboxId"
+      [options]="filtered()"
+      [activeIndex]="activeDescendant.index()"
+      [highlightQuery]="query()"
+      (valueChange)="onPanelValueChange($event)"
+    />
+    }
+  </div>
+
+  <p class="search-field-combobox__result" aria-live="polite">
+    @if (picked()) { Picked suggestion:
+    <strong>{{ picked() }}</strong>
+    } @else if (searched()) { Plain search:
+    <strong>{{ searched() }}</strong>
+    } @else { Type to filter, then use the arrow keys and Enter. }
+  </p>
+</div>

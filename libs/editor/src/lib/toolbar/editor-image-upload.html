@@ -1,0 +1,16 @@
+<button
+  #_trigger
+  mlvButton
+  mlvEditorToolbarWidget
+  type="button"
+  shape="square"
+  mlvDensity="tight"
+  variant="transparent"
+  [disabled]="_disabled()"
+  [attr.aria-label]="_copy()"
+  [attr.aria-pressed]="false"
+  [mlvTooltip]="_copy()"
+  (click)="_open()"
+>
+  <svg mlvButtonIcon lucideImage aria-hidden="true" />
+</button>

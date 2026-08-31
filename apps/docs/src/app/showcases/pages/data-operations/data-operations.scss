@@ -1,0 +1,123 @@
+$block: data-operations-showcase;
+
+.#{$block} {
+  &__content {
+    display: grid;
+    gap: var(--mlv-spacing-4);
+    min-inline-size: 0;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__title-row h1 {
+    margin: 0;
+  }
+
+  &__announcement {
+    min-block-size: var(--mlv-spacing-5);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__account-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    font-weight: var(--mlv-typography-ui-m-weight);
+  }
+
+  &__amount {
+    font-variant-numeric: tabular-nums;
+  }
+
+  // AB-R4: semantic state inside a repeated row reads as a status dot plus a
+  // neutral label, never a solid-fill badge.
+  &__health {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    color: var(--mlv-text-primary);
+  }
+
+  // The core table's `.mlv-data-table__cell-content` wrapper is a
+  // `display: flex; flex-direction: row` (with `white-space: nowrap`), so a
+  // `display: block` child never gets its own line — it just becomes another
+  // row item with no gap, rendering flush against the date. Lay the date and
+  // the days-remaining badge out explicitly as a flex row with a real gap
+  // instead of relying on block-level line breaking.
+  &__renewal {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+  }
+
+  &__renewal-days {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    white-space: nowrap;
+
+    &--urgent {
+      color: var(--mlv-text-negative);
+    }
+  }
+
+  &__inspector {
+    padding: var(--mlv-spacing-5);
+  }
+
+  &__inspector-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--mlv-spacing-3);
+  }
+
+  &__inspector-header p {
+    margin: 0 0 var(--mlv-spacing-1);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__inspector-header h2 {
+    margin: 0;
+    font-size: var(--mlv-typography-heading-h5-size);
+  }
+
+  &__details {
+    display: grid;
+    gap: var(--mlv-spacing-4);
+    margin: var(--mlv-spacing-6) 0 0;
+  }
+
+  &__details div {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__details dt {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__details dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__empty-state {
+    display: grid;
+    justify-items: start;
+    gap: var(--mlv-spacing-3);
+    padding: var(--mlv-spacing-6);
+    color: var(--mlv-text-secondary);
+  }
+
+  &__empty-state p {
+    margin: 0;
+  }
+}

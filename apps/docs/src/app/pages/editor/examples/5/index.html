@@ -1,0 +1,26 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <mlv-editor
+    [(value)]="value"
+    [imageUploader]="uploader"
+    [imageUploadOptions]="options"
+    label="Upload demo"
+    ariaLabel="Image upload demo editor"
+    (imageUploadSuccess)="log('Success: ' + $event.file.name)"
+    (imageUploadFailure)="log('Failure: ' + $event.error.message)"
+    (imageUploadCancelled)="log('Cancelled: ' + $event.file.name)"
+  />
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Select, paste, or drop one image under 1 MB. A file containing
+    <code>retry</code> in its name fails once, then succeeds with Retry. Cancel
+    while progress is running. Non-images and oversized files fail validation.
+  </p>
+
+  <ul aria-live="polite">
+    @for (event of events(); track $index) {
+    <li>{{ event }}</li>
+    } @empty {
+    <li>No upload events yet.</li>
+    }
+  </ul>
+</div>

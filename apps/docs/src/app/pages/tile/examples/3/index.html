@@ -1,0 +1,16 @@
+<div class="tiles-column">
+  @for (tile of tiles(); track tile.id) {
+  <mlv-tile
+    closable
+    [class.mlv-tile--leaving]="closingIds().has(tile.id)"
+    (closed)="close(tile.id)"
+  >
+    <ng-template mlvTileHeader>
+      <strong>{{ tile.title }}</strong>
+    </ng-template>
+    {{ tile.body }}
+  </mlv-tile>
+  } @if (tiles().length === 0) {
+  <p class="empty-message">All tiles dismissed.</p>
+  }
+</div>

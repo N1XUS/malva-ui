@@ -1,0 +1,13 @@
+{
+  "name": "core-table",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/table/src",
+  "prefix": "mlv",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:core", "type:ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

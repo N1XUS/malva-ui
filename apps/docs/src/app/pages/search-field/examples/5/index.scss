@@ -1,0 +1,25 @@
+.search-field-combobox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-4);
+
+  &__anchor {
+    position: relative;
+    max-width: 24rem;
+  }
+
+  &__panel {
+    position: absolute;
+    z-index: 1;
+    inset-inline: 0;
+    top: calc(100% + 0.25rem);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-panel);
+    background-color: var(--mlv-background-raised);
+    box-shadow: var(--mlv-shadow-floating);
+  }
+
+  &__result {
+    color: var(--mlv-text-secondary);
+  }
+}

@@ -1,0 +1,28 @@
+<div class="demo-col" style="gap: 1.25rem">
+  <div class="demo-col" style="gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6">Default (primary)</span>
+    <mlv-loader variant="bar" [indeterminate]="true" [size]="6" />
+  </div>
+  <div class="demo-col" style="gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6">Success</span>
+    <mlv-loader
+      variant="bar"
+      [indeterminate]="true"
+      [size]="6"
+      tone="success"
+    />
+  </div>
+  <div class="demo-col" style="gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6">Warning</span>
+    <mlv-loader
+      variant="bar"
+      [indeterminate]="true"
+      [size]="6"
+      tone="warning"
+    />
+  </div>
+  <div class="demo-col" style="gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6">Error</span>
+    <mlv-loader variant="bar" [indeterminate]="true" [size]="6" tone="danger" />
+  </div>
+</div>

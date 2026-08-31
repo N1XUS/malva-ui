@@ -1,0 +1,19 @@
+{
+  "name": "cdk-shrink-wrap",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/cdk/shrink-wrap/src",
+  "prefix": "mlv",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:cdk", "type:infrastructure"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "config": "libs/cdk/shrink-wrap/vite.config.mts"
+      }
+    }
+  }
+}

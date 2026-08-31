@@ -1,0 +1,1 @@
+../../../../../../.claude/projects/page-avatar-group.md

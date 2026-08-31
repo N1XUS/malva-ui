@@ -1,0 +1,117 @@
+<div class="sidebar-demo">
+  <mlv-sidebar [(collapsed)]="collapsed">
+    <div mlvSidebarContent>
+      <mlv-sidebar-item label="Dashboard" [active]="true">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideHouse size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Inbox">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideInbox size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Calendar">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideCalendar size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-group label="Projects">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideFolderOpen size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Design System">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucidePalette size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Marketing Site">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideGlobe size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Mobile App">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideSmartphone size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="API Gateway">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideServer size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-sidebar-group label="Reports">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideChartArea size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Sales Overview">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideTrendingUp size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Traffic Sources">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideChartColumn size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="User Funnels">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideChartPie size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-sidebar-group label="Team">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideUsers size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Members">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideUser size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Permissions">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideShieldCheck size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Invitations">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideMail size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-spacer />
+
+      <mlv-sidebar-item label="Settings">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideSettings size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Help & Support">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideCircleHelp size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-trigger />
+    </div>
+  </mlv-sidebar>
+</div>

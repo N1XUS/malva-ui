@@ -1,0 +1,57 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-editor-table-controls;
+
+  .#{$block} {
+    @include mixins.base();
+
+    // A layout-neutral host: the grips are positioned against the zoom layer
+    // this component is rendered inside, and the host itself must not take part
+    // in that layer's flow or it would offset the content it decorates.
+    display: contents;
+
+    // Mirrors `GRIP_SIZE` in the component. The component lays the grips out in
+    // JavaScript, so the two have to agree; this is the value the stylesheet
+    // paints against (icon centring, hit area).
+    --mlv-editor-table-grip-size: 14px;
+
+    &__grip {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+      border-radius: var(--mlv-radius-xs);
+      background: var(--mlv-background-neutral-1);
+      color: var(--mlv-text-secondary);
+      cursor: pointer;
+      // Above the cell borders it sits against, below any overlay.
+      z-index: 1;
+      transition: background-color var(--mlv-duration-fast)
+          var(--mlv-ease-default),
+        color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+      &:hover {
+        background: var(--mlv-background-neutral-1-hover);
+        color: var(--mlv-text-primary);
+      }
+
+      // SF-R1: the open grip is a persistent state for as long as its menu
+      // stands, so it takes the selected pair rather than the pressed fill.
+      &[aria-expanded='true'] {
+        background: var(--mlv-background-selected);
+        color: var(--mlv-text-on-selected);
+      }
+    }
+
+    // The corner grip is the smallest of the three and carries no direction, so
+    // it gets the neutral overflow glyph instead of a grip texture.
+    &__grip--corner svg {
+      opacity: 0.75;
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}

@@ -1,0 +1,35 @@
+{
+  "name": "i18n",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/i18n/src",
+  "prefix": "mlv",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:i18n", "type:infrastructure"],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:package",
+      "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "options": {
+        "project": "libs/i18n/ng-package.json",
+        "tsConfig": "libs/i18n/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/i18n/tsconfig.lib.prod.json"
+        },
+        "development": {}
+      },
+      "defaultConfiguration": "production"
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "yarn vitest run --config libs/i18n/vite.config.mts",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}

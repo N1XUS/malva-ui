@@ -1,0 +1,14 @@
+$block: data-table-resize-demo;
+
+.#{$block} {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+
+  &__hint,
+  &__status {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+}

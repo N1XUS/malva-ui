@@ -1,0 +1,16 @@
+<div class="demo-col" style="max-width: 42rem">
+  <mlv-form-field>
+    <mlv-label>Card title <mlv-hint>Template-driven</mlv-hint></mlv-label>
+    <h3
+      mlvTitle
+      editable
+      name="templateTitle"
+      placeholder="Add a card title"
+      [(ngModel)]="title"
+    >
+      {{ title }}
+    </h3>
+  </mlv-form-field>
+
+  <pre>{{ { title } | json }}</pre>
+</div>

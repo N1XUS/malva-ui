@@ -1,0 +1,182 @@
+$block: record-editor;
+
+.#{$block} {
+  display: block;
+  height: 42rem;
+  overflow: hidden;
+  border: 0.0625rem solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-l);
+
+  &__page {
+    height: 100%;
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-2);
+    max-width: 56rem;
+    margin-inline: auto;
+    padding-block: var(--mlv-spacing-2) var(--mlv-spacing-4);
+    padding-inline: var(--mlv-spacing-3);
+  }
+
+  &__card {
+    width: 100%;
+  }
+
+  &__fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--mlv-spacing-2) var(--mlv-spacing-3);
+
+    &--stacked {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-1);
+    min-width: 0;
+  }
+
+  &__field-label {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-1);
+    align-items: center;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  &__live-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--mlv-spacing-2) var(--mlv-spacing-3);
+    margin: 0;
+
+    dt {
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+    }
+
+    dd {
+      margin: 0;
+      font-size: var(--mlv-typography-body-m-size);
+    }
+  }
+
+  &__live-wide {
+    grid-column: 1 / -1;
+  }
+
+  &__diff {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__diff-row {
+    display: grid;
+    grid-template-columns: 10rem 1fr 1fr;
+    gap: var(--mlv-spacing-2);
+    align-items: start;
+    padding: var(--mlv-spacing-1);
+    border-bottom: 0.0625rem solid var(--mlv-border-subtle);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__diff-field {
+    color: var(--mlv-text-secondary);
+  }
+
+  &__diff-from {
+    padding: var(--mlv-spacing-0-5) var(--mlv-spacing-1);
+    border-radius: var(--mlv-radius-s);
+    background: var(--mlv-background-danger-1-pale);
+    color: var(--mlv-text-negative);
+  }
+
+  &__diff-to {
+    padding: var(--mlv-spacing-0-5) var(--mlv-spacing-1);
+    border-radius: var(--mlv-radius-s);
+    background: var(--mlv-background-success-pale);
+    color: var(--mlv-text-positive);
+    text-decoration: none;
+  }
+
+  &__empty {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+  }
+
+  &__schedule {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-2);
+    padding: var(--mlv-spacing-2);
+    min-width: 16rem;
+  }
+
+  &__schedule-hint {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  // In-flow pill inside a content-sized dock track: the shape's viewport
+  // max-width cap would force a 2rem overflow here.
+  &__dock-bar {
+    gap: var(--mlv-spacing-2);
+    max-width: none;
+  }
+
+  &__dock-status {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-1);
+    align-items: center;
+    padding-inline: var(--mlv-spacing-2);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+    white-space: nowrap;
+  }
+
+  &__dock-divider {
+    align-self: center;
+    height: 1.25rem;
+  }
+}
+
+// Narrow canvas: the workflow pill wraps into rows (status line on top)
+// instead of overflowing the dock horizontally. Wrapping itself comes from the
+// bar's own `wrap` input; only the rounded-rectangle finish is example CSS.
+@container (max-width: 48rem) {
+  .record-editor__dock-bar {
+    justify-content: center;
+    max-width: 100%;
+    border-radius: var(--mlv-radius-2xl);
+  }
+
+  .record-editor__dock-status {
+    flex-basis: 100%;
+    justify-content: center;
+  }
+
+  .record-editor__dock-divider {
+    display: none;
+  }
+}

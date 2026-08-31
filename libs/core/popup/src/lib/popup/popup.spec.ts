@@ -1,0 +1,593 @@
+import type { ComponentFixture } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
+import {
+  Component,
+  signal,
+  viewChild,
+  ViewContainerRef,
+  type WritableSignal,
+} from '@angular/core';
+import { MlvBreakpointService } from '@malva-ui/cdk/utils';
+import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
+import { MLV_DENSITY_CONTEXT, MlvDensityService } from '@malva-ui/cdk/density';
+import type { MlvDensity } from '@malva-ui/cdk/density';
+import { MLV_POPUP_I18N } from '@malva-ui/i18n';
+import { MlvPopup } from './popup';
+import type { MlvPopupMobileMode } from './popup';
+import { MlvPopupContent } from '../popup-content';
+import { MlvPopupHeaderContent } from '../popup-header-content';
+import { MlvPopupPinnedContent } from '../popup-pinned-content';
+
+describe('MlvPopup', () => {
+  it('should create', async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvPopup],
+    }).compileComponents();
+
+    const fixture: ComponentFixture<MlvPopup> =
+      TestBed.createComponent(MlvPopup);
+    await fixture.whenStable();
+    expect(fixture.componentInstance).toBeTruthy();
+  });
+
+  it('defaults to a non-modal, roleless panel', () => {
+    const fixture = TestBed.createComponent(MlvPopup);
+    fixture.detectChanges();
+    const popup = fixture.componentInstance;
+    expect(popup.panelRole()).toBeNull();
+    expect(popup.modal()).toBe(false);
+  });
+
+  describe('rendered panel semantics', () => {
+    @Component({
+      imports: [MlvPopup, MlvPopupContent],
+      template: `
+        <mlv-popup
+          [panelRole]="role()"
+          [modal]="modal()"
+          [ariaLabel]="ariaLabel()"
+        >
+          <ng-template mlvPopupContent><button>content</button></ng-template>
+        </mlv-popup>
+        <ng-container #host />
+      `,
+    })
+    class HostComponent {
+      readonly role = signal<string | null>(null);
+      readonly modal = signal(false);
+      readonly ariaLabel = signal<string | undefined>(undefined);
+      readonly popup = viewChild.required(MlvPopup);
+      readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+      stamp(): void {
+        this.host().createEmbeddedView(this.popup().popupTemplate());
+      }
+    }
+
+    function render(): {
+      fixture: ComponentFixture<HostComponent>;
+      panel: () => HTMLElement;
+    } {
+      const fixture = TestBed.createComponent(HostComponent);
+      fixture.detectChanges();
+      fixture.componentInstance.stamp();
+      fixture.detectChanges();
+      return {
+        fixture,
+        panel: () =>
+          fixture.nativeElement.querySelector('.mlv-popup') as HTMLElement,
+      };
+    }
+
+    it('emits no role and no aria-modal by default (listbox/menu/tooltip case)', () => {
+      const { panel } = render();
+      expect(panel().getAttribute('role')).toBeNull();
+      expect(panel().getAttribute('aria-modal')).toBeNull();
+    });
+
+    it('emits role="dialog" and aria-modal="true" when configured as a modal', () => {
+      const { fixture, panel } = render();
+      fixture.componentInstance.role.set('dialog');
+      fixture.componentInstance.modal.set(true);
+      fixture.componentInstance.ariaLabel.set('Choose date');
+      fixture.detectChanges();
+
+      expect(panel().getAttribute('role')).toBe('dialog');
+      expect(panel().getAttribute('aria-modal')).toBe('true');
+      expect(panel().getAttribute('aria-label')).toBe('Choose date');
+    });
+
+    it('uses the Malva scrollbar for popup content', () => {
+      const { panel } = render();
+      expect(
+        panel().querySelector('.mlv-popup__scrollbar.mlv-scrollbar'),
+      ).toBeTruthy();
+    });
+  });
+
+  describe('density cascade class', () => {
+    @Component({
+      imports: [MlvPopup, MlvPopupContent],
+      template: `
+        <mlv-popup [mlvDensity]="density()" [class]="extraClass()">
+          <ng-template mlvPopupContent><span>content</span></ng-template>
+        </mlv-popup>
+        <ng-container #host />
+      `,
+    })
+    class DensityHostComponent {
+      readonly density = signal<MlvDensity | undefined>(undefined);
+      readonly extraClass = signal<string | undefined>(undefined);
+      readonly popup = viewChild.required(MlvPopup);
+      readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+      stamp(): void {
+        this.host().createEmbeddedView(this.popup().popupTemplate());
+      }
+    }
+
+    @Component({
+      imports: [MlvPopup, MlvPopupContent],
+      providers: [
+        {
+          provide: MLV_DENSITY_CONTEXT,
+          useValue: signal<MlvDensity>('compact'),
+        },
+      ],
+      template: `
+        <mlv-popup [mlvDensity]="density()">
+          <ng-template mlvPopupContent><span>content</span></ng-template>
+        </mlv-popup>
+        <ng-container #host />
+      `,
+    })
+    class DensityContextHostComponent {
+      readonly density = signal<MlvDensity | undefined>(undefined);
+      readonly popup = viewChild.required(MlvPopup);
+      readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+      stamp(): void {
+        this.host().createEmbeddedView(this.popup().popupTemplate());
+      }
+    }
+
+    function render(): {
+      fixture: ComponentFixture<DensityHostComponent>;
+      panel: () => HTMLElement;
+    } {
+      const fixture = TestBed.createComponent(DensityHostComponent);
+      fixture.detectChanges();
+      fixture.componentInstance.stamp();
+      fixture.detectChanges();
+      return {
+        fixture,
+        panel: () =>
+          fixture.nativeElement.querySelector('.mlv-popup') as HTMLElement,
+      };
+    }
+
+    it('stamps the global service density on the panel by default', () => {
+      const { panel } = render();
+      expect(panel().classList.contains('mlv--comfortable')).toBe(true);
+    });
+
+    it('prefers an explicit mlvDensity input over the service density', () => {
+      const { fixture, panel } = render();
+      fixture.componentInstance.density.set('compact');
+      fixture.detectChanges();
+      expect(panel().classList.contains('mlv--compact')).toBe(true);
+      expect(panel().classList.contains('mlv--comfortable')).toBe(false);
+    });
+
+    it('tracks service density changes while no explicit input is set', () => {
+      const { fixture, panel } = render();
+      TestBed.inject(MlvDensityService).setDensity('tight');
+      fixture.detectChanges();
+      expect(panel().classList.contains('mlv--tight')).toBe(true);
+      expect(panel().classList.contains('mlv--comfortable')).toBe(false);
+    });
+
+    it('keeps consumer classes from the class input alongside the density class', () => {
+      const { fixture, panel } = render();
+      fixture.componentInstance.extraClass.set('my-popup');
+      fixture.componentInstance.density.set('spacious');
+      fixture.detectChanges();
+      expect(panel().classList.contains('my-popup')).toBe(true);
+      expect(panel().classList.contains('mlv--spacious')).toBe(true);
+    });
+
+    it('prefers an ancestor MLV_DENSITY_CONTEXT over the service density', () => {
+      const fixture = TestBed.createComponent(DensityContextHostComponent);
+      fixture.detectChanges();
+      fixture.componentInstance.stamp();
+      fixture.detectChanges();
+      const panel = fixture.nativeElement.querySelector(
+        '.mlv-popup',
+      ) as HTMLElement;
+      expect(panel.classList.contains('mlv--compact')).toBe(true);
+      expect(panel.classList.contains('mlv--comfortable')).toBe(false);
+    });
+
+    it('an explicit mlvDensity input still beats the ancestor context', () => {
+      const fixture = TestBed.createComponent(DensityContextHostComponent);
+      fixture.componentInstance.density.set('tight');
+      fixture.detectChanges();
+      fixture.componentInstance.stamp();
+      fixture.detectChanges();
+      const panel = fixture.nativeElement.querySelector(
+        '.mlv-popup',
+      ) as HTMLElement;
+      expect(panel.classList.contains('mlv--tight')).toBe(true);
+    });
+  });
+
+  describe('leave-animation fallback', () => {
+    it('emits leaveAnimationDone$ via the fallback timer when animationend never fires', async () => {
+      const fixture = TestBed.createComponent(MlvPopup);
+      fixture.detectChanges();
+      const popup = fixture.componentInstance;
+
+      let done = false;
+      popup.leaveAnimationDone$.subscribe(() => (done = true));
+
+      popup.animationState.set('leave');
+      fixture.detectChanges(); // flush the effect that arms the timer
+
+      // No animationend dispatched (reduced motion / throttled hidden tab).
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      expect(done).toBe(true);
+    });
+
+    it('disarms the fallback timer when the leave completes normally', async () => {
+      const fixture = TestBed.createComponent(MlvPopup);
+      fixture.detectChanges();
+      const popup = fixture.componentInstance;
+
+      let emissions = 0;
+      popup.leaveAnimationDone$.subscribe(() => emissions++);
+
+      popup.animationState.set('leave');
+      fixture.detectChanges();
+
+      // Real animationend path: handler emits, dispose resets the state.
+      popup.onAnimationEnd();
+      popup.animationState.set('idle');
+      fixture.detectChanges();
+
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      expect(emissions).toBe(1);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mobile fullscreen mode
+// ---------------------------------------------------------------------------
+
+/** Stubs MlvBreakpointService so specs can flip the "below breakpoint" state. */
+class FakeBreakpointService {
+  readonly down: WritableSignal<boolean> = signal(false);
+  isDown(_bp: MlvBreakpoint) {
+    return this.down;
+  }
+  isUp(_bp: MlvBreakpoint) {
+    return signal(false);
+  }
+}
+
+describe('MlvPopup — mobile fullscreen mode', () => {
+  @Component({
+    imports: [MlvPopup, MlvPopupContent],
+    template: `
+      <mlv-popup
+        [mobileMode]="mode()"
+        [mobileBreakpoint]="breakpoint()"
+        [mobileTitle]="title()"
+        [mobileCloseLabel]="closeLabel()"
+      >
+        <ng-template mlvPopupContent><button>content</button></ng-template>
+      </mlv-popup>
+      <ng-container #host />
+    `,
+  })
+  class HostComponent {
+    readonly mode = signal<MlvPopupMobileMode>('off');
+    readonly breakpoint = signal<MlvBreakpoint>('md');
+    readonly title = signal<string | undefined>(undefined);
+    readonly closeLabel = signal<string | undefined>(undefined);
+    readonly popup = viewChild.required(MlvPopup);
+    readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+    stamp(): void {
+      this.host().createEmbeddedView(this.popup().popupTemplate());
+    }
+  }
+
+  let fakeBreakpoint: FakeBreakpointService;
+
+  function render(): {
+    fixture: ComponentFixture<HostComponent>;
+    host: HostComponent;
+    panel: () => HTMLElement;
+    closeBtn: () => HTMLButtonElement | null;
+  } {
+    const fixture = TestBed.createComponent(HostComponent);
+    const host = fixture.componentInstance;
+    fixture.detectChanges();
+    host.stamp();
+    fixture.detectChanges();
+    return {
+      fixture,
+      host,
+      panel: () =>
+        fixture.nativeElement.querySelector('.mlv-popup') as HTMLElement,
+      // The accessible name lives on the native button inside
+      // <mlv-button-close>, not on that component's host element.
+      closeBtn: () =>
+        fixture.nativeElement.querySelector(
+          '.mlv-popup__close button',
+        ) as HTMLButtonElement | null,
+    };
+  }
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: MlvBreakpointService, useClass: FakeBreakpointService },
+        { provide: MLV_POPUP_I18N, useValue: signal({ close: 'Close' }) },
+      ],
+    });
+    fakeBreakpoint = TestBed.inject(
+      MlvBreakpointService,
+    ) as unknown as FakeBreakpointService;
+  });
+
+  it('is not fullscreen when mobileMode is "off" regardless of viewport', () => {
+    const { host } = render();
+    fakeBreakpoint.down.set(true);
+    expect(host.popup().isFullscreen()).toBe(false);
+  });
+
+  it('is always fullscreen when mobileMode is "fullscreen"', () => {
+    const { fixture, host } = render();
+    host.mode.set('fullscreen');
+    fixture.detectChanges();
+    fakeBreakpoint.down.set(false);
+    expect(host.popup().isFullscreen()).toBe(true);
+  });
+
+  it('switches fullscreen with the breakpoint when mobileMode is "auto"', () => {
+    const { fixture, host } = render();
+    host.mode.set('auto');
+    fixture.detectChanges();
+    fakeBreakpoint.down.set(false);
+    expect(host.popup().isFullscreen()).toBe(false);
+    fakeBreakpoint.down.set(true);
+    expect(host.popup().isFullscreen()).toBe(true);
+  });
+
+  it('renders the fullscreen header with a close button when fullscreen', () => {
+    const { fixture, host, panel, closeBtn } = render();
+    expect(closeBtn()).toBeNull();
+    expect(panel().classList.contains('mlv-popup--fullscreen')).toBe(false);
+
+    host.mode.set('fullscreen');
+    fixture.detectChanges();
+
+    expect(panel().classList.contains('mlv-popup--fullscreen')).toBe(true);
+    expect(panel().querySelector('.mlv-popup__header')).not.toBeNull();
+    expect(closeBtn()).not.toBeNull();
+    expect(closeBtn()?.getAttribute('aria-label')).toBe('Close');
+  });
+
+  it('renders the mobileTitle in the fullscreen header', () => {
+    const { fixture, host, panel } = render();
+    host.mode.set('fullscreen');
+    host.title.set('Pick a date');
+    fixture.detectChanges();
+    expect(panel().querySelector('.mlv-popup__title')?.textContent).toContain(
+      'Pick a date',
+    );
+  });
+
+  it('uses mobileCloseLabel override over the i18n default', () => {
+    const { fixture, host, closeBtn } = render();
+    host.mode.set('fullscreen');
+    host.closeLabel.set('Dismiss');
+    fixture.detectChanges();
+    expect(closeBtn()?.getAttribute('aria-label')).toBe('Dismiss');
+  });
+
+  it('closes the popup (opened → false) when the close button is clicked', () => {
+    const { fixture, host, closeBtn } = render();
+    host.mode.set('fullscreen');
+    host.popup().opened.set(true);
+    fixture.detectChanges();
+
+    closeBtn()?.click();
+    fixture.detectChanges();
+
+    expect(host.popup().opened()).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Header-content slot ([mlvPopupHeaderContent])
+// ---------------------------------------------------------------------------
+
+describe('MlvPopup — header content slot', () => {
+  @Component({
+    imports: [MlvPopup, MlvPopupContent, MlvPopupHeaderContent],
+    template: `
+      <mlv-popup [mobileMode]="mode()">
+        <ng-template mlvPopupHeaderContent>
+          <input class="in-sheet-field" />
+        </ng-template>
+        <ng-template mlvPopupContent><button>content</button></ng-template>
+      </mlv-popup>
+      <ng-container #host />
+    `,
+  })
+  class HostComponent {
+    readonly mode = signal<MlvPopupMobileMode>('off');
+    readonly popup = viewChild.required(MlvPopup);
+    readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+    stamp(): void {
+      this.host().createEmbeddedView(this.popup().popupTemplate());
+    }
+  }
+
+  function render(): {
+    fixture: ComponentFixture<HostComponent>;
+    host: HostComponent;
+    panel: () => HTMLElement;
+  } {
+    const fixture = TestBed.createComponent(HostComponent);
+    const host = fixture.componentInstance;
+    fixture.detectChanges();
+    host.stamp();
+    fixture.detectChanges();
+    return {
+      fixture,
+      host,
+      panel: () =>
+        fixture.nativeElement.querySelector('.mlv-popup') as HTMLElement,
+    };
+  }
+
+  it('does not stamp the header content while trigger-anchored (mode "off")', () => {
+    const { panel } = render();
+    expect(panel().querySelector('.mlv-popup__header-content')).toBeNull();
+    expect(panel().querySelector('.in-sheet-field')).toBeNull();
+  });
+
+  it('renders the header content beneath the title row when fullscreen', () => {
+    const { fixture, host, panel } = render();
+    host.mode.set('fullscreen');
+    fixture.detectChanges();
+
+    const headerContent = panel().querySelector('.mlv-popup__header-content');
+    expect(headerContent).not.toBeNull();
+    expect(headerContent?.querySelector('.in-sheet-field')).not.toBeNull();
+    // Header content sits inside the header, after the title/close row.
+    expect(
+      panel().querySelector('.mlv-popup__header .mlv-popup__header-row'),
+    ).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pinned-content slot ([mlvPopupPinnedContent])
+// ---------------------------------------------------------------------------
+
+describe('MlvPopup — pinned content slot', () => {
+  @Component({
+    imports: [MlvPopup, MlvPopupContent, MlvPopupPinnedContent],
+    template: `
+      <mlv-popup [mobileMode]="mode()" mobileTitle="Pick one">
+        <ng-template mlvPopupPinnedContent>
+          <input class="pinned-field" />
+        </ng-template>
+        <ng-template mlvPopupContent><button>content</button></ng-template>
+      </mlv-popup>
+      <ng-container #host />
+    `,
+  })
+  class HostComponent {
+    readonly mode = signal<MlvPopupMobileMode>('off');
+    readonly popup = viewChild.required(MlvPopup);
+    readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+    stamp(): void {
+      this.host().createEmbeddedView(this.popup().popupTemplate());
+    }
+  }
+
+  /** Same popup without the slot — proves the absent-slot markup is unchanged. */
+  @Component({
+    imports: [MlvPopup, MlvPopupContent],
+    template: `
+      <mlv-popup>
+        <ng-template mlvPopupContent><button>content</button></ng-template>
+      </mlv-popup>
+      <ng-container #host />
+    `,
+  })
+  class NoSlotHostComponent {
+    readonly popup = viewChild.required(MlvPopup);
+    readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+    stamp(): void {
+      this.host().createEmbeddedView(this.popup().popupTemplate());
+    }
+  }
+
+  function render(): {
+    fixture: ComponentFixture<HostComponent>;
+    host: HostComponent;
+    panel: () => HTMLElement;
+  } {
+    const fixture = TestBed.createComponent(HostComponent);
+    const host = fixture.componentInstance;
+    fixture.detectChanges();
+    host.stamp();
+    fixture.detectChanges();
+    return {
+      fixture,
+      host,
+      panel: () =>
+        fixture.nativeElement.querySelector('.mlv-popup') as HTMLElement,
+    };
+  }
+
+  /** Index of a child inside the panel's own element children. */
+  function indexIn(panel: HTMLElement, selector: string): number {
+    return Array.from(panel.children).findIndex((el) => el.matches(selector));
+  }
+
+  it('renders the pinned block above the scroll region while trigger-anchored', () => {
+    const { panel } = render();
+    const pinned = panel().querySelector('.mlv-popup__pinned');
+    expect(pinned).not.toBeNull();
+    expect(pinned?.querySelector('.pinned-field')).not.toBeNull();
+    // Outside the scroll viewport entirely — that is the whole point.
+    expect(
+      panel().querySelector('.mlv-popup__scrollbar .mlv-popup__pinned'),
+    ).toBeNull();
+    const pinnedIndex = indexIn(panel(), '.mlv-popup__pinned');
+    const scrollbarIndex = indexIn(panel(), '.mlv-popup__scrollbar');
+    expect(pinnedIndex).toBeGreaterThanOrEqual(0);
+    expect(pinnedIndex).toBeLessThan(scrollbarIndex);
+  });
+
+  it('renders the pinned block below the fullscreen header and above the scroll region', () => {
+    const { fixture, host, panel } = render();
+    host.mode.set('fullscreen');
+    fixture.detectChanges();
+
+    const headerIndex = indexIn(panel(), '.mlv-popup__header');
+    const pinnedIndex = indexIn(panel(), '.mlv-popup__pinned');
+    const scrollbarIndex = indexIn(panel(), '.mlv-popup__scrollbar');
+    expect(headerIndex).toBeGreaterThanOrEqual(0);
+    expect(headerIndex).toBeLessThan(pinnedIndex);
+    expect(pinnedIndex).toBeLessThan(scrollbarIndex);
+    // The sheet's focus trap wraps the whole panel, so the pinned control is
+    // inside it and stays reachable behind the solid backdrop.
+    expect(
+      panel().querySelector('.mlv-popup__pinned .pinned-field'),
+    ).not.toBeNull();
+  });
+
+  it('stamps no pinned block when the slot is absent', () => {
+    const fixture = TestBed.createComponent(NoSlotHostComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.stamp();
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector(
+      '.mlv-popup',
+    ) as HTMLElement;
+    expect(panel.querySelector('.mlv-popup__pinned')).toBeNull();
+  });
+});

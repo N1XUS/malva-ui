@@ -1,0 +1,28 @@
+<div class="demo-row" style="align-items: center">
+  <div class="demo-col" style="align-items: center; margin-bottom: 0">
+    <button
+      mlvIconToggle
+      type="button"
+      disabled
+      [pressed]="false"
+      tone="warning"
+      aria-label="Star conversation (disabled)"
+    >
+      <svg lucideStar [size]="16" aria-hidden="true" />
+    </button>
+    <span>Disabled, unpressed</span>
+  </div>
+  <div class="demo-col" style="align-items: center; margin-bottom: 0">
+    <button
+      mlvIconToggle
+      type="button"
+      disabled
+      [pressed]="true"
+      tone="warning"
+      aria-label="Unstar conversation (disabled)"
+    >
+      <svg lucideStar [size]="16" aria-hidden="true" />
+    </button>
+    <span>Disabled, pressed</span>
+  </div>
+</div>

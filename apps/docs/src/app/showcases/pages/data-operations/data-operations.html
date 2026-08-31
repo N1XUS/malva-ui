@@ -1,0 +1,332 @@
+<mlv-page-shell
+  class="data-operations-showcase"
+  color="var(--mlv-background-base)"
+>
+  <mlv-sidebar
+    #viewsSidebar
+    mlvPageSidebar
+    appearance="flat"
+    mode="fixed"
+    collapseBelow="lg"
+    width="17rem"
+    ariaLabel="Account views"
+    closeOnActivation
+  >
+    <mlv-view-variant-list
+      [variants]="variants()"
+      [activeId]="activeId()"
+      deferSelection
+      [(query)]="viewQuery"
+      [canCreate]="canCreateView()"
+      [busyAction]="busyAction()"
+      [errorMessage]="operationError()"
+      (variantSelect)="requestVariantSelection($event)"
+      (createRequest)="createView($event)"
+      (retryRequest)="retryOperation()"
+      (dismissError)="operationError.set(null)"
+    />
+  </mlv-sidebar>
+
+  <main mlvPage padding="l" surface="flat" id="main-content">
+    <mlv-page-header>
+      <ng-template mlvPageTitle>
+        <div class="data-operations-showcase__title-row">
+          <mlv-sidebar-trigger #viewsSidebarTrigger [sidebar]="viewsSidebar" />
+          <h1>{{ activeVariant()?.name ?? 'Accounts' }}</h1>
+        </div>
+
+        <ng-template
+          [(mlvDialog)]="confirmDiscard"
+          [mlvDialogOptions]="{
+            size: 's',
+            role: 'alertdialog',
+            restoreFocus: viewsSidebarTrigger.restoreFocusResolver,
+          }"
+          (mlvDialogClosed)="cancelDiscardChanges()"
+        >
+          <mlv-dialog>
+            <mlv-dialog-header title="Save view changes?" />
+            <mlv-dialog-body>
+              Save these changes as a new personal view, discard them, or keep
+              editing.
+            </mlv-dialog-body>
+            <mlv-dialog-footer>
+              <button
+                mlvButton
+                type="button"
+                variant="secondary"
+                mlvDialogClose
+                (click)="cancelDiscardChanges()"
+              >
+                Cancel
+              </button>
+              <button
+                mlvButton
+                type="button"
+                variant="secondary"
+                mlvDialogClose
+                (click)="confirmDiscardChanges()"
+              >
+                Discard changes
+              </button>
+              <button
+                mlvButton
+                type="button"
+                mlvDialogClose
+                (click)="savePendingAsNewView()"
+              >
+                Save as new view
+              </button>
+            </mlv-dialog-footer>
+          </mlv-dialog>
+        </ng-template>
+
+        <ng-template
+          [(mlvDialog)]="createDialogOpen"
+          [mlvDialogOptions]="{
+            size: 's',
+            restoreFocus: viewsSidebarTrigger.restoreFocusResolver,
+          }"
+          (mlvDialogClosed)="cancelCreateView()"
+        >
+          <mlv-dialog>
+            <mlv-dialog-header title="Create view?" />
+            <mlv-dialog-body>
+              Save the current search, filters, columns, sort, and page size as
+              a new view.
+            </mlv-dialog-body>
+            <mlv-dialog-footer>
+              <button
+                mlvButton
+                type="button"
+                variant="secondary"
+                mlvDialogClose
+                (click)="cancelCreateView()"
+              >
+                Cancel
+              </button>
+              <button
+                mlvButton
+                type="button"
+                mlvDialogClose
+                (click)="confirmCreateView()"
+              >
+                Save view
+              </button>
+            </mlv-dialog-footer>
+          </mlv-dialog>
+        </ng-template>
+      </ng-template>
+      <ng-template mlvPageHeaderActions>
+        <mlv-button-split>
+          <button mlvButton type="button" (click)="createAccount()">
+            <svg lucidePlus mlvButtonIcon [size]="16" aria-hidden="true"></svg>
+            Add account
+          </button>
+          <button
+            mlvButton
+            type="button"
+            shape="square"
+            aria-label="More account actions"
+            [mlvMenuTrigger]="accountActionsMenu"
+          >
+            <svg
+              lucideChevronDown
+              mlvButtonIcon
+              [size]="16"
+              aria-hidden="true"
+            ></svg>
+          </button>
+        </mlv-button-split>
+        <mlv-menu #accountActionsMenu label="Account actions">
+          <mlv-list-item mlvMenuItem (itemClick)="importAccounts()">
+            Import accounts
+          </mlv-list-item>
+          <mlv-list-item mlvMenuItem (itemClick)="createAccount()">
+            Add from template
+          </mlv-list-item>
+        </mlv-menu>
+      </ng-template>
+    </mlv-page-header>
+
+    <section
+      class="data-operations-showcase__content"
+      aria-label="Account operations"
+    >
+      <mlv-smart-filter-bar
+        appearance="query"
+        [definitions]="filterDefinitions"
+        [filters]="filterFields()"
+        [showSearch]="false"
+        [autoExecute]="true"
+        (filtersChange)="applyFilterFields($event)"
+        (execute)="filterExpression.set($event.expression)"
+      />
+
+      <mlv-view-variant-status
+        [variant]="activeVariant()"
+        [dirty]="dirty()"
+        [canCreate]="canCreateView()"
+        [busyAction]="busyAction()"
+        [errorMessage]="operationError()"
+        (resetRequest)="resetWorkingState()"
+        (cloneRequest)="duplicateActiveView()"
+        (updateRequest)="updateActiveView()"
+        (createRequest)="createView('personal')"
+        (retryRequest)="retryOperation()"
+        (dismissError)="operationError.set(null)"
+      />
+
+      <output class="data-operations-showcase__announcement" aria-live="polite">
+        {{ exportStatus() }}
+      </output>
+
+      <mlv-data-table
+        class="data-operations-showcase__table"
+        [data]="expressionFilteredAccounts()"
+        [columns]="columns"
+        [searchQuery]="search()"
+        (searchQueryChange)="search.set($event)"
+        showSortMenu
+        selectable="multi"
+        (rowClick)="openAccount($event.row)"
+        (presentationStateChange)="onPresentationStateChange($event)"
+      >
+        <ng-template mlvDataTableToolbarActions>
+          <button
+            mlvButton
+            type="button"
+            variant="secondary"
+            (click)="exportAccounts()"
+          >
+            <svg
+              lucideDownload
+              mlvButtonIcon
+              [size]="16"
+              aria-hidden="true"
+            ></svg>
+            Export
+          </button>
+        </ng-template>
+        <ng-template
+          mlvDataTableCell="name"
+          [mlvDataTableCellFrom]="accounts()"
+          let-row
+        >
+          <div class="data-operations-showcase__account-cell">
+            <mlv-avatar [name]="row.name" size="s" shape="square" />
+            <span>{{ row.name }}</span>
+          </div>
+        </ng-template>
+        <ng-template
+          mlvDataTableCell="owner"
+          [mlvDataTableCellFrom]="accounts()"
+          let-row
+        >
+          {{ row.owner ?? '—' }}
+        </ng-template>
+        <ng-template
+          mlvDataTableCell="arr"
+          [mlvDataTableCellFrom]="accounts()"
+          let-row
+        >
+          <span class="data-operations-showcase__amount">
+            {{ row.arr | currency: 'USD' : 'symbol' : '1.0-0' }}
+          </span>
+        </ng-template>
+        <ng-template
+          mlvDataTableCell="health"
+          [mlvDataTableCellFrom]="accounts()"
+          let-row
+        >
+          <span class="data-operations-showcase__health">
+            <mlv-status-indicator [tone]="healthTone(row.health)" />
+            <span>{{ row.health }}</span>
+          </span>
+        </ng-template>
+        <ng-template
+          mlvDataTableCell="renewalDate"
+          [mlvDataTableCellFrom]="accounts()"
+          let-row
+        >
+          <span class="data-operations-showcase__renewal">
+            <span>{{ row.renewalDate | date: 'MMM d, y' }}</span>
+            <small
+              class="data-operations-showcase__renewal-days"
+              [class.data-operations-showcase__renewal-days--urgent]="row.renewalDays <= 60"
+            >
+              {{ row.renewalDays }} days
+            </small>
+          </span>
+        </ng-template>
+        <ng-template mlvDataTableNoData>
+          <div class="data-operations-showcase__empty-state">
+            <p>No accounts match these filters.</p>
+            <button
+              mlvButton
+              type="button"
+              variant="secondary"
+              (click)="clearFilters()"
+            >
+              Clear filters
+            </button>
+          </div>
+        </ng-template>
+      </mlv-data-table>
+    </section>
+  </main>
+
+  <mlv-page-end-pane
+    #accountDetails
+    width="20rem"
+    collapseBelow="lg"
+    ariaLabel="Account details"
+    [opened]="selectedAccount() !== null"
+    (openedChange)="onDetailsOpenedChange($event)"
+  >
+    <ng-template mlvPageEndPaneContent>
+      @if (selectedAccount(); as account) {
+      <section class="data-operations-showcase__inspector" data-account-details>
+        <header class="data-operations-showcase__inspector-header">
+          <div>
+            <p>Account details</p>
+            <h2>{{ account.name }}</h2>
+          </div>
+          <button
+            mlvButton
+            type="button"
+            variant="transparent"
+            shape="square"
+            aria-label="Close account details"
+            (click)="accountDetails.close()"
+          >
+            <svg lucideX mlvButtonIcon [size]="18" aria-hidden="true"></svg>
+          </button>
+        </header>
+        <dl class="data-operations-showcase__details">
+          <div>
+            <dt>Owner</dt>
+            <dd>{{ account.owner ?? 'Unassigned' }}</dd>
+          </div>
+          <div>
+            <dt>Plan</dt>
+            <dd>{{ account.plan }}</dd>
+          </div>
+          <div>
+            <dt>ARR</dt>
+            <dd>{{ account.arr | currency: 'USD' : 'symbol' : '1.0-0' }}</dd>
+          </div>
+          <div>
+            <dt>Renewal</dt>
+            <dd>{{ account.renewalDate | date: 'MMMM d, y' }}</dd>
+          </div>
+          <div>
+            <dt>Last activity</dt>
+            <dd>{{ account.lastActivity }}</dd>
+          </div>
+        </dl>
+      </section>
+      }
+    </ng-template>
+  </mlv-page-end-pane>
+</mlv-page-shell>

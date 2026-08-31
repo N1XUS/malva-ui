@@ -1,0 +1,122 @@
+.home-theme-split {
+  display: grid;
+  gap: 1.25rem;
+
+  &__stage {
+    --home-theme-split: 52%;
+
+    position: relative;
+    overflow: hidden;
+    border: 0.0625rem solid var(--mlv-border-normal);
+    border-radius: var(--mlv-radius-2xl);
+    box-shadow: var(--mlv-shadow-4);
+  }
+
+  &__scene {
+    display: grid;
+    place-items: center;
+    padding: clamp(1.5rem, 4vw, 3.5rem);
+    background:
+      radial-gradient(
+        60% 80% at 20% 10%,
+        var(--mlv-background-accent-1-pale),
+        transparent 60%
+      ),
+      var(--mlv-background-base);
+    color: var(--mlv-text-primary);
+
+    &--dark {
+      position: absolute;
+      inset: 0;
+      clip-path: inset(0 0 0 var(--home-theme-split));
+    }
+  }
+
+  &__divider {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: var(--home-theme-split);
+    width: 0.125rem;
+    transform: translateX(-50%);
+    background: var(--mlv-border-focus);
+    box-shadow: 0 0 0.75rem
+      color-mix(in srgb, var(--mlv-border-focus) 55%, transparent);
+    pointer-events: none;
+  }
+
+  &__pole {
+    position: absolute;
+    inset-block-start: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: var(--mlv-radius-full);
+    font-size: var(--mlv-font-size-xs);
+    font-weight: 700;
+
+    &--light {
+      inset-inline-start: 0.875rem;
+      background: color-mix(in srgb, #ffffff 82%, transparent);
+      color: #26304d;
+    }
+
+    &--dark {
+      inset-inline-end: 0.875rem;
+      background: color-mix(in srgb, #0d1226 72%, transparent);
+      color: #c6d2f4;
+    }
+  }
+
+  &__card {
+    display: grid;
+    gap: 1rem;
+    width: min(100%, 26rem);
+    padding: 1.25rem;
+    border: 0.0625rem solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-xl);
+    background: var(--mlv-background-raised);
+    box-shadow: var(--mlv-shadow-3);
+  }
+
+  &__card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    > span {
+      min-width: 0;
+      flex: 1;
+
+      strong,
+      small {
+        display: block;
+      }
+
+      small {
+        color: var(--mlv-text-secondary);
+      }
+    }
+  }
+
+  &__card-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__spark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--mlv-text-action);
+    font-size: var(--mlv-font-size-s);
+    font-weight: 650;
+  }
+
+  &__control {
+    justify-self: center;
+    width: min(100%, 24rem);
+  }
+}

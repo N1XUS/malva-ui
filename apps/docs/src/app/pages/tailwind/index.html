@@ -1,0 +1,364 @@
+<article
+  class="tailwind-page__article"
+  aria-labelledby="tailwind-title"
+  docsTocSource
+>
+  <header class="tailwind-page__hero">
+    <p class="tailwind-page__eyebrow">Application styling</p>
+    <h1 id="tailwind-title">Tailwind CSS v4</h1>
+    <p class="tailwind-page__lede">
+      Use Malva UI's colors, spacing, typography, borders, radii, and shadows
+      with Tailwind utility classes. The adapter maps utilities to the same
+      runtime tokens used by Malva components, so themes stay in sync.
+    </p>
+
+    <div class="tailwind-page__quick-install">
+      <span class="tailwind-page__quick-label">Install in one command</span>
+      <code>{{ installCommand }}</code>
+    </div>
+  </header>
+
+  <aside class="tailwind-page__note" aria-labelledby="tailwind-scope">
+    <h2 id="tailwind-scope">What this adds</h2>
+    <p>
+      <code>&#64;malva-ui/tailwind</code> is an optional application styling
+      layer. It does not replace the Malva component stylesheet, and it emits no
+      precompiled utility bundle. Tailwind CSS v4 generates only the utilities
+      your project uses.
+    </p>
+  </aside>
+
+  <section class="tailwind-page__section">
+    <h2>Install with the Angular schematic</h2>
+    <p>
+      Run this from the Angular workspace root. The installer adds Tailwind v4,
+      the PostCSS adapter, and the runtime styles required by the token bridge.
+    </p>
+    @if (installCommand | highlight: 'bash' : codeTheme() | async; as
+    highlighted) {
+    <div
+      class="tailwind-page__code"
+      tabindex="0"
+      role="region"
+      aria-label="Tailwind install command"
+      [innerHTML]="highlighted"
+    ></div>
+    }
+    <p>
+      It creates
+      <code>src/styles/malva-ui-tailwind.css</code>, adds it and
+      <code>node_modules/&#64;malva-ui/core/styles/malva-ui.css</code> to the
+      selected application's build styles, and merges a PostCSS configuration.
+      In a workspace with multiple applications, add
+      <code>--project my-app</code>.
+    </p>
+
+    <div class="tailwind-page__table-wrap" tabindex="0">
+      <table class="tailwind-page__table tailwind-page__table--options">
+        <caption>
+          Tailwind installer options
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Option</th>
+            <th scope="col">Purpose</th>
+            <th scope="col">Default</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row"><code>--project</code></th>
+            <td>Target Angular application in a multi-app workspace.</td>
+            <td>The only application</td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--stylesheet</code></th>
+            <td>Project-relative path for the managed CSS entrypoint.</td>
+            <td><code>src/styles/malva-ui-tailwind.css</code></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--include-core-styles</code></th>
+            <td>Add the Malva runtime token stylesheet to build styles.</td>
+            <td><code>true</code></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--skip-install</code></th>
+            <td>Skip the package-manager installation step.</td>
+            <td><code>false</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="tailwind-page__section">
+    <h2>Manual setup</h2>
+    <p>
+      Use the manual path when your workspace owns its build configuration or
+      when you want to place the stylesheet somewhere else.
+    </p>
+
+    <div class="tailwind-page__code-grid">
+      <div class="tailwind-page__code-block">
+        <h3>1. Install the runtime packages</h3>
+        @if (manualInstallCommand | highlight: 'bash' : codeTheme() | async; as
+        highlighted) {
+        <div
+          class="tailwind-page__code"
+          tabindex="0"
+          role="region"
+          aria-label="Malva Tailwind runtime package command"
+          [innerHTML]="highlighted"
+        ></div>
+        }
+      </div>
+      <div class="tailwind-page__code-block">
+        <h3>2. Install the Tailwind tooling</h3>
+        @if (toolingInstallCommand | highlight: 'bash' : codeTheme() | async; as
+        highlighted) {
+        <div
+          class="tailwind-page__code"
+          tabindex="0"
+          role="region"
+          aria-label="Tailwind tooling package command"
+          [innerHTML]="highlighted"
+        ></div>
+        }
+      </div>
+    </div>
+
+    <div class="tailwind-page__code-grid">
+      <div class="tailwind-page__code-block">
+        <h3>3. Add the PostCSS adapter</h3>
+        @if (postcssExample | highlight: 'json' : codeTheme() | async; as
+        highlighted) {
+        <div
+          class="tailwind-page__code"
+          tabindex="0"
+          role="region"
+          aria-label="PostCSS configuration example"
+          [innerHTML]="highlighted"
+        ></div>
+        }
+      </div>
+      <div class="tailwind-page__code-block">
+        <h3>4. Import the theme</h3>
+        @if (stylesheetExample | highlight: 'css' : codeTheme() | async; as
+        highlighted) {
+        <div
+          class="tailwind-page__code"
+          tabindex="0"
+          role="region"
+          aria-label="Tailwind stylesheet imports"
+          [innerHTML]="highlighted"
+        ></div>
+        }
+      </div>
+    </div>
+
+    <p>
+      Include the Malva core stylesheet in the same application build. It owns
+      the <code>--mlv-*</code> values referenced by the Tailwind theme,
+      including light, dark, and high-contrast modes.
+    </p>
+  </section>
+
+  <section class="tailwind-page__section">
+    <h2>Available variables and class names</h2>
+    <p>
+      The adapter exposes namespaced Tailwind theme variables. The class prefix
+      tells you which CSS utility family consumes each variable.
+    </p>
+
+    <div class="tailwind-page__table-wrap" tabindex="0">
+      <table class="tailwind-page__table tailwind-page__table--namespaces">
+        <caption>
+          Malva UI Tailwind v4 theme namespaces
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Theme variables</th>
+            <th scope="col">Class patterns</th>
+            <th scope="col">Examples</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row"><code>--color-mlv-*</code></th>
+            <td>
+              <code>bg-*</code>, <code>text-*</code>, <code>border-*</code>
+            </td>
+            <td>
+              <code>bg-mlv-primary-500</code>, <code>text-mlv-content</code>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--spacing-mlv-*</code></th>
+            <td>
+              <code>p-*</code>, <code>m-*</code>, <code>gap-*</code>, sizing
+            </td>
+            <td>
+              <code>p-mlv-4</code>, <code>gap-mlv-2</code>,
+              <code>mt-mlv-6</code>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--radius-mlv-*</code></th>
+            <td><code>rounded-*</code></td>
+            <td>
+              <code>rounded-mlv-card</code>, <code>rounded-mlv-full</code>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--shadow-mlv-*</code></th>
+            <td><code>shadow-*</code></td>
+            <td>
+              <code>shadow-mlv-raised</code>, <code>shadow-mlv-floating</code>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--font-mlv-*</code></th>
+            <td><code>font-*</code></td>
+            <td>
+              <code>font-mlv-code</code>, <code>font-mlv-display</code>,
+              <code>font-mlv-mono</code>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--font-weight-mlv-*</code></th>
+            <td><code>font-*</code></td>
+            <td><code>font-mlv-medium</code>, <code>font-mlv-bold</code></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--text-mlv-*</code></th>
+            <td><code>text-*</code></td>
+            <td>
+              <code>text-mlv-heading-h2</code>, <code>text-mlv-body-m</code>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--leading-mlv-*</code></th>
+            <td><code>leading-*</code></td>
+            <td>
+              <code>leading-mlv-body-m</code>, <code>leading-mlv-relaxed</code>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      For code and technical content, use <code>font-mlv-code</code>. It maps to
+      <code>--mlv-font-family-code</code> and prefers <code>Fira Code</code>,
+      then <code>JetBrains Mono</code>, before falling back to a system
+      monospace font.
+    </p>
+
+    <h3>Colors</h3>
+    <p>
+      Palette families are available at stops <code>50</code> through
+      <code>950</code>: <code>primary</code>, <code>secondary</code>,
+      <code>accent</code>, <code>neutral</code>, <code>success</code>,
+      <code>warning</code>, <code>danger</code>, and <code>info</code>. Semantic
+      names cover surfaces, content, interactive states, on-color text, and
+      borders such as <code>bg-mlv-surface-raised</code>,
+      <code>hover:bg-mlv-primary-hover</code>, and
+      <code>border-mlv-focus</code>.
+    </p>
+
+    <h3>Spacing</h3>
+    <p>
+      The spacing scale contains <code>0</code>, <code>px</code>, half steps
+      through <code>3.5</code>, and the larger steps <code>4</code>,
+      <code>5</code>, <code>6</code>, <code>8</code>, <code>10</code>,
+      <code>12</code>, and <code>16</code>. Use these as single-value utility
+      inputs. Malva's <code>--mlv-padding-*</code> variables are two-value pairs
+      and are intentionally not mapped into Tailwind spacing.
+    </p>
+  </section>
+
+  <section class="tailwind-page__section">
+    <h2>Live utility example</h2>
+    <p>
+      These utilities resolve through the adapter in this documentation app.
+      Resize the page or switch the documentation theme to see Tailwind and
+      Malva tokens respond together.
+    </p>
+
+    <div class="tailwind-page__demo-shell">
+      <article
+        class="grid gap-mlv-4 rounded-mlv-card border border-mlv-normal bg-mlv-surface-raised p-mlv-5 shadow-mlv-raised sm:grid-cols-[minmax(0,1fr)_auto]"
+      >
+        <div class="grid gap-mlv-2">
+          <span
+            class="font-mlv-medium text-mlv-content-action text-mlv-ui-s uppercase tracking-[0.12em]"
+            >Account settings</span
+          >
+          <h3 class="font-mlv-display text-mlv-heading-h2 text-mlv-content">
+            A token-backed card
+          </h3>
+          <p
+            class="text-mlv-body-m leading-mlv-body-m text-mlv-content-secondary"
+          >
+            Layout utilities use Malva's spacing and shape scale while the
+            runtime theme supplies every color and type value.
+          </p>
+        </div>
+        <div class="grid content-start gap-mlv-2 sm:justify-items-end">
+          <span
+            class="rounded-mlv-badge bg-mlv-success-subtle px-mlv-2 py-mlv-1 text-mlv-ui-s font-mlv-medium text-mlv-content-positive"
+            >Synced</span
+          >
+          <span class="text-mlv-caption text-mlv-content-tertiary"
+            >Malva UI v4 theme</span
+          >
+        </div>
+      </article>
+    </div>
+
+    @if (liveExample | highlight: 'html' : codeTheme() | async; as highlighted)
+    {
+    <div
+      class="tailwind-page__code"
+      tabindex="0"
+      role="region"
+      aria-label="Live Tailwind utility example"
+      [innerHTML]="highlighted"
+    ></div>
+    }
+  </section>
+
+  <section class="tailwind-page__section tailwind-page__section--last">
+    <h2>Safe updates and troubleshooting</h2>
+    <p>
+      The schematic manages only the region between these comment boundaries. It
+      can update the generated imports on a later run while preserving your
+      surrounding CSS.
+    </p>
+    @if (managedStylesheetExample | highlight: 'css' : codeTheme() | async; as
+    highlighted) {
+    <div
+      class="tailwind-page__code"
+      tabindex="0"
+      role="region"
+      aria-label="Managed stylesheet boundaries"
+      [innerHTML]="highlighted"
+    ></div>
+    }
+    <ul class="tailwind-page__checklist">
+      <li>
+        If a utility is missing, confirm the class appears in a scanned source
+        file and that the stylesheet imports <code>tailwindcss</code> and the
+        Malva theme.
+      </li>
+      <li>
+        If colors do not change with the theme, confirm the core Malva
+        stylesheet is included before checking component-specific overrides.
+      </li>
+      <li>
+        If an existing stylesheet has no Malva markers, the schematic leaves it
+        intact and reports that it needs manual review.
+      </li>
+    </ul>
+  </section>
+</article>

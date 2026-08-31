@@ -1,0 +1,29 @@
+<mlv-tab-group orientation="vertical" [(activeTab)]="activeTab">
+  <mlv-tab value="general">
+    <ng-template mlvTabDef let-hidden>General</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <h4>General Settings</h4>
+        <p>Configure general application settings here.</p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+  <mlv-tab value="appearance">
+    <ng-template mlvTabDef let-hidden>Appearance</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <h4>Appearance</h4>
+        <p>Customize the look and feel of the application.</p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+  <mlv-tab value="notifications">
+    <ng-template mlvTabDef let-hidden>Notifications</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <h4>Notifications</h4>
+        <p>Manage your notification preferences.</p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+</mlv-tab-group>

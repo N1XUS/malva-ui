@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "malva-ui-core-ng-add",
+  "title": "Malva UI installation",
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "string",
+      "description": "The Angular application to configure.",
+      "$default": {
+        "$source": "projectName"
+      }
+    },
+    "theme": {
+      "type": "string",
+      "description": "The initial Malva UI color theme.",
+      "enum": ["light", "dark"],
+      "default": "light",
+      "x-prompt": {
+        "message": "Which color theme should Malva UI use initially?",
+        "type": "list",
+        "items": [
+          {
+            "value": "light",
+            "label": "Light"
+          },
+          {
+            "value": "dark",
+            "label": "Dark"
+          }
+        ]
+      }
+    },
+    "density": {
+      "type": "string",
+      "description": "The initial global component density.",
+      "enum": ["tight", "compact", "comfortable", "spacious", "airy"],
+      "default": "comfortable",
+      "x-prompt": {
+        "message": "Which component density should Malva UI use initially?",
+        "type": "list",
+        "items": [
+          {
+            "value": "comfortable",
+            "label": "Comfortable (recommended)"
+          },
+          {
+            "value": "compact",
+            "label": "Compact"
+          },
+          {
+            "value": "tight",
+            "label": "Tight"
+          },
+          {
+            "value": "spacious",
+            "label": "Spacious"
+          },
+          {
+            "value": "airy",
+            "label": "Airy"
+          }
+        ]
+      }
+    },
+    "includeStyles": {
+      "type": "boolean",
+      "description": "Add the Malva UI token, reset, and animation stylesheet to the application build.",
+      "default": true,
+      "x-prompt": "Add Malva UI global styles to the application build?"
+    },
+    "configureProviders": {
+      "type": "boolean",
+      "description": "Add the theme and density providers to the application bootstrap configuration.",
+      "default": true,
+      "x-prompt": "Configure the Malva UI theme and density providers?"
+    },
+    "themeStorageKey": {
+      "type": "string",
+      "description": "The browser storage key used to persist the selected theme.",
+      "default": "mlv-theme"
+    },
+    "skipInstall": {
+      "type": "boolean",
+      "description": "Skip installing companion package dependencies after configuration.",
+      "default": false,
+      "alias": "skip-install",
+      "visible": false
+    }
+  },
+  "additionalProperties": false
+}

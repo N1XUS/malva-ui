@@ -1,0 +1,20 @@
+<div
+  style="border: 1px dashed #ccc; padding: 4px"
+  [style.max-width.px]="containerWidth()"
+>
+  <mlv-tab-group [(activeTab)]="activeTab">
+    @for (tab of manyTabs; track tab.id) {
+    <mlv-tab [value]="tab.id">
+      <ng-template mlvTabDef let-hidden>
+        @if (hidden) { {{ tab.label }} (from popup) } @else { {{ tab.label }} }
+      </ng-template>
+      <ng-template mlvTabContent>
+        <div style="padding: 1rem">
+          <p>Content for {{ tab.label }}</p>
+        </div>
+      </ng-template>
+    </mlv-tab>
+    }
+  </mlv-tab-group>
+  <button mlvButton (mlvClick)="resize()">Resize</button>
+</div>

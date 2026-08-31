@@ -1,0 +1,171 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use 'sass:map';
+
+@layer mlv.components {
+$block: mlv-alert;
+
+// Status palette tokens used for color-mix borders and icon colors.
+// The filled variant uses a very subtle tinted background (8% status color)
+// with primary text for a calm, professional look similar to GitHub/Linear alerts.
+$tones: (
+  'info': (
+    'bg': color-mix(in srgb, var(--mlv-border-info) 8%, transparent),
+    'color': var(--mlv-text-primary),
+    'border': color-mix(in srgb, var(--mlv-border-info) 30%, transparent),
+    'icon-color': var(--mlv-text-info),
+  ),
+  'success': (
+    'bg': color-mix(in srgb, var(--mlv-border-success) 8%, transparent),
+    'color': var(--mlv-text-primary),
+    'border': color-mix(in srgb, var(--mlv-border-success) 30%, transparent),
+    'icon-color': var(--mlv-text-positive),
+  ),
+  'warning': (
+    'bg': color-mix(in srgb, var(--mlv-border-warning) 8%, transparent),
+    'color': var(--mlv-text-primary),
+    'border': color-mix(in srgb, var(--mlv-border-warning) 30%, transparent),
+    'icon-color': var(--mlv-text-warning),
+  ),
+  'danger': (
+    'bg': color-mix(in srgb, var(--mlv-border-error) 8%, transparent),
+    'color': var(--mlv-text-primary),
+    'border': color-mix(in srgb, var(--mlv-border-error) 30%, transparent),
+    'icon-color': var(--mlv-text-negative),
+  ),
+);
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m),
+    0,
+    0
+  );
+
+  --mlv-alert-bg: color-mix(in srgb, var(--mlv-border-info) 8%, transparent);
+  --mlv-alert-color: var(--mlv-text-primary);
+  --mlv-alert-border: color-mix(
+    in srgb,
+    var(--mlv-border-info) 30%,
+    transparent
+  );
+  --mlv-alert-icon-color: var(--mlv-text-info);
+
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--mlv-radius-m);
+  border: var(--mlv-stroke-width) solid var(--mlv-alert-border);
+  background-color: var(--mlv-alert-bg);
+  color: var(--mlv-alert-color);
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+
+  &--dismissed {
+    display: none;
+  }
+
+  // ── Outlined variant ─────────────────────────────────────────────────────────
+  &--outlined {
+    background-color: transparent;
+  }
+
+  // ── Icon ────────────────────────────────────────────────────────────────────
+  &__icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mlv-alert-icon-color);
+    margin-top: 0.0625rem; // optical alignment with first text line
+  }
+
+  // ── Body ────────────────────────────────────────────────────────────────────
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    font-weight: var(--mlv-font-weight-semibold);
+    line-height: var(--mlv-line-height-tight);
+    color: var(--mlv-alert-color);
+  }
+
+  &__description {
+    line-height: var(--mlv-line-height-normal);
+    color: var(--mlv-text-secondary);
+  }
+
+  & &__dismiss {
+    margin-block: -0.25rem; // optical alignment with first text line
+    margin-inline-end: -0.375rem; // optical alignment with right edge
+    .mlv-button {
+      opacity: 0.7;
+      --mlv-btn-text-color: var(--mlv-alert-icon-color);
+
+      &:hover,
+      &:active {
+        opacity: 1;
+        --mlv-btn-text-color: var(--mlv-alert-icon-color);
+      }
+    }
+  }
+
+  // ── Dismiss button ───────────────────────────────────────────────────────────
+  // &__dismiss {
+  //   @include mixins.base(
+  //     var(--mlv-typography-family-text),
+  //     var(--mlv-font-size-m),
+  //     0,
+  //     0
+  //   );
+
+  //   flex-shrink: 0;
+  //   display: inline-flex;
+  //   align-items: center;
+  //   justify-content: center;
+  //   width: 1.5rem;
+  //   height: 1.5rem;
+  //   border: none;
+  //   border-radius: 50%;
+  //   background: transparent;
+  //   color: inherit;
+  //   cursor: pointer;
+  //   opacity: 0.7;
+  //   margin-top: -0.125rem; // optical alignment
+  //   transition:
+  //     opacity var(--mlv-duration-normal) var(--mlv-ease-out),
+  //     background-color var(--mlv-duration-normal) var(--mlv-ease-out);
+
+  //   &:hover {
+  //     opacity: 1;
+  //     background-color: color-mix(in srgb, currentColor 12%, transparent);
+  //   }
+
+  //   &:focus-visible {
+  //     outline: var(--mlv-stroke-width) solid var(--mlv-border-focus);
+  //     outline-offset: 0.125rem;
+  //     opacity: 1;
+  //   }
+  // }
+
+  // ── Tone variants ────────────────────────────────────────────────────────────
+  @each $name, $props in $tones {
+    &--tone-#{$name} {
+      --mlv-alert-bg: #{map.get($props, 'bg')};
+      --mlv-alert-color: #{map.get($props, 'color')};
+      --mlv-alert-border: #{map.get($props, 'border')};
+      --mlv-alert-icon-color: #{map.get($props, 'icon-color')};
+    }
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

@@ -1,0 +1,78 @@
+<mlv-form-control-wrapper>
+  @if (label() || hint()) {
+  <mlv-label [id]="labelId()" [for]="id()" [required]="required()">
+    {{ label() }} @if (hint()) {
+    <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
+  }
+
+  <ng-template mlvFormControlWrapperControl>
+    <mlv-popup-container class="mlv-day-picker__popup-container">
+      <div
+        #triggerRef
+        class="mlv-day-picker__trigger"
+        [id]="id()"
+        role="combobox"
+        [attr.aria-expanded]="isOpen()"
+        [attr.aria-haspopup]="'dialog'"
+        [attr.aria-controls]="isOpen() ? popupId() : null"
+        [attr.aria-labelledby]="label() ? labelId() : null"
+        [attr.aria-label]="label() ? null : ariaLabel()"
+        [attr.aria-disabled]="computedDisabled() || null"
+        [attr.aria-required]="required() || null"
+        [attr.aria-describedby]="_describedBy()"
+        [attr.tabindex]="computedDisabled() ? -1 : 0"
+        (click)="toggleDropdown()"
+        (keydown.enter)="toggleDropdown()"
+        (keydown.space)="toggleDropdown(); $event.preventDefault()"
+        (keydown.escape)="isOpen.set(false)"
+        (focus)="setFocused(true)"
+        (blur)="_onTriggerBlur()"
+      >
+        @if (displayValue) {
+        <span class="mlv-day-picker__value">{{ displayValue }}</span>
+        } @else {
+        <span class="mlv-day-picker__placeholder"
+          >{{ _resolvedPlaceholder() }}</span
+        >
+        }
+        <span class="mlv-day-picker__icon">
+          <svg lucideCalendar></svg>
+        </span>
+      </div>
+
+      <mlv-popup
+        [(opened)]="isOpen"
+        [hasShadow]="true"
+        panelRole="dialog"
+        [modal]="true"
+        mobileMode="auto"
+        [mobileTitle]="label() || _resolvedPlaceholder()"
+        [ariaLabel]="label() || _resolvedPlaceholder()"
+        (afterOpened)="_onPopupOpened()"
+        (afterClosed)="_onPopupClosed()"
+      >
+        <ng-template mlvPopupContent>
+          <div [id]="popupId()" class="mlv-day-picker__popup">
+            <mlv-calendar
+              embedded
+              [value]="value()"
+              (valueChange)="onDateSelected($event)"
+              [min]="min()"
+              [max]="max()"
+            />
+          </div>
+        </ng-template>
+      </mlv-popup>
+    </mlv-popup-container>
+  </ng-template>
+
+  @if (description()) {
+  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+  } @if (message()) {
+  <mlv-message [id]="_messageId()" [state]="resolvedState()">
+    {{ message() }}
+  </mlv-message>
+  }
+</mlv-form-control-wrapper>

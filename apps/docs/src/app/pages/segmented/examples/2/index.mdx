@@ -1,0 +1,5 @@
+## Links
+
+Use `<a mlvSegmentedItem routerLink="…">` for in-app navigation. Nothing else is required: the item watches the router and becomes active when its `routerLink` matches the URL (subset match; pass `[linkActiveOptions]="{ exact: true }"` for exact). If you add your own `routerLinkActive`, its state is used instead. Here the first link is the default view: it points at the bare page URL with `[linkActiveOptions]="exactOptions"` — `{ exact: true }` kept as a class field, which stays stable and greppable; the inline literal above works just as well, since Angular memoises object literals written in a template. Either way the link is active until another segment adds its `?view=` query.
+
+Link mode is pure navigation — no `radiogroup` semantics, every link stays in the tab order, and the active link is announced through `aria-current="page"`. Watch the address bar update to `?view=…`; middle-click opens a segment in a new tab.

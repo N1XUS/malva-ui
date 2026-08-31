@@ -1,0 +1,28 @@
+<mlv-accordion [multiExpandable]="true">
+  <mlv-accordion-item [expanded]="true">
+    <span mlvAccordionHeader class="accordion-rich__header">
+      <svg lucideUser [size]="16" aria-hidden="true"></svg>
+      Profile
+    </span>
+    Update your display name, avatar, and public bio. This section starts
+    expanded via <code>[expanded]="true"</code>.
+  </mlv-accordion-item>
+
+  <mlv-accordion-item>
+    <span mlvAccordionHeader class="accordion-rich__header">
+      <svg lucideBell [size]="16" aria-hidden="true"></svg>
+      Notifications
+    </span>
+    Choose which email and push notifications you receive. Because
+    <code>[multiExpandable]="true"</code>, this can stay open alongside Profile.
+  </mlv-accordion-item>
+
+  <mlv-accordion-item [disabled]="true">
+    <span mlvAccordionHeader class="accordion-rich__header">
+      <svg lucideShield [size]="16" aria-hidden="true"></svg>
+      Security (coming soon)
+    </span>
+    This section is disabled — the trigger reports <code>aria-disabled</code>
+    and cannot be toggled.
+  </mlv-accordion-item>
+</mlv-accordion>

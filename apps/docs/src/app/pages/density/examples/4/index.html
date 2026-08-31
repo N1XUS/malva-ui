@@ -1,0 +1,82 @@
+<div class="demo-col">
+  <div class="demo-row">
+    <button
+      mlvButton
+      [variant]="densityService.density() === 'compact' ? 'primary' : 'secondary'"
+      (click)="setDensity('compact')"
+    >
+      Compact
+    </button>
+    <button
+      mlvButton
+      [variant]="densityService.density() === 'comfortable' ? 'primary' : 'secondary'"
+      (click)="setDensity('comfortable')"
+    >
+      Comfortable
+    </button>
+    <button
+      mlvButton
+      [variant]="densityService.density() === 'spacious' ? 'primary' : 'secondary'"
+      (click)="setDensity('spacious')"
+    >
+      Spacious
+    </button>
+  </div>
+
+  <div class="density-restricted-grid">
+    <div class="density-restricted-grid__cell">
+      <p class="density-restricted-grid__label">
+        <strong>Compact + Comfortable</strong>
+        <span>Spacious → falls back to comfortable</span>
+      </p>
+      <div class="demo-row">
+        <docs-cc-badge>Priority: High</docs-cc-badge>
+        <docs-cc-badge>Priority: Low</docs-cc-badge>
+      </div>
+    </div>
+
+    <div class="density-restricted-grid__cell">
+      <p class="density-restricted-grid__label">
+        <strong>Comfortable + Spacious</strong>
+        <span>Compact → falls back to comfortable</span>
+      </p>
+      <div class="demo-row">
+        <docs-cs-badge>Status: Open</docs-cs-badge>
+        <docs-cs-badge>Status: Done</docs-cs-badge>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .density-restricted-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .density-restricted-grid__cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--mlv-border-normal);
+    border-radius: var(--mlv-radius-m);
+  }
+
+  .density-restricted-grid__label {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  .density-restricted-grid__label strong {
+    color: var(--mlv-text-primary);
+  }
+
+  .density-restricted-grid__label span {
+    color: var(--mlv-text-secondary);
+  }
+</style>

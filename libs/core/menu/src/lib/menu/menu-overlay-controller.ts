@@ -1,0 +1,392 @@
+import { DestroyRef, NgZone, inject, signal } from '@angular/core';
+import type {
+  ElementRef,
+  OutputEmitterRef,
+  Signal,
+  ViewContainerRef,
+  WritableSignal,
+} from '@angular/core';
+import type { MlvPopup, MlvPopupHandle } from '@malva-ui/core/popup';
+import {
+  MENU_POSITIONS,
+  MlvPopupService,
+  SUBMENU_POSITIONS,
+} from '@malva-ui/core/popup';
+import type { MlvMenuAccessor } from './menu.types';
+import type { MlvMenubarAccessor, MlvMenubarItem } from './menubar.types';
+import type { MlvMenubarMenuController } from './menubar.types';
+import type { MlvSubmenuAimState } from './submenu-aim';
+import { isCursorHeadingToSubmenu } from './submenu-aim';
+
+/**
+ * Structural menu surface required by the overlay controller.
+ *
+ * Keeping the overlay contract structural lets `MlvMenuTrigger` accept menus
+ * with any data item type without making the trigger itself generic.
+ */
+export interface MlvMenuOverlayTarget extends MlvMenuAccessor {
+  readonly _popup: Signal<MlvPopup>;
+  readonly _isOpen: WritableSignal<boolean>;
+  readonly closed: OutputEmitterRef<void>;
+  readonly panelId: string;
+  registerParentMenu(parentMenu: MlvMenuAccessor | null): void;
+  registerMenubarController(controller: MlvMenubarMenuController | null): void;
+  focusFirstItem(): void;
+  focusLastItem(): void;
+}
+
+/** Configuration used by the shared menu overlay controller. */
+export interface MlvMenuOverlayControllerConfig {
+  /** Resolves the menu panel opened by this controller. */
+  readonly getMenu: () => MlvMenuOverlayTarget;
+  /** Element from which the popup is positioned and to which focus returns. */
+  readonly origin: ElementRef<HTMLElement>;
+  /** View container used to instantiate the menu popup portal. */
+  readonly vcr: ViewContainerRef;
+  /** Parent menu accessor for submenu registration. */
+  readonly parentMenu: MlvMenuAccessor | null;
+  /** Parent menubar accessor for top-level coordination. */
+  readonly menubar: MlvMenubarAccessor | null;
+  /** Whether the current trigger is configured as a submenu trigger. */
+  readonly isSubmenu: () => boolean;
+  /** Whether the current trigger is a direct child of a menubar. */
+  readonly isMenubarChild: boolean;
+  /** Resolves the current disabled state. */
+  readonly isDisabled: () => boolean;
+  /** Returns the menubar item represented by the trigger. */
+  readonly getMenubarItem: () => MlvMenubarItem;
+  /** Requests closure through the owning trigger façade when available. */
+  readonly requestClose?: () => void;
+  /** Called after the popup has been opened. */
+  readonly onOpened?: () => void;
+  /** Called after the popup has been fully closed. */
+  readonly onClosed?: () => void;
+}
+
+/**
+ * Owns the common popup, focus restoration, and submenu hover-intent lifecycle
+ * used by explicit and data-generated menu triggers.
+ */
+export class MlvMenuOverlayController {
+  /** Whether the controlled menu overlay is currently open. */
+  readonly isOpen = signal(false);
+
+  private readonly _popupService: MlvPopupService;
+  private readonly _ngZone: NgZone;
+  private readonly _destroyRef = inject(DestroyRef);
+
+  private _overlayRef: MlvPopupHandle | null = null;
+  private _openSubscriptions: Array<{ unsubscribe(): void }> = [];
+  private _triangleState: MlvSubmenuAimState | null = null;
+  private _closeTimer: ReturnType<typeof setTimeout> | null = null;
+  private _mousemoveCleanup: (() => void) | null = null;
+  private _destroyed = false;
+
+  constructor(
+    private readonly _config: MlvMenuOverlayControllerConfig,
+    dependencies?: {
+      readonly popupService?: MlvPopupService;
+      readonly ngZone?: NgZone;
+    },
+  ) {
+    this._popupService = dependencies?.popupService ?? inject(MlvPopupService);
+    this._ngZone = dependencies?.ngZone ?? inject(NgZone);
+    this._destroyRef.onDestroy(() => this.destroy());
+  }
+
+  /** Opens the menu overlay unless it is already open or disabled. */
+  open(): void {
+    if (this._destroyed || this.isOpen() || this._config.isDisabled()) return;
+
+    const menu = this._config.getMenu();
+    const popup = menu._popup();
+    const isSubmenu = this._config.isSubmenu();
+    const isMenubarChild = this._config.isMenubarChild;
+    const positions = isSubmenu ? SUBMENU_POSITIONS : MENU_POSITIONS;
+
+    menu.registerParentMenu(isSubmenu ? this._config.parentMenu : null);
+    menu.registerMenubarController(
+      isMenubarChild && this._config.menubar
+        ? {
+            openNextItemMenu: () =>
+              this._config.menubar?.openAdjacentItemMenu(
+                this._config.getMenubarItem(),
+                1,
+              ),
+            openPreviousItemMenu: () =>
+              this._config.menubar?.openAdjacentItemMenu(
+                this._config.getMenubarItem(),
+                -1,
+              ),
+          }
+        : null,
+    );
+    popup.animationState.set('idle');
+
+    this._overlayRef = this._popupService.open({
+      origin: this._config.origin,
+      template: popup.popupTemplate(),
+      vcr: this._config.vcr,
+      positions,
+      hasBackdrop: !isSubmenu && !isMenubarChild,
+      dismissExcludeElements:
+        isMenubarChild && this._config.menubar
+          ? [this._config.menubar.hostElement]
+          : undefined,
+      onClose: () => {
+        this._overlayRef = null;
+        this.isOpen.set(false);
+        popup.animationState.set('idle');
+        popup.opened.set(false);
+        menu._isOpen.set(false);
+        this._openSubscriptions.forEach((subscription) =>
+          subscription.unsubscribe(),
+        );
+        this._openSubscriptions = [];
+        this._triangleState = null;
+        this._removeMousemoveListener();
+        this._config.onClosed?.();
+        if (isMenubarChild) {
+          this._config.menubar?.notifyItemClosed(this._config.getMenubarItem());
+        }
+      },
+      onRequestClose: () => menu.close(),
+      onPositionChange: (change) =>
+        popup.updateArrowFromPosition(change.connectionPair),
+    });
+
+    popup.opened.set(true);
+    menu._isOpen.set(true);
+    this.isOpen.set(true);
+    this._config.onOpened?.();
+    if (isMenubarChild) {
+      this._config.menubar?.notifyItemOpened(this._config.getMenubarItem());
+    }
+
+    const leaveSubscription = popup.leaveAnimationDone$.subscribe(() => {
+      this._overlayRef?.close();
+    });
+    this._openSubscriptions.push(leaveSubscription);
+
+    const closedSubscription = menu.closed.subscribe(() => {
+      this._restoreFocusToTrigger();
+      if (this._overlayRef) {
+        popup.animationState.set('leave');
+      }
+    });
+    this._openSubscriptions.push(closedSubscription);
+
+    queueMicrotask(() => popup.beginEnterAnimation());
+
+    if (isSubmenu) {
+      this._setupSubmenuTracking();
+    }
+  }
+
+  /** Closes the menu overlay when it is open. */
+  close(): void {
+    if (!this.isOpen()) return;
+    this._closeOverlay();
+  }
+
+  /** Toggles the controlled menu overlay. */
+  toggle(): void {
+    if (this.isOpen()) {
+      this.close();
+    } else {
+      this.open();
+    }
+  }
+
+  /** Opens the menu and focuses its first enabled item. */
+  openWithFirstItemFocused(): void {
+    this.open();
+    if (this.isOpen()) {
+      setTimeout(() => this._config.getMenu().focusFirstItem(), 0);
+    }
+  }
+
+  /** Opens the menu and focuses its last enabled item. */
+  openWithLastItemFocused(): void {
+    this.open();
+    if (this.isOpen()) {
+      setTimeout(() => this._config.getMenu().focusLastItem(), 0);
+    }
+  }
+
+  /** Handles pointer entry for menubar and submenu triggers. */
+  onMouseEnter(): void {
+    if (this._config.isMenubarChild) {
+      if (this._config.isDisabled()) return;
+      this._config.menubar?.onItemPointerEnter(this._config.getMenubarItem());
+      return;
+    }
+    if (!this._config.isSubmenu() || this._config.isDisabled()) return;
+    this._clearCloseTimer();
+    if (!this.isOpen()) {
+      this.open();
+    }
+  }
+
+  /** Handles pointer exit for submenu triggers using triangle intent. */
+  onMouseLeave(event: MouseEvent): void {
+    if (!this._config.isSubmenu()) return;
+
+    if (this._triangleState?.cursorEnteredSubmenu) {
+      const overlayElement = this._overlayRef?.overlayRef.overlayElement;
+      const entered = event.relatedTarget;
+      const intoSubmenu =
+        entered instanceof Node && !!overlayElement?.contains(entered);
+
+      if (!intoSubmenu) this._scheduleClose();
+      return;
+    }
+
+    if (this._triangleState) {
+      const heading = isCursorHeadingToSubmenu(
+        event.clientX,
+        event.clientY,
+        this._triangleState,
+      );
+      if (heading) return;
+    }
+
+    this._scheduleClose();
+  }
+
+  /** Cleans up listeners and disposes the controlled overlay. */
+  destroy(): void {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    this._clearCloseTimer();
+    this._removeMousemoveListener();
+    this._overlayRef?.close();
+    this._overlayRef = null;
+  }
+
+  private _restoreFocusToTrigger(): void {
+    const overlayElement = this._overlayRef?.overlayRef.overlayElement;
+    const active = document.activeElement;
+    if (overlayElement && active && overlayElement.contains(active)) {
+      this._config.origin.nativeElement.focus();
+    }
+  }
+
+  private _closeOverlay(): void {
+    if (!this._overlayRef) return;
+    this._config.getMenu()._popup().animationState.set('leave');
+  }
+
+  private _setupSubmenuTracking(): void {
+    setTimeout(() => {
+      if (this._destroyed || !this._overlayRef || !this.isOpen()) return;
+      const overlayElement = this._overlayRef.overlayRef.overlayElement;
+      this._triangleState = {
+        lastX: 0,
+        lastY: 0,
+        submenuRect: overlayElement.getBoundingClientRect(),
+        side: 'right',
+        cursorEnteredSubmenu: false,
+      };
+      this._installMousemoveListener();
+      this._installSubmenuOverlayListeners(overlayElement);
+    }, 0);
+  }
+
+  private _installSubmenuOverlayListeners(overlayElement: HTMLElement): void {
+    const onEnter = () => {
+      if (this._triangleState) {
+        this._triangleState.cursorEnteredSubmenu = true;
+      }
+      this._clearCloseTimer();
+      this._removeMousemoveListener();
+    };
+
+    const onLeave = () => this._scheduleClose();
+
+    this._ngZone.runOutsideAngular(() => {
+      overlayElement.addEventListener('mouseenter', onEnter);
+      overlayElement.addEventListener('mouseleave', onLeave);
+    });
+
+    this._openSubscriptions.push({
+      unsubscribe: () => {
+        overlayElement.removeEventListener('mouseenter', onEnter);
+        overlayElement.removeEventListener('mouseleave', onLeave);
+      },
+    });
+  }
+
+  private _installMousemoveListener(): void {
+    this._removeMousemoveListener();
+
+    const handler = (event: MouseEvent) => {
+      if (!this._triangleState || !this.isOpen()) return;
+      if (this._triangleState.cursorEnteredSubmenu) return;
+
+      if (this._config.origin.nativeElement.contains(event.target as Node)) {
+        this._clearCloseTimer();
+        return;
+      }
+
+      if (this._isPointerOnSiblingItem(event.target)) {
+        this._ngZone.run(() => this._config.requestClose?.() ?? this.close());
+        return;
+      }
+
+      const { clientX, clientY } = event;
+      const state = this._triangleState;
+      const heading = isCursorHeadingToSubmenu(clientX, clientY, state);
+
+      state.lastX = clientX;
+      state.lastY = clientY;
+
+      if (heading) {
+        this._clearCloseTimer();
+      } else if (this._overlayRef) {
+        state.submenuRect =
+          this._overlayRef.overlayRef.overlayElement.getBoundingClientRect();
+        if (!isCursorHeadingToSubmenu(clientX, clientY, state)) {
+          this._scheduleClose();
+        }
+      }
+    };
+
+    this._ngZone.runOutsideAngular(() => {
+      document.addEventListener('mousemove', handler, true);
+      this._mousemoveCleanup = () =>
+        document.removeEventListener('mousemove', handler, true);
+    });
+  }
+
+  private _isPointerOnSiblingItem(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+
+    const item = target.closest('[role="menuitem"]');
+    if (!item || item === this._config.origin.nativeElement) return false;
+
+    const panel = this._config.origin.nativeElement.closest('[role="menu"]');
+    return !!panel?.contains(item);
+  }
+
+  private _removeMousemoveListener(): void {
+    if (this._mousemoveCleanup) {
+      this._mousemoveCleanup();
+      this._mousemoveCleanup = null;
+    }
+  }
+
+  private _scheduleClose(): void {
+    this._clearCloseTimer();
+    this._closeTimer = setTimeout(() => {
+      this._ngZone.run(() => this._config.requestClose?.() ?? this.close());
+    }, 150);
+  }
+
+  private _clearCloseTimer(): void {
+    if (this._closeTimer !== null) {
+      clearTimeout(this._closeTimer);
+      this._closeTimer = null;
+    }
+  }
+}

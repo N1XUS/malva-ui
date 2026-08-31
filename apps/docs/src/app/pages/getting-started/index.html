@@ -1,0 +1,398 @@
+<article
+  class="getting-started__article"
+  aria-labelledby="getting-started-title"
+  docsTocSource
+>
+  <header class="getting-started__hero">
+    <p class="getting-started__eyebrow">Installation guide</p>
+    <h1 id="getting-started-title">Get started with Malva UI</h1>
+    <p class="getting-started__lede">
+      Add Malva UI to an Angular application, choose your initial theme and
+      density, and render your first component. The guided installer handles the
+      recommended setup automatically.
+    </p>
+
+    <div class="getting-started__quick-install">
+      <div class="getting-started__code-header">
+        <span>Run from your workspace root</span>
+        <mlv-copy-to-clipboard
+          [value]="installCommand"
+          ariaLabel="Copy the Malva UI install command"
+          >Copy</mlv-copy-to-clipboard
+        >
+      </div>
+      <pre
+        class="getting-started__code"
+        tabindex="0"
+        aria-label="Malva UI install command"
+      ><code>{{ installCommand }}</code></pre>
+    </div>
+  </header>
+
+  <aside class="getting-started__note" aria-labelledby="before-you-start">
+    <h2 id="before-you-start">Before you start</h2>
+    <p>
+      You need an existing Angular application and permission to update its
+      dependencies and workspace configuration. Commit or stash local changes
+      first so the generated setup is easy to review.
+    </p>
+  </aside>
+
+  <section class="getting-started__section">
+    <h2>Install with the guided setup</h2>
+    <p>
+      The Angular CLI runs the Malva UI installation schematic and uses your
+      workspace package manager. The command is safe to run again: existing
+      dependencies, styles, and providers are not duplicated.
+    </p>
+
+    <ol class="getting-started__steps">
+      <li class="getting-started__step">
+        <div class="getting-started__step-number" aria-hidden="true">1</div>
+        <div class="getting-started__step-content">
+          <h3>Choose the application</h3>
+          <p>
+            A workspace with one Angular application is selected automatically.
+            In a multi-application workspace, identify the target explicitly:
+          </p>
+          <div class="getting-started__inline-command">
+            <code>ng add &#64;malva-ui/core --project my-app</code>
+          </div>
+        </div>
+      </li>
+
+      <li class="getting-started__step">
+        <div class="getting-started__step-number" aria-hidden="true">2</div>
+        <div class="getting-started__step-content">
+          <h3>Answer the setup questions</h3>
+          <p>
+            Press <kbd>Enter</kbd> to accept the recommended defaults, or choose
+            values that match your product.
+          </p>
+          <dl class="getting-started__questions">
+            <div class="getting-started__question">
+              <dt>Initial theme</dt>
+              <dd>
+                <code>light</code> or <code>dark</code>. The default is
+                <strong>light</strong>.
+              </dd>
+            </div>
+            <div class="getting-started__question">
+              <dt>Component density</dt>
+              <dd>
+                <code>tight</code>, <code>compact</code>,
+                <code>comfortable</code>, <code>spacious</code>, or
+                <code>airy</code>. The recommended default is
+                <strong>comfortable</strong>.
+              </dd>
+            </div>
+            <div class="getting-started__question">
+              <dt>Global styles</dt>
+              <dd>
+                Adds Malva UI tokens, reset styles, and animations to the build.
+                Keep this enabled unless your workspace manages them centrally.
+              </dd>
+            </div>
+            <div class="getting-started__question">
+              <dt>Application providers</dt>
+              <dd>
+                Bootstraps the selected theme and density. Keep this enabled for
+                the standard setup.
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </li>
+
+      <li class="getting-started__step">
+        <div class="getting-started__step-number" aria-hidden="true">3</div>
+        <div class="getting-started__step-content">
+          <h3>Review the generated changes</h3>
+          <p>The installer makes three focused updates:</p>
+          <ul class="getting-started__checklist">
+            <li>
+              Adds matching <code>&#64;malva-ui/core</code>,
+              <code>&#64;malva-ui/cdk</code>, and
+              <code>&#64;malva-ui/i18n</code> dependencies.
+            </li>
+            <li>
+              Adds
+              <code>node_modules/&#64;malva-ui/core/styles/malva-ui.css</code>
+              to the application's build styles.
+            </li>
+            <li>
+              Adds <code>provideDefaultTheme()</code> and
+              <code>provideMlvDensity()</code> to the root providers of a
+              standalone or NgModule application.
+            </li>
+          </ul>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="getting-started__section">
+    <h2>Automate installation</h2>
+    <p>
+      Supply every choice on the command line for CI, reproducible project
+      templates, or other non-interactive environments.
+    </p>
+    <div class="getting-started__code-block">
+      <div class="getting-started__code-header">
+        <span>Terminal</span>
+        <mlv-copy-to-clipboard
+          [value]="nonInteractiveCommand"
+          ariaLabel="Copy the non-interactive install command"
+          >Copy</mlv-copy-to-clipboard
+        >
+      </div>
+      <pre
+        class="getting-started__code"
+        tabindex="0"
+        aria-label="Non-interactive Malva UI install command"
+      ><code>{{ nonInteractiveCommand }}</code></pre>
+    </div>
+
+    <div class="getting-started__table-wrap" tabindex="0">
+      <table>
+        <caption>
+          Installer options and defaults
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Option</th>
+            <th scope="col">Purpose</th>
+            <th scope="col">Default</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row"><code>--project</code></th>
+            <td>Target Angular application name.</td>
+            <td>The sole application</td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--theme</code></th>
+            <td><code>light</code> or <code>dark</code>.</td>
+            <td><code>light</code></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--density</code></th>
+            <td>One of the five global density levels.</td>
+            <td><code>comfortable</code></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--include-styles</code></th>
+            <td>Add the packaged global stylesheet.</td>
+            <td><code>true</code></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--configure-providers</code></th>
+            <td>Add the theme and density providers.</td>
+            <td><code>true</code></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--theme-storage-key</code></th>
+            <td>Browser storage key used to persist the theme.</td>
+            <td><code>mlv-theme</code></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>--skip-install</code></th>
+            <td>Update dependencies without running the package manager.</td>
+            <td><code>false</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="getting-started__supporting-copy">
+      To manage styles or providers yourself, pass
+      <code>--no-include-styles</code> or <code>--no-configure-providers</code>.
+    </p>
+  </section>
+
+  <section class="getting-started__section">
+    <h2>Manual setup</h2>
+    <p>
+      Use this path only when a schematic cannot update your workspace or when
+      your application owns a central configuration layer.
+    </p>
+
+    <h3>1. Install the packages</h3>
+    <div class="getting-started__code-block">
+      <div class="getting-started__code-header">
+        <span>npm</span>
+        <mlv-copy-to-clipboard
+          [value]="manualInstallCommand"
+          ariaLabel="Copy the manual package install command"
+          >Copy</mlv-copy-to-clipboard
+        >
+      </div>
+      <pre
+        class="getting-started__code"
+        tabindex="0"
+        aria-label="Manual package install command"
+      ><code>{{ manualInstallCommand }}</code></pre>
+    </div>
+    <p class="getting-started__supporting-copy">
+      Use the equivalent <code>pnpm add</code> or <code>yarn add</code> command
+      if your workspace uses pnpm or Yarn.
+    </p>
+
+    <h3>2. Add the global stylesheet</h3>
+    <p>
+      Add the packaged stylesheet to the target application's build options in
+      <code>angular.json</code>.
+    </p>
+    <div class="getting-started__code-block">
+      <div class="getting-started__code-header">
+        <span>angular.json</span>
+        <mlv-copy-to-clipboard
+          [value]="stylesConfiguration"
+          ariaLabel="Copy the Angular styles configuration"
+          >Copy</mlv-copy-to-clipboard
+        >
+      </div>
+      <pre
+        class="getting-started__code"
+        tabindex="0"
+        aria-label="Angular workspace styles configuration"
+      ><code>{{ stylesConfiguration }}</code></pre>
+    </div>
+
+    <h3>3. Configure theme and density</h3>
+    <p>
+      Register the defaults with the application's root providers. In a
+      standalone application, this usually lives in <code>app.config.ts</code>.
+    </p>
+    <div class="getting-started__code-block">
+      <div class="getting-started__code-header">
+        <span>app.config.ts</span>
+        <mlv-copy-to-clipboard
+          [value]="providersConfiguration"
+          ariaLabel="Copy the Malva UI provider configuration"
+          >Copy</mlv-copy-to-clipboard
+        >
+      </div>
+      <pre
+        class="getting-started__code"
+        tabindex="0"
+        aria-label="Malva UI application providers"
+      ><code>{{ providersConfiguration }}</code></pre>
+    </div>
+    <p class="getting-started__supporting-copy">
+      In an NgModule application, add the same provider calls to the root
+      <code>&#64;NgModule</code> <code>providers</code> array.
+    </p>
+  </section>
+
+  <section class="getting-started__section">
+    <h2>Use your first component</h2>
+    <p>
+      Import components from their focused public entry points. Standalone
+      imports keep dependencies explicit and allow unused components to be
+      removed from the production bundle.
+    </p>
+
+    <div class="getting-started__code-grid">
+      <div class="getting-started__code-block">
+        <div class="getting-started__code-header">
+          <span>app.ts</span>
+          <mlv-copy-to-clipboard
+            [value]="componentExample"
+            ariaLabel="Copy the Angular component example"
+            >Copy</mlv-copy-to-clipboard
+          >
+        </div>
+        <pre
+          class="getting-started__code"
+          tabindex="0"
+          aria-label="Angular component example"
+        ><code>{{ componentExample }}</code></pre>
+      </div>
+
+      <div class="getting-started__code-block">
+        <div class="getting-started__code-header">
+          <span>app.html</span>
+          <mlv-copy-to-clipboard
+            [value]="templateExample"
+            ariaLabel="Copy the button template example"
+            >Copy</mlv-copy-to-clipboard
+          >
+        </div>
+        <pre
+          class="getting-started__code"
+          tabindex="0"
+          aria-label="Malva UI button template"
+        ><code>{{ templateExample }}</code></pre>
+      </div>
+    </div>
+
+    <aside class="getting-started__success" aria-label="Setup verification">
+      <strong>Verify the setup</strong>
+      <span>
+        Start the application with its normal development command. The button
+        should use the selected theme and density, with no missing-style or
+        provider errors in the browser console.
+      </span>
+    </aside>
+  </section>
+
+  <section class="getting-started__section">
+    <h2>Troubleshooting</h2>
+    <mlv-accordion
+      class="getting-started__troubleshooting"
+      [multiExpandable]="true"
+    >
+      <mlv-accordion-item header="The workspace contains multiple applications">
+        <p>
+          Run the installer again with
+          <code>--project &lt;application-name&gt;</code>. The installer does
+          not guess when more than one application is available.
+        </p>
+      </mlv-accordion-item>
+      <mlv-accordion-item header="Components render without Malva UI styling">
+        <p>
+          Confirm that
+          <code>node_modules/&#64;malva-ui/core/styles/malva-ui.css</code>
+          appears in the target application's build styles, then restart the
+          development server.
+        </p>
+      </mlv-accordion-item>
+      <mlv-accordion-item
+        header="Theme or density does not match the chosen value"
+      >
+        <p>
+          Check the root provider list for
+          <code>provideDefaultTheme()</code> and
+          <code>provideMlvDensity()</code>. A saved theme under the configured
+          storage key can override the initial theme on later visits.
+        </p>
+      </mlv-accordion-item>
+      <mlv-accordion-item header="The installer was interrupted">
+        <p>
+          Resolve the package-manager error and run the same command again. The
+          schematic skips configuration that is already present.
+        </p>
+      </mlv-accordion-item>
+    </mlv-accordion>
+  </section>
+
+  <section class="getting-started__section getting-started__section--last">
+    <h2>Next steps</h2>
+    <nav class="getting-started__next-links" aria-label="Getting started links">
+      <a routerLink="/button">
+        <strong>Explore Button</strong>
+        <span>Learn variants, density, and accessible button patterns.</span>
+      </a>
+      <a routerLink="/page">
+        <strong>Compose a Page</strong>
+        <span>Build an application shell with structured page primitives.</span>
+      </a>
+      <a routerLink="/density">
+        <strong>Tune Density</strong>
+        <span>Choose global defaults and local component overrides.</span>
+      </a>
+    </nav>
+  </section>
+</article>

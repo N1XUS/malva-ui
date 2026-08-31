@@ -1,0 +1,86 @@
+<div class="mlv-slider__track" #track>
+  <div class="mlv-slider__fill"></div>
+
+  @if (showTicks()) {
+  <div class="mlv-slider__ticks" aria-hidden="true">
+    @for (tick of _ticks(); track tick) {
+    <span
+      class="mlv-slider__tick"
+      [style.left]="!_isVertical() ? tick + '%' : null"
+      [style.bottom]="_isVertical() ? tick + '%' : null"
+    ></span>
+    }
+  </div>
+  }
+</div>
+
+<div
+  class="mlv-slider__thumb mlv-slider__thumb--low"
+  [class.mlv-slider__thumb--dragging]="_activeDragThumb() === 'low'"
+  role="slider"
+  [attr.data-thumb]="'low'"
+  [attr.tabindex]="computedDisabled() ? -1 : 0"
+  [attr.aria-valuenow]="_lowValue()"
+  [attr.aria-valuemin]="min()"
+  [attr.aria-valuemax]="range() ? _highValue() : max()"
+  [attr.aria-label]="
+    range() ? _i18n().minValue : ariaLabel() || label() || _i18n().value
+  "
+  [attr.aria-disabled]="computedDisabled() || null"
+  [attr.aria-orientation]="orientation()"
+  [style.left]="!_isVertical() ? _lowPercent() + '%' : null"
+  [style.bottom]="_isVertical() ? _lowPercent() + '%' : null"
+  (keydown)="_onLowThumbKeydown($event)"
+  (focus)="setFocused(true)"
+  (blur)="_onThumbBlur()"
+></div>
+
+@if (tooltip()) {
+<span
+  class="mlv-slider__tooltip mlv-slider__tooltip--low"
+  aria-hidden="true"
+  [style.left]="!_isVertical() ? _lowPercent() + '%' : null"
+  [style.bottom]="_isVertical() ? _lowPercent() + '%' : null"
+>
+  @if (_tooltipDef(); as tooltipDef) {
+  <ng-container
+    [ngTemplateOutlet]="tooltipDef.templateRef"
+    [ngTemplateOutletContext]="_lowTooltipContext()"
+  />
+  } @else { {{ _lowValue() }} }
+</span>
+} @if (range()) {
+<div
+  class="mlv-slider__thumb mlv-slider__thumb--high"
+  [class.mlv-slider__thumb--dragging]="_activeDragThumb() === 'high'"
+  role="slider"
+  [attr.data-thumb]="'high'"
+  [attr.tabindex]="computedDisabled() ? -1 : 0"
+  [attr.aria-valuenow]="_highValue()"
+  [attr.aria-valuemin]="_lowValue()"
+  [attr.aria-valuemax]="max()"
+  [attr.aria-label]="_i18n().maxValue"
+  [attr.aria-disabled]="computedDisabled() || null"
+  [attr.aria-orientation]="orientation()"
+  [style.left]="!_isVertical() ? _highPercent() + '%' : null"
+  [style.bottom]="_isVertical() ? _highPercent() + '%' : null"
+  (keydown)="_onHighThumbKeydown($event)"
+  (focus)="setFocused(true)"
+  (blur)="_onThumbBlur()"
+></div>
+
+@if (tooltip()) {
+<span
+  class="mlv-slider__tooltip mlv-slider__tooltip--high"
+  aria-hidden="true"
+  [style.left]="!_isVertical() ? _highPercent() + '%' : null"
+  [style.bottom]="_isVertical() ? _highPercent() + '%' : null"
+>
+  @if (_tooltipDef(); as tooltipDef) {
+  <ng-container
+    [ngTemplateOutlet]="tooltipDef.templateRef"
+    [ngTemplateOutletContext]="_highTooltipContext()"
+  />
+  } @else { {{ _highValue() }} }
+</span>
+} }

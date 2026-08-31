@@ -1,0 +1,276 @@
+@layer mlv.components {
+$block: mlv-color-picker;
+
+.#{$block} {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 16rem;
+  padding: 0.75rem;
+  background-color: var(--mlv-elevation-bg-2);
+  border: 0.0625rem solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-2xl);
+  box-shadow: var(--mlv-shadow-raised);
+  box-sizing: border-box;
+  font-family: var(--mlv-typography-family-text);
+  font-size: var(--mlv-typography-ui-s-size);
+  user-select: none;
+
+  // Canvas area
+  &__canvas-container {
+    position: relative;
+    width: 100%;
+    height: 9rem;
+    border-radius: var(--mlv-radius-m);
+    overflow: hidden;
+    cursor: crosshair;
+    flex-shrink: 0;
+  }
+
+  &__canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  // Crosshair thumb on the canvas.
+  // The white ring + black-alpha halo are fixed color-accuracy chrome: they must
+  // stay readable over ANY selected color, so they are deliberately not themed.
+  &__canvas-thumb {
+    position: absolute;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: var(--mlv-radius-full);
+    border: 0.125rem solid #fff;
+    box-shadow: 0 0 0 0.0625rem rgba(0, 0, 0, 0.4);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+
+  // Sliders area
+  &__sliders {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__slider-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  // Color preview swatch.
+  // The #ccc checkerboard is a fixed transparency backdrop (color-accuracy
+  // chrome) that reveals alpha in the selected color; it stays theme-independent.
+  &__preview {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--mlv-radius-full);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+    flex-shrink: 0;
+    background-image:
+      linear-gradient(45deg, #ccc 25%, transparent 25%),
+      linear-gradient(-45deg, #ccc 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #ccc 75%),
+      linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 0.5rem 0.5rem;
+    background-position:
+      0 0,
+      0 0.25rem,
+      0.25rem -0.25rem,
+      -0.25rem 0;
+  }
+
+  // Slider track wrapper
+  &__slider-track {
+    position: relative;
+    flex: 1;
+    height: 0.75rem;
+    border-radius: var(--mlv-radius-m);
+    // overflow: visible so the thumb circle can extend beyond the track height.
+    // The track's own background and the gradient overlay both carry border-radius
+    // on their own, so the rounded pill shape is preserved without clipping.
+
+    &--hue {
+      background: linear-gradient(
+        to right,
+        hsl(0, 100%, 50%),
+        hsl(30, 100%, 50%),
+        hsl(60, 100%, 50%),
+        hsl(90, 100%, 50%),
+        hsl(120, 100%, 50%),
+        hsl(150, 100%, 50%),
+        hsl(180, 100%, 50%),
+        hsl(210, 100%, 50%),
+        hsl(240, 100%, 50%),
+        hsl(270, 100%, 50%),
+        hsl(300, 100%, 50%),
+        hsl(330, 100%, 50%),
+        hsl(360, 100%, 50%)
+      );
+    }
+
+    &--opacity {
+      // The #ccc checkerboard is fixed transparency iconography (universal,
+      // intentionally theme-independent) revealed through the opacity gradient
+      // overlaid on top.
+      background-image:
+        linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+      background-size: 0.5rem 0.5rem;
+      background-position:
+        0 0,
+        0 0.25rem,
+        0.25rem -0.25rem,
+        -0.25rem 0;
+    }
+  }
+
+  // Opacity gradient overlay
+  &__opacity-gradient {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  // Range input — sits above the track, handles interaction and renders the thumb.
+  // The input body is transparent so the styled track div shows through.
+  &__range-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    appearance: none;
+    z-index: 1;
+
+    // Hide the native track — visual track comes from the parent div.
+    &::-webkit-slider-runnable-track {
+      height: 0.75rem;
+      background: transparent;
+      border-radius: var(--mlv-radius-m);
+    }
+
+    &::-moz-range-track {
+      height: 0.75rem;
+      background: transparent;
+      border-radius: var(--mlv-radius-m);
+    }
+
+    // Custom thumb — white circle with a subtle shadow, extends slightly
+    // beyond the track height for a clean visual affordance. The white fill and
+    // black-alpha border/shadow are fixed color-accuracy chrome (must contrast
+    // against any hue/opacity track color), so the raw values are intentional.
+    &::-webkit-slider-thumb {
+      appearance: none;
+      width: 1rem;
+      height: 1rem;
+      border-radius: var(--mlv-radius-full);
+      background: #fff;
+      border: 0.125rem solid rgba(0, 0, 0, 0.15);
+      box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.35);
+      cursor: grab;
+      // Center on the 0.75rem track: -(1rem - 0.75rem) / 2 = -0.125rem
+      margin-top: -0.125rem;
+    }
+
+    &::-moz-range-thumb {
+      width: 1rem;
+      height: 1rem;
+      border-radius: var(--mlv-radius-full);
+      background: #fff;
+      border: 0.125rem solid rgba(0, 0, 0, 0.15);
+      box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.35);
+      cursor: grab;
+    }
+
+    &:active::-webkit-slider-thumb,
+    &:active::-moz-range-thumb {
+      cursor: grabbing;
+      box-shadow: 0 0.0625rem 0.375rem rgba(0, 0, 0, 0.45);
+    }
+
+    // SF-R3: the track itself suppresses its outline; the thumb pseudo-
+    // elements are the proxy that restores Form A, since a browser cannot
+    // paint an outline directly on `::-webkit-slider-thumb`/`::-moz-range-thumb`
+    // without the parent opting out first.
+    &:focus-visible {
+      outline: none;
+
+      &::-webkit-slider-thumb {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+
+      &::-moz-range-thumb {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+
+      &::-webkit-slider-thumb,
+      &::-moz-range-thumb {
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  &__format-tabs {
+    min-width: 0;
+
+    > .mlv-tab-group__header > .mlv-tab-item {
+      flex: 1;
+      justify-content: center;
+      font-weight: 600;
+    }
+
+    > .mlv-tab-group__body {
+      padding-top: var(--mlv-spacing-2);
+    }
+  }
+
+  // Inputs row
+  &__inputs {
+    display: flex;
+    gap: 0.375rem;
+  }
+
+  &__input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  // Names the channel field below it — a real label, not a placeholder.
+  &__input-label {
+    font-size: var(--mlv-typography-caption-size);
+    color: var(--mlv-text-secondary);
+    text-align: center;
+    display: block;
+    font-weight: 500;
+  }
+
+  // Disabled state
+  &--disabled {
+    opacity: var(--mlv-disabled-opacity);
+    pointer-events: none;
+
+    .#{$block}__canvas-container {
+      cursor: not-allowed;
+    }
+  }
+}
+}

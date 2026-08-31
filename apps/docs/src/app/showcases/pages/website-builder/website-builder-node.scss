@@ -1,0 +1,237 @@
+@use '../../../../../../../libs/styles/src/lib/mixins' as mixins;
+
+$block: wb-node;
+
+/* --------------------------------------------------------------------------
+ * One tree node: container, row or block.
+ *
+ * Structural kind is carried by the rail, the badge and the icon — never by
+ * `tone`, which stays semantic (`danger` is reserved for an invalid span).
+ * -------------------------------------------------------------------------- */
+
+:host {
+  position: relative;
+  display: block;
+  min-inline-size: 0;
+  padding-inline-start: var(--mlv-spacing-2);
+
+  // Kind rail. Redundant with the badge text and the icon, so it is decorative
+  // and carries no contrast obligation — but every value clears 3:1 against
+  // both `--mlv-background-raised` and `--mlv-background-sunken` anyway.
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block: var(--mlv-spacing-2);
+    inset-inline-start: 0;
+    inline-size: var(--mlv-stroke-width-thick);
+    border-radius: var(--mlv-radius-full);
+    background-color: var(--wb-rail, var(--mlv-border-normal));
+  }
+}
+
+:host(.#{$block}--container) {
+  --wb-rail: var(--mlv-border-strong);
+}
+
+:host(.#{$block}--row) {
+  --wb-rail: var(--mlv-border-normal);
+}
+
+:host(.#{$block}--block) {
+  --wb-rail: var(--mlv-border-subtle);
+}
+
+.#{$block} {
+  &__tile {
+    display: block;
+    min-inline-size: 0;
+    transition:
+      border-color var(--mlv-duration-normal) var(--mlv-ease-default),
+      color var(--mlv-duration-normal) var(--mlv-ease-default);
+  }
+
+  &__title {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--mlv-typography-ui-s-size);
+    font-weight: var(--mlv-typography-ui-s-weight);
+    line-height: var(--mlv-typography-ui-s-line-height);
+    color: var(--mlv-text-primary);
+  }
+
+  &__hidden-mark {
+    flex: 0 0 auto;
+    color: var(--mlv-text-secondary);
+  }
+
+  &__summary {
+    margin: 0;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  // Nested container. `.mlv-tiles--nested` (SL-R4) already owns this group's
+  // chrome — a rail plus a 1rem indent — so the showcase paints nothing here.
+  // Only block-axis breathing room is showcase-authored; the inline padding
+  // stays the library's to draw.
+  &__children {
+    padding-block: var(--mlv-spacing-2);
+
+    // Real N-track grid, gated by `gridPreview()` on the component. When the
+    // gate is off no `grid-column` is written either, so every row falls back
+    // to the library's auto-fit tracks and the span meter alone reports it.
+    &--tracks {
+      grid-template-columns: repeat(var(--wb-cols, 1), minmax(0, 1fr));
+    }
+  }
+}
+
+/* ── Container column ruler (UX §4.1b) ─────────────────────────────────── */
+
+.wb-ruler {
+  display: grid;
+  grid-template-columns: repeat(var(--wb-cols, 1), minmax(0, 1fr));
+  gap: var(--mlv-spacing-px);
+  margin-block-end: var(--mlv-spacing-2);
+
+  &__cell {
+    block-size: var(--mlv-spacing-1);
+    border-radius: var(--mlv-radius-xs);
+    background-color: var(--mlv-background-neutral-1);
+  }
+}
+
+/* ── Row span meter (UX §4.2a) ─────────────────────────────────────────── */
+
+.wb-span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mlv-spacing-2);
+  min-inline-size: 0;
+
+  &__track {
+    display: grid;
+    grid-template-columns: repeat(var(--wb-cols, 1), minmax(0, 1fr));
+    gap: var(--mlv-spacing-px);
+    inline-size: 6rem;
+    flex: 0 0 auto;
+  }
+
+  &__cell {
+    block-size: var(--mlv-spacing-1);
+    border-radius: var(--mlv-radius-xs);
+    background-color: var(--mlv-background-neutral-1);
+
+    &--filled {
+      background-color: var(--mlv-background-accent-1);
+    }
+  }
+
+  // The track is `aria-hidden`; this text is the compliant channel for the
+  // same information, so it may truncate but must never disappear.
+  &__text {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+}
+
+/* ── Empty states projected into the nested `mlv-tiles` ────────────────── */
+
+.wb-empty {
+  inline-size: 100%;
+
+  &__actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mlv-spacing-2);
+  }
+}
+
+/* ── State treatments (UX §3.6) ────────────────────────────────────────── */
+/*
+ * None of these uses `opacity`. `--mlv-disabled-opacity` is 0.4, which would
+ * drag the still-operable header controls below AA — and at four levels of
+ * nesting a cascading opacity compounds to illegibility.
+ */
+
+:host(.#{$block}--off) .#{$block}__tile,
+:host(.#{$block}--muted) .#{$block}__tile {
+  border-style: dashed;
+}
+
+:host(.#{$block}--off) .#{$block}__title {
+  color: var(--mlv-text-secondary);
+}
+
+:host(.#{$block}--muted) .#{$block}__summary {
+  color: var(--mlv-text-secondary);
+}
+
+/* A locked preview reads as chrome, not as an editing surface. */
+:host(.#{$block}--locked) .#{$block}__children {
+  background-color: transparent;
+}
+
+/* ── Motion (UX §9) ────────────────────────────────────────────────────── */
+
+/*
+ * `backwards`, never `both`/`forwards`.
+ *
+ * This host is also the element the tile engine marks
+ * `.mlv-tiles__item-root`, and SortableJS positions the dragged item by
+ * writing an inline `transform` on every pointer move, reading the previous
+ * value back through `getComputedStyle` to accumulate the next delta. A CSS
+ * animation outranks an inline style, so a `both`/`forwards` fill mode pins
+ * computed `transform` to the `100%` keyframe (`none`) permanently: every
+ * read-back returns identity, the engine writes only the per-move delta, and
+ * the ghost crawls a couple of pixels instead of following the pointer. The
+ * same pin also freezes the engine's 200ms sibling reorder animation, which
+ * animates `transform` on the *other* item roots.
+ *
+ * `backwards` still covers a stagger delay but hands `transform` back the
+ * moment the entrance finishes, so the engine owns it whenever it matters.
+ */
+@include mixins.motion-safe {
+  :host {
+    animation: wb-node-enter var(--mlv-duration-normal) var(--mlv-ease-out)
+      backwards;
+  }
+
+  // A freshly cloned drag artifact must not replay the entrance for 200ms at
+  // drag start. The library sanitises the pointer-following fallback clone
+  // itself; these cover the in-flow chosen/ghost/drag states it does not.
+  :host(.mlv-tiles__sortable-chosen),
+  :host(.mlv-tiles__sortable-ghost),
+  :host(.mlv-tiles__sortable-drag),
+  :host(.mlv-tiles__sortable-fallback) {
+    animation: none;
+  }
+}
+
+@keyframes wb-node-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@include mixins.reduced-motion('#{$block}');

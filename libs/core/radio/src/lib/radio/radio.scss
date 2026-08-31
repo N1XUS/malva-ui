@@ -1,0 +1,111 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-radio;
+
+.#{$block} {
+  @include mixins.base();
+  color: var(--mlv-text-primary);
+  --mlv-radio-border: var(--mlv-border-normal);
+  --mlv-radio-bg: var(--mlv-background-accent-1);
+  --mlv-radio-opacity: 0;
+  --mlv-radio-transform: scale(0.5);
+  outline: none;
+
+  // Label type scale (CH-R3) — mirrors mlv-checkbox; `mixins.base()` already
+  // carries the `comfortable` default.
+  @include density.density-tight {
+    font-size: var(--mlv-font-size-s);
+  }
+  @include density.density-compact {
+    font-size: var(--mlv-font-size-m);
+  }
+  @include density.density-spacious {
+    font-size: var(--mlv-font-size-l);
+  }
+  @include density.density-airy {
+    font-size: var(--mlv-font-size-xl);
+  }
+
+  // Visually-hidden pattern: keep the native radio input in the a11y tree (it
+  // is the single focus target and preserves native radio grouping + Space
+  // selection) but render it off-screen via clip-path. Replaces the previous
+  // `display: none`, which removed the input from the a11y tree entirely.
+  &__native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  // Native :focus-visible on the hidden input promotes a focus ring onto the
+  // visible circle so keyboard users can see the focus target.
+  &__native:focus-visible + &__visual {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+    --mlv-radio-border: var(--mlv-border-focus);
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    cursor: pointer;
+  }
+
+  &__visual {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: var(--mlv-radius-full);
+    border: 0.0625rem solid var(--mlv-radio-border);
+    transition: border-color var(--mlv-duration-fast) var(--mlv-ease-default);
+    position: relative;
+
+    &::before {
+      content: '';
+      width: 0.75rem;
+      height: 0.75rem;
+      top: 0.1875rem;
+      inset-inline-start: 0.1875rem;
+      position: absolute;
+      background: var(--mlv-radio-bg);
+      border-radius: var(--mlv-radius-full);
+      opacity: var(--mlv-radio-opacity);
+      transform: var(--mlv-radio-transform);
+      transition-property: background-color, border-color, transform;
+      transition-duration: var(--mlv-duration-fast);
+      transition-timing-function: var(--mlv-ease-default);
+    }
+  }
+
+  &--checked {
+    --mlv-radio-opacity: 1;
+    --mlv-radio-transform: scale(1);
+  }
+
+  &--disabled {
+    cursor: not-allowed;
+    pointer-events: none;
+    opacity: var(--mlv-disabled-opacity);
+  }
+
+  &:not(:focus) {
+    .#{$block}__label {
+      &:hover {
+        --mlv-radio-border: var(--mlv-border-strong);
+        --mlv-radio-bg: var(--mlv-background-accent-1-hover);
+      }
+    }
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

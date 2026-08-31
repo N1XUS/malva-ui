@@ -1,0 +1,200 @@
+// ==========================================================================
+// _density.scss
+// Density system — tight / compact / comfortable / spacious / airy.
+// Controlled via BEM modifier classes at root, container, or element level.
+// The closest modifier in the DOM tree wins.
+// ==========================================================================
+
+@use 'sass:math';
+
+// ---------------------------------------------------------------------------
+// density-tight()
+// ---------------------------------------------------------------------------
+
+/// Applies styles when the element or a density-modified ancestor is tight.
+///
+/// Cascade logic:
+///   1. Element itself has --tight                          → MATCH
+///   2. An ancestor has --tight AND element has no          → MATCH
+///      other density modifier
+///
+/// ACCESSIBILITY NOTE: In tight mode, interactive elements must still meet
+/// the 24×24 CSS px minimum target size (WCAG 2.2 SC 2.5.8, level AA). Hold
+/// that floor on the real pointer target — a label or padded hit area may
+/// carry it while the painted control shrinks with density.
+///
+/// @content — styles to apply in tight density
+@mixin density-tight() {
+  @at-root {
+    [class*='--tight']
+      &:not(
+        [class*='--compact'],
+        [class*='--comfortable'],
+        [class*='--spacious'],
+        [class*='--airy']
+      ),
+    &[class*='--tight'] {
+      @content;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// density-compact()
+// ---------------------------------------------------------------------------
+
+/// Applies styles when the element or a density-modified ancestor is compact.
+///
+/// Cascade logic:
+///   1. Element itself has --compact                        → MATCH
+///   2. An ancestor has --compact AND element has no        → MATCH
+///      other density modifier (--comfortable/--spacious)
+///
+/// Uses [class*="--compact"] for ancestor detection so it works with
+/// any BEM block name (mlv-button--compact, mlv-list--compact, mlv--compact).
+///
+/// ACCESSIBILITY NOTE: In compact mode, interactive elements must still meet
+/// the 24×24 CSS px minimum target size (WCAG 2.2 SC 2.5.8, level AA). Apply
+/// that floor unconditionally so density scaling can never shrink the hit
+/// area below it.
+///
+/// @content — styles to apply in compact density
+/// @example
+///   .mlv-button {
+///     padding-block: 0.5rem; // comfortable default
+///     @include density-compact {
+///       padding-block: 0.375rem;
+///     }
+///   }
+@mixin density-compact() {
+  @at-root {
+    // 1. Ancestor is compact, element does NOT override
+    [class*="--compact"] &:not([class*="--tight"], [class*="--comfortable"], [class*="--spacious"], [class*="--airy"]),
+      // 2. Element itself is compact
+    &[class*="--compact"] {
+      @content;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// density-spacious()
+// ---------------------------------------------------------------------------
+
+/// Applies styles when the element or a density-modified ancestor is spacious.
+///
+/// @content — styles to apply in spacious density
+/// @example
+///   .mlv-card {
+///     padding: 1rem;
+///     @include density-spacious {
+///       padding: 1.5rem;
+///     }
+///   }
+@mixin density-spacious() {
+  @at-root {
+    [class*='--spacious']
+      &:not(
+        [class*='--tight'],
+        [class*='--compact'],
+        [class*='--comfortable'],
+        [class*='--airy']
+      ),
+    &[class*='--spacious'] {
+      @content;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// density-airy()
+// ---------------------------------------------------------------------------
+
+/// Applies styles when the element or a density-modified ancestor is airy.
+///
+/// @content — styles to apply in airy density
+@mixin density-airy() {
+  @at-root {
+    [class*='--airy']
+      &:not(
+        [class*='--tight'],
+        [class*='--compact'],
+        [class*='--comfortable'],
+        [class*='--spacious']
+      ),
+    &[class*='--airy'] {
+      @content;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// density-comfortable()
+// ---------------------------------------------------------------------------
+
+/// Explicit comfortable — useful when resetting inside a compact/spacious
+/// region. Rarely needed because comfortable is the implicit default.
+///
+/// @content — styles to apply in comfortable density
+@mixin density-comfortable() {
+  @at-root {
+    [class*='--comfortable']
+      &:not(
+        [class*='--tight'],
+        [class*='--compact'],
+        [class*='--spacious'],
+        [class*='--airy']
+      ),
+    &[class*='--comfortable'] {
+      @content;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// density-not-comfortable()
+// ---------------------------------------------------------------------------
+
+/// Applies when density is anything other than the comfortable default.
+/// Useful for shared non-default adjustments like hiding a label or
+/// collapsing an icon gap.
+///
+/// @content — styles for non-comfortable densities
+@mixin density-not-comfortable() {
+  @at-root {
+    [class*='--tight']
+      &:not(
+        [class*='--compact'],
+        [class*='--comfortable'],
+        [class*='--spacious'],
+        [class*='--airy']
+      ),
+    &[class*='--tight'],
+    [class*='--compact']
+      &:not(
+        [class*='--tight'],
+        [class*='--comfortable'],
+        [class*='--spacious'],
+        [class*='--airy']
+      ),
+    &[class*='--compact'],
+    [class*='--spacious']
+      &:not(
+        [class*='--tight'],
+        [class*='--compact'],
+        [class*='--comfortable'],
+        [class*='--airy']
+      ),
+    &[class*='--spacious'],
+    [class*='--airy']
+      &:not(
+        [class*='--tight'],
+        [class*='--compact'],
+        [class*='--comfortable'],
+        [class*='--spacious']
+      ),
+    &[class*='--airy'] {
+      @content;
+    }
+  }
+}

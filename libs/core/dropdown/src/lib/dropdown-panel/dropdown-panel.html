@@ -1,0 +1,147 @@
+@if (scrollMode() === 'self') {
+<mlv-scrollbar class="mlv-dropdown-panel__scrollbar" [viewportTabIndex]="-1">
+  <ng-container [ngTemplateOutlet]="panelContent" />
+</mlv-scrollbar>
+} @else {
+<ng-container [ngTemplateOutlet]="panelContent" />
+}
+
+<ng-template #panelContent>
+  <!-- Async loading affordance (used by [mlvAutocomplete]). Rendered above the
+       listbox so the listbox element (aria-controls target) still exists while a
+       search resolves; the empty "no results" projection is suppressed meanwhile. -->
+  @if (loading()) {
+  <div class="mlv-dropdown-panel__loading" role="status" aria-live="polite">
+    <span class="mlv-dropdown-panel__spinner" aria-hidden="true"></span>
+    <span class="mlv-dropdown-panel__loading-text">{{ loadingText() }}</span>
+  </div>
+  }
+
+  <!-- selectionMode="explicit" + softDisabled="false" reproduce the previous CdkListbox
+     behaviour: arrow keys move focus (never commit the value) and skip disabled options.
+     listRole/itemRole are pinned to the listbox pattern so aria's pointer selection can
+     resolve each option via closest('[role="option"]').
+     [listboxId] forwards the consumer id into aria's Listbox.id input so the rendered
+     [attr.id]="id()" equals it — otherwise aria mints its own id and a parent
+     select/combobox trigger's aria-controls would dangle. -->
+  <mlv-list
+    class="mlv-dropdown-panel__listbox"
+    appearance="menu"
+    selectable
+    listRole="listbox"
+    selectionMode="explicit"
+    [softDisabled]="false"
+    [focusMode]="focusMode()"
+    [attr.aria-busy]="loading() || loadingMore() ? true : null"
+    [attr.aria-label]="ariaLabel()"
+    [listboxId]="_resolvedListboxId()"
+    [multiple]="multiple()"
+    [value]="selectedValues()"
+    (valueChange)="onValueChange($event)"
+  >
+    @if (_isGrouped()) {
+    <!-- Grouped rendering: consecutive same-group runs become APG listbox groups
+       (role="group" + aria-labelledby → a non-selectable, presentational sticky
+       header). Options stay flat descendants of the listbox, so aria registers
+       and navigates them exactly as ungrouped; headers are not aria options and
+       are skipped by keyboard nav / type-ahead. Each option keeps its flat index
+       so optionId / activeIndex line up with an owning combobox. -->
+    @for (group of _groups(); track $index) { @if (group.label) {
+    <div
+      class="mlv-dropdown-panel__group"
+      role="group"
+      [attr.aria-labelledby]="group.headerId"
+    >
+      <div
+        class="mlv-dropdown-panel__group-header"
+        role="presentation"
+        [id]="group.headerId"
+      >
+        {{ group.label }}
+      </div>
+      @for (entry of group.entries; track entry.option.value) {
+      <ng-container
+        *ngTemplateOutlet="optionRow; context: { option: entry.option, index: entry.index }"
+      />
+      }
+    </div>
+    } @else { @for (entry of group.entries; track entry.option.value) {
+    <ng-container
+      *ngTemplateOutlet="optionRow; context: { option: entry.option, index: entry.index }"
+    />
+    } } } } @else { @for (option of options(); track option.value; let i =
+    $index) {
+    <ng-container
+      *ngTemplateOutlet="optionRow; context: { option: option, index: i }"
+    />
+    } @empty { @if (!loading()) {
+    <ng-content />
+    } } }
+
+    <!-- Single source of truth for an option row, outlet-ed by both the flat and
+       the grouped branches. Declared INSIDE <mlv-list> so its declaration
+       injector carries the aria LISTBOX token — an outlet-ed <mlv-list-item>
+       resolves DI from the template's declaration context, not its insertion
+       point. `index` is the flat index into options(). -->
+    <ng-template #optionRow let-option="option" let-index="index">
+      <mlv-list-item
+        class="mlv-dropdown-panel__item"
+        itemRole="option"
+        [class.mlv-dropdown-panel__item--active]="index === activeIndex()"
+        [value]="option.value"
+        [label]="option.label"
+        [disabled]="option.disabled ?? false"
+        [optionId]="optionId(index)"
+      >
+        @if (itemTemplate()) {
+        <ng-container
+          *ngTemplateOutlet="itemTemplate()!; context: { $implicit: option }"
+        />
+        } @else {
+        <span class="mlv-dropdown-panel__item-label">
+          @if (highlightQuery()) { @for (seg of option.label |
+          mlvHighlightMatch: highlightQuery(); track $index) { @if (seg.matched)
+          {<mark class="mlv-dropdown-panel__match">{{ seg.text }}</mark>} @else
+          {{{ seg.text }}} } } @else {{{ option.label }}}
+        </span>
+        @if (isValueSelected(option.value)) {
+        <svg
+          class="mlv-dropdown-panel__item-check"
+          lucideCheck
+          size="16"
+          strokeWidth="2"
+        />
+        } }
+      </mlv-list-item>
+    </ng-template>
+  </mlv-list>
+
+  <!-- Next-page affordance. Sits after the last option (unlike the top
+       `__loading` row) so appended rows are not pushed around, and stays a
+       polite status region — the listbox itself keeps its options interactive. -->
+  @if (loadingMore()) {
+  <div
+    class="mlv-dropdown-panel__loading-more"
+    role="status"
+    aria-live="polite"
+  >
+    <span class="mlv-dropdown-panel__spinner" aria-hidden="true"></span>
+    <span class="mlv-dropdown-panel__loading-text">{{ loadingText() }}</span>
+  </div>
+  }
+
+  <!-- Paging sentinel. The directive listens on the real scroll owner via
+       [scrollContainer]; it stays disabled until that element is resolved so
+       its initial measurement never runs against the non-scrolling panel host. -->
+  <div
+    class="mlv-dropdown-panel__sentinel"
+    aria-hidden="true"
+    mlvInfiniteScroll
+    [scrollContainer]="_scrollContainer()"
+    [disabled]="!hasMore() || !_scrollContainer()"
+    [hasMore]="hasMore()"
+    [loading]="loading() || loadingMore()"
+    [threshold]="infiniteScrollThreshold()"
+    (loadMore)="loadMore.emit()"
+  ></div>
+</ng-template>

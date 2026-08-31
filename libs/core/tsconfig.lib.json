@@ -1,0 +1,48 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../dist/out-tsc",
+    "declaration": true,
+    "declarationMap": true,
+    "inlineSources": true,
+    "types": []
+  },
+  "include": ["**/*.ts", "view-variant/**/*.ts"],
+  "exclude": [
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "vite.config.ts",
+    "vite.config.mts",
+    "vitest.config.ts",
+    "vitest.config.mts",
+    "**/playwright.config.ts",
+    "**/playwright.config.mts",
+    "**/e2e/**/*.ts",
+    "**/*.test.tsx",
+    "**/*.spec.tsx",
+    "**/*.test.js",
+    "**/*.spec.js",
+    "**/*.test.jsx",
+    "**/*.spec.jsx",
+    "test-setup.ts",
+    "view-variant/**/*.spec.ts",
+    "view-variant/**/*.test.ts",
+    "view-variant/**/playwright.config.ts",
+    "view-variant/**/playwright.config.mts",
+    "view-variant/**/e2e/**/*.ts",
+    "view-variant/**/*.test.tsx",
+    "view-variant/**/*.spec.tsx",
+    "view-variant/**/*.test.js",
+    "view-variant/**/*.spec.js",
+    "view-variant/**/*.test.jsx",
+    "view-variant/**/*.spec.jsx"
+  ],
+  "angularCompilerOptions": {
+    "extendedDiagnostics": {
+      "checks": {
+        "nullishCoalescingNotNullable": "suppress",
+        "optionalChainNotNullable": "suppress"
+      }
+    }
+  }
+}

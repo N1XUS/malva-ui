@@ -1,0 +1,77 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$dialog-block: mlv-editor-image-upload-dialog;
+$status-block: mlv-editor-image-upload-status;
+
+.#{$dialog-block} {
+  @include mixins.base();
+
+  // display/flex/flex-direction and the min-size floors come from the dialog
+  // container's `> :not(.mlv-dialog)` rule (dialog-container.scss).
+  // Body/footer padding and borders come from the dialog parts.
+  &__body {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__preview {
+    display: block;
+    max-block-size: 12rem;
+    max-inline-size: 100%;
+    margin-inline: auto;
+    border-radius: var(--mlv-radius-card);
+    object-fit: contain;
+  }
+
+  &__error {
+    margin: 0;
+    color: var(--mlv-text-negative);
+  }
+
+  &__live {
+    position: absolute;
+    width: 0.0625rem;
+    height: 0.0625rem;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.#{$status-block} {
+  @include mixins.base();
+  display: block;
+  padding: 0 var(--mlv-spacing-4) var(--mlv-spacing-2);
+
+  &__list {
+    display: grid;
+    gap: var(--mlv-spacing-1-5);
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(8rem, 2fr) auto auto;
+    align-items: center;
+    gap: var(--mlv-spacing-3);
+  }
+
+  &__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__live {
+    position: absolute;
+    width: 0.0625rem;
+    height: 0.0625rem;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+}

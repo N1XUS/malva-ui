@@ -1,0 +1,12 @@
+{
+  "name": "cdk-testing-e2e",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/cdk/testing-e2e/src",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:cdk", "type:infrastructure"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

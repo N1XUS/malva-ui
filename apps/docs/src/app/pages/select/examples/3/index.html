@@ -1,0 +1,19 @@
+<div
+  class="demo-col"
+  style="gap: 0.75rem; align-items: stretch; max-width: 28rem"
+>
+  <mlv-select
+    label="Country"
+    [options]="countries"
+    [toOption]="countryToOption"
+    placeholder="Choose a country..."
+  >
+    <ng-template mlvSelectItemTemplate let-option>
+      <span>{{ option.value.flag }} {{ option.label }}</span>
+    </ng-template>
+    <ng-template mlvSelectSelectedTemplate let-values>
+      @if (values.length === 1) { {{ getCountryFlag(values[0]) }} {{
+      getCountryName(values[0]) }} }
+    </ng-template>
+  </mlv-select>
+</div>

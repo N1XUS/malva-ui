@@ -1,0 +1,12 @@
+## Mobile full-screen sheet
+
+Set `mobileMode="auto"` (the default) so the dropdown opens as a full-screen
+sheet below the `md` breakpoint (viewport &lt; 768px) and stays trigger-anchored
+above it. Because the search field would otherwise be hidden behind the sheet's
+solid backdrop and blocked by its focus trap, the combobox renders its own
+**in-sheet search input** in the header — type-to-filter, keyboard navigation,
+Enter-to-select, and Escape-to-close all work inside the sheet. `mobileTitle`
+sets the header heading (falling back to the field label).
+
+This example forces `mobileMode="fullscreen"` so the sheet shows on every
+viewport for demonstration.

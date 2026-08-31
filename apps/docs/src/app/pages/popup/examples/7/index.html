@@ -1,0 +1,37 @@
+<div class="no-backdrop-demo">
+  <p class="no-backdrop-demo__hint">
+    Background content stays interactive — try selecting this text while the
+    popup is open.
+  </p>
+
+  <button
+    #sortTrigger
+    mlvButton
+    variant="outlined"
+    [mlvPopupTrigger]="sortPopup"
+    [ariaHasPopup]="'listbox'"
+  >
+    Sort: {{ selectedLabel() }}
+    <ng-template mlvButtonAfter
+      ><svg lucideChevronDown [size]="16"
+    /></ng-template>
+  </button>
+
+  <mlv-popup
+    #sortPopup
+    position="bottom-start"
+    width="15rem"
+    [hasBackdrop]="false"
+    (afterOpened)="onOpened()"
+    (afterClosed)="onClosed()"
+  >
+    <ng-template mlvPopupContent>
+      <mlv-dropdown-panel
+        scrollMode="parent"
+        [options]="sortOptions"
+        [selectedValues]="selectedSort()"
+        (valueChange)="select($event, sortPopup)"
+      />
+    </ng-template>
+  </mlv-popup>
+</div>

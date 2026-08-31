@@ -1,0 +1,49 @@
+@layer mlv.components {
+$block: mlv-tab-content;
+
+@keyframes tab-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tab-content-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+
+.#{$block} {
+  display: block;
+
+  &--enter {
+    animation: tab-content-enter
+      var(--mlv-tab-content-enter-duration, var(--mlv-duration-normal))
+      var(--mlv-ease-out-strong) both;
+  }
+
+  &--leave {
+    animation: tab-content-leave
+      var(--mlv-tab-content-leave-duration, var(--mlv-duration-fast))
+      var(--mlv-ease-out-strong) both;
+  }
+
+  // Respect reduced-motion: swap panels instantly with no fade / slide.
+  @media (prefers-reduced-motion: reduce) {
+    &--enter,
+    &--leave {
+      animation: none;
+    }
+  }
+}
+}

@@ -1,0 +1,21 @@
+<mlv-card class="example-log-card">
+  <ng-template mlvCardHeader>System Log</ng-template>
+
+  <mlv-scrollbar class="example-log-scroll">
+    <ul class="example-log-list">
+      @for (entry of logs; track entry.time + entry.message) {
+      <li class="example-log-entry">
+        <span class="example-log-entry__time">{{ entry.time }}</span>
+        <mlv-badge
+          [tone]="entry.level === 'error' ? 'danger' : entry.level === 'warning' ? 'warning' : 'success'"
+          [muted]="true"
+          class="example-log-entry__badge"
+        >
+          {{ entry.level }}
+        </mlv-badge>
+        <span class="example-log-entry__message">{{ entry.message }}</span>
+      </li>
+      }
+    </ul>
+  </mlv-scrollbar>
+</mlv-card>

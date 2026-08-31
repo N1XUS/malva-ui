@@ -1,0 +1,8 @@
+## Programmatic control & two-way binding
+
+Grab a template reference to `mlv-accordion` (`#acc`) and call `expandAll()` /
+`collapseAll()` imperatively — both require `[multiExpandable]="true"`.
+
+Each `mlv-accordion-item` also exposes a two-way `[(expanded)]` model, so you
+can drive and observe an individual section's state from your component (here
+the badge mirrors the Billing panel).

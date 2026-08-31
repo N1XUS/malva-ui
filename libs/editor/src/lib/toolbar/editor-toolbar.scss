@@ -1,0 +1,68 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-editor-toolbar;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-typography-body-m-size),
+    0,
+    0
+  );
+
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+
+  [hidden] {
+    display: none !important;
+  }
+
+  &__scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    > .mlv-toolbar {
+      width: max-content;
+      min-width: 100%;
+      flex-wrap: nowrap;
+    }
+  }
+
+  &__separator {
+    flex: 0 0 auto;
+    align-self: stretch;
+    min-height: var(--mlv-height-s);
+    margin-inline: var(--mlv-spacing-1);
+  }
+
+  &__overflow,
+  .mlv-editor-undo-redo,
+  .mlv-editor-inline-marks,
+  .mlv-editor-block-insert {
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+  }
+
+  mlv-editor-zoom,
+  mlv-editor-heading,
+  mlv-editor-list,
+  mlv-editor-text-color,
+  mlv-editor-highlight,
+  mlv-editor-alignment,
+  mlv-editor-link,
+  mlv-editor-table,
+  mlv-editor-image-upload {
+    flex: 0 0 auto;
+  }
+
+  &--disabled {
+    opacity: var(--mlv-disabled-opacity);
+  }
+}
+}

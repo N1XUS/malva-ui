@@ -1,0 +1,99 @@
+<div class="demo-col" style="gap: 2rem">
+  <!-- Bar with hint above the track -->
+  <div class="demo-col" style="gap: 0.75rem">
+    <span
+      style="
+        font-size: 0.75rem;
+        font-weight: 500;
+        opacity: 0.6;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      "
+      >Bar</span
+    >
+    <mlv-loader
+      variant="bar"
+      [value]="progress()"
+      [size]="6"
+      [showHint]="true"
+    />
+    <mlv-loader
+      variant="bar"
+      [value]="progress()"
+      [size]="6"
+      tone="success"
+      [showHint]="true"
+    />
+    <mlv-loader
+      variant="bar"
+      [value]="progress()"
+      [size]="6"
+      tone="warning"
+      [showHint]="true"
+    />
+  </div>
+
+  <!-- Circle with hint centered inside the ring -->
+  <div class="demo-col" style="gap: 0.75rem">
+    <span
+      style="
+        font-size: 0.75rem;
+        font-weight: 500;
+        opacity: 0.6;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      "
+      >Circle</span
+    >
+    <div
+      class="demo-row"
+      style="align-items: center; flex-wrap: wrap; gap: 1.5rem"
+    >
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="96"
+        [strokeWidth]="8"
+        [showHint]="true"
+      />
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="72"
+        [strokeWidth]="6"
+        tone="success"
+        [showHint]="true"
+      />
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="56"
+        [strokeWidth]="5"
+        tone="warning"
+        [showHint]="true"
+      />
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="demo-row" style="align-items: center">
+    <button
+      mlvButton
+      variant="secondary"
+      (click)="decrement()"
+      aria-label="Decrease progress"
+    >
+      <ng-template mlvButtonBefore><svg lucideMinus [size]="14" /></ng-template>
+      −10
+    </button>
+    <button
+      mlvButton
+      variant="secondary"
+      (click)="increment()"
+      aria-label="Increase progress"
+    >
+      <ng-template mlvButtonBefore><svg lucidePlus [size]="14" /></ng-template>
+      +10
+    </button>
+  </div>
+</div>

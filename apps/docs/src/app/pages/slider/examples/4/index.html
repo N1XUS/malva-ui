@@ -1,0 +1,70 @@
+<div class="demo-col" style="gap: 1.5rem; max-width: 28rem">
+  <div class="demo-col" style="gap: 0.5rem">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      "
+    >
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-secondary);
+        "
+      >
+        Master volume
+      </span>
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-primary);
+          font-weight: 500;
+        "
+      >
+        {{ volumeControl.value }}%
+      </span>
+    </div>
+    <mlv-slider [min]="0" [max]="100" [formControl]="volumeControl" />
+  </div>
+
+  <div class="demo-col" style="gap: 0.5rem">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      "
+    >
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-secondary);
+        "
+      >
+        Left / Right balance
+      </span>
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-primary);
+          font-weight: 500;
+        "
+      >
+        @if (balanceControl.value === 50) { Centre } @else if
+        ((balanceControl.value ?? 50) < 50) { L {{ 50 - (balanceControl.value ??
+        50) }}% } @else { R {{ (balanceControl.value ?? 50) - 50 }}% }
+      </span>
+    </div>
+    <mlv-slider [min]="0" [max]="100" [formControl]="balanceControl" />
+  </div>
+
+  <button
+    type="button"
+    mlvButton
+    variant="secondary"
+    (mlvClick)="toggleDisabled()"
+  >
+    {{ isDisabled() ? 'Enable controls' : 'Disable controls' }}
+  </button>
+</div>

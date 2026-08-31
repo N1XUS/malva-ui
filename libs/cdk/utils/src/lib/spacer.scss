@@ -1,0 +1,11 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-spacer;
+
+.#{$block} {
+  @include mixins.base();
+
+  flex: 1 1 auto;
+}
+}

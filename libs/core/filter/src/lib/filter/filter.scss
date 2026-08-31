@@ -1,0 +1,220 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-filter;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-typography-body-m-size),
+    0,
+    0
+  );
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+
+  &__control {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  &__trigger {
+    min-width: 0;
+    max-width: 100%;
+    justify-content: space-between;
+
+    &--applied {
+      border-start-end-radius: 0;
+      border-end-end-radius: 0;
+    }
+  }
+
+  &__clear {
+    flex: none;
+    margin-inline-start: -0.0625rem;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+  }
+
+  &__summary {
+    display: inline-flex;
+    align-items: baseline;
+    min-width: 0;
+    gap: var(--mlv-spacing-1);
+    overflow: hidden;
+
+    // Overrides `.mlv-button__text > * { flex-shrink: 0 }` (button.scss),
+    // which exists to stop icons collapsing but also defeats this block's own
+    // `min-width: 0` + `__sentence`'s `text-overflow: ellipsis` — without it
+    // the summary refuses to shrink below its natural width and gets hard-cut
+    // by the button label's `overflow: hidden` instead of ellipsizing. A bare
+    // `&__summary { flex-shrink: 1 }` ties that rule at (0,1,0), so the
+    // winner depends on runtime style-injection order; nesting under
+    // `.mlv-button__text` raises this to (0,2,0) so it always wins.
+    .mlv-button__text > & {
+      flex-shrink: 1;
+    }
+  }
+
+  &__summary--query,
+  &__sentence {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__label,
+  &__more {
+    flex: none;
+    font-weight: var(--mlv-typography-body-m-weight);
+  }
+
+  &__value {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--mlv-text-primary);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__chevron {
+    flex: none;
+    transition-property: transform;
+    transition-duration: var(--mlv-duration-fast);
+    transition-timing-function: var(--mlv-ease-out);
+  }
+
+  &--open &__chevron {
+    transform: rotate(180deg);
+  }
+
+  &--invalid &__trigger {
+    --mlv-btn-box-shadow: inset 0 0 0 0.0625rem var(--mlv-border-error);
+  }
+
+  &--query &__trigger {
+    --mlv-btn-height: var(--mlv-height-xs);
+    --mlv-btn-padding: var(--mlv-padding-xs);
+    max-width: 18rem;
+    border-start-end-radius: var(--mlv-radius-m);
+    border-end-end-radius: var(--mlv-radius-m);
+  }
+
+  &--query &__trigger--applied {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+  }
+
+  &--query &__clear {
+    --mlv-btn-height: var(--mlv-height-xs);
+    --mlv-btn-padding: var(--mlv-padding-xs);
+  }
+
+  &__panel {
+    display: flex;
+    width: min(26rem, calc(100vw - 2rem));
+    max-width: 100%;
+    flex-direction: column;
+    color: var(--mlv-text-primary);
+  }
+
+  &__panel-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mlv-spacing-2);
+    padding: var(--mlv-spacing-2-5) var(--mlv-spacing-3);
+  }
+
+  &__panel-footer {
+    justify-content: flex-end;
+    border-top: 0.0625rem solid var(--mlv-border-subtle);
+  }
+
+  &__panel-clear {
+    --mlv-btn-height: var(--mlv-height-xs);
+    --mlv-btn-padding: var(--mlv-padding-xs);
+  }
+
+  // The bounded editor is a shared `mlv-dropdown-panel`: it owns option row
+  // rhythm, selection tokens and its own scroll owner (a flex column around a
+  // themed scrollbar), so nothing here may reset its box — `display: block`
+  // would strip the scrollbar's flex bounds and turn a long list into clipped,
+  // unscrollable content. The panel also writes its height budget as an inline
+  // `max-height`, which no rule here can outrank, so the previous 20rem slab is
+  // requested through its own `maxHeight` input instead.
+  &__options {
+    min-width: 0;
+  }
+
+  &__empty {
+    display: block;
+    padding: var(--mlv-spacing-3);
+    color: var(--mlv-text-secondary);
+    text-align: center;
+  }
+
+  &__conditions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-2-5);
+    padding: var(--mlv-spacing-3);
+  }
+
+  &__condition {
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.8fr) minmax(10rem, 1.2fr) auto;
+    align-items: start;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__operator,
+  &__input,
+  &__strategy,
+  &__range,
+  &__value-cell {
+    min-width: 0;
+  }
+
+  &__range {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+  }
+
+  &__range-separator {
+    color: var(--mlv-text-secondary);
+  }
+
+  &__remove-condition {
+    margin-top: var(--mlv-spacing-0-5);
+  }
+
+  &__add-condition {
+    align-self: flex-start;
+  }
+
+  @media (max-width: 30rem) {
+    &__condition {
+      grid-template-columns: 1fr auto;
+    }
+
+    &__operator,
+    &__value-cell {
+      grid-column: 1;
+    }
+
+    &__remove-condition {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+    }
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

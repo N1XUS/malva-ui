@@ -1,0 +1,32 @@
+<div class="demo-row" style="flex-wrap: wrap">
+  <button mlvButton (click)="openString()">Open string</button>
+  <button mlvButton variant="secondary" (click)="openTemplate(templateContent)">
+    Open TemplateRef
+  </button>
+  <button mlvButton variant="secondary" (click)="openComponent()">
+    Open component
+  </button>
+  <button mlvButton variant="outlined" (click)="closeActive()">
+    Close active dialog
+  </button>
+</div>
+
+<ng-template #templateContent let-dialog let-data="data">
+  <mlv-dialog>
+    <mlv-dialog-header />
+    <mlv-dialog-body>
+      <p>
+        This template receives both its data and the dialog reference as
+        template context. The project owner is {{ data.owner }}.
+      </p>
+    </mlv-dialog-body>
+    <mlv-dialog-footer>
+      <button mlvButton variant="secondary" (click)="dialog.close()">
+        Dismiss
+      </button>
+      <button mlvButton (click)="dialog.close('reviewed')">
+        Mark reviewed
+      </button>
+    </mlv-dialog-footer>
+  </mlv-dialog>
+</ng-template>

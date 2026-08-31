@@ -1,0 +1,14 @@
+<div style="display: flex; flex-direction: column; gap: 1rem">
+  @for (variant of variants; track variant) {
+  <p>Variant: {{ variant }}</p>
+  <div style="display: flex; gap: 1rem">
+    <button [variant]="variant" mlvButton shape="default">Default</button>
+    <button [variant]="variant" mlvButton shape="circle" aria-label="Add">
+      <svg mlvButtonIcon lucidePlus></svg>
+    </button>
+    <button [variant]="variant" mlvButton shape="square" aria-label="Add">
+      <svg mlvButtonIcon lucidePlus></svg>
+    </button>
+  </div>
+  }
+</div>

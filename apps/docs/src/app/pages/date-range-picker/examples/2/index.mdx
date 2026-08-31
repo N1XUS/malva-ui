@@ -1,0 +1,7 @@
+## Label, Hint, and Validation State
+
+`mlv-date-range-picker` inherits from `FormControlBase`, so it accepts the same `label`, `hint`, `message`, `state`, and `clearable` inputs as every other Malva UI form control.
+
+`state` drives the colour of the message text: `'default'` | `'success'` | `'warning'` | `'error'` | `'info'`.
+
+In this example, getter properties evaluate the selected night count and update `state` and `message` whenever the picker value changes via `[(ngModel)]` binding.

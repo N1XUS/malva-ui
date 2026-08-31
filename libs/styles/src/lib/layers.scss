@@ -1,0 +1,19 @@
+/**
+ * Malva UI — CSS Cascade Layer order declaration
+ *
+ * Declares the ordering of the library's global style layers exactly once.
+ * Every global stylesheet that emits layered CSS `@use`s this partial first,
+ * and because Sass emits a module's CSS only once, the statement below is
+ * written to the compiled output a single time, ahead of any layered rule.
+ *
+ * Layer order (low → high priority within the library):
+ *   mlv.tokens      — design-token custom properties (theme.scss, muted.scss)
+ *   mlv.base        — global resets / element defaults (index.scss)
+ *   mlv.components  — library component styles and overlay chrome
+ *
+ * IMPORTANT — the cascade-layer contract:
+ *   Unlayered styles always beat layered styles, regardless of specificity.
+ *   Consumer overrides written WITHOUT `@layer` therefore win over anything in
+ *   these layers with zero specificity battles. See libs/styles/CLAUDE.md.
+ */
+@layer mlv.tokens, mlv.base, mlv.components;

@@ -1,0 +1,27 @@
+<div style="display: flex; flex-direction: column; gap: 1rem">
+  <mlv-file-upload
+    [formControl]="filesControl"
+    title="Reactive Forms binding"
+    subtitle="Controlled via FormControl — supports disable/reset"
+    actionLabel="Browse files"
+  />
+
+  <div
+    style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap"
+  >
+    <button
+      mlvButton
+      variant="secondary"
+      type="button"
+      (click)="toggleDisabled()"
+    >
+      {{ filesControl.disabled ? 'Enable' : 'Disable' }}
+    </button>
+    <button mlvButton variant="outlined" type="button" (click)="clear()">
+      Clear
+    </button>
+    <span style="font-size: 0.875rem; color: var(--mlv-text-secondary)">
+      {{ fileCount() }} file(s) selected
+    </span>
+  </div>
+</div>

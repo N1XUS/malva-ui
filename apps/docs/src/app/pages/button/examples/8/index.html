@@ -1,0 +1,11 @@
+<div style="padding-bottom: var(--mlv-spacing-2)">
+  <mlv-switch [(checked)]="loading">Loading</mlv-switch>
+</div>
+@for (variant of variants; track variant) {
+<div>
+  <p>{{ variant }}</p>
+  <button mlvButton [variant]="variant" [loading]="loading()">
+    {{ loading() ? 'Saving…' : 'Save changes' }}
+  </button>
+</div>
+}

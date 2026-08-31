@@ -1,0 +1,265 @@
+import type { ComponentFixture } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
+import { Component, signal } from '@angular/core';
+import axe from 'axe-core';
+import { MlvCheckbox } from './checkbox';
+import { MlvCheckboxGroup } from '../checkbox-group/checkbox-group';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+
+@Component({
+  template: `
+    <mlv-checkbox-group>
+      <mlv-checkbox>First</mlv-checkbox>
+      <mlv-checkbox [disabled]="true">Disabled</mlv-checkbox>
+      <mlv-checkbox>Third</mlv-checkbox>
+    </mlv-checkbox-group>
+  `,
+  imports: [MlvCheckbox, MlvCheckboxGroup],
+})
+class CheckboxGroupHostComponent {}
+
+@Component({
+  template: `
+    <mlv-checkbox aria-label="Select row" />
+    <mlv-checkbox aria-labelledby="ext-label" />
+    <mlv-checkbox [ariaLabel]="dynamicLabel()" aria-label="static loser" />
+    <span id="ext-label">External label</span>
+  `,
+  imports: [MlvCheckbox],
+})
+class CheckboxAriaHostComponent {
+  readonly dynamicLabel = signal('Select row 3');
+}
+
+function dispatchArrowDown(element: HTMLElement): void {
+  const event = new KeyboardEvent('keydown', {
+    key: 'ArrowDown',
+    bubbles: true,
+  });
+  Object.defineProperty(event, 'keyCode', { get: () => 40 });
+  element.dispatchEvent(event);
+}
+
+describe('MlvCheckbox', () => {
+  let component: MlvCheckbox;
+  let fixture: ComponentFixture<MlvCheckbox>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvCheckbox],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(MlvCheckbox);
+    component = fixture.componentInstance;
+    await fixture.whenStable();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  it('uses the native input as the single focus target (host not tabbable)', () => {
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const input = host.querySelector<HTMLInputElement>('.mlv-checkbox__native');
+    expect(host.getAttribute('tabindex')).toBeNull();
+    expect(input?.getAttribute('tabindex')).toBe('0');
+    component.focus();
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('toggles checked on native change and on Enter', () => {
+    fixture.detectChanges();
+    const input = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLInputElement>('.mlv-checkbox__native');
+    // Native change (e.g. Space / click)
+    if (input) {
+      input.checked = true;
+      input.dispatchEvent(new Event('change'));
+    }
+    fixture.detectChanges();
+    expect(component.checked()).toBe(true);
+    // Enter keydown on the input
+    input?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+    fixture.detectChanges();
+    expect(component.checked()).toBe(false);
+  });
+
+  it('forces tabindex -1 on the native input when tabbable is false', () => {
+    fixture.componentRef.setInput('tabbable', false);
+    fixture.detectChanges();
+    const input = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLInputElement>('.mlv-checkbox__native');
+    expect(input?.getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('does not emit an empty aria-label/aria-labelledby on the input when none is supplied', () => {
+    fixture.detectChanges();
+    const input = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLInputElement>('.mlv-checkbox__native');
+    expect(input?.hasAttribute('aria-label')).toBe(false);
+    expect(input?.hasAttribute('aria-labelledby')).toBe(false);
+  });
+});
+
+describe('MlvCheckbox host aria-label/aria-labelledby forwarding', () => {
+  let fixture: ComponentFixture<CheckboxAriaHostComponent>;
+  let hosts: HTMLElement[];
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CheckboxAriaHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(CheckboxAriaHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    hosts = Array.from(
+      fixture.nativeElement.querySelectorAll<HTMLElement>('mlv-checkbox'),
+    );
+  });
+
+  it('moves a host aria-label onto the inner input and strips it from the host', () => {
+    const host = hosts[0];
+    const input = host.querySelector<HTMLInputElement>('.mlv-checkbox__native');
+    expect(host.hasAttribute('aria-label')).toBe(false);
+    expect(input?.getAttribute('aria-label')).toBe('Select row');
+  });
+
+  it('moves a host aria-labelledby onto the inner input and strips it from the host', () => {
+    const host = hosts[1];
+    const input = host.querySelector<HTMLInputElement>('.mlv-checkbox__native');
+    expect(host.hasAttribute('aria-labelledby')).toBe(false);
+    expect(input?.getAttribute('aria-labelledby')).toBe('ext-label');
+  });
+
+  it('renders the ariaLabel input on the inner input, winning over a static host aria-label, and tracks changes', () => {
+    const host = hosts[2];
+    const input = host.querySelector<HTMLInputElement>('.mlv-checkbox__native');
+    expect(host.hasAttribute('aria-label')).toBe(false);
+    expect(input?.getAttribute('aria-label')).toBe('Select row 3');
+
+    fixture.componentInstance.dynamicLabel.set('Select row 4');
+    fixture.detectChanges();
+    expect(input?.getAttribute('aria-label')).toBe('Select row 4');
+  });
+
+  it('has no aria-prohibited-attr violations (axe)', async () => {
+    const results = await axe.run(fixture.nativeElement as HTMLElement, {
+      runOnly: { type: 'rule', values: ['aria-prohibited-attr'] },
+    });
+    expect(results.violations).toEqual([]);
+  });
+});
+
+describe('MlvCheckboxGroup', () => {
+  it('should skip disabled checkboxes during arrow navigation', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CheckboxGroupHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(CheckboxGroupHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const checkboxes = Array.from(
+      fixture.nativeElement.querySelectorAll<HTMLElement>('mlv-checkbox'),
+    );
+
+    const firstInput = checkboxes[0].querySelector<HTMLInputElement>(
+      '.mlv-checkbox__native',
+    );
+    firstInput?.focus();
+    firstInput?.dispatchEvent(new FocusEvent('focus'));
+    dispatchArrowDown(checkboxes[0]);
+    fixture.detectChanges();
+
+    // Focus lands on the native input inside the third checkbox, not the host.
+    expect(checkboxes[2].contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(
+      checkboxes[2].querySelector('.mlv-checkbox__native'),
+    );
+  });
+});
+
+@Component({
+  template: `
+    <mlv-checkbox label="Newsletter" />
+    <mlv-checkbox label="Fallback loser">Projected wins</mlv-checkbox>
+  `,
+  imports: [MlvCheckbox],
+})
+class CheckboxLabelHostComponent {}
+
+describe('MlvCheckbox visible label input', () => {
+  let fixture: ComponentFixture<CheckboxLabelHostComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CheckboxLabelHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(CheckboxLabelHostComponent);
+    await fixture.whenStable();
+  });
+
+  function boxes(): HTMLElement[] {
+    return Array.from(
+      fixture.nativeElement.querySelectorAll<HTMLElement>('mlv-checkbox'),
+    );
+  }
+
+  it('renders the label input as visible text when nothing is projected', () => {
+    const labelText = boxes()[0].querySelector(
+      '.mlv-checkbox__label-text',
+    ) as HTMLElement;
+    expect(labelText.textContent?.trim()).toBe('Newsletter');
+    expect(
+      (
+        boxes()[0].querySelector('.mlv-checkbox__label') as HTMLElement
+      ).textContent?.trim(),
+    ).toBe('Newsletter');
+  });
+
+  it('keeps the projected text as the single visible label when both are set', () => {
+    const content = boxes()[1].querySelector(
+      '.mlv-checkbox__content',
+    ) as HTMLElement;
+    expect(content.textContent?.trim()).toBe('Projected wins');
+    // The fallback stays in the DOM but is display:none-d by the sibling rule,
+    // so it never joins the accessible name.
+    expect(content.matches(':empty')).toBe(false);
+  });
+
+  it('warns in dev mode when nothing labels the checkbox', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const bare = TestBed.createComponent(MlvCheckbox);
+    await bare.whenStable();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('mlv-checkbox');
+    warn.mockRestore();
+  });
+
+  it('sets aria-required on the native input when required', async () => {
+    const bare = TestBed.createComponent(MlvCheckbox);
+    bare.componentRef.setInput('required', true);
+    bare.componentRef.setInput('ariaLabel', 'Accept terms');
+    await bare.whenStable();
+
+    expect(
+      bare.nativeElement
+        .querySelector('.mlv-checkbox__native')
+        .getAttribute('aria-required'),
+    ).toBe('true');
+  });
+});

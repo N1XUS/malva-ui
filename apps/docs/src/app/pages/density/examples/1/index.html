@@ -1,0 +1,96 @@
+<div class="demo-col">
+  <div class="demo-row">
+    <button
+      mlvButton
+      [variant]="densityService.density() === 'compact' ? 'primary' : 'secondary'"
+      (click)="setDensity('compact')"
+    >
+      Compact
+    </button>
+    <button
+      mlvButton
+      [variant]="densityService.density() === 'comfortable' ? 'primary' : 'secondary'"
+      (click)="setDensity('comfortable')"
+    >
+      Comfortable
+    </button>
+    <button
+      mlvButton
+      [variant]="densityService.density() === 'spacious' ? 'primary' : 'secondary'"
+      (click)="setDensity('spacious')"
+    >
+      Spacious
+    </button>
+  </div>
+
+  <div mlvDensityRoot class="density-root-demo">
+    <div class="density-root-demo__indicator">
+      <span class="density-root-demo__label"
+        >Host element class applied by <code>mlvDensityRoot</code>:</span
+      >
+      <code class="density-root-demo__class"
+        >mlv--{{ densityService.density() }}</code
+      >
+    </div>
+    <div class="density-root-demo__boxes">
+      <div class="density-root-demo__box">Item A</div>
+      <div class="density-root-demo__box">Item B</div>
+      <div class="density-root-demo__box">Item C</div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .density-root-demo {
+    padding: 1rem;
+    border: 1px solid var(--mlv-border-normal);
+    border-radius: var(--mlv-radius-m);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .density-root-demo__indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--mlv-typography-body-s-size);
+    color: var(--mlv-text-secondary);
+  }
+
+  .density-root-demo__label {
+    flex-shrink: 0;
+  }
+
+  .density-root-demo__class {
+    background: var(--mlv-background-accent-1);
+    color: var(--mlv-text-primary-on-accent-1);
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--mlv-radius-s);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  .density-root-demo__boxes {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .density-root-demo__box {
+    padding: 1rem;
+    background: var(--mlv-background-neutral-1);
+    border-radius: var(--mlv-radius-m);
+    font-size: var(--mlv-typography-body-m-size);
+    transition: padding 0.2s ease;
+  }
+
+  /* Density overrides via CSS cascade — mirrors the SCSS density mixin pattern */
+  .mlv--compact .density-root-demo__box {
+    padding: 0.25rem 0.5rem;
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  .mlv--spacious .density-root-demo__box {
+    padding: 1.5rem 2rem;
+    font-size: var(--mlv-typography-body-l-size);
+  }
+</style>

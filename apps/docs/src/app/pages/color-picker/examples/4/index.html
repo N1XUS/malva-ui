@@ -1,0 +1,62 @@
+<div
+  style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start"
+>
+  <div style="display: flex; flex-direction: column; gap: 0.5rem">
+    <p
+      style="
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #666;
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      "
+    >
+      All formats
+    </p>
+    <mlv-color-picker
+      defaultMode="hex"
+      (colorChange)="allFormatsColor.set($event)"
+    />
+    <code>{{ allFormatsColor() }}</code>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 0.5rem">
+    <p
+      style="
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #666;
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      "
+    >
+      RGB only — no tabs
+    </p>
+    <mlv-color-picker
+      [supportedFormats]="['rgb']"
+      (colorChange)="rgbColor.set($event)"
+    />
+    <code>{{ rgbColor() }}</code>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 0.5rem">
+    <p
+      style="
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #666;
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      "
+    >
+      HSL then HEX
+    </p>
+    <mlv-color-picker
+      defaultMode="hsl"
+      [supportedFormats]="['hsl', 'hex']"
+      (colorChange)="orderedColor.set($event)"
+    />
+    <code>{{ orderedColor() }}</code>
+  </div>
+</div>

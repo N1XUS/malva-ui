@@ -1,0 +1,73 @@
+.custom-anim-demo {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  &__trigger {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--mlv-border-normal);
+    border-radius: var(--mlv-radius-m);
+    background: var(--mlv-background-neutral-1);
+    color: var(--mlv-text-action);
+    font-family: var(--mlv-typography-family-text);
+    font-size: var(--mlv-typography-body-m-size);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--mlv-duration-fast)
+      var(--mlv-ease-default);
+
+    &:hover {
+      background: var(--mlv-background-neutral-1-hover);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width) solid var(--mlv-border-focus);
+      outline-offset: 0.125rem;
+    }
+  }
+
+  &__panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    padding: 1rem 1.25rem;
+    background: var(--mlv-background-overlay);
+    border: 1px solid var(--mlv-border-normal);
+    border-radius: var(--mlv-radius-l);
+    box-shadow: var(--mlv-shadow-floating);
+    min-width: 18rem;
+    transform-origin: top left;
+    z-index: 10;
+
+    p {
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+      margin: 0 0 0.75rem;
+      line-height: 1.5;
+    }
+
+    code {
+      font-family: var(--mlv-typography-family-code);
+      font-size: 0.8125rem;
+      background: var(--mlv-background-subtle);
+      padding: 0.1em 0.3em;
+      border-radius: var(--mlv-radius-xs);
+    }
+  }
+
+  &__close {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--mlv-border-normal);
+    border-radius: var(--mlv-radius-m);
+    background: transparent;
+    color: var(--mlv-text-secondary);
+    font-family: var(--mlv-typography-family-text);
+    font-size: var(--mlv-typography-body-s-size);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--mlv-background-neutral-1);
+    }
+  }
+}

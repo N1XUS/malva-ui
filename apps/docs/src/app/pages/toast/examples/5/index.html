@@ -1,0 +1,58 @@
+<div class="demo-row" style="flex-wrap: wrap">
+  <button mlvButton (click)="openString()">String + tone icon</button>
+  <button
+    mlvButton
+    variant="secondary"
+    (click)="openAvatarTemplate(avatarContent)"
+  >
+    Avatar + action
+  </button>
+  <button
+    mlvButton
+    variant="secondary"
+    (click)="openBadgeTemplate(badgeContent)"
+  >
+    Badge + multi-line
+  </button>
+  <button mlvButton variant="secondary" (click)="openComponent()">
+    Component + spinner
+  </button>
+  <button mlvButton variant="outlined" (click)="closeActive()">
+    Close active toast
+  </button>
+</div>
+
+<ng-template #avatarContent let-ref let-data="data">
+  <mlv-avatar
+    mlvToastIcon
+    size="xs"
+    [src]="data.avatarUrl"
+    [name]="data.name"
+  />
+  <span mlvToastTitle>{{ data.name }} shared {{ data.file }}</span>
+  <button
+    mlvButton
+    variant="transparent"
+    mlvDensity="compact"
+    (click)="ref.close()"
+  >
+    Open
+  </button>
+</ng-template>
+
+<ng-template #badgeContent let-ref>
+  <mlv-badge mlvToastIcon tone="warning" mlvDensity="compact">3</mlv-badge>
+  <span mlvToastTitle>Three imported records need review</span>
+  <span mlvToastDescription>
+    Duplicate customer entries were detected during the last sync and were left
+    untouched.
+  </span>
+  <button
+    mlvButton
+    variant="transparent"
+    mlvDensity="compact"
+    (click)="ref.close()"
+  >
+    Review
+  </button>
+</ng-template>

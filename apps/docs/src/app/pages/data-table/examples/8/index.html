@@ -1,0 +1,55 @@
+<mlv-data-table [data]="issues" [columns]="columns" [striped]="true">
+  <ng-template mlvDataTableCell="id" [mlvDataTableCellFrom]="issues" let-row>
+    <a class="dt-issue-link" href="#">
+      {{ row.id }}
+      <svg lucideExternalLink [size]="12" />
+    </a>
+  </ng-template>
+
+  <ng-template
+    mlvDataTableCell="status"
+    [mlvDataTableCellFrom]="issues"
+    let-row
+  >
+    <mlv-badge [tone]="statusColor(row.status)" muted
+      >{{ statusLabel(row.status) }}</mlv-badge
+    >
+  </ng-template>
+
+  <ng-template
+    mlvDataTableCell="priority"
+    [mlvDataTableCellFrom]="issues"
+    let-row
+  >
+    <mlv-badge [tone]="priorityColor(row.priority)" muted
+      >{{ row.priority }}</mlv-badge
+    >
+  </ng-template>
+
+  <ng-template
+    mlvDataTableCell="assignee"
+    [mlvDataTableCellFrom]="issues"
+    let-row
+  >
+    <div class="dt-assignee">
+      <mlv-avatar
+        [name]="row.assignee.name"
+        [color]=" row.assignee.name | mlvColorFromText"
+        size="s"
+      />
+      <span>{{ row.assignee.name }}</span>
+    </div>
+  </ng-template>
+
+  <ng-template
+    mlvDataTableCell="labels"
+    [mlvDataTableCellFrom]="issues"
+    let-row
+  >
+    <div class="dt-labels">
+      @for (label of row.labels; track label) {
+      <mlv-chip>{{ label }}</mlv-chip>
+      }
+    </div>
+  </ng-template>
+</mlv-data-table>

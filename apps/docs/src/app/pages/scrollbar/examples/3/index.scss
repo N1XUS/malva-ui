@@ -1,0 +1,35 @@
+.example-both-box {
+  height: 11rem;
+  border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-l);
+}
+
+.example-table {
+  border-collapse: collapse;
+  font-size: var(--mlv-font-size-s);
+  white-space: nowrap;
+
+  th,
+  td {
+    padding: 0.5rem 1rem;
+    text-align: left;
+    border-bottom: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+
+  th {
+    color: var(--mlv-text-label);
+    font-weight: var(--mlv-font-weight-semibold);
+    background: var(--mlv-background-subtle);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  td {
+    color: var(--mlv-text-primary);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+}

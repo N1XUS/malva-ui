@@ -1,0 +1,7 @@
+## Programmatic Content
+
+`MlvToastService.open()` accepts a plain string, a `TemplateRef`, or a component type. Only the string and `{ title, description }` branches use the built-in tone icon — template and component content is content-rich and owns its own composition.
+
+Mark the leading element with `[mlvToastIcon]` and it aligns with the built-in icon slot: an `mlv-avatar`, an `mlv-badge`, or an `mlv-loader` all work. Pair it with `[mlvToastTitle]` / `[mlvToastDescription]` for text and any `mlvButton` for an inline action; the built-in close button is still supplied by `closable`.
+
+Templates receive the `MlvToastRef` as their implicit context plus the configured payload as `data`. Components can inject `MlvToastRef` and `TOAST_DATA` — the spinner example drives its own state and swaps the leading icon when the job completes.

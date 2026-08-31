@@ -1,0 +1,49 @@
+<div class="demo-col" style="gap: 1.5rem">
+  <div style="display: flex; flex-direction: column; gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6">Leading icon</span>
+    <div style="display: flex; align-items: center; gap: 0.5rem">
+      <mlv-badge tone="success" muted>
+        <svg lucideCheck mlvBadgeIcon></svg>
+        Published
+      </mlv-badge>
+      <mlv-badge tone="info" muted>
+        <svg lucideClock mlvBadgeIcon></svg>
+        Scheduled
+      </mlv-badge>
+      <mlv-badge tone="warning" muted>
+        <svg lucideCircleAlert mlvBadgeIcon></svg>
+        Needs review
+      </mlv-badge>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6">
+      Trailing icon via <code>position="end"</code>
+    </span>
+    <div style="display: flex; align-items: center; gap: 0.5rem">
+      <mlv-badge tone="primary">
+        en-US
+        <svg lucideGlobe mlvBadgeIcon position="end"></svg>
+      </mlv-badge>
+      <mlv-badge tone="secondary">
+        de-DE
+        <svg lucideGlobe mlvBadgeIcon position="end"></svg>
+      </mlv-badge>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6">
+      The icon tracks the density-driven font size
+    </span>
+    <div style="display: flex; align-items: center; gap: 0.5rem">
+      @for (density of densities; track density) {
+      <mlv-badge tone="success" [mlvDensity]="density">
+        <svg lucideCheck mlvBadgeIcon></svg>
+        {{ density }}
+      </mlv-badge>
+      }
+    </div>
+  </div>
+</div>

@@ -1,0 +1,21 @@
+<div class="dropdown-paging">
+  <mlv-dropdown-panel
+    class="mlv-dropdown-panel--surface dropdown-paging__panel"
+    loadingText="Fetching builds…"
+    [options]="options()"
+    [selectedValues]="selected()"
+    [loading]="loading()"
+    [loadingMore]="loadingMore()"
+    [hasMore]="hasMore()"
+    [maxHeight]="240"
+    (loadMore)="onLoadMore()"
+    (valueChange)="onValueChange($event)"
+  />
+
+  <div class="dropdown-paging__footer">
+    <p class="dropdown-paging__status" aria-live="polite">{{ status() }}</p>
+    <button mlvButton variant="outlined" size="s" (click)="reload()">
+      Reload
+    </button>
+  </div>
+</div>

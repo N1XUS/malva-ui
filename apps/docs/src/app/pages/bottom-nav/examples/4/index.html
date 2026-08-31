@@ -1,0 +1,15 @@
+<div class="demo-controls">
+  <button class="demo-btn" (click)="toggleStacking()">
+    Stacking: {{ stacking }}
+  </button>
+  <button class="demo-btn" (click)="toggleLabelVisibility()">
+    Labels: {{ labelVisibility }}
+  </button>
+</div>
+
+<mlv-bottom-nav
+  [items]="items"
+  [stacking]="stacking"
+  [labelVisibility]="labelVisibility"
+  class="demo-bottom-nav"
+/>

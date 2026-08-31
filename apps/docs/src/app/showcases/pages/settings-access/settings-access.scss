@@ -1,0 +1,807 @@
+@use '../../../../../../../libs/styles/src/lib/breakpoints' as bp;
+@use 'sass:map';
+
+$block: settings-access-showcase;
+
+// Severity ramp for the change-review record cards (§3.4). The left rail and
+// the consequence sentence always move together, so one map drives both. The
+// unmodified card is the `neutral` step and lives in the defaults below.
+$severities: (
+  'caution': (
+    'rail': var(--mlv-background-warning-1),
+    'consequence': var(--mlv-text-warning),
+  ),
+  'blocking': (
+    'rail': var(--mlv-background-danger-1),
+    'consequence': var(--mlv-text-negative),
+  ),
+);
+
+.#{$block} {
+  // ── Frame ───────────────────────────────────────────────────────────────
+  // `mlv-page-shell` is `display: flex; overflow: hidden` with no intrinsic
+  // height, so left alone the whole composition is content-sized. Three things
+  // break at once when that happens, and one definite block-size fixes all of
+  // them:
+  //
+  //   1. `.mlv-page__scrollbar` is `height: 100%`. Against an indefinite parent
+  //      that resolves to `auto`, so the page never scrolls internally — the
+  //      document scrolls instead and `.mlv-page-shell`'s own `overflow: hidden`
+  //      becomes a scrollport that never moves, which is what every
+  //      `position: sticky` inside (header, dock, aside) resolves against. They
+  //      simply scroll away.
+  //   2. `.mlv-page-shell__sidebar.mlv-sidebar { height: 100% }` is two classes
+  //      and outranks `.mlv-sidebar--full-height`'s `calc(100dvh - …)`, which is
+  //      one. With an indefinite parent that `100%` also degrades to `auto`, so
+  //      the rail shrinks to header + footer and `.mlv-sidebar__content`
+  //      (`flex: 1 1 0`) measures 0 — the settings navigation disappears.
+  //   3. The dock can never pin, because there is nothing to pin it against.
+  //
+  // 6.75rem is the `padding-top` the showcase shell reserves for the fixed docs
+  // app bar. `svh` on a phone: `dvh` would re-run the page scroller's thumb math
+  // every time the mobile URL bar collapses.
+  &.mlv-page-shell {
+    block-size: calc(100svh - 6.75rem);
+
+    @include bp.breakpoint-up(md) {
+      block-size: calc(100dvh - 6.75rem);
+    }
+  }
+
+  // `mlv-page-content` sticks the aside at `--mlv-page-aside-offset`, which
+  // defaults to `--mlv-spacing-4` — not enough to clear the sticky page header.
+  // The size that matters is the *snapped* one, because the aside only pins
+  // once the page has scrolled and `snapControls` has already folded the
+  // summary strip and the tab strip away: 6.9375rem in every section (the
+  // title row plus the description), measured identically on Members & roles
+  // and API access. 7.5rem clears it with a hairline of breathing room.
+  --mlv-page-aside-offset: 7.5rem;
+
+  // ── Settings rail ───────────────────────────────────────────────────────
+  // The rail's height is not set here: `.mlv-page-shell__sidebar.mlv-sidebar`
+  // already declares `height: 100%` at a higher specificity than
+  // `.mlv-sidebar--full-height`, and that percentage resolves correctly the
+  // moment the shell above has a definite block-size. All the rail needs is
+  // permission to shrink, so `collapseBelow` can take it down to the icon
+  // column without the workspace switcher's min-content width pinning it open.
+  &__rail {
+    min-inline-size: 0;
+  }
+
+  &__ws-name {
+    display: block;
+    min-inline-size: 0;
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-font-weight-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__ws-meta {
+    display: block;
+    min-inline-size: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // The Danger zone row keeps the shared row geometry but recolours the three
+  // state surfaces `.mlv-sidebar` exposes for exactly this (see sidebar.scss).
+  // Declaring them on the item wins over `mlv-page-shell`'s chrome-derived
+  // values by proximity, without touching any global token.
+  &__nav-item--danger {
+    --mlv-sidebar-rail-color: var(--mlv-background-danger-1);
+    --mlv-sidebar-hover-bg: var(--mlv-background-danger-1-pale);
+    --mlv-sidebar-active-bg: var(--mlv-background-danger-1-pale);
+  }
+
+  &__rail-footer {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+
+    // A collapsed rail has a 2.5rem content box — everything but the avatar and
+    // the presence dot has to go, or the footer overflows the icon column.
+    .mlv-sidebar--collapsed & {
+      justify-items: center;
+
+      .#{$block}__identity-text,
+      .#{$block}__view-as,
+      mlv-description {
+        display: none;
+      }
+    }
+  }
+
+  &__identity {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+  }
+
+  &__identity-text {
+    display: grid;
+    min-inline-size: 0;
+  }
+
+  &__identity-name {
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-font-weight-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__identity-role {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__view-as {
+    min-inline-size: 0;
+  }
+
+  // Only rendered below lg, where the rail is an offcanvas drawer and this is
+  // the only route back to the settings navigation. The host is `width: 100%`
+  // so it needs an intrinsic size to sit in the header's action row.
+  &__rail-trigger {
+    flex: 0 0 auto;
+
+    // The trigger sizes from `--mlv-sidebar-row-height` (2.25rem), under the
+    // 2.75rem touch floor. `::ng-deep` because the button is in the trigger
+    // component's own template.
+    ::ng-deep .mlv-sidebar-trigger__btn {
+      min-inline-size: 2.75rem;
+      min-block-size: 2.75rem;
+    }
+  }
+
+  // ── Page header ─────────────────────────────────────────────────────────
+  // `.mlv-page-header__tabs` is `flex: 1 1 auto; overflow: hidden`, but its
+  // sibling actions slot is `flex: 0 0 auto`. A search field at its intrinsic
+  // width therefore pushes the tab strip instead of shrinking, and the strip's
+  // own overflow ("More (n)") never engages.
+  &__tabs {
+    min-inline-size: 0;
+
+    // Belt and braces: the group's overflow measurement compares the track
+    // against `headerEl.clientWidth`, so the header must be allowed to be
+    // narrower than its tabs. It lives in the group's own template.
+    ::ng-deep .mlv-tab-group__header {
+      min-inline-size: 0;
+    }
+  }
+
+  // The tabs row is `display: flex` with the actions slot at `flex: 0 0 auto`,
+  // so a search field at its intrinsic width pushes the strip instead of
+  // shrinking. Letting the row wrap and the actions shrink gives the strip its
+  // overflow back; below md the actions take a row of their own (§7).
+  ::ng-deep .mlv-page-header__tabs-row {
+    flex-wrap: wrap;
+    row-gap: var(--mlv-spacing-2);
+  }
+
+  ::ng-deep .mlv-page-header__tabs-actions {
+    flex-shrink: 1;
+    min-inline-size: 0;
+
+    @include bp.breakpoint-down(md) {
+      flex: 1 1 100%;
+    }
+  }
+
+  &__tab-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+  }
+
+  // sm — the field takes its own row under the strip rather than competing
+  // with the tabs for the remaining inline space.
+  &__search {
+    flex: 1 1 100%;
+    min-inline-size: 0;
+
+    @include bp.breakpoint-up(md) {
+      flex: 0 1 auto;
+      inline-size: 16rem;
+    }
+  }
+
+  // ── Form column ─────────────────────────────────────────────────────────
+  &__column {
+    display: grid;
+    align-content: start;
+    gap: var(--mlv-spacing-4);
+    min-inline-size: 0;
+  }
+
+  &__panel {
+    display: grid;
+    align-content: start;
+    gap: var(--mlv-spacing-3);
+    min-inline-size: 0;
+  }
+
+  // Every settings section form sits on its own card surface. The 46rem cap that
+  // used to live on the form itself (`mlvForm maxWidth`) is gone: the card is the
+  // surface now, so capping it left a dead gutter between the card edge and the
+  // change-review aside on wide screens. The card fills the content column and
+  // the fieldset grid keeps the individual fields to a readable measure.
+  &__form-card {
+    min-inline-size: 0;
+  }
+
+  // The roster table and the invitations list sit on the same card surface the
+  // section forms use, so a tab switch inside Members & roles does not change
+  // what the content is standing on.
+  &__panel-card {
+    min-inline-size: 0;
+  }
+
+  &__skeletons {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+  }
+
+  // ── Roster ──────────────────────────────────────────────────────────────
+  // The roster is an `mlv-data-table`: it owns the row rhythm, the header, the
+  // hairline seams and the horizontal scroll surface, so the only thing left
+  // here is the inside of the four projected cells. `min-inline-size: 0` keeps
+  // the table's own `overflow-x` wrapper as the scrolling element instead of
+  // letting a wide table push the content column — and the document — wider.
+  &__roster {
+    min-inline-size: 0;
+  }
+
+  // Rows stay a flex line rather than a fixed grid: the track count would have
+  // to follow an optional "Unsaved" badge and a `mlv-menu` anchor, and the
+  // children below already carry their own basis. The projected children are
+  // laid out by `.mlv-list-item__content`, which lives in the list item's own
+  // template — hence the one `::ng-deep` per row family.
+  &__invitation,
+  &__session {
+    border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    border-radius: 0;
+    min-inline-size: 0;
+
+    ::ng-deep .mlv-list-item__content {
+      flex-wrap: wrap;
+      align-items: center;
+      row-gap: var(--mlv-spacing-2);
+      column-gap: var(--mlv-spacing-3);
+
+      @include bp.breakpoint-up(md) {
+        flex-wrap: nowrap;
+      }
+    }
+  }
+
+  // ── Blocked-reason rows (§8.8) ──────────────────────────────────────────
+  // A blocked reason is passed to the row control as `[message]`, so
+  // `mlv-select` renders it in its own message container *inside* the row's
+  // control track. These sentences are contract copy — a truncated blocked
+  // reason is exactly the wrong affordance — so an invitation or session row
+  // that carries one gives it the width instead: the cell takes a line of its
+  // own and the message reads straight across the list. `flex-basis: 100%`
+  // rather than a tuned percentage so the wrap is decided by the declaration
+  // and not by how wide the canvas happens to be.
+  //
+  // The roster no longer appears here. A table cell is narrower than the list
+  // row ever was and cannot take "a line of its own", so the sole-owner
+  // sentence moved to the tooltip on the row's info button — see the roster
+  // markup. The role cell keeps `mlv-select`'s `[state]="warning"` as the
+  // visible signal that the control is blocked.
+  &__invitation:has(.mlv-message),
+  &__session:has(.mlv-message) {
+    ::ng-deep .mlv-list-item__content {
+      flex-wrap: wrap;
+    }
+  }
+
+  // Avatar + name button, projected into the table's Member cell.
+  // `.mlv-data-table__cell-content` is itself a flex container, so a projected
+  // cell wrapper is a flex *item* and would otherwise be sized by its content
+  // rather than by the column — hence `flex: 1 1 auto` on both cell wrappers.
+  &__member-identity {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+  }
+
+  // A transparent `mlvButton` used as a row title — it keeps the button's focus
+  // ring and hit area but reads as the row's name.
+  &__member-name {
+    justify-content: flex-start;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    color: var(--mlv-text-primary);
+    font-weight: var(--mlv-font-weight-semibold);
+    text-align: start;
+  }
+
+  // The address truncates rather than setting the column's intrinsic width, so
+  // the Member / Role / Two-factor / Actions columns keep the widths they were
+  // declared with and the row menu stays inside the table's scroll port.
+  &__member-email {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    color: var(--mlv-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // The Role cell: the select, plus whichever single trailing marker the row
+  // has earned — the sole owner's info button or the "Unsaved" badge. They are
+  // mutually exclusive (a blocked role can never be dirty), so the select keeps
+  // one flexible track and the marker sits at its natural size.
+  &__member-role {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    min-inline-size: 0;
+
+    > mlv-select {
+      flex: 1 1 auto;
+      min-inline-size: 0;
+    }
+  }
+
+  // Last-active is the lowest-value column in the roster: the column itself is
+  // responsive-hidden until the table is wide enough, so the cell only has to
+  // stay on one line and keep its digits aligned.
+  &__member-active {
+    color: var(--mlv-text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  // ── Invitations ─────────────────────────────────────────────────────────
+  &__invitation-main {
+    display: grid;
+    flex: 1 1 14rem;
+    gap: var(--mlv-spacing-1);
+    min-inline-size: 0;
+  }
+
+  &__invitation-email {
+    color: var(--mlv-text-primary);
+    font-weight: var(--mlv-font-weight-medium);
+    overflow-wrap: anywhere;
+  }
+
+  &__invitation-meta {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    overflow-wrap: anywhere;
+  }
+
+  &__invitation-actions {
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+  }
+
+  // ── Roles ───────────────────────────────────────────────────────────────
+  &__role-grid {
+    display: grid;
+    // `min(100%, …)` keeps the track from overflowing a canvas narrower than
+    // the floor, which `auto-fit` alone does not.
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    gap: var(--mlv-spacing-3);
+    min-inline-size: 0;
+  }
+
+  &__role-card {
+    display: grid;
+    align-content: start;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+  }
+
+  &__role-summary {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__role-permissions {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+    margin: 0;
+    padding-inline-start: var(--mlv-spacing-5);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  // ── Sessions ────────────────────────────────────────────────────────────
+  &__session-main {
+    display: grid;
+    flex: 1 1 14rem;
+    gap: var(--mlv-spacing-1);
+    min-inline-size: 0;
+  }
+
+  &__session-device {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+    color: var(--mlv-text-primary);
+    font-weight: var(--mlv-font-weight-medium);
+  }
+
+  &__session-meta {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    overflow-wrap: anywhere;
+  }
+
+  // ── API keys ────────────────────────────────────────────────────────────
+  &__key-card {
+    display: grid;
+    align-content: start;
+    gap: var(--mlv-spacing-3);
+    min-inline-size: 0;
+  }
+
+  &__key-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__key-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--mlv-spacing-2);
+
+    // Below md the two actions stack full width so `Delete` is never a
+    // mis-tap away from `Rotate`.
+    > * {
+      flex: 1 1 100%;
+    }
+
+    @include bp.breakpoint-up(md) {
+      > * {
+        flex: 0 0 auto;
+      }
+    }
+  }
+
+  // ── Danger zone ─────────────────────────────────────────────────────────
+  &__danger-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    gap: var(--mlv-spacing-3);
+    min-inline-size: 0;
+  }
+
+  &__danger-card {
+    display: grid;
+    align-content: start;
+    gap: var(--mlv-spacing-2);
+    border-inline-start: 0.1875rem solid var(--mlv-background-danger-1);
+    min-inline-size: 0;
+
+    p {
+      margin: 0;
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+    }
+
+    button {
+      justify-self: start;
+    }
+  }
+
+  // ── Change review aside ─────────────────────────────────────────────────
+  &__aside {
+    display: grid;
+    align-content: start;
+    gap: var(--mlv-spacing-3);
+    min-inline-size: 0;
+
+    // While the aside is an in-flow sticky column it must never grow past the
+    // page scrollport, or its tail — the activity feed and the audit-log link —
+    // can never be reached. Stacked below the form it is in normal flow again
+    // and the cap has to come off, or the same content gets clipped instead.
+    .mlv-page-content--aside-sticky:not(.mlv-page-content--stacked) & {
+      // 6.75rem is the shell offset again. `--mlv-page-dock-height` is the
+      // sticky dock's own published contract (`mlv-page-dock` writes it on the
+      // document element) — without it the panel's last rows sit behind the
+      // dock's glass bar. The `max()` floor keeps the panel usable on a short
+      // laptop screen, where it simply extends past the scrollport and the
+      // page scroll reaches the rest.
+      max-block-size: max(
+        18rem,
+        calc(
+          100dvh -
+            6.75rem - var(--mlv-page-aside-offset) - var(
+              --mlv-page-dock-height,
+              0px
+            ) - var(--mlv-spacing-4)
+        )
+      );
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-inline-end: var(--mlv-spacing-1);
+    }
+  }
+
+  &__aside-head {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+  }
+
+  &__aside-subhead {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-font-weight-semibold);
+    letter-spacing: var(--mlv-letter-spacing-wider);
+    text-transform: uppercase;
+  }
+
+  // A staged group belonging to another section: a quieter, recessed shelf so
+  // the current section's records stay the foreground.
+  &__aside-collapsed {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+    border-radius: var(--mlv-radius-m);
+    padding: var(--mlv-padding-xs);
+    background: var(--mlv-background-neutral-1);
+    min-inline-size: 0;
+  }
+
+  &__changes {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+    margin: 0;
+    padding: 0;
+    min-inline-size: 0;
+    list-style: none;
+  }
+
+  // ── Change record card (§3.4) ───────────────────────────────────────────
+  &__change {
+    // Two properties, both driven by the record's severity — the only reason a
+    // component-scoped variable exists here rather than a direct token.
+    --mlv-settings-access-change-rail: var(--mlv-border-subtle);
+    --mlv-settings-access-change-consequence: var(--mlv-text-secondary);
+
+    display: grid;
+    gap: var(--mlv-spacing-1);
+    border-inline-start: 0.1875rem solid var(--mlv-settings-access-change-rail);
+    border-radius: var(--mlv-radius-s);
+    // `--mlv-padding-*` is a `block inline` pair, so the halves are spelled out
+    // here — the inline side is bumped to clear the severity rail.
+    padding: var(--mlv-spacing-1-5) var(--mlv-spacing-2) var(--mlv-spacing-1-5)
+      var(--mlv-spacing-3);
+    background: var(--mlv-background-neutral-1);
+    min-inline-size: 0;
+  }
+
+  @each $name, $props in $severities {
+    &__change--#{$name} {
+      --mlv-settings-access-change-rail: #{map.get($props, 'rail')};
+      --mlv-settings-access-change-consequence: #{map.get(
+          $props,
+          'consequence'
+        )};
+    }
+  }
+
+  &__change-head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--mlv-spacing-1);
+    min-inline-size: 0;
+  }
+
+  &__change-label {
+    min-inline-size: 0;
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-font-weight-semibold);
+    overflow-wrap: anywhere;
+  }
+
+  &__change-values {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    min-inline-size: 0;
+    font-size: var(--mlv-typography-body-s-size);
+
+    svg {
+      flex: none;
+      color: var(--mlv-text-tertiary);
+    }
+  }
+
+  &__change-old {
+    color: var(--mlv-text-secondary);
+    text-decoration: line-through;
+    overflow-wrap: anywhere;
+  }
+
+  &__change-new {
+    color: var(--mlv-text-primary);
+    font-weight: var(--mlv-font-weight-medium);
+    overflow-wrap: anywhere;
+  }
+
+  &__change-consequence {
+    color: var(--mlv-settings-access-change-consequence);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  &__change-rejected {
+    color: var(--mlv-text-negative);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-font-weight-medium);
+  }
+
+  &__activity {
+    min-inline-size: 0;
+  }
+
+  // ── Dock (§3.5) ─────────────────────────────────────────────────────────
+  // `mlv-page-dock` has no `wrap` input, so the reflow is done here on the two
+  // projected wrappers plus the dock's own grid.
+  &__dock-start,
+  &__dock-end {
+    flex-wrap: wrap;
+    row-gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+  }
+
+  &__dock-start {
+    color: var(--mlv-text-secondary);
+
+    // `saving` / `just-saved` / `partially-failed` all lead with an icon that
+    // must not be squeezed by the sentence beside it.
+    > svg {
+      flex: none;
+    }
+  }
+
+  &__dock-lines {
+    display: grid;
+    min-inline-size: 0;
+  }
+
+  &__dock-elsewhere {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__dock-clean {
+    color: var(--mlv-text-secondary);
+  }
+
+  &__ok {
+    color: var(--mlv-text-positive);
+  }
+
+  &__bad {
+    color: var(--mlv-text-negative);
+  }
+
+  // Below md the dock drops to one column: the status line takes its own row
+  // above the actions, and the actions go full width with `Revert` first.
+  // `.mlv-page-dock__end` is authored at `grid-column: 3`, which would spill
+  // into an implicit third track here, so both slots are re-anchored.
+  @include bp.breakpoint-down(md) {
+    .mlv-page-dock {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    &__dock-start,
+    &__dock-end {
+      grid-column: 1;
+    }
+
+    &__dock-end > * {
+      flex: 1 1 100%;
+    }
+  }
+
+  // ── Member access drawer ────────────────────────────────────────────────
+  // No wrapper rule here on purpose: the header / body / footer are direct
+  // children of `.mlv-drawer`'s flex column again, so the panel sizes them
+  // itself and the footer stays pinned without help.
+  &__drawer-head {
+    gap: var(--mlv-spacing-3);
+    min-inline-size: 0;
+  }
+
+  &__drawer-identity {
+    display: grid;
+    gap: var(--mlv-spacing-0-5);
+    min-inline-size: 0;
+  }
+
+  &__drawer-byline {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    overflow-wrap: anywhere;
+  }
+
+  &__drawer-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--mlv-spacing-2);
+
+    > * {
+      flex: 1 1 100%;
+    }
+
+    @include bp.breakpoint-up(md) {
+      > * {
+        flex: 0 0 auto;
+      }
+    }
+  }
+
+  // ── Type-to-confirm gate ────────────────────────────────────────────────
+  &__gate {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+
+    p {
+      margin: 0;
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+    }
+  }
+
+  // ── Deleted-workspace terminal state ────────────────────────────────────
+  &--terminal {
+    display: grid;
+    place-items: center;
+    min-block-size: calc(100svh - 6.75rem);
+  }
+
+  &__terminal {
+    margin: auto;
+    max-inline-size: 32rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .#{$block},
+  .#{$block} * {
+    scroll-behavior: auto !important;
+    transition-duration: var(--mlv-duration-instant) !important;
+  }
+}

@@ -1,0 +1,12 @@
+## Durable presentation snapshots
+
+`getPresentationState()` captures only durable presentation: `sort`, visible
+and pinned column keys, committed pixel width overrides, and `perPage`.
+`applyPresentationState(partial)` accepts any subset, ignores stale column
+keys, normalizes widths and page size, resets the transient page to one, and
+does not emit a presentation-change echo.
+
+Snapshots intentionally exclude the current page, row selection, search,
+filters, loading/error state, density, overlays, and inspectors. This example
+keeps the captured state in memory only; naming, permissions, dirty state, and
+persistence belong to a host's saved-view composition.

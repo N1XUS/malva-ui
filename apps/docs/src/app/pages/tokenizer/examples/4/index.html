@@ -1,0 +1,8 @@
+<mlv-tokenizer
+  [(tokens)]="userTokens"
+  [createToken]="createUserToken"
+  label="Emails"
+  placeholder="Enter email..."
+>
+  <ng-template mlvTokenTemplate let-option> {{ option.label }} </ng-template>
+</mlv-tokenizer>

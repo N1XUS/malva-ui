@@ -1,0 +1,148 @@
+{
+  "generatedAt": "2026-04-17T18:17:58Z",
+  "issues": {
+    "project-conventions": [
+      "discipline archetype requires either ironLaw or hardGate"
+    ]
+  },
+  "skills": [
+    {
+      "archetype": "reference",
+      "description": "Use when starting any implementation task to ensure stack-appropriate patterns are followed.",
+      "generatedAt": "2026-04-17T18:17:58Z",
+      "id": "BE817274-444D-5B1D-8B76-01A76748FEB3",
+      "name": "project-stack",
+      "rationalizations": [],
+      "redFlags": [
+        "You're about to import a library that isn't already in the project dependencies",
+        "You're choosing a framework that contradicts the detected stack"
+      ],
+      "rules": [
+        {
+          "confidence": {
+            "evidence": [
+              {
+                "filePath": "package.json",
+                "occurrences": 1,
+                "pattern": "stack.frameworks"
+              }
+            ],
+            "score": 90
+          },
+          "content": "Project uses Angular. Detected via import scanning.",
+          "id": "E6FAC65F-D6DE-56F8-B155-FE97A1B68B48",
+          "rationale": "Detected during project scan via stack.frameworks.",
+          "scope": {
+            "project": {}
+          },
+          "trigger": {
+            "always": {}
+          }
+        },
+        {
+          "confidence": {
+            "evidence": [
+              {
+                "filePath": "package.json",
+                "occurrences": 1,
+                "pattern": "stack.frameworks"
+              }
+            ],
+            "score": 90
+          },
+          "content": "Project uses Next.js. Detected via import scanning.",
+          "id": "B2B3795A-BA04-5458-96DD-B0F3BF82726B",
+          "rationale": "Detected during project scan via stack.frameworks.",
+          "scope": {
+            "project": {}
+          },
+          "trigger": {
+            "always": {}
+          }
+        },
+        {
+          "confidence": {
+            "evidence": [
+              {
+                "filePath": "package.json",
+                "occurrences": 1,
+                "pattern": "stack.frameworks"
+              }
+            ],
+            "score": 90
+          },
+          "content": "Project uses React. Detected via import scanning.",
+          "id": "7A6794EA-BC77-5314-B113-240F7FB6CA27",
+          "rationale": "Detected during project scan via stack.frameworks.",
+          "scope": {
+            "project": {}
+          },
+          "trigger": {
+            "always": {}
+          }
+        },
+        {
+          "confidence": {
+            "evidence": [
+              {
+                "filePath": "package.json",
+                "occurrences": 1,
+                "pattern": "stack.frameworks"
+              }
+            ],
+            "score": 90
+          },
+          "content": "Project uses Vue. Detected via import scanning.",
+          "id": "ADEEE3AA-F28A-526E-AE38-C43D1264D978",
+          "rationale": "Detected during project scan via stack.frameworks.",
+          "scope": {
+            "project": {}
+          },
+          "trigger": {
+            "always": {}
+          }
+        }
+      ],
+      "status": "active",
+      "version": "1.0.0"
+    },
+    {
+      "archetype": "discipline",
+      "description": "Use when naming files, functions, types, or variables to follow project conventions.",
+      "generatedAt": "2026-04-17T18:17:58Z",
+      "id": "227D8686-07A3-5361-8014-894150EDC3C4",
+      "name": "project-conventions",
+      "rationalizations": [
+        {
+          "excuse": "My naming is clearer, the project's convention is bad",
+          "reality": "Consistency beats personal preference. Follow the project."
+        }
+      ],
+      "redFlags": [
+        "You're using a different casing than the rest of the project",
+        "You're inventing a new naming pattern instead of following the existing one"
+      ],
+      "rules": [
+        {
+          "confidence": {
+            "evidence": [],
+            "score": 75
+          },
+          "content": "File names use camelCase. Function names use pascalCase.",
+          "id": "0C2F51F1-B531-5E0D-B377-A5C9787DC6FE",
+          "rationale": "Detected from dominant pattern across project files.",
+          "scope": {
+            "project": {}
+          },
+          "trigger": {
+            "context": {
+              "_0": "naming|variable|function|file"
+            }
+          }
+        }
+      ],
+      "status": "flagged",
+      "version": "1.0.0"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-timeline;
+$item: mlv-timeline-item;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m),
+    0,
+    0
+  );
+
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+
+  // ── Single-sided collapse ─────────────────────────────────────────────────
+  // Items default to a 3-column grid so they can alternate sides. When every
+  // item sits on the same side the opposite track carries nothing, so drop it
+  // instead of reserving 1fr plus a column gap for empty space. The track is
+  // removed outright rather than zeroed — a 0-width column still emits the
+  // column gap, leaving a visible dead inset next to the spine.
+
+  &--single-right .#{$item} {
+    grid-template-columns: var(--mlv-tli-node-size) 1fr;
+
+    .#{$item}__spine {
+      grid-column: 1;
+    }
+
+    .#{$item}__col--right {
+      grid-column: 2;
+    }
+  }
+
+  &--single-left .#{$item} {
+    grid-template-columns: 1fr var(--mlv-tli-node-size);
+
+    .#{$item}__col--left {
+      grid-column: 1;
+    }
+
+    .#{$item}__spine {
+      grid-column: 2;
+    }
+  }
+}
+}

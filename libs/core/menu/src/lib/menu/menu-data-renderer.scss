@@ -1,0 +1,16 @@
+@layer mlv.components {
+$block: mlv-menu-data-renderer;
+
+mlv-menu-data-renderer,
+mlv-menu-data-item {
+  display: contents;
+}
+
+.#{$block}__loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 2.5rem;
+  padding: var(--mlv-padding-s);
+}
+}

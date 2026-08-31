@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "malva-ui-tailwind-ng-add",
+  "title": "Malva UI Tailwind installation",
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "string",
+      "description": "The Angular application to configure.",
+      "$default": {
+        "$source": "projectName"
+      }
+    },
+    "skipInstall": {
+      "type": "boolean",
+      "description": "Skip installing package dependencies after configuration.",
+      "default": false,
+      "alias": "skip-install",
+      "visible": false
+    },
+    "includeCoreStyles": {
+      "type": "boolean",
+      "description": "Add the Malva UI core token stylesheet to the application build.",
+      "default": true,
+      "x-prompt": "Add the Malva UI core stylesheet to the application build?"
+    },
+    "stylesheet": {
+      "type": "string",
+      "description": "Project-relative path for the managed Tailwind stylesheet.",
+      "format": "path",
+      "pattern": "^(?!/)(?!.*\\.\\.[/\\\\])[^\\0]*\\.css$"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,48 @@
+<div class="demo-col" style="gap: 1.5rem; max-width: 24rem">
+  <!-- Toggle section -->
+  <div class="demo-col" style="gap: 0.75rem">
+    <mlv-skeleton variant="rectangle" height="5rem" [animated]="animated()" />
+    <mlv-skeleton variant="text" width="80%" [animated]="animated()" />
+    <mlv-skeleton variant="text" width="60%" [animated]="animated()" />
+  </div>
+
+  <div class="demo-row" style="align-items: center; gap: 0.75rem">
+    <button mlvButton variant="secondary" (click)="toggleAnimation()">
+      {{ animated() ? 'Pause animation' : 'Resume animation' }}
+    </button>
+    <span style="font-size: 0.875rem; color: var(--mlv-text-secondary)">
+      animated: <strong>{{ animated() }}</strong>
+    </span>
+  </div>
+
+  <!-- Animation speed comparison -->
+  <div class="demo-col" style="gap: 0.75rem">
+    <span
+      style="
+        font-size: 0.75rem;
+        color: var(--mlv-text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      "
+      >Fast — 0.8s</span
+    >
+    <mlv-skeleton variant="rectangle" height="3rem" animationDuration="0.8s" />
+    <mlv-skeleton variant="text" width="70%" animationDuration="0.8s" />
+  </div>
+
+  <div class="demo-col" style="gap: 0.75rem">
+    <span
+      style="
+        font-size: 0.75rem;
+        color: var(--mlv-text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      "
+      >Slow — 2s (default)</span
+    >
+    <mlv-skeleton variant="rectangle" height="3rem" animationDuration="2s" />
+    <mlv-skeleton variant="text" width="70%" animationDuration="2s" />
+  </div>
+</div>

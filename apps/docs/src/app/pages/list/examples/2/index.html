@@ -1,0 +1,24 @@
+<mlv-list
+  selectable
+  listRole="listbox"
+  [multiple]="false"
+  selectionMode="explicit"
+  [softDisabled]="false"
+>
+  <mlv-list-item itemRole="option" [value]="'apple'" label="Apple"
+    >Apple</mlv-list-item
+  >
+  <mlv-list-item itemRole="option" [value]="'banana'" label="Banana"
+    >Banana</mlv-list-item
+  >
+  <mlv-list-item itemRole="option" [value]="'cherry'" label="Cherry"
+    >Cherry</mlv-list-item
+  >
+  <mlv-list-item
+    itemRole="option"
+    [disabled]="true"
+    [value]="'disabled'"
+    label="Disabled Item"
+    >Disabled Item</mlv-list-item
+  >
+</mlv-list>

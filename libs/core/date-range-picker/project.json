@@ -1,0 +1,22 @@
+{
+  "name": "core-date-range-picker",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/date-range-picker/src",
+  "prefix": "mlv",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:core", "type:ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "eslintConfig": "libs/core/date-range-picker/eslint.config.mjs"
+      }
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "config": "libs/core/date-range-picker/vite.config.mts"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+<div class="search-field-demo">
+  <mlv-search-field
+    trigger="live"
+    [debounce]="250"
+    placeholder="Search people"
+    (search)="query.set($event)"
+  />
+
+  <output class="search-field-demo__result" aria-live="polite">
+    Query: <strong>{{ query() || 'None' }}</strong>
+  </output>
+</div>

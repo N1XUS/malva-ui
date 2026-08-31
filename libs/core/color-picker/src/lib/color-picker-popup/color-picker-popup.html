@@ -1,0 +1,182 @@
+@if (presentation() === 'field') {
+<mlv-form-control-wrapper (clear)="_clearValue()">
+  @if (label() || hint()) {
+  <mlv-label [for]="id()" [required]="required()">
+    {{ label() }} @if (hint()) {
+    <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
+  }
+
+  <ng-template mlvFormControlWrapperControl>
+    <mlv-popup-container class="mlv-color-picker-popup__popup-container">
+      <div class="mlv-color-picker-popup__control">
+        <input
+          #nativeInput
+          class="mlv-color-picker-popup__input"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          [id]="id()"
+          [value]="_draftValue()"
+          [disabled]="computedDisabled()"
+          [readOnly]="readonly()"
+          aria-haspopup="dialog"
+          [attr.aria-expanded]="opened()"
+          [attr.aria-controls]="opened() ? _panelId : null"
+          [attr.aria-invalid]="resolvedState() === 'error'"
+          [attr.aria-required]="required() || null"
+          [attr.aria-describedby]="_describedBy()"
+          [attr.aria-label]="label() ? null : (ariaLabel() ?? _i18n().colorPicker)"
+          (input)="_onInput($event)"
+          (focus)="_onInputFocus()"
+          (click)="_onInputClick()"
+          (blur)="_onInputBlur()"
+          (keydown)="_onInputKeydown($event)"
+        />
+
+        <button
+          #fieldSwatchButton
+          class="mlv-color-picker-popup__swatch-button"
+          type="button"
+          [disabled]="computedDisabled() || readonly()"
+          aria-haspopup="dialog"
+          [attr.aria-expanded]="opened()"
+          [attr.aria-controls]="opened() ? _panelId : null"
+          [attr.aria-label]="_pickColorLabel()"
+          (click)="_openFromSwatch()"
+          (keydown.enter)="_openFromSwatch(true); $event.preventDefault()"
+          (keydown.space)="_openFromSwatch(true); $event.preventDefault()"
+        >
+          <span class="mlv-color-picker-popup__swatch" aria-hidden="true">
+            <span
+              #fieldSwatchColor
+              class="mlv-color-picker-popup__swatch-color"
+              [style.background-color]="_draftValue() || 'transparent'"
+            ></span>
+          </span>
+        </button>
+      </div>
+
+      <mlv-popup
+        [(opened)]="opened"
+        [position]="['bottom-start', 'top-start']"
+        [restrictPosition]="false"
+        [hasBackdrop]="true"
+        [hasShadow]="true"
+        panelRole="dialog"
+        [ariaLabel]="_i18n().colorPicker"
+        class="mlv-color-picker-popup__overlay"
+        (afterOpened)="_onPopupOpened()"
+        (afterClosed)="_onPopupClosed()"
+      >
+        <ng-template mlvPopupContent>
+          <div
+            #fieldPickerPanel
+            class="mlv-color-picker-popup__panel"
+            [id]="_panelId"
+            tabindex="-1"
+            (keydown.escape)="_onPanelEscape($event)"
+          >
+            <mlv-color-picker
+              [value]="_pickerValue()"
+              [showOpacity]="!!showOpacity()"
+              [defaultMode]="defaultMode()"
+              [supportedFormats]="supportedFormats()"
+              [disabled]="computedDisabled() || readonly()"
+              (colorChange)="_onColorChange($event)"
+            />
+          </div>
+        </ng-template>
+      </mlv-popup>
+    </mlv-popup-container>
+  </ng-template>
+
+  @if (description()) {
+  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+  } @if (message()) {
+  <mlv-message [attr.id]="_messageId()" [state]="resolvedState()">
+    {{ message() }}
+  </mlv-message>
+  }
+</mlv-form-control-wrapper>
+} @else {
+<mlv-popup-container class="mlv-color-picker-popup__popup-container">
+  <button
+    #swatchTrigger
+    mlvButton
+    class="mlv-color-picker-popup__swatch-trigger"
+    type="button"
+    shape="square"
+    mlvDensity="tight"
+    variant="transparent"
+    [disabled]="computedDisabled() || readonly()"
+    aria-haspopup="dialog"
+    [attr.aria-expanded]="opened()"
+    [attr.aria-controls]="opened() ? _panelId : null"
+    [attr.aria-label]="ariaLabel() ?? _pickColorLabel()"
+    [mlvTooltip]="ariaLabel() ?? _pickColorLabel()"
+    (click)="_openFromSwatch()"
+    (keydown.enter)="_openFromSwatch(true); $event.preventDefault()"
+    (keydown.space)="_openFromSwatch(true); $event.preventDefault()"
+  >
+    @if (presentation() === 'icon') {
+    <span mlvButtonIcon>
+      <ng-content />
+    </span>
+    } @else {
+    <span class="mlv-color-picker-popup__swatch" aria-hidden="true">
+      <span
+        #swatchTriggerColor
+        class="mlv-color-picker-popup__swatch-color"
+        [style.background-color]="_draftValue() || 'transparent'"
+      ></span>
+    </span>
+    }
+  </button>
+
+  <mlv-popup
+    [(opened)]="opened"
+    [position]="['bottom-start', 'top-start']"
+    [restrictPosition]="false"
+    [hasBackdrop]="true"
+    [hasShadow]="true"
+    panelRole="dialog"
+    [ariaLabel]="ariaLabel() ?? _i18n().colorPicker"
+    class="mlv-color-picker-popup__overlay"
+    (afterOpened)="_onPopupOpened()"
+    (afterClosed)="_onPopupClosed()"
+  >
+    <ng-template mlvPopupContent>
+      <div
+        #swatchPickerPanel
+        class="mlv-color-picker-popup__panel"
+        [id]="_panelId"
+        tabindex="-1"
+        (keydown.escape)="_onPanelEscape($event)"
+      >
+        <mlv-color-picker
+          [value]="_pickerValue()"
+          [showOpacity]="!!showOpacity()"
+          [defaultMode]="defaultMode()"
+          [supportedFormats]="supportedFormats()"
+          [disabled]="computedDisabled() || readonly()"
+          (colorChange)="_onColorChange($event)"
+        />
+        @if (clearable() && hasValue()) {
+        <button
+          mlvButton
+          class="mlv-color-picker-popup__clear"
+          type="button"
+          variant="secondary"
+          [disabled]="computedDisabled() || readonly()"
+          (click)="_clearValue()"
+        >
+          {{ _formI18n().clear }}
+        </button>
+        }
+      </div>
+    </ng-template>
+  </mlv-popup>
+</mlv-popup-container>
+}

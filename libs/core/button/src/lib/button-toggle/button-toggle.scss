@@ -1,0 +1,50 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-button-toggle;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m),
+    0,
+    0
+  );
+
+  display: inline-flex;
+
+  // AB-R8: a segmented choice never renders as a filled accent block — a
+  // pressed toggle converges on the same `selected` token pair as
+  // `mlv-segmented` and every other persistent-selection surface (SF-R1),
+  // never the full `--mlv-btn-bg-active` accent fill.
+  &--pressed > .mlv-button {
+    --mlv-btn-bg: var(--mlv-background-selected);
+    --mlv-btn-text-color: var(--mlv-text-on-selected);
+    box-shadow: inset 0 0 0 var(--mlv-stroke-width) var(--mlv-border-normal);
+  }
+
+  &--disabled {
+    cursor: not-allowed;
+
+    // C2 follow-up: `&--pressed > .mlv-button` above and `button.scss`'s own
+    // `.mlv-button.mlv-button--disabled` are both specificity (0,2,0), but
+    // live in *different* stylesheets — Angular's per-component `<style>`
+    // injection order decides the winner between them, not source position
+    // within either file alone. A disabled+pressed toggle could therefore
+    // still render the pressed/selected fill depending on injection order.
+    // `&--disabled.mlv-button-toggle--pressed > .mlv-button` is a genuine
+    // three-class selector — (0,3,0) — so it deterministically outranks
+    // *any* (0,2,0) rule regardless of which stylesheet lands where. The
+    // plain two-class `&--disabled > .mlv-button` alongside it is not
+    // strictly required (a disabled-but-not-pressed toggle never contends
+    // with the pressed rule at all), but states the disabled surface
+    // explicitly rather than depending on `button.scss`'s own rule winning
+    // its own separate cross-file race.
+    > .mlv-button,
+    &.mlv-button-toggle--pressed > .mlv-button {
+      --mlv-btn-bg: var(--mlv-background-disabled);
+      --mlv-btn-text-color: var(--mlv-text-disabled);
+    }
+  }
+}
+}

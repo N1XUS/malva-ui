@@ -1,0 +1,1 @@
+../../../.claude/projects/libs-status-indicator.md

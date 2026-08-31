@@ -1,0 +1,9 @@
+## Basic Usage (single-expand)
+
+Wrap a set of `mlv-accordion-item` elements in a `mlv-accordion`. Each item
+takes a plain-text `header` and projects its panel content as the default slot.
+
+Setting `[multiExpandable]="false"` makes it a single-expand accordion —
+opening one section collapses the others. Panel content is rendered lazily on
+first expand. Arrow Up/Down (plus Home/End) move focus between the headers; Tab
+also reaches every header.

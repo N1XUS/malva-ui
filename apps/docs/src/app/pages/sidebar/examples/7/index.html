@@ -1,0 +1,99 @@
+<div class="sidebar-demo">
+  <mlv-sidebar mode="floating" [collapsed]="collapsed()">
+    <div mlvSidebarHeader>
+      <div class="workspace">
+        <div class="workspace__logo">
+          <svg lucideCommand size="20" />
+        </div>
+        @if (!collapsed()) {
+        <span class="workspace__name">Acme Inc</span>
+        }
+      </div>
+    </div>
+
+    <div mlvSidebarContent>
+      <mlv-sidebar-item label="Dashboard" [active]="true">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideHouse size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Inbox">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideInbox size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Projects">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideFolderOpen size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Analytics">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideChartColumn size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Team">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideUsers size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Calendar">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideCalendar size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Settings">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideSettings size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-spacer />
+
+      <mlv-sidebar-trigger />
+    </div>
+  </mlv-sidebar>
+
+  <div class="app-content">
+    <header class="app-content__header">
+      <button
+        mlvButton
+        variant="outlined"
+        (click)="collapsed.set(!collapsed())"
+      >
+        Toggle sidebar
+      </button>
+    </header>
+
+    <h3 class="app-content__title">Floating Shell</h3>
+    <p class="app-content__body">
+      The sidebar floats above the main content with an elevated shadow and
+      slides off-screen when collapsed. Use for marketing-style layouts where
+      the main canvas stays centered regardless of sidebar state.
+    </p>
+
+    <div class="app-content__cards">
+      <div class="app-card">
+        <svg lucideTrendingUp class="app-card__icon" size="18" />
+        <span class="app-card__title">Revenue up 12%</span>
+        <span class="app-card__sub">vs. previous quarter</span>
+      </div>
+      <div class="app-card">
+        <svg lucideUsers class="app-card__icon" size="18" />
+        <span class="app-card__title">1,284 new signups</span>
+        <span class="app-card__sub">+31% week over week</span>
+      </div>
+      <div class="app-card">
+        <svg lucideChartColumn class="app-card__icon" size="18" />
+        <span class="app-card__title">94% uptime</span>
+        <span class="app-card__sub">last 30 days</span>
+      </div>
+    </div>
+  </div>
+</div>

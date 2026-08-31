@@ -1,0 +1,108 @@
+@use '../../../../../styles/src/lib/breakpoints' as bp;
+
+@layer mlv.components {
+$block: mlv-notification-item;
+
+.#{$block} {
+  display: block;
+  width: calc(100vw - 2rem);
+
+  @include bp.breakpoint-up(md) {
+    width: 25rem;
+  }
+  background: var(--mlv-elevation-bg-3);
+  border: var(--mlv-stroke-width, 0.0625rem) solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-xl);
+  box-shadow: var(--mlv-shadow-floating);
+  color: var(--mlv-text-primary);
+  font-size: var(--mlv-font-size-m);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--mlv-spacing-3);
+    padding: var(--mlv-padding-l);
+  }
+
+  &__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__title {
+    font-weight: var(--mlv-font-weight-semibold);
+    font-size: var(--mlv-font-size-l);
+    color: var(--mlv-text-primary);
+    line-height: var(--mlv-line-height-tight);
+  }
+
+  &__description {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    line-height: var(--mlv-line-height-loose);
+    word-break: break-word;
+  }
+
+  &__dynamic-content {
+    min-width: 0;
+    color: var(--mlv-text-primary);
+    overflow-wrap: anywhere;
+  }
+
+  // Higher-specificity chained selector to override chip component internals
+  // without resorting to !important stacking.
+  &#{&}__icon,
+  & &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding-block: 0;
+    padding-inline: 0;
+    line-height: 1;
+
+    .mlv-chip__label {
+      display: block;
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-3);
+    // Inline end matches the header's `--mlv-padding-l` inline half; the
+    // token itself is a pair and cannot sit inside a 4-value shorthand.
+    padding: 0 var(--mlv-spacing-6) 0.875rem 4rem;
+  }
+
+  // Left accent border by tone
+  border-inline-start: 0.25rem solid transparent;
+
+  &--success {
+    border-inline-start-color: var(--mlv-border-success);
+  }
+
+  &--danger {
+    border-inline-start-color: var(--mlv-background-danger-1);
+  }
+
+  &--warning {
+    border-inline-start-color: var(--mlv-border-warning);
+  }
+
+  &--info {
+    border-inline-start-color: var(--mlv-border-info);
+  }
+
+  &--default {
+    border-inline-start-color: var(--mlv-background-accent-1);
+  }
+}
+}

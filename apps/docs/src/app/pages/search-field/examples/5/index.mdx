@@ -1,0 +1,11 @@
+## Combobox Suggestions
+
+`role="combobox"` turns the field into the trigger of a consumer-owned popup listbox. It stamps `role="combobox"` on the underlying `<input>`, forwards `ariaControls`, `ariaExpanded`, `ariaAutocomplete` and `ariaActiveDescendant` onto the same element, and starts reporting the option-navigation keys through `(navigate)`. The default `role="searchbox"` changes nothing — no attributes are rendered and `(navigate)` never fires.
+
+The field never owns the popup, the option list, or the highlight. It reports keys; the consumer moves an index. Here that index lives in `MlvActiveDescendant` from `@malva-ui/core/dropdown`, and `optionId(listboxId, index)` builds the same option id that `mlv-dropdown-panel` renders — so `aria-activedescendant` and the highlighted row can never drift. DOM focus stays on the input the whole time, which is what `focusMode="activedescendant"` on the panel expects.
+
+`(navigate)` arrives already `preventDefault`ed for ArrowUp, ArrowDown, PageUp and PageDown: inside a text input those keys jump the caret to the ends of the query or scroll the page, which is never what a combobox wants. Home and End are reported **without** being consumed, because an editable combobox keeps them as caret keys per WAI-ARIA. This example opts into them anyway by calling `preventDefault()` on the supplied event — leave that out and Home/End keep editing the query.
+
+`(commit)` fires on Enter and on the submit action, in every `trigger` mode, and always **before** the field's own commit. Call `preventDefault()` on the supplied event to take it over: the field then skips its `search` emission and leaves the key consumed, so Enter resolves the highlighted suggestion instead of running a plain search and never submits a surrounding form. Leave the event alone — as this example does when nothing is highlighted — and the normal path runs, emitting `search`.
+
+Escape still clears the field as it always has; closing the popup is the consumer's own state, driven from the same `open()` signal that feeds `ariaExpanded`.

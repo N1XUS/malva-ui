@@ -1,0 +1,20 @@
+@if (available()) {
+<span
+  class="mlv-editor-status__summary"
+  role="status"
+  aria-live="polite"
+  [attr.aria-label]="_ariaLabel()"
+>
+  @if (_limit(); as limit) {
+  <span class="mlv-editor-status__characters"
+    >{{ characters() }}/{{ limit }} characters</span
+  >
+  } @else {
+  <span class="mlv-editor-status__characters"
+    >{{ characters() }} characters</span
+  >
+  }
+  <span aria-hidden="true"> · </span>
+  <span class="mlv-editor-status__words">{{ words() }} words</span>
+</span>
+}

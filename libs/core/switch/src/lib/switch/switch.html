@@ -1,0 +1,32 @@
+<label class="mlv-switch__label" [for]="inputId">
+  <input
+    #nativeInput
+    type="checkbox"
+    role="switch"
+    class="mlv-switch__native"
+    [id]="inputId"
+    [checked]="checked()"
+    [disabled]="computedDisabled()"
+    [attr.tabindex]="tabIndex()"
+    [attr.aria-checked]="checked()"
+    [attr.aria-required]="required() || null"
+    [attr.aria-label]="_resolvedAriaLabel()"
+    [attr.aria-labelledby]="_resolvedAriaLabelledBy()"
+    (change)="onInputChange($event)"
+    (focus)="onFocus()"
+    (blur)="onBlur()"
+    (keydown.enter)="onEnter($event)"
+  />
+  <span class="mlv-switch__track" [class]="'mlv-switch__track--' + state()">
+    <span class="mlv-switch__thumb"></span>
+  </span>
+  <span class="mlv-switch__text">
+    <!-- Projected text wins; the `label` fallback next to it is hidden by CSS
+         whenever this span is non-empty, which also keeps it out of the
+         accessible name computed from the wrapping <label>. -->
+    <span #content class="mlv-switch__content"><ng-content /></span>
+    @if (label()) {
+    <span class="mlv-switch__label-text">{{ label() }}</span>
+    }
+  </span>
+</label>

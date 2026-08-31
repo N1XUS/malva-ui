@@ -1,0 +1,25 @@
+## Data-source suggestions
+
+`[mlvAutocomplete]` accepts an `MlvDataSource` (`@malva-ui/cdk/data-source`) as
+well as a static array or an `Observable`. A data source is **remote**: the
+directive never re-filters its items with `matcher`, it forwards the query as
+`setSearch({ query, keys: [] })` — natural-field search, because a typeahead
+knows option shapes rather than column keys — and the source answers.
+
+Two behaviours to watch:
+
+- **Stale results are kept while loading.** A newer query supersedes an
+  in-flight one, but the previously returned suggestions stay rendered and
+  clickable under the panel's receded loading colour instead of blanking to an
+  empty list. The monotonic token inside the adapter discards the superseded
+  result if it lands late.
+- **Paging on scroll.** `connect()` emits the current page's slice; the
+  directive accumulates them and requests `setPage(page + 1)` when the
+  suggestion list scrolls within `mlvAutocompleteInfiniteScrollThreshold`
+  (150 px by default) of the end, appending the next page under a polite
+  "loading more" row until `totalItems` is reached. The fake source here serves
+  57 users, 10 at a time, with 600 ms latency.
+
+Inline completion is turned off (`[mlvAutocompleteInline]="false"`) because the
+top remote suggestion is not guaranteed to be a prefix of what was typed; the
+input advertises `aria-autocomplete="list"` in that mode.

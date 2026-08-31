@@ -1,0 +1,15 @@
+<div class="presence-demo">
+  <button class="presence-demo__toggle" type="button" (click)="toggle()">
+    {{ isVisible() ? 'Hide' : 'Show' }} card
+  </button>
+
+  <div class="presence-demo__stage">
+    <div *mlvAnimatedPresence="isVisible()" class="presence-demo__card">
+      <strong>Animated card</strong>
+      <p>
+        This card fades and scales in on enter, and out on leave — the DOM is
+        kept alive until the leave animation finishes.
+      </p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,16 @@
+<div class="demo-col" style="align-items: flex-start; gap: 1rem">
+  <mlv-time-picker
+    label="Meeting time"
+    hint="24-hour format"
+    [formControl]="timeCtrl"
+  />
+  <p
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+    "
+  >
+    Selected:
+    <strong style="color: var(--mlv-text-primary)">{{ timeCtrl.value }}</strong>
+  </p>
+</div>

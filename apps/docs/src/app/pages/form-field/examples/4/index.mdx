@@ -1,0 +1,13 @@
+---
+title: Signal Forms
+description: Schema-driven validation with Angular's formField directive
+---
+
+`mlv-form-field` reads validation, touched, and dirty state directly from the
+field bound through `[formField]`. Validator messages defined in the Signal
+Forms schema flow into the same automatic error presentation used by reactive
+and template-driven forms.
+
+Submitting an invalid form marks its fields as touched so every relevant error
+becomes visible. The submission action runs only after the complete field tree
+is valid.

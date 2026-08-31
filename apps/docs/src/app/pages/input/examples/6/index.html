@@ -1,0 +1,49 @@
+<mlv-input
+  label="Password"
+  placeholder="Create a password"
+  autocomplete="new-password"
+  [type]="passwordVisible() ? 'text' : 'password'"
+  [mlvPasswordStrength]="rules"
+  #strength="mlvPasswordStrength"
+>
+  <button
+    *mlvFormControlAppend
+    mlvButton
+    type="button"
+    variant="transparent"
+    shape="circle"
+    mlvDensity="tight"
+    [attr.aria-label]="passwordVisible() ? 'Hide password' : 'Show password'"
+    (click)="togglePasswordVisibility()"
+  >
+    @if (passwordVisible()) {
+    <svg mlvButtonIcon lucideEyeOff [size]="16" />
+    } @else {
+    <svg mlvButtonIcon lucideEye [size]="16" />
+    }
+  </button>
+
+  <div
+    *mlvFormControlInset
+    class="docs-password-strength"
+    role="meter"
+    aria-label="Password strength"
+    aria-valuemin="0"
+    [attr.aria-valuemax]="strength.maxScore()"
+    [attr.aria-valuenow]="strength.score()"
+    [attr.aria-valuetext]="strengthLabel(strength.score())"
+  >
+    @for (level of levels; track level) {
+    <span
+      class="docs-password-strength__segment"
+      [class]="
+        'docs-password-strength__segment docs-password-strength__segment--level-' +
+        level
+      "
+      [class.docs-password-strength__segment--active]="
+        strength.score() >= level
+      "
+    ></span>
+    }
+  </div>
+</mlv-input>

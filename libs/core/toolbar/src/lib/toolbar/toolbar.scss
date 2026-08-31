@@ -1,0 +1,14 @@
+@layer mlv.components {
+$block: mlv-toolbar;
+
+.#{$block} {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+  &--equal > *:not(.mlv-toolbar-spacer) {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+}

@@ -1,0 +1,6 @@
+{
+  "name": "@malva-ui/internal-testing",
+  "private": true,
+  "type": "module",
+  "//": "ESM marker for this folder: the workspace root is CommonJS, and these helpers are imported both by vitest setup files and by library specs (which need the sibling .d.ts, so the runtime files cannot use an .mjs extension)."
+}

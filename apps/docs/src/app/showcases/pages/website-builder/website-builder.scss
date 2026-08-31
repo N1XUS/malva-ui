@@ -1,0 +1,157 @@
+@use '../../../../../../../libs/styles/src/lib/breakpoints' as bp;
+@use '../../../../../../../libs/styles/src/lib/mixins' as mixins;
+
+$block: website-builder;
+
+.#{$block} {
+  // ── Frame ───────────────────────────────────────────────────────────────
+  // `mlv-page-shell` is `display: flex; overflow: hidden` with no intrinsic
+  // height. Left alone, `.mlv-page__scrollbar`'s `height: 100%` resolves
+  // against an indefinite parent, the page never becomes its own scroll
+  // container, the document scrolls instead, and every `position: sticky`
+  // inside — the header and the dock — resolves against a scrollport that
+  // never moves. 6.75rem is the padding the showcase shell reserves for the
+  // fixed docs app bar. `svh` on a phone, because `dvh` re-runs the page
+  // scroller's thumb math every time the mobile URL bar collapses.
+  &.mlv-page-shell {
+    block-size: calc(100svh - 6.75rem);
+
+    @include bp.breakpoint-up(md) {
+      block-size: calc(100dvh - 6.75rem);
+    }
+  }
+
+  &__tab-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+  }
+
+  // Below md the breakpoint viewer collapses to icons. The control keeps its
+  // `ariaLabel`, and each item keeps its text in the accessibility tree.
+  &__viewer-label {
+    @include bp.breakpoint-down(md) {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
+  }
+
+  // ── Canvas ──────────────────────────────────────────────────────────────
+  &__canvas {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-6);
+    min-inline-size: 0;
+  }
+
+  // ── Dock ────────────────────────────────────────────────────────────────
+  &__dock-start {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  &__dock-end {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+  }
+
+  // ── Dialog interior ─────────────────────────────────────────────────────
+  &__dialog-context {
+    margin: 0 0 var(--mlv-spacing-2);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  &__dialog-meter {
+    margin-block-end: var(--mlv-spacing-3);
+  }
+
+  &__networks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-2) var(--mlv-spacing-6);
+  }
+}
+
+/* ── Section chrome ──────────────────────────────────────────────────────
+ * Showcase-owned markup, deliberately not a tile: each section is its own
+ * `mlv-tiles` root, so it is never a tree node and never grows a drag handle.
+ * -------------------------------------------------------------------------- */
+
+.wb-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-3);
+  min-inline-size: 0;
+  padding: var(--mlv-padding-m);
+  border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-l);
+  background-color: var(--mlv-background-raised);
+
+  &__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+    color: var(--mlv-text-secondary);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--mlv-typography-ui-l-size);
+    font-weight: var(--mlv-typography-ui-l-weight);
+    line-height: var(--mlv-typography-ui-l-line-height);
+    color: var(--mlv-text-primary);
+  }
+
+  &__summary {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  &__tiles {
+    min-inline-size: 0;
+  }
+
+  // A read-only preview reads as chrome: dashed, sunken, secondary title.
+  // No `opacity` — the Edit in All button stays fully operable.
+  &--locked {
+    border-style: dashed;
+    background-color: var(--mlv-background-subtle);
+
+    .wb-section__title {
+      color: var(--mlv-text-secondary);
+    }
+  }
+
+  &--off {
+    border-style: dashed;
+
+    .wb-section__title {
+      color: var(--mlv-text-secondary);
+    }
+  }
+}
+
+@include mixins.reduced-motion('#{$block}');
+@include mixins.reduced-motion('wb-section');

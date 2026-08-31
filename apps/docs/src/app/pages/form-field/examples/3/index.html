@@ -1,0 +1,50 @@
+<form
+  #templateForm="ngForm"
+  (ngSubmit)="onTemplateSubmit()"
+  style="display: flex; flex-direction: column; gap: 16px; max-width: 400px"
+>
+  <mlv-form-field>
+    <mlv-label for="td-name">Name <mlv-hint>Required</mlv-hint></mlv-label>
+    <mlv-input
+      [(ngModel)]="templateModel.name"
+      name="tdName"
+      required
+      placeholder="Enter your name"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field>
+    <mlv-label for="td-email">Email <mlv-hint>Required</mlv-hint></mlv-label>
+    <mlv-input
+      [(ngModel)]="templateModel.email"
+      name="tdEmail"
+      required
+      email
+      placeholder="user{'@'}example.com"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field>
+    <mlv-label>Favorite Color</mlv-label>
+    <mlv-select
+      [(ngModel)]="templateModel.color"
+      name="tdColor"
+      required
+      [options]="colors"
+      placeholder="Pick a color"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field>
+    <mlv-checkbox [(ngModel)]="templateModel.newsletter" name="tdNewsletter">
+      Subscribe to newsletter
+    </mlv-checkbox>
+  </mlv-form-field>
+
+  <button mlvButton type="submit" [disabled]="templateForm.invalid === true">
+    Submit
+  </button>
+  @if (templateSubmitted()) {
+  <pre>{{ templateModel | json }}</pre>
+  }
+</form>

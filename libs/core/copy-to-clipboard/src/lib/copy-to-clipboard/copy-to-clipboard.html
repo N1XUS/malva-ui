@@ -1,0 +1,21 @@
+<span class="mlv-copy-to-clipboard__content">
+  <ng-content />
+</span>
+<span
+  class="mlv-copy-to-clipboard__indicator"
+  [mlvTooltip]="isCopied() ? 'Copied' : 'Copy'"
+  tooltipPlacement="top"
+  aria-hidden="true"
+>
+  <span class="mlv-copy-to-clipboard__icon mlv-copy-to-clipboard__icon--idle">
+    <svg lucideCopy [size]="16" />
+  </span>
+  <span
+    class="mlv-copy-to-clipboard__icon mlv-copy-to-clipboard__icon--success"
+  >
+    <svg lucideCheck [size]="16" />
+  </span>
+</span>
+<span class="mlv-copy-to-clipboard__live" aria-live="polite">
+  @if (isCopied()) { {{ copiedAriaLabel() }} }
+</span>

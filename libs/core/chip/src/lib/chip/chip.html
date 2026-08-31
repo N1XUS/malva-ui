@@ -1,0 +1,21 @@
+@if (_prependRef()) {
+<span class="mlv-chip__prepend">
+  <ng-container [ngTemplateOutlet]="_prependRef()!.templateRef" />
+</span>
+}
+<span class="mlv-chip__label"><ng-content /></span>
+@if (_appendRef()) {
+<span class="mlv-chip__append">
+  <ng-container [ngTemplateOutlet]="_appendRef()!.templateRef" />
+</span>
+} @if (closable()) {
+<button
+  class="mlv-chip__close"
+  type="button"
+  [attr.aria-label]="_resolvedCloseAriaLabel()"
+  tabindex="-1"
+  (click)="_handleClose($event)"
+>
+  <svg lucideX [size]="12" />
+</button>
+}

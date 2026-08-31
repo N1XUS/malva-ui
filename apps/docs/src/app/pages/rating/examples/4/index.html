@@ -1,0 +1,28 @@
+<div class="demo-col" style="gap: 1rem; align-items: flex-start">
+  <mlv-rating [max]="5" [formControl]="ratingCtrl" />
+
+  @if (ratingCtrl.invalid && ratingCtrl.touched) {
+  <span
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-negative);
+    "
+  >
+    Please select a rating.
+  </span>
+  }
+
+  <div class="demo-row" style="gap: 0.75rem; align-items: center">
+    <button mlvButton variant="secondary" (click)="toggleDisabled()">
+      {{ isDisabled() ? 'Enable' : 'Disable' }}
+    </button>
+    <span
+      style="
+        font-size: var(--mlv-typography-body-s-size);
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Value: {{ ratingCtrl.value }}
+    </span>
+  </div>
+</div>

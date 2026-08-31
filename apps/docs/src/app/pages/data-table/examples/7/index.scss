@@ -1,0 +1,25 @@
+.dt-currency {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+
+  &--positive {
+    color: var(--mlv-text-positive);
+  }
+
+  &--negative {
+    color: var(--mlv-text-negative);
+  }
+}
+
+.dt-growth {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  &--positive {
+    color: var(--mlv-text-positive);
+  }
+
+  &--negative {
+    color: var(--mlv-text-negative);
+  }
+}

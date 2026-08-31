@@ -1,0 +1,20 @@
+<div class="demo-col" style="gap: 1rem; align-items: flex-start">
+  <div style="display: flex; flex-direction: column; gap: 0.5rem">
+    <span
+      style="
+        font-size: var(--mlv-typography-label-size);
+        color: var(--mlv-text-secondary);
+      "
+      >10-star scale</span
+    >
+    <mlv-rating [max]="10" [(ngModel)]="rating" />
+  </div>
+  <span
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+    "
+  >
+    Selected: {{ rating() }} / 10
+  </span>
+</div>

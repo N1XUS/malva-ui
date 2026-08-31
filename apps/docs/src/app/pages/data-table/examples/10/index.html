@@ -1,0 +1,17 @@
+<div style="margin-bottom: 0.75rem">
+  <button
+    mlvButton
+    variant="primary"
+    (click)="simulateLoad()"
+    [disabled]="isLoading()"
+  >
+    {{ isLoading() ? 'Loading…' : 'Simulate fetch' }}
+  </button>
+</div>
+
+<mlv-data-table
+  [data]="products()"
+  [columns]="columns"
+  [loading]="isLoading()"
+  maxHeight="22rem"
+/>

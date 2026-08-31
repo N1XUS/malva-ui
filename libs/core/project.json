@@ -1,0 +1,63 @@
+{
+  "name": "core",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/src",
+  "prefix": "mlv",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:core", "type:ui"],
+  "implicitDependencies": ["i18n"],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:package",
+      "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "dependsOn": ["^build", "build-styles"],
+      "options": {
+        "project": "libs/core/ng-package.json",
+        "tsConfig": "libs/core/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/core/tsconfig.lib.prod.json"
+        },
+        "development": {}
+      },
+      "defaultConfiguration": "production"
+    },
+    "build-styles": {
+      "executor": "nx:run-commands",
+      "inputs": [
+        "{projectRoot}/styles/malva-ui.scss",
+        "{workspaceRoot}/libs/styles/src/**/*",
+        "{workspaceRoot}/libs/styles/tokens.md"
+      ],
+      "outputs": [
+        "{projectRoot}/styles/malva-ui.css",
+        "{projectRoot}/styles/tokens.md"
+      ],
+      "options": {
+        "commands": [
+          "sass libs/core/styles/malva-ui.scss libs/core/styles/malva-ui.css --style=expanded --no-source-map",
+          "cp libs/styles/tokens.md libs/core/styles/tokens.md"
+        ],
+        "parallel": false
+      },
+      "cache": true
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "config": "libs/core/vite.config.mts"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test-schematics": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "libs/core",
+        "command": "node --test tests/schematics/ng-add.spec.js"
+      }
+    }
+  }
+}

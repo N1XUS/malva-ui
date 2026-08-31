@@ -1,0 +1,28 @@
+$block: filter-options-demo;
+
+.#{$block} {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+
+  &__item {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 1rem;
+    border: 0.0625rem solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-card);
+    background: var(--mlv-background-raised);
+
+    h3 {
+      margin: 0;
+    }
+  }
+
+  &__status {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+}

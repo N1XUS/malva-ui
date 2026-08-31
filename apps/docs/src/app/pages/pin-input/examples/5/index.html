@@ -1,0 +1,30 @@
+<div class="demo-col" style="gap: 1.75rem">
+  <mlv-pin-input
+    [length]="6"
+    label="Disabled — empty"
+    hint="Read-only field"
+    disabled
+  />
+
+  <mlv-pin-input
+    [length]="6"
+    [ngModel]="'123456'"
+    label="Disabled — pre-filled"
+    hint="This code is locked"
+    disabled
+  />
+
+  <mlv-pin-input
+    [length]="6"
+    placeholder="0"
+    label="Placeholder customisation"
+    hint="Each empty cell shows '0'"
+  />
+
+  <mlv-pin-input
+    [length]="4"
+    type="number"
+    label="Numeric PIN"
+    hint="Opens numeric keyboard on mobile"
+  />
+</div>

@@ -1,0 +1,259 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-search-field;
+
+.#{$block} {
+  @include mixins.base();
+  display: block;
+  width: 100%;
+  min-width: 0;
+
+  &__input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+
+    input[type='search']::-webkit-search-cancel-button {
+      display: none;
+      appearance: none;
+    }
+  }
+
+  &__leading,
+  &__actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  // Affordance-glyph colour ramp (2026-08-26): tertiary at rest, stepping to
+  // primary on hover/focus — mirrors `.mlv-select__arrow` (the reference
+  // implementation) exactly, including the direct tertiary→primary jump
+  // with no secondary stop. The icon is purely decorative (the row's own
+  // click/focus handling lives on the input), so its state follows the
+  // owning field the same way select's arrow follows its trigger.
+  &__leading {
+    color: var(--mlv-text-tertiary);
+    pointer-events: none;
+    transition: color var(--mlv-duration-fast) var(--mlv-ease-out-strong);
+  }
+
+  &:hover &__leading,
+  &:focus-within &__leading {
+    color: var(--mlv-text-primary);
+  }
+
+  @at-root .mlv-form-control-wrapper--focused .#{$block}__leading {
+    color: var(--mlv-text-primary);
+  }
+
+  &__leading-icon {
+    display: block;
+    // Shared form-control affordance-glyph ramp (2026-08-26) — was a fixed
+    // 1.125em (tracked the row's text size, not the field's actual height,
+    // and landed smaller than the field warranted; see
+    // libs-form-utils.md → _Affordance glyph size & colour ramp_).
+    width: var(--form-ctrl-icon-size);
+    height: var(--form-ctrl-icon-size);
+    stroke-width: 2;
+    // The `<svg>` itself carries this class (not just its `.__leading`
+    // wrapper), so it matches the global `[class*='mlv']` reset in the
+    // `mlv.base` layer, which sets `color: var(--mlv-text-primary)`
+    // unconditionally. That layered rule directly targets this element, so
+    // it wins over the *inherited* tertiary/primary from `.__leading`
+    // unless this rule states its own colour — same gotcha CH-R3's font-size
+    // fix hit on `mlv-input__native`. `inherit` restores the ramp.
+    color: inherit;
+  }
+
+  // Trailing submit button / standalone icon trigger: same size + colour
+  // ramp as the leading icon, so the two glyphs in a leading+trailing pair
+  // (e.g. the "Submit search" example) read identically. Both buttons
+  // default (via `mlvButton[variant="transparent"]`) to
+  // `--mlv-text-secondary` → `--mlv-text-primary`; overridden here to the
+  // shared tertiary → primary ramp instead, and their icon-only
+  // `--mlv-icon-font-size` (normally `--mlv-btn-height *
+  // --mlv-icon-in-container-ratio`, off the *button's* own tight-pinned
+  // height) is pointed at the field's own `--form-ctrl-icon-size` instead.
+  &__submit,
+  &__trigger-icon {
+    --mlv-btn-text-color: var(--mlv-text-tertiary);
+    --mlv-icon-font-size: var(--form-ctrl-icon-size);
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+      --mlv-btn-text-color: var(--mlv-text-primary);
+    }
+  }
+
+  // mlvButton keeps rendering its own current-colour loading spinner (a
+  // direct child of the button host, sibling to `.mlv-button__text`) even
+  // though the search-field's own loader — identical to the standalone one
+  // above — is what's meant to show, projected inside `.mlv-button__text`.
+  // `[style]`-bound MlvLoader inputs can't be retuned from CSS without
+  // `!important`, so the only spinner-parity lever here is hiding mlvButton's
+  // own instance outright; `>` scopes this to mlvButton's own top-level
+  // loader and never touches the projected one nested inside `__text`.
+  &__submit > mlv-loader {
+    display: none;
+  }
+
+  &__actions {
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__loader {
+    flex: 0 0 auto;
+  }
+
+  &--disabled {
+    cursor: not-allowed;
+  }
+
+  // With overlay behaviour the inline input is a trigger, not an editable field:
+  // it is rendered read-only, so show the pointer affordance of a control.
+  &--overlay-enabled &__input {
+    cursor: pointer;
+
+    input {
+      cursor: pointer;
+    }
+  }
+}
+
+// Overlay surface. Rendered into the CDK overlay, so these live outside the block
+// nesting — the panel is not a descendant of the host element.
+.#{$block}__backdrop {
+  background: rgb(0 0 0 / 55%);
+  backdrop-filter: blur(0.5rem);
+
+  @include mixins.motion-safe {
+    animation: mlv-search-field-backdrop-enter var(--mlv-duration-normal)
+      var(--mlv-ease-out-strong) both;
+  }
+
+  &--leaving {
+    @include mixins.motion-safe {
+      animation: mlv-search-field-backdrop-leave var(--mlv-duration-fast)
+        var(--mlv-ease-default) both;
+    }
+  }
+}
+
+.#{$block}__overlay {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: var(--mlv-padding-l);
+  // Anchored below the top edge rather than centred: the eye goes to the input
+  // and results grow downward without the panel jumping as they arrive.
+  align-items: flex-start;
+  overflow-y: auto;
+
+  &--entering {
+    @include mixins.motion-safe {
+      animation: mlv-search-field-overlay-enter var(--mlv-duration-normal)
+        var(--mlv-ease-out-strong) both;
+    }
+  }
+
+  &--leaving {
+    @include mixins.motion-safe {
+      animation: mlv-search-field-overlay-leave var(--mlv-duration-fast)
+        var(--mlv-ease-default) both;
+    }
+  }
+}
+
+.#{$block}__overlay-panel {
+  display: flex;
+  align-items: center;
+  gap: var(--mlv-spacing-3);
+  width: 100%;
+  max-width: 40rem;
+  margin-block-start: 10vh;
+}
+
+// The overlay body is a nested `mlv-search-field`, so it — not the form-control
+// wrapper buried inside it — is the flex child that has to take the free space.
+.#{$block}__overlay-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// Dark overlay surface (SL-R6 self-backdrop carve-out): the panel paints its
+// own scrim (`__backdrop`, a blurred `rgb(0 0 0 / 55%)`), so it — not the
+// light-theme default — owns the foreground tokens for everything it
+// contains, not just the nested field. Previously only
+// `.mlv-form-control-wrapper` got the light-on-dark remap; a sibling in the
+// same panel (the close button) fell through to the ambient LIGHT-theme
+// `--mlv-text-secondary` (`--mlv-palette-neutral-600`, #525252) against the
+// dark scrim — unreadable. Widened to the whole panel so every descendant
+// — the wrapped field, a consumer's projected `[mlvSearchOverlayContent]`,
+// and the close button alike — reads light-on-dark by default.
+.#{$block}__overlay-panel {
+  --mlv-text-primary: var(--mlv-palette-neutral-50);
+  --mlv-text-secondary: rgb(255 255 255 / 78%);
+  --mlv-text-tertiary: rgb(255 255 255 / 60%);
+  --mlv-border-focus: var(--mlv-palette-neutral-50);
+
+  // Same translucent-fill approach the page shell uses for chrome-hosted
+  // fields — form-control-wrapper-internal tokens, so scoped to the wrapper.
+  .mlv-form-control-wrapper {
+    --container-background-color: rgb(255 255 255 / 10%);
+    --container-border-color: rgb(255 255 255 / 30%);
+    --container-side-content-color: var(--mlv-palette-neutral-50);
+    --container-action-color: rgb(255 255 255 / 78%);
+
+    &.mlv-form-control-wrapper--state-default:hover {
+      --container-border-color: rgb(255 255 255 / 40%);
+    }
+
+    &.mlv-form-control-wrapper--focused {
+      --container-border-color: rgb(255 255 255 / 50%);
+    }
+  }
+}
+
+.#{$block}__overlay-close {
+  // `mlvButton[variant="transparent"]` (its default) reads
+  // `--mlv-text-secondary` / `--mlv-text-primary` for its label, never
+  // `--mlv-text-action` (that token only feeds accent-styled buttons/links —
+  // AB-R3 keeps transparent-variant glyphs neutral chrome). The previous
+  // `--mlv-text-action` override here was therefore dead: this button's
+  // label read the ambient (light-theme) `--mlv-text-secondary` against the
+  // dark scrim. Removed — the panel-level remap above now supplies a
+  // correctly-read `--mlv-text-secondary` instead.
+  flex: 0 0 auto;
+}
+
+@keyframes mlv-search-field-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes mlv-search-field-backdrop-leave {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes mlv-search-field-overlay-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
+}
+
+@keyframes mlv-search-field-overlay-leave {
+  to {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

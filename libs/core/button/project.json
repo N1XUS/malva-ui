@@ -1,0 +1,33 @@
+{
+  "name": "core-button",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/button/src",
+  "prefix": "mlv",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:core", "type:ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "config": "libs/core/button/vite.config.mts"
+      }
+    },
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "outputs": ["{workspaceRoot}/dist/.playwright/libs/core/button"],
+      "dependsOn": [
+        {
+          "projects": "docs",
+          "target": "serve",
+          "params": "forward"
+        }
+      ],
+      "options": {
+        "config": "libs/core/button/playwright.config.mts"
+      }
+    }
+  }
+}

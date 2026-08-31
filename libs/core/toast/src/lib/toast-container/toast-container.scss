@@ -1,0 +1,116 @@
+@layer mlv.components {
+$block: mlv-toast-container;
+
+@keyframes mlv-toast--enter {
+  from {
+    opacity: 0;
+    transform: translateY(calc(2rem * var(--mlv-toast-position, -1)));
+    grid-template-rows: 0fr;
+    margin-bottom: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    grid-template-rows: 1fr;
+    margin-bottom: 0.5rem;
+  }
+}
+
+@keyframes toast-leave-fade {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes toast-leave-collapse {
+  to {
+    grid-template-rows: 0fr;
+    margin-bottom: 0;
+  }
+}
+
+.mlv-toast-panel {
+  // Items hug their content, so the column has to say which edge they hug
+  // against — otherwise a short toast in a right-anchored stack would sit on the
+  // left of a stretched wrapper. Resolved per position class below.
+  --mlv-toast-align: flex-end;
+
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: var(--mlv-toast-align);
+  overflow-y: visible;
+  padding: var(--mlv-padding-m);
+
+  &--top-left,
+  &--bottom-left {
+    --mlv-toast-align: flex-start;
+  }
+
+  &--top-center,
+  &--bottom-center {
+    --mlv-toast-align: center;
+  }
+}
+
+#{$block} {
+  display: flex;
+  flex-direction: column;
+  align-items: var(--mlv-toast-align, flex-end);
+  // Clearance from the anchored viewport edge, on top of the panel padding.
+  // The container resolves which edge it is anchored to and publishes the
+  // matching `var(--mlv-toast-inset-block-*)` chain; the unused edge stays
+  // unset and falls back to 0. This is what keeps a bottom stack above a
+  // sticky `mlv-page-dock` (through `--mlv-page-dock-height`) or any other
+  // fixed chrome the consumer measures itself.
+  padding-block-start: var(--mlv-toast-panel-inset-block-start, 0px);
+  padding-block-end: var(--mlv-toast-panel-inset-block-end, 0px);
+  pointer-events: none;
+
+  .mlv-toast-item-wrapper {
+    display: grid;
+    grid-template-rows: 1fr;
+    flex-shrink: 0;
+    pointer-events: all;
+    margin-bottom: 0.5rem;
+    will-change: transform, opacity, grid-template-rows;
+
+    > * {
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    &--enter {
+      animation: mlv-toast--enter var(--mlv-duration-slow)
+        var(--mlv-ease-out-strong) both;
+    }
+
+    &--leave {
+      animation:
+        toast-leave-fade var(--mlv-duration-fast) var(--mlv-ease-out-strong)
+          forwards,
+        toast-leave-collapse var(--mlv-duration-normal)
+          var(--mlv-ease-out-strong) forwards;
+    }
+  }
+
+  &.is-bottom mlv-toast-item.is-leaving {
+    animation:
+      toast-leave-fade var(--mlv-duration-fast) var(--mlv-ease-out-strong)
+        forwards,
+      toast-leave-collapse var(--mlv-duration-normal) var(--mlv-ease-out-strong)
+        var(--mlv-duration-fast) forwards;
+  }
+
+  // Respect reduced-motion: toasts (and notifications, which reuse this
+  // container) enter/leave instantly with no slide / collapse animation.
+  @media (prefers-reduced-motion: reduce) {
+    .mlv-toast-item-wrapper--enter,
+    .mlv-toast-item-wrapper--leave,
+    &.is-bottom mlv-toast-item.is-leaving {
+      animation: none;
+    }
+  }
+}
+}

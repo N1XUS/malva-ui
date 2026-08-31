@@ -1,0 +1,20 @@
+<div class="demo-col" style="max-width: 24rem">
+  @for (thread of threads(); track thread.id) {
+  <div
+    class="demo-row"
+    style="justify-content: space-between; margin-bottom: 0"
+  >
+    <span>{{ thread.subject }}</span>
+    <button
+      mlvIconToggle
+      type="button"
+      tone="warning"
+      [pressed]="thread.starred"
+      [attr.aria-label]="thread.starred ? 'Unstar conversation' : 'Star conversation'"
+      (pressedChange)="toggleStar(thread.id)"
+    >
+      <svg lucideStar [size]="16" aria-hidden="true" />
+    </button>
+  </div>
+  }
+</div>

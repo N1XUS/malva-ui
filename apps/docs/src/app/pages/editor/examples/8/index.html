@@ -1,0 +1,25 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <div class="demo-row">
+    <button mlvButton type="button" (click)="insertTable()">
+      Insert 3 × 3 table
+    </button>
+    @for (level of [80, 100, 125]; track level) {
+    <button mlvButton type="button" variant="outlined" (click)="setZoom(level)">
+      {{ level }}%
+    </button>
+    }
+  </div>
+
+  <mlv-editor
+    #editor
+    [(value)]="value"
+    label="Table and zoom playground"
+    ariaLabel="Table and zoom editor"
+  />
+
+  <p style="margin: 0">
+    View zoom: {{ zoom() }}% · Last zoom preserved serialized value: {{
+    zoomPreservedValue() }}
+  </p>
+  <pre style="white-space: pre-wrap">{{ value() ?? 'null' }}</pre>
+</div>

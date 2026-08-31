@@ -1,0 +1,30 @@
+<div class="demo-row">
+  <button mlvButton (click)="editProfile()">Edit profile</button>
+</div>
+
+<p aria-live="polite">Last result: {{ lastResult() }}</p>
+
+<ul>
+  <li>
+    Open the <strong>Role</strong> select, then press Escape — only the dropdown
+    closes, the form dialog stays open.
+  </li>
+  <li>
+    Type into <strong>Display name</strong>, then press Escape, click the
+    backdrop, or press <strong>Cancel</strong> — the discard confirmation opens
+    on top instead of closing the form.
+  </li>
+  <li>
+    Press Escape in the confirmation — only the confirmation closes, and focus
+    returns into the form dialog.
+  </li>
+  <li>
+    Only a committed selection counts as an edit — typing in the
+    <strong>Team</strong> combobox without picking an option does not arm the
+    guard.
+  </li>
+  <li>
+    With no edits, Escape (or <strong>Cancel</strong>) closes immediately —
+    result <code>cancelled</code>.
+  </li>
+</ul>

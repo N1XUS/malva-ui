@@ -1,0 +1,16 @@
+.docs-conversations-list {
+  width: min(28rem, 100%);
+}
+
+.docs-conversations-list__trailing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.docs-conversations-list__time {
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+  white-space: nowrap;
+}

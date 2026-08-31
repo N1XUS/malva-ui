@@ -1,0 +1,24 @@
+<div
+  style="
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding-bottom: 22rem;
+  "
+>
+  <p style="font-size: 0.875rem; color: #666; margin: 0">
+    Focus the input or click its swatch to open the color picker popover.
+    Changes commit when the field blurs or the popover closes; use
+    <code>live</code> for immediate updates.
+  </p>
+  <mlv-color-picker-popup
+    value="#8b5cf6"
+    label="Brand color"
+    clearable
+    (colorChange)="color.set($event)"
+  />
+  <p style="font-size: 0.875rem; color: #666">
+    Selected: <strong>{{ color() }}</strong>
+  </p>
+</div>

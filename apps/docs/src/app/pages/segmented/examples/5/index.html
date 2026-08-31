@@ -1,0 +1,57 @@
+<div
+  class="demo-col"
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: stretch;
+    max-width: 32rem;
+  "
+>
+  <mlv-segmented equalWidth [(value)]="value" ariaLabel="View (equal width)">
+    <button mlvSegmentedItem value="list">List</button>
+    <button mlvSegmentedItem value="board">Board</button>
+    <button mlvSegmentedItem value="calendar">Calendar</button>
+  </mlv-segmented>
+
+  <mlv-segmented
+    orientation="vertical"
+    [(value)]="value"
+    ariaLabel="View (vertical)"
+  >
+    <button mlvSegmentedItem value="list">List</button>
+    <button mlvSegmentedItem value="board">Board</button>
+    <button mlvSegmentedItem value="calendar">Calendar</button>
+  </mlv-segmented>
+
+  <div class="demo-row" style="gap: 1rem; flex-wrap: wrap; align-items: center">
+    <mlv-segmented
+      mlvDensity="tight"
+      [(value)]="value"
+      ariaLabel="View (tight)"
+    >
+      <button mlvSegmentedItem value="list">List</button>
+      <button mlvSegmentedItem value="board">Board</button>
+    </mlv-segmented>
+    <mlv-segmented
+      mlvDensity="compact"
+      [(value)]="value"
+      ariaLabel="View (compact)"
+    >
+      <button mlvSegmentedItem value="list">List</button>
+      <button mlvSegmentedItem value="board">Board</button>
+    </mlv-segmented>
+    <mlv-segmented [(value)]="value" ariaLabel="View (comfortable)">
+      <button mlvSegmentedItem value="list">List</button>
+      <button mlvSegmentedItem value="board">Board</button>
+    </mlv-segmented>
+    <mlv-segmented
+      mlvDensity="spacious"
+      [(value)]="value"
+      ariaLabel="View (spacious)"
+    >
+      <button mlvSegmentedItem value="list">List</button>
+      <button mlvSegmentedItem value="board">Board</button>
+    </mlv-segmented>
+  </div>
+</div>

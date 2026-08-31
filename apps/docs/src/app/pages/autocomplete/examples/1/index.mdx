@@ -1,0 +1,14 @@
+## Static options
+
+Bind an array to `[mlvAutocomplete]` to filter it locally as the user types.
+The matcher is case- and diacritic-insensitive by default, matches are
+highlighted, and the popup opens on focus (`minLength` defaults to `0`).
+`(optionSelected)` emits the chosen `MlvSelectOption`; the directive also writes
+the label back into the input. Works on any `mlv-input` — no form control
+required.
+
+**Inline completion is on by default.** As you type a prefix, the remainder of
+the top suggestion is filled in after the caret and left selected — keep typing
+to replace it, press `Enter` to accept, or `Escape` to revert to what you typed.
+Only genuine prefix matches complete (substring-only matches stay list-only).
+Opt out with `[mlvAutocompleteInline]="false"` for a list-only experience.

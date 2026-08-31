@@ -1,0 +1,12 @@
+## Basic conversation
+
+`mlv-chat` takes a flat `messages` array ordered oldest → newest plus a `selfId`.
+Everything structural is derived from that data: messages by the same author
+within `groupWindow` minutes (5 by default) collapse into one group sharing a
+single avatar and corner-tail radii, and a date separator is inserted at every
+calendar-day boundary.
+
+Messages whose `authorId` equals `selfId` render right-aligned in the accent
+colour and are the only ones to show delivery ticks — `sending`, `sent`,
+`delivered`, `read`, and `failed`. A failed bubble adds a retry button and emits
+`(retry)` with the message so the host can re-send it.

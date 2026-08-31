@@ -1,0 +1,23 @@
+## Tiptap extensions and toolbar composition
+
+Supplying `[extensions]` **completely replaces** Malva's preset. Nothing is
+silently appended—not a document schema, Markdown support, tables, images,
+placeholder, character count, or file handling. This example explicitly
+rebuilds the preset with `mlvEditorDefaultExtensions()` and adds a third-party
+Tiptap extension.
+
+For smaller presets, compose fresh instances from
+`mlvEditorFormattingExtensions`, `mlvEditorListExtensions`,
+`mlvEditorTableExtensions`, `mlvEditorImageExtensions`,
+`mlvEditorUtilityExtensions`, and `mlvEditorMarkdownExtensions`. The grouped
+entry point also exports Malva extension classes/options and Tiptap `Editor`,
+`EditorOptions`, `Extension`, and `Extensions` types for typed composition.
+
+`mlvEditorToolbarStart` and `mlvEditorToolbarEnd` add projected controls around
+the defaults. `mlvEditorToolbar` replaces the complete toolbar and supplies an
+implicit `MlvEditorToolbarContext`; a complete replacement wins over start/end
+slots. `MLV_EDITOR_TOOLBAR_CONTEXT` can also be injected by a projected custom
+component. The context exposes the editor signal, state signals, safe command
+helpers, zoom, and the exact editor-owned upload capability. The editor's
+public `editor()` signal remains available when direct Tiptap API access is
+more appropriate.

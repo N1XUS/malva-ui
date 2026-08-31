@@ -1,0 +1,34 @@
+---
+title: Remote data source with lazy paging
+description: An MlvDataSource that searches and pages server-side, plus a preset value
+---
+
+`[options]` accepts an `MlvDataSource` (`@malva-ui/cdk/data-source`) as well as
+a plain array or an `Observable`. A data source is treated as **remote**: it
+owns filtering — the in-dropdown search field forwards its query as
+`setSearch({ query, keys: [] })` (natural-field search, since the select knows
+option shapes rather than column keys) — and the select pages it lazily, calling
+`setPage(page + 1)` as the panel's scroll sentinel comes into range.
+`connect()` emits the **current page's slice**; the select accumulates the
+slices and derives "more pages exist" from `totalItems()`.
+
+Three things to watch in the preview:
+
+- **The loading variant.** `value` is preset to `{ id: 7, name: '', email: '' }`
+  — a value as it arrives from a server, with a real id and no label. Until the
+  first page resolves, the trigger renders the translated loading text, swaps
+  the chevron for a spinner and sets `aria-busy`; it stays tabbable but does not
+  open. `[compareWith]` (`(a, b) => a.id === b.id`) is what collapses the
+  deserialised value onto the option instance once the page carrying that id
+  lands, so the label and the check-mark agree.
+- **The spinner row.** Opening the dropdown and typing keeps the previous
+  options mounted and interactive under a receded colour while the source
+  answers — the list never blanks or closes mid-search.
+- **Lazy paging.** The fake source serves 57 users, 10 at a time with 600 ms of
+  latency. Scrolling to the bottom of the open dropdown appends the next page
+  under a polite "loading more" row until the accumulated items reach
+  `totalItems`.
+
+A `MlvDataSource` subclass must flip its protected `_loading` **synchronously**
+when a request starts, so the control can tell "loaded and empty" from "not
+fetched yet".

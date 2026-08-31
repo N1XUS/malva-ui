@@ -1,0 +1,17 @@
+## Pinned columns & column resizing
+
+Set `pinned: true` and `pinSide: 'left' | 'right'` on a column to make it sticky while the rest of the table scrolls horizontally. Multiple columns can be pinned on both sides simultaneously.
+
+Set `resizable: true` to expose an accessible resize separator on the column's right edge. It supports mouse, touch, and pen dragging; `ArrowLeft`/`ArrowRight` resize from the keyboard, Shift uses a larger step, and Home/End move to the configured `minWidth`/`maxWidth`. Bounds may use pixels or percentages of the rendered table width. Enter or double-click removes the user override and restores the declared width.
+
+Use `(columnResize)` to persist committed pixel widths. Its payload is `{ key, width, source }`; `width` is `null` when the override is reset. `resetColumnWidth(key?)` resets one column or every overridden column programmatically.
+
+The table measures its rendered columns before the first resize, then preserves that exact geometry across standard, pinned, and virtual layouts.
+
+Use `pinnable` to opt a column into the user-controlled pin toggle shown on header hover:
+
+- `pinnable: true` — both sides allowed; clicking the pin icon opens a popup with **Pin left**, **Pin right**, and (when already pinned) **Unpin** options.
+- `pinnable: 'left'` / `pinnable: 'right'` — only that side is allowed; clicking the pin icon directly toggles between pinned and unpinned.
+- `pinnable: ['left', 'right']` — explicit list form, equivalent to `true`.
+
+In this example every column uses `pinnable: true`, so any header pin click lets you choose a side from the popup.

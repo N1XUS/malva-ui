@@ -1,0 +1,27 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <mlv-editor
+    [(value)]="value"
+    label="Release notes"
+    hint="Direct nullable HTML model"
+    ariaLabel="Release notes editor"
+  />
+
+  <div class="demo-row">
+    <button mlvButton type="button" variant="secondary" (click)="restore()">
+      Restore sample
+    </button>
+    <button
+      mlvButton
+      type="button"
+      variant="outlined"
+      (click)="value.set(null)"
+    >
+      Clear to null
+    </button>
+  </div>
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Serialized value (HTML is escaped below):
+  </p>
+  <pre style="white-space: pre-wrap">{{ value() ?? 'null' }}</pre>
+</div>

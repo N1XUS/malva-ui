@@ -1,0 +1,16 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <mlv-editor
+    [aiProvider]="aiProvider"
+    [(value)]="value"
+    label="AI assistant"
+    ariaLabel="Editor with an AI assistant menu"
+    (editorError)="lastError.set($event)"
+  >
+    <mlv-editor-ai-menu mlvEditorToolbarStart [actions]="aiActions()" />
+  </mlv-editor>
+
+  <p aria-live="polite">
+    @if (lastError(); as error) { Recoverable {{ error.code }} error: {{
+    error.message }} } @else { No editor errors yet. }
+  </p>
+</div>

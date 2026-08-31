@@ -1,0 +1,87 @@
+<div class="sidebar-demo">
+  <mlv-sidebar
+    #nav
+    collapseBelow="md"
+    [(collapsed)]="collapsed"
+    ariaLabel="Product navigation"
+  >
+    <div mlvSidebarHeader>
+      <div class="workspace">
+        <div class="workspace__logo">
+          <svg lucideCommand size="20" />
+        </div>
+        <div class="workspace__meta">
+          <span class="workspace__name">Acme Inc</span>
+          <span class="workspace__plan">Enterprise</span>
+        </div>
+      </div>
+    </div>
+
+    <div mlvSidebarContent>
+      <mlv-sidebar-item label="Dashboard" [active]="true">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideLayoutDashboard size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Inbox" badge="12" badgeTone="info">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideInbox size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Calendar">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideCalendar size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-group label="Projects">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideFolderOpen size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Design System">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideFileText size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Marketing Site">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideFileText size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-sidebar-item label="Team">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideUsers size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Settings">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideSettings size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+    </div>
+  </mlv-sidebar>
+
+  <div class="app-content">
+    <div class="app-content__header">
+      <!-- Outside <mlv-sidebar>: a closed drawer renders none of its projected
+           content, so a trigger nested inside could never reopen it. -->
+      <mlv-sidebar-trigger [sidebar]="nav" />
+      <h3 class="app-content__title">Dashboard</h3>
+    </div>
+    <p class="app-content__body">
+      Resize the browser window across 768px. Above the <code>md</code>
+      breakpoint the sidebar is a normal rail and the trigger collapses it to
+      icons. Below it, the sidebar turns itself into a closed offcanvas drawer
+      and the trigger becomes a hamburger menu button — Escape, the backdrop, or
+      the trigger close it again. Growing the window back restores the rail and
+      the collapsed state it had before.
+    </p>
+  </div>
+</div>

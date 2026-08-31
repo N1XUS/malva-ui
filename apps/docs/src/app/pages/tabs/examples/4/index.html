@@ -1,0 +1,51 @@
+<mlv-tab-group [(activeTab)]="outerTab">
+  <mlv-tab value="frontend">
+    <ng-template mlvTabDef let-hidden>Frontend</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <mlv-tab-group [(activeTab)]="innerFrontendTab">
+          <mlv-tab value="angular">
+            <ng-template mlvTabDef let-hidden>Angular</ng-template>
+            <ng-template mlvTabContent>
+              <div style="padding: 0.5rem">
+                <p>
+                  Angular is a platform for building mobile and desktop web
+                  applications.
+                </p>
+              </div>
+            </ng-template>
+          </mlv-tab>
+          <mlv-tab value="react">
+            <ng-template mlvTabDef let-hidden>React</ng-template>
+            <ng-template mlvTabContent>
+              <div style="padding: 0.5rem">
+                <p>
+                  React is a JavaScript library for building user interfaces.
+                </p>
+              </div>
+            </ng-template>
+          </mlv-tab>
+          <mlv-tab value="vue">
+            <ng-template mlvTabDef let-hidden>Vue</ng-template>
+            <ng-template mlvTabContent>
+              <div style="padding: 0.5rem">
+                <p>
+                  Vue.js is a progressive framework for building user
+                  interfaces.
+                </p>
+              </div>
+            </ng-template>
+          </mlv-tab>
+        </mlv-tab-group>
+      </div>
+    </ng-template>
+  </mlv-tab>
+  <mlv-tab value="backend">
+    <ng-template mlvTabDef let-hidden>Backend</ng-template>
+    <ng-template mlvTabContent>
+      <div style="padding: 1rem">
+        <p>Backend frameworks and technologies.</p>
+      </div>
+    </ng-template>
+  </mlv-tab>
+</mlv-tab-group>

@@ -1,0 +1,56 @@
+<mlv-data-table
+  [data]="servers"
+  [columns]="columns"
+  [stickyHeader]="true"
+  maxHeight="28rem"
+>
+  <ng-template
+    mlvDataTableCell="status"
+    [mlvDataTableCellFrom]="servers"
+    let-row
+  >
+    <mlv-badge
+      [tone]="row.status === 'healthy' ? 'success' : row.status === 'degraded' ? 'warning' : 'danger'"
+      muted
+    >
+      {{ row.status }}
+    </mlv-badge>
+  </ng-template>
+
+  <span
+    *mlvDataTableCell="'cpu'; let row from servers"
+    class="dt-metric"
+    [class.dt-metric--warn]="row.cpu > 80"
+  >
+    {{ row.cpu }}%
+  </span>
+
+  <span
+    *mlvDataTableCell="'memory'; let row from servers"
+    class="dt-metric"
+    [class.dt-metric--warn]="row.memory > 85"
+  >
+    {{ row.memory }}%
+  </span>
+
+  <span
+    *mlvDataTableCell="'requests'; let row from servers"
+    class="dt-metric-num"
+  >
+    {{ row.requests.toLocaleString() }}
+  </span>
+
+  <ng-template
+    mlvDataTableCell="errors"
+    [mlvDataTableCellFrom]="servers"
+    let-row
+  >
+    @if (row.errors > 0) {
+    <mlv-badge [tone]="row.errors > 10 ? 'danger' : 'warning'" muted
+      >{{ row.errors }}</mlv-badge
+    >
+    } @else {
+    <span class="dt-metric--ok">0</span>
+    }
+  </ng-template>
+</mlv-data-table>

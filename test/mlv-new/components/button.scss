@@ -1,0 +1,145 @@
+/**
+ * Button Variant Tokens
+ * @import './components/button.scss'
+ *
+ * All hover/active states are derived via color-mix() from semantic tokens —
+ * no separate hardcoded hex values needed. Changing a base background token
+ * automatically cascades to all button states.
+ */
+
+// ─── Light Theme ─────────────────────────────────────────────────────────────
+
+:root {
+  // ── Solid / Primary ──
+  --mlv-btn-solid-bg: var(--mlv-background-accent-1);
+  --mlv-btn-solid-bg-hover: var(--mlv-background-accent-1-hover);
+  --mlv-btn-solid-bg-active: var(--mlv-background-accent-1-active);
+  --mlv-btn-solid-text: var(--mlv-text-primary-on-accent-1);
+  --mlv-btn-solid-border: transparent;
+
+  // ── Secondary / Neutral ──
+  --mlv-btn-secondary-bg: var(--mlv-background-neutral-1);
+  --mlv-btn-secondary-bg-hover: var(--mlv-background-neutral-1-hover);
+  --mlv-btn-secondary-bg-active: var(--mlv-background-neutral-1-active);
+  --mlv-btn-secondary-text: var(--mlv-text-action);
+  --mlv-btn-secondary-border: var(--mlv-border-normal);
+
+  // ── Ghost / Transparent ──
+  --mlv-btn-ghost-bg: transparent;
+  --mlv-btn-ghost-bg-hover: var(--mlv-background-accent-1-pale);
+  --mlv-btn-ghost-bg-active: var(--mlv-background-accent-1-pale-hover);
+  --mlv-btn-ghost-text: var(--mlv-text-action);
+  --mlv-btn-ghost-border: transparent;
+
+  // ── Outlined ──
+  --mlv-btn-outlined-bg: transparent;
+  --mlv-btn-outlined-bg-hover: var(--mlv-background-accent-1-pale);
+  --mlv-btn-outlined-bg-active: var(--mlv-background-accent-1-pale-hover);
+  --mlv-btn-outlined-text: var(--mlv-text-action);
+  --mlv-btn-outlined-border: var(--mlv-border-focus);
+
+  // ── Danger / Destructive ──
+  --mlv-btn-danger-bg: var(--mlv-background-danger-1);
+  --mlv-btn-danger-bg-hover: var(--mlv-background-danger-1-hover);
+  --mlv-btn-danger-bg-active: var(--mlv-background-danger-1-active);
+  --mlv-btn-danger-text: var(--mlv-text-on-danger);
+  --mlv-btn-danger-border: transparent;
+
+  // ── Disabled (all variants) ──
+  --mlv-btn-disabled-bg: var(--mlv-background-neutral-1);
+  --mlv-btn-disabled-text: var(--mlv-text-disabled);
+  --mlv-btn-disabled-border: transparent;
+  --mlv-btn-disabled-opacity: var(--mlv-disabled-opacity);
+
+  // ── Size — Font ──
+  --mlv-btn-font-size-xs: var(
+    --mlv-font-size-xs
+  ); /* 11px — compact/tiny buttons */
+  --mlv-btn-font-size-s: var(--mlv-font-size-s); /* 12px — small buttons */
+  --mlv-btn-font-size-m: var(--mlv-font-size-m); /* 14px — default */
+  --mlv-btn-font-size-l: var(--mlv-font-size-l); /* 16px — medium-large */
+  --mlv-btn-font-size-xl: var(--mlv-font-size-xl); /* 18px — large */
+  --mlv-btn-font-size-2xl: var(
+    --mlv-font-size-2xl
+  ); /* 20px — extra large / hero */
+
+  // ── Size — Height ──
+  --mlv-btn-height-xs: var(--mlv-height-xs); /* 24px */
+  --mlv-btn-height-s: var(--mlv-height-s); /* 32px */
+  --mlv-btn-height-m: var(--mlv-height-m); /* 40px — default */
+  --mlv-btn-height-l: var(--mlv-height-l); /* 48px */
+  --mlv-btn-height-xl: var(--mlv-height-xl); /* 56px */
+
+  // ── Size — Padding (vertical horizontal) ──
+  --mlv-btn-padding-xs: var(--mlv-spacing-0-5) var(--mlv-spacing-2); /* 2px  8px  */
+  --mlv-btn-padding-s: var(--mlv-spacing-1) var(--mlv-spacing-3); /* 4px  12px */
+  --mlv-btn-padding-m: var(--mlv-spacing-2) var(--mlv-spacing-5); /* 8px  20px — default */
+  --mlv-btn-padding-l: var(--mlv-spacing-3) var(--mlv-spacing-6); /* 12px 24px */
+  --mlv-btn-padding-xl: var(--mlv-spacing-4) var(--mlv-spacing-8); /* 16px 32px */
+}
+
+// ─── Dark Theme ───────────────────────────────────────────────────────────────
+// Most button tokens inherit from updated semantic tokens. Only direct
+// overrides needed here.
+
+%button-dark-tokens {
+  // Secondary border uses updated dark border-normal
+  --mlv-btn-secondary-border: var(--mlv-border-normal);
+  // Outlined border uses updated dark border-focus (primary-400)
+  --mlv-btn-outlined-border: var(--mlv-border-focus);
+}
+
+[data-theme='dark'] {
+  @extend %button-dark-tokens;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    @extend %button-dark-tokens;
+  }
+}
+
+// ─── High Contrast Theme ──────────────────────────────────────────────────────
+
+[data-theme='high-contrast'] {
+  // Solid
+  --mlv-btn-solid-bg: #0000cc;
+  --mlv-btn-solid-bg-hover: #000099;
+  --mlv-btn-solid-bg-active: #000066;
+  --mlv-btn-solid-text: #ffffff;
+  --mlv-btn-solid-border: #000000;
+
+  // Secondary
+  --mlv-btn-secondary-bg: #ffffff;
+  --mlv-btn-secondary-bg-hover: #e8e8e8;
+  --mlv-btn-secondary-bg-active: #d0d0d0;
+  --mlv-btn-secondary-text: #0000ee;
+  --mlv-btn-secondary-border: #000000;
+
+  // Ghost
+  --mlv-btn-ghost-bg: transparent;
+  --mlv-btn-ghost-bg-hover: #e0e0ff;
+  --mlv-btn-ghost-bg-active: #c8c8ff;
+  --mlv-btn-ghost-text: #0000ee;
+  --mlv-btn-ghost-border: transparent;
+
+  // Outlined
+  --mlv-btn-outlined-bg: transparent;
+  --mlv-btn-outlined-bg-hover: #e0e0ff;
+  --mlv-btn-outlined-bg-active: #c8c8ff;
+  --mlv-btn-outlined-text: #0000ee;
+  --mlv-btn-outlined-border: #000000;
+
+  // Danger
+  --mlv-btn-danger-bg: #cc0000;
+  --mlv-btn-danger-bg-hover: #990000;
+  --mlv-btn-danger-bg-active: #660000;
+  --mlv-btn-danger-text: #ffffff;
+  --mlv-btn-danger-border: #000000;
+
+  // Disabled
+  --mlv-btn-disabled-bg: #e0e0e0;
+  --mlv-btn-disabled-text: #666666;
+  --mlv-btn-disabled-border: #666666;
+  --mlv-btn-disabled-opacity: 1; /* full opacity — HC relies on color contrast only */
+}

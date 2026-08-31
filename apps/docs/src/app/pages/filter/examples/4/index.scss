@@ -1,0 +1,96 @@
+$block: query-filter-demo;
+
+.#{$block} {
+  display: grid;
+  gap: var(--mlv-spacing-4);
+
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--mlv-spacing-4);
+
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h3 {
+      margin-block-end: var(--mlv-spacing-2);
+    }
+
+    p:not(.#{$block}__eyebrow) {
+      max-width: 44rem;
+      color: var(--mlv-text-secondary);
+    }
+  }
+
+  &__eyebrow {
+    margin-block-end: var(--mlv-spacing-1);
+    // `--mlv-text-tertiary` (neutral-400, #a3a3a3) fails WCAG AA color-contrast
+    // against the page background (~2.3:1). `--mlv-text-secondary`
+    // (neutral-600, #525252) resolves ~8.6:1 against white and is still
+    // clearly a de-emphasized label, not body text.
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-font-weight-medium);
+    letter-spacing: var(--mlv-letter-spacing-wide);
+    text-transform: uppercase;
+  }
+
+  &__mode {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__result {
+    display: grid;
+    gap: var(--mlv-spacing-3);
+    padding: var(--mlv-padding-m);
+    border-radius: var(--mlv-radius-card);
+    background: var(--mlv-background-subtle);
+
+    h4,
+    pre {
+      margin: 0;
+    }
+
+    pre {
+      max-height: 16rem;
+      overflow: auto;
+      color: var(--mlv-text-secondary);
+      font-family: var(--mlv-typography-family-code);
+      font-size: var(--mlv-typography-body-s-size);
+      white-space: pre-wrap;
+    }
+  }
+
+  &__status {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__range {
+    display: grid;
+    // `minmax(0, 1fr)`, not a bare `1fr`: keeps the two tracks splitting the
+    // available width evenly (a bare `1fr` track's automatic minimum is its
+    // item's own content-based min size, which can make tracks uneven under
+    // pressure) rather than each grabbing whatever its content wants.
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--mlv-spacing-2);
+
+    // Even split, this popover's fixed ~26rem panel only leaves ~55px of
+    // text room per date — not enough for "5 Aug 2026" on one line, and
+    // `.mlv-day-picker__value` is `white-space: normal` (it lives in
+    // mlv-day-picker's own template, hence `::ng-deep` to reach it from
+    // here), so it wraps to two lines instead. Force one line and ellipsize
+    // instead of wrapping.
+    ::ng-deep .mlv-day-picker__value {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+  }
+}

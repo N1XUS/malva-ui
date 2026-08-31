@@ -1,0 +1,30 @@
+$block: docs-inspector;
+
+.#{$block} {
+  display: block;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--mlv-background-neutral-1);
+  border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-m);
+  font-family: var(--mlv-typography-family-code);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+
+  &__value,
+  &__events,
+  &__meta {
+    margin: 0;
+  }
+
+  &__events {
+    padding-left: 1rem;
+  }
+
+  &__label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: var(--mlv-font-weight-semibold);
+    color: var(--mlv-text-primary);
+  }
+}

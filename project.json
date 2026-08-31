@@ -1,0 +1,27 @@
+{
+  "name": "@malva-ui/source",
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "targets": {
+    "local-registry": {
+      "executor": "@nx/js:verdaccio",
+      "options": {
+        "port": 4873,
+        "config": ".verdaccio/config.yml",
+        "storage": "tmp/local-registry/storage"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/scripts/testing/strip-css-layers.js",
+        "{workspaceRoot}/scripts/testing/setup-strip-css-layers.js",
+        "{workspaceRoot}/scripts/testing/strip-css-layers.spec.js"
+      ],
+      "options": {
+        "command": "node --test scripts/testing/strip-css-layers.spec.js",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}

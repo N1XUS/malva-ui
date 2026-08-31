@@ -1,0 +1,41 @@
+<!-- Container captured once so the single <ng-content/> projection works in
+     both the offcanvas (drawer overlay) and the inline branches. Two default
+     <ng-content> slots would leave one empty (Angular projects into the last). -->
+<ng-template #projectedContent>
+  <ng-content />
+</ng-template>
+
+<ng-template #body>
+  <div
+    class="mlv-sidebar__container"
+    (click)="_onContainerClick($event)"
+    (keydown)="onContainerKeydown($event)"
+    tabindex="-1"
+  >
+    @if (_hasSlots()) {
+    <ng-container [ngTemplateOutlet]="projectedContent" />
+    } @else {
+    <mlv-scrollbar class="mlv-sidebar__scrollbar">
+      <ng-container [ngTemplateOutlet]="projectedContent" />
+    </mlv-scrollbar>
+    }
+  </div>
+</ng-template>
+
+@if (effectiveMode() === 'offcanvas') {
+<mlv-drawer
+  [opened]="!_effectiveCollapsed()"
+  position="left"
+  [size]="width()"
+  [hasBackdrop]="true"
+  [restoreFocus]="_shouldRestoreDrawerFocus()"
+  (openedChange)="_onDrawerOpenedChange($event)"
+  (afterClosed)="_onDrawerAfterClosed()"
+>
+  <ng-template mlvDrawerContent>
+    <ng-container [ngTemplateOutlet]="body" />
+  </ng-template>
+</mlv-drawer>
+} @else {
+<ng-container [ngTemplateOutlet]="body" />
+}

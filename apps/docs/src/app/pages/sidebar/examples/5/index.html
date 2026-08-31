@@ -1,0 +1,105 @@
+<div class="sidebar-demo">
+  <mlv-sidebar [collapsed]="collapsed()" [(width)]="sidebarWidth">
+    <div mlvSidebarHeader>
+      <div class="workspace">
+        <div class="workspace__logo">
+          <svg lucideCommand size="20" />
+        </div>
+        @if (!collapsed()) {
+        <div class="workspace__meta">
+          <span class="workspace__name">Acme Inc</span>
+          <span class="workspace__plan">Enterprise</span>
+        </div>
+        }
+      </div>
+    </div>
+
+    <div mlvSidebarContent>
+      <mlv-sidebar-item label="Dashboard" [active]="true">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideHouse size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Inbox">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideInbox size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Projects">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideFolderOpen size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Tasks">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideListTodo size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Analytics">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideChartColumn size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Customers">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideUsers size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Billing">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideCreditCard size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Settings">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideSettings size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+    </div>
+
+    <mlv-sidebar-rail />
+  </mlv-sidebar>
+
+  <div class="app-content">
+    <header class="app-content__header">
+      <h3 class="app-content__title">Dashboard</h3>
+      <span class="app-content__hint">Current width: {{ sidebarWidth }}</span>
+    </header>
+
+    <p class="app-content__body">
+      Drag the right edge of the sidebar to resize. Double-click the rail to
+      toggle collapse. Drag below the snap threshold (100&nbsp;px) to
+      auto-collapse.
+    </p>
+
+    <div class="app-content__grid">
+      <div class="app-card">
+        <span class="app-card__label">Revenue</span>
+        <span class="app-card__value">$45,231</span>
+        <span class="app-card__delta">+20.1% from last month</span>
+      </div>
+      <div class="app-card">
+        <span class="app-card__label">Subscriptions</span>
+        <span class="app-card__value">+2,350</span>
+        <span class="app-card__delta">+180.1% from last month</span>
+      </div>
+      <div class="app-card">
+        <span class="app-card__label">Sales</span>
+        <span class="app-card__value">+12,234</span>
+        <span class="app-card__delta">+19% from last month</span>
+      </div>
+      <div class="app-card">
+        <span class="app-card__label">Active Now</span>
+        <span class="app-card__value">+573</span>
+        <span class="app-card__delta">+201 since last hour</span>
+      </div>
+    </div>
+  </div>
+</div>

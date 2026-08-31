@@ -1,0 +1,15 @@
+---
+title: Icon-only buttons
+---
+
+`shape="square"` and `shape="circle"` are the icon-only shapes, and a button using one of
+them needs no further annotation:
+
+- **`mlvButtonIcon` is optional.** A lone projected `<svg>` is detected after render, so the
+  button gets the `mlv-button--icon-only` treatment and the icon is sized to the button
+  instead of keeping its intrinsic `24px`. Keep the directive when the button's label
+  content is toggled at runtime — the inference does not re-observe projected text.
+- **The default variant is `secondary`, not `primary`.** A row of un-annotated icon actions
+  would otherwise render as a wall of saturated calls-to-action. An explicit `variant`, or
+  one inherited from `mlv-button-group` / `mlv-button-split` / `mlv-button-toggle`, still
+  wins.

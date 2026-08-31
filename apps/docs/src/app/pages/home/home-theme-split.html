@@ -1,0 +1,70 @@
+<div class="home-theme-split">
+  <div
+    class="home-theme-split__stage"
+    [style.--home-theme-split]="splitStyle()"
+    aria-hidden="true"
+  >
+    <div
+      class="home-theme-split__scene home-theme-split__scene--light"
+      mlvTheme="light"
+    >
+      <ng-container *ngTemplateOutlet="scene" />
+    </div>
+    <div
+      class="home-theme-split__scene home-theme-split__scene--dark"
+      mlvTheme="dark"
+    >
+      <ng-container *ngTemplateOutlet="scene" />
+    </div>
+    <span class="home-theme-split__divider"></span>
+    <span class="home-theme-split__pole home-theme-split__pole--light">
+      <svg lucideSunMedium [size]="16" />
+      Light
+    </span>
+    <span class="home-theme-split__pole home-theme-split__pole--dark">
+      <svg lucideMoonStar [size]="16" />
+      Dark
+    </span>
+  </div>
+
+  <mlv-slider
+    class="home-theme-split__control"
+    [value]="split()"
+    (valueChange)="onSplitChange($event)"
+    [min]="6"
+    [max]="94"
+    ariaLabel="Compare light and dark themes"
+  />
+</div>
+
+<ng-template #scene>
+  <div class="home-theme-split__card">
+    <div class="home-theme-split__card-top">
+      <mlv-avatar
+        name="Maya Chen"
+        size="s"
+        [color]="'Maya Chen' | mlvColorFromText"
+      />
+      <span>
+        <strong>Design review</strong>
+        <small>Same tokens. Same components.</small>
+      </span>
+      <mlv-badge tone="success" muted>On track</mlv-badge>
+    </div>
+    <mlv-progress
+      tone="success"
+      size="s"
+      [value]="72"
+      ariaLabel="Scene progress"
+    />
+    <div class="home-theme-split__card-row">
+      <mlv-chip tone="primary">Tokens</mlv-chip>
+      <mlv-chip tone="accent">One theme attribute</mlv-chip>
+      <span class="home-theme-split__spark">
+        <svg lucideSparkles [size]="15" />
+        Zero overrides
+      </span>
+      <mlv-kbd [keys]="['cmd', 'j']" />
+    </div>
+  </div>
+</ng-template>

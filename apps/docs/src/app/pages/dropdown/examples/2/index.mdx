@@ -1,0 +1,10 @@
+---
+title: Multiple Selection
+description: Toggling several options and reflecting them outside the panel.
+---
+
+`[multiple]="true"` turns each row into a toggle: clicking (or pressing Enter / Space on) an option adds or removes it, and `(valueChange)` emits the **whole** selection every time. Selected rows render a check mark.
+
+The panel never owns the value — it renders whatever `selectedValues` holds. That makes external mutation trivial: removing a chip below writes the same signal the panel reads, so its check marks update with no extra wiring.
+
+Values are compared by identity, so object options need stable references (or a primitive `value`, as here).

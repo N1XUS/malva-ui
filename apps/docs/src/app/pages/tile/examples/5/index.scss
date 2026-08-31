@@ -1,0 +1,11 @@
+$block: docs-tile-site-builder-example;
+
+.#{$block} {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+
+  &__tree {
+    --mlv-tiles-min-column: 20rem;
+  }
+}

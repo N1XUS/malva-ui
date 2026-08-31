@@ -1,0 +1,23 @@
+## Tables and independent view zoom
+
+The default free table preset inserts a header row by default and enables
+column resizing. After selecting a cell, the Table popover exposes add/delete
+row and column, merge/split, header row/column/cell, and delete-table commands.
+Commands hide when a literal replacement preset does not supply them.
+
+Zoom changes only the rendered editor view. It does not dispatch a Tiptap
+transaction and cannot change the HTML or Markdown string; the example checks
+the serialized value around each zoom change. Zoom levels, bounds, and optional
+fit-to-container behavior belong to `MlvEditorZoom`, while the editor context
+shares the active percentage.
+
+Character and word counts come from the free CharacterCount extension and use
+Unicode whitespace boundaries. `characterLimit` makes the maximum visible and
+enforced in the default preset. `placeholder` appears only for an empty
+document. Both status features hide safely when a complete extension
+replacement omits their storage or plugin.
+
+Tested limitations include the beta Markdown/embedded-HTML boundary, host-owned
+upload transport, browser-only Tiptap construction, and schema responsibility
+under extension replacement. Resizable tables and zoom rely on browser layout;
+SSR emits a stable labelled shell until hydration.

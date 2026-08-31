@@ -1,0 +1,39 @@
+@use '../../../../../styles/src/lib/breakpoints' as bp;
+
+@layer mlv.components {
+$block: mlv-layout;
+
+.#{$block} {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--mlv-background-base);
+  color: var(--mlv-text-primary);
+  font-family: var(--mlv-typography-family-heading), sans-serif;
+  font-size: var(--mlv-font-size-l);
+
+  &__container {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    padding: 1rem;
+
+    @include bp.breakpoint-up(md) {
+      gap: 1.5rem;
+      padding: 1.5rem;
+    }
+
+    @include bp.breakpoint-up(lg) {
+      gap: 2rem;
+      padding: 2rem;
+    }
+  }
+
+  &--plain {
+    .#{$block}__container {
+      padding: 0;
+      gap: 0;
+    }
+    padding: 0;
+  }
+}
+}

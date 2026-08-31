@@ -1,0 +1,59 @@
+<div class="demo-col" style="align-items: stretch; gap: 1.5rem">
+  <section>
+    <h3>Reactive form</h3>
+    <mlv-editor
+      [formControl]="reactive"
+      label="Reactive body"
+      ariaLabel="Reactive editor"
+    />
+    <div class="demo-row" style="margin-top: 0.75rem">
+      <button mlvButton type="button" (click)="toggleReactive()">
+        {{ reactive.disabled ? 'Enable' : 'Disable' }}
+      </button>
+      <button
+        mlvButton
+        type="button"
+        variant="outlined"
+        (click)="reactive.setValue(null)"
+      >
+        Clear
+      </button>
+    </div>
+    <p>
+      Value: {{ reactive.value ?? 'null' }} · Touched: {{ reactive.touched }} ·
+      Disabled: {{ reactive.disabled }}
+    </p>
+  </section>
+
+  <section>
+    <h3>Template-driven form</h3>
+    <mlv-editor
+      [(ngModel)]="templateValue"
+      #templateModel="ngModel"
+      [disabled]="templateDisabled()"
+      label="Template-driven body"
+      ariaLabel="Template-driven editor"
+    />
+    <div class="demo-row" style="margin-top: 0.75rem">
+      <button
+        mlvButton
+        type="button"
+        (click)="templateDisabled.update(disabled => !disabled)"
+      >
+        {{ templateDisabled() ? 'Enable' : 'Disable' }}
+      </button>
+      <button
+        mlvButton
+        type="button"
+        variant="outlined"
+        (click)="templateValue.set(null)"
+      >
+        Clear
+      </button>
+    </div>
+    <p>
+      Value: {{ templateValue() ?? 'null' }} · Touched: {{ templateModel.touched
+      }} · Disabled: {{ templateDisabled() }}
+    </p>
+  </section>
+</div>

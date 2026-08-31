@@ -1,0 +1,360 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DOCUMENT,
+  type ElementRef,
+  forwardRef,
+  inject,
+  input,
+  model,
+  signal,
+  viewChild,
+  ViewEncapsulation,
+} from '@angular/core';
+import { MlvTabbableElementService } from '@malva-ui/cdk/accessibility';
+import {
+  MlvCalendar,
+  type MlvCalendarRangeValue,
+  MLV_DATE_ADAPTER,
+  MlvNativeDateAdapter,
+  type MlvDateAdapter,
+} from '@malva-ui/core/calendar';
+import {
+  MlvPopup,
+  MlvPopupContent,
+  MlvPopupContainer,
+} from '@malva-ui/core/popup';
+import {
+  MlvFormControlWrapper,
+  MlvFormControlWrapperControl,
+  MlvHint,
+  MlvDescription,
+  MlvLabel,
+  MLV_FORM_CONTROL,
+  MlvMessage,
+  MlvSignalFormControlBase,
+} from '@malva-ui/core/form-utils';
+import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
+import { LucideCalendarDays } from '@lucide/angular';
+import { A11yModule } from '@angular/cdk/a11y';
+import { MlvButton } from '@malva-ui/core/button';
+import { MLV_DATE_RANGE_PICKER_I18N } from '@malva-ui/i18n';
+
+/**
+ * Visual/validation state of the date range picker. Mirrors {@link MlvFormState}.
+ */
+export type MlvDateRangePickerState = MlvFormState;
+
+/**
+ * Value shape for the date range picker.
+ * Both `start` and `end` can be `null` when not yet selected.
+ */
+export interface MlvDateRangePickerValue<D = Date> {
+  /** The start date of the selected range. */
+  start: D | null;
+  /** The end date of the selected range. */
+  end: D | null;
+}
+
+/** Accepts signal-form range constraints without changing the public date-boundary API. */
+function coerceBoundaryDate<D>(
+  value: D | MlvDateRangePickerValue<D> | null | undefined,
+  edge: 'start' | 'end',
+): D | null {
+  if (value == null) return null;
+  if (typeof value === 'object' && 'start' in value && 'end' in value) {
+    return (value as MlvDateRangePickerValue<D>)[edge];
+  }
+  return value as D;
+}
+
+@Component({
+  selector: 'mlv-date-range-picker',
+  imports: [
+    MlvPopup,
+    MlvPopupContent,
+    MlvPopupContainer,
+    MlvCalendar,
+    LucideCalendarDays,
+    MlvFormControlWrapper,
+    MlvFormControlWrapperControl,
+    MlvDescription,
+    MlvLabel,
+    MlvHint,
+    MlvMessage,
+    MlvButton,
+    A11yModule,
+  ],
+  templateUrl: './date-range-picker.html',
+  styleUrl: './date-range-picker.scss',
+  encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [
+    {
+      provide: MLV_FORM_CONTROL,
+      useExisting: forwardRef(() => MlvDateRangePicker),
+    },
+  ],
+  host: {
+    class: 'mlv-date-range-picker',
+    '[class]': '"mlv-date-range-picker--state-" + resolvedState()',
+    '[class.mlv-date-range-picker--disabled]': 'computedDisabled()',
+    '[class.mlv-date-range-picker--focused]': 'focused()',
+    '[class.mlv-date-range-picker--open]': '_isOpen()',
+    '[class.mlv-date-range-picker--selecting]': '_isSelecting()',
+  },
+})
+export class MlvDateRangePicker<D = Date>
+  extends MlvSignalFormControlBase<MlvDateRangePickerValue<D> | null>
+  implements MlvFormControl
+{
+  /** The committed date range used by all Angular forms APIs. */
+  readonly value = model<MlvDateRangePickerValue<D> | null>(null);
+  /** @private The active date adapter — a provided `MLV_DATE_ADAPTER`, or the native fallback. */
+  private readonly _dateAdapter =
+    (inject(MLV_DATE_ADAPTER, {
+      optional: true,
+    }) as MlvDateAdapter<D> | null) ??
+    (inject(MlvNativeDateAdapter) as unknown as MlvDateAdapter<D>);
+
+  /**
+   * The pending range being assembled during selection.
+   * Committed to the form control only when the user clicks Apply.
+   */
+  protected readonly _pendingRange = signal<MlvCalendarRangeValue<D> | null>(
+    null,
+  );
+
+  /**
+   * The last committed range value (reflects the form control value).
+   */
+  readonly rangeValue = this.value;
+
+  /** Custom placeholder override. Falls back to the i18n-provided placeholder. */
+  readonly placeholder = input<string | undefined>(undefined);
+
+  /** Minimum selectable date, passed to both calendars. */
+  readonly min = input<
+    D | null,
+    D | MlvDateRangePickerValue<D> | null | undefined
+  >(null, {
+    transform: (value) => coerceBoundaryDate(value, 'start'),
+  });
+
+  /** Maximum selectable date, passed to both calendars. */
+  readonly max = input<
+    D | null,
+    D | MlvDateRangePickerValue<D> | null | undefined
+  >(null, {
+    transform: (value) => coerceBoundaryDate(value, 'end'),
+  });
+
+  /** Optional callback for disabling arbitrary dates, passed to both calendars. */
+  readonly disabledDates = input<((date: D) => boolean) | null>(null);
+
+  /** @protected The component's i18n strings signal. */
+  protected readonly _i18n = inject(MLV_DATE_RANGE_PICKER_I18N);
+
+  /**
+   * @private Reference to the trigger element, used to restore focus when the
+   * popup closes. It is declared in this component's own template, so a signal
+   * view query is the correct mechanism (was a host `querySelector`).
+   */
+  private readonly _triggerRef =
+    viewChild<ElementRef<HTMLElement>>('triggerRef');
+
+  /** @private Locates the first tabbable element inside the popup panel. */
+  private readonly _tabbable = inject(MlvTabbableElementService);
+
+  /** @private Document ref for locating the rendered popup panel by id. */
+  private readonly _document = inject(DOCUMENT);
+
+  /** @protected Resolved placeholder: explicit input takes precedence over i18n default. */
+  protected readonly _resolvedPlaceholder = computed(
+    () => this.placeholder() ?? this._i18n().placeholder,
+  );
+
+  /**
+   * @internal Whether the picker popup is currently open.
+   */
+  protected readonly _isOpen = signal(false);
+
+  /**
+   * @internal Whether a range selection is in progress (start chosen, awaiting end click).
+   */
+  protected readonly _isSelecting = computed(
+    () => !!this._pendingRange()?.start && !this._pendingRange()?.end,
+  );
+
+  /**
+   * Override focused to also be true when the calendar popup is open.
+   */
+  override readonly focused = computed(() => this._focused() || this._isOpen());
+
+  /** Unique ID for the optional message element used by aria-describedby. */
+
+  /** Unique ID for the popup panel element used by aria-controls. */
+  readonly panelId = computed(() => `${this.id()}-panel`);
+
+  /**
+   * The initial date for the left (earlier-month) calendar panel.
+   * Defaults to today when no range is selected.
+   */
+  readonly leftCalendarActiveDate = computed<D>(() => {
+    const pending = this._pendingRange();
+    const val = this.rangeValue();
+    const anchor = pending?.start ?? val?.start ?? null;
+    return anchor ? this._dateAdapter.clone(anchor) : this._dateAdapter.today();
+  });
+
+  /**
+   * The initial date for the right (later-month) calendar panel.
+   * Always one month ahead of the left panel's month.
+   */
+  readonly rightCalendarActiveDate = computed<D>(() => {
+    return this._dateAdapter.addCalendarMonths(
+      this.leftCalendarActiveDate(),
+      1,
+    );
+  });
+
+  /**
+   * The formatted start date display string.
+   * Returns an empty string when no start date is selected.
+   */
+  get startDisplayValue(): string {
+    const val = this.rangeValue();
+    if (!val?.start) return '';
+    return this._formatDate(val.start);
+  }
+
+  /**
+   * The formatted end date display string.
+   * Returns an empty string when no end date is selected.
+   */
+  get endDisplayValue(): string {
+    const val = this.rangeValue();
+    if (!val?.end) return '';
+    return this._formatDate(val.end);
+  }
+
+  /**
+   * Whether the Apply button should be enabled.
+   * Requires both start and end dates to be set in the pending range.
+   */
+  readonly canApply = computed(
+    () => !!this._pendingRange()?.start && !!this._pendingRange()?.end,
+  );
+
+  /**
+   * Whether the clear button should be shown.
+   */
+  readonly hasClearableValue = computed(
+    () =>
+      this.clearable() &&
+      !this.computedDisabled() &&
+      (!!this.rangeValue()?.start || !!this.rangeValue()?.end),
+  );
+
+  /**
+   * Toggles the popup open/closed.
+   * No-op when the picker is disabled.
+   */
+  toggleDropdown(): void {
+    if (this.computedDisabled()) return;
+    const wasOpen = this._isOpen();
+    if (wasOpen) {
+      this.closeDropdown();
+    } else {
+      // Initialize pending range from committed value when opening
+      const val = this.rangeValue();
+      this._pendingRange.set(val ? { start: val.start, end: val.end } : null);
+      this._isOpen.set(true);
+    }
+  }
+
+  /**
+   * @protected Moves focus into the popup panel when it opens.
+   * Focuses the first tabbable element, falling back to the panel container
+   * (which carries `tabindex="-1"`) so focus always lands inside the modal.
+   */
+  protected _onPanelOpened(): void {
+    const panel = this._document.getElementById(this.panelId());
+    if (!panel) return;
+    const first = this._tabbable.getTabbableElement(panel, false, true);
+    (first ?? panel).focus();
+  }
+
+  /**
+   * @protected Handles popup close: clears the focused state and returns focus
+   * to the trigger, matching the overlay focus-restore pattern.
+   */
+  protected _onPanelClosed(): void {
+    this.setFocused(false);
+    this._markTouched();
+    this._triggerRef()?.nativeElement.focus();
+  }
+
+  /** @protected Marks the control touched when its trigger loses focus. */
+  protected _onTriggerBlur(): void {
+    this.setFocused(false);
+    this._markTouched();
+  }
+
+  /**
+   * Closes the popup and resets the pending selection to the committed value.
+   */
+  closeDropdown(): void {
+    this._isOpen.set(false);
+    // Reset pending range to committed value
+    const val = this.rangeValue();
+    this._pendingRange.set(val ? { start: val.start, end: val.end } : null);
+  }
+
+  /**
+   * Handles range value changes from either calendar.
+   * Updates the pending (uncommitted) range.
+   *
+   * @param range - The updated range value from the calendar.
+   */
+  onRangeChanged(range: MlvCalendarRangeValue<D> | null): void {
+    this._pendingRange.set(range);
+  }
+
+  /**
+   * Applies the pending range selection and closes the popup.
+   * Commits the value to the form control.
+   */
+  applySelection(): void {
+    const pending = this._pendingRange();
+    const newValue: MlvDateRangePickerValue<D> | null = pending?.start
+      ? { start: pending.start, end: pending.end }
+      : null;
+
+    this.rangeValue.set(newValue);
+    this._isOpen.set(false);
+  }
+
+  /**
+   * Clears the selected range and resets the picker.
+   */
+  clearSelection(): void {
+    this.rangeValue.set(null);
+    this._pendingRange.set(null);
+  }
+
+  /** Whether the control holds a clearable value — A committed range is set. */
+  readonly hasValue = computed(() => this.rangeValue() != null);
+
+  /**
+   * @private Formats a single date for display.
+   */
+  private _formatDate(date: D): string {
+    return this._dateAdapter.format(date, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  }
+}

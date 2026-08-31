@@ -1,0 +1,51 @@
+<div class="cards-grid">
+  <!-- Links footer -->
+  <mlv-card>
+    <h4 *mlvCardHeaderDef mlvCardHeader class="mlv-text-h4">
+      With Link Actions
+    </h4>
+    <p>Card content with text link actions in the footer.</p>
+    <div *mlvCardFooterDef mlvCardFooter class="mlv-card__footer">
+      <a mlvButton variant="transparent" mlvDensity="compact">View Details</a>
+      <a mlvButton variant="transparent" mlvDensity="compact">
+        Open
+        <svg *mlvButtonAfter lucideExternalLink size="14" />
+      </a>
+    </div>
+  </mlv-card>
+
+  <!-- Button pair footer -->
+  <mlv-card>
+    <h4 *mlvCardHeaderDef mlvCardHeader class="mlv-text-h4">
+      With Button Pair
+    </h4>
+    <p>Confirm and cancel actions aligned in the footer.</p>
+    <div
+      *mlvCardFooterDef
+      mlvCardFooter
+      class="mlv-card__footer"
+      style="justify-content: flex-end"
+    >
+      <button mlvButton variant="outlined" mlvDensity="compact">Cancel</button>
+      <button mlvButton mlvDensity="compact">Confirm</button>
+    </div>
+  </mlv-card>
+
+  <!-- Full-width button footer -->
+  <mlv-card>
+    <h4 *mlvCardHeaderDef mlvCardHeader class="mlv-text-h4">
+      Full-Width Action
+    </h4>
+    <p *mlvCardSubheaderDef mlvCardSubheader class="mlv-card__subheading">
+      Premium Plan &middot; $9.99/mo
+    </p>
+    <p>Access all features with our premium subscription.</p>
+    <div
+      *mlvCardFooterDef
+      mlvCardFooter
+      class="mlv-card__footer mlv-card__footer--full-width"
+    >
+      <button mlvButton>Subscribe Now</button>
+    </div>
+  </mlv-card>
+</div>

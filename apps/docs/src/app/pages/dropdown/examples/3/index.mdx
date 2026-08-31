@@ -1,0 +1,10 @@
+---
+title: Grouped Options
+description: Sticky section headers driven by the option's own group field.
+---
+
+Grouping is data, not markup: give an option a non-empty `group` and the panel clusters **consecutive** same-group runs under a sticky, non-selectable header. Scroll the panel and the current section header stays pinned to the top of the scroll owner.
+
+Because runs are consecutive, DOM order equals `options` order — the panel never reorders to gather scattered groups. Sort the array the way it should read; a run of options with no `group` (the last two entries here) renders as a headerless cluster.
+
+Headers are presentational only. They are excluded from `role="option"`, skipped by arrow-key navigation and type-ahead, never enter the value, and never shift option indices — so `activeIndex` and the ids an owning combobox points `aria-activedescendant` at stay aligned with the flat list.

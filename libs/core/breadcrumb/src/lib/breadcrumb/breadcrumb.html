@@ -1,0 +1,115 @@
+<ol class="mlv-breadcrumb__list">
+  @if (_isDataDriven()) { @for ( item of _visibleItems(); track item.label; let
+  last = $last; let i = $index ) {
+  <li class="mlv-breadcrumb__item">
+    @if (item._isEllipsis) {
+    <button
+      #overflowTrigger
+      class="mlv-breadcrumb__ellipsis"
+      type="button"
+      [attr.aria-label]="_showMoreLabel()"
+      [mlvPopupTrigger]="overflowPopup"
+      [ariaHasPopup]="'menu'"
+    >
+      {{ item.label }}
+    </button>
+    } @else if (last) {
+    <span
+      class="mlv-breadcrumb__link mlv-breadcrumb__link--current"
+      aria-current="page"
+      >{{ item.label }}</span
+    >
+    } @else if (item.disabled) {
+    <span class="mlv-breadcrumb__link mlv-breadcrumb__link--disabled"
+      >{{ item.label }}</span
+    >
+    } @else if (item.routerLink) {
+    <a class="mlv-breadcrumb__link" [routerLink]="item.routerLink"
+      >{{ item.label }}</a
+    >
+    } @else if (item.href) {
+    <a class="mlv-breadcrumb__link" [href]="item.href">{{ item.label }}</a>
+    } @else {
+    <span class="mlv-breadcrumb__link mlv-breadcrumb__link--plain"
+      >{{ item.label }}</span
+    >
+    } @if (!last) {
+    <span
+      class="mlv-breadcrumb__separator"
+      [attr.aria-hidden]="
+              hideSeparatorFromScreenReaders() ? 'true' : null
+            "
+    >
+      @if (_separatorDef(); as sep) {
+      <ng-container [ngTemplateOutlet]="sep.templateRef" />
+      } @else {
+      <svg lucideChevronRight [size]="14" />
+      }
+    </span>
+    }
+  </li>
+  } } @else {
+  <ng-content />
+  }
+</ol>
+
+<!-- Overflow popup using mlv-popup -->
+<mlv-popup
+  #overflowPopup
+  position="bottom-start"
+  [hasShadow]="true"
+  [mlvDensity]="mlvDensity()"
+  class="mlv-breadcrumb__overflow-popup"
+  (afterOpened)="_focusFirstOverflowItem()"
+>
+  <ng-template mlvPopupContent>
+    <mlv-list
+      [id]="_overflowListId"
+      listRole="menu"
+      appearance="menu"
+      [attr.aria-label]="_i18n().hiddenItems"
+      class="mlv-breadcrumb__overflow-list"
+      (keydown)="_onOverflowKeydown($event, overflowPopup)"
+    >
+      @for (hidden of _hiddenItems(); track hidden.label) {
+      <mlv-list-item
+        itemRole="none"
+        class="mlv-breadcrumb__overflow-item"
+        (click)="overflowPopup.opened.set(false)"
+      >
+        @if (hidden.routerLink) {
+        <a
+          #overflowNavItem
+          class="mlv-breadcrumb__overflow-nav-item"
+          mlvListItemLink
+          role="menuitem"
+          [routerLink]="hidden.routerLink"
+          (click)="_closeOverflowPopup(overflowPopup)"
+        >
+          {{ hidden.label }}
+        </a>
+        } @else if (hidden.href) {
+        <a
+          #overflowNavItem
+          class="mlv-breadcrumb__overflow-nav-item"
+          mlvListItemLink
+          role="menuitem"
+          [href]="hidden.href"
+          (click)="_closeOverflowPopup(overflowPopup)"
+        >
+          {{ hidden.label }}
+        </a>
+        } @else {
+        <span
+          class="mlv-breadcrumb__overflow-link--disabled"
+          role="menuitem"
+          aria-disabled="true"
+        >
+          {{ hidden.label }}
+        </span>
+        }
+      </mlv-list-item>
+      }
+    </mlv-list>
+  </ng-template>
+</mlv-popup>

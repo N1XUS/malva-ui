@@ -1,0 +1,134 @@
+<!-- ─── Children captured once — rendered in accordion OR flyout ─── -->
+<ng-template #childrenRef>
+  <ng-content />
+</ng-template>
+
+<!-- The expanded header remains mounted during collapse so its text can fade
+     without moving the icon out of the shared fixed-width column. -->
+<div
+  class="mlv-sidebar-group"
+  [class.mlv-sidebar-group--expanded]="expanded()"
+  [class.mlv-sidebar-group--collapsed]="isSidebarCollapsed()"
+  [attr.aria-hidden]="isSidebarCollapsed() ? 'true' : null"
+  [attr.inert]="isSidebarCollapsed() ? '' : null"
+>
+  <button
+    class="mlv-sidebar-group__header"
+    type="button"
+    [class.mlv-sidebar-group__header--active]="hasActiveChild()"
+    [attr.aria-expanded]="expanded()"
+    (click)="toggle()"
+  >
+    @if (iconRef(); as iconTpl) {
+    <span class="mlv-sidebar-group__icon">
+      <ng-container [ngTemplateOutlet]="iconTpl.templateRef" />
+    </span>
+    }
+    <span class="mlv-sidebar-group__label">{{ label() }}</span>
+    @if (_hasBadge()) {
+    <mlv-badge
+      class="mlv-sidebar-group__badge"
+      [tone]="badgeTone()"
+      muted
+      mlvDensity="tight"
+      aria-hidden="true"
+      >{{ badge() }}</mlv-badge
+    >
+    }
+    <svg
+      class="mlv-sidebar-group__arrow"
+      [class.mlv-sidebar-group__arrow--open]="expanded()"
+      lucideChevronDown
+      size="16"
+    />
+  </button>
+
+  <mlv-expand
+    class="mlv-sidebar-group__content"
+    [opened]="_accordionOpen()"
+    (openedChange)="expanded.set($event)"
+  >
+    <ng-container [ngTemplateOutlet]="childrenTpl()" />
+  </mlv-expand>
+</div>
+
+<!-- ─── COLLAPSED sidebar: icon button + popup flyout on click ──────────── -->
+@if (isSidebarCollapsed()) {
+<mlv-popup-container #flyoutContainer class="mlv-sidebar-group__collapsed">
+  <button
+    #triggerBtn
+    mlvPopupTrigger
+    [triggerOn]="'click'"
+    class="mlv-sidebar-group__icon-btn"
+    type="button"
+    [class.mlv-sidebar-group__icon-btn--active]="hasActiveChild()"
+    [attr.aria-label]="_resolvedAriaLabel()"
+    [attr.aria-expanded]="flyoutOpen()"
+    [ariaHasPopup]="'menu'"
+    (keydown)="onTriggerKeydown($event)"
+    (mouseenter)="onIconBtnMouseEnter()"
+    (mouseleave)="onIconBtnMouseLeave()"
+    (focus)="onIconBtnMouseEnter()"
+    (blur)="onIconBtnMouseLeave()"
+  >
+    @if (iconRef(); as iconTpl) {
+    <ng-container [ngTemplateOutlet]="iconTpl.templateRef" />
+    } @if (_hasBadge()) {
+    <mlv-status-indicator
+      class="mlv-sidebar-group__status"
+      [tone]="badgeTone()"
+      [pulse]="badgePulse()"
+    />
+    }
+  </button>
+
+  <mlv-popup
+    #flyoutPopup
+    position="right-start"
+    [minWidth]="180"
+    scrollStrategy="close"
+    class="mlv-sidebar-group__flyout-popup"
+  >
+    <ng-template mlvPopupContent>
+      <div
+        class="mlv-sidebar-group__flyout"
+        [id]="_flyoutId"
+        role="menu"
+        [attr.aria-label]="label()"
+        (keydown)="onFlyoutKeydown($event)"
+        (click)="onFlyoutClick($event)"
+        (focusout)="onFlyoutFocusOut($event)"
+        tabindex="-1"
+      >
+        <div class="mlv-sidebar-group__flyout-header" aria-hidden="true">
+          <span class="mlv-sidebar-group__flyout-title">{{ label() }}</span>
+          @if (_hasBadge()) {
+          <mlv-badge
+            class="mlv-sidebar-group__flyout-badge"
+            [tone]="badgeTone()"
+            muted
+            mlvDensity="tight"
+            >{{ badge() }}</mlv-badge
+          >
+          }
+        </div>
+        <ng-container [ngTemplateOutlet]="childrenTpl()" />
+      </div>
+    </ng-template>
+  </mlv-popup>
+</mlv-popup-container>
+
+<!-- Tooltip anchored to the icon button (registered via effect) -->
+<mlv-popup-container #tooltipContainer>
+  <mlv-popup
+    panelRole="tooltip"
+    position="right"
+    [hasShadow]="true"
+    [hasBackdrop]="false"
+    scrollStrategy="close"
+    class="mlv-sidebar-group__tooltip-container"
+  >
+    <ng-template mlvPopupContent>{{ label() }}</ng-template>
+  </mlv-popup>
+</mlv-popup-container>
+}

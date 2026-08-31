@@ -1,0 +1,15 @@
+## Virtual Scroll
+
+Set `[virtualScroll]="true"` to render large datasets efficiently via Angular CDK's `cdk-virtual-scroll-viewport`. Only the rows currently in view are kept in the DOM; as the user scrolls, rows are recycled. This example renders **10,000 transactions** without any noticeable lag.
+
+To support sticky headers and pinned columns, the component splits the table into three separate `<table>` elements in virtual mode:
+
+- a header table outside the viewport,
+- a body table inside the `cdk-virtual-scroll-viewport` using `*cdkVirtualFor`,
+- an optional footer table below the viewport.
+
+A shared `<colgroup>` and `table-layout: fixed` keep column widths aligned across the split tables. The outer table wrapper remains the only user-facing horizontal scroller; its position and programmatic viewport movement are synchronized so recycled body rows, focus changes, and pinned columns stay aligned with the header. Native scrollbar-gutter measurement keeps right-pinned cells aligned and extends the horizontal range far enough to reveal the complete last column on platforms with non-overlay scrollbars.
+
+**Row height is required** — pass `[rowHeight]` in pixels matching the active density's rendered row height (e.g. `60` for `comfortable` = `3.75rem`), so the viewport can position off-screen rows correctly.
+
+Virtual scroll is mutually exclusive with `paginationMode="infinite"` — the infinite-scroll directive is automatically disabled while `virtualScroll` is on. Use the classic paginator or no pagination at all with this mode.

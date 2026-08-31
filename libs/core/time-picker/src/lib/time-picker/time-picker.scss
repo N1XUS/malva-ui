@@ -1,0 +1,201 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-time-picker;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m),
+    0,
+    0
+  );
+
+  display: inline-flex;
+  flex-direction: column;
+
+  // -------------------------------------------------------------------------
+  // Let the form-control-wrapper handle padding
+  // -------------------------------------------------------------------------
+
+  .mlv-form-control-wrapper__control-container {
+    padding: 0;
+  }
+
+  // -------------------------------------------------------------------------
+  // Popup container (fills the wrapper control area)
+  // -------------------------------------------------------------------------
+
+  &__popup-container {
+    display: flex;
+    flex-grow: 1;
+    height: 100%;
+  }
+
+  // -------------------------------------------------------------------------
+  // Trigger (compact display — shows current time + clock icon)
+  // -------------------------------------------------------------------------
+
+  &__trigger {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    outline: none;
+    padding: var(--mlv-control-padding);
+    height: 100%;
+    gap: 0.5rem;
+  }
+
+  &__value {
+    flex: 1;
+    color: var(--mlv-text-primary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  // Colour already matched the shared reference (`.mlv-select__arrow`); size
+  // was a fixed 1.25rem regardless of density — now the shared affordance
+  // ramp (2026-08-26).
+  &__icon {
+    display: flex;
+    align-items: center;
+    color: var(--mlv-text-tertiary);
+    line-height: 1;
+    transition: color var(--mlv-duration-normal) var(--mlv-ease-default);
+
+    svg {
+      width: var(--form-ctrl-icon-size, 1.25rem);
+      height: var(--form-ctrl-icon-size, 1.25rem);
+    }
+  }
+
+  &--open,
+  &:hover {
+    .#{$block}__icon {
+      color: var(--mlv-text-primary);
+    }
+  }
+
+  @at-root .mlv-form-control-wrapper--focused {
+    .#{$block}__icon {
+      color: var(--mlv-text-primary);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Popup panel override — remove default padding
+  // -------------------------------------------------------------------------
+
+  &__popup {
+    padding: 0 !important;
+  }
+
+  // -------------------------------------------------------------------------
+  // Panel (inside the popup — rendered in CDK overlay, detached from host)
+  //
+  // Density-aware CSS custom properties are defined here because the panel
+  // is the closest ancestor of columns/dividers/ampm in the overlay DOM.
+  // A density modifier class (e.g. mlv-time-picker__panel--compact) is
+  // bound dynamically so the SCSS density mixins match.
+  // -------------------------------------------------------------------------
+
+  &__panel {
+    // Comfortable defaults
+    --mlv-tp-item-height: 2.25rem;
+    --mlv-tp-column-width: 3.5rem;
+    --mlv-tp-ampm-width: 3.5rem;
+    --mlv-tp-track-height: calc(var(--mlv-tp-item-height) * 5);
+    // Control-text type scale (CH-R3) for the drum-roll item numbers and the
+    // ":" divider — the panel is the closest ancestor of both inside the
+    // detached overlay, mirroring how `--mlv-tp-item-height` etc. cascade.
+    --mlv-tp-font-size: var(--mlv-font-size-m);
+
+    // Same popover inset every other dropdown surface uses
+    // (mlv-dropdown-panel / mlv-menu / mlv-breadcrumb's overflow menu), was
+    // a hardcoded 0.5rem (8px) — heavier than the shared 4px convention.
+    padding: var(--mlv-popover-inset);
+
+    @include density.density-tight {
+      --mlv-tp-item-height: 1.75rem;
+      --mlv-tp-column-width: 3rem;
+      --mlv-tp-ampm-width: 3rem;
+      --mlv-tp-font-size: var(--mlv-font-size-s);
+    }
+
+    @include density.density-compact {
+      --mlv-tp-item-height: 2rem;
+      --mlv-tp-column-width: 3.25rem;
+      --mlv-tp-ampm-width: 3.25rem;
+      --mlv-tp-font-size: var(--mlv-font-size-m);
+    }
+
+    @include density.density-spacious {
+      --mlv-tp-item-height: 2.75rem;
+      --mlv-tp-column-width: 4rem;
+      --mlv-tp-ampm-width: 4rem;
+      --mlv-tp-font-size: var(--mlv-font-size-l);
+    }
+
+    @include density.density-airy {
+      --mlv-tp-item-height: 3.25rem;
+      --mlv-tp-column-width: 4.5rem;
+      --mlv-tp-ampm-width: 4.5rem;
+      --mlv-tp-font-size: var(--mlv-font-size-xl);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Columns row
+  // -------------------------------------------------------------------------
+
+  &__columns {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+  }
+
+  // -------------------------------------------------------------------------
+  // Divider (:)
+  // -------------------------------------------------------------------------
+
+  &__divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--mlv-tp-track-height);
+    padding: 0 0.125rem;
+    color: var(--mlv-text-tertiary);
+    font-size: var(--mlv-tp-font-size, var(--mlv-font-size-m));
+    font-weight: var(--mlv-font-weight-semibold);
+    user-select: none;
+    pointer-events: none;
+  }
+
+  // -------------------------------------------------------------------------
+  // AM/PM column
+  // -------------------------------------------------------------------------
+
+  &__ampm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    margin-inline-start: 0.25rem;
+    height: var(--mlv-tp-track-height);
+    justify-content: center;
+    width: var(--mlv-tp-ampm-width);
+
+    .mlv-button {
+      height: var(--mlv-tp-item-height);
+      min-height: var(--mlv-tp-item-height);
+      --mlv-btn-padding: 0.25rem 0.5rem;
+    }
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

@@ -1,0 +1,8 @@
+## Disabled State
+
+The time picker can be disabled in two ways:
+
+1. **Attribute** — add `disabled` directly on the element. This is a static, non-reactive approach suitable for read-only display.
+2. **FormControl** — call `control.disable()` / `control.enable()` to toggle the state dynamically. Angular bridges that state to the component's signal-control `disabled` input.
+
+When disabled, all columns lose interactivity and the component's opacity reduces to communicate the unavailable state to users.

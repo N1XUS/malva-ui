@@ -1,0 +1,60 @@
+<div class="tabs-demo">
+  <div class="tabs-demo__tablist" role="tablist" aria-label="Demo tabs">
+    @for (tab of tabs; track tab.id) {
+    <button
+      class="tabs-demo__tab"
+      [class.tabs-demo__tab--active]="isActive(tab.id)"
+      role="tab"
+      [attr.aria-selected]="isActive(tab.id)"
+      [attr.tabindex]="isActive(tab.id) ? 0 : -1"
+      type="button"
+      (click)="selectTab(tab.id)"
+    >
+      {{ tab.label }}
+    </button>
+    }
+  </div>
+
+  <div class="tabs-demo__panels">
+    <div
+      *mlvAnimatedPresence="isActive('overview')"
+      class="tabs-demo__panel"
+      role="tabpanel"
+      aria-label="Overview panel"
+    >
+      <strong>Overview</strong>
+      <p>
+        A high-level summary of the component status and recent activity. Each
+        panel mounts with an enter animation and leaves with an exit animation
+        before being removed from the DOM.
+      </p>
+    </div>
+
+    <div
+      *mlvAnimatedPresence="isActive('settings')"
+      class="tabs-demo__panel"
+      role="tabpanel"
+      aria-label="Settings panel"
+    >
+      <strong>Settings</strong>
+      <p>
+        Configuration options and preferences. The leave animation plays in full
+        before this panel is destroyed — unlike standard
+        <code>&#64;if</code> which removes the DOM node immediately.
+      </p>
+    </div>
+
+    <div
+      *mlvAnimatedPresence="isActive('logs')"
+      class="tabs-demo__panel"
+      role="tabpanel"
+      aria-label="Logs panel"
+    >
+      <strong>Logs</strong>
+      <p>
+        Recent activity log entries. Combine with custom enter/leave classes to
+        use any animation from <code>@malva-ui/styles</code>.
+      </p>
+    </div>
+  </div>
+</div>

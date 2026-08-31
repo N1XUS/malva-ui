@@ -1,0 +1,191 @@
+// ==========================================================================
+// breakpoints.scss
+// Mobile-first responsive breakpoint system.
+// Configurable via @use ... with (...) at the app level.
+// ==========================================================================
+
+@use 'sass:map';
+@use 'sass:list';
+
+// ---------------------------------------------------------------------------
+// Configurable breakpoint thresholds
+// Override at app level:
+//   @use "../../../../styles/src/lib/breakpoints" as bp with ($mlv-breakpoint-md: 900px);
+// ---------------------------------------------------------------------------
+
+$mlv-breakpoint-md: 768px !default;
+$mlv-breakpoint-lg: 1200px !default;
+
+/// Internal breakpoint map — used by the mixins below.
+$_breakpoints: (
+  'sm': 0,
+  'md': $mlv-breakpoint-md,
+  'lg': $mlv-breakpoint-lg,
+);
+
+// ---------------------------------------------------------------------------
+// Validation helper
+// ---------------------------------------------------------------------------
+
+/// Validates that $name is a known breakpoint key.
+/// @param {String} $name — breakpoint name to validate
+/// @return {String} — the validated name
+/// @throws if $name is not in $_breakpoints
+@function _assert-breakpoint($name) {
+  @if not map.has-key($_breakpoints, $name) {
+    @error "Unknown breakpoint '#{$name}'. Expected one of: #{map.keys($_breakpoints)}.";
+  }
+  @return $name;
+}
+
+/// Returns the min-width value for the named breakpoint.
+/// @param {String} $name — sm, md, or lg
+/// @return {Number} — px value
+@function _min-width($name) {
+  @return map.get($_breakpoints, $name);
+}
+
+/// Returns max-width for the breakpoint below $name (bp - 0.02px).
+/// @param {String} $name — md or lg (sm has no upper bound via down)
+/// @return {Number} — px value
+@function _max-width($name) {
+  @return _min-width($name) - 0.02px;
+}
+
+// ---------------------------------------------------------------------------
+// breakpoint-up($name)
+// ---------------------------------------------------------------------------
+
+/// Applies styles at the given breakpoint and above (min-width).
+/// For "sm" no media query is emitted — styles apply unconditionally.
+///
+/// @param {String} $name — sm, md, or lg
+/// @content — styles to apply at this breakpoint and above
+/// @example
+///   .my-component {
+///     padding: 1rem;
+///     @include breakpoint-up(md) { padding: 1.5rem; }
+///     @include breakpoint-up(lg) { padding: 2rem; }
+///   }
+@mixin breakpoint-up($name) {
+  $name: _assert-breakpoint($name);
+  $min: _min-width($name);
+  @if $min == 0 {
+    @content;
+  } @else {
+    @media (min-width: #{$min}) {
+      @content;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// breakpoint-down($name)
+// ---------------------------------------------------------------------------
+
+/// Applies styles below the given breakpoint (max-width: bp - 0.02px).
+/// Cannot be called with "sm" — everything is below nothing.
+///
+/// @param {String} $name — md or lg
+/// @content — styles to apply below this breakpoint
+/// @example
+///   .my-component__mobile-only {
+///     @include breakpoint-down(md) { display: block; }
+///   }
+@mixin breakpoint-down($name) {
+  $name: _assert-breakpoint($name);
+  @if $name == 'sm' {
+    @error "breakpoint-down() cannot be called with 'sm' — sm has no lower bound.";
+  }
+  @media (max-width: #{_max-width($name)}) {
+    @content;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// breakpoint-only($name)
+// ---------------------------------------------------------------------------
+
+/// Applies styles only within the given breakpoint range.
+/// - sm: 0 to md - 0.02px
+/// - md: md to lg - 0.02px
+/// - lg: lg and above (no max)
+///
+/// @param {String} $name — sm, md, or lg
+/// @content — styles to apply only in this range
+@mixin breakpoint-only($name) {
+  $name: _assert-breakpoint($name);
+  $names: map.keys($_breakpoints);
+  $index: list.index($names, $name);
+  $min: _min-width($name);
+
+  @if $index < list.length($names) {
+    $next: list.nth($names, $index + 1);
+    $max: _max-width($next);
+
+    @if $min == 0 {
+      @media (max-width: #{$max}) {
+        @content;
+      }
+    } @else {
+      @media (min-width: #{$min}) and (max-width: #{$max}) {
+        @content;
+      }
+    }
+  } @else {
+    // Last breakpoint — no upper bound
+    @media (min-width: #{$min}) {
+      @content;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Container query mixins
+// ---------------------------------------------------------------------------
+
+/// Marks an element as a container query context.
+///
+/// @param {String|null} $name [null] — optional container name
+/// @example
+///   .mlv-pagination { @include container(pagination); }
+@mixin container($name: null) {
+  container-type: inline-size;
+  @if $name {
+    container-name: #{$name};
+  }
+}
+
+/// Applies styles when the container is at least $width wide.
+///
+/// @param {Length} $width — min-width threshold (e.g. 500px, 30rem)
+/// @param {String|null} $name [null] — container name to target
+/// @example
+///   @include container-up(500px, pagination) { ... }
+@mixin container-up($width, $name: null) {
+  @if $name {
+    @container #{$name} (min-width: #{$width}) {
+      @content;
+    }
+  } @else {
+    @container (min-width: #{$width}) {
+      @content;
+    }
+  }
+}
+
+/// Applies styles when the container is narrower than $width.
+///
+/// @param {Length} $width — max-width threshold
+/// @param {String|null} $name [null] — container name to target
+@mixin container-down($width, $name: null) {
+  @if $name {
+    @container #{$name} (max-width: #{$width}) {
+      @content;
+    }
+  } @else {
+    @container (max-width: #{$width}) {
+      @content;
+    }
+  }
+}

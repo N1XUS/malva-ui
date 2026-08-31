@@ -1,0 +1,56 @@
+<div class="demo-col" style="gap: 1.25rem">
+  <div class="demo-col" style="gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6"
+      >Sunrise gradient — {{ progress() }}%</span
+    >
+    <mlv-loader
+      variant="bar"
+      [value]="progress()"
+      [size]="8"
+      color="linear-gradient(90deg, #a0c5df 0%, #bd65a4 45%, #fcbb14 100%)"
+    />
+  </div>
+
+  <div class="demo-col" style="gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6"
+      >Ocean gradient — {{ progress() }}%</span
+    >
+    <mlv-loader
+      variant="bar"
+      [value]="progress()"
+      [size]="8"
+      color="linear-gradient(90deg, #0ea5e9 0%, #6366f1 100%)"
+    />
+  </div>
+
+  <div class="demo-col" style="gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6"
+      >Custom solid color — {{ progress() }}%</span
+    >
+    <mlv-loader variant="bar" [value]="progress()" [size]="8" color="#7c3aed" />
+  </div>
+
+  <div class="demo-col" style="gap: 0.5rem">
+    <span style="font-size: 0.8rem; opacity: 0.6"
+      >Indeterminate with gradient</span
+    >
+    <mlv-loader
+      variant="bar"
+      [indeterminate]="true"
+      [size]="8"
+      color="linear-gradient(90deg, #f87040 0%, #ffa228 100%)"
+    />
+  </div>
+
+  <button
+    mlvButton
+    variant="secondary"
+    (click)="randomize()"
+    style="align-self: flex-start"
+  >
+    <ng-template mlvButtonBefore
+      ><svg lucideRefreshCw [size]="14"
+    /></ng-template>
+    Randomize value
+  </button>
+</div>

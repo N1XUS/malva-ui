@@ -1,0 +1,39 @@
+{
+  "name": "tailwind",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/tailwind",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:tailwind", "type:infrastructure"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/libs/tailwind"],
+      "inputs": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/libs/styles/src/lib/**/*.scss",
+        "{workspaceRoot}/scripts/build-tailwind-package.mjs"
+      ],
+      "options": {
+        "command": "node scripts/build-tailwind-package.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/tests/**/*",
+        "{projectRoot}/theme.css",
+        "{projectRoot}/schematics/**/*",
+        "{workspaceRoot}/libs/styles/src/lib/**/*.scss"
+      ],
+      "options": {
+        "command": "node --test libs/tailwind/tests/theme.spec.mjs libs/tailwind/tests/schematics/ng-add.spec.js",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

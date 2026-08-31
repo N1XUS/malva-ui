@@ -1,0 +1,17 @@
+<button
+  class="mlv-list-item-group__toggler"
+  type="button"
+  [attr.aria-expanded]="!!open()"
+  [attr.aria-controls]="_contentId"
+  (click)="toggle()"
+>
+  <svg class="mlv-list-item-group__arrow" size="16" lucideChevronRight></svg>
+  <span>{{ label() }}</span>
+</button>
+<div class="mlv-list-item-group__content" [id]="_contentId">
+  <div>
+    <div>
+      <ng-content />
+    </div>
+  </div>
+</div>

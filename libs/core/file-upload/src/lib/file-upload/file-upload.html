@@ -1,0 +1,133 @@
+<input
+  #fileInput
+  class="mlv-file-upload__input"
+  type="file"
+  [accept]="accept()"
+  [multiple]="multiple()"
+  [disabled]="computedDisabled()"
+  aria-hidden="true"
+  tabindex="-1"
+  (change)="onFileInputChange($event)"
+/>
+
+<!-- Drop zone: visually interactive drag target.
+     The inner <button type="button"> is the sole keyboard/AT entry point. -->
+<div class="mlv-file-upload__zone">
+  @if (_coverFile(); as cover) {
+  <!-- Cover preview: the image fills the zone, which stays the drop target.
+       Plain <img>, not NgOptimizedImage — the source is a runtime blob:/data:/
+       remote URL of unknown intrinsic size. -->
+  <img
+    class="mlv-file-upload__cover-image"
+    [src]="cover.previewUrl"
+    [alt]="cover.name"
+  />
+
+  @if (_coverUploading()) {
+  <mlv-loader
+    class="mlv-file-upload__cover-progress"
+    variant="bar"
+    [value]="cover.progress ?? 0"
+  />
+  } } @else {
+  <span class="mlv-file-upload__zone-icon" aria-hidden="true">
+    <svg lucideUpload [size]="compact() ? 18 : 28" />
+  </span>
+
+  <!-- Title is always in the DOM to serve as aria-describedby anchor;
+       hidden visually in compact mode via CSS. -->
+  <span
+    [id]="id() + '-title'"
+    class="mlv-file-upload__zone-title"
+    [class.mlv-file-upload__zone-title--hidden]="compact()"
+    >{{ title() }}</span
+  >
+
+  @if (subtitle() && !compact()) {
+  <span [id]="id() + '-subtitle'" class="mlv-file-upload__zone-subtitle"
+    >{{ subtitle() }}</span
+  >
+  } }
+
+  <!-- One actions container, two presentations. It is the inline action row in
+       list mode and the floating toolbar over the cover image. The two
+       <ng-content> slots MUST stay outside the @if branches: Angular assigns a
+       projected node to the first slot whose selector matches, so duplicating
+       a selector across branches leaves the later copy permanently empty.
+       DOM order equals visual order, and `position` is read as a static
+       attribute here, never as a binding. -->
+  <span
+    [class.mlv-file-upload__zone-action]="!_isCover()"
+    [class.mlv-file-upload__toolbar]="_isCover()"
+  >
+    <ng-content select="[mlvFileUploadAction]:not([position=end])" />
+
+    @if (_isCover()) {
+    <button
+      mlvButton
+      type="button"
+      shape="square"
+      variant="transparent"
+      [disabled]="computedDisabled()"
+      [attr.aria-label]="_i18n().replaceFile"
+      (click)="$event.stopPropagation(); openFilePicker()"
+    >
+      <svg lucideRefreshCw [size]="16" />
+    </button>
+    } @else {
+    <button
+      mlvButton
+      type="button"
+      variant="secondary"
+      [disabled]="computedDisabled()"
+      [attr.aria-describedby]="subtitle() && !compact() ? id() + '-title ' + id() + '-subtitle' : id() + '-title'"
+      (click)="$event.stopPropagation(); openFilePicker()"
+    >
+      {{ actionLabel() }}
+    </button>
+    }
+
+    <ng-content select="[mlvFileUploadAction][position=end]" />
+
+    @if (_coverFile(); as cover) {
+    <button
+      mlvButton
+      type="button"
+      shape="square"
+      variant="transparent"
+      [disabled]="computedDisabled()"
+      [attr.aria-label]="_coverRemoveLabel()"
+      (click)="$event.stopPropagation(); removeFile(cover.id)"
+    >
+      <svg lucideTrash2 [size]="16" />
+    </button>
+    }
+  </span>
+</div>
+
+@if (_errors().length > 0) {
+<ul class="mlv-file-upload__errors" role="alert" aria-live="assertive">
+  @for (err of _errors(); track err.code + err.message) {
+  <li class="mlv-file-upload__error-item">{{ err.message }}</li>
+  }
+</ul>
+}
+<!-- In cover state the single file's row would only repeat the image and its
+     remove control, both of which the cover toolbar already provides. -->
+@if (_fileList().length > 0 && !_isCover()) {
+<ul
+  class="mlv-file-upload__list"
+  [attr.aria-label]="_i18n().selectedFiles"
+  aria-live="polite"
+>
+  @for (file of _fileList(); track file.id) {
+  <li>
+    <mlv-file-upload-item
+      class="mlv-file-upload-item--entering"
+      [file]="file"
+      (remove)="removeFile(file.id)"
+    />
+  </li>
+  }
+</ul>
+}

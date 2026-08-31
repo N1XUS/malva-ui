@@ -1,0 +1,95 @@
+<mlv-form-control-wrapper (clear)="clearValue()">
+  @if (label() || hint()) {
+  <mlv-label [for]="id()" [required]="required()">
+    {{ label() }} @if (hint()) {
+    <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
+  }
+
+  <ng-template mlvFormControlWrapperControl>
+    <ng-template #decrementStepper>
+      <button
+        type="button"
+        class="mlv-number-input__stepper mlv-number-input__decrement"
+        [disabled]="computedDisabled() || isAtMin()"
+        [attr.aria-label]="_i18n().decrement"
+        tabindex="-1"
+        (pointerdown)="$event.preventDefault(); _onStepperPointerDown(-1)"
+        (pointerup)="_onStepperPointerUp()"
+        (pointerleave)="_onStepperPointerUp()"
+        (pointercancel)="_onStepperPointerUp()"
+      >
+        <svg lucideMinus [size]="16" aria-hidden="true" />
+      </button>
+    </ng-template>
+
+    <ng-template #incrementStepper>
+      <button
+        type="button"
+        class="mlv-number-input__stepper mlv-number-input__increment"
+        [disabled]="computedDisabled() || isAtMax()"
+        [attr.aria-label]="_i18n().increment"
+        tabindex="-1"
+        (pointerdown)="$event.preventDefault(); _onStepperPointerDown(1)"
+        (pointerup)="_onStepperPointerUp()"
+        (pointerleave)="_onStepperPointerUp()"
+        (pointercancel)="_onStepperPointerUp()"
+      >
+        <svg lucidePlus [size]="16" aria-hidden="true" />
+      </button>
+    </ng-template>
+
+    @if (stack() === 'vertical' && controlAlignment() === 'left') {
+    <div class="mlv-number-input__steppers">
+      <ng-container [ngTemplateOutlet]="incrementStepper" />
+      <ng-container [ngTemplateOutlet]="decrementStepper" />
+    </div>
+    } @if (stack() === 'horizontal') {
+    <ng-container [ngTemplateOutlet]="decrementStepper" />
+    }
+
+    <input
+      #inputRef
+      class="mlv-number-input__native"
+      type="text"
+      inputmode="decimal"
+      [id]="id()"
+      [placeholder]="placeholder()"
+      [disabled]="computedDisabled()"
+      [readOnly]="readonly()"
+      [value]="_internalStringValue()"
+      [attr.aria-valuenow]="value() !== null ? value() : null"
+      [attr.aria-valuemin]="min() !== null ? min() : null"
+      [attr.aria-valuemax]="max() !== null ? max() : null"
+      [attr.aria-label]="ariaLabel()"
+      [attr.aria-required]="required() || null"
+      [attr.aria-invalid]="resolvedState() === 'error' ? 'true' : null"
+      [attr.aria-describedby]="_describedBy()"
+      role="spinbutton"
+      (input)="_onNativeInput($event)"
+      (keydown)="_onKeydown($event)"
+      (keydown.enter)="_onEnter()"
+      (wheel)="_onWheel($event)"
+      (focus)="_isFocused.set(true); setFocused(true)"
+      (blur)="_onBlur()"
+    />
+
+    @if (stack() === 'horizontal') {
+    <ng-container [ngTemplateOutlet]="incrementStepper" />
+    } @if (stack() === 'vertical' && controlAlignment() === 'right') {
+    <div class="mlv-number-input__steppers">
+      <ng-container [ngTemplateOutlet]="incrementStepper" />
+      <ng-container [ngTemplateOutlet]="decrementStepper" />
+    </div>
+    }
+  </ng-template>
+
+  @if (description()) {
+  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+  } @if (message()) {
+  <mlv-message [id]="_messageId()" [state]="resolvedState()">
+    {{ message() }}
+  </mlv-message>
+  }
+</mlv-form-control-wrapper>

@@ -1,0 +1,12 @@
+---
+title: Custom Option Rows
+description: resolveOptions plus an itemTemplate for richer rows.
+---
+
+`resolveOptions(items, transform)` maps domain records into `MlvSelectOption`s once. Keeping the record itself as `value` means `(valueChange)` hands back the record, not an id that has to be looked up again — and `group` can be derived in the same pass.
+
+`[itemTemplate]` then replaces the row markup. The template receives the whole option as `$implicit`, so `option.label` and `option.value` (here the reviewer record) are both in scope.
+
+Two things the panel keeps owning even with a custom row: the `role="option"` element and its selection state, and the accessible name / type-ahead text, both taken from `label`. Keep `label` a readable string even when the row draws something else.
+
+Two things the row takes over: the check mark and the row's own colours. The default row is replaced wholesale, so a selected affordance has to be rendered by the template (this one appends a check when the option matches the selection), and `--loading` recedes only default rows — custom ones stay as authored.

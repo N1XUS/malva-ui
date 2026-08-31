@@ -1,0 +1,5 @@
+## Smart Filter Bar
+
+Definitions are the source of truth for labels, editors, operators, defaults, required fields, and visibility. Required fields remain visible and block execution while empty. Active fields cannot be hidden until their conditions are cleared, so the query never contains an invisible filter.
+
+The bar composes search plus structured conditions into a deeply cloned execution payload. Multiple conditions use OR by default unless a definition supplies `conditionStrategy`. The modal available-filters manager stages changes so Cancel can roll them back.

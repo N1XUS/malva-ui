@@ -1,0 +1,43 @@
+{
+  "name": "@malva-ui/editor",
+  "version": "0.0.0-malva-ui-package-version",
+  "description": "SSR-safe Angular rich-text editor for Malva UI — a Tiptap shell with HTML/Markdown/JSON values, image uploads and block reordering.",
+  "license": "MIT",
+  "keywords": [
+    "angular",
+    "editor",
+    "rich-text",
+    "wysiwyg",
+    "tiptap",
+    "prosemirror",
+    "markdown",
+    "malva-ui"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@angular/cdk": "0.0.0-angular-cdk-package-version",
+    "@angular/common": "0.0.0-angular-common-package-version",
+    "@angular/core": "0.0.0-angular-core-package-version",
+    "@angular/forms": "0.0.0-angular-forms-package-version",
+    "@lucide/angular": "0.0.0-lucide-angular-package-version",
+    "@malva-ui/cdk": "0.0.0-malva-ui-package-version",
+    "@malva-ui/core": "0.0.0-malva-ui-package-version",
+    "@malva-ui/i18n": "0.0.0-malva-ui-package-version",
+    "@tiptap/core": "0.0.0-tiptap-package-version",
+    "@tiptap/extension-file-handler": "0.0.0-tiptap-package-version",
+    "@tiptap/extension-highlight": "0.0.0-tiptap-package-version",
+    "@tiptap/extension-image": "0.0.0-tiptap-package-version",
+    "@tiptap/extension-list": "0.0.0-tiptap-package-version",
+    "@tiptap/extension-table": "0.0.0-tiptap-package-version",
+    "@tiptap/extension-text-align": "0.0.0-tiptap-package-version",
+    "@tiptap/extension-text-style": "0.0.0-tiptap-package-version",
+    "@tiptap/extensions": "0.0.0-tiptap-package-version",
+    "@tiptap/markdown": "0.0.0-tiptap-package-version",
+    "@tiptap/pm": "0.0.0-tiptap-package-version",
+    "@tiptap/starter-kit": "0.0.0-tiptap-package-version",
+    "rxjs": "0.0.0-rxjs-package-version"
+  },
+  "sideEffects": false
+}

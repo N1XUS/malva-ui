@@ -1,0 +1,889 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-editor;
+
+.#{$block} {
+  // Declared before `mixins.base()` because that mixin nests a `* { ... }`
+  // rule, which forces Sass to split this selector's own declarations across
+  // two emitted `.mlv-editor` CSS rules. Keeping these first keeps them in
+  // the earlier-emitted block.
+  --mlv-editor-gutter: var(--mlv-spacing-6);
+  --mlv-editor-measure: 45rem;
+  // Space the blocks part by to preview a drop. Fixed rather than derived from
+  // the dragged block, so a thirty-row table opens the same gap a one-line
+  // paragraph does and the page never lurches by a screen height. The plugin
+  // writes this token into a `translateY` and never resolves it to pixels.
+  --mlv-editor-drop-gap: 1.5rem;
+  @include mixins.base();
+  display: block;
+  color: var(--mlv-text-primary);
+
+  .mlv-form-control-wrapper__control-container {
+    height: auto;
+    min-height: var(--form-ctrl-height);
+    padding: 0;
+    overflow: hidden;
+    background: var(--mlv-background-base);
+    transition:
+      border-color var(--mlv-duration-fast) var(--mlv-ease-default),
+      box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
+  }
+
+  .mlv-form-control-wrapper__control-row {
+    align-items: stretch;
+  }
+
+  .mlv-form-control-wrapper--state-error &__surface {
+    box-shadow: inset 0 0 0 var(--mlv-stroke-width) var(--mlv-border-error);
+  }
+
+  &__surface {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    width: 100%;
+    background: var(--mlv-elevation-bg-3);
+  }
+
+  &__toolbar {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    min-width: 0;
+    padding: var(--mlv-padding-xs);
+    overflow: hidden;
+    border-bottom: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+    background: var(--mlv-elevation-bg-3);
+  }
+
+  &__toolbar [hidden] {
+    display: none !important;
+  }
+
+  &__toolbar-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    > .mlv-toolbar {
+      width: max-content;
+      min-width: 100%;
+      flex-wrap: nowrap;
+    }
+  }
+
+  .mlv-editor-toolbar__separator {
+    flex: 0 0 auto;
+    min-height: var(--mlv-height-s);
+    margin-inline: var(--mlv-spacing-1);
+  }
+
+  .mlv-editor-toolbar__overflow,
+  .mlv-editor-undo-redo,
+  .mlv-editor-inline-marks,
+  .mlv-editor-block-insert {
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+  }
+
+  mlv-editor-zoom,
+  mlv-editor-heading,
+  mlv-editor-list,
+  mlv-editor-text-color,
+  mlv-editor-highlight,
+  mlv-editor-alignment,
+  mlv-editor-link,
+  mlv-editor-table,
+  mlv-editor-image-upload {
+    flex: 0 0 auto;
+  }
+
+  &__viewport {
+    min-block-size: 8rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  &__view {
+    position: relative;
+    min-inline-size: 100%;
+    transform: scale(var(--mlv-editor-zoom, 1));
+    transform-origin: left top;
+    transition: transform var(--mlv-duration-fast) var(--mlv-ease-default);
+  }
+
+  &__content {
+    min-block-size: 8rem;
+    padding-block: var(--mlv-spacing-2);
+    padding-inline: var(--mlv-editor-gutter);
+    border: 0;
+    outline: none;
+  }
+
+  // Pointer affordance only: `aria-hidden` and never focusable, so the content
+  // region stays the single `role="textbox"` tab stop. Keyboard users reorder
+  // blocks through the Alt+Shift+Arrow keymap instead.
+  &__block-handle {
+    position: absolute;
+    // The handle must sit immediately left of the text, not at the far edge of
+    // the full-width view layer. `.ProseMirror` is `--mlv-editor-measure` wide
+    // and centred inside the content box, so its start edge is
+    // `gutter + (view - 2 * gutter - measure) / 2`; subtracting one gutter
+    // (this element's own inline size) leaves the expression below. The clamp
+    // covers the narrow case, where the column is content-box-wide and its
+    // start edge is the gutter itself. Exact for every length measure and for
+    // the `full` value `100%`, which reduces to zero here as it must.
+    inset-inline-start: calc(
+      max(
+        0rem,
+        (100% - 2 * var(--mlv-editor-gutter) - var(--mlv-editor-measure)) / 2
+      )
+    );
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mlv-editor-gutter);
+    block-size: var(--mlv-height-xs);
+    border-radius: var(--mlv-radius-s);
+    color: var(--mlv-text-tertiary);
+    cursor: grab;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    svg {
+      inline-size: var(--mlv-spacing-4);
+      block-size: var(--mlv-spacing-4);
+      fill: currentcolor;
+    }
+
+    &:hover {
+      background-color: var(--mlv-background-neutral-1-hover);
+      color: var(--mlv-text-secondary);
+    }
+
+    &[data-visible='true'] {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  // A sibling of `.ProseMirror` rather than a widget decoration inside it, so
+  // it is out of flow and its `top` can be transitioned — a widget at a new
+  // position is a different decoration, rebuilt from scratch every move. Being
+  // outside `view.dom` also puts it further out of reach of every serializer
+  // than a decoration ever was.
+  //
+  // The plugin sets `top` to the *pre-partition* boundary between two blocks;
+  // the translate below drops it into the middle of the space the partition
+  // opens, so the gap's size stays owned by the token alone.
+  &__drop-indicator {
+    position: absolute;
+    inset-inline: calc(
+      max(
+          0rem,
+          (100% - 2 * var(--mlv-editor-gutter) - var(--mlv-editor-measure)) / 2
+        ) +
+        var(--mlv-editor-gutter)
+    );
+    block-size: var(--mlv-stroke-width-medium);
+    border-radius: var(--mlv-radius-full);
+    background-color: var(--mlv-border-focus);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(
+      calc(var(--mlv-editor-drop-gap) / 2 - var(--mlv-stroke-width-medium) / 2)
+    );
+    transition:
+      top var(--mlv-duration-normal) var(--mlv-ease-out),
+      opacity var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    &[data-visible='true'] {
+      opacity: 1;
+    }
+  }
+
+  // The block on the cursor stays in place, dimmed, so its origin is never in
+  // doubt. Its own space is kept — the partition opens a separate gap.
+  .#{$block}__block--dragging {
+    opacity: var(--mlv-disabled-opacity);
+  }
+
+  // Only present while a block drag is in flight, so the transition cannot
+  // catch ordinary editing: every layout change during typing would otherwise
+  // animate.
+  .ProseMirror--block-dragging > * {
+    transition: transform var(--mlv-duration-normal) var(--mlv-ease-out);
+  }
+
+  &__status {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--mlv-spacing-2);
+    min-block-size: var(--mlv-spacing-4);
+    margin-block-start: var(--mlv-spacing-1);
+  }
+
+  &__upload-placeholder {
+    position: relative;
+    display: inline-block;
+    inline-size: var(--mlv-height-l);
+    block-size: var(--mlv-height-l);
+    margin-inline: var(--mlv-spacing-1);
+    border: var(--mlv-stroke-width) dashed var(--mlv-border-focus);
+    border-radius: var(--mlv-radius-m);
+    background: var(--mlv-background-accent-1-pale);
+    vertical-align: middle;
+
+    &::after {
+      position: absolute;
+      inset: var(--mlv-spacing-2);
+      border: var(--mlv-stroke-width-medium) solid var(--mlv-border-normal);
+      border-block-start-color: var(--mlv-border-focus);
+      border-radius: var(--mlv-radius-full);
+      animation: mlv-editor-upload-spin var(--mlv-duration-slower)
+        var(--mlv-ease-linear) infinite;
+      content: '';
+    }
+  }
+
+  // The inline decoration the AI streaming engine holds over the region it is
+  // writing into (`MLV_EDITOR_AI_STREAMING_CLASS`). Tint only, deliberately
+  // unanimated: the decorated span is rewritten on every streamed frame, so
+  // any property that changes the box's size — padding, borders, outline
+  // offsets, font metrics — would reflow the document mid-stream.
+  &__ai-streaming {
+    border-radius: var(--mlv-radius-xs);
+    background-color: var(--mlv-background-accent-1-pale);
+  }
+
+  // Each frame's newly revealed slice of the streaming region
+  // (`MLV_EDITOR_AI_STREAMING_CHUNK_CLASS`). One-shot entrance: the engine
+  // creates the decoration once per revealed delta and only maps it
+  // afterwards, so the animation runs exactly once per chunk and earlier
+  // text never re-animates. Opacity and filter only — they composite without
+  // reflow. No translate rise: a transform is inert on a non-replaced inline
+  // box, and forcing `inline-block` to enable one would forbid line wraps
+  // inside a chunk — a mid-stream layout shift.
+  &__ai-streaming-chunk {
+    animation: mlv-editor-ai-chunk-in var(--mlv-duration-normal)
+      var(--mlv-ease-out);
+  }
+
+  // Shimmer caret the streaming engine keeps at the insertion tip while a
+  // writing session is active (`MLV_EDITOR_AI_CARET_CLASS`): an `aria-hidden`
+  // widget decoration, view-only, never serialized. The wrapper occupies
+  // zero inline space so trailing document text never shifts; the visible
+  // bar is an absolutely positioned pseudo-element. Each flush re-anchors
+  // the widget (restarting the loop at full opacity), so the caret reads as
+  // a solid bar while text is landing and pulses while the session waits on
+  // the provider.
+  &__ai-caret {
+    position: relative;
+    display: inline-block;
+    inline-size: 0;
+    block-size: 1em;
+    pointer-events: none;
+
+    &::after {
+      position: absolute;
+      inset-block: 0;
+      inset-inline-start: 0.0625rem;
+      inline-size: 0.35em;
+      border-radius: var(--mlv-radius-xs);
+      background: linear-gradient(
+        to bottom,
+        var(--mlv-background-accent-1),
+        var(--mlv-background-accent-2)
+      );
+      content: '';
+      animation: mlv-editor-ai-caret-pulse var(--mlv-duration-sluggish)
+        var(--mlv-ease-in-out) infinite;
+    }
+  }
+
+  // Inline decoration over text a pending AI suggestion inserted
+  // (`MLV_EDITOR_AI_SUGGESTION_INSERT_CLASS`). Tint only, like the streaming
+  // rule above: suggestion ranges remap through every concurrent transaction,
+  // so any size-changing property would shift layout during review.
+  &__ai-suggestion-insert {
+    border-radius: var(--mlv-radius-xs);
+    background-color: var(--mlv-background-success-pale);
+  }
+
+  // Widget decoration re-rendering text a pending AI suggestion removed
+  // (`MLV_EDITOR_AI_SUGGESTION_DELETE_CLASS`): strikethrough over a danger
+  // tint, `aria-hidden` in the engine. Same no-layout-shift constraint; the
+  // widget itself is hidden in print below, because the accepted-by-default
+  // document must print without the struck-out text.
+  &__ai-suggestion-delete {
+    border-radius: var(--mlv-radius-xs);
+    background-color: var(--mlv-background-danger-1-pale);
+    color: var(--mlv-text-negative);
+    text-decoration-line: line-through;
+  }
+
+  // Extra class the review bar's navigation puts on the decorations of the
+  // one suggestion currently under review
+  // (`MLV_EDITOR_AI_SUGGESTION_CURRENT_CLASS`). An outline paints outside the
+  // box without occupying layout space, so moving the marker can never shift
+  // the document. Deliberately untransitioned: the decorated span is rebuilt
+  // whenever the current suggestion changes, so there is nothing to animate
+  // and no reduced-motion path is needed.
+  &__ai-suggestion-current {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+  }
+
+  &--content-width-default {
+    --mlv-editor-measure: 45rem;
+  }
+
+  &--content-width-wide {
+    --mlv-editor-measure: 60rem;
+  }
+
+  &--content-width-full {
+    --mlv-editor-measure: 100%;
+  }
+
+  &--focused {
+    .mlv-form-control-wrapper__control-container {
+      border-color: var(--mlv-border-focus);
+      box-shadow: var(--mlv-focus-ring);
+    }
+  }
+
+  &--readonly {
+    .ProseMirror {
+      cursor: text;
+
+      ::selection {
+        background: var(--mlv-background-accent-1-pale);
+      }
+    }
+  }
+
+  &--disabled {
+    opacity: var(--mlv-disabled-opacity);
+
+    .#{$block}__surface,
+    .#{$block}__status {
+      pointer-events: none;
+    }
+
+    .#{$block}__content,
+    .ProseMirror {
+      cursor: default;
+      user-select: none;
+    }
+  }
+
+  .ProseMirror {
+    min-block-size: inherit;
+    max-inline-size: var(--mlv-editor-measure);
+    margin-inline: auto;
+    color: var(--mlv-text-primary);
+    font-family: var(--mlv-typography-family-text);
+    font-size: var(--mlv-typography-body-m-size);
+    font-weight: var(--mlv-typography-body-m-weight);
+    line-height: var(--mlv-typography-body-m-line-height);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+
+    &:focus-visible {
+      outline: none;
+    }
+
+    > *:first-child {
+      margin-block-start: 0;
+    }
+
+    > *:last-child {
+      margin-block-end: 0;
+    }
+
+    p {
+      margin-block: 0 var(--mlv-spacing-3);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      margin-block: var(--mlv-spacing-6) var(--mlv-spacing-3);
+      color: var(--mlv-text-heading);
+      font-family: var(--mlv-typography-family-heading);
+    }
+
+    @for $level from 1 through 6 {
+      h#{$level} {
+        font-size: var(--mlv-typography-heading-h#{$level}-size);
+        font-weight: var(--mlv-typography-heading-h#{$level}-weight);
+        line-height: var(--mlv-typography-heading-h#{$level}-line-height);
+      }
+    }
+
+    h1 {
+      letter-spacing: var(--mlv-typography-heading-h1-letter-spacing);
+    }
+
+    h2 {
+      letter-spacing: var(--mlv-typography-heading-h2-letter-spacing);
+    }
+
+    h3,
+    h4,
+    h5,
+    h6 {
+      letter-spacing: var(--mlv-letter-spacing-normal);
+    }
+
+    strong {
+      font-weight: var(--mlv-font-weight-bold);
+    }
+
+    em {
+      font-style: italic;
+    }
+
+    s {
+      text-decoration: line-through;
+    }
+
+    u {
+      text-underline-offset: var(--mlv-spacing-0-5);
+    }
+
+    a {
+      color: var(--mlv-text-action);
+      text-decoration: underline;
+      text-underline-offset: var(--mlv-spacing-0-5);
+      transition: color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+      &:visited {
+        color: var(--mlv-text-action);
+      }
+
+      &:hover {
+        color: var(--mlv-text-action-hover);
+      }
+
+      &:focus-visible {
+        border-radius: var(--mlv-radius-xs);
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+    }
+
+    ul,
+    ol {
+      padding-inline-start: var(--mlv-spacing-6);
+      margin-block: 0 var(--mlv-spacing-3);
+
+      ul,
+      ol {
+        margin-block: var(--mlv-spacing-1) 0;
+      }
+    }
+
+    ul {
+      list-style: disc;
+
+      ul {
+        list-style: circle;
+      }
+    }
+
+    ol {
+      list-style: decimal;
+    }
+
+    li {
+      margin-block: var(--mlv-spacing-1);
+
+      > p {
+        margin: 0;
+      }
+    }
+
+    ul[data-type='taskList'] {
+      padding: 0;
+      list-style: none;
+
+      li[data-type='taskItem'] {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--mlv-spacing-2);
+
+        > label {
+          display: inline-flex;
+          align-items: center;
+          min-block-size: var(--mlv-height-xs);
+          cursor: pointer;
+          user-select: none;
+
+          input {
+            accent-color: var(--mlv-background-accent-1);
+
+            &:focus-visible {
+              outline: var(--mlv-stroke-width-medium) solid
+                var(--mlv-border-focus);
+              outline-offset: var(--mlv-focus-ring-offset);
+            }
+          }
+        }
+
+        > div {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+      }
+    }
+
+    blockquote {
+      padding-inline-start: var(--mlv-spacing-4);
+      margin: var(--mlv-spacing-4) 0;
+      border-inline-start: var(--mlv-stroke-width-medium) solid
+        var(--mlv-border-focus);
+      color: var(--mlv-text-secondary);
+    }
+
+    code {
+      padding: var(--mlv-spacing-0-5) var(--mlv-spacing-1);
+      border-radius: var(--mlv-radius-s);
+      background: var(--mlv-background-neutral-1);
+      color: var(--mlv-text-primary);
+      font-family: var(--mlv-typography-family-code);
+      font-size: var(--mlv-typography-code-size);
+    }
+
+    pre {
+      padding: var(--mlv-padding-m);
+      margin-block: var(--mlv-spacing-4);
+      overflow: auto;
+      border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+      border-radius: var(--mlv-radius-m);
+      background: var(--mlv-background-sunken);
+      color: var(--mlv-text-primary);
+      font-family: var(--mlv-typography-family-code);
+      font-size: var(--mlv-typography-code-size);
+      line-height: var(--mlv-typography-body-m-line-height);
+      tab-size: 2;
+
+      code {
+        padding: 0;
+        background: transparent;
+        color: inherit;
+        font-size: inherit;
+      }
+    }
+
+    hr {
+      height: var(--mlv-stroke-width);
+      margin-block: var(--mlv-spacing-6);
+      border: 0;
+      background: var(--mlv-border-normal);
+    }
+
+    img {
+      display: block;
+      max-inline-size: 100%;
+      block-size: auto;
+      margin-block: var(--mlv-spacing-4);
+      border-radius: var(--mlv-radius-m);
+
+      // Sits on the image's edge rather than floating clear of it. An offset
+      // ring around a picture reads as a glow around the artwork instead of a
+      // selection boundary, because the image has no surrounding chrome for
+      // the gap to belong to.
+      &.ProseMirror-selectednode {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: 0;
+      }
+    }
+
+    .ProseMirror-selectednode,
+    [data-resize-state='true'] {
+      border-radius: var(--mlv-radius-s);
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-spacing-1);
+    }
+
+    // A resized image's node view nests container > wrapper > img. The
+    // container is a full-width flex block, so the generic rule above rings a
+    // column-wide rectangle around an image that may be a fraction of that. The
+    // wrapper does track the image's width, but the image's own block margins
+    // are inside it, so it still stands 16px proud top and bottom — which also
+    // pushed the resize handles, positioned on that wrapper, off the corners.
+    //
+    // Moving the block rhythm up to the container makes the wrapper hug the
+    // image's own box exactly, so one change puts both the ring and the handles
+    // on the image's edges.
+    [data-resize-container] {
+      margin-block: var(--mlv-spacing-4);
+
+      img {
+        margin-block: 0;
+      }
+
+      &.ProseMirror-selectednode,
+      &[data-resize-state='true'] {
+        outline: none;
+
+        > [data-resize-wrapper] {
+          border-radius: var(--mlv-radius-m);
+          outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+          outline-offset: 0;
+        }
+      }
+    }
+
+    [data-resize-handle],
+    .resize-handle {
+      inline-size: var(--mlv-spacing-3);
+      block-size: var(--mlv-spacing-3);
+      border: var(--mlv-stroke-width) solid var(--mlv-background-base);
+      border-radius: var(--mlv-radius-full);
+      background: var(--mlv-background-accent-1);
+      box-shadow: var(--mlv-shadow-raised);
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+    }
+
+    .is-editor-empty:first-child::before {
+      float: left;
+      height: 0;
+      color: var(--mlv-text-placeholder);
+      content: attr(data-placeholder);
+      pointer-events: none;
+    }
+  }
+
+  .tableWrapper {
+    margin-block: var(--mlv-spacing-3);
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  th,
+  td {
+    position: relative;
+    min-width: 3rem;
+    padding: var(--mlv-spacing-2) var(--mlv-spacing-3);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--mlv-background-neutral-1);
+    font-weight: var(--mlv-font-weight-semibold);
+  }
+
+  .selectedCell::after {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: var(--mlv-background-accent-1-pale);
+    content: '';
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  .ProseMirror-focused .selectedCell::after {
+    box-shadow: inset 0 0 0 var(--mlv-stroke-width-medium)
+      var(--mlv-border-focus);
+  }
+
+  .column-resize-handle {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: calc(var(--mlv-stroke-width) * -1);
+    z-index: 2;
+    width: calc(var(--mlv-stroke-width) * 2);
+    background: var(--mlv-border-focus);
+    pointer-events: none;
+  }
+
+  .resize-cursor {
+    cursor: col-resize;
+  }
+}
+
+@keyframes mlv-editor-upload-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+// Compositor-only entrance for a streamed chunk: fade in from a slight blur.
+// Opacity and filter never reflow, so the end state cannot shift layout.
+@keyframes mlv-editor-ai-chunk-in {
+  from {
+    opacity: 0;
+    filter: blur(0.125rem);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+// Idle shimmer of the streaming caret while the session waits on the
+// provider; opacity only, so the pulse cannot shift layout either.
+@keyframes mlv-editor-ai-caret-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (max-width: 40rem) {
+  .#{$block} {
+    --mlv-editor-gutter: var(--mlv-spacing-3);
+
+    &__toolbar {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+
+    &__content {
+      padding-block: var(--mlv-spacing-1-5);
+    }
+
+    &__status {
+      justify-content: flex-start;
+    }
+
+    .ProseMirror {
+      h1 {
+        font-size: var(--mlv-typography-heading-h2-size);
+      }
+
+      h2 {
+        font-size: var(--mlv-typography-heading-h3-size);
+      }
+    }
+  }
+}
+
+@media print {
+  .#{$block} {
+    &__toolbar,
+    &__status,
+    &__block-handle,
+    &__drop-indicator,
+    .mlv-editor-image-upload-status,
+    &__upload-placeholder,
+    &__ai-suggestion-delete,
+    &__ai-caret {
+      display: none;
+    }
+
+    // The navigation outline is a screen affordance; printed review state
+    // keeps the insertion tint but not the focus ring.
+    &__ai-suggestion-current {
+      outline: none;
+    }
+
+    // Chunk decorations wrap real streamed text, so they cannot be hidden;
+    // dropping the entrance animation instead guarantees the text prints
+    // fully opaque rather than frozen mid-fade.
+    &__ai-streaming-chunk {
+      animation: none;
+    }
+
+    &__viewport {
+      overflow: visible;
+    }
+
+    &__view {
+      transform: none;
+    }
+
+    &__content,
+    .ProseMirror {
+      min-block-size: 0;
+      padding: 0;
+    }
+
+    table {
+      break-inside: avoid;
+    }
+  }
+}
+
+// A pointer-only affordance is meaningless without hover; on touch surfaces the
+// Alt+Shift+Arrow keymap remains the reordering path.
+@media (hover: none) {
+  .#{$block}__block-handle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .#{$block} {
+    .mlv-form-control-wrapper__control-container,
+    &__view,
+    &__block-handle,
+    &__drop-indicator,
+    .ProseMirror--block-dragging > *,
+    .ProseMirror a {
+      transition-duration: var(--mlv-duration-instant);
+    }
+
+    // The chunk entrance collapses to an instant, full-opacity appearance
+    // and the caret becomes a static bar still marking the insertion tip.
+    &__upload-placeholder::after,
+    &__ai-streaming-chunk,
+    &__ai-caret::after {
+      animation: none;
+    }
+  }
+}
+
+// The drag image is rasterized from `document.body`, outside every `.mlv-editor`
+// selector, so it is styled at the top level. Its content carries inlined
+// computed styles from the block it was cloned from; only the frame is here.
+//
+// `zoom` is set inline by the plugin when the editor is zoomed, because a
+// computed style never carries an ancestor's `transform: scale()` and engines
+// honour a `transform` on a drag image inconsistently.
+.#{$block}__drag-ghost {
+  max-block-size: 12rem;
+  padding: var(--mlv-spacing-2);
+  overflow: hidden;
+  border-radius: var(--mlv-radius-m);
+  background-color: var(--mlv-background-raised);
+  box-shadow: var(--mlv-shadow-floating);
+  opacity: 0.9;
+  // A tall block is cut rather than allowed to produce a drag image larger than
+  // the viewport; the fade says the cut is a cut.
+  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  scale: 0.85;
+  // The scale must not move the image away from the cursor, which the browser
+  // anchors to the element's own top-left.
+  transform-origin: top left;
+}
+}

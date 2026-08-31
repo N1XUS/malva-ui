@@ -1,0 +1,179 @@
+@if (presentation() === 'icon') {
+<button
+  mlvButton
+  class="mlv-search-field__trigger-icon"
+  type="button"
+  shape="circle"
+  variant="transparent"
+  [disabled]="disabled()"
+  [attr.aria-label]="_resolvedAriaLabel()"
+  [attr.aria-expanded]="opened()"
+  [attr.aria-haspopup]="'dialog'"
+  (click)="_openOverlay()"
+>
+  <svg mlvButtonIcon lucideSearch />
+</button>
+} @else {
+<!--
+  The dialog-trigger and combobox semantics go through `mlv-input`'s own aria
+  inputs rather than `[attr.*]` on this host, so they land on the focusable
+  `<input>` where a screen reader reads them.
+-->
+<mlv-input
+  class="mlv-search-field__input"
+  type="search"
+  inputMode="search"
+  autocomplete="off"
+  [placeholder]="_resolvedPlaceholder()"
+  [ariaLabel]="_resolvedAriaLabel()"
+  [disabled]="disabled()"
+  [loading]="loading()"
+  [value]="value()"
+  [readonly]="_overlayEnabled()"
+  [role]="_resolvedRole()"
+  [ariaExpanded]="_resolvedAriaExpanded()"
+  [ariaHasPopup]="_overlayEnabled() ? 'dialog' : null"
+  [ariaAutocomplete]="ariaAutocomplete()"
+  [ariaControls]="ariaControls()"
+  [ariaActiveDescendant]="ariaActiveDescendant()"
+  (valueChange)="_onValueChange($event)"
+  (keydown)="_onNavigationKey($event)"
+  (keydown.enter)="_onEnter($event)"
+  (keydown.space)="_onTriggerSpace($event)"
+  (click)="_onTriggerClick($event)"
+>
+  @if (_showLeadingIcon()) {
+  <span class="mlv-search-field__leading" *mlvFormControlPrepend>
+    <svg
+      class="mlv-search-field__leading-icon"
+      lucideSearch
+      aria-hidden="true"
+    />
+  </span>
+  }
+
+  <div class="mlv-search-field__actions" *mlvFormControlAppend>
+    @if (_showClear()) {
+    <mlv-button-close
+      mlvDensity="tight"
+      [ariaLabel]="_i18n().clear"
+      (mousedown)="$event.preventDefault()"
+      (click)="_clear()"
+    ></mlv-button-close>
+    } @if (_showStandaloneLoader()) {
+    <mlv-loader
+      class="mlv-search-field__loader"
+      variant="circle"
+      indeterminate
+      [size]="18"
+      [strokeWidth]="2"
+    />
+    } @if (_showSubmitAction()) {
+    <!--
+      `[loading]="loading()"` stays bound to mlvButton so its own host
+      bindings keep driving native `disabled`/`aria-busy` — an external
+      `[attr.aria-busy]` binding on this same host element loses to
+      mlvButton's own host binding of the same attribute every change-
+      detection cycle (a component's own host bindings are applied after a
+      consuming template's bindings on that host), so duplicating that logic
+      here doesn't work. mlvButton's own loading render still renders its
+      internal current-colour spinner as a sibling of `.mlv-button__text`
+      when loading — that instance is hidden in the stylesheet
+      (`.mlv-search-field__submit > mlv-loader`) so only the loader
+      projected below (identical inputs to the standalone loader above) is
+      visible, keeping both loading spinners in this component pixel-
+      identical.
+    -->
+    <button
+      mlvButton
+      class="mlv-search-field__submit"
+      mlvDensity="tight"
+      type="button"
+      shape="circle"
+      variant="transparent"
+      [disabled]="disabled()"
+      [loading]="loading()"
+      [attr.aria-label]="_i18n().submit"
+      (click)="_onSubmitClick($event)"
+    >
+      @if (loading()) {
+      <mlv-loader
+        class="mlv-search-field__loader"
+        variant="circle"
+        indeterminate
+        [size]="18"
+        [strokeWidth]="2"
+      />
+      } @else {
+      <svg mlvButtonIcon lucideSearch />
+      }
+    </button>
+    }
+  </div>
+</mlv-input>
+}
+
+<ng-template #overlayTemplate>
+  <div
+    class="mlv-search-field__overlay"
+    [class.mlv-search-field__overlay--entering]="animationState() === 'enter'"
+    [class.mlv-search-field__overlay--leaving]="animationState() === 'leave'"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="_resolvedAriaLabel()"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+    (animationend)="onAnimationEnd()"
+  >
+    <div class="mlv-search-field__overlay-panel">
+      @if (_overlayContentDef(); as contentDef) {
+      <ng-container
+        [ngTemplateOutlet]="contentDef.templateRef"
+        [ngTemplateOutletContext]="_overlayContext()"
+      />
+      } @else {
+      <!--
+        The overlay's default body is another search field, so the overlay
+        inherits every affordance of the inline control instead of re-declaring a
+        near-copy of it. It is configured as a pure input surface: `submit` mode
+        never emits while typing, `showSubmit` drops the redundant button, and
+        `commitOnClear` is off — this host owns commit, through `valueChange` for
+        live mode and `_onOverlayEnter` for Enter.
+      -->
+      <mlv-search-field
+        class="mlv-search-field__overlay-input"
+        trigger="submit"
+        [showSubmit]="false"
+        [commitOnClear]="false"
+        [clearable]="clearable()"
+        [loading]="loading()"
+        [placeholder]="_resolvedPlaceholder()"
+        [ariaLabel]="_resolvedAriaLabel()"
+        [value]="value()"
+        (valueChange)="_onValueChange($event)"
+        (keydown.enter)="_onOverlayEnter($event)"
+      />
+      }
+
+      <!--
+        No mlvDensity override: the nested search field above also has none,
+        so both resolve the same ambient density. CH-R2 pins mlvButton's own
+        height ramp to the same --mlv-height-* tokens as
+        --form-ctrl-height, so leaving both controls on the same (unset)
+        density is what makes their heights agree at every density — a
+        pinned `mlvDensity="compact"` here previously mismatched the field's
+        real height whenever the ambient density was not itself compact.
+      -->
+      <button
+        mlvButton
+        class="mlv-search-field__overlay-close"
+        type="button"
+        variant="transparent"
+        [attr.aria-label]="_i18n().closeOverlay"
+        (click)="close()"
+      >
+        {{ _i18n().closeOverlay }}
+      </button>
+    </div>
+  </div>
+</ng-template>

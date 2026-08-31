@@ -1,0 +1,13 @@
+<div class="dropdown-basic">
+  <mlv-dropdown-panel
+    class="mlv-dropdown-panel--surface dropdown-basic__panel"
+    [options]="environments"
+    [selectedValues]="selected()"
+    [maxHeight]="220"
+    (valueChange)="onValueChange($event)"
+  />
+
+  <p class="dropdown-basic__result" aria-live="polite">
+    Deploy target: <strong>{{ selectedLabel() }}</strong>
+  </p>
+</div>

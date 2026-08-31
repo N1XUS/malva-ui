@@ -1,0 +1,18 @@
+.status-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.avatar-presence {
+  position: relative;
+  display: inline-flex;
+
+  &__dot {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-end: 0;
+    box-shadow: 0 0 0 0.125rem var(--mlv-background-base);
+    border-radius: var(--mlv-radius-full);
+  }
+}

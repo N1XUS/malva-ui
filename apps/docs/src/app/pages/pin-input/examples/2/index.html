@@ -1,0 +1,22 @@
+<div class="demo-col" style="gap: 1.5rem">
+  <mlv-pin-input
+    [length]="4"
+    label="ATM PIN"
+    hint="4 digits"
+    [(ngModel)]="pin4"
+  />
+
+  <mlv-pin-input
+    [length]="6"
+    label="One-time code"
+    hint="Sent to your device"
+    [(ngModel)]="pin6"
+  />
+
+  <mlv-pin-input
+    [length]="8"
+    label="Backup code"
+    hint="8 characters"
+    [(ngModel)]="pin8"
+  />
+</div>

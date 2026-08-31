@@ -1,0 +1,93 @@
+<div class="demo-col" style="gap: 1.25rem">
+  <!-- Deployment pipeline status rows -->
+  <div style="display: flex; flex-direction: column; gap: 0.625rem">
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        justify-content: space-between;
+        max-width: 28rem;
+      "
+    >
+      <div style="display: flex; align-items: center; gap: 0.5rem">
+        <svg
+          lucideCheckCircle
+          [size]="16"
+          style="color: var(--mlv-text-positive)"
+        />
+        <span style="font-size: 0.875rem">Build</span>
+      </div>
+      <mlv-badge tone="success" muted>Passed</mlv-badge>
+    </div>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        justify-content: space-between;
+        max-width: 28rem;
+      "
+    >
+      <div style="display: flex; align-items: center; gap: 0.5rem">
+        <svg lucideClock [size]="16" style="color: var(--mlv-text-warning)" />
+        <span style="font-size: 0.875rem">Tests</span>
+      </div>
+      <mlv-badge tone="warning" muted>Running</mlv-badge>
+    </div>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        justify-content: space-between;
+        max-width: 28rem;
+      "
+    >
+      <div style="display: flex; align-items: center; gap: 0.5rem">
+        <svg
+          lucideAlertTriangle
+          [size]="16"
+          style="color: var(--mlv-text-info)"
+        />
+        <span style="font-size: 0.875rem">Security Scan</span>
+      </div>
+      <mlv-badge tone="info" muted>Queued</mlv-badge>
+    </div>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        justify-content: space-between;
+        max-width: 28rem;
+      "
+    >
+      <div style="display: flex; align-items: center; gap: 0.5rem">
+        <svg
+          lucideXCircle
+          [size]="16"
+          style="color: var(--mlv-text-negative)"
+        />
+        <span style="font-size: 0.875rem">Deploy to Production</span>
+      </div>
+      <mlv-badge tone="danger" muted>Blocked</mlv-badge>
+    </div>
+  </div>
+
+  <!-- Version tags -->
+  <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap">
+    <svg lucideTag [size]="14" style="opacity: 0.5" />
+    <span style="font-size: 0.875rem; opacity: 0.7">Release tags:</span>
+    <mlv-badge tone="primary" muted>v3.0.0</mlv-badge>
+    <mlv-badge tone="accent" muted>v2.9.1</mlv-badge>
+    <mlv-badge tone="default" muted>v2.8.0 (LTS)</mlv-badge>
+  </div>
+
+  <!-- Notification count -->
+  <div style="display: flex; align-items: center; gap: 0.625rem">
+    <svg lucideBell [size]="18" />
+    <span style="font-size: 0.875rem">Notifications</span>
+    <mlv-badge tone="danger">12</mlv-badge>
+  </div>
+</div>

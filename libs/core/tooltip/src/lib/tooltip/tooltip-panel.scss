@@ -1,0 +1,163 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use 'sass:map';
+
+@layer mlv.components {
+$block: mlv-tooltip;
+
+$arrow-size: 0.375rem;
+
+$tone-variants: (
+  'neutral': (
+    'bg': var(--mlv-palette-neutral-900),
+    // This surface stays neutral-900 in every theme, so use a foreground
+    // that stays light in every theme as well.
+    'color': var(--mlv-text-primary-on-accent-1),
+  ),
+  'surface': (
+    'bg': var(--mlv-background-base),
+    'color': var(--mlv-text-primary),
+  ),
+  'primary': (
+    'bg': var(--mlv-background-accent-1),
+    'color': var(--mlv-text-primary-on-accent-1),
+  ),
+  'success': (
+    'bg': var(--mlv-background-success-1),
+    'color': var(--mlv-text-on-success),
+  ),
+  'warning': (
+    'bg': var(--mlv-background-warning-1),
+    'color': var(--mlv-text-on-warning),
+  ),
+  'danger': (
+    'bg': var(--mlv-background-danger-1),
+    'color': var(--mlv-text-on-danger),
+  ),
+  'info': (
+    'bg': var(--mlv-background-info-1),
+    'color': var(--mlv-text-on-info),
+  ),
+);
+
+@keyframes mlv-tooltip-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@include mixins.reduced-motion($block);
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-s),
+    0,
+    0
+  );
+
+  --mlv-tt-bg: var(--mlv-palette-neutral-900);
+  --mlv-tt-color: var(--mlv-text-primary-on-accent-1);
+  --mlv-tt-arrow-size: #{$arrow-size};
+
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 15rem;
+  padding: var(--mlv-padding-xs);
+  background-color: var(--mlv-tt-bg);
+  color: var(--mlv-tt-color);
+  border-radius: var(--mlv-radius-tooltip, var(--mlv-radius-m));
+  font-weight: var(--mlv-font-weight-normal);
+  line-height: var(--mlv-line-height-tight);
+  word-break: break-word;
+  z-index: var(--mlv-z-tooltip);
+  box-shadow: var(--mlv-shadow-floating);
+  transform-origin: var(--mlv-tooltip-transform-origin, center);
+  animation: mlv-tooltip-enter var(--mlv-duration-fast)
+    var(--mlv-ease-out-strong) both;
+
+  &--placement-top {
+    --mlv-tooltip-transform-origin: center bottom;
+  }
+  &--placement-bottom {
+    --mlv-tooltip-transform-origin: center top;
+  }
+  &--placement-left {
+    --mlv-tooltip-transform-origin: right center;
+  }
+  &--placement-right {
+    --mlv-tooltip-transform-origin: left center;
+  }
+
+  &__content {
+    color: inherit;
+    text-align: center;
+  }
+
+  // ── Arrow ──────────────────────────────────────────────────────────────────
+  &__arrow {
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+
+  // Arrow on TOP edge: tooltip is below the trigger
+  &--placement-bottom &__arrow {
+    top: calc(var(--mlv-tt-arrow-size) * -1);
+    left: 50%;
+    transform: translateX(-50%);
+    border-inline-start: var(--mlv-tt-arrow-size) solid transparent;
+    border-inline-end: var(--mlv-tt-arrow-size) solid transparent;
+    border-bottom: var(--mlv-tt-arrow-size) solid var(--mlv-tt-bg);
+  }
+
+  // Arrow on BOTTOM edge: tooltip is above the trigger
+  &--placement-top &__arrow {
+    bottom: calc(var(--mlv-tt-arrow-size) * -1);
+    left: 50%;
+    transform: translateX(-50%);
+    border-inline-start: var(--mlv-tt-arrow-size) solid transparent;
+    border-inline-end: var(--mlv-tt-arrow-size) solid transparent;
+    border-top: var(--mlv-tt-arrow-size) solid var(--mlv-tt-bg);
+  }
+
+  // Arrow on RIGHT edge: tooltip is to the left of the trigger
+  &--placement-left &__arrow {
+    right: calc(var(--mlv-tt-arrow-size) * -1);
+    top: 50%;
+    transform: translateY(-50%);
+    border-top: var(--mlv-tt-arrow-size) solid transparent;
+    border-bottom: var(--mlv-tt-arrow-size) solid transparent;
+    border-inline-start: var(--mlv-tt-arrow-size) solid var(--mlv-tt-bg);
+  }
+
+  // Arrow on LEFT edge: tooltip is to the right of the trigger
+  &--placement-right &__arrow {
+    left: calc(var(--mlv-tt-arrow-size) * -1);
+    top: 50%;
+    transform: translateY(-50%);
+    border-top: var(--mlv-tt-arrow-size) solid transparent;
+    border-bottom: var(--mlv-tt-arrow-size) solid transparent;
+    border-inline-end: var(--mlv-tt-arrow-size) solid var(--mlv-tt-bg);
+  }
+
+  // ── No arrow modifier ─────────────────────────────────────────────────────
+  &--no-arrow &__arrow {
+    display: none;
+  }
+
+  // ── Tone variants ────────────────────────────────────────────────────────
+  @each $name, $props in $tone-variants {
+    &--tone-#{$name} {
+      --mlv-tt-bg: #{map.get($props, 'bg')};
+      --mlv-tt-color: #{map.get($props, 'color')};
+    }
+  }
+}
+}

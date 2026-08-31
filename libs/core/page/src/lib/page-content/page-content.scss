@@ -1,0 +1,87 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-page-content;
+
+.#{$block} {
+  @include mixins.base();
+
+  display: grid;
+  // One track by default. The complementary track is reserved only while an
+  // `[mlvPageAside]` template is actually projected (`--has-aside`), so a
+  // consumer without an aside keeps the whole inline size for its main column
+  // instead of silently losing `asideWidth` to an empty track.
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'main';
+  align-items: start;
+  min-width: 0;
+  padding-top: var(--mlv-spacing-2);
+
+  &--gap-s {
+    gap: var(--mlv-spacing-2);
+  }
+
+  &--gap-m {
+    gap: var(--mlv-spacing-4);
+  }
+
+  &--gap-l {
+    gap: var(--mlv-spacing-6);
+  }
+
+  // Inline (side-by-side) geometry. Scoped away from the stacked modifier so
+  // the compound `--has-aside--aside-start` selector cannot out-specify the
+  // stacked single-column rules below.
+  &--has-aside:not(.#{$block}--stacked) {
+    grid-template-columns: minmax(0, 1fr) minmax(
+        0,
+        var(--mlv-page-aside-width, 20rem)
+      );
+    grid-template-areas: 'main aside';
+
+    &.#{$block}--aside-start {
+      grid-template-columns:
+        minmax(0, var(--mlv-page-aside-width, 20rem))
+        minmax(0, 1fr);
+      grid-template-areas: 'aside main';
+    }
+  }
+
+  &__main {
+    grid-area: main;
+    min-width: 0;
+  }
+
+  &__aside {
+    grid-area: aside;
+    min-width: 0;
+  }
+
+  &--aside-sticky &__aside {
+    position: sticky;
+    // `top` takes one length; `--mlv-padding-*` tokens are `block inline` pairs.
+    top: var(--mlv-page-aside-offset, var(--mlv-spacing-4));
+  }
+
+  &--stacked {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'main';
+
+    &.#{$block}--has-aside {
+      grid-template-areas:
+        'main'
+        'aside';
+
+      &.#{$block}--aside-start {
+        grid-template-areas:
+          'aside'
+          'main';
+      }
+    }
+
+    .#{$block}__aside {
+      position: static;
+    }
+  }
+}
+}

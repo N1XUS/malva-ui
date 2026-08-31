@@ -1,0 +1,286 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-page-header;
+
+.#{$block} {
+  @include mixins.base();
+
+  // Clamped page snap progress: 0 fully expanded .. 1 fully snapped.
+  --mlv-page-header-snap: clamp(0, var(--mlv-page-snap, 0), 1);
+
+  // Same glass chrome recipe as mlv-action-bar: translucent elevation surface
+  // with a heavy backdrop blur doing the separation work.
+  --mlv-page-chrome-bg: color-mix(
+    in srgb,
+    var(--mlv-elevation-bg-3),
+    transparent 50%
+  );
+  --mlv-page-chrome-border: var(--mlv-border-subtle);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-2);
+  min-width: 0;
+  background-color: var(--mlv-page-chrome-bg);
+  border-bottom: 0.0625rem solid var(--mlv-page-chrome-border);
+  border-radius: var(--mlv-radius-l) var(--mlv-radius-l) 0 0;
+  backdrop-filter: blur(1.25rem);
+  -webkit-backdrop-filter: blur(1.25rem);
+  // Inside main[mlvPage] the inline padding matches the page inset so
+  // full-bleed header content still aligns with the page edge padding.
+  padding: var(--mlv-spacing-2)
+    max(var(--mlv-page-inset, 0rem), var(--mlv-spacing-3));
+  // The chrome always carries its border and a soft shadow; snapping deepens
+  // the shadow (see --scrolled).
+  box-shadow: var(--mlv-shadow-raised);
+  transition: box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
+
+  &--sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  // Sticky snap affordance: once the owning page scrolls, the floating chrome
+  // detaches with a deeper shadow.
+  &--scrolled {
+    box-shadow: var(--mlv-shadow-floating);
+  }
+
+  &__breadcrumb,
+  &__description,
+  &__meta,
+  &__tabs,
+  &__title {
+    min-width: 0;
+  }
+
+  &__back {
+    align-self: flex-start;
+  }
+
+  &__title-row,
+  &__tabs-row {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-3);
+    min-width: 0;
+  }
+
+  &__title-row {
+    min-height: var(--mlv-height-l);
+  }
+
+  &__icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    color: var(--mlv-text-secondary);
+  }
+
+  // The title scrubs down one type scale as the chrome snaps.
+  &__title h1 {
+    margin: 0;
+    font-size: calc(
+      var(--mlv-typography-heading-h2-size) +
+        (
+          var(--mlv-typography-heading-h4-size) - var(
+              --mlv-typography-heading-h2-size
+            )
+        ) *
+        var(--mlv-page-header-snap)
+    );
+    line-height: calc(
+      var(--mlv-typography-heading-h2-line-height) +
+        (
+          var(--mlv-typography-heading-h4-line-height) - var(
+              --mlv-typography-heading-h2-line-height
+            )
+        ) *
+        var(--mlv-page-header-snap)
+    );
+    letter-spacing: var(--mlv-typography-heading-h2-letter-spacing);
+  }
+
+  &__spacer {
+    flex: 1 1 auto;
+  }
+
+  &__actions,
+  &__tabs-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+
+    // Action rows must never wrap button labels onto the icon.
+    button,
+    a {
+      white-space: nowrap;
+    }
+  }
+
+  &__description {
+    max-width: 48rem;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-m-size);
+    line-height: var(--mlv-typography-body-m-line-height);
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  &__tabs-row {
+    margin-bottom: calc(0rem - var(--mlv-spacing-2));
+  }
+
+  &__tabs {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  &__tabs > .mlv-tab-group {
+    width: 100%;
+  }
+
+  &__status {
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+  }
+
+  // Floating chevron/pin controls straddling the header's bottom edge — with
+  // a projected summary strip that edge is the bottom of the whole chrome.
+  // The sticky header keeps them visible at any scroll position.
+  &__snap-controls {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    z-index: 1;
+    display: flex;
+    gap: var(--mlv-spacing-1);
+    transform: translate(-50%, 50%);
+  }
+
+  // Small, solid controls: they float over arbitrary content, so they need
+  // their own filled surface.
+  &__snap-toggle,
+  &__snap-pin {
+    background: var(--mlv-background-raised);
+    box-shadow: var(--mlv-shadow-raised);
+  }
+
+  // The chevron rotates with the scrubbed progress: up when expanded,
+  // down once snapped.
+  &__snap-toggle svg {
+    rotate: calc(180deg * var(--mlv-page-header-snap));
+  }
+
+  &__snap-pin--active {
+    color: var(--mlv-text-action);
+    border-color: var(--mlv-border-focus);
+  }
+
+  &--tabs-center &__tabs-row {
+    justify-content: center;
+  }
+
+  // The row spacer must not consume the free space justify-content centers
+  // within.
+  &--tabs-center &__tabs-row &__spacer {
+    flex: 0 0 0;
+  }
+
+  &--tabs-center &__tabs {
+    flex: 0 1 auto;
+  }
+
+  &--tabs-center &__tabs > .mlv-tab-group {
+    width: auto;
+  }
+
+  // Compact record-editor header: single tight row, smaller title scale.
+  &--size-s {
+    gap: var(--mlv-spacing-1);
+  }
+
+  &--size-s &__title-row {
+    min-height: var(--mlv-height-m);
+  }
+
+  &--size-s &__title h1 {
+    font-size: calc(
+      var(--mlv-typography-heading-h4-size) +
+        (
+          var(--mlv-typography-heading-h6-size) - var(
+              --mlv-typography-heading-h4-size
+            )
+        ) *
+        var(--mlv-page-header-snap)
+    );
+    line-height: calc(
+      var(--mlv-typography-heading-h4-line-height) +
+        (
+          var(--mlv-typography-heading-h6-line-height) - var(
+              --mlv-typography-heading-h4-line-height
+            )
+        ) *
+        var(--mlv-page-header-snap)
+    );
+    letter-spacing: var(--mlv-letter-spacing-normal);
+  }
+
+  &--size-s &__description {
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  // A projected summary strip is an inner row of this header's single glass
+  // surface: no chrome of its own, full-bleed against the header padding.
+  > .mlv-page-summary {
+    position: static;
+    z-index: auto;
+    margin-inline: calc(
+      -1 * max(var(--mlv-page-inset, 0rem), var(--mlv-spacing-3))
+    );
+    background: transparent;
+    border-bottom: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+// Narrow canvas (container query against the page inner): the title row
+// wraps and the actions drop onto their own full-width line instead of
+// squeezing the title into a vertical sliver.
+@container (max-width: 40rem) {
+  .mlv-page-header__title-row {
+    flex-wrap: wrap;
+    row-gap: var(--mlv-spacing-1);
+  }
+
+  .mlv-page-header__title-row .mlv-page-header__spacer {
+    display: none;
+  }
+
+  .mlv-page-header__actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+@include mixins.reduced-motion('mlv-page-header');
+}

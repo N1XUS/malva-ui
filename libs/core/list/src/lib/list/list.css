@@ -1,0 +1,117 @@
+@layer mlv.components {
+  /* ===========================================================================
+     mlv-list — container
+     =========================================================================== */
+
+  .mlv-list {
+    --mlv-list-padding-block: var(--mlv-spacing-1);
+    --mlv-list-padding-inline: 0;
+    /* The gap moves inside the row — see list-item.scss's
+       --mlv-list-item-padding-block ramp (worklist 1.21). */
+    --mlv-list-gap: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-list-gap);
+    padding: var(--mlv-list-padding-block) var(--mlv-list-padding-inline);
+    margin: 0;
+    outline: none;
+  }
+
+  /* SL-R5 item 3 — one hairline between consecutive rows, drawn by the
+     container, never by the row. `:not(.mlv-list--inset)` is required: `--inset`
+     already draws its own inset divider via `::after` below, so without it
+     every inset row would get two hairlines. `:not(.mlv-list--appearance-menu)`
+     keeps the hairline out of overlay panels (select/combobox/menu dropdowns) —
+     the pre-harmonization dropdown rhythm had no row separators. */
+  .mlv-list:not(.mlv-list--inset):not(.mlv-list--appearance-menu)
+    > .mlv-list-item
+    + .mlv-list-item {
+    border-top: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+
+  /* appearance="menu" row rhythm (padding/radius) is declared in
+     list-item.scss, next to the density ladder it overrides — see
+     MlvListAppearance. This file only owns the hairline suppression above. */
+
+  /* ---------------------------------------------------------------------------
+     variant="inset" — iOS-style grouped list.
+
+     - outer container sits on a sunken background
+     - rows live on a raised surface wrapped in a rounded card
+     - consecutive rows are joined by inset dividers aligned under the media
+     - group headers become uppercase section labels, sticky to the scroll
+       container so they hover above their rows on long screens
+     --------------------------------------------------------------------------- */
+
+  .mlv-list--inset {
+    --mlv-list-padding-block: var(--mlv-spacing-2);
+    --mlv-list-padding-inline: var(--mlv-spacing-3);
+    --mlv-list-gap: var(--mlv-spacing-5);
+
+    background-color: var(--mlv-background-sunken);
+    border-radius: var(--mlv-radius-xl);
+  }
+
+  /* Row radius is 0 by the global default now (SL-R5 / worklist 1.22); the
+     card caps come from the first-child/last-child rules below.
+
+     KNOWN GAP (SL-6 / EX-C.1, accepted debt as of the 2026-08 harmonization).
+     These rules were written for loose items sharing ONE rounded card, but
+     `--mlv-list-gap: var(--mlv-spacing-5)` above applies to loose items as
+     well as to groups, so a loose inset list actually renders as N separate
+     gapped cards on the tray — with the first/last caps and the ::after
+     dividers below both landing on per-card edges rather than on one card.
+     The fix is to zero the gap for loose items and move the group separation
+     onto `.mlv-list-item-group + .mlv-list-item-group`; it is a visible
+     change to every inset list (incl. the docs "Inbox" example), so it needs
+     an owner look rather than a drive-by edit. Do not read the caps/divider
+     rules as evidence that the shared card already works. */
+  .mlv-list--inset > .mlv-list-item {
+    background-color: var(--mlv-background-raised);
+    padding-inline: var(--mlv-spacing-3);
+  }
+
+  .mlv-list--inset > .mlv-list-item:first-child {
+    border-top-left-radius: var(--mlv-radius-l);
+    border-top-right-radius: var(--mlv-radius-l);
+  }
+
+  .mlv-list--inset > .mlv-list-item:last-child {
+    border-bottom-left-radius: var(--mlv-radius-l);
+    border-bottom-right-radius: var(--mlv-radius-l);
+  }
+
+  /* Inset dividers between consecutive rows. The divider sits behind the
+     media column (indented 3.25rem) on rich rows and flush-left on plain
+     rows. Using border-top keeps it sharp at all zoom levels. */
+  .mlv-list--inset > .mlv-list-item + .mlv-list-item,
+  .mlv-list--inset .mlv-list-item-group__content .mlv-list-item + .mlv-list-item {
+    position: relative;
+  }
+
+  .mlv-list--inset > .mlv-list-item + .mlv-list-item::after,
+  .mlv-list--inset .mlv-list-item-group__content .mlv-list-item + .mlv-list-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    inset-inline-start: var(--mlv-list-item-divider-inset, 0);
+    inset-inline-end: 0;
+    border-top: 0.0625rem solid var(--mlv-border-subtle);
+    pointer-events: none;
+  }
+
+  .mlv-list--inset > .mlv-list-item.mlv-list-item--rich + .mlv-list-item::after,
+  .mlv-list--inset .mlv-list-item-group__content .mlv-list-item.mlv-list-item--rich + .mlv-list-item::after {
+    --mlv-list-item-divider-inset: 3.25rem;
+  }
+
+  /* A divider should never appear above the selected/active row — it
+     interrupts the accent background. */
+  .mlv-list--inset > .mlv-list-item--active + .mlv-list-item::after,
+  .mlv-list--inset > .mlv-list-item[aria-selected='true'] + .mlv-list-item::after,
+  .mlv-list--inset .mlv-list-item--active + .mlv-list-item::after,
+  .mlv-list--inset .mlv-list-item[aria-selected='true'] + .mlv-list-item::after {
+    border-top-color: transparent;
+  }
+}

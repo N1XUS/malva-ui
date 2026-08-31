@@ -1,0 +1,37 @@
+<div class="dropdown-popup">
+  <p class="dropdown-popup__hint">
+    No backdrop: the text around the trigger stays selectable and clickable
+    while the panel is open.
+  </p>
+
+  <button
+    #sortTrigger
+    mlvButton
+    variant="outlined"
+    [mlvPopupTrigger]="sortPopup"
+    [ariaHasPopup]="'listbox'"
+  >
+    Sort: {{ selectedLabel() }}
+    <ng-template mlvButtonAfter
+      ><svg lucideChevronDown [size]="16"
+    /></ng-template>
+  </button>
+
+  <mlv-popup
+    #sortPopup
+    position="bottom-start"
+    width="15rem"
+    [hasBackdrop]="false"
+    (afterOpened)="onOpened()"
+    (afterClosed)="onClosed()"
+  >
+    <ng-template mlvPopupContent>
+      <mlv-dropdown-panel
+        scrollMode="parent"
+        [options]="sortOptions"
+        [selectedValues]="selected()"
+        (valueChange)="onValueChange($event, sortPopup)"
+      />
+    </ng-template>
+  </mlv-popup>
+</div>

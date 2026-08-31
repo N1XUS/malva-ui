@@ -1,0 +1,18 @@
+<mlv-tiles class="tile-drag-list" [(tree)]="list">
+  @for (item of list().children; track item.id) {
+  <mlv-tile
+    [tile]="item"
+    [tone]="item.props.tone"
+    [dragDisabled]="item.props.disabled"
+  >
+    <ng-template mlvTileHeader>
+      <strong>{{ item.props.title }}</strong>
+    </ng-template>
+    <span class="tile-metadata">
+      @if (item.props.showsTimeIcon) {
+      <svg lucideClock [size]="14" aria-hidden="true" />
+      } {{ item.props.body }}
+    </span>
+  </mlv-tile>
+  }
+</mlv-tiles>

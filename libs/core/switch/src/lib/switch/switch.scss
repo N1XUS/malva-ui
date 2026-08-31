@@ -1,0 +1,209 @@
+@use '../../../../../styles/src/lib/density' as density;
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-switch;
+
+.#{$block} {
+  @include mixins.base();
+
+  // ── Density geometry ──────────────────────────────────────────────────────
+  // `comfortable` is the baseline and reproduces the pre-density rendering
+  // (40×24 track, 20px thumb, 16px travel, 0.5rem gap) exactly.
+  //
+  // Two invariants hold at every step so the thumb never clips the track:
+  //   thumb  = track-height - 2 * thumb-inset
+  //   travel = track-width  - thumb - 2 * thumb-inset
+  --mlv-switch-track-width: 2.5rem;
+  --mlv-switch-track-height: 1.5rem;
+  --mlv-switch-thumb-size: 1.25rem;
+  --mlv-switch-thumb-inset: 0.125rem;
+  --mlv-switch-thumb-travel: 1rem;
+  --mlv-switch-gap: var(--mlv-spacing-2);
+  --mlv-switch-font-size: var(--mlv-typography-body-m-size);
+  --mlv-switch-line-height: var(--mlv-line-height-normal);
+
+  --mlv-switch-track-bg: var(--mlv-background-neutral-1);
+
+  color: var(--mlv-text-primary);
+  display: inline-block;
+
+  @include density.density-tight {
+    --mlv-switch-track-width: 2rem;
+    --mlv-switch-track-height: 1.125rem;
+    --mlv-switch-thumb-size: 0.875rem;
+    --mlv-switch-thumb-travel: 0.875rem;
+    --mlv-switch-gap: var(--mlv-spacing-1);
+    --mlv-switch-font-size: var(--mlv-typography-body-s-size);
+    --mlv-switch-line-height: var(--mlv-line-height-tight);
+  }
+
+  @include density.density-compact {
+    --mlv-switch-track-width: 2.25rem;
+    --mlv-switch-track-height: 1.25rem;
+    --mlv-switch-thumb-size: 1rem;
+    --mlv-switch-thumb-travel: 1rem;
+    --mlv-switch-gap: var(--mlv-spacing-1-5);
+    // CH-R3: compact = --mlv-font-size-m (was body-s, one step below the
+    // shared ramp — the switch label read smaller than every other
+    // control's text at compact density).
+    --mlv-switch-font-size: var(--mlv-typography-body-m-size);
+    --mlv-switch-line-height: var(--mlv-line-height-normal);
+  }
+
+  @include density.density-comfortable {
+    --mlv-switch-track-width: 2.5rem;
+    --mlv-switch-track-height: 1.5rem;
+    --mlv-switch-thumb-size: 1.25rem;
+    --mlv-switch-thumb-travel: 1rem;
+    --mlv-switch-gap: var(--mlv-spacing-2);
+    --mlv-switch-font-size: var(--mlv-typography-body-m-size);
+    --mlv-switch-line-height: var(--mlv-line-height-normal);
+  }
+
+  @include density.density-spacious {
+    --mlv-switch-track-width: 3rem;
+    --mlv-switch-track-height: 1.75rem;
+    --mlv-switch-thumb-size: 1.5rem;
+    --mlv-switch-thumb-travel: 1.25rem;
+    --mlv-switch-gap: var(--mlv-spacing-2-5);
+    --mlv-switch-font-size: var(--mlv-typography-body-l-size);
+    --mlv-switch-line-height: var(--mlv-line-height-normal);
+  }
+
+  @include density.density-airy {
+    --mlv-switch-track-width: 3.5rem;
+    --mlv-switch-track-height: 2rem;
+    --mlv-switch-thumb-size: 1.75rem;
+    --mlv-switch-thumb-travel: 1.5rem;
+    --mlv-switch-gap: var(--mlv-spacing-3);
+    // CH-R3: airy = --mlv-font-size-xl (was body-l, one step below the
+    // shared ramp). No `--mlv-typography-body-xl-size` alias exists, so this
+    // reads the primitive token directly — matching --form-ctrl-font-size's
+    // own airy step in form-control-wrapper.scss.
+    --mlv-switch-font-size: var(--mlv-font-size-xl);
+    --mlv-switch-line-height: var(--mlv-line-height-relaxed);
+  }
+
+  // Visually-hidden pattern: keep the native `role="switch"` input in the a11y
+  // tree (it is the single focus target and drives Space/Enter toggling) but
+  // render it off-screen via clip-path. Replaces the previous `display: none`,
+  // which removed the input from the a11y tree entirely.
+  &__native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  // Native :focus-visible on the hidden input promotes a focus ring onto the
+  // visible track so keyboard users can see the focus target.
+  &__native:focus-visible + &__track {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-switch-gap);
+    cursor: pointer;
+
+    // Accessibility floor. The <label> — not the track — is the pointer
+    // target, so it is held at 24×24 CSS px (WCAG 2.2 SC 2.5.8, level AA) at
+    // *every* density. It only bites at `tight` and `compact`, whose tracks
+    // are 18px / 20px tall: the visible track shrinks but the hit area does
+    // not. The minimum inline size covers an icon-only switch whose entire
+    // width is the (always ≥ 2rem) track.
+    min-block-size: 1.5rem;
+    min-inline-size: 1.5rem;
+  }
+
+  &:not(&--checked) &__label:hover {
+    --mlv-switch-track-bg: var(--mlv-background-neutral-1-hover);
+  }
+
+  &--checked &__label:hover {
+    --mlv-switch-track-bg: var(--mlv-background-accent-1-hover);
+  }
+
+  &__track {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    width: var(--mlv-switch-track-width);
+    height: var(--mlv-switch-track-height);
+    // `full` rather than a fixed radius so the track stays a stadium at the
+    // taller `spacious` / `airy` steps.
+    border-radius: var(--mlv-radius-full);
+    background-color: var(--mlv-switch-track-bg);
+    transition: background-color var(--mlv-duration-fast)
+      var(--mlv-ease-default);
+  }
+
+  &__thumb {
+    position: absolute;
+    inset-inline-start: var(--mlv-switch-thumb-inset);
+    width: var(--mlv-switch-thumb-size);
+    height: var(--mlv-switch-thumb-size);
+    border-radius: var(--mlv-radius-full);
+    background-color: var(--mlv-elevation-bg-5);
+    box-shadow: var(--mlv-shadow-raised);
+    transition: transform var(--mlv-duration-normal) var(--mlv-ease-default);
+  }
+
+  &--checked {
+    --mlv-switch-track-bg: var(--mlv-background-accent-1);
+  }
+
+  &--checked &__thumb {
+    transform: translateX(
+      mixins.inline-distance(var(--mlv-switch-thumb-travel))
+    );
+  }
+
+  &--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  &--disabled &__label {
+    cursor: not-allowed;
+  }
+
+  &__text {
+    user-select: none;
+    font-size: var(--mlv-switch-font-size);
+    line-height: var(--mlv-switch-line-height);
+  }
+
+  // Projected content always wins over the `label` input fallback. `display:
+  // none` (rather than visibility/clip) also removes the duplicate from the
+  // accessible name computed from the wrapping <label>.
+  &__content:not(:empty) + &__label-text {
+    display: none;
+  }
+}
+
+// Dark theme: `--mlv-elevation-bg-5`'s general elevation ladder resolves to a
+// lightened grey (color-mix toward white off neutral-700, ≈#707070) — a
+// muddy blob against the dark off-track (≈#262626, 1.07:1 vs the accent-1
+// on-track) and low-contrast against it. theme.scss documents this token as
+// the switch thumb's *only* consumer, so shadowing it locally to a crisp
+// near-white knob (matching the light-mode #ffffff resolution's intent)
+// fixes readability here without touching the shared token or any other
+// consumer. Light is untouched — this selector only matches under
+// `[mlvTheme='dark']`.
+[mlvTheme='dark'] .#{$block} {
+  --mlv-elevation-bg-5: var(--mlv-palette-neutral-50);
+}
+
+@include mixins.reduced-motion($block);
+}

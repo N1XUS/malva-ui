@@ -1,0 +1,14 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-chat-date;
+
+.#{$block} {
+  @include mixins.base(var(--mlv-typography-family-text), var(--mlv-typography-body-s-size), 0, 0.125rem 0.625rem);
+
+  display: inline-block;
+  border-radius: var(--mlv-radius-full);
+  background-color: var(--mlv-background-neutral-1);
+  color: var(--mlv-text-secondary);
+}
+}

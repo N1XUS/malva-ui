@@ -1,0 +1,59 @@
+@use 'flag-icons/sass/flag-icons' with (
+  $flag-icons-included-countries: (
+    'gb',
+    'de',
+    'fr',
+    'it',
+    'es',
+    'pt',
+    'ua',
+    'ro',
+    'jp',
+    'nl',
+    'pl',
+    'tr',
+    'cn',
+    'id',
+  ),
+  $flag-icons-use-square: false
+);
+
+$block: docs-app-bar-preferences;
+
+.#{$block} {
+  &__preferences {
+    display: grid;
+    gap: var(--mlv-spacing-1-5);
+    width: 100%;
+    padding: var(--mlv-padding-s);
+  }
+
+  &__preference-field {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__preference-label {
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-typography-body-s-weight);
+  }
+
+  &__theme-option,
+  &__language-option {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__flag {
+    flex: 0 0 auto;
+    border-radius: var(--mlv-radius-xs);
+  }
+
+  &__locale-status {
+    margin: 0;
+    color: var(--mlv-text-negative);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+}

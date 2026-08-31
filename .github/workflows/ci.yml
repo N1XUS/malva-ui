@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      # The workspace declares "packageManager": "yarn@4.x". Corepack has to be
+      # enabled *before* setup-node, because setup-node's yarn cache probe shells
+      # out to `yarn --version` / `yarn cache dir` and the runner's global Yarn is 1.x.
+      - run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'yarn'
+
+      - run: yarn install --immutable
+      - run: npx playwright install --only-shell
+
+      # test-schematics is the `ng add` installer's Node-only harness — it has
+      # its own target because it must not run in the Angular test environment.
+      - run: npx nx run-many -t lint test test-schematics build typecheck e2e

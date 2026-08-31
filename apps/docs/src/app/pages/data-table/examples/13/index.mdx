@@ -1,0 +1,5 @@
+## Footer Summary Row
+
+Project a `<ng-template mlvDataTableFooter>` into the table to render a summary row inside a `<tfoot>` element. The template receives the current visible columns as its implicit context, so you can compute totals with signals and emit semantic `<th>`/`<td>` cells directly. The table automatically applies density, divider, sticky-surface, and bordered-cell styling; consumer classes only need to express content-specific alignment or emphasis.
+
+This example uses a row-scoped `<th>` spanning the descriptive columns plus `computed()` signals for the total quantity and order value.

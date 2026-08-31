@@ -1,0 +1,55 @@
+## AI assistant
+
+`MlvEditorAiMenu` from `@malva-ui/editor/ai` is an optional toolbar command
+group: project it with `mlvEditorToolbarStart` and it joins the toolbar's
+single roving tab stop. It renders only when a provider is resolvable — the
+`aiProvider` input here, or the `MLV_EDITOR_AI_PROVIDER` token; the input
+wins, mirroring the image-uploader precedence rule.
+
+The library performs no network requests. A host implements
+`MlvEditorAiProvider.stream(request)` and returns Markdown/text chunks; this
+page uses a canned mock so the demo needs no API key. The request carries the
+transform kind, the optional instruction, the selection and document as
+Markdown, and an `AbortSignal` — the provider owns prompting, models, and
+policy.
+
+Select some text and pick a transform. Chunks stream into the document with
+interim writes outside history, then the finished transform parses the
+accumulated Markdown and commits the structure as exactly one undo step.
+While streaming, the sparkles trigger becomes a stop button; stopping (or
+pressing Escape in the content region) aborts the request and restores the
+pre-request checkpoint, while editing the document mid-stream abandons the
+transform in place. Provider failures and unusable output surface as
+recoverable `ai-transport` / `ai-result` errors on `editorError`, also
+restoring the checkpoint — cancellation stays silent.
+
+The menu's list is only a default. `actions` replaces it literally — the same
+rule as `extensions` and the toolbar definitions, never a merge — so keeping
+the built-ins means spreading `mlvEditorAiDefaultActions(copy)` and appending,
+which is what this example does with its extra `Suggest a headline` entry. Each
+action carries a `kind`, an already-resolved `label`, and optionally a fixed
+`instruction` and an `output` mode. `showCustomPrompt="false"` drops the
+custom-prompt item and its popup entirely.
+
+`MlvEditorAiTransformKind` is an open string type, so an action may name a kind
+the library has never heard of — `docs-headline` here — and the provider
+answers it like any other. The corollary is on the provider: `request.kind` is
+not exhaustively checkable, so branch with a `default` that degrades
+gracefully, as the mock below does.
+
+An action can also carry `run: (context) => …`, which the menu calls
+**instead** of `runTransform` (its `kind`, `instruction`, and `output` are then
+the callback's business, not the menu's). It receives the live per-editor
+`MlvEditorAiContext`, so the entry can chain several transforms, read
+`status()` / the review surface, or do something the menu has no vocabulary
+for. It only fires while the item is enabled, so the readonly, disabled, and
+already-running guards still hold.
+
+The custom-prompt item opens a popup with an instruction field and an output
+mode. `replace-selection` and `insert-below` stream into the document, while
+`review` collects the whole result first and applies it as reviewable tracked
+suggestions: inserted text is highlighted, removed text stays visible as
+strikethrough, and the context's `acceptSuggestion`/`rejectSuggestion`/
+`acceptAll`/`rejectAll` surface resolves them — the review ends when the last
+suggestion does. The next example dedicates a full demo to review mode,
+including the `MlvEditorAiReviewBar` surface and save gating.

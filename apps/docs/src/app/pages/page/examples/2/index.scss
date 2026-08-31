@@ -1,0 +1,254 @@
+$block: app-shell-example;
+
+:host {
+  // The preview measures its own width to decide when the topbar search
+  // collapses. An inline host has no content box, so ResizeObserver would report
+  // a width of 0 and the field would never collapse.
+  display: block;
+}
+
+.#{$block} {
+  &__controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-block-end: var(--mlv-spacing-3);
+  }
+}
+
+.app-shell-preview {
+  height: 38rem;
+  border: 0.0625rem solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-l);
+
+  &__rail,
+  &__navigation,
+  &__inspector {
+    height: 100%;
+  }
+
+  // The compact rail and topbar controls remain in the tab order when either
+  // neighbouring panel gives its width back to the central page canvas.
+  &__navigation.mlv-sidebar--collapsed,
+  &__inspector.mlv-sidebar--collapsed {
+    border: 0;
+    padding: 0;
+  }
+
+  &__section-heading,
+  &__details dd {
+    display: flex;
+    align-items: center;
+  }
+
+  &__summary {
+    min-width: 0;
+  }
+
+  &__section-heading {
+    justify-content: space-between;
+    gap: var(--mlv-spacing-3);
+  }
+
+  &__section-heading h2 {
+    margin: 0;
+    font-size: var(--mlv-font-size-xl);
+  }
+
+  &__section-heading span,
+  &__details dt,
+  &__metric > span:first-child,
+  &__metrics small,
+  &__work-row small {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-font-size-s);
+  }
+
+  &__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--mlv-spacing-2);
+    margin-top: var(--mlv-spacing-4);
+
+    .mlv-card {
+      --mlv-card-padding: var(--mlv-spacing-3);
+      --mlv-card-radius: var(--mlv-radius-l);
+
+      min-width: 0;
+      min-height: 6.5rem;
+      box-shadow: none;
+    }
+
+    strong {
+      font-size: var(--mlv-font-size-xl);
+    }
+  }
+
+  &__metric {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-1);
+    height: 100%;
+  }
+
+  &__progress {
+    height: 0.25rem;
+    margin-top: auto;
+    overflow: hidden;
+    border-radius: var(--mlv-radius-full);
+    background: var(--mlv-background-neutral-2);
+
+    span {
+      display: block;
+      width: 68%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--mlv-border-focus);
+    }
+  }
+
+  &__work-list {
+    --mlv-card-padding: 0rem;
+    --mlv-card-radius: var(--mlv-radius-l);
+
+    margin-top: var(--mlv-spacing-4);
+    box-shadow: none;
+  }
+
+  &__work-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--mlv-spacing-3);
+    padding: var(--mlv-spacing-3);
+
+    + .app-shell-preview__work-row {
+      border-top: 0.0625rem solid var(--mlv-border-subtle);
+    }
+
+    > span:nth-child(2) {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+  }
+
+  &__mini-avatar {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    background: var(--mlv-background-neutral-2);
+    color: var(--mlv-text-primary);
+    border-radius: var(--mlv-radius-full);
+    font-size: var(--mlv-font-size-s);
+    font-weight: 600;
+  }
+
+  &__inspector {
+    --mlv-sidebar-gutter: var(--mlv-spacing-3);
+
+    .mlv-sidebar__content {
+      padding: var(--mlv-spacing-1);
+    }
+  }
+
+  &__inspector-label {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-font-size-s);
+  }
+
+  &__inspector-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 6.5rem;
+    margin-top: var(--mlv-spacing-4);
+    border-radius: var(--mlv-radius-l);
+    background: var(--mlv-background-neutral-1);
+    color: var(--mlv-text-secondary);
+  }
+
+  &__details {
+    display: grid;
+    gap: var(--mlv-spacing-3);
+    margin: var(--mlv-spacing-4) 0 0;
+
+    div {
+      display: grid;
+      gap: var(--mlv-spacing-1);
+    }
+
+    dd {
+      gap: var(--mlv-spacing-2);
+      margin: 0;
+      font-size: var(--mlv-font-size-m);
+    }
+  }
+
+  &__status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--mlv-radius-full);
+    background: var(--mlv-border-focus);
+  }
+}
+
+@media (max-width: 46rem) {
+  .app-shell-preview__metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Centred topbar search.
+//
+// `flex: 1 1 0` on both side groups gives them equal width, which is what puts the
+// field on the bar's true axis (measured 0px off) rather than merely midway between
+// the groups — two `mlv-spacer`s measured 47px off, and content-floored groups 61px
+// off, because the brand/nav side is wider than the action side.
+//
+// The sides grow into equal tracks, but `min-width: min-content` floors each at
+// its own content width. At this preview's ~780px bar the brand+nav side needs
+// ~290px, more than an equal track allows, and with `min-width: 0` plus
+// `white-space: nowrap` it silently overflowed its track and ran under the search
+// field. Flooring the tracks and letting the field shrink instead keeps the two
+// apart. Centring stays exact while both tracks clear their content; once the
+// field has to shrink past that point it drifts off-axis, which is one of the
+// reasons it collapses to an icon below 760px rather than shrinking forever.
+.app-shell-preview__bar-side {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--mlv-spacing-3);
+  min-width: min-content;
+  white-space: nowrap;
+
+  &--end {
+    justify-content: flex-end;
+  }
+}
+
+.app-shell-preview__search {
+  // The action bar's own gap is only 4px, which reads as touching against the
+  // nav; the margin is what actually separates the field from both sides.
+  //
+  // The basis is a percentage of the bar, not a fixed width, so the field grows
+  // with the shell instead of staying pinned at its narrowest usable size on a
+  // wide screen. 19% is the largest share that still leaves both side tracks
+  // clear of their content at this preview's narrowest field width, which is
+  // what keeps the field exactly on the bar's axis at every size rather than
+  // only on wide ones. It can still shrink below the basis.
+  flex: 0 1 clamp(8rem, 19%, 22rem);
+  margin-inline: var(--mlv-spacing-3);
+
+  // Collapsed to the icon trigger: the circular button sizes itself, and the two
+  // sides reclaim the width the field gave up. `width` has to be reset too —
+  // `mlv-search-field` is `width: 100%`, which a flex basis of `auto` resolves
+  // against, so the host would keep the field's full track and push the action
+  // group off the bar.
+  &--icon {
+    flex: 0 0 auto;
+    width: auto;
+  }
+}

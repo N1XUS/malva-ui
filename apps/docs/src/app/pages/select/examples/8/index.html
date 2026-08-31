@@ -1,0 +1,13 @@
+<div
+  class="demo-col"
+  style="gap: 0.75rem; align-items: stretch; max-width: 28rem"
+>
+  <mlv-select
+    label="Assignee"
+    searchable
+    [options]="users"
+    [toOption]="toOption"
+    [compareWith]="compareWith"
+    [(value)]="value"
+  />
+</div>

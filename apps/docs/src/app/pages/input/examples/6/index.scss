@@ -1,0 +1,36 @@
+$block: docs-password-strength;
+
+:host {
+  display: block;
+  max-width: 28rem;
+}
+
+.#{$block} {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--mlv-spacing-1);
+  width: 100%;
+
+  &__segment {
+    display: block;
+    height: 0.25rem;
+    border-radius: var(--mlv-radius-full);
+    background: var(--mlv-border-subtle);
+
+    &--level-1.#{$block}__segment--active {
+      background: var(--mlv-background-danger-1);
+    }
+
+    &--level-2.#{$block}__segment--active {
+      background: var(--mlv-background-warning-1);
+    }
+
+    &--level-3.#{$block}__segment--active {
+      background: var(--mlv-background-info-1);
+    }
+
+    &--level-4.#{$block}__segment--active {
+      background: var(--mlv-background-success-1);
+    }
+  }
+}

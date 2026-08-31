@@ -1,0 +1,24 @@
+.docs-orders-list {
+  width: min(34rem, 100%);
+}
+
+.docs-orders-list__trailing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.docs-orders-list__amount {
+  font-weight: var(--mlv-font-weight-medium);
+  color: var(--mlv-text-primary);
+}
+
+.docs-orders-list__status {
+  display: flex;
+  align-items: center;
+  gap: var(--mlv-spacing-1);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+  white-space: nowrap;
+}

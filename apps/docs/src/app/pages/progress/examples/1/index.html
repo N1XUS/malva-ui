@@ -1,0 +1,36 @@
+<div class="demo-col" style="gap: 1.5rem; width: 100%">
+  <div
+    style="
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.875rem;
+    "
+  >
+    <span>Upload progress</span>
+    <strong>{{ value() }}%</strong>
+  </div>
+
+  <mlv-progress [value]="value()" ariaLabel="Upload progress" />
+
+  <div class="demo-row">
+    <button
+      mlvButton
+      variant="secondary"
+      (click)="decrement()"
+      aria-label="Decrease by 10"
+    >
+      <ng-template mlvButtonBefore><svg lucideMinus [size]="14" /></ng-template>
+      −10
+    </button>
+    <button
+      mlvButton
+      variant="secondary"
+      (click)="increment()"
+      aria-label="Increase by 10"
+    >
+      <ng-template mlvButtonBefore><svg lucidePlus [size]="14" /></ng-template>
+      +10
+    </button>
+  </div>
+</div>

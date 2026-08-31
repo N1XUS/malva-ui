@@ -1,0 +1,12 @@
+## Markdown mode
+
+Set `format="markdown"` to parse and serialize a plain Markdown string. Malva
+uses Tiptap's official free **beta** Markdown extension; pin all Tiptap peers to
+the compatible version declared by Malva.
+
+Markdown cannot represent every ProseMirror feature. The default preset uses
+embedded HTML for supported rich marks and tables that Markdown would otherwise
+lose, but nested or arbitrary embedded HTML has beta parser limitations.
+Switching `format` preserves the live Tiptap document, selection, and history;
+the newly selected syntax is emitted from that document. Validate your own
+round trips before using Markdown as a lossless interchange format.

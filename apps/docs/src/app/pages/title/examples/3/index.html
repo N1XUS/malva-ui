@@ -1,0 +1,13 @@
+<div class="demo-col" style="max-width: 42rem">
+  <h2
+    mlvTitle
+    editable
+    placeholder="Add a headline"
+    [value]="headline()"
+    (valueChange)="headline.set($event)"
+  >
+    {{ headline() }}
+  </h2>
+
+  <pre>{{ { headline: headline() } | json }}</pre>
+</div>

@@ -1,0 +1,116 @@
+# Library: autocomplete
+
+> **Keep this file up to date.** Update whenever the `[mlvAutocomplete]` directive's API, behaviour, dependencies, or the shared matcher it consumes change.
+
+## Overview
+
+`@malva-ui/core/autocomplete` provides a single reusable attribute directive, **`[mlvAutocomplete]`**, that adds autocomplete / typeahead behaviour to **any** text input — a native `<input>` or a `<mlv-input>` — without turning the field into a form control. It reuses the same building blocks as `mlv-combobox`: the shared substring **matcher** (`filterOptions` / `defaultOptionMatcher` from `@malva-ui/core/dropdown`), the **`mlv-dropdown-panel`** suggestion list, and the shared **`MlvOptionsAdapter`** source engine.
+
+The directive is the new surface for arbitrary inputs; `mlv-combobox` remains the full `FormControlBase` combobox. Both now share one matching implementation.
+
+## Public API
+
+Exported from `libs/core/autocomplete/src/index.ts`:
+
+| Export                       | Kind      | Description                                                                                                     |
+| ---------------------------- | --------- | --------------------------------------------------------------------------------------------------------------- |
+| `MlvAutocomplete<T>`         | Directive | `[mlvAutocomplete]` / `[mlvAutocompleteSearch]` — the autocomplete behaviour                                    |
+| `MlvAutocompleteSearchFn<T>` | Type      | Alias of `MlvOptionsSearchFn<T>` (`@malva-ui/core/dropdown`), kept for backwards compatibility — same signature |
+
+## `MlvAutocomplete<T>`
+
+**File:** `libs/core/autocomplete/src/lib/autocomplete/autocomplete.ts`
+**Selector:** `[mlvAutocomplete], [mlvAutocompleteSearch]`
+**exportAs:** `mlvAutocomplete`
+
+Attribute directive — no template. It renders the suggestion popup via a CDK **overlay hosting a `mlv-dropdown-panel` component portal** (a headless attribute directive cannot host `mlv-popup`'s declarative `ng-template mlvPopupContent`; the overlay is the same CDK primitive `mlv-popup` itself wraps). The panel is reused unchanged for list rendering, option groups, aria listbox semantics, and the activedescendant highlight.
+
+### Inputs
+
+| Input (alias)                                                        | Type                                 | Default                  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------- | ------------------------------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `options` (`mlvAutocomplete`)                                        | `MlvOptionsInput<T>`                 | `[]`                     | Suggestion source: `readonly T[]` / `Observable<readonly T[]>` (**local** — filtered with `matcher`), or a `MlvDataSource<T>` (**remote** — it filters via `setSearch({ query, keys: [] })` and pages). Ignored when `search` is set.                                                                                                                                                                                                          |
+| `search` (`mlvAutocompleteSearch`)                                   | `MlvAutocompleteSearchFn<T> \| null` | `null`                   | Async source; supersedes `options`. Array / Promise / Observable. A newer query supersedes an in-flight one (its result is discarded) while the previous results stay visible.                                                                                                                                                                                                                                                                 |
+| `toOption` (`mlvAutocompleteToOption`)                               | `MlvSelectOptionTransform<T>`        | `defaultOptionTransform` | Maps a raw item to `{ label, value, group? }`.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `matcher` (`mlvAutocompleteMatcher`)                                 | `MlvOptionMatcher<T>`                | `defaultOptionMatcher`   | Predicate for local filtering (case- + diacritic-insensitive substring by default).                                                                                                                                                                                                                                                                                                                                                            |
+| `debounce` (`mlvAutocompleteDebounce`)                               | `number`                             | `200`                    | Debounce (ms) before filtering / searching.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `minLength` (`mlvAutocompleteMinLength`)                             | `number`                             | `0`                      | Min query length before opening. `0` opens on focus (cheap local); use `2+` for async.                                                                                                                                                                                                                                                                                                                                                         |
+| `highlight` (`mlvAutocompleteHighlight`)                             | `boolean`                            | `true`                   | Emphasise the matched substring in each suggestion.                                                                                                                                                                                                                                                                                                                                                                                            |
+| `inline` (`mlvAutocompleteInline`)                                   | `boolean`                            | `true`                   | Inline completion: append the top **prefix** match's remainder after the caret, left selected. `false` = list-only. Drives `aria-autocomplete` `both`/`list`.                                                                                                                                                                                                                                                                                  |
+| `openOnFocus` (`mlvAutocompleteOpenOnFocus`)                         | `boolean`                            | `true`                   | Open suggestions on focus (subject to `minLength`).                                                                                                                                                                                                                                                                                                                                                                                            |
+| `disabled` (`mlvAutocompleteDisabled`)                               | `boolean`                            | `false`                  | Disables the behaviour entirely.                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `loadingText` (`mlvAutocompleteLoadingText`)                         | `string`                             | `'Loading…'`             | Text in both panel loading affordances — the top row (remote search in flight) and the bottom next-page row (localise by binding).                                                                                                                                                                                                                                                                                                             |
+| `infiniteScrollThreshold` (`mlvAutocompleteInfiniteScrollThreshold`) | `number`                             | `150`                    | Distance (px) from the end of the suggestion list at which the next `MlvDataSource` page is requested. Forwarded to the panel's paging sentinel; only a data-source `options` pages.                                                                                                                                                                                                                                                           |
+| `density` (`mlvAutocompleteDensity`)                                 | `MlvDensity \| undefined`            | `undefined`              | Density for the suggestion rows. The panel lives in a bare CDK overlay outside the page's density cascade — the resolved density (input, else the nearest ancestor `MLV_DENSITY_CONTEXT`, else global `MlvDensityService`) is stamped as a `mlv--{density}` class on the panel host via a constructor `effect` (the applied-class memo resets each open, since the overlay is recreated). Rows respond via the `mlv-list-item` density ladder. |
+| `selectedValue` (`mlvAutocompleteValue`, two-way)                    | `T \| null`                          | `null`                   | The last selected value. `[(mlvAutocompleteValue)]`.                                                                                                                                                                                                                                                                                                                                                                                           |
+
+### Outputs
+
+| Output           | Type                         | Description                                             |
+| ---------------- | ---------------------------- | ------------------------------------------------------- |
+| `optionSelected` | `output<MlvSelectOption<T>>` | Emits the full option each time a suggestion is chosen. |
+| `openedChange`   | `output<boolean>`            | Emits `true`/`false` as the popup opens / closes.       |
+
+Plus the read-only `isOpen` signal.
+
+### Behaviour / accessibility
+
+- **Input resolution:** the directive resolves the real focusable `<input>` — the host itself when it is an `<input>`, otherwise the inner `<input>` of a projected `mlv-input` (`querySelector('input')`) — and wires ARIA + listeners onto it via `Renderer2`.
+- **WAI-ARIA combobox:** `role="combobox"`, `aria-expanded`, `aria-controls` (the panel's listbox id), `aria-activedescendant` (the active option id), and `aria-autocomplete` — `both` while inline completion is on (default), `list` when opted out (`[mlvAutocompleteInline]="false"`).
+- **Inline completion (`inline`, default on):** on each user **insertion** (input event where text grew — never Backspace/Delete/cut/paste-shrink), when the caret is a plain cursor at the end of the field and the **top visible result's label is a genuine case-insensitive prefix** of the typed text, the directive inserts that suggestion's remainder after the caret and leaves it **selected** (typed prefix keeps the user's casing; remainder uses the suggestion's). Continuing to type replaces the selection (browser default); `Enter`/click commits the full value (caret to end); `Escape` strips the completion back to the typed text (then the existing close-then-clear semantics). Backspace/Delete do not re-complete until the next insertion. Non-prefix (fuzzy/substring-only) top matches are skipped silently — list-only. The completed top item (index 0) becomes the activedescendant-active row. Insertion-vs-deletion is detected via `beforeinput` `inputType` when available, else a value-length comparison (jsdom/programmatic). Remote sources: the completion is **armed** for the query and applied by the adapter-mirroring effect once items arrive and the source is no longer loading, then disarmed — so it fires once, from the current query's results, never from a stale in-flight one. The completed value is propagated through the same synthetic-`input` dispatch a commit uses, so `mlv-input` / `ngModel` / a form control observe it (the directive suppresses re-filtering that one event).
+- **Activedescendant keyboard model:** DOM focus stays in the input. ArrowDown/ArrowUp open then move the highlighted option (wrap-around); Home/End jump to first/last; Enter selects the highlighted option; Escape closes, then (already closed) clears the input. The active-index state + wrap navigation is the shared `MlvActiveDescendant` class from `@malva-ui/core/dropdown` (`new MlvActiveDescendant(() => this._results().length)`) — the identical engine `mlv-combobox` uses (both previously carried a byte-identical private `_moveActive`). The `aria-activedescendant` id comes from the shared `optionId(this._listboxId, index)` helper, matching the id the panel stamps.
+- **Selection:** committing writes the option label into the input and dispatches a synthetic `input` event (so `mlv-input` / `ngModel` stay in sync — the directive suppresses re-filtering that one event), emits `optionSelected`, sets `selectedValue`, and closes. Pointer selection needs **no aria reconciliation guard** because the panel is never seeded with a committed selection (`selectedValues` is always `[]`), so any non-empty `valueChange` is a genuine pick.
+- **Source engine (`MlvOptionsAdapter`):** every `options` shape plus the `search` fn is normalised by the shared adapter from `@malva-ui/core/dropdown` (`new MlvOptionsAdapter({ source: this.options, searchFn: this.search, debounce: signal(0), eager: signal(false) })` — `debounce` is `0` because the directive already debounces keystrokes before `_runQuery`). Its `mode()` picks the query path:
+  - **local** (`T[]` / `Observable<T[]>`) — `_runQuery` resolves + filters `adapter.items()` synchronously with `matcher`, exactly as before, and opens the panel.
+  - **remote** (`MlvDataSource<T>` / `search` fn) — `_runQuery` first **seeds** the results from whatever `adapter.items()` already holds, opens the panel, then runs `adapter.search(query)`. A data source receives the query as `setSearch({ query, keys: [] })` (natural-field search — the directive knows option shapes, not column keys) and owns its own filtering; the directive never re-filters remote items with `matcher`.
+  - One constructor `effect` mirrors `adapter.items()` into the rendered results for **both** modes: remote items render as-is, local ones are re-filtered against the current query (with the activedescendant reset if the highlighted row no longer exists). The local arm is what repaints an already-open panel when an `Observable` source emits late — nothing else would, until the next keystroke — and it is skipped while the panel is closed, since `_runQuery` fills it on open. Because the effect only fires on an item-set **change**, it is also why the remote arm of `_runQuery` seeds: a `search` fn that memoises and returns the identical array for a repeated query would otherwise leave the panel empty after the `minLength` gate cleared the results. Binding a stable `search` function reference is still recommended (an inline arrow is a fresh reference on every change-detection run) — the adapter tolerates re-binding without cancelling an in-flight call, but a stable reference keeps the bookkeeping trivial.
+- **Debounce + stale results:** keystrokes are debounced (`debounce`); a remote source shows the panel's loading affordance (`--loading` recede + `role="status"` row) while the **previous results stay rendered and interactive** rather than blanking to an empty list, and the adapter's monotonic token discards a superseded in-flight result. Local sources never report loading.
+- **Lazy paging (data source only):** `hasMore`, `loadingMore` and `infiniteScrollThreshold` are pushed into the panel, whose scroll sentinel emits `loadMore`; the directive forwards that to `adapter.loadMore()`, which appends the next page slice (and is a no-op until the requested page has landed, so a repeatedly firing sentinel cannot skip a page).
+- **Result normalization:** array, Promise, and Observable search results are
+  normalized by the pure `toOptionsResult()` helper from
+  `@malva-ui/core/dropdown` (it started out directive-private and moved so every
+  option control shares one async boundary) — the adapter now owns that call, so
+  the directive no longer imports it and stays focused on interaction state.
+- **Dismissal:** backdrop-less overlay; a `mousedown` on the panel is `preventDefault`ed so option clicks don't blur the input, and `outsidePointerEvents` closes on genuine outside clicks (the host is treated as inside).
+
+### i18n
+
+The directive is intentionally **not** wired to `@malva-ui/i18n` — a headless behaviour applicable to arbitrary inputs should not force a component i18n token/provider. User-facing strings are plain inputs (`loadingText`; the no-results copy is projected by the consumer if desired). Localise by binding translated strings.
+
+## Usage
+
+```html
+<!-- Static options on a plain mlv-input -->
+<mlv-input label="Fruit" [mlvAutocomplete]="fruits" (optionSelected)="pick($event)" />
+
+<!-- Async search (min length 2) with loading + highlighting -->
+<mlv-input label="User" [mlvAutocompleteSearch]="searchUsers" [mlvAutocompleteMinLength]="2" [mlvAutocompleteToOption]="userToOption" />
+
+<!-- Data source: it filters (setSearch) and pages itself; the panel shows a
+     spinner over the previous results and appends the next page on scroll -->
+<mlv-input label="Assignee" [mlvAutocomplete]="usersDataSource" [mlvAutocompleteMinLength]="2" [mlvAutocompleteToOption]="userToOption" />
+
+<!-- Custom matcher (prefix match) -->
+<mlv-input [mlvAutocomplete]="cities" [mlvAutocompleteMatcher]="startsWith" />
+
+<!-- Opt out of inline completion (list-only, aria-autocomplete="list") -->
+<mlv-input [mlvAutocomplete]="fruits" [mlvAutocompleteInline]="false" />
+
+<!-- Native input also works -->
+<input mlvAutocomplete [mlvAutocomplete]="fruits" />
+```
+
+## Dependencies
+
+- `@angular/cdk/overlay`, `@angular/cdk/portal` — imperative suggestion overlay
+- `@angular/cdk/coercion` — `coerceBooleanProperty`
+- `@malva-ui/core/dropdown` — `MlvDropdownPanel`, `MlvOptionsAdapter`, `filterOptions`, `defaultOptionMatcher`, `defaultOptionTransform`, `resolveOptions`, `MlvActiveDescendant`, `optionId`, `MlvOptionsInput`, `MlvOptionsSearchFn`, `MlvSelectOption`, `MlvSelectOptionTransform`, `MlvOptionMatcher` (`toOptionsResult` is no longer imported here — the adapter owns it)
+- `@malva-ui/cdk/data-source` — indirect: `MlvDataSource<T>` is one arm of `MlvOptionsInput<T>`, connected and paged by the adapter
+- `@malva-ui/cdk/utils` — `mlvNextId` (stable listbox id)
+- `rxjs` — keystroke debounce (`Subject` + `debounce`/`timer`)
+
+## Testing
+
+- Nx project: **`core-autocomplete`** — `yarn nx test core-autocomplete` (Vitest).
+- The result-normalization helper is covered where it now lives: `options-result.spec.ts` in **`core-dropdown`** (`toOptionsResult`).
+- `autocomplete.spec.ts` (30 tests) covers: open on focus / type, local filtering, min-length gate, debounce (fake timers), activedescendant keyboard nav + wrap, Enter selection, Escape close-then-clear, pointer selection commit, async search loading + result render + stale-result cancellation, custom matcher, disabled gating, ARIA attribute wiring; plus **inline completion** — applied on insertion with the remainder selected (+ active top item), typed-vs-suggestion casing, no re-completion on deletion, skipped for a non-prefix top match, Escape reverts to the typed text, opted-out (`inline=false`) is list-only with `aria-autocomplete="list"`, and async completion applies only when the current-query results arrive; the **`--surface` modifier** present on the overlay panel element; **late source emissions** — a local `Observable` source that emits after the panel is already open repaints it without another keystroke (and a second emission replaces the list), and a memoising `search` fn returning the identical array reference re-renders after the `minLength` gate closed and the same query is typed again; and **data-source backed options** — a `MlvSelectDataSource` receives the query as `setSearch({ query, keys: [] })` and its items render, a newer `search` keeps the previous results rendered under the panel's `--loading` modifier until the new ones land, and a paged stub renders the sentinel, asserts the panel instance's forwarded `hasMore`/`loadingMore`/`infiniteScrollThreshold` inputs (read off `directive()['_panelRef']()?.instance`), then appends page 2 by emitting the panel's own `loadMore` output — the same path the sentinel uses — and flips `hasMore` back to `false`. The paging test stubs `scrollHeight`/`clientHeight` (jsdom has no layout, so the sentinel would measure a 0px distance to the end and auto-fill every page on the first render) — the same technique `core-dropdown`'s panel paging tests use.

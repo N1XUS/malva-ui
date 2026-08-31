@@ -1,0 +1,164 @@
+@mixin base(
+  $font-family: var(--mlv-typography-family-text),
+  $font-size: var(--mlv-font-size-m),
+  $margin: 0,
+  $padding: 0
+) {
+  box-sizing: border-box;
+  padding: $padding;
+  margin: $margin;
+  font-family: $font-family;
+  font-size: $font-size;
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+// ── Direction-aware spacing helpers ─────────────────────────────────────────
+
+/// Applies declarations only when the nearest direction context is RTL.
+///
+/// @example
+///   .mlv-example {
+///     @include rtl {
+///       transform: translateX(-1px);
+///     }
+///   }
+@mixin rtl {
+  [dir='rtl'] & {
+    @content;
+  }
+}
+
+/// Applies declarations only when the nearest direction context is LTR.
+@mixin ltr {
+  [dir='ltr'] & {
+    @content;
+  }
+}
+
+/// Emits logical inline margins. The first value is inline-start and the
+/// second value is inline-end; one value applies to both sides.
+@mixin margin-inline($start, $end: $start) {
+  margin-inline-start: $start;
+  margin-inline-end: $end;
+}
+
+/// Emits logical inline padding. The first value is inline-start and the
+/// second value is inline-end; one value applies to both sides.
+@mixin padding-inline($start, $end: $start) {
+  padding-inline-start: $start;
+  padding-inline-end: $end;
+}
+
+/// Returns an inline-axis distance: positive moves toward inline-end, and the
+/// sign flips automatically in RTL via `--mlv-inline-direction`.
+///
+/// `transform` has no logical form, so use this instead of a duplicated
+/// `[dir='rtl'] &` rule — it composes with the rest of the transform list and
+/// respects a `[dir]` scope at any depth.
+///
+/// @example
+///   .mlv-example {
+///     transform: translateX(inline-distance(-0.25rem)) scale(0.98);
+///   }
+@function inline-distance($distance) {
+  @return calc(#{$distance} * var(--mlv-inline-direction));
+}
+
+/// Emits a `transform` holding a single inline-axis translation that mirrors
+/// in RTL. Use `inline-distance()` directly when the transform list has more
+/// than one function.
+///
+/// @example
+///   .mlv-example {
+///     @include translate-inline(-100%);
+///   }
+@mixin translate-inline($distance) {
+  transform: translateX(inline-distance($distance));
+}
+
+// ── Motion helpers ────────────────────────────────────────────────────────────
+
+/// Wraps content in a `prefers-reduced-motion: no-preference` media query.
+/// Use this to apply animations and transitions that are safe to play for users
+/// who have not requested reduced motion.
+///
+/// @example
+///   .my-element {
+///     @include motion-safe {
+///       animation: slide-in var(--mlv-duration-normal) var(--mlv-ease-out) both;
+///     }
+///   }
+@mixin motion-safe {
+  @media (prefers-reduced-motion: no-preference) {
+    @content;
+  }
+}
+
+/// Wraps content in a `prefers-reduced-motion: reduce` media query.
+/// Use this to apply simplified / instantaneous fallback styles for users who
+/// prefer reduced motion (e.g. set `transition: none` or `animation: none`).
+///
+/// @example
+///   .my-element {
+///     transition: opacity var(--mlv-duration-normal) var(--mlv-ease-default);
+///
+///     @include motion-reduced {
+///       transition: none;
+///     }
+///   }
+@mixin motion-reduced {
+  @media (prefers-reduced-motion: reduce) {
+    @content;
+  }
+}
+
+/// Applies a staggered entrance animation to a list item.
+/// The consumer must also set `--mlv-stagger-index` on each item element.
+///
+/// @param {String} $keyframe  [mlv-stagger-enter] - Keyframe name to play
+/// @param {Duration} $duration [var(--mlv-duration-normal)] - Animation duration
+/// @param {Timing-function} $easing [var(--mlv-ease-out-strong)] - Easing curve
+/// @param {Duration} $delay [var(--mlv-stagger-delay)] - Per-item delay increment
+///
+/// @example In SCSS
+///   .list-item {
+///     @include stagger-enter;
+///   }
+///
+/// @example In template
+///   @for (item of items; track item; let i = $index) {
+///     <li class="list-item" [style.--mlv-stagger-index]="i">…</li>
+///   }
+@mixin stagger-enter(
+  $keyframe: mlv-stagger-enter,
+  $duration: var(--mlv-duration-normal),
+  $easing: var(--mlv-ease-out-strong),
+  $delay: var(--mlv-stagger-delay)
+) {
+  @include motion-safe {
+    animation: #{$keyframe} #{$duration} #{$easing}
+      calc(#{$delay} * var(--mlv-stagger-index, 0)) both;
+  }
+}
+/// Removes spatial and looping motion for one BEM block when the operating
+/// system requests reduced motion. State changes remain immediate and visible.
+@mixin reduced-motion($block) {
+  @media (prefers-reduced-motion: reduce) {
+    .#{$block},
+    .#{$block} *,
+    .#{$block}::before,
+    .#{$block}::after,
+    [class^='#{$block}__'],
+    [class*=' #{$block}__'],
+    [class^='#{$block}--'],
+    [class*=' #{$block}--'] {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: var(--mlv-duration-instant) !important;
+    }
+  }
+}

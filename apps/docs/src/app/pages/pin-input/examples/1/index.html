@@ -1,0 +1,15 @@
+<div class="demo-col" style="gap: 1rem">
+  <mlv-pin-input
+    label="One-time code"
+    hint="Sent to your email"
+    [(ngModel)]="otp"
+  />
+  <span
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+    "
+  >
+    Value: "{{ otp() }}"
+  </span>
+</div>

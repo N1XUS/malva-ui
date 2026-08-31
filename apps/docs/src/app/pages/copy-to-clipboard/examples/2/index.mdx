@@ -1,0 +1,13 @@
+## Override with `[value]`
+
+Set the `value` input to decouple what the user sees from what gets written to
+the clipboard. This is useful when the visible label is short (a display id, a
+truncated path, a pretty-printed number) but the actual payload needs to be the
+full string.
+
+```html
+<mlv-copy-to-clipboard [value]="'ORDER-0042-7F9X2'">0042</mlv-copy-to-clipboard>
+```
+
+When `value` is omitted, the component falls back to the trimmed
+`textContent` of the projected default slot.

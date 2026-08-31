@@ -1,0 +1,31 @@
+:host {
+  display: block;
+}
+
+.demo-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.demo-btn {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--mlv-border-normal);
+  border-radius: var(--mlv-radius-m);
+  background: var(--mlv-background-raised);
+  color: var(--mlv-text-primary);
+  font-size: var(--mlv-font-size-s);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mlv-background-subtle);
+  }
+}
+
+.demo-bottom-nav {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  right: auto;
+  width: 100%;
+}

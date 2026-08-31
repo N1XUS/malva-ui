@@ -1,0 +1,29 @@
+$block: showcase-loading;
+
+.#{$block} {
+  display: grid;
+  gap: var(--mlv-spacing-8);
+  margin: 0 auto;
+  max-width: 100rem;
+  padding: var(--mlv-padding-xl);
+
+  &__header {
+    display: grid;
+    gap: var(--mlv-spacing-3);
+    max-width: 48rem;
+  }
+
+  &__grid {
+    display: grid;
+    gap: var(--mlv-spacing-6);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 63.999rem) {
+  .#{$block} {
+    &__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}

@@ -1,0 +1,15 @@
+## Search, Sort, Columns, and host actions
+
+The Data Table owns one responsive toolbar for its built-in Search, opt-in Sort,
+and Columns controls. `showSortMenu` defaults to `false`; when enabled, Sort is
+shown only if at least one column is sortable. The trigger, menu, directions,
+and clear action use the active Malva locale.
+
+Project optional domain actions through `mlvDataTableToolbarActions`. They render
+after table-owned controls in the same toolbar, so an Export action composes with
+Search, Sort, and Columns without recreating table behavior in the host.
+
+Sort actions update the same controlled presentation state used by sortable
+headers, reset the current page to one, synchronize `aria-sort`, and emit exactly
+one `presentationStateChange` snapshot per user action. Applying a presentation
+snapshot programmatically remains silent.

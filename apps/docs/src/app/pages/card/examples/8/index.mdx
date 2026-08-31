@@ -1,0 +1,16 @@
+---
+title: Body layout
+---
+
+`bodyLayout` controls how `.mlv-card__body` lays out its projected children.
+
+- `'none'` (default) leaves the body a plain block — existing cards are unchanged.
+- `'stack'` makes the body a vertical flex stack separated by `--mlv-card-body-gap`, which
+  replaces the wrapper `<div>` with its own `gap` that multi-child cards used to hand-roll.
+
+The gap follows the size preset (`s` → `--mlv-spacing-2`, `m` → `--mlv-spacing-3`, `l` →
+`--mlv-spacing-4`) and can be overridden per card:
+
+```html
+<mlv-card bodyLayout="stack" style="--mlv-card-body-gap: 1.5rem">…</mlv-card>
+```

@@ -1,0 +1,63 @@
+<div class="demo-col" style="align-items: stretch; gap: 1.5rem">
+  <section>
+    <h3>Extend the default toolbar</h3>
+    <mlv-editor
+      #firstEditor
+      [extensions]="extensions"
+      label="Projected toolbar controls"
+      ariaLabel="Editor with projected toolbar controls"
+    >
+      <button
+        mlvButton
+        mlvEditorToolbarStart
+        mlvEditorToolbarWidget
+        type="button"
+        variant="transparent"
+        (click)="insertFromProjectedControl('Start ')"
+      >
+        Start control
+      </button>
+      <button
+        mlvButton
+        mlvEditorToolbarEnd
+        mlvEditorToolbarWidget
+        type="button"
+        variant="transparent"
+        (click)="insertFromProjectedControl(' End')"
+      >
+        End control
+      </button>
+    </mlv-editor>
+    <p>Third-party extension loaded: {{ customLoaded() }}</p>
+  </section>
+
+  <section>
+    <h3>Replace the complete toolbar</h3>
+    <mlv-editor
+      [extensions]="extensions"
+      label="Replacement toolbar"
+      ariaLabel="Editor with a replacement toolbar"
+    >
+      <ng-template mlvEditorToolbar let-context>
+        <button
+          mlvButton
+          mlvEditorToolbarWidget
+          type="button"
+          (click)="insertFromContext(context, 'Inserted from context ')"
+        >
+          Insert text
+        </button>
+        <button
+          mlvButton
+          mlvEditorToolbarWidget
+          type="button"
+          variant="outlined"
+          [disabled]="!context.editor()"
+          (click)="clearFromContext(context)"
+        >
+          Clear
+        </button>
+      </ng-template>
+    </mlv-editor>
+  </section>
+</div>

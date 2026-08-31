@@ -1,0 +1,30 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-page-summary-item;
+
+.#{$block} {
+  @include mixins.base();
+
+  display: flex;
+  flex: 1 1 10rem;
+  flex-direction: column;
+  gap: var(--mlv-spacing-0-5);
+  min-width: 0;
+
+  &__label {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  &__value {
+    overflow: hidden;
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-body-m-size);
+    line-height: var(--mlv-typography-body-m-line-height);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+}

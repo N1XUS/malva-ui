@@ -1,0 +1,117 @@
+<!-- The trigger is declared once and rendered by whichever branch applies:
+  `mlv-popup-container` requires a popup content child, so it cannot wrap the
+  trigger when the custom prompt is dropped. -->
+<ng-template #_trigger>
+  <button
+    #_triggerElement
+    mlvButton
+    mlvEditorToolbarWidget
+    type="button"
+    shape="square"
+    mlvDensity="tight"
+    variant="transparent"
+    [disabled]="_disabled()"
+    [mlvMenuTrigger]="_menu"
+    [menuTriggerDisabled]="_disabled() || _running()"
+    [attr.aria-label]="_running() ? _copy().aiCancel : _copy().aiMenu"
+    [mlvTooltip]="_running() ? _copy().aiCancel : _copy().aiMenu"
+    (click)="_onTriggerClick()"
+    (menuOpened)="_registerMenuOverlay()"
+    (menuClosed)="_unregisterMenuOverlay()"
+  >
+    @if (_running()) {
+    <svg mlvButtonIcon lucideCircleStop aria-hidden="true" />
+    } @else {
+    <svg mlvButtonIcon lucideSparkles aria-hidden="true" />
+    }
+  </button>
+</ng-template>
+
+@if (showCustomPrompt()) {
+<mlv-popup-container class="mlv-editor-ai-menu__anchor">
+  <ng-container [ngTemplateOutlet]="_trigger" />
+
+  <mlv-popup
+    #_popup
+    panelRole="dialog"
+    [modal]="true"
+    [position]="['bottom-start', 'top-start', 'bottom-end', 'top-end']"
+    [ariaLabel]="_copy().aiCustom"
+    (afterOpened)="_onPromptOpened()"
+    (afterClosed)="_onPromptClosed()"
+  >
+    <ng-template mlvPopupContent>
+      <div #_panel class="mlv-editor-ai-menu__panel">
+        <mlv-input
+          #_instructionInput
+          [label]="_copy().aiCustom"
+          [placeholder]="_copy().aiPromptPlaceholder"
+          [disabled]="_disabled()"
+          [value]="_instruction()"
+          (valueChange)="_instruction.set($event)"
+          (keydown.enter)="_apply()"
+        />
+        <mlv-radio-group
+          class="mlv-editor-ai-menu__output"
+          [label]="_copy().aiOutputMode"
+          [value]="_output()"
+          (valueChange)="_onOutputChange($event)"
+        >
+          <mlv-radio value="replace-selection" [disabled]="_disabled()">
+            {{ _copy().aiReplaceSelection }}
+          </mlv-radio>
+          <mlv-radio value="insert-below" [disabled]="_disabled()">
+            {{ _copy().aiInsertBelow }}
+          </mlv-radio>
+          <mlv-radio value="review" [disabled]="_disabled()">
+            {{ _copy().aiReviewChanges }}
+          </mlv-radio>
+        </mlv-radio-group>
+        <div class="mlv-editor-ai-menu__actions">
+          <button
+            mlvButton
+            type="button"
+            variant="primary"
+            [disabled]="_applyDisabled()"
+            (click)="_apply()"
+          >
+            {{ _copy().aiApply }}
+          </button>
+          <button
+            mlvButton
+            type="button"
+            variant="secondary"
+            (click)="_closePrompt()"
+          >
+            {{ _copy().aiCancel }}
+          </button>
+        </div>
+      </div>
+    </ng-template>
+  </mlv-popup>
+</mlv-popup-container>
+} @else {
+<ng-container [ngTemplateOutlet]="_trigger" />
+}
+
+<mlv-menu #_menu [label]="_copy().aiMenu">
+  <!-- Tracked by index: a host-authored list may repeat a kind, so the kind
+    is not an identity. -->
+  @for (action of _actions(); track $index) {
+  <mlv-list-item
+    mlvMenuItem
+    [disabled]="_itemsDisabled()"
+    (itemClick)="_runAction(action)"
+  >
+    {{ action.label }}
+  </mlv-list-item>
+  } @if (showCustomPrompt()) {
+  <mlv-list-item
+    mlvMenuItem
+    [disabled]="_itemsDisabled()"
+    (itemClick)="_openPrompt()"
+  >
+    {{ _copy().aiCustom }}
+  </mlv-list-item>
+  }
+</mlv-menu>

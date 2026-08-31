@@ -1,0 +1,22 @@
+## Floating Selection Toolbar
+
+This example combines a multi-select `mlv-data-table` with a contrast pill action bar
+anchored to the bottom of the viewport. Selecting a row guards the bar with `@if`, so
+Angular's built-in `animate.enter` / `animate.leave` host attributes trigger a smooth
+slide-in / slide-out animation whenever the bar enters or leaves the DOM.
+
+Five inputs come into play:
+
+- `position="bottom"` — anchors the bar to the bottom edge.
+- `shape="pill"` — renders a content-width, fully rounded floating bar with a strong
+  drop shadow. When combined with `fixed`, the pill auto-centers horizontally.
+- `fixed` — anchors the pill to the viewport instead of the scroll flow.
+- `contrast` — flips the bar to a dark, inverted surface that stands out from the
+  surrounding content. Child buttons automatically re-tokenize their text and hover
+  colors so they remain readable.
+- `wrap` — lets the eight controls flow onto a second line once the pill hits its
+  `calc(100% - 2rem)` cap instead of overflowing off-screen. Nothing wraps while there
+  is room, so the wide-viewport look is unchanged. Narrow the window to see it.
+
+Try selecting a few rows in the table, then click the round `×` button in the bar to
+clear the selection and watch the leave animation.

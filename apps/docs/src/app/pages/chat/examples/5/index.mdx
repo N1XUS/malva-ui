@@ -1,0 +1,31 @@
+---
+title: Reply citations
+---
+
+## Reply citations
+
+Setting `replyTo` on a message renders a **citation** above its body: the quoted
+author, a two-line clamp of the quoted text, and a condensed stand-in for any
+media or audio the original carried. The citation is a button that emits
+`(replyClick)` with both the citing message and its `replyTo`, so the host owns
+what activating one does — scroll to the original, open a thread, anything.
+
+Only one level ever renders. When the quoted message was itself a reply, the
+nested citation collapses into a corner marker instead of recursing.
+
+The citation derives its whole palette from the bubble it sits in, so the same
+markup reads correctly on a neutral incoming bubble and on the accent-filled own
+bubble, in light and dark themes alike. Override it per surface through the
+variables declared on `.mlv-chat-message__reply`:
+
+| Variable | Purpose |
+| --- | --- |
+| `--mlv-chat-quote-surface` | Citation background, a tint of the bubble's own text colour |
+| `--mlv-chat-quote-surface-hover` | Hover state of the citation button |
+| `--mlv-chat-quote-accent` | Leading bar beside the citation |
+| `--mlv-chat-quote-author` | Quoted author name |
+| `--mlv-chat-quote-fg` | Quoted text and the audio chip |
+
+These are deliberately **not** named `--mlv-chat-message-*`: the citation is a
+second `mlv-chat-message` host, which redeclares every variable under that
+prefix and so could never inherit the parent bubble's values.

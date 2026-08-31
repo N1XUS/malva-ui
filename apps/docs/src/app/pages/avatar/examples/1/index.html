@@ -1,0 +1,47 @@
+<div style="display: flex; flex-direction: column; gap: 2rem">
+  <div>
+    <p
+      style="
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Circle (default)
+    </p>
+    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap">
+      @for (name of circleNames; track name; let i = $index) {
+      <mlv-avatar
+        [size]="sizes[i]"
+        shape="circle"
+        [name]="name"
+        [color]="name | mlvColorFromText"
+        [label]="sizes[i]"
+      />
+      }
+    </div>
+  </div>
+
+  <div>
+    <p
+      style="
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Square
+    </p>
+    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap">
+      @for (name of squareNames; track name; let i = $index) {
+      <mlv-avatar
+        [size]="sizes[i]"
+        shape="square"
+        [name]="name"
+        [color]="name | mlvColorFromText"
+        [label]="sizes[i]"
+      />
+      }
+    </div>
+  </div>
+</div>

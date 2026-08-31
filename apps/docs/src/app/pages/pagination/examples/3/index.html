@@ -1,0 +1,14 @@
+<div class="demo-col" style="gap: 24px">
+  <p style="font-size: 0.875rem; color: var(--mlv-text-secondary); margin: 0">
+    Page <strong>{{ currentPage() }}</strong> of
+    <strong>{{ totalPages() }}</strong> &mdash; type a page number in the
+    <em>…</em> inputs and press Enter to jump.
+  </p>
+
+  <mlv-pagination
+    [totalItems]="totalItems"
+    [(currentPage)]="currentPage"
+    [(itemsPerPage)]="activeItemsPerPage"
+    [perPageOptions]="[10, 25, 50]"
+  />
+</div>

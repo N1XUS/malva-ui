@@ -1,0 +1,13 @@
+{
+  "$comment": [
+    "Invented --mlv-* names that already existed when scripts/check-mlv-tokens.mjs",
+    "was introduced. Each resolves to nothing at runtime: the var() fallback ships",
+    "and the value stops following the theme.",
+    "",
+    "This file exists so the check can gate NEW mistakes while these are worked",
+    "through. Fix one, delete its entry — never add to this list. Run",
+    "`yarn nx run styles:check-tokens --strict` to see every entry with its",
+    "locations."
+  ],
+  "known": {}
+}

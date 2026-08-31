@@ -1,0 +1,760 @@
+@use '../../../../../../../libs/styles/src/lib/breakpoints' as bp;
+
+$block: support-inbox;
+
+.#{$block} {
+  // ── Frame ───────────────────────────────────────────────────────────────
+  // The showcase shell already reserves the app bar, so the composition takes
+  // the rest of the viewport and scrolls internally like a real desktop app.
+  // `svh` on a phone: `dvh` re-runs the chat scroller's thumb math every time
+  // the mobile URL bar collapses. No floor at sm — a 34rem floor plus the
+  // shell's padding overflows a 568px phone and double-scrolls the page.
+  ::ng-deep .mlv-layout__container {
+    block-size: calc(100svh - 7.75rem);
+    overflow: hidden;
+
+    @include bp.breakpoint-up(md) {
+      block-size: clamp(34rem, calc(100dvh - 9.5rem), 60rem);
+    }
+  }
+
+  ::ng-deep .mlv-layout__side {
+    display: flex;
+
+    .mlv-sidebar {
+      min-block-size: 0;
+      min-inline-size: 0;
+      overflow: hidden;
+    }
+  }
+
+  // ── App bar ─────────────────────────────────────────────────────────────
+  &__appbar {
+    // 320px is the narrowest supported device and the bar is the tightest row
+    // in the composition: trigger + wordmark + three 44px actions.
+    gap: var(--mlv-spacing-1);
+
+    @include bp.breakpoint-up(md) {
+      gap: var(--mlv-spacing-2);
+    }
+  }
+
+  &__logo {
+    // The wordmark is 161px at its natural height, which overruns a 375px bar
+    // once the trigger and the three trailing actions take their 44px each.
+    block-size: 1.5rem;
+    inline-size: auto;
+    max-inline-size: 6rem;
+    object-fit: contain;
+    object-position: left center;
+
+    @include bp.breakpoint-up(md) {
+      block-size: 1.75rem;
+      max-inline-size: none;
+    }
+
+    // The brand asset is authored for a light bar; inverting and rotating the
+    // hue keeps the wordmark legible in dark mode without a second file.
+    [mlvTheme='dark'] & {
+      filter: invert(1) hue-rotate(180deg);
+    }
+  }
+
+  &__omnisearch {
+    color: var(--mlv-text-secondary);
+  }
+
+  // ── Dark navigation rail ────────────────────────────────────────────────
+  // The dark token block already repaints the surface through
+  // `--mlv-background-raised`; pinning the neutral stop keeps the rail one
+  // step darker than the raised conversation column next to it.
+  // In offcanvas mode the host collapses to 0 width but still matches this
+  // rule, leaving a dark hairline glued to the list. Paint the column only.
+  &__rail.mlv-sidebar:not(.mlv-sidebar--offcanvas) {
+    border-inline-end: var(--mlv-stroke-width) solid rgb(255 255 255 / 8%);
+    background: var(--mlv-palette-neutral-900);
+
+    // When the docs app itself is dark the canvas already sits on neutral-900,
+    // so the rail drops one stop to keep the seam readable.
+    [mlvTheme='dark'] & {
+      background: var(--mlv-palette-neutral-950);
+    }
+  }
+
+  // The offcanvas body is portalled out of this component's subtree, so the
+  // drawer panel is painted through a global rule keyed on the wrapper class.
+  &__rail-surface {
+    display: contents;
+  }
+
+  // Only rendered below md, where the rail is an offcanvas drawer. The host is
+  // a block element, so it needs an intrinsic width to sit in the bar's flex row.
+  &__rail-trigger {
+    flex: 0 0 auto;
+    inline-size: 2.75rem;
+
+    // The trigger sizes from `--mlv-sidebar-row-height` (36px at comfortable),
+    // which is under the 44px touch floor on the tier where it is the only
+    // route back to navigation. `::ng-deep` because the button lives in the
+    // trigger component's own template.
+    ::ng-deep .mlv-sidebar-trigger__btn {
+      min-inline-size: 2.75rem;
+      min-block-size: 2.75rem;
+    }
+
+    @include bp.breakpoint-up(md) {
+      ::ng-deep .mlv-sidebar-trigger__btn {
+        min-inline-size: 0;
+        min-block-size: 0;
+      }
+    }
+  }
+
+  &__rail-footer {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__agent {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-inline-size: 0;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    min-inline-size: 0;
+  }
+
+  &__agent-text {
+    display: grid;
+    min-inline-size: 0;
+  }
+
+  &__agent-name {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-font-weight-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__agent-role {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // ── Three-column workspace ──────────────────────────────────────────────
+  &__workspace {
+    display: grid;
+    // sm — one column. Both panes occupy it; `--pane-*` picks the foreground.
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    background: var(--mlv-background-raised);
+
+    @include bp.breakpoint-up(md) {
+      grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
+    }
+
+    // lg — the end pane's `auto` track collapses to 0 when it is closed, so
+    // no `--details` modifier is needed. `clamp` gives intra-tier fluidity
+    // without a fourth breakpoint.
+    @include bp.breakpoint-up(lg) {
+      // At exactly 1200 the list floor decides the thread's width:
+      // 1200 − 264 rail − 320 details − 256 list = 360, clearing the 22rem
+      // (352px) readability floor. A 17rem floor here leaves 344 and fails it.
+      grid-template-columns: clamp(16rem, 20vw, 21.5rem) minmax(22rem, 1fr) auto;
+    }
+  }
+
+  // Single-column pane switching. `display: none` also removes the outgoing
+  // pane from the tab order and the a11y tree, so no `inert` is needed.
+  &--pane-thread &__list,
+  &--pane-list &__thread {
+    display: none;
+  }
+
+  @include bp.breakpoint-up(md) {
+    &--pane-thread &__list,
+    &--pane-list &__thread {
+      display: grid;
+    }
+  }
+
+  // ── Column 1 · list ─────────────────────────────────────────────────────
+  &__list {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    min-block-size: 0;
+    min-inline-size: 0;
+    background: var(--mlv-background-base);
+
+    @include bp.breakpoint-up(md) {
+      border-inline-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    }
+  }
+
+  &__list-header {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+    padding: var(--mlv-padding-m);
+    border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+
+  &__list-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+
+    h2 {
+      margin: 0;
+      font-size: var(--mlv-typography-body-l-size);
+    }
+  }
+
+  &__list-scroll {
+    min-block-size: 0;
+    min-inline-size: 0;
+  }
+
+  &__list-empty {
+    align-self: start;
+    padding: var(--mlv-spacing-8) var(--mlv-spacing-4);
+  }
+
+  ::ng-deep .#{$block}__list-scroll .mlv-list {
+    gap: 0;
+  }
+
+  // ── Conversation row ────────────────────────────────────────────────────
+  // Selection is painted by `mlv-list-item`'s own `[aria-selected='true']`
+  // rule now that the list is a listbox, so this block owns geometry only.
+  &__row {
+    align-items: flex-start;
+    border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    border-radius: 0;
+    padding: var(--mlv-padding-s);
+    cursor: pointer;
+    transition: background-color var(--mlv-duration-fast)
+      var(--mlv-ease-default);
+  }
+
+  &__row-title {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+    min-inline-size: 0;
+  }
+
+  &__row-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__row-time {
+    flex: 0 0 auto;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--mlv-font-weight-normal);
+  }
+
+  &__row-byline {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+    min-inline-size: 0;
+  }
+
+  &__row-subject {
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-font-weight-medium);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__row-snippet {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    // One line below lg — the sm and md list tracks have the same copy budget.
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+
+    @include bp.breakpoint-up(lg) {
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+    }
+    overflow: hidden;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  // Channel, account and the SLA/priority badges are lg-only; below that the
+  // accent bar and the SLA dot carry urgency.
+  &__row-meta,
+  &__row-actions {
+    display: none;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+
+    @include bp.breakpoint-up(lg) {
+      display: flex;
+    }
+  }
+
+  &__row-sla-dot {
+    flex: none;
+
+    @include bp.breakpoint-up(lg) {
+      display: none;
+    }
+  }
+
+  &__row-meta {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+    margin-block-start: var(--mlv-spacing-0-5);
+  }
+
+  &__row-channel {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__row-star {
+    color: var(--mlv-text-warning);
+    fill: currentColor;
+  }
+
+  // ── Column 2 · thread ───────────────────────────────────────────────────
+  &__thread {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
+    min-block-size: 0;
+    min-inline-size: 0;
+    overflow: hidden;
+  }
+
+  &__thread-header {
+    flex-wrap: nowrap;
+
+    @include bp.breakpoint-up(lg) {
+      flex-wrap: wrap;
+    }
+
+    padding: var(--mlv-padding-s);
+    border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+
+  &__thread-identity {
+    display: grid;
+    flex: 1 1 10rem;
+    min-inline-size: 0;
+  }
+
+  // Kept together so a narrow header wraps the whole cluster onto its own row,
+  // still trailing-aligned, instead of stranding two buttons at the start.
+  &__thread-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--mlv-spacing-2);
+    margin-inline-start: auto;
+  }
+
+  &__thread-title {
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-body-m-size);
+    font-weight: var(--mlv-font-weight-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__thread-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__ref {
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--mlv-font-weight-semibold);
+  }
+
+  &__thread-back {
+    flex: none;
+  }
+
+  // ── Details pane ────────────────────────────────────────────────────────
+  // `mlv-page-end-pane` renders a Drawer below lg and an inline aside at lg;
+  // this chrome is the showcase's, the component ships none.
+  &__details-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    padding: var(--mlv-padding-m);
+    border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+
+  &__details-who {
+    display: grid;
+    min-inline-size: 0;
+  }
+
+  &__details-subject {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: var(--mlv-typography-body-s-size);
+    color: var(--mlv-text-secondary);
+  }
+
+  &__details-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--mlv-spacing-2);
+    // `--mlv-padding-*` is a `block inline` pair and is only valid as a whole
+    // `padding:` value, so the halves are spelled out here.
+    padding: var(--mlv-spacing-2) var(--mlv-spacing-4)
+      max(var(--mlv-spacing-3), env(safe-area-inset-bottom));
+    border-block-start: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+
+  &__composer-hint {
+    margin: 0;
+    color: var(--mlv-text-warning);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__thread-empty {
+    grid-row: 1 / -1;
+    align-self: center;
+  }
+
+  &__chat {
+    min-block-size: 0;
+    min-inline-size: 0;
+    overflow: hidden;
+  }
+
+  // ── Composer ────────────────────────────────────────────────────────────
+  &__composer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-inline-size: 0;
+    gap: var(--mlv-spacing-2);
+    padding: var(--mlv-spacing-3)
+      max(var(--mlv-spacing-3), env(safe-area-inset-right))
+      max(var(--mlv-spacing-3), env(safe-area-inset-bottom))
+      max(var(--mlv-spacing-3), env(safe-area-inset-left));
+    border-block-start: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+
+  &__composer-tabs {
+    display: flex;
+    align-items: center;
+    min-inline-size: 0;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__composer-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    margin-inline-end: var(--mlv-spacing-2);
+  }
+
+  // `--container-background-color` is declared ON `.mlv-form-control-wrapper`
+  // itself, so an inherited value from the host never wins — the override has
+  // to land on that element, which lives inside the textarea's own template.
+  ::ng-deep .#{$block}__composer-field--note .mlv-form-control-wrapper {
+    --container-background-color: var(--mlv-background-warning-1-pale);
+    --container-border-color: var(--mlv-background-warning-1);
+  }
+
+  // ── Column 3 · details ──────────────────────────────────────────────────
+  &__details {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
+    block-size: 100%;
+    min-block-size: 0;
+    min-inline-size: 0;
+    background: var(--mlv-background-base);
+  }
+
+  // Only the in-flow lg column needs the seam; the Drawer has its own edge.
+  &__details-pane {
+    @include bp.breakpoint-up(lg) {
+      border-inline-start: var(--mlv-stroke-width) solid
+        var(--mlv-border-subtle);
+    }
+  }
+
+  @include bp.breakpoint-up(md) {
+    &__composer {
+      padding: var(--mlv-spacing-3) var(--mlv-spacing-6) var(--mlv-spacing-4);
+    }
+  }
+
+  &__details-scroll {
+    min-block-size: 0;
+    min-inline-size: 0;
+    block-size: 100%;
+  }
+
+  &__details-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--mlv-spacing-3);
+    padding: var(--mlv-padding-m);
+  }
+
+  &__requester {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--mlv-spacing-3);
+  }
+
+  &__requester-text {
+    display: grid;
+    min-inline-size: 0;
+  }
+
+  &__requester-name {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    font-size: var(--mlv-typography-body-m-size);
+    font-weight: var(--mlv-font-weight-semibold);
+  }
+
+  &__verified {
+    color: var(--mlv-text-positive);
+  }
+
+  &__requester-role {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-1-5);
+  }
+
+  &__section {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-font-weight-semibold);
+    letter-spacing: var(--mlv-letter-spacing-wider);
+    text-transform: uppercase;
+  }
+
+  &__section-note {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__fields {
+    display: grid;
+    gap: var(--mlv-spacing-1-5);
+    margin: 0;
+  }
+
+  &__field {
+    display: grid;
+    grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+
+    dt {
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+    }
+
+    dd {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-1);
+      margin: 0;
+      min-inline-size: 0;
+      color: var(--mlv-text-primary);
+      font-size: var(--mlv-typography-body-s-size);
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__numeric {
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__inline-person {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+  }
+
+  &__muted {
+    color: var(--mlv-text-secondary);
+  }
+
+  &__health {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__health-label {
+    display: flex;
+    justify-content: space-between;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-1-5);
+  }
+
+  &__error {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+    margin: 0;
+    border-radius: var(--mlv-radius-s);
+    padding: var(--mlv-padding-xs);
+    background: var(--mlv-background-danger-1-pale);
+    color: var(--mlv-text-negative);
+    font-family: var(--mlv-typography-family-code);
+    font-size: var(--mlv-typography-body-s-size);
+    overflow-wrap: anywhere;
+  }
+
+  ::ng-deep .#{$block}__linked {
+    gap: 0;
+
+    .mlv-list-item {
+      padding: var(--mlv-padding-xs);
+    }
+  }
+
+  &__csat {
+    margin: 0;
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__quote {
+    margin: 0;
+    border-inline-start: 0.125rem solid var(--mlv-border-normal);
+    padding-inline-start: var(--mlv-spacing-3);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-style: italic;
+  }
+
+  &__notes {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__note {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+    border-inline-start: 0.1875rem solid var(--mlv-background-warning-1);
+    border-radius: var(--mlv-radius-s);
+    padding: var(--mlv-padding-xs);
+    background: var(--mlv-background-warning-1-pale);
+
+    p {
+      margin: 0;
+      font-size: var(--mlv-typography-body-s-size);
+    }
+  }
+
+  &__note-head {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1-5);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__timeline {
+    margin-inline-start: var(--mlv-spacing-1);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .#{$block},
+  .#{$block} * {
+    scroll-behavior: auto !important;
+    transition-duration: var(--mlv-duration-instant) !important;
+  }
+}
+
+// The offcanvas rail's body is portalled into the CDK overlay container, so
+// `.support-inbox` is no longer an ancestor and the drawer panel would render
+// on the light theme. `::ng-deep` at the top level is deliberate: this rule
+// has to be global to reach the portal, and `:has()` keys it to this
+// showcase's own wrapper so it cannot leak to any other drawer.
+::ng-deep .mlv-drawer:has(.support-inbox__rail-surface) {
+  background: var(--mlv-palette-neutral-900);
+  color: var(--mlv-palette-neutral-50);
+}
+
+// Only when the docs app itself is dark — the surface wrapper always carries
+// `mlvTheme="dark"`, so keying on that would pin the drawer to the dark stop.
+::ng-deep [mlvTheme='dark'] .mlv-drawer:has(.support-inbox__rail-surface) {
+  background: var(--mlv-palette-neutral-950);
+}
+
+// A collapsed 56px rail has a 40px content box, so the footer collapses to the
+// avatar alone rather than overflowing with the identity text and the gear.
+.mlv-sidebar--collapsed .support-inbox__agent {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+
+  .support-inbox__agent-text,
+  .mlv-button {
+    display: none;
+  }
+}

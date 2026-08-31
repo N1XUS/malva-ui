@@ -1,0 +1,54 @@
+@use '../../../../styles/src/lib/density' as density;
+
+/// Density-scaled form rhythm written into `$var` (default `--mlv-form-gap`).
+/// tight 0.5rem · compact 0.75rem · comfortable 1rem · spacious 1.25rem · airy 1.5rem
+@mixin gap-scale($var: --mlv-form-gap) {
+  #{$var}: var(--mlv-spacing-4);
+
+  @include density.density-tight {
+    #{$var}: var(--mlv-spacing-2);
+  }
+  @include density.density-compact {
+    #{$var}: var(--mlv-spacing-3);
+  }
+  @include density.density-spacious {
+    #{$var}: var(--mlv-spacing-5);
+  }
+  @include density.density-airy {
+    #{$var}: var(--mlv-spacing-6);
+  }
+}
+
+/// Strips the UA fieldset chrome.
+@mixin fieldset-reset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+/// Group heading. Shared by `.mlv-fieldset__legend`, projected `<legend>`s and
+/// bare `<legend>`s under `.mlv-form`.
+///
+/// Carries no density blocks on purpose: `density.*` prefixes the whole
+/// selector with an ancestor `[class*='--x']`, which never matches when the
+/// selector already starts at the density-carrying block (`.mlv-form … >
+/// legend`). Each call site pairs this with `legend-dense` the way that works
+/// for its own selector.
+@mixin legend {
+  float: none;
+  inline-size: 100%;
+  margin: 0;
+  padding: 0 0 var(--mlv-spacing-2);
+  font-family: var(--mlv-typography-family-text);
+  font-size: var(--mlv-typography-body-l-size);
+  font-weight: var(--mlv-font-weight-semibold);
+  line-height: var(--mlv-typography-body-l-line-height);
+  color: var(--mlv-text-primary);
+}
+
+/// Legend type scale at tight/compact density — one step down from `legend`.
+@mixin legend-dense {
+  font-size: var(--mlv-typography-body-m-size);
+  line-height: var(--mlv-typography-body-m-line-height);
+}

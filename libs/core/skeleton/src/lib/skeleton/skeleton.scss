@@ -1,0 +1,70 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-skeleton;
+
+@keyframes mlv-skeleton-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m),
+    0,
+    0
+  );
+
+  // Color tokens — override these to customise per-context.
+  // Base uses the muted neutral surface; highlight uses the page background.
+  --mlv-skeleton-base: var(--mlv-background-neutral-1);
+  --mlv-skeleton-highlight: var(--mlv-background-base);
+
+  display: block;
+  background-color: var(--mlv-skeleton-base);
+  border-radius: var(--mlv-radius-s);
+
+  &--animated {
+    background: linear-gradient(
+      90deg,
+      var(--mlv-skeleton-base) 25%,
+      var(--mlv-skeleton-highlight) 50%,
+      var(--mlv-skeleton-base) 75%
+    );
+    background-size: 400% 100%;
+    background-position: 200% center;
+    animation: mlv-skeleton-shimmer var(--mlv-skeleton-duration, 2s) ease-in-out
+      infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+      background: var(--mlv-skeleton-base);
+    }
+  }
+
+  // ── Variant: text ──────────────────────────────────────────────────────────
+  // Mimics a line of text — uses a pill border-radius.
+  &--text {
+    border-radius: var(--mlv-radius-3xl);
+    height: 0.875em;
+  }
+
+  // ── Variant: circle ────────────────────────────────────────────────────────
+  // Fully rounded — suitable for avatar or icon placeholders.
+  &--circle {
+    border-radius: var(--mlv-radius-full);
+  }
+
+  // ── Variant: rectangle ─────────────────────────────────────────────────────
+  // Default rectangular shape — no extra overrides needed beyond the block.
+  &--rectangle {
+    border-radius: var(--mlv-radius-s);
+  }
+}
+}

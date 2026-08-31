@@ -1,0 +1,60 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-editor-zoom;
+
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-m-size),
+      0,
+      0
+    );
+
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    white-space: nowrap;
+
+    &__panel {
+      display: grid;
+      // Wide enough for `Fit to container` on one line; the presets are far
+      // narrower, and without a floor the panel would collapse to the field.
+      inline-size: 11rem;
+      // `mlv-popup` ships no panel padding — the projected block owns its
+      // spacing. Without an inset here the option rows run edge to edge, which
+      // is `mlv-dropdown-panel`'s own norm (select and combobox look like that)
+      // but wrong beside the toolbar menus this panel sits next to: `mlv-menu`
+      // insets its popup by exactly this token. Matching it is what makes the
+      // zoom panel read as one of them.
+      padding: var(--mlv-popover-inset);
+      gap: var(--mlv-spacing-1);
+    }
+
+    &__field {
+      // A real `mlv-input` — wrapper chrome and all — so the percentage reads
+      // as an editable field rather than loose text. It brings its own border,
+      // background, height and focus ring, so it needs no inset of its own now
+      // that the panel carries one.
+      display: block;
+    }
+
+    &__levels {
+      // The panel owns the only scroll region here — the field above it stays
+      // pinned while the levels scroll.
+      display: block;
+    }
+
+    // The dropdown panel hands its own list `--mlv-popover-inset` as block
+    // padding. The panel above now carries that inset for every child, so
+    // leaving it on stacks into a double band above the first row while the
+    // sides keep a single one. The panel sets it from
+    // `.mlv-dropdown-panel .mlv-dropdown-panel__listbox` — two classes, which
+    // a plain `&__levels .mlv-list` only ties, leaving the winner to
+    // stylesheet order. Naming the panel class alongside `__levels` takes this
+    // to three and makes it deterministic.
+    &__levels.mlv-dropdown-panel .mlv-dropdown-panel__listbox {
+      --mlv-list-padding-block: 0;
+    }
+  }
+}

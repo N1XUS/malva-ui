@@ -1,0 +1,48 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-menubar;
+
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-m-size),
+      0,
+      var(--mlv-padding-xs)
+    );
+
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    background-color: var(--mlv-background-raised);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-m);
+    color: var(--mlv-text-primary);
+
+    &__divider {
+      align-self: stretch;
+      flex: 0 0 var(--mlv-stroke-width);
+      min-block-size: 1.5rem;
+      margin-block: var(--mlv-spacing-1);
+      background-color: var(--mlv-border-subtle);
+    }
+
+    > mlv-loader {
+      margin: var(--mlv-spacing-1);
+    }
+
+    // Top-level trigger items receive a roving tabindex and a keyboard focus
+    // ring; the visual chrome (background, hover) comes from the consumer's
+    // control (e.g. a `transparent` `mlvButton`).
+    &:focus-visible {
+      outline: none;
+    }
+
+    [role='menuitem'] {
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+    }
+  }
+}

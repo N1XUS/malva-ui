@@ -1,0 +1,19 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-drawer-section;
+
+.#{$block} {
+  @include mixins.base();
+
+  &__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--mlv-spacing-2) 0;
+    border-bottom: 0.0625rem solid var(--mlv-border-normal);
+    margin: 0 0 var(--mlv-spacing-3);
+    color: var(--mlv-text-primary);
+  }
+}
+}

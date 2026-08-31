@@ -1,0 +1,17 @@
+.dt-footer-label {
+  text-align: right;
+  font-weight: var(--mlv-font-weight-medium);
+  color: var(--mlv-text-secondary);
+}
+
+.dt-footer-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-footer-total {
+  text-align: right;
+  font-weight: var(--mlv-font-weight-bold);
+  color: var(--mlv-text-primary);
+  font-variant-numeric: tabular-nums;
+}

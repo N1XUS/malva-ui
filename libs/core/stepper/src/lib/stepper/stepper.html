@@ -1,0 +1,275 @@
+@if (orientation() === 'vertical') {
+<!--
+  Vertical layout.
+
+  A single CSS grid (`.mlv-stepper__vgrid`, two columns) hosts every step. The
+  `role="tablist"` element uses `display: contents` and contains ONLY the tab
+  column (indicator + connector) so the tablist's accessible children are all
+  `role="tab"` and nothing else (satisfies axe `aria-required-children`). The
+  labels and `role="tabpanel"` content panels live in a sibling `__bodies`
+  container that is NOT part of the tablist's accessible subtree — a tabpanel is
+  not a permitted tablist child. Each step's indicator column and body column
+  share the same grid row (`grid-row: step index + 1`) so the connector line
+  stays aligned with the label/panel and the active panel pushes the next step
+  down, preserving the interleaved appearance.
+
+      col 1 (tablist)     col 2 (bodies)
+    ┌───────────────┬──────────────────────────┐
+    │ [indicator]   │ [label / description]     │ row 1
+    │ [ connector ] │ [content panel (if active)]│
+    ├───────────────┼──────────────────────────┤
+    │ [indicator]   │ [label / description]     │ row 2
+    └───────────────┴──────────────────────────┘
+-->
+<div class="mlv-stepper__vgrid">
+  <!-- Tab column (display: contents — the grid lives on the parent) -->
+  <div
+    class="mlv-stepper__header"
+    role="tablist"
+    tabindex="-1"
+    [attr.aria-orientation]="orientation()"
+    (keydown)="_onHeaderKeydown($event)"
+  >
+    @for (step of _stepList(); track step._index; let last = $last) {
+    <div
+      class="mlv-stepper__indicator-col"
+      role="presentation"
+      [style.grid-row]="step._index + 1"
+    >
+      <!-- Indicator circle (trigger) -->
+      <div
+        mlvStepHeader
+        #sh="mlvStepHeader"
+        [isDisabled]="!_isClickable(step)"
+        [attr.tabindex]="sh.tabIndex()"
+        class="mlv-stepper__step-header"
+        [class.mlv-stepper__step-header--active]="_stateFor(step) === 'active'"
+        [class.mlv-stepper__step-header--completed]="_stateFor(step) === 'completed'"
+        [class.mlv-stepper__step-header--error]="_stateFor(step) === 'error'"
+        [class.mlv-stepper__step-header--pending]="_stateFor(step) === 'pending'"
+        [class.mlv-stepper__step-header--deviative]="step.deviative()"
+        [class.mlv-stepper__step-header--clickable]="_isClickable(step)"
+        role="tab"
+        [attr.aria-label]="step.label()"
+        [attr.aria-selected]="_stateFor(step) === 'active'"
+        [attr.aria-disabled]="!_isClickable(step) || null"
+        (click)="_isClickable(step) && selectStep(step._index)"
+        (keydown.enter)="_isClickable(step) && selectStep(step._index)"
+        (keydown.space)="_isClickable(step) && selectStep(step._index); $event.preventDefault()"
+      >
+        <div class="mlv-stepper__indicator" aria-hidden="true">
+          @if (_stateFor(step) === 'completed') {
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M3 8L6.5 11.5L13 5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          } @else if (_stateFor(step) === 'error') {
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M8 5V8.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+            <circle cx="8" cy="11" r="0.75" fill="currentColor" />
+          </svg>
+          } @else {
+          <span>{{ step._index + 1 }}</span>
+          } @if (step.deviative()) {
+          <span class="mlv-stepper__deviative-badge" aria-hidden="true">
+            <svg
+              viewBox="0 0 10 10"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M5 1.5L9 8.5H1L5 1.5Z" fill="currentColor" />
+            </svg>
+          </span>
+          }
+        </div>
+      </div>
+
+      <!-- Vertical connector line below indicator (hidden for last step) -->
+      @if (!last) {
+      <div
+        class="mlv-stepper__vertical-connector"
+        [class.mlv-stepper__vertical-connector--completed]="_stateFor(step) === 'completed'"
+        [class.mlv-stepper__vertical-connector--deviative]="step.deviative() && !step.deviationResolved()"
+        aria-hidden="true"
+      ></div>
+      }
+    </div>
+    }
+  </div>
+
+  <!-- Body column: labels + inline content panels (outside the tablist) -->
+  <div class="mlv-stepper__bodies" role="presentation">
+    @for (step of _stepList(); track step._index) {
+    <div
+      class="mlv-stepper__body-col"
+      role="presentation"
+      [style.grid-row]="step._index + 1"
+    >
+      <!-- Label group -->
+      <div class="mlv-stepper__label-group">
+        <span
+          class="mlv-stepper__label"
+          [class.mlv-stepper__label--active]="_stateFor(step) === 'active'"
+          [class.mlv-stepper__label--completed]="_stateFor(step) === 'completed'"
+          [class.mlv-stepper__label--error]="_stateFor(step) === 'error'"
+          [class.mlv-stepper__label--deviative]="step.deviative()"
+          >{{ step.label() }}</span
+        >
+        @if (step.optional()) {
+        <span class="mlv-stepper__optional-tag">{{ _i18n().optional }}</span>
+        } @if (step.description()) {
+        <span class="mlv-stepper__description">{{ step.description() }}</span>
+        }
+      </div>
+
+      <!-- Content panel inline under labels — animated expand/collapse -->
+      <div
+        class="mlv-stepper__content-panel"
+        [class.mlv-stepper__content-panel--active]="_stateFor(step) === 'active'"
+        role="tabpanel"
+        [attr.aria-label]="step.label()"
+        [attr.inert]="_stateFor(step) !== 'active' ? '' : null"
+      >
+        <div class="mlv-stepper__content-panel-inner">
+          <div class="mlv-stepper__vertical-content">
+            <ng-template [ngTemplateOutlet]="step.contentTpl()" />
+          </div>
+        </div>
+      </div>
+    </div>
+    }
+  </div>
+</div>
+} @else {
+<!-- Horizontal layout: step headers in a row, shared content panel below. -->
+<div
+  class="mlv-stepper__header"
+  role="tablist"
+  tabindex="-1"
+  [attr.aria-orientation]="orientation()"
+  (keydown)="_onHeaderKeydown($event)"
+>
+  @for (step of _stepList(); track step._index; let last = $last) {
+  <div
+    class="mlv-stepper__header-item"
+    [class.mlv-stepper__header-item--deviative]="step.deviative()"
+  >
+    <!-- Step trigger button -->
+    <div
+      mlvStepHeader
+      #sh="mlvStepHeader"
+      [isDisabled]="!_isClickable(step)"
+      [attr.tabindex]="sh.tabIndex()"
+      class="mlv-stepper__step-header"
+      [class.mlv-stepper__step-header--active]="_stateFor(step) === 'active'"
+      [class.mlv-stepper__step-header--completed]="_stateFor(step) === 'completed'"
+      [class.mlv-stepper__step-header--error]="_stateFor(step) === 'error'"
+      [class.mlv-stepper__step-header--pending]="_stateFor(step) === 'pending'"
+      [class.mlv-stepper__step-header--deviative]="step.deviative()"
+      [class.mlv-stepper__step-header--clickable]="_isClickable(step)"
+      role="tab"
+      [attr.aria-label]="step.label()"
+      [attr.aria-selected]="_stateFor(step) === 'active'"
+      [attr.aria-disabled]="!_isClickable(step) || null"
+      (click)="_isClickable(step) && selectStep(step._index)"
+      (keydown.enter)="_isClickable(step) && selectStep(step._index)"
+      (keydown.space)="_isClickable(step) && selectStep(step._index); $event.preventDefault()"
+    >
+      <!-- Indicator circle -->
+      <div class="mlv-stepper__indicator" aria-hidden="true">
+        @if (_stateFor(step) === 'completed') {
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M3 8L6.5 11.5L13 5"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        } @else if (_stateFor(step) === 'error') {
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M8 5V8.5"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          />
+          <circle cx="8" cy="11" r="0.75" fill="currentColor" />
+        </svg>
+        } @else {
+        <span>{{ step._index + 1 }}</span>
+        } @if (step.deviative()) {
+        <span class="mlv-stepper__deviative-badge" aria-hidden="true">
+          <svg
+            viewBox="0 0 10 10"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M5 1.5L9 8.5H1L5 1.5Z" fill="currentColor" />
+          </svg>
+        </span>
+        }
+      </div>
+
+      <!-- Label + description -->
+      <div class="mlv-stepper__label-group">
+        <span class="mlv-stepper__label">{{ step.label() }}</span>
+        @if (step.optional()) {
+        <span class="mlv-stepper__optional-tag">{{ _i18n().optional }}</span>
+        } @if (step.description()) {
+        <span class="mlv-stepper__description">{{ step.description() }}</span>
+        }
+      </div>
+    </div>
+
+    <!-- Connector (between steps in horizontal layout) -->
+    @if (!last) {
+    <div
+      class="mlv-stepper__connector"
+      [class.mlv-stepper__connector--completed]="_stateFor(step) === 'completed'"
+      [class.mlv-stepper__connector--deviative]="step.deviative() && !step.deviationResolved()"
+      aria-hidden="true"
+    ></div>
+    }
+  </div>
+  }
+</div>
+
+<!-- Mobile compact: step counter (horizontal only) -->
+<div class="mlv-stepper__mobile-counter" aria-hidden="true">
+  <span class="mlv-stepper__mobile-label">
+    Step {{ activeIndex() + 1 }} of {{ _stepList().length }}: {{
+    _stepList()[activeIndex()]?.label() }}
+  </span>
+</div>
+
+<!-- Shared content area below the header row -->
+@for (step of _stepList(); track step._index) { @if (_stateFor(step) ===
+'active') {
+<div
+  class="mlv-stepper__content-panel mlv-stepper__content-panel--active"
+  role="tabpanel"
+  [attr.aria-label]="step.label()"
+>
+  <ng-template [ngTemplateOutlet]="step.contentTpl()" />
+</div>
+} } }

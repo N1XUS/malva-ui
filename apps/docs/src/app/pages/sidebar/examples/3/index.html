@@ -1,0 +1,102 @@
+<div class="sidebar-demo">
+  <mlv-sidebar [(collapsed)]="collapsed">
+    <div mlvSidebarHeader>
+      <div class="mail-header">
+        <div class="mail-header__icon">
+          <svg lucideMail size="20" />
+        </div>
+        <div class="mail-header__meta">
+          <span class="mail-header__name">Inbox</span>
+          <span class="mail-header__addr">jane&#64;acme.com</span>
+        </div>
+      </div>
+    </div>
+
+    <div mlvSidebarContent>
+      <mlv-sidebar-item label="Inbox" badge="128" badgeTone="info">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideInbox size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item
+        label="Starred"
+        [active]="true"
+        badge="9"
+        badgeTone="warning"
+      >
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideStar size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Sent">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideSend size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Drafts" badge="4">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideFileText size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Scheduled" badge="2">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideClock size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-divider />
+
+      <mlv-sidebar-item label="Work" badge="24" badgeTone="danger">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideBriefcase size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Personal" badge="3" badgeTone="success">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideHeart size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Travel">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucidePlane size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Receipts">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideReceipt size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-divider />
+
+      <mlv-sidebar-item label="Archive">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideArchive size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Spam" badge="12" badgeTone="warning">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideShieldAlert size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Trash">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideTrash2 size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-spacer />
+
+      <mlv-sidebar-trigger />
+    </div>
+  </mlv-sidebar>
+</div>

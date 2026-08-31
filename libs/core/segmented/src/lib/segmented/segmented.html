@@ -1,0 +1,31 @@
+@if (label()) {
+<mlv-label [required]="required()">{{ label() }}</mlv-label>
+}
+<!--
+  The track is the `role="radiogroup"` container, not a focus target: focus
+  lives on the projected items, which carry the roving tabindex. Its keydown
+  listener only delegates arrow/Home/End to that roving model, so making the
+  container focusable would add a second, spurious tab stop.
+-->
+<!-- eslint-disable-next-line @angular-eslint/template/interactive-supports-focus -->
+<div
+  #track
+  class="mlv-segmented__track"
+  [attr.role]="_isLinkMode() ? null : 'radiogroup'"
+  [attr.aria-label]="_isLinkMode() ? null : ariaLabel() || label() || null"
+  [attr.aria-orientation]="_isLinkMode() ? null : orientation()"
+  [attr.aria-required]="_isLinkMode() ? null : required() || null"
+  [attr.aria-disabled]="_isLinkMode() ? null : computedDisabled() || null"
+  [attr.aria-describedby]="_describedBy()"
+  (keydown)="_onKeydown($event)"
+>
+  <span class="mlv-segmented__indicator" aria-hidden="true"></span>
+  <ng-content />
+</div>
+@if (description()) {
+<mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+} @if (message()) {
+<mlv-message [id]="_messageId()" [state]="resolvedState()"
+  >{{ message() }}</mlv-message
+>
+}

@@ -1,0 +1,116 @@
+@if (_breadcrumbRef()?.templateRef; as breadcrumbTpl) {
+<div
+  class="mlv-page-header__breadcrumb"
+  mlvPageSnap="hide"
+  [snapFrom]="0"
+  [snapTo]="0.5"
+  snapSize="3rem"
+>
+  <ng-template [ngTemplateOutlet]="breadcrumbTpl" />
+</div>
+} @if (back(); as backTarget) {
+<a
+  mlvLink
+  class="mlv-page-header__back"
+  variant="subtle"
+  [routerLink]="backTarget"
+  (click)="backClick.emit($event)"
+>
+  <ng-template mlvLinkBefore>
+    <svg lucideChevronLeft [size]="16" aria-hidden="true" />
+  </ng-template>
+  {{ backLabel() }}
+</a>
+}
+
+<div class="mlv-page-header__title-row">
+  @if (_iconRef()?.templateRef; as iconTpl) {
+  <span class="mlv-page-header__icon" aria-hidden="true">
+    <ng-template [ngTemplateOutlet]="iconTpl" />
+  </span>
+  } @if (_titleRef()?.templateRef; as titleTpl) {
+  <div class="mlv-page-header__title">
+    <ng-template [ngTemplateOutlet]="titleTpl" />
+  </div>
+  } @if (_statusRef()?.templateRef; as statusTpl) {
+  <div class="mlv-page-header__status">
+    <ng-template [ngTemplateOutlet]="statusTpl" />
+  </div>
+  }
+  <span class="mlv-page-header__spacer" aria-hidden="true"></span>
+  @if (_actionsRef()?.templateRef; as actionsTpl) {
+  <div class="mlv-page-header__actions">
+    <ng-template [ngTemplateOutlet]="actionsTpl" />
+  </div>
+  }
+</div>
+
+@if (_descriptionRef()?.templateRef; as descriptionTpl) {
+<div class="mlv-page-header__description">
+  <ng-template [ngTemplateOutlet]="descriptionTpl" />
+</div>
+} @if (_metaRef()?.templateRef; as metaTpl) {
+<div class="mlv-page-header__meta">
+  <ng-template [ngTemplateOutlet]="metaTpl" />
+</div>
+} @if (_tabsRef()?.templateRef || _tabsActionsRef()?.templateRef) {
+<div
+  class="mlv-page-header__tabs-row"
+  mlvPageSnap="hide"
+  [snapFrom]="0.3"
+  [snapTo]="0.85"
+  snapSize="5rem"
+>
+  @if (_tabsRef()?.templateRef; as tabsTpl) {
+  <div class="mlv-page-header__tabs">
+    <ng-template [ngTemplateOutlet]="tabsTpl" />
+  </div>
+  }
+  <span class="mlv-page-header__spacer" aria-hidden="true"></span>
+  @if (_tabsActionsRef()?.templateRef; as tabsActionsTpl) {
+  <div class="mlv-page-header__tabs-actions">
+    <ng-template [ngTemplateOutlet]="tabsActionsTpl" />
+  </div>
+  }
+</div>
+}
+
+<!-- A projected summary strip renders as the chrome's bottom row, sharing
+     this header's single glass surface. -->
+<ng-content select="mlv-page-summary" />
+
+@if (_controls(); as snap) {
+<div class="mlv-page-header__snap-controls">
+  <button
+    mlvButton
+    type="button"
+    variant="outlined"
+    shape="circle"
+    mlvDensity="tight"
+    class="mlv-page-header__snap-toggle"
+    [attr.aria-label]="toggleLabel()"
+    [attr.aria-expanded]="!_snapped()"
+    (click)="snap.toggle()"
+  >
+    <svg lucideChevronUp [size]="12" aria-hidden="true" />
+  </button>
+  <button
+    mlvButton
+    type="button"
+    variant="outlined"
+    shape="circle"
+    mlvDensity="tight"
+    class="mlv-page-header__snap-pin"
+    [class.mlv-page-header__snap-pin--active]="_pinned()"
+    [attr.aria-label]="pinLabel()"
+    [attr.aria-pressed]="_pinned()"
+    (click)="snap.setPinned(!_pinned())"
+  >
+    @if (_pinned()) {
+    <svg lucidePinOff [size]="12" aria-hidden="true" />
+    } @else {
+    <svg lucidePin [size]="12" aria-hidden="true" />
+    }
+  </button>
+</div>
+}

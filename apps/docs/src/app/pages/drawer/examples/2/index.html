@@ -1,0 +1,53 @@
+<button mlvButton (click)="showSheet.set(true)">Open Bottom Sheet</button>
+
+<mlv-drawer
+  [(opened)]="showSheet"
+  position="bottom"
+  resizable
+  [snapPoints]="snapPoints"
+  [defaultSnap]="80"
+  [hasBackdrop]="true"
+>
+  <ng-template mlvDrawerContent>
+    <div mlvDrawerHeader>
+      <span style="font-weight: 600; font-size: 1rem">Share item</span>
+      <span style="flex: 1"></span>
+      <button
+        mlvButton
+        variant="secondary"
+        shape="square"
+        (click)="showSheet.set(false)"
+        aria-label="Close"
+      >
+        <svg lucideX [size]="20" />
+      </button>
+    </div>
+    <div mlvDrawerBody style="display: flex; flex-direction: column; gap: 1rem">
+      <p style="margin: 0; color: var(--mlv-text-secondary)">
+        Drag the handle to resize the panel. Snap points are set at 40%, 80%,
+        and 100% of the viewport height. Swipe down quickly to dismiss.
+      </p>
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap">
+        @for (option of ['Copy link', 'Send via email', 'Export as PDF', 'Share
+        to Slack']; track option) {
+        <button mlvButton variant="secondary">{{ option }}</button>
+        }
+      </div>
+    </div>
+    <div
+      mlvDrawerFooter
+      style="
+        padding: 1rem 1.5rem;
+        border-top: 0.0625rem solid var(--mlv-border-normal);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+      "
+    >
+      <button mlvButton variant="secondary" (click)="showSheet.set(false)">
+        Cancel
+      </button>
+      <button mlvButton (click)="showSheet.set(false)">Confirm</button>
+    </div>
+  </ng-template>
+</mlv-drawer>

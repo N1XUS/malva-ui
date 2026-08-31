@@ -1,0 +1,16 @@
+<form
+  [formGroup]="form"
+  (ngSubmit)="submit()"
+  style="display: flex; flex-direction: column; gap: 1rem; max-width: 480px"
+>
+  <mlv-textarea
+    label="Message"
+    placeholder="Write your message here..."
+    hint="At least 10 characters required"
+    [rows]="5"
+    [state]="messageState"
+    [message]="messageText"
+    formControlName="message"
+  />
+  <button mlvButton type="submit">Submit</button>
+</form>

@@ -1,0 +1,7 @@
+<p style="max-width: 36rem; line-height: 1.6">
+  Send events to
+  <mlv-copy-to-clipboard [value]="webhookUrl" (copied)="onCopied($event)"
+    >hooks.malva-ui.example.com</mlv-copy-to-clipboard
+  >. Copy the URL to see a confirmation toast fire via
+  <code>MlvToastService.success()</code>.
+</p>

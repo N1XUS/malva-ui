@@ -1,0 +1,320 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+// ─── Derived constants (keep in sync with sidebar-item.scss) ─────────
+//   icon-size: 20px  |  item-h-pad: 0.5rem (--mlv-spacing-2)  |  item-v-pad: 0.5rem
+//   tree-line x from group-left = item-h-pad + icon-size/2 = 0.5rem + 0.625rem = 1.125rem
+@layer mlv.components {
+$icon-half: 0.625rem; // half of 20px icon
+$tree-x: calc(
+  var(--mlv-sidebar-icon-column-width, 3.5rem) / 2
+); // centre of the stable icon column
+$item-radius: var(--mlv-radius-m);
+
+$block: mlv-sidebar-group;
+
+.#{$block}-host {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+
+  > .#{$block},
+  > .#{$block}__collapsed {
+    grid-area: 1 / 1;
+    min-width: 0;
+  }
+}
+
+// ─── Accordion (expanded sidebar) ─────────────────────────────────────────────
+.#{$block} {
+  width: 100%;
+  min-width: 0;
+
+  &--collapsed {
+    pointer-events: none;
+  }
+
+  &__header {
+    display: grid;
+    grid-template-columns:
+      var(--mlv-sidebar-icon-column-width, 3.5rem)
+      minmax(0, 1fr) auto auto;
+    align-items: center;
+    width: 100%;
+    // Shared sidebar row height — keeps a group header flush with plain items.
+    min-height: var(--mlv-sidebar-row-height, 2.25rem);
+    padding: 0;
+    border: none;
+    border-radius: var(--mlv-radius-m);
+    background: transparent;
+    cursor: pointer;
+    font-size: var(--mlv-font-size-l);
+    color: var(--mlv-text-secondary);
+    text-align: start;
+    transition-property: background-color, color;
+    transition-duration: var(--mlv-duration-normal);
+    transition-timing-function: var(--mlv-ease-default);
+    line-height: var(--mlv-line-height-snug);
+    outline: none;
+
+    * {
+      color: inherit;
+    }
+
+    &:hover,
+    &:focus-visible {
+      // Seam for a host painting the sidebar on its own chrome — see the
+      // `--mlv-sidebar-*` block in sidebar.scss.
+      background-color: var(
+        --mlv-sidebar-hover-bg,
+        var(--mlv-background-neutral-1)
+      );
+      color: var(--mlv-text-primary);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    }
+
+    // Deliberately text-only — no pill. The active child item inside this open
+    // accordion already carries the pill, and a second one on its header would
+    // read as two active destinations rather than one active section.
+    &--active {
+      // Selection is its own token (SF-R1) — never the pressed/`-active` fill.
+      color: var(--mlv-text-on-selected);
+      font-weight: 600;
+    }
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__label {
+    font-size: var(--mlv-font-size-l);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+    transition:
+      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+      transform var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+      visibility var(--mlv-duration-instant) linear;
+  }
+
+  // Trailing badge in the expanded accordion header (between label and chevron).
+  &__badge {
+    flex-shrink: 0;
+    margin-inline-end: var(--mlv-spacing-2);
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+      visibility var(--mlv-duration-instant) linear;
+  }
+
+  &__arrow {
+    flex-shrink: 0;
+    margin-inline-end: var(--mlv-spacing-2);
+    transition: transform var(--mlv-duration-normal) var(--mlv-ease-default);
+
+    &--open {
+      transform: rotate(180deg);
+    }
+  }
+
+  &--collapsed {
+    .#{$block}__label {
+      opacity: 0;
+      transform: translateX(mixins.inline-distance(-0.25rem));
+      visibility: hidden;
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+        transform var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+        visibility var(--mlv-duration-instant) linear var(--mlv-duration-normal);
+    }
+
+    .#{$block}__badge,
+    .#{$block}__arrow {
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+        visibility var(--mlv-duration-instant) linear var(--mlv-duration-normal);
+    }
+  }
+
+  // ─── Accordion content via mlv-expand ──────────────────────────────────────
+  &__content {
+    // Tree line sits at the horizontal centre of the parent icon
+    margin-inline-start: $tree-x;
+    // Left border (tree line) shown only while expanded
+    border-inline-start: 0.09375rem solid transparent;
+    // Gap from tree line to where child item labels align
+    padding-inline-start: calc(#{$icon-half} - 0.09375rem);
+    // The collapsed `mlv-expand` still occupies its padding box, so a closed
+    // panel used to add 2px under every group header and put groups 2px out of
+    // step with plain items. The breathing space only exists while open.
+    padding-top: 0;
+    transition:
+      border-color var(--mlv-duration-normal) var(--mlv-ease-default),
+      padding-top var(--mlv-duration-normal) var(--mlv-ease-default);
+
+    &.mlv-expand--open {
+      // Tree line — a sidebar chrome surface, so it follows the same seam as
+      // the row states (see the `--mlv-sidebar-*` block in sidebar.scss).
+      border-color: var(--mlv-sidebar-rail-color, var(--mlv-border-normal));
+      padding-top: 0.125rem;
+    }
+
+    // Style the inner content wrapper from mlv-expand
+    .mlv-expand__body-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 0.0625rem;
+    }
+  }
+
+  &__tooltip-container {
+    &.mlv-popup {
+      padding: var(--mlv-padding-m);
+    }
+  }
+}
+
+// ─── Collapsed sidebar: icon-only trigger button ───────────────────────────────
+.#{$block}__icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mlv-sidebar-icon-column-width, 3.5rem);
+  // Shared sidebar row height — see `--mlv-sidebar-row-height` in sidebar.scss.
+  min-height: var(--mlv-sidebar-row-height, 2.25rem);
+  padding: 0;
+  border: none;
+  border-radius: $item-radius;
+  background: transparent;
+  cursor: pointer;
+  color: var(--mlv-text-secondary);
+  transition:
+    background-color var(--mlv-duration-fast) var(--mlv-ease-default),
+    color var(--mlv-duration-fast) var(--mlv-ease-default);
+  outline: none;
+
+  // Corner chevron marking this as a group (opens a flyout), so a collapsed
+  // group icon is clearly distinguishable from a plain sidebar item. Kept subtle
+  // but legible — larger glyph, bolder weight, and stronger contrast than a
+  // hairline hint. Inherits the button colour (secondary → primary on hover).
+  &::after {
+    content: '›';
+    position: absolute;
+    inset-inline-end: 0.1875rem;
+    bottom: 0.0625rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0.8;
+    pointer-events: none;
+  }
+
+  &:hover,
+  &:focus-visible {
+    // Same tint as a plain item's hover — the collapsed rail mixes items and
+    // group triggers, and this used to be the one row reaching for the
+    // stronger `--mlv-background-neutral-1-hover` step.
+    background-color: var(
+      --mlv-sidebar-hover-bg,
+      var(--mlv-background-neutral-1)
+    );
+    color: var(--mlv-text-primary);
+  }
+
+  &:focus-visible {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+  }
+
+  // The modifier is repeated against the block class on purpose: `--active` is
+  // one class and loses to the `:hover` rule above (class + pseudo-class), so
+  // hovering the active trigger used to drop it to the hover tint.
+  &.#{$block}__icon-btn--active,
+  &.#{$block}__icon-btn--active:hover,
+  &.#{$block}__icon-btn--active:focus-visible {
+    // Selection is its own token (SF-R1) — never the pressed/`-active` fill.
+    color: var(--mlv-text-on-selected);
+    background-color: var(
+      --mlv-sidebar-active-bg,
+      var(--mlv-background-selected)
+    );
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  // Collapsed-rail status dot — pinned to the top-right corner of the centered
+  // 1.25rem icon glyph (dot centre on the corner), clear of the bottom-right
+  // group chevron glyph.
+  .#{$block}__status {
+    position: absolute;
+    top: calc(50% - 0.625rem);
+    inset-inline-end: calc(50% - 0.625rem);
+    // The X half-step pushes the dot outward past its inline-end anchor, so it
+    // has to change sign with the inline axis.
+    transform: translate(mixins.inline-distance(50%), -50%);
+    pointer-events: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .#{$block}__icon-btn,
+  .#{$block}__arrow,
+  .#{$block}__label,
+  .#{$block}__badge,
+  .#{$block}__content {
+    transition-duration: var(--mlv-duration-instant);
+  }
+}
+
+.#{$block}__flyout-popup {
+  &.mlv-popup {
+    padding: var(--mlv-spacing-2);
+  }
+}
+
+// ─── Flyout popup content (rendered inside mlv-popup) ───────────────────────
+.#{$block}__flyout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+}
+
+.#{$block}__flyout-header {
+  display: flex;
+  align-items: center;
+  gap: var(--mlv-spacing-2);
+  padding: 0.3125rem 0.625rem 0.5rem;
+  font-size: var(--mlv-font-size-m);
+  font-weight: 600;
+  color: var(--mlv-text-secondary);
+  border-bottom: 0.0625rem solid var(--mlv-border-normal);
+  margin-bottom: 0.125rem;
+  white-space: nowrap;
+}
+
+.#{$block}__flyout-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.#{$block}__flyout-badge {
+  flex-shrink: 0;
+}
+}

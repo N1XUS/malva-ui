@@ -1,0 +1,12 @@
+<div class="search-field-demo">
+  <mlv-search-field
+    trigger="submit"
+    placeholder="Search orders"
+    (search)="onSearch($event)"
+  />
+
+  <output class="search-field-demo__result" aria-live="polite">
+    Submitted: <strong>{{ submittedQuery() || 'None' }}</strong>
+    <span>({{ submitCount() }} submissions)</span>
+  </output>
+</div>

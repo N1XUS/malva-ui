@@ -1,0 +1,10 @@
+.table-density-example {
+  display: grid;
+  gap: var(--mlv-spacing-4);
+
+  &__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-2);
+  }
+}

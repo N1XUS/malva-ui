@@ -1,0 +1,25 @@
+## Compound page tree
+
+The page is one immutable model bound once at the root with `[(tree)]`. Each recursive `mlv-tile` receives its typed node, while nested `mlv-tiles` containers inherit the root coordinator and model automatically.
+
+```html
+<mlv-tiles [(tree)]="page" [accepts]="canAccept" layout="grid">
+  @for (tile of page().children; track tile.id) {
+    <docs-tile-tree-node [tile]="tile" />
+  }
+</mlv-tiles>
+```
+
+`PageBuilderProps` and the acceptance policy remain application-owned. Product data keeps `kind: 'row' | 'block'` and optional leaf metadata such as `blockType: 'hero'`; only the library's `acceptsChildren` field controls tree structure. This policy allows leaf blocks into any structurally valid container and permits a row only when the target has no leaf children.
+
+```ts
+readonly canAccept: MlvTilesAccepts<PageBuilderProps> = (
+  draggedTile,
+  _targetTile,
+  innerTiles,
+) =>
+  !draggedTile.acceptsChildren ||
+  !innerTiles.some((innerTile) => !innerTile.acceptsChildren);
+```
+
+The Tile compound components own immutable moves, removal, property updates, cycle prevention, target precedence, and drag geometry. The recursive consumer only projects product content and actions: Edit, the publication Switch, the built-in drag handle, and Trash.

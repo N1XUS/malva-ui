@@ -1,0 +1,133 @@
+<div class="sidebar-demo">
+  <mlv-sidebar [(collapsed)]="collapsed">
+    <div mlvSidebarHeader>
+      <mlv-sidebar-workspace
+        [workspaces]="workspaces"
+        [(workspace)]="workspace"
+      >
+        <ng-template mlvSidebarWorkspaceLogo>
+          <svg lucideCommand size="20" />
+        </ng-template>
+        <ng-template mlvSidebarWorkspaceText let-option>
+          <span>{{ option.label }}</span>
+          <span>{{ option.description }}</span>
+        </ng-template>
+      </mlv-sidebar-workspace>
+    </div>
+
+    <div mlvSidebarContent>
+      <mlv-sidebar-item label="Dashboard" [active]="true">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideLayoutDashboard size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Lifecycle">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideListTodo size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Analytics">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideChartColumn size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Projects">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideFolderOpen size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Team">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideUsers size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-group label="Documents">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideFileText size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Data Library">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideDatabase size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Reports">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideFileText size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Word Assistant">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideFileText size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-sidebar-group label="Resources">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideBookOpen size="20" />
+        </ng-template>
+
+        <mlv-sidebar-item label="Changelog">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideNewspaper size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Documentation">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideBookOpen size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+
+        <mlv-sidebar-item label="Community">
+          <ng-template mlvSidebarItemIcon>
+            <svg lucideMessageSquare size="20" />
+          </ng-template>
+        </mlv-sidebar-item>
+      </mlv-sidebar-group>
+
+      <mlv-spacer />
+
+      <mlv-sidebar-item label="Settings">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideSettings size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Get Help">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideCircleHelp size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+
+      <mlv-sidebar-item label="Search">
+        <ng-template mlvSidebarItemIcon>
+          <svg lucideSearch size="20" />
+        </ng-template>
+      </mlv-sidebar-item>
+    </div>
+
+    <div mlvSidebarFooter>
+      <mlv-sidebar-item label="Jane Cooper">
+        <ng-template mlvSidebarItemIcon>
+          <mlv-avatar name="Jane Cooper" size="xs" />
+        </ng-template>
+        <ng-template mlvSidebarItemTitle>
+          <div class="user">
+            <span class="user__name">Jane Cooper</span>
+            <span class="user__email">jane&#64;acme.com</span>
+          </div>
+        </ng-template>
+      </mlv-sidebar-item>
+      <mlv-sidebar-trigger />
+    </div>
+  </mlv-sidebar>
+</div>

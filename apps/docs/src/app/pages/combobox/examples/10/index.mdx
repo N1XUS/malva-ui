@@ -1,0 +1,25 @@
+---
+title: Paged data source (multi-select)
+description: An MlvDataSource that searches and pages server-side, behind multi-select tags
+---
+
+`[options]` also accepts an `MlvDataSource` (`@malva-ui/cdk/data-source`). The
+source owns filtering — the combobox forwards its text as
+`setSearch({ query, keys: [] })` (natural-field search) — and is paged lazily:
+`connect()` emits the **current page's slice**, the combobox accumulates the
+slices, and the panel's scroll sentinel calls `setPage(page + 1)` when the user
+reaches the end. "More pages exist" is derived from `totalItems()`, so the
+bottom "loading more" row appears only while another page is genuinely on its
+way. The fake source here serves 57 users, 10 at a time, with 600 ms latency.
+
+`[multiple]` renders each pick as a removable tag in the trigger. Two details
+matter once the option set changes under an open panel:
+
+- **`compareWith`** (`(a, b) => a.id === b.id`) matches values against options
+  by identity rather than reference, so a value written from a server — or one
+  whose option has been paged out of the rendered list — still resolves its
+  label and check-mark.
+- **Committed picks survive filtering.** The aria listbox re-emits its value
+  whenever the rendered option set changes; the shared reconciliation guard
+  tells that noise apart from a real pick, so tags selected on page 1 are not
+  dropped when a search or a new page replaces the visible rows.

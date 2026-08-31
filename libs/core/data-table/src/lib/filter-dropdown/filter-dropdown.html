@@ -1,0 +1,82 @@
+<div class="mlv-dt-filter-dropdown__panel">
+  <div class="mlv-dt-filter-dropdown__header">
+    <span class="mlv-dt-filter-dropdown__title">{{ _i18n().filters }}</span>
+    <button
+      mlvButton
+      variant="transparent"
+      shape="square"
+      mlvDensity="tight"
+      type="button"
+      (click)="cancel()"
+      [attr.aria-label]="_i18n().closeFilters"
+    >
+      <svg lucideX mlvButtonIcon [size]="16" />
+    </button>
+  </div>
+
+  <div class="mlv-dt-filter-dropdown__body">
+    @for (col of filterableColumns(); track col.key) {
+    <div class="mlv-dt-filter-dropdown__group">
+      <span class="mlv-dt-filter-dropdown__label"
+        >{{ col.title ?? col.key }}</span
+      >
+
+      @if (options(col).length > 0) {
+      <mlv-select
+        class="mlv-dt-filter-dropdown__option-operator"
+        [options]="operators(col)"
+        [toOption]="operatorTransform"
+        [ariaLabel]="resolveOperatorLabel(col)"
+        [ngModel]="getFilter(col.key).operator"
+        (ngModelChange)="setOperator(col.key, $event)"
+      />
+      <div class="mlv-dt-filter-dropdown__options">
+        @for (opt of options(col); track opt.value) {
+        <div class="mlv-dt-filter-dropdown__option">
+          <mlv-checkbox
+            [checked]="isInArray(col.key, opt.value)"
+            [ariaLabel]="opt.label"
+            (checkedChange)="toggleInArray(col.key, opt.value)"
+            >{{ opt.label }}</mlv-checkbox
+          >
+        </div>
+        }
+      </div>
+      } @else {
+      <div class="mlv-dt-filter-dropdown__row">
+        <mlv-select
+          class="mlv-dt-filter-dropdown__operator"
+          [options]="operators(col)"
+          [toOption]="operatorTransform"
+          [ariaLabel]="resolveOperatorLabel(col)"
+          [ngModel]="getFilter(col.key).operator"
+          (ngModelChange)="setOperator(col.key, $event)"
+        />
+        <mlv-input
+          class="mlv-dt-filter-dropdown__text-input"
+          [placeholder]="resolveFilterPlaceholder(col.title ?? col.key)"
+          [ariaLabel]="resolveFilterPlaceholder(col.title ?? col.key)"
+          [ngModel]="$any(getFilter(col.key).value)"
+          (ngModelChange)="setValue(col.key, $event)"
+        />
+      </div>
+      }
+    </div>
+    }
+  </div>
+
+  <div class="mlv-dt-filter-dropdown__footer">
+    <button
+      mlvButton
+      variant="secondary"
+      mlvDensity="compact"
+      type="button"
+      (click)="clear()"
+    >
+      {{ _i18n().clearAll }}
+    </button>
+    <button mlvButton mlvDensity="compact" type="button" (click)="apply()">
+      {{ _i18n().apply }}
+    </button>
+  </div>
+</div>

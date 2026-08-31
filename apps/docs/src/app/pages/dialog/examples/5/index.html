@@ -1,0 +1,20 @@
+<button mlvButton variant="outlined" (click)="showNonClosable.set(true)">
+  Open Non-closable
+</button>
+<ng-template
+  [(mlvDialog)]="showNonClosable"
+  [mlvDialogOptions]="{ size: 's', closeOnBackdrop: false }"
+>
+  <mlv-dialog>
+    <mlv-dialog-header title="Non-Closable" />
+    <mlv-dialog-body>
+      <p>
+        Clicking the backdrop won't close this dialog. Use the button or press
+        Escape.
+      </p>
+    </mlv-dialog-body>
+    <mlv-dialog-footer>
+      <button mlvButton mlvDialogClose>Close</button>
+    </mlv-dialog-footer>
+  </mlv-dialog>
+</ng-template>

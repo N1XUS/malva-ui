@@ -1,0 +1,238 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-chat-message;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-typography-body-m-size),
+    0,
+    0.5rem 0.75rem
+  );
+
+  --mlv-chat-message-bg: var(--mlv-background-neutral-1);
+  --mlv-chat-message-color: var(--mlv-text-primary);
+  --mlv-chat-message-radius: var(--mlv-radius-l);
+  --mlv-chat-message-tail-radius: var(--mlv-radius-xs);
+
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  /* explicit fit-content (not just inline-flex's implicit shrink-to-fit):
+     this bubble is a grid item inside mlv-chat__item, and CSS Grid's default
+     justify-items: stretch forces an auto-width item to fill the track — the
+     "other"-side items never opt out of that the way the own side does. An
+     explicit width keeps the bubble content-sized regardless. */
+  width: fit-content;
+  max-width: 100%;
+  background-color: var(--mlv-chat-message-bg);
+  color: var(--mlv-chat-message-color);
+  border-radius: var(--mlv-chat-message-radius);
+  overflow-wrap: anywhere;
+
+  &--own {
+    --mlv-chat-message-bg: var(--mlv-background-accent-1);
+    --mlv-chat-message-color: var(--mlv-text-primary-on-accent-1);
+  }
+
+  /*
+   * Citation palette handed down to the nested quote.
+   *
+   * The quote is a second `mlv-chat-message` host, so it re-declares every
+   * `--mlv-chat-message-*` variable above and cannot inherit any of them. These
+   * differently-named variables are declared on the reply button instead — an
+   * ancestor of that host that never redeclares them — so the citation can
+   * resolve the *parent* bubble's colours.
+   *
+   * Deriving the surface from the parent's own text colour is what makes one
+   * rule set cover neutral and accent bubbles in both themes: it is a tint of
+   * whatever already reads correctly on that bubble.
+   */
+  &__reply {
+    --mlv-chat-quote-fg: var(--mlv-chat-message-color);
+    --mlv-chat-quote-accent: var(--mlv-background-accent-1);
+    --mlv-chat-quote-author: var(--mlv-text-action);
+    --mlv-chat-quote-surface: color-mix(
+      in srgb,
+      var(--mlv-chat-message-color) 8%,
+      transparent
+    );
+    --mlv-chat-quote-surface-hover: color-mix(
+      in srgb,
+      var(--mlv-chat-message-color) 14%,
+      transparent
+    );
+
+    display: flex;
+    width: 100%;
+    margin: 0;
+    border: 0;
+    border-radius: var(--mlv-radius-s);
+    padding: 0;
+    background-color: var(--mlv-chat-quote-surface);
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+    overflow: hidden;
+    transition: background-color var(--mlv-duration-fast)
+      var(--mlv-ease-default);
+
+    &:hover {
+      background-color: var(--mlv-chat-quote-surface-hover);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+  }
+
+  /* On the accent bubble the global action colour would sit blue-on-blue. */
+  &--own &__reply {
+    --mlv-chat-quote-accent: var(--mlv-text-primary-on-accent-1);
+    --mlv-chat-quote-author: var(--mlv-text-primary-on-accent-1);
+    --mlv-border-focus: var(--mlv-text-primary-on-accent-1);
+  }
+
+  /* corner-tail: flatten the corner facing the neighbouring message of the run */
+  &--other#{&}--pos-first {
+    border-end-start-radius: var(--mlv-chat-message-tail-radius);
+  }
+
+  &--other#{&}--pos-middle {
+    border-start-start-radius: var(--mlv-chat-message-tail-radius);
+    border-end-start-radius: var(--mlv-chat-message-tail-radius);
+  }
+
+  &--other#{&}--pos-last {
+    border-start-start-radius: var(--mlv-chat-message-tail-radius);
+  }
+
+  &--own#{&}--pos-first {
+    border-end-end-radius: var(--mlv-chat-message-tail-radius);
+  }
+
+  &--own#{&}--pos-middle {
+    border-start-end-radius: var(--mlv-chat-message-tail-radius);
+    border-end-end-radius: var(--mlv-chat-message-tail-radius);
+  }
+
+  &--own#{&}--pos-last {
+    border-start-end-radius: var(--mlv-chat-message-tail-radius);
+  }
+
+  &--failed {
+    --mlv-chat-message-bg: var(--mlv-background-danger-1-pale);
+    --mlv-chat-message-color: var(--mlv-text-negative);
+  }
+
+  /* the global [class*='mlv'] reset drops inherited colour, so every child
+     restates the bubble colour instead of relying on inheritance */
+  &__text {
+    white-space: pre-wrap;
+    /* pretty, not balance: balance rewraps lines only AFTER the box is
+       already sized (fit-content/max-width above), so a shorter balanced
+       wrap leaves the box's own width unchanged — a dead gap on the last
+       line. pretty avoids orphan words without re-measuring the box. */
+    text-wrap: pretty;
+    color: var(--mlv-chat-message-color);
+    font-size: inherit;
+  }
+
+  &__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    align-self: flex-end;
+    font-size: var(--mlv-typography-body-s-size);
+    color: var(--mlv-chat-message-color);
+    opacity: 0.7;
+  }
+
+  &__time {
+    color: var(--mlv-chat-message-color);
+    font-size: inherit;
+  }
+
+  &__status {
+    color: var(--mlv-chat-message-color);
+    font-size: inherit;
+  }
+
+  /* ticks only ever render on own (accent) bubbles, so "read" reads as the
+     full-strength bubble colour rather than an info hue that would sit
+     blue-on-blue */
+  &__status--read {
+    color: var(--mlv-chat-message-color);
+    opacity: 1;
+  }
+
+  &__retry {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: none;
+    border: none;
+    color: var(--mlv-text-negative);
+    cursor: pointer;
+    font-size: var(--mlv-typography-body-s-size);
+    padding: 0;
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+  }
+
+  &--quote {
+    --mlv-chat-message-bg: transparent;
+    /* falls back to the standalone palette when rendered outside a reply */
+    --mlv-chat-message-color: var(--mlv-chat-quote-fg, var(--mlv-text-primary));
+
+    flex: 1 1 auto;
+    gap: 0.125rem;
+    min-width: 0;
+    border-inline-start: 0.1875rem solid
+      var(--mlv-chat-quote-accent, var(--mlv-background-accent-1));
+    border-radius: 0;
+    padding: var(--mlv-spacing-1) var(--mlv-spacing-2);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &--quote &__text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    opacity: 0.85;
+  }
+
+  &__quote-author {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    color: var(--mlv-chat-quote-author, var(--mlv-text-action));
+    font-weight: var(--mlv-font-weight-semibold);
+  }
+
+  /* Marks a citation whose own source was itself a reply. */
+  &__reply-marker {
+    flex: none;
+    color: var(--mlv-chat-quote-author, var(--mlv-text-action));
+    opacity: 0.7;
+  }
+
+  &__quote-audio {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    color: var(--mlv-chat-quote-fg, var(--mlv-text-primary));
+    opacity: 0.85;
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

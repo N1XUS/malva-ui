@@ -1,0 +1,11 @@
+<div class="demo-row" style="flex-wrap: wrap; min-height: 2rem">
+  @for (tag of tags(); track tag) {
+  <mlv-chip tone="primary" muted closable animated (chipClose)="removeTag(tag)">
+    {{ tag }}
+  </mlv-chip>
+  } @empty {
+  <span style="color: var(--mlv-text-secondary, #666); font-size: 0.875rem">
+    All tags removed. Refresh to reset.
+  </span>
+  }
+</div>

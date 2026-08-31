@@ -1,0 +1,18 @@
+## Host-owned image transport
+
+Pass an `MlvEditorImageUploader` through `[imageUploader]`, or provide the same
+adapter with `MLV_EDITOR_IMAGE_UPLOADER`. The per-editor input wins when both
+exist. Malva validates MIME type, size, count, and the returned URL policy,
+coordinates one request path for button/paste/drop, reports progress, and
+supports cancel, retry, and failed-item removal. The host owns authentication,
+transport, persistence, and the final public URL.
+
+This demo is deterministic and local: it uses a fixed interval and returns an
+inline SVG data URL through a demo-only URL policy. It never contacts a
+backend, uses random timing, or creates an object URL. All intervals and abort
+listeners are released on success, failure, cancellation, and teardown.
+
+Production applications should keep the default HTTP(S) URL policy or supply a
+strict host policy. `imageUploadSuccess`, `imageUploadFailure`, and
+`imageUploadCancelled` expose the terminal result; `editorError` also reports
+validation, transport, and invalid-result failures.

@@ -1,0 +1,21 @@
+<button mlvButton variant="outlined" (click)="open.set(true)">
+  Open Confirm Dialog
+</button>
+
+<ng-template
+  [(mlvDialog)]="open"
+  [mlvDialogOptions]="{ size: 's', appearance: 'confirm' }"
+>
+  <mlv-dialog>
+    <mlv-dialog-header><h4>Delete item?</h4></mlv-dialog-header>
+    <mlv-dialog-body>
+      <p class="mlv-my-0">
+        This action cannot be undone. Are you sure you want to proceed?
+      </p>
+    </mlv-dialog-body>
+    <mlv-dialog-footer align="between">
+      <button mlvButton variant="secondary" mlvDialogClose>Cancel</button>
+      <button mlvButton variant="error" mlvDialogClose="deleted">Delete</button>
+    </mlv-dialog-footer>
+  </mlv-dialog>
+</ng-template>

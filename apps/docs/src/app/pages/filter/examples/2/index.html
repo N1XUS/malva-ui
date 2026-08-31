@@ -1,0 +1,16 @@
+<div class="filter-conditions-demo">
+  <mlv-filter
+    label="Title"
+    editor="text"
+    applyMode="explicit"
+    allowMultipleConditions
+    [operators]="operators"
+    [(conditions)]="conditions"
+    [(conditionStrategy)]="strategy"
+  />
+
+  <output class="filter-conditions-demo__summary" aria-live="polite">
+    <span class="filter-conditions-demo__eyebrow">Applied query</span>
+    <strong>{{ appliedSummary() }}</strong>
+  </output>
+</div>

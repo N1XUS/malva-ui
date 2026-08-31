@@ -1,0 +1,33 @@
+{
+  "name": "core-checkbox",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/checkbox/src",
+  "prefix": "mlv",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:core", "type:ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "config": "libs/core/checkbox/vite.config.mts"
+      }
+    },
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "outputs": ["{workspaceRoot}/dist/.playwright/libs/core/checkbox"],
+      "dependsOn": [
+        {
+          "projects": "docs",
+          "target": "serve",
+          "params": "forward"
+        }
+      ],
+      "options": {
+        "config": "libs/core/checkbox/playwright.config.mts"
+      }
+    }
+  }
+}

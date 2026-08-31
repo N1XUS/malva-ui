@@ -1,0 +1,143 @@
+@use '../../../../../styles/src/lib/mixins';
+@use '../../../../../styles/src/lib/breakpoints' as bp;
+
+@layer mlv.components {
+$block: mlv-dialog;
+
+// `.mlv-dialog--enter` / `.mlv-dialog--leave` keyframes come from the global
+// `libs/styles/src/lib/animations.scss` (reduced-motion gated there).
+.#{$block} {
+  @include mixins.base();
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  // Mobile: fullscreen geometry — no radius, fills the pane. The pane itself
+  // is sized by the resolved size preset (`fullscreen` for a true edge-to-edge dialog).
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  border-radius: 0;
+  border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+  background-color: var(--mlv-elevation-bg-2);
+  color: var(--mlv-text-primary);
+  box-shadow: var(--mlv-shadow-modal);
+
+  @include bp.breakpoint-up(md) {
+    border-radius: var(--mlv-radius-dialog);
+    max-height: calc(100dvh - 2rem);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mlv-spacing-3);
+    flex-shrink: 0;
+    padding: var(--mlv-spacing-3);
+    border-bottom: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+  }
+
+  &__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    // Own the box explicitly: the `[class*='mlv']` reset lives in the
+    // `mlv.base` layer, so an unlayered consumer `h2 { margin: … }` would win.
+    margin: 0;
+    padding: 0;
+    font-size: var(--mlv-font-size-2xl);
+    font-weight: var(--mlv-font-weight-semibold);
+    line-height: var(--mlv-line-height-tight);
+    color: var(--mlv-text-primary);
+
+    // A projected heading of any level renders as *the* dialog title:
+    // same size/weight, no outer margin. Pick the level for the outline.
+    > :is(h1, h2, h3, h4, h5, h6) {
+      margin: 0;
+      font: inherit;
+      color: inherit;
+    }
+  }
+
+  &__close {
+    flex: none;
+  }
+
+  &__body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  &__body-scrollbar {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  // Padding inside the clip box (see drawer.scss) so focus rings survive.
+  &__body-scrollbar > .mlv-scrollbar__viewport {
+    overflow-x: hidden;
+    padding: var(--mlv-spacing-3);
+  }
+
+  // Body children stack vertically and may `flex: 1` to fill the body.
+  // Explicit column: inheriting the parent's flex-direction instead read the
+  // viewport's initial `row` (the property is not inherited).
+  &__body-scrollbar > .mlv-scrollbar__viewport > .mlv-scrollbar__content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  // Paragraph rendered for string content.
+  &__text {
+    margin: 0;
+    color: var(--mlv-text-primary);
+    line-height: var(--mlv-line-height-relaxed);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  &__footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--mlv-spacing-2);
+    flex-shrink: 0;
+    padding: var(--mlv-spacing-3);
+    border-top: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+
+    &--align-start {
+      justify-content: flex-start;
+    }
+
+    &--align-center {
+      justify-content: center;
+    }
+
+    &--align-between {
+      justify-content: space-between;
+    }
+  }
+
+  &--confirm &__header,
+  &--confirm &__footer {
+    border: none;
+  }
+}
+
+// `size: 'fullscreen'` — the preset sizes the pane, this drops the desktop
+// chrome so the surface is truly edge-to-edge. `MlvDialogService` stamps the
+// modifier on the pane, one level above the surface, so it outranks the
+// `breakpoint-up(md)` rule above.
+.mlv-dialog-pane--fullscreen .#{$block} {
+  max-height: 100%;
+  border-radius: 0;
+  border: 0;
+}
+}

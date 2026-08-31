@@ -1,0 +1,16 @@
+<mlv-data-table
+  [data]="orders"
+  [columns]="columns"
+  showSortMenu
+  [searchQuery]="query()"
+  (searchQueryChange)="query.set($event)"
+  (presentationStateChange)="lastState.set($event)"
+>
+  <ng-template mlvDataTableToolbarActions>
+    <button mlvButton type="button" variant="secondary" (click)="export()">
+      Export
+    </button>
+  </ng-template>
+</mlv-data-table>
+
+<p aria-live="polite">{{ exportMessage() }}</p>

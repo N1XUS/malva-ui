@@ -1,0 +1,25 @@
+$block: filter-conditions-demo;
+
+.#{$block} {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+
+  &__summary {
+    display: flex;
+    min-width: min(100%, 20rem);
+    flex: 1 1 20rem;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+    border-inline-start: 0.1875rem solid var(--mlv-border-focus);
+    color: var(--mlv-text-primary);
+    background: var(--mlv-background-subtle);
+  }
+
+  &__eyebrow {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+}

@@ -1,0 +1,32 @@
+$block: smart-filter-demo;
+
+.#{$block} {
+  display: grid;
+  gap: 1rem;
+
+  &__payload {
+    min-width: 0;
+    padding: 1rem;
+    border-radius: var(--mlv-radius-card);
+    background: var(--mlv-background-subtle);
+
+    h3 {
+      margin: 0;
+    }
+
+    pre {
+      max-height: 18rem;
+      margin: 0;
+      overflow: auto;
+      color: var(--mlv-text-secondary);
+      font-family: var(--mlv-typography-family-code);
+      font-size: var(--mlv-typography-body-s-size);
+      white-space: pre-wrap;
+    }
+  }
+
+  &__status {
+    margin: 0.25rem 0 0.75rem;
+    color: var(--mlv-text-secondary);
+  }
+}

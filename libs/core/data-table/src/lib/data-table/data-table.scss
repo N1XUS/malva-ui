@@ -1,0 +1,834 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+  $block: mlv-data-table;
+
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-dt-font-size),
+      0,
+      0
+    );
+
+    // ---- Density-aware component variables (comfortable defaults) ---------------
+
+    // Row height is the control height at this density plus one fixed
+    // breathing term (CH-R6), so a density change is the only way it moves.
+    --mlv-dt-row-height: calc(var(--mlv-height-m) + var(--mlv-spacing-4));
+    --mlv-dt-cell-padding-x: 1.25rem;
+    --mlv-dt-header-height: 3rem;
+    --mlv-dt-font-size: var(--mlv-font-size-m);
+    --mlv-dt-header-font-size: var(--mlv-font-size-m);
+    --mlv-dt-icon-size: 1rem;
+    --mlv-dt-toolbar-gap: 0.5rem;
+    --mlv-dt-toolbar-padding: 0.75rem 0;
+
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    position: relative;
+    color: var(--mlv-text-primary);
+
+    // ---- Density overrides ------------------------------------------------------
+
+    @include density.density-tight {
+      --mlv-dt-row-height: calc(var(--mlv-height-xs) + var(--mlv-spacing-4));
+      --mlv-dt-cell-padding-x: 0.75rem;
+      --mlv-dt-header-height: 2.25rem;
+      --mlv-dt-font-size: var(--mlv-font-size-s);
+      --mlv-dt-header-font-size: var(--mlv-font-size-s);
+      --mlv-dt-icon-size: 0.75rem;
+      --mlv-dt-toolbar-gap: 0.25rem;
+      --mlv-dt-toolbar-padding: 0.375rem 0;
+    }
+
+    @include density.density-compact {
+      --mlv-dt-row-height: calc(var(--mlv-height-s) + var(--mlv-spacing-4));
+      --mlv-dt-cell-padding-x: 1rem;
+      --mlv-dt-header-height: 2.5rem;
+      --mlv-dt-font-size: var(--mlv-font-size-s);
+      --mlv-dt-header-font-size: var(--mlv-font-size-s);
+      --mlv-dt-icon-size: 0.875rem;
+      --mlv-dt-toolbar-gap: 0.375rem;
+      --mlv-dt-toolbar-padding: 0.5rem 0;
+    }
+
+    @include density.density-spacious {
+      --mlv-dt-row-height: calc(var(--mlv-height-l) + var(--mlv-spacing-4));
+      --mlv-dt-cell-padding-x: 1.5rem;
+      --mlv-dt-header-height: 3.25rem;
+      --mlv-dt-font-size: var(--mlv-font-size-l);
+      --mlv-dt-header-font-size: var(--mlv-font-size-l);
+      --mlv-dt-icon-size: 1.125rem;
+      --mlv-dt-toolbar-gap: 0.75rem;
+      --mlv-dt-toolbar-padding: 0.75rem 0;
+    }
+
+    @include density.density-airy {
+      --mlv-dt-row-height: calc(var(--mlv-height-xl) + var(--mlv-spacing-4));
+      --mlv-dt-cell-padding-x: 1.75rem;
+      --mlv-dt-header-height: 3.75rem;
+      --mlv-dt-font-size: var(--mlv-font-size-l);
+      --mlv-dt-header-font-size: var(--mlv-font-size-l);
+      --mlv-dt-icon-size: 1.25rem;
+      --mlv-dt-toolbar-gap: 1rem;
+      --mlv-dt-toolbar-padding: 1rem 0;
+    }
+
+    // ---- Toolbar ----------------------------------------------------------------
+
+    &__toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--mlv-dt-toolbar-gap);
+      padding: var(--mlv-dt-toolbar-padding);
+      position: relative;
+    }
+
+    &__search {
+      flex: 1 1 16rem;
+      width: min(100%, 24rem);
+      max-width: 24rem;
+    }
+
+    &__toolbar-actions {
+      display: flex;
+      gap: var(--mlv-dt-toolbar-gap);
+      margin-inline-start: auto;
+    }
+
+    &__filter-badge {
+      font-size: var(--mlv-dt-font-size);
+      color: var(--mlv-text-secondary);
+    }
+
+    // ---- Table wrapper ----------------------------------------------------------
+    // Completely flat — no border, no shadow, no radius. The table lives directly
+    // on the page like the reference designs. Separators do all the work.
+
+    &__wrapper {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: auto;
+      position: relative;
+
+      // In virtual scroll mode the wrapper itself does not scroll vertically — the
+      // `cdk-virtual-scroll-viewport` is the only vertical scroll surface. The header and
+      // footer tables sit naturally above and below the viewport in the document flow.
+      &--virtual {
+        overflow-y: visible;
+        display: flex;
+        flex-direction: column;
+      }
+    }
+
+    // ---- Virtual scroll viewport ------------------------------------------------
+    // Hosts the body table inside `cdk-virtual-scroll-viewport`. The viewport's internal
+    // content wrapper applies a CSS `transform` to translate the rendered slice as the user
+    // scrolls — this means `position: sticky` is unreliable on `<thead>` inside the viewport,
+    // which is why the header is rendered as a separate table outside the viewport.
+
+    &__virtual-viewport {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      flex: 0 0 auto;
+      position: sticky;
+      inset-inline-start: 0;
+      border-bottom: 0.0625rem solid var(--mlv-border-subtle);
+    }
+
+    &__virtual-viewport.cdk-virtual-scrollable {
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    &__virtual-horizontal-sizer {
+      width: 0;
+      height: 0;
+      min-height: 0;
+      flex: 0 0 0;
+      align-self: flex-start;
+      pointer-events: none;
+    }
+
+    &__table--virtual-header,
+    &__table--virtual-footer {
+      --mlv-dt-pinned-right-correction: var(
+        --mlv-dt-virtual-scrollbar-gutter,
+        0px
+      );
+    }
+
+    // ---- Loading overlay --------------------------------------------------------
+    // Rendered as the last child of the component host (which is position: relative)
+    // so it covers the toolbar, table body, pagination footer, and any sticky header
+    // cells (z-index above the pinned-in-sticky-header layer at 4).
+
+    &__loading-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: color-mix(
+        in srgb,
+        var(--mlv-background-base) 70%,
+        transparent
+      );
+      backdrop-filter: blur(0.0625rem);
+      z-index: 20;
+      pointer-events: all;
+    }
+
+    // ---- Infinite-scroll bottom loader ------------------------------------------
+    // Rendered inside the scroll wrapper, directly below the table, so it appears
+    // at the bottom of the scrollable content area when the user triggers loadMore.
+
+    &__loading-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem 0;
+      color: var(--mlv-text-secondary);
+    }
+
+    &__table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: var(--mlv-dt-font-size);
+      color: var(--mlv-text-primary);
+
+      &--striped .#{$block}__row--data:nth-child(even) {
+        background: var(--mlv-background-sunken);
+
+        .#{$block}__cell--pinned {
+          background: var(--mlv-background-sunken);
+        }
+      }
+
+      &--bordered .#{$block}__cell {
+        border-inline-end: 0.0625rem solid var(--mlv-border-subtle);
+
+        &:last-child {
+          border-inline-end: none;
+        }
+      }
+
+      // ---- Virtual scroll variants ---------------------------------------------
+      // Both the header table (above the viewport) and the body table (inside the viewport)
+      // share an identical `<colgroup>` and use `table-layout: fixed` so column widths stay
+      // perfectly aligned across the split tables.
+      &--virtual {
+        table-layout: fixed;
+      }
+    }
+
+    // ---- Header -----------------------------------------------------------------
+
+    &__head {
+      &--sticky {
+        position: sticky;
+        top: var(--mlv-dt-sticky-top, 0);
+        z-index: 3;
+        background: var(--mlv-background-base);
+
+        // Pinned cells inside sticky header need higher z-index
+        .#{$block}__cell--pinned {
+          z-index: 4;
+        }
+      }
+    }
+
+    // ---- Cells ------------------------------------------------------------------
+
+    &__cell {
+      padding: 0;
+      border-bottom: 0.0625rem solid var(--mlv-border-subtle);
+      vertical-align: middle;
+      background: inherit;
+
+      // Inner wrapper rendered inside every data cell. Overflow and ellipsis live
+      // here instead of on the `<td>` so cells that host interactive components
+      // directly (e.g. the selection checkbox or the editable-row actions column)
+      // are not subject to the ellipsis rendering and do not show a stray `…`
+      // character when their content slightly exceeds the td width.
+      // Flattened BEM element `__cell-content` — a direct element of the block,
+      // not a nested element of `__cell`.
+      &-content {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      // Header: normal-case, muted accent color — matches the reference design
+      &--header {
+        font-weight: var(--mlv-font-weight-medium);
+        font-size: var(--mlv-dt-header-font-size);
+        color: color-mix(
+          in srgb,
+          var(--mlv-text-action) 65%,
+          var(--mlv-text-secondary)
+        );
+        position: relative;
+        user-select: none;
+        border-bottom: 0.0625rem solid var(--mlv-border-normal);
+      }
+
+      &--sortable {
+        cursor: pointer;
+
+        &:hover .#{$block}__cell-inner {
+          color: var(--mlv-text-action);
+        }
+      }
+
+      &--data {
+        padding: 0 var(--mlv-dt-cell-padding-x);
+        height: var(--mlv-dt-row-height);
+        font-size: var(--mlv-dt-font-size);
+      }
+
+      // Pinned columns
+      &--pinned {
+        background: var(--mlv-background-base);
+        z-index: 1;
+        transition: background var(--mlv-duration-normal)
+          var(--mlv-ease-default);
+
+        &::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 0.5rem;
+          pointer-events: none;
+        }
+      }
+
+      // Raw rgba kept: this is a very subtle directional edge scrim marking the
+      // pinned-column boundary. No --mlv-* token fits — the shadow tokens are
+      // box-shadow lists (not usable as a gradient stop) and --mlv-background-overlay
+      // (0.22 alpha) is far too strong for this 0.04 fade. Left as a documented gap.
+      &--pinned-left::after {
+        inset-inline-end: -0.5rem;
+        background: linear-gradient(to right, rgba(0, 0, 0, 0.04), transparent);
+      }
+
+      &--pinned-right::after {
+        inset-inline-start: -0.5rem;
+        background: linear-gradient(to left, rgba(0, 0, 0, 0.04), transparent);
+      }
+
+      &--no-data,
+      &--error {
+        padding: 3rem var(--mlv-dt-cell-padding-x);
+        text-align: center;
+      }
+
+      &--align-left {
+        text-align: start;
+      }
+      &--align-center {
+        text-align: center;
+      }
+      &--align-right {
+        text-align: end;
+      }
+    }
+
+    // ---- Cell inner (header) ----------------------------------------------------
+
+    &__cell-inner {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0 var(--mlv-dt-cell-padding-x);
+      height: var(--mlv-dt-header-height);
+      transition: color var(--mlv-duration-normal) var(--mlv-ease-default);
+      border-radius: var(--mlv-radius-s);
+    }
+
+    // Native <button> wrapping the label + sort icon in sortable header cells.
+    // Chromeless so it reads as plain header text; inherits font/color (so the
+    // `--sortable:hover` color shift on `__cell-inner` still applies) and carries
+    // the keyboard focus ring.
+    &__sort-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      font: inherit;
+      color: inherit;
+      text-align: start;
+      cursor: pointer;
+      border-radius: var(--mlv-radius-s);
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+    }
+
+    // Screen-reader-only text (e.g. the actions-column header name).
+    &__visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+      padding: 0;
+      margin: -1px;
+    }
+
+    &__header-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: start;
+    }
+
+    &__column-filter {
+      flex: 0 0 auto;
+
+      &--active {
+        color: var(--mlv-text-action);
+      }
+    }
+
+    // ---- Sort icons -------------------------------------------------------------
+
+    &__sort-icon {
+      display: inline-flex;
+      flex-shrink: 0;
+      color: var(--mlv-text-action);
+
+      svg {
+        width: var(--mlv-dt-icon-size);
+        height: var(--mlv-dt-icon-size);
+      }
+
+      &--inactive {
+        opacity: 0;
+        transition: opacity var(--mlv-duration-normal) var(--mlv-ease-default);
+
+        .#{$block}__cell--sortable:hover & {
+          opacity: 0.5;
+        }
+      }
+    }
+
+    // ---- Pin button -------------------------------------------------------------
+
+    &__pin-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: var(--mlv-text-tertiary);
+      opacity: 0;
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-default),
+        color var(--mlv-duration-normal) var(--mlv-ease-default);
+
+      svg {
+        width: var(--mlv-dt-icon-size);
+        height: var(--mlv-dt-icon-size);
+      }
+
+      .#{$block}__cell--header:hover & {
+        opacity: 0.6;
+      }
+
+      &:hover {
+        opacity: 1 !important;
+        color: var(--mlv-text-action);
+      }
+
+      &--active {
+        opacity: 1;
+        color: var(--mlv-text-action);
+
+        .#{$block}__cell--header:hover & {
+          opacity: 1;
+        }
+      }
+    }
+
+    // ---- Resize handle ----------------------------------------------------------
+
+    &__resize-handle {
+      position: absolute;
+      top: 0;
+      inset-inline-end: -0.5rem;
+      width: 1rem;
+      height: 100%;
+      cursor: col-resize;
+      background: transparent;
+      z-index: 5;
+      touch-action: none;
+      user-select: none;
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 0.75rem;
+        bottom: 0.75rem;
+        left: 50%;
+        width: 0.0625rem;
+        border-radius: var(--mlv-radius-full);
+        background-color: var(--mlv-text-tertiary);
+        transform: translateX(-50%);
+        transition:
+          background-color var(--mlv-duration-fast) var(--mlv-ease-default),
+          width var(--mlv-duration-fast) var(--mlv-ease-default);
+      }
+
+      &:hover::after {
+        width: 0.125rem;
+        background-color: var(--mlv-background-accent-1);
+      }
+
+      &:active::after,
+      &:focus-visible::after {
+        width: 0.125rem;
+        background-color: var(--mlv-background-accent-1);
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      }
+
+      @media (pointer: coarse) {
+        inset-inline-end: -0.75rem;
+        width: 1.5rem;
+      }
+    }
+
+    // ---- Rows -------------------------------------------------------------------
+
+    &__row {
+      transition: background var(--mlv-duration-normal) var(--mlv-ease-default);
+
+      // Hover is a transient interactive state — it must use the neutral
+      // interactive hover step (a gentle lift off the row's resting surface),
+      // never `--mlv-background-sunken` (a static "recessed tray" surface
+      // token). Both currently happen to share the same darkness in some
+      // themes, which is what made this look like "row hover" instead of
+      // "row pressed" — see docs/audits owner feedback 2026-08-25.
+      &--data:hover {
+        background: var(--mlv-background-neutral-1-hover);
+
+        .#{$block}__cell--pinned {
+          background: var(--mlv-background-neutral-1-hover);
+        }
+      }
+
+      &--expanded {
+        background: var(--mlv-background-sunken);
+
+        .#{$block}__cell--pinned {
+          background: var(--mlv-background-sunken);
+        }
+      }
+    }
+
+    // ---- Tree / indentation -----------------------------------------------------
+
+    &__indent {
+      display: inline-block;
+    }
+
+    &__expand-btn {
+      margin-inline-end: 0.25rem;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    &__expand-icon {
+      width: var(--mlv-dt-icon-size);
+      height: var(--mlv-dt-icon-size);
+      transition: transform var(--mlv-duration-normal) var(--mlv-ease-default);
+
+      &--open {
+        transform: rotate(90deg);
+      }
+    }
+
+    // ---- No data ----------------------------------------------------------------
+
+    // Empty-state copy is meaningful content, so it reads on the supporting
+    // ramp rather than the placeholder one.
+    &__no-data-default {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 3rem 0;
+      color: var(--mlv-text-secondary);
+
+      svg {
+        opacity: 0.2;
+      }
+
+      span {
+        font-size: var(--mlv-dt-font-size);
+      }
+    }
+
+    // ---- Error state -------------------------------------------------------------
+
+    &__error {
+      display: block;
+      text-align: initial;
+    }
+
+    &__error-icon {
+      color: var(--mlv-text-negative);
+    }
+
+    // ---- Column group headers ---------------------------------------------------
+
+    &__row--group-header {
+      .#{$block}__cell--group-header {
+        font-weight: var(--mlv-font-weight-medium);
+        font-size: var(--mlv-dt-header-font-size);
+        color: color-mix(
+          in srgb,
+          var(--mlv-text-action) 65%,
+          var(--mlv-text-secondary)
+        );
+        text-align: center;
+        padding: 0 var(--mlv-dt-cell-padding-x);
+        height: var(--mlv-dt-header-height);
+        border-bottom: 0.0625rem solid var(--mlv-border-subtle);
+        vertical-align: middle;
+      }
+
+      .#{$block}__cell--standalone {
+        vertical-align: middle;
+      }
+    }
+
+    // ---- Actions column (editable) ---------------------------------------------
+
+    &__cell--actions {
+      width: 1%;
+      white-space: nowrap;
+      padding: 0 var(--mlv-dt-cell-padding-x) !important;
+    }
+
+    &__actions {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      justify-content: flex-end;
+    }
+
+    // ---- Editing state ----------------------------------------------------------
+
+    &__row--editing {
+      background: var(--mlv-background-sunken);
+
+      .#{$block}__cell--pinned {
+        background: var(--mlv-background-sunken);
+      }
+    }
+
+    // ---- Selection column -------------------------------------------------------
+
+    &__cell--select {
+      width: 2.5rem;
+      min-width: 2.5rem;
+      max-width: 2.5rem;
+      padding: 0 0.5rem !important;
+      text-align: center;
+    }
+
+    // ---- <col> width helpers (used inside <colgroup> for virtual scroll mode) ---
+
+    &__col--select {
+      width: 2.5rem;
+    }
+
+    &__col--actions {
+      width: 5rem;
+    }
+
+    &__row--selected {
+      background: color-mix(
+        in srgb,
+        var(--mlv-background-accent-1) 8%,
+        var(--mlv-background-base)
+      );
+
+      .#{$block}__cell--pinned {
+        background: color-mix(
+          in srgb,
+          var(--mlv-background-accent-1) 8%,
+          var(--mlv-background-base)
+        );
+      }
+    }
+
+    // ---- Pin side popup (multi-side pinnable columns) --------------------------
+
+    &__pin-popup {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+      padding: 0.25rem;
+      min-width: 8rem;
+    }
+
+    &__pin-popup-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.5rem;
+      border: none;
+      background: none;
+      border-radius: var(--mlv-radius-s);
+      cursor: pointer;
+      font: inherit;
+      font-size: var(--mlv-dt-font-size);
+      color: var(--mlv-text-primary);
+      text-align: start;
+
+      svg {
+        color: var(--mlv-text-secondary);
+        flex-shrink: 0;
+      }
+
+      &:hover {
+        background: var(--mlv-background-sunken);
+      }
+
+      &--active {
+        color: var(--mlv-text-action);
+
+        svg {
+          color: var(--mlv-text-action);
+        }
+      }
+
+      &--unpin {
+        color: var(--mlv-text-negative);
+        border-top: 0.0625rem solid var(--mlv-border-subtle);
+        margin-top: 0.125rem;
+        padding-top: 0.5rem;
+        border-radius: 0 0 var(--mlv-radius-s) var(--mlv-radius-s);
+
+        svg {
+          color: var(--mlv-text-negative);
+        }
+
+        &:hover {
+          background: color-mix(
+            in srgb,
+            var(--mlv-text-negative) 8%,
+            transparent
+          );
+        }
+      }
+    }
+
+    // ---- Column visibility dropdown ---------------------------------------------
+
+    &__columns-dropdown {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      padding: 0.5rem;
+      min-width: 10rem;
+    }
+
+    &__columns-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--mlv-radius-s);
+      cursor: pointer;
+      font-size: var(--mlv-dt-font-size);
+
+      &:hover {
+        background: var(--mlv-background-sunken);
+      }
+    }
+
+    // ---- Table footer (summary row) ---------------------------------------------
+
+    &__foot {
+      font-weight: var(--mlv-font-weight-medium);
+      font-size: var(--mlv-dt-font-size);
+      background: var(--mlv-background-base);
+
+      &--sticky {
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
+      }
+
+      .#{$block}__cell--pinned {
+        background: inherit;
+      }
+    }
+
+    &__row--footer {
+      background: inherit;
+
+      // Footer templates are consumer-owned and project semantic table cells
+      // directly into this row, so they must not need private BEM cell classes.
+      > :where(td, th) {
+        box-sizing: border-box;
+        padding: 0 var(--mlv-dt-cell-padding-x);
+        height: var(--mlv-dt-header-height);
+        border-top: 0.125rem solid var(--mlv-border-normal);
+        border-bottom: 0;
+        vertical-align: middle;
+        background: inherit;
+        font-size: inherit;
+        font-weight: inherit;
+      }
+
+      .#{$block}__table--bordered & > :where(td, th) {
+        border-inline-end: 0.0625rem solid var(--mlv-border-subtle);
+
+        &:last-child {
+          border-inline-end: none;
+        }
+      }
+    }
+
+    // ---- Footer / Pagination ----------------------------------------------------
+
+    &__footer {
+      padding-top: 0.75rem;
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}

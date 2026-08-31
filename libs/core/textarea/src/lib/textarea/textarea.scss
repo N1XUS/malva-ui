@@ -1,0 +1,96 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-textarea;
+
+.#{$block} {
+  display: block;
+
+  // Override the form-control-wrapper's fixed height so the textarea can grow
+  .mlv-form-control-wrapper__control-container {
+    height: auto;
+    align-items: flex-start;
+    padding: 0;
+  }
+
+  .mlv-form-control-wrapper__clear {
+    align-self: flex-start;
+    // Restore vertical padding so the clear button aligns with the first row of text
+    margin-top: var(--mlv-spacing-1);
+    margin-inline-end: var(--mlv-spacing-1);
+  }
+
+  &__scrollbar {
+    // Fill available width inside the control container
+    flex: 1 1 auto;
+    min-width: 0;
+    // min-height / max-height are set inline from the component
+
+    // When mlv-scrollbar is disabled (autoResize mode), let the textarea
+    // expand freely — no overflow clipping needed.
+    &.mlv-scrollbar--disabled {
+      overflow: visible;
+    }
+  }
+
+  &__field {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--form-ctrl-font-size, var(--mlv-font-size-m)),
+      0,
+      var(--mlv-spacing-1) var(--form-ctrl-h-padding, var(--mlv-spacing-3))
+    );
+
+    display: block;
+    width: 100%;
+    resize: none;
+    border: none;
+    outline: none;
+    appearance: none;
+    background: none;
+    // Match the same line-height as mlv-input (--mlv-line-height-normal = 1.5)
+    line-height: 1.5;
+    color: var(--mlv-text-primary);
+    box-sizing: border-box;
+
+    // Hide the native scrollbar — mlv-scrollbar provides the custom one
+    overflow: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    &::placeholder {
+      color: var(--mlv-text-tertiary);
+    }
+  }
+
+  &__count {
+    display: block;
+    // Rendered in the wrapper's below-control column; keep it on the trailing
+    // edge without pushing the description / message off their own rows.
+    align-self: flex-end;
+    text-align: end;
+    font-size: var(--mlv-typography-ui-s-size);
+    color: var(--mlv-text-tertiary);
+
+    &--warning {
+      color: var(--mlv-text-warning);
+    }
+
+    &--error {
+      color: var(--mlv-text-negative);
+    }
+  }
+
+  &--auto-resize {
+    .#{$block}__field {
+      // In auto-resize mode mlv-scrollbar is disabled; textarea drives the height
+      resize: none;
+      height: auto;
+    }
+  }
+}
+}

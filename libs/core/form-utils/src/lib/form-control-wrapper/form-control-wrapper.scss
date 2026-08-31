@@ -1,0 +1,201 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-form-control-wrapper;
+
+.#{$block} {
+  @include mixins.base();
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  --form-ctrl-height: var(--mlv-height-m);
+  --form-ctrl-h-padding: var(--mlv-spacing-3);
+  --form-ctrl-font-size: var(--mlv-font-size-m);
+  --form-ctrl-radius: var(--mlv-radius-input);
+  // Shared affordance-glyph size (2026-08-26) — one ramp for every
+  // form-control icon: leading/trailing icons, chevrons, trigger icons,
+  // clear buttons. Reuses CH-R4's icon-in-container ratio (0.45) anchored to
+  // the field's own height instead of re-deriving a bespoke number, so it
+  // moves in lockstep with `--form-ctrl-height` at every density (no
+  // separate density blocks needed — it's a `calc()` off an already-ramped
+  // custom property). Before this token existed, affordance icons came from
+  // at least three different, disagreeing chains: a raw em-based literal
+  // (search-field's leading icon), a hardcoded `1.25rem` regardless of
+  // density (select/combobox/day-picker/time-picker chevrons and trigger
+  // icons), and a button-local ratio pinned to a fixed tight/compact height
+  // (the wrapper's own clear button) — none tracking the field's actual
+  // density or matching each other.
+  --form-ctrl-icon-size: calc(
+    var(--form-ctrl-height) * var(--mlv-icon-in-container-ratio)
+  );
+
+  --container-border-color: var(--mlv-border-normal);
+  --container-background-color: var(--mlv-elevation-bg-3);
+  --container-side-content-color: var(--mlv-text-primary);
+  --container-shadow: none;
+  --container-action-color: var(--mlv-text-secondary);
+
+  @include density.density-tight {
+    --form-ctrl-height: var(--mlv-height-xs);
+    --form-ctrl-h-padding: var(--mlv-spacing-2);
+    --form-ctrl-font-size: var(--mlv-font-size-s);
+  }
+
+  @include density.density-compact {
+    --form-ctrl-height: var(--mlv-height-s);
+    --form-ctrl-h-padding: var(--mlv-spacing-2-5);
+    --form-ctrl-font-size: var(--mlv-font-size-m);
+  }
+
+  @include density.density-spacious {
+    --form-ctrl-height: var(--mlv-height-l);
+    --form-ctrl-h-padding: var(--mlv-spacing-4);
+    --form-ctrl-font-size: var(--mlv-font-size-l);
+  }
+
+  @include density.density-airy {
+    --form-ctrl-height: var(--mlv-height-xl);
+    --form-ctrl-h-padding: var(--mlv-spacing-5);
+    --form-ctrl-font-size: var(--mlv-font-size-xl);
+  }
+
+  // Fully rounded (stadium) container — the `pill` input shared by every
+  // control extending the signal form-control base. Direct properties so the
+  // override holds at every density; the extra inline padding keeps content
+  // off the round caps.
+  &--pill &__control-container {
+    border-radius: var(--mlv-radius-full);
+    padding-inline: calc(var(--form-ctrl-h-padding) * 1.35);
+  }
+
+  &__label-container {
+    &:empty {
+      display: none;
+    }
+  }
+
+  &__control-container {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: space-between;
+    width: 100%;
+    border-radius: var(--form-ctrl-radius);
+    background-color: var(--container-background-color);
+    border: 0.0625rem solid var(--container-border-color);
+    --mlv-control-padding: var(--mlv-spacing-1) var(--form-ctrl-h-padding);
+    padding: var(--mlv-control-padding);
+    color: var(--container-border-color);
+    box-shadow: var(--container-shadow);
+    transition-property: background-color, border-color, box-shadow;
+    transition-duration: var(--mlv-duration-fast);
+    transition-timing-function: var(--mlv-ease-default);
+    height: var(--form-ctrl-height);
+    font-size: var(--form-ctrl-font-size);
+
+    &--with-inset {
+      position: relative;
+    }
+
+    &:hover {
+      --container-action-color: var(--mlv-text-primary);
+    }
+  }
+
+  &__control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+    width: 100%;
+    min-height: 0;
+    flex: 1;
+  }
+
+  &__inset {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: var(--mlv-control-padding);
+  }
+
+  // Stacks the description, the validation message and any control-owned aside
+  // (e.g. the textarea character counter) under the control.
+  &__message-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  // Hide the message container when it has no content. This is a workaround for flex with gap,
+  // which would otherwise leave a gap even when the message container is empty.
+  &__message-container:empty {
+    display: none;
+  }
+
+  // Flattened BEM elements — direct children of the block, not nested under
+  // `__control-container` (avoids the forbidden `__control-container__*` form).
+  &__side-content {
+    color: var(--container-side-content-color);
+    line-height: 1;
+  }
+
+  // Shared clear (X) affordance glyph size (2026-08-26). `mlv-button-close`
+  // is pinned `mlvDensity="tight"` here (a deliberately small, unobtrusive
+  // hit target regardless of the field's own density) so its own
+  // icon-in-container ratio (0.6, tuned for button-close specifically) only
+  // ever resolves against a tight/compact-height container — capped well
+  // under the field's own `--form-ctrl-icon-size` at `spacious`/`airy`. The
+  // owner-reported "clear button too small" holds even at `comfortable`
+  // (14.4px glyph next to a 19.8px leading icon), so grow it toward the
+  // shared ramp while clamping to the button's own actual container height
+  // (`min()`) so the glyph can never exceed/clip its tight-pinned box.
+  //
+  // Targets the INNER `<button class="mlv-button--close mlv-button--icon-only">`
+  // directly, not the `<mlv-button-close>` host: setting the custom property
+  // on the host and relying on inheritance loses to button-close.scss's own
+  // `.mlv-button--close.mlv-button--icon-only` rule, which declares the same
+  // property directly on that inner button (a direct declaration always
+  // outranks an inherited value, regardless of the ancestor's specificity).
+  &__clear .mlv-button-close .mlv-button--close.mlv-button--icon-only {
+    --mlv-icon-font-size: min(
+      var(--form-ctrl-icon-size),
+      calc(var(--mlv-btn-height) * 0.75)
+    );
+  }
+
+  &--state {
+    // `success`, `info` and `warning` deliberately declare nothing: meaning
+    // lives in `mlv-message`, not in a full-perimeter ring — a form with
+    // mixed states must read as one alarm, not four (SF-R6). Only `error`
+    // keeps a coloured border.
+    &-error {
+      --container-border-color: var(--mlv-border-error);
+    }
+
+    &-default:hover {
+      --container-border-color: var(--mlv-border-strong);
+    }
+  }
+
+  &--focused {
+    --container-shadow: 0 0 0 var(--mlv-stroke-width) currentColor;
+    --container-action-color: var(--mlv-text-primary);
+    &.#{$block}--state-default {
+      --container-border-color: var(--mlv-border-focus);
+    }
+  }
+
+  &--disabled {
+    --container-background-color: var(--mlv-background-sunken);
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

@@ -1,0 +1,13 @@
+@layer mlv.components {
+$block: mlv-action-bar;
+
+.#{$block}__logo {
+  display: flex;
+  align-items: center;
+  gap: var(--mlv-spacing-2);
+  color: var(--mlv-text-primary);
+  font-size: var(--mlv-font-size-l);
+  font-weight: 500;
+  text-decoration: none;
+}
+}

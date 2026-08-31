@@ -1,0 +1,43 @@
+<mlv-data-table [data]="fileTree" [columns]="columns">
+  <ng-template
+    mlvDataTableCell="name"
+    [mlvDataTableCellFrom]="fileTree"
+    let-row
+  >
+    <div class="dt-file-cell">
+      @if (row.type === 'folder') {
+      <svg
+        lucideFolder
+        [size]="16"
+        class="dt-file-icon dt-file-icon--folder"
+        aria-hidden="true"
+      />
+      } @else {
+      <svg
+        lucideFile
+        [size]="16"
+        class="dt-file-icon dt-file-icon--file"
+        aria-hidden="true"
+      />
+      }
+      <span>{{ row.name }}</span>
+    </div>
+  </ng-template>
+
+  <ng-template
+    mlvDataTableCell="type"
+    [mlvDataTableCellFrom]="fileTree"
+    let-row
+  >
+    <div class="dt-type-badge" [class]="'dt-type-badge--' + row.type">
+      {{ row.type === 'folder' ? 'Folder' : 'File' }}
+    </div>
+  </ng-template>
+
+  <ng-template mlvDataTableNoData>
+    <div class="dt-no-files">
+      <svg lucideSearchX [size]="40" aria-hidden="true" />
+      <p>No files match your filter. Try broadening your search criteria.</p>
+    </div>
+  </ng-template>
+</mlv-data-table>

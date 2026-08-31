@@ -1,0 +1,28 @@
+<div class="overlay-search-example">
+  <div class="overlay-search-example__row">
+    <span class="overlay-search-example__label">Icon trigger</span>
+    <mlv-search-field
+      presentation="icon"
+      trigger="submit"
+      [(value)]="iconQuery"
+      (search)="onSearch($event)"
+    />
+  </div>
+
+  <div class="overlay-search-example__row">
+    <span class="overlay-search-example__label">Field trigger</span>
+    <mlv-search-field
+      overlay
+      trigger="submit"
+      placeholder="Search projects"
+      [(value)]="fieldQuery"
+      (search)="onSearch($event)"
+    />
+  </div>
+
+  <p class="overlay-search-example__result" aria-live="polite">
+    @if (lastCommitted()) { Last committed query:
+    <strong>{{ lastCommitted() }}</strong>
+    } @else { Nothing committed yet. }
+  </p>
+</div>

@@ -1,0 +1,28 @@
+.dt-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: var(--mlv-typography-ui-s-size);
+  font-weight: 600;
+
+  &--active {
+    background: var(--mlv-background-success-1-pale);
+    color: var(--mlv-text-positive);
+  }
+
+  &--on-leave {
+    background: var(--mlv-background-warning-1-pale);
+    color: var(--mlv-text-warning);
+  }
+
+  &--inactive {
+    background: var(--mlv-background-neutral-2);
+    color: var(--mlv-text-secondary);
+  }
+}
+
+.dt-salary {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}

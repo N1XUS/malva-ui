@@ -1,0 +1,11 @@
+<div class="demo-row" style="align-items: center">
+  <button
+    mlvIconToggle
+    type="button"
+    [(pressed)]="bookmarked"
+    [attr.aria-label]="bookmarked() ? 'Remove bookmark' : 'Add bookmark'"
+  >
+    <svg lucideBookmark [size]="18" aria-hidden="true" />
+  </button>
+  <span>{{ bookmarked() ? 'Bookmarked' : 'Not bookmarked' }}</span>
+</div>

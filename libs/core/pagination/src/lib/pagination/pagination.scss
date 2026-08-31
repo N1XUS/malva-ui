@@ -1,0 +1,104 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-pagination;
+
+.#{$block} {
+  @include mixins.base();
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 0;
+
+  &__items-count {
+    font-size: var(--mlv-font-size-s);
+    color: var(--mlv-text-secondary);
+    &-wrapper {
+      display: flex;
+      align-items: center;
+      flex-basis: 400%;
+      white-space: nowrap;
+      gap: var(--mlv-spacing-2);
+    }
+  }
+
+  &__items-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    flex-basis: 60%;
+  }
+
+  &__items-per-page-container {
+    flex-basis: 30%;
+
+    > div {
+      display: flex;
+      gap: var(--mlv-spacing-2);
+    }
+  }
+
+  &__items {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+
+    &__container {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-2);
+    }
+  }
+
+  &__item {
+    &.#{$block}__item--input {
+      .mlv-form-control-wrapper {
+        width: var(--mlv-height-s);
+        height: var(--mlv-height-s);
+        --form-ctrl-height: var(--mlv-height-s);
+        display: block;
+      }
+
+      .mlv-form-control-wrapper__control-container {
+        padding: 0.125rem;
+      }
+
+      .mlv-input__native {
+        text-align: center;
+        height: 1.625rem;
+        font-size: var(--mlv-font-size-s);
+
+        &::-webkit-inner-spin-button {
+          display: none;
+        }
+      }
+
+      .mlv-form-control-wrapper__label-container,
+      .mlv-form-control-wrapper__message-container {
+        display: none;
+      }
+    }
+
+    &-per-page {
+      &__description {
+        width: var(--mlv-pagination-item-width, 0);
+        opacity: var(--mlv-pagination-item-opacity, 0);
+        transition:
+          width var(--mlv-duration-fast) var(--mlv-ease-out),
+          opacity var(--mlv-duration-normal) var(--mlv-ease-out);
+
+        // Respect reduced-motion: reveal the active items-per-page label instantly.
+        @media (prefers-reduced-motion: reduce) {
+          transition: none;
+        }
+      }
+
+      &--active {
+        --mlv-pagination-item-width: fit-content;
+        --mlv-pagination-item-opacity: 1;
+      }
+    }
+  }
+}
+}

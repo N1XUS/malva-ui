@@ -1,0 +1,40 @@
+<div style="display: flex; flex-direction: column; gap: 1rem">
+  <div style="display: flex; align-items: center; gap: 0.75rem">
+    <button mlvButton variant="secondary" (click)="isOpen.set(true)">
+      Expand
+    </button>
+    <button mlvButton variant="secondary" (click)="isOpen.set(false)">
+      Collapse
+    </button>
+    <button mlvButton variant="transparent" (click)="isOpen.set(!isOpen())">
+      Toggle
+    </button>
+    <mlv-badge [tone]="isOpen() ? 'success' : 'default'" muted>
+      {{ isOpen() ? 'Open' : 'Closed' }}
+    </mlv-badge>
+  </div>
+
+  <mlv-expand [(opened)]="isOpen">
+    <div
+      style="
+        padding: 1rem;
+        border: 1px solid var(--mlv-border-normal);
+        border-radius: var(--mlv-radius-m);
+      "
+    >
+      <p
+        style="
+          margin: 0;
+          color: var(--mlv-text-secondary);
+          font-size: var(--mlv-typography-body-m-size);
+          line-height: 1.6;
+        "
+      >
+        This panel is fully controlled by the parent's
+        <code>isOpen</code> signal. Any external control — a button, keyboard
+        shortcut, or programmatic call — can drive it without touching the
+        expand component directly.
+      </p>
+    </div>
+  </mlv-expand>
+</div>

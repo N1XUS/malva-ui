@@ -1,0 +1,277 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-smart-filter-bar;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-typography-body-m-size),
+    0,
+    0
+  );
+  --mlv-smart-filter-bar-gap: var(--mlv-spacing-3);
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--mlv-smart-filter-bar-gap);
+  padding: var(--mlv-spacing-4);
+  border: 0.0625rem solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-panel);
+  background-color: var(--mlv-background-raised);
+
+  &__query-row,
+  &__filter-toolbar {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mlv-smart-filter-bar-gap);
+  }
+
+  &__search {
+    width: min(32rem, 100%);
+    min-width: 12rem;
+  }
+
+  &__primary-actions,
+  &__filter-actions {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__filter-toolbar {
+    justify-content: flex-end;
+    padding-top: var(--mlv-spacing-1);
+    border-top: 0.0625rem solid var(--mlv-border-subtle);
+  }
+
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--mlv-spacing-2);
+    padding-block: var(--mlv-spacing-1);
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  &__query-filters {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mlv-smart-filter-bar-gap);
+  }
+
+  &__query-search {
+    width: min(24rem, 100%);
+    min-width: 12rem;
+  }
+
+  &__query-field {
+    display: flex;
+    min-width: 0;
+    max-width: 100%;
+    flex-direction: column;
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__add {
+    --mlv-btn-height: var(--mlv-height-xs);
+    --mlv-btn-padding: var(--mlv-padding-xs);
+    flex: none;
+    // No radius override: inherits mlvButton's default `--mlv-btn-radius`
+    // (`--mlv-radius-button` = `--mlv-radius-l`, 8px), matching the dominant
+    // corners of the sibling `--query` filter-trigger chips (filter.scss),
+    // which take that same default — their own `--mlv-radius-m` only
+    // applies to the trailing corners glued against the clear button.
+    border: var(--mlv-stroke-width) dashed var(--mlv-border-normal);
+  }
+
+  &__clear-all,
+  &__apply-query {
+    flex: none;
+  }
+
+  &__add-menu {
+    display: flex;
+    width: min(20rem, calc(100vw - 2rem));
+    max-width: 100%;
+    flex-direction: column;
+    padding: var(--mlv-spacing-2);
+    gap: var(--mlv-spacing-1-5);
+  }
+
+  &__add-list {
+    display: flex;
+    max-height: 18rem;
+    flex-direction: column;
+    gap: var(--mlv-spacing-0-5);
+    overflow-y: auto;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  &__add-option {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  &__add-empty {
+    padding: var(--mlv-spacing-2);
+    color: var(--mlv-text-secondary);
+  }
+
+  &__field {
+    display: flex;
+    max-width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__validation-summary {
+    padding: var(--mlv-spacing-2) var(--mlv-spacing-2-5);
+    border: 0.0625rem solid var(--mlv-border-error);
+    border-radius: var(--mlv-radius-m);
+    background-color: var(--mlv-background-danger-1-pale);
+    color: var(--mlv-text-error);
+    font-size: var(--mlv-typography-error-size);
+    font-weight: var(--mlv-typography-error-weight);
+    line-height: var(--mlv-typography-error-line-height);
+  }
+
+  &__field-error {
+    color: var(--mlv-text-error);
+    font-size: var(--mlv-typography-error-size);
+    font-weight: var(--mlv-typography-error-weight);
+    line-height: var(--mlv-typography-error-line-height);
+  }
+
+  &__status {
+    position: absolute;
+    width: 0.0625rem;
+    height: 0.0625rem;
+    padding: 0;
+    margin: -0.0625rem;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  &__manager {
+    display: flex;
+    width: min(26rem, calc(100vw - 2rem));
+    max-width: 100%;
+    flex-direction: column;
+  }
+
+  &__manager-header,
+  &__manager-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mlv-spacing-2);
+    padding: var(--mlv-spacing-2-5) var(--mlv-spacing-3);
+  }
+
+  &__manager-header {
+    border-bottom: 0.0625rem solid var(--mlv-border-subtle);
+  }
+
+  &__manager-footer {
+    justify-content: flex-end;
+    border-top: 0.0625rem solid var(--mlv-border-subtle);
+  }
+
+  &__manager-title {
+    color: var(--mlv-text-primary);
+    font-weight: 600;
+  }
+
+  &__manager-search {
+    margin: var(--mlv-spacing-3) var(--mlv-spacing-3) var(--mlv-spacing-1-5);
+  }
+
+  &__manager-list {
+    display: flex;
+    max-height: 18rem;
+    flex-direction: column;
+    gap: var(--mlv-spacing-1);
+    overflow-y: auto;
+    padding: var(--mlv-spacing-1-5) var(--mlv-spacing-3) var(--mlv-spacing-3);
+  }
+
+  &__manager-option {
+    width: 100%;
+  }
+
+  &__manager-option-label {
+    margin-inline-end: var(--mlv-spacing-1-5);
+  }
+
+  &__manager-option-status {
+    display: inline-flex;
+    padding: 0.0625rem var(--mlv-spacing-1-5);
+    border-radius: var(--mlv-radius-full);
+    background-color: var(--mlv-background-neutral-2);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-typography-body-s-weight);
+    line-height: var(--mlv-typography-body-s-line-height);
+    white-space: nowrap;
+
+    & + & {
+      margin-inline-start: var(--mlv-spacing-1);
+    }
+  }
+
+  &--loading {
+    cursor: progress;
+  }
+
+  &--disabled {
+    opacity: var(--mlv-disabled-opacity);
+  }
+
+  @media (max-width: 42rem) {
+    &__query-row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    &__search {
+      width: 100%;
+      min-width: 0;
+    }
+
+    &__primary-actions {
+      justify-content: flex-end;
+    }
+
+    &__filter-toolbar {
+      align-items: flex-start;
+    }
+
+    &__filter-actions {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    &__query-search {
+      width: 100%;
+      min-width: 100%;
+    }
+  }
+}
+
+@include mixins.reduced-motion($block);
+}

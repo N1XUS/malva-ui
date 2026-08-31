@@ -1,0 +1,11 @@
+<mlv-chat
+  style="
+    height: 24rem;
+    border: 1px solid var(--mlv-border-normal);
+    border-radius: var(--mlv-radius-m);
+  "
+  [messages]="messages()"
+  [users]="users"
+  selfId="me"
+  (retry)="onRetry($event)"
+/>

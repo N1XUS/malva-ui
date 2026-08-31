@@ -1,0 +1,11 @@
+## No backdrop
+
+Setting `[hasBackdrop]="false"` removes the transparent overlay that normally blocks clicks to the rest of the page. This is ideal for lightweight tooltips, inline menus, or any popup where background content should remain interactive while the popup is open — try selecting the hint text while the sort menu is showing.
+
+Click-outside detection and Escape key closure remain fully active — clicking anywhere outside the popup still closes it.
+
+The menu itself is `mlv-dropdown-panel` (`@malva-ui/core/dropdown`), the same listbox surface `mlv-select` and `mlv-combobox` put inside a popup, rather than a hand-rolled `role="listbox"` list. Three details come with that composition:
+
+- `scrollMode="parent"` — the popup already owns a themed `mlv-scrollbar`, so the panel must not nest a second scroll region inside it.
+- The panel injects `MlvSelectionService` non-optionally; outside a select or combobox the host provides it.
+- A non-modal popup moves no focus by itself. `(afterOpened)` hands roving focus to the first option through `MlvSelectionService.requestFocusFirst()` — deferred one render, because the panel is stamped after the overlay attaches — and `(afterClosed)` returns focus to the trigger. Without both, a keyboard user can open the menu and never reach it.

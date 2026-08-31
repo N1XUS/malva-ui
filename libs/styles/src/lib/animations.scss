@@ -1,0 +1,267 @@
+// ---------------------------------------------------------------------------
+// Malva UI — shared enter/leave animations
+//
+// `@use 'layers'` first: a layer's priority is fixed the first time it is
+// named, so the order statement has to reach the compiled output ahead of the
+// `@layer mlv.components` block below. Both `styles/malva-ui.scss` and the docs
+// entry point @use this partial before `index`, which is the other place the
+// statement is emitted from.
+//
+// The rules below sit in `mlv.components` rather than outside every layer:
+// unlayered rules beat layered ones regardless of specificity, so an unlayered
+// `.mlv-dialog--enter` would take the override slot that belongs to the
+// consumer. `@keyframes` are unaffected either way — they resolve by name — but
+// they are wrapped together with the rules that use them for one boundary.
+// ---------------------------------------------------------------------------
+
+@use 'layers';
+
+@layer mlv.components {
+  // ---------------------------------------------------------------------------
+  // Dialog animations
+  // ---------------------------------------------------------------------------
+
+  @keyframes dialog-enter {
+    from {
+      opacity: var(--mlv-dialog-enter-from-opacity, 0);
+      transform: scale(var(--mlv-dialog-enter-from-scale, 0.95))
+        translateY(var(--mlv-dialog-enter-from-translate-y, 20px));
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes dialog-leave {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    to {
+      opacity: var(--mlv-dialog-leave-to-opacity, 0);
+      transform: scale(var(--mlv-dialog-leave-to-scale, 0.95))
+        translateY(var(--mlv-dialog-leave-to-translate-y, 20px));
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .mlv-dialog--enter {
+      animation: dialog-enter
+        var(--mlv-dialog-enter-duration, var(--mlv-duration-normal))
+        var(--mlv-dialog-enter-easing, var(--mlv-ease-out-strong)) forwards;
+    }
+
+    .mlv-dialog--leave {
+      animation: dialog-leave
+        var(--mlv-dialog-leave-duration, var(--mlv-duration-fast))
+        var(--mlv-dialog-leave-easing, var(--mlv-ease-out-strong)) forwards;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Popup animations
+  // ---------------------------------------------------------------------------
+
+  @keyframes popup-enter {
+    from {
+      opacity: var(--mlv-popup-enter-from-opacity, 0);
+      transform: translateY(var(--mlv-popup-enter-from-translate-y, -0.25rem))
+        scale(var(--mlv-popup-enter-from-scale, 0.96));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes popup-leave {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    to {
+      opacity: var(--mlv-popup-leave-to-opacity, 0);
+      transform: translateY(var(--mlv-popup-leave-to-translate-y, -0.25rem))
+        scale(var(--mlv-popup-leave-to-scale, 0.96));
+    }
+  }
+
+  // Gated behind prefers-reduced-motion (matches dialog / drawer / presence above):
+  // the popup panel (also used by mlv-menu and submenus) only animates when the
+  // user has not requested reduced motion; otherwise it appears/disappears instantly.
+  @media (prefers-reduced-motion: no-preference) {
+    .mlv-popup--enter {
+      transform-origin: var(--mlv-popup-transform-origin, top center);
+      animation: popup-enter
+        var(--mlv-popup-enter-duration, var(--mlv-duration-fast))
+        var(--mlv-popup-enter-easing, var(--mlv-ease-out-strong)) forwards;
+    }
+
+    .mlv-popup--leave {
+      transform-origin: var(--mlv-popup-transform-origin, top center);
+      animation: popup-leave
+        var(--mlv-popup-leave-duration, var(--mlv-duration-fast))
+        var(--mlv-popup-leave-easing, var(--mlv-ease-out-strong)) forwards;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Drawer animations
+  //
+  // The hidden transform is set per-element via --mlv-drawer-hidden-transform
+  // so a single pair of keyframes covers all four positions.
+  // ---------------------------------------------------------------------------
+
+  @keyframes drawer-enter {
+    from {
+      transform: var(--mlv-drawer-hidden-transform);
+    }
+    to {
+      transform: translate(0, 0);
+    }
+  }
+
+  @keyframes drawer-leave {
+    from {
+      transform: translate(0, 0);
+    }
+    to {
+      transform: var(--mlv-drawer-hidden-transform);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .mlv-drawer--enter {
+      animation: drawer-enter
+        var(--mlv-drawer-enter-duration, var(--mlv-duration-slow))
+        var(--mlv-drawer-enter-easing, var(--mlv-ease-drawer)) forwards;
+    }
+
+    .mlv-drawer--leave {
+      animation: drawer-leave
+        var(--mlv-drawer-leave-duration, var(--mlv-duration-normal))
+        var(--mlv-drawer-leave-easing, var(--mlv-ease-drawer)) forwards;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Slide-down reveal — inline validation messages (mlv-message enter; played
+  // in reverse for leave). Translate + fade only, so it stays compositable.
+  // NB: referenced by message.scss since the beginning but never defined until
+  // 2026-07 — the animation was a silent no-op (unknown keyframes are ignored).
+  // ---------------------------------------------------------------------------
+
+  @keyframes mlv-slide-down {
+    from {
+      opacity: 0;
+      transform: translateY(-0.25rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Stagger list enter — used with the stagger-enter() SCSS mixin.
+  // Consumer sets --mlv-stagger-index and --mlv-stagger-delay on each item.
+  // ---------------------------------------------------------------------------
+
+  @keyframes mlv-stagger-enter {
+    from {
+      opacity: 0;
+      transform: translateY(var(--mlv-stagger-enter-offset-y, 0.5rem));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /// Variant: fade-only (no translate shift)
+  @keyframes mlv-stagger-enter-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /// Variant: scale up from slightly smaller
+  @keyframes mlv-stagger-enter-scale {
+    from {
+      opacity: 0;
+      transform: scale(var(--mlv-stagger-enter-scale-from, 0.92));
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes mlv-accordion--enter {
+    from {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+    to {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+  }
+
+  @keyframes mlv-accordion--leave {
+    from {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+    to {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Animated presence — generic enter/leave for *mlvAnimatedPresence
+  // ---------------------------------------------------------------------------
+
+  @keyframes mlv-presence-enter {
+    from {
+      opacity: 0;
+      transform: translateY(var(--mlv-presence-enter-from-translate-y, 0.25rem))
+        scale(var(--mlv-presence-enter-from-scale, 0.98));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes mlv-presence-leave {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(var(--mlv-presence-leave-to-translate-y, 0.25rem))
+        scale(var(--mlv-presence-leave-to-scale, 0.98));
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .mlv-presence--enter {
+      animation: mlv-presence-enter
+        var(--mlv-presence-enter-duration, var(--mlv-duration-normal))
+        var(--mlv-presence-enter-easing, var(--mlv-ease-out)) forwards;
+    }
+
+    .mlv-presence--leave {
+      animation: mlv-presence-leave
+        var(--mlv-presence-leave-duration, var(--mlv-duration-fast))
+        var(--mlv-presence-leave-easing, var(--mlv-ease-in)) forwards;
+    }
+  }
+}

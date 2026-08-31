@@ -1,0 +1,51 @@
+$block: docs-density-card;
+
+.#{$block} {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mlv-border-normal);
+  border-radius: var(--mlv-radius-m);
+  overflow: hidden;
+  min-width: 10rem;
+  transition: all 0.2s ease;
+  background: var(--mlv-background-base);
+
+  &__header {
+    padding: 0.75rem 1rem;
+    background: var(--mlv-background-neutral-1);
+    font-size: var(--mlv-typography-body-m-size);
+    font-weight: 600;
+    border-bottom: 1px solid var(--mlv-border-normal);
+    transition: padding 0.2s ease;
+  }
+
+  &__body {
+    padding: 1rem;
+    font-size: var(--mlv-typography-body-m-size);
+    color: var(--mlv-text-secondary);
+    transition: padding 0.2s ease;
+  }
+
+  // Density modifier classes applied by MlvDensityDirective
+  &--compact {
+    .docs-density-card__header {
+      padding: 0.375rem 0.75rem;
+      font-size: var(--mlv-typography-body-s-size);
+    }
+    .docs-density-card__body {
+      padding: 0.5rem 0.75rem;
+      font-size: var(--mlv-typography-body-s-size);
+    }
+  }
+
+  &--spacious {
+    .docs-density-card__header {
+      padding: 1.25rem 1.5rem;
+      font-size: var(--mlv-typography-body-l-size);
+    }
+    .docs-density-card__body {
+      padding: 1.5rem;
+      font-size: var(--mlv-typography-body-l-size);
+    }
+  }
+}

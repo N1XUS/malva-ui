@@ -1,0 +1,13 @@
+<div class="demo-row" style="flex-wrap: wrap; align-items: center">
+  <button mlvButton variant="secondary" (click)="showUpdateAvailable()">
+    Update available
+  </button>
+  <button mlvButton variant="error" (click)="showDeleteConfirm()">
+    Delete confirm
+  </button>
+  @if (lastAction()) {
+  <span style="font-size: 13px; color: var(--mlv-text-secondary)"
+    >Last action: {{ lastAction() }}</span
+  >
+  }
+</div>

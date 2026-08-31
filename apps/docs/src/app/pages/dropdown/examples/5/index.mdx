@@ -1,0 +1,17 @@
+---
+title: Loading and Lazy Paging
+description: The two loading affordances and the scroll sentinel that requests the next page.
+---
+
+The panel has two separate loading states, and they mean different things:
+
+- **`loading`** — the first page or a reload is in flight. A `role="status"` row appears above the list, the empty projection is suppressed, and any rows already on screen stay mounted and clickable while receding to the secondary text colour. They are never dimmed with opacity, which would break contrast on a live control.
+- **`loadingMore`** — a page **beyond** the first is in flight. A polite status row appears after the last option and nothing recedes.
+
+`loadingText` labels both rows.
+
+`hasMore` arms the zero-height scroll sentinel at the end of the list. Scroll within `infiniteScrollThreshold` (150px by default) of the end and the panel emits `(loadMore)`; a page too short to fill the scroll owner re-checks itself, so a slow first page does not stall the list. The panel refuses to fire again while `loading` or `loadingMore` is set — but the host should still guard its own fetch, as this example does.
+
+Scroll ownership matters here: the sentinel listens on the panel's own `mlv-scrollbar` in the default `scrollMode="self"`. Inside `mlv-popup`, switch to `scrollMode="parent"` so the popup's scrollbar drives it — see the popup example below.
+
+Bind these four inputs straight from `MlvOptionsAdapter` (`loading`, `loadingMore`, `hasMore`, `loadMore()`) when the source is a `MlvDataSource`; the hand-rolled pager here only exists to keep the example dependency-free.

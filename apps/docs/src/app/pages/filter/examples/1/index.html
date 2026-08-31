@@ -1,0 +1,32 @@
+<div class="filter-options-demo">
+  <section class="filter-options-demo__item" aria-labelledby="single-filter">
+    <h3 id="single-filter">Single value</h3>
+    <mlv-filter
+      label="Status"
+      [options]="statusOptions"
+      [(conditions)]="statusConditions"
+    />
+    <output class="filter-options-demo__status" aria-live="polite">
+      {{ statusSummary() }}
+    </output>
+  </section>
+
+  <section class="filter-options-demo__item" aria-labelledby="multi-filter">
+    <h3 id="multi-filter">Multiple values</h3>
+    <mlv-filter
+      label="Tag"
+      [options]="statusOptions"
+      multiple
+      [(conditions)]="tagConditions"
+    />
+    <output class="filter-options-demo__status" aria-live="polite">
+      {{ tagSummary() }}
+    </output>
+  </section>
+
+  <section class="filter-options-demo__item" aria-labelledby="loading-filter">
+    <h3 id="loading-filter">Loading</h3>
+    <mlv-filter label="Region" [options]="regionOptions" loading />
+    <span class="filter-options-demo__status">Waiting for filter metadata</span>
+  </section>
+</div>

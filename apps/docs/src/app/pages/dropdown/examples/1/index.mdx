@@ -1,0 +1,15 @@
+---
+title: Standalone Panel
+description: The listbox surface on its own, outside select and combobox.
+---
+
+`mlv-dropdown-panel` is the option list only — it owns rendering, selection presentation, keyboard navigation and the themed scrollbar, and nothing else. There is no trigger, no overlay and no value contract; the host keeps those.
+
+Two things a standalone panel needs that `mlv-select` / `mlv-combobox` normally supply:
+
+- **`MlvSelectionService`** — the panel injects it non-optionally, so list it in the host component's `providers`.
+- **`mlv-dropdown-panel--surface`** — an opt-in class that paints the floating surface (raised background, hairline border, panel radius, floating shadow). Panels nested inside `mlv-popup` inherit that chrome from the popup instead and must not add it.
+
+`selectedValues` and `(valueChange)` are always arrays, including in single-select mode: aria's listbox model is array-shaped throughout. With `[multiple]="false"` the emission carries at most one value.
+
+`maxHeight` bounds the panel's own `mlv-scrollbar`; leave it at `0` and the panel takes 40% of the viewport height.

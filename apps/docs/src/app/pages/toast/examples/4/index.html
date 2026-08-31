@@ -1,0 +1,14 @@
+<div class="demo-row" style="flex-wrap: wrap">
+  <button mlvButton (click)="showLong()">8 s (hover to pause)</button>
+  <button mlvButton variant="secondary" (click)="showNonClosable()">
+    Non-closable (5 s)
+  </button>
+  <button mlvButton variant="secondary" (click)="showProgrammatic()">
+    Sticky (programmatic)
+  </button>
+  @if (activeRef()) {
+  <button mlvButton variant="outlined" (click)="cancelTask()">
+    Cancel task
+  </button>
+  }
+</div>

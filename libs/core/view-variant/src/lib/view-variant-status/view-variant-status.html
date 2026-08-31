@@ -1,0 +1,96 @@
+@if (_isVisible()) {
+<section
+  class="mlv-view-variant-status__surface"
+  [class.mlv-view-variant-status__surface--error]="!!errorMessage()"
+  [attr.aria-busy]="_isBusy() || null"
+>
+  @if (errorMessage(); as errorMessage) {
+  <div class="mlv-view-variant-status__error" role="status" aria-live="polite">
+    <span>{{ errorMessage }}</span>
+    <span class="mlv-view-variant-status__actions">
+      <button
+        type="button"
+        mlvButton
+        variant="transparent"
+        (click)="retryRequest.emit()"
+      >
+        Retry
+      </button>
+      <button
+        type="button"
+        mlvButton
+        variant="transparent"
+        (click)="dismissError.emit()"
+      >
+        Dismiss
+      </button>
+    </span>
+  </div>
+  } @else {
+  <p class="mlv-view-variant-status__message">{{ _message() }}</p>
+  <div class="mlv-view-variant-status__actions">
+    @switch (_mode()) { @case ('locked-clean') { @if
+    (variant()?.capabilities?.clone) {
+    <button
+      type="button"
+      mlvButton
+      variant="secondary"
+      [loading]="_isActionBusy('clone')"
+      (click)="_clone()"
+    >
+      Duplicate view
+    </button>
+    } } @case ('locked-dirty') {
+    <button type="button" mlvButton variant="transparent" (click)="_reset()">
+      Reset changes
+    </button>
+    @if (variant()?.capabilities?.clone) {
+    <button
+      type="button"
+      mlvButton
+      [loading]="_isActionBusy('clone')"
+      (click)="_clone()"
+    >
+      Duplicate view
+    </button>
+    } } @case ('editable-dirty') {
+    <button type="button" mlvButton variant="transparent" (click)="_reset()">
+      Reset changes
+    </button>
+    @if (variant()?.capabilities?.update) {
+    <button
+      type="button"
+      mlvButton
+      [loading]="_isActionBusy('update')"
+      (click)="_update()"
+    >
+      Update view
+    </button>
+    } @if (canCreate()) {
+    <button
+      type="button"
+      mlvButton
+      variant="secondary"
+      [loading]="_isActionBusy('create')"
+      (click)="_create()"
+    >
+      Save as new
+    </button>
+    } } @case ('unsaved') {
+    <button type="button" mlvButton variant="transparent" (click)="_reset()">
+      Reset
+    </button>
+    @if (canCreate()) {
+    <button
+      type="button"
+      mlvButton
+      [loading]="_isActionBusy('create')"
+      (click)="_create()"
+    >
+      Save as new
+    </button>
+    } } }
+  </div>
+  }
+</section>
+}

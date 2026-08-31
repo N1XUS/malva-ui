@@ -1,0 +1,26 @@
+.pagination-demo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--mlv-typography-body-s-size);
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--mlv-border-normal);
+  }
+
+  th {
+    font-weight: 600;
+    color: var(--mlv-text-secondary);
+    background: var(--mlv-background-neutral-1);
+  }
+
+  td {
+    color: var(--mlv-text-primary);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+}

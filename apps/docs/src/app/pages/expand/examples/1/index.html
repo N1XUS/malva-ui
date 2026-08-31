@@ -1,0 +1,24 @@
+<div class="expand-item">
+  <button
+    class="expand-item__trigger"
+    type="button"
+    [attr.aria-expanded]="panel.opened()"
+    (click)="panel.toggle()"
+  >
+    <span>What is Malva UI?</span>
+    <svg
+      lucideChevronDown
+      class="expand-item__chevron"
+      [class.expand-item__chevron--open]="panel.opened()"
+      [size]="16"
+    />
+  </button>
+
+  <mlv-expand #panel>
+    <div class="expand-item__body">
+      Malva UI is a modern Angular component library built on a design-token
+      driven system. It provides accessible, themeable components with full dark
+      mode and high-contrast support out of the box.
+    </div>
+  </mlv-expand>
+</div>

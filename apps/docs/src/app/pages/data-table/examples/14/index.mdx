@@ -1,0 +1,7 @@
+## Infinite Scroll Pagination
+
+Set `paginationMode="infinite"` to replace the classic paginator footer with infinite-scroll loading. The table hides its pagination controls and attaches the `[mlvInfiniteScroll]` directive (from `@malva-ui/cdk/infinite-scroll`) to its internal scroll wrapper.
+
+When the user scrolls within `infiniteScrollThreshold` pixels of the bottom, the table emits `(loadMore)` with `{ page, perPage, distance }`. The consumer is responsible for fetching the next page and appending the returned rows to the bound array. Bind `[loading]` to your in-flight flag to suppress duplicate fires, and bind `[hasMore]` to `false` once the backing data source is exhausted so the directive stops observing.
+
+A `maxHeight` is required so the scroll container is actually scrollable — otherwise the page itself would be the scrolling surface and the directive would have nothing to observe.

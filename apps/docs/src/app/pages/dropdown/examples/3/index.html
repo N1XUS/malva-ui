@@ -1,0 +1,13 @@
+<div class="dropdown-groups">
+  <mlv-dropdown-panel
+    class="mlv-dropdown-panel--surface dropdown-groups__panel"
+    [options]="regions"
+    [selectedValues]="selected()"
+    [maxHeight]="220"
+    (valueChange)="onValueChange($event)"
+  />
+
+  <p class="dropdown-groups__result" aria-live="polite">
+    Primary region: <strong>{{ selectedLabel() }}</strong>
+  </p>
+</div>

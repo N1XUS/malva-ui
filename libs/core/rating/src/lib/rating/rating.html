@@ -1,0 +1,30 @@
+@for (i of _indices(); track i) {
+<button
+  type="button"
+  class="mlv-rating__star"
+  [attr.aria-label]="_rateLabel(i + 1)"
+  [attr.aria-pressed]="value() >= (i + 1)"
+  [disabled]="computedDisabled() || readonly() || null"
+  [tabindex]="_starTabIndex(i)"
+  (mousemove)="_onStarMouseMove(i + 1, $event)"
+  (click)="_onStarClick(i + 1, $event)"
+  (focus)="_onStarFocus(i + 1)"
+  (blur)="_onStarBlur()"
+>
+  <!-- Empty star (always rendered, forms the "outline") -->
+  <svg
+    lucideStar
+    class="mlv-rating__icon mlv-rating__icon--empty"
+    [size]="20"
+    aria-hidden="true"
+  />
+  <!-- Filled star (clipped to show partial fill) -->
+  <svg
+    lucideStar
+    class="mlv-rating__icon mlv-rating__icon--filled"
+    [size]="20"
+    aria-hidden="true"
+    [style.clip-path]="_clipPath(i + 1)"
+  />
+</button>
+}

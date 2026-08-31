@@ -1,0 +1,28 @@
+@layer mlv.components {
+  .mlv-token {
+    display: inline-flex;
+    align-items: center;
+    max-width: 12.5rem;
+    border-radius: var(--mlv-radius-tag);
+    outline: none;
+  }
+
+  .mlv-token:focus-visible {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+  }
+
+  .mlv-token--disabled {
+    opacity: var(--mlv-disabled-opacity);
+  }
+
+  /* Armed (Backspace-selected) token. The primary tone on the inner chip supplies
+     the fill; this ring reinforces the selection for the visual-only highlight.
+     Deliberately the thinner --mlv-stroke-width (1px), not the SF-R3 focus-ring
+     width above: this is not a :focus-visible ring, so the focus-ring sweep
+     should never have touched it. */
+  .mlv-token--armed {
+    outline: var(--mlv-stroke-width) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+  }
+}

@@ -1,0 +1,270 @@
+@use '../../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+$block: mlv-chip;
+
+// Semantic tone names matching the design-token palette
+$_tones: (
+  'default',
+  'primary',
+  'secondary',
+  'accent',
+  'success',
+  'info',
+  'warning',
+  'danger'
+);
+
+.#{$block} {
+  // Component-scoped variables — overridden by tone/muted/floating modifiers below
+  --mlv-chip-bg: var(--mlv-background-neutral-1);
+  --mlv-chip-color: var(--mlv-text-primary);
+  --mlv-chip-border: transparent;
+  --mlv-chip-shadow: none;
+  --mlv-chip-font-size: var(--mlv-font-size-m);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: var(
+    --mlv-padding-s
+  ); // one step smaller than badge's --mlv-padding-m
+  font-size: var(
+    --mlv-chip-font-size
+  ); // same font scale as badge; chip feels smaller via padding
+  border-radius: var(
+    --mlv-radius-tag
+  ); // pill, shared with `mlv-badge` — see `--mlv-radius-tag`
+  border: var(--mlv-stroke-width) solid var(--mlv-chip-border);
+  font-family: var(--mlv-font-family-sans, sans-serif);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+  background-color: var(--mlv-chip-bg);
+  color: var(--mlv-chip-color);
+  box-shadow: var(--mlv-chip-shadow);
+  box-sizing: border-box;
+
+  // Font sizes mirror badge's scale (xs→s→m→l→xl) so each density is visually distinct.
+  // Padding is one step below badge at every level — that's what makes the chip feel smaller.
+  @include density.density-tight {
+    --mlv-chip-font-size: var(--mlv-font-size-xs); // badge: xs
+    padding: var(--mlv-padding-xs); // badge: xs (floor — nothing smaller)
+  }
+
+  @include density.density-compact {
+    --mlv-chip-font-size: var(--mlv-font-size-s); // badge: s
+    padding: var(--mlv-padding-xs); // badge: s → chip uses xs
+  }
+
+  @include density.density-spacious {
+    --mlv-chip-font-size: var(--mlv-font-size-l); // badge: l
+    padding: var(--mlv-padding-m); // badge: l → chip uses m
+  }
+
+  @include density.density-airy {
+    --mlv-chip-font-size: var(--mlv-font-size-xl); // badge: xl
+    padding: var(--mlv-padding-l); // badge: xl → chip uses l
+  }
+
+  transition:
+    background-color var(--mlv-duration-fast) var(--mlv-ease-default),
+    box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
+
+  // ---------------------------------------------------------------------------
+  // Animated variant — opt-in via [animated]="true"
+  // ---------------------------------------------------------------------------
+
+  &--animated {
+    // overflow + max-width are only needed when animations are active
+    overflow: hidden;
+    max-width: 40rem;
+    // Enter plays once on DOM insertion; backwards fill hides the chip before the animation starts
+    animation: mlv-chip-enter var(--mlv-duration-normal) var(--mlv-ease-out)
+      backwards;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Parts
+  // ---------------------------------------------------------------------------
+
+  &__prepend,
+  &__append {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: inherit;
+    font-size: var(--mlv-chip-font-size);
+
+    svg {
+      width: 1.25em;
+      height: 1.25em;
+      display: block;
+    }
+  }
+
+  &__label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit;
+    line-height: 1.2;
+    font-size: var(--mlv-chip-font-size);
+  }
+
+  &__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+    border-radius: var(--mlv-radius-full);
+    transition: opacity var(--mlv-duration-fast) var(--mlv-ease-default);
+    font-size: var(--mlv-chip-font-size);
+    margin-inline-end: calc(var(--mlv-spacing-1) * -1);
+
+    svg {
+      width: 1.25em;
+      height: 1.25em;
+      display: block;
+    }
+
+    &:hover {
+      opacity: 1;
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid
+        var(--mlv-border-focus, currentColor);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Leave animation — added programmatically before chipClose emits (animated mode only)
+  // ---------------------------------------------------------------------------
+
+  &--leaving {
+    overflow: hidden;
+    max-width: 40rem;
+    animation: mlv-chip-leave var(--mlv-duration-normal) var(--mlv-ease-in)
+      forwards;
+    pointer-events: none;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Solid tone variants
+  // ---------------------------------------------------------------------------
+
+  &--tone-default {
+    --mlv-chip-bg: var(--mlv-background-neutral-1);
+    --mlv-chip-color: var(--mlv-text-primary);
+  }
+  &--tone-primary {
+    --mlv-chip-bg: var(--mlv-background-accent-1);
+    --mlv-chip-color: var(--mlv-text-primary-on-accent-1);
+  }
+  &--tone-secondary {
+    --mlv-chip-bg: var(--mlv-background-neutral-1);
+    --mlv-chip-color: var(--mlv-text-action);
+  }
+  &--tone-accent {
+    --mlv-chip-bg: var(--mlv-background-accent-2);
+    --mlv-chip-color: var(--mlv-text-primary-on-accent-2);
+  }
+  &--tone-success {
+    --mlv-chip-bg: var(--mlv-palette-success-500);
+    --mlv-chip-color: var(--mlv-text-inverse);
+  }
+  &--tone-info {
+    --mlv-chip-bg: var(--mlv-palette-info-500);
+    --mlv-chip-color: var(--mlv-text-inverse);
+  }
+  &--tone-warning {
+    --mlv-chip-bg: var(--mlv-background-warning-1);
+    --mlv-chip-color: var(--mlv-text-on-warning);
+  }
+  &--tone-danger {
+    --mlv-chip-bg: var(--mlv-background-danger-1);
+    --mlv-chip-color: var(--mlv-text-on-danger);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Muted variant — soft tint surface + matching text
+  // ---------------------------------------------------------------------------
+
+  &--muted {
+    @each $tone in $_tones {
+      &.#{$block}--tone-#{$tone} {
+        --mlv-chip-bg: var(--mlv-muted-#{$tone}-bg-2);
+        --mlv-chip-color: var(--mlv-muted-#{$tone}-text-2);
+        --mlv-chip-border: var(--mlv-muted-#{$tone}-border-2);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rounded variant — full pill shape
+  // ---------------------------------------------------------------------------
+
+  &--rounded {
+    border-radius: var(--mlv-radius-full);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Floating variant — elevated shadow
+  // ---------------------------------------------------------------------------
+
+  &--floating {
+    --mlv-chip-shadow: var(--mlv-shadow-raised);
+
+    &:hover {
+      --mlv-chip-shadow: var(--mlv-shadow-floating);
+    }
+
+    &:active {
+      --mlv-chip-shadow: var(--mlv-shadow-raised);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Keyframes
+// ---------------------------------------------------------------------------
+
+// Chip grows in from 0 width and opacity — 'to' is the element's own computed styles
+@keyframes mlv-chip-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+    max-width: 0;
+    padding-inline: 0;
+  }
+}
+
+// Chip shrinks back to 0 — forwards fill keeps it invisible until Angular removes the element
+@keyframes mlv-chip-leave {
+  70% {
+    opacity: 0;
+    transform: scale(0.85);
+    padding-inline: 0;
+  }
+  to {
+    max-width: 0;
+  }
+}
+
+// Respect reduced-motion: collapse duration so animationend still fires but instantly
+@media (prefers-reduced-motion: reduce) {
+  .#{$block}--animated,
+  .#{$block}--leaving {
+    animation-duration: 0.01ms !important;
+  }
+}
+}

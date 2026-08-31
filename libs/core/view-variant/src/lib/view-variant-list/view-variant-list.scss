@@ -1,0 +1,168 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-view-variant-list;
+
+.#{$block} {
+  @include mixins.base();
+
+  display: block;
+  width: 17rem;
+  max-width: 100%;
+  color: var(--mlv-text-primary);
+
+  &__toolbar,
+  &__error,
+  &__error-actions,
+  &__item,
+  &__row {
+    display: flex;
+    align-items: center;
+  }
+
+  &__toolbar {
+    gap: var(--mlv-spacing-2);
+    margin-block-end: var(--mlv-spacing-4);
+  }
+
+  &__toolbar mlv-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__create {
+    flex-shrink: 0;
+  }
+
+  &__error {
+    justify-content: space-between;
+    gap: var(--mlv-spacing-2);
+    margin-block-end: var(--mlv-spacing-3);
+    padding: var(--mlv-padding-s);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-error);
+    border-radius: var(--mlv-radius-m);
+    background-color: var(--mlv-background-danger-1-pale);
+    color: var(--mlv-text-error);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  &__error-actions {
+    flex-shrink: 0;
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__group + &__group {
+    margin-block-start: var(--mlv-spacing-4);
+    padding-block-start: var(--mlv-spacing-4);
+    border-block-start: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+
+  &__group-title {
+    margin: 0 0 var(--mlv-spacing-2);
+    color: var(--mlv-text-caption);
+    font-size: var(--mlv-typography-caption-size);
+    font-weight: var(--mlv-typography-ui-s-weight);
+    line-height: var(--mlv-typography-caption-line-height);
+  }
+
+  &__items {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    gap: var(--mlv-spacing-1);
+    min-width: 0;
+  }
+
+  &__row {
+    flex: 1;
+    gap: var(--mlv-spacing-2);
+    min-width: 0;
+    min-height: 2.5rem;
+    padding-inline: var(--mlv-spacing-3);
+    border: 0;
+    border-radius: var(--mlv-radius-m);
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--mlv-background-neutral-1-hover);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+
+    &:disabled {
+      color: var(--mlv-text-disabled);
+      cursor: progress;
+    }
+
+    // Selection is its own token (SF-R1) — never the pressed/`-active` fill.
+    &--active {
+      background-color: var(--mlv-background-selected);
+      color: var(--mlv-text-on-selected);
+
+      &:hover {
+        background-color: var(--mlv-background-selected-hover);
+      }
+    }
+  }
+
+  &__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__lock,
+  &__count,
+  &__more {
+    flex-shrink: 0;
+  }
+
+  &__lock {
+    color: var(--mlv-text-secondary);
+  }
+
+  &__count {
+    margin-inline-start: auto;
+    color: var(--mlv-text-caption);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__more {
+    --mlv-button-height: 2.5rem;
+  }
+
+  &__empty {
+    margin: var(--mlv-spacing-4) 0 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  &__visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+    padding: 0;
+    margin: -1px;
+  }
+}
+}

@@ -1,0 +1,71 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+@use '../form-mixins' as form;
+
+@layer mlv.components {
+$block: mlv-fieldset;
+
+.#{$block} {
+  @include mixins.base();
+  @include form.fieldset-reset;
+  // Standalone rhythm (outside a form[mlvForm]); a surrounding form's
+  // --mlv-form-gap wins because the body reads it first.
+  @include form.gap-scale(--mlv-fieldset-default-gap);
+  --mlv-fieldset-min-column-width: 10rem;
+
+  display: block;
+
+  // Rendered legend (`legend` input) and projected native <legend>.
+  &__legend,
+  > legend {
+    @include form.legend;
+
+    @include density.density-tight {
+      @include form.legend-dense;
+    }
+    @include density.density-compact {
+      @include form.legend-dense;
+    }
+  }
+
+  &__description {
+    margin: 0 0 var(--mlv-spacing-3);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+    color: var(--mlv-text-secondary);
+  }
+
+  // The grid lives on the body, not on the fieldset: keeps the legend out of
+  // the grid and sidesteps WebKit's fieldset+grid sizing bug (bugs.webkit.org 311249).
+  &__body {
+    display: grid;
+    min-inline-size: 0;
+    gap: var(--mlv-form-gap, var(--mlv-fieldset-default-gap));
+    grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(var(--mlv-fieldset-min-column-width), 100%), 1fr)
+    );
+  }
+
+  // columns=n → at most n columns; collapses when a column would drop below
+  // the min width.
+  &--capped > &__body {
+    grid-template-columns: repeat(
+      auto-fit,
+      minmax(
+        max(
+          min(var(--mlv-fieldset-min-column-width), 100%),
+          calc(
+            (
+                100% - (var(--mlv-fieldset-columns) - 1) *
+                  var(--mlv-form-gap, var(--mlv-fieldset-default-gap))
+              ) /
+              var(--mlv-fieldset-columns)
+          )
+        ),
+        1fr
+      )
+    );
+  }
+}
+}

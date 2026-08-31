@@ -1,0 +1,19 @@
+@if (opened()) {
+<div
+  class="mlv-expand__body"
+  animate.enter="mlv-expand__body--enter"
+  animate.leave="mlv-expand__body--leave"
+  [attr.inert]="opened() ? null : ''"
+  [attr.role]="ariaLabel() || ariaLabelledBy() ? 'region' : null"
+  [attr.aria-label]="ariaLabel() || null"
+  [attr.aria-labelledby]="ariaLabelledBy() || null"
+>
+  <div class="mlv-expand__body-inner">
+    @if (_lazyContent(); as lazy) {
+    <ng-template [ngTemplateOutlet]="lazy.templateRef" />
+    } @else {
+    <ng-content />
+    }
+  </div>
+</div>
+}

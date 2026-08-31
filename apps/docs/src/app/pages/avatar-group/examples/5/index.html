@@ -1,0 +1,33 @@
+<div
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    align-items: flex-start;
+  "
+>
+  <div>
+    <p
+      style="
+        margin: 0 0 0.5rem;
+        font-size: 0.875rem;
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Circle (default)
+    </p>
+    <mlv-avatar-group [members]="projectMembers" shape="circle" size="l" />
+  </div>
+  <div>
+    <p
+      style="
+        margin: 0 0 0.5rem;
+        font-size: 0.875rem;
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Square
+    </p>
+    <mlv-avatar-group [members]="projectMembers" shape="square" size="l" />
+  </div>
+</div>

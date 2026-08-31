@@ -1,0 +1,144 @@
+@if (_geometry(); as geometry) {
+  <button
+    class="mlv-editor-table-controls__grip mlv-editor-table-controls__grip--corner"
+    type="button"
+    tabindex="-1"
+    [style]="_style(geometry.corner)"
+    [mlvMenuTrigger]="_cornerMenu"
+    [attr.aria-label]="_copy().tableActions"
+    (menuOpened)="_openMenu(_cornerMenu)"
+    (menuClosed)="_closeMenu()"
+  >
+    <svg lucideEllipsis [size]="10" aria-hidden="true" />
+  </button>
+  <mlv-menu #_cornerMenu [label]="_copy().tableActions">
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canToggleHeaderRow)"
+      (itemClick)="_run(_toggleHeaderRow)"
+    >
+      {{ _copy().toggleHeaderRow }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canToggleHeaderColumn)"
+      (itemClick)="_run(_toggleHeaderColumn)"
+    >
+      {{ _copy().toggleHeaderColumn }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canToggleHeaderCell)"
+      (itemClick)="_run(_toggleHeaderCell)"
+    >
+      {{ _copy().toggleHeaderCell }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canMergeCells)"
+      (itemClick)="_run(_mergeCells)"
+    >
+      {{ _copy().mergeCells }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canSplitCell)"
+      (itemClick)="_run(_splitCell)"
+    >
+      {{ _copy().splitCell }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canDeleteTable)"
+      (itemClick)="_run(_deleteTable)"
+    >
+      {{ _copy().deleteTable }}
+    </mlv-list-item>
+  </mlv-menu>
+
+  <button
+    class="mlv-editor-table-controls__grip mlv-editor-table-controls__grip--column"
+    type="button"
+    tabindex="-1"
+    [style]="_style(geometry.column)"
+    [mlvMenuTrigger]="_columnMenu"
+    [attr.aria-label]="_copy().columnActions"
+    (menuOpened)="_openMenu(_columnMenu)"
+    (menuClosed)="_closeMenu()"
+  >
+    <svg lucideGripHorizontal [size]="12" aria-hidden="true" />
+  </button>
+  <mlv-menu #_columnMenu [label]="_copy().columnActions">
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canAddColumnBefore)"
+      (itemClick)="_run(_addColumnBefore)"
+    >
+      {{ _copy().addColumnBefore }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canAddColumnAfter)"
+      (itemClick)="_run(_addColumnAfter)"
+    >
+      {{ _copy().addColumnAfter }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canToggleHeaderColumn)"
+      (itemClick)="_run(_toggleHeaderColumn)"
+    >
+      {{ _copy().toggleHeaderColumn }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canDeleteColumn)"
+      (itemClick)="_run(_deleteColumn)"
+    >
+      {{ _copy().deleteColumn }}
+    </mlv-list-item>
+  </mlv-menu>
+
+  <button
+    class="mlv-editor-table-controls__grip mlv-editor-table-controls__grip--row"
+    type="button"
+    tabindex="-1"
+    [style]="_style(geometry.row)"
+    [mlvMenuTrigger]="_rowMenu"
+    [attr.aria-label]="_copy().rowActions"
+    (menuOpened)="_openMenu(_rowMenu)"
+    (menuClosed)="_closeMenu()"
+  >
+    <svg lucideGripVertical [size]="12" aria-hidden="true" />
+  </button>
+  <mlv-menu #_rowMenu [label]="_copy().rowActions">
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canAddRowBefore)"
+      (itemClick)="_run(_addRowBefore)"
+    >
+      {{ _copy().addRowBefore }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canAddRowAfter)"
+      (itemClick)="_run(_addRowAfter)"
+    >
+      {{ _copy().addRowAfter }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canToggleHeaderRow)"
+      (itemClick)="_run(_toggleHeaderRow)"
+    >
+      {{ _copy().toggleHeaderRow }}
+    </mlv-list-item>
+    <mlv-list-item
+      mlvMenuItem
+      [disabled]="_disabled(_canDeleteRow)"
+      (itemClick)="_run(_deleteRow)"
+    >
+      {{ _copy().deleteRow }}
+    </mlv-list-item>
+  </mlv-menu>
+}

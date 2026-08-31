@@ -1,0 +1,13 @@
+## Code snippet context
+
+`<mlv-copy-to-clipboard>` blends naturally into a `<pre><code>` block because
+the host is `display: inline-flex` with a zero-inset hover tint — the
+surrounding layout never shifts when the hover background appears.
+
+```html
+<pre><code>$ git checkout <mlv-copy-to-clipboard>a1b2c3d4e5f6</mlv-copy-to-clipboard></code></pre>
+```
+
+This pattern fits documentation sites, build logs, env var tables, and any
+dense technical reference where click-to-copy is expected but explicit buttons
+would feel heavy.

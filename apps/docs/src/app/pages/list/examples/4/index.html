@@ -1,0 +1,52 @@
+<mlv-list variant="inset" class="docs-inbox-list">
+  @for (msg of messages; track msg.id) {
+  <mlv-list-item [unread]="msg.unread">
+    <mlv-avatar
+      mlvListItemMedia
+      shape="circle"
+      size="l"
+      [name]="msg.from"
+    ></mlv-avatar>
+
+    <span mlvListItemTitle>{{ msg.from }}</span>
+    <span mlvListItemMeta>{{ msg.time }}</span>
+    <span mlvListItemByline>
+      <strong>{{ msg.subject }}</strong>
+      — {{ msg.preview }}
+    </span>
+
+    <div mlvListItemActions revealOnHover>
+      <button
+        mlvButton
+        type="button"
+        variant="transparent"
+        shape="circle"
+        size="s"
+        aria-label="Reply"
+      >
+        <svg lucideReply [size]="16"></svg>
+      </button>
+      <button
+        mlvButton
+        type="button"
+        variant="transparent"
+        shape="circle"
+        size="s"
+        aria-label="Archive"
+      >
+        <svg lucideArchive [size]="16"></svg>
+      </button>
+      <button
+        mlvButton
+        type="button"
+        variant="transparent"
+        shape="circle"
+        size="s"
+        aria-label="Delete"
+      >
+        <svg lucideTrash2 [size]="16"></svg>
+      </button>
+    </div>
+  </mlv-list-item>
+  }
+</mlv-list>

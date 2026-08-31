@@ -1,0 +1,77 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-divider;
+
+.#{$block} {
+  --mlv-divider-color: var(--mlv-border-normal);
+  --mlv-divider-style: solid;
+
+  display: flex;
+  align-items: center;
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-font-size-s);
+  font-family: var(--mlv-typography-family-text);
+  box-sizing: border-box;
+
+  // ── Line segments ──────────────────────────────────────────────────────────
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    border-color: var(--mlv-divider-color);
+    border-style: var(--mlv-divider-style);
+  }
+
+  // ── Horizontal (default) ───────────────────────────────────────────────────
+  &--horizontal {
+    flex-direction: row;
+    width: 100%;
+    min-height: 0;
+
+    &::before,
+    &::after {
+      border-top-width: 0.0625rem;
+      border-inline-end-width: 0;
+      border-bottom-width: 0;
+      border-inline-start-width: 0;
+    }
+
+    // When there is projected content add spacing around it
+    &:not(:empty) {
+      gap: 0.5rem;
+    }
+  }
+
+  // ── Vertical ───────────────────────────────────────────────────────────────
+  &--vertical {
+    flex-direction: column;
+    align-self: stretch;
+    width: auto;
+    min-width: 0;
+
+    &::before,
+    &::after {
+      border-top-width: 0;
+      border-inline-end-width: 0;
+      border-bottom-width: 0;
+      border-inline-start-width: 0.0625rem;
+      min-height: 0.5rem;
+    }
+
+    &:not(:empty) {
+      gap: 0.25rem;
+    }
+  }
+
+  // ── Dashed modifier ────────────────────────────────────────────────────────
+  &--dashed {
+    --mlv-divider-style: dashed;
+  }
+
+  // ── Muted modifier ─────────────────────────────────────────────────────────
+  &--muted {
+    --mlv-divider-color: var(--mlv-border-subtle);
+  }
+}
+}

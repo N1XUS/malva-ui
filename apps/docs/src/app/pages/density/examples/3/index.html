@@ -1,0 +1,70 @@
+<div class="demo-col">
+  <div>
+    <p class="density-override-hint">Global density:</p>
+    <div class="demo-row">
+      <button
+        mlvButton
+        [variant]="densityService.density() === 'compact' ? 'primary' : 'secondary'"
+        (click)="setDensity('compact')"
+      >
+        Compact
+      </button>
+      <button
+        mlvButton
+        [variant]="densityService.density() === 'comfortable' ? 'primary' : 'secondary'"
+        (click)="setDensity('comfortable')"
+      >
+        Comfortable
+      </button>
+      <button
+        mlvButton
+        [variant]="densityService.density() === 'spacious' ? 'primary' : 'secondary'"
+        (click)="setDensity('spacious')"
+      >
+        Spacious
+      </button>
+    </div>
+  </div>
+
+  <div class="demo-row" style="align-items: flex-start">
+    <div class="demo-col">
+      <p class="density-override-hint">
+        Follows global ({{ densityService.density() }})
+      </p>
+      <docs-density-card>
+        <span slot="title">Project Alpha</span>
+        Uses global density
+      </docs-density-card>
+    </div>
+
+    <div class="demo-col">
+      <p class="density-override-hint">Pinned to <code>spacious</code></p>
+      <docs-density-card mlvDensity="spacious">
+        <span slot="title">Project Beta</span>
+        Always spacious
+      </docs-density-card>
+    </div>
+
+    <div class="demo-col">
+      <p class="density-override-hint">Pinned to <code>compact</code></p>
+      <docs-density-card mlvDensity="compact">
+        <span slot="title">Project Gamma</span>
+        Always compact
+      </docs-density-card>
+    </div>
+  </div>
+</div>
+
+<style>
+  .density-override-hint {
+    font-size: var(--mlv-typography-body-s-size);
+    color: var(--mlv-text-secondary);
+    margin: 0 0 0.5rem;
+  }
+
+  .density-override-hint code {
+    background: var(--mlv-background-neutral-1);
+    padding: 0.0625rem 0.25rem;
+    border-radius: var(--mlv-radius-s);
+  }
+</style>

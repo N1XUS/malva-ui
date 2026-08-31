@@ -1,0 +1,29 @@
+<div class="lazy-panel">
+  <button
+    class="lazy-panel__trigger"
+    type="button"
+    [attr.aria-expanded]="isOpen()"
+    (click)="isOpen.set(!isOpen())"
+  >
+    <div class="lazy-panel__trigger-content">
+      <svg
+        lucideDatabase
+        [size]="16"
+        style="color: var(--mlv-text-secondary)"
+      />
+      <span>Load Analytics Dashboard</span>
+    </div>
+    <svg
+      lucideChevronDown
+      class="lazy-panel__chevron"
+      [class.lazy-panel__chevron--open]="isOpen()"
+      [size]="16"
+    />
+  </button>
+
+  <mlv-expand [(opened)]="isOpen">
+    <ng-template mlvExpandContent>
+      <docs-expand-lazy-inner />
+    </ng-template>
+  </mlv-expand>
+</div>

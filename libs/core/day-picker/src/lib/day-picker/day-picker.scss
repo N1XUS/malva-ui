@@ -1,0 +1,91 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-day-picker;
+
+.#{$block} {
+  @include mixins.base();
+  display: block;
+
+  &__popup-container {
+    width: 100%;
+  }
+
+  &__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    cursor: pointer;
+    outline: none;
+    min-height: 1.5rem;
+
+    // SF-R3 Form A: the trigger had no proxy element restoring a ring —
+    // `mlv-form-control-wrapper--focused`'s shadow fires on any `:focus`
+    // (mouse included) and is a different affordance, not a `:focus-visible`
+    // ring for this keyboard-operable `role="combobox"` element.
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+  }
+
+  &__value {
+    flex: 1;
+    color: var(--mlv-text-primary);
+  }
+
+  &__placeholder {
+    flex: 1;
+    color: var(--mlv-text-secondary);
+  }
+
+  // Shared form-control affordance-glyph ramp (2026-08-26): size was a fixed
+  // 1.25rem regardless of density; colour was `--mlv-text-secondary` at rest
+  // with no hover/open/focused step — now mirrors `.mlv-select__arrow` (the
+  // reference implementation) exactly.
+  &__icon {
+    display: flex;
+    align-items: center;
+    color: var(--mlv-text-tertiary);
+    margin-inline-start: 0.5rem;
+    line-height: 1;
+    transition: color var(--mlv-duration-fast) var(--mlv-ease-out-strong);
+
+    svg {
+      width: var(--form-ctrl-icon-size, 1.25rem);
+      height: var(--form-ctrl-icon-size, 1.25rem);
+    }
+  }
+
+  &--open,
+  &:hover {
+    .#{$block}__icon {
+      color: var(--mlv-text-primary);
+    }
+  }
+
+  @at-root .mlv-form-control-wrapper--focused {
+    .#{$block}__icon {
+      color: var(--mlv-text-primary);
+    }
+  }
+
+  // Popup content wrapper. `mlv-popup` paints the shared surface (radius,
+  // border, shadow) but deliberately owns no padding of its own — "the
+  // projected block owns its own spacing" (popup.scss). `mlv-calendar
+  // embedded` also owns none (it strips its own card chrome so the popup's
+  // surface is the only one painted). Net result before this rule: the
+  // calendar's day-grid sat flush against the popup's rounded border — no
+  // owner ever supplied the standard dropdown-panel inset
+  // (`--mlv-popover-inset`, the same value `mlv-dropdown-panel`/`mlv-menu`/
+  // `mlv-breadcrumb`'s overflow menu use for their own popover content).
+  // This wrapper is the one place scoped to day-picker's own popup — not
+  // `mlv-calendar--embedded` itself, which `mlv-date-range-picker` also
+  // uses inside its own, already-padded `__calendars` row and would have
+  // been pushed off by a shared-modifier change.
+  &__popup {
+    padding: var(--mlv-popover-inset);
+  }
+}
+}

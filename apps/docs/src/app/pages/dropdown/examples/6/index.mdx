@@ -1,0 +1,16 @@
+---
+title: Inside a Popup, No Backdrop
+description: The panel hosted in mlv-popup with hasBackdrop false — how select and combobox compose it.
+---
+
+This is how `mlv-select` and `mlv-combobox` are built: a trigger, an `mlv-popup` for positioning and dismissal, and `mlv-dropdown-panel` as the popup's content. Composing it by hand is the point of the primitive — the panel stays reusable because it owns none of that.
+
+Three things change relative to a standalone panel:
+
+- **`scrollMode="parent"`** — the popup already renders a themed `mlv-scrollbar`. Left at `self` the panel would nest a second scroll region inside it, and the paging sentinel would listen on the wrong element.
+- **No `--surface` class** — the popup paints the floating chrome. Adding the modifier would double the border and shadow.
+- **Dismissal is the host's** — `(valueChange)` commits the pick and closes the popup, matching how a menu-style control behaves. Multi-select controls simply leave it open.
+
+- **Focus is the host's too** — a non-modal popup does not move focus on its own. `(afterOpened)` hands roving focus to the first option through `MlvSelectionService.requestFocusFirst()` (the panel lives in the overlay, out of reach of a view query, and this is the channel it already listens on), and `(afterClosed)` puts focus back on the trigger. Without both, a keyboard user can open the list and never reach it.
+
+`[hasBackdrop]="false"` removes the transparent overlay that normally sits between the popup and the page, so the content behind stays interactive — the paragraph above remains selectable while the panel is open. Click-outside and Escape still close it, and focus still returns to the trigger.

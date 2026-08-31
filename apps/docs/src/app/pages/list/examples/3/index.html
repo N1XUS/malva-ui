@@ -1,0 +1,25 @@
+<mlv-list class="docs-store-list">
+  @for (item of items; track item.title) {
+  <mlv-list-item>
+    <mlv-avatar
+      mlvListItemMedia
+      shape="square"
+      size="xl"
+      [src]="item.avatarUrl"
+      [name]="item.title"
+    ></mlv-avatar>
+    <span mlvListItemTitle>{{ item.title }}</span>
+    <span mlvListItemByline>{{ item.byline }}</span>
+    <div mlvListItemActions>
+      <button
+        mlvButton
+        mlvDensity="compact"
+        type="button"
+        variant="transparent"
+      >
+        Get
+      </button>
+    </div>
+  </mlv-list-item>
+  }
+</mlv-list>

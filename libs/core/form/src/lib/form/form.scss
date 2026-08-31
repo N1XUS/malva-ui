@@ -1,0 +1,78 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../form-mixins' as form;
+
+@layer mlv.components {
+$block: mlv-form;
+
+.#{$block} {
+  @include mixins.base();
+  @include form.gap-scale;
+
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-inline-size: 0;
+  gap: var(--mlv-form-gap);
+
+  // A lone button as a direct child should hug its content, not stretch.
+  > .mlv-button {
+    align-self: flex-start;
+  }
+
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mlv-spacing-3);
+
+    // The row owns its vertical rhythm: a plain heading inside it must not
+    // bring consumer `h2 { margin: … }` rules along (the `[class*='mlv']`
+    // reset sits in the `mlv.base` layer and loses to unlayered rules).
+    > :is(h1, h2, h3, h4, h5, h6) {
+      margin: 0;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--mlv-spacing-3);
+
+    &--align-end {
+      justify-content: flex-end;
+    }
+
+    &--align-center {
+      justify-content: center;
+    }
+
+    &--align-between {
+      justify-content: space-between;
+    }
+  }
+
+  // Bare <fieldset> without [mlvFieldset]: reset + stacked group with styled
+  // legend. No grid here (WebKit fieldset+grid bug) — opt into mlvFieldset for it.
+  fieldset:not(.mlv-fieldset) {
+    @include form.fieldset-reset;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-form-gap);
+
+    > legend {
+      @include form.legend;
+    }
+  }
+
+  // Density for bare legends. The density mixins cannot be used here: they
+  // prefix the whole selector with `[class*='--x'] `, and this selector starts
+  // at `.mlv-form`, so the form's own `mlv-form--x` modifier could never match.
+  &[class*='--tight'] fieldset:not(.mlv-fieldset) > legend,
+  &[class*='--compact'] fieldset:not(.mlv-fieldset) > legend {
+    @include form.legend-dense;
+  }
+}
+}

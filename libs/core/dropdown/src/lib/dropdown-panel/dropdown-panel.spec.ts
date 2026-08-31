@@ -1,0 +1,642 @@
+import type { ComponentFixture } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
+import { Component, signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
+import { MlvSelectionService } from '@malva-ui/core/form-utils';
+import { MlvScrollbar } from '@malva-ui/core/scrollbar';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { MlvDropdownPanel } from './dropdown-panel';
+
+describe('MlvDropdownPanel (activedescendant)', () => {
+  let fixture: ComponentFixture<MlvDropdownPanel<string>>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvDropdownPanel],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+
+    fixture =
+      TestBed.createComponent<MlvDropdownPanel<string>>(MlvDropdownPanel);
+    fixture.componentRef.setInput('options', [
+      { label: 'Alpha', value: 'a' },
+      { label: 'Beta', value: 'b' },
+    ]);
+    fixture.componentRef.setInput('listboxId', 'lb');
+    fixture.componentRef.setInput('focusMode', 'activedescendant');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  });
+
+  it('renders deterministic option ids from the listboxId', () => {
+    expect(fixture.nativeElement.querySelector('#lb-option-0')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#lb-option-1')).toBeTruthy();
+  });
+
+  it('renders the inner listbox with the compact "menu" list appearance', () => {
+    const listbox = fixture.nativeElement.querySelector(
+      '.mlv-dropdown-panel__listbox',
+    ) as HTMLElement;
+    expect(listbox.classList).toContain('mlv-list--appearance-menu');
+  });
+
+  it('forwards focusMode="activedescendant" so aria tracks the active option on the listbox', () => {
+    const listbox = fixture.nativeElement.querySelector(
+      '[role="listbox"]',
+    ) as HTMLElement;
+    expect(listbox.hasAttribute('aria-activedescendant')).toBe(true);
+  });
+
+  it('uses the themed scrollbar without adding a tab stop to the composite widget', () => {
+    const scrollbar = fixture.nativeElement.querySelector(
+      '.mlv-dropdown-panel__scrollbar.mlv-scrollbar',
+    ) as HTMLElement;
+    const viewport = scrollbar.querySelector(
+      '.mlv-scrollbar__viewport',
+    ) as HTMLElement;
+
+    expect(scrollbar).toBeTruthy();
+    expect(viewport.getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('delegates scrolling without rendering a nested scrollbar in parent mode', () => {
+    fixture.componentRef.setInput('scrollMode', 'parent');
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('.mlv-dropdown-panel__scrollbar'),
+    ).toBeNull();
+    expect(fixture.nativeElement.classList).toContain(
+      'mlv-dropdown-panel--parent-scroll',
+    );
+    expect(
+      fixture.nativeElement.querySelector('[role="listbox"]'),
+    ).toBeTruthy();
+  });
+
+  it('names the inner listbox from ariaLabel and omits the attribute otherwise', () => {
+    const listbox = fixture.nativeElement.querySelector(
+      '[role="listbox"]',
+    ) as HTMLElement;
+    expect(listbox.hasAttribute('aria-label')).toBe(false);
+
+    fixture.componentRef.setInput('ariaLabel', 'Status');
+    fixture.detectChanges();
+    expect(listbox.getAttribute('aria-label')).toBe('Status');
+  });
+
+  it('applies the active highlight class to the option at activeIndex', () => {
+    fixture.componentRef.setInput('activeIndex', 1);
+    fixture.detectChanges();
+    const items = fixture.nativeElement.querySelectorAll(
+      '.mlv-dropdown-panel__item',
+    ) as NodeListOf<HTMLElement>;
+    expect(items[0].classList).not.toContain(
+      'mlv-dropdown-panel__item--active',
+    );
+    expect(items[1].classList).toContain('mlv-dropdown-panel__item--active');
+  });
+});
+
+describe('MlvDropdownPanel (option groups)', () => {
+  let fixture: ComponentFixture<MlvDropdownPanel<string>>;
+
+  async function setup(
+    options: { label: string; value: string; group?: string }[],
+  ): Promise<void> {
+    await TestBed.configureTestingModule({
+      imports: [MlvDropdownPanel],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+
+    fixture =
+      TestBed.createComponent<MlvDropdownPanel<string>>(MlvDropdownPanel);
+    fixture.componentRef.setInput('options', options);
+    fixture.componentRef.setInput('listboxId', 'lb');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  const grouped = [
+    { label: 'Alpha', value: 'a', group: 'Letters' },
+    { label: 'Beta', value: 'b', group: 'Letters' },
+    { label: 'One', value: '1', group: 'Numbers' },
+  ];
+
+  it('renders one role="group" per consecutive group run', async () => {
+    await setup(grouped);
+    const groups = fixture.nativeElement.querySelectorAll('[role="group"]');
+    expect(groups.length).toBe(2);
+  });
+
+  it('labels each group via aria-labelledby → a presentational header with matching id and text', async () => {
+    await setup(grouped);
+    const group = fixture.nativeElement.querySelector(
+      '[role="group"]',
+    ) as HTMLElement;
+    const headerId = group.getAttribute('aria-labelledby');
+    expect(headerId).toBeTruthy();
+    const header = fixture.nativeElement.querySelector(
+      `#${headerId}`,
+    ) as HTMLElement;
+    expect(header).toBeTruthy();
+    expect(header.getAttribute('role')).toBe('presentation');
+    expect(header.textContent?.trim()).toBe('Letters');
+    expect(header.classList).toContain('mlv-dropdown-panel__group-header');
+  });
+
+  it('keeps headers out of the option set (headers are not role="option")', async () => {
+    await setup(grouped);
+    const options = fixture.nativeElement.querySelectorAll('[role="option"]');
+    expect(options.length).toBe(3);
+    const headers = fixture.nativeElement.querySelectorAll(
+      '.mlv-dropdown-panel__group-header',
+    );
+    headers.forEach((h: Element) =>
+      expect(h.getAttribute('role')).not.toBe('option'),
+    );
+  });
+
+  it('preserves flat option ids across groups (optionId uses the flat index)', async () => {
+    await setup(grouped);
+    expect(fixture.nativeElement.querySelector('#lb-option-0')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#lb-option-1')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#lb-option-2')).toBeTruthy();
+  });
+
+  it('highlights the option at the flat activeIndex even when grouped', async () => {
+    await setup(grouped);
+    fixture.componentRef.setInput('activeIndex', 2);
+    fixture.detectChanges();
+    const active = fixture.nativeElement.querySelector(
+      '.mlv-dropdown-panel__item--active .mlv-dropdown-panel__item-label',
+    ) as HTMLElement;
+    expect(active.textContent?.trim()).toBe('One');
+  });
+
+  it('highlights the matched query substring inside a suggestion label', async () => {
+    await setup([
+      { label: 'Pineapple', value: 'p' },
+      { label: 'Banana', value: 'b' },
+    ]);
+    fixture.componentRef.setInput('highlightQuery', 'app');
+    fixture.detectChanges();
+
+    const mark = fixture.nativeElement.querySelector(
+      'mark.mlv-dropdown-panel__match',
+    ) as HTMLElement;
+    expect(mark).toBeTruthy();
+    expect(mark.textContent).toBe('app');
+    // The label text content is unchanged by the highlight split.
+    const label = fixture.nativeElement.querySelector(
+      '.mlv-dropdown-panel__item-label',
+    ) as HTMLElement;
+    expect(label.textContent?.trim()).toBe('Pineapple');
+  });
+
+  it('renders a loading affordance and suppresses the empty projection while loading', async () => {
+    await setup([]);
+    fixture.componentRef.setInput('loading', true);
+    fixture.componentRef.setInput('loadingText', 'Fetching…');
+    fixture.detectChanges();
+
+    const loading = fixture.nativeElement.querySelector(
+      '.mlv-dropdown-panel__loading',
+    ) as HTMLElement;
+    expect(loading).toBeTruthy();
+    expect(loading.textContent).toContain('Fetching…');
+    expect(loading.getAttribute('role')).toBe('status');
+  });
+
+  it('does not render any group when no option declares a group (unchanged)', async () => {
+    await setup([
+      { label: 'Alpha', value: 'a' },
+      { label: 'Beta', value: 'b' },
+    ]);
+    expect(fixture.nativeElement.querySelector('[role="group"]')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.mlv-dropdown-panel__group-header'),
+    ).toBeNull();
+    expect(
+      fixture.nativeElement.querySelectorAll('[role="option"]').length,
+    ).toBe(2);
+  });
+
+  it('renders ungrouped options (no group) in a headerless cluster', async () => {
+    await setup([
+      { label: 'Alpha', value: 'a' },
+      { label: 'Beta', value: 'b', group: 'Letters' },
+    ]);
+    // One header (for "Letters") but two options; the ungrouped first option
+    // renders without a header.
+    expect(
+      fixture.nativeElement.querySelectorAll(
+        '.mlv-dropdown-panel__group-header',
+      ).length,
+    ).toBe(1);
+    expect(
+      fixture.nativeElement.querySelectorAll('[role="option"]').length,
+    ).toBe(2);
+  });
+});
+
+describe('MlvDropdownPanel — loading dim + paging', () => {
+  let fixture: ComponentFixture<MlvDropdownPanel<string>>;
+  let el: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvDropdownPanel],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+    fixture =
+      TestBed.createComponent<MlvDropdownPanel<string>>(MlvDropdownPanel);
+    fixture.componentRef.setInput('options', [
+      { label: 'A', value: 'a' },
+      { label: 'B', value: 'b' },
+      { label: 'C', value: 'c' },
+    ]);
+    el = fixture.nativeElement;
+  });
+
+  async function render(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  /** The panel's own scrollbar viewport — the sentinel's scroll owner in `self` mode. */
+  function viewport(): HTMLElement {
+    return el.querySelector('.mlv-scrollbar__viewport') as HTMLElement;
+  }
+
+  /**
+   * Stubs the viewport's layout metrics. jsdom reports `0` for every layout box,
+   * which reads as "already at the end" — so every paging test states the
+   * geometry it means. Defaults describe content that overflows the viewport
+   * (distance to the end = `1000 - scrollTop - 200`).
+   */
+  function stubViewportMetrics(scrollHeight = 1000, clientHeight = 200): void {
+    const el = viewport();
+    Object.defineProperty(el, 'scrollHeight', {
+      value: scrollHeight,
+      configurable: true,
+    });
+    Object.defineProperty(el, 'clientHeight', {
+      value: clientHeight,
+      configurable: true,
+    });
+    el.scrollTop = 0;
+  }
+
+  /** Scrolls the viewport to `top` and dispatches the scroll event. */
+  function scrollTo(top: number): void {
+    const el = viewport();
+    el.scrollTop = top;
+    el.dispatchEvent(new Event('scroll'));
+  }
+
+  /** Scrolls to 50px from the end — inside the default 150px threshold. */
+  function scrollNearEnd(): void {
+    scrollTo(750);
+  }
+
+  it('adds the --loading modifier and aria-busy while loading, keeping the options rendered', async () => {
+    fixture.componentRef.setInput('loading', true);
+    await render();
+    expect(el.classList).toContain('mlv-dropdown-panel--loading');
+    expect(
+      el.querySelector('[role="listbox"]')?.getAttribute('aria-busy'),
+    ).toBe('true');
+    expect(el.querySelectorAll('[role="option"]').length).toBe(3);
+    expect(el.querySelector('.mlv-dropdown-panel__loading')).toBeTruthy();
+    fixture.componentRef.setInput('loading', false);
+    fixture.detectChanges();
+    expect(el.classList).not.toContain('mlv-dropdown-panel--loading');
+    expect(
+      el.querySelector('[role="listbox"]')?.getAttribute('aria-busy'),
+    ).toBeNull();
+  });
+
+  it('renders a polite bottom status row while loadingMore (top row absent)', async () => {
+    fixture.componentRef.setInput('loadingMore', true);
+    fixture.componentRef.setInput('loadingText', 'More…');
+    await render();
+    const row = el.querySelector(
+      '.mlv-dropdown-panel__loading-more',
+    ) as HTMLElement;
+    expect(row).toBeTruthy();
+    expect(row.getAttribute('role')).toBe('status');
+    expect(row.textContent).toContain('More…');
+    expect(el.querySelector('.mlv-dropdown-panel__loading')).toBeNull();
+    expect(
+      el.querySelector('[role="listbox"]')?.getAttribute('aria-busy'),
+    ).toBe('true');
+  });
+
+  /**
+   * Arms the sentinel: renders the panel, gives the viewport overflowing
+   * metrics scrolled to the top (so the auto-fill `check()` stays silent), then
+   * flips `hasMore` on. Returns the emission log. The extra `render()` lets the
+   * directive rebind to the viewport resolved in `afterNextRender`.
+   */
+  async function arm(inputs: Record<string, unknown> = {}): Promise<number[]> {
+    await render();
+    stubViewportMetrics();
+    for (const [name, value] of Object.entries(inputs)) {
+      fixture.componentRef.setInput(name, value);
+    }
+    fixture.componentRef.setInput('hasMore', true);
+    const emitted: number[] = [];
+    fixture.componentInstance.loadMore.subscribe(() => emitted.push(1));
+    await render();
+    return emitted;
+  }
+
+  it('emits loadMore from the sentinel when scrolled near the end and hasMore', async () => {
+    const emitted = await arm();
+    expect(el.querySelector('.mlv-dropdown-panel__sentinel')).toBeTruthy();
+    // Armed but far from the end: the auto-fill check must stay silent.
+    expect(emitted.length).toBe(0);
+
+    scrollNearEnd();
+    await fixture.whenStable();
+    expect(emitted.length).toBe(1);
+  });
+
+  it('auto-fills: appended options that still do not fill the scroll owner request the next page', async () => {
+    const emitted = await arm();
+    expect(emitted.length).toBe(0);
+
+    // The next page landed but the list still falls short of the viewport, so
+    // the option change alone must re-measure and ask for another page.
+    stubViewportMetrics(100, 200);
+    fixture.componentRef.setInput('options', [
+      { label: 'A', value: 'a' },
+      { label: 'B', value: 'b' },
+      { label: 'C', value: 'c' },
+      { label: 'D', value: 'd' },
+      { label: 'E', value: 'e' },
+      { label: 'F', value: 'f' },
+    ]);
+    await render();
+
+    expect(el.querySelectorAll('[role="option"]').length).toBe(6);
+    expect(emitted.length).toBe(1);
+  });
+
+  it('gates the sentinel while a page is in flight (loadingMore)', async () => {
+    const emitted = await arm({ loadingMore: true });
+
+    scrollNearEnd();
+    await fixture.whenStable();
+    expect(emitted.length).toBe(0);
+
+    // Page landed: back to the top, ungate, and the next near-end scroll fires.
+    scrollTo(0);
+    fixture.componentRef.setInput('loadingMore', false);
+    await render();
+    expect(emitted.length).toBe(0);
+
+    scrollNearEnd();
+    await fixture.whenStable();
+    expect(emitted.length).toBe(1);
+  });
+
+  it('honours a non-default infiniteScrollThreshold', async () => {
+    const emitted = await arm({ infiniteScrollThreshold: 400 });
+
+    // 500px from the end — outside the 400px threshold.
+    scrollTo(300);
+    await fixture.whenStable();
+    expect(emitted.length).toBe(0);
+
+    // 350px from the end — inside it.
+    scrollTo(450);
+    await fixture.whenStable();
+    expect(emitted.length).toBe(1);
+  });
+
+  it('does not emit loadMore when hasMore is false', async () => {
+    fixture.componentRef.setInput('hasMore', false);
+    const emitted: number[] = [];
+    fixture.componentInstance.loadMore.subscribe(() => emitted.push(1));
+    await render();
+    await render();
+    scrollNearEnd();
+    await fixture.whenStable();
+    expect(emitted.length).toBe(0);
+  });
+});
+
+/**
+ * Host for `scrollMode="parent"`: the panel renders inside an `mlv-scrollbar`,
+ * exactly as `mlv-popup` composes it for `mlv-select` / `mlv-combobox`. The
+ * wrapping `.mlv-scrollbar__viewport` is the sentinel's scroll owner.
+ */
+@Component({
+  selector: 'mlv-parent-scroll-host',
+  imports: [MlvScrollbar, MlvDropdownPanel],
+  template: `
+    <mlv-scrollbar>
+      <mlv-dropdown-panel
+        scrollMode="parent"
+        [options]="options"
+        [hasMore]="hasMore()"
+        (loadMore)="onLoadMore()"
+      />
+    </mlv-scrollbar>
+  `,
+})
+class ParentScrollHost {
+  readonly options = [
+    { label: 'A', value: 'a' },
+    { label: 'B', value: 'b' },
+    { label: 'C', value: 'c' },
+  ];
+  readonly hasMore = signal(false);
+  loadMoreCount = 0;
+
+  onLoadMore(): void {
+    this.loadMoreCount++;
+  }
+}
+
+describe('MlvDropdownPanel — parent-mode paging', () => {
+  let fixture: ComponentFixture<ParentScrollHost>;
+  let host: ParentScrollHost;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ParentScrollHost],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+    fixture = TestBed.createComponent(ParentScrollHost);
+    host = fixture.componentInstance;
+  });
+
+  async function render(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  /** The panel instance rendered inside the host's scrollbar. */
+  function panel(): MlvDropdownPanel<string> {
+    return fixture.debugElement.query(By.directive(MlvDropdownPanel))
+      .componentInstance as MlvDropdownPanel<string>;
+  }
+
+  /** The **wrapping** scrollbar viewport — the panel renders none of its own. */
+  function viewport(): HTMLElement {
+    return fixture.nativeElement.querySelector(
+      '.mlv-scrollbar__viewport',
+    ) as HTMLElement;
+  }
+
+  /** Same jsdom workaround as the self-mode paging tests: state the geometry. */
+  function stubViewportMetrics(scrollHeight = 1000, clientHeight = 200): void {
+    const el = viewport();
+    Object.defineProperty(el, 'scrollHeight', {
+      value: scrollHeight,
+      configurable: true,
+    });
+    Object.defineProperty(el, 'clientHeight', {
+      value: clientHeight,
+      configurable: true,
+    });
+    el.scrollTop = 0;
+  }
+
+  it('resolves the ancestor scrollbar viewport and pages from it', async () => {
+    await render();
+    // The scroll owner is resolved in `afterNextRender`; a second flush lets the
+    // sentinel directive rebind to it.
+    await render();
+
+    expect(
+      fixture.nativeElement.querySelector('.mlv-dropdown-panel__scrollbar'),
+    ).toBeNull();
+    expect(panel()['_scrollContainer']()).toBe(viewport());
+
+    // Armed while parked at the top of an overflowing viewport: silent.
+    stubViewportMetrics();
+    host.hasMore.set(true);
+    await render();
+    expect(host.loadMoreCount).toBe(0);
+
+    // 50px from the end — inside the default 150px threshold.
+    const el = viewport();
+    el.scrollTop = 750;
+    el.dispatchEvent(new Event('scroll'));
+    await fixture.whenStable();
+
+    expect(host.loadMoreCount).toBe(1);
+  });
+});
+
+describe('MlvDropdownPanel — missing scroll owner (dev warning)', () => {
+  let fixture: ComponentFixture<MlvDropdownPanel<string>>;
+  let warn: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvDropdownPanel],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    fixture =
+      TestBed.createComponent<MlvDropdownPanel<string>>(MlvDropdownPanel);
+    fixture.componentRef.setInput('options', [
+      { label: 'A', value: 'a' },
+      { label: 'B', value: 'b' },
+    ]);
+  });
+
+  afterEach(() => warn.mockRestore());
+
+  async function render(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it('warns once when hasMore is armed in parent mode with no scrollbar ancestor', async () => {
+    fixture.componentRef.setInput('scrollMode', 'parent');
+    await render();
+    expect(warn).not.toHaveBeenCalled();
+
+    // `hasMore` flipping true later must still be caught.
+    fixture.componentRef.setInput('hasMore', true);
+    await render();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('[mlv-dropdown-panel]');
+
+    // Re-checks never re-warn for the same panel instance.
+    await render();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays silent while hasMore is false', async () => {
+    fixture.componentRef.setInput('scrollMode', 'parent');
+    await render();
+    await render();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('stays silent in self mode, where the panel owns its scrollbar', async () => {
+    fixture.componentRef.setInput('hasMore', true);
+    await render();
+    await render();
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('MlvDropdownPanel — disabled options', () => {
+  let fixture: ComponentFixture<MlvDropdownPanel<string>>;
+  let el: HTMLElement;
+  let emitted: readonly string[][];
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvDropdownPanel],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+
+    fixture =
+      TestBed.createComponent<MlvDropdownPanel<string>>(MlvDropdownPanel);
+    fixture.componentRef.setInput('options', [
+      { label: 'Enabled', value: 'a' },
+      { label: 'Blocked', value: 'b', disabled: true },
+    ]);
+    fixture.componentRef.setInput('listboxId', 'lb');
+    el = fixture.nativeElement;
+    emitted = [];
+    fixture.componentInstance.valueChange.subscribe((values) => {
+      emitted = [...emitted, [...values]];
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  });
+
+  it('marks a disabled option and blocks its selection', () => {
+    const rows = el.querySelectorAll<HTMLElement>('[role="option"]');
+    expect(rows[1].getAttribute('aria-disabled')).toBe('true');
+
+    // Positive control: clicking the enabled row does emit, so the assertion
+    // below on the disabled row fails for the right reason (blocked
+    // selection) rather than because clicks never emit at all.
+    rows[0].click();
+    fixture.detectChanges();
+    expect(emitted).toContainEqual(['a']);
+
+    rows[1].click();
+    fixture.detectChanges();
+
+    // Selection must not include the disabled value.
+    expect(emitted.some((values) => values.includes('b'))).toBe(false);
+  });
+});

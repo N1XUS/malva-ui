@@ -1,0 +1,30 @@
+<mlv-popup-container #container>
+  <button mlvButton variant="outlined" mlvPopupTrigger [ariaHasPopup]="'menu'">
+    Actions
+    <ng-template mlvButtonAfter
+      ><svg lucideChevronDown [size]="16"
+    /></ng-template>
+  </button>
+
+  <mlv-popup #actionsMenu position="bottom-start">
+    <ng-template mlvPopupContent>
+      <mlv-list
+        style="padding: 0.25rem 0; min-width: 11rem"
+        [listRole]="'menu'"
+      >
+        <mlv-list-item itemRole="menuitem" (click)="container.close()">
+          <span mlvListItemPrefix><svg lucidePencil [size]="16" /></span>
+          Edit
+        </mlv-list-item>
+        <mlv-list-item itemRole="menuitem" (click)="container.close()">
+          <span mlvListItemPrefix><svg lucideCopy [size]="16" /></span>
+          Duplicate
+        </mlv-list-item>
+        <mlv-list-item itemRole="menuitem" (click)="container.close()">
+          <span mlvListItemPrefix><svg lucideTrash2 [size]="16" /></span>
+          Delete
+        </mlv-list-item>
+      </mlv-list>
+    </ng-template>
+  </mlv-popup>
+</mlv-popup-container>

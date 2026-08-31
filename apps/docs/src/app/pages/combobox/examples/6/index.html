@@ -1,0 +1,24 @@
+<div class="demo-col">
+  <div class="demo-row">
+    <button mlvButton variant="secondary" (click)="toggleDisabled()">
+      {{ disabled() ? 'Enable' : 'Disable' }}
+    </button>
+    <button mlvButton variant="secondary" (click)="toggleReadonly()">
+      {{ readonly() ? 'Unset readonly' : 'Set readonly' }}
+    </button>
+  </div>
+
+  <div
+    class="demo-col"
+    style="gap: 0.75rem; align-items: stretch; max-width: 28rem"
+  >
+    <mlv-combobox
+      label="Language"
+      [options]="languages"
+      [disabled]="disabled()"
+      [readonly]="readonly()"
+      clearable
+      placeholder="Search languages..."
+    />
+  </div>
+</div>

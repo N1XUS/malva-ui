@@ -1,0 +1,63 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-button-split;
+
+.#{$block} {
+  @include mixins.base(
+    var(--mlv-typography-family-text),
+    var(--mlv-font-size-m),
+    0,
+    0
+  );
+
+  display: inline-flex;
+  align-items: stretch;
+
+  > .mlv-button {
+    border-radius: 0;
+  }
+
+  > .mlv-button:first-child {
+    border-start-start-radius: var(--mlv-btn-radius);
+    border-end-start-radius: var(--mlv-btn-radius);
+  }
+
+  > .mlv-button:last-child {
+    border-start-end-radius: var(--mlv-btn-radius);
+    border-end-end-radius: var(--mlv-btn-radius);
+  }
+
+  > .mlv-button + .mlv-button {
+    margin-inline-start: -0.0625rem;
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset-block: 0.5rem;
+      inset-inline-start: 0;
+      width: 0.0625rem;
+      background-color: var(--mlv-border-normal);
+      pointer-events: none;
+    }
+  }
+
+  > .mlv-button:focus-visible {
+    position: relative;
+    z-index: 1;
+  }
+
+  > .mlv-button {
+    &.mlv-button--variant-outlined {
+      &:first-child {
+        border-inline-end: 0;
+      }
+
+      &:last-child {
+        border-inline-start: 0;
+      }
+    }
+  }
+}
+}

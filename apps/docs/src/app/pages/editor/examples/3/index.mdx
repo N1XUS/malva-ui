@@ -1,0 +1,9 @@
+## Reactive and template-driven forms
+
+Use `[formControl]` / `formControlName` for reactive forms or `[(ngModel)]` for
+template-driven forms. Both transports preserve `string | null`, touched state,
+and disabled state without registering a `ControlValueAccessor`.
+
+`disabled` removes the whole editor composite from interaction, closes editor
+overlays, and aborts active uploads. `readonly` is different: the document
+cannot be changed, but users may still focus and select content.

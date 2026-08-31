@@ -1,0 +1,63 @@
+<ng-content select="[mlvTextareaPrepend]" />
+
+<mlv-form-control-wrapper (clear)="clearValue()">
+  @if (label() || hint()) {
+  <mlv-label [for]="id()" [required]="required()">
+    {{ label() }} @if (hint()) {
+    <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
+  }
+
+  <ng-template mlvFormControlWrapperControl>
+    <mlv-scrollbar
+      class="mlv-textarea__scrollbar"
+      [style.min-height]="minHeightStyle()"
+      [style.max-height]="maxHeightStyle()"
+      [disabled]="$any(autoResize())"
+      ariaLabel="Text area content"
+    >
+      <textarea
+        #textareaEl
+        class="mlv-textarea__field"
+        [id]="id()"
+        [placeholder]="placeholder()"
+        [disabled]="computedDisabled()"
+        [readOnly]="readonly()"
+        [rows]="rows()"
+        [attr.maxlength]="maxLength() ?? null"
+        [value]="value() ?? ''"
+        [attr.aria-label]="ariaLabel()"
+        [attr.aria-required]="required() || null"
+        [attr.aria-invalid]="resolvedState() === 'error'"
+        [attr.aria-describedby]="_textareaDescribedBy()"
+        (input)="onInput($event)"
+        (focus)="setFocused(true)"
+        (blur)="onBlur()"
+      ></textarea>
+    </mlv-scrollbar>
+  </ng-template>
+
+  @if (description()) {
+  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+  } @if (message()) {
+  <mlv-message [id]="_messageId()" [state]="resolvedState()">
+    {{ message() }}
+  </mlv-message>
+  } @if (maxLength()) {
+  <!-- The wrapper's aside slot — a plain child of mlv-form-control-wrapper
+       matches no projection slot and would be dropped. -->
+  <div
+    mlvFormControlWrapperAside
+    [id]="countId()"
+    class="mlv-textarea__count"
+    [class.mlv-textarea__count--warning]="isCountWarning()"
+    [class.mlv-textarea__count--error]="isCountError()"
+    aria-live="polite"
+  >
+    {{ charCount() }}/{{ maxLength() }}
+  </div>
+  }
+</mlv-form-control-wrapper>
+
+<ng-content select="[mlvTextareaAppend]" />

@@ -1,0 +1,19 @@
+$block: docs-button-close-example;
+
+.#{$block} {
+  &__list {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-4);
+  }
+
+  &__item {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    color: var(--mlv-text-secondary);
+    text-transform: capitalize;
+  }
+}

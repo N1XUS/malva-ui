@@ -1,0 +1,14 @@
+.sidebar-appearance-example {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mlv-spacing-4);
+
+  > div {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+  }
+
+  h3 {
+    margin: var(--mlv-spacing-0);
+  }
+}

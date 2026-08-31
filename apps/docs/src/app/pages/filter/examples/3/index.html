@@ -1,0 +1,23 @@
+<div class="smart-filter-demo">
+  <mlv-smart-filter-bar
+    [definitions]="definitions"
+    searchTrigger="submit"
+    filterApplyMode="explicit"
+    [(filters)]="filters"
+    [(visibleKeys)]="visibleKeys"
+    [(searchValue)]="searchValue"
+    (execute)="execute('Query executed', $event)"
+    (refresh)="execute('Query refreshed', $event)"
+  />
+
+  <section
+    class="smart-filter-demo__payload"
+    aria-labelledby="smart-filter-demo-payload-title"
+  >
+    <h3 id="smart-filter-demo-payload-title">Last query payload</h3>
+    <p class="smart-filter-demo__status" aria-live="polite">
+      {{ lastAction() }}
+    </p>
+    <pre>{{ payloadPreview() }}</pre>
+  </section>
+</div>

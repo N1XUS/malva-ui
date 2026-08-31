@@ -1,0 +1,76 @@
+<div class="demo-col" style="gap: 1.5rem">
+  <div
+    class="demo-row"
+    style="align-items: flex-end; gap: 2rem; flex-wrap: wrap"
+  >
+    <div class="demo-col" style="align-items: center; gap: 0.5rem">
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="96"
+        [strokeWidth]="7"
+        color="url('#sunrise-gradient')"
+      />
+      <span style="font-size: 0.75rem; opacity: 0.6">Sunrise gradient</span>
+    </div>
+    <div class="demo-col" style="align-items: center; gap: 0.5rem">
+      <mlv-loader
+        variant="circle"
+        [indeterminate]="true"
+        [size]="96"
+        [strokeWidth]="7"
+        color="url('#ocean-gradient')"
+      />
+      <span style="font-size: 0.75rem; opacity: 0.6"
+        >Ocean gradient (indeterminate)</span
+      >
+    </div>
+    <div class="demo-col" style="align-items: center; gap: 0.5rem">
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="64"
+        [strokeWidth]="5"
+        color="#7c3aed"
+      />
+      <span style="font-size: 0.75rem; opacity: 0.6">Custom solid #7c3aed</span>
+    </div>
+    <div class="demo-col" style="align-items: center; gap: 0.5rem">
+      <mlv-loader
+        variant="circle"
+        [value]="progress()"
+        [size]="48"
+        color="url('#gold-gradient')"
+      />
+      <span style="font-size: 0.75rem; opacity: 0.6">Gold gradient</span>
+    </div>
+  </div>
+
+  <button mlvButton variant="secondary" (click)="updateValue()">
+    Toggle progress ({{ progress() }}%)
+  </button>
+</div>
+
+<!-- SVG gradient definitions (hidden, referenced by ID) -->
+<svg
+  width="0"
+  height="0"
+  style="position: absolute; overflow: hidden"
+  aria-hidden="true"
+>
+  <defs>
+    <linearGradient id="sunrise-gradient" gradientTransform="rotate(95)">
+      <stop offset="0%" stop-color="#a0c5df" />
+      <stop offset="45%" stop-color="#bd65a4" />
+      <stop offset="100%" stop-color="#fcbb14" />
+    </linearGradient>
+    <linearGradient id="ocean-gradient" gradientTransform="rotate(90)">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <linearGradient id="gold-gradient" gradientTransform="rotate(135)">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#f97316" />
+    </linearGradient>
+  </defs>
+</svg>

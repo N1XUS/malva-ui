@@ -1,0 +1,23 @@
+{
+  "name": "@malva-ui/i18n",
+  "version": "0.0.0-malva-ui-package-version",
+  "description": "Localisation for Malva UI — signal-based per-component i18n with ICU MessageFormat and 14 lazy-loaded language packs.",
+  "license": "MIT",
+  "keywords": [
+    "angular",
+    "i18n",
+    "internationalization",
+    "localization",
+    "icu",
+    "messageformat",
+    "malva-ui"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@angular/core": "0.0.0-angular-core-package-version",
+    "intl-messageformat": ">=10.0.0"
+  },
+  "sideEffects": false
+}

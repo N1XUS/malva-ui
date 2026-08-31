@@ -1,0 +1,8 @@
+<div class="demo-row" style="flex-wrap: wrap">
+  <button mlvButton (click)="publish()">Publish release notes</button>
+  <button mlvButton variant="secondary" (click)="deleteProject()">
+    Delete project
+  </button>
+</div>
+
+<p aria-live="polite">{{ lastAnswer() }}</p>

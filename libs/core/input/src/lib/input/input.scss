@@ -1,0 +1,49 @@
+@layer mlv.components {
+$block: mlv-input;
+
+// The row's shared inset is owned by exactly ONE ancestor box — never by
+// `mlv-input__native` itself, in either mode:
+//
+//   - Default (non-`bare`): `.mlv-form-control-wrapper__control-container`
+//     (mlv-input's own wrapper) owns it via its un-zeroed, natural default
+//     `padding: var(--mlv-control-padding)` (form-control-wrapper.scss).
+//     That single container padding is what gives *every* sibling in the
+//     row — the native input AND any projected `*mlvFormControlPrepend` /
+//     `*mlvFormControlAppend` content (e.g. mlv-search-field's leading
+//     icon / trailing actions) — the same shared edge inset, with
+//     `__control-row`'s `gap` separating them. An earlier pass (2026-08-26,
+//     first round) zeroed this container and made the native element own
+//     the full padding instead, mirroring mlv-select/mlv-combobox — but
+//     those controls' entire row (icon + text + chevron) lives inside ONE
+//     element they own outright, whereas mlv-input's prefix/suffix are
+//     separate siblings added by the wrapper's own generic slots. Zeroing
+//     the container broke every prefix/suffix consumer: the icon lost its
+//     edge inset (rendered flush against the border) while the text moved
+//     in even further (double-padded from the *other* direction). Reverted.
+//   - `bare` mode: a composite control (`mlv-combobox`'s trigger,
+//     `mlv-tokenizer`'s wrapper) owns the padded row instead, the same way.
+//
+// `mlv-input__native` therefore never declares its own inset — only
+// internals that have nothing to do with spacing (font, background, etc).
+.#{$block}__native {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: none;
+  outline: none;
+  appearance: none;
+  padding: 0;
+  // Density-ramped control text (CH-R3), inherited from whichever ancestor
+  // `mlv-form-control-wrapper` is in scope (mlv-input's own, or a composite's
+  // in `bare` mode); the fallback only applies where no wrapper ancestor
+  // exists at all (e.g. `mlv-select`'s in-dropdown search field, which sits
+  // in a detached popup with no wrapper).
+  font-size: var(--form-ctrl-font-size, var(--mlv-font-size-m));
+  background: none;
+  height: 100%;
+
+  &::placeholder {
+    color: var(--mlv-text-tertiary);
+  }
+}
+}

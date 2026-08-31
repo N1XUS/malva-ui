@@ -1,0 +1,17 @@
+<mlv-segmented tone="accent">
+  <a mlvSegmentedItem routerLink="/segmented" [linkActiveOptions]="exactOptions"
+    >Overview</a
+  >
+  <a
+    mlvSegmentedItem
+    routerLink="/segmented"
+    [queryParams]="{ view: 'activity' }"
+    >Activity</a
+  >
+  <a
+    mlvSegmentedItem
+    routerLink="/segmented"
+    [queryParams]="{ view: 'settings' }"
+    >Settings</a
+  >
+</mlv-segmented>

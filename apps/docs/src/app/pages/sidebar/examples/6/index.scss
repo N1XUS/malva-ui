@@ -1,0 +1,122 @@
+.sidebar-demo {
+  height: 560px;
+  border: 1px solid var(--mlv-border-normal);
+  border-radius: var(--mlv-radius-m);
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--mlv-background-base);
+}
+
+.workspace {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+
+  &__logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--mlv-radius-s);
+    background-color: var(--mlv-background-accent-1);
+    color: var(--mlv-text-primary-on-accent-1);
+    flex-shrink: 0;
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    line-height: var(--mlv-line-height-snug);
+  }
+
+  &__name {
+    font-size: var(--mlv-font-size-m);
+    font-weight: 600;
+    color: var(--mlv-text-primary);
+  }
+
+  &__plan {
+    font-size: var(--mlv-font-size-s);
+    color: var(--mlv-text-secondary);
+  }
+}
+
+.user {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: var(--mlv-line-height-snug);
+
+  &__name {
+    font-size: var(--mlv-font-size-m);
+    font-weight: 600;
+    color: var(--mlv-text-primary);
+  }
+
+  &__email {
+    font-size: var(--mlv-font-size-s);
+    color: var(--mlv-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.app-content {
+  flex: 1;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  overflow: auto;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--mlv-font-size-xl);
+    font-weight: 600;
+  }
+
+  &__body {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-font-size-m);
+    line-height: var(--mlv-line-height-normal);
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+.app-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 1px solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-m);
+  background-color: var(--mlv-background-raised);
+
+  &__label {
+    font-size: var(--mlv-font-size-s);
+    color: var(--mlv-text-secondary);
+  }
+
+  &__value {
+    font-size: var(--mlv-font-size-xl);
+    font-weight: 700;
+    color: var(--mlv-text-primary);
+  }
+}

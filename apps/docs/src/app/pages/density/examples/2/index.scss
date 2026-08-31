@@ -1,0 +1,30 @@
+$block: docs-status-chip;
+
+.#{$block} {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  border-radius: 624.9375rem;
+  background: var(--mlv-background-neutral-1);
+  font-size: var(--mlv-typography-body-m-size);
+  color: var(--mlv-text-primary);
+  transition:
+    padding 0.2s ease,
+    font-size 0.2s ease;
+
+  &__label {
+    white-space: nowrap;
+  }
+
+  // Density modifier classes applied by MlvDensityDirective
+  // via MLV_DENSITY_ELEMENT = 'status-chip'
+  &--compact {
+    padding: 0.125rem 0.5rem;
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &--spacious {
+    padding: 0.625rem 1.25rem;
+    font-size: var(--mlv-typography-body-l-size);
+  }
+}

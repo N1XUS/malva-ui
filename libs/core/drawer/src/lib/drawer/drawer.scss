@@ -1,0 +1,179 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-drawer;
+
+.#{$block} {
+  @include mixins.base();
+  background-color: var(--mlv-elevation-bg-2);
+  box-shadow: var(--mlv-shadow-overlay);
+  color: var(--mlv-text-primary);
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+
+  // A fixed `size` must never push the panel past the viewport: `size="36rem"`
+  // on a 375 px phone would otherwise render 576 px wide and hang off screen.
+  // MlvDrawer additionally binds inline max-width/max-height (which fold in
+  // `maxSize`) and MlvDrawerService sets the same pair on the pane it decorates;
+  // these rules are the declarative-path floor if either binding is overridden.
+  max-inline-size: 100dvw;
+  max-block-size: 100dvh;
+
+  &__spacer {
+    flex-grow: 1;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    padding: var(--mlv-padding-l);
+    border-bottom: 0.0625rem solid var(--mlv-border-normal);
+  }
+
+  &__body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  &__body-scrollbar {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  // Padding lives on the viewport — i.e. *inside* the `overflow-x: hidden`
+  // clip box — so a full-width control's focus ring (a `box-shadow` spread on
+  // the control wrapper) is not cut at the inline edges. Values are the
+  // block/inline halves of `--mlv-padding-l` (the token is a `block inline` pair).
+  &__body-scrollbar > .mlv-scrollbar__viewport {
+    overflow-x: hidden;
+    padding: var(--mlv-spacing-3) var(--mlv-spacing-6);
+  }
+
+  &__footer {
+    padding: var(--mlv-padding-l);
+    flex-shrink: 0;
+    border-top: 0.0625rem solid var(--mlv-border-normal);
+  }
+
+  // ─── Resize Handle ────────────────────────────────────────────────────────
+
+  &__handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: ns-resize;
+    user-select: none;
+    touch-action: none;
+    // 48px touch target (WCAG 2.5.8 minimum target size)
+    min-height: 3rem;
+    min-width: 3rem;
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    }
+  }
+
+  &__handle-pill {
+    display: block;
+    width: 2rem;
+    height: 0.25rem;
+    border-radius: var(--mlv-radius-xs);
+    background-color: var(--mlv-border-normal);
+    transition: background-color var(--mlv-duration-fast)
+      var(--mlv-ease-default);
+    pointer-events: none;
+  }
+
+  &__handle:hover &__handle-pill,
+  &__handle:focus-visible &__handle-pill {
+    background-color: var(--mlv-text-tertiary);
+  }
+
+  // Position-specific handle cursor and flex order
+  &--bottom &__handle,
+  &--top &__handle {
+    cursor: ns-resize;
+  }
+
+  &--left &__handle,
+  &--right &__handle {
+    cursor: ew-resize;
+    min-height: unset;
+    min-width: 3rem;
+    height: 100%;
+  }
+
+  // Handle is at the inward-facing edge; use order to place it correctly
+  &--bottom &__handle {
+    order: -1; // block-start (top of the bottom drawer)
+  }
+
+  &--top &__handle {
+    order: 1; // block-end (bottom of the top drawer)
+  }
+
+  &--right &__handle {
+    order: -1; // inline-start (left side of right drawer)
+    flex-direction: column;
+  }
+
+  &--left &__handle {
+    order: 1; // inline-end (right side of left drawer)
+    flex-direction: column;
+  }
+
+  // Horizontal pill for left/right drawers
+  &--left &__handle-pill,
+  &--right &__handle-pill {
+    width: 0.25rem;
+    height: 2rem;
+  }
+
+  // ─── Resizable State ──────────────────────────────────────────────────────
+
+  // Disable all transitions during active pointer drag
+  &--dragging {
+    transition: none !important;
+    will-change: height, width;
+  }
+
+  // Spring snap animation after drag release
+  &--snapping {
+    @media (prefers-reduced-motion: no-preference) {
+      transition:
+        height var(--mlv-drawer-snap-duration, var(--mlv-duration-slow))
+          var(--mlv-drawer-snap-easing, var(--mlv-ease-spring)),
+        width var(--mlv-drawer-snap-duration, var(--mlv-duration-slow))
+          var(--mlv-drawer-snap-easing, var(--mlv-ease-spring));
+    }
+  }
+
+  // ─── Backdrop ─────────────────────────────────────────────────────────────
+
+  &-backdrop {
+    background-color: var(--mlv-background-overlay);
+    opacity: 1;
+    backdrop-filter: blur(0.375rem);
+    transition:
+      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+      backdrop-filter var(--mlv-duration-normal) var(--mlv-ease-out-strong);
+
+    @starting-style {
+      opacity: 0;
+      backdrop-filter: blur(0);
+    }
+
+    &--leaving {
+      opacity: 0;
+      backdrop-filter: blur(0);
+    }
+  }
+}
+}

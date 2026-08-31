@@ -1,0 +1,13 @@
+<div class="tiles-row">
+  @for (density of densities; track density) {
+  <mlv-tile [mlvDensity]="density">
+    <ng-template mlvTileHeader>
+      <span class="tile-label">
+        <svg lucideGauge [size]="14" aria-hidden="true" />
+        {{ density }} density
+      </span>
+    </ng-template>
+    Last synced <strong>2 minutes ago</strong>.
+  </mlv-tile>
+  }
+</div>

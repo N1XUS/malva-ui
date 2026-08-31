@@ -1,0 +1,46 @@
+@layer mlv.components {
+  .mlv-hint {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /*
+   * Holds the projected content solely as the source the tooltip string is read
+   * from. Hidden rather than removed: `textContent` and MutationObserver both
+   * still work on a non-displayed element, and it carries `aria-hidden` so the
+   * hint no longer joins the accessible name of the labelled control.
+   */
+  .mlv-hint__source {
+    display: none;
+  }
+
+  .mlv-hint__trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: var(--mlv-radius-full);
+    background: none;
+    color: var(--mlv-text-tertiary);
+    line-height: 0;
+    cursor: help;
+    transition: color var(--mlv-duration-fast) var(--mlv-ease-default);
+  }
+
+  .mlv-hint__trigger:hover,
+  .mlv-hint__trigger:focus-visible {
+    color: var(--mlv-text-secondary);
+  }
+
+  .mlv-hint__trigger:focus-visible {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mlv-hint__trigger {
+      transition: none;
+    }
+  }
+}

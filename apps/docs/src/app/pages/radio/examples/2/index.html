@@ -1,0 +1,6 @@
+<mlv-radio-group label="Plan" [(ngModel)]="plan">
+  <mlv-radio [value]="'free'">Free</mlv-radio>
+  <mlv-radio [value]="'pro'" [disabled]="true">Pro (unavailable)</mlv-radio>
+  <mlv-radio [value]="'enterprise'">Enterprise</mlv-radio>
+</mlv-radio-group>
+<p>Selected: {{ plan }}</p>

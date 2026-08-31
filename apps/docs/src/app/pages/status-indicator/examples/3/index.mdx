@@ -1,0 +1,8 @@
+## Composed
+
+The indicator is designed to sit next to other content. Beside a **text label**
+it stays decorative (`aria-hidden`) — the text already conveys the state, so a
+duplicate announcement would be noise. Overlaid on an **avatar** as a presence
+badge, the dot is the only carrier of meaning, so it takes an `ariaLabel`
+(`role="img"`) and a slightly larger `size`. The `size` input is px and is
+converted to `rem` internally.

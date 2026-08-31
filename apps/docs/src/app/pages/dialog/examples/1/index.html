@@ -1,0 +1,15 @@
+<button mlvButton (click)="open.set(true)">Open Dialog</button>
+<p>Last result: {{ lastResult() }}</p>
+
+<ng-template [(mlvDialog)]="open" (mlvDialogClosed)="onClosed($event)">
+  <mlv-dialog>
+    <mlv-dialog-header title="Dialog Title" />
+    <mlv-dialog-body>
+      <p>This is the dialog body content.</p>
+    </mlv-dialog-body>
+    <mlv-dialog-footer>
+      <button mlvButton variant="secondary" mlvDialogClose>Cancel</button>
+      <button mlvButton mlvDialogClose="confirmed">Confirm</button>
+    </mlv-dialog-footer>
+  </mlv-dialog>
+</ng-template>

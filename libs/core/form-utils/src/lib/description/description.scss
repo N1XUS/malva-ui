@@ -1,0 +1,10 @@
+@layer mlv.components {
+$block: 'mlv-description';
+
+.#{$block} {
+  display: block;
+  font-weight: 400;
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+}

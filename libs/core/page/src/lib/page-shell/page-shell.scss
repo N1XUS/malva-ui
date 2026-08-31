@@ -1,0 +1,266 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-page-shell;
+
+  .#{$block} {
+    @include mixins.base();
+
+    --mlv-page-shell-chrome-background: var(--mlv-palette-neutral-900);
+    --mlv-page-shell-chrome-foreground: var(--mlv-palette-neutral-50);
+    --mlv-page-shell-effective-background: var(
+      --mlv-page-shell-resolved-background,
+      var(--mlv-page-shell-chrome-background)
+    );
+    --mlv-page-shell-effective-foreground: var(
+      --mlv-page-shell-resolved-foreground,
+      var(--mlv-page-shell-chrome-foreground)
+    );
+
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--mlv-page-shell-effective-background);
+    color: var(--mlv-page-shell-effective-foreground);
+
+    &__topbar {
+      flex: 0 0 auto;
+    }
+
+    &__topbar.mlv-action-bar {
+      --mlv-action-bar-bg: var(--mlv-page-shell-effective-background);
+      --mlv-action-bar-fg: var(--mlv-page-shell-effective-foreground);
+      --mlv-action-bar-border: transparent;
+      --mlv-action-bar-shadow: none;
+
+      min-height: 3.25rem;
+      background: var(--mlv-page-shell-effective-background);
+      backdrop-filter: none;
+    }
+
+    &__body {
+      display: flex;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+
+      // Start sidebars are intentionally a repeated projection slot. Keeping
+      // them as direct flex items preserves author DOM order for both visual and
+      // assistive-technology reading order, while each sidebar keeps ownership
+      // of its own width and collapsed/offcanvas behaviour.
+      > [mlvPageSidebar] {
+        flex: 0 0 auto;
+        min-width: 0;
+      }
+
+      // A second start sidebar commonly follows an icon rail. A hairline makes
+      // that seam explicit without introducing a wrapper or a numbered sidebar
+      // API — but it is a line drawn *on the chrome*, so like every other chrome
+      // surface it is mixed from the chrome's own computed foreground.
+      // `--mlv-border-subtle` resolves against the page surface and paints a
+      // near-white edge across a dark or brand chrome. 16% sits between the
+      // 8/12% row-state fills and the 24% group rail line: visible as a hairline
+      // on every chrome, bright on none.
+      > [mlvPageSidebar] + [mlvPageSidebar] {
+        border-inline-start: var(--mlv-stroke-width) solid
+          color-mix(
+            in srgb,
+            var(--mlv-page-shell-effective-foreground) 16%,
+            var(--mlv-page-shell-effective-background)
+          );
+      }
+
+      > [mlvPageEndSidebar],
+      > mlv-page-end-pane {
+        flex: 0 0 auto;
+        min-width: 0;
+      }
+    }
+
+    &__content {
+      display: flex;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    &__content > .mlv-page {
+      height: 100%;
+    }
+
+    &__sidebar {
+      flex: 0 0 auto;
+      min-height: 0;
+    }
+
+    // Form controls projected into the shell chrome — a search field in the topbar,
+    // a filter in a sidebar — sit on the chrome background rather than on a page
+    // surface, so the theme's surface tokens read wrong against it. Scoped to the
+    // chrome slots only: a field inside `main[mlvPage]` keeps the normal tokens.
+    // `&__sidebar` covers the end sidebar too — it carries the same class plus a
+    // `--end` modifier.
+    &__topbar .mlv-form-control-wrapper,
+    &__sidebar .mlv-form-control-wrapper {
+      --container-background-color: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 10%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --container-border-color: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 30%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --container-side-content-color: var(
+        --mlv-page-shell-effective-foreground
+      );
+      --container-action-color: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 78%,
+        var(--mlv-page-shell-effective-background)
+      );
+
+      // The control's own text, placeholder and focus ring resolve from the theme
+      // tokens, so they are remapped onto the chrome's computed foreground — the
+      // same contrast-derived value the topbar and sidebar already use.
+      --mlv-text-primary: var(--mlv-page-shell-effective-foreground);
+      --mlv-text-secondary: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 78%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-text-tertiary: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 60%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-border-focus: var(--mlv-page-shell-effective-foreground);
+
+      // Border ramp 30% -> 40% -> 50%. The wrapper's own rules for these states are
+      // `.mlv-form-control-wrapper--state-default:hover` and `--focused` (two
+      // classes each), which ties the specificity of a plain descendant override, so
+      // the winner would depend on stylesheet order. Repeating the block class here
+      // raises these to three classes and makes them win deterministically.
+      &.mlv-form-control-wrapper--state-default:hover {
+        --container-border-color: color-mix(
+          in srgb,
+          var(--mlv-page-shell-effective-foreground) 40%,
+          var(--mlv-page-shell-effective-background)
+        );
+      }
+
+      &.mlv-form-control-wrapper--focused {
+        --container-border-color: color-mix(
+          in srgb,
+          var(--mlv-page-shell-effective-foreground) 50%,
+          var(--mlv-page-shell-effective-background)
+        );
+      }
+    }
+
+    // An offcanvas sidebar renders as an overlay drawer, but its host element stays
+    // in this flex row. `mlv-sidebar--offcanvas` is `width: 100%` so the sidebar
+    // can fill a standalone container; left alone here it claims the whole shell
+    // body and the page gets no width at all.
+    &__sidebar.mlv-sidebar--offcanvas {
+      width: 0;
+      min-width: 0;
+      overflow: visible;
+    }
+
+    &__sidebar.mlv-sidebar {
+      --mlv-sidebar-border-width: 0rem;
+      --mlv-text-secondary: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 78%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-text-primary: var(--mlv-page-shell-effective-foreground);
+      --mlv-text-action: var(--mlv-page-shell-effective-foreground);
+      // SF-R2/SL-R5: row-state fills, so they are bound by "no state fill
+      // darker than the darkest resting surface" — lower percentages than the
+      // field-fill/border mixes above, and mixed against the chrome's own
+      // background (never `transparent`) so a portalled flyout is opaque.
+      --mlv-background-neutral-1: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+      // Anything projected into the rail that resolves the neutral interactive
+      // ramp directly — a transparent-variant `mlvButton` used as a custom
+      // trigger, the workspace switcher's open state — otherwise keeps the
+      // theme's grey pill on the chrome colour.
+      --mlv-background-neutral-1-hover: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-background-neutral-1-active: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 12%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-border-focus: var(--mlv-page-shell-effective-foreground);
+
+      // Sidebar row states (declared on `.mlv-sidebar`; see sidebar.scss). They
+      // default to `--mlv-background-neutral-1` / `--mlv-background-selected`
+      // / `--mlv-border-normal`, which resolve against the page surface — a global
+      // grey and a global lavender floating on the chrome colour. Deriving them
+      // from the chrome's own computed foreground instead works for a light or a
+      // dark brand colour and for the default neutral-900 chrome in both themes.
+      // Resolved on three chromes (SF-R2): light (#ffffff bg, near-black fg)
+      // hover rgb(236,236,236) / active rgb(227,227,227); dark default
+      // (#171717 bg, #fafafa fg) hover rgb(41,41,41) / active rgb(50,50,50);
+      // brand blue rgb(65,99,169) with white fg — hover rgb(80,111,176) /
+      // active rgb(88,118,179). Row-state fills (SF-R2/SL-R5) are lower than
+      // the field-fill/border mixes above and mix against the chrome's own
+      // background, never `transparent`, so a portalled flyout is opaque.
+      --mlv-sidebar-hover-bg: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-sidebar-active-bg: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 12%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-sidebar-rail-color: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 24%,
+        var(--mlv-page-shell-effective-background)
+      );
+
+      // Selected state. `--mlv-text-on-selected` is declared once per theme block
+      // as `var(--mlv-text-action)`, so it resolves in the scope it is declared
+      // in — the document root. Remapping `--mlv-text-action` above therefore
+      // never reaches it, and an active row keeps the theme accent: a lavender
+      // label on the chrome-derived 12% pill, unreadable on a coloured chrome and
+      // deaf to a `color`/`foreground` override. The two backing fills are
+      // remapped alongside it for anything that resolves them directly (the
+      // workspace switcher's selected row), at the same percentages as the
+      // sidebar's own active/hover pills.
+      --mlv-text-on-selected: var(--mlv-page-shell-effective-foreground);
+      --mlv-background-selected: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 12%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-background-selected-hover: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+
+      height: 100%;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      background: transparent;
+    }
+  }
+}

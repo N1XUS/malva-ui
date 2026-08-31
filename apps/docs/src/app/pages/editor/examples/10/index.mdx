@@ -1,0 +1,17 @@
+## Switching format in place
+
+`format` selects the external representation only. Changing it serializes the
+live Tiptap document into the newly selected syntax; it never reparses the
+stale string and never constructs a second editor, so selection and undo
+history survive the switch. The construction counter above stays at one for the
+whole cycle.
+
+The default preset always retains Markdown capability for exactly this reason.
+A literal `extensions` replacement is never supplemented, so a replacement set
+without the official Tiptap Markdown extension emits a recoverable
+`configuration` error when `format` becomes `markdown`. HTML and JSON impose no
+extension requirement.
+
+Round trips are not equally lossless. HTML and Markdown flatten typed node
+attributes into markup, and Tiptap Markdown is still an upstream beta. Prefer
+`json` for storage and use the text formats for interchange.

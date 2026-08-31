@@ -1,0 +1,33 @@
+<div class="demo-col" style="gap: 1.5rem; max-width: 28rem">
+  <div class="demo-col" style="gap: 0.5rem">
+    <span
+      style="
+        font-size: var(--mlv-typography-body-s-size);
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Volume
+    </span>
+    <mlv-slider [min]="0" [max]="100" [step]="1" [(ngModel)]="value" />
+    <span
+      style="
+        font-size: var(--mlv-typography-body-s-size);
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Value: {{ value() }}
+    </span>
+  </div>
+
+  <div class="demo-col" style="gap: 0.5rem">
+    <span
+      style="
+        font-size: var(--mlv-typography-body-s-size);
+        color: var(--mlv-text-secondary);
+      "
+    >
+      Brightness (0–10)
+    </span>
+    <mlv-slider [min]="0" [max]="10" [step]="1" />
+  </div>
+</div>

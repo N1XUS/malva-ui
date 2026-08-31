@@ -1,0 +1,12 @@
+.tag-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &__swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    display: inline-block;
+  }
+}

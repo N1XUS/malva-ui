@@ -1,0 +1,8 @@
+## Basic OTP Entry
+
+`mlv-pin-input` renders a row of single-character input cells that behave as one logical form control. The default `length` is **6** cells — matching the most common OTP length.
+
+- Type a character in a cell and focus automatically jumps to the next one.
+- **Backspace** clears the current cell and moves focus backwards if the cell was already empty.
+- **Arrow Left / Right** navigate between cells without clearing content.
+- Paste a full code (e.g. from SMS or authenticator app) and it distributes across all cells from the beginning.

@@ -1,0 +1,55 @@
+{
+  "name": "editor",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/editor/src",
+  "prefix": "mlv",
+  "projectType": "library",
+  "tags": ["scope:ui", "family:editor", "type:ui"],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:package",
+      "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "options": {
+        "project": "libs/editor/ng-package.json",
+        "tsConfig": "libs/editor/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/editor/tsconfig.lib.prod.json"
+        },
+        "development": {}
+      },
+      "defaultConfiguration": "production"
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": {
+        "config": "libs/editor/vite.config.mts"
+      }
+    },
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "outputs": ["{workspaceRoot}/dist/.playwright/libs/editor"],
+      "dependsOn": [
+        {
+          "projects": "docs",
+          "target": "serve",
+          "params": "forward"
+        }
+      ],
+      "options": {
+        "config": "libs/editor/playwright.config.mts"
+      }
+    },
+    "e2e-typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "libs/editor",
+        "command": "tsc --noEmit -p tsconfig.e2e.json"
+      }
+    }
+  }
+}

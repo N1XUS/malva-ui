@@ -1,0 +1,11 @@
+.example-h-scroll-box {
+  border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-l);
+  padding: 0.75rem 0.75rem 1rem;
+}
+
+.example-h-scroll-row {
+  display: flex;
+  gap: 0.5rem;
+  white-space: nowrap;
+}

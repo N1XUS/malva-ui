@@ -1,0 +1,395 @@
+@use '../../../../../styles/src/lib/density' as density;
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-tile;
+
+@include mixins.reduced-motion($block);
+
+@keyframes tile-leave-fade {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.#{$block} {
+  @include mixins.base();
+
+  --mlv-tile-padding: var(--mlv-padding-m);
+  --mlv-tile-radius: var(--mlv-radius-card);
+  --mlv-tile-gap: var(--mlv-spacing-2);
+  --mlv-tile-controls-gap: var(--mlv-spacing-1);
+  --mlv-tile-control-size: var(--mlv-height-m);
+  // Icon-alone-in-a-shaped-container mode (CH-R4, preventive extension): a
+  // declared fraction of the control size it sits inside, not a per-density
+  // literal. The handle BOX floors at `--mlv-height-m` (see `min-width`/
+  // `min-height` on `&__drag-handle` below), so the ratio is applied to the
+  // *effective*, floor-adjusted box size via `max()` — otherwise the glyph
+  // stayed tied to the pre-floor `--mlv-tile-control-size` and read as
+  // barely-visible at tight/compact density (e.g. nested tiles, which pin
+  // `--mlv-tile-control-size` to `--mlv-height-xs`) even though the box
+  // itself was already floored up to 2.75rem/44px.
+  --mlv-tile-handle-icon-size: calc(
+    max(var(--mlv-tile-control-size), var(--mlv-height-m)) *
+      var(--mlv-icon-in-container-ratio)
+  );
+  --mlv-tile-title-size: var(--mlv-typography-ui-m-size);
+  --mlv-tile-title-line-height: var(--mlv-typography-ui-m-line-height);
+  --mlv-tile-body-size: var(--mlv-typography-body-m-size);
+  --mlv-tile-body-line-height: var(--mlv-typography-body-m-line-height);
+
+  container-name: mlv-tile;
+  container-type: inline-size;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--mlv-elevation-bg-2);
+  color: var(--mlv-text-primary);
+  box-shadow: var(--mlv-shadow-flat);
+  border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+  padding: var(--mlv-tile-padding);
+  border-radius: var(--mlv-tile-radius);
+  gap: var(--mlv-tile-gap);
+  overflow: hidden;
+  transition-property: background-color, border-color, box-shadow;
+  transition-duration: var(--mlv-duration-fast);
+  transition-timing-function: var(--mlv-ease-default);
+
+  @include density.density-tight {
+    --mlv-tile-padding: var(--mlv-padding-xs);
+    --mlv-tile-gap: var(--mlv-spacing-1);
+    --mlv-tile-controls-gap: var(--mlv-spacing-1);
+    --mlv-tile-control-size: var(--mlv-height-xs);
+    --mlv-tile-title-size: var(--mlv-font-size-xs);
+    --mlv-tile-title-line-height: var(--mlv-line-height-tight);
+    --mlv-tile-body-size: var(--mlv-font-size-xs);
+    --mlv-tile-body-line-height: var(--mlv-line-height-tight);
+  }
+
+  @include density.density-compact {
+    --mlv-tile-padding: var(--mlv-padding-s);
+    --mlv-tile-gap: var(--mlv-spacing-1-5);
+    --mlv-tile-controls-gap: var(--mlv-spacing-1);
+    --mlv-tile-control-size: var(--mlv-height-s);
+    --mlv-tile-title-size: var(--mlv-typography-ui-s-size);
+    --mlv-tile-title-line-height: var(--mlv-typography-ui-s-line-height);
+    --mlv-tile-body-size: var(--mlv-typography-body-s-size);
+    --mlv-tile-body-line-height: var(--mlv-typography-body-s-line-height);
+  }
+
+  @include density.density-comfortable {
+    --mlv-tile-padding: var(--mlv-padding-m);
+    --mlv-tile-gap: var(--mlv-spacing-2);
+    --mlv-tile-controls-gap: var(--mlv-spacing-1);
+    --mlv-tile-control-size: var(--mlv-height-m);
+    --mlv-tile-title-size: var(--mlv-typography-ui-m-size);
+    --mlv-tile-title-line-height: var(--mlv-typography-ui-m-line-height);
+    --mlv-tile-body-size: var(--mlv-typography-body-m-size);
+    --mlv-tile-body-line-height: var(--mlv-typography-body-m-line-height);
+  }
+
+  @include density.density-spacious {
+    --mlv-tile-padding: var(--mlv-padding-l);
+    --mlv-tile-gap: var(--mlv-spacing-2-5);
+    --mlv-tile-controls-gap: var(--mlv-spacing-1-5);
+    --mlv-tile-control-size: var(--mlv-height-l);
+    --mlv-tile-title-size: var(--mlv-typography-ui-l-size);
+    --mlv-tile-title-line-height: var(--mlv-typography-ui-l-line-height);
+    --mlv-tile-body-size: var(--mlv-typography-body-l-size);
+    --mlv-tile-body-line-height: var(--mlv-typography-body-l-line-height);
+  }
+
+  @include density.density-airy {
+    --mlv-tile-padding: var(--mlv-spacing-4) var(--mlv-spacing-8);
+    --mlv-tile-gap: var(--mlv-spacing-3);
+    --mlv-tile-controls-gap: var(--mlv-spacing-2);
+    --mlv-tile-control-size: var(--mlv-height-xl);
+    --mlv-tile-title-size: var(--mlv-font-size-xl);
+    --mlv-tile-title-line-height: var(--mlv-line-height-normal);
+    --mlv-tile-body-size: var(--mlv-font-size-l);
+    --mlv-tile-body-line-height: var(--mlv-line-height-relaxed);
+  }
+
+  // Tones use the complete outline so the state does not distort one edge.
+  &--tone-info {
+    border-color: var(--mlv-border-info);
+  }
+  &--tone-success {
+    border-color: var(--mlv-border-success);
+  }
+  &--tone-warning {
+    border-color: var(--mlv-border-warning);
+  }
+  &--tone-danger {
+    border-color: var(--mlv-border-error);
+  }
+
+  // A frozen subtree reads as chrome: quieter outline and title, no handle.
+  &--locked {
+    border-color: var(--mlv-border-subtle);
+
+    .#{$block}__title {
+      color: var(--mlv-text-secondary);
+    }
+  }
+
+  // Body-only de-emphasis keeps the header controls at full contrast so the
+  // consumer's own switch stays usable. Deliberately does not cascade.
+  &--inactive {
+    > .#{$block}__body {
+      opacity: var(--mlv-disabled-opacity);
+    }
+
+    > .#{$block}__header > .#{$block}__title {
+      color: var(--mlv-text-secondary);
+    }
+  }
+
+  // Leave animation — applied externally before DOM removal
+  &--leaving {
+    overflow: hidden;
+    pointer-events: none;
+    animation: tile-leave-fade var(--mlv-duration-normal) var(--mlv-ease-out)
+      forwards;
+  }
+
+  // Disabled drag keeps content readable and subdues only the affordance.
+  &--drag-disabled {
+    .mlv-tile__drag-handle {
+      color: var(--mlv-text-disabled);
+      cursor: not-allowed;
+    }
+  }
+
+  // Drag-start lift, applied to the SOURCE tile (the item Sortable marks
+  // `sortable-chosen` the moment it is picked up, and which stays connected
+  // in the DOM for the whole gesture). The pointer-following fallback clone
+  // (`.mlv-tiles__sortable-fallback`, styled in tiles.scss) cannot play this
+  // same transition: SortableJS's fallback engine clones the source node and
+  // sets `fallbackClass` on it *before* the clone is ever appended to the
+  // DOM, so its elevated box-shadow is present on the clone's very first
+  // paint — a CSS transition never has a "before" frame to animate from on a
+  // freshly-connected node, so that box-shadow can only pop, never ease in.
+  // Elevating the still-connected source tile here, using the box-shadow
+  // transition already declared above, gives the pick-up gesture a real
+  // animated lift the moment it is chosen — before the pointer crosses
+  // `fallbackTolerance` and the (unavoidably instant) clone appears.
+  .mlv-tiles__sortable-chosen > &,
+  &.mlv-tiles__sortable-chosen {
+    box-shadow: var(--mlv-shadow-overlay);
+  }
+
+  // Drag handle. The visible box hugs the glyph (plus a hair of breathing
+  // room) rather than the WCAG-sized square it used to be — a 44px box
+  // reserved a wide empty run before the title. The ≥44px pointer/drag
+  // target is restored below via an out-of-flow `::before` overlay, which
+  // costs no layout space, so the leading indent stays tight.
+  &__drag-handle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    --mlv-tile-handle-visible-size: calc(
+      var(--mlv-tile-handle-icon-size) + var(--mlv-spacing-1) * 2
+    );
+    width: var(--mlv-tile-handle-visible-size);
+    height: var(--mlv-tile-handle-visible-size);
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background-color: transparent;
+    font: inherit;
+    opacity: 1;
+    cursor: grab;
+    color: var(--mlv-text-secondary);
+    touch-action: none;
+    // Only shows through the focus ring — the handle paints no background.
+    border-radius: var(--mlv-radius-s);
+    transition-property: opacity, color;
+    transition-duration: var(--mlv-duration-normal);
+    transition-timing-function: var(--mlv-ease-out);
+
+    // The design-system ring, so the handle matches the Settings/Remove
+    // buttons that share its `.mlv-tile__header` row instead of falling
+    // back to the UA default.
+    //
+    // Form B (SF-R3): the block clips to its padding box (`overflow: hidden`
+    // above), so a positive-offset ring risks being clipped by the tile's own
+    // padding at the tightest density — in the high-contrast theme the ring
+    // width alone (`--mlv-stroke-width-medium` 0.1875rem) plus the offset
+    // (0.125rem) would reach 0.3125rem, past the `--mlv-padding-xs` block
+    // padding (0.25rem). An inset ring never extends past the handle's own
+    // box, so it can never be clipped regardless of density or theme.
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    }
+
+    // Pointer/drag hit-area overlay — out of flow, so it never grows the
+    // header's layout or the visible box above. Pointer events over the
+    // pseudo-element still resolve to the host `<button>`/`<span>` (there is
+    // no separate DOM node), so SortableJS's `handle` matching and this
+    // element's own click/keydown listeners work unchanged.
+    //
+    // The block axis expands symmetrically (row height comfortably clears
+    // 44px in every shipped header). The inline axis is asymmetric on
+    // purpose: the reach toward the title (`inline-end`) is capped at half
+    // the header gap so the hit area can never cross into the title's own
+    // box; the remainder of the 44px budget expands `inline-start`, into the
+    // tile's own ample leading padding instead.
+    &::before {
+      content: '';
+      position: absolute;
+      --mlv-tile-handle-hit-size: var(--mlv-height-m);
+      --mlv-tile-handle-hit-expand: calc(
+        (
+            var(--mlv-tile-handle-hit-size) - var(
+                --mlv-tile-handle-visible-size
+              )
+          ) /
+          2
+      );
+      --mlv-tile-handle-hit-expand-end: min(
+        var(--mlv-tile-handle-hit-expand),
+        var(--mlv-tile-gap) / 2
+      );
+      inset-block: calc(-1 * var(--mlv-tile-handle-hit-expand));
+      inset-inline-end: calc(-1 * var(--mlv-tile-handle-hit-expand-end));
+      inset-inline-start: calc(
+        -1 *
+          (
+            var(--mlv-tile-handle-hit-expand) *
+              2 - var(--mlv-tile-handle-hit-expand-end)
+          )
+      );
+    }
+
+    svg {
+      width: var(--mlv-tile-handle-icon-size);
+      height: var(--mlv-tile-handle-icon-size);
+    }
+
+    .mlv-tiles__sortable-chosen > .#{$block} &,
+    .mlv-tiles__sortable-fallback > .#{$block} &,
+    .#{$block}.mlv-tiles__sortable-chosen &,
+    .#{$block}.mlv-tiles__sortable-fallback & {
+      opacity: 1;
+      color: var(--mlv-text-primary);
+      cursor: grabbing;
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    // Idle resting state: a low-opacity affordance rather than fully hidden,
+    // so the leading indent reads as intentional even before the pointer
+    // arrives. Still steps up to full opacity on hover/focus/drag below.
+    &--draggable > .#{$block}__header > .#{$block}__drag-handle {
+      opacity: 0.5;
+    }
+
+    &--draggable:hover:not(:has(.#{$block}:hover))
+      > .#{$block}__header
+      > .#{$block}__drag-handle,
+    &--draggable:focus-within:not(:has(.#{$block}:focus-within))
+      > .#{$block}__header
+      > .#{$block}__drag-handle,
+    .mlv-tiles__sortable-chosen
+      > &
+      > .#{$block}__header
+      > .#{$block}__drag-handle,
+    .mlv-tiles__sortable-fallback
+      > &
+      > .#{$block}__header
+      > .#{$block}__drag-handle,
+    &.mlv-tiles__sortable-chosen > .#{$block}__header > .#{$block}__drag-handle,
+    &.mlv-tiles__sortable-fallback
+      > .#{$block}__header
+      > .#{$block}__drag-handle {
+      opacity: 1;
+    }
+
+    &:not(.#{$block}--drag-disabled):hover:not(:has(.#{$block}:hover))
+      > .#{$block}__header
+      > .#{$block}__drag-handle {
+      color: var(--mlv-text-primary);
+    }
+  }
+
+  // Header row (header slot + optional close button)
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--mlv-tile-gap);
+    min-height: 0;
+  }
+
+  &__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: var(--mlv-tile-title-size);
+    line-height: var(--mlv-tile-title-line-height);
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: var(--mlv-tile-controls-gap);
+    margin-inline-start: auto;
+  }
+
+  &__actions,
+  &__trailing-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-tile-controls-gap);
+    flex-shrink: 0;
+  }
+
+  &__close {
+    flex-shrink: 0;
+    .mlv-button--close {
+      margin-inline-end: calc(var(--mlv-btn-height) * -0.25);
+    }
+  }
+
+  // Body
+  &__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    font-size: var(--mlv-tile-body-size);
+    line-height: var(--mlv-tile-body-line-height);
+  }
+}
+
+@container mlv-tile (max-width: 18rem) {
+  .#{$block}__header:has(> .#{$block}__controls--crowded) {
+    flex-wrap: wrap;
+  }
+
+  .#{$block}__controls--crowded {
+    flex-basis: 100%;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+// SL-R4 / CH-R5 item 2 — a nested tiles group compacts its control cluster
+// one notch. `.#{$block}` declares `--mlv-tile-control-size` on itself
+// (above), so a declaration on the `.mlv-tiles--nested` ancestor would be
+// shadowed and never win — this selector must reach the tile directly.
+// Doubled `.mlv-tiles.mlv-tiles--nested` matches the specificity of the
+// `[class*='--tight'] .mlv-tile` density rules above — a tie broken by
+// source order, so this block MUST stay at the END of this file, after
+// every density block that touches `--mlv-tile-control-size`.
+.mlv-tiles.mlv-tiles--nested .mlv-tile {
+  --mlv-tile-control-size: var(--mlv-height-xs);
+}
+}

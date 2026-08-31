@@ -1,0 +1,27 @@
+<div
+  class="demo-col"
+  style="gap: 0.75rem; align-items: stretch; max-width: 28rem"
+>
+  <mlv-select
+    label="Destination"
+    native="auto"
+    [options]="destinations"
+    [toOption]="destinationToOption"
+    placeholder="Choose a destination..."
+  />
+
+  <mlv-select
+    label="Always native"
+    native
+    [options]="destinations"
+    [toOption]="destinationToOption"
+    placeholder="Choose a destination..."
+  />
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    <code>native="auto"</code> uses the browser's native picker below the
+    <code>md</code> breakpoint; the second select uses the native picker at
+    every viewport. Native mode renders choices from <code>[options]</code>;
+    custom option templates are ignored.
+  </p>
+</div>

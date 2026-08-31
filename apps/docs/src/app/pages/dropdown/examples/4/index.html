@@ -1,0 +1,39 @@
+<div class="dropdown-item-template">
+  <mlv-dropdown-panel
+    class="mlv-dropdown-panel--surface dropdown-item-template__panel"
+    [options]="options"
+    [selectedValues]="selected()"
+    [itemTemplate]="reviewerRow"
+    [maxHeight]="260"
+    (valueChange)="onValueChange($event)"
+  />
+
+  <p class="dropdown-item-template__result" aria-live="polite">
+    Review assigned to: <strong>{{ assignedName() }}</strong>
+  </p>
+</div>
+
+<ng-template #reviewerRow let-option>
+  <span class="reviewer-row">
+    <mlv-avatar size="s" [name]="option.value.name" />
+
+    <span class="reviewer-row__text">
+      <span class="reviewer-row__name">{{ option.label }}</span>
+      <span class="reviewer-row__team">{{ option.value.team }}</span>
+    </span>
+
+    <mlv-badge
+      muted
+      [tone]="option.value.available ? 'success' : 'warning'"
+      mlvDensity="compact"
+    >
+      {{ option.value.available ? 'Available' : 'Booked' }}
+    </mlv-badge>
+
+    <!-- A custom row replaces the default one entirely, check mark included —
+         the selected affordance is the template's job from here on. -->
+    @if (selected()[0] === option.value) {
+    <svg class="reviewer-row__check" lucideCheck [size]="16" />
+    }
+  </span>
+</ng-template>

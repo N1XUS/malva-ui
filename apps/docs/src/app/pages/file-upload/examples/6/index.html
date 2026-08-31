@@ -1,0 +1,51 @@
+<div
+  class="demo-col"
+  style="gap: 1.5rem; align-items: stretch; max-width: 28rem"
+>
+  <!-- Reference layout: an icon-only AI action immediately before the
+       browse button, both centred in the drop zone. -->
+  <mlv-file-upload
+    title="Image"
+    subtitle="Or drag and drop in this area"
+    actionLabel="Choose image"
+    accept="image/*"
+    [multiple]="false"
+  >
+    <button
+      mlvButton
+      mlvFileUploadAction
+      type="button"
+      shape="square"
+      aria-label="Generate image with AI"
+      (click)="onExtraAction('Generate with AI')"
+    >
+      <svg lucideSparkles [size]="16" />
+    </button>
+  </mlv-file-upload>
+
+  <!-- The same slot, projected after the browse button with position="end". -->
+  <mlv-file-upload
+    compact
+    title="Attachments"
+    actionLabel="Choose files"
+    accept="image/*"
+  >
+    <button
+      mlvButton
+      mlvFileUploadAction
+      position="end"
+      type="button"
+      variant="transparent"
+      (click)="onExtraAction('Pick from library')"
+    >
+      <ng-template mlvButtonBefore>
+        <svg lucideImagePlus [size]="16" />
+      </ng-template>
+      From library
+    </button>
+  </mlv-file-upload>
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Last extra action: {{ lastAction() }}
+  </p>
+</div>

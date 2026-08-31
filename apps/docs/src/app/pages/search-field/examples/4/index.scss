@@ -1,0 +1,21 @@
+.overlay-search-example {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-4);
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-3);
+  }
+
+  &__label {
+    min-width: 7rem;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__result {
+    color: var(--mlv-text-secondary);
+  }
+}

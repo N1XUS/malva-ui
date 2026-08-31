@@ -1,0 +1,16 @@
+<div
+  class="demo-row"
+  style="gap: 2.5rem; align-items: flex-end; flex-wrap: wrap"
+>
+  @for (entry of entries; track entry.size) {
+  <mlv-progress
+    shape="circle"
+    [value]="entry.value"
+    [size]="entry.size"
+    showPercentage
+    [ariaLabel]="entry.label + ' usage'"
+  >
+    {{ entry.label }}
+  </mlv-progress>
+  }
+</div>

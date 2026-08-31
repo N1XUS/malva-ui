@@ -1,0 +1,627 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  forwardRef,
+  inject,
+  input,
+  model,
+  output,
+  signal,
+  ViewEncapsulation,
+  viewChild,
+} from '@angular/core';
+import type { AfterViewInit, ElementRef, OnInit } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import {
+  MlvTab,
+  MlvTabContentDef,
+  MlvTabDef,
+  MlvTabGroup,
+} from '@malva-ui/core/tabs';
+import { MlvInput } from '@malva-ui/core/input';
+import {
+  MLV_FORM_CONTROL,
+  MlvSignalFormControlBase,
+} from '@malva-ui/core/form-utils';
+import { MLV_COLOR_PICKER_I18N } from '@malva-ui/i18n';
+import type { BooleanInput } from '@angular/cdk/coercion';
+import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
+import { take, takeUntil } from 'rxjs/operators';
+import type { MlvHsla, MlvColorInputMode } from '../color-utils/color-utils';
+import {
+  clamp,
+  hslaToHex,
+  hslaToModeString,
+  hslToRgb,
+  parseCssColor,
+  rgbToHsl,
+  round,
+} from '../color-utils/color-utils';
+
+/**
+ * The MlvColorPicker provides an HSL/HEX/RGB color picker with:
+ * - A 2D saturation-lightness canvas (pointer-draggable)
+ * - A hue slider
+ * - An opacity slider
+ * - Input mode tabs for HEX, RGB, and HSL
+ * - Signal, reactive, and template-driven forms integration producing a CSS color string
+ */
+@Component({
+  selector: 'mlv-color-picker',
+  templateUrl: './color-picker.html',
+  styleUrl: './color-picker.scss',
+  encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    NgTemplateOutlet,
+    MlvTab,
+    MlvTabContentDef,
+    MlvTabDef,
+    MlvTabGroup,
+    MlvInput,
+  ],
+  providers: [
+    {
+      provide: MLV_FORM_CONTROL,
+      useExisting: forwardRef(() => MlvColorPicker),
+    },
+  ],
+  host: {
+    class: 'mlv-color-picker',
+    '[class.mlv-color-picker--disabled]': 'computedDisabled()',
+    '(focusout)': '_markTouched()',
+  },
+})
+export class MlvColorPicker
+  extends MlvSignalFormControlBase<string>
+  implements AfterViewInit, OnInit
+{
+  private static readonly _ALL_FORMATS: readonly MlvColorInputMode[] = [
+    'hex',
+    'rgb',
+    'hsl',
+  ];
+
+  /** The CSS color string used by all Angular forms APIs. */
+  readonly value = model<string>('#ff0000');
+  /** @protected Injected i18n translations for the color picker. */
+  protected readonly _i18n = inject(MLV_COLOR_PICKER_I18N);
+
+  /** Whether to show the opacity slider. Defaults to true. */
+  readonly showOpacity = input<boolean, BooleanInput>(true, {
+    transform: coerceBooleanProperty,
+  });
+
+  /** The default input mode displayed when the picker opens. */
+  readonly defaultMode = input<MlvColorInputMode>('hex');
+
+  /** Available color formats, in display order. */
+  readonly supportedFormats = input<readonly MlvColorInputMode[]>(
+    MlvColorPicker._ALL_FORMATS,
+  );
+
+  /** Emits the CSS color string whenever the color changes. */
+  readonly colorChange = output<string>();
+
+  /** @private Current color in HSLA space. */
+  protected readonly _hsla = signal<MlvHsla>({ h: 0, s: 100, l: 50, a: 1 });
+
+  /** @private Current input mode for the text inputs. */
+  protected readonly _inputMode = signal<MlvColorInputMode>('hex');
+
+  /** Formats normalized to supported unique values, preserving caller order. */
+  protected readonly _supportedFormats = computed<readonly MlvColorInputMode[]>(
+    () => {
+      const formats = this.supportedFormats().filter(
+        (format, index, values) =>
+          MlvColorPicker._ALL_FORMATS.includes(format) &&
+          values.indexOf(format) === index,
+      );
+      return formats.length > 0 ? formats : MlvColorPicker._ALL_FORMATS;
+    },
+  );
+
+  /** @private The current raw hex input string (kept separate to avoid cursor-jump on typing). */
+  protected readonly _hexInput = signal<string>('#ff0000');
+
+  /** @private The current raw red channel input. */
+  protected readonly _rgbRInput = signal<string>('255');
+
+  /** @private The current raw green channel input. */
+  protected readonly _rgbGInput = signal<string>('0');
+
+  /** @private The current raw blue channel input. */
+  protected readonly _rgbBInput = signal<string>('0');
+
+  /** @private The current raw alpha input for RGB mode. */
+  protected readonly _rgbAInput = signal<string>('1');
+
+  /** @private The current raw hue input for HSL mode. */
+  protected readonly _hslHInput = signal<string>('0');
+
+  /** @private The current raw saturation input for HSL mode. */
+  protected readonly _hslSInput = signal<string>('100');
+
+  /** @private The current raw lightness input for HSL mode. */
+  protected readonly _hslLInput = signal<string>('50');
+
+  /** @private The current raw alpha input for HSL mode. */
+  protected readonly _hslAInput = signal<string>('1');
+
+  /** @private Whether the canvas pointer is currently being dragged. */
+  protected readonly _canvasDragging = signal(false);
+
+  /**
+   * @private Computed CSS string for the hue thumb gradient stop.
+   * Used to show the pure hue color on the canvas gradient background.
+   */
+  protected readonly _hueColor = computed(() => {
+    const { r, g, b } = hslToRgb(this._hsla().h, 100, 50);
+    return `rgb(${r},${g},${b})`;
+  });
+
+  /**
+   * @private Computed CSS color for the opacity slider checkerboard preview.
+   */
+  protected readonly _rgbaString = computed(() => {
+    const c = this._hsla();
+    const { r, g, b } = hslToRgb(c.h, c.s, c.l);
+    return `rgba(${r},${g},${b},${c.a})`;
+  });
+
+  /** @private Reference to the canvas element. */
+  protected readonly _canvasRef =
+    viewChild<ElementRef<HTMLCanvasElement>>('slCanvas');
+
+  /** @private Reference to the canvas container for size calculation. */
+  protected readonly _canvasContainerRef =
+    viewChild<ElementRef<HTMLDivElement>>('slContainer');
+
+  /** @private DestroyRef for cleanup. */
+  private readonly _destroyRef = inject(DestroyRef);
+
+  /**
+   * @private The canvas bounding rect captured once at pointerdown and reused
+   * for every pointermove of that drag, avoiding a forced layout read
+   * (`getBoundingClientRect`) on every move. Cleared on pointerup.
+   */
+  private _dragRect: DOMRect | null = null;
+
+  constructor() {
+    super();
+    effect(() => this._applyValue(this.value()));
+    effect(() => {
+      const formats = this._supportedFormats();
+      if (!formats.includes(this._inputMode())) {
+        this._inputMode.set(
+          formats.includes(this.defaultMode())
+            ? this.defaultMode()
+            : formats[0],
+        );
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    const formats = this._supportedFormats();
+    this._inputMode.set(
+      formats.includes(this.defaultMode()) ? this.defaultMode() : formats[0],
+    );
+    this._syncFromHsla();
+  }
+
+  ngAfterViewInit(): void {
+    this._drawCanvas();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Forms value
+  // ---------------------------------------------------------------------------
+
+  /** Whether the control holds a clearable value — The picker always holds a colour, so a clearable X (if enabled) is always actionable. */
+  readonly hasValue = computed(() => true);
+
+  /** @private Synchronizes the color editor from an external value. */
+  private _applyValue(value: string | null | undefined): void {
+    if (!value) return;
+    const parsed = parseCssColor(value);
+    this._hsla.set(parsed);
+    this._syncFromHsla();
+    // Draw after change detection settles
+    setTimeout(() => this._drawCanvas(), 0);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Canvas drawing
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @private Draws the 2D saturation-lightness canvas for the current hue.
+   * The canvas shows a gradient from white (top-left) to the pure hue (top-right)
+   * to black (bottom).
+   */
+  protected _drawCanvas(): void {
+    const canvasEl = this._canvasRef()?.nativeElement;
+    if (!canvasEl) return;
+    const ctx = canvasEl.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvasEl.offsetWidth || canvasEl.width;
+    const h = canvasEl.offsetHeight || canvasEl.height;
+
+    // Set canvas resolution to match displayed size
+    if (canvasEl.width !== w || canvasEl.height !== h) {
+      canvasEl.width = w;
+      canvasEl.height = h;
+    }
+
+    const hue = this._hsla().h;
+    const { r, g, b } = hslToRgb(hue, 100, 50);
+    const pureHue = `rgb(${r},${g},${b})`;
+
+    // White → pure hue (horizontal)
+    const hGrad = ctx.createLinearGradient(0, 0, w, 0);
+    hGrad.addColorStop(0, '#ffffff');
+    hGrad.addColorStop(1, pureHue);
+    ctx.fillStyle = hGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Transparent → black (vertical, overlaid)
+    const vGrad = ctx.createLinearGradient(0, 0, 0, h);
+    vGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    vGrad.addColorStop(1, 'rgba(0,0,0,1)');
+    ctx.fillStyle = vGrad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Canvas pointer interaction
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @private Handles pointer down on the SL canvas.
+   * Begins drag and updates color immediately.
+   */
+  protected _onCanvasPointerDown(event: PointerEvent): void {
+    if (this.computedDisabled()) return;
+    event.preventDefault();
+
+    // Capture the canvas rect once, up front, and reuse it for the whole drag
+    // so pointermove never forces a layout read. It is fresh here, so the
+    // initial pointerdown update below also uses an up-to-date rect.
+    this._dragRect =
+      this._canvasRef()?.nativeElement.getBoundingClientRect() ?? null;
+
+    this._canvasDragging.set(true);
+    this._updateColorFromCanvas(event);
+
+    const target = event.currentTarget as HTMLElement;
+    target.setPointerCapture(event.pointerId);
+
+    // Per-drag rxjs streams: the move stream completes on the first pointerup
+    // (takeUntil) and both streams complete on destroy (takeUntilDestroyed),
+    // so no window listener can leak or accumulate across drags — this
+    // replaces an earlier bug where each drag's pointermove listener stayed
+    // attached to `window`.
+    const pointerUp$ = fromEvent<PointerEvent>(window, 'pointerup');
+
+    fromEvent<PointerEvent>(window, 'pointermove')
+      .pipe(takeUntil(pointerUp$), takeUntilDestroyed(this._destroyRef))
+      .subscribe((e) => {
+        if (this._canvasDragging()) {
+          this._updateColorFromCanvas(e);
+        }
+      });
+
+    pointerUp$
+      .pipe(take(1), takeUntilDestroyed(this._destroyRef))
+      .subscribe(() => {
+        this._canvasDragging.set(false);
+        this._dragRect = null;
+        this._markTouched();
+      });
+  }
+
+  /**
+   * @private Converts a pointer position on the canvas to saturation/lightness values.
+   */
+  private _updateColorFromCanvas(event: PointerEvent): void {
+    const canvasEl = this._canvasRef()?.nativeElement;
+    if (!canvasEl) return;
+    // Reuse the rect captured at pointerdown during a drag; fall back to a live
+    // read for any standalone call.
+    const rect = this._dragRect ?? canvasEl.getBoundingClientRect();
+    const x = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+    const y = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+
+    // Convert canvas (x,y) → HSL via HSV intermediate:
+    //   x  = HSV saturation (Sv),  y = 1 − HSV value (V = 1−y)
+    //   L_hsl  = V · (1 − Sv/2)
+    //   S_hsl  = ΔC / (1 − |2L−1|)  where ΔC = V · Sv  (NOT just Sv alone)
+    const sv = x;
+    const v = 1 - y;
+    const lightness = v * (1 - sv / 2);
+    const saturation =
+      lightness === 0 || lightness === 1
+        ? 0
+        : (sv * v) / (1 - Math.abs(2 * lightness - 1));
+
+    this._hsla.update((c) => ({
+      ...c,
+      s: round(clamp(saturation * 100, 0, 100), 1),
+      l: round(clamp(lightness * 100, 0, 100), 1),
+    }));
+    this._syncFromHsla();
+    this._emitChange();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hue slider
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @private Handles hue slider input change.
+   */
+  protected _onHueChange(event: Event): void {
+    if (this.computedDisabled()) return;
+    const value = parseFloat((event.target as HTMLInputElement).value);
+    this._hsla.update((c) => ({ ...c, h: clamp(value, 0, 360) }));
+    this._syncFromHsla();
+    this._drawCanvas();
+    this._emitChange();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Opacity slider
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @private Handles opacity slider input change.
+   */
+  protected _onOpacityChange(event: Event): void {
+    if (this.computedDisabled()) return;
+    const value = parseFloat((event.target as HTMLInputElement).value);
+    this._hsla.update((c) => ({ ...c, a: clamp(value / 100, 0, 1) }));
+    this._syncFromHsla();
+    this._emitChange();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Input mode tabs
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @private Switches the active input mode tab.
+   */
+  protected _setInputMode(mode: string): void {
+    if (!this._supportedFormats().includes(mode as MlvColorInputMode)) return;
+    const nextMode = mode as MlvColorInputMode;
+    if (nextMode === this._inputMode()) return;
+    this._inputMode.set(nextMode);
+    this._emitChange();
+  }
+
+  // ---------------------------------------------------------------------------
+  // HEX input
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @private Handles hex input changes.
+   */
+  protected _onHexInput(event: Event): void {
+    if (this.computedDisabled()) return;
+    const raw = (event.target as HTMLInputElement).value;
+    this._hexInput.set(raw);
+    const hex = raw.startsWith('#') ? raw : '#' + raw;
+    const parsed = parseCssColor(hex);
+    if (hex.replace('#', '').length >= 6) {
+      this._hsla.set({ ...parsed, a: this._hsla().a });
+      this._syncFromHsla('rgb', 'hsl');
+      this._drawCanvas();
+      this._emitChange();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // RGB inputs
+  // ---------------------------------------------------------------------------
+
+  /** @private Updates red channel from input. */
+  protected _onRgbRInput(event: Event): void {
+    this._rgbRInput.set((event.target as HTMLInputElement).value);
+    this._applyRgbInputs();
+  }
+
+  /** @private Updates green channel from input. */
+  protected _onRgbGInput(event: Event): void {
+    this._rgbGInput.set((event.target as HTMLInputElement).value);
+    this._applyRgbInputs();
+  }
+
+  /** @private Updates blue channel from input. */
+  protected _onRgbBInput(event: Event): void {
+    this._rgbBInput.set((event.target as HTMLInputElement).value);
+    this._applyRgbInputs();
+  }
+
+  /** @private Updates alpha channel from RGB mode input. */
+  protected _onRgbAInput(event: Event): void {
+    this._rgbAInput.set((event.target as HTMLInputElement).value);
+    this._applyRgbInputs();
+  }
+
+  /**
+   * @private Parses all RGB inputs and updates the internal HSLA state.
+   */
+  private _applyRgbInputs(): void {
+    if (this.computedDisabled()) return;
+    const r = clamp(parseInt(this._rgbRInput(), 10), 0, 255);
+    const g = clamp(parseInt(this._rgbGInput(), 10), 0, 255);
+    const b = clamp(parseInt(this._rgbBInput(), 10), 0, 255);
+    const a = clamp(parseFloat(this._rgbAInput()), 0, 1);
+    if (!isNaN(r) && !isNaN(g) && !isNaN(b) && !isNaN(a)) {
+      const { h, s, l } = rgbToHsl(r, g, b);
+      this._hsla.set({ h, s, l, a });
+      this._syncFromHsla('hex', 'hsl');
+      this._drawCanvas();
+      this._emitChange();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // HSL inputs
+  // ---------------------------------------------------------------------------
+
+  /** @private Updates hue from HSL input. */
+  protected _onHslHInput(event: Event): void {
+    this._hslHInput.set((event.target as HTMLInputElement).value);
+    this._applyHslInputs();
+  }
+
+  /** @private Updates saturation from HSL input. */
+  protected _onHslSInput(event: Event): void {
+    this._hslSInput.set((event.target as HTMLInputElement).value);
+    this._applyHslInputs();
+  }
+
+  /** @private Updates lightness from HSL input. */
+  protected _onHslLInput(event: Event): void {
+    this._hslLInput.set((event.target as HTMLInputElement).value);
+    this._applyHslInputs();
+  }
+
+  /** @private Updates alpha from HSL mode input. */
+  protected _onHslAInput(event: Event): void {
+    this._hslAInput.set((event.target as HTMLInputElement).value);
+    this._applyHslInputs();
+  }
+
+  /**
+   * @private Parses all HSL inputs and updates internal state.
+   */
+  private _applyHslInputs(): void {
+    if (this.computedDisabled()) return;
+    const h = clamp(parseFloat(this._hslHInput()), 0, 360);
+    const s = clamp(parseFloat(this._hslSInput()), 0, 100);
+    const l = clamp(parseFloat(this._hslLInput()), 0, 100);
+    const a = clamp(parseFloat(this._hslAInput()), 0, 1);
+    if (!isNaN(h) && !isNaN(s) && !isNaN(l) && !isNaN(a)) {
+      this._hsla.set({ h, s, l, a });
+      this._syncFromHsla('hex', 'rgb');
+      this._drawCanvas();
+      this._emitChange();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Input sync helper (single, channel-targeted)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @private Refreshes the in-progress text-mirror signals for the requested
+   * channels from the canonical `_hsla()` state. Called after every external
+   * mutation (canvas drag, hue slider, opacity slider, external value write) to
+   * keep the unfocused channels in sync without clobbering the channel the
+   * user is currently typing into.
+   */
+  private _syncFromHsla(
+    ...channels: ReadonlyArray<'hex' | 'rgb' | 'hsl'>
+  ): void {
+    const c = this._hsla();
+    if (channels.length === 0 || channels.includes('hex')) {
+      this._hexInput.set(hslaToHex(c));
+    }
+    if (channels.length === 0 || channels.includes('rgb')) {
+      const { r, g, b } = hslToRgb(c.h, c.s, c.l);
+      this._rgbRInput.set(String(r));
+      this._rgbGInput.set(String(g));
+      this._rgbBInput.set(String(b));
+      this._rgbAInput.set(String(round(c.a, 2)));
+    }
+    if (channels.length === 0 || channels.includes('hsl')) {
+      this._hslHInput.set(String(round(c.h, 1)));
+      this._hslSInput.set(String(round(c.s, 1)));
+      this._hslLInput.set(String(round(c.l, 1)));
+      this._hslAInput.set(String(round(c.a, 2)));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Change emission
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @private Emits the current color through the forms model and colorChange output.
+   */
+  private _emitChange(): void {
+    const cssColor = hslaToModeString(this._hsla(), this._inputMode());
+    this.value.set(cssColor);
+    this.colorChange.emit(cssColor);
+  }
+
+  /**
+   * @private Returns the current CSS color string for a given mode.
+   * Used by the template to display the color in the active mode.
+   */
+  protected _getColorString(mode: MlvColorInputMode): string {
+    return hslaToModeString(this._hsla(), mode);
+  }
+
+  /**
+   * @private Returns opacity value as 0-100 integer for the opacity slider.
+   */
+  protected _getOpacityPercent(): number {
+    return Math.round(this._hsla().a * 100);
+  }
+
+  /**
+   * @private Returns the hue value for the hue slider.
+   */
+  protected _getHue(): number {
+    return this._hsla().h;
+  }
+
+  /**
+   * @private Canvas thumb left position.
+   * The canvas uses HSV space (x = HSV saturation, y = 1 − HSV value).
+   * Converts the stored HSL to HSV to get the correct x coordinate.
+   */
+  protected _getThumbLeft(): string {
+    const { sv } = this._hslToHsv();
+    return `${clamp(sv * 100, 0, 100)}%`;
+  }
+
+  /**
+   * @private Canvas thumb top position.
+   * y = 1 − HSV value (top = bright/white, bottom = black).
+   */
+  protected _getThumbTop(): string {
+    const { v } = this._hslToHsv();
+    return `${clamp((1 - v) * 100, 0, 100)}%`;
+  }
+
+  /**
+   * @private Converts the current HSLA state to HSV (saturation + value),
+   * matching the coordinate system used by the SL canvas gradient.
+   *
+   * The canvas draws:
+   *   - Horizontal: white (left) → pure hue (right)  → x = HSV saturation
+   *   - Vertical:   full brightness (top) → black (bottom) → y = 1 − HSV value
+   *
+   * HSL → HSV:
+   *   V  = L + S · min(L, 1−L)
+   *   Sv = V > 0 ? 2·(1 − L/V) : 0
+   */
+  private _hslToHsv(): { sv: number; v: number } {
+    const s = this._hsla().s / 100;
+    const l = this._hsla().l / 100;
+    const v = l + s * Math.min(l, 1 - l);
+    const sv = v > 0 ? 2 * (1 - l / v) : 0;
+    return { sv, v };
+  }
+}

@@ -1,0 +1,31 @@
+@layer mlv.components {
+  :host {
+    display: block;
+  }
+
+  .mlv-form-field {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mlv-form-field__control {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    > * {
+      width: 100%;
+    }
+  }
+
+  /*
+   * The field owns error visibility, so its resolved state must also reach the
+   * projected control chrome. The direct-child shape prevents an outer field
+   * from recoloring controls owned by a nested field.
+   */
+  .mlv-form-field--error
+    > .mlv-form-field__control
+    > *
+    > .mlv-form-control-wrapper {
+    --container-border-color: var(--mlv-border-error);
+  }
+}

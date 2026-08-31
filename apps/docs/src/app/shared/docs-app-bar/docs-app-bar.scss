@@ -1,0 +1,42 @@
+$block: docs-app-bar;
+
+.#{$block} {
+  --mlv-docs-app-bar-height: 4rem;
+
+  &__global-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__primary {
+    margin-inline-start: var(--mlv-spacing-6);
+  }
+
+  &__brand {
+    white-space: nowrap;
+  }
+
+  &__skip-link {
+    position: fixed;
+    inset-block-start: var(--mlv-spacing-2);
+    inset-inline-start: var(--mlv-spacing-2);
+    z-index: 100;
+    transform: translateY(-200%);
+
+    &:focus {
+      transform: translateY(0);
+    }
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .#{$block} {
+    &__brand {
+      display: none;
+    }
+    &__primary {
+      margin-inline-start: var(--mlv-spacing-2);
+    }
+  }
+}

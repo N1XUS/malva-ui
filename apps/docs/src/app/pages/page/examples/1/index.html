@@ -1,0 +1,53 @@
+<div class="page-preview">
+  <main mlvPage maxWidth="72rem">
+    <mlv-page-header back="/page" backLabel="All projects">
+      <ng-template mlvPageHeaderIcon>
+        <svg lucideFolderKanban [size]="24" />
+      </ng-template>
+      <ng-template mlvPageTitle>
+        <h1 mlvTitle>Project Atlas</h1>
+      </ng-template>
+      <ng-template mlvPageHeaderActions>
+        <button mlvButton variant="outlined">Share</button>
+        <button mlvButton>Create task</button>
+      </ng-template>
+      <ng-template mlvPageHeaderDescription>
+        <p>Coordinate the design-system rollout across product teams.</p>
+      </ng-template>
+      <ng-template mlvPageHeaderMeta>
+        <span>Updated today</span><span>12 collaborators</span>
+      </ng-template>
+    </mlv-page-header>
+
+    <mlv-page-content [stackBelow]="720" asideWidth="18rem">
+      <section class="page-preview__section" aria-labelledby="overview-title">
+        <h2 id="overview-title" mlvTitle>Overview</h2>
+        <div class="page-preview__cards">
+          <mlv-card><strong>24</strong><span>Open tasks</span></mlv-card>
+          <mlv-card><strong>8</strong><span>In review</span></mlv-card>
+          <mlv-card><strong>71%</strong><span>Complete</span></mlv-card>
+        </div>
+      </section>
+
+      <ng-template mlvPageAside>
+        <mlv-card>
+          <h2 mlvTitle>Project details</h2>
+          <dl class="page-preview__details">
+            <div>
+              <dt>Owner</dt>
+              <dd>Design systems</dd>
+            </div>
+            <div>
+              <dt>Visibility</dt>
+              <dd>Workspace</dd>
+            </div>
+            <div>
+              <dt>Due date</dt>
+              <dd>September 18</dd>
+            </div>
+          </dl>
+        </mlv-card>
+      </ng-template>
+    </mlv-page-content>
+  </main>
+</div>

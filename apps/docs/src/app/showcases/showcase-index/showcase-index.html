@@ -1,0 +1,47 @@
+<main class="showcase-index" id="main-content">
+  <header class="showcase-index__header">
+    <p class="showcase-index__eyebrow">Built with Malva UI</p>
+    <h1>Showcases</h1>
+    <p>
+      Full-size product compositions that show how the library works together.
+    </p>
+  </header>
+
+  <mlv-segmented
+    class="showcase-index__categories"
+    ariaLabel="Showcase categories"
+  >
+    @for (category of categories; track category.value) {
+    <a
+      mlvSegmentedItem
+      [routerLink]="[]"
+      [queryParams]="{ category: category.value }"
+      queryParamsHandling="merge"
+      [replaceUrl]="true"
+      [active]="activeCategory() === category.value"
+      >{{ category.label }}</a
+    >
+    }
+  </mlv-segmented>
+
+  <div class="showcase-index__grid">
+    @for (showcase of visibleShowcases(); track showcase.slug) {
+    <article class="showcase-index__card">
+      <a
+        [routerLink]="['/showcases', showcase.slug]"
+        [attr.aria-label]="'Open ' + showcase.title + ' showcase'"
+      >
+        @if (showcase.previewAsset; as previewAsset) {
+        <img [ngSrc]="previewAsset" width="1600" height="1000" alt="" />
+        }
+        <p class="showcase-index__card-category">{{ showcase.category }}</p>
+        <h2>{{ showcase.title }}</h2>
+        <p>{{ showcase.summary }}</p>
+        <p class="showcase-index__card-inventory">
+          {{ showcase.componentNames.join(' · ') }}
+        </p>
+      </a>
+    </article>
+    }
+  </div>
+</main>

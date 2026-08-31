@@ -1,0 +1,28 @@
+---
+title: Cover preview
+description: A single image fills the zone with a floating replace/remove toolbar
+---
+
+## Cover preview
+
+`previewMode="cover"` lets a single selected image fill the drop zone instead of
+listing it underneath. Hover the image — or Tab into it — to reveal a floating
+toolbar holding your projected `mlvFileUploadAction` controls around the
+built-in **Replace** and **Remove** buttons, in the order
+`[start actions] [Replace] [end actions] [Remove]`. The example projects a
+single start action, so its toolbar reads `[✨] [Replace] [Remove]`.
+
+Cover mode is opt-in and self-limiting. It only engages when `multiple` is
+`false`, exactly one file is selected, and that file carries a `previewUrl`;
+otherwise the zone silently renders its normal prompt — as the second control
+above shows. `previewUrl` is generated for any picked or dropped `image/*` file,
+and you can set it yourself to seed an edit form from a stored image (a remote
+`https://` URL works as well as the generated `blob:` one).
+
+The zone stays the drag-and-drop target while covered, so dropping a new image
+replaces the current one. The toolbar passes pointer events straight through
+until it is revealed.
+
+Note that `title` and `subtitle` are hidden while the cover is showing. If you
+need a field label that survives both states, wrap the control in
+`mlv-form-field` with an `mlv-label` instead of relying on `title`.

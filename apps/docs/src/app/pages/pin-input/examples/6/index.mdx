@@ -1,0 +1,11 @@
+## Separators
+
+Use the `separator` input to split the cell row visually. Three forms are supported:
+
+- `'each'` — a separator between every pair of consecutive cells
+- Comma-separated indices (e.g. `'1,3'`) — a separator before each listed cell index
+- A single index (e.g. `'3'`) — a single separator before that cell, useful for grouping
+  a 6-digit code into two halves
+
+By default, separators render as a small Lucide dot icon. To customise them, project a
+`<ng-template mlvPinInputSeparator>` — its content replaces every separator in the row.

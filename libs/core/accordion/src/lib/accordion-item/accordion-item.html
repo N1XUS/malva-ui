@@ -1,0 +1,35 @@
+<h3 class="mlv-accordion-item__heading">
+  <button
+    type="button"
+    ngAccordionTrigger
+    class="mlv-accordion-item__trigger"
+    [panel]="panel"
+    [disabled]="disabled()"
+    [(expanded)]="expanded"
+  >
+    <span class="mlv-accordion-item__title">
+      {{ header() }}<ng-content select="[mlvAccordionHeader]" />
+    </span>
+    <svg
+      lucideChevronDown
+      class="mlv-accordion-item__icon"
+      [size]="18"
+      aria-hidden="true"
+    ></svg>
+  </button>
+</h3>
+
+<div
+  ngAccordionPanel
+  #panel="ngAccordionPanel"
+  class="mlv-accordion-item__panel"
+  [preserveContent]="true"
+>
+  <ng-template ngAccordionContent>
+    <mlv-expand [opened]="expanded()">
+      <div class="mlv-accordion-item__content">
+        <ng-content />
+      </div>
+    </mlv-expand>
+  </ng-template>
+</div>

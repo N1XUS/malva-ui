@@ -1,0 +1,63 @@
+<form
+  [formGroup]="reactiveForm"
+  (ngSubmit)="onReactiveSubmit()"
+  style="display: flex; flex-direction: column; gap: 16px; max-width: 400px"
+>
+  <mlv-form-field>
+    <mlv-label for="rf-name">Full Name <mlv-hint>Required</mlv-hint></mlv-label>
+    <mlv-input formControlName="name" placeholder="Enter your full name" />
+  </mlv-form-field>
+
+  <mlv-form-field>
+    <mlv-label for="rf-email">Email <mlv-hint>Required</mlv-hint></mlv-label>
+    <mlv-input
+      formControlName="email"
+      type="email"
+      placeholder="user{'@'}example.com"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field
+    [errorMessages]="{
+      minlength: 'Password must be at least 8 characters',
+    }"
+  >
+    <mlv-label for="rf-password">Password</mlv-label>
+    <mlv-input
+      formControlName="password"
+      type="password"
+      placeholder="Enter password"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field>
+    <mlv-label>Country</mlv-label>
+    <mlv-select
+      formControlName="country"
+      [options]="countries"
+      placeholder="Select a country"
+    />
+  </mlv-form-field>
+
+  <mlv-form-field>
+    <mlv-label>Gender</mlv-label>
+    <mlv-radio-group formControlName="gender" label="Gender">
+      <mlv-radio value="male">Male</mlv-radio>
+      <mlv-radio value="female">Female</mlv-radio>
+      <mlv-radio value="other">Other</mlv-radio>
+    </mlv-radio-group>
+  </mlv-form-field>
+
+  <mlv-form-field>
+    <mlv-checkbox formControlName="terms">
+      I accept the terms and conditions
+    </mlv-checkbox>
+  </mlv-form-field>
+
+  <button mlvButton type="submit" [disabled]="reactiveForm.invalid">
+    Submit
+  </button>
+  @if (reactiveSubmitted()) {
+  <pre>{{ reactiveForm.value | json }}</pre>
+  }
+</form>

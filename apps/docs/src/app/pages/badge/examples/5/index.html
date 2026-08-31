@@ -1,0 +1,70 @@
+<div class="demo-col" style="gap: 1rem">
+  <div style="display: flex; align-items: center; gap: 0.75rem">
+    <button mlvButton variant="secondary" (click)="toggleMuted()">
+      <ng-template mlvButtonBefore>
+        <svg lucideRefreshCw [size]="14" />
+      </ng-template>
+      {{ isMuted() ? 'Switch to Solid' : 'Switch to Muted' }}
+    </button>
+    <span style="font-size: 0.8rem; opacity: 0.6">
+      Current mode: <strong>{{ isMuted() ? 'muted' : 'solid' }}</strong>
+    </span>
+  </div>
+
+  <table
+    style="
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 30rem;
+      font-size: 0.875rem;
+    "
+  >
+    <thead>
+      <tr style="border-bottom: 1px solid var(--mlv-border-normal)">
+        <th
+          style="
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            font-weight: 500;
+            opacity: 0.7;
+          "
+        >
+          #
+        </th>
+        <th
+          style="
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            font-weight: 500;
+            opacity: 0.7;
+          "
+        >
+          Task
+        </th>
+        <th
+          style="
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            font-weight: 500;
+            opacity: 0.7;
+          "
+        >
+          Status
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (task of tasks; track task.id) {
+      <tr style="border-bottom: 1px solid var(--mlv-border-subtle)">
+        <td style="padding: 0.5rem 0.75rem; opacity: 0.5">{{ task.id }}</td>
+        <td style="padding: 0.5rem 0.75rem">{{ task.name }}</td>
+        <td style="padding: 0.5rem 0.75rem">
+          <mlv-badge [tone]="task.tone" [muted]="isMuted()"
+            >{{ task.status }}</mlv-badge
+          >
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>

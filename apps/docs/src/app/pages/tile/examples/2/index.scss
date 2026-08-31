@@ -1,0 +1,27 @@
+.tiles-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 320px;
+}
+
+.state-label {
+  font-weight: 600;
+  font-size: 0.8125rem;
+
+  &--info {
+    color: var(--mlv-text-info);
+  }
+  &--success {
+    color: var(--mlv-text-positive);
+  }
+  &--warning {
+    color: var(--mlv-text-warning);
+  }
+  &--danger {
+    color: var(--mlv-text-negative);
+  }
+  &--default {
+    color: var(--mlv-text-secondary);
+  }
+}

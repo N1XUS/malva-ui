@@ -1,0 +1,10 @@
+<p>
+  Use Arrow Up/Down to navigate between items. Tab moves focus in/out of the
+  group.
+</p>
+<mlv-radio-group label="Favorite Color" [(ngModel)]="color">
+  <mlv-radio [value]="'red'">Red</mlv-radio>
+  <mlv-radio [value]="'green'">Green</mlv-radio>
+  <mlv-radio [value]="'blue'">Blue</mlv-radio>
+</mlv-radio-group>
+<p>Selected: {{ color }}</p>

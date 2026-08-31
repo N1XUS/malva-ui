@@ -1,0 +1,51 @@
+<mlv-page-shell class="page-end-pane-example">
+  <main mlvPage padding="l">
+    <section
+      class="page-end-pane-example__content"
+      aria-labelledby="account-list-title"
+    >
+      <div>
+        <h2 id="account-list-title" mlvTitle>Customer accounts</h2>
+        <p>
+          Keep account context beside the workspace on large screens and move
+          the same content into a modal Drawer on compact screens.
+        </p>
+      </div>
+
+      <button mlvButton type="button" [mlvPageEndPaneTrigger]="details">
+        Account details
+      </button>
+    </section>
+  </main>
+
+  <mlv-page-end-pane
+    #details
+    collapseBelow="lg"
+    width="20rem"
+    ariaLabel="Account details"
+  >
+    <ng-template mlvPageEndPaneContent>
+      <section class="page-end-pane-example__details">
+        <h3>Northwind Traders</h3>
+        <dl>
+          <div>
+            <dt>Owner</dt>
+            <dd>Alex Morgan</dd>
+          </div>
+          <div>
+            <dt>Plan</dt>
+            <dd>Enterprise</dd>
+          </div>
+        </dl>
+        <button
+          mlvButton
+          type="button"
+          variant="secondary"
+          (click)="details.close()"
+        >
+          Close details
+        </button>
+      </section>
+    </ng-template>
+  </mlv-page-end-pane>
+</mlv-page-shell>

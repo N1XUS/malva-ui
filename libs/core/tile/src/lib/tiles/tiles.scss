@@ -1,0 +1,167 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+$block: mlv-tiles;
+
+@include mixins.reduced-motion($block);
+
+.#{$block} {
+  @include mixins.base();
+
+  container-type: inline-size;
+  position: relative;
+  min-inline-size: 0;
+  inline-size: 100%;
+  border: var(--mlv-stroke-width) dashed transparent;
+  border-radius: var(--mlv-radius-l);
+
+  // The list rhythm tapers with nesting depth so four levels stay legible.
+  // A consumer opts out by pinning `--mlv-tiles-depth: 0`.
+  &--layout-list {
+    display: flex;
+    flex-direction: column;
+    gap: max(
+      var(--mlv-spacing-1),
+      calc(
+        var(--mlv-spacing-3) - var(--mlv-tiles-depth, 0) *
+          var(--mlv-spacing-0-5)
+      )
+    );
+  }
+
+  &--grid {
+    display: grid;
+    grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, var(--mlv-tiles-min-column, 20rem)), 1fr)
+    );
+    align-items: start;
+    gap: var(--mlv-spacing-3);
+  }
+
+  &--valid {
+    border-color: var(--mlv-border-focus);
+  }
+
+  &--invalid {
+    border-color: var(--mlv-border-error);
+  }
+
+  // A frozen subtree never advertises a drop, so it drops the drag outline.
+  &--locked {
+    &.#{$block}--valid,
+    &.#{$block}--invalid {
+      border-color: transparent;
+    }
+  }
+
+  // Out of flow, so drag feedback never changes the container footprint.
+  &__restriction {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    visibility: hidden;
+    pointer-events: none;
+    color: var(--mlv-text-error);
+    font-size: var(--mlv-typography-body-s-size);
+    line-height: var(--mlv-typography-body-s-line-height);
+
+    &--visible {
+      visibility: visible;
+    }
+  }
+
+  &__empty {
+    display: grid;
+    grid-column: 1 / -1;
+    place-items: center;
+    // Depth 0 keeps the generous target; deeper levels shrink toward a
+    // comfortable pointer/touch minimum instead of stacking 8rem prompts.
+    min-block-size: max(
+      var(--mlv-height-l),
+      calc(
+        var(--mlv-spacing-16) - var(--mlv-tiles-depth, 0) * var(--mlv-spacing-4)
+      )
+    );
+    padding: var(--mlv-padding-m);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    text-align: center;
+
+    // A projected empty state owns its own typography and spacing. The wrapper
+    // keeps only what the drop target needs: the full-row placement that stops
+    // the content collapsing into a single grid track, the centering, and the
+    // minimum footprint that keeps the target droppable.
+    &--projected {
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+      text-align: inherit;
+    }
+  }
+
+  &__item-root {
+    min-inline-size: 0;
+  }
+
+  &__sortable-ghost {
+    opacity: 0.5;
+    transition: opacity var(--mlv-duration-fast) var(--mlv-ease-default);
+  }
+
+  &__sortable-fallback {
+    z-index: var(--mlv-z-overlay);
+    pointer-events: none;
+    opacity: 0.9;
+    box-shadow: var(--mlv-shadow-overlay);
+    transition:
+      opacity var(--mlv-duration-fast) var(--mlv-ease-default),
+      box-shadow var(--mlv-duration-normal) var(--mlv-ease-in-out-strong);
+
+    &.#{$block}__item-root > .mlv-tile,
+    &.#{$block}__item-root.mlv-tile {
+      background-color: var(--mlv-elevation-bg-2);
+      border-color: var(--mlv-border-strong);
+      box-shadow: var(--mlv-shadow-overlay);
+      cursor: grabbing;
+    }
+  }
+}
+
+// SL-R4 — nesting depth >= 1 drops the surface: no fill, no border, no
+// radius, one leading rail for the whole nested group. Top-level sibling of
+// `.#{$block}` (targets `.mlv-tile`, a different block) rather than nested
+// inside it.
+.mlv-tiles--nested {
+  padding-inline-start: var(--mlv-spacing-4);
+  border-inline-start: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+
+  > .mlv-tiles__item-root > .mlv-tile,
+  > .mlv-tiles__item-root.mlv-tile {
+    background-color: transparent;
+    border-color: transparent;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  // Restores the drag-start lift (tile.scss's `.mlv-tiles__sortable-chosen`
+  // rule, specificity (0,2,0)) for a nested tile. That rule loses outright
+  // to the flatten rule directly above — (0,3,0) — so picking up any tile
+  // below the first nesting level silently painted no shadow at all: only
+  // the pointer-following fallback clone (`&__sortable-fallback`, appended
+  // to `<body>` by `fallbackOnBody`, so it never sits inside a
+  // `.mlv-tiles--nested` ancestor) still got its elevation, which is why
+  // the lift only ever appeared once a real drag was already under way.
+  // Both selectors below add `.mlv-tiles__item-root` — always present
+  // alongside `.mlv-tiles__sortable-chosen`, since Sortable's `chosenClass`
+  // only ever lands on the element already matching `draggable:
+  // '.mlv-tiles__item-root'` — to reach (0,4,0), which outranks the
+  // flatten rule unconditionally regardless of source order: once for a
+  // consumer wrapper around `mlv-tile`, once for a bare `[tile]`-bound
+  // `mlv-tile` acting as its own item-root.
+  > .mlv-tiles__item-root.mlv-tiles__sortable-chosen > .mlv-tile,
+  > .mlv-tiles__item-root.mlv-tile.mlv-tiles__sortable-chosen {
+    box-shadow: var(--mlv-shadow-overlay);
+  }
+}
+}

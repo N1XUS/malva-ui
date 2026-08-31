@@ -1,0 +1,42 @@
+<!--
+  mobileMode="fullscreen" forces the sheet on every viewport so the behaviour is
+  visible on desktop too. In real usage prefer mobileMode="auto", which only goes
+  fullscreen below mobileBreakpoint (default "md" / 768px) and stays anchored above.
+-->
+<button mlvButton [mlvPopupTrigger]="filtersPopup">Open filters</button>
+
+<mlv-popup
+  #filtersPopup
+  position="bottom-start"
+  mobileMode="fullscreen"
+  mobileTitle="Filters"
+  panelRole="dialog"
+  [modal]="true"
+  ariaLabel="Filters"
+>
+  <ng-template mlvPopupContent>
+    <div
+      style="
+        min-width: 15rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      "
+    >
+      <p style="margin: 0; color: var(--mlv-text-secondary)">
+        On a phone this panel fills the screen with a header bar and a close
+        button. On desktop the same markup stays anchored to its trigger.
+      </p>
+      <mlv-checkbox label="In stock" />
+      <mlv-checkbox label="On sale" />
+      <mlv-checkbox label="Free shipping" />
+      <button
+        mlvButton
+        variant="primary"
+        (click)="filtersPopup.opened.set(false)"
+      >
+        Apply
+      </button>
+    </div>
+  </ng-template>
+</mlv-popup>

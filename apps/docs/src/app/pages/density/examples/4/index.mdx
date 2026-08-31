@@ -1,0 +1,3 @@
+## Restricted Density with Fallback
+
+Some components only support a subset of density levels. Use `MlvCompactComfortableDensity` or `MlvComfortableSpaciousDensity` instead of the full `MlvDensityDirective`. When the global service requests an unsupported density, the directive automatically falls back to the nearest supported level on the compact → comfortable → spacious scale — no extra code needed.

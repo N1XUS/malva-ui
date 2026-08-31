@@ -1,0 +1,62 @@
+.sidebar-demo {
+  height: 600px;
+  border: 1px solid var(--mlv-border-normal);
+  border-radius: var(--mlv-radius-m);
+  display: flex;
+  overflow: hidden;
+}
+
+.mail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--mlv-radius-s);
+    background-color: var(--mlv-background-accent-1);
+    color: var(--mlv-text-primary-on-accent-1);
+    flex-shrink: 0;
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    line-height: var(--mlv-line-height-snug);
+  }
+
+  &__name {
+    font-size: var(--mlv-font-size-m);
+    font-weight: 600;
+    color: var(--mlv-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__addr {
+    font-size: var(--mlv-font-size-s);
+    color: var(--mlv-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.mlv-sidebar--collapsed {
+  .mail-header {
+    padding: 0.4375rem;
+    justify-content: center;
+  }
+
+  .mail-header__meta {
+    display: none;
+  }
+}

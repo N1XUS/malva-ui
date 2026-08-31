@@ -1,0 +1,26 @@
+.docs-store-list {
+  width: min(27rem, 100%);
+  gap: 0;
+  padding: 0;
+
+  .mlv-list-item {
+    border-bottom: 0.0625rem solid var(--mlv-border-subtle);
+    border-radius: 0;
+    padding: var(--mlv-spacing-2) 0;
+  }
+
+  .mlv-list-item:last-child {
+    border-bottom: none;
+  }
+
+  .mlv-avatar {
+    color: white;
+    box-shadow: var(--mlv-shadow-1);
+  }
+
+  .mlv-button {
+    min-width: 3.75rem;
+    border-radius: 999rem;
+    font-weight: var(--mlv-font-weight-semibold);
+  }
+}

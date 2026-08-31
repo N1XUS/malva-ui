@@ -1,0 +1,96 @@
+<mlv-scrollbar
+  #viewport
+  class="mlv-chat__viewport"
+  role="log"
+  [attr.aria-label]="_i18n().chatLabel"
+  tabindex="0"
+  (scroll)="_onScroll()"
+>
+  <div #content class="mlv-chat__content">
+    @if (loading()) { @for (row of _skeletonRows; track $index) {
+    <div class="mlv-chat__skeleton" [class.mlv-chat__skeleton--own]="row.own">
+      <mlv-skeleton variant="rectangle" [width]="row.width" height="2.25rem" />
+    </div>
+    } } @else { @if (loadingOlder()) {
+    <div class="mlv-chat__older-loader">
+      <mlv-loader
+        variant="circle"
+        [indeterminate]="true"
+        [size]="20"
+        [strokeWidth]="2"
+      />
+      <span class="cdk-visually-hidden">{{ _i18n().loadingOlder }}</span>
+    </div>
+    } @for (item of _renderItems(); track item.id) { @switch (item.kind) { @case
+    ('date') {
+    <div class="mlv-chat__date">
+      @if (dateDef(); as def) {
+      <ng-container
+        [ngTemplateOutlet]="def.templateRef"
+        [ngTemplateOutletContext]="{ $implicit: item.date }"
+      />
+      } @else {
+      <mlv-chat-date [date]="item.date" />
+      }
+    </div>
+    } @case ('group') {
+    <div class="mlv-chat__group" [class.mlv-chat__group--own]="item.own">
+      @if (!item.own && _authorsVisible()) {
+      <div class="mlv-chat__author">
+        @if (authorDef(); as def) {
+        <ng-container
+          [ngTemplateOutlet]="def.templateRef"
+          [ngTemplateOutletContext]="{
+                      $implicit: _usersMap().get(item.authorId),
+                      isOwn: item.own,
+                      firstMessage: item.messages[0].message,
+                    }"
+        />
+        } @else { {{ _usersMap().get(item.authorId)?.name }} }
+      </div>
+      }
+      <div class="mlv-chat__group-body">
+        @if (!item.own) {
+        <mlv-avatar
+          class="mlv-chat__avatar"
+          size="s"
+          [src]="_usersMap().get(item.authorId)?.avatarSrc ?? null"
+          [name]="_usersMap().get(item.authorId)?.name ?? ''"
+          [color]="(_usersMap().get(item.authorId)?.name ?? '') | mlvColorFromText"
+        />
+        }
+        <div class="mlv-chat__bubbles">
+          @for (rendered of item.messages; track rendered.message.id) {
+          <article
+            class="mlv-chat__item"
+            [class.mlv-chat__item--enter]="_liveIds().has(rendered.message.id)"
+            animate.leave="mlv-chat__item--leave"
+            [attr.aria-label]="_messageLabel(rendered.message, item.own)"
+          >
+            <mlv-chat-message
+              [message]="rendered.message"
+              [own]="item.own"
+              [groupPosition]="rendered.position"
+              (retry)="retry.emit(rendered.message)"
+              (mediaClick)="mediaClick.emit({ message: rendered.message, attachment: $event })"
+              (replyClick)="replyClick.emit({ message: rendered.message, replyTo: $event })"
+            />
+          </article>
+          }
+        </div>
+      </div>
+    </div>
+    } } } @if (_typingUserObjects().length) {
+    <mlv-chat-typing class="mlv-chat__typing" [users]="_typingUserObjects()" />
+    } }
+  </div>
+</mlv-scrollbar>
+@if (!_pinned() && _newCount() > 0) {
+<button
+  type="button"
+  class="mlv-chat__pill"
+  (click)="_scrollToBottom('smooth')"
+>
+  {{ _i18n().newMessages | mlvTranslate: { count: _newCount() } }}
+</button>
+}

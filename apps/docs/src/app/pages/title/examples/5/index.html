@@ -1,0 +1,15 @@
+<form [formGroup]="form" class="demo-col" style="max-width: 42rem">
+  <mlv-form-field>
+    <mlv-label>Document title <mlv-hint>Reactive forms</mlv-hint></mlv-label>
+    <h2
+      mlvTitle
+      editable
+      formControlName="title"
+      placeholder="Enter a document title"
+    >
+      {{ form.controls.title.value }}
+    </h2>
+  </mlv-form-field>
+
+  <pre>{{ form.getRawValue() | json }}</pre>
+</form>

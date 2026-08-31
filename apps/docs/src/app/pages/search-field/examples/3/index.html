@@ -1,0 +1,38 @@
+<mlv-switch [(checked)]="loading">Loading feedback</mlv-switch>
+
+<div class="docs-search-field-loading-example__fields">
+  <section class="docs-search-field-loading-example__case">
+    <span class="docs-search-field-loading-example__label">Live search</span>
+    <mlv-search-field
+      trigger="live"
+      [debounce]="250"
+      [loading]="loading()"
+      placeholder="Search products"
+      ariaLabel="Live product search"
+      (search)="liveQuery.set($event)"
+    />
+    <output
+      class="docs-search-field-loading-example__result"
+      aria-live="polite"
+    >
+      Committed: <strong>{{ liveQuery() || 'None' }}</strong>
+    </output>
+  </section>
+
+  <section class="docs-search-field-loading-example__case">
+    <span class="docs-search-field-loading-example__label">Submit search</span>
+    <mlv-search-field
+      trigger="submit"
+      [loading]="loading()"
+      placeholder="Search orders"
+      ariaLabel="Order search"
+      (search)="submittedQuery.set($event)"
+    />
+    <output
+      class="docs-search-field-loading-example__result"
+      aria-live="polite"
+    >
+      Submitted: <strong>{{ submittedQuery() || 'None' }}</strong>
+    </output>
+  </section>
+</div>

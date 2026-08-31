@@ -1,0 +1,35 @@
+<form mlvForm maxWidth="28rem" [formGroup]="form" (ngSubmit)="submit()">
+  <header mlvFormHeader>
+    <h3 mlvTitle>Create account</h3>
+  </header>
+
+  <mlv-form-field>
+    <mlv-input
+      formControlName="name"
+      label="Full name"
+      placeholder="Jane Doe"
+      required
+    />
+  </mlv-form-field>
+
+  <mlv-form-field>
+    <mlv-input
+      formControlName="email"
+      type="email"
+      label="Email"
+      placeholder="jane@example.com"
+      required
+    />
+  </mlv-form-field>
+
+  <mlv-checkbox formControlName="newsletter">
+    Send me product updates
+  </mlv-checkbox>
+
+  <footer mlvFormActions align="end">
+    <button mlvButton variant="secondary" type="button" (click)="form.reset()">
+      Cancel
+    </button>
+    <button mlvButton type="submit" [disabled]="form.invalid">Create</button>
+  </footer>
+</form>

@@ -1,0 +1,28 @@
+<div class="demo-col" style="gap: 1.5rem; max-width: 28rem">
+  @if (!submitted()) {
+  <div class="demo-col" style="gap: 1rem">
+    <mlv-pin-input
+      [formControl]="otpCtrl"
+      [length]="6"
+      label="Verification code"
+      hint="Enter the 6-digit code we sent you"
+      [state]="otpCtrl.touched && otpCtrl.invalid ? 'error' : 'default'"
+      [message]="otpCtrl.touched && otpCtrl.invalid ? 'Please enter all 6 digits to continue.' : ''"
+    />
+
+    <button mlvButton variant="primary" (click)="submit()">Verify Code</button>
+  </div>
+  } @else {
+  <div class="demo-col" style="gap: 0.75rem; align-items: flex-start">
+    <span
+      style="
+        font-size: var(--mlv-typography-body-m-size);
+        color: var(--mlv-text-positive);
+      "
+    >
+      ✓ Verified: {{ submittedValue() }}
+    </span>
+    <button mlvButton variant="secondary" (click)="reset()">Try Again</button>
+  </div>
+  }
+</div>

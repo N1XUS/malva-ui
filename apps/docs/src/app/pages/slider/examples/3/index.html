@@ -1,0 +1,83 @@
+<div class="demo-col" style="gap: 2rem; max-width: 28rem">
+  <div class="demo-col" style="gap: 0.5rem">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      "
+    >
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-secondary);
+        "
+      >
+        Render quality
+      </span>
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-primary);
+          font-weight: 500;
+        "
+      >
+        {{ qualityLabel }}
+      </span>
+    </div>
+    <mlv-slider
+      [min]="0"
+      [max]="3"
+      [step]="1"
+      [showTicks]="true"
+      [(ngModel)]="quality"
+    />
+    <div style="display: flex; justify-content: space-between">
+      @for (label of qualityLabels; track label) {
+      <span
+        style="
+          font-size: var(--mlv-typography-ui-s-size);
+          color: var(--mlv-text-tertiary);
+        "
+      >
+        {{ label }}
+      </span>
+      }
+    </div>
+  </div>
+
+  <div class="demo-col" style="gap: 0.5rem">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      "
+    >
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-secondary);
+        "
+      >
+        Download speed cap
+      </span>
+      <span
+        style="
+          font-size: var(--mlv-typography-body-s-size);
+          color: var(--mlv-text-primary);
+          font-weight: 500;
+        "
+      >
+        {{ speed() }} Mbps
+      </span>
+    </div>
+    <mlv-slider
+      [min]="0"
+      [max]="100"
+      [step]="10"
+      [showTicks]="true"
+      [(ngModel)]="speed"
+    />
+  </div>
+</div>
