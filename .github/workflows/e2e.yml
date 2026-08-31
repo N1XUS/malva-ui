@@ -12,6 +12,12 @@ on:
   # schedule:
   #   - cron: '0 3 * * 1' # Mondays, 03:00 UTC
 
+# Two e2e runs on one ref are redundant, and this is the most expensive
+# workflow in the repo.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   actions: read
   contents: read

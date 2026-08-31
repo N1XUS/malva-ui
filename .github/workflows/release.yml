@@ -30,6 +30,13 @@ on:
         type: boolean
         default: false
 
+# Deliberately NOT cancel-in-progress: nx release pushes a commit and tag and
+# then publishes five packages in dependency order. Cancelling between those
+# steps leaves a tagged release with only some packages on npm. Queue instead.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write # push the release commit + tag, create the GitHub Release
   id-token: write # OIDC identity for npm provenance

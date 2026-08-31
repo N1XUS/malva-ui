@@ -6,6 +6,12 @@ on:
       - main
   pull_request:
 
+# A newer push to the same branch makes the older run pointless — cancel it
+# rather than paying for both. Grouping by ref keeps main and each PR separate.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   actions: read
   contents: read
