@@ -2,13 +2,26 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MlvScrollbar } from './scrollbar';
-import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import {
+  i18nTestProvider,
+  provideMlvI18nTesting,
+} from '@malva-ui/i18n/testing';
+import { MLV_SCROLLBAR_I18N } from '@malva-ui/i18n';
 
-// Mock ResizeObserver — not available in JSDOM
+/**
+ * Mock ResizeObserver — not available in JSDOM. The callbacks are recorded so a
+ * spec can drive `_updateGeometry` and produce a genuine overflow state.
+ */
+const resizeCallbacks: ResizeObserverCallback[] = [];
+
 globalThis.ResizeObserver = class implements ResizeObserver {
+  constructor(callback: ResizeObserverCallback) {
+    resizeCallbacks.push(callback);
+  }
   readonly observe = vi.fn();
   readonly unobserve = vi.fn();
   readonly disconnect = vi.fn();
@@ -64,10 +77,11 @@ describe('MlvScrollbar', () => {
     });
 
     it('should leave the ariaLabel override unset by default', () => {
-      // `ariaLabel` is now an optional override; when unset, the effective
-      // aria-label falls back to the i18n label ("Scrollable region"). That
-      // resolved default is asserted via the DOM in the "ariaLabel" suite below.
       expect(component.ariaLabel()).toBeUndefined();
+    });
+
+    it('should default viewportTabIndex to null (no attribute, no opinion)', () => {
+      expect(component.viewportTabIndex()).toBeNull();
     });
   });
 
@@ -166,90 +180,6 @@ describe('MlvScrollbar', () => {
 
       expect((component as any)['_showVertical']()).toBe(false);
       expect((component as any)['_showHorizontal']()).toBe(false);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // ariaLabel
-  // ---------------------------------------------------------------------------
-
-  describe('ariaLabel', () => {
-    it('should set aria-label on viewport with default value', () => {
-      fixture.detectChanges();
-      const viewport = fixture.debugElement.query(
-        By.css('.mlv-scrollbar__viewport'),
-      );
-      expect(viewport.nativeElement.getAttribute('aria-label')).toBe(
-        'Scrollable region',
-      );
-    });
-
-    it('should reflect custom ariaLabel on viewport', () => {
-      fixture.componentRef.setInput('ariaLabel', 'Chat messages');
-      fixture.detectChanges();
-
-      const viewport = fixture.debugElement.query(
-        By.css('.mlv-scrollbar__viewport'),
-      );
-      expect(viewport.nativeElement.getAttribute('aria-label')).toBe(
-        'Chat messages',
-      );
-    });
-
-    it('should carry a role that permits aria-label (never a bare labelled div)', () => {
-      fixture.detectChanges();
-      const viewport = fixture.debugElement.query(
-        By.css('.mlv-scrollbar__viewport'),
-      ).nativeElement as HTMLElement;
-
-      // `aria-label` is prohibited on an implicit `generic` role, so the label
-      // must always be accompanied by an explicit role that allows a name.
-      expect(viewport.getAttribute('aria-label')).toBe('Scrollable region');
-      expect(viewport.getAttribute('role')).toBe('group');
-    });
-
-    it('should not expose a landmark role (a scroll wrapper is not a page region)', () => {
-      fixture.detectChanges();
-      const viewport = fixture.debugElement.query(
-        By.css('.mlv-scrollbar__viewport'),
-      ).nativeElement as HTMLElement;
-
-      expect(viewport.getAttribute('role')).not.toBe('region');
-    });
-
-    it('should drop both role and label when the viewport is not a tab stop', () => {
-      fixture.componentRef.setInput('viewportTabIndex', -1);
-      fixture.detectChanges();
-
-      const viewport = fixture.debugElement.query(
-        By.css('.mlv-scrollbar__viewport'),
-      ).nativeElement as HTMLElement;
-
-      expect(viewport.getAttribute('role')).toBeNull();
-      expect(viewport.getAttribute('aria-label')).toBeNull();
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Viewport tabindex
-  // ---------------------------------------------------------------------------
-
-  describe('viewport tabindex', () => {
-    it('should have tabindex="0" on a viewport with no tabbable content', () => {
-      const viewport = fixture.debugElement.query(
-        By.css('.mlv-scrollbar__viewport'),
-      );
-      expect(viewport.nativeElement.getAttribute('tabindex')).toBe('0');
-    });
-
-    it('should allow composite widgets to remove the viewport from the tab order', () => {
-      fixture.componentRef.setInput('viewportTabIndex', -1);
-      fixture.detectChanges();
-
-      const viewport = fixture.debugElement.query(
-        By.css('.mlv-scrollbar__viewport'),
-      );
-      expect(viewport.nativeElement.getAttribute('tabindex')).toBe('-1');
     });
   });
 
@@ -417,38 +347,57 @@ describe('MlvScrollbar', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Viewport tabindex vs. projected content (WCAG 2.1.1)
+// viewportTabIndex — pure passthrough (no auto mode, no content inspection)
 // ---------------------------------------------------------------------------
 
 @Component({
-  imports: [MlvScrollbar],
+  imports: [MlvScrollbar, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <mlv-scrollbar [viewportTabIndex]="tabIndex()">
+    <ng-template #body>
       @if (withControls()) {
         <button class="projected-button">Act</button>
-      } @else {
-        <p>Text only.</p>
       }
-    </mlv-scrollbar>
+      <p class="projected-passage">A long passage.</p>
+    </ng-template>
+
+    @if (bindTabIndex()) {
+      <mlv-scrollbar
+        [viewportTabIndex]="tabIndex()"
+        [ariaLabel]="ariaLabel()"
+        style="height: 6rem"
+      >
+        <ng-container [ngTemplateOutlet]="body" />
+      </mlv-scrollbar>
+    } @else {
+      <!-- No viewportTabIndex binding at all — exercises the input default. -->
+      <mlv-scrollbar [ariaLabel]="ariaLabel()" style="height: 6rem">
+        <ng-container [ngTemplateOutlet]="body" />
+      </mlv-scrollbar>
+    }
   `,
 })
-class ScrollbarContentHostComponent {
+class ScrollbarTabIndexHostComponent {
+  /** When false the `viewportTabIndex` binding is omitted entirely. */
+  readonly bindTabIndex = signal(false);
+  readonly tabIndex = signal<-1 | 0 | null>(null);
+  readonly ariaLabel = signal<string | undefined>(undefined);
   readonly withControls = signal(false);
-  readonly tabIndex = signal(0);
 }
 
-describe('MlvScrollbar — viewport tab stop', () => {
-  let fixture: ComponentFixture<ScrollbarContentHostComponent>;
-  let host: ScrollbarContentHostComponent;
+describe('MlvScrollbar — viewportTabIndex passthrough', () => {
+  let fixture: ComponentFixture<ScrollbarTabIndexHostComponent>;
+  let host: ScrollbarTabIndexHostComponent;
 
   beforeEach(async () => {
+    resizeCallbacks.length = 0;
+
     await TestBed.configureTestingModule({
-      imports: [ScrollbarContentHostComponent],
+      imports: [ScrollbarTabIndexHostComponent],
       providers: [provideMlvI18nTesting()],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(ScrollbarContentHostComponent);
+    fixture = TestBed.createComponent(ScrollbarTabIndexHostComponent);
     host = fixture.componentInstance;
     fixture.detectChanges();
     await fixture.whenStable();
@@ -460,92 +409,362 @@ describe('MlvScrollbar — viewport tab stop', () => {
     ) as HTMLElement;
   }
 
-  function tabindex(): string | null {
-    return viewport().getAttribute('tabindex');
-  }
+  /**
+   * JSDOM has no layout, so overflow is produced by stubbing the viewport
+   * metrics and replaying the ResizeObserver callback the component
+   * registered — `_hasVerticalOverflow` is then set by the real
+   * `_updateGeometry`, exactly as it is in a browser.
+   */
+  async function setOverflow(overflowing: boolean): Promise<void> {
+    // Let `afterNextRender` register the observer for the current instance.
+    await fixture.whenStable();
 
-  /** MutationObserver callbacks are microtask-scheduled. */
-  async function flushMutations(): Promise<void> {
-    await Promise.resolve();
+    const viewportEl = viewport();
+    // Give the tracks a resolvable padding so the thumb maths stays finite.
+    for (const track of Array.from(
+      fixture.nativeElement.querySelectorAll<HTMLElement>(
+        '.mlv-scrollbar__track',
+      ),
+    )) {
+      track.style.padding = '4px';
+    }
+    Object.defineProperty(viewportEl, 'clientHeight', {
+      value: 100,
+      configurable: true,
+    });
+    Object.defineProperty(viewportEl, 'scrollHeight', {
+      value: overflowing ? 2000 : 100,
+      configurable: true,
+    });
+
+    // Only the most recently registered callback belongs to the live instance.
+    const callback = resizeCallbacks.at(-1);
+    expect(callback).toBeDefined();
+    callback?.([], {} as ResizeObserver);
     fixture.detectChanges();
     await fixture.whenStable();
   }
 
-  it('stays a tab stop for a text-only region so it can still be scrolled', () => {
-    expect(tabindex()).toBe('0');
+  function scrollbarInstance(): MlvScrollbar {
+    return fixture.debugElement.query(By.directive(MlvScrollbar))
+      .componentInstance as MlvScrollbar;
+  }
+
+  function expectSilentViewport(): void {
+    // `hasAttribute`, not `getAttribute(...) === null` — an empty-string
+    // attribute (`tabindex=""`) must not be able to pass this.
+    expect(viewport().hasAttribute('tabindex')).toBe(false);
+    expect(viewport().hasAttribute('role')).toBe(false);
+    expect(viewport().hasAttribute('aria-label')).toBe(false);
+  }
+
+  // -- Case 1: default (null) ------------------------------------------------
+
+  it('emits no tabindex, role or aria-label by default', () => {
+    expectSilentViewport();
   });
 
-  it('drops out of the tab order when the content itself is tabbable', async () => {
-    host.withControls.set(true);
-    fixture.detectChanges();
-    await flushMutations();
-
-    expect(tabindex()).toBe('-1');
-  });
-
-  it('becomes a tab stop again when the tabbable content goes away', async () => {
-    host.withControls.set(true);
-    fixture.detectChanges();
-    await flushMutations();
-    expect(tabindex()).toBe('-1');
-
+  it('stays silent by default with no overflow and no focusable content', async () => {
     host.withControls.set(false);
     fixture.detectChanges();
-    await flushMutations();
+    await setOverflow(false);
 
-    expect(tabindex()).toBe('0');
+    expect((scrollbarInstance() as any)['_hasVerticalOverflow']()).toBe(false);
+    expectSilentViewport();
   });
 
-  it('ignores a disabled control — it is not a tab stop', async () => {
+  it('stays silent by default with no overflow and focusable content', async () => {
     host.withControls.set(true);
     fixture.detectChanges();
-    await flushMutations();
+    await setOverflow(false);
 
-    fixture.nativeElement
-      .querySelector('.projected-button')
-      ?.setAttribute('disabled', '');
-    await flushMutations();
-
-    expect(tabindex()).toBe('0');
+    expect(
+      fixture.nativeElement.querySelector('.projected-button'),
+    ).toBeTruthy();
+    expect((scrollbarInstance() as any)['_hasVerticalOverflow']()).toBe(false);
+    expectSilentViewport();
   });
 
-  it('applies an explicit non-zero viewportTabIndex verbatim', async () => {
+  it('stays silent by default with overflow and no focusable content', async () => {
+    host.withControls.set(false);
+    fixture.detectChanges();
+    await setOverflow(true);
+
+    expect((scrollbarInstance() as any)['_hasVerticalOverflow']()).toBe(true);
+    expectSilentViewport();
+  });
+
+  it('stays silent by default with overflow and focusable content', async () => {
+    host.withControls.set(true);
+    fixture.detectChanges();
+    await setOverflow(true);
+
+    expect(
+      fixture.nativeElement.querySelector('.projected-button'),
+    ).toBeTruthy();
+    expect((scrollbarInstance() as any)['_hasVerticalOverflow']()).toBe(true);
+    expectSilentViewport();
+  });
+
+  it('stays silent by default after the projected content gains a control', async () => {
+    expectSilentViewport();
+
+    host.withControls.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    // A content-mutation observer would have re-decided here; nothing does.
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expectSilentViewport();
+  });
+
+  // -- Case 2: explicit 0 ----------------------------------------------------
+
+  it('applies tabindex="0" verbatim, with role="group" and the i18n label', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(0);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(viewport().getAttribute('tabindex')).toBe('0');
+    expect(viewport().getAttribute('role')).toBe('group');
+    expect(viewport().getAttribute('aria-label')).toBe('Scrollable region');
+  });
+
+  it('keeps tabindex="0" and the name when the content is focusable', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(0);
+    host.withControls.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(viewport().getAttribute('tabindex')).toBe('0');
+    expect(viewport().getAttribute('role')).toBe('group');
+    expect(viewport().getAttribute('aria-label')).toBe('Scrollable region');
+  });
+
+  it('keeps tabindex="0" and the name whether or not the content overflows', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(0);
+    fixture.detectChanges();
+
+    await setOverflow(true);
+    expect((scrollbarInstance() as any)['_hasVerticalOverflow']()).toBe(true);
+    expect(viewport().getAttribute('tabindex')).toBe('0');
+    expect(viewport().getAttribute('role')).toBe('group');
+
+    await setOverflow(false);
+    expect((scrollbarInstance() as any)['_hasVerticalOverflow']()).toBe(false);
+    expect(viewport().getAttribute('tabindex')).toBe('0');
+    expect(viewport().getAttribute('role')).toBe('group');
+  });
+
+  it('prefers an explicit ariaLabel over the i18n default at tabindex="0"', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(0);
+    host.ariaLabel.set('Chat messages');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(viewport().getAttribute('aria-label')).toBe('Chat messages');
+  });
+
+  it('never exposes a landmark role (a scroll wrapper is not a page region)', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(0);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(viewport().getAttribute('role')).not.toBe('region');
+  });
+
+  // -- Case 3: explicit -1 ---------------------------------------------------
+
+  it('applies tabindex="-1" verbatim, with no role and no name', async () => {
+    host.bindTabIndex.set(true);
     host.tabIndex.set(-1);
-    host.withControls.set(false);
     fixture.detectChanges();
-    await flushMutations();
+    await fixture.whenStable();
 
-    expect(tabindex()).toBe('-1');
+    expect(viewport().getAttribute('tabindex')).toBe('-1');
+    expect(viewport().hasAttribute('role')).toBe(false);
+    expect(viewport().hasAttribute('aria-label')).toBe(false);
   });
 
-  it('names itself as a group while it is a tab stop', () => {
-    expect(tabindex()).toBe('0');
-    expect(viewport().getAttribute('role')).toBe('group');
-    expect(viewport().getAttribute('aria-label')).toBe('Scrollable region');
+  it('keeps tabindex="-1" nameless even when an ariaLabel is supplied', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(-1);
+    host.ariaLabel.set('Conversation details');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(viewport().getAttribute('tabindex')).toBe('-1');
+    expect(viewport().hasAttribute('role')).toBe(false);
+    expect(viewport().hasAttribute('aria-label')).toBe(false);
   });
 
-  it('gives up role and name together with the tab stop', async () => {
+  it('keeps tabindex="-1" whether or not the content overflows or is focusable', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(-1);
     host.withControls.set(true);
     fixture.detectChanges();
-    await flushMutations();
+    await setOverflow(true);
 
-    expect(tabindex()).toBe('-1');
-    expect(viewport().getAttribute('role')).toBeNull();
-    expect(viewport().getAttribute('aria-label')).toBeNull();
+    expect(viewport().getAttribute('tabindex')).toBe('-1');
+    expect(viewport().hasAttribute('role')).toBe(false);
   });
 
-  it('regains role and name when the tabbable content goes away', async () => {
-    host.withControls.set(true);
-    fixture.detectChanges();
-    await flushMutations();
-    expect(viewport().getAttribute('role')).toBeNull();
+  // -- Case 1/3: the resolved label never leaks -------------------------------
 
-    host.withControls.set(false);
+  it('does not leak an explicit ariaLabel into the default (null) case', () => {
+    host.ariaLabel.set('Conversation details');
     fixture.detectChanges();
-    await flushMutations();
 
-    expect(tabindex()).toBe('0');
+    expectSilentViewport();
+  });
+
+  // -- Case 5: runtime flips -------------------------------------------------
+
+  it('flips the attributes in both directions when the input changes', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(null);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expectSilentViewport();
+
+    host.tabIndex.set(0);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(viewport().getAttribute('tabindex')).toBe('0');
     expect(viewport().getAttribute('role')).toBe('group');
     expect(viewport().getAttribute('aria-label')).toBe('Scrollable region');
+
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(-1);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(viewport().getAttribute('tabindex')).toBe('-1');
+    expect(viewport().hasAttribute('role')).toBe(false);
+    expect(viewport().hasAttribute('aria-label')).toBe(false);
+
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(0);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(viewport().getAttribute('tabindex')).toBe('0');
+    expect(viewport().getAttribute('role')).toBe('group');
+
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(null);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expectSilentViewport();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression guard: the content-tabbability scan must stay deleted
+// ---------------------------------------------------------------------------
+
+describe('MlvScrollbar — no content observation', () => {
+  it('never constructs a MutationObserver across a full lifecycle', async () => {
+    const RealMutationObserver = globalThis.MutationObserver;
+    const constructed = vi.fn();
+
+    class SpyMutationObserver extends RealMutationObserver {
+      constructor(callback: MutationCallback) {
+        constructed();
+        super(callback);
+      }
+    }
+
+    globalThis.MutationObserver =
+      SpyMutationObserver as unknown as typeof MutationObserver;
+
+    try {
+      await TestBed.configureTestingModule({
+        imports: [ScrollbarTabIndexHostComponent],
+        providers: [provideMlvI18nTesting()],
+      }).compileComponents();
+
+      const fixture = TestBed.createComponent(ScrollbarTabIndexHostComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // Mutate the projected content — the deleted observer watched exactly
+      // this (childList/subtree plus the tabindex/disabled/hidden attributes).
+      fixture.componentInstance.withControls.set(true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.nativeElement
+        .querySelector('.projected-button')
+        ?.setAttribute('disabled', '');
+      await Promise.resolve();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      fixture.destroy();
+
+      expect(constructed).not.toHaveBeenCalled();
+    } finally {
+      globalThis.MutationObserver = RealMutationObserver;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The i18n label — distinguishable from the hardcoded fallback
+// ---------------------------------------------------------------------------
+
+describe('MlvScrollbar — i18n viewport label', () => {
+  let fixture: ComponentFixture<ScrollbarTabIndexHostComponent>;
+  let host: ScrollbarTabIndexHostComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ScrollbarTabIndexHostComponent],
+      providers: [
+        provideMlvI18nTesting(),
+        i18nTestProvider(MLV_SCROLLBAR_I18N, {
+          scrollableRegion: 'Zone défilable',
+        }),
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(ScrollbarTabIndexHostComponent);
+    host = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  function viewport(): HTMLElement {
+    return fixture.nativeElement.querySelector(
+      '.mlv-scrollbar__viewport',
+    ) as HTMLElement;
+  }
+
+  it('names a tabindex="0" viewport from the i18n token, not a hardcoded string', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(0);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(viewport().getAttribute('aria-label')).toBe('Zone défilable');
+  });
+
+  it('does not leak the i18n label into the default (null) case', () => {
+    expect(viewport().hasAttribute('aria-label')).toBe(false);
+    expect(viewport().hasAttribute('role')).toBe(false);
+  });
+
+  it('does not leak the i18n label into the -1 case', async () => {
+    host.bindTabIndex.set(true);
+    host.tabIndex.set(-1);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(viewport().hasAttribute('aria-label')).toBe(false);
+    expect(viewport().hasAttribute('role')).toBe(false);
   });
 });

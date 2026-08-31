@@ -36,39 +36,51 @@ Exported from `libs/core/scrollbar/src/index.ts`:
 
 #### Inputs
 
-| Name               | Type                      | Default      | Description                                                                                                                      |
-| ------------------ | ------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `orientation`      | `MlvScrollbarOrientation` | `'vertical'` | Which axes to show the custom scrollbar on                                                                                       |
-| `scrollbarSize`    | `string`                  | `'0.75rem'`  | CSS length for track width/height; maps to `--mlv-sb-size`                                                                       |
-| `disabled`         | `BooleanInput`            | `false`      | Hides custom tracks and restores native scrollbar                                                                                |
-| `ariaLabel`        | `string \| undefined`     | `undefined`  | Accessible viewport label; falls back to i18n/default text. Written to the DOM only while the viewport is a tab stop — see below |
-| `viewportTabIndex` | `number`                  | `0`          | **`0` means auto** (see below); any non-zero value is applied verbatim                                                           |
+| Name               | Type                      | Default      | Description                                                                                                                     |
+| ------------------ | ------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `orientation`      | `MlvScrollbarOrientation` | `'vertical'` | Which axes to show the custom scrollbar on                                                                                      |
+| `scrollbarSize`    | `string`                  | `'0.75rem'`  | CSS length for track width/height; maps to `--mlv-sb-size`                                                                      |
+| `disabled`         | `BooleanInput`            | `false`      | Hides custom tracks and restores native scrollbar                                                                               |
+| `ariaLabel`        | `string \| undefined`     | `undefined`  | Accessible viewport label; falls back to i18n/default text. Written to the DOM only while `viewportTabIndex` is `0` — see below |
+| `viewportTabIndex` | `-1 \| 0 \| null`         | `null`       | Written **verbatim** to the viewport's `tabindex`. `null` emits no attribute at all — see below                                 |
 
 #### Viewport tab stop (WCAG 2.1.1)
 
-The default `0` is an _auto_ mode, not a literal tabindex: the viewport is a tab
-stop only while the scrolled content holds nothing tabbable.
+`viewportTabIndex` is a **pure passthrough**. The component inspects nothing and
+decides nothing — no auto mode, no content scan, no overflow check.
 
-- Text-only region → `tabindex="0"`, so keyboard users can still scroll it.
-- Region containing controls → `tabindex="-1"`, so the region does not add a
-  redundant stop (and a focus ring around the whole body) in front of them. This
-  is what made a service-opened dialog capture focus onto its entire body.
+| Value            | `tabindex` attribute | Meaning                                                                                   |
+| ---------------- | -------------------- | ----------------------------------------------------------------------------------------- |
+| `null` (default) | **not emitted**      | No opinion. Keyboard reachability falls to the browser's native scroller focusability.    |
+| `0`              | `tabindex="0"`       | Guaranteed tab stop, in every browser. Also emits `role="group"` + the resolved name.     |
+| `-1`             | `tabindex="-1"`      | Programmatically focusable, never a tab stop — for widgets that own their keyboard model. |
 
-Tabbability is re-read after first render and on every content mutation
-(`MutationObserver` over the content wrapper: `childList`, `subtree`, and the
-`tabindex`/`disabled`/`hidden`/`href`/`type` attributes), confirmed with the
-CDK's `InteractivityChecker` under `{ ignoreVisibility: true }` (the geometric
-visibility test never passes before first paint, nor under jsdom). The resolved
-value lives in the protected `_effectiveViewportTabIndex` computed.
+Positive values are excluded by the type; a positive tabindex is forbidden by
+`.claude/rules/accessibility.md`.
+
+**Choosing a value.** With no attribute, Chrome 127+ and Firefox make a scroll
+container focusable on their own, but only when it has **no** keyboard-focusable
+children. A text-only overflowing region must therefore pass
+`[viewportTabIndex]="0"` to be guaranteed keyboard-scrollable everywhere; that
+is the only way to satisfy WCAG 2.1.1 without relying on browser behaviour.
+
+Bind it, never write it as a plain attribute: `viewportTabIndex="0"` passes the
+**string** `'0'`, which `strictTemplates` rejects against the `-1 | 0 | null`
+type.
+
+The previous release shipped an _auto_ mode on this input (default `0`, collapsing
+to `-1` whenever the projected content held a tab stop). It was removed — see
+[docs/migrations/2026-08-scrollbar-viewport-tabindex.md](../../docs/migrations/2026-08-scrollbar-viewport-tabindex.md).
 
 #### Viewport role and name (WCAG 4.1.2)
 
-The name follows the tab stop — both are driven by `_effectiveViewportTabIndex`:
+The name follows the tab stop — both are keyed on `viewportTabIndex`:
 
-| Viewport tab stop | `role`  | `aria-label`              |
-| ----------------- | ------- | ------------------------- |
-| yes (`>= 0`)      | `group` | resolved `ariaLabel`/i18n |
-| no (`-1`)         | absent  | absent                    |
+| `viewportTabIndex` | `role`  | `aria-label`              |
+| ------------------ | ------- | ------------------------- |
+| `0`                | `group` | resolved `ariaLabel`/i18n |
+| `-1`               | absent  | absent                    |
+| `null` (default)   | absent  | absent                    |
 
 - `aria-label` is **prohibited** on an element with no role (implicit
   `generic`), so a bare labelled `<div>` had its name discarded by AT and
@@ -79,9 +91,11 @@ The name follows the tab stop — both are driven by `_effectiveViewportTabIndex
   name — into the host page's landmark navigation.
 - A viewport that is not a tab stop is not a control the user can land on, so
   it stays a plain container and the projected content owns its own semantics.
+  `-1` and `null` are both "not a tab stop": a `-1` viewport is only ever reached
+  under a widget's own keyboard model, which names itself.
 
-Resolved by the protected `_isViewportFocusable`, `_viewportRole` and
-`_viewportAriaLabel` computeds.
+Resolved by the protected `_isViewportFocusable` (`viewportTabIndex() === 0`),
+`_viewportRole` and `_viewportAriaLabel` computeds.
 
 #### Public properties
 
@@ -104,7 +118,7 @@ host: {
 #### Template Structure
 
 ```html
-<div class="mlv-scrollbar__viewport" #viewport [attr.tabindex]="_effectiveViewportTabIndex()" [attr.role]="_viewportRole()" [attr.aria-label]="_viewportAriaLabel()" (scroll)="_onScroll()">
+<div class="mlv-scrollbar__viewport" #viewport [attr.tabindex]="viewportTabIndex()" [attr.role]="_viewportRole()" [attr.aria-label]="_viewportAriaLabel()" (scroll)="_onScroll()">
   <div class="mlv-scrollbar__content" #content>
     <ng-content />
   </div>
@@ -186,14 +200,24 @@ A native `ResizeObserver` watches both the viewport element (host resize) and th
 
 <!-- Custom size -->
 <mlv-scrollbar scrollbarSize="0.5rem" style="height: 10rem"> … </mlv-scrollbar>
+
+<!-- Guaranteed keyboard-scrollable text region: opt in to the tab stop.
+     This also emits role="group" + the resolved aria-label. -->
+<mlv-scrollbar [viewportTabIndex]="0" ariaLabel="Release notes" style="height: 12rem">
+  <p>Long prose with nothing focusable inside…</p>
+</mlv-scrollbar>
+
+<!-- Composite widget that owns its own keyboard model: never a tab stop. -->
+<mlv-scrollbar [viewportTabIndex]="-1" style="height: 12rem">
+  <mlv-list selectable>…</mlv-list>
+</mlv-scrollbar>
 ```
 
 ---
 
 ## Dependencies
 
-| Dependency              | Version   | Notes                                                             |
-| ----------------------- | --------- | ----------------------------------------------------------------- |
-| `@angular/core`         | `^22.0.0` | Signals, DI, `afterNextRender`, `viewChild`                       |
-| `@angular/cdk/coercion` | `^22.0.0` | `BooleanInput`, `coerceBooleanProperty`                           |
-| `@angular/cdk/a11y`     | `^22.0.0` | `InteractivityChecker` — confirms projected content is a tab stop |
+| Dependency              | Version   | Notes                                       |
+| ----------------------- | --------- | ------------------------------------------- |
+| `@angular/core`         | `^22.0.0` | Signals, DI, `afterNextRender`, `viewChild` |
+| `@angular/cdk/coercion` | `^22.0.0` | `BooleanInput`, `coerceBooleanProperty`     |
