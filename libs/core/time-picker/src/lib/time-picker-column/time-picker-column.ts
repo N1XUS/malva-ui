@@ -1,4 +1,5 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -7,6 +8,7 @@ import {
   ElementRef,
   inject,
   input,
+  NgZone,
   output,
   untracked,
   viewChild,
@@ -89,6 +91,9 @@ export class MlvTimePickerColumn implements AfterViewInit {
   /** @private DestroyRef for cleanup. */
   private readonly _destroyRef = inject(DestroyRef);
 
+  /** @private Zone reference; the scroll listener is registered outside it. */
+  private readonly _ngZone = inject(NgZone);
+
   /** @protected Sanitized label key for use in element IDs (spaces replaced with hyphens). */
   protected readonly _labelKey = computed(() =>
     this.label().toLowerCase().replace(/\s+/g, '-'),
@@ -118,6 +123,8 @@ export class MlvTimePickerColumn implements AfterViewInit {
   private _scrollTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    afterNextRender(() => this._registerScrollListener());
+
     // Sync the drum scroll AND aria's active item when selectedValue changes
     // externally (forms value write, mode switch). gotoIndex only moves the active
     // descendant (no selection), so it never re-emits valueChange. Without it,
@@ -185,11 +192,45 @@ export class MlvTimePickerColumn implements AfterViewInit {
   }
 
   /**
-   * @protected Handle scroll events — debounced to avoid fighting with CSS
+   * @private Binds the drum-roll scroll listener natively instead of through a
+   * `(scroll)` binding in the template.
+   *
+   * A template listener runs inside Angular's
+   * `wrapListenerIn_markDirtyAndPreventDefault` wrapper, which marks the
+   * ancestor view chain dirty and notifies the change-detection scheduler on
+   * every single event. This handler only resets a debounce timer — it writes
+   * nothing reactive at all — so each of those passes was pure waste, at
+   * momentum-scroll frequency. `runOutsideAngular` keeps the same guarantee for
+   * consumers still on zone-based change detection.
+   *
+   * The debounced `_syncIndexFromScroll()` does not need the zone either: it
+   * only writes aria's active-item signal and emits the `valueChange` output.
+   * Angular wraps a parent's output binding in the very same listener wrapper,
+   * so the emit still marks the parent dirty and notifies the scheduler no
+   * matter which zone it was raised from.
+   *
+   * `#listRef` is unconditional in the template, so the element resolved here
+   * lives for the component's whole lifetime.
+   */
+  private _registerScrollListener(): void {
+    const listEl = this._listRef()?.nativeElement;
+    if (!listEl) return;
+
+    const onScroll = (): void => this._onScroll();
+    this._ngZone.runOutsideAngular(() => {
+      listEl.addEventListener('scroll', onScroll, { passive: true });
+    });
+    this._destroyRef.onDestroy(() => {
+      listEl.removeEventListener('scroll', onScroll);
+    });
+  }
+
+  /**
+   * @private Handle scroll events — debounced to avoid fighting with CSS
    * scroll-snap during large swipes. aria attaches no scroll listener of its
    * own, so this remains the sole owner of scroll-driven selection.
    */
-  protected _onScroll(): void {
+  private _onScroll(): void {
     if (this.disabled()) return;
     if (this._scrollTimer) clearTimeout(this._scrollTimer);
     this._scrollTimer = setTimeout(() => {

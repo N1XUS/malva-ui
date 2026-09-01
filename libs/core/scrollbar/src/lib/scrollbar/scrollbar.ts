@@ -8,6 +8,7 @@ import {
   type ElementRef,
   inject,
   input,
+  NgZone,
   Renderer2,
   signal,
   ViewEncapsulation,
@@ -287,8 +288,12 @@ export class MlvScrollbar {
   /** @private Renderer2 used so DOM listeners are SSR-safe and unsubscribable. */
   private readonly _renderer = inject(Renderer2);
 
+  /** @private Zone reference; the scroll listener is registered outside it. */
+  private readonly _ngZone = inject(NgZone);
+
   constructor() {
     afterNextRender(() => {
+      this._registerScrollListener();
       this._updateGeometry();
 
       if (typeof ResizeObserver === 'undefined') {
@@ -339,8 +344,41 @@ export class MlvScrollbar {
     });
   }
 
-  /** @protected Handles scroll events on the viewport. Updates thumb positions and `--scrolling` state. */
-  protected _onScroll(): void {
+  /**
+   * @private Binds the viewport's scroll listener natively, instead of through
+   * a `(scroll)` binding in the template.
+   *
+   * A template listener is wrapped by Angular in
+   * `wrapListenerIn_markDirtyAndPreventDefault`, which marks the whole
+   * ancestor view chain dirty and notifies the change-detection scheduler
+   * **before it even knows whether the handler changed anything** — one full
+   * change-detection pass per scroll event, at input frequency, for a handler
+   * whose signals usually land on the values they already held. Registering
+   * natively skips that wrapper: signal writes propagate through the
+   * reactivity graph on their own, so a scroll that moves no signal now costs
+   * nothing.
+   *
+   * `runOutsideAngular` is kept for consumers still on zone-based change
+   * detection, where the zone would schedule its own tick on top.
+   *
+   * `#viewport` is unconditional in the template, so the element resolved here
+   * is the one that lives for the component's whole lifetime; there is no
+   * later value to re-bind to.
+   */
+  private _registerScrollListener(): void {
+    const viewportEl = this._viewport().nativeElement;
+    const onScroll = (): void => this._onScroll();
+
+    this._ngZone.runOutsideAngular(() => {
+      viewportEl.addEventListener('scroll', onScroll, { passive: true });
+    });
+    this._destroyRef.onDestroy(() => {
+      viewportEl.removeEventListener('scroll', onScroll);
+    });
+  }
+
+  /** @private Handles scroll events on the viewport. Updates thumb positions and `--scrolling` state. */
+  private _onScroll(): void {
     this._updateThumbPositions();
 
     this._isScrolling.set(true);

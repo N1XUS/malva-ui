@@ -2,7 +2,10 @@ import type { ElementRef } from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  NgZone,
   ViewEncapsulation,
+  afterNextRender,
   afterRenderEffect,
   computed,
   contentChild,
@@ -227,6 +230,12 @@ export class MlvChat {
   /** @private Shared resize observer used to follow content height changes. */
   private readonly _resizeObserver = inject(MlvResizeObserverService);
 
+  /** @private Zone reference; the scroll listener is registered outside it. */
+  private readonly _ngZone = inject(NgZone);
+
+  /** @private Cleans up the native scroll listener. */
+  private readonly _destroyRef = inject(DestroyRef);
+
   /** @internal True while the view sits at (or near) the newest message. */
   protected readonly _pinned = signal(true);
 
@@ -246,6 +255,8 @@ export class MlvChat {
   private _pendingCompensation: number | null = null;
 
   constructor() {
+    afterNextRender(() => this._registerScrollListener());
+
     // The window starts at the configured size; the scroll engine grows it as
     // the user scrolls up and trims it back once they return to the bottom.
     effect(() => this._renderCount.set(this.windowSize()));
@@ -294,7 +305,40 @@ export class MlvChat {
     });
   }
 
-  /** @internal Re-reads the viewport metrics after a scroll event. */
+  /**
+   * @private Binds the scroll listener to the element that actually scrolls.
+   *
+   * That element is `.mlv-scrollbar__viewport`, a **child** of the
+   * `<mlv-scrollbar>` host. `scroll` does not bubble and `MlvScrollbar`
+   * declares no `scroll` output, so the previous `(scroll)` binding on the
+   * host was a native listener on a node that never receives the event —
+   * scrolling the chat did nothing at all (issue #73). `MlvScrollbar` exposes
+   * the real scroller as `viewportElement`, which is what the handler already
+   * measured; the listener now lives there too.
+   *
+   * Binding it natively rather than in the template also fixes issue #7: a
+   * template listener is wrapped in `wrapListenerIn_markDirtyAndPreventDefault`,
+   * which marks the ancestor view chain dirty and notifies the change-detection
+   * scheduler on every event regardless of what the handler did. The handler
+   * only writes signals, and signal writes propagate through the reactivity
+   * graph on their own, so a scroll that changes no state now costs no pass.
+   * `runOutsideAngular` keeps the equivalent guarantee for consumers still on
+   * zone-based change detection.
+   */
+  private _registerScrollListener(): void {
+    const viewport = this._viewport()?.viewportElement;
+    if (!viewport) return;
+
+    const onScroll = (): void => this._onScroll();
+    this._ngZone.runOutsideAngular(() => {
+      viewport.addEventListener('scroll', onScroll, { passive: true });
+    });
+    this._destroyRef.onDestroy(() => {
+      viewport.removeEventListener('scroll', onScroll);
+    });
+  }
+
+  /** @private Re-reads the viewport metrics after a scroll event. */
   protected _onScroll(): void {
     const viewport = this._viewport()?.viewportElement;
     if (!viewport) return;

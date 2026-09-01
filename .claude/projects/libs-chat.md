@@ -105,6 +105,28 @@ Native scroll plus `content-visibility: auto` on group rows (no view recycling, 
 - Re-pinning trims the window back to `windowSize` and clears the pill.
 - `_evaluateScroll(scrollTop, scrollHeight, clientHeight)` holds the logic separately from DOM measurement so it is testable without layout.
 
+**Listener wiring (issues #73 / #7).** The scroll listener is registered
+imperatively on `MlvScrollbar.viewportElement` — the element that genuinely
+scrolls — with `addEventListener('scroll', …, { passive: true })` from
+`afterNextRender`, inside `runOutsideAngular`, torn down from
+`DestroyRef.onDestroy`. There is no `(scroll)` binding in `chat.html` and
+`_onScroll` is `private`.
+
+It previously sat as `(scroll)` on the `<mlv-scrollbar>` **host**, which is the
+parent of `.mlv-scrollbar__viewport`. `scroll` does not bubble and
+`MlvScrollbar` declares no `scroll` output, so that was a plain native listener
+on a node that never receives the event: scrolling the chat did nothing at all —
+`loadOlder` never fired, the render window never grew, and bottom-distance
+tracking never updated. Binding natively also removes the per-event
+change-detection pass Angular's template-listener wrapper schedules
+unconditionally (20 scroll events over an unchanged view: 0 passes, was 20).
+
+`chat-scroll.spec.ts` still drives `_evaluateScroll(...)` directly, by design.
+The wiring itself is covered separately by `chat-scroll-wiring.spec.ts`, whose
+every case dispatches a native event **at `viewportElement`** — dispatching at
+the `mlv-scrollbar` host passes vacuously, because `dispatchEvent` runs a node's
+own listeners regardless of bubbling, which is exactly how the bug survived.
+
 ### Replies — the citation block
 
 `replyTo` carries a **full** `MlvChatMessageData`, not an id — so a citation renders correctly even when the original sits outside the loaded pages. The citation is the same bubble in `quote` mode (clamped text, thumbnail, audio chip, no meta), wrapped in a `button.mlv-chat-message__reply` that emits `replyClick`. Recursion is one level deep: a quoted message with its own `replyTo` shows a `↩` marker (`__reply-marker`) instead of nesting.

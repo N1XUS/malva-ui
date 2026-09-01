@@ -154,6 +154,20 @@ The column's `<ul>` is a headless **`ngListbox`** and each `<li>` an **`ngOption
 
 #### Scroll Behavior
 
+The scroll listener is registered imperatively on the `<ul>` — with
+`addEventListener('scroll', …, { passive: true })` from `afterNextRender`,
+inside `runOutsideAngular`, torn down from `DestroyRef.onDestroy` — not as a
+`(scroll)` binding in the template, and `_onScroll` is `private`. A template
+listener runs inside Angular's `wrapListenerIn_markDirtyAndPreventDefault`
+wrapper, which marks the ancestor view chain dirty and notifies the
+change-detection scheduler on every event; this handler only resets a debounce
+timer and writes nothing reactive, so every one of those passes was pure waste
+at momentum-scroll frequency (20 scroll events: 0 passes, was 20). The debounced
+`_syncIndexFromScroll()` does not need the zone either — it writes aria's
+active-item signal and emits `valueChange`, and Angular wraps a parent's output
+binding in the same listener wrapper, so the emit still marks the parent dirty
+whichever zone raised it. Covered by `time-picker-column.spec.ts`.
+
 Uses CSS `scroll-snap-type: y mandatory` for item snapping — retained on top of aria (aria attaches no scroll listener and never calls its opt-in `scrollActiveItemIntoView()`). The scroll handler is debounced (150 ms) to avoid fighting with scroll-snap during large swipes; on a scroll-driven change the aria active item is re-aligned via `gotoIndex` so a following Arrow key moves from the centered value. Programmatic smooth scrolling is used only for keyboard/click/external-value interactions.
 
 ---
