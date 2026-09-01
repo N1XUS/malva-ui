@@ -127,8 +127,14 @@ Because of that, every keyed read (`sort.key`, `filter.key`, an explicit search
 key) goes through one private `_read(row, key)` helper that yields `undefined`
 for a primitive, `null`, or `undefined` row instead of throwing. Sorting,
 filtering, and keyed search therefore all treat a nullish row as "this property
-is absent" and sort it to the front under `asc` (empty string comparand), rather
-than crashing on a mixed array.
+is absent" rather than crashing on a mixed array.
+
+That absent value collates as the empty string, so such a row leads under `asc`
+— with one exception. A row that is literally `undefined` never reaches the
+comparator at all and sinks to the end in **both** directions, because
+`Array.prototype.sort` hoists `undefined` elements itself. `null` rows and
+`undefined` rows therefore sort to opposite ends. See the sort section below for
+the mechanism, and issue #83 for whether that asymmetry should be kept.
 
 Pipeline per read: `filter (search AND every column predicate)` → `sort` →
 `slice(page, perPage)`. `totalItems()` is the post-filter count. A non-finite
@@ -237,6 +243,106 @@ Three consequences to know about:
 rather than once per row; the identity operators (`equals`, `not-equals`, `in`,
 `not-in`) never normalise it at all.
 
+### Sort cost — decorate–sort–undecorate + one hoisted collator
+
+`_sorted` decorates before it sorts. Each row becomes one `MlvSortEntry`
+(`{ row, value, text }`), the decorated array is sorted, and the rows are mapped
+back out. `_read` therefore runs **once per row** and `String(value ?? '')` **at
+most once per row**, instead of twice per _comparison_: O(n) conversions instead
+of O(n log n). The comparator itself allocates nothing.
+
+`text` is filled **lazily**, the first time a comparison actually reaches the
+collator branch. Eager decoration would have turned an all-numeric column's 0
+string allocations into one per row — a regression on the most common table
+sort. Lazy fill is `≤` the old comparator in every case.
+
+The string branch reads one module-scope `Intl.Collator(undefined,
+{ numeric: true })`. `localeCompare(that, undefined, { numeric: true })`
+initialises a fresh collator on **every call**, so locale resolution used to be
+O(n log n) per sort as well.
+
+> **The sort locale is the host's, not the app's.** `undefined` locales resolves
+> the runtime default (`navigator.language` and friends) once, when the module
+> is first imported — exactly what the per-call form resolved.
+> `MlvI18nService.switchLanguage()` swaps the translation pack and nothing else,
+> so sorting has never followed the app language and does not start to. A source
+> that must collate in the app's language needs its own comparator.
+
+Measured on the real class over 10 000 rows, one `asc` pass (plus one `desc`
+pass for the collator row):
+
+| per sort, 10 000 rows                      | before  | after                    |
+| ------------------------------------------ | ------- | ------------------------ |
+| collator resolutions (`asc` + `desc`)      | 130 704 | **0** (1 at module load) |
+| `_read` calls                              | 130 702 | **10 000**               |
+| `String(… ?? '')` conversions              | 130 702 | **10 000**               |
+| `String()` conversions, all-numeric column | 0       | **0** (unchanged)        |
+
+Wall clock over the same 10 000 rows, median of 11 runs:
+
+| workload                                   | before   | after       | speedup |
+| ------------------------------------------ | -------- | ----------- | ------- |
+| string column, all values distinct, `asc`  | 204.9 ms | **15.8 ms** | 13.0×   |
+| string column, all values distinct, `desc` | 207.3 ms | **15.8 ms** | 13.1×   |
+| low-cardinality string column (4 groups)   | 91.5 ms  | **3.9 ms**  | 23.2×   |
+| numeric column                             | 1.8 ms   | **1.0 ms**  | 1.8×    |
+
+Ordering is unchanged, verified rather than asserted: a differential fuzz of
+**250 000 iterations / 500 000 sorts / 9 979 850 compared elements** against a
+verbatim copy of the pre-change comparator reports **0 divergences**. Arrays of
+0-40 rows over mixed numbers, numeric strings, `NaN`, ±`Infinity`, `-0`, huge and
+denormal numbers, booleans, `Date`s (including an invalid one), NFC/NFD pairs,
+ligatures, astral characters and emoji, 200-character strings, `bigint`s,
+`symbol`s, arrays, objects with a `toString`, `Object.create(null)` rows, and
+`null` / `undefined` **rows** as well as values; both directions; a present and
+an absent sort key. Elements are compared with `Object.is` at each index, so the
+check is exact permutation identity, not deep equality.
+
+That includes the parts that look like bugs:
+
+- The branch keys off the **pair** (`typeof av === 'number' && typeof bv ===
+'number'`), never off one value or off the column. A column mixing numbers and
+  strings compares number/number numerically and everything else through the
+  collator — `[1.5, 1.25]` sorts to `[1.25, 1.5]` while `[1.5, '1.25']` sorts to
+  `[1.5, '1.25']`. That is why `value` is decorated raw alongside `text` and
+  cannot be collapsed to a single key.
+- A `null` or `undefined` **cell value** collapses to `''`, so the two tie with
+  each other and with an empty string, and sort ahead of any stringified number.
+- A row that is literally `undefined` is the exception to that, and the two
+  nullish cases stop behaving alike: `Array.prototype.sort` resolves every pair
+  involving an `undefined` **element** itself, parking it at the end in _both_
+  directions without ever calling the comparator (ECMA-262
+  `CompareArrayElements` steps 1-2). A `null` row is not hoisted and does go
+  through the comparator, so it leads under `asc`. Decorating therefore has to
+  map an `undefined` row to an `undefined` entry rather than wrapping it —
+  wrapping would hand it to the comparator, where it reads as `''` and leads
+  under `asc` instead of sinking. Pinned in both directions by the
+  `sort ordering parity — nullish rows` table.
+- `numeric: true` is load bearing: `'item2'` before `'item10'`.
+- A number column containing `NaN` makes the comparator return `NaN`, and the
+  resulting permutation is engine-defined. Preserved, not fixed. It is reachable
+  without any `NaN` in the data, too: `Infinity - Infinity` is `NaN`, so a column
+  that merely repeats an infinity hits the same path. Those two cases are
+  asserted against the oracle only, never against a literal order — the literal
+  would pin what V8 happens to do today and would flip on a V8 change with
+  nothing of ours having changed. The oracle runs in the same engine, so it
+  still pins the property that matters: unchanged from before.
+- `Array.prototype.sort` is stable (ES2019) and the decorated array is what gets
+  sorted, so equal keys keep their input order.
+
+Three things that are _not_ byte-identical. None affects ordering or length, and
+the fuzz above does not cover them because they are not ordering properties:
+
+- **Sparse arrays keep their holes.** `sort` used to fill them; `map` preserves
+  them, so `2 in result` can now be `false` where it was `true`. Reading the
+  index yields `undefined` either way.
+- **An impure `toString` is now called once per row, not once per comparison**,
+  so a value that returns different text on each call gets one stable comparand.
+  That removes a non-transitive comparator — an improvement, kept deliberately.
+- **A one-row table whose sort-key getter throws now throws.** `_read` runs in
+  the decorate step, where the old code never invoked the comparator at all at
+  `N = 1`.
+
 ## Dependencies
 
 | Package               | Usage                                                    |
@@ -302,6 +408,45 @@ declarations.
     changes;
   - one case per filter operator, including an unrecognised operator hitting
     `default`, each also cross-checked against the oracle.
+
+  It also carries the **sort** guards:
+  - an **ordering parity table** (17 columns × both directions) asserted twice:
+    against a literal expected order _and_ against a verbatim copy of the
+    pre-decoration comparator kept as a second oracle. It covers nullish vs
+    `''` vs text vs numbers, a mixed number/string column in both pair orders,
+    the `[1.5, 1.25]` / `[1.5, '1.25']` pair that separates the two branches,
+    `numeric: true` (`'item2'` before `'item10'`), `NaN`, ±`Infinity`, `-0`,
+    booleans, `Date`s, objects with a `toString`, an all-equal column, and the
+    empty / single-row columns. Running the same cases through the second
+    oracle is what keeps the engine-defined `NaN` permutation honest;
+  - a second, **row-level** parity table (`sort ordering parity — nullish
+rows`) for the case the value-level table structurally cannot reach: the
+    array itself holding `null` / `undefined` rows, where `sort`'s own
+    element hoisting — not the comparator — decides the order, and where the
+    two nullish kinds stop behaving alike. It includes the paging symptom
+    (`perPage: 2` over `[undefined, {v:'a'}, {v:'b'}]` must not put a blank
+    row on page 1);
+  - identity guards: `_sorted` returns a fresh array and leaves both the
+    caller's array and `_filtered()` untouched, sorted or not;
+  - **stability** over 1 024 rows in 4 groups, both directions;
+  - **cost** guards over 512 rows, each with its bound derived in a comment.
+    Collator resolutions (counted by subclassing `Intl.Collator` _and_
+    patching `String.prototype.localeCompare`, the two ways to reach one) are
+    `≤ 1` per sort pass where the old comparator needed 511 – ≈4 600.
+    `_read` calls and `String()` conversions (counted with a getter and a
+    counting `toString` on the row) are exactly `N`, where the old comparator
+    did 2 per comparison. A third guard swaps `globalThis.String` for the
+    duration of one `connect()()` and pins an all-numeric column at **0**
+    string conversions — the regression eager decoration would introduce.
+
+- `libs/core/data-table/src/lib/data-source-sort-locale.spec.ts` — the
+  locale-switch guard. Sorting resolves the **host** locale, so
+  `MlvI18nService.switchLanguage()` must not move a row; the words are chosen
+  so Turkish collation genuinely disagrees with the host's (dotless `ı`), and
+  the test fails loudly if the host default ever coincides. It lives in
+  `core-data-table` rather than next to the data source because
+  `@nx/enforce-module-boundaries` restricts `family:cdk` to `family:cdk`, so
+  `libs/cdk/data-source` may not import `@malva-ui/i18n` even from a spec.
 
 `data-source.types.ts` is types only (no test).
 

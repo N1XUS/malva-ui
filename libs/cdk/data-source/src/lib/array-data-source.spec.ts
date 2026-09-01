@@ -8,6 +8,7 @@ import type {
   MlvDataSourceFilterOperator,
   MlvFilterState,
   MlvSearchState,
+  MlvSortDirection,
 } from './data-source.types';
 
 /**
@@ -917,5 +918,533 @@ describe('MlvArrayDataSource filter operators', () => {
     expect(
       run({ key: 'label', operator: unknownOperator, value: 'ca' }),
     ).toEqual([1, 2, 3, 4]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sorting — ordering parity, cost guards and stability
+// ---------------------------------------------------------------------------
+
+/**
+ * Verbatim copy of the pre-decoration `_sorted` comparator: `_read` and
+ * `String(… ?? '')` are evaluated per comparison, and the string branch goes
+ * through `localeCompare(…, undefined, { numeric: true })`, which resolves a
+ * fresh collator every call.
+ *
+ * Every ordering assertion below is cross-checked against this oracle *and*
+ * against a literal expectation. The oracle keeps the cases whose result is
+ * implementation-defined (`NaN`) honest — it runs in the same engine, so it
+ * pins "unchanged from before", not a hand-derived order.
+ */
+function oracleSort(
+  rows: readonly unknown[],
+  key: string,
+  direction: MlvSortDirection,
+): unknown[] {
+  return [...rows].sort((a, b) => {
+    const av = oracleRead(a, key);
+    const bv = oracleRead(b, key);
+    let cmp: number;
+    if (typeof av === 'number' && typeof bv === 'number') {
+      cmp = av - bv;
+    } else {
+      cmp = String(av ?? '').localeCompare(String(bv ?? ''), undefined, {
+        numeric: true,
+      });
+    }
+    return direction === 'asc' ? cmp : -cmp;
+  });
+}
+
+/** One row of the ordering parity table: a column of values plus both orders. */
+interface SortCase {
+  readonly name: string;
+  /** Column values; the row at index `i` gets `id: i`. */
+  readonly values: readonly unknown[];
+  /** Expected `id` order under `'asc'`. */
+  readonly asc: readonly number[];
+  /** Expected `id` order under `'desc'`. */
+  readonly desc: readonly number[];
+  /**
+   * Set when the comparator returns `NaN` for some pair, which leaves the
+   * permutation up to the engine's sort implementation. The literal `asc`/
+   * `desc` above then only records what V8 happens to do today, so it is
+   * documented but not asserted — a V8 change would flip it without any
+   * behaviour of ours changing. The oracle cross-check still runs and is the
+   * real guarantee: same engine, same input, unchanged from before the
+   * decoration rewrite.
+   */
+  readonly engineDefined?: true;
+}
+
+const sortCases: readonly SortCase[] = [
+  // `null` and `undefined` both collapse to `''` via `?? ''`, so they tie with
+  // an actual empty string and with each other; stability keeps input order.
+  {
+    name: 'nullish values tie with the empty string and sort first',
+    values: [null, undefined, '', 'b', 'a'],
+    asc: [0, 1, 2, 4, 3],
+    desc: [3, 4, 0, 1, 2],
+  },
+  // A nullish value against a number is *not* the numeric branch: `''` vs the
+  // stringified number, so nullish leads under `asc`.
+  {
+    name: 'nullish values sort ahead of numbers',
+    values: [null, 5, undefined, 10, 2],
+    asc: [0, 2, 4, 1, 3],
+    desc: [3, 1, 4, 0, 2],
+  },
+  // The branch keys off the *pair*, so a number/string pair is compared as
+  // strings while a number/number pair inside the same column is not.
+  {
+    name: 'a column mixing numbers and strings, numbers first',
+    values: [10, '9', 2, 'apple'],
+    asc: [2, 1, 0, 3],
+    desc: [3, 0, 1, 2],
+  },
+  {
+    name: 'the same mixed column with the pair order swapped',
+    values: ['9', 10, 'apple', 2],
+    asc: [3, 0, 1, 2],
+    desc: [2, 1, 0, 3],
+  },
+  // `1.5` vs `1.25` is the discriminator between the two branches: numerically
+  // 1.25 < 1.5, but `numeric: true` collation reads the fraction digits as a
+  // number and puts '1.5' before '1.25'.
+  {
+    name: 'a number/number pair takes the numeric branch',
+    values: [1.5, 1.25],
+    asc: [1, 0],
+    desc: [0, 1],
+  },
+  {
+    name: 'a number/string pair takes the collator branch',
+    values: [1.5, '1.25'],
+    asc: [0, 1],
+    desc: [1, 0],
+  },
+  // `numeric: true` — the option a refactor is most likely to silently drop.
+  {
+    name: 'numeric collation orders item2 before item10',
+    values: ['item10', 'item2', 'item1'],
+    asc: [2, 1, 0],
+    desc: [0, 1, 2],
+  },
+  // `av - bv` yields NaN, so the comparator returns NaN and the resulting
+  // permutation is engine-defined. Pinned, not fixed — see the oracle above.
+  {
+    name: 'NaN keeps its engine-defined placement',
+    values: [3, NaN, 1, 2],
+    asc: [0, 1, 2, 3],
+    desc: [0, 1, 3, 2],
+    engineDefined: true,
+  },
+  {
+    name: 'infinities order numerically',
+    values: [Infinity, -Infinity, 0, 5],
+    asc: [1, 2, 3, 0],
+    desc: [0, 3, 2, 1],
+  },
+  // `Infinity - Infinity` is NaN too, so a column that merely *repeats* an
+  // infinity reaches the NaN path with no NaN anywhere in the data.
+  {
+    name: 'a repeated infinity reaches the NaN path without any NaN',
+    values: [Infinity, 3, Infinity, 1],
+    asc: [3, 1, 0, 2],
+    desc: [0, 2, 1, 3],
+    engineDefined: true,
+  },
+  // `0 - -0` is `0`, so the two tie and stability decides.
+  {
+    name: '-0 ties with 0',
+    values: [0, -0, 1, -1],
+    asc: [3, 0, 1, 2],
+    desc: [2, 0, 1, 3],
+  },
+  {
+    name: 'booleans compare as "false" < "true"',
+    values: [true, false, true],
+    asc: [1, 0, 2],
+    desc: [0, 2, 1],
+  },
+  // `String(date)` is the locale-independent `Date.prototype.toString`, which
+  // leads with the weekday name — so 'Thu Jan 02' sorts before 'Wed Jan 01'.
+  {
+    name: 'dates compare as their toString, weekday first',
+    values: [new Date(2020, 0, 2), new Date(2020, 0, 1)],
+    asc: [0, 1],
+    desc: [1, 0],
+  },
+  {
+    name: 'objects compare through their toString',
+    values: [{ toString: () => 'zeta' }, { toString: () => 'alpha' }],
+    asc: [1, 0],
+    desc: [0, 1],
+  },
+  {
+    name: 'an all-equal column keeps input order in both directions',
+    values: ['x', 'x', 'x', 'x'],
+    asc: [0, 1, 2, 3],
+    desc: [0, 1, 2, 3],
+  },
+  { name: 'an empty column', values: [], asc: [], desc: [] },
+  { name: 'a single-row column', values: ['solo'], asc: [0], desc: [0] },
+];
+
+describe('MlvArrayDataSource sort ordering parity', () => {
+  for (const testCase of sortCases) {
+    for (const direction of ['asc', 'desc'] as const) {
+      it(`${testCase.name} [${direction}]`, () => {
+        const rows = testCase.values.map((v, id) => ({ id, v }));
+        const source = new MlvArrayDataSource(rows);
+        source.setPerPage(Infinity);
+        source.setSort({ key: 'v', direction });
+
+        const sorted = source.connect()();
+
+        if (!testCase.engineDefined) {
+          expect(sorted.map((row) => row.id)).toEqual(
+            direction === 'asc' ? testCase.asc : testCase.desc,
+          );
+        }
+        // …and identical to the pre-decoration comparator, element for element.
+        expect(sorted).toEqual(oracleSort(rows, 'v', direction));
+      });
+    }
+  }
+
+  it('returns a fresh array and never mutates the filtered input', () => {
+    const rows = [{ v: 'c' }, { v: 'a' }, { v: 'b' }];
+    const data = signal(rows);
+    const source = new MlvArrayDataSource(data);
+    source.setPerPage(Infinity);
+    source.setSort({ key: 'v', direction: 'asc' });
+
+    const sorted = source.connect()();
+
+    expect(sorted.map((row) => row.v)).toEqual(['a', 'b', 'c']);
+    expect(sorted).not.toBe(rows);
+    // The caller's array is untouched — the sort ran over a copy.
+    expect(rows.map((row) => row.v)).toEqual(['c', 'a', 'b']);
+    expect(data()).toBe(rows);
+  });
+
+  it('still returns a copy when no sort is active', () => {
+    const rows = [{ v: 'c' }, { v: 'a' }];
+    const source = new MlvArrayDataSource(rows);
+    source.setPerPage(Infinity);
+
+    const connected = source.connect()();
+
+    expect(connected).toEqual(rows);
+    expect(connected).not.toBe(rows);
+  });
+});
+
+/** A row in the nullish-row table: an object row, or a nullish row itself. */
+type NullishRow = { v: string } | null | undefined;
+
+/** Renders a row as its sort key, so a nullish row is visible in a diff. */
+const rowLabel = (row: NullishRow): string | null | undefined =>
+  row == null ? row : row.v;
+
+/**
+ * Row-level cases: the **array** holds nullish rows, not merely nullish
+ * values. `undefined` and `null` diverge here, and the divergence is
+ * `Array.prototype.sort`'s, not the comparator's: `sort` resolves every pair
+ * involving an `undefined` *element* by itself — always to the end, in both
+ * directions, without invoking the comparator — while a `null` element is
+ * passed through, reads as `undefined`, stringifies to `''` and therefore
+ * leads under `asc`.
+ *
+ * This is the gap the value-level table above cannot cover, because every row
+ * it builds is a real object.
+ */
+interface NullishRowCase {
+  readonly name: string;
+  readonly rows: NullishRow[];
+  readonly asc: readonly (string | null | undefined)[];
+  readonly desc: readonly (string | null | undefined)[];
+}
+
+const nullishRowCases: readonly NullishRowCase[] = [
+  {
+    name: 'an undefined row sinks to the end in both directions',
+    rows: [{ v: 'b' }, undefined, { v: 'a' }],
+    asc: ['a', 'b', undefined],
+    desc: ['b', 'a', undefined],
+  },
+  {
+    name: 'a null row leads under asc and trails under desc',
+    rows: [{ v: 'b' }, null, { v: 'a' }],
+    asc: [null, 'a', 'b'],
+    desc: ['b', 'a', null],
+  },
+  {
+    name: 'null and undefined rows do not sort alike',
+    rows: [{ v: 'b' }, undefined, null, { v: 'a' }],
+    asc: [null, 'a', 'b', undefined],
+    desc: ['b', 'a', null, undefined],
+  },
+  {
+    name: 'several undefined rows all sink',
+    rows: [undefined, { v: 'b' }, undefined, { v: 'a' }],
+    asc: ['a', 'b', undefined, undefined],
+    desc: ['b', 'a', undefined, undefined],
+  },
+  {
+    name: 'an all-undefined array is left alone',
+    rows: [undefined, undefined],
+    asc: [undefined, undefined],
+    desc: [undefined, undefined],
+  },
+  {
+    name: 'a null row outranks an undefined row in both directions',
+    rows: [undefined, null],
+    asc: [null, undefined],
+    desc: [null, undefined],
+  },
+];
+
+describe('MlvArrayDataSource sort ordering parity — nullish rows', () => {
+  for (const testCase of nullishRowCases) {
+    for (const direction of ['asc', 'desc'] as const) {
+      it(`${testCase.name} [${direction}]`, () => {
+        const source = new MlvArrayDataSource<NullishRow>(testCase.rows);
+        source.setPerPage(Infinity);
+        source.setSort({ key: 'v', direction });
+
+        const sorted = source.connect()();
+
+        expect(sorted.map(rowLabel)).toEqual(
+          direction === 'asc' ? testCase.asc : testCase.desc,
+        );
+        expect(sorted).toEqual(oracleSort(testCase.rows, 'v', direction));
+      });
+    }
+  }
+
+  it('does not push a real row off the first page with an undefined row', () => {
+    // The paging symptom of the divergence: an `undefined` row leading under
+    // `asc` renders a blank first row and bumps a real one to page 2.
+    const source = new MlvArrayDataSource<NullishRow>([
+      undefined,
+      { v: 'a' },
+      { v: 'b' },
+    ]);
+    source.setPerPage(2);
+    source.setSort({ key: 'v', direction: 'asc' });
+
+    expect(source.connect()().map(rowLabel)).toEqual(['a', 'b']);
+
+    source.setPage(2);
+    expect(source.connect()().map(rowLabel)).toEqual([undefined]);
+  });
+});
+
+describe('MlvArrayDataSource sort stability', () => {
+  /**
+   * 1 024 rows over 4 distinct keys. Every group is far larger than the
+   * 22-element run threshold at which V8's TimSort switches from binary
+   * insertion sort to merging, so a comparator that lost positional
+   * information — sorting indices, or rebuilding the output from a
+   * value-keyed lookup — would visibly scramble the ids inside a group.
+   */
+  const size = 1024;
+  const rows = Array.from({ length: size }, (_, id) => ({
+    id,
+    bucket: `g${id % 4}`,
+  }));
+
+  const idsInBucket = (bucket: number): number[] =>
+    rows.filter((row) => row.bucket === `g${bucket}`).map((row) => row.id);
+
+  it('keeps equal keys in input order under asc', () => {
+    const source = new MlvArrayDataSource(rows);
+    source.setPerPage(Infinity);
+    source.setSort({ key: 'bucket', direction: 'asc' });
+
+    expect(
+      source
+        .connect()()
+        .map((row) => row.id),
+    ).toEqual([0, 1, 2, 3].flatMap(idsInBucket));
+  });
+
+  it('keeps equal keys in input order under desc, reversing only the groups', () => {
+    const source = new MlvArrayDataSource(rows);
+    source.setPerPage(Infinity);
+    source.setSort({ key: 'bucket', direction: 'desc' });
+
+    expect(
+      source
+        .connect()()
+        .map((row) => row.id),
+    ).toEqual([3, 2, 1, 0].flatMap(idsInBucket));
+  });
+});
+
+describe('MlvArrayDataSource sort cost', () => {
+  /**
+   * 512 rows with distinct string keys, so every comparison takes the collator
+   * branch. A comparison sort over N = 512 elements performs at least N - 1 =
+   * 511 comparisons, and V8's TimSort performs on the order of N·log2(N) ≈
+   * 4 600 on shuffled input — the two bounds every guard below is derived from.
+   */
+  const size = 512;
+
+  /** Deterministic shuffle: `i * 37 mod 512` is a permutation (37 is odd). */
+  const shuffledLabel = (i: number): string =>
+    `item-${String((i * 37) % size).padStart(3, '0')}`;
+
+  it('resolves at most one collator per sort pass, not one per comparison', () => {
+    const rows = Array.from({ length: size }, (_, id) => ({
+      id,
+      label: shuffledLabel(id),
+    }));
+    const source = new MlvArrayDataSource(rows);
+    source.setPerPage(Infinity);
+    source.setSort({ key: 'label', direction: 'asc' });
+
+    // Both routes to a collator are counted: constructing one directly, and
+    // `String.prototype.localeCompare` with an options bag, which per
+    // ECMA-402 initialises a fresh collator on every single call.
+    let resolutions = 0;
+    const RealCollator = Intl.Collator;
+    class CountingCollator extends RealCollator {
+      constructor(
+        locales?: Intl.LocalesArgument,
+        options?: Intl.CollatorOptions,
+      ) {
+        super(locales, options);
+        resolutions++;
+      }
+    }
+    const realLocaleCompare = String.prototype.localeCompare;
+    const intl = Intl as { Collator: typeof Intl.Collator };
+    const stringProto = String.prototype as {
+      localeCompare: typeof String.prototype.localeCompare;
+    };
+
+    let ascending: readonly { id: number }[];
+    let descending: readonly { id: number }[];
+    intl.Collator = CountingCollator;
+    stringProto.localeCompare = function (
+      this: string,
+      that: string,
+      locales?: Intl.LocalesArgument,
+      options?: Intl.CollatorOptions,
+    ): number {
+      resolutions++;
+      return realLocaleCompare.call(this, that, locales, options);
+    };
+    try {
+      ascending = source.connect()();
+      source.setSort({ key: 'label', direction: 'desc' });
+      descending = source.connect()();
+    } finally {
+      intl.Collator = RealCollator;
+      stringProto.localeCompare = realLocaleCompare;
+    }
+
+    // Non-vacuity: the two passes really did sort all 512 rows.
+    expect(ascending.map((row) => row.id)).toEqual(
+      [...rows].sort((a, b) => (a.label < b.label ? -1 : 1)).map((r) => r.id),
+    );
+    expect(descending.map((row) => row.id)).toEqual(
+      [...ascending].reverse().map((row) => row.id),
+    );
+
+    // Bound: O(1) per sort pass — at most one resolution each, so at most 2
+    // for the two passes above. Observed: 0, because the collator is resolved
+    // once at module scope and reused. The pre-change comparator resolved one
+    // per comparison, i.e. between 2 × 511 = 1 022 and ≈ 2 × 4 600 = 9 200.
+    expect(resolutions).toBeLessThanOrEqual(2);
+  });
+
+  it('reads and stringifies each row once per sort, not once per comparison', () => {
+    let reads = 0;
+    let stringifications = 0;
+    const rows = Array.from({ length: size }, (_, id) => {
+      const label = shuffledLabel(id);
+      return {
+        id,
+        // The getter counts `_read`; the object it hands back counts the
+        // `String(… ?? '')` the collator branch needs. Both are what the
+        // comparator used to do twice per comparison.
+        get label(): unknown {
+          reads++;
+          return {
+            toString: (): string => {
+              stringifications++;
+              return label;
+            },
+          };
+        },
+      };
+    });
+
+    const source = new MlvArrayDataSource(rows);
+    source.setPerPage(Infinity);
+    source.setSort({ key: 'label', direction: 'asc' });
+
+    const sorted = source.connect()();
+
+    // Non-vacuity: the rows really came back in collated label order.
+    expect(sorted.map((row) => row.id)).toEqual(
+      Array.from({ length: size }, (_, i) => i).sort(
+        (a, b) => ((a * 37) % size) - ((b * 37) % size),
+      ),
+    );
+
+    // Bound: decorate–sort–undecorate touches each row exactly once, so both
+    // counters equal N = 512 no matter how many comparisons the sort makes.
+    // The pre-change comparator did both inside the comparator — 2 per
+    // comparison — so it performed between 2 × 511 = 1 022 and ≈ 9 200 of each.
+    expect(reads).toBe(size);
+    expect(stringifications).toBe(size);
+  });
+
+  it('stringifies nothing at all for a column the numeric branch fully covers', () => {
+    const rows = Array.from({ length: size }, (_, id) => ({
+      id,
+      amount: (id * 37) % size,
+    }));
+    const source = new MlvArrayDataSource(rows);
+    source.setPerPage(Infinity);
+    source.setSort({ key: 'amount', direction: 'asc' });
+
+    // `String(number)` never consults `Number.prototype.toString`, so the only
+    // way to count it is to swap the global the module resolves `String` from.
+    // The window is exactly the one `connect()()` call.
+    const realString = globalThis.String;
+    let stringCalls = 0;
+    const countingString = ((value?: unknown): string => {
+      stringCalls++;
+      return (realString as (v?: unknown) => string)(value);
+    }) as unknown as StringConstructor;
+    // Inheriting from the real `String` keeps its statics (`String.raw`,
+    // `fromCharCode`, …) and `String.prototype` reachable through the chain,
+    // so anything else running inside the window is unaffected.
+    Object.setPrototypeOf(countingString, realString);
+
+    let sorted: readonly { id: number; amount: number }[];
+    globalThis.String = countingString;
+    try {
+      sorted = source.connect()();
+    } finally {
+      globalThis.String = realString;
+    }
+
+    // Non-vacuity: 512 rows really were sorted numerically.
+    expect(sorted.map((row) => row.amount)).toEqual(
+      Array.from({ length: size }, (_, i) => i),
+    );
+
+    // Bound: 0. Every pair is number/number, so the collator branch never runs
+    // and no comparand is ever needed as a string. The pre-change comparator
+    // also stringified nothing here — decorating eagerly would have made this
+    // 512 where it used to be 0, which is why the text form is computed lazily.
+    expect(stringCalls).toBe(0);
   });
 });
