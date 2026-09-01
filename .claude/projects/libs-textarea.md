@@ -252,3 +252,108 @@ readonly descCtrl = new FormControl('', Validators.required);
 - **Touch:** blur emits the base `touch` output via `_markTouched()` (was CVA `onTouched`). `clearValue()` now does `value.set('')` + `_markTouched()` (preserves the old clear-marks-touched behaviour).
 - **No constraint collisions:** the only `FormUiControl` same-named input is `maxLength` (`number | undefined`), whose type already matches the contract — no widening needed.
 - **Matrix spec:** `textarea-binding-matrix.spec.ts` runs `verifyFormsBinding` green in all three modes (`[formControl]`, `ngModel`, `[formField]`). Existing `textarea.spec.ts` updated off removed CVA APIs (`internalValue` → `value`, `writeValue` → `value.set`, added `touch`-output + `clearValue` assertions).
+
+---
+
+## Auto-resize measurement (2026-09, issue #9)
+
+`_runAutoResize()` runs from a `value` effect. The height it applies is unchanged
+— it is always the true content height clamped to the row window — but how it is
+obtained is not.
+
+- **SSR:** the effect ran on the server too and called `getComputedStyle` there,
+  throwing on every server render. Angular routes an `effect` exception to the
+  `ErrorHandler` and keeps rendering, so the markup was always fine and the error
+  silent. Now guarded by `isPlatformBrowser` (`_isBrowser`). Covered by
+  `libs/core/src/ssr-smoke.spec.ts`, which asserts an **empty `ErrorHandler`
+  collection** — the markup assertions alone never caught it.
+- **One computed style read per resize, on every path.** `lineHeight` /
+  `paddingTop` / `paddingBottom` came from three separate `getComputedStyle(el)`
+  calls; they now come off one declaration in `_readMetrics()`. This was never
+  "3 style recalculations": no write separates the three reads, so the first
+  flushed style and the other two were served from it — 1 recalculation, 3
+  property reads.
+- **The `height: auto` reset is skipped on a safe append.** The reset exists for
+  _shrinking_ — with an explicit height applied `scrollHeight` saturates at it.
+  The fast path is taken only when the new value extends the old one **and**
+  contains no joining-script character **and** the content-box width, the
+  resolved font metrics and `minRows`/`maxRows` are all unchanged. Then an
+  unchanged height writes nothing, and growth writes once (and not at all when
+  the clamp maps it back to the height already applied — at the `maxRows`
+  ceiling `scrollHeight` runs ahead forever, so without that check the branch
+  would rewrite the same value on every keystroke). Every other edit takes the
+  reset path, where the single write precedes _all_ reads so one recalculation
+  serves them.
+- **The font metrics are compared, not cached.** `heightPx` is a number derived
+  from the line height and padding, so reusing it is trusting them. `clientWidth`
+  cannot notice them moving: the field is `width: 100%; box-sizing: border-box`,
+  so it reports the _container_ width and does not budge on a font-size or
+  padding change. The fast path therefore re-reads the metrics and compares them
+  against `AutoResizeState.metrics`, bailing to the reset path on any mismatch.
+  Without this a `MlvDensityService` flip on `--form-ctrl-font-size`, a theme
+  swap, a root font-size change or a web font finishing load would leave the
+  height latched at the old value — silently violating `minRows`, with the
+  overflow scrolling behind `scrollbar-width: none`.
+- **Joining scripts bypass the fast path entirely.** The append premise ("text
+  added at the end never moves where the earlier lines break") is false for
+  cursive scripts: appending a joining letter switches the _preceding_ letter to
+  a narrower medial form, which can pull a line back. Measured in Chrome 145 at
+  220px, `'wwwww ' + 'ب'×26` occupies two lines and appending one `'ه'` returns
+  it to one. `JOINING_SCRIPT_PATTERN` is content-based, not keyed off
+  `direction`, because Arabic-script text appears in `dir="ltr"` fields too. It
+  covers Arabic and its supplements, Syriac, Thaana, N'Ko, Mongolian, Adlam,
+  Mandaic, Hanifi Rohingya, Manichaean, Psalter Pahlavi, Sogdian, Chorasmian and
+  Old Uyghur. Over-matching is harmless — it only routes a resize down the
+  always-correct reset path.
+- **A measurement taken while the element is not laid out is used but never
+  stored** (`clientWidth === 0`). Only a **detached** element resolves empty
+  longhands and drives the `|| 24` / `|| 0` fallbacks; a `display: none` element
+  still in the document resolves real values in Chrome. This store guard is now
+  belt-and-braces: the fast path's width comparison already refuses such a state,
+  since reusing it would require the current width to be 0 as well.
+
+### Known cosmetic deviation
+
+`lineHeightPx` is the unitless `1.5` resolved against the font size, so the
+clamp it produces is routinely fractional while `scrollHeight` is an integer.
+At the `maxRows` ceiling the integer can round just past the clamp, firing the
+grow branch once and writing e.g. `93px` where the previous implementation wrote
+`92.8px`. It is self-limiting — the next measurement re-derives from the clamp,
+not from the rounded value — and invisible at one device pixel.
+
+### Measurements
+
+Chrome 145, one keystroke per animation frame, `minRows=2` / `maxRows=8`,
+counting `UpdateLayoutTree` and `Layout` trace events over 150 keystrokes:
+
+| Workload                                                               | HEAD      | After     | Change |
+| ---------------------------------------------------------------------- | --------- | --------- | ------ |
+| A — 150 monotone appends (the fast path's best case)                   | 299 / 299 | 152 / 152 | −49%   |
+| B — 150 mixed edits (70% append, 18% backspace, 12% mid-string splice) | 299 / 299 | 197 / 197 | −34%   |
+
+HEAD costs ~2 of each per keystroke: one forced synchronously by the
+`scrollHeight` read after `height: auto`, one at frame time from the trailing
+write. Workload B is lower-bounded by its deletions and splices, which still run
+the reset path in full — the win is confined to appends.
+
+The metrics re-read added for the invalidation fix costs nothing measurable: the
+fast path reads `clientWidth` / `scrollHeight` _before_ `getComputedStyle`, and
+forcing layout settles style on the way, so the style read is served from the
+same clean pass.
+
+Equivalence is checked two ways. In real Chrome, 400 appends and 800 mixed edits
+produced byte-identical heights to the previous implementation. In the spec,
+`textarea.spec.ts` runs five seeded 120-step fuzzes (appends, truncations,
+mid-string splices, joining-script insertions, width changes, font-metric
+changes and clamp changes) asserting after **every** step that the applied height
+equals the reference — the true content height clamped to the row window, which
+is exactly what the previous implementation computed. Dropping the font-metrics
+comparison fails 3 of the 5 seeds; the joining-script defect is not reachable by
+the fuzz (jsdom does not shape text) and is covered by dedicated tests using the
+measured Chrome string.
+
+`field-sizing: content` was evaluated and rejected as the primary path: it only
+became Baseline "newly available" in June 2026 (Firefox 152), so the JS path has
+to stay for a large installed base, and duplicating the `minRows`/`maxRows`
+semantics in CSS would create two clamping implementations that can disagree. It
+remains a reasonable later enhancement behind `@supports`.

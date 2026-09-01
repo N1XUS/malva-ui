@@ -1,10 +1,11 @@
-import { Component, signal } from '@angular/core';
+import { Component, ErrorHandler, signal } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { renderApplication } from '@angular/platform-server';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvInput } from '@malva-ui/core/input';
+import { MlvTextarea } from '@malva-ui/core/textarea';
 import { MlvSelect } from '@malva-ui/core/select';
 import { MlvCombobox } from '@malva-ui/core/combobox';
 import {
@@ -43,6 +44,7 @@ import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
   imports: [
     MlvButton,
     MlvInput,
+    MlvTextarea,
     MlvSelect,
     MlvCombobox,
     MlvTabGroup,
@@ -65,6 +67,7 @@ import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
   template: `
     <button mlvButton>Save</button>
     <mlv-input label="Name" />
+    <mlv-textarea label="Bio" autoResize [minRows]="2" [maxRows]="6" />
     <mlv-select label="Fruit" [options]="fruits()" />
     <mlv-combobox label="Fruit" [options]="fruits()" />
 
@@ -117,6 +120,39 @@ const render = (): Promise<string> =>
     { document: '<mlv-ssr-host></mlv-ssr-host>', url: '/' },
   );
 
+/**
+ * Renders the same host, collecting everything that reaches the `ErrorHandler`
+ * instead of letting Angular swallow it.
+ *
+ * Markup alone does not prove SSR safety. Angular routes an exception thrown
+ * inside an `effect` to the `ErrorHandler` and carries on rendering, so a
+ * component that reaches for a browser global during server rendering still
+ * produces perfectly good markup while logging an error on every request.
+ */
+const renderCollectingErrors = async (): Promise<unknown[]> => {
+  const errors: unknown[] = [];
+  await renderApplication(
+    (context) =>
+      bootstrapApplication(
+        SsrHost,
+        {
+          providers: [
+            provideMlvI18nTesting(),
+            {
+              provide: ErrorHandler,
+              useValue: {
+                handleError: (error: unknown) => errors.push(error),
+              },
+            },
+          ],
+        },
+        context,
+      ),
+    { document: '<mlv-ssr-host></mlv-ssr-host>', url: '/' },
+  );
+  return errors;
+};
+
 describe('@malva-ui/core SSR safety', () => {
   it('server-renders the measurement- and observer-heavy components', async () => {
     const html = await render();
@@ -125,6 +161,7 @@ describe('@malva-ui/core SSR safety', () => {
     // than throwing during construction.
     for (const selector of [
       'mlv-input',
+      'mlv-textarea',
       'mlv-select',
       'mlv-combobox',
       'mlv-tab-group',
@@ -142,6 +179,20 @@ describe('@malva-ui/core SSR safety', () => {
         `<${selector}`,
       );
     }
+  });
+
+  it('server-renders without any component reaching a browser global', async () => {
+    const errors = await renderCollectingErrors();
+
+    // `mlv-textarea[autoResize]` measured itself from a `value` effect, which
+    // Angular runs during server-side change detection too. It called
+    // `getComputedStyle` there and threw on every render — silently, because
+    // the markup still came out intact.
+    expect(
+      errors.map((error) =>
+        error instanceof Error ? error.message : String(error),
+      ),
+    ).toEqual([]);
   });
 
   it('renders no overlay markup on the server', async () => {
