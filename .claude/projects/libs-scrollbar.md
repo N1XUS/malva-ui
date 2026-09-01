@@ -118,7 +118,7 @@ host: {
 #### Template Structure
 
 ```html
-<div class="mlv-scrollbar__viewport" #viewport [attr.tabindex]="viewportTabIndex()" [attr.role]="_viewportRole()" [attr.aria-label]="_viewportAriaLabel()" (scroll)="_onScroll()">
+<div class="mlv-scrollbar__viewport" #viewport [attr.tabindex]="viewportTabIndex()" [attr.role]="_viewportRole()" [attr.aria-label]="_viewportAriaLabel()">
   <div class="mlv-scrollbar__content" #content>
     <ng-content />
   </div>
@@ -169,9 +169,68 @@ host: {
 
 Thumb drag is supported. On `pointerdown`, the thumb captures the pointer via `setPointerCapture`, then translates `pointermove` deltas into viewport `scrollTop`/`scrollLeft` updates. Released on `pointerup` or `pointercancel`.
 
+#### Scroll listener (an `rxjs` stream, not a template binding)
+
+The viewport's scroll handler is bound as
+`fromEvent(viewportEl, 'scroll', { passive: true })` from `afterNextRender`,
+inside `runOutsideAngular`, and torn down with
+`takeUntilDestroyed(this._destroyRef)` — the `DestroyRef` is passed explicitly
+because an `afterNextRender` callback is not an injection context. There is
+**no `(scroll)` binding** in `scrollbar.html`, and `_onScroll` is `private`.
+
+A template listener is wrapped by Angular in
+`wrapListenerIn_markDirtyAndPreventDefault`, which marks the whole ancestor view
+chain dirty and notifies the change-detection scheduler _before_ it can know
+whether the handler changed anything — one full change-detection pass per scroll
+event, at input frequency, for a handler whose signals usually land back on the
+values they already held. Under zoneless change detection (the docs app, and any
+consumer on `provideZonelessChangeDetection()`) that scheduler notification is
+the entire cost, which is why `runOutsideAngular` alone would not have fixed it;
+the wrapper had to go. `runOutsideAngular` is kept because this is a published
+library and consumers may still run zone-based change detection, where the zone
+would schedule its own tick on top.
+
+Measured in `scrollbar-scroll-listener.spec.ts`: 20 scroll events over an
+unchanged layout cost **0** change-detection passes; the template binding cost
+**20**. `MlvScrollbar` still exposes **no `scroll` output** — wrapping components
+attach their own listener to the public `viewportElement`, as `main[mlvPage]`
+and `mlv-chat` do.
+
 #### ResizeObserver
 
 A native `ResizeObserver` watches both the viewport element (host resize) and the content wrapper (content size changes). When either resizes, overflow state and thumb geometry are recalculated. In SSR/test environments without `ResizeObserver`, initial rendering and native scrolling remain available while geometry observation is skipped. The i18n token is optional, with `"Scrollable region"` as the accessible-label fallback.
+
+#### Track-metric cache (scroll fast path)
+
+`_updateThumbPositions()` runs on every scroll event. It reads **only** the
+viewport's own scroll state (`scrollTop`/`scrollLeft`,
+`clientHeight`/`clientWidth`, `scrollHeight`/`scrollWidth`). Each track's
+padding (`--mlv-sb-edge-padding`) and usable extent are cached per axis by the
+private `_trackMetrics(axis)`, because reading them costs a style recalculation
+(`getComputedStyle`) plus a forced layout (`offsetHeight`/`offsetWidth`) and
+neither can change as a result of scrolling. `_onThumbPointerDown` shares the
+same cache.
+
+The cache is dropped when — and only when — the tracks can have been laid out
+differently:
+
+| Trigger                                                  | Why                                                                                                                                                                                                 |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_updateGeometry()` (ResizeObserver)                     | The host or content resized, so a track may have resized with it.                                                                                                                                   |
+| An overflow flip, cross-axis                             | The corner-avoidance rule shortens each track by one `--mlv-sb-size` while the _other_ track is visible.                                                                                            |
+| A `scrollbarSize` change (an `effect`)                   | Same corner rule; the tracks themselves are not observed, and neither the viewport nor the content resizes when this input moves.                                                                   |
+| An `orientation` / `disabled` change (the same `effect`) | `--hidden` is bound to `!_showX() \|\| !_hasXOverflow()`, so these turn the same corner rule on and off with **no** overflow signal moving and no resize — the cross-axis flip check cannot see it. |
+
+A measurement is only cached when the track was genuinely laid out
+(`extent > 0`, finite padding). A track with no overflow carries
+`.mlv-scrollbar__track--hidden` (`display: none`, so extent `0`), and
+`_updateGeometry()` measures **synchronously**, before Angular re-renders the
+class binding it has just invalidated — so on the frame where overflow first
+appears the track is still hidden and still measures `0`. That measurement is
+used for the current frame (keeping the maths identical to the uncached
+implementation) but deliberately not cached; the next read re-measures the
+now-visible track. Caching it would pin the thumb to a zero-length track for
+the lifetime of the component.
 
 ---
 
