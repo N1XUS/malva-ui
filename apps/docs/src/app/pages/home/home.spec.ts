@@ -24,9 +24,11 @@ describe('HomePageComponent', () => {
         provideMlvI18nTesting(),
         {
           provide: MlvBreakpointService,
-          useValue: {
-            isDown: () => signal(false),
-          },
+          useValue: (() => {
+            // One stable instance, mirroring the real service's contract.
+            const isDown = signal(false);
+            return { isDown: () => isDown };
+          })(),
         },
         {
           provide: MlvThemeService,

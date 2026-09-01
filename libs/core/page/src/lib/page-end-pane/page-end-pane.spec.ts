@@ -1,3 +1,4 @@
+import type { Signal } from '@angular/core';
 import { Component, computed, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
@@ -16,8 +17,16 @@ class FakeBreakpointService {
     lg: false,
   });
 
+  /** Cached per breakpoint, mirroring the real service's stable-identity contract. */
+  private readonly _downSignals = new Map<MlvBreakpoint, Signal<boolean>>();
+
   isDown(breakpoint: MlvBreakpoint) {
-    return computed(() => this._down()[breakpoint]);
+    let cached = this._downSignals.get(breakpoint);
+    if (!cached) {
+      cached = computed(() => this._down()[breakpoint]);
+      this._downSignals.set(breakpoint, cached);
+    }
+    return cached;
   }
 
   setDown(breakpoint: MlvBreakpoint, down: boolean): void {

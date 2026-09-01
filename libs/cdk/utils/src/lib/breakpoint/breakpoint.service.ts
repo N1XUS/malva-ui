@@ -36,6 +36,27 @@ export class MlvBreakpointService {
   /** True when viewport is at or above lg threshold. */
   readonly isLg: Signal<boolean>;
 
+  /**
+   * @private Memoized {@link isUp} signals, keyed by the resolved
+   * `BREAKPOINT_ORDER` index of the requested breakpoint (not its name), so
+   * every out-of-union value collapses onto the single `-1` entry.
+   *
+   * Bounded by the size of the `MlvBreakpoint` union plus the single `-1`
+   * entry — four entries as `BREAKPOINT_ORDER` stands today — so there is
+   * nothing to evict and no eviction policy is needed. That bound assumes
+   * `BREAKPOINT_ORDER` is not mutated at runtime; it is `readonly` to
+   * TypeScript but is a plain, unfrozen exported array, so a caller that
+   * pushes into it would grow these maps to match.
+   *
+   * The service is a root singleton and the cached signals close over nothing
+   * but `breakpoint()` and the captured index, so sharing them across every
+   * caller is safe.
+   */
+  private readonly _upCache = new Map<number, Signal<boolean>>();
+
+  /** @private Memoized {@link isDown} signals. See {@link _upCache}. */
+  private readonly _downCache = new Map<number, Signal<boolean>>();
+
   constructor() {
     const mdQuery = `(min-width: ${this._config.md}px)`;
     const lgQuery = `(min-width: ${this._config.lg}px)`;
@@ -59,24 +80,44 @@ export class MlvBreakpointService {
   /**
    * Returns a signal that is true when the viewport is at or above
    * the given breakpoint.
+   *
+   * The signal is memoized per breakpoint, so repeated calls return the *same*
+   * instance. Calling this from a template (`@if (bp.isUp('lg')()) { … }`) is
+   * therefore safe — it reuses one reactive node instead of allocating a fresh
+   * one on every change-detection pass.
    */
   isUp(bp: MlvBreakpoint): Signal<boolean> {
-    return computed(() => {
-      const current = BREAKPOINT_ORDER.indexOf(this.breakpoint());
-      const target = BREAKPOINT_ORDER.indexOf(bp);
-      return current >= target;
-    });
+    // Resolved once per breakpoint, not on every read of the returned signal.
+    const target = BREAKPOINT_ORDER.indexOf(bp);
+    let cached = this._upCache.get(target);
+    if (!cached) {
+      cached = computed(
+        () => BREAKPOINT_ORDER.indexOf(this.breakpoint()) >= target,
+      );
+      this._upCache.set(target, cached);
+    }
+    return cached;
   }
 
   /**
    * Returns a signal that is true when the viewport is below
    * the given breakpoint.
+   *
+   * The signal is memoized per breakpoint, so repeated calls return the *same*
+   * instance. Calling this from a template (`@if (bp.isDown('md')()) { … }`) is
+   * therefore safe — it reuses one reactive node instead of allocating a fresh
+   * one on every change-detection pass.
    */
   isDown(bp: MlvBreakpoint): Signal<boolean> {
-    return computed(() => {
-      const current = BREAKPOINT_ORDER.indexOf(this.breakpoint());
-      const target = BREAKPOINT_ORDER.indexOf(bp);
-      return current < target;
-    });
+    // Resolved once per breakpoint, not on every read of the returned signal.
+    const target = BREAKPOINT_ORDER.indexOf(bp);
+    let cached = this._downCache.get(target);
+    if (!cached) {
+      cached = computed(
+        () => BREAKPOINT_ORDER.indexOf(this.breakpoint()) < target,
+      );
+      this._downCache.set(target, cached);
+    }
+    return cached;
   }
 }
