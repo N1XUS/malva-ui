@@ -4,7 +4,7 @@ import type { BreakpointState } from '@angular/cdk/layout';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Subject } from 'rxjs';
 import { MlvBreakpointService } from './breakpoint.service';
-import { MLV_BREAKPOINT_CONFIG } from './breakpoint.config';
+import { MLV_BREAKPOINT_CONFIG, type MlvBreakpoint } from './breakpoint.config';
 
 describe('MlvBreakpointService', () => {
   let service: MlvBreakpointService;
@@ -97,6 +97,127 @@ describe('MlvBreakpointService', () => {
     expect(service.isDown('sm')()).toBe(false);
     expect(service.isDown('md')()).toBe(false);
     expect(service.isDown('lg')()).toBe(true);
+  });
+
+  it('isUp should return the same signal instance for the same breakpoint', () => {
+    expect(service.isUp('md')).toBe(service.isUp('md'));
+    expect(service.isUp('sm')).toBe(service.isUp('sm'));
+    expect(service.isUp('lg')).toBe(service.isUp('lg'));
+  });
+
+  it('isDown should return the same signal instance for the same breakpoint', () => {
+    expect(service.isDown('md')).toBe(service.isDown('md'));
+    expect(service.isDown('sm')).toBe(service.isDown('sm'));
+    expect(service.isDown('lg')).toBe(service.isDown('lg'));
+  });
+
+  it('should not share signal instances across breakpoints or directions', () => {
+    const distinct = new Set([
+      service.isUp('sm'),
+      service.isUp('md'),
+      service.isUp('lg'),
+      service.isDown('sm'),
+      service.isDown('md'),
+      service.isDown('lg'),
+    ]);
+    expect(distinct.size).toBe(6);
+  });
+
+  it('a cached isDown signal should track later breakpoint changes', () => {
+    const isDownLg = service.isDown('lg');
+    expect(isDownLg()).toBe(true); // initial 'sm'
+
+    observeSubject.next({
+      matches: true,
+      breakpoints: {
+        '(min-width: 768px)': true,
+        '(min-width: 1200px)': true,
+      },
+    });
+
+    // Same instance, new value — the cache must memoize the signal, not the value.
+    expect(service.isDown('lg')).toBe(isDownLg);
+    expect(isDownLg()).toBe(false);
+
+    observeSubject.next({
+      matches: false,
+      breakpoints: {
+        '(min-width: 768px)': false,
+        '(min-width: 1200px)': false,
+      },
+    });
+    expect(isDownLg()).toBe(true);
+  });
+
+  it('a cached isUp signal should track later breakpoint changes', () => {
+    const isUpLg = service.isUp('lg');
+    expect(isUpLg()).toBe(false); // initial 'sm'
+
+    observeSubject.next({
+      matches: true,
+      breakpoints: {
+        '(min-width: 768px)': true,
+        '(min-width: 1200px)': true,
+      },
+    });
+
+    expect(service.isUp('lg')).toBe(isUpLg);
+    expect(isUpLg()).toBe(true);
+  });
+
+  // An out-of-union breakpoint resolves to `indexOf === -1`. Hoisting that
+  // lookup out of the reactive body moved *when* it resolves (call time rather
+  // than read time) but must not change the result: `isUp` stays permanently
+  // true (`current >= -1`) and `isDown` permanently false (`current < -1`).
+  // The service deliberately neither validates nor throws.
+  it('should preserve the -1 semantics of an unknown breakpoint', () => {
+    const bogus = 'xl' as MlvBreakpoint;
+
+    expect(service.isUp(bogus)()).toBe(true);
+    expect(service.isDown(bogus)()).toBe(false);
+
+    observeSubject.next({
+      matches: true,
+      breakpoints: {
+        '(min-width: 768px)': true,
+        '(min-width: 1200px)': true,
+      },
+    });
+    expect(service.isUp(bogus)()).toBe(true);
+    expect(service.isDown(bogus)()).toBe(false);
+
+    observeSubject.next({
+      matches: false,
+      breakpoints: {
+        '(min-width: 768px)': false,
+        '(min-width: 1200px)': false,
+      },
+    });
+    expect(service.isUp(bogus)()).toBe(true);
+    expect(service.isDown(bogus)()).toBe(false);
+  });
+
+  it('should not alias an unknown breakpoint onto the sm signal', () => {
+    // `sm` is index 0 and an unknown breakpoint is index -1, so they must be
+    // distinct nodes. Clamping the hoisted lookup (`Math.max(0, indexOf(bp))`)
+    // would collapse them onto one entry. That clamp is invisible through the
+    // boolean value -- `current` is 0..2, so `>= -1` and `>= 0` agree -- but it
+    // breaks the stable-identity contract this cache introduces, and it also
+    // diverges in value if `BREAKPOINT_ORDER` is ever emptied at runtime.
+    const bogus = 'xl' as MlvBreakpoint;
+    expect(service.isUp(bogus)).not.toBe(service.isUp('sm'));
+    expect(service.isDown(bogus)).not.toBe(service.isDown('sm'));
+  });
+
+  it('should collapse every unknown breakpoint onto one cached signal', () => {
+    // Keyed by the resolved index, so the cache stays bounded even if a caller
+    // casts arbitrary strings in.
+    expect(service.isUp('xl' as MlvBreakpoint)).toBe(
+      service.isUp('nonsense' as MlvBreakpoint),
+    );
+    expect(service.isDown('xl' as MlvBreakpoint)).toBe(
+      service.isDown('nonsense' as MlvBreakpoint),
+    );
   });
 
   it('should use custom breakpoint config', () => {
