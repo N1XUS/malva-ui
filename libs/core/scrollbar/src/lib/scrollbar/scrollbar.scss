@@ -78,12 +78,6 @@
         }
       }
     }
-
-    &:hover {
-      .#{$block}__track {
-        opacity: 1;
-      }
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -152,6 +146,37 @@
 
     &--hidden {
       display: none;
+    }
+  }
+
+  // Track reveal — every state that is meant to show a scrollbar.
+  //
+  // The thumb is a DOM child of the track, so their opacities composite: while
+  // the track sits at the `opacity: 0` above, no amount of thumb opacity paints
+  // anything. Lifting only the thumb — which is all `--scrolling` used to do —
+  // is therefore invisible, and scrolling without hovering showed no scrollbar
+  // at all (issue #96). The reveal has to land on the *track*.
+  //
+  // `--dragging` carries its own reveal rather than leaning on `:hover`:
+  // pointer capture keeps a drag alive after the pointer leaves the host, and
+  // `:hover` drops the moment it does.
+  //
+  // The child combinator is load-bearing: scrollbars nest (`main[mlvPage]`
+  // wraps all page content in one, and `mlv-chat` / an external-scroller
+  // `mlv-textarea` inside that page bring their own). A descendant combinator
+  // would let a state on the outer host reveal every inner track too, so one
+  // PageDown would light up three scrollbars of which only one scrolled. Both
+  // tracks are template top level, i.e. direct children of the host.
+  //
+  // Declared after the base rule, not merely at a higher specificity, so the
+  // track's opacity story reads in one direction. Fading back out is the
+  // `transition: opacity …` above — dropping a modifier is the whole
+  // mechanism, and nothing here schedules a delay or a timer.
+  .#{$block}:hover,
+  .#{$block}--scrolling,
+  .#{$block}--dragging {
+    > .#{$block}__track {
+      opacity: 1;
     }
   }
 

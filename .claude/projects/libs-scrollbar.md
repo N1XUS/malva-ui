@@ -235,7 +235,7 @@ host: {
 | `.mlv-scrollbar`                    | Host — relative grid sizing context for the viewport and overlay tracks                                      |
 | `.mlv-scrollbar__viewport`          | Scrollable inner container — `overflow: auto; scrollbar-width: none`; `overflow: visible` under `--external` |
 | `.mlv-scrollbar__content`           | Content wrapper observed by `ResizeObserver`                                                                 |
-| `.mlv-scrollbar__track`             | Base track styles                                                                                            |
+| `.mlv-scrollbar__track`             | Base track styles — `opacity: 0` at rest, lifted by the reveal states below                                  |
 | `.mlv-scrollbar__track--vertical`   | Right-edge vertical track                                                                                    |
 | `.mlv-scrollbar__track--horizontal` | Bottom-edge horizontal track                                                                                 |
 | `.mlv-scrollbar__track--hidden`     | Applied when no overflow on that axis                                                                        |
@@ -249,6 +249,64 @@ host: {
 | `mlv-scrollbar--external`  | `scroller()` is set — the viewport stops scrolling      |
 | `mlv-scrollbar--dragging`  | User is actively dragging a thumb                       |
 | `mlv-scrollbar--scrolling` | Scroll events are in-flight (cleared after 150 ms idle) |
+
+#### Track reveal — why the states target the track, not the thumb
+
+`.mlv-scrollbar__track` rests at `opacity: 0`, and the thumb is a **DOM child**
+of it, so the two opacities composite. Lifting only the thumb while the track is
+transparent paints nothing (`1 x 0`) — which is why `--scrolling` was dead code
+until issue #96: scrolling without hovering showed no scrollbar at all.
+
+Three states reveal the track, in one rule declared **after** the base
+`opacity: 0` so the track's opacity story reads in one direction:
+
+| State     | Selector                        | Why                                                                                                         |
+| --------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Hover     | `.mlv-scrollbar:hover > …`      | Pointer is over the host.                                                                                   |
+| Scrolling | `.mlv-scrollbar--scrolling > …` | Any scroll — wheel, touch, keyboard, programmatic `scrollTop` — for 150 ms after the last event.            |
+| Dragging  | `.mlv-scrollbar--dragging > …`  | Its own reveal: pointer capture keeps a drag alive after the pointer leaves the host, where `:hover` drops. |
+
+The **child** combinator is load-bearing. Scrollbars nest: `main[mlvPage]` wraps
+all page content in one, and that content brings its own (`mlv-chat`, an
+external-scroller `mlv-textarea`). With a descendant combinator a state on the
+outer host reaches every inner track too, so one PageDown on the page would fade
+in three scrollbars of which only one scrolled — and a thumb drag would hold all
+of them lit for the whole gesture. Both tracks are template top level, i.e.
+direct children of the host, so `>` costs nothing.
+
+Note that the surrounding rules — `--disabled`'s `display: none` on the track,
+`--external`'s `overflow: visible` on the viewport, and the thumb's own
+hover/scrolling/dragging ramp — still use descendant combinators and therefore
+still reach a nested scrollbar's parts. Harmless for the thumb (an inner thumb
+inside an `opacity: 0` inner track paints nothing) but not for the other two;
+untouched here because they predate issue #96 and change visibility/layout
+rather than paint.
+
+Fading back out is the track's own
+`transition: opacity var(--mlv-duration-normal) var(--mlv-ease-default)` —
+dropping a modifier is the whole mechanism, with no bespoke delay or timer. The
+existing `mixins.reduced-motion('mlv-scrollbar')` already collapses that
+duration under `prefers-reduced-motion: reduce`.
+
+The reveal paints no rail: `--mlv-sb-track-bg` defaults to `transparent` and
+nothing in the repo overrides it, so lifting the track only stops suppressing
+the thumb, which keeps its own opacity ramp (0.5 rest / 0.8 hover / 1 while
+scrolling or dragging). `--hidden` (`display: none`) still wins on an axis with
+no overflow, and `opacity` changes nothing about layout or hit-testing.
+
+Regression coverage: `scrollbar-track-visibility.spec.ts` asserts the
+**computed** track opacity per state, and — in a nested fixture — that an outer
+host's `--scrolling` / `--dragging` leaves the inner track at `0` while the
+inner host's own state still reveals it. A class-only assertion passed for the
+whole life of the bug and is not sufficient.
+
+Two jsdom traps that spec works around, worth knowing before editing either
+file: jsdom resolves the cascade by document order and **ignores specificity**,
+so the reveal rule's position after the base rule is load-bearing; and nwsapi
+mis-resolves `:scope` on a nested host (`querySelector(':scope > .mlv-scrollbar__track--vertical')`
+on the outer host returns the _inner_ track), so the nested specs walk
+`element.children` instead. Selector _matching_ (`element.matches()`) handles the
+child combinator correctly — only `:scope` is affected.
 
 #### CSS Custom Properties
 
