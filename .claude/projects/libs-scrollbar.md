@@ -118,7 +118,7 @@ host: {
 #### Template Structure
 
 ```html
-<div class="mlv-scrollbar__viewport" #viewport [attr.tabindex]="viewportTabIndex()" [attr.role]="_viewportRole()" [attr.aria-label]="_viewportAriaLabel()" (scroll)="_onScroll()">
+<div class="mlv-scrollbar__viewport" #viewport [attr.tabindex]="viewportTabIndex()" [attr.role]="_viewportRole()" [attr.aria-label]="_viewportAriaLabel()">
   <div class="mlv-scrollbar__content" #content>
     <ng-content />
   </div>
@@ -168,6 +168,33 @@ host: {
 #### Drag Scroll
 
 Thumb drag is supported. On `pointerdown`, the thumb captures the pointer via `setPointerCapture`, then translates `pointermove` deltas into viewport `scrollTop`/`scrollLeft` updates. Released on `pointerup` or `pointercancel`.
+
+#### Scroll listener (an `rxjs` stream, not a template binding)
+
+The viewport's scroll handler is bound as
+`fromEvent(viewportEl, 'scroll', { passive: true })` from `afterNextRender`,
+inside `runOutsideAngular`, and torn down with
+`takeUntilDestroyed(this._destroyRef)` — the `DestroyRef` is passed explicitly
+because an `afterNextRender` callback is not an injection context. There is
+**no `(scroll)` binding** in `scrollbar.html`, and `_onScroll` is `private`.
+
+A template listener is wrapped by Angular in
+`wrapListenerIn_markDirtyAndPreventDefault`, which marks the whole ancestor view
+chain dirty and notifies the change-detection scheduler _before_ it can know
+whether the handler changed anything — one full change-detection pass per scroll
+event, at input frequency, for a handler whose signals usually land back on the
+values they already held. Under zoneless change detection (the docs app, and any
+consumer on `provideZonelessChangeDetection()`) that scheduler notification is
+the entire cost, which is why `runOutsideAngular` alone would not have fixed it;
+the wrapper had to go. `runOutsideAngular` is kept because this is a published
+library and consumers may still run zone-based change detection, where the zone
+would schedule its own tick on top.
+
+Measured in `scrollbar-scroll-listener.spec.ts`: 20 scroll events over an
+unchanged layout cost **0** change-detection passes; the template binding cost
+**20**. `MlvScrollbar` still exposes **no `scroll` output** — wrapping components
+attach their own listener to the public `viewportElement`, as `main[mlvPage]`
+and `mlv-chat` do.
 
 #### ResizeObserver
 

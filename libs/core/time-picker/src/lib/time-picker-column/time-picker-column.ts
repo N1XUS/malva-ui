@@ -1,4 +1,5 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -7,6 +8,7 @@ import {
   ElementRef,
   inject,
   input,
+  NgZone,
   output,
   untracked,
   viewChild,
@@ -14,8 +16,10 @@ import {
   ViewEncapsulation,
   type AfterViewInit,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { fromEvent } from 'rxjs';
 import { Listbox, Option } from '@angular/aria/listbox';
 import { clamp } from '@malva-ui/cdk/utils';
 
@@ -89,6 +93,9 @@ export class MlvTimePickerColumn implements AfterViewInit {
   /** @private DestroyRef for cleanup. */
   private readonly _destroyRef = inject(DestroyRef);
 
+  /** @private Zone reference; the scroll listener is registered outside it. */
+  private readonly _ngZone = inject(NgZone);
+
   /** @protected Sanitized label key for use in element IDs (spaces replaced with hyphens). */
   protected readonly _labelKey = computed(() =>
     this.label().toLowerCase().replace(/\s+/g, '-'),
@@ -118,6 +125,8 @@ export class MlvTimePickerColumn implements AfterViewInit {
   private _scrollTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    afterNextRender(() => this._registerScrollListener());
+
     // Sync the drum scroll AND aria's active item when selectedValue changes
     // externally (forms value write, mode switch). gotoIndex only moves the active
     // descendant (no selection), so it never re-emits valueChange. Without it,
@@ -185,11 +194,50 @@ export class MlvTimePickerColumn implements AfterViewInit {
   }
 
   /**
-   * @protected Handle scroll events — debounced to avoid fighting with CSS
+   * @private Binds the drum-roll scroll listener outside the template, as an
+   * `rxjs` `fromEvent` stream, instead of through a `(scroll)` binding.
+   *
+   * A template listener runs inside Angular's
+   * `wrapListenerIn_markDirtyAndPreventDefault` wrapper, which marks the
+   * ancestor view chain dirty and notifies the change-detection scheduler on
+   * every single event. This handler only resets a debounce timer — it writes
+   * nothing reactive at all — so each of those passes was pure waste, at
+   * momentum-scroll frequency. `fromEvent` registers a plain
+   * `addEventListener`, with no such wrapper. `runOutsideAngular` keeps the
+   * same guarantee for consumers still on zone-based change detection.
+   *
+   * `{ passive: true }` is forwarded to `addEventListener` — a non-passive
+   * scroll listener is its own performance bug, so it is not optional here.
+   *
+   * `takeUntilDestroyed` takes the `DestroyRef` explicitly: this runs from an
+   * `afterNextRender` callback, which is not an injection context.
+   *
+   * The debounced `_syncIndexFromScroll()` does not need the zone either: it
+   * only writes aria's active-item signal and emits the `valueChange` output.
+   * Angular wraps a parent's output binding in the very same listener wrapper,
+   * so the emit still marks the parent dirty and notifies the scheduler no
+   * matter which zone it was raised from.
+   *
+   * `#listRef` is unconditional in the template, so the element resolved here
+   * lives for the component's whole lifetime.
+   */
+  private _registerScrollListener(): void {
+    const listEl = this._listRef()?.nativeElement;
+    if (!listEl) return;
+
+    this._ngZone.runOutsideAngular(() => {
+      fromEvent(listEl, 'scroll', { passive: true })
+        .pipe(takeUntilDestroyed(this._destroyRef))
+        .subscribe(() => this._onScroll());
+    });
+  }
+
+  /**
+   * @private Handle scroll events — debounced to avoid fighting with CSS
    * scroll-snap during large swipes. aria attaches no scroll listener of its
    * own, so this remains the sole owner of scroll-driven selection.
    */
-  protected _onScroll(): void {
+  private _onScroll(): void {
     if (this.disabled()) return;
     if (this._scrollTimer) clearTimeout(this._scrollTimer);
     this._scrollTimer = setTimeout(() => {
