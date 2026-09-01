@@ -162,6 +162,81 @@ cities.setSearch({ query: 'cafe', keys: [] }); // → ['Café de Flore']
 > a table would deliberately hide. Pass explicit `keys` whenever a row carries
 > data that must not be searchable.
 
+### Search cost — the lazy normalisation memo
+
+Typing must not re-normalise the dataset. Each searched field is normalised
+**at most once per `(data array identity, search keys)` pair** into a private
+`_haystack` computed — a `string[][]` index-aligned with the data array — and a
+keystroke over already-seen fields then costs exactly one `normalizeForMatch`
+(the query) plus a `String.includes` scan.
+
+The memo is filled **lazily**, not up front. `_haystack` itself does no work: it
+hands out one empty array per row and exists only to key the memos on
+`(data, keys)`. `_matchesQuery` walks a row's fields in index order, normalising
+field `i` only when it reaches it, and stops at the first hit — so each entry is
+always the normalised _prefix_ `[0, entry.length)` of that row's field list, and
+`i === entry.length` is an exact "not normalised yet" test. A row whose first
+key matches never pays for the rest, exactly as the pre-change matcher did.
+
+The keys are split out of `_search()` into a `_searchKeys` computed with an
+element-wise `equal`, so a `setSearch` that changes only `query` (and, because
+`setSearch` copies `keys` defensively, always hands over a fresh array) leaves
+`_haystack` valid.
+
+Measured over 10 000 rows × 5 keys, a 6-keystroke session (median of 11 runs):
+
+| scenario                              | before  | after      |
+| ------------------------------------- | ------- | ---------- |
+| steady state, broad query             | 25.0 ms | **1.1 ms** |
+| steady state, query matching last key | 62.6 ms | **2.8 ms** |
+| steady state, query matching nothing  | 68.7 ms | **2.6 ms** |
+| first keystroke alone, broad query    | 4.8 ms  | 4.9 ms     |
+| new data array on every keystroke     | 25.2 ms | 28.1 ms    |
+
+The last two rows are the point of the lazy fill: the short-circuit is
+preserved, so the cases that cannot benefit from a memo are not made worse. An
+eager haystack (normalising every field as soon as the computed runs) reached
+the same steady-state numbers but cost 12.9 ms and 71.5 ms on those two rows —
+a 2.6–2.8× regression against the pre-change matcher.
+
+Fields are matched **separately**, never joined into one string, so
+`{ a: 'foo', b: 'bar' }` still does not match `'obar'` — a join would have
+matched it.
+
+Mutating a memo array from inside `_filtered` is memoisation, not reactive
+state: no signal is written, so there is no glitch and no purity hazard, and
+each entry is a pure function of `(row identity, field index)`. A partially
+filled entry is never mistaken for "no match" — the walk is driven by the field
+list, not by the memo's length — so `_filtered` re-running because `_filters()`
+or the query changed, while the haystack generation is unchanged, reuses the
+prefix and extends it as needed.
+
+Three consequences to know about:
+
+- **Staleness.** A row object mutated **in place**, without publishing a new
+  array reference, is no longer re-read on the next keystroke; the cached memo
+  keeps the old text until the data signal emits a new array. Mutating
+  without a new reference already breaks the signal contract (`_rawData` uses
+  default `Object.is` equality, so `set(sameArray)` never notifies), but it used
+  to work by accident for search. Publish a new array — `data.set([...rows])` —
+  after mutating rows.
+- **Memory.** The normalised strings stay retained for as long as the source is
+  alive, bounded by rows × searched fields — 10 000 rows × 5 keys ≈ 50 000
+  strings ≈ 3 MiB at the worst case, and only for fields actually consulted, so
+  a query that keeps matching on the first key retains a fifth of that. There is
+  no eviction; a source over a very large array that is only searched
+  occasionally pays that in resident memory.
+- **Data churn.** A consumer that replaces the whole array on _every_ keystroke
+  (server-side filtering fed into an array source) rebuilds the memo each time
+  and gains nothing from it — 28.1 ms vs the old matcher's 25.2 ms above. The
+  lazy fill keeps that to roughly break-even rather than a multiple, but a
+  custom `MlvDataSource` subclass is still the right shape for server-filtered
+  data.
+
+`contains` / `not-contains` normalise their comparand **once per filter pass**
+rather than once per row; the identity operators (`equals`, `not-equals`, `in`,
+`not-in`) never normalise it at all.
+
 ## Dependencies
 
 | Package               | Usage                                                    |
@@ -201,7 +276,32 @@ declarations.
   filters, pagination reset, signal-backed data, whitespace/null search), the
   natural-field cases (primitive rows, object rows, explicit keys still scoped),
   a paging block (default `perPage` slicing), and a nullish-row block (keyed
-  search, filtering, and sorting over an array containing `null`).
+  search, filtering, and sorting over an array containing `null`). It also
+  carries the haystack guards:
+  - a verbatim copy of the pre-cache `_matchesQuery` / `_applyFilter` /
+    `_filtered` logic kept as an **oracle**, and a table of cases (explicit
+    keys, natural fields, primitive rows, array/object values that must be
+    skipped, accents in either direction, missing keys, nullish values, empty
+    and whitespace-only queries, search ANDed with filters) asserted equal to
+    it;
+  - the cross-field false positive (`'obar'` over `{ a: 'foo', b: 'bar' }`),
+    which is the test a naive join fails;
+  - **normalisation-count** guards. `normalizeForMatch` is wrapped through a
+    `vi.mock` of `@malva-ui/cdk/utils` that counts calls and delegates, so the
+    counts survive the ASCII fast path planned for that util. They pin exact
+    numbers, each with its derivation in a comment: N keystrokes over R rows
+    that all match on the first of K keys cost `R + N` (the lazy short-circuit
+    — an eager haystack would cost `R*K + N`); a query that matches nothing
+    costs `1 + R*K` once and `1` thereafter; walking from key 1 to key 3 costs
+    `1 + 2R`; a changed `keys` array (including a reorder) or a new data
+    reference rebuilds, a changed `query` does not; a `contains` filter costs
+    `R + 2` (not `2R + 1`), and identity operators cost 1;
+  - **lazy-memo correctness** guards: a query moving between fields in both
+    directions, a key-list reorder, natural fields after the data array is
+    replaced, and a partially filled memo staying valid when only `_filters()`
+    changes;
+  - one case per filter operator, including an unrecognised operator hitting
+    `default`, each also cross-checked against the oracle.
 
 `data-source.types.ts` is types only (no test).
 
