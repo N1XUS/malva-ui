@@ -25,7 +25,19 @@ function normalizeForMatchOracle(text: string): string {
     .toLowerCase();
 }
 
-/** Pre-change `matchSegments` — always folds the label per code point. */
+/**
+ * Pre-change `matchSegments` — always folds the label per code point.
+ *
+ * **Kept, but no longer a total oracle.** Its job is to prove the ASCII fast
+ * path did not change the answer for the labels it can take (ASCII, accented,
+ * `^`/`` ` ``), and that is still exactly what the table below asserts. It also
+ * carries the surrogate-pair defect this file's astral tests now pin the fix
+ * for: it pushes one `originIndex` entry per code *point* while growing
+ * `folded` by code *units*, so the two desynchronise on an astral code point.
+ * Astral inputs are therefore excluded from the equivalence table and asserted
+ * against explicit expected output instead — see
+ * `matchSegments — astral (surrogate-pair) code points`.
+ */
 function matchSegmentsOracle(label: string, query: string): MlvMatchSegment[] {
   const q = normalizeForMatchOracle(query.trim());
   if (!q) return [{ text: label, matched: false }];
@@ -46,6 +58,70 @@ function matchSegmentsOracle(label: string, query: string): MlvMatchSegment[] {
 
   const originStart = originIndex[start];
   const originEnd = originIndex[start + q.length - 1];
+
+  const before = chars.slice(0, originStart).join('');
+  const match = chars.slice(originStart, originEnd + 1).join('');
+  const after = chars.slice(originEnd + 1).join('');
+
+  const segments: MlvMatchSegment[] = [];
+  if (before) segments.push({ text: before, matched: false });
+  segments.push({ text: match, matched: true });
+  if (after) segments.push({ text: after, matched: false });
+  return segments;
+}
+
+// ---------------------------------------------------------------------------
+// Correct reference implementation, written independently of the production
+// code for the differential fuzz below. It is *not* derived from either
+// `matchSegments` or the oracle: it works purely in code points (arrays of
+// them, never a string index), so a surrogate pair is atomic by construction
+// and the code-unit/code-point desync the oracle carries cannot be expressed.
+// ---------------------------------------------------------------------------
+
+/** Folds `text` and returns it as an array of code points. */
+function foldToCodePoints(text: string): string[] {
+  // `for…of` / spread over a string yields whole code points.
+  return [...normalizeForMatchOracle(text)];
+}
+
+/** Naive first-occurrence search of one code-point array inside another. */
+function indexOfCodePoints(haystack: string[], needle: string[]): number {
+  outer: for (let i = 0; i + needle.length <= haystack.length; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (haystack[i + j] !== needle[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
+}
+
+/**
+ * Reference `matchSegments`. Same contract, no string indices anywhere: the
+ * folded projection is a code-point array, the search is a code-point search,
+ * and the origin map has exactly one entry per folded code point.
+ */
+function matchSegmentsReference(
+  label: string,
+  query: string,
+): MlvMatchSegment[] {
+  const q = foldToCodePoints(query.trim());
+  if (q.length === 0) return [{ text: label, matched: false }];
+
+  const chars = Array.from(label);
+  const folded: string[] = [];
+  const origin: number[] = [];
+  chars.forEach((char, index) => {
+    for (const cp of foldToCodePoints(char)) {
+      folded.push(cp);
+      origin.push(index);
+    }
+  });
+
+  const start = indexOfCodePoints(folded, q);
+  if (start === -1) return [{ text: label, matched: false }];
+
+  const originStart = origin[start];
+  const originEnd = origin[start + q.length - 1];
 
   const before = chars.slice(0, originStart).join('');
   const match = chars.slice(originStart, originEnd + 1).join('');
@@ -252,8 +328,12 @@ describe('option-matcher', () => {
       ['accented label, ASCII query', 'Café', 'cafe'],
       ['accented query against an accented label', 'Café', 'é'],
       ['combining marks already in NFD', 'Cafe\u0301 latte', 'cafe'],
-      ['emoji before the match', '🍎 Apple pie', 'apple'],
-      ['a surrogate pair as the query', 'a🍎b', '🍎'],
+      // NB: no astral (surrogate-pair) case belongs in this table. The oracle
+      // is *wrong* for those — it grows `folded` by code units but
+      // `originIndex` by code points — and `matchSegments` deliberately no
+      // longer agrees with it there. Astral inputs are asserted against
+      // explicit expected output in the `matchSegments — astral
+      // (surrogate-pair) code points` block below.
       ['match at index 0 — no before segment', 'Apple', 'app'],
       ['match ends at the last character — no after segment', 'Apple', 'le'],
       ['label is entirely the match — neither segment', 'Apple', 'apple'],
@@ -294,18 +374,269 @@ describe('option-matcher', () => {
         { text: 'na', matched: false },
       ]);
     });
+  });
 
-    it('reproduces the pre-change surrogate-pair over-selection', () => {
-      // PRE-EXISTING QUIRK, deliberately preserved: the slow path grows
-      // `folded` by code *units* but `originIndex` by code *points* (the
-      // `for…of` over the folded character), so a query containing a surrogate
-      // pair maps one code point too far and over-selects. Locked in here
-      // because this change is required to be output-identical; fixing it is a
-      // separate behavioural change.
-      expect(matchSegments('a🍎b', '🍎')).toEqual([
+  describe('matchSegments — astral (surrogate-pair) code points', () => {
+    // Regression cover for the defect the equivalence oracle above still
+    // carries: the folded projection grew by code *units* while `originIndex`
+    // grew by code *points*, so every astral code point at or before the match
+    // shifted the end-of-match lookup one entry too far. One astral code point
+    // over-selected the following code point; a second ran the lookup off the
+    // end of `originIndex` entirely, yielding `undefined` → an empty matched
+    // segment and the whole label re-emitted as the trailing segment.
+
+    it('highlights exactly the emoji the query asked for', () => {
+      expect(matchSegments('a\u{1F34E}b', '\u{1F34E}')).toEqual([
         { text: 'a', matched: false },
-        { text: '🍎b', matched: true },
+        { text: '\u{1F34E}', matched: true },
+        { text: 'b', matched: false },
       ]);
+    });
+
+    it('matches a bare astral query against a label of one astral code point', () => {
+      expect(matchSegments('\u{1F34E}', '\u{1F34E}')).toEqual([
+        { text: '\u{1F34E}', matched: true },
+      ]);
+    });
+
+    it('keeps the slice aligned when an astral code point precedes the match', () => {
+      expect(matchSegments('\u{1F34E}x abc', 'abc')).toEqual([
+        { text: '\u{1F34E}x ', matched: false },
+        { text: 'abc', matched: true },
+      ]);
+    });
+
+    it('keeps the slice aligned across several astral code points before and inside the match', () => {
+      // Two leading pairs plus one inside: a fix that only corrected a
+      // single-code-point offset would still land in the wrong place here.
+      expect(
+        matchSegments('\u{1F34E}\u{1F34F}x a\u{1F350}bc d', 'a\u{1F350}bc'),
+      ).toEqual([
+        { text: '\u{1F34E}\u{1F34F}x ', matched: false },
+        { text: 'a\u{1F350}bc', matched: true },
+        { text: ' d', matched: false },
+      ]);
+    });
+
+    it('highlights an astral code point that sits inside the matched slice', () => {
+      expect(matchSegments('pre a\u{1F34E}b post', 'a\u{1F34E}b')).toEqual([
+        { text: 'pre ', matched: false },
+        { text: 'a\u{1F34E}b', matched: true },
+        { text: ' post', matched: false },
+      ]);
+    });
+
+    it('emits neither surrounding segment when an astral label is wholly matched', () => {
+      // Starts at index 0 and ends on the last code point — no before, no after.
+      expect(
+        matchSegments('\u{1F34E}ab\u{1F34F}', '\u{1F34E}ab\u{1F34F}'),
+      ).toEqual([{ text: '\u{1F34E}ab\u{1F34F}', matched: true }]);
+    });
+
+    it('folds accents and maps surrogate pairs in the same label', () => {
+      // The accented code point folds to *two* code units (NFD: e + U+0301,
+      // then the mark is stripped — net one), while the emoji is one code
+      // point over two units: both length-changing paths run over one label.
+      expect(matchSegments('Caf\u00e9 \u{1F34E} cr\u00e8me', 'creme')).toEqual([
+        { text: 'Caf\u00e9 \u{1F34E} ', matched: false },
+        { text: 'cr\u00e8me', matched: true },
+      ]);
+    });
+
+    it('aligns a match that follows a decomposed accent and an emoji', () => {
+      expect(matchSegments('Cafe\u0301\u{1F34E}latte', 'latte')).toEqual([
+        { text: 'Cafe\u0301\u{1F34E}', matched: false },
+        { text: 'latte', matched: true },
+      ]);
+    });
+
+    it('segments a label made only of astral code points', () => {
+      expect(matchSegments('\u{1F34E}\u{1F34F}\u{1F350}', '\u{1F34F}')).toEqual(
+        [
+          { text: '\u{1F34E}', matched: false },
+          { text: '\u{1F34F}', matched: true },
+          { text: '\u{1F350}', matched: false },
+        ],
+      );
+    });
+
+    it('is not emoji-specific — CJK extension B', () => {
+      // U+2000B CJK UNIFIED IDEOGRAPH-2000B, a non-emoji astral code point.
+      expect(matchSegments('\u{2000B}\u{2000B} tail', 'tail')).toEqual([
+        { text: '\u{2000B}\u{2000B} ', matched: false },
+        { text: 'tail', matched: true },
+      ]);
+    });
+
+    it('is not emoji-specific — math alphanumerics', () => {
+      // U+1D54F MATHEMATICAL DOUBLE-STRUCK CAPITAL X.
+      expect(matchSegments('\u{1D54F} math', 'math')).toEqual([
+        { text: '\u{1D54F} ', matched: false },
+        { text: 'math', matched: true },
+      ]);
+    });
+
+    it('reports no match without corrupting the label', () => {
+      expect(matchSegments('\u{1F34E}\u{1F34F} abc', 'zzz')).toEqual([
+        { text: '\u{1F34E}\u{1F34F} abc', matched: false },
+      ]);
+    });
+  });
+
+  describe('matchSegments — differential fuzz against a code-point reference', () => {
+    /** Deterministic PRNG (mulberry32) so a failing seed is reproducible. */
+    function rng(seed: number): () => number {
+      let a = seed >>> 0;
+      return () => {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    /**
+     * Mixed alphabet: plain ASCII, the two ASCII `Diacritic=Yes` code points,
+     * precomposed accents, the same accents already decomposed (NFD), a bare
+     * combining mark, BMP CJK, and astral code points (emoji, CJK ext. B, math
+     * alphanumerics) — so the length-changing fold path and the surrogate-pair
+     * path interact within a single generated label.
+     */
+    const ALPHABET = [
+      'a',
+      'b',
+      'c',
+      'x',
+      'A',
+      'B',
+      ' ',
+      '1',
+      '-',
+      '^',
+      '`',
+      '\u00e9',
+      '\u00e8',
+      '\u00c5',
+      '\u00f1',
+      'e\u0301',
+      'a\u030a',
+      '\u0301',
+      '\u6f22',
+      '\u5b57',
+      '\u{1F34E}',
+      '\u{1F34F}',
+      '\u{2000B}',
+      '\u{1D54F}',
+    ];
+
+    interface FuzzCase {
+      readonly seed: number;
+      readonly label: string;
+      readonly query: string;
+    }
+
+    /**
+     * 500 deterministic cases. Most queries are code-point slices *of the
+     * label* (so matches are common and the alignment maths is exercised);
+     * the rest are independently generated, sometimes case-flipped, to cover
+     * near-misses and outright no-matches.
+     */
+    function corpus(): FuzzCase[] {
+      const cases: FuzzCase[] = [];
+      for (let seed = 1; seed <= 500; seed++) {
+        const rand = rng(seed);
+        const pick = () => ALPHABET[Math.floor(rand() * ALPHABET.length)];
+
+        const length = 1 + Math.floor(rand() * 12);
+        let label = '';
+        for (let i = 0; i < length; i++) label += pick();
+
+        // Slice in code-point space: never splits a surrogate pair, so the
+        // query is always well-formed text (a lone surrogate is not a case
+        // either implementation claims to define).
+        const points = Array.from(label);
+        let query: string;
+        if (rand() < 0.75 && points.length > 0) {
+          const from = Math.floor(rand() * points.length);
+          const to = from + 1 + Math.floor(rand() * (points.length - from));
+          query = points.slice(from, to).join('');
+          if (rand() < 0.3) query = query.toUpperCase();
+        } else {
+          const qLength = 1 + Math.floor(rand() * 3);
+          query = '';
+          for (let i = 0; i < qLength; i++) query += pick();
+        }
+
+        cases.push({ seed, label, query });
+      }
+      return cases;
+    }
+
+    const CORPUS = corpus();
+
+    it('agrees with the reference on every generated case', () => {
+      const mismatches: string[] = [];
+      for (const { seed, label, query } of CORPUS) {
+        const actual = matchSegments(label, query);
+        const expected = matchSegmentsReference(label, query);
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+          mismatches.push(
+            `seed ${seed}: ${JSON.stringify(label)} / ${JSON.stringify(query)}` +
+              ` -> ${JSON.stringify(actual)} != ${JSON.stringify(expected)}`,
+          );
+        }
+      }
+      expect(mismatches).toEqual([]);
+    });
+
+    it('emits segments that concatenate back to the exact label', () => {
+      // Independent of the reference: the desync used to drop the matched
+      // slice and re-emit the whole label as the trailing segment, which
+      // breaks this invariant outright.
+      const broken: string[] = [];
+      for (const { seed, label, query } of CORPUS) {
+        const joined = matchSegments(label, query)
+          .map((segment) => segment.text)
+          .join('');
+        if (joined !== label)
+          broken.push(`seed ${seed}: ${JSON.stringify(joined)}`);
+      }
+      expect(broken).toEqual([]);
+    });
+
+    it('emits at most one matched segment, and never an empty one', () => {
+      const broken: string[] = [];
+      for (const { seed, label, query } of CORPUS) {
+        const segments = matchSegments(label, query);
+        const matched = segments.filter((segment) => segment.matched);
+        const empty = segments.filter((segment) => segment.text === '');
+        // An empty label is the one case that legitimately yields empty text.
+        if (matched.length > 1 || (label !== '' && empty.length > 0)) {
+          broken.push(`seed ${seed}: ${JSON.stringify(segments)}`);
+        }
+      }
+      expect(broken).toEqual([]);
+    });
+
+    it('catches the pre-fix implementation — the harness has teeth', () => {
+      // Guard on the guard: run the same corpus through the buggy pre-change
+      // implementation and require it to diverge. A fuzz that passes for both
+      // proves nothing, so this test fails if the corpus ever stops covering
+      // astral input.
+      const divergent = CORPUS.filter(
+        ({ label, query }) =>
+          JSON.stringify(matchSegmentsOracle(label, query)) !==
+          JSON.stringify(matchSegmentsReference(label, query)),
+      );
+      expect(divergent.length).toBeGreaterThan(0);
+      // Every divergence must involve an astral code point — if the oracle
+      // disagreed anywhere else, the fix would have changed more than intended.
+      for (const { label, query } of divergent) {
+        // A single code point is two UTF-16 units iff it is astral.
+        expect(Array.from(label + query).some((cp) => cp.length > 1)).toBe(
+          true,
+        );
+      }
     });
   });
 
@@ -340,6 +671,35 @@ describe('option-matcher', () => {
         { text: 'x^2', matched: true },
         { text: ' + y^2', matched: false },
       ]);
+    });
+
+    it('never routes a label containing an astral code point down it', () => {
+      // An ASCII label cannot contain a surrogate pair, so an astral label
+      // always takes the folded-projection path — the fast path is provably
+      // never reached with astral input and needs no change for this fix.
+      const { result, receivers } = traceFolds(() =>
+        matchSegments('a\u{1F34E}b', '\u{1F34E}'),
+      );
+      // The fast path folds the whole label in one `toLowerCase()`; the folded
+      // projection folds it one code point at a time. The absence of the whole
+      // label as a receiver is the evidence that the fast path was not taken.
+      expect(receivers).not.toContain('a\u{1F34E}b');
+      expect(receivers).toEqual(['\u{1F34E}', 'a', '\u{1F34E}', 'b']);
+      expect(result).toEqual([
+        { text: 'a', matched: false },
+        { text: '\u{1F34E}', matched: true },
+        { text: 'b', matched: false },
+      ]);
+    });
+
+    it('keeps an ASCII label on the fast path even when the query is astral', () => {
+      // The other direction: an astral *query* cannot occur in an ASCII label,
+      // so the fast path correctly reports no match without any projection.
+      const { result, receivers } = traceFolds(() =>
+        matchSegments('abc', '\u{1F34E}'),
+      );
+      expect(receivers).toEqual(['\u{1F34E}', 'abc']);
+      expect(result).toEqual([{ text: 'abc', matched: false }]);
     });
 
     it('still folds per code point for a non-ASCII label', () => {

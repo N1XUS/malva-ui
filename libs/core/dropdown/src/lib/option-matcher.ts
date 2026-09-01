@@ -194,7 +194,10 @@ function rankWithinGroupRuns<T>(
  * Because NFD folding can change string length (e.g. `"é"` → `"e"` + combining
  * mark), the search runs over a per-code-point folded projection with an index
  * map back to the original code points, keeping the highlighted slice aligned
- * with the source label. Only the first match is highlighted.
+ * with the source label. That map is keyed by folded **code unit** (not code
+ * point), because the search itself is code-unit arithmetic — so a label
+ * containing astral code points (emoji, CJK extensions, math alphanumerics)
+ * stays aligned. Only the first match is highlighted.
  *
  * A **pure-ASCII label** skips that machinery entirely: folding such a label is
  * just `toLowerCase()`, which cannot change its length or code-point count, so
@@ -231,14 +234,21 @@ export function matchSegments(label: string, query: string): MlvMatchSegment[] {
   // Work in code points so surrogate pairs (e.g. emoji) are not split.
   const chars = [...label];
   let folded = '';
-  // For each folded code-unit position, the index of the originating code point.
+  // For each folded code *unit* position, the index of the originating code
+  // point. `folded` is searched and sliced with code-unit arithmetic
+  // (`indexOf`, `q.length`), so this must carry exactly one entry per code
+  // unit — an astral code point contributes **two**, both pointing at the same
+  // `chars` index. Walking `foldedChar` by index rather than with `for…of` is
+  // what keeps `originIndex.length === folded.length`: `for…of` yields whole
+  // code points, so an astral fold pushed one entry while growing `folded` by
+  // two units, desynchronising the map and over-selecting past the match.
   const originIndex: number[] = [];
   chars.forEach((char, index) => {
     const foldedChar = normalizeForMatch(char);
-    for (const unit of foldedChar) {
-      folded += unit;
+    for (let unit = 0; unit < foldedChar.length; unit++) {
       originIndex.push(index);
     }
+    folded += foldedChar;
   });
 
   const start = folded.indexOf(q);
