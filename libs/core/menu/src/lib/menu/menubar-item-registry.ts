@@ -19,6 +19,19 @@ export interface MlvMenubarItemRegistry {
 export const MLV_MENUBAR_ITEM_REGISTRY =
   new InjectionToken<MlvMenubarItemRegistry>('MLV_MENUBAR_ITEM_REGISTRY');
 
+/** Container every top-level menubar item lives under. */
+const MLV_MENUBAR_CONTAINER_SELECTOR = 'mlv-menubar';
+
+/**
+ * Nodes whose insertion or removal can change registry ordering: a projected
+ * `[mlvMenuTrigger]` top-level item (`role="menuitem"`, applied by the trigger)
+ * or a generated data-driven row host. Anything else observed under the menubar
+ * (text nodes, icon swaps, label re-renders, badge counters) leaves the item
+ * order untouched and must not trigger a sort.
+ */
+const MLV_MENUBAR_ITEM_MUTATION_SELECTOR =
+  '[role="menuitem"], mlv-menu-data-item';
+
 /** Signal-backed ordered item registry used by `mlv-menubar`. */
 export class MlvMenubarItemRegistryStore implements MlvMenubarItemRegistry {
   private readonly _items = signal<readonly MlvMenubarItem[]>([]);
@@ -58,7 +71,7 @@ export class MlvMenubarItemRegistryStore implements MlvMenubarItemRegistry {
       );
       const nextItems = [
         ...orderedItems,
-        ...[...unorderedItems].sort(mlvCompareMenubarItemsByDomOrder),
+        ...mlvSortMenubarItemsByDomOrder(unorderedItems),
       ];
 
       return mlvMenubarItemsMatchOrder(currentItems, nextItems)
@@ -83,7 +96,11 @@ export class MlvMenubarItemRegistryStore implements MlvMenubarItemRegistry {
       return;
     }
 
-    this._mutationObserver = new MutationObserver(() => this._resyncItems());
+    this._mutationObserver = new MutationObserver((records) => {
+      if (mlvMenubarMutationsAffectItemOrder(records)) {
+        this._resyncItems();
+      }
+    });
     this._mutationObserver.observe(nextContainer, {
       childList: true,
       subtree: true,
@@ -96,10 +113,26 @@ export class MlvMenubarItemRegistryStore implements MlvMenubarItemRegistry {
         return items;
       }
 
-      const nextItems = [...items].sort(mlvCompareMenubarItemsByDomOrder);
+      const nextItems = mlvSortMenubarItemsByDomOrder(items);
       return mlvMenubarItemsMatchOrder(items, nextItems) ? items : nextItems;
     });
   }
+}
+
+/**
+ * Sorts top-level items into DOM order.
+ *
+ * Unlike `mlv-menu`, a menubar's items are never resolved against a
+ * container's row list — the comparator is a plain `compareDocumentPosition`,
+ * so a comparison is already constant work with no DOM query. There is
+ * therefore nothing to precompute here; the cost this registry needed to shed
+ * is the indiscriminate resync, handled by
+ * {@link mlvMenubarMutationsAffectItemOrder}.
+ */
+function mlvSortMenubarItemsByDomOrder(
+  items: readonly MlvMenubarItem[],
+): MlvMenubarItem[] {
+  return [...items].sort(mlvCompareMenubarItemsByDomOrder);
 }
 
 function mlvCompareMenubarItemsByDomOrder(
@@ -122,13 +155,49 @@ function mlvCompareMenubarItemsByDomOrder(
   return 0;
 }
 
+/**
+ * Whether an observed mutation batch can change item ordering. Only added or
+ * removed elements that are (or contain) a top-level menubar item qualify;
+ * content churn inside an existing item is skipped without touching the sort.
+ */
+function mlvMenubarMutationsAffectItemOrder(
+  records: readonly MutationRecord[],
+): boolean {
+  for (const record of records) {
+    if (
+      mlvNodesContainMenubarItem(record.addedNodes) ||
+      mlvNodesContainMenubarItem(record.removedNodes)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/** Whether any node in the list is, or contains, a top-level menubar item. */
+function mlvNodesContainMenubarItem(nodes: NodeList): boolean {
+  for (let index = 0; index < nodes.length; index++) {
+    const node = nodes[index];
+    if (
+      node instanceof Element &&
+      (node.matches(MLV_MENUBAR_ITEM_MUTATION_SELECTOR) ||
+        node.querySelector(MLV_MENUBAR_ITEM_MUTATION_SELECTOR) !== null)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function mlvGetSharedMenubarContainer(
   items: readonly MlvMenubarItem[],
 ): HTMLElement | null {
   const containers = items
     .map((item) =>
       (item as MlvOrderedMenubarItem)._elementRef?.nativeElement.closest(
-        'mlv-menubar',
+        MLV_MENUBAR_CONTAINER_SELECTOR,
       ),
     )
     .filter(
