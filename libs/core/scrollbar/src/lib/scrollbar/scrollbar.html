@@ -1,7 +1,7 @@
 <div
   class="mlv-scrollbar__viewport"
   #viewport
-  [attr.tabindex]="_effectiveViewportTabIndex()"
+  [attr.tabindex]="viewportTabIndex()"
   [attr.role]="_viewportRole()"
   [attr.aria-label]="_viewportAriaLabel()"
   (scroll)="_onScroll()"

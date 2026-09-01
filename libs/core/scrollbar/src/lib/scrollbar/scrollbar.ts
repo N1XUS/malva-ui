@@ -14,30 +14,7 @@ import {
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { InteractivityChecker } from '@angular/cdk/a11y';
 import { MLV_SCROLLBAR_I18N } from '@malva-ui/i18n';
-
-/**
- * Elements that can plausibly be tab stops. A cheap prefilter — every hit is
- * still confirmed with the CDK's `InteractivityChecker`.
- */
-const FOCUSABLE_CANDIDATE_SELECTOR = [
-  'a[href]',
-  'area[href]',
-  'button',
-  'input',
-  'select',
-  'textarea',
-  'iframe',
-  'object',
-  'embed',
-  'audio[controls]',
-  'video[controls]',
-  'details',
-  'summary',
-  '[contenteditable]',
-  '[tabindex]',
-].join(',');
 
 /** Controls which scroll axes render a custom scrollbar. */
 export type MlvScrollbarOrientation = 'vertical' | 'horizontal' | 'both';
@@ -117,25 +94,35 @@ export class MlvScrollbar {
    * e.g. `ariaLabel="Chat messages"`.
    *
    * The label is only written to the DOM while the viewport is itself a tab
-   * stop — see `viewportTabIndex`. A viewport that is not keyboard-reachable
-   * is left as a plain container, because `aria-label` is prohibited on a
-   * role-less element and naming a non-interactive wrapper only adds noise.
+   * stop — that is, while `viewportTabIndex` is `0`. A viewport that is not
+   * keyboard-reachable is left as a plain container, because `aria-label` is
+   * prohibited on a role-less element and naming a non-interactive wrapper
+   * only adds noise.
    */
   readonly ariaLabel = input<string | undefined>(undefined);
 
   /**
-   * Tab index applied to the native scroll viewport.
+   * Tab index written **verbatim** to the native scroll viewport.
    *
-   * The default `0` means **auto**: the viewport is a tab stop only while its
-   * content holds nothing tabbable. A text-only region stays reachable so
-   * keyboard users can scroll it (WCAG 2.1.1), but a region full of form
-   * controls does not add a redundant stop in front of them — which is what
-   * put a focus ring around an entire dialog body on open.
+   * The component makes no decision of its own here — there is no auto mode
+   * and no inspection of the projected content.
    *
-   * Any non-zero value is applied verbatim; composite widgets that manage
-   * their own focus pass `-1`.
+   * - `null` (the default) emits **no `tabindex` attribute at all**. The
+   *   viewport is left exactly as the browser renders a plain scroll
+   *   container; keyboard reachability then falls to the browser's own
+   *   scroller focusability (Chrome 127+, Firefox), which applies precisely
+   *   when the scroller has no keyboard-focusable children.
+   * - `0` makes the viewport a guaranteed tab stop, so a text-only region
+   *   stays keyboard-scrollable in every browser (WCAG 2.1.1). It also gives
+   *   the viewport `role="group"` and the resolved `aria-label`.
+   * - `-1` makes the viewport programmatically focusable but not a tab stop —
+   *   for composite widgets that own their keyboard model and scroll the
+   *   viewport themselves.
+   *
+   * Positive values are excluded by the type: a positive tabindex is forbidden
+   * by the project's accessibility rules.
    */
-  readonly viewportTabIndex = input<number>(0);
+  readonly viewportTabIndex = input<-1 | 0 | null>(null);
 
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_SCROLLBAR_I18N, { optional: true });
@@ -149,34 +136,15 @@ export class MlvScrollbar {
   );
 
   /**
-   * @protected Whether the scrolled content currently holds a tabbable element.
-   * Recomputed after render and on every content mutation.
-   */
-  protected readonly _hasTabbableContent = signal(false);
-
-  /**
-   * @protected Tab index actually written to the viewport.
+   * @protected Whether the viewport is itself a tab stop.
    *
-   * `0` is treated as "auto" and collapses to `-1` once the content itself is
-   * keyboard-reachable; every other value passes through unchanged.
-   */
-  protected readonly _effectiveViewportTabIndex = computed(() => {
-    const requested = this.viewportTabIndex();
-    if (requested !== 0) {
-      return requested;
-    }
-    return this._hasTabbableContent() ? -1 : 0;
-  });
-
-  /**
-   * @protected Whether the viewport is itself reachable by keyboard.
-   *
-   * Only a viewport that is a tab stop is a control the user can land on, and
-   * therefore the only case in which the region has to introduce and name
-   * itself (WCAG 4.1.2).
+   * Only a viewport the user can land on is a control that has to introduce
+   * and name itself (WCAG 4.1.2). `-1` and `null` are both "not a tab stop":
+   * a `-1` viewport is only ever reached under a widget's own keyboard model,
+   * which names itself.
    */
   protected readonly _isViewportFocusable = computed(
-    () => this._effectiveViewportTabIndex() >= 0,
+    () => this.viewportTabIndex() === 0,
   );
 
   /**
@@ -269,12 +237,6 @@ export class MlvScrollbar {
   /** @private Native ResizeObserver watching viewport and content size. */
   private _resizeObserver: ResizeObserver | null = null;
 
-  /** @private Native MutationObserver keeping `_hasTabbableContent` in sync with projected content. */
-  private _contentObserver: MutationObserver | null = null;
-
-  /** @private CDK checker used to decide whether projected content is keyboard-reachable. */
-  private readonly _interactivityChecker = inject(InteractivityChecker);
-
   /** @private Timeout ID for clearing the `--scrolling` modifier after idle. */
   private _scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -287,29 +249,13 @@ export class MlvScrollbar {
   constructor() {
     afterNextRender(() => {
       this._updateGeometry();
-      this._updateTabbableContent();
-
-      const viewportEl = this._viewport().nativeElement;
-      const contentEl = viewportEl.firstElementChild;
-
-      if (contentEl && typeof MutationObserver !== 'undefined') {
-        // Projected content is opaque to the component, so tabbability has to
-        // be re-read whenever it changes shape — a lazily rendered form, a
-        // button that becomes disabled, an @if that swaps text for controls.
-        this._contentObserver = new MutationObserver(() =>
-          this._updateTabbableContent(),
-        );
-        this._contentObserver.observe(contentEl, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ['tabindex', 'disabled', 'hidden', 'href', 'type'],
-        });
-      }
 
       if (typeof ResizeObserver === 'undefined') {
         return;
       }
+
+      const viewportEl = this._viewport().nativeElement;
+      const contentEl = viewportEl.firstElementChild;
 
       this._resizeObserver = new ResizeObserver(() => {
         this._updateGeometry();
@@ -325,47 +271,10 @@ export class MlvScrollbar {
 
     this._destroyRef.onDestroy(() => {
       this._resizeObserver?.disconnect();
-      this._contentObserver?.disconnect();
       if (this._scrollTimeout !== null) {
         clearTimeout(this._scrollTimeout);
       }
     });
-  }
-
-  /**
-   * @private Re-reads whether the projected content contains a tab stop.
-   *
-   * Drives `_effectiveViewportTabIndex`: a scroll region only needs to be a tab
-   * stop of its own when nothing inside it already is (WCAG 2.1.1). Keeping it
-   * unconditionally tabbable put a redundant stop — and a focus ring around the
-   * whole region — in front of every dialog body's form controls.
-   */
-  private _updateTabbableContent(): void {
-    const contentEl = this._viewport().nativeElement.firstElementChild;
-    if (!contentEl) {
-      this._hasTabbableContent.set(false);
-      return;
-    }
-
-    const candidates = contentEl.querySelectorAll<HTMLElement>(
-      FOCUSABLE_CANDIDATE_SELECTOR,
-    );
-
-    for (const candidate of Array.from(candidates)) {
-      // `ignoreVisibility` because the CDK's visibility test is geometric and
-      // the content may not have been laid out yet (and never is under jsdom).
-      if (
-        this._interactivityChecker.isFocusable(candidate, {
-          ignoreVisibility: true,
-        }) &&
-        this._interactivityChecker.isTabbable(candidate)
-      ) {
-        this._hasTabbableContent.set(true);
-        return;
-      }
-    }
-
-    this._hasTabbableContent.set(false);
   }
 
   /** @protected Handles scroll events on the viewport. Updates thumb positions and `--scrolling` state. */
