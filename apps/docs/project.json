@@ -22,6 +22,9 @@
         "command": "node node_modules/jiti/lib/jiti-cli.mjs apps/docs/tools/extract-api.ts"
       }
     },
+    "typecheck": {
+      "dependsOn": ["extract-api"]
+    },
     "check-doc-api": {
       "executor": "nx:run-commands",
       "cache": true,
