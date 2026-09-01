@@ -154,10 +154,12 @@ The column's `<ul>` is a headless **`ngListbox`** and each `<li>` an **`ngOption
 
 #### Scroll Behavior
 
-The scroll listener is registered imperatively on the `<ul>` — with
-`addEventListener('scroll', …, { passive: true })` from `afterNextRender`,
-inside `runOutsideAngular`, torn down from `DestroyRef.onDestroy` — not as a
-`(scroll)` binding in the template, and `_onScroll` is `private`. A template
+The scroll listener is registered outside the template on the `<ul>` — as
+`fromEvent(listEl, 'scroll', { passive: true })` from `afterNextRender`, inside
+`runOutsideAngular`, torn down with `takeUntilDestroyed(this._destroyRef)` (the
+`DestroyRef` is passed explicitly because an `afterNextRender` callback is not
+an injection context) — not as a `(scroll)` binding in the template, and
+`_onScroll` is `private`. A template
 listener runs inside Angular's `wrapListenerIn_markDirtyAndPreventDefault`
 wrapper, which marks the ancestor view chain dirty and notifies the
 change-detection scheduler on every event; this handler only resets a debounce

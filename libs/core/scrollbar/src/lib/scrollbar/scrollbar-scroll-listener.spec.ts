@@ -9,9 +9,9 @@ import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvScrollbar } from './scrollbar';
 
 /**
- * Specs for the viewport scroll listener, which is registered imperatively
- * (`addEventListener`, `{ passive: true }`, torn down from `DestroyRef`)
- * rather than through a `(scroll)` binding in the template.
+ * Specs for the viewport scroll listener, which is registered outside the
+ * template as `fromEvent(…, 'scroll', { passive: true })` and torn down with
+ * `takeUntilDestroyed(destroyRef)`, rather than through a `(scroll)` binding.
  *
  * Every one of these dispatches a **native** scroll event at the real
  * scrolling element, `.mlv-scrollbar__viewport`, so the wiring itself is under

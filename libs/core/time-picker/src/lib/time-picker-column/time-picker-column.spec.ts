@@ -9,8 +9,9 @@ import { MlvTimePickerColumn } from './time-picker-column';
 
 /**
  * Specs for the drum-roll column's scroll listener, which is registered
- * imperatively (`addEventListener`, `{ passive: true }`, torn down from
- * `DestroyRef`) rather than through a `(scroll)` binding in the template.
+ * outside the template as `fromEvent(…, 'scroll', { passive: true })` and torn
+ * down with `takeUntilDestroyed(destroyRef)`, rather than through a `(scroll)`
+ * binding.
  *
  * Every one of these dispatches a **native** scroll event at the `<ul>` that
  * really scrolls, so the wiring is under test and not just `_onScroll`'s body.

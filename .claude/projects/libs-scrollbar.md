@@ -169,12 +169,14 @@ host: {
 
 Thumb drag is supported. On `pointerdown`, the thumb captures the pointer via `setPointerCapture`, then translates `pointermove` deltas into viewport `scrollTop`/`scrollLeft` updates. Released on `pointerup` or `pointercancel`.
 
-#### Scroll listener (registered imperatively, not in the template)
+#### Scroll listener (an `rxjs` stream, not a template binding)
 
-The viewport's scroll handler is bound with `addEventListener('scroll', …,
-{ passive: true })` from `afterNextRender`, inside `runOutsideAngular`, and torn
-down from `DestroyRef.onDestroy`. There is **no `(scroll)` binding** in
-`scrollbar.html`, and `_onScroll` is `private`.
+The viewport's scroll handler is bound as
+`fromEvent(viewportEl, 'scroll', { passive: true })` from `afterNextRender`,
+inside `runOutsideAngular`, and torn down with
+`takeUntilDestroyed(this._destroyRef)` — the `DestroyRef` is passed explicitly
+because an `afterNextRender` callback is not an injection context. There is
+**no `(scroll)` binding** in `scrollbar.html`, and `_onScroll` is `private`.
 
 A template listener is wrapped by Angular in
 `wrapListenerIn_markDirtyAndPreventDefault`, which marks the whole ancestor view

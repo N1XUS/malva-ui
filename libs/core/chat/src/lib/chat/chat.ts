@@ -17,9 +17,11 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet, formatDate } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { fromEvent } from 'rxjs';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import {
   MLV_DENSITY_ELEMENT,
@@ -233,7 +235,11 @@ export class MlvChat {
   /** @private Zone reference; the scroll listener is registered outside it. */
   private readonly _ngZone = inject(NgZone);
 
-  /** @private Cleans up the native scroll listener. */
+  /**
+   * @private Passed to `takeUntilDestroyed()` to complete the scroll stream —
+   * `_registerScrollListener()` runs from an `afterNextRender` callback, which
+   * is not an injection context, so the ref cannot be resolved implicitly.
+   */
   private readonly _destroyRef = inject(DestroyRef);
 
   /** @internal True while the view sits at (or near) the newest message. */
@@ -316,25 +322,30 @@ export class MlvChat {
    * the real scroller as `viewportElement`, which is what the handler already
    * measured; the listener now lives there too.
    *
-   * Binding it natively rather than in the template also fixes issue #7: a
-   * template listener is wrapped in `wrapListenerIn_markDirtyAndPreventDefault`,
-   * which marks the ancestor view chain dirty and notifies the change-detection
-   * scheduler on every event regardless of what the handler did. The handler
-   * only writes signals, and signal writes propagate through the reactivity
-   * graph on their own, so a scroll that changes no state now costs no pass.
+   * Binding it outside the template also fixes issue #7: a template listener
+   * is wrapped in `wrapListenerIn_markDirtyAndPreventDefault`, which marks the
+   * ancestor view chain dirty and notifies the change-detection scheduler on
+   * every event regardless of what the handler did. `fromEvent` registers a
+   * plain `addEventListener` with no such wrapper. The handler only writes
+   * signals, and signal writes propagate through the reactivity graph on their
+   * own, so a scroll that changes no state now costs no pass.
    * `runOutsideAngular` keeps the equivalent guarantee for consumers still on
    * zone-based change detection.
+   *
+   * `{ passive: true }` is forwarded to `addEventListener` — a non-passive
+   * scroll listener is its own performance bug, so it is not optional here.
+   *
+   * `takeUntilDestroyed` takes the `DestroyRef` explicitly: this runs from an
+   * `afterNextRender` callback, which is not an injection context.
    */
   private _registerScrollListener(): void {
     const viewport = this._viewport()?.viewportElement;
     if (!viewport) return;
 
-    const onScroll = (): void => this._onScroll();
     this._ngZone.runOutsideAngular(() => {
-      viewport.addEventListener('scroll', onScroll, { passive: true });
-    });
-    this._destroyRef.onDestroy(() => {
-      viewport.removeEventListener('scroll', onScroll);
+      fromEvent(viewport, 'scroll', { passive: true })
+        .pipe(takeUntilDestroyed(this._destroyRef))
+        .subscribe(() => this._onScroll());
     });
   }
 

@@ -16,8 +16,10 @@ import {
   ViewEncapsulation,
   type AfterViewInit,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { fromEvent } from 'rxjs';
 import { Listbox, Option } from '@angular/aria/listbox';
 import { clamp } from '@malva-ui/cdk/utils';
 
@@ -192,16 +194,23 @@ export class MlvTimePickerColumn implements AfterViewInit {
   }
 
   /**
-   * @private Binds the drum-roll scroll listener natively instead of through a
-   * `(scroll)` binding in the template.
+   * @private Binds the drum-roll scroll listener outside the template, as an
+   * `rxjs` `fromEvent` stream, instead of through a `(scroll)` binding.
    *
    * A template listener runs inside Angular's
    * `wrapListenerIn_markDirtyAndPreventDefault` wrapper, which marks the
    * ancestor view chain dirty and notifies the change-detection scheduler on
    * every single event. This handler only resets a debounce timer — it writes
    * nothing reactive at all — so each of those passes was pure waste, at
-   * momentum-scroll frequency. `runOutsideAngular` keeps the same guarantee for
-   * consumers still on zone-based change detection.
+   * momentum-scroll frequency. `fromEvent` registers a plain
+   * `addEventListener`, with no such wrapper. `runOutsideAngular` keeps the
+   * same guarantee for consumers still on zone-based change detection.
+   *
+   * `{ passive: true }` is forwarded to `addEventListener` — a non-passive
+   * scroll listener is its own performance bug, so it is not optional here.
+   *
+   * `takeUntilDestroyed` takes the `DestroyRef` explicitly: this runs from an
+   * `afterNextRender` callback, which is not an injection context.
    *
    * The debounced `_syncIndexFromScroll()` does not need the zone either: it
    * only writes aria's active-item signal and emits the `valueChange` output.
@@ -216,12 +225,10 @@ export class MlvTimePickerColumn implements AfterViewInit {
     const listEl = this._listRef()?.nativeElement;
     if (!listEl) return;
 
-    const onScroll = (): void => this._onScroll();
     this._ngZone.runOutsideAngular(() => {
-      listEl.addEventListener('scroll', onScroll, { passive: true });
-    });
-    this._destroyRef.onDestroy(() => {
-      listEl.removeEventListener('scroll', onScroll);
+      fromEvent(listEl, 'scroll', { passive: true })
+        .pipe(takeUntilDestroyed(this._destroyRef))
+        .subscribe(() => this._onScroll());
     });
   }
 

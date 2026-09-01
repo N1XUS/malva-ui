@@ -14,8 +14,10 @@ import {
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { fromEvent } from 'rxjs';
 import { MLV_SCROLLBAR_I18N } from '@malva-ui/i18n';
 
 /** Controls which scroll axes render a custom scrollbar. */
@@ -345,21 +347,27 @@ export class MlvScrollbar {
   }
 
   /**
-   * @private Binds the viewport's scroll listener natively, instead of through
-   * a `(scroll)` binding in the template.
+   * @private Binds the viewport's scroll listener outside the template, as an
+   * `rxjs` `fromEvent` stream, instead of through a `(scroll)` binding.
    *
    * A template listener is wrapped by Angular in
    * `wrapListenerIn_markDirtyAndPreventDefault`, which marks the whole
    * ancestor view chain dirty and notifies the change-detection scheduler
    * **before it even knows whether the handler changed anything** — one full
    * change-detection pass per scroll event, at input frequency, for a handler
-   * whose signals usually land on the values they already held. Registering
-   * natively skips that wrapper: signal writes propagate through the
-   * reactivity graph on their own, so a scroll that moves no signal now costs
-   * nothing.
+   * whose signals usually land on the values they already held. `fromEvent`
+   * registers a plain `addEventListener` with no such wrapper: signal writes
+   * propagate through the reactivity graph on their own, so a scroll that
+   * moves no signal now costs nothing.
+   *
+   * `{ passive: true }` is forwarded to `addEventListener` — a non-passive
+   * scroll listener is its own performance bug, so it is not optional here.
    *
    * `runOutsideAngular` is kept for consumers still on zone-based change
    * detection, where the zone would schedule its own tick on top.
+   *
+   * `takeUntilDestroyed` takes the `DestroyRef` explicitly: this runs from an
+   * `afterNextRender` callback, which is not an injection context.
    *
    * `#viewport` is unconditional in the template, so the element resolved here
    * is the one that lives for the component's whole lifetime; there is no
@@ -367,13 +375,11 @@ export class MlvScrollbar {
    */
   private _registerScrollListener(): void {
     const viewportEl = this._viewport().nativeElement;
-    const onScroll = (): void => this._onScroll();
 
     this._ngZone.runOutsideAngular(() => {
-      viewportEl.addEventListener('scroll', onScroll, { passive: true });
-    });
-    this._destroyRef.onDestroy(() => {
-      viewportEl.removeEventListener('scroll', onScroll);
+      fromEvent(viewportEl, 'scroll', { passive: true })
+        .pipe(takeUntilDestroyed(this._destroyRef))
+        .subscribe(() => this._onScroll());
     });
   }
 

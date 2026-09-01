@@ -106,18 +106,19 @@ Native scroll plus `content-visibility: auto` on group rows (no view recycling, 
 - `_evaluateScroll(scrollTop, scrollHeight, clientHeight)` holds the logic separately from DOM measurement so it is testable without layout.
 
 **Listener wiring (issues #73 / #7).** The scroll listener is registered
-imperatively on `MlvScrollbar.viewportElement` — the element that genuinely
-scrolls — with `addEventListener('scroll', …, { passive: true })` from
-`afterNextRender`, inside `runOutsideAngular`, torn down from
-`DestroyRef.onDestroy`. There is no `(scroll)` binding in `chat.html` and
-`_onScroll` is `private`.
+outside the template on `MlvScrollbar.viewportElement` — the element that
+genuinely scrolls — as `fromEvent(viewport, 'scroll', { passive: true })` from
+`afterNextRender`, inside `runOutsideAngular`, torn down with
+`takeUntilDestroyed(this._destroyRef)` (the `DestroyRef` is passed explicitly
+because an `afterNextRender` callback is not an injection context). There is no
+`(scroll)` binding in `chat.html` and `_onScroll` is `private`.
 
 It previously sat as `(scroll)` on the `<mlv-scrollbar>` **host**, which is the
 parent of `.mlv-scrollbar__viewport`. `scroll` does not bubble and
 `MlvScrollbar` declares no `scroll` output, so that was a plain native listener
 on a node that never receives the event: scrolling the chat did nothing at all —
 `loadOlder` never fired, the render window never grew, and bottom-distance
-tracking never updated. Binding natively also removes the per-event
+tracking never updated. Binding outside the template also removes the per-event
 change-detection pass Angular's template-listener wrapper schedules
 unconditionally (20 scroll events over an unchanged view: 0 passes, was 20).
 
