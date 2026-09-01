@@ -104,12 +104,29 @@ function insertAnchor(doc: ProseMirrorNode, from: number, to: number): number {
     : childStart(doc, to);
 }
 
-/** @internal Reads the live scale of the mount layer instead of trusting a CSS variable. */
-function layerScale(mount: HTMLElement): number {
+/**
+ * @internal The mount layer's frame: the viewport y its box starts at, and its
+ * live scale — both from **one** `getBoundingClientRect()`.
+ *
+ * Every caller needs the pair, and reading them separately meant two rect reads
+ * per pointer event for one box. The scale is measured rather than taken from
+ * `--mlv-editor-zoom` so the conversion stays right if anything else ever
+ * transforms this layer.
+ */
+interface MlvEditorMountFrame {
+  /** Viewport y of the mount's own box, in scaled screen pixels. */
+  readonly top: number;
+
+  /** `rect.width / offsetWidth`, or 1 when the layer has no measurable width. */
+  readonly scale: number;
+}
+
+/** @internal Measures the mount layer's frame from a single rect read. */
+function mountFrame(mount: HTMLElement): MlvEditorMountFrame {
+  const rect = mount.getBoundingClientRect();
   const width = mount.offsetWidth;
-  if (!width) return 1;
-  const scaled = mount.getBoundingClientRect().width;
-  return scaled > 0 ? scaled / width : 1;
+  const scale = width && rect.width > 0 ? rect.width / width : 1;
+  return { top: rect.top, scale };
 }
 
 /**
@@ -169,6 +186,59 @@ function topLevelIndexOfDom(view: EditorView, element: Element): number | null {
 }
 
 /**
+ * @internal The hit one rendered child stands for, or null when that child is
+ * not a top-level block.
+ *
+ * A widget decoration owns no top-level node, and its box is a sliver rather
+ * than a block's. Letting one stand in for a block would pair a neighbouring
+ * block's index with the widget's geometry, so `dropTargetIndex` would take
+ * that block's midpoint from the wrong box and land the drop on the wrong side
+ * of it — silently, in one undo step. `topLevelIndexOfDom` answering null is
+ * what makes that a *category* rejection rather than a class-name test, so a
+ * block-level decoration added later is covered without touching this file.
+ *
+ * Both edges come off one rect read, so nothing can pair a `top` from one
+ * layout with a `bottom` from another.
+ */
+function blockHit(
+  view: EditorView,
+  element: Element,
+): MlvEditorBlockHit | null {
+  const index = topLevelIndexOfDom(view, element);
+  if (index === null) return null;
+  const rect = element.getBoundingClientRect();
+  return { index, top: rect.top, bottom: rect.bottom };
+}
+
+/**
+ * @internal One rendered child at or before `from` — but never before `floor` —
+ * that is a top-level block, paired with its own child index. Null when that
+ * span holds nothing but widgets.
+ *
+ * This is the only way the search below reaches a rect, and that is the point:
+ * **no geometry is ever read off a child that owns no top-level node.** A
+ * widget's box is a sliver where a block's is a block, and one taken out of
+ * flow reports a box that says nothing about where it sits — `display: none`
+ * gives an all-zero rect, and `prosemirror-gapcursor`'s shipped stylesheet
+ * makes exactly that: `position: absolute; display: none`, lifted to `block`
+ * only under `.ProseMirror-focused`, so a gap-cursor selection surviving a blur
+ * parks an all-zero-rect child at top level. Comparing a pointer against that
+ * box would drag a search past real blocks.
+ */
+function blockAtOrBefore(
+  view: EditorView,
+  children: HTMLCollection,
+  from: number,
+  floor: number,
+): { readonly childIndex: number; readonly hit: MlvEditorBlockHit } | null {
+  for (let i = from; i >= floor; i -= 1) {
+    const hit = blockHit(view, children[i]);
+    if (hit) return { childIndex: i, hit };
+  }
+  return null;
+}
+
+/**
  * @internal Top-level block the given viewport y falls on, or the nearest one
  * above it. Null for an empty document, or for a point the view cannot map.
  *
@@ -180,52 +250,88 @@ function topLevelIndexOfDom(view: EditorView, element: Element): number | null {
  * test and returns null for every point outside it, in a real browser as much
  * as under a test DOM.
  *
- * Rendered children lay out in document order, so the scan stops at the first
- * one starting below the pointer, costing one `getBoundingClientRect()` and
- * one index mapping per child down to the hovered one.
+ * **Assumes the top-level blocks are vertically ordered and non-overlapping** —
+ * `top` non-decreasing down the blocks, and no block's box reaching into the
+ * next one's. Normal flow guarantees it for blocks, which are the only children
+ * this reads a box from. Violating it (a float, `position: absolute`, a
+ * negative margin on a *block*) resolves the handle to a neighbouring block
+ * rather than throwing. `slotAt` assumes the same, and so did the scan this
+ * replaced, which stopped at the first child starting below the pointer.
  *
- * Mapping inside the loop is what makes widget decorations skippable as a
- * category rather than by class name, and it is not free: `posAtDOM`,
- * `nodeDOM`, and `childStart` each walk linearly to the child they address, so
- * the scan down to index `k` is quadratic in `k` — measured at roughly 4x per
- * doubling, against 2x for the map-only-the-winner scan this replaced. That
- * one was abandoned because it could not tell a widget from a block, and
- * pairing a block's index with a widget's box drops the block on the wrong
- * side of its neighbour. Correctness first; the cost is only paid down to the
- * *hovered* child, so it is deep hovering in a long document that degrades.
- * Restoring the linear scan without losing the category skip means deferring
- * the mapping until a winner is picked and walking back over the few
- * consecutive widgets — the clamp above the first block is what makes that
- * more than a one-liner, so it is deliberately left as follow-up.
+ * Under that ordering the answer is *the last block starting at or above the
+ * pointer*, clamped to the first block when every block starts below it. The
+ * search probes child indices, but every comparison is against a **block**: a
+ * probe landing on a widget resolves back to the nearest block at or before it,
+ * and that block's own child index — not the widget's — bounds the next step.
+ * Widget geometry therefore cannot move the search, which is the same category
+ * rejection `blockHit` performs, extended to the probe itself. Pairing a
+ * block's index with a widget's box is what that prevents: `dropTargetIndex`
+ * would take the deciding midpoint from the wrong box and land the drop on the
+ * wrong side of its neighbour — silently, in one undo step.
+ *
+ * Cost, against the mapping-per-child scan this replaced. `posAtDOM`, `nodeDOM`
+ * and `childStart` each walk linearly to the child they address, so mapping the
+ * child at index `k` is Θ(k) and scanning down to it was Θ(k²) — 500 mappings
+ * and ~125k node walks for a hover at the bottom of a 500-block document, per
+ * `mousemove`. Here it is Θ(log n) mappings, one per probe plus the widgets a
+ * probe walks over, and ~4.5k node walks at the same size. Deferring to a
+ * single mapping overall is only possible by trusting widget geometry, which
+ * is the trade this deliberately refuses.
  */
 function blockAtPoint(
   view: EditorView,
   clientY: number,
 ): MlvEditorBlockHit | null {
   const children = view.dom.children;
-  let candidate: MlvEditorBlockHit | null = null;
+  // `high` is -1 for a view that renders no children at all, so both loops
+  // below are skipped and the answer is null without a bounds check.
+  let low = 0;
+  let high = children.length - 1;
+  let best: MlvEditorBlockHit | null = null;
+  let bestChild = -1;
 
-  for (let i = 0; i < children.length; i += 1) {
-    const element = children[i];
-    // A widget decoration owns no top-level node, and its box is a sliver
-    // rather than a block's. Letting one become the candidate would pair a
-    // neighbouring block's index with the widget's geometry, so
-    // `dropTargetIndex` would take that block's midpoint from the wrong box
-    // and land the drop on the wrong side of it — silently, in one undo step.
-    const index = topLevelIndexOfDom(view, element);
-    if (index === null) continue;
-
-    const rect = element.getBoundingClientRect();
-    if (clientY < rect.top) {
-      // Above the first block clamps to it; in the gap between two blocks the
-      // preceding one was already recorded on the previous iteration.
-      candidate ??= { index, top: rect.top, bottom: rect.bottom };
-      break;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    const found = blockAtOrBefore(view, children, middle, low);
+    if (found === null) {
+      // Nothing but widgets in [low, middle]: every block still in range
+      // starts after it. Discarding the span is what bounds the walk-backs.
+      low = middle + 1;
+    } else if (found.hit.top <= clientY) {
+      // A candidate, and every block before it is one too; only a later block
+      // can improve on it.
+      best = found.hit;
+      bestChild = found.childIndex;
+      low = found.childIndex + 1;
+    } else {
+      high = found.childIndex - 1;
     }
-    candidate = { index, top: rect.top, bottom: rect.bottom };
-    if (clientY <= rect.bottom) break;
   }
-  return candidate;
+
+  if (best === null) {
+    // Every block starts below the pointer, which is the clamp: offer the
+    // first block rather than blink the handle out. Null only for a view
+    // rendering no top-level block at all.
+    for (let i = 0; i < children.length; i += 1) {
+      const hit = blockHit(view, children[i]);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  // A pointer exactly on a block's leading edge belongs to the block above it
+  // when the two boxes touch, which is where the scan this replaced ended up:
+  // it broke on the first box whose `bottom` reached the pointer. The shipped
+  // stylesheet keeps `0.75rem` between paragraph border boxes so nothing can
+  // land here, but the answer is a silent one to change. The predecessor is
+  // only resolved for a pointer exactly on `best.top`, so a well-formed
+  // document pays for it on one pixel per block and never elsewhere.
+  if (clientY === best.top && bestChild > 0) {
+    const previous = blockAtOrBefore(view, children, bestChild - 1, 0);
+    if (previous !== null && previous.hit.bottom >= clientY)
+      return previous.hit;
+  }
+  return best;
 }
 
 /**
@@ -285,16 +391,17 @@ function snapshotBlocks(
   view: EditorView,
   mount: HTMLElement,
 ): MlvEditorBlockSlot[] {
-  const scale = layerScale(mount);
-  const mountTop = mount.getBoundingClientRect().top;
+  const { top: mountTop, scale } = mountFrame(mount);
   const slots: MlvEditorBlockSlot[] = [];
   const children = view.dom.children;
 
   for (let i = 0; i < children.length; i += 1) {
     const element = children[i];
-    // Same category check the hover scan uses: a widget decoration owns no
+    // Same category check the hover path uses: a widget decoration owns no
     // top-level node and must not occupy a slot, or the partition would shift
-    // it as though it were a block.
+    // it as though it were a block. Mapping every child once here is what the
+    // drag pays instead of the hover path's deferred single mapping — the
+    // partition and the settle need a slot per block regardless.
     const index = topLevelIndexOfDom(view, element);
     if (index === null) continue;
     const rect = element.getBoundingClientRect();
@@ -313,9 +420,10 @@ function snapshotBlocks(
  *
  * Reproduces `blockAtPoint`'s clamping exactly — above the first block resolves
  * to the first, a point in the gap between two blocks resolves to the
- * preceding one, below the last resolves to the last — but against a static
- * array, so it is a binary search rather than a scan that maps every child it
- * passes.
+ * preceding one, below the last resolves to the last. Both are the same
+ * "last block starting at or above the pointer" search on the same ordering
+ * assumption; this one runs against an array the drag already mapped, so it
+ * needs no widget walk-back and reads no rect at all.
  */
 function slotAt(
   slots: readonly MlvEditorBlockSlot[],
@@ -327,6 +435,9 @@ function slotAt(
   let low = 0;
   let high = slots.length - 1;
   while (low < high) {
+    // `ceil`, not `floor`: this converges by raising `low` *to* the midpoint,
+    // so a `floor` midpoint of `low` for an adjacent pair would set `low` to
+    // itself and spin forever.
     const middle = Math.ceil((low + high) / 2);
     if (slots[middle].top <= y) low = middle;
     else high = middle - 1;
@@ -584,7 +695,34 @@ export const MlvEditorBlockHandle =
             const indicator = createIndicatorElement();
             mount.appendChild(indicator);
 
-            const hide = () => handle.setAttribute('data-visible', 'false');
+            /**
+             * What the handle currently publishes, or null while it is
+             * retracted.
+             *
+             * Comparing against this is what keeps a pointer move that resolves
+             * an unchanged hit from touching the DOM at all, and the write it
+             * saves is the smaller half of the point: an attribute write on the
+             * handle dirties the layout tree, so the *next* move's rect reads
+             * have to force a fresh layout before they can answer. Skipping the
+             * writes leaves layout clean, and a hover that stays on one block
+             * then forces no layout at all.
+             *
+             * Keyed on the values written rather than on `hit.index`, because
+             * two of the three can change while the index does not: scrolling
+             * moves the block under a stationary pointer, and `label()` is a
+             * signal read that answers differently on a locale change.
+             */
+            let published: {
+              top: string;
+              index: string;
+              label: string;
+            } | null = null;
+
+            const hide = () => {
+              if (published === null) return;
+              published = null;
+              handle.setAttribute('data-visible', 'false');
+            };
 
             const onMouseMove = (event: MouseEvent) => {
               if (!options.enabled()) return hide();
@@ -593,14 +731,26 @@ export const MlvEditorBlockHandle =
 
               // `getBoundingClientRect()` reports scaled screen pixels, but a
               // CSS `top` on a child of the scaled layer is applied in the
-              // layer's own unscaled space. Convert once, deriving the scale
-              // from the DOM rather than `--mlv-editor-zoom`, so the handle
-              // stays correct if anything else ever transforms this layer.
-              const scale = layerScale(mount);
-              const mountTop = mount.getBoundingClientRect().top;
-              handle.style.top = `${(hit.top - mountTop) / scale}px`;
-              handle.dataset['index'] = String(hit.index);
-              handle.title = options.label();
+              // layer's own unscaled space. Convert once, off one rect read of
+              // the mount.
+              const { top: mountTop, scale } = mountFrame(mount);
+              const top = `${(hit.top - mountTop) / scale}px`;
+              const index = String(hit.index);
+              const label = options.label();
+
+              if (
+                published !== null &&
+                published.top === top &&
+                published.index === index &&
+                published.label === label
+              ) {
+                return;
+              }
+
+              published = { top, index, label };
+              handle.style.top = top;
+              handle.dataset['index'] = index;
+              handle.title = label;
               handle.setAttribute('data-visible', 'true');
             };
 
@@ -619,9 +769,14 @@ export const MlvEditorBlockHandle =
             /** Gap the partition is currently opened at, or null when closed. */
             let gap: number | null = null;
 
-            /** Converts a viewport y into the mount's own unscaled space. */
-            const toMountSpace = (clientY: number): number =>
-              (clientY - mount.getBoundingClientRect().top) / layerScale(mount);
+            /**
+             * Converts a viewport y into the mount's own unscaled space, off
+             * one rect read — this runs on every `dragover`.
+             */
+            const toMountSpace = (clientY: number): number => {
+              const { top, scale } = mountFrame(mount);
+              return (clientY - top) / scale;
+            };
 
             /**
              * Gap a resolved target index sits on. `dropTargetIndex` folds the
@@ -712,8 +867,7 @@ export const MlvEditorBlockHandle =
               order.splice(to, 0, from);
 
               const doc = view.state.doc;
-              const scale = layerScale(mount);
-              const mountTop = mount.getBoundingClientRect().top;
+              const { top: mountTop, scale } = mountFrame(mount);
               const first = Math.min(from, to);
               const last = Math.max(from, to);
 
@@ -782,7 +936,7 @@ export const MlvEditorBlockHandle =
               // Cloned *before* the source is dimmed: the clone carries
               // resolved computed styles, so dimming first would bake the
               // reduced opacity into the drag image.
-              ghost = createGhostElement(slot.element, layerScale(mount));
+              ghost = createGhostElement(slot.element, mountFrame(mount).scale);
               event.dataTransfer?.setDragImage(
                 ghost,
                 getComputedStyle(view.dom).direction === 'rtl'
