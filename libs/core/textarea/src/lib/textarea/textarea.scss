@@ -1,96 +1,101 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-textarea;
+  $block: mlv-textarea;
 
-.#{$block} {
-  display: block;
-
-  // Override the form-control-wrapper's fixed height so the textarea can grow
-  .mlv-form-control-wrapper__control-container {
-    height: auto;
-    align-items: flex-start;
-    padding: 0;
-  }
-
-  .mlv-form-control-wrapper__clear {
-    align-self: flex-start;
-    // Restore vertical padding so the clear button aligns with the first row of text
-    margin-top: var(--mlv-spacing-1);
-    margin-inline-end: var(--mlv-spacing-1);
-  }
-
-  &__scrollbar {
-    // Fill available width inside the control container
-    flex: 1 1 auto;
-    min-width: 0;
-    // min-height / max-height are set inline from the component
-
-    // When mlv-scrollbar is disabled (autoResize mode), let the textarea
-    // expand freely — no overflow clipping needed.
-    &.mlv-scrollbar--disabled {
-      overflow: visible;
-    }
-  }
-
-  &__field {
-    @include mixins.base(
-      var(--mlv-typography-family-text),
-      var(--form-ctrl-font-size, var(--mlv-font-size-m)),
-      0,
-      var(--mlv-spacing-1) var(--form-ctrl-h-padding, var(--mlv-spacing-3))
-    );
-
+  .#{$block} {
     display: block;
-    width: 100%;
-    resize: none;
-    border: none;
-    outline: none;
-    appearance: none;
-    background: none;
-    // Match the same line-height as mlv-input (--mlv-line-height-normal = 1.5)
-    line-height: 1.5;
-    color: var(--mlv-text-primary);
-    box-sizing: border-box;
 
-    // Hide the native scrollbar — mlv-scrollbar provides the custom one
-    overflow: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
-
-    &::placeholder {
-      color: var(--mlv-text-tertiary);
-    }
-  }
-
-  &__count {
-    display: block;
-    // Rendered in the wrapper's below-control column; keep it on the trailing
-    // edge without pushing the description / message off their own rows.
-    align-self: flex-end;
-    text-align: end;
-    font-size: var(--mlv-typography-ui-s-size);
-    color: var(--mlv-text-tertiary);
-
-    &--warning {
-      color: var(--mlv-text-warning);
-    }
-
-    &--error {
-      color: var(--mlv-text-negative);
-    }
-  }
-
-  &--auto-resize {
-    .#{$block}__field {
-      // In auto-resize mode mlv-scrollbar is disabled; textarea drives the height
-      resize: none;
+    // Override the form-control-wrapper's fixed height so the textarea can grow
+    .mlv-form-control-wrapper__control-container {
       height: auto;
+      align-items: flex-start;
+      padding: 0;
+    }
+
+    .mlv-form-control-wrapper__clear {
+      align-self: flex-start;
+      // Restore vertical padding so the clear button aligns with the first row of text
+      margin-top: var(--mlv-spacing-1);
+      margin-inline-end: var(--mlv-spacing-1);
+    }
+
+    &__scrollbar {
+      // Fill available width inside the control container
+      flex: 1 1 auto;
+      min-width: 0;
+      // min-height / max-height are set inline from the component
+
+      // The overlay tracks are absolutely positioned; their containing block is
+      // this element, which `.mlv-scrollbar` already makes `position: relative`.
+      // Nothing to add here — but nothing may take it away either, and the
+      // wrapper must stay unclipped so the tracks can paint over the field's
+      // trailing padding.
+    }
+
+    &__field {
+      @include mixins.base(
+        var(--mlv-typography-family-text),
+        var(--form-ctrl-font-size, var(--mlv-font-size-m)),
+        0,
+        var(--mlv-spacing-1) var(--form-ctrl-h-padding, var(--mlv-spacing-3))
+      );
+
+      display: block;
+      width: 100%;
+      resize: none;
+      border: none;
+      outline: none;
+      appearance: none;
+      background: none;
+      // Match the same line-height as mlv-input (--mlv-line-height-normal = 1.5)
+      line-height: 1.5;
+      color: var(--mlv-text-primary);
+      box-sizing: border-box;
+
+      // The field is the scroll box (`mlv-scrollbar [scroller]` in the template
+      // decorates it in place), so its native bar is hidden in favour of the
+      // themed track drawn over it. Removing `[scroller]` without also removing
+      // these three declarations is what left the control with no visible
+      // scrollbar at all — issue #90.
+      overflow: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+
+      &::placeholder {
+        color: var(--mlv-text-tertiary);
+      }
+    }
+
+    &__count {
+      display: block;
+      // Rendered in the wrapper's below-control column; keep it on the trailing
+      // edge without pushing the description / message off their own rows.
+      align-self: flex-end;
+      text-align: end;
+      font-size: var(--mlv-typography-ui-s-size);
+      color: var(--mlv-text-tertiary);
+
+      &--warning {
+        color: var(--mlv-text-warning);
+      }
+
+      &--error {
+        color: var(--mlv-text-negative);
+      }
+    }
+
+    &--auto-resize {
+      .#{$block}__field {
+        // In auto-resize mode the inline height written by `_runAutoResize()`
+        // drives the box; the track still decorates it once `maxRows` clamps it.
+        resize: none;
+        height: auto;
+      }
     }
   }
-}
 }

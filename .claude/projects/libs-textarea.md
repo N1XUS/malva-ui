@@ -5,7 +5,7 @@
 
 ## Overview
 
-`@malva-ui/core/textarea` provides a multi-line text input form control (`mlv-textarea`). It extends `MlvSignalFormControlBase<string>` (from `@malva-ui/core/form-utils`) and is a signal-forms `FormValueControl<string>` — reactive (`[formControl]`/`formControlName`), template-driven (`ngModel`), and signal (`[formField]`) bindings all bind the `value` model directly (migrated 2026-07-22, slice 2 of docs/plans/signal-forms-migration.md). It supports optional auto-resize behaviour (textarea grows with content), a character counter with warning/error states, and a custom `mlv-scrollbar` overlay for a consistent cross-browser scrollbar appearance.
+`@malva-ui/core/textarea` provides a multi-line text input form control (`mlv-textarea`). It extends `MlvSignalFormControlBase<string>` (from `@malva-ui/core/form-utils`) and is a signal-forms `FormValueControl<string>` — reactive (`[formControl]`/`formControlName`), template-driven (`ngModel`), and signal (`[formField]`) bindings all bind the `value` model directly (migrated 2026-07-22, slice 2 of docs/plans/signal-forms-migration.md). It supports optional auto-resize behaviour (textarea grows with content), a character counter with warning/error states, and a custom `mlv-scrollbar` overlay for a consistent cross-browser scrollbar appearance. The scrollbar **decorates** the `<textarea>` (`[scroller]`) rather than wrapping it — see [Visible scrollbar track](#visible-scrollbar-track-2026-09-issue-90).
 
 The component wraps the native `<textarea>` inside `mlv-form-control-wrapper`, giving it the same label/hint/message/clear infrastructure as `mlv-input`.
 
@@ -111,9 +111,10 @@ The component wraps the native `<textarea>` inside `mlv-form-control-wrapper`, g
 
 #### View Children
 
-| Name           | Type                                                       | Description                                                               |
-| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `_textareaRef` | `viewChild<ElementRef<HTMLTextAreaElement>>('textareaEl')` | Reference to the native `<textarea>` element, used by `_runAutoResize()`. |
+| Name            | Type                                                       | Description                                                                                 |
+| --------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `_textareaRef`  | `viewChild<ElementRef<HTMLTextAreaElement>>('textareaEl')` | Reference to the native `<textarea>` element, used by `_runAutoResize()`.                   |
+| `_scrollbarRef` | `viewChild(MlvScrollbar)`                                  | The scrollbar decorating the field; `remeasure()` is called on it whenever `value` changes. |
 
 #### Content Slots
 
@@ -136,7 +137,7 @@ The component wraps the native `<textarea>` inside `mlv-form-control-wrapper`, g
 1. Optional `[mlvTextareaPrepend]` slot.
 2. `mlv-form-control-wrapper` (clearable, state, focused, disabled wired via inherited signals):
    - `mlv-label` (rendered when `label()` or `hint()` is set), with optional nested `mlv-hint`.
-   - `mlv-scrollbar` wrapper whose `min-height`/`max-height` are bound inline; disabled when `autoResize` is true.
+   - `mlv-scrollbar` whose `min-height`/`max-height` are bound inline and whose `[scroller]` points at the `<textarea>` below it, so the field stays the scroll box and the scrollbar contributes only the overlay tracks. It is **never** `disabled` and carries no `ariaLabel` / `viewportTabIndex` — in `[scroller]` mode the component emits no `tabindex`, `role` or `aria-label` of its own, and the field owns its semantics.
    - Native `<textarea #textareaEl>` with `aria-invalid`, `aria-label`, `aria-required`, `aria-describedby` (`_textareaDescribedBy()` — the base's description/message ids plus the counter id, `null` when none apply), and standard form bindings.
    - `mlv-description` (shown when `description()` is non-empty), carrying `_descriptionId()`.
    - `mlv-message` (shown when `message()` is non-empty), carrying `_messageId()`.
@@ -147,24 +148,25 @@ The component wraps the native `<textarea>` inside `mlv-form-control-wrapper`, g
 
 BEM block: `.mlv-textarea`
 
-| Class                           | Description                                                     |
-| ------------------------------- | --------------------------------------------------------------- |
-| `.mlv-textarea`                 | Block root                                                      |
-| `.mlv-textarea__scrollbar`      | `mlv-scrollbar` wrapper; `flex: 1 1 auto`                       |
-| `.mlv-textarea__field`          | Native `<textarea>`; no border/outline; hides native scrollbar  |
-| `.mlv-textarea__count`          | Character counter; `text-align: right`; `--mlv-typography-ui-s` |
-| `.mlv-textarea__count--warning` | Color: `--mlv-text-warning`                                     |
-| `.mlv-textarea__count--error`   | Color: `--mlv-text-negative`                                    |
-| `.mlv-textarea--auto-resize`    | Applied when `autoResize()` is true; allows free height growth  |
-| `.mlv-textarea--disabled`       | Applied when `computedDisabled()` is true                       |
-| `.mlv-textarea--focused`        | Applied when `focused()` is true                                |
-| `.mlv-textarea--{state}`        | Applied for `resolvedState()` (e.g., `--error`, `--success`)    |
+| Class                           | Description                                                                                              |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `.mlv-textarea`                 | Block root                                                                                               |
+| `.mlv-textarea__scrollbar`      | `mlv-scrollbar` decorating the field; `flex: 1 1 auto`                                                   |
+| `.mlv-textarea__field`          | Native `<textarea>` — the scroll box; no border/outline; native bar hidden in favour of the themed track |
+| `.mlv-textarea__count`          | Character counter; `text-align: right`; `--mlv-typography-ui-s`                                          |
+| `.mlv-textarea__count--warning` | Color: `--mlv-text-warning`                                                                              |
+| `.mlv-textarea__count--error`   | Color: `--mlv-text-negative`                                                                             |
+| `.mlv-textarea--auto-resize`    | Applied when `autoResize()` is true; allows free height growth                                           |
+| `.mlv-textarea--disabled`       | Applied when `computedDisabled()` is true                                                                |
+| `.mlv-textarea--focused`        | Applied when `focused()` is true                                                                         |
+| `.mlv-textarea--{state}`        | Applied for `resolvedState()` (e.g., `--error`, `--success`)                                             |
 
 Key style decisions:
 
 - Overrides `.mlv-form-control-wrapper__control-container` to `height: auto` so the textarea can grow.
 - The clear button is repositioned with `margin-top`/`margin-inline-end` to align with the first text row.
-- When `mlv-scrollbar` is disabled (auto-resize mode), its overflow is `visible`.
+- `.mlv-textarea__field` keeps `overflow: auto` + `scrollbar-width: none` + `-ms-overflow-style: none` + `::-webkit-scrollbar { display: none }`. That is only truthful because the field is decorated by `[scroller]`; removing the binding without also removing these declarations is what left the control with **no** visible scrollbar (issue #90).
+- The overlay tracks' containing block is `.mlv-textarea__scrollbar` itself — `.mlv-scrollbar` is already `position: relative`, so nothing extra is declared here, and nothing may clip it either.
 
 ---
 
@@ -357,3 +359,71 @@ became Baseline "newly available" in June 2026 (Firefox 152), so the JS path has
 to stay for a large installed base, and duplicating the `minRows`/`maxRows`
 semantics in CSS would create two clamping implementations that can disagree. It
 remains a reasonable later enhancement behind `@supports`.
+
+---
+
+## Visible scrollbar track (2026-09, issue #90)
+
+The control shipped with **no visible scrollbar in any configuration**: content
+scrolled (wheel, caret keys) with neither a custom track nor a native bar.
+
+**Cause.** `mlv-scrollbar` _wrapped_ the `<textarea>`, and the field suppressed
+its own native bar under the comment "mlv-scrollbar provides the custom one".
+That premise never held. A `<textarea>` is itself an `overflow: auto` box sized
+by `rows` (or by the auto-resize clamp), so it absorbs its overflow internally
+and the viewport wrapping it never overflows. Measured in Chrome on `main`, 40
+lines in a `rows`-sized demo: field `scrollHeight`/`clientHeight` 848/92 —
+scrolls; viewport 107/107 — does not. Both tracks `--hidden`, 0px box. The
+`[disabled]="autoResize()"` binding was a red herring: the track could not
+appear in either mode.
+
+**Fix — decorate, don't wrap.** The field stays the scroller and
+`[scroller]="textareaEl"` points the scrollbar at it. Same shape as Taiga UI's
+`TuiTextareaContent`, which renders a sibling `tui-scroll-controls` aimed at the
+textarea; here it is a signal input rather than a DI-token override, because the
+target is a template reference variable in the same template.
+
+Consequences:
+
+- `[disabled]="$any(autoResize())"` is gone — the track now works in both modes.
+  Not a visible behaviour change: it never rendered in either.
+- The `&.mlv-scrollbar--disabled { overflow: visible; }` rule in `textarea.scss`
+  became dead and was removed. The equivalent is now the scrollbar's own
+  `mlv-scrollbar--external` modifier, which is unconditional here.
+- The `ariaLabel="Text area content"` on the wrapper is gone. In `[scroller]`
+  mode `mlv-scrollbar` emits no `tabindex`, `role` or `aria-label` on its
+  viewport at all — a second named, tabbable region around a labelled form
+  control is an a11y regression, not an addition.
+- The misleading `scrollbar-width: none` comment was rewritten; the three
+  declarations stay, and are now true.
+
+**The stale-track trap.** `MlvScrollbar`'s `ResizeObserver` cannot see a
+textarea's content grow: the element's border box does not change when a line of
+text is added, and it has no child to observe. Typing moves `scrollHeight` with
+no `scroll` event and no observer callback. `MlvTextarea` therefore calls the
+scrollbar's new public `remeasure()` from an `afterRenderEffect` on `value`.
+
+`afterRenderEffect`, not a plain `effect`: a component `effect` runs _before_
+the template's update pass writes `[value]` into the DOM, so a
+programmatically-set value would be measured against the previous text — the
+shape of issue #78. It also never runs on the server, so no DOM read escapes a
+browser guard. (The jsdom spec cannot discriminate the two hooks — it stubs
+`scrollHeight` — so this rests on ordering, not on an assertion.)
+
+Every _height_ change is still covered by the observer: `rows`, the inline
+height `_runAutoResize()` writes, and container resizes all resize something it
+watches.
+
+Cost: one forced layout + one style recalculation per keystroke (`remeasure()`
+drops the track-metric cache), on an element whose layout the keystroke already
+invalidated. In `autoResize` mode `_runAutoResize()` already forces one.
+
+**Regression coverage.** `textarea-scrollbar.spec.ts` asserts on **rendered**
+state — the vertical track losing `mlv-scrollbar__track--hidden` and the thumb's
+inline geometry becoming non-zero — because every unit test on the measurement
+path passed while the affordance was missing. It types (sets the element's value
+and fires `input`) with stubbed metrics, covers `autoResize` true and false and a
+programmatic `value` set, and dispatches its scroll events at the `<textarea>`;
+a negative case dispatches at the `mlv-scrollbar` host and asserts nothing
+happens, since `scroll` does not bubble and a host-aimed dispatch would pass
+vacuously (that is what hid issue #73).

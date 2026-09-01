@@ -89,6 +89,7 @@ interface TrackMetrics {
   host: {
     class: 'mlv-scrollbar',
     '[class.mlv-scrollbar--disabled]': 'disabled()',
+    '[class.mlv-scrollbar--external]': '_hasExternalScroller()',
     '[class.mlv-scrollbar--dragging]': '_isDragging()',
     '[class.mlv-scrollbar--scrolling]': '_isScrolling()',
     '[style.--mlv-sb-size]': 'scrollbarSize()',
@@ -116,6 +117,40 @@ export class MlvScrollbar {
   readonly disabled = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
   });
+
+  /**
+   * External element whose scrolling this scrollbar decorates. When set, the
+   * component's own viewport stops being a scroll box and only the tracks are
+   * rendered, positioned over the host. Use it for a control that must remain
+   * its own scroller — a `<textarea>`, for example, can never delegate
+   * scrolling to an ancestor: it is an `overflow: auto` box sized by `rows`,
+   * so it absorbs its own overflow and a wrapping viewport never overflows at
+   * all (issue #90).
+   *
+   * The decorated element keeps every scrolling and accessibility semantic it
+   * already has. In this mode the internal viewport emits **no** `tabindex`,
+   * `role` or `aria-label`, whatever `viewportTabIndex` / `ariaLabel` say — a
+   * second named, tabbable region wrapped around a control that already names
+   * itself is an accessibility regression, not an addition.
+   *
+   * Hide the decorated element's native bar yourself (`scrollbar-width: none`
+   * plus `::-webkit-scrollbar { display: none }`); the component does not
+   * reach into an element it does not own.
+   *
+   * **Read once, at wiring time.** The scroll listener and the
+   * `ResizeObserver` are attached from `afterNextRender`, so the value must be
+   * available by the first render (a template reference variable is) and is
+   * treated as fixed for the component's lifetime — exactly like the internal
+   * `#viewport` it stands in for.
+   *
+   * @example
+   * ```html
+   * <mlv-scrollbar [scroller]="fieldEl">
+   *   <textarea #fieldEl></textarea>
+   * </mlv-scrollbar>
+   * ```
+   */
+  readonly scroller = input<HTMLElement | ElementRef<HTMLElement> | null>(null);
 
   /**
    * Custom aria-label override for the scrollable viewport region.
@@ -166,15 +201,38 @@ export class MlvScrollbar {
   );
 
   /**
+   * @protected Whether an external element is being decorated rather than the
+   * component's own viewport. Drives the `--external` modifier, which stops
+   * the viewport from scrolling or clipping, and silences every semantic the
+   * viewport would otherwise carry.
+   */
+  protected readonly _hasExternalScroller = computed(
+    () => this.scroller() !== null,
+  );
+
+  /**
+   * @protected The `tabindex` actually written to the viewport, or `null`.
+   *
+   * Passes `viewportTabIndex` through verbatim, except while an external
+   * scroller is decorated: there the viewport is a bare layout wrapper around
+   * an element that owns its own focus behaviour, and making the wrapper a tab
+   * stop would put a second, meaningless stop in front of it.
+   */
+  protected readonly _viewportTabIndex = computed(() =>
+    this._hasExternalScroller() ? null : this.viewportTabIndex(),
+  );
+
+  /**
    * @protected Whether the viewport is itself a tab stop.
    *
    * Only a viewport the user can land on is a control that has to introduce
    * and name itself (WCAG 4.1.2). `-1` and `null` are both "not a tab stop":
    * a `-1` viewport is only ever reached under a widget's own keyboard model,
-   * which names itself.
+   * which names itself. An external scroller is never a tab stop either — the
+   * decorated element is the control.
    */
   protected readonly _isViewportFocusable = computed(
-    () => this.viewportTabIndex() === 0,
+    () => this._viewportTabIndex() === 0,
   );
 
   /**
@@ -245,12 +303,68 @@ export class MlvScrollbar {
     viewChild.required<ElementRef<HTMLDivElement>>('viewport');
 
   /**
-   * The native scrollable viewport element.
-   * Lets wrapping components (e.g. `main[mlvPage]`) observe scroll position
-   * without reaching into the component's private DOM.
+   * The element that actually scrolls: the decorated `scroller()` when one is
+   * set, the component's own viewport otherwise.
+   *
+   * Lets wrapping components (e.g. `main[mlvPage]`, `mlv-chat`) observe scroll
+   * position without reaching into the component's private DOM.
+   *
+   * It deliberately follows `scroller()` rather than always returning the
+   * internal `<div>`. Every caller uses this as *the element that scrolls* —
+   * to attach a `scroll` listener, to read `scrollTop`/`scrollHeight`, or to
+   * write `scrollTop`. In external mode the internal viewport does none of
+   * those things, so handing it back would reproduce issue #73: a listener on
+   * a node that never receives the event, silently doing nothing.
    */
   get viewportElement(): HTMLElement {
+    return this._scrollerElement();
+  }
+
+  /**
+   * @private The single resolution point for "which element do I measure and
+   * listen to".
+   *
+   * Every metric read in the component goes through this, so the external and
+   * internal modes share one code path and cannot drift apart.
+   *
+   * The `nativeElement` probe is used instead of `instanceof ElementRef`
+   * deliberately: this is a published library, and `instanceof` fails when the
+   * consumer's `ElementRef` comes from a different `@angular/core` copy.
+   */
+  private _scrollerElement(): HTMLElement {
+    const external = this.scroller();
+    if (external) {
+      return 'nativeElement' in external ? external.nativeElement : external;
+    }
     return this._viewport().nativeElement;
+  }
+
+  /**
+   * Recomputes overflow state and thumb geometry from the scroller's current
+   * metrics. No-ops before the first render and on the server.
+   *
+   * Only needed in **external** mode (`scroller`), and only for content that
+   * grows without resizing anything observable. A `<textarea>` is the case
+   * this exists for: its border box does not change when a line of text is
+   * added, and it has no child element to observe, so typing moves
+   * `scrollHeight` with **no** `scroll` event and **no** `ResizeObserver`
+   * callback — the track would keep describing the previous content, or never
+   * appear at all.
+   *
+   * The alternative considered was Taiga UI's approach: a transparent mirror
+   * of the value carrying `view-timeline`, whose own resize the observer can
+   * see. It was rejected because it costs a second copy of the text in the
+   * DOM, duplicated typography that must track every density/theme/font
+   * change to stay honest, and a scroll-driven-animation dependency — to
+   * report something the content's owner already knows for certain. An
+   * explicit call from that owner carries no CSS and no duplication.
+   *
+   * The default (internal-viewport) mode never needs this: the content
+   * wrapper is observed, so any content growth is reported already.
+   */
+  remeasure(): void {
+    if (!this._rendered) return;
+    this._updateGeometry();
   }
 
   /** @private Reference to the vertical track element. */
@@ -278,8 +392,17 @@ export class MlvScrollbar {
    */
   private _trackMetricsH: TrackMetrics | null = null;
 
-  /** @private Native ResizeObserver watching viewport and content size. */
+  /** @private Native ResizeObserver watching the scroller, viewport and content size. */
   private _resizeObserver: ResizeObserver | null = null;
+
+  /**
+   * @private Whether the first render has happened.
+   *
+   * `remeasure()` is public, so it can be called before the view exists and —
+   * because `afterNextRender` never runs on the server — it doubles as the SSR
+   * guard for the only DOM reads that are not already behind one.
+   */
+  private _rendered = false;
 
   /** @private Timeout ID for clearing the `--scrolling` modifier after idle. */
   private _scrollTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -297,11 +420,16 @@ export class MlvScrollbar {
     afterNextRender(() => {
       this._registerScrollListener();
       this._updateGeometry();
+      // Set before the ResizeObserver guard below: `remeasure()` is exactly
+      // what an environment *without* a ResizeObserver has to fall back on, so
+      // gating it behind one would disable the only remaining update path.
+      this._rendered = true;
 
       if (typeof ResizeObserver === 'undefined') {
         return;
       }
 
+      const scrollerEl = this._scrollerElement();
       const viewportEl = this._viewport().nativeElement;
       const contentEl = viewportEl.firstElementChild;
 
@@ -309,8 +437,15 @@ export class MlvScrollbar {
         this._updateGeometry();
       });
 
-      // Observe the viewport to detect host resize (viewport fills host via position:absolute).
-      this._resizeObserver.observe(viewportEl);
+      // Observe the scroller to detect its own resize — in the default mode
+      // this is the viewport, which fills the host, so it also catches a host
+      // resize.
+      this._resizeObserver.observe(scrollerEl);
+      // In external mode the viewport is a separate element that still fills
+      // the host, so it is what reports a host resize.
+      if (viewportEl !== scrollerEl) {
+        this._resizeObserver.observe(viewportEl);
+      }
       // Observe the content wrapper to detect content size changes.
       if (contentEl) {
         this._resizeObserver.observe(contentEl);
@@ -371,13 +506,18 @@ export class MlvScrollbar {
    *
    * `#viewport` is unconditional in the template, so the element resolved here
    * is the one that lives for the component's whole lifetime; there is no
-   * later value to re-bind to.
+   * later value to re-bind to. The same is required of `scroller()` — see its
+   * own doc comment.
+   *
+   * `scroll` does **not** bubble, so the listener has to sit on the element
+   * that scrolls. In external mode that is the decorated element, never the
+   * host and never the internal viewport.
    */
   private _registerScrollListener(): void {
-    const viewportEl = this._viewport().nativeElement;
+    const scrollerEl = this._scrollerElement();
 
     this._ngZone.runOutsideAngular(() => {
-      fromEvent(viewportEl, 'scroll', { passive: true })
+      fromEvent(scrollerEl, 'scroll', { passive: true })
         .pipe(takeUntilDestroyed(this._destroyRef))
         .subscribe(() => this._onScroll());
     });
@@ -412,7 +552,7 @@ export class MlvScrollbar {
     const thumb = event.currentTarget as HTMLElement;
     thumb.setPointerCapture(event.pointerId);
 
-    const viewportEl = this._viewport().nativeElement;
+    const viewportEl = this._scrollerElement();
 
     // Same measurement `_updateThumbPositions()` needs, so it is taken from
     // the shared cache rather than read again: a drag that starts before any
@@ -490,7 +630,7 @@ export class MlvScrollbar {
    * handled by the effect in the constructor).
    */
   private _updateGeometry(): void {
-    const viewportEl = this._viewport().nativeElement;
+    const viewportEl = this._scrollerElement();
     const hadVerticalOverflow = this._hasVerticalOverflow();
     const hadHorizontalOverflow = this._hasHorizontalOverflow();
 
@@ -594,7 +734,7 @@ export class MlvScrollbar {
    * bidirectionally scrollable region.
    */
   private _updateThumbPositions(): void {
-    const viewportEl = this._viewport().nativeElement;
+    const viewportEl = this._scrollerElement();
 
     if (this._showVertical() && this._hasVerticalOverflow()) {
       const { paddingPx, usablePx: usableHeight } =
