@@ -4,20 +4,50 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
   type ElementRef,
   inject,
   input,
+  NgZone,
   Renderer2,
   signal,
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { fromEvent } from 'rxjs';
 import { MLV_SCROLLBAR_I18N } from '@malva-ui/i18n';
 
 /** Controls which scroll axes render a custom scrollbar. */
 export type MlvScrollbarOrientation = 'vertical' | 'horizontal' | 'both';
+
+/**
+ * Measured geometry of one scrollbar track, along that track's scroll axis.
+ *
+ * Deliberately **not** exported: it is an internal caching detail of
+ * `MlvScrollbar`, not part of the public API.
+ *
+ * Both fields are expensive to obtain — the padding costs a style
+ * recalculation (`getComputedStyle`) and the extent costs a forced layout
+ * (`offsetHeight` / `offsetWidth`) — while neither can change as a result of
+ * scrolling, so they are cached between resizes instead of being re-read on
+ * every scroll frame.
+ */
+interface TrackMetrics {
+  /**
+   * Track padding at each end of the scroll axis, in pixels — the resolved
+   * `--mlv-sb-edge-padding` design token.
+   */
+  readonly paddingPx: number;
+
+  /**
+   * Track extent along the scroll axis with the padding at both ends removed,
+   * in pixels. This is the span the thumb is laid out within.
+   */
+  readonly usablePx: number;
+}
 
 /**
  * Custom scrollbar component that hides the native browser scrollbar and
@@ -234,6 +264,20 @@ export class MlvScrollbar {
   /** @private Minimum rendered thumb length in pixels — prevents thumb from becoming unclickable. */
   private readonly _minThumbSize = 32;
 
+  /**
+   * @private Cached vertical-track metrics, or `null` while the cache is dirty.
+   * Populated lazily by `_trackMetrics('vertical')`, dropped by
+   * `_invalidateTrackMetrics()`.
+   */
+  private _trackMetricsV: TrackMetrics | null = null;
+
+  /**
+   * @private Cached horizontal-track metrics, or `null` while the cache is
+   * dirty. Populated lazily by `_trackMetrics('horizontal')`, dropped by
+   * `_invalidateTrackMetrics()`.
+   */
+  private _trackMetricsH: TrackMetrics | null = null;
+
   /** @private Native ResizeObserver watching viewport and content size. */
   private _resizeObserver: ResizeObserver | null = null;
 
@@ -246,8 +290,12 @@ export class MlvScrollbar {
   /** @private Renderer2 used so DOM listeners are SSR-safe and unsubscribable. */
   private readonly _renderer = inject(Renderer2);
 
+  /** @private Zone reference; the scroll listener is registered outside it. */
+  private readonly _ngZone = inject(NgZone);
+
   constructor() {
     afterNextRender(() => {
+      this._registerScrollListener();
       this._updateGeometry();
 
       if (typeof ResizeObserver === 'undefined') {
@@ -269,6 +317,27 @@ export class MlvScrollbar {
       }
     });
 
+    // Everything that relays the corner-avoidance rule in the stylesheet,
+    // which shortens each track by one `--mlv-sb-size` along its own axis
+    // while the *other* track is visible. None of it is observed by the
+    // ResizeObserver — that watches the viewport and the content wrapper,
+    // neither of which changes size for any of these — so the cache is
+    // dropped here instead:
+    //
+    // - `scrollbarSize` is that width, so it scales the shortening itself.
+    // - `_showVertical` / `_showHorizontal` gate the `--hidden` class on each
+    //   track (`orientation`, `disabled`), so changing either turns the rule
+    //   on or off without any overflow signal moving — the overflow flip
+    //   handled in `_updateGeometry()` does not cover this.
+    //
+    // Only inputs are read, so this never runs during scrolling.
+    effect(() => {
+      this.scrollbarSize();
+      this._showVertical();
+      this._showHorizontal();
+      this._invalidateTrackMetrics();
+    });
+
     this._destroyRef.onDestroy(() => {
       this._resizeObserver?.disconnect();
       if (this._scrollTimeout !== null) {
@@ -277,8 +346,45 @@ export class MlvScrollbar {
     });
   }
 
-  /** @protected Handles scroll events on the viewport. Updates thumb positions and `--scrolling` state. */
-  protected _onScroll(): void {
+  /**
+   * @private Binds the viewport's scroll listener outside the template, as an
+   * `rxjs` `fromEvent` stream, instead of through a `(scroll)` binding.
+   *
+   * A template listener is wrapped by Angular in
+   * `wrapListenerIn_markDirtyAndPreventDefault`, which marks the whole
+   * ancestor view chain dirty and notifies the change-detection scheduler
+   * **before it even knows whether the handler changed anything** — one full
+   * change-detection pass per scroll event, at input frequency, for a handler
+   * whose signals usually land on the values they already held. `fromEvent`
+   * registers a plain `addEventListener` with no such wrapper: signal writes
+   * propagate through the reactivity graph on their own, so a scroll that
+   * moves no signal now costs nothing.
+   *
+   * `{ passive: true }` is forwarded to `addEventListener` — a non-passive
+   * scroll listener is its own performance bug, so it is not optional here.
+   *
+   * `runOutsideAngular` is kept for consumers still on zone-based change
+   * detection, where the zone would schedule its own tick on top.
+   *
+   * `takeUntilDestroyed` takes the `DestroyRef` explicitly: this runs from an
+   * `afterNextRender` callback, which is not an injection context.
+   *
+   * `#viewport` is unconditional in the template, so the element resolved here
+   * is the one that lives for the component's whole lifetime; there is no
+   * later value to re-bind to.
+   */
+  private _registerScrollListener(): void {
+    const viewportEl = this._viewport().nativeElement;
+
+    this._ngZone.runOutsideAngular(() => {
+      fromEvent(viewportEl, 'scroll', { passive: true })
+        .pipe(takeUntilDestroyed(this._destroyRef))
+        .subscribe(() => this._onScroll());
+    });
+  }
+
+  /** @private Handles scroll events on the viewport. Updates thumb positions and `--scrolling` state. */
+  private _onScroll(): void {
     this._updateThumbPositions();
 
     this._isScrolling.set(true);
@@ -307,18 +413,12 @@ export class MlvScrollbar {
     thumb.setPointerCapture(event.pointerId);
 
     const viewportEl = this._viewport().nativeElement;
-    const trackEl = (axis === 'vertical' ? this._trackV() : this._trackH())
-      .nativeElement;
 
-    const paddingPx =
-      axis === 'vertical'
-        ? parseFloat(getComputedStyle(trackEl).paddingTop)
-        : parseFloat(getComputedStyle(trackEl).paddingLeft);
-
-    const trackSize =
-      axis === 'vertical'
-        ? trackEl.offsetHeight - paddingPx * 2
-        : trackEl.offsetWidth - paddingPx * 2;
+    // Same measurement `_updateThumbPositions()` needs, so it is taken from
+    // the shared cache rather than read again: a drag that starts before any
+    // scroll finds the cache empty and measures on the spot, and every resize
+    // has already dropped it, so it can never be staler here than there.
+    const { usablePx: trackSize } = this._trackMetrics(axis);
 
     const thumbSize =
       axis === 'vertical' ? this._thumbHeight() : this._thumbWidth();
@@ -383,10 +483,17 @@ export class MlvScrollbar {
 
   /**
    * @private Recalculates overflow detection and thumb geometry.
-   * Called after first render, on ResizeObserver notifications, and on scroll.
+   * Called after first render and on ResizeObserver notifications.
+   *
+   * A resize is the main way a track can change size, so this is where the
+   * cached track metrics are dropped (the other is a `scrollbarSize` change,
+   * handled by the effect in the constructor).
    */
   private _updateGeometry(): void {
     const viewportEl = this._viewport().nativeElement;
+    const hadVerticalOverflow = this._hasVerticalOverflow();
+    const hadHorizontalOverflow = this._hasHorizontalOverflow();
+
     // +1 tolerance for sub-pixel rounding
     this._hasVerticalOverflow.set(
       viewportEl.scrollHeight > viewportEl.clientHeight + 1,
@@ -394,20 +501,104 @@ export class MlvScrollbar {
     this._hasHorizontalOverflow.set(
       viewportEl.scrollWidth > viewportEl.clientWidth + 1,
     );
+
+    this._invalidateTrackMetrics();
     this._updateThumbPositions();
+
+    // The measurement `_updateThumbPositions()` just took was read against the
+    // DOM as it stood *before* Angular re-rendered the visibility classes the
+    // two `set` calls above have only now decided. On the axis that flipped,
+    // its own track was still carrying its previous visibility — a track that
+    // has just become visible still measured `display: none`, which
+    // `_trackMetrics()` refuses to cache. The *other* axis measured a visible
+    // track, so it was cached, but the corner-avoidance rule in the stylesheet
+    // shortens each track by one scrollbar width while the other one is
+    // visible: a flip on one axis therefore stales the cross axis by exactly
+    // that width. Drop it so the next read measures the settled layout.
+    if (this._hasHorizontalOverflow() !== hadHorizontalOverflow) {
+      this._trackMetricsV = null;
+    }
+    if (this._hasVerticalOverflow() !== hadVerticalOverflow) {
+      this._trackMetricsH = null;
+    }
+  }
+
+  /**
+   * @private Returns the metrics of one track, measuring them only when the
+   * cache is dirty.
+   *
+   * A measurement is cached only when the track was actually laid out. A track
+   * with no overflow on its axis carries `.mlv-scrollbar__track--hidden`, which
+   * is `display: none`, and a `display: none` element reports an extent of `0`.
+   * `_updateGeometry()` measures synchronously, before Angular has re-rendered
+   * the class binding it just invalidated, so on the frame where overflow first
+   * appears the track is still hidden and still measures `0`. Caching that
+   * would pin the thumb to a zero-length track forever; leaving the cache dirty
+   * instead makes the next read re-measure the now-visible track.
+   *
+   * The measurement is still *returned* in that case, so the values written to
+   * the thumb signals are byte-identical to the uncached implementation —
+   * caching changes how often the DOM is read, never what is computed from it.
+   */
+  private _trackMetrics(axis: 'vertical' | 'horizontal'): TrackMetrics {
+    const cached =
+      axis === 'vertical' ? this._trackMetricsV : this._trackMetricsH;
+    if (cached !== null) {
+      return cached;
+    }
+
+    const trackEl = (axis === 'vertical' ? this._trackV() : this._trackH())
+      .nativeElement;
+    const style = getComputedStyle(trackEl);
+    const paddingPx = parseFloat(
+      axis === 'vertical' ? style.paddingTop : style.paddingLeft,
+    );
+    const extentPx =
+      axis === 'vertical' ? trackEl.offsetHeight : trackEl.offsetWidth;
+    const metrics: TrackMetrics = {
+      paddingPx,
+      usablePx: extentPx - paddingPx * 2,
+    };
+
+    // `extentPx > 0` is also false for NaN, so an unmeasurable track is
+    // treated as still dirty rather than cached.
+    if (extentPx > 0 && Number.isFinite(paddingPx)) {
+      if (axis === 'vertical') {
+        this._trackMetricsV = metrics;
+      } else {
+        this._trackMetricsH = metrics;
+      }
+    }
+
+    return metrics;
+  }
+
+  /**
+   * @private Drops both cached track metrics so the next read re-measures.
+   * Called whenever the tracks may have been laid out differently.
+   */
+  private _invalidateTrackMetrics(): void {
+    this._trackMetricsV = null;
+    this._trackMetricsH = null;
   }
 
   /**
    * @private Recomputes thumb position and size signals from the current viewport
    * scroll state. Fast path — called on every scroll event.
+   *
+   * Reads nothing from the DOM but the viewport's own scroll state
+   * (`scrollTop`/`scrollLeft`, `clientHeight`/`clientWidth`,
+   * `scrollHeight`/`scrollWidth`). Track padding and extent come from
+   * `_trackMetrics()`, which is cached across scrolls — otherwise every scroll
+   * frame would force a style recalculation plus a layout, twice on a
+   * bidirectionally scrollable region.
    */
   private _updateThumbPositions(): void {
     const viewportEl = this._viewport().nativeElement;
 
     if (this._showVertical() && this._hasVerticalOverflow()) {
-      const trackEl = this._trackV().nativeElement;
-      const paddingPx = parseFloat(getComputedStyle(trackEl).paddingTop);
-      const usableHeight = trackEl.offsetHeight - paddingPx * 2;
+      const { paddingPx, usablePx: usableHeight } =
+        this._trackMetrics('vertical');
       const ratio = viewportEl.clientHeight / viewportEl.scrollHeight;
       const thumbH = Math.max(this._minThumbSize, usableHeight * ratio);
       const scrollRange = viewportEl.scrollHeight - viewportEl.clientHeight;
@@ -421,9 +612,8 @@ export class MlvScrollbar {
     }
 
     if (this._showHorizontal() && this._hasHorizontalOverflow()) {
-      const trackEl = this._trackH().nativeElement;
-      const paddingPx = parseFloat(getComputedStyle(trackEl).paddingLeft);
-      const usableWidth = trackEl.offsetWidth - paddingPx * 2;
+      const { paddingPx, usablePx: usableWidth } =
+        this._trackMetrics('horizontal');
       const ratio = viewportEl.clientWidth / viewportEl.scrollWidth;
       const thumbW = Math.max(this._minThumbSize, usableWidth * ratio);
       const scrollRange = viewportEl.scrollWidth - viewportEl.clientWidth;

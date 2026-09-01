@@ -23,6 +23,53 @@ interface MlvPreparedFilter {
 }
 
 /**
+ * @private One row of {@link MlvArrayDataSource._sorted}'s decorated array:
+ * the row plus the two comparand forms the comparator needs, computed at most
+ * once per row instead of once per comparison.
+ */
+interface MlvSortEntry<T> {
+  /** The row itself, carried through so the sorted array can be rebuilt. */
+  readonly row: T;
+  /**
+   * `_read(row, sort.key)`, kept **raw**. The comparator's numeric branch keys
+   * off the *pair* (`typeof av === 'number' && typeof bv === 'number'`), so a
+   * column mixing numbers and strings compares those pairs as strings — the
+   * values can never be collapsed to one precomputed key.
+   */
+  readonly value: unknown;
+  /**
+   * `String(value ?? '')`, filled the first time a comparison actually reaches
+   * the collator branch and `undefined` until then.
+   *
+   * Lazy rather than eager so a column the numeric branch fully covers still
+   * allocates no strings at all, exactly as the per-comparison comparator did;
+   * eager decoration would have turned 0 allocations into one per row there.
+   */
+  text: string | undefined;
+}
+
+/**
+ * @private The single collator the sort comparator's string branch uses.
+ *
+ * `localeCompare(that, undefined, { numeric: true })` initialises a fresh
+ * collator on **every call**, so locale resolution used to be O(n log n) per
+ * sort; hoisting one collator here makes it O(1).
+ *
+ * `numeric: true` is what orders `'item2'` before `'item10'` — it is load
+ * bearing, not decoration.
+ *
+ * **The locale is the host's, not the app's.** `undefined` resolves the
+ * runtime default (`navigator.language` and friends), and resolves it once,
+ * when this module is first imported. That is exactly what the per-call form
+ * resolved. It is deliberately not the app language:
+ * `MlvI18nService.switchLanguage()` swaps the translation pack and nothing
+ * else, so sorting has never followed the app language and does not start to
+ * here. A source that must collate in the app's language needs its own
+ * comparator.
+ */
+const SORT_COLLATOR = new Intl.Collator(undefined, { numeric: true });
+
+/**
  * Default data source for in-memory arrays.
  * Handles filtering, sorting, and pagination automatically.
  * Pass a Signal<T[]> or a plain T[] (wrapped automatically).
@@ -112,24 +159,66 @@ export class MlvArrayDataSource<T> extends MlvDataSource<T> {
     );
   });
 
-  /** @private Filtered data sorted by the active sort state (stable copy). */
-  private readonly _sorted = computed(() => {
-    const data = [...this._filtered()];
+  /**
+   * @private Filtered data sorted by the active sort state (stable copy).
+   *
+   * Decorate–sort–undecorate: `_read` runs once per row and `String(… ?? '')`
+   * at most once per row, instead of twice per *comparison* — O(n) conversions
+   * instead of O(n log n). The comparator itself allocates nothing and
+   * resolves nothing; it reads the two decorated fields and one module-scope
+   * collator.
+   *
+   * The decorated array is what gets sorted, so `Array.prototype.sort`'s
+   * ES2019 stability carries straight through to the rows: equal keys keep
+   * their input order. Rebuilding the output from a value-keyed lookup would
+   * not. (Sorting *indices* would be stable too — `sort` has been stable since
+   * ES2019 whatever it is handed — so it is the rebuild, not the indirection,
+   * that is the hazard.)
+   *
+   * The branch is unchanged and stays per-pair — see {@link MlvSortEntry.value}.
+   */
+  private readonly _sorted = computed<T[]>(() => {
+    const filtered = this._filtered();
     const sort = this._sort();
-    if (!sort) return data;
-    return data.sort((a, b) => {
-      const av = this._read(a, sort.key);
-      const bv = this._read(b, sort.key);
+    if (!sort) return [...filtered];
+
+    // A row that is literally `undefined` is decorated as an `undefined`
+    // **element**, not as an entry wrapping one, and that is load bearing.
+    // `Array.prototype.sort` resolves every pair involving an `undefined`
+    // element itself — always to the end, in both directions, without ever
+    // invoking the comparator (ECMA-262 `CompareArrayElements` steps 1-2).
+    // Sorting the rows directly used to get that for free. Wrapping such a row
+    // in an entry would hand it to the comparator instead, where `_read`
+    // yields `undefined`, `?? ''` makes it the empty string, and it would lead
+    // under `asc` rather than sink. `null` rows are *not* hoisted by `sort` and
+    // must keep going through the comparator, exactly as before.
+    const decorated = filtered.map<MlvSortEntry<T> | undefined>((row) =>
+      row === undefined
+        ? undefined
+        : { row, value: this._read(row, sort.key), text: undefined },
+    );
+    const descending = sort.direction === 'desc';
+
+    const compare = (a: MlvSortEntry<T>, b: MlvSortEntry<T>): number => {
       let cmp: number;
-      if (typeof av === 'number' && typeof bv === 'number') {
-        cmp = av - bv;
+      if (typeof a.value === 'number' && typeof b.value === 'number') {
+        cmp = a.value - b.value;
       } else {
-        cmp = String(av ?? '').localeCompare(String(bv ?? ''), undefined, {
-          numeric: true,
-        });
+        // `??=` and not `||=`: `String(null ?? '')` is `''`, which must be
+        // cached, not recomputed on every comparison that touches this row.
+        a.text ??= String(a.value ?? '');
+        b.text ??= String(b.value ?? '');
+        cmp = SORT_COLLATOR.compare(a.text, b.text);
       }
-      return sort.direction === 'asc' ? cmp : -cmp;
-    });
+      return descending ? -cmp : cmp;
+    };
+
+    // The cast is what the note above earns: `sort` never hands the comparator
+    // one of the `undefined` elements it parks at the end by itself.
+    (decorated as MlvSortEntry<T>[]).sort(compare);
+
+    // The parked `undefined` elements map straight back to `undefined` rows.
+    return decorated.map((entry) => entry?.row as T);
   });
 
   /** Number of rows left after search and filters, before pagination. */

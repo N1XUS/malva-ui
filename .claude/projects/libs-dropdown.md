@@ -40,6 +40,7 @@ Exported from `libs/forms/dropdown/src/index.ts`:
 | `MlvOptionsInput<T>` | Type | `readonly T[] \| Observable<readonly T[]> \| MlvDataSource<T> \| null \| undefined` — everything an option control accepts as `options` |
 | `MlvOptionsSearchFn<T>` | Type | `(query: string) => T[] \| Promise<T[]> \| Observable<T[]>` — remote search function |
 | `MlvOptionsMode` | Type | `'local'` (consumer filters) \| `'remote'` (source filters, consumer calls `search()`) |
+| `defaultCompareWith<T>` | Function | `(a, b) => a === b` — the shared default behind every option control's `compareWith` input (`mlv-select`, `mlv-combobox`). A single module-level reference, so the two guards below can recognise it and take their `Set` fast path |
 | `isReconciliationEmit<T>` | Function | `(incoming, committed, visible, compare) => boolean` — whether an aria listbox `valueChange` is pure reconciliation noise rather than a user selection (see below) |
 | `filteredOutCommitted<T>` | Function | `(incoming, committed, visible, compare) => T[]` — committed values aria dropped only because their option is not rendered; re-added to a genuine multi-select pick |
 
@@ -326,7 +327,27 @@ export function isReconciliationEmit<T>(incoming: readonly T[], committed: reado
 export function filteredOutCommitted<T>(incoming: readonly T[], committed: readonly T[], visible: readonly T[], compare: (a: T, b: T) => boolean): T[];
 ```
 
-`mlv-combobox` keeps its private `_isReconciliationEmit` / `_filteredOutCommitted` method names and delegates to these, passing `filteredOptions().map((o) => o.value)` as `visible`.
+`mlv-combobox` keeps its private `_isReconciliationEmit` / `_filteredOutCommitted` method names and delegates to these. Both take the visible set as a parameter, so `selectValues` derives `filteredOptions().map((o) => o.value)` **once per emit** (`_visibleValues()`) and passes it to both — it used to be re-mapped inside each guard.
+
+#### Identity fast path (`defaultCompareWith`)
+
+`ngListbox` re-emits `valueChange` on every rendered-set change, i.e. every filter keystroke, and both helpers were nested linear scans: R committed × V visible `compare()` calls each. With `compare` identical **by reference** to `defaultCompareWith` or to `Object.is`, they instead build one SameValueZero `Set` per input array and test membership — O(R + V). A caller-supplied comparator keeps the pairwise path unchanged, byte for byte, and pays for no extra scan (the reference check fails first).
+
+This is why `mlv-select` and `mlv-combobox` default their `compareWith` input to the exported `defaultCompareWith` instead of a per-instance inline arrow: `input()` evaluates its default per component instance, so an inline `(a, b) => a === b` is a fresh reference per control and can never be recognised. Observable behaviour is identical — it is the same `===`.
+
+**The SameValueZero hazard.** `Set` membership is SameValueZero, which matches _neither_ comparator:
+
+|                       | `NaN` vs `NaN` | `+0` vs `-0` |
+| --------------------- | -------------- | ------------ |
+| `===`                 | not equal      | equal        |
+| `Object.is`           | equal          | not equal    |
+| SameValueZero (`Set`) | equal          | equal        |
+
+`===` and SameValueZero differ on exactly one pair, `(NaN, NaN)`; `Object.is` and SameValueZero on exactly `(+0, -0)` and `(-0, +0)`. So `identitySets` scans for the one hazard value that matters — `NaN` for `===`, `-0` for `Object.is` — while it builds the sets (one pass it was doing anyway) and returns `null` on a hit, dropping both helpers back to the pairwise path. With the hazard absent from every input, no differing pair can be formed and the two relations coincide on the values present, so the `Set` is exact.
+
+**All three arrays are scanned**, including ones only used as query values: for `Object.is`, a `-0` on the querying side is as hazardous as one inside a set (`+0` in the set, `-0` queried — SameValueZero says present, `Object.is` says absent). Object and reference values behave identically under all three relations, so the common case never trips the guard.
+
+`filteredOutCommitted` filters the `committed` **array** (never a set), so its result keeps committed order and duplicates — load-bearing, because callers spread it as `[...incoming, ...filteredOutCommitted(...)]`.
 
 ---
 
@@ -340,7 +361,7 @@ export function filteredOutCommitted<T>(incoming: readonly T[], committed: reado
 - `highlight-match.pipe.spec.ts` (3 tests): nullish label, segmentation, empty query.
 - `options-result.spec.ts` (3 tests): `toOptionsResult` normalises an array, a Promise, and an Observable to the same one-shot emission (moved here with the helper from `core-autocomplete`).
 - `options-adapter.spec.ts` (21 tests): array source (local, ready, `items`, nullish → `[]`, `search()` no-op); observable source (loading until first emission, latest emission wins, reference change re-subscribes / resets `ready` / drops late emissions from the old observable); `MlvDataSource` (`MlvSelectDataSource` → remote, ready immediately, `setSearch({ query, keys: [] })` and `null` for a blank query; a paged remote stub → loading until the first slice, `loadMore()` accumulates pages, `loadingMore` vs `loading`, stale items kept, exhausted/in-flight `loadMore()` is a no-op, a new search resets to page 1; `debounce` coalesces rapid `search()` calls); **paging edge cases** — a double `loadMore()` on an in-memory source (which never reports `loading`) does not skip page 2, a re-emit of the applied page replaces its tail instead of duplicating rows, and `loadMore()` stays blocked until the requested page is applied then allows the next; `searchFn` (remote, lazy until `ensureLoaded()`, `eager` loads at construction, newer query supersedes an in-flight one, errors → `[]` + `ready`, arrays / Promises / Observables, a swapped function only re-arms the lazy gate — the previous result and `ready` survive until the new function answers, and it is invoked exactly once while the old one is never re-invoked — re-binding an _equivalent_ arrow twice leaves an in-flight call untouched and its result still applies, and a data source passed alongside is never connected). Adapters are built with `runInInjectionContext(TestBed.inject(Injector), …)` and effects flushed with `TestBed.tick()`; `RemoteStub` counts both requests and `connect()` calls.
-- `reconciliation.spec.ts` (6 tests): `isReconciliationEmit` — true when nothing is added and every removed value is filtered out of view, true when the emit restates the committed selection, true for the empty-options initial load, false when a value is added, false when a still-visible value is removed (genuine deselect); `filteredOutCommitted` returns committed values that are neither incoming nor visible (empty when all are visible).
+- `reconciliation.spec.ts` (37 tests): `isReconciliationEmit` — true when nothing is added and every removed value is filtered out of view, true when the emit restates the committed selection, true for the empty-options initial load, false when a value is added, false when a still-visible value is removed (genuine deselect); `filteredOutCommitted` returns committed values that are neither incoming nor visible (empty when all are visible). Plus the fast-path suite: `defaultCompareWith` is `===` (reference equality for objects, `NaN !== NaN`, `+0 === -0`); a **differential fuzz** of 600 seeded random inputs per comparator (`defaultCompareWith`, `Object.is`, a custom by-id predicate) over a pool loaded with `NaN`, `±0`, and distinct-but-structurally-equal objects, checked against verbatim copies of both pre-change implementations; the **SameValueZero hazards** explicitly (a re-emitted `NaN` is an addition under `===`, not reconciliation; a committed `-0` is matched by neither an incoming nor a visible `+0` under `Object.is`; both hazards under a custom comparator); **order preservation** (committed order and duplicates survive, the committed instance is returned rather than a by-id-equal one); and that the **fast path is actually taken** — with R=50 committed and V=1000 visible, `visible` is walked exactly V times under either identity comparator and exactly R×V times under a custom one or when a hazard forces the fallback, measured through index accessors because `defaultCompareWith` cannot be wrapped in a spy without destroying the reference it is recognised by.
 
 ---
 

@@ -105,6 +105,29 @@ Native scroll plus `content-visibility: auto` on group rows (no view recycling, 
 - Re-pinning trims the window back to `windowSize` and clears the pill.
 - `_evaluateScroll(scrollTop, scrollHeight, clientHeight)` holds the logic separately from DOM measurement so it is testable without layout.
 
+**Listener wiring (issues #73 / #7).** The scroll listener is registered
+outside the template on `MlvScrollbar.viewportElement` — the element that
+genuinely scrolls — as `fromEvent(viewport, 'scroll', { passive: true })` from
+`afterNextRender`, inside `runOutsideAngular`, torn down with
+`takeUntilDestroyed(this._destroyRef)` (the `DestroyRef` is passed explicitly
+because an `afterNextRender` callback is not an injection context). There is no
+`(scroll)` binding in `chat.html` and `_onScroll` is `private`.
+
+It previously sat as `(scroll)` on the `<mlv-scrollbar>` **host**, which is the
+parent of `.mlv-scrollbar__viewport`. `scroll` does not bubble and
+`MlvScrollbar` declares no `scroll` output, so that was a plain native listener
+on a node that never receives the event: scrolling the chat did nothing at all —
+`loadOlder` never fired, the render window never grew, and bottom-distance
+tracking never updated. Binding outside the template also removes the per-event
+change-detection pass Angular's template-listener wrapper schedules
+unconditionally (20 scroll events over an unchanged view: 0 passes, was 20).
+
+`chat-scroll.spec.ts` still drives `_evaluateScroll(...)` directly, by design.
+The wiring itself is covered separately by `chat-scroll-wiring.spec.ts`, whose
+every case dispatches a native event **at `viewportElement`** — dispatching at
+the `mlv-scrollbar` host passes vacuously, because `dispatchEvent` runs a node's
+own listeners regardless of bubbling, which is exactly how the bug survived.
+
 ### Replies — the citation block
 
 `replyTo` carries a **full** `MlvChatMessageData`, not an id — so a citation renders correctly even when the original sits outside the loaded pages. The citation is the same bubble in `quote` mode (clamped text, thumbnail, audio chip, no meta), wrapped in a `button.mlv-chat-message__reply` that emits `replyClick`. Recursion is one level deep: a quoted message with its own `replyTo` shows a `↩` marker (`__reply-marker`) instead of nesting.
@@ -130,6 +153,19 @@ The button carries its own background, border reset and focus ring: without them
 ### Audio
 
 Native `HTMLAudioElement` created lazily through `MLV_CHAT_AUDIO_FACTORY` (overridable in tests). `MlvChatAudioService` is provided by `mlv-chat`, so only one audio message plays per chat; a standalone bubble injects it optionally and plays without coordination.
+
+Its three element listeners (`timeupdate`, `loadedmetadata`, `ended`) are `fromEvent(...).pipe(takeUntilDestroyed(this._destroyRef))`, so teardown is explicit rather than implied by the element becoming garbage. `_ensureAudio()` runs from the toggle click handler, **not** an injection context, so the `DestroyRef` is captured as a field and passed to `takeUntilDestroyed()` explicitly — the bare call throws there.
+
+**Playback position is floored to whole seconds** on the `timeupdate` write (`_currentTime.set(Math.floor(audio.currentTime))`):
+
+- `mlv-slider` defaults to `step = 1`, and its two **pointer** paths snap through `_snap()` — so pointer scrubbing was already whole-second granular, and flooring makes playback match it.
+- **Keyboard** stepping does not snap: `_computeKeyValue` returns `_clamp(current ± step)`, and `Home`/`End` return raw `min`/`max`. From a fractional position ArrowRight went `61.2` → `62.2`. Flooring the playback write therefore also lands keyboard stepping on integers (`61` → `62`), which is a second improvement rather than parity with an existing behaviour.
+- The slider clamps but does not snap its bound `value`, so an unfloored position rendered a fractional `aria-valuenow` on a `step="1"` slider. Flooring fixes that **for the playback path only** — `max` is bound to `_duration()`, i.e. the raw unfloored `audio.duration`, so `aria-valuemax` can still be off-step and `End` can still drive the value off-step. Pre-existing and untouched here.
+- **The visible readout is unchanged**, not approximately: `formatChatDuration` floors its own input, so `formatChatDuration(Math.floor(x)) === formatChatDuration(x)` for every input, negatives / `NaN` / `Infinity` / `-0` included. `chat-audio.spec.ts` asserts the identity and re-renders a table of raw positions against it rather than claiming it.
+- `timeupdate` is observed at roughly 4 Hz in current Chrome/Firefox/Safari; the HTML spec permits a wider 15-250 ms window, so treat the rate as an observation, not a guarantee. At that rate roughly **three of every four ticks become equal-value signal writes**, and signal equality short-circuits those to zero change detection. Pinned in the spec by counting `afterEveryRender` passes: four ticks inside one second → 1 pass, crossing the boundary → 1 more.
+- Only the playback tick is quantized. `_seek()` writes the exact value it receives to both `_currentTime` and `audio.currentTime` so the thumb tracks a drag, and `ended` still resets to exactly `0`.
+
+Scope note: only this component's own view was ever re-checked per tick, not the application — sibling OnPush views are untouched by a signal write here. `runOutsideAngular` is deliberately **not** used: Angular's hybrid scheduler is notified by the signal write itself, so suppressing the zone tick changes nothing. A throwaway probe during review measured 20 in-zone and 20 out-of-zone writes both producing 20 passes; that probe is not preserved in the suite, so take it as the reason for the decision rather than as a pinned invariant. What the suite does pin is the counterfactual that matters: the same four raw fractional values written unfloored cost 4 passes against the floored path's 1. Equal-value writes are the only lever that works.
 
 ### Animations
 

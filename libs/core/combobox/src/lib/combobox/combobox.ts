@@ -49,6 +49,7 @@ import type {
 } from '@malva-ui/core/dropdown';
 import {
   MlvActiveDescendant,
+  defaultCompareWith,
   defaultOptionTransform,
   filteredOutCommitted,
   isReconciliationEmit,
@@ -160,7 +161,7 @@ export class MlvCombobox<T>
    * deserialize round-trip and still match their option instances (check-marks
    * and the displayed label stay in agreement).
    */
-  readonly compareWith = input<(a: T, b: T) => boolean>((a, b) => a === b);
+  readonly compareWith = input<(a: T, b: T) => boolean>(defaultCompareWith);
 
   /**
    * Custom predicate deciding whether an option satisfies the current query
@@ -845,14 +846,19 @@ export class MlvCombobox<T>
     // and only drops values whose option is currently filtered out of view. A
     // genuine pointer selection either ADDS a value or REMOVES a still-visible
     // one — so this is safe to ignore entirely (no mutation, no side-effects).
-    if (this._isReconciliationEmit(incoming, committed)) return;
+    const visible = this._visibleValues();
+
+    if (this._isReconciliationEmit(incoming, committed, visible)) return;
 
     // Genuine pointer selection. In multi-select, aria has already reconciled
     // any filtered-out committed value out of its model, so re-add those
     // (otherwise "type to add another" silently drops earlier picks). Single-
     // select replaces, so no preservation is needed.
     const next = this.multiple()
-      ? [...incoming, ...this._filteredOutCommitted(incoming, committed)]
+      ? [
+          ...incoming,
+          ...this._filteredOutCommitted(incoming, committed, visible),
+        ]
       : incoming;
 
     this.selectionService.setValues(next);
@@ -873,11 +879,12 @@ export class MlvCombobox<T>
   private _isReconciliationEmit(
     incoming: readonly T[],
     committed: readonly T[],
+    visible: readonly T[],
   ): boolean {
     return isReconciliationEmit(
       incoming,
       committed,
-      this.filteredOptions().map((o) => o.value),
+      visible,
       this.compareWith(),
     );
   }
@@ -891,13 +898,23 @@ export class MlvCombobox<T>
   private _filteredOutCommitted(
     incoming: readonly T[],
     committed: readonly T[],
+    visible: readonly T[],
   ): T[] {
     return filteredOutCommitted(
       incoming,
       committed,
-      this.filteredOptions().map((o) => o.value),
+      visible,
       this.compareWith(),
     );
+  }
+
+  /**
+   * @private The values of the currently rendered (filtered) options — the
+   * reconciliation guard's "visible" set. Derived once per emit and passed to
+   * both guards, rather than re-mapping `filteredOptions()` in each.
+   */
+  private _visibleValues(): T[] {
+    return this.filteredOptions().map((o) => o.value);
   }
 
   /** Removes a single selected value (multi-select chip close / keyboard remove). */

@@ -853,6 +853,14 @@ Per-cell template helpers are memoized so they no longer allocate a fresh object
 - **Cell templates** — `getTemplate(key)` / `getEditTemplate(key)` read `_cellTemplateMap` / `_editCellTemplateMap` computeds (`Map<columnKey, TemplateRef>`, rebuilt only when the projected `cellTemplates()` / `editCellTemplates()` sets change), replacing an `Array.find()` per cell per CD. First registration wins for duplicate keys (preserves the old first-match `find()` semantics).
 - `getCellValue(row, key)` is left as-is — it is plain property access with nothing to memoize.
 
+`src/lib/data-source-sort-locale.spec.ts` is a guard that belongs to
+`@malva-ui/cdk/data-source` but has to live here: it asserts that
+`MlvI18nService.switchLanguage()` does not change `MlvArrayDataSource`'s sort
+order (the comparator's collator is bound to the **host** locale, not the app
+language), and `@nx/enforce-module-boundaries` forbids `family:cdk` from
+importing `@malva-ui/i18n` even in a spec. See
+[libs-cdk-data-source.md](libs-cdk-data-source.md).
+
 ## Styling
 
 **Design philosophy:** Completely flat and borderless — no wrapper chrome, no shadow, no radius on the container. The table sits directly on the page. Visual hierarchy comes from typography and spacing alone. Headers use normal-case text in a muted accent color (`color-mix` of `--mlv-text-action` and `--mlv-text-secondary`), `font-weight-medium`. Row separators are barely visible (`--mlv-border-subtle`), with a slightly heavier `--mlv-border-normal` line between header and body. Summary footers reuse density geometry with a strong top divider and opaque sticky surface. Resize separators remain subtly visible at rest and become explicit on hover, press, or keyboard focus. Sort icons on unsorted columns are completely hidden until hover. Row hover uses `--mlv-background-neutral-1-hover` — the gentle neutral interactive hover step, not `--mlv-background-sunken` (a static recessed-tray surface token; using it for hover made the row read as pressed rather than hovered). Row heights are generous (3.75rem comfortable, up to 4.75rem airy) to support rich multi-line cell content.
