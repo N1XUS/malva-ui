@@ -24,7 +24,7 @@ Exported from `libs/cdk/utils/src/index.ts`:
 | `range` | Function | `range(length, mapFn?)` — build a `0..n-1` array, optionally mapped |
 | `clamp` | Function | `clamp(value, min, max)` — constrain a number to an inclusive range |
 | `mlvNextId` | Function | `mlvNextId(prefix)` — process-unique `<prefix>-<n>` id string (module counter) |
-| `normalizeForMatch` | Function | `normalizeForMatch(text)` — pure text normaliser: NFD-fold, strip diacritics, lower-case. Moved from `@malva-ui/core/dropdown`, which still re-exports it |
+| `normalizeForMatch` | Function | `normalizeForMatch(text)` — pure text normaliser: NFD-fold, strip diacritics, lower-case, with an ASCII fast path (excluding `^` / `` ` ``, the two ASCII `Diacritic=Yes` characters) that collapses to `toLowerCase()`. Moved from `@malva-ui/core/dropdown`, which still re-exports it |
 | `MlvBreakpoint` | Type | `'sm' \| 'md' \| 'lg'` — breakpoint tier name |
 | `MlvBreakpointConfig` | Interface | `{ md: number; lg: number }` — pixel thresholds |
 | `MLV_BREAKPOINT_CONFIG` | Token | `InjectionToken<MlvBreakpointConfig>` — root-provided with defaults `{ md: 768, lg: 1200 }` |
@@ -204,14 +204,14 @@ constructor() {
 
 #### Consumers
 
-| Surface | What it uses the direction for |
-| ------- | ------------------------------- |
-| `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete` | `direction` on the CDK overlay config, resolved from the trigger element |
+| Surface                                              | What it uses the direction for                                                                             |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete`   | `direction` on the CDK overlay config, resolved from the trigger element                                   |
 | `MlvOverlayServiceBase` (drawer), `MlvDialogService` | `direction` resolved from the focused element at open time; overridable via the config's `direction` field |
-| `MlvOverlayHostBase` | `direction` resolved from the component host |
-| `MlvAbstractToastService` | global `direction()` — toast stacks are document-level |
-| `MlvTabGroup`, `MlvSegmented` | re-measure the sliding indicator / pill on a direction flip |
-| `MlvSlider`, `MlvRating`, `MlvSplitPane` | mirror pointer-coordinate → value mapping |
+| `MlvOverlayHostBase`                                 | `direction` resolved from the component host                                                               |
+| `MlvAbstractToastService`                            | global `direction()` — toast stacks are document-level                                                     |
+| `MlvTabGroup`, `MlvSegmented`                        | re-measure the sliding indicator / pill on a direction flip                                                |
+| `MlvSlider`, `MlvRating`, `MlvSplitPane`             | mirror pointer-coordinate → value mapping                                                                  |
 
 ---
 
@@ -239,7 +239,15 @@ Returns a process-unique id of the form `<prefix>-<n>`, where `<n>` is a monoton
 
 **File:** `libs/cdk/utils/src/lib/normalize-for-match.ts`
 
-Case- and diacritic-insensitive normalisation: NFD-folds `text`, strips combining diacritics (`\p{Diacritic}+`), and lower-cases — so `"Café"` folds to `"cafe"`. Moved down from `@malva-ui/core/dropdown`'s `option-matcher.ts` so CDK-only libraries (e.g. `@malva-ui/cdk/data-source`) can share it without importing `@malva-ui/core/*`; `@malva-ui/core/dropdown` re-exports it unchanged for existing consumers (`defaultOptionMatcher`, `rankPrefixMatchesFirst`, `matchSegments`, `smart-filter-bar`, `data-table`'s `MlvDataSource`).
+Case- and diacritic-insensitive normalisation: NFD-folds `text`, strips combining diacritics (`\p{Diacritic}+`), and lower-cases — so `"Café"` folds to `"cafe"`.
+
+**ASCII fast path.** When `text` carries neither a code unit >= `U+0080` nor one of the two ASCII characters `^` / `` ` `` (module-scope ``NEEDS_FULL_FOLD = /[\u0080-\uffff^`]/``, deliberately un-`g`-flagged so `lastIndex` cannot alternate results across `.test()` calls) the whole pipeline collapses to `text.toLowerCase()`: every ASCII code point is NFD-stable and ASCII `toLowerCase()` is a 1:1, length-preserving map. Measured ~2.5x cheaper than the three-step pipeline on a 40-char ASCII label, with no measurable cost on the full-fold branch.
+
+**Why `^` and `` ` `` are excluded.** `U+005E` and `U+0060` are the **only** two ASCII code points with `Diacritic=Yes`, so `\p{Diacritic}` strips them — "ASCII" does _not_ imply "nothing to strip". A guard keyed on non-ASCII alone makes `normalizeForMatch('x^2')` return `'x^2'` instead of `'x2'`, silently changing results in every consumer (`MlvArrayDataSource` search, `filter-expression`, `smart-filter-bar`, `view-variant`, and all option controls) and breaking `matchSegments`' index alignment. Both characters therefore take the full pipeline.
+
+The 1:1 length guarantee on the fast path is what lets `matchSegments` slice the original label directly. `normalize-for-match.spec.ts` pins both branches against a verbatim copy of the pre-fast-path implementation (ASCII, ASCII punctuation, `^` and `` ` ``, precomposed and decomposed accents, emoji, Turkish dotted/dotless I, German ß, Greek final sigma, lone combining mark, the U+007F/U+0080 boundary).
+
+Moved down from `@malva-ui/core/dropdown`'s `option-matcher.ts` so CDK-only libraries (e.g. `@malva-ui/cdk/data-source`) can share it without importing `@malva-ui/core/*`; `@malva-ui/core/dropdown` re-exports it unchanged for existing consumers (`defaultOptionMatcher`, `rankPrefixMatchesFirst`, `matchSegments`, `smart-filter-bar`, `data-table`'s `MlvDataSource`).
 
 ---
 

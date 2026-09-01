@@ -4,6 +4,30 @@ import type { MlvSelectOption } from './select-option';
 export { normalizeForMatch };
 
 /**
+ * @private Matches the first code unit that disqualifies the direct-slice fast
+ * path in {@link matchSegments}: either a non-ASCII UTF-16 code unit (>= U+0080,
+ * which also covers every astral code point because its surrogate halves fall in
+ * U+D800-U+DFFF), or one of the **two ASCII characters that carry
+ * `Diacritic=Yes`** — `^` (U+005E) and `` ` `` (U+0060). `normalizeForMatch`
+ * strips those two, so a label containing either folds to a *shorter* string and
+ * is no longer index-aligned with its source.
+ *
+ * Note the `^` sits after the range on purpose: `^` is only a negation operator
+ * at the *start* of a character class, so it is a literal here.
+ *
+ * Module-scope so the literal is compiled once, and deliberately **without** the
+ * `g` flag: a global regex carries `lastIndex` across `.test()` calls and would
+ * return alternating results for the same input.
+ *
+ * Intentionally duplicated from the identical private constant in
+ * `@malva-ui/cdk/utils`' `normalize-for-match.ts` rather than shared: exporting
+ * it would add a public symbol to a frozen package surface for a one-line
+ * regex. The two must stay in sync — `matchSegments`' fast path is only
+ * index-aligned for exactly the strings `normalizeForMatch` fast-paths.
+ */
+const NEEDS_FULL_FOLD = /[\u0080-\uffff^`]/;
+
+/**
  * A contiguous slice of a label produced by {@link matchSegments}, tagged with
  * whether it is part of the query match. Rendered by consumers (e.g. the
  * dropdown panel's suggestion highlighting) as `<mark>` for matched slices and
@@ -59,6 +83,13 @@ export function defaultOptionMatcher<T>(
  * implementation of the substring filter that previously lived inline in
  * `mlv-combobox`.
  *
+ * With the **default** matcher this runs a fused path that folds each label
+ * exactly once and reuses that folded string for both the substring test and
+ * the prefix ranking (the two steps used to fold every label separately). A
+ * **custom** matcher keeps the original two-pass shape: the predicate is called
+ * once per option and {@link rankPrefixMatchesFirst} folds the survivors for
+ * ranking.
+ *
  * @param options - The resolved options to filter.
  * @param query - The raw search query (trimmed internally).
  * @param matcher - Optional custom predicate; defaults to substring matching.
@@ -72,6 +103,23 @@ export function filterOptions<T>(
 ): MlvSelectOption<T>[] {
   const q = query.trim();
   if (!q) return [...options];
+
+  if (matcher === defaultOptionMatcher) {
+    // Fold once per label, then reuse it for the `includes` filter and the
+    // `startsWith` ranking. A folded query of '' (e.g. a lone combining mark)
+    // needs no special case: every label both contains and starts with ''.
+    const nq = normalizeForMatch(q);
+    const kept: MlvSelectOption<T>[] = [];
+    const keptIsPrefixed: boolean[] = [];
+    for (const option of options) {
+      const folded = normalizeForMatch(option.label);
+      if (!folded.includes(nq)) continue;
+      kept.push(option);
+      keptIsPrefixed.push(folded.startsWith(nq));
+    }
+    return rankWithinGroupRuns(kept, (_, index) => keptIsPrefixed[index]);
+  }
+
   return rankPrefixMatchesFirst(
     options.filter((option) => matcher(option, q)),
     q,
@@ -98,6 +146,26 @@ export function rankPrefixMatchesFirst<T>(
   query: string,
 ): MlvSelectOption<T>[] {
   const q = normalizeForMatch(query);
+  return rankWithinGroupRuns(options, (option) =>
+    normalizeForMatch(option.label).startsWith(q),
+  );
+}
+
+/**
+ * @private Stable-partitions `options` by `isPrefixed` **within each consecutive
+ * same-group run**, concatenating each run's prefixed entries before its rest.
+ * Runs are delimited exactly as {@link rankPrefixMatchesFirst} documents —
+ * by a change in `(group ?? '')` against the run's first option — so runs never
+ * move or merge and the panel's flat-index alignment holds.
+ *
+ * The predicate receives the option's index in `options` so a caller that has
+ * already computed the prefix flags (the fused default-matcher path in
+ * {@link filterOptions}) can answer without folding the label again.
+ */
+function rankWithinGroupRuns<T>(
+  options: readonly MlvSelectOption<T>[],
+  isPrefixed: (option: MlvSelectOption<T>, index: number) => boolean,
+): MlvSelectOption<T>[] {
   const ranked: MlvSelectOption<T>[] = [];
   let runStart = 0;
   for (let i = 1; i <= options.length; i++) {
@@ -105,13 +173,10 @@ export function rankPrefixMatchesFirst<T>(
       i === options.length ||
       (options[i].group ?? '') !== (options[runStart].group ?? '');
     if (!runEnded) continue;
-    const run = options.slice(runStart, i);
     const prefixed: MlvSelectOption<T>[] = [];
     const rest: MlvSelectOption<T>[] = [];
-    for (const option of run) {
-      (normalizeForMatch(option.label).startsWith(q) ? prefixed : rest).push(
-        option,
-      );
+    for (let j = runStart; j < i; j++) {
+      (isPrefixed(options[j], j) ? prefixed : rest).push(options[j]);
     }
     ranked.push(...prefixed, ...rest);
     runStart = i;
@@ -131,6 +196,13 @@ export function rankPrefixMatchesFirst<T>(
  * map back to the original code points, keeping the highlighted slice aligned
  * with the source label. Only the first match is highlighted.
  *
+ * A **pure-ASCII label** skips that machinery entirely: folding such a label is
+ * just `toLowerCase()`, which cannot change its length or code-point count, so
+ * the folded index maps 1:1 onto the original and the slice can be taken from
+ * `label` directly. The output is identical either way — this is the hot path,
+ * reached per rendered option per keystroke through the `mlvHighlightMatch`
+ * pipe.
+ *
  * @param label - The option label to segment.
  * @param query - The query to highlight within the label.
  * @returns Ordered segments covering the whole label; a single unmatched
@@ -139,6 +211,22 @@ export function rankPrefixMatchesFirst<T>(
 export function matchSegments(label: string, query: string): MlvMatchSegment[] {
   const q = normalizeForMatch(query.trim());
   if (!q) return [{ text: label, matched: false }];
+
+  if (!NEEDS_FULL_FOLD.test(label)) {
+    const start = label.toLowerCase().indexOf(q);
+    if (start === -1) return [{ text: label, matched: false }];
+    const end = start + q.length;
+
+    const segments: MlvMatchSegment[] = [];
+    if (start > 0) {
+      segments.push({ text: label.slice(0, start), matched: false });
+    }
+    segments.push({ text: label.slice(start, end), matched: true });
+    if (end < label.length) {
+      segments.push({ text: label.slice(end), matched: false });
+    }
+    return segments;
+  }
 
   // Work in code points so surrogate pairs (e.g. emoji) are not split.
   const chars = [...label];
