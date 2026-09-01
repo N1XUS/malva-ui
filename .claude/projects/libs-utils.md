@@ -305,10 +305,18 @@ Signal-based viewport breakpoint service. Wraps Angular CDK `BreakpointObserver`
 
 #### Methods
 
-| Method                      | Returns           | Description                                         |
-| --------------------------- | ----------------- | --------------------------------------------------- |
-| `isUp(bp: MlvBreakpoint)`   | `Signal<boolean>` | `true` when current breakpoint is at or above `bp`. |
-| `isDown(bp: MlvBreakpoint)` | `Signal<boolean>` | `true` when current breakpoint is below `bp`.       |
+| Method                      | Returns           | Description                                                               |
+| --------------------------- | ----------------- | ------------------------------------------------------------------------- |
+| `isUp(bp: MlvBreakpoint)`   | `Signal<boolean>` | `true` when current breakpoint is at or above `bp`. Memoized — see below. |
+| `isDown(bp: MlvBreakpoint)` | `Signal<boolean>` | `true` when current breakpoint is below `bp`. Memoized — see below.       |
+
+##### Memoization
+
+- Both return a **stable instance**: `isDown('md') === isDown('md')`, and an unknown `bp` is a distinct node from `'sm'`. Stable identity is the contract — rely on it.
+- Cached per direction, keyed by the resolved `BREAKPOINT_ORDER` **index**, not the name, so every out-of-union value collapses onto the single `-1` entry. Bounded by the `MlvBreakpoint` union plus that `-1` entry (four today); the bound assumes `BREAKPOINT_ORDER` is not mutated at runtime — it is `readonly` to TypeScript but is a plain unfrozen exported array. Root singleton, no eviction policy; the cached signals close over nothing but `breakpoint()` and the captured index.
+- `BREAKPOINT_ORDER.indexOf(bp)` resolves at **call** time, not read time. An out-of-union `bp` still yields `-1`, so `isUp` is permanently `true` (`current >= -1`) and `isDown` permanently `false` (`current < -1`). Deliberately neither validated nor thrown on.
+- **What this is worth.** No call site in the repo calls these from a template today — all read-and-discard inside a `computed()` body or a field initializer, where a clean read re-runs nothing and allocates nothing. The realized saving is therefore ≈0. The value is the stable-identity contract above and the removed footgun below, not a saving being collected now.
+- **The footgun it removes.** A template method call runs on **every** change-detection pass. Before memoization, `@if (bp.isDown('md')()) { … }` allocated one throwaway reactive node per pass (measured: 2,000 passes → 2,000 nodes; now 0). That form is one character from the `bp.isSm()` cached-property form the usage example shows, so it was easy to reach for by accident.
 
 #### Usage
 
@@ -319,6 +327,7 @@ readonly bp = inject(MlvBreakpointService);
 // In template
 // @if (bp.isSm()) { <mlv-bottom-nav [items]="navItems" /> }
 // @if (bp.isLg()) { <mlv-sidebar /> }
+// @if (bp.isDown('md')()) { ... }   // also fine — the signal is cached
 ```
 
 #### Configuration

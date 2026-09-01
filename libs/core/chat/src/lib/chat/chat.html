@@ -4,7 +4,6 @@
   role="log"
   [attr.aria-label]="_i18n().chatLabel"
   tabindex="0"
-  (scroll)="_onScroll()"
 >
   <div #content class="mlv-chat__content">
     @if (loading()) { @for (row of _skeletonRows; track $index) {

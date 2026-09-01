@@ -45,12 +45,10 @@ import {
 } from '../select-template.directives';
 import { LucideChevronDown, LucideSearch } from '@lucide/angular';
 import { MlvClick } from '@malva-ui/cdk/accessibility';
-import {
-  MlvBreakpointService,
-  MlvResizeObserver,
-} from '@malva-ui/cdk/utils';
+import { MlvBreakpointService, MlvResizeObserver } from '@malva-ui/cdk/utils';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import {
+  defaultCompareWith,
   filteredOutCommitted,
   filterOptions,
   isReconciliationEmit,
@@ -200,7 +198,7 @@ export class MlvSelect<T>
    * check-mark agree, and a value that arrives before its options resolves once
    * they load).
    */
-  readonly compareWith = input<(a: T, b: T) => boolean>((a, b) => a === b);
+  readonly compareWith = input<(a: T, b: T) => boolean>(defaultCompareWith);
 
   /**
    * Renders a search field as the first row of the open dropdown. Local sources
@@ -343,7 +341,9 @@ export class MlvSelect<T>
    */
   protected readonly _nativeActive = computed(() => {
     const mode = this.native();
-    return mode === true || (mode === 'auto' && this._breakpoint.isDown('md')());
+    return (
+      mode === true || (mode === 'auto' && this._breakpoint.isDown('md')())
+    );
   });
 
   /**
@@ -542,9 +542,8 @@ export class MlvSelect<T>
   /** @private Reference to the trigger element, used to restore focus after selection. */
   private readonly _triggerElement = viewChild('trigger', { read: ElementRef });
   /** @private Reference to the transparent native select when native mode is active. */
-  private readonly _nativeSelect = viewChild<ElementRef<HTMLSelectElement>>(
-    'nativeSelect',
-  );
+  private readonly _nativeSelect =
+    viewChild<ElementRef<HTMLSelectElement>>('nativeSelect');
   /** @private Reference to the rendered dropdown panel component. */
   private readonly _dropdownPanel = viewChild(MlvDropdownPanel);
 

@@ -873,29 +873,88 @@ for the `full` value `100%`, which reduces to zero as it must; an arbitrary
 percentage measure would not be exact, because the percentage resolves against
 the view layer here and against the content box on `.ProseMirror`.
 
-The plugin resolves the hovered block geometrically (scanning the rendered
-children of `view.dom` in document order, mapping each to a top-level index)
-rather than through `EditorView.posAtCoords`. That API cannot serve this
-affordance at all: `.ProseMirror` is the text column, so the gutter is outside
-`view.dom`'s rect by construction, and `posAtCoords` falls back to an
-`inRect(coords, view.dom.getBoundingClientRect())` test and returns null for
+The plugin resolves the hovered block geometrically, over the rendered children
+of `view.dom`, rather than through `EditorView.posAtCoords`. That API cannot
+serve this affordance at all: `.ProseMirror` is the text column, so the gutter
+is outside `view.dom`'s rect by construction, and `posAtCoords` falls back to
+an `inRect(coords, view.dom.getBoundingClientRect())` test and returns null for
 every gutter position in a real browser as much as under a test DOM.
 
-Mapping inside the loop is what makes widget decorations skippable as a
-category rather than by class name, and it is paid for: `posAtDOM`, `nodeDOM`,
-and `childStart` each walk linearly to the child they address, so a scan down
-to the block at index _k_ is Θ(k²). Correctness was chosen over the Θ(k)
-map-only-the-winner scan it replaced, because that one silently dropped a block
-on the wrong side of its neighbour whenever a widget sat in the hovered gap.
-The cost is only paid down to the **hovered** block, so hovering near the top
-of a document is cheap at any length; it is deep hovering in a long document
-that degrades, on every `mousemove`. Dragging no longer pays it at all — the
-drag snapshot maps every block once at `dragstart` and resolves each `dragover`
-by binary search over that array. Restoring Θ(k) for the hover path while
-keeping the category skip is open follow-up work — deferring the mapping until
-the rect scan has picked a winner, then walking back over the few consecutive
-widgets, is the shape of it, and the clamp above the first block is the case
-that makes it more than a one-liner.
+Resolution is a **binary search whose every comparison is against a block**.
+The answer is the last block starting at or above the pointer, clamped to the
+first block when every block starts below it. The search probes _child_
+indices, because widgets are rendered children too and there is no block array
+to index; but a probe that lands on a widget resolves back to the nearest block
+at or before it, and it is **that block's** `top` that is compared and that
+block's child index that bounds the next step. No geometry is ever read off a
+child that owns no top-level node.
+
+That is not a refinement, it is the invariant. A widget's box is a sliver where
+a block's is a block, and a widget taken out of flow reports a box that says
+nothing about where it sits: `display: none` gives an all-zero rect, and
+`prosemirror-gapcursor`'s shipped stylesheet — the one consumers import to make
+the gap cursor visible — is `position: absolute; display: none`, lifted to
+`block` only under `.ProseMirror-focused`. A gap-cursor selection surviving a
+blur therefore parks an all-zero-rect child at top level, and a search that
+compared against it would be dragged past real blocks and answer with a block
+the pointer is nowhere near. `topLevelIndexOfDom` is the only thing separating
+the two categories: a widget anchored in a top-level gap maps through
+`posAtDOM` to the perfectly valid index of the block beside it, so pairing that
+index with the widget's box would hand `dropTargetIndex` the wrong midpoint and
+drop the block on the wrong side of its neighbour — silently, in one undo step.
+
+Cost, against the mapping-per-child scan this replaced. `posAtDOM`, `nodeDOM`
+and `childStart` each walk linearly to the child they address, so mapping the
+child at index _k_ is Θ(k) and scanning down to it was Θ(k²). The search is
+Θ(log n) mappings — one per probe, plus one per widget a probe walks over —
+which is Θ(k log n) work rather than Θ(1) mappings. Deferring to a single
+mapping overall is only reachable by trusting widget geometry, and that trade
+is refused. Measured on a synthetic 500-block document, a hover past the last
+block went from **500 mappings and 500 child rect reads to 9 and 9**, and from
+~124,750 to ~4,000 summed child-index walks — a ~31× reduction in the case the
+affordance was unusable in. The shallowest hover in that same document goes the
+other way, from 1 mapping to 9 (~490 summed walks), because the search no
+longer stops early; both ends now sit far below the old worst case, and an
+exponential (galloping) search would recover the shallow end at roughly equal
+cost at the deep end if it is ever worth the code.
+
+The ordering assumption is stated in the code and is now only about **blocks**:
+`top` non-decreasing down the top-level blocks, and no block's box reaching into
+the next one's. Normal flow guarantees it, and blocks are the only children a
+box is read from. A _block_ taken out of flow — a float, `position: absolute`,
+a negative margin — resolves the handle to a neighbouring block rather than
+throwing. `slotAt` assumes the same, and so did the scan this replaced, which
+stopped at the first child starting below the pointer.
+
+One boundary is preserved deliberately rather than derived: where two blocks
+touch (`previous.bottom === next.top`) and the pointer is exactly on that pixel,
+the block **above** wins, because the scan this replaced broke on the first box
+whose `bottom` reached the pointer. The predecessor is only resolved for a
+pointer exactly on the winner's `top`, so a well-formed document pays for the
+check on one pixel per block and nowhere else. `.ProseMirror p` keeps 0.75rem
+between border boxes, so the shipped stylesheet cannot reach the case at all —
+but the answer on that pixel is not one to change silently.
+
+The handle publishes only when something it writes changed. `style.top`,
+`dataset.index`, `title` and `data-visible` are compared against the last
+published triple, and an unchanged hit writes nothing at all — which matters
+more than the write it saves, because an attribute write dirties the layout
+tree and the next move's rect reads would then have to force a fresh layout.
+All three parts of the comparison are load-bearing, and none of them is the
+resolved index alone: a scroll moves the same block under a stationary pointer,
+`label()` is a signal read that answers differently on a locale change, and
+content arriving above the viewport under the browser's scroll anchoring leaves
+every offset where it was while the hovered block's _index_ shifts — which
+`dragstart` reads to decide what moves. `hide()` clears the record as well as
+the attribute, so a hover that resolves the same block after a `mouseleave`
+publishes again.
+
+`mountFrame()` takes the mount's `top` and its live scale from **one**
+`getBoundingClientRect()`; every caller needs the pair, and reading them apart
+cost a second rect of the same element on every `mousemove` and every
+`dragover`. The frame is not cached across a hover session: invalidating it
+soundly would mean listening for scroll on every scrollable ancestor and for
+resize, which is more machinery than one read off a clean layout tree costs.
 
 The vertical offset is converted out of the zoom scale exactly once, deriving
 the scale from `rect.width / offsetWidth` on the mount rather than reading
@@ -941,13 +1000,13 @@ of the mount, which must not retract anything, so the handler asks
 it, and falls back to testing the pointer against the mount's own box where the
 browser leaves `relatedTarget` null, as Chromium does on drag events.
 
-`blockAtPoint` clamps to the nearest block and carries no before/after bias, so
-the hovered block's own midpoint — read from the `bottom` on the same rect the
-scan already measured — decides which of its edges the block would land on.
-That yields one of `childCount + 1` gaps, folded back onto `moveBlock`'s
-pre-move index convention; both gaps bordering the source resolve to no move
-and show no indicator. The scan skips every rendered child that owns no
-top-level node — by category, not by class name: the drop indicator, a pending
+Target resolution clamps to the nearest block and carries no before/after bias,
+so the hovered block's own midpoint — read from the `bottom` on the same rect
+its `top` came from — decides which of its edges the block would land on. That
+yields one of `childCount + 1` gaps, folded back onto `moveBlock`'s pre-move
+index convention; both gaps bordering the source resolve to no move and show no
+indicator. Every rendered child that owns no top-level node is skipped by
+category, not by class name: the drop indicator, a pending
 `MlvEditorUploadPlaceholder`, an active gap cursor, and anything block-level
 added later. `posAtDOM` alone cannot tell them apart, because a widget anchored
 in a top-level gap maps to the perfectly valid index of the block beside it, so
@@ -989,9 +1048,10 @@ them feeds the plugin's own output back into its input: the gap opens, the
 pointer is now over a different block, the target changes, the gap moves —
 oscillation on every pointer move. Two things follow for free: the drag
 survives autoscroll, because only the mount's own rect is re-read per event;
-and target resolution becomes a binary search, so `blockAtPoint`'s quadratic
-scan is no longer paid per `dragover`. **The hover path still pays it** — the
-follow-up remains open for that.
+and target resolution reads no rect at all, since the snapshot already holds
+every box. `slotAt` is the same "last block starting at or above the pointer"
+search the hover path runs, minus the widget walk-back the snapshot has already
+resolved away.
 
 Carrying the element is what keeps the partition off `topLevelIndexOfDom`;
 deciding per child whether it sits at or after the insertion point through the
@@ -1117,15 +1177,49 @@ move payload, dry-run capability checks, the `Alt+Shift+Arrow` keymap, unique
 single inclusion of fresh handle instances in the default preset, and the
 inert keymap of a literal extension set that omits the handle. It also covers
 the plugin view: one non-focusable `aria-hidden` handle with a CSS-sized icon,
-the zoom-scale conversion of the block offset, block resolution above the
-first block, inside a block, in an inter-block gap, and below the last block,
-the `enabled` guard on pointer moves, retraction through `update()` when the
-editor stops accepting moves without any further pointer event,
-listener/element teardown on destroy, and — through a real mounted
-`MlvEditor` — that `mount()` returns the `.mlv-editor__view` layer and
-`label()` reads `MlvEditorI18n.dragBlock`. jsdom has no layout engine, so the
-geometry tests stub the rects the conversion reads; they verify index
-resolution and the scale arithmetic, not browser hit-testing.
+the zoom-scale conversion of the block offset, the `enabled` guard on pointer
+moves, retraction through `update()` when the editor stops accepting moves
+without any further pointer event, listener/element teardown on destroy, and —
+through a real mounted `MlvEditor` — that `mount()` returns the
+`.mlv-editor__view` layer and `label()` reads `MlvEditorI18n.dragBlock`. jsdom
+has no layout engine, so the geometry tests stub the rects the conversion
+reads; they verify index resolution and the scale arithmetic, not browser
+hit-testing.
+
+Hover resolution has its own parity tables, written against the
+mapping-per-child scan they replaced and passing on it before the search went
+in — every correctness case in this file passes on both implementations, so
+none of them was back-filled to the new one. The first table walks the
+boundaries: above the first block, exactly on a first and a later block's
+leading edge, inside a block, on a block's trailing edge, in an inter-block gap,
+one pixel short of the next block's edge, and below the last block. A second
+table gives the blocks touching boxes and pins the seam pixel to the block
+above. A third runs the same points through a document carrying real
+`MlvEditorUploadPlaceholder` widgets before the first block, in a run of two
+between the first and second, and past the last, with an end-to-end drop
+asserting that a pointer inside that widget run reorders against the block
+beside it rather than the widget. A fourth gives one widget an all-zero rect —
+what `display: none` reports, and what an unfocused gap cursor is — and asserts
+every probe still answers with the block the pointer is actually over; that is
+the table a search comparing against widget geometry fails. Two further cases
+cover resolving nothing: a `view.dom` with no rendered children (unreachable
+through a `block+` schema, asserted by retracting an already-visible handle,
+since an unguarded `children[0]` would throw out of the listener and leave it
+parked), and every child answering "not a top-level node".
+
+The cost is asserted, not assumed. `posAtDOM` is called exactly once per
+`topLevelIndexOfDom`, so spying on it counts mappings directly, and a per-child
+rect spy counts the layout reads. A hover past the last block of a 250- and a
+500-block document maps at most ⌈log₂(n + 1)⌉ children — 8 and 9 against the
+scan's 250 and 500 — doubling the document adds at most one mapping, and the
+shallowest and deepest hovers of one 500-block document are both inside the same
+bound. A `MutationObserver` guard asserts that a second `mousemove` at the same
+position writes no attribute at all, with four companions for the cases that
+must still publish: after a `mouseleave`, after the block moved under a
+stationary pointer, after `label()` changed, and after content inserted above
+made the same offset hold a different block. A last guard counts
+`getBoundingClientRect` on the mount itself: one per `mousemove`, one per
+`dragover`.
 
 The drag lifecycle is covered from the same stubbed boxes: reordering down and
 up on drop, the midpoint deciding which edge of one hovered block is used, both
