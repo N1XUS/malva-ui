@@ -307,9 +307,15 @@ describe('MlvEditorBlockHandle view', () => {
       scale?: number;
       markdown?: boolean;
       uploadPlaceholder?: boolean;
+      content?: string;
     } = {},
   ) {
-    const { scale = 1, markdown = false, uploadPlaceholder = false } = options;
+    const {
+      scale = 1,
+      markdown = false,
+      uploadPlaceholder = false,
+      content = THREE_BLOCKS,
+    } = options;
     const mount = document.createElement('div');
     mount.style.position = 'relative';
     document.body.appendChild(mount);
@@ -325,15 +331,16 @@ describe('MlvEditorBlockHandle view', () => {
     const documentRemove = vi.spyOn(document, 'removeEventListener');
 
     let enabled = true;
+    let label = 'Drag block';
     const blockHandle = {
       mount: () => mount,
-      label: () => 'Drag block',
+      label: () => label,
       announceMove: () => undefined,
       enabled: () => enabled,
     };
     const editor = new Editor({
       element: host,
-      content: THREE_BLOCKS,
+      content,
       extensions: markdown
         ? mlvEditorDefaultExtensions({ format: 'markdown', blockHandle })
         : [
@@ -379,6 +386,10 @@ describe('MlvEditorBlockHandle view', () => {
       mount,
       setEnabled: (value: boolean) => {
         enabled = value;
+      },
+      /** Re-reads like the host's own signal-backed label does. */
+      setLabel: (value: string) => {
+        label = value;
       },
       handle: () =>
         mount.querySelector('.mlv-editor__block-handle') as HTMLElement | null,
@@ -447,18 +458,12 @@ describe('MlvEditorBlockHandle view', () => {
   it('converts block geometry out of the zoom scale', () => {
     const { editor, mount, handle } = createMountedHarness({ scale: 1.5 });
     try {
-      const block = editor.view.dom.firstElementChild as HTMLElement;
-      vi.spyOn(block, 'getBoundingClientRect').mockReturnValue({
-        top: 60,
-        left: 0,
-        width: 400,
-        height: 30,
-        right: 400,
-        bottom: 90,
-        x: 0,
-        y: 60,
-        toJSON: () => ({}),
-      } as DOMRect);
+      // Every child, not just the hovered one: resolution assumes the rendered
+      // children are vertically ordered, and jsdom's default all-zero rect for
+      // an unstubbed sibling would put it above the one box that is stubbed.
+      [...editor.view.dom.children].forEach((child, index) =>
+        stubBox(child, 60 + index * 40, 30),
+      );
 
       // 60px on screen at scale 1.5 is 40px in the unscaled layer.
       move(mount, 70);
@@ -473,33 +478,538 @@ describe('MlvEditorBlockHandle view', () => {
     }
   });
 
+  /**
+   * The hit as the plugin publishes it: the resolved top-level index, and the
+   * block's own `top` converted into the mount's unscaled space. Null while the
+   * handle is retracted, which is how "resolved nothing" reads from outside.
+   *
+   * `MlvEditorBlockHit` carries a `bottom` as well, but the hover path is its
+   * only producer and nothing observable consumes it — the drag resolves
+   * against its own snapshot instead — so parity is asserted on the two
+   * values that reach the DOM, plus the separate assertion below that both
+   * edges come off one rect read of the winning element.
+   */
+  const hover = (
+    harness: ReturnType<typeof createMountedHarness>,
+    clientY: number,
+  ): { index: string | undefined; top: string } | null => {
+    move(harness.mount, clientY);
+    const element = harness.handle();
+    return element?.getAttribute('data-visible') === 'true'
+      ? { index: element.dataset['index'], top: element.style.top }
+      : null;
+  };
+
   it.each([
     // Above every block — the content's top `padding-block`. Reaches the
     // clamp, since no box starts before y=30, and must offer the first block
     // rather than blink the handle out.
     ['above the topmost block', 5, '0', '30px'],
+    // The clamp's own boundary: the first block's leading edge belongs to it,
+    // not to the empty space above it.
+    ["exactly on the first block's top edge", 30, '0', '30px'],
+    // The leading edge of a block that is not the first: the boundary the
+    // clamp cannot mask, since the block below it is a real answer too.
+    ["exactly on a later block's top edge", 60, '1', '60px'],
     // Inside the second block's own box (60–80).
     ['inside a block box', 70, '1', '60px'],
+    // A block's trailing edge still belongs to that block.
+    ["exactly on a block's bottom edge", 80, '1', '60px'],
     // In the 10px gap between the second (…80) and third (90…): the preceding
     // block wins.
     ['in the gap between two blocks', 85, '1', '60px'],
+    // One pixel short of the next block's leading edge — still the gap.
+    ["immediately above a block's top edge", 89, '1', '60px'],
     // Past the end of the document.
     ['below the last block', 500, '2', '90px'],
   ] as const)(
     'resolves a pointer %s to the expected block',
     (_label, clientY, index, top) => {
-      const { editor, mount, handle } = createMountedHarness();
+      const harness = createMountedHarness();
       try {
-        stubBlockBoxes(editor);
-        move(mount, clientY);
-        expect(handle()?.dataset['index']).toBe(index);
-        expect(handle()?.style.top).toBe(top);
-        expect(handle()?.getAttribute('data-visible')).toBe('true');
+        stubBlockBoxes(harness.editor);
+        expect(hover(harness, clientY)).toEqual({ index, top });
       } finally {
-        editor.destroy();
+        harness.editor.destroy();
       }
     },
   );
+
+  it.each([
+    // The seam itself: 'A' ends and 'B' starts on the same pixel, and the
+    // block above owns it — the box whose `bottom` the pointer reaches wins,
+    // which is where the scan this replaced ended up. The 10px gaps in the
+    // table above structurally cannot reach this case.
+    ['on the seam between two touching blocks', 50, '0', '30px'],
+    ['on the second seam', 70, '1', '50px'],
+    // One pixel past a seam is unambiguously the lower block.
+    ['one pixel past a seam', 51, '1', '50px'],
+    // The first block's leading edge has no block above it to lose to.
+    ["on the first block's leading edge", 30, '0', '30px'],
+  ] as const)(
+    'resolves a pointer %s to the expected block',
+    (_label, clientY, index, top) => {
+      const harness = createMountedHarness();
+      try {
+        // Touching boxes: 30–50, 50–70, 70–90. `.ProseMirror p` keeps 0.75rem
+        // between border boxes, so the shipped stylesheet never produces this;
+        // the answer on that pixel is still not one to change silently.
+        [...harness.editor.view.dom.children].forEach((child, position) =>
+          stubBox(child, 30 + position * 20, 20),
+        );
+        expect(hover(harness, clientY)).toEqual({ index, top });
+      } finally {
+        harness.editor.destroy();
+      }
+    },
+  );
+
+  /**
+   * A widget whose box says nothing about where it sits. `display: none`
+   * reports an all-zero rect, and `prosemirror-gapcursor`'s shipped stylesheet
+   * is `position: absolute; display: none` outside `.ProseMirror-focused` — so
+   * a gap-cursor selection surviving a blur puts exactly this at top level.
+   * The upload placeholder stands in for it here because it is the widget this
+   * library can insert on demand.
+   */
+  function stubOutOfFlowWidget(editor: Editor): void {
+    expect(
+      editor.commands.insertUploadPlaceholder({ id: 'blurred', position: 6 }),
+    ).toBe(true);
+    const children = [...editor.view.dom.children];
+    expect(children).toHaveLength(4);
+    stubBox(children[0], 30, 20); // 'A'
+    stubBox(children[1], 60, 20); // 'B'
+    stubBox(children[2], 0, 0); // the widget: an all-zero rect
+    stubBox(children[3], 90, 20); // 'C'
+  }
+
+  it.each([
+    // The pointer is inside 'A'. A search comparing against the widget's
+    // all-zero `top` reads it as sitting above the pointer, drags the probe
+    // past both 'A' and 'B', and answers 'B' — the handle drawn beside a block
+    // the pointer is nowhere near, and a drag started there moving it.
+    ['inside the first block', 40, '0', '30px'],
+    ['inside the block before the widget', 70, '1', '60px'],
+    ['inside the block after the widget', 95, '2', '90px'],
+    ['above every block', 5, '0', '30px'],
+    ['below every block', 500, '2', '90px'],
+  ] as const)(
+    "ignores an out-of-flow widget's box when resolving a pointer %s",
+    (_label, clientY, index, top) => {
+      const harness = createMountedHarness({ uploadPlaceholder: true });
+      try {
+        stubOutOfFlowWidget(harness.editor);
+        expect(hover(harness, clientY)).toEqual({ index, top });
+      } finally {
+        harness.editor.destroy();
+      }
+    },
+  );
+
+  it('retracts a visible handle when the editor renders no children at all', () => {
+    const harness = createMountedHarness();
+    const { editor } = harness;
+    const dom = editor.view.dom as HTMLElement & { children?: unknown };
+    try {
+      stubBlockBoxes(editor);
+      // Retracting from a *visible* handle is what makes this more than a
+      // no-throw assertion: an unguarded `children[0]` throws out of the
+      // listener, `dispatchEvent` swallows it, and the handle would stay
+      // parked over a block that is no longer rendered.
+      expect(hover(harness, 70)).toEqual({ index: '1', top: '60px' });
+
+      // ProseMirror's schema is `block+`, so an empty document still renders
+      // one paragraph and this shape is unreachable through the editor itself.
+      Object.defineProperty(dom, 'children', {
+        value: [] as unknown as HTMLCollection,
+        configurable: true,
+      });
+      expect(hover(harness, 40)).toBeNull();
+    } finally {
+      delete dom.children;
+      editor.destroy();
+    }
+  });
+
+  /**
+   * `THREE_BLOCKS` with real widget decorations in four of its top-level
+   * positions: one before the first block, a run of two between the first and
+   * the second, and one past the last. Widgets are direct children of
+   * `view.dom` exactly like blocks, and `posAtDOM` maps each of them to the
+   * perfectly valid index of the block beside it, so nothing but the
+   * `nodeDOM` containment check tells the two apart.
+   *
+   * Boxes, in DOM order: widget 28–30, 'A' 30–50, widget 50–52, widget 52–54,
+   * 'B' 60–80, 'C' 90–110, widget 110–112. The sliver widths are the point —
+   * a hit taken from one would hand `dropTargetIndex` a two-pixel box to find
+   * a midpoint in.
+   */
+  function stubInterleavedBoxes(editor: Editor): Element[] {
+    for (const [id, position] of [
+      ['lead', 0],
+      ['mid-a', 3],
+      ['mid-b', 3],
+      ['tail', 9],
+    ] as const) {
+      expect(editor.commands.insertUploadPlaceholder({ id, position })).toBe(
+        true,
+      );
+    }
+    const children = [...editor.view.dom.children];
+    expect(children).toHaveLength(7);
+    const boxes: readonly [number, number][] = [
+      [28, 2],
+      [30, 20],
+      [50, 2],
+      [52, 2],
+      [60, 20],
+      [90, 20],
+      [110, 2],
+    ];
+    children.forEach((child, index) =>
+      stubBox(child, boxes[index][0], boxes[index][1]),
+    );
+    return children;
+  }
+
+  it.each([
+    // Above everything, including the leading widget: the clamp still has to
+    // reach past it to the first *block*.
+    ['above the leading widget', 5, '0', '30px'],
+    // On the leading widget itself — still above every block, so still the
+    // clamp.
+    ['on a widget preceding the first block', 29, '0', '30px'],
+    // Inside the run of two widgets between 'A' and 'B'. A probe landing here
+    // must walk back to 'A' rather than pair 'A''s index with a 2px box.
+    ['inside a run of consecutive widgets', 53, '0', '30px'],
+    // The gap between the second and third blocks holds no widget at all.
+    ['in a widget-free gap between blocks', 85, '1', '60px'],
+    // On the trailing widget, which sits past the last block.
+    ['on a widget past the last block', 111, '2', '90px'],
+    ['below every child', 500, '2', '90px'],
+  ] as const)(
+    'resolves a pointer %s to the block, never to a widget',
+    (_label, clientY, index, top) => {
+      const harness = createMountedHarness({ uploadPlaceholder: true });
+      try {
+        stubInterleavedBoxes(harness.editor);
+        expect(hover(harness, clientY)).toEqual({ index, top });
+      } finally {
+        harness.editor.destroy();
+      }
+    },
+  );
+
+  it('drops onto the block a widget run sits beside, not onto the widget', () => {
+    const harness = createMountedHarness({ uploadPlaceholder: true });
+    const { editor } = harness;
+    try {
+      stubInterleavedBoxes(editor);
+      // Grab 'C', the last block.
+      expect(hover(harness, 95)).toEqual({ index: '2', top: '90px' });
+      fire(harness.handle(), 'dragstart');
+
+      // y=53 is inside the widget run between 'A' (30–50) and 'B' (60–80), so
+      // the hit is 'A' and 53 is past its midpoint of 40: 'C' lands between
+      // 'A' and 'B'. Taking the hit from the widget at 52–54 instead would put
+      // the midpoint at 53 and drop 'C' on the other side.
+      fire(editor.view.dom, 'dragover', 53);
+      fire(editor.view.dom, 'drop', 53);
+      expect(texts(editor)).toEqual(['A', 'C', 'B']);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  /** A document of `count` single-letter paragraphs. */
+  const manyBlocks = (count: number): string =>
+    Array.from({ length: count }, (_, index) => `<p>b${index}</p>`).join('');
+
+  /**
+   * Counts what one hover costs: `posAtDOM` is called exactly once per
+   * `topLevelIndexOfDom`, so its call count *is* the mapping count, and the
+   * per-child rect spy counts the layout reads the resolution asks for.
+   * Neither counter starts until the boxes are stubbed, so the stubbing itself
+   * is not measured.
+   */
+  function measureHover(
+    harness: ReturnType<typeof createMountedHarness>,
+    clientY: number,
+  ): { mappings: number; rects: number } {
+    const { editor } = harness;
+    const children = [...editor.view.dom.children];
+    let rects = 0;
+    children.forEach((child, index) => {
+      const top = 30 + index * 30;
+      vi.spyOn(child, 'getBoundingClientRect').mockImplementation(() => {
+        rects += 1;
+        return {
+          top,
+          left: 0,
+          width: 400,
+          height: 20,
+          right: 400,
+          bottom: top + 20,
+          x: 0,
+          y: top,
+          toJSON: () => ({}),
+        } as DOMRect;
+      });
+    });
+    const posAtDOM = vi.spyOn(editor.view, 'posAtDOM');
+    move(harness.mount, clientY);
+    return { mappings: posAtDOM.mock.calls.length, rects };
+  }
+
+  /**
+   * Deepest hover in a document of `count` blocks: past the last box, so every
+   * child is above the pointer and the resolution has the whole document to
+   * get through.
+   */
+  const deepestY = (count: number): number => 30 + count * 30;
+
+  /**
+   * Mappings a hover may cost in a document of `count` blocks and no widgets.
+   *
+   * The search halves `[low, high]` every iteration and never revisits an
+   * index, so it runs at most ⌈log₂(count + 1)⌉ times; each iteration resolves
+   * one block, which is one mapping, plus one per widget it walks over — none
+   * here. A rect is read only once a mapping has succeeded, so in a
+   * widget-free document the two counts coincide.
+   */
+  const mappingBound = (count: number): number =>
+    Math.ceil(Math.log2(count + 1));
+
+  it.each([250, 500])(
+    'maps a bounded number of children for a deep hover in a %i-block document',
+    (count) => {
+      const harness = createMountedHarness({ content: manyBlocks(count) });
+      try {
+        const { mappings, rects } = measureHover(harness, deepestY(count));
+        expect(harness.handle()?.dataset['index']).toBe(String(count - 1));
+
+        expect(mappings).toBeLessThanOrEqual(mappingBound(count));
+        expect(rects).toBeLessThanOrEqual(mappingBound(count));
+      } finally {
+        harness.editor.destroy();
+      }
+    },
+  );
+
+  it('adds at most one mapping per doubling of the document', () => {
+    const small = createMountedHarness({ content: manyBlocks(250) });
+    const large = createMountedHarness({ content: manyBlocks(500) });
+    try {
+      // Both hovers are past the last block, so each has its whole document to
+      // get through. The scan this replaced answered 250 and 500 mappings
+      // here; a logarithmic search answers the same number plus one.
+      const near = measureHover(small, deepestY(250));
+      const far = measureHover(large, deepestY(500));
+      expect(small.handle()?.dataset['index']).toBe('249');
+      expect(large.handle()?.dataset['index']).toBe('499');
+
+      expect(far.mappings - near.mappings).toBeLessThanOrEqual(1);
+      expect(far.rects - near.rects).toBeLessThanOrEqual(1);
+    } finally {
+      small.editor.destroy();
+      large.editor.destroy();
+    }
+  });
+
+  it('resolves a shallow hover no more expensively than a deep one', () => {
+    const shallow = createMountedHarness({ content: manyBlocks(500) });
+    const deep = createMountedHarness({ content: manyBlocks(500) });
+    try {
+      // The first block, and the last, in documents of one length. A scan that
+      // maps every child it passes separates these two by two orders of
+      // magnitude; a binary search must not separate them at all.
+      const near = measureHover(shallow, 35);
+      const far = measureHover(deep, deepestY(500));
+      expect(shallow.handle()?.dataset['index']).toBe('0');
+      expect(deep.handle()?.dataset['index']).toBe('499');
+
+      expect(near.mappings).toBeLessThanOrEqual(mappingBound(500));
+      expect(far.mappings).toBeLessThanOrEqual(mappingBound(500));
+    } finally {
+      shallow.editor.destroy();
+      deep.editor.destroy();
+    }
+  });
+
+  /**
+   * Every attribute write the plugin makes to the handle. `style.top`,
+   * `dataset.index`, `title` and `data-visible` are all attribute mutations,
+   * so one observer sees all four, and `takeRecords()` reads them
+   * synchronously rather than waiting for the microtask the callback would.
+   */
+  const attributeWrites = (element: HTMLElement) => {
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(element, { attributes: true });
+    return {
+      take: () => observer.takeRecords().map((record) => record.attributeName),
+      stop: () => observer.disconnect(),
+    };
+  };
+
+  it('writes nothing to the handle for a pointer move that resolves the same hit', () => {
+    const harness = createMountedHarness();
+    const { editor, mount } = harness;
+    const writes = attributeWrites(harness.handle() as HTMLElement);
+    try {
+      stubBlockBoxes(editor);
+      move(mount, 70);
+      // The first move has to publish the hit.
+      expect(writes.take()).not.toHaveLength(0);
+      expect(harness.handle()?.dataset['index']).toBe('1');
+
+      // Same block, a different pixel inside it, then the identical pixel: the
+      // published values are unchanged, so the DOM must not be touched. These
+      // writes are what invalidate layout, and a clean layout tree is what
+      // makes the next move's rect reads free.
+      move(mount, 75);
+      move(mount, 75);
+      expect(writes.take()).toEqual([]);
+      expect(harness.handle()?.getAttribute('data-visible')).toBe('true');
+
+      // A different block still publishes.
+      move(mount, 95);
+      expect(writes.take()).not.toHaveLength(0);
+      expect(harness.handle()?.dataset['index']).toBe('2');
+    } finally {
+      writes.stop();
+      editor.destroy();
+    }
+  });
+
+  it('measures the mount once per pointer move and once per dragover', () => {
+    const harness = createMountedHarness();
+    const { editor, mount } = harness;
+    const reads = mount.getBoundingClientRect as unknown as {
+      mock: { calls: unknown[] };
+    };
+    try {
+      stubBlockBoxes(editor);
+      // The mount's `top` and its scale come off one box. Reading them
+      // separately cost a second rect of the same element on every event.
+      const beforeMove = reads.mock.calls.length;
+      move(mount, 35);
+      expect(reads.mock.calls.length - beforeMove).toBe(1);
+
+      fire(harness.handle(), 'dragstart');
+      const beforeDrag = reads.mock.calls.length;
+      // Past the last block's midpoint, so a target actually resolves.
+      fire(editor.view.dom, 'dragover', 105);
+      expect(indicatorShown(harness)).toBe(true);
+      expect(reads.mock.calls.length - beforeDrag).toBe(1);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('republishes an unchanged hit after the handle has been retracted', () => {
+    const harness = createMountedHarness();
+    const { editor, mount } = harness;
+    try {
+      stubBlockBoxes(editor);
+      move(mount, 70);
+      mount.dispatchEvent(new MouseEvent('mouseleave'));
+      expect(harness.handle()?.getAttribute('data-visible')).toBe('false');
+
+      // The hit is the one already resolved, but the handle is hidden, so the
+      // guard must not mistake "same values" for "nothing to do".
+      move(mount, 70);
+      expect(harness.handle()?.getAttribute('data-visible')).toBe('true');
+      expect(harness.handle()?.style.top).toBe('60px');
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('republishes when the hit stays on the same block but the page scrolls', () => {
+    const harness = createMountedHarness();
+    const { editor, mount } = harness;
+    try {
+      stubBlockBoxes(editor);
+      move(mount, 70);
+      expect(harness.handle()?.style.top).toBe('60px');
+
+      // Scrolling moves the block under a stationary pointer without changing
+      // which block it is, so a guard keyed on the index alone would leave the
+      // handle parked at the block's old offset.
+      [...editor.view.dom.children].forEach((child, index) =>
+        stubBox(child, 20 + index * 30, 20),
+      );
+      move(mount, 70);
+      expect(harness.handle()?.dataset['index']).toBe('1');
+      expect(harness.handle()?.style.top).toBe('50px');
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('republishes when the same offset comes to hold a different block', () => {
+    const harness = createMountedHarness();
+    const { editor, mount } = harness;
+    try {
+      stubBlockBoxes(editor);
+      move(mount, 70);
+      expect(harness.handle()?.dataset['index']).toBe('1');
+      expect(harness.handle()?.style.top).toBe('60px');
+
+      // Content arriving above the viewport — a resolving upload, a
+      // collaborative peer — while the browser's scroll anchoring keeps what
+      // the user is looking at stationary. Every rendered box stays where it
+      // was on screen, so the hovered block's offset is unchanged and its
+      // *index* is not. A guard keyed on the offset alone would leave
+      // `data-index` naming the block one place earlier, and `dragstart` reads
+      // `data-index` to decide what moves.
+      editor.commands.insertContentAt(0, '<p>Z</p>');
+      expect(texts(editor)).toEqual(['Z', 'A', 'B', 'C']);
+      [...editor.view.dom.children].forEach((child, index) =>
+        stubBox(child, index === 0 ? 0 : 30 * index, 20),
+      );
+
+      move(mount, 70);
+      expect(harness.handle()?.style.top).toBe('60px');
+      expect(harness.handle()?.dataset['index']).toBe('2');
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('republishes the title when the locale changes under an unchanged hit', () => {
+    const harness = createMountedHarness();
+    const { editor, mount } = harness;
+    try {
+      stubBlockBoxes(editor);
+      move(mount, 70);
+      expect(harness.handle()?.title).toBe('Drag block');
+
+      harness.setLabel('Bloc glisser');
+      move(mount, 70);
+      // `label()` is a signal read, so it can change with neither the pointer
+      // nor the document moving.
+      expect(harness.handle()?.title).toBe('Bloc glisser');
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('resolves nothing when no rendered child owns a top-level node', () => {
+    const harness = createMountedHarness();
+    const { editor } = harness;
+    try {
+      stubBlockBoxes(editor);
+      // What a document rendering only widget decorations looks like from
+      // here: `posAtDOM` still maps every child to a valid index, and the
+      // element ProseMirror rendered for that index is never the child asking.
+      vi.spyOn(editor.view, 'nodeDOM').mockReturnValue(null);
+      expect(hover(harness, 40)).toBeNull();
+    } finally {
+      editor.destroy();
+    }
+  });
 
   it('hides the handle while disabled', () => {
     const { editor, mount, setEnabled, handle } = createMountedHarness();
