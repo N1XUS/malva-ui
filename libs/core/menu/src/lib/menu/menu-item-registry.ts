@@ -79,6 +79,10 @@ export class MlvMenuItemRegistryStore implements MlvMenuItemRegistry {
 
   syncOrder(items: readonly MenuKeyItem[]): void {
     this._items.update((currentItems) => {
+      if (mlvMenuItemsMatchSequence(items, currentItems)) {
+        return currentItems;
+      }
+
       const orderedItems = items.filter((item) => currentItems.includes(item));
       const unorderedItems = currentItems.filter(
         (item) => !orderedItems.includes(item),
@@ -381,6 +385,40 @@ function mlvGetSharedMenuContainer(
   return restContainers.every((container) => container === firstContainer)
     ? firstContainer
     : null;
+}
+
+/**
+ * Whether two item sequences are element-wise identical, length included.
+ *
+ * Guards the no-change case in {@link MlvMenuItemRegistryStore.syncOrder}. When
+ * `items` already equals the registry's order, the rest of that update is
+ * provably a no-op: every element of `items` is then in `currentItems`, so
+ * `orderedItems` is `items` in order, `unorderedItems` is empty, `nextItems` is
+ * sequence-equal to `currentItems`, {@link mlvMenuItemsMatchOrder} returns
+ * `true`, and the update returns `currentItems` unchanged. Detecting that in one
+ * pass skips two `includes`-inside-`filter` scans, a spread and a sort — the
+ * settled projection previously paid all of them only to conclude nothing moved.
+ *
+ * Comparing length as well as elements is load-bearing, and is why this is not
+ * {@link mlvMenuItemsMatchOrder}: that check is deliberately length-blind, so on
+ * its own it would also accept an `items` carrying a duplicate, whose
+ * `orderedItems` is *longer* than `currentItems` and therefore not a no-op.
+ */
+function mlvMenuItemsMatchSequence(
+  items: readonly MenuKeyItem[],
+  currentItems: readonly MenuKeyItem[],
+): boolean {
+  if (items.length !== currentItems.length) {
+    return false;
+  }
+
+  for (let index = 0; index < items.length; index++) {
+    if (items[index] !== currentItems[index]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function mlvMenuItemsMatchOrder(

@@ -3,6 +3,7 @@ import {
   Component,
   Directive,
   ElementRef,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -1041,4 +1042,417 @@ describe('registry-backed data-driven rows', () => {
     expect(rowLabels()).toEqual(['View', 'File', 'Edit']);
     expect(labelsOf(registry.items())).toEqual(rowLabels());
   });
+});
+
+// ---------------------------------------------------------------------------
+// `syncOrder` identity fast path
+// ---------------------------------------------------------------------------
+
+/**
+ * DOM-order sort exactly as the registry performs it internally.
+ *
+ * `mlvSortMenuItemsByDomOrder` is module-private, so the oracle below borrows it
+ * through a throwaway store: `register()` ends in `_resyncItems()`, which sorts
+ * the accumulated items with that very function. Registering in sequence and
+ * reading the result is therefore the same ordering the real `syncOrder` would
+ * have produced for its `unorderedItems` tail.
+ */
+function sortMenuItemsViaRegistry(
+  items: readonly MenuKeyItem[],
+): MenuKeyItem[] {
+  const probe = new MlvMenuItemRegistryStore();
+  for (const item of items) {
+    probe.register(item);
+  }
+  return [...probe.items()];
+}
+
+/**
+ * Verbatim pre-change `MlvMenuItemRegistryStore.syncOrder` body, kept as a
+ * differential oracle. The identity guard must not change what this returns,
+ * for any input — neither the value nor whether the result is `currentItems`
+ * itself (signal identity is what suppresses a notification).
+ */
+function menuSyncOrderOracle(
+  currentItems: readonly MenuKeyItem[],
+  items: readonly MenuKeyItem[],
+): readonly MenuKeyItem[] {
+  const orderedItems = items.filter((item) => currentItems.includes(item));
+  const unorderedItems = currentItems.filter(
+    (item) => !orderedItems.includes(item),
+  );
+  const nextItems = [
+    ...orderedItems,
+    ...sortMenuItemsViaRegistry(unorderedItems),
+  ];
+
+  return currentItems.every((item, index) => item === nextItems[index])
+    ? currentItems
+    : nextItems;
+}
+
+/** Same borrowed-sort trick for the menubar registry. */
+function sortMenubarItemsViaRegistry(
+  items: readonly MlvMenubarItem[],
+): MlvMenubarItem[] {
+  const probe = new MlvMenubarItemRegistryStore();
+  for (const item of items) {
+    probe.register(item);
+  }
+  return [...probe.items()];
+}
+
+/** Verbatim pre-change `MlvMenubarItemRegistryStore.syncOrder` body. */
+function menubarSyncOrderOracle(
+  currentItems: readonly MlvMenubarItem[],
+  items: readonly MlvMenubarItem[],
+): readonly MlvMenubarItem[] {
+  const orderedItems = items.filter((item) => currentItems.includes(item));
+  const unorderedItems = currentItems.filter(
+    (item) => !orderedItems.includes(item),
+  );
+  const nextItems = [
+    ...orderedItems,
+    ...sortMenubarItemsViaRegistry(unorderedItems),
+  ];
+
+  return currentItems.every((item, index) => item === nextItems[index])
+    ? currentItems
+    : nextItems;
+}
+
+/** Asserts element-for-element identity, reporting labels on failure. */
+function expectSameSequence(
+  actual: readonly { getLabel(): string }[],
+  expected: readonly { getLabel(): string }[],
+): void {
+  expect(labelsOf(actual)).toEqual(labelsOf(expected));
+  expect(actual.length).toBe(expected.length);
+  expect(actual.every((item, index) => item === expected[index])).toBe(true);
+}
+
+/**
+ * A menu registry holding four rows of one panel, in DOM order, plus a fifth
+ * row of a second panel that is deliberately never registered.
+ */
+function createMenuSyncOrderFixture(): {
+  registry: MlvMenuItemRegistryStore;
+  items: readonly MenuKeyItem[];
+  stray: MenuKeyItem;
+} {
+  const { rows } = createMenuPanel(4);
+  const labels = ['A', 'B', 'C', 'D'];
+  const items = rows.map((row, index) => createMenuKeyItem(labels[index], row));
+
+  const registry = new MlvMenuItemRegistryStore();
+  for (const item of items) {
+    registry.register(item);
+  }
+
+  const { rows: strayRows } = createMenuPanel(1);
+  return { registry, items, stray: createMenuKeyItem('Stray', strayRows[0]) };
+}
+
+/** The menubar equivalent of {@link createMenuSyncOrderFixture}. */
+function createMenubarSyncOrderFixture(): {
+  registry: MlvMenubarItemRegistryStore;
+  items: readonly MlvMenubarItem[];
+  stray: MlvMenubarItem;
+} {
+  const { triggers } = createMenubarHost(4);
+  const labels = ['A', 'B', 'C', 'D'];
+  const items = triggers.map((trigger, index) =>
+    createMenubarItem(labels[index], trigger),
+  );
+
+  const registry = new MlvMenubarItemRegistryStore();
+  for (const item of items) {
+    registry.register(item);
+  }
+
+  const { triggers: strayTriggers } = createMenubarHost(1);
+  return {
+    registry,
+    items,
+    stray: createMenubarItem('Stray', strayTriggers[0]),
+  };
+}
+
+describe('menu registry syncOrder identity fast path', () => {
+  it('returns the same array reference when handed the order it already holds', () => {
+    const { registry, items } = createMenuSyncOrderFixture();
+    const before = registry.items();
+
+    expect(labelsOf(before)).toEqual(['A', 'B', 'C', 'D']);
+
+    registry.syncOrder([...items]);
+
+    expect(registry.items()).toBe(before);
+  });
+
+  it('does not notify dependents when handed the order it already holds', () => {
+    const { registry, items } = createMenuSyncOrderFixture();
+
+    let evaluations = 0;
+    const dependent = computed(() => {
+      registry.items();
+      return ++evaluations;
+    });
+
+    dependent();
+    expect(evaluations).toBe(1);
+
+    // A no-change sync must leave the signal's version untouched, so the
+    // memoized computed is never re-evaluated.
+    registry.syncOrder([...items]);
+    dependent();
+    expect(evaluations).toBe(1);
+
+    // A genuine reorder must still notify.
+    registry.syncOrder([...items].reverse());
+    dependent();
+    expect(evaluations).toBe(2);
+  });
+
+  it('still reorders on a genuine reorder', () => {
+    const { registry, items } = createMenuSyncOrderFixture();
+    const before = registry.items();
+
+    registry.syncOrder([items[3], items[2], items[1], items[0]]);
+
+    expect(registry.items()).not.toBe(before);
+    expect(labelsOf(registry.items())).toEqual(['D', 'C', 'B', 'A']);
+  });
+
+  it('ignores an incoming item that is not registered', () => {
+    const { registry, items, stray } = createMenuSyncOrderFixture();
+
+    registry.syncOrder([items[1], stray, items[0], items[2], items[3]]);
+
+    expect(labelsOf(registry.items())).toEqual(['B', 'A', 'C', 'D']);
+  });
+
+  it('sorts registered items missing from the incoming order to the tail by DOM order', () => {
+    const { registry, items } = createMenuSyncOrderFixture();
+
+    // C leads; A, B and D are absent and must follow in panel DOM order.
+    registry.syncOrder([items[2]]);
+
+    expect(labelsOf(registry.items())).toEqual(['C', 'A', 'B', 'D']);
+  });
+
+  it('does not take the fast path when the lengths differ', () => {
+    const { registry, items } = createMenuSyncOrderFixture();
+    const before = registry.items();
+
+    // A prefix of the held order: the guard must decline, and the general path
+    // must rebuild the identical sequence and return `currentItems` anyway.
+    registry.syncOrder([items[0], items[1]]);
+
+    expect(registry.items()).toBe(before);
+    expect(labelsOf(registry.items())).toEqual(['A', 'B', 'C', 'D']);
+  });
+
+  it('does not take the fast path when an equal-length order differs at the first index', () => {
+    const { registry, items, stray } = createMenuSyncOrderFixture();
+    const before = registry.items();
+
+    // Same length, identical from index 1 on — only index 0 differs.
+    registry.syncOrder([stray, items[1], items[2], items[3]]);
+
+    expect(registry.items()).not.toBe(before);
+    expect(labelsOf(registry.items())).toEqual(['B', 'C', 'D', 'A']);
+  });
+
+  it('does not take the fast path when an equal-length order differs at a middle index', () => {
+    const { registry, items } = createMenuSyncOrderFixture();
+    const before = registry.items();
+
+    registry.syncOrder([items[0], items[1], items[3], items[2]]);
+
+    expect(registry.items()).not.toBe(before);
+    expect(labelsOf(registry.items())).toEqual(['A', 'B', 'D', 'C']);
+  });
+
+  it('does not take the fast path when an equal-length order differs only at the last index', () => {
+    const { registry, items } = createMenuSyncOrderFixture();
+    const before = registry.items();
+
+    // Documents pre-existing behaviour, unchanged by the guard: a duplicated
+    // incoming item makes `orderedItems` longer than the registry, and the
+    // length-blind order check accepts the longer array. Not reachable from a
+    // `contentChildren` query, which cannot yield one instance twice.
+    registry.syncOrder([items[0], items[1], items[2], items[0]]);
+
+    expect(registry.items()).not.toBe(before);
+    expect(labelsOf(registry.items())).toEqual(['A', 'B', 'C', 'A', 'D']);
+  });
+});
+
+describe('menubar registry syncOrder identity fast path', () => {
+  it('returns the same array reference when handed the order it already holds', () => {
+    const { registry, items } = createMenubarSyncOrderFixture();
+    const before = registry.items();
+
+    expect(labelsOf(before)).toEqual(['A', 'B', 'C', 'D']);
+
+    registry.syncOrder([...items]);
+
+    expect(registry.items()).toBe(before);
+  });
+
+  it('does not notify dependents when handed the order it already holds', () => {
+    const { registry, items } = createMenubarSyncOrderFixture();
+
+    let evaluations = 0;
+    const dependent = computed(() => {
+      registry.items();
+      return ++evaluations;
+    });
+
+    dependent();
+    expect(evaluations).toBe(1);
+
+    registry.syncOrder([...items]);
+    dependent();
+    expect(evaluations).toBe(1);
+
+    registry.syncOrder([...items].reverse());
+    dependent();
+    expect(evaluations).toBe(2);
+  });
+
+  it('still reorders on a genuine reorder', () => {
+    const { registry, items } = createMenubarSyncOrderFixture();
+    const before = registry.items();
+
+    registry.syncOrder([items[3], items[2], items[1], items[0]]);
+
+    expect(registry.items()).not.toBe(before);
+    expect(labelsOf(registry.items())).toEqual(['D', 'C', 'B', 'A']);
+  });
+
+  it('ignores an incoming item that is not registered', () => {
+    const { registry, items, stray } = createMenubarSyncOrderFixture();
+
+    registry.syncOrder([items[1], stray, items[0], items[2], items[3]]);
+
+    expect(labelsOf(registry.items())).toEqual(['B', 'A', 'C', 'D']);
+  });
+
+  it('sorts registered items missing from the incoming order to the tail by DOM order', () => {
+    const { registry, items } = createMenubarSyncOrderFixture();
+
+    registry.syncOrder([items[2]]);
+
+    expect(labelsOf(registry.items())).toEqual(['C', 'A', 'B', 'D']);
+  });
+
+  it('does not take the fast path when the lengths differ', () => {
+    const { registry, items } = createMenubarSyncOrderFixture();
+    const before = registry.items();
+
+    registry.syncOrder([items[0], items[1]]);
+
+    expect(registry.items()).toBe(before);
+    expect(labelsOf(registry.items())).toEqual(['A', 'B', 'C', 'D']);
+  });
+
+  it('does not take the fast path when an equal-length order differs at the first index', () => {
+    const { registry, items, stray } = createMenubarSyncOrderFixture();
+    const before = registry.items();
+
+    registry.syncOrder([stray, items[1], items[2], items[3]]);
+
+    expect(registry.items()).not.toBe(before);
+    expect(labelsOf(registry.items())).toEqual(['B', 'C', 'D', 'A']);
+  });
+
+  it('does not take the fast path when an equal-length order differs at a middle index', () => {
+    const { registry, items } = createMenubarSyncOrderFixture();
+    const before = registry.items();
+
+    registry.syncOrder([items[0], items[1], items[3], items[2]]);
+
+    expect(registry.items()).not.toBe(before);
+    expect(labelsOf(registry.items())).toEqual(['A', 'B', 'D', 'C']);
+  });
+});
+
+describe('syncOrder differential against the pre-change implementation', () => {
+  /**
+   * Each case names the incoming `items` as indices into the fixture's four
+   * registered rows; `'stray'` is an unregistered row of a second container.
+   */
+  const cases: readonly {
+    name: string;
+    incoming: readonly (number | 'stray')[];
+  }[] = [
+    { name: 'the held order, unchanged', incoming: [0, 1, 2, 3] },
+    { name: 'a full reversal', incoming: [3, 2, 1, 0] },
+    { name: 'an adjacent swap', incoming: [0, 1, 3, 2] },
+    { name: 'a leading swap', incoming: [1, 0, 2, 3] },
+    { name: 'an empty incoming order', incoming: [] },
+    { name: 'a single held item', incoming: [2] },
+    { name: 'a prefix of the held order', incoming: [0, 1] },
+    { name: 'a reordered prefix', incoming: [1, 0] },
+    { name: 'a suffix of the held order', incoming: [2, 3] },
+    { name: 'an unregistered item only', incoming: ['stray'] },
+    {
+      name: 'the held order plus an unregistered item',
+      incoming: [0, 1, 2, 3, 'stray'],
+    },
+    {
+      name: 'an unregistered item replacing the first',
+      incoming: ['stray', 1, 2, 3],
+    },
+    {
+      name: 'an unregistered item replacing the last',
+      incoming: [0, 1, 2, 'stray'],
+    },
+    {
+      name: 'an unregistered item interleaved',
+      incoming: [1, 'stray', 0, 2, 3],
+    },
+    { name: 'a duplicated held item', incoming: [0, 1, 2, 0] },
+    {
+      name: 'a duplicate appended to the held order',
+      incoming: [0, 1, 2, 3, 1],
+    },
+    { name: 'every item duplicated', incoming: [0, 0, 1, 1, 2, 2, 3, 3] },
+  ];
+
+  for (const { name, incoming } of cases) {
+    it(`agrees with the oracle for ${name} (menu)`, () => {
+      const { registry, items, stray } = createMenuSyncOrderFixture();
+      const before = registry.items();
+      const incomingItems = incoming.map((index) =>
+        index === 'stray' ? stray : items[index],
+      );
+
+      const expected = menuSyncOrderOracle(before, incomingItems);
+      registry.syncOrder(incomingItems);
+      const actual = registry.items();
+
+      expectSameSequence(actual, expected);
+      // Signal identity is load-bearing: returning `currentItems` is what
+      // suppresses a notification, so the oracle must agree on that too.
+      expect(actual === before).toBe(expected === before);
+    });
+
+    it(`agrees with the oracle for ${name} (menubar)`, () => {
+      const { registry, items, stray } = createMenubarSyncOrderFixture();
+      const before = registry.items();
+      const incomingItems = incoming.map((index) =>
+        index === 'stray' ? stray : items[index],
+      );
+
+      const expected = menubarSyncOrderOracle(before, incomingItems);
+      registry.syncOrder(incomingItems);
+      const actual = registry.items();
+
+      expectSameSequence(actual, expected);
+      expect(actual === before).toBe(expected === before);
+    });
+  }
 });
