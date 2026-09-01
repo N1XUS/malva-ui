@@ -13,7 +13,10 @@ import { MlvInput } from '@malva-ui/core/input';
 import { MlvPopup } from '@malva-ui/core/popup';
 import type { MlvPopupMobileMode } from '@malva-ui/core/popup';
 import { MlvDataSource } from '@malva-ui/cdk/data-source';
-import { MlvSelectDataSource } from '@malva-ui/core/dropdown';
+import {
+  defaultCompareWith,
+  MlvSelectDataSource,
+} from '@malva-ui/core/dropdown';
 import type {
   MlvOptionsInput,
   MlvOptionsSearchFn,
@@ -86,6 +89,24 @@ class CompareWithHostComponent {
   ];
   readonly toOption = (t: Tag) => ({ label: t.name, value: t });
   readonly compareWith = (a: Tag, b: Tag) => a.id === b.id;
+}
+
+@Component({
+  template: `<mlv-combobox
+    [options]="tags"
+    [toOption]="toOption"
+    [multiple]="multiple"
+  />`,
+  imports: [MlvCombobox],
+})
+class DefaultCompareWithHostComponent {
+  readonly combobox = viewChild.required(MlvCombobox<Tag>);
+  readonly tags: Tag[] = [
+    { id: 1, name: 'Alpha' },
+    { id: 2, name: 'Beta' },
+  ];
+  multiple = false;
+  readonly toOption = (t: Tag) => ({ label: t.name, value: t });
 }
 
 function setup<T extends { combobox: unknown }>(
@@ -767,6 +788,96 @@ describe('MlvCombobox (compareWith)', () => {
     expect(combobox.selectionService.isSelected(host.tags[0])).toBe(true);
     // Display value agrees.
     expect(nativeInput(fixture).value).toBe('Alpha');
+  });
+});
+
+/**
+ * A consumer that never sets `compareWith` must see exactly the reference
+ * (`===`) semantics it always had. The input default is now the shared
+ * module-level `defaultCompareWith` — so the reconciliation helpers can
+ * recognise it and take their `Set` fast path — rather than a per-instance
+ * inline arrow. Same behaviour, one reference.
+ */
+describe('MlvCombobox (default compareWith, unset by the consumer)', () => {
+  let fixture: ComponentFixture<DefaultCompareWithHostComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [DefaultCompareWithHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = setup(DefaultCompareWithHostComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+  });
+
+  it('resolves to the shared default comparator', () => {
+    expect(fixture.componentInstance.combobox().compareWith()).toBe(
+      defaultCompareWith,
+    );
+  });
+
+  it('selects an option written by reference', () => {
+    const host = fixture.componentInstance;
+    const combobox = host.combobox();
+    setComboboxValue(fixture, combobox, host.tags[1]);
+    expect(combobox.selectionService.selectedValues()[0]).toBe(host.tags[1]);
+    expect(combobox.selectionService.isSelected(host.tags[1])).toBe(true);
+    expect(nativeInput(fixture).value).toBe('Beta');
+  });
+
+  it('does NOT collapse a structurally-equal value onto its option instance', () => {
+    const host = fixture.componentInstance;
+    const combobox = host.combobox();
+    const written = { id: 1, name: 'Alpha' };
+    setComboboxValue(fixture, combobox, written);
+    // The `MlvCombobox (compareWith)` block above normalises this onto
+    // `host.tags[0]`; under the default it must stay the written reference.
+    expect(combobox.selectionService.selectedValues()[0]).toBe(written);
+    expect(combobox.selectionService.isSelected(host.tags[0])).toBe(false);
+  });
+
+  it('ignores an aria reconciliation emit that only drops a filtered-out value', () => {
+    const host = fixture.componentInstance;
+    const combobox = host.combobox();
+    setComboboxValue(fixture, combobox, host.tags[0]);
+    // Type a query that filters Alpha out of the rendered list, then let aria
+    // reconcile its model down to the (now empty) rendered set.
+    combobox.onSearchInput({ target: { value: 'Beta' } } as unknown as Event);
+    fixture.detectChanges();
+    combobox.selectValues([]);
+    fixture.detectChanges();
+    expect(combobox.selectionService.selectedValues()[0]).toBe(host.tags[0]);
+  });
+
+  it('still honours a genuine deselect of a rendered option', () => {
+    const host = fixture.componentInstance;
+    const combobox = host.combobox();
+    setComboboxValue(fixture, combobox, host.tags[0]);
+    // No query — Alpha is still rendered, so dropping it is a real deselect.
+    combobox.selectValues([]);
+    fixture.detectChanges();
+    expect(combobox.selectionService.selectedValues()).toEqual([]);
+  });
+
+  it('re-adds committed values aria dropped only because they were filtered out (multi)', () => {
+    const host = fixture.componentInstance;
+    host.multiple = true;
+    fixture.detectChanges();
+    const combobox = host.combobox();
+    setComboboxValue(fixture, combobox, [host.tags[0]]);
+
+    // Filter Alpha out of view, then genuinely pick Beta.
+    combobox.onSearchInput({ target: { value: 'Beta' } } as unknown as Event);
+    fixture.detectChanges();
+    combobox.selectValues([host.tags[1]]);
+    fixture.detectChanges();
+
+    const selected = combobox.selectionService.selectedValues();
+    expect(selected.length).toBe(2);
+    expect(selected[0]).toBe(host.tags[1]);
+    // Committed order preserved after the incoming values.
+    expect(selected[1]).toBe(host.tags[0]);
   });
 });
 

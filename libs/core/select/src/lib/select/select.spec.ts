@@ -15,6 +15,7 @@ import { MlvPopup } from '@malva-ui/core/popup';
 import type { MlvPopupMobileMode } from '@malva-ui/core/popup';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import { MlvDataSource } from '@malva-ui/cdk/data-source';
+import { defaultCompareWith } from '@malva-ui/core/dropdown';
 import type {
   MlvOptionMatcher,
   MlvOptionsInput,
@@ -826,6 +827,118 @@ describe('MlvSelect — compareWith + reconciliation guard', () => {
     // Genuine pick of Beta while Alpha's option is not rendered.
     select.selectOption([beta]);
     expect(select.value()).toEqual([beta, alpha]);
+  });
+});
+
+/**
+ * A consumer that never sets `compareWith` must see exactly the reference
+ * (`===`) semantics it always had. The input default is now the shared
+ * module-level `defaultCompareWith` (so the reconciliation helpers can
+ * recognise it and take their `Set` fast path) rather than a per-instance
+ * inline arrow — same behaviour, one reference.
+ */
+describe('MlvSelect — default compareWith (unset by the consumer)', () => {
+  interface Tag {
+    id: number;
+    name: string;
+  }
+
+  @Component({
+    imports: [MlvSelect],
+    template: `<mlv-select
+      id="tags"
+      [options]="options()"
+      [toOption]="toOption"
+      [multiple]="multiple()"
+    />`,
+  })
+  class HostComponent {
+    readonly select = viewChild.required(MlvSelect<Tag>);
+    readonly options = signal<Tag[]>([
+      { id: 1, name: 'Alpha' },
+      { id: 2, name: 'Beta' },
+    ]);
+    readonly multiple = signal(false);
+    readonly toOption = (t: Tag) => ({ label: t.name, value: t });
+  }
+
+  let fixture: ComponentFixture<HostComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+  });
+
+  it('resolves to the shared default comparator', () => {
+    expect(fixture.componentInstance.select().compareWith()).toBe(
+      defaultCompareWith,
+    );
+  });
+
+  it('selects an option written by reference', () => {
+    const select = fixture.componentInstance.select();
+    const [, beta] = fixture.componentInstance.options();
+    select.value.set(beta);
+    fixture.detectChanges();
+    expect(select.selectionService.selectedValues()[0]).toBe(beta);
+    expect(select.displayValue).toBe('Beta');
+  });
+
+  it('does NOT collapse a structurally-equal value onto its option (reference equality)', () => {
+    const select = fixture.componentInstance.select();
+    const written = { id: 2, name: 'Beta' };
+    select.value.set(written);
+    fixture.detectChanges();
+    // The custom-comparator block above normalises this onto the option
+    // instance; the default must NOT — no option matches by reference, so the
+    // written object stays exactly as written.
+    expect(select.selectionService.selectedValues()[0]).toBe(written);
+    expect(select.selectionService.selectedValues()[0]).not.toBe(
+      fixture.componentInstance.options()[1],
+    );
+    expect(
+      select.selectionService.isSelected(
+        fixture.componentInstance.options()[1],
+      ),
+    ).toBe(false);
+  });
+
+  it('ignores an aria reconciliation emit that drops a value not currently rendered', () => {
+    fixture.componentInstance.options.set([]);
+    fixture.detectChanges();
+    const select = fixture.componentInstance.select();
+    const alpha = { id: 1, name: 'Alpha' };
+    select.value.set(alpha);
+    fixture.detectChanges();
+    select.selectOption([]);
+    expect(select.value()).toBe(alpha);
+  });
+
+  it('still honours a genuine deselect of a rendered option (single -> null)', () => {
+    const select = fixture.componentInstance.select();
+    const [alpha] = fixture.componentInstance.options();
+    select.value.set(alpha);
+    fixture.detectChanges();
+    select.selectOption([]);
+    expect(select.value()).toBeNull();
+  });
+
+  it('re-adds committed values aria dropped only because they were not rendered (multi)', () => {
+    fixture.componentInstance.multiple.set(true);
+    const alpha = { id: 1, name: 'Alpha' };
+    fixture.componentInstance.options.set([{ id: 2, name: 'Beta' }]);
+    fixture.detectChanges();
+    const select = fixture.componentInstance.select();
+    select.value.set([alpha]);
+    fixture.detectChanges();
+    const beta = fixture.componentInstance.options()[0];
+    select.selectOption([beta]);
+    expect(select.value()).toEqual([beta, alpha]);
+    expect(select.value()?.[1]).toBe(alpha);
   });
 });
 
@@ -1654,13 +1767,7 @@ describe('MlvSelect stylesheet — chevron flip + rotation origin', () => {
 describe('MlvSelect — native mode', () => {
   @Component({
     imports: [MlvSelect],
-    template: `
-      <mlv-select
-        id="fruit"
-        native
-        [options]="options"
-      />
-    `,
+    template: ` <mlv-select id="fruit" native [options]="options" /> `,
   })
   class NativeHostComponent {
     readonly options = ['Apple', 'Banana'];
@@ -1737,7 +1844,10 @@ describe('MlvSelect — native mode API and synchronization', () => {
       imports: [NativeModesHostComponent],
       providers: [
         provideMlvI18nTesting(),
-        { provide: MlvBreakpointService, useClass: FakeSelectBreakpointService },
+        {
+          provide: MlvBreakpointService,
+          useClass: FakeSelectBreakpointService,
+        },
       ],
     }).compileComponents();
 
@@ -1761,7 +1871,9 @@ describe('MlvSelect — native mode API and synchronization', () => {
     const fixture = render(false);
 
     expect(fixture.nativeElement.querySelector('select')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.mlv-select__trigger')).toBeTruthy();
+    expect(
+      fixture.nativeElement.querySelector('.mlv-select__trigger'),
+    ).toBeTruthy();
   });
 
   it('uses native mode below md when native is auto', () => {
@@ -1819,9 +1931,8 @@ describe('MlvSelect — native mode API and synchronization', () => {
     const nativeSelect = fixture.nativeElement.querySelector(
       'select',
     ) as HTMLSelectElement;
-    expect(Array.from(nativeSelect.selectedOptions).map((option) => option.text)).toEqual([
-      'Apple',
-      'Banana',
-    ]);
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Apple', 'Banana']);
   });
 });
