@@ -1,197 +1,208 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-scrollbar;
+  $block: mlv-scrollbar;
 
-// ---------------------------------------------------------------------------
-// Host — sizing context for the viewport and overlay tracks
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Host — sizing context for the viewport and overlay tracks
+  // ---------------------------------------------------------------------------
 
-.#{$block} {
-  @include mixins.base(
-    var(--mlv-typography-family-text),
-    var(--mlv-font-size-m),
-    0,
-    0
-  );
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-font-size-m),
+      0,
+      0
+    );
 
-  position: relative; // establishes containing block for absolutely-positioned tracks
-  display: grid; // single implicit cell — viewport fills it without absolute positioning
+    position: relative; // establishes containing block for absolutely-positioned tracks
+    display: grid; // single implicit cell — viewport fills it without absolute positioning
 
-  // macOS-style defaults: wider track zone for easy hover, thin visible thumb
-  --mlv-sb-size: 0.75rem; // 12px track zone — large enough to hover/click comfortably
-  --mlv-sb-inset: 0.25rem; // 4px each side → 12 - 4 - 4 = 4px visible thumb
-  --mlv-sb-edge-padding: 0.1875rem; // 3px — gap from top/bottom ends of track
-  --mlv-sb-thumb-bg: var(--mlv-border-strong);
-  --mlv-sb-thumb-opacity: 0.5;
-  --mlv-sb-track-bg: transparent;
-  --mlv-sb-radius: var(--mlv-radius-full);
-  --mlv-sb-min-thumb-size: 1.75rem; // 28px minimum thumb length
-  // Gap between the track zone and the host edge (macOS float-inset feel)
-  --mlv-sb-edge-gap: 0rem; // flush to edge; thumb appears inset due to --mlv-sb-inset
+    // macOS-style defaults: wider track zone for easy hover, thin visible thumb
+    --mlv-sb-size: 0.75rem; // 12px track zone — large enough to hover/click comfortably
+    --mlv-sb-inset: 0.25rem; // 4px each side → 12 - 4 - 4 = 4px visible thumb
+    --mlv-sb-edge-padding: 0.1875rem; // 3px — gap from top/bottom ends of track
+    --mlv-sb-thumb-bg: var(--mlv-border-strong);
+    --mlv-sb-thumb-opacity: 0.5;
+    --mlv-sb-track-bg: transparent;
+    --mlv-sb-radius: var(--mlv-radius-full);
+    --mlv-sb-min-thumb-size: 1.75rem; // 28px minimum thumb length
+    // Gap between the track zone and the host edge (macOS float-inset feel)
+    --mlv-sb-edge-gap: 0rem; // flush to edge; thumb appears inset due to --mlv-sb-inset
 
-  // On hover: lift opacity and widen thumb by 2px (reduce inset by 1px each side)
-  &:hover .#{$block}__thumb {
-    --mlv-sb-inset: 0.1875rem; // 3px each side → 6px visible thumb (was 4px)
-    opacity: 0.8;
-  }
+    // On hover: lift opacity and widen thumb by 2px (reduce inset by 1px each side)
+    &:hover .#{$block}__thumb {
+      --mlv-sb-inset: 0.1875rem; // 3px each side → 6px visible thumb (was 4px)
+      opacity: 0.8;
+    }
 
-  // Keep thumb fully visible while scrolling
-  &--scrolling .#{$block}__thumb {
-    opacity: 1;
-  }
-
-  // While dragging: wider thumb, darker color, grabbing cursor, no text selection
-  &--dragging {
-    user-select: none;
-
-    .#{$block}__thumb {
-      --mlv-sb-inset: 0.1875rem; // 6px wide, same as hover
-      --mlv-sb-thumb-bg: var(--mlv-text-secondary); // darker than border-strong
+    // Keep thumb fully visible while scrolling
+    &--scrolling .#{$block}__thumb {
       opacity: 1;
-      cursor: grabbing;
-    }
-  }
-
-  // Disabled: hide custom tracks, restore native scrollbar on viewport
-  &--disabled {
-    .#{$block}__track {
-      display: none;
     }
 
-    .#{$block}__viewport {
-      scrollbar-width: auto;
+    // While dragging: wider thumb, darker color, grabbing cursor, no text selection
+    &--dragging {
+      user-select: none;
 
-      &::-webkit-scrollbar {
-        display: revert;
+      .#{$block}__thumb {
+        --mlv-sb-inset: 0.1875rem; // 6px wide, same as hover
+        --mlv-sb-thumb-bg: var(
+          --mlv-text-secondary
+        ); // darker than border-strong
+        opacity: 1;
+        cursor: grabbing;
+      }
+    }
+
+    // External scroller: the decorated element is its own scroll box, so the
+    // internal viewport is nothing but a layout wrapper the tracks are drawn
+    // over. It must neither scroll nor clip — clipping would cut off a decorated
+    // element that is taller than the host, and a second scroll box would eat
+    // wheel events that belong to the real one.
+    &--external .#{$block}__viewport {
+      overflow: visible;
+    }
+
+    // Disabled: hide custom tracks, restore native scrollbar on viewport
+    &--disabled {
+      .#{$block}__track {
+        display: none;
+      }
+
+      .#{$block}__viewport {
+        scrollbar-width: auto;
+
+        &::-webkit-scrollbar {
+          display: revert;
+        }
+      }
+    }
+
+    &:hover {
+      .#{$block}__track {
+        opacity: 1;
       }
     }
   }
 
-  &:hover {
-    .#{$block}__track {
-      opacity: 1;
+  // ---------------------------------------------------------------------------
+  // Viewport — the actual scrollable container
+  // Fills the host via the implicit grid cell (no position: absolute needed).
+  // min-height/min-width: 0 allow the grid child to shrink below content size.
+  // ---------------------------------------------------------------------------
+
+  .#{$block}__viewport {
+    min-height: 0;
+    min-width: 0;
+    overflow: auto;
+    scrollbar-width: none;
+    // Contain overscroll so it doesn't propagate to the page (macOS touchpad)
+    // overscroll-behavior: contain;
+    // Remove the default browser outline — we provide our own focus ring
+    outline: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    // Keyboard focus ring — shown only for keyboard navigation, not mouse clicks
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(
+        var(--mlv-focus-ring-offset) * -1
+      ); // inset so the ring stays within the clipped host
     }
   }
-}
 
-// ---------------------------------------------------------------------------
-// Viewport — the actual scrollable container
-// Fills the host via the implicit grid cell (no position: absolute needed).
-// min-height/min-width: 0 allow the grid child to shrink below content size.
-// ---------------------------------------------------------------------------
-
-.#{$block}__viewport {
-  min-height: 0;
-  min-width: 0;
-  overflow: auto;
-  scrollbar-width: none;
-  // Contain overscroll so it doesn't propagate to the page (macOS touchpad)
-  // overscroll-behavior: contain;
-  // Remove the default browser outline — we provide our own focus ring
-  outline: none;
-
-  &::-webkit-scrollbar {
-    display: none;
+  // Content wrapper — observed by ResizeObserver to detect size changes
+  .#{$block}__content {
+    min-height: 100%;
+    min-width: 100%;
   }
 
-  // Keyboard focus ring — shown only for keyboard navigation, not mouse clicks
-  &:focus-visible {
-    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-    outline-offset: calc(
-      var(--mlv-focus-ring-offset) * -1
-    ); // inset so the ring stays within the clipped host
-  }
-}
+  // ---------------------------------------------------------------------------
+  // Track — the rail along which the thumb moves
+  // Floated inset from the host edge by --mlv-sb-edge-gap, macOS-style
+  // ---------------------------------------------------------------------------
 
-// Content wrapper — observed by ResizeObserver to detect size changes
-.#{$block}__content {
-  min-height: 100%;
-  min-width: 100%;
-}
+  .#{$block}__track {
+    position: absolute;
+    background: var(--mlv-sb-track-bg);
+    border-radius: var(--mlv-sb-radius);
+    z-index: var(--mlv-z-raised);
+    opacity: 0;
+    transition: opacity var(--mlv-duration-normal) var(--mlv-ease-default);
 
-// ---------------------------------------------------------------------------
-// Track — the rail along which the thumb moves
-// Floated inset from the host edge by --mlv-sb-edge-gap, macOS-style
-// ---------------------------------------------------------------------------
+    &--vertical {
+      top: var(--mlv-sb-edge-gap);
+      bottom: var(--mlv-sb-edge-gap);
+      inset-inline-end: var(--mlv-sb-edge-gap);
+      width: var(--mlv-sb-size);
+      padding: var(--mlv-sb-edge-padding) 0;
+    }
 
-.#{$block}__track {
-  position: absolute;
-  background: var(--mlv-sb-track-bg);
-  border-radius: var(--mlv-sb-radius);
-  z-index: var(--mlv-z-raised);
-  opacity: 0;
-  transition: opacity var(--mlv-duration-normal) var(--mlv-ease-default);
+    &--horizontal {
+      bottom: var(--mlv-sb-edge-gap);
+      inset-inline-start: var(--mlv-sb-edge-gap);
+      inset-inline-end: var(--mlv-sb-edge-gap);
+      height: var(--mlv-sb-size);
+      padding: 0 var(--mlv-sb-edge-padding);
+    }
 
-  &--vertical {
-    top: var(--mlv-sb-edge-gap);
-    bottom: var(--mlv-sb-edge-gap);
-    inset-inline-end: var(--mlv-sb-edge-gap);
-    width: var(--mlv-sb-size);
-    padding: var(--mlv-sb-edge-padding) 0;
+    &--hidden {
+      display: none;
+    }
   }
 
-  &--horizontal {
-    bottom: var(--mlv-sb-edge-gap);
-    inset-inline-start: var(--mlv-sb-edge-gap);
-    inset-inline-end: var(--mlv-sb-edge-gap);
-    height: var(--mlv-sb-size);
-    padding: 0 var(--mlv-sb-edge-padding);
+  // When both tracks are visible, prevent them from overlapping at the corner
+  .#{$block}:has(
+      .#{$block}__track--vertical:not(.#{$block}__track--hidden)
+    ):has(.#{$block}__track--horizontal:not(.#{$block}__track--hidden)) {
+    .#{$block}__track--vertical {
+      bottom: calc(var(--mlv-sb-size) + var(--mlv-sb-edge-gap));
+    }
+
+    .#{$block}__track--horizontal {
+      inset-inline-end: calc(var(--mlv-sb-size) + var(--mlv-sb-edge-gap));
+    }
   }
 
-  &--hidden {
-    display: none;
-  }
-}
+  // ---------------------------------------------------------------------------
+  // Thumb — position indicator; top/height or left/width set inline by component
+  // ---------------------------------------------------------------------------
 
-// When both tracks are visible, prevent them from overlapping at the corner
-.#{$block}:has(.#{$block}__track--vertical:not(.#{$block}__track--hidden)):has(
-    .#{$block}__track--horizontal:not(.#{$block}__track--hidden)
-  ) {
-  .#{$block}__track--vertical {
-    bottom: calc(var(--mlv-sb-size) + var(--mlv-sb-edge-gap));
-  }
+  .#{$block}__thumb {
+    position: absolute;
+    background: var(--mlv-sb-thumb-bg);
+    border-radius: var(--mlv-sb-radius);
+    opacity: var(--mlv-sb-thumb-opacity);
+    cursor: grab;
 
-  .#{$block}__track--horizontal {
-    inset-inline-end: calc(var(--mlv-sb-size) + var(--mlv-sb-edge-gap));
-  }
-}
+    // Vertical thumb: animate only the cross-axis (inline) inset — not top/height which JS writes
+    .#{$block}__track--vertical & {
+      inset-inline-start: var(--mlv-sb-inset);
+      inset-inline-end: var(--mlv-sb-inset);
+      min-block-size: var(--mlv-sb-min-thumb-size);
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-default),
+        background-color var(--mlv-duration-fast) var(--mlv-ease-default),
+        inset-inline-start var(--mlv-duration-normal) var(--mlv-ease-default),
+        inset-inline-end var(--mlv-duration-normal) var(--mlv-ease-default);
+    }
 
-// ---------------------------------------------------------------------------
-// Thumb — position indicator; top/height or left/width set inline by component
-// ---------------------------------------------------------------------------
-
-.#{$block}__thumb {
-  position: absolute;
-  background: var(--mlv-sb-thumb-bg);
-  border-radius: var(--mlv-sb-radius);
-  opacity: var(--mlv-sb-thumb-opacity);
-  cursor: grab;
-
-  // Vertical thumb: animate only the cross-axis (inline) inset — not top/height which JS writes
-  .#{$block}__track--vertical & {
-    inset-inline-start: var(--mlv-sb-inset);
-    inset-inline-end: var(--mlv-sb-inset);
-    min-block-size: var(--mlv-sb-min-thumb-size);
-    transition:
-      opacity var(--mlv-duration-normal) var(--mlv-ease-default),
-      background-color var(--mlv-duration-fast) var(--mlv-ease-default),
-      inset-inline-start var(--mlv-duration-normal) var(--mlv-ease-default),
-      inset-inline-end var(--mlv-duration-normal) var(--mlv-ease-default);
+    // Horizontal thumb: animate only the cross-axis (block) inset — not left/width which JS writes
+    .#{$block}__track--horizontal & {
+      top: var(--mlv-sb-inset);
+      bottom: var(--mlv-sb-inset);
+      min-inline-size: var(--mlv-sb-min-thumb-size);
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-default),
+        background-color var(--mlv-duration-fast) var(--mlv-ease-default),
+        top var(--mlv-duration-normal) var(--mlv-ease-default),
+        bottom var(--mlv-duration-normal) var(--mlv-ease-default);
+    }
   }
 
-  // Horizontal thumb: animate only the cross-axis (block) inset — not left/width which JS writes
-  .#{$block}__track--horizontal & {
-    top: var(--mlv-sb-inset);
-    bottom: var(--mlv-sb-inset);
-    min-inline-size: var(--mlv-sb-min-thumb-size);
-    transition:
-      opacity var(--mlv-duration-normal) var(--mlv-ease-default),
-      background-color var(--mlv-duration-fast) var(--mlv-ease-default),
-      top var(--mlv-duration-normal) var(--mlv-ease-default),
-      bottom var(--mlv-duration-normal) var(--mlv-ease-default);
-  }
-}
-
-@include mixins.reduced-motion($block);
+  @include mixins.reduced-motion($block);
 }

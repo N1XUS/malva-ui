@@ -1,4 +1,5 @@
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -202,6 +203,13 @@ export class MlvTextarea
     viewChild<ElementRef<HTMLTextAreaElement>>('textareaEl');
 
   /**
+   * @private The scrollbar decorating the field. It is bound to the field via
+   * `[scroller]`, so it measures the `<textarea>` itself rather than wrapping
+   * it in a scroll box of its own.
+   */
+  private readonly _scrollbarRef = viewChild(MlvScrollbar);
+
+  /**
    * The current character count.
    */
   readonly charCount = computed(() => (this.value() ?? '').length);
@@ -286,6 +294,28 @@ export class MlvTextarea
         // remembered from before is not a description of the current layout.
         this._autoResizeState = null;
       }
+    });
+
+    // The field is its own scroll box, so nothing the decorating scrollbar
+    // observes moves when a line of text is added: a textarea's border box
+    // does not grow with its content, and it has no child element to observe.
+    // Typing therefore changes `scrollHeight` with no `scroll` event and no
+    // `ResizeObserver` callback, and the track would keep describing the
+    // previous content — wrong thumb, or no track at all until the user
+    // happened to scroll. Telling the scrollbar to remeasure closes that gap;
+    // it is the only stale-track path, because every *height* change (`rows`,
+    // the inline height auto-resize writes, a container resize) does resize
+    // something the observer is watching.
+    //
+    // `afterRenderEffect`, not `effect`: a plain effect runs *before* Angular
+    // writes a programmatically-set `value()` into the DOM, so `scrollHeight`
+    // would still describe the previous text — the shape of issue #78. After
+    // render the element carries the value in both directions, typed and
+    // bound. It also never runs on the server, so no DOM read escapes the
+    // browser guard.
+    afterRenderEffect(() => {
+      this.value();
+      this._scrollbarRef()?.remeasure();
     });
   }
 

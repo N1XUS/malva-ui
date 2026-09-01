@@ -9,6 +9,15 @@ The `scrollbar` library (`@malva-ui/core/scrollbar`) provides a minimalistic cus
 
 The host element must have a defined height (set via a CSS class, inline style, or flex/grid sizing from a parent container).
 
+Two modes:
+
+- **Wrapping** (default) — the component's own viewport is the scroll box and
+  the projected content scrolls inside it.
+- **Decorating** (`[scroller]`) — an external element stays the scroll box and
+  the component renders nothing but the tracks over it. For controls that can
+  never delegate scrolling to an ancestor; `mlv-textarea` is the in-repo
+  consumer. See [External scroller](#external-scroller-scroller).
+
 ---
 
 ## Public API
@@ -36,13 +45,14 @@ Exported from `libs/core/scrollbar/src/index.ts`:
 
 #### Inputs
 
-| Name               | Type                      | Default      | Description                                                                                                                     |
-| ------------------ | ------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `orientation`      | `MlvScrollbarOrientation` | `'vertical'` | Which axes to show the custom scrollbar on                                                                                      |
-| `scrollbarSize`    | `string`                  | `'0.75rem'`  | CSS length for track width/height; maps to `--mlv-sb-size`                                                                      |
-| `disabled`         | `BooleanInput`            | `false`      | Hides custom tracks and restores native scrollbar                                                                               |
-| `ariaLabel`        | `string \| undefined`     | `undefined`  | Accessible viewport label; falls back to i18n/default text. Written to the DOM only while `viewportTabIndex` is `0` — see below |
-| `viewportTabIndex` | `-1 \| 0 \| null`         | `null`       | Written **verbatim** to the viewport's `tabindex`. `null` emits no attribute at all — see below                                 |
+| Name               | Type                                             | Default      | Description                                                                                                                     |
+| ------------------ | ------------------------------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `orientation`      | `MlvScrollbarOrientation`                        | `'vertical'` | Which axes to show the custom scrollbar on                                                                                      |
+| `scrollbarSize`    | `string`                                         | `'0.75rem'`  | CSS length for track width/height; maps to `--mlv-sb-size`                                                                      |
+| `disabled`         | `BooleanInput`                                   | `false`      | Hides custom tracks and restores native scrollbar                                                                               |
+| `scroller`         | `HTMLElement \| ElementRef<HTMLElement> \| null` | `null`       | External element to decorate instead of wrapping — see [External scroller](#external-scroller-scroller)                         |
+| `ariaLabel`        | `string \| undefined`                            | `undefined`  | Accessible viewport label; falls back to i18n/default text. Written to the DOM only while `viewportTabIndex` is `0` — see below |
+| `viewportTabIndex` | `-1 \| 0 \| null`                                | `null`       | Written **verbatim** to the viewport's `tabindex`. `null` emits no attribute at all — see below                                 |
 
 #### Viewport tab stop (WCAG 2.1.1)
 
@@ -94,14 +104,100 @@ The name follows the tab stop — both are keyed on `viewportTabIndex`:
   `-1` and `null` are both "not a tab stop": a `-1` viewport is only ever reached
   under a widget's own keyboard model, which names itself.
 
-Resolved by the protected `_isViewportFocusable` (`viewportTabIndex() === 0`),
-`_viewportRole` and `_viewportAriaLabel` computeds.
+Resolved by the protected `_isViewportFocusable`, `_viewportRole` and
+`_viewportAriaLabel` computeds. `_isViewportFocusable` reads
+`_viewportTabIndex()`, not the raw input — see the external mode below, which
+forces all three to nothing.
+
+#### External scroller (`scroller`)
+
+Some controls **cannot** delegate scrolling to an ancestor. A `<textarea>` is
+its own `overflow: auto` box sized by `rows`, so it absorbs its overflow
+internally: an `mlv-scrollbar` wrapped around one never overflows, both tracks
+stay `--hidden` with a 0px box, and if the field also hides its native bar the
+content scrolls with **no visible scrollbar at all** (issue #90).
+
+`[scroller]` inverts the relationship. The decorated element stays the scroller;
+the component contributes only the overlay tracks, positioned over its host.
+(The same shape as Taiga UI's `TuiTextareaContent`, which points
+`tui-scroll-controls` at the textarea through a DI token — here it is a plain
+signal input, because the target is usually a template reference variable
+sitting in the same template.)
+
+```html
+<mlv-scrollbar [scroller]="fieldEl" style="max-height: 8rem">
+  <textarea #fieldEl rows="3"></textarea>
+</mlv-scrollbar>
+```
+
+What changes in this mode:
+
+| Concern                             | Behaviour                                                                                                              |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Metrics, `scroll` listener, drag    | All read/attach to the decorated element. `scroll` does not bubble, so the listener has to sit exactly there.          |
+| `ResizeObserver`                    | Observes the decorated element **and** the internal viewport (host resize) **and** the content wrapper.                |
+| Internal viewport                   | `mlv-scrollbar--external` makes it `overflow: visible` — it neither scrolls nor clips.                                 |
+| `tabindex` / `role` / `aria-label`  | **Never emitted**, whatever `viewportTabIndex` / `ariaLabel` say. The decorated element owns its own semantics.        |
+| `viewportElement`                   | Returns the decorated element.                                                                                         |
+| Native bar on the decorated element | Not touched. The consumer hides it (`scrollbar-width: none` + `::-webkit-scrollbar { display: none }`) if it wants to. |
+
+The a11y rule is deliberate and not configurable: a second named, tabbable
+region wrapped around a control that already names and focuses itself is a
+regression, not an addition. `_viewportTabIndex` collapses to `null` in this
+mode, and `_viewportRole` / `_viewportAriaLabel` follow it.
+
+`scroller` is **read once**, when the listener and observer are attached from
+`afterNextRender`. It must be resolvable by the first render (a template
+reference variable is) and is treated as fixed for the component's lifetime —
+the same contract the internal `#viewport` has always had. Swapping it at
+runtime is not supported and would leave the listener on the previous element.
+
+#### `remeasure()` — the stale-track contract
+
+In the default mode the content wrapper is observed, so any content growth is
+reported. In external mode there may be **nothing to observe**: a textarea's
+border box does not change when a line of text is added, and the element has no
+child to observe. Typing therefore moves `scrollHeight` with no `scroll` event
+and no `ResizeObserver` callback, and the track goes stale — wrong thumb size,
+or no track at all until the user happens to scroll.
+
+The owner of the content closes that gap by calling `remeasure()` whenever the
+content changes. `mlv-textarea` does it from an `afterRenderEffect` on `value`.
+
+`remeasure()` no-ops before the first render, which also makes it SSR-safe:
+`afterNextRender` — the only place the flag is set — never runs on the server.
+
+The alternative was Taiga's `.t-ghost`: a transparent mirror of the value
+carrying `view-timeline`, whose resize the observer _can_ see. Rejected — it
+costs a second copy of the text in the DOM plus duplicated typography that has
+to track every density / theme / font change to stay honest, and a
+scroll-driven-animation dependency, all to report something the content's owner
+already knows for certain.
+
+Cost: one forced layout plus one style recalculation per call, because
+`_updateGeometry()` drops the track-metric cache. On a textarea that is one per
+keystroke, on an element whose layout the keystroke already invalidated.
 
 #### Public properties
 
-| Property          | Type          | Description                                                                                                        |
-| ----------------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `viewportElement` | `HTMLElement` | The native scrollable viewport. Lets wrapping components (e.g. `main[mlvPage]`) attach their own scroll observers. |
+| Property          | Type          | Description                                                                                                                                                                             |
+| ----------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `viewportElement` | `HTMLElement` | **The element that actually scrolls** — the decorated `scroller()` when one is set, the component's own viewport otherwise. Lets wrapping components attach their own scroll observers. |
+
+It follows `scroller()` rather than always returning the internal `<div>`
+because every caller uses it as _the element that scrolls_ — to attach a
+`scroll` listener (`main[mlvPage]`, `mlv-chat`), to read
+`scrollTop`/`scrollHeight` or write `scrollTop` (`mlv-chat`), or to resolve the
+paging sentinel's scroll owner (`mlv-dropdown-panel`). Returning the inert inner
+`<div>` in external mode would reproduce issue #73: a listener on a node that
+never receives the event, silently doing nothing. No existing caller sets
+`scroller`, so all of them keep the previous element.
+
+#### Public methods
+
+| Method      | Signature  | Description                                                                                                                         |
+| ----------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `remeasure` | `(): void` | Recomputes overflow state and thumb geometry from the scroller's current metrics. No-ops before the first render and on the server. |
 
 #### Host Bindings
 
@@ -109,6 +205,7 @@ Resolved by the protected `_isViewportFocusable` (`viewportTabIndex() === 0`),
 host: {
   'class': 'mlv-scrollbar',
   '[class.mlv-scrollbar--disabled]': 'disabled()',
+  '[class.mlv-scrollbar--external]': '_hasExternalScroller()',
   '[class.mlv-scrollbar--dragging]': '_isDragging()',
   '[class.mlv-scrollbar--scrolling]': '_isScrolling()',
   '[style.--mlv-sb-size]': 'scrollbarSize()',
@@ -118,7 +215,7 @@ host: {
 #### Template Structure
 
 ```html
-<div class="mlv-scrollbar__viewport" #viewport [attr.tabindex]="viewportTabIndex()" [attr.role]="_viewportRole()" [attr.aria-label]="_viewportAriaLabel()">
+<div class="mlv-scrollbar__viewport" #viewport [attr.tabindex]="_viewportTabIndex()" [attr.role]="_viewportRole()" [attr.aria-label]="_viewportAriaLabel()">
   <div class="mlv-scrollbar__content" #content>
     <ng-content />
   </div>
@@ -133,22 +230,23 @@ host: {
 
 #### BEM Structure
 
-| Class                               | Role                                                                       |
-| ----------------------------------- | -------------------------------------------------------------------------- |
-| `.mlv-scrollbar`                    | Host — relative grid sizing context for the viewport and overlay tracks    |
-| `.mlv-scrollbar__viewport`          | Scrollable inner container — `overflow: auto; scrollbar-width: none`       |
-| `.mlv-scrollbar__content`           | Content wrapper observed by `ResizeObserver`                               |
-| `.mlv-scrollbar__track`             | Base track styles                                                          |
-| `.mlv-scrollbar__track--vertical`   | Right-edge vertical track                                                  |
-| `.mlv-scrollbar__track--horizontal` | Bottom-edge horizontal track                                               |
-| `.mlv-scrollbar__track--hidden`     | Applied when no overflow on that axis                                      |
-| `.mlv-scrollbar__thumb`             | The scroll position indicator; `top`/`height` or `left`/`width` set inline |
+| Class                               | Role                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `.mlv-scrollbar`                    | Host — relative grid sizing context for the viewport and overlay tracks                                      |
+| `.mlv-scrollbar__viewport`          | Scrollable inner container — `overflow: auto; scrollbar-width: none`; `overflow: visible` under `--external` |
+| `.mlv-scrollbar__content`           | Content wrapper observed by `ResizeObserver`                                                                 |
+| `.mlv-scrollbar__track`             | Base track styles                                                                                            |
+| `.mlv-scrollbar__track--vertical`   | Right-edge vertical track                                                                                    |
+| `.mlv-scrollbar__track--horizontal` | Bottom-edge horizontal track                                                                                 |
+| `.mlv-scrollbar__track--hidden`     | Applied when no overflow on that axis                                                                        |
+| `.mlv-scrollbar__thumb`             | The scroll position indicator; `top`/`height` or `left`/`width` set inline                                   |
 
 #### Modifiers
 
 | Modifier                   | Applied when                                            |
 | -------------------------- | ------------------------------------------------------- |
 | `mlv-scrollbar--disabled`  | `disabled()` is `true`                                  |
+| `mlv-scrollbar--external`  | `scroller()` is set — the viewport stops scrolling      |
 | `mlv-scrollbar--dragging`  | User is actively dragging a thumb                       |
 | `mlv-scrollbar--scrolling` | Scroll events are in-flight (cleared after 150 ms idle) |
 
@@ -171,8 +269,8 @@ Thumb drag is supported. On `pointerdown`, the thumb captures the pointer via `s
 
 #### Scroll listener (an `rxjs` stream, not a template binding)
 
-The viewport's scroll handler is bound as
-`fromEvent(viewportEl, 'scroll', { passive: true })` from `afterNextRender`,
+The scroll handler is bound as
+`fromEvent(scrollerEl, 'scroll', { passive: true })` from `afterNextRender`,
 inside `runOutsideAngular`, and torn down with
 `takeUntilDestroyed(this._destroyRef)` — the `DestroyRef` is passed explicitly
 because an `afterNextRender` callback is not an injection context. There is
@@ -196,9 +294,16 @@ unchanged layout cost **0** change-detection passes; the template binding cost
 attach their own listener to the public `viewportElement`, as `main[mlvPage]`
 and `mlv-chat` do.
 
+`scroll` does **not** bubble, so the listener must sit on the element that
+scrolls — the decorated `scroller()` in external mode, never the host and never
+the inert internal viewport. `scrollbar-external-scroller.spec.ts` asserts the
+registration target and dispatches at all three nodes, because `dispatchEvent`
+runs a node's own listeners regardless of bubbling and a test aimed at the wrong
+node passes vacuously (that is what hid issue #73).
+
 #### ResizeObserver
 
-A native `ResizeObserver` watches both the viewport element (host resize) and the content wrapper (content size changes). When either resizes, overflow state and thumb geometry are recalculated. In SSR/test environments without `ResizeObserver`, initial rendering and native scrolling remain available while geometry observation is skipped. The i18n token is optional, with `"Scrollable region"` as the accessible-label fallback.
+A native `ResizeObserver` watches the scroller (its own resize), the viewport element (host resize — the same element in the default mode, a separate one under `[scroller]`) and the content wrapper (content size changes). When any of them resizes, overflow state and thumb geometry are recalculated. Content that grows **without** resizing any of them — text inside a decorated `<textarea>` — is not covered; see [`remeasure()`](#remeasure--the-stale-track-contract). In SSR/test environments without `ResizeObserver`, initial rendering and native scrolling remain available while geometry observation is skipped. The i18n token is optional, with `"Scrollable region"` as the accessible-label fallback.
 
 #### Track-metric cache (scroll fast path)
 
@@ -270,6 +375,22 @@ the lifetime of the component.
 <mlv-scrollbar [viewportTabIndex]="-1" style="height: 12rem">
   <mlv-list selectable>…</mlv-list>
 </mlv-scrollbar>
+
+<!-- Decorate a control that must stay its own scroller. No tabindex / role /
+     aria-label is emitted on the viewport in this mode. -->
+<mlv-scrollbar [scroller]="fieldEl" style="max-height: 8rem">
+  <textarea #fieldEl rows="3"></textarea>
+</mlv-scrollbar>
+```
+
+```ts
+// Content that grows without resizing anything observable must say so.
+readonly scrollbar = viewChild.required(MlvScrollbar);
+
+afterRenderEffect(() => {
+  this.value();
+  this.scrollbar().remeasure();
+});
 ```
 
 ---

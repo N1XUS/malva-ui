@@ -10,12 +10,17 @@
   }
 
   <ng-template mlvFormControlWrapperControl>
+    <!-- The <textarea> stays the real scroller — it is an overflow: auto box
+         sized by `rows`, so it can never delegate scrolling to an ancestor.
+         `[scroller]` points the tracks at it instead of wrapping it in a
+         second scroll box that could never overflow (issue #90). No
+         `ariaLabel` / `viewportTabIndex`: the field owns its own semantics,
+         and the scrollbar emits none of its own in this mode. -->
     <mlv-scrollbar
       class="mlv-textarea__scrollbar"
       [style.min-height]="minHeightStyle()"
       [style.max-height]="maxHeightStyle()"
-      [disabled]="$any(autoResize())"
-      ariaLabel="Text area content"
+      [scroller]="textareaEl"
     >
       <textarea
         #textareaEl
