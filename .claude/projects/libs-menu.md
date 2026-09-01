@@ -51,11 +51,11 @@ Exported from `libs/core/menu/src/index.ts`:
 
 #### Inputs
 
-| Name         | Type                      | Default     | Description                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------ | ------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `label`      | `string`                  | `''`        | `aria-label` for the menu panel                                                                                                                                                                                                                                                                                                                                                                                     |
-| `mlvDensity` | `MlvDensity \| undefined` | `undefined` | Density for the panel's item rows. The panel is portaled to the CDK overlay container, outside the trigger's density cascade — forwarded to the inner `mlv-popup`, which stamps `mlv--{density}` on the detached panel; row padding responds via the `mlv-list-item` density ladder. Omitted → global `MlvDensityService`. Submenus are separate `mlv-menu` instances — set per menu when overriding a nested tree. |
-| `dataSource`  | `MlvMenuDataSource<TItem> \| undefined` | `undefined` | Reactive item collection. Accepts an array or `MlvDataSource<TItem>`; when set, the menu renders the projected `[mlvMenuItemDef]` row template instead of projected menu rows. |
+| Name         | Type                                    | Default     | Description                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------ | --------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `label`      | `string`                                | `''`        | `aria-label` for the menu panel                                                                                                                                                                                                                                                                                                                                                                                     |
+| `mlvDensity` | `MlvDensity \| undefined`               | `undefined` | Density for the panel's item rows. The panel is portaled to the CDK overlay container, outside the trigger's density cascade — forwarded to the inner `mlv-popup`, which stamps `mlv--{density}` on the detached panel; row padding responds via the `mlv-list-item` density ladder. Omitted → global `MlvDensityService`. Submenus are separate `mlv-menu` instances — set per menu when overriding a nested tree. |
+| `dataSource` | `MlvMenuDataSource<TItem> \| undefined` | `undefined` | Reactive item collection. Accepts an array or `MlvDataSource<TItem>`; when set, the menu renders the projected `[mlvMenuItemDef]` row template instead of projected menu rows.                                                                                                                                                                                                                                      |
 
 #### Outputs
 
@@ -88,14 +88,10 @@ template receives the item as `$implicit` plus `index`, `hasChildren`, and
 
 ```html
 <mlv-menu [dataSource]="items">
-  <mlv-list-item
-    mlvMenuItem
-    *mlvMenuItemDef="let item; let hasChildren = hasChildren"
-  >
-    {{ item.label }}
-    @if (hasChildren) {
-      <mlv-spacer />
-      <svg mlvListItemSuffix lucideChevronRight [size]="16" />
+  <mlv-list-item mlvMenuItem *mlvMenuItemDef="let item; let hasChildren = hasChildren">
+    {{ item.label }} @if (hasChildren) {
+    <mlv-spacer />
+    <svg mlvListItemSuffix lucideChevronRight [size]="16" />
     }
   </mlv-list-item>
 </mlv-menu>
@@ -183,9 +179,9 @@ A horizontal File / Edit / View style application menu bar implementing the [WAI
 
 #### Inputs
 
-| Name    | Type     | Default | Description                                |
-| ------- | -------- | ------- | ------------------------------------------ |
-| `label` | `string` | `''`    | `aria-label` for the `role="menubar"` host |
+| Name         | Type                                                                             | Default     | Description                                                                                                                                                   |
+| ------------ | -------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `label`      | `string`                                                                         | `''`        | `aria-label` for the `role="menubar"` host                                                                                                                    |
 | `dataSource` | `MlvMenubarEntry<TItem>[] \| MlvDataSource<MlvMenubarEntry<TItem>> \| undefined` | `undefined` | Reactive top-level items. Entries may be item data or `MlvMenubarDividerData`; dividers are visual root separators and are excluded from keyboard navigation. |
 
 #### Host bindings
@@ -286,6 +282,53 @@ and `left` are dropped as invalid, and every generated submenu renders at the
 viewport's top-left corner instead of beside its row. Covered by
 "anchors a generated submenu to the rendered row through a real ElementRef
 origin" in `menu-data.spec.ts`.
+
+---
+
+## Item registry ordering
+
+`MlvMenuItemRegistryStore` / `MlvMenubarItemRegistryStore` (`menu-item-registry.ts`,
+`menubar-item-registry.ts`) hold the ordered item list the `FocusKeyManager`
+navigates. Order is reconciled from two directions: `resync()` sorts the held
+items into DOM order, and `syncOrder(items)` re-seats them against the order a
+`contentChildren` query reports.
+
+### `syncOrder` no-change guard
+
+`syncOrder` runs from an `effect` over the projected item set (`menu.ts`,
+`menubar.ts`) — on projection change, not per frame. Its general path filters the
+incoming order down to registered items, filters the registry down to the ones
+the query did not report, sorts that remainder into DOM order, and returns the
+existing array when the rebuilt sequence matches. Once a projection settles, the
+query keeps reporting the order the registry already holds, so every one of those
+calls paid two `includes`-inside-`filter` scans (O(n x m)), a spread and a sort
+only to conclude nothing moved.
+
+That case is now detected up front in one pass — equal length **and**
+element-wise `===` — and returns `currentItems` untouched. Returning the same
+reference is what leaves the signal's version alone and suppresses a
+notification, so the guard preserves identity, not just value.
+
+Comparing length as well as elements is load-bearing. The rebuilt-sequence check
+(`mlvMenuItemsMatchOrder`) is deliberately length-blind, so on its own it would
+also accept an incoming array carrying a duplicate — whose filtered result is
+_longer_ than the registry and therefore not a no-op. Guarding on the full
+sequence keeps that input on the general path.
+
+The guard fires on nearly every call. Counting real `syncOrder` invocations
+across the menu/menubar integration suites gives 166 hits out of 169 calls
+(98.2%) — the effect does re-run on a settled projection, so the no-change path
+is the overwhelmingly common one, not an edge case.
+
+Measured in jsdom on a settled projection, it saves a near-constant ~300-500 ns
+per call: ~12% at 3 items, ~11% at 5, ~3% at 12-20. The relative gain shrinks
+with size because the remaining cost is dominated by `_syncObservedContainer()`,
+which re-resolves every item's container through `closest()` on each call
+regardless of the guard — the larger remaining win in this file.
+
+Covered by `menu-item-registry.spec.ts`, including a differential suite that
+replays a table of incoming orders against a verbatim copy of the pre-change
+body and asserts both value and reference-identity agreement.
 
 ---
 
@@ -392,10 +435,13 @@ libs/core/menu/src/
       menu-trigger.ts             — MlvMenuTrigger ([mlvMenuTrigger])
       menubar.ts                  — MlvMenubar (mlv-menubar)
       menubar.scss                — BEM styles
+      menu-item-registry.ts       — MlvMenuItemRegistryStore, MLV_MENU_ITEM_REGISTRY, MenuKeyItem
+      menubar-item-registry.ts    — MlvMenubarItemRegistryStore, MLV_MENUBAR_ITEM_REGISTRY
       menubar.types.ts                      — MlvMenubarItem, MlvMenubarAccessor, MlvMenubarMenuController, MENUBAR_TOKEN
       menu.types.ts                         — MlvMenuAccessor, MENU_TOKEN
       menu.spec.ts                — MlvMenu / item / trigger / separator unit tests
       menubar.spec.ts             — MlvMenubar unit tests
+      menu-item-registry.spec.ts  — both registries: ordering, mutation relevance, syncOrder guard
 ```
 
 ---
