@@ -30,14 +30,30 @@
     // Gap between the track zone and the host edge (macOS float-inset feel)
     --mlv-sb-edge-gap: 0rem; // flush to edge; thumb appears inset due to --mlv-sb-inset
 
+    // Thumb state ramp — rest 0.5 / hover 0.8 / scrolling and dragging 1.
+    //
+    // `> .#{$block}__track > .#{$block}__thumb` throughout, because the thumb
+    // is a *grandchild* of the host and one `>` would not reach it. Scrollbars
+    // nest (`main[mlvPage]` wraps all page content in one; `mlv-chat` and an
+    // external-scroller `mlv-textarea` inside it bring their own), and a
+    // descendant combinator would paint every nested thumb with the outer
+    // scrollbar's state. Since the track reveal further down, an inner track
+    // is visible whenever the *inner* scrollbar scrolls or is dragged — with
+    // no pointer near it — so that paint now lands on something. `:hover` here
+    // also outranks an inner `--scrolling` / `--dragging`, overriding a nested
+    // scrollbar's own appearance rather than merely adding to it; and
+    // `--dragging` is the only rule that sets `cursor: grabbing`, and the only
+    // *state* rule that overrides `--mlv-sb-thumb-bg` (the host block above
+    // declares its default) — neither can be won back by an inner rule.
+    //
     // On hover: lift opacity and widen thumb by 2px (reduce inset by 1px each side)
-    &:hover .#{$block}__thumb {
+    &:hover > .#{$block}__track > .#{$block}__thumb {
       --mlv-sb-inset: 0.1875rem; // 3px each side → 6px visible thumb (was 4px)
       opacity: 0.8;
     }
 
     // Keep thumb fully visible while scrolling
-    &--scrolling .#{$block}__thumb {
+    &--scrolling > .#{$block}__track > .#{$block}__thumb {
       opacity: 1;
     }
 
@@ -45,7 +61,7 @@
     &--dragging {
       user-select: none;
 
-      .#{$block}__thumb {
+      > .#{$block}__track > .#{$block}__thumb {
         --mlv-sb-inset: 0.1875rem; // 6px wide, same as hover
         --mlv-sb-thumb-bg: var(
           --mlv-text-secondary
@@ -60,17 +76,27 @@
     // over. It must neither scroll nor clip — clipping would cut off a decorated
     // element that is taller than the host, and a second scroll box would eat
     // wheel events that belong to the real one.
-    &--external .#{$block}__viewport {
+    //
+    // The child combinator keeps that statement about this scrollbar's own
+    // viewport: a nested scrollbar decorates nothing, and freeing its viewport
+    // would leave it unable to scroll at all.
+    &--external > .#{$block}__viewport {
       overflow: visible;
     }
 
-    // Disabled: hide custom tracks, restore native scrollbar on viewport
+    // Disabled: hide custom tracks, restore native scrollbar on viewport.
+    //
+    // Child combinators throughout: `disabled` is a statement about *this*
+    // scrollbar, and `main[mlvPage] scroll="none"` sets it on the page
+    // scrollbar precisely so a nested region can own the scrolling instead.
+    // A descendant combinator would then strip the tracks off that region —
+    // and off every other nested scrollbar — for a state nobody set on them.
     &--disabled {
-      .#{$block}__track {
+      > .#{$block}__track {
         display: none;
       }
 
-      .#{$block}__viewport {
+      > .#{$block}__viewport {
         scrollbar-width: auto;
 
         &::-webkit-scrollbar {
@@ -180,15 +206,22 @@
     }
   }
 
-  // When both tracks are visible, prevent them from overlapping at the corner
+  // When both tracks are visible, prevent them from overlapping at the corner.
+  //
+  // Child combinators on both halves, for the same nesting reason as above.
+  // A `:has()` argument is descendant-relative, so unscoped probes let a
+  // vertical-only scrollbar answer "both axes are showing" on the tracks of an
+  // `orientation="both"` scrollbar nested inside it — and the block would then
+  // shorten every nested track as well, ending an inner vertical track 12px
+  // above the bottom of its own scroller with nothing occupying the gap.
   .#{$block}:has(
-      .#{$block}__track--vertical:not(.#{$block}__track--hidden)
-    ):has(.#{$block}__track--horizontal:not(.#{$block}__track--hidden)) {
-    .#{$block}__track--vertical {
+      > .#{$block}__track--vertical:not(.#{$block}__track--hidden)
+    ):has(> .#{$block}__track--horizontal:not(.#{$block}__track--hidden)) {
+    > .#{$block}__track--vertical {
       bottom: calc(var(--mlv-sb-size) + var(--mlv-sb-edge-gap));
     }
 
-    .#{$block}__track--horizontal {
+    > .#{$block}__track--horizontal {
       inset-inline-end: calc(var(--mlv-sb-size) + var(--mlv-sb-edge-gap));
     }
   }

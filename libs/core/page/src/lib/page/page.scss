@@ -29,7 +29,12 @@
       min-height: 0;
     }
 
-    &__scrollbar .mlv-scrollbar__viewport {
+    // The page's *own* scrollbar viewport, never a nested one: these are
+    // page-level scroll decisions, and `overflow-x: hidden` on a projected
+    // `mlv-chat` or `orientation="both"` scrollbar would silently kill its
+    // horizontal axis. Same shape as the `scroll="none"` clip below and as the
+    // child combinators in `mlv-scrollbar`'s own stylesheet (issue #98).
+    &__scrollbar > .mlv-scrollbar__viewport {
       overflow-x: hidden;
       scroll-padding-top: var(--mlv-page-header-offset, 6rem);
       // Scroll anchoring would auto-adjust scrollTop while the snap timeline
@@ -73,7 +78,12 @@
       overflow: clip;
     }
 
-    &--scroll-none &__scrollbar .mlv-scrollbar__viewport {
+    // The page's *own* scrollbar viewport, never a nested one. `scroll="none"`
+    // hands scrolling to a consumer-owned region inside the page, and that
+    // region routinely is (or contains) another `mlv-scrollbar` — clipping its
+    // viewport too would leave it unable to scroll at all. Same shape as the
+    // child combinators in `mlv-scrollbar`'s own stylesheet (issue #98).
+    &--scroll-none &__scrollbar > .mlv-scrollbar__viewport {
       overflow: clip;
     }
 

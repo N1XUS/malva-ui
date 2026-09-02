@@ -230,16 +230,16 @@ host: {
 
 #### BEM Structure
 
-| Class                               | Role                                                                                                         |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `.mlv-scrollbar`                    | Host — relative grid sizing context for the viewport and overlay tracks                                      |
-| `.mlv-scrollbar__viewport`          | Scrollable inner container — `overflow: auto; scrollbar-width: none`; `overflow: visible` under `--external` |
-| `.mlv-scrollbar__content`           | Content wrapper observed by `ResizeObserver`                                                                 |
-| `.mlv-scrollbar__track`             | Base track styles — `opacity: 0` at rest, lifted by the reveal states below                                  |
-| `.mlv-scrollbar__track--vertical`   | Right-edge vertical track                                                                                    |
-| `.mlv-scrollbar__track--horizontal` | Bottom-edge horizontal track                                                                                 |
-| `.mlv-scrollbar__track--hidden`     | Applied when no overflow on that axis                                                                        |
-| `.mlv-scrollbar__thumb`             | The scroll position indicator; `top`/`height` or `left`/`width` set inline                                   |
+| Class                               | Role                                                                                                                        |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `.mlv-scrollbar`                    | Host — relative grid sizing context for the viewport and overlay tracks                                                     |
+| `.mlv-scrollbar__viewport`          | Scrollable inner container — `overflow: auto; scrollbar-width: none`; `overflow: visible` under its own host's `--external` |
+| `.mlv-scrollbar__content`           | Content wrapper observed by `ResizeObserver`                                                                                |
+| `.mlv-scrollbar__track`             | Base track styles — `opacity: 0` at rest, lifted by the reveal states below                                                 |
+| `.mlv-scrollbar__track--vertical`   | Right-edge vertical track                                                                                                   |
+| `.mlv-scrollbar__track--horizontal` | Bottom-edge horizontal track                                                                                                |
+| `.mlv-scrollbar__track--hidden`     | Applied when no overflow on that axis                                                                                       |
+| `.mlv-scrollbar__thumb`             | The scroll position indicator; `top`/`height` or `left`/`width` set inline                                                  |
 
 #### Modifiers
 
@@ -274,14 +274,6 @@ in three scrollbars of which only one scrolled — and a thumb drag would hold a
 of them lit for the whole gesture. Both tracks are template top level, i.e.
 direct children of the host, so `>` costs nothing.
 
-Note that the surrounding rules — `--disabled`'s `display: none` on the track,
-`--external`'s `overflow: visible` on the viewport, and the thumb's own
-hover/scrolling/dragging ramp — still use descendant combinators and therefore
-still reach a nested scrollbar's parts. Harmless for the thumb (an inner thumb
-inside an `opacity: 0` inner track paints nothing) but not for the other two;
-untouched here because they predate issue #96 and change visibility/layout
-rather than paint.
-
 Fading back out is the track's own
 `transition: opacity var(--mlv-duration-normal) var(--mlv-ease-default)` —
 dropping a modifier is the whole mechanism, with no bespoke delay or timer. The
@@ -294,19 +286,80 @@ the thumb, which keeps its own opacity ramp (0.5 rest / 0.8 hover / 1 while
 scrolling or dragging). `--hidden` (`display: none`) still wins on an axis with
 no overflow, and `opacity` changes nothing about layout or hit-testing.
 
-Regression coverage: `scrollbar-track-visibility.spec.ts` asserts the
-**computed** track opacity per state, and — in a nested fixture — that an outer
-host's `--scrolling` / `--dragging` leaves the inner track at `0` while the
-inner host's own state still reveals it. A class-only assertion passed for the
-whole life of the bug and is not sufficient.
+#### Every host-state rule is child-scoped (issue #98)
 
-Two jsdom traps that spec works around, worth knowing before editing either
-file: jsdom resolves the cascade by document order and **ignores specificity**,
-so the reveal rule's position after the base rule is load-bearing; and nwsapi
-mis-resolves `:scope` on a nested host (`querySelector(':scope > .mlv-scrollbar__track--vertical')`
-on the outer host returns the _inner_ track), so the nested specs walk
-`element.children` instead. Selector _matching_ (`element.matches()`) handles the
-child combinator correctly — only `:scope` is affected.
+The same reasoning covers every rule in the sheet that a host state aims at one
+of its parts. All of them were descendant-combined and all were scoped in issue
+#98; a new rule of this shape must be written the same way.
+
+| Rule                                      | Selector                                                                            | What a leak did                                                                                                                                                                                                                                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Disabled hides the track                  | `.mlv-scrollbar--disabled > .mlv-scrollbar__track`                                  | `main[mlvPage] scroll="none"` sets `[disabled]` on the page scrollbar, stripping the track off every nested one — and an `mlv-textarea` also suppresses its native bar, so its content scrolled with none.                                                                                 |
+| Disabled restores the native bar          | `.mlv-scrollbar--disabled > .mlv-scrollbar__viewport` (+ its `::-webkit-scrollbar`) | Compounded with the row above: a nested scrollbar lost its themed track and got handed an unthemed OS bar in the same breath.                                                                                                                                                              |
+| External frees the viewport               | `.mlv-scrollbar--external > .mlv-scrollbar__viewport`                               | Turned a nested viewport into a non-scrolling, non-clipping box whose tracks never left `--hidden`. Latent — `mlv-textarea` is the only `[scroller]` consumer — but `[scroller]` is public API.                                                                                            |
+| Thumb ramp (hover / scrolling / dragging) | `… > .mlv-scrollbar__track > .mlv-scrollbar__thumb` — the thumb is a **grandchild** | Painted every nested thumb with the outer scrollbar's state. `:hover` outranks an inner `--scrolling` / `--dragging`, so it _overrode_ the nested scrollbar's own appearance; `--dragging` is the only rule that sets `--mlv-sb-thumb-bg` and `cursor: grabbing`, which nothing wins back. |
+| Corner avoidance                          | `:has(> …)` on both probes, `> .mlv-scrollbar__track--…` on both targets            | A `:has()` argument is descendant-relative, so a vertical-only scrollbar answered "both axes are showing" on the tracks of an `orientation="both"` one nested inside it, then shortened every nested track.                                                                                |
+
+The thumb ramp was only cosmetically harmless while the reveal was hover-only:
+before issue #96 an inner track could not be lit unless an ancestor was hovered
+too, so the outer state painted into `1 x 0`. The reveal above made an inner
+track visible from the _inner_ scrollbar's own `--scrolling` / `--dragging`,
+with no pointer near it — which is when the outer's paint started landing on
+something.
+
+Two rules of this shape live outside this library and were scoped with them,
+both in `libs/core/page/src/lib/page/page.scss`:
+`.mlv-page__scrollbar > .mlv-scrollbar__viewport` (`overflow-x: hidden`, which
+otherwise killed the horizontal axis of every nested scrollbar on a page) and
+`.mlv-page--scroll-none .mlv-page__scrollbar > .mlv-scrollbar__viewport`
+(`overflow: clip`, which otherwise left the very region `scroll="none"` exists
+to empower unable to scroll).
+
+The two thumb _axis_ rules (`.mlv-scrollbar__track--vertical .mlv-scrollbar__thumb`
+and its horizontal twin) keep their descendant combinators on purpose: projected
+content lands in `__viewport > __content` and never inside a track, so a track
+can only ever contain its own thumb.
+
+Regression coverage: `scrollbar-track-visibility.spec.ts` asserts the
+**computed** track opacity per state, and — in a nested fixture — that every
+host state above leaves the inner scrollbar's part alone while the inner host's
+own state still applies. Both directions are asserted for each rule: a spec that
+only checked the inner part was untouched would pass if the rule stopped working
+altogether. The corner-avoidance rule is asserted the same way but by a
+different technique — nwsapi cannot match `:has(… :not(…))` at all, so its spec
+evaluates the `:has()` predicate by hand over `element.children` and matches the
+declaration half with the `:has()` clauses stripped. A class-only assertion passed for the whole life of issue #96 and is
+not sufficient. The page-side rules have their own guard in
+`libs/core/page/src/lib/page/page-nested-scrollbar.spec.ts`.
+
+Three jsdom traps that spec works around, worth knowing before editing either
+file:
+
+- The cascade resolves by document order and **ignores specificity**, so the
+  reveal rule's position after the base rule is load-bearing. It also means
+  `getComputedStyle` cannot answer "did this rule reach the element?" for any
+  declaration the base rule repeats further down the file — `overflow`,
+  `scrollbar-width`, thumb `opacity` and `cursor` all read the base value
+  whatever the state rule did. Those specs go through `isTargetedBy()`, which
+  asks the selector engine (`element.matches()`) instead and fails loudly when
+  the declaration it looks for is no longer in the sheet. The ones that _can_ be
+  read from the cascade are: the track's `display` under `--disabled`, and the
+  thumb's `--mlv-sb-thumb-bg` under `--dragging` (jsdom does not inherit custom
+  properties, so a value there means a rule set it on that element).
+- nwsapi mis-resolves `:scope` on a nested host
+  (`querySelector(':scope > .mlv-scrollbar__track--vertical')` on the outer host
+  returns the _inner_ track), so the nested specs walk `element.children`
+  instead. Selector _matching_ handles the child combinator correctly.
+- nwsapi cannot match `:has(… :not(…))` at all — `element.matches()` answers a
+  silent `false` — and jsdom's CSSOM re-serialises it with the outer `:has(`
+  dropped, after which every `getComputedStyle` call throws. `attachStylesheet()`
+  therefore deletes those rules, and the corner rule's scoping is guarded by
+  asserting the **compiled selector text** instead of the DOM.
+
+jsdom also never enters `:hover`, so `matches()` answers `false` for every
+`:hover` selector. `isTargetedBy()` swaps the pseudo-class for a marker class
+put on the host the pointer would be over, leaving the combinator under test
+untouched — otherwise the hover leak spec would pass whatever the selector said.
 
 #### CSS Custom Properties
 
