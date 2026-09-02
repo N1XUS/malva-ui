@@ -80,6 +80,9 @@ const it: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# risultato disponibile} other {# risultati disponibili}}',
   },
+  compare: {
+    ariaLabel: 'Cursore di confronto',
+  },
   copyToClipboard: {
     copyToClipboard: 'Copia negli appunti',
   },

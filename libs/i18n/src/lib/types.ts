@@ -7,6 +7,7 @@ import type { MlvChatI18n } from './tokens/chat';
 import type { MlvChipI18n } from './tokens/chip';
 import type { MlvColorPickerI18n } from './tokens/color-picker';
 import type { MlvComboboxI18n } from './tokens/combobox';
+import type { MlvCompareI18n } from './tokens/compare';
 import type { MlvCopyToClipboardI18n } from './tokens/copy-to-clipboard';
 import type { MlvDataTableI18n } from './tokens/data-table';
 import type { MlvDateRangePickerI18n } from './tokens/date-range-picker';
@@ -48,6 +49,7 @@ export interface MlvLanguage {
   chip: MlvChipI18n;
   colorPicker: MlvColorPickerI18n;
   combobox: MlvComboboxI18n;
+  compare: MlvCompareI18n;
   copyToClipboard: MlvCopyToClipboardI18n;
   dataTable: MlvDataTableI18n;
   dateRangePicker: MlvDateRangePickerI18n;

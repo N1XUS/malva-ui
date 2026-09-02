@@ -81,6 +81,9 @@ const pl: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# wynik dostępny} few {# wyniki dostępne} many {# wyników dostępnych} other {# wyniku dostępnego}}',
   },
+  compare: {
+    ariaLabel: 'Suwak porównania',
+  },
   copyToClipboard: {
     copyToClipboard: 'Kopiuj do schowka',
   },

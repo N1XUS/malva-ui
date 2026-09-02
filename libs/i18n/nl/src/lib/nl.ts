@@ -79,6 +79,9 @@ const nl: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# resultaat beschikbaar} other {# resultaten beschikbaar}}',
   },
+  compare: {
+    ariaLabel: 'Vergelijkingsschuif',
+  },
   copyToClipboard: {
     copyToClipboard: 'Naar klembord kopiëren',
   },

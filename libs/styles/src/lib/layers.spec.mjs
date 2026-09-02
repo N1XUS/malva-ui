@@ -124,7 +124,8 @@ for (const [name, source] of [
 // editor's zoom panel were all silently losing to it).
 
 /** Files that legitimately emit no rules of their own. */
-const EMITS_NOTHING = /(^_|\.mixins\.scss$|\/(mixins|density|breakpoints)\.scss$)/;
+const EMITS_NOTHING =
+  /(^_|\.mixins\.scss$|\/(mixins|density|breakpoints)\.scss$)/;
 
 /**
  * Stylesheets outside the component layer contract.
@@ -183,7 +184,10 @@ describe('cascade layers — component stylesheets', () => {
   });
 
   for (const path of sheets) {
-    const relative = path.slice(WORKSPACE.length + 1).split(sep).join('/');
+    const relative = path
+      .slice(WORKSPACE.length + 1)
+      .split(sep)
+      .join('/');
 
     it(`${relative} emits every rule inside a cascade layer`, () => {
       const source = path.endsWith('.scss')
@@ -197,6 +201,61 @@ describe('cascade layers — component stylesheets', () => {
         `${relative} emits ${loose.length} rule(s) outside any @layer: ${loose
           .slice(0, 3)
           .join(', ')}`,
+      );
+    });
+  }
+});
+
+describe('direction sign token scoping', () => {
+  for (const [name, source] of [
+    ['styles/malva-ui.css', css],
+    ['apps/docs styles.scss', docsCss],
+  ]) {
+    it(`${name}: --mlv-inline-direction lives on :root and the [dir] scopes, never on a theme island`, () => {
+      /**
+       * selector → value, for every rule declaring the sign token. Sass drops
+       * the quotes from attribute selectors (`[dir=rtl]`), so keys are
+       * compared unquoted.
+       */
+      const owners = new Map();
+      postcss.parse(source).walkDecls('--mlv-inline-direction', (decl) => {
+        owners.set(
+          decl.parent.selector.replace(/["']/g, ''),
+          decl.value.trim(),
+        );
+      });
+      const selectors = [...owners.keys()];
+
+      assert.ok(
+        selectors.some((selector) =>
+          selector
+            .split(',')
+            .map((part) => part.trim())
+            .includes(':root'),
+        ),
+        `expected a :root declaration, got: ${selectors.join(' | ')}`,
+      );
+      assert.equal(
+        owners.get('[dir=rtl]'),
+        '-1',
+        `selectors: ${selectors.join(' | ')}`,
+      );
+      assert.equal(
+        owners.get('[dir=ltr]'),
+        '1',
+        `selectors: ${selectors.join(' | ')}`,
+      );
+
+      // A `[mlvTheme]` island re-declaring the sign would reset
+      // `<html dir="rtl">` back to LTR for its whole subtree — every
+      // `inline-distance()` transform inside it would stop mirroring.
+      const islands = selectors.filter((selector) =>
+        /mlvtheme/i.test(selector),
+      );
+      assert.deepEqual(
+        islands,
+        [],
+        `theme islands must inherit the sign, not redeclare it: ${islands.join(' | ')}`,
       );
     });
   }

@@ -124,6 +124,8 @@ apps/docs/
     api-extractor.ts             # ts-morph API extraction core (pure, unit-tested)
     extract-api.ts               # docs:extract-api CLI entry (writes src/generated/api/**)
     extract-api.spec.ts          # Vitest spec for the extractor
+    generated-output.ts          # In-place writer for src/generated/api (never removes the dir)
+    generated-output.spec.ts     # Vitest spec for the writer
   src/generated/                 # GIT-IGNORED — produced by docs:extract-api
     api/
       <name>.json                # One ApiEntry per documented library
@@ -911,14 +913,16 @@ the client, mirroring the MDX transform.
 
 ### Files
 
-| File                                     | Role                                                                                                            |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `tools/extract-api.ts`                   | CLI entry run by the `docs:extract-api` target. Enumerates pages, writes JSON + the module map. Side-effecting. |
-| `tools/api-extractor.ts`                 | Pure ts-morph extraction core (barrel resolution, classification, signal/base-class walking). Unit-tested.      |
-| `tools/extract-api.spec.ts`              | Vitest spec asserting the extracted shape against real libraries.                                               |
-| `src/app/shared/api-viewer/api.types.ts` | The `ApiEntry` / `ApiSymbol` / `ApiMember` / `ApiMethod` contract shared with the viewer (Phase E).             |
-| `src/generated/api/<name>.json`          | **Git-ignored.** One `ApiEntry` per documented library.                                                         |
-| `src/generated/api/index.ts`             | **Git-ignored, generated.** `apiEntryLoaders` — lazy `() => import('./<name>.json')` map keyed by page.         |
+| File                                     | Role                                                                                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tools/extract-api.ts`                   | CLI entry run by the `docs:extract-api` target. Enumerates pages, writes JSON + the module map. Side-effecting.                                              |
+| `tools/api-extractor.ts`                 | Pure ts-morph extraction core (barrel resolution, classification, signal/base-class walking). Unit-tested.                                                   |
+| `tools/extract-api.spec.ts`              | Vitest spec asserting the extracted shape against real libraries.                                                                                            |
+| `tools/generated-output.ts`              | `syncGeneratedDir()` — writes the output directory in place: unchanged files untouched, changed files renamed into place, stale entries pruned. Unit-tested. |
+| `tools/generated-output.spec.ts`         | Vitest spec for the writer (untouched mtime/inode, replacement, pruning).                                                                                    |
+| `src/app/shared/api-viewer/api.types.ts` | The `ApiEntry` / `ApiSymbol` / `ApiMember` / `ApiMethod` contract shared with the viewer (Phase E).                                                          |
+| `src/generated/api/<name>.json`          | **Git-ignored.** One `ApiEntry` per documented library.                                                                                                      |
+| `src/generated/api/index.ts`             | **Git-ignored, generated.** `apiEntryLoaders` — lazy `() => import('./<name>.json')` map keyed by page.                                                      |
 
 ### How it works
 
@@ -941,6 +945,13 @@ the client, mirroring the MDX transform.
 - **Wiring & freshness:** `docs:extract-api` is a `dependsOn` of `docs:build` and `docs:serve`, so the
   JSON is always regenerated (or cache-restored) before a build/serve. `src/generated/` is git-ignored;
   `resolveJsonModule` is enabled in `tsconfig.app.json` so the generated map compiles.
+- **Regenerated in place, never from scratch.** The dev server watches `src/generated/api`, and
+  `index.ts` is a static import of the API viewer — if it vanishes for one watcher tick the
+  incremental build fails ("Could not resolve ../../../generated/api") and the server stays in that
+  failed state until an unrelated source file changes. `syncGeneratedDir()` therefore leaves
+  byte-identical files untouched (no mtime bump, no rebuild), writes a changed file to a temporary
+  sibling and renames it into place, and prunes stale entries only after every current file exists.
+  Running `docs:extract-api` beside a live `docs:serve` is safe.
 
 ### Regenerate manually
 

@@ -1,0 +1,31 @@
+<mlv-compare
+  class="editorial"
+  [(value)]="position"
+  beforeLabel="Cyanotype"
+  afterLabel="Original"
+  ariaLabel="Cyanotype print against the original photograph"
+>
+  <img
+    mlvCompareBefore
+    class="editorial__print"
+    [src]="photo"
+    alt="Mountain lake at dawn as a cyanotype print"
+    width="1400"
+    height="933"
+  />
+  <img
+    mlvCompareAfter
+    [src]="photo"
+    alt="Mountain lake at dawn, original photograph"
+    width="1400"
+    height="933"
+  />
+
+  <!-- The template only supplies the glyph; the handle chrome stays the
+       component's. `dragging` comes from the template context. -->
+  <ng-template mlvCompareHandleDef let-dragging="dragging">
+    <span class="editorial__grip" [class.editorial__grip--dragging]="dragging">
+      <svg lucideMoveHorizontal [size]="22" />
+    </span>
+  </ng-template>
+</mlv-compare>

@@ -80,6 +80,9 @@ const fr: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# résultat disponible} other {# résultats disponibles}}',
   },
+  compare: {
+    ariaLabel: 'Curseur de comparaison',
+  },
   copyToClipboard: {
     copyToClipboard: 'Copier dans le presse-papiers',
   },

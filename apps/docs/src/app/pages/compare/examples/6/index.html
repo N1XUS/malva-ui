@@ -1,0 +1,57 @@
+<mlv-compare
+  class="redesign"
+  [(value)]="position"
+  ariaLabel="Invoice summary, previous layout against the redesign"
+>
+  <section
+    mlvCompareBefore
+    class="invoice invoice--legacy"
+    aria-label="Previous layout"
+  >
+    <p class="invoice__eyebrow">Invoice #10422</p>
+    <h4 class="invoice__title">Summary</h4>
+    <dl class="invoice__lines">
+      @for (item of items; track item.label) {
+      <div class="invoice__line">
+        <dt>{{ item.label }}</dt>
+        <dd>{{ item.amount }}</dd>
+      </div>
+      }
+      <div class="invoice__line invoice__line--total">
+        <dt>Total due</dt>
+        <dd>{{ total }}</dd>
+      </div>
+    </dl>
+    <div class="invoice__actions">
+      <button mlvButton type="button" variant="secondary" tabindex="-1">
+        Download PDF
+      </button>
+      <button mlvButton type="button" variant="secondary" tabindex="-1">
+        Pay
+      </button>
+    </div>
+  </section>
+
+  <section
+    mlvCompareAfter
+    class="invoice invoice--next"
+    aria-label="Redesigned layout"
+  >
+    <p class="invoice__eyebrow">Invoice #10422 · due in 14 days</p>
+    <p class="invoice__total-figure">{{ total }}</p>
+    <dl class="invoice__lines">
+      @for (item of items; track item.label) {
+      <div class="invoice__line">
+        <dt>{{ item.label }}</dt>
+        <dd>{{ item.amount }}</dd>
+      </div>
+      }
+    </dl>
+    <div class="invoice__actions">
+      <button mlvButton type="button" tabindex="-1">Pay {{ total }}</button>
+      <button mlvButton type="button" variant="transparent" tabindex="-1">
+        Download PDF
+      </button>
+    </div>
+  </section>
+</mlv-compare>

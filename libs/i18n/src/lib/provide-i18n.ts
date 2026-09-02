@@ -17,6 +17,7 @@ import { MLV_CHAT_I18N } from './tokens/chat';
 import { MLV_CHIP_I18N } from './tokens/chip';
 import { MLV_COLOR_PICKER_I18N } from './tokens/color-picker';
 import { MLV_COMBOBOX_I18N } from './tokens/combobox';
+import { MLV_COMPARE_I18N } from './tokens/compare';
 import { MLV_COPY_TO_CLIPBOARD_I18N } from './tokens/copy-to-clipboard';
 import { MLV_DATA_TABLE_I18N } from './tokens/data-table';
 import { MLV_DATE_RANGE_PICKER_I18N } from './tokens/date-range-picker';
@@ -117,6 +118,10 @@ export function provideMlvI18n(
     {
       provide: MLV_COMBOBOX_I18N,
       useFactory: () => inject(MlvI18nService).select('combobox'),
+    },
+    {
+      provide: MLV_COMPARE_I18N,
+      useFactory: () => inject(MlvI18nService).select('compare'),
     },
     {
       provide: MLV_COPY_TO_CLIPBOARD_I18N,

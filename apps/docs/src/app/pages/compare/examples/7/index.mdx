@@ -1,0 +1,13 @@
+## Controlled value, keyboard and labelling
+
+`value` is a plain `model()`, so one signal can drive the surface, an `mlv-slider`, preset buttons and a live readout at once — every writer stays in sync and the surface never keeps a private copy. An out-of-range bound value is clamped for rendering but never written back.
+
+Keyboard control lives on the hidden native range input (focus it with Tab, or press the surface — a press moves focus there too):
+
+| Key                             | Moves the divider by    |
+| ------------------------------- | ----------------------- |
+| Arrow keys                      | `step` (default `1`)    |
+| Shift + Arrow, PageUp, PageDown | ten steps               |
+| Home / End                      | to the start / end edge |
+
+Horizontal arrows mirror in RTL; vertical arrows follow the block axis in `orientation="vertical"`. `ariaLabelledby` points the slider at a visible heading; the value is announced as a percentage through `aria-valuetext`.

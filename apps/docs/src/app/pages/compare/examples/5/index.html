@@ -1,0 +1,31 @@
+<div class="chart-demo">
+  <div class="chart-demo__legend" aria-hidden="true">
+    <span class="chart-demo__key chart-demo__key--actual">Actual</span>
+    <span class="chart-demo__key chart-demo__key--plan">Plan</span>
+    <span class="chart-demo__readout">
+      @if (revealedThrough(); as month) { Actuals revealed through {{ month }} ·
+      {{ rounded() }}% } @else { Sweep across the chart to reveal the actuals }
+    </span>
+  </div>
+
+  <mlv-compare
+    #surface
+    class="chart-demo__surface"
+    slideOnHover
+    [(value)]="position"
+    ariaLabel="Reveal actual revenue against the plan"
+  >
+    <canvas
+      #actual
+      mlvCompareBefore
+      role="img"
+      aria-label="Actual monthly revenue, January to December"
+    ></canvas>
+    <canvas
+      #plan
+      mlvCompareAfter
+      role="img"
+      aria-label="Planned monthly revenue, January to December"
+    ></canvas>
+  </mlv-compare>
+</div>

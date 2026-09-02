@@ -839,21 +839,28 @@ $mlv-palette-info-950: #082f49;
     --mlv-hover-overlay: 0.06;
     --mlv-active-overlay: 0.12;
     --mlv-focus-overlay: 0.08;
+  }
 
-    // ── Section 11 · Direction ────────────────────────────────────────────────
+  // ── Section 11 · Direction ────────────────────────────────────────────────
 
-    // Sign of the inline axis: +1 in LTR, -1 in RTL. `transform` has no logical
-    // form, so an inline translation is written as
-    // `translateX(calc(<distance> * var(--mlv-inline-direction)))`. Unlike a
-    // duplicated `[dir='rtl'] &` rule it composes with the rest of the
-    // transform list and inherits through a scoped `[dir]`, so a mirrored
-    // subtree inside an LTR document mirrors too.
+  // Sign of the inline axis: +1 in LTR, -1 in RTL. `transform` has no logical
+  // form, so an inline translation is written as
+  // `translateX(calc(<distance> * var(--mlv-inline-direction)))`. Unlike a
+  // duplicated `[dir='rtl'] &` rule it composes with the rest of the
+  // transform list and inherits through a scoped `[dir]`, so a mirrored
+  // subtree inside an LTR document mirrors too.
+  //
+  // Declared on `:root` alone — never on the `[mlvTheme]` island selectors
+  // above. An island re-declaring the sign would reset `<html dir="rtl">` back
+  // to LTR for its whole subtree (the docs `mlv-layout` is such an island),
+  // silently un-mirroring every `inline-distance()` transform inside it.
+  :root {
     --mlv-inline-direction: 1;
   }
 
   // Direction is scoped: a `[dir]` anywhere re-signs the inline axis for its
-  // whole subtree. Outside `:root` so it wins over the block above by order and
-  // applies at any depth.
+  // whole subtree. Declared after `:root` so it wins by order and applies at
+  // any depth.
   [dir='rtl'] {
     --mlv-inline-direction: -1;
   }

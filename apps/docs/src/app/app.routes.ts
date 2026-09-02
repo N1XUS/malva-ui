@@ -194,6 +194,11 @@ export const pageRoutes = [
       import('./pages/combobox/index').then((m) => m.ComboboxPageComponent),
   },
   {
+    path: 'compare',
+    loadComponent: () =>
+      import('./pages/compare/index').then((m) => m.ComparePageComponent),
+  },
+  {
     path: 'copy-to-clipboard',
     loadComponent: () =>
       import('./pages/copy-to-clipboard/index').then(
@@ -597,6 +602,7 @@ export type DocsIconName =
   | 'sparkles'
   | 'square-check'
   | 'square-dashed'
+  | 'square-split-horizontal'
   | 'star'
   | 'table-2'
   | 'tag'
@@ -729,6 +735,7 @@ const GROUP_DEFINITIONS = [
       'calendar',
       'chat',
       'chip',
+      'compare',
       'data-table',
       'empty-state',
       'kbd',
@@ -810,6 +817,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   chip: 'tags',
   'color-picker': 'pipette',
   combobox: 'search',
+  compare: 'square-split-horizontal',
   chat: 'message-circle',
   'copy-to-clipboard': 'clipboard-check',
   'data-table': 'table-2',

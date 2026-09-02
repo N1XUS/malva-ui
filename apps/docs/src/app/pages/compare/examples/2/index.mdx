@@ -1,0 +1,7 @@
+## Vertical orientation
+
+`orientation="vertical"` stacks _before_ above _after_ and moves the divider along the block axis. `value` is then measured from the top edge, the cursor becomes `row-resize`, and the keyboard model follows the geometry: ArrowDown moves the divider down (increases `value`), ArrowUp moves it up.
+
+The captions follow the geometry: `afterLabel` moves to the bottom corner, where the _after_ layer is actually visible.
+
+The block axis never mirrors in RTL — only the horizontal orientation does.

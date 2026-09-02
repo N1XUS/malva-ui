@@ -66,6 +66,7 @@
       ],
       "@malva-ui/core/autocomplete": ["libs/core/autocomplete/src/index.ts"],
       "@malva-ui/core/combobox": ["libs/core/combobox/src/index.ts"],
+      "@malva-ui/core/compare": ["libs/core/compare/src/index.ts"],
       "@malva-ui/core/data-table": ["libs/core/data-table/src/index.ts"],
       "@malva-ui/core/date-range-picker": [
         "libs/core/date-range-picker/src/index.ts"

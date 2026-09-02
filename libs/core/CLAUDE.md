@@ -20,6 +20,7 @@
 - `@malva-ui/core/chip`
 - `@malva-ui/core/color-picker`
 - `@malva-ui/core/combobox`
+- `@malva-ui/core/compare`
 - `@malva-ui/core/copy-to-clipboard`
 - `@malva-ui/core/data-table`
 - `@malva-ui/core/day-picker`
@@ -74,6 +75,7 @@ Exported from `libs/core/src/index.ts`:
 - All exports from `@malva-ui/core/checkbox`
 - All exports from `@malva-ui/core/chip`
 - All exports from `@malva-ui/core/combobox`
+- All exports from `@malva-ui/core/compare`
 - All exports from `@malva-ui/core/copy-to-clipboard`
 - All exports from `@malva-ui/core/data-table`
 - All exports from `@malva-ui/core/day-picker`
@@ -207,6 +209,7 @@ The composite-widget migration replaces hand-rolled ARIA/selection plumbing with
 - `@malva-ui/core/chip`
 - `@malva-ui/core/color-picker`
 - `@malva-ui/core/combobox`
+- `@malva-ui/core/compare`
 - `@malva-ui/core/copy-to-clipboard`
 - `@malva-ui/core/data-table`
 - `@malva-ui/core/day-picker`

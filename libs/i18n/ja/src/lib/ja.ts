@@ -77,6 +77,9 @@ const ja: MlvLanguage = {
     loading: '読み込み中…',
     resultsAvailable: '{count, plural, one {# 件の結果} other {# 件の結果}}',
   },
+  compare: {
+    ariaLabel: '比較スライダー',
+  },
   copyToClipboard: {
     copyToClipboard: 'クリップボードにコピー',
   },

@@ -1,0 +1,24 @@
+<mlv-compare
+  class="exposure"
+  orientation="vertical"
+  [(value)]="position"
+  beforeLabel="Before"
+  afterLabel="After"
+  ariaLabel="Exposure correction, before above and after below"
+>
+  <img
+    mlvCompareBefore
+    class="exposure__under"
+    [src]="photo"
+    alt="Starry night over a mountain ridge, underexposed"
+    width="1000"
+    height="1500"
+  />
+  <img
+    mlvCompareAfter
+    [src]="photo"
+    alt="Starry night over a mountain ridge, exposure corrected"
+    width="1000"
+    height="1500"
+  />
+</mlv-compare>

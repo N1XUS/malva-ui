@@ -1,0 +1,52 @@
+<div class="controlled-demo">
+  <div class="controlled-demo__toolbar">
+    <h4 id="compare-retouch-title" class="controlled-demo__title">
+      Retouch strength
+    </h4>
+    <span class="controlled-demo__readout" aria-live="polite">
+      {{ rounded() }}%
+    </span>
+    <div class="controlled-demo__presets">
+      @for (preset of presets; track preset) {
+      <button
+        mlvButton
+        type="button"
+        variant="secondary"
+        (click)="position.set(preset)"
+      >
+        {{ preset }}%
+      </button>
+      }
+    </div>
+  </div>
+
+  <mlv-compare
+    ariaLabelledby="compare-retouch-title"
+    [step]="5"
+    [(value)]="position"
+  >
+    <img
+      mlvCompareBefore
+      [src]="photo"
+      alt="Mountain lake at dawn, untouched"
+      width="1400"
+      height="933"
+    />
+    <img
+      mlvCompareAfter
+      class="controlled-demo__retouched"
+      [src]="photo"
+      alt="Mountain lake at dawn, retouched"
+      width="1400"
+      height="933"
+    />
+  </mlv-compare>
+
+  <mlv-slider
+    [min]="0"
+    [max]="100"
+    [step]="5"
+    ariaLabel="Retouch strength, mirrored control"
+    [(value)]="position"
+  />
+</div>
