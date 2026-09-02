@@ -48,6 +48,7 @@ For granular, copy-paste-ready rules with full code examples, see the rule files
     // handle value
   });
   ```
+  Exception: a subscription whose lifetime is shorter than the component's — re-created when a signal changes, or tied to an overlay that is attached and disposed repeatedly — is released by the `effect`'s `onCleanup` (or the owning teardown list) instead; `takeUntilDestroyed()` would fire only at destroy and leak every earlier generation (`mlv-speed-dial`'s `fromEvent` trigger listeners are the reference case).
 
 ---
 

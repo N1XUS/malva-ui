@@ -562,8 +562,10 @@ describe('MlvSpeedDial', () => {
       fixture.detectChanges();
       await fixture.whenStable();
 
+      // The listener sits on the overlay pane; `pointerenter` does not bubble
+      // (a real pointer entering an action fires it on every ancestor).
       const panel = document.querySelector(
-        '.mlv-speed-dial__panel',
+        '.mlv-speed-dial__pane',
       ) as HTMLElement;
       firePointer(hostEl(), 'pointerleave');
       firePointer(panel, 'pointerenter');
@@ -700,6 +702,157 @@ describe('MlvSpeedDial', () => {
       firePointer(hostEl(), 'pointerleave');
       await wait(HOVER_SLACK_MS);
       fixture.detectChanges();
+      expect(host.opened()).toBe(false);
+    });
+  });
+
+  describe('trigger listeners', () => {
+    const HOVER_FOCUS_EVENTS = [
+      'pointerenter',
+      'pointerleave',
+      'focusin',
+      'focusout',
+      'pointerdown',
+    ];
+
+    /**
+     * Hover/focus event types registered on `target` — scoped to one element
+     * because `MlvTooltip` host-binds `focusin`/`focusout` on every action.
+     */
+    function listenedTypes(
+      spy: ReturnType<typeof vi.spyOn>,
+      target: Element,
+    ): string[] {
+      return spy.mock.calls
+        .map(([type], i) => [type as string, spy.mock.contexts[i]] as const)
+        .filter(
+          ([type, context]) =>
+            context === target && HOVER_FOCUS_EVENTS.includes(type),
+        )
+        .map(([type]) => type)
+        .sort();
+    }
+
+    function hostEl(of: ComponentFixture<unknown> = fixture): HTMLElement {
+      return of.nativeElement.querySelector('mlv-speed-dial');
+    }
+
+    it('registers no hover or focus listeners on the host in click mode', () => {
+      const spy = vi.spyOn(HTMLElement.prototype, 'addEventListener');
+      try {
+        const local = TestBed.createComponent(SpeedDialHost);
+        local.detectChanges();
+        expect(listenedTypes(spy, hostEl(local))).toEqual([]);
+        local.destroy();
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('registers only the listeners the trigger types need, and drops them on change', () => {
+      const spy = vi.spyOn(HTMLElement.prototype, 'addEventListener');
+      const removeSpy = vi.spyOn(HTMLElement.prototype, 'removeEventListener');
+      try {
+        host.triggerOn.set('hover');
+        fixture.detectChanges();
+        expect(listenedTypes(spy, hostEl())).toEqual([
+          'pointerenter',
+          'pointerleave',
+        ]);
+
+        spy.mockClear();
+        host.triggerOn.set('focus');
+        fixture.detectChanges();
+        expect(listenedTypes(removeSpy, hostEl())).toEqual([
+          'pointerenter',
+          'pointerleave',
+        ]);
+        expect(listenedTypes(spy, hostEl())).toEqual([
+          'focusin',
+          'focusout',
+          'pointerdown',
+          'pointerleave',
+        ]);
+      } finally {
+        spy.mockRestore();
+        removeSpy.mockRestore();
+      }
+    });
+
+    it('does not re-register when a new array carries the same trigger types', () => {
+      host.triggerOn.set(['hover', 'focus']);
+      fixture.detectChanges();
+      const spy = vi.spyOn(HTMLElement.prototype, 'addEventListener');
+      const removeSpy = vi.spyOn(HTMLElement.prototype, 'removeEventListener');
+      try {
+        host.triggerOn.set(['focus', 'hover']);
+        fixture.detectChanges();
+        expect(listenedTypes(spy, hostEl())).toEqual([]);
+        expect(listenedTypes(removeSpy, hostEl())).toEqual([]);
+      } finally {
+        spy.mockRestore();
+        removeSpy.mockRestore();
+      }
+    });
+
+    it('removes the host listeners on destroy', () => {
+      const local = TestBed.createComponent(SpeedDialHost);
+      local.componentInstance.triggerOn.set('hover');
+      local.detectChanges();
+      const removeSpy = vi.spyOn(HTMLElement.prototype, 'removeEventListener');
+      try {
+        const el = hostEl(local);
+        local.destroy();
+        expect(listenedTypes(removeSpy, el)).toEqual([
+          'pointerenter',
+          'pointerleave',
+        ]);
+      } finally {
+        removeSpy.mockRestore();
+      }
+    });
+
+    it('removes the overlay listeners when the overlay is disposed', async () => {
+      host.triggerOn.set('hover');
+      fixture.detectChanges();
+      await openViaClick();
+      const pane = document.querySelector(
+        '.mlv-speed-dial__pane',
+      ) as HTMLElement;
+      expect(pane).not.toBeNull();
+      const removeSpy = vi.spyOn(HTMLElement.prototype, 'removeEventListener');
+      try {
+        await openViaClick(); // closes
+        await wait(320); // settle → dispose
+        expect(listenedTypes(removeSpy, pane)).toEqual([
+          'focusout',
+          'pointerenter',
+          'pointerleave',
+        ]);
+      } finally {
+        removeSpy.mockRestore();
+      }
+    });
+
+    it('forgets a pointer press when the trigger types change', async () => {
+      host.triggerOn.set('focus');
+      fixture.detectChanges();
+      // Press, then leave the trigger while in click mode (no pointerleave
+      // listener there), then come back to focus mode.
+      hostEl().dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      host.triggerOn.set('click');
+      fixture.detectChanges();
+      host.triggerOn.set('focus');
+      fixture.detectChanges();
+
+      // A keyboard focus-open must not be treated as press-caused.
+      trigger().focus();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+      trigger().click();
+      fixture.detectChanges();
+      await fixture.whenStable();
       expect(host.opened()).toBe(false);
     });
   });
