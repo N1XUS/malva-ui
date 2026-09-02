@@ -25,6 +25,13 @@
     "typecheck": {
       "dependsOn": ["extract-api"]
     },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "dependsOn": ["extract-api"],
+      "options": {
+        "config": "apps/docs/vite.config.mts"
+      }
+    },
     "check-doc-api": {
       "executor": "nx:run-commands",
       "cache": true,

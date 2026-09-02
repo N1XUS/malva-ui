@@ -43,4 +43,4 @@ to inherit the surrounding density context or the global default.
 
 ## Running unit tests
 
-Run `yarn nx run core-table:vite:test --run` to execute the unit tests.
+Run `yarn nx test core-table` to execute the unit tests.

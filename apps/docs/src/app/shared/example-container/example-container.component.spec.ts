@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -61,10 +62,14 @@ describe('ExampleContainerComponent', () => {
   });
 
   it('contains no native fullscreen API usage', () => {
+    // Resolved from this spec's own location, not `process.cwd()`: the target
+    // runs from the workspace root, so a cwd-relative path misses the file.
+    // `join(dirname(fileURLToPath(import.meta.url)), …)` rather than
+    // `new URL(…, import.meta.url)`, which Vite rewrites into an asset URL.
     const source = readFileSync(
-      resolve(
-        process.cwd(),
-        'src/app/shared/example-container/example-container.component.ts',
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        'example-container.component.ts',
       ),
       'utf8',
     );

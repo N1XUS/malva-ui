@@ -61,4 +61,4 @@ The entry point exports `MlvFilterOperator`, `MlvFilterCondition`, `MlvFilterCon
 
 ## Verification
 
-Run `yarn nx run-many -t vite:test typecheck lint -p core-filter`.
+Run `yarn nx run-many -t test typecheck lint -p core-filter`.
