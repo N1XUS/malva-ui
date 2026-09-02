@@ -78,6 +78,9 @@ const en: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# result available} other {# results available}}',
   },
+  compare: {
+    ariaLabel: 'Comparison slider',
+  },
   copyToClipboard: {
     copyToClipboard: 'Copy to clipboard',
   },

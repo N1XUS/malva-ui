@@ -1,0 +1,9 @@
+## Basic comparison
+
+`mlv-compare` stacks two projected layers — `[mlvCompareBefore]` on the start side, `[mlvCompareAfter]` on the end side — and splits them with a draggable divider. The two-way `value` is the percentage of the surface, measured from the start edge, that shows the _before_ layer.
+
+Press anywhere on the surface to jump the divider there and keep dragging; the surface owns the whole gesture, so the projected content is display-only. The taller layer sizes the surface and the other one stretches to match, so a pair of images needs no explicit height.
+
+`beforeLabel` and `afterLabel` pin a small caption to the corner of each layer. Each caption is rendered _inside_ its own layer, so it disappears with that side and only the visible half is ever labelled. Both are optional, and their look is themed through the `--mlv-compare-label-*` custom properties (see the themed example below).
+
+Give the slider an accessible name with `ariaLabel` (or `ariaLabelledby` for a visible heading); without either it falls back to the translated default.

@@ -76,6 +76,9 @@ const tr: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# sonuç mevcut} other {# sonuç mevcut}}',
   },
+  compare: {
+    ariaLabel: 'Karşılaştırma kaydırıcısı',
+  },
   copyToClipboard: {
     copyToClipboard: 'Panoya kopyala',
   },

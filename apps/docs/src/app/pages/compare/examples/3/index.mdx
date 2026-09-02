@@ -1,0 +1,5 @@
+## Slide on hover
+
+With `slideOnHover`, the divider follows the hovering pointer instead of waiting for a press. Pressing and dragging keep working, touch input still scrubs while the finger is down, and the divider stays where the pointer left it.
+
+The slots are really the two _sides_ of the surface: put the state you want to reveal in `[mlvCompareBefore]` and start `value` at `0` — sweeping from the start edge then uncovers it up to the pointer.

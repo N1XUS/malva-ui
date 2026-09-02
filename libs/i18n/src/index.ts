@@ -11,6 +11,7 @@ export * from './lib/tokens/chat';
 export * from './lib/tokens/chip';
 export * from './lib/tokens/color-picker';
 export * from './lib/tokens/combobox';
+export * from './lib/tokens/compare';
 export * from './lib/tokens/copy-to-clipboard';
 export * from './lib/tokens/data-table';
 export * from './lib/tokens/date-range-picker';

@@ -76,6 +76,9 @@ const zhHans: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# 个可用结果} other {# 个可用结果}}',
   },
+  compare: {
+    ariaLabel: '对比滑块',
+  },
   copyToClipboard: {
     copyToClipboard: '复制到剪贴板',
   },

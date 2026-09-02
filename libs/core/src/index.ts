@@ -5,6 +5,7 @@ export * from '@malva-ui/core/chat';
 export * from '@malva-ui/core/checkbox';
 export * from '@malva-ui/core/color-picker';
 export * from '@malva-ui/core/combobox';
+export * from '@malva-ui/core/compare';
 export * from '@malva-ui/core/copy-to-clipboard';
 export * from '@malva-ui/core/date-range-picker';
 export * from '@malva-ui/core/day-picker';

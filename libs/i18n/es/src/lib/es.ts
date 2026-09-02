@@ -79,6 +79,9 @@ const es: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# resultado disponible} other {# resultados disponibles}}',
   },
+  compare: {
+    ariaLabel: 'Control deslizante de comparación',
+  },
   copyToClipboard: {
     copyToClipboard: 'Copiar al portapapeles',
   },

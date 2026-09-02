@@ -1,0 +1,18 @@
+.focus-demo {
+  display: grid;
+  gap: var(--mlv-spacing-3);
+  max-inline-size: 48rem;
+}
+
+.focus-demo__caption {
+  margin: 0;
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-body-s-size);
+}
+
+// Scale the blurred copy up a hair so its softened edges never reveal the
+// surface background at the frame.
+.focus-demo__soft {
+  filter: blur(0.5rem) saturate(0.85);
+  transform: scale(1.03);
+}

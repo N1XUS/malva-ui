@@ -30,6 +30,7 @@ export default {
         'chip',
         'color-picker',
         'combobox',
+        'compare',
         'copy-to-clipboard',
         'data-table',
         'date-range-picker',

@@ -1,0 +1,18 @@
+.grade-demo {
+  display: grid;
+  gap: var(--mlv-spacing-3);
+  max-inline-size: 48rem;
+}
+
+.grade-demo__caption {
+  margin: 0;
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-body-s-size);
+  font-variant-numeric: tabular-nums;
+}
+
+// The "before" side is the same picture with the grade stripped off, so the
+// two layers line up pixel for pixel.
+.grade-demo__scan {
+  filter: grayscale(1) contrast(0.88) brightness(1.06);
+}

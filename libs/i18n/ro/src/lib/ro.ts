@@ -81,6 +81,9 @@ const ro: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# rezultat disponibil} few {# rezultate disponibile} other {# de rezultate disponibile}}',
   },
+  compare: {
+    ariaLabel: 'Glisor de comparație',
+  },
   copyToClipboard: {
     copyToClipboard: 'Copiază în clipboard',
   },

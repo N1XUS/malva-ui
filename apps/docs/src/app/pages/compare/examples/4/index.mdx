@@ -1,0 +1,22 @@
+## Themed divider, captions and custom handle
+
+The divider, the handle and the `beforeLabel` / `afterLabel` captions are styled entirely through custom properties, so a look is a stylesheet concern rather than a set of inputs:
+
+| Property                          | Default                         |
+| --------------------------------- | ------------------------------- |
+| `--mlv-compare-radius`            | `var(--mlv-radius-l)`           |
+| `--mlv-compare-divider-width`     | `0.125rem`                      |
+| `--mlv-compare-divider-color`     | `var(--mlv-palette-neutral-50)` |
+| `--mlv-compare-handle-size`       | `2.5rem`                        |
+| `--mlv-compare-handle-radius`     | `var(--mlv-radius-full)`        |
+| `--mlv-compare-handle-background` | `var(--mlv-background-base)`    |
+| `--mlv-compare-handle-color`      | `var(--mlv-text-primary)`       |
+| `--mlv-compare-handle-shadow`     | `var(--mlv-shadow-floating)`    |
+| `--mlv-compare-glyph-size`        | `1.25rem`                       |
+| `--mlv-compare-halo`              | faint dark ring for legibility  |
+| `--mlv-compare-label-inset`       | `var(--mlv-spacing-3)`          |
+| `--mlv-compare-label-radius`      | `var(--mlv-radius-full)`        |
+| `--mlv-compare-label-background`  | translucent dark scrim          |
+| `--mlv-compare-label-color`       | `var(--mlv-palette-neutral-50)` |
+
+The default glyph is Lucide `chevrons-left-right` (`chevrons-up-down` when vertical). To replace it, project an `<ng-template mlvCompareHandleDef>` — a structural slot whose context carries `orientation` and `dragging`, so the glyph can react to the gesture. The handle chrome (size, shape, shadow, press feedback and focus ring) is always the component's; the template only supplies what sits inside it, and it stays decorative — the accessible name still comes from `ariaLabel`.

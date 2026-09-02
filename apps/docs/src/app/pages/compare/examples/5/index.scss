@@ -1,0 +1,60 @@
+.chart-demo {
+  display: grid;
+  gap: var(--mlv-spacing-3);
+  max-inline-size: 52rem;
+}
+
+.chart-demo__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mlv-spacing-4);
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-body-s-size);
+}
+
+.chart-demo__key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mlv-spacing-2);
+  font-weight: 600;
+  color: var(--mlv-text-primary);
+
+  &::before {
+    content: '';
+    inline-size: 1rem;
+    block-size: 0.1875rem;
+    border-radius: var(--mlv-radius-full);
+    background: currentColor;
+  }
+}
+
+.chart-demo__key--actual {
+  color: var(--mlv-background-accent-1);
+}
+
+.chart-demo__key--plan::before {
+  background: repeating-linear-gradient(
+    to right,
+    currentColor 0 0.25rem,
+    transparent 0.25rem 0.5rem
+  );
+}
+
+.chart-demo__readout {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+// Canvases are drawn at the surface's measured size, so the surface itself
+// fixes the height and the divider runs a hairline between the two states.
+.chart-demo__surface {
+  --mlv-compare-radius: var(--mlv-radius-xl);
+  --mlv-compare-divider-color: var(--mlv-background-accent-1);
+  --mlv-compare-handle-size: 2rem;
+  --mlv-compare-glyph-size: 1rem;
+  --mlv-compare-halo: transparent;
+
+  block-size: 20rem;
+  border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+}

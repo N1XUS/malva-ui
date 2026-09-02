@@ -1,0 +1,29 @@
+<div class="focus-demo">
+  <mlv-compare
+    slideOnHover
+    [(value)]="position"
+    ariaLabel="Focus pull, sharp on the start side"
+  >
+    <img
+      mlvCompareBefore
+      class="focus-demo__sharp"
+      [src]="photo"
+      alt="Mountain lake at dawn, in focus"
+      width="1400"
+      height="933"
+    />
+    <img
+      mlvCompareAfter
+      class="focus-demo__soft"
+      [src]="photo"
+      alt="Mountain lake at dawn, out of focus"
+      width="1400"
+      height="933"
+    />
+  </mlv-compare>
+
+  <p class="focus-demo__caption">
+    Move the pointer across the picture to pull focus. Pressing still drags, and
+    the keyboard still steps.
+  </p>
+</div>

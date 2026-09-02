@@ -1,0 +1,58 @@
+<!--
+  Each optional caption lives inside its own layer, so it is clipped with that
+  layer and only the visible side of the divider is ever labelled.
+-->
+<div class="mlv-compare__layer mlv-compare__layer--before">
+  <ng-content select="[mlvCompareBefore]" />
+  @if (beforeLabel(); as label) {
+  <span class="mlv-compare__label mlv-compare__label--before">{{ label }}</span>
+  }
+</div>
+<div class="mlv-compare__layer mlv-compare__layer--after">
+  <ng-content select="[mlvCompareAfter]" />
+  @if (afterLabel(); as label) {
+  <span class="mlv-compare__label mlv-compare__label--after">{{ label }}</span>
+  }
+</div>
+
+<!--
+  The slider semantics live on a real range input so screen readers get the
+  native role, value and orientation for free. It is visually hidden and
+  pointer-transparent: the host owns every pointer gesture, the component owns
+  every key, and `step="any"` keeps the native value exact rather than snapped.
+-->
+<input
+  #input
+  class="mlv-compare__input"
+  type="range"
+  min="0"
+  max="100"
+  step="any"
+  [value]="_ariaValue()"
+  [attr.aria-label]="_resolvedAriaLabel()"
+  [attr.aria-labelledby]="ariaLabelledby() || null"
+  [attr.aria-valuetext]="_ariaValueText()"
+  [attr.aria-orientation]="orientation()"
+  (input)="_onNativeInput($event)"
+  (keydown)="_onKeydown($event)"
+/>
+
+<!--
+  Divider and handle are pure decoration: `aria-hidden` and pointer-transparent.
+  A `*mlvCompareHandleDef` template replaces only the glyph; the handle chrome
+  (size, shadow, press feedback, focus ring) is always the component's.
+-->
+<div class="mlv-compare__divider" aria-hidden="true">
+  <span class="mlv-compare__handle">
+    @if (_handleDef(); as handleDef) {
+    <ng-container
+      [ngTemplateOutlet]="handleDef.templateRef"
+      [ngTemplateOutletContext]="_handleContext()"
+    />
+    } @else if (_isVertical()) {
+    <svg lucideChevronsUpDown class="mlv-compare__glyph" [size]="20" />
+    } @else {
+    <svg lucideChevronsLeftRight class="mlv-compare__glyph" [size]="20" />
+    }
+  </span>
+</div>

@@ -1,0 +1,29 @@
+<div class="grade-demo">
+  <mlv-compare
+    [(value)]="position"
+    beforeLabel="Before"
+    afterLabel="After"
+    ariaLabel="Colour grade, before and after"
+  >
+    <img
+      mlvCompareBefore
+      class="grade-demo__scan"
+      [src]="photo"
+      alt="Mountain lake at dawn, flat ungraded scan"
+      width="1400"
+      height="933"
+    />
+    <img
+      mlvCompareAfter
+      [src]="photo"
+      alt="Mountain lake at dawn, colour graded"
+      width="1400"
+      height="933"
+    />
+  </mlv-compare>
+
+  <p class="grade-demo__caption">
+    Divider at {{ rounded() }}% — drag the handle, click anywhere on the
+    picture, or focus it and use the arrow keys.
+  </p>
+</div>

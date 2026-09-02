@@ -1,0 +1,5 @@
+## Chart reveal on canvas
+
+The layers accept any content, not just pictures. Here each side is a `<canvas>` drawn at the surface's measured size: the _before_ layer holds the actuals, the _after_ layer the plan, and `slideOnHover` with a `value` that starts at `0` turns the divider into a reveal — sweep across the year to see where the actuals pulled ahead.
+
+The chart reads its colours from the live `--mlv-*` tokens and redraws when the theme changes or the surface resizes, so it stays crisp on high-density screens and correct in dark mode. Because the layers are pointer-transparent, the canvases stay purely presentational; each carries `role="img"` with a description so the chart is still announced.

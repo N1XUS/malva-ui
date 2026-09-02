@@ -81,6 +81,9 @@ const uk: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# результат доступний} few {# результати доступні} many {# результатів доступно} other {# результату доступно}}',
   },
+  compare: {
+    ariaLabel: 'Повзунок порівняння',
+  },
   copyToClipboard: {
     copyToClipboard: 'Копіювати в буфер обміну',
   },

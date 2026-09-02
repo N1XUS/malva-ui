@@ -78,6 +78,9 @@ const id: MlvLanguage = {
     resultsAvailable:
       '{count, plural, one {# hasil tersedia} other {# hasil tersedia}}',
   },
+  compare: {
+    ariaLabel: 'Penggeser perbandingan',
+  },
   copyToClipboard: {
     copyToClipboard: 'Salin ke papan klip',
   },
