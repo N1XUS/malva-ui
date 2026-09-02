@@ -14,6 +14,7 @@ For granular, copy-paste-ready rules with full code examples, see the rule files
 | `.claude/rules/angular-pipe.md` | `@Pipe` skeleton, pure vs impure, typing, DI |
 | `.claude/rules/bem-scss.md` | BEM naming, `--mlv-*` CSS variables, `$block` pattern, rem values, design tokens |
 | `.claude/rules/accessibility.md` | Keyboard nav, tabindex, ARIA, FocusKeyManager, focus trapping, WCAG AA |
+| `.claude/rules/rtl.md` | Direction / RTL: logical CSS, `--mlv-inline-direction`, `normalizeArrowKey`, overlay `direction`, icon mirroring, RTL specs |
 
 ---
 
@@ -55,6 +56,7 @@ For granular, copy-paste-ready rules with full code examples, see the rule files
 - All components **must pass all AXE checks**
 - All components **must follow WCAG AA minimums**: focus management, color contrast, ARIA attributes
 - Ensure keyboard navigability for interactive elements
+- Horizontal keyboard and pointer behaviour mirrors in RTL: arrow handlers go through `MlvRtlService.normalizeArrowKey()`, horizontal `FocusKeyManager`s take the live direction, overlays carry `direction` on their config. See `.claude/rules/rtl.md`
 - Use semantic HTML; add ARIA roles/labels only when native semantics are insufficient
 
 ---
@@ -178,6 +180,7 @@ Rules:
 - If a CSS value is static, reference the shared `--mlv-*` token directly instead of creating an extra component-scoped alias variable.
 - Only introduce a component-scoped CSS variable when the value is meant to change based on component state, variant, density, theme override, or another modifier.
 - Use rem-based values rather than px for all properties. For example, use `padding: 0.5rem` instead of `padding: 8px` to ensure better scalability and accessibility across different devices and user settings.
+- Inline-axis CSS is **logical**: `margin-inline-start`, `inset-inline-end`, `text-align: start`, `border-start-start-radius`, `float: inline-start` — never `margin-left`, `left`, `text-align: left`. Physical `left`/`right` stay only for JS-fed coordinates, `left: 50%` centering pairs and collision-resolved overlay arrows, each with a `// physical: <reason>` comment. `transform`/`transform-origin`/`box-shadow` offsets go through `mixins.inline-distance()` / `--mlv-inline-direction`. See `.claude/rules/rtl.md`.
 - `--mlv-padding-{xs,s,m,l,xl,2xl}` are **two-value `block inline` pairs** — use them only as the whole `padding:` value; per-side, `padding-inline/block`, `gap`, `margin`, `top`, `calc()` and multi-value shorthands take the matching `--mlv-spacing-*` half instead (see `.claude/rules/bem-scss.md`). Enforced by `yarn nx run styles:check-padding-tokens` (a `styles:lint` dependency, so it gates CI).
 - Every animated BEM block must provide a reduced-motion path. Prefer
   `@include mixins.reduced-motion('<block>')` for the standard instantaneous

@@ -15,13 +15,14 @@ Analyze code only if context from the relevant project CLAUDE.md is not sufficie
 
 Detailed, copy-paste-ready rules for specific constructs live in `.claude/rules/`. **Always apply the relevant rule file when creating or modifying these constructs:**
 
-| File                                                                     | When to apply                                      |
-| ------------------------------------------------------------------------ | -------------------------------------------------- |
-| [.claude/rules/angular-component.md](.claude/rules/angular-component.md) | Creating or editing any `@Component`               |
-| [.claude/rules/angular-directive.md](.claude/rules/angular-directive.md) | Creating or editing any `@Directive`               |
-| [.claude/rules/angular-pipe.md](.claude/rules/angular-pipe.md)           | Creating or editing any `@Pipe`                    |
-| [.claude/rules/bem-scss.md](.claude/rules/bem-scss.md)                   | Writing or editing any `.scss` file                |
-| [.claude/rules/accessibility.md](.claude/rules/accessibility.md)         | Any interactive component or keyboard-navigable UI |
+| File                                                                     | When to apply                                                                                                               |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| [.claude/rules/angular-component.md](.claude/rules/angular-component.md) | Creating or editing any `@Component`                                                                                        |
+| [.claude/rules/angular-directive.md](.claude/rules/angular-directive.md) | Creating or editing any `@Directive`                                                                                        |
+| [.claude/rules/angular-pipe.md](.claude/rules/angular-pipe.md)           | Creating or editing any `@Pipe`                                                                                             |
+| [.claude/rules/bem-scss.md](.claude/rules/bem-scss.md)                   | Writing or editing any `.scss` file                                                                                         |
+| [.claude/rules/accessibility.md](.claude/rules/accessibility.md)         | Any interactive component or keyboard-navigable UI                                                                          |
+| [.claude/rules/rtl.md](.claude/rules/rtl.md)                             | Anything on the inline axis: `left`/`right` CSS, arrow keys, pointer geometry, overlays, directional icons, positional APIs |
 
 ## Migrations
 
