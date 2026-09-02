@@ -189,14 +189,20 @@
     >
       <ng-container [ngTemplateOutlet]="colgroupTpl" />
       <tbody class="mlv-data-table__body">
-        @if (showError()) {
-        <ng-container [ngTemplateOutlet]="errorRowTpl" />
-        } @else if (flatRows().length === 0) {
-        <ng-container [ngTemplateOutlet]="noDataRowTpl" />
-        } @else {
+        <!--
+          The repeater stays mounted in every state — empty result set, error,
+          anything. `cdk-virtual-scroll-viewport` publishes its rendered range
+          on a plain Subject, so a `CdkVirtualForOf` created while the viewport
+          already exists hears nothing until that range next changes, which in
+          practice means until somebody scrolls. Destroying the repeater for an
+          empty result and rebuilding it when rows come back therefore leaves
+          the table blank — with a correctly sized scrollbar, and no error
+          anywhere. `_virtualRows` empties instead, which is what lets the error
+          and no-data rows below take over without touching the repeater.
+        -->
         <tr
           *cdkVirtualFor="
-                let row of flatRows();
+                let row of _virtualRows();
                 let i = index;
                 trackBy: trackByRow
               "
@@ -218,6 +224,10 @@
             [ngTemplateOutletContext]="getCellContext(row, i)"
           />
         </tr>
+        @if (showError()) {
+        <ng-container [ngTemplateOutlet]="errorRowTpl" />
+        } @else if (flatRows().length === 0) {
+        <ng-container [ngTemplateOutlet]="noDataRowTpl" />
         }
       </tbody>
     </table>

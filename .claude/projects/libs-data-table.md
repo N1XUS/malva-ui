@@ -415,6 +415,26 @@ CDK virtual scroll requires a fixed item height so it can compute the positions 
 
 The viewport requires an explicit height because `cdk-virtual-scroll-viewport` does not derive its size from its content. The component exposes a `virtualViewportHeight` computed signal that returns `maxHeight()` if provided, otherwise falls back to `'24rem'`. Pass `[maxHeight]` (e.g. `'32rem'`) to control the visible height of the scroll area in virtual mode.
 
+### The repeater outlives every empty state
+
+`cdk-virtual-scroll-viewport` publishes its rendered range on a plain `Subject`, so a `*cdkVirtualFor` constructed while the viewport already exists receives no range until the range next changes — it renders nothing until somebody scrolls. The virtual `<tbody>` therefore keeps the repeater mounted unconditionally and drives it from an internal `_virtualRows()` computed (`flatRows()`, or `[]` while an error is shown); the no-data and error rows are siblings of the repeater, never a structural `@if` wrapped around it. With the repeater behind `@if`, any empty → refill transition (a search that matches nothing, then cleared) destroyed and rebuilt it against a surviving viewport, leaving a correctly sized scrollbar with zero rows and no message until the next scroll. No public API change; covered by `data-table-virtual-repeater.spec.ts`.
+
+### The paging effects never track the data source
+
+`MlvDataTable` pushes `page` and `perPage` onto `effectiveDataSource()` from two
+`effect()`s. Both calls are wrapped in `untracked()`, and they must stay that
+way. A data source is free to read its own state inside those setters — a
+server-backed subclass typically compares the incoming value against the one it
+already holds so a no-op call does not cost a round trip — and tracked, those
+reads join the effects' dependency sets. `MlvDataSource.setPerPage` resets the
+page to 1, which is a write to one of them, so the two effects then retrigger
+each other synchronously inside a single change-detection pass. That loop never
+yields to a microtask: one click on "next page" freezes the tab outright, and
+page 1 hides it entirely because the subclass's guard short-circuits there. Only
+the table's own inputs belong in those dependency sets. Covered by
+`data-table-paging-effects.spec.ts`, whose fake source turns the runaway into a
+counted failure instead of a hung worker.
+
 ### Mutual exclusion with infinite scroll
 
 Virtual scroll and infinite scroll (`paginationMode="infinite"`) solve different problems and are **mutually exclusive** in this component:

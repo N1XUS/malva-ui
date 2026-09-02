@@ -1,0 +1,199 @@
+$block: data-at-scale-showcase;
+
+.#{$block} {
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__title-row h1 {
+    margin: 0;
+  }
+
+  // One repeated surface for the two control/benchmark blocks, so the page
+  // reads as two panels above the table rather than four loose clusters.
+  &__panel {
+    display: grid;
+    gap: var(--mlv-spacing-4);
+    padding: var(--mlv-padding-l);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-card);
+    background-color: var(--mlv-background-raised);
+    min-inline-size: 0;
+  }
+
+  &__panel-title {
+    margin: 0;
+    font-size: var(--mlv-typography-heading-h5-size);
+  }
+
+  &__controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    align-items: end;
+    gap: var(--mlv-spacing-4);
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mlv-spacing-2);
+  }
+
+  &__status {
+    display: block;
+    min-block-size: var(--mlv-spacing-5);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__note {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__note code,
+  &__method code {
+    font-family: var(--mlv-typography-family-code);
+    font-size: var(--mlv-font-size-s);
+  }
+
+  &__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: var(--mlv-spacing-4);
+    margin: 0;
+  }
+
+  &__facts div {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+  }
+
+  &__facts dt {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__facts dd {
+    margin: 0;
+    font-size: var(--mlv-typography-heading-h6-size);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: var(--mlv-spacing-4);
+  }
+
+  &__metric {
+    display: grid;
+    align-content: start;
+    gap: var(--mlv-spacing-2);
+    padding: var(--mlv-padding-m);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-panel);
+    background-color: var(--mlv-background-base);
+    min-inline-size: 0;
+  }
+
+  &__metric h3 {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+    font-weight: var(--mlv-typography-ui-m-weight);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__metric-value {
+    margin: 0;
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-font-size-4xl);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  &__metric-value span {
+    margin-inline-start: var(--mlv-spacing-1);
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-font-size-m);
+  }
+
+  &__metric-caption,
+  &__metric-pending {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__breakdown {
+    display: grid;
+    gap: var(--mlv-spacing-1);
+    margin: var(--mlv-spacing-1) 0 0;
+    font-size: var(--mlv-typography-body-s-size);
+  }
+
+  &__breakdown div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--mlv-spacing-3);
+  }
+
+  &__breakdown dt {
+    color: var(--mlv-text-secondary);
+  }
+
+  &__breakdown dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__amount {
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__table {
+    min-inline-size: 0;
+  }
+
+  // The measurement method is the page's other deliverable, so it is a real
+  // reading column rather than a footnote squeezed under the table.
+  &__method {
+    display: grid;
+    gap: var(--mlv-spacing-3);
+    max-inline-size: 48rem;
+    color: var(--mlv-text-secondary);
+  }
+
+  &__method h2 {
+    margin: 0;
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-heading-h4-size);
+  }
+
+  &__method h3 {
+    margin: var(--mlv-spacing-3) 0 0;
+    color: var(--mlv-text-primary);
+    font-size: var(--mlv-typography-heading-h6-size);
+  }
+
+  &__method p {
+    margin: 0;
+  }
+
+  &__method ul {
+    display: grid;
+    gap: var(--mlv-spacing-2);
+    margin: 0;
+    padding-inline-start: var(--mlv-spacing-5);
+  }
+
+  &__method strong {
+    color: var(--mlv-text-primary);
+  }
+}

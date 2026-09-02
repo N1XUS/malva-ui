@@ -196,6 +196,32 @@ export const SHOWCASES: readonly ShowcaseRouteDefinition[] = [
         (module) => module.WebsiteBuilderShowcaseComponent,
       ),
   },
+  {
+    slug: 'data-at-scale',
+    title: 'Data at Scale',
+    summary:
+      'Sort, filter, search and page 100,000+ generated rows entirely inside a Web Worker, with the initial render, scroll frame rate and filter round trip measured live in your own browser.',
+    category: 'data',
+    componentNames: [
+      'data-table',
+      'view-variant',
+      'pagination',
+      'page',
+      'sidebar',
+      'segmented',
+      'select',
+      'number-input',
+      'switch',
+      'badge',
+      'alert',
+      'button',
+    ],
+    previewAsset: '/showcases/data-at-scale.png',
+    loadComponent: () =>
+      import('./pages/data-at-scale/data-at-scale').then(
+        (module) => module.DataAtScaleShowcaseComponent,
+      ),
+  },
 ];
 
 /** Showcase child routes derived from the catalog registry. */

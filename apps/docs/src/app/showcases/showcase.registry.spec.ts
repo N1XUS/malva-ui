@@ -6,7 +6,7 @@ import {
 } from './showcase.registry';
 
 describe('showcase registry', () => {
-  it('defines six unique showcase routes', () => {
+  it('defines seven unique showcase routes', () => {
     expect(SHOWCASES.map((item) => item.slug)).toEqual([
       'project-workspace',
       'support-inbox',
@@ -14,8 +14,9 @@ describe('showcase registry', () => {
       'data-operations',
       'settings-access',
       'website-builder',
+      'data-at-scale',
     ]);
-    expect(new Set(SHOWCASES.map((item) => item.slug)).size).toBe(6);
+    expect(new Set(SHOWCASES.map((item) => item.slug)).size).toBe(7);
   });
 
   it('derives showcase child routes from the same registry', () => {
@@ -132,6 +133,20 @@ describe('showcase registry', () => {
         'alert',
         'toast',
       ],
+      [
+        'data-table',
+        'view-variant',
+        'pagination',
+        'page',
+        'sidebar',
+        'segmented',
+        'select',
+        'number-input',
+        'switch',
+        'badge',
+        'alert',
+        'button',
+      ],
     ]);
   });
 
@@ -142,6 +157,11 @@ describe('showcase registry', () => {
       'data-operations',
       'settings-access',
       'website-builder',
+      'data-at-scale',
+    ]);
+    expect(showcasesForComponent('view-variant').map((item) => item.slug)).toEqual([
+      'data-operations',
+      'data-at-scale',
     ]);
     expect(showcasesForComponent('chat').map((item) => item.slug)).toEqual([
       'support-inbox',
@@ -153,6 +173,8 @@ describe('showcase registry', () => {
   });
 
   it('returns the first contextual showcase route for a canonical docs path', () => {
+    // data-at-scale also documents `data-table`, but the first registry match
+    // wins — appending a showcase must not move an existing component's link.
     expect(showcaseRouteForComponent('data-table')).toBe(
       '/showcases/project-workspace',
     );
