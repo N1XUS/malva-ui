@@ -1,3 +1,39 @@
+## 0.1.15 (2026-09-02)
+
+### 🩹 Fixes
+
+- **docs:** expect MlvButton's selected input in the api-extractor spec ([#72](https://github.com/N1XUS/malva-ui/pull/72))
+- **dropdown:** key the fold origin map by code unit, not code point ([#66](https://github.com/N1XUS/malva-ui/pull/66))
+- **scrollbar:** reveal the track, not just the thumb, while scrolling ([#97](https://github.com/N1XUS/malva-ui/pull/97))
+- **scrollbar:** scope host-state rules to the host's own parts ([#99](https://github.com/N1XUS/malva-ui/pull/99))
+- **textarea:** render a working scrollbar by decorating the field itself ([#95](https://github.com/N1XUS/malva-ui/pull/95))
+
+### 🔥 Performance
+
+- **cdk/utils:** memoize isUp()/isDown() per resolved breakpoint index ([#88](https://github.com/N1XUS/malva-ui/pull/88))
+- **chat:** floor the audio playback tick and bind its listeners to DestroyRef ([#91](https://github.com/N1XUS/malva-ui/pull/91))
+- **data-source:** memoize the search haystack per dataset ([#65](https://github.com/N1XUS/malva-ui/pull/65))
+- **data-source:** hoist the sort collator and decorate once per row ([#84](https://github.com/N1XUS/malva-ui/pull/84))
+- **dropdown:** fold option labels once instead of per code point ([#57](https://github.com/N1XUS/malva-ui/pull/57))
+- **dropdown:** resolve reconciliation membership through sets ([#68](https://github.com/N1XUS/malva-ui/pull/68))
+- **editor:** resolve the hovered block by binary search ([#77](https://github.com/N1XUS/malva-ui/pull/77))
+- **menu:** index DOM order once per resync and filter mutations ([#55](https://github.com/N1XUS/malva-ui/pull/55))
+- **menu:** skip syncOrder reconciliation when the order is unchanged ([#94](https://github.com/N1XUS/malva-ui/pull/94))
+- **scrollbar:** cache track metrics out of the scroll fast path ([#71](https://github.com/N1XUS/malva-ui/pull/71))
+- **textarea:** skip the auto-resize reflow bracket on a pure append ([#80](https://github.com/N1XUS/malva-ui/pull/80))
+
+### 💅 Refactors
+
+- ⚠️  **scrollbar:** make viewportTabIndex a passthrough, drop the tabbability scan ([#62](https://github.com/N1XUS/malva-ui/pull/62))
+
+### ⚠️  Breaking Changes
+
+- **scrollbar:** make viewportTabIndex a passthrough, drop the tabbability scan  ([#62](https://github.com/N1XUS/malva-ui/pull/62))
+
+### ❤️ Thank You
+
+- Denys Severyn
+
 ## 0.1.14 (2026-08-31)
 
 ### 🩹 Fixes
