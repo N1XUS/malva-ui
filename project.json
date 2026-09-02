@@ -13,19 +13,24 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": true,
+      "//": "check-test-targets.mjs and assert-zoneless-config.spec.js both answer a question about the shape of the whole workspace, so the inputs are workspace-wide globs: a project added anywhere — or a spec that reaches for a zone-based test API anywhere — must re-run the guards rather than hit the cache.",
       "inputs": [
         "{workspaceRoot}/scripts/testing/strip-css-layers.js",
         "{workspaceRoot}/scripts/testing/setup-strip-css-layers.js",
         "{workspaceRoot}/scripts/testing/strip-css-layers.spec.js",
+        "{workspaceRoot}/scripts/testing/setup-assert-zoneless.js",
+        "{workspaceRoot}/scripts/testing/assert-zoneless-config.spec.js",
         "{workspaceRoot}/scripts/check-test-targets.mjs",
         "{workspaceRoot}/nx.json",
         "{workspaceRoot}/**/project.json",
         "{workspaceRoot}/**/package.json",
+        "{workspaceRoot}/**/vite.config.mts",
+        "{workspaceRoot}/**/test-setup.ts",
         "{workspaceRoot}/**/*.{spec,test}.*"
       ],
       "options": {
         "commands": [
-          "node --test scripts/testing/strip-css-layers.spec.js",
+          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js",
           "node scripts/check-test-targets.mjs"
         ],
         "parallel": false,

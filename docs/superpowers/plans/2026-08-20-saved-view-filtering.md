@@ -89,7 +89,7 @@ Create `project.json` with:
 }
 ```
 
-Create the focused configuration shape used by core leaf projects: `tsconfig.json` references `tsconfig.lib.json` and `tsconfig.spec.json`; `tsconfig.lib.json` includes `src/**/*.ts` and excludes specs/test setup; `tsconfig.lib.prod.json` sets Angular partial compilation; `tsconfig.spec.json` includes Vitest/Node types and `src/test-setup.ts`; `src/test-setup.ts` calls `setupTestBed({ zoneless: false })`; and `vite.config.mts` uses the Angular, Nx tsconfig-path, and copy-assets plugins with jsdom, project name `core-view-variant`, and coverage directory `coverage/libs/core/view-variant`.
+Create the focused configuration shape used by core leaf projects: `tsconfig.json` references `tsconfig.lib.json` and `tsconfig.spec.json`; `tsconfig.lib.json` includes `src/**/*.ts` and excludes specs/test setup; `tsconfig.lib.prod.json` sets Angular partial compilation; `tsconfig.spec.json` includes Vitest/Node types and `src/test-setup.ts`; `src/test-setup.ts` calls `setupTestBed({ zoneless: true })`; and `vite.config.mts` uses the Angular, Nx tsconfig-path, and copy-assets plugins with jsdom, project name `core-view-variant`, and coverage directory `coverage/libs/core/view-variant`.
 
 - [ ] **Step 4: Wire grouped exports and project documentation**
 

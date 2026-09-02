@@ -26,4 +26,4 @@ Object.defineProperty(window, 'matchMedia', {
     }) as unknown as MediaQueryList,
 });
 
-setupTestBed({ zoneless: false });
+setupTestBed({ zoneless: true });

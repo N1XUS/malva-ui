@@ -27,4 +27,4 @@ if (typeof globalThis.IntersectionObserver === 'undefined') {
     NoopIntersectionObserver as unknown as typeof IntersectionObserver;
 }
 
-setupTestBed();
+setupTestBed({ zoneless: true });
