@@ -1,0 +1,24 @@
+<div class="stage">
+  <div class="stage__cell">
+    <span class="stage__label">triggerOn="hover"</span>
+    <mlv-speed-dial
+      [items]="formatting"
+      triggerOn="hover"
+      type="semi-circle"
+      direction="up"
+      [radius]="72"
+      ariaLabel="Formatting (hover)"
+    />
+  </div>
+  <div class="stage__cell">
+    <span class="stage__label">[triggerOn]="['focus', 'hover']"</span>
+    <mlv-speed-dial
+      [items]="formatting"
+      [triggerOn]="['focus', 'hover']"
+      type="semi-circle"
+      direction="up"
+      [radius]="72"
+      ariaLabel="Formatting (focus or hover)"
+    />
+  </div>
+</div>

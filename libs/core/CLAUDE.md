@@ -46,6 +46,7 @@
 - `@malva-ui/core/select`
 - `@malva-ui/core/sidebar`
 - `@malva-ui/core/slider`
+- `@malva-ui/core/speed-dial`
 - `@malva-ui/core/status-indicator`
 - `@malva-ui/core/switch`
 - `@malva-ui/core/tabs`
@@ -99,6 +100,7 @@ Exported from `libs/core/src/index.ts`:
 - All exports from `@malva-ui/core/select`
 - All exports from `@malva-ui/core/sidebar`
 - All exports from `@malva-ui/core/slider`
+- All exports from `@malva-ui/core/speed-dial`
 - All exports from `@malva-ui/core/status-indicator`
 - All exports from `@malva-ui/core/switch`
 - All exports from `@malva-ui/core/tabs`
@@ -231,6 +233,7 @@ The composite-widget migration replaces hand-rolled ARIA/selection plumbing with
 - `@malva-ui/core/select`
 - `@malva-ui/core/sidebar`
 - `@malva-ui/core/slider`
+- `@malva-ui/core/speed-dial`
 - `@malva-ui/core/status-indicator`
 - `@malva-ui/core/switch`
 - `@malva-ui/core/tabs`

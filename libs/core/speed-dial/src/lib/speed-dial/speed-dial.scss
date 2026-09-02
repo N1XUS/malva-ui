@@ -1,0 +1,211 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-speed-dial;
+
+  // The trigger lives in the page; the panel, list, items and backdrop live in
+  // the CDK overlay container. Every rule below is therefore written flat
+  // (`.mlv-speed-dial__panel`, not `.mlv-speed-dial .mlv-speed-dial__panel`).
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-font-size-m),
+      0,
+      0
+    );
+
+    position: relative;
+    display: inline-flex;
+
+    // With `mask`, the dimming backdrop sits in the overlay container (z 1000)
+    // between the page and the actions. Lifting the host above the container
+    // keeps the trigger legible through the mask. An ancestor that opens its own
+    // stacking context (transform, sticky + z-index, …) defeats this lift — the
+    // trigger is then dimmed with the rest of the page.
+    &--masked {
+      z-index: var(--mlv-z-max);
+    }
+
+    &__trigger {
+      box-shadow: var(--mlv-shadow-floating);
+    }
+
+    // Two stacked glyphs — the "open" glyph (default `+`, or the projected
+    // `[mlvSpeedDialTriggerIcon]`) and the built-in `×` — crossfade while the
+    // dial opens: the outgoing one fades, shrinks and quarter-turns away, the
+    // incoming one does the same in reverse.
+    &__trigger-icon {
+      display: inline-grid;
+      place-items: center;
+    }
+
+    &__trigger-glyph {
+      grid-area: 1 / 1;
+      display: inline-flex;
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-out),
+        transform var(--mlv-duration-normal) var(--mlv-ease-spring);
+
+      &--close {
+        opacity: 0;
+        transform: scale(0.85) rotate(-90deg);
+      }
+
+      // `mlv-button` sizes an icon-only glyph with `.mlv-button__text >
+      // svg:only-child`; the glyphs here sit one wrapper deeper, so pick the
+      // density-driven token up explicitly (covers a projected svg too).
+      > svg {
+        inline-size: var(--mlv-icon-font-size);
+        block-size: var(--mlv-icon-font-size);
+      }
+    }
+
+    &__trigger-icon--open &__trigger-glyph--open {
+      opacity: 0;
+      transform: scale(0.85) rotate(90deg);
+    }
+
+    &__trigger-icon--open &__trigger-glyph--close {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+
+    // The CDK pane (`panelClass`) is sized to the trigger's box and centred on
+    // it — i.e. it sits exactly on top of the trigger. It must not catch
+    // pointer events, or the trigger's own "close" click would land on the pane
+    // instead; the actions opt back in below. `!important` is required: the
+    // CDK ships an *unlayered* `.cdk-overlay-pane { pointer-events: auto }`,
+    // which beats every layered declaration except an important one.
+    &__pane {
+      pointer-events: none !important;
+    }
+
+    // "Centre of the panel" is the trigger's centre, so the actions can be laid
+    // out relative to it.
+    &__panel {
+      position: relative;
+      inline-size: 100%;
+      block-size: 100%;
+      pointer-events: none;
+    }
+
+    &__list {
+      position: absolute;
+      display: flex;
+      gap: var(--mlv-spacing-2);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      pointer-events: none;
+
+      // These modifiers are the *resolved* (physical) side: the component maps
+      // the logical `direction` input through the reading direction first, so
+      // `left` under RTL arrives here as `--linear-right`. The offsets can
+      // therefore stay physical.
+      &--linear-up {
+        bottom: calc(100% + var(--mlv-spacing-2));
+        left: 50%;
+        flex-direction: column-reverse;
+        align-items: center;
+        translate: -50% 0;
+      }
+
+      &--linear-down {
+        top: calc(100% + var(--mlv-spacing-2));
+        left: 50%;
+        flex-direction: column;
+        align-items: center;
+        translate: -50% 0;
+      }
+
+      // `row`/`row-reverse` follow the inline axis, and the overlay pane
+      // carries the trigger's `dir`. Flip them under RTL so the first action
+      // always sits nearest the trigger regardless of reading direction.
+      &--linear-left {
+        top: 50%;
+        right: calc(100% + var(--mlv-spacing-2));
+        flex-direction: row-reverse;
+        align-items: center;
+        translate: 0 -50%;
+
+        @include mixins.rtl {
+          flex-direction: row;
+        }
+      }
+
+      &--linear-right {
+        top: 50%;
+        left: calc(100% + var(--mlv-spacing-2));
+        flex-direction: row;
+        align-items: center;
+
+        @include mixins.rtl {
+          flex-direction: row-reverse;
+        }
+        translate: 0 -50%;
+      }
+
+      &--radial {
+        inset: 0;
+        display: block;
+      }
+    }
+
+    // Closed state of every action: collapsed onto the trigger and invisible.
+    // The stagger is one shared per-item delay (`--mlv-speed-dial-stagger`,
+    // from `transitionDelay`) multiplied by the item's `--mlv-stagger-index`,
+    // which the component sets ascending while opening and descending while
+    // closing so the farthest action leaves first.
+    &__item {
+      opacity: 0;
+      pointer-events: auto;
+      transform: scale(0.4);
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-out),
+        transform var(--mlv-duration-normal) var(--mlv-ease-spring);
+      transition-delay: calc(
+        var(--mlv-speed-dial-stagger, 30ms) * var(--mlv-stagger-index, 0)
+      );
+    }
+
+    &__list--radial &__item {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      translate: -50% -50%;
+    }
+
+    &__panel--open &__item {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    &__panel--open &__list--radial &__item {
+      transform: translate(
+          var(--mlv-speed-dial-item-x, 0),
+          var(--mlv-speed-dial-item-y, 0)
+        )
+        scale(1);
+    }
+
+    &__action {
+      box-shadow: var(--mlv-shadow-raised);
+    }
+
+    // CDK backdrop (`backdropClass`) — the CDK fades it in/out itself.
+    &__backdrop {
+      background-color: var(--mlv-background-overlay);
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+
+  // The shared mixin zeroes durations; the stagger is a delay and needs its own reset.
+  @include mixins.motion-reduced {
+    .#{$block}__item {
+      transition-delay: 0ms !important;
+    }
+  }
+}

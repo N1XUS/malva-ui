@@ -346,6 +346,11 @@ export const pageRoutes = [
       import('./pages/slider/index').then((m) => m.SliderPageComponent),
   },
   {
+    path: 'speed-dial',
+    loadComponent: () =>
+      import('./pages/speed-dial/index').then((m) => m.SpeedDialPageComponent),
+  },
+  {
     path: 'split-pane',
     loadComponent: () =>
       import('./pages/split-pane/index').then((m) => m.SplitPanePageComponent),
@@ -543,6 +548,7 @@ export type DocsIconName =
   | 'chevrons-down-up'
   | 'chevrons-up-down'
   | 'circle-dot'
+  | 'circle-plus'
   | 'circle-user'
   | 'clipboard-check'
   | 'clipboard-list'
@@ -643,6 +649,7 @@ const GROUP_DEFINITIONS = [
       'copy-to-clipboard',
       'icon-toggle',
       'link',
+      'speed-dial',
     ],
   },
   {
@@ -849,6 +856,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   sidebar: 'panel-left',
   skeleton: 'rectangle-horizontal',
   slider: 'sliders-horizontal',
+  'speed-dial': 'circle-plus',
   'split-pane': 'columns-2',
   'status-indicator': 'radar',
   stepper: 'list-checks',

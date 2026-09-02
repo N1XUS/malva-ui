@@ -1,0 +1,24 @@
+.stage {
+  &__cell {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    min-height: 14rem;
+    padding: var(--mlv-spacing-4);
+    border: var(--mlv-stroke-width) dashed var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-l);
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-4);
+    margin-top: var(--mlv-spacing-4);
+  }
+
+  &__state {
+    font-family: var(--mlv-typography-family-code);
+    font-size: var(--mlv-typography-body-s-size);
+    color: var(--mlv-text-secondary);
+  }
+}
