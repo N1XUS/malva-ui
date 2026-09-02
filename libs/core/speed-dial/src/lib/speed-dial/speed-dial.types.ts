@@ -24,12 +24,14 @@ export type MlvSpeedDialDirection =
   | 'down-right';
 
 /**
- * What opens the dial. `'click'` toggles on the trigger's click (and keyboard
- * activation). `'hover'` additionally opens when a mouse or pen pointer enters
- * the trigger and closes shortly after it has left both the trigger and the
- * actions; touch pointers keep the click behaviour.
+ * What opens the dial — the same vocabulary as `[mlvPopupTrigger]`'s
+ * `triggerOn`. `'click'` toggles on the trigger's click and keyboard
+ * activation and is always honoured. `'hover'` also opens when a mouse or pen
+ * pointer enters the trigger and closes shortly after it has left both the
+ * trigger and the actions. `'focus'` also opens when the trigger receives
+ * focus and closes when focus leaves both the trigger and the actions.
  */
-export type MlvSpeedDialOpenOn = 'click' | 'hover';
+export type MlvSpeedDialTriggerType = 'click' | 'hover' | 'focus';
 
 /** One action rendered by `mlv-speed-dial`. */
 export interface MlvSpeedDialItem {

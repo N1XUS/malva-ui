@@ -38,7 +38,7 @@ import type {
   MlvSpeedDialDirection,
   MlvSpeedDialItem,
   MlvSpeedDialItemEvent,
-  MlvSpeedDialOpenOn,
+  MlvSpeedDialTriggerType,
   MlvSpeedDialType,
 } from './speed-dial.types';
 
@@ -240,6 +240,9 @@ interface MlvSpeedDialEntry {
     '[class.mlv-speed-dial--disabled]': 'disabled()',
     '(pointerenter)': '_onHoverEnter($event)',
     '(pointerleave)': '_onHoverLeave($event)',
+    '(focusin)': '_onFocusIn()',
+    '(focusout)': '_onFocusOut($event)',
+    '(pointerdown)': '_onPointerDown()',
   },
 })
 export class MlvSpeedDial {
@@ -252,13 +255,29 @@ export class MlvSpeedDial {
   readonly type = input<MlvSpeedDialType>('linear');
 
   /**
-   * What opens the dial. `'click'` (default) toggles on the trigger's click.
-   * `'hover'` additionally opens when a mouse/pen pointer enters the trigger
-   * and closes 200 ms after it has left both the trigger and the actions.
-   * Touch pointers are ignored (a tap still toggles), hover never moves
-   * focus, and click/keyboard keep working.
+   * What opens the dial — one type or several, like `[mlvPopupTrigger]`'s
+   * `triggerOn`. The trigger's click (pointer or Enter/Space) always toggles,
+   * whatever is listed, so the menu button stays keyboard- and
+   * touch-operable; `'hover'` and `'focus'` add openers on top:
+   *
+   * - `'hover'` opens when a mouse/pen pointer enters the trigger and closes
+   *   200 ms after it has left both the trigger and the actions (touch
+   *   pointers are ignored, focus never moves).
+   * - `'focus'` opens when the trigger receives focus and closes when focus
+   *   leaves both the trigger and the actions. Focus is not moved into the
+   *   menu; ArrowDown/ArrowUp do that as usual.
    */
-  readonly openOn = input<MlvSpeedDialOpenOn>('click');
+  readonly triggerOn = input<
+    MlvSpeedDialTriggerType | readonly MlvSpeedDialTriggerType[]
+  >('click');
+
+  /** @private `triggerOn` normalised to a set. */
+  private readonly _triggers = computed(() => {
+    const value = this.triggerOn();
+    return new Set<MlvSpeedDialTriggerType>(
+      typeof value === 'string' ? [value] : value,
+    );
+  });
 
   /**
    * Where the actions unfold. Cardinal values drive `linear`/`semi-circle`;
@@ -428,8 +447,31 @@ export class MlvSpeedDial {
   /** @private Pending overlay disposal scheduled after the exit transition. */
   private _closeTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** @private Pending hover close (`openOn === 'hover'`), or `null`. */
+  /** @private Pending hover close (`'hover'` trigger type), or `null`. */
   private _hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * @private Set while the component itself moves focus back to the trigger
+   * (Escape, keyboard activation, Tab, hover close), so that focus does not
+   * read as a `'focus'`-trigger open and reopen the dial just closed.
+   */
+  private _suppressFocusOpen = false;
+
+  /**
+   * @private A pointer press is in progress on the trigger (`pointerdown`
+   * seen, no `click`/`pointerleave` yet). Only then does a `'focus'` open
+   * count as caused by the press — see `_focusJustOpened`.
+   */
+  private _pointerPressed = false;
+
+  /**
+   * @private Set when a `'focus'` trigger opened the dial because of a pointer
+   * press (browsers that focus a button on `mousedown` fire `focusin` before
+   * `click`); consumed by that press's `click` so it does not toggle the dial
+   * shut again. A keyboard focus-open never sets it, so the next mouse click
+   * is a normal toggle.
+   */
+  private _focusJustOpened = false;
 
   /** @private Subscriptions and listeners torn down with the overlay. */
   private _cleanups: (() => void)[] = [];
@@ -549,7 +591,7 @@ export class MlvSpeedDial {
 
   /**
    * @protected Opens on a mouse/pen pointer entering the host or the panel
-   * while `openOn === 'hover'`; cancels a pending hover close.
+   * while `'hover'` is a trigger type; cancels a pending hover close.
    */
   protected _onHoverEnter(event: PointerEvent): void {
     if (!this._hoverApplies(event)) return;
@@ -562,13 +604,16 @@ export class MlvSpeedDial {
    * the panel. Re-entering either within the grace period cancels it.
    */
   protected _onHoverLeave(event: PointerEvent): void {
+    // A press that is dragged off the trigger never clicks; forget it.
+    this._pointerPressed = false;
+    this._focusJustOpened = false;
     if (!this._hoverApplies(event)) return;
     this._cancelHoverClose();
     this._hoverCloseTimer = setTimeout(() => {
       this._hoverCloseTimer = null;
       // Re-check at fire time: the mode may have flipped during the grace
       // period, in which case the pointer no longer owns the open state.
-      if (this.openOn() !== 'hover') return;
+      if (!this._hasTrigger('hover')) return;
       // Keyboard focus may have moved into the menu meanwhile; disposing the
       // overlay under it would drop focus to <body>.
       const active = document.activeElement;
@@ -583,10 +628,56 @@ export class MlvSpeedDial {
   /** @private Hover applies only in hover mode, for non-touch pointers, while enabled. */
   private _hoverApplies(event: PointerEvent): boolean {
     return (
-      this.openOn() === 'hover' &&
+      this._hasTrigger('hover') &&
       event.pointerType !== 'touch' &&
       !this.disabled()
     );
+  }
+
+  /** @private Whether `type` is one of the configured trigger types. */
+  private _hasTrigger(type: MlvSpeedDialTriggerType): boolean {
+    return this._triggers().has(type);
+  }
+
+  // ─── Focus handlers (host and panel) ──────────────────────────────────────
+
+  /** @protected Marks a pointer press on the trigger (see `_pointerPressed`). */
+  protected _onPointerDown(): void {
+    this._pointerPressed = true;
+  }
+
+  /**
+   * @protected Opens when the trigger receives focus while `'focus'` is a
+   * trigger type. Focus stays on the trigger.
+   */
+  protected _onFocusIn(): void {
+    if (
+      !this._hasTrigger('focus') ||
+      this._suppressFocusOpen ||
+      this.disabled()
+    ) {
+      return;
+    }
+    this._focusJustOpened = this._pointerPressed && !this.opened();
+    this.open();
+  }
+
+  /**
+   * @protected Closes when focus leaves both the trigger and the actions
+   * while `'focus'` is a trigger type. Focus moving between the trigger and
+   * the (portaled) actions is not a leave.
+   */
+  protected _onFocusOut(event: FocusEvent): void {
+    if (!this._hasTrigger('focus')) return;
+    const next = event.relatedTarget;
+    if (
+      next instanceof Node &&
+      (this._hostRef.nativeElement.contains(next) ||
+        this._overlayRef?.overlayElement.contains(next))
+    ) {
+      return;
+    }
+    this.close();
   }
 
   /** @private Clears a pending hover close. */
@@ -608,6 +699,13 @@ export class MlvSpeedDial {
     if (this.disabled()) return;
     // An explicit click wins over a pending hover close.
     this._cancelHoverClose();
+    // The click of the very pointer press that focused (and thereby opened)
+    // the dial is not a toggle request.
+    this._pointerPressed = false;
+    if (this._focusJustOpened) {
+      this._focusJustOpened = false;
+      if (this.opened()) return;
+    }
     const willOpen = !this.opened();
     if (willOpen && event.detail === 0) this._pendingFocus = 'first';
     this.toggle();
@@ -615,6 +713,8 @@ export class MlvSpeedDial {
 
   /** @protected ArrowDown/ArrowUp open the dial (if closed) and focus the first/last action. */
   protected _onTriggerKeydown(event: KeyboardEvent): void {
+    // A key press after a focus-open means the next Enter/Space is deliberate.
+    this._focusJustOpened = false;
     if (this.disabled()) return;
     let target: 'first' | 'last' | null = null;
     if (event.key === 'ArrowDown') target = 'first';
@@ -859,6 +959,12 @@ export class MlvSpeedDial {
   /** @private Closes and returns focus to the trigger (Escape, keyboard activation). */
   private _closeAndRefocus(): void {
     this.close();
-    this._triggerRef().nativeElement.focus();
+    // `focusin` fires synchronously inside `focus()`.
+    this._suppressFocusOpen = true;
+    try {
+      this._triggerRef().nativeElement.focus();
+    } finally {
+      this._suppressFocusOpen = false;
+    }
   }
 }

@@ -17,6 +17,6 @@ export class SpeedDialPageComponent {
   readonly meta: DocPageMeta = {
     title: 'Speed Dial',
     description:
-      'Floating action button that unfolds into related actions — in a line or on a circle, semi-circle or quarter-circle arc — with a staggered entrance, an optional page mask, click or hover opening and full menu-button keyboard support.',
+      'Floating action button that unfolds into related actions — in a line or on a circle, semi-circle or quarter-circle arc — with a staggered entrance, an optional page mask, click, hover or focus opening and full menu-button keyboard support.',
   };
 }

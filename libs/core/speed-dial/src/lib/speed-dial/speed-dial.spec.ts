@@ -20,7 +20,7 @@ import type {
   MlvSpeedDialDirection,
   MlvSpeedDialItem,
   MlvSpeedDialItemEvent,
-  MlvSpeedDialOpenOn,
+  MlvSpeedDialTriggerType,
   MlvSpeedDialType,
 } from './speed-dial.types';
 
@@ -62,7 +62,7 @@ function fireKey(el: Element, key: string): KeyboardEvent {
       [transitionDelay]="delay()"
       [radius]="radius()"
       [mlvDensity]="density()"
-      [openOn]="openOn()"
+      [triggerOn]="triggerOn()"
       [(opened)]="opened"
       ariaLabel="Quick actions"
       (itemSelect)="selected.push($event)"
@@ -89,7 +89,9 @@ class SpeedDialHost {
   readonly delay = signal(0);
   readonly radius = signal(80);
   readonly density = signal<MlvDensity | undefined>(undefined);
-  readonly openOn = signal<MlvSpeedDialOpenOn>('click');
+  readonly triggerOn = signal<
+    MlvSpeedDialTriggerType | readonly MlvSpeedDialTriggerType[]
+  >('click');
   readonly opened = signal(false);
 }
 
@@ -515,7 +517,7 @@ describe('MlvSpeedDial', () => {
     });
   });
 
-  describe('hover trigger (openOn="hover")', () => {
+  describe('hover trigger (triggerOn="hover")', () => {
     const HOVER_SLACK_MS = 280;
 
     function hostEl(): HTMLElement {
@@ -531,7 +533,7 @@ describe('MlvSpeedDial', () => {
     });
 
     it('opens on a mouse pointerenter and closes shortly after the pointer leaves', async () => {
-      host.openOn.set('hover');
+      host.triggerOn.set('hover');
       fixture.detectChanges();
 
       firePointer(hostEl(), 'pointerenter');
@@ -554,7 +556,7 @@ describe('MlvSpeedDial', () => {
     });
 
     it('stays open while the pointer moves from the trigger onto the actions', async () => {
-      host.openOn.set('hover');
+      host.triggerOn.set('hover');
       fixture.detectChanges();
       firePointer(hostEl(), 'pointerenter');
       fixture.detectChanges();
@@ -576,7 +578,7 @@ describe('MlvSpeedDial', () => {
     });
 
     it('re-entering during the grace period cancels the close', async () => {
-      host.openOn.set('hover');
+      host.triggerOn.set('hover');
       fixture.detectChanges();
       firePointer(hostEl(), 'pointerenter');
       fixture.detectChanges();
@@ -590,7 +592,7 @@ describe('MlvSpeedDial', () => {
     });
 
     it('ignores touch pointers so a tap still toggles through click', async () => {
-      host.openOn.set('hover');
+      host.triggerOn.set('hover');
       fixture.detectChanges();
       firePointer(hostEl(), 'pointerenter', 'touch');
       fixture.detectChanges();
@@ -606,7 +608,7 @@ describe('MlvSpeedDial', () => {
     });
 
     it('does not open on hover while disabled', async () => {
-      host.openOn.set('hover');
+      host.triggerOn.set('hover');
       host.disabled.set(true);
       fixture.detectChanges();
       firePointer(hostEl(), 'pointerenter');
@@ -615,15 +617,15 @@ describe('MlvSpeedDial', () => {
       expect(host.opened()).toBe(false);
     });
 
-    it('flipping openOn to click during the grace period keeps the dial open', async () => {
-      host.openOn.set('hover');
+    it('flipping triggerOn to click during the grace period keeps the dial open', async () => {
+      host.triggerOn.set('hover');
       fixture.detectChanges();
       firePointer(hostEl(), 'pointerenter');
       fixture.detectChanges();
       await fixture.whenStable();
 
       firePointer(hostEl(), 'pointerleave');
-      host.openOn.set('click');
+      host.triggerOn.set('click');
       fixture.detectChanges();
       await wait(HOVER_SLACK_MS);
       fixture.detectChanges();
@@ -632,7 +634,7 @@ describe('MlvSpeedDial', () => {
     });
 
     it('returns focus to the trigger when the hover close removes a focused action', async () => {
-      host.openOn.set('hover');
+      host.triggerOn.set('hover');
       fixture.detectChanges();
       firePointer(hostEl(), 'pointerenter');
       fixture.detectChanges();
@@ -651,7 +653,7 @@ describe('MlvSpeedDial', () => {
     });
 
     it('keeps the trigger lifted above the mask until the backdrop is gone', async () => {
-      host.openOn.set('hover');
+      host.triggerOn.set('hover');
       host.mask.set(true);
       fixture.detectChanges();
       firePointer(hostEl(), 'pointerenter');
@@ -682,7 +684,7 @@ describe('MlvSpeedDial', () => {
     });
 
     it('a click on the trigger while hover-open closes and wins over the pending hover close', async () => {
-      host.openOn.set('hover');
+      host.triggerOn.set('hover');
       fixture.detectChanges();
       firePointer(hostEl(), 'pointerenter');
       fixture.detectChanges();
@@ -698,6 +700,134 @@ describe('MlvSpeedDial', () => {
       firePointer(hostEl(), 'pointerleave');
       await wait(HOVER_SLACK_MS);
       fixture.detectChanges();
+      expect(host.opened()).toBe(false);
+    });
+  });
+
+  describe('focus trigger (triggerOn="focus")', () => {
+    let outside: HTMLButtonElement;
+
+    beforeEach(() => {
+      outside = document.createElement('button');
+      outside.textContent = 'outside';
+      document.body.appendChild(outside);
+    });
+
+    afterEach(() => outside.remove());
+
+    it('ignores focus in the default click mode', async () => {
+      trigger().focus();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+    });
+
+    it('opens when the trigger receives focus and closes when focus leaves the dial', async () => {
+      host.triggerOn.set('focus');
+      fixture.detectChanges();
+
+      trigger().focus();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+      expect(menu()).not.toBeNull();
+      // Focus stays on the trigger — the menu is not entered automatically.
+      expect(document.activeElement).toBe(trigger());
+
+      outside.focus();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+    });
+
+    it('keeps the dial open while focus moves into the actions, and Escape does not reopen it', async () => {
+      host.triggerOn.set('focus');
+      fixture.detectChanges();
+      trigger().focus();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+
+      fireKey(trigger(), 'ArrowDown');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(document.activeElement?.getAttribute('role')).toBe('menuitem');
+      expect(host.opened()).toBe(true);
+
+      fireKey(document.activeElement as Element, 'Escape');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+      // Escape parks focus on the trigger; that focus must not count as a
+      // focus-open, or Escape could never close a focus-triggered dial.
+      expect(document.activeElement).toBe(trigger());
+      await wait(50);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(false);
+    });
+
+    it('a pointer click that focused the trigger does not close what the focus just opened', async () => {
+      host.triggerOn.set('focus');
+      fixture.detectChanges();
+
+      // A real click is pointerdown → focus → click.
+      trigger().dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      trigger().focus();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+      trigger().click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+
+      // The next click is a deliberate toggle.
+      trigger().click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+    });
+
+    it('a keyboard focus-open is closed by the next mouse click', async () => {
+      host.triggerOn.set('focus');
+      fixture.detectChanges();
+
+      // Tab onto the trigger: focus without any pointer press.
+      trigger().focus();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+
+      trigger().dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      trigger().click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+    });
+
+    it('accepts several trigger types at once', async () => {
+      host.triggerOn.set(['hover', 'focus']);
+      fixture.detectChanges();
+      const hostEl = fixture.nativeElement.querySelector(
+        'mlv-speed-dial',
+      ) as HTMLElement;
+
+      firePointer(hostEl, 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+      firePointer(hostEl, 'pointerleave');
+      await wait(280);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(false);
+
+      trigger().focus();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+      outside.focus();
+      fixture.detectChanges();
+      await fixture.whenStable();
       expect(host.opened()).toBe(false);
     });
   });
