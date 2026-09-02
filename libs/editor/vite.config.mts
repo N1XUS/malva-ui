@@ -21,6 +21,7 @@ export default defineConfig(() => ({
       '../../scripts/testing/setup-strip-css-layers.js',
       '../../scripts/testing/setup-restore-dom-globals.js',
       'src/test-setup.ts',
+      '../../scripts/testing/setup-assert-zoneless.js',
     ],
     // Tiptap boots a real ProseMirror instance per fixture, so this suite's
     // slowest file legitimately runs ~3.7s uncontended — barely inside the 5s

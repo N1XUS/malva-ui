@@ -26,6 +26,7 @@ export default defineConfig(() => ({
       '../../scripts/testing/setup-strip-css-layers.js',
       '../../scripts/testing/setup-restore-dom-globals.js',
       'src/test-setup.ts',
+      '../../scripts/testing/setup-assert-zoneless.js',
     ],
     // This is by far the heaviest suite in the workspace: 36 files, 340 tests,
     // axe scans over whole showcase pages, and specs that lazy-load the editor

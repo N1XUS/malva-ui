@@ -12,13 +12,19 @@ import { MlvSelect } from './select';
 /**
  * Zoneless regression guard.
  *
- * Every Malva UI component is `OnPush` and signal-based, so the library is
- * meant to run under `provideZonelessChangeDetection()` — no `zone.js`. That
- * only holds while every asynchronous path (overlay attach, option commit,
- * value write-back) lands in a signal: a `setTimeout` or promise callback that
- * mutates a plain field repaints under `zone.js` and silently does nothing
- * without it. This renders the most overlay- and async-heavy control in the
- * library with zones removed and proves the DOM actually updates.
+ * The whole workspace test environment is zoneless — every project declares
+ * `setupTestBed({ zoneless: true })` and
+ * `scripts/testing/setup-assert-zoneless.js` fails the suite if the resolved
+ * injector says otherwise — so running without zones is no longer what makes
+ * this file worth keeping.
+ *
+ * What it pins is the library-side half of that contract: the mode only buys
+ * working components while every asynchronous path (overlay attach, option
+ * commit, value write-back) lands in a signal. A `setTimeout` or promise
+ * callback that mutates a plain field would repaint under `zone.js` and
+ * silently do nothing here, and a spec that asserted component state alone
+ * would not notice. This one drives the most overlay- and async-heavy control
+ * in the library through the DOM and reads the rendered text back.
  */
 @Component({
   selector: 'mlv-zoneless-host',
@@ -51,7 +57,7 @@ describe('MlvSelect — zoneless', () => {
 
   afterEach(() => overlayContainer.ngOnDestroy());
 
-  it('opens its panel and commits a selection without zone.js', async () => {
+  it('repaints its panel and trigger through signal writes alone', async () => {
     const fixture = TestBed.createComponent(ZonelessHost);
     await fixture.whenStable();
 
@@ -83,7 +89,7 @@ describe('MlvSelect — zoneless', () => {
     expect(trigger.textContent).toContain('Banana');
   });
 
-  it('reflects an external signal change into the trigger without zone.js', async () => {
+  it('reflects an external signal change into the trigger', async () => {
     const fixture = TestBed.createComponent(ZonelessHost);
     await fixture.whenStable();
 

@@ -21,6 +21,7 @@ export default defineConfig(() => ({
       '../../scripts/testing/setup-strip-css-layers.js',
       '../../scripts/testing/setup-restore-dom-globals.js',
       'src/test-setup.ts',
+      '../../scripts/testing/setup-assert-zoneless.js',
     ],
     reporters: ['default'],
     coverage: {
