@@ -79,10 +79,13 @@ jobs:
       # heap message — the kernel, not V8) and starved the neighbours it did not
       # kill. Running it in its own step costs little: everything it depends on
       # is already a cache hit from the step above.
+      # `--projects` is a `run-many` filter, not an `affected` one: `nx affected`
+      # forwards it to the target's own command instead (`tsc` answers with
+      # "error TS5023: Unknown compiler option '--projects=docs'") and still
+      # runs the whole affected graph, which defeats the isolation. So this is
+      # `run-many`, unconditionally. Nothing is lost by not scoping it to the
+      # affected set: `docs` depends on nearly every library, so it is affected
+      # by almost any change, and when it genuinely is not, every task here is a
+      # cache hit.
       - name: Verify the docs app
-        if: github.event_name == 'pull_request'
-        run: npx nx affected -t lint test build typecheck --base=${{ github.event.pull_request.base.sha }} --head=HEAD --projects=docs
-
-      - name: Verify the docs app
-        if: github.event_name != 'pull_request'
         run: npx nx run-many -t lint test build typecheck --projects=docs
