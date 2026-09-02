@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  NgZone,
   DOCUMENT,
   ElementRef,
   PLATFORM_ID,
@@ -28,6 +29,7 @@ import { LucideDynamicIcon, LucidePlus, LucideX } from '@lucide/angular';
 import { MlvButton, type MlvButtonVariant } from '@malva-ui/core/button';
 import { MlvTooltip, type MlvTooltipPlacement } from '@malva-ui/core/tooltip';
 import { MlvRtlService, mlvNextId } from '@malva-ui/cdk/utils';
+import { Subscription, fromEvent } from 'rxjs';
 import {
   MLV_DENSITY_CONTEXT,
   MlvDensityService,
@@ -238,11 +240,6 @@ interface MlvSpeedDialEntry {
     '[class.mlv-speed-dial--open]': 'opened()',
     '[class.mlv-speed-dial--masked]': '_overlayAttached() && mask()',
     '[class.mlv-speed-dial--disabled]': 'disabled()',
-    '(pointerenter)': '_onHoverEnter($event)',
-    '(pointerleave)': '_onHoverLeave($event)',
-    '(focusin)': '_onFocusIn()',
-    '(focusout)': '_onFocusOut($event)',
-    '(pointerdown)': '_onPointerDown()',
   },
 })
 export class MlvSpeedDial {
@@ -271,13 +268,22 @@ export class MlvSpeedDial {
     MlvSpeedDialTriggerType | readonly MlvSpeedDialTriggerType[]
   >('click');
 
-  /** @private `triggerOn` normalised to a set. */
-  private readonly _triggers = computed(() => {
-    const value = this.triggerOn();
-    return new Set<MlvSpeedDialTriggerType>(
-      typeof value === 'string' ? [value] : value,
-    );
-  });
+  /**
+   * @private `triggerOn` normalised to a set. Compared by content, so a
+   * consumer that binds a fresh array on every change-detection pass does not
+   * churn the listeners registered from it.
+   */
+  private readonly _triggers = computed(
+    () => {
+      const value = this.triggerOn();
+      return new Set<MlvSpeedDialTriggerType>(
+        typeof value === 'string' ? [value] : value,
+      );
+    },
+    {
+      equal: (a, b) => a.size === b.size && [...a].every((type) => b.has(type)),
+    },
+  );
 
   /**
    * Where the actions unfold. Cardinal values drive `linear`/`semi-circle`;
@@ -394,6 +400,9 @@ export class MlvSpeedDial {
 
   /** @private Overlay creation touches the DOM; skipped during server rendering. */
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
+  /** @private Hover/focus listeners are registered outside the zone (see the constructor). */
+  private readonly _zone = inject(NgZone);
 
   /** @private Global density fallback for the detached panel. */
   private readonly _densityService = inject(MlvDensityService);
@@ -549,6 +558,27 @@ export class MlvSpeedDial {
   });
 
   constructor() {
+    // Hover/focus listeners are plain `fromEvent` subscriptions, registered
+    // only for the trigger types in use: a click-mode dial adds no listeners
+    // at all, and a handler that early-returns costs no change-detection pass
+    // (an Angular template/host listener would schedule one before running).
+    // They are subscribed outside the zone so a zone.js consumer app does not
+    // tick on every boundary crossing either; the signal writes in the
+    // handlers still schedule change detection on their own.
+    effect((onCleanup) => {
+      const triggers = this._triggers();
+      // A press or focus-open remembered under the previous trigger types
+      // must not leak into the new ones (the listener that would clear it
+      // may not exist any more).
+      this._pointerPressed = false;
+      this._focusJustOpened = false;
+      if (!this._isBrowser) return;
+      const subscription = this._zone.runOutsideAngular(() =>
+        this._subscribeHostListeners(triggers),
+      );
+      onCleanup(() => subscription.unsubscribe());
+    });
+
     effect(() => {
       const opened = this.opened();
       const disabled = this.disabled();
@@ -590,20 +620,20 @@ export class MlvSpeedDial {
   // ─── Hover handlers (host and panel) ──────────────────────────────────────
 
   /**
-   * @protected Opens on a mouse/pen pointer entering the host or the panel
+   * @private Opens on a mouse/pen pointer entering the host or the panel
    * while `'hover'` is a trigger type; cancels a pending hover close.
    */
-  protected _onHoverEnter(event: PointerEvent): void {
+  private _onHoverEnter(event: PointerEvent): void {
     if (!this._hoverApplies(event)) return;
     this._cancelHoverClose();
     this.open();
   }
 
   /**
-   * @protected Schedules the hover close when the pointer leaves the host or
+   * @private Schedules the hover close when the pointer leaves the host or
    * the panel. Re-entering either within the grace period cancels it.
    */
-  protected _onHoverLeave(event: PointerEvent): void {
+  private _onHoverLeave(event: PointerEvent): void {
     // A press that is dragged off the trigger never clicks; forget it.
     this._pointerPressed = false;
     this._focusJustOpened = false;
@@ -634,6 +664,48 @@ export class MlvSpeedDial {
     );
   }
 
+  /**
+   * @private Subscribes the host's hover/focus listeners for `triggers` and
+   * returns the composite subscription. Called outside the zone.
+   */
+  private _subscribeHostListeners(
+    triggers: ReadonlySet<MlvSpeedDialTriggerType>,
+  ): Subscription {
+    const host = this._hostRef.nativeElement;
+    const subscription = new Subscription();
+    if (triggers.has('hover')) {
+      subscription.add(
+        fromEvent<PointerEvent>(host, 'pointerenter').subscribe((event) =>
+          this._onHoverEnter(event),
+        ),
+      );
+    }
+    if (triggers.has('focus')) {
+      subscription.add(
+        fromEvent(host, 'focusin').subscribe(() => this._onFocusIn()),
+      );
+      subscription.add(
+        fromEvent<FocusEvent>(host, 'focusout').subscribe((event) =>
+          this._onFocusOut(event),
+        ),
+      );
+      subscription.add(
+        fromEvent(host, 'pointerdown').subscribe(() => {
+          this._pointerPressed = true;
+        }),
+      );
+    }
+    if (triggers.has('hover') || triggers.has('focus')) {
+      // Hover close, and forgetting a press dragged off the trigger.
+      subscription.add(
+        fromEvent<PointerEvent>(host, 'pointerleave').subscribe((event) =>
+          this._onHoverLeave(event),
+        ),
+      );
+    }
+    return subscription;
+  }
+
   /** @private Whether `type` is one of the configured trigger types. */
   private _hasTrigger(type: MlvSpeedDialTriggerType): boolean {
     return this._triggers().has(type);
@@ -641,16 +713,11 @@ export class MlvSpeedDial {
 
   // ─── Focus handlers (host and panel) ──────────────────────────────────────
 
-  /** @protected Marks a pointer press on the trigger (see `_pointerPressed`). */
-  protected _onPointerDown(): void {
-    this._pointerPressed = true;
-  }
-
   /**
-   * @protected Opens when the trigger receives focus while `'focus'` is a
+   * @private Opens when the trigger receives focus while `'focus'` is a
    * trigger type. Focus stays on the trigger.
    */
-  protected _onFocusIn(): void {
+  private _onFocusIn(): void {
     if (
       !this._hasTrigger('focus') ||
       this._suppressFocusOpen ||
@@ -663,11 +730,11 @@ export class MlvSpeedDial {
   }
 
   /**
-   * @protected Closes when focus leaves both the trigger and the actions
+   * @private Closes when focus leaves both the trigger and the actions
    * while `'focus'` is a trigger type. Focus moving between the trigger and
    * the (portaled) actions is not a leave.
    */
-  protected _onFocusOut(event: FocusEvent): void {
+  private _onFocusOut(event: FocusEvent): void {
     if (!this._hasTrigger('focus')) return;
     const next = event.relatedTarget;
     if (
@@ -859,10 +926,34 @@ export class MlvSpeedDial {
         event.preventDefault();
         this._closeAndRefocus();
       });
+      // The panel's hover/focus listeners live only while the overlay does;
+      // the handlers gate on the trigger types themselves, so a `triggerOn`
+      // change while open needs no re-registration.
+      const panelEl = overlayRef.overlayElement;
+      const panel = this._zone.runOutsideAngular(() => {
+        const subscription = new Subscription();
+        subscription.add(
+          fromEvent<PointerEvent>(panelEl, 'pointerenter').subscribe((event) =>
+            this._onHoverEnter(event),
+          ),
+        );
+        subscription.add(
+          fromEvent<PointerEvent>(panelEl, 'pointerleave').subscribe((event) =>
+            this._onHoverLeave(event),
+          ),
+        );
+        subscription.add(
+          fromEvent<FocusEvent>(panelEl, 'focusout').subscribe((event) =>
+            this._onFocusOut(event),
+          ),
+        );
+        return subscription;
+      });
       this._cleanups.push(
         () => backdrop.unsubscribe(),
         () => outside.unsubscribe(),
         () => keys.unsubscribe(),
+        () => panel.unsubscribe(),
       );
 
       // Flush the freshly attached panel's closed styles before flipping to the
