@@ -42,6 +42,8 @@
     [class]="_panelClass()"
     [style.--mlv-speed-dial-radius]="radius() + 'px'"
     [style.--mlv-speed-dial-stagger]="transitionDelay() + 'ms'"
+    (pointerenter)="_onHoverEnter($event)"
+    (pointerleave)="_onHoverLeave($event)"
   >
     <ul
       role="menu"

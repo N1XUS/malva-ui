@@ -20,12 +20,24 @@ import type {
   MlvSpeedDialDirection,
   MlvSpeedDialItem,
   MlvSpeedDialItemEvent,
+  MlvSpeedDialOpenOn,
   MlvSpeedDialType,
 } from './speed-dial.types';
 
 /** Real-timer wait — the overlay detaches after the close transition settles. */
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** jsdom has no `PointerEvent`; a plain event with `pointerType` is enough for the handlers. */
+function firePointer(
+  el: Element,
+  type: 'pointerenter' | 'pointerleave',
+  pointerType: 'mouse' | 'touch' | 'pen' = 'mouse',
+): void {
+  const event = new Event(type, { bubbles: false });
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  el.dispatchEvent(event);
 }
 
 function fireKey(el: Element, key: string): KeyboardEvent {
@@ -50,6 +62,7 @@ function fireKey(el: Element, key: string): KeyboardEvent {
       [transitionDelay]="delay()"
       [radius]="radius()"
       [mlvDensity]="density()"
+      [openOn]="openOn()"
       [(opened)]="opened"
       ariaLabel="Quick actions"
       (itemSelect)="selected.push($event)"
@@ -76,6 +89,7 @@ class SpeedDialHost {
   readonly delay = signal(0);
   readonly radius = signal(80);
   readonly density = signal<MlvDensity | undefined>(undefined);
+  readonly openOn = signal<MlvSpeedDialOpenOn>('click');
   readonly opened = signal(false);
 }
 
@@ -498,6 +512,193 @@ describe('MlvSpeedDial', () => {
       // then continues from the trigger's place in the page instead of
       // dropping out of the document.
       expect(document.activeElement).toBe(trigger());
+    });
+  });
+
+  describe('hover trigger (openOn="hover")', () => {
+    const HOVER_SLACK_MS = 280;
+
+    function hostEl(): HTMLElement {
+      return fixture.nativeElement.querySelector('mlv-speed-dial');
+    }
+
+    it('ignores pointerenter in the default click mode', async () => {
+      firePointer(hostEl(), 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+      expect(menu()).toBeNull();
+    });
+
+    it('opens on a mouse pointerenter and closes shortly after the pointer leaves', async () => {
+      host.openOn.set('hover');
+      fixture.detectChanges();
+
+      firePointer(hostEl(), 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+      expect(menu()).not.toBeNull();
+      // Hover must not steal focus from wherever it was.
+      expect(document.activeElement).not.toBe(trigger());
+
+      firePointer(hostEl(), 'pointerleave');
+      fixture.detectChanges();
+      // Grace period first — the pointer may be on its way to an action.
+      expect(host.opened()).toBe(true);
+
+      await wait(HOVER_SLACK_MS);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(false);
+      expect(trigger().getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('stays open while the pointer moves from the trigger onto the actions', async () => {
+      host.openOn.set('hover');
+      fixture.detectChanges();
+      firePointer(hostEl(), 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const panel = document.querySelector(
+        '.mlv-speed-dial__panel',
+      ) as HTMLElement;
+      firePointer(hostEl(), 'pointerleave');
+      firePointer(panel, 'pointerenter');
+      await wait(HOVER_SLACK_MS);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(true);
+
+      firePointer(panel, 'pointerleave');
+      await wait(HOVER_SLACK_MS);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(false);
+    });
+
+    it('re-entering during the grace period cancels the close', async () => {
+      host.openOn.set('hover');
+      fixture.detectChanges();
+      firePointer(hostEl(), 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      firePointer(hostEl(), 'pointerleave');
+      firePointer(hostEl(), 'pointerenter');
+      await wait(HOVER_SLACK_MS);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(true);
+    });
+
+    it('ignores touch pointers so a tap still toggles through click', async () => {
+      host.openOn.set('hover');
+      fixture.detectChanges();
+      firePointer(hostEl(), 'pointerenter', 'touch');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+
+      await openViaClick();
+      expect(host.opened()).toBe(true);
+      firePointer(hostEl(), 'pointerleave', 'touch');
+      await wait(HOVER_SLACK_MS);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(true);
+    });
+
+    it('does not open on hover while disabled', async () => {
+      host.openOn.set('hover');
+      host.disabled.set(true);
+      fixture.detectChanges();
+      firePointer(hostEl(), 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+    });
+
+    it('flipping openOn to click during the grace period keeps the dial open', async () => {
+      host.openOn.set('hover');
+      fixture.detectChanges();
+      firePointer(hostEl(), 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      firePointer(hostEl(), 'pointerleave');
+      host.openOn.set('click');
+      fixture.detectChanges();
+      await wait(HOVER_SLACK_MS);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(true);
+      expect(menu()).not.toBeNull();
+    });
+
+    it('returns focus to the trigger when the hover close removes a focused action', async () => {
+      host.openOn.set('hover');
+      fixture.detectChanges();
+      firePointer(hostEl(), 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      fireKey(trigger(), 'ArrowDown');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(document.activeElement?.getAttribute('role')).toBe('menuitem');
+
+      firePointer(hostEl(), 'pointerleave');
+      await wait(HOVER_SLACK_MS);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(false);
+      expect(document.activeElement).toBe(trigger());
+    });
+
+    it('keeps the trigger lifted above the mask until the backdrop is gone', async () => {
+      host.openOn.set('hover');
+      host.mask.set(true);
+      fixture.detectChanges();
+      firePointer(hostEl(), 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const hostClasses = () =>
+        (fixture.nativeElement.querySelector('.mlv-speed-dial') as HTMLElement)
+          .classList;
+      expect(hostClasses()).toContain('mlv-speed-dial--masked');
+
+      firePointer(hostEl(), 'pointerleave');
+      await wait(HOVER_SLACK_MS);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(false);
+      // The backdrop is still attached during the exit transition — the
+      // trigger must stay above it or the pointer cannot come back.
+      expect(
+        overlayContainerEl.querySelector('.mlv-speed-dial__backdrop'),
+      ).not.toBeNull();
+      expect(hostClasses()).toContain('mlv-speed-dial--masked');
+
+      await wait(320);
+      fixture.detectChanges();
+      expect(
+        overlayContainerEl.querySelector('.mlv-speed-dial__backdrop'),
+      ).toBeNull();
+      expect(hostClasses()).not.toContain('mlv-speed-dial--masked');
+    });
+
+    it('a click on the trigger while hover-open closes and wins over the pending hover close', async () => {
+      host.openOn.set('hover');
+      fixture.detectChanges();
+      firePointer(hostEl(), 'pointerenter');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(true);
+
+      trigger().click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+
+      // Pointer still on the trigger: leaving must not reopen anything.
+      firePointer(hostEl(), 'pointerleave');
+      await wait(HOVER_SLACK_MS);
+      fixture.detectChanges();
+      expect(host.opened()).toBe(false);
     });
   });
 

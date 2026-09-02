@@ -38,6 +38,7 @@ import type {
   MlvSpeedDialDirection,
   MlvSpeedDialItem,
   MlvSpeedDialItemEvent,
+  MlvSpeedDialOpenOn,
   MlvSpeedDialType,
 } from './speed-dial.types';
 
@@ -50,6 +51,13 @@ import type {
  * @private
  */
 const CLOSE_SETTLE_MS = 250;
+
+/**
+ * Grace period between the pointer leaving the trigger (or the actions) and a
+ * hover-opened dial closing — long enough to cross the gap between the trigger
+ * and the nearest action, short enough that the dial does not linger.
+ */
+const HOVER_CLOSE_DELAY_MS = 200;
 
 /** Arc (start → end, degrees, clockwise from 3 o'clock) per layout/direction. @private */
 const SEMI_CIRCLE_ARCS: Record<
@@ -228,8 +236,10 @@ interface MlvSpeedDialEntry {
   host: {
     class: 'mlv-speed-dial',
     '[class.mlv-speed-dial--open]': 'opened()',
-    '[class.mlv-speed-dial--masked]': 'opened() && mask()',
+    '[class.mlv-speed-dial--masked]': '_overlayAttached() && mask()',
     '[class.mlv-speed-dial--disabled]': 'disabled()',
+    '(pointerenter)': '_onHoverEnter($event)',
+    '(pointerleave)': '_onHoverLeave($event)',
   },
 })
 export class MlvSpeedDial {
@@ -240,6 +250,15 @@ export class MlvSpeedDial {
 
   /** Layout of the actions around the trigger. */
   readonly type = input<MlvSpeedDialType>('linear');
+
+  /**
+   * What opens the dial. `'click'` (default) toggles on the trigger's click.
+   * `'hover'` additionally opens when a mouse/pen pointer enters the trigger
+   * and closes 200 ms after it has left both the trigger and the actions.
+   * Touch pointers are ignored (a tap still toggles), hover never moves
+   * focus, and click/keyboard keep working.
+   */
+  readonly openOn = input<MlvSpeedDialOpenOn>('click');
 
   /**
    * Where the actions unfold. Cardinal values drive `linear`/`semi-circle`;
@@ -396,11 +415,21 @@ export class MlvSpeedDial {
    */
   private readonly _panelOpen = signal(false);
 
+  /**
+   * @protected Whether an overlay is attached — stays `true` through the exit
+   * transition, unlike `opened()`. Drives the `--masked` lift so the trigger
+   * stays above the backdrop until the backdrop is actually gone.
+   */
+  protected readonly _overlayAttached = signal(false);
+
   /** @private Live overlay while attached (also during the exit transition). */
   private _overlayRef: OverlayRef | null = null;
 
   /** @private Pending overlay disposal scheduled after the exit transition. */
   private _closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** @private Pending hover close (`openOn === 'hover'`), or `null`. */
+  private _hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** @private Subscriptions and listeners torn down with the overlay. */
   private _cleanups: (() => void)[] = [];
@@ -491,7 +520,10 @@ export class MlvSpeedDial {
       });
     });
 
-    inject(DestroyRef).onDestroy(() => this._disposeOverlay());
+    inject(DestroyRef).onDestroy(() => {
+      this._cancelHoverClose();
+      this._disposeOverlay();
+    });
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────
@@ -513,6 +545,57 @@ export class MlvSpeedDial {
     else this.open();
   }
 
+  // ─── Hover handlers (host and panel) ──────────────────────────────────────
+
+  /**
+   * @protected Opens on a mouse/pen pointer entering the host or the panel
+   * while `openOn === 'hover'`; cancels a pending hover close.
+   */
+  protected _onHoverEnter(event: PointerEvent): void {
+    if (!this._hoverApplies(event)) return;
+    this._cancelHoverClose();
+    this.open();
+  }
+
+  /**
+   * @protected Schedules the hover close when the pointer leaves the host or
+   * the panel. Re-entering either within the grace period cancels it.
+   */
+  protected _onHoverLeave(event: PointerEvent): void {
+    if (!this._hoverApplies(event)) return;
+    this._cancelHoverClose();
+    this._hoverCloseTimer = setTimeout(() => {
+      this._hoverCloseTimer = null;
+      // Re-check at fire time: the mode may have flipped during the grace
+      // period, in which case the pointer no longer owns the open state.
+      if (this.openOn() !== 'hover') return;
+      // Keyboard focus may have moved into the menu meanwhile; disposing the
+      // overlay under it would drop focus to <body>.
+      const active = document.activeElement;
+      if (active && this._overlayRef?.overlayElement.contains(active)) {
+        this._closeAndRefocus();
+      } else {
+        this.close();
+      }
+    }, HOVER_CLOSE_DELAY_MS);
+  }
+
+  /** @private Hover applies only in hover mode, for non-touch pointers, while enabled. */
+  private _hoverApplies(event: PointerEvent): boolean {
+    return (
+      this.openOn() === 'hover' &&
+      event.pointerType !== 'touch' &&
+      !this.disabled()
+    );
+  }
+
+  /** @private Clears a pending hover close. */
+  private _cancelHoverClose(): void {
+    if (this._hoverCloseTimer === null) return;
+    clearTimeout(this._hoverCloseTimer);
+    this._hoverCloseTimer = null;
+  }
+
   // ─── Trigger handlers ─────────────────────────────────────────────────────
 
   /**
@@ -523,6 +606,8 @@ export class MlvSpeedDial {
    */
   protected _onTriggerClick(event: MouseEvent): void {
     if (this.disabled()) return;
+    // An explicit click wins over a pending hover close.
+    this._cancelHoverClose();
     const willOpen = !this.opened();
     if (willOpen && event.detail === 0) this._pendingFocus = 'first';
     this.toggle();
@@ -656,6 +741,7 @@ export class MlvSpeedDial {
         panelClass: 'mlv-speed-dial__pane',
       });
       this._overlayRef = overlayRef;
+      this._overlayAttached.set(true);
 
       overlayRef.attach(
         new TemplatePortal(this._panelTemplate(), this._viewContainerRef),
@@ -723,6 +809,7 @@ export class MlvSpeedDial {
     this._cleanups = [];
     this._overlayRef?.dispose();
     this._overlayRef = null;
+    this._overlayAttached.set(false);
     this._panelOpen.set(false);
   }
 
