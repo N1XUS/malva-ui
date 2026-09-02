@@ -10,340 +10,137 @@
     "importHelpers": true,
     "target": "es2015",
     "module": "esnext",
-    "lib": [
-      "es2020",
-      "dom"
-    ],
+    "lib": ["es2020", "dom"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@malva-ui/cdk": [
-        "libs/cdk/src/index.ts"
-      ],
-      "@malva-ui/i18n": [
-        "libs/i18n/src/index.ts"
-      ],
-      "@malva-ui/editor": [
-        "libs/editor/src/index.ts"
-      ],
-      "@malva-ui/editor/ai": [
-        "libs/editor/ai/src/index.ts"
-      ],
-      "@malva-ui/i18n/de": [
-        "libs/i18n/de/src/index.ts"
-      ],
-      "@malva-ui/i18n/en": [
-        "libs/i18n/en/src/index.ts"
-      ],
-      "@malva-ui/i18n/es": [
-        "libs/i18n/es/src/index.ts"
-      ],
-      "@malva-ui/i18n/fr": [
-        "libs/i18n/fr/src/index.ts"
-      ],
-      "@malva-ui/i18n/id": [
-        "libs/i18n/id/src/index.ts"
-      ],
-      "@malva-ui/i18n/it": [
-        "libs/i18n/it/src/index.ts"
-      ],
-      "@malva-ui/i18n/ja": [
-        "libs/i18n/ja/src/index.ts"
-      ],
-      "@malva-ui/i18n/nl": [
-        "libs/i18n/nl/src/index.ts"
-      ],
-      "@malva-ui/i18n/pl": [
-        "libs/i18n/pl/src/index.ts"
-      ],
-      "@malva-ui/i18n/pt": [
-        "libs/i18n/pt/src/index.ts"
-      ],
-      "@malva-ui/i18n/ro": [
-        "libs/i18n/ro/src/index.ts"
-      ],
-      "@malva-ui/i18n/testing": [
-        "libs/i18n/testing/src/index.ts"
-      ],
-      "@malva-ui/i18n/tr": [
-        "libs/i18n/tr/src/index.ts"
-      ],
-      "@malva-ui/i18n/uk": [
-        "libs/i18n/uk/src/index.ts"
-      ],
-      "@malva-ui/i18n/zh-Hans": [
-        "libs/i18n/zh-Hans/src/index.ts"
-      ],
-      "@malva-ui/cdk/accessibility": [
-        "libs/cdk/accessibility/src/index.ts"
-      ],
-      "@malva-ui/cdk/data-source": [
-        "libs/cdk/data-source/src/index.ts"
-      ],
-      "@malva-ui/cdk/density": [
-        "libs/cdk/density/src/index.ts"
-      ],
+      "@malva-ui/cdk": ["libs/cdk/src/index.ts"],
+      "@malva-ui/i18n": ["libs/i18n/src/index.ts"],
+      "@malva-ui/editor": ["libs/editor/src/index.ts"],
+      "@malva-ui/editor/ai": ["libs/editor/ai/src/index.ts"],
+      "@malva-ui/i18n/de": ["libs/i18n/de/src/index.ts"],
+      "@malva-ui/i18n/en": ["libs/i18n/en/src/index.ts"],
+      "@malva-ui/i18n/es": ["libs/i18n/es/src/index.ts"],
+      "@malva-ui/i18n/fr": ["libs/i18n/fr/src/index.ts"],
+      "@malva-ui/i18n/id": ["libs/i18n/id/src/index.ts"],
+      "@malva-ui/i18n/it": ["libs/i18n/it/src/index.ts"],
+      "@malva-ui/i18n/ja": ["libs/i18n/ja/src/index.ts"],
+      "@malva-ui/i18n/nl": ["libs/i18n/nl/src/index.ts"],
+      "@malva-ui/i18n/pl": ["libs/i18n/pl/src/index.ts"],
+      "@malva-ui/i18n/pt": ["libs/i18n/pt/src/index.ts"],
+      "@malva-ui/i18n/ro": ["libs/i18n/ro/src/index.ts"],
+      "@malva-ui/i18n/testing": ["libs/i18n/testing/src/index.ts"],
+      "@malva-ui/i18n/tr": ["libs/i18n/tr/src/index.ts"],
+      "@malva-ui/i18n/uk": ["libs/i18n/uk/src/index.ts"],
+      "@malva-ui/i18n/zh-Hans": ["libs/i18n/zh-Hans/src/index.ts"],
+      "@malva-ui/cdk/accessibility": ["libs/cdk/accessibility/src/index.ts"],
+      "@malva-ui/cdk/data-source": ["libs/cdk/data-source/src/index.ts"],
+      "@malva-ui/cdk/density": ["libs/cdk/density/src/index.ts"],
       "@malva-ui/cdk/floating-container": [
         "libs/cdk/floating-container/src/index.ts"
       ],
       "@malva-ui/cdk/infinite-scroll": [
         "libs/cdk/infinite-scroll/src/index.ts"
       ],
-      "@malva-ui/cdk/overlay": [
-        "libs/cdk/overlay/src/index.ts"
-      ],
-      "@malva-ui/cdk/shrink-wrap": [
-        "libs/cdk/shrink-wrap/src/index.ts"
-      ],
-      "@malva-ui/cdk/utils": [
-        "libs/cdk/utils/src/index.ts"
-      ],
-      "@malva-ui/core": [
-        "libs/core/src/index.ts"
-      ],
-      "@malva-ui/core/alert": [
-        "libs/core/alert/src/index.ts"
-      ],
-      "@malva-ui/core/action-bar": [
-        "libs/core/action-bar/src/index.ts"
-      ],
-      "@malva-ui/core/avatar": [
-        "libs/core/avatar/src/index.ts"
-      ],
-      "@malva-ui/core/badge": [
-        "libs/core/badge/src/index.ts"
-      ],
-      "@malva-ui/core/bottom-nav": [
-        "libs/core/bottom-nav/src/index.ts"
-      ],
-      "@malva-ui/core/button": [
-        "libs/core/button/src/index.ts"
-      ],
-      "@malva-ui/core/calendar": [
-        "libs/core/calendar/src/index.ts"
-      ],
-      "@malva-ui/core/card": [
-        "libs/core/card/src/index.ts"
-      ],
-      "@malva-ui/core/chat": [
-        "libs/core/chat/src/index.ts"
-      ],
+      "@malva-ui/cdk/overlay": ["libs/cdk/overlay/src/index.ts"],
+      "@malva-ui/cdk/shrink-wrap": ["libs/cdk/shrink-wrap/src/index.ts"],
+      "@malva-ui/cdk/utils": ["libs/cdk/utils/src/index.ts"],
+      "@malva-ui/core": ["libs/core/src/index.ts"],
+      "@malva-ui/core/alert": ["libs/core/alert/src/index.ts"],
+      "@malva-ui/core/action-bar": ["libs/core/action-bar/src/index.ts"],
+      "@malva-ui/core/avatar": ["libs/core/avatar/src/index.ts"],
+      "@malva-ui/core/badge": ["libs/core/badge/src/index.ts"],
+      "@malva-ui/core/bottom-nav": ["libs/core/bottom-nav/src/index.ts"],
+      "@malva-ui/core/button": ["libs/core/button/src/index.ts"],
+      "@malva-ui/core/calendar": ["libs/core/calendar/src/index.ts"],
+      "@malva-ui/core/card": ["libs/core/card/src/index.ts"],
+      "@malva-ui/core/chat": ["libs/core/chat/src/index.ts"],
       "@malva-ui/core/command-palette": [
         "libs/core/command-palette/src/index.ts"
       ],
-      "@malva-ui/core/checkbox": [
-        "libs/core/checkbox/src/index.ts"
-      ],
-      "@malva-ui/core/chip": [
-        "libs/core/chip/src/index.ts"
-      ],
+      "@malva-ui/core/checkbox": ["libs/core/checkbox/src/index.ts"],
+      "@malva-ui/core/chip": ["libs/core/chip/src/index.ts"],
       "@malva-ui/core/copy-to-clipboard": [
         "libs/core/copy-to-clipboard/src/index.ts"
       ],
-      "@malva-ui/core/autocomplete": [
-        "libs/core/autocomplete/src/index.ts"
-      ],
-      "@malva-ui/core/combobox": [
-        "libs/core/combobox/src/index.ts"
-      ],
-      "@malva-ui/core/data-table": [
-        "libs/core/data-table/src/index.ts"
-      ],
+      "@malva-ui/core/autocomplete": ["libs/core/autocomplete/src/index.ts"],
+      "@malva-ui/core/combobox": ["libs/core/combobox/src/index.ts"],
+      "@malva-ui/core/data-table": ["libs/core/data-table/src/index.ts"],
       "@malva-ui/core/date-range-picker": [
         "libs/core/date-range-picker/src/index.ts"
       ],
-      "@malva-ui/core/day-picker": [
-        "libs/core/day-picker/src/index.ts"
-      ],
-      "@malva-ui/core/dialog": [
-        "libs/core/dialog/src/index.ts"
-      ],
-      "@malva-ui/core/drawer": [
-        "libs/core/drawer/src/index.ts"
-      ],
-      "@malva-ui/core/dropdown": [
-        "libs/core/dropdown/src/index.ts"
-      ],
-      "@malva-ui/core/accordion": [
-        "libs/core/accordion/src/index.ts"
-      ],
-      "@malva-ui/core/expand": [
-        "libs/core/expand/src/index.ts"
-      ],
-      "@malva-ui/core/form-utils": [
-        "libs/core/form-utils/src/index.ts"
-      ],
+      "@malva-ui/core/day-picker": ["libs/core/day-picker/src/index.ts"],
+      "@malva-ui/core/dialog": ["libs/core/dialog/src/index.ts"],
+      "@malva-ui/core/drawer": ["libs/core/drawer/src/index.ts"],
+      "@malva-ui/core/dropdown": ["libs/core/dropdown/src/index.ts"],
+      "@malva-ui/core/accordion": ["libs/core/accordion/src/index.ts"],
+      "@malva-ui/core/expand": ["libs/core/expand/src/index.ts"],
+      "@malva-ui/core/form-utils": ["libs/core/form-utils/src/index.ts"],
       "@malva-ui/core/form-utils/testing": [
         "libs/core/form-utils/testing/src/index.ts"
       ],
-      "@malva-ui/core/form": [
-        "libs/core/form/src/index.ts"
-      ],
-      "@malva-ui/core/input": [
-        "libs/core/input/src/index.ts"
-      ],
-      "@malva-ui/core/number-input": [
-        "libs/core/number-input/src/index.ts"
-      ],
-      "@malva-ui/core/layout": [
-        "libs/core/layout/src/index.ts"
-      ],
-      "@malva-ui/core/link": [
-        "libs/core/link/src/index.ts"
-      ],
-      "@malva-ui/core/list": [
-        "libs/core/list/src/index.ts"
-      ],
-      "@malva-ui/core/loader": [
-        "libs/core/loader/src/index.ts"
-      ],
-      "@malva-ui/core/notification": [
-        "libs/core/notification/src/index.ts"
-      ],
-      "@malva-ui/core/pin-input": [
-        "libs/core/pin-input/src/index.ts"
-      ],
-      "@malva-ui/core/pagination": [
-        "libs/core/pagination/src/index.ts"
-      ],
-      "@malva-ui/core/popup": [
-        "libs/core/popup/src/index.ts"
-      ],
-      "@malva-ui/core/radio": [
-        "libs/core/radio/src/index.ts"
-      ],
-      "@malva-ui/core/scrollbar": [
-        "libs/core/scrollbar/src/index.ts"
-      ],
-      "@malva-ui/core/select": [
-        "libs/core/select/src/index.ts"
-      ],
-      "@malva-ui/core/sidebar": [
-        "libs/core/sidebar/src/index.ts"
-      ],
-      "@malva-ui/core/slider": [
-        "libs/core/slider/src/index.ts"
-      ],
+      "@malva-ui/core/form": ["libs/core/form/src/index.ts"],
+      "@malva-ui/core/input": ["libs/core/input/src/index.ts"],
+      "@malva-ui/core/number-input": ["libs/core/number-input/src/index.ts"],
+      "@malva-ui/core/layout": ["libs/core/layout/src/index.ts"],
+      "@malva-ui/core/link": ["libs/core/link/src/index.ts"],
+      "@malva-ui/core/list": ["libs/core/list/src/index.ts"],
+      "@malva-ui/core/loader": ["libs/core/loader/src/index.ts"],
+      "@malva-ui/core/notification": ["libs/core/notification/src/index.ts"],
+      "@malva-ui/core/pin-input": ["libs/core/pin-input/src/index.ts"],
+      "@malva-ui/core/pagination": ["libs/core/pagination/src/index.ts"],
+      "@malva-ui/core/popup": ["libs/core/popup/src/index.ts"],
+      "@malva-ui/core/radio": ["libs/core/radio/src/index.ts"],
+      "@malva-ui/core/scrollbar": ["libs/core/scrollbar/src/index.ts"],
+      "@malva-ui/core/select": ["libs/core/select/src/index.ts"],
+      "@malva-ui/core/sidebar": ["libs/core/sidebar/src/index.ts"],
+      "@malva-ui/core/slider": ["libs/core/slider/src/index.ts"],
+      "@malva-ui/core/speed-dial": ["libs/core/speed-dial/src/index.ts"],
       "@malva-ui/core/status-indicator": [
         "libs/core/status-indicator/src/index.ts"
       ],
-      "@malva-ui/core/switch": [
-        "libs/core/switch/src/index.ts"
-      ],
-      "@malva-ui/core/tabs": [
-        "libs/core/tabs/src/index.ts"
-      ],
-      "@malva-ui/core/tile": [
-        "libs/core/tile/src/index.ts"
-      ],
-      "@malva-ui/core/title": [
-        "libs/core/title/src/index.ts"
-      ],
-      "@malva-ui/core/toast": [
-        "libs/core/toast/src/index.ts"
-      ],
-      "@malva-ui/core/tokenizer": [
-        "libs/core/tokenizer/src/index.ts"
-      ],
-      "@malva-ui/core/toolbar": [
-        "libs/core/toolbar/src/index.ts"
-      ],
-      "@malva-ui/styles": [
-        "libs/styles/src/index.ts"
-      ],
-      "@malva-ui/core/menu": [
-        "libs/core/menu/src/index.ts"
-      ],
-      "@malva-ui/core/tooltip": [
-        "libs/core/tooltip/src/index.ts"
-      ],
-      "@malva-ui/core/textarea": [
-        "libs/core/textarea/src/index.ts"
-      ],
-      "@malva-ui/core/breadcrumb": [
-        "libs/core/breadcrumb/src/index.ts"
-      ],
-      "@malva-ui/core/progress": [
-        "libs/core/progress/src/index.ts"
-      ],
-      "@malva-ui/core/stepper": [
-        "libs/core/stepper/src/index.ts"
-      ],
-      "@malva-ui/core/divider": [
-        "libs/core/divider/src/index.ts"
-      ],
-      "@malva-ui/core/skeleton": [
-        "libs/core/skeleton/src/index.ts"
-      ],
-      "@malva-ui/core/timeline": [
-        "libs/core/timeline/src/index.ts"
-      ],
-      "@malva-ui/core/split-pane": [
-        "libs/core/split-pane/src/index.ts"
-      ],
-      "@malva-ui/core/empty-state": [
-        "libs/core/empty-state/src/index.ts"
-      ],
-      "@malva-ui/core/color-picker": [
-        "libs/core/color-picker/src/index.ts"
-      ],
-      "@malva-ui/core/tree": [
-        "libs/core/tree/src/index.ts"
-      ],
-      "@malva-ui/core/time-picker": [
-        "libs/core/time-picker/src/index.ts"
-      ],
-      "@malva-ui/core/file-upload": [
-        "libs/core/file-upload/src/index.ts"
-      ],
-      "@malva-ui/core/avatar-group": [
-        "libs/core/avatar-group/src/index.ts"
-      ],
-      "@malva-ui/core/rating": [
-        "libs/core/rating/src/index.ts"
-      ],
-      "@malva-ui/core/kbd": [
-        "libs/core/kbd/src/index.ts"
-      ],
-      "@malva-ui/core/icon-toggle": [
-        "libs/core/icon-toggle/src/index.ts"
-      ],
-      "@malva-ui/core/page": [
-        "libs/core/page/src/index.ts"
-      ],
-      "@malva-ui/cdk/testing-e2e": [
-        "libs/cdk/testing-e2e/src/index.ts"
-      ],
-      "@malva-ui/core/search-field": [
-        "libs/core/search-field/src/index.ts"
-      ],
-      "@malva-ui/core/segmented": [
-        "libs/core/segmented/src/index.ts"
-      ],
-      "@malva-ui/core/filter": [
-        "libs/core/filter/src/index.ts"
-      ],
-      "@malva-ui/core/view-variant": [
-        "./libs/core/view-variant/src/index.ts"
-      ],
-      "@malva-ui/core/table": [
-        "./libs/core/table/src/index.ts"
-      ],
-      "@malva-ui/internal-testing": [
-        "scripts/testing/strip-css-layers"
-      ]
+      "@malva-ui/core/switch": ["libs/core/switch/src/index.ts"],
+      "@malva-ui/core/tabs": ["libs/core/tabs/src/index.ts"],
+      "@malva-ui/core/tile": ["libs/core/tile/src/index.ts"],
+      "@malva-ui/core/title": ["libs/core/title/src/index.ts"],
+      "@malva-ui/core/toast": ["libs/core/toast/src/index.ts"],
+      "@malva-ui/core/tokenizer": ["libs/core/tokenizer/src/index.ts"],
+      "@malva-ui/core/toolbar": ["libs/core/toolbar/src/index.ts"],
+      "@malva-ui/styles": ["libs/styles/src/index.ts"],
+      "@malva-ui/core/menu": ["libs/core/menu/src/index.ts"],
+      "@malva-ui/core/tooltip": ["libs/core/tooltip/src/index.ts"],
+      "@malva-ui/core/textarea": ["libs/core/textarea/src/index.ts"],
+      "@malva-ui/core/breadcrumb": ["libs/core/breadcrumb/src/index.ts"],
+      "@malva-ui/core/progress": ["libs/core/progress/src/index.ts"],
+      "@malva-ui/core/stepper": ["libs/core/stepper/src/index.ts"],
+      "@malva-ui/core/divider": ["libs/core/divider/src/index.ts"],
+      "@malva-ui/core/skeleton": ["libs/core/skeleton/src/index.ts"],
+      "@malva-ui/core/timeline": ["libs/core/timeline/src/index.ts"],
+      "@malva-ui/core/split-pane": ["libs/core/split-pane/src/index.ts"],
+      "@malva-ui/core/empty-state": ["libs/core/empty-state/src/index.ts"],
+      "@malva-ui/core/color-picker": ["libs/core/color-picker/src/index.ts"],
+      "@malva-ui/core/tree": ["libs/core/tree/src/index.ts"],
+      "@malva-ui/core/time-picker": ["libs/core/time-picker/src/index.ts"],
+      "@malva-ui/core/file-upload": ["libs/core/file-upload/src/index.ts"],
+      "@malva-ui/core/avatar-group": ["libs/core/avatar-group/src/index.ts"],
+      "@malva-ui/core/rating": ["libs/core/rating/src/index.ts"],
+      "@malva-ui/core/kbd": ["libs/core/kbd/src/index.ts"],
+      "@malva-ui/core/icon-toggle": ["libs/core/icon-toggle/src/index.ts"],
+      "@malva-ui/core/page": ["libs/core/page/src/index.ts"],
+      "@malva-ui/cdk/testing-e2e": ["libs/cdk/testing-e2e/src/index.ts"],
+      "@malva-ui/core/search-field": ["libs/core/search-field/src/index.ts"],
+      "@malva-ui/core/segmented": ["libs/core/segmented/src/index.ts"],
+      "@malva-ui/core/filter": ["libs/core/filter/src/index.ts"],
+      "@malva-ui/core/view-variant": ["./libs/core/view-variant/src/index.ts"],
+      "@malva-ui/core/table": ["./libs/core/table/src/index.ts"],
+      "@malva-ui/internal-testing": ["scripts/testing/strip-css-layers"]
     },
     "strict": false,
     "noUncheckedSideEffectImports": false,
-    "types": [
-      "*"
-    ],
+    "types": ["*"],
     "esModuleInterop": false,
     "ignoreDeprecations": "6.0"
   },
-  "exclude": [
-    "node_modules",
-    "tmp"
-  ]
+  "exclude": ["node_modules", "tmp"]
 }

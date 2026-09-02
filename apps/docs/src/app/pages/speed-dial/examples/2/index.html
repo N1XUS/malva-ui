@@ -1,0 +1,31 @@
+<div class="stage">
+  <div class="stage__cell">
+    <span class="stage__label">type="circle" [radius]="90"</span>
+    <mlv-speed-dial
+      [items]="attachments"
+      type="circle"
+      [radius]="90"
+      ariaLabel="Attach (circle)"
+    />
+  </div>
+  <div class="stage__cell stage__cell--bottom">
+    <span class="stage__label">type="semi-circle" direction="up"</span>
+    <mlv-speed-dial
+      [items]="few"
+      type="semi-circle"
+      direction="up"
+      [radius]="80"
+      ariaLabel="Attach (semi-circle)"
+    />
+  </div>
+  <div class="stage__cell stage__cell--corner">
+    <span class="stage__label">type="quarter-circle" direction="up-left"</span>
+    <mlv-speed-dial
+      [items]="three"
+      type="quarter-circle"
+      direction="up-left"
+      [radius]="96"
+      ariaLabel="Attach (quarter-circle)"
+    />
+  </div>
+</div>

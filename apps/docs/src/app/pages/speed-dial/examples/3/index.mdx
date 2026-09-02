@@ -1,0 +1,5 @@
+## Mask, stagger and a custom trigger
+
+`mask` dims the page behind the open dial with a backdrop that closes it on click; the trigger stays legible above the mask. `transitionDelay` sets the stagger (ms) between consecutive actions — the order reverses on close so the farthest action leaves first, and `prefers-reduced-motion` drops the stagger entirely.
+
+Project any element with `mlvSpeedDialTriggerIcon` to replace the default `+` glyph; while the dial is open it crossfades into the built-in `×` glyph. `opened` is a two-way model, so the dial can be driven from outside. A disabled item renders but is skipped by keyboard navigation.

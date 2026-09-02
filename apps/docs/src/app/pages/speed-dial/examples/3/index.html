@@ -1,0 +1,33 @@
+<div class="stage">
+  <div class="stage__cell">
+    <mlv-speed-dial
+      [items]="channels"
+      type="semi-circle"
+      direction="up"
+      [radius]="88"
+      [transitionDelay]="60"
+      mask
+      [(opened)]="opened"
+      variant="accent"
+      ariaLabel="Share"
+    >
+      <svg
+        mlvSpeedDialTriggerIcon
+        lucideShare2
+        [size]="20"
+        aria-hidden="true"
+      />
+    </mlv-speed-dial>
+  </div>
+</div>
+<div class="stage__controls">
+  <button
+    mlvButton
+    variant="outlined"
+    type="button"
+    (click)="opened.set(!opened())"
+  >
+    {{ opened() ? 'Close' : 'Open' }} programmatically
+  </button>
+  <span class="stage__state">opened: {{ opened() }}</span>
+</div>
