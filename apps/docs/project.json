@@ -12,6 +12,7 @@
       "inputs": [
         "{workspaceRoot}/apps/docs/tools/api-extractor.ts",
         "{workspaceRoot}/apps/docs/tools/extract-api.ts",
+        "{workspaceRoot}/apps/docs/tools/generated-output.ts",
         "{workspaceRoot}/apps/docs/src/app/pages/*/index.ts",
         "{workspaceRoot}/libs/**/src/**/*.ts",
         "{workspaceRoot}/tsconfig.base.json",

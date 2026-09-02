@@ -301,3 +301,11 @@ component; and compiled-stylesheet assertions via `stripCssLayersFromText`
 divider through `translate`, Form A focus ring routed through `:has()`,
 per-axis `touch-action`, pointer-transparent layers, reduced-motion and
 forced-colors blocks, no `--mlv-padding-*` misuse).
+
+Docs: `apps/docs/src/app/pages/compare/examples/5/index.spec.ts` pins the
+canvas example's `viewChild('surface', { read: ElementRef })` — the
+`#surface` ref sits on `<mlv-compare>`, so without `read` it resolves to the
+component instance and `MlvResizeObserverService.observe()` throws
+`parameter 1 is not of type 'Element'` inside the observable's subscribe. The
+spec swaps in a recording observer service and asserts the observed target is
+the `<mlv-compare>` element.
