@@ -60,11 +60,29 @@ jobs:
       # under-selecting is not.
       - name: Verify affected projects
         if: github.event_name == 'pull_request'
-        run: npx nx affected -t lint test test-schematics build typecheck --base=${{ github.event.pull_request.base.sha }} --head=HEAD
+        run: npx nx affected -t lint test test-schematics build typecheck --base=${{ github.event.pull_request.base.sha }} --head=HEAD --exclude=docs
 
       # Pushes to main verify everything. main is the branch every PR bases off
       # and the one release cuts from, so it must never be only partially
       # verified — and after the PR run most targets are already cache hits.
       - name: Verify all projects
         if: github.event_name != 'pull_request'
-        run: npx nx run-many -t lint test test-schematics build typecheck
+        run: npx nx run-many -t lint test test-schematics build typecheck --exclude=docs
+
+      # `docs` gets the runner to itself. It is the heaviest project in the
+      # workspace by a wide margin — 36 spec files, 339 tests, axe scans over
+      # whole showcase pages, and specs that lazy-load the editor page and pull
+      # the entire Tiptap graph through Vite's transform. Its memory is
+      # dominated by that transform graph in the Vitest *main* process, which no
+      # worker cap shrinks, so sharing 16GB and 4 vCPU with the other jsdom
+      # suites got its worker OOM-killed ("Worker exited unexpectedly", no V8
+      # heap message — the kernel, not V8) and starved the neighbours it did not
+      # kill. Running it in its own step costs little: everything it depends on
+      # is already a cache hit from the step above.
+      - name: Verify the docs app
+        if: github.event_name == 'pull_request'
+        run: npx nx affected -t lint test build typecheck --base=${{ github.event.pull_request.base.sha }} --head=HEAD --projects=docs
+
+      - name: Verify the docs app
+        if: github.event_name != 'pull_request'
+        run: npx nx run-many -t lint test build typecheck --projects=docs

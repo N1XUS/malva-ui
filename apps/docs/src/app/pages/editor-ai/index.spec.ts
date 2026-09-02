@@ -34,7 +34,11 @@ describe('editor AI Kit documentation page', () => {
     const instance = new component();
     expect(instance.examples).toEqual([1, 2]);
     expect(instance.meta.title).toBe('AI Kit');
-  }, 20_000);
+    // `loadComponent()` pulls the whole editor page graph — `@malva-ui/editor`,
+    // Tiptap and all of this page's examples — through Vite's transform inside
+    // the test. That is ~3s warm here and took 28.7s on a loaded CI runner,
+    // overrunning the 20s this once carried. It is transform cost, not a hang.
+  }, 60_000);
 
   it('keeps every AI Kit example on the grouped public entry points', () => {
     for (let index = 1; index <= 2; index += 1) {
