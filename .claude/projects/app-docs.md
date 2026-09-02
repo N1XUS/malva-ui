@@ -827,19 +827,31 @@ Landing-page layout and visual styling are component-scoped in `pages/home/home.
 | `check-doc-api` | `nx:run-commands`         | Runs `scripts/check-doc-api.mjs` — compares each library's `CLAUDE.md` API tables against the extracted JSON. `dependsOn: ['extract-api']`. Cacheable. See §9c.           |
 | `build`         | `@nx/angular:application` | Entry: `src/main.ts`. Plugins: `mdx-transform.ts`. `dependsOn: ['extract-api']`. Bundles `styles.scss`. Copies `public/**` and `pages/**/examples/**/*` as static assets. |
 | `serve`         | `@nx/angular:dev-server`  | Reads plugins from build target. `dependsOn: ['extract-api']`. Full HMR for MDX changes.                                                                                  |
+| `test`          | `@nx/vitest:test`         | Vitest via `vite.config.mts`. `dependsOn: ['extract-api']` — see below. Cacheable. Run it as `yarn nx test docs`.                                                         |
 | `lint`          | `@nx/eslint:lint`         |                                                                                                                                                                           |
 | `serve-static`  | `@nx/web:file-server`     | Serves `dist/apps/docs/browser` as SPA.                                                                                                                                   |
 
 **Important:** `pages/**/examples/**/*` are copied as static assets so `ExampleContainerComponent` can fetch source files by URL at runtime.
 
+**`test` must keep `dependsOn: ['extract-api']`.** `src/generated/api` is
+git-ignored and produced only by that target, while `doc-page.component.ts` and
+`api-viewer.component.ts` import it directly — and `shared/index.ts` re-exports
+doc-page, which every `pages/*/index.ts` imports. Without the dependency, 8 of
+the 36 spec files fail at module resolution on a fresh clone (verified), which
+is a race no `run-many`/`affected` ordering rescues. The target is explicitly
+declared rather than left to the `@nx/vitest` plugin because the workspace
+names the inferred target `vite:test`, which CI never selects — see
+`.claude/projects/best-practices.md`, "Every project owning specs MUST declare
+an explicit `test` target".
+
 ### Production budgets (rationale)
 
 `build.configurations.production.budgets` are intentionally set to showcase-app ceilings rather than the tight defaults an end-user library app would use:
 
-| Budget              | Warning | Error  | Why                                                                                                                                                                                                                                                                           |
-| ------------------- | ------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `initial`           | `2mb` | `3mb`  | This is a component **showcase** that eagerly pulls in the app shell (layout, sidebar, action bar, Shiki highlighter, MDX runtime) plus every component demoed above the fold on the landing page (the theme-split, bento, and showcase-reel scenes are `@defer`red out of the initial bundle; ~1.87 MB measured after the 2026-08 landing redesign). The old `500kb`/`1mb` limits were tuned for a lean product app and warned on every build. |
-| `anyComponentStyle` | `40kb`  | `48kb` | The full landing page dogfoods several product compositions, including a nested-theme application shell, and compiles to ~35.2kb of component CSS. The ceiling leaves modest headroom while retaining a meaningful guardrail for documentation components.                    |
+| Budget              | Warning | Error  | Why                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------- | ------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initial`           | `2mb`   | `3mb`  | This is a component **showcase** that eagerly pulls in the app shell (layout, sidebar, action bar, Shiki highlighter, MDX runtime) plus every component demoed above the fold on the landing page (the theme-split, bento, and showcase-reel scenes are `@defer`red out of the initial bundle; ~1.87 MB measured after the 2026-08 landing redesign). The old `500kb`/`1mb` limits were tuned for a lean product app and warned on every build. |
+| `anyComponentStyle` | `40kb`  | `48kb` | The full landing page dogfoods several product compositions, including a nested-theme application shell, and compiles to ~35.2kb of component CSS. The ceiling leaves modest headroom while retaining a meaningful guardrail for documentation components.                                                                                                                                                                                      |
 
 Styling is authored with `@use`/`@forward` (no `@import`) throughout, including `apps/docs/src/styles.scss`, which pulls the design system in via `@use '.../libs/styles/src/lib/animations'` and `@use '.../libs/styles/src/lib/index'`.
 

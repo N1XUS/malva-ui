@@ -135,6 +135,54 @@ Every other text/numeric/email/tel/url field — including search boxes inside `
 - **Scaffolding**: invoke the `nx-generate` skill first before exploring or calling MCP tools
 - **NEVER guess CLI flags** — check `nx_docs` or `--help` first
 
+### Every project owning specs MUST declare an explicit `test` target
+
+`nx.json` registers `@nx/vitest` with `"testTargetName": "vite:test"`, so the
+plugin-**inferred** unit-test target is _not_ called `test` anywhere in this
+workspace. Both CI jobs select strictly by target name
+(`nx affected -t lint test …` / `nx run-many -t lint test …` in
+`.github/workflows/ci.yml`), and nx does no aliasing between the two names — a
+project runs in CI only because it hand-declares `test` in its own
+`project.json`. Copy the shape its peers use:
+
+```jsonc
+"test": {
+  "executor": "@nx/vitest:test",
+  "options": { "config": "<project-root>/vite.config.mts" }
+}
+```
+
+- Add `"dependsOn"` when the suite needs generated sources — `apps/docs`
+  carries `["extract-api"]`, without which most of its 36 spec files fail at
+  module resolution on a fresh clone (`src/generated/api` is git-ignored).
+- **Run the suite through `test`, never `vite:test`**, in READMEs, docs and
+  local commands: `yarn nx test <project>`. Referencing the inferred name
+  teaches the next reader the target CI does not run.
+- The `@nx/vitest:test` executor runs with **cwd = workspace root**, while the
+  inferred `vite:test` runs from the project root. A spec that reads a source
+  file must resolve it from `dirname(fileURLToPath(import.meta.url))`, not
+  `process.cwd()`.
+
+Enforced by `scripts/check-test-targets.mjs`, which runs as part of
+`@malva-ui/source:test` (a target CI already selects). It attributes every
+`*.spec.*` / `*.test.*` file to the innermost project containing it and fails
+unless some `test` target actually runs it — an executor-driven or
+`vitest`/`jest` target covers its project's specs by glob, while a
+`nx:run-commands` target that enumerates files (`node --test a.spec.mjs …`),
+or a project with no `test` target at all, must have each of its specs named
+verbatim in some `test` command anywhere in the workspace. That last rule is
+what keeps the two deliberate cross-project arrangements honest —
+`scripts/testing/strip-css-layers.spec.js` runs through the root target and
+`scripts/check-padding-tokens.spec.mjs` through `styles:test` — so dropping
+either file from the command that runs it fails the check instead of silently
+retiring the suite.
+
+Because the guard's answer depends on the shape of the whole workspace, the
+root `test` target's `inputs` are workspace-wide globs (`**/project.json`,
+`**/package.json`, `**/*.{spec,test}.*`). Do not narrow them to `apps/`+`libs/`:
+a project added anywhere else would then be a cache hit and the guard would
+never run.
+
 ### Project boundaries
 
 - Every project carries `scope:*`, `family:*`, and `type:*` tags.

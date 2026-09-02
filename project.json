@@ -16,10 +16,19 @@
       "inputs": [
         "{workspaceRoot}/scripts/testing/strip-css-layers.js",
         "{workspaceRoot}/scripts/testing/setup-strip-css-layers.js",
-        "{workspaceRoot}/scripts/testing/strip-css-layers.spec.js"
+        "{workspaceRoot}/scripts/testing/strip-css-layers.spec.js",
+        "{workspaceRoot}/scripts/check-test-targets.mjs",
+        "{workspaceRoot}/nx.json",
+        "{workspaceRoot}/**/project.json",
+        "{workspaceRoot}/**/package.json",
+        "{workspaceRoot}/**/*.{spec,test}.*"
       ],
       "options": {
-        "command": "node --test scripts/testing/strip-css-layers.spec.js",
+        "commands": [
+          "node --test scripts/testing/strip-css-layers.spec.js",
+          "node scripts/check-test-targets.mjs"
+        ],
+        "parallel": false,
         "cwd": "{workspaceRoot}"
       }
     }
