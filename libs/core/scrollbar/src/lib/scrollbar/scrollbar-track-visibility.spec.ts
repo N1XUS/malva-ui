@@ -72,6 +72,67 @@ function attachStylesheet(): HTMLStyleElement {
   return style;
 }
 
+/**
+ * Every style rule in the compiled sheet, read once.
+ *
+ * `attachStylesheet()` is reused so the `:has()` rules are dropped the same way
+ * — nwsapi cannot match them (see the note on that helper and on the corner
+ * rule's own spec below).
+ */
+const COMPILED_RULES: readonly CSSStyleRule[] = (() => {
+  const style = attachStylesheet();
+  const collected = [...(style.sheet?.cssRules ?? [])].filter(
+    (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule,
+  );
+  style.remove();
+  return collected;
+})();
+
+/**
+ * Whether any rule in the compiled sheet that declares `property: value`
+ * targets `el`.
+ *
+ * Read through the selector engine rather than `getComputedStyle` because
+ * jsdom resolves the cascade by **document order alone**: for these
+ * declarations the base rule sits further down the file and wins the computed
+ * value whether or not the state rule reached the element, so the computed
+ * value cannot answer "did this rule apply here?". `element.matches()` can —
+ * it resolves the child combinator correctly (only `:scope` and
+ * `:has(… :not(…))` are broken in nwsapi).
+ *
+ * A trailing pseudo-element (`::-webkit-scrollbar`) is stripped so such a rule
+ * is attributed to the element it decorates, and `:hover` is swapped for the
+ * `HOVERED` marker class: jsdom never enters a hover state, so `matches()`
+ * answers `false` for every `:hover` selector and a leak assertion written
+ * against one would pass whatever its combinator said. Put `HOVERED` on the
+ * host the pointer would be over; the combinator under test is untouched.
+ *
+ * Fails loudly when the declaration is absent from the sheet, so a renamed or
+ * deleted property cannot turn a leak assertion vacuously green.
+ */
+const HOVERED = 'test-hovered';
+
+function isTargetedBy(el: Element, property: string, value: string): boolean {
+  const declaring = COMPILED_RULES.filter(
+    (rule) =>
+      rule.style.getPropertyValue(property).replace(/\s+/g, ' ').trim() ===
+      value,
+  );
+
+  expect(
+    declaring.length,
+    `no compiled rule declares \`${property}: ${value}\``,
+  ).toBeGreaterThan(0);
+
+  return declaring.some((rule) =>
+    el.matches(
+      rule.selectorText
+        .replace(/::[a-z-]+$/, '')
+        .replaceAll(':hover', `.${HOVERED}`),
+    ),
+  );
+}
+
 /** Recorded so a spec can drive the component's real `_updateGeometry()`. */
 const resizeCallbacks: ResizeObserverCallback[] = [];
 
@@ -202,17 +263,8 @@ describe('MlvScrollbar — track reveal is animated, not instant', () => {
   // — the fix must not replace it with an instant flip. Asserted against the
   // compiled declarations because jsdom does not resolve a `transition`
   // shorthand containing `var()` through `getComputedStyle`.
-  const rules = (() => {
-    const style = attachStylesheet();
-    const collected = [...(style.sheet?.cssRules ?? [])].filter(
-      (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule,
-    );
-    style.remove();
-    return collected;
-  })();
-
   it('keeps the opacity transition on the track', () => {
-    const track = rules.find(
+    const track = COMPILED_RULES.find(
       ({ selectorText }) => selectorText === '.mlv-scrollbar__track',
     );
 
@@ -248,15 +300,36 @@ describe('MlvScrollbar — track reveal is animated, not instant', () => {
 })
 class NestedScrollbarHost {}
 
-describe('MlvScrollbar — a reveal state does not leak into a nested scrollbar', () => {
+describe('MlvScrollbar — a host state does not leak into a nested scrollbar', () => {
   let fixture: ComponentFixture<NestedScrollbarHost>;
   let outerHostEl: HTMLElement;
   let innerHostEl: HTMLElement;
   let outerTrackV: HTMLElement;
   let innerTrackV: HTMLElement;
+  let outerViewport: HTMLElement;
+  let innerViewport: HTMLElement;
+  let outerThumbV: HTMLElement;
+  let innerThumbV: HTMLElement;
   let styleEl: HTMLStyleElement;
 
   const opacityOf = (el: HTMLElement): string => getComputedStyle(el).opacity;
+
+  /**
+   * Computed `--mlv-sb-thumb-bg` on a thumb, with whitespace stripped — a
+   * custom property is preserved verbatim, so the value carries whatever line
+   * wrapping the source happened to have.
+   *
+   * Readable through `getComputedStyle` where the thumb's other drag
+   * declarations are not: jsdom does not inherit custom properties, so the
+   * value is `''` unless a rule set it on the thumb itself — exactly the
+   * question these specs ask. The host's own `--mlv-sb-thumb-bg` never shows
+   * up here, and the `--dragging` thumb rule is the only other declaration of
+   * it in the sheet.
+   */
+  const thumbBg = (el: HTMLElement): string =>
+    getComputedStyle(el)
+      .getPropertyValue('--mlv-sb-thumb-bg')
+      .replace(/\s+/g, '');
 
   /**
    * Returns one scrollbar's **own** part, walking `children` rather than
@@ -325,10 +398,17 @@ describe('MlvScrollbar — a reveal state does not leak into a nested scrollbar'
 
     outerTrackV = ownChild(outerHostEl, 'mlv-scrollbar__track--vertical');
     innerTrackV = ownChild(innerHostEl, 'mlv-scrollbar__track--vertical');
+    outerViewport = ownChild(outerHostEl, 'mlv-scrollbar__viewport');
+    innerViewport = ownChild(innerHostEl, 'mlv-scrollbar__viewport');
+    // The thumb is a *grandchild* of the host — one `>` is not enough to reach
+    // it, which is the part of the fix these thumb specs pin.
+    outerThumbV = ownChild(outerTrackV, 'mlv-scrollbar__thumb');
+    innerThumbV = ownChild(innerTrackV, 'mlv-scrollbar__thumb');
 
     // Each track really belongs to its own host — the assertions below compare
     // two different elements, not one element with itself.
     expect(outerTrackV).not.toBe(innerTrackV);
+    expect(outerThumbV).not.toBe(innerThumbV);
     expect(outerTrackV.parentElement).toBe(outerHostEl);
     expect(innerTrackV.parentElement).toBe(innerHostEl);
 
@@ -367,5 +447,258 @@ describe('MlvScrollbar — a reveal state does not leak into a nested scrollbar'
 
     expect(opacityOf(innerTrackV)).toBe('1');
     expect(opacityOf(outerTrackV)).toBe('0');
+  });
+
+  it("leaves a nested scrollbar's track alone while the outer one is disabled", () => {
+    // `main[mlvPage] scroll="none"` binds `[disabled]` on the page scrollbar
+    // *so that* a consumer-owned nested region can own the scrolling
+    // (`libs/core/page/CLAUDE.md`). Stripping that region's track is therefore
+    // the opposite of what the flag is for — and with `mlv-textarea` the field
+    // suppresses its own native bar, so the content would scroll with no
+    // visible scrollbar at all: issue #90 all over again.
+    outerHostEl.classList.add('mlv-scrollbar--disabled');
+
+    expect(getComputedStyle(outerTrackV).display).toBe('none');
+    expect(getComputedStyle(innerTrackV).display).not.toBe('none');
+  });
+
+  it('still hides the track of a nested scrollbar that is itself disabled', () => {
+    // The scoping must not cost a nested scrollbar its own disabled state.
+    innerHostEl.classList.add('mlv-scrollbar--disabled');
+
+    expect(getComputedStyle(innerTrackV).display).toBe('none');
+    expect(getComputedStyle(outerTrackV).display).not.toBe('none');
+  });
+
+  it("does not hand a nested scrollbar's viewport back its native bar", () => {
+    // The other half of `--disabled`, and it compounds with the track rule
+    // above: an inner scrollbar would lose its themed track and be handed an
+    // unthemed OS bar in the same breath, for a state set on an ancestor.
+    outerHostEl.classList.add('mlv-scrollbar--disabled');
+
+    expect(isTargetedBy(outerViewport, 'scrollbar-width', 'auto')).toBe(true);
+    expect(isTargetedBy(innerViewport, 'scrollbar-width', 'auto')).toBe(false);
+  });
+
+  it("still restores the native bar on a nested scrollbar's own viewport", () => {
+    // The scoping must not cost a nested scrollbar its own disabled state.
+    innerHostEl.classList.add('mlv-scrollbar--disabled');
+
+    expect(isTargetedBy(innerViewport, 'scrollbar-width', 'auto')).toBe(true);
+    expect(isTargetedBy(outerViewport, 'scrollbar-width', 'auto')).toBe(false);
+  });
+
+  it("does not stop a nested scrollbar's viewport from scrolling", () => {
+    // `--external` says *this* scrollbar decorates a foreign scroll box, so its
+    // own viewport must not scroll or clip. Reaching a nested viewport with
+    // that turns a scrollbar nobody decorated into a non-scrolling box whose
+    // content overflows its host and whose tracks never leave `--hidden`.
+    // Latent rather than live today — `mlv-textarea` is the only `[scroller]`
+    // consumer and it decorates a bare `<textarea>` — but `[scroller]` is
+    // public API and nothing stops a consumer from projecting an `mlv-chat`.
+    outerHostEl.classList.add('mlv-scrollbar--external');
+
+    expect(isTargetedBy(outerViewport, 'overflow', 'visible')).toBe(true);
+    expect(isTargetedBy(innerViewport, 'overflow', 'visible')).toBe(false);
+  });
+
+  it("still frees a nested scrollbar's own viewport when it is itself external", () => {
+    // The scoping must not cost a nested scrollbar its own external mode.
+    innerHostEl.classList.add('mlv-scrollbar--external');
+
+    expect(isTargetedBy(innerViewport, 'overflow', 'visible')).toBe(true);
+    expect(isTargetedBy(outerViewport, 'overflow', 'visible')).toBe(false);
+  });
+
+  it('does not widen a nested thumb while the pointer rests on the outer host', () => {
+    // Since issue #96 an inner track is revealed by the inner scrollbar's own
+    // `--scrolling` / `--dragging`, with no pointer near it — so an outer hover
+    // now lands on a *painted* inner thumb. Worse, `.mlv-scrollbar:hover
+    // .mlv-scrollbar__thumb` outranks the inner's own `--scrolling` /
+    // `--dragging` thumb rules, so it does not merely add to the inner
+    // scrollbar's appearance, it overrides it.
+    outerHostEl.classList.add(HOVERED);
+
+    expect(isTargetedBy(outerThumbV, 'opacity', '0.8')).toBe(true);
+    expect(isTargetedBy(innerThumbV, 'opacity', '0.8')).toBe(false);
+  });
+
+  it('still widens a nested thumb while the pointer rests on the nested host', () => {
+    // The scoping must not cost a nested scrollbar its own hover ramp.
+    innerHostEl.classList.add(HOVERED);
+
+    expect(isTargetedBy(innerThumbV, 'opacity', '0.8')).toBe(true);
+    expect(isTargetedBy(outerThumbV, 'opacity', '0.8')).toBe(false);
+  });
+
+  it('does not pin a nested thumb opaque while the outer host is scrolling', () => {
+    // `opacity: 1` is also declared by the track reveal rule and by the
+    // `--dragging` thumb rule; neither can match a thumb here — the first
+    // takes a track as its subject, and `--dragging` is not on any host — so
+    // this reads the `--scrolling` thumb rule alone.
+    outerHostEl.classList.add('mlv-scrollbar--scrolling');
+
+    expect(isTargetedBy(outerThumbV, 'opacity', '1')).toBe(true);
+    expect(isTargetedBy(innerThumbV, 'opacity', '1')).toBe(false);
+  });
+
+  it('still pins a nested thumb opaque while the nested host is scrolling', () => {
+    // The scoping must not cost a nested scrollbar its own scrolling ramp.
+    innerHostEl.classList.add('mlv-scrollbar--scrolling');
+
+    expect(isTargetedBy(innerThumbV, 'opacity', '1')).toBe(true);
+    expect(isTargetedBy(outerThumbV, 'opacity', '1')).toBe(false);
+  });
+
+  it('does not recolour a nested thumb while the outer thumb is dragged', () => {
+    // The sharpest of the thumb rules: it is the only place in the sheet that
+    // sets `--mlv-sb-thumb-bg` or `cursor: grabbing`, so no inner rule can win
+    // either back at any specificity. A drag holds its modifier for the whole
+    // gesture — seconds, against `--scrolling`'s 150 ms — and `opacity: 0`
+    // never removed hit-testing, so the grabbing cursor also lands on
+    // still-invisible inner thumbs the pointer crosses on the way.
+    outerHostEl.classList.add('mlv-scrollbar--dragging');
+
+    expect(thumbBg(outerThumbV)).toBe('var(--mlv-text-secondary)');
+    expect(thumbBg(innerThumbV)).toBe('');
+    expect(isTargetedBy(innerThumbV, 'cursor', 'grabbing')).toBe(false);
+  });
+
+  it('still recolours a nested thumb while that nested thumb is dragged', () => {
+    // The scoping must not cost a nested scrollbar its own drag appearance.
+    innerHostEl.classList.add('mlv-scrollbar--dragging');
+
+    expect(thumbBg(innerThumbV)).toBe('var(--mlv-text-secondary)');
+    expect(thumbBg(outerThumbV)).toBe('');
+    expect(isTargetedBy(innerThumbV, 'cursor', 'grabbing')).toBe(true);
+  });
+});
+
+/**
+ * The corner-avoidance rule keeps the two tracks from overlapping where they
+ * meet. Both halves of it are nesting-sensitive: the `:has()` probes ask
+ * whether *a* vertical and *a* horizontal track are showing, and the
+ * declaration block then shortens *a* track — so a vertical-only scrollbar
+ * containing an `orientation="both"` one would satisfy both probes on the
+ * inner scrollbar's tracks and cut a 12px dead gap into its own.
+ *
+ * Asserted against the compiled selector rather than the DOM because nwsapi
+ * cannot match `:has(… :not(…))` at all: `element.matches()` answers a silent
+ * `false` for it (probed directly), and jsdom's CSSOM re-serialises the
+ * selector with the outer `:has(` dropped, which is why `attachStylesheet()`
+ * deletes these rules before any spec above reads a computed style.
+ */
+describe("MlvScrollbar — corner avoidance is scoped to the host's own tracks", () => {
+  const cornerSelectors = [...COMPILED_CSS.matchAll(/([^{}]+)\{[^{}]*\}/g)]
+    .map(([, selector]) => selector.replace(/\s+/g, ' ').trim())
+    .filter((selector) => selector.includes(':has('));
+
+  it('probes only the tracks the host owns', () => {
+    // One rule per axis, each probing both axes.
+    expect(cornerSelectors).toHaveLength(2);
+
+    for (const selector of cornerSelectors) {
+      expect(selector.match(/:has\(/g)).toHaveLength(2);
+      expect(selector.match(/:has\(\s*>/g)).toHaveLength(2);
+    }
+  });
+
+  it('shortens only the track the host owns', () => {
+    for (const selector of cornerSelectors) {
+      expect(selector).toMatch(
+        /\)\s*>\s*\.mlv-scrollbar__track--(vertical|horizontal)$/,
+      );
+    }
+  });
+
+  /** The arguments of every `:has(...)` clause in `selector`, parens balanced. */
+  function hasArguments(selector: string): string[] {
+    const args: string[] = [];
+
+    for (
+      let i = selector.indexOf(':has(');
+      i !== -1;
+      i = selector.indexOf(':has(', i + 1)
+    ) {
+      let depth = 0;
+      for (let j = i + 4; j < selector.length; j++) {
+        if (selector[j] === '(') depth++;
+        else if (selector[j] === ')' && --depth === 0) {
+          args.push(selector.slice(i + 5, j).trim());
+          break;
+        }
+      }
+    }
+
+    return args;
+  }
+
+  /** `selector` with every `:has(...)` clause removed, parens balanced. */
+  function withoutHas(selector: string): string {
+    let out = selector;
+
+    for (const arg of hasArguments(selector))
+      out = out.replace(`:has(${arg})`, '');
+
+    return out.replace(/\s+/g, ' ').trim();
+  }
+
+  /** Evaluates a `:has(> …)` predicate by hand — nwsapi cannot match `:has()`. */
+  function satisfies(host: HTMLElement, selector: string): boolean {
+    return hasArguments(selector).every((arg) =>
+      [...host.children].some((child) =>
+        child.matches(arg.replace(/^>\s*/, '')),
+      ),
+    );
+  }
+
+  it('fires for a host that owns both tracks, and not for a nested one that does not', () => {
+    // Built raw: this describe never reads a computed style, and the compiled
+    // sheet drops the `:has()` rules before jsdom ever sees them.
+    const outer = document.createElement('div');
+    outer.className = 'mlv-scrollbar';
+    outer.innerHTML = `
+      <div class="mlv-scrollbar__viewport">
+        <div class="mlv-scrollbar__content">
+          <div class="mlv-scrollbar" id="inner">
+            <div class="mlv-scrollbar__viewport"></div>
+            <div class="mlv-scrollbar__track mlv-scrollbar__track--vertical"></div>
+            <div class="mlv-scrollbar__track mlv-scrollbar__track--horizontal mlv-scrollbar__track--hidden"></div>
+          </div>
+        </div>
+      </div>
+      <div class="mlv-scrollbar__track mlv-scrollbar__track--vertical"></div>
+      <div class="mlv-scrollbar__track mlv-scrollbar__track--horizontal"></div>`;
+    document.body.appendChild(outer);
+
+    try {
+      const inner = outer.querySelector<HTMLElement>('#inner');
+
+      expect(inner).not.toBeNull();
+
+      for (const selector of cornerSelectors) {
+        // One rule per axis — match the track this rule actually targets.
+        const axis = selector.match(/track--(vertical|horizontal)$/)?.[1];
+        const outerTrack = [...outer.children].find((el) =>
+          el.classList.contains(`mlv-scrollbar__track--${axis}`),
+        );
+
+        expect(axis).toBeDefined();
+        expect(outerTrack).toBeDefined();
+
+        // Own-host direction: the outer owns a visible track on both axes, so
+        // the rule must still fire for it. Without this, an over-scope that
+        // stops the rule matching anything at all passes every other spec here.
+        expect(satisfies(outer, selector)).toBe(true);
+        expect(outerTrack!.matches(withoutHas(selector))).toBe(true);
+
+        // Nested direction: the inner's horizontal track is hidden, so it does
+        // not satisfy the predicate on its own parts — and must not inherit the
+        // outer's satisfaction of it.
+        expect(satisfies(inner!, selector)).toBe(false);
+      }
+    } finally {
+      outer.remove();
+    }
   });
 });

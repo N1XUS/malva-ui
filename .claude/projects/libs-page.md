@@ -216,7 +216,9 @@ breakpoint neither restores focus nor emits a false close event.
 
 ## `MlvPage`
 
-`MlvPage` enhances a native `<main>` landmark and uses an internal `mlv-scrollbar` as the page scroll owner by default. It generates a unique id and sets `tabindex="-1"` so route focus management has a predictable target; set `id` explicitly when a skip link needs a stable application-level target. With `scroll="none"`, the scrollbar is disabled and its viewport is clipped so a consumer-owned nested region can handle scrolling.
+`MlvPage` enhances a native `<main>` landmark and uses an internal `mlv-scrollbar` as the page scroll owner by default. It generates a unique id and sets `tabindex="-1"` so route focus management has a predictable target; set `id` explicitly when a skip link needs a stable application-level target. With `scroll="none"`, the scrollbar is disabled and **its own** viewport is clipped so a consumer-owned nested region can handle scrolling.
+
+Both rules the page aims at that viewport are child-scoped, and any new one must be — `.mlv-page__scrollbar > .mlv-scrollbar__viewport` (`overflow-x: hidden`, `scroll-padding-top`, `overflow-anchor: none`) and `.mlv-page--scroll-none .mlv-page__scrollbar > .mlv-scrollbar__viewport` (`overflow: clip`). Page content routinely brings its own `mlv-scrollbar` (`mlv-chat`, an external-scroller `mlv-textarea`, and the `scroll="none"` region itself), and a descendant combinator would clip those nested viewports and kill their horizontal axis for a page-level decision nobody made about them — breaking the exact composition `scroll="none"` exists for. Guarded by `libs/core/page/src/lib/page/page-nested-scrollbar.spec.ts`; `mlv-scrollbar`'s own rules were scoped the same way in issue #98, documented in that library's CLAUDE.md.
 
 | Input          | Type             | Default      | Description                                                             |
 | -------------- | ---------------- | ------------ | ----------------------------------------------------------------------- |
