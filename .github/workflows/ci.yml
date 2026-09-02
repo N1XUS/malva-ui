@@ -77,8 +77,8 @@ jobs:
       # worker cap shrinks, so sharing 16GB and 4 vCPU with the other jsdom
       # suites got its worker OOM-killed ("Worker exited unexpectedly", no V8
       # heap message — the kernel, not V8) and starved the neighbours it did not
-      # kill. Running it in its own step costs little: everything it depends on
-      # is already a cache hit from the step above.
+      # kill. Running it in its own steps costs little: everything it depends
+      # on is already a cache hit from the step above.
       # `--projects` is a `run-many` filter, not an `affected` one: `nx affected`
       # forwards it to the target's own command instead (`tsc` answers with
       # "error TS5023: Unknown compiler option '--projects=docs'") and still
@@ -88,4 +88,31 @@ jobs:
       # by almost any change, and when it genuinely is not, every task here is a
       # cache hit.
       - name: Verify the docs app
-        run: npx nx run-many -t lint test build typecheck --projects=docs
+        run: npx nx run-many -t lint build typecheck --projects=docs
+
+      # `docs:test` gets a step of its own on top of that, because a step is
+      # not the unit of isolation nx cares about: `--parallel` defaults to 3,
+      # so putting all four targets in one command co-scheduled the suite with
+      # `docs:build:production` for nearly four of its eight minutes
+      # (test 12:42:31-12:50:36, build until 12:46:23 in run 33631050521) and
+      # it lost a worker at the tail again. The same suite runs in 1m18s on a
+      # 14-core dev machine, so 8m on 4 vCPU is not just the slower box.
+      - name: Test the docs app
+        run: |
+          ( while sleep 15; do
+              # `awk`'s `strftime` is a gawk extension and Ubuntu's default awk
+              # is mawk, so the clock comes from `date`.
+              printf '%s %s\n' "$(date -u +%H:%M:%S)" \
+                "$(free -m | awk 'NR == 2 { printf "used=%sMB available=%sMB", $3, $7 }')"
+            done ) > "$RUNNER_TEMP/docs-test-memory.log" 2>&1 &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || true' EXIT
+          npx nx run-many -t test --projects=docs
+
+      # Vitest reports a kernel SIGKILL as "Worker exited unexpectedly" with no
+      # further detail, which reads identically to any other abnormal exit. The
+      # trace above is the only thing that separates "the box ran out" from a
+      # crash inside a spec, so print it whenever this job fails.
+      - name: Memory trace from the docs test run
+        if: failure()
+        run: cat "$RUNNER_TEMP/docs-test-memory.log" || true
