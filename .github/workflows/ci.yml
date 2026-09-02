@@ -90,13 +90,23 @@ jobs:
       - name: Verify the docs app
         run: npx nx run-many -t lint build typecheck --projects=docs
 
-      # `docs:test` gets a step of its own on top of that, because a step is
-      # not the unit of isolation nx cares about: `--parallel` defaults to 3,
-      # so putting all four targets in one command co-scheduled the suite with
-      # `docs:build:production` for nearly four of its eight minutes
-      # (test 12:42:31-12:50:36, build until 12:46:23 in run 33631050521) and
-      # it lost a worker at the tail again. The same suite runs in 1m18s on a
-      # 14-core dev machine, so 8m on 4 vCPU is not just the slower box.
+      # `docs:test` gets a step of its own on top of that, in two shards.
+      #
+      # A step is not the unit of isolation nx cares about — `--parallel`
+      # defaults to 3, so one command carrying all four targets co-scheduled
+      # the suite with `docs:build:production` — but that was never the whole
+      # story. The memory trace below settled it: this runner has ~7.9GB with
+      # ~2GB already in use, and the suite alone climbs monotonically to 6.9GB,
+      # so it cannot fit however well it is isolated. It has to be smaller.
+      #
+      # `maxWorkers: 1` in apps/docs/vite.config.mts takes the full suite from
+      # 7.41GB to 4.42GB of max RSS (and makes it faster — see the comment
+      # there). Sharding in two takes it to 3.78GB, which leaves ~2GB of the
+      # runner's headroom rather than the ~1GB it was dying at. `--shard` is
+      # not in the `@nx/vitest:test` schema but nx forwards it to vitest, which
+      # splits the 36 files deterministically. The unsharded `test` target is
+      # untouched and still globs every spec, so scripts/check-test-targets.mjs
+      # still sees the whole suite covered.
       - name: Test the docs app
         run: |
           ( while sleep 15; do
@@ -107,7 +117,8 @@ jobs:
             done ) > "$RUNNER_TEMP/docs-test-memory.log" 2>&1 &
           monitor=$!
           trap 'kill "$monitor" 2>/dev/null || true' EXIT
-          npx nx run-many -t test --projects=docs
+          npx nx run docs:test --shard=1/2
+          npx nx run docs:test --shard=2/2
 
       # Vitest reports a kernel SIGKILL as "Worker exited unexpectedly" with no
       # further detail, which reads identically to any other abnormal exit. The

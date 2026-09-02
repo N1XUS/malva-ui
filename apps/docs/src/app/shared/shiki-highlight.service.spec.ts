@@ -1,17 +1,33 @@
 import { TestBed } from '@angular/core/testing';
-import { codeToHtml } from 'shiki';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ShikiHighlightService } from './shiki-highlight.service';
-
-vi.mock('shiki', () => ({ codeToHtml: vi.fn() }));
+import {
+  DOCS_CODE_HIGHLIGHTER,
+  ShikiHighlightService,
+  type DocsCodeHighlighter,
+} from './shiki-highlight.service';
 
 describe('ShikiHighlightService', () => {
-  const codeToHtmlMock = vi.mocked(codeToHtml);
+  let codeToHtmlMock: ReturnType<typeof vi.fn<DocsCodeHighlighter>>;
 
   beforeEach(() => {
+    // A provider override rather than `vi.mock('shiki')`: Shiki is externalised,
+    // so once any other spec in the same worker has imported the real package
+    // the module mock stops applying and these assertions read real Shiki HTML.
+    // That made the file pass or fail on worker scheduling alone.
+    codeToHtmlMock = vi.fn<DocsCodeHighlighter>(
+      async (code) => `<pre>${code}</pre>`,
+    );
+
     TestBed.resetTestingModule();
-    codeToHtmlMock.mockReset();
-    codeToHtmlMock.mockImplementation(async (code) => `<pre>${code}</pre>`);
+    TestBed.configureTestingModule({
+      providers: [{ provide: DOCS_CODE_HIGHLIGHTER, useValue: codeToHtmlMock }],
+    });
+  });
+
+  it('resolves the real Shiki entry point when nothing overrides it', () => {
+    TestBed.resetTestingModule();
+
+    expect(TestBed.inject(DOCS_CODE_HIGHLIGHTER)).toBeTypeOf('function');
   });
 
   it('reuses in-flight and completed work for the same source', async () => {
@@ -35,6 +51,9 @@ describe('ShikiHighlightService', () => {
     await service.highlight('button {}', 'css', 'dark');
 
     expect(codeToHtmlMock).toHaveBeenCalledTimes(2);
+    expect(
+      codeToHtmlMock.mock.calls.map(([, options]) => options.theme),
+    ).toEqual(['github-light', 'github-dark']);
   });
 
   it('retries a key after a highlighting failure', async () => {

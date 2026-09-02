@@ -698,6 +698,8 @@ Shiki-based code highlighting pipe backed by the shared `ShikiHighlightService`.
 
 Root-level, bounded LRU cache for Shiki output, keyed by `theme::lang::code`. It reuses in-flight promises as well as completed HTML across component remounts, so revisiting a source tab after switching between Examples and API does not tokenize the same file again. Failed entries are evicted and remain retryable.
 
+Shiki itself is reached through `DOCS_CODE_HIGHLIGHTER`, a root `InjectionToken<DocsCodeHighlighter>` whose default factory is Shiki's `codeToHtml` — the service never imports it directly. Specs override the token; **do not reintroduce `vi.mock('shiki')`**. Shiki is externalised, so once any spec sharing the worker has pulled the real package through Node's own ESM registry the module mock silently stops applying and the assertions read real Shiki HTML — the file then passed or failed on worker scheduling alone, and failed outright in the single-worker run CI now uses. `doc-page.component.spec.ts` and `example-container.component.spec.ts` already override `ShikiHighlightService` itself, which is the other correct shape.
+
 ---
 
 ## 7. App Shell

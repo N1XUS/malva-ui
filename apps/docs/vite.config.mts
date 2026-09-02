@@ -27,15 +27,24 @@ export default defineConfig(() => ({
       '../../scripts/testing/setup-restore-dom-globals.js',
       'src/test-setup.ts',
     ],
-    // This is by far the heaviest suite in the workspace: 36 files, 339 tests,
-    // axe scans over whole showcase pages, and one 92-test file that alone runs
-    // for over two minutes on a CI runner. Left unbounded, vitest sizes its
-    // pool from the core count, and because nx runs three projects at a time
-    // that put ~9 jsdom workers on a 4-vCPU runner. The suite then starved its
-    // co-scheduled neighbours (editor's specs went from 3.7s to 19.7s and timed
-    // out) and finally lost a worker outright. Two workers keeps it inside its
-    // share of the box; the critical path is the single big file either way.
-    maxWorkers: 2,
+    // This is by far the heaviest suite in the workspace: 36 files, 340 tests,
+    // axe scans over whole showcase pages, and specs that lazy-load the editor
+    // page and pull the entire Tiptap graph through Vite's transform. The CI
+    // runner has ~7.9GB of RAM with ~2GB already in use, and this suite kept
+    // losing a worker to the kernel there — "Worker exited unexpectedly", no V8
+    // heap message. A `free` trace of the run showed why: memory climbed
+    // monotonically from 2.0GB to 6.9GB used with no plateau, and the kill
+    // landed once ~1GB was left.
+    //
+    // One worker, not two. Vitest's `threads` pool keeps every worker isolate
+    // in a single process, and each one imports the whole module graph
+    // separately, so the second worker costs a second copy of it. Measured over
+    // the full suite (max RSS, `/usr/bin/time -l`): 7.41GB at two workers,
+    // 4.42GB at one. It is also *faster* — 68.3s to 52.3s, with import time
+    // falling from 74.3s to 4.7s and user CPU from 177s to 60s — because
+    // nothing is imported twice. CI shards this in two on top of that, which
+    // brings the peak to 3.78GB and leaves ~2GB of headroom.
+    maxWorkers: 1,
     minWorkers: 1,
     // axe over a full showcase page takes ~1.7s uncontended here and several
     // times that on a loaded runner, so the 5s default leaves no headroom.
