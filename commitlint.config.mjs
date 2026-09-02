@@ -70,6 +70,7 @@ export default {
         'sidebar',
         'skeleton',
         'slider',
+        'speed-dial',
         'split-pane',
         'status-indicator',
         'stepper',

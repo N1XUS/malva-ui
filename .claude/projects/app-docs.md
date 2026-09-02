@@ -700,6 +700,8 @@ Shiki-based code highlighting pipe backed by the shared `ShikiHighlightService`.
 
 Root-level, bounded LRU cache for Shiki output, keyed by `theme::lang::code`. It reuses in-flight promises as well as completed HTML across component remounts, so revisiting a source tab after switching between Examples and API does not tokenize the same file again. Failed entries are evicted and remain retryable.
 
+Shiki itself is reached through `DOCS_CODE_HIGHLIGHTER`, a root `InjectionToken<DocsCodeHighlighter>` whose default factory is Shiki's `codeToHtml` — the service never imports it directly. Specs override the token; **do not reintroduce `vi.mock('shiki')`**. Shiki is externalised, so once any spec sharing the worker has pulled the real package through Node's own ESM registry the module mock silently stops applying and the assertions read real Shiki HTML — the file then passed or failed on worker scheduling alone, and failed outright in the single-worker run CI now uses. `doc-page.component.spec.ts` and `example-container.component.spec.ts` already override `ShikiHighlightService` itself, which is the other correct shape.
+
 ---
 
 ## 7. App Shell
@@ -829,10 +831,22 @@ Landing-page layout and visual styling are component-scoped in `pages/home/home.
 | `check-doc-api` | `nx:run-commands`         | Runs `scripts/check-doc-api.mjs` — compares each library's `CLAUDE.md` API tables against the extracted JSON. `dependsOn: ['extract-api']`. Cacheable. See §9c.           |
 | `build`         | `@nx/angular:application` | Entry: `src/main.ts`. Plugins: `mdx-transform.ts`. `dependsOn: ['extract-api']`. Bundles `styles.scss`. Copies `public/**` and `pages/**/examples/**/*` as static assets. |
 | `serve`         | `@nx/angular:dev-server`  | Reads plugins from build target. `dependsOn: ['extract-api']`. Full HMR for MDX changes.                                                                                  |
+| `test`          | `@nx/vitest:test`         | Vitest via `vite.config.mts`. `dependsOn: ['extract-api']` — see below. Cacheable. Run it as `yarn nx test docs`.                                                         |
 | `lint`          | `@nx/eslint:lint`         |                                                                                                                                                                           |
 | `serve-static`  | `@nx/web:file-server`     | Serves `dist/apps/docs/browser` as SPA.                                                                                                                                   |
 
 **Important:** `pages/**/examples/**/*` are copied as static assets so `ExampleContainerComponent` can fetch source files by URL at runtime.
+
+**`test` must keep `dependsOn: ['extract-api']`.** `src/generated/api` is
+git-ignored and produced only by that target, while `doc-page.component.ts` and
+`api-viewer.component.ts` import it directly — and `shared/index.ts` re-exports
+doc-page, which every `pages/*/index.ts` imports. Without the dependency, 8 of
+the 36 spec files fail at module resolution on a fresh clone (verified), which
+is a race no `run-many`/`affected` ordering rescues. The target is explicitly
+declared rather than left to the `@nx/vitest` plugin because the workspace
+names the inferred target `vite:test`, which CI never selects — see
+`.claude/projects/best-practices.md`, "Every project owning specs MUST declare
+an explicit `test` target".
 
 ### Production budgets (rationale)
 

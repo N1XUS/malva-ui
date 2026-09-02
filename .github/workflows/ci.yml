@@ -60,11 +60,70 @@ jobs:
       # under-selecting is not.
       - name: Verify affected projects
         if: github.event_name == 'pull_request'
-        run: npx nx affected -t lint test test-schematics build typecheck --base=${{ github.event.pull_request.base.sha }} --head=HEAD
+        run: npx nx affected -t lint test test-schematics build typecheck --base=${{ github.event.pull_request.base.sha }} --head=HEAD --exclude=docs
 
       # Pushes to main verify everything. main is the branch every PR bases off
       # and the one release cuts from, so it must never be only partially
       # verified — and after the PR run most targets are already cache hits.
       - name: Verify all projects
         if: github.event_name != 'pull_request'
-        run: npx nx run-many -t lint test test-schematics build typecheck
+        run: npx nx run-many -t lint test test-schematics build typecheck --exclude=docs
+
+      # `docs` gets the runner to itself. It is the heaviest project in the
+      # workspace by a wide margin — 36 spec files, 339 tests, axe scans over
+      # whole showcase pages, and specs that lazy-load the editor page and pull
+      # the entire Tiptap graph through Vite's transform. Its memory is
+      # dominated by that transform graph in the Vitest *main* process, which no
+      # worker cap shrinks, so sharing 16GB and 4 vCPU with the other jsdom
+      # suites got its worker OOM-killed ("Worker exited unexpectedly", no V8
+      # heap message — the kernel, not V8) and starved the neighbours it did not
+      # kill. Running it in its own steps costs little: everything it depends
+      # on is already a cache hit from the step above.
+      # `--projects` is a `run-many` filter, not an `affected` one: `nx affected`
+      # forwards it to the target's own command instead (`tsc` answers with
+      # "error TS5023: Unknown compiler option '--projects=docs'") and still
+      # runs the whole affected graph, which defeats the isolation. So this is
+      # `run-many`, unconditionally. Nothing is lost by not scoping it to the
+      # affected set: `docs` depends on nearly every library, so it is affected
+      # by almost any change, and when it genuinely is not, every task here is a
+      # cache hit.
+      - name: Verify the docs app
+        run: npx nx run-many -t lint build typecheck --projects=docs
+
+      # `docs:test` gets a step of its own on top of that, in two shards.
+      #
+      # A step is not the unit of isolation nx cares about — `--parallel`
+      # defaults to 3, so one command carrying all four targets co-scheduled
+      # the suite with `docs:build:production` — but that was never the whole
+      # story. The memory trace below settled it: this runner has ~7.9GB with
+      # ~2GB already in use, and the suite alone climbs monotonically to 6.9GB,
+      # so it cannot fit however well it is isolated. It has to be smaller.
+      #
+      # `maxWorkers: 1` in apps/docs/vite.config.mts takes the full suite from
+      # 7.41GB to 4.42GB of max RSS (and makes it faster — see the comment
+      # there). Sharding in two takes it to 3.78GB, which leaves ~2GB of the
+      # runner's headroom rather than the ~1GB it was dying at. `--shard` is
+      # not in the `@nx/vitest:test` schema but nx forwards it to vitest, which
+      # splits the 36 files deterministically. The unsharded `test` target is
+      # untouched and still globs every spec, so scripts/check-test-targets.mjs
+      # still sees the whole suite covered.
+      - name: Test the docs app
+        run: |
+          ( while sleep 15; do
+              # `awk`'s `strftime` is a gawk extension and Ubuntu's default awk
+              # is mawk, so the clock comes from `date`.
+              printf '%s %s\n' "$(date -u +%H:%M:%S)" \
+                "$(free -m | awk 'NR == 2 { printf "used=%sMB available=%sMB", $3, $7 }')"
+            done ) > "$RUNNER_TEMP/docs-test-memory.log" 2>&1 &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || true' EXIT
+          npx nx run docs:test --shard=1/2
+          npx nx run docs:test --shard=2/2
+
+      # Vitest reports a kernel SIGKILL as "Worker exited unexpectedly" with no
+      # further detail, which reads identically to any other abnormal exit. The
+      # trace above is the only thing that separates "the box ran out" from a
+      # crash inside a spec, so print it whenever this job fails.
+      - name: Memory trace from the docs test run
+        if: failure()
+        run: cat "$RUNNER_TEMP/docs-test-memory.log" || true

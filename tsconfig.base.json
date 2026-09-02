@@ -97,6 +97,7 @@
       "@malva-ui/core/select": ["libs/core/select/src/index.ts"],
       "@malva-ui/core/sidebar": ["libs/core/sidebar/src/index.ts"],
       "@malva-ui/core/slider": ["libs/core/slider/src/index.ts"],
+      "@malva-ui/core/speed-dial": ["libs/core/speed-dial/src/index.ts"],
       "@malva-ui/core/status-indicator": [
         "libs/core/status-indicator/src/index.ts"
       ],

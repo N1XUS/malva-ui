@@ -55,6 +55,7 @@ Thumbs.db
 .claude/*
 !.claude/projects
 !.claude/skills
+!.claude/rules
 .playwright-mcp
 
 vite.config.*.timestamp*

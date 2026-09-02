@@ -14,6 +14,7 @@ For granular, copy-paste-ready rules with full code examples, see the rule files
 | `.claude/rules/angular-pipe.md` | `@Pipe` skeleton, pure vs impure, typing, DI |
 | `.claude/rules/bem-scss.md` | BEM naming, `--mlv-*` CSS variables, `$block` pattern, rem values, design tokens |
 | `.claude/rules/accessibility.md` | Keyboard nav, tabindex, ARIA, FocusKeyManager, focus trapping, WCAG AA |
+| `.claude/rules/rtl.md` | Direction / RTL: logical CSS, `--mlv-inline-direction`, `normalizeArrowKey`, overlay `direction`, icon mirroring, RTL specs |
 
 ---
 
@@ -47,6 +48,7 @@ For granular, copy-paste-ready rules with full code examples, see the rule files
     // handle value
   });
   ```
+  Exception: a subscription whose lifetime is shorter than the component's — re-created when a signal changes, or tied to an overlay that is attached and disposed repeatedly — is released by the `effect`'s `onCleanup` (or the owning teardown list) instead; `takeUntilDestroyed()` would fire only at destroy and leak every earlier generation (`mlv-speed-dial`'s `fromEvent` trigger listeners are the reference case).
 
 ---
 
@@ -55,6 +57,7 @@ For granular, copy-paste-ready rules with full code examples, see the rule files
 - All components **must pass all AXE checks**
 - All components **must follow WCAG AA minimums**: focus management, color contrast, ARIA attributes
 - Ensure keyboard navigability for interactive elements
+- Horizontal keyboard and pointer behaviour mirrors in RTL: arrow handlers go through `MlvRtlService.normalizeArrowKey()`, horizontal `FocusKeyManager`s take the live direction, overlays carry `direction` on their config. See `.claude/rules/rtl.md`
 - Use semantic HTML; add ARIA roles/labels only when native semantics are insufficient
 
 ---
@@ -135,6 +138,54 @@ Every other text/numeric/email/tel/url field — including search boxes inside `
 - **Scaffolding**: invoke the `nx-generate` skill first before exploring or calling MCP tools
 - **NEVER guess CLI flags** — check `nx_docs` or `--help` first
 
+### Every project owning specs MUST declare an explicit `test` target
+
+`nx.json` registers `@nx/vitest` with `"testTargetName": "vite:test"`, so the
+plugin-**inferred** unit-test target is _not_ called `test` anywhere in this
+workspace. Both CI jobs select strictly by target name
+(`nx affected -t lint test …` / `nx run-many -t lint test …` in
+`.github/workflows/ci.yml`), and nx does no aliasing between the two names — a
+project runs in CI only because it hand-declares `test` in its own
+`project.json`. Copy the shape its peers use:
+
+```jsonc
+"test": {
+  "executor": "@nx/vitest:test",
+  "options": { "config": "<project-root>/vite.config.mts" }
+}
+```
+
+- Add `"dependsOn"` when the suite needs generated sources — `apps/docs`
+  carries `["extract-api"]`, without which most of its 36 spec files fail at
+  module resolution on a fresh clone (`src/generated/api` is git-ignored).
+- **Run the suite through `test`, never `vite:test`**, in READMEs, docs and
+  local commands: `yarn nx test <project>`. Referencing the inferred name
+  teaches the next reader the target CI does not run.
+- The `@nx/vitest:test` executor runs with **cwd = workspace root**, while the
+  inferred `vite:test` runs from the project root. A spec that reads a source
+  file must resolve it from `dirname(fileURLToPath(import.meta.url))`, not
+  `process.cwd()`.
+
+Enforced by `scripts/check-test-targets.mjs`, which runs as part of
+`@malva-ui/source:test` (a target CI already selects). It attributes every
+`*.spec.*` / `*.test.*` file to the innermost project containing it and fails
+unless some `test` target actually runs it — an executor-driven or
+`vitest`/`jest` target covers its project's specs by glob, while a
+`nx:run-commands` target that enumerates files (`node --test a.spec.mjs …`),
+or a project with no `test` target at all, must have each of its specs named
+verbatim in some `test` command anywhere in the workspace. That last rule is
+what keeps the two deliberate cross-project arrangements honest —
+`scripts/testing/strip-css-layers.spec.js` runs through the root target and
+`scripts/check-padding-tokens.spec.mjs` through `styles:test` — so dropping
+either file from the command that runs it fails the check instead of silently
+retiring the suite.
+
+Because the guard's answer depends on the shape of the whole workspace, the
+root `test` target's `inputs` are workspace-wide globs (`**/project.json`,
+`**/package.json`, `**/*.{spec,test}.*`). Do not narrow them to `apps/`+`libs/`:
+a project added anywhere else would then be a cache hit and the guard would
+never run.
+
 ### Project boundaries
 
 - Every project carries `scope:*`, `family:*`, and `type:*` tags.
@@ -178,6 +229,7 @@ Rules:
 - If a CSS value is static, reference the shared `--mlv-*` token directly instead of creating an extra component-scoped alias variable.
 - Only introduce a component-scoped CSS variable when the value is meant to change based on component state, variant, density, theme override, or another modifier.
 - Use rem-based values rather than px for all properties. For example, use `padding: 0.5rem` instead of `padding: 8px` to ensure better scalability and accessibility across different devices and user settings.
+- Inline-axis CSS is **logical**: `margin-inline-start`, `inset-inline-end`, `text-align: start`, `border-start-start-radius`, `float: inline-start` — never `margin-left`, `left`, `text-align: left`. Physical `left`/`right` stay only for JS-fed coordinates, `left: 50%` centering pairs and collision-resolved overlay arrows, each with a `// physical: <reason>` comment. `transform`/`transform-origin`/`box-shadow` offsets go through `mixins.inline-distance()` / `--mlv-inline-direction`. See `.claude/rules/rtl.md`.
 - `--mlv-padding-{xs,s,m,l,xl,2xl}` are **two-value `block inline` pairs** — use them only as the whole `padding:` value; per-side, `padding-inline/block`, `gap`, `margin`, `top`, `calc()` and multi-value shorthands take the matching `--mlv-spacing-*` half instead (see `.claude/rules/bem-scss.md`). Enforced by `yarn nx run styles:check-padding-tokens` (a `styles:lint` dependency, so it gates CI).
 - Every animated BEM block must provide a reduced-motion path. Prefer
   `@include mixins.reduced-motion('<block>')` for the standard instantaneous
@@ -241,6 +293,65 @@ How many files share a worker depends on the core count, so this reproduces on a
 in a worker and puts back any that were replaced around every test. Nothing to
 do per spec — but keep it in `setupFiles` when adding a project, and prefer
 `--no-file-parallelism` when a suite passes locally and fails in CI.
+
+---
+
+## The Test Environment Is Zoneless
+
+The library is zoneless-only. Every component, directive and service is `OnPush`
+and signal-based, authored for `provideZonelessChangeDetection()`; `apps/docs`
+bootstraps that way, and no suite loads `zone.js`. **There is no zone-based test
+mode and no dual-mode run** — do not add `zone.js` to `setupFiles`, and do not
+write `provideZoneChangeDetection`, `fakeAsync`, `waitForAsync`,
+`NgZone.onStable` or `onMicrotaskEmpty` in a spec. `await fixture.whenStable()`
+after a signal write is the pattern that works. That list is enforced, not
+advisory: `nx run @malva-ui/source:test` greps every TypeScript spec file for
+it.
+
+This is a rule about **specs**, not about library source. `NgZone.runOutsideAngular`
+in a component or directive is a separate question — the remaining call sites
+are considered and tracked in #37/#13 — and one spec type-imports `NgZone` for a
+hand-rolled stub. Neither puts a spec on zone change detection, so neither is
+banned.
+
+Every project declares the mode the same way, so one grep tells the whole story:
+
+```ts
+// <project>/src/test-setup.ts
+setupTestBed({ zoneless: true });
+```
+
+The bare `setupTestBed()` is not an accepted spelling even though `zoneless`
+defaults to `true` in `@analogjs/vitest-angular` — the point is that the file
+says what it means rather than leaving the mode to a third-party default.
+
+**Why it is pinned twice.** Angular's `TestBed` puts
+`provideZonelessChangeDetectionInternal()` into its root scope module
+unconditionally and `ZONELESS_ENABLED` defaults to `() => true`, so a project
+passing `{ zoneless: false }` still resolves `NoopNgZone`, still auto-detects,
+and nothing goes red. A wrong declaration is invisible at runtime, and a runtime
+that stopped matching a right declaration would be invisible statically. So:
+
+| Guard                                            | Runs as                             | Catches                                                                                                                                                                                          |
+| ------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scripts/testing/setup-assert-zoneless.js`       | a `setupFiles` entry, per spec file | the _resolved_ injector: `PROVIDED_ZONELESS`, `ZONELESS_ENABLED`, a real `NgZone`, or a `globalThis.Zone` that something pulled in transitively                                                  |
+| `scripts/testing/assert-zoneless-config.spec.js` | `nx run @malva-ui/source:test`      | the _declaration_: a setup that does not say `{ zoneless: true }`, a `vite.config.mts` that does not load the runtime pin at a path that resolves, and a spec reaching for a zone-based test API |
+
+Most of the banned spec APIs already fail loudly without `zone.js` —
+`provideZoneChangeDetection()` throws NG0908, `fakeAsync` throws
+"zone-testing.js is needed" — so the third check is not what stands between the
+suite and a silent pass for those. It matters for the two cases that _are_
+silent: `NgZone.onStable` and `onMicrotaskEmpty` resolve to `NoopNgZone`
+emitters that **never fire**, so a spec asserting inside such a callback goes
+green having run no assertion at all; and a `vite.config.mts` that never lists
+the runtime pin is invisible to that pin by construction, so only a static sweep
+can find it.
+
+When adding a project, list the pin **after** `src/test-setup.ts` in
+`setupFiles` alongside the other two shared entries. The static guard walks the
+whole tree, not just `libs/` and `apps/`, so a project added under a new root is
+swept too; the root `test` target's `inputs` carry `**/vite.config.mts`,
+`**/test-setup.ts` and `**/*.{spec,test}.*` for the same reason.
 
 ---
 

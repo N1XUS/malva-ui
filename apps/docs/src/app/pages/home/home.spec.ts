@@ -15,6 +15,29 @@ describe('HomePageComponent', () => {
   const currentTheme = signal<'light' | 'dark'>('light');
 
   beforeEach(async () => {
+    // The homepage decides whether it may animate from `matchMedia`, and the
+    // strip assertion below reads the state it settles on without motion. This
+    // jsdom build ships no `matchMedia` at all, so that used to hold by
+    // accident — until a spec earlier in the same worker installed a stub of
+    // its own and left it there, at which point the counters started rendering
+    // their initial zeros. Arrange the condition the test is named for instead
+    // of inheriting it. `scripts/testing/setup-restore-dom-globals.js` puts the
+    // pristine (absent) global back after every test.
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: query.includes('prefers-reduced-motion'),
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(() => false),
+      }),
+    });
+
     currentTheme.set('light');
     await TestBed.configureTestingModule({
       imports: [HomePageComponent],

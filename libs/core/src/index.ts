@@ -18,6 +18,7 @@ export * from '@malva-ui/core/number-input';
 export * from '@malva-ui/core/radio';
 export * from '@malva-ui/core/select';
 export * from '@malva-ui/core/slider';
+export * from '@malva-ui/core/speed-dial';
 export * from '@malva-ui/core/switch';
 export * from '@malva-ui/core/tokenizer';
 export * from '@malva-ui/core/action-bar';

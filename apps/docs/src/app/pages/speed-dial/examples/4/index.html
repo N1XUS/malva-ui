@@ -1,0 +1,20 @@
+<div class="stage">
+  <div class="stage__cell">
+    <mlv-speed-dial
+      [items]="people"
+      direction="right"
+      itemVariant="outlined"
+      ariaLabel="Assign to"
+      (itemSelect)="assign($event)"
+    >
+      <svg mlvSpeedDialTriggerIcon lucideUsers [size]="20" aria-hidden="true" />
+      <ng-template mlvSpeedDialItemDef let-person>
+        <span class="initials">{{ initials(person.label) }}</span>
+      </ng-template>
+    </mlv-speed-dial>
+  </div>
+</div>
+<p class="stage__status" aria-live="polite">
+  @if (assignee(); as name) { Assigned to <strong>{{ name }}</strong>
+  } @else { Unassigned }
+</p>
