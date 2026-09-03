@@ -1,0 +1,258 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+$block: mlv-scheduler-time-grid;
+
+@layer mlv.components {
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-s-size),
+      0,
+      0
+    );
+
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-block-size: 0;
+
+    &__scroller {
+      flex: 1 1 auto;
+      min-block-size: 0;
+    }
+
+    &__sheet {
+      // Every band shares one track list so headers align with the columns.
+      --mlv-scheduler-tracks: var(--mlv-scheduler-gutter-width)
+        repeat(
+          var(--mlv-scheduler-day-count, 7),
+          minmax(var(--mlv-scheduler-column-min-width), 1fr)
+        );
+      min-inline-size: 100%;
+      inline-size: max-content;
+      max-inline-size: none;
+    }
+
+    &__top {
+      position: sticky;
+      inset-block-start: 0;
+      z-index: 3;
+      background: var(--mlv-background-base);
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    }
+
+    &__header,
+    &__all-day,
+    &__body {
+      display: grid;
+      grid-template-columns: var(--mlv-scheduler-tracks);
+    }
+
+    &__corner,
+    &__all-day-label,
+    &__gutter {
+      position: sticky;
+      inset-inline-start: 0;
+      z-index: 2;
+      background: var(--mlv-background-base);
+    }
+
+    &__day-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--mlv-spacing-0-5);
+      padding: var(--mlv-padding-xs);
+      border-inline-start: var(--mlv-stroke-width) solid
+        var(--mlv-border-subtle);
+      color: var(--mlv-text-secondary);
+
+      &--today {
+        color: var(--mlv-text-action);
+
+        .#{$block}__day-number {
+          background: var(--mlv-background-accent-1-pale);
+        }
+      }
+    }
+
+    &__day-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-inline-size: 1.75rem;
+      block-size: 1.75rem;
+      border-radius: var(--mlv-radius-full);
+      font-size: var(--mlv-typography-body-l-size);
+      font-weight: 600;
+      color: var(--mlv-text-primary);
+    }
+
+    &__all-day {
+      border-block-start: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    }
+
+    &__all-day-label {
+      display: flex;
+      align-items: flex-start;
+      padding: var(--mlv-padding-xs);
+      color: var(--mlv-text-secondary);
+      text-align: end;
+    }
+
+    &__all-day-cell {
+      position: relative;
+      min-inline-size: 0;
+      min-block-size: calc(
+        var(--mlv-scheduler-lane-height) + var(--mlv-spacing-1) * 2
+      );
+      padding: var(--mlv-spacing-1);
+      border-inline-start: var(--mlv-stroke-width) solid
+        var(--mlv-border-subtle);
+      overflow: visible;
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+        z-index: 1;
+      }
+
+      &--today {
+        background: var(--mlv-background-accent-1-pale);
+      }
+    }
+
+    &__all-day-lanes {
+      display: grid;
+      grid-template-rows: repeat(
+        var(--mlv-scheduler-all-day-lanes, 1),
+        var(--mlv-scheduler-lane-height)
+      );
+      row-gap: var(--mlv-spacing-0-5);
+    }
+
+    &__lane-event {
+      grid-column: 1;
+      grid-row: var(--mlv-scheduler-lane, 1);
+      position: relative;
+      z-index: 1;
+      min-inline-size: 0;
+
+      &--spanning {
+        inline-size: calc(
+          100% * var(--mlv-scheduler-span, 1) + var(--mlv-stroke-width) *
+            (var(--mlv-scheduler-span, 1) - 1)
+        );
+        z-index: 2;
+      }
+    }
+
+    &__body {
+      position: relative;
+    }
+
+    &__gutter {
+      position: sticky;
+      block-size: calc(
+        var(--mlv-scheduler-slot-count, 48) * var(--mlv-scheduler-slot-height)
+      );
+      color: var(--mlv-text-secondary);
+    }
+
+    &__hour {
+      position: absolute;
+      inset-block-start: var(--mlv-scheduler-offset, 0%);
+      inset-inline-end: var(--mlv-spacing-2);
+      translate: 0 -50%;
+      font-size: var(--mlv-typography-body-s-size);
+      white-space: nowrap;
+    }
+
+    &__column {
+      position: relative;
+      display: grid;
+      grid-template-rows: repeat(
+        var(--mlv-scheduler-slot-count, 48),
+        var(--mlv-scheduler-slot-height)
+      );
+      min-inline-size: 0;
+      border-inline-start: var(--mlv-stroke-width) solid
+        var(--mlv-border-subtle);
+
+      &--today {
+        background: color-mix(
+          in oklab,
+          var(--mlv-background-accent-1-pale) 40%,
+          transparent
+        );
+      }
+    }
+
+    &__slot {
+      box-sizing: border-box;
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+      background: var(--mlv-background-sunken);
+
+      &--hour {
+        border-block-start: var(--mlv-stroke-width) solid
+          var(--mlv-border-normal);
+      }
+
+      &--business {
+        background: transparent;
+      }
+
+      &--selected {
+        background: var(--mlv-background-selected);
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+        position: relative;
+        z-index: 1;
+      }
+    }
+
+    &__events {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    &__event {
+      position: absolute;
+      inset-block-start: var(--mlv-scheduler-event-top, 0%);
+      inset-inline-start: var(--mlv-scheduler-event-start, 0%);
+      inline-size: var(--mlv-scheduler-event-width, 100%);
+      block-size: var(--mlv-scheduler-event-height, auto);
+      box-sizing: border-box;
+      min-block-size: var(--mlv-scheduler-event-min-height);
+      padding-inline-end: var(--mlv-spacing-0-5);
+      pointer-events: auto;
+    }
+
+    &__now {
+      position: absolute;
+      inset-block-start: var(--mlv-scheduler-offset, 0%);
+      inset-inline: 0;
+      block-size: 0.125rem;
+      background: var(--mlv-background-danger-1);
+      pointer-events: none;
+      z-index: 2;
+
+      &::before {
+        content: '';
+        position: absolute;
+        inset-inline-start: 0;
+        inset-block-start: -0.25rem;
+        inline-size: 0.625rem;
+        block-size: 0.625rem;
+        border-radius: var(--mlv-radius-full);
+        background: var(--mlv-background-danger-1);
+      }
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}
