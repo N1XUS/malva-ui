@@ -263,3 +263,160 @@ export function sliceColumns<D, TData>(
   }
   return segments;
 }
+
+/** A row segment with its lane assigned. */
+export interface MlvSchedulerLaneSegment<D = Date, TData = unknown>
+  extends MlvSchedulerRowSegment<D, TData> {
+  readonly lane: number;
+}
+
+function laneSortKey<D, TData>(
+  adapter: MlvDateAdapter<D>,
+  a: MlvSchedulerRowSegment<D, TData>,
+  b: MlvSchedulerRowSegment<D, TData>,
+): number {
+  if (a.startIndex !== b.startIndex) return a.startIndex - b.startIndex;
+  const spanA = a.endIndex - a.startIndex;
+  const spanB = b.endIndex - b.startIndex;
+  if (spanA !== spanB) return spanB - spanA;
+  if (a.normalized.allDay !== b.normalized.allDay)
+    return a.normalized.allDay ? -1 : 1;
+  const byStart = adapter.compareDateTime(
+    a.normalized.start,
+    b.normalized.start,
+  );
+  if (byStart !== 0) return byStart;
+  return a.normalized.event.id < b.normalized.event.id
+    ? -1
+    : a.normalized.event.id > b.normalized.event.id
+      ? 1
+      : 0;
+}
+
+/** First-fit lane packing: longest spans first, then all-day, then start time, then id. Stable. */
+export function assignLanes<D, TData>(
+  adapter: MlvDateAdapter<D>,
+  segments: readonly MlvSchedulerRowSegment<D, TData>[],
+): MlvSchedulerLaneSegment<D, TData>[] {
+  const sorted = [...segments].sort((a, b) => laneSortKey(adapter, a, b));
+  const lanes: Array<Array<readonly [number, number]>> = [];
+  return sorted.map((segment) => {
+    let lane = lanes.findIndex((intervals) =>
+      intervals.every(
+        ([start, end]) => segment.endIndex < start || segment.startIndex > end,
+      ),
+    );
+    if (lane < 0) {
+      lane = lanes.length;
+      lanes.push([]);
+    }
+    lanes[lane].push([segment.startIndex, segment.endIndex]);
+    return { ...segment, lane };
+  });
+}
+
+/** What a row renders once lanes past `visibleLanes` collapse into "+N more". */
+export interface MlvSchedulerRowLayout<D = Date, TData = unknown> {
+  readonly visible: readonly MlvSchedulerLaneSegment<D, TData>[];
+  /** Day index → hidden segments covering that day (rendering order). Only days with hidden events are present. */
+  readonly hiddenByDay: ReadonlyMap<
+    number,
+    readonly MlvSchedulerLaneSegment<D, TData>[]
+  >;
+  readonly laneCount: number;
+}
+
+/**
+ * Applies a per-row lane budget. When the row needs more lanes than
+ * `visibleLanes`, the last visible lane is given to the "+N more" button, so
+ * lanes `>= visibleLanes − 1` are hidden everywhere in the row.
+ */
+export function layoutRow<D, TData>(
+  segments: readonly MlvSchedulerLaneSegment<D, TData>[],
+  visibleLanes: number,
+): MlvSchedulerRowLayout<D, TData> {
+  const laneCount = segments.reduce(
+    (max, segment) => Math.max(max, segment.lane + 1),
+    0,
+  );
+  if (laneCount <= visibleLanes) {
+    return { visible: segments, hiddenByDay: new Map(), laneCount };
+  }
+  const threshold = Math.max(0, visibleLanes - 1);
+  const visible: MlvSchedulerLaneSegment<D, TData>[] = [];
+  const hiddenByDay = new Map<number, MlvSchedulerLaneSegment<D, TData>[]>();
+  for (const segment of segments) {
+    if (segment.lane < threshold) {
+      visible.push(segment);
+      continue;
+    }
+    for (let day = segment.startIndex; day <= segment.endIndex; day++) {
+      const list = hiddenByDay.get(day) ?? [];
+      list.push(segment);
+      hiddenByDay.set(day, list);
+    }
+  }
+  return { visible, hiddenByDay, laneCount };
+}
+
+/** A column segment with its side-by-side placement. */
+export interface MlvSchedulerClusteredSegment<D = Date, TData = unknown>
+  extends MlvSchedulerColumnSegment<D, TData> {
+  /** Zero-based column inside the overlap cluster. */
+  readonly column: number;
+  /** Column count of the cluster (width = 100% / columns). */
+  readonly columns: number;
+}
+
+/** Sweep-line overlap clustering per day column. Touching segments do not overlap. */
+export function clusterColumns<D, TData>(
+  segments: readonly MlvSchedulerColumnSegment<D, TData>[],
+): MlvSchedulerClusteredSegment<D, TData>[] {
+  const sorted = [...segments].sort(
+    (a, b) =>
+      a.dayIndex - b.dayIndex ||
+      a.startMinutes - b.startMinutes ||
+      b.endMinutes - a.endMinutes ||
+      (a.normalized.event.id < b.normalized.event.id
+        ? -1
+        : a.normalized.event.id > b.normalized.event.id
+          ? 1
+          : 0),
+  );
+  const out: MlvSchedulerClusteredSegment<D, TData>[] = [];
+  let cluster: Array<{
+    segment: MlvSchedulerColumnSegment<D, TData>;
+    column: number;
+  }> = [];
+  let columnEnds: number[] = [];
+  let clusterDay = -1;
+  let clusterEnd = -Infinity;
+  const flush = (): void => {
+    const columns = columnEnds.length;
+    for (const { segment, column } of cluster)
+      out.push({ ...segment, column, columns });
+    cluster = [];
+    columnEnds = [];
+    clusterEnd = -Infinity;
+  };
+  for (const segment of sorted) {
+    if (
+      cluster.length &&
+      (segment.dayIndex !== clusterDay || segment.startMinutes >= clusterEnd)
+    ) {
+      flush();
+    }
+    clusterDay = segment.dayIndex;
+    let column = columnEnds.findIndex((end) => end <= segment.startMinutes);
+    if (column < 0) {
+      column = columnEnds.length;
+      columnEnds.push(segment.endMinutes);
+    } else {
+      columnEnds[column] = segment.endMinutes;
+    }
+    cluster.push({ segment, column });
+    clusterEnd = Math.max(clusterEnd, segment.endMinutes);
+  }
+  flush();
+  return out;
+}

@@ -2,9 +2,12 @@ import { TestBed } from '@angular/core/testing';
 import { MlvNativeDateAdapter } from '@malva-ui/core/date';
 import type { MlvSchedulerEvent } from '../scheduler/scheduler.types';
 import {
+  assignLanes,
+  clusterColumns,
   computeVisibleRange,
   dayIndexOf,
   isLaneEvent,
+  layoutRow,
   normalizeEvent,
   rowLength,
   sliceColumns,
@@ -284,5 +287,147 @@ describe('scheduler-layout: slicing', () => {
     ]);
     const clipped = sliceColumns(adapter, events, week, 8 * 60, 18 * 60);
     expect(clipped).toEqual([]); // 22:00–02:00 lies entirely outside 08:00–18:00 on both days
+  });
+});
+
+describe('scheduler-layout: lanes and overflow', () => {
+  let adapter: MlvNativeDateAdapter;
+  let week: readonly Date[];
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    adapter = TestBed.inject(MlvNativeDateAdapter);
+    week = visibleDays(
+      adapter,
+      computeVisibleRange(adapter, 'week', d(2), 1),
+      [],
+    );
+  });
+
+  const rows = (...events: MlvSchedulerEvent[]) =>
+    sliceRows(
+      adapter,
+      events.map((e) => normalizeEvent(adapter, e, 60)),
+      week,
+      7,
+      'all',
+    );
+
+  it('puts the longest all-day span first and packs first-fit', () => {
+    const lanes = assignLanes(
+      adapter,
+      rows(
+        ev('short', d(1, 9), d(1, 10)),
+        ev('long', d(1), d(4), { allDay: true }),
+        ev('mid', d(2), d(4), { allDay: true }),
+        ev('later', d(4, 9), d(4, 10)),
+      ),
+    );
+    const laneOf = (id: string) =>
+      lanes.find((s) => s.normalized.event.id === id)?.lane;
+    // Sort: long (Tue, span 2) → short (Tue, span 0) → mid (Wed, span 1) → later (Fri).
+    expect(laneOf('long')).toBe(0); // [1,3]
+    expect(laneOf('short')).toBe(1); // [1,1] collides with lane 0
+    expect(laneOf('mid')).toBe(1); // [2,3] does not collide with [1,1]
+    expect(laneOf('later')).toBe(0); // [4,4] is free in lane 0
+  });
+
+  it('is deterministic for equal spans: earlier start time, then id', () => {
+    const lanes = assignLanes(
+      adapter,
+      rows(
+        ev('b', d(1, 10), d(1, 11)),
+        ev('a', d(1, 10), d(1, 11)),
+        ev('c', d(1, 9), d(1, 11)),
+      ),
+    );
+    expect(lanes.map((s) => [s.normalized.event.id, s.lane])).toEqual([
+      ['c', 0],
+      ['a', 1],
+      ['b', 2],
+    ]);
+  });
+
+  it('hides lanes beyond the visible count and counts hidden events per day', () => {
+    const lanes = assignLanes(
+      adapter,
+      rows(
+        ev('span', d(1), d(4), { allDay: true }), // Tue–Thu lane 0
+        ev('t1', d(2, 9), d(2, 10)), // Wed lane 1
+        ev('t2', d(2, 11), d(2, 12)), // Wed lane 2
+        ev('t3', d(2, 13), d(2, 14)), // Wed lane 3
+        ev('f1', d(4, 9), d(4, 10)), // Fri lane 0
+      ),
+    );
+    const layout = layoutRow(lanes, 3);
+    expect(layout.laneCount).toBe(4);
+    expect(layout.visible.map((s) => s.normalized.event.id).sort()).toEqual([
+      'f1',
+      'span',
+      't1',
+    ]);
+    expect(
+      layout.hiddenByDay.get(2)?.map((s) => s.normalized.event.id),
+    ).toEqual(['t2', 't3']);
+    expect(layout.hiddenByDay.has(4)).toBe(false);
+    const fits = layoutRow(lanes, 4);
+    expect(fits.visible.length).toBe(5);
+    expect(fits.hiddenByDay.size).toBe(0);
+    const none = layoutRow(lanes, 1);
+    expect(none.visible).toEqual([]);
+    expect(none.hiddenByDay.get(1)?.length).toBe(1);
+  });
+});
+
+describe('scheduler-layout: clusters', () => {
+  let adapter: MlvNativeDateAdapter;
+  let week: readonly Date[];
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    adapter = TestBed.inject(MlvNativeDateAdapter);
+    week = visibleDays(
+      adapter,
+      computeVisibleRange(adapter, 'week', d(2), 1),
+      [],
+    );
+  });
+
+  const cols = (...events: MlvSchedulerEvent[]) =>
+    sliceColumns(
+      adapter,
+      events.map((e) => normalizeEvent(adapter, e, 60)),
+      week,
+      0,
+      1440,
+    );
+
+  it('lays overlapping events side by side and keeps separate clusters full width', () => {
+    const laid = clusterColumns(
+      cols(
+        ev('a', d(2, 9), d(2, 11)),
+        ev('b', d(2, 10), d(2, 12)),
+        ev('c', d(2, 10, 30), d(2, 11)),
+        ev('d', d(2, 14), d(2, 15)),
+        ev('e', d(3, 9), d(3, 10)),
+      ),
+    );
+    const of = (id: string) => laid.find((s) => s.normalized.event.id === id)!;
+    expect([of('a').column, of('a').columns]).toEqual([0, 3]);
+    expect([of('b').column, of('b').columns]).toEqual([1, 3]);
+    expect([of('c').column, of('c').columns]).toEqual([2, 3]);
+    expect([of('d').column, of('d').columns]).toEqual([0, 1]);
+    expect([of('e').column, of('e').columns]).toEqual([0, 1]);
+  });
+
+  it('treats touching events as non-overlapping and reuses freed columns', () => {
+    const laid = clusterColumns(
+      cols(
+        ev('a', d(2, 9), d(2, 10)),
+        ev('b', d(2, 10), d(2, 11)),
+        ev('c', d(2, 9, 30), d(2, 12)),
+      ),
+    );
+    const of = (id: string) => laid.find((s) => s.normalized.event.id === id)!;
+    expect([of('a').column, of('b').column, of('c').column]).toEqual([0, 0, 1]);
+    expect(laid.every((s) => s.columns === 2)).toBe(true);
   });
 });
