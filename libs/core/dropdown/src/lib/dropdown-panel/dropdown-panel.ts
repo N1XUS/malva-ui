@@ -11,12 +11,13 @@ import {
   input,
   isDevMode,
   output,
+  PLATFORM_ID,
   signal,
   untracked,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
-import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT, isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import {
@@ -236,10 +237,20 @@ export class MlvDropdownPanel<T> {
     return groups;
   });
 
-  /** @protected Effective max panel height in px — the `maxHeight` input when set, else the viewport-derived default. */
-  protected readonly _calculatedMaxHeight = computed(() => {
+  /**
+   * @protected Effective max panel height in px — the `maxHeight` input when
+   * set, else the viewport-derived default.
+   *
+   * `null` while neither is resolved, so the host emits no `max-height` at all
+   * rather than a `0px` that would collapse the panel. That is the state a
+   * server render is always in: the viewport height is a browser measurement,
+   * and the real value lands on the first browser render.
+   */
+  protected readonly _calculatedMaxHeight = computed<number | null>(() => {
     const inputMaxHeight = this.maxHeight();
-    return inputMaxHeight > 0 ? inputMaxHeight : this._defaultMaxHeight();
+    if (inputMaxHeight > 0) return inputMaxHeight;
+    const viewportMaxHeight = this._defaultMaxHeight();
+    return viewportMaxHeight > 0 ? viewportMaxHeight : null;
   });
 
   readonly valueChange = output<readonly T[]>();
@@ -283,9 +294,15 @@ export class MlvDropdownPanel<T> {
   private readonly _host = inject<ElementRef<HTMLElement>>(ElementRef);
   /** @private Angular-provided document used to access the browser viewport safely. */
   private readonly _document = inject(DOCUMENT);
+  /** @private Whether this panel is running in a browser — the viewport height only exists there. */
+  private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   constructor() {
-    const viewport = this._document.defaultView;
+    // Deliberately platform-gated rather than merely `defaultView`-gated: a
+    // server document *has* a `defaultView`, but no `innerHeight`, so the
+    // subscription used to publish `NaN` into `[style.max-height.px]` on every
+    // server render.
+    const viewport = this._isBrowser ? this._document.defaultView : null;
     if (viewport) {
       fromEvent(viewport, 'resize')
         .pipe(startWith(null), takeUntilDestroyed())
