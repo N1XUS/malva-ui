@@ -357,6 +357,35 @@ const uk: MlvLanguage = {
   scrollbar: {
     scrollableRegion: 'Область прокручування',
   },
+  scheduler: {
+    scheduler: 'Планувальник',
+    today: 'Сьогодні',
+    previous:
+      'Попередній {view, select, month {місяць} week {тиждень} day {день} other {період}}',
+    next: 'Наступний {view, select, month {місяць} week {тиждень} day {день} other {період}}',
+    month: 'Місяць',
+    week: 'Тиждень',
+    day: 'День',
+    viewSwitch: 'Подання',
+    allDay: 'Увесь день',
+    moreEvents: '+{count} ще',
+    moreEventsLabel:
+      '{count, plural, one {ще # подія} few {ще # події} many {ще # подій} other {ще # події}}, {date}',
+    gridLabel:
+      'Подання {view, select, month {місяця} week {тижня} day {дня} other {планувальника}}, {period}',
+    slotLabel: '{date}, {time}',
+    dayLabelToday: '{date}, сьогодні',
+    eventLabel: '{title}, з {start} до {end}',
+    eventLabelAllDay: '{title}, увесь день, з {start} до {end}',
+    dragHint:
+      'Натисніть Alt і клавішу зі стрілкою, щоб перемістити. Натисніть Alt, Shift і клавішу зі стрілкою, щоб змінити кінець.',
+    eventMoved: '{title} переміщено на {start}',
+    eventResized: '{title} тепер завершується о {end}',
+    moveRejected: '{title} не можна розмістити там',
+    rangeChanged: 'Показано {period}',
+    selectionHint:
+      'Вибрано з {start} до {end}. Натисніть Enter для підтвердження',
+  },
   searchField: {
     placeholder: 'Пошук...',
     search: 'Пошук',

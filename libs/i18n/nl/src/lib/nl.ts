@@ -351,6 +351,35 @@ const nl: MlvLanguage = {
   scrollbar: {
     scrollableRegion: 'Schuifbaar gebied',
   },
+  scheduler: {
+    scheduler: 'Planner',
+    today: 'Vandaag',
+    previous:
+      'Vorige {view, select, month {maand} week {week} day {dag} other {periode}}',
+    next: 'Volgende {view, select, month {maand} week {week} day {dag} other {periode}}',
+    month: 'Maand',
+    week: 'Week',
+    day: 'Dag',
+    viewSwitch: 'Weergave',
+    allDay: 'Hele dag',
+    moreEvents: '+{count} meer',
+    moreEventsLabel:
+      '{count, plural, one {# ander agendapunt} other {# andere agendapunten}} op {date}',
+    gridLabel:
+      '{view, select, month {Maand} week {Week} day {Dag} other {Planner}}weergave, {period}',
+    slotLabel: '{date} om {time}',
+    dayLabelToday: '{date}, vandaag',
+    eventLabel: '{title}, {start} tot {end}',
+    eventLabelAllDay: '{title}, hele dag, {start} tot {end}',
+    dragHint:
+      'Druk op Alt en een pijltoets om te verplaatsen. Druk op Alt, Shift en een pijltoets om het einde te wijzigen.',
+    eventMoved: '{title} verplaatst naar {start}',
+    eventResized: '{title} eindigt nu om {end}',
+    moveRejected: '{title} kan daar niet worden geplaatst',
+    rangeChanged: '{period} wordt weergegeven',
+    selectionHint:
+      '{start} tot {end} geselecteerd. Druk op Enter om te bevestigen',
+  },
   searchField: {
     placeholder: 'Zoeken...',
     search: 'Zoeken',

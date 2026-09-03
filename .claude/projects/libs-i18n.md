@@ -42,9 +42,9 @@ Exported from `libs/i18n/src/index.ts`:
 | `MlvTranslationResult`       | Interface      | Single translation result                             |
 | `MlvTranslationContext`      | Interface      | Context metadata for AI translators                   |
 | `MlvAiTranslationConfig`     | Interface      | Runtime AI translation configuration                  |
-| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (38 total)                  |
-| `Mlv*I18n`                   | Interface      | Per-component string interfaces (38 total)            |
-| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (38 total) |
+| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (40 total)                  |
+| `Mlv*I18n`                   | Interface      | Per-component string interfaces (40 total)            |
+| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (40 total) |
 | `MlvI18nService`             | Service        | Central language state management                     |
 | `MlvI18nResolverService`     | Service        | ICU MessageFormat resolution with caching             |
 | `MlvTranslatePipe`           | Pipe           | Template pipe for ICU string resolution               |
@@ -154,6 +154,7 @@ Each component with translatable strings has a token file under `libs/i18n/src/l
 | `MLV_POPUP_I18N`             | `MlvPopupI18n`           | mlv-popup             | close (mobile fullscreen close button)                                                                                                                                      |
 | `MLV_PROGRESS_I18N`          | `MlvProgressI18n`        | mlv-progress          | progress                                                                                                                                                                    |
 | `MLV_RATING_I18N`            | `MlvRatingI18n`          | mlv-rating            | rating, rateValue (ICU)                                                                                                                                                     |
+| `MLV_SCHEDULER_I18N`         | `MlvSchedulerI18n`       | mlv-scheduler         | 22 keys: toolbar labels, ICU `view` select (previous/next/gridLabel), plural overflow, slot/day/event aria-labels, dragHint, 5 live announcements                           |
 | `MLV_SCROLLBAR_I18N`         | `MlvScrollbarI18n`       | mlv-scrollbar         | scrollableRegion                                                                                                                                                            |
 | `MLV_SEARCH_FIELD_I18N`      | `MlvSearchFieldI18n`     | mlv-search-field      | placeholder, search, submit, clear                                                                                                                                          |
 | `MLV_SELECT_I18N`            | `MlvSelectI18n`          | mlv-select            | 5 keys (placeholder, searchPlaceholder, noResults, loading, resultsAvailable ICU)                                                                                           |

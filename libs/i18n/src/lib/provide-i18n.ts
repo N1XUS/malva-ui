@@ -37,6 +37,7 @@ import { MLV_POPUP_I18N } from './tokens/popup';
 import { MLV_PROGRESS_I18N } from './tokens/progress';
 import { MLV_RATING_I18N } from './tokens/rating';
 import { MLV_SCROLLBAR_I18N } from './tokens/scrollbar';
+import { MLV_SCHEDULER_I18N } from './tokens/scheduler';
 import { MLV_SEARCH_FIELD_I18N } from './tokens/search-field';
 import { MLV_SELECT_I18N } from './tokens/select';
 import { MLV_SIDEBAR_I18N } from './tokens/sidebar';
@@ -198,6 +199,10 @@ export function provideMlvI18n(
     {
       provide: MLV_SCROLLBAR_I18N,
       useFactory: () => inject(MlvI18nService).select('scrollbar'),
+    },
+    {
+      provide: MLV_SCHEDULER_I18N,
+      useFactory: () => inject(MlvI18nService).select('scheduler'),
     },
     {
       provide: MLV_SEARCH_FIELD_I18N,

@@ -354,6 +354,34 @@ const it: MlvLanguage = {
   scrollbar: {
     scrollableRegion: 'Area scorrevole',
   },
+  scheduler: {
+    scheduler: 'Pianificatore',
+    today: 'Oggi',
+    previous:
+      '{view, select, month {Mese} week {Settimana} day {Giorno} other {Periodo}} precedente',
+    next: '{view, select, month {Mese successivo} week {Settimana successiva} day {Giorno successivo} other {Periodo successivo}}',
+    month: 'Mese',
+    week: 'Settimana',
+    day: 'Giorno',
+    viewSwitch: 'Vista',
+    allDay: 'Tutto il giorno',
+    moreEvents: '+{count} altri',
+    moreEventsLabel:
+      '{count, plural, one {# altro evento} other {# altri eventi}} il {date}',
+    gridLabel:
+      'Vista {view, select, month {mese} week {settimana} day {giorno} other {pianificatore}}, {period}',
+    slotLabel: '{date}, {time}',
+    dayLabelToday: '{date}, oggi',
+    eventLabel: '{title}, dalle {start} alle {end}',
+    eventLabelAllDay: '{title}, tutto il giorno, dal {start} al {end}',
+    dragHint:
+      'Premi Alt e un tasto freccia per spostare. Premi Alt, Maiusc e un tasto freccia per modificare la fine.',
+    eventMoved: '{title} spostato a {start}',
+    eventResized: '{title} ora termina alle {end}',
+    moveRejected: '{title} non può essere posizionato lì',
+    rangeChanged: 'Visualizzazione di {period}',
+    selectionHint: 'Da {start} a {end} selezionato. Premi Invio per confermare',
+  },
   searchField: {
     placeholder: 'Cerca...',
     search: 'Cerca',

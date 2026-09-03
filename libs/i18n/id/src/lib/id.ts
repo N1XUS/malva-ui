@@ -350,6 +350,35 @@ const id: MlvLanguage = {
   scrollbar: {
     scrollableRegion: 'Area yang dapat digulir',
   },
+  scheduler: {
+    scheduler: 'Penjadwal',
+    today: 'Hari ini',
+    previous:
+      '{view, select, month {Bulan} week {Minggu} day {Hari} other {Periode}} sebelumnya',
+    next: '{view, select, month {Bulan} week {Minggu} day {Hari} other {Periode}} berikutnya',
+    month: 'Bulan',
+    week: 'Minggu',
+    day: 'Hari',
+    viewSwitch: 'Tampilan',
+    allDay: 'Sepanjang hari',
+    moreEvents: '+{count} lainnya',
+    moreEventsLabel:
+      '{count, plural, one {# acara lainnya} other {# acara lainnya}} pada {date}',
+    gridLabel:
+      'Tampilan {view, select, month {bulan} week {minggu} day {hari} other {penjadwal}}, {period}',
+    slotLabel: '{date}, pukul {time}',
+    dayLabelToday: '{date}, hari ini',
+    eventLabel: '{title}, {start} sampai {end}',
+    eventLabelAllDay: '{title}, sepanjang hari, {start} sampai {end}',
+    dragHint:
+      'Tekan Alt dan tombol panah untuk memindahkan. Tekan Alt, Shift, dan tombol panah untuk mengubah akhir.',
+    eventMoved: '{title} dipindahkan ke {start}',
+    eventResized: '{title} kini berakhir pada {end}',
+    moveRejected: '{title} tidak dapat ditempatkan di sana',
+    rangeChanged: 'Menampilkan {period}',
+    selectionHint:
+      '{start} sampai {end} dipilih. Tekan Enter untuk mengonfirmasi',
+  },
   searchField: {
     placeholder: 'Cari...',
     search: 'Cari',
