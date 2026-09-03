@@ -63,6 +63,12 @@ const DEFAULT_BUSINESS_DAYS: readonly number[] = [1, 2, 3, 4, 5];
  * `businessHours.start` / `.end` resolved to plain minutes once per input
  * change instead of once per rendered cell — a malformed `'HH:mm'` value then
  * throws once (in the computed), not up to 7 × 48 times per render.
+ *
+ * `start` must be strictly less than `end` — overnight windows (`end < start`,
+ * e.g. a `22:00`–`06:00` night shift) are out of contract: the per-slot
+ * `minutes >= start && minutes < end` comparison is then unsatisfiable for
+ * every minute of the day, so the window resolves to no business hours at all
+ * (no shading anywhere), not a wrapped overnight range.
  */
 interface MlvSchedulerBusinessWindow {
   readonly days: readonly number[];
