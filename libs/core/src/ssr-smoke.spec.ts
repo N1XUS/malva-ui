@@ -1205,6 +1205,18 @@ describe('@malva-ui/core SSR safety', () => {
     // `getComputedStyle` there and threw on every render — silently, because
     // the markup still came out intact. Markup never proves SSR safety on its
     // own; this is the primary assertion of the suite.
+    //
+    // That component no longer exercises this assertion. Issue #78 moved its
+    // resize onto an `afterRenderEffect`, which never runs on the server, so
+    // `_runAutoResize()` is unreachable from here and neutering its
+    // `_isBrowser` guard no longer turns this red. (Confirmed both ways: with
+    // the guard neutered, this passes on the current implementation and fails
+    // on the previous `effect()` one.) The guard itself is asserted directly
+    // in `libs/core/textarea/src/lib/textarea/textarea.spec.ts` →
+    // "MlvTextarea auto-resize server guard". The assertion below keeps its
+    // full value for every *other* host: any component that still measures
+    // from a plain `effect` is caught here, which is the class of defect the
+    // suite exists for.
     expect(errors).toEqual([]);
   });
 

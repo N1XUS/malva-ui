@@ -11,7 +11,6 @@ import {
   PLATFORM_ID,
   ViewEncapsulation,
   viewChild,
-  effect,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import type { MlvFormControl } from '@malva-ui/core/form-utils';
@@ -263,7 +262,13 @@ export class MlvTextarea
   /**
    * @private Whether the component is running in a browser. Auto-resize
    * measures the DOM — `getComputedStyle` and layout do not exist on the
-   * server, where reaching them throws and takes the effect down with it.
+   * server, where reaching them throws and takes the caller down with it.
+   *
+   * The `afterRenderEffect` that drives the resize never runs on the server, so
+   * this is a second line of defence rather than the only one. It is kept
+   * deliberately: `_runAutoResize()` is a DOM-measuring method, and the guard
+   * belongs with the measurement rather than with the one caller that happens
+   * to be safe today.
    */
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -282,10 +287,23 @@ export class MlvTextarea
 
   constructor() {
     super();
-    // Re-run auto-resize when value changes. `_runAutoResize()` reads
+    // Re-run auto-resize when the value changes. `_runAutoResize()` reads
     // `minRows()` / `maxRows()` / `_textareaRef()` from inside this effect, so
     // those stay tracked too — do not hoist them out.
-    effect(() => {
+    //
+    // `afterRenderEffect`, not `effect`: the measurement is taken off the
+    // element — `el.value` picks the path and `scrollHeight` supplies the
+    // height — and a plain effect runs *before* Angular flushes the template's
+    // `[value]` binding into the DOM. A typed character hides that, because the
+    // keystroke mutates the element before `onInput()` writes the signal; a
+    // programmatic `value.set()` / `writeValue()` / `clearValue()` does not, so
+    // the height was resolved against the text being replaced and stayed wrong
+    // until the next write measured it one value behind in turn. That is issue
+    // #78. After render the element carries the new value on both paths.
+    //
+    // Declared before the scrollbar's own after-render effect below, so the
+    // remeasure that follows sees the height this one has just applied.
+    afterRenderEffect(() => {
       this.value();
       if (this.autoResize()) {
         this._runAutoResize();
@@ -307,12 +325,11 @@ export class MlvTextarea
     // the inline height auto-resize writes, a container resize) does resize
     // something the observer is watching.
     //
-    // `afterRenderEffect`, not `effect`: a plain effect runs *before* Angular
-    // writes a programmatically-set `value()` into the DOM, so `scrollHeight`
-    // would still describe the previous text — the shape of issue #78. After
-    // render the element carries the value in both directions, typed and
-    // bound. It also never runs on the server, so no DOM read escapes the
-    // browser guard.
+    // `afterRenderEffect`, not `effect`, for the same reason as the resize
+    // above — the scrollbar measures `scrollHeight` off the field, which only
+    // describes a programmatically-set value once Angular has flushed it
+    // (issue #78). It also never runs on the server, so no DOM read escapes
+    // the browser guard.
     afterRenderEffect(() => {
       this.value();
       this._scrollbarRef()?.remeasure();
