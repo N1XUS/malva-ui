@@ -1020,6 +1020,27 @@ export const MlvEditorBlockHandle =
               if (event.key === 'Escape' && source !== null) endDrag();
             };
 
+            // These eight stay raw `addEventListener`s rather than becoming
+            // `fromEvent` + `takeUntilDestroyed`, deliberately and for two
+            // reasons.
+            //
+            // There is no `DestroyRef` to take. This file is a plain
+            // ProseMirror plugin with no Angular import at all, constructed by
+            // Tiptap outside any injection context, so `inject()` would throw.
+            // The lifetime that matters here is not the editor component's
+            // either: it is this plugin *view's*, which is torn down and
+            // rebuilt whenever the editor is recreated (a format switch, an
+            // extension-set change). `destroy()` below is that boundary, and it
+            // unbinds all eight with the capture flags they were bound with.
+            //
+            // And the three capture-phase drag listeners are protocol-sensitive.
+            // ProseMirror installs its own `dragover`/`drop` handlers on
+            // `view.dom`, a descendant of `mount`; capturing on the ancestor is
+            // what lets `onDrop` claim the drop and `stopPropagation()` before
+            // ProseMirror inserts the dragged slice itself. Nothing in the unit
+            // suite can drive a native HTML5 drag, so that ordering cannot be
+            // pinned by a test here — and an unprovable reordering of block
+            // drag-and-drop is not worth a stylistic conversion.
             mount.addEventListener('mousemove', onMouseMove);
             mount.addEventListener('mouseleave', hide);
             handle.addEventListener('dragstart', onDragStart);

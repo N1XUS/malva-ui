@@ -148,6 +148,11 @@ export abstract class MlvOverlayServiceBase<
 
       // Trigger enter animation.
       panelEl.classList.add(this._enterAnimationClass);
+      // Kept raw (issue #76 triage): `once: true` detaches on the first event,
+      // and `panelEl` is disposed with the overlay either way. The listener's
+      // lifetime is the overlay's, not the service's — this service is
+      // `providedIn: 'root'`, so `takeUntilDestroyed` here would bind every
+      // overlay ever opened to the application's lifetime instead.
       panelEl.addEventListener(
         'animationend',
         () => panelEl.classList.remove(this._enterAnimationClass),

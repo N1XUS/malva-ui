@@ -7,7 +7,7 @@ import {
   output,
   inject,
 } from '@angular/core';
-import { fromEvent, switchMap, takeUntil, tap } from 'rxjs';
+import { fromEvent, race, switchMap, take, takeUntil, tap, timer } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs/operators';
 import {
@@ -24,6 +24,15 @@ const DISMISS_VELOCITY_THRESHOLD = 500;
 
 /** Step size as a fraction of viewport size for keyboard resize. */
 const KEYBOARD_STEP_FRACTION = 0.1;
+
+/**
+ * Upper bound (ms) on the wait for the snap `transitionend`.
+ *
+ * The snap transition runs for `--mlv-drawer-snap-duration`, defaulting to
+ * `--mlv-duration-slow` (300ms); this leaves headroom for a consumer override
+ * without latching the class when the event never comes at all.
+ */
+const SNAP_TRANSITION_FALLBACK_MS = 1000;
 
 /**
  * Internal directive that powers drag-to-resize on `mlv-drawer__handle`.
@@ -214,11 +223,18 @@ export class MlvDrawerResize {
     this._updatePanelSize(panel, snapSizePx, viewportSize);
     this._currentPercent = nearestSnap;
 
-    const onTransitionEnd = () => {
-      panel.classList.remove('mlv-drawer--snapping');
-      panel.removeEventListener('transitionend', onTransitionEnd);
-    };
-    panel.addEventListener('transitionend', onTransitionEnd);
+    // `transitionend` is not guaranteed to arrive: `.mlv-drawer--snapping`
+    // declares its `transition` inside `@media (prefers-reduced-motion:
+    // no-preference)`, so a reduced-motion user gets no transition at all, and
+    // a snap onto the size the panel already has changes no property either.
+    // Waiting on the event alone therefore left the class latched on the panel
+    // for good and stacked one more listener per gesture, so the wait races a
+    // fallback timer — the same guard `MlvOverlayRef` uses for its leave
+    // animation. `take(1)` releases the listener on whichever arrives first;
+    // `takeUntilDestroyed` releases it if the drawer dies mid-snap.
+    race(fromEvent(panel, 'transitionend'), timer(SNAP_TRANSITION_FALLBACK_MS))
+      .pipe(take(1), takeUntilDestroyed(this._destroyRef))
+      .subscribe(() => panel.classList.remove('mlv-drawer--snapping'));
   }
 
   /**

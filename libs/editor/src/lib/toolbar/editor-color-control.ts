@@ -1,4 +1,5 @@
 import { Directive, effect, inject, untracked, viewChild } from '@angular/core';
+import { Subscription, fromEvent } from 'rxjs';
 import type { Editor } from '@tiptap/core';
 import type { MlvColorPickerPopup } from '@malva-ui/core/color-picker';
 import {
@@ -41,14 +42,18 @@ export abstract class MlvEditorColorControl {
     effect((onCleanup) => {
       const trigger = this._picker().triggerElement();
       if (!trigger) return;
+      // Released from `onCleanup`, not `takeUntilDestroyed`: this effect
+      // re-runs whenever the picker publishes a different trigger element, and
+      // a destroy-scoped teardown would leave every superseded generation
+      // subscribed for the rest of the control's life.
+      const listeners = new Subscription();
       const activate = () => this._roving.activate(trigger);
-      trigger.addEventListener('focus', activate);
-      trigger.addEventListener('pointerdown', activate);
+      listeners.add(fromEvent(trigger, 'focus').subscribe(activate));
+      listeners.add(fromEvent(trigger, 'pointerdown').subscribe(activate));
       const unregister = untracked(() => this._roving.register(trigger));
       onCleanup(() => {
         unregister();
-        trigger.removeEventListener('focus', activate);
-        trigger.removeEventListener('pointerdown', activate);
+        listeners.unsubscribe();
       });
     });
 

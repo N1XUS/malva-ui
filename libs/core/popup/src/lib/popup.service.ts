@@ -1,5 +1,7 @@
 import type { ElementRef, TemplateRef, ViewContainerRef } from '@angular/core';
 import { Injectable, NgZone, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { fromEvent } from 'rxjs';
 import type {
   OverlayRef,
   ConnectedPosition,
@@ -193,6 +195,14 @@ export class MlvPopupService {
   /** @private Angular zone for running document-level event handlers inside change detection. */
   private readonly _ngZone = inject(NgZone);
 
+  /**
+   * @private The document the click-outside listener is bound to. Injected
+   * rather than the ambient global: under server rendering the two are
+   * different objects and the global is defined, so an ambient `document`
+   * binds to a process-wide object no teardown reaches.
+   */
+  private readonly _document = inject(DOCUMENT);
+
   // ─── Public API ────────────────────────────────────────────────────────────
 
   /**
@@ -328,7 +338,19 @@ export class MlvPopupService {
       // Defer the document listener to avoid catching the same click that opened the popup.
       const excludeElements = config.dismissExcludeElements ?? [];
       const timerId = setTimeout(() => {
-        const handler = (event: MouseEvent) => {
+        // `{ capture: true }` is load-bearing: dismissal has to see the click
+        // before a handler inside the page can stop its propagation.
+        // `fromEvent` forwards the options object to the very same
+        // `addEventListener` call, so the phase and the registration order
+        // among capture listeners on the document are unchanged.
+        //
+        // The subscription's lifetime is this open overlay, not the service's
+        // — `MlvPopupService` is `providedIn: 'root'` — so it goes on the same
+        // `cleanups` list that `close()` drains, exactly where the
+        // `removeEventListener` closure used to sit.
+        const subscription = fromEvent<MouseEvent>(this._document, 'click', {
+          capture: true,
+        }).subscribe((event) => {
           const target = event.target as Node;
           const insidePanel =
             overlayRef.hasAttached() &&
@@ -342,11 +364,8 @@ export class MlvPopupService {
           if (overlayRef.hasAttached() && !insidePanel && !insideExcluded) {
             this._ngZone.run(() => requestClose());
           }
-        };
-        document.addEventListener('click', handler, true);
-        cleanups.push(() =>
-          document.removeEventListener('click', handler, true),
-        );
+        });
+        cleanups.push(() => subscription.unsubscribe());
       }, 0);
       cleanups.push(() => clearTimeout(timerId));
     }

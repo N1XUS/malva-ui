@@ -289,9 +289,14 @@ aligned with the page edge padding at any inset.
 ### Page scroll context
 
 `MlvPage` provides itself as `MLV_PAGE_SCROLL` (`MlvPageScrollState`): readonly
-`scrollTop` and `scrolled` signals fed by a passive scroll listener (attached
-outside the Angular zone) on its scrollbar viewport, reached through the public
-`MlvScrollbar.viewportElement` getter. `scrolled()` flips past a 4px hysteresis
+`scrollTop` and `scrolled` signals fed by a passive scroll listener on its
+scrollbar viewport, reached through the public `MlvScrollbar.viewportElement`
+getter. The listener is a `fromEvent(viewport, 'scroll', { passive: true })`
+stream released by `takeUntilDestroyed(this._destroyRef)` — the ref passed
+explicitly because it is bound from an `afterNextRender` callback, which is not
+an injection context. (It was a raw `addEventListener` until #76; the
+`runOutsideAngular` wrapper is kept for consumers still on zone-based change
+detection.) `scrolled()` flips past a 4px hysteresis
 threshold and also toggles a `mlv-page--scrolled` host class. Descendants
 (`mlv-page-header`, `mlv-page-summary`) inject the token **optionally**, so
 they keep working outside a page — just without scroll-linked behaviour.

@@ -21,6 +21,7 @@ import {
 import type { MlvPopupHandle, MlvPopupOpenConfig } from '@malva-ui/core/popup';
 import { Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
+import { DOCUMENT } from '@angular/common';
 import { By } from '@angular/platform-browser';
 import { MlvListItem } from '@malva-ui/core/list';
 import { MlvMenuOverlayController } from './menu-overlay-controller';
@@ -196,6 +197,31 @@ function createController(options?: {
   );
 
   return { controller, menu, menubar, menubarItem, origin, popupHarness };
+}
+
+/**
+ * Counts listeners added and removed on a target, so a test can assert *which*
+ * object received one. Returns a live map of type to net count.
+ */
+function trackListeners(target: EventTarget): Map<string, number> {
+  const net = new Map<string, number>();
+  const bump = (type: string, delta: number): void =>
+    void net.set(type, (net.get(type) ?? 0) + delta);
+  const realAdd = target.addEventListener.bind(target);
+  const realRemove = target.removeEventListener.bind(target);
+  vi.spyOn(target, 'addEventListener').mockImplementation(
+    (type, listener, options) => {
+      bump(type, 1);
+      realAdd(type, listener, options);
+    },
+  );
+  vi.spyOn(target, 'removeEventListener').mockImplementation(
+    (type, listener, options) => {
+      bump(type, -1);
+      realRemove(type, listener, options);
+    },
+  );
+  return net;
 }
 
 async function flushOpenLifecycle(): Promise<void> {
@@ -502,5 +528,40 @@ describe('MlvMenuOverlayController', () => {
     menu.popup.leaveAnimationDone$.next();
 
     expect(menubar.notifyItemClosed).toHaveBeenCalledWith(menubarItem);
+  });
+
+  // Under server rendering the injected `DOCUMENT` and the ambient `document`
+  // global are different objects *and the global is defined*, so binding the
+  // ambient one attaches a per-open listener to a process-wide object that
+  // `_removeMousemoveListener()` never reaches — and nothing throws, so no
+  // other assertion in this suite can see it. Asserting *which* object got the
+  // listener is the only thing that can.
+  it('binds submenu hover-intent tracking to the injected DOCUMENT, not the ambient global', async () => {
+    const isolated = document.implementation.createHTMLDocument('menu');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [{ provide: DOCUMENT, useValue: isolated }],
+    });
+
+    const isolatedNet = trackListeners(isolated);
+    const ambientNet = trackListeners(document);
+
+    const { controller, menu } = createController({ isSubmenu: true });
+    controller.open();
+    await flushOpenLifecycle();
+    // `_setupSubmenuTracking` installs the tracker from a `setTimeout(0)`.
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(isolatedNet.get('mousemove')).toBeGreaterThan(0);
+    expect(ambientNet.get('mousemove')).toBeUndefined();
+
+    // And the same document is the one it is released from. `close()` only
+    // starts the leave animation; the teardown runs once it reports done.
+    controller.close();
+    menu.popup.leaveAnimationDone$.next();
+    await vi.runOnlyPendingTimersAsync();
+    expect(isolatedNet.get('mousemove')).toBe(0);
+
+    vi.restoreAllMocks();
   });
 });

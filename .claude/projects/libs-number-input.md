@@ -61,7 +61,7 @@ Inherited: `state`, `readonly`, `disabled`, `id`, `label`, `hint`, `message`, `l
 #### Interaction Model
 
 - **Long-press**: 400ms delay → 150ms interval → largeStep cadence after 1500ms
-- **Scroll wheel**: when `scrollable()` && focused; always `preventDefault()`
+- **Scroll wheel**: when `scrollable()` && focused; always `preventDefault()`. Bound in the constructor as `fromEvent(input, 'wheel', { passive: false })` rather than a `(wheel)` template binding (changed in #76) — a listener binding notifies the change-detection scheduler on every event of a hundreds-of-events gesture, most of which the handler early-returns from. `{ passive: false }` is mandatory and explicit, because a passive listener cannot `preventDefault()`. The subscription is released from its `effect`'s `onCleanup`, not `takeUntilDestroyed`: `#inputRef` lives inside an `ng-template`, so it resolves after the first render and would leak a generation per re-instantiation.
 - **Text entry**: raw string held while typing, parsed/clamped on blur or Enter
 - **Stepper layout**: horizontal controls render as square buttons on both sides of the input; vertical controls stack increment over decrement on the configured side
 

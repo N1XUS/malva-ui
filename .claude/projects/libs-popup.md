@@ -292,6 +292,16 @@ hanging below the pointer.
 > opens over the panel. Click-outside dismissal still works without a backdrop
 > via the document listener `open()` installs.
 
+That listener is a **capture-phase** `click` on the **injected `DOCUMENT`**, and is
+a `fromEvent(document, 'click', { capture: true })` stream (converted in #76).
+The capture phase is load-bearing — dismissal has to see the click before a
+handler inside the page can stop its propagation — and `fromEvent` forwards the
+options object to the identical `addEventListener` call, so the phase is
+unchanged; `popup.service.spec.ts` pins it with a page handler that calls
+`stopImmediatePropagation()`. The subscription belongs to one open overlay and is
+released by the `cleanups` list on close, a shorter lifetime than
+`takeUntilDestroyed` on a `providedIn: 'root'` service could express.
+
 ---
 
 ## Named Positions

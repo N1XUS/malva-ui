@@ -171,6 +171,15 @@ The `<ng-template>` is projected into a CDK `TemplatePortal` when opened.
 | `mlv-drawer--dragging`              | While a pointer drag is active (disables transitions) |
 | `mlv-drawer--snapping`              | During post-drag spring snap animation                |
 
+`mlv-drawer--snapping` declares its `transition` inside
+`@media (prefers-reduced-motion: no-preference)`, so under reduced motion the
+panel has no transition and fires no `transitionend` — and neither does a snap
+onto the size the panel already holds. `MlvDrawerResize` therefore races the
+event against a 1s fallback timer (`race(fromEvent(panel, 'transitionend'),
+timer(…)).pipe(take(1), takeUntilDestroyed(…))`) instead of waiting on it. Before
+that (fixed in #76) the class latched on the panel permanently in both cases and
+one `transitionend` listener accumulated per snap gesture.
+
 **Styling tokens used (`drawer.scss`):**
 
 - `--mlv-background-elevation-1`, `--mlv-shadow-medium`, `--mlv-text-primary`, `--mlv-padding-l`, `--mlv-border-normal`

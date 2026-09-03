@@ -12,6 +12,8 @@ import {
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { mlvNextId } from '@malva-ui/cdk/utils';
@@ -156,13 +158,22 @@ export class MlvPage implements MlvPageScrollState {
         this._scrolled.set(top > SCROLLED_THRESHOLD);
         this._snap.updateFromScroll(top, this.snapRange());
       };
-      // Signal writes propagate through the reactivity graph without zone
-      // involvement, so the frequent listener can stay outside the zone.
+      // Bound as an `rxjs` `fromEvent` stream, matching `mlv-scrollbar` and
+      // `mlv-chat`. Signal writes propagate through the reactivity graph on
+      // their own, so a scroll that moves no signal costs nothing.
+      //
+      // `{ passive: true }` is forwarded to `addEventListener` — a non-passive
+      // scroll listener is its own performance bug, so it is not optional.
+      //
+      // `takeUntilDestroyed` takes the `DestroyRef` explicitly: this runs from
+      // an `afterNextRender` callback, which is not an injection context.
+      //
+      // `runOutsideAngular` is kept for consumers still on zone-based change
+      // detection, where the zone would schedule its own tick on top.
       this._ngZone.runOutsideAngular(() => {
-        viewport.addEventListener('scroll', onScroll, { passive: true });
-      });
-      this._destroyRef.onDestroy(() => {
-        viewport.removeEventListener('scroll', onScroll);
+        fromEvent(viewport, 'scroll', { passive: true })
+          .pipe(takeUntilDestroyed(this._destroyRef))
+          .subscribe(onScroll);
       });
     });
 

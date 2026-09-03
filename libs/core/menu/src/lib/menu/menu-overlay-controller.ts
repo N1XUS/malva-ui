@@ -1,4 +1,6 @@
 import { DestroyRef, NgZone, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Subscription, fromEvent } from 'rxjs';
 import type {
   ElementRef,
   OutputEmitterRef,
@@ -107,6 +109,14 @@ export class MlvMenuOverlayController {
   private readonly _popupService: MlvPopupService;
   private readonly _ngZone: NgZone;
   private readonly _destroyRef = inject(DestroyRef);
+
+  /**
+   * @private The document the submenu hover-intent listener is bound to.
+   * Injected rather than the ambient global: under server rendering the two
+   * are different objects and the global is defined, so an ambient `document`
+   * binds to a process-wide object no teardown reaches.
+   */
+  private readonly _document = inject(DOCUMENT);
 
   private _overlayRef: MlvPopupHandle | null = null;
   private _openSubscriptions: Array<{ unsubscribe(): void }> = [];
@@ -326,7 +336,7 @@ export class MlvMenuOverlayController {
 
   private _restoreFocusToTrigger(): void {
     const overlayElement = this._overlayRef?.overlayRef.overlayElement;
-    const active = document.activeElement;
+    const active = this._document.activeElement;
     if (overlayElement && active && overlayElement.contains(active)) {
       this._config.origin.nativeElement.focus();
     }
@@ -364,16 +374,19 @@ export class MlvMenuOverlayController {
 
     const onLeave = () => this._scheduleClose();
 
+    // Bound to the overlay element of *this* open and released by the
+    // `_openSubscriptions` entry when the popup closes — the controller
+    // outlives any number of opens, so `takeUntilDestroyed` would accumulate
+    // one pair per open, each on an overlay element that no longer exists.
     this._ngZone.runOutsideAngular(() => {
-      overlayElement.addEventListener('mouseenter', onEnter);
-      overlayElement.addEventListener('mouseleave', onLeave);
-    });
-
-    this._openSubscriptions.push({
-      unsubscribe: () => {
-        overlayElement.removeEventListener('mouseenter', onEnter);
-        overlayElement.removeEventListener('mouseleave', onLeave);
-      },
+      const subscription = new Subscription();
+      subscription.add(
+        fromEvent(overlayElement, 'mouseenter').subscribe(onEnter),
+      );
+      subscription.add(
+        fromEvent(overlayElement, 'mouseleave').subscribe(onLeave),
+      );
+      this._openSubscriptions.push(subscription);
     });
   }
 
@@ -412,10 +425,20 @@ export class MlvMenuOverlayController {
       }
     };
 
+    // `{ capture: true }` is load-bearing: the hover-intent tracker has to
+    // see the move before a menu item's own handlers can stop it. `fromEvent`
+    // forwards the options object to the identical `addEventListener` call, so
+    // the phase and the order among capture listeners are unchanged.
+    //
+    // The subscription belongs to one submenu-open generation and is released
+    // by `_removeMousemoveListener()`, called from the popup's `onClose` and
+    // from `destroy()` (wired to `DestroyRef.onDestroy`), so the injected
+    // document keeps nothing after either.
     this._ngZone.runOutsideAngular(() => {
-      document.addEventListener('mousemove', handler, true);
-      this._mousemoveCleanup = () =>
-        document.removeEventListener('mousemove', handler, true);
+      const subscription = fromEvent<MouseEvent>(this._document, 'mousemove', {
+        capture: true,
+      }).subscribe(handler);
+      this._mousemoveCleanup = () => subscription.unsubscribe();
     });
   }
 

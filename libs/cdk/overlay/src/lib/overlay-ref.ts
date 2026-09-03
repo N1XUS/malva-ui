@@ -70,6 +70,11 @@ export abstract class MlvOverlayRef<R = unknown> {
       };
 
       panelEl.classList.add(this._panelLeaveClass);
+      // Kept raw (issue #76 triage): `once: true` detaches the listener on the
+      // first event, and whichever of the two paths wins calls `dispose()`,
+      // which removes `panelEl` from the DOM along with anything still bound to
+      // it. There is also no destroy scope to hand `takeUntilDestroyed` — refs
+      // are constructed with `new`, outside any injection context.
       panelEl.addEventListener('animationend', dispose, { once: true });
       const timer = setTimeout(dispose, this._leaveFallbackMs);
     } else {
