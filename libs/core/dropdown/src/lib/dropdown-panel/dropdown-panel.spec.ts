@@ -757,13 +757,18 @@ describe('MlvDropdownPanel — activedescendant highlight parity (#75)', () => {
   it('takes no z-index, so it cannot paint over the sticky group header', () => {
     // The ring is inset, so it is drawn inside the row's own border box and no
     // adjacent row can reach it — a z-index buys nothing. It would however put
-    // the row level with `__group-header` (sticky, `z-index: 1`) and, being
-    // later in DOM order, win and clip it.
+    // the row into the header's stacking competition and, being later in DOM
+    // order, win and clip it.
+    //
+    // The header's own value is asserted as "declared", not as a literal:
+    // #109 lifted it to `var(--mlv-z-raised)` so it clears the `z-index: 1`
+    // that `list-item.scss` gives a `:focus-visible` row on the roving path.
+    // `dropdown-panel-stacking.spec.ts` pins the numeric relationship.
     expect(active()?.style.getPropertyValue('z-index').trim()).toBe('');
     expect(
       ruleFor(panelRules, /\.mlv-dropdown-panel__group-header$/)
         ?.style.getPropertyValue('z-index')
         .trim(),
-    ).toBe('1');
+    ).not.toBe('');
   });
 });
