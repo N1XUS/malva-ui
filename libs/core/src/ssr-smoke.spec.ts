@@ -211,8 +211,11 @@ import {
  * the server, and Angular routes that exception to the `ErrorHandler` and
  * carries on rendering — so the markup still comes out intact and a
  * markup-only assertion stays green with the bug present. The primary
- * assertion of this suite is therefore the collected `ErrorHandler` entries,
- * not the markup.
+ * assertions of this suite are therefore the *error channels*, not the
+ * markup. There are two of them, because Angular does not use one:
+ * exceptions reach the `ErrorHandler`, while an unknown **property
+ * binding** never does and lands on `console.error` instead (see
+ * `renderHost`). Both are collected, and both are asserted empty.
  *
  * **What this suite cannot see.** It runs domino inside jsdom, and the two
  * have different holes. `domino.impl` defines DOM *classes* only — no
@@ -327,6 +330,15 @@ import {
 
         <mlv-checkbox-group label="Permissions">
           <mlv-checkbox label="Read" [(checked)]="toggled" />
+          <!-- The tri-state "select all" shape. The indeterminate state is a
+               DOM property with no HTML attribute, so it is the one part of
+               this input domino cannot satisfy — issue #124. Keep this
+               instance: with no checkbox that actually sets it, both the
+               mixed-markup assertion and the unknown-property assertion have
+               nothing to bite on. (No backticks in a host template: the
+               template is read back out of this file with a regex that a
+               backslash-escaped backtick terminates early.) -->
+          <mlv-checkbox label="Select all" indeterminate />
         </mlv-checkbox-group>
 
         <mlv-radio-group label="Colour" [(value)]="choice">
@@ -974,11 +986,50 @@ const SSR_HOSTS: readonly SsrHostEntry[] = [
   },
 ];
 
-/** Server-renders one host, collecting everything that reaches the `ErrorHandler`. */
-const renderHost = async (
-  entry: SsrHostEntry,
-): Promise<{ html: string; errors: string[] }> => {
+/** What one server render of a host produced. */
+interface SsrRenderResult {
+  /** The serialised server markup. */
+  readonly html: string;
+  /** Everything Angular routed to the `ErrorHandler` during the render. */
+  readonly errors: string[];
+  /** Everything the render wrote to `console.error`. */
+  readonly logged: string[];
+}
+
+/**
+ * Server-renders one host, collecting both channels a defect can surface on.
+ *
+ * Two channels, because Angular does not use one. A component that throws
+ * during construction reaches the `ErrorHandler`; an unknown *property
+ * binding* does not. `reportUnknownPropertyError` in `@angular/core` writes
+ * NG0303 straight to `console.error` unless `shouldThrowErrorOnUnknownProperty`
+ * is set — a flag only `TestBed`'s `errorOnUnknownProperties` turns on, and
+ * `renderApplication` is not `TestBed`. So an `ErrorHandler`-only harness is
+ * structurally blind to the whole unknown-property class, which is exactly how
+ * `MlvCheckbox`'s `[indeterminate]` sat here uncaught (issue #124) while the
+ * checkbox was already written into a host template above.
+ */
+const renderHost = async (entry: SsrHostEntry): Promise<SsrRenderResult> => {
   const errors: string[] = [];
+  const logged: string[] = [];
+  const consoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    logged.push(
+      `${entry.selector}: ${args.map((arg) => String(arg)).join(' ')}`,
+    );
+  };
+  try {
+    return { ...(await renderMarkup(entry, errors)), errors, logged };
+  } finally {
+    console.error = consoleError;
+  }
+};
+
+/** The `renderApplication` call itself, split out so the `console.error` swap above stays narrow. */
+const renderMarkup = async (
+  entry: SsrHostEntry,
+  errors: string[],
+): Promise<{ html: string }> => {
   const html = await renderApplication(
     (context) =>
       bootstrapApplication(
@@ -1007,21 +1058,23 @@ const renderHost = async (
       ),
     { document: `<${entry.selector}></${entry.selector}>`, url: '/' },
   );
-  return { html, errors };
+  return { html };
 };
 
 /** Renders every host once. Memoised so the suite pays for one pass. */
-let renderedHosts: Promise<{ html: string; errors: string[] }> | null = null;
-const renderAllHosts = (): Promise<{ html: string; errors: string[] }> => {
+let renderedHosts: Promise<SsrRenderResult> | null = null;
+const renderAllHosts = (): Promise<SsrRenderResult> => {
   renderedHosts ??= (async () => {
     const parts: string[] = [];
     const errors: string[] = [];
+    const logged: string[] = [];
     for (const entry of SSR_HOSTS) {
       const result = await renderHost(entry);
       parts.push(result.html);
       errors.push(...result.errors);
+      logged.push(...result.logged);
     }
-    return { html: parts.join('\n'), errors };
+    return { html: parts.join('\n'), errors, logged };
   })();
   return renderedHosts;
 };
@@ -1298,6 +1351,42 @@ describe('@malva-ui/core SSR safety', () => {
     // from a plain `effect` is caught here, which is the class of defect the
     // suite exists for.
     expect(errors).toEqual([]);
+  });
+
+  it('binds no property the server DOM does not have', async () => {
+    const { logged } = await renderAllHosts();
+
+    // NG0303 is per *instance*, not per template: a data table with a checkbox
+    // column logs one line per rendered row. It is also invisible to every
+    // browser test, because the check `@angular/core` runs is `propName in
+    // element` against the live element — true in a browser, false on domino
+    // for any DOM property with no HTML attribute behind it.
+    //
+    // This assertion is the reason `renderHost` captures `console.error` at
+    // all; the `ErrorHandler` never sees this class. Keep it asserting the
+    // whole captured list rather than filtering to NG0303 — anything a server
+    // render writes to `console.error` is worth a line in the failure.
+    expect(
+      logged,
+      'a server render wrote to console.error. NG0303 means a property ' +
+        'binding names something the server DOM does not implement: set that ' +
+        'DOM property from an `afterRenderEffect` instead of binding it.',
+    ).toEqual([]);
+  });
+
+  it('server-renders the checkbox mixed state into the markup', async () => {
+    const { html } = await renderAllHosts();
+
+    // The visible half of #124. `[attr.aria-checked]` is an attribute binding,
+    // so unlike the property binding beside it, it survives the server render
+    // — this pins that down so a future rewrite of the indeterminate plumbing
+    // cannot quietly take the tri-state out of the server payload and leave a
+    // "select all" header rendering as plain unchecked until hydration.
+    expect(
+      html.includes('aria-checked="mixed"'),
+      'no aria-checked="mixed" in the server markup — the indeterminate ' +
+        'checkbox in SsrFormControlsHost did not render its mixed state',
+    ).toBe(true);
   });
 
   it('server-renders each host into markup', async () => {

@@ -144,15 +144,35 @@ Each secondary entry point in `libs/core/<entry>/src/index.ts` re-exports exactl
 `libs/core/src/ssr-smoke.spec.ts` is the SSR gate for the whole package. It runs
 under `yarn nx run core:test`.
 
-- **Primary assertion is the collected `ErrorHandler` entries, not the markup.**
-  Angular routes an exception thrown inside an `effect` to the `ErrorHandler`
-  and keeps rendering, so a component that reaches a browser global still emits
-  perfect markup. `renderHost()` installs an `ErrorHandler` that collects
-  everything and the suite fails on a non-empty list.
+- **Primary assertions are the two error channels, not the markup.** Angular
+  does not use one channel, so neither does `renderHost()`:
+  - **`ErrorHandler`** — an exception thrown inside an `effect` is routed there
+    and rendering continues, so a component that reaches a browser global still
+    emits perfect markup. An installed `ErrorHandler` collects everything and
+    the suite fails on a non-empty list.
+  - **`console.error`** — an unknown _property binding_ never reaches the
+    `ErrorHandler` at all: `reportUnknownPropertyError` writes NG0303 straight
+    to `console.error` unless `shouldThrowErrorOnUnknownProperty` is set, and
+    that flag is `TestBed`'s `errorOnUnknownProperties`, not something
+    `renderApplication` turns on. `renderHost()` swaps `console.error` for the
+    duration of each render, and the spec fails on any captured line. This
+    channel was added for issue #124, where `MlvCheckbox`'s `[indeterminate]`
+    logged one NG0303 per rendered instance while the checkbox was already
+    written into a host template and the suite was green.
 - Secondary assertions: every host rendered _content_ between its own tags (the
-  root tag itself comes from the `document` string, so it proves nothing), no
-  `cdk-overlay-*` in the payload, and no `NaN` anywhere in it (a viewport
-  measured during construction serialises as `NaNpx` without ever throwing).
+  root tag itself comes from the `document` string, so it proves nothing), the
+  indeterminate checkbox emitted `aria-checked="mixed"` (the visible half of
+  #124 — an attribute binding, so unlike the property binding beside it, it
+  does survive the server render), no `cdk-overlay-*` in the payload, and no
+  `NaN` anywhere in it (a viewport measured during construction serialises as
+  `NaNpx` without ever throwing).
+- **Property bindings that the server DOM cannot satisfy** are a class of their
+  own: the check is `'<prop>' in element`, so anything domino's DOM lacks fails
+  there and passes in every browser test. `mapPropName` rescues `class`, `for`,
+  `formaction`, `innerHtml`, `readonly` and `tabindex`; a DOM property with no
+  HTML attribute behind it (`indeterminate`, `muted`, `selected` on `<option>`)
+  has nothing to rescue it. Write those from an `afterRenderEffect` instead of
+  binding them.
 - **Seven hosts**, one `SSR_HOSTS` entry each: form controls, pickers,
   navigation, shell, surfaces, data, display. The split is for readability only
   — every host renders through the same error-collecting path.
@@ -210,6 +230,25 @@ barrels reach` re-finds every `@Component(` with an independent,
   root, so `process.cwd()` is not usable here.
 
 ### Writing SSR-safe components
+
+- Never bind a **DOM property with no HTML attribute** in a template
+  (`input.indeterminate`, `video.muted`, `option.selected`). Domino does not
+  implement them, so every server render logs NG0303 per instance, and the
+  binding buys nothing there anyway — a DOM property cannot serialise into
+  markup. Write the property from an `afterRenderEffect` reading the input
+  signal: browser-only by construction, and it still tracks later changes,
+  which a one-shot `afterNextRender` would not. `MlvCheckbox` is the reference
+  case.
+
+  **`afterRenderEffect` is the right answer when the property belongs to one
+  element per component instance**, as `input.indeterminate` does. Each sequence
+  joins an app-wide set that `AfterRenderImpl.execute()` walks once per phase on
+  every `ApplicationRef.tick()`, dirty or not — unlike the template binding it
+  replaces, which cost nothing while its `OnPush` view was clean. One per
+  checkbox is negligible; one per `<option>` inside a `<select>` is not. For a
+  repeated child element, prefer a cheaper route: set the parent property once
+  (`select.value`), or use the attribute form where one exists. Pick per case
+  rather than applying this rule mechanically.
 
 - Prefer **`afterNextRender` / `afterRenderEffect`** for anything that measures,
   paints, or observes. Neither runs on the server, so the hook doubles as the

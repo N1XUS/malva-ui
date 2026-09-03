@@ -106,6 +106,45 @@ describe('MlvCheckbox', () => {
     expect(input?.hasAttribute('aria-label')).toBe(false);
     expect(input?.hasAttribute('aria-labelledby')).toBe(false);
   });
+
+  // `indeterminate` is a DOM property with no HTML attribute, so it is written
+  // onto the native input from an `afterRenderEffect` rather than bound in the
+  // template — a template binding logged an NG0303 on every server render and
+  // dropped nothing useful there, since a DOM property cannot serialise into
+  // markup anyway (issue #124). These two cases are what stops that move from
+  // silently taking the browser-side property with it: the first pins the
+  // initial write, the second pins that later changes still land, which a
+  // one-shot `afterNextRender` would not do.
+  it('writes the indeterminate DOM property onto the native input', async () => {
+    fixture.componentRef.setInput('indeterminate', true);
+    await fixture.whenStable();
+
+    const input = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLInputElement>('.mlv-checkbox__native');
+    expect(input?.indeterminate).toBe(true);
+    // The attribute half of the tri-state, which is what a server render and a
+    // screen reader actually read.
+    expect(input?.getAttribute('aria-checked')).toBe('mixed');
+  });
+
+  it('tracks later changes to indeterminate on the native input', async () => {
+    const input = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLInputElement>('.mlv-checkbox__native');
+
+    fixture.componentRef.setInput('indeterminate', false);
+    await fixture.whenStable();
+    expect(input?.indeterminate).toBe(false);
+    expect(input?.getAttribute('aria-checked')).toBe('false');
+
+    // Ending on `true` is deliberate: `false` is also the DOM default, so a
+    // case that stops there passes with the write removed entirely.
+    fixture.componentRef.setInput('indeterminate', true);
+    await fixture.whenStable();
+    expect(input?.indeterminate).toBe(true);
+    expect(input?.getAttribute('aria-checked')).toBe('mixed');
+  });
 });
 
 describe('MlvCheckbox host aria-label/aria-labelledby forwarding', () => {

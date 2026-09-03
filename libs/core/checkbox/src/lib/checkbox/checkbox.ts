@@ -1,5 +1,6 @@
 import {
   afterNextRender,
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -144,6 +145,34 @@ export class MlvCheckbox
     }
 
     afterNextRender(() => this._warnWhenUnlabelled());
+
+    // `indeterminate` is a DOM property with no HTML attribute behind it. A
+    // template `[indeterminate]` binding therefore cannot survive a server
+    // render: the check `@angular/core` runs is `'indeterminate' in element`,
+    // which domino's `HTMLInputElement` answers `false`, so *every* rendered
+    // checkbox logged an NG0303 to `console.error` — one line per instance,
+    // i.e. one per row of a data table (issue #124). The binding bought
+    // nothing there either: a DOM property cannot serialise into markup, and
+    // the visible tri-state already comes from `[attr.aria-checked]`, the
+    // `mlv-checkbox--indeterminate` host class and the minus glyph, none of
+    // which this touches.
+    //
+    // `afterRenderEffect`, specifically:
+    // - it never runs on the server, so the error class is gone *by
+    //   construction* rather than suppressed — an `isPlatformBrowser`-guarded
+    //   `effect` would still be a code path that runs there, and this repo's
+    //   SSR guidance prefers the primitive that structurally cannot;
+    // - it re-runs when `indeterminate()` changes, which a one-shot
+    //   `afterNextRender` would not — the property has to track the input, not
+    //   just its initial value.
+    //
+    // Timing is not visually load-bearing: no stylesheet selects
+    // `:indeterminate`, and the native input is visually hidden anyway (it is
+    // kept in the a11y tree by the clip-path pattern), so the only consumer of
+    // this property is assistive tech and code reading `input.indeterminate`.
+    afterRenderEffect(() => {
+      this._nativeInput().nativeElement.indeterminate = this.indeterminate();
+    });
   }
 
   /**
