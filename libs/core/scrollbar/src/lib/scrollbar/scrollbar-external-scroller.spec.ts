@@ -393,12 +393,32 @@ describe('MlvScrollbar — no scroller (default path unchanged)', () => {
     );
   });
 
-  it('observes only its own viewport and content wrapper', () => {
+  it('observes only its own viewport, content wrapper and tracks', () => {
     const root: HTMLElement = fixture.nativeElement;
-    const viewportEl = root.querySelector('.mlv-scrollbar__viewport');
-    const contentEl = root.querySelector('.mlv-scrollbar__content');
 
-    expect(observedTargets).toEqual([viewportEl, contentEl]);
+    // Asserted as a list of class names rather than of elements: the point is
+    // *which* boxes are watched, and a failed assertion over DOM nodes makes
+    // vitest spend minutes pretty-printing them.
+    //
+    // The two tracks joined this list in #69 — a re-resolved
+    // `--mlv-sb-edge-padding` / `--mlv-sb-edge-gap` moves a track's own box
+    // without resizing the viewport or the content wrapper, so nothing
+    // invalidated the cached track metrics. What this test still guards is the
+    // "only its own" half: in the default path the component must not reach
+    // outside itself for a scroller, which is what external-scroller mode does.
+    const watched = observedTargets.map((el) =>
+      (el as HTMLElement).className
+        .split(/\s+/)
+        .find((name) => name.startsWith('mlv-scrollbar__')),
+    );
+
+    expect(watched).toEqual([
+      'mlv-scrollbar__viewport',
+      'mlv-scrollbar__content',
+      'mlv-scrollbar__track',
+      'mlv-scrollbar__track',
+    ]);
+    expect(observedTargets.every((el) => root.contains(el))).toBe(true);
   });
 });
 

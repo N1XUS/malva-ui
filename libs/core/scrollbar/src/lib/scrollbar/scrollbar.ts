@@ -432,8 +432,39 @@ export class MlvScrollbar {
       const scrollerEl = this._scrollerElement();
       const viewportEl = this._viewport().nativeElement;
       const contentEl = viewportEl.firstElementChild;
+      const trackVEl = this._trackV().nativeElement;
+      const trackHEl = this._trackH().nativeElement;
 
-      this._resizeObserver = new ResizeObserver(() => {
+      this._resizeObserver = new ResizeObserver((entries) => {
+        // A batch carrying nothing but track entries means a track's own box
+        // moved while the viewport and the content wrapper stood still — a
+        // re-resolved `--mlv-sb-edge-padding` / `--mlv-sb-edge-gap`, or a root
+        // font-size change re-resolving their rem values. The overflow decision
+        // is derived purely from the viewport's scroll metrics, so it cannot
+        // have moved; only the cached track metrics are stale.
+        //
+        // Handling that case separately is what makes observing the tracks
+        // safe. `_updateGeometry()` writes the visibility classes that size
+        // these very tracks, so servicing a track notification with it would
+        // feed the observer back into itself — the
+        // `ResizeObserver loop completed with undelivered notifications` risk
+        // that kept the tracks unobserved. `_updateThumbPositions()` writes
+        // only the thumb signals, and the thumbs are not observed, so this
+        // branch cannot resize anything it is watching.
+        //
+        // An empty batch is not "tracks only" — `every` is vacuously true on
+        // an empty array, and a caller with no entries wants the full pass.
+        if (
+          entries.length > 0 &&
+          entries.every(
+            ({ target }) => target === trackVEl || target === trackHEl,
+          )
+        ) {
+          this._invalidateTrackMetrics();
+          this._updateThumbPositions();
+          return;
+        }
+
         this._updateGeometry();
       });
 
@@ -450,6 +481,14 @@ export class MlvScrollbar {
       if (contentEl) {
         this._resizeObserver.observe(contentEl);
       }
+      // Observe each track so a change to its own box invalidates the cached
+      // metrics. The default observed box is the **content** box, which is
+      // what makes this catch an edge-padding change: padding sits inside the
+      // track's border box, so a border-box observation would miss it.
+      // Both tracks are always rendered — visibility is a class, not an `@if`
+      // — so neither query can be empty here.
+      this._resizeObserver.observe(trackVEl);
+      this._resizeObserver.observe(trackHEl);
     });
 
     // Everything that relays the corner-avoidance rule in the stylesheet,
