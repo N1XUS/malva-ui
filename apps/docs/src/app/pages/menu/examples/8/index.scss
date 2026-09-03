@@ -1,0 +1,44 @@
+.context-demo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mlv-spacing-4);
+  padding: var(--mlv-padding-xl);
+  border: var(--mlv-stroke-width) dashed var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-card);
+  background-color: var(--mlv-background-subtle);
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-1);
+    padding: var(--mlv-padding-l);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+    border-radius: var(--mlv-radius-card);
+    background-color: var(--mlv-background-raised);
+    box-shadow: var(--mlv-shadow-raised);
+    cursor: context-menu;
+
+    span {
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+  }
+
+  &__hint {
+    margin: 0;
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+}
+
+.context-demo__result {
+  margin-block-start: var(--mlv-spacing-4);
+  color: var(--mlv-text-secondary);
+}

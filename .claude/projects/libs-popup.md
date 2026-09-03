@@ -24,7 +24,7 @@ Exported from `libs/core/popup/src/index.ts`:
 | `MlvPopupContainer` | Component | Programmatic container — `mlv-popup-container` |
 | `MlvPopupService` | Service | Low-level overlay API |
 | `MlvPopupOpenConfig` | Interface | Config for `MlvPopupService.open()` |
-| `MlvPopupHandle` | Interface | `{ overlayRef, close }` |
+| `MlvPopupHandle` | Interface | `{ overlayRef, close, setPositionOrigin }` |
 | `MlvPopupSizeConfig` | Interface | Size options |
 | `MlvPopupScrollStrategy` | Type | `'reposition' \| 'close' \| 'block' \| 'noop'` |
 | `MlvPopupPositionName` | Type | Union of 12 named positions (`'bottom-end'`, `'top'`, etc.) |
@@ -226,7 +226,8 @@ Creates CDK overlay at origin, attaches template portal, subscribes to position 
 
 ```ts
 interface MlvPopupOpenConfig {
-  origin: ElementRef;
+  origin: ElementRef; // positions the overlay, resolves its direction, owns focus restore
+  positionOrigin?: FlexibleConnectedPositionStrategyOrigin; // overrides *only* what the overlay is positioned against
   template: TemplateRef<unknown>;
   vcr: ViewContainerRef;
   positions: ConnectedPosition[];
@@ -245,10 +246,51 @@ interface MlvPopupOpenConfig {
 interface MlvPopupHandle {
   overlayRef: OverlayRef;
   close: () => void;
+  setPositionOrigin: (origin: FlexibleConnectedPositionStrategyOrigin, positions?: ConnectedPosition[]) => void;
 }
 ```
 
 `backdropClass` lets consumers replace the default transparent CDK backdrop when they need a styled overlay treatment while keeping the same close behavior.
+
+### Point-anchored overlays — `positionOrigin` / `setPositionOrigin`
+
+`positionOrigin` accepts anything CDK's `flexibleConnectedTo` does, including a
+bare `{ x, y }` viewport point. It exists for overlays anchored to a **cursor**
+rather than to an element — `MlvContextMenuTrigger` is the built-in consumer.
+
+`origin` is deliberately still required and still an `ElementRef` when
+`positionOrigin` is set, because a point carries none of what the rest of `open()`
+needs from it:
+
+- `direction` is resolved with `MlvRtlService.resolveDirection(origin)`, which
+  walks up the DOM for the nearest explicit `dir` — a scoped `[dir="rtl"]`
+  subtree must still mirror a cursor-anchored panel;
+- `watchDirection(origin, …)` keeps re-mirroring the portaled pane while open;
+- focus restoration and `dismissExcludeElements` are element concepts.
+
+`setPositionOrigin` re-anchors an **already-open** overlay and repositions it
+(`FlexibleConnectedPositionStrategy.setOrigin()` + `updatePosition()`). It is a
+no-op once disposed, while detached, and in `fullscreen` mode, which runs a
+global strategy with no origin. A second right-click on an open context menu goes
+through this rather than closing and reopening — reopening does not even work,
+because `close()` only _starts_ the leave animation and the immediately following
+`open()` bails on the still-`true` open flag.
+
+The optional `positions` argument re-applies `withPositions` in the same call. It
+matters when the anchor changes **kind**, not just place: a context menu opened
+from the keyboard is anchored to its host element with `MENU_POSITIONS`, whose
+entries carry `offsetY: ±8`. Re-anchoring that panel to a cursor without swapping
+the list would keep applying the 8px element gap to the point, leaving the panel
+hanging below the pointer.
+
+> A point-anchored overlay that must keep seeing pointer events on the page
+> **must also open with `hasBackdrop: false`**. The CDK backdrop is `inset: 0`
+> with `pointer-events: auto`, so it hit-tests the whole viewport; and a
+> right-click fires no `click`, so `backdropClick()` never runs either. With a
+> backdrop, a second right-click reaches neither the trigger nor the dismiss
+> path — it only loses its `preventDefault()`, and the **native browser menu**
+> opens over the panel. Click-outside dismissal still works without a backdrop
+> via the document listener `open()` installs.
 
 ---
 
