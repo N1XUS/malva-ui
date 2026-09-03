@@ -1,0 +1,288 @@
+import { TestBed } from '@angular/core/testing';
+import { MlvNativeDateAdapter } from '@malva-ui/core/date';
+import type { MlvSchedulerEvent } from '../scheduler/scheduler.types';
+import {
+  computeVisibleRange,
+  dayIndexOf,
+  isLaneEvent,
+  normalizeEvent,
+  rowLength,
+  sliceColumns,
+  sliceRows,
+  spansMultipleDays,
+  startOfWeek,
+  visibleDays,
+} from './scheduler-layout';
+
+const d = (day: number, h = 0, m = 0, month = 8) =>
+  new Date(2026, month, day, h, m);
+const ev = (
+  id: string,
+  start: Date,
+  end: Date,
+  extra: Partial<MlvSchedulerEvent> = {},
+): MlvSchedulerEvent => ({
+  id,
+  title: id,
+  start,
+  end,
+  ...extra,
+});
+
+describe('scheduler-layout: range and days', () => {
+  let adapter: MlvNativeDateAdapter;
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    adapter = TestBed.inject(MlvNativeDateAdapter);
+  });
+
+  it('finds the start of the week for Monday- and Sunday-first weeks', () => {
+    expect(startOfWeek(adapter, d(2), 1)).toEqual(new Date(2026, 7, 31)); // Wed 2 Sep → Mon 31 Aug
+    expect(startOfWeek(adapter, d(2), 0)).toEqual(new Date(2026, 7, 30));
+    expect(startOfWeek(adapter, new Date(2026, 7, 31), 1)).toEqual(
+      new Date(2026, 7, 31),
+    );
+  });
+
+  it('computes month / week / day ranges', () => {
+    const month = computeVisibleRange(adapter, 'month', d(15), 1);
+    expect(month.start).toEqual(new Date(2026, 7, 31)); // Sep 2026 starts on a Tuesday
+    expect(month.end).toEqual(new Date(2026, 9, 5)); // Sep 30 is a Wednesday → week ends Sun Oct 4, exclusive Mon Oct 5
+    const week = computeVisibleRange(adapter, 'week', d(2, 13), 1);
+    expect(week.start).toEqual(new Date(2026, 7, 31));
+    expect(week.end).toEqual(d(7));
+    const day = computeVisibleRange(adapter, 'day', d(2, 13), 1);
+    expect(day.start).toEqual(d(2));
+    expect(day.end).toEqual(d(3));
+    expect(day.view).toBe('day');
+  });
+
+  it('lists visible days, skipping hidden weekdays', () => {
+    const week = computeVisibleRange(adapter, 'week', d(2), 1);
+    expect(visibleDays(adapter, week, []).length).toBe(7);
+    const working = visibleDays(adapter, week, [0, 6]);
+    expect(working.length).toBe(5);
+    expect(working[0]).toEqual(new Date(2026, 7, 31));
+    expect(working[4]).toEqual(d(4));
+    expect(rowLength([0, 6])).toBe(5);
+    expect(rowLength([])).toBe(7);
+    expect(rowLength([0, 0, 9])).toBe(6);
+    expect(dayIndexOf(adapter, working, d(2, 15))).toBe(2);
+    expect(dayIndexOf(adapter, working, d(5))).toBe(-1);
+  });
+});
+
+describe('scheduler-layout: normalization', () => {
+  let adapter: MlvNativeDateAdapter;
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    adapter = TestBed.inject(MlvNativeDateAdapter);
+  });
+
+  it('repairs end <= start', () => {
+    const timed = normalizeEvent(adapter, ev('a', d(2, 9), d(2, 9)), 60);
+    expect(timed.end).toEqual(d(2, 10));
+    const allDay = normalizeEvent(
+      adapter,
+      ev('b', d(2, 9), d(1), { allDay: true }),
+      60,
+    );
+    expect(allDay.start).toEqual(d(2));
+    expect(allDay.end).toEqual(d(3));
+    expect(allDay.allDay).toBe(true);
+  });
+
+  it('classifies lane events and multi-day events', () => {
+    expect(
+      isLaneEvent(
+        adapter,
+        normalizeEvent(adapter, ev('a', d(2, 9), d(2, 10)), 60),
+      ),
+    ).toBe(false);
+    expect(
+      isLaneEvent(
+        adapter,
+        normalizeEvent(adapter, ev('b', d(2, 9), d(3, 9)), 60),
+      ),
+    ).toBe(true); // 24h timed
+    expect(
+      isLaneEvent(
+        adapter,
+        normalizeEvent(adapter, ev('c', d(2), d(3), { allDay: true }), 60),
+      ),
+    ).toBe(true);
+    expect(
+      spansMultipleDays(
+        adapter,
+        normalizeEvent(adapter, ev('d', d(2, 22), d(3, 2)), 60),
+      ),
+    ).toBe(true);
+    expect(
+      spansMultipleDays(
+        adapter,
+        normalizeEvent(adapter, ev('e', d(2, 22), d(3, 0)), 60),
+      ),
+    ).toBe(false); // ends at midnight
+    expect(
+      spansMultipleDays(
+        adapter,
+        normalizeEvent(adapter, ev('f', d(2), d(3), { allDay: true }), 60),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('scheduler-layout: slicing', () => {
+  let adapter: MlvNativeDateAdapter;
+  let week: readonly Date[];
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    adapter = TestBed.inject(MlvNativeDateAdapter);
+    week = visibleDays(
+      adapter,
+      computeVisibleRange(adapter, 'week', d(2), 1),
+      [],
+    ); // Mon 31 Aug … Sun 6 Sep
+  });
+
+  it('slices all-day and multi-day events into row segments with continuation flags', () => {
+    const events = [
+      normalizeEvent(adapter, ev('a', d(1), d(4), { allDay: true }), 60), // Tue–Thu
+      normalizeEvent(
+        adapter,
+        ev('b', new Date(2026, 7, 29), d(2), { allDay: true }),
+        60,
+      ), // Sat 29 Aug – Tue 1 Sep
+      normalizeEvent(adapter, ev('c', d(5, 23), d(7, 1)), 60), // timed Sat 23:00 → Mon 01:00 (lane event, 26h)
+      normalizeEvent(adapter, ev('d', d(2, 9), d(2, 10)), 60), // timed single-day
+    ];
+    const rows = sliceRows(adapter, events, week, 7, 'all');
+    const byId = Object.fromEntries(
+      rows.map((s) => [s.normalized.event.id, s]),
+    );
+    expect(byId['a']).toMatchObject({
+      startIndex: 1,
+      endIndex: 3,
+      continuesBefore: false,
+      continuesAfter: false,
+    });
+    expect(byId['b']).toMatchObject({
+      startIndex: 0,
+      endIndex: 1,
+      continuesBefore: true,
+      continuesAfter: false,
+    });
+    expect(byId['c']).toMatchObject({
+      startIndex: 5,
+      endIndex: 6,
+      continuesBefore: false,
+      continuesAfter: true,
+    });
+    expect(byId['d']).toMatchObject({ startIndex: 2, endIndex: 2 });
+    expect(
+      sliceRows(adapter, events, week, 7, 'lane').map(
+        (s) => s.normalized.event.id,
+      ),
+    ).toEqual(['a', 'b', 'c']);
+  });
+
+  it('splits row segments at row boundaries for a month grid', () => {
+    const month = visibleDays(
+      adapter,
+      computeVisibleRange(adapter, 'month', d(15), 1),
+      [],
+    );
+    const events = [
+      normalizeEvent(adapter, ev('a', d(5), d(9), { allDay: true }), 60),
+    ]; // Sat 5 → Tue 8 inclusive
+    const rows = sliceRows(adapter, events, month, 7, 'all');
+    expect(rows.length).toBe(2);
+    expect(rows[0]).toMatchObject({
+      startIndex: 5,
+      endIndex: 6,
+      continuesBefore: false,
+      continuesAfter: true,
+    });
+    expect(rows[1]).toMatchObject({
+      startIndex: 7,
+      endIndex: 8,
+      continuesBefore: true,
+      continuesAfter: false,
+    });
+    expect(rows[0].key).not.toBe(rows[1].key);
+  });
+
+  it('collapses hidden weekdays inside a segment', () => {
+    const working = visibleDays(
+      adapter,
+      computeVisibleRange(adapter, 'week', d(2), 1),
+      [0, 6],
+    );
+    const events = [
+      normalizeEvent(adapter, ev('a', d(4), d(8), { allDay: true }), 60),
+    ]; // Fri 4 → Mon 7 (Sat/Sun hidden)
+    const rows = sliceRows(adapter, events, working, 5, 'all');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      startIndex: 4,
+      endIndex: 4,
+      continuesAfter: true,
+    });
+  });
+
+  it('slices timed events into per-day column segments, clipped to the visible hours', () => {
+    const events = [
+      normalizeEvent(adapter, ev('a', d(2, 9), d(2, 10, 30)), 60),
+      normalizeEvent(adapter, ev('b', d(2, 22), d(3, 2)), 60), // crosses midnight
+      normalizeEvent(adapter, ev('c', d(2, 6), d(2, 9)), 60), // starts before 08:00
+      normalizeEvent(adapter, ev('d', d(2, 5), d(2, 7)), 60), // fully outside 08:00–18:00
+      normalizeEvent(adapter, ev('e', d(2), d(4), { allDay: true }), 60), // lane event: skipped
+      normalizeEvent(adapter, ev('f', d(1, 23), d(2, 0)), 60), // ends exactly at midnight: no Wednesday segment
+    ];
+    const cols = sliceColumns(adapter, events, week, 8 * 60, 18 * 60);
+    const of = (id: string) => cols.filter((s) => s.normalized.event.id === id);
+    expect(of('a')).toEqual([
+      expect.objectContaining({
+        dayIndex: 2,
+        startMinutes: 540,
+        endMinutes: 630,
+        continuesBefore: false,
+        continuesAfter: false,
+      }),
+    ]);
+    expect(of('b')).toEqual([]); // 22:00–02:00 lies outside 08:00–18:00 on both days
+    expect(of('c')).toEqual([
+      expect.objectContaining({
+        dayIndex: 2,
+        startMinutes: 480,
+        endMinutes: 540,
+        continuesBefore: true,
+      }),
+    ]);
+    expect(of('d')).toEqual([]);
+    expect(of('e')).toEqual([]);
+    expect(of('f')).toEqual([]);
+    expect(
+      cols.every((s) => s.key === `${s.normalized.event.id}:c${s.dayIndex}`),
+    ).toBe(true);
+  });
+
+  it('gives a cross-midnight event a clipped segment on each day', () => {
+    const events = [normalizeEvent(adapter, ev('b', d(2, 22), d(3, 2)), 60)];
+    const cols = sliceColumns(adapter, events, week, 0, 1440);
+    expect(
+      cols.map((s) => [
+        s.dayIndex,
+        s.startMinutes,
+        s.endMinutes,
+        s.continuesBefore,
+        s.continuesAfter,
+      ]),
+    ).toEqual([
+      [2, 1320, 1440, false, true],
+      [3, 0, 120, true, false],
+    ]);
+    const clipped = sliceColumns(adapter, events, week, 8 * 60, 18 * 60);
+    expect(clipped).toEqual([]); // 22:00–02:00 lies entirely outside 08:00–18:00 on both days
+  });
+});
