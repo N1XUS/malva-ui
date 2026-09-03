@@ -14,6 +14,7 @@ import {
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
+import type { Signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
@@ -56,11 +57,13 @@ import {
   MlvDropdownPanel,
   MlvOptionsAdapter,
   optionId,
+  valueIndex,
 } from '@malva-ui/core/dropdown';
 import type {
   MlvOptionMatcher,
   MlvOptionsInput,
   MlvOptionsSearchFn,
+  MlvValueIndex,
 } from '@malva-ui/core/dropdown';
 import type {
   MlvSelectOption,
@@ -335,6 +338,69 @@ export class MlvSelect<T>
   );
 
   /**
+   * @private The resolved option **values**, indexed for repeated membership /
+   * resolution queries under {@link compareWith}. Rebuilt only when the option
+   * list or the comparator changes, and shared by every value-vs-options check
+   * in this control ({@link _allValuesMatched} and `_applyPendingValues`) —
+   * each of those used to run its own nested `selected × options` scan, so with
+   * a lazily paged source the total cost of a scroll session grew
+   * quadratically as pages accumulated.
+   *
+   * Carries an explicit type annotation for the same reason {@link _adapter}
+   * does: it is a new node on that documented inference cycle
+   * (`_adapter` → `eager` → `_allValuesMatched` → `_optionValueIndex` →
+   * `resolvedOptions` → `_adapter`), and pinning the type there keeps the
+   * cycle broken at two points rather than one. It is a `computed`, so nothing
+   * evaluates it during field initialisation — the adapter reads `eager` only
+   * from its effects, which run after construction.
+   */
+  private readonly _optionValueIndex: Signal<MlvValueIndex<T>> = computed(() =>
+    valueIndex(
+      this.resolvedOptions(),
+      this.compareWith(),
+      (option) => option.value,
+    ),
+  );
+
+  /**
+   * @private The **committed selection**, indexed for the per-option membership
+   * test the native `<select>` runs (`_isNativeOptionSelected`). A separate
+   * index from {@link _optionValueIndex}, and deliberately so — the two are
+   * keyed on different signals and invalidate independently: this one rebuilds
+   * when the selection or the comparator changes, that one when the option list
+   * or the comparator changes.
+   *
+   * **The haystack is the selection, not the options, because argument order is
+   * observable.** `_isNativeOptionSelected` calls `compare(selected, value)` —
+   * reversed relative to the other five value-vs-options checks in this file,
+   * which call `compare(option.value, committedValue)`. `valueIndex` applies
+   * `compare(indexedValue, queriedValue)`, so indexing the selection and
+   * querying with an option value reproduces the original order exactly.
+   * Indexing the options instead would silently transpose the arguments, and a
+   * consumer's `compareWith` is under no obligation to be symmetric.
+   *
+   * Holding `selectedValues()` by reference inside the index is safe *as this
+   * library drives it*: every write from `MlvSelect`, `MlvCombobox` and
+   * `MlvSelectionService`'s own mutators (`select` / `deselect` / `clear`)
+   * `set`s a freshly built array rather than mutating in place, so a stale
+   * index is always discarded by the signal, never silently re-read. Note this
+   * is a property of the call sites, not an invariant the service enforces —
+   * `setValues(values)` stores the caller's array as-is, and the service is
+   * publicly reachable, so an external caller that mutated an array it had
+   * already handed over would defeat both this index and the signal itself.
+   *
+   * The `compareWith()` read is tracked but, today, redundant: a comparator
+   * change invalidates {@link _optionValueIndex}, which re-runs the
+   * pending-values effect, which calls `setValues` with a fresh `map()` result
+   * — so the selection identity always changes alongside the comparator. It
+   * stays tracked because that coupling is incidental, not guaranteed.
+   */
+  private readonly _selectedValueIndex: Signal<MlvValueIndex<T>> = computed(
+    () =>
+      valueIndex(this.selectionService.selectedValues(), this.compareWith()),
+  );
+
+  /**
    * @protected Whether the native select is the active interaction surface.
    * `'auto'` follows the shared `md` breakpoint and updates when the viewport
    * changes.
@@ -379,11 +445,8 @@ export class MlvSelect<T>
 
   /** @protected Whether every committed value has a matching option (by `compareWith`). */
   protected readonly _allValuesMatched = computed(() => {
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    return this.selectionService
-      .selectedValues()
-      .every((v) => opts.some((o) => compare(o.value, v)));
+    const options = this._optionValueIndex();
+    return this.selectionService.selectedValues().every((v) => options.has(v));
   });
 
   /** @protected First payload arrived and the consumer is not reporting `loading`. */
@@ -568,7 +631,8 @@ export class MlvSelect<T>
     });
     effect(() => {
       this._pendingValues = toAriaValues(this.value());
-      // Reads resolvedOptions()/compareWith() → re-runs when options arrive later.
+      // Reads `_optionValueIndex()` (resolvedOptions() + compareWith()) → the
+      // effect still re-runs when options arrive later.
       this._applyPendingValues();
     });
     // A `searchFn` is lazy: the first open is what triggers its initial load.
@@ -854,12 +918,18 @@ export class MlvSelect<T>
     this._markTouched();
   }
 
-  /** @protected Whether a normalized option matches one of the committed values. */
+  /**
+   * @protected Whether a normalized option matches one of the committed values.
+   *
+   * Called once per rendered native `<option>` — and, being a template method
+   * rather than a computed, on *every* change-detection pass of the native
+   * branch, not only when a signal changes. It was the last nested
+   * `selected × options` scan in this control; it now resolves through the
+   * memoised {@link _selectedValueIndex}, whose `has()` preserves the original
+   * `compare(selected, value)` argument order.
+   */
   protected _isNativeOptionSelected(value: T): boolean {
-    const compare = this.compareWith();
-    return this.selectionService
-      .selectedValues()
-      .some((selected) => compare(selected, value));
+    return this._selectedValueIndex().has(value);
   }
 
   /** @private Resolves an internal native option key back to its public option. */
@@ -953,14 +1023,12 @@ export class MlvSelect<T>
    * value is matched against the current options via {@link compareWith} and
    * replaced by the option's own instance, so the check-marks and the displayed
    * label agree — and a value written before its options exist resolves as soon
-   * as they arrive (the caller effect tracks `resolvedOptions()`).
+   * as they arrive (the caller effect reads `_optionValueIndex()`, which
+   * tracks `resolvedOptions()`).
    */
   private _applyPendingValues(): void {
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    const normalized = this._pendingValues.map(
-      (v) => opts.find((o) => compare(o.value, v))?.value ?? v,
-    );
+    const options = this._optionValueIndex();
+    const normalized = this._pendingValues.map((v) => options.resolve(v));
     this.selectionService.setValues(normalized);
   }
 }

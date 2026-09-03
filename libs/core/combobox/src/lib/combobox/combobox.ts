@@ -14,7 +14,7 @@ import {
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
-import type { ElementRef } from '@angular/core';
+import type { ElementRef, Signal } from '@angular/core';
 import type { ConnectedPosition } from '@angular/cdk/overlay';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
@@ -46,6 +46,7 @@ import type {
   MlvOptionsSearchFn,
   MlvSelectOption,
   MlvSelectOptionTransform,
+  MlvValueIndex,
 } from '@malva-ui/core/dropdown';
 import {
   MlvActiveDescendant,
@@ -57,6 +58,7 @@ import {
   MlvOptionsAdapter,
   filterOptions,
   optionId,
+  valueIndex,
 } from '@malva-ui/core/dropdown';
 import { MlvChip } from '@malva-ui/core/chip';
 import {
@@ -293,6 +295,31 @@ export class MlvCombobox<T>
     this._adapter.items().map((item) => this.toOption()(item)),
   );
 
+  /**
+   * @private The resolved option **values**, indexed for repeated membership /
+   * resolution queries under {@link compareWith}. Rebuilt only when the option
+   * list or the comparator changes, and shared by every value-vs-options check
+   * in this control ({@link _allValuesMatched}, {@link _chipOptions},
+   * `_applyPendingValues`) — each of those used to run its own nested
+   * `selected × options` scan, so with a lazily paged source the total cost of
+   * a scroll session grew quadratically as pages accumulated.
+   *
+   * Carries an explicit type annotation for the same reason {@link _adapter}
+   * does: it is a new node on that documented inference cycle
+   * (`_adapter` → `eager` → `_allValuesMatched` → `_optionValueIndex` →
+   * `resolvedOptions` → `_adapter`), and pinning the type there keeps the
+   * cycle broken at two points rather than one. It is a `computed`, so nothing
+   * evaluates it during field initialisation — the adapter reads `eager` only
+   * from its effects, which run after construction.
+   */
+  private readonly _optionValueIndex: Signal<MlvValueIndex<T>> = computed(() =>
+    valueIndex(
+      this.resolvedOptions(),
+      this.compareWith(),
+      (option) => option.value,
+    ),
+  );
+
   readonly isOpen = signal(false);
   /** Current text in the input. For single-select this doubles as the committed label when not actively searching. */
   readonly searchQuery = signal('');
@@ -370,11 +397,8 @@ export class MlvCombobox<T>
 
   /** @protected Whether every committed value has a matching option (by `compareWith`). */
   protected readonly _allValuesMatched = computed(() => {
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    return this.selectionService
-      .selectedValues()
-      .every((v) => opts.some((o) => compare(o.value, v)));
+    const options = this._optionValueIndex();
+    return this.selectionService.selectedValues().every((v) => options.has(v));
   });
 
   /** @protected First payload arrived and no consumer-driven `loading`. */
@@ -400,9 +424,8 @@ export class MlvCombobox<T>
   protected readonly _chipOptions = computed(() => {
     const selected = this.selectedOptions();
     if (!this._awaitingValueLabel()) return selected;
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    return selected.filter((s) => opts.some((o) => compare(o.value, s.value)));
+    const options = this._optionValueIndex();
+    return selected.filter((s) => options.has(s.value));
   });
 
   /** @protected `Press Enter to add "{query}"` resolved through i18n. */
@@ -974,11 +997,8 @@ export class MlvCombobox<T>
 
   /** @private Normalises the pending form values against the current options and syncs display text. */
   private _applyPendingValues(): void {
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    const normalized = this._pendingValues.map(
-      (v) => opts.find((o) => compare(o.value, v))?.value ?? v,
-    );
+    const options = this._optionValueIndex();
+    const normalized = this._pendingValues.map((v) => options.resolve(v));
     this.selectionService.setValues(normalized);
     // This effect re-runs on every `resolvedOptions()` change — which now
     // includes every remote response and every observable emission. Resyncing

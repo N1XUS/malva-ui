@@ -1872,3 +1872,386 @@ describe('MlvCombobox stylesheet — chevron flip + rotation origin', () => {
     );
   });
 });
+
+/**
+ * The value-vs-options cross-checks — `_allValuesMatched`, `_chipOptions` and
+ * `_applyPendingValues` — used to be nested `selected × options` scans, re-run
+ * on every option-list change. `resolvedOptions()` is the **accumulated**
+ * lazily-paged list, so every page append re-ran the whole scan and the total
+ * cost of a scroll session grew quadratically. All three now share one
+ * `valueIndex` over the resolved option values.
+ *
+ * `defaultCompareWith` cannot be wrapped in a spy — `valueIndex` recognises it
+ * *by reference*, so a wrapper would silently take the pairwise path and
+ * measure nothing. The observable channel is instead a counting `value`
+ * accessor on the options `toOption` produces: a scan that reaches through
+ * `option.value` increments it, a scan over the values already extracted into
+ * the index does not.
+ *
+ * (That the index itself takes its `Map` fast path for an identity comparator
+ * — rather than a pairwise scan of the extracted values — is guarded at the
+ * unit level, in `reconciliation.spec.ts`.)
+ */
+describe('MlvCombobox — value-vs-options cost', () => {
+  const PAGE = 500;
+  const pages = Array.from({ length: 4 }, (_, p) =>
+    Array.from({ length: PAGE }, (_, i) => `p${p}-${i}`),
+  );
+
+  /** Reads of any resolved option's `value`, across every consumer. */
+  let valueReads = 0;
+
+  const countingToOption = (item: string) => {
+    const option = { label: item } as { label: string; value: string };
+    Object.defineProperty(option, 'value', {
+      get: () => {
+        valueReads++;
+        return item;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    return option;
+  };
+
+  @Component({
+    imports: [MlvCombobox],
+    template: `<mlv-combobox
+      id="perf"
+      multiple
+      loading
+      [options]="options()"
+      [toOption]="toOption"
+      [compareWith]="compareWith()"
+      [(value)]="value"
+    />`,
+  })
+  class HostComponent {
+    readonly combobox = viewChild.required(MlvCombobox<string>);
+    readonly options = signal<string[]>(pages[0]);
+    readonly value = signal<string[] | null>(null);
+    readonly compareWith =
+      signal<(a: string, b: string) => boolean>(defaultCompareWith);
+    readonly toOption = countingToOption;
+  }
+
+  beforeEach(async () => {
+    valueReads = 0;
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+  });
+
+  /**
+   * Commits `selected` values and returns the fixture. The last committed value
+   * is deliberately **absent** from the options, so `_allValuesMatched` cannot
+   * short-circuit on an early miss and `_chipOptions` takes its filtering
+   * branch (`_awaitingValueLabel` is true) rather than returning early. The
+   * present values sit at the **end** of page 0, so a pairwise `some()` cannot
+   * short-circuit near the front and under-report either.
+   */
+  function commit(
+    selected: number,
+    compare = defaultCompareWith as (a: string, b: string) => boolean,
+  ): ComponentFixture<HostComponent> {
+    const fixture = TestBed.createComponent(HostComponent);
+    const host = fixture.componentInstance;
+    host.compareWith.set(compare);
+    host.value.set([...pages[0].slice(PAGE - (selected - 1)), 'not-an-option']);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  /** `.value` reads caused by appending one more page of options. */
+  function readsForAppend(
+    fixture: ComponentFixture<HostComponent>,
+    upToPage: number,
+  ): number {
+    valueReads = 0;
+    fixture.componentInstance.options.set(pages.slice(0, upToPage + 1).flat());
+    fixture.detectChanges();
+    return valueReads;
+  }
+
+  it('costs nothing at all when nothing is selected', () => {
+    // The regression an eagerly-built index causes, and the reason `valueIndex`
+    // walks nothing until its first query: `_applyPendingValues` asks for the
+    // index on **every** option-list change, and with no committed value it
+    // then queries it zero times. `_allValuesMatched` is never evaluated either
+    // (`hasValue()` short-circuits both `_awaitingValueLabel` and the adapter's
+    // `eager` gate), so a page append must cost exactly nothing.
+    //
+    // A purely differential assertion cannot see this: the cost is constant in
+    // the selection size, so it cancels out of every difference.
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    valueReads = 0;
+    fixture.componentInstance.options.set([...pages[0], ...pages[1]]);
+    fixture.detectChanges();
+    expect(valueReads).toBe(0);
+  });
+
+  it('costs at most one walk of the accumulated options per page append', () => {
+    // The absolute companion to the differential test below. One walk builds
+    // the index; every query after that is O(1). A nested scan would be ~50x
+    // this at 50 committed values.
+    const accumulated = 2 * PAGE;
+    expect(readsForAppend(commit(1), 1)).toBeLessThanOrEqual(accumulated + 4);
+    expect(readsForAppend(commit(50), 1)).toBeLessThanOrEqual(
+      accumulated + 4 * 50,
+    );
+  });
+
+  it('costs the same per page append whether 1 or 50 values are selected', () => {
+    // Differential, so no magic constant is needed:
+    //   fast path  reads(R) = c × options + O(R)   — options term independent of R
+    //   nested     reads(R) = c × options + R × options
+    // 49 more selected values would add 49 × 1000 reads to a nested scan.
+    const one = readsForAppend(commit(1), 1);
+    const fifty = readsForAppend(commit(50), 1);
+    expect(fifty - one).toBeLessThan(PAGE);
+  });
+
+  it('stays linear in the accumulated option count as pages arrive', () => {
+    // The motivating scenario: 50 committed values, four pages appended one at
+    // a time. Each append may re-walk the accumulated list a constant number of
+    // times; it may not walk it once per committed value.
+    const fixture = commit(50);
+    for (let page = 1; page < pages.length; page++) {
+      const accumulated = PAGE * (page + 1);
+      expect(readsForAppend(fixture, page)).toBeLessThan(3 * accumulated);
+    }
+  });
+
+  it('keeps the pairwise scan for a custom comparator', () => {
+    // A consumer-supplied comparator must not be routed through a keyed
+    // container — its equivalence relation is unknown. Comparator calls
+    // therefore still scale with the committed selection.
+    const calls = (selected: number) => {
+      let count = 0;
+      const custom = (a: string, b: string) => {
+        count++;
+        return a === b;
+      };
+      readsForAppend(commit(selected, custom), 1);
+      return count;
+    };
+    expect(calls(50) - calls(1)).toBeGreaterThan(PAGE);
+  });
+});
+
+/**
+ * End-to-end proof that the identity fast path is exactly the comparator it
+ * stands in for. `Set`/`Map` membership is SameValueZero, which agrees with
+ * neither identity comparator: `===` and SameValueZero differ on `(NaN, NaN)`,
+ * `Object.is` and SameValueZero on `(+0, -0)`. `valueIndex` bails to the
+ * pairwise path on those, and these assertions read the result of that bail
+ * through the control's public surface.
+ *
+ * `[loading]` pins `_ready()` false, so the loading variant
+ * (`.mlv-combobox--loading`) appears exactly when `_allValuesMatched` is false
+ * — which also puts `_chipOptions` on its filtering branch, so the rendered
+ * chips report the second cross-check.
+ */
+describe('MlvCombobox — identity comparator edge values', () => {
+  @Component({
+    imports: [MlvCombobox],
+    template: `<mlv-combobox
+      id="edge"
+      multiple
+      loading
+      [options]="options()"
+      [compareWith]="compareWith()"
+      [(value)]="value"
+    />`,
+  })
+  class HostComponent {
+    readonly combobox = viewChild.required(MlvCombobox<number>);
+    readonly options = signal<number[]>([]);
+    readonly value = signal<number[] | null>(null);
+    readonly compareWith =
+      signal<(a: number, b: number) => boolean>(defaultCompareWith);
+  }
+
+  let fixture: ComponentFixture<HostComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(HostComponent);
+  });
+
+  /** Whether `_allValuesMatched` came out false, read off the loading variant. */
+  const awaitingLabel = () =>
+    (
+      fixture.nativeElement.querySelector('mlv-combobox') as HTMLElement
+    ).classList.contains('mlv-combobox--loading');
+  /** Chips rendered — `_chipOptions`, which while awaiting keeps only resolved values. */
+  const chipCount = () =>
+    fixture.nativeElement.querySelectorAll('.mlv-combobox__chip').length;
+  const committed = () =>
+    fixture.componentInstance.combobox().selectionService.selectedValues();
+
+  function setup(
+    options: number[],
+    values: number[],
+    compare?: (a: number, b: number) => boolean,
+  ): void {
+    if (compare) fixture.componentInstance.compareWith.set(compare);
+    fixture.componentInstance.options.set(options);
+    fixture.componentInstance.value.set(values);
+    fixture.detectChanges();
+  }
+
+  it('a committed NaN never matches a NaN option under the `===` default', () => {
+    // `NaN === NaN` is false. A `Map` keyed on NaN would say the value matched,
+    // drop the loading variant, and render the chip.
+    setup([Number.NaN, 1], [Number.NaN, 1]);
+    expect(awaitingLabel()).toBe(true);
+    // `_chipOptions` keeps only the value that resolved — 1, never the NaN.
+    expect(chipCount()).toBe(1);
+    expect(Object.is(committed()[0], Number.NaN)).toBe(true);
+  });
+
+  it('a committed NaN DOES match a NaN option under Object.is', () => {
+    setup([Number.NaN, 1], [Number.NaN, 1], Object.is);
+    expect(awaitingLabel()).toBe(false);
+    expect(chipCount()).toBe(2);
+  });
+
+  it('a committed -0 matches a +0 option under `===` — and takes its instance', () => {
+    // `+0 === -0`, so the option matches; `_applyPendingValues` then replaces
+    // the written `-0` with the option's own `+0`, exactly as the pairwise
+    // `options.find(...)?.value ?? v` always did. Not a no-op — the sign flips.
+    setup([0], [-0]);
+    expect(awaitingLabel()).toBe(false);
+    expect(Object.is(committed()[0], 0)).toBe(true);
+    expect(Object.is(committed()[0], -0)).toBe(false);
+  });
+
+  it('a committed -0 does NOT match a +0 option under Object.is (hazard on the querying side)', () => {
+    // The option list is hazard-free, so the index is keyed — but a queried -0
+    // must still be answered pairwise, or SameValueZero would conflate it.
+    setup([0], [-0], Object.is);
+    expect(awaitingLabel()).toBe(true);
+    expect(chipCount()).toBe(0);
+    expect(Object.is(committed()[0], -0)).toBe(true);
+  });
+
+  it('a committed +0 does NOT match a -0 option under Object.is (hazard on the keyed side)', () => {
+    setup([-0], [0], Object.is);
+    expect(awaitingLabel()).toBe(true);
+    expect(Object.is(committed()[0], 0)).toBe(true);
+  });
+
+  it('an empty option list leaves every committed value unmatched and unchanged', () => {
+    setup([], [7]);
+    expect(awaitingLabel()).toBe(true);
+    expect(chipCount()).toBe(0);
+    expect(committed()).toEqual([7]);
+  });
+
+  it('an empty selection is matched vacuously, whatever the options', () => {
+    fixture.componentInstance.options.set([1, 2, 3]);
+    fixture.detectChanges();
+    expect(awaitingLabel()).toBe(false);
+    expect(chipCount()).toBe(0);
+  });
+});
+/**
+ * Argument-order coverage for the **option-side** index. `_allValuesMatched`,
+ * `_chipOptions` and `_applyPendingValues` all call
+ * `compare(option.value, committedValue)`, and `valueIndex` applies
+ * `compare(indexedValue, queriedValue)` — so the option list must be the
+ * indexed side. Every other comparator in this suite (`===`, `Object.is`,
+ * `(a, b) => a.id === b.id`) is **symmetric** and cannot see a transposition;
+ * these two can, from both directions.
+ *
+ * A consumer's `compareWith` is an arbitrary predicate and is under no
+ * obligation to be symmetric, so this is a real behaviour contract, not a
+ * stylistic one.
+ */
+describe('MlvCombobox — option-side comparator argument order', () => {
+  /**
+   * True only when the OPTION value is the first argument. Reflexive on option
+   * values (so it survives `_applyPendingValues` rewriting the committed value
+   * onto the option instance), but `optionFirst('opt:b', 'sel:b')` is `true`
+   * while `optionFirst('sel:b', 'opt:b')` is `false` — the asymmetry a
+   * transposition trips over.
+   */
+  const optionFirst = (a: string, b: string) =>
+    a.startsWith('opt:') && a.slice(4) === b.slice(4);
+  /** The transpose: true only in the order the sites must NOT use. */
+  const selectionFirst = (a: string, b: string) => optionFirst(b, a);
+
+  @Component({
+    imports: [MlvCombobox],
+    template: `<mlv-combobox
+      id="order"
+      multiple
+      loading
+      [options]="options"
+      [compareWith]="compareWith()"
+      [(value)]="value"
+    />`,
+  })
+  class HostComponent {
+    readonly combobox = viewChild.required(MlvCombobox<string>);
+    readonly options = ['opt:a', 'opt:b'];
+    readonly value = signal<string[] | null>(null);
+    readonly compareWith =
+      signal<(a: string, b: string) => boolean>(optionFirst);
+  }
+
+  let fixture: ComponentFixture<HostComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(HostComponent);
+  });
+
+  const awaitingLabel = () =>
+    (
+      fixture.nativeElement.querySelector('mlv-combobox') as HTMLElement
+    ).classList.contains('mlv-combobox--loading');
+  const chipCount = () =>
+    fixture.nativeElement.querySelectorAll('.mlv-combobox__chip').length;
+  const committed = () =>
+    fixture.componentInstance.combobox().selectionService.selectedValues();
+
+  function setup(compare: (a: string, b: string) => boolean): void {
+    fixture.componentInstance.compareWith.set(compare);
+    fixture.detectChanges();
+    fixture.componentInstance.value.set(['sel:b']);
+    fixture.detectChanges();
+  }
+
+  it('matches when the option value is compare()`s FIRST argument', () => {
+    setup(optionFirst);
+    // `_applyPendingValues` — `find((o) => compare(o.value, written))` resolves
+    // the written value onto the option instance.
+    expect(committed()).toEqual(['opt:b']);
+    // `_allValuesMatched` — the committed value has an option, so the loading
+    // variant is off despite `[loading]`... which also puts `_chipOptions` on
+    // its early-return branch.
+    expect(awaitingLabel()).toBe(false);
+    expect(chipCount()).toBe(1);
+  });
+
+  it('does not match when only the TRANSPOSED order would', () => {
+    setup(selectionFirst);
+    // Nothing may match: a transposed index would flip each of these
+    // independently — the committed value would resolve onto `opt:b`,
+    // `_allValuesMatched` would drop the loading variant, and `_chipOptions`
+    // would render a chip.
+    expect(committed()).toEqual(['sel:b']);
+    expect(awaitingLabel()).toBe(true);
+    expect(chipCount()).toBe(0);
+  });
+});
