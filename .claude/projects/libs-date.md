@@ -34,6 +34,7 @@ Abstract contract. Responsibilities:
 - calendar arithmetic (`addCalendarDays`, `addCalendarMonths`, `addCalendarYears`) and comparison (`compareDate`, `sameDate`)
 - localized month / weekday names and formatted labels (`getMonthNames`, `getDayOfWeekNames`, `format`, `toIso8601`)
 - `locale` is a `WritableSignal<string>` read by every formatting method
+- time-of-day (added 2026-09 for `@malva-ui/scheduler`) — abstract: `getHours` (0–23), `getMinutes` (0–59), `createDateTime(year, month, day, hours, minutes)` (throws on out-of-range fields), `addMinutes` (elapsed minutes, negative allowed), `differenceInMinutes(first, second)` (`first − second`, truncated toward zero), `now()` (the current date-time in the adapter's zone — the single clock seam, so no component constructs a `Date`); inherited helpers: `withTime` (same calendar day, new time), `startOfDay`, `minutesOfDay` (0–1439), `shiftDays` (calendar days, keeps the wall-clock time), `compareDateTime` (day, then minute; seconds ignored), `sameDateTime`
 
 Components consume the contract through `inject(MLV_DATE_ADAPTER, { optional: true }) ?? inject(MlvNativeDateAdapter)`.
 
@@ -41,7 +42,7 @@ Components consume the contract through `inject(MLV_DATE_ADAPTER, { optional: tr
 
 **File:** `libs/core/date/src/lib/native-date-adapter.ts`
 
-Default adapter. Native `Date` for date math (dates are normalized to local midnight by `clone` / `addCalendar*`), `Intl.DateTimeFormat` for month names, weekday names and accessible labels. `createDate` throws on an out-of-range month or day.
+Default adapter. Native `Date` for date math (dates are normalized to local midnight by `clone` / `addCalendar*`), `Intl.DateTimeFormat` for month names, weekday names and accessible labels. `createDate` throws on an out-of-range month or day. Time-of-day: `addMinutes` uses `getTime()` deltas (real elapsed time across DST); `createDateTime` / `withTime` use wall-clock setters and resolve a non-existent spring-forward time the way the browser does; `now()` returns `new Date()`.
 
 ### Provider tokens
 

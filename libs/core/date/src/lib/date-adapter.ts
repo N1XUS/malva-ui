@@ -175,4 +175,76 @@ export abstract class MlvDateAdapter<D> {
   abstract isDateInstance(value: unknown): value is D;
   /** Returns `true` when the provided date instance is valid. */
   abstract isValid(date: D): boolean;
+  /** Returns the wall-clock hour (0–23) of the provided date-time. */
+  abstract getHours(date: D): number;
+  /** Returns the wall-clock minute (0–59) of the provided date-time. */
+  abstract getMinutes(date: D): number;
+  /**
+   * Creates a date-time from calendar fields plus a wall-clock time.
+   * Implementations throw for out-of-range fields.
+   */
+  abstract createDateTime(
+    year: number,
+    month: number,
+    day: number,
+    hours: number,
+    minutes: number,
+  ): D;
+  /** Adds elapsed minutes (may be negative) and returns a new date-time instance. */
+  abstract addMinutes(date: D, minutes: number): D;
+  /** Returns `first − second` in whole minutes, truncated toward zero. */
+  abstract differenceInMinutes(first: D, second: D): number;
+  /** Returns the current date-time in the adapter's zone. */
+  abstract now(): D;
+
+  /** Returns a date-time on the same calendar day as `date` at the given wall-clock time. */
+  withTime(date: D, hours: number, minutes: number): D {
+    return this.createDateTime(
+      this.getYear(date),
+      this.getMonth(date),
+      this.getDate(date),
+      hours,
+      minutes,
+    );
+  }
+
+  /** Returns the start (00:00) of the provided date's calendar day. */
+  startOfDay(date: D): D {
+    return this.createDate(
+      this.getYear(date),
+      this.getMonth(date),
+      this.getDate(date),
+    );
+  }
+
+  /** Returns wall-clock minutes elapsed since the start of the day (0–1439). */
+  minutesOfDay(date: D): number {
+    return this.getHours(date) * 60 + this.getMinutes(date);
+  }
+
+  /**
+   * Adds calendar days while preserving the wall-clock time, unlike
+   * `addCalendarDays`, which implementations may normalize to midnight.
+   */
+  shiftDays(date: D, days: number): D {
+    return this.withTime(
+      this.addCalendarDays(date, days),
+      this.getHours(date),
+      this.getMinutes(date),
+    );
+  }
+
+  /** Compares two date-times by calendar day, then by wall-clock minute. Seconds are ignored. */
+  compareDateTime(first: D, second: D): number {
+    const byDate = this.compareDate(first, second);
+    if (byDate !== 0) {
+      return byDate;
+    }
+    return this.minutesOfDay(first) - this.minutesOfDay(second);
+  }
+
+  /** Returns `true` when both values fall on the same calendar day and minute. */
+  sameDateTime(first: D, second: D): boolean {
+    return this.compareDateTime(first, second) === 0;
+  }
 }
