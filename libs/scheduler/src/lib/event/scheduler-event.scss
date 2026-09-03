@@ -1,0 +1,166 @@
+@use 'sass:map';
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+$block: mlv-scheduler-event;
+
+$tones: (
+  'info': (
+    'bg': var(--mlv-background-info-1-pale),
+    'color': var(--mlv-text-info),
+    'bar': var(--mlv-background-info-1),
+  ),
+  'success': (
+    'bg': var(--mlv-background-success-1-pale),
+    'color': var(--mlv-text-positive),
+    'bar': var(--mlv-background-success-1),
+  ),
+  'warning': (
+    'bg': var(--mlv-background-warning-1-pale),
+    'color': var(--mlv-text-warning),
+    'bar': var(--mlv-background-warning-1),
+  ),
+  'danger': (
+    'bg': var(--mlv-background-danger-1-pale),
+    'color': var(--mlv-text-negative),
+    'bar': var(--mlv-background-danger-1),
+  ),
+);
+
+@layer mlv.components {
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-s-size),
+      0,
+      0
+    );
+
+    --mlv-scheduler-event-bg: var(--mlv-background-accent-1-pale);
+    --mlv-scheduler-event-text: var(--mlv-text-action);
+    --mlv-scheduler-event-bar: var(--mlv-background-accent-1);
+
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    box-sizing: border-box;
+    min-block-size: var(--mlv-scheduler-event-min-height);
+    padding-block: var(--mlv-spacing-0-5);
+    padding-inline: var(--mlv-spacing-2) var(--mlv-spacing-1);
+    border-radius: var(--mlv-radius-s);
+    border-inline-start: 0.1875rem solid var(--mlv-scheduler-event-bar);
+    background: var(--mlv-scheduler-event-bg);
+    color: var(--mlv-scheduler-event-text);
+    line-height: var(--mlv-typography-body-s-line-height);
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+    transition:
+      box-shadow var(--mlv-duration-fast) var(--mlv-ease-default),
+      background-color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    &:hover {
+      box-shadow: var(--mlv-shadow-raised);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+
+    &__time,
+    &__title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    &__time {
+      flex: 0 0 auto;
+      font-weight: var(--mlv-typography-body-s-weight);
+      opacity: 0.85;
+    }
+
+    &__title {
+      flex: 1 1 auto;
+      min-inline-size: 0;
+      font-weight: 600;
+    }
+
+    &__continuation {
+      flex: 0 0 auto;
+      // previous / next glyphs follow the inline axis
+      transform: scaleX(var(--mlv-inline-direction));
+    }
+
+    &__resize-handle {
+      position: absolute;
+      touch-action: none;
+    }
+
+    // Time axis: stacked, handle on the block-end edge.
+    &--timed {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+
+      .#{$block}__resize-handle {
+        inset-inline: 0;
+        inset-block-end: 0;
+        block-size: 0.375rem;
+        cursor: ns-resize;
+      }
+    }
+
+    // Lanes: single row, handle on the inline-end edge.
+    &--all-day {
+      .#{$block}__resize-handle {
+        inset-block: 0;
+        inset-inline-end: 0;
+        inline-size: 0.375rem;
+        cursor: ew-resize;
+      }
+    }
+
+    &--continues-before {
+      border-start-start-radius: 0;
+      border-end-start-radius: 0;
+      border-inline-start-width: 0;
+    }
+
+    &--continues-after {
+      border-start-end-radius: 0;
+      border-end-end-radius: 0;
+    }
+
+    @each $name, $props in $tones {
+      &--tone-#{$name} {
+        --mlv-scheduler-event-bg: #{map.get($props, 'bg')};
+        --mlv-scheduler-event-text: #{map.get($props, 'color')};
+        --mlv-scheduler-event-bar: #{map.get($props, 'bar')};
+      }
+    }
+
+    &--custom-color {
+      --mlv-scheduler-event-bg: color-mix(
+        in oklab,
+        var(--mlv-scheduler-event-color) 18%,
+        var(--mlv-background-raised)
+      );
+      --mlv-scheduler-event-text: var(--mlv-text-primary);
+      --mlv-scheduler-event-bar: var(--mlv-scheduler-event-color);
+    }
+
+    &--dragging {
+      opacity: 0.4;
+    }
+
+    &--ghost {
+      pointer-events: none;
+      opacity: 0.7;
+      outline: var(--mlv-stroke-width) dashed var(--mlv-border-focus);
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}

@@ -13,6 +13,13 @@ export default [
             '{projectRoot}/eslint.config.{js,cjs,mjs,ts,cts,mts}',
             // Build/test tooling only — must not become peerDependencies of the published package.
             '{projectRoot}/vite.config.{js,cjs,mjs,ts,cts,mts}',
+            // Spec-only helpers. They live under `src/` so specs can import
+            // them by relative path, but they are never exported from the
+            // barrel and never reached from the entry point, so ng-packagr
+            // does not compile them and `vitest` must not become a peer of the
+            // published package. `*.spec.ts` is already excluded by the
+            // `production` named input; these files are not.
+            '{projectRoot}/src/lib/testing/**',
           ],
           ignoredDependencies: [
             // Every peer range is a release placeholder
