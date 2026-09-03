@@ -9,6 +9,8 @@ import {
   isLaneEvent,
   layoutRow,
   normalizeEvent,
+  resolveMove,
+  resolveResize,
   rowLength,
   sliceColumns,
   sliceRows,
@@ -429,5 +431,150 @@ describe('scheduler-layout: clusters', () => {
     const of = (id: string) => laid.find((s) => s.normalized.event.id === id)!;
     expect([of('a').column, of('b').column, of('c').column]).toEqual([0, 0, 1]);
     expect(laid.every((s) => s.columns === 2)).toBe(true);
+  });
+});
+
+describe('scheduler-layout: move and resize resolution', () => {
+  let adapter: MlvNativeDateAdapter;
+  let week: readonly Date[];
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    adapter = TestBed.inject(MlvNativeDateAdapter);
+    week = visibleDays(
+      adapter,
+      computeVisibleRange(adapter, 'week', d(2), 1),
+      [],
+    );
+  });
+  const n = (e: MlvSchedulerEvent) => normalizeEvent(adapter, e, 60);
+
+  it('moves a timed event to another day keeping time and duration', () => {
+    const next = resolveMove(
+      adapter,
+      n(ev('a', d(2, 9), d(2, 10, 30))),
+      { dayIndex: 4, minutes: null, allDay: null },
+      week,
+      60,
+    );
+    expect(next).toEqual({ start: d(4, 9), end: d(4, 10, 30), allDay: false });
+  });
+
+  it('moves a timed event to a slot keeping duration', () => {
+    const next = resolveMove(
+      adapter,
+      n(ev('a', d(2, 9), d(2, 10, 30))),
+      { dayIndex: 2, minutes: 14 * 60 + 15, allDay: false },
+      week,
+      60,
+    );
+    expect(next).toEqual({
+      start: d(2, 14, 15),
+      end: d(2, 15, 45),
+      allDay: false,
+    });
+  });
+
+  it('converts between all-day and timed', () => {
+    const toAllDay = resolveMove(
+      adapter,
+      n(ev('a', d(2, 9), d(2, 10))),
+      { dayIndex: 3, minutes: null, allDay: true },
+      week,
+      60,
+    );
+    expect(toAllDay).toEqual({ start: d(3), end: d(4), allDay: true });
+    const toTimed = resolveMove(
+      adapter,
+      n(ev('b', d(2), d(4), { allDay: true })),
+      { dayIndex: 1, minutes: 600, allDay: false },
+      week,
+      45,
+    );
+    expect(toTimed).toEqual({
+      start: d(1, 10),
+      end: d(1, 10, 45),
+      allDay: false,
+    });
+  });
+
+  it('shifts a multi-day all-day event keeping its span and clamps the day index', () => {
+    const next = resolveMove(
+      adapter,
+      n(ev('a', d(2), d(5), { allDay: true })),
+      { dayIndex: 9, minutes: null, allDay: null },
+      week,
+      60,
+    );
+    expect(next).toEqual({ start: d(6), end: d(9), allDay: true });
+    const first = resolveMove(
+      adapter,
+      n(ev('a', d(2), d(5), { allDay: true })),
+      { dayIndex: -3, minutes: null, allDay: null },
+      week,
+      60,
+    );
+    expect(first.start).toEqual(new Date(2026, 7, 31));
+  });
+
+  it('resizes the end on the time axis with a minimum of one snap', () => {
+    const grown = resolveResize(
+      adapter,
+      n(ev('a', d(2, 9), d(2, 10))),
+      { dayIndex: 2, minutes: 12 * 60 + 30 },
+      week,
+      15,
+    );
+    expect(grown).toEqual({ start: d(2, 9), end: d(2, 12, 30), allDay: false });
+    const collapsed = resolveResize(
+      adapter,
+      n(ev('a', d(2, 9), d(2, 10))),
+      { dayIndex: 2, minutes: 8 * 60 },
+      week,
+      15,
+    );
+    expect(collapsed.end).toEqual(d(2, 9, 15));
+    const midnight = resolveResize(
+      adapter,
+      n(ev('a', d(2, 22), d(2, 23))),
+      { dayIndex: 2, minutes: 1440 },
+      week,
+      15,
+    );
+    expect(midnight.end).toEqual(d(3));
+  });
+
+  it('resizes lane events by day', () => {
+    const allDay = resolveResize(
+      adapter,
+      n(ev('a', d(2), d(3), { allDay: true })),
+      { dayIndex: 5, minutes: null },
+      week,
+      15,
+    );
+    expect(allDay).toEqual({ start: d(2), end: d(6), allDay: true });
+    const tooShort = resolveResize(
+      adapter,
+      n(ev('a', d(2), d(4), { allDay: true })),
+      { dayIndex: 0, minutes: null },
+      week,
+      15,
+    );
+    expect(tooShort.end).toEqual(d(3));
+    const timedLane = resolveResize(
+      adapter,
+      n(ev('b', d(1, 9), d(2, 17))),
+      { dayIndex: 4, minutes: null },
+      week,
+      15,
+    );
+    expect(timedLane).toEqual({ start: d(1, 9), end: d(4, 17), allDay: false });
+    const midnightEnd = resolveResize(
+      adapter,
+      n(ev('c', d(1, 9), d(3, 0))),
+      { dayIndex: 4, minutes: null },
+      week,
+      15,
+    );
+    expect(midnightEnd.end).toEqual(d(5));
   });
 });

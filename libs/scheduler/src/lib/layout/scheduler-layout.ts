@@ -420,3 +420,125 @@ export function clusterColumns<D, TData>(
   flush();
   return out;
 }
+
+/** The dates a move or resize would produce. */
+export interface MlvSchedulerNextRange<D = Date> {
+  readonly start: D;
+  readonly end: D;
+  readonly allDay: boolean;
+}
+
+/** Where a drag ended. `minutes === null` = a day cell; `allDay === null` = keep the event's own kind. */
+export interface MlvSchedulerDropTarget {
+  readonly dayIndex: number;
+  readonly minutes: number | null;
+  readonly allDay: boolean | null;
+}
+
+/** Whole calendar days an all-day event covers. */
+export function daySpan<D, TData>(
+  adapter: MlvDateAdapter<D>,
+  normalized: MlvSchedulerNormalizedEvent<D, TData>,
+): number {
+  return Math.max(
+    1,
+    Math.round(
+      adapter.differenceInMinutes(
+        adapter.startOfDay(normalized.end),
+        adapter.startOfDay(normalized.start),
+      ) / MINUTES_PER_DAY,
+    ),
+  );
+}
+
+function clampIndex(index: number, length: number): number {
+  return Math.min(length - 1, Math.max(0, index));
+}
+
+function atMinutes<D>(adapter: MlvDateAdapter<D>, day: D, minutes: number): D {
+  if (minutes >= MINUTES_PER_DAY) {
+    return adapter.startOfDay(adapter.addCalendarDays(day, 1));
+  }
+  return adapter.withTime(day, Math.floor(minutes / 60), minutes % 60);
+}
+
+/** Resolves a drop: keeps duration, converts kind when the target says so, keeps time-of-day for day-cell targets. */
+export function resolveMove<D, TData>(
+  adapter: MlvDateAdapter<D>,
+  normalized: MlvSchedulerNormalizedEvent<D, TData>,
+  target: MlvSchedulerDropTarget,
+  days: readonly D[],
+  defaultEventDuration: number,
+): MlvSchedulerNextRange<D> {
+  const day = adapter.startOfDay(
+    days[clampIndex(target.dayIndex, days.length)],
+  );
+  const allDay = target.allDay ?? normalized.allDay;
+  if (allDay) {
+    const span = normalized.allDay ? daySpan(adapter, normalized) : 1;
+    return {
+      start: day,
+      end: adapter.addCalendarDays(day, span),
+      allDay: true,
+    };
+  }
+  if (normalized.allDay) {
+    const start = atMinutes(adapter, day, target.minutes ?? 0);
+    return {
+      start,
+      end: adapter.addMinutes(start, defaultEventDuration),
+      allDay: false,
+    };
+  }
+  const duration = adapter.differenceInMinutes(
+    normalized.end,
+    normalized.start,
+  );
+  const start =
+    target.minutes === null
+      ? adapter.withTime(
+          day,
+          adapter.getHours(normalized.start),
+          adapter.getMinutes(normalized.start),
+        )
+      : atMinutes(adapter, day, target.minutes);
+  return { start, end: adapter.addMinutes(start, duration), allDay: false };
+}
+
+/** Resolves an end-edge resize. Lane targets (`minutes === null`) resize by whole days; time targets by minutes. */
+export function resolveResize<D, TData>(
+  adapter: MlvDateAdapter<D>,
+  normalized: MlvSchedulerNormalizedEvent<D, TData>,
+  target: { readonly dayIndex: number; readonly minutes: number | null },
+  days: readonly D[],
+  snapDuration: number,
+): MlvSchedulerNextRange<D> {
+  const day = adapter.startOfDay(
+    days[clampIndex(target.dayIndex, days.length)],
+  );
+  if (normalized.allDay) {
+    let end = adapter.addCalendarDays(day, 1);
+    const minEnd = adapter.addCalendarDays(
+      adapter.startOfDay(normalized.start),
+      1,
+    );
+    if (adapter.compareDate(end, minEnd) < 0) end = minEnd;
+    return { start: normalized.start, end, allDay: true };
+  }
+  let end: D;
+  if (target.minutes === null) {
+    const endMinutes = adapter.minutesOfDay(normalized.end);
+    end =
+      endMinutes === 0
+        ? adapter.addCalendarDays(day, 1)
+        : atMinutes(adapter, day, endMinutes);
+  } else {
+    end = atMinutes(adapter, day, target.minutes);
+  }
+  const minEnd = adapter.addMinutes(
+    normalized.start,
+    Math.max(1, snapDuration),
+  );
+  if (adapter.compareDateTime(end, minEnd) < 0) end = minEnd;
+  return { start: normalized.start, end, allDay: false };
+}
