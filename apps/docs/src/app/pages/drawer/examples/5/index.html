@@ -1,0 +1,51 @@
+<button mlvButton (click)="showTray.set(true)">
+  Notifications{{ unreadCount() ? ' (' + unreadCount() + ')' : '' }}
+</button>
+
+<mlv-drawer
+  [(opened)]="showTray"
+  position="top"
+  resizable
+  [snapPoints]="snapPoints"
+  [defaultSnap]="35"
+>
+  <ng-template mlvDrawerContent>
+    <mlv-drawer-header title="Notifications">
+      <mlv-spacer />
+      <button
+        mlvButton
+        variant="transparent"
+        [disabled]="unreadCount() === 0"
+        (click)="markAllRead()"
+      >
+        Mark all read
+      </button>
+    </mlv-drawer-header>
+
+    <div mlvDrawerBody>
+      <mlv-list>
+        @for (item of notifications(); track item.id) {
+        <mlv-list-item [unread]="item.unread">
+          <mlv-avatar mlvListItemMedia size="m" [name]="item.author" />
+          <span mlvListItemTitle>{{ item.title }}</span>
+          <span mlvListItemByline>{{ item.byline }}</span>
+          <span mlvListItemMeta>{{ item.when }}</span>
+          @if (item.unread) {
+          <div mlvListItemActions>
+            <button
+              mlvButton
+              mlvDensity="compact"
+              variant="transparent"
+              type="button"
+              (click)="markRead(item.id)"
+            >
+              Mark read
+            </button>
+          </div>
+          }
+        </mlv-list-item>
+        }
+      </mlv-list>
+    </div>
+  </ng-template>
+</mlv-drawer>

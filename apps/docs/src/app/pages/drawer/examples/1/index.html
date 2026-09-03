@@ -1,64 +1,162 @@
 <button mlvButton (click)="showDrawer.set(true)">Open Drawer</button>
 <mlv-drawer [(opened)]="showDrawer" position="right" size="640px">
   <ng-template mlvDrawerContent>
-    <div mlvDrawerHeader>
-      <button
-        mlvButton
-        variant="secondary"
-        shape="square"
-        (click)="showDrawer.set(false)"
-      >
-        <svg lucideX size="24" />
-      </button>
-      <mlv-drawer-sections></mlv-drawer-sections>
+    <mlv-drawer-header title="New product" level="4">
+      <mlv-drawer-sections />
       <mlv-spacer />
-      <div style="display: flex; gap: 4px; align-items: center">
-        <button mlvButton type="submit" form="myform">Create</button>
-        <button (click)="showDrawer.set(false)" mlvButton variant="secondary">
-          Cancel
-        </button>
-      </div>
-    </div>
+      <button mlvButton type="submit" form="product-form">Create</button>
+      <button mlvButton variant="secondary" (click)="showDrawer.set(false)">
+        Cancel
+      </button>
+    </mlv-drawer-header>
     <div mlvDrawerBody>
-      <form mlvForm (ngSubmit)="submitForm()" id="myform">
+      <form mlvForm id="product-form" (ngSubmit)="submitForm()">
         <section mlvDrawerSection id="meta" label="Meta">
-          <mlv-form-field>
+          <fieldset mlvFieldset [columns]="1">
             <mlv-input
               mlvAutofocus
+              required
               label="Product name"
               placeholder="Enter product name"
             />
-          </mlv-form-field>
-          <mlv-form-field>
-            <mlv-input label="Product URL" placeholder="Enter product URL" />
-          </mlv-form-field>
-        </section>
-        <section mlvDrawerSection id="inventory" label="Inventory">
-          <mlv-form-field>
             <mlv-input
-              autofocus
-              type="number"
-              label="In stock"
-              placeholder="Enter stock quantity"
+              label="Handle"
+              placeholder="product-name"
+              description="Lowercase letters, digits and dashes. Becomes the storefront URL."
+            >
+              <span *mlvFormControlPrepend>shop.example.com/</span>
+            </mlv-input>
+            <mlv-textarea
+              label="Description"
+              placeholder="What makes this product worth buying?"
+              autoResize
+              [minRows]="3"
+              [maxRows]="8"
+              [maxLength]="280"
             />
-          </mlv-form-field>
+            <mlv-tokenizer
+              label="Tags"
+              hint="Comma or Enter adds a tag"
+              placeholder="Add a tag…"
+              [splitFn]="splitTags"
+            />
+          </fieldset>
+        </section>
 
-          <mlv-form-field>
+        <section mlvDrawerSection id="pricing" label="Pricing">
+          <fieldset mlvFieldset [columns]="2">
+            <mlv-number-input
+              required
+              label="Price"
+              placeholder="0.00"
+              [min]="0"
+              [step]="0.01"
+              [precision]="2"
+            />
+            <mlv-number-input
+              label="Compare-at price"
+              placeholder="0.00"
+              description="Shown struck through next to the price."
+              [min]="0"
+              [step]="0.01"
+              [precision]="2"
+            />
+            <mlv-number-input
+              label="Cost per item"
+              placeholder="0.00"
+              description="Customers never see this."
+              [min]="0"
+              [step]="0.01"
+              [precision]="2"
+            />
+            <mlv-select
+              label="Tax class"
+              [options]="taxClasses"
+              placeholder="Select tax class"
+            />
+            <mlv-switch mlvFieldsetSpan="full">
+              Charge tax on this product
+            </mlv-switch>
+          </fieldset>
+        </section>
+
+        <section mlvDrawerSection id="inventory" label="Inventory">
+          <fieldset mlvFieldset [columns]="2">
+            <mlv-input label="SKU" placeholder="MLV-0001" />
+            <mlv-input label="Barcode" placeholder="GTIN, EAN or ISBN" />
+            <mlv-number-input
+              label="In stock"
+              placeholder="0"
+              [min]="0"
+              [step]="1"
+            />
+            <mlv-number-input
+              label="Low stock threshold"
+              placeholder="0"
+              description="Triggers the handler below."
+              [min]="0"
+              [step]="1"
+            />
             <mlv-select
               label="Low quantity handler"
               [options]="lowQuantityOptions"
               placeholder="Select handler"
+              mlvFieldsetSpan="full"
             />
-          </mlv-form-field>
+            <mlv-switch mlvFieldsetSpan="full">
+              Continue selling when out of stock
+            </mlv-switch>
+          </fieldset>
+        </section>
+
+        <section mlvDrawerSection id="shipping" label="Shipping">
+          <fieldset mlvFieldset [columns]="2">
+            <mlv-number-input
+              label="Weight"
+              placeholder="0.0"
+              [min]="0"
+              [step]="0.1"
+              [precision]="1"
+            />
+            <mlv-select label="Unit" [options]="weightUnits" />
+            <fieldset
+              mlvFieldset
+              legend="Package dimensions"
+              description="Centimetres; used to pick the smallest carrier box."
+              [columns]="3"
+              gap="xs"
+              mlvFieldsetSpan="full"
+            >
+              <mlv-number-input label="Length" [min]="0" [step]="1" />
+              <mlv-number-input label="Width" [min]="0" [step]="1" />
+              <mlv-number-input label="Height" [min]="0" [step]="1" />
+            </fieldset>
+            <mlv-switch mlvFieldsetSpan="full">
+              This product requires shipping
+            </mlv-switch>
+          </fieldset>
+        </section>
+
+        <section mlvDrawerSection id="visibility" label="Visibility">
+          <fieldset mlvFieldset [columns]="1">
+            <mlv-radio-group label="Status">
+              <mlv-radio [value]="'active'">Active</mlv-radio>
+              <mlv-radio [value]="'draft'">Draft</mlv-radio>
+              <mlv-radio [value]="'archived'">Archived</mlv-radio>
+            </mlv-radio-group>
+            <mlv-day-picker
+              label="Publish on"
+              placeholder="Immediately"
+              description="Leave empty to publish as soon as the product is created."
+            />
+            <mlv-checkbox-group label="Sales channels">
+              <mlv-checkbox>Online store</mlv-checkbox>
+              <mlv-checkbox>Point of sale</mlv-checkbox>
+              <mlv-checkbox>Marketplace</mlv-checkbox>
+            </mlv-checkbox-group>
+          </fieldset>
         </section>
       </form>
-      <p>
-        This is the drawer content. It slides in from the right with
-        configurable animation.
-      </p>
-      <button mlvButton variant="secondary" (click)="showDrawer.set(false)">
-        Close
-      </button>
     </div>
   </ng-template>
 </mlv-drawer>

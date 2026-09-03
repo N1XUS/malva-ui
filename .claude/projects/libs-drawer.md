@@ -27,7 +27,8 @@ Exported from `libs/core/drawer/src/index.ts`:
 | `MlvDrawer`                      | Component                 | The inline template-based drawer host                                                                                    |
 | `MlvDrawerContent`               | Directive                 | Marks the `<ng-template>` whose content fills the drawer panel                                                           |
 | `MlvDrawerPosition`              | Type alias                | `'left' \| 'right' \| 'top' \| 'bottom'`                                                                                 |
-| `MlvDrawerHeader`                | Directive                 | Applies `mlv-drawer__header` class to a child element                                                                    |
+| `MlvDrawerHeader`                | Component                 | Header row: title, projected controls, `mlv-button-close` — `mlv-drawer-header` or `[mlvDrawerHeader]`                   |
+| `MlvDrawerTitleLevel`            | Type alias                | `1 \| 2 \| 3 \| 4 \| 5 \| 6` — heading level of the header's `title` input                                               |
 | `MlvDrawerBody`                  | Component                 | Scrollable drawer body backed by `mlv-scrollbar` — `[mlvDrawerBody]`                                                     |
 | `DrawerBodyDirective`            | Compatibility alias       | Backwards-compatible export alias for `MlvDrawerBody`                                                                    |
 | `MlvDrawerFooter`                | Directive                 | Applies `mlv-drawer__footer` class to a child element                                                                    |
@@ -60,23 +61,23 @@ absent from the public barrel. Drawer-section DOM lookup is scoped to the owning
 
 **Inputs (`input()` / `model()`):**
 
-| Name                   | Type                       | Default   | Description                                                                                                                                                       |
-| ---------------------- | -------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `opened`               | `model<boolean>`           | `false`   | Two-way bindable; `true` opens the drawer, `false` closes it                                                                                                      |
-| `position`             | `input<MlvDrawerPosition>` | `'right'` | Which edge of the viewport the drawer slides from                                                                                                                 |
-| `size`                 | `input<string>`            | `'300px'` | Width (left/right) or height (top/bottom) of the panel; used as initial size when `resizable=false`                                                               |
-| `hasBackdrop`          | `input<boolean>`           | `true`    | Whether a dim backdrop is shown behind the drawer                                                                                                                 |
-| `closeOnBackdropClick` | `input<boolean>`           | `true`    | Whether clicking the backdrop closes the drawer                                                                                                                   |
-| `closeOnEscape`        | `input<boolean>`           | `true`    | Whether pressing Escape closes the drawer                                                                                                                         |
-| `restoreFocus`         | `input<boolean>`           | `true`    | Inherited coerced boolean. Restores the connected pre-open focus target after disposal; composed owners can disable it.                                           |
-| `resizable`            | `input<boolean>`           | `false`   | When true, renders a drag handle; enables drag-to-resize and swipe-to-dismiss                                                                                     |
-| `snapPoints`           | `input<number[]>`          | `[]`      | Sorted viewport-percentage snap points (0–100); panel snaps to nearest after drag. Empty = free resize                                                            |
-| `defaultSnap`          | `input<number>`            | `100`     | Initial snap point percentage applied when the drawer opens (only when `resizable=true`)                                                                          |
-| `minSize`              | `input<string>`            | `'0px'`   | CSS min-size floor for resize                                                                                                                                     |
-| `maxSize`              | `input<string>`            | `'100%'`  | CSS max-size ceiling for the sizing axis. Honoured **whether or not** `resizable` is set, and always additionally clamped to the viewport                         |
-| `initialFocus`         | `MlvOverlayInitialFocus`   | `'auto'`  | Inherited from `MlvOverlayHostBase`. `'auto'` skips the close button and the body scroll viewport — see [libs-overlay.md](libs-overlay.md)                        |
-| `ariaLabel`            | `input<string>`            | —         | Accessible name for the `role="dialog"` surface. Used as `aria-label` when `ariaLabelledBy` is unset.                                                             |
-| `ariaLabelledBy`       | `input<string>`            | —         | Id of a visible element (e.g. a projected `[mlvDrawerHeader]`) that labels the drawer. Takes precedence over `ariaLabel`/the i18n fallback via `aria-labelledby`. |
+| Name                   | Type                       | Default   | Description                                                                                                                                                                                                                                                                                      |
+| ---------------------- | -------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `opened`               | `model<boolean>`           | `false`   | Two-way bindable; `true` opens the drawer, `false` closes it                                                                                                                                                                                                                                     |
+| `position`             | `input<MlvDrawerPosition>` | `'right'` | Which edge of the viewport the drawer slides from                                                                                                                                                                                                                                                |
+| `size`                 | `input<string>`            | `'300px'` | Width (left/right) or height (top/bottom) of the panel; used as initial size when `resizable=false`                                                                                                                                                                                              |
+| `hasBackdrop`          | `input<boolean>`           | `true`    | Whether a dim backdrop is shown behind the drawer                                                                                                                                                                                                                                                |
+| `closeOnBackdropClick` | `input<boolean>`           | `true`    | Whether clicking the backdrop closes the drawer                                                                                                                                                                                                                                                  |
+| `closeOnEscape`        | `input<boolean>`           | `true`    | Whether pressing Escape closes the drawer                                                                                                                                                                                                                                                        |
+| `restoreFocus`         | `input<boolean>`           | `true`    | Inherited coerced boolean. Restores the connected pre-open focus target after disposal; composed owners can disable it.                                                                                                                                                                          |
+| `resizable`            | `input<boolean>`           | `false`   | When true, renders a drag handle; enables drag-to-resize and swipe-to-dismiss                                                                                                                                                                                                                    |
+| `snapPoints`           | `input<number[]>`          | `[]`      | Sorted viewport-percentage snap points (0–100); panel snaps to nearest after drag. Empty = free resize                                                                                                                                                                                           |
+| `defaultSnap`          | `input<number>`            | `100`     | Initial snap point percentage applied when the drawer opens (only when `resizable=true`)                                                                                                                                                                                                         |
+| `minSize`              | `input<string>`            | `'0px'`   | CSS min-size floor for the sizing axis, bound as `min-width` / `min-height` so a drag resize can never shrink the panel below it. Honoured on the fixed-`size` path too, and clamped to the viewport like `maxSize` (`min-*` beats `max-*`, so an unclamped floor would undo the viewport clamp) |
+| `maxSize`              | `input<string>`            | `'100%'`  | CSS max-size ceiling for the sizing axis. Honoured **whether or not** `resizable` is set, and always additionally clamped to the viewport                                                                                                                                                        |
+| `initialFocus`         | `MlvOverlayInitialFocus`   | `'auto'`  | Inherited from `MlvOverlayHostBase`. `'auto'` skips the close button and the body scroll viewport — see [libs-overlay.md](libs-overlay.md)                                                                                                                                                       |
+| `ariaLabel`            | `input<string>`            | —         | Accessible name for the `role="dialog"` surface. Used as `aria-label` when `ariaLabelledBy` is unset.                                                                                                                                                                                            |
+| `ariaLabelledBy`       | `input<string>`            | —         | Id of a visible element that labels the drawer. Overrides the title `mlv-drawer-header` registers, `ariaLabel` and the i18n fallback via `aria-labelledby`.                                                                                                                                      |
 
 **Outputs (`output()`):**
 
@@ -133,14 +134,27 @@ fills the viewport. Without this a fixed `size="36rem"` rendered 576 px wide on 
 name in this precedence order, mirroring how a dialog labels itself from the
 title id `mlv-dialog-header` publishes (`<dialogId>-title-<n>`):
 
-1. `ariaLabelledBy` input → bound to `aria-labelledby` (point it at a projected
-   `[mlvDrawerHeader]` id or any visible label). Suppresses `aria-label`.
-2. `ariaLabel` input → bound to `aria-label`.
-3. i18n fallback → `MLV_DRAWER_I18N.drawer` ("Drawer") via the `_resolvedAriaLabel`
+1. `ariaLabelledBy` input → bound to `aria-labelledby` (any visible label).
+   Suppresses `aria-label`.
+2. `ariaLabel` input → bound to `aria-label`. Also suppresses the header title
+   below — a consumer naming the drawer by hand wins over the automatic label.
+3. The rendered title of a projected `mlv-drawer-header` → `aria-labelledby`.
+   The header registers its title id through the internal `_labelBy(id)` /
+   `_unlabelBy(id)` pair while the title has text (`_headerLabelIds`, joined
+   with spaces when a drawer renders more than one header), so an asynchronous
+   title still names the drawer and an empty one never leaves an empty name.
+4. i18n fallback → `MLV_DRAWER_I18N.drawer` ("Drawer") via the `_resolvedAriaLabel`
    computed, so the drawer panel always has an accessible name even when nothing is set.
 
-The previous dangling `_titleId` `aria-labelledby` (which pointed at an element that
-was never rendered) remains removed.
+`_resolvedAriaLabelledBy` resolves steps 1–3 and `_resolvedAriaLabel` is null
+whenever it resolves, so the two naming methods never conflict. Service-opened
+drawers get step 3 through `MlvDrawerRef._labelBy` / `_unlabelBy`, which write
+`aria-labelledby` onto the overlay pane, and step 4 through `MlvDrawerService`,
+which writes the i18n `drawer` string as `aria-label` on the pane at open. The
+ref parks that `aria-label` while a title is registered and puts it back when
+the last title withdraws, so the pane is never nameless and the two attributes
+never coexist. (`MlvDrawerConfig` has no `ariaLabel`; the header title is the
+way to name a service-opened drawer.)
 
 The `<ng-template>` is projected into a CDK `TemplatePortal` when opened.
 
@@ -283,13 +297,95 @@ The section-navigation popover is a **menu**: the trigger button advertises `ari
 
 ### `MlvDrawerHeader`
 
-**Selector:** `[mlvDrawerHeader]`
+**Selector:** `mlv-drawer-header, [mlvDrawerHeader]`
 
 **File:** `libs/core/drawer/src/lib/drawer-header.ts`
 
-**Host bindings:** `class: 'mlv-drawer__header'`
+**Purpose:** The drawer's header row — the title, any projected controls and
+the close button — rendered as one 36px control row. Use it as an element
+(`<mlv-drawer-header title="…">`) or as an attribute on a container
+(`<div mlvDrawerHeader>`); never on a heading — project the heading instead.
 
-**Purpose:** Styles the host element as a drawer header (flex row, bottom border, padding via design tokens).
+**Inputs:**
+
+| Name         | Type                         | Default | Description                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------ | ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`      | `input<string>`              | —       | Plain-text title rendered as a heading with `class="mlv-drawer__title"` (level from `level`). Wins over a projected heading.                                                                                                                                                                                                                                                                |
+| `level`      | `input<MlvDrawerTitleLevel>` | `2`     | Heading level (`1`–`6`) of the element the `title` input renders; `level="4"` (attribute) and `[level]="4"` both work, out-of-range falls back to `2`. Pass `4` above `[mlvDrawerSection]` headings (`<h5>`) so the outline skips no level. Ignored for a projected heading.                                                                                                                |
+| `closable`   | `input<boolean>`             | `true`  | Whether the trailing `mlv-button-close` is rendered. Coerced, so `closable="false"` works. Also omitted when the header is rendered outside a drawer.                                                                                                                                                                                                                                       |
+| `mlvDensity` | `MlvDensity` (host dir)      | —       | Density projected to the header's content through `MLV_DENSITY_CONTEXT`. Unset, the header **pins `compact`** (it does not inherit an app-wide density) so projected `mlvButton`s sit on the same 36px row as the close button. The context also reaches the `mlv-drawer-sections` popup (its content keeps the header's injector), so the section menu renders compact in any app density. |
+
+**Template order is fixed:** title → `<ng-content>` → close.
+
+- **Title.** `title` input → `<h{level}>` (`<h2>` by default; a `@switch`
+  over `level`, one id across levels); otherwise a `div.mlv-drawer__title`
+  wrapper that projects `h1`–`h6` or any element carrying a `mlvDrawerTitle`
+  attribute (`<ng-content select="h1, h2, h3, h4, h5, h6, [mlvDrawerTitle]">`),
+  so `<div mlvDrawerHeader><h4>Edit</h4>…</div>` keeps working and the heading
+  level stays the consumer's. The wrapper is `display: none` while `:empty`.
+  A projected heading takes the row's type (`font: inherit`, ui-l 16px medium);
+  `[mlvTitle]` headings keep their own `data-level` size and are not intended
+  here.
+- **Accessible name.** The title element carries `id="mlv-drawer-title-<n>"`
+  and is registered with the drawer (`MlvDrawer` in template mode, reached
+  through the content template's declaration site; `MlvDrawerRef` in the
+  service path) after every render while it has text. See the `MlvDrawer`
+  accessible-name precedence above. A header with no title registers nothing.
+  When **both** are in scope — a service drawer opened with an `injector`
+  from inside a declarative drawer's content (a routable drawer from a drawer
+  body), or a declarative drawer nested in a service-opened component — the
+  ref owns the header only while its pane contains the header element
+  (`MlvDrawerRef._paneElement`); otherwise the declarative drawer does. The
+  owner is resolved lazily (after the portal has attached the host element)
+  and cached, so `_unlabelBy` reaches the drawer `_labelBy` did.
+- **Close.** `<mlv-button-close class="mlv-drawer__close" mlvDensity="comfortable" shape="circle" variant="transparent">`,
+  labelled by `MLV_DRAWER_I18N.closeDrawer`, calling `close()` on the drawer
+  or ref. Pinned at `comfortable` on purpose: `mlv-button-close` is one density
+  step **below** `mlvButton` at every level (36 / 28 / 24 vs 44 / 36 / 28), so
+  the close at its default and a compact `mlvButton` both resolve
+  `--mlv-height-s` — the only pairing that puts the two flush. `mlv-drawer-sections`
+  pins `mlvDensity="compact"` on its trigger for the same reason.
+  **Optically hung:** the header and body share one inline padding, so the
+  button box ends where a full-width field ends, but the visible X stops
+  ~12px inside a transparent 36px circle. `.mlv-drawer__close > .mlv-button`
+  therefore carries `margin-inline-end: calc((icon − height) / 2 − icon × 5/24)`
+  from the button's own `--mlv-icon-font-size` / `--mlv-btn-height` (the 5/24
+  is the blank rim inside Lucide's `x` path), so the strokes sit on the field
+  edge and the hover halo overshoots into the padding instead.
+- **Projected content** is where `mlv-drawer-sections`, an `mlv-spacer` and
+  action buttons go. Without a spacer the close still sits at the inline end
+  (`.mlv-drawer__close { margin-inline-start: auto }`).
+- **Outside a drawer** (no `MlvDrawer` and no `MlvDrawerRef` resolvable) the
+  header is a plain styled row: no close button, no label registration.
+
+**Host bindings:** `class: 'mlv-drawer__header'`, `[attr.title]: null` (strips
+the native `title` attribute the element form leaves behind). Host directive
+`MlvDensityDirective` with the `mlvDensity` input; the header itself carries no
+density modifier class.
+
+**Styles (`drawer.scss`):** `.mlv-drawer__header` is a `gap: var(--mlv-spacing-2)`
+flex row with `--mlv-padding-l` and a block-end hairline (61px with 36px
+controls). `.mlv-drawer__title` truncates with an ellipsis.
+
+**Side rail.** A resizable `left` / `right` drawer parks its handle in a
+full-height 48px gutter at the inward edge: the handle is `position: absolute`
+(`inset-block: 0; inline-size: 3rem`) and the panel reserves the gutter with
+`padding-right` / `padding-left`. The sides are **physical** on purpose —
+`MlvDrawerPosition` names a viewport edge — and carry `// physical:` comments.
+(An in-flow `height: 100%` handle in the panel's flex column took a row of
+its own and pushed the header below the panel.)
+
+**Merged bottom-sheet band.** In `.mlv-drawer--bottom.mlv-drawer--resizable:has(> .mlv-drawer__header)`
+the 48px drag handle is `position: absolute` across the top of the panel
+(`.mlv-drawer` is `position: relative`), its pill at `--mlv-spacing-2` from
+the edge, and the header lifts its content with
+`padding-block-start: var(--mlv-spacing-5)` — one 69px band instead of a 48px
+strip stacked on a 69px header. The header is `pointer-events: none` with
+`> * { pointer-events: auto }` (and the title back to `none`), so its empty
+space falls through to the handle while controls keep their hit areas. A sheet
+without a header keeps the in-flow handle. `:has()` is Baseline 2023; where it
+is unsupported (Firefox < 121) the four merged-band rules drop and the sheet
+degrades to the stacked 48px strip above the header.
 
 ---
 
@@ -309,6 +405,16 @@ Body padding (`spacing-3` block / `spacing-6` inline) is set on
 `.mlv-drawer__body-scrollbar > .mlv-scrollbar__viewport`, i.e. inside the
 `overflow-x: hidden` clip box, so full-width controls' focus rings are not
 clipped. Do not move it back onto the scrollbar host.
+
+`.mlv-drawer__body` is `overflow: clip`, not `hidden`. A hidden-overflow box is
+still a scroll container that `focus()`, `scrollIntoView()` and `:target` move
+silently; the viewport inside is the only scroller the body may have. The case
+that forced it: a visually-hidden native input (switch / checkbox / radio /
+file-upload) whose containing block was the scrollbar host outside the viewport
+scrolled the body ~2000px on a click — content gone, viewport unmoved. Those
+controls now position themselves (`position: relative` on the block) so the
+input stays inside them; `clip` is the drawer's own guarantee that no other
+descendant can do the same.
 
 ---
 
@@ -356,6 +462,15 @@ clipped. Do not move it back onto the scrollbar host.
 | `Escape`                    | Dismiss (close the drawer)                       |
 
 **ARIA attributes:** `role="separator"`, `tabindex="0"`, `aria-label="Resize panel"`, `aria-valuenow`, `aria-valuemin="0"`, `aria-valuemax="100"`.
+
+`aria-valuenow` is backed by a signal (`_currentPercent`) — the pointer path
+writes it from a `fromEvent` listener, which schedules no change detection
+under zoneless, so a plain field left the attribute stale after a drag. After a
+free-resize gesture (no snap points) and after every key step the value is
+re-read from the rendered box (`_syncPercentToBox`), so a `minSize` / `maxSize`
+clamp is what gets announced rather than the size that was asked for; the raw
+request still lives in `--mlv-drawer-current-size`. A zero-sized box (no
+layout) leaves the value alone.
 
 ---
 
@@ -512,7 +627,8 @@ import { MlvDrawer, MlvDrawerContent, MlvDrawerHeader, DrawerBodyDirective, MlvD
 
     <mlv-drawer #drawer position="right" size="400px">
       <ng-template mlvDrawerContent>
-        <div mlvDrawerHeader>My Title</div>
+        <!-- title names the drawer; the close button is built in -->
+        <mlv-drawer-header title="My Title" />
         <div mlvDrawerBody>Content here</div>
         <div mlvDrawerFooter>Footer actions</div>
       </ng-template>
@@ -565,7 +681,7 @@ export class DetailsDrawerComponent {
 ```html
 <mlv-drawer [(opened)]="isOpen" position="bottom" resizable [snapPoints]="[40, 80, 100]" [defaultSnap]="80">
   <ng-template mlvDrawerContent>
-    <div mlvDrawerHeader>Share item</div>
+    <mlv-drawer-header title="Share item" />
     <div mlvDrawerBody>...</div>
   </ng-template>
 </mlv-drawer>
@@ -621,9 +737,11 @@ export default class UserDetailsComponent {
 ```html
 <mlv-drawer #drawer position="right" size="600px">
   <ng-template mlvDrawerContent>
-    <div mlvDrawerHeader>
+    <mlv-drawer-header title="Settings">
       <mlv-drawer-sections />
-    </div>
+      <mlv-spacer />
+      <button mlvButton type="submit" form="settings-form">Save</button>
+    </mlv-drawer-header>
     <div mlvDrawerBody>
       <section mlvDrawerSection label="General">...</section>
       <section mlvDrawerSection label="Advanced">...</section>

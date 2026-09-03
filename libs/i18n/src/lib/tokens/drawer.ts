@@ -4,6 +4,8 @@ import type { MlvTranslationContext } from '../types';
 export interface MlvDrawerI18n {
   /** Fallback accessible name for the drawer dialog when no header/label is set. */
   drawer: string;
+  /** aria-label for the close button of `mlv-drawer-header`. */
+  closeDrawer: string;
 }
 
 export const MLV_DRAWER_I18N = new InjectionToken<Signal<MlvDrawerI18n>>(
@@ -18,5 +20,10 @@ export const MLV_DRAWER_I18N_CONTEXT: Record<
     component: 'mlv-drawer',
     usage: 'aria-label',
     description: 'Fallback accessible name for the drawer dialog surface',
+  },
+  closeDrawer: {
+    component: 'mlv-drawer-header',
+    usage: 'aria-label',
+    description: 'Close the drawer panel',
   },
 };

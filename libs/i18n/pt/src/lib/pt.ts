@@ -142,6 +142,7 @@ const pt: MlvLanguage = {
   },
   drawer: {
     drawer: 'Painel lateral',
+    closeDrawer: 'Fechar o painel',
   },
   editor: {
     editorLabel: 'Editor de texto formatado',

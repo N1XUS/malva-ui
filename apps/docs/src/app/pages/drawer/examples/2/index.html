@@ -9,19 +9,7 @@
   [hasBackdrop]="true"
 >
   <ng-template mlvDrawerContent>
-    <div mlvDrawerHeader>
-      <span style="font-weight: 600; font-size: 1rem">Share item</span>
-      <span style="flex: 1"></span>
-      <button
-        mlvButton
-        variant="secondary"
-        shape="square"
-        (click)="showSheet.set(false)"
-        aria-label="Close"
-      >
-        <svg lucideX [size]="20" />
-      </button>
-    </div>
+    <mlv-drawer-header title="Share item" />
     <div mlvDrawerBody style="display: flex; flex-direction: column; gap: 1rem">
       <p style="margin: 0; color: var(--mlv-text-secondary)">
         Drag the handle to resize the panel. Snap points are set at 40%, 80%,
@@ -36,13 +24,7 @@
     </div>
     <div
       mlvDrawerFooter
-      style="
-        padding: 1rem 1.5rem;
-        border-top: 0.0625rem solid var(--mlv-border-normal);
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
-      "
+      style="display: flex; justify-content: flex-end; gap: 0.5rem"
     >
       <button mlvButton variant="secondary" (click)="showSheet.set(false)">
         Cancel

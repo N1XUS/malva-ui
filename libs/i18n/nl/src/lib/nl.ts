@@ -142,6 +142,7 @@ const nl: MlvLanguage = {
   },
   drawer: {
     drawer: 'Zijpaneel',
+    closeDrawer: 'Zijpaneel sluiten',
   },
   editor: {
     editorLabel: 'Teksteditor met opmaak',

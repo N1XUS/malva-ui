@@ -6,6 +6,7 @@ import {
   input,
   output,
   inject,
+  signal,
 } from '@angular/core';
 import { fromEvent, race, switchMap, take, takeUntil, tap, timer } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -47,7 +48,7 @@ const SNAP_TRANSITION_FALLBACK_MS = 1000;
     role: 'separator',
     tabindex: '0',
     'aria-label': 'Resize panel',
-    '[attr.aria-valuenow]': '_currentPercent',
+    '[attr.aria-valuenow]': '_currentPercent()',
     '[attr.aria-valuemin]': '0',
     '[attr.aria-valuemax]': '100',
     '(keydown)': '_onKeydown($event)',
@@ -80,8 +81,13 @@ export class MlvDrawerResize {
    */
   readonly dismissed = output<void>();
 
-  /** @protected Current panel size as an integer percentage, exposed for ARIA aria-valuenow. */
-  protected _currentPercent = 100;
+  /**
+   * @protected Current panel size as an integer percentage, exposed as
+   * `aria-valuenow`. A signal: the pointer path writes it from a `fromEvent`
+   * listener, which schedules no change detection on its own under zoneless,
+   * so a plain field left the attribute stale until something else ticked.
+   */
+  protected readonly _currentPercent = signal(100);
 
   /** @private Last pointer position (px) sampled for velocity tracking. */
   private _lastPos = 0;
@@ -194,7 +200,12 @@ export class MlvDrawerResize {
     }
 
     const snapPoints = this.snapPoints();
-    if (snapPoints.length === 0) return;
+    if (snapPoints.length === 0) {
+      // Free resize: the box may have stopped at the panel's `minSize` /
+      // `maxSize` while the drag kept asking for more.
+      this._syncPercentToBox(panel, isVertical, viewportSize);
+      return;
+    }
 
     const currentSizePx = isVertical
       ? panel.getBoundingClientRect().height
@@ -221,7 +232,7 @@ export class MlvDrawerResize {
     panel.classList.add('mlv-drawer--snapping');
     const snapSizePx = (viewportSize * nearestSnap) / 100;
     this._updatePanelSize(panel, snapSizePx, viewportSize);
-    this._currentPercent = nearestSnap;
+    this._currentPercent.set(nearestSnap);
 
     // `transitionend` is not guaranteed to arrive: `.mlv-drawer--snapping`
     // declares its `transition` inside `@media (prefers-reduced-motion:
@@ -247,7 +258,27 @@ export class MlvDrawerResize {
     viewportSize: number,
   ): void {
     panel.style.setProperty('--mlv-drawer-current-size', `${size}px`);
-    this._currentPercent = Math.round((size / viewportSize) * 100);
+    this._currentPercent.set(Math.round((size / viewportSize) * 100));
+  }
+
+  /**
+   * @private Re-reads the rendered size after a write so `aria-valuenow`
+   * reports the box the user sees rather than the size that was asked for:
+   * the panel's `min-width` / `min-height` (`minSize`) and `max-*`
+   * (`maxSize`) clamp the box while `--mlv-drawer-current-size` keeps the
+   * raw value. One layout read per gesture end or key press, never per
+   * pointer move. A zero-sized box (no layout yet) leaves the value alone.
+   */
+  private _syncPercentToBox(
+    panel: HTMLElement,
+    isVertical: boolean,
+    viewportSize: number,
+  ): void {
+    const rect = panel.getBoundingClientRect();
+    const sizePx = isVertical ? rect.height : rect.width;
+    if (sizePx > 0 && viewportSize > 0) {
+      this._currentPercent.set(Math.round((sizePx / viewportSize) * 100));
+    }
   }
 
   /**
@@ -315,6 +346,7 @@ export class MlvDrawerResize {
       event.preventDefault();
       newSize = Math.max(0, Math.min(viewportSize, newSize));
       this._updatePanelSize(panel, newSize, viewportSize);
+      this._syncPercentToBox(panel, isVertical, viewportSize);
     }
   }
 }
