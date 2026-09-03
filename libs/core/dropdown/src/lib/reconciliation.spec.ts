@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { defaultCompareWith as cdkDefaultCompareWith } from '@malva-ui/cdk/utils';
+import { MlvSelectionService } from '@malva-ui/core/form-utils';
 import {
   defaultCompareWith,
   filteredOutCommitted,
@@ -1088,5 +1090,69 @@ describe('valueIndex — progressive walk (cursor state)', () => {
     expect(counted.reads()).toBe(before);
     expect(index.has('c')).toBe(true);
     expect(counted.reads()).toBe(before + 1);
+  });
+});
+
+// ─── The shared default comparator crosses library boundaries intact (#67) ──
+
+/**
+ * `defaultCompareWith`'s implementation lives in `@malva-ui/cdk/utils` so that
+ * `@malva-ui/core/form-utils`' `MlvSelectionService` can share it — this entry
+ * point depends on form-utils (`mlv-dropdown-panel` injects the service), so
+ * the constant could not live here and still be reachable downward.
+ *
+ * The entire mechanism is **reference identity**: `hazardOf` recognises the
+ * comparator with `===`. A re-export that wrapped, bound or re-created it
+ * would keep every result correct and silently disable every fast path — no
+ * assertion about *values* could ever see that. These tests assert the
+ * identity itself, and then that the identity still does its job end to end.
+ */
+describe('defaultCompareWith — shared across cdk/utils, dropdown and form-utils', () => {
+  it('re-exports the cdk/utils binding rather than a local copy', () => {
+    expect(defaultCompareWith).toBe(cdkDefaultCompareWith);
+  });
+
+  it('is the reference `MlvSelectionService` defaults to', () => {
+    expect(new MlvSelectionService().compareWith()).toBe(defaultCompareWith);
+  });
+
+  it("unlocks valueIndex's keyed path for the service's default comparator", () => {
+    // Measured rather than asserted: a comparator taken straight off a
+    // `MlvSelectionService` walks the haystack once, not once per query.
+    // Before the constant moved down, the service's default was a per-instance
+    // arrow and this read R x V.
+    //
+    // This composition has no production call site today -- `mlv-select` and
+    // `mlv-combobox` feed `valueIndex` from their own `compareWith` *input*,
+    // which already defaulted to the shared reference, and then push that input
+    // into the service. So the guard is forward-looking: it holds the door open
+    // for the first caller that does thread the service's comparator into a
+    // fast path, and fails loudly if the reference is ever wrapped or copied.
+    const R = 50;
+    const V = 1000;
+    const haystack = Array.from({ length: V }, (_, i) => `v${i}`);
+    const counted = countingArray(haystack);
+
+    const service = new MlvSelectionService<string>();
+    const index = valueIndex(counted.array, service.compareWith());
+    for (let i = 0; i < R; i++) expect(index.has(`q${i}`)).toBe(false);
+
+    expect(counted.reads()).toBe(V);
+  });
+
+  it('a service given a custom comparator still pays the pairwise scan', () => {
+    // The complement: recognition is by reference, so overriding the default
+    // must fall back — otherwise the guard is matching something too loosely.
+    const R = 10;
+    const V = 100;
+    const haystack = Array.from({ length: V }, (_, i) => `v${i}`);
+    const counted = countingArray(haystack);
+
+    const service = new MlvSelectionService<string>();
+    service.compareWith.set((a, b) => a === b); // same behaviour, new reference
+    const index = valueIndex(counted.array, service.compareWith());
+    for (let i = 0; i < R; i++) expect(index.has(`q${i}`)).toBe(false);
+
+    expect(counted.reads()).toBe(R * V);
   });
 });

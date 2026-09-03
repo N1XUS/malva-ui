@@ -1,4 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
+import { defaultCompareWith } from '@malva-ui/cdk/utils';
 import { Subject } from 'rxjs';
 
 @Injectable()
@@ -13,8 +14,19 @@ export class MlvSelectionService<T = unknown> {
    * equality (`a === b`). Set a custom comparator (e.g. compare by id) so object
    * values written via `writeValue` after deserialization match the option
    * instances and check-marks / display value stay in agreement.
+   *
+   * The default is the **shared** `defaultCompareWith` from
+   * `@malva-ui/cdk/utils`, not a per-instance `(a, b) => a === b`. The
+   * comparison performed is identical; what the shared reference buys is that
+   * a callee handed this comparator can *recognise* it — `@malva-ui/core/dropdown`'s
+   * `valueIndex` and reconciliation guards branch on
+   * `compare === defaultCompareWith` to swap a pairwise scan for keyed
+   * membership, and an inline arrow (one fresh function per service instance)
+   * can never be identified. `mlv-select` and `mlv-combobox` push the same
+   * constant down here through their own `compareWith` input, so the default
+   * agrees by reference across the whole selection stack.
    */
-  readonly compareWith = signal<(a: T, b: T) => boolean>((a, b) => a === b);
+  readonly compareWith = signal<(a: T, b: T) => boolean>(defaultCompareWith);
 
   readonly displayValue = computed(() => {
     const values = this.selectedValues();
