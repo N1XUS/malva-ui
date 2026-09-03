@@ -33,6 +33,7 @@ export default {
         'compare',
         'copy-to-clipboard',
         'data-table',
+        'date',
         'date-range-picker',
         'day-picker',
         'dialog',

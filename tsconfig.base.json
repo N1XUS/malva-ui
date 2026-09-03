@@ -54,6 +54,7 @@
       "@malva-ui/core/bottom-nav": ["libs/core/bottom-nav/src/index.ts"],
       "@malva-ui/core/button": ["libs/core/button/src/index.ts"],
       "@malva-ui/core/calendar": ["libs/core/calendar/src/index.ts"],
+      "@malva-ui/core/date": ["libs/core/date/src/index.ts"],
       "@malva-ui/core/card": ["libs/core/card/src/index.ts"],
       "@malva-ui/core/chat": ["libs/core/chat/src/index.ts"],
       "@malva-ui/core/command-palette": [

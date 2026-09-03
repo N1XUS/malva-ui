@@ -16,12 +16,12 @@ import {
   MlvPopupContent,
   MlvPopupContainer,
 } from '@malva-ui/core/popup';
+import { MlvCalendar } from '@malva-ui/core/calendar';
 import {
-  MlvCalendar,
   MLV_DATE_ADAPTER,
   MlvNativeDateAdapter,
   type MlvDateAdapter,
-} from '@malva-ui/core/calendar';
+} from '@malva-ui/core/date';
 import { LucideCalendar } from '@lucide/angular';
 import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
 import {

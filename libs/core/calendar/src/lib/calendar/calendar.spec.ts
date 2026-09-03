@@ -2,8 +2,10 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { Injectable } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MlvCalendar } from './calendar';
-import { MlvNativeDateAdapter } from '../date-provider/native-date-adapter';
-import { provideMlvDateAdapter } from '../date-provider/date-adapter';
+import {
+  MlvNativeDateAdapter,
+  provideMlvDateAdapter,
+} from '@malva-ui/core/date';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 

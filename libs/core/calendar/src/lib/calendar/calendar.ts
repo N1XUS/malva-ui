@@ -27,8 +27,8 @@ import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import {
   MLV_DATE_ADAPTER,
   type MlvDateAdapter,
-} from '../date-provider/date-adapter';
-import { MlvNativeDateAdapter } from '../date-provider/native-date-adapter';
+  MlvNativeDateAdapter,
+} from '@malva-ui/core/date';
 import { MLV_CALENDAR_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
 
 export type MlvCalendarView = 'month' | 'year' | 'multi-year';
