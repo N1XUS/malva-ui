@@ -110,7 +110,12 @@ host: {
 
 The host is **not** focusable. The single focus target is the visually-hidden
 native `<input type="checkbox" role="switch">` (kept in the a11y tree via the
-clip-path pattern). Its `tabindex` is the roving tabindex managed by
+clip-path pattern). The host is `position: relative` so that absolutely
+positioned input is contained by the switch: with no positioned ancestor of
+its own it lands in the coordinate space of whatever the page provides —
+in a drawer or dialog body the scrollbar host outside the scroll viewport —
+and a click on the label then scrolls the `overflow: hidden` body to it.
+Its `tabindex` is the roving tabindex managed by
 `MlvSwitchGroup` (`tabIndex` signal: 0 for active, -1 for others).
 
 #### Key Methods
