@@ -1,0 +1,90 @@
+import { TestBed } from '@angular/core/testing';
+import { MlvNativeDateAdapter } from '@malva-ui/core/date';
+import {
+  findCellElement,
+  findEventElement,
+  nextVisibleDate,
+} from './scheduler-focus';
+
+// March 2031: the 1st is a Saturday, so 7 Mar is a Friday and 10 Mar a Monday.
+const d = (day: number, month = 2) => new Date(2031, month, day);
+
+describe('scheduler-focus', () => {
+  let adapter: MlvNativeDateAdapter;
+
+  beforeEach(() => {
+    adapter = TestBed.inject(MlvNativeDateAdapter);
+  });
+
+  describe('findEventElement', () => {
+    /** Builds a detached root holding one chip per id. */
+    const rootWith = (...ids: string[]): HTMLElement => {
+      const root = document.createElement('div');
+      for (const id of ids) {
+        const chip = document.createElement('div');
+        chip.setAttribute('data-event-id', id);
+        root.appendChild(chip);
+      }
+      return root;
+    };
+
+    it('returns the element carrying the id, and null for an unknown one', () => {
+      const root = rootWith('a', 'b');
+      expect(findEventElement(root, 'b')?.getAttribute('data-event-id')).toBe(
+        'b',
+      );
+      expect(findEventElement(root, 'c')).toBeNull();
+    });
+
+    it('matches ids that would break a CSS attribute selector', () => {
+      // The reason the implementation compares attributes instead of building
+      // a `[data-event-id="…"]` selector: consumer ids are arbitrary strings.
+      const root = rootWith('quote"and space', 'plain');
+      expect(
+        findEventElement(root, 'quote"and space')?.getAttribute(
+          'data-event-id',
+        ),
+      ).toBe('quote"and space');
+    });
+  });
+
+  describe('findCellElement', () => {
+    /** A root with one all-day cell and one 09:30 slot, both on day 2. */
+    const root = (): HTMLElement => {
+      const element = document.createElement('div');
+      element.innerHTML =
+        '<div data-day-index="2" data-minutes="all-day" id="lane"></div>' +
+        '<div data-day-index="2" data-minutes="570" id="slot"></div>';
+      return element;
+    };
+
+    it('resolves the all-day cell for null minutes and the slot for a number', () => {
+      expect(findCellElement(root(), 2, null)?.id).toBe('lane');
+      expect(findCellElement(root(), 2, 570)?.id).toBe('slot');
+    });
+
+    it('returns null when neither the day nor the minute matches', () => {
+      expect(findCellElement(root(), 3, null)).toBeNull();
+      expect(findCellElement(root(), 2, 600)).toBeNull();
+    });
+  });
+
+  describe('nextVisibleDate', () => {
+    it('steps a single calendar day when no weekday is hidden', () => {
+      expect(nextVisibleDate(adapter, d(5), 1, [])).toEqual(d(6));
+      expect(nextVisibleDate(adapter, d(5), -1, [])).toEqual(d(4));
+    });
+
+    it('skips hidden weekdays in both directions', () => {
+      // Fri 7 → Sat/Sun hidden → Mon 10, and back again.
+      expect(nextVisibleDate(adapter, d(7), 1, [0, 6])).toEqual(d(10));
+      expect(nextVisibleDate(adapter, d(10), -1, [0, 6])).toEqual(d(7));
+    });
+
+    it('gives up after seven steps when every weekday is hidden', () => {
+      expect(nextVisibleDate(adapter, d(5), 1, [0, 1, 2, 3, 4, 5, 6])).toEqual(
+        d(13),
+      );
+    });
+  });
+});

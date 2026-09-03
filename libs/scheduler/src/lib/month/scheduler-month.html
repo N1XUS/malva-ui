@@ -1,0 +1,91 @@
+<div
+  class="mlv-scheduler-month__grid"
+  role="grid"
+  [attr.aria-label]="_gridLabel()"
+>
+  <div class="mlv-scheduler-month__weekdays" role="row">
+    @for (name of _weekdays(); track $index) {
+    <div class="mlv-scheduler-month__weekday" role="columnheader">
+      {{ name }}
+    </div>
+    }
+  </div>
+  <div class="mlv-scheduler-month__rows" role="rowgroup" #grid>
+    @for (row of _rows(); track row.index) {
+    <div class="mlv-scheduler-month__row" role="row">
+      @for (cell of row.cells; track cell.dayIndex) {
+      <div
+        class="mlv-scheduler-month__cell"
+        role="gridcell"
+        [class.mlv-scheduler-month__cell--outside]="cell.outside"
+        [class.mlv-scheduler-month__cell--today]="cell.today"
+        [attr.aria-label]="cell.label"
+        [attr.tabindex]="cell.dayIndex === _focusedIndex() ? 0 : -1"
+        [attr.data-day-index]="cell.dayIndex"
+        data-minutes="all-day"
+        (focus)="_onCellFocus(cell)"
+        (keydown)="_onKeydown($event)"
+        (click)="_onCellPointer('click', cell, $event)"
+        (dblclick)="_onCellPointer('dblclick', cell, $event)"
+        (contextmenu)="_onCellPointer('contextmenu', cell, $event)"
+      >
+        <span class="mlv-scheduler-month__day-number" aria-hidden="true"
+          >{{ cell.dayNumber }}</span
+        >
+        <div class="mlv-scheduler-month__lanes">
+          @for (segment of cell.segments; track segment.key) {
+          <mlv-scheduler-event
+            class="mlv-scheduler-month__event"
+            [class.mlv-scheduler-month__event--spanning]="segment.endIndex > segment.startIndex"
+            [normalized]="segment.normalized"
+            [lane]="true"
+            [continuesBefore]="segment.continuesBefore"
+            [continuesAfter]="segment.continuesAfter"
+            [dayIndex]="segment.startIndex"
+            [style.--mlv-scheduler-lane]="segment.lane + 1"
+            [style.--mlv-scheduler-span]="segment.endIndex - segment.startIndex + 1"
+          />
+          } @if (cell.hidden.length) {
+          <button
+            type="button"
+            class="mlv-scheduler-month__more"
+            tabindex="-1"
+            [style.--mlv-scheduler-lane]="_visibleLanes()"
+            [attr.aria-label]="cell.moreLabel"
+            (click)="_openMore(cell, $event)"
+          >
+            {{ cell.moreText }}
+          </button>
+          }
+        </div>
+      </div>
+      }
+    </div>
+    }
+  </div>
+</div>
+<span class="mlv-scheduler-month__lane-probe" aria-hidden="true" #probe></span>
+
+<ng-template #popover>
+  @if (_popoverCell(); as cell) {
+  <div
+    class="mlv-scheduler-month__popover"
+    role="group"
+    [attr.aria-label]="cell.label"
+    tabindex="-1"
+  >
+    <div class="mlv-scheduler-month__popover-title">{{ cell.label }}</div>
+    @for (segment of cell.all; track segment.key) {
+    <mlv-scheduler-event
+      class="mlv-scheduler-month__event"
+      [normalized]="segment.normalized"
+      [lane]="true"
+      [continuesBefore]="segment.continuesBefore"
+      [continuesAfter]="segment.continuesAfter"
+      [dayIndex]="cell.dayIndex"
+      [tabIndex]="0"
+    />
+    }
+  </div>
+  }
+</ng-template>

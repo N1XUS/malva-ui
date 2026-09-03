@@ -1,0 +1,197 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+$block: mlv-scheduler-month;
+
+@layer mlv.components {
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-s-size),
+      0,
+      0
+    );
+
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-block-size: 0;
+
+    &__weekdays {
+      display: grid;
+      grid-template-columns: repeat(
+        var(--mlv-scheduler-row-length, 7),
+        minmax(0, 1fr)
+      );
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    }
+
+    &__weekday {
+      padding: var(--mlv-padding-xs);
+      text-align: center;
+      font-weight: var(--mlv-typography-body-s-weight);
+      color: var(--mlv-text-secondary);
+    }
+
+    // `role="grid"` owns the weekday header row and the week rowgroup, so the
+    // header is a plain block above a `1fr` track list rather than a track of it.
+    &__grid {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-block-size: 0;
+      border-inline-start: var(--mlv-stroke-width) solid
+        var(--mlv-border-subtle);
+    }
+
+    &__rows {
+      display: grid;
+      grid-auto-rows: minmax(var(--mlv-scheduler-month-row-min-height), 1fr);
+      flex: 1 1 auto;
+      min-block-size: 0;
+    }
+
+    &__row {
+      display: grid;
+      grid-template-columns: repeat(
+        var(--mlv-scheduler-row-length, 7),
+        minmax(0, 1fr)
+      );
+      min-block-size: 0;
+    }
+
+    &__cell {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: var(--mlv-spacing-0-5);
+      min-inline-size: 0;
+      min-block-size: 0;
+      padding: var(--mlv-spacing-1);
+      border-inline-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+      background: var(--mlv-background-base);
+      overflow: visible;
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+        z-index: 1;
+      }
+
+      &--outside {
+        background: var(--mlv-background-subtle);
+
+        .#{$block}__day-number {
+          color: var(--mlv-text-secondary);
+        }
+      }
+
+      &--today .#{$block}__day-number {
+        background: var(--mlv-background-accent-1-pale);
+        color: var(--mlv-text-action);
+        font-weight: 600;
+      }
+
+      &--selected {
+        background: var(--mlv-background-selected);
+      }
+    }
+
+    &__day-number {
+      align-self: flex-end;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      inline-size: 1.5rem;
+      block-size: 1.5rem;
+      border-radius: var(--mlv-radius-full);
+      line-height: 1;
+    }
+
+    &__lanes {
+      display: grid;
+      grid-auto-rows: var(--mlv-scheduler-lane-height);
+      row-gap: var(--mlv-spacing-0-5);
+      align-content: start;
+      flex: 1 1 auto;
+      min-block-size: 0;
+    }
+
+    &__event {
+      grid-column: 1;
+      // written by the view; a custom property survives jsdom, `grid-row` does not
+      grid-row: var(--mlv-scheduler-lane, 1);
+      position: relative;
+      z-index: 1;
+      min-inline-size: 0;
+
+      &--spanning {
+        // A bar lives in its start cell and stretches across the neighbours,
+        // adding one cell border per crossed boundary.
+        inline-size: calc(
+          100% * var(--mlv-scheduler-span, 1) + var(--mlv-stroke-width) *
+            (var(--mlv-scheduler-span, 1) - 1)
+        );
+        z-index: 2;
+      }
+    }
+
+    &__more {
+      grid-column: 1;
+      grid-row: var(--mlv-scheduler-lane, 1);
+      justify-self: start;
+      margin: 0;
+      padding-block: 0;
+      padding-inline: var(--mlv-spacing-1);
+      border: 0;
+      border-radius: var(--mlv-radius-s);
+      background: transparent;
+      color: var(--mlv-text-action);
+      font: inherit;
+      line-height: var(--mlv-scheduler-lane-height);
+      cursor: pointer;
+
+      &:hover {
+        background: var(--mlv-background-neutral-1-hover);
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+    }
+
+    &__lane-probe {
+      position: absolute;
+      inline-size: 0;
+      block-size: var(--mlv-scheduler-lane-height);
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    &__popover {
+      display: flex;
+      flex-direction: column;
+      gap: var(--mlv-spacing-1);
+      min-inline-size: 16rem;
+      max-inline-size: 20rem;
+      padding: var(--mlv-padding-s);
+      border-radius: var(--mlv-radius-panel);
+      background: var(--mlv-background-raised);
+      box-shadow: var(--mlv-shadow-floating);
+      color: var(--mlv-text-primary);
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      }
+    }
+
+    &__popover-title {
+      margin-block-end: var(--mlv-spacing-1);
+      font-weight: 600;
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}
