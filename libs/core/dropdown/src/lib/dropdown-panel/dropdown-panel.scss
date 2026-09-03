@@ -86,8 +86,8 @@
     //
     // No `z-index` either. The ring is inset, so it is painted strictly inside
     // the row's own border box and no adjacent row can reach it — while a
-    // `z-index` here would put the row level with the sticky `__group-header`
-    // (also `z-index: 1`) and, being later in DOM order, paint over it.
+    // `z-index` here would enter the sticky `__group-header`'s stacking
+    // competition and, being later in DOM order, win any tie and clip it.
     //
     // Form B (inset), matching the :focus-visible rule above — rows run edge to
     // edge inside a viewport that clips horizontally, so an outset ring would
@@ -111,10 +111,30 @@
     // Sticky, non-selectable section header. Sticks to the top of the panel's
     // themed scrollbar viewport, so the current group's label stays pinned while
     // its options scroll beneath it.
+    //
+    // The header and the rows it labels are siblings in one stacking context —
+    // `__group` is a plain block, `mlv-list` opens no context, and the
+    // scrollbar host is `position: relative` with `z-index: auto`. The header
+    // precedes those rows in DOM order, so it loses every tie, and
+    // `list-item.scss` gives a `:focus-visible` row `z-index: 1`. Hence the
+    // lift: the header has to out-rank that row, not merely match it.
+    //
+    // The row's `z-index` is not the thing to drop instead: its ring is Form A
+    // at a positive `outline-offset`, so it paints outside the row's border
+    // box, and rows are flush (`margin: 0`) — an adjacent hovered or selected
+    // row is later in DOM order with an opaque `--mlv-list-item-bg` and would
+    // paint over the ring.
+    //
+    // `2` rather than a `--mlv-z-*` token, to match
+    // `list-item-group.scss`'s `.mlv-list--inset .mlv-list-item-group__toggler`
+    // — the same sticky-header-over-list-rows job, which has always cleared the
+    // row at this level. The `--mlv-z-*` ladder is for document chrome; these
+    // two only ever compete with their own sibling rows.
+    // Pinned by `dropdown-panel-stacking.spec.ts`. #109.
     &__group-header {
       position: sticky;
       top: 0;
-      z-index: 1;
+      z-index: 2;
       padding: var(--mlv-spacing-1-5) var(--mlv-spacing-2);
       font-size: var(--mlv-typography-body-s-size);
       font-weight: var(--mlv-font-weight-semibold);
