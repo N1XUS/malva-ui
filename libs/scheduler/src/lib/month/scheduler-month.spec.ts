@@ -1,8 +1,9 @@
 import { Component, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import axe from 'axe-core';
 import { MLV_DATE_LOCALE, MlvNativeDateAdapter } from '@malva-ui/core/date';
-import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { MlvResizeObserverService, MlvRtlService } from '@malva-ui/cdk/utils';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvScheduler } from '../scheduler/scheduler';
 import type {
@@ -70,11 +71,24 @@ describe('MlvSchedulerMonth', () => {
   let root: HTMLElement;
   let adapter: MlvNativeDateAdapter;
   let rtl: MlvRtlService;
+  /** Times the month view subscribed the row-size `ResizeObserver`. */
+  let observeCount = 0;
 
   const cell = (dayIndex: number) =>
     root.querySelector<HTMLElement>(
       `[data-day-index="${dayIndex}"][data-minutes="all-day"]`,
     )!;
+  const cellFor = (date: Date) => {
+    const label = adapter.getDateLabel(date);
+    const found = root.querySelector<HTMLElement>(
+      `.mlv-scheduler-month__cell[aria-label="${label}"]`,
+    );
+    if (!found) throw new Error(`no rendered cell labelled "${label}"`);
+    return found;
+  };
+  const scheduler = () =>
+    fixture.debugElement.query(By.directive(MlvScheduler))
+      .componentInstance as MlvScheduler;
   const tabbable = () =>
     Array.from(
       root.querySelectorAll<HTMLElement>(
@@ -105,6 +119,20 @@ describe('MlvSchedulerMonth', () => {
         { provide: MLV_DATE_LOCALE, useValue: 'en-US' },
       ],
     }).compileComponents();
+    const resizeObserver = TestBed.inject(MlvResizeObserverService);
+    const observe = resizeObserver.observe.bind(resizeObserver);
+    observeCount = 0;
+    vi.spyOn(resizeObserver, 'observe').mockImplementation((target) => {
+      // Other components (the toolbar's segmented control) observe too — count
+      // only the month view's own week-row container.
+      if (
+        target instanceof Element &&
+        target.classList.contains('mlv-scheduler-month__rows')
+      ) {
+        observeCount += 1;
+      }
+      return observe(target);
+    });
     fixture = TestBed.createComponent(Host);
     host = fixture.componentInstance;
     fixture.detectChanges();
@@ -233,6 +261,54 @@ describe('MlvSchedulerMonth', () => {
     expect(
       (document.activeElement as HTMLElement).getAttribute('aria-label'),
     ).toBe(adapter.getDateLabel(m(23)));
+  });
+
+  it('pages onto a rendered weekday when the same day of month is hidden', async () => {
+    host.hiddenDays.set([0, 6]);
+    host.date.set(m(3, 0, 0, 3)); // Thu 3 Apr 2031
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const thursday = cellFor(m(3, 0, 0, 3));
+    thursday.focus();
+    key(thursday, 'PageDown'); // 3 May 2031 is a Saturday — not rendered
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(host.date()).toEqual(m(5, 0, 0, 4)); // Mon 5 May
+    expect(
+      (document.activeElement as HTMLElement).getAttribute('aria-label'),
+    ).toBe(adapter.getDateLabel(m(5, 0, 0, 4)));
+    key(document.activeElement as HTMLElement, 'PageUp'); // 5 Apr is a Saturday
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(host.date()).toEqual(m(4, 0, 0, 3)); // Fri 4 Apr
+    expect(
+      (document.activeElement as HTMLElement).getAttribute('aria-label'),
+    ).toBe(adapter.getDateLabel(m(4, 0, 0, 3)));
+  });
+
+  it('clears a focus request no rendered cell can satisfy', async () => {
+    scheduler().pendingFocus.set({
+      kind: 'cell',
+      date: m(1, 0, 0, 8), // September 2031, outside the rendered range
+      minutes: null,
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(scheduler().pendingFocus()).toBeNull();
+  });
+
+  it('subscribes the row-size observer once, whatever the events do', async () => {
+    expect(observeCount).toBe(1);
+    host.events.update((events) => [
+      ...events,
+      { id: 't5', title: 'E', start: m(4, 17), end: m(4, 18) },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(
+      cell(8).querySelector('.mlv-scheduler-month__more')?.textContent?.trim(),
+    ).toBe('+4 more'); // the write did re-render the grid
+    expect(observeCount).toBe(1);
   });
 
   it('emits slotClick on Space / click / Enter on an empty cell, and Enter focuses the first chip of a busy cell', () => {

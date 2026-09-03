@@ -253,22 +253,30 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
               dayIndexOf(this._ctx.adapter, this._ctx.days(), request.date),
               null,
             );
-      if (!element) return;
       untracked(() => {
+        // Cleared even when nothing matched: `pendingFocus` is shared context
+        // state, so a request this view cannot resolve would otherwise linger
+        // and fire a stale focus jump on the next unrelated render.
         this._ctx.pendingFocus.set(null);
-        if (request.kind === 'cell')
+        if (element && request.kind === 'cell')
           this._focusedIndex.set(Number(element.dataset['dayIndex']));
       });
-      element.focus();
+      element?.focus();
     });
 
     effect(() => {
       if (this._ctx.dragging()) this._closePopover();
     });
 
+    // Installs the row-size observer and nothing else. Every read here is
+    // untracked — `#grid` is a static element, and `_measureLanes` tracks
+    // nothing — so this effect has no dependencies and runs exactly once. Were
+    // the measurement tracked, `_visibleLanes` (and, through `_rows`, every
+    // event edit) would tear the subscription down and re-create it, and the
+    // effect would feed itself the value it just wrote.
     afterRenderEffect((onCleanup) => {
       if (!this._isBrowser) return;
-      const grid = this._grid().nativeElement;
+      const grid = untracked(() => this._grid().nativeElement);
       let frame = 0;
       const subscription = this._zone.runOutsideAngular(() =>
         this._resizeObserver.observe(grid).subscribe(() => {
@@ -286,19 +294,28 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     this._destroyRef.onDestroy(() => this._closePopover());
   }
 
-  /** @private Lanes = (row height − day-number height) / lane height; untouched when nothing measures. */
+  /**
+   * @private Lanes = (row height − day-number height) / lane height; untouched
+   * when nothing measures. Fully untracked: the row count is arithmetic on the
+   * visible days rather than a `_rows()` read, so measuring never subscribes the
+   * caller to the lane count it is about to write.
+   */
   private _measureLanes(): void {
-    const grid = this._grid().nativeElement;
-    const rowCount = this._rows().length;
-    const laneHeight = this._probe().nativeElement.offsetHeight;
-    const dayNumber = grid.querySelector<HTMLElement>(
-      '.mlv-scheduler-month__day-number',
-    );
-    if (!rowCount || !laneHeight || !dayNumber) return;
-    const rowHeight = grid.clientHeight / rowCount;
-    const available = rowHeight - dayNumber.offsetHeight - laneHeight / 2;
-    const lanes = Math.max(1, Math.floor(available / laneHeight));
-    if (lanes !== this._visibleLanes()) this._visibleLanes.set(lanes);
+    untracked(() => {
+      const grid = this._grid().nativeElement;
+      const rowCount = Math.ceil(
+        this._ctx.days().length / this._ctx.rowLength(),
+      );
+      const laneHeight = this._probe().nativeElement.offsetHeight;
+      const dayNumber = grid.querySelector<HTMLElement>(
+        '.mlv-scheduler-month__day-number',
+      );
+      if (!rowCount || !laneHeight || !dayNumber) return;
+      const rowHeight = grid.clientHeight / rowCount;
+      const available = rowHeight - dayNumber.offsetHeight - laneHeight / 2;
+      const lanes = Math.max(1, Math.floor(available / laneHeight));
+      if (lanes !== this._visibleLanes()) this._visibleLanes.set(lanes);
+    });
   }
 
   /** @protected Click / dblclick / contextmenu on empty cell space. */
@@ -356,10 +373,10 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
         );
         break;
       case 'PageUp':
-        this._jump(this._ctx.adapter.addCalendarMonths(days[dayIndex], -1));
+        this._page(dayIndex, -1);
         break;
       case 'PageDown':
-        this._jump(this._ctx.adapter.addCalendarMonths(days[dayIndex], 1));
+        this._page(dayIndex, 1);
         break;
       case ' ':
         this._emitKeyboardSlot(dayIndex, target, event);
@@ -376,7 +393,14 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     if (handled) event.preventDefault();
   }
 
-  /** @protected Opens the overflow popover for `cell` and emits `moreClick`. */
+  /**
+   * @protected Opens the overflow popover for `cell` and emits `moreClick`.
+   *
+   * Pointer-only until Task 14: the `+N more` button is `tabindex="-1"` (the
+   * cell is the tab stop) and this method neither moves focus into the panel nor
+   * restores it on close. Task 14 owns the intra-cell `Tab` ring that reaches
+   * the button and must add both halves of that focus round trip.
+   */
   protected _openMore(
     cell: MlvSchedulerMonthCell<D, TData>,
     event: MouseEvent,
@@ -417,6 +441,27 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
           )
         : adapter.addCalendarDays(days[dayIndex], 7 * direction);
     this._jump(target);
+  }
+
+  /**
+   * @private Pages one month in `direction` from the day at `dayIndex`.
+   * `addCalendarMonths` keeps the day of month but not the weekday, so with
+   * `hiddenDays` the landing date can fall on a hidden column, which
+   * `visibleDays` drops: the focus request would then never resolve. Skip on to
+   * the nearest rendered day in the same direction when that happens.
+   */
+  private _page(dayIndex: number, direction: -1 | 1): void {
+    const adapter = this._ctx.adapter;
+    const hiddenDays = this._ctx.hiddenDays();
+    const target = adapter.addCalendarMonths(
+      this._ctx.days()[dayIndex],
+      direction,
+    );
+    this._jump(
+      hiddenDays.includes(adapter.getDayOfWeek(target))
+        ? nextVisibleDate(adapter, target, direction, hiddenDays)
+        : target,
+    );
   }
 
   /** @private Navigates to the period containing `date` and focuses its cell after render. */
