@@ -206,6 +206,8 @@ $block: mlv-scheduler-time-grid;
       box-sizing: border-box;
       border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
       background: var(--mlv-background-sunken);
+      transition: background-color var(--mlv-duration-fast)
+        var(--mlv-ease-default);
 
       &--hour {
         border-block-start: var(--mlv-stroke-width) solid

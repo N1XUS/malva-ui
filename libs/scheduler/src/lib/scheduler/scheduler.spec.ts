@@ -3,6 +3,7 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import axe from 'axe-core';
 import { MLV_DATE_LOCALE, MlvNativeDateAdapter } from '@malva-ui/core/date';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvScheduler } from './scheduler';
 import { MlvSchedulerHeaderDef } from './scheduler-defs';
@@ -105,6 +106,8 @@ describe('MlvScheduler (root)', () => {
    * Declared here so those appends compile without touching Task 8's assertions.
    */
   let root: HTMLElement;
+  /** Direction service; every case that flips it restores `ltr` in `afterEach`. */
+  let rtl: MlvRtlService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -122,7 +125,10 @@ describe('MlvScheduler (root)', () => {
     ).componentInstance;
     el = fixture.nativeElement.querySelector('mlv-scheduler');
     root = el;
+    rtl = TestBed.inject(MlvRtlService);
   });
+
+  afterEach(() => rtl.setDirection('ltr'));
 
   it('renders the default toolbar with the month title and view switch', () => {
     expect(el.querySelector('.mlv-scheduler__title')?.textContent?.trim()).toBe(
@@ -374,5 +380,62 @@ describe('MlvScheduler (root)', () => {
 
   it('passes axe on the toolbar', async () => {
     await expectNoAxeViolations(el);
+  });
+
+  describe('direction and accessibility', () => {
+    it.each(['month', 'week', 'day'] as const)(
+      'passes axe in the %s view',
+      async (view) => {
+        host.view.set(view);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        await expectNoAxeViolations(root);
+      },
+    );
+
+    it('keeps the toolbar order and semantics in RTL and mirrors the nav chevrons via CSS only', () => {
+      rtl.setDirection('rtl');
+      fixture.detectChanges();
+      const buttons = Array.from(
+        root.querySelectorAll<HTMLButtonElement>('.mlv-scheduler__nav button'),
+      );
+      expect(
+        buttons.map(
+          (b) => b.getAttribute('aria-label') ?? b.textContent?.trim(),
+        ),
+      ).toEqual([
+        expect.stringMatching(/^Previous/),
+        expect.stringMatching(/^Next/),
+        'Today',
+      ]);
+      expect(root.querySelectorAll('.mlv-scheduler__nav-icon')).toHaveLength(2);
+      root.querySelector<HTMLButtonElement>('.mlv-scheduler__next')!.click();
+      fixture.detectChanges();
+      expect(
+        root.querySelector('.mlv-scheduler__title')!.textContent,
+      ).toContain('October 2026');
+    });
+
+    it('resolves a [dir] scope on the host for geometry while the keyboard stays document-scoped', () => {
+      root.setAttribute('dir', 'rtl'); // `root` IS the mlv-scheduler host, an ancestor of every cell
+      host.view.set('week');
+      fixture.detectChanges();
+      // The scoped attribute never reaches the document-level signal, but the
+      // element-scoped accessor the pointer maths uses does see it.
+      expect(rtl.direction()).toBe('ltr');
+      expect(rtl.resolveDirection(root)).toBe('rtl');
+      const cell = root.querySelector<HTMLElement>(
+        '.mlv-scheduler-time-grid__slot[data-day-index="1"][data-minutes="540"]',
+      )!;
+      cell.focus();
+      cell.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
+      );
+      fixture.detectChanges();
+      // Arrow keys go through `MlvRtlService.normalizeArrowKey`, which reads the
+      // document direction (`.claude/rules/rtl.md`), so a scoped `[dir]` leaves
+      // them alone: ArrowLeft is still "previous".
+      expect(document.activeElement?.getAttribute('data-day-index')).toBe('0');
+    });
   });
 });

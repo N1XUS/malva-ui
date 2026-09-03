@@ -78,6 +78,8 @@ $block: mlv-scheduler-month;
       border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
       background: var(--mlv-background-base);
       overflow: visible;
+      transition: background-color var(--mlv-duration-fast)
+        var(--mlv-ease-default);
 
       &:focus-visible {
         outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
@@ -157,6 +159,8 @@ $block: mlv-scheduler-month;
       font: inherit;
       line-height: var(--mlv-scheduler-lane-height);
       cursor: pointer;
+      transition: background-color var(--mlv-duration-fast)
+        var(--mlv-ease-default);
 
       &:hover {
         background: var(--mlv-background-neutral-1-hover);

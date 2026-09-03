@@ -57,7 +57,8 @@ $tones: (
     user-select: none;
     transition:
       box-shadow var(--mlv-duration-fast) var(--mlv-ease-default),
-      background-color var(--mlv-duration-fast) var(--mlv-ease-default);
+      background-color var(--mlv-duration-fast) var(--mlv-ease-default),
+      opacity var(--mlv-duration-fast) var(--mlv-ease-default);
 
     &:hover {
       box-shadow: var(--mlv-shadow-raised);
@@ -65,7 +66,10 @@ $tones: (
 
     &:focus-visible {
       outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: var(--mlv-focus-ring-offset);
+      // Form B: in the time grid the chip sits inside the `mlv-scrollbar`
+      // viewport, which clips an outset ring away entirely.
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      z-index: 2;
     }
 
     &__time,
@@ -88,7 +92,9 @@ $tones: (
     }
 
     &__continuation {
+      display: inline-flex;
       flex: 0 0 auto;
+      color: var(--mlv-text-secondary);
       // previous / next glyphs follow the inline axis
       transform: scaleX(var(--mlv-inline-direction));
     }
