@@ -65,10 +65,11 @@ $tones: (
     }
 
     &:focus-visible {
+      // Form A. Nothing clips the chip where it renders by default (the month
+      // lane cells are `overflow: visible`); the time grid narrows this to
+      // Form B for its own scroller — see `scheduler-time-grid.scss`.
       outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      // Form B: in the time grid the chip sits inside the `mlv-scrollbar`
-      // viewport, which clips an outset ring away entirely.
-      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      outline-offset: var(--mlv-focus-ring-offset);
       z-index: 2;
     }
 

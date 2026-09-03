@@ -19,6 +19,13 @@ $block: mlv-scheduler-time-grid;
     &__scroller {
       flex: 1 1 auto;
       min-block-size: 0;
+
+      // This element is the `mlv-scrollbar` host, whose viewport clips an
+      // outset ring away entirely. Chips inside it therefore switch to Form B;
+      // the chip keeps its Form A ring everywhere else (month lanes do not clip).
+      .mlv-scheduler-event:focus-visible {
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      }
     }
 
     &__sheet {

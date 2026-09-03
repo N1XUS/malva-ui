@@ -98,11 +98,18 @@ describe('scheduler stylesheets', () => {
     }
   });
 
-  // The chip is the one focus target that lives inside the time grid's
-  // `MlvScrollbar` viewport, which clips an outset ring away entirely.
-  it('draws the event chip focus ring inset so the scroller cannot clip it', () => {
+  // The chip carries the default Form A ring; only inside the time grid's
+  // `MlvScrollbar` viewport — which clips an outset ring away entirely — is it
+  // narrowed to Form B. Month lane cells are `overflow: visible` and keep A.
+  it('draws the event chip focus ring inset only inside the time-grid scroller', () => {
     expect(css.event).toMatch(
+      /\.mlv-scheduler-event:focus-visible\s*\{[^}]*outline-offset:\s*var\(--mlv-focus-ring-offset\)/,
+    );
+    expect(css.event).not.toMatch(
       /\.mlv-scheduler-event:focus-visible\s*\{[^}]*outline-offset:\s*calc\(var\(--mlv-focus-ring-offset\) \* -1\)/,
+    );
+    expect(css.timeGrid).toMatch(
+      /\.mlv-scheduler-time-grid__scroller\s+\.mlv-scheduler-event:focus-visible\s*\{[^}]*outline-offset:\s*calc\(var\(--mlv-focus-ring-offset\) \* -1\)/,
     );
   });
 });

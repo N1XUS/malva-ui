@@ -416,7 +416,7 @@ describe('MlvScheduler (root)', () => {
       ).toContain('October 2026');
     });
 
-    it('resolves a [dir] scope on the host for geometry while the keyboard stays document-scoped', () => {
+    it('follows a [dir] scope on an ancestor while the document stays LTR', () => {
       root.setAttribute('dir', 'rtl'); // `root` IS the mlv-scheduler host, an ancestor of every cell
       host.view.set('week');
       fixture.detectChanges();
@@ -424,18 +424,13 @@ describe('MlvScheduler (root)', () => {
       // element-scoped accessor the pointer maths uses does see it.
       expect(rtl.direction()).toBe('ltr');
       expect(rtl.resolveDirection(root)).toBe('rtl');
-      const cell = root.querySelector<HTMLElement>(
-        '.mlv-scheduler-time-grid__slot[data-day-index="1"][data-minutes="540"]',
-      )!;
-      cell.focus();
-      cell.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
-      );
-      fixture.detectChanges();
-      // Arrow keys go through `MlvRtlService.normalizeArrowKey`, which reads the
-      // document direction (`.claude/rules/rtl.md`), so a scoped `[dir]` leaves
-      // them alone: ArrowLeft is still "previous".
-      expect(document.activeElement?.getAttribute('data-day-index')).toBe('0');
+      // The keyboard axis is deliberately NOT asserted here. `normalizeArrowKey`
+      // resolves against the document direction for every component in the
+      // library, so a scoped `[dir]` does not currently mirror arrow keys —
+      // an open gap against `.claude/rules/rtl.md`'s scoped-mirroring contract
+      // that belongs to `MlvRtlService`, not to the scheduler. The document-flip
+      // mirror is covered by `scheduler-time-grid.spec.ts` ("roves focus through
+      // slots: … horizontal by day (mirrored in RTL) …").
     });
   });
 });
