@@ -2,10 +2,11 @@ import { Component, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MLV_DATE_LOCALE } from '@malva-ui/core/date';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import type Sortable from 'sortablejs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   MlvSchedulerCanChange,
   MlvSchedulerEvent,
@@ -90,6 +91,7 @@ describe('MlvSchedulerDragService', () => {
   let host: HostComponent;
   let root: HTMLElement;
   let drag: MlvSchedulerDragService<Date>;
+  let rtlService: MlvRtlService;
 
   const chip = (id: string) =>
     root.querySelector<HTMLElement>(
@@ -146,6 +148,7 @@ describe('MlvSchedulerDragService', () => {
     drag = fixture.debugElement
       .query(By.directive(MlvScheduler))
       .injector.get(MlvSchedulerDragService);
+    rtlService = TestBed.inject(MlvRtlService);
     // A 24 h column that is 960 px tall → 40 px per hour, starting at y = 100.
     for (let i = 0; i < 7; i++) {
       vi.spyOn(column(i), 'getBoundingClientRect').mockReturnValue(
@@ -153,6 +156,10 @@ describe('MlvSchedulerDragService', () => {
       );
     }
   });
+
+  // `setDirection` is global state (MlvRtlService is `providedIn: 'root'`) — always reset it, per
+  // .claude/rules/rtl.md, so a flip in one test can never leak into the next.
+  afterEach(() => rtlService.setDirection('ltr'));
 
   it('registers every drop list with SortableJS and refuses foreign items when not editable', () => {
     const list = column(1);
@@ -319,6 +326,36 @@ describe('MlvSchedulerDragService', () => {
     expect(drag.preview()!.next).toEqual({
       start: m(7),
       end: m(10),
+      allDay: true,
+    });
+  });
+
+  it('mirrors the grab-day offset of a multi-day bar in RTL', () => {
+    rtlService.setDirection('rtl');
+    const bar = chip('bar'); // Mon 3 → Wed 5 inclusive, span 3, rendered in the Monday lane (dayIndex 0)
+    vi.spyOn(bar, 'getBoundingClientRect').mockReturnValue(
+      rect(40, 100, 360, 20),
+    );
+    for (let i = 0; i < 7; i++) {
+      vi.spyOn(allDayLanes(i), 'getBoundingClientRect').mockReturnValue(
+        rect(40, 100 + i * 120, 120, 20),
+      );
+    }
+    // Same physical pointer x (140) as would give grabDayOffset 0 in LTR
+    // (offset = pointer.x - rect.left = 40 -> floor(40/120) = 0). In RTL the
+    // offset is read from the bar's right edge instead: rect.right (460) -
+    // pointer.x (140) = 320 -> floor(320/120) = 2, clamped to span - 1 = 2 -
+    // the mirror image of the LTR result for the same physical position. A
+    // sign regression on the RTL branch would collapse this back to 0.
+    drag.handleStart(sortableEvent(bar, allDayLanes(0), allDayLanes(0)), {
+      x: 140,
+      y: 50,
+    });
+    // Hover the Saturday lane (dayIndex 5) → dayIndex 5 - grabDayOffset 2 = Thursday (dayIndex 3).
+    drag.handleMove(moveEvent(bar, allDayLanes(5)), pointer(720, 50));
+    expect(drag.preview()!.next).toEqual({
+      start: m(6),
+      end: m(9),
       allDay: true,
     });
   });
