@@ -733,6 +733,22 @@ export class MlvDataTable {
     return flattenRows(rows, expanded);
   });
 
+  /**
+   * @protected Rows the virtual-scroll repeater iterates.
+   *
+   * Identical to {@link flatRows} except while {@link showError} is set, where
+   * it empties so the error row can replace the body. The distinction exists
+   * because `*cdkVirtualFor` must never be destroyed while its
+   * `cdk-virtual-scroll-viewport` survives: the viewport announces its rendered
+   * range on a plain `Subject`, so a repeater constructed after the viewport
+   * already exists receives no range until the next scroll and renders nothing.
+   * Emptying the repeater's input is the state change the viewport does react
+   * to; removing the repeater is not.
+   */
+  protected readonly _virtualRows = computed<MlvDataRow[]>(() =>
+    this.showError() ? [] : this.flatRows(),
+  );
+
   readonly totalItems = computed(() => this.effectiveDataSource().totalItems());
   readonly shownItems = computed(() => this.flatRows().length);
 
@@ -1126,7 +1142,17 @@ export class MlvDataTable {
       // all times — pagination is disabled in both modes.
       const unpaged =
         this.paginationMode() === 'infinite' || this.virtualScroll();
-      ds.setPage(unpaged ? 1 : this.currentPage());
+      const page = unpaged ? 1 : this.currentPage();
+      // The call is untracked because a data source is free to read its own
+      // state inside `setPage` — a server-backed one typically compares the
+      // incoming page against the one it already holds so a no-op call does
+      // not cost a round trip. Tracked, those reads would become dependencies
+      // of this effect, and the sibling effect below writes one of them: the
+      // base `setPerPage` resets the page to 1. The two would then retrigger
+      // each other synchronously inside a single change-detection pass, which
+      // never yields to a microtask and freezes the tab outright. Only the
+      // inputs read above belong in this effect's dependency set.
+      untracked(() => ds.setPage(page));
     });
     effect(() => {
       const ds = this.effectiveDataSource();
@@ -1135,7 +1161,11 @@ export class MlvDataTable {
       // then renders only the visible slice of that full list via CDK.
       const unpaged =
         this.paginationMode() === 'infinite' || this.virtualScroll();
-      ds.setPerPage(unpaged ? Number.MAX_SAFE_INTEGER : this.currentPerPage());
+      const perPage = unpaged
+        ? Number.MAX_SAFE_INTEGER
+        : this.currentPerPage();
+      // Untracked for the same reason as the page effect above.
+      untracked(() => ds.setPerPage(perPage));
     });
 
     // Keep the roving row index in range as the visible rows change
