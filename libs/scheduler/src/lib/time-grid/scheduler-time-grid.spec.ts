@@ -90,6 +90,10 @@ describe('MlvSchedulerTimeGrid', () => {
     )!;
   const chip = (id: string) =>
     root.querySelector<HTMLElement>(`[data-event-id="${id}"]`)!;
+  /** The scheduler's polite live region — a sibling of the grid, so query the fixture root. */
+  const liveText = () =>
+    (fixture.nativeElement as HTMLElement).querySelector('[aria-live]')!
+      .textContent;
   const key = (
     target: HTMLElement,
     key: string,
@@ -390,6 +394,60 @@ describe('MlvSchedulerTimeGrid', () => {
       slot(1, 630).dispatchEvent(pointerEvent('pointermove', 10, 80));
       slot(1, 630).dispatchEvent(pointerEvent('pointerup', 10, 80));
       expect(host.ranges).toHaveLength(0);
+    });
+  });
+
+  describe('keyboard range selection', () => {
+    it('Shift+ArrowDown extends the selection from the focused slot; Enter commits it', async () => {
+      const s = slot(1, 540);
+      s.focus();
+      key(s, 'ArrowDown', { shiftKey: true });
+      key(s, 'ArrowDown', { shiftKey: true });
+      fixture.detectChanges();
+      expect(
+        root.querySelectorAll(
+          '.mlv-scheduler-time-grid__slot[aria-selected="true"]',
+        ),
+      ).toHaveLength(3);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(liveText()).toMatch(/9:00.*10:30/); // selectionHint {start, end}
+      key(document.activeElement as HTMLElement, 'Enter');
+      expect(host.ranges[0]).toEqual({
+        start: m(4, 9),
+        end: m(4, 10, 30),
+        allDay: false,
+        source: 'keyboard',
+      });
+    });
+
+    it('Shift+ArrowRight extends across days and Escape clears', () => {
+      const s = slot(1, 540);
+      s.focus();
+      key(s, 'ArrowRight', { shiftKey: true });
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+      key(document.activeElement as HTMLElement, 'Escape');
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+      expect(host.ranges).toHaveLength(0);
+    });
+
+    it('clamps the selection head to the visible range and never moves focus', async () => {
+      const s = slot(6, 1410); // Sun 23:30, last slot
+      s.focus();
+      key(s, 'ArrowDown', { shiftKey: true });
+      key(s, 'ArrowRight', { shiftKey: true });
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
+      expect(document.activeElement).toBe(s);
+      expect(host.ranges).toHaveLength(0);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      // The exclusive end of the last slot is midnight. The hint has to roll to
+      // the next day: `withTime(day, 24, 0)` is rejected by the adapter, and the
+      // throw would take the announcement — and the rest of the handler — with it.
+      expect(liveText()).toMatch(/11:30 PM.*Mar 10, 12:00 AM/);
     });
   });
 

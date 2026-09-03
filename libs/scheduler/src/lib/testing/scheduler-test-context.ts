@@ -74,7 +74,14 @@ export function createSchedulerTestContext(
     options.eventDef ?? null,
   );
   const range = computed(() => computeVisibleRange(adapter, view(), date(), 1));
-  const days = computed(() => visibleDays(adapter, range(), hiddenDays()));
+  /**
+   * The visible days. Seeded from the requested view/date (with the default
+   * options: Mon 31 Aug – Sun 6 Sep 2026) but **writable**, so a spec can
+   * shrink the range to a single day and exercise the cross-range navigation.
+   */
+  const days = signal<readonly Date[]>(
+    visibleDays(adapter, range(), hiddenDays()),
+  );
   const announcements: string[] = [];
   const commits: {
     kind: 'move' | 'resize';
@@ -179,6 +186,7 @@ export function createSchedulerTestContext(
     view,
     date,
     hiddenDays,
+    days,
     snap,
     eventDef,
     announcements,

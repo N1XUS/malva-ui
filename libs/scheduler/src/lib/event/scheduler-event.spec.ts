@@ -309,6 +309,17 @@ describe('MlvSchedulerEventChip', () => {
     toJSON: () => ({}),
   } as DOMRect;
 
+  const key = (el: Element, key: string, init: KeyboardEventInit = {}) => {
+    const event = new KeyboardEvent('keydown', {
+      key,
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+    el.dispatchEvent(event);
+    return event;
+  };
+
   describe('pointer resize', () => {
     it('previews a timed resize as --mlv-scheduler-event-height and commits the snapped end', () => {
       const chipEl = root.querySelector<HTMLElement>(
@@ -399,6 +410,116 @@ describe('MlvSchedulerEventChip', () => {
       expect(
         root.querySelector('.mlv-scheduler-event__resize-handle'),
       ).toBeNull();
+    });
+  });
+  describe('keyboard move and resize', () => {
+    /** The Task 9 chip, now wrapped in a fake time-grid column: `a`, Wed 2 Sep 09:00–09:30. */
+    const timedChip = () =>
+      root.querySelector<HTMLElement>(
+        '.mlv-scheduler-time-grid__column .mlv-scheduler-event',
+      )!;
+    /** The Task 13 chip: `lane`, all-day Tue 1 Sep -> Thu 3 Sep exclusive. */
+    const laneChip = () =>
+      root.querySelector<HTMLElement>(
+        '.mlv-scheduler-month__lanes .mlv-scheduler-event',
+      )!;
+
+    it('moves a timed chip by one snap step with Alt+ArrowDown and keeps focus on it', () => {
+      const event = key(timedChip(), 'ArrowDown', { altKey: true });
+      expect(event.defaultPrevented).toBe(true);
+      const { kind, next, source } = ctx.commits[0];
+      expect(kind).toBe('move');
+      expect(source).toBe('keyboard');
+      // snap defaults to 30 in the test context (= slotDuration), so 09:00 -> 09:30.
+      expect(next).toEqual({
+        start: new Date(2026, 8, 2, 9, 30),
+        end: new Date(2026, 8, 2, 10, 0),
+        allDay: false,
+      });
+      expect(ctx.context.pendingFocus()).toEqual({ kind: 'event', id: 'a' });
+    });
+
+    it('moves a timed chip forward one day with Alt+ArrowRight', () => {
+      key(timedChip(), 'ArrowRight', { altKey: true });
+      expect(ctx.commits[0].next.start).toEqual(new Date(2026, 8, 3, 9));
+    });
+
+    it('mirrors the horizontal move in RTL: Alt+ArrowLeft is "next"', () => {
+      // A fresh fixture, so this starts from Sep 2 again. (The timed chip's
+      // `normalized` is a plain signal, not derived from `ctx.events()`, so a
+      // commit does not move it - but keep the two directions in separate
+      // `it` blocks anyway: the assertion must not depend on that detail.)
+      rtl.setDirection('rtl');
+      fixture.detectChanges();
+      key(timedChip(), 'ArrowLeft', { altKey: true });
+      expect(ctx.commits[0].next.start).toEqual(new Date(2026, 8, 3, 9));
+    });
+
+    it('moves a lane bar by a week with Alt+ArrowDown', () => {
+      key(laneChip(), 'ArrowDown', { altKey: true });
+      // shiftDays(+7) on both edges: Sep 1 -> Sep 8, Sep 3 -> Sep 10.
+      expect(ctx.commits[0].next).toEqual({
+        start: new Date(2026, 8, 8),
+        end: new Date(2026, 8, 10),
+        allDay: true,
+      });
+    });
+
+    it('moves a lane bar by a day with Alt+ArrowRight', () => {
+      // Separate `it` on purpose: `laneEvent()` IS derived from `ctx.events()`,
+      // so a preceding commit would move the bar and this expectation would
+      // have to be recomputed from Sep 8 instead of Sep 1.
+      key(laneChip(), 'ArrowRight', { altKey: true });
+      expect(ctx.commits[0].next).toEqual({
+        start: new Date(2026, 8, 2),
+        end: new Date(2026, 8, 4),
+        allDay: true,
+      });
+    });
+
+    it('resizes a timed chip end edge with Alt+Shift+ArrowDown', () => {
+      key(timedChip(), 'ArrowDown', { altKey: true, shiftKey: true });
+      expect(ctx.commits[0].kind).toBe('resize');
+      expect(ctx.commits[0].source).toBe('keyboard');
+      expect(ctx.commits[0].next.end).toEqual(new Date(2026, 8, 2, 10, 0)); // 09:30 + snap 30
+    });
+
+    it('shrinks a lane bar to one day and then refuses to go below it', () => {
+      const bar = laneChip();
+      // Sep 1 -> Sep 3 exclusive; Alt+Shift+ArrowLeft pulls the exclusive end
+      // back one calendar day to Sep 2, which is exactly the one-day minimum.
+      key(bar, 'ArrowLeft', { altKey: true, shiftKey: true });
+      expect(ctx.commits[0].next.end).toEqual(new Date(2026, 8, 2));
+      // The test context's `commitChange` already wrote that range back into
+      // `events`, and `laneEvent()` is a computed over it, so the bar is now a
+      // one-day bar. A second press would produce Sep 1, below `minEnd` (Sep 2),
+      // so `_keyboardResize` returns null and nothing commits.
+      fixture.detectChanges();
+      key(bar, 'ArrowLeft', { altKey: true, shiftKey: true });
+      expect(ctx.commits).toHaveLength(1);
+    });
+
+    it('navigates when a move leaves the visible range', () => {
+      ctx.days.set([new Date(2026, 8, 2)]); // day view: only Sep 2 visible
+      fixture.detectChanges();
+      key(timedChip(), 'ArrowRight', { altKey: true });
+      expect(ctx.context.goTo).toHaveBeenCalledWith(new Date(2026, 8, 3, 9));
+    });
+
+    it('ignores modifiers when not editable', () => {
+      ctx.editable.set(false);
+      fixture.detectChanges();
+      const event = key(timedChip(), 'ArrowDown', { altKey: true });
+      expect(event.defaultPrevented).toBe(false);
+      expect(ctx.commits).toHaveLength(0);
+    });
+
+    it('Escape focuses the owning cell', () => {
+      const bar = laneChip();
+      const cellEl = bar.closest<HTMLElement>('[data-day-index]')!;
+      cellEl.tabIndex = -1;
+      key(bar, 'Escape');
+      expect(document.activeElement).toBe(cellEl);
     });
   });
 });

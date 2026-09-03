@@ -462,6 +462,71 @@ describe('MlvSchedulerMonth', () => {
     });
   });
 
+  describe('keyboard range selection', () => {
+    it('Shift+Arrow selects days, Enter emits an all-day range with source keyboard', () => {
+      const c = cell(7); // 3 Mar 2031
+      c.focus();
+      key(c, 'ArrowRight', { shiftKey: true });
+      key(c, 'ArrowDown', { shiftKey: true });
+      fixture.detectChanges();
+      expect(
+        root.querySelectorAll(
+          '.mlv-scheduler-month__cell[aria-selected="true"]',
+        ),
+      ).toHaveLength(9); // 3 → 11 Mar
+      key(document.activeElement as HTMLElement, 'Enter');
+      expect(host.ranges[0]).toEqual({
+        start: m(3),
+        end: m(12),
+        allDay: true,
+        source: 'keyboard',
+      });
+    });
+
+    it('Escape clears a pending selection without emitting', () => {
+      const c = cell(7);
+      c.focus();
+      key(c, 'ArrowRight', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+      key(document.activeElement as HTMLElement, 'Escape');
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+      expect(host.ranges).toHaveLength(0);
+    });
+  });
+
+  it('reaches "+N more" through the intra-cell Tab ring and round-trips focus through the popover', async () => {
+    const owner = cell(8); // Tue 4 Mar: one visible chip plus the overflow button
+    const chipEl = owner.querySelector<HTMLElement>('[data-event-id="t1"]')!;
+    const more = owner.querySelector<HTMLButtonElement>(
+      '.mlv-scheduler-month__more',
+    )!;
+    chipEl.focus();
+    const tab = key(chipEl, 'Tab');
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(more);
+
+    more.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const popover = document.querySelector<HTMLElement>(
+      '.mlv-scheduler-month__popover',
+    )!;
+    expect(document.activeElement).toBe(
+      popover.querySelector('.mlv-scheduler-event'),
+    );
+
+    // Escape on the focused panel chip: the chip finds no owning grid cell
+    // above it (the pane is portaled to <body>), so it leaves the key to the
+    // popup's own dismissal instead of swallowing it.
+    document.activeElement!.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.querySelector('.mlv-scheduler-month__popover')).toBeNull();
+    expect(document.activeElement).toBe(more);
+  });
+
   it('passes axe', async () => {
     const results = await axe.run(root, {
       runOnly: { type: 'rule', values: AXE_RULES },

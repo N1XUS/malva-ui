@@ -480,11 +480,27 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     const target = event.target as HTMLElement;
     if (!target.classList.contains('mlv-scheduler-month__cell')) return;
     const dayIndex = Number(target.dataset['dayIndex']);
+    if (event.key === 'Escape' && this._selection()) {
+      event.preventDefault();
+      this._selection.set(null);
+      return;
+    }
+    if (event.key === 'Enter' && this._selection()) {
+      event.preventDefault();
+      this._commitSelection('keyboard');
+      return;
+    }
+    const arrow = this._rtl.normalizeArrowKey(event);
+    if (event.shiftKey && arrow !== null && this._ctx.selectable()) {
+      event.preventDefault();
+      this._extendSelection(arrow);
+      return;
+    }
     const days = this._ctx.days();
     const rowLength = this._ctx.rowLength();
     const rowStart = dayIndex - (dayIndex % rowLength);
     let handled = true;
-    switch (this._rtl.normalizeArrowKey(event) ?? event.key) {
+    switch (arrow ?? event.key) {
       case RIGHT_ARROW:
         this._moveFocus(dayIndex, 1);
         break;
@@ -531,12 +547,51 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
   }
 
   /**
+   * @private Grows/shrinks the keyboard selection by one day (←→) or one week
+   * row (↑↓) from the focused cell, clamped to the visible range.
+   */
+  private _extendSelection(arrow: number): void {
+    const focus: MonthPos = { dayIndex: this._focusedIndex() };
+    const current = this._selection() ?? { anchor: focus, head: focus };
+    const rowLength = this._ctx.rowLength();
+    const delta =
+      arrow === RIGHT_ARROW
+        ? 1
+        : arrow === LEFT_ARROW
+          ? -1
+          : arrow === DOWN_ARROW
+            ? rowLength
+            : -rowLength;
+    const dayIndex = Math.min(
+      this._ctx.days().length - 1,
+      Math.max(0, current.head.dayIndex + delta),
+    );
+    this._selection.set({ anchor: current.anchor, head: { dayIndex } });
+    this._announceSelection();
+  }
+
+  /** @private Reads the selected day span back as a `selectionHint` announcement. */
+  private _announceSelection(): void {
+    const b = this._selectedBounds();
+    if (!b) return;
+    const ctx = this._ctx;
+    const days = ctx.days();
+    ctx.announce(
+      ctx.translate('selectionHint', {
+        start: ctx.adapter.getDateLabel(days[b.dayFrom]),
+        end: ctx.adapter.getDateLabel(days[b.dayTo]),
+      }),
+    );
+  }
+
+  /**
    * @protected Opens the overflow popover for `cell` and emits `moreClick`.
    *
-   * Pointer-only until Task 14: the `+N more` button is `tabindex="-1"` (the
-   * cell is the tab stop) and this method neither moves focus into the panel nor
-   * restores it on close. Task 14 owns the intra-cell `Tab` ring that reaches
-   * the button and must add both halves of that focus round trip.
+   * The `+N more` button stays `tabindex="-1"` (the cell is the roving tab
+   * stop) and is reached with `Tab` from a chip of the same cell — the chip's
+   * intra-cell ring includes it. Keyboard activation is the button's own
+   * `click`, so this method closes the focus round trip: it moves focus to the
+   * first chip of the panel on open, and back to the button on close.
    */
   protected _openMore(
     cell: MlvSchedulerMonthCell<D, TData>,
@@ -546,16 +601,31 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     this._ctx.emitMoreClick({ date: cell.date, events: cell.hidden });
     this._closePopover();
     this._popoverCell.set(cell);
-    this._popoverHandle = this._popup.open({
-      origin: new ElementRef(event.currentTarget as HTMLElement),
+    const trigger = event.currentTarget as HTMLElement;
+    const handle = this._popup.open({
+      origin: new ElementRef(trigger),
       template: this._popoverTemplate(),
       vcr: this._vcr,
       positions: this._popup.resolvePositions(['bottom-start', 'top-start']),
       onClose: () => {
         this._popoverHandle = null;
         this._popoverCell.set(null);
+        // The overlay is disposed before this runs, so focus that was inside
+        // the panel has already fallen back to `<body>`: that — and only that —
+        // is the case to restore. A close triggered while focus sits elsewhere
+        // (the user clicked another cell) must not steal it back.
+        const doc = trigger.ownerDocument;
+        if (!doc.activeElement || doc.activeElement === doc.body) {
+          trigger.focus();
+        }
       },
     });
+    this._popoverHandle = handle;
+    // `attach()` renders the template portal synchronously, so the panel's
+    // chips already exist here.
+    handle.overlayRef.overlayElement
+      .querySelector<HTMLElement>('.mlv-scheduler-event')
+      ?.focus();
   }
 
   /** @private Steps `delta` days inside the grid, or navigates when leaving it. */

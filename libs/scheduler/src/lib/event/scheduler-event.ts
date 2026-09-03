@@ -12,13 +12,21 @@ import {
   input,
   viewChild,
 } from '@angular/core';
+import {
+  DOWN_ARROW,
+  LEFT_ARROW,
+  RIGHT_ARROW,
+  UP_ARROW,
+} from '@angular/cdk/keycodes';
 import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { attachPointerDrag } from '../drag/scheduler-pointer';
 import {
+  dayIndexOf,
   lastDayOf,
   resolveResize,
   spansMultipleDays,
+  type MlvSchedulerNextRange,
   type MlvSchedulerNormalizedEvent,
 } from '../layout/scheduler-layout';
 import { minutesFromOffset } from '../layout/scheduler-time';
@@ -182,7 +190,7 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     });
   }
 
-  /** @protected Enter / Space activate. Alt+Arrow move / resize are added by the keyboard task. */
+  /** @protected Enter/Space → click; Alt(+Shift)+Arrow → move/resize; Escape → owning cell; Tab → sibling chips. */
   protected _onKeydown(event: KeyboardEvent): void {
     if (this._ghost()) return;
     if (event.key === 'Enter' || event.key === ' ') {
@@ -192,7 +200,118 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
         element: this._host,
         nativeEvent: event,
       });
+      return;
     }
+    if (event.key === 'Escape') {
+      const cell = this._host.closest<HTMLElement>(
+        '[data-day-index][data-minutes]',
+      );
+      if (cell) {
+        event.preventDefault();
+        event.stopPropagation();
+        cell.focus();
+      }
+      return;
+    }
+    if (event.key === 'Tab') {
+      this._tabWithinCell(event);
+      return;
+    }
+    if (!event.altKey) return;
+    const arrow = this._rtl.normalizeArrowKey(event);
+    if (arrow === null) return;
+    const resize = event.shiftKey;
+    if (resize ? !this._resizable() : !this._draggable()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const next = resize
+      ? this._keyboardResize(arrow)
+      : this._keyboardMove(arrow);
+    if (!next) return;
+    const ctx = this._ctx;
+    const normalized = this.normalized();
+    ctx.pendingFocus.set({ kind: 'event', id: normalized.event.id });
+    const ok = ctx.commitChange(
+      resize ? 'resize' : 'move',
+      normalized,
+      next,
+      'keyboard',
+    );
+    if (ok && !resize && dayIndexOf(ctx.adapter, ctx.days(), next.start) < 0) {
+      ctx.goTo(next.start);
+    }
+  }
+
+  /** @private Next range for a keyboard move. Lanes: ←→ ±1 day, ↑↓ ±7 days. Timed: ↑↓ ±snap, ←→ ±1 day. */
+  private _keyboardMove(arrow: number): MlvSchedulerNextRange<D> {
+    const { adapter } = this._ctx;
+    const { start, end, allDay } = this.normalized();
+    if (arrow === UP_ARROW || arrow === DOWN_ARROW) {
+      const sign = arrow === DOWN_ARROW ? 1 : -1;
+      if (this.lane()) {
+        return {
+          start: adapter.shiftDays(start, 7 * sign),
+          end: adapter.shiftDays(end, 7 * sign),
+          allDay,
+        };
+      }
+      const step = this._ctx.snap() * sign;
+      return {
+        start: adapter.addMinutes(start, step),
+        end: adapter.addMinutes(end, step),
+        allDay,
+      };
+    }
+    const sign = arrow === RIGHT_ARROW ? 1 : -1;
+    return {
+      start: adapter.shiftDays(start, sign),
+      end: adapter.shiftDays(end, sign),
+      allDay,
+    };
+  }
+
+  /** @private Next range for a keyboard resize of the end edge; `null` when already at the minimum. */
+  private _keyboardResize(arrow: number): MlvSchedulerNextRange<D> | null {
+    const { adapter } = this._ctx;
+    const { start, end, allDay } = this.normalized();
+    let nextEnd: D;
+    let minEnd: D;
+    if (this.lane()) {
+      const sign = arrow === RIGHT_ARROW || arrow === DOWN_ARROW ? 1 : -1;
+      nextEnd = allDay
+        ? adapter.addCalendarDays(end, sign)
+        : adapter.shiftDays(end, sign);
+      minEnd = allDay
+        ? adapter.addCalendarDays(adapter.startOfDay(start), 1)
+        : adapter.addMinutes(start, this._ctx.snap());
+    } else {
+      if (arrow === LEFT_ARROW || arrow === RIGHT_ARROW) return null;
+      nextEnd = adapter.addMinutes(
+        end,
+        this._ctx.snap() * (arrow === DOWN_ARROW ? 1 : -1),
+      );
+      minEnd = adapter.addMinutes(start, this._ctx.snap());
+    }
+    if (adapter.compareDateTime(nextEnd, minEnd) < 0) return null;
+    return { start, end: nextEnd, allDay };
+  }
+
+  /** @private Tab/Shift+Tab move among the chips (and the `+N more` button) of the owning cell; otherwise native. */
+  private _tabWithinCell(event: KeyboardEvent): void {
+    const cell = this._host.closest<HTMLElement>(
+      '[data-day-index][data-minutes]',
+    );
+    if (!cell) return;
+    const stops = Array.from(
+      cell.querySelectorAll<HTMLElement>(
+        '.mlv-scheduler-event:not(.mlv-scheduler-event--ghost), .mlv-scheduler-month__more',
+      ),
+    );
+    const index = stops.indexOf(this._host);
+    const next = stops[index + (event.shiftKey ? -1 : 1)];
+    if (!next) return; // leave the grid natively
+    event.preventDefault();
+    next.focus();
   }
 
   /**

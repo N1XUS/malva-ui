@@ -560,13 +560,29 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       !target.hasAttribute('data-day-index')
     )
       return;
+    if (event.key === 'Escape' && this._selection()) {
+      event.preventDefault();
+      this._selection.set(null);
+      return;
+    }
+    if (event.key === 'Enter' && this._selection()) {
+      event.preventDefault();
+      this._commitSelection('keyboard');
+      return;
+    }
+    const arrow = this._rtl.normalizeArrowKey(event);
+    if (event.shiftKey && arrow !== null && this._ctx.selectable()) {
+      event.preventDefault();
+      this._extendSelection(arrow);
+      return;
+    }
     const position = this._positionOf(target);
     const days = this._ctx.days();
     const slotDuration = this._ctx.slotDuration();
     const min = this._ctx.minMinutes();
     const last = this._ctx.maxMinutes() - slotDuration;
     let handled = true;
-    switch (this._rtl.normalizeArrowKey(event) ?? event.key) {
+    switch (arrow ?? event.key) {
       case RIGHT_ARROW:
         this._moveDay(position, 1);
         break;
@@ -631,6 +647,65 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
         handled = false;
     }
     if (handled) event.preventDefault();
+  }
+
+  /** @private Grows/shrinks the keyboard selection by one cell from the focused cell, clamped to the visible range. */
+  private _extendSelection(arrow: number): void {
+    const focus = this._focus();
+    const current = this._selection() ?? { anchor: focus, head: focus };
+    const dayCount = this._ctx.days().length;
+    let { dayIndex, minutes } = current.head;
+    if (arrow === LEFT_ARROW || arrow === RIGHT_ARROW) {
+      dayIndex = Math.min(
+        dayCount - 1,
+        Math.max(0, dayIndex + (arrow === RIGHT_ARROW ? 1 : -1)),
+      );
+    } else if (minutes !== null) {
+      const slot = this._ctx.slotDuration();
+      const step = slot * (arrow === DOWN_ARROW ? 1 : -1);
+      minutes = Math.min(
+        this._ctx.maxMinutes() - slot,
+        Math.max(this._ctx.minMinutes(), minutes + step),
+      );
+    }
+    this._selection.set({
+      anchor: current.anchor,
+      head: { dayIndex, minutes },
+    });
+    this._announceSelection();
+  }
+
+  /** @private Reads the selection bounds back as a `selectionHint` announcement. */
+  private _announceSelection(): void {
+    const b = this._selectedBounds();
+    if (!b) return;
+    const ctx = this._ctx;
+    const adapter = ctx.adapter;
+    const days = ctx.days();
+    const endMinutes = Math.min(b.to + ctx.slotDuration(), ctx.maxMinutes());
+    const start = b.allDay
+      ? adapter.getDateLabel(days[b.dayFrom])
+      : ctx.formatDateTime(
+          adapter.withTime(
+            days[b.dayFrom],
+            Math.floor(b.from / 60),
+            b.from % 60,
+          ),
+        );
+    // Same roll-over as `_commitSelection`: the exclusive end of the last slot
+    // is 1440, which is the next day's midnight, not an invalid `24:00` time.
+    const end = b.allDay
+      ? adapter.getDateLabel(days[b.dayTo])
+      : ctx.formatDateTime(
+          endMinutes >= 1440
+            ? adapter.startOfDay(adapter.addCalendarDays(days[b.dayTo], 1))
+            : adapter.withTime(
+                days[b.dayTo],
+                Math.floor(endMinutes / 60),
+                endMinutes % 60,
+              ),
+        );
+    ctx.announce(ctx.translate('selectionHint', { start, end }));
   }
 
   /** @private `08:00`, or the business-hours start. */
