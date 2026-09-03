@@ -40,7 +40,7 @@ Exported from `libs/forms/dropdown/src/index.ts`:
 | `MlvOptionsInput<T>` | Type | `readonly T[] \| Observable<readonly T[]> \| MlvDataSource<T> \| null \| undefined` — everything an option control accepts as `options` |
 | `MlvOptionsSearchFn<T>` | Type | `(query: string) => T[] \| Promise<T[]> \| Observable<T[]>` — remote search function |
 | `MlvOptionsMode` | Type | `'local'` (consumer filters) \| `'remote'` (source filters, consumer calls `search()`) |
-| `defaultCompareWith<T>` | Function | `(a, b) => a === b` — the shared default behind every option control's `compareWith` input (`mlv-select`, `mlv-combobox`). A single module-level reference, so the guards below **and** `valueIndex` can recognise it and take their keyed fast path |
+| `defaultCompareWith<T>` | Function | `(a, b) => a === b` — the shared default behind every option control's `compareWith` input (`mlv-select`, `mlv-combobox`) **and** `MlvSelectionService.compareWith`. A single module-level reference, so the guards below **and** `valueIndex` can recognise it and take their keyed fast path; re-exported from `@malva-ui/cdk/utils`, which now owns the implementation |
 | `isReconciliationEmit<T>` | Function | `(incoming, committed, visible, compare) => boolean` — whether an aria listbox `valueChange` is pure reconciliation noise rather than a user selection (see below) |
 | `filteredOutCommitted<T>` | Function | `(incoming, committed, visible, compare) => T[]` — committed values aria dropped only because their option is not rendered; re-added to a genuine multi-select pick |
 | `valueIndex<T>` | Function | `(source, compare, project?) => MlvValueIndex<T>` — indexes a haystack for repeated membership / resolution queries, replacing the nested `queries × source` scan the option controls ran per option-list change (see below). Builds nothing until the first query |
@@ -417,6 +417,12 @@ One rule, stated once — `hazardOf()` in `reconciliation.ts` — and consumed b
 
 This is why `mlv-select` and `mlv-combobox` default their `compareWith` input to the exported `defaultCompareWith` instead of a per-instance inline arrow: `input()` evaluates its default per component instance, so an inline `(a, b) => a === b` is a fresh reference per control and can never be recognised. Observable behaviour is identical — it is the same `===`.
 
+**Where the constant lives (issue #67).** The implementation is in `@malva-ui/cdk/utils`' `default-compare-with.ts`; `reconciliation.ts` re-exports it (`import` + `export { defaultCompareWith }`, the same shape `option-matcher.ts` uses for `normalizeForMatch`), so this entry point's public surface is unchanged. It had to move down because `@malva-ui/core/form-utils`' `MlvSelectionService` carried its own inline `(a, b) => a === b` and this library **depends on** form-utils (`mlv-dropdown-panel` injects the service) — importing the dropdown's constant there would have inverted that dependency. One library below both, `@malva-ui/cdk/utils` is reachable from each (`family:core` may depend on `family:cdk`).
+
+The re-export must forward the **identical binding**. A wrapper (`(a, b) => defaultCompareWith(a, b)`) compares unequal under `hazardOf`, so every fast path in this file silently reverts to the pairwise scan while every result stays correct — a regression no value-level assertion can see. `reconciliation.spec.ts` therefore asserts the reference across all three libraries and, separately, counts element reads through a `MlvSelectionService`'s default comparator: 1,000 on the keyed path against 50,000 pairwise.
+
+That read-count guard is **forward-looking, not a realised win**: no production code composes `valueIndex` with the _service's_ comparator today. `mlv-select` (`select.ts:400`) and `mlv-combobox` feed `valueIndex` from their own `compareWith` **input**, which already defaulted to the shared reference, and then push that input into the service (`select.ts:622`, `combobox.ts:545`), overwriting the default. Moving the constant down changes no measured production path — it removes a trap for the first caller who does thread the service's comparator into a fast path, and makes the two defaults one binding instead of two that merely behave alike.
+
 **The SameValueZero hazard.** `Set` membership is SameValueZero, which matches _neither_ comparator:
 
 |                       | `NaN` vs `NaN` | `+0` vs `-0` |
@@ -531,6 +537,6 @@ Comparator invocations under either identity comparator go to **0** once the pre
 - `@malva-ui/core/form-utils` — `MlvSelectionService`
 - `@malva-ui/core/scrollbar` — themed vertical scrolling without adding another composite-widget tab stop; its `viewportElement` getter is the sentinel's scroll owner in `scrollMode="self"`
 - `@malva-ui/cdk/infinite-scroll` — `MlvInfiniteScroll` on the paging sentinel (`scrollContainer`, `threshold`, `check()`)
-- `@malva-ui/cdk/utils` — `mlvNextId` (stable fallback id for the inner listbox when no `listboxId` is supplied), `normalizeForMatch` (re-exported for existing consumers; implementation now lives here)
+- `@malva-ui/cdk/utils` — `mlvNextId` (stable fallback id for the inner listbox when no `listboxId` is supplied), `normalizeForMatch` and `defaultCompareWith` (both re-exported for existing consumers; implementations now live here)
 - `@malva-ui/cdk/data-source` — `MlvArrayDataSource`, extended by `MlvSelectDataSource`; `MlvDataSource` + `MlvSearchState`, the paged/remote branch of `MlvOptionsAdapter`
 - `@lucide/angular` — `LucideCheck` icon

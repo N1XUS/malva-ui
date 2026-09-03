@@ -1,3 +1,5 @@
+import { defaultCompareWith } from '@malva-ui/cdk/utils';
+
 /**
  * Value-identity machinery shared by the option controls (`mlv-select`,
  * `mlv-combobox`).
@@ -29,8 +31,20 @@
  * swap their nested linear scans for O(n + m) keyed membership. A control that
  * leaves `compareWith` unset therefore gets the fast path automatically; one
  * that supplies its own comparator keeps the pairwise path unchanged.
+ *
+ * **The implementation lives in `@malva-ui/cdk/utils`**, one library below
+ * both this one and `@malva-ui/core/form-utils`, so that
+ * `MlvSelectionService`'s default is the *same reference* rather than a second
+ * `(a, b) => a === b` nobody can identify. `@malva-ui/core/dropdown` depends on
+ * `@malva-ui/core/form-utils` (`mlv-dropdown-panel` injects the service), so
+ * the constant could not stay here and still be shared downward.
+ *
+ * Re-exported — not re-declared, not wrapped — so this entry point's public
+ * surface is unchanged **and the reference {@link hazardOf} matches on is the
+ * one every consumer holds**. Same shape as `normalizeForMatch` in
+ * `option-matcher.ts`.
  */
-export const defaultCompareWith = <T>(a: T, b: T): boolean => a === b;
+export { defaultCompareWith };
 
 /**
  * @internal `NaN` — the only value on which `===` and `Set` membership

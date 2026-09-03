@@ -5,7 +5,7 @@
 
 ## Overview
 
-The Utils library (`@malva-ui/cdk/utils`) provides common Angular utilities: autofocus, a flex spacer component, resize observer service/directive, animation token defaults, breakpoint helpers, and pure helper functions (`range`, `clamp`, `mlvNextId`, `normalizeForMatch`).
+The Utils library (`@malva-ui/cdk/utils`) provides common Angular utilities: autofocus, a flex spacer component, resize observer service/directive, animation token defaults, breakpoint helpers, and pure helper functions (`range`, `clamp`, `mlvNextId`, `normalizeForMatch`, `defaultCompareWith`).
 
 ## Public API
 
@@ -25,6 +25,7 @@ Exported from `libs/cdk/utils/src/index.ts`:
 | `clamp` | Function | `clamp(value, min, max)` — constrain a number to an inclusive range |
 | `mlvNextId` | Function | `mlvNextId(prefix)` — process-unique `<prefix>-<n>` id string (module counter) |
 | `normalizeForMatch` | Function | `normalizeForMatch(text)` — pure text normaliser: NFD-fold, strip diacritics, lower-case, with an ASCII fast path (excluding `^` / `` ` ``, the two ASCII `Diacritic=Yes` characters) that collapses to `toLowerCase()`. Moved from `@malva-ui/core/dropdown`, which still re-exports it |
+| `defaultCompareWith` | Function | `defaultCompareWith(a, b)` — the shared `===` default behind every selection surface's `compareWith` (`mlv-select`, `mlv-combobox`, `MlvSelectionService`). A single module-level reference so callees can **recognise** it and take a keyed fast path. Moved from `@malva-ui/core/dropdown`, which still re-exports it |
 | `MlvBreakpoint` | Type | `'sm' \| 'md' \| 'lg'` — breakpoint tier name |
 | `MlvBreakpointConfig` | Interface | `{ md: number; lg: number }` — pixel thresholds |
 | `MLV_BREAKPOINT_CONFIG` | Token | `InjectionToken<MlvBreakpointConfig>` — root-provided with defaults `{ md: 768, lg: 1200 }` |
@@ -250,6 +251,20 @@ The 1:1 length guarantee on the fast path is what lets `matchSegments` slice the
 Moved down from `@malva-ui/core/dropdown`'s `option-matcher.ts` so CDK-only libraries (e.g. `@malva-ui/cdk/data-source`) can share it without importing `@malva-ui/core/*`; `@malva-ui/core/dropdown` re-exports it unchanged for existing consumers (`defaultOptionMatcher`, `rankPrefixMatchesFirst`, `matchSegments`, `smart-filter-bar`, `data-table`'s `MlvDataSource`).
 
 ---
+
+### `defaultCompareWith(a, b)`
+
+**File:** `libs/cdk/utils/src/lib/default-compare-with.ts`
+
+`(a, b) => a === b`. The default value-equality predicate behind every Malva UI selection surface: the option controls' `compareWith` **input** (`mlv-select`, `mlv-combobox`) and `MlvSelectionService.compareWith`.
+
+**It exists to be recognised, not merely invoked.** `input()` evaluates its default once per component instance and `signal()` once per service instance, so an inline `(a, b) => a === b` is a fresh function reference per control that no callee can identify. `@malva-ui/core/dropdown`'s `isReconciliationEmit`, `filteredOutCommitted` and `valueIndex` branch on `compare === defaultCompareWith` (via `hazardOf`) to swap a nested pairwise scan for O(1) `Set` / `Map` membership; a caller-supplied comparator keeps the pairwise path unchanged.
+
+**Every re-export must forward the identical binding** (`import` + `export { … }`, as `reconciliation.ts` does). A wrapper compares unequal and silently disables every fast path **without changing a single result** — nothing goes red. `reconciliation.spec.ts` asserts the identity across all three libraries, and pins it end-to-end by counting element reads (1,000 on the keyed path vs 50,000 pairwise).
+
+It is `===`, not `Object.is`: `defaultCompareWith(NaN, NaN)` is `false` and `defaultCompareWith(0, -0)` is `true`. Both quirks are load-bearing — `hazardOf` derives "`NaN` is the one value on which a `Set` may not stand in for this comparator" from the first, so promoting it to `Object.is` would leave that guard checking the wrong hazard. `default-compare-with.spec.ts` pins both against `Object.is` explicitly.
+
+Lives here rather than in the dropdown because `@malva-ui/core/dropdown` depends on `@malva-ui/core/form-utils` (`mlv-dropdown-panel` injects `MlvSelectionService`), so a constant owned by the dropdown could not be shared with the service without inverting that dependency (issue #67). `@malva-ui/core/dropdown` re-exports it, so its public surface is unchanged.
 
 ## Injection Tokens
 
