@@ -139,6 +139,89 @@ Each secondary entry point in `libs/core/<entry>/src/index.ts` re-exports exactl
   all and no `peerDependenciesMeta` block: a consumer who never installs the
   editor never sees them.
 
+## Server rendering (SSR)
+
+`libs/core/src/ssr-smoke.spec.ts` is the SSR gate for the whole package. It runs
+under `yarn nx run core:test`.
+
+- **Primary assertion is the collected `ErrorHandler` entries, not the markup.**
+  Angular routes an exception thrown inside an `effect` to the `ErrorHandler`
+  and keeps rendering, so a component that reaches a browser global still emits
+  perfect markup. `renderHost()` installs an `ErrorHandler` that collects
+  everything and the suite fails on a non-empty list.
+- Secondary assertions: every host rendered _content_ between its own tags (the
+  root tag itself comes from the `document` string, so it proves nothing), no
+  `cdk-overlay-*` in the payload, and no `NaN` anywhere in it (a viewport
+  measured during construction serialises as `NaNpx` without ever throwing).
+- **Seven hosts**, one `SSR_HOSTS` entry each: form controls, pickers,
+  navigation, shell, surfaces, data, display. The split is for readability only
+  — every host renders through the same error-collecting path.
+- Bootstrap providers: `provideMlvI18nTesting()` (every `MLV_*_I18N` token is a
+  bare `InjectionToken` with no factory), `provideRouter([])` (`mlv-bottom-nav`
+  injects `Router` non-optionally) and `provideLucideIcons(...)` for the
+  dynamic-icon names the hosts use. `mlv-dropdown-panel` needs a host-level
+  `MlvSelectionService`; `mlv-toast-item` / `mlv-notification-item` need a
+  host-level `MLV_TOAST_CLOSE`.
+
+### Coverage guard — what to do when you add a component
+
+- The expected set is **generated, never hand-listed**: `readPublicComponents()`
+  walks `libs/core/*/src/index.ts`, follows `export * from` chains, and collects
+  every class with a `@Component` decorator plus its selector. A new component
+  therefore joins the expected set the moment its barrel exports it.
+- That parse is itself guarded. A decorator shape the pattern fails to match
+  drops the component out of the required set **silently** — the exact failure
+  this suite exists to prevent — so `parses every @Component declaration the
+barrels reach` re-finds every `@Component(` with an independent,
+  shape-insensitive scan and fails on any the pattern missed.
+- The covered set is **read back from the hosts themselves**
+  (`readDeclaredHosts()` parses this spec file's source), never from a second
+  array of selectors — that array is the hand-maintained list that rots. A
+  component counts as covered only when **both** hold, scoped to the **same**
+  host: its selector is written into that host's template, and its class is
+  listed in that host's `imports`.
+- Template text is the primary signal, and beats the rendered markup:
+  `mlv-tab` is a `display: none` def node that `mlv-tab-group` never projects,
+  so it constructs on the server (and can fail there) while never reaching the
+  payload.
+- The `imports` half closes the mirror-image hole: a tag whose class is missing
+  from that host's `imports` is an unknown element — Angular logs `NG0304`,
+  constructs nothing and reaches no `ErrorHandler`, so the tag alone would buy
+  coverage on paper and none in fact. Scoping matters: a class imported by host
+  A must not cover a tag written in host B.
+- **To keep the suite green after adding a component:** write its selector into
+  one of the host templates with its required inputs actually bound **and** add
+  its class to that host's `imports`, or add it to `SSR_COVERAGE_EXCLUSIONS`
+  with a one-line reason. An empty tag proves nothing.
+- Exclusions are checked, not trusted: the suite fails on an entry naming a
+  component that no longer exists, on an empty reason, and on an entry for a
+  component a host does render.
+- Current exclusions (all overlay-only — they never server-render at all):
+  `MlvDialog`, `MlvDialogHeader` (need `DIALOG_CONFIG` from
+  `MlvDialogService.open()`), `MlvDrawerSection`, `MlvDrawerSections` (need
+  `MlvDrawerSectionsService`, provided only by `mlv-drawer`, and live inside its
+  overlay content template).
+- Directives are out of scope **as a list**: most public directives are
+  template-slot markers that only `inject(TemplateRef)`. Behavioural ones ride
+  along on the elements they decorate inside the hosts.
+- Every path the guard reads is resolved from
+  `dirname(fileURLToPath(import.meta.url))`. `@nx/vitest:test` runs with
+  cwd = workspace root while the inferred `vite:test` runs from the project
+  root, so `process.cwd()` is not usable here.
+
+### Writing SSR-safe components
+
+- Prefer **`afterNextRender` / `afterRenderEffect`** for anything that measures,
+  paints, or observes. Neither runs on the server, so the hook doubles as the
+  guard and removes the failure class instead of guarding each call site. A
+  `setTimeout(0)` does **not** — it fires on the server too, after the render
+  has finished, where the throw is uncatchable.
+- Use `isPlatformBrowser` when the value itself is a browser measurement that
+  must not be published on the server (`window.innerHeight`), and leave the
+  derived signal `null` there so no attribute or style is emitted at all.
+- `MlvResizeObserverService` already returns `null` without the global, so
+  subscribing to it during construction is safe.
+
 ## Installation Schematic
 
 `ng add @malva-ui/core` performs a guided, idempotent consumer setup:
