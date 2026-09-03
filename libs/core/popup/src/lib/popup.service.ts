@@ -5,6 +5,7 @@ import type {
   ConnectedPosition,
   ConnectedOverlayPositionChange,
   FlexibleConnectedPositionStrategy,
+  FlexibleConnectedPositionStrategyOrigin,
 } from '@angular/cdk/overlay';
 import { Overlay } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
@@ -44,8 +45,26 @@ export interface MlvPopupSizeConfig {
 
 /** Configuration object passed to {@link MlvPopupService.open}. */
 export interface MlvPopupOpenConfig {
-  /** The element the overlay attaches to. */
+  /**
+   * The element the overlay belongs to.
+   *
+   * Used to position the overlay, to resolve the direction the portaled pane
+   * inherits, and as the anchor a direction watch is scoped to. Pass
+   * {@link positionOrigin} as well to keep this element's `[dir]` scope and
+   * focus ownership while positioning against something else.
+   */
   origin: ElementRef;
+  /**
+   * Overrides what the overlay is *positioned* against, leaving {@link origin}
+   * to own direction resolution.
+   *
+   * Accepts anything CDK's `flexibleConnectedTo` does, including a bare
+   * `{ x, y }` viewport point — the context-menu case, where the panel is
+   * anchored to the cursor rather than to the element that owns the menu. A
+   * point carries no `[dir]` scope of its own, which is exactly why direction
+   * still comes from {@link origin}.
+   */
+  positionOrigin?: FlexibleConnectedPositionStrategyOrigin;
   /** The `<ng-template>` to render inside the overlay. */
   template: TemplateRef<unknown>;
   /** The `ViewContainerRef` used to instantiate the portal. */
@@ -111,6 +130,23 @@ export interface MlvPopupHandle {
   overlayRef: OverlayRef;
   /** Disposes the overlay and triggers `onClose`. */
   close: () => void;
+  /**
+   * Re-anchors an open overlay to a new position origin and repositions it,
+   * optionally swapping the position list at the same time.
+   *
+   * Exists for point-anchored overlays whose anchor moves while they are open —
+   * a second right-click on an already-open context menu moves the panel to the
+   * new cursor instead of stacking a second one. `positions` matters when the
+   * anchor changes *kind* rather than just place: a context menu re-anchored
+   * from its host element to a cursor must also drop the 8px element gap, which
+   * the strategy would otherwise keep applying to the new point.
+   *
+   * No-op in `fullscreen` mode, which uses a global strategy with no origin.
+   */
+  setPositionOrigin: (
+    origin: FlexibleConnectedPositionStrategyOrigin,
+    positions?: ConnectedPosition[],
+  ) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,7 +240,10 @@ export class MlvPopupService {
       ? this._overlay.position().global()
       : this._overlay
           .position()
-          .flexibleConnectedTo(config.origin)
+          // `positionOrigin` may be a bare viewport point (context menu). The
+          // element in `origin` still owns direction and focus — see the field
+          // docs on `MlvPopupOpenConfig`.
+          .flexibleConnectedTo(config.positionOrigin ?? config.origin)
           .withPositions(config.positions)
           .withPush(push)
           .withFlexibleDimensions(flexible)
@@ -320,7 +359,18 @@ export class MlvPopupService {
     });
     cleanups.push(() => keySub.unsubscribe());
 
-    return { overlayRef, close };
+    const setPositionOrigin = (
+      origin: FlexibleConnectedPositionStrategyOrigin,
+      positions?: ConnectedPosition[],
+    ) => {
+      if (disposed || fullscreen || !overlayRef.hasAttached()) return;
+      const strategy = positionStrategy as FlexibleConnectedPositionStrategy;
+      strategy.setOrigin(origin);
+      if (positions) strategy.withPositions(positions);
+      overlayRef.updatePosition();
+    };
+
+    return { overlayRef, close, setPositionOrigin };
   }
 
   /**

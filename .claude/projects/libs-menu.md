@@ -21,6 +21,7 @@ Exported from `libs/core/menu/src/index.ts`:
 | `MlvMenuGroup` | Component | Group container — `mlv-menu-group` |
 | `MlvMenuGroupLabel` | Directive | Group label slot — `[mlvMenuGroupLabel]` |
 | `MlvMenuTrigger` | Directive | Opens a menu on click/hover — `[mlvMenuTrigger]` |
+| `MlvContextMenuTrigger` | Directive | Opens a menu at the pointer on right-click — `[mlvContextMenuTrigger]` |
 | `MlvMenuItemData` | Interface | Typed reactive menu item data with optional lazy `children` |
 | `MlvMenuDataSource` | Type | Array or `MlvDataSource` accepted by reactive menus |
 | `MlvMenuItemDef` | Directive | Typed projected row template — `[mlvMenuItemDef]` |
@@ -267,6 +268,100 @@ When a `[mlvMenuTrigger]` is a **direct child of a `mlv-menubar`** it can inject
 
 ---
 
+### `MlvContextMenuTrigger`
+
+**File:** `libs/core/menu/src/lib/menu/context-menu-trigger.ts`
+**Selector:** `[mlvContextMenuTrigger]`
+
+Opens an ordinary `mlv-menu` at the pointer on right-click. It replaces **only the trigger half** of `MlvMenuTrigger` — `contextmenu` instead of `click`, a cursor point instead of the host's bounding box — and reuses `MlvMenuOverlayController` verbatim, so the panel, items, `role="menu"`/`role="menuitem"`, keyboard model, Escape/Tab close, click-outside close, submenus, disabled items, separators and router-link items are the existing `mlv-menu` behaviour, unchanged.
+
+#### Inputs
+
+| Name                    | Type                          | Default | Description                                                              |
+| ----------------------- | ----------------------------- | ------- | ------------------------------------------------------------------------ |
+| `mlvContextMenuTrigger` | `MlvMenuOverlayTarget` (req.) | —       | The `mlv-menu` panel to open at the pointer                              |
+| `contextMenuDisabled`   | `BooleanInput`                | `false` | Opens nothing and leaves the **native** browser menu alone               |
+| `global`                | `BooleanInput`                | `false` | Listens on the document instead of the host — right-click anywhere opens |
+
+#### Outputs
+
+| Name         | Description                      |
+| ------------ | -------------------------------- |
+| `menuOpened` | Emits when the menu panel opens  |
+| `menuClosed` | Emits when the menu panel closes |
+
+#### Methods
+
+| Method               | Description                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| `openAt(x, y)`       | Opens at a viewport point; **moves** an already-open panel instead of stacking a second one |
+| `openFromKeyboard()` | Opens anchored to the host element with the first item focused                              |
+| `close()`            | Closes the panel                                                                            |
+
+#### Host bindings
+
+- `aria-haspopup="menu"` — always. It is a global attribute, allowed on any element.
+- `[attr.aria-expanded]` / `[attr.aria-controls]` — **only when the host carries a `role` attribute.** Neither is allowed on `role="generic"`, which is what the bare `<div>` in every documented usage resolves to; axe's `aria-allowed-attr` rule fails such a host, and the project requires every component to pass axe. `MlvMenuTrigger` emits them unconditionally because its own documented hosts (`<button>`, `mlv-list-item[role="menuitem"]`) always allow them. The host's role is read once at construction — it is part of how the consumer wrote the element, not runtime state.
+- `(contextmenu)` — skipped while `global` is set, because the document listener already sees the same event as it bubbles; handling both would open twice per right-click.
+
+#### No backdrop
+
+Context menus open with `hasBackdrop: false` (via the controller's new `getHasBackdrop` override), unlike every other `mlv-menu`. This is load-bearing, not a style choice: the CDK backdrop is `inset: 0` with `pointer-events: auto`, so it becomes the hit-test target for the entire viewport. With it, a **second right-click never reaches the trigger** — nothing calls `preventDefault()` and the native browser menu opens on top of the panel — and the backdrop does not even close the panel in exchange, because a right-click fires no `click` and so never triggers `backdropClick()`. `MlvPopupService` keeps click-outside dismissal working without a backdrop through its deferred document `click` listener.
+
+#### Positioning
+
+The panel is anchored to a `{ x, y }` point via `MlvPopupOpenConfig.positionOrigin`, using `CONTEXT_MENU_POSITIONS` — a module-local, **unexported** const in `context-menu-trigger.ts`. It is hand-written rather than resolved from `POPUP_POSITION_MAP` because every entry in that map carries the 8 px trigger gap, which is right beside an element and wrong at a pointer; all four offsets are zero. It lives here rather than beside `MENU_POSITIONS` / `SUBMENU_POSITIONS` in `@malva-ui/core/popup` precisely because it is _not_ derived from the popup position map and has exactly one consumer.
+
+The **host element** stays `origin`, so RTL scoping and focus restoration keep working — a point has no `[dir]` ancestry of its own.
+
+A second right-click while open calls `MlvPopupHandle.setPositionOrigin` through `MlvMenuOverlayController.updatePositionOrigin()`, moving the panel rather than replaying the leave/enter animations. Close-then-reopen is not merely uglier, it does not work: `close()` only _starts_ the leave animation and leaves `isOpen` `true` until it finishes, so the immediately following `open()` bails and the panel just disappears.
+
+`updatePositionOrigin()` carries the position list along with the origin, because the two change kind together — a panel re-anchored from its host element (element-anchored `MENU_POSITIONS`, `offsetY: ±8`) to a cursor must also drop that gap, or it hangs 8px below the pointer.
+
+#### Keyboard access (WCAG 2.1.1)
+
+Right-click is pointer-only, but browsers dispatch the **same `contextmenu` event** for the ContextMenu key and Shift+F10, so keyboard users reach the menu through this directive — **provided the host is focusable**. Put the directive on a natively focusable element or give it a `tabindex`.
+
+A keyboard-initiated open anchors to the **host element** (element-anchored positions) and moves focus to the first item; anchoring to the coordinates such an event reports would drop the panel in the viewport corner. Pressing the key while the panel is already open re-anchors it to the host and moves focus in, rather than closing it.
+
+**`event.button === 2` is not how the two are told apart**, despite looking like the obvious test: macOS dispatches `contextmenu` for Ctrl+click with `button: 0`, and Android does the same for a touch long-press, so a button check sends two ordinary pointer gestures down the keyboard path — anchoring to the element instead of the finger and stealing focus. What actually separates them is the input device. Firefox reports it outright as `MouseEvent.mozInputSource === 6` (`MOZ_SOURCE_KEYBOARD`); elsewhere a keyboard-synthesised event has no click count and no cursor to report, so `detail === 0 && clientX === 0 && clientY === 0` identifies it. The one false positive is a genuine right-click on the exact top-left pixel, which degrades to a usable element-anchored menu.
+
+A visible affordance — an ellipsis button with the regular `[mlvMenuTrigger]` on the same `mlv-menu` — remains the more discoverable pattern and is recommended whenever the context menu holds actions available nowhere else.
+
+#### `global` mode
+
+The `contextmenu` listener moves to the document, so a right-click anywhere opens the menu. Three cases are handed back to the browser:
+
+| Right-click on…                                                | Why it is skipped                                                                                                                                                                                                                                  |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Anything inside `.cdk-overlay-container`                       | The menu's own panel is portaled to `<body>`, outside the host's subtree — a right-click on a menu item must not re-open the menu on top of itself.                                                                                                |
+| `input`, `textarea`, `select`, `[contenteditable]`             | Spell-check, paste and undo beat an application menu. Without this, a single global trigger removes the native menu from every text field on the page.                                                                                             |
+| An event a nearer trigger already handled (`defaultPrevented`) | The event still bubbles to the document after a host handler runs — the propagation path is fixed at dispatch — so a **targeted trigger nested inside a global one** would otherwise open both panels, stacked at the same point, per right-click. |
+
+Direction and focus restoration still come from the host element, so keep the directive on an element inside the region it serves, and give that element a `tabindex` if focus should land somewhere sensible on close (`_restoreFocusToTrigger()` calls `.focus()`, a no-op on a `<div>` without one, so focus otherwise falls to `<body>`).
+
+With more than one _global_ trigger on a page every one of them responds to the same right-click; scope them with `contextMenuDisabled` rather than relying on registration order. Nesting a targeted trigger inside a global one is the supported composition — the nearest one wins.
+
+#### Not a menubar item
+
+The controller config's `getMenubarItem` throws. A context-menu trigger is never a menubar child (`isMenubarChild: false`, `menubar: null`), so the only paths that call it are unreachable; throwing surfaces a wiring mistake instead of silently handing the menubar an object that is not a `MlvMenubarItem`.
+
+```html
+<!-- Targeted -->
+<div [mlvContextMenuTrigger]="rowMenu" tabindex="0">Right-click this row</div>
+
+<!-- Global -->
+<div [mlvContextMenuTrigger]="pageMenu" global tabindex="0"></div>
+
+<mlv-menu #rowMenu>
+  <mlv-list-item mlvMenuItem (itemClick)="rename()">Rename</mlv-list-item>
+  <mlv-menu-separator />
+  <mlv-list-item mlvMenuItem (itemClick)="remove()">Delete</mlv-list-item>
+</mlv-menu>
+```
+
+---
+
 ## Generated submenu overlay origin
 
 `MlvMenuDataItem` anchors a generated submenu to the row that `ngTemplateOutlet`
@@ -433,6 +528,9 @@ libs/core/menu/src/
       menu-group.ts               — MlvMenuGroup (mlv-menu-group)
       menu-group-label.ts         — MlvMenuGroupLabel ([mlvMenuGroupLabel])
       menu-trigger.ts             — MlvMenuTrigger ([mlvMenuTrigger])
+      context-menu-trigger.ts     — MlvContextMenuTrigger ([mlvContextMenuTrigger])
+      context-menu-trigger.spec.ts — right-click open, cursor anchoring, global mode, keyboard, RTL
+      menu-overlay-controller.ts  — MlvMenuOverlayController (shared popup/focus/submenu-intent lifecycle)
       menubar.ts                  — MlvMenubar (mlv-menubar)
       menubar.scss                — BEM styles
       menu-item-registry.ts       — MlvMenuItemRegistryStore, MLV_MENU_ITEM_REGISTRY, MenuKeyItem

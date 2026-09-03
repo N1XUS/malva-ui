@@ -80,6 +80,7 @@ function createPopupHarness(): PopupHarness {
     handle: {
       overlayRef,
       close: vi.fn(() => harness.config?.onClose()),
+      setPositionOrigin: vi.fn(),
     },
     overlayElement,
     config: null,

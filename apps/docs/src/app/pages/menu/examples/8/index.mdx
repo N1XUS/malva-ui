@@ -1,0 +1,9 @@
+## Context Menu
+
+`[mlvContextMenuTrigger]` opens an ordinary `mlv-menu` at the pointer on right-click, so items, submenus, keyboard navigation and ARIA all come from the menu you already have — only the trigger changes.
+
+Right-click the card for a targeted menu, or anywhere in the shaded region for the `global` one. The card's trigger is nested inside the region's, and the nearest one wins — one panel per right-click, never two. Both suppress the native browser menu, close on Escape, Tab or a click outside, and re-anchor to the new pointer when you right-click again while open.
+
+Because right-click is pointer-only, browsers dispatch the same `contextmenu` event for the **ContextMenu key** and **Shift+F10** — focus the card and press either to open the menu anchored to the element with its first item focused. That needs a focusable host, so the card carries `tabindex="0"`.
+
+A `global` trigger leaves text fields alone: right-clicking an `input`, `textarea` or `contenteditable` still gets the browser's own spell-check and paste menu.
