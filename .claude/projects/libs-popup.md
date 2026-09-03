@@ -98,6 +98,14 @@ Popup content is always rendered inside `.mlv-popup__scrollbar`, a shared `mlv-s
 
 **Pinned-content slot (`[mlvPopupPinnedContent]`).** Mode-independent, unlike the header slot: an optional `<ng-template mlvPopupPinnedContent>` is stamped as `.mlv-popup__pinned` directly **above** `.mlv-popup__scrollbar` in both anchored and full-screen panels (in full-screen it lands between `.mlv-popup__header` and the scroll region, still inside the trap). The panel is a flex column and the scrollbar is `flex: 1 1 auto; min-height: 0`, so the pinned block keeps its own height and the scroll region shrinks around it — content can never push it out of view. It carries no padding; the projected block owns its spacing. `mlv-select` uses it for the searchable dropdown's search row (`position: sticky` inside the viewport was fragile — see `libs-select.md` → _Searchable dropdown_).
 
+**How the sheet body fills the viewport.** `.mlv-popup__inner` carries `min-height: 100%`, and until #116 that percentage silently resolved to `0`: its containing block is `mlv-scrollbar`'s `.mlv-scrollbar__content` wrapper, whose own height is content-derived, and a percentage `min-height` against an indefinite containing block computes to `0`. The wrapper measures a full viewport only because _its_ `min-height: 100%` resolves against the scroll viewport, which the scrollbar's grid gives a definite height — that does not make the wrapper definite for its own children. Measured at 375x812, `__inner` was 32px inside a 751px viewport.
+
+Consequence: sheet content always sat at its natural size at the top of a viewport-tall sheet. Right for a list (`mlv-select`, `mlv-combobox` fill a tall sheet and scroll past it), wrong for fixed-size content, which was left with the rest of the sheet blank.
+
+The fill is now handed to flex, which distributes real space and needs no definite height anywhere: inside `.mlv-popup--fullscreen` the content wrapper becomes a column flex container and `.mlv-popup__inner` takes `flex: 1 1 auto`. `min-height` (not `height`) stays on the wrapper, so content taller than the sheet still grows it and still scrolls. Scoped to `--fullscreen`, so a trigger-anchored popup still shrink-wraps to its content.
+
+**What this does and does not give a consumer.** `__inner` is now sheet-tall, but it is a column flex container with the default `justify-content: flex-start`, so a fixed-size child still sits at the top unless the consumer asks for the space. `mlv-time-picker` opts in with `.mlv-time-picker__panel--sheet` (`flex: 1 1 0`, then a size container query). `mlv-day-picker` and `mlv-date-range-picker` do not, and both still show the top-anchored calendar with roughly half the sheet blank — observed, not inferred, at 375x812.
+
 `isFullscreen: Signal<boolean>` is **public** so consumers with their own inner focus trap (e.g. `mlv-date-range-picker`, whose inner panel carries `cdkTrapFocus`) can disable it via `[cdkTrapFocus]="!popup.isFullscreen()"` and avoid nesting two traps.
 
 #### Outputs
@@ -350,6 +358,7 @@ providers: [providePopupPositions(new Map([...POPUP_POSITION_MAP, ['bottom', { o
 - `.mlv-popup__header` (column) / `.mlv-popup__header-row` (title + close flex row) / `.mlv-popup__title` / `.mlv-popup__close` — full-screen header bar
 - `.mlv-popup__header-content` — optional header extension stamped beneath the title row when `[mlvPopupHeaderContent]` is supplied
 - `.mlv-popup__pinned` — optional non-scrolling block stamped above `.mlv-popup__scrollbar` when `[mlvPopupPinnedContent]` is supplied (`flex: 0 0 auto`, `z-index: 3` so scrolled sticky content passes underneath; no padding of its own)
+- `.mlv-popup__inner` — the projected-content wrapper. Under `--fullscreen` it takes `flex: 1 1 auto` inside a `.mlv-scrollbar__content` made `display: flex; flex-direction: column`, so it is sheet-tall rather than content-tall (see _Mobile fullscreen inputs_)
 - `.mlv-popup-fullscreen-pane` (global) — CDK overlay panel class stretching the pane to the viewport (`100dvh`)
 - `.mlv-popup-fullscreen-backdrop` (global) — solid scrim (`--mlv-background-overlay`) shown behind the sheet
 
