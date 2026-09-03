@@ -1,5 +1,6 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+import { PLATFORM_ID } from '@angular/core';
 import { MlvTextarea } from './textarea';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -179,6 +180,13 @@ describe('MlvTextarea auto-resize', () => {
     resetCounters: () => void;
     /** Simulates a keystroke/paste: DOM value first, then the input event. */
     type: (text: string) => Promise<void>;
+    /**
+     * Simulates a **programmatic** write — `value.set()`, a `writeValue()` from
+     * a form, a `[(value)]` push from the host. Nothing touches the element:
+     * the DOM only catches up when Angular flushes the `[value]` binding, which
+     * is the whole point of issue #78.
+     */
+    set: (text: string) => Promise<void>;
     /** Puts the element in / takes it out of the "laid out" state. */
     setLaidOut: (laidOut: boolean) => void;
     /**
@@ -338,6 +346,11 @@ describe('MlvTextarea auto-resize', () => {
       await fixture.whenStable();
     };
 
+    const set = async (text: string): Promise<void> => {
+      fixture.componentInstance.value.set(text);
+      await fixture.whenStable();
+    };
+
     return {
       fixture,
       el,
@@ -348,6 +361,7 @@ describe('MlvTextarea auto-resize', () => {
         heightWrites.length = 0;
       },
       type,
+      set,
       setLaidOut,
       setMetrics,
       setWidth: (next: number) => {
@@ -833,5 +847,190 @@ describe('MlvTextarea auto-resize', () => {
 
       expect(h.heightWrites[0]).toBe('auto');
     });
+  });
+
+  /**
+   * Regression specs for issue #78 — "auto-resize measures the stale DOM value
+   * on a programmatic `value.set()`".
+   *
+   * The **step under test** in each case is a write through the model, never an
+   * `input` event. That distinction is the bug: a keystroke has already mutated
+   * `el.value` before `onInput()` writes the signal, so `scrollHeight` measures
+   * the new text either way and the whole `type()`-based suite above passes
+   * against the defect. A programmatic write does not touch the element at all
+   * — the DOM only catches up when Angular flushes `[value]` — so a resize
+   * scheduled ahead of that flush measures the *previous* content.
+   *
+   * Setup steps deliberately use `type()` where a case needs to start from a
+   * known-good height, precisely *because* typing is correct on both the fixed
+   * and the unfixed component. That is what lets every case below fail at its
+   * own assertion against the unfixed code instead of dying in its setup — see
+   * the red-state line numbers in each comment.
+   *
+   * Both directions matter and they fail differently: growing leaves the field
+   * short, shrinking leaves it tall — and a shrink can be suppressed outright,
+   * which is the worst of the three.
+   */
+  describe('programmatic value writes (#78)', () => {
+    it('measures the value being written, not the one still in the DOM', async () => {
+      const h = await setup({ minRows: 1, maxRows: 20 });
+
+      await h.set('a'.repeat(CHARS_PER_LINE * 4));
+
+      // Measured against the empty string the element still held, this
+      // collapses to the one-row minimum instead of four rows: `30px`.
+      expect(h.currentHeight()).toBe(`${4 * LINE_HEIGHT + PAD}px`);
+    });
+
+    it('shrinks on a programmatic clear instead of keeping the old height', async () => {
+      const h = await setup({ minRows: 1, maxRows: 20 });
+      // Typed, so the starting height is correct on both trees and the red
+      // below belongs to `clearValue()` alone.
+      await h.type('a'.repeat(CHARS_PER_LINE * 5));
+      expect(h.currentHeight()).toBe(`${5 * LINE_HEIGHT + PAD}px`);
+
+      // `clearValue()` is the ticket's own reproduction: it writes the model
+      // and nothing else. Unfixed, the resize still sees five rows of text, so
+      // the remembered value and `el.value` match, the fast path concludes
+      // "still fits" and writes nothing at all — the field stays at `110px`.
+      h.fixture.componentInstance.clearValue();
+      await h.fixture.whenStable();
+
+      expect(h.currentHeight()).toBe(`${1 * LINE_HEIGHT + PAD}px`);
+    });
+
+    it('resolves an append after a clear against the cleared content', async () => {
+      const h = await setup({ minRows: 1, maxRows: 20 });
+      await h.type('a'.repeat(CHARS_PER_LINE * 6));
+
+      h.fixture.componentInstance.clearValue();
+      await h.fixture.whenStable();
+      await h.set('a'.repeat(CHARS_PER_LINE * 2));
+
+      // Unfixed, the append is measured against the now-flushed empty string
+      // and collapses to `30px` — one value behind, in the other direction.
+      expect(h.currentHeight()).toBe(`${2 * LINE_HEIGHT + PAD}px`);
+    });
+
+    it('still shrinks when a programmatic write follows a typed one', async () => {
+      const h = await setup({ minRows: 1, maxRows: 20 });
+      await h.type('a'.repeat(CHARS_PER_LINE * 4));
+      expect(h.currentHeight()).toBe(`${4 * LINE_HEIGHT + PAD}px`);
+
+      // The case that shows stale state does not merely mismeasure its own
+      // cycle — it suppresses the resize entirely. Unfixed, the remembered
+      // value and `el.value` are the same four-line string at measurement
+      // time, so the fast path takes the "still fits" branch, writes nothing,
+      // and the field is left at `90px` with no later write to correct it.
+      await h.set('a'.repeat(CHARS_PER_LINE * 2));
+      expect(h.currentHeight()).toBe(`${2 * LINE_HEIGHT + PAD}px`);
+    });
+  });
+});
+
+/**
+ * The `_isBrowser` guard inside `_runAutoResize()`, asserted directly.
+ *
+ * It used to be covered transitively by `libs/core/src/ssr-smoke.spec.ts`,
+ * whose primary assertion (`expect(errors).toEqual([])`) exists because this
+ * component reached `getComputedStyle` during server-side change detection.
+ * Issue #78 moved the resize onto an `afterRenderEffect`, which Angular never
+ * runs on the server at all — so the SSR suite can no longer deliver a
+ * server-platform call to `_runAutoResize()` and that coverage went vacuous.
+ * Verified both ways: with the guard neutered to a constant `true`, the SSR
+ * smoke suite passes on the current implementation and fails on the previous
+ * `effect()` one with `mlv-ssr-form-controls-host: TypeError`.
+ *
+ * The guard is still worth keeping — `_runAutoResize()` is a DOM-measuring
+ * method and should refuse a non-browser platform whoever calls it — so it is
+ * given a test of its own rather than a comment explaining why it has none.
+ * That is what forces the call to reach past `protected`/`private`: no public
+ * surface can invoke the method on the server any more, which is precisely the
+ * property being recorded.
+ */
+describe('MlvTextarea auto-resize server guard', () => {
+  /** The private measurement entry point, reached deliberately — see above. */
+  type Measurable = { _runAutoResize(): void };
+
+  const createOn = async (platformId: object | string) => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MlvTextarea],
+      providers: [
+        provideMlvI18nTesting(),
+        provideAnimations(),
+        { provide: PLATFORM_ID, useValue: platformId },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvTextarea);
+    fixture.componentRef.setInput('autoResize', true);
+    await fixture.whenStable();
+
+    const el = fixture.nativeElement.querySelector(
+      'textarea',
+    ) as HTMLTextAreaElement;
+
+    const heightWrites: string[] = [];
+    let heightValue = '';
+    Object.defineProperty(el.style, 'height', {
+      configurable: true,
+      get: () => heightValue,
+      set: (next: string) => {
+        heightValue = next;
+        heightWrites.push(next);
+      },
+    });
+    Object.defineProperty(el, 'scrollHeight', {
+      configurable: true,
+      get: () => 120,
+    });
+    Object.defineProperty(el, 'clientWidth', {
+      configurable: true,
+      get: () => 300,
+    });
+
+    let styleReads = 0;
+    const real = globalThis.getComputedStyle.bind(
+      globalThis,
+    ) as typeof getComputedStyle;
+    vi.spyOn(globalThis, 'getComputedStyle').mockImplementation(((
+      ...args: Parameters<typeof getComputedStyle>
+    ) => {
+      if (args[0] === el) styleReads++;
+      return real(...args);
+    }) as typeof getComputedStyle);
+
+    el.value = 'a'.repeat(120);
+    return {
+      measure: () =>
+        (fixture.componentInstance as unknown as Measurable)._runAutoResize(),
+      heightWrites,
+      styleReads: () => styleReads,
+    };
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('measures nothing under a server PLATFORM_ID', async () => {
+    const h = await createOn('server');
+    h.measure();
+
+    // Both are DOM access: `getComputedStyle` is the call that actually threw
+    // on the server, and a height write would mean layout was consulted.
+    expect(h.styleReads()).toBe(0);
+    expect(h.heightWrites).toEqual([]);
+  });
+
+  it('does measure under a browser PLATFORM_ID', async () => {
+    // The control. Without it the assertions above pass for any reason at all
+    // — a missing element, a renamed method, a harness that never wired up.
+    const h = await createOn('browser');
+    h.measure();
+
+    expect(h.styleReads()).toBeGreaterThan(0);
+    expect(h.heightWrites.length).toBeGreaterThan(0);
   });
 });

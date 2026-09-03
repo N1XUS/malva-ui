@@ -1,8 +1,17 @@
-<mlv-textarea
-  label="Auto-resize textarea"
-  placeholder="Start typing and watch me grow..."
-  hint="Grows from 2 to 8 rows"
-  [autoResize]="true"
-  [minRows]="2"
-  [maxRows]="8"
-/>
+<div class="demo-col">
+  <div class="demo-row">
+    <button mlvButton variant="secondary" (click)="loadSample()">
+      Load sample text
+    </button>
+    <button mlvButton variant="secondary" (click)="clear()">Clear</button>
+  </div>
+  <mlv-textarea
+    label="Auto-resize textarea"
+    placeholder="Start typing and watch me grow..."
+    hint="Grows from 2 to 8 rows"
+    [autoResize]="true"
+    [minRows]="2"
+    [maxRows]="8"
+    [(value)]="value"
+  />
+</div>
