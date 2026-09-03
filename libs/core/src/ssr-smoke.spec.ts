@@ -64,6 +64,9 @@ import {
   MlvDrawer,
   MlvDrawerBody,
   MlvDrawerContent,
+  MlvDrawerSection,
+  MlvDrawerSections,
+  MlvDrawerSectionsService,
 } from '@malva-ui/core/drawer';
 import {
   MlvDropdownPanel,
@@ -210,6 +213,31 @@ import {
  * markup-only assertion stays green with the bug present. The primary
  * assertion of this suite is therefore the collected `ErrorHandler` entries,
  * not the markup.
+ *
+ * **What this suite cannot see.** It runs domino inside jsdom, and the two
+ * have different holes. `domino.impl` defines DOM *classes* only — no
+ * `document`, `window`, `getComputedStyle`, `requestAnimationFrame`,
+ * `matchMedia` or any observer — and
+ * `scripts/testing/setup-restore-dom-globals.js` deliberately snapshots only
+ * uppercase function-valued globals, so it never touches instance globals like
+ * `document`. jsdom's `document` is therefore live for the whole server
+ * render. Three classes of real SSR crash pass here:
+ *
+ * - reading the bare global `document` (or `getComputedStyle`,
+ *   `requestAnimationFrame`, `matchMedia`) instead of the injected `DOCUMENT`
+ *   — jsdom answers, Node throws;
+ * - reading `navigator` — present on Node 21+, but with a Node shape
+ *   (`userAgent` is `"Node.js/<version>"`, no `clipboard`, no `language`);
+ * - *constructing* an observer jsdom happens to ship without calling it. The
+ *   `MutationObserver` bug this suite does catch is caught only because
+ *   `observe()` is called on a domino node and jsdom rejects it;
+ *   `IntersectionObserver` and `ResizeObserver` are caught properly, because
+ *   jsdom ships neither.
+ *
+ * Green here is therefore necessary, not sufficient. When a fix turns on "this
+ * cannot run on the server", prefer a primitive that structurally cannot
+ * (`afterNextRender` / `afterRenderEffect`) over one this suite merely fails
+ * to catch.
  *
  * The hosts below split the library only for readability; every one of them is
  * rendered through the same error-collecting path. A component is "covered"
@@ -489,6 +517,15 @@ class SsrPickersHost {
 
     <a mlvLink href="/docs">Docs</a>
 
+    <!--
+      A data-driven menubar as well as a projected one. Only the data-driven
+      rows are attached to their <mlv-menubar> by the time the item registry
+      resolves its shared container, so this is the arrangement that reaches
+      the registry's MutationObserver — a browser global Node does not define.
+      A projected [mlvMenuTrigger] registers from its constructor, while its
+      host element still has no parent, and never gets that far on the server.
+    -->
+    <mlv-menubar label="Data" [dataSource]="menubarEntries" />
     <mlv-menubar label="Application">
       <button mlvButton variant="transparent" [mlvMenuTrigger]="fileMenu">
         File
@@ -514,6 +551,11 @@ class SsrNavigationHost {
   ];
   readonly tab = signal('one');
   readonly segment = signal<unknown>('day');
+  /** Rows for the data-driven menubar — see the comment in the template. */
+  readonly menubarEntries = [
+    { id: 'file', label: 'File' },
+    { id: 'edit', label: 'Edit' },
+  ];
   readonly page = signal(1);
 }
 
@@ -731,6 +773,19 @@ class SsrSurfacesHost {
   ],
   template: `
     <mlv-data-table [columns]="columns" [data]="rows" />
+    <!--
+      Virtual scroll is a separate SSR surface, not a variant: it is the only
+      mode that mounts a cdk-virtual-scroll-viewport and runs the table's
+      geometry effect, which measures offsetWidth/clientWidth. Those resolve
+      undefined on the server and serialise NaNpx, which is why the
+      "writes no NaN into the server payload" case is what guards it.
+    -->
+    <mlv-data-table
+      virtualScroll
+      maxHeight="12rem"
+      [columns]="columns"
+      [data]="rows"
+    />
     <mlv-tree [nodes]="treeNodes" />
     <mlv-chat style="height: 12rem" [messages]="messages" selfId="me" />
     <mlv-chat-message [message]="messages[0]" />
@@ -862,6 +917,31 @@ class SsrDisplayHost {
   };
 }
 
+/**
+ * `[mlvDrawerSection]` and `mlv-drawer-sections` inject
+ * `MlvDrawerSectionsService`, which `mlv-drawer` provides. Rendering them here
+ * behind a host-level provider is deliberate: inside `mlv-drawer` they only
+ * ever appear in the overlay content template, which never attaches on the
+ * server, so hosting them there would prove nothing. Providing the service
+ * directly is a supported arrangement — it is a public export — and it is the
+ * only way this suite reaches the service's own construction path.
+ */
+@Component({
+  selector: 'mlv-ssr-drawer-sections-host',
+  imports: [MlvDrawerSection, MlvDrawerSections],
+  providers: [MlvDrawerSectionsService],
+  template: `
+    <mlv-drawer-sections />
+    <section mlvDrawerSection id="ssr-meta" label="Meta">
+      <p>Meta fields</p>
+    </section>
+    <section mlvDrawerSection id="ssr-history" label="History">
+      <p>Change history</p>
+    </section>
+  `,
+})
+class SsrDrawerSectionsHost {}
+
 // ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
@@ -888,6 +968,10 @@ const SSR_HOSTS: readonly SsrHostEntry[] = [
   { component: SsrSurfacesHost, selector: 'mlv-ssr-surfaces-host' },
   { component: SsrDataHost, selector: 'mlv-ssr-data-host' },
   { component: SsrDisplayHost, selector: 'mlv-ssr-display-host' },
+  {
+    component: SsrDrawerSectionsHost,
+    selector: 'mlv-ssr-drawer-sections-host',
+  },
 ];
 
 /** Server-renders one host, collecting everything that reaches the `ErrorHandler`. */
@@ -1186,10 +1270,6 @@ const SSR_COVERAGE_EXCLUSIONS: Readonly<Record<string, string>> = {
     'overlay-only: injects DIALOG_CONFIG, provided only by MlvDialogService.open() into a CDK dialog overlay that never attaches on the server.',
   MlvDialogHeader:
     'overlay-only: same DIALOG_CONFIG requirement as mlv-dialog.',
-  MlvDrawerSection:
-    'overlay-only: injects MlvDrawerSectionsService, provided only by mlv-drawer, and rendered only inside the drawer overlay content template.',
-  MlvDrawerSections:
-    'overlay-only: same MlvDrawerSectionsService requirement as [mlvDrawerSection].',
 };
 
 // ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import {
   ElementRef,
   HostAttributeToken,
   ViewEncapsulation,
+  afterNextRender,
   afterRenderEffect,
   computed,
   contentChild,
@@ -200,6 +201,12 @@ export class MlvMenubar<
       const source = this.dataSource();
       untracked(() => this._dataSourceAdapter.setSource(source ?? []));
     });
+
+    // `afterNextRender` never runs on the server, so the registry's
+    // `MutationObserver` — a browser global Node does not define — is only
+    // ever constructed in a browser. Server rendering still gets DOM-ordered
+    // items; it just does not subscribe to mutations it will never receive.
+    afterNextRender(() => this._itemRegistry.enableOrderObservation());
 
     afterRenderEffect(() => this._itemRegistry.resync());
     effect(() => {

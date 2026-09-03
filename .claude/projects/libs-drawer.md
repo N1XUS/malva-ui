@@ -466,6 +466,16 @@ one. Signals compare with `Object.is`, so returning the same reference from
 tracks it) could stay frozen at whatever the computed happened to see on its
 first read.
 
+`initObservers()` is driven by an **`afterRenderEffect`**, not a constructor
+`effect`. A plain `effect` runs during server-side change detection, so
+`new IntersectionObserver(...)` threw `ReferenceError` the moment the service
+was constructed on a server — Node defines no `IntersectionObserver`. Render
+hooks never run on the server, which removes the failure instead of guarding
+each construction site. The effect still reads `normalizedSections()` for its
+dependency, so the observer is re-initialised as sections register and
+unregister. Server rendering therefore produces the section markup with no
+scroll tracking, and tracking starts on the first browser render.
+
 **Interfaces exported:**
 
 ```ts

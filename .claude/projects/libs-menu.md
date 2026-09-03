@@ -425,6 +425,62 @@ Covered by `menu-item-registry.spec.ts`, including a differential suite that
 replays a table of incoming orders against a verbatim copy of the pre-change
 body and asserts both value and reference-identity agreement.
 
+### Order observation is browser-only
+
+`MlvMenubarItemRegistryStore` watches the shared `<mlv-menubar>` container with a
+`MutationObserver` so an item inserted or removed after registration still lands
+in DOM order. `MutationObserver` is a browser global that Node does not define,
+and the registry is reachable from server rendering — a data-driven menubar
+registers its rows from an `effect`, by which point the row elements are already
+attached to the bar and `_syncObservedContainer()` resolves a real container. On
+a server that construction is a `ReferenceError`.
+
+The observer is therefore gated behind `enableOrderObservation()`, which
+`mlv-menubar` calls from **`afterNextRender`** — a hook that never runs on the
+server. Until it is called, `_syncObservedContainer()` resolves no container and
+constructs nothing; sorting still works, because the comparator is a plain
+`compareDocumentPosition` that every server DOM implements. Server rendering
+therefore emits DOM-ordered items and subscribes to no mutations, which is
+correct for a tree that is rendered once and never mutated.
+
+`mlvGetSharedMenubarContainer` narrows `closest()`'s result with a null check
+rather than `instanceof HTMLElement`. `closest()` returns an element or `null`
+and nothing else, so `instanceof` narrowed nothing the null check does not,
+while carrying one real failure mode: `instanceof` is realm-bound, so a menubar
+rendered into a same-origin iframe answers `false` against the parent frame's
+constructor and its items would silently stop being observed.
+
+**It was not hiding the SSR bug**, and the fix does not depend on it.
+`@angular/platform-server` runs `Object.assign(globalThis, domino.impl)`, so
+during a server render domino's `HTMLElement` _is_ the global one and the check
+passes (`globalThis.HTMLElement === domino.impl.HTMLElement` is `true`). With
+the gate reverted but `instanceof` left in place the SSR smoke suite still
+fails on the same `MutationObserver` error. The gate in
+`_syncObservedContainer` is the whole of that fix — do not go looking at the
+remaining `instanceof Element` narrowings for an SSR cause they do not have.
+
+### The sibling `MlvMenuItemRegistryStore` is not gated
+
+`MlvMenuItemRegistryStore` (`menu-item-registry.ts`) is structurally identical
+and reaches the same unguarded `new MutationObserver(...)` from `register()`.
+It is safe only because `mlv-menu` renders its items inside
+`<ng-template mlvPopupContent>`, which never instantiates on the server — the
+same "overlay-only" reasoning that turned out to be wrong for
+`MlvDrawerSectionsService`, whose SSR exclusions were dropped in the same
+change.
+
+It was left ungated deliberately, not overlooked. The token has two provider
+sites — `menu.ts` (`useFactory`) and `menu-data-item.ts` (`useValue`, for a
+nested submenu's own registry) — so a gate needs a matching enable call on
+every path that can own a registry, and no path is reachable on a server today.
+That is a change no test in this repo can turn red, which is the bar every
+other fix in this area was held to. If `mlv-menu`'s items ever render outside
+the overlay template, gate it exactly as the menubar store is gated.
+
+Covered by `menu-item-registry.spec.ts` (`orders items on a platform with no
+MutationObserver`, which removes the global to reproduce Node) and by the SSR
+smoke suite's data-driven menubar host.
+
 ---
 
 ## Submenu Hover Intent

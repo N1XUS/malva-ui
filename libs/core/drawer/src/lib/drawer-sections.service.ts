@@ -1,5 +1,5 @@
 import type { ElementRef, OnDestroy, Signal } from '@angular/core';
-import { computed, effect, Injectable, signal } from '@angular/core';
+import { afterRenderEffect, computed, Injectable, signal } from '@angular/core';
 import { cloneDeep, sortBy } from 'lodash-es';
 
 export interface MlvDrawerSectionState {
@@ -45,8 +45,16 @@ export class MlvDrawerSectionsService implements OnDestroy {
   private _observer: IntersectionObserver | null = null;
 
   constructor() {
-    effect(() => {
-      // We need to track it here to make sure that the observers are re-initialized when the sections change, otherwise the intersection observer won't be able to track the new sections.
+    // `afterRenderEffect`, not `effect`: `initObservers` constructs an
+    // `IntersectionObserver`, a browser global Node does not define, and a
+    // plain `effect` runs during server-side change detection — so the service
+    // threw the moment it was constructed on a server. Render hooks never run
+    // on the server at all, which removes the failure rather than guarding it.
+    //
+    // `normalizedSections()` is read for its dependency, not its value: it is
+    // what re-initialises the observer as sections register and unregister,
+    // otherwise newly added sections would never be tracked.
+    afterRenderEffect(() => {
       this.normalizedSections();
       this.initObservers();
     });
