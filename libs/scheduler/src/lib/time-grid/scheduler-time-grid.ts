@@ -381,24 +381,31 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     this._pendingAnchor = this._posOf(event.target);
   }
 
-  /** @internal Commits the selection as a `rangeSelect` and clears it. */
-  protected _commitSelection(
-    source: MlvSchedulerRangeSelectEvent<D>['source'],
-  ): void {
+  /**
+   * @private The pending selection as a concrete half-open date range, or
+   * `null` when nothing is selected.
+   *
+   * The single owner of the exclusive-end arithmetic: `_commitSelection` and
+   * `_announceSelection` both read it, so the two can never disagree about the
+   * end of the last slot — which is `MINUTES_PER_DAY`, i.e. the next day's
+   * midnight, not an invalid `24:00` the adapter rejects.
+   */
+  private _selectionRange(): {
+    start: D;
+    end: D;
+    allDay: boolean;
+  } | null {
     const b = this._selectedBounds();
-    this._selection.set(null);
-    if (!b) return;
+    if (!b) return null;
     const ctx = this._ctx;
     const adapter = ctx.adapter;
     const days = ctx.days();
     if (b.allDay) {
-      ctx.emitRangeSelect({
+      return {
         start: adapter.startOfDay(days[b.dayFrom]),
         end: adapter.addCalendarDays(days[b.dayTo], 1),
         allDay: true,
-        source,
-      });
-      return;
+      };
     }
     const start = adapter.withTime(
       days[b.dayFrom],
@@ -408,14 +415,24 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     const endMinutes = Math.min(b.to + ctx.slotDuration(), ctx.maxMinutes());
     const endDay = days[b.dayTo];
     const end =
-      endMinutes >= 1440
+      endMinutes >= MINUTES_PER_DAY
         ? adapter.startOfDay(adapter.addCalendarDays(endDay, 1))
         : adapter.withTime(
             endDay,
             Math.floor(endMinutes / 60),
             endMinutes % 60,
           );
-    ctx.emitRangeSelect({ start, end, allDay: false, source });
+    return { start, end, allDay: false };
+  }
+
+  /** @internal Commits the selection as a `rangeSelect` and clears it. */
+  protected _commitSelection(
+    source: MlvSchedulerRangeSelectEvent<D>['source'],
+  ): void {
+    const range = this._selectionRange();
+    this._selection.set(null);
+    if (!range) return;
+    this._ctx.emitRangeSelect({ ...range, source });
   }
 
   constructor() {
@@ -646,6 +663,12 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       default:
         handled = false;
     }
+    // A pending selection is anchored on the cell it was started from, so any
+    // plain (unmodified) navigation or activation abandons it: a later `Enter`
+    // must activate the focused cell, not commit a range the user has since
+    // navigated away from, and the next `Shift+Arrow` must re-anchor on the
+    // live focus rather than grow from the stale head.
+    if (handled && this._selection()) this._selection.set(null);
     if (handled) event.preventDefault();
   }
 
@@ -675,36 +698,26 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     this._announceSelection();
   }
 
-  /** @private Reads the selection bounds back as a `selectionHint` announcement. */
+  /**
+   * @private Reads the selection back as a `selectionHint` announcement.
+   *
+   * The timed hint names `_selectionRange()`'s exclusive end verbatim, so it
+   * always matches what a following `Enter` emits. The all-day hint names the
+   * **inclusive** last day instead — "Mar 3 to Mar 5", not the exclusive
+   * `Mar 6` — so it reads the bounds rather than the range for that half.
+   */
   private _announceSelection(): void {
     const b = this._selectedBounds();
-    if (!b) return;
+    const range = this._selectionRange();
+    if (!b || !range) return;
     const ctx = this._ctx;
-    const adapter = ctx.adapter;
     const days = ctx.days();
-    const endMinutes = Math.min(b.to + ctx.slotDuration(), ctx.maxMinutes());
     const start = b.allDay
-      ? adapter.getDateLabel(days[b.dayFrom])
-      : ctx.formatDateTime(
-          adapter.withTime(
-            days[b.dayFrom],
-            Math.floor(b.from / 60),
-            b.from % 60,
-          ),
-        );
-    // Same roll-over as `_commitSelection`: the exclusive end of the last slot
-    // is 1440, which is the next day's midnight, not an invalid `24:00` time.
+      ? ctx.adapter.getDateLabel(days[b.dayFrom])
+      : ctx.formatDateTime(range.start);
     const end = b.allDay
-      ? adapter.getDateLabel(days[b.dayTo])
-      : ctx.formatDateTime(
-          endMinutes >= 1440
-            ? adapter.startOfDay(adapter.addCalendarDays(days[b.dayTo], 1))
-            : adapter.withTime(
-                days[b.dayTo],
-                Math.floor(endMinutes / 60),
-                endMinutes % 60,
-              ),
-        );
+      ? ctx.adapter.getDateLabel(days[b.dayTo])
+      : ctx.formatDateTime(range.end);
     ctx.announce(ctx.translate('selectionHint', { start, end }));
   }
 

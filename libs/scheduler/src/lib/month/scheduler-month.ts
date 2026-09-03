@@ -533,16 +533,26 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
         this._emitKeyboardSlot(dayIndex, target, event);
         break;
       case 'Enter': {
-        const chip = target.querySelector<HTMLElement>(
-          '.mlv-scheduler-event:not(.mlv-scheduler-event--ghost)',
+        // The `+N more` button is a stop of the same ring, and it is the only
+        // one when every lane of the row is taken by bars that started on an
+        // earlier day: that cell renders no chip at all, so without this
+        // fallback its hidden events would have no keyboard path (WCAG 2.1.1).
+        const stop = target.querySelector<HTMLElement>(
+          '.mlv-scheduler-event:not(.mlv-scheduler-event--ghost), .mlv-scheduler-month__more',
         );
-        if (chip) chip.focus();
+        if (stop) stop.focus();
         else this._emitKeyboardSlot(dayIndex, target, event);
         break;
       }
       default:
         handled = false;
     }
+    // A pending selection is anchored on the cell it was started from, so any
+    // plain (unmodified) navigation or activation abandons it: a later `Enter`
+    // must activate the focused cell, not commit a range the user has since
+    // navigated away from, and the next `Shift+Arrow` must re-anchor on the
+    // live focus rather than grow from the stale head.
+    if (handled && this._selection()) this._selection.set(null);
     if (handled) event.preventDefault();
   }
 

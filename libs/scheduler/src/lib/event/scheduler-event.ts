@@ -203,9 +203,7 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
       return;
     }
     if (event.key === 'Escape') {
-      const cell = this._host.closest<HTMLElement>(
-        '[data-day-index][data-minutes]',
-      );
+      const cell = this._owningCell();
       if (cell) {
         event.preventDefault();
         event.stopPropagation();
@@ -296,11 +294,64 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     return { start, end: nextEnd, allDay };
   }
 
-  /** @private Tab/Shift+Tab move among the chips (and the `+N more` button) of the owning cell; otherwise native. */
-  private _tabWithinCell(event: KeyboardEvent): void {
-    const cell = this._host.closest<HTMLElement>(
+  /**
+   * @private The grid cell this chip belongs to, or `null` outside a grid
+   * (the month overflow popover is portaled to `<body>`).
+   *
+   * A lane chip — a month cell, or the time grid's all-day row — is a DOM
+   * descendant of its cell, which carries both `data-day-index` and
+   * `data-minutes`, so `closest()` finds it directly. A **timed** chip is not:
+   * it lives in the column's `__events` layer, a sibling of the slot cells,
+   * and the column carries `data-day-index` alone. Its owning cell is the slot
+   * whose range contains the chip's start inside that column — the inverse of
+   * the grid's `_chipAt()`, so `Enter` on a slot and `Escape` on the chip it
+   * focused are a round trip.
+   */
+  private _owningCell(): HTMLElement | null {
+    const direct = this._host.closest<HTMLElement>(
       '[data-day-index][data-minutes]',
     );
+    if (direct) return direct;
+    const container = this._chipContainer();
+    return (
+      container?.querySelector<HTMLElement>(
+        `[data-minutes="${this._owningSlotMinutes()}"]`,
+      ) ?? null
+    );
+  }
+
+  /**
+   * @private Start of the slot that owns a timed chip: the chip's start
+   * minute-of-day snapped down to the slot grid, clamped to the visible range.
+   * A segment continuing from an earlier day starts at the top of the column.
+   */
+  private _owningSlotMinutes(): number {
+    const ctx = this._ctx;
+    const adapter = ctx.adapter;
+    const min = ctx.minMinutes();
+    const slot = ctx.slotDuration();
+    const day = ctx.days()[this.dayIndex()];
+    const start = this.normalized().start;
+    const raw =
+      day !== undefined && adapter.sameDate(start, day)
+        ? adapter.minutesOfDay(start)
+        : min;
+    const clamped = Math.min(ctx.maxMinutes() - slot, Math.max(min, raw));
+    return min + Math.floor((clamped - min) / slot) * slot;
+  }
+
+  /**
+   * @private The element holding this chip's sibling chips: the month / all-day
+   * cell for a lane chip, the day column for a timed chip. Both carry
+   * `data-day-index`, and neither contains another day's chips.
+   */
+  private _chipContainer(): HTMLElement | null {
+    return this._host.closest<HTMLElement>('[data-day-index]');
+  }
+
+  /** @private Tab/Shift+Tab move among the chips (and the `+N more` button) of the owning cell; otherwise native. */
+  private _tabWithinCell(event: KeyboardEvent): void {
+    const cell = this._chipContainer();
     if (!cell) return;
     const stops = Array.from(
       cell.querySelectorAll<HTMLElement>(

@@ -492,6 +492,56 @@ describe('MlvSchedulerMonth', () => {
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
       expect(host.ranges).toHaveLength(0);
     });
+
+    it('abandons a pending selection on plain navigation', () => {
+      const c = cell(7); // Mon 3 Mar
+      c.focus();
+      key(c, 'ArrowRight', { shiftKey: true });
+      key(c, 'ArrowRight', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(3);
+
+      key(c, 'ArrowLeft'); // plain navigation: focus Sun 2 Mar, selection gone
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+      expect(document.activeElement).toBe(cell(6));
+
+      // Enter activates the focused cell instead of committing the stale range.
+      key(cell(6), 'Enter');
+      expect(host.ranges).toHaveLength(0);
+      expect(host.slotClicks.at(-1)?.date).toEqual(m(2));
+
+      // And the next Shift+Arrow re-anchors on the live focus rather than
+      // growing from the abandoned head.
+      key(cell(6), 'ArrowRight', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+      expect(cell(6).getAttribute('aria-selected')).toBe('true');
+      expect(cell(8).getAttribute('aria-selected')).toBeNull();
+    });
+  });
+
+  it('focuses "+N more" with Enter when spanning bars leave the cell no chip', async () => {
+    // Two Mon→Wed bars take lanes 0 and 1 of the 3-lane row (threshold 2), so
+    // Tuesday's own events are all hidden and its cell renders no chip at all —
+    // the overflow button is then its only keyboard stop.
+    host.events.set([
+      { id: 'span1', title: 'Offsite', start: m(3), end: m(6), allDay: true },
+      { id: 'span2', title: 'Retreat', start: m(3), end: m(6), allDay: true },
+      { id: 't1', title: 'A', start: m(4, 9), end: m(4, 10) },
+      { id: 't2', title: 'B', start: m(4, 11), end: m(4, 12) },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const tuesday = cell(8);
+    expect(tuesday.querySelectorAll('.mlv-scheduler-event')).toHaveLength(0);
+    const more = tuesday.querySelector<HTMLButtonElement>(
+      '.mlv-scheduler-month__more',
+    )!;
+    expect(more.textContent?.trim()).toBe('+2 more');
+
+    tuesday.focus();
+    const enter = key(tuesday, 'Enter');
+    expect(enter.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(more);
+    expect(host.slotClicks).toHaveLength(0);
   });
 
   it('reaches "+N more" through the intra-cell Tab ring and round-trips focus through the popover', async () => {

@@ -449,6 +449,85 @@ describe('MlvSchedulerTimeGrid', () => {
       // throw would take the announcement — and the rest of the handler — with it.
       expect(liveText()).toMatch(/11:30 PM.*Mar 10, 12:00 AM/);
     });
+
+    it('announces an all-day selection by its inclusive last day', async () => {
+      const c = allDayCell(0); // Mon 3 Mar
+      c.focus();
+      key(c, 'ArrowRight', { shiftKey: true });
+      expect(
+        root.querySelectorAll(
+          '.mlv-scheduler-time-grid__all-day-cell[aria-selected="true"]',
+        ),
+      ).toHaveLength(2);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      // The hint names Mon → Tue, the *inclusive* span; the range `Enter`
+      // commits ends at the exclusive Wed midnight. Both come from the same
+      // `_selectionRange()`, so the two can only differ where they mean to.
+      expect(liveText()).toContain(
+        `${adapter.getDateLabel(m(3))} to ${adapter.getDateLabel(m(4))}`,
+      );
+      key(document.activeElement as HTMLElement, 'Enter');
+      expect(host.ranges[0]).toEqual({
+        start: m(3),
+        end: m(5),
+        allDay: true,
+        source: 'keyboard',
+      });
+    });
+
+    it('abandons a pending selection on plain navigation', () => {
+      const s = slot(1, 540);
+      s.focus();
+      key(s, 'ArrowDown', { shiftKey: true });
+      key(s, 'ArrowDown', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(3);
+
+      key(s, 'ArrowUp'); // plain navigation: focus 08:30, selection abandoned
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+      expect(document.activeElement).toBe(slot(1, 510));
+
+      // Enter activates the focused cell instead of committing the stale range.
+      key(slot(1, 510), 'Enter');
+      expect(host.ranges).toHaveLength(0);
+      expect(host.slotClicks.at(-1)?.date).toEqual(m(4, 8, 30));
+
+      // And the next Shift+Arrow re-anchors on the live focus rather than
+      // growing from the abandoned head.
+      key(slot(1, 510), 'ArrowDown', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+      expect(slot(1, 540).getAttribute('aria-selected')).toBe('true');
+      expect(slot(1, 570).getAttribute('aria-selected')).toBeNull();
+    });
+  });
+
+  it('Enter focuses a timed chip and Escape returns to the slot that owns it', () => {
+    // The timed chip is a sibling of the slots under the column, and the column
+    // carries `data-day-index` without `data-minutes` — so the chip resolves its
+    // owning cell from its start minute, not from an ancestor.
+    const s = slot(1, 540); // Tue 4 Mar 09:00, where event `a` starts
+    s.focus();
+    key(s, 'Enter');
+    expect(document.activeElement).toBe(chip('a'));
+
+    const escape = key(chip('a'), 'Escape');
+    expect(escape.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(s);
+  });
+
+  it('Tab cycles the timed chips of the focused column', () => {
+    chip('a').focus();
+    const tab = key(chip('a'), 'Tab');
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(chip('b'));
+
+    const back = key(chip('b'), 'Tab', { shiftKey: true });
+    expect(back.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(chip('a'));
+
+    // `c` (22:00 → past midnight) is the column's last chip; Tab off it leaves
+    // the grid natively.
+    expect(key(chip('c'), 'Tab').defaultPrevented).toBe(false);
   });
 
   it('passes axe', async () => {
