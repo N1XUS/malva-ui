@@ -347,3 +347,107 @@ describe('MlvCalendar with custom date adapter', () => {
     expect(component.headerLabel()).toBe('Localized Month Label');
   });
 });
+
+// ---------------------------------------------------------------------------
+// followSelection (#138)
+// ---------------------------------------------------------------------------
+
+describe('MlvCalendar — followSelection', () => {
+  const monthOf = (fixture: ComponentFixture<MlvCalendar<Date>>): number =>
+    fixture.componentInstance.activeDate().getMonth();
+
+  const create = async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvCalendar],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvCalendar<Date>);
+    fixture.componentRef.setInput('range', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    return fixture;
+  };
+
+  it('anchors activeDate on the range endpoint by default', async () => {
+    const fixture = await create();
+
+    fixture.componentRef.setInput('rangeValue', {
+      start: new Date(2026, 8, 20),
+      end: new Date(2026, 9, 4),
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // `end ?? start`, so October.
+    expect(monthOf(fixture)).toBe(9);
+  });
+
+  it('leaves activeDate alone when a parent is coordinating it', async () => {
+    const fixture = await create();
+    fixture.componentRef.setInput('followSelection', false);
+    fixture.componentRef.setInput('activeDate', new Date(2026, 8, 1));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentRef.setInput('rangeValue', {
+      start: new Date(2026, 8, 20),
+      end: new Date(2026, 9, 4),
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Without the opt-out this would snap to October and overwrite the
+    // parent's binding -- which is what made both `mlv-date-range-picker`
+    // panels paint the same month.
+    expect(monthOf(fixture)).toBe(8);
+  });
+
+  it('anchors activeDate on the value in single mode by default', async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvCalendar],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvCalendar<Date>);
+    fixture.componentRef.setInput('value', new Date(2026, 9, 4));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.activeDate().getMonth()).toBe(9);
+  });
+
+  it('leaves activeDate alone in single mode when a parent is coordinating it', async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvCalendar],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvCalendar<Date>);
+    fixture.componentRef.setInput('followSelection', false);
+    fixture.componentRef.setInput('activeDate', new Date(2026, 8, 1));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentRef.setInput('value', new Date(2026, 9, 4));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // `followSelection` gates both re-anchor effects, not just the range one.
+    expect(fixture.componentInstance.activeDate().getMonth()).toBe(8);
+  });
+
+  it('still navigates while followSelection is false', async () => {
+    const fixture = await create();
+    fixture.componentRef.setInput('followSelection', false);
+    fixture.componentRef.setInput('activeDate', new Date(2026, 8, 1));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.navigateNext();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(monthOf(fixture)).toBe(9);
+  });
+});

@@ -112,6 +112,23 @@ export class MlvCalendar<D = Date> {
   });
 
   /**
+   * Whether `activeDate` follows the current selection.
+   *
+   * A lone calendar keeps its view on whatever is selected: picking a date, or
+   * receiving one from a form, scrolls the grid to that month. That is the
+   * default and the right behaviour when the calendar owns its own view.
+   *
+   * Set to `false` when a **parent coordinates `activeDate` across several
+   * calendars**. Two panels sharing one `rangeValue` would otherwise both
+   * anchor on the same endpoint and paint the same month, overwriting whatever
+   * the parent bound. `mlv-date-range-picker` sets it to `false` on both of its
+   * panels and drives them from a single anchor, one month apart.
+   */
+  readonly followSelection = input<boolean, BooleanInput>(true, {
+    transform: coerceBooleanProperty,
+  });
+
+  /**
    * Date currently focused by navigation and view state.
    *
    * Two-way bindable via `[(activeDate)]` so a parent can coordinate
@@ -272,7 +289,7 @@ export class MlvCalendar<D = Date> {
 
   constructor() {
     effect(() => {
-      if (this.range()) {
+      if (this.range() || !this.followSelection()) {
         return;
       }
 
@@ -294,7 +311,7 @@ export class MlvCalendar<D = Date> {
     });
 
     effect(() => {
-      if (!this.range()) {
+      if (!this.range() || !this.followSelection()) {
         return;
       }
 

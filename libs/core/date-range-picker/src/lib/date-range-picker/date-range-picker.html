@@ -83,10 +83,13 @@
                 <mlv-calendar
                   embedded
                   [range]="true"
+                  [followSelection]="false"
+                  [activeDate]="leftCalendarActiveDate()"
                   [rangeValue]="_pendingRange()"
                   [min]="min()"
                   [max]="max()"
                   [disabledDates]="disabledDates()"
+                  (activeDateChange)="_onLeftActiveDateChange($event)"
                   (rangeValueChange)="onRangeChanged($event)"
                 />
               </div>
@@ -104,10 +107,13 @@
                 <mlv-calendar
                   embedded
                   [range]="true"
+                  [followSelection]="false"
+                  [activeDate]="rightCalendarActiveDate()"
                   [rangeValue]="_pendingRange()"
                   [min]="min()"
                   [max]="max()"
                   [disabledDates]="disabledDates()"
+                  (activeDateChange)="_onRightActiveDateChange($event)"
                   (rangeValueChange)="onRangeChanged($event)"
                 />
               </div>

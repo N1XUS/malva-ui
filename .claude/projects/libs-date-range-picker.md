@@ -15,7 +15,7 @@ The Date Range Picker library (`@malva-ui/core/date-range-picker`) provides a da
 **Features:**
 
 - Trigger button showing formatted date range or placeholder
-- Two side-by-side calendar panels (left = month M, right = M+1) with coordinated range selection
+- Two side-by-side calendar panels (left = month M, right = M+1) with coordinated range selection — see _Panel month coordination_
 - First click sets start date, second click sets end date
 - Hover preview shows the potential range while selecting
 - Clear and Apply buttons in the footer
@@ -78,6 +78,95 @@ Block: `mlv-date-range-picker`
 | `--disabled` modifier                  | Disabled state                        |
 | `--selecting` modifier                 | After start date chosen, awaiting end |
 | `--state-*` modifiers                  | Validation state border color         |
+
+## Panel month coordination
+
+The two panels are **locked one month apart** and driven from a single anchor
+that the picker owns. The left panel paints the anchor month, the right paints
+the month after it. Navigating either panel moves both, so the offset is an
+invariant and the left panel can never overtake the right — there is no state
+in which the panels overlap, cross, or drift apart.
+
+| Piece                                 | Role                                                                                                                                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_navigatedAnchor: signal<D \| null>` | The month the user navigated to, or `null` to follow the selection. Reset to `null` on every open, so the picker reopens on the selected range rather than wherever it was left. |
+| `leftCalendarActiveDate`              | `_navigatedAnchor()` when set, else the pending/committed range start, else today.                                                                                               |
+| `rightCalendarActiveDate`             | `leftCalendarActiveDate() + 1 month`.                                                                                                                                            |
+| `_onLeftActiveDateChange(d)`          | Writes `d` to the anchor.                                                                                                                                                        |
+| `_onRightActiveDateChange(d)`         | Writes `d - 1 month` to the anchor.                                                                                                                                              |
+
+Both panels are bound one-way — `[activeDate]="leftCalendarActiveDate()"` plus
+`(activeDateChange)` — rather than `[(activeDate)]`, because the two panels are
+not independent: a write has to be translated into the shared anchor before it
+comes back out as two months.
+
+**Both panels carry `[followSelection]="false"`.** Without it `mlv-calendar`
+re-anchors its own `activeDate` on the current selection, and since both panels
+receive the same `[rangeValue]="_pendingRange()"` they resolve the same anchor
+(`end ?? start`) and paint the same month, overwriting the parent's binding.
+See `libs-calendar.md` → _`followSelection`_.
+
+**`followSelection` gates only the two constructor effects.** `selectDate()`,
+`selectMonth()`, `selectYear()` and all three keyboard handlers write
+`activeDate` regardless — twelve call sites in `calendar.ts`. So
+`(activeDateChange)` fires on every day click and every arrow key, not only on
+chevron navigation, and the handlers must tell the two apart themselves. Two
+mechanisms do that, and both are load-bearing:
+
+- **The handlers ignore a change that stays inside the month the panel already
+  shows.** A day-level move is not navigation, and pinning `_navigatedAnchor`
+  on one would stop the panels following the selection for the rest of the
+  session — the next externally-set range would leave them stranded.
+- **Both computeds carry month-level `equal`.** `activeDate` is _both_ the
+  visible month and the focused cell, and `leftCalendarActiveDate` allocates a
+  fresh date on every range change. Without a custom `equal`, that new identity
+  re-binds `[activeDate]` on each keystroke and drags the focus ring back onto
+  the range start — clicking 31 October left the ring on the 20th.
+
+`_navigatedAnchor` is always a first-of-month (`_startOfMonth`), so the right
+panel's `-1` / `+1` round trip cannot clamp. Anchoring on a raw `activeDate`
+turns 31 Oct into 30 Sep and back into 30 Oct; 31 Mar comes back as 28 Mar,
+because February is the clamp target. With month-level `equal` in place that
+clamping is no longer observable in the rendered months, so this is an
+invariant held by construction rather than one a failing test would catch.
+
+This is what #138 fixed. Before it neither computed was bound at all: both
+panels fell back to `MlvCalendar`'s own default and painted the current month
+twice, and once a range spanned two months both self-snapped onto the end
+month — so the left panel stopped showing the month the user had picked the
+start date in.
+
+**Picking the start in the right panel shifts the pair forward.** The anchor
+follows the range start, so with nothing selected yet, clicking a day in the
+right panel makes that day the start and the panels move from M / M+1 to
+M+1 / M+2. This only happens for the _start_: once a start exists, choosing the
+end in the right panel leaves the anchor — and both months — where they are.
+Verified in a browser on `/date-range-picker`: opening on September / October
+and clicking 20 September then 31 October holds both panels on September /
+October, while clicking 31 October first moves them to October / November.
+
+**Known edge — the two chevrons can disagree.** `canNavigatePrev()` /
+`canNavigateNext()` read _that panel's own_ `activeDate`, so with a locked
+offset the pair can be gated inconsistently. With `max = 15 Oct 2026` and the
+panels on September / October, the two "next" chevrons render differently —
+the left enabled, the right disabled — although both perform the same
+locked-offset move. Clicking the enabled one lands the right panel on November
+with every date disabled. The symmetric `min` case exists: with
+`min = 10 Sep 2026`, the right panel's "previous" chevron moves the pair to
+August / September and leaves the left panel with nothing selectable.
+
+What a user sees is two identical-looking chevrons in one dialog behaving
+differently, which is the part worth fixing; the dead panel is the smaller
+problem. The offset invariant holds throughout and no invalid date becomes
+selectable, so this is a wart rather than a correctness bug. The fix is to gate
+both chevrons on the _pair_ — the left's `canNavigatePrev` **and** the right's
+`canNavigateNext` — which needs a change in `mlv-calendar` and is left to a
+follow-up.
+
+Note this only bites when `max` (or `min`) falls **mid-month** in the outer
+panel. A `max` at a month end disables both chevrons together, because
+`canNavigateNext` already evaluates whether the next month has any selectable
+date.
 
 ## Dependencies
 
