@@ -149,7 +149,7 @@ BEM block `mlv-select`. Uses `@malva-ui/styles` `mixins.base()` for box-sizing/f
 - `.mlv-select__trigger` — flex row, full width, 9px vertical padding.
 - `.mlv-select__arrow` — 20×20px, transitions color and rotation; becomes `var(--mlv-text-primary)` on hover/focus/open; rotates 180° when open.
 - `.mlv-select__value` — `var(--mlv-text-primary)`.
-- `.mlv-select__placeholder` — `var(--mlv-text-secondary)`.
+- `.mlv-select__placeholder` — `var(--mlv-text-tertiary)`, the placeholder step of the text ramp that `mlv-input` paints its native `::placeholder` with (was `--mlv-text-secondary`, one shade darker than the input beside it).
 - `.mlv-select__popup` — padding forced to 0 to let the dropdown panel define its own spacing.
 - `.mlv-select--loading` — the loading variant: `cursor: progress` on the trigger, and the arrow box becomes a centring flex box so the `mlv-loader` sits exactly where the chevron did (no trigger-row shift).
 - `.mlv-select__search` — the searchable mode's first row: **layout only** (flex row, gap, padding) plus a raised background + bottom hairline so it stays legible over the options scrolling beneath it. It carries no positioning of its own — the popup's `.mlv-popup__pinned` slot takes it out of the scroll region entirely (and its `z-index: 3` already outranks `.mlv-dropdown-panel__group-header`'s sticky `z-index: 1`).

@@ -42,7 +42,14 @@ export default [
         'error',
         {
           enforceBuildableLibDependency: true,
-          allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
+          // This block replaces the root rule options wholesale, so the
+          // root's allowance for `@malva-ui/internal-testing` (a spec-only
+          // helper under `scripts/testing`, not a workspace library — see the
+          // root eslint.config.mjs) has to be restated here.
+          allow: [
+            '^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$',
+            '@malva-ui/internal-testing',
+          ],
           depConstraints: [
             {
               sourceTag: 'scope:ui',
