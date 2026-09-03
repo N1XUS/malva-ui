@@ -291,6 +291,20 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       });
     });
 
+    // Re-measures when the *shape* of the grid changes rather than its box: a
+    // month range spans 4–6 week rows and `_measureLanes` divides the row
+    // container's height by that count, but `.mlv-scheduler-month__rows` keeps
+    // its box size in any definite-height host, so a 6↔5 row transition fires
+    // no `ResizeObserver` and would leave the lane count ~20% stale. Tracked
+    // trigger, untracked body — the count this writes is never a dependency of
+    // the effect that writes it.
+    afterRenderEffect(() => {
+      if (!this._isBrowser) return;
+      this._ctx.days();
+      this._ctx.rowLength();
+      this._measureLanes();
+    });
+
     this._destroyRef.onDestroy(() => this._closePopover());
   }
 

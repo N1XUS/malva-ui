@@ -311,6 +311,72 @@ describe('MlvSchedulerMonth', () => {
     expect(observeCount).toBe(1);
   });
 
+  it('re-measures the lane budget when the week-row count changes', async () => {
+    // Six same-day events pack lanes 0–5, so "+N more" reads the lane budget
+    // back out: 3 lanes → threshold 2 → "+4 more", 4 lanes → "+3 more".
+    const crowd = (month: number, day: number) =>
+      Array.from({ length: 6 }, (_unused, index) => ({
+        id: `${month}-${index}`,
+        title: `E${index}`,
+        start: m(day, 9 + index, 0, month),
+        end: m(day, 10 + index, 0, month),
+      }));
+    host.events.set([...crowd(2, 4), ...crowd(3, 9)]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const more = (date: Date) =>
+      cellFor(date)
+        .querySelector('.mlv-scheduler-month__more')
+        ?.textContent?.trim();
+    expect(more(m(4))).toBe('+4 more'); // the un-measured fallback, 3 lanes
+
+    // jsdom reports every box as zero, so `_measureLanes` is inert until the
+    // three heights it reads are stubbed. March 2031 spans 6 week rows (row
+    // 100 → 3 lanes), April 2031 only 5 (row 120 → 4 lanes) — and the row
+    // container keeps its 600px box across that transition, exactly the case
+    // no `ResizeObserver` reports.
+    const rows = root.querySelector<HTMLElement>('.mlv-scheduler-month__rows');
+    if (!rows) throw new Error('no week-row container');
+    const offsetHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'offsetHeight',
+    );
+    if (!offsetHeight) throw new Error('no HTMLElement.prototype.offsetHeight');
+    Object.defineProperty(rows, 'clientHeight', {
+      configurable: true,
+      value: 600,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get(this: HTMLElement) {
+        if (this.classList.contains('mlv-scheduler-month__lane-probe'))
+          return 20;
+        if (this.classList.contains('mlv-scheduler-month__day-number'))
+          return 24;
+        return 0;
+      },
+    });
+    try {
+      host.date.set(m(9, 0, 0, 3)); // April 2031 — 5 week rows
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(root.querySelectorAll('.mlv-scheduler-month__row').length).toBe(5);
+      expect(more(m(9, 0, 0, 3))).toBe('+3 more');
+
+      host.date.set(m(10)); // back to March 2031 — 6 week rows
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(root.querySelectorAll('.mlv-scheduler-month__row').length).toBe(6);
+      expect(more(m(4))).toBe('+4 more');
+    } finally {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'offsetHeight',
+        offsetHeight,
+      );
+    }
+  });
+
   it('emits slotClick on Space / click / Enter on an empty cell, and Enter focuses the first chip of a busy cell', () => {
     const empty = cell(10); // Thu 6 Mar
     key(empty, ' ');
