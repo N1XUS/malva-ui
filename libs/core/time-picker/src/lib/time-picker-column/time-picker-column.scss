@@ -16,12 +16,28 @@ $block: mlv-time-picker-column;
   align-items: center;
   width: var(--mlv-tp-column-width, 3.5rem);
 
+  // Drum depth. `--mlv-tp-visible-rows` is the whole drum including the
+  // selected row, and must stay odd so exactly one row can sit on the centre
+  // stripe; `--mlv-tp-side-rows` is what that leaves above and below, and every
+  // other length here is a multiple of one or the other. The mobile sheet is
+  // the only override today (7 rows — see `time-picker.scss`), but the pair is
+  // the API for it: setting `--mlv-tp-visible-rows` alone moves the track, the
+  // stripe, the snap port and the list padding together.
+  //
+  // The 5 is a `var()` *fallback*, never a declaration on this element. A
+  // `--mlv-tp-visible-rows: 5` here would shadow an ancestor's override for
+  // every descendant — the sheet sets 7 on `.mlv-time-picker__columns`, so the
+  // track (re-declared there) would have gone to 7 while the stripe and the
+  // snap port, read from this element, stayed at 5. Measured: an 88px stripe
+  // offset against a 7-row track.
+  --mlv-tp-side-rows: calc((var(--mlv-tp-visible-rows, 5) - 1) / 2);
+
   &__track {
     position: relative;
     width: 100%;
     height: var(
       --mlv-tp-track-height,
-      calc(var(--mlv-tp-item-height, 2.25rem) * 5)
+      calc(var(--mlv-tp-item-height, 2.25rem) * var(--mlv-tp-visible-rows, 5))
     );
     overflow: hidden;
 
@@ -30,7 +46,7 @@ $block: mlv-time-picker-column;
       content: '';
       position: absolute;
       inset-inline: 0.25rem;
-      top: calc(var(--mlv-tp-item-height, 2.25rem) * 2);
+      top: calc(var(--mlv-tp-item-height, 2.25rem) * var(--mlv-tp-side-rows));
       height: var(--mlv-tp-item-height, 2.25rem);
       background-color: var(--mlv-background-neutral-1);
       border-radius: var(--mlv-radius-s);
@@ -56,9 +72,15 @@ $block: mlv-time-picker-column;
   }
 
   &__list {
+    // `--mlv-tp-font-size` and not `--mlv-font-size-m`: the block above already
+    // sets its own font size from the token, and re-stating the raw token here
+    // shadowed it for every descendant — so the density ramp's
+    // `--mlv-tp-font-size` reached nothing and the numerals stayed at `m` at
+    // every density. Found while making the drum fill the mobile sheet (#116),
+    // where the effect is loud: the rows grow and the digits do not.
     @include mixins.base(
       var(--mlv-typography-family-text),
-      var(--mlv-font-size-m),
+      var(--mlv-tp-font-size, var(--mlv-font-size-m)),
       0,
       0
     );
@@ -69,11 +91,15 @@ $block: mlv-time-picker-column;
     overflow-y: scroll;
     scroll-snap-type: y mandatory;
     // Shift the snap port so items snap to the center stripe, not the viewport top
-    scroll-padding-block: calc(var(--mlv-tp-item-height, 2.25rem) * 2);
+    scroll-padding-block: calc(
+      var(--mlv-tp-item-height, 2.25rem) * var(--mlv-tp-side-rows)
+    );
     position: relative;
     z-index: 1;
     // Padding allows first/last items to scroll to the center stripe position
-    padding-block: calc(var(--mlv-tp-item-height, 2.25rem) * 2);
+    padding-block: calc(
+      var(--mlv-tp-item-height, 2.25rem) * var(--mlv-tp-side-rows)
+    );
 
     // Hide scrollbar
     scrollbar-width: none;
@@ -93,7 +119,7 @@ $block: mlv-time-picker-column;
   &__item {
     @include mixins.base(
       var(--mlv-typography-family-text),
-      var(--mlv-font-size-m),
+      var(--mlv-tp-font-size, var(--mlv-font-size-m)),
       0,
       0
     );

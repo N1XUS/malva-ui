@@ -91,10 +91,32 @@ $block: mlv-popup;
 
     .#{$block}__scrollbar > .mlv-scrollbar__viewport {
       -webkit-overflow-scrolling: touch;
+
+      // `__inner`'s `min-height: 100%` never resolved here, so sheet content
+      // has always sat at its natural size at the top of a viewport-tall sheet
+      // — right for a list, wrong for fixed-size content, which was left with
+      // the rest of the sheet blank (#116).
+      //
+      // The percentage could not resolve: its containing block is this
+      // wrapper, whose own height is content-derived, and a percentage
+      // min-height against an indefinite containing block computes to `0`. The
+      // wrapper measures 100% of the viewport only because *its* `min-height`
+      // resolves against the viewport, which the grid gives a definite height
+      // — that does not make the wrapper itself definite for its children.
+      //
+      // So the fill is handed to flex, which distributes real space and needs
+      // no definite height anywhere. `min-height` (not `height`) is left in
+      // place on the wrapper, so content taller than the sheet still grows it
+      // and still scrolls.
+      > .mlv-scrollbar__content {
+        display: flex;
+        flex-direction: column;
+      }
     }
 
     .#{$block}__inner {
       padding: var(--mlv-spacing-4);
+      flex: 1 1 auto;
     }
   }
 

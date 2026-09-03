@@ -148,6 +148,104 @@ $block: mlv-time-picker;
   }
 
   // -------------------------------------------------------------------------
+  // Mobile full-screen sheet (#116)
+  //
+  // `mlv-popup` sizes the sheet to the viewport, and `.mlv-popup__inner` is a
+  // column flex with no `justify-content` — so consumer content lands at the
+  // top at its natural size. That is right for a list (`mlv-select`,
+  // `mlv-combobox` fill a tall sheet and scroll) and wrong for a fixed-size
+  // drum, which left the columns in the sheet's top-inline-start corner with
+  // the rest of the sheet blank.
+  //
+  // The drum takes the available space instead, and takes it by growing its
+  // rows rather than multiplying them — seven rows against the desktop five,
+  // so it still reads as a picker rather than as a long scrolling list.
+  // -------------------------------------------------------------------------
+
+  &__panel--sheet {
+    // Claim the leftover height from `.mlv-popup__inner`'s column.
+    //
+    // `1 1 0`, not the `flex: 1` shorthand, and the difference is the whole
+    // container query below. `flex: 1` expands to a **percentage** basis
+    // (`0%`), which against this indefinite-height ancestor chain leaves the
+    // item's block size content-dependent — so `container-type: size` has no
+    // definite height to answer with and every `cqh` resolves to `0`. A
+    // `<length>` basis of `0` plus `flex-grow` makes the used height pure
+    // free-space distribution, which is definite without measuring contents.
+    //
+    // Ablated on the running component at 375x812: `flex: 1 1 0` on *either*
+    // this element or the row below gives `100cqh` = 719px; `flex: 1` on both
+    // gives 0px, and the drum silently falls back to its 2.75rem floor.
+    // `min-height: 0` measurably changes nothing on either element and is not
+    // written here.
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    // `--mlv-popover-inset` is the shared *dropdown* inset (4px), and
+    // `.mlv-popup--fullscreen` already pads `__inner` for the sheet.
+    padding: 0;
+
+    .#{$block}__columns {
+      // A length basis for the same reason as the panel above.
+      flex: 1 1 0;
+      // The inline-axis half of #116. Without it the row starts at the
+      // inline-start edge — invisible in a dropdown, where the panel
+      // shrink-wraps to the columns, but plain once `__inner`'s default
+      // `align-items: stretch` makes the panel full-width.
+      justify-content: center;
+
+      // Size the drum from the space that is genuinely left, by making this
+      // row the size container. The alternative — deriving from `svh` — has to
+      // guess the sheet header, the safe-area insets and `__inner`'s padding,
+      // and is wrong the moment any of them changes.
+      //
+      // Measured with `container-type: normal`: every `cqh` below resolves
+      // against the viewport instead — 162px rows and an 812px track inside a
+      // 719px row, so the drum overruns the sheet.
+      container-type: size;
+      // Size containment is not paint containment. When the rem floor below
+      // wins — a container under 7 x 2.75rem, i.e. a sheet shorter than about
+      // 430px — the track is taller than this row and would otherwise spill
+      // symmetrically past both ends and be clipped by the scroll viewport
+      // instead, cutting rows and leaving the centre stripe off-centre. Clipped
+      // here, the drum degrades to fewer visible neighbours around a selected
+      // row that stays centred and legible.
+      overflow: hidden;
+
+      // Seven rows rather than the desktop five: the sheet is viewport-tall, so
+      // five would put a two-digit numeral in a 144px row. Seven is the top of
+      // the 5-7 range the drum is designed for and lands near 103px at
+      // 375x812. `--mlv-tp-side-rows` follows from it, so the centre stripe,
+      // the snap port and the list padding all move with it.
+      --mlv-tp-visible-rows: 7;
+
+      // The rows divide the container exactly (7 x 100cqh/7 = 100cqh). The
+      // floor keeps the row a usable touch target and the numerals legible on a
+      // short viewport (a landscape phone); past that point `overflow: hidden`
+      // above takes over.
+      --mlv-tp-item-height: max(2.75rem, calc(100cqh / 7));
+      // Re-declared rather than inherited: a custom property's `var()`s are
+      // substituted on the element that declares it, so `__panel`'s
+      // `calc(var(--mlv-tp-item-height) * 5)` has already resolved against the
+      // density value by the time it reaches here — leaving a 180px track
+      // around 103px rows, 1.75 rows deep.
+      --mlv-tp-track-height: calc(
+        var(--mlv-tp-item-height) * var(--mlv-tp-visible-rows)
+      );
+
+      --mlv-tp-font-size: max(var(--mlv-font-size-l), 6cqh);
+      --mlv-tp-column-width: max(5rem, 26cqw);
+      --mlv-tp-ampm-width: max(5rem, 26cqw);
+
+      // AM/PM does not follow the row height here. It is a two-state button,
+      // and at a 103px row it rendered as a 103x81px box around a 14px label.
+      // Capped, with the label sized for the box rather than for a drum row.
+      --mlv-tp-ampm-height: min(var(--mlv-tp-item-height), 3.5rem);
+      --mlv-tp-ampm-font-size: var(--mlv-font-size-l);
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Columns row
   // -------------------------------------------------------------------------
 
@@ -190,8 +288,12 @@ $block: mlv-time-picker;
     width: var(--mlv-tp-ampm-width);
 
     .mlv-button {
-      height: var(--mlv-tp-item-height);
-      min-height: var(--mlv-tp-item-height);
+      // Matches a drum row by default, so the pair lines up with the rows it
+      // sits beside. The sheet caps it instead — see `__panel--sheet` — because
+      // a row there is 103px and an AM/PM button is a button, not a row.
+      height: var(--mlv-tp-ampm-height, var(--mlv-tp-item-height));
+      min-height: var(--mlv-tp-ampm-height, var(--mlv-tp-item-height));
+      font-size: var(--mlv-tp-ampm-font-size, var(--mlv-tp-font-size));
       --mlv-btn-padding: 0.25rem 0.5rem;
     }
   }

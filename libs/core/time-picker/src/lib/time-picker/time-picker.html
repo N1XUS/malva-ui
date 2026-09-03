@@ -36,6 +36,7 @@
       </div>
 
       <mlv-popup
+        #popupRef
         [(opened)]="isOpen"
         [hasShadow]="true"
         panelRole="dialog"
@@ -52,6 +53,7 @@
             [id]="panelId()"
             class="mlv-time-picker__panel"
             [class]="'mlv-time-picker__panel--' + _effectiveDensity()"
+            [class.mlv-time-picker__panel--sheet]="popupRef.isFullscreen()"
             role="group"
             [attr.aria-label]="_resolvedAriaLabel()"
           >
