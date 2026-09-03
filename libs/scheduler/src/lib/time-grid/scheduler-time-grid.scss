@@ -31,6 +31,9 @@ $block: mlv-scheduler-time-grid;
       min-inline-size: 100%;
       inline-size: max-content;
       max-inline-size: none;
+      // Vertical scroll and pinch-zoom stay native; a horizontal drag is a
+      // range-selection gesture, so it must not also pan the sheet.
+      touch-action: pan-y pinch-zoom;
     }
 
     &__top {
@@ -119,6 +122,10 @@ $block: mlv-scheduler-time-grid;
 
       &--today {
         background: var(--mlv-background-accent-1-pale);
+      }
+
+      &--selected {
+        background: var(--mlv-background-selected);
       }
     }
 

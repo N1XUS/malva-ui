@@ -10,6 +10,7 @@ import type {
   MlvSchedulerEvent,
   MlvSchedulerEventInteraction,
   MlvSchedulerMoreClickEvent,
+  MlvSchedulerRangeSelectEvent,
   MlvSchedulerSlotEvent,
 } from '../scheduler/scheduler.types';
 
@@ -47,6 +48,7 @@ const m = (day: number, h = 0, min = 0, month = 2) =>
       (slotClick)="slotClicks.push($event)"
       (eventClick)="eventClicks.push($event)"
       (moreClick)="moreClicks.push($event)"
+      (rangeSelect)="ranges.push($event)"
     />
   `,
 })
@@ -63,6 +65,7 @@ class Host {
   readonly slotClicks: MlvSchedulerSlotEvent[] = [];
   readonly eventClicks: MlvSchedulerEventInteraction[] = [];
   readonly moreClicks: MlvSchedulerMoreClickEvent[] = [];
+  readonly ranges: MlvSchedulerRangeSelectEvent[] = [];
 }
 
 describe('MlvSchedulerMonth', () => {
@@ -415,6 +418,45 @@ describe('MlvSchedulerMonth', () => {
         .querySelectorAll('.mlv-scheduler-month__cell').length,
     ).toBe(5);
     expect(root.querySelector('[data-event-id="span"]')).not.toBeNull();
+  });
+
+  describe('pointer range selection', () => {
+    const pointerEvent = (type: string, x: number, y: number) =>
+      Object.assign(new Event(type, { bubbles: true, cancelable: true }), {
+        clientX: x,
+        clientY: y,
+        button: 0,
+        pointerId: 1,
+        pointerType: 'mouse',
+      });
+
+    it('selects whole days across rows and emits an all-day range', () => {
+      cell(7).dispatchEvent(pointerEvent('pointerdown', 10, 10)); // Mon 3 Mar 2031 (grid starts Mon 24 Feb)
+      cell(14).dispatchEvent(pointerEvent('pointermove', 10, 120)); // Mon 10 Mar
+      fixture.detectChanges();
+      expect(
+        root.querySelectorAll(
+          '.mlv-scheduler-month__cell[aria-selected="true"]',
+        ),
+      ).toHaveLength(8);
+      cell(14).dispatchEvent(pointerEvent('pointerup', 10, 120));
+      expect(host.ranges[0]).toEqual({
+        start: m(3),
+        end: m(11),
+        allDay: true,
+        source: 'pointer',
+      });
+      cell(14).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(host.slotClicks).toHaveLength(0);
+    });
+
+    it('does not start from a chip or the more button', () => {
+      const bar = root.querySelector<HTMLElement>('[data-event-id="span"]')!;
+      bar.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      cell(12).dispatchEvent(pointerEvent('pointermove', 10, 60));
+      cell(12).dispatchEvent(pointerEvent('pointerup', 10, 60));
+      expect(host.ranges).toHaveLength(0);
+    });
   });
 
   it('passes axe', async () => {

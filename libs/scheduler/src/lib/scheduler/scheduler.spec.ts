@@ -57,6 +57,7 @@ const d = (day: number, h = 0, m = 0, month = 8) =>
       [mlvDensity]="density()"
       (visibleRangeChange)="ranges.push($event)"
       (eventMove)="moves.push($event)"
+      (eventResize)="resizes.push($event)"
     >
       @if (customHeader()) {
         <ng-template mlvSchedulerHeaderDef let-api>
@@ -90,6 +91,7 @@ class Host {
   >(null);
   readonly ranges: MlvSchedulerVisibleRange[] = [];
   readonly moves: MlvSchedulerEventChange[] = [];
+  readonly resizes: MlvSchedulerEventChange[] = [];
 }
 
 describe('MlvScheduler (root)', () => {
@@ -262,6 +264,65 @@ describe('MlvScheduler (root)', () => {
     fixture.detectChanges();
     expect(el.querySelector('[role="status"]')?.textContent).toContain(
       'Standup moved to',
+    );
+  });
+
+  it('commits a resize: writes a new events array, emits eventResize and announces', async () => {
+    const adapter = TestBed.inject(MlvNativeDateAdapter);
+    const before = host.events();
+    const normalized = normalizeEvent(adapter, before[0], 60);
+    const ok = scheduler.commitChange(
+      'resize',
+      normalized,
+      { start: d(2, 9), end: d(2, 10), allDay: false },
+      'pointer',
+    );
+    fixture.detectChanges();
+    expect(ok).toBe(true);
+    expect(host.events()).not.toBe(before);
+    expect(host.events()[0]).toEqual({
+      id: 'a',
+      title: 'Standup',
+      start: d(2, 9),
+      end: d(2, 10),
+      allDay: false,
+    });
+    expect(before[0].end).toEqual(d(2, 9, 30)); // never mutated in place
+    expect(host.resizes).toEqual([
+      {
+        event: host.events()[0],
+        previous: { start: d(2, 9), end: d(2, 9, 30), allDay: false },
+        source: 'pointer',
+      },
+    ]);
+    expect(host.moves).toEqual([]); // eventResize, never eventMove
+    await Promise.resolve();
+    fixture.detectChanges();
+    expect(el.querySelector('[role="status"]')?.textContent).toBe(
+      `Standup now ends at ${scheduler.formatDateTime(d(2, 10))}`,
+    );
+  });
+
+  it('announces the inclusive end date for an all-day resize', async () => {
+    const adapter = TestBed.inject(MlvNativeDateAdapter);
+    host.events.set([
+      { id: 'b', title: 'Offsite', start: d(2), end: d(3), allDay: true },
+    ]);
+    fixture.detectChanges();
+    const normalized = normalizeEvent(adapter, host.events()[0], 60);
+    const ok = scheduler.commitChange(
+      'resize',
+      normalized,
+      { start: d(2), end: d(5), allDay: true }, // exclusive end Sep 5 → inclusive label Sep 4
+      'pointer',
+    );
+    fixture.detectChanges();
+    expect(ok).toBe(true);
+    expect(host.events()[0].end).toEqual(d(5)); // the model keeps the exclusive end
+    await Promise.resolve();
+    fixture.detectChanges();
+    expect(el.querySelector('[role="status"]')?.textContent).toBe(
+      `Offsite now ends at ${adapter.getDateLabel(d(4))}`,
     );
   });
 

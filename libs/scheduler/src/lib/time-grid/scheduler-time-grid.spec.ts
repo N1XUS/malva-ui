@@ -8,6 +8,7 @@ import { MlvScheduler } from '../scheduler/scheduler';
 import { scrollOffsetFor } from './scheduler-time-grid';
 import type {
   MlvSchedulerEvent,
+  MlvSchedulerRangeSelectEvent,
   MlvSchedulerSlotEvent,
   MlvSchedulerView,
 } from '../scheduler/scheduler.types';
@@ -45,7 +46,9 @@ const m = (day: number, h = 0, min = 0) => new Date(2031, 2, day, h, min);
       [slotDuration]="30"
       [businessHours]="{ start: '09:00', end: '17:00' }"
       [showCurrentTime]="showNow()"
+      [selectable]="selectable()"
       (slotClick)="slotClicks.push($event)"
+      (rangeSelect)="ranges.push($event)"
     />
   `,
 })
@@ -62,7 +65,9 @@ class Host {
   readonly minTime = signal('00:00');
   readonly maxTime = signal('24:00');
   readonly showNow = signal(true);
+  readonly selectable = signal(true);
   readonly slotClicks: MlvSchedulerSlotEvent[] = [];
+  readonly ranges: MlvSchedulerRangeSelectEvent[] = [];
 }
 
 describe('MlvSchedulerTimeGrid', () => {
@@ -305,6 +310,84 @@ describe('MlvSchedulerTimeGrid', () => {
     expect(document.activeElement).toBe(chip('a'));
     key(slot(1, 300), 'Enter'); // empty
     expect(host.slotClicks.length).toBe(4);
+  });
+
+  describe('pointer range selection', () => {
+    const pointerEvent = (type: string, x: number, y: number) =>
+      Object.assign(new Event(type, { bubbles: true, cancelable: true }), {
+        clientX: x,
+        clientY: y,
+        button: 0,
+        pointerId: 1,
+        pointerType: 'mouse',
+      });
+
+    it('selects a range of slots by dragging and emits rangeSelect on release', () => {
+      const from = slot(1, 540); // Tue 9:00
+      const to = slot(1, 630); // Tue 10:30
+      from.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      to.dispatchEvent(pointerEvent('pointermove', 10, 80));
+      fixture.detectChanges();
+      expect(
+        root.querySelectorAll(
+          '.mlv-scheduler-time-grid__slot[aria-selected="true"]',
+        ),
+      ).toHaveLength(4); // 9:00, 9:30, 10:00, 10:30
+      to.dispatchEvent(pointerEvent('pointerup', 10, 80));
+      expect(host.ranges).toHaveLength(1);
+      expect(host.ranges[0]).toEqual({
+        start: m(4, 9),
+        end: m(4, 11),
+        allDay: false,
+        source: 'pointer',
+      });
+      to.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(host.slotClicks).toHaveLength(0); // the trailing click is swallowed
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+    });
+
+    it('spans days: the range runs from the first day/slot to the last day/slot', () => {
+      slot(1, 540).dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      slot(3, 600).dispatchEvent(pointerEvent('pointermove', 200, 40));
+      slot(3, 600).dispatchEvent(pointerEvent('pointerup', 200, 40));
+      expect(host.ranges[0]).toEqual({
+        start: m(4, 9),
+        end: m(6, 10, 30),
+        allDay: false,
+        source: 'pointer',
+      });
+    });
+
+    it('selects all-day cells as an all-day range', () => {
+      allDayCell(2).dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      allDayCell(4).dispatchEvent(pointerEvent('pointermove', 100, 10));
+      allDayCell(4).dispatchEvent(pointerEvent('pointerup', 100, 10));
+      expect(host.ranges[0]).toEqual({
+        start: m(5),
+        end: m(8),
+        allDay: true,
+        source: 'pointer',
+      });
+    });
+
+    it('treats a press without travel as a click', () => {
+      const s = slot(1, 540);
+      s.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      s.dispatchEvent(pointerEvent('pointerup', 11, 10));
+      s.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(host.ranges).toHaveLength(0);
+      expect(host.slotClicks).toHaveLength(1);
+    });
+
+    it('does nothing when not selectable', () => {
+      host.selectable.set(false);
+      fixture.detectChanges();
+      slot(1, 540).dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      slot(1, 630).dispatchEvent(pointerEvent('pointermove', 10, 80));
+      slot(1, 630).dispatchEvent(pointerEvent('pointerup', 10, 80));
+      expect(host.ranges).toHaveLength(0);
+    });
   });
 
   it('passes axe', async () => {

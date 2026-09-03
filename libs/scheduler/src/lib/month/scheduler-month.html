@@ -10,7 +10,12 @@
     </div>
     }
   </div>
-  <div class="mlv-scheduler-month__rows" role="rowgroup" #grid>
+  <div
+    class="mlv-scheduler-month__rows"
+    role="rowgroup"
+    #grid
+    (pointerdown)="_onGridPointerDown($event)"
+  >
     @for (row of _rows(); track row.index) {
     <div class="mlv-scheduler-month__row" role="row">
       @for (cell of row.cells; track cell.dayIndex) {
@@ -19,7 +24,9 @@
         role="gridcell"
         [class.mlv-scheduler-month__cell--outside]="cell.outside"
         [class.mlv-scheduler-month__cell--today]="cell.today"
+        [class.mlv-scheduler-month__cell--selected]="_isSelected(cell.dayIndex)"
         [attr.aria-label]="cell.label"
+        [attr.aria-selected]="_isSelected(cell.dayIndex) || null"
         [attr.tabindex]="cell.dayIndex === _focusedIndex() ? 0 : -1"
         [attr.data-day-index]="cell.dayIndex"
         data-minutes="all-day"

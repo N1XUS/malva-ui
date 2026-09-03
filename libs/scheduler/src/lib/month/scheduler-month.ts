@@ -18,6 +18,7 @@ import {
   type TemplateRef,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { attachPointerDrag } from '../drag/scheduler-pointer';
 import {
   DOWN_ARROW,
   LEFT_ARROW,
@@ -47,7 +48,10 @@ import {
   type MlvSchedulerContext,
   type MlvSchedulerInteractionKind,
 } from '../scheduler/scheduler-context';
-import type { MlvSchedulerEvent } from '../scheduler/scheduler.types';
+import type {
+  MlvSchedulerEvent,
+  MlvSchedulerRangeSelectEvent,
+} from '../scheduler/scheduler.types';
 
 /** Lanes assumed while nothing can be measured (server, jsdom, zero-height host). */
 const FALLBACK_VISIBLE_LANES = 3;
@@ -74,6 +78,11 @@ interface MlvSchedulerMonthCell<D, TData> {
 interface MlvSchedulerMonthRow<D, TData> {
   readonly index: number;
   readonly cells: readonly MlvSchedulerMonthCell<D, TData>[];
+}
+
+/** @internal Position of a grid cell: a day. The month grid selects whole days only. */
+interface MonthPos {
+  readonly dayIndex: number;
 }
 
 /**
@@ -244,6 +253,69 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     return this._defaultFocus();
   });
 
+  /** @internal Range selection anchor/head; `null` when nothing is selected. Resets when the range changes. */
+  protected readonly _selection = linkedSignal<
+    readonly D[],
+    { anchor: MonthPos; head: MonthPos } | null
+  >({
+    source: this._ctx.days,
+    computation: () => null,
+  });
+
+  /** @internal Selected day span. */
+  protected readonly _selectedBounds = computed(() => {
+    const s = this._selection();
+    if (!s) return null;
+    return {
+      dayFrom: Math.min(s.anchor.dayIndex, s.head.dayIndex),
+      dayTo: Math.max(s.anchor.dayIndex, s.head.dayIndex),
+    };
+  });
+
+  /** @internal Whether a cell is inside the selection. Called from the template per cell. */
+  protected _isSelected(dayIndex: number): boolean {
+    const b = this._selectedBounds();
+    return !!b && dayIndex >= b.dayFrom && dayIndex <= b.dayTo;
+  }
+
+  /** @private Timestamp until which a `click` on a cell is ignored (the click that trails a drag-select). */
+  private _ignoreClicksUntil = 0;
+
+  /** @private Cell under the pointer at pointerdown; becomes the anchor once the drag threshold is crossed. */
+  private _pendingAnchor: MonthPos | null = null;
+
+  /** @private Reads the cell position off an event target. */
+  private _posOf(target: EventTarget | null): MonthPos | null {
+    const cell = (target as Element | null)?.closest<HTMLElement>(
+      '[data-day-index]',
+    );
+    if (!cell) return null;
+    return { dayIndex: Number(cell.dataset['dayIndex']) };
+  }
+
+  /** @internal Remembers the pressed cell for the range-select tracker. */
+  protected _onGridPointerDown(event: Event): void {
+    this._pendingAnchor = this._posOf(event.target);
+  }
+
+  /** @internal Commits the selection as an all-day `rangeSelect` and clears it. */
+  protected _commitSelection(
+    source: MlvSchedulerRangeSelectEvent<D>['source'],
+  ): void {
+    const b = this._selectedBounds();
+    this._selection.set(null);
+    if (!b) return;
+    const ctx = this._ctx;
+    const adapter = ctx.adapter;
+    const days = ctx.days();
+    ctx.emitRangeSelect({
+      start: adapter.startOfDay(days[b.dayFrom]),
+      end: adapter.addCalendarDays(days[b.dayTo], 1),
+      allDay: true,
+      source,
+    });
+  }
+
   constructor() {
     afterRenderEffect(() => {
       const request = this._ctx.pendingFocus();
@@ -308,6 +380,51 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       this._measureLanes();
     });
 
+    afterRenderEffect((onCleanup) => {
+      const grid = this._grid()?.nativeElement;
+      if (!grid || !this._isBrowser) return;
+      const detach = this._zone.runOutsideAngular(() =>
+        attachPointerDrag(
+          grid,
+          {
+            onStart: () => {
+              const pos = this._pendingAnchor;
+              if (!pos || !this._ctx.selectable()) return;
+              this._zone.run(() =>
+                this._selection.set({ anchor: pos, head: pos }),
+              );
+            },
+            onMove: (_p, event) => {
+              const s = this._selection();
+              const pos = this._posOf(event.target);
+              if (!s || !pos) return;
+              if (pos.dayIndex === s.head.dayIndex) return;
+              this._zone.run(() =>
+                this._selection.set({ anchor: s.anchor, head: pos }),
+              );
+            },
+            onEnd: (_p, moved) => {
+              this._pendingAnchor = null;
+              if (!moved) return;
+              this._ignoreClicksUntil = performance.now() + 300;
+              this._zone.run(() => this._commitSelection('pointer'));
+            },
+            onCancel: () => {
+              this._pendingAnchor = null;
+              this._zone.run(() => this._selection.set(null));
+            },
+          },
+          {
+            capture: false,
+            threshold: 5,
+            ignore: (t) =>
+              !!t.closest('.mlv-scheduler-event, .mlv-scheduler-month__more'),
+          },
+        ),
+      );
+      onCleanup(detach);
+    });
+
     this._destroyRef.onDestroy(() => this._closePopover());
   }
 
@@ -341,6 +458,7 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     cell: MlvSchedulerMonthCell<D, TData>,
     event: MouseEvent,
   ): void {
+    if (kind === 'click' && performance.now() < this._ignoreClicksUntil) return;
     const target = event.target as HTMLElement;
     if (target.closest('.mlv-scheduler-event, .mlv-scheduler-month__more'))
       return;

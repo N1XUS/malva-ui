@@ -2,7 +2,9 @@
   <div
     class="mlv-scheduler-time-grid__sheet"
     role="grid"
+    #sheet
     [attr.aria-label]="_gridLabel()"
+    (pointerdown)="_onSheetPointerDown($event)"
   >
     <div class="mlv-scheduler-time-grid__top">
       <div class="mlv-scheduler-time-grid__header" role="row">
@@ -32,7 +34,9 @@
           class="mlv-scheduler-time-grid__all-day-cell"
           role="gridcell"
           [class.mlv-scheduler-time-grid__all-day-cell--today]="column.today"
+          [class.mlv-scheduler-time-grid__all-day-cell--selected]="_isSelected(column.dayIndex, null)"
           [attr.aria-label]="column.label"
+          [attr.aria-selected]="_isSelected(column.dayIndex, null) || null"
           [attr.tabindex]="_focus().dayIndex === column.dayIndex && _focus().minutes === null ? 0 : -1"
           [attr.data-day-index]="column.dayIndex"
           data-minutes="all-day"
@@ -91,7 +95,9 @@
           role="gridcell"
           [class.mlv-scheduler-time-grid__slot--business]="slot.business"
           [class.mlv-scheduler-time-grid__slot--hour]="slot.hour"
+          [class.mlv-scheduler-time-grid__slot--selected]="_isSelected(column.dayIndex, slot.minutes)"
           [attr.aria-label]="slot.label"
+          [attr.aria-selected]="_isSelected(column.dayIndex, slot.minutes) || null"
           [attr.tabindex]="_focus().dayIndex === column.dayIndex && _focus().minutes === slot.minutes ? 0 : -1"
           [attr.data-day-index]="column.dayIndex"
           [attr.data-minutes]="slot.minutes"

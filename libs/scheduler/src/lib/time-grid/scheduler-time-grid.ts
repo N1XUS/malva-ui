@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  NgZone,
+  PLATFORM_ID,
   ViewEncapsulation,
   afterNextRender,
   afterRenderEffect,
@@ -11,6 +13,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import {
   DOWN_ARROW,
   LEFT_ARROW,
@@ -19,6 +22,7 @@ import {
 } from '@angular/cdk/keycodes';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { attachPointerDrag } from '../drag/scheduler-pointer';
 import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
 import { MlvSchedulerDropList } from '../drag/scheduler-drop-list';
 import { MlvSchedulerEventChip } from '../event/scheduler-event';
@@ -47,6 +51,7 @@ import {
   type MlvSchedulerContext,
   type MlvSchedulerInteractionKind,
 } from '../scheduler/scheduler-context';
+import type { MlvSchedulerRangeSelectEvent } from '../scheduler/scheduler.types';
 
 /** Pixel offset that puts `minutes` at the top of the viewport. */
 export function scrollOffsetFor(
@@ -104,6 +109,12 @@ interface MlvSchedulerGridFocus {
   readonly minutes: number | null;
 }
 
+/** @internal Position of a grid cell: a day and a slot start, or `null` minutes for the all-day row. */
+interface GridPos {
+  readonly dayIndex: number;
+  readonly minutes: number | null;
+}
+
 /**
  * Week / day time grid: sticky day header + all-day lanes, an hour gutter and
  * one column of slots per day with absolutely positioned event chips.
@@ -136,6 +147,13 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   private readonly _drag = inject(MlvSchedulerDragService<D, TData>);
   /** @private Scroll container. */
   private readonly _scrollbar = viewChild.required(MlvScrollbar);
+  /** @private The `role="grid"` sheet; range-selection pointer tracking attaches here. */
+  private readonly _sheet =
+    viewChild.required<ElementRef<HTMLElement>>('sheet');
+  /** @private Pointer listeners run outside change detection. */
+  private readonly _zone = inject(NgZone);
+  /** @private No pointer drag on the server. */
+  private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /** @internal Model events plus the drag preview ghost. */
   protected readonly _events = computed(() =>
@@ -306,6 +324,100 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     return this._defaultFocus();
   });
 
+  /** @internal Range selection anchor/head; `null` when nothing is selected. Resets when the range changes. */
+  protected readonly _selection = linkedSignal<
+    readonly D[],
+    { anchor: GridPos; head: GridPos } | null
+  >({
+    source: this._ctx.days,
+    computation: () => null,
+  });
+
+  /** @internal Selected rectangle: day span and minute span (or all-day). */
+  protected readonly _selectedBounds = computed(() => {
+    const s = this._selection();
+    if (!s) return null;
+    const allDay = s.anchor.minutes === null;
+    const a = s.anchor.minutes ?? 0;
+    const h = s.head.minutes ?? a;
+    return {
+      allDay,
+      dayFrom: Math.min(s.anchor.dayIndex, s.head.dayIndex),
+      dayTo: Math.max(s.anchor.dayIndex, s.head.dayIndex),
+      from: allDay ? 0 : Math.min(a, h),
+      to: allDay ? 0 : Math.max(a, h),
+    };
+  });
+
+  /** @internal Whether a cell is inside the selection. Called from the template per cell. */
+  protected _isSelected(dayIndex: number, minutes: number | null): boolean {
+    const b = this._selectedBounds();
+    if (!b || dayIndex < b.dayFrom || dayIndex > b.dayTo) return false;
+    if (b.allDay) return minutes === null;
+    return minutes !== null && minutes >= b.from && minutes <= b.to;
+  }
+
+  /** @private Timestamp until which a `click` on a cell is ignored (the click that trails a drag-select). */
+  private _ignoreClicksUntil = 0;
+
+  /** @private Cell under the pointer at pointerdown; becomes the anchor once the drag threshold is crossed. */
+  private _pendingAnchor: GridPos | null = null;
+
+  /** @private Reads the cell position off an event target. */
+  private _posOf(target: EventTarget | null): GridPos | null {
+    const cell = (target as Element | null)?.closest<HTMLElement>(
+      '[data-day-index][data-minutes]',
+    );
+    if (!cell) return null;
+    const minutes =
+      cell.dataset['minutes'] === 'all-day'
+        ? null
+        : Number(cell.dataset['minutes']);
+    return { dayIndex: Number(cell.dataset['dayIndex']), minutes };
+  }
+
+  /** @internal Remembers the pressed cell for the range-select tracker. */
+  protected _onSheetPointerDown(event: Event): void {
+    this._pendingAnchor = this._posOf(event.target);
+  }
+
+  /** @internal Commits the selection as a `rangeSelect` and clears it. */
+  protected _commitSelection(
+    source: MlvSchedulerRangeSelectEvent<D>['source'],
+  ): void {
+    const b = this._selectedBounds();
+    this._selection.set(null);
+    if (!b) return;
+    const ctx = this._ctx;
+    const adapter = ctx.adapter;
+    const days = ctx.days();
+    if (b.allDay) {
+      ctx.emitRangeSelect({
+        start: adapter.startOfDay(days[b.dayFrom]),
+        end: adapter.addCalendarDays(days[b.dayTo], 1),
+        allDay: true,
+        source,
+      });
+      return;
+    }
+    const start = adapter.withTime(
+      days[b.dayFrom],
+      Math.floor(b.from / 60),
+      b.from % 60,
+    );
+    const endMinutes = Math.min(b.to + ctx.slotDuration(), ctx.maxMinutes());
+    const endDay = days[b.dayTo];
+    const end =
+      endMinutes >= 1440
+        ? adapter.startOfDay(adapter.addCalendarDays(endDay, 1))
+        : adapter.withTime(
+            endDay,
+            Math.floor(endMinutes / 60),
+            endMinutes % 60,
+          );
+    ctx.emitRangeSelect({ start, end, allDay: false, source });
+  }
+
   constructor() {
     afterRenderEffect(() => {
       const request = this._ctx.pendingFocus();
@@ -338,6 +450,59 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     });
 
     afterNextRender(() => this._scrollTo(this._initialMinutes()));
+
+    afterRenderEffect((onCleanup) => {
+      const sheet = this._sheet()?.nativeElement;
+      if (!sheet || !this._isBrowser) return;
+      const detach = this._zone.runOutsideAngular(() =>
+        attachPointerDrag(
+          sheet,
+          {
+            onStart: () => {
+              const pos = this._pendingAnchor;
+              if (!pos || !this._ctx.selectable()) return;
+              this._zone.run(() =>
+                this._selection.set({ anchor: pos, head: pos }),
+              );
+            },
+            onMove: (_p, event) => {
+              const s = this._selection();
+              const pos = this._posOf(event.target);
+              if (
+                !s ||
+                !pos ||
+                (pos.minutes === null) !== (s.anchor.minutes === null)
+              )
+                return;
+              if (
+                pos.dayIndex === s.head.dayIndex &&
+                pos.minutes === s.head.minutes
+              )
+                return;
+              this._zone.run(() =>
+                this._selection.set({ anchor: s.anchor, head: pos }),
+              );
+            },
+            onEnd: (_p, moved) => {
+              this._pendingAnchor = null;
+              if (!moved) return;
+              this._ignoreClicksUntil = performance.now() + 300;
+              this._zone.run(() => this._commitSelection('pointer'));
+            },
+            onCancel: () => {
+              this._pendingAnchor = null;
+              this._zone.run(() => this._selection.set(null));
+            },
+          },
+          {
+            capture: false,
+            threshold: 5,
+            ignore: (t) => !!t.closest('.mlv-scheduler-event, button'),
+          },
+        ),
+      );
+      onCleanup(detach);
+    });
   }
 
   /** @protected Pointer interaction on a slot. */
@@ -347,6 +512,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     slot: MlvSchedulerSlot,
     event: MouseEvent,
   ): void {
+    if (kind === 'click' && performance.now() < this._ignoreClicksUntil) return;
     if ((event.target as HTMLElement).closest('.mlv-scheduler-event')) return;
     this._ctx.emitSlotInteraction(kind, {
       date: this._slotDate(column.date, slot.minutes),
@@ -362,6 +528,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     column: MlvSchedulerTimeColumn<D, TData>,
     event: MouseEvent,
   ): void {
+    if (kind === 'click' && performance.now() < this._ignoreClicksUntil) return;
     if ((event.target as HTMLElement).closest('.mlv-scheduler-event')) return;
     this._ctx.emitSlotInteraction(kind, {
       date: column.date,

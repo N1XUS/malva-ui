@@ -1,19 +1,27 @@
-import { NgTemplateOutlet } from '@angular/common';
+import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  NgZone,
+  PLATFORM_ID,
   ViewEncapsulation,
+  afterRenderEffect,
   computed,
   inject,
   input,
+  viewChild,
 } from '@angular/core';
 import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { attachPointerDrag } from '../drag/scheduler-pointer';
 import {
   lastDayOf,
+  resolveResize,
   spansMultipleDays,
   type MlvSchedulerNormalizedEvent,
 } from '../layout/scheduler-layout';
+import { minutesFromOffset } from '../layout/scheduler-time';
 import {
   MLV_SCHEDULER_CONTEXT,
   type MlvSchedulerContext,
@@ -55,6 +63,7 @@ import type { MlvSchedulerEventContext } from '../scheduler/scheduler.types';
     '(dblclick)': '_onPointer("dblclick", $event)',
     '(contextmenu)': '_onPointer("contextmenu", $event)',
     '(keydown)': '_onKeydown($event)',
+    '(pointerdown)': '_onHostPointerDown($event)',
   },
 })
 export class MlvSchedulerEventChip<D = Date, TData = unknown> {
@@ -75,8 +84,17 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
   protected readonly _ctx = inject(
     MLV_SCHEDULER_CONTEXT,
   ) as MlvSchedulerContext<D, TData>;
-  /** @private Host element, handed to interaction payloads. */
-  private readonly _host = inject(ElementRef<HTMLElement>).nativeElement;
+  /** @private Host element: interaction payloads, and geometry / owning cell-column lookups for resize. */
+  private readonly _host: HTMLElement = inject(ElementRef<HTMLElement>)
+    .nativeElement;
+  /** @private Resize handle; present only while `_resizable()`. */
+  private readonly _handle = viewChild<ElementRef<HTMLElement>>('handle');
+  /** @private Pointer listeners run outside change detection. */
+  private readonly _zone = inject(NgZone);
+  /** @private Direction of the chip; lane resize maps pointer travel to days through it. */
+  private readonly _rtl = inject(MlvRtlService);
+  /** @private Pointer events exist only in the browser. */
+  private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /** The underlying event. */
   readonly event = computed(() => this.normalized().event);
@@ -134,6 +152,17 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     }),
   );
 
+  constructor() {
+    afterRenderEffect((onCleanup) => {
+      const handle = this._handle()?.nativeElement;
+      if (!handle || !this._isBrowser || this._ghost()) return;
+      const detach = this._zone.runOutsideAngular(() =>
+        this._attachResize(handle),
+      );
+      onCleanup(detach);
+    });
+  }
+
   /** Focuses the host. */
   focus(): void {
     this._host.focus();
@@ -164,5 +193,135 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
         nativeEvent: event,
       });
     }
+  }
+
+  /**
+   * @internal Keeps a press on the resize handle from starting a SortableJS
+   * drag: SortableJS's `filter` matches `[data-draggable="false"]` on the
+   * chip itself, not on descendants, and listens for `pointerdown` on the
+   * list element in the bubbling phase — stopping propagation here is enough.
+   */
+  protected _onHostPointerDown(event: Event): void {
+    if (
+      (event.target as Element | null)?.closest(
+        '.mlv-scheduler-event__resize-handle',
+      )
+    ) {
+      event.stopPropagation();
+    }
+  }
+
+  /** @private Wires the resize handle: preview through CSS custom properties, commit on release. */
+  private _attachResize(handle: HTMLElement): () => void {
+    const host = this._host;
+    let restore: (() => void) | null = null;
+    let originX = 0;
+    let baseSpan = 1;
+    let pending: { dayIndex: number; minutes: number | null } | null = null;
+
+    return attachPointerDrag(
+      handle,
+      {
+        onStart: (origin) => {
+          const top = host.style.getPropertyValue('--mlv-scheduler-event-top');
+          const height = host.style.getPropertyValue(
+            '--mlv-scheduler-event-height',
+          );
+          const span = host.style.getPropertyValue('--mlv-scheduler-span');
+          restore = () => {
+            host.style.setProperty('--mlv-scheduler-event-top', top);
+            host.style.setProperty('--mlv-scheduler-event-height', height);
+            host.style.setProperty('--mlv-scheduler-span', span);
+          };
+          originX = origin.x;
+          baseSpan = Math.max(1, Number(span) || 1);
+          pending = null;
+        },
+        onMove: (point) => {
+          pending = this.lane()
+            ? this._previewLaneResize(point.x, originX, baseSpan)
+            : this._previewTimedResize(point.y);
+        },
+        onEnd: (_point, moved) => {
+          if (!moved || !pending) {
+            restore?.();
+            return;
+          }
+          const target = pending;
+          const ctx = this._ctx;
+          this._zone.run(() => {
+            const next = resolveResize(
+              ctx.adapter,
+              this.normalized(),
+              target,
+              ctx.days(),
+              ctx.snap(),
+            );
+            const ok = ctx.commitChange(
+              'resize',
+              this.normalized(),
+              next,
+              'pointer',
+            );
+            if (!ok) restore?.();
+            ctx.suppressNextClick();
+          });
+        },
+        onCancel: () => restore?.(),
+      },
+      { threshold: 3 },
+    );
+  }
+
+  /** @private Timed chip: end minute from the pointer's vertical position inside the owning column. */
+  private _previewTimedResize(
+    y: number,
+  ): { dayIndex: number; minutes: number } | null {
+    const column = this._host.closest<HTMLElement>(
+      '.mlv-scheduler-time-grid__column',
+    );
+    if (!column) return null;
+    const rect = column.getBoundingClientRect();
+    const ctx = this._ctx;
+    const min = ctx.minMinutes();
+    const span = ctx.maxMinutes() - min;
+    const end = minutesFromOffset(
+      y - rect.top,
+      rect.height,
+      min,
+      ctx.maxMinutes(),
+      ctx.snap(),
+    );
+    const top =
+      parseFloat(
+        this._host.style.getPropertyValue('--mlv-scheduler-event-top'),
+      ) || 0;
+    const endPct = ((end - min) / span) * 100;
+    const minHeight = (ctx.snap() / span) * 100;
+    this._host.style.setProperty(
+      '--mlv-scheduler-event-height',
+      `${Math.max(minHeight, endPct - top)}%`,
+    );
+    return { dayIndex: this.dayIndex(), minutes: end };
+  }
+
+  /** @private Lane bar: span from the pointer's horizontal travel in whole cell widths (mirrored in RTL). */
+  private _previewLaneResize(
+    x: number,
+    originX: number,
+    baseSpan: number,
+  ): { dayIndex: number; minutes: null } | null {
+    const cell = this._host.closest<HTMLElement>('[data-day-index]');
+    if (!cell) return null;
+    const cellWidth = cell.getBoundingClientRect().width;
+    if (!cellWidth) return null;
+    // physical → logical once: travel toward inline-end grows the bar
+    const travel =
+      this._rtl.resolveDirection(this._host) === 'rtl'
+        ? originX - x
+        : x - originX;
+    const span = Math.max(1, baseSpan + Math.round(travel / cellWidth));
+    this._host.style.setProperty('--mlv-scheduler-span', String(span));
+    return { dayIndex: this.dayIndex() + span - 1, minutes: null };
   }
 }
