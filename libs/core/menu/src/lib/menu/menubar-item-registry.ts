@@ -13,6 +13,7 @@ export interface MlvMenubarItemRegistry {
   unregister(item: MlvMenubarItem): void;
   resync(): void;
   syncOrder(items: readonly MlvMenubarItem[]): void;
+  enableOrderObservation(): void;
 }
 
 /** Injection token for the nearest `mlv-menubar` item registry. */
@@ -38,7 +39,35 @@ export class MlvMenubarItemRegistryStore implements MlvMenubarItemRegistry {
   private _mutationObserver: MutationObserver | null = null;
   private _observedContainer: HTMLElement | null = null;
 
+  /**
+   * Whether this registry may construct a `MutationObserver`. `false` until
+   * {@link enableOrderObservation} is called, which only ever happens from an
+   * `afterNextRender` hook — see that method for why.
+   */
+  private _orderObservationEnabled = false;
+
   readonly items = this._items.asReadonly();
+
+  /**
+   * Allows the registry to watch the shared `<mlv-menubar>` container for item
+   * insertions and removals, and starts doing so immediately.
+   *
+   * `MutationObserver` is a browser global that Node does not define, so this
+   * is called exclusively from `afterNextRender` in `mlv-menubar` — a hook
+   * that never runs on the server. Until then the registry still keeps its
+   * items in DOM order (the sort is a plain `compareDocumentPosition`, which
+   * domino implements); it simply does not subscribe to further mutations,
+   * which is the correct behaviour on a server that renders the tree once and
+   * never mutates it.
+   */
+  enableOrderObservation(): void {
+    if (this._orderObservationEnabled) {
+      return;
+    }
+
+    this._orderObservationEnabled = true;
+    this._syncObservedContainer();
+  }
 
   register(item: MlvMenubarItem): void {
     this._items.update((items) =>
@@ -86,7 +115,11 @@ export class MlvMenubarItemRegistryStore implements MlvMenubarItemRegistry {
   }
 
   private _syncObservedContainer(): void {
-    const nextContainer = mlvGetSharedMenubarContainer(this._items());
+    // Resolving a container is what leads to `new MutationObserver` below, so
+    // it is skipped entirely until a render hook has vouched for the platform.
+    const nextContainer = this._orderObservationEnabled
+      ? mlvGetSharedMenubarContainer(this._items())
+      : null;
 
     if (nextContainer === this._observedContainer) {
       return;
@@ -204,9 +237,19 @@ function mlvGetSharedMenubarContainer(
         MLV_MENUBAR_CONTAINER_SELECTOR,
       ),
     )
-    .filter(
-      (container): container is HTMLElement => container instanceof HTMLElement,
-    );
+    // A plain null check rather than `instanceof HTMLElement`. `closest()`
+    // returns an element or `null` and nothing else, so `instanceof` narrows
+    // nothing here that the null check does not — while carrying one real
+    // failure mode: `instanceof` is realm-bound, so a menubar rendered into a
+    // same-origin iframe answers `false` against the parent frame's
+    // constructor and its items would silently stop being observed.
+    //
+    // This is NOT what kept the unguarded `MutationObserver` below out of the
+    // SSR smoke suite. `@angular/platform-server` runs
+    // `Object.assign(globalThis, domino.impl)`, so during a server render
+    // domino's `HTMLElement` *is* the global one and the check passes. The
+    // gate in `_syncObservedContainer` is the whole of that fix.
+    .filter((container): container is HTMLElement => container != null);
 
   if (containers.length === 0) {
     return null;

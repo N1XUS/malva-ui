@@ -1198,68 +1198,109 @@ export class MlvDataTable {
       const viewport = this._virtualViewportRef()?.elementRef.nativeElement;
       if (!wrapper || !viewport) return;
 
-      let synchronizing = false;
-      const measureVirtualGeometry = (): void => {
-        this._updateVirtualScrollGeometry(wrapper, viewport);
-      };
-
-      const syncFromWrapper = (): void => {
-        if (synchronizing || viewport.scrollLeft === wrapper.scrollLeft) return;
-        synchronizing = true;
-        try {
-          viewport.scrollLeft = wrapper.scrollLeft;
-        } finally {
-          synchronizing = false;
-        }
-      };
-
-      const syncFromViewport = (): void => {
-        if (synchronizing || wrapper.scrollLeft === viewport.scrollLeft) return;
-        synchronizing = true;
-        try {
-          wrapper.scrollLeft = viewport.scrollLeft;
-          const acceptedScrollLeft = wrapper.scrollLeft;
-          if (viewport.scrollLeft !== acceptedScrollLeft) {
-            viewport.scrollLeft = acceptedScrollLeft;
-          }
-        } finally {
-          synchronizing = false;
-        }
-      };
-
-      // `{ passive: true }` is forwarded to `addEventListener` — a non-passive
-      // scroll listener is its own performance bug, so it is not optional.
-      //
       // Released from this effect's `onCleanup`, not `takeUntilDestroyed`:
       // `wrapper` and `viewport` are re-resolved every time the effect re-runs
       // (virtual scroll toggling, the viewport being re-created), and
       // `takeUntilDestroyed` fires only at destroy — it would leave every
       // earlier generation subscribed to an element this table no longer uses.
-      //
-      // `runOutsideAngular` is kept for consumers still on zone-based change
-      // detection, where the zone would schedule its own tick on top.
       const scrollSubscriptions = new Subscription();
-      this._ngZone.runOutsideAngular(() => {
-        scrollSubscriptions.add(
-          fromEvent(wrapper, 'scroll', { passive: true }).subscribe(
-            syncFromWrapper,
-          ),
-        );
-        scrollSubscriptions.add(
-          fromEvent(viewport, 'scroll', { passive: true }).subscribe(
-            syncFromViewport,
-          ),
-        );
-        measureVirtualGeometry();
-        syncFromWrapper();
-      });
-      scrollSubscriptions.add(
-        this._resizeService.observe(viewport).subscribe(() => {
-          measureVirtualGeometry();
-          syncFromWrapper();
-        }),
+
+      // Everything below measures live geometry (`offsetWidth`, `clientWidth`,
+      // `scrollWidth`) and attaches scroll and resize observers. None of that
+      // exists on a server: the measurements resolve `undefined`, subtract to
+      // `NaN` and serialise `NaNpx` into the markup — silently, because a NaN
+      // is not an exception and never reaches the `ErrorHandler`.
+      //
+      // `afterNextRender` does not run on the server at all, so the whole
+      // block is browser-only by construction rather than by a guard someone
+      // has to remember at each measurement site. The dependency reads stay in
+      // the effect body above, so this still re-runs when `virtualScroll`
+      // toggles or the viewport is re-created.
+      //
+      // Why this shape and not `afterRenderEffect` (which
+      // `MlvDrawerSectionsService` uses for the same class of bug): this block
+      // *subscribes* rather than measures. It must run once per generation —
+      // one pair of `scroll` listeners and one `ResizeObserver` per resolved
+      // wrapper/viewport — whereas `afterRenderEffect` re-runs its body on
+      // every render its dependencies dirty, which here would re-attach
+      // listeners repeatedly. A one-shot hook scheduled from the effect that
+      // owns the generation, with `onCleanup` releasing both the pending hook
+      // and the previous generation's subscriptions, is what keeps that
+      // one-to-one. Reach for `afterRenderEffect` when the body is idempotent
+      // work over current state; reach for this when it installs something
+      // that has to be torn down.
+      const scheduled = afterNextRender(
+        () => {
+          let synchronizing = false;
+          const measureVirtualGeometry = (): void => {
+            this._updateVirtualScrollGeometry(wrapper, viewport);
+          };
+
+          const syncFromWrapper = (): void => {
+            if (synchronizing || viewport.scrollLeft === wrapper.scrollLeft) {
+              return;
+            }
+            synchronizing = true;
+            try {
+              viewport.scrollLeft = wrapper.scrollLeft;
+            } finally {
+              synchronizing = false;
+            }
+          };
+
+          const syncFromViewport = (): void => {
+            if (synchronizing || wrapper.scrollLeft === viewport.scrollLeft) {
+              return;
+            }
+            synchronizing = true;
+            try {
+              wrapper.scrollLeft = viewport.scrollLeft;
+              const acceptedScrollLeft = wrapper.scrollLeft;
+              if (viewport.scrollLeft !== acceptedScrollLeft) {
+                viewport.scrollLeft = acceptedScrollLeft;
+              }
+            } finally {
+              synchronizing = false;
+            }
+          };
+
+          // `{ passive: true }` is forwarded to `addEventListener` — a
+          // non-passive scroll listener is its own performance bug, so it is
+          // not optional.
+          //
+          // `runOutsideAngular` is kept for consumers still on zone-based
+          // change detection, where the zone would schedule its own tick on
+          // top.
+          this._ngZone.runOutsideAngular(() => {
+            scrollSubscriptions.add(
+              fromEvent(wrapper, 'scroll', { passive: true }).subscribe(
+                syncFromWrapper,
+              ),
+            );
+            scrollSubscriptions.add(
+              fromEvent(viewport, 'scroll', { passive: true }).subscribe(
+                syncFromViewport,
+              ),
+            );
+            measureVirtualGeometry();
+            syncFromWrapper();
+          });
+          scrollSubscriptions.add(
+            this._resizeService.observe(viewport).subscribe(() => {
+              measureVirtualGeometry();
+              syncFromWrapper();
+            }),
+          );
+        },
+        { injector: this._injector },
       );
-      onCleanup(() => scrollSubscriptions.unsubscribe());
+
+      onCleanup(() => {
+        // Cancels the hook if the effect re-runs before it fires; a no-op once
+        // it has already run.
+        scheduled.destroy();
+        scrollSubscriptions.unsubscribe();
+      });
     });
 
     effect(() => {

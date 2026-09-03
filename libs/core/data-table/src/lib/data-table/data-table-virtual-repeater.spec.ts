@@ -1,8 +1,9 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import { MlvDataTable } from './data-table';
 import type { MlvDataTableColumn } from '../types';
 
@@ -78,6 +79,40 @@ describe('MlvDataTable — virtual repeater lifetime', () => {
 
     fixture = TestBed.createComponent(VirtualHostComponent);
     await settle();
+  });
+
+  it('observes the virtual viewport once the browser has rendered it', async () => {
+    // The scroll-sync block moved from the effect body into `afterNextRender`
+    // so that its geometry reads cannot run on a server, where they resolve
+    // `undefined` and serialise `NaNpx` (see the SSR smoke suite in
+    // `@malva-ui/core`). Render hooks never run on the server — but they must
+    // still run here, or the fix would have quietly disabled horizontal scroll
+    // syncing in the browser as well. jsdom reports no layout, so the resize
+    // subscription is the observable end of that block.
+    // The spy has to predate the table: the effect resolves the viewport once
+    // and its dependencies never change again, so a spy installed on the
+    // fixture built in `beforeEach` would be watching after the only call.
+    const observeSpy = vi.spyOn(
+      TestBed.inject(MlvResizeObserverService),
+      'observe',
+    );
+
+    const observed = TestBed.createComponent(VirtualHostComponent);
+    observed.detectChanges();
+    await observed.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    observed.detectChanges();
+    await observed.whenStable();
+
+    const viewport = observed.nativeElement.querySelector(
+      'cdk-virtual-scroll-viewport',
+    ) as HTMLElement;
+    const observedViewport = observeSpy.mock.calls.filter(
+      ([target]) => target === viewport,
+    ).length;
+    observeSpy.mockRestore();
+
+    expect(observedViewport).toBeGreaterThan(0);
   });
 
   it('renders rows again after the result set empties and refills', async () => {

@@ -419,6 +419,29 @@ The viewport requires an explicit height because `cdk-virtual-scroll-viewport` d
 
 `cdk-virtual-scroll-viewport` publishes its rendered range on a plain `Subject`, so a `*cdkVirtualFor` constructed while the viewport already exists receives no range until the range next changes — it renders nothing until somebody scrolls. The virtual `<tbody>` therefore keeps the repeater mounted unconditionally and drives it from an internal `_virtualRows()` computed (`flatRows()`, or `[]` while an error is shown); the no-data and error rows are siblings of the repeater, never a structural `@if` wrapped around it. With the repeater behind `@if`, any empty → refill transition (a search that matches nothing, then cleared) destroyed and rebuilt it against a surviving viewport, leaving a correctly sized scrollbar with zero rows and no message until the next scroll. No public API change; covered by `data-table-virtual-repeater.spec.ts`.
 
+### Scroll syncing and geometry are set up after render, never on a server
+
+The wrapper/viewport horizontal scroll mirroring and the gutter/extent
+measurement are registered from an **`afterNextRender`** scheduled by the
+virtual-scroll effect, not from the effect body itself. The block reads
+`offsetWidth`, `clientWidth` and `scrollWidth` and attaches `scroll` listeners
+plus a `ResizeObserver`. During server rendering the two `viewChild` refs it
+needs _do_ resolve — view queries run on the server — so the effect body ran
+there, the measurements resolved `undefined`, subtracted to `NaN`, and
+`NaNpx` was serialised into the markup. A `NaN` is not an exception, so nothing
+reached the `ErrorHandler` and the payload shipped silently corrupt.
+
+Render hooks never run on the server, so scheduling the whole block through one
+removes the class of problem rather than guarding each measurement. The
+dependency reads (`virtualScroll()`, `tableWrapperRef()`,
+`_virtualViewportRef()`) stay in the effect body, so the block is still
+re-scheduled when virtual scroll toggles or the viewport is re-created; the
+effect's `onCleanup` destroys a pending hook and unsubscribes the previous
+generation's listeners. No public API change. Covered by the SSR smoke suite in
+`@malva-ui/core` (`writes no NaN into the server payload`, with a
+`virtualScroll` host) and by `data-table-virtual-repeater.spec.ts` for the
+browser side.
+
 ### The paging effects never track the data source
 
 `MlvDataTable` pushes `page` and `perPage` onto `effectiveDataSource()` from two
