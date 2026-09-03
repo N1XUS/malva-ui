@@ -339,6 +339,12 @@ That includes the parts that look like bugs:
   wrong answer. Pinned by the `sort ordering parity — nullish rows` table,
   which asserts both the literal orders and the structural suffix property.
 - `numeric: true` is load bearing: `'item2'` before `'item10'`.
+- Who actually sees these two changes: `mlv-data-table` is the only component
+  that sorts on its own (`data-table.ts` is the sole non-spec `setSort` call
+  site in the repo). `mlv-select` / `mlv-combobox` / `[mlvAutocomplete]`
+  inherit sorting through `MlvSelectDataSource` but never set a sort
+  themselves, so their default behaviour is unchanged — they are affected only
+  when a consumer sorts the source it was given.
 - The numeric branch is `compareNumeric`, a **total order** ranked
   `-Infinity < finite < Infinity < NaN`, not `av - bv` (#81). Subtraction
   returned `NaN` whenever it was non-finite, and a comparator returning `NaN`
@@ -456,15 +462,21 @@ declarations.
     two branches, `numeric: true` (`'item2'` before `'item10'`), `NaN`,
     ±`Infinity`, the full non-finite ladder, `-0`, booleans, `Date`s, objects
     with a `toString`, an all-equal column, and the empty / single-row columns.
-    A case that #81/#83 deliberately changed carries `divergesFromOracle`,
-    which **inverts** the oracle assertion rather than skipping it — the old
-    comparator has to keep disagreeing, so the semantics cannot be reverted
-    with the suite green. Every other case still asserts oracle equality, which
-    is what preserves #10's "no drift from the decoration rewrite" guarantee;
+    A column where the **oracle** returns `NaN` for some pair carries
+    `oracleIsImplementationDefined`, which skips the oracle cross-check for
+    that case: the oracle has no defined answer there, so asserting either
+    agreement _or_ disagreement would be asserting a property of V8's TimSort.
+    The literal `asc` / `desc` expectation is the revert guard, and it is red
+    against the pre-#81 comparator. Every other case still asserts oracle
+    equality, which is what preserves #10's "no drift from the decoration
+    rewrite" guarantee;
   - a second, **row-level** parity table (`sort ordering parity — nullish
 rows`) for the case the value-level table structurally cannot reach: the
     array itself holding `null` / `undefined` rows. Each case is asserted three
-    ways — the literal order, the inverted-or-plain oracle check, and a
+    ways — the literal order, the oracle check (inverted for the directions
+    #83 changed: the old path there is `sort`'s specified `undefined`
+    hoisting, so "the old comparator still disagrees" is a claim about the
+    spec rather than about an engine), and a
     **structural** invariant derived from the result (every nullish row is in
     the trailing run, no nullish row precedes it, and the run's order is the
     input's). It includes the paging symptom for both nullish kinds
@@ -476,9 +488,14 @@ rows`) for the case the value-level table structurally cannot reach: the
     (`[3, NaN, 1, Infinity, -Infinity, NaN]`) are sorted and the results
     collapsed into a set: exactly one distinct output means the comparator
     induced a real total order, since an intransitive comparator makes `sort`'s
-    output depend on the order it happens to compare things in. The same
-    describe asserts the pre-#81 oracle yields **more** than one (81) over the
-    same input, so the defect stays demonstrable;
+    output depend on the order it happens to compare things in. Necessary
+    rather than sufficient, strictly — more than one distinct result _proves_
+    intransitivity, while exactly one is strong evidence — so the claim it
+    carries is "no intransitivity is observable over this domain".
+    A companion case asserts the pre-#81 oracle yields more than one over the
+    same input (81, in fact), which keeps the defect demonstrable. Note that
+    companion tests only the spec-local oracle, so it can never go red from a
+    source change; the revert guard is the `toBe(1)` half;
   - identity guards: `_sorted` returns a fresh array and leaves both the
     caller's array and `_filtered()` untouched, sorted or not;
   - **stability** over 1 024 rows in 4 groups, both directions;

@@ -969,14 +969,27 @@ interface SortCase {
   /** Expected `id` order under `'desc'`. */
   readonly desc: readonly number[];
   /**
-   * Set when this case's order is a **deliberate** departure from the
-   * pre-#81/#83 comparator, carrying the reason.
+   * Set when the **oracle** returns `NaN` for some pair in this column, which
+   * leaves its permutation implementation-defined (ECMA-262: a comparator
+   * returning `NaN` forfeits any ordering guarantee). The oracle cross-check
+   * is then skipped, carrying the reason.
    *
-   * The oracle cross-check is then *inverted* rather than skipped: the oracle
-   * must still disagree. Skipping it would let the semantics be reverted with
-   * the whole suite green; asserting the disagreement makes a revert red.
+   * Not inverted into "the oracle must disagree". That reads like a stronger
+   * guard and is actually a liability: it would assert a property of V8's
+   * TimSort, and the oracle already lands on the post-fix order for a third of
+   * the permutations of these very columns — so a V8 change could turn it red
+   * with nothing of ours having changed. It is the same trap #10's
+   * `engineDefined` flag existed to avoid.
+   *
+   * Nothing is lost by skipping it. The literal `asc` / `desc` assertion above
+   * is the revert guard, and it is red against the pre-#81 comparator.
+   *
+   * The row-level table's marker is a different thing and *is* inverted: the
+   * old path there is `sort`'s `undefined` hoisting, which is specified, so
+   * "the old comparator still disagrees" is a claim about the spec rather than
+   * about an engine.
    */
-  readonly divergesFromOracle?: string;
+  readonly oracleIsImplementationDefined?: string;
 }
 
 const sortCases: readonly SortCase[] = [
@@ -1040,9 +1053,9 @@ const sortCases: readonly SortCase[] = [
     values: [3, NaN, 1, 2],
     asc: [2, 3, 0, 1],
     desc: [1, 0, 3, 2],
-    divergesFromOracle:
-      'the oracle returns NaN for every pair touching the NaN, so its ' +
-      'permutation was implementation-defined — V8 leaves this input as-is',
+    oracleIsImplementationDefined:
+      'the oracle returns NaN for every pair touching the NaN — V8 happens to ' +
+      'leave this input as-is, but nothing requires it to',
   },
   {
     name: 'infinities order numerically',
@@ -1071,9 +1084,9 @@ const sortCases: readonly SortCase[] = [
     values: [3, NaN, 1, Infinity, -Infinity, NaN],
     asc: [4, 2, 0, 3, 1, 5],
     desc: [1, 5, 3, 0, 2, 4],
-    divergesFromOracle:
+    oracleIsImplementationDefined:
       'the oracle returns NaN for any pair touching either NaN, so it ' +
-      'produced 27 different permutations depending on input order',
+      'produced 81 different permutations depending on input order',
   },
   // `0 - -0` is `0`, so the two tie and stability decides.
   {
@@ -1132,11 +1145,10 @@ describe('MlvArrayDataSource sort ordering parity', () => {
         const oracle = oracleSort(rows, 'v', direction).map(
           (row) => (row as { id: number }).id,
         );
-        if (testCase.divergesFromOracle) {
-          // Inverted, not skipped — see `SortCase.divergesFromOracle`.
-          expect(oracle).not.toEqual(expected);
-        } else {
-          // …and identical to the pre-decoration comparator, element for element.
+        if (!testCase.oracleIsImplementationDefined) {
+          // …and identical to the pre-decoration comparator, element for
+          // element. Skipped where the oracle itself has no defined answer —
+          // see `SortCase.oracleIsImplementationDefined`.
           expect(oracle).toEqual(expected);
         }
       });
