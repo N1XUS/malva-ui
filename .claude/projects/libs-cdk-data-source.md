@@ -129,12 +129,21 @@ for a primitive, `null`, or `undefined` row instead of throwing. Sorting,
 filtering, and keyed search therefore all treat a nullish row as "this property
 is absent" rather than crashing on a mixed array.
 
-That absent value collates as the empty string, so such a row leads under `asc`
-— with one exception. A row that is literally `undefined` never reaches the
-comparator at all and sinks to the end in **both** directions, because
-`Array.prototype.sort` hoists `undefined` elements itself. `null` rows and
-`undefined` rows therefore sort to opposite ends. See the sort section below for
-the mechanism, and issue #83 for whether that asymmetry should be kept.
+For **sorting**, a nullish row goes further than "this property is absent": it
+is an absent _record_, and since #83 it sinks to the end in **both**
+directions. `null` and `undefined` rows are indistinguishable, they form a
+trailing run, and their relative order inside that run is the input's. They
+never reach the comparator — `_sorted` partitions them out before the sort and
+appends them afterwards. See the sort section below.
+
+Filtering and keyed search are unaffected: there a nullish row still reads as
+an absent property value and participates normally.
+
+Before #83 the two diverged, and neither half was a decision:
+`Array.prototype.sort` hoisted `undefined` **elements** to the end by itself,
+while a `null` row went through the comparator, read as `''` and led under
+`asc`. See
+[docs/migrations/2026-09-data-source-sort-semantics.md](../../docs/migrations/2026-09-data-source-sort-semantics.md).
 
 Pipeline per read: `filter (search AND every column predicate)` → `sort` →
 `slice(page, perPage)`. `totalItems()` is the post-filter count. A non-finite
@@ -298,6 +307,13 @@ ligatures, astral characters and emoji, 200-character strings, `bigint`s,
 an absent sort key. Elements are compared with `Object.is` at each index, so the
 check is exact permutation identity, not deep equality.
 
+**That fuzz records #10, and #10 only.** It ran before #81 and #83, whose whole
+point was to change ordering: a re-run today would report divergences for
+nullish rows and for non-finite numeric columns, deliberately. The
+still-standing claim is narrower than it reads — the _decoration rewrite_
+introduced no drift. What each semantics change did and did not move is pinned
+by the parity tables' `divergesFromOracle` markers instead.
+
 That includes the parts that look like bugs:
 
 - The branch keys off the **pair** (`typeof av === 'number' && typeof bv ===
@@ -308,25 +324,47 @@ That includes the parts that look like bugs:
   cannot be collapsed to a single key.
 - A `null` or `undefined` **cell value** collapses to `''`, so the two tie with
   each other and with an empty string, and sort ahead of any stringified number.
-- A row that is literally `undefined` is the exception to that, and the two
-  nullish cases stop behaving alike: `Array.prototype.sort` resolves every pair
-  involving an `undefined` **element** itself, parking it at the end in _both_
-  directions without ever calling the comparator (ECMA-262
-  `CompareArrayElements` steps 1-2). A `null` row is not hoisted and does go
-  through the comparator, so it leads under `asc`. Decorating therefore has to
-  map an `undefined` row to an `undefined` entry rather than wrapping it —
-  wrapping would hand it to the comparator, where it reads as `''` and leads
-  under `asc` instead of sinking. Pinned in both directions by the
-  `sort ordering parity — nullish rows` table.
+- A nullish **row** is a different thing from a nullish cell value, and is not
+  compared at all. `_sorted` partitions the filtered array into present rows
+  and nullish rows, sorts only the former, and appends the latter — so a
+  nullish row trails in both directions and the run keeps input order (#83).
+  It is a partition rather than a comparator branch for three reasons: a branch
+  would have to sit outside the `descending ? -cmp : cmp` negation or be
+  flipped into the lead under `desc`; partitioning takes nullish rows out of
+  the comparator's transitivity obligations entirely; and the comparator keeps
+  its cost (no extra entry field, no extra test per comparison). It also drops
+  the previous reliance on `Array.prototype.sort` hoisting `undefined`
+  **elements** (ECMA-262 `CompareArrayElements` steps 1-2), which gave
+  `undefined` rows the right answer for the wrong reason and `null` rows the
+  wrong answer. Pinned by the `sort ordering parity — nullish rows` table,
+  which asserts both the literal orders and the structural suffix property.
 - `numeric: true` is load bearing: `'item2'` before `'item10'`.
-- A number column containing `NaN` makes the comparator return `NaN`, and the
-  resulting permutation is engine-defined. Preserved, not fixed. It is reachable
-  without any `NaN` in the data, too: `Infinity - Infinity` is `NaN`, so a column
-  that merely repeats an infinity hits the same path. Those two cases are
-  asserted against the oracle only, never against a literal order — the literal
-  would pin what V8 happens to do today and would flip on a V8 change with
-  nothing of ours having changed. The oracle runs in the same engine, so it
-  still pins the property that matters: unchanged from before.
+- The numeric branch is `compareNumeric`, a **total order** ranked
+  `-Infinity < finite < Infinity < NaN`, not `av - bv` (#81). Subtraction
+  returned `NaN` whenever it was non-finite, and a comparator returning `NaN`
+  leaves `Array.prototype.sort`'s permutation implementation-defined — so the
+  result was neither ordered nor stable. That was reachable with no `NaN` in
+  the data: `Infinity - Infinity` is `NaN`, so a column merely _repeating_ an
+  infinity hit it.
+  - `NaN` is a **rank**, not a pinned end: it trails under `asc` and leads
+    under `desc`, like any other value. PostgreSQL orders float `NaN` above all
+    other values including `Infinity`, so a client-side sort matches a
+    database-side one. Contrast the nullish _row_ above, which is pinned last
+    in both directions because it is an absent record rather than a value.
+  - `-0` and `0` tie, as they did under subtraction; stability decides.
+  - Proven by permutation-invariance rather than by a literal: an intransitive
+    comparator makes `sort`'s output depend on input order, so
+    `numeric sort is a total order` sorts all 720 permutations of one
+    non-finite column and asserts a single distinct result. The same describe
+    asserts the pre-#81 comparator produces **more** than one (81, in fact),
+    so the defect stays demonstrable and the fix cannot be reverted green.
+- **Known, pre-existing, out of scope:** the _mixed-type_ branch is still not
+  transitive, independently of #81. Because the numeric branch keys off the
+  pair, two negative numbers compare numerically while either against a string
+  compares through the collator, whose `numeric: true` reads the digits after
+  the `-` sign — so `-5 < -3` numerically, `'-3' < '-4'` and `'-4' < '-5'` by
+  collation, and `[-5, -3, '-4']` is a cycle. Fixing it is a third semantics
+  decision (what a mixed column _should_ mean), not part of #81.
 - `Array.prototype.sort` is stable (ES2019) and the decorated array is what gets
   sorted, so equal keys keep their input order.
 
@@ -410,22 +448,37 @@ declarations.
     `default`, each also cross-checked against the oracle.
 
   It also carries the **sort** guards:
-  - an **ordering parity table** (17 columns × both directions) asserted twice:
+  - an **ordering parity table** (18 columns × both directions) asserted twice:
     against a literal expected order _and_ against a verbatim copy of the
-    pre-decoration comparator kept as a second oracle. It covers nullish vs
-    `''` vs text vs numbers, a mixed number/string column in both pair orders,
-    the `[1.5, 1.25]` / `[1.5, '1.25']` pair that separates the two branches,
-    `numeric: true` (`'item2'` before `'item10'`), `NaN`, ±`Infinity`, `-0`,
-    booleans, `Date`s, objects with a `toString`, an all-equal column, and the
-    empty / single-row columns. Running the same cases through the second
-    oracle is what keeps the engine-defined `NaN` permutation honest;
+    pre-decoration comparator kept as a second oracle. It covers nullish cell
+    values vs `''` vs text vs numbers, a mixed number/string column in both
+    pair orders, the `[1.5, 1.25]` / `[1.5, '1.25']` pair that separates the
+    two branches, `numeric: true` (`'item2'` before `'item10'`), `NaN`,
+    ±`Infinity`, the full non-finite ladder, `-0`, booleans, `Date`s, objects
+    with a `toString`, an all-equal column, and the empty / single-row columns.
+    A case that #81/#83 deliberately changed carries `divergesFromOracle`,
+    which **inverts** the oracle assertion rather than skipping it — the old
+    comparator has to keep disagreeing, so the semantics cannot be reverted
+    with the suite green. Every other case still asserts oracle equality, which
+    is what preserves #10's "no drift from the decoration rewrite" guarantee;
   - a second, **row-level** parity table (`sort ordering parity — nullish
 rows`) for the case the value-level table structurally cannot reach: the
-    array itself holding `null` / `undefined` rows, where `sort`'s own
-    element hoisting — not the comparator — decides the order, and where the
-    two nullish kinds stop behaving alike. It includes the paging symptom
-    (`perPage: 2` over `[undefined, {v:'a'}, {v:'b'}]` must not put a blank
-    row on page 1);
+    array itself holding `null` / `undefined` rows. Each case is asserted three
+    ways — the literal order, the inverted-or-plain oracle check, and a
+    **structural** invariant derived from the result (every nullish row is in
+    the trailing run, no nullish row precedes it, and the run's order is the
+    input's). It includes the paging symptom for both nullish kinds
+    (`perPage: 2` over `[undefined, {v:'a'}, {v:'b'}]` and over
+    `[null, {v:'a'}, {v:'b'}]` must not put a blank row on page 1) and a
+    `totalItems` guard proving the partition drops no rows;
+  - **`numeric sort is a total order`** — the transitivity proof for #81, run
+    rather than argued. All 720 permutations of one non-finite column
+    (`[3, NaN, 1, Infinity, -Infinity, NaN]`) are sorted and the results
+    collapsed into a set: exactly one distinct output means the comparator
+    induced a real total order, since an intransitive comparator makes `sort`'s
+    output depend on the order it happens to compare things in. The same
+    describe asserts the pre-#81 oracle yields **more** than one (81) over the
+    same input, so the defect stays demonstrable;
   - identity guards: `_sorted` returns a fresh array and leaves both the
     caller's array and `_filtered()` untouched, sorted or not;
   - **stability** over 1 024 rows in 4 groups, both directions;

@@ -70,6 +70,43 @@ interface MlvSortEntry<T> {
 const SORT_COLLATOR = new Intl.Collator(undefined, { numeric: true });
 
 /**
+ * @private The sort comparator's numeric branch: a **total order** over every
+ * IEEE-754 double, ranked `-Infinity < … < Infinity < NaN`.
+ *
+ * It replaces `av - bv`, which returned `NaN` whenever the subtraction was
+ * non-finite. A comparator returning `NaN` breaks the contract
+ * `Array.prototype.sort` expects, and the spec then leaves the permutation
+ * **implementation-defined** — so the result was neither ordered nor stable.
+ * That was reachable with no `NaN` in the data at all: `Infinity - Infinity`
+ * is `NaN`, so a column merely *repeating* an infinity hit it. #81.
+ *
+ * `<` / `>` do the ordering, which is what keeps this a total order rather than
+ * a subtraction: neither is ever true when a `NaN` is involved, and neither
+ * overflows. The remaining case — `!(a < b) && !(a > b)` — is an equal pair, a
+ * repeated infinity, or a `NaN`, and only the last needs a rank.
+ *
+ * **`NaN` ranks above `Infinity`**, so it trails under `asc` and leads under
+ * `desc`. It is a rank, not a pinned end: `NaN` is a value present in the
+ * column, so it flips with the direction like every other value. (A nullish
+ * *row* is the opposite case — an absent record, pinned last in both
+ * directions, handled by the partition in `_sorted` and never seen here.)
+ * PostgreSQL orders float `NaN` above all other values including `Infinity`
+ * for the same reason, so a table sorted client-side matches one sorted in the
+ * database.
+ *
+ * `-0` and `0` tie, as they did under subtraction; `sort`'s stability then
+ * keeps their input order.
+ */
+function compareNumeric(a: number, b: number): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  const aIsNaN = Number.isNaN(a);
+  const bIsNaN = Number.isNaN(b);
+  if (aIsNaN === bIsNaN) return 0;
+  return aIsNaN ? 1 : -1;
+}
+
+/**
  * Default data source for in-memory arrays.
  * Handles filtering, sorting, and pagination automatically.
  * Pass a Signal<T[]> or a plain T[] (wrapped automatically).
@@ -175,34 +212,60 @@ export class MlvArrayDataSource<T> extends MlvDataSource<T> {
    * ES2019 whatever it is handed — so it is the rebuild, not the indirection,
    * that is the hazard.)
    *
-   * The branch is unchanged and stays per-pair — see {@link MlvSortEntry.value}.
+   * The type branch is unchanged and stays per-pair — see
+   * {@link MlvSortEntry.value}. Within the numeric branch the comparison is
+   * {@link compareNumeric}, a total order rather than a subtraction (#81).
+   *
+   * **Nullish rows never reach the comparator.** They are partitioned out
+   * before the sort and appended afterwards, so they land last in both
+   * directions (#83). See the note in the body for why that is a partition and
+   * not a comparator branch.
    */
   private readonly _sorted = computed<T[]>(() => {
     const filtered = this._filtered();
     const sort = this._sort();
     if (!sort) return [...filtered];
 
-    // A row that is literally `undefined` is decorated as an `undefined`
-    // **element**, not as an entry wrapping one, and that is load bearing.
-    // `Array.prototype.sort` resolves every pair involving an `undefined`
-    // element itself — always to the end, in both directions, without ever
-    // invoking the comparator (ECMA-262 `CompareArrayElements` steps 1-2).
-    // Sorting the rows directly used to get that for free. Wrapping such a row
-    // in an entry would hand it to the comparator instead, where `_read`
-    // yields `undefined`, `?? ''` makes it the empty string, and it would lead
-    // under `asc` rather than sink. `null` rows are *not* hoisted by `sort` and
-    // must keep going through the comparator, exactly as before.
-    const decorated = filtered.map<MlvSortEntry<T> | undefined>((row) =>
-      row === undefined
-        ? undefined
-        : { row, value: this._read(row, sort.key), text: undefined },
-    );
+    // A nullish row is an absent record: it has no value in *any* column, so
+    // it sorts last however the column is sorted (#83). That is a property of
+    // the row, not a rank among the values, which is why it is a partition
+    // rather than a comparator branch:
+    //
+    // - a branch would have to sit outside `descending ? -cmp : cmp` to avoid
+    //   being flipped into the lead under `desc`, which is exactly the kind of
+    //   ordering-dependent special case that breaks transitivity by accident;
+    // - partitioning removes nullish rows from the transitivity question
+    //   entirely — the comparator only ever sees present rows;
+    // - the comparator keeps its cost: no extra field on the entry, no extra
+    //   test per comparison.
+    //
+    // It also drops the previous reliance on `Array.prototype.sort` hoisting
+    // `undefined` *elements* to the end by itself (ECMA-262
+    // `CompareArrayElements` steps 1-2). That gave `undefined` rows the right
+    // answer for the wrong reason, and gave `null` rows — which `sort` does
+    // *not* hoist — the wrong answer: they went through the comparator, read
+    // as `undefined`, stringified to `''` and led under `asc`.
+    const present: MlvSortEntry<T>[] = [];
+    const nullish: T[] = [];
+    for (let i = 0; i < filtered.length; i++) {
+      const row = filtered[i];
+      if (row === null || row === undefined) {
+        nullish.push(row);
+      } else {
+        present.push({
+          row,
+          value: this._read(row, sort.key),
+          text: undefined,
+        });
+      }
+    }
+
     const descending = sort.direction === 'desc';
 
     const compare = (a: MlvSortEntry<T>, b: MlvSortEntry<T>): number => {
       let cmp: number;
       if (typeof a.value === 'number' && typeof b.value === 'number') {
-        cmp = a.value - b.value;
+        cmp = compareNumeric(a.value, b.value);
       } else {
         // `??=` and not `||=`: `String(null ?? '')` is `''`, which must be
         // cached, not recomputed on every comparison that touches this row.
@@ -213,12 +276,13 @@ export class MlvArrayDataSource<T> extends MlvDataSource<T> {
       return descending ? -cmp : cmp;
     };
 
-    // The cast is what the note above earns: `sort` never hands the comparator
-    // one of the `undefined` elements it parks at the end by itself.
-    (decorated as MlvSortEntry<T>[]).sort(compare);
+    present.sort(compare);
 
-    // The parked `undefined` elements map straight back to `undefined` rows.
-    return decorated.map((entry) => entry?.row as T);
+    const out = present.map((entry) => entry.row);
+    // Not `out.push(...nullish)`: spreading into an argument list is bounded
+    // by the engine's argument limit, and `nullish` is caller data.
+    for (let i = 0; i < nullish.length; i++) out.push(nullish[i]);
+    return out;
   });
 
   /** Number of rows left after search and filters, before pagination. */
