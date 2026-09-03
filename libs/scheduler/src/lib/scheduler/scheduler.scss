@@ -1,0 +1,88 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+$block: mlv-scheduler;
+
+@layer mlv.components {
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-m-size),
+      0,
+      0
+    );
+
+    // Density-driven geometry (state-scoped vars only; see .claude/rules/bem-scss.md).
+    --mlv-scheduler-slot-height: 2.5rem;
+    --mlv-scheduler-lane-height: 1.5rem;
+    --mlv-scheduler-month-row-min-height: 8rem;
+    --mlv-scheduler-column-min-width: 8rem;
+    --mlv-scheduler-gutter-width: 3.5rem;
+    --mlv-scheduler-event-min-height: 1.25rem;
+
+    display: flex;
+    flex-direction: column;
+    min-block-size: 0;
+    block-size: 100%;
+    color: var(--mlv-text-primary);
+    background: var(--mlv-background-base);
+
+    &--tight {
+      --mlv-scheduler-slot-height: 1.5rem;
+      --mlv-scheduler-lane-height: 1.25rem;
+      --mlv-scheduler-month-row-min-height: 6rem;
+    }
+    &--compact {
+      --mlv-scheduler-slot-height: 2rem;
+      --mlv-scheduler-lane-height: 1.375rem;
+      --mlv-scheduler-month-row-min-height: 7rem;
+    }
+    &--spacious {
+      --mlv-scheduler-slot-height: 3rem;
+      --mlv-scheduler-lane-height: 1.75rem;
+      --mlv-scheduler-month-row-min-height: 9rem;
+    }
+    &--airy {
+      --mlv-scheduler-slot-height: 3.5rem;
+      --mlv-scheduler-lane-height: 2rem;
+      --mlv-scheduler-month-row-min-height: 10rem;
+    }
+
+    &__toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-3);
+      flex-wrap: wrap;
+      padding-block-end: var(--mlv-spacing-3);
+    }
+
+    &__nav {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-1);
+    }
+
+    &__nav-icon {
+      // previous / next chevrons follow the inline axis
+      transform: scaleX(var(--mlv-inline-direction));
+    }
+
+    &__title {
+      margin: 0;
+      flex: 1 1 auto;
+      font-family: var(--mlv-typography-family-heading);
+      font-size: var(--mlv-typography-heading-h5-size);
+      font-weight: var(--mlv-typography-heading-h5-weight);
+      line-height: var(--mlv-typography-heading-h5-line-height);
+      text-align: start;
+    }
+
+    &__body {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-block-size: 0;
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}
