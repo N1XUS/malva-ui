@@ -19,6 +19,8 @@ import {
 } from '@angular/cdk/keycodes';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
+import { MlvSchedulerDropList } from '../drag/scheduler-drop-list';
 import { MlvSchedulerEventChip } from '../event/scheduler-event';
 import {
   findCellElement,
@@ -112,7 +114,7 @@ interface MlvSchedulerGridFocus {
   styleUrl: './scheduler-time-grid.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvScrollbar, MlvSchedulerEventChip],
+  imports: [MlvScrollbar, MlvSchedulerEventChip, MlvSchedulerDropList],
   host: {
     class: 'mlv-scheduler-time-grid',
     '[style.--mlv-scheduler-day-count]': '_ctx.days().length',
@@ -130,8 +132,15 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     .nativeElement;
   /** @private Mirrors horizontal arrows in RTL. */
   private readonly _rtl = inject(MlvRtlService);
+  /** @private Drag engine of the owning scheduler. */
+  private readonly _drag = inject(MlvSchedulerDragService<D, TData>);
   /** @private Scroll container. */
   private readonly _scrollbar = viewChild.required(MlvScrollbar);
+
+  /** @internal Model events plus the drag preview ghost. */
+  protected readonly _events = computed(() =>
+    this._drag.withPreview(this._ctx.normalizedEvents()),
+  );
 
   /** @protected Slots per column. */
   protected readonly _slotCount = computed(() =>
@@ -195,7 +204,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   protected readonly _allDayLayout = computed(() => {
     const segments = sliceRows(
       this._ctx.adapter,
-      this._ctx.normalizedEvents(),
+      this._events(),
       this._ctx.days(),
       this._ctx.days().length || 1,
       'lane',
@@ -222,7 +231,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       const today = this._ctx.today();
       const weekdays = adapter.getDayOfWeekNames('short');
       const clustered = clusterColumns(
-        sliceColumns(adapter, this._ctx.normalizedEvents(), days, min, max),
+        sliceColumns(adapter, this._events(), days, min, max),
       );
       const lanes = this._allDayLayout().visible;
       return days.map((date, dayIndex) => {
@@ -527,20 +536,26 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     findCellElement(this._host, dayIndex, minutes)?.focus();
   }
 
-  /** @private First chip whose segment starts inside the slot, or the first all-day chip of the day. */
+  /**
+   * @private First chip whose segment starts inside the slot, or the first all-day chip of the day.
+   * Skips the drag-preview ghost — it is `aria-hidden`/`tabindex="-1"` and must never receive focus.
+   */
   private _chipAt(position: MlvSchedulerGridFocus): HTMLElement | null {
     const column = this._columns()[position.dayIndex];
     if (!column) return null;
     const minutes = position.minutes;
     if (minutes === null) {
-      const first = column.laneSegments[0];
+      const first = column.laneSegments.find((s) => !s.normalized.ghost);
       return first
         ? findEventElement(this._host, first.normalized.event.id)
         : null;
     }
     const end = minutes + this._ctx.slotDuration();
     const segment = column.segments.find(
-      (s) => s.startMinutes >= minutes && s.startMinutes < end,
+      (s) =>
+        !s.normalized.ghost &&
+        s.startMinutes >= minutes &&
+        s.startMinutes < end,
     );
     return segment
       ? findEventElement(this._host, segment.normalized.event.id)

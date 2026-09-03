@@ -36,10 +36,6 @@ export default [
             '@malva-ui/core',
             '@malva-ui/i18n',
             'rxjs',
-            // Bundled (non-peer) runtime dependency for the drag engine. The
-            // SortableJS directive that imports it lands in a later task;
-            // remove this entry as soon as a source file imports 'sortablejs'.
-            'sortablejs',
           ],
         },
       ],

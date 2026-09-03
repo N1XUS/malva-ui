@@ -13,6 +13,8 @@ export interface MlvSchedulerNormalizedEvent<D = Date, TData = unknown> {
   /** Exclusive, strictly after `start`. */
   readonly end: D;
   readonly allDay: boolean;
+  /** Set on the drag preview copy rendered while a pointer drag is in progress. */
+  readonly ghost?: boolean;
 }
 
 /** A run of consecutive visible days inside one row (month week row or the all-day row). */

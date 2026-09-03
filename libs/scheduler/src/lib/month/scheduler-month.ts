@@ -26,6 +26,8 @@ import {
 } from '@angular/cdk/keycodes';
 import { MlvPopupService, type MlvPopupHandle } from '@malva-ui/core/popup';
 import { MlvResizeObserverService, MlvRtlService } from '@malva-ui/cdk/utils';
+import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
+import { MlvSchedulerDropList } from '../drag/scheduler-drop-list';
 import { MlvSchedulerEventChip } from '../event/scheduler-event';
 import {
   findCellElement,
@@ -84,7 +86,7 @@ interface MlvSchedulerMonthRow<D, TData> {
   styleUrl: './scheduler-month.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvSchedulerEventChip],
+  imports: [MlvSchedulerEventChip, MlvSchedulerDropList],
   host: {
     class: 'mlv-scheduler-month',
     '[style.--mlv-scheduler-row-length]': '_ctx.rowLength()',
@@ -111,6 +113,13 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   /** @private Closes the popover on destroy. */
   private readonly _destroyRef = inject(DestroyRef);
+  /** @private Drag engine of the owning scheduler. */
+  private readonly _drag = inject(MlvSchedulerDragService<D, TData>);
+
+  /** @internal Model events plus the drag preview ghost. */
+  protected readonly _events = computed(() =>
+    this._drag.withPreview(this._ctx.normalizedEvents()),
+  );
 
   /** @private Week-row container, observed for size. */
   private readonly _grid = viewChild.required<ElementRef<HTMLElement>>('grid');
@@ -161,13 +170,7 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     const today = this._ctx.today();
     const anchorMonth = adapter.getMonth(this._ctx.date());
     const visibleLanes = this._visibleLanes();
-    const segments = sliceRows(
-      adapter,
-      this._ctx.normalizedEvents(),
-      days,
-      rowLength,
-      'all',
-    );
+    const segments = sliceRows(adapter, this._events(), days, rowLength, 'all');
     const byRow = new Map<number, MlvSchedulerRowSegment<D, TData>[]>();
     for (const segment of segments) {
       const row = Math.floor(segment.startIndex / rowLength);
@@ -396,7 +399,9 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
         this._emitKeyboardSlot(dayIndex, target, event);
         break;
       case 'Enter': {
-        const chip = target.querySelector<HTMLElement>('.mlv-scheduler-event');
+        const chip = target.querySelector<HTMLElement>(
+          '.mlv-scheduler-event:not(.mlv-scheduler-event--ghost)',
+        );
         if (chip) chip.focus();
         else this._emitKeyboardSlot(dayIndex, target, event);
         break;

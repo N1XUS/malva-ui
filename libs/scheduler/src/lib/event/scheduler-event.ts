@@ -35,13 +35,15 @@ import type { MlvSchedulerEventContext } from '../scheduler/scheduler.types';
   imports: [NgTemplateOutlet, LucideChevronLeft, LucideChevronRight],
   host: {
     class: 'mlv-scheduler-event',
-    role: 'button',
-    '[attr.tabindex]': 'tabIndex()',
-    '[attr.aria-label]': '_label()',
+    '[attr.role]': '_ghost() ? null : "button"',
+    '[attr.tabindex]': '_ghost() ? -1 : tabIndex()',
+    '[attr.aria-hidden]': '_ghost() ? "true" : null',
+    '[attr.aria-label]': '_ghost() ? null : _label()',
     '[attr.aria-describedby]':
-      '_draggable() || _resizable() ? _ctx.dragHintId : null',
-    '[attr.data-event-id]': 'event().id',
-    '[attr.data-draggable]': '_draggable() ? null : "false"',
+      '!_ghost() && (_draggable() || _resizable()) ? _ctx.dragHintId : null',
+    '[attr.data-event-id]': 'normalized().event.id',
+    '[attr.data-draggable]': '_draggable() && !_ghost() ? null : "false"',
+    '[class.mlv-scheduler-event--ghost]': '_ghost()',
     '[class.mlv-scheduler-event--all-day]': 'lane()',
     '[class.mlv-scheduler-event--timed]': '!lane()',
     '[class.mlv-scheduler-event--continues-before]': 'continuesBefore()',
@@ -78,6 +80,8 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
 
   /** The underlying event. */
   readonly event = computed(() => this.normalized().event);
+  /** @internal Drag-preview copy: inert, unlabeled, not draggable. */
+  protected readonly _ghost = computed(() => this.normalized().ghost === true);
   /** @protected Drag allowed for this chip. */
   protected readonly _draggable = computed(
     () => this._ctx.editable() && (this.event().draggable ?? true),
@@ -140,6 +144,7 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     kind: MlvSchedulerInteractionKind,
     nativeEvent: MouseEvent,
   ): void {
+    if (this._ghost()) return;
     if (kind === 'click' && this._ctx.claimSuppressedClick()) return;
     this._ctx.emitEventInteraction(kind, {
       event: this.event(),
@@ -150,6 +155,7 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
 
   /** @protected Enter / Space activate. Alt+Arrow move / resize are added by the keyboard task. */
   protected _onKeydown(event: KeyboardEvent): void {
+    if (this._ghost()) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       this._ctx.emitEventInteraction('click', {

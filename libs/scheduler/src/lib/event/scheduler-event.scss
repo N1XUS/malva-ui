@@ -151,14 +151,32 @@ $tones: (
       --mlv-scheduler-event-bar: var(--mlv-scheduler-event-color);
     }
 
+    // SortableJS: the original chip while its clone is under the pointer.
     &--dragging {
       opacity: 0.4;
     }
 
+    // SortableJS: the pressed chip before the drag starts.
+    &--chosen {
+      box-shadow: var(--mlv-shadow-raised);
+    }
+
+    // SortableJS: the clone that follows the pointer (appended to <body>).
+    &--fallback {
+      pointer-events: none;
+      opacity: 0.92;
+      box-shadow: var(--mlv-shadow-floating);
+      z-index: var(--mlv-z-overlay, 1000);
+      cursor: grabbing;
+    }
+
+    // Our own drag preview at the would-be position.
     &--ghost {
       pointer-events: none;
-      opacity: 0.7;
-      outline: var(--mlv-stroke-width) dashed var(--mlv-border-focus);
+      background: var(--mlv-background-accent-1-pale);
+      border: var(--mlv-stroke-width) dashed var(--mlv-scheduler-event-bar);
+      border-inline-start-width: 0.1875rem;
+      opacity: 0.9;
     }
   }
 

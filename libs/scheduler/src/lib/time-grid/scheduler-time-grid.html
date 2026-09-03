@@ -42,7 +42,11 @@
           (dblclick)="_onAllDayPointer('dblclick', column, $event)"
           (contextmenu)="_onAllDayPointer('contextmenu', column, $event)"
         >
-          <div class="mlv-scheduler-time-grid__all-day-lanes">
+          <div
+            class="mlv-scheduler-time-grid__all-day-lanes"
+            mlvSchedulerDropList="all-day-cell"
+            [dayIndex]="column.dayIndex"
+          >
             @for (segment of column.laneSegments; track segment.key) {
             <mlv-scheduler-event
               class="mlv-scheduler-time-grid__lane-event"
@@ -75,9 +79,11 @@
       <div
         class="mlv-scheduler-time-grid__column"
         role="row"
+        mlvSchedulerDropList="time-column"
+        [attr.data-day-index]="column.dayIndex"
+        [dayIndex]="column.dayIndex"
         [class.mlv-scheduler-time-grid__column--today]="column.today"
         [attr.aria-label]="column.label"
-        [attr.data-day-index]="column.dayIndex"
       >
         @for (slot of column.slots; track slot.minutes) {
         <div

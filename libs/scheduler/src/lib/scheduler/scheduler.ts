@@ -42,6 +42,7 @@ import {
   MlvI18nResolverService,
   type MlvSchedulerI18n,
 } from '@malva-ui/i18n';
+import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
 import { parseTime } from '../layout/scheduler-time';
 import {
   computeVisibleRange,
@@ -108,6 +109,7 @@ const VIEWS: readonly MlvSchedulerView[] = ['month', 'week', 'day'];
       provide: MLV_SCHEDULER_CONTEXT,
       useExisting: forwardRef(() => MlvScheduler),
     },
+    MlvSchedulerDragService,
   ],
   host: {
     class: 'mlv-scheduler',
@@ -225,6 +227,8 @@ export class MlvScheduler<D = Date, TData = unknown>
   private readonly _destroyRef = inject(DestroyRef);
   /** Host element, used by views for focus queries through the context. */
   readonly elementRef = inject(ElementRef<HTMLElement>);
+  /** @private Pointer drag engine; one per scheduler. */
+  private readonly _drag = inject(MlvSchedulerDragService<D, TData>);
 
   /** Rendered period. */
   readonly visibleRange = computed<MlvSchedulerVisibleRange<D>>(() =>
@@ -339,6 +343,8 @@ export class MlvScheduler<D = Date, TData = unknown>
   private _suppressClickAt = 0;
 
   constructor() {
+    this._drag.attach(this);
+
     effect(() => {
       const range = this.visibleRange();
       untracked(() => {

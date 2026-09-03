@@ -32,7 +32,11 @@
         <span class="mlv-scheduler-month__day-number" aria-hidden="true"
           >{{ cell.dayNumber }}</span
         >
-        <div class="mlv-scheduler-month__lanes">
+        <div
+          class="mlv-scheduler-month__lanes"
+          mlvSchedulerDropList="month-cell"
+          [dayIndex]="cell.dayIndex"
+        >
           @for (segment of cell.segments; track segment.key) {
           <mlv-scheduler-event
             class="mlv-scheduler-month__event"
