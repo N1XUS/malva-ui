@@ -212,6 +212,40 @@ describe('MlvFileUpload', () => {
       fixture.detectChanges();
       expect(hostEl.classList).not.toContain('mlv-file-upload--drag-over');
     });
+
+    // The tests above call the handler directly and so pass whether or not
+    // anything is listening. These dispatch a real event on the host element
+    // and therefore cover the binding itself. jsdom has no `DragEvent`, but
+    // `_onDragOver` reads only `preventDefault()`.
+    it('should set the drag-over class from a dispatched dragover event', () => {
+      hostEl.dispatchEvent(
+        new Event('dragover', { bubbles: true, cancelable: true }),
+      );
+      fixture.detectChanges();
+
+      expect(hostEl.classList).toContain('mlv-file-upload--drag-over');
+    });
+
+    it('should preventDefault dragover so the drop event can fire at all', () => {
+      const event = new Event('dragover', { bubbles: true, cancelable: true });
+      hostEl.dispatchEvent(event);
+
+      // Without this the browser applies its default "no drop allowed"
+      // handling and never dispatches `drop`.
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('should still preventDefault dragover while disabled, without the class', () => {
+      fixture.componentRef.setInput('disabled', true);
+      fixture.detectChanges();
+
+      const event = new Event('dragover', { bubbles: true, cancelable: true });
+      hostEl.dispatchEvent(event);
+      fixture.detectChanges();
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(hostEl.classList).not.toContain('mlv-file-upload--drag-over');
+    });
   });
 
   // -------------------------------------------------------------------------

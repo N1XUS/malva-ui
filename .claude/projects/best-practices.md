@@ -52,6 +52,96 @@ For granular, copy-paste-ready rules with full code examples, see the rule files
 
 ---
 
+## DOM Listeners
+
+DOM listeners go through `fromEvent`, not `addEventListener` and not a template/host
+listener binding. Triage each site before converting — several forms below are
+legitimately raw, and choosing by omission is the failure mode.
+
+**Why not a template `(event)` / host binding.** Angular wraps every listener binding in
+`wrapListenerIn_markDirtyAndPreventDefault`, which marks the ancestor view chain dirty and
+notifies the change-detection scheduler on **every** event — before it knows whether the
+handler changed anything. For a high-frequency event (`mousemove`, `wheel`, `scroll`,
+`dragover`, `pointermove`) that is one scheduler notification per event, for a handler that
+usually writes a signal the value it already holds. `fromEvent` registers a plain listener
+with no wrapper, so a signal `.set()` to an unchanged value notifies nothing.
+
+**`runOutsideAngular` is not the fix.** The library is zoneless-only (#37), so `NgZone` is
+`NoopNgZone` and `runOutsideAngular` is a passthrough. Existing wrappers around `fromEvent`
+are kept for consumers still on zone-based change detection and are documented as such —
+do **not** add new ones.
+
+Pick the lifetime, then write it:
+
+| Lifetime                                                                               | Form                                                                                                     |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Exactly the component's / directive's                                                  | `fromEvent(el, 'x', opts).pipe(takeUntilDestroyed(ref)).subscribe(...)`                                  |
+| Ends at a specific moment (drag until `pointerup`, an animation until `transitionend`) | `.pipe(takeUntil(end$), takeUntilDestroyed(ref))` — **both**, so a destroy mid-gesture still releases it |
+| Re-created per signal change / per overlay attach                                      | released from the owning `effect`'s `onCleanup`, **not** `takeUntilDestroyed`                            |
+
+`fromEvent`'s third argument is typed `EventListenerOptions` and does **not** accept the
+legacy boolean: `fromEvent(el, 'x', true)` fails `ngc` with TS2769 _and_ collapses the
+emission generic to `unknown`. Write `{ capture: true }`. It is runtime-correct, so the unit
+suites pass — only `nx run core:build` / `cdk:build` (AOT) or a project's `typecheck` target
+catches it. Run one of those, not just `test` and `lint`, after touching a listener.
+
+- `takeUntilDestroyed` fires only at destroy. On a re-created subscription it leaks every
+  earlier generation — `mlv-speed-dial`'s trigger listeners are the reference case.
+- `afterNextRender` / `afterRenderEffect` callbacks are **not** injection contexts, so the
+  bare `takeUntilDestroyed()` throws there. Pass the ref: `takeUntilDestroyed(this._destroyRef)`.
+- **Carry `capture` / `passive` / `once` over verbatim** — `fromEvent`'s third argument. A
+  dropped `passive: true` is a scroll-performance regression; a dropped `capture` changes
+  event ordering. When the handler calls `preventDefault()`, pass `{ passive: false }`
+  **explicitly** and say why, rather than resting on `fromEvent`'s default.
+- **Bind document-level listeners to the injected `DOCUMENT`**, never the ambient `document`
+  global (`inject(DOCUMENT)`; the token is declared in `@angular/core` and re-exported
+  unchanged by `@angular/common`, so either import resolves to the same token — 19 of the 21
+  call sites in `libs/` use the `@angular/common` spelling). Under server rendering the two are **different objects and the global
+  is defined**, so an ambient `document.addEventListener` binds a per-render component to a
+  process-wide object no teardown reaches — and nothing throws, so the SSR smoke suite stays
+  green. Pin it with a test that overrides `DOCUMENT` with
+  `document.implementation.createHTMLDocument()` and asserts **which** object received the
+  listener (`sidebar-rail.spec.ts` is the reference); asserting that nothing threw cannot see it.
+- An event that is not guaranteed to arrive needs a fallback, not an open wait:
+  `race(fromEvent(el, 'transitionend'), timer(MS)).pipe(take(1), …)`. A `transition` or
+  `animation` declared under `@media (prefers-reduced-motion: no-preference)` never fires
+  its end event under reduced motion, so a handler that self-removes inside the event both
+  latches its class and stacks one listener per gesture.
+
+**The capture phase is not a reason to stay raw.** `fromEvent`'s third argument reaches the
+identical `addEventListener` call, so the phase and the ordering among capture listeners are
+unchanged, and `Subscriber.next` is synchronous, so a `stopImmediatePropagation()` guard still
+runs inside the native listener invocation. Every capture-phase site in `libs/` is a
+`fromEvent(el, 'x', { capture: true })` stream, each pinned by an ordering test:
+`popup.service.spec.ts` (click-outside beating an inner `stopPropagation`),
+`editor-focus.spec.ts` (a disabled-guard beating descendant listeners), and
+`segmented.spec.ts` (a disabled link beating Angular's coalesced host listener on the _same_
+element — at `AT_TARGET` the capture pass runs before the bubble pass, so registration order
+is irrelevant).
+
+Legitimately **keep raw** — with a one-line reason in the code naming which of these it is:
+
+- `once: true` on an element the same code path removes or disposes, where the listener's
+  lifetime is one animation rather than the component's. The four remaining sites in
+  `libs/cdk` are all this shape (`animated-presence`, `overlay-ref`, `overlay-service-base`).
+- No injection context to take a `DestroyRef` from, and a teardown boundary that is not the
+  component's — a ProseMirror plugin view constructed by Tiptap
+  (`editor-block-handle.ts`, eight listeners unbound in the plugin's own `destroy()`).
+- A listener a third party's contract requires you to add and remove yourself.
+
+"The stable bound handler reference is what makes re-entry a no-op" is **not** on this list: a
+`Subscription` field replaced with a fresh one per gesture gives the same idempotence and an
+explicit teardown (`sidebar-rail.ts`, `data-table.ts`).
+
+An `addEventListener` / `removeEventListener` count mismatch is a **signal, not a verdict**:
+a listener on an element that is itself removed dies with it. The ones that matter are on
+`document` / `window` / a long-lived element. Equally, a balanced count proves nothing when
+the `remove` sits on a path that may never run — that is exactly the `drawer-resize`
+`transitionend` bug (#76). Decide per site, and assert destroy-time teardown with a spy on
+`removeEventListener` plus a post-destroy dispatch rather than by reading the code.
+
+---
+
 ## Accessibility Requirements
 
 - All components **must pass all AXE checks**

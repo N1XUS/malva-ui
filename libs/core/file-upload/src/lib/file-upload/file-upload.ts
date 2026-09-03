@@ -11,6 +11,8 @@ import {
   ElementRef,
   ViewEncapsulation,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { MlvSignalFormControlBase } from '@malva-ui/core/form-utils';
@@ -59,7 +61,6 @@ import type {
     '[class.mlv-file-upload--multiple]': 'multiple()',
     '[class.mlv-file-upload--has-files]': '_files().length > 0',
     '[class.mlv-file-upload--compact]': 'compact()',
-    '(dragover)': '_onDragOver($event)',
     '(dragleave)': '_onDragLeave($event)',
     '(drop)': '_onDrop($event)',
     '(focusout)': '_markTouched()',
@@ -140,6 +141,33 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
 
   /** @private Reference to the host element for dragleave boundary detection. */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
+  constructor() {
+    super();
+
+    // `dragover` is bound here rather than as a `(dragover)` host binding.
+    // It is the one high-frequency event of the three: the browser fires it
+    // continuously for as long as the pointer hovers the zone, while
+    // `dragleave` and `drop` fire once each. A host binding is wrapped in
+    // `wrapListenerIn_markDirtyAndPreventDefault`, which notifies the
+    // change-detection scheduler on every one of those events before knowing
+    // whether anything changed — and after the first, `_isDragOver.set(true)`
+    // writes the value it already holds, which notifies nothing on its own.
+    //
+    // `{ passive: false }` is mandatory and explicit: `_onDragOver` must call
+    // `preventDefault()` or the browser applies its default "no drop allowed"
+    // handling and never dispatches `drop` at all. `fromEvent` defaults to
+    // non-passive, but relying on that default would put a broken drop target
+    // one edit away.
+    //
+    // The host element outlives every listener here, so the plain
+    // `takeUntilDestroyed()` lifetime is the correct one.
+    fromEvent<DragEvent>(this._elementRef.nativeElement, 'dragover', {
+      passive: false,
+    })
+      .pipe(takeUntilDestroyed())
+      .subscribe((event) => this._onDragOver(event));
+  }
 
   /** @protected Computed list of files exposed to the template. */
   protected readonly _fileList = computed(() => this._files());

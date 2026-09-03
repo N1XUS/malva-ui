@@ -470,7 +470,8 @@ host: {
 - Runs `pointermove` handler outside Angular zone with `requestAnimationFrame` throttle for smooth 60fps resizing.
 - On drag, computes `newWidth = event.clientX - sidebarRect.left`. If `newWidth < snapThreshold` and sidebar is not already collapsed, sets a snap flag. Otherwise clamps to `[minWidth, maxWidth]` and calls `setWidth()`.
 - On pointer release, restores the container's CSS transition. If snap flag is set, calls `toggle()` to collapse.
-- Cleans up document listeners and resets `user-select`/`cursor` overrides on destroy.
+- Cleans up document listeners and resets `user-select`/`cursor` overrides on destroy. `_cleanup()` is the single exit for both `pointerup` and `DestroyRef.onDestroy`, so a rail destroyed mid-drag leaves nothing bound (asserted in `sidebar-rail.spec.ts`).
+- The listeners go on the **injected `DOCUMENT`**, not the ambient global: under server rendering the two are different objects and the global is defined, so an ambient binding would attach a per-render component to a process-wide object no teardown reaches, without throwing. Changed in #76.
 
 #### Inline Style Summary
 

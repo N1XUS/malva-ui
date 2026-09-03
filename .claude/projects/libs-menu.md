@@ -430,8 +430,18 @@ body and asserts both value and reference-identity agreement.
 ## Submenu Hover Intent
 
 When `isSubmenuTrigger="true"`, the directive installs a document-level `mousemove`
-listener. Intent is resolved by **what the pointer is over**, with geometry used
-only for the ambiguous space between the item and its panel:
+listener. It is a **capture-phase** listener on the **injected `DOCUMENT`** and is
+a `fromEvent(document, 'mousemove', { capture: true })` stream (converted in #76).
+The capture phase is load-bearing — the tracker must see the move before a menu
+item's own handlers can stop it — and `fromEvent` forwards the options object to
+the identical `addEventListener` call, so the phase and the ordering among
+capture listeners are unchanged. The subscription belongs to one submenu-open
+generation and is released by `_removeMousemoveListener()` from the popup's
+`onClose` and from `destroy()` (wired to `DestroyRef.onDestroy`) rather than by
+`takeUntilDestroyed`, which would hold one listener per open for the
+controller's whole life. Intent is resolved by **what the pointer is
+over**, with geometry used only for the ambiguous space between the item and its
+panel:
 
 | Pointer is over                  | Result                                                                                                                                               |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |

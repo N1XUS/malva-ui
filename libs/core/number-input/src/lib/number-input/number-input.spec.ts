@@ -18,6 +18,12 @@ describe('MlvNumberInput', () => {
   let component: MlvNumberInput;
   let fixture: ComponentFixture<MlvNumberInput>;
 
+  /** The internal `<input>` that carries the wheel listener. */
+  const nativeInput = (): HTMLInputElement =>
+    fixture.nativeElement.querySelector(
+      '.mlv-number-input__native',
+    ) as HTMLInputElement;
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MlvNumberInput, VerticalLeftNumberInputHost],
@@ -329,6 +335,60 @@ describe('MlvNumberInput', () => {
       component.value.set(10);
       const event = new WheelEvent('wheel', { deltaY: -100, cancelable: true });
       component._onWheel(event);
+      expect(component.value()).toBe(10);
+    });
+
+    // The tests above call the handler directly, so they pass whether or not
+    // anything is listening. These dispatch a real event on the native input
+    // and therefore cover the binding itself.
+    it('steps on a wheel event dispatched at the native input', () => {
+      fixture.componentRef.setInput('scrollable', true);
+      fixture.detectChanges();
+      component['_isFocused'].set(true);
+      component.value.set(10);
+
+      nativeInput().dispatchEvent(
+        new WheelEvent('wheel', {
+          deltaY: -100,
+          cancelable: true,
+          bubbles: true,
+        }),
+      );
+
+      expect(component.value()).toBe(11);
+    });
+
+    it('preventDefaults the wheel event so the page does not scroll', () => {
+      fixture.componentRef.setInput('scrollable', true);
+      fixture.detectChanges();
+      component['_isFocused'].set(true);
+      component.value.set(10);
+
+      const event = new WheelEvent('wheel', {
+        deltaY: -100,
+        cancelable: true,
+        bubbles: true,
+      });
+      nativeInput().dispatchEvent(event);
+
+      // A passive listener cannot cancel the event; this asserts it is not one.
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('leaves the wheel event cancellable when not scrollable', () => {
+      fixture.componentRef.setInput('scrollable', false);
+      fixture.detectChanges();
+      component['_isFocused'].set(true);
+      component.value.set(10);
+
+      const event = new WheelEvent('wheel', {
+        deltaY: -100,
+        cancelable: true,
+        bubbles: true,
+      });
+      nativeInput().dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
       expect(component.value()).toBe(10);
     });
   });

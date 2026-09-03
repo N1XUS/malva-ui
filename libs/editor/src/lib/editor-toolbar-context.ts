@@ -1,5 +1,13 @@
-import { Injectable, InjectionToken, signal } from '@angular/core';
+import {
+  DestroyRef,
+  Injectable,
+  InjectionToken,
+  inject,
+  signal,
+} from '@angular/core';
 import type { Signal, WritableSignal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription, fromEvent } from 'rxjs';
 import type { Editor } from '@tiptap/core';
 import type {
   MlvEditorError,
@@ -209,8 +217,8 @@ export const MLV_EDITOR_TOOLBAR_ROVING =
 interface MlvEditorOverlayEntry {
   readonly root: HTMLElement;
   close: () => void;
-  readonly onFocusIn: (event: FocusEvent) => void;
-  readonly onFocusOut: (event: FocusEvent) => void;
+  /** Focus listeners for this one overlay root, released when it is removed. */
+  readonly listeners: Subscription;
 }
 
 /**
@@ -223,6 +231,15 @@ export class MlvEditorOverlayRegistry {
   private readonly _entries = new Map<HTMLElement, MlvEditorOverlayEntry>();
   private _onFocusIn: ((event: FocusEvent) => void) | undefined;
   private _onFocusOut: ((event: FocusEvent) => void) | undefined;
+
+  /**
+   * @private Net for the whole registry. Each entry is released the moment its
+   * overlay is removed — a destroy-scoped lifetime alone would hold every
+   * overlay ever opened — but this guarantees release even if a consumer never
+   * calls `destroy()` or `closeAll()`. The registry is provided by the editor
+   * component, so this ref is the editor's.
+   */
+  private readonly _destroyRef = inject(DestroyRef);
 
   /** @internal Wires the nearest editor's composite focus handlers. */
   setFocusHandlers(
@@ -240,12 +257,21 @@ export class MlvEditorOverlayRegistry {
       existing.close = close;
       return () => this._remove(root);
     }
-    const onFocusIn = (event: FocusEvent) => this._onFocusIn?.(event);
-    const onFocusOut = (event: FocusEvent) => this._onFocusOut?.(event);
-    const entry: MlvEditorOverlayEntry = { root, close, onFocusIn, onFocusOut };
-    this._entries.set(root, entry);
-    root.addEventListener('focusin', onFocusIn, true);
-    root.addEventListener('focusout', onFocusOut, true);
+    // Capture phase, matching the editor host's own boundary listeners: an
+    // overlay's content may stop focus events on its way back up, and the
+    // composite has to see the crossing regardless.
+    const listeners = new Subscription();
+    listeners.add(
+      fromEvent<FocusEvent>(root, 'focusin', { capture: true })
+        .pipe(takeUntilDestroyed(this._destroyRef))
+        .subscribe((event) => this._onFocusIn?.(event)),
+    );
+    listeners.add(
+      fromEvent<FocusEvent>(root, 'focusout', { capture: true })
+        .pipe(takeUntilDestroyed(this._destroyRef))
+        .subscribe((event) => this._onFocusOut?.(event)),
+    );
+    this._entries.set(root, { root, close, listeners });
     return () => this._remove(root);
   }
 
@@ -279,8 +305,7 @@ export class MlvEditorOverlayRegistry {
     const entry = this._entries.get(root);
     if (!entry) return;
     this._entries.delete(root);
-    entry.root.removeEventListener('focusin', entry.onFocusIn, true);
-    entry.root.removeEventListener('focusout', entry.onFocusOut, true);
+    entry.listeners.unsubscribe();
   }
 }
 

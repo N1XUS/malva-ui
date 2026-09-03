@@ -50,6 +50,13 @@ The inherited `resolvedState` computed signal keeps visual validation consistent
 - **Single tab stop (roving tabindex):** only the star covering the current value is tabbable (`tabindex="0"`); all other stars are `-1` (and all `-1` when read-only or disabled). Arrow keys change the value; the host (`role="group"`) handles the key events. Previously every star was `tabindex="0"`, producing up to `max` tab stops.
 - Star buttons keep toggle-button semantics (`aria-pressed`) rather than `role="radio"`, because half-star precision (`step="0.5"`) does not map cleanly onto a discrete radio group.
 
+### Hover preview
+
+- The preview is driven by **one delegated `mousemove` listener on the host**, bound in the constructor as `fromEvent(host, 'mousemove').pipe(takeUntilDestroyed())` — not a per-star `(mousemove)` binding (changed in #76). An Angular listener binding notifies the change-detection scheduler on every event before knowing whether the handler changed anything; a hover sweep is hundreds of events, and after the first, `_hoverValue` is set to the value it already holds. It also replaces `max()` listeners with one.
+- The handler resolves the star with `closest('.mlv-rating__star')` and its one-based position among its siblings. A move that lands between stars resolves to no star and is ignored, exactly as the per-star binding did.
+- `_isLeadingHalf` is unaffected: `event.target` is the `<svg>` under the cursor in both forms, so `offsetX` is unchanged. Covered by the `MlvRating hover preview` suite in `rating.spec.ts`.
+- Host `(mouseleave)` still clears the preview and remains a host binding — it fires once per sweep.
+
 ---
 
 ## Usage

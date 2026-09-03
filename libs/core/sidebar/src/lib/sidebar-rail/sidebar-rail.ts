@@ -9,6 +9,9 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription, fromEvent, take, takeUntil } from 'rxjs';
 import { LEFT_ARROW, RIGHT_ARROW } from '@angular/cdk/keycodes';
 import { MlvRtlService, clamp } from '@malva-ui/cdk/utils';
 import { SIDEBAR_CONTEXT } from '../sidebar-context';
@@ -56,6 +59,14 @@ export class MlvSidebarRail {
 
   /** @private Destroy reference for cleanup. */
   private readonly _destroyRef = inject(DestroyRef);
+
+  /**
+   * @private The document the drag listeners are bound to. Injected rather
+   * than the ambient global: under server rendering the two are different
+   * objects and the global is defined, so an ambient `document` binds a
+   * per-render component to a process-wide object no teardown reaches.
+   */
+  private readonly _document = inject(DOCUMENT);
   /** @private Normalizes horizontal resize arrows for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
 
@@ -71,11 +82,14 @@ export class MlvSidebarRail {
   /** @private Stored transition value to restore after drag. */
   private _savedTransition = '';
 
-  /** @private Bound pointermove handler for cleanup. */
-  private readonly _onPointerMoveBound = this._onPointerMove.bind(this);
-
-  /** @private Bound pointerup handler for cleanup. */
-  private readonly _onPointerUpBound = this._onPointerUp.bind(this);
+  /**
+   * @private Teardown for the listeners of the drag currently in progress, or
+   * `null` between drags. Replacing it is what makes a re-entrant
+   * `pointerdown` idempotent — the previous gesture's streams are unsubscribed
+   * before the next pair is created, so a second contact cannot stack a second
+   * set of listeners.
+   */
+  private _dragSubscription: Subscription | null = null;
 
   /** @private Animation frame ID for drag throttle. */
   private _rafId = 0;
@@ -155,13 +169,36 @@ export class MlvSidebarRail {
 
     this._elementRef.nativeElement.setPointerCapture(event.pointerId);
 
+    // A drag protocol, so the listeners take the scoped form: `takeUntil` for
+    // the gesture, `takeUntilDestroyed` so a rail destroyed mid-drag still
+    // releases them. Both are needed — `takeUntilDestroyed` alone would keep
+    // `pointermove` bound to the document for the component's whole life.
+    // The `DestroyRef` is passed explicitly because this runs from an event
+    // handler, which is not an injection context.
+    //
+    // `_cleanup()` unsubscribes as well, so the four exits it already serves
+    // (pointerup, destroy, and a re-entrant pointerdown) all converge on one
+    // idempotent teardown; `unsubscribe()` on a closed `Subscription` is a
+    // no-op, which is what the stable bound handler references used to buy.
+    this._cleanup();
+    const pointerUp$ = fromEvent<PointerEvent>(this._document, 'pointerup');
     this._ngZone.runOutsideAngular(() => {
-      document.addEventListener('pointermove', this._onPointerMoveBound);
-      document.addEventListener('pointerup', this._onPointerUpBound);
+      const subscription = new Subscription();
+      subscription.add(
+        fromEvent<PointerEvent>(this._document, 'pointermove')
+          .pipe(takeUntil(pointerUp$), takeUntilDestroyed(this._destroyRef))
+          .subscribe((moveEvent) => this._onPointerMove(moveEvent)),
+      );
+      subscription.add(
+        pointerUp$
+          .pipe(take(1), takeUntilDestroyed(this._destroyRef))
+          .subscribe((upEvent) => this._onPointerUp(upEvent)),
+      );
+      this._dragSubscription = subscription;
     });
 
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'col-resize';
+    this._document.body.style.userSelect = 'none';
+    this._document.body.style.cursor = 'col-resize';
   }
 
   /** @private Handle pointer move during drag. */
@@ -219,12 +256,15 @@ export class MlvSidebarRail {
     });
   }
 
-  /** @private Remove document listeners and reset drag state. */
+  /**
+   * @private Release the drag listeners and reset drag state. Idempotent — it
+   * is the single exit for pointerup, destroy, and a re-entrant pointerdown.
+   */
   private _cleanup(): void {
-    document.removeEventListener('pointermove', this._onPointerMoveBound);
-    document.removeEventListener('pointerup', this._onPointerUpBound);
-    document.body.style.userSelect = '';
-    document.body.style.cursor = '';
+    this._dragSubscription?.unsubscribe();
+    this._dragSubscription = null;
+    this._document.body.style.userSelect = '';
+    this._document.body.style.cursor = '';
     if (this._rafId) {
       cancelAnimationFrame(this._rafId);
       this._rafId = 0;

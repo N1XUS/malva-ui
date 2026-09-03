@@ -336,3 +336,125 @@ describe('MlvRating', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Hover preview
+//
+// The `mousemove` listener is bound with `fromEvent` rather than a template
+// `(mousemove)` binding, so it needs its own coverage: nothing in the template
+// tells the reader the handler is still wired.
+// ---------------------------------------------------------------------------
+
+describe('MlvRating hover preview', () => {
+  let offsetXDescriptor: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    offsetXDescriptor = Object.getOwnPropertyDescriptor(
+      MouseEvent.prototype,
+      'offsetX',
+    );
+  });
+
+  afterEach(() => {
+    if (offsetXDescriptor) {
+      Object.defineProperty(MouseEvent.prototype, 'offsetX', offsetXDescriptor);
+    } else {
+      delete (MouseEvent.prototype as unknown as Record<string, unknown>)[
+        'offsetX'
+      ];
+    }
+  });
+
+  /** Pins `offsetX` and the star's rendered width — both are 0 under jsdom. */
+  function stubHalfGeometry(star: HTMLButtonElement, offsetX: number): void {
+    Object.defineProperty(MouseEvent.prototype, 'offsetX', {
+      configurable: true,
+      get: () => offsetX,
+    });
+    Object.defineProperty(star, 'offsetWidth', {
+      configurable: true,
+      value: 32,
+    });
+  }
+
+  it('previews the hovered star without committing a value', async () => {
+    const fixture = await createFixture(BasicHostComponent);
+    const stars = getStars(fixture);
+
+    stars[2].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(filledIcon(stars[0]).style.clipPath).toBe('inset(0 0% 0 0)');
+    expect(filledIcon(stars[1]).style.clipPath).toBe('inset(0 0% 0 0)');
+    expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 0% 0 0)');
+    expect(filledIcon(stars[3]).style.clipPath).toBe('inset(0 100% 0 0)');
+    // The preview must not write through to the model.
+    stars.forEach((star) =>
+      expect(star.getAttribute('aria-pressed')).toBe('false'),
+    );
+  });
+
+  it('previews a half star on the leading half when step is 0.5', async () => {
+    @Component({
+      template: `<mlv-rating [max]="5" [step]="0.5" />`,
+      imports: [MlvRating],
+    })
+    class HalfHost {}
+
+    const fixture = await createFixture(HalfHost);
+    const stars = getStars(fixture);
+    stubHalfGeometry(stars[2], 10);
+
+    stars[2].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(filledIcon(stars[1]).style.clipPath).toBe('inset(0 0% 0 0)');
+    expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 50% 0 0)');
+    expect(filledIcon(stars[3]).style.clipPath).toBe('inset(0 100% 0 0)');
+  });
+
+  it('clears the preview when the pointer leaves the host', async () => {
+    const fixture = await createFixture(BasicHostComponent);
+    const stars = getStars(fixture);
+    const host = fixture.nativeElement.querySelector(
+      'mlv-rating',
+    ) as HTMLElement;
+
+    stars[2].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    fixture.detectChanges();
+    expect(filledIcon(stars[0]).style.clipPath).toBe('inset(0 0% 0 0)');
+
+    host.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+    fixture.detectChanges();
+
+    getStars(fixture).forEach((star) =>
+      expect(filledIcon(star).style.clipPath).toBe('inset(0 100% 0 0)'),
+    );
+  });
+
+  it('ignores the pointer in read-only mode', async () => {
+    const fixture = await createFixture(ReadonlyHostComponent);
+    const stars = getStars(fixture);
+
+    stars[2].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    fixture.detectChanges();
+
+    getStars(fixture).forEach((star) =>
+      expect(filledIcon(star).style.clipPath).toBe('inset(0 100% 0 0)'),
+    );
+  });
+
+  it('ignores a pointer move that lands between stars', async () => {
+    const fixture = await createFixture(BasicHostComponent);
+    const host = fixture.nativeElement.querySelector(
+      'mlv-rating',
+    ) as HTMLElement;
+
+    host.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    fixture.detectChanges();
+
+    getStars(fixture).forEach((star) =>
+      expect(filledIcon(star).style.clipPath).toBe('inset(0 100% 0 0)'),
+    );
+  });
+});

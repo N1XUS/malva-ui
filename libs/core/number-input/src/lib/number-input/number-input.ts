@@ -15,6 +15,7 @@ import {
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
+import { fromEvent } from 'rxjs';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import type { MlvFormControl } from '@malva-ui/core/form-utils';
@@ -244,6 +245,35 @@ export class MlvNumberInput
         this._internalStringValue.set(this._format(next));
       });
     });
+    // `wheel` is bound here rather than as a `(wheel)` binding on the native
+    // input. A template listener is wrapped in
+    // `wrapListenerIn_markDirtyAndPreventDefault`, which notifies the
+    // change-detection scheduler on **every** event before it knows whether
+    // the handler did anything — and a wheel gesture is hundreds of events,
+    // most of which `_onWheel` early-returns from (not scrollable, not
+    // focused, disabled). `fromEvent` schedules nothing on its own.
+    //
+    // `{ passive: false }` is mandatory and explicit: `_onWheel` calls
+    // `preventDefault()` to suppress page scroll, and a passive listener
+    // cannot cancel an event. `fromEvent` defaults to non-passive, but
+    // relying on that default would put a silent scroll regression one edit
+    // away.
+    //
+    // The listener is re-subscribed rather than bound once: `#inputRef` lives
+    // inside an `ng-template`, so `_inputRef()` resolves only after the first
+    // render and changes if the wrapper re-instantiates the view. `onCleanup`
+    // — not `takeUntilDestroyed` — releases the previous generation;
+    // `takeUntilDestroyed` fires only at destroy and would leak every earlier
+    // one.
+    effect((onCleanup) => {
+      const input = this._inputRef()?.nativeElement;
+      if (!input) return;
+      const subscription = fromEvent<WheelEvent>(input, 'wheel', {
+        passive: false,
+      }).subscribe((event) => this._onWheel(event));
+      onCleanup(() => subscription.unsubscribe());
+    });
+
     this._destroyRef.onDestroy(() => this._clearLongPress());
   }
 
