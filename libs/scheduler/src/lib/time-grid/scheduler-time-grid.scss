@@ -34,6 +34,13 @@ $block: mlv-scheduler-time-grid;
       // Vertical scroll and pinch-zoom stay native; a horizontal drag is a
       // range-selection gesture, so it must not also pan the sheet.
       touch-action: pan-y pinch-zoom;
+      // A range-drag crosses the hour gutter, the day headers and the "All day"
+      // rowheader, so without this the browser starts a native text selection
+      // and smears a highlight over the `--mlv-background-selected` paint.
+      // The selection must be suppressed before pointerdown — flipping it once
+      // the drag threshold is crossed comes too late to stop a selection the
+      // browser has already begun.
+      user-select: none;
     }
 
     &__top {

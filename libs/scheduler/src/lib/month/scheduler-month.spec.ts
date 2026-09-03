@@ -1,7 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { Component, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import axe from 'axe-core';
+import { compile } from 'sass';
+import { stripCssLayersFromText } from '@malva-ui/internal-testing';
 import { MLV_DATE_LOCALE, MlvNativeDateAdapter } from '@malva-ui/core/date';
 import { MlvResizeObserverService, MlvRtlService } from '@malva-ui/cdk/utils';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -464,5 +467,44 @@ describe('MlvSchedulerMonth', () => {
       runOnly: { type: 'rule', values: AXE_RULES },
     });
     expect(results.violations).toEqual([]);
+  });
+});
+
+// jsdom paints nothing and models no text selection, so the parts of the
+// pointer contract that live purely in CSS are asserted on the compiled text.
+describe('MlvSchedulerMonth styles', () => {
+  let css: string;
+
+  beforeAll(() => {
+    // Joined at runtime so Vite's asset rewrite never turns the stylesheet
+    // path into an http(s) URL under jsdom (same trick as compare.spec).
+    css = stripCssLayersFromText(
+      compile(
+        fileURLToPath(
+          new URL(['.', 'scheduler-month.scss'].join('/'), import.meta.url),
+        ),
+      ).css,
+    );
+  });
+
+  /** Declarations of every rule with exactly this selector, joined. */
+  function block(selector: string): string {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matches = [
+      ...css.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`, 'g')),
+    ];
+    if (matches.length === 0) {
+      throw new Error(`No rule found for "${selector}" in:\n${css}`);
+    }
+    return matches.map((match) => match[1]).join('\n');
+  }
+
+  it('suppresses native text selection while a range-drag crosses the rows', () => {
+    // Every cell a drag passes over carries a day number; without this the
+    // browser highlight smears across the grid on top of the selected-cell
+    // paint. It must sit on the rows, not on a `--selecting` modifier: a class
+    // set once the drag threshold is crossed arrives after the browser has
+    // already started selecting.
+    expect(block('.mlv-scheduler-month__rows')).toMatch(/user-select:\s*none/);
   });
 });

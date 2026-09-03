@@ -48,6 +48,13 @@ $block: mlv-scheduler-month;
       grid-auto-rows: minmax(var(--mlv-scheduler-month-row-min-height), 1fr);
       flex: 1 1 auto;
       min-block-size: 0;
+      // A range-drag crosses the day number of every cell it passes over, so
+      // without this the browser starts a native text selection and smears a
+      // highlight over the `--mlv-background-selected` paint. The selection
+      // must be suppressed before pointerdown — flipping it once the drag
+      // threshold is crossed comes too late to stop a selection the browser
+      // has already begun.
+      user-select: none;
     }
 
     &__row {

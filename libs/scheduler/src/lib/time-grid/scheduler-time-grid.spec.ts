@@ -1,6 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import { Component, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import axe from 'axe-core';
+import { compile } from 'sass';
+import { stripCssLayersFromText } from '@malva-ui/internal-testing';
 import { MLV_DATE_LOCALE, MlvNativeDateAdapter } from '@malva-ui/core/date';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -395,5 +398,52 @@ describe('MlvSchedulerTimeGrid', () => {
       runOnly: { type: 'rule', values: AXE_RULES },
     });
     expect(results.violations).toEqual([]);
+  });
+});
+
+// jsdom paints nothing and models no text selection, so the parts of the
+// pointer contract that live purely in CSS are asserted on the compiled text.
+describe('MlvSchedulerTimeGrid styles', () => {
+  let css: string;
+
+  beforeAll(() => {
+    // Joined at runtime so Vite's asset rewrite never turns the stylesheet
+    // path into an http(s) URL under jsdom (same trick as compare.spec).
+    css = stripCssLayersFromText(
+      compile(
+        fileURLToPath(
+          new URL(['.', 'scheduler-time-grid.scss'].join('/'), import.meta.url),
+        ),
+      ).css,
+    );
+  });
+
+  /** Declarations of every rule with exactly this selector, joined. */
+  function block(selector: string): string {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matches = [
+      ...css.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`, 'g')),
+    ];
+    if (matches.length === 0) {
+      throw new Error(`No rule found for "${selector}" in:\n${css}`);
+    }
+    return matches.map((match) => match[1]).join('\n');
+  }
+
+  it('suppresses native text selection while a range-drag crosses the sheet', () => {
+    // A drag runs over the hour gutter, the day headers and the "All day"
+    // rowheader; without this the browser highlight smears across the grid on
+    // top of the selected-cell paint. It must sit on the sheet, not on a
+    // `--selecting` modifier: a class set once the drag threshold is crossed
+    // arrives after the browser has already started selecting.
+    expect(block('.mlv-scheduler-time-grid__sheet')).toMatch(
+      /user-select:\s*none/,
+    );
+  });
+
+  it('keeps vertical touch scrolling native on the sheet', () => {
+    expect(block('.mlv-scheduler-time-grid__sheet')).toMatch(
+      /touch-action:\s*pan-y pinch-zoom/,
+    );
   });
 });
