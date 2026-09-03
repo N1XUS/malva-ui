@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
@@ -5,6 +6,7 @@ import { By } from '@angular/platform-browser';
 import { MlvSelectionService } from '@malva-ui/core/form-utils';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { compile } from 'sass';
 import { MlvDropdownPanel } from './dropdown-panel';
 
 describe('MlvDropdownPanel (activedescendant)', () => {
@@ -638,5 +640,130 @@ describe('MlvDropdownPanel — disabled options', () => {
 
     // Selection must not include the disabled value.
     expect(emitted.some((values) => values.includes('b'))).toBe(false);
+  });
+});
+
+describe('MlvDropdownPanel — activedescendant highlight parity (#75)', () => {
+  // The two focus modes must render the same mark. In `roving` the option
+  // takes DOM focus and picks up whatever `list-item.scss` paints on
+  // `:focus-visible`; in `activedescendant` focus stays on the owning combobox
+  // input, so that rule never matches and the panel has to paint it here.
+  //
+  // The assertions below read the roving treatment out of `list-item.scss`
+  // rather than restating it, so the two can only agree — a change to one that
+  // is not mirrored in the other fails here rather than shipping as a visual
+  // drift, which is exactly how #75 arose.
+  //
+  // jsdom applies no `styleUrl` and resolves neither `var()` nor `calc()`
+  // through `getComputedStyle`, so both stylesheets are compiled through Sass
+  // and their emitted declarations read directly — the pattern
+  // `icon-toggle.spec.ts` and `button.spec.ts` already use.
+  // `setup-strip-css-layers.js` removes the `@layer` wrapper on injection, so
+  // `sheet.cssRules` is populated rather than dropped.
+  // Paths resolve from this file, never from `process.cwd()`: the
+  // `@nx/vitest:test` executor runs with cwd = workspace root while the
+  // inferred `vite:test` runs from the project root, so only `import.meta.url`
+  // is stable across both. See `best-practices.md` — "Nx Workspace Conventions".
+  function rulesOf(scss: string): CSSStyleRule[] {
+    const css = compile(fileURLToPath(new URL(scss, import.meta.url))).css;
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
+    const rules = [...(style.sheet?.cssRules ?? [])].filter(
+      (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule,
+    );
+    style.remove();
+    return rules;
+  }
+
+  let panelRules: CSSStyleRule[];
+  let listItemRules: CSSStyleRule[];
+
+  beforeAll(() => {
+    panelRules = rulesOf('./dropdown-panel.scss');
+    listItemRules = rulesOf(
+      '../../../../list/src/lib/list-item/list-item.scss',
+    );
+  });
+
+  const ruleFor = (
+    rules: CSSStyleRule[],
+    pattern: RegExp,
+  ): CSSStyleRule | undefined =>
+    rules.find(({ selectorText }) => pattern.test(selectorText));
+
+  const active = () =>
+    ruleFor(panelRules, /\.mlv-dropdown-panel__item--active$/);
+
+  it('paints the ring the roving mode gets from list-item.scss, not a restatement of it', () => {
+    const roving = ruleFor(listItemRules, /^\.mlv-list-item:focus-visible$/);
+    const rovingOutline = roving?.style.getPropertyValue('outline').trim();
+
+    // Guard the guard: if list-item ever stops declaring the ring, the
+    // comparison below would pass vacuously on two empty strings.
+    expect(rovingOutline).toBeTruthy();
+    expect(active()?.style.getPropertyValue('outline').trim()).toBe(
+      rovingOutline,
+    );
+  });
+
+  it('insets that ring, because the panel viewport clips horizontally', () => {
+    const inset = 'calc(var(--mlv-focus-ring-offset) * -1)';
+
+    expect(active()?.style.getPropertyValue('outline-offset').trim()).toBe(
+      inset,
+    );
+    // The same inset the panel already applies to the roving ring.
+    expect(
+      ruleFor(panelRules, /\.mlv-dropdown-panel__item:focus-visible$/)
+        ?.style.getPropertyValue('outline-offset')
+        .trim(),
+    ).toBe(inset);
+  });
+
+  it('wins the cascade over the base rule it has to override', () => {
+    // `.mlv-dropdown-panel .mlv-dropdown-panel__item--active` is (0,2,0);
+    // every `outline` rule in `list-item.scss` is at most (0,1,1). Both sit in
+    // `@layer mlv.components`, so specificity decides.
+    const classes = (selector: string) =>
+      (selector.match(/\.[a-z0-9-]+/gi) ?? []).length;
+
+    expect(classes(active()?.selectorText ?? '')).toBeGreaterThan(
+      Math.max(
+        ...listItemRules
+          .filter(({ style }) => style.getPropertyValue('outline'))
+          .map(({ selectorText }) => classes(selectorText)),
+      ),
+    );
+  });
+
+  it('paints no background of its own — the fill belongs to :hover alone', () => {
+    // #75's original fix tinted `.mlv-list-item__surface`, an inner square box,
+    // while `:hover` tints the whole rounded row. Same token, different mark,
+    // and roving has no fill at all. A hovered row is tinted, the keyboard row
+    // is ringed, and a row that is both shows both.
+    const backgrounds = panelRules
+      .filter(({ selectorText }) => selectorText.includes('__item--active'))
+      .flatMap(({ style }) => [
+        style.getPropertyValue('background'),
+        style.getPropertyValue('background-color'),
+        style.getPropertyValue('--mlv-list-item-bg'),
+      ])
+      .filter((value) => value.trim().length > 0);
+
+    expect(backgrounds).toEqual([]);
+  });
+
+  it('takes no z-index, so it cannot paint over the sticky group header', () => {
+    // The ring is inset, so it is drawn inside the row's own border box and no
+    // adjacent row can reach it — a z-index buys nothing. It would however put
+    // the row level with `__group-header` (sticky, `z-index: 1`) and, being
+    // later in DOM order, win and clip it.
+    expect(active()?.style.getPropertyValue('z-index').trim()).toBe('');
+    expect(
+      ruleFor(panelRules, /\.mlv-dropdown-panel__group-header$/)
+        ?.style.getPropertyValue('z-index')
+        .trim(),
+    ).toBe('1');
   });
 });
