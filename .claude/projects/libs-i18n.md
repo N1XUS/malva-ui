@@ -36,15 +36,15 @@ Exported from `libs/i18n/src/index.ts`:
 
 | Export                       | Kind           | Description                                           |
 | ---------------------------- | -------------- | ----------------------------------------------------- |
-| `MlvLanguage`                | Interface      | Aggregate of all 38 component i18n interfaces         |
+| `MlvLanguage`                | Interface      | Aggregate of all 39 component i18n interfaces         |
 | `MlvTranslationProvider`     | Interface      | AI provider contract for batch translation            |
 | `MlvTranslationRequest`      | Interface      | Single translation request                            |
 | `MlvTranslationResult`       | Interface      | Single translation result                             |
 | `MlvTranslationContext`      | Interface      | Context metadata for AI translators                   |
 | `MlvAiTranslationConfig`     | Interface      | Runtime AI translation configuration                  |
-| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (38 total)                  |
-| `Mlv*I18n`                   | Interface      | Per-component string interfaces (38 total)            |
-| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (38 total) |
+| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (39 total)                  |
+| `Mlv*I18n`                   | Interface      | Per-component string interfaces (39 total)            |
+| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (39 total) |
 | `MlvI18nService`             | Service        | Central language state management                     |
 | `MlvI18nResolverService`     | Service        | ICU MessageFormat resolution with caching             |
 | `MlvTranslatePipe`           | Pipe           | Template pipe for ICU string resolution               |
@@ -70,7 +70,28 @@ Central service managing the active language pack. Not `providedIn: 'root'` — 
 | ------------------------------------------- | --------------------------------------------------------- |
 | `setLanguage(lang: MlvLanguage)`            | Sets the active language pack (called by APP_INITIALIZER) |
 | `switchLanguage(loader)`                    | Switches via lazy import; the latest request wins         |
-| `select<K>(key: K): Signal<MlvLanguage[K]>` | Returns a computed signal for a component's i18n slice    |
+| `select<K>(key: K): Signal<MlvLanguage[K]>` | Returns the memoized signal for a component's i18n slice  |
+
+**`select()` is memoized per key.** Every call for the same key returns the
+**identical** `Signal` reference — one reactive node per `MlvLanguage` slice,
+created lazily and shared by all callers of that instance, so a language switch
+recomputes each slice once rather than once per caller. Callers may rely on the
+stable reference (it is safe in an `OnPush` identity check or a `computed()`
+dependency); callers must **not** treat the returned signal as private, because
+it is shared.
+
+The cache is a per-instance field, not a module-level map. `MlvI18nService` is
+not `providedIn: 'root'` — a lazy route that re-provides `provideMlvI18n()`, a
+per-spec `TestBed`, and a per-request SSR injector each get their own service,
+and each therefore gets its own slices. A shared module-level cache would hand
+one SSR request's language to the next.
+
+Error timing is unchanged: reading a slice before a pack has loaded throws
+`no language pack loaded`, and the error is not latched — the same signal
+produces the value on the next read after `setLanguage()`.
+
+The key space is `keyof MlvLanguage`, a closed interface with no index
+signature, so the cache is bounded at 39 entries.
 
 ### `MlvI18nResolverService`
 
@@ -118,7 +139,7 @@ export const appConfig = {
 };
 ```
 
-Internally provides: `MlvI18nService`, `APP_INITIALIZER` for lazy loading, and all 38 per-component injection tokens.
+Internally provides: `MlvI18nService`, `APP_INITIALIZER` for lazy loading, and all 39 per-component injection tokens.
 
 ---
 
