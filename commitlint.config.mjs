@@ -64,6 +64,7 @@ export default {
         'progress',
         'radio',
         'rating',
+        'scheduler',
         'scrollbar',
         'search-field',
         'segmented',

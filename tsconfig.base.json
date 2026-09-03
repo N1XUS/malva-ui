@@ -34,6 +34,7 @@
       "@malva-ui/i18n/tr": ["libs/i18n/tr/src/index.ts"],
       "@malva-ui/i18n/uk": ["libs/i18n/uk/src/index.ts"],
       "@malva-ui/i18n/zh-Hans": ["libs/i18n/zh-Hans/src/index.ts"],
+      "@malva-ui/scheduler": ["libs/scheduler/src/index.ts"],
       "@malva-ui/cdk/accessibility": ["libs/cdk/accessibility/src/index.ts"],
       "@malva-ui/cdk/data-source": ["libs/cdk/data-source/src/index.ts"],
       "@malva-ui/cdk/density": ["libs/cdk/density/src/index.ts"],

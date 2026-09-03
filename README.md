@@ -4,12 +4,13 @@ A production-grade Angular UI component library with full accessibility support,
 
 Published packages:
 
-| Package               | Description                                                                       |
-| --------------------- | --------------------------------------------------------------------------------- |
-| `@malva-ui/core`      | All UI components (button, input, dialog, data-table, …) — 72 entry points        |
+| Package               | Description                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `@malva-ui/core`      | All UI components (button, input, dialog, data-table, …) — 72 entry points         |
 | `@malva-ui/cdk`       | Headless primitives: accessibility, density, data-source, overlay, infinite-scroll |
 | `@malva-ui/i18n`      | Signal-based per-component i18n with ICU MessageFormat and 14 language packs       |
-| `@malva-ui/editor`    | SSR-safe Tiptap rich-text editor shell                                            |
+| `@malva-ui/editor`    | SSR-safe Tiptap rich-text editor shell                                             |
+| `@malva-ui/scheduler` | Month / week / day calendar scheduler with draggable, resizable events             |
 | `@malva-ui/tailwind`  | Tailwind CSS v4 theme adapter for the Malva UI design tokens                       |
 
 ---

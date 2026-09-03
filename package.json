@@ -115,7 +115,7 @@
   },
   "scripts": {
     "prepare": "husky",
-    "build:libs": "yarn nx run-many --target=build --projects=cdk,core,i18n,editor,tailwind --configuration=production",
+    "build:libs": "yarn nx run-many --target=build --projects=cdk,core,i18n,editor,scheduler,tailwind --configuration=production",
     "publish:dry-run": "yarn build:libs && node scripts/publish.mjs --dry-run",
     "publish:local": "node scripts/generate-ai-docs.mjs && node scripts/publish.mjs --registry http://localhost:4873",
     "publish:npm": "node scripts/publish.mjs",
