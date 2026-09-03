@@ -36,15 +36,15 @@ Exported from `libs/i18n/src/index.ts`:
 
 | Export                       | Kind           | Description                                           |
 | ---------------------------- | -------------- | ----------------------------------------------------- |
-| `MlvLanguage`                | Interface      | Aggregate of all 38 component i18n interfaces         |
+| `MlvLanguage`                | Interface      | Aggregate of all 39 component i18n interfaces         |
 | `MlvTranslationProvider`     | Interface      | AI provider contract for batch translation            |
 | `MlvTranslationRequest`      | Interface      | Single translation request                            |
 | `MlvTranslationResult`       | Interface      | Single translation result                             |
 | `MlvTranslationContext`      | Interface      | Context metadata for AI translators                   |
 | `MlvAiTranslationConfig`     | Interface      | Runtime AI translation configuration                  |
-| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (38 total)                  |
-| `Mlv*I18n`                   | Interface      | Per-component string interfaces (38 total)            |
-| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (38 total) |
+| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (39 total)                  |
+| `Mlv*I18n`                   | Interface      | Per-component string interfaces (39 total)            |
+| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (39 total) |
 | `MlvI18nService`             | Service        | Central language state management                     |
 | `MlvI18nResolverService`     | Service        | ICU MessageFormat resolution with caching             |
 | `MlvTranslatePipe`           | Pipe           | Template pipe for ICU string resolution               |
@@ -118,7 +118,7 @@ export const appConfig = {
 };
 ```
 
-Internally provides: `MlvI18nService`, `APP_INITIALIZER` for lazy loading, and all 38 per-component injection tokens.
+Internally provides: `MlvI18nService`, `APP_INITIALIZER` for lazy loading, and all 39 per-component injection tokens.
 
 ---
 
