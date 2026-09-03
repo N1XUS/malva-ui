@@ -91,6 +91,11 @@ export class MlvRating
 
   /** @private Resolver for ICU parameterized i18n strings. */
   private readonly _resolver = inject(MlvI18nResolverService);
+
+  /**
+   * @private Direction service backing `_direction` and the RTL-aware arrow-key
+   * normalisation in `_onHostKeydown`.
+   */
   private readonly _rtlService = inject(MlvRtlService);
 
   /** @private Host element — the delegation root for the hover listener. */
@@ -117,9 +122,11 @@ export class MlvRating
     // unchanged value notifies nothing, so `fromEvent` makes the rest free.
     //
     // One delegated listener on the host replaces `max()` per-star listeners.
-    // `mousemove` bubbles, and `event.target` is identical either way (the
-    // `<svg>` under the cursor, not the button), so `offsetX` — which
-    // `_isLeadingHalf` reads — is unchanged by the move.
+    // `mousemove` bubbles, and `event.target` is the star `<button>` in both
+    // forms — the two icon layers are `pointer-events: none`, so the hit test
+    // falls through to the button. That is what keeps `event.offsetX`, read by
+    // `_isLeadingHalf`, measured against the same box as `star.offsetWidth`,
+    // and unchanged by the move to delegation.
     fromEvent<MouseEvent>(this._elementRef.nativeElement, 'mousemove')
       .pipe(takeUntilDestroyed())
       .subscribe((event) => this._onStarMouseMove(event));

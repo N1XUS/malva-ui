@@ -6,6 +6,26 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvRating } from './rating';
 
+/**
+ * `offsetX` is stubbed on `MouseEvent.prototype` by the half-star tests — jsdom
+ * reports 0 for it. Captured once here and restored after every test so a stub
+ * cannot leak into a later suite in this file.
+ */
+const NATIVE_OFFSET_X = Object.getOwnPropertyDescriptor(
+  MouseEvent.prototype,
+  'offsetX',
+);
+
+afterEach(() => {
+  if (NATIVE_OFFSET_X) {
+    Object.defineProperty(MouseEvent.prototype, 'offsetX', NATIVE_OFFSET_X);
+  } else {
+    delete (MouseEvent.prototype as unknown as Record<string, unknown>)[
+      'offsetX'
+    ];
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Host components
 // ---------------------------------------------------------------------------
@@ -134,15 +154,9 @@ describe('MlvRating', () => {
 
     it('fills stars up to and including clicked star', () => {
       const stars = getStars(fixture);
-      // Click star 3 — simulate center of button (right half → full star)
-      Object.defineProperty(MouseEvent.prototype, 'offsetX', {
-        configurable: true,
-        get: () => 16,
-      });
-      Object.defineProperty(MouseEvent.prototype, 'offsetWidth', {
-        configurable: true,
-        get: () => 32,
-      });
+      // `step` is 1 here, so `_onStarClick` short-circuits before
+      // `_isLeadingHalf` and the click resolves to the whole star regardless
+      // of where inside the button it landed — no geometry stub needed.
       stars[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
       fixture.detectChanges();
       // Stars 1-3 should be fully filled (clip-path: inset(0 0% 0 0))
@@ -346,25 +360,6 @@ describe('MlvRating', () => {
 // ---------------------------------------------------------------------------
 
 describe('MlvRating hover preview', () => {
-  let offsetXDescriptor: PropertyDescriptor | undefined;
-
-  beforeEach(() => {
-    offsetXDescriptor = Object.getOwnPropertyDescriptor(
-      MouseEvent.prototype,
-      'offsetX',
-    );
-  });
-
-  afterEach(() => {
-    if (offsetXDescriptor) {
-      Object.defineProperty(MouseEvent.prototype, 'offsetX', offsetXDescriptor);
-    } else {
-      delete (MouseEvent.prototype as unknown as Record<string, unknown>)[
-        'offsetX'
-      ];
-    }
-  });
-
   /** Pins `offsetX` and the star's rendered width — both are 0 under jsdom. */
   function stubHalfGeometry(star: HTMLButtonElement, offsetX: number): void {
     Object.defineProperty(MouseEvent.prototype, 'offsetX', {
@@ -456,5 +451,121 @@ describe('MlvRating hover preview', () => {
     getStars(fixture).forEach((star) =>
       expect(filledIcon(star).style.clipPath).toBe('inset(0 100% 0 0)'),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pointer-listener delegation
+//
+// `mousemove` is the only listener here that fires continuously while the
+// pointer is over the component, and it is deliberately bound once on the host
+// with `fromEvent` instead of per-star in the template — issue #16, landed in
+// PR #113.
+// Both forms produce identical hover behaviour, so every behavioural test in
+// this file passes either way — this suite is what actually pins the shape.
+// ---------------------------------------------------------------------------
+
+describe('MlvRating pointer-listener delegation', () => {
+  /**
+   * Tallies every `addEventListener` call made on an element while `host` is
+   * created, keyed `"<type>@<tagName>"`.
+   */
+  async function tallyListeners(
+    hostClass: Type<unknown>,
+  ): Promise<Record<string, number>> {
+    const original = EventTarget.prototype.addEventListener;
+    const seen: string[] = [];
+
+    EventTarget.prototype.addEventListener = function (
+      this: EventTarget,
+      type: string,
+      ...rest: unknown[]
+    ) {
+      if (this instanceof Element) {
+        seen.push(`${type}@${this.tagName.toLowerCase()}`);
+      }
+      return (original as unknown as (...args: unknown[]) => void).apply(this, [
+        type,
+        ...rest,
+      ]);
+    } as typeof EventTarget.prototype.addEventListener;
+
+    try {
+      await createFixture(hostClass);
+    } finally {
+      EventTarget.prototype.addEventListener = original;
+    }
+
+    const tally: Record<string, number> = {};
+    for (const entry of seen) tally[entry] = (tally[entry] ?? 0) + 1;
+    return tally;
+  }
+
+  it('binds mousemove once on the host and never on a star', async () => {
+    const tally = await tallyListeners(BasicHostComponent);
+
+    expect(tally['mousemove@mlv-rating'] ?? 0).toBe(1);
+    expect(tally['mousemove@button'] ?? 0).toBe(0);
+  });
+
+  it('keeps a single mousemove listener as max grows', async () => {
+    @Component({
+      template: `<mlv-rating [max]="20" />`,
+      imports: [MlvRating],
+    })
+    class WideHost {}
+
+    const tally = await tallyListeners(WideHost);
+
+    // One delegated listener regardless of star count — the per-star form
+    // scaled with `max`.
+    expect(tally['mousemove@mlv-rating'] ?? 0).toBe(1);
+    expect(tally['mousemove@button'] ?? 0).toBe(0);
+    // Sanity: the stars really were rendered, so the counts above are not
+    // zero simply because nothing was created.
+    expect(tally['click@button'] ?? 0).toBe(20);
+  });
+
+  it('performs no layout read on the whole-star path', async () => {
+    const reads = { whole: 0, half: 0 };
+
+    async function countGeometryReads(
+      hostClass: Type<unknown>,
+      bucket: 'whole' | 'half',
+    ): Promise<void> {
+      const fixture = await createFixture(hostClass);
+      const stars = getStars(fixture);
+      stars.forEach((star) =>
+        Object.defineProperty(star, 'offsetWidth', {
+          configurable: true,
+          get: () => {
+            reads[bucket]++;
+            return 32;
+          },
+        }),
+      );
+      for (let i = 0; i < 50; i++) {
+        stars[2].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+      }
+    }
+
+    @Component({
+      template: `<mlv-rating [max]="5" [step]="0.5" />`,
+      imports: [MlvRating],
+    })
+    class HalfStepHost {}
+
+    await countGeometryReads(BasicHostComponent, 'whole');
+    TestBed.resetTestingModule();
+    await countGeometryReads(HalfStepHost, 'half');
+
+    // Whole-star ratings short-circuit before `_isLeadingHalf`, so a hover
+    // sweep performs no layout read at all. This half is the contract.
+    expect(reads.whole).toBe(0);
+    // Half-star precision does need the star's width to place the midpoint.
+    // Deliberately not an exact count: how often it is read is an
+    // implementation detail, and caching it per hover-enter would be a valid
+    // change this test must not block.
+    expect(reads.half).toBeGreaterThan(0);
   });
 });
