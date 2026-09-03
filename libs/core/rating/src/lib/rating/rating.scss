@@ -55,8 +55,12 @@ $block: mlv-rating;
   &__icon {
     position: absolute;
     top: 50%;
+    // physical: symmetric centering pair with the translate below — converting
+    // one half to `inset-inline-start` would break the offset it pairs with.
     left: 50%;
     transform: translate(-50%, -50%);
+    // Keeps the hit test falling through to the star `<button>`, which is what
+    // makes `event.offsetX` button-relative for `_isLeadingHalf`.
     pointer-events: none;
 
     &--empty {

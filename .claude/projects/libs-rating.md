@@ -52,9 +52,11 @@ The inherited `resolvedState` computed signal keeps visual validation consistent
 
 ### Hover preview
 
-- The preview is driven by **one delegated `mousemove` listener on the host**, bound in the constructor as `fromEvent(host, 'mousemove').pipe(takeUntilDestroyed())` — not a per-star `(mousemove)` binding (changed in #76). An Angular listener binding notifies the change-detection scheduler on every event before knowing whether the handler changed anything; a hover sweep is hundreds of events, and after the first, `_hoverValue` is set to the value it already holds. It also replaces `max()` listeners with one.
+- The preview is driven by **one delegated `mousemove` listener on the host**, bound in the constructor as `fromEvent(host, 'mousemove').pipe(takeUntilDestroyed())` — not a per-star `(mousemove)` binding (issue #16, landed in PR #113 alongside #76). An Angular listener binding notifies the change-detection scheduler on every event before knowing whether the handler changed anything; a hover sweep is hundreds of events, and after the first, `_hoverValue` is set to the value it already holds. It also replaces `max()` listeners with one.
 - The handler resolves the star with `closest('.mlv-rating__star')` and its one-based position among its siblings. A move that lands between stars resolves to no star and is ignored, exactly as the per-star binding did.
-- `_isLeadingHalf` is unaffected: `event.target` is the `<svg>` under the cursor in both forms, so `offsetX` is unchanged. Covered by the `MlvRating hover preview` suite in `rating.spec.ts`.
+- `_isLeadingHalf` is unaffected: the two icon layers are `pointer-events: none`, so `event.target` is the star `<button>` in both forms and `event.offsetX` stays measured against the same box as `star.offsetWidth`. Removing `pointer-events: none` from `.mlv-rating__icon` would silently move `offsetX` into the `<svg>`'s coordinate space and misplace the half-star midpoint.
+- The geometry read is on the half-star path only: `step() === 0.5` short-circuits before `_isLeadingHalf`, so a whole-star rating performs no layout read during a hover sweep.
+- Covered by the `MlvRating hover preview` suite in `rating.spec.ts`; the delegated shape itself (one host listener, none per star, flat as `max` grows) is pinned by `MlvRating pointer-listener delegation`, since hover behaviour is identical either way and every behavioural test passes against the per-star form.
 - Host `(mouseleave)` still clears the preview and remains a host binding — it fires once per sweep.
 
 ---
