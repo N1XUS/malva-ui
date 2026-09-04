@@ -1171,7 +1171,7 @@ describe('MlvTimePicker — mobile full-screen sheet', () => {
     expect(panel.classList).toContain(SHEET);
     expect(
       [...panel.classList].filter((c) =>
-        /^mlv-time-picker__panel--(compact|tight|default|comfortable|spacious)$/.test(
+        /^mlv-time-picker__panel--(tight|compact|comfortable|spacious|airy)$/.test(
           c,
         ),
       ).length,
