@@ -42,6 +42,7 @@
 - `@malva-ui/core/pagination`
 - `@malva-ui/core/popup`
 - `@malva-ui/core/radio`
+- `@malva-ui/core/scrubber`
 - `@malva-ui/core/search-field`
 - `@malva-ui/core/segmented`
 - `@malva-ui/core/select`

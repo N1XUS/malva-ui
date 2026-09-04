@@ -1,0 +1,257 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-scrubber;
+
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-scrubber-font-size, var(--mlv-font-size-m)),
+      0,
+      0
+    );
+
+    display: flex;
+    align-items: center;
+
+    // Drum depth. `--mlv-scrubber-visible-rows` is the whole strip including the
+    // selected item, and must stay odd so exactly one item can sit on the centre
+    // stripe; `--mlv-scrubber-side-rows` is what that leaves on each side, and
+    // every other length here is a multiple of one or the other. Setting
+    // `--mlv-scrubber-visible-rows` alone moves the track, the stripe, the snap
+    // port and the list padding together.
+    //
+    // The 5 is a `var()` *fallback*, never a declaration on this element. A
+    // `--mlv-scrubber-visible-rows: 5` here would shadow an ancestor's override
+    // for every descendant — a consumer that sets 7 on a wrapper (the time
+    // picker's mobile sheet does) would get a 7-row track with the stripe and the
+    // snap port still at 5. Measured before the fallback form: an 88px stripe
+    // offset (2 rows) against a 7-row track.
+    --mlv-scrubber-side-rows: calc(
+      (var(--mlv-scrubber-visible-rows, 5) - 1) / 2
+    );
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Axis-neutral parts. Everything that depends on which way the strip scrolls
+    // lives under the orientation modifiers below, so no declaration has to be
+    // undone for the other axis.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    &__track {
+      position: relative;
+      overflow: hidden;
+
+      // Selection highlight stripe (behind items, centred on the middle item)
+      &::before {
+        content: '';
+        position: absolute;
+        background-color: var(--mlv-background-neutral-1);
+        border-radius: var(--mlv-radius-s);
+        pointer-events: none;
+        z-index: 0;
+      }
+    }
+
+    &__list {
+      // `--mlv-scrubber-font-size` and not `--mlv-font-size-m`: the block above
+      // already sets its own font size from the token, and re-stating the raw
+      // token here shadows it for every descendant — so a consumer's font ramp
+      // reaches nothing and the labels stay at `m` at every density.
+      @include mixins.base(
+        var(--mlv-typography-family-text),
+        var(--mlv-scrubber-font-size, var(--mlv-font-size-m)),
+        0,
+        0
+      );
+
+      list-style: none;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      z-index: 1;
+
+      // Hide scrollbar
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+
+      // Focus ring drawn on the list element itself for keyboard users
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+        border-radius: var(--mlv-radius-s);
+      }
+    }
+
+    &__item {
+      @include mixins.base(
+        var(--mlv-typography-family-text),
+        var(--mlv-scrubber-font-size, var(--mlv-font-size-m)),
+        0,
+        0
+      );
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      scroll-snap-align: start;
+      cursor: pointer;
+      color: var(--mlv-text-tertiary);
+      font-weight: var(--mlv-font-weight-normal);
+      font-variant-numeric: tabular-nums;
+      user-select: none;
+      transition: color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+      &--selected {
+        color: var(--mlv-text-primary);
+        font-weight: var(--mlv-font-weight-semibold);
+      }
+
+      &:hover:not(.#{$block}__item--selected) {
+        color: var(--mlv-text-secondary);
+      }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Vertical — the classic drum roll. The block axis never mirrors, so `top`
+    // here is as logical as it needs to be.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    &--vertical {
+      flex-direction: column;
+      width: var(--mlv-scrubber-cross-size, 3.5rem);
+
+      .#{$block}__track {
+        width: 100%;
+        height: var(
+          --mlv-scrubber-track-size,
+          calc(
+            var(--mlv-scrubber-item-size, 2.25rem) *
+              var(--mlv-scrubber-visible-rows, 5)
+          )
+        );
+
+        // Gradient fade mask to give the drum-roll effect
+        mask-image: linear-gradient(
+          to bottom,
+          transparent 0%,
+          black 25%,
+          black 75%,
+          transparent 100%
+        );
+        -webkit-mask-image: linear-gradient(
+          to bottom,
+          transparent 0%,
+          black 25%,
+          black 75%,
+          transparent 100%
+        );
+      }
+
+      .#{$block}__track::before {
+        inset-inline: 0.25rem;
+        top: calc(
+          var(--mlv-scrubber-item-size, 2.25rem) * var(--mlv-scrubber-side-rows)
+        );
+        height: var(--mlv-scrubber-item-size, 2.25rem);
+      }
+
+      .#{$block}__list {
+        overflow-y: scroll;
+        scroll-snap-type: y mandatory;
+        // Shift the snap port so items snap to the centre stripe, not the
+        // viewport's start edge.
+        scroll-padding-block: calc(
+          var(--mlv-scrubber-item-size, 2.25rem) * var(--mlv-scrubber-side-rows)
+        );
+        // Padding lets the first/last items reach the centre stripe position.
+        padding-block: calc(
+          var(--mlv-scrubber-item-size, 2.25rem) * var(--mlv-scrubber-side-rows)
+        );
+      }
+
+      .#{$block}__item {
+        height: var(--mlv-scrubber-item-size, 2.25rem);
+        width: 100%;
+      }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Horizontal — the same strip on the **inline** axis, so it mirrors under
+    // `dir="rtl"`. Every length here is logical (`*-inline`, `inset-inline-*`)
+    // and needs no `[dir='rtl']` twin; the physical half of the mirroring is
+    // `scrollLeft`, converted once in the component.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    &--horizontal {
+      flex-direction: row;
+      // The cross axis is the strip's height here. Defaulting it to the item size
+      // keeps a bare `<mlv-scrubber orientation="horizontal">` square-celled.
+      height: var(
+        --mlv-scrubber-cross-size,
+        var(--mlv-scrubber-item-size, 2.25rem)
+      );
+
+      .#{$block}__track {
+        height: 100%;
+        width: var(
+          --mlv-scrubber-track-size,
+          calc(
+            var(--mlv-scrubber-item-size, 2.25rem) *
+              var(--mlv-scrubber-visible-rows, 5)
+          )
+        );
+
+        // physical: the gradient is its own mirror image (symmetric stops), so
+        // `to right` renders identically in both directions.
+        mask-image: linear-gradient(
+          to right,
+          transparent 0%,
+          black 25%,
+          black 75%,
+          transparent 100%
+        );
+        -webkit-mask-image: linear-gradient(
+          to right,
+          transparent 0%,
+          black 25%,
+          black 75%,
+          transparent 100%
+        );
+      }
+
+      .#{$block}__track::before {
+        inset-block: 0.25rem;
+        inset-inline-start: calc(
+          var(--mlv-scrubber-item-size, 2.25rem) * var(--mlv-scrubber-side-rows)
+        );
+        width: var(--mlv-scrubber-item-size, 2.25rem);
+      }
+
+      .#{$block}__list {
+        display: flex;
+        flex-direction: row;
+        overflow-x: scroll;
+        scroll-snap-type: x mandatory;
+        scroll-padding-inline: calc(
+          var(--mlv-scrubber-item-size, 2.25rem) * var(--mlv-scrubber-side-rows)
+        );
+        padding-inline: calc(
+          var(--mlv-scrubber-item-size, 2.25rem) * var(--mlv-scrubber-side-rows)
+        );
+      }
+
+      .#{$block}__item {
+        width: var(--mlv-scrubber-item-size, 2.25rem);
+        height: 100%;
+        // A flex item defaults to `flex-shrink: 1`, which would squeeze every
+        // item until the whole strip fitted the track and nothing ever scrolled.
+        flex: 0 0 auto;
+      }
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}

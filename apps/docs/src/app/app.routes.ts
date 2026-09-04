@@ -331,6 +331,11 @@ export const pageRoutes = [
       import('./pages/scrollbar/index').then((m) => m.ScrollbarPageComponent),
   },
   {
+    path: 'scrubber',
+    loadComponent: () =>
+      import('./pages/scrubber/index').then((m) => m.ScrubberPageComponent),
+  },
+  {
     path: 'sidebar',
     loadComponent: () =>
       import('./pages/sidebar/index').then((m) => m.SidebarPageComponent),
@@ -678,6 +683,7 @@ const GROUP_DEFINITIONS = [
       'pin-input',
       'radio',
       'rating',
+      'scrubber',
       'search-field',
       'select',
       'slider',
@@ -858,6 +864,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   radio: 'circle-dot',
   rating: 'star',
   scrollbar: 'scroll-text',
+  scrubber: 'chevrons-up-down',
   'search-field': 'search',
   segmented: 'columns-2',
   select: 'chevrons-up-down',

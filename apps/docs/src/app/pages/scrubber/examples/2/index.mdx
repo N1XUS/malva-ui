@@ -1,0 +1,13 @@
+## Horizontal strip
+
+`orientation="horizontal"` puts the same strip on the **inline** axis. Arrow
+keys become ArrowLeft / ArrowRight, `aria-orientation` follows, and the snap
+port, the list padding and the centre stripe are all logical CSS — so the strip
+mirrors under `dir="rtl"` with no second rule.
+
+Geometry is one knob per axis. `--mlv-scrubber-item-size` is the extent **along**
+the scroll axis (a width here, a height on a vertical strip),
+`--mlv-scrubber-cross-size` the extent across it, and
+`--mlv-scrubber-visible-rows` the depth — the track, the stripe offset, the snap
+port and the list padding are each a multiple of those, so setting the row count
+alone moves all four. Keep it odd, so exactly one item can sit on the stripe.

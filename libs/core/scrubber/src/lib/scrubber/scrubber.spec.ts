@@ -5,10 +5,10 @@ import {
   type ComponentFixture,
 } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { MlvTimePickerColumn } from './time-picker-column';
+import { MlvScrubber } from './scrubber';
 
 /**
- * Specs for the drum-roll column's scroll listener, which is registered
+ * Specs for the scrubber's scroll listener, which is registered
  * outside the template as `fromEvent(…, 'scroll', { passive: true })` and torn
  * down with `takeUntilDestroyed(destroyRef)`, rather than through a `(scroll)`
  * binding.
@@ -20,15 +20,15 @@ import { MlvTimePickerColumn } from './time-picker-column';
 /** Rendered height of one drum-roll item; jsdom has no layout, so it is stubbed. */
 const ITEM_HEIGHT_PX = 36;
 
-/** Debounce the column applies before reading the scroll position back. */
+/** Debounce the scrubber applies before reading the scroll position back. */
 const SCROLL_DEBOUNCE_MS = 150;
 
 const ITEMS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 @Component({
-  imports: [MlvTimePickerColumn],
+  imports: [MlvScrubber],
   template: `
-    <mlv-time-picker-column
+    <mlv-scrubber
       label="Hours"
       [items]="items()"
       [selectedValue]="selected()"
@@ -37,8 +37,8 @@ const ITEMS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     />
   `,
 })
-class ColumnHost {
-  readonly column = viewChild.required(MlvTimePickerColumn);
+class ScrubberHost {
+  readonly scrubber = viewChild.required(MlvScrubber);
   readonly items = signal<number[]>(ITEMS);
   readonly selected = signal(0);
   readonly disabled = signal(false);
@@ -60,8 +60,8 @@ class ColumnHost {
 }
 
 interface Harness {
-  fixture: ComponentFixture<ColumnHost>;
-  host: ColumnHost;
+  fixture: ComponentFixture<ScrubberHost>;
+  host: ScrubberHost;
   listEl: HTMLElement;
   /** Sets the stubbed scroll offset without going through layout. */
   setScrollTop: (value: number) => void;
@@ -95,19 +95,19 @@ async function createHarness(): Promise<Harness> {
     providers: [{ provide: ComponentFixtureAutoDetect, useValue: true }],
   });
 
-  const fixture = TestBed.createComponent(ColumnHost);
+  const fixture = TestBed.createComponent(ScrubberHost);
   fixture.detectChanges();
   await fixture.whenStable();
 
   const root: HTMLElement = fixture.nativeElement;
   const listEl = root.querySelector<HTMLElement>(
-    '.mlv-time-picker-column__list',
+    '.mlv-scrubber__list',
   ) as HTMLElement;
   expect(listEl).toBeTruthy();
 
-  // The column measures item height from the first rendered `<li>`.
+  // The scrubber measures item size from the first rendered `<li>`.
   for (const item of Array.from(
-    root.querySelectorAll<HTMLElement>('.mlv-time-picker-column__item'),
+    root.querySelectorAll<HTMLElement>('.mlv-scrubber__item'),
   )) {
     Object.defineProperty(item, 'offsetHeight', {
       get: () => ITEM_HEIGHT_PX,
@@ -135,7 +135,7 @@ async function createHarness(): Promise<Harness> {
   };
 }
 
-describe('MlvTimePickerColumn scroll listener', () => {
+describe('MlvScrubber scroll listener', () => {
   let h: Harness;
 
   afterEach(() => {
@@ -168,15 +168,15 @@ describe('MlvTimePickerColumn scroll listener', () => {
     expect(h.host.selected()).toBe(4);
   });
 
-  it('does not react to a scroll dispatched at the column host', async () => {
-    const columnHost = (
+  it('does not react to a scroll dispatched at the component host', async () => {
+    const componentHost = (
       h.fixture.nativeElement as HTMLElement
-    ).querySelector<HTMLElement>('mlv-time-picker-column');
-    expect(columnHost).not.toBe(h.listEl);
+    ).querySelector<HTMLElement>('mlv-scrubber');
+    expect(componentHost).not.toBe(h.listEl);
 
     h.setScrollTop(4 * ITEM_HEIGHT_PX);
     // `scroll` does not bubble, so the host never sees the list's event.
-    columnHost?.dispatchEvent(new Event('scroll'));
+    componentHost?.dispatchEvent(new Event('scroll'));
 
     await settleDebounce();
     await h.fixture.whenStable();
@@ -184,7 +184,7 @@ describe('MlvTimePickerColumn scroll listener', () => {
     expect(h.host.emitted()).toEqual([]);
   });
 
-  it('ignores scroll while the column is disabled', async () => {
+  it('ignores scroll while the scrubber is disabled', async () => {
     h.host.disabled.set(true);
     h.fixture.detectChanges();
     await h.fixture.whenStable();
@@ -206,7 +206,7 @@ describe('MlvTimePickerColumn scroll listener', () => {
     // is watched here. `valueChange` cannot serve: an `output()` is torn down
     // with its component, so a leaked listener would emit into the void and the
     // recorded emissions would look clean either way.
-    const internals = h.host.column() as unknown as { _scrollTimer: unknown };
+    const internals = h.host.scrubber() as unknown as { _scrollTimer: unknown };
 
     h.setScrollTop(3 * ITEM_HEIGHT_PX);
     h.scroll();
@@ -256,7 +256,7 @@ describe('MlvTimePickerColumn scroll listener', () => {
 // 4. Passive registration
 // ---------------------------------------------------------------------------
 
-describe('MlvTimePickerColumn scroll listener registration', () => {
+describe('MlvScrubber scroll listener registration', () => {
   interface Registration {
     target: EventTarget;
     options: boolean | AddEventListenerOptions | undefined;
@@ -289,13 +289,13 @@ describe('MlvTimePickerColumn scroll listener registration', () => {
     TestBed.configureTestingModule({
       providers: [{ provide: ComponentFixtureAutoDetect, useValue: true }],
     });
-    const fixture = TestBed.createComponent(ColumnHost);
+    const fixture = TestBed.createComponent(ScrubberHost);
     fixture.detectChanges();
     await fixture.whenStable();
 
     const listEl = (
       fixture.nativeElement as HTMLElement
-    ).querySelector<HTMLElement>('.mlv-time-picker-column__list');
+    ).querySelector<HTMLElement>('.mlv-scrubber__list');
 
     expect(scrollRegistrations).toHaveLength(1);
     expect(scrollRegistrations[0].target).toBe(listEl);

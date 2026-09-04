@@ -14,7 +14,7 @@ Source of truth — codify, never reinvent:
 | Overlay `direction` plumbing                                                                       | `@malva-ui/cdk/overlay`, `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete`, `MlvDialogService`                     |
 | Design + audit                                                                                     | `docs/superpowers/specs/2026-08-30-rtl-support-design.md`, `…/2026-07-27-expanded-locale-packs-rtl-audit-design.md` |
 
-Inject `MlvRtlService`. **Never inject CDK `Directionality` directly** — the service owns the document `dir`, the CDK `Directionality` sync and the scoped `[dir]` observer.
+Inject `MlvRtlService`. **Never inject CDK `Directionality` directly** — the service owns the document `dir`, the CDK `Directionality` sync and the scoped `[dir]` observer. There is exactly one sanctioned exception, for _providing_ the token to a third-party pattern: see _The one sanctioned `Directionality` provider_ below.
 
 ---
 
@@ -186,6 +186,38 @@ Which accessor:
 | React to flips from imperative code (open overlay)      | `watchDirection(target, onChange)` — returns a teardown       |
 | A **document-level** surface with no host (toast stack) | `direction()` / `rtl()`                                       |
 
+### The one sanctioned `Directionality` provider
+
+The ban above is on **injecting** the CDK token. A component that hosts a
+third-party pattern which injects `Directionality` itself may **provide** a
+scope-aware one, because the root-provided instance reports only the document
+direction — so the pattern's keyboard model and the component's own scroll or
+pointer maths would disagree inside a `[dir]` subtree.
+
+Today that is `mlv-scrubber` and `@angular/aria`'s `Listbox`
+(`libs/core/scrubber/src/lib/scrubber/scrubber.ts`, `scopedDirectionality()`).
+The rules for adding another:
+
+- **Back it with `elementDirection(host)`**, not with a second source of truth.
+  `MlvRtlService` still owns the document `dir` and the global CDK sync; the
+  provider reads from it.
+- **Provide, never inject.** The component's own code keeps using
+  `MlvRtlService`; the provider exists solely for the third party in its
+  subtree.
+- **Only when something in the subtree actually injects the token**, and say in
+  the JSDoc what that is. Nothing else in `mlv-scrubber`'s subtree does.
+- **Not CDK's `Dir` directive instead.** `Dir` is `[dir]`-selected and
+  standalone, so it exists only where a _consumer_ writes `dir` **and** imports
+  it, and it reads only its own input — a `dir` attribute on a plain wrapper, or
+  one set by the host page, provides nothing and a later change is not observed.
+  The `dir` attribute is this library's direction API, so it has to work without
+  the consumer opting into a CDK directive. Where a consumer has imported `Dir`
+  anyway, the two providers agree and the nearer one wins.
+- **Pin it with a scoped-`[dir]` spec.** A global-flip spec is not evidence:
+  `MlvRtlService.setDirection()` writes the root CDK `Directionality` too, so
+  the global case passes with the provider removed. Ablate the provider and
+  check that exactly the scoped spec goes red.
+
 ---
 
 ## Overlays
@@ -281,6 +313,7 @@ Manual check: docs app → preferences popup → **Direction: RTL**, then walk t
 - [ ] `transform` / `transform-origin` / `box-shadow` inline components go through `inline-distance()` / `--mlv-inline-direction`; no `[dir='rtl']` duplicate rules.
 - [ ] Arrow handlers switch on `normalizeArrowKey(event)`; horizontal `FocusKeyManager`s get `withHorizontalOrientation(direction)` and rebuild on change; vertical, caret and `aria-keyshortcuts` untouched.
 - [ ] Pointer maths converts `clientX` to inline progress once; measured indicators depend on `elementDirection(host)`.
+- [ ] CDK `Directionality` is not injected; if it is _provided_, it is backed by `elementDirection(host)`, justified in JSDoc, and pinned by a scoped-`[dir]` spec that fails when the provider is ablated.
 - [ ] Overlays: `start` / `end` positions, `direction` on the config, `watchDirection` for long-lived panes, `offsetX` sign from the resolved direction.
 - [ ] New positional API uses `start` / `end`; existing `left` / `right` JSDoc states logical-alias vs physical-edge.
 - [ ] Directional glyphs mirror via `scaleX(var(--mlv-inline-direction))`; time / media / alignment glyphs do not.

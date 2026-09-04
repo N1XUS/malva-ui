@@ -39,7 +39,7 @@ import {
 import { LucideClock } from '@lucide/angular';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
-import { MlvTimePickerColumn } from '../time-picker-column/time-picker-column';
+import { MlvScrubber } from '@malva-ui/core/scrubber';
 import { MLV_TIME_PICKER_I18N } from '@malva-ui/i18n';
 
 /**
@@ -84,7 +84,7 @@ function range(start: number, end: number): number[] {
     MlvPopupContainer,
     LucideClock,
     MlvButton,
-    MlvTimePickerColumn,
+    MlvScrubber,
   ],
   providers: [
     {
@@ -183,6 +183,15 @@ export class MlvTimePicker
   /** @protected Second items for the column (0–59). */
   protected readonly _secondItems = computed(() => range(0, 60));
 
+  /**
+   * @protected Clock formatting for the drum columns — a zero-padded two-digit
+   * numeral. This is the time picker's format, not the strip's: `mlv-scrubber`
+   * renders `String(value)` unless a consumer supplies one (#129). An arrow
+   * property, because the strip calls it detached from this instance.
+   */
+  protected readonly _twoDigits = (value: number): string =>
+    String(value).padStart(2, '0');
+
   /** @protected The hour value shown in the column (1–12 in 12h mode, 0–23 in 24h). */
   protected readonly _displayHour = computed(() => {
     if (this.mode() !== '12h') return this._hour();
@@ -196,13 +205,13 @@ export class MlvTimePicker
 
   /**
    * @private The rendered drum-roll columns (hours, minutes, optional seconds),
-   * in DOM order. They are `mlv-time-picker-column` children declared in this
-   * component's own template (inside `mlvPopupContent`), so a signal view query
-   * resolves them — even though the popup content renders in a detached overlay.
-   * Used for focus-on-open and inter-column Arrow navigation instead of reaching
+   * in DOM order. They are `mlv-scrubber` children declared in this component's
+   * own template (inside `mlvPopupContent`), so a signal view query resolves
+   * them — even though the popup content renders in a detached overlay. Used
+   * for focus-on-open and inter-column Arrow navigation instead of reaching
    * into the overlay DOM by class name.
    */
-  private readonly _columns = viewChildren(MlvTimePickerColumn);
+  private readonly _columns = viewChildren(MlvScrubber);
 
   /** @private Normalizes horizontal column navigation for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
