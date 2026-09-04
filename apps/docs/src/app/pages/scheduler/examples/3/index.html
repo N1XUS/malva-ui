@@ -11,7 +11,7 @@
   style="block-size: 36rem"
 />
 <ul class="docs-scheduler-log" aria-live="polite">
-  @for (line of log(); track line) {
+  @for (line of log(); track $index) {
   <li>{{ line }}</li>
   }
 </ul>
