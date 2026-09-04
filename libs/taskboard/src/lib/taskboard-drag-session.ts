@@ -155,12 +155,12 @@ export function createMlvTaskboardDragSession<TItem>(
         };
         const key = targetKey(location);
         allowedLocationKeys.add(key);
-        const request: MlvTaskboardMoveRequest<TItem> = {
+        const request: MlvTaskboardMoveRequest<TItem> = Object.freeze({
           board,
           itemId,
-          source,
-          target: location,
-        };
+          source: Object.freeze({ ...source }),
+          target: Object.freeze({ ...location }),
+        });
         authorizeMlvTaskboardMoveRequest(request);
         requests.set(key, request);
       }

@@ -147,4 +147,18 @@ describe('createMlvTaskboardDragSession', () => {
     expect(applyMlvTaskboardMove(board, request)).not.toBeNull();
     expect(canDrop).toHaveBeenCalledTimes(6);
   });
+
+  it('keeps an authorized request bound to the callback-validated target', () => {
+    const canDrop: MlvTaskboardCanDropFn<Ticket> = (_card, target) =>
+      target.column.id === 'done';
+    const board = makeBoard();
+    const session = createMlvTaskboardDragSession(board, 'a', canDrop);
+    const request = session.requestFor('done', 'sam', 1);
+
+    expect(request).toBeDefined();
+    expect(() => {
+      (request as { target: { columnId: string } }).target.columnId = 'todo';
+    }).toThrow(TypeError);
+    expect(applyMlvTaskboardMove(board, request)?.target.columnId).toBe('done');
+  });
 });
