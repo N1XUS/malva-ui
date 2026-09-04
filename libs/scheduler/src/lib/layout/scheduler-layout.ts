@@ -1,6 +1,7 @@
 import type { MlvDateAdapter } from '@malva-ui/core/date';
 import type {
   MlvSchedulerEvent,
+  MlvSchedulerNextRange,
   MlvSchedulerView,
   MlvSchedulerVisibleRange,
 } from '../scheduler/scheduler.types';
@@ -94,16 +95,34 @@ export function computeVisibleRange<D>(
   }
 }
 
-/** Every day in `range`, in order, minus the hidden weekdays. */
+/**
+ * The weekday indices in `hiddenDays` that can actually hide a rendered day:
+ * `getDayOfWeek` only ever returns an integer `0`–`6`, so anything else is
+ * dropped. A set covering **every** weekday is ignored rather than rendering an
+ * empty grid — `visibleDays` and `rowLength` share this repair so the two can
+ * never disagree about how wide a week row is.
+ */
+function hiddenWeekdays(hiddenDays: readonly number[]): ReadonlySet<number> {
+  const hidden = new Set(
+    hiddenDays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
+  );
+  return hidden.size >= 7 ? new Set<number>() : hidden;
+}
+
+/**
+ * Every day in `range`, in order, minus the hidden weekdays. A `hiddenDays`
+ * covering all seven weekdays is ignored (see `hiddenWeekdays`).
+ */
 export function visibleDays<D>(
   adapter: MlvDateAdapter<D>,
   range: MlvSchedulerVisibleRange<D>,
   hiddenDays: readonly number[],
 ): readonly D[] {
+  const hidden = hiddenWeekdays(hiddenDays);
   const days: D[] = [];
   let cursor = range.start;
   while (adapter.compareDate(cursor, range.end) < 0) {
-    if (!hiddenDays.includes(adapter.getDayOfWeek(cursor))) {
+    if (!hidden.has(adapter.getDayOfWeek(cursor))) {
       days.push(cursor);
     }
     cursor = adapter.addCalendarDays(cursor, 1);
@@ -111,10 +130,9 @@ export function visibleDays<D>(
   return days;
 }
 
-/** Visible days per week row. */
+/** Visible days per week row; never `0`, so a row loop always terminates. */
 export function rowLength(hiddenDays: readonly number[]): number {
-  const hidden = new Set(hiddenDays.filter((day) => day >= 0 && day <= 6));
-  return 7 - hidden.size;
+  return 7 - hiddenWeekdays(hiddenDays).size;
 }
 
 /** Index of the visible day containing `date`, or `-1`. */
@@ -148,16 +166,31 @@ export function normalizeEvent<D, TData>(
   return { event, start, end, allDay: false };
 }
 
-/** All-day events and timed events lasting a full day or more live in lanes, not on the time axis. */
+/**
+ * All-day events and timed events covering a full day or more live in lanes,
+ * not on the time axis.
+ *
+ * The span is measured on the **wall clock** (whole calendar days plus the
+ * difference in minutes-of-day), not in elapsed minutes: a 00:00 → 24:00 event
+ * on a spring-forward day elapses 1380 minutes but still covers the whole day,
+ * and an autumn event elapses 1500 without covering two.
+ */
 export function isLaneEvent<D, TData>(
   adapter: MlvDateAdapter<D>,
   normalized: MlvSchedulerNormalizedEvent<D, TData>,
 ): boolean {
-  return (
-    normalized.allDay ||
-    adapter.differenceInMinutes(normalized.end, normalized.start) >=
-      MINUTES_PER_DAY
+  if (normalized.allDay) return true;
+  const days = Math.round(
+    adapter.differenceInMinutes(
+      adapter.startOfDay(normalized.end),
+      adapter.startOfDay(normalized.start),
+    ) / MINUTES_PER_DAY,
   );
+  const span =
+    days * MINUTES_PER_DAY +
+    adapter.minutesOfDay(normalized.end) -
+    adapter.minutesOfDay(normalized.start);
+  return span >= MINUTES_PER_DAY;
 }
 
 /** Last calendar day the event touches (an exclusive midnight end does not touch the next day). */
@@ -181,15 +214,16 @@ export function spansMultipleDays<D, TData>(
 }
 
 /**
- * Slices events into row segments over `days`, splitting at every `rowLength`
- * boundary. `only: 'lane'` keeps all-day / ≥ 24 h events (the time grid's
+ * Slices events into row segments over `days`, splitting at every `rowWidth`
+ * boundary (`rowLength(hiddenDays)` days for a month grid, `days.length` for a
+ * single row). `only: 'lane'` keeps all-day / ≥ 24 h events (the time grid's
  * all-day row); `'all'` keeps every event (the month grid).
  */
 export function sliceRows<D, TData>(
   adapter: MlvDateAdapter<D>,
   events: readonly MlvSchedulerNormalizedEvent<D, TData>[],
   days: readonly D[],
-  rowLength: number,
+  rowWidth: number,
   only: 'all' | 'lane',
 ): MlvSchedulerRowSegment<D, TData>[] {
   const segments: MlvSchedulerRowSegment<D, TData>[] = [];
@@ -220,7 +254,7 @@ export function sliceRows<D, TData>(
         continue;
       }
       if (runStart < 0) runStart = index;
-      const rowEndsHere = index % rowLength === rowLength - 1;
+      const rowEndsHere = index % rowWidth === rowWidth - 1;
       if (rowEndsHere) flush(index);
     }
     flush(days.length - 1);
@@ -239,6 +273,9 @@ export function sliceColumns<D, TData>(
   const segments: MlvSchedulerColumnSegment<D, TData>[] = [];
   for (const normalized of events) {
     if (isLaneEvent(adapter, normalized)) continue;
+    // The same "last day touched" the row slicer uses: an exclusive midnight
+    // end does not reach the next day, and no segment is produced there.
+    const lastDay = lastDayOf(adapter, normalized);
     for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
       const day = days[dayIndex];
       const byStart = adapter.compareDate(normalized.start, day);
@@ -259,7 +296,8 @@ export function sliceColumns<D, TData>(
         startMinutes,
         endMinutes,
         continuesBefore: byStart < 0 || segStart < startMinutes,
-        continuesAfter: byEnd > 0 || segEnd > endMinutes,
+        continuesAfter:
+          adapter.compareDate(lastDay, day) > 0 || segEnd > endMinutes,
       });
     }
   }
@@ -295,7 +333,13 @@ function laneSortKey<D, TData>(
       : 0;
 }
 
-/** First-fit lane packing: longest spans first, then all-day, then start time, then id. Stable. */
+/**
+ * First-fit lane packing. Segments are ordered by first day, then by
+ * **descending** span (the longest bar in a row takes the top lane), then
+ * all-day before timed, then by start time, then by event id — so the result is
+ * deterministic for any input order. The returned array is in that order, not
+ * the input's; the input is left untouched.
+ */
 export function assignLanes<D, TData>(
   adapter: MlvDateAdapter<D>,
   segments: readonly MlvSchedulerRowSegment<D, TData>[],
@@ -319,12 +363,14 @@ export function assignLanes<D, TData>(
 
 /** What a row renders once lanes past `visibleLanes` collapse into "+N more". */
 export interface MlvSchedulerRowLayout<D = Date, TData = unknown> {
+  /** Segments the row draws, in `assignLanes` order. Empty when no lane fits. */
   readonly visible: readonly MlvSchedulerLaneSegment<D, TData>[];
   /** Day index → hidden segments covering that day (rendering order). Only days with hidden events are present. */
   readonly hiddenByDay: ReadonlyMap<
     number,
     readonly MlvSchedulerLaneSegment<D, TData>[]
   >;
+  /** Lanes the row would need without a budget — `0` for an empty row. */
   readonly laneCount: number;
 }
 
@@ -332,6 +378,11 @@ export interface MlvSchedulerRowLayout<D = Date, TData = unknown> {
  * Applies a per-row lane budget. When the row needs more lanes than
  * `visibleLanes`, the last visible lane is given to the "+N more" button, so
  * lanes `>= visibleLanes − 1` are hidden everywhere in the row.
+ *
+ * Precondition: `segments` carries the `lane` numbers `assignLanes` produced
+ * for **one** row — the budget is applied per row, and `hiddenByDay` is keyed
+ * by day index within that row. A `visibleLanes` of `1` or less hides
+ * everything, leaving the row to its "+N more" button alone.
  */
 export function layoutRow<D, TData>(
   segments: readonly MlvSchedulerLaneSegment<D, TData>[],
@@ -423,17 +474,16 @@ export function clusterColumns<D, TData>(
   return out;
 }
 
-/** The dates a move or resize would produce. */
-export interface MlvSchedulerNextRange<D = Date> {
-  readonly start: D;
-  readonly end: D;
-  readonly allDay: boolean;
-}
-
-/** Where a drag ended. `minutes === null` = a day cell; `allDay === null` = keep the event's own kind. */
+/** Where a drag ended. */
 export interface MlvSchedulerDropTarget {
+  /** Index into the view's visible-days array; clamped into range by the resolvers. */
   readonly dayIndex: number;
+  /**
+   * Snapped minutes of day for a time-column target, `null` for a day cell (a
+   * month cell or the all-day row), which keeps the event's own time of day.
+   */
   readonly minutes: number | null;
+  /** `true` / `false` convert the event's kind; `null` keeps the event's own kind. */
   readonly allDay: boolean | null;
 }
 
@@ -457,6 +507,12 @@ function clampIndex(index: number, length: number): number {
   return Math.min(length - 1, Math.max(0, index));
 }
 
+/**
+ * `minutes` of day applied to `day`. `MINUTES_PER_DAY` and beyond resolve to
+ * the next day's midnight — legal for an **end**, which may sit at the close of
+ * the window, but never for a start: `minutesFromOffset` clamps a start to one
+ * snap below `maxMinutes` (`bound: 'start'`) so it cannot land here.
+ */
 function atMinutes<D>(adapter: MlvDateAdapter<D>, day: D, minutes: number): D {
   if (minutes >= MINUTES_PER_DAY) {
     return adapter.startOfDay(adapter.addCalendarDays(day, 1));

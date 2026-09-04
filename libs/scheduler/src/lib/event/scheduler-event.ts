@@ -26,7 +26,6 @@ import {
   lastDayOf,
   resolveResize,
   spansMultipleDays,
-  type MlvSchedulerNextRange,
   type MlvSchedulerNormalizedEvent,
 } from '../layout/scheduler-layout';
 import { minutesFromOffset } from '../layout/scheduler-time';
@@ -35,7 +34,10 @@ import {
   type MlvSchedulerContext,
   type MlvSchedulerInteractionKind,
 } from '../scheduler/scheduler-context';
-import type { MlvSchedulerEventContext } from '../scheduler/scheduler.types';
+import type {
+  MlvSchedulerEventContext,
+  MlvSchedulerNextRange,
+} from '../scheduler/scheduler.types';
 
 /**
  * One rendered segment of an event. The host owns focus, ARIA, click /

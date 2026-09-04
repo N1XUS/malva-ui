@@ -12,13 +12,15 @@ import { MlvRtlService } from '@malva-ui/cdk/utils';
 import Sortable from 'sortablejs';
 import type {
   MlvSchedulerDropTarget,
-  MlvSchedulerNextRange,
   MlvSchedulerNormalizedEvent,
 } from '../layout/scheduler-layout';
 import { resolveMove } from '../layout/scheduler-layout';
 import { minutesFromOffset } from '../layout/scheduler-time';
 import type { MlvSchedulerContext } from '../scheduler/scheduler-context';
-import type { MlvSchedulerExternalDropEvent } from '../scheduler/scheduler.types';
+import type {
+  MlvSchedulerExternalDropEvent,
+  MlvSchedulerNextRange,
+} from '../scheduler/scheduler.types';
 
 /** What a drop list represents. */
 export type MlvSchedulerDropListKind =
@@ -369,12 +371,16 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
       const rect = list.getBoundingClientRect();
       const ghost = useGhost ? Sortable.ghost : null;
       const top = ghost ? ghost.getBoundingClientRect().top : pointer.y;
+      // 'start': the result becomes an event start, and `maxMinutes` is not a
+      // legal start (`atMinutes` would roll it onto the next day, and
+      // `handleAdd`'s `withTime(day, 24, 0)` would throw).
       const minutes = minutesFromOffset(
         top - rect.top,
         rect.height,
         this._ctx.minMinutes(),
         this._ctx.maxMinutes(),
         this._ctx.snap(),
+        'start',
       );
       return { dayIndex, minutes, allDay: false };
     }

@@ -49,7 +49,6 @@ import {
   normalizeEvent,
   rowLength as computeRowLength,
   visibleDays,
-  type MlvSchedulerNextRange,
   type MlvSchedulerNormalizedEvent,
 } from '../layout/scheduler-layout';
 import { MlvSchedulerMonth } from '../month/scheduler-month';
@@ -73,6 +72,7 @@ import type {
   MlvSchedulerExternalDropEvent,
   MlvSchedulerHeaderContext,
   MlvSchedulerMoreClickEvent,
+  MlvSchedulerNextRange,
   MlvSchedulerRangeSelectEvent,
   MlvSchedulerSlotEvent,
   MlvSchedulerView,

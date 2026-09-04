@@ -6,10 +6,7 @@ import {
 } from '@angular/core';
 import type { MlvDateAdapter } from '@malva-ui/core/date';
 import type { MlvSchedulerI18n } from '@malva-ui/i18n';
-import type {
-  MlvSchedulerNextRange,
-  MlvSchedulerNormalizedEvent,
-} from '../layout/scheduler-layout';
+import type { MlvSchedulerNormalizedEvent } from '../layout/scheduler-layout';
 import type {
   MlvSchedulerBusinessHours,
   MlvSchedulerChangeSource,
@@ -17,6 +14,7 @@ import type {
   MlvSchedulerEventInteraction,
   MlvSchedulerExternalDropEvent,
   MlvSchedulerMoreClickEvent,
+  MlvSchedulerNextRange,
   MlvSchedulerRangeSelectEvent,
   MlvSchedulerSlotEvent,
   MlvSchedulerView,

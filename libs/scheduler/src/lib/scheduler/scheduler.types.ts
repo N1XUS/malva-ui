@@ -29,6 +29,16 @@ export interface MlvSchedulerEvent<D = Date, TData = unknown> {
   data?: TData;
 }
 
+/** The dates a move, a resize or a veto hook is asked about. */
+export interface MlvSchedulerNextRange<D = Date> {
+  /** Inclusive start. Midnight of the first day when `allDay`. */
+  start: D;
+  /** Exclusive end. Midnight of the day **after** the last one when `allDay`. */
+  end: D;
+  /** `true` renders the event in a lane (month grid / all-day row) instead of on the time axis. */
+  allDay: boolean;
+}
+
 /** What triggered a change. */
 export type MlvSchedulerChangeSource = 'pointer' | 'keyboard';
 
@@ -36,7 +46,8 @@ export type MlvSchedulerChangeSource = 'pointer' | 'keyboard';
 export interface MlvSchedulerEventChange<D = Date, TData = unknown> {
   /** The updated event — a new object with the same `id`, already written to `events`. */
   event: MlvSchedulerEvent<D, TData>;
-  previous: { start: D; end: D; allDay: boolean };
+  /** The event's dates before the change. */
+  previous: MlvSchedulerNextRange<D>;
   source: MlvSchedulerChangeSource;
 }
 
@@ -98,7 +109,7 @@ export interface MlvSchedulerBusinessHours {
 /** Veto hook for moves and resizes. Return `false` to snap back without emitting. */
 export type MlvSchedulerCanChange<D = Date, TData = unknown> = (
   event: MlvSchedulerEvent<D, TData>,
-  next: { start: D; end: D; allDay: boolean },
+  next: MlvSchedulerNextRange<D>,
 ) => boolean;
 
 /** Context handed to `*mlvSchedulerHeaderDef`. */

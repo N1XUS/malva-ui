@@ -11,7 +11,6 @@ import {
   computeVisibleRange,
   normalizeEvent,
   visibleDays,
-  type MlvSchedulerNextRange,
   type MlvSchedulerNormalizedEvent,
 } from '../layout/scheduler-layout';
 import type {
@@ -23,6 +22,7 @@ import type {
   MlvSchedulerChangeSource,
   MlvSchedulerEvent,
   MlvSchedulerEventContext,
+  MlvSchedulerNextRange,
   MlvSchedulerView,
 } from '../scheduler/scheduler.types';
 
