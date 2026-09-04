@@ -188,6 +188,8 @@ export function createSchedulerTestContext(
     hiddenDays,
     days,
     snap,
+    minMinutes,
+    maxMinutes,
     eventDef,
     announcements,
     commits,

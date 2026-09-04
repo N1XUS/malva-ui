@@ -465,6 +465,11 @@ describe('MlvSchedulerEventChip', () => {
       expect(ctx.commits.at(-1)!.next.start).toEqual(new Date(2026, 8, 2));
       expect(ctx.commits.at(-1)!.next.end).toEqual(new Date(2026, 8, 3));
 
+      // Put the two-day bar back so the mirrored gesture makes the SAME
+      // transition, not one that starts from the already-resized range.
+      ctx.events.set([
+        { id: 'lane', title: 'Offsite', start: d(1), end: d(3), allDay: true },
+      ]);
       rtl.setDirection('rtl');
       fixture.detectChanges();
       chipEl.style.setProperty('--mlv-scheduler-span', '2');
@@ -476,6 +481,11 @@ describe('MlvSchedulerEventChip', () => {
         '120px',
       );
       handle.dispatchEvent(pointerEvent('pointerup', 190, 10));
+      // The preview vars alone would still pass if the commit resolved the
+      // unmirrored cell, so assert the committed range too: an unmirrored RTL
+      // step would push the start back to Aug 31 and stretch the end instead.
+      expect(ctx.commits.at(-1)!.next.start).toEqual(new Date(2026, 8, 2));
+      expect(ctx.commits.at(-1)!.next.end).toEqual(new Date(2026, 8, 3));
     });
 
     it('reads the owning column geometry once per gesture, not per pointermove', () => {
@@ -589,6 +599,39 @@ describe('MlvSchedulerEventChip', () => {
         allDay: false,
       });
       expect(ctx.context.pendingFocus()).toEqual({ kind: 'event', id: 'a' });
+    });
+
+    it('clamps a timed keyboard move to the visible time axis', () => {
+      // 09:00 is the first slot of an 09:00-17:00 axis, so Alt+ArrowUp has
+      // nowhere to go. Unclamped it wrote 08:30: the chip stopped rendering and
+      // the `pendingFocus` armed alongside the commit could never resolve.
+      ctx.minMinutes.set(540);
+      ctx.maxMinutes.set(1020);
+      fixture.detectChanges();
+      const event = key(timedChip(), 'ArrowUp', { altKey: true });
+      expect(ctx.commits).toHaveLength(0);
+      expect(ctx.context.pendingFocus()).toBeNull();
+      // Still the chip's key to consume - it must not bubble into the grid and
+      // rove the roving focus off the chip.
+      expect(event.defaultPrevented).toBe(true);
+      // The next placement inside the axis stays reachable.
+      key(timedChip(), 'ArrowDown', { altKey: true });
+      expect(ctx.commits[0].next.start).toEqual(new Date(2026, 8, 2, 9, 30));
+    });
+
+    it('clamps a timed keyboard move at the far end of the axis too', () => {
+      ctx.minMinutes.set(540);
+      ctx.maxMinutes.set(1020);
+      host.normalized.set(
+        norm({ id: 'a', title: 'A', start: d(2, 16, 30), end: d(2, 17) }),
+      );
+      fixture.detectChanges();
+      // 16:30 -> 17:00 already ends on `maxTime`, so a downward step would push
+      // the chip past the last rendered slot.
+      key(timedChip(), 'ArrowDown', { altKey: true });
+      expect(ctx.commits).toHaveLength(0);
+      key(timedChip(), 'ArrowUp', { altKey: true });
+      expect(ctx.commits[0].next.start).toEqual(new Date(2026, 8, 2, 16, 0));
     });
 
     it('moves a timed chip forward one day with Alt+ArrowRight', () => {

@@ -20,7 +20,10 @@ import {
 } from '@angular/cdk/keycodes';
 import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
-import { attachPointerDrag } from '../drag/scheduler-pointer';
+import {
+  TOUCH_GESTURE_DELAY,
+  attachPointerDrag,
+} from '../drag/scheduler-pointer';
 import {
   dayIndexOf,
   lastDayOf,
@@ -288,8 +291,11 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     );
   }
 
-  /** @private Next range for a keyboard move. Lanes: ←→ ±1 day, ↑↓ ±7 days. Timed: ↑↓ ±snap, ←→ ±1 day. */
-  private _keyboardMove(arrow: number): MlvSchedulerNextRange<D> {
+  /**
+   * @private Next range for a keyboard move, or `null` when the step is a no-op.
+   * Lanes: ←→ ±1 day, ↑↓ ±7 days. Timed: ↑↓ ±snap (clamped to the axis), ←→ ±1 day.
+   */
+  private _keyboardMove(arrow: number): MlvSchedulerNextRange<D> | null {
     const { adapter } = this._ctx;
     const { start, end, allDay } = this.normalized();
     if (arrow === UP_ARROW || arrow === DOWN_ARROW) {
@@ -301,7 +307,8 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
           allDay,
         };
       }
-      const step = this._ctx.snap() * sign;
+      const step = this._clampTimedStep(start, end, this._ctx.snap() * sign);
+      if (step === 0) return null;
       return {
         start: adapter.addMinutes(start, step),
         end: adapter.addMinutes(end, step),
@@ -314,6 +321,28 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
       end: adapter.shiftDays(end, sign),
       allDay,
     };
+  }
+
+  /**
+   * @private Trims a vertical keyboard step so a timed chip cannot leave the time axis.
+   *
+   * Nothing downstream clamps it — `commitChange` only runs the consumer's veto —
+   * so `Alt+ArrowUp` on a chip in the first slot used to write a range above
+   * `minTime`: the chip stopped rendering, and the `pendingFocus` request made
+   * alongside the commit had nothing to resolve to.
+   *
+   * Only a range that already fits inside one day's window is clamped. One that
+   * crosses midnight, or is longer than the window, has no in-window placement
+   * at all, so it keeps stepping freely rather than being snapped to `minTime`.
+   */
+  private _clampTimedStep(start: D, end: D, step: number): number {
+    const { adapter } = this._ctx;
+    const from = adapter.minutesOfDay(start);
+    const duration = adapter.differenceInMinutes(end, start);
+    const min = this._ctx.minMinutes();
+    const max = this._ctx.maxMinutes();
+    if (from < min || from + duration > max) return step;
+    return Math.min(Math.max(from + step, min), max - duration) - from;
   }
 
   /**
@@ -541,7 +570,9 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
           this._ctx.suppressNextClick();
         },
       },
-      { threshold: 3 },
+      // Touch arms on a short press, matching the SortableJS `delay` that
+      // governs a drag-move, so a swipe that starts on a handle still scrolls.
+      { threshold: 3, touchDelay: TOUCH_GESTURE_DELAY },
     );
   }
 
