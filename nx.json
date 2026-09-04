@@ -62,7 +62,7 @@
     }
   },
   "release": {
-    "projects": ["cdk", "core", "i18n", "editor", "tailwind"],
+    "projects": ["cdk", "core", "i18n", "editor", "tailwind", "taskboard"],
     "projectsRelationship": "fixed",
     "conventionalCommits": {
       "types": {
@@ -110,7 +110,7 @@
     },
     "version": {
       "conventionalCommits": true,
-      "preVersionCommand": "yarn nx run-many -t build -p cdk,core,i18n,editor,tailwind --configuration=production",
+      "preVersionCommand": "yarn nx run-many -t build -p cdk,core,i18n,editor,tailwind,taskboard --configuration=production",
       "manifestRootsToUpdate": ["."],
       "fallbackCurrentVersionResolver": "disk",
       "versionActions": "./scripts/release-version-actions.cjs"

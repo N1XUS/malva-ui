@@ -1,0 +1,32 @@
+{
+  "name": "@malva-ui/taskboard",
+  "version": "0.0.0-malva-ui-package-version",
+  "description": "Typed, template-projected Kanban taskboard for Malva UI.",
+  "license": "MIT",
+  "keywords": [
+    "angular",
+    "kanban",
+    "taskboard",
+    "malva-ui"
+  ],
+  "homepage": "https://github.com/N1XUS/malva-ui/tree/main/libs/taskboard#readme",
+  "bugs": {
+    "url": "https://github.com/N1XUS/malva-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/N1XUS/malva-ui.git",
+    "directory": "libs/taskboard"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@angular/cdk": "0.0.0-angular-cdk-package-version",
+    "@angular/common": "0.0.0-angular-common-package-version",
+    "@angular/core": "0.0.0-angular-core-package-version",
+    "@malva-ui/cdk": "0.0.0-malva-ui-package-version",
+    "@malva-ui/i18n": "0.0.0-malva-ui-package-version"
+  },
+  "sideEffects": false
+}

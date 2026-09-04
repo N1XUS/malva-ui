@@ -40,6 +40,7 @@ export default {
         'drawer',
         'dropdown',
         'editor',
+        'taskboard',
         'empty-state',
         'expand',
         'file-upload',
