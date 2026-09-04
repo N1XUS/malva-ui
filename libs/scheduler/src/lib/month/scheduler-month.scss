@@ -196,6 +196,17 @@ $block: mlv-scheduler-month;
         outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
         outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
       }
+
+      // A chip dragged out of the panel is still owned by the panel's own
+      // SortableJS instance, so the panel cannot be disposed until the drag
+      // ends. It goes away visually instead: `visibility` keeps it laid out
+      // (the instance and the source chip stay alive) while removing it from
+      // the paint and from `elementFromPoint`, which is what the fallback drag
+      // hit-tests the grid with.
+      &--dragging {
+        visibility: hidden;
+        pointer-events: none;
+      }
     }
 
     &__popover-title {

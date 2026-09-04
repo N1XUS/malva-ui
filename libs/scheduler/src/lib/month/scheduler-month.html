@@ -78,11 +78,23 @@
 
 <ng-template #popover>
   @if (_popoverCell(); as cell) {
+  <!--
+    A drop list like any month cell: the spec requires the overflowed chips to
+    be draggable straight out of the panel, and they are its direct children,
+    which is what SortableJS needs to start a drag. Deliberately NOT given a
+    `data-day-index` — that attribute is what a chip's `closest()` reads to find
+    its owning grid cell, and the panel is portaled to `<body>`, so claiming to
+    be one would re-point the chips' Tab ring and Escape at a detached box.
+  -->
   <div
     class="mlv-scheduler-month__popover"
     role="group"
+    [class.mlv-scheduler-month__popover--dragging]="_ctx.dragging()"
     [attr.aria-label]="cell.label"
+    [attr.id]="_popoverId"
     tabindex="-1"
+    mlvSchedulerDropList="month-cell"
+    [dayIndex]="cell.dayIndex"
   >
     <div class="mlv-scheduler-month__popover-title">{{ cell.label }}</div>
     @for (segment of cell.all; track segment.key) {

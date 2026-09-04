@@ -437,6 +437,85 @@ describe('MlvSchedulerMonth', () => {
     }
   });
 
+  it('registers the overflow popover as a drop list so its chips can be dragged out', async () => {
+    // The spec requires the panel's chips to belong to a list of the same
+    // Sortable group ("so they can be dragged out"): SortableJS starts a drag
+    // only from a DIRECT child of a container that owns an instance, so without
+    // this an overflowed event has no pointer move path at all.
+    const more = cell(8).querySelector<HTMLButtonElement>(
+      '.mlv-scheduler-month__more',
+    )!;
+    more.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const popover = document.querySelector<HTMLElement>(
+      '.mlv-scheduler-month__popover',
+    )!;
+    expect(Sortable.get(popover)).toBeTruthy();
+    const chips = Array.from(
+      popover.querySelectorAll<HTMLElement>('mlv-scheduler-event'),
+    );
+    expect(chips.length).toBe(5);
+    for (const chipEl of chips) {
+      expect(chipEl.parentElement).toBe(popover);
+      expect(Sortable.get(chipEl.parentElement!)).toBeTruthy();
+    }
+  });
+
+  it('hides the popover while a drag runs and disposes it once the drag settles', async () => {
+    const more = cell(8).querySelector<HTMLButtonElement>(
+      '.mlv-scheduler-month__more',
+    )!;
+    more.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const popover = document.querySelector<HTMLElement>(
+      '.mlv-scheduler-month__popover',
+    )!;
+
+    // Closing the panel on drag START would destroy the very SortableJS
+    // instance that owns the in-flight drag, and `unregister()` releases such a
+    // drag — the chip would snap back the instant it moved. It is hidden
+    // instead, which also keeps `elementFromPoint` reaching the grid below.
+    scheduler().setDragging(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.querySelector('.mlv-scheduler-month__popover')).toBe(
+      popover,
+    );
+    expect(popover.classList).toContain(
+      'mlv-scheduler-month__popover--dragging',
+    );
+
+    scheduler().setDragging(false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.querySelector('.mlv-scheduler-month__popover')).toBeNull();
+    expect(document.activeElement).toBe(more);
+  });
+
+  it('re-derives the open popover from the live events instead of a snapshot', async () => {
+    const more = cell(8).querySelector<HTMLButtonElement>(
+      '.mlv-scheduler-month__more',
+    )!;
+    more.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const ids = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '.mlv-scheduler-month__popover [data-event-id]',
+        ),
+      ).map((el) => el.dataset['eventId']);
+    expect(ids()).toEqual(['span', 't1', 't2', 't3', 't4']);
+
+    // An `[(events)]` edit while the panel is open — what a drag commit does.
+    host.events.update((events) => events.filter((e) => e.id !== 't3'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(ids()).toEqual(['span', 't1', 't2', 't4']);
+  });
+
   describe('pointer range selection', () => {
     const pointerEvent = (type: string, x: number, y: number) =>
       Object.assign(new Event(type, { bubbles: true, cancelable: true }), {

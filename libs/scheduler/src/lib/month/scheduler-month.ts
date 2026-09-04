@@ -26,7 +26,11 @@ import {
   UP_ARROW,
 } from '@angular/cdk/keycodes';
 import { MlvPopupService, type MlvPopupHandle } from '@malva-ui/core/popup';
-import { MlvResizeObserverService, MlvRtlService } from '@malva-ui/cdk/utils';
+import {
+  MlvResizeObserverService,
+  MlvRtlService,
+  mlvNextId,
+} from '@malva-ui/cdk/utils';
 import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
 import { MlvSchedulerDropList } from '../drag/scheduler-drop-list';
 import { MlvSchedulerEventChip } from '../event/scheduler-event';
@@ -146,11 +150,28 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
   // chip (or the `+N more` button) occupies is written per element as
   // `--mlv-scheduler-lane`. Do not add a `[style.--mlv-scheduler-visible-lanes]`
   // binding that nothing reads.
-  /** @protected Cell shown in the overflow popover, `null` when closed. */
-  protected readonly _popoverCell = signal<MlvSchedulerMonthCell<
-    D,
-    TData
-  > | null>(null);
+  /** @protected Day shown in the overflow popover, `null` when closed. */
+  protected readonly _popoverDayIndex = signal<number | null>(null);
+  /**
+   * @protected Cell shown in the overflow popover, `null` when closed.
+   *
+   * Derived from the day index rather than snapshotted at open time: an
+   * `[(events)]` edit (a drag commit, a consumer write) while the panel is open
+   * rebuilds `_rows()`, and a stored cell object would keep listing the day as
+   * it stood when the button was pressed.
+   */
+  protected readonly _popoverCell = computed(() => {
+    const dayIndex = this._popoverDayIndex();
+    if (dayIndex === null) return null;
+    for (const row of this._rows()) {
+      for (const cell of row.cells) {
+        if (cell.dayIndex === dayIndex) return cell;
+      }
+    }
+    return null;
+  });
+  /** @protected Panel id, referenced by the `+N more` button's `aria-controls`. */
+  protected readonly _popoverId = mlvNextId('mlv-scheduler-month-popover');
   /** @private Open popover handle. */
   private _popoverHandle: MlvPopupHandle | null = null;
 
@@ -339,8 +360,17 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       element?.focus();
     });
 
+    // The panel is hidden — not disposed — while a drag is in flight, and
+    // disposed once it settles. It owns the SortableJS instance that drags its
+    // own chips out (the spec requires that), and disposing it on drag start
+    // destroys that instance mid-flight: `unregister()` then releases the drag
+    // through `_releaseDragOwnedBy`, so an overflowed chip would snap back the
+    // instant it moved. Hiding is also what makes the drop reachable — the
+    // fallback drag hit-tests with `elementFromPoint`, which would otherwise
+    // keep returning the panel stacked over the grid.
     effect(() => {
-      if (this._ctx.dragging()) this._closePopover();
+      if (this._ctx.dragging()) return;
+      untracked(() => this._closePopover());
     });
 
     // Installs the row-size observer and nothing else. Every read here is
@@ -610,16 +640,23 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     event.stopPropagation();
     this._ctx.emitMoreClick({ date: cell.date, events: cell.hidden });
     this._closePopover();
-    this._popoverCell.set(cell);
+    this._popoverDayIndex.set(cell.dayIndex);
     const trigger = event.currentTarget as HTMLElement;
     const handle = this._popup.open({
       origin: new ElementRef(trigger),
       template: this._popoverTemplate(),
       vcr: this._vcr,
       positions: this._popup.resolvePositions(['bottom-start', 'top-start']),
+      // No backdrop: a CDK backdrop covers the viewport, and the fallback drag
+      // resolves its drop target with `elementFromPoint`, so a chip dragged out
+      // of the panel would never see a month cell underneath. Dismissal keeps
+      // working through the service's document click listener, with the trigger
+      // excluded so the press that opens the panel does not close it again.
+      hasBackdrop: false,
+      dismissExcludeElements: [trigger],
       onClose: () => {
         this._popoverHandle = null;
-        this._popoverCell.set(null);
+        this._popoverDayIndex.set(null);
         // The overlay is disposed before this runs, so focus that was inside
         // the panel has already fallen back to `<body>`: that — and only that —
         // is the case to restore. A close triggered while focus sits elsewhere
