@@ -6,7 +6,7 @@ Published packages:
 
 | Package               | Description                                                                        |
 | --------------------- | ---------------------------------------------------------------------------------- |
-| `@malva-ui/core`      | All UI components (button, input, dialog, data-table, …) — 72 entry points         |
+| `@malva-ui/core`      | All UI components (button, input, dialog, data-table, …) — 75 entry points         |
 | `@malva-ui/cdk`       | Headless primitives: accessibility, density, data-source, overlay, infinite-scroll |
 | `@malva-ui/i18n`      | Signal-based per-component i18n with ICU MessageFormat and 14 language packs       |
 | `@malva-ui/editor`    | SSR-safe Tiptap rich-text editor shell                                             |
@@ -133,7 +133,7 @@ The commands below are the same pipeline run locally. `nx.json` sets
 yarn release:dry-run
 ```
 
-This runs Nx Release without changing Git, builds all five packages, and shows
+This runs Nx Release without changing Git, builds all six packages, and shows
 the root manifest and changelog updates that would be made. Because GitHub
 release creation is configured, the preview requires GitHub authentication and
 connectivity even though it does not create the release.
@@ -145,8 +145,8 @@ yarn release
 ```
 
 Nx calculates the version from conventional commits, builds `cdk`, `i18n`,
-`core`, `editor` and `tailwind`, updates the root version, commits and tags the
-release, generates the AI documentation, resolves the built package manifests,
+`core`, `editor`, `scheduler` and `tailwind`, updates the root version, commits
+and tags the release, generates the AI documentation, resolves the built package manifests,
 and publishes them in dependency order. Resolving a manifest also widens the
 exact Angular/Tiptap pins the root uses for reproducible builds into the caret
 peer ranges consumers need — a published `"@angular/core": "22.0.7"` would make
