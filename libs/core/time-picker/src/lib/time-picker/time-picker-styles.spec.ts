@@ -18,6 +18,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
  * rule for the same selector ahead of the component's, so a selector that
  * includes the mixin has its real declarations in the second block.
  */
+/**
+ * Collapses the whitespace Sass and Prettier put inside a long `calc()` —
+ * newlines after `(` and before `)` — so an assertion can pin the value as
+ * written instead of the wrapping the formatter happened to choose.
+ */
+function collapse(body: string): string {
+  return body.replace(/\s+/g, ' ').replace(/\(\s/g, '(').replace(/\s\)/g, ')');
+}
+
 function ruleBody(css: string, selector: string, nth = 0): string {
   const needle = `\n${selector} {`;
   let at = -1;
@@ -50,13 +59,15 @@ describe('time-picker.scss — mobile full-screen sheet', () => {
 
   it('lets the panel claim the sheet height instead of hugging the drum', () => {
     const body = ruleBody(css, SHEET);
-    // `flex-grow` and nothing more. Measured by ablation in Chrome at 375x812:
-    // `flex: none` collapses the row to 0, while `flex: 1 1 auto` and
-    // `min-height: auto` both leave the drum byte-identical (719px row,
-    // 143.8px item, 50.33px font) — `container-type: size` below already makes
-    // the contents contribute no height, so there is nothing for a zero basis
-    // or a `min-height` override to correct.
-    expect(body).toContain('flex: 1');
+    // `flex: 1 1 0` with a *length* basis of zero, pinned as the full
+    // three-value form: `flex: 1` is a substring of it, and the shorthand
+    // expands to a `0%` basis that leaves the row's height content-dependent
+    // against this indefinite ancestor chain — `container-type: size` below
+    // then has no definite height and every `cqh` resolves to 0, so the drum
+    // falls to its 2.75rem floor. Measured by ablation in Chrome at 375x812:
+    // `flex: 1 1 0` on either this element or the row below gives a 719px row;
+    // `flex: 1` on both gives 0. `flex: none` collapses the row outright.
+    expect(body).toContain('flex: 1 1 0');
     expect(body).not.toContain('min-height');
     // `--mlv-popover-inset` is the shared *dropdown* inset; the sheet's padding
     // comes from `.mlv-popup--fullscreen`'s own `__inner` rule.
@@ -70,7 +81,7 @@ describe('time-picker.scss — mobile full-screen sheet', () => {
     // the drum overruns the sheet.
     const body = ruleBody(css, COLUMNS);
     expect(body).toContain('container-type: size');
-    expect(body).toContain('flex: 1');
+    expect(body).toContain('flex: 1 1 0');
   });
 
   it('clips the drum when the row floor wins', () => {
@@ -94,10 +105,11 @@ describe('time-picker.scss — mobile full-screen sheet', () => {
     // Seven rows against the desktop five — the top of the 5-7 range the drum
     // is designed for. Five would put a two-digit numeral in a 144px row at
     // 375x812; seven lands near 103px. The rows divide the container exactly
-    // (7 x 100cqh/7 = 100cqh).
+    // (7 x 100cqh/7 = 100cqh), and the divisor is the row-count variable, not
+    // a second `7`: the sheet is one parameter, like the column (#142).
     expect(body).toContain('--mlv-tp-visible-rows: 7');
-    expect(body).toContain(
-      '--mlv-tp-item-height: max(2.75rem, calc(100cqh / 7))',
+    expect(collapse(body)).toContain(
+      '--mlv-tp-item-height: max(2.75rem, calc(100cqh / var(--mlv-tp-visible-rows)))',
     );
     expect(body).toContain(
       '--mlv-tp-font-size: max(var(--mlv-font-size-l), 6cqh)',
@@ -107,16 +119,36 @@ describe('time-picker.scss — mobile full-screen sheet', () => {
   it('re-declares the track height on the element that overrides the item height', () => {
     // The trap: a custom property's `var()`s are substituted on the element
     // that *declares* it. `__panel`'s
-    // `--mlv-tp-track-height: calc(var(--mlv-tp-item-height) * 5)` has already
-    // resolved against the density value by the time it reaches this row, so
-    // inheriting it would leave a 180px track around 103px rows -- 1.75 rows
-    // deep -- while the rows themselves grew to fill the sheet.
-    // Sass wraps the long `calc()` across lines, so compare on collapsed
-    // whitespace rather than pinning the emitted indentation.
-    const flat = ruleBody(css, COLUMNS).replace(/\s+/g, ' ');
-    expect(flat).toContain(
-      '--mlv-tp-track-height: calc( var(--mlv-tp-item-height) * var(--mlv-tp-visible-rows) )',
+    // `--mlv-tp-track-height: calc(var(--mlv-tp-item-height) * var(--mlv-tp-visible-rows, 5))`
+    // has already resolved against the density item height by the time it
+    // reaches this row, so inheriting it would leave a 180px track around
+    // 103px rows -- 1.75 rows deep -- while the rows themselves grew to fill
+    // the sheet.
+    expect(collapse(ruleBody(css, COLUMNS))).toContain(
+      '--mlv-tp-track-height: calc(var(--mlv-tp-item-height) * var(--mlv-tp-visible-rows))',
     );
+  });
+
+  it('derives the desktop track height from the row count too', () => {
+    // #142: `__panel` handed down `calc(var(--mlv-tp-item-height) * 5)`, so a
+    // consumer setting `--mlv-tp-visible-rows: 7` on the panel — the
+    // documented API — got the column's 7-row stripe offset inside a 5-row
+    // track: the stripe on row 4 of 5, three rows above it and one below. The
+    // divider and the AM/PM column read the same value, so it has to hold on
+    // the panel, not only on the sheet's re-declaration above.
+    expect(collapse(ruleBody(css, '.mlv-time-picker__panel'))).toContain(
+      '--mlv-tp-track-height: calc(var(--mlv-tp-item-height) * var(--mlv-tp-visible-rows, 5))',
+    );
+  });
+
+  it('keeps no bare row-count literal behind on the panel or the sheet', () => {
+    // The column has the same guard; this one covers the two elements that
+    // set the count. A surviving `* 5` in a track height or a `/ 7` under
+    // `100cqh` is a length that silently ignores the override.
+    expect(css).not.toMatch(
+      /--mlv-tp-track-height:\s*calc\(\s*var\(--mlv-tp-item-height\)\s*\*\s*\d/,
+    );
+    expect(css).not.toMatch(/100cqh\s*\/\s*\d/);
   });
 });
 
