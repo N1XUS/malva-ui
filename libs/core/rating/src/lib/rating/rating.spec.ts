@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Component } from '@angular/core';
 import type { Type } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvRating } from './rating';
 
@@ -81,6 +82,18 @@ async function createFixture<T>(
   fixture.detectChanges();
   await fixture.whenStable();
   return fixture;
+}
+
+/** Pins `offsetX` and the star's rendered width — both are 0 under jsdom. */
+function stubHalfGeometry(star: HTMLButtonElement, offsetX: number): void {
+  Object.defineProperty(MouseEvent.prototype, 'offsetX', {
+    configurable: true,
+    get: () => offsetX,
+  });
+  Object.defineProperty(star, 'offsetWidth', {
+    configurable: true,
+    value: 32,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -360,18 +373,6 @@ describe('MlvRating', () => {
 // ---------------------------------------------------------------------------
 
 describe('MlvRating hover preview', () => {
-  /** Pins `offsetX` and the star's rendered width — both are 0 under jsdom. */
-  function stubHalfGeometry(star: HTMLButtonElement, offsetX: number): void {
-    Object.defineProperty(MouseEvent.prototype, 'offsetX', {
-      configurable: true,
-      get: () => offsetX,
-    });
-    Object.defineProperty(star, 'offsetWidth', {
-      configurable: true,
-      value: 32,
-    });
-  }
-
   it('previews the hovered star without committing a value', async () => {
     const fixture = await createFixture(BasicHostComponent);
     const stars = getStars(fixture);
@@ -570,5 +571,304 @@ describe('MlvRating pointer-listener delegation', () => {
     // implementation detail, and caching it per hover-enter would be a valid
     // change this test must not block.
     expect(reads.half).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Direction (RTL)
+//
+// `.mlv-rating` is `display: inline-flex` with the default `flex-direction:
+// row`, so the star row follows the inline base direction: star 1 is leftmost
+// in LTR and rightmost in RTL. Two things have to agree with that and are
+// derived independently — `_isLeadingHalf` mirrors the `offsetX` midpoint test,
+// and `_clipPath` picks the physical side to inset from, because CSS `inset()`
+// takes `top right bottom left` and has no logical form. Issue #127 was the two
+// disagreeing: the hit test resolved `2.5` and the fill painted on the star's
+// other half.
+// ---------------------------------------------------------------------------
+
+describe('MlvRating direction', () => {
+  /**
+   * The service instance the running test resolved, so `afterEach` can put the
+   * direction back. `setDirection` writes `dir` onto `<html>`, which outlives
+   * the TestBed injector and would otherwise leak RTL into the next spec.
+   */
+  let rtlService: MlvRtlService | null = null;
+
+  function directionService(): MlvRtlService {
+    rtlService = TestBed.inject(MlvRtlService);
+    return rtlService;
+  }
+
+  afterEach(() => {
+    rtlService?.setDirection('ltr');
+    rtlService = null;
+    document.documentElement.removeAttribute('dir');
+  });
+
+  @Component({
+    template: `<mlv-rating [max]="5" [step]="0.5" [formControl]="ctrl" />`,
+    imports: [MlvRating, ReactiveFormsModule],
+  })
+  class HalfStepHostComponent {
+    readonly ctrl = new FormControl<number>(0);
+  }
+
+  @Component({
+    template: `<div dir="rtl">
+      <mlv-rating [max]="5" [step]="0.5" [formControl]="ctrl" />
+    </div>`,
+    imports: [MlvRating, ReactiveFormsModule],
+  })
+  class ScopedRtlHostComponent {
+    readonly ctrl = new FormControl<number>(0);
+  }
+
+  describe('half-star fill', () => {
+    it('eats the unfilled remainder from the inline-end (physical left) edge in RTL', async () => {
+      const fixture = await createFixture(HalfStepHostComponent);
+      directionService().setDirection('rtl');
+      fixture.componentInstance.ctrl.setValue(2.5);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const stars = getStars(fixture);
+      // Star 1 is the *rightmost* star in RTL, and a star's leading half is its
+      // physical right half, so a filled portion is kept on the right — the
+      // clip eats from the left.
+      expect(filledIcon(stars[0]).style.clipPath).toBe('inset(0 0 0 0%)');
+      expect(filledIcon(stars[1]).style.clipPath).toBe('inset(0 0 0 0%)');
+      expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 0 0 50%)');
+      expect(filledIcon(stars[3]).style.clipPath).toBe('inset(0 0 0 100%)');
+      expect(filledIcon(stars[4]).style.clipPath).toBe('inset(0 0 0 100%)');
+    });
+
+    it('repaints an already-rendered half star when the direction flips', async () => {
+      const fixture = await createFixture(HalfStepHostComponent);
+      fixture.componentInstance.ctrl.setValue(2.5);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(filledIcon(getStars(fixture)[2]).style.clipPath).toBe(
+        'inset(0 50% 0 0)',
+      );
+
+      // Deliberately no `detectChanges()`: it refreshes this OnPush view
+      // whether or not the flip marked it dirty, which would let a `_clipPath`
+      // that read the direction outside the template's reactive context pass.
+      // Only the zoneless scheduler runs here, so the repaint has to be one the
+      // direction signal actually triggered.
+      directionService().setDirection('rtl');
+      await fixture.whenStable();
+
+      expect(filledIcon(getStars(fixture)[2]).style.clipPath).toBe(
+        'inset(0 0 0 50%)',
+      );
+    });
+
+    it('follows a scoped [dir] on an ancestor while the document stays LTR', async () => {
+      const fixture = await createFixture(ScopedRtlHostComponent);
+      fixture.componentInstance.ctrl.setValue(2.5);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(directionService().direction()).toBe('ltr');
+      expect(document.documentElement.getAttribute('dir')).not.toBe('rtl');
+      expect(filledIcon(getStars(fixture)[2]).style.clipPath).toBe(
+        'inset(0 0 0 50%)',
+      );
+    });
+
+    it('paints a stored half value the same way in a readonly display', async () => {
+      @Component({
+        template: `<mlv-rating [max]="5" [value]="3.5" [readonly]="true" />`,
+        imports: [MlvRating],
+      })
+      class ReadonlyHalfHostComponent {}
+
+      const fixture = await createFixture(ReadonlyHalfHostComponent);
+      directionService().setDirection('rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const stars = getStars(fixture);
+      expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 0 0 0%)');
+      expect(filledIcon(stars[3]).style.clipPath).toBe('inset(0 0 0 50%)');
+      expect(filledIcon(stars[4]).style.clipPath).toBe('inset(0 0 0 100%)');
+    });
+  });
+
+  describe('pointer', () => {
+    it('paints the half it hit-tested when the pointer is on a star leading half', async () => {
+      const fixture = await createFixture(HalfStepHostComponent);
+      directionService().setDirection('rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const stars = getStars(fixture);
+      // 22 of 32 is past the midpoint, i.e. the star's physical right half —
+      // its *leading* half in RTL, which previews `2.5`.
+      stubHalfGeometry(stars[2], 22);
+      stars[2].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(filledIcon(stars[1]).style.clipPath).toBe('inset(0 0 0 0%)');
+      expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 0 0 50%)');
+      expect(filledIcon(stars[3]).style.clipPath).toBe('inset(0 0 0 100%)');
+    });
+
+    it('previews the whole star from its trailing half', async () => {
+      const fixture = await createFixture(HalfStepHostComponent);
+      directionService().setDirection('rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const stars = getStars(fixture);
+      // 10 of 32 is the physical left half — the *trailing* half in RTL.
+      stubHalfGeometry(stars[2], 10);
+      stars[2].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 0 0 0%)');
+      expect(filledIcon(stars[3]).style.clipPath).toBe('inset(0 0 0 100%)');
+    });
+
+    it('commits and paints the same half on click', async () => {
+      const fixture = await createFixture(HalfStepHostComponent);
+      directionService().setDirection('rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const stars = getStars(fixture);
+      stubHalfGeometry(stars[2], 22);
+      stars[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // The value the hit test resolved…
+      expect(fixture.componentInstance.ctrl.value).toBe(2.5);
+      // …and the half it is painted on must be the same one.
+      expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 0 0 50%)');
+    });
+
+    it('agrees between hit test and paint under a scoped [dir] too', async () => {
+      // #127 is exactly "the hit test and the paint disagree", and the fix's
+      // whole argument is that both now read one `_direction()` signal. The
+      // global flip above exercises that; this exercises the other input to
+      // the same signal — a `[dir]` ancestor with the document still LTR.
+      const fixture = await createFixture(ScopedRtlHostComponent);
+      expect(directionService().direction()).toBe('ltr');
+
+      const stars = getStars(fixture);
+      // 22 of 32 is the star's physical right half — its *leading* half under
+      // the scoped RTL, so both call sites of `_isLeadingHalf` must resolve
+      // `2.5`, and the paint must keep the right half.
+      stubHalfGeometry(stars[2], 22);
+
+      // `_onStarMouseMove`.
+      stars[2].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(filledIcon(stars[1]).style.clipPath).toBe('inset(0 0 0 0%)');
+      expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 0 0 50%)');
+      expect(filledIcon(stars[3]).style.clipPath).toBe('inset(0 0 0 100%)');
+
+      // `_onStarClick`.
+      stars[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(fixture.componentInstance.ctrl.value).toBe(2.5);
+      expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 0 0 50%)');
+    });
+  });
+
+  describe('keyboard', () => {
+    async function rtlFixture(): Promise<
+      ComponentFixture<HalfStepHostComponent>
+    > {
+      const fixture = await createFixture(HalfStepHostComponent);
+      directionService().setDirection('rtl');
+      fixture.componentInstance.ctrl.setValue(3);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      return fixture;
+    }
+
+    function keydown(fixture: ComponentFixture<unknown>, key: string): void {
+      (
+        fixture.nativeElement.querySelector('mlv-rating') as HTMLElement
+      ).dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+      );
+      fixture.detectChanges();
+    }
+
+    it('mirrors the horizontal arrows', async () => {
+      const fixture = await rtlFixture();
+
+      // ArrowLeft is "next" in RTL, ArrowRight is "previous".
+      keydown(fixture, 'ArrowLeft');
+      expect(fixture.componentInstance.ctrl.value).toBe(3.5);
+      keydown(fixture, 'ArrowRight');
+      expect(fixture.componentInstance.ctrl.value).toBe(3);
+    });
+
+    it('leaves the vertical arrows alone', async () => {
+      const fixture = await rtlFixture();
+
+      keydown(fixture, 'ArrowUp');
+      expect(fixture.componentInstance.ctrl.value).toBe(3.5);
+      keydown(fixture, 'ArrowDown');
+      expect(fixture.componentInstance.ctrl.value).toBe(3);
+    });
+
+    it('leaves Home and End alone', async () => {
+      const fixture = await rtlFixture();
+
+      keydown(fixture, 'End');
+      expect(fixture.componentInstance.ctrl.value).toBe(5);
+      keydown(fixture, 'Home');
+      expect(fixture.componentInstance.ctrl.value).toBe(0);
+    });
+
+    /**
+     * The arrow mirror is **document-scoped**, unlike the paint and the hit
+     * test. `MlvRtlService.normalizeArrowKey` reads the service's global
+     * `direction()` signal, not `elementDirection(host)`, so under a
+     * `[dir="rtl"]` ancestor with the document still LTR a rating paints and
+     * hit-tests RTL while its arrow keys keep their LTR meaning.
+     *
+     * That is a defect in `MlvRtlService`, tracked as **#147**, and out of
+     * scope for #127 — but the three tests above all use `setDirection('rtl')`,
+     * the one case where it is invisible, so without this the suite would
+     * *mask* the gap rather than merely not cover it. This pins today's
+     * behaviour: when #147 lands it fails, and the `Direction (RTL)` and
+     * `Keyboard Navigation` sections of `.claude/projects/libs-rating.md` have
+     * to be corrected with it.
+     */
+    it('does NOT mirror the horizontal arrows under a scoped [dir] — the document direction governs (#147)', async () => {
+      const fixture = await createFixture(ScopedRtlHostComponent);
+      fixture.componentInstance.ctrl.setValue(3);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(directionService().direction()).toBe('ltr');
+
+      // The paint does follow the scope — star 4 is empty, clipped from the
+      // left, which is the RTL form (LTR would read `inset(0 100% 0 0)`).
+      expect(filledIcon(getStars(fixture)[3]).style.clipPath).toBe(
+        'inset(0 0 0 100%)',
+      );
+
+      // The arrows do not: ArrowLeft still decrements, as it would in LTR.
+      keydown(fixture, 'ArrowLeft');
+      expect(fixture.componentInstance.ctrl.value).toBe(2.5);
+      keydown(fixture, 'ArrowRight');
+      expect(fixture.componentInstance.ctrl.value).toBe(3);
+    });
+
+    it.todo(
+      'mirrors the horizontal arrows under a scoped [dir] once #147 lands',
+    );
   });
 });
