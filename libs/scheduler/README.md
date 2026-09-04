@@ -2,7 +2,7 @@
 
 Calendar scheduler for [Malva UI](https://www.npmjs.com/package/@malva-ui/core) — month, week and day views with timed, all-day and multi-day events you can drag, resize and select, on top of a fully controlled event model.
 
-Ships as its own package: it peer-depends on `@malva-ui/core` (calendar date adapter, button, segmented, popup, scrollbar, tooltip) and carries SortableJS for pointer drag.
+Ships as its own package: it peer-depends on `@malva-ui/core` (the `@malva-ui/core/date` adapter, button, segmented, popup, scrollbar) and carries SortableJS for pointer drag.
 
 ## Install
 
@@ -43,3 +43,7 @@ The scheduler writes the moved/resized event back into `events` and emits `event
 | `(visibleRangeChange)`                                       | `MlvSchedulerVisibleRange<D>`      |
 
 Docs: https://github.com/N1XUS/malva-ui/tree/main/libs/scheduler#readme
+
+## License
+
+MIT

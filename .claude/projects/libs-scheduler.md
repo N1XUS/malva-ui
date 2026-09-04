@@ -6,7 +6,7 @@
 
 ## Overview
 
-Month / week / day calendar views (`mlv-scheduler`) for timed, all-day and multi-day events with two-way model binding, pointer (SortableJS) and keyboard drag-move, end-edge resize, range selection, a replaceable toolbar, business hours, a current-time line, density, i18n and RTL.
+Month / week / day calendar views (`mlv-scheduler`) for timed, all-day and multi-day events with two-way model binding, pointer (SortableJS) and keyboard drag-move, resize from either edge, range selection, a replaceable toolbar, business hours, a current-time line, density, i18n and RTL.
 
 ## Identity
 
@@ -14,13 +14,13 @@ Month / week / day calendar views (`mlv-scheduler`) for timed, all-day and multi
 - **Import path:** `@malva-ui/scheduler` (a standalone published package; **not** re-exported from `@malva-ui/core`)
 - **Nx project:** `scheduler` (tags `scope:ui`, `family:scheduler`, `type:ui`)
 - **Packaging:** ng-packagr package root, entry `src/index.ts`
-- **Peers:** `@malva-ui/core` (date adapter, popup, segmented, button, scrollbar), `@malva-ui/cdk`, `@malva-ui/i18n`, `@angular/cdk`, `@angular/common`, `@angular/core`, `@lucide/angular`, `rxjs`
-- **Dependencies:** `sortablejs ^1.15.7`, declared by `libs/scheduler/package.json` itself (it is **not** a root dependency — the root carries only the `@types/sortablejs` devDependency and `libs/core/package.json` declares its own copy) and allow-listed in `ng-package.json` `allowedNonPeerDependencies`
+- **Peers:** `@malva-ui/core` (date adapter, popup, segmented, button, scrollbar), `@malva-ui/cdk`, `@malva-ui/i18n`, `@angular/cdk`, `@angular/common`, `@angular/core`, `@lucide/angular`
+- **Dependencies:** `sortablejs ^1.15.7`, declared by `libs/scheduler/package.json` itself (`libs/core/package.json` declares its own copy; the workspace root carries `sortablejs` + `@types/sortablejs` as **devDependencies**, because `apps/docs`' external-drop example imports SortableJS directly) and allow-listed in `ng-package.json` `allowedNonPeerDependencies`
 - **Docs page:** `/scheduler` in `apps/docs` (seven examples), API family `scheduler`
 
 ## Public API
 
-`@malva-ui/scheduler` exports the component `MlvScheduler`, the two template-def directives `MlvSchedulerEventDef` and `MlvSchedulerHeaderDef`, and the types in `scheduler.types.ts`: `MlvSchedulerView`, `MlvSchedulerEvent<D, TData>`, `MlvSchedulerChangeSource`, `MlvSchedulerEventChange`, `MlvSchedulerEventInteraction`, `MlvSchedulerSlotEvent`, `MlvSchedulerRangeSelectEvent`, `MlvSchedulerExternalDropEvent`, `MlvSchedulerVisibleRange`, `MlvSchedulerBusinessHours`, `MlvSchedulerCanChange`, `MlvSchedulerHeaderContext`, `MlvSchedulerHeaderApi`, `MlvSchedulerEventContext` and `MlvSchedulerMoreClickEvent`.
+`@malva-ui/scheduler` exports the component `MlvScheduler`, the two template-def directives `MlvSchedulerEventDef` and `MlvSchedulerHeaderDef`, and the types in `scheduler.types.ts`: `MlvSchedulerView`, `MlvSchedulerEvent<D, TData>`, `MlvSchedulerChangeSource`, `MlvSchedulerEventChange`, `MlvSchedulerNextRange`, `MlvSchedulerEventInteraction`, `MlvSchedulerSlotEvent`, `MlvSchedulerRangeSelectEvent`, `MlvSchedulerExternalDropEvent`, `MlvSchedulerVisibleRange`, `MlvSchedulerBusinessHours`, `MlvSchedulerCanChange`, `MlvSchedulerHeaderContext`, `MlvSchedulerHeaderApi`, `MlvSchedulerEventContext` and `MlvSchedulerMoreClickEvent`.
 
 Deliberately **not** exported: the drag service and its drop-list directive, the SortableJS class names and the `__mlv-ghost` preview-id helper, the pointer-gesture helper, the layout engine and the month / time-grid / chip view components. They are implementation detail and may change without a migration note.
 
@@ -67,20 +67,20 @@ Each model emits the usual `<name>Change` output, so `[(events)]`, `[(view)]` an
 
 #### Outputs
 
-| Name                 | Payload                         | Description                                                     |
-| -------------------- | ------------------------------- | --------------------------------------------------------------- |
-| `eventMove`          | `MlvSchedulerEventChange`       | A drag or keyboard move landed (after `canMove`).               |
-| `eventResize`        | `MlvSchedulerEventChange`       | A resize landed (after `canResize`).                            |
-| `eventClick`         | `MlvSchedulerEventInteraction`  | Chip activated by click, `Enter` or `Space`.                    |
-| `eventDoubleClick`   | `MlvSchedulerEventInteraction`  | Chip double-clicked.                                            |
-| `eventContextMenu`   | `MlvSchedulerEventInteraction`  | Chip context menu (the native event is not prevented).          |
-| `slotClick`          | `MlvSchedulerSlotEvent`         | Empty slot or month cell activated.                             |
-| `slotDoubleClick`    | `MlvSchedulerSlotEvent`         | Empty slot or month cell double-clicked.                        |
-| `slotContextMenu`    | `MlvSchedulerSlotEvent`         | Empty slot or month cell context menu.                          |
-| `rangeSelect`        | `MlvSchedulerRangeSelectEvent`  | Pointer drag across empty cells, or `Shift+Arrow` + `Enter`.    |
-| `externalDrop`       | `MlvSchedulerExternalDropEvent` | A foreign SortableJS item of the same `dragGroup` was dropped.  |
-| `visibleRangeChange` | `MlvSchedulerVisibleRange`      | Emitted only when the view or the range bounds actually change. |
-| `moreClick`          | `MlvSchedulerMoreClickEvent`    | A month cell's `+N more` button opened its popover.             |
+| Name                 | Payload                         | Description                                                       |
+| -------------------- | ------------------------------- | ----------------------------------------------------------------- |
+| `eventMove`          | `MlvSchedulerEventChange`       | A drag or keyboard move landed (after `canMove`).                 |
+| `eventResize`        | `MlvSchedulerEventChange`       | A resize landed (after `canResize`).                              |
+| `eventClick`         | `MlvSchedulerEventInteraction`  | Chip activated by click, `Enter` or `Space`.                      |
+| `eventDoubleClick`   | `MlvSchedulerEventInteraction`  | Chip double-clicked.                                              |
+| `eventContextMenu`   | `MlvSchedulerEventInteraction`  | Chip context menu (the native event is not prevented).            |
+| `slotClick`          | `MlvSchedulerSlotEvent`         | Empty slot or month cell activated.                               |
+| `slotDoubleClick`    | `MlvSchedulerSlotEvent`         | Empty slot or month cell double-clicked.                          |
+| `slotContextMenu`    | `MlvSchedulerSlotEvent`         | Empty slot or month cell context menu.                            |
+| `rangeSelect`        | `MlvSchedulerRangeSelectEvent`  | Pointer drag across empty cells, or `Shift+Arrow` + `Enter`.      |
+| `externalDrop`       | `MlvSchedulerExternalDropEvent` | A foreign SortableJS item of the same `dragGroup` was dropped.    |
+| `visibleRangeChange` | `MlvSchedulerVisibleRange`      | Emitted on init and whenever the view or the range bounds change. |
+| `moreClick`          | `MlvSchedulerMoreClickEvent`    | A month cell's `+N more` button opened its popover.               |
 
 #### Public methods
 
@@ -93,13 +93,27 @@ Each model emits the usual `<name>Change` output, so `[(events)]`, `[(view)]` an
 | `setView(view)`      | Switches the view.                                                            |
 | `scrollToTime(time)` | Scrolls the time grid so `'HH:mm'` sits at the top (no-op in the month view). |
 
-`MlvScheduler` also implements the internal `MlvSchedulerContext` that the view components inject. Those members (`adapter`, `i18n`, `visibleRange`, `days`, `normalizedEvents`, `translate()`, `announce()`, `commitChange()`, `emit*()`, …) are `@internal` plumbing between the root and its views: they are not part of the supported surface and are not covered by the migration policy.
+#### Public signals
+
+Read-only, and covered by the migration policy like any other public member. Useful when a heading or a data fetch lives outside the `*mlvSchedulerHeaderDef` slot.
+
+| Signal         | Type                               | Description                                                                                                                      |
+| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `title`        | `Signal<string>`                   | Localized range label: month-year, `"Aug 31 – Sep 6, 2026"`, or the full day label — the same string the built-in toolbar shows. |
+| `visibleRange` | `Signal<MlvSchedulerVisibleRange>` | The rendered period, i.e. the value `visibleRangeChange` last emitted.                                                           |
+
+`MlvScheduler` also implements the internal `MlvSchedulerContext` that the view components inject. Those members (`adapter`, `i18n`, `range` — the context's `@internal` alias of the public `visibleRange` —, `days`, `rowLength`, `today`, `nowMinutes`, `normalizedEvents`, `minMinutes`, `maxMinutes`, `snap`, `eventDef`, `dragHintId`, `pendingFocus`, `scrollRequest`, `dragging`, `translate()`, `announce()`, `commitChange()`, `emit*()`, …) are `@internal` plumbing between the root and its views: they are not part of the supported surface and are not covered by the migration policy. `title` and `visibleRange` are **not** in that set.
 
 ### `MlvSchedulerEventDef`
 
 `ng-template[mlvSchedulerEventDef]` replaces the **content** of every event chip; the chip host keeps its accessible name, resize handles, drag behaviour and focus handling. Clicks and keys originating on a focusable control inside the template are left to that control — the chip emits no `eventClick` and starts no keyboard move for them. The context is `MlvSchedulerEventContext` — `$implicit` (the event), `view`, `allDay`, `continuesBefore`, `continuesAfter`.
 
-The directive takes no inputs, so a template's context always resolves to `MlvSchedulerEventContext<Date, unknown>`: narrow a typed `data` payload in a component method rather than in the markup (`apps/docs/src/app/pages/scheduler/examples/4` shows the pattern).
+The directive takes no inputs, so a template's context always resolves to `MlvSchedulerEventContext<Date, unknown>` — **both** type parameters fall back to their defaults, not only `TData`:
+
+- `TData` degrades to `unknown`, which fails safe: a wrong member access on `data` is a compile error. Narrow the payload in a component method rather than in the markup (`apps/docs/src/app/pages/scheduler/examples/4` shows the pattern).
+- `D` degrades to `Date`, which fails **silently**: on a non-`Date` adapter (Luxon, Temporal, …) `{{ event.start.getHours() }}` type-checks against the `Date` default and throws at runtime. Route date reads through a component method that takes the event, exactly as `data` does.
+
+`MlvSchedulerHeaderDef` has the same `D = Date` degradation in `MlvSchedulerHeaderContext`.
 
 ### `MlvSchedulerHeaderDef`
 
@@ -108,16 +122,32 @@ The directive takes no inputs, so a template's context always resolves to `MlvSc
 ### Types
 
 - `MlvSchedulerEvent<D, TData>` — `id`, `title`, `start`, exclusive `end`, optional `allDay`, `tone` (`MlvTone`), `color` (any CSS colour, wins over `tone`), `draggable`, `resizable`, `data`. `end <= start` is repaired to `start + defaultEventDuration` (timed) or one day (all-day).
-- `MlvSchedulerEventChange` — `{ event, previous: { start, end, allDay }, source }`; `event` is the **new** object already written to the model.
+- `MlvSchedulerNextRange<D>` — `{ start, end (exclusive), allDay }`; the proposed range of a move or resize, and the shape `previous` and `canMove` / `canResize`' second argument share.
+- `MlvSchedulerEventChange` — `{ event, previous: MlvSchedulerNextRange, source }`; `event` is the **new** object already written to the model.
 - `MlvSchedulerEventInteraction` — `{ event, element, nativeEvent }`; `element` is the chip host, an anchor for consumer menus.
 - `MlvSchedulerSlotEvent` — `{ date, allDay, element, nativeEvent }`.
 - `MlvSchedulerRangeSelectEvent` — `{ start, end (exclusive), allDay, source }`.
 - `MlvSchedulerExternalDropEvent` — `{ element, start, end, allDay }`; the foreign element is returned to its own list, nothing is inserted.
 - `MlvSchedulerVisibleRange` — `{ view, start (inclusive), end (exclusive) }`.
 - `MlvSchedulerBusinessHours` — `{ start: 'HH:mm', end: 'HH:mm', days?: readonly number[] }` (default Monday–Friday).
-- `MlvSchedulerCanChange` — `(event, next: { start, end, allDay }) => boolean`.
+- `MlvSchedulerCanChange` — `(event, next: MlvSchedulerNextRange) => boolean`; `next` is the already-applied range, so a start-edge resize reaches it exactly like an end-edge one.
 - `MlvSchedulerChangeSource` — `'pointer' | 'keyboard'`.
 - `MlvSchedulerMoreClickEvent` — `{ date, events }`.
+
+## Accessibility
+
+The host is a labelled **`role="group"`** (`aria-label` ← the `ariaLabel` input, else the i18n `scheduler` string). A custom element carries no implicit role, so a name on it would be ARIA-prohibited; `group` is the weakest role that takes one, keeps the toolbar and the views in a single labelled region and requires no particular children.
+
+The two views use different structures, because their DOM is:
+
+| View                   | Structure                                                                                                                                                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Month                  | one `role="grid"`: a `row` of `columnheader`s, then a `rowgroup` of week `row`s of `gridcell`s. The `+N` popover is a labelled `group`.                                                                                                                                        |
+| Week / day (time grid) | the sheet is a labelled **`role="group"`**; the day headers + all-day band are their own two-row **`role="grid"`**; each day column is a **`role="listbox"`** (`aria-multiselectable` while `selectable`) whose slots are `role="option"`; the chip overlay is `presentation`. |
+
+The time grid is **column-major** in the DOM — the per-day column element is the SortableJS hit area a chip drag needs — so it is described as one listbox per day rather than as a row-major grid, which would need `aria-owns` over dozens of phantom rows. Keyboard behaviour is identical either way: the "Grid cells" row of the table below applies to month cells, all-day cells and time-grid option slots alike.
+
+Announcements go through **two alternating polite live regions** (`role="status"` + `aria-live="polite"`), written in turn: a screen reader re-announces a repeated message only when the text lands in a node that was previously empty, so two slots make "moved to Sep 5, 9:30 AM" audible twice in a row.
 
 ## Keyboard
 
@@ -125,7 +155,7 @@ Horizontal keys are logical: they mirror in RTL through `MlvRtlService.normalize
 
 | Where        | Keys                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Grid cells   | `Arrow` moves the roving focus, `Home` / `End` row start / end, `Ctrl+Home` / `Ctrl+End` grid start / end, `PageUp` / `PageDown` previous / next range, `Space` slot click, `Enter` focuses the cell's first chip (or its `+N more` button) and, on an empty cell, emits the slot click                                                                                                                                                             |
+| Grid cells   | Month cells, all-day cells and the time grid's per-day option slots alike: `Arrow` moves the roving focus, `Home` / `End` row start / end, `Ctrl+Home` / `Ctrl+End` grid start / end, `PageUp` / `PageDown` previous / next range, `Space` slot click, `Enter` focuses the cell's first chip (or its `+N more` button) and, on an empty cell, emits the slot click                                                                                  |
 | Selection    | `Shift+Arrow` extends a selection from the focused cell (only when `selectable`), `Enter` commits it as `rangeSelect`, `Escape` clears it                                                                                                                                                                                                                                                                                                           |
 | Chips        | `Enter` / `Space` activate, `Alt+Arrow` moves by one snap step (one day / one week for a lane bar), `Alt+Shift+Arrow` resizes the **end** edge, `Ctrl+Alt+Arrow` (`⌃⌥Arrow` on macOS) resizes the **start** edge, `Escape` returns focus to the owning cell, `Tab` / `Shift+Tab` cycle the cell's chips and its `+N more` button. A timed chip resizes on the block axis only, so `Alt+Shift+←/→` and `Ctrl+Alt+←/→` fall through to the grid there |
 | `+N more`    | `Enter` / `Space` open the popover, `Shift+Tab` steps back to the cell's last chip (the button is the last stop of the intra-cell ring), `Escape` returns focus to the cell                                                                                                                                                                                                                                                                         |
@@ -139,15 +169,16 @@ Horizontal keys are logical: they mirror in RTL through `MlvRtlService.normalize
 - The month grid shows as many lanes as fit its row height and folds the rest into a `+N more` button whose popover is an `MlvPopupService` overlay carrying the resolved direction. The button declares `aria-haspopup="dialog"` / `aria-expanded` / `aria-controls`, and its accessible name leads with the visible `+N more` text (WCAG 2.5.3).
 - The popover's chips are a drop list of the same `dragGroup`, so an overflowed event drags out of the panel onto any cell. It opens **without a backdrop** (the fallback drag hit-tests with `elementFromPoint`, which a backdrop would answer instead of the cell below) and is dismissed by an outside click, `Escape`, or the end of a drag: while a drag runs it is hidden rather than disposed, because disposing it would destroy the SortableJS instance that owns the drag.
 - Pointer drags use SortableJS with `forceFallback`; `onMove` always returns `false` — the DOM is never reordered, the **model** is. A ghost chip previews the drop; its id is the dragged event's id suffixed with `__mlv-ghost`, so never rely on chip ids being exactly the event ids while a drag is in flight.
-- A **multi-day timed** pointer range-drag paints a rectangle across the dragged columns but emits the **continuous** interval from the first pressed slot to the last (`start` → `end`). The paint becomes continuous in a follow-up; the emitted payload is the contract.
+- A **multi-day timed** pointer range-drag paints the **continuous** interval from the first pressed slot to the last — whole middle days, the first day from the pressed slot down, the last day up to the released slot — and emits that same interval (`start` → `end`).
 - The month grid body, the time-grid sheet and every event chip carry `user-select: none` (the root adds it too while a drag is in flight), so a range-drag or a chip drag never smears a native text selection over the grid. Text inside the views is therefore not selectable with the pointer.
-- The time-grid sheet sets `touch-action: pan-y pinch-zoom`: a vertical touch scrolls, a horizontal touch drag selects.
-- **A chip drag on a touch screen is a long press** (`delay: 200`, `delayOnTouchOnly`): moving before that pans the scroller instead, so scrolling over chips keeps working. Mouse drags still start at the 5 px threshold, and the keyboard equivalents are unaffected.
+- **On a touch screen a swipe always scrolls, on both axes** (`touch-action: pan-x pan-y pinch-zoom` on the time-grid sheet — the week sheet overflows horizontally on a phone). Drag-move, resize and range selection instead arm on a **short press** of ~200 ms without movement (SortableJS `delay: 200` + `delayOnTouchOnly` for chips, the same `touchDelay` in the pointer helper for selection and resize). Mouse drags still start at the 5 px threshold, and the keyboard equivalents are unaffected.
 - A drop list is registered as a **pair** of elements: the whole cell / column is the hit area (it carries `data-mlv-scheduler-list`, receives hovers and foreign drops), while the inner box holding the chips is where a drag starts. SortableJS only starts a drag from a direct child of its container but hit-tests hovers by walking up from `elementFromPoint`, and no single element satisfies both.
 - Each resizable chip renders a handle on **both** edges (none on an edge that continues into another day). The hit strip is ≥ 0.375 rem with `touch-action: none`; its painted grip appears on hover / `:focus-visible` and stays visible where there is no hover.
+- `hiddenDays` steers **navigation** in the day view (`next()` / `previous()` skip hidden weekdays) but never blanks it: a one-day range whose weekday is hidden still renders that day, because an empty day grid would have no cell and therefore no tab stop. An anchor pointed straight at a hidden weekday — a `[date]` binding or `goTo()` — renders the day it was asked for.
+- `minTime` / `maxTime` are validated as one window and **throw** when `minTime` is not earlier than `maxTime` (`Invalid scheduler time window …`). They are inputs, so the throw surfaces during change detection, not at construction.
 - **Overnight business hours are out of contract.** `businessHours` with `end` earlier than `start` is not supported; split the shading into two schedulers or clamp to `'24:00'`.
 - An invalid `D` (an `Invalid Date` in the native adapter) is not repaired: it propagates into the layout as an unplaced event. Validate before writing the model.
-- `visibleRangeChange` emits only when the view or the range bounds actually change, never on an unrelated `events` write.
+- `visibleRangeChange` emits **on init** and then only when the view or the range bounds actually change — never on an unrelated `events` write. A consumer that fetches on the output does not need to seed the first range itself.
 - Not in scope (follow-ups): timeline / agenda / year views, resources, recurrence, non-Gregorian calendars, timezone conversion, a quick-info popover, a custom day-cell template, print / export and virtualization.
 
 ## i18n keys
@@ -162,7 +193,7 @@ Density-tunable custom properties on the root block: `--mlv-scheduler-slot-heigh
 
 Geometry the views write and the SCSS consumes (do not set these yourself): `--mlv-scheduler-day-count`, `--mlv-scheduler-row-length`, `--mlv-scheduler-slot-count`, `--mlv-scheduler-tracks`, `--mlv-scheduler-visible-lanes`, `--mlv-scheduler-all-day-lanes`, `--mlv-scheduler-lane`, `--mlv-scheduler-span`, `--mlv-scheduler-lane-shift`, `--mlv-scheduler-offset`, `--mlv-scheduler-event-top`, `--mlv-scheduler-event-height`, `--mlv-scheduler-event-start`, `--mlv-scheduler-event-width`, and the chip's resolved palette (`--mlv-scheduler-event-bg`, `--mlv-scheduler-event-color`, `--mlv-scheduler-event-text`, `--mlv-scheduler-event-bar`).
 
-Focus rings follow Form A everywhere except chips inside the time-grid scroller, which use the inset Form B so the ring is not clipped by the scroll container. Every animated block carries a `@include mixins.reduced-motion(...)` path.
+Grid cells and the `+N` popover use the inset **Form B**; chips and the `+N more` button use **Form A**, except chips inside the time-grid scroller, which switch to Form B so the ring is not clipped by the scroll container. Every animated block carries a `@include mixins.reduced-motion(...)` path.
 
 ## Tests
 
