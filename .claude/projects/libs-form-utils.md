@@ -409,7 +409,7 @@ Implements `ControlValueAccessor`. Extend to create custom form controls.
 
 `compareWith` defaults to `defaultCompareWith` imported from `@malva-ui/cdk/utils` — **the same binding** `mlv-select` and `mlv-combobox` default their own `compareWith` input to, and the same one `@malva-ui/core/dropdown`'s `hazardOf` recognises. It used to be declared inline at the `signal()` call, which gave every service instance a private `(a, b) => a === b` that no callee could identify, so a comparator taken off the service could never reach `valueIndex`'s or the reconciliation guards' keyed fast path.
 
-The comparison performed is unchanged — it is the same `===`, with the same two quirks (`NaN` is not equal to itself; `+0` equals `-0`). Only the reference changed. `selection.service.spec.ts` pins both halves: the reference identity, and a 400-seed differential fuzz of `isSelected` / `select` / `deselect` / `toggle` against verbatim copies of the pre-change methods over a pool loaded with `NaN`, `±0` and structurally-equal-but-distinct objects.
+The comparison performed is unchanged — it is the same `===`, with the same two quirks (`NaN` is not equal to itself; `+0` equals `-0`). Only the reference changed. `selection.service.spec.ts` pins both halves: the reference identity, and a 50-seed differential fuzz of `isSelected` / `select` / `deselect` / `toggle` against verbatim copies of the pre-change methods over a pool loaded with `NaN`, `±0` and structurally-equal-but-distinct objects.
 
 The constant lives in `@malva-ui/cdk/utils` rather than in `@malva-ui/core/dropdown` because the dropdown **depends on this library** (`mlv-dropdown-panel` injects `MlvSelectionService`), so importing it from there would invert that dependency.
 

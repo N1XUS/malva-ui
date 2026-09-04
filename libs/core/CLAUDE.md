@@ -169,12 +169,15 @@ under `yarn nx run core:test`.
 - **Property bindings that the server DOM cannot satisfy** are a class of their
   own: the check is `'<prop>' in element`, so anything domino's DOM lacks fails
   there and passes in every browser test. `mapPropName` rescues `class`, `for`,
-  `formaction`, `innerHtml`, `readonly` and `tabindex`; a DOM property with no
-  HTML attribute behind it (`indeterminate`, `muted`, `selected` on `<option>`)
-  has nothing to rescue it. Write those from an `afterRenderEffect` instead of
-  binding them.
-- **Seven hosts**, one `SSR_HOSTS` entry each: form controls, pickers,
-  navigation, shell, surfaces, data, display. The split is for readability only
+  `formaction`, `innerHtml`, `readonly` and `tabindex`; a property domino's DOM
+  does not implement (`indeterminate` is the known case) has nothing to rescue
+  it. The test is `'<prop>' in element` against domino's classes, not a
+  browser's. Write those from an `afterRenderEffect` instead of binding them,
+  or bind the attribute form where the property mirrors a content attribute
+  (`[attr.selected]`, `[attr.muted]`).
+- **Eight hosts**, one `SSR_HOSTS` entry each: form controls, pickers,
+  navigation, shell, surfaces, data, display, and a drawer-sections host that
+  provides `MlvDrawerSectionsService` itself. The split is for readability only
   — every host renders through the same error-collecting path.
 - Bootstrap providers: `provideMlvI18nTesting()` (every `MLV_*_I18N` token is a
   bare `InjectionToken` with no factory), `provideRouter([])` (`mlv-bottom-nav`
@@ -216,11 +219,12 @@ barrels reach` re-finds every `@Component(` with an independent,
 - Exclusions are checked, not trusted: the suite fails on an entry naming a
   component that no longer exists, on an empty reason, and on an entry for a
   component a host does render.
-- Current exclusions (all overlay-only — they never server-render at all):
+- Current exclusions (both overlay-only — they never server-render at all):
   `MlvDialog`, `MlvDialogHeader` (need `DIALOG_CONFIG` from
-  `MlvDialogService.open()`), `MlvDrawerSection`, `MlvDrawerSections` (need
-  `MlvDrawerSectionsService`, provided only by `mlv-drawer`, and live inside its
-  overlay content template).
+  `MlvDialogService.open()`). `MlvDrawerSection` / `MlvDrawerSections` are
+  **not** excluded any more: they render in their own host that provides
+  `MlvDrawerSectionsService` itself, since the directive and the navigator
+  inject the service, not `mlv-drawer`.
 - Directives are out of scope **as a list**: most public directives are
   template-slot markers that only `inject(TemplateRef)`. Behavioural ones ride
   along on the elements they decorate inside the hosts.
@@ -231,11 +235,15 @@ barrels reach` re-finds every `@Component(` with an independent,
 
 ### Writing SSR-safe components
 
-- Never bind a **DOM property with no HTML attribute** in a template
-  (`input.indeterminate`, `video.muted`, `option.selected`). Domino does not
-  implement them, so every server render logs NG0303 per instance, and the
-  binding buys nothing there anyway — a DOM property cannot serialise into
-  markup. Write the property from an `afterRenderEffect` reading the input
+- Never bind a **DOM property domino does not implement** in a template
+  (`input.indeterminate` is the known case). The unknown-property check is
+  `'<prop>' in element` against domino's classes, not a browser's, so a
+  property that exists in every browser can still fail there; `muted` and
+  `selected`, by contrast, are content attributes and take `[attr.muted]` /
+  `[attr.selected]`. Where domino lacks the property every server render logs
+  NG0303 per instance, and the binding buys nothing there anyway — a DOM
+  property cannot serialise into markup. Write the property from an
+  `afterRenderEffect` reading the input
   signal: browser-only by construction, and it still tracks later changes,
   which a one-shot `afterNextRender` would not. `MlvCheckbox` is the reference
   case.

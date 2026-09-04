@@ -12,7 +12,7 @@ The Dropdown library (`@malva-ui/core/dropdown`) provides a generic dropdown pan
 
 ## Public API
 
-Exported from `libs/forms/dropdown/src/index.ts`:
+Exported from `libs/core/dropdown/src/index.ts`:
 
 | Export | Kind | Description |
 |--------|------|-------------|
@@ -52,9 +52,9 @@ Exported from `libs/forms/dropdown/src/index.ts`:
 
 ### `MlvDropdownPanel<T>`
 
-**File:** `libs/forms/dropdown/src/lib/dropdown-panel/dropdown-panel.ts`
-**Template:** `libs/forms/dropdown/src/lib/dropdown-panel/dropdown-panel.html`
-**Styles:** `libs/forms/dropdown/src/lib/dropdown-panel/dropdown-panel.scss`
+**File:** `libs/core/dropdown/src/lib/dropdown-panel/dropdown-panel.ts`
+**Template:** `libs/core/dropdown/src/lib/dropdown-panel/dropdown-panel.html`
+**Styles:** `libs/core/dropdown/src/lib/dropdown-panel/dropdown-panel.scss`
 
 - **Selector:** `mlv-dropdown-panel`
 - **Change Detection:** `OnPush`

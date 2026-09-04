@@ -1360,7 +1360,9 @@ describe('@malva-ui/core SSR safety', () => {
     // column logs one line per rendered row. It is also invisible to every
     // browser test, because the check `@angular/core` runs is `propName in
     // element` against the live element — true in a browser, false on domino
-    // for any DOM property with no HTML attribute behind it.
+    // for any property its DOM classes do not implement (`indeterminate` is
+    // the known case; `muted` / `selected` are content attributes and take the
+    // `[attr.*]` form instead).
     //
     // This assertion is the reason `renderHost` captures `console.error` at
     // all; the `ErrorHandler` never sees this class. Keep it asserting the
