@@ -216,6 +216,35 @@ describe('MlvSchedulerDragService', () => {
     expect(chip('a')).toBeTruthy(); // the source chip is still rendered
   });
 
+  it('keeps the preview ghost full width while it still overlaps its source', () => {
+    // A short move leaves the ghost overlapping the event it previews. Packed
+    // as a real neighbour both went half width — the preview lying about the
+    // drop and the faded source jumping sideways under the pointer.
+    const a = chip('a');
+    expect(a.style.getPropertyValue('--mlv-scheduler-event-width')).toBe(
+      '100%',
+    );
+    drag.handleStart(sortableEvent(a, column(1), column(1)), {
+      x: 280,
+      y: 460,
+    });
+    // Pointer at y = 100 + 9.5 h * 40 px → 09:30 on the same Tuesday column,
+    // i.e. a 30-minute move that still overlaps 09:00–11:00.
+    drag.handleMove(moveEvent(a, column(1)), pointer(280, 480));
+    fixture.detectChanges();
+
+    const ghost = chip(ghostIdFor('a'));
+    expect(ghost.style.getPropertyValue('--mlv-scheduler-event-width')).toBe(
+      '100%',
+    );
+    expect(ghost.style.getPropertyValue('--mlv-scheduler-event-start')).toBe(
+      '0%',
+    );
+    expect(
+      chip('a').style.getPropertyValue('--mlv-scheduler-event-width'),
+    ).toBe('100%');
+  });
+
   it('commits the previewed move on end, emits eventMove and swallows the trailing click', () => {
     const a = chip('a');
     drag.handleStart(sortableEvent(a, column(1), column(1)), {

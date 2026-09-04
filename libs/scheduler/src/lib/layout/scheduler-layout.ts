@@ -421,21 +421,37 @@ export interface MlvSchedulerClusteredSegment<D = Date, TData = unknown>
   readonly columns: number;
 }
 
-/** Sweep-line overlap clustering per day column. Touching segments do not overlap. */
+/**
+ * Sweep-line overlap clustering per day column. Touching segments do not overlap.
+ *
+ * Drag-preview ghosts (`normalized.ghost`) take no part in the packing and are
+ * appended last with `column: 0, columns: 1` — full width, over their
+ * siblings — so a preview never resizes the events it is dragged across, and
+ * the event being dragged keeps the geometry it had before the drag started.
+ */
 export function clusterColumns<D, TData>(
   segments: readonly MlvSchedulerColumnSegment<D, TData>[],
 ): MlvSchedulerClusteredSegment<D, TData>[] {
-  const sorted = [...segments].sort(
-    (a, b) =>
-      a.dayIndex - b.dayIndex ||
-      a.startMinutes - b.startMinutes ||
-      b.endMinutes - a.endMinutes ||
-      (a.normalized.event.id < b.normalized.event.id
-        ? -1
-        : a.normalized.event.id > b.normalized.event.id
-          ? 1
-          : 0),
-  );
+  // The drag-preview ghost is an overlay, not a neighbour: while it still
+  // overlaps the event it previews (any short move), packing it as a real
+  // column would halve BOTH — the preview would lie about the drop width and
+  // the faded source would jump sideways under the pointer. It is therefore
+  // excluded from column assignment and emitted full width, above its
+  // siblings. Lane views (month, all-day) already give the ghost its own lane.
+  const ghosts = segments.filter((segment) => segment.normalized.ghost);
+  const sorted = segments
+    .filter((segment) => !segment.normalized.ghost)
+    .sort(
+      (a, b) =>
+        a.dayIndex - b.dayIndex ||
+        a.startMinutes - b.startMinutes ||
+        b.endMinutes - a.endMinutes ||
+        (a.normalized.event.id < b.normalized.event.id
+          ? -1
+          : a.normalized.event.id > b.normalized.event.id
+            ? 1
+            : 0),
+    );
   const out: MlvSchedulerClusteredSegment<D, TData>[] = [];
   let cluster: Array<{
     segment: MlvSchedulerColumnSegment<D, TData>;
@@ -471,6 +487,7 @@ export function clusterColumns<D, TData>(
     clusterEnd = Math.max(clusterEnd, segment.endMinutes);
   }
   flush();
+  for (const segment of ghosts) out.push({ ...segment, column: 0, columns: 1 });
   return out;
 }
 

@@ -587,6 +587,39 @@ describe('scheduler-layout: clusters', () => {
     expect([of('e').column, of('e').columns]).toEqual([0, 1]);
   });
 
+  it('keeps a drag-preview ghost full width and leaves its neighbours untouched', () => {
+    // While a chip is dragged a short distance the ghost still overlaps the
+    // event it previews. Packed as a real column both would go half width —
+    // the preview lying about the drop, the faded source jumping sideways.
+    const laid = clusterColumns(
+      cols(
+        ev('source', d(2, 12), d(2, 13)),
+        ev('neighbour', d(2, 12), d(2, 13)),
+        ev('source__mlv-ghost', d(2, 11, 30), d(2, 12, 30)),
+      ).map((segment) =>
+        segment.normalized.event.id.endsWith('__mlv-ghost')
+          ? {
+              ...segment,
+              normalized: { ...segment.normalized, ghost: true },
+            }
+          : segment,
+      ),
+    );
+    const of = (id: string) => {
+      const found = laid.find((s) => s.normalized.event.id === id);
+      if (!found) throw new Error(`no clustered segment for "${id}"`);
+      return found;
+    };
+    expect([
+      of('source__mlv-ghost').column,
+      of('source__mlv-ghost').columns,
+    ]).toEqual([0, 1]);
+    // The two real events pack exactly as they would with no drag in flight
+    // (ties break on id, so "neighbour" takes column 0).
+    expect([of('neighbour').column, of('neighbour').columns]).toEqual([0, 2]);
+    expect([of('source').column, of('source').columns]).toEqual([1, 2]);
+  });
+
   it('treats touching events as non-overlapping and reuses freed columns', () => {
     const laid = clusterColumns(
       cols(
