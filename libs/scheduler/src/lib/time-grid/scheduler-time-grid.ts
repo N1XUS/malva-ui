@@ -42,6 +42,7 @@ import {
   type MlvSchedulerLaneSegment,
 } from '../layout/scheduler-layout';
 import {
+  DEFAULT_BUSINESS_DAYS,
   MINUTES_PER_DAY,
   parseTime,
   slotCount,
@@ -62,9 +63,6 @@ export function scrollOffsetFor(
 ): number {
   return Math.max(0, ((minutes - minMinutes) / slotDuration) * slotHeightPx);
 }
-
-/** Weekdays (0 = Sunday) `MlvSchedulerBusinessHours.days` defaults to, per `isBusinessSlot`. */
-const DEFAULT_BUSINESS_DAYS: readonly number[] = [1, 2, 3, 4, 5];
 
 /**
  * `businessHours.start` / `.end` resolved to plain minutes once per input

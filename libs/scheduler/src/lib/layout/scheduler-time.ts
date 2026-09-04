@@ -1,7 +1,8 @@
-import type { MlvSchedulerBusinessHours } from '../scheduler/scheduler.types';
-
 /** Minutes in one calendar day. */
 export const MINUTES_PER_DAY = 1440;
+
+/** Weekdays (0 = Sunday) `MlvSchedulerBusinessHours.days` defaults to. */
+export const DEFAULT_BUSINESS_DAYS: readonly number[] = [1, 2, 3, 4, 5];
 
 const TIME_PATTERN = /^([01]\d|2[0-4]):([0-5]\d)$/;
 
@@ -22,9 +23,14 @@ export function parseTime(value: string): number {
   return minutes;
 }
 
-/** Rounds to the nearest multiple of `snap`; `snap <= 0` returns the input. */
+/**
+ * Rounds to the nearest multiple of `snap`. A non-positive `snap` means "no
+ * snapping", which still rounds to a whole minute: every consumer feeds the
+ * result to `MlvDateAdapter.withTime`, and the native adapter rejects a
+ * fractional minute.
+ */
 export function snapMinutes(minutes: number, snap: number): number {
-  if (snap <= 0) return minutes;
+  if (snap <= 0) return Math.round(minutes);
   return Math.round(minutes / snap) * snap;
 }
 
@@ -38,9 +44,25 @@ export function clampMinutes(
 }
 
 /**
+ * What the caller does with the minutes `minutesFromOffset` returns.
+ *
+ * - `'end'` — an edge. `maxMinutes` is legal: an event may end at the window's
+ *   close, midnight included.
+ * - `'start'` — the start of a slot or of a dropped event. `maxMinutes` is
+ *   **not** legal there: no slot starts at the window's close, `atMinutes`
+ *   rolls `MINUTES_PER_DAY` onto the next day, and `withTime(day, 24, 0)`
+ *   throws. The ceiling drops one snap step below `maxMinutes`.
+ */
+export type MlvSchedulerOffsetBound = 'start' | 'end';
+
+/**
  * Maps a block offset inside a time column to snapped minutes of day.
  * `offsetPx` is measured from the column's block-start edge; the column spans
  * `[minMinutes, maxMinutes)` over `heightPx`.
+ *
+ * Snapping is relative to `minMinutes`, not to midnight, so an unaligned window
+ * (`08:15`–`18:15`) still snaps onto its own slot boundaries. Aligned windows
+ * are unaffected.
  */
 export function minutesFromOffset(
   offsetPx: number,
@@ -48,31 +70,30 @@ export function minutesFromOffset(
   minMinutes: number,
   maxMinutes: number,
   snap: number,
+  bound: MlvSchedulerOffsetBound = 'end',
 ): number {
   if (heightPx <= 0) return minMinutes;
-  const raw = minMinutes + (offsetPx / heightPx) * (maxMinutes - minMinutes);
-  return clampMinutes(snapMinutes(raw, snap), minMinutes, maxMinutes);
+  const raw = (offsetPx / heightPx) * (maxMinutes - minMinutes);
+  const step = snap > 0 ? snap : 1;
+  const ceiling =
+    bound === 'start' ? Math.max(minMinutes, maxMinutes - step) : maxMinutes;
+  return clampMinutes(minMinutes + snapMinutes(raw, snap), minMinutes, ceiling);
 }
 
-/** Number of slot rows needed to cover `[minMinutes, maxMinutes)`. */
+/**
+ * Number of slot rows needed to cover `[minMinutes, maxMinutes)`.
+ * Throws on a non-positive `slotDuration`: the caller renders one `@for` row
+ * per slot, and a zero or negative duration makes that count infinite.
+ */
 export function slotCount(
   minMinutes: number,
   maxMinutes: number,
   slotDuration: number,
 ): number {
+  if (!(slotDuration > 0)) {
+    throw new Error(
+      `Invalid slotDuration ${slotDuration}. Expected positive minutes.`,
+    );
+  }
   return Math.max(1, Math.ceil((maxMinutes - minMinutes) / slotDuration));
-}
-
-const DEFAULT_BUSINESS_DAYS: readonly number[] = [1, 2, 3, 4, 5];
-
-/** Whether the slot starting at `minutes` on `dayOfWeek` (0 = Sunday) is inside business hours. */
-export function isBusinessSlot(
-  dayOfWeek: number,
-  minutes: number,
-  hours: MlvSchedulerBusinessHours | null,
-): boolean {
-  if (!hours) return false;
-  const days = hours.days ?? DEFAULT_BUSINESS_DAYS;
-  if (!days.includes(dayOfWeek)) return false;
-  return minutes >= parseTime(hours.start) && minutes < parseTime(hours.end);
 }
