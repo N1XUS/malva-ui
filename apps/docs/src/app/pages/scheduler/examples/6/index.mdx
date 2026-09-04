@@ -1,0 +1,7 @@
+## Custom header and external drop
+
+Project `ng-template[mlvSchedulerHeaderDef]` to replace the default toolbar; the context exposes
+`title`, `view`, `range` and the `next()`, `previous()`, `today()` and `setView()` actions. Elements
+from any SortableJS list whose `group.name` equals the scheduler's `dragGroup` can be dropped on a
+cell or time column: nothing is inserted, the element is returned to its list and `externalDrop`
+reports `{ element, start, end, allDay }` so you create the event yourself.

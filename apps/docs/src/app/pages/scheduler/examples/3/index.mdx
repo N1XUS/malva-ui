@@ -1,0 +1,8 @@
+## Drag, resize, callbacks and vetoes
+
+With `editable` (default `true`) chips move with the pointer (SortableJS under the hood) and resize
+from their end handle; keyboard users press <kbd>Alt</kbd>+<kbd>Arrow</kbd> to move
+and <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Arrow</kbd> to resize. The model updates optimistically,
+then `eventMove` / `eventResize` emit `{ event, previous, source }`. Return `false` from `canMove` /
+`canResize` to veto a change before it lands — the chip snaps back and a polite announcement explains
+why. Per-event `draggable: false` / `resizable: false` opt single events out.

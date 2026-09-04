@@ -1,0 +1,17 @@
+.docs-scheduler-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--mlv-spacing-1);
+  min-inline-size: 0;
+
+  &__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__room {
+    color: var(--mlv-text-secondary);
+    font-size: var(--mlv-typography-body-s-size);
+  }
+}

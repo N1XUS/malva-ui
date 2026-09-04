@@ -203,6 +203,17 @@ primitive across basic, bordered/hoverable, responsive, Pop In, and density
 variants. Keep it separate from the feature-rich Data Table page so the native
 markup and the data-grid API remain easy to compare.
 
+The Scheduler page (`/scheduler`, icon `calendar-days`, API family `scheduler`,
+Data display group) documents the standalone `@malva-ui/scheduler` package in
+seven examples: views + model binding, all-day / multi-day events,
+drag / resize / vetoes, a custom chip template + colours, working hours / slots /
+hidden days, a custom header + external drop from a SortableJS list, and range
+selection + density. Every example gives `mlv-scheduler` an explicit
+`block-size`, because the month view measures its lanes against the height it is
+given. The custom-chip example narrows its typed `data` payload in a component
+method: the `mlvSchedulerEventDef` directive has no inputs, so a template's
+context always resolves to `MlvSchedulerEvent<Date, unknown>`.
+
 Examples that mutate `MlvDensityService` provide the service in their own component
 decorator. This gives each preview an isolated density scope and prevents its
 controls from changing the documentation shell's global density.

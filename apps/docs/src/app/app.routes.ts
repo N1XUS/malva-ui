@@ -326,6 +326,11 @@ export const pageRoutes = [
       import('./pages/list/index').then((m) => m.ListPageComponent),
   },
   {
+    path: 'scheduler',
+    loadComponent: () =>
+      import('./pages/scheduler/index').then((m) => m.SchedulerPageComponent),
+  },
+  {
     path: 'scrollbar',
     loadComponent: () =>
       import('./pages/scrollbar/index').then((m) => m.ScrollbarPageComponent),
@@ -615,7 +620,7 @@ export type DocsIconName =
   | 'wrench';
 
 export interface DocsApiTarget {
-  family: 'core' | 'cdk' | 'i18n' | 'editor';
+  family: 'core' | 'cdk' | 'i18n' | 'editor' | 'scheduler';
   entry: string;
 }
 
@@ -733,6 +738,7 @@ const GROUP_DEFINITIONS = [
       'avatar-group',
       'badge',
       'calendar',
+      'scheduler',
       'chat',
       'chip',
       'compare',
@@ -857,6 +863,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   progress: 'gauge',
   radio: 'circle-dot',
   rating: 'star',
+  scheduler: 'calendar-days',
   scrollbar: 'scroll-text',
   'search-field': 'search',
   segmented: 'columns-2',
@@ -893,6 +900,7 @@ const API_OVERRIDES: Partial<Record<DocsPagePath, DocsApiTarget | null>> = {
   'infinite-scroll': { family: 'cdk', entry: 'infinite-scroll' },
   internationalization: { family: 'i18n', entry: '' },
   overlay: { family: 'cdk', entry: 'overlay' },
+  scheduler: { family: 'scheduler', entry: '' },
   theming: null,
   utils: { family: 'cdk', entry: 'utils' },
   'button-group': { family: 'core', entry: 'button' },
