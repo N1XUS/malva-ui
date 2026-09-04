@@ -96,6 +96,7 @@ export function createMlvTaskboardDragSession<TItem>(
   const allowedLocationKeys = new Set<string>();
   const requests = new Map<string, MlvTaskboardMoveRequest<TItem>>();
   const lanes = board.swimlanes?.length ? board.swimlanes : [undefined];
+  const activeCanDropFn = canDropFn ?? board.canDropFn;
 
   for (const column of board.columns)
     for (const lane of lanes) {
@@ -139,9 +140,9 @@ export function createMlvTaskboardDragSession<TItem>(
         );
         const policyAllowed =
           unlocked && transitionAllowed && permittedByWip(index, card, target);
-        const callbackAllowed =
-          policyAllowed && (canDropFn?.(card, target) ?? true);
-        if (!callbackAllowed) continue;
+        const callbackAllowed = activeCanDropFn?.(card, target) ?? true;
+        const allowed = policyAllowed && callbackAllowed;
+        if (!allowed) continue;
         const location: MlvTaskboardLocation = {
           columnId: column.id,
           swimlaneId: lane?.id,
@@ -149,7 +150,13 @@ export function createMlvTaskboardDragSession<TItem>(
         };
         const key = targetKey(location);
         allowedLocationKeys.add(key);
-        requests.set(key, { board, itemId, source, target: location });
+        requests.set(key, {
+          board,
+          itemId,
+          source,
+          target: location,
+          canDropFn: activeCanDropFn,
+        });
       }
     }
   return {

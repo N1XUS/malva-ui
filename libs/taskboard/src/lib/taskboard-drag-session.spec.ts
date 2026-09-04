@@ -109,7 +109,12 @@ describe('createMlvTaskboardDragSession', () => {
 
   it('evaluates canDrop once per target with source context and rendered target state', () => {
     const canDrop: MlvTaskboardCanDropFn<Ticket> = vi.fn(() => false);
-    const board = makeBoard();
+    const board = makeBoard({
+      columns: [
+        { id: 'todo', label: 'Todo' },
+        { id: 'done', label: 'Done', wipLimit: 1 },
+      ],
+    });
 
     const session = createMlvTaskboardDragSession(board, 'a', canDrop);
 
@@ -127,7 +132,7 @@ describe('createMlvTaskboardDragSession', () => {
         swimlane: board.swimlanes?.[0],
         index: 1,
         items: [board.items[1]],
-        wip: { count: 1, limit: undefined, remaining: undefined },
+        wip: { count: 1, limit: 1, remaining: 0 },
       }),
     );
   });

@@ -1,6 +1,8 @@
 import type {
   MlvTaskboard,
   MlvTaskboardColumn,
+  MlvTaskboardDropTarget,
+  MlvTaskboardItemContext,
   MlvTaskboardKey,
   MlvTaskboardMoveRequest,
   MlvTaskboardMoveResult,
@@ -123,6 +125,16 @@ export function createMlvTaskboardIndex<TItem>(
       throw new Error(`Duplicate taskboard item key: ${String(id)}`);
     canonicalKeys.add(key);
     itemById.set(id, item);
+    const columnId = item[board.columnField] as MlvTaskboardKey;
+    if (!columnById.has(columnId)) {
+      throw new Error(`Unknown taskboard column id: ${String(columnId)}`);
+    }
+    if (board.swimlaneField !== undefined) {
+      const swimlaneId = item[board.swimlaneField] as MlvTaskboardKey;
+      if (!swimlaneById.has(swimlaneId)) {
+        throw new Error(`Unknown taskboard swimlane id: ${String(swimlaneId)}`);
+      }
+    }
   }
 
   const visibleItems = board.visibleItems ?? board.items;
@@ -229,6 +241,12 @@ export function applyMlvTaskboardMove<TItem>(
   )
     return null;
   if (
+    board.swimlaneField !== undefined &&
+    (request.source.swimlaneId === undefined ||
+      request.target.swimlaneId === undefined)
+  )
+    return null;
+  if (
     !sameKey(
       item[board.columnField] as MlvTaskboardKey,
       request.source.columnId,
@@ -286,6 +304,36 @@ export function applyMlvTaskboardMove<TItem>(
     request.target.swimlaneId,
   );
   if (request.target.index > targetItems.length) return null;
+  const sourceItems = index.itemsFor(
+    request.source.columnId,
+    request.source.swimlaneId,
+  );
+  if (
+    sourceItems[request.source.index] === undefined ||
+    !sameKey(itemKey(board, sourceItems[request.source.index]), request.itemId)
+  )
+    return null;
+  const card: MlvTaskboardItemContext<TItem> = {
+    item,
+    id: request.itemId,
+    source: request.source,
+    selected: board.selectedIds?.has(request.itemId) ?? false,
+  };
+  const target: MlvTaskboardDropTarget<TItem> = {
+    column: targetColumn,
+    swimlane: targetLane,
+    index: request.target.index,
+    items: targetItems,
+    wip: index.wipFor(request.target.columnId, request.target.swimlaneId),
+  };
+  if (board.canDropFn !== undefined && !board.canDropFn(card, target))
+    return null;
+  if (
+    request.canDropFn !== undefined &&
+    request.canDropFn !== board.canDropFn &&
+    !request.canDropFn(card, target)
+  )
+    return null;
   const currentPosition = board.items.findIndex((candidate) =>
     sameKey(itemKey(board, candidate), request.itemId),
   );

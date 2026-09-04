@@ -60,6 +60,21 @@ describe('createMlvTaskboardIndex', () => {
       }),
     ).toThrow('Visible taskboard item key is not canonical: missing');
   });
+
+  it('rejects canonical cards placed in unknown columns or swimlanes', () => {
+    expect(() =>
+      createMlvTaskboardIndex({
+        ...board,
+        items: [{ id: 'invalid-column', status: 'missing', assignee: 'sam' }],
+      }),
+    ).toThrow('Unknown taskboard column id: missing');
+    expect(() =>
+      createMlvTaskboardIndex({
+        ...board,
+        items: [{ id: 'invalid-lane', status: 'todo', assignee: 'missing' }],
+      }),
+    ).toThrow('Unknown taskboard swimlane id: missing');
+  });
 });
 
 describe('applyMlvTaskboardMove', () => {
@@ -135,5 +150,46 @@ describe('applyMlvTaskboardMove', () => {
       status: 'todo',
       assignee: 'sam',
     });
+  });
+
+  it('enforces the board canDrop policy for direct requests', () => {
+    const policyBoard: MlvTaskboard<Ticket> = {
+      ...board,
+      columns: [
+        { id: 'todo', label: 'Todo' },
+        { id: 'done', label: 'Done' },
+      ],
+      canDropFn: () => false,
+    };
+    const request: MlvTaskboardMoveRequest<Ticket> = {
+      board: policyBoard,
+      itemId: 'a',
+      source: { columnId: 'todo', swimlaneId: 'sam', index: 0 },
+      target: { columnId: 'done', swimlaneId: 'sam', index: 1 },
+    };
+
+    expect(applyMlvTaskboardMove(policyBoard, request)).toBeNull();
+  });
+
+  it('rejects a request that omits a configured destination lane', () => {
+    const request: MlvTaskboardMoveRequest<Ticket> = {
+      board,
+      itemId: 'a',
+      source: { columnId: 'todo', swimlaneId: 'sam', index: 0 },
+      target: { columnId: 'todo', index: 0 },
+    };
+
+    expect(applyMlvTaskboardMove(board, request)).toBeNull();
+  });
+
+  it('rejects a request with stale source index metadata', () => {
+    const request: MlvTaskboardMoveRequest<Ticket> = {
+      board,
+      itemId: 'a',
+      source: { columnId: 'todo', swimlaneId: 'sam', index: 1 },
+      target: { columnId: 'todo', swimlaneId: 'sam', index: 1 },
+    };
+
+    expect(applyMlvTaskboardMove(board, request)).toBeNull();
   });
 });
