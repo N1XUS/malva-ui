@@ -1,5 +1,15 @@
 import type { MlvSchedulerPointerPosition } from './scheduler-drag.service';
 
+/**
+ * Milliseconds a touch must rest before a scheduler pointer gesture arms.
+ *
+ * Shared by range selection (both views) and chip resize, and equal to the
+ * SortableJS `delay` the drag service uses for chip drag-moves, so every touch
+ * gesture in the scheduler has the same "press, then drag" feel and a plain
+ * swipe always scrolls.
+ */
+export const TOUCH_GESTURE_DELAY = 200;
+
 /** Callbacks of `attachPointerDrag`. */
 export interface MlvSchedulerPointerDragHandlers {
   /** Fires once, when the pointer first crosses the threshold. `point` is where the pointer went down. */
@@ -23,6 +33,19 @@ export interface MlvSchedulerPointerDragOptions {
   readonly capture?: boolean;
   /** Return `true` for targets that must not start a drag (chips, buttons). */
   ignore?(target: Element): boolean;
+  /**
+   * Milliseconds a TOUCH pointer must stay still before the gesture arms.
+   * Default `0` — touch behaves like mouse and arms at `threshold`.
+   *
+   * With a delay, a touch that moves before the timer fires abandons the
+   * gesture silently: nothing is captured and no default is prevented, so the
+   * browser pans the scroller as usual. Once it fires, the gesture takes over
+   * — the pointer is captured and `touchmove` is prevented for its duration,
+   * which is what stops the browser from starting a pan mid-gesture (the same
+   * `delay` + `delayOnTouchOnly` contract SortableJS uses for chip drags).
+   * Mouse and pen ignore it and keep the movement threshold.
+   */
+  readonly touchDelay?: number;
 }
 
 /**
@@ -37,10 +60,21 @@ export function attachPointerDrag(
 ): () => void {
   const threshold = options.threshold ?? 5;
   const capture = options.capture ?? true;
+  const touchDelay = options.touchDelay ?? 0;
   const doc = element.ownerDocument;
   let origin: MlvSchedulerPointerPosition | null = null;
   let pointerId: number | null = null;
   let started = false;
+  /** `true` between pointerdown and the touch delay firing: the gesture may still be abandoned. */
+  let pending = false;
+  /** `true` while the running gesture came from a touch pointer under a `touchDelay`. */
+  let delayedTouch = false;
+  let delayTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Swallows `touchmove` so the browser cannot start a pan under an armed gesture. */
+  const onTouchMove = (event: Event): void => {
+    if (event.cancelable) event.preventDefault();
+  };
 
   const point = (event: Event): MlvSchedulerPointerPosition => {
     const { clientX, clientY } = event as PointerEvent;
@@ -48,6 +82,13 @@ export function attachPointerDrag(
   };
 
   const stop = (): void => {
+    if (delayTimer !== null) {
+      clearTimeout(delayTimer);
+      delayTimer = null;
+    }
+    pending = false;
+    delayedTouch = false;
+    element.removeEventListener('touchmove', onTouchMove);
     if (
       pointerId !== null &&
       capture &&
@@ -77,8 +118,15 @@ export function attachPointerDrag(
   const onMove = (event: Event): void => {
     if (!origin || foreign(event)) return;
     const at = point(event);
+    const travelled = Math.hypot(at.x - origin.x, at.y - origin.y);
+    // Still waiting out the touch delay: movement means the user is scrolling,
+    // so drop the gesture without ever having captured or prevented anything.
+    if (pending) {
+      if (travelled >= threshold) onCancel();
+      return;
+    }
     if (!started) {
-      if (Math.hypot(at.x - origin.x, at.y - origin.y) < threshold) return;
+      if (travelled < threshold) return;
       started = true;
       handlers.onStart?.(origin, event);
     }
@@ -103,6 +151,26 @@ export function attachPointerDrag(
     if (event.key === 'Escape') onCancel();
   };
 
+  /** Captures the pointer and blocks native panning; the point where a delayed touch gesture takes over. */
+  const arm = (): void => {
+    pending = false;
+    delayTimer = null;
+    if (
+      capture &&
+      pointerId !== null &&
+      typeof element.setPointerCapture === 'function'
+    ) {
+      try {
+        element.setPointerCapture(pointerId);
+      } catch {
+        // jsdom and detached elements throw; the document listeners below still see the events.
+      }
+    }
+    if (delayedTouch) {
+      element.addEventListener('touchmove', onTouchMove, { passive: false });
+    }
+  };
+
   const onDown = (event: Event): void => {
     // A press while a gesture is already running belongs to another pointer; ignore it entirely
     // rather than re-anchoring the origin under the finger that is already dragging.
@@ -114,16 +182,12 @@ export function attachPointerDrag(
     origin = point(event);
     pointerId = typeof pe.pointerId === 'number' ? pe.pointerId : null;
     started = false;
-    if (
-      capture &&
-      pointerId !== null &&
-      typeof element.setPointerCapture === 'function'
-    ) {
-      try {
-        element.setPointerCapture(pointerId);
-      } catch {
-        // jsdom and detached elements throw; the document listeners below still see the events.
-      }
+    if (touchDelay > 0 && pe.pointerType === 'touch') {
+      pending = true;
+      delayedTouch = true;
+      delayTimer = setTimeout(arm, touchDelay);
+    } else {
+      arm();
     }
     doc.addEventListener('pointermove', onMove);
     doc.addEventListener('pointerup', onUp);

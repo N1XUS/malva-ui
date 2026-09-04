@@ -161,6 +161,126 @@ describe('attachPointerDrag', () => {
     el.remove();
   });
 
+  describe('touchDelay', () => {
+    /** Captures whether the element got a non-passive `touchmove` blocker. */
+    function trackTouchMove(el: HTMLElement): () => boolean {
+      let armed = false;
+      const add = el.addEventListener.bind(el);
+      const remove = el.removeEventListener.bind(el);
+      el.addEventListener = ((type: string, ...rest: unknown[]) => {
+        if (type === 'touchmove') armed = true;
+        return (add as (...a: unknown[]) => void)(type, ...rest);
+      }) as typeof el.addEventListener;
+      el.removeEventListener = ((type: string, ...rest: unknown[]) => {
+        if (type === 'touchmove') armed = false;
+        return (remove as (...a: unknown[]) => void)(type, ...rest);
+      }) as typeof el.removeEventListener;
+      return () => armed;
+    }
+
+    it('abandons a touch gesture that moves before the delay fires', () => {
+      vi.useFakeTimers();
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      const capture = vi.fn();
+      el.setPointerCapture = capture;
+      const isArmed = trackTouchMove(el);
+      const onStart = vi.fn();
+      const onMove = vi.fn();
+      const onCancel = vi.fn();
+      const detach = attachPointerDrag(
+        el,
+        { onStart, onMove, onEnd: vi.fn(), onCancel },
+        { threshold: 5, touchDelay: 200 },
+      );
+
+      el.dispatchEvent(
+        pointerEvent('pointerdown', 10, 10, { pointerType: 'touch' }),
+      );
+      // Nothing is claimed yet: no capture, no touchmove blocker — the
+      // browser is free to pan the scroller.
+      expect(capture).not.toHaveBeenCalled();
+      expect(isArmed()).toBe(false);
+
+      vi.advanceTimersByTime(150);
+      el.dispatchEvent(
+        pointerEvent('pointermove', 10, 40, { pointerType: 'touch' }),
+      );
+      expect(onStart).not.toHaveBeenCalled();
+      expect(onMove).not.toHaveBeenCalled();
+      expect(onCancel).toHaveBeenCalledTimes(1);
+
+      // The abandoned gesture is fully torn down: the timer cannot revive it.
+      vi.advanceTimersByTime(500);
+      expect(capture).not.toHaveBeenCalled();
+      detach();
+      el.remove();
+      vi.useRealTimers();
+    });
+
+    it('arms a touch gesture that rests for the delay, and blocks native panning', () => {
+      vi.useFakeTimers();
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      el.setPointerCapture = vi.fn();
+      el.hasPointerCapture = () => true;
+      el.releasePointerCapture = vi.fn();
+      const isArmed = trackTouchMove(el);
+      const onStart = vi.fn();
+      const onMove = vi.fn();
+      const detach = attachPointerDrag(
+        el,
+        { onStart, onMove, onEnd: vi.fn() },
+        { threshold: 5, touchDelay: 200 },
+      );
+
+      el.dispatchEvent(
+        pointerEvent('pointerdown', 10, 10, { pointerType: 'touch' }),
+      );
+      vi.advanceTimersByTime(200);
+      expect(el.setPointerCapture).toHaveBeenCalledWith(1);
+      expect(isArmed()).toBe(true);
+      const touchMove = new Event('touchmove', { cancelable: true });
+      el.dispatchEvent(touchMove);
+      expect(touchMove.defaultPrevented).toBe(true);
+
+      el.dispatchEvent(
+        pointerEvent('pointermove', 10, 40, { pointerType: 'touch' }),
+      );
+      expect(onStart).toHaveBeenCalledTimes(1);
+      expect(onMove).toHaveBeenCalledTimes(1);
+
+      el.dispatchEvent(
+        pointerEvent('pointerup', 10, 40, { pointerType: 'touch' }),
+      );
+      expect(isArmed()).toBe(false);
+      detach();
+      el.remove();
+      vi.useRealTimers();
+    });
+
+    it('leaves a mouse pointer on the movement threshold', () => {
+      vi.useFakeTimers();
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      const isArmed = trackTouchMove(el);
+      const onStart = vi.fn();
+      const detach = attachPointerDrag(
+        el,
+        { onStart, onMove: vi.fn(), onEnd: vi.fn() },
+        { threshold: 5, touchDelay: 200 },
+      );
+
+      el.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      el.dispatchEvent(pointerEvent('pointermove', 30, 10)); // no wait
+      expect(onStart).toHaveBeenCalledTimes(1);
+      expect(isArmed()).toBe(false); // touchmove blocking is touch-only
+      detach();
+      el.remove();
+      vi.useRealTimers();
+    });
+  });
+
   it('stops listening after detach', () => {
     const el = document.createElement('div');
     document.body.appendChild(el);

@@ -18,7 +18,10 @@ import {
   type TemplateRef,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { attachPointerDrag } from '../drag/scheduler-pointer';
+import {
+  TOUCH_GESTURE_DELAY,
+  attachPointerDrag,
+} from '../drag/scheduler-pointer';
 import {
   DOWN_ARROW,
   LEFT_ARROW,
@@ -483,6 +486,8 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
           {
             capture: false,
             threshold: 5,
+            // Touch arms on a short press so a swipe still scrolls the page.
+            touchDelay: TOUCH_GESTURE_DELAY,
             ignore: (t) =>
               !!t.closest('.mlv-scheduler-event, .mlv-scheduler-month__more'),
           },
