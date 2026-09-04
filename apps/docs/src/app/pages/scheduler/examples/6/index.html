@@ -21,7 +21,12 @@
           aria-label="Previous"
           (click)="api.previous()"
         >
-          &lsaquo;
+          <svg
+            class="docs-scheduler-header__chevron"
+            lucideChevronLeft
+            [size]="16"
+            aria-hidden="true"
+          />
         </button>
         <strong>{{ api.title }}</strong>
         <button
@@ -32,7 +37,12 @@
           aria-label="Next"
           (click)="api.next()"
         >
-          &rsaquo;
+          <svg
+            class="docs-scheduler-header__chevron"
+            lucideChevronRight
+            [size]="16"
+            aria-hidden="true"
+          />
         </button>
         <button
           mlvButton
@@ -46,6 +56,7 @@
           mlvButton
           [variant]="api.view === 'week' ? 'primary' : 'secondary'"
           type="button"
+          [attr.aria-pressed]="api.view === 'week'"
           (click)="api.setView('week')"
         >
           Week
@@ -54,6 +65,7 @@
           mlvButton
           [variant]="api.view === 'day' ? 'primary' : 'secondary'"
           type="button"
+          [attr.aria-pressed]="api.view === 'day'"
           (click)="api.setView('day')"
         >
           Day

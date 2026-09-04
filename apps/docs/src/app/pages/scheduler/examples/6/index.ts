@@ -7,6 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import { MlvButton } from '@malva-ui/core/button';
 import type {
   MlvSchedulerEvent,
@@ -15,16 +16,34 @@ import type {
 import { MlvScheduler, MlvSchedulerHeaderDef } from '@malva-ui/scheduler';
 import Sortable from 'sortablejs';
 
-const at = (dayOffset: number, hours: number, minutes = 0): Date => {
+/**
+ * Midnight on weekday `index` of the current week, `0` = Monday (the default
+ * `firstDayOfWeek`). Seeds are anchored to the visible week rather than to
+ * "today + n", so every event stays inside the week view on any day it is read.
+ */
+const day = (index: number): Date => {
   const d = new Date();
-  d.setDate(d.getDate() + dayOffset);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + index);
+  return d;
+};
+
+/** `day(index)` at `hours`:`minutes`. */
+const at = (index: number, hours: number, minutes = 0): Date => {
+  const d = day(index);
   d.setHours(hours, minutes, 0, 0);
   return d;
 };
 
 @Component({
   selector: 'docs-scheduler-header-example',
-  imports: [MlvButton, MlvScheduler, MlvSchedulerHeaderDef],
+  imports: [
+    LucideChevronLeft,
+    LucideChevronRight,
+    MlvButton,
+    MlvScheduler,
+    MlvSchedulerHeaderDef,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './index.html',
   styleUrl: './index.scss',
@@ -36,7 +55,7 @@ export default class SchedulerHeaderExample implements AfterViewInit {
     'Plan Q4',
   ]);
   readonly events = signal<MlvSchedulerEvent[]>([
-    { id: 'kickoff', title: 'Kickoff', start: at(0, 10), end: at(0, 11) },
+    { id: 'kickoff', title: 'Kickoff', start: at(1, 10), end: at(1, 11) },
   ]);
 
   private readonly _list =
@@ -45,7 +64,10 @@ export default class SchedulerHeaderExample implements AfterViewInit {
 
   ngAfterViewInit(): void {
     const sortable = Sortable.create(this._list().nativeElement, {
-      group: { name: 'docs-planner', pull: 'clone', put: false },
+      // `pull: true`, never `'clone'`: the scheduler inserts no foreign DOM and
+      // hands the dragged element back to this list, so a clone left behind by
+      // SortableJS would be an untracked duplicate Angular cannot remove.
+      group: { name: 'docs-planner', pull: true, put: false },
       sort: false,
       forceFallback: true,
       fallbackOnBody: true,

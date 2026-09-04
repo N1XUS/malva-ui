@@ -2,6 +2,12 @@
   display: grid;
   grid-template-columns: 12rem 1fr;
   gap: var(--mlv-spacing-4);
+
+  // The backlog only earns its own column while there is room for it and a week
+  // sheet side by side; on a narrow viewport the two stack instead.
+  @media (max-width: 47.999rem) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .docs-scheduler-backlog {
@@ -26,4 +32,9 @@
   align-items: center;
   gap: var(--mlv-spacing-2);
   padding: var(--mlv-padding-s);
+
+  &__chevron {
+    // Previous / next point along the inline axis, so they mirror in RTL.
+    transform: scaleX(var(--mlv-inline-direction));
+  }
 }

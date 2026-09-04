@@ -8,9 +8,21 @@ import type {
 } from '@malva-ui/scheduler';
 import { MlvScheduler } from '@malva-ui/scheduler';
 
-const at = (dayOffset: number, hours: number, minutes = 0): Date => {
+/**
+ * Midnight on weekday `index` of the current week, `0` = Monday (the default
+ * `firstDayOfWeek`). Seeds are anchored to the visible week rather than to
+ * "today + n", so every event stays inside the week view on any day it is read.
+ */
+const day = (index: number): Date => {
   const d = new Date();
-  d.setDate(d.getDate() + dayOffset);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + index);
+  return d;
+};
+
+/** `day(index)` at `hours`:`minutes`. */
+const at = (index: number, hours: number, minutes = 0): Date => {
+  const d = day(index);
   d.setHours(hours, minutes, 0, 0);
   return d;
 };
@@ -36,7 +48,7 @@ export default class SchedulerHoursExample {
     days: [1, 2, 3, 4, 5],
   };
   readonly events = signal<MlvSchedulerEvent[]>([
-    { id: 'a', title: 'Focus block', start: at(0, 9), end: at(0, 11) },
-    { id: 'b', title: 'Support rota', start: at(1, 13), end: at(1, 17) },
+    { id: 'a', title: 'Focus block', start: at(1, 9), end: at(1, 11) },
+    { id: 'b', title: 'Support rota', start: at(2, 13), end: at(2, 17) },
   ]);
 }
