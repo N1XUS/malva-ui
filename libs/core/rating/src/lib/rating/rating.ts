@@ -95,6 +95,14 @@ export class MlvRating
   /**
    * @private Direction service backing `_direction` and the RTL-aware arrow-key
    * normalisation in `_onHostKeydown`.
+   *
+   * The two are scoped differently, which is a trap worth naming here.
+   * `_direction` resolves per element, so a `[dir]` ancestor mirrors the paint
+   * and the hit test; `normalizeArrowKey` reads the service's **global**
+   * `direction()`, so inside such a scope the arrow keys keep their LTR
+   * meaning. Tracked as #147 and fixed in `MlvRtlService`, not here — the
+   * `MlvRating direction > keyboard` suite pins the current behaviour so the
+   * fix cannot land silently.
    */
   private readonly _rtlService = inject(MlvRtlService);
 
@@ -103,7 +111,9 @@ export class MlvRating
 
   /**
    * @private Effective direction of this rating, tracking the global direction
-   * and any `[dir]` scope above the host. Mirrors half-star hit testing.
+   * and any `[dir]` scope above the host. Mirrors both halves of half-star
+   * precision — the hit test in {@link _isLeadingHalf} and the fill side in
+   * {@link _clipPath} — which have to agree on which half of a star leads.
    */
   private readonly _direction = this._rtlService.elementDirection(
     this._elementRef,
@@ -212,11 +222,21 @@ export class MlvRating
 
   /**
    * Returns the CSS `clip-path` value for the filled star overlay.
-   * `inset(0 {remainder}% 0 0)` clips the right side.
+   *
+   * Direction-dependent: `inset()` takes physical `top right bottom left`
+   * offsets and has no logical form, so the side to eat from has to be chosen
+   * here. The star row is a plain `flex-direction: row`, so it follows the
+   * inline base direction and a star's leading (lower-value) half is its
+   * physical left half in LTR and its right half in RTL. The remainder is
+   * therefore inset from the right in LTR and from the left in RTL — the same
+   * `_direction()` `_isLeadingHalf` mirrors the hit test with, so the half
+   * the pointer selects is the half that gets painted.
    */
   protected _clipPath(starIndex: number): string {
     const remainder = 100 - this._getFillPercent(starIndex);
-    return `inset(0 ${remainder}% 0 0)`;
+    return this._direction() === 'rtl'
+      ? `inset(0 0 0 ${remainder}%)`
+      : `inset(0 ${remainder}% 0 0)`;
   }
 
   /**
