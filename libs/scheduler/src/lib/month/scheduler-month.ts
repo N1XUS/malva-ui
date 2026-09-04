@@ -162,13 +162,7 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
    */
   protected readonly _popoverCell = computed(() => {
     const dayIndex = this._popoverDayIndex();
-    if (dayIndex === null) return null;
-    for (const row of this._rows()) {
-      for (const cell of row.cells) {
-        if (cell.dayIndex === dayIndex) return cell;
-      }
-    }
-    return null;
+    return dayIndex === null ? null : this._cellAt(dayIndex);
   });
   /** @protected Panel id, referenced by the `+N more` button's `aria-controls`. */
   protected readonly _popoverId = mlvNextId('mlv-scheduler-month-popover');
@@ -324,7 +318,19 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
 
   /** @internal Remembers the pressed cell for the range-select tracker. */
   protected _onGridPointerDown(event: Event): void {
-    this._pendingAnchor = this._posOf(event.target);
+    const pos = this._posOf(event.target);
+    this._pendingAnchor = pos;
+    // A press outside a pending selection abandons it, the way plain keyboard
+    // navigation does: the range is anchored on the cell it was started from,
+    // so a later `Enter` must activate what the user has just pressed rather
+    // than commit a range they have since moved away from.
+    const bounds = this._selectedBounds();
+    if (
+      bounds &&
+      !(pos && pos.dayIndex >= bounds.dayFrom && pos.dayIndex <= bounds.dayTo)
+    ) {
+      this._selection.set(null);
+    }
   }
 
   /** @internal Commits the selection as an all-day `rangeSelect` and clears it. */
@@ -443,7 +449,11 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
             },
             onEnd: (_p, moved) => {
               this._pendingAnchor = null;
-              if (!moved) return;
+              // Only a drag that actually painted a selection commits one and
+              // swallows the click that trails it. A drag over a grid with
+              // `selectable` off (or one whose `onStart` found no cell) paints
+              // nothing, and must leave the following click alone.
+              if (!moved || !this._selection()) return;
               this._ignoreClicksUntil = performance.now() + 300;
               this._zone.run(() => this._commitSelection('pointer'));
             },
@@ -575,9 +585,9 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
         // one when every lane of the row is taken by bars that started on an
         // earlier day: that cell renders no chip at all, so without this
         // fallback its hidden events would have no keyboard path (WCAG 2.1.1).
-        const stop = target.querySelector<HTMLElement>(
-          '.mlv-scheduler-event:not(.mlv-scheduler-event--ghost), .mlv-scheduler-month__more',
-        );
+        const stop =
+          this._firstChipOf(dayIndex) ??
+          target.querySelector<HTMLElement>('.mlv-scheduler-month__more');
         if (stop) stop.focus();
         else this._emitKeyboardSlot(dayIndex, target, event);
         break;
@@ -610,10 +620,21 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
           : arrow === DOWN_ARROW
             ? rowLength
             : -rowLength;
-    const dayIndex = Math.min(
-      this._ctx.days().length - 1,
-      Math.max(0, current.head.dayIndex + delta),
-    );
+    const target = current.head.dayIndex + delta;
+    const length = this._ctx.days().length;
+    // Clamp on the axis the key moves. A horizontal step stops at the first /
+    // last day of the range; a vertical one that would leave the grid stays
+    // put, because clamping it into range turns "one week down" into a
+    // sideways jump of however many days are left in the last row.
+    const dayIndex =
+      Math.abs(delta) === 1
+        ? Math.min(length - 1, Math.max(0, target))
+        : target >= 0 && target < length
+          ? target
+          : current.head.dayIndex;
+    // A clamped extension changes nothing: re-announcing would repeat the same
+    // range every time the key is held against the edge.
+    if (this._selection() && dayIndex === current.head.dayIndex) return;
     this._selection.set({ anchor: current.anchor, head: { dayIndex } });
     this._announceSelection();
   }
@@ -710,6 +731,27 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     if (!previous) return;
     event.preventDefault();
     previous.focus();
+  }
+
+  /** @private The rendered cell for a day index, or `null` when out of range. */
+  private _cellAt(dayIndex: number): MlvSchedulerMonthCell<D, TData> | null {
+    const row = this._rows()[Math.floor(dayIndex / this._ctx.rowLength())];
+    return row?.cells.find((cell) => cell.dayIndex === dayIndex) ?? null;
+  }
+
+  /**
+   * @private First focusable chip of a day, or `null` when the cell renders
+   * none. Skips the drag-preview ghost through the segment's own `ghost` flag
+   * rather than a `:not(--ghost)` DOM query, matching the time grid's
+   * `_chipAt`: one definition of "is this a real chip", and no second query.
+   */
+  private _firstChipOf(dayIndex: number): HTMLElement | null {
+    const segment = this._cellAt(dayIndex)?.segments.find(
+      (candidate) => !candidate.normalized.ghost,
+    );
+    return segment
+      ? findEventElement(this._host, segment.normalized.event.id)
+      : null;
   }
 
   /** @private Steps `delta` days inside the grid, or navigates when leaving it. */

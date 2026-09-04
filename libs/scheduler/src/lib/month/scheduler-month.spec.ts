@@ -52,6 +52,9 @@ const m = (day: number, h = 0, min = 0, month = 2) =>
       [selectable]="selectable()"
       (slotClick)="slotClicks.push($event)"
       (eventClick)="eventClicks.push($event)"
+      (slotDoubleClick)="slotDoubleClicks.push($event)"
+      (slotContextMenu)="slotContextMenus.push($event)"
+      (eventDoubleClick)="eventDoubleClicks.push($event)"
       (moreClick)="moreClicks.push($event)"
       (rangeSelect)="ranges.push($event)"
     />
@@ -69,6 +72,9 @@ class Host {
   readonly hiddenDays = signal<number[]>([]);
   readonly selectable = signal(true);
   readonly slotClicks: MlvSchedulerSlotEvent[] = [];
+  readonly slotDoubleClicks: MlvSchedulerSlotEvent[] = [];
+  readonly slotContextMenus: MlvSchedulerSlotEvent[] = [];
+  readonly eventDoubleClicks: MlvSchedulerEventInteraction[] = [];
   readonly eventClicks: MlvSchedulerEventInteraction[] = [];
   readonly moreClicks: MlvSchedulerMoreClickEvent[] = [];
   readonly ranges: MlvSchedulerRangeSelectEvent[] = [];
@@ -421,6 +427,32 @@ describe('MlvSchedulerMonth', () => {
     expect(host.slotClicks.length).toBe(3);
   });
 
+  it('leaves keys that originate on a chip to the chip', () => {
+    // The cell's own handler must filter by target rather than trust the chip
+    // to stop propagation: a plain ArrowRight on a chip is not a grid move.
+    const owner = cell(8);
+    owner.focus();
+    const chipEl = chip(owner, 't1');
+    chipEl.focus();
+    key(chipEl, 'ArrowRight');
+    expect(document.activeElement).toBe(chipEl);
+    expect(tabbable().map((c) => c.dataset['dayIndex'])).toEqual(['8']);
+  });
+
+  it('emits slotDoubleClick and slotContextMenu from empty cell space only', () => {
+    const empty = cell(10); // Thu 6 Mar
+    empty.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    empty.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(host.slotDoubleClicks.map((e) => e.date)).toEqual([m(6)]);
+    expect(host.slotContextMenus.map((e) => e.date)).toEqual([m(6)]);
+
+    chip(cell(8), 't1').dispatchEvent(
+      new MouseEvent('dblclick', { bubbles: true }),
+    );
+    expect(host.slotDoubleClicks).toHaveLength(1);
+    expect(host.eventDoubleClicks.map((e) => e.event.id)).toEqual(['t1']);
+  });
+
   it('does not emit slotClick for a click that landed on a chip', () => {
     const chipEl = chip(cell(8), 't1');
     chipEl.click();
@@ -602,6 +634,43 @@ describe('MlvSchedulerMonth', () => {
       expect(host.slotClicks).toHaveLength(0);
     });
 
+    it('paints nothing, commits nothing and swallows no click when selection is off', () => {
+      host.selectable.set(false);
+      fixture.detectChanges();
+      cell(7).dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      cell(14).dispatchEvent(pointerEvent('pointermove', 10, 120));
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+      cell(14).dispatchEvent(pointerEvent('pointerup', 10, 120));
+      expect(host.ranges).toHaveLength(0);
+
+      // The drag armed no selection, so it must not eat the click that trails
+      // it the way a real range-drag does.
+      cell(14).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(host.slotClicks).toHaveLength(1);
+    });
+
+    it('abandons a pending selection on a press outside it', () => {
+      const c = cell(7);
+      c.focus();
+      key(c, 'ArrowRight', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+
+      cell(20).dispatchEvent(pointerEvent('pointerdown', 10, 200));
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+      expect(host.ranges).toHaveLength(0);
+    });
+
+    it('keeps a pending selection when the press lands inside it', () => {
+      const c = cell(7);
+      c.focus();
+      key(c, 'ArrowRight', { shiftKey: true });
+      cell(8).dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+    });
+
     it('does not start from a chip or the more button', () => {
       const bar = root.querySelector<HTMLElement>('[data-event-id="span"]')!;
       bar.dispatchEvent(pointerEvent('pointerdown', 10, 10));
@@ -640,6 +709,52 @@ describe('MlvSchedulerMonth', () => {
       key(document.activeElement as HTMLElement, 'Escape');
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
       expect(host.ranges).toHaveLength(0);
+    });
+
+    it('clamps the head on the axis the key moves', () => {
+      // Down from the last row must stay put. Clamping the flat index into
+      // range instead would slide the head sideways to the last day of the
+      // grid — from Wed 2 Apr (38) to Sun 6 Apr (41), selecting four days for
+      // a key that means "one week down".
+      const lastRow = cell(38);
+      lastRow.focus();
+      key(lastRow, 'ArrowDown', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
+      expect(cell(38).getAttribute('aria-selected')).toBe('true');
+      expect(cell(41).getAttribute('aria-selected')).toBeNull();
+
+      // Same on the other edge: Up from the first row would slide backwards.
+      key(lastRow, 'Escape');
+      const firstRow = cell(3);
+      firstRow.focus();
+      key(firstRow, 'ArrowUp', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
+      expect(cell(0).getAttribute('aria-selected')).toBeNull();
+
+      // A horizontal step is clamped, not frozen: it stops at the grid edge.
+      key(firstRow, 'Escape');
+      const last = cell(41);
+      last.focus();
+      key(last, 'ArrowRight', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
+
+      // And the vertical clamp is per direction, not a freeze.
+      key(last, 'ArrowUp', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(8);
+    });
+
+    it('mirrors Shift+Arrow in RTL and leaves the vertical pair alone', () => {
+      rtl.setDirection('rtl');
+      fixture.detectChanges();
+      const c = cell(7); // Mon 3 Mar
+      c.focus();
+      key(c, 'ArrowLeft', { shiftKey: true }); // "next" in RTL
+      expect(cell(8).getAttribute('aria-selected')).toBe('true');
+      expect(cell(6).getAttribute('aria-selected')).toBeNull();
+
+      key(c, 'ArrowDown', { shiftKey: true }); // never mirrors
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(9);
+      expect(cell(15).getAttribute('aria-selected')).toBe('true');
     });
 
     it('abandons a pending selection on plain navigation', () => {
