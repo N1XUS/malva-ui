@@ -23,7 +23,19 @@ import type {
 
 /** What a view should focus after its next render. */
 export type MlvSchedulerFocusRequest<D = Date> =
-  | { readonly kind: 'event'; readonly id: string }
+  | {
+      readonly kind: 'event';
+      readonly id: string;
+      /**
+       * Visible-day index of the segment to focus once the change has
+       * rendered. A multi-day event renders one chip per day, all carrying the
+       * same `data-event-id`, so without this the restore always lands on the
+       * event's first chip and a keyboard move made from a later segment
+       * teleports focus to another day (or another month row). `undefined` —
+       * or an index no chip claims any more — falls back to that first chip.
+       */
+      readonly dayIndex?: number;
+    }
   | {
       readonly kind: 'cell';
       readonly date: D;
@@ -93,7 +105,7 @@ export interface MlvSchedulerContext<D = Date, TData = unknown> {
   goTo(date: D): void;
   next(): void;
   previous(): void;
-  /** Polite live-region announcement (clear → microtask → set). */
+  /** Polite live-region announcement; repeats are spoken (see `MlvScheduler.announce`). */
   announce(message: string): void;
 
   emitEventInteraction(

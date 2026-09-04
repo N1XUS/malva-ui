@@ -261,7 +261,11 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     if (!next) return;
     const ctx = this._ctx;
     const normalized = this.normalized();
-    ctx.pendingFocus.set({ kind: 'event', id: normalized.event.id });
+    ctx.pendingFocus.set({
+      kind: 'event',
+      id: normalized.event.id,
+      dayIndex: this._focusTargetDayIndex(next, edge !== null),
+    });
     const ok = ctx.commitChange(
       edge ? 'resize' : 'move',
       normalized,
@@ -271,6 +275,32 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     if (ok && !edge && dayIndexOf(ctx.adapter, ctx.days(), next.start) < 0) {
       ctx.goTo(next.start);
     }
+  }
+
+  /**
+   * @private Visible-day index this chip's own segment occupies once `next`
+   * has rendered, so focus returns to the segment the user acted on instead of
+   * to the event's first chip.
+   *
+   * A move shifts every segment by the same whole-day delta, so the delta is
+   * read off the event's start; a resize moves one edge and leaves the
+   * segments the user can still be standing on where they are. `undefined`
+   * whenever the delta cannot be read — the event started outside the rendered
+   * range, or lands outside it and `goTo()` re-anchors the whole grid — and
+   * the view then falls back to the first chip, as it always did.
+   */
+  private _focusTargetDayIndex(
+    next: MlvSchedulerNextRange<D>,
+    resize: boolean,
+  ): number | undefined {
+    const current = this.dayIndex();
+    if (resize) return current;
+    const ctx = this._ctx;
+    const days = ctx.days();
+    const from = dayIndexOf(ctx.adapter, days, this.normalized().start);
+    const to = dayIndexOf(ctx.adapter, days, next.start);
+    if (from < 0 || to < 0) return undefined;
+    return current + (to - from);
   }
 
   /**

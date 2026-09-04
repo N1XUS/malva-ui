@@ -52,6 +52,11 @@ $default-density: map.get($densities, 'comfortable');
         $default-density,
         'month-row'
       )};
+    // Consumed outside this sheet, declared here so one override on the host
+    // retunes every view: `--mlv-scheduler-column-min-width` and
+    // `--mlv-scheduler-gutter-width` build the time grid's column tracks
+    // (scheduler-time-grid.scss), `--mlv-scheduler-event-min-height` floors a
+    // chip (scheduler-event.scss) and a positioned time-grid chip.
     --mlv-scheduler-column-min-width: 8rem;
     --mlv-scheduler-gutter-width: 3.5rem;
     --mlv-scheduler-event-min-height: 1.25rem;
@@ -105,7 +110,6 @@ $default-density: map.get($densities, 'comfortable');
       flex-direction: column;
       flex: 1 1 auto;
       min-block-size: 0;
-      transition: opacity var(--mlv-duration-fast) var(--mlv-ease-default);
     }
 
     // A SortableJS drag owns the pointer: the grab cursor and the suppressed

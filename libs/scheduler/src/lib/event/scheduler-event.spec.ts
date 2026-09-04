@@ -16,6 +16,7 @@ import {
 } from '../layout/scheduler-layout';
 import type { MlvSchedulerEvent } from '../scheduler/scheduler.types';
 import { createSchedulerTestContext } from '../testing/scheduler-test-context';
+import { closest, present, query } from '../testing/scheduler-test-dom';
 
 const d = (day: number, h = 0, m = 0) => new Date(2026, 8, day, h, m);
 
@@ -59,7 +60,11 @@ const d = (day: number, h = 0, m = 0) => new Date(2026, 8, day, h, m);
   `,
 })
 class Host {
-  readonly normalized = signal<MlvSchedulerNormalizedEvent>(null!);
+  /**
+   * The timed chip's event. Left `null` until `beforeEach` seeds it — the chip
+   * is only created once the template runs, so nothing reads it before then.
+   */
+  readonly normalized = signal(null as unknown as MlvSchedulerNormalizedEvent);
   readonly lane = signal(false);
   readonly before = signal(false);
   readonly after = signal(false);
@@ -75,8 +80,11 @@ class Host {
    * signal so the Task 9 cases keep `.set()`-ing it and so repeated presses on
    * the timed chip always start from the same range.
    */
-  readonly laneEvent = computed(
-    () => this._ctx.normalizedEvents().find((n) => n.event.id === 'lane')!,
+  readonly laneEvent = computed(() =>
+    present(
+      this._ctx.normalizedEvents().find((n) => n.event.id === 'lane'),
+      "the 'lane' event",
+    ),
   );
 }
 
@@ -129,7 +137,7 @@ describe('MlvSchedulerEventChip', () => {
     );
     fixture.detectChanges();
     root = fixture.nativeElement as HTMLElement;
-    chip = root.querySelector('mlv-scheduler-event')!;
+    chip = query(root, 'mlv-scheduler-event');
     rtl = TestBed.inject(MlvRtlService);
   });
   afterEach(() => rtl.setDirection('ltr'));
@@ -326,16 +334,18 @@ describe('MlvSchedulerEventChip', () => {
 
   describe('pointer resize', () => {
     it('previews a timed resize as --mlv-scheduler-event-height and commits the snapped end', () => {
-      const chipEl = root.querySelector<HTMLElement>(
+      const chipEl = query<HTMLElement>(
+        root,
         '.mlv-scheduler-time-grid__column .mlv-scheduler-event',
-      )!;
+      );
       vi.spyOn(
-        chipEl.closest<HTMLElement>('.mlv-scheduler-time-grid__column')!,
+        closest<HTMLElement>(chipEl, '.mlv-scheduler-time-grid__column'),
         'getBoundingClientRect',
       ).mockReturnValue(columnRect);
-      const handle = chipEl.querySelector<HTMLElement>(
+      const handle = query<HTMLElement>(
+        chipEl,
         '.mlv-scheduler-event__resize-handle--end',
-      )!;
+      );
 
       handle.dispatchEvent(pointerEvent('pointerdown', 50, 440));
       handle.dispatchEvent(pointerEvent('pointermove', 50, 500)); // 12:30 (snap 30)
@@ -359,16 +369,18 @@ describe('MlvSchedulerEventChip', () => {
 
     it('restores the geometry when the commit is vetoed', () => {
       ctx.state.commitResult = false;
-      const chipEl = root.querySelector<HTMLElement>(
+      const chipEl = query<HTMLElement>(
+        root,
         '.mlv-scheduler-time-grid__column .mlv-scheduler-event',
-      )!;
+      );
       vi.spyOn(
-        chipEl.closest<HTMLElement>('.mlv-scheduler-time-grid__column')!,
+        closest<HTMLElement>(chipEl, '.mlv-scheduler-time-grid__column'),
         'getBoundingClientRect',
       ).mockReturnValue(columnRect);
-      const handle = chipEl.querySelector<HTMLElement>(
+      const handle = query<HTMLElement>(
+        chipEl,
         '.mlv-scheduler-event__resize-handle--end',
-      )!;
+      );
       handle.dispatchEvent(pointerEvent('pointerdown', 50, 440));
       handle.dispatchEvent(pointerEvent('pointermove', 50, 600));
       handle.dispatchEvent(pointerEvent('pointerup', 50, 600));
@@ -378,22 +390,26 @@ describe('MlvSchedulerEventChip', () => {
     });
 
     it('resizes a lane bar by whole days from the pointer travel, mirrored in RTL', () => {
-      const chipEl = root.querySelector<HTMLElement>(
+      const chipEl = query<HTMLElement>(
+        root,
         '.mlv-scheduler-month__lanes .mlv-scheduler-event',
-      )!;
+      );
       vi.spyOn(
-        chipEl.closest<HTMLElement>('[data-day-index]')!,
+        closest<HTMLElement>(chipEl, '[data-day-index]'),
         'getBoundingClientRect',
       ).mockReturnValue(cellRect);
-      const handle = chipEl.querySelector<HTMLElement>(
+      const handle = query<HTMLElement>(
+        chipEl,
         '.mlv-scheduler-event__resize-handle--end',
-      )!;
+      );
 
       handle.dispatchEvent(pointerEvent('pointerdown', 330, 10));
       handle.dispatchEvent(pointerEvent('pointermove', 470, 10)); // +140 px ≈ +1 day
       expect(chipEl.style.getPropertyValue('--mlv-scheduler-span')).toBe('3');
       handle.dispatchEvent(pointerEvent('pointerup', 470, 10));
-      expect(ctx.commits.at(-1)!.next.end).toEqual(new Date(2026, 8, 4)); // exclusive end Sep 3 → Sep 4
+      expect(present(ctx.commits.at(-1), 'a commit').next.end).toEqual(
+        new Date(2026, 8, 4),
+      ); // exclusive end Sep 3 → Sep 4
 
       rtl.setDirection('rtl');
       fixture.detectChanges();
@@ -409,16 +425,18 @@ describe('MlvSchedulerEventChip', () => {
     });
 
     it('resizes the start edge of a timed chip, keeping the end pinned', () => {
-      const chipEl = root.querySelector<HTMLElement>(
+      const chipEl = query<HTMLElement>(
+        root,
         '.mlv-scheduler-time-grid__column .mlv-scheduler-event',
-      )!;
+      );
       vi.spyOn(
-        chipEl.closest<HTMLElement>('.mlv-scheduler-time-grid__column')!,
+        closest<HTMLElement>(chipEl, '.mlv-scheduler-time-grid__column'),
         'getBoundingClientRect',
       ).mockReturnValue(columnRect);
-      const handle = chipEl.querySelector<HTMLElement>(
+      const handle = query<HTMLElement>(
+        chipEl,
         '.mlv-scheduler-event__resize-handle--start',
-      )!;
+      );
 
       // The chip is 09:00-09:30 at top 37.5% / height 8.333%. y = 320 of 960 is
       // 8:00, so the start moves back an hour and the end must not move.
@@ -441,16 +459,18 @@ describe('MlvSchedulerEventChip', () => {
     });
 
     it('resizes the start edge of a lane bar by whole days, mirrored in RTL', () => {
-      const chipEl = root.querySelector<HTMLElement>(
+      const chipEl = query<HTMLElement>(
+        root,
         '.mlv-scheduler-month__lanes .mlv-scheduler-event',
-      )!;
+      );
       vi.spyOn(
-        chipEl.closest<HTMLElement>('[data-day-index]')!,
+        closest<HTMLElement>(chipEl, '[data-day-index]'),
         'getBoundingClientRect',
       ).mockReturnValue(cellRect);
-      const handle = chipEl.querySelector<HTMLElement>(
+      const handle = query<HTMLElement>(
+        chipEl,
         '.mlv-scheduler-event__resize-handle--start',
-      )!;
+      );
 
       // The bar is Sep 1 -> Sep 3 exclusive at dayIndex 1, span 2. Travelling
       // one cell toward inline-end pulls the START forward to Sep 2: span 1,
@@ -462,8 +482,12 @@ describe('MlvSchedulerEventChip', () => {
         '120px',
       );
       handle.dispatchEvent(pointerEvent('pointerup', 470, 10));
-      expect(ctx.commits.at(-1)!.next.start).toEqual(new Date(2026, 8, 2));
-      expect(ctx.commits.at(-1)!.next.end).toEqual(new Date(2026, 8, 3));
+      expect(present(ctx.commits.at(-1), 'a commit').next.start).toEqual(
+        new Date(2026, 8, 2),
+      );
+      expect(present(ctx.commits.at(-1), 'a commit').next.end).toEqual(
+        new Date(2026, 8, 3),
+      );
 
       // Put the two-day bar back so the mirrored gesture makes the SAME
       // transition, not one that starts from the already-resized range.
@@ -484,23 +508,29 @@ describe('MlvSchedulerEventChip', () => {
       // The preview vars alone would still pass if the commit resolved the
       // unmirrored cell, so assert the committed range too: an unmirrored RTL
       // step would push the start back to Aug 31 and stretch the end instead.
-      expect(ctx.commits.at(-1)!.next.start).toEqual(new Date(2026, 8, 2));
-      expect(ctx.commits.at(-1)!.next.end).toEqual(new Date(2026, 8, 3));
+      expect(present(ctx.commits.at(-1), 'a commit').next.start).toEqual(
+        new Date(2026, 8, 2),
+      );
+      expect(present(ctx.commits.at(-1), 'a commit').next.end).toEqual(
+        new Date(2026, 8, 3),
+      );
     });
 
     it('reads the owning column geometry once per gesture, not per pointermove', () => {
-      const chipEl = root.querySelector<HTMLElement>(
+      const chipEl = query<HTMLElement>(
+        root,
         '.mlv-scheduler-time-grid__column .mlv-scheduler-event',
-      )!;
+      );
       const rects = vi
         .spyOn(
-          chipEl.closest<HTMLElement>('.mlv-scheduler-time-grid__column')!,
+          closest<HTMLElement>(chipEl, '.mlv-scheduler-time-grid__column'),
           'getBoundingClientRect',
         )
         .mockReturnValue(columnRect);
-      const handle = chipEl.querySelector<HTMLElement>(
+      const handle = query<HTMLElement>(
+        chipEl,
         '.mlv-scheduler-event__resize-handle--end',
-      )!;
+      );
       handle.dispatchEvent(pointerEvent('pointerdown', 50, 440));
       for (const y of [500, 520, 540, 560]) {
         handle.dispatchEvent(pointerEvent('pointermove', 50, y));
@@ -510,16 +540,18 @@ describe('MlvSchedulerEventChip', () => {
     });
 
     it('restores the geometry and swallows the trailing click when Escape cancels', () => {
-      const chipEl = root.querySelector<HTMLElement>(
+      const chipEl = query<HTMLElement>(
+        root,
         '.mlv-scheduler-time-grid__column .mlv-scheduler-event',
-      )!;
+      );
       vi.spyOn(
-        chipEl.closest<HTMLElement>('.mlv-scheduler-time-grid__column')!,
+        closest<HTMLElement>(chipEl, '.mlv-scheduler-time-grid__column'),
         'getBoundingClientRect',
       ).mockReturnValue(columnRect);
-      const handle = chipEl.querySelector<HTMLElement>(
+      const handle = query<HTMLElement>(
+        chipEl,
         '.mlv-scheduler-event__resize-handle--end',
-      )!;
+      );
       handle.dispatchEvent(pointerEvent('pointerdown', 50, 440));
       handle.dispatchEvent(pointerEvent('pointermove', 50, 600));
       document.dispatchEvent(
@@ -577,14 +609,16 @@ describe('MlvSchedulerEventChip', () => {
   describe('keyboard move and resize', () => {
     /** The Task 9 chip, now wrapped in a fake time-grid column: `a`, Wed 2 Sep 09:00–09:30. */
     const timedChip = () =>
-      root.querySelector<HTMLElement>(
+      query<HTMLElement>(
+        root,
         '.mlv-scheduler-time-grid__column .mlv-scheduler-event',
-      )!;
+      );
     /** The Task 13 chip: `lane`, all-day Tue 1 Sep -> Thu 3 Sep exclusive. */
     const laneChip = () =>
-      root.querySelector<HTMLElement>(
+      query<HTMLElement>(
+        root,
         '.mlv-scheduler-month__lanes .mlv-scheduler-event',
-      )!;
+      );
 
     it('moves a timed chip by one snap step with Alt+ArrowDown and keeps focus on it', () => {
       const event = key(timedChip(), 'ArrowDown', { altKey: true });
@@ -598,7 +632,13 @@ describe('MlvSchedulerEventChip', () => {
         end: new Date(2026, 8, 2, 10, 0),
         allDay: false,
       });
-      expect(ctx.context.pendingFocus()).toEqual({ kind: 'event', id: 'a' });
+      // `dayIndex` is the segment the move was made from, carried so a
+      // multi-day event restores focus onto that chip rather than its first.
+      expect(ctx.context.pendingFocus()).toEqual({
+        kind: 'event',
+        id: 'a',
+        dayIndex: 2,
+      });
     });
 
     it('clamps a timed keyboard move to the visible time axis', () => {
@@ -746,7 +786,7 @@ describe('MlvSchedulerEventChip', () => {
 
     it('Escape focuses the owning cell', () => {
       const bar = laneChip();
-      const cellEl = bar.closest<HTMLElement>('[data-day-index]')!;
+      const cellEl = closest<HTMLElement>(bar, '[data-day-index]');
       cellEl.tabIndex = -1;
       key(bar, 'Escape');
       expect(document.activeElement).toBe(cellEl);
@@ -765,7 +805,7 @@ describe('MlvSchedulerEventChip', () => {
 
     it('leaves clicks and keys from a projected control alone', () => {
       useButtonDef();
-      const inner = chip.querySelector<HTMLElement>('.custom-action')!;
+      const inner = query<HTMLElement>(chip, '.custom-action');
       inner.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       const enter = key(inner, 'Enter');
       const move = key(inner, 'ArrowDown', { altKey: true });

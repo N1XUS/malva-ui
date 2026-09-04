@@ -14,6 +14,7 @@ import type {
   MlvSchedulerVisibleRange,
 } from './scheduler.types';
 import { normalizeEvent } from '../layout/scheduler-layout';
+import { focused, query } from '../testing/scheduler-test-dom';
 
 const AXE_RULES = [
   'aria-allowed-attr',
@@ -52,6 +53,9 @@ const d = (day: number, h = 0, m = 0, month = 8) =>
       [(events)]="events"
       [(view)]="view"
       [(date)]="date"
+      [hiddenDays]="hiddenDays()"
+      [minTime]="minTime()"
+      [maxTime]="maxTime()"
       [toolbar]="toolbar()"
       [ariaLabel]="ariaLabel()"
       [canMove]="canMove()"
@@ -79,6 +83,9 @@ class Host {
   ]);
   readonly view = signal<MlvSchedulerView>('month');
   readonly date = signal(d(2));
+  readonly hiddenDays = signal<readonly number[]>([]);
+  readonly minTime = signal('00:00');
+  readonly maxTime = signal('24:00');
   readonly toolbar = signal(true);
   readonly ariaLabel = signal<string | undefined>(undefined);
   readonly customHeader = signal(false);
@@ -108,6 +115,16 @@ describe('MlvScheduler (root)', () => {
   let root: HTMLElement;
   /** Direction service; every case that flips it restores `ltr` in `afterEach`. */
   let rtl: MlvRtlService;
+  /**
+   * The announced text. `announce()` alternates between two polite regions so
+   * an identical repeat still reads as a DOM change, so a spec must join them
+   * rather than query the first one.
+   */
+  const liveText = () =>
+    Array.from(el.querySelectorAll('[role="status"]'))
+      .map((node) => node.textContent ?? '')
+      .join('')
+      .trim();
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -229,13 +246,10 @@ describe('MlvScheduler (root)', () => {
   });
 
   it('announces navigation through the polite live region', async () => {
-    const status = el.querySelector('[role="status"]') as HTMLElement;
-    expect(status.textContent?.trim()).toBe('');
+    expect(liveText()).toBe('');
     scheduler.next();
-    fixture.detectChanges();
-    await Promise.resolve();
-    fixture.detectChanges();
-    expect(status.textContent?.trim()).toBe('Showing October 2026');
+    await fixture.whenStable();
+    expect(liveText()).toBe('Showing October 2026');
   });
 
   it('commits a move: writes a new events array, emits eventMove and announces', async () => {
@@ -266,11 +280,8 @@ describe('MlvScheduler (root)', () => {
         source: 'keyboard',
       },
     ]);
-    await Promise.resolve();
-    fixture.detectChanges();
-    expect(el.querySelector('[role="status"]')?.textContent).toContain(
-      'Standup moved to',
-    );
+    await fixture.whenStable();
+    expect(liveText()).toContain('Standup moved to');
   });
 
   it('commits a resize: writes a new events array, emits eventResize and announces', async () => {
@@ -302,9 +313,8 @@ describe('MlvScheduler (root)', () => {
       },
     ]);
     expect(host.moves).toEqual([]); // eventResize, never eventMove
-    await Promise.resolve();
-    fixture.detectChanges();
-    expect(el.querySelector('[role="status"]')?.textContent).toBe(
+    await fixture.whenStable();
+    expect(liveText()).toBe(
       `Standup now ends at ${scheduler.formatDateTime(d(2, 10))}`,
     );
   });
@@ -325,9 +335,8 @@ describe('MlvScheduler (root)', () => {
     fixture.detectChanges();
     expect(ok).toBe(true);
     expect(host.events()[0].end).toEqual(d(5)); // the model keeps the exclusive end
-    await Promise.resolve();
-    fixture.detectChanges();
-    expect(el.querySelector('[role="status"]')?.textContent).toBe(
+    await fixture.whenStable();
+    expect(liveText()).toBe(
       `Offsite now ends at ${adapter.getDateLabel(d(4))}`,
     );
   });
@@ -347,11 +356,8 @@ describe('MlvScheduler (root)', () => {
     expect(ok).toBe(false);
     expect(host.events()).toBe(before);
     expect(host.moves).toEqual([]);
-    await Promise.resolve();
-    fixture.detectChanges();
-    expect(el.querySelector('[role="status"]')?.textContent?.trim()).toBe(
-      'Standup cannot be placed there',
-    );
+    await fixture.whenStable();
+    expect(liveText()).toBe('Standup cannot be placed there');
   });
 
   it('ignores a commit for an event that is no longer in the model', () => {
@@ -378,8 +384,216 @@ describe('MlvScheduler (root)', () => {
     expect(scheduler.snap()).toBe(30);
   });
 
-  it('passes axe on the toolbar', async () => {
-    await expectNoAxeViolations(el);
+  describe('hiddenDays', () => {
+    it('never blanks the day view and steps over hidden weekdays', async () => {
+      host.hiddenDays.set([0, 6]); // weekend
+      host.view.set('day');
+      host.date.set(d(4)); // Friday 4 Sep 2026
+      await fixture.whenStable();
+      expect(scheduler.days()).toEqual([d(4)]);
+
+      // One "next" from Friday reaches Monday, not the blank Saturday.
+      scheduler.next();
+      await fixture.whenStable();
+      expect(host.date()).toEqual(d(7));
+      expect(scheduler.days()).toEqual([d(7)]);
+      expect(
+        el.querySelectorAll('.mlv-scheduler-time-grid__column'),
+      ).toHaveLength(1);
+
+      scheduler.previous();
+      await fixture.whenStable();
+      expect(host.date()).toEqual(d(4));
+    });
+
+    it('still renders an anchor pointed straight at a hidden weekday', async () => {
+      host.hiddenDays.set([0, 6]);
+      host.view.set('day');
+      host.date.set(d(5)); // Saturday — asked for explicitly
+      await fixture.whenStable();
+      expect(scheduler.days()).toEqual([d(5)]);
+      expect(
+        el.querySelectorAll('.mlv-scheduler-time-grid__column'),
+      ).toHaveLength(1);
+      expect(el.querySelectorAll('[role="gridcell"]').length).toBeGreaterThan(
+        0,
+      );
+    });
+
+    it('keeps filtering the week view', async () => {
+      host.hiddenDays.set([0, 6]);
+      host.view.set('week');
+      await fixture.whenStable();
+      expect(scheduler.days()).toHaveLength(5);
+    });
+  });
+
+  describe('announcements', () => {
+    it('announces the same message twice without a render in between', async () => {
+      host.canMove.set(() => false);
+      await fixture.whenStable(); // the guard is an input; let it reach the component
+      const adapter = TestBed.inject(MlvNativeDateAdapter);
+      const normalized = normalizeEvent(adapter, host.events()[0], 60);
+      const reject = () =>
+        scheduler.commitChange(
+          'move',
+          normalized,
+          { start: d(3, 10), end: d(3, 10, 30), allDay: false },
+          'pointer',
+        );
+
+      reject();
+      await fixture.whenStable();
+      expect(liveText()).toBe('Standup cannot be placed there');
+      const first = Array.from(el.querySelectorAll('[role="status"]')).map(
+        (node) => node.textContent,
+      );
+
+      reject();
+      await fixture.whenStable();
+      // Same text, but it moved to the other region — an insertion into a
+      // previously empty live region, which is what actually gets spoken.
+      expect(liveText()).toBe('Standup cannot be placed there');
+      expect(
+        Array.from(el.querySelectorAll('[role="status"]')).map(
+          (node) => node.textContent,
+        ),
+      ).not.toEqual(first);
+    });
+
+    it('announces a period change once, from wherever the range moved', async () => {
+      // The initial range is emitted but never announced: it is what the user
+      // is already looking at.
+      expect(liveText()).toBe('');
+
+      host.date.set(new Date(2026, 9, 2)); // a bound write, not next()/goTo()
+      await fixture.whenStable();
+      expect(liveText()).toBe('Showing October 2026');
+
+      // A jump that resolves to the period already on screen stays silent.
+      scheduler.goTo(new Date(2026, 9, 20));
+      await fixture.whenStable();
+      expect(liveText()).toBe('Showing October 2026');
+      expect(host.ranges).toHaveLength(2);
+    });
+  });
+
+  describe('keyboard focus restore across segments', () => {
+    /** The day column (or month cell) the focused element sits in. */
+    const focusedDayIndex = () =>
+      focused().closest<HTMLElement>('[data-day-index]')?.dataset['dayIndex'];
+
+    it('returns focus to the segment the move was made from, not the first one', async () => {
+      // Wed 23:00 → Thu 01:00 is sliced into one chip per day column, both
+      // carrying `data-event-id="x"`. Visible week: Mon 31 Aug (0) … Sun 6 Sep.
+      host.view.set('week');
+      host.events.set([
+        { id: 'x', title: 'Night shift', start: d(2, 23), end: d(3, 1) },
+      ]);
+      await fixture.whenStable();
+      const segments = () =>
+        Array.from(
+          el.querySelectorAll<HTMLElement>(
+            '.mlv-scheduler-time-grid__event[data-event-id="x"]',
+          ),
+        );
+      expect(
+        segments().map(
+          (chip) =>
+            chip.closest<HTMLElement>('[data-day-index]')?.dataset['dayIndex'],
+        ),
+      ).toEqual(['2', '3']);
+
+      const second = segments()[1];
+      second.focus();
+      second.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      await fixture.whenStable();
+
+      // The event moved to Thu 23:00 → Fri 01:00, so the segment the user was
+      // standing on is now the Fri column (4). Without the segment identity in
+      // the focus request this landed on the event's first chip (3).
+      expect(host.moves).toHaveLength(1);
+      expect(focusedDayIndex()).toBe('4');
+    });
+
+    it('keeps both announcements when the same move also changes the period', async () => {
+      // `commitChange()` announces the move and the `visibleRangeChange`
+      // effect announces the new period, both before anything is painted. With
+      // one live region — or with two that clear each other unconditionally —
+      // only the period survives to the render, and the move is never spoken.
+      host.view.set('week');
+      host.events.set([
+        { id: 'x', title: 'Night shift', start: d(6, 9), end: d(6, 10) },
+      ]);
+      await fixture.whenStable();
+
+      const chip = el.querySelector<HTMLElement>('[data-event-id="x"]');
+      expect(chip).not.toBeNull();
+      chip?.focus();
+      chip?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      await fixture.whenStable();
+
+      // Sun 6 Sep → Mon 7 Sep leaves the rendered week, so the chip's own
+      // `goTo()` runs in the same synchronous block as the commit.
+      expect(host.moves).toHaveLength(1);
+      const regions = Array.from(el.querySelectorAll('[role="status"]')).map(
+        (node) => node.textContent?.trim() ?? '',
+      );
+      expect(regions.filter((text) => text !== '')).toHaveLength(2);
+      expect(
+        regions.some((text) => text.includes('Night shift moved to')),
+      ).toBe(true);
+      expect(regions.some((text) => text.startsWith('Showing'))).toBe(true);
+    });
+  });
+
+  describe('time window', () => {
+    // `[minTime, maxTime)` is validated as one pair, so BOTH ends report the
+    // same error: the time grid divides by the span for every hour line and
+    // every chip offset, and a non-ascending window would silently write
+    // `NaN%` / `Infinity%` into the geometry custom properties instead.
+    it('rejects a window that is not strictly ascending', async () => {
+      host.minTime.set('09:00');
+      host.maxTime.set('09:00');
+      await fixture.whenStable();
+      expect(() => scheduler.minMinutes()).toThrow(
+        /minTime must be earlier than maxTime/,
+      );
+      expect(() => scheduler.maxMinutes()).toThrow(
+        /minTime must be earlier than maxTime/,
+      );
+    });
+
+    it('rejects an inverted window', async () => {
+      host.minTime.set('18:00');
+      host.maxTime.set('09:00');
+      await fixture.whenStable();
+      expect(() => scheduler.maxMinutes()).toThrow(
+        /minTime must be earlier than maxTime/,
+      );
+    });
+
+    it('accepts a strictly ascending window', async () => {
+      host.minTime.set('08:00');
+      host.maxTime.set('18:00');
+      await fixture.whenStable();
+      expect(scheduler.minMinutes()).toBe(480);
+      expect(scheduler.maxMinutes()).toBe(1080);
+    });
   });
 
   describe('direction and accessibility', () => {
@@ -394,8 +608,14 @@ describe('MlvScheduler (root)', () => {
     );
 
     it('keeps the toolbar order and semantics in RTL and mirrors the nav chevrons via CSS only', () => {
+      expect(rtl.resolveDirection(root)).toBe('ltr');
       rtl.setDirection('rtl');
       fixture.detectChanges();
+      // Anchors the case on the flip itself: without it every assertion below
+      // passes identically in LTR, so a `setDirection` that stopped working
+      // would go unnoticed. The toolbar's DOM order and its labels are then
+      // asserted to be exactly what they are in LTR — the mirroring is CSS.
+      expect(rtl.resolveDirection(root)).toBe('rtl');
       const buttons = Array.from(
         root.querySelectorAll<HTMLButtonElement>('.mlv-scheduler__nav button'),
       );
@@ -409,11 +629,11 @@ describe('MlvScheduler (root)', () => {
         'Today',
       ]);
       expect(root.querySelectorAll('.mlv-scheduler__nav-icon')).toHaveLength(2);
-      root.querySelector<HTMLButtonElement>('.mlv-scheduler__next')!.click();
+      query<HTMLButtonElement>(root, '.mlv-scheduler__next').click();
       fixture.detectChanges();
-      expect(
-        root.querySelector('.mlv-scheduler__title')!.textContent,
-      ).toContain('October 2026');
+      expect(query(root, '.mlv-scheduler__title').textContent).toContain(
+        'October 2026',
+      );
     });
 
     it('follows a [dir] scope on an ancestor while the document stays LTR', () => {

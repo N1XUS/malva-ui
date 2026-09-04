@@ -9,6 +9,7 @@ export interface MlvSchedulerEvent<D = Date, TData = unknown> {
   id: string;
   /** Visible title and the base of the accessible name. */
   title: string;
+  /** Inclusive start. Midnight of the first day when `allDay`. */
   start: D;
   /**
    * Exclusive end. `end <= start` is repaired to `start + defaultEventDuration`
@@ -48,14 +49,17 @@ export interface MlvSchedulerEventChange<D = Date, TData = unknown> {
   event: MlvSchedulerEvent<D, TData>;
   /** The event's dates before the change. */
   previous: MlvSchedulerNextRange<D>;
+  /** Whether a pointer gesture or a keyboard shortcut produced the change. */
   source: MlvSchedulerChangeSource;
 }
 
 /** Payload of `eventClick`, `eventDoubleClick` and `eventContextMenu`. */
 export interface MlvSchedulerEventInteraction<D = Date, TData = unknown> {
+  /** The event the chip renders, straight out of the `events` model. */
   event: MlvSchedulerEvent<D, TData>;
   /** The chip host — anchor for consumer menus and popups. */
   element: HTMLElement;
+  /** The originating DOM event. Never prevented by the scheduler. */
   nativeEvent: MouseEvent | KeyboardEvent;
 }
 
@@ -63,17 +67,23 @@ export interface MlvSchedulerEventInteraction<D = Date, TData = unknown> {
 export interface MlvSchedulerSlotEvent<D = Date> {
   /** Slot start (time grid) or the day (month grid / all-day row). */
   date: D;
+  /** `true` for a month cell or an all-day cell, `false` for a time slot. */
   allDay: boolean;
+  /** The cell or slot element that was activated. */
   element: HTMLElement;
+  /** The originating DOM event. Never prevented by the scheduler. */
   nativeEvent: MouseEvent | KeyboardEvent;
 }
 
 /** Payload of `rangeSelect`. */
 export interface MlvSchedulerRangeSelectEvent<D = Date> {
+  /** Inclusive start of the first selected slot or day. */
   start: D;
-  /** Exclusive. */
+  /** Exclusive: the end of the last selected slot, or midnight after the last selected day. */
   end: D;
+  /** `true` when the selection ran over month cells or the all-day row. */
   allDay: boolean;
+  /** Whether a pointer drag or `Shift+Arrow` + `Enter` produced the selection. */
   source: MlvSchedulerChangeSource;
 }
 
@@ -81,14 +91,17 @@ export interface MlvSchedulerRangeSelectEvent<D = Date> {
 export interface MlvSchedulerExternalDropEvent<D = Date> {
   /** The foreign item; the scheduler never moves it out of its own list. */
   element: HTMLElement;
+  /** Start of the slot or day the item was dropped on. */
   start: D;
   /** `start + defaultEventDuration` for a timed target, `start + 1 day` for an all-day target. */
   end: D;
+  /** `true` when the drop landed on a month cell or the all-day row. */
   allDay: boolean;
 }
 
 /** The rendered period. */
 export interface MlvSchedulerVisibleRange<D = Date> {
+  /** The view the range was computed for. */
   view: MlvSchedulerView;
   /** Inclusive start of the first rendered day. */
   start: D;
@@ -114,23 +127,33 @@ export type MlvSchedulerCanChange<D = Date, TData = unknown> = (
 
 /** Context handed to `*mlvSchedulerHeaderDef`. */
 export interface MlvSchedulerHeaderContext<D = Date> {
+  /** Bind with `let-api`. */
   $implicit: MlvSchedulerHeaderApi<D>;
 }
 
 /** Imperative surface a custom toolbar drives. */
 export interface MlvSchedulerHeaderApi<D = Date> {
+  /** Localized label of the rendered period, as the built-in toolbar prints it. */
   title: string;
+  /** The active view. */
   view: MlvSchedulerView;
+  /** The rendered period. */
   range: MlvSchedulerVisibleRange<D>;
+  /** Moves the range forward by one view unit. */
   next(): void;
+  /** Moves the range backward by one view unit. */
   previous(): void;
+  /** Anchors the range on today. */
   today(): void;
+  /** Switches the view. */
   setView(view: MlvSchedulerView): void;
 }
 
 /** Context handed to `*mlvSchedulerEventDef`. */
 export interface MlvSchedulerEventContext<D = Date, TData = unknown> {
+  /** Bind with `let-event`. */
   $implicit: MlvSchedulerEvent<D, TData>;
+  /** The view the chip is rendered in. */
   view: MlvSchedulerView;
   /** Rendered in a lane (month grid or all-day row) rather than on the time axis. */
   allDay: boolean;
@@ -142,6 +165,8 @@ export interface MlvSchedulerEventContext<D = Date, TData = unknown> {
 
 /** Payload of `moreClick`. */
 export interface MlvSchedulerMoreClickEvent<D = Date, TData = unknown> {
+  /** The day whose cell overflowed. */
   date: D;
+  /** Every event of that day, hidden and visible alike, in render order. */
   events: readonly MlvSchedulerEvent<D, TData>[];
 }

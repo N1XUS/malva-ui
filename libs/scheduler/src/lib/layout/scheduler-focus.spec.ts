@@ -36,6 +36,38 @@ describe('scheduler-focus', () => {
       expect(findEventElement(root, 'c')).toBeNull();
     });
 
+    /** Two segments of one event, each inside its own day cell. */
+    const rootWithSegments = (id: string, ...dayIndexes: number[]) => {
+      const root = document.createElement('div');
+      for (const dayIndex of dayIndexes) {
+        const cell = document.createElement('div');
+        cell.setAttribute('data-day-index', String(dayIndex));
+        const chip = document.createElement('div');
+        chip.setAttribute('data-event-id', id);
+        cell.appendChild(chip);
+        root.appendChild(cell);
+      }
+      return root;
+    };
+
+    const ownerOf = (element: HTMLElement | null) =>
+      element?.closest<HTMLElement>('[data-day-index]')?.dataset['dayIndex'];
+
+    it('picks the segment in the requested day, not the first chip of the id', () => {
+      // Every segment of a multi-day event carries the same `data-event-id`,
+      // so without `dayIndex` a keyboard move made from the second segment
+      // restores focus onto the first one — another day, possibly another row.
+      const root = rootWithSegments('e', 3, 4, 5);
+      expect(ownerOf(findEventElement(root, 'e', 4))).toBe('4');
+      expect(ownerOf(findEventElement(root, 'e', 5))).toBe('5');
+    });
+
+    it('falls back to the first chip when the requested day has none', () => {
+      const root = rootWithSegments('e', 3, 4);
+      expect(ownerOf(findEventElement(root, 'e', 9))).toBe('3');
+      expect(ownerOf(findEventElement(root, 'e', undefined))).toBe('3');
+    });
+
     it('matches ids that would break a CSS attribute selector', () => {
       // The reason the implementation compares attributes instead of building
       // a `[data-event-id="…"]` selector: consumer ids are arbitrary strings.

@@ -18,6 +18,7 @@ import type {
   MlvSchedulerSlotEvent,
   MlvSchedulerView,
 } from '../scheduler/scheduler.types';
+import { focused, present, query } from '../testing/scheduler-test-dom';
 
 const AXE_RULES = [
   'aria-allowed-attr',
@@ -89,19 +90,29 @@ describe('MlvSchedulerTimeGrid', () => {
   let rtl: MlvRtlService;
 
   const slot = (dayIndex: number, minutes: number) =>
-    root.querySelector<HTMLElement>(
+    query<HTMLElement>(
+      root,
       `[data-day-index="${dayIndex}"][data-minutes="${minutes}"]`,
-    )!;
+    );
   const allDayCell = (dayIndex: number) =>
-    root.querySelector<HTMLElement>(
+    query<HTMLElement>(
+      root,
       `[data-day-index="${dayIndex}"][data-minutes="all-day"]`,
-    )!;
+    );
   const chip = (id: string) =>
-    root.querySelector<HTMLElement>(`[data-event-id="${id}"]`)!;
-  /** The scheduler's polite live region — a sibling of the grid, so query the fixture root. */
+    query<HTMLElement>(root, `[data-event-id="${id}"]`);
+  /**
+   * The scheduler's polite live regions — siblings of the grid, so query the
+   * fixture root. `MlvScheduler.announce()` alternates between two regions so
+   * an identical repeat still reads as a DOM change, so join them rather than
+   * reading the first one.
+   */
   const liveText = () =>
-    (fixture.nativeElement as HTMLElement).querySelector('[aria-live]')!
-      .textContent;
+    Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('[aria-live]'),
+    )
+      .map((node) => node.textContent ?? '')
+      .join('');
   const key = (
     target: HTMLElement,
     key: string,
@@ -176,7 +187,7 @@ describe('MlvSchedulerTimeGrid', () => {
         .querySelector('.mlv-scheduler-time-grid__column')
         ?.getAttribute('role'),
     ).toBe('presentation');
-    const listbox = root.querySelector('.mlv-scheduler-time-grid__slots')!;
+    const listbox = query(root, '.mlv-scheduler-time-grid__slots');
     expect(listbox.getAttribute('role')).toBe('listbox');
     expect(listbox.getAttribute('aria-multiselectable')).toBe('true');
     expect(listbox.getAttribute('aria-label')).toBe(adapter.getDateLabel(m(3)));
@@ -310,16 +321,15 @@ describe('MlvSchedulerTimeGrid', () => {
     expect(scrollOffsetFor(8 * 60, 0, 30, 40)).toBe(640);
     expect(scrollOffsetFor(8 * 60, 7 * 60, 30, 40)).toBe(80);
     expect(scrollOffsetFor(5 * 60, 7 * 60, 30, 40)).toBe(0);
-    const firstSlot = root.querySelector<HTMLElement>(
+    const firstSlot = query<HTMLElement>(
+      root,
       '.mlv-scheduler-time-grid__slot',
-    )!;
+    );
     Object.defineProperty(firstSlot, 'offsetHeight', {
       value: 40,
       configurable: true,
     });
-    const viewport = root.querySelector<HTMLElement>(
-      '.mlv-scrollbar__viewport',
-    )!;
+    const viewport = query<HTMLElement>(root, '.mlv-scrollbar__viewport');
     const scheduler = fixture.debugElement.children[0]
       .componentInstance as MlvScheduler;
     scheduler.scrollToTime('10:00');
@@ -362,9 +372,10 @@ describe('MlvSchedulerTimeGrid', () => {
     const ownRoot = own.nativeElement.querySelector(
       'mlv-scheduler-time-grid',
     ) as HTMLElement;
-    const cell = ownRoot.querySelector<HTMLElement>(
+    const cell = query<HTMLElement>(
+      ownRoot,
       '[data-day-index="4"][data-minutes="840"]',
-    )!;
+    );
     cell.focus();
     own.detectChanges();
     expect(cell.getAttribute('tabindex')).toBe('0');
@@ -382,16 +393,15 @@ describe('MlvSchedulerTimeGrid', () => {
     // Both views render from the same `@default` branch, so the component is
     // reused and an `afterNextRender` would never run again — the day view
     // would open wherever the week was left scrolled.
-    const firstSlot = root.querySelector<HTMLElement>(
+    const firstSlot = query<HTMLElement>(
+      root,
       '.mlv-scheduler-time-grid__slot',
-    )!;
+    );
     Object.defineProperty(firstSlot, 'offsetHeight', {
       value: 40,
       configurable: true,
     });
-    const viewport = root.querySelector<HTMLElement>(
-      '.mlv-scrollbar__viewport',
-    )!;
+    const viewport = query<HTMLElement>(root, '.mlv-scrollbar__viewport');
     viewport.scrollTop = 0;
     host.view.set('day');
     fixture.detectChanges();
@@ -480,7 +490,9 @@ describe('MlvSchedulerTimeGrid', () => {
     );
     expect(chips.length).toBeGreaterThan(0);
     for (const chipEl of chips) {
-      expect(Sortable.get(chipEl.parentElement!)).toBeTruthy();
+      expect(
+        Sortable.get(present(chipEl.parentElement, "the chip's column")),
+      ).toBeTruthy();
     }
   });
 
@@ -629,7 +641,7 @@ describe('MlvSchedulerTimeGrid', () => {
       await fixture.whenStable();
       fixture.detectChanges();
       expect(liveText()).toMatch(/9:00.*10:30/); // selectionHint {start, end}
-      key(document.activeElement as HTMLElement, 'Enter');
+      key(focused(), 'Enter');
       expect(host.ranges[0]).toEqual({
         start: m(4, 9),
         end: m(4, 10, 30),
@@ -647,7 +659,7 @@ describe('MlvSchedulerTimeGrid', () => {
       // Wed 00:00 → 09:00 (19), matching the Tue 09:00 → Wed 09:30 interval
       // `Enter` would commit.
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(49);
-      key(document.activeElement as HTMLElement, 'Escape');
+      key(focused(), 'Escape');
       fixture.detectChanges();
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
       expect(host.ranges).toHaveLength(0);
@@ -663,7 +675,7 @@ describe('MlvSchedulerTimeGrid', () => {
       key(slot(1, 540), 'ArrowLeft', { shiftKey: true });
       fixture.detectChanges();
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(49);
-      key(document.activeElement as HTMLElement, 'Enter');
+      key(focused(), 'Enter');
       expect(host.ranges.at(-1)).toEqual({
         start: m(4, 9),
         end: m(5, 9, 30),
@@ -674,7 +686,7 @@ describe('MlvSchedulerTimeGrid', () => {
       // ArrowRight is "previous": the head lands on Mon 09:00, one day back.
       fixture.detectChanges();
       key(slot(1, 540), 'ArrowRight', { shiftKey: true });
-      key(document.activeElement as HTMLElement, 'Enter');
+      key(focused(), 'Enter');
       expect(host.ranges.at(-1)).toEqual({
         start: m(3, 9),
         end: m(4, 9, 30),
@@ -685,7 +697,7 @@ describe('MlvSchedulerTimeGrid', () => {
       // The block axis never mirrors: ArrowDown still extends downward.
       fixture.detectChanges();
       key(slot(1, 540), 'ArrowDown', { shiftKey: true });
-      key(document.activeElement as HTMLElement, 'Enter');
+      key(focused(), 'Enter');
       expect(host.ranges.at(-1)).toEqual({
         start: m(4, 9),
         end: m(4, 10),
@@ -728,7 +740,7 @@ describe('MlvSchedulerTimeGrid', () => {
       expect(liveText()).toContain(
         `${adapter.getDateLabel(m(3))} to ${adapter.getDateLabel(m(4))}`,
       );
-      key(document.activeElement as HTMLElement, 'Enter');
+      key(focused(), 'Enter');
       expect(host.ranges[0]).toEqual({
         start: m(3),
         end: m(5),

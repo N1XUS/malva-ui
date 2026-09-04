@@ -70,10 +70,12 @@
   } }
 </div>
 <span class="cdk-visually-hidden" [id]="dragHintId">{{ i18n().dragHint }}</span>
+@for (message of _liveMessages(); track $index) {
 <span
   class="cdk-visually-hidden mlv-scheduler__status"
   role="status"
   aria-live="polite"
   aria-atomic="true"
-  >{{ _liveMessage() }}</span
+  >{{ message }}</span
 >
+}

@@ -16,6 +16,7 @@ import type {
 } from '../scheduler/scheduler.types';
 import { MlvScheduler } from '../scheduler/scheduler';
 import { MlvSchedulerDragService, ghostIdFor } from './scheduler-drag.service';
+import { present, query } from '../testing/scheduler-test-dom';
 
 const m = (day: number, h = 0, min = 0) => new Date(2031, 2, day, h, min);
 
@@ -96,17 +97,17 @@ describe('MlvSchedulerDragService', () => {
   let rtlService: MlvRtlService;
 
   const chip = (id: string) =>
-    root.querySelector<HTMLElement>(
-      `.mlv-scheduler-event[data-event-id="${id}"]`,
-    )!;
+    query<HTMLElement>(root, `.mlv-scheduler-event[data-event-id="${id}"]`);
   const column = (dayIndex: number) =>
-    root.querySelector<HTMLElement>(
+    query<HTMLElement>(
+      root,
       `.mlv-scheduler-time-grid__column[data-day-index="${dayIndex}"]`,
-    )!;
+    );
   const allDayLanes = (dayIndex: number) =>
-    root.querySelector<HTMLElement>(
+    query<HTMLElement>(
+      root,
       `.mlv-scheduler-time-grid__all-day-cell[data-day-index="${dayIndex}"] .mlv-scheduler-time-grid__all-day-lanes`,
-    )!;
+    );
 
   const sortableEvent = (
     item: HTMLElement,
@@ -170,7 +171,7 @@ describe('MlvSchedulerDragService', () => {
   it('registers every drop list with SortableJS and refuses foreign items when not editable', () => {
     const list = column(1);
     expect(list.hasAttribute('data-mlv-scheduler-list')).toBe(true);
-    const sortable = drag.sortableFor(list)!;
+    const sortable = present(drag.sortableFor(list), 'a SortableJS instance');
     expect(sortable).toBeTruthy();
     // SortableJS normalises `group` at init: `option('group')` is
     // `{ name, checkPull, checkPut, revertClone }` — there is no `put` on the
@@ -189,7 +190,7 @@ describe('MlvSchedulerDragService', () => {
       y: 460,
     });
     fixture.detectChanges();
-    expect(root.querySelector('.mlv-scheduler')!.classList).toContain(
+    expect(query(root, '.mlv-scheduler').classList).toContain(
       'mlv-scheduler--dragging',
     );
 
@@ -197,7 +198,7 @@ describe('MlvSchedulerDragService', () => {
     expect(drag.handleMove(moveEvent(a, column(4)), pointer(600, 520))).toBe(
       false,
     );
-    const preview = drag.preview()!;
+    const preview = present(drag.preview(), 'a drag preview');
     expect(preview.eventId).toBe('a');
     expect(preview.next.start).toEqual(m(7, 10, 30));
     expect(preview.next.end).toEqual(m(7, 12, 30));
@@ -263,7 +264,7 @@ describe('MlvSchedulerDragService', () => {
     expect(host.moves[0].source).toBe('pointer');
     expect(host.moves[0].previous.start).toEqual(m(4, 9));
     expect(drag.preview()).toBeNull();
-    expect(root.querySelector('.mlv-scheduler')!.classList).not.toContain(
+    expect(query(root, '.mlv-scheduler').classList).not.toContain(
       'mlv-scheduler--dragging',
     );
     expect(
@@ -290,7 +291,7 @@ describe('MlvSchedulerDragService', () => {
     // -> (460 - 100) / 960 * 1440 = 540 min = 09:00 - the event's own cell at
     // its own time, so `_changed()` is false and nothing commits.
     drag.handleMove(moveEvent(a, column(1)), pointer(280, 460));
-    expect(drag.preview()!.next).toEqual({
+    expect(present(drag.preview(), 'a drag preview').next).toEqual({
       start: m(4, 9),
       end: m(4, 11),
       allDay: false,
@@ -311,7 +312,7 @@ describe('MlvSchedulerDragService', () => {
     });
     // dayIndex 2 = Wed 5 Mar, y = 460 -> 09:00; the 2 h duration is kept.
     drag.handleMove(moveEvent(a, column(2)), pointer(400, 460));
-    expect(drag.preview()!.next).toEqual({
+    expect(present(drag.preview(), 'a drag preview').next).toEqual({
       start: m(5, 9),
       end: m(5, 11),
       allDay: false,
@@ -338,7 +339,12 @@ describe('MlvSchedulerDragService', () => {
     expect(drag.preview()).toBeNull();
     drag.handleEnd(sortableEvent(a, column(1), column(1)));
     expect(host.moves).toHaveLength(0);
-    expect(host.events().find((e) => e.id === 'a')!.start).toEqual(m(4, 9));
+    expect(
+      present(
+        host.events().find((e) => e.id === 'a'),
+        "event 'a'",
+      ).start,
+    ).toEqual(m(4, 9));
   });
 
   it('keeps the grabbed day of a multi-day bar under the pointer (grab offset)', () => {
@@ -358,7 +364,7 @@ describe('MlvSchedulerDragService', () => {
     });
     // Hover the Saturday lane (dayIndex 5) → the bar should start on Friday (dayIndex 4).
     drag.handleMove(moveEvent(bar, allDayLanes(5)), pointer(720, 50));
-    expect(drag.preview()!.next).toEqual({
+    expect(present(drag.preview(), 'a drag preview').next).toEqual({
       start: m(7),
       end: m(10),
       allDay: true,
@@ -388,7 +394,7 @@ describe('MlvSchedulerDragService', () => {
     });
     // Hover the Saturday lane (dayIndex 5) → dayIndex 5 - grabDayOffset 2 = Thursday (dayIndex 3).
     drag.handleMove(moveEvent(bar, allDayLanes(5)), pointer(720, 50));
-    expect(drag.preview()!.next).toEqual({
+    expect(present(drag.preview(), 'a drag preview').next).toEqual({
       start: m(6),
       end: m(9),
       allDay: true,
@@ -402,14 +408,19 @@ describe('MlvSchedulerDragService', () => {
       y: 460,
     });
     drag.handleMove(moveEvent(a, allDayLanes(1)), pointer(220, 50));
-    expect(drag.preview()!.next).toEqual({
+    expect(present(drag.preview(), 'a drag preview').next).toEqual({
       start: m(4),
       end: m(5),
       allDay: true,
     });
     drag.handleEnd(sortableEvent(a, column(1), column(1)));
     fixture.detectChanges();
-    expect(host.events().find((e) => e.id === 'a')!.allDay).toBe(true);
+    expect(
+      present(
+        host.events().find((e) => e.id === 'a'),
+        "event 'a'",
+      ).allDay,
+    ).toBe(true);
 
     const moved = chip('a');
     drag.handleStart(sortableEvent(moved, allDayLanes(1), allDayLanes(1)), {
@@ -417,7 +428,7 @@ describe('MlvSchedulerDragService', () => {
       y: 50,
     });
     drag.handleMove(moveEvent(moved, column(2)), pointer(340, 100 + 8 * 40));
-    expect(drag.preview()!.next).toEqual({
+    expect(present(drag.preview(), 'a drag preview').next).toEqual({
       start: m(5, 8),
       end: m(5, 9),
       allDay: false,
@@ -435,14 +446,21 @@ describe('MlvSchedulerDragService', () => {
     drag.handleMove(moveEvent(a, column(4)), pointer(600, 520));
     drag.handleEnd(sortableEvent(a, column(1), column(1)));
     expect(host.moves).toHaveLength(0);
-    expect(host.events().find((e) => e.id === 'a')!.start).toEqual(m(4, 9));
+    expect(
+      present(
+        host.events().find((e) => e.id === 'a'),
+        "event 'a'",
+      ).start,
+    ).toEqual(m(4, 9));
   });
 
   it('marks non-draggable chips so the SortableJS filter skips them', () => {
     expect(chip('pinned').getAttribute('data-draggable')).toBe('false');
-    expect(drag.sortableFor(column(1))!.option('filter')).toBe(
-      '[data-draggable="false"],.mlv-scheduler-event__resize-handle',
-    );
+    expect(
+      present(drag.sortableFor(column(1)), 'a SortableJS instance').option(
+        'filter',
+      ),
+    ).toBe('[data-draggable="false"],.mlv-scheduler-event__resize-handle');
   });
 
   it('returns a foreign item to its list and emits externalDrop', () => {
@@ -473,9 +491,7 @@ describe('MlvSchedulerDragService', () => {
 
   it('registers the hit area and the chips box as one list, and destroys both', () => {
     const area = column(1);
-    const items = area.querySelector<HTMLElement>(
-      '.mlv-scheduler-time-grid__events',
-    )!;
+    const items = query<HTMLElement>(area, '.mlv-scheduler-time-grid__events');
     // The marker (and therefore the "pointer is over a list" test) covers the
     // whole column, while the Sortable that starts drags sits on the chips'
     // own parent — SortableJS only starts a drag from a DIRECT child.
@@ -501,8 +517,14 @@ describe('MlvSchedulerDragService', () => {
     );
 
     const destroyed = [
-      vi.spyOn(drag.sortableFor(area)!, 'destroy'),
-      vi.spyOn(drag.sortableFor(items)!, 'destroy'),
+      vi.spyOn(
+        present(drag.sortableFor(area), 'a SortableJS instance'),
+        'destroy',
+      ),
+      vi.spyOn(
+        present(drag.sortableFor(items), 'a SortableJS instance'),
+        'destroy',
+      ),
     ];
     host.view.set('month');
     fixture.detectChanges();
@@ -531,12 +553,14 @@ describe('MlvSchedulerDragService', () => {
     expect(clone.getAttribute('dir')).toBe('ltr');
     expect(clone.getAttribute('inert')).toBe('');
     drag.handleMove(moveEvent(a, column(4)), pointer(600, 520));
-    expect(drag.preview()!.next.start).toEqual(m(7, 6));
-    expect(drag.preview()!.next.end).toEqual(m(7, 8));
+    expect(present(drag.preview(), 'a drag preview').next.start).toEqual(
+      m(7, 6),
+    );
+    expect(present(drag.preview(), 'a drag preview').next.end).toEqual(m(7, 8));
   });
 
   it('gives the fallback clone the scoped direction of the chip it was cloned from', () => {
-    root.querySelector('.mlv-scheduler')!.setAttribute('dir', 'rtl');
+    query(root, '.mlv-scheduler').setAttribute('dir', 'rtl');
     const a = chip('a');
     const clone = document.createElement('div');
     vi.spyOn(clone, 'getBoundingClientRect').mockReturnValue(
@@ -548,7 +572,7 @@ describe('MlvSchedulerDragService', () => {
       y: 460,
     });
     expect(clone.getAttribute('dir')).toBe('rtl');
-    root.querySelector('.mlv-scheduler')!.removeAttribute('dir');
+    query(root, '.mlv-scheduler').removeAttribute('dir');
   });
 
   it('releases a drag whose list is destroyed mid-gesture', () => {
@@ -559,7 +583,7 @@ describe('MlvSchedulerDragService', () => {
     });
     drag.handleMove(moveEvent(a, column(4)), pointer(600, 520));
     fixture.detectChanges();
-    expect(root.querySelector('.mlv-scheduler')!.classList).toContain(
+    expect(query(root, '.mlv-scheduler').classList).toContain(
       'mlv-scheduler--dragging',
     );
 
@@ -569,7 +593,7 @@ describe('MlvSchedulerDragService', () => {
     drag.unregister(column(1));
     fixture.detectChanges();
     expect(drag.preview()).toBeNull();
-    expect(root.querySelector('.mlv-scheduler')!.classList).not.toContain(
+    expect(query(root, '.mlv-scheduler').classList).not.toContain(
       'mlv-scheduler--dragging',
     );
     expect(a.classList).not.toContain('mlv-scheduler-event--dragging');
@@ -579,7 +603,10 @@ describe('MlvSchedulerDragService', () => {
   });
 
   it('mirrors a dragGroup change onto the lists created earlier', () => {
-    const sortable = drag.sortableFor(column(1))!;
+    const sortable = present(
+      drag.sortableFor(column(1)),
+      'a SortableJS instance',
+    );
     expect((sortable.option('group') as unknown as NormalizedGroup).name).toBe(
       'mlv-scheduler',
     );
@@ -615,7 +642,7 @@ describe('MlvSchedulerDragService', () => {
     fixture.detectChanges();
     expect(a.hasAttribute('draggable')).toBe(false);
     expect(host.moves).toHaveLength(0);
-    expect(root.querySelector('.mlv-scheduler')!.classList).not.toContain(
+    expect(query(root, '.mlv-scheduler').classList).not.toContain(
       'mlv-scheduler--dragging',
     );
     // The click trailing the release is still swallowed.
@@ -629,7 +656,7 @@ describe('MlvSchedulerDragService', () => {
 
   it('destroys SortableJS instances with the view', () => {
     const list = column(1);
-    const sortable = drag.sortableFor(list)!;
+    const sortable = present(drag.sortableFor(list), 'a SortableJS instance');
     const destroy = vi.spyOn(sortable, 'destroy');
     host.view.set('month');
     fixture.detectChanges();

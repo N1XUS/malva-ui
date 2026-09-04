@@ -26,16 +26,33 @@ import type {
   MlvSchedulerView,
 } from '../scheduler/scheduler.types';
 
-/** Writable knobs of the fake context. */
+/**
+ * Writable knobs of the fake context.
+ *
+ * `view`, `date` and `hiddenDays` **seed** the context but do not drive it the
+ * way the real `MlvScheduler` does: `days` is a plain writable signal computed
+ * once from them (see there), so writing `view`, `date` or `hiddenDays` later
+ * changes `range` / `rowLength` but leaves `days` exactly as seeded. Write
+ * `days` directly to change the rendered columns mid-spec.
+ */
 export interface MlvSchedulerTestContextOptions {
+  /** Seeds `view` and, through it, the initial `range` and `days`. */
   view?: MlvSchedulerView;
+  /** Seeds `date` and, through it, the initial `range` and `days`. */
   date?: Date;
+  /** Seeds the `events` signal the fake `normalizedEvents` derives from. */
   events?: MlvSchedulerEvent[];
+  /** Seeds `editable`. */
   editable?: boolean;
+  /** Seeds `selectable`. */
   selectable?: boolean;
+  /** Seeds `hiddenDays`, `rowLength` and the initial `days`. */
   hiddenDays?: number[];
+  /** `minMinutes` — minutes of day, not `'HH:mm'`. */
   minTime?: number;
+  /** `maxMinutes` — minutes of day, not `'HH:mm'`. */
   maxTime?: number;
+  /** Seeds `slotDuration` (and `snap`, unless `snap` is given). */
   slotDuration?: number;
   /**
    * Drag / resize / keyboard granularity. Defaults to `30` — the real
@@ -70,14 +87,17 @@ export function createSchedulerTestContext(
   const maxMinutes = signal(options.maxTime ?? 1440);
   const slotDuration = signal(options.slotDuration ?? 30);
   const snap = signal(options.snap ?? options.slotDuration ?? 30);
+  /** Seeds the `*mlvSchedulerEventDef` template a chip renders instead of its default body. */
   const eventDef = signal<TemplateRef<MlvSchedulerEventContext> | null>(
     options.eventDef ?? null,
   );
   const range = computed(() => computeVisibleRange(adapter, view(), date(), 1));
   /**
-   * The visible days. Seeded from the requested view/date (with the default
-   * options: Mon 31 Aug – Sun 6 Sep 2026) but **writable**, so a spec can
-   * shrink the range to a single day and exercise the cross-range navigation.
+   * The visible days. Seeded once from the requested view / date / hiddenDays
+   * (with the default options: Mon 31 Aug – Sun 6 Sep 2026) but **writable**
+   * and NOT derived: a later write to `view`, `date` or `hiddenDays` does not
+   * reach it, so a spec can shrink the range to a single day and exercise the
+   * cross-range navigation without the seed fighting back.
    */
   const days = signal<readonly Date[]>(
     visibleDays(adapter, range(), hiddenDays()),

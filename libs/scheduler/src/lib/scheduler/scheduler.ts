@@ -1,11 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
-  ElementRef,
   NgZone,
   PLATFORM_ID,
   ViewEncapsulation,
+  afterRenderEffect,
   computed,
   contentChild,
   effect,
@@ -43,6 +42,7 @@ import {
   type MlvSchedulerI18n,
 } from '@malva-ui/i18n';
 import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
+import { nextVisibleDate } from '../layout/scheduler-focus';
 import { parseTime } from '../layout/scheduler-time';
 import {
   computeVisibleRange,
@@ -113,6 +113,11 @@ const VIEWS: readonly MlvSchedulerView[] = ['month', 'week', 'day'];
   ],
   host: {
     class: 'mlv-scheduler',
+    // The custom element has no implicit role, so `aria-label` on it would be
+    // an ARIA-prohibited attribute on a generic container and go unannounced.
+    // `group` is the weakest role that takes a name, keeps the two grids and
+    // the toolbar in one labelled region, and adds no required children.
+    role: 'group',
     '[class]': '"mlv-scheduler--" + view()',
     '[class.mlv-scheduler--dragging]': 'dragging()',
     '[attr.aria-label]': 'ariaLabel() ?? i18n().scheduler',
@@ -127,7 +132,7 @@ export class MlvScheduler<D = Date, TData = unknown>
   /** Active view. */
   readonly view = model<MlvSchedulerView>('month');
 
-  /** Active adapter: a provided `MLV_DATE_ADAPTER`, else the native fallback. */
+  /** @internal Active adapter: a provided `MLV_DATE_ADAPTER`, else the native fallback. */
   readonly adapter: MlvDateAdapter<D> =
     (inject(MLV_DATE_ADAPTER, {
       optional: true,
@@ -142,9 +147,9 @@ export class MlvScheduler<D = Date, TData = unknown>
   readonly firstDayOfWeek = input(1);
   /** Weekdays (0 = Sunday) removed from every view, e.g. `[0, 6]` for a working week. */
   readonly hiddenDays = input<readonly number[]>([]);
-  /** First visible hour of the time grid, `'HH:mm'`. */
+  /** First visible hour of the time grid, `'HH:mm'`; must be earlier than `maxTime`. */
   readonly minTime = input('00:00');
-  /** Last visible hour of the time grid, `'HH:mm'`; `'24:00'` allowed. */
+  /** Last visible hour of the time grid, `'HH:mm'`; `'24:00'` allowed, must be later than `minTime`. */
   readonly maxTime = input('24:00');
   /** Height unit of the time grid in **positive minutes**; must divide 60. */
   readonly slotDuration = input(30);
@@ -209,13 +214,13 @@ export class MlvScheduler<D = Date, TData = unknown>
   readonly moreClick = output<MlvSchedulerMoreClickEvent<D, TData>>();
 
   // ─── Slots ─────────────────────────────────────────────────────────────
-  /** @protected Custom chip content. */
-  protected readonly eventDefRef = contentChild(MlvSchedulerEventDef);
+  /** @private The projected `*mlvSchedulerEventDef`, read only by `eventDef`. */
+  private readonly _eventDefRef = contentChild(MlvSchedulerEventDef);
   /** @protected Custom toolbar. */
   protected readonly headerDefRef = contentChild(MlvSchedulerHeaderDef);
 
   // ─── Context surface ───────────────────────────────────────────────────
-  /** Translation strings. */
+  /** @internal Resolved scheduler translation strings. */
   readonly i18n: Signal<MlvSchedulerI18n> = inject(MLV_SCHEDULER_I18N);
   /** @private ICU resolver. */
   private readonly _resolver = inject(MlvI18nResolverService);
@@ -223,10 +228,6 @@ export class MlvScheduler<D = Date, TData = unknown>
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   /** @private The minute ticker runs outside the zone. */
   private readonly _zone = inject(NgZone);
-  /** @private Guards microtask announcements after destroy. */
-  private readonly _destroyRef = inject(DestroyRef);
-  /** Host element, used by views for focus queries through the context. */
-  readonly elementRef = inject(ElementRef<HTMLElement>);
   /** @private Pointer drag engine; one per scheduler. */
   private readonly _drag = inject(MlvSchedulerDragService<D, TData>);
 
@@ -239,18 +240,32 @@ export class MlvScheduler<D = Date, TData = unknown>
       this.firstDayOfWeek(),
     ),
   );
-  /** Alias required by the context. */
+  /** @internal `visibleRange` under the name the view context reads. */
   readonly range = this.visibleRange;
-  /** Days rendered by the active view, after `hiddenDays`. */
-  readonly days = computed(() =>
-    visibleDays(this.adapter, this.visibleRange(), this.hiddenDays()),
-  );
-  /** Visible days per month week row. */
+  /**
+   * @internal Days rendered by the active view, after `hiddenDays`.
+   *
+   * In the **day** view `hiddenDays` steers navigation (`next()` / `previous()`
+   * skip hidden weekdays, see `_step`) but never blanks the grid: a one-day
+   * range whose weekday is hidden would otherwise filter down to `[]`, and the
+   * time grid would render a `role="grid"` with no row, no cell and therefore
+   * no roving tab stop. An anchor pointed straight at a hidden weekday — a
+   * `[date]` binding or an explicit `goTo()` — renders that day as asked.
+   */
+  readonly days = computed(() => {
+    const range = this.visibleRange();
+    const days = visibleDays(this.adapter, range, this.hiddenDays());
+    if (days.length === 0 && range.view === 'day') {
+      return visibleDays(this.adapter, range, []);
+    }
+    return days;
+  });
+  /** @internal Visible days per month week row. */
   readonly rowLength = computed(() => computeRowLength(this.hiddenDays()));
   /** @private Bumped every minute while `showCurrentTime`; `today` / `nowMinutes` depend on it. */
   private readonly _clockTick = signal(0);
   /**
-   * Today per the adapter, refreshed with the clock tick.
+   * @internal Today per the adapter, refreshed with the clock tick.
    *
    * `equal` compares by calendar day, not by identity: the adapter returns a
    * NEW date object on every call, so with the default `Object.is` this signal
@@ -265,46 +280,66 @@ export class MlvScheduler<D = Date, TData = unknown>
     },
     { equal: (a, b) => this.adapter.sameDate(a, b) },
   );
-  /** Wall-clock minutes of day, refreshed with the clock tick. */
+  /** @internal Wall-clock minutes of day, refreshed with the clock tick. */
   readonly nowMinutes = computed(() => {
     this._clockTick();
     return this.adapter.minutesOfDay(this.adapter.now());
   });
-  /** `events` with repaired ends and all-day boundaries. */
+  /** @internal `events` with repaired ends and all-day boundaries. */
   readonly normalizedEvents = computed(() => {
     const duration = this.defaultEventDuration();
     return this.events().map((event) =>
       normalizeEvent(this.adapter, event, duration),
     );
   });
-  /** First visible minute of day. */
-  readonly minMinutes = computed(() => parseTime(this.minTime()));
-  /** Last visible minute of day. */
-  readonly maxMinutes = computed(() => parseTime(this.maxTime()));
-  /** Effective snap: `snapDuration` or `slotDuration`. */
+  /**
+   * @private `[minTime, maxTime)` as minutes of day, validated as one pair.
+   *
+   * The time grid divides by `maxMinutes - minMinutes` for every hour line,
+   * chip offset and chip height, so a window that is not strictly ascending
+   * writes `NaN%` / `Infinity%` into the geometry custom properties — invalid
+   * declarations the browser silently drops, leaving every chip stacked at the
+   * container origin with no error anywhere. Fail loudly instead, the way
+   * `slotCount` does for a non-positive `slotDuration`.
+   */
+  private readonly _timeWindow = computed(() => {
+    const min = parseTime(this.minTime());
+    const max = parseTime(this.maxTime());
+    if (max <= min) {
+      throw new Error(
+        `Invalid scheduler time window "${this.minTime()}"–"${this.maxTime()}". minTime must be earlier than maxTime.`,
+      );
+    }
+    return { min, max };
+  });
+  /** @internal First visible minute of day, parsed from `minTime`. */
+  readonly minMinutes = computed(() => this._timeWindow().min);
+  /** @internal Last visible minute of day, parsed from `maxTime`. */
+  readonly maxMinutes = computed(() => this._timeWindow().max);
+  /** @internal Effective snap: `snapDuration` or `slotDuration`. */
   readonly snap = computed(() => this.snapDuration() ?? this.slotDuration());
-  /** The projected chip template, if any. */
+  /** @internal The projected chip template, if any. */
   readonly eventDef = computed<TemplateRef<
     MlvSchedulerEventContext<D, TData>
   > | null>(
     () =>
-      (this.eventDefRef()?.templateRef as
+      (this._eventDefRef()?.templateRef as
         | TemplateRef<MlvSchedulerEventContext<D, TData>>
         | undefined) ?? null,
   );
-  /** `id` of the visually hidden keyboard hint chips reference via `aria-describedby`. */
+  /** @internal `id` of the visually hidden keyboard hint chips reference via `aria-describedby`. */
   readonly dragHintId = mlvNextId('mlv-scheduler-hint');
-  /** What the active view should focus after its next render. */
+  /** @internal What the active view should focus after its next render. */
   readonly pendingFocus = signal<MlvSchedulerFocusRequest<D> | null>(null);
   /** @private Backing signal of `scrollRequest`. */
   private readonly _scrollRequest = signal<MlvSchedulerScrollRequest | null>(
     null,
   );
-  /** The latest `scrollToTime()` call waiting for the time grid. */
+  /** @internal The latest `scrollToTime()` call waiting for the time grid. */
   readonly scrollRequest = this._scrollRequest.asReadonly();
   /** @private Backing signal of `dragging`. */
   private readonly _dragging = signal(false);
-  /** `true` while a SortableJS drag owns the pointer. */
+  /** @internal `true` while a SortableJS drag owns the pointer. */
   readonly dragging = this._dragging.asReadonly();
 
   /** Localized title: month-year, "Aug 31 – Sep 6, 2026", or the full day label. */
@@ -344,10 +379,18 @@ export class MlvScheduler<D = Date, TData = unknown>
   protected readonly _nextLabel = computed(() =>
     this.translate('next', { view: this.view() }),
   );
-  /** @protected Live-region text. */
-  protected readonly _liveMessage = signal('');
-  /** @private Monotonic sequence so a stale microtask never overwrites a newer announcement. */
-  private _announceSequence = 0;
+  /**
+   * @protected The two polite live-region slots. Exactly one ever carries
+   * text; `announce()` alternates between them (see there).
+   */
+  protected readonly _liveMessages = signal<readonly [string, string]>([
+    '',
+    '',
+  ]);
+  /** @private Index of the slot the next announcement writes into. */
+  private _liveSlot: 0 | 1 = 0;
+  /** @private Announcements made since the last render; see `announce()`. */
+  private _liveBatch = 0;
   /** @private Last range handed to `visibleRangeChange`. */
   private _emittedRange: MlvSchedulerVisibleRange<D> | null = null;
   /** @private Timestamp of the last `suppressNextClick()`; `0` once claimed or expired. */
@@ -370,7 +413,20 @@ export class MlvScheduler<D = Date, TData = unknown>
         }
         this._emittedRange = range;
         this.visibleRangeChange.emit(range);
+        // The single place a period change is announced. Announcing from
+        // `goTo()` / `_step()` instead would speak for a jump that resolves to
+        // the period already on screen, and stay silent when a `[date]` or
+        // `[view]` binding moves the range without going through them. The
+        // first range is the one the user is already looking at, so it is
+        // emitted but not announced.
+        if (previous) this._announceRange();
       });
+    });
+
+    // One announcement batch per painted frame: see `announce()`.
+    afterRenderEffect(() => {
+      this._liveMessages();
+      this._liveBatch = 0;
     });
 
     effect((onCleanup) => {
@@ -401,7 +457,6 @@ export class MlvScheduler<D = Date, TData = unknown>
   /** Jumps to `date` (the period containing it becomes visible). */
   goTo(date: D): void {
     this.date.set(date);
-    this._announceRange();
   }
 
   /** Switches the view. */
@@ -433,12 +488,12 @@ export class MlvScheduler<D = Date, TData = unknown>
     );
   }
 
-  /** @internal */
+  /** @internal Localized time of day for a chip label, e.g. "9:30 AM". */
   formatTime(date: D): string {
     return this.adapter.format(date, { hour: 'numeric', minute: '2-digit' });
   }
 
-  /** @internal */
+  /** @internal Localized date + time, used whenever a label crosses a day boundary. */
   formatDateTime(date: D): string {
     return this.adapter.format(date, {
       month: 'short',
@@ -448,18 +503,42 @@ export class MlvScheduler<D = Date, TData = unknown>
     });
   }
 
-  /** @internal */
+  /**
+   * @internal Announces `message` politely.
+   *
+   * Assistive tech only speaks a live region whose text actually **changed**,
+   * so repeating a message verbatim (two rejected moves in a row, two steps
+   * onto the same period) has to look like a change in the DOM. The usual
+   * clear-then-set trick cannot deliver that under zoneless change detection:
+   * both writes land before the scheduled render, so the region is painted
+   * once with the final text and an identical repeat is silent.
+   *
+   * Instead the component renders two live regions and alternates: the new
+   * message goes into the slot the previous one did not use, and that slot is
+   * emptied. One render pass, one text insertion into a region that was empty,
+   * announced every time — repeats included.
+   *
+   * Emptying the other slot is skipped for the second and further calls of one
+   * change-detection pass, because they share the render the first one is
+   * waiting for. A keyboard move that leaves the visible period is exactly
+   * that: `commitChange()` announces the move and the `visibleRangeChange`
+   * effect announces the new period, both before anything is painted, and
+   * clearing would drop the move. `_liveBatch` is reset after every render, so
+   * two announcements a pass apart still get a cleared destination each.
+   */
   announce(message: string): void {
-    const sequence = ++this._announceSequence;
-    this._liveMessage.set('');
-    queueMicrotask(() => {
-      if (this._destroyRef.destroyed || sequence !== this._announceSequence)
-        return;
-      this._liveMessage.set(message);
-    });
+    const slot = this._liveSlot;
+    this._liveSlot = slot === 0 ? 1 : 0;
+    const keepOther = this._liveBatch > 0;
+    this._liveBatch++;
+    this._liveMessages.update(([first, second]) =>
+      slot === 0
+        ? [message, keepOther ? second : '']
+        : [keepOther ? first : '', message],
+    );
   }
 
-  /** @internal */
+  /** @internal Fans one chip interaction out to `eventClick` / `eventDoubleClick` / `eventContextMenu`. */
   emitEventInteraction(
     kind: MlvSchedulerInteractionKind,
     payload: MlvSchedulerEventInteraction<D, TData>,
@@ -473,7 +552,7 @@ export class MlvScheduler<D = Date, TData = unknown>
     target.emit(payload);
   }
 
-  /** @internal */
+  /** @internal Fans one cell interaction out to `slotClick` / `slotDoubleClick` / `slotContextMenu`. */
   emitSlotInteraction(
     kind: MlvSchedulerInteractionKind,
     payload: MlvSchedulerSlotEvent<D>,
@@ -487,17 +566,17 @@ export class MlvScheduler<D = Date, TData = unknown>
     target.emit(payload);
   }
 
-  /** @internal */
+  /** @internal Re-emits a committed range selection as `rangeSelect`. */
   emitRangeSelect(payload: MlvSchedulerRangeSelectEvent<D>): void {
     this.rangeSelect.emit(payload);
   }
 
-  /** @internal */
+  /** @internal Re-emits a month cell's "+N more" activation as `moreClick`; the popover opens either way. */
   emitMoreClick(payload: MlvSchedulerMoreClickEvent<D, TData>): void {
     this.moreClick.emit(payload);
   }
 
-  /** @internal */
+  /** @internal Re-emits a foreign SortableJS drop as `externalDrop`; nothing is written to `events`. */
   emitExternalDrop(payload: MlvSchedulerExternalDropEvent<D>): void {
     this.externalDrop.emit(payload);
   }
@@ -576,7 +655,7 @@ export class MlvScheduler<D = Date, TData = unknown>
     return suppressed;
   }
 
-  /** @internal */
+  /** @internal Drag service → root: mirrors a running SortableJS drag onto `dragging`. */
   setDragging(dragging: boolean): void {
     this._dragging.set(dragging);
   }
@@ -599,13 +678,22 @@ export class MlvScheduler<D = Date, TData = unknown>
         this.date.set(this.adapter.addCalendarDays(date, 7 * direction));
         break;
       case 'day':
-        this.date.set(this.adapter.addCalendarDays(date, direction));
+        // A single-day range that lands on a hidden weekday would filter down
+        // to no rendered day at all, so the day view steps over them: with
+        // `hiddenDays=[0, 6]`, "next" from a Friday reaches Monday.
+        this.date.set(
+          nextVisibleDate(this.adapter, date, direction, this.hiddenDays()),
+        );
         break;
     }
-    this._announceRange();
   }
 
-  /** @private "Showing {period}". Read after the signal write so the title is fresh. */
+  /**
+   * @private "Showing {period}". Called from the `visibleRangeChange` effect
+   * only, so it speaks exactly when the rendered period actually changed;
+   * `title()` is read there rather than passed in, so it is always the title
+   * of the range that just won.
+   */
   private _announceRange(): void {
     this.announce(this.translate('rangeChanged', { period: this.title() }));
   }

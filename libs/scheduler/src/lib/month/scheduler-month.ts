@@ -375,7 +375,7 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       if (!request) return;
       const element =
         request.kind === 'event'
-          ? findEventElement(this._host, request.id)
+          ? findEventElement(this._host, request.id, request.dayIndex)
           : findCellElement(
               this._host,
               dayIndexOf(this._ctx.adapter, this._ctx.days(), request.date),

@@ -17,6 +17,7 @@ import type {
   MlvSchedulerRangeSelectEvent,
   MlvSchedulerSlotEvent,
 } from '../scheduler/scheduler.types';
+import { focused, present, query } from '../testing/scheduler-test-dom';
 
 const AXE_RULES = [
   'aria-allowed-attr',
@@ -92,9 +93,10 @@ describe('MlvSchedulerMonth', () => {
   let observeCount = 0;
 
   const cell = (dayIndex: number) =>
-    root.querySelector<HTMLElement>(
+    query<HTMLElement>(
+      root,
       `[data-day-index="${dayIndex}"][data-minutes="all-day"]`,
-    )!;
+    );
   const cellFor = (date: Date) => {
     const label = adapter.getDateLabel(date);
     const found = root.querySelector<HTMLElement>(
@@ -207,7 +209,7 @@ describe('MlvSchedulerMonth', () => {
   it('places the spanning bar in its start cell and collapses overflow into "+N more"', () => {
     // Visible lanes fall back to 3 in jsdom → threshold 2: lanes 0 and 1 render, the rest hide.
     const monday = cell(7); // Mon 3 Mar
-    const bar = monday.querySelector<HTMLElement>('[data-event-id="span"]')!;
+    const bar = query<HTMLElement>(monday, '[data-event-id="span"]');
     expect(bar).not.toBeNull();
     expect(bar.style.getPropertyValue('--mlv-scheduler-span')).toBe('3');
     expect(bar.style.getPropertyValue('--mlv-scheduler-lane')).toBe('1');
@@ -281,17 +283,17 @@ describe('MlvSchedulerMonth', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(host.date()).toEqual(m(23, 0, 0, 1));
-    const focused = document.activeElement as HTMLElement;
-    expect(focused.getAttribute('aria-label')).toBe(
+    const focusedCell = focused();
+    expect(focusedCell.getAttribute('aria-label')).toBe(
       adapter.getDateLabel(m(23, 0, 0, 1)),
     );
-    key(focused, 'PageDown'); // back to March, same day-of-month logic: 23 Mar
+    key(focusedCell, 'PageDown'); // back to March, same day-of-month logic: 23 Mar
     await fixture.whenStable();
     fixture.detectChanges();
     expect(host.date()).toEqual(m(23));
-    expect(
-      (document.activeElement as HTMLElement).getAttribute('aria-label'),
-    ).toBe(adapter.getDateLabel(m(23)));
+    expect(focused().getAttribute('aria-label')).toBe(
+      adapter.getDateLabel(m(23)),
+    );
   });
 
   it('pages onto a rendered weekday when the same day of month is hidden', async () => {
@@ -305,16 +307,16 @@ describe('MlvSchedulerMonth', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(host.date()).toEqual(m(5, 0, 0, 4)); // Mon 5 May
-    expect(
-      (document.activeElement as HTMLElement).getAttribute('aria-label'),
-    ).toBe(adapter.getDateLabel(m(5, 0, 0, 4)));
-    key(document.activeElement as HTMLElement, 'PageUp'); // 5 Apr is a Saturday
+    expect(focused().getAttribute('aria-label')).toBe(
+      adapter.getDateLabel(m(5, 0, 0, 4)),
+    );
+    key(focused(), 'PageUp'); // 5 Apr is a Saturday
     await fixture.whenStable();
     fixture.detectChanges();
     expect(host.date()).toEqual(m(4, 0, 0, 3)); // Fri 4 Apr
-    expect(
-      (document.activeElement as HTMLElement).getAttribute('aria-label'),
-    ).toBe(adapter.getDateLabel(m(4, 0, 0, 3)));
+    expect(focused().getAttribute('aria-label')).toBe(
+      adapter.getDateLabel(m(4, 0, 0, 3)),
+    );
   });
 
   it('clears a focus request no rendered cell can satisfy', async () => {
@@ -511,7 +513,9 @@ describe('MlvSchedulerMonth', () => {
     );
     expect(chips.length).toBeGreaterThan(0);
     for (const chipEl of chips) {
-      expect(Sortable.get(chipEl.parentElement!)).toBeTruthy();
+      expect(
+        Sortable.get(present(chipEl.parentElement, "the chip's lane")),
+      ).toBeTruthy();
     }
   });
 
@@ -583,7 +587,7 @@ describe('MlvSchedulerMonth', () => {
   it('declares the grid multi-selectable exactly while selection is enabled', () => {
     // Several cells carry `aria-selected` during a range selection, and a
     // `role="grid"` without `aria-multiselectable` advertises single-select.
-    const grid = root.querySelector<HTMLElement>('[role="grid"]')!;
+    const grid = query<HTMLElement>(root, '[role="grid"]');
     expect(grid.getAttribute('aria-multiselectable')).toBe('true');
     host.selectable.set(false);
     fixture.detectChanges();
@@ -592,7 +596,7 @@ describe('MlvSchedulerMonth', () => {
 
   it('names the "+N more" button with its visible label first (WCAG 2.5.3)', () => {
     const more = moreButton(8);
-    const visible = more.textContent!.trim();
+    const visible = present(more.textContent, "the button's text").trim();
     expect(visible).toBe('+3 more');
     expect(more.getAttribute('aria-label')).toBe(
       `${visible}, 3 more events on ${adapter.getDateLabel(m(4))}`,
@@ -702,7 +706,7 @@ describe('MlvSchedulerMonth', () => {
     });
 
     it('does not start from a chip or the more button', () => {
-      const bar = root.querySelector<HTMLElement>('[data-event-id="span"]')!;
+      const bar = query<HTMLElement>(root, '[data-event-id="span"]');
       bar.dispatchEvent(pointerEvent('pointerdown', 10, 10));
       cell(12).dispatchEvent(pointerEvent('pointermove', 10, 60));
       cell(12).dispatchEvent(pointerEvent('pointerup', 10, 60));
@@ -722,7 +726,7 @@ describe('MlvSchedulerMonth', () => {
           '.mlv-scheduler-month__cell[aria-selected="true"]',
         ),
       ).toHaveLength(9); // 3 → 11 Mar
-      key(document.activeElement as HTMLElement, 'Enter');
+      key(focused(), 'Enter');
       expect(host.ranges[0]).toEqual({
         start: m(3),
         end: m(12),
@@ -736,7 +740,7 @@ describe('MlvSchedulerMonth', () => {
       c.focus();
       key(c, 'ArrowRight', { shiftKey: true });
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
-      key(document.activeElement as HTMLElement, 'Escape');
+      key(focused(), 'Escape');
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
       expect(host.ranges).toHaveLength(0);
     });
@@ -856,7 +860,7 @@ describe('MlvSchedulerMonth', () => {
     // Escape on the focused panel chip: the chip finds no owning grid cell
     // above it (the pane is portaled to <body>), so it leaves the key to the
     // popup's own dismissal instead of swallowing it.
-    document.activeElement!.dispatchEvent(
+    focused().dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
     );
     fixture.detectChanges();

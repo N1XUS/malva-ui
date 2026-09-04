@@ -554,7 +554,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       if (!request) return;
       let element: HTMLElement | null;
       if (request.kind === 'event') {
-        element = findEventElement(this._host, request.id);
+        element = findEventElement(this._host, request.id, request.dayIndex);
       } else {
         const dayIndex = dayIndexOf(
           this._ctx.adapter,
