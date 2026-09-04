@@ -34,7 +34,7 @@ Abstract contract. Responsibilities:
 - calendar arithmetic (`addCalendarDays`, `addCalendarMonths`, `addCalendarYears`) and comparison (`compareDate`, `sameDate`)
 - localized month / weekday names and formatted labels (`getMonthNames`, `getDayOfWeekNames`, `format`, `toIso8601`)
 - `locale` is a `WritableSignal<string>` read by every formatting method
-- time-of-day (added 2026-09 for `@malva-ui/scheduler`) — abstract: `getHours` (0–23), `getMinutes` (0–59), `createDateTime(year, month, day, hours, minutes)` (throws on out-of-range fields), `addMinutes` (elapsed minutes, negative allowed), `differenceInMinutes(first, second)` (`first − second`, truncated toward zero), `now()` (the current date-time in the adapter's zone — the single clock seam, so no component constructs a `Date`); inherited helpers: `withTime` (same calendar day, new time), `startOfDay`, `minutesOfDay` (0–1439), `shiftDays` (calendar days, keeps the wall-clock time), `compareDateTime` (day, then minute; seconds ignored), `sameDateTime`
+- time-of-day (added 2026-09 for `@malva-ui/scheduler`) — abstract: `getHours` (0–23), `getMinutes` (0–59), `createDateTime(year, month, day, hours, minutes)` (throws on out-of-range fields), `addMinutes` (elapsed minutes, negative allowed), `differenceInMinutes(first, second)` (`first − second`, truncated toward zero), `now()` (the current date-time in the adapter's zone — the single clock seam, so no component constructs a `Date`); inherited helpers: `withTime` (same calendar day, new time), `startOfDay` (implemented as `withTime(date, 0, 0)`, so an adapter whose `createDate` keeps a time component still gets a real midnight), `minutesOfDay` (0–1439), `shiftDays` (calendar days, keeps the wall-clock time), `compareDateTime` (day, then minute; seconds ignored), `sameDateTime`
 
 Components consume the contract through `inject(MLV_DATE_ADAPTER, { optional: true }) ?? inject(MlvNativeDateAdapter)`.
 
@@ -65,4 +65,6 @@ A custom adapter extends `MlvDateAdapter<D>` and implements every abstract membe
 
 ## Testing
 
-`yarn nx run core-date:test` — `libs/core/date/src/lib/date-adapter.spec.ts` covers the provider helper, `createDate` validation, `isValid`, and (from 2026-09) the time-of-day contract.
+`yarn nx run core-date:test` — `libs/core/date/src/lib/date-adapter.spec.ts` covers the provider helper (including that omitting the `locale` argument leaves an application-provided `MLV_DATE_LOCALE` untouched), `createDate` validation, `isValid`, and (from 2026-09) the time-of-day contract plus its DST behaviour.
+
+The suite runs in a **pinned timezone**: `libs/core/date/vite.config.mts` sets `process.env.TZ = 'Europe/Berlin'` in the config module, so every pooled worker inherits the zone before its first `Date`/`Intl` call caches it (`test.env.TZ` is applied too late to reach ICU). Europe/Berlin springs forward on 2026-03-29 (02:00 → 03:00) and falls back on 2026-10-25 (03:00 → 02:00); the DST cases assert that `addMinutes` / `differenceInMinutes` count **elapsed** minutes across both transitions while `withTime` / `startOfDay` / `minutesOfDay` stay on the **wall clock**, and one guard case asserts the resolved zone so an ineffective pin fails loudly instead of silently testing UTC.

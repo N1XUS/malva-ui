@@ -16,11 +16,25 @@ describe('provideMlvDateAdapter', () => {
     expect(TestBed.inject(MLV_DATE_LOCALE)).toBe('ro-RO');
   });
 
-  it('leaves MLV_DATE_LOCALE on its default when no locale is passed', () => {
+  it('leaves an application-provided MLV_DATE_LOCALE untouched when no locale is passed', () => {
     TestBed.configureTestingModule({
-      providers: [...provideMlvDateAdapter(MlvNativeDateAdapter)],
+      providers: [
+        { provide: MLV_DATE_LOCALE, useValue: 'fr-FR' },
+        ...provideMlvDateAdapter(MlvNativeDateAdapter),
+      ],
     });
-    expect(typeof TestBed.inject(MLV_DATE_LOCALE)).toBe('string');
+    expect(TestBed.inject(MLV_DATE_LOCALE)).toBe('fr-FR');
+    expect(TestBed.inject(MLV_DATE_ADAPTER).locale()).toBe('fr-FR');
+  });
+
+  it('overrides an application-provided MLV_DATE_LOCALE when a locale is passed', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: MLV_DATE_LOCALE, useValue: 'fr-FR' },
+        ...provideMlvDateAdapter(MlvNativeDateAdapter, 'ro-RO'),
+      ],
+    });
+    expect(TestBed.inject(MLV_DATE_LOCALE)).toBe('ro-RO');
   });
 });
 
@@ -150,5 +164,150 @@ describe('MlvNativeDateAdapter time-of-day extension', () => {
 
   it('now returns the current date-time', () => {
     expect(Math.abs(adapter.now().getTime() - Date.now())).toBeLessThan(1000);
+  });
+});
+
+describe('MlvNativeDateAdapter across DST transitions', () => {
+  let adapter: MlvNativeDateAdapter;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    adapter = TestBed.inject(MlvNativeDateAdapter);
+  });
+
+  it('runs in the pinned Europe/Berlin zone', () => {
+    // The DST cases below only mean something in a zone that observes DST;
+    // the pin lives in `libs/core/date/vite.config.mts` (`test.env.TZ`).
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(
+      'Europe/Berlin',
+    );
+    expect(new Date(2026, 0, 15).getTimezoneOffset()).toBe(-60);
+    expect(new Date(2026, 6, 15).getTimezoneOffset()).toBe(-120);
+  });
+
+  it('addMinutes adds elapsed time across the spring-forward gap', () => {
+    // 2026-03-29 01:30 CET + 60 real minutes lands at 03:30 CEST: the
+    // 02:00-03:00 wall-clock hour does not exist.
+    const before = new Date(2026, 2, 29, 1, 30);
+    const after = adapter.addMinutes(before, 60);
+    expect([
+      adapter.getDate(after),
+      adapter.getHours(after),
+      adapter.getMinutes(after),
+    ]).toEqual([29, 3, 30]);
+  });
+
+  it('addMinutes adds elapsed time across the fall-back repeat', () => {
+    // 2026-10-25 01:30 CEST + 120 real minutes lands at 02:30 CET, the second
+    // pass through the repeated 02:00-03:00 hour.
+    const before = new Date(2026, 9, 25, 1, 30);
+    const after = adapter.addMinutes(before, 120);
+    expect([
+      adapter.getDate(after),
+      adapter.getHours(after),
+      adapter.getMinutes(after),
+    ]).toEqual([25, 2, 30]);
+    expect(after.getTimezoneOffset()).toBe(-60);
+  });
+
+  it('differenceInMinutes reports elapsed, not wall-clock, minutes', () => {
+    // Spring forward: 01:00 -> 04:00 spans three wall-clock hours but two real ones.
+    expect(
+      adapter.differenceInMinutes(
+        new Date(2026, 2, 29, 4, 0),
+        new Date(2026, 2, 29, 1, 0),
+      ),
+    ).toBe(120);
+    // Fall back: 01:00 -> 04:00 spans three wall-clock hours but four real ones.
+    expect(
+      adapter.differenceInMinutes(
+        new Date(2026, 9, 25, 4, 0),
+        new Date(2026, 9, 25, 1, 0),
+      ),
+    ).toBe(240);
+    expect(
+      adapter.differenceInMinutes(
+        new Date(2026, 9, 25, 1, 0),
+        new Date(2026, 9, 25, 4, 0),
+      ),
+    ).toBe(-240);
+  });
+
+  it('withTime keeps the calendar day on both transition days', () => {
+    const springForward = adapter.withTime(new Date(2026, 2, 29, 12, 0), 9, 15);
+    expect([
+      adapter.getMonth(springForward),
+      adapter.getDate(springForward),
+      adapter.getHours(springForward),
+      adapter.getMinutes(springForward),
+    ]).toEqual([2, 29, 9, 15]);
+
+    const fallBack = adapter.withTime(new Date(2026, 9, 25, 12, 0), 9, 15);
+    expect([
+      adapter.getMonth(fallBack),
+      adapter.getDate(fallBack),
+      adapter.getHours(fallBack),
+      adapter.getMinutes(fallBack),
+    ]).toEqual([9, 25, 9, 15]);
+  });
+
+  it('withTime resolves the non-existent spring-forward hour forward', () => {
+    // 02:30 does not exist on 2026-03-29; the native Date setters roll it to 03:30.
+    const inTheGap = adapter.withTime(new Date(2026, 2, 29, 12, 0), 2, 30);
+    expect([
+      adapter.getDate(inTheGap),
+      adapter.getHours(inTheGap),
+      adapter.getMinutes(inTheGap),
+    ]).toEqual([29, 3, 30]);
+  });
+
+  it('startOfDay lands on local midnight on both transition days', () => {
+    for (const day of [
+      new Date(2026, 2, 29, 18, 45),
+      new Date(2026, 9, 25, 18, 45),
+    ]) {
+      const start = adapter.startOfDay(day);
+      expect([
+        adapter.getYear(start),
+        adapter.getMonth(start),
+        adapter.getDate(start),
+        adapter.getHours(start),
+        adapter.getMinutes(start),
+        start.getSeconds(),
+        start.getMilliseconds(),
+      ]).toEqual([
+        adapter.getYear(day),
+        adapter.getMonth(day),
+        adapter.getDate(day),
+        0,
+        0,
+        0,
+        0,
+      ]);
+    }
+  });
+
+  it('shiftDays keeps the wall-clock time across a transition', () => {
+    const beforeSpring = new Date(2026, 2, 28, 9, 30);
+    const afterSpring = adapter.shiftDays(beforeSpring, 2);
+    expect([
+      adapter.getMonth(afterSpring),
+      adapter.getDate(afterSpring),
+      adapter.getHours(afterSpring),
+      adapter.getMinutes(afterSpring),
+    ]).toEqual([2, 30, 9, 30]);
+    // Real elapsed time is one hour short of 48h because an hour was skipped.
+    expect(adapter.differenceInMinutes(afterSpring, beforeSpring)).toBe(
+      2 * 24 * 60 - 60,
+    );
+  });
+
+  it('minutesOfDay reads the wall clock, not the elapsed offset', () => {
+    expect(adapter.minutesOfDay(new Date(2026, 2, 29, 3, 30))).toBe(
+      3 * 60 + 30,
+    );
+    expect(adapter.minutesOfDay(new Date(2026, 9, 25, 2, 30))).toBe(
+      2 * 60 + 30,
+    );
   });
 });

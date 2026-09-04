@@ -208,13 +208,15 @@ export abstract class MlvDateAdapter<D> {
     );
   }
 
-  /** Returns the start (00:00) of the provided date's calendar day. */
+  /**
+   * Returns the start (00:00) of the provided date's calendar day.
+   *
+   * Routed through {@link withTime} rather than `createDate` so an adapter whose
+   * `createDate` keeps a time component (or returns a date-only value object)
+   * still gets a real midnight date-time.
+   */
   startOfDay(date: D): D {
-    return this.createDate(
-      this.getYear(date),
-      this.getMonth(date),
-      this.getDate(date),
-    );
+    return this.withTime(date, 0, 0);
   }
 
   /** Returns wall-clock minutes elapsed since the start of the day (0–1439). */
