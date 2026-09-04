@@ -331,7 +331,6 @@ const de: MlvLanguage = {
     rating: 'Bewertung',
     rateValue: 'Mit {value} von {max} bewerten',
   },
-  scrollbar: { scrollableRegion: 'Scrollbarer Bereich' },
   scheduler: {
     scheduler: 'Terminplaner',
     today: 'Heute',
@@ -343,7 +342,7 @@ const de: MlvLanguage = {
     day: 'Tag',
     viewSwitch: 'Ansicht',
     allDay: 'Ganztägig',
-    moreEvents: '+{count} weitere',
+    moreEvents: '+{count, plural, one {# weiterer} other {# weitere}}',
     moreEventsLabel:
       '{count, plural, one {# weiterer Termin} other {# weitere Termine}} am {date}',
     gridLabel:
@@ -360,6 +359,7 @@ const de: MlvLanguage = {
     rangeChanged: 'Zeige {period}',
     selectionHint: '{start} bis {end} ausgewählt. Enter drücken zum Bestätigen',
   },
+  scrollbar: { scrollableRegion: 'Scrollbarer Bereich' },
   searchField: {
     placeholder: 'Suchen...',
     search: 'Suchen',

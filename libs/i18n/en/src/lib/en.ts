@@ -347,9 +347,6 @@ const en: MlvLanguage = {
     rating: 'Rating',
     rateValue: 'Rate {value} out of {max}',
   },
-  scrollbar: {
-    scrollableRegion: 'Scrollable region',
-  },
   scheduler: {
     scheduler: 'Scheduler',
     today: 'Today',
@@ -361,7 +358,7 @@ const en: MlvLanguage = {
     day: 'Day',
     viewSwitch: 'View',
     allDay: 'All day',
-    moreEvents: '+{count} more',
+    moreEvents: '+{count, plural, one {# more} other {# more}}',
     moreEventsLabel:
       '{count, plural, one {# more event} other {# more events}} on {date}',
     gridLabel:
@@ -377,6 +374,9 @@ const en: MlvLanguage = {
     moveRejected: '{title} cannot be placed there',
     rangeChanged: 'Showing {period}',
     selectionHint: '{start} to {end} selected. Press Enter to confirm',
+  },
+  scrollbar: {
+    scrollableRegion: 'Scrollable region',
   },
   searchField: {
     placeholder: 'Search...',

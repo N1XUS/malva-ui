@@ -348,9 +348,6 @@ const nl: MlvLanguage = {
     rating: 'Beoordeling',
     rateValue: 'Beoordeel met {value} van {max}',
   },
-  scrollbar: {
-    scrollableRegion: 'Schuifbaar gebied',
-  },
   scheduler: {
     scheduler: 'Planner',
     today: 'Vandaag',
@@ -362,7 +359,7 @@ const nl: MlvLanguage = {
     day: 'Dag',
     viewSwitch: 'Weergave',
     allDay: 'Hele dag',
-    moreEvents: '+{count} meer',
+    moreEvents: '+{count, plural, one {# meer} other {# meer}}',
     moreEventsLabel:
       '{count, plural, one {# ander agendapunt} other {# andere agendapunten}} op {date}',
     gridLabel:
@@ -379,6 +376,9 @@ const nl: MlvLanguage = {
     rangeChanged: '{period} wordt weergegeven',
     selectionHint:
       '{start} tot {end} geselecteerd. Druk op Enter om te bevestigen',
+  },
+  scrollbar: {
+    scrollableRegion: 'Schuifbaar gebied',
   },
   searchField: {
     placeholder: 'Zoeken...',

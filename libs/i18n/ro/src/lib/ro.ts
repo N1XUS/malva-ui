@@ -354,9 +354,6 @@ const ro: MlvLanguage = {
     rating: 'Evaluare',
     rateValue: 'Evaluează cu {value} din {max}',
   },
-  scrollbar: {
-    scrollableRegion: 'Regiune derulabilă',
-  },
   scheduler: {
     scheduler: 'Planificator',
     today: 'Astăzi',
@@ -368,7 +365,8 @@ const ro: MlvLanguage = {
     day: 'Zi',
     viewSwitch: 'Vizualizare',
     allDay: 'Toată ziua',
-    moreEvents: '+{count} în plus',
+    moreEvents:
+      '+{count, plural, one {# în plus} few {# în plus} other {# în plus}}',
     moreEventsLabel:
       '{count, plural, one {încă # eveniment} few {încă # evenimente} other {încă # de evenimente}} pe {date}',
     gridLabel:
@@ -385,6 +383,9 @@ const ro: MlvLanguage = {
     rangeChanged: 'Se afișează {period}',
     selectionHint:
       'De la {start} până la {end} selectat. Apăsați Enter pentru confirmare',
+  },
+  scrollbar: {
+    scrollableRegion: 'Regiune derulabilă',
   },
   searchField: {
     placeholder: 'Caută...',

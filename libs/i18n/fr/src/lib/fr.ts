@@ -350,9 +350,6 @@ const fr: MlvLanguage = {
     rating: 'Évaluation',
     rateValue: 'Noter {value} sur {max}',
   },
-  scrollbar: {
-    scrollableRegion: 'Zone défilable',
-  },
   scheduler: {
     scheduler: 'Planificateur',
     today: "Aujourd'hui",
@@ -364,7 +361,7 @@ const fr: MlvLanguage = {
     day: 'Jour',
     viewSwitch: 'Affichage',
     allDay: 'Toute la journée',
-    moreEvents: '+{count} de plus',
+    moreEvents: '+{count, plural, one {# de plus} other {# de plus}}',
     moreEventsLabel:
       '{count, plural, one {# autre événement} other {# autres événements}} le {date}',
     gridLabel:
@@ -381,6 +378,9 @@ const fr: MlvLanguage = {
     rangeChanged: 'Affichage de {period}',
     selectionHint:
       'De {start} à {end} sélectionné. Appuyez sur Entrée pour confirmer',
+  },
+  scrollbar: {
+    scrollableRegion: 'Zone défilable',
   },
   searchField: {
     placeholder: 'Rechercher...',

@@ -344,9 +344,6 @@ const tr: MlvLanguage = {
     rating: 'Değerlendirme',
     rateValue: '{max} üzerinden {value} puan ver',
   },
-  scrollbar: {
-    scrollableRegion: 'Kaydırılabilir bölge',
-  },
   scheduler: {
     scheduler: 'Zamanlayıcı',
     today: 'Bugün',
@@ -358,7 +355,7 @@ const tr: MlvLanguage = {
     day: 'Gün',
     viewSwitch: 'Görünüm',
     allDay: 'Tüm gün',
-    moreEvents: '+{count} daha',
+    moreEvents: '+{count, plural, one {# daha} other {# daha}}',
     moreEventsLabel:
       '{date} tarihinde {count, plural, one {# etkinlik daha} other {# etkinlik daha}}',
     gridLabel:
@@ -375,6 +372,9 @@ const tr: MlvLanguage = {
     rangeChanged: '{period} gösteriliyor',
     selectionHint:
       '{start} ile {end} arası seçildi. Onaylamak için Enter tuşuna basın',
+  },
+  scrollbar: {
+    scrollableRegion: 'Kaydırılabilir bölge',
   },
   searchField: {
     placeholder: 'Ara...',

@@ -344,9 +344,6 @@ const ja: MlvLanguage = {
     rating: '評価',
     rateValue: '{max} 段階中 {value} を評価',
   },
-  scrollbar: {
-    scrollableRegion: 'スクロール可能な領域',
-  },
   scheduler: {
     scheduler: 'スケジューラー',
     today: '今日',
@@ -357,7 +354,7 @@ const ja: MlvLanguage = {
     day: '日',
     viewSwitch: '表示',
     allDay: '終日',
-    moreEvents: '他 {count} 件',
+    moreEvents: '{count, plural, one {他 # 件} other {他 # 件}}',
     moreEventsLabel:
       '{count, plural, one {他 # 件の予定} other {他 # 件の予定}}（{date}）',
     gridLabel:
@@ -373,6 +370,9 @@ const ja: MlvLanguage = {
     moveRejected: '{title} はそこに配置できません',
     rangeChanged: '{period} を表示しています',
     selectionHint: '{start} から {end} を選択しました。Enter キーで確定します',
+  },
+  scrollbar: {
+    scrollableRegion: 'スクロール可能な領域',
   },
   searchField: {
     placeholder: '検索...',

@@ -353,9 +353,6 @@ const pl: MlvLanguage = {
     rating: 'Ocena',
     rateValue: 'Oceń na {value} z {max}',
   },
-  scrollbar: {
-    scrollableRegion: 'Obszar przewijania',
-  },
   scheduler: {
     scheduler: 'Terminarz',
     today: 'Dziś',
@@ -367,7 +364,8 @@ const pl: MlvLanguage = {
     day: 'Dzień',
     viewSwitch: 'Widok',
     allDay: 'Cały dzień',
-    moreEvents: '+{count} więcej',
+    moreEvents:
+      '+{count, plural, one {# więcej} few {# więcej} many {# więcej} other {# więcej}}',
     moreEventsLabel:
       '{count, plural, one {# inne wydarzenie} few {# inne wydarzenia} many {# innych wydarzeń} other {# innego wydarzenia}} w dniu {date}',
     gridLabel:
@@ -384,6 +382,9 @@ const pl: MlvLanguage = {
     rangeChanged: 'Wyświetlanie: {period}',
     selectionHint:
       'Zaznaczono od {start} do {end}. Naciśnij Enter, aby potwierdzić',
+  },
+  scrollbar: {
+    scrollableRegion: 'Obszar przewijania',
   },
   searchField: {
     placeholder: 'Szukaj...',

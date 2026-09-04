@@ -350,9 +350,6 @@ const pt: MlvLanguage = {
     rating: 'Classificação',
     rateValue: 'Classificar com {value} de {max}',
   },
-  scrollbar: {
-    scrollableRegion: 'Região deslocável',
-  },
   scheduler: {
     scheduler: 'Agendador',
     today: 'Hoje',
@@ -364,7 +361,7 @@ const pt: MlvLanguage = {
     day: 'Dia',
     viewSwitch: 'Vista',
     allDay: 'Todo o dia',
-    moreEvents: '+{count} mais',
+    moreEvents: '+{count, plural, one {# mais} other {# mais}}',
     moreEventsLabel:
       '{count, plural, one {mais # evento} other {mais # eventos}} em {date}',
     gridLabel:
@@ -380,6 +377,9 @@ const pt: MlvLanguage = {
     moveRejected: '{title} não pode ser colocado aí',
     rangeChanged: 'A mostrar {period}',
     selectionHint: 'De {start} a {end} selecionado. Prima Enter para confirmar',
+  },
+  scrollbar: {
+    scrollableRegion: 'Região deslocável',
   },
   searchField: {
     placeholder: 'Pesquisar...',

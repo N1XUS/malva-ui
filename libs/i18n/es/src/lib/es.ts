@@ -350,9 +350,6 @@ const es: MlvLanguage = {
     rating: 'Valoración',
     rateValue: 'Valorar con {value} de {max}',
   },
-  scrollbar: {
-    scrollableRegion: 'Región desplazable',
-  },
   scheduler: {
     scheduler: 'Planificador',
     today: 'Hoy',
@@ -364,7 +361,7 @@ const es: MlvLanguage = {
     day: 'Día',
     viewSwitch: 'Vista',
     allDay: 'Todo el día',
-    moreEvents: '+{count} más',
+    moreEvents: '+{count, plural, one {# más} other {# más}}',
     moreEventsLabel:
       '{count, plural, one {# evento más} other {# eventos más}} el {date}',
     gridLabel:
@@ -381,6 +378,9 @@ const es: MlvLanguage = {
     rangeChanged: 'Mostrando {period}',
     selectionHint:
       'De {start} a {end} seleccionado. Pulsa Intro para confirmar',
+  },
+  scrollbar: {
+    scrollableRegion: 'Región desplazable',
   },
   searchField: {
     placeholder: 'Buscar...',

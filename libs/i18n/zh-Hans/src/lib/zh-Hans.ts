@@ -343,9 +343,6 @@ const zhHans: MlvLanguage = {
     rating: '评分',
     rateValue: '{max} 分制，评为 {value} 分',
   },
-  scrollbar: {
-    scrollableRegion: '可滚动区域',
-  },
   scheduler: {
     scheduler: '日程表',
     today: '今天',
@@ -357,7 +354,7 @@ const zhHans: MlvLanguage = {
     day: '日',
     viewSwitch: '视图',
     allDay: '全天',
-    moreEvents: '还有 {count} 项',
+    moreEvents: '{count, plural, one {还有 # 项} other {还有 # 项}}',
     moreEventsLabel:
       '{date} {count, plural, one {还有 # 个日程} other {还有 # 个日程}}',
     gridLabel:
@@ -372,6 +369,9 @@ const zhHans: MlvLanguage = {
     moveRejected: '{title} 无法放置在此处',
     rangeChanged: '正在显示 {period}',
     selectionHint: '已选择 {start} 至 {end}。按 Enter 确认',
+  },
+  scrollbar: {
+    scrollableRegion: '可滚动区域',
   },
   searchField: {
     placeholder: '搜索...',

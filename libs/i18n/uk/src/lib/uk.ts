@@ -354,9 +354,6 @@ const uk: MlvLanguage = {
     rating: 'Оцінка',
     rateValue: 'Оцінити на {value} з {max}',
   },
-  scrollbar: {
-    scrollableRegion: 'Область прокручування',
-  },
   scheduler: {
     scheduler: 'Планувальник',
     today: 'Сьогодні',
@@ -368,7 +365,8 @@ const uk: MlvLanguage = {
     day: 'День',
     viewSwitch: 'Подання',
     allDay: 'Увесь день',
-    moreEvents: '+{count} ще',
+    moreEvents:
+      '+{count, plural, one {# ще} few {# ще} many {# ще} other {# ще}}',
     moreEventsLabel:
       '{count, plural, one {ще # подія} few {ще # події} many {ще # подій} other {ще # події}}, {date}',
     gridLabel:
@@ -385,6 +383,9 @@ const uk: MlvLanguage = {
     rangeChanged: 'Показано {period}',
     selectionHint:
       'Вибрано з {start} до {end}. Натисніть Enter для підтвердження',
+  },
+  scrollbar: {
+    scrollableRegion: 'Область прокручування',
   },
   searchField: {
     placeholder: 'Пошук...',

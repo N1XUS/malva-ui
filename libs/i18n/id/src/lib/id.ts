@@ -347,9 +347,6 @@ const id: MlvLanguage = {
     rating: 'Peringkat',
     rateValue: 'Beri nilai {value} dari {max}',
   },
-  scrollbar: {
-    scrollableRegion: 'Area yang dapat digulir',
-  },
   scheduler: {
     scheduler: 'Penjadwal',
     today: 'Hari ini',
@@ -361,7 +358,7 @@ const id: MlvLanguage = {
     day: 'Hari',
     viewSwitch: 'Tampilan',
     allDay: 'Sepanjang hari',
-    moreEvents: '+{count} lainnya',
+    moreEvents: '+{count, plural, one {# lainnya} other {# lainnya}}',
     moreEventsLabel:
       '{count, plural, one {# acara lainnya} other {# acara lainnya}} pada {date}',
     gridLabel:
@@ -378,6 +375,9 @@ const id: MlvLanguage = {
     rangeChanged: 'Menampilkan {period}',
     selectionHint:
       '{start} sampai {end} dipilih. Tekan Enter untuk mengonfirmasi',
+  },
+  scrollbar: {
+    scrollableRegion: 'Area yang dapat digulir',
   },
   searchField: {
     placeholder: 'Cari...',
