@@ -98,7 +98,7 @@ $block: mlv-scheduler-month;
       &--today .#{$block}__day-number {
         background: var(--mlv-background-accent-1-pale);
         color: var(--mlv-text-action);
-        font-weight: 600;
+        font-weight: var(--mlv-font-weight-semibold);
       }
 
       &--selected {
@@ -200,7 +200,7 @@ $block: mlv-scheduler-month;
 
     &__popover-title {
       margin-block-end: var(--mlv-spacing-1);
-      font-weight: 600;
+      font-weight: var(--mlv-font-weight-semibold);
     }
   }
 

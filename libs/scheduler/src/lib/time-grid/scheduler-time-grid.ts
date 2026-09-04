@@ -108,7 +108,7 @@ interface MlvSchedulerGridFocus {
 }
 
 /** @internal Position of a grid cell: a day and a slot start, or `null` minutes for the all-day row. */
-interface GridPos {
+interface MlvSchedulerGridPos {
   readonly dayIndex: number;
   readonly minutes: number | null;
 }
@@ -325,7 +325,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   /** @internal Range selection anchor/head; `null` when nothing is selected. Resets when the range changes. */
   protected readonly _selection = linkedSignal<
     readonly D[],
-    { anchor: GridPos; head: GridPos } | null
+    { anchor: MlvSchedulerGridPos; head: MlvSchedulerGridPos } | null
   >({
     source: this._ctx.days,
     computation: () => null,
@@ -359,10 +359,10 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   private _ignoreClicksUntil = 0;
 
   /** @private Cell under the pointer at pointerdown; becomes the anchor once the drag threshold is crossed. */
-  private _pendingAnchor: GridPos | null = null;
+  private _pendingAnchor: MlvSchedulerGridPos | null = null;
 
   /** @private Reads the cell position off an event target. */
-  private _posOf(target: EventTarget | null): GridPos | null {
+  private _posOf(target: EventTarget | null): MlvSchedulerGridPos | null {
     const cell = (target as Element | null)?.closest<HTMLElement>(
       '[data-day-index][data-minutes]',
     );

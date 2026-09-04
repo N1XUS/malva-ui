@@ -34,24 +34,24 @@ Selector `mlv-scheduler`, generic over `<D = Date, TData = unknown>`. Give the h
 
 #### Inputs
 
-| Name                   | Type                                | Default           | Description                                                                          |
-| ---------------------- | ----------------------------------- | ----------------- | ------------------------------------------------------------------------------------ |
-| `firstDayOfWeek`       | `number`                            | `1`               | `0` = Sunday … `6` = Saturday.                                                       |
-| `hiddenDays`           | `readonly number[]`                 | `[]`              | Weekdays removed from every view.                                                    |
-| `minTime`              | `string` (`'HH:mm'`)                | `'00:00'`         | First minute of the time axis.                                                       |
-| `maxTime`              | `string` (`'HH:mm'`)                | `'24:00'`         | End of the time axis (exclusive).                                                    |
-| `slotDuration`         | `number` (minutes)                  | `30`              | Row height unit and keyboard step in the time grid.                                  |
-| `snapDuration`         | `number \| undefined`               | `slotDuration`    | Pointer snap for moves and resizes.                                                  |
-| `defaultEventDuration` | `number` (minutes)                  | `60`              | Length of an event dropped onto a time column from the all-day row or from outside.  |
-| `businessHours`        | `MlvSchedulerBusinessHours \| null` | `null`            | Shaded working range (`start`, `end`, optional `days`).                              |
-| `editable`             | `BooleanInput`                      | `true`            | Enables drag-move, resize and their keyboard equivalents.                            |
-| `selectable`           | `BooleanInput`                      | `true`            | Enables pointer / keyboard range selection.                                          |
-| `showCurrentTime`      | `BooleanInput`                      | `true`            | Current-time line in the week / day views.                                           |
-| `toolbar`              | `BooleanInput`                      | `true`            | Renders the default toolbar (ignored when a header template is projected).           |
-| `canMove`              | `MlvSchedulerCanChange \| null`     | `null`            | Veto hook; return `false` to reject a move.                                          |
-| `canResize`            | `MlvSchedulerCanChange \| null`     | `null`            | Veto hook for resizes.                                                               |
-| `dragGroup`            | `string`                            | `'mlv-scheduler'` | SortableJS group name; foreign lists with the same name can drop onto the scheduler. |
-| `ariaLabel`            | `string \| undefined`               | i18n `scheduler`  | Accessible name of the host region.                                                  |
+| Name                   | Type                                | Default           | Description                                                                                                                                           |
+| ---------------------- | ----------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `firstDayOfWeek`       | `number`                            | `1`               | `0` = Sunday … `6` = Saturday.                                                                                                                        |
+| `hiddenDays`           | `readonly number[]`                 | `[]`              | Weekdays removed from every view.                                                                                                                     |
+| `minTime`              | `string` (`'HH:mm'`)                | `'00:00'`         | First minute of the time axis.                                                                                                                        |
+| `maxTime`              | `string` (`'HH:mm'`)                | `'24:00'`         | End of the time axis (exclusive).                                                                                                                     |
+| `slotDuration`         | `number` (minutes)                  | `30`              | Row height unit and keyboard step in the time grid.                                                                                                   |
+| `snapDuration`         | `number \| undefined`               | `slotDuration`    | Pointer snap for moves and resizes.                                                                                                                   |
+| `defaultEventDuration` | `number` (minutes)                  | `60`              | Length of an event dropped onto a time column from the all-day row or from outside.                                                                   |
+| `businessHours`        | `MlvSchedulerBusinessHours \| null` | `null`            | Shaded working range (`start`, `end`, optional `days`).                                                                                               |
+| `editable`             | `BooleanInput`                      | `true`            | Enables drag-move, resize and their keyboard equivalents.                                                                                             |
+| `selectable`           | `BooleanInput`                      | `true`            | Enables pointer / keyboard range selection.                                                                                                           |
+| `showCurrentTime`      | `BooleanInput`                      | `true`            | Current-time line in the week / day views.                                                                                                            |
+| `toolbar`              | `BooleanInput`                      | `true`            | Renders the default toolbar (ignored when a header template is projected).                                                                            |
+| `canMove`              | `MlvSchedulerCanChange \| null`     | `null`            | Veto hook; return `false` to reject a move.                                                                                                           |
+| `canResize`            | `MlvSchedulerCanChange \| null`     | `null`            | Veto hook for resizes.                                                                                                                                |
+| `dragGroup`            | `string`                            | `'mlv-scheduler'` | SortableJS group name; foreign lists with the same name can drop onto the scheduler. Applied live — changing it re-targets the already-created lists. |
+| `ariaLabel`            | `string \| undefined`               | i18n `scheduler`  | Accessible name of the host region.                                                                                                                   |
 
 Density is applied through the `MlvDensityDirective` host directive, so `[mlvDensity]="'compact'"` works on the host like on every other Malva UI component (`MLV_DENSITY_ELEMENT` is `'scheduler'`).
 
@@ -97,7 +97,7 @@ Each model emits the usual `<name>Change` output, so `[(events)]`, `[(view)]` an
 
 ### `MlvSchedulerEventDef`
 
-`ng-template[mlvSchedulerEventDef]` replaces the **content** of every event chip; the chip host keeps its accessible name, resize handle, drag behaviour and focus handling. The context is `MlvSchedulerEventContext` — `$implicit` (the event), `view`, `allDay`, `continuesBefore`, `continuesAfter`.
+`ng-template[mlvSchedulerEventDef]` replaces the **content** of every event chip; the chip host keeps its accessible name, resize handles, drag behaviour and focus handling. Clicks and keys originating on a focusable control inside the template are left to that control — the chip emits no `eventClick` and starts no keyboard move for them. The context is `MlvSchedulerEventContext` — `$implicit` (the event), `view`, `allDay`, `continuesBefore`, `continuesAfter`.
 
 The directive takes no inputs, so a template's context always resolves to `MlvSchedulerEventContext<Date, unknown>`: narrow a typed `data` payload in a component method rather than in the markup (`apps/docs/src/app/pages/scheduler/examples/4` shows the pattern).
 
@@ -123,12 +123,12 @@ The directive takes no inputs, so a template's context always resolves to `MlvSc
 
 Horizontal keys are logical: they mirror in RTL through `MlvRtlService.normalizeArrowKey()`. Vertical keys, `Home` / `End` and `PageUp` / `PageDown` never mirror.
 
-| Where        | Keys                                                                                                                                                                                                                                                                                    |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Grid cells   | `Arrow` moves the roving focus, `Home` / `End` row start / end, `Ctrl+Home` / `Ctrl+End` grid start / end, `PageUp` / `PageDown` previous / next range, `Space` slot click, `Enter` focuses the cell's first chip (or its `+N more` button) and, on an empty cell, emits the slot click |
-| Selection    | `Shift+Arrow` extends a selection from the focused cell (only when `selectable`), `Enter` commits it as `rangeSelect`, `Escape` clears it                                                                                                                                               |
-| Chips        | `Enter` / `Space` activate, `Alt+Arrow` moves by one snap step (one day / one week for a lane bar), `Alt+Shift+Arrow` resizes the end, `Escape` returns focus to the owning cell, `Tab` / `Shift+Tab` cycle the cell's chips and its `+N more` button                                   |
-| `+N` popover | `Escape` closes it and returns focus to the `+N more` button; opening it focuses the first chip inside                                                                                                                                                                                  |
+| Where        | Keys                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Grid cells   | `Arrow` moves the roving focus, `Home` / `End` row start / end, `Ctrl+Home` / `Ctrl+End` grid start / end, `PageUp` / `PageDown` previous / next range, `Space` slot click, `Enter` focuses the cell's first chip (or its `+N more` button) and, on an empty cell, emits the slot click                                                                                                                                                             |
+| Selection    | `Shift+Arrow` extends a selection from the focused cell (only when `selectable`), `Enter` commits it as `rangeSelect`, `Escape` clears it                                                                                                                                                                                                                                                                                                           |
+| Chips        | `Enter` / `Space` activate, `Alt+Arrow` moves by one snap step (one day / one week for a lane bar), `Alt+Shift+Arrow` resizes the **end** edge, `Ctrl+Alt+Arrow` (`⌃⌥Arrow` on macOS) resizes the **start** edge, `Escape` returns focus to the owning cell, `Tab` / `Shift+Tab` cycle the cell's chips and its `+N more` button. A timed chip resizes on the block axis only, so `Alt+Shift+←/→` and `Ctrl+Alt+←/→` fall through to the grid there |
+| `+N` popover | `Escape` closes it and returns focus to the `+N more` button; opening it focuses the first chip inside                                                                                                                                                                                                                                                                                                                                              |
 
 ## Behaviour notes and caveats
 
@@ -139,6 +139,9 @@ Horizontal keys are logical: they mirror in RTL through `MlvRtlService.normalize
 - A **multi-day timed** pointer range-drag paints a rectangle across the dragged columns but emits the **continuous** interval from the first pressed slot to the last (`start` → `end`). The paint becomes continuous in a follow-up; the emitted payload is the contract.
 - The month grid body, the time-grid sheet and every event chip carry `user-select: none` (the root adds it too while a drag is in flight), so a range-drag or a chip drag never smears a native text selection over the grid. Text inside the views is therefore not selectable with the pointer.
 - The time-grid sheet sets `touch-action: pan-y pinch-zoom`: a vertical touch scrolls, a horizontal touch drag selects.
+- **A chip drag on a touch screen is a long press** (`delay: 200`, `delayOnTouchOnly`): moving before that pans the scroller instead, so scrolling over chips keeps working. Mouse drags still start at the 5 px threshold, and the keyboard equivalents are unaffected.
+- A drop list is registered as a **pair** of elements: the whole cell / column is the hit area (it carries `data-mlv-scheduler-list`, receives hovers and foreign drops), while the inner box holding the chips is where a drag starts. SortableJS only starts a drag from a direct child of its container but hit-tests hovers by walking up from `elementFromPoint`, and no single element satisfies both.
+- Each resizable chip renders a handle on **both** edges (none on an edge that continues into another day). The hit strip is ≥ 0.375 rem with `touch-action: none`; its painted grip appears on hover / `:focus-visible` and stays visible where there is no hover.
 - **Overnight business hours are out of contract.** `businessHours` with `end` earlier than `start` is not supported; split the shading into two schedulers or clamp to `'24:00'`.
 - An invalid `D` (an `Invalid Date` in the native adapter) is not repaired: it propagates into the layout as an unplaced event. Validate before writing the model.
 - `visibleRangeChange` emits only when the view or the range bounds actually change, never on an unrelated `events` write.
@@ -154,7 +157,7 @@ BEM blocks `mlv-scheduler`, `mlv-scheduler-month`, `mlv-scheduler-time-grid`, `m
 
 Density-tunable custom properties on the root block: `--mlv-scheduler-slot-height`, `--mlv-scheduler-lane-height`, `--mlv-scheduler-month-row-min-height`, `--mlv-scheduler-column-min-width`, `--mlv-scheduler-gutter-width`, `--mlv-scheduler-event-min-height`.
 
-Geometry the views write and the SCSS consumes (do not set these yourself): `--mlv-scheduler-day-count`, `--mlv-scheduler-row-length`, `--mlv-scheduler-slot-count`, `--mlv-scheduler-tracks`, `--mlv-scheduler-visible-lanes`, `--mlv-scheduler-all-day-lanes`, `--mlv-scheduler-lane`, `--mlv-scheduler-span`, `--mlv-scheduler-offset`, `--mlv-scheduler-event-top`, `--mlv-scheduler-event-height`, `--mlv-scheduler-event-start`, `--mlv-scheduler-event-width`, and the chip's resolved palette (`--mlv-scheduler-event-bg`, `--mlv-scheduler-event-color`, `--mlv-scheduler-event-text`, `--mlv-scheduler-event-bar`).
+Geometry the views write and the SCSS consumes (do not set these yourself): `--mlv-scheduler-day-count`, `--mlv-scheduler-row-length`, `--mlv-scheduler-slot-count`, `--mlv-scheduler-tracks`, `--mlv-scheduler-visible-lanes`, `--mlv-scheduler-all-day-lanes`, `--mlv-scheduler-lane`, `--mlv-scheduler-span`, `--mlv-scheduler-lane-shift`, `--mlv-scheduler-offset`, `--mlv-scheduler-event-top`, `--mlv-scheduler-event-height`, `--mlv-scheduler-event-start`, `--mlv-scheduler-event-width`, and the chip's resolved palette (`--mlv-scheduler-event-bg`, `--mlv-scheduler-event-color`, `--mlv-scheduler-event-text`, `--mlv-scheduler-event-bar`).
 
 Focus rings follow Form A everywhere except chips inside the time-grid scroller, which use the inset Form B so the ring is not clipped by the scroll container. Every animated block carries a `@include mixins.reduced-motion(...)` path.
 

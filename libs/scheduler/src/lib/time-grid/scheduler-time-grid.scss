@@ -101,7 +101,7 @@ $block: mlv-scheduler-time-grid;
       block-size: 1.75rem;
       border-radius: var(--mlv-radius-full);
       font-size: var(--mlv-typography-body-l-size);
-      font-weight: 600;
+      font-weight: var(--mlv-font-weight-semibold);
       color: var(--mlv-text-primary);
     }
 

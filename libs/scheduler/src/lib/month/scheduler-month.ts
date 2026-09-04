@@ -81,7 +81,7 @@ interface MlvSchedulerMonthRow<D, TData> {
 }
 
 /** @internal Position of a grid cell: a day. The month grid selects whole days only. */
-interface MonthPos {
+interface MlvSchedulerMonthPos {
   readonly dayIndex: number;
 }
 
@@ -256,7 +256,7 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
   /** @internal Range selection anchor/head; `null` when nothing is selected. Resets when the range changes. */
   protected readonly _selection = linkedSignal<
     readonly D[],
-    { anchor: MonthPos; head: MonthPos } | null
+    { anchor: MlvSchedulerMonthPos; head: MlvSchedulerMonthPos } | null
   >({
     source: this._ctx.days,
     computation: () => null,
@@ -282,10 +282,10 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
   private _ignoreClicksUntil = 0;
 
   /** @private Cell under the pointer at pointerdown; becomes the anchor once the drag threshold is crossed. */
-  private _pendingAnchor: MonthPos | null = null;
+  private _pendingAnchor: MlvSchedulerMonthPos | null = null;
 
   /** @private Reads the cell position off an event target. */
-  private _posOf(target: EventTarget | null): MonthPos | null {
+  private _posOf(target: EventTarget | null): MlvSchedulerMonthPos | null {
     const cell = (target as Element | null)?.closest<HTMLElement>(
       '[data-day-index]',
     );
@@ -561,7 +561,7 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
    * row (↑↓) from the focused cell, clamped to the visible range.
    */
   private _extendSelection(arrow: number): void {
-    const focus: MonthPos = { dayIndex: this._focusedIndex() };
+    const focus: MlvSchedulerMonthPos = { dayIndex: this._focusedIndex() };
     const current = this._selection() ?? { anchor: focus, head: focus };
     const rowLength = this._ctx.rowLength();
     const delta =
