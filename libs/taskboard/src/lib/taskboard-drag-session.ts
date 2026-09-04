@@ -2,6 +2,10 @@ import {
   createMlvTaskboardIndex,
   type MlvTaskboardIndex,
 } from './taskboard-state';
+import {
+  authorizeMlvTaskboardMoveRequest,
+  beginMlvTaskboardDragAuthorization,
+} from './taskboard-move-authorization';
 import type {
   MlvTaskboard,
   MlvTaskboardCanDropFn,
@@ -97,6 +101,7 @@ export function createMlvTaskboardDragSession<TItem>(
   const requests = new Map<string, MlvTaskboardMoveRequest<TItem>>();
   const lanes = board.swimlanes?.length ? board.swimlanes : [undefined];
   const activeCanDropFn = canDropFn ?? board.canDropFn;
+  beginMlvTaskboardDragAuthorization(board, activeCanDropFn !== undefined);
 
   for (const column of board.columns)
     for (const lane of lanes) {
@@ -150,13 +155,14 @@ export function createMlvTaskboardDragSession<TItem>(
         };
         const key = targetKey(location);
         allowedLocationKeys.add(key);
-        requests.set(key, {
+        const request: MlvTaskboardMoveRequest<TItem> = {
           board,
           itemId,
           source,
           target: location,
-          canDropFn: activeCanDropFn,
-        });
+        };
+        authorizeMlvTaskboardMoveRequest(request);
+        requests.set(key, request);
       }
     }
   return {

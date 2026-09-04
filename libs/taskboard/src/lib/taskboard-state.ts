@@ -9,6 +9,10 @@ import type {
   MlvTaskboardSwimlane,
   MlvTaskboardWipState,
 } from './taskboard.types';
+import {
+  isMlvTaskboardMoveRequestAuthorized,
+  requiresMlvTaskboardSessionAuthorization,
+} from './taskboard-move-authorization';
 
 export type {
   MlvTaskboard,
@@ -326,12 +330,13 @@ export function applyMlvTaskboardMove<TItem>(
     items: targetItems,
     wip: index.wipFor(request.target.columnId, request.target.swimlaneId),
   };
-  if (board.canDropFn !== undefined && !board.canDropFn(card, target))
+  const sessionAuthorized = isMlvTaskboardMoveRequestAuthorized(request);
+  if (requiresMlvTaskboardSessionAuthorization(board) && !sessionAuthorized)
     return null;
   if (
-    request.canDropFn !== undefined &&
-    request.canDropFn !== board.canDropFn &&
-    !request.canDropFn(card, target)
+    !sessionAuthorized &&
+    board.canDropFn !== undefined &&
+    !board.canDropFn(card, target)
   )
     return null;
   const currentPosition = board.items.findIndex((candidate) =>

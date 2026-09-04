@@ -136,4 +136,15 @@ describe('createMlvTaskboardDragSession', () => {
       }),
     );
   });
+
+  it('does not re-run an allowed session policy when applying its request', () => {
+    const canDrop: MlvTaskboardCanDropFn<Ticket> = vi.fn(() => true);
+    const board = makeBoard();
+    const session = createMlvTaskboardDragSession(board, 'a', canDrop);
+    const request = session.requestFor('done', 'sam', 1);
+
+    expect(request).toBeDefined();
+    expect(applyMlvTaskboardMove(board, request)).not.toBeNull();
+    expect(canDrop).toHaveBeenCalledTimes(6);
+  });
 });

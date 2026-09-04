@@ -81,8 +81,6 @@ export interface MlvTaskboardMoveRequest<TItem> {
   readonly source: MlvTaskboardLocation;
   readonly target: MlvTaskboardLocation;
   readonly anchorId?: MlvTaskboardKey;
-  /** Preserved from drag-session construction so move application cannot bypass authorization. */
-  readonly canDropFn?: MlvTaskboardCanDropFn<TItem>;
 }
 
 export interface MlvTaskboardMoveResult<TItem> {

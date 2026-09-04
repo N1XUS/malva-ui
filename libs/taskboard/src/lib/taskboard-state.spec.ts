@@ -4,6 +4,7 @@ import {
   type MlvTaskboard,
   type MlvTaskboardMoveRequest,
 } from './taskboard-state';
+import { createMlvTaskboardDragSession } from './taskboard-drag-session';
 
 interface Ticket {
   readonly id: string;
@@ -169,6 +170,19 @@ describe('applyMlvTaskboardMove', () => {
     };
 
     expect(applyMlvTaskboardMove(policyBoard, request)).toBeNull();
+  });
+
+  it('rejects a forged request after a denying session policy has been established', () => {
+    const policy = vi.fn(() => false);
+    createMlvTaskboardDragSession(board, 'a', policy);
+    const forged: MlvTaskboardMoveRequest<Ticket> = {
+      board,
+      itemId: 'a',
+      source: { columnId: 'todo', swimlaneId: 'sam', index: 0 },
+      target: { columnId: 'todo', swimlaneId: 'sam', index: 1 },
+    };
+
+    expect(applyMlvTaskboardMove(board, forged)).toBeNull();
   });
 
   it('rejects a request that omits a configured destination lane', () => {
