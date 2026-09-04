@@ -38,35 +38,6 @@ export default [
           style: 'kebab-case',
         },
       ],
-      '@nx/enforce-module-boundaries': [
-        'error',
-        {
-          enforceBuildableLibDependency: true,
-          // This block replaces the root rule options wholesale, so the
-          // root's allowance for `@malva-ui/internal-testing` (a spec-only
-          // helper under `scripts/testing`, not a workspace library — see the
-          // root eslint.config.mjs) has to be restated here.
-          allow: [
-            '^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$',
-            '@malva-ui/internal-testing',
-          ],
-          depConstraints: [
-            {
-              sourceTag: 'scope:ui',
-              onlyDependOnLibsWithTags: ['scope:ui'],
-            },
-            {
-              sourceTag: 'scope:docs',
-              onlyDependOnLibsWithTags: ['scope:docs', 'scope:ui'],
-            },
-          ],
-          // The core project re-exports @malva-ui/core/date-range-picker while this
-          // library imports secondary entry points from the core project
-          // (e.g. @malva-ui/core/form-utils). This creates a false circular dependency
-          // at the Nx project graph level.
-          ignoredCircularDependencies: [['core-date-range-picker', 'core']],
-        },
-      ],
     },
   },
   {

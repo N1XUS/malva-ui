@@ -1,7 +1,8 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
-import { Component } from '@angular/core';
+import { Component, signal, type WritableSignal } from '@angular/core';
+import { MlvBreakpointService, type MlvBreakpoint } from '@malva-ui/cdk/utils';
 import { By } from '@angular/platform-browser';
 import { MlvPopup } from '@malva-ui/core/popup';
 import { MlvDateRangePicker } from './date-range-picker';
@@ -780,5 +781,231 @@ describe('MlvDateRangePicker stylesheet', () => {
     expect(cssRule(css, '.mlv-date-range-picker__placeholder')).toContain(
       'color: var(--mlv-text-tertiary)',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MlvDateRangePicker — mobile full-screen sheet (#121)
+// ---------------------------------------------------------------------------
+
+/**
+ * Stubs {@link MlvBreakpointService} so the sheet/dropdown switch can be driven
+ * from the spec. jsdom's `matchMedia` never matches a `min-width` query, so the
+ * real service would be pinned to `'sm'` and `isFullscreen()` would be stuck
+ * `true` — which cannot prove the anchored dropdown keeps both months.
+ */
+class FakeBreakpointService {
+  readonly down: WritableSignal<boolean> = signal(false);
+  isDown(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return this.down;
+  }
+  isUp(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return signal(false);
+  }
+}
+
+describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
+  let component: MlvDateRangePicker<Date>;
+  let fixture: ComponentFixture<MlvDateRangePicker<Date>>;
+  let hostEl: HTMLElement;
+  let breakpoint: FakeBreakpointService;
+
+  /** The panel element, which the popup renders into a CDK overlay. */
+  const panel = (): HTMLElement | null =>
+    document.getElementById(component.panelId());
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvDateRangePicker],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: MlvBreakpointService, useClass: FakeBreakpointService },
+      ],
+    }).compileComponents();
+
+    breakpoint = TestBed.inject(
+      MlvBreakpointService,
+    ) as unknown as FakeBreakpointService;
+
+    fixture = TestBed.createComponent(MlvDateRangePicker<Date>);
+    component = fixture.componentInstance;
+    hostEl = fixture.nativeElement;
+    document.body.appendChild(hostEl);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    hostEl.remove();
+  });
+
+  /** Opens the popup so the panel is stamped into the overlay. */
+  async function open(): Promise<void> {
+    component.toggleDropdown();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  it('names the second month panel so the sheet can drop it', async () => {
+    // The `--end` modifier is what the sheet's `display: none` targets. A
+    // structural `:last-child` would silently follow any future sibling added
+    // to the row.
+    await open();
+    expect(
+      panel()?.querySelectorAll('.mlv-date-range-picker__calendar').length,
+    ).toBe(2);
+    expect(
+      panel()?.querySelectorAll('.mlv-date-range-picker__calendar--end').length,
+    ).toBe(1);
+  });
+
+  it('marks the panel as a sheet when the popup goes full-screen', async () => {
+    breakpoint.down.set(true);
+    await open();
+    expect(
+      panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
+    ).toBe(true);
+  });
+
+  it('leaves the anchored dropdown unmarked, so it keeps both months', async () => {
+    // Measured in Chrome at 1000x812: the CDK pane sizes itself to the row's
+    // 593px of content, so the anchored dropdown never clips regardless of
+    // viewport width. Only the sheet caps the panel.
+    breakpoint.down.set(false);
+    await open();
+    expect(
+      panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
+    ).toBe(false);
+  });
+
+  it('re-marks the panel when the breakpoint changes while the popup is open', async () => {
+    // Only the *class* follows the breakpoint mid-open. `MlvPopupContainer`
+    // snapshots `fullscreen: popup.isFullscreen()` once at attach, so the pane's
+    // position strategy, fullscreen pane class, backdrop and scroll strategy all
+    // stay as they were when it opened — see #144. This asserts the half that
+    // works; do not read it as proof the popup becomes a real sheet here.
+    breakpoint.down.set(false);
+    await open();
+    breakpoint.down.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(
+      panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
+    ).toBe(true);
+  });
+
+  it("assembles a two-month range through the visible panel's own month navigation", async () => {
+    // The claim this covers is the one the sheet's whole design rests on: with
+    // one month on screen, a range spanning two is assembled by navigating that
+    // panel, because the pending range lives on this component rather than on
+    // either calendar. The previous version of this test asserted that by
+    // calling `onRangeChanged` twice and never navigating — it passed with the
+    // sheet off, with the modifier absent, and with the second calendar deleted.
+    //
+    // This is deliberately NOT a test of the `--sheet` fix itself. jsdom loads
+    // no stylesheet, so `display: none` does not apply here and both calendars
+    // are in the DOM; the fix is covered by `date-range-picker-styles.spec.ts`.
+    // What this covers is the precondition the fix depends on.
+    breakpoint.down.set(true);
+    await open();
+
+    const visibleCalendar = (): HTMLElement =>
+      panel()?.querySelectorAll<HTMLElement>('mlv-calendar')[0] as HTMLElement;
+
+    const monthLabel = (): string | undefined =>
+      visibleCalendar()
+        .querySelector('.mlv-calendar__header-button')
+        ?.textContent?.trim();
+
+    const clickDay = async (day: number) => {
+      const cell = Array.from(
+        visibleCalendar().querySelectorAll<HTMLElement>('.mlv-calendar__day'),
+      ).find((d) => d.textContent?.trim() === String(day));
+      expect(cell, `day ${day} in ${monthLabel()}`).toBeTruthy();
+      cell?.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    // Both chevrons share `.mlv-calendar__nav-button` with no direction
+    // modifier, so they are told apart by DOM order: previous first, next second.
+    const navigateNext = async () => {
+      const navs = visibleCalendar().querySelectorAll<HTMLButtonElement>(
+        '.mlv-calendar__nav-button',
+      );
+      expect(navs.length).toBe(2);
+      navs[1].click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    // Derived, not asserted against literals: this suite does not fake the clock.
+    const startMonth = monthLabel();
+    await clickDay(20);
+
+    await navigateNext();
+    const endMonth = monthLabel();
+    expect(endMonth).not.toBe(startMonth);
+
+    await clickDay(15);
+
+    expect(component.canApply()).toBe(true);
+    component.applySelection();
+
+    const value = component.value();
+    expect(value?.start).toBeTruthy();
+    expect(value?.end).toBeTruthy();
+    // The two endpoints landed in different months — which is only possible
+    // because the start survived the month change.
+    expect(value?.start?.getMonth()).not.toBe(value?.end?.getMonth());
+  });
+
+  it('does not announce the sole sheet calendar as the start month', async () => {
+    // In the sheet this calendar is also where the end date is picked, so
+    // naming it "Start month" would tell a screen-reader user they are in the
+    // start group while they choose the end. The grouping wrapper earns its
+    // role only when there are two groups to tell apart.
+    breakpoint.down.set(true);
+    await open();
+
+    const first = panel()?.querySelector('.mlv-date-range-picker__calendar');
+    expect(first?.getAttribute('role')).toBeNull();
+    expect(first?.getAttribute('aria-label')).toBeNull();
+  });
+
+  it('still names both month groups in the anchored dropdown', async () => {
+    breakpoint.down.set(false);
+    await open();
+
+    const groups = Array.from(
+      panel()?.querySelectorAll('.mlv-date-range-picker__calendar') ?? [],
+    ).map((g) => [g.getAttribute('role'), g.getAttribute('aria-label')]);
+
+    expect(groups.length).toBe(2);
+    expect(groups[0][0]).toBe('group');
+    expect(groups[0][1]).toBeTruthy();
+    expect(groups[1][0]).toBe('group');
+    expect(groups[1][1]).toBeTruthy();
+    expect(groups[0][1]).not.toBe(groups[1][1]);
+  });
+
+  it('marks the sheet the same way in RTL', async () => {
+    // The sheet layout is direction-agnostic (`display: none` plus
+    // `justify-content: center`), so a mirrored document must not change which
+    // panel is dropped or whether the modifier is applied at all.
+    document.documentElement.setAttribute('dir', 'rtl');
+    try {
+      breakpoint.down.set(true);
+      await open();
+      expect(
+        panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
+      ).toBe(true);
+      expect(
+        panel()?.querySelectorAll('.mlv-date-range-picker__calendar--end')
+          .length,
+      ).toBe(1);
+    } finally {
+      document.documentElement.removeAttribute('dir');
+    }
   });
 });
