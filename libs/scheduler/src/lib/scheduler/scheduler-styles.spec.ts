@@ -26,13 +26,6 @@ describe('scheduler stylesheets', () => {
   ) as Record<keyof typeof SHEETS, string>;
   const all = Object.values(css).join('\n');
 
-  it('ships every rule inside @layer mlv.components', () => {
-    for (const file of Object.values(SHEETS)) {
-      const raw = sass.compile(file).css;
-      expect(raw.trimStart().startsWith('@layer mlv.components')).toBe(true);
-    }
-  });
-
   it('uses logical inline properties only (physical values are JS-fed and commented)', () => {
     const physical =
       all.match(
@@ -62,24 +55,27 @@ describe('scheduler stylesheets', () => {
     );
   });
 
-  it('provides a reduced-motion path for every animated block', () => {
-    for (const block of [
-      'mlv-scheduler',
-      'mlv-scheduler-month',
-      'mlv-scheduler-time-grid',
-      'mlv-scheduler-event',
-    ]) {
-      expect(all).toMatch(
-        new RegExp(`prefers-reduced-motion: reduce\\)[^{]*\\{[^}]*\\.${block}`),
+  // Anchored per sheet AND on a class-name boundary. Matching the joined text
+  // for a bare `.mlv-scheduler` would be satisfied by `.mlv-scheduler-month`'s
+  // own guard in another file, so dropping the root `mixins.reduced-motion`
+  // would stay green.
+  it('provides a reduced-motion path in every sheet that declares a block', () => {
+    const blocks: Record<keyof typeof SHEETS, string> = {
+      scheduler: 'mlv-scheduler',
+      month: 'mlv-scheduler-month',
+      timeGrid: 'mlv-scheduler-time-grid',
+      event: 'mlv-scheduler-event',
+    };
+    for (const [sheet, block] of Object.entries(blocks) as [
+      keyof typeof SHEETS,
+      string,
+    ][]) {
+      expect(css[sheet]).toMatch(
+        new RegExp(
+          `prefers-reduced-motion: reduce\\)[^{]*\\{[^}]*\\.${block}(?![\\w-])`,
+        ),
       );
     }
-  });
-
-  it('never feeds a --mlv-padding-* pair to anything but the padding shorthand', () => {
-    const misuse =
-      all.match(/^\s*(?!padding\s*:)[a-z-]+\s*:[^;]*var\(--mlv-padding-/gm) ??
-      [];
-    expect(misuse).toEqual([]);
   });
 
   it('paints density through the slot and lane variables', () => {

@@ -35,7 +35,6 @@ export default [
             '@malva-ui/cdk',
             '@malva-ui/core',
             '@malva-ui/i18n',
-            'rxjs',
           ],
         },
       ],
