@@ -5180,6 +5180,8 @@ __metadata:
 "@malva-ui/taskboard@workspace:libs/taskboard":
   version: 0.0.0-use.local
   resolution: "@malva-ui/taskboard@workspace:libs/taskboard"
+  dependencies:
+    sortablejs: "npm:^1.15.7"
   peerDependencies:
     "@angular/cdk": 0.0.0-angular-cdk-package-version
     "@angular/common": 0.0.0-angular-common-package-version

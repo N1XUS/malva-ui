@@ -28,5 +28,8 @@
     "@malva-ui/cdk": "0.0.0-malva-ui-package-version",
     "@malva-ui/i18n": "0.0.0-malva-ui-package-version"
   },
+  "dependencies": {
+    "sortablejs": "^1.15.7"
+  },
   "sideEffects": false
 }
