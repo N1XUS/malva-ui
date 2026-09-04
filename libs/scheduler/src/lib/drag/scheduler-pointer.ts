@@ -65,8 +65,17 @@ export function attachPointerDrag(
     doc.removeEventListener('keydown', onKeydown);
   };
 
+  /**
+   * A second pointer (a second finger, or the mouse while a pen is down) must not steer a gesture it
+   * did not start. Events without a `pointerId` — jsdom's synthetic ones — are never filtered out.
+   */
+  const foreign = (event: Event): boolean => {
+    const id = (event as PointerEvent).pointerId;
+    return pointerId !== null && typeof id === 'number' && id !== pointerId;
+  };
+
   const onMove = (event: Event): void => {
-    if (!origin) return;
+    if (!origin || foreign(event)) return;
     const at = point(event);
     if (!started) {
       if (Math.hypot(at.x - origin.x, at.y - origin.y) < threshold) return;
@@ -77,15 +86,15 @@ export function attachPointerDrag(
   };
 
   const onUp = (event: Event): void => {
-    if (!origin) return;
+    if (!origin || foreign(event)) return;
     const moved = started;
     const at = point(event);
     stop();
     handlers.onEnd(at, moved, event);
   };
 
-  const onCancel = (): void => {
-    if (!origin) return;
+  const onCancel = (event?: Event): void => {
+    if (!origin || (event && foreign(event))) return;
     stop();
     handlers.onCancel?.();
   };
@@ -95,6 +104,9 @@ export function attachPointerDrag(
   };
 
   const onDown = (event: Event): void => {
+    // A press while a gesture is already running belongs to another pointer; ignore it entirely
+    // rather than re-anchoring the origin under the finger that is already dragging.
+    if (origin) return;
     const pe = event as PointerEvent;
     if (pe.button !== undefined && pe.button !== 0) return;
     const target = event.target as Element | null;

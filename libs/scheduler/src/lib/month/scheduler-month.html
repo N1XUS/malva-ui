@@ -30,6 +30,9 @@
         [attr.tabindex]="cell.dayIndex === _focusedIndex() ? 0 : -1"
         [attr.data-day-index]="cell.dayIndex"
         data-minutes="all-day"
+        mlvSchedulerDropList="month-cell"
+        [dayIndex]="cell.dayIndex"
+        [items]="lanesEl"
         (focus)="_onCellFocus(cell)"
         (keydown)="_onKeydown($event)"
         (click)="_onCellPointer('click', cell, $event)"
@@ -39,11 +42,7 @@
         <span class="mlv-scheduler-month__day-number" aria-hidden="true"
           >{{ cell.dayNumber }}</span
         >
-        <div
-          class="mlv-scheduler-month__lanes"
-          mlvSchedulerDropList="month-cell"
-          [dayIndex]="cell.dayIndex"
-        >
+        <div class="mlv-scheduler-month__lanes" #lanesEl>
           @for (segment of cell.segments; track segment.key) {
           <mlv-scheduler-event
             class="mlv-scheduler-month__event"

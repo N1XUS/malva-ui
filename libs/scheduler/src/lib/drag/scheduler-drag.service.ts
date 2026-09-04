@@ -2,11 +2,14 @@ import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import type { Signal } from '@angular/core';
 import {
   DestroyRef,
+  effect,
   inject,
   Injectable,
+  Injector,
   NgZone,
   PLATFORM_ID,
   signal,
+  untracked,
 } from '@angular/core';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import Sortable from 'sortablejs';
@@ -32,6 +35,19 @@ export type MlvSchedulerDropListKind =
 export interface MlvSchedulerDropListRegistration {
   readonly kind: MlvSchedulerDropListKind;
   readonly dayIndex: Signal<number>;
+  /**
+   * Direct parent of the chips, when that is not the hit-test area itself.
+   *
+   * SortableJS imposes two constraints that a single element cannot satisfy in
+   * the time grid or the month grid: a drag only STARTS from a direct child of
+   * its container (`_prepareDragStart`'s `target.parentNode === el`), while the
+   * hover / `onMove` / foreign-`onAdd` path needs a container that is an
+   * ANCESTOR of whatever `elementFromPoint` returns (`_emulateDragOver` walks
+   * up). Passing `items` registers both: the Sortable that starts drags on the
+   * chips' own parent, and the Sortable that receives hovers on the whole area.
+   * Both elements resolve to the same registration.
+   */
+  readonly items?: HTMLElement;
 }
 
 /** The pending result of a pointer drag, rendered as a ghost chip by the views. */
@@ -68,14 +84,22 @@ export const MLV_SCHEDULER_SORTABLE_CLASSES = {
 
 interface ListEntry {
   readonly registration: MlvSchedulerDropListRegistration;
-  readonly sortable: Sortable | null;
+  /** Hit-test area: carries the marker attribute and receives hovers. */
+  readonly area: HTMLElement;
+  /** Direct parent of the chips; drags start here. Equals `area` when they are the same box. */
+  readonly items: HTMLElement;
 }
 
 interface ActiveDrag<D, TData> {
   readonly item: HTMLElement;
   readonly from: HTMLElement;
   readonly nextSibling: Node | null;
-  readonly normalized: MlvSchedulerNormalizedEvent<D, TData>;
+  /**
+   * The dragged event, or `null` when the chip's `data-event-id` no longer resolves (the model changed
+   * between the press and the drag threshold). SortableJS still runs the drag to completion, so the entry
+   * exists purely so `handleEnd` restores the chip and swallows the trailing click.
+   */
+  readonly normalized: MlvSchedulerNormalizedEvent<D, TData> | null;
   /** Days between the bar's first day and the day the pointer grabbed it on. */
   readonly grabDayOffset: number;
   readonly originalStyle: string | null;
@@ -95,8 +119,11 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
   /** @private The scheduler this engine works for. Set through `attach()`. */
   private _ctx!: MlvSchedulerContext<D, TData>;
 
-  /** @private Registered lists and their SortableJS instances. */
+  /** @private Registered lists, keyed by BOTH their area and their items element. */
   private readonly _lists = new Map<HTMLElement, ListEntry>();
+
+  /** @private SortableJS instance per registered element (an area and its items box each get one). */
+  private readonly _sortables = new Map<HTMLElement, Sortable>();
 
   /** @private Pending drop, or `null` when nothing is dragged or the pointer is outside every list. */
   private readonly _preview = signal<MlvSchedulerDragPreview<D> | null>(null);
@@ -125,8 +152,23 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
   /** @private Document the drag listeners are attached to. */
   private readonly _document = inject(DOCUMENT);
 
+  /** @private Owns the `dragGroup` effect created in `attach()`, outside any injection context. */
+  private readonly _injector = inject(Injector);
+
+  /**
+   * @private Live reduced-motion query. SortableJS reads `options.animation` on every move, so keeping
+   * this open lets an OS-level change reach running instances instead of freezing the value at creation.
+   */
+  private readonly _reducedMotion =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)')
+      : null;
+
   constructor() {
+    const onMotionChange = (): void => this._syncOptions();
+    this._reducedMotion?.addEventListener('change', onMotionChange);
     inject(DestroyRef).onDestroy(() => {
+      this._reducedMotion?.removeEventListener('change', onMotionChange);
       for (const element of [...this._lists.keys()]) this.unregister(element);
       this._active?.teardown();
       this._active = null;
@@ -134,47 +176,75 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
     });
   }
 
-  /** Binds the engine to its scheduler. Called once by `MlvScheduler`. */
+  /**
+   * Binds the engine to its scheduler. Called once by `MlvScheduler`. Also starts mirroring the live
+   * `dragGroup` onto every SortableJS instance, so changing the input reaches lists created earlier.
+   */
   attach(ctx: MlvSchedulerContext<D, TData>): void {
     this._ctx = ctx;
+    effect(
+      () => {
+        ctx.dragGroup();
+        untracked(() => this._syncOptions());
+      },
+      { injector: this._injector },
+    );
   }
 
-  /** Registers a drop list and creates its SortableJS instance (browser only). */
+  /**
+   * Registers a drop list and creates its SortableJS instance(s) (browser only). When the registration
+   * carries an `items` box, a second instance is created on it so drags start from the chips' own parent
+   * while the whole `area` stays the hit-test target; both elements resolve to the same registration.
+   */
   register(
-    element: HTMLElement,
+    area: HTMLElement,
     registration: MlvSchedulerDropListRegistration,
   ): void {
-    this.unregister(element);
-    element.setAttribute('data-mlv-scheduler-list', '');
-    const sortable = this._isBrowser
-      ? this._zone.runOutsideAngular(() =>
-          Sortable.create(element, this._options()),
-        )
-      : null;
-    this._lists.set(element, { registration, sortable });
+    const items = registration.items ?? area;
+    this.unregister(area);
+    this.unregister(items);
+    area.setAttribute('data-mlv-scheduler-list', '');
+    const entry: ListEntry = { registration, area, items };
+    this._lists.set(area, entry);
+    this._lists.set(items, entry);
     if (this._isBrowser) {
-      element.addEventListener('pointerdown', this._onListPointerDown, {
+      this._zone.runOutsideAngular(() => {
+        this._sortables.set(items, Sortable.create(items, this._options()));
+        if (items !== area)
+          this._sortables.set(area, Sortable.create(area, this._options()));
+      });
+      area.addEventListener('pointerdown', this._onListPointerDown, {
         capture: true,
         passive: true,
       });
     }
   }
 
-  /** Destroys the list's SortableJS instance and forgets it. */
+  /**
+   * Destroys the list's SortableJS instance(s) and forgets it. Accepts either the area or the items box.
+   * A drag owned by this list is released first: SortableJS's `destroy()` calls `_onDrop()` without an
+   * event, so no `onEnd` would ever reach `handleEnd` and the scheduler would stay in drag state.
+   */
   unregister(element: HTMLElement): void {
     const entry = this._lists.get(element);
     if (!entry) return;
-    entry.sortable?.destroy();
-    element.removeEventListener('pointerdown', this._onListPointerDown, {
+    this._releaseDragOwnedBy(entry);
+    for (const el of entry.items === entry.area
+      ? [entry.area]
+      : [entry.items, entry.area]) {
+      this._sortables.get(el)?.destroy();
+      this._sortables.delete(el);
+      this._lists.delete(el);
+    }
+    entry.area.removeEventListener('pointerdown', this._onListPointerDown, {
       capture: true,
     });
-    element.removeAttribute('data-mlv-scheduler-list');
-    this._lists.delete(element);
+    entry.area.removeAttribute('data-mlv-scheduler-list');
   }
 
-  /** The SortableJS instance of a registered list, or `null`. Exposed for specs and debugging. */
+  /** The SortableJS instance of a registered element, or `null`. Exposed for specs and debugging. */
   sortableFor(element: HTMLElement): Sortable | null {
-    return this._lists.get(element)?.sortable ?? null;
+    return this._sortables.get(element) ?? null;
   }
 
   /**
@@ -217,16 +287,24 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
   ): void {
     const id = evt.item.getAttribute('data-event-id');
     const normalized =
-      id === null
+      (id === null
         ? undefined
-        : this._ctx.normalizedEvents().find((n) => n.event.id === id);
-    if (!normalized) return;
+        : this._ctx.normalizedEvents().find((n) => n.event.id === id)) ?? null;
     const ghost = Sortable.ghost;
-    if (ghost && ghost !== evt.item) sanitizeClone(ghost);
+    if (ghost && ghost !== evt.item) {
+      sanitizeClone(ghost);
+      // The clone is appended to <body> and inherits no `[dir]` scope the chip sat in.
+      ghost.setAttribute('dir', this._rtl.resolveDirection(evt.item));
+    }
 
     const entry = this._lists.get(evt.from);
     let grabDayOffset = 0;
-    if (entry && entry.registration.kind !== 'time-column' && pointer) {
+    if (
+      normalized &&
+      entry &&
+      entry.registration.kind !== 'time-column' &&
+      pointer
+    ) {
       const rect = evt.item.getBoundingClientRect();
       const span = Math.max(
         1,
@@ -264,7 +342,7 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
    */
   handleMove(evt: Sortable.MoveEvent, originalEvent: Event): false {
     const active = this._active;
-    if (!active || active.cancelled) return false;
+    if (!active || active.cancelled || !active.normalized) return false;
     const pointer = pointerOf(originalEvent) ?? this._lastPointer;
     if (!pointer) return false;
     this._lastPointer = pointer;
@@ -295,25 +373,23 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
     if (!active) return;
     this._active = null;
     active.teardown();
+    this._stopForeignTracking();
     restoreItem(evt.item, active);
 
     const preview = this._preview();
     this._setPreview(null);
+    const normalized = active.normalized;
     this._zone.run(() => {
       this._ctx.setDragging(false);
       this._ctx.suppressNextClick();
       if (
         active.cancelled ||
+        !normalized ||
         !preview ||
-        !this._changed(active.normalized, preview.next)
+        !this._changed(normalized, preview.next)
       )
         return;
-      this._ctx.commitChange(
-        'move',
-        active.normalized,
-        preview.next,
-        'pointer',
-      );
+      this._ctx.commitChange('move', normalized, preview.next, 'pointer');
     });
   }
 
@@ -391,12 +467,29 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
     };
   }
 
+  /**
+   * @private Pushes the inputs SortableJS snapshots at creation (`group.name`, `animation`) onto every
+   * live instance. SortableJS reads both through `options` on each move, so mutating them is enough —
+   * `checkPut` / `checkPull` resolve `to.options.group.name` at check time, not at init.
+   */
+  private _syncOptions(): void {
+    if (!this._ctx) return;
+    const name = this._ctx.dragGroup();
+    const animation = this._animation();
+    for (const sortable of this._sortables.values()) {
+      const group = sortable.options.group as { name?: string } | undefined;
+      if (group) group.name = name;
+      sortable.options.animation = animation;
+    }
+  }
+
+  /** @private SortableJS move animation in ms; `0` under reduced motion. */
+  private _animation(): number {
+    return this._reducedMotion?.matches ? 0 : 150;
+  }
+
   /** @private SortableJS options shared by every list. */
   private _options(): Sortable.Options {
-    const reducedMotion =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     return {
       group: {
         name: this._ctx.dragGroup(),
@@ -412,16 +505,23 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
       },
       sort: true,
       draggable: '.mlv-scheduler-event',
-      filter: '[data-draggable="false"]',
+      filter: '[data-draggable="false"],.mlv-scheduler-event__resize-handle',
       preventOnFilter: false,
       forceFallback: true,
       fallbackOnBody: true,
       fallbackTolerance: 5,
+      // Touch affordance: a chip drag is a long press. `preventDefault()` on a `pointermove` does not
+      // stop a touch pan — only `touch-action` does, and the time grid declares `pan-y pinch-zoom` — so
+      // without a delay every vertical touch drag scrolls the sheet and the browser cancels the drag.
+      // The delay is touch-only, so mouse drags still start at `fallbackTolerance`.
+      delay: 200,
+      delayOnTouchOnly: true,
+      touchStartThreshold: 5,
       chosenClass: MLV_SCHEDULER_SORTABLE_CLASSES.chosen,
       ghostClass: MLV_SCHEDULER_SORTABLE_CLASSES.ghost,
       dragClass: MLV_SCHEDULER_SORTABLE_CLASSES.drag,
       fallbackClass: MLV_SCHEDULER_SORTABLE_CLASSES.fallback,
-      animation: reducedMotion ? 0 : 150,
+      animation: this._animation(),
       easing: 'var(--mlv-ease-in-out-strong)',
       scroll: true,
       bubbleScroll: true,
@@ -473,18 +573,41 @@ export class MlvSchedulerDragService<D = Date, TData = unknown> {
       if (at) this._lastPointer = at;
     };
     const stop = (): void => this._stopForeignTracking();
+    // A foreign list on SortableJS's default (native HTML5) backend fires neither `pointerup` nor `drop`
+    // when the item is released outside a droppable area — `dragend` is the only terminal event there.
+    const enders = ['pointerup', 'pointercancel', 'drop', 'dragend'] as const;
     this._foreignTeardown = this._zone.runOutsideAngular(() => {
       doc.addEventListener('pointermove', onMove, { passive: true });
       doc.addEventListener('dragover', onMove, { passive: true });
-      doc.addEventListener('pointerup', stop);
-      doc.addEventListener('drop', stop);
+      for (const type of enders) doc.addEventListener(type, stop);
       return () => {
         doc.removeEventListener('pointermove', onMove);
         doc.removeEventListener('dragover', onMove);
-        doc.removeEventListener('pointerup', stop);
-        doc.removeEventListener('drop', stop);
+        for (const type of enders) doc.removeEventListener(type, stop);
       };
     });
+  }
+
+  /**
+   * @private Ends a drag whose list is going away without an `onEnd`: releases the document listeners,
+   * restores the chip, drops the preview and leaves the root out of drag state. Also removes the
+   * fallback clone, which `Sortable.destroy()` leaves parented to `<body>`.
+   */
+  private _releaseDragOwnedBy(entry: ListEntry): void {
+    const active = this._active;
+    if (
+      !active ||
+      (active.from !== entry.items &&
+        active.from !== entry.area &&
+        !entry.area.contains(active.item))
+    )
+      return;
+    this._active = null;
+    active.teardown();
+    restoreItem(active.item, active);
+    Sortable.ghost?.remove();
+    this._setPreview(null);
+    this._zone.run(() => this._ctx.setDragging(false));
   }
 
   /** @private Stops foreign pointer tracking. */
@@ -551,17 +674,19 @@ function pointerOf(
     : null;
 }
 
-/** Strips ids, focusability and animation from a SortableJS clone so it never enters the a11y tree twice. */
+/**
+ * Strips ids, focusability and animation from a SortableJS clone so it never enters the a11y tree twice.
+ * `inert` takes the whole subtree out of focus and the a11y tree, so only duplicate ids — which `inert`
+ * does not address, and which break every `aria-labelledby` / `for` pointing at the original — are swept.
+ */
 function sanitizeClone(clone: HTMLElement): void {
   clone.setAttribute('aria-hidden', 'true');
   clone.setAttribute('inert', '');
   clone.removeAttribute('id');
   clone.removeAttribute('tabindex');
   clone.style.animation = 'none';
-  for (const el of clone.querySelectorAll<HTMLElement>('[id], [tabindex]')) {
+  for (const el of clone.querySelectorAll<HTMLElement>('[id]'))
     el.removeAttribute('id');
-    el.removeAttribute('tabindex');
-  }
 }
 
 /** Removes every SortableJS trace from the dragged chip and puts it back if SortableJS moved it. */

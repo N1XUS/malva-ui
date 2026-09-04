@@ -5,7 +5,7 @@ import { By } from '@angular/platform-browser';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MLV_DATE_LOCALE } from '@malva-ui/core/date';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
-import type Sortable from 'sortablejs';
+import Sortable from 'sortablejs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   MlvSchedulerCanChange,
@@ -41,6 +41,7 @@ interface NormalizedGroup {
       [view]="view()"
       [date]="date"
       [editable]="editable()"
+      [dragGroup]="dragGroup()"
       [canMove]="canMove()"
       (eventMove)="moves.push($event)"
       (externalDrop)="drops.push($event)"
@@ -62,6 +63,7 @@ class HostComponent {
   readonly view = signal<MlvSchedulerView>('week');
   readonly date = m(4);
   readonly editable = signal(true);
+  readonly dragGroup = signal('mlv-scheduler');
   readonly canMove = signal<MlvSchedulerCanChange | null>(null);
   readonly moves: MlvSchedulerEventChange[] = [];
   readonly drops: MlvSchedulerExternalDropEvent[] = [];
@@ -159,7 +161,11 @@ describe('MlvSchedulerDragService', () => {
 
   // `setDirection` is global state (MlvRtlService is `providedIn: 'root'`) — always reset it, per
   // .claude/rules/rtl.md, so a flip in one test can never leak into the next.
-  afterEach(() => rtlService.setDirection('ltr'));
+  afterEach(() => {
+    rtlService.setDirection('ltr');
+    // `Sortable.ghost` is a writable static shared by every instance.
+    Sortable.ghost = null as unknown as HTMLElement;
+  });
 
   it('registers every drop list with SortableJS and refuses foreign items when not editable', () => {
     const list = column(1);
@@ -406,7 +412,7 @@ describe('MlvSchedulerDragService', () => {
   it('marks non-draggable chips so the SortableJS filter skips them', () => {
     expect(chip('pinned').getAttribute('data-draggable')).toBe('false');
     expect(drag.sortableFor(column(1))!.option('filter')).toBe(
-      '[data-draggable="false"]',
+      '[data-draggable="false"],.mlv-scheduler-event__resize-handle',
     );
   });
 
@@ -434,6 +440,162 @@ describe('MlvSchedulerDragService', () => {
       allDay: false,
     });
     foreignList.remove();
+  });
+
+  it('registers the hit area and the chips box as one list, and destroys both', () => {
+    const area = column(1);
+    const items = area.querySelector<HTMLElement>(
+      '.mlv-scheduler-time-grid__events',
+    )!;
+    // The marker (and therefore the "pointer is over a list" test) covers the
+    // whole column, while the Sortable that starts drags sits on the chips'
+    // own parent — SortableJS only starts a drag from a DIRECT child.
+    expect(area.hasAttribute('data-mlv-scheduler-list')).toBe(true);
+    expect(items.hasAttribute('data-mlv-scheduler-list')).toBe(false);
+    expect(drag.sortableFor(area)).toBeTruthy();
+    expect(drag.sortableFor(items)).toBeTruthy();
+    expect(Sortable.get(items)).toBe(drag.sortableFor(items));
+    expect(Sortable.get(area)).toBe(drag.sortableFor(area));
+    // Both elements resolve to the same registration, so `evt.from` / `evt.to`
+    // land on the same list whichever instance dispatched them. `__events` is
+    // `inset: 0` inside the column, so the two rects agree in the browser too.
+    vi.spyOn(items, 'getBoundingClientRect').mockReturnValue(
+      area.getBoundingClientRect(),
+    );
+    expect(drag.resolveTarget(items, { x: 220, y: 460 }, 0, false)).toEqual({
+      dayIndex: 1,
+      minutes: 540,
+      allDay: false,
+    });
+    expect(drag.resolveTarget(area, { x: 220, y: 460 }, 0, false)).toEqual(
+      drag.resolveTarget(items, { x: 220, y: 460 }, 0, false),
+    );
+
+    const destroyed = [
+      vi.spyOn(drag.sortableFor(area)!, 'destroy'),
+      vi.spyOn(drag.sortableFor(items)!, 'destroy'),
+    ];
+    host.view.set('month');
+    fixture.detectChanges();
+    for (const spy of destroyed) expect(spy).toHaveBeenCalled();
+    expect(drag.sortableFor(area)).toBeNull();
+    expect(drag.sortableFor(items)).toBeNull();
+    expect(area.hasAttribute('data-mlv-scheduler-list')).toBe(false);
+  });
+
+  it('resolves the drop time from the fallback clone top edge, not the pointer', () => {
+    const a = chip('a');
+    const clone = document.createElement('div');
+    // Sortable's fallback clone is offset by the grab point: a chip grabbed in
+    // its middle sits half its own height above the pointer. y = 340 of the
+    // 960 px / 24 h column is 06:00; the pointer at 520 would say 10:30.
+    vi.spyOn(clone, 'getBoundingClientRect').mockReturnValue(
+      rect(340, 500, 120, 80),
+    );
+    Sortable.ghost = clone;
+    drag.handleStart(sortableEvent(a, column(1), column(1)), {
+      x: 280,
+      y: 460,
+    });
+    // The clone is portaled to <body>: it must carry the origin's direction
+    // and must never enter the a11y tree twice.
+    expect(clone.getAttribute('dir')).toBe('ltr');
+    expect(clone.getAttribute('inert')).toBe('');
+    drag.handleMove(moveEvent(a, column(4)), pointer(600, 520));
+    expect(drag.preview()!.next.start).toEqual(m(7, 6));
+    expect(drag.preview()!.next.end).toEqual(m(7, 8));
+  });
+
+  it('gives the fallback clone the scoped direction of the chip it was cloned from', () => {
+    root.querySelector('.mlv-scheduler')!.setAttribute('dir', 'rtl');
+    const a = chip('a');
+    const clone = document.createElement('div');
+    vi.spyOn(clone, 'getBoundingClientRect').mockReturnValue(
+      rect(340, 500, 120, 80),
+    );
+    Sortable.ghost = clone;
+    drag.handleStart(sortableEvent(a, column(1), column(1)), {
+      x: 280,
+      y: 460,
+    });
+    expect(clone.getAttribute('dir')).toBe('rtl');
+    root.querySelector('.mlv-scheduler')!.removeAttribute('dir');
+  });
+
+  it('releases a drag whose list is destroyed mid-gesture', () => {
+    const a = chip('a');
+    drag.handleStart(sortableEvent(a, column(1), column(1)), {
+      x: 280,
+      y: 460,
+    });
+    drag.handleMove(moveEvent(a, column(4)), pointer(600, 520));
+    fixture.detectChanges();
+    expect(root.querySelector('.mlv-scheduler')!.classList).toContain(
+      'mlv-scheduler--dragging',
+    );
+
+    // SortableJS's own `destroy()` calls `_onDrop()` with no event, so `onEnd`
+    // never fires: without an explicit release the scheduler would stay in drag
+    // state for good.
+    drag.unregister(column(1));
+    fixture.detectChanges();
+    expect(drag.preview()).toBeNull();
+    expect(root.querySelector('.mlv-scheduler')!.classList).not.toContain(
+      'mlv-scheduler--dragging',
+    );
+    expect(a.classList).not.toContain('mlv-scheduler-event--dragging');
+    // The now-orphaned drag commits nothing if SortableJS still reports an end.
+    drag.handleEnd(sortableEvent(a, column(1), column(1)));
+    expect(host.moves).toHaveLength(0);
+  });
+
+  it('mirrors a dragGroup change onto the lists created earlier', () => {
+    const sortable = drag.sortableFor(column(1))!;
+    expect((sortable.option('group') as unknown as NormalizedGroup).name).toBe(
+      'mlv-scheduler',
+    );
+    host.dragGroup.set('board-2');
+    fixture.detectChanges();
+    expect((sortable.option('group') as unknown as NormalizedGroup).name).toBe(
+      'board-2',
+    );
+    // `checkPut` reads the name off the live options, so a foreign list of the
+    // new group is accepted without re-creating anything.
+    expect(
+      (sortable.option('group') as unknown as NormalizedGroup).checkPut(
+        sortable,
+        sortable,
+        chip('a'),
+      ),
+    ).toBe(true);
+  });
+
+  it('cleans up a drag whose chip no longer resolves to an event', () => {
+    const a = chip('a');
+    a.setAttribute('data-event-id', 'deleted-while-pressing');
+    a.setAttribute('draggable', 'false');
+    drag.handleStart(sortableEvent(a, column(1), column(1)), {
+      x: 280,
+      y: 460,
+    });
+    expect(drag.handleMove(moveEvent(a, column(4)), pointer(600, 520))).toBe(
+      false,
+    );
+    expect(drag.preview()).toBeNull();
+    drag.handleEnd(sortableEvent(a, column(1), column(1)));
+    fixture.detectChanges();
+    expect(a.hasAttribute('draggable')).toBe(false);
+    expect(host.moves).toHaveLength(0);
+    expect(root.querySelector('.mlv-scheduler')!.classList).not.toContain(
+      'mlv-scheduler--dragging',
+    );
+    // The click trailing the release is still swallowed.
+    const clicks: unknown[] = [];
+    fixture.debugElement
+      .query(By.directive(MlvScheduler))
+      .componentInstance.eventClick.subscribe((e: unknown) => clicks.push(e));
+    a.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(clicks).toHaveLength(0);
   });
 
   it('destroys SortableJS instances with the view', () => {

@@ -33,6 +33,9 @@
         <div
           class="mlv-scheduler-time-grid__all-day-cell"
           role="gridcell"
+          mlvSchedulerDropList="all-day-cell"
+          [dayIndex]="column.dayIndex"
+          [items]="allDayLanesEl"
           [class.mlv-scheduler-time-grid__all-day-cell--today]="column.today"
           [class.mlv-scheduler-time-grid__all-day-cell--selected]="_isSelected(column.dayIndex, null)"
           [attr.aria-label]="column.label"
@@ -46,11 +49,7 @@
           (dblclick)="_onAllDayPointer('dblclick', column, $event)"
           (contextmenu)="_onAllDayPointer('contextmenu', column, $event)"
         >
-          <div
-            class="mlv-scheduler-time-grid__all-day-lanes"
-            mlvSchedulerDropList="all-day-cell"
-            [dayIndex]="column.dayIndex"
-          >
+          <div class="mlv-scheduler-time-grid__all-day-lanes" #allDayLanesEl>
             @for (segment of column.laneSegments; track segment.key) {
             <mlv-scheduler-event
               class="mlv-scheduler-time-grid__lane-event"
@@ -86,6 +85,7 @@
         mlvSchedulerDropList="time-column"
         [attr.data-day-index]="column.dayIndex"
         [dayIndex]="column.dayIndex"
+        [items]="eventsEl"
         [class.mlv-scheduler-time-grid__column--today]="column.today"
         [attr.aria-label]="column.label"
       >
@@ -108,7 +108,7 @@
           (contextmenu)="_onSlotPointer('contextmenu', column, slot, $event)"
         ></div>
         }
-        <div class="mlv-scheduler-time-grid__events" role="gridcell">
+        <div class="mlv-scheduler-time-grid__events" role="gridcell" #eventsEl>
           @for (segment of column.segments; track segment.key) {
           <mlv-scheduler-event
             class="mlv-scheduler-time-grid__event"

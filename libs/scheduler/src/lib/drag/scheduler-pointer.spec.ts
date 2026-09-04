@@ -108,6 +108,59 @@ describe('attachPointerDrag', () => {
     el.remove();
   });
 
+  it('ignores a second pointerdown while a gesture is running', () => {
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const onStart = vi.fn();
+    const onEnd = vi.fn();
+    const detach = attachPointerDrag(
+      el,
+      { onStart, onMove: vi.fn(), onEnd },
+      { threshold: 5 },
+    );
+
+    el.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+    // A second finger lands elsewhere: re-anchoring the origin here would make
+    // the running gesture jump, and would leak a second set of listeners.
+    el.dispatchEvent(pointerEvent('pointerdown', 200, 200, { pointerId: 2 }));
+    el.dispatchEvent(pointerEvent('pointermove', 40, 10));
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledWith({ x: 10, y: 10 }, expect.any(Event));
+
+    el.dispatchEvent(pointerEvent('pointerup', 40, 10));
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    detach();
+    el.remove();
+  });
+
+  it('only follows the pointer that started the gesture', () => {
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const onMove = vi.fn();
+    const onEnd = vi.fn();
+    const onCancel = vi.fn();
+    const detach = attachPointerDrag(
+      el,
+      { onMove, onEnd, onCancel },
+      { threshold: 5 },
+    );
+
+    el.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+    el.dispatchEvent(pointerEvent('pointermove', 90, 90, { pointerId: 2 }));
+    el.dispatchEvent(pointerEvent('pointercancel', 90, 90, { pointerId: 2 }));
+    el.dispatchEvent(pointerEvent('pointerup', 90, 90, { pointerId: 2 }));
+    expect(onMove).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onEnd).not.toHaveBeenCalled();
+
+    el.dispatchEvent(pointerEvent('pointermove', 40, 10));
+    el.dispatchEvent(pointerEvent('pointerup', 40, 10));
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    detach();
+    el.remove();
+  });
+
   it('stops listening after detach', () => {
     const el = document.createElement('div');
     document.body.appendChild(el);

@@ -4,6 +4,7 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import axe from 'axe-core';
 import { compile } from 'sass';
+import Sortable from 'sortablejs';
 import { stripCssLayersFromText } from '@malva-ui/internal-testing';
 import { MLV_DATE_LOCALE, MlvNativeDateAdapter } from '@malva-ui/core/date';
 import { MlvResizeObserverService, MlvRtlService } from '@malva-ui/cdk/utils';
@@ -421,6 +422,19 @@ describe('MlvSchedulerMonth', () => {
         .querySelectorAll('.mlv-scheduler-month__cell').length,
     ).toBe(5);
     expect(root.querySelector('[data-event-id="span"]')).not.toBeNull();
+  });
+
+  it('gives every rendered chip a SortableJS instance on its own parent', () => {
+    // The assertion the synthetic-callback specs never made: SortableJS starts
+    // a drag only from a DIRECT child of its container, so a chip whose parent
+    // carries no instance can never be dragged at all (V4 / D0).
+    const chips = Array.from(
+      root.querySelectorAll<HTMLElement>('mlv-scheduler-event'),
+    );
+    expect(chips.length).toBeGreaterThan(0);
+    for (const chipEl of chips) {
+      expect(Sortable.get(chipEl.parentElement!)).toBeTruthy();
+    }
   });
 
   describe('pointer range selection', () => {
