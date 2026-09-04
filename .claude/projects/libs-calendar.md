@@ -215,3 +215,4 @@ Strings resolve through `MLV_CALENDAR_I18N` (`@malva-ui/i18n`): `previousPeriod`
 
 - `@angular/core` ^22.0.0 — signals, `computed()`, `model()`, `afterNextRender`, `ElementRef`, `Injector` (roving-focus management)
 - `@angular/common` — native control flow
+- `@malva-ui/core/date` — `MLV_DATE_ADAPTER`, `MlvNativeDateAdapter`, `MlvDateAdapter`, `MlvDateFormatOptions` (the adapter contract, moved out of this library in 2026-09)

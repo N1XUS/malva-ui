@@ -104,6 +104,7 @@ Keyboard: Enter/Space opens, Escape closes.
 - `@angular/forms/signals` — `FormValueControl` contract and `[formField]` binding
 - `@malva-ui/core/popup` — `MlvPopup`, `MlvPopupContent`, `MlvPopupContainer`
 - `@malva-ui/core/calendar` — `MlvCalendar`
+- `@malva-ui/core/date` — `MLV_DATE_ADAPTER`, `MlvNativeDateAdapter`, `MlvDateAdapter` (date math and localized labels; moved out of `@malva-ui/core/calendar` in 2026-09)
 - `@lucide/angular` — `LucideCalendar` icon
 
 ---
