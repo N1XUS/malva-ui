@@ -62,11 +62,17 @@ const FALLBACK_VISIBLE_LANES = 3;
 
 /** One rendered day cell. */
 interface MlvSchedulerMonthCell<D, TData> {
+  /** Position of this day within the visible range; the grid's cell identity. */
   readonly dayIndex: number;
+  /** Start of the day this cell renders. */
   readonly date: D;
+  /** Localized day of month, e.g. `'4'` — decorative, the cell carries the name. */
   readonly dayNumber: string;
+  /** Accessible name of the cell: the full date, suffixed with "today" when it is. */
   readonly label: string;
+  /** Whether the day falls outside the anchor month (leading / trailing days). */
   readonly outside: boolean;
+  /** Whether the day is today AND `showCurrentTime` is on. Drives the pill and the label suffix. */
   readonly today: boolean;
   /** Visible segments that start in this cell (spanning bars live in their start cell). */
   readonly segments: readonly MlvSchedulerLaneSegment<D, TData>[];
@@ -74,7 +80,9 @@ interface MlvSchedulerMonthCell<D, TData> {
   readonly all: readonly MlvSchedulerRowSegment<D, TData>[];
   /** Hidden events of this day. */
   readonly hidden: readonly MlvSchedulerEvent<D, TData>[];
+  /** Visible text of the overflow button, e.g. `'+3 more'`. Empty when nothing overflows. */
   readonly moreText: string;
+  /** Accessible name of the overflow button; starts with `moreText` (WCAG 2.5.3). */
   readonly moreLabel: string;
 }
 
@@ -192,13 +200,20 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     const days = this._ctx.days();
     const rowLength = this._ctx.rowLength();
     const today = this._ctx.today();
+    // `showCurrentTime` is documented as "the now-line AND the today
+    // highlight", and the month has no now-line: without this the input has no
+    // observable effect here at all. `today()` also stops ticking once it is
+    // off, so an ungated highlight would go stale over midnight anyway.
+    const showToday = this._ctx.showCurrentTime();
     const anchorMonth = adapter.getMonth(this._ctx.date());
     const visibleLanes = this._visibleLanes();
     const segments = sliceRows(adapter, this._events(), days, rowLength, 'all');
     const byRow = new Map<number, MlvSchedulerRowSegment<D, TData>[]>();
     for (const segment of segments) {
       const row = Math.floor(segment.startIndex / rowLength);
-      byRow.set(row, [...(byRow.get(row) ?? []), segment]);
+      const bucket = byRow.get(row);
+      if (bucket) bucket.push(segment);
+      else byRow.set(row, [segment]);
     }
     const rows: MlvSchedulerMonthRow<D, TData>[] = [];
     for (let row = 0; row * rowLength < days.length; row++) {
@@ -211,7 +226,7 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
         dayIndex++
       ) {
         const date = days[dayIndex];
-        const isToday = adapter.sameDate(date, today);
+        const isToday = showToday && adapter.sameDate(date, today);
         const label = adapter.getDateLabel(date);
         const hidden = (layout.hiddenByDay.get(dayIndex) ?? []).map(
           (segment) => segment.normalized.event,
@@ -425,8 +440,11 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     });
 
     afterRenderEffect((onCleanup) => {
-      const grid = this._grid()?.nativeElement;
-      if (!grid || !this._isBrowser) return;
+      if (!this._isBrowser) return;
+      // `_grid` is `viewChild.required`: it throws rather than returning
+      // undefined, so no `?.`/null branch here — the other two readers of the
+      // same query (the observer effect and `_measureLanes`) do not have one.
+      const grid = this._grid().nativeElement;
       const detach = this._zone.runOutsideAngular(() =>
         attachPointerDrag(
           grid,

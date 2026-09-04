@@ -50,6 +50,7 @@ const m = (day: number, h = 0, min = 0, month = 2) =>
       [(date)]="date"
       [hiddenDays]="hiddenDays()"
       [selectable]="selectable()"
+      [showCurrentTime]="showCurrentTime()"
       (slotClick)="slotClicks.push($event)"
       (eventClick)="eventClicks.push($event)"
       (slotDoubleClick)="slotDoubleClicks.push($event)"
@@ -71,6 +72,7 @@ class Host {
   readonly date = signal(m(10));
   readonly hiddenDays = signal<number[]>([]);
   readonly selectable = signal(true);
+  readonly showCurrentTime = signal(true);
   readonly slotClicks: MlvSchedulerSlotEvent[] = [];
   readonly slotDoubleClicks: MlvSchedulerSlotEvent[] = [];
   readonly slotContextMenus: MlvSchedulerSlotEvent[] = [];
@@ -458,6 +460,34 @@ describe('MlvSchedulerMonth', () => {
     chipEl.click();
     expect(host.eventClicks.length).toBe(1);
     expect(host.slotClicks.length).toBe(0);
+  });
+
+  it('gates the today highlight on showCurrentTime', async () => {
+    // The month has no now-line, so this input is the whole of what
+    // `showCurrentTime` means here: ungated, it would be a no-op in this view.
+    const highlighted = () =>
+      Array.from(
+        root.querySelectorAll<HTMLElement>('.mlv-scheduler-month__cell--today'),
+      );
+    const plainLabel = adapter.getDateLabel(adapter.today());
+
+    host.date.set(adapter.today());
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(highlighted()).toHaveLength(1);
+    expect(highlighted()[0].getAttribute('aria-label')).toBe(
+      `${plainLabel}, today`,
+    );
+
+    host.showCurrentTime.set(false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(highlighted()).toHaveLength(0);
+    // The ", today" suffix goes with the pill — `cellFor` matches the plain
+    // date label, so finding the cell at all is half the assertion.
+    expect(cellFor(adapter.today()).getAttribute('aria-label')).toBe(
+      plainLabel,
+    );
   });
 
   it('drops hidden weekdays from every row', () => {
@@ -910,6 +940,37 @@ describe('MlvSchedulerMonth styles', () => {
     }
     return matches.map((match) => match[1]).join('\n');
   }
+
+  it('sizes a spanning bar in cell pitches, not in its own padded box', () => {
+    // `100%` is the `__lanes` content box: one cell pitch MINUS the cell's two
+    // inline paddings and its inline-end border. A bar therefore has to add
+    // that gap back once per crossed boundary, and the terms it adds must be
+    // the very declarations the cell uses — that is what this asserts, so the
+    // two cannot drift (jsdom lays nothing out, so the formula is the subject).
+    const cellRule = block('.mlv-scheduler-month__cell');
+    expect(cellRule).toMatch(/padding:\s*var\(--mlv-spacing-1\)/);
+    expect(cellRule).toMatch(/border-inline-end:\s*var\(--mlv-stroke-width\)/);
+
+    const bar = block('.mlv-scheduler-month__event--spanning').replace(
+      /\s+/g,
+      ' ',
+    );
+    expect(bar).toContain('100% * var(--mlv-scheduler-span, 1)');
+    expect(bar).toContain(
+      '(var(--mlv-scheduler-span, 1) - 1) * (2 * var(--mlv-spacing-1) + var(--mlv-stroke-width))',
+    );
+  });
+
+  it('lifts the today pill off the identical selected-cell fill', () => {
+    // `--mlv-background-selected` is `--mlv-background-accent-1-pale` in both
+    // themes, which is exactly what the pill paints, so a selected today cell
+    // would show no pill at all without this override.
+    expect(
+      block(
+        '.mlv-scheduler-month__cell--today.mlv-scheduler-month__cell--selected .mlv-scheduler-month__day-number',
+      ),
+    ).toMatch(/background:\s*var\(--mlv-background-accent-1\)/);
+  });
 
   it('suppresses native text selection while a range-drag crosses the rows', () => {
     // Every cell a drag passes over carries a day number; without this the

@@ -104,6 +104,15 @@ $block: mlv-scheduler-month;
       &--selected {
         background: var(--mlv-background-selected);
       }
+
+      // `--mlv-background-selected` resolves to the same accent-pale surface as
+      // the today pill in both themes, so inside a range selection the round
+      // marker would dissolve into the cell and only its text colour would
+      // remain. Lift it onto the solid accent while selected.
+      &--today.#{$block}__cell--selected .#{$block}__day-number {
+        background: var(--mlv-background-accent-1);
+        color: var(--mlv-text-primary-on-accent-1);
+      }
     }
 
     &__day-number {
@@ -136,10 +145,16 @@ $block: mlv-scheduler-month;
 
       &--spanning {
         // A bar lives in its start cell and stretches across the neighbours,
-        // adding one cell border per crossed boundary.
+        // so its length is `span` cell PITCHES — but `100%` is the `__lanes`
+        // box, which is one pitch minus the cell's two inline paddings and its
+        // inline-end border. Each crossed boundary has to add that gap back;
+        // counting only the border left a 3-cell bar 16px short of its last
+        // cell. The two terms MUST stay the `&__cell` `padding` and
+        // `border-inline-end` above — the spec asserts they match.
         inline-size: calc(
-          100% * var(--mlv-scheduler-span, 1) + var(--mlv-stroke-width) *
-            (var(--mlv-scheduler-span, 1) - 1)
+          100% * var(--mlv-scheduler-span, 1) +
+            (var(--mlv-scheduler-span, 1) - 1) *
+            (2 * var(--mlv-spacing-1) + var(--mlv-stroke-width))
         );
         z-index: 2;
       }
