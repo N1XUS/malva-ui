@@ -2,6 +2,7 @@
   class="mlv-scheduler-month__grid"
   role="grid"
   [attr.aria-label]="_gridLabel()"
+  [attr.aria-multiselectable]="_ctx.selectable() ? 'true' : null"
 >
   <div class="mlv-scheduler-month__weekdays" role="row">
     @for (name of _weekdays(); track $index) {
@@ -60,9 +61,15 @@
             type="button"
             class="mlv-scheduler-month__more"
             tabindex="-1"
+            aria-haspopup="dialog"
             [style.--mlv-scheduler-lane]="_visibleLanes()"
             [attr.aria-label]="cell.moreLabel"
+            [attr.aria-expanded]="_popoverDayIndex() === cell.dayIndex"
+            [attr.aria-controls]="
+              _popoverDayIndex() === cell.dayIndex ? _popoverId : null
+            "
             (click)="_openMore(cell, $event)"
+            (keydown)="_onMoreKeydown($event)"
           >
             {{ cell.moreText }}
           </button>

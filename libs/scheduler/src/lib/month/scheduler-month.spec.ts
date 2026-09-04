@@ -49,6 +49,7 @@ const m = (day: number, h = 0, min = 0, month = 2) =>
       view="month"
       [(date)]="date"
       [hiddenDays]="hiddenDays()"
+      [selectable]="selectable()"
       (slotClick)="slotClicks.push($event)"
       (eventClick)="eventClicks.push($event)"
       (moreClick)="moreClicks.push($event)"
@@ -66,6 +67,7 @@ class Host {
   ]);
   readonly date = signal(m(10));
   readonly hiddenDays = signal<number[]>([]);
+  readonly selectable = signal(true);
   readonly slotClicks: MlvSchedulerSlotEvent[] = [];
   readonly eventClicks: MlvSchedulerEventInteraction[] = [];
   readonly moreClicks: MlvSchedulerMoreClickEvent[] = [];
@@ -91,6 +93,30 @@ describe('MlvSchedulerMonth', () => {
       `.mlv-scheduler-month__cell[aria-label="${label}"]`,
     );
     if (!found) throw new Error(`no rendered cell labelled "${label}"`);
+    return found;
+  };
+  /** The `+N more` button of a cell; throws when the cell does not overflow. */
+  const moreButton = (dayIndex: number) => {
+    const found = cell(dayIndex).querySelector<HTMLButtonElement>(
+      '.mlv-scheduler-month__more',
+    );
+    if (!found) throw new Error(`day ${dayIndex} renders no "+N more" button`);
+    return found;
+  };
+  /** A chip inside `container` by event id; throws when it is not rendered. */
+  const chip = (container: HTMLElement, eventId: string) => {
+    const found = container.querySelector<HTMLElement>(
+      `[data-event-id="${eventId}"]`,
+    );
+    if (!found) throw new Error(`no chip rendered for event "${eventId}"`);
+    return found;
+  };
+  /** The open overflow panel; throws when none is open. */
+  const popover = () => {
+    const found = document.querySelector<HTMLElement>(
+      '.mlv-scheduler-month__popover',
+    );
+    if (!found) throw new Error('no overflow popover is open');
     return found;
   };
   const scheduler = () =>
@@ -186,28 +212,18 @@ describe('MlvSchedulerMonth', () => {
         ?.style.getPropertyValue('--mlv-scheduler-lane'),
     ).toBe('2');
     expect(tuesday.querySelector('[data-event-id="t2"]')).toBeNull();
-    const more = tuesday.querySelector<HTMLButtonElement>(
-      '.mlv-scheduler-month__more',
-    )!;
+    const more = moreButton(8);
     expect(more.textContent?.trim()).toBe('+3 more');
-    expect(more.getAttribute('aria-label')).toBe(
-      `3 more events on ${adapter.getDateLabel(m(4))}`,
-    );
+    // The accessible name is asserted by the WCAG 2.5.3 spec below.
     expect(more.style.getPropertyValue('--mlv-scheduler-lane')).toBe('3');
   });
 
   it('opens the overflow popover listing every event of that day, emits moreClick and closes on Escape', async () => {
-    const more = cell(8).querySelector<HTMLButtonElement>(
-      '.mlv-scheduler-month__more',
-    )!;
+    const more = moreButton(8);
     more.click();
     fixture.detectChanges();
     await fixture.whenStable();
-    const popover = document.querySelector<HTMLElement>(
-      '.mlv-scheduler-month__popover',
-    )!;
-    expect(popover).not.toBeNull();
-    expect(popover.querySelectorAll('[data-event-id]').length).toBe(5);
+    expect(popover().querySelectorAll('[data-event-id]').length).toBe(5);
     expect(host.moreClicks.length).toBe(1);
     expect(host.moreClicks[0].events.map((e) => e.id)).toEqual([
       't2',
@@ -406,8 +422,8 @@ describe('MlvSchedulerMonth', () => {
   });
 
   it('does not emit slotClick for a click that landed on a chip', () => {
-    const chip = cell(8).querySelector<HTMLElement>('[data-event-id="t1"]')!;
-    chip.click();
+    const chipEl = chip(cell(8), 't1');
+    chipEl.click();
     expect(host.eventClicks.length).toBe(1);
     expect(host.slotClicks.length).toBe(0);
   });
@@ -442,36 +458,28 @@ describe('MlvSchedulerMonth', () => {
     // Sortable group ("so they can be dragged out"): SortableJS starts a drag
     // only from a DIRECT child of a container that owns an instance, so without
     // this an overflowed event has no pointer move path at all.
-    const more = cell(8).querySelector<HTMLButtonElement>(
-      '.mlv-scheduler-month__more',
-    )!;
+    const more = moreButton(8);
     more.click();
     fixture.detectChanges();
     await fixture.whenStable();
-    const popover = document.querySelector<HTMLElement>(
-      '.mlv-scheduler-month__popover',
-    )!;
-    expect(Sortable.get(popover)).toBeTruthy();
+    const panel = popover();
+    expect(Sortable.get(panel)).toBeTruthy();
     const chips = Array.from(
-      popover.querySelectorAll<HTMLElement>('mlv-scheduler-event'),
+      panel.querySelectorAll<HTMLElement>('mlv-scheduler-event'),
     );
     expect(chips.length).toBe(5);
     for (const chipEl of chips) {
-      expect(chipEl.parentElement).toBe(popover);
-      expect(Sortable.get(chipEl.parentElement!)).toBeTruthy();
+      expect(chipEl.parentElement).toBe(panel);
+      expect(Sortable.get(panel)).toBeTruthy();
     }
   });
 
   it('hides the popover while a drag runs and disposes it once the drag settles', async () => {
-    const more = cell(8).querySelector<HTMLButtonElement>(
-      '.mlv-scheduler-month__more',
-    )!;
+    const more = moreButton(8);
     more.click();
     fixture.detectChanges();
     await fixture.whenStable();
-    const popover = document.querySelector<HTMLElement>(
-      '.mlv-scheduler-month__popover',
-    )!;
+    const panel = popover();
 
     // Closing the panel on drag START would destroy the very SortableJS
     // instance that owns the in-flight drag, and `unregister()` releases such a
@@ -480,12 +488,8 @@ describe('MlvSchedulerMonth', () => {
     scheduler().setDragging(true);
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(document.querySelector('.mlv-scheduler-month__popover')).toBe(
-      popover,
-    );
-    expect(popover.classList).toContain(
-      'mlv-scheduler-month__popover--dragging',
-    );
+    expect(popover()).toBe(panel);
+    expect(panel.classList).toContain('mlv-scheduler-month__popover--dragging');
 
     scheduler().setDragging(false);
     fixture.detectChanges();
@@ -495,9 +499,7 @@ describe('MlvSchedulerMonth', () => {
   });
 
   it('re-derives the open popover from the live events instead of a snapshot', async () => {
-    const more = cell(8).querySelector<HTMLButtonElement>(
-      '.mlv-scheduler-month__more',
-    )!;
+    const more = moreButton(8);
     more.click();
     fixture.detectChanges();
     await fixture.whenStable();
@@ -514,6 +516,60 @@ describe('MlvSchedulerMonth', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(ids()).toEqual(['span', 't1', 't2', 't4']);
+  });
+
+  it('declares the grid multi-selectable exactly while selection is enabled', () => {
+    // Several cells carry `aria-selected` during a range selection, and a
+    // `role="grid"` without `aria-multiselectable` advertises single-select.
+    const grid = root.querySelector<HTMLElement>('[role="grid"]')!;
+    expect(grid.getAttribute('aria-multiselectable')).toBe('true');
+    host.selectable.set(false);
+    fixture.detectChanges();
+    expect(grid.getAttribute('aria-multiselectable')).toBeNull();
+  });
+
+  it('names the "+N more" button with its visible label first (WCAG 2.5.3)', () => {
+    const more = moreButton(8);
+    const visible = more.textContent!.trim();
+    expect(visible).toBe('+3 more');
+    expect(more.getAttribute('aria-label')).toBe(
+      `${visible}, 3 more events on ${adapter.getDateLabel(m(4))}`,
+    );
+    expect(more.getAttribute('aria-label')).toContain(visible);
+  });
+
+  it('announces the "+N more" popup and its expanded state', async () => {
+    const more = moreButton(8);
+    expect(more.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    expect(more.getAttribute('aria-controls')).toBeNull();
+
+    more.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const panel = popover();
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    expect(more.getAttribute('aria-controls')).toBe(panel.id);
+    expect(panel.id).toBeTruthy();
+    // Only the owning cell's button claims the panel.
+    const other = cell(7).querySelector('.mlv-scheduler-month__more');
+    expect(other?.getAttribute('aria-expanded') ?? 'false').toBe('false');
+  });
+
+  it('closes the intra-cell ring from the "+N more" button', () => {
+    const owner = cell(8);
+    const chipEl = chip(owner, 't1');
+    const more = moreButton(8);
+
+    more.focus();
+    const back = key(more, 'Tab', { shiftKey: true });
+    expect(back.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(chipEl);
+
+    more.focus();
+    const escape = key(more, 'Escape');
+    expect(escape.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(owner);
   });
 
   describe('pointer range selection', () => {
@@ -625,9 +681,7 @@ describe('MlvSchedulerMonth', () => {
     await fixture.whenStable();
     const tuesday = cell(8);
     expect(tuesday.querySelectorAll('.mlv-scheduler-event')).toHaveLength(0);
-    const more = tuesday.querySelector<HTMLButtonElement>(
-      '.mlv-scheduler-month__more',
-    )!;
+    const more = moreButton(8);
     expect(more.textContent?.trim()).toBe('+2 more');
 
     tuesday.focus();
@@ -639,10 +693,8 @@ describe('MlvSchedulerMonth', () => {
 
   it('reaches "+N more" through the intra-cell Tab ring and round-trips focus through the popover', async () => {
     const owner = cell(8); // Tue 4 Mar: one visible chip plus the overflow button
-    const chipEl = owner.querySelector<HTMLElement>('[data-event-id="t1"]')!;
-    const more = owner.querySelector<HTMLButtonElement>(
-      '.mlv-scheduler-month__more',
-    )!;
+    const chipEl = chip(owner, 't1');
+    const more = moreButton(8);
     chipEl.focus();
     const tab = key(chipEl, 'Tab');
     expect(tab.defaultPrevented).toBe(true);
@@ -651,11 +703,9 @@ describe('MlvSchedulerMonth', () => {
     more.click();
     fixture.detectChanges();
     await fixture.whenStable();
-    const popover = document.querySelector<HTMLElement>(
-      '.mlv-scheduler-month__popover',
-    )!;
+    const panel = popover();
     expect(document.activeElement).toBe(
-      popover.querySelector('.mlv-scheduler-event'),
+      panel.querySelector('.mlv-scheduler-event'),
     );
 
     // Escape on the focused panel chip: the chip finds no owning grid cell
@@ -670,11 +720,50 @@ describe('MlvSchedulerMonth', () => {
     expect(document.activeElement).toBe(more);
   });
 
-  it('passes axe', async () => {
-    const results = await axe.run(root, {
-      runOnly: { type: 'rule', values: AXE_RULES },
+  describe('axe', () => {
+    // One default-state run over the grid is not coverage: the overflow panel
+    // is portaled OUT of `root` and closed at that point, `aria-selected` only
+    // exists while a selection is live, and `hiddenDays` rebuilds the row into
+    // five columnheaders and five cells. Each of those is its own state.
+    const violations = async (target: Element) =>
+      (
+        await axe.run(target, {
+          runOnly: { type: 'rule', values: AXE_RULES },
+        })
+      ).violations;
+
+    it('passes in the default state', async () => {
+      expect(await violations(root)).toEqual([]);
     });
-    expect(results.violations).toEqual([]);
+
+    it('passes with a range selected', async () => {
+      const c = cell(7);
+      c.focus();
+      key(c, 'ArrowRight', { shiftKey: true });
+      key(c, 'ArrowDown', { shiftKey: true });
+      await fixture.whenStable();
+      expect(
+        root.querySelectorAll('[aria-selected="true"]').length,
+      ).toBeGreaterThan(1);
+      expect(await violations(root)).toEqual([]);
+    });
+
+    it('passes with hidden weekdays', async () => {
+      host.hiddenDays.set([0, 6]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(await violations(root)).toEqual([]);
+    });
+
+    it('passes with the overflow popover open', async () => {
+      moreButton(8).click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(popover()).toBeTruthy();
+      // The panel lives in the CDK overlay container, so the run has to start
+      // above both it and the scheduler root it points `aria-describedby` into.
+      expect(await violations(document.body)).toEqual([]);
+    });
   });
 });
 

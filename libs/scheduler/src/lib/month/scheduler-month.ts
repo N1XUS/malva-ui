@@ -222,6 +222,9 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
         const hidden = (layout.hiddenByDay.get(dayIndex) ?? []).map(
           (segment) => segment.normalized.event,
         );
+        const moreText = this._ctx.translate('moreEvents', {
+          count: hidden.length,
+        });
         cells.push({
           dayIndex,
           date,
@@ -239,11 +242,16 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
               segment.startIndex <= dayIndex && segment.endIndex >= dayIndex,
           ),
           hidden,
-          moreText: this._ctx.translate('moreEvents', { count: hidden.length }),
-          moreLabel: this._ctx.translate('moreEventsLabel', {
+          moreText,
+          // WCAG 2.5.3 Label in Name: the accessible name has to CONTAIN the
+          // visible one, and `moreEventsLabel` ("3 more events on 4 March")
+          // drops the leading "+" of "+3 more", so a speech-input user reading
+          // the button aloud matches nothing. Lead with the visible label and
+          // let the translated string carry the date context after it.
+          moreLabel: `${moreText}, ${this._ctx.translate('moreEventsLabel', {
             count: hidden.length,
             date: label,
-          }),
+          })}`,
         });
       }
       rows.push({ index: row, cells });
@@ -673,6 +681,35 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     handle.overlayRef.overlayElement
       .querySelector<HTMLElement>('.mlv-scheduler-event')
       ?.focus();
+  }
+
+  /**
+   * @protected Keyboard on the `+N more` button, closing the intra-cell ring the
+   * chips already implement (`MlvSchedulerEventChip._tabWithinCell`): the button
+   * is the ring's last stop, so `Shift+Tab` steps back to the cell's last chip
+   * instead of leaving the grid, and `Escape` returns to the owning cell the way
+   * it does from a chip. Plain `Tab` leaves the ring natively, and activation is
+   * the button's own `click`.
+   */
+  protected _onMoreKeydown(event: KeyboardEvent): void {
+    const button = event.currentTarget as HTMLElement;
+    const cellEl = button.closest<HTMLElement>('.mlv-scheduler-month__cell');
+    if (!cellEl) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cellEl.focus();
+      return;
+    }
+    if (event.key !== 'Tab' || !event.shiftKey) return;
+    const chips = cellEl.querySelectorAll<HTMLElement>(
+      '.mlv-scheduler-event:not(.mlv-scheduler-event--ghost)',
+    );
+    const previous = chips[chips.length - 1];
+    // No chip at all: every lane is taken by bars that started on an earlier
+    // day, so the button is the cell's only stop and Shift+Tab leaves natively.
+    if (!previous) return;
+    event.preventDefault();
+    previous.focus();
   }
 
   /** @private Steps `delta` days inside the grid, or navigates when leaving it. */
