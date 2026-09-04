@@ -4,4 +4,7 @@ Project `ng-template[mlvSchedulerHeaderDef]` to replace the default toolbar; the
 `title`, `view`, `range` and the `next()`, `previous()`, `today()` and `setView()` actions. Elements
 from any SortableJS list whose `group.name` equals the scheduler's `dragGroup` can be dropped on a
 cell or time column: nothing is inserted, the element is returned to its list and `externalDrop`
-reports `{ element, start, end, allDay }` so you create the event yourself.
+reports `{ element, start, end, allDay }` so you create the event yourself. Keep the foreign list on
+`pull: true` — a `'clone'` pull leaves a copy behind that the scheduler's hand-back then duplicates.
+External drop is a **pointer** gesture: the backlog items are plain list items with no keyboard
+equivalent, so ship your own keyboard path (a button that calls the same create handler) alongside it.
