@@ -563,17 +563,50 @@ export function resolveMove<D, TData>(
   return { start, end: adapter.addMinutes(start, duration), allDay: false };
 }
 
-/** Resolves an end-edge resize. Lane targets (`minutes === null`) resize by whole days; time targets by minutes. */
+/** Which edge of an event a resize gesture drags. */
+export type MlvSchedulerResizeEdge = 'start' | 'end';
+
+/**
+ * Resolves a resize of one edge. Lane targets (`minutes === null`) resize by whole days; time targets by
+ * minutes. The opposite edge never moves, and the result is clamped so the event keeps at least one snap
+ * step (one day for an all-day bar).
+ */
 export function resolveResize<D, TData>(
   adapter: MlvDateAdapter<D>,
   normalized: MlvSchedulerNormalizedEvent<D, TData>,
   target: { readonly dayIndex: number; readonly minutes: number | null },
   days: readonly D[],
   snapDuration: number,
+  edge: MlvSchedulerResizeEdge = 'end',
 ): MlvSchedulerNextRange<D> {
   const day = adapter.startOfDay(
     days[clampIndex(target.dayIndex, days.length)],
   );
+  if (edge === 'start') {
+    if (normalized.allDay) {
+      let start = day;
+      const maxStart = adapter.addCalendarDays(
+        adapter.startOfDay(normalized.end),
+        -1,
+      );
+      if (adapter.compareDate(start, maxStart) > 0) start = maxStart;
+      return { start, end: normalized.end, allDay: true };
+    }
+    let start =
+      target.minutes === null
+        ? adapter.withTime(
+            day,
+            adapter.getHours(normalized.start),
+            adapter.getMinutes(normalized.start),
+          )
+        : atMinutes(adapter, day, target.minutes);
+    const maxStart = adapter.addMinutes(
+      normalized.end,
+      -Math.max(1, snapDuration),
+    );
+    if (adapter.compareDateTime(start, maxStart) > 0) start = maxStart;
+    return { start, end: normalized.end, allDay: false };
+  }
   if (normalized.allDay) {
     let end = adapter.addCalendarDays(day, 1);
     const minEnd = adapter.addCalendarDays(

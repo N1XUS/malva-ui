@@ -748,4 +748,67 @@ describe('scheduler-layout: move and resize resolution', () => {
     );
     expect(midnightEnd.end).toEqual(d(5));
   });
+
+  it('resizes the start edge, pinning the end and keeping one snap step', () => {
+    const earlier = resolveResize(
+      adapter,
+      n(ev('a', d(2, 9), d(2, 10))),
+      { dayIndex: 2, minutes: 8 * 60 },
+      week,
+      15,
+      'start',
+    );
+    expect(earlier).toEqual({ start: d(2, 8), end: d(2, 10), allDay: false });
+    // Past the end: clamped to `end - snap`, never inverted.
+    const clamped = resolveResize(
+      adapter,
+      n(ev('a', d(2, 9), d(2, 10))),
+      { dayIndex: 2, minutes: 14 * 60 },
+      week,
+      15,
+      'start',
+    );
+    expect(clamped.start).toEqual(d(2, 9, 45));
+    expect(clamped.end).toEqual(d(2, 10));
+  });
+
+  it('resizes the start edge of lane events by day', () => {
+    const allDay = resolveResize(
+      adapter,
+      n(ev('a', d(2), d(5), { allDay: true })),
+      { dayIndex: 0, minutes: null },
+      week,
+      15,
+      'start',
+    );
+    expect(allDay).toEqual({
+      start: new Date(2026, 7, 31),
+      end: d(5),
+      allDay: true,
+    });
+    // A one-day minimum: the start can never reach the exclusive end.
+    const clamped = resolveResize(
+      adapter,
+      n(ev('a', d(2), d(4), { allDay: true })),
+      { dayIndex: 5, minutes: null },
+      week,
+      15,
+      'start',
+    );
+    expect(clamped.start).toEqual(d(3));
+    // A timed lane bar keeps its start time-of-day and only changes the date.
+    const timedLane = resolveResize(
+      adapter,
+      n(ev('b', d(2, 9), d(4, 17))),
+      { dayIndex: 0, minutes: null },
+      week,
+      15,
+      'start',
+    );
+    expect(timedLane).toEqual({
+      start: new Date(2026, 7, 31, 9),
+      end: d(4, 17),
+      allDay: false,
+    });
+  });
 });

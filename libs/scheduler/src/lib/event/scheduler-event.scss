@@ -44,7 +44,7 @@ $tones: (
     align-items: center;
     gap: var(--mlv-spacing-1);
     box-sizing: border-box;
-    min-block-size: var(--mlv-scheduler-event-min-height);
+    min-block-size: var(--mlv-scheduler-event-min-height, 1.25rem);
     padding-block: var(--mlv-spacing-0-5);
     padding-inline: var(--mlv-spacing-2) var(--mlv-spacing-1);
     border-radius: var(--mlv-radius-s);
@@ -83,13 +83,13 @@ $tones: (
     &__time {
       flex: 0 0 auto;
       font-weight: var(--mlv-typography-body-s-weight);
-      opacity: 0.85;
+      color: var(--mlv-text-secondary);
     }
 
     &__title {
       flex: 1 1 auto;
       min-inline-size: 0;
-      font-weight: 600;
+      font-weight: var(--mlv-font-weight-semibold);
     }
 
     &__continuation {
@@ -100,12 +100,37 @@ $tones: (
       transform: scaleX(var(--mlv-inline-direction));
     }
 
+    // One per resizable edge. The strip itself is invisible and stays >= 0.375rem
+    // so it is a comfortable pointer target; the painted grip lives inside it.
     &__resize-handle {
       position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       touch-action: none;
+      z-index: 3;
     }
 
-    // Time axis: stacked, handle on the block-end edge.
+    &__grip {
+      border-radius: var(--mlv-radius-full);
+      background: var(--mlv-scheduler-event-bar);
+      opacity: 0;
+      transition: opacity var(--mlv-duration-fast) var(--mlv-ease-default);
+    }
+
+    &:hover .#{$block}__grip,
+    &:focus-visible .#{$block}__grip {
+      opacity: 1;
+    }
+
+    // Coarse pointers never hover: the affordance has to be permanent there.
+    @media (hover: none) {
+      .#{$block}__grip {
+        opacity: 1;
+      }
+    }
+
+    // Time axis: stacked, handles on the block edges.
     &--timed {
       flex-direction: column;
       align-items: stretch;
@@ -113,19 +138,50 @@ $tones: (
 
       .#{$block}__resize-handle {
         inset-inline: 0;
-        inset-block-end: 0;
         block-size: 0.375rem;
         cursor: ns-resize;
+
+        &--start {
+          inset-block-start: 0;
+        }
+
+        &--end {
+          inset-block-end: 0;
+        }
+      }
+
+      .#{$block}__grip {
+        inline-size: 1.5rem;
+        block-size: 0.25rem;
       }
     }
 
-    // Lanes: single row, handle on the inline-end edge.
+    // Lanes: single row, handles on the inline edges.
     &--all-day {
+      // Pointer preview of a start-edge resize: whole cell widths toward
+      // inline-start, mirrored in RTL.
+      translate: calc(
+          var(--mlv-scheduler-lane-shift, 0px) * var(--mlv-inline-direction)
+        )
+        0;
+
       .#{$block}__resize-handle {
         inset-block: 0;
-        inset-inline-end: 0;
         inline-size: 0.375rem;
         cursor: ew-resize;
+
+        &--start {
+          inset-inline-start: 0;
+        }
+
+        &--end {
+          inset-inline-end: 0;
+        }
+      }
+
+      .#{$block}__grip {
+        inline-size: 0.25rem;
+        block-size: 0.75rem;
       }
     }
 

@@ -8,7 +8,7 @@
 } @if (_ctx.eventDef(); as def) {
 <ng-container *ngTemplateOutlet="def; context: _defContext()" />
 } @else { @if (!normalized().allDay) {
-<span class="mlv-scheduler-event__time">{{ _timeText() }}</span>
+<span class="mlv-scheduler-event__time"><bdi>{{ _timeText() }}</bdi></span>
 }
 <span class="mlv-scheduler-event__title">{{ event().title }}</span>
 } @if (lane() && continuesAfter()) {
@@ -18,10 +18,18 @@
   [size]="12"
   aria-hidden="true"
 ></svg>
-} @if (_resizable()) {
+} @if (_resizable()) { @if (!continuesBefore()) {
 <span
-  class="mlv-scheduler-event__resize-handle"
-  #handle
+  class="mlv-scheduler-event__resize-handle mlv-scheduler-event__resize-handle--start"
+  #startHandle
   aria-hidden="true"
+  ><span class="mlv-scheduler-event__grip"></span
 ></span>
-}
+} @if (!continuesAfter()) {
+<span
+  class="mlv-scheduler-event__resize-handle mlv-scheduler-event__resize-handle--end"
+  #endHandle
+  aria-hidden="true"
+  ><span class="mlv-scheduler-event__grip"></span
+></span>
+} }

@@ -27,6 +27,7 @@ import {
   resolveResize,
   spansMultipleDays,
   type MlvSchedulerNormalizedEvent,
+  type MlvSchedulerResizeEdge,
 } from '../layout/scheduler-layout';
 import { minutesFromOffset } from '../layout/scheduler-time';
 import {
@@ -56,6 +57,7 @@ import type {
     '[attr.role]': '_ghost() ? null : "button"',
     '[attr.tabindex]': '_ghost() ? -1 : tabIndex()',
     '[attr.aria-hidden]': '_ghost() ? "true" : null',
+    '[attr.inert]': '_ghost() ? "" : null',
     '[attr.aria-label]': '_ghost() ? null : _label()',
     '[attr.aria-describedby]':
       '!_ghost() && (_draggable() || _resizable()) ? _ctx.dragHintId : null',
@@ -97,8 +99,11 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
   /** @private Host element: interaction payloads, and geometry / owning cell-column lookups for resize. */
   private readonly _host: HTMLElement = inject(ElementRef<HTMLElement>)
     .nativeElement;
-  /** @private Resize handle; present only while `_resizable()`. */
-  private readonly _handle = viewChild<ElementRef<HTMLElement>>('handle');
+  /** @private Start-edge resize handle; absent while `!_resizable()` or the segment continues before. */
+  private readonly _startHandle =
+    viewChild<ElementRef<HTMLElement>>('startHandle');
+  /** @private End-edge resize handle; absent while `!_resizable()` or the segment continues after. */
+  private readonly _endHandle = viewChild<ElementRef<HTMLElement>>('endHandle');
   /** @private Pointer listeners run outside change detection. */
   private readonly _zone = inject(NgZone);
   /** @private Direction of the chip; lane resize maps pointer travel to days through it. */
@@ -164,12 +169,22 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
 
   constructor() {
     afterRenderEffect((onCleanup) => {
-      const handle = this._handle()?.nativeElement;
-      if (!handle || !this._isBrowser || this._ghost()) return;
+      if (!this._isBrowser || this._ghost()) return;
+      const handles: readonly [
+        HTMLElement | undefined,
+        MlvSchedulerResizeEdge,
+      ][] = [
+        [this._startHandle()?.nativeElement, 'start'],
+        [this._endHandle()?.nativeElement, 'end'],
+      ];
       const detach = this._zone.runOutsideAngular(() =>
-        this._attachResize(handle),
+        handles
+          .filter(([handle]) => !!handle)
+          .map(([handle, edge]) =>
+            this._attachResize(handle as HTMLElement, edge),
+          ),
       );
-      onCleanup(detach);
+      onCleanup(() => detach.forEach((stop) => stop()));
     });
   }
 
@@ -183,7 +198,7 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     kind: MlvSchedulerInteractionKind,
     nativeEvent: MouseEvent,
   ): void {
-    if (this._ghost()) return;
+    if (this._ghost() || this._fromInteractiveDescendant(nativeEvent)) return;
     if (kind === 'click' && this._ctx.claimSuppressedClick()) return;
     this._ctx.emitEventInteraction(kind, {
       event: this.event(),
@@ -192,9 +207,13 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     });
   }
 
-  /** @protected Enter/Space → click; Alt(+Shift)+Arrow → move/resize; Escape → owning cell; Tab → sibling chips. */
+  /**
+   * @protected `Enter` / `Space` activate; `Alt+Arrow` moves; `Alt+Shift+Arrow` resizes the end edge and
+   * `Ctrl+Alt+Arrow` the start edge; `Escape` returns to the owning cell; `Tab` cycles sibling chips.
+   * A key that maps to no gesture here is left to bubble — the grid still owns it.
+   */
   protected _onKeydown(event: KeyboardEvent): void {
-    if (this._ghost()) return;
+    if (this._ghost() || this._fromInteractiveDescendant(event)) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       this._ctx.emitEventInteraction('click', {
@@ -220,26 +239,53 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     if (!event.altKey) return;
     const arrow = this._rtl.normalizeArrowKey(event);
     if (arrow === null) return;
-    const resize = event.shiftKey;
-    if (resize ? !this._resizable() : !this._draggable()) return;
+    // Shift takes precedence, so Ctrl+Alt+Shift+Arrow stays an end-edge resize.
+    const edge: MlvSchedulerResizeEdge | null = event.shiftKey
+      ? 'end'
+      : event.ctrlKey
+        ? 'start'
+        : null;
+    if (edge ? !this._resizable() : !this._draggable()) return;
+    // A timed chip resizes on the block axis only: the horizontal keys mean
+    // nothing here, so they must reach the grid instead of being swallowed.
+    if (edge && !this.lane() && (arrow === LEFT_ARROW || arrow === RIGHT_ARROW))
+      return;
     event.preventDefault();
     event.stopPropagation();
-    const next = resize
-      ? this._keyboardResize(arrow)
+    const next = edge
+      ? this._keyboardResize(arrow, edge)
       : this._keyboardMove(arrow);
     if (!next) return;
     const ctx = this._ctx;
     const normalized = this.normalized();
     ctx.pendingFocus.set({ kind: 'event', id: normalized.event.id });
     const ok = ctx.commitChange(
-      resize ? 'resize' : 'move',
+      edge ? 'resize' : 'move',
       normalized,
       next,
       'keyboard',
     );
-    if (ok && !resize && dayIndexOf(ctx.adapter, ctx.days(), next.start) < 0) {
+    if (ok && !edge && dayIndexOf(ctx.adapter, ctx.days(), next.start) < 0) {
       ctx.goTo(next.start);
     }
+  }
+
+  /**
+   * @private Whether the event came from a focusable descendant of the chip — a control projected by a
+   * consumer's `*mlvSchedulerEventDef`. The chip must not translate that into its own click / move, and
+   * must not `preventDefault()` the control's own keyboard handling.
+   */
+  private _fromInteractiveDescendant(event: Event): boolean {
+    const target = event.target as Element | null;
+    if (!target || target === this._host) return false;
+    const interactive = target.closest(
+      'a[href],button,input,select,textarea,[contenteditable="true"],[tabindex]',
+    );
+    return (
+      !!interactive &&
+      interactive !== this._host &&
+      this._host.contains(interactive)
+    );
   }
 
   /** @private Next range for a keyboard move. Lanes: ←→ ±1 day, ↑↓ ±7 days. Timed: ↑↓ ±snap, ←→ ±1 day. */
@@ -270,28 +316,37 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     };
   }
 
-  /** @private Next range for a keyboard resize of the end edge; `null` when already at the minimum. */
-  private _keyboardResize(arrow: number): MlvSchedulerNextRange<D> | null {
+  /**
+   * @private Next range for a keyboard resize of `edge`; `null` when the step would shrink the event
+   * below one snap step (one day for an all-day bar). The opposite edge never moves.
+   */
+  private _keyboardResize(
+    arrow: number,
+    edge: MlvSchedulerResizeEdge,
+  ): MlvSchedulerNextRange<D> | null {
     const { adapter } = this._ctx;
     const { start, end, allDay } = this.normalized();
-    let nextEnd: D;
-    let minEnd: D;
-    if (this.lane()) {
-      const sign = arrow === RIGHT_ARROW || arrow === DOWN_ARROW ? 1 : -1;
-      nextEnd = allDay
-        ? adapter.addCalendarDays(end, sign)
-        : adapter.shiftDays(end, sign);
-      minEnd = allDay
-        ? adapter.addCalendarDays(adapter.startOfDay(start), 1)
-        : adapter.addMinutes(start, this._ctx.snap());
-    } else {
-      if (arrow === LEFT_ARROW || arrow === RIGHT_ARROW) return null;
-      nextEnd = adapter.addMinutes(
-        end,
-        this._ctx.snap() * (arrow === DOWN_ARROW ? 1 : -1),
-      );
-      minEnd = adapter.addMinutes(start, this._ctx.snap());
+    const sign = arrow === RIGHT_ARROW || arrow === DOWN_ARROW ? 1 : -1;
+    if (edge === 'start') {
+      const nextStart = this.lane()
+        ? allDay
+          ? adapter.addCalendarDays(start, sign)
+          : adapter.shiftDays(start, sign)
+        : adapter.addMinutes(start, this._ctx.snap() * sign);
+      const maxStart = allDay
+        ? adapter.addCalendarDays(adapter.startOfDay(end), -1)
+        : adapter.addMinutes(end, -this._ctx.snap());
+      if (adapter.compareDateTime(nextStart, maxStart) > 0) return null;
+      return { start: nextStart, end, allDay };
     }
+    const nextEnd = this.lane()
+      ? allDay
+        ? adapter.addCalendarDays(end, sign)
+        : adapter.shiftDays(end, sign)
+      : adapter.addMinutes(end, this._ctx.snap() * sign);
+    const minEnd = allDay
+      ? adapter.addCalendarDays(adapter.startOfDay(start), 1)
+      : adapter.addMinutes(start, this._ctx.snap());
     if (adapter.compareDateTime(nextEnd, minEnd) < 0) return null;
     return { start, end: nextEnd, allDay };
   }
@@ -383,12 +438,24 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     }
   }
 
-  /** @private Wires the resize handle: preview through CSS custom properties, commit on release. */
-  private _attachResize(handle: HTMLElement): () => void {
+  /**
+   * @private Wires one resize handle: preview through CSS custom properties, commit on release.
+   * All geometry (the owning column's rect, the cell pitch, the chip's own placement vars) is read
+   * ONCE per gesture in `onStart` — a `getBoundingClientRect()` per `pointermove` is a forced reflow
+   * on the hottest path in the component.
+   */
+  private _attachResize(
+    handle: HTMLElement,
+    edge: MlvSchedulerResizeEdge,
+  ): () => void {
     const host = this._host;
     let restore: (() => void) | null = null;
     let originX = 0;
     let baseSpan = 1;
+    let baseTop = 0;
+    let baseHeight = 0;
+    let columnRect: DOMRect | null = null;
+    let cellWidth = 0;
     let pending: { dayIndex: number; minutes: number | null } | null = null;
 
     return attachPointerDrag(
@@ -400,19 +467,47 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
             '--mlv-scheduler-event-height',
           );
           const span = host.style.getPropertyValue('--mlv-scheduler-span');
+          const shift = host.style.getPropertyValue(
+            '--mlv-scheduler-lane-shift',
+          );
           restore = () => {
             host.style.setProperty('--mlv-scheduler-event-top', top);
             host.style.setProperty('--mlv-scheduler-event-height', height);
             host.style.setProperty('--mlv-scheduler-span', span);
+            host.style.setProperty('--mlv-scheduler-lane-shift', shift);
           };
           originX = origin.x;
           baseSpan = Math.max(1, Number(span) || 1);
+          baseTop = parseFloat(top) || 0;
+          baseHeight = parseFloat(height) || 0;
+          columnRect = this.lane()
+            ? null
+            : (host
+                .closest<HTMLElement>('.mlv-scheduler-time-grid__column')
+                ?.getBoundingClientRect() ?? null);
+          cellWidth = this.lane()
+            ? (host
+                .closest<HTMLElement>('[data-day-index]')
+                ?.getBoundingClientRect().width ?? 0)
+            : 0;
           pending = null;
         },
         onMove: (point) => {
           pending = this.lane()
-            ? this._previewLaneResize(point.x, originX, baseSpan)
-            : this._previewTimedResize(point.y);
+            ? this._previewLaneResize(
+                point.x,
+                originX,
+                baseSpan,
+                cellWidth,
+                edge,
+              )
+            : this._previewTimedResize(
+                point.y,
+                columnRect,
+                baseTop,
+                baseHeight,
+                edge,
+              );
         },
         onEnd: (_point, moved) => {
           if (!moved || !pending) {
@@ -428,6 +523,7 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
               target,
               ctx.days(),
               ctx.snap(),
+              edge,
             );
             const ok = ctx.commitChange(
               'resize',
@@ -439,61 +535,92 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
             ctx.suppressNextClick();
           });
         },
-        onCancel: () => restore?.(),
+        onCancel: () => {
+          restore?.();
+          // The pointer is still down on Escape; its release still fires a click.
+          this._ctx.suppressNextClick();
+        },
       },
       { threshold: 3 },
     );
   }
 
-  /** @private Timed chip: end minute from the pointer's vertical position inside the owning column. */
+  /**
+   * @private Timed chip: the dragged edge's minute from the pointer's vertical position inside the
+   * owning column, previewed by rewriting the chip's placement vars. The opposite edge is pinned to the
+   * placement captured at gesture start, so repeated moves are idempotent.
+   */
   private _previewTimedResize(
     y: number,
+    columnRect: DOMRect | null,
+    baseTop: number,
+    baseHeight: number,
+    edge: MlvSchedulerResizeEdge,
   ): { dayIndex: number; minutes: number } | null {
-    const column = this._host.closest<HTMLElement>(
-      '.mlv-scheduler-time-grid__column',
-    );
-    if (!column) return null;
-    const rect = column.getBoundingClientRect();
+    if (!columnRect) return null;
     const ctx = this._ctx;
     const min = ctx.minMinutes();
     const span = ctx.maxMinutes() - min;
-    const end = minutesFromOffset(
-      y - rect.top,
-      rect.height,
+    const minutes = minutesFromOffset(
+      y - columnRect.top,
+      columnRect.height,
       min,
       ctx.maxMinutes(),
       ctx.snap(),
+      edge,
     );
-    const top =
-      parseFloat(
-        this._host.style.getPropertyValue('--mlv-scheduler-event-top'),
-      ) || 0;
-    const endPct = ((end - min) / span) * 100;
+    const percent = ((minutes - min) / span) * 100;
     const minHeight = (ctx.snap() / span) * 100;
-    this._host.style.setProperty(
-      '--mlv-scheduler-event-height',
-      `${Math.max(minHeight, endPct - top)}%`,
-    );
-    return { dayIndex: this.dayIndex(), minutes: end };
+    if (edge === 'end') {
+      this._host.style.setProperty(
+        '--mlv-scheduler-event-height',
+        `${Math.max(minHeight, percent - baseTop)}%`,
+      );
+    } else {
+      const bottom = baseTop + baseHeight;
+      const top = Math.max(0, Math.min(percent, bottom - minHeight));
+      this._host.style.setProperty('--mlv-scheduler-event-top', `${top}%`);
+      this._host.style.setProperty(
+        '--mlv-scheduler-event-height',
+        `${bottom - top}%`,
+      );
+    }
+    return { dayIndex: this.dayIndex(), minutes };
   }
 
-  /** @private Lane bar: span from the pointer's horizontal travel in whole cell widths (mirrored in RTL). */
+  /**
+   * @private Lane bar: the dragged edge in whole cell widths of pointer travel (mirrored in RTL). The
+   * end edge grows `--mlv-scheduler-span`; the start edge shrinks it and slides the bar by the same
+   * number of cells through `--mlv-scheduler-lane-shift`, because a bar is laid out from its start cell.
+   */
   private _previewLaneResize(
     x: number,
     originX: number,
     baseSpan: number,
+    cellWidth: number,
+    edge: MlvSchedulerResizeEdge,
   ): { dayIndex: number; minutes: null } | null {
-    const cell = this._host.closest<HTMLElement>('[data-day-index]');
-    if (!cell) return null;
-    const cellWidth = cell.getBoundingClientRect().width;
     if (!cellWidth) return null;
-    // physical → logical once: travel toward inline-end grows the bar
+    // physical → logical once: travel toward inline-end is positive
     const travel =
       this._rtl.resolveDirection(this._host) === 'rtl'
         ? originX - x
         : x - originX;
-    const span = Math.max(1, baseSpan + Math.round(travel / cellWidth));
-    this._host.style.setProperty('--mlv-scheduler-span', String(span));
-    return { dayIndex: this.dayIndex() + span - 1, minutes: null };
+    const steps = Math.round(travel / cellWidth);
+    if (edge === 'end') {
+      const span = Math.max(1, baseSpan + steps);
+      this._host.style.setProperty('--mlv-scheduler-span', String(span));
+      return { dayIndex: this.dayIndex() + span - 1, minutes: null };
+    }
+    const shift = Math.max(-this.dayIndex(), Math.min(baseSpan - 1, steps));
+    this._host.style.setProperty(
+      '--mlv-scheduler-span',
+      String(baseSpan - shift),
+    );
+    this._host.style.setProperty(
+      '--mlv-scheduler-lane-shift',
+      `${shift * cellWidth}px`,
+    );
+    return { dayIndex: this.dayIndex() + shift, minutes: null };
   }
 }
