@@ -152,75 +152,124 @@ describe('time-picker.scss — mobile full-screen sheet', () => {
   });
 });
 
-describe('time-picker-column.scss — drum depth is one parameter', () => {
+/*
+ * The drum's own geometry — the derived side-row count, the snap port, the
+ * centre stripe offset and the font-size chain — moved to
+ * `@malva-ui/core/scrubber` with the component (#129) and is asserted by
+ * `libs/core/scrubber/src/lib/scrubber/scrubber-styles.spec.ts`. What stays
+ * this component's business is the alias layer below, which is what makes those
+ * lengths answer to `--mlv-tp-*`.
+ */
+
+// ---------------------------------------------------------------------------
+// `--mlv-tp-*` → `--mlv-scrubber-*` alias layer (#129)
+// ---------------------------------------------------------------------------
+
+/**
+ * The drum itself is now `@malva-ui/core/scrubber`, which declares its own
+ * `--mlv-scrubber-*` prefix. `--mlv-tp-*` is a published surface, so none of
+ * those names may disappear **and no consumer override may break**: the
+ * `<mlv-scrubber>` element declares every published name's twin, so a
+ * `--mlv-tp-*` override anywhere above the strip is inherited into the alias
+ * and reaches the drum.
+ *
+ * The include site is the whole contract. A custom property's `var()`s are
+ * substituted on the element that *declares* it, so aliases on the panel
+ * resolve against the panel's values and freeze there — everything a consumer
+ * writes below is dropped, and a consumer cannot include a Sass mixin to opt
+ * back in. Measured in Chrome with the aliases on `.mlv-time-picker__panel`
+ * and the overrides on `.mlv-time-picker__columns`: `--mlv-tp-font-size: 2rem`
+ * + `--mlv-tp-track-height: 300px` moved the `:` divider (14px → 32px, 180 →
+ * 300) and left the drum beside it at 14px / 180, and
+ * `--mlv-tp-visible-rows: 7` was a no-op in the anchored dropdown.
+ */
+describe('time-picker.scss — scrubber token aliases', () => {
   const css = stripCssLayersFromText(
-    sass.compile(resolve(HERE, '../time-picker-column/time-picker-column.scss'))
-      .css,
+    sass.compile(resolve(HERE, './time-picker.scss')).css,
   );
 
-  const COLUMN = '.mlv-time-picker-column';
+  const PANEL = '.mlv-time-picker__panel';
+  const STRIP = `${PANEL} mlv-scrubber`;
+  const SHEET_COLUMNS =
+    '.mlv-time-picker__panel--sheet .mlv-time-picker__columns';
 
-  it('derives the side rows from the visible-row count', () => {
-    // Before #116 the drum's depth was the literal `5` in the track height and
-    // the literal `2` in three other places. Changing the depth meant finding
-    // all four and keeping them consistent by hand; miss one and the centre
-    // stripe stops lining up with the row that snaps to it.
-    expect(ruleBody(css, COLUMN, 1)).toContain(
-      '--mlv-tp-side-rows: calc((var(--mlv-tp-visible-rows, 5) - 1) / 2)',
-    );
-  });
+  /** Each alias, in the exact form the strip must declare it. */
+  const ALIASES = [
+    ['--mlv-scrubber-visible-rows', 'var(--mlv-tp-visible-rows, 5)'],
+    ['--mlv-scrubber-side-rows', 'var(--mlv-tp-side-rows)'],
+    ['--mlv-scrubber-item-size', 'var(--mlv-tp-item-height, 2.25rem)'],
+    ['--mlv-scrubber-track-size', 'var(--mlv-tp-track-height)'],
+    ['--mlv-scrubber-cross-size', 'var(--mlv-tp-column-width, 3.5rem)'],
+    [
+      '--mlv-scrubber-font-size',
+      'var(--mlv-tp-font-size, var(--mlv-font-size-m))',
+    ],
+  ] as const;
 
-  it('takes the row count as a fallback, never as a declaration here', () => {
-    // A `--mlv-tp-visible-rows: 5` on this element would shadow an ancestor's
-    // override for every descendant. The sheet sets 7 on
-    // `.mlv-time-picker__columns`, so the track — re-declared there — would
-    // have gone to 7 while the stripe and the snap port, read from this
-    // element, stayed at 5. Measured before the fallback form: an 88px stripe
-    // offset (2 rows) against a 7-row track.
-    expect(css).not.toMatch(/--mlv-tp-visible-rows:\s*\d/);
-    expect(css).toContain('var(--mlv-tp-visible-rows, 5)');
-  });
-
-  it.each([
-    ['track height', `${COLUMN}__track`, '--mlv-tp-visible-rows'],
-    ['centre stripe offset', `${COLUMN}__track::before`, '--mlv-tp-side-rows'],
-    ['snap port and list padding', `${COLUMN}__list`, '--mlv-tp-side-rows'],
-  ])('scales the %s from the row count', (_label, selector, token) => {
-    // The default stays 5, so the desktop dropdown is byte-identical; the sheet
-    // sets `--mlv-tp-visible-rows: 7` and all four lengths follow.
-    // `__list` carries `mixins.base`, so its real block is the second one.
-    const nth = selector.endsWith('__list') ? 1 : 0;
-    expect(ruleBody(css, selector, nth)).toContain(token);
-  });
-
-  it('keeps no bare row-count literal behind', () => {
-    // A surviving `* 5` or `* 2` would be a length that silently ignored the
-    // override — the exact failure this parameterisation exists to prevent.
-    const drum = css.slice(css.indexOf(`\n${COLUMN}__track {`));
-    expect(drum).not.toMatch(/--mlv-tp-item-height,\s*2\.25rem\)\s*\*\s*[0-9]/);
-  });
-});
-
-describe('time-picker-column.scss — font size follows the drum token', () => {
-  const css = stripCssLayersFromText(
-    sass.compile(resolve(HERE, '../time-picker-column/time-picker-column.scss'))
-      .css,
-  );
-
-  // Both parts re-stated `--mlv-font-size-m` through `mixins.base`, which
-  // shadowed `--mlv-tp-font-size` for every descendant — so the density ramp's
-  // font size reached nothing and the numerals stayed at `m` at every density.
-  // Loud in the sheet, where the rows grow and the digits do not.
-  it.each([
-    ['.mlv-time-picker-column__list'],
-    ['.mlv-time-picker-column__item'],
-  ])(
-    '%s reads --mlv-tp-font-size with the m token as its fallback',
-    (selector) => {
-      const body = ruleBody(css, selector);
-      expect(body).toContain(
-        'font-size: var(--mlv-tp-font-size, var(--mlv-font-size-m))',
+  it.each(ALIASES)(
+    'maps %s onto the published name, on the strip itself',
+    (alias, source) => {
+      expect(ruleBody(css, STRIP).replace(/\s+/g, ' ')).toContain(
+        `${alias}: ${source}`,
       );
     },
   );
+
+  it('declares the aliases nowhere but the strip', () => {
+    // An alias on any ancestor is not a redundant copy — it is a *shadow* that
+    // wins for its own subtree at the point it resolved, which is what made
+    // `--mlv-tp-visible-rows` a no-op in the anchored dropdown while the sheet
+    // (which happened to re-include the mixin on the element carrying the
+    // overrides) looked fine.
+    const stripBody = ruleBody(css, STRIP);
+    for (const selector of [
+      PANEL,
+      SHEET_COLUMNS,
+      '.mlv-time-picker__columns',
+    ]) {
+      // `mixins.base` splits a selector's block in two, so check every block
+      // the selector opens rather than only the first.
+      let at = -1;
+      for (;;) {
+        at = css.indexOf(`\n${selector} {`, at + 1);
+        if (at === -1) break;
+        const rest = css.slice(at);
+        const body = rest.slice(0, rest.indexOf('}'));
+        expect(
+          body,
+          `\`${selector}\` must not shadow the alias layer`,
+        ).not.toContain('--mlv-scrubber-');
+      }
+    }
+    expect(stripBody).toContain('--mlv-scrubber-');
+  });
+
+  it('keeps every published --mlv-tp-* custom property declared and live', () => {
+    // Renaming a published custom property is consumer-visible; aliasing avoids
+    // it entirely. This is the guard on that promise, and it enumerates all
+    // **nine** — `--mlv-tp-side-rows` included, which an earlier draft of #129
+    // dropped while this list still read eight and therefore stayed green.
+    //
+    // Declared is not enough: a name that nothing reads is vestigial, and the
+    // drum would not move if a consumer set it. So each one must also appear
+    // inside a `var()` somewhere — for the six geometry names that is the alias
+    // layer, for the AM/PM pair the button rules.
+    const PUBLISHED = [
+      '--mlv-tp-item-height',
+      '--mlv-tp-column-width',
+      '--mlv-tp-ampm-width',
+      '--mlv-tp-track-height',
+      '--mlv-tp-font-size',
+      '--mlv-tp-visible-rows',
+      '--mlv-tp-side-rows',
+      '--mlv-tp-ampm-height',
+      '--mlv-tp-ampm-font-size',
+    ];
+    for (const name of PUBLISHED) {
+      expect(css, `\`${name}\` is no longer declared`).toContain(`${name}:`);
+      expect(css, `\`${name}\` is declared but never read`).toContain(
+        `var(${name}`,
+      );
+    }
+  });
 });

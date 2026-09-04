@@ -1,0 +1,12 @@
+## Any item type, and RTL
+
+`items` is `readonly T[]` for any `T`, with `displayWith` supplying the visible
+text — here objects, rendered by `name`. The same string is what
+`@angular/aria`'s type-ahead searches, so typing `s` jumps to September.
+
+The `dir` attribute is the API: a `dir="rtl"` on **any** ancestor flips this
+strip while the rest of the page stays LTR. The CSS mirrors on its own; the
+component converts `scrollLeft` — physical, and negative throughout an RTL
+scroller's range — once at the boundary, and provides a scope-aware
+`Directionality` so aria's ArrowLeft / ArrowRight agree with the scroll maths
+rather than with the document.

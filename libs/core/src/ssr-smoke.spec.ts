@@ -183,6 +183,7 @@ import {
   MlvTiles,
   type MlvTileNodeWithChildren,
 } from '@malva-ui/core/tile';
+import { MlvScrubber } from '@malva-ui/core/scrubber';
 import { MlvTimePicker } from '@malva-ui/core/time-picker';
 import { MlvTimeline, MlvTimelineItem } from '@malva-ui/core/timeline';
 import { MlvTitle } from '@malva-ui/core/title';
@@ -400,6 +401,7 @@ class SsrFormControlsHost {
   imports: [
     MlvCalendar,
     MlvDayPicker,
+    MlvScrubber,
     MlvTimePicker,
     MlvDateRangePicker,
     MlvColorPicker,
@@ -411,6 +413,12 @@ class SsrFormControlsHost {
     <mlv-calendar [(value)]="day" />
     <mlv-day-picker label="Date" [(value)]="day" />
     <mlv-time-picker label="Start" [(value)]="time" />
+    <mlv-scrubber
+      label="Year"
+      orientation="horizontal"
+      [items]="years"
+      [selectedValue]="year()"
+    />
     <mlv-date-range-picker label="Period" />
     <mlv-color-picker [(value)]="colour" />
     <mlv-color-picker-popup label="Brand colour" [(value)]="colour" />
@@ -425,6 +433,8 @@ class SsrFormControlsHost {
 class SsrPickersHost {
   readonly day = signal<Date | null>(null);
   readonly time = signal('09:30');
+  readonly years: readonly number[] = [2026, 2027, 2028];
+  readonly year = signal(2027);
   readonly colour = signal('#3366ff');
   readonly filterOptions: MlvFilterOption<string>[] = [
     { label: 'Open', value: 'open' },

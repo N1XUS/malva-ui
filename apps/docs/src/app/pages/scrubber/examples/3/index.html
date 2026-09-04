@@ -1,0 +1,32 @@
+<div class="demo-col" style="align-items: flex-start; gap: 1rem">
+  <button
+    type="button"
+    mlvButton
+    variant="outlined"
+    (click)="toggleDirection()"
+  >
+    Direction: {{ direction() }}
+  </button>
+
+  <div [attr.dir]="direction()" style="width: 100%">
+    <mlv-scrubber
+      orientation="horizontal"
+      label="Month"
+      [items]="months"
+      [selectedValue]="month()"
+      [displayWith]="monthName"
+      (valueChange)="month.set($event)"
+      style="--mlv-scrubber-item-size: 7rem; --mlv-scrubber-cross-size: 3rem"
+    />
+  </div>
+
+  <p
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+    "
+  >
+    Selected:
+    <strong style="color: var(--mlv-text-primary)">{{ month().name }}</strong>
+  </p>
+</div>

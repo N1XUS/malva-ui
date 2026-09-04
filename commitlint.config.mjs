@@ -64,6 +64,7 @@ export default {
         'radio',
         'rating',
         'scrollbar',
+        'scrubber',
         'search-field',
         'segmented',
         'select',

@@ -1,6 +1,49 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 @use '../../../../../styles/src/lib/density' as density;
 
+/// Maps this component's published `--mlv-tp-*` custom properties onto the
+/// `--mlv-scrubber-*` names `@malva-ui/core/scrubber` reads (#129).
+///
+/// The drum is no longer a time-picker-private component, and the primitive
+/// cannot carry a time-picker prefix — but `--mlv-tp-*` is a published surface,
+/// so none of those names may disappear and no consumer override may break.
+/// Aliasing keeps both true and needs no migration note.
+///
+/// **Include it on `mlv-scrubber` itself, and nowhere else.** A custom
+/// property's `var()`s are substituted on the element that *declares* it, so an
+/// alias declared on an ancestor has already resolved by the time it reaches
+/// the strip: it freezes whatever `--mlv-tp-*` values were visible *there* and
+/// silently drops every override placed further down. Declaring the whole set
+/// on the leaf makes the substitution happen where the strip actually reads it,
+/// so a `--mlv-tp-*` override on the panel, on `.mlv-time-picker__columns`, or
+/// on the `<mlv-scrubber>` element itself is inherited into the alias and
+/// reaches the drum — which is what "no consumer override breaks" has to mean.
+/// A consumer cannot include a Sass mixin, so the include site is the whole
+/// contract.
+///
+/// Measured in Chrome before this moved (aliases on `.mlv-time-picker__panel`,
+/// overrides on `.mlv-time-picker__columns`): `--mlv-tp-font-size: 2rem` +
+/// `--mlv-tp-track-height: 300px` moved the `:` divider (14px → 32px, 180 →
+/// 300) and left the drum at 14px / 180 beside it, and
+/// `--mlv-tp-visible-rows: 7` — the headline knob — was a no-op in the anchored
+/// dropdown.
+@mixin scrubber-token-aliases {
+  // Declared here rather than left derived inside the strip: it is a published
+  // `--mlv-tp-*` name, and it was declared on the drum host (the old
+  // `.mlv-time-picker-column`) before #129, which is this element now. Feeding
+  // it to `--mlv-scrubber-side-rows` below keeps it load-bearing instead of
+  // vestigial — the stripe offset, the snap port and the list padding are all
+  // multiples of it.
+  --mlv-tp-side-rows: calc((var(--mlv-tp-visible-rows, 5) - 1) / 2);
+
+  --mlv-scrubber-visible-rows: var(--mlv-tp-visible-rows, 5);
+  --mlv-scrubber-side-rows: var(--mlv-tp-side-rows);
+  --mlv-scrubber-item-size: var(--mlv-tp-item-height, 2.25rem);
+  --mlv-scrubber-track-size: var(--mlv-tp-track-height);
+  --mlv-scrubber-cross-size: var(--mlv-tp-column-width, 3.5rem);
+  --mlv-scrubber-font-size: var(--mlv-tp-font-size, var(--mlv-font-size-m));
+}
+
 @layer mlv.components {
   $block: mlv-time-picker;
 
@@ -112,7 +155,7 @@
       // declaring `--mlv-tp-visible-rows` on the panel (#142). A literal `5`
       // here left the column's stripe, snap port and padding at 7 rows inside a
       // 5-row track. Not declared as `--mlv-tp-visible-rows: 5` for the same
-      // reason `time-picker-column.scss` gives — it would shadow an ancestor's
+      // reason `scrubber.scss` gives — it would shadow an ancestor's
       // override for the whole subtree.
       --mlv-tp-track-height: calc(
         var(--mlv-tp-item-height) * var(--mlv-tp-visible-rows, 5)
@@ -126,6 +169,16 @@
       // (mlv-dropdown-panel / mlv-menu / mlv-breadcrumb's overflow menu), was
       // a hardcoded 0.5rem (8px) — heavier than the shared 4px convention.
       padding: var(--mlv-popover-inset);
+
+      // The `--mlv-tp-*` → `--mlv-scrubber-*` alias layer, declared on the strip
+      // and not here. Substitution happens on the declaring element, so an alias
+      // on this panel would freeze the panel's own values and drop every
+      // `--mlv-tp-*` override placed between here and the drum — including the
+      // sheet's `--mlv-tp-visible-rows: 7`, and including anything a consumer
+      // writes, who cannot include a Sass mixin. On the leaf it sees them all.
+      mlv-scrubber {
+        @include scrubber-token-aliases;
+      }
 
       @include density.density-tight {
         --mlv-tp-item-height: 1.75rem;
@@ -255,6 +308,13 @@
         // Capped, with the label sized for the box rather than for a drum row.
         --mlv-tp-ampm-height: min(var(--mlv-tp-item-height), 3.5rem);
         --mlv-tp-ampm-font-size: var(--mlv-font-size-l);
+
+        // No alias include here. The whole set is declared on `mlv-scrubber`
+        // (see `__panel` above), which is below this element, so every override
+        // in this block is simply inherited into it — the same route a
+        // consumer's override takes. Re-stating the aliases here was what made
+        // the sheet look like it worked while the anchored dropdown silently did
+        // not.
       }
     }
 
