@@ -506,6 +506,9 @@ describe('MlvRating pointer-listener delegation', () => {
 
     expect(tally['mousemove@mlv-rating'] ?? 0).toBe(1);
     expect(tally['mousemove@button'] ?? 0).toBe(0);
+    // Sanity: the five stars really were rendered, so the zero above is
+    // not zero simply because nothing was created.
+    expect(tally['click@button'] ?? 0).toBe(5);
   });
 
   it('keeps a single mousemove listener as max grows', async () => {
