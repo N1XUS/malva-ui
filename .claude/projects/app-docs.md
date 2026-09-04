@@ -203,6 +203,19 @@ primitive across basic, bordered/hoverable, responsive, Pop In, and density
 variants. Keep it separate from the feature-rich Data Table page so the native
 markup and the data-grid API remain easy to compare.
 
+The Date Adapter page (`/date`, icon `calendar`, label override `Date Adapter`,
+Utilities group) is a prose-only reference for `@malva-ui/core/date` — no
+examples, so `examples` is `[]` and the shell renders the API tab beside the
+narrative. It exists because the API tab is built from a page's library barrel:
+when the adapter moved out of `@malva-ui/core/calendar` in 2026-09 its six
+symbols left `calendar.json` and, with no page mapping to `libs/core/date`, left
+the site entirely. `apiFor()` defaults an unlisted page to
+`{ family: 'core', entry: <page> }`, so the route alone regenerates `date.json`.
+Note that `provideMlvDateAdapter` does not appear on the API tab: the extractor
+classifies classes, interfaces, types, enums and `InjectionToken` variables, not
+plain functions (no `provide*` helper appears in any generated entry), so the
+page documents its signature in prose.
+
 The Scheduler page (`/scheduler`, icon `calendar-days`, API family `scheduler`,
 Data display group) documents the standalone `@malva-ui/scheduler` package in
 seven examples: views + model binding, all-day / multi-day events,

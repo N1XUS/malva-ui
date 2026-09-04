@@ -63,6 +63,12 @@ bootstrapApplication(AppComponent, {
 
 A custom adapter extends `MlvDateAdapter<D>` and implements every abstract member; register it with `provideMlvDateAdapter(MyLuxonAdapter)`.
 
+## Documentation surface
+
+- `.claude/projects/libs-date.md` (this file, symlinked as `libs/core/date/CLAUDE.md`) is what `scripts/generate-ai-docs.mjs` publishes for the `@malva-ui/core/date` entry point.
+- `docs/migrations/2026-09-core-date.md` covers the move out of `@malva-ui/core/calendar` and the six new abstract time-of-day members.
+- The docs site has a **Date Adapter** page (`apps/docs/src/app/pages/date`, route `/date`, Utilities group). It carries the narrative plus the generated API tab: the tab is extracted from a page's library barrel, so without a page mapping to `libs/core/date` these symbols would be absent from the site entirely. `provideMlvDateAdapter` is documented in the page prose because the extractor emits classes, interfaces, types and `InjectionToken`s, not plain functions.
+
 ## Testing
 
 `yarn nx run core-date:test` — `libs/core/date/src/lib/date-adapter.spec.ts` covers the provider helper (including that omitting the `locale` argument leaves an application-provided `MLV_DATE_LOCALE` untouched), `createDate` validation, `isValid`, and (from 2026-09) the time-of-day contract plus its DST behaviour.

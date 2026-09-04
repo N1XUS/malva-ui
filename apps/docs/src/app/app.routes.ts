@@ -265,6 +265,11 @@ export const pageRoutes = [
       import('./pages/day-picker/index').then((m) => m.DayPickerPageComponent),
   },
   {
+    path: 'date',
+    loadComponent: () =>
+      import('./pages/date/index').then((m) => m.DatePageComponent),
+  },
+  {
     path: 'date-range-picker',
     loadComponent: () =>
       import('./pages/date-range-picker/index').then(
@@ -779,6 +784,7 @@ const GROUP_DEFINITIONS = [
     paths: [
       'accessibility',
       'animated-presence',
+      'date',
       'density',
       'infinite-scroll',
       'internationalization',
@@ -796,6 +802,7 @@ const LABEL_OVERRIDES: Partial<Record<DocsPagePath, string>> = {
   'pin-input': 'PIN Input',
   'button-split': 'Split Button',
   'button-toggle': 'Toggle Button',
+  date: 'Date Adapter',
   internationalization: 'Internationalization',
   utils: 'CDK Utilities',
 };
@@ -828,6 +835,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   'copy-to-clipboard': 'clipboard-check',
   'data-table': 'table-2',
   table: 'table-2',
+  date: 'calendar',
   'date-range-picker': 'calendar-days',
   'day-picker': 'calendar-days',
   density: 'scaling',
