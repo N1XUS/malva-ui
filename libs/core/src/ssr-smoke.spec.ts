@@ -64,6 +64,7 @@ import {
   MlvDrawer,
   MlvDrawerBody,
   MlvDrawerContent,
+  MlvDrawerHeader,
   MlvDrawerSection,
   MlvDrawerSections,
   MlvDrawerSectionsService,
@@ -666,6 +667,7 @@ class SsrShellHost {
     MlvScrollbar,
     MlvDrawer,
     MlvDrawerContent,
+    MlvDrawerHeader,
     MlvDrawerBody,
     MlvDialogBody,
     MlvDialogFooter,
@@ -703,6 +705,7 @@ class SsrShellHost {
       ><p>Scrollable content</p></mlv-scrollbar
     >
 
+    <mlv-drawer-header title="Drawer header" />
     <div mlvDrawerBody><p>Drawer body</p></div>
     <mlv-drawer ariaLabel="Filters">
       <ng-template mlvDrawerContent><p>Drawer content</p></ng-template>

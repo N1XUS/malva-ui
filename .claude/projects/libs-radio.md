@@ -74,7 +74,11 @@ host: {
 
 The host is **not** focusable. The single focus target is the visually-hidden
 native `<input type="radio">` (kept in the a11y tree via the clip-path pattern,
-which restores native radio grouping and Space selection). Its `tabindex` is the
+which restores native radio grouping and Space selection). The host is
+`position: relative` so that absolutely positioned input is contained by the
+radio — otherwise, in a drawer or dialog body, it lands in the scrollbar host
+outside the scroll viewport and a click on the label scrolls the
+`overflow: hidden` body to it. Its `tabindex` is the
 roving tabindex (`tabIndex` signal) managed by `MlvRadioGroup`.
 
 #### Key Methods

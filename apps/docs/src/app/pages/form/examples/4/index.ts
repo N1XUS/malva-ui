@@ -20,7 +20,6 @@ import { MlvFieldset, MlvForm } from '@malva-ui/core/form';
 import { MlvInput } from '@malva-ui/core/input';
 import type { MlvSelectOption } from '@malva-ui/core/select';
 import { MlvSelect } from '@malva-ui/core/select';
-import { MlvTitle } from '@malva-ui/core/title';
 
 @Component({
   selector: 'docs-form-overlays-example',
@@ -31,7 +30,6 @@ import { MlvTitle } from '@malva-ui/core/title';
     MlvCheckbox,
     MlvSelect,
     MlvButton,
-    MlvTitle,
     MlvDialogTemplate,
     MlvDialog,
     MlvDialogHeader,

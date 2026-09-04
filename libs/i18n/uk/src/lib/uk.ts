@@ -144,6 +144,7 @@ const uk: MlvLanguage = {
   },
   drawer: {
     drawer: 'Бічна панель',
+    closeDrawer: 'Закрити панель',
   },
   editor: {
     editorLabel: 'Редактор форматованого тексту',

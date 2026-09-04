@@ -107,7 +107,11 @@ host: {
 ```
 
 The host is **not** focusable. The single focus target is the visually-hidden
-native `<input type="checkbox">` (clip-path pattern, kept in the a11y tree). Its
+native `<input type="checkbox">` (clip-path pattern, kept in the a11y tree).
+The host is `position: relative` so that absolutely positioned input is
+contained by the checkbox — otherwise, in a drawer or dialog body, it lands
+in the scrollbar host outside the scroll viewport and a click on the label
+scrolls the `overflow: hidden` body to it. Its
 `tabindex` is `_resolvedTabIndex()` — the roving tabindex (`tabIndex` signal,
 managed by `MlvCheckboxGroup` and updated as focus moves) gated by the
 `tabbable` input.

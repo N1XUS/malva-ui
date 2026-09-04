@@ -3,11 +3,10 @@ import {
   MlvDrawer,
   MlvDrawerContent,
   MlvDrawerHeader,
-  DrawerBodyDirective,
+  MlvDrawerBody,
   MlvDrawerFooter,
 } from '@malva-ui/core/drawer';
 import { MlvButton } from '@malva-ui/core/button';
-import { LucideX } from '@lucide/angular';
 
 @Component({
   selector: 'docs-drawer-bottom-sheet-example',
@@ -16,10 +15,9 @@ import { LucideX } from '@lucide/angular';
     MlvDrawer,
     MlvDrawerContent,
     MlvDrawerHeader,
-    DrawerBodyDirective,
+    MlvDrawerBody,
     MlvDrawerFooter,
     MlvButton,
-    LucideX,
   ],
   templateUrl: './index.html',
 })

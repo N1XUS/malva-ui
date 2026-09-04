@@ -62,22 +62,22 @@ Exported from `libs/core/date-range-picker/src/index.ts`:
 
 Block: `mlv-date-range-picker`
 
-| Class                                  | Description                           |
-| -------------------------------------- | ------------------------------------- |
-| `.mlv-date-range-picker`               | Host element                          |
-| `.mlv-date-range-picker__trigger`      | Clickable trigger button/div          |
-| `.mlv-date-range-picker__value`        | Formatted range text                  |
-| `.mlv-date-range-picker__placeholder`  | Placeholder text when no range        |
-| `.mlv-date-range-picker__separator`    | Arrow between start/end dates         |
-| `.mlv-date-range-picker__trigger-icon` | Calendar icon                         |
-| `.mlv-date-range-picker__panel`        | Popup panel container                 |
-| `.mlv-date-range-picker__calendars`    | Flex row wrapping two calendars       |
-| `.mlv-date-range-picker__divider`      | Vertical divider between calendars    |
-| `.mlv-date-range-picker__footer`       | Clear/Apply action row                |
-| `--open` modifier                      | When popup is open                    |
-| `--disabled` modifier                  | Disabled state                        |
-| `--selecting` modifier                 | After start date chosen, awaiting end |
-| `--state-*` modifiers                  | Validation state border color         |
+| Class                                  | Description                                                                                               |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `.mlv-date-range-picker`               | Host element                                                                                              |
+| `.mlv-date-range-picker__trigger`      | Clickable trigger button/div                                                                              |
+| `.mlv-date-range-picker__value`        | Formatted range text                                                                                      |
+| `.mlv-date-range-picker__placeholder`  | Placeholder text when no range (`--mlv-text-tertiary`, the token `mlv-input` paints `::placeholder` with) |
+| `.mlv-date-range-picker__separator`    | Arrow between start/end dates                                                                             |
+| `.mlv-date-range-picker__trigger-icon` | Calendar icon                                                                                             |
+| `.mlv-date-range-picker__panel`        | Popup panel container                                                                                     |
+| `.mlv-date-range-picker__calendars`    | Flex row wrapping two calendars                                                                           |
+| `.mlv-date-range-picker__divider`      | Vertical divider between calendars                                                                        |
+| `.mlv-date-range-picker__footer`       | Clear/Apply action row                                                                                    |
+| `--open` modifier                      | When popup is open                                                                                        |
+| `--disabled` modifier                  | Disabled state                                                                                            |
+| `--selecting` modifier                 | After start date chosen, awaiting end                                                                     |
+| `--state-*` modifiers                  | Validation state border color                                                                             |
 
 ## Panel month coordination
 

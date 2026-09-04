@@ -1,5 +1,6 @@
 import type { StaticProvider } from '@angular/core';
-import { Injectable, InjectionToken } from '@angular/core';
+import { inject, Injectable, InjectionToken } from '@angular/core';
+import { MLV_DRAWER_I18N } from '@malva-ui/i18n';
 import type {
   OverlayConfig,
   OverlayRef,
@@ -61,6 +62,9 @@ export class MlvDrawerService extends MlvOverlayServiceBase<
   /** @protected Panel enter-animation class for drawers. */
   protected override readonly _enterAnimationClass = 'mlv-drawer--enter';
 
+  /** @private i18n strings — `drawer` is the pane's accessible-name fallback. */
+  private readonly _i18n = inject(MLV_DRAWER_I18N);
+
   /** @protected Anchors the drawer to the configured viewport edge. */
   protected override _buildPositionStrategy(
     config: MlvDrawerConfig,
@@ -102,7 +106,15 @@ export class MlvDrawerService extends MlvOverlayServiceBase<
     ];
   }
 
-  /** @protected Applies drawer shell classes, hidden-transform var, and panel sizing to the overlay pane. */
+  /**
+   * @protected Applies drawer shell classes, hidden-transform var, panel sizing
+   * and the accessible-name fallback to the overlay pane.
+   *
+   * The base service sets `role="dialog"` but no name. The i18n `drawer`
+   * string goes on as `aria-label` so the pane is never nameless; a rendered
+   * `mlv-drawer-header` title replaces it with `aria-labelledby` through
+   * `MlvDrawerRef._labelBy` and hands it back when the title withdraws.
+   */
   protected override _decoratePanel(
     panelEl: HTMLElement,
     config: MlvDrawerConfig,
@@ -112,6 +124,7 @@ export class MlvDrawerService extends MlvOverlayServiceBase<
     const isHorizontal = position === 'left' || position === 'right';
 
     panelEl.classList.add('mlv-drawer', `mlv-drawer--${position}`);
+    panelEl.setAttribute('aria-label', this._i18n().drawer);
     panelEl.style.setProperty(
       '--mlv-drawer-hidden-transform',
       HIDDEN_TRANSFORMS[position],

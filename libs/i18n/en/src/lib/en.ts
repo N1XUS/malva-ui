@@ -141,6 +141,7 @@ const en: MlvLanguage = {
   },
   drawer: {
     drawer: 'Drawer',
+    closeDrawer: 'Close drawer',
   },
   editor: {
     editorLabel: 'Rich text editor',

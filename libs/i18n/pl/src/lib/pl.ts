@@ -144,6 +144,7 @@ const pl: MlvLanguage = {
   },
   drawer: {
     drawer: 'Panel boczny',
+    closeDrawer: 'Zamknij panel',
   },
   editor: {
     editorLabel: 'Edytor tekstu sformatowanego',

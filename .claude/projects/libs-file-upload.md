@@ -35,6 +35,11 @@ Exported from `libs/core/file-upload/src/index.ts`:
 **File:** `libs/core/file-upload/src/lib/file-upload/file-upload.ts`
 **Template:** `libs/core/file-upload/src/lib/file-upload/file-upload.html`
 **Styles:** `libs/core/file-upload/src/lib/file-upload/file-upload.scss`
+— the block is `position: relative` so the visually-hidden native
+`<input type="file">` (`position: absolute`, clip pattern) is contained by
+the component rather than by a positioned ancestor outside a scroll
+viewport (in a drawer / dialog body that is the scrollbar host, and focusing
+the input then scrolls the `overflow: hidden` body to it).
 
 - **Selector:** `mlv-file-upload`
 - **Change Detection:** `OnPush`

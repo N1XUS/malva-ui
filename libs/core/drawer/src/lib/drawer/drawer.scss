@@ -1,179 +1,293 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-drawer;
+  $block: mlv-drawer;
 
-.#{$block} {
-  @include mixins.base();
-  background-color: var(--mlv-elevation-bg-2);
-  box-shadow: var(--mlv-shadow-overlay);
-  color: var(--mlv-text-primary);
-  will-change: transform;
-  display: flex;
-  flex-direction: column;
-
-  // A fixed `size` must never push the panel past the viewport: `size="36rem"`
-  // on a 375 px phone would otherwise render 576 px wide and hang off screen.
-  // MlvDrawer additionally binds inline max-width/max-height (which fold in
-  // `maxSize`) and MlvDrawerService sets the same pair on the pane it decorates;
-  // these rules are the declarative-path floor if either binding is overridden.
-  max-inline-size: 100dvw;
-  max-block-size: 100dvh;
-
-  &__spacer {
-    flex-grow: 1;
-  }
-
-  &__header {
-    display: flex;
-    align-items: center;
-    padding: var(--mlv-padding-l);
-    border-bottom: 0.0625rem solid var(--mlv-border-normal);
-  }
-
-  &__body {
-    flex: 1 1 auto;
+  .#{$block} {
+    @include mixins.base();
+    background-color: var(--mlv-elevation-bg-2);
+    box-shadow: var(--mlv-shadow-overlay);
+    color: var(--mlv-text-primary);
+    will-change: transform;
     display: flex;
     flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-  }
+    // Containing block for the merged bottom-sheet handle (see below).
+    position: relative;
 
-  &__body-scrollbar {
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 0;
-  }
+    // A fixed `size` must never push the panel past the viewport: `size="36rem"`
+    // on a 375 px phone would otherwise render 576 px wide and hang off screen.
+    // MlvDrawer additionally binds inline max-width/max-height (which fold in
+    // `maxSize`) and MlvDrawerService sets the same pair on the pane it decorates;
+    // these rules are the declarative-path floor if either binding is overridden.
+    max-inline-size: 100dvw;
+    max-block-size: 100dvh;
 
-  // Padding lives on the viewport — i.e. *inside* the `overflow-x: hidden`
-  // clip box — so a full-width control's focus ring (a `box-shadow` spread on
-  // the control wrapper) is not cut at the inline edges. Values are the
-  // block/inline halves of `--mlv-padding-l` (the token is a `block inline` pair).
-  &__body-scrollbar > .mlv-scrollbar__viewport {
-    overflow-x: hidden;
-    padding: var(--mlv-spacing-3) var(--mlv-spacing-6);
-  }
-
-  &__footer {
-    padding: var(--mlv-padding-l);
-    flex-shrink: 0;
-    border-top: 0.0625rem solid var(--mlv-border-normal);
-  }
-
-  // ─── Resize Handle ────────────────────────────────────────────────────────
-
-  &__handle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    cursor: ns-resize;
-    user-select: none;
-    touch-action: none;
-    // 48px touch target (WCAG 2.5.8 minimum target size)
-    min-height: 3rem;
-    min-width: 3rem;
-
-    &:focus-visible {
-      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    &__spacer {
+      flex-grow: 1;
     }
-  }
 
-  &__handle-pill {
-    display: block;
-    width: 2rem;
-    height: 0.25rem;
-    border-radius: var(--mlv-radius-xs);
-    background-color: var(--mlv-border-normal);
-    transition: background-color var(--mlv-duration-fast)
-      var(--mlv-ease-default);
-    pointer-events: none;
-  }
+    // ─── Header ───────────────────────────────────────────────────────────────
+    // One 36px control row: `mlv-drawer-header` projects `compact` density to
+    // its content and pins the close at its default, so a projected `mlvButton`,
+    // the section navigator and the close all resolve `--mlv-height-s`. With
+    // `--mlv-padding-l` (12px block) and the 1px border that is a 61px header.
 
-  &__handle:hover &__handle-pill,
-  &__handle:focus-visible &__handle-pill {
-    background-color: var(--mlv-text-tertiary);
-  }
+    &__header {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-2);
+      padding: var(--mlv-padding-l);
+      border-block-end: 0.0625rem solid var(--mlv-border-normal);
+    }
 
-  // Position-specific handle cursor and flex order
-  &--bottom &__handle,
-  &--top &__handle {
-    cursor: ns-resize;
-  }
+    &__title {
+      flex: 0 1 auto;
+      min-inline-size: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: var(--mlv-typography-ui-l-size);
+      font-weight: var(--mlv-typography-ui-l-weight);
+      line-height: var(--mlv-typography-ui-l-line-height);
+      color: var(--mlv-text-primary);
 
-  &--left &__handle,
-  &--right &__handle {
-    cursor: ew-resize;
-    min-height: unset;
-    min-width: 3rem;
-    height: 100%;
-  }
+      // A projected heading takes the row's type: consumers pick its level for
+      // the document outline, not for its size.
+      > :is(h1, h2, h3, h4, h5, h6) {
+        margin: 0;
+        font: inherit;
+        color: inherit;
+      }
 
-  // Handle is at the inward-facing edge; use order to place it correctly
-  &--bottom &__handle {
-    order: -1; // block-start (top of the bottom drawer)
-  }
+      // The projection wrapper renders even when nothing is projected into it;
+      // hidden, it adds no phantom `gap` before the projected content.
+      &:empty {
+        display: none;
+      }
+    }
 
-  &--top &__handle {
-    order: 1; // block-end (bottom of the top drawer)
-  }
+    &__close {
+      flex: none;
+      // Endcap: sits at the inline end even when nothing projected pushes it
+      // there; a projected `mlv-spacer` simply absorbs the same space.
+      margin-inline-start: auto;
 
-  &--right &__handle {
-    order: -1; // inline-start (left side of right drawer)
-    flex-direction: column;
-  }
+      // Optical alignment. The header and the body share one inline padding, so
+      // the close *button box* ends exactly where a full-width field ends — but
+      // the button is a transparent circle and all the eye sees is the X, which
+      // stops well inside the box: (height − glyph) / 2 to the SVG box, plus the
+      // 5/24 of the glyph that Lucide's `x` path leaves blank inside it (the
+      // strokes run 6→18 in a 24 grid, 2 wide). Hang the box out by that much
+      // so the strokes sit on the field edge; the hover halo overshoots into the
+      // padding instead, which has room for it. Declared on the inner button,
+      // the element that owns both tokens, so density / ratio changes follow.
+      > .mlv-button {
+        margin-inline-end: calc(
+          (var(--mlv-icon-font-size) - var(--mlv-btn-height)) /
+            2 - var(--mlv-icon-font-size) * 5 / 24
+        );
+      }
+    }
 
-  &--left &__handle {
-    order: 1; // inline-end (right side of left drawer)
-    flex-direction: column;
-  }
+    &__body {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      // `clip`, not `hidden`: a hidden-overflow box is still a scroll container
+      // that `focus()`, `scrollIntoView()` and `:target` scroll silently. The
+      // viewport inside `[mlvDrawerBody]` is the one and only scroller here; the
+      // body must never be able to move on its own (a focused descendant whose
+      // containing block escaped the viewport once scrolled it ~2000px on a
+      // click, with nothing on screen to show for it).
+      overflow: clip;
+    }
 
-  // Horizontal pill for left/right drawers
-  &--left &__handle-pill,
-  &--right &__handle-pill {
-    width: 0.25rem;
-    height: 2rem;
-  }
+    &__body-scrollbar {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+    }
 
-  // ─── Resizable State ──────────────────────────────────────────────────────
+    // Padding lives on the viewport — i.e. *inside* the `overflow-x: hidden`
+    // clip box — so a full-width control's focus ring (a `box-shadow` spread on
+    // the control wrapper) is not cut at the inline edges. Values are the
+    // block/inline halves of `--mlv-padding-l` (the token is a `block inline` pair).
+    &__body-scrollbar > .mlv-scrollbar__viewport {
+      overflow-x: hidden;
+      padding: var(--mlv-spacing-3) var(--mlv-spacing-6);
+    }
 
-  // Disable all transitions during active pointer drag
-  &--dragging {
-    transition: none !important;
-    will-change: height, width;
-  }
+    &__footer {
+      padding: var(--mlv-padding-l);
+      flex-shrink: 0;
+      border-block-start: 0.0625rem solid var(--mlv-border-normal);
+    }
 
-  // Spring snap animation after drag release
-  &--snapping {
-    @media (prefers-reduced-motion: no-preference) {
+    // ─── Resize Handle ────────────────────────────────────────────────────────
+
+    &__handle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      cursor: ns-resize;
+      user-select: none;
+      touch-action: none;
+      // 48px touch target (WCAG 2.5.8 minimum target size)
+      min-height: 3rem;
+      min-width: 3rem;
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      }
+    }
+
+    &__handle-pill {
+      display: block;
+      width: 2rem;
+      height: 0.25rem;
+      border-radius: var(--mlv-radius-xs);
+      background-color: var(--mlv-border-normal);
+      transition: background-color var(--mlv-duration-fast)
+        var(--mlv-ease-default);
+      pointer-events: none;
+    }
+
+    &__handle:hover &__handle-pill,
+    &__handle:focus-visible &__handle-pill {
+      background-color: var(--mlv-text-tertiary);
+    }
+
+    // Position-specific handle cursor and flex order
+    &--bottom &__handle,
+    &--top &__handle {
+      cursor: ns-resize;
+    }
+
+    // Side drawers: a full-height 48px gutter at the inward edge. The panel is
+    // a flex column, so an in-flow `height: 100%` handle would take a row of
+    // its own and push the header below the panel; the handle is absolute in
+    // a gutter the panel reserves through padding instead. `MlvDrawerPosition`
+    // names a viewport edge (the overlay strategy anchors `.left('0')`), so
+    // the sides here are physical: a left drawer's inward edge is its right
+    // side in either reading direction.
+    &--left &__handle,
+    &--right &__handle {
+      cursor: ew-resize;
+      position: absolute;
+      inset-block: 0;
+      min-height: unset;
+      inline-size: 3rem;
+      flex-direction: column;
+    }
+
+    &--left &__handle {
+      right: 0; // physical: inward edge of a viewport-left panel
+    }
+
+    &--right &__handle {
+      left: 0; // physical: inward edge of a viewport-right panel
+    }
+
+    &--left#{&}--resizable {
+      padding-right: 3rem; // physical: gutter under the handle above
+    }
+
+    &--right#{&}--resizable {
+      padding-left: 3rem; // physical: gutter under the handle above
+    }
+
+    // Handle is at the inward-facing edge; use order to place it correctly
+    &--bottom &__handle {
+      order: -1; // block-start (top of the bottom drawer)
+    }
+
+    &--top &__handle {
+      order: 1; // block-end (bottom of the top drawer)
+    }
+
+    // Horizontal pill for left/right drawers
+    &--left &__handle-pill,
+    &--right &__handle-pill {
+      width: 0.25rem;
+      height: 2rem;
+    }
+
+    // ─── Merged sheet band ────────────────────────────────────────────────────
+    // In a resizable bottom sheet with a header the 48px drag strip overlays the
+    // top of the header instead of stacking a second band above it: 117px of
+    // chrome (48 + 69) becomes one 69px band. The header lifts its content under
+    // the pill and lets its empty space fall through to the handle, so the drag
+    // target keeps its full WCAG 2.5.8 height while the title row's controls
+    // keep their own hit areas. Without a header the handle stays in flow — an
+    // absolute strip would otherwise cover the top of the body.
+
+    &--bottom#{&}--resizable:has(> &__header) &__handle {
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline: 0;
+      block-size: 3rem;
+      // Pill near the top edge of the band, clear of the control row beneath.
+      align-items: flex-start;
+      padding-block-start: var(--mlv-spacing-2);
+    }
+
+    &--bottom#{&}--resizable:has(> &__header) &__header {
+      // Positioned so it paints above the (earlier, absolute) handle.
+      position: relative;
+      padding-block-start: var(--mlv-spacing-5);
+      pointer-events: none;
+    }
+
+    &--bottom#{&}--resizable:has(> &__header) &__header > * {
+      pointer-events: auto;
+    }
+
+    // The title is not interactive; dragging on it resizes the sheet.
+    &--bottom#{&}--resizable:has(> &__header) &__header > &__title {
+      pointer-events: none;
+    }
+
+    // ─── Resizable State ──────────────────────────────────────────────────────
+
+    // Disable all transitions during active pointer drag
+    &--dragging {
+      transition: none !important;
+      will-change: height, width;
+    }
+
+    // Spring snap animation after drag release
+    &--snapping {
+      @media (prefers-reduced-motion: no-preference) {
+        transition:
+          height var(--mlv-drawer-snap-duration, var(--mlv-duration-slow))
+            var(--mlv-drawer-snap-easing, var(--mlv-ease-spring)),
+          width var(--mlv-drawer-snap-duration, var(--mlv-duration-slow))
+            var(--mlv-drawer-snap-easing, var(--mlv-ease-spring));
+      }
+    }
+
+    // ─── Backdrop ─────────────────────────────────────────────────────────────
+
+    &-backdrop {
+      background-color: var(--mlv-background-overlay);
+      opacity: 1;
+      backdrop-filter: blur(0.375rem);
       transition:
-        height var(--mlv-drawer-snap-duration, var(--mlv-duration-slow))
-          var(--mlv-drawer-snap-easing, var(--mlv-ease-spring)),
-        width var(--mlv-drawer-snap-duration, var(--mlv-duration-slow))
-          var(--mlv-drawer-snap-easing, var(--mlv-ease-spring));
+        opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+        backdrop-filter var(--mlv-duration-normal) var(--mlv-ease-out-strong);
+
+      @starting-style {
+        opacity: 0;
+        backdrop-filter: blur(0);
+      }
+
+      &--leaving {
+        opacity: 0;
+        backdrop-filter: blur(0);
+      }
     }
   }
-
-  // ─── Backdrop ─────────────────────────────────────────────────────────────
-
-  &-backdrop {
-    background-color: var(--mlv-background-overlay);
-    opacity: 1;
-    backdrop-filter: blur(0.375rem);
-    transition:
-      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-      backdrop-filter var(--mlv-duration-normal) var(--mlv-ease-out-strong);
-
-    @starting-style {
-      opacity: 0;
-      backdrop-filter: blur(0);
-    }
-
-    &--leaving {
-      opacity: 0;
-      backdrop-filter: blur(0);
-    }
-  }
-}
 }

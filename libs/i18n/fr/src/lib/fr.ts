@@ -143,6 +143,7 @@ const fr: MlvLanguage = {
   },
   drawer: {
     drawer: 'Panneau latéral',
+    closeDrawer: 'Fermer le panneau',
   },
   editor: {
     editorLabel: 'Éditeur de texte enrichi',
