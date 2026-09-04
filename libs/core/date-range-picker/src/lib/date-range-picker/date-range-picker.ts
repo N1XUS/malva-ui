@@ -181,6 +181,17 @@ export class MlvDateRangePicker<D = Date>
   protected readonly _isOpen = signal(false);
 
   /**
+   * @private Month the user navigated the panels to, or `null` to follow the
+   * selection.
+   *
+   * The two panels are locked one month apart and driven from this single
+   * anchor, so navigating either one moves both and the left panel can never
+   * overtake the right. Reset on every open, so the picker always reopens on
+   * the selected range rather than wherever it was left.
+   */
+  private readonly _navigatedAnchor = signal<D | null>(null);
+
+  /**
    * @internal Whether a range selection is in progress (start chosen, awaiting end click).
    */
   protected readonly _isSelecting = computed(
@@ -201,23 +212,40 @@ export class MlvDateRangePicker<D = Date>
    * The initial date for the left (earlier-month) calendar panel.
    * Defaults to today when no range is selected.
    */
-  readonly leftCalendarActiveDate = computed<D>(() => {
-    const pending = this._pendingRange();
-    const val = this.rangeValue();
-    const anchor = pending?.start ?? val?.start ?? null;
-    return anchor ? this._dateAdapter.clone(anchor) : this._dateAdapter.today();
-  });
+  readonly leftCalendarActiveDate = computed<D>(
+    () => {
+      const navigated = this._navigatedAnchor();
+      if (navigated) {
+        return this._dateAdapter.clone(navigated);
+      }
+      const pending = this._pendingRange();
+      const val = this.rangeValue();
+      const anchor = pending?.start ?? val?.start ?? null;
+      return anchor
+        ? this._dateAdapter.clone(anchor)
+        : this._dateAdapter.today();
+    },
+    // Month-level equality, so the panels are re-bound only when the month
+    // they show actually changes. `activeDate` is both the visible month and
+    // the focused cell: this computed allocates a fresh date on every range
+    // change, and without this every keystroke would re-bind `[activeDate]`
+    // and drag each panel's focus ring back onto the range start.
+    { equal: (a, b) => this._sameMonth(a, b) },
+  );
 
   /**
    * The initial date for the right (later-month) calendar panel.
    * Always one month ahead of the left panel's month.
    */
-  readonly rightCalendarActiveDate = computed<D>(() => {
-    return this._dateAdapter.addCalendarMonths(
-      this.leftCalendarActiveDate(),
-      1,
-    );
-  });
+  readonly rightCalendarActiveDate = computed<D>(
+    () => {
+      return this._dateAdapter.addCalendarMonths(
+        this.leftCalendarActiveDate(),
+        1,
+      );
+    },
+    { equal: (a, b) => this._sameMonth(a, b) },
+  );
 
   /**
    * The formatted start date display string.
@@ -258,6 +286,59 @@ export class MlvDateRangePicker<D = Date>
   );
 
   /**
+   * @private Whether two dates fall in the same calendar month.
+   */
+  private _sameMonth(a: D, b: D): boolean {
+    return (
+      this._dateAdapter.getYear(a) === this._dateAdapter.getYear(b) &&
+      this._dateAdapter.getMonth(a) === this._dateAdapter.getMonth(b)
+    );
+  }
+
+  /**
+   * @private First day of the month `date` falls in.
+   *
+   * The anchor is always a first-of-month, so `addCalendarMonths` can never
+   * clamp it: the round trip the right panel performs (`-1` on the way in,
+   * `+1` on the way out) is exact only because day 1 exists in every month.
+   * Anchoring on a raw `activeDate` instead loses days -- 31 Oct goes to
+   * 30 Sep and comes back as 30 Oct, and 31 Mar comes back as 28 Mar.
+   */
+  private _startOfMonth(date: D): D {
+    return this._dateAdapter.createDate(
+      this._dateAdapter.getYear(date),
+      this._dateAdapter.getMonth(date),
+      1,
+    );
+  }
+
+  /**
+   * @protected Records navigation from the left panel.
+   *
+   * `activeDate` is both the focused cell and the visible month, and
+   * `followSelection` gates only the two constructor effects -- `selectDate`
+   * and every keyboard handler still write it. So a change that stays inside
+   * the month the panel already shows is a day-level move (a click, an arrow
+   * key) and must not touch the anchor: re-binding would drag the focus ring
+   * back. Only a change of month is navigation.
+   */
+  protected _onLeftActiveDateChange(date: D): void {
+    if (this._sameMonth(date, this.leftCalendarActiveDate())) return;
+    this._navigatedAnchor.set(this._startOfMonth(date));
+  }
+
+  /**
+   * @protected Records navigation from the right panel, which sits one month
+   * ahead of the anchor. Same month-level guard as the left panel.
+   */
+  protected _onRightActiveDateChange(date: D): void {
+    if (this._sameMonth(date, this.rightCalendarActiveDate())) return;
+    this._navigatedAnchor.set(
+      this._dateAdapter.addCalendarMonths(this._startOfMonth(date), -1),
+    );
+  }
+
+  /**
    * Toggles the popup open/closed.
    * No-op when the picker is disabled.
    */
@@ -270,6 +351,7 @@ export class MlvDateRangePicker<D = Date>
       // Initialize pending range from committed value when opening
       const val = this.rangeValue();
       this._pendingRange.set(val ? { start: val.start, end: val.end } : null);
+      this._navigatedAnchor.set(null);
       this._isOpen.set(true);
     }
   }
