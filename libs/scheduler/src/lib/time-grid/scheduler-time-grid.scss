@@ -38,11 +38,15 @@ $block: mlv-scheduler-time-grid;
       min-inline-size: 100%;
       inline-size: max-content;
       max-inline-size: none;
-      // Vertical scroll and pinch-zoom stay native; a horizontal drag is a
-      // range-selection gesture, so it must not also pan the sheet.
-      touch-action: pan-y pinch-zoom;
+      // Native panning on BOTH axes: the week sheet is wider than the
+      // scroller on any narrow screen, so `pan-y` alone made the hidden days
+      // unreachable by touch — a horizontal swipe became a range-selection
+      // instead of a pan. Touch gestures now arm on a short press instead of
+      // on movement (`touchDelay`), so a swipe still pans and a press-then-
+      // drag still selects.
+      touch-action: pan-x pan-y pinch-zoom;
       // A range-drag crosses the hour gutter, the day headers and the "All day"
-      // rowheader, so without this the browser starts a native text selection
+      // label, so without this the browser starts a native text selection
       // and smears a highlight over the `--mlv-background-selected` paint.
       // The selection must be suppressed before pointerdown — flipping it once
       // the drag threshold is crossed comes too late to stop a selection the
@@ -140,6 +144,15 @@ $block: mlv-scheduler-time-grid;
 
       &--selected {
         background: var(--mlv-background-selected);
+
+        // `--mlv-background-selected` IS `--mlv-background-accent-1-pale` in
+        // both themes — exactly what `--today` paints — so a selection over
+        // today would repaint the identical colour and show nothing at all.
+        // A second channel that does not depend on the fill carries the state.
+        // Not `--mlv-border-focus`: the cell already paints an inset focus ring
+        // in that colour, and the two must stay tellable apart.
+        box-shadow: inset 0 0 0 var(--mlv-stroke-width-medium)
+          var(--mlv-background-accent-1);
       }
     }
 
@@ -160,9 +173,18 @@ $block: mlv-scheduler-time-grid;
       min-inline-size: 0;
 
       &--spanning {
+        // A bar lives in its start cell and stretches across the neighbours, so
+        // its length is `span` cell PITCHES — but `100%` is the `__all-day-lanes`
+        // box, which is one pitch minus the cell's two inline paddings and its
+        // inline-start border. Each crossed boundary has to add that gap back;
+        // counting only the border left a 3-cell bar 16px short of its last
+        // cell. The two terms MUST stay the `&__all-day-cell` `padding` and
+        // `border-inline-start` above — the spec asserts they match. Same
+        // formula as the month view's `__event--spanning`.
         inline-size: calc(
-          100% * var(--mlv-scheduler-span, 1) + var(--mlv-stroke-width) *
-            (var(--mlv-scheduler-span, 1) - 1)
+          100% * var(--mlv-scheduler-span, 1) +
+            (var(--mlv-scheduler-span, 1) - 1) *
+            (2 * var(--mlv-spacing-1) + var(--mlv-stroke-width))
         );
         z-index: 2;
       }
@@ -191,11 +213,6 @@ $block: mlv-scheduler-time-grid;
 
     &__column {
       position: relative;
-      display: grid;
-      grid-template-rows: repeat(
-        var(--mlv-scheduler-slot-count, 48),
-        var(--mlv-scheduler-slot-height)
-      );
       min-inline-size: 0;
       border-inline-start: var(--mlv-stroke-width) solid
         var(--mlv-border-subtle);
@@ -209,10 +226,17 @@ $block: mlv-scheduler-time-grid;
       }
     }
 
+    &__slots {
+      display: grid;
+      grid-template-rows: repeat(
+        var(--mlv-scheduler-slot-count, 48),
+        var(--mlv-scheduler-slot-height)
+      );
+    }
+
     &__slot {
       box-sizing: border-box;
       border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
-      background: var(--mlv-background-sunken);
       transition: background-color var(--mlv-duration-fast)
         var(--mlv-ease-default);
 
@@ -221,8 +245,17 @@ $block: mlv-scheduler-time-grid;
           var(--mlv-border-normal);
       }
 
-      &--business {
-        background: transparent;
+      // Shading marks the hours OUTSIDE `businessHours`, so the modifier only
+      // exists when a window does — with the input unset (the documented
+      // default, "no shading") the whole grid keeps the base surface and the
+      // today column's tint stays visible.
+      &--outside-business {
+        background: var(--mlv-background-sunken);
+        // `--mlv-background-sunken` and `--mlv-border-subtle` resolve to the
+        // SAME palette step in the light theme, so the row separators vanish
+        // inside the shaded band. The next step up keeps the row rhythm
+        // readable against the tint in every theme.
+        border-block-end-color: var(--mlv-border-normal);
       }
 
       &--selected {

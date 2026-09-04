@@ -5,7 +5,6 @@ import {
   NgZone,
   PLATFORM_ID,
   ViewEncapsulation,
-  afterNextRender,
   afterRenderEffect,
   computed,
   inject,
@@ -22,7 +21,10 @@ import {
 } from '@angular/cdk/keycodes';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
-import { attachPointerDrag } from '../drag/scheduler-pointer';
+import {
+  TOUCH_GESTURE_DELAY,
+  attachPointerDrag,
+} from '../drag/scheduler-pointer';
 import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
 import { MlvSchedulerDropList } from '../drag/scheduler-drop-list';
 import { MlvSchedulerEventChip } from '../event/scheduler-event';
@@ -54,14 +56,24 @@ import {
 } from '../scheduler/scheduler-context';
 import type { MlvSchedulerRangeSelectEvent } from '../scheduler/scheduler.types';
 
-/** Pixel offset that puts `minutes` at the top of the viewport. */
+/**
+ * Pixel offset that puts `minutes` at the top of the viewport.
+ *
+ * @param headroomPx Pixels of the preceding row to keep visible, so the hour
+ *   label — which straddles its line — is not cut in half by the sticky header.
+ *   Defaults to `0`; the result is still clamped at `0`.
+ */
 export function scrollOffsetFor(
   minutes: number,
   minMinutes: number,
   slotDuration: number,
   slotHeightPx: number,
+  headroomPx = 0,
 ): number {
-  return Math.max(0, ((minutes - minMinutes) / slotDuration) * slotHeightPx);
+  return Math.max(
+    0,
+    ((minutes - minMinutes) / slotDuration) * slotHeightPx - headroomPx,
+  );
 }
 
 /**
@@ -81,14 +93,19 @@ interface MlvSchedulerBusinessWindow {
   readonly end: number;
 }
 
+/** Shared empty result for the per-day segment lookups — avoids a fresh array per template read. */
+const EMPTY: readonly never[] = [];
+
 interface MlvSchedulerSlot {
   readonly minutes: number;
   readonly label: string;
-  readonly business: boolean;
+  /** `true` only when a business window exists AND this slot falls outside it. */
+  readonly outsideBusiness: boolean;
   readonly hour: boolean;
 }
 
-interface MlvSchedulerTimeColumn<D, TData> {
+/** Static per-day scaffolding; chips are looked up separately (see `_segmentsByDay`). */
+interface MlvSchedulerTimeColumn<D> {
   readonly dayIndex: number;
   readonly date: D;
   readonly label: string;
@@ -96,18 +113,16 @@ interface MlvSchedulerTimeColumn<D, TData> {
   readonly dayNumber: string;
   readonly today: boolean;
   readonly slots: readonly MlvSchedulerSlot[];
-  readonly segments: readonly MlvSchedulerClusteredSegment<D, TData>[];
-  /** All-day lane segments starting on this day. */
-  readonly laneSegments: readonly MlvSchedulerLaneSegment<D, TData>[];
 }
 
-/** Focus position inside the grid: `minutes === null` is the all-day row. */
-interface MlvSchedulerGridFocus {
-  readonly dayIndex: number;
-  readonly minutes: number | null;
-}
-
-/** @internal Position of a grid cell: a day and a slot start, or `null` minutes for the all-day row. */
+/**
+ * Position of one grid cell: a visible-day index plus the slot's start minute,
+ * or `null` minutes for that day's all-day cell.
+ *
+ * One type for both roles the view needs it in — the roving tab stop and the
+ * range-selection anchor/head — so the two can never drift apart, and one
+ * decoder (`_positionOf`) reads it off an element for every code path.
+ */
 interface MlvSchedulerGridPos {
   readonly dayIndex: number;
   readonly minutes: number | null;
@@ -166,9 +181,26 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       this._ctx.slotDuration(),
     ),
   );
-  /** @protected Visible span in minutes. */
+  /**
+   * @protected Minutes actually covered by the RENDERED rows — `slotCount ×
+   * slotDuration`, not `maxMinutes − minMinutes`.
+   *
+   * A column is `slotCount` rows tall and `slotCount` is a `ceil()`, so a
+   * window whose span is not a whole number of slots (`08:00`–`17:30` at
+   * `slotDuration: 60` → 10 rows = 600 min for a 570-minute span) paints one
+   * row more than it names. Every percentage the view emits — chip top/height,
+   * hour-label offsets, the now-line — resolves against that painted box, so
+   * they must all divide by this, or everything drifts downward in proportion
+   * to its offset and the hour labels leave the lines they annotate.
+   */
   protected readonly _spanMinutes = computed(
-    () => this._ctx.maxMinutes() - this._ctx.minMinutes(),
+    () => this._slotCount() * this._ctx.slotDuration(),
+  );
+  /** @private Start minute of the last rendered slot row. */
+  private readonly _lastSlotMinutes = computed(
+    () =>
+      this._ctx.minMinutes() +
+      (this._slotCount() - 1) * this._ctx.slotDuration(),
   );
   /** @protected Grid accessible name. */
   protected readonly _gridLabel = computed(() => {
@@ -181,10 +213,11 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     return this._ctx.translate('gridLabel', { view: range.view, period });
   });
 
-  /** @protected Hour labels for the gutter, with their block offset in percent. */
+  /** @protected Hour labels for the gutter, with their block offset in percent of the rendered span. */
   protected readonly _hours = computed(() => {
     const min = this._ctx.minMinutes();
     const max = this._ctx.maxMinutes();
+    const span = this._spanMinutes();
     const day = this._ctx.days()[0];
     const hours: { minutes: number; label: string; offset: number }[] = [];
     if (!day) return hours;
@@ -195,7 +228,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
           this._ctx.adapter.withTime(day, minutes / 60, 0),
           { hour: 'numeric' },
         ),
-        offset: ((minutes - min) / (max - min)) * 100,
+        offset: ((minutes - min) / span) * 100,
       });
     }
     return hours;
@@ -235,80 +268,135 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     Math.max(1, this._allDayLayout().laneCount),
   );
 
-  /** @protected One entry per visible day. */
-  protected readonly _columns = computed<MlvSchedulerTimeColumn<D, TData>[]>(
-    () => {
-      const adapter = this._ctx.adapter;
-      const days = this._ctx.days();
-      const min = this._ctx.minMinutes();
-      const max = this._ctx.maxMinutes();
-      const slotDuration = this._ctx.slotDuration();
-      const window = this._businessWindow();
-      const today = this._ctx.today();
-      const weekdays = adapter.getDayOfWeekNames('short');
-      const clustered = clusterColumns(
-        sliceColumns(adapter, this._events(), days, min, max),
-      );
-      const lanes = this._allDayLayout().visible;
-      return days.map((date, dayIndex) => {
-        const dayOfWeek = adapter.getDayOfWeek(date);
-        const dateLabel = adapter.getDateLabel(date);
-        const isToday = adapter.sameDate(date, today);
-        const slots: MlvSchedulerSlot[] = [];
-        for (let minutes = min; minutes < max; minutes += slotDuration) {
-          slots.push({
-            minutes,
-            label: this._ctx.translate('slotLabel', {
-              date: dateLabel,
-              time: this._ctx.formatTime(
-                adapter.withTime(date, Math.floor(minutes / 60), minutes % 60),
-              ),
-            }),
-            business:
-              !!window &&
+  /**
+   * @protected One entry per visible day: the STATIC scaffolding only —
+   * headers, labels and the slot grid.
+   *
+   * Deliberately free of `_events()`. Chip layout lives in `_segmentsByDay` /
+   * `_lanesByDay` below, so a drag preview (which rewrites the event list on
+   * every snapped step) re-slices the events without also rebuilding every
+   * slot's `Intl` + ICU label — `days × slots` of them, 336 at the default
+   * week / 30-minute grid.
+   */
+  protected readonly _columns = computed<MlvSchedulerTimeColumn<D>[]>(() => {
+    const adapter = this._ctx.adapter;
+    const days = this._ctx.days();
+    const min = this._ctx.minMinutes();
+    const max = this._ctx.maxMinutes();
+    const slotDuration = this._ctx.slotDuration();
+    const window = this._businessWindow();
+    const today = this._ctx.today();
+    const weekdays = adapter.getDayOfWeekNames('short');
+    return days.map((date, dayIndex) => {
+      const dayOfWeek = adapter.getDayOfWeek(date);
+      const dateLabel = adapter.getDateLabel(date);
+      const isToday = adapter.sameDate(date, today);
+      const slots: MlvSchedulerSlot[] = [];
+      for (let minutes = min; minutes < max; minutes += slotDuration) {
+        slots.push({
+          minutes,
+          label: this._ctx.translate('slotLabel', {
+            date: dateLabel,
+            time: this._ctx.formatTime(
+              adapter.withTime(date, Math.floor(minutes / 60), minutes % 60),
+            ),
+          }),
+          // Shading marks the hours OUTSIDE the window, so it can only exist
+          // when there is a window: with `businessHours` unset (the documented
+          // default, "no shading") every slot would otherwise be "not business"
+          // and the whole grid would paint as out-of-hours.
+          outsideBusiness:
+            !!window &&
+            !(
               window.days.includes(dayOfWeek) &&
               minutes >= window.start &&
-              minutes < window.end,
-            hour: minutes % 60 === 0,
-          });
-        }
-        return {
-          dayIndex,
-          date,
-          label: isToday
-            ? this._ctx.translate('dayLabelToday', { date: dateLabel })
-            : dateLabel,
-          weekday: weekdays[dayOfWeek],
-          dayNumber: adapter.getDayOfMonthLabel(date),
-          today: isToday,
-          slots,
-          segments: clustered.filter(
-            (segment) => segment.dayIndex === dayIndex,
-          ),
-          laneSegments: lanes.filter(
-            (segment) => segment.startIndex === dayIndex,
-          ),
-        };
-      });
-    },
-  );
+              minutes < window.end
+            ),
+          hour: minutes % 60 === 0,
+        });
+      }
+      return {
+        dayIndex,
+        date,
+        label: isToday
+          ? this._ctx.translate('dayLabelToday', { date: dateLabel })
+          : dateLabel,
+        weekday: weekdays[dayOfWeek],
+        dayNumber: adapter.getDayOfMonthLabel(date),
+        today: isToday,
+        slots,
+      };
+    });
+  });
 
-  /** @protected Now-line offset in percent, `null` when hidden. */
+  /** @private Timed chip segments of each visible day, keyed by day index. */
+  private readonly _segmentsByDay = computed(() => {
+    const byDay = new Map<number, MlvSchedulerClusteredSegment<D, TData>[]>();
+    for (const segment of clusterColumns(
+      sliceColumns(
+        this._ctx.adapter,
+        this._events(),
+        this._ctx.days(),
+        this._ctx.minMinutes(),
+        this._ctx.maxMinutes(),
+      ),
+    )) {
+      const bucket = byDay.get(segment.dayIndex);
+      if (bucket) bucket.push(segment);
+      else byDay.set(segment.dayIndex, [segment]);
+    }
+    return byDay;
+  });
+
+  /** @private All-day lane segments STARTING on each visible day, keyed by day index. */
+  private readonly _lanesByDay = computed(() => {
+    const byDay = new Map<number, MlvSchedulerLaneSegment<D, TData>[]>();
+    for (const segment of this._allDayLayout().visible) {
+      const bucket = byDay.get(segment.startIndex);
+      if (bucket) bucket.push(segment);
+      else byDay.set(segment.startIndex, [segment]);
+    }
+    return byDay;
+  });
+
+  /** @protected Timed chip segments of one day; `[]` when the day has none. */
+  protected _segmentsOf(
+    dayIndex: number,
+  ): readonly MlvSchedulerClusteredSegment<D, TData>[] {
+    return this._segmentsByDay().get(dayIndex) ?? EMPTY;
+  }
+
+  /** @protected All-day lane segments starting on one day; `[]` when it has none. */
+  protected _lanesOf(
+    dayIndex: number,
+  ): readonly MlvSchedulerLaneSegment<D, TData>[] {
+    return this._lanesByDay().get(dayIndex) ?? EMPTY;
+  }
+
+  /** @protected Now-line offset in percent of the rendered span, `null` when hidden. */
   protected readonly _nowOffset = computed(() => {
     if (!this._ctx.showCurrentTime()) return null;
     const minutes = this._ctx.nowMinutes();
     const min = this._ctx.minMinutes();
-    const max = this._ctx.maxMinutes();
-    if (minutes < min || minutes > max) return null;
-    return ((minutes - min) / (max - min)) * 100;
+    if (minutes < min || minutes > this._ctx.maxMinutes()) return null;
+    return ((minutes - min) / this._spanMinutes()) * 100;
   });
 
-  /** @private Today if visible else the first day; slot = the initial scroll time. */
-  private readonly _defaultFocus = computed<MlvSchedulerGridFocus>(() => {
-    const todayIndex = dayIndexOf(
-      this._ctx.adapter,
-      this._ctx.days(),
-      this._ctx.today(),
+  /**
+   * @private Today if visible else the first day; slot = the initial scroll time.
+   *
+   * `today()` is read `untracked`: it is the wall clock, so it changes identity
+   * on every minute tick, and tracking it here would re-run the `_focus`
+   * `linkedSignal` computation once a minute and throw away the cell the user
+   * had roved to — while DOM focus stayed put, leaving the grid with its only
+   * `tabindex="0"` somewhere else. The default is a starting position, not a
+   * live one; it is recomputed when the visible days change, which is what a
+   * date rollover produces anyway.
+   */
+  private readonly _defaultFocus = computed<MlvSchedulerGridPos>(() => {
+    const days = this._ctx.days();
+    const todayIndex = untracked(() =>
+      dayIndexOf(this._ctx.adapter, days, this._ctx.today()),
     );
     return {
       dayIndex: Math.max(0, todayIndex),
@@ -316,7 +404,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     };
   });
   /** @protected The one cell with `tabindex="0"`; resets when days or hours change. */
-  protected readonly _focus = linkedSignal<MlvSchedulerGridFocus>(() => {
+  protected readonly _focus = linkedSignal<MlvSchedulerGridPos>(() => {
     this._ctx.days();
     this._ctx.minMinutes();
     return this._defaultFocus();
@@ -347,36 +435,63 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     };
   });
 
-  /** @internal Whether a cell is inside the selection. Called from the template per cell. */
+  /**
+   * @internal Whether a cell is inside the selection. Called from the template per cell.
+   *
+   * The paint is CONTINUOUS, matching the interval `_selectionRange()` emits:
+   * the first day runs from its start minute to the end of the day, the middle
+   * days are filled, and the last day runs up to its end minute. Painting the
+   * bounding rectangle instead would show a gap the committed range does not
+   * have (a Mon 09:00 → Wed 10:00 drag would leave Monday 10:30–24:00 and
+   * Wednesday 00:00–08:30 unpainted although both are inside the range).
+   */
   protected _isSelected(dayIndex: number, minutes: number | null): boolean {
     const b = this._selectedBounds();
     if (!b || dayIndex < b.dayFrom || dayIndex > b.dayTo) return false;
     if (b.allDay) return minutes === null;
-    return minutes !== null && minutes >= b.from && minutes <= b.to;
+    if (minutes === null) return false;
+    return (
+      (dayIndex > b.dayFrom || minutes >= b.from) &&
+      (dayIndex < b.dayTo || minutes <= b.to)
+    );
   }
 
   /** @private Timestamp until which a `click` on a cell is ignored (the click that trails a drag-select). */
   private _ignoreClicksUntil = 0;
 
+  /** @private Swallows the synthetic `click` the browser fires when the pointer is released after a drag. */
+  private _suppressNextClick(): void {
+    this._ignoreClicksUntil = performance.now() + 300;
+  }
+
   /** @private Cell under the pointer at pointerdown; becomes the anchor once the drag threshold is crossed. */
   private _pendingAnchor: MlvSchedulerGridPos | null = null;
 
-  /** @private Reads the cell position off an event target. */
-  private _posOf(target: EventTarget | null): MlvSchedulerGridPos | null {
+  /** @private Cell position of the nearest cell ancestor of an event target, or `null` outside every cell. */
+  private _positionAt(target: EventTarget | null): MlvSchedulerGridPos | null {
     const cell = (target as Element | null)?.closest<HTMLElement>(
       '[data-day-index][data-minutes]',
     );
-    if (!cell) return null;
-    const minutes =
-      cell.dataset['minutes'] === 'all-day'
-        ? null
-        : Number(cell.dataset['minutes']);
-    return { dayIndex: Number(cell.dataset['dayIndex']), minutes };
+    return cell ? this._positionOf(cell) : null;
   }
 
-  /** @internal Remembers the pressed cell for the range-select tracker. */
+  /**
+   * @internal Remembers the pressed cell for the range-select tracker, and
+   * abandons a pending selection when the press lands outside it.
+   *
+   * Same rule as plain keyboard navigation: the range is anchored on the cell
+   * it was started from, so a press elsewhere means the user has moved on and a
+   * later `Enter` must activate what they pressed, not commit a stale range.
+   */
   protected _onSheetPointerDown(event: Event): void {
-    this._pendingAnchor = this._posOf(event.target);
+    const pos = this._positionAt(event.target);
+    this._pendingAnchor = pos;
+    if (
+      this._selection() &&
+      !(pos && this._isSelected(pos.dayIndex, pos.minutes))
+    ) {
+      this._selection.set(null);
+    }
   }
 
   /**
@@ -450,7 +565,16 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
           request.minutes === null ? null : this._snapToSlot(request.minutes);
         element = findCellElement(this._host, dayIndex, minutes);
       }
-      if (!element) return;
+      if (!element) {
+        // Drop a request this pass could not place instead of leaving it armed.
+        // Every producer writes it in the same tick as the state that renders
+        // the target — `_jump` sets it beside its `goTo`, the chip beside its
+        // `commitChange` — so one pass is all a satisfiable request needs. A
+        // request that missed cannot be satisfied later either, and leaving it
+        // set would hand the focus to whatever chip next claims that id.
+        untracked(() => this._ctx.pendingFocus.set(null));
+        return;
+      }
       untracked(() => {
         this._ctx.pendingFocus.set(null);
         if (request.kind === 'cell') this._focus.set(this._positionOf(element));
@@ -464,11 +588,23 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       this._scrollTo(parseTime(request.time));
     });
 
-    afterNextRender(() => this._scrollTo(this._initialMinutes()));
+    // Re-applied whenever the axis itself changes, not once per instance:
+    // `scheduler.html` renders week and day from the SAME `@default` branch, so
+    // a week ↔ day switch reuses this component and an `afterNextRender` would
+    // never run again — the day view would open at whatever scroll offset the
+    // week was left at, while month → week (a fresh instance) landed on the
+    // business-hours start. `scrollTop` is in pixels, so a new `minTime` /
+    // `slotDuration` no longer names the same time either.
+    afterRenderEffect(() => {
+      this._ctx.view();
+      this._ctx.minMinutes();
+      this._ctx.slotDuration();
+      untracked(() => this._scrollTo(this._initialMinutes()));
+    });
 
     afterRenderEffect((onCleanup) => {
-      const sheet = this._sheet()?.nativeElement;
-      if (!sheet || !this._isBrowser) return;
+      const sheet = this._sheet().nativeElement;
+      if (!this._isBrowser) return;
       const detach = this._zone.runOutsideAngular(() =>
         attachPointerDrag(
           sheet,
@@ -482,7 +618,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
             },
             onMove: (_p, event) => {
               const s = this._selection();
-              const pos = this._posOf(event.target);
+              const pos = this._positionAt(event.target);
               if (
                 !s ||
                 !pos ||
@@ -500,18 +636,31 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
             },
             onEnd: (_p, moved) => {
               this._pendingAnchor = null;
-              if (!moved) return;
-              this._ignoreClicksUntil = performance.now() + 300;
+              // Only a drag that actually painted a selection commits one and
+              // swallows the click that trails it. A drag with `selectable`
+              // off (or one whose `onStart` found no cell) paints nothing and
+              // must leave the following click alone.
+              if (!moved || !this._selection()) return;
+              this._suppressNextClick();
               this._zone.run(() => this._commitSelection('pointer'));
             },
             onCancel: () => {
               this._pendingAnchor = null;
+              // Escape cancels mid-gesture while the pointer is still down, so
+              // the release still fires a native `click` on the cell. Without
+              // this the cancelled drag would emit the `slotClick` the user
+              // just backed out of.
+              if (this._selection()) this._suppressNextClick();
               this._zone.run(() => this._selection.set(null));
             },
           },
           {
             capture: false,
             threshold: 5,
+            // Touch arms on a short press, not on movement: the sheet is wider
+            // than the scroller on a narrow screen, so a swipe has to pan it
+            // rather than paint a range selection.
+            touchDelay: TOUCH_GESTURE_DELAY,
             ignore: (t) => !!t.closest('.mlv-scheduler-event, button'),
           },
         ),
@@ -523,7 +672,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   /** @protected Pointer interaction on a slot. */
   protected _onSlotPointer(
     kind: MlvSchedulerInteractionKind,
-    column: MlvSchedulerTimeColumn<D, TData>,
+    column: MlvSchedulerTimeColumn<D>,
     slot: MlvSchedulerSlot,
     event: MouseEvent,
   ): void {
@@ -540,7 +689,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   /** @protected Pointer interaction on an all-day cell. */
   protected _onAllDayPointer(
     kind: MlvSchedulerInteractionKind,
-    column: MlvSchedulerTimeColumn<D, TData>,
+    column: MlvSchedulerTimeColumn<D>,
     event: MouseEvent,
   ): void {
     if (kind === 'click' && performance.now() < this._ignoreClicksUntil) return;
@@ -595,7 +744,13 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     const days = this._ctx.days();
     const slotDuration = this._ctx.slotDuration();
     const min = this._ctx.minMinutes();
-    const last = this._ctx.maxMinutes() - slotDuration;
+    // The start of the last RENDERED row, not `maxMinutes − slotDuration`:
+    // rows run `min, min + slot, …` while `< max`, so for a window whose span
+    // is not a whole number of slots the two differ and the old expression
+    // named a minute no cell carries. `_focusCell` would then write `_focus` to
+    // a phantom position, focus nothing, and leave the grid with no
+    // `tabindex="0"` at all — i.e. out of the tab order entirely.
+    const last = this._lastSlotMinutes();
     let handled = true;
     switch (arrow ?? event.key) {
       case RIGHT_ARROW:
@@ -670,7 +825,16 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     if (handled) event.preventDefault();
   }
 
-  /** @private Grows/shrinks the keyboard selection by one cell from the focused cell, clamped to the visible range. */
+  /**
+   * @private Grows/shrinks the keyboard selection by one cell from the focused
+   * cell, clamped to the visible range.
+   *
+   * A clamped extension — `Shift+ArrowDown` on the last row, `Shift+ArrowRight`
+   * on the last day — leaves the head where it was and returns without writing
+   * or re-announcing: repeating the identical hint on every further press is
+   * noise, and a `linkedSignal` write of an equal-looking new object would
+   * still invalidate every cell's `aria-selected` binding.
+   */
   private _extendSelection(arrow: number): void {
     const focus = this._focus();
     const current = this._selection() ?? { anchor: focus, head: focus };
@@ -682,12 +846,18 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
         Math.max(0, dayIndex + (arrow === RIGHT_ARROW ? 1 : -1)),
       );
     } else if (minutes !== null) {
-      const slot = this._ctx.slotDuration();
-      const step = slot * (arrow === DOWN_ARROW ? 1 : -1);
+      const step = this._ctx.slotDuration() * (arrow === DOWN_ARROW ? 1 : -1);
       minutes = Math.min(
-        this._ctx.maxMinutes() - slot,
+        this._lastSlotMinutes(),
         Math.max(this._ctx.minMinutes(), minutes + step),
       );
+    }
+    if (
+      this._selection() &&
+      dayIndex === current.head.dayIndex &&
+      minutes === current.head.minutes
+    ) {
+      return;
     }
     this._selection.set({
       anchor: current.anchor,
@@ -725,32 +895,59 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     return start ? parseTime(start) : 8 * 60;
   }
 
-  /** @private Clamps to the visible range and snaps down to a slot start. */
+  /**
+   * @private Clamps to the RENDERED rows and snaps down to a slot start.
+   *
+   * The ceiling is the last rendered row (`_lastSlotMinutes`), not
+   * `maxMinutes − slotDuration`: for a window whose span is not a whole number
+   * of slots the latter sits below the final row, so a `scrollToTime` near the
+   * end of the day would stop one row short and a snapped focus request would
+   * miss the row it names.
+   */
   private _snapToSlot(minutes: number): number {
     const min = this._ctx.minMinutes();
     const slot = this._ctx.slotDuration();
-    const last = this._ctx.maxMinutes() - slot;
-    const clamped = Math.min(last, Math.max(min, minutes));
+    const clamped = Math.min(this._lastSlotMinutes(), Math.max(min, minutes));
     return min + Math.floor((clamped - min) / slot) * slot;
   }
 
-  /** @private Scrolls the viewport so `minutes` sits at the top; nothing measurable → no-op. */
+  /**
+   * @private Scrolls the viewport so `minutes` sits at the top; nothing measurable → no-op.
+   *
+   * The hour label is centred ON its line (`translate: 0 -50%`), so putting the
+   * line itself at the very top of the visible area clips the label's upper
+   * half behind the sticky header. Half a label height is scrolled back off,
+   * clamped at 0 by `scrollOffsetFor`.
+   */
   private _scrollTo(minutes: number): void {
     const slot = this._host.querySelector<HTMLElement>(
       '.mlv-scheduler-time-grid__slot',
     );
     if (!slot) return;
+    const label = this._host.querySelector<HTMLElement>(
+      '.mlv-scheduler-time-grid__hour',
+    );
     const viewport = this._scrollbar().viewportElement;
     viewport.scrollTop = scrollOffsetFor(
       this._snapToSlot(minutes),
       this._ctx.minMinutes(),
       this._ctx.slotDuration(),
       slot.offsetHeight,
+      (label?.offsetHeight ?? 0) / 2,
     );
   }
 
-  /** @private */
-  private _positionOf(element: HTMLElement): MlvSchedulerGridFocus {
+  /**
+   * @private Reads a cell's position back off its own `data-day-index` /
+   * `data-minutes` attributes — the single decoder of that pair.
+   *
+   * `data-minutes="all-day"` is the sentinel for the all-day row and decodes to
+   * `null` minutes; every other value is a slot's start minute. The element
+   * MUST be a cell (both attributes present); callers that start from an
+   * arbitrary event target go through `_positionAt`, which resolves the cell
+   * first and returns `null` when there is none.
+   */
+  private _positionOf(element: HTMLElement): MlvSchedulerGridPos {
     const minutes = element.dataset['minutes'];
     return {
       dayIndex: Number(element.dataset['dayIndex']),
@@ -759,7 +956,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   }
 
   /** @private Steps one visible day, navigating past the range edge. */
-  private _moveDay(position: MlvSchedulerGridFocus, direction: -1 | 1): void {
+  private _moveDay(position: MlvSchedulerGridPos, direction: -1 | 1): void {
     const days = this._ctx.days();
     const next = position.dayIndex + direction;
     if (next >= 0 && next < days.length) {
@@ -783,7 +980,16 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     this._ctx.goTo(date);
   }
 
-  /** @private */
+  /**
+   * @private Moves the roving tab stop to one cell and gives it DOM focus.
+   *
+   * Both halves matter: `_focus` is what the template's `tabindex` binding
+   * reads, so a position no cell carries would leave the grid without a tab
+   * stop at all. Callers therefore pass a `dayIndex` inside `days()` and a
+   * minute that is a rendered row start (`_lastSlotMinutes` is the ceiling) or
+   * `null` for the all-day row. `?.` on the query only guards a not-yet-
+   * rendered grid, not an invalid position.
+   */
   private _focusCell(dayIndex: number, minutes: number | null): void {
     this._focus.set({ dayIndex, minutes });
     findCellElement(this._host, dayIndex, minutes)?.focus();
@@ -793,18 +999,19 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
    * @private First chip whose segment starts inside the slot, or the first all-day chip of the day.
    * Skips the drag-preview ghost — it is `aria-hidden`/`tabindex="-1"` and must never receive focus.
    */
-  private _chipAt(position: MlvSchedulerGridFocus): HTMLElement | null {
-    const column = this._columns()[position.dayIndex];
-    if (!column) return null;
+  private _chipAt(position: MlvSchedulerGridPos): HTMLElement | null {
+    if (!this._columns()[position.dayIndex]) return null;
     const minutes = position.minutes;
     if (minutes === null) {
-      const first = column.laneSegments.find((s) => !s.normalized.ghost);
+      const first = this._lanesOf(position.dayIndex).find(
+        (s) => !s.normalized.ghost,
+      );
       return first
         ? findEventElement(this._host, first.normalized.event.id)
         : null;
     }
     const end = minutes + this._ctx.slotDuration();
-    const segment = column.segments.find(
+    const segment = this._segmentsOf(position.dayIndex).find(
       (s) =>
         !s.normalized.ghost &&
         s.startMinutes >= minutes &&
@@ -815,16 +1022,30 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       : null;
   }
 
-  /** @private */
+  /**
+   * @private The concrete date a slot stands for: `day` at `minutes`.
+   *
+   * `minutes` can reach `MINUTES_PER_DAY` (a `maxTime` of `'24:00'` with the
+   * selection's exclusive end), which is the NEXT day's midnight — the adapter
+   * rejects an hour of 24, so that case rolls the day over instead.
+   */
   private _slotDate(day: D, minutes: number): D {
     return minutes >= MINUTES_PER_DAY
       ? this._ctx.adapter.addCalendarDays(day, 1)
       : this._ctx.adapter.withTime(day, Math.floor(minutes / 60), minutes % 60);
   }
 
-  /** @private */
+  /**
+   * @private Emits `slotClick` for a cell activated from the keyboard
+   * (`Space`, or `Enter` on a cell with no chip).
+   *
+   * The payload is the same shape a pointer click produces — an all-day cell
+   * reports the plain day with `allDay: true`, a slot reports its start
+   * instant — so consumers need no source-specific branch; `element` is the
+   * cell itself, which is what a consumer anchors a menu or popover to.
+   */
   private _emitKeyboardSlot(
-    position: MlvSchedulerGridFocus,
+    position: MlvSchedulerGridPos,
     element: HTMLElement,
     nativeEvent: KeyboardEvent,
   ): void {

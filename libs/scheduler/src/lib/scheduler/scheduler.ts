@@ -249,11 +249,22 @@ export class MlvScheduler<D = Date, TData = unknown>
   readonly rowLength = computed(() => computeRowLength(this.hiddenDays()));
   /** @private Bumped every minute while `showCurrentTime`; `today` / `nowMinutes` depend on it. */
   private readonly _clockTick = signal(0);
-  /** Today per the adapter, refreshed with the clock tick. */
-  readonly today = computed(() => {
-    this._clockTick();
-    return this.adapter.today();
-  });
+  /**
+   * Today per the adapter, refreshed with the clock tick.
+   *
+   * `equal` compares by calendar day, not by identity: the adapter returns a
+   * NEW date object on every call, so with the default `Object.is` this signal
+   * would change identity on every 60 s tick and invalidate every consumer —
+   * including the views' `linkedSignal` roving-focus defaults, which would then
+   * silently discard the cell the user had roved to once a minute.
+   */
+  readonly today = computed(
+    () => {
+      this._clockTick();
+      return this.adapter.today();
+    },
+    { equal: (a, b) => this.adapter.sameDate(a, b) },
+  );
   /** Wall-clock minutes of day, refreshed with the clock tick. */
   readonly nowMinutes = computed(() => {
     this._clockTick();

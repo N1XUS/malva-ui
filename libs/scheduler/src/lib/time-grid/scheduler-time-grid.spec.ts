@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
+import { vi } from 'vitest';
 import { Component, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import axe from 'axe-core';
 import { compile } from 'sass';
 import Sortable from 'sortablejs';
@@ -47,8 +49,8 @@ const m = (day: number, h = 0, min = 0) => new Date(2031, 2, day, h, min);
       [(date)]="date"
       [minTime]="minTime()"
       [maxTime]="maxTime()"
-      [slotDuration]="30"
-      [businessHours]="{ start: '09:00', end: '17:00' }"
+      [slotDuration]="slotDuration()"
+      [businessHours]="businessHours()"
       [showCurrentTime]="showNow()"
       [selectable]="selectable()"
       (slotClick)="slotClicks.push($event)"
@@ -68,6 +70,11 @@ class Host {
   readonly date = signal(m(4));
   readonly minTime = signal('00:00');
   readonly maxTime = signal('24:00');
+  readonly slotDuration = signal(30);
+  readonly businessHours = signal<{ start: string; end: string } | null>({
+    start: '09:00',
+    end: '17:00',
+  });
   readonly showNow = signal(true);
   readonly selectable = signal(true);
   readonly slotClicks: MlvSchedulerSlotEvent[] = [];
@@ -129,9 +136,13 @@ describe('MlvSchedulerTimeGrid', () => {
   afterEach(() => rtl.setDirection('ltr'));
 
   it('renders seven day columns of 48 slots with labels, hour gutter and business shading', () => {
+    // The sheet is a labelled group; the all-day band is the only real grid.
+    expect(
+      root.querySelector('[role="group"]')?.getAttribute('aria-label'),
+    ).toMatch(/^Week view, /);
     expect(
       root.querySelector('[role="grid"]')?.getAttribute('aria-label'),
-    ).toMatch(/^Week view, /);
+    ).toBe('All day');
     expect(
       root.querySelectorAll('.mlv-scheduler-time-grid__day-header').length,
     ).toBe(7);
@@ -147,21 +158,75 @@ describe('MlvSchedulerTimeGrid', () => {
     expect(slot(1, 570).getAttribute('aria-label')).toBe(
       `${adapter.getDateLabel(m(4))}, 9:30 AM`,
     );
-    expect(slot(1, 570).classList).toContain(
-      'mlv-scheduler-time-grid__slot--business',
+    // Shading marks the hours OUTSIDE the window (09:00–17:00 Mon–Fri here).
+    expect(slot(1, 570).classList).not.toContain(
+      'mlv-scheduler-time-grid__slot--outside-business',
     );
-    expect(slot(1, 480).classList).not.toContain(
-      'mlv-scheduler-time-grid__slot--business',
+    expect(slot(1, 480).classList).toContain(
+      'mlv-scheduler-time-grid__slot--outside-business',
     );
-    expect(slot(6, 570).classList).not.toContain(
-      'mlv-scheduler-time-grid__slot--business',
+    expect(slot(6, 570).classList).toContain(
+      'mlv-scheduler-time-grid__slot--outside-business',
     ); // Sunday
+    // The body is day-major, so it is exposed as one multi-select listbox per
+    // day rather than as rows of a grid whose columnheaders are days — those
+    // headers head the all-day band, not the transposed body.
     expect(
       root
         .querySelector('.mlv-scheduler-time-grid__column')
         ?.getAttribute('role'),
-    ).toBe('row');
-    expect(slot(1, 570).getAttribute('role')).toBe('gridcell');
+    ).toBe('presentation');
+    const listbox = root.querySelector('.mlv-scheduler-time-grid__slots')!;
+    expect(listbox.getAttribute('role')).toBe('listbox');
+    expect(listbox.getAttribute('aria-multiselectable')).toBe('true');
+    expect(listbox.getAttribute('aria-label')).toBe(adapter.getDateLabel(m(3)));
+    expect(slot(1, 570).getAttribute('role')).toBe('option');
+    // The chip overlay is a presentational layer, not a contentless 49th cell.
+    expect(
+      root
+        .querySelector('.mlv-scheduler-time-grid__events')
+        ?.getAttribute('role'),
+    ).toBe('presentation');
+  });
+
+  it('shades nothing and keeps the today tint when businessHours is unset', () => {
+    // `null` is the documented default and means "no shading" — with the
+    // modifier on every slot the whole grid read as out-of-hours and the
+    // today column's tint was painted over everywhere.
+    host.businessHours.set(null);
+    fixture.detectChanges();
+    expect(
+      root.querySelectorAll('.mlv-scheduler-time-grid__slot--outside-business')
+        .length,
+    ).toBe(0);
+  });
+
+  it('measures percentages against the RENDERED rows, not the named span', () => {
+    // 08:00–17:30 at 60-minute slots renders ceil(570 / 60) = 10 rows = 600
+    // minutes. Dividing by the 570-minute span put the 17:00 label at 94.7%
+    // of a 600-minute box — half a row below the line it annotates.
+    host.minTime.set('08:00');
+    host.maxTime.set('17:30');
+    host.slotDuration.set(60);
+    fixture.detectChanges();
+    const hours = Array.from(
+      root.querySelectorAll<HTMLElement>('.mlv-scheduler-time-grid__hour'),
+    );
+    expect(hours).toHaveLength(10);
+    expect(hours[9].style.getPropertyValue('--mlv-scheduler-offset')).toBe(
+      '90%',
+    ); // (1020 − 480) / 600
+    expect(root.querySelectorAll('.mlv-scheduler-time-grid__slot').length).toBe(
+      7 * 10,
+    );
+  });
+
+  it('isolates the hour label from the surrounding bidi context', () => {
+    // "8 AM" is a digit run plus a Latin run; inside an RTL paragraph the two
+    // reorder to "AM 8" unless the label is its own bidi isolate.
+    expect(
+      root.querySelector('.mlv-scheduler-time-grid__hour > bdi'),
+    ).not.toBeNull();
   });
 
   it('positions timed chips by minutes and clusters overlaps side by side', () => {
@@ -262,6 +327,78 @@ describe('MlvSchedulerTimeGrid', () => {
     expect(viewport.scrollTop).toBe(800);
   });
 
+  it('keeps a tab stop on a window whose span is not a whole number of slots', () => {
+    // 08:30–18:00 at 60 minutes renders 510, 570 … 1050, so the old
+    // `maxMinutes − slotDuration` ceiling (1020) named a minute no cell
+    // carries: `_focus` moved to a phantom position, nothing took DOM focus
+    // and the grid left the tab order entirely.
+    host.minTime.set('08:30');
+    host.maxTime.set('18:00');
+    host.slotDuration.set(60);
+    fixture.detectChanges();
+    const last = slot(1, 1050);
+    expect(last).not.toBeNull();
+
+    last.focus();
+    key(last, 'ArrowDown'); // clamps ON the last row, not past it
+    expect(document.activeElement).toBe(last);
+    expect(root.querySelectorAll('[tabindex="0"]').length).toBe(1);
+
+    key(slot(1, 990), 'ArrowDown'); // the last row is reachable at all
+    expect(document.activeElement).toBe(slot(1, 1050));
+    expect(root.querySelectorAll('[tabindex="0"]').length).toBe(1);
+  });
+
+  it('keeps the roving tab stop through a clock tick', async () => {
+    // The clock refreshes `today()` every 60 s and the adapter hands back a
+    // NEW date object each time, so with identity equality the tick
+    // invalidated the view's default-focus computation and threw away the cell
+    // the user had roved to — DOM focus stayed put while its `tabindex` flipped
+    // to -1 and today/08:00 became the only tab stop.
+    vi.useFakeTimers();
+    const own = TestBed.createComponent(Host);
+    own.componentInstance.date.set(adapter.today());
+    own.detectChanges();
+    const ownRoot = own.nativeElement.querySelector(
+      'mlv-scheduler-time-grid',
+    ) as HTMLElement;
+    const cell = ownRoot.querySelector<HTMLElement>(
+      '[data-day-index="4"][data-minutes="840"]',
+    )!;
+    cell.focus();
+    own.detectChanges();
+    expect(cell.getAttribute('tabindex')).toBe('0');
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    own.detectChanges();
+    expect(cell.getAttribute('tabindex')).toBe('0');
+    expect(ownRoot.querySelectorAll('[tabindex="0"]').length).toBe(1);
+
+    own.destroy();
+    vi.useRealTimers();
+  });
+
+  it('re-applies the initial scroll on a week ↔ day switch', () => {
+    // Both views render from the same `@default` branch, so the component is
+    // reused and an `afterNextRender` would never run again — the day view
+    // would open wherever the week was left scrolled.
+    const firstSlot = root.querySelector<HTMLElement>(
+      '.mlv-scheduler-time-grid__slot',
+    )!;
+    Object.defineProperty(firstSlot, 'offsetHeight', {
+      value: 40,
+      configurable: true,
+    });
+    const viewport = root.querySelector<HTMLElement>(
+      '.mlv-scrollbar__viewport',
+    )!;
+    viewport.scrollTop = 0;
+    host.view.set('day');
+    fixture.detectChanges();
+    // 09:00 (the business-hours start) at 40px per 30-minute row.
+    expect(viewport.scrollTop).toBe(720);
+  });
+
   it('roves focus through slots: vertical by slot, horizontal by day (mirrored in RTL), all-day row above', () => {
     const start = slot(1, 540);
     start.focus();
@@ -288,6 +425,20 @@ describe('MlvSchedulerTimeGrid', () => {
     key(slot(0, 0), 'ArrowLeft');
     expect(document.activeElement).toBe(slot(1, 0));
     expect(root.querySelectorAll('[tabindex="0"]').length).toBe(1);
+  });
+
+  it('drops a focus request whose target never renders instead of holding it', async () => {
+    const scheduler = fixture.debugElement.query(By.css('mlv-scheduler'))
+      .componentInstance as MlvScheduler;
+    const anchorSlot = slot(1, 540);
+    anchorSlot.focus();
+    // No chip carries this id, so nothing will ever satisfy the request.
+    scheduler.pendingFocus.set({ kind: 'event', id: 'gone' });
+
+    await fixture.whenStable();
+    expect(scheduler.pendingFocus()).toBeNull();
+    // And it never stole the focus it could not place.
+    expect(document.activeElement).toBe(anchorSlot);
   });
 
   it('navigates a week when the horizontal arrow leaves the range and keeps the slot', async () => {
@@ -401,6 +552,58 @@ describe('MlvSchedulerTimeGrid', () => {
       expect(host.slotClicks).toHaveLength(1);
     });
 
+    it('paints a multi-day range continuously, not as a rectangle', () => {
+      // The committed interval runs Tue 09:00 → Wed 10:30 without a gap, so
+      // the paint has to as well: Tuesday down to midnight, Wednesday from
+      // midnight up. A rectangle would leave both tails unpainted.
+      slot(1, 540).dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      slot(2, 600).dispatchEvent(pointerEvent('pointermove', 200, 40));
+      fixture.detectChanges();
+      expect(slot(1, 540).getAttribute('aria-selected')).toBe('true');
+      expect(slot(1, 1410).getAttribute('aria-selected')).toBe('true'); // Tue 23:30
+      expect(slot(2, 0).getAttribute('aria-selected')).toBe('true'); // Wed 00:00
+      expect(slot(2, 600).getAttribute('aria-selected')).toBe('true');
+      expect(slot(1, 510).getAttribute('aria-selected')).toBeNull(); // before the start
+      expect(slot(2, 630).getAttribute('aria-selected')).toBeNull(); // after the end
+    });
+
+    it('abandons a pending selection when the next press lands outside it', () => {
+      slot(1, 540).focus();
+      key(slot(1, 540), 'ArrowDown', { shiftKey: true });
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+      slot(4, 900).dispatchEvent(pointerEvent('pointerdown', 400, 300));
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+    });
+
+    it('swallows the trailing click when Escape cancels a drag mid-gesture', () => {
+      // Escape ends the gesture while the finger/button is still down, so the
+      // release still fires a native click on the cell the user backed out of.
+      const from = slot(1, 540);
+      from.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      slot(1, 570).dispatchEvent(pointerEvent('pointermove', 10, 40));
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+      from.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(host.slotClicks).toHaveLength(0);
+      expect(host.ranges).toHaveLength(0);
+    });
+
+    it('leaves the trailing click alone when the drag painted nothing', () => {
+      host.selectable.set(false);
+      fixture.detectChanges();
+      const s = slot(1, 540);
+      s.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+      slot(1, 630).dispatchEvent(pointerEvent('pointermove', 10, 80));
+      slot(1, 630).dispatchEvent(pointerEvent('pointerup', 10, 80));
+      s.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(host.ranges).toHaveLength(0);
+      expect(host.slotClicks).toHaveLength(1);
+    });
+
     it('does nothing when not selectable', () => {
       host.selectable.set(false);
       fixture.detectChanges();
@@ -440,11 +643,55 @@ describe('MlvSchedulerTimeGrid', () => {
       s.focus();
       key(s, 'ArrowRight', { shiftKey: true });
       fixture.detectChanges();
-      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+      // Continuous, not a 1×2 rectangle: Tue 09:00 → 23:30 (30 cells) plus
+      // Wed 00:00 → 09:00 (19), matching the Tue 09:00 → Wed 09:30 interval
+      // `Enter` would commit.
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(49);
       key(document.activeElement as HTMLElement, 'Escape');
       fixture.detectChanges();
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
       expect(host.ranges).toHaveLength(0);
+    });
+
+    it('mirrors the horizontal selection keys in RTL, vertical unchanged', () => {
+      rtl.setDirection('rtl');
+      fixture.detectChanges();
+
+      slot(1, 540).focus();
+      // ArrowLeft is "next" in RTL, so it paints the very interval the LTR
+      // ArrowRight case does — Tue 09:00 through Wed 09:30 exclusive.
+      key(slot(1, 540), 'ArrowLeft', { shiftKey: true });
+      fixture.detectChanges();
+      expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(49);
+      key(document.activeElement as HTMLElement, 'Enter');
+      expect(host.ranges.at(-1)).toEqual({
+        start: m(4, 9),
+        end: m(5, 9, 30),
+        allDay: false,
+        source: 'keyboard',
+      });
+
+      // ArrowRight is "previous": the head lands on Mon 09:00, one day back.
+      fixture.detectChanges();
+      key(slot(1, 540), 'ArrowRight', { shiftKey: true });
+      key(document.activeElement as HTMLElement, 'Enter');
+      expect(host.ranges.at(-1)).toEqual({
+        start: m(3, 9),
+        end: m(4, 9, 30),
+        allDay: false,
+        source: 'keyboard',
+      });
+
+      // The block axis never mirrors: ArrowDown still extends downward.
+      fixture.detectChanges();
+      key(slot(1, 540), 'ArrowDown', { shiftKey: true });
+      key(document.activeElement as HTMLElement, 'Enter');
+      expect(host.ranges.at(-1)).toEqual({
+        start: m(4, 9),
+        end: m(4, 10),
+        allDay: false,
+        source: 'keyboard',
+      });
     });
 
     it('clamps the selection head to the visible range and never moves focus', async () => {
@@ -592,9 +839,56 @@ describe('MlvSchedulerTimeGrid styles', () => {
     );
   });
 
-  it('keeps vertical touch scrolling native on the sheet', () => {
+  it('keeps touch panning native on BOTH axes of the sheet', () => {
+    // The week sheet is wider than its scroller on a narrow screen, so
+    // `pan-y` alone made the hidden days unreachable by touch. Range
+    // selection arms on a press instead (`touchDelay`), not on movement.
     expect(block('.mlv-scheduler-time-grid__sheet')).toMatch(
-      /touch-action:\s*pan-y pinch-zoom/,
+      /touch-action:\s*pan-x pan-y pinch-zoom/,
+    );
+  });
+
+  it('sizes an all-day spanning bar in cell pitches, not in its own padded box', () => {
+    // `100%` is the `__all-day-lanes` content box: one cell pitch MINUS the
+    // cell's two inline paddings and its inline-start border. The bar has to
+    // add that gap back once per crossed boundary, and the terms it adds must
+    // be the very declarations the cell uses (jsdom lays nothing out, so the
+    // formula itself is the subject).
+    const cellRule = block('.mlv-scheduler-time-grid__all-day-cell');
+    expect(cellRule).toMatch(/padding:\s*var\(--mlv-spacing-1\)/);
+    expect(cellRule).toMatch(
+      /border-inline-start:\s*var\(--mlv-stroke-width\)/,
+    );
+    const bar = block('.mlv-scheduler-time-grid__lane-event--spanning').replace(
+      /\s+/g,
+      ' ',
+    );
+    expect(bar).toContain('100% * var(--mlv-scheduler-span, 1)');
+    expect(bar).toContain(
+      '(var(--mlv-scheduler-span, 1) - 1) * (2 * var(--mlv-spacing-1) + var(--mlv-stroke-width))',
+    );
+  });
+
+  it('gives a selected all-day cell a channel the today fill cannot hide', () => {
+    // `--mlv-background-selected` IS `--mlv-background-accent-1-pale` in both
+    // themes — exactly what `--today` paints — so the fill alone showed
+    // nothing at all when the selection covered today.
+    expect(block('.mlv-scheduler-time-grid__all-day-cell--selected')).toMatch(
+      /box-shadow:\s*inset[^;]*var\(--mlv-background-accent-1\)/,
+    );
+  });
+
+  it('keeps the row separators visible inside the out-of-hours band', () => {
+    // `--mlv-background-sunken` and `--mlv-border-subtle` are the same palette
+    // step in the light theme, so the default separator disappears under the
+    // shading; the shaded rows step up one border token.
+    expect(block('.mlv-scheduler-time-grid__slot')).toMatch(
+      /border-block-end:\s*var\(--mlv-stroke-width\) solid var\(--mlv-border-subtle\)/,
+    );
+    const shaded = block('.mlv-scheduler-time-grid__slot--outside-business');
+    expect(shaded).toMatch(/background:\s*var\(--mlv-background-sunken\)/);
+    expect(shaded).toMatch(
+      /border-block-end-color:\s*var\(--mlv-border-normal\)/,
     );
   });
 });
