@@ -78,6 +78,13 @@
       </div>
 
       @if (_nativeActive()) {
+      <!-- `selected` is bound as an attribute here, never as a property: domino
+           has no `HTMLOptionElement.selected`, so a property binding logged an
+           NG0303 per option on every server render (#135), and the attribute is
+           also the only form that serialises into that render. The live
+           selection is written as the DOM property by the
+           `_syncNativeSelection` after-render effect — see it for why both are
+           needed. -->
       <select
         #nativeSelect
         class="mlv-select__native"
@@ -94,39 +101,33 @@
         (change)="_onNativeChange($event)"
       >
         @if (!multiple()) {
-        <option value="" disabled [selected]="!hasValue()">
+        <option value="" disabled [attr.selected]="!hasValue() ? '' : null">
           {{ _resolvedPlaceholder() }}
         </option>
-        }
-        @for (group of _nativeOptionGroups(); track $index) {
-        @if (group.label) {
+        } @for (group of _nativeOptionGroups(); track $index) { @if
+        (group.label) {
         <optgroup [label]="group.label">
           @for (option of group.options; track option.key) {
           <option
             [value]="option.key"
             [disabled]="option.disabled || false"
-            [selected]="_isNativeOptionSelected(option.value)"
+            [attr.selected]="_isNativeOptionSelected(option.value) ? '' : null"
           >
             {{ option.label }}
           </option>
           }
         </optgroup>
-        } @else {
-        @for (option of group.options; track option.key) {
+        } @else { @for (option of group.options; track option.key) {
         <option
           [value]="option.key"
           [disabled]="option.disabled || false"
-          [selected]="_isNativeOptionSelected(option.value)"
+          [attr.selected]="_isNativeOptionSelected(option.value) ? '' : null"
         >
           {{ option.label }}
         </option>
-        }
-        }
-        }
+        } } }
       </select>
-      }
-
-      @if (_showClear()) {
+      } @if (_showClear()) {
       <!-- DOM sibling of the role="combobox" trigger (a button nested inside it
            would trip nested-interactive); CSS overlays it just BEFORE the
            chevron. Tab order: trigger, then clear. -->

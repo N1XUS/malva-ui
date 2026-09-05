@@ -317,6 +317,20 @@ import {
           [options]="options"
           [(value)]="option"
         />
+        <!-- The same control in its *other* rendering mode. The native input
+             defaults to false, so the instance above stops at the custom
+             trigger and never reaches the branch that stamps a real select and
+             one option per entry - the shape that made #135 invisible here
+             (#137 is that blind spot in general). Keep this instance and keep
+             its committed value: without the native attribute, neither the
+             unknown-property assertion nor the selected-in-markup one has
+             anything to bite on. (No backticks in a host template, as above.) -->
+        <mlv-select
+          label="Environment (native)"
+          native
+          [options]="options"
+          [(value)]="option"
+        />
         <mlv-combobox label="City" [options]="options" [(value)]="option" />
         <mlv-number-input label="Quantity" [(value)]="quantity" />
         <mlv-search-field [(value)]="query" />
@@ -373,7 +387,10 @@ class SsrFormControlsHost {
     { label: 'Production', value: 'prod' },
     { label: 'Staging', value: 'staging' },
   ];
-  readonly option = signal<string | null>('prod');
+  // Deliberately not the *first* option: a native select with nothing selected
+  // falls back to its first entry, so a committed 'prod' would look identical
+  // to no selection at all in the server markup.
+  readonly option = signal<string | null>('staging');
   readonly quantity = signal<number | null>(1);
   readonly query = signal('');
   readonly pin = signal('');
@@ -1401,6 +1418,31 @@ describe('@malva-ui/core SSR safety', () => {
       html.includes('aria-checked="mixed"'),
       'no aria-checked="mixed" in the server markup — the indeterminate ' +
         'checkbox in SsrFormControlsHost did not render its mixed state',
+    ).toBe(true);
+  });
+
+  it('server-renders the native select selection into the markup', async () => {
+    const { html } = await renderAllHosts();
+
+    // The visible half of #135. `selected` is a DOM property domino does not
+    // implement *and* a content attribute it does, so the property binding
+    // that used to be here logged NG0303 and put nothing in the payload: every
+    // server-rendered `mlv-select native` shipped with no option selected, and
+    // a browser showing the first one until hydration corrected it. The
+    // `[attr.selected]` form survives the render — this pins that, so the
+    // browser-side property write cannot quietly take the server payload with
+    // it again.
+    const nativeSelect = /<select[^>]*>[\s\S]*?<\/select>/.exec(html)?.[0];
+    expect(
+      nativeSelect,
+      'no <select> in the server markup — the native mlv-select in ' +
+        'SsrFormControlsHost did not render',
+    ).toBeTruthy();
+    expect(
+      /<option[^>]*\bselected[^>]*>\s*Staging\s*<\/option>/.test(
+        nativeSelect ?? '',
+      ),
+      `the committed option is not marked selected in the server markup: ${nativeSelect}`,
     ).toBe(true);
   });
 

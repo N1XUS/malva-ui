@@ -1938,6 +1938,136 @@ describe('MlvSelect — native mode API and synchronization', () => {
       Array.from(nativeSelect.selectedOptions).map((option) => option.text),
     ).toEqual(['Apple', 'Banana']);
   });
+
+  // The cases below pin the native selection to the *selectedness* of the
+  // option elements rather than to a template binding. `selected` is a DOM
+  // property domino does not implement, so binding it logged an NG0303 on
+  // every server render (issue #135); it is now written onto the options from
+  // a single `afterRenderEffect`, with `[attr.selected]` carrying the same
+  // state into the server payload.
+  //
+  // The attribute alone would not do. Per the HTML spec an option carries a
+  // "dirtiness" flag, set the moment the user picks in the select — and by
+  // jsdom's `select.value` setter, which is how this suite simulates a pick.
+  // Once it is set, adding or removing the `selected` content attribute no
+  // longer changes selectedness, so the attribute would keep tracking the
+  // model while the rendered control quietly stopped following it. That is
+  // what the "after the user has picked" cases exist to catch.
+  //
+  // The next two are behavioural pins, not discriminating ones: a pristine
+  // option still tracks its `selected` attribute, so both stay green against
+  // an attribute-only implementation. They characterise the contract; the
+  // "after the user has picked" pair is what fails without the property write.
+  it('selects the placeholder while a single native select has no value', async () => {
+    const fixture = render(true);
+    await fixture.whenStable();
+
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+    expect(nativeSelect.selectedIndex).toBe(0);
+    expect(nativeSelect.options[0].selected).toBe(true);
+    expect(nativeSelect.options[0].text.trim()).toBe('Select...');
+  });
+
+  it('moves the native selection when the model changes programmatically', async () => {
+    const fixture = render(true);
+    fixture.componentInstance.value.set('banana');
+    await fixture.whenStable();
+
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Banana']);
+  });
+
+  it('moves the native selection on a model change after the user has picked', async () => {
+    const fixture = render(true);
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+
+    // Two picks, so *both* real options are dirty before the model is written
+    // from code. One is not enough to characterise the attribute: adding
+    // `selected` to a still-clean sibling clears the others, so a single-select
+    // that only ever moves onto a clean option survives on the attribute alone.
+    nativeSelect.value = '1';
+    nativeSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(fixture.componentInstance.value()).toBe('banana');
+
+    nativeSelect.value = '0';
+    nativeSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(fixture.componentInstance.value()).toBe('apple');
+
+    fixture.componentInstance.value.set('banana');
+    await fixture.whenStable();
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Banana']);
+
+    // And back to nothing: the placeholder has to take the selection again, or
+    // the control keeps showing a value the model no longer holds.
+    fixture.componentInstance.value.set(null);
+    await fixture.whenStable();
+    expect(nativeSelect.options[0].selected).toBe(true);
+  });
+
+  it('moves the native multi-selection on a model change after the user has picked', async () => {
+    const fixture = render(true, true);
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+
+    nativeSelect.value = '0';
+    nativeSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(fixture.componentInstance.value()).toEqual(['apple']);
+
+    fixture.componentInstance.value.set(['banana']);
+    await fixture.whenStable();
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Banana']);
+  });
+
+  it('restores the native selection when auto mode re-creates the select', async () => {
+    const fixture = render('auto');
+    fixture.componentInstance.value.set('banana');
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('select')).toBeNull();
+
+    breakpoint.down.set(true);
+    await fixture.whenStable();
+
+    // A fresh set of option elements, so the effect has to re-run off the
+    // view-query signal rather than off a selection change — nothing about the
+    // model moved here.
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Banana']);
+  });
+
+  it('carries the committed selection as an attribute, so a server render can serialise it', async () => {
+    const fixture = render(true);
+    fixture.componentInstance.value.set('banana');
+    await fixture.whenStable();
+
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+    expect(
+      Array.from(nativeSelect.options)
+        .filter((option) => option.hasAttribute('selected'))
+        .map((option) => option.text),
+    ).toEqual(['Banana']);
+  });
 });
 
 /**

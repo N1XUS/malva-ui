@@ -1,4 +1,5 @@
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -443,6 +444,31 @@ export class MlvSelect<T>
     return groups;
   });
 
+  /**
+   * @private The `value` of every native `<option>` that should be selected,
+   * keyed exactly as the template stamps them — the placeholder's empty string
+   * included. Derived from the same signals the `[attr.selected]` bindings
+   * read, so the effect that writes the DOM property and the attributes in the
+   * markup can never disagree.
+   *
+   * A value with no matching option contributes no key, which leaves a
+   * single-select with nothing selected and lets the browser's own "ask for a
+   * reset" fall back to the first enabled option — the behaviour the previous
+   * per-option property binding already had.
+   */
+  private readonly _nativeSelectedKeys = computed<ReadonlySet<string>>(() => {
+    const keys = new Set<string>();
+    // Mirrors the template: the placeholder exists only in single mode.
+    if (!this.multiple() && !this.hasValue()) keys.add('');
+    const selected = this._selectedValueIndex();
+    for (const group of this._nativeOptionGroups()) {
+      for (const option of group.options) {
+        if (selected.has(option.value)) keys.add(option.key);
+      }
+    }
+    return keys;
+  });
+
   /** @protected Whether every committed value has a matching option (by `compareWith`). */
   protected readonly _allValuesMatched = computed(() => {
     const options = this._optionValueIndex();
@@ -660,6 +686,67 @@ export class MlvSelect<T>
           this._activeDescendant.reset();
         }
       });
+    });
+    this._syncNativeSelection();
+  }
+
+  /**
+   * @private Writes the committed selection onto the native `<option>`
+   * elements as the `selected` **DOM property**, once per render pass in which
+   * the selection or the option list changed.
+   *
+   * **Why not a template binding.** `selected` is one of the properties
+   * domino's `HTMLOptionElement` does not implement, and Angular's
+   * unknown-property check is `'selected' in element` — so `[selected]` logged
+   * an NG0303 on every server render, once per option plus once for the
+   * placeholder (issue #135). The template now binds `[attr.selected]`, which
+   * the check does not gate and which, unlike the property, actually
+   * serialises into the server payload.
+   *
+   * **Why the attribute alone is not enough.** The content attribute sets an
+   * option's *default* selectedness. The HTML spec gives every option a
+   * "dirtiness" flag, raised as soon as the user picks in the select, and once
+   * it is raised the attribute stops changing selectedness altogether. Bind
+   * only the attribute and the first programmatic write after any user
+   * interaction — a `formControl.setValue`, a `[(value)]` write, the clear
+   * button — would update the markup while the rendered control kept showing
+   * the option the user had picked. The IDL property has no such rule, so this
+   * is what keeps the two in step; the attribute stays for the server payload,
+   * the pre-hydration paint, and a native form reset.
+   *
+   * **Why `afterRenderEffect`, and why only one.** It never runs on the server,
+   * so the error class is gone by construction rather than suppressed, and it
+   * re-runs when its inputs change, which a one-shot `afterNextRender` would
+   * not. It is registered **once per select**, not once per option: every
+   * after-render sequence joins an app-wide set that `AfterRenderImpl.execute()`
+   * walks on every `ApplicationRef.tick()` whether or not it is dirty, so a
+   * sequence per `<option>` would put a real cost on a long list where the
+   * template binding it replaced had none. One walk of `select.options` (which
+   * flattens `<optgroup>`s) covers every option, single and multiple alike.
+   *
+   * The sequence is registered for every select, including the default
+   * `native = false`, where the effect reads `_nativeSelect()`, finds nothing
+   * and returns. That is not free — a page of 50 ordinary selects carries 50
+   * permanently-clean sequences where the old template binding carried none —
+   * but a clean sequence costs a `hooks[phase]` miss on three of the four
+   * phases and one dirty-flag read on the fourth, with no allocation and no
+   * DOM access.
+   *
+   * Order within the walk does not matter: assigning `true` in a single-select
+   * clears the others, and the `false` writes that follow only re-assert what
+   * is already the case. That holds because Chrome and jsdom both deselect
+   * siblings on the setter; a literal reading of the spec's selectedness
+   * algorithm ("keep the last selected option") does not guarantee it, so do
+   * not lean on the ordering anywhere else.
+   */
+  private _syncNativeSelection(): void {
+    afterRenderEffect(() => {
+      const nativeSelect = this._nativeSelect()?.nativeElement;
+      if (!nativeSelect) return;
+      const selectedKeys = this._nativeSelectedKeys();
+      for (const option of Array.from(nativeSelect.options)) {
+        option.selected = selectedKeys.has(option.value);
+      }
     });
   }
 
@@ -921,9 +1008,13 @@ export class MlvSelect<T>
   /**
    * @protected Whether a normalized option matches one of the committed values.
    *
-   * Called once per rendered native `<option>` — and, being a template method
-   * rather than a computed, on *every* change-detection pass of the native
-   * branch, not only when a signal changes. It was the last nested
+   * Feeds the `[attr.selected]` binding on each native `<option>`, so it is
+   * called once per rendered option — and, being a template method rather than
+   * a computed, on *every* change-detection pass of the native branch, not
+   * only when a signal changes. (The live selection is written separately, as
+   * the `selected` DOM property; see {@link _syncNativeSelection}.)
+   *
+   * It was the last nested
    * `selected × options` scan in this control; it now resolves through the
    * memoised {@link _selectedValueIndex}, whose `has()` preserves the original
    * `compare(selected, value)` argument order.
