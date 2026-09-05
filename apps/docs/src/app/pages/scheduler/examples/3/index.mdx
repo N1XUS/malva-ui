@@ -1,16 +1,13 @@
 ## Drag, resize, callbacks and vetoes
 
 With `editable` (default `true`) chips move with the pointer (SortableJS under the hood) and resize
-from a handle on **either** edge; the grips appear on hover and keyboard focus,
-and stay visible where there is no hover. Keyboard users press <kbd>Alt</kbd>+<kbd>Arrow</kbd> to move,
-
-<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Arrow</kbd> to resize the **end** edge and
-<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Arrow</kbd> (<kbd>⌃⌥Arrow</kbd> on macOS) to
-resize the **start** edge. On a touch screen a swipe scrolls both axes and a
-drag, resize or range selection arms on a short press instead. The model updates
-optimistically, then `eventMove` / `eventResize` emit `
-{(event, previous, source)}`. Return `false` from `canMove` / `canResize` to
-veto a change before it lands — both hooks receive the already-applied `next`
-range, so `canResize` sees a start-edge drag exactly as it sees an end-edge one
-— and the chip snaps back with a polite announcement explaining why. Per-event
-`draggable: false` / `resizable: false` opt single events out.
+from a handle on **either** edge; the grips appear on hover and keyboard focus, and stay visible
+where there is no hover. Keyboard users move a chip with <kbd>Alt</kbd>+<kbd>Arrow</kbd>, resize its
+**end** edge with <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Arrow</kbd>, and its **start** edge
+with <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Arrow</kbd> (<kbd>⌃⌥Arrow</kbd> on macOS). On a touch
+screen a swipe scrolls both axes and a drag, resize or range selection arms on a short press
+instead. The model updates optimistically, then `eventMove` / `eventResize` emit the payload
+`{ event, previous, source }`. Return `false` from `canMove` / `canResize` to veto a change before
+it lands — both hooks receive the already-applied `next` range, so `canResize` sees a start-edge
+drag exactly as it sees an end-edge one — and the chip snaps back with a polite announcement
+explaining why. Per-event `draggable: false` / `resizable: false` opt single events out.
