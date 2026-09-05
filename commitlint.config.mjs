@@ -66,6 +66,7 @@ export default {
         'rating',
         'scheduler',
         'scrollbar',
+        'scrubber',
         'search-field',
         'segmented',
         'select',

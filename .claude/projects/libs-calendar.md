@@ -41,14 +41,35 @@ Exported from `libs/core/calendar/src/index.ts`:
 
 #### Inputs
 
-| Name             | Type                             | Default   | Description                                         |
-| ---------------- | -------------------------------- | --------- | --------------------------------------------------- |
-| `min`            | `D \| null`                      | `null`    | Minimum selectable date                             |
-| `max`            | `D \| null`                      | `null`    | Maximum selectable date                             |
-| `disabledDates`  | `((date: D) => boolean) \| null` | `null`    | Custom callback; return `true` to disable a date    |
-| `startView`      | `MlvCalendarView`                | `'month'` | Initial view when rendered                          |
-| `firstDayOfWeek` | `number`                         | `1`       | First day of the week (0 = Sunday, 1 = Monday)      |
-| `range`          | `boolean`                        | `false`   | Enables range selection mode backed by `rangeValue` |
+| Name              | Type                             | Default   | Description                                                                                                                                        |
+| ----------------- | -------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `min`             | `D \| null`                      | `null`    | Minimum selectable date                                                                                                                            |
+| `max`             | `D \| null`                      | `null`    | Maximum selectable date                                                                                                                            |
+| `disabledDates`   | `((date: D) => boolean) \| null` | `null`    | Custom callback; return `true` to disable a date                                                                                                   |
+| `startView`       | `MlvCalendarView`                | `'month'` | Initial view when rendered                                                                                                                         |
+| `firstDayOfWeek`  | `number`                         | `1`       | First day of the week (0 = Sunday, 1 = Monday)                                                                                                     |
+| `range`           | `boolean`                        | `false`   | Enables range selection mode backed by `rangeValue`                                                                                                |
+| `followSelection` | `boolean`                        | `true`    | Whether `activeDate` re-anchors on the current selection. Set `false` when a parent coordinates `activeDate` across several calendars — see below. |
+
+#### `followSelection` — who owns `activeDate`
+
+By default a calendar keeps its own view on whatever is selected: two
+constructor effects re-anchor `activeDate` on `value` (single mode) or on
+`rangeValue.end ?? rangeValue.start` (range mode). That is right for a calendar
+that owns its view, and it is what `mlv-day-picker` and a standalone
+`mlv-calendar` rely on.
+
+It is wrong as soon as **one selection drives more than one calendar**.
+`mlv-date-range-picker` hands both of its panels the same `rangeValue`, so both
+effects resolve the same anchor and both panels snap to the same month —
+overwriting whatever the parent bound to `activeDate`, because a one-way
+binding only re-writes the model when its own expression changes.
+
+`[followSelection]="false"` gates both effects. The calendar then paints only
+what the parent binds, while `navigatePrev()` / `navigateNext()`, keyboard
+navigation and view switching keep working normally — the input suppresses
+re-anchoring, not navigation. A parent that sets it takes on the job of moving
+`activeDate` when the selection changes.
 
 #### Internal State
 

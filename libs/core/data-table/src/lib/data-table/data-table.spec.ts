@@ -2,6 +2,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
+import { DOCUMENT } from '@angular/common';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import axe from 'axe-core';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -882,6 +883,118 @@ describe('MlvDataTable — column resize', () => {
     expect(idColumn()._currentWidth).toBe(130);
   });
 
+  /**
+   * Tracks listeners bound to `target` as a **net count per event type**. The
+   * number of subscriptions is an implementation detail — `takeUntil(up$)`
+   * opens a `pointerup` subscription of its own — while "nothing is still
+   * bound once the gesture is over" is the guarantee, and a net of zero is how
+   * you see it. Restored by the suite's `afterEach`.
+   */
+  function trackListeners(target: EventTarget): Map<string, number> {
+    const net = new Map<string, number>();
+    const bump = (type: string, delta: number): void =>
+      void net.set(type, (net.get(type) ?? 0) + delta);
+    const realAdd = target.addEventListener.bind(target);
+    const realRemove = target.removeEventListener.bind(target);
+    vi.spyOn(target, 'addEventListener').mockImplementation(
+      (type, listener, options) => {
+        bump(type, 1);
+        realAdd(type, listener, options);
+      },
+    );
+    vi.spyOn(target, 'removeEventListener').mockImplementation(
+      (type, listener, options) => {
+        bump(type, -1);
+        realRemove(type, listener, options);
+      },
+    );
+    return net;
+  }
+
+  it('releases every drag listener when the gesture ends', () => {
+    const handle = resizeHandle();
+    const net = trackListeners(document);
+
+    handle.dispatchEvent(pointerEvent('pointerdown', 100));
+    expect(net.get('pointermove')).toBeGreaterThan(0);
+
+    handle.dispatchEvent(pointerEvent('pointerup', 140));
+
+    expect(net.get('pointermove')).toBe(0);
+    expect(net.get('pointerup')).toBe(0);
+    expect(net.get('pointercancel')).toBe(0);
+  });
+
+  // `_cleanupResize()` runs from `DestroyRef.onDestroy` as well as from the
+  // gesture's own exits. Nothing a user can do exercises that path, so it gets
+  // its own assertion.
+  it('releases every drag listener when destroyed mid-drag', () => {
+    const handle = resizeHandle();
+    const net = trackListeners(document);
+
+    handle.dispatchEvent(pointerEvent('pointerdown', 100));
+    handle.dispatchEvent(pointerEvent('pointermove', 140));
+    expect(net.get('pointermove')).toBeGreaterThan(0);
+
+    fixture.destroy();
+
+    expect(net.get('pointermove')).toBe(0);
+    expect(net.get('pointerup')).toBe(0);
+    expect(net.get('pointercancel')).toBe(0);
+  });
+
+  it('keeps the drag alive when an unrelated pointer lifts', () => {
+    const handle = resizeHandle();
+    const net = trackListeners(document);
+
+    handle.dispatchEvent(pointerEvent('pointerdown', 100, 7));
+    const bound = net.get('pointermove');
+
+    // A secondary contact releasing must not end the captured gesture — the
+    // terminator is filtered on the captured pointer id.
+    handle.dispatchEvent(pointerEvent('pointerup', 170, 8));
+
+    expect(net.get('pointermove')).toBe(bound);
+
+    handle.dispatchEvent(pointerEvent('pointerup', 110, 7));
+    expect(net.get('pointermove')).toBe(0);
+  });
+
+  // `pointercancel` and `lostpointercapture` are the two terminators
+  // `takeUntil(pointerUp$)` cannot see — no `pointerup` ever arrives — so
+  // `_cleanupResize()`'s `unsubscribe()` is the only thing that releases the
+  // streams on these paths. The pointer-up test above passes without it.
+  it('releases every drag listener when the gesture is cancelled', () => {
+    const handle = resizeHandle();
+    const net = trackListeners(document);
+
+    handle.dispatchEvent(pointerEvent('pointerdown', 100));
+    expect(net.get('pointermove')).toBeGreaterThan(0);
+
+    handle.dispatchEvent(pointerEvent('pointercancel', 140));
+
+    expect(net.get('pointermove')).toBe(0);
+    expect(net.get('pointerup')).toBe(0);
+    expect(net.get('pointercancel')).toBe(0);
+  });
+
+  it('releases every drag listener when pointer capture is lost', () => {
+    const handle = resizeHandle();
+    const documentNet = trackListeners(document);
+    const handleNet = trackListeners(handle);
+
+    handle.dispatchEvent(pointerEvent('pointerdown', 100));
+    expect(documentNet.get('pointermove')).toBeGreaterThan(0);
+    expect(handleNet.get('lostpointercapture')).toBeGreaterThan(0);
+
+    handle.dispatchEvent(pointerEvent('lostpointercapture', 140));
+
+    expect(documentNet.get('pointermove')).toBe(0);
+    expect(documentNet.get('pointerup')).toBe(0);
+    expect(documentNet.get('pointercancel')).toBe(0);
+    expect(handleNet.get('lostpointercapture')).toBe(0);
+  });
+
   it('drops the live width and emits nothing when the pointer is cancelled', () => {
     const events: unknown[] = [];
     table().columnResize.subscribe((event) => events.push(event));
@@ -1250,5 +1363,67 @@ describe('MlvDataTable — column resize', () => {
       'lostpointercapture',
     );
     expect(handle.releasePointerCapture).toHaveBeenCalledWith(1);
+  });
+});
+
+// Isolated: this suite swaps the `DOCUMENT` provider, so it keeps its own
+// TestBed rather than mutating the resize suite's.
+describe('MlvDataTable — resize document binding', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function countAdds(target: EventTarget): Map<string, number> {
+    const added = new Map<string, number>();
+    const realAdd = target.addEventListener.bind(target);
+    vi.spyOn(target, 'addEventListener').mockImplementation(
+      (type, listener, options) => {
+        added.set(type, (added.get(type) ?? 0) + 1);
+        realAdd(type, listener, options);
+      },
+    );
+    return added;
+  }
+
+  // Under server rendering the injected `DOCUMENT` and the ambient `document`
+  // global are different objects and the global is defined, so binding the
+  // ambient one would attach a per-render table to a process-wide object no
+  // teardown reaches — without throwing. This asserts *which* object receives
+  // the drag listeners.
+  it('binds the resize drag to the injected DOCUMENT, not the ambient global', async () => {
+    const isolated = document.implementation.createHTMLDocument('table');
+
+    await TestBed.configureTestingModule({
+      imports: [ResizeHostComponent],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: DOCUMENT, useValue: isolated },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ResizeHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const handle = fixture.nativeElement.querySelector(
+      '.mlv-data-table__resize-handle',
+    ) as HTMLElement | null;
+    if (!handle) throw new Error('resize handle not found');
+
+    const isolatedAdds = countAdds(isolated);
+    const ambientAdds = countAdds(document);
+
+    const down = new MouseEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 100,
+    });
+    Object.defineProperty(down, 'pointerId', { value: 1 });
+    handle.dispatchEvent(down as unknown as PointerEvent);
+
+    expect(isolatedAdds.get('pointermove')).toBeGreaterThan(0);
+    expect(isolatedAdds.get('pointerup')).toBeGreaterThan(0);
+    expect(ambientAdds.get('pointermove')).toBeUndefined();
+    expect(ambientAdds.get('pointerup')).toBeUndefined();
+
+    fixture.destroy();
   });
 });

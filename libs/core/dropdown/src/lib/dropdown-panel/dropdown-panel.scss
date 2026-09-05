@@ -1,198 +1,237 @@
 @layer mlv.components {
-$block: mlv-dropdown-panel;
+  $block: mlv-dropdown-panel;
 
-.#{$block} {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-
-  // Standalone floating surface. Opt-in chrome for consumers that host the panel
-  // in a bare CDK overlay with nothing to paint the surface — i.e.
-  // `[mlvAutocomplete]`, whose overlay attaches this component directly (unlike
-  // `mlv-combobox` / `mlv-select`, which nest the panel inside a styled
-  // `mlv-popup`). Mirrors that popup's visual vocabulary — raised background,
-  // subtle hairline border, panel radius, floating elevation — so an autocomplete
-  // popup reads identically to a combobox popup. Never applied by combobox /
-  // select (they get their surface from `mlv-popup`), so their visuals are
-  // unaffected. The panel's own host `[style.max-height.px]` bounds the custom
-  // scrollbar within the rounded surface.
-  &--surface {
-    background-color: var(--mlv-background-raised);
-    border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
-    // `--mlv-radius-panel` and `--mlv-popover-surface-radius` both resolve
-    // `--mlv-radius-l` (8px) now, so this surface and `mlv-popup`'s are
-    // reconciled onto one token rather than one avoiding the other.
-    border-radius: var(--mlv-popover-surface-radius);
-    box-shadow: var(--mlv-shadow-floating);
-  }
-
-  // Select and combobox already live inside mlv-popup's scrollbar. Let visible
-  // overflow contribute to that ancestor's scroll area instead of clipping it.
-  &--parent-scroll {
-    overflow: visible;
-  }
-
-  &__scrollbar {
-    flex: 1 1 auto;
-    width: 100%;
+  .#{$block} {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     min-height: 0;
-    // No padding of its own. `scrollMode="parent"` (select, combobox) skips this
-    // element entirely and takes its inset from the list padding below, so any
-    // padding here applied to `scrollMode="self"` consumers only — autocomplete
-    // ended up at 8px top / 12px sides against the reference's 4px. The list
-    // padding is now the single inset in both modes.
-  }
 
-  &__scrollbar > .mlv-scrollbar__viewport {
-    overflow-x: hidden;
-  }
+    // Standalone floating surface. Opt-in chrome for consumers that host the panel
+    // in a bare CDK overlay with nothing to paint the surface — i.e.
+    // `[mlvAutocomplete]`, whose overlay attaches this component directly (unlike
+    // `mlv-combobox` / `mlv-select`, which nest the panel inside a styled
+    // `mlv-popup`). Mirrors that popup's visual vocabulary — raised background,
+    // subtle hairline border, panel radius, floating elevation — so an autocomplete
+    // popup reads identically to a combobox popup. Never applied by combobox /
+    // select (they get their surface from `mlv-popup`), so their visuals are
+    // unaffected. The panel's own host `[style.max-height.px]` bounds the custom
+    // scrollbar within the rounded surface.
+    &--surface {
+      background-color: var(--mlv-background-raised);
+      border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+      // `--mlv-radius-panel` and `--mlv-popover-surface-radius` both resolve
+      // `--mlv-radius-l` (8px) now, so this surface and `mlv-popup`'s are
+      // reconciled onto one token rather than one avoiding the other.
+      border-radius: var(--mlv-popover-surface-radius);
+      box-shadow: var(--mlv-shadow-floating);
+    }
 
-  // Form B focus ring (inset). Rows run edge to edge inside a viewport that
-  // clips horizontally (`__scrollbar > .mlv-scrollbar__viewport`), so the
-  // default outset ring from `list-item.scss` loses its left and right sides.
-  // Insetting keeps the whole ring painted within the row.
-  // See `.claude/rules/bem-scss.md` — "Focus Ring — Forms A/B".
-  & &__item:focus-visible {
-    outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
-  }
+    // Select and combobox already live inside mlv-popup's scrollbar. Let visible
+    // overflow contribute to that ancestor's scroll area instead of clipping it.
+    &--parent-scroll {
+      overflow: visible;
+    }
 
-  & &__listbox {
-    --mlv-list-padding-block: var(--mlv-popover-inset);
-    --mlv-list-padding-inline: var(--mlv-popover-inset);
+    &__scrollbar {
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 0;
+      // No padding of its own. `scrollMode="parent"` (select, combobox) skips this
+      // element entirely and takes its inset from the list padding below, so any
+      // padding here applied to `scrollMode="self"` consumers only — autocomplete
+      // ended up at 8px top / 12px sides against the reference's 4px. The list
+      // padding is now the single inset in both modes.
+    }
 
-    .mlv-list-item__content {
+    &__scrollbar > .mlv-scrollbar__viewport {
+      overflow-x: hidden;
+    }
+
+    // Form B focus ring (inset). Rows run edge to edge inside a viewport that
+    // clips horizontally (`__scrollbar > .mlv-scrollbar__viewport`), so the
+    // default outset ring from `list-item.scss` loses its left and right sides.
+    // Insetting keeps the whole ring painted within the row.
+    // See `.claude/rules/bem-scss.md` — "Focus Ring — Forms A/B".
+    & &__item:focus-visible {
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    }
+
+    & &__listbox {
+      --mlv-list-padding-block: var(--mlv-popover-inset);
+      --mlv-list-padding-inline: var(--mlv-popover-inset);
+
+      .mlv-list-item__content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+      }
+    }
+
+    // Activedescendant "active" (highlighted) row. DOM focus never lands on the
+    // option in this mode (it stays on the owning combobox input), so
+    // :focus-visible never matches and this rule has to paint what the browser
+    // paints for the roving mode.
+    //
+    // Ring and nothing else, because that is exactly what roving renders:
+    // `list-item.scss` gives a :focus-visible row an outline and no background.
+    // A background here is what made `mlv-combobox`, `mlv-select[searchable]`
+    // and `[mlvAutocomplete]` look different from a plain `mlv-select` — and it
+    // was painted on `__surface`, an inner square box, where :hover paints the
+    // whole rounded row, so it did not even match the hover mark it was chosen
+    // to match. Leaving the fill to :hover alone keeps the two marks distinct:
+    // a hovered row is tinted, the keyboard row is ringed, a row that is both
+    // shows both.
+    //
+    // No `z-index` either. The ring is inset, so it is painted strictly inside
+    // the row's own border box and no adjacent row can reach it — while a
+    // `z-index` here would enter the sticky `__group-header`'s stacking
+    // competition and, being later in DOM order, win any tie and clip it.
+    //
+    // Form B (inset), matching the :focus-visible rule above — rows run edge to
+    // edge inside a viewport that clips horizontally, so an outset ring would
+    // lose its left and right sides.
+    // See `.claude/rules/bem-scss.md` — "Focus Ring — Forms A/B".
+    & &__item--active {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    }
+
+    // Grouped options (APG listbox grouping). The group wrapper is a plain
+    // role="group" box; its header is a non-interactive, sticky section label.
+    &__group {
+      display: block;
+    }
+
+    & &__group:not(:last-child) {
+      margin-bottom: var(--mlv-spacing-1);
+    }
+
+    // Sticky, non-selectable section header. Sticks to the top of the panel's
+    // themed scrollbar viewport, so the current group's label stays pinned while
+    // its options scroll beneath it.
+    //
+    // The header and the rows it labels are siblings in one stacking context —
+    // `__group` is a plain block, `mlv-list` opens no context, and the
+    // scrollbar host is `position: relative` with `z-index: auto`. The header
+    // precedes those rows in DOM order, so it loses every tie, and
+    // `list-item.scss` gives a `:focus-visible` row `z-index: 1`. Hence the
+    // lift: the header has to out-rank that row, not merely match it.
+    //
+    // The row's `z-index` is not the thing to drop instead: its ring is Form A
+    // at a positive `outline-offset`, so it paints outside the row's border
+    // box, and rows are flush (`margin: 0`) — an adjacent hovered or selected
+    // row is later in DOM order with an opaque `--mlv-list-item-bg` and would
+    // paint over the ring.
+    //
+    // `2` rather than a `--mlv-z-*` token, to match
+    // `list-item-group.scss`'s `.mlv-list--inset .mlv-list-item-group__toggler`
+    // — the same sticky-header-over-list-rows job, which has always cleared the
+    // row at this level. The `--mlv-z-*` ladder is for document chrome; these
+    // two only ever compete with their own sibling rows.
+    // Pinned by `dropdown-panel-stacking.spec.ts`. #109.
+    &__group-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: var(--mlv-spacing-1-5) var(--mlv-spacing-2);
+      font-size: var(--mlv-typography-body-s-size);
+      font-weight: var(--mlv-font-weight-semibold);
+      line-height: var(--mlv-typography-body-s-line-height);
+      color: var(--mlv-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background-color: color-mix(
+        in srgb,
+        var(--mlv-background-raised) 88%,
+        transparent
+      );
+      backdrop-filter: saturate(1.4) blur(0.5rem);
+      -webkit-backdrop-filter: saturate(1.4) blur(0.5rem);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    &__item-label {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__item-check {
+      color: var(--mlv-text-action);
+      flex-shrink: 0;
+    }
+
+    // Emphasised query match inside a suggestion label (autocomplete / combobox
+    // highlighting). Semantic <mark>, restyled to a subtle inline accent rather
+    // than the browser default yellow block.
+    &__match {
+      background-color: transparent;
+      color: var(--mlv-text-action);
+      font-weight: var(--mlv-font-weight-semibold);
+      padding: 0;
+    }
+
+    // Loading affordances: the top row shown while an autocomplete search
+    // resolves, and the bottom next-page row rendered after the last option.
+    &__loading,
+    &__loading-more {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      width: 100%;
-    }
-  }
-
-  // Activedescendant "active" (highlighted) row. DOM focus never lands on the
-  // option in this mode (it stays on the owning combobox input), so :focus-visible
-  // does not apply — the highlight is driven by the panel's activeIndex instead.
-  &__item--active .mlv-list-item__surface {
-    // Same shade as pointer hover. These were `neutral-1-hover` vs the list
-    // item's `neutral-1`, so arrowing to a row and hovering it produced two
-    // different greys for what reads as one state.
-    background-color: var(--mlv-popover-item-bg-hover);
-  }
-
-  // Grouped options (APG listbox grouping). The group wrapper is a plain
-  // role="group" box; its header is a non-interactive, sticky section label.
-  &__group {
-    display: block;
-  }
-
-  & &__group:not(:last-child) {
-    margin-bottom: var(--mlv-spacing-1);
-  }
-
-  // Sticky, non-selectable section header. Sticks to the top of the panel's
-  // themed scrollbar viewport, so the current group's label stays pinned while
-  // its options scroll beneath it.
-  &__group-header {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    padding: var(--mlv-spacing-1-5) var(--mlv-spacing-2);
-    font-size: var(--mlv-typography-body-s-size);
-    font-weight: var(--mlv-font-weight-semibold);
-    line-height: var(--mlv-typography-body-s-line-height);
-    color: var(--mlv-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    background-color: color-mix(
-      in srgb,
-      var(--mlv-background-raised) 88%,
-      transparent
-    );
-    backdrop-filter: saturate(1.4) blur(0.5rem);
-    -webkit-backdrop-filter: saturate(1.4) blur(0.5rem);
-    pointer-events: none;
-    user-select: none;
-  }
-
-  &__item-label {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__item-check {
-    color: var(--mlv-text-action);
-    flex-shrink: 0;
-  }
-
-  // Emphasised query match inside a suggestion label (autocomplete / combobox
-  // highlighting). Semantic <mark>, restyled to a subtle inline accent rather
-  // than the browser default yellow block.
-  &__match {
-    background-color: transparent;
-    color: var(--mlv-text-action);
-    font-weight: var(--mlv-font-weight-semibold);
-    padding: 0;
-  }
-
-  // Loading affordances: the top row shown while an autocomplete search
-  // resolves, and the bottom next-page row rendered after the last option.
-  &__loading,
-  &__loading-more {
-    display: flex;
-    align-items: center;
-    gap: var(--mlv-spacing-2);
-    padding: var(--mlv-spacing-2) var(--mlv-spacing-3);
-    color: var(--mlv-text-secondary);
-    font-size: var(--mlv-typography-body-s-size);
-    line-height: var(--mlv-typography-body-s-line-height);
-  }
-
-  // Refreshing an already-rendered list (a new search / reload): the options
-  // stay mounted, readable and interactive, so the panel does not collapse to a
-  // spinner and back. The recede is a colour change to the (contrast-validated)
-  // secondary text token rather than an opacity dim — the rows are still
-  // clickable, so fading them would fail WCAG 1.4.3 on live controls. Custom
-  // `itemTemplate` rows own their colours and are untouched. Pairs with
-  // aria-busy on the listbox.
-  &--loading &__item-label,
-  &--loading &__item-check {
-    color: var(--mlv-text-secondary);
-    transition: color var(--mlv-duration-fast) var(--mlv-ease-default);
-  }
-
-  // Zero-height marker hosting [mlvInfiniteScroll]; it never occupies layout.
-  &__sentinel {
-    height: 0;
-    overflow: hidden;
-  }
-
-  &__spinner {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-    border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
-    border-top-color: var(--mlv-text-action);
-    border-radius: var(--mlv-radius-full);
-    animation: mlv-dropdown-panel-spin var(--mlv-duration-slower) linear
-      infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    &__spinner {
-      animation-duration: calc(var(--mlv-duration-slower) * 4);
+      gap: var(--mlv-spacing-2);
+      padding: var(--mlv-spacing-2) var(--mlv-spacing-3);
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+      line-height: var(--mlv-typography-body-s-line-height);
     }
 
-    // The recede is a state change, not a motion cue — apply it instantly.
+    // Refreshing an already-rendered list (a new search / reload): the options
+    // stay mounted, readable and interactive, so the panel does not collapse to a
+    // spinner and back. The recede is a colour change to the (contrast-validated)
+    // secondary text token rather than an opacity dim — the rows are still
+    // clickable, so fading them would fail WCAG 1.4.3 on live controls. Custom
+    // `itemTemplate` rows own their colours and are untouched. Pairs with
+    // aria-busy on the listbox.
     &--loading &__item-label,
     &--loading &__item-check {
-      transition: none;
+      color: var(--mlv-text-secondary);
+      transition: color var(--mlv-duration-fast) var(--mlv-ease-default);
+    }
+
+    // Zero-height marker hosting [mlvInfiniteScroll]; it never occupies layout.
+    &__sentinel {
+      height: 0;
+      overflow: hidden;
+    }
+
+    &__spinner {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+      border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+      border-top-color: var(--mlv-text-action);
+      border-radius: var(--mlv-radius-full);
+      animation: mlv-dropdown-panel-spin var(--mlv-duration-slower) linear
+        infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      &__spinner {
+        animation-duration: calc(var(--mlv-duration-slower) * 4);
+      }
+
+      // The recede is a state change, not a motion cue — apply it instantly.
+      &--loading &__item-label,
+      &--loading &__item-check {
+        transition: none;
+      }
     }
   }
-}
 
-@keyframes mlv-dropdown-panel-spin {
-  to {
-    transform: rotate(360deg);
+  @keyframes mlv-dropdown-panel-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
-}
 }

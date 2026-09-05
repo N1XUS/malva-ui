@@ -57,7 +57,7 @@ Exported from `libs/core/checkbox/src/index.ts`:
 
 | Name             | Type                  | Default     | Description                                                                                                                                                                                                                                                                                                                              |
 | ---------------- | --------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `indeterminate`  | `boolean`             | `false`     | Shows minus icon (mixed state)                                                                                                                                                                                                                                                                                                           |
+| `indeterminate`  | `boolean` (coerced)   | `false`     | Mixed state: minus icon, `mlv-checkbox--indeterminate` host class, `aria-checked="mixed"`. The native `input.indeterminate` DOM property is written from an `afterRenderEffect`, **not** a template binding — see the SSR note below.                                                                                                    |
 | `disabled`       | `boolean`             | `false`     | Disables the checkbox                                                                                                                                                                                                                                                                                                                    |
 | `tabbable`       | `boolean` (coerced)   | `true`      | When `false`, forces the native input to `tabindex="-1"` regardless of group roving state. Composite parents (`mlv-tree` multi-select rows, `mlv-data-table` rows) set `[tabbable]="false"` to keep a single tab stop while the checkbox stays operable via the row (Space) and the mouse.                                               |
 | `label`          | `string`              | `''`        | **Visible** label text, rendered inside the `<label>` when nothing is projected into `<mlv-checkbox>`. Projected content always wins: the fallback stays in the DOM but is `display: none`-d by `.mlv-checkbox__content:not(:empty) + .mlv-checkbox__label-text`, so it never joins the accessible name. Inherited from the signal base. |
@@ -107,7 +107,11 @@ host: {
 ```
 
 The host is **not** focusable. The single focus target is the visually-hidden
-native `<input type="checkbox">` (clip-path pattern, kept in the a11y tree). Its
+native `<input type="checkbox">` (clip-path pattern, kept in the a11y tree).
+The host is `position: relative` so that absolutely positioned input is
+contained by the checkbox — otherwise, in a drawer or dialog body, it lands
+in the scrollbar host outside the scroll viewport and a click on the label
+scrolls the `overflow: hidden` body to it. Its
 `tabindex` is `_resolvedTabIndex()` — the roving tabindex (`tabIndex` signal,
 managed by `MlvCheckboxGroup` and updated as focus moves) gated by the
 `tabbable` input.
@@ -133,6 +137,31 @@ signal-forms field, not a `ControlValueAccessor` (see the 2026-07 cutover note).
 Label wrapping the visually-hidden native checkbox (`#nativeInput`, `[attr.tabindex]="_resolvedTabIndex()"`) + visual element with dynamic icon (check or minus for indeterminate) + `.mlv-checkbox__text`, which holds `.mlv-checkbox__content` (`ng-content`) followed by the `.mlv-checkbox__label-text` fallback rendered from the `label` input. ARIA attributes on the native input: `aria-checked`, `aria-required`, plus `aria-label` / `aria-labelledby` forwarded from the host (see the forwarding note above).
 
 A dev-mode `console.warn` fires once per instance when a checkbox has no projected text, no `label`, and no `ariaLabel`/`ariaLabelledBy` — i.e. no accessible name at all.
+
+#### `indeterminate` and SSR (issue #124)
+
+`indeterminate` is a DOM property with **no HTML attribute** behind it, so it is
+the one part of the native input a template property binding cannot carry.
+
+- A `[indeterminate]` binding logged **NG0303 on every server render, per
+  instance** — one line per row of a checkbox column. The check Angular runs is
+  `'indeterminate' in element`, true in a browser and false on domino's
+  `HTMLInputElement`, which is why no browser test ever saw it.
+- NG0303 goes to **`console.error`, not the `ErrorHandler`**
+  (`reportUnknownPropertyError` only throws under `TestBed`'s
+  `errorOnUnknownProperties`). `libs/core/src/ssr-smoke.spec.ts` now captures
+  both channels; its `binds no property the server DOM does not have` case is
+  the regression guard.
+- The property is written from an **`afterRenderEffect`** in the constructor:
+  it never runs on the server, so the error class is gone by construction
+  rather than suppressed, and it re-runs when `indeterminate()` changes — which
+  a one-shot `afterNextRender` would not.
+- The **visible** tri-state was never affected and is asserted in the SSR
+  suite: `aria-checked="mixed"`, the `mlv-checkbox--indeterminate` host class
+  and the minus glyph are all attribute/class/template driven. No stylesheet
+  selects `:indeterminate`, and the native input is visually hidden, so the DOM
+  property is only read by assistive tech and by code inspecting
+  `input.indeterminate`.
 
 ---
 

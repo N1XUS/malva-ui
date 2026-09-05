@@ -1,0 +1,23 @@
+<div class="demo-col" style="align-items: flex-start; gap: 1rem">
+  <mlv-scrubber
+    orientation="horizontal"
+    label="Year"
+    [items]="years"
+    [selectedValue]="year()"
+    (valueChange)="year.set($event)"
+    style="
+      --mlv-scrubber-item-size: 5rem;
+      --mlv-scrubber-cross-size: 3rem;
+      --mlv-scrubber-visible-rows: 5;
+    "
+  />
+  <p
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+    "
+  >
+    Selected:
+    <strong style="color: var(--mlv-text-primary)">{{ year() }}</strong>
+  </p>
+</div>

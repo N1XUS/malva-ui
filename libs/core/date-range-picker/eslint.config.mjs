@@ -38,28 +38,6 @@ export default [
           style: 'kebab-case',
         },
       ],
-      '@nx/enforce-module-boundaries': [
-        'error',
-        {
-          enforceBuildableLibDependency: true,
-          allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
-          depConstraints: [
-            {
-              sourceTag: 'scope:ui',
-              onlyDependOnLibsWithTags: ['scope:ui'],
-            },
-            {
-              sourceTag: 'scope:docs',
-              onlyDependOnLibsWithTags: ['scope:docs', 'scope:ui'],
-            },
-          ],
-          // The core project re-exports @malva-ui/core/date-range-picker while this
-          // library imports secondary entry points from the core project
-          // (e.g. @malva-ui/core/form-utils). This creates a false circular dependency
-          // at the Nx project graph level.
-          ignoredCircularDependencies: [['core-date-range-picker', 'core']],
-        },
-      ],
     },
   },
   {

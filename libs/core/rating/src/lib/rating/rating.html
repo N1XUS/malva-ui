@@ -6,7 +6,6 @@
   [attr.aria-pressed]="value() >= (i + 1)"
   [disabled]="computedDisabled() || readonly() || null"
   [tabindex]="_starTabIndex(i)"
-  (mousemove)="_onStarMouseMove(i + 1, $event)"
   (click)="_onStarClick(i + 1, $event)"
   (focus)="_onStarFocus(i + 1)"
   (blur)="_onStarBlur()"

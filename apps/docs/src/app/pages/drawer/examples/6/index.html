@@ -1,0 +1,102 @@
+<div
+  style="
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+    max-width: 36rem;
+  "
+>
+  <mlv-segmented [(value)]="position" ariaLabel="Drawer position">
+    <button mlvSegmentedItem value="left">Left</button>
+    <button mlvSegmentedItem value="right">Right</button>
+    <button mlvSegmentedItem value="top">Top</button>
+    <button mlvSegmentedItem value="bottom">Bottom</button>
+  </mlv-segmented>
+
+  <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: end">
+    <mlv-select
+      label="Size"
+      [options]="sizes"
+      [toOption]="toSizeOption"
+      [(value)]="sizeChoice"
+      [disabled]="resizable()"
+      style="min-width: 12rem"
+    />
+    <mlv-select
+      label="Snap points"
+      [options]="snapPresets"
+      [toOption]="toSnapOption"
+      [(value)]="snapChoice"
+      [disabled]="!resizable()"
+      style="min-width: 14rem"
+    />
+  </div>
+
+  <div style="display: flex; gap: 1.5rem; flex-wrap: wrap">
+    <mlv-switch [(checked)]="resizable">Resizable</mlv-switch>
+    <mlv-switch [(checked)]="backdrop">Backdrop</mlv-switch>
+  </div>
+
+  <button mlvButton (click)="opened.set(true)">Open drawer</button>
+</div>
+
+<mlv-drawer
+  [(opened)]="opened"
+  [position]="position()"
+  [size]="size()"
+  [resizable]="resizable()"
+  [snapPoints]="snapPoints()"
+  [defaultSnap]="defaultSnap()"
+  [hasBackdrop]="backdrop()"
+>
+  <ng-template mlvDrawerContent>
+    <mlv-drawer-header [title]="title()" level="4">
+      <mlv-drawer-sections />
+    </mlv-drawer-header>
+
+    <div mlvDrawerBody>
+      <section mlvDrawerSection id="playground-config" label="Configuration">
+        <dl class="docs-drawer-playground__facts">
+          <dt>Position</dt>
+          <dd>{{ position() }}</dd>
+          <dt>{{ axis() === 'width' ? 'Width' : 'Height' }}</dt>
+          <dd>
+            {{ resizable() ? defaultSnap() + '% of the viewport' : size() }}
+          </dd>
+          <dt>Resizable</dt>
+          <dd>{{ resizable() ? 'yes' : 'no' }}</dd>
+          <dt>Snap points</dt>
+          <dd>
+            {{ !resizable() ? '—' : snapPoints().length ? snapPoints().join(' /
+            ') + ' %' : 'free' }}
+          </dd>
+          <dt>Backdrop</dt>
+          <dd>{{ backdrop() ? 'yes' : 'no' }}</dd>
+        </dl>
+      </section>
+
+      <section mlvDrawerSection id="playground-markup" label="Markup">
+        <pre
+          class="docs-drawer-playground__code"
+        ><code>{{ snippet() }}</code></pre>
+      </section>
+
+      <section mlvDrawerSection id="playground-keys" label="Keyboard">
+        <p style="margin: 0; color: var(--mlv-text-secondary)">
+          With focus on the drag handle, <strong>Arrow keys</strong> resize by a
+          step, <strong>Home</strong> / <strong>End</strong> jump to the
+          smallest and largest snap point, and a quick swipe toward the edge
+          dismisses. <strong>Escape</strong> closes from anywhere inside.
+        </p>
+      </section>
+    </div>
+
+    <div mlvDrawerFooter style="display: flex; gap: 0.5rem">
+      <mlv-spacer />
+      <button mlvButton variant="secondary" (click)="opened.set(false)">
+        Close
+      </button>
+    </div>
+  </ng-template>
+</mlv-drawer>

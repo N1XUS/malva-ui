@@ -35,6 +35,11 @@ Exported from `libs/core/file-upload/src/index.ts`:
 **File:** `libs/core/file-upload/src/lib/file-upload/file-upload.ts`
 **Template:** `libs/core/file-upload/src/lib/file-upload/file-upload.html`
 **Styles:** `libs/core/file-upload/src/lib/file-upload/file-upload.scss`
+— the block is `position: relative` so the visually-hidden native
+`<input type="file">` (`position: absolute`, clip pattern) is contained by
+the component rather than by a positioned ancestor outside a scroll
+viewport (in a drawer / dialog body that is the scrollbar host, and focusing
+the input then scrolls the `overflow: hidden` body to it).
 
 - **Selector:** `mlv-file-upload`
 - **Change Detection:** `OnPush`
@@ -73,11 +78,20 @@ host: {
   '[class.mlv-file-upload--multiple]': 'multiple()',
   '[class.mlv-file-upload--has-files]': '_files().length > 0',
   '[class.mlv-file-upload--compact]': 'compact()',
-  '(dragover)': '_onDragOver($event)',
   '(dragleave)': '_onDragLeave($event)',
   '(drop)': '_onDrop($event)',
+  '(focusout)': '_markTouched()',
 }
 ```
+
+`dragover` is **not** a host binding. The browser fires it continuously while a
+drag hovers the zone, and an Angular listener binding notifies the
+change-detection scheduler on every one of those events before knowing whether
+anything changed — where `_isDragOver.set(true)` writes an unchanged value after
+the first. It is bound in the constructor instead, as
+`fromEvent(host, 'dragover', { passive: false }).pipe(takeUntilDestroyed())`.
+`{ passive: false }` is mandatory: `_onDragOver` must call `preventDefault()` or
+the browser never dispatches `drop` at all.
 
 #### Public Methods
 

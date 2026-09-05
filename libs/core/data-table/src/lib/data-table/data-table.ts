@@ -25,13 +25,19 @@ import {
 import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import { Grid, GridRow, GridCell, GridCellWidget } from '@angular/aria/grid';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription, filter, fromEvent, take, takeUntil } from 'rxjs';
 import {
   CdkVirtualScrollViewport,
   ScrollingModule,
 } from '@angular/cdk/scrolling';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { DOWN_ARROW, LEFT_ARROW, RIGHT_ARROW, UP_ARROW } from '@angular/cdk/keycodes';
+import {
+  DOWN_ARROW,
+  LEFT_ARROW,
+  RIGHT_ARROW,
+  UP_ARROW,
+} from '@angular/cdk/keycodes';
 import {
   LucideArrowUp,
   LucideArrowDown,
@@ -733,6 +739,22 @@ export class MlvDataTable {
     return flattenRows(rows, expanded);
   });
 
+  /**
+   * @protected Rows the virtual-scroll repeater iterates.
+   *
+   * Identical to {@link flatRows} except while {@link showError} is set, where
+   * it empties so the error row can replace the body. The distinction exists
+   * because `*cdkVirtualFor` must never be destroyed while its
+   * `cdk-virtual-scroll-viewport` survives: the viewport announces its rendered
+   * range on a plain `Subject`, so a repeater constructed after the viewport
+   * already exists receives no range until the next scroll and renders nothing.
+   * Emptying the repeater's input is the state change the viewport does react
+   * to; removing the repeater is not.
+   */
+  protected readonly _virtualRows = computed<MlvDataRow[]>(() =>
+    this.showError() ? [] : this.flatRows(),
+  );
+
   readonly totalItems = computed(() => this.effectiveDataSource().totalItems());
   readonly shownItems = computed(() => this.flatRows().length);
 
@@ -1126,7 +1148,17 @@ export class MlvDataTable {
       // all times — pagination is disabled in both modes.
       const unpaged =
         this.paginationMode() === 'infinite' || this.virtualScroll();
-      ds.setPage(unpaged ? 1 : this.currentPage());
+      const page = unpaged ? 1 : this.currentPage();
+      // The call is untracked because a data source is free to read its own
+      // state inside `setPage` — a server-backed one typically compares the
+      // incoming page against the one it already holds so a no-op call does
+      // not cost a round trip. Tracked, those reads would become dependencies
+      // of this effect, and the sibling effect below writes one of them: the
+      // base `setPerPage` resets the page to 1. The two would then retrigger
+      // each other synchronously inside a single change-detection pass, which
+      // never yields to a microtask and freezes the tab outright. Only the
+      // inputs read above belong in this effect's dependency set.
+      untracked(() => ds.setPage(page));
     });
     effect(() => {
       const ds = this.effectiveDataSource();
@@ -1135,7 +1167,9 @@ export class MlvDataTable {
       // then renders only the visible slice of that full list via CDK.
       const unpaged =
         this.paginationMode() === 'infinite' || this.virtualScroll();
-      ds.setPerPage(unpaged ? Number.MAX_SAFE_INTEGER : this.currentPerPage());
+      const perPage = unpaged ? Number.MAX_SAFE_INTEGER : this.currentPerPage();
+      // Untracked for the same reason as the page effect above.
+      untracked(() => ds.setPerPage(perPage));
     });
 
     // Keep the roving row index in range as the visible rows change
@@ -1164,55 +1198,108 @@ export class MlvDataTable {
       const viewport = this._virtualViewportRef()?.elementRef.nativeElement;
       if (!wrapper || !viewport) return;
 
-      let synchronizing = false;
-      const measureVirtualGeometry = (): void => {
-        this._updateVirtualScrollGeometry(wrapper, viewport);
-      };
+      // Released from this effect's `onCleanup`, not `takeUntilDestroyed`:
+      // `wrapper` and `viewport` are re-resolved every time the effect re-runs
+      // (virtual scroll toggling, the viewport being re-created), and
+      // `takeUntilDestroyed` fires only at destroy — it would leave every
+      // earlier generation subscribed to an element this table no longer uses.
+      const scrollSubscriptions = new Subscription();
 
-      const syncFromWrapper = (): void => {
-        if (synchronizing || viewport.scrollLeft === wrapper.scrollLeft) return;
-        synchronizing = true;
-        try {
-          viewport.scrollLeft = wrapper.scrollLeft;
-        } finally {
-          synchronizing = false;
-        }
-      };
+      // Everything below measures live geometry (`offsetWidth`, `clientWidth`,
+      // `scrollWidth`) and attaches scroll and resize observers. None of that
+      // exists on a server: the measurements resolve `undefined`, subtract to
+      // `NaN` and serialise `NaNpx` into the markup — silently, because a NaN
+      // is not an exception and never reaches the `ErrorHandler`.
+      //
+      // `afterNextRender` does not run on the server at all, so the whole
+      // block is browser-only by construction rather than by a guard someone
+      // has to remember at each measurement site. The dependency reads stay in
+      // the effect body above, so this still re-runs when `virtualScroll`
+      // toggles or the viewport is re-created.
+      //
+      // Why this shape and not `afterRenderEffect` (which
+      // `MlvDrawerSectionsService` uses for the same class of bug): this block
+      // *subscribes* rather than measures. It must run once per generation —
+      // one pair of `scroll` listeners and one `ResizeObserver` per resolved
+      // wrapper/viewport — whereas `afterRenderEffect` re-runs its body on
+      // every render its dependencies dirty, which here would re-attach
+      // listeners repeatedly. A one-shot hook scheduled from the effect that
+      // owns the generation, with `onCleanup` releasing both the pending hook
+      // and the previous generation's subscriptions, is what keeps that
+      // one-to-one. Reach for `afterRenderEffect` when the body is idempotent
+      // work over current state; reach for this when it installs something
+      // that has to be torn down.
+      const scheduled = afterNextRender(
+        () => {
+          let synchronizing = false;
+          const measureVirtualGeometry = (): void => {
+            this._updateVirtualScrollGeometry(wrapper, viewport);
+          };
 
-      const syncFromViewport = (): void => {
-        if (synchronizing || wrapper.scrollLeft === viewport.scrollLeft) return;
-        synchronizing = true;
-        try {
-          wrapper.scrollLeft = viewport.scrollLeft;
-          const acceptedScrollLeft = wrapper.scrollLeft;
-          if (viewport.scrollLeft !== acceptedScrollLeft) {
-            viewport.scrollLeft = acceptedScrollLeft;
-          }
-        } finally {
-          synchronizing = false;
-        }
-      };
+          const syncFromWrapper = (): void => {
+            if (synchronizing || viewport.scrollLeft === wrapper.scrollLeft) {
+              return;
+            }
+            synchronizing = true;
+            try {
+              viewport.scrollLeft = wrapper.scrollLeft;
+            } finally {
+              synchronizing = false;
+            }
+          };
 
-      this._ngZone.runOutsideAngular(() => {
-        wrapper.addEventListener('scroll', syncFromWrapper, {
-          passive: true,
-        });
-        viewport.addEventListener('scroll', syncFromViewport, {
-          passive: true,
-        });
-        measureVirtualGeometry();
-        syncFromWrapper();
-      });
-      const viewportResize = this._resizeService
-        .observe(viewport)
-        .subscribe(() => {
-          measureVirtualGeometry();
-          syncFromWrapper();
-        });
+          const syncFromViewport = (): void => {
+            if (synchronizing || wrapper.scrollLeft === viewport.scrollLeft) {
+              return;
+            }
+            synchronizing = true;
+            try {
+              wrapper.scrollLeft = viewport.scrollLeft;
+              const acceptedScrollLeft = wrapper.scrollLeft;
+              if (viewport.scrollLeft !== acceptedScrollLeft) {
+                viewport.scrollLeft = acceptedScrollLeft;
+              }
+            } finally {
+              synchronizing = false;
+            }
+          };
+
+          // `{ passive: true }` is forwarded to `addEventListener` — a
+          // non-passive scroll listener is its own performance bug, so it is
+          // not optional.
+          //
+          // `runOutsideAngular` is kept for consumers still on zone-based
+          // change detection, where the zone would schedule its own tick on
+          // top.
+          this._ngZone.runOutsideAngular(() => {
+            scrollSubscriptions.add(
+              fromEvent(wrapper, 'scroll', { passive: true }).subscribe(
+                syncFromWrapper,
+              ),
+            );
+            scrollSubscriptions.add(
+              fromEvent(viewport, 'scroll', { passive: true }).subscribe(
+                syncFromViewport,
+              ),
+            );
+            measureVirtualGeometry();
+            syncFromWrapper();
+          });
+          scrollSubscriptions.add(
+            this._resizeService.observe(viewport).subscribe(() => {
+              measureVirtualGeometry();
+              syncFromWrapper();
+            }),
+          );
+        },
+        { injector: this._injector },
+      );
+
       onCleanup(() => {
-        wrapper.removeEventListener('scroll', syncFromWrapper);
-        viewport.removeEventListener('scroll', syncFromViewport);
-        viewportResize.unsubscribe();
+        // Cancels the hook if the effect re-runs before it fires; a no-op once
+        // it has already run.
+        scheduled.destroy();
+        scrollSubscriptions.unsubscribe();
       });
     });
 
@@ -1803,36 +1890,12 @@ export class MlvDataTable {
   private _resizeRafId = 0;
 
   /**
-   * @private Bound pointer-move handler retained so add/removeEventListener use
-   * the same function reference.
+   * @private Teardown for the listeners of the resize drag in progress, or
+   * `null` between drags. Holds all four streams (`pointermove`, `pointerup`,
+   * `pointercancel` on the document and `lostpointercapture` on the handle) so
+   * every exit path releases them together through `_cleanupResize()`.
    */
-  private readonly _onResizeMoveBound = (event: PointerEvent): void => {
-    this._onResizeMove(event);
-  };
-
-  /**
-   * @private Bound pointer-up handler retained so add/removeEventListener use
-   * the same function reference.
-   */
-  private readonly _onResizeEndBound = (event: PointerEvent): void => {
-    this._onResizeEnd(event);
-  };
-
-  /**
-   * @private Bound pointer-cancel handler. Cancellation restores the previously
-   * committed width and never emits a commit event.
-   */
-  private readonly _onResizeCancelBound = (event: PointerEvent): void => {
-    this._onResizeCancel(event);
-  };
-
-  /**
-   * @private Cancels an active drag if the browser unexpectedly revokes the
-   * initiating handle's pointer capture.
-   */
-  private readonly _onResizeLostCaptureBound = (event: PointerEvent): void => {
-    this._onResizeLostCapture(event);
-  };
+  private _resizeSubscription: Subscription | null = null;
 
   /**
    * Starts a column resize with Pointer Events and captures the initiating
@@ -1865,17 +1928,52 @@ export class MlvDataTable {
       ...bounds,
     };
 
+    // A drag protocol, so the listeners take the scoped form: `takeUntil` for
+    // the gesture, `takeUntilDestroyed` so a table destroyed mid-drag still
+    // releases them. Both are needed — `takeUntilDestroyed` alone would keep
+    // `pointermove` bound to the document for the component's whole life. The
+    // `DestroyRef` is passed explicitly because this runs from an event
+    // handler, which is not an injection context.
+    //
+    // The whole set lands in one `Subscription` that `_cleanupResize()`
+    // unsubscribes, so the five exits it already serves (pointer up, cancel,
+    // lost capture, width reset, `DestroyRef.onDestroy`) still converge on one
+    // idempotent teardown — `unsubscribe()` on a closed `Subscription` is a
+    // no-op, which is what the stable bound handler references used to buy.
+    // The pointer-capture bookkeeping stays where it is; it is not a listener.
+    // Scoped to the **captured pointer**, not to any `pointerup`. The table
+    // deliberately ignores secondary contacts for the duration of a drag
+    // (`_onResizeMove` / `_onResizeEnd` guard on `state.pointerId`), so an
+    // unfiltered terminator would let an unrelated finger lifting anywhere on
+    // the page end the gesture's streams while the real drag was still going.
+    const capturedPointerId = event.pointerId;
+    const pointerUp$ = fromEvent<PointerEvent>(
+      this._document,
+      'pointerup',
+    ).pipe(filter((upEvent) => upEvent.pointerId === capturedPointerId));
     this._ngZone.runOutsideAngular(() => {
-      this._document.addEventListener('pointermove', this._onResizeMoveBound);
-      this._document.addEventListener('pointerup', this._onResizeEndBound);
-      this._document.addEventListener(
-        'pointercancel',
-        this._onResizeCancelBound,
+      const subscription = new Subscription();
+      subscription.add(
+        fromEvent<PointerEvent>(this._document, 'pointermove')
+          .pipe(takeUntil(pointerUp$), takeUntilDestroyed(this._destroyRef))
+          .subscribe((moveEvent) => this._onResizeMove(moveEvent)),
       );
-      target.addEventListener(
-        'lostpointercapture',
-        this._onResizeLostCaptureBound,
+      subscription.add(
+        pointerUp$
+          .pipe(take(1), takeUntilDestroyed(this._destroyRef))
+          .subscribe((upEvent) => this._onResizeEnd(upEvent)),
       );
+      subscription.add(
+        fromEvent<PointerEvent>(this._document, 'pointercancel')
+          .pipe(takeUntil(pointerUp$), takeUntilDestroyed(this._destroyRef))
+          .subscribe((cancelEvent) => this._onResizeCancel(cancelEvent)),
+      );
+      subscription.add(
+        fromEvent<PointerEvent>(target, 'lostpointercapture')
+          .pipe(takeUntil(pointerUp$), takeUntilDestroyed(this._destroyRef))
+          .subscribe((lostEvent) => this._onResizeLostCapture(lostEvent)),
+      );
+      this._resizeSubscription = subscription;
       if (typeof target.setPointerCapture === 'function') {
         try {
           target.setPointerCapture(event.pointerId);
@@ -2426,21 +2524,11 @@ export class MlvDataTable {
    * up, pointer cancel, reset, and component destruction.
    */
   private _cleanupResize(): void {
+    this._resizeSubscription?.unsubscribe();
+    this._resizeSubscription = null;
+
     const state = this._resizeState;
     if (state) {
-      this._document.removeEventListener(
-        'pointermove',
-        this._onResizeMoveBound,
-      );
-      this._document.removeEventListener('pointerup', this._onResizeEndBound);
-      this._document.removeEventListener(
-        'pointercancel',
-        this._onResizeCancelBound,
-      );
-      state.target.removeEventListener(
-        'lostpointercapture',
-        this._onResizeLostCaptureBound,
-      );
       const canRelease =
         typeof state.target.hasPointerCapture !== 'function' ||
         state.target.hasPointerCapture(state.pointerId);

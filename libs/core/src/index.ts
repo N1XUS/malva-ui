@@ -44,6 +44,7 @@ export * from '@malva-ui/core/notification';
 export * from '@malva-ui/core/pagination';
 export * from '@malva-ui/core/popup';
 export * from '@malva-ui/core/scrollbar';
+export * from '@malva-ui/core/scrubber';
 export * from '@malva-ui/core/search-field';
 export * from '@malva-ui/core/segmented';
 export * from '@malva-ui/core/sidebar';

@@ -20,6 +20,8 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 import type { AfterViewInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
 import type { Content, Extensions, SetContentOptions } from '@tiptap/core';
 import type { Mark } from '@tiptap/pm/model';
 import { Editor } from '@tiptap/core';
@@ -435,19 +437,7 @@ export class MlvEditor
   /** @private The last boundary event, retained until the microtask resolves focus ownership. */
   private _pendingBlurEvent: FocusEvent | undefined;
 
-  /** @private Stable capture listener for focus entering the physical host. */
-  private readonly _onHostFocusIn = (event: FocusEvent): void =>
-    this._handleCompositeFocusIn(event);
-
-  /** @private Stable capture listener for focus leaving the physical host. */
-  private readonly _onHostFocusOut = (event: FocusEvent): void =>
-    this._handleCompositeFocusOut(event);
-
-  /** @private Stable capture listener that blocks disabled projected controls. */
-  private readonly _onDisabledPointerOrClick = (event: Event): void =>
-    this._blockDisabledInteraction(event);
-
-  /** @private Stable capture listener that blocks disabled keyboard activation. */
+  /** @private Blocks disabled keyboard activation; the other three subscribe to their handler directly. */
   private readonly _onDisabledKeydown = (event: KeyboardEvent): void => {
     if (
       event.key !== 'Enter' &&
@@ -1080,25 +1070,40 @@ export class MlvEditor
     );
   }
 
-  /** @private Installs native capture listeners because overlay focus is outside Angular's view tree. */
+  /**
+   * @private Subscribes the composite's host listeners, because overlay focus
+   * happens outside Angular's view tree.
+   *
+   * Every one is registered in the **capture** phase, which is load-bearing
+   * rather than incidental: ProseMirror binds its own handlers to `view.dom`,
+   * a descendant of this host, so only a capture-phase listener on the host
+   * runs ahead of them. The disabled handlers depend on that to call
+   * `stopImmediatePropagation()` while the event is still travelling down —
+   * from the bubble phase ProseMirror would already have acted on it. Capture
+   * is carried through `fromEvent`'s third argument, and `editor-focus.spec.ts`
+   * pins the ordering against descendant listeners.
+   *
+   * Called from `ngAfterViewInit`, which is not an injection context, so
+   * `takeUntilDestroyed` is given the ref explicitly.
+   */
   private _bindCompositeFocusEvents(): void {
     const host = this._host.nativeElement;
-    host.addEventListener('focusin', this._onHostFocusIn, true);
-    host.addEventListener('focusout', this._onHostFocusOut, true);
-    host.addEventListener('pointerdown', this._onDisabledPointerOrClick, true);
-    host.addEventListener('click', this._onDisabledPointerOrClick, true);
-    host.addEventListener('keydown', this._onDisabledKeydown, true);
-    this._destroyRef.onDestroy(() => {
-      host.removeEventListener('focusin', this._onHostFocusIn, true);
-      host.removeEventListener('focusout', this._onHostFocusOut, true);
-      host.removeEventListener(
-        'pointerdown',
-        this._onDisabledPointerOrClick,
-        true,
-      );
-      host.removeEventListener('click', this._onDisabledPointerOrClick, true);
-      host.removeEventListener('keydown', this._onDisabledKeydown, true);
-    });
+
+    fromEvent<FocusEvent>(host, 'focusin', { capture: true })
+      .pipe(takeUntilDestroyed(this._destroyRef))
+      .subscribe((event) => this._handleCompositeFocusIn(event));
+    fromEvent<FocusEvent>(host, 'focusout', { capture: true })
+      .pipe(takeUntilDestroyed(this._destroyRef))
+      .subscribe((event) => this._handleCompositeFocusOut(event));
+    fromEvent(host, 'pointerdown', { capture: true })
+      .pipe(takeUntilDestroyed(this._destroyRef))
+      .subscribe((event) => this._blockDisabledInteraction(event));
+    fromEvent(host, 'click', { capture: true })
+      .pipe(takeUntilDestroyed(this._destroyRef))
+      .subscribe((event) => this._blockDisabledInteraction(event));
+    fromEvent<KeyboardEvent>(host, 'keydown', { capture: true })
+      .pipe(takeUntilDestroyed(this._destroyRef))
+      .subscribe((event) => this._onDisabledKeydown(event));
   }
 
   /** @private Stops all pointer/click/activation-key command surfaces while disabled. */

@@ -66,6 +66,9 @@
         <ng-template mlvPopupContent>
           <div
             class="mlv-date-range-picker__panel"
+            [class.mlv-date-range-picker__panel--sheet]="
+              rangePopup.isFullscreen()
+            "
             [id]="panelId()"
             role="dialog"
             aria-modal="true"
@@ -75,18 +78,29 @@
             (keydown.escape)="closeDropdown()"
           >
             <div class="mlv-date-range-picker__calendars">
+              <!--
+                In the sheet this is the only calendar, and the user picks the
+                end date in it too, so naming it "Start month" would announce
+                the wrong thing. The grouping wrapper earns its role only when
+                there are two groups to tell apart, so both drop away together.
+              -->
               <div
                 class="mlv-date-range-picker__calendar"
-                role="group"
-                [attr.aria-label]="_i18n().startMonth"
+                [attr.role]="rangePopup.isFullscreen() ? null : 'group'"
+                [attr.aria-label]="
+                  rangePopup.isFullscreen() ? null : _i18n().startMonth
+                "
               >
                 <mlv-calendar
                   embedded
                   [range]="true"
+                  [followSelection]="false"
+                  [activeDate]="leftCalendarActiveDate()"
                   [rangeValue]="_pendingRange()"
                   [min]="min()"
                   [max]="max()"
                   [disabledDates]="disabledDates()"
+                  (activeDateChange)="_onLeftActiveDateChange($event)"
                   (rangeValueChange)="onRangeChanged($event)"
                 />
               </div>
@@ -97,17 +111,20 @@
               ></div>
 
               <div
-                class="mlv-date-range-picker__calendar"
+                class="mlv-date-range-picker__calendar mlv-date-range-picker__calendar--end"
                 role="group"
                 [attr.aria-label]="_i18n().endMonth"
               >
                 <mlv-calendar
                   embedded
                   [range]="true"
+                  [followSelection]="false"
+                  [activeDate]="rightCalendarActiveDate()"
                   [rangeValue]="_pendingRange()"
                   [min]="min()"
                   [max]="max()"
                   [disabledDates]="disabledDates()"
+                  (activeDateChange)="_onRightActiveDateChange($event)"
                   (rangeValueChange)="onRangeChanged($event)"
                 />
               </div>

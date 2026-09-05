@@ -20,7 +20,7 @@ import {
   RouterLink,
   RouterLinkActive,
 } from '@angular/router';
-import { filter } from 'rxjs';
+import { filter, fromEvent } from 'rxjs';
 import { MLV_SEGMENTED } from '../segmented-token';
 
 /** `RouterLinkActive`-style match options accepted by `linkActiveOptions`. */
@@ -195,10 +195,17 @@ export class MlvSegmentedItem {
         event.preventDefault();
         event.stopImmediatePropagation();
       };
-      element.addEventListener('click', guard, true);
-      this._destroyRef.onDestroy(() =>
-        element.removeEventListener('click', guard, true),
-      );
+      // `{ capture: true }` is the whole mechanism and is carried through
+      // `fromEvent`'s third argument, which forwards it to the identical
+      // `addEventListener` call. Capture-vs-bubble is what orders this guard
+      // ahead of Angular's coalesced listener on the *same* element — at
+      // `AT_TARGET` the capture pass runs before the bubble pass — so
+      // registration order is irrelevant and the indirection through
+      // `Subscriber.next` is synchronous, leaving `stopImmediatePropagation()`
+      // inside the native listener invocation exactly as before.
+      fromEvent<Event>(element, 'click', { capture: true })
+        .pipe(takeUntilDestroyed(this._destroyRef))
+        .subscribe(guard);
     }
   }
 

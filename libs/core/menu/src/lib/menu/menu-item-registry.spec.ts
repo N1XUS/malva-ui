@@ -835,12 +835,41 @@ describe('menubar registry DOM order and mutation relevance', () => {
     expect(labelsOf(registry.items())).toEqual(['Item 0', 'Item 1', 'Item 2']);
   });
 
+  it('orders items on a platform with no MutationObserver', () => {
+    const { triggers } = createMenubarHost(3);
+    const registry = new MlvMenubarItemRegistryStore();
+    const items = triggers.map((trigger, index) =>
+      createMenubarItem(`Item ${index}`, trigger),
+    );
+
+    // Node defines no `MutationObserver`, so every server render reaches an
+    // unguarded `new MutationObserver(...)` as a `ReferenceError`. This suite
+    // runs in jsdom, where the global exists; removing it is what reproduces
+    // the server. `enableOrderObservation()` is deliberately NOT called —
+    // `mlv-menubar` only calls it from `afterNextRender`, which never runs on
+    // the server, and that is the whole guarantee under test.
+    const nativeMutationObserver = globalThis.MutationObserver;
+    delete (globalThis as { MutationObserver?: unknown }).MutationObserver;
+
+    try {
+      items.forEach((item) => registry.register(item));
+      registry.syncOrder(items);
+      registry.unregister(items[1]);
+
+      expect(labelsOf(registry.items())).toEqual(['Item 0', 'Item 2']);
+    } finally {
+      (globalThis as { MutationObserver?: unknown }).MutationObserver =
+        nativeMutationObserver;
+    }
+  });
+
   it('ignores content churn inside an existing menubar item', async () => {
     const { triggers } = createMenubarHost(3);
     const badge = document.createElement('span');
     triggers[1].appendChild(badge);
 
     const registry = new MlvMenubarItemRegistryStore();
+    registry.enableOrderObservation();
     triggers.forEach((trigger, index) =>
       registry.register(createMenubarItem(`Item ${index}`, trigger)),
     );
@@ -877,6 +906,7 @@ describe('menubar registry DOM order and mutation relevance', () => {
     const { container, triggers } = createMenubarHost(3);
 
     const registry = new MlvMenubarItemRegistryStore();
+    registry.enableOrderObservation();
     triggers.forEach((trigger, index) =>
       registry.register(createMenubarItem(`Item ${index}`, trigger)),
     );
@@ -903,6 +933,7 @@ describe('menubar registry DOM order and mutation relevance', () => {
     const { container, triggers } = createMenubarHost(3);
 
     const registry = new MlvMenubarItemRegistryStore();
+    registry.enableOrderObservation();
     triggers.forEach((trigger, index) =>
       registry.register(createMenubarItem(`Item ${index}`, trigger)),
     );

@@ -144,6 +144,7 @@ const ro: MlvLanguage = {
   },
   drawer: {
     drawer: 'Panou lateral',
+    closeDrawer: 'Închide panoul',
   },
   editor: {
     editorLabel: 'Editor de text îmbogățit',

@@ -175,6 +175,7 @@ are:
 - `/showcases/data-operations`
 - `/showcases/settings-access`
 - `/showcases/website-builder`
+- `/showcases/data-at-scale`
 
 The catalog filter is URL-backed as `?category=`. Valid values are `all`,
 `workspaces`, `communication`, `data`, `content`, and `settings`; a missing or
@@ -506,6 +507,82 @@ on its own.
   tab, the empty states, an emptied section, all three dialogs and the Add
   menu.
 
+The **Data at Scale** showcase (`/showcases/data-at-scale`) is the scaling
+evaluation surface for `mlv-data-table`: 100,000–1,000,000 generated rows, a
+fake backend in a Web Worker, and three benchmarks measured live in the
+visitor's own browser.
+
+- **Backend.** `backend/scale.worker.ts` owns the dataset. `scale-dataset.ts`
+  generates rows from a seeded PRNG (`SCALE_SEED`) so a size always produces
+  the same data; `scale-engine.ts` runs every sort, filter, search and page
+  inside the worker; `scale-protocol.ts` is the shared message contract
+  (`init` / `query` / `ready` / `result`, `SCALE_ALL_ROWS`, `isUnpaged`).
+  Nothing is committed as a fixture. The worker is constructed through the
+  literal `new Worker(new URL('./backend/scale.worker', import.meta.url), { type: 'module' })`
+  form the Angular builder's transformer requires — the worker bundle is
+  built by a plugin-less esbuild pass, so `@malva-ui/*` path aliases do **not**
+  resolve inside it and its imports stay relative. `scale-backend.ts` declares
+  the `ScaleBackend` interface plus the `SCALE_BACKEND_FACTORY` token (no
+  default and no `provide*` helper — the component injects it
+  `{ optional: true }` and falls back to `createScaleBackend()`),
+  `scale-worker-backend.ts` builds the worker, and
+  `scale-main-thread-backend.ts` is the fallback for a runtime with no `Worker`
+  constructor (jsdom, hardened browsers) that the specs inject. The docs app is
+  a client-only SPA — no `server`/`ssr`/`prerender` target — so nothing here is
+  justified by prerendering.
+- **Data source.** `ScaleDataSource` (an `MlvDataSource` subclass) is the only
+  bridge: it debounces state onto one in-flight worker query, supersedes stale
+  answers by request id, and re-uses the same row object for a given id so
+  selection and tree expansion survive a re-query. Mode changes go through
+  `switchPageSize()`, which drops the current rows **synchronously** — a paged
+  table must never be handed the previous unpaged 100,000-row answer, which is
+  what made the virtual → paged switch hang.
+- **Failure handling.** A worker can die without answering: killed for
+  allocating a million rows, or never loaded at all. `ScaleBackend` therefore
+  carries an optional `subscribeError` channel (the worker wires `error` and
+  `messageerror`), and `ScaleDataSource` additionally watches every request
+  with a timer (`SCALE_REQUEST_TIMEOUT_MS` plus the dialled-in latency). Either
+  one clears `loading` and publishes `ScaleDataSource.error`, which the page
+  binds to `mlv-data-table`'s `[error]` with `(retry)` wired to a re-query —
+  without it a dead worker left a permanent loading overlay.
+- **Composition.** Virtual scroll and server-side paging are mutually
+  exclusive on `mlv-data-table`, so the page exposes them as a segmented
+  control (`effectiveMode()`) rather than pretending they compose. Pinned
+  start column (`ref`), optional tree rows (`_mlvChildren` workspaces on about
+  a third of the accounts), and saved views through `mlv-view-variant-list` /
+  `mlv-view-variant-status` all work in both modes. Above
+  `SCALE_MAX_VIRTUAL_ROWS` (≈279,620 = the browser's ~16.7M px scroll-height
+  ceiling ÷ `SCALE_ROW_HEIGHT_PX`) the virtual option is disabled and the page
+  falls back to paging with an `mlv-alert` explaining why — a taller scroller
+  is silently clamped by the browser and renders nothing.
+- **Benchmarks** live in `data-at-scale.metrics.ts` as pure functions
+  (`measureAfterPaint`, `runScrollBenchmark`, `summarizeFrameTimestamps`) so
+  they are unit-testable without a browser. Initial render is
+  `postMessage` arrival → the frame that shows the rows; scroll frame rate
+  samples `requestAnimationFrame` timestamps over a scripted 2 s scroll;
+  filter latency splits the round trip into worker compute, artificial
+  latency, transfer, the main-thread row-identity pass (`identifyMs`) and
+  render. `transferMs` ends at the arrival of the message and `roundTripMs`
+  ends after the identity pass, so no main-thread work falls between two
+  published numbers. The scroll benchmark reads the scroller's extent once
+  rather than per frame (a per-frame `scrollHeight` read is a forced layout
+  inside the interval it publishes), refuses to run under
+  `prefers-reduced-motion`, and takes an `AbortSignal` the component aborts on
+  destroy. Every readout is machine-dependent and the page says so in its own
+  "How these numbers are measured" section — nothing is captured in CI or
+  committed.
+- **Specs.** `data-at-scale.spec.ts` (render, source wiring, benchmark
+  readouts, both mode-switch directions, in-flight supersession, the
+  scroll-height fallback, the error row a dead backend produces, the
+  size-control disclosure, and the reduced-motion and destroy-mid-run paths of
+  the scroll benchmark), `scale-data-source.spec.ts` (query shape,
+  supersession, identity, page-size and dataset switches, backend failure and
+  the watchdog), `data-at-scale.metrics.spec.ts` (frame maths, the single
+  layout read, abort, reduced motion), plus
+  `backend/scale-dataset.spec.ts` and `backend/scale-engine.spec.ts`. They run
+  against the main-thread backend; the 100k-row behaviour that jsdom cannot
+  reproduce was verified by hand in Chrome.
+
 The Project Workspace showcase is the flagship four-region `MlvPageShell`
 composition: icon rail (first `mlvPageSidebar`), project navigation sidebar
 (second `mlvPageSidebar`, off-canvas below `lg` with a header
@@ -817,7 +894,7 @@ for `/showcases` and every descendant.
 `apps/docs/public/showcases/README.md` defines the preview contract. Each
 catalog preview is a real route-derived PNG named
 `/showcases/<route-slug>.png`, captured at **1600×1000** in the light theme,
-after fonts and images decode and animations settle. All six showcase routes
+after fonts and images decode and animations settle. All seven showcase routes
 are captured and every registry `previewAsset` points at its PNG; the
 showcase-index spec asserts no card regresses to a `null` asset. Re-capture a
 route's PNG whenever its default visual state changes. The home page's

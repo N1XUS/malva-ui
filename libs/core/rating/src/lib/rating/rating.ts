@@ -10,8 +10,15 @@ import {
   signal,
   ViewEncapsulation,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
 import { coerceNumberProperty } from '@angular/cdk/coercion';
-import { DOWN_ARROW, LEFT_ARROW, RIGHT_ARROW, UP_ARROW } from '@angular/cdk/keycodes';
+import {
+  DOWN_ARROW,
+  LEFT_ARROW,
+  RIGHT_ARROW,
+  UP_ARROW,
+} from '@angular/cdk/keycodes';
 import type { MlvFormControl } from '@malva-ui/core/form-utils';
 import {
   MlvSignalFormControlBase,
@@ -84,15 +91,56 @@ export class MlvRating
 
   /** @private Resolver for ICU parameterized i18n strings. */
   private readonly _resolver = inject(MlvI18nResolverService);
+
+  /**
+   * @private Direction service backing `_direction` and the RTL-aware arrow-key
+   * normalisation in `_onHostKeydown`.
+   *
+   * The two are scoped differently, which is a trap worth naming here.
+   * `_direction` resolves per element, so a `[dir]` ancestor mirrors the paint
+   * and the hit test; `normalizeArrowKey` reads the service's **global**
+   * `direction()`, so inside such a scope the arrow keys keep their LTR
+   * meaning. Tracked as #147 and fixed in `MlvRtlService`, not here — the
+   * `MlvRating direction > keyboard` suite pins the current behaviour so the
+   * fix cannot land silently.
+   */
   private readonly _rtlService = inject(MlvRtlService);
+
+  /** @private Host element — the delegation root for the hover listener. */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /**
    * @private Effective direction of this rating, tracking the global direction
-   * and any `[dir]` scope above the host. Mirrors half-star hit testing.
+   * and any `[dir]` scope above the host. Mirrors both halves of half-star
+   * precision — the hit test in {@link _isLeadingHalf} and the fill side in
+   * {@link _clipPath} — which have to agree on which half of a star leads.
    */
   private readonly _direction = this._rtlService.elementDirection(
-    inject(ElementRef<HTMLElement>),
+    this._elementRef,
   );
+
+  constructor() {
+    super();
+
+    // `mousemove` is bound here rather than as a `(mousemove)` binding on each
+    // star. A template listener is wrapped in
+    // `wrapListenerIn_markDirtyAndPreventDefault`, which marks the ancestor
+    // view chain dirty and notifies the change-detection scheduler on **every**
+    // event — hundreds per hover sweep — before it knows whether the handler
+    // changed anything. Sweeping one star writes `_hoverValue` with the value
+    // it already holds for all but the first event, and a signal set to an
+    // unchanged value notifies nothing, so `fromEvent` makes the rest free.
+    //
+    // One delegated listener on the host replaces `max()` per-star listeners.
+    // `mousemove` bubbles, and `event.target` is the star `<button>` in both
+    // forms — the two icon layers are `pointer-events: none`, so the hit test
+    // falls through to the button. That is what keeps `event.offsetX`, read by
+    // `_isLeadingHalf`, measured against the same box as `star.offsetWidth`,
+    // and unchanged by the move to delegation.
+    fromEvent<MouseEvent>(this._elementRef.nativeElement, 'mousemove')
+      .pipe(takeUntilDestroyed())
+      .subscribe((event) => this._onStarMouseMove(event));
+  }
 
   /**
    * @private Whether the pointer is over the leading (lower-value) half of a
@@ -174,11 +222,21 @@ export class MlvRating
 
   /**
    * Returns the CSS `clip-path` value for the filled star overlay.
-   * `inset(0 {remainder}% 0 0)` clips the right side.
+   *
+   * Direction-dependent: `inset()` takes physical `top right bottom left`
+   * offsets and has no logical form, so the side to eat from has to be chosen
+   * here. The star row is a plain `flex-direction: row`, so it follows the
+   * inline base direction and a star's leading (lower-value) half is its
+   * physical left half in LTR and its right half in RTL. The remainder is
+   * therefore inset from the right in LTR and from the left in RTL — the same
+   * `_direction()` `_isLeadingHalf` mirrors the hit test with, so the half
+   * the pointer selects is the half that gets painted.
    */
   protected _clipPath(starIndex: number): string {
     const remainder = 100 - this._getFillPercent(starIndex);
-    return `inset(0 ${remainder}% 0 0)`;
+    return this._direction() === 'rtl'
+      ? `inset(0 0 0 ${remainder}%)`
+      : `inset(0 ${remainder}% 0 0)`;
   }
 
   /**
@@ -204,15 +262,41 @@ export class MlvRating
 
   // ── Event handlers ─────────────────────────────────────────────────────────
 
-  /** @internal */
-  protected _onStarMouseMove(starIndex: number, event: MouseEvent): void {
+  /**
+   * @private Updates the hover preview from a delegated `mousemove`.
+   *
+   * Pointer moves that land between stars resolve to no star and are ignored,
+   * matching the per-star binding this replaced.
+   */
+  private _onStarMouseMove(event: MouseEvent): void {
     if (this.readonly() || this.computedDisabled()) return;
-    const el = event.currentTarget as HTMLElement;
+
+    const target = event.target;
+    const star =
+      target instanceof Element
+        ? target.closest<HTMLElement>('.mlv-rating__star')
+        : null;
+    if (!star) return;
+
+    const starIndex = this._starPosition(star);
+    if (starIndex === 0) return;
+
     this._hoverValue.set(
-      this.step() === 0.5 && this._isLeadingHalf(event, el)
+      this.step() === 0.5 && this._isLeadingHalf(event, star)
         ? starIndex - 0.5
         : starIndex,
     );
+  }
+
+  /**
+   * @private One-based position of a star among its siblings, or `0` when the
+   * element is not one of this rating's stars. The stars are the host's only
+   * element children and are rendered in ascending order by `@for`.
+   */
+  private _starPosition(star: HTMLElement): number {
+    const siblings = star.parentElement?.children;
+    if (!siblings) return 0;
+    return Array.prototype.indexOf.call(siblings, star) + 1;
   }
 
   /** @internal */

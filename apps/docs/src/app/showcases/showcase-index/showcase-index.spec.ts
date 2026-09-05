@@ -55,19 +55,26 @@ describe('ShowcaseIndexComponent', () => {
     expect(root.querySelectorAll('.showcase-index__card img')).toHaveLength(
       SHOWCASES.filter((showcase) => showcase.previewAsset !== null).length,
     );
-    expect(
-      SHOWCASES.every((showcase) => showcase.previewAsset !== null),
-    ).toBe(true);
+    expect(SHOWCASES.every((showcase) => showcase.previewAsset !== null)).toBe(
+      true,
+    );
   });
 
   it('filters cards from a linkable category query parameter', async () => {
     const { component, root } = await renderAt('/showcases?category=data');
+    const dataShowcases = SHOWCASES.filter(
+      (showcase) => showcase.category === 'data',
+    );
 
     expect(component.activeCategory()).toBe('data');
-    expect(root.querySelectorAll('.showcase-index__card')).toHaveLength(1);
-    expect(root.querySelector('.showcase-index__card')?.textContent).toContain(
-      'Data Operations',
+    expect(root.querySelectorAll('.showcase-index__card')).toHaveLength(
+      dataShowcases.length,
     );
+    expect(
+      Array.from(root.querySelectorAll('.showcase-index__card')).map((card) =>
+        card.querySelector('h2')?.textContent?.trim(),
+      ),
+    ).toEqual(dataShowcases.map((showcase) => showcase.title));
   });
 
   it('resolves invalid category values to All', async () => {

@@ -139,6 +139,7 @@ const tr: MlvLanguage = {
   },
   drawer: {
     drawer: 'Çekmece',
+    closeDrawer: 'Çekmeceyi kapat',
   },
   editor: {
     editorLabel: 'Zengin metin düzenleyicisi',

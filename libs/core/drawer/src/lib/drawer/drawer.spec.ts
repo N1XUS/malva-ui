@@ -153,6 +153,7 @@ describe('MlvDrawer — focus', () => {
       [(opened)]="open"
       [position]="position()"
       [size]="size()"
+      [minSize]="minSize()"
       [maxSize]="maxSize()"
       [resizable]="resizable()"
     >
@@ -166,6 +167,7 @@ class DrawerSizeHostComponent {
   readonly open = signal(false);
   readonly position = signal<'left' | 'right' | 'top' | 'bottom'>('right');
   readonly size = signal('36rem');
+  readonly minSize = signal('0px');
   readonly maxSize = signal('100%');
   readonly resizable = signal(false);
 }
@@ -229,5 +231,25 @@ describe('MlvDrawer — size clamping', () => {
     const panel = await openDrawer();
 
     expect(panel.style.maxHeight).toBe('min(30rem, 100dvh)');
+  });
+
+  it('binds minSize as the width floor of a resizable side drawer', async () => {
+    // The drag directive writes the axis size through a custom property;
+    // `min-width` is what stops it from shrinking the panel below the floor.
+    host.resizable.set(true);
+    host.minSize.set('18rem');
+    const panel = await openDrawer();
+
+    expect(panel.style.minWidth).toBe('min(18rem, 100dvw)');
+    expect(panel.style.minHeight).toBe('');
+  });
+
+  it('binds minSize as the height floor of a top/bottom drawer', async () => {
+    host.position.set('top');
+    host.minSize.set('12rem');
+    const panel = await openDrawer();
+
+    expect(panel.style.minHeight).toBe('min(12rem, 100dvh)');
+    expect(panel.style.minWidth).toBe('');
   });
 });

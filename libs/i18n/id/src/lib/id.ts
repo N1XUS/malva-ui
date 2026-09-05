@@ -141,6 +141,7 @@ const id: MlvLanguage = {
   },
   drawer: {
     drawer: 'Panel samping',
+    closeDrawer: 'Tutup panel',
   },
   editor: {
     editorLabel: 'Editor teks kaya',

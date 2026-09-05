@@ -42,7 +42,6 @@ import {
   LucideUserPlus,
   LucideUserRound,
   LucideUsers,
-  LucideX,
 } from '@lucide/angular';
 import { MlvSpacer } from '@malva-ui/cdk/utils';
 import { MlvAlert, MlvAlertTitle } from '@malva-ui/core/alert';
@@ -51,7 +50,11 @@ import { MlvBadge } from '@malva-ui/core/badge';
 import type { MlvBadgeTone } from '@malva-ui/core/badge';
 import { MlvBreadcrumb } from '@malva-ui/core/breadcrumb';
 import type { MlvBreadcrumbEntry } from '@malva-ui/core/breadcrumb';
-import { MlvButton, MlvButtonIcon } from '@malva-ui/core/button';
+import {
+  MlvButton,
+  MlvButtonClose,
+  MlvButtonIcon,
+} from '@malva-ui/core/button';
 import { MlvCard } from '@malva-ui/core/card';
 import { MlvCheckbox } from '@malva-ui/core/checkbox';
 import { MlvChip } from '@malva-ui/core/chip';
@@ -706,6 +709,7 @@ function hoursBetween(start: string, end: string): number {
     MlvBadge,
     MlvBreadcrumb,
     MlvButton,
+    MlvButtonClose,
     MlvButtonIcon,
     MlvCard,
     MlvCheckbox,
@@ -822,7 +826,6 @@ function hoursBetween(start: string, end: string): number {
     LucideUserPlus,
     LucideUserRound,
     LucideUsers,
-    LucideX,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {

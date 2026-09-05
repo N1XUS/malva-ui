@@ -1,10 +1,13 @@
 import type { ElementRef, TemplateRef, ViewContainerRef } from '@angular/core';
 import { Injectable, NgZone, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { fromEvent } from 'rxjs';
 import type {
   OverlayRef,
   ConnectedPosition,
   ConnectedOverlayPositionChange,
   FlexibleConnectedPositionStrategy,
+  FlexibleConnectedPositionStrategyOrigin,
 } from '@angular/cdk/overlay';
 import { Overlay } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
@@ -44,8 +47,26 @@ export interface MlvPopupSizeConfig {
 
 /** Configuration object passed to {@link MlvPopupService.open}. */
 export interface MlvPopupOpenConfig {
-  /** The element the overlay attaches to. */
+  /**
+   * The element the overlay belongs to.
+   *
+   * Used to position the overlay, to resolve the direction the portaled pane
+   * inherits, and as the anchor a direction watch is scoped to. Pass
+   * {@link positionOrigin} as well to keep this element's `[dir]` scope and
+   * focus ownership while positioning against something else.
+   */
   origin: ElementRef;
+  /**
+   * Overrides what the overlay is *positioned* against, leaving {@link origin}
+   * to own direction resolution.
+   *
+   * Accepts anything CDK's `flexibleConnectedTo` does, including a bare
+   * `{ x, y }` viewport point — the context-menu case, where the panel is
+   * anchored to the cursor rather than to the element that owns the menu. A
+   * point carries no `[dir]` scope of its own, which is exactly why direction
+   * still comes from {@link origin}.
+   */
+  positionOrigin?: FlexibleConnectedPositionStrategyOrigin;
   /** The `<ng-template>` to render inside the overlay. */
   template: TemplateRef<unknown>;
   /** The `ViewContainerRef` used to instantiate the portal. */
@@ -111,6 +132,23 @@ export interface MlvPopupHandle {
   overlayRef: OverlayRef;
   /** Disposes the overlay and triggers `onClose`. */
   close: () => void;
+  /**
+   * Re-anchors an open overlay to a new position origin and repositions it,
+   * optionally swapping the position list at the same time.
+   *
+   * Exists for point-anchored overlays whose anchor moves while they are open —
+   * a second right-click on an already-open context menu moves the panel to the
+   * new cursor instead of stacking a second one. `positions` matters when the
+   * anchor changes *kind* rather than just place: a context menu re-anchored
+   * from its host element to a cursor must also drop the 8px element gap, which
+   * the strategy would otherwise keep applying to the new point.
+   *
+   * No-op in `fullscreen` mode, which uses a global strategy with no origin.
+   */
+  setPositionOrigin: (
+    origin: FlexibleConnectedPositionStrategyOrigin,
+    positions?: ConnectedPosition[],
+  ) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +194,14 @@ export class MlvPopupService {
 
   /** @private Angular zone for running document-level event handlers inside change detection. */
   private readonly _ngZone = inject(NgZone);
+
+  /**
+   * @private The document the click-outside listener is bound to. Injected
+   * rather than the ambient global: under server rendering the two are
+   * different objects and the global is defined, so an ambient `document`
+   * binds to a process-wide object no teardown reaches.
+   */
+  private readonly _document = inject(DOCUMENT);
 
   // ─── Public API ────────────────────────────────────────────────────────────
 
@@ -204,7 +250,10 @@ export class MlvPopupService {
       ? this._overlay.position().global()
       : this._overlay
           .position()
-          .flexibleConnectedTo(config.origin)
+          // `positionOrigin` may be a bare viewport point (context menu). The
+          // element in `origin` still owns direction and focus — see the field
+          // docs on `MlvPopupOpenConfig`.
+          .flexibleConnectedTo(config.positionOrigin ?? config.origin)
           .withPositions(config.positions)
           .withPush(push)
           .withFlexibleDimensions(flexible)
@@ -289,7 +338,19 @@ export class MlvPopupService {
       // Defer the document listener to avoid catching the same click that opened the popup.
       const excludeElements = config.dismissExcludeElements ?? [];
       const timerId = setTimeout(() => {
-        const handler = (event: MouseEvent) => {
+        // `{ capture: true }` is load-bearing: dismissal has to see the click
+        // before a handler inside the page can stop its propagation.
+        // `fromEvent` forwards the options object to the very same
+        // `addEventListener` call, so the phase and the registration order
+        // among capture listeners on the document are unchanged.
+        //
+        // The subscription's lifetime is this open overlay, not the service's
+        // — `MlvPopupService` is `providedIn: 'root'` — so it goes on the same
+        // `cleanups` list that `close()` drains, exactly where the
+        // `removeEventListener` closure used to sit.
+        const subscription = fromEvent<MouseEvent>(this._document, 'click', {
+          capture: true,
+        }).subscribe((event) => {
           const target = event.target as Node;
           const insidePanel =
             overlayRef.hasAttached() &&
@@ -303,11 +364,8 @@ export class MlvPopupService {
           if (overlayRef.hasAttached() && !insidePanel && !insideExcluded) {
             this._ngZone.run(() => requestClose());
           }
-        };
-        document.addEventListener('click', handler, true);
-        cleanups.push(() =>
-          document.removeEventListener('click', handler, true),
-        );
+        });
+        cleanups.push(() => subscription.unsubscribe());
       }, 0);
       cleanups.push(() => clearTimeout(timerId));
     }
@@ -320,7 +378,18 @@ export class MlvPopupService {
     });
     cleanups.push(() => keySub.unsubscribe());
 
-    return { overlayRef, close };
+    const setPositionOrigin = (
+      origin: FlexibleConnectedPositionStrategyOrigin,
+      positions?: ConnectedPosition[],
+    ) => {
+      if (disposed || fullscreen || !overlayRef.hasAttached()) return;
+      const strategy = positionStrategy as FlexibleConnectedPositionStrategy;
+      strategy.setOrigin(origin);
+      if (positions) strategy.withPositions(positions);
+      overlayRef.updatePosition();
+    };
+
+    return { overlayRef, close, setPositionOrigin };
   }
 
   /**

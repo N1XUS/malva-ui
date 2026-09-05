@@ -134,7 +134,10 @@ const de: MlvLanguage = {
     confirm: 'Bestätigen',
     cancel: 'Abbrechen',
   },
-  drawer: { drawer: 'Seitenleiste' },
+  drawer: {
+    drawer: 'Seitenleiste',
+    closeDrawer: 'Seitenleiste schließen',
+  },
   editor: {
     editorLabel: 'Rich-Text-Editor',
     toolbarLabel: 'Editor-Symbolleiste',

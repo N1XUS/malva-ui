@@ -1,4 +1,6 @@
 import { DestroyRef, NgZone, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Subscription, fromEvent } from 'rxjs';
 import type {
   ElementRef,
   OutputEmitterRef,
@@ -6,6 +8,10 @@ import type {
   ViewContainerRef,
   WritableSignal,
 } from '@angular/core';
+import type {
+  ConnectedPosition,
+  FlexibleConnectedPositionStrategyOrigin,
+} from '@angular/cdk/overlay';
 import type { MlvPopup, MlvPopupHandle } from '@malva-ui/core/popup';
 import {
   MENU_POSITIONS,
@@ -41,6 +47,35 @@ export interface MlvMenuOverlayControllerConfig {
   readonly getMenu: () => MlvMenuOverlayTarget;
   /** Element from which the popup is positioned and to which focus returns. */
   readonly origin: ElementRef<HTMLElement>;
+  /**
+   * Overrides what the popup is *positioned* against, resolved at each open.
+   * `origin` keeps direction resolution and focus restoration.
+   *
+   * Returning a `{ x, y }` point anchors the panel to the cursor — how
+   * `MlvContextMenuTrigger` opens a menu at a right-click. Omit (or return
+   * `undefined`) for the default element-anchored behaviour.
+   */
+  readonly getPositionOrigin?: () =>
+    | FlexibleConnectedPositionStrategyOrigin
+    | undefined;
+  /**
+   * Overrides the CDK position list, resolved at each open. Omit to use the
+   * `MENU_POSITIONS` / `SUBMENU_POSITIONS` pair chosen from `isSubmenu()`.
+   */
+  readonly getPositions?: () => ConnectedPosition[] | undefined;
+  /**
+   * Overrides whether the overlay creates a CDK backdrop. Omit for the default,
+   * which is a backdrop for everything except submenus and menubar children.
+   *
+   * `false` is required by any trigger that must keep seeing pointer events on
+   * the page while its panel is open: the backdrop is `inset: 0` with
+   * `pointer-events: auto`, so it becomes the hit-test target for the whole
+   * viewport. A right-click also fires no `click`, so the backdrop would not
+   * even close the panel — it would only swallow the event and let the native
+   * browser menu through. `MlvPopupService` keeps click-outside dismissal
+   * working without a backdrop via its document listener.
+   */
+  readonly getHasBackdrop?: () => boolean | undefined;
   /** View container used to instantiate the menu popup portal. */
   readonly vcr: ViewContainerRef;
   /** Parent menu accessor for submenu registration. */
@@ -75,6 +110,14 @@ export class MlvMenuOverlayController {
   private readonly _ngZone: NgZone;
   private readonly _destroyRef = inject(DestroyRef);
 
+  /**
+   * @private The document the submenu hover-intent listener is bound to.
+   * Injected rather than the ambient global: under server rendering the two
+   * are different objects and the global is defined, so an ambient `document`
+   * binds to a process-wide object no teardown reaches.
+   */
+  private readonly _document = inject(DOCUMENT);
+
   private _overlayRef: MlvPopupHandle | null = null;
   private _openSubscriptions: Array<{ unsubscribe(): void }> = [];
   private _triangleState: MlvSubmenuAimState | null = null;
@@ -102,7 +145,9 @@ export class MlvMenuOverlayController {
     const popup = menu._popup();
     const isSubmenu = this._config.isSubmenu();
     const isMenubarChild = this._config.isMenubarChild;
-    const positions = isSubmenu ? SUBMENU_POSITIONS : MENU_POSITIONS;
+    const positions =
+      this._config.getPositions?.() ??
+      (isSubmenu ? SUBMENU_POSITIONS : MENU_POSITIONS);
 
     menu.registerParentMenu(isSubmenu ? this._config.parentMenu : null);
     menu.registerMenubarController(
@@ -125,10 +170,12 @@ export class MlvMenuOverlayController {
 
     this._overlayRef = this._popupService.open({
       origin: this._config.origin,
+      positionOrigin: this._config.getPositionOrigin?.(),
       template: popup.popupTemplate(),
       vcr: this._config.vcr,
       positions,
-      hasBackdrop: !isSubmenu && !isMenubarChild,
+      hasBackdrop:
+        this._config.getHasBackdrop?.() ?? (!isSubmenu && !isMenubarChild),
       dismissExcludeElements:
         isMenubarChild && this._config.menubar
           ? [this._config.menubar.hostElement]
@@ -187,6 +234,29 @@ export class MlvMenuOverlayController {
   close(): void {
     if (!this.isOpen()) return;
     this._closeOverlay();
+  }
+
+  /**
+   * Re-reads `getPositionOrigin` / `getPositions` and moves an open overlay to
+   * the result, falling back to the `origin` element when the config currently
+   * supplies no point.
+   *
+   * The positions travel with the origin because the two can change kind
+   * together: a context menu re-anchored from its host element to a cursor must
+   * also drop the 8px element gap the element-anchored list carries.
+   *
+   * No-op when the overlay is closed. Used by point-anchored triggers whose
+   * anchor moves while the panel is open — a second right-click moves the
+   * context menu rather than stacking one.
+   */
+  updatePositionOrigin(): void {
+    if (!this.isOpen()) return;
+    const origin = this._config.getPositionOrigin?.() ?? this._config.origin;
+    this._overlayRef?.setPositionOrigin(
+      origin,
+      this._config.getPositions?.() ??
+        (this._config.isSubmenu() ? SUBMENU_POSITIONS : MENU_POSITIONS),
+    );
   }
 
   /** Toggles the controlled menu overlay. */
@@ -266,7 +336,7 @@ export class MlvMenuOverlayController {
 
   private _restoreFocusToTrigger(): void {
     const overlayElement = this._overlayRef?.overlayRef.overlayElement;
-    const active = document.activeElement;
+    const active = this._document.activeElement;
     if (overlayElement && active && overlayElement.contains(active)) {
       this._config.origin.nativeElement.focus();
     }
@@ -304,16 +374,19 @@ export class MlvMenuOverlayController {
 
     const onLeave = () => this._scheduleClose();
 
+    // Bound to the overlay element of *this* open and released by the
+    // `_openSubscriptions` entry when the popup closes — the controller
+    // outlives any number of opens, so `takeUntilDestroyed` would accumulate
+    // one pair per open, each on an overlay element that no longer exists.
     this._ngZone.runOutsideAngular(() => {
-      overlayElement.addEventListener('mouseenter', onEnter);
-      overlayElement.addEventListener('mouseleave', onLeave);
-    });
-
-    this._openSubscriptions.push({
-      unsubscribe: () => {
-        overlayElement.removeEventListener('mouseenter', onEnter);
-        overlayElement.removeEventListener('mouseleave', onLeave);
-      },
+      const subscription = new Subscription();
+      subscription.add(
+        fromEvent(overlayElement, 'mouseenter').subscribe(onEnter),
+      );
+      subscription.add(
+        fromEvent(overlayElement, 'mouseleave').subscribe(onLeave),
+      );
+      this._openSubscriptions.push(subscription);
     });
   }
 
@@ -352,10 +425,20 @@ export class MlvMenuOverlayController {
       }
     };
 
+    // `{ capture: true }` is load-bearing: the hover-intent tracker has to
+    // see the move before a menu item's own handlers can stop it. `fromEvent`
+    // forwards the options object to the identical `addEventListener` call, so
+    // the phase and the order among capture listeners are unchanged.
+    //
+    // The subscription belongs to one submenu-open generation and is released
+    // by `_removeMousemoveListener()`, called from the popup's `onClose` and
+    // from `destroy()` (wired to `DestroyRef.onDestroy`), so the injected
+    // document keeps nothing after either.
     this._ngZone.runOutsideAngular(() => {
-      document.addEventListener('mousemove', handler, true);
-      this._mousemoveCleanup = () =>
-        document.removeEventListener('mousemove', handler, true);
+      const subscription = fromEvent<MouseEvent>(this._document, 'mousemove', {
+        capture: true,
+      }).subscribe(handler);
+      this._mousemoveCleanup = () => subscription.unsubscribe();
     });
   }
 

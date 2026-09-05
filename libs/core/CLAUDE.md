@@ -42,6 +42,7 @@
 - `@malva-ui/core/pagination`
 - `@malva-ui/core/popup`
 - `@malva-ui/core/radio`
+- `@malva-ui/core/scrubber`
 - `@malva-ui/core/search-field`
 - `@malva-ui/core/segmented`
 - `@malva-ui/core/select`
@@ -138,6 +139,136 @@ Each secondary entry point in `libs/core/<entry>/src/index.ts` re-exports exactl
   `@tiptap/*` peer moved with it. Core therefore declares no Tiptap peers at
   all and no `peerDependenciesMeta` block: a consumer who never installs the
   editor never sees them.
+
+## Server rendering (SSR)
+
+`libs/core/src/ssr-smoke.spec.ts` is the SSR gate for the whole package. It runs
+under `yarn nx run core:test`.
+
+- **Primary assertions are the two error channels, not the markup.** Angular
+  does not use one channel, so neither does `renderHost()`:
+  - **`ErrorHandler`** — an exception thrown inside an `effect` is routed there
+    and rendering continues, so a component that reaches a browser global still
+    emits perfect markup. An installed `ErrorHandler` collects everything and
+    the suite fails on a non-empty list.
+  - **`console.error`** — an unknown _property binding_ never reaches the
+    `ErrorHandler` at all: `reportUnknownPropertyError` writes NG0303 straight
+    to `console.error` unless `shouldThrowErrorOnUnknownProperty` is set, and
+    that flag is `TestBed`'s `errorOnUnknownProperties`, not something
+    `renderApplication` turns on. `renderHost()` swaps `console.error` for the
+    duration of each render, and the spec fails on any captured line. This
+    channel was added for issue #124, where `MlvCheckbox`'s `[indeterminate]`
+    logged one NG0303 per rendered instance while the checkbox was already
+    written into a host template and the suite was green.
+- Secondary assertions: every host rendered _content_ between its own tags (the
+  root tag itself comes from the `document` string, so it proves nothing), the
+  indeterminate checkbox emitted `aria-checked="mixed"` (the visible half of
+  #124 — an attribute binding, so unlike the property binding beside it, it
+  does survive the server render), no `cdk-overlay-*` in the payload, and no
+  `NaN` anywhere in it (a viewport measured during construction serialises as
+  `NaNpx` without ever throwing).
+- **Property bindings that the server DOM cannot satisfy** are a class of their
+  own: the check is `'<prop>' in element`, so anything domino's DOM lacks fails
+  there and passes in every browser test. `mapPropName` rescues `class`, `for`,
+  `formaction`, `innerHtml`, `readonly` and `tabindex`; a property domino's DOM
+  does not implement (`indeterminate` is the known case) has nothing to rescue
+  it. The test is `'<prop>' in element` against domino's classes, not a
+  browser's. Write those from an `afterRenderEffect` instead of binding them,
+  or bind the attribute form where the property mirrors a content attribute
+  (`[attr.selected]`, `[attr.muted]`).
+- **Eight hosts**, one `SSR_HOSTS` entry each: form controls, pickers,
+  navigation, shell, surfaces, data, display, and a drawer-sections host that
+  provides `MlvDrawerSectionsService` itself. The split is for readability only
+  — every host renders through the same error-collecting path.
+- Bootstrap providers: `provideMlvI18nTesting()` (every `MLV_*_I18N` token is a
+  bare `InjectionToken` with no factory), `provideRouter([])` (`mlv-bottom-nav`
+  injects `Router` non-optionally) and `provideLucideIcons(...)` for the
+  dynamic-icon names the hosts use. `mlv-dropdown-panel` needs a host-level
+  `MlvSelectionService`; `mlv-toast-item` / `mlv-notification-item` need a
+  host-level `MLV_TOAST_CLOSE`.
+
+### Coverage guard — what to do when you add a component
+
+- The expected set is **generated, never hand-listed**: `readPublicComponents()`
+  walks `libs/core/*/src/index.ts`, follows `export * from` chains, and collects
+  every class with a `@Component` decorator plus its selector. A new component
+  therefore joins the expected set the moment its barrel exports it.
+- That parse is itself guarded. A decorator shape the pattern fails to match
+  drops the component out of the required set **silently** — the exact failure
+  this suite exists to prevent — so `parses every @Component declaration the
+barrels reach` re-finds every `@Component(` with an independent,
+  shape-insensitive scan and fails on any the pattern missed.
+- The covered set is **read back from the hosts themselves**
+  (`readDeclaredHosts()` parses this spec file's source), never from a second
+  array of selectors — that array is the hand-maintained list that rots. A
+  component counts as covered only when **both** hold, scoped to the **same**
+  host: its selector is written into that host's template, and its class is
+  listed in that host's `imports`.
+- Template text is the primary signal, and beats the rendered markup:
+  `mlv-tab` is a `display: none` def node that `mlv-tab-group` never projects,
+  so it constructs on the server (and can fail there) while never reaching the
+  payload.
+- The `imports` half closes the mirror-image hole: a tag whose class is missing
+  from that host's `imports` is an unknown element — Angular logs `NG0304`,
+  constructs nothing and reaches no `ErrorHandler`, so the tag alone would buy
+  coverage on paper and none in fact. Scoping matters: a class imported by host
+  A must not cover a tag written in host B.
+- **To keep the suite green after adding a component:** write its selector into
+  one of the host templates with its required inputs actually bound **and** add
+  its class to that host's `imports`, or add it to `SSR_COVERAGE_EXCLUSIONS`
+  with a one-line reason. An empty tag proves nothing.
+- Exclusions are checked, not trusted: the suite fails on an entry naming a
+  component that no longer exists, on an empty reason, and on an entry for a
+  component a host does render.
+- Current exclusions (both overlay-only — they never server-render at all):
+  `MlvDialog`, `MlvDialogHeader` (need `DIALOG_CONFIG` from
+  `MlvDialogService.open()`). `MlvDrawerSection` / `MlvDrawerSections` are
+  **not** excluded any more: they render in their own host that provides
+  `MlvDrawerSectionsService` itself, since the directive and the navigator
+  inject the service, not `mlv-drawer`.
+- Directives are out of scope **as a list**: most public directives are
+  template-slot markers that only `inject(TemplateRef)`. Behavioural ones ride
+  along on the elements they decorate inside the hosts.
+- Every path the guard reads is resolved from
+  `dirname(fileURLToPath(import.meta.url))`. `@nx/vitest:test` runs with
+  cwd = workspace root while the inferred `vite:test` runs from the project
+  root, so `process.cwd()` is not usable here.
+
+### Writing SSR-safe components
+
+- Never bind a **DOM property domino does not implement** in a template
+  (`input.indeterminate` is the known case). The unknown-property check is
+  `'<prop>' in element` against domino's classes, not a browser's, so a
+  property that exists in every browser can still fail there; `muted` and
+  `selected`, by contrast, are content attributes and take `[attr.muted]` /
+  `[attr.selected]`. Where domino lacks the property every server render logs
+  NG0303 per instance, and the binding buys nothing there anyway — a DOM
+  property cannot serialise into markup. Write the property from an
+  `afterRenderEffect` reading the input
+  signal: browser-only by construction, and it still tracks later changes,
+  which a one-shot `afterNextRender` would not. `MlvCheckbox` is the reference
+  case.
+
+  **`afterRenderEffect` is the right answer when the property belongs to one
+  element per component instance**, as `input.indeterminate` does. Each sequence
+  joins an app-wide set that `AfterRenderImpl.execute()` walks once per phase on
+  every `ApplicationRef.tick()`, dirty or not — unlike the template binding it
+  replaces, which cost nothing while its `OnPush` view was clean. One per
+  checkbox is negligible; one per `<option>` inside a `<select>` is not. For a
+  repeated child element, prefer a cheaper route: set the parent property once
+  (`select.value`), or use the attribute form where one exists. Pick per case
+  rather than applying this rule mechanically.
+
+- Prefer **`afterNextRender` / `afterRenderEffect`** for anything that measures,
+  paints, or observes. Neither runs on the server, so the hook doubles as the
+  guard and removes the failure class instead of guarding each call site. A
+  `setTimeout(0)` does **not** — it fires on the server too, after the render
+  has finished, where the throw is uncatchable.
+- Use `isPlatformBrowser` when the value itself is a browser measurement that
+  must not be published on the server (`window.innerHeight`), and leave the
+  derived signal `null` there so no attribute or style is emitted at all.
+- `MlvResizeObserverService` already returns `null` without the global, so
+  subscribing to it during construction is safe.
 
 ## Installation Schematic
 

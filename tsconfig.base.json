@@ -96,6 +96,7 @@
       "@malva-ui/core/popup": ["libs/core/popup/src/index.ts"],
       "@malva-ui/core/radio": ["libs/core/radio/src/index.ts"],
       "@malva-ui/core/scrollbar": ["libs/core/scrollbar/src/index.ts"],
+      "@malva-ui/core/scrubber": ["libs/core/scrubber/src/index.ts"],
       "@malva-ui/core/select": ["libs/core/select/src/index.ts"],
       "@malva-ui/core/sidebar": ["libs/core/sidebar/src/index.ts"],
       "@malva-ui/core/slider": ["libs/core/slider/src/index.ts"],

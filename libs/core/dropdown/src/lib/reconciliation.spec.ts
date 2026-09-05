@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { defaultCompareWith as cdkDefaultCompareWith } from '@malva-ui/cdk/utils';
+import { MlvSelectionService } from '@malva-ui/core/form-utils';
 import {
   defaultCompareWith,
   filteredOutCommitted,
   isReconciliationEmit,
+  valueIndex,
 } from './reconciliation';
 
 const eq = (a: string, b: string) => a === b;
@@ -159,12 +162,24 @@ const byId = (a: unknown, b: unknown): boolean =>
     ? (a as { id?: unknown }).id === (b as { id?: unknown }).id
     : Object.is(a, b);
 
+/**
+ * Deliberately **asymmetric**, and not an equivalence relation at all:
+ * `lexicallyBefore(a, b)` is the negation of `lexicallyBefore(b, a)` for every
+ * unequal pair. A `compareWith` is an arbitrary caller-supplied predicate, so
+ * nothing here may assume symmetry — and every other comparator in this file
+ * (`===`, `Object.is`, `byId`) is symmetric and therefore blind to a
+ * transposed argument order.
+ */
+const lexicallyBefore = (a: unknown, b: unknown): boolean =>
+  String(a) < String(b);
+
 const COMPARATORS: ReadonlyArray<
   readonly [string, (a: unknown, b: unknown) => boolean]
 > = [
   ['defaultCompareWith', defaultCompareWith],
   ['Object.is', Object.is],
   ['custom byId', byId],
+  ['custom asymmetric lexicallyBefore', lexicallyBefore],
 ];
 
 describe('reconciliation — differential fuzz against the pre-change oracle', () => {
@@ -577,6 +592,567 @@ describe('reconciliation — fast path is taken for identity comparators', () =>
     ).toBe(
       oracleIsReconciliationEmit([], committed, visible, defaultCompareWith),
     );
+    expect(counted.reads()).toBe(R * V);
+  });
+});
+
+// ─── valueIndex ─────────────────────────────────────────────────────────────
+
+/**
+ * Verbatim copies of the two scans `valueIndex` replaces, written in the shape
+ * the option controls had them: over `MlvSelectOption`-like objects, reaching
+ * through `.value`. `resolve`'s `?? value` fallback is part of the oracle —
+ * an option whose own `value` is `null`/`undefined` fell through to the query
+ * value, and that quirk must survive.
+ */
+function oracleHas<T>(
+  options: readonly { value: T }[],
+  value: T,
+  compare: (a: T, b: T) => boolean,
+): boolean {
+  return options.some((o) => compare(o.value, value));
+}
+
+function oracleResolve<T>(
+  options: readonly { value: T }[],
+  value: T,
+  compare: (a: T, b: T) => boolean,
+): T {
+  return options.find((o) => compare(o.value, value))?.value ?? value;
+}
+
+/** The controls index the mapped option values, so the oracle takes options. */
+const asOptions = <T>(values: readonly T[]): { value: T }[] =>
+  values.map((value) => ({ value }));
+
+describe('valueIndex — matches the pairwise scan it replaces', () => {
+  for (const [name, compare] of COMPARATORS) {
+    it(`has()/resolve() agree with the oracle over 600 random inputs under ${name}`, () => {
+      for (let seed = 1; seed <= 600; seed++) {
+        const rnd = mulberry32(seed);
+        const draw = () => {
+          const len = Math.floor(rnd() * 7); // 0..6
+          return Array.from(
+            { length: len },
+            () => POOL[Math.floor(rnd() * POOL.length)],
+          );
+        };
+        const values = draw();
+        const queries = draw();
+        const index = valueIndex(values, compare);
+        const context = `seed ${seed} / ${name}
+  values:  ${JSON.stringify(values.map(String))}
+  queries: ${JSON.stringify(queries.map(String))}`;
+
+        // The controls index through a projection (`option => option.value`),
+        // so drive both overloads against the same oracle.
+        const projected = valueIndex(
+          asOptions(values),
+          compare,
+          (option) => option.value,
+        );
+
+        // The walk carries a cursor, so an answer can in principle depend on
+        // what was asked before it. Ask in a seeded random order, and ask some
+        // queries twice, so an order-dependent bug cannot hide behind the
+        // natural left-to-right order the values were generated in.
+        const shuffled = [...queries, ...queries];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(rnd() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        for (const query of shuffled) {
+          for (const [shape, subject] of [
+            ['plain', index],
+            ['projected', projected],
+          ] as const) {
+            expect(subject.has(query), `${context} [${shape}]`).toBe(
+              oracleHas(asOptions(values), query, compare),
+            );
+            expect(
+              Object.is(
+                subject.resolve(query),
+                oracleResolve(asOptions(values), query, compare),
+              ),
+              `${context} [${shape}]\n  query: ${String(query)}`,
+            ).toBe(true);
+          }
+        }
+      }
+    });
+  }
+
+  it('handles an empty haystack (no options loaded yet)', () => {
+    for (const [, compare] of COMPARATORS) {
+      const index = valueIndex([], compare);
+      expect(index.has('a')).toBe(false);
+      expect(index.resolve('a')).toBe('a');
+    }
+  });
+
+  it('handles an empty query set (nothing selected)', () => {
+    // The index is still built; it is simply never asked anything.
+    for (const [, compare] of COMPARATORS) {
+      const index = valueIndex(['a', 'b'], compare);
+      expect([].every((v) => index.has(v))).toBe(true);
+    }
+  });
+
+  it('resolve() returns the FIRST match, like `Array.prototype.find`', () => {
+    // Two by-id-equal instances: the earlier one must win, so a duplicate key
+    // may not overwrite the entry already indexed. Pairwise path.
+    const first = { id: 1, tag: 'first' };
+    const second = { id: 1, tag: 'second' };
+    expect(valueIndex([first, second], byId).resolve({ id: 1 })).toBe(first);
+  });
+
+  it('resolve() returns the FIRST match on the KEYED path too (±0)', () => {
+    // Distinct object references are distinct `Map` keys, so they cannot tell
+    // first-wins from last-wins. `+0` and `-0` are the same SameValueZero key
+    // with distinguishable values, which is the only way to observe it:
+    // `Map.set` on an existing key replaces the value and keeps the key, so an
+    // unguarded `set` returns `-0` where `find` returns `+0`.
+    const index = valueIndex([0, -0], defaultCompareWith);
+    expect(Object.is(index.resolve(0), 0)).toBe(true);
+    expect(Object.is(index.resolve(0), -0)).toBe(false);
+    expect(
+      Object.is(
+        index.resolve(0),
+        oracleResolve(asOptions([0, -0]), 0, defaultCompareWith),
+      ),
+    ).toBe(true);
+    // And in the other order: `-0` first means `find` returns `-0`.
+    const negativeFirst = valueIndex([-0, 0], defaultCompareWith);
+    expect(Object.is(negativeFirst.resolve(0), -0)).toBe(true);
+  });
+
+  it('resolve() returns the indexed instance, not the queried one', () => {
+    expect(valueIndex([objA], byId).resolve(objADupe)).toBe(objA);
+  });
+
+  it('applies compare(indexedValue, queriedValue) — never the transpose', () => {
+    // `valueIndex` DEFINES the argument order every call site depends on, so it
+    // is pinned here rather than only at the sites. Asymmetric on purpose: true
+    // only with an indexed `sel:` value first and a queried `opt:` value
+    // second, so a transposition flips every answer.
+    const asymmetric = (a: string, b: string) =>
+      a.startsWith('sel:') && b.startsWith('opt:') && a.slice(4) === b.slice(4);
+    expect(asymmetric('sel:b', 'opt:b')).toBe(true);
+    expect(asymmetric('opt:b', 'sel:b')).toBe(false);
+
+    const index = valueIndex(['sel:a', 'sel:b'], asymmetric);
+    expect(index.has('opt:b')).toBe(true);
+    expect(index.resolve('opt:b')).toBe('sel:b');
+
+    // The transposed index — the mistake this guards — answers the opposite.
+    const transposed = valueIndex(['opt:a', 'opt:b'], asymmetric);
+    expect(transposed.has('sel:b')).toBe(false);
+    expect(transposed.resolve('sel:b')).toBe('sel:b');
+
+    // Same through the projection overload.
+    const projected = valueIndex(
+      [{ value: 'sel:b' }],
+      asymmetric,
+      (item) => item.value,
+    );
+    expect(projected.has('opt:b')).toBe(true);
+    expect(projected.resolve('opt:b')).toBe('sel:b');
+  });
+
+  it('resolve() keeps the `?? value` fallback for a nullish indexed value', () => {
+    // `options.find(...)?.value ?? v` returned `v` when the matched option's
+    // own value was nullish. Both paths must still do that.
+    for (const [, compare] of [
+      ['defaultCompareWith', defaultCompareWith],
+      ['custom byId', byId],
+    ] as const) {
+      const index = valueIndex([null, undefined], compare);
+      expect(index.resolve(null)).toBe(null);
+      expect(index.resolve(undefined)).toBe(undefined);
+      expect(index.has(null)).toBe(true);
+      expect(index.has(undefined)).toBe(true);
+    }
+  });
+});
+
+describe('valueIndex — SameValueZero hazards', () => {
+  it('NaN in the haystack forces the pairwise path under the `===` default', () => {
+    const index = valueIndex([Number.NaN, 'a'], defaultCompareWith);
+    // `NaN === NaN` is false — a `Map` would report the key as present.
+    expect(index.has(Number.NaN)).toBe(false);
+    expect(Object.is(index.resolve(Number.NaN), Number.NaN)).toBe(true);
+    expect(index.has('a')).toBe(true);
+  });
+
+  it('a queried NaN is absent from a NaN-free haystack under `===`', () => {
+    const index = valueIndex(['a', 'b'], defaultCompareWith);
+    expect(index.has(Number.NaN)).toBe(false);
+    expect(index.has(Number.NaN)).toBe(
+      oracleHas(asOptions(['a', 'b']), Number.NaN, defaultCompareWith),
+    );
+  });
+
+  it('NaN is NOT a hazard under Object.is — it stays on the fast path', () => {
+    const index = valueIndex([Number.NaN, 'a'], Object.is);
+    expect(index.has(Number.NaN)).toBe(true);
+    expect(Object.is(index.resolve(Number.NaN), Number.NaN)).toBe(true);
+  });
+
+  it('-0 on the HAYSTACK side disqualifies the fast path under Object.is', () => {
+    const index = valueIndex([-0, 'a'], Object.is);
+    // `Object.is(-0, +0)` is false; a `Map` keyed on -0 would match +0.
+    expect(index.has(0)).toBe(false);
+    expect(Object.is(index.resolve(0), 0)).toBe(true);
+    expect(index.has(-0)).toBe(true);
+    expect(Object.is(index.resolve(-0), -0)).toBe(true);
+  });
+
+  it('-0 on the QUERYING side is answered pairwise under Object.is', () => {
+    // The haystack is hazard-free, so the Map is built — but `Map([+0]).has(-0)`
+    // is true while `Object.is(+0, -0)` is false. That one query falls back.
+    const index = valueIndex([0, 'a'], Object.is);
+    expect(index.has(-0)).toBe(false);
+    expect(Object.is(index.resolve(-0), -0)).toBe(true);
+    // Every other query stays on the fast path and stays correct.
+    expect(index.has(0)).toBe(true);
+    expect(index.has('a')).toBe(true);
+  });
+
+  it('±0 under `===` needs no bail — the `Map` reproduces `+0 === -0`', () => {
+    // `===` conflates the zeros exactly as SameValueZero does, so a queried -0
+    // must resolve onto the indexed +0 instance, matching `find`.
+    const index = valueIndex([0, 'a'], defaultCompareWith);
+    expect(index.has(-0)).toBe(true);
+    expect(Object.is(index.resolve(-0), 0)).toBe(true);
+    expect(
+      Object.is(
+        index.resolve(-0),
+        oracleResolve(asOptions([0, 'a']), -0, defaultCompareWith),
+      ),
+    ).toBe(true);
+    const negative = valueIndex([-0, 'a'], defaultCompareWith);
+    expect(negative.has(0)).toBe(true);
+    expect(Object.is(negative.resolve(0), -0)).toBe(true);
+  });
+
+  it('a custom comparator sees every hazard value pairwise', () => {
+    const index = valueIndex([Number.NaN, -0, objA], byId);
+    expect(index.has(Number.NaN)).toBe(true); // byId falls back to Object.is
+    expect(index.has(0)).toBe(false);
+    expect(index.resolve(objADupe)).toBe(objA);
+  });
+});
+
+/**
+ * The guard that fails if the fast path regresses to a nested scan. Same
+ * instrument as the reconciliation suite above: `defaultCompareWith` cannot be
+ * wrapped in a spy without destroying the reference it is recognised by, so
+ * element **reads** are the observable channel.
+ *
+ * For R queries against V indexed values, all misses (so nothing short-circuits):
+ *
+ *   pairwise  — one `some`/`find` scan of all V per query          → R × V
+ *   fast path — one walk of V to build the `Map`, then `Map.has`   → V
+ */
+describe('valueIndex — the fast path is actually taken', () => {
+  const R = 50;
+  const V = 1000;
+  const haystack = Array.from({ length: V }, (_, i) => `v${i}`);
+  const queries = Array.from({ length: R }, (_, i) => `q${i}`);
+
+  for (const [name, compare] of [
+    ['defaultCompareWith', defaultCompareWith],
+    ['Object.is', Object.is],
+  ] as const) {
+    it(`walks the haystack once (V=${V}) for ${R} queries under ${name}`, () => {
+      const counted = countingArray(haystack);
+      const index = valueIndex(
+        counted.array,
+        compare as (a: unknown, b: unknown) => boolean,
+      );
+      for (const query of queries) {
+        expect(index.has(query)).toBe(false);
+        expect(index.resolve(query)).toBe(query);
+      }
+      expect(counted.reads()).toBe(V);
+    });
+  }
+
+  it(`a custom comparator still pays the full R x V pairwise scan`, () => {
+    let compareCalls = 0;
+    const custom = (a: unknown, b: unknown) => {
+      compareCalls++;
+      return a === b;
+    };
+    const counted = countingArray(haystack);
+    const index = valueIndex(counted.array, custom);
+    for (const query of queries) expect(index.has(query)).toBe(false);
+    expect(counted.reads()).toBe(R * V);
+    expect(compareCalls).toBe(R * V);
+  });
+
+  it('a hazard in the haystack forces the pairwise path back on', () => {
+    // `-0` at index 0 disqualifies the `Object.is` fast path: the build bails
+    // after exactly one read, and every query then scans all V pairwise.
+    const counted = countingArray([-0, ...haystack.slice(1)]);
+    const index = valueIndex(counted.array, Object.is);
+    for (const query of queries) expect(index.has(query)).toBe(false);
+    expect(counted.reads()).toBe(1 + R * V);
+  });
+
+  it('a hazardous QUERY costs one extra scan and leaves the rest fast', () => {
+    const counted = countingArray(haystack);
+    const index = valueIndex(counted.array, Object.is);
+    expect(index.has(-0)).toBe(false); // build (V) + one pairwise scan (V)
+    for (const query of queries) expect(index.has(query)).toBe(false);
+    expect(counted.reads()).toBe(2 * V);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The progressive walk carries mutable state across queries — a cursor, a
+// partial map and a bail latch. That is a failure class the stateless
+// implementations could not have: an answer may now depend on what was asked
+// before it. These pin it.
+// ---------------------------------------------------------------------------
+
+describe('valueIndex — progressive walk (cursor state)', () => {
+  const letters = ['a', 'b', 'c', 'd', 'e'];
+
+  it('stops the walk at the first match instead of building the whole map', () => {
+    const counted = countingArray(letters);
+    const index = valueIndex(counted.array, defaultCompareWith);
+
+    expect(index.has('a')).toBe(true);
+    // One element read — a build-it-all index would have read all five.
+    expect(counted.reads()).toBe(1);
+  });
+
+  it('answers from the built prefix without reading anything more', () => {
+    const counted = countingArray(letters);
+    const index = valueIndex(counted.array, defaultCompareWith);
+
+    expect(index.has('c')).toBe(true); // walks a, b, c
+    expect(counted.reads()).toBe(3);
+
+    expect(index.has('a')).toBe(true); // strictly inside the prefix
+    expect(index.has('b')).toBe(true);
+    expect(counted.reads()).toBe(3);
+  });
+
+  it('resumes from the cursor rather than restarting at 0', () => {
+    const counted = countingArray(letters);
+    const index = valueIndex(counted.array, defaultCompareWith);
+
+    expect(index.has('b')).toBe(true); // a, b        → cursor 2
+    expect(counted.reads()).toBe(2);
+    expect(index.has('c')).toBe(true); // exactly at the cursor
+    expect(counted.reads()).toBe(3);
+    expect(index.has('e')).toBe(true); // beyond it: d, e
+    expect(counted.reads()).toBe(5);
+
+    // Restarting each query would have cost 2 + 3 + 5 = 10.
+  });
+
+  it('a definite miss scans to the end and is not a false negative', () => {
+    const counted = countingArray(letters);
+    const index = valueIndex(counted.array, defaultCompareWith);
+
+    expect(index.has('b')).toBe(true);
+    expect(counted.reads()).toBe(2);
+
+    expect(index.has('zz')).toBe(false); // must finish the array to be sure
+    expect(counted.reads()).toBe(5);
+
+    expect(index.has('yy')).toBe(false); // cursor exhausted → free
+    expect(counted.reads()).toBe(5);
+    expect(index.has('e')).toBe(true); // still answers hits from the prefix
+    expect(counted.reads()).toBe(5);
+  });
+
+  it('resolve() after a has() that moved the cursor still returns the FIRST match', () => {
+    // Two structurally distinct instances that `byId` treats as equal, so
+    // "first match" is observable. `byId` is custom, so drive the identity
+    // path with duplicated primitives instead.
+    const values = ['x', 'y', 'x', 'z'];
+    const index = valueIndex(values, defaultCompareWith);
+
+    expect(index.has('z')).toBe(true); // walks the whole array, cursor at end
+    // The map holds the FIRST 'x', not the one at index 2.
+    expect(index.resolve('x')).toBe('x');
+    expect(index.resolve('x')).toBe(
+      oracleResolve(asOptions(values), 'x', defaultCompareWith),
+    );
+  });
+
+  it('interleaved has()/resolve() agree with the oracle whatever the order', () => {
+    const values = ['a', 'b', 'c', 'd'];
+    const index = valueIndex(values, defaultCompareWith);
+    const order = ['c', 'a', 'zz', 'd', 'b', 'c', 'zz'];
+
+    for (const q of order) {
+      expect(index.has(q), `has(${q})`).toBe(
+        oracleHas(asOptions(values), q, defaultCompareWith),
+      );
+      expect(
+        Object.is(
+          index.resolve(q),
+          oracleResolve(asOptions(values), q, defaultCompareWith),
+        ),
+        `resolve(${q})`,
+      ).toBe(true);
+    }
+  });
+
+  it('first-wins survives a walk that PASSES the duplicate (±0 under `===`)', () => {
+    // Query 'x' first so the walk materialises both zeros before anything asks
+    // for one — this is the path where an unguarded `Map.set` would be
+    // observably last-wins and hand back `-0`.
+    const values: unknown[] = [0, -0, 'x'];
+    const index = valueIndex(values, defaultCompareWith);
+
+    expect(index.has('x')).toBe(true); // forces the full walk
+    expect(Object.is(index.resolve(0), 0)).toBe(true); // +0, not -0
+    expect(Object.is(index.resolve(-0), 0)).toBe(true);
+    expect(
+      Object.is(
+        index.resolve(0),
+        oracleResolve(asOptions(values), 0, defaultCompareWith),
+      ),
+    ).toBe(true);
+  });
+
+  it('first-wins also when the walk STOPS before the duplicate (±0 under `===`)', () => {
+    const values: unknown[] = [0, -0];
+    const index = valueIndex(values, defaultCompareWith);
+    expect(Object.is(index.resolve(0), 0)).toBe(true);
+  });
+
+  describe('a hazard positioned after the cursor bails the index mid-life', () => {
+    // `===` treats NaN as a hazard. It sits at index 2, so the first two
+    // queries are answered from a hazard-free prefix and only the third walk
+    // reaches it.
+    const values: unknown[] = ['a', 'b', NaN, 'c'];
+    const oracle = (q: unknown) =>
+      oracleHas(asOptions(values), q, defaultCompareWith);
+
+    it('answers correctly before, during and after the bail', () => {
+      const index = valueIndex(values, defaultCompareWith);
+
+      expect(index.has('a')).toBe(oracle('a')); // prefix, pre-bail
+      expect(index.has('b')).toBe(oracle('b'));
+      expect(index.has('c')).toBe(oracle('c')); // walk hits NaN → bail → pairwise
+      // Everything answered before the bail must still answer the same way.
+      expect(index.has('a')).toBe(oracle('a'));
+      expect(index.has('b')).toBe(oracle('b'));
+      expect(index.has('zz')).toBe(oracle('zz'));
+      expect(index.has(NaN)).toBe(oracle(NaN)); // `===` never matches NaN
+    });
+
+    it('goes permanently pairwise once bailed', () => {
+      const counted = countingArray(values);
+      const index = valueIndex(counted.array, defaultCompareWith);
+
+      expect(index.has('a')).toBe(true);
+      expect(counted.reads()).toBe(1);
+
+      expect(index.has('c')).toBe(true); // b, NaN → bail, then a full scan
+      const afterBail = counted.reads();
+
+      // A prefix hit is no longer served from the map — it goes back through
+      // the pairwise scan, which short-circuits at index 0 for 'a' …
+      expect(index.has('a')).toBe(true);
+      expect(counted.reads()).toBe(afterBail + 1);
+
+      // … and walks the whole array for a miss. Neither is free, which is the
+      // point: the map is not consulted again.
+      const beforeMiss = counted.reads();
+      expect(index.has('zz')).toBe(false);
+      expect(counted.reads()).toBe(beforeMiss + values.length);
+    });
+  });
+
+  it('a hazardous QUERY against a partially built index does not disturb it', () => {
+    const values: unknown[] = ['a', 'b', 'c'];
+    const counted = countingArray(values);
+    const index = valueIndex(counted.array, Object.is);
+
+    expect(index.has('b')).toBe(true); // cursor 2
+    expect(counted.reads()).toBe(2);
+
+    expect(index.has(-0)).toBe(false); // hazardous query → its own full scan
+    expect(counted.reads()).toBe(2 + values.length);
+
+    // The cursor and prefix survived: 'a' is still free, 'c' still resumes.
+    const before = counted.reads();
+    expect(index.has('a')).toBe(true);
+    expect(counted.reads()).toBe(before);
+    expect(index.has('c')).toBe(true);
+    expect(counted.reads()).toBe(before + 1);
+  });
+});
+
+// ─── The shared default comparator crosses library boundaries intact (#67) ──
+
+/**
+ * `defaultCompareWith`'s implementation lives in `@malva-ui/cdk/utils` so that
+ * `@malva-ui/core/form-utils`' `MlvSelectionService` can share it — this entry
+ * point depends on form-utils (`mlv-dropdown-panel` injects the service), so
+ * the constant could not live here and still be reachable downward.
+ *
+ * The entire mechanism is **reference identity**: `hazardOf` recognises the
+ * comparator with `===`. A re-export that wrapped, bound or re-created it
+ * would keep every result correct and silently disable every fast path — no
+ * assertion about *values* could ever see that. These tests assert the
+ * identity itself, and then that the identity still does its job end to end.
+ */
+describe('defaultCompareWith — shared across cdk/utils, dropdown and form-utils', () => {
+  it('re-exports the cdk/utils binding rather than a local copy', () => {
+    expect(defaultCompareWith).toBe(cdkDefaultCompareWith);
+  });
+
+  it('is the reference `MlvSelectionService` defaults to', () => {
+    expect(new MlvSelectionService().compareWith()).toBe(defaultCompareWith);
+  });
+
+  it("unlocks valueIndex's keyed path for the service's default comparator", () => {
+    // Measured rather than asserted: a comparator taken straight off a
+    // `MlvSelectionService` walks the haystack once, not once per query.
+    // Before the constant moved down, the service's default was a per-instance
+    // arrow and this read R x V.
+    //
+    // This composition has no production call site today -- `mlv-select` and
+    // `mlv-combobox` feed `valueIndex` from their own `compareWith` *input*,
+    // which already defaulted to the shared reference, and then push that input
+    // into the service. So the guard is forward-looking: it holds the door open
+    // for the first caller that does thread the service's comparator into a
+    // fast path, and fails loudly if the reference is ever wrapped or copied.
+    const R = 50;
+    const V = 1000;
+    const haystack = Array.from({ length: V }, (_, i) => `v${i}`);
+    const counted = countingArray(haystack);
+
+    const service = new MlvSelectionService<string>();
+    const index = valueIndex(counted.array, service.compareWith());
+    for (let i = 0; i < R; i++) expect(index.has(`q${i}`)).toBe(false);
+
+    expect(counted.reads()).toBe(V);
+  });
+
+  it('a service given a custom comparator still pays the pairwise scan', () => {
+    // The complement: recognition is by reference, so overriding the default
+    // must fall back — otherwise the guard is matching something too loosely.
+    const R = 10;
+    const V = 100;
+    const haystack = Array.from({ length: V }, (_, i) => `v${i}`);
+    const counted = countingArray(haystack);
+
+    const service = new MlvSelectionService<string>();
+    service.compareWith.set((a, b) => a === b); // same behaviour, new reference
+    const index = valueIndex(counted.array, service.compareWith());
+    for (let i = 0; i < R; i++) expect(index.has(`q${i}`)).toBe(false);
+
     expect(counted.reads()).toBe(R * V);
   });
 });

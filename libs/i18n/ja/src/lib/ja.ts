@@ -140,6 +140,7 @@ const ja: MlvLanguage = {
   },
   drawer: {
     drawer: 'ドロワー',
+    closeDrawer: 'ドロワーを閉じる',
   },
   editor: {
     editorLabel: 'リッチテキストエディター',

@@ -1,127 +1,131 @@
 @use '../../../../../styles/src/lib/mixins';
 
 @layer mlv.components {
-$block: mlv-rating;
+  $block: mlv-rating;
 
-.#{$block} {
-  @include mixins.base(
-    var(--mlv-typography-family-text),
-    var(--mlv-font-size-m)
-  );
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-font-size-m)
+    );
 
-  display: inline-flex;
-  align-items: center;
-  gap: 0.125rem;
-
-  // ── Star button ───────────────────────────────────────────────────────────
-
-  &__star {
-    position: relative;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: inherit;
-    border-radius: var(--mlv-radius-s);
-    outline: none;
+    gap: 0.125rem;
 
-    transition-property: transform, color, box-shadow;
-    transition-duration: var(--mlv-duration-fast);
-    transition-timing-function: var(--mlv-ease-out);
+    // ── Star button ───────────────────────────────────────────────────────────
 
-    &:focus-visible {
-      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: var(--mlv-focus-ring-offset);
+    &__star {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: inherit;
+      border-radius: var(--mlv-radius-s);
+      outline: none;
+
+      transition-property: transform, color, box-shadow;
+      transition-duration: var(--mlv-duration-fast);
+      transition-timing-function: var(--mlv-ease-out);
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+
+      // Interactive hover scale
+      &:hover:not(:disabled) {
+        transform: scale(1.15);
+      }
+
+      // Press feedback
+      &:active:not(:disabled) {
+        transform: scale(0.97);
+      }
     }
 
-    // Interactive hover scale
-    &:hover:not(:disabled) {
-      transform: scale(1.15);
+    // ── Icon layers ───────────────────────────────────────────────────────────
+
+    &__icon {
+      position: absolute;
+      top: 50%;
+      // physical: symmetric centering pair with the translate below — converting
+      // one half to `inset-inline-start` would break the offset it pairs with.
+      left: 50%;
+      transform: translate(-50%, -50%);
+      // Keeps the hit test falling through to the star `<button>`, which is what
+      // makes `event.offsetX` button-relative for `_isLeadingHalf`.
+      pointer-events: none;
+
+      &--empty {
+        color: var(--mlv-border-normal);
+        fill: currentcolor;
+      }
+
+      &--filled {
+        color: var(--mlv-text-warning);
+        fill: currentcolor;
+      }
     }
 
-    // Press feedback
-    &:active:not(:disabled) {
-      transform: scale(0.97);
-    }
-  }
+    // ── Validation state ──────────────────────────────────────────────────────
+    // Tints the empty-star outline to echo the surrounding form field's state.
 
-  // ── Icon layers ───────────────────────────────────────────────────────────
-
-  &__icon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-
-    &--empty {
-      color: var(--mlv-border-normal);
-      fill: currentcolor;
+    &--state-error &__icon--empty {
+      color: var(--mlv-border-error);
     }
 
-    &--filled {
-      color: var(--mlv-text-warning);
-      fill: currentcolor;
+    &--state-warning &__icon--empty {
+      color: var(--mlv-border-warning);
     }
-  }
 
-  // ── Validation state ──────────────────────────────────────────────────────
-  // Tints the empty-star outline to echo the surrounding form field's state.
-
-  &--state-error &__icon--empty {
-    color: var(--mlv-border-error);
-  }
-
-  &--state-warning &__icon--empty {
-    color: var(--mlv-border-warning);
-  }
-
-  &--state-success &__icon--empty {
-    color: var(--mlv-border-success);
-  }
-
-  &--state-info &__icon--empty {
-    color: var(--mlv-border-info);
-  }
-
-  // ── Read-only ─────────────────────────────────────────────────────────────
-
-  &--readonly &__star {
-    cursor: default;
-    pointer-events: none;
-
-    &:hover {
-      transform: none;
+    &--state-success &__icon--empty {
+      color: var(--mlv-border-success);
     }
-  }
 
-  // ── Disabled ──────────────────────────────────────────────────────────────
+    &--state-info &__icon--empty {
+      color: var(--mlv-border-info);
+    }
 
-  &--disabled {
-    opacity: var(--mlv-disabled-opacity);
-    pointer-events: none;
-  }
+    // ── Read-only ─────────────────────────────────────────────────────────────
 
-  &--disabled &__star {
-    cursor: not-allowed;
-  }
+    &--readonly &__star {
+      cursor: default;
+      pointer-events: none;
 
-  // ── Reduced motion ────────────────────────────────────────────────────────
-
-  @media (prefers-reduced-motion: reduce) {
-    .#{$block}__star {
-      transition: none;
-
-      &:hover,
-      &:active {
+      &:hover {
         transform: none;
       }
     }
+
+    // ── Disabled ──────────────────────────────────────────────────────────────
+
+    &--disabled {
+      opacity: var(--mlv-disabled-opacity);
+      pointer-events: none;
+    }
+
+    &--disabled &__star {
+      cursor: not-allowed;
+    }
+
+    // ── Reduced motion ────────────────────────────────────────────────────────
+
+    @media (prefers-reduced-motion: reduce) {
+      .#{$block}__star {
+        transition: none;
+
+        &:hover,
+        &:active {
+          transform: none;
+        }
+      }
+    }
   }
-}
 }

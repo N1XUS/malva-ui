@@ -1,0 +1,69 @@
+<div style="display: flex; align-items: center; gap: 0.75rem">
+  <button mlvButton (click)="showFilters.set(true)">Open filters</button>
+  <span style="color: var(--mlv-text-secondary)">
+    {{ appliedCount() }} filter{{ appliedCount() === 1 ? '' : 's' }} applied
+  </span>
+</div>
+
+<mlv-drawer
+  [(opened)]="showFilters"
+  position="left"
+  resizable
+  [defaultSnap]="28"
+  minSize="18rem"
+  maxSize="40rem"
+  [hasBackdrop]="false"
+>
+  <ng-template mlvDrawerContent>
+    <mlv-drawer-header title="Filters">
+      @if (activeCount(); as count) {
+      <mlv-badge tone="info" muted>{{ count }} active</mlv-badge>
+      }
+    </mlv-drawer-header>
+
+    <div mlvDrawerBody>
+      <form mlvForm id="filters-form" (ngSubmit)="apply()">
+        <mlv-checkbox-group label="Category">
+          @for (category of categories(); track category.id) {
+          <mlv-checkbox
+            [checked]="category.checked"
+            (checkedChange)="setCategory(category.id, $event)"
+          >
+            {{ category.label }}
+          </mlv-checkbox>
+          }
+        </mlv-checkbox-group>
+
+        <div style="display: flex; flex-direction: column; gap: 0.5rem">
+          <span
+            id="drawer-filter-price-label"
+            style="font-size: var(--mlv-typography-body-s-size)"
+          >
+            Price range: {{ priceRange()[0] }} – {{ priceRange()[1] }}
+          </span>
+          <mlv-slider
+            range
+            tooltip
+            [min]="0"
+            [max]="500"
+            [step]="10"
+            [(ngModel)]="priceRange"
+            name="price"
+          />
+        </div>
+
+        <mlv-switch [(checked)]="inStockOnly">In stock only</mlv-switch>
+      </form>
+    </div>
+
+    <div mlvDrawerFooter style="display: flex; gap: 0.5rem">
+      <button mlvButton type="button" variant="secondary" (click)="reset()">
+        Reset
+      </button>
+      <mlv-spacer />
+      <button mlvButton type="submit" form="filters-form">
+        Apply{{ activeCount() ? ' (' + activeCount() + ')' : '' }}
+      </button>
+    </div>
+  </ng-template>
+</mlv-drawer>

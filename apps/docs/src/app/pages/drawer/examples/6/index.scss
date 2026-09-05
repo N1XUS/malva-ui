@@ -1,0 +1,25 @@
+.docs-drawer-playground__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+
+  dt {
+    color: var(--mlv-text-secondary);
+  }
+
+  dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.docs-drawer-playground__code {
+  margin: 0;
+  padding: var(--mlv-padding-m);
+  border-radius: var(--mlv-radius-panel);
+  background: var(--mlv-background-sunken);
+  font-family: var(--mlv-typography-family-code);
+  font-size: var(--mlv-typography-body-s-size);
+  overflow-x: auto;
+}

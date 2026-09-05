@@ -132,14 +132,14 @@ sitting in the same template.)
 
 What changes in this mode:
 
-| Concern                             | Behaviour                                                                                                              |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Metrics, `scroll` listener, drag    | All read/attach to the decorated element. `scroll` does not bubble, so the listener has to sit exactly there.          |
-| `ResizeObserver`                    | Observes the decorated element **and** the internal viewport (host resize) **and** the content wrapper.                |
-| Internal viewport                   | `mlv-scrollbar--external` makes it `overflow: visible` — it neither scrolls nor clips.                                 |
-| `tabindex` / `role` / `aria-label`  | **Never emitted**, whatever `viewportTabIndex` / `ariaLabel` say. The decorated element owns its own semantics.        |
-| `viewportElement`                   | Returns the decorated element.                                                                                         |
-| Native bar on the decorated element | Not touched. The consumer hides it (`scrollbar-width: none` + `::-webkit-scrollbar { display: none }`) if it wants to. |
+| Concern                             | Behaviour                                                                                                                   |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Metrics, `scroll` listener, drag    | All read/attach to the decorated element. `scroll` does not bubble, so the listener has to sit exactly there.               |
+| `ResizeObserver`                    | Observes the decorated element **and** the internal viewport (host resize) **and** the content wrapper **and** both tracks. |
+| Internal viewport                   | `mlv-scrollbar--external` makes it `overflow: visible` — it neither scrolls nor clips.                                      |
+| `tabindex` / `role` / `aria-label`  | **Never emitted**, whatever `viewportTabIndex` / `ariaLabel` say. The decorated element owns its own semantics.             |
+| `viewportElement`                   | Returns the decorated element.                                                                                              |
+| Native bar on the decorated element | Not touched. The consumer hides it (`scrollbar-width: none` + `::-webkit-scrollbar { display: none }`) if it wants to.      |
 
 The a11y rule is deliberate and not configurable: a second named, tabbable
 region wrapped around a control that already names and focuses itself is a
@@ -414,7 +414,7 @@ node passes vacuously (that is what hid issue #73).
 
 #### ResizeObserver
 
-A native `ResizeObserver` watches the scroller (its own resize), the viewport element (host resize — the same element in the default mode, a separate one under `[scroller]`) and the content wrapper (content size changes). When any of them resizes, overflow state and thumb geometry are recalculated. Content that grows **without** resizing any of them — text inside a decorated `<textarea>` — is not covered; see [`remeasure()`](#remeasure--the-stale-track-contract). In SSR/test environments without `ResizeObserver`, initial rendering and native scrolling remain available while geometry observation is skipped. The i18n token is optional, with `"Scrollable region"` as the accessible-label fallback.
+A native `ResizeObserver` watches the scroller (its own resize), the viewport element (host resize — the same element in the default mode, a separate one under `[scroller]`), the content wrapper (content size changes) and **both track elements** (their own box, which moves when `--mlv-sb-edge-padding` / `--mlv-sb-edge-gap` or the root font size re-resolve — see [Track-only notifications](#track-only-notifications-69)). When any of the first three resizes, overflow state and thumb geometry are recalculated; a batch of track entries alone takes the narrower path described there. Content that grows **without** resizing any of them — text inside a decorated `<textarea>` — is not covered; see [`remeasure()`](#remeasure--the-stale-track-contract). In SSR/test environments without `ResizeObserver`, initial rendering and native scrolling remain available while geometry observation is skipped. The i18n token is optional, with `"Scrollable region"` as the accessible-label fallback.
 
 #### Track-metric cache (scroll fast path)
 
@@ -433,9 +433,41 @@ differently:
 | Trigger                                                  | Why                                                                                                                                                                                                 |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `_updateGeometry()` (ResizeObserver)                     | The host or content resized, so a track may have resized with it.                                                                                                                                   |
+| A **track-only** ResizeObserver batch (#69)              | A track's own box moved while the viewport and the content wrapper stood still — see below.                                                                                                         |
 | An overflow flip, cross-axis                             | The corner-avoidance rule shortens each track by one `--mlv-sb-size` while the _other_ track is visible.                                                                                            |
-| A `scrollbarSize` change (an `effect`)                   | Same corner rule; the tracks themselves are not observed, and neither the viewport nor the content resizes when this input moves.                                                                   |
+| A `scrollbarSize` change (an `effect`)                   | Same corner rule. Kept as an `effect` even now that the tracks are observed, because an input change is known before layout — cheaper than waiting for the observer to report the resulting resize. |
 | An `orientation` / `disabled` change (the same `effect`) | `--hidden` is bound to `!_showX() \|\| !_hasXOverflow()`, so these turn the same corner rule on and off with **no** overflow signal moving and no resize — the cross-axis flip check cannot see it. |
+
+##### Track-only notifications (#69)
+
+`--mlv-sb-edge-padding` and `--mlv-sb-edge-gap` are consumer-facing custom
+properties, and a theme swap or an ancestor class toggle re-resolves either
+without changing the size of the viewport or the content wrapper. Before #69
+those were the only boxes observed, so nothing invalidated the cache and the
+thumb stayed laid out against the old padding until the next genuine resize.
+The same held for a **root font-size or text-only zoom** change, since both
+values — and the default `0.1875rem` padding — are rem.
+
+Both tracks are now observed as well. The default observed box is the
+**content** box, which is what makes this work: padding sits inside the track's
+border box, so a border-box observation would miss an edge-padding change
+entirely. An edge-gap change moves the track's own insets and a rem
+re-resolution moves both, so the one observation covers all three.
+
+A batch carrying **nothing but track entries** is serviced by
+`_invalidateTrackMetrics()` + `_updateThumbPositions()` rather than by
+`_updateGeometry()`. That split is what makes observing the tracks safe:
+`_updateGeometry()` writes the visibility classes that size these very tracks,
+so servicing a track notification with it would feed the observer back into
+itself — the `ResizeObserver loop completed with undelivered notifications`
+risk that kept the tracks unobserved. `_updateThumbPositions()` writes only the
+thumb signals, and the thumbs are not observed, so this branch cannot resize
+anything it is watching. The overflow decision is derived purely from the
+viewport's scroll metrics, so a track resize cannot have moved it.
+
+An empty batch is deliberately **not** treated as tracks-only: `every` is
+vacuously true on an empty array, and the specs' `resize()` helper delivers no
+entries precisely in order to exercise the full pass.
 
 A measurement is only cached when the track was genuinely laid out
 (`extent > 0`, finite padding). A track with no overflow carries

@@ -122,6 +122,11 @@ export class MlvAnimatedPresence {
       if (!animName || animName === 'none') {
         this._renderer.removeClass(el, enterClass);
       } else {
+        // Kept raw (issue #76 triage): one listener per enter animation, so
+        // the lifetime is the animation's, not the directive's —
+        // `takeUntilDestroyed` fires only at destroy and would retain every
+        // earlier generation. `once: true` releases it on the first event, and
+        // the element is dropped with the embedded view regardless.
         el.addEventListener(
           'animationend',
           () => this._renderer.removeClass(el, enterClass),
@@ -162,6 +167,10 @@ export class MlvAnimatedPresence {
         const onEnd = () => {
           if (this._leavePending) destroy();
         };
+        // Kept raw (issue #76 triage): same per-animation lifetime as the
+        // enter listener above, plus this one must be revocable at a specific
+        // moment — `_cancelLeaveCleanup` detaches it when an enter interrupts
+        // the leave mid-flight, which is what balances the `once: true`.
         el.addEventListener('animationend', onEnd, { once: true });
         this._cancelLeaveCleanup = () => {
           el.removeEventListener('animationend', onEnd);

@@ -5,7 +5,7 @@
 
 ## Overview
 
-The Form Utils library (`@malva-ui/core/form-utils`) provides foundational building blocks for accessible, state-aware forms. Includes form field wrappers, label/hint/message components, a `ControlValueAccessor` base class, and a `MlvSelectionService` for dropdown/select components.
+The Form Utils library (`@malva-ui/core/form-utils`) provides foundational building blocks for accessible, state-aware forms. Includes form field wrappers, label/hint/message components, a `ControlValueAccessor` base class, and a `MlvSelectionService` for dropdown/select components (whose `compareWith` defaults to the shared `defaultCompareWith` from `@malva-ui/cdk/utils`).
 
 ## Public API
 
@@ -382,15 +382,16 @@ Implements `ControlValueAccessor`. Extend to create custom form controls.
 
 ### `MlvSelectionService<T>`
 
-**File:** `libs/forms/form-utils/src/lib/selection.service.ts` | **Provided:** component-level (inject per component)
+**File:** `libs/core/form-utils/src/lib/selection.service.ts` | **Provided:** component-level (inject per component)
 
 #### Signals
 
-| Signal           | Type               | Description            |
-| ---------------- | ------------------ | ---------------------- |
-| `multiple`       | `signal(boolean)`  | Single vs multi-select |
-| `selectedValues` | `signal<T[]>([])`  | Current selections     |
-| `displayValue`   | `computed<string>` | Human-readable label   |
+| Signal           | Type                              | Description                                                                                                           |
+| ---------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `multiple`       | `signal(boolean)`                 | Single vs multi-select                                                                                                |
+| `selectedValues` | `signal<T[]>([])`                 | Current selections                                                                                                    |
+| `compareWith`    | `signal<(a: T, b: T) => boolean>` | Equality predicate for every membership check; defaults to the shared `defaultCompareWith` from `@malva-ui/cdk/utils` |
+| `displayValue`   | `computed<string>`                | Human-readable label                                                                                                  |
 
 #### Methods
 
@@ -403,6 +404,20 @@ Implements `ControlValueAccessor`. Extend to create custom form controls.
 | `setValues(values: T[])`        | Replace all                                |
 | `toggle(value: T)`              | Add or remove                              |
 | `requestFocusFirst()`           | Emit to focus first list item              |
+
+#### `compareWith` is the shared reference, not an inline arrow (2026-09, issue #67)
+
+`compareWith` defaults to `defaultCompareWith` imported from `@malva-ui/cdk/utils` — **the same binding** `mlv-select` and `mlv-combobox` default their own `compareWith` input to, and the same one `@malva-ui/core/dropdown`'s `hazardOf` recognises. It used to be declared inline at the `signal()` call, which gave every service instance a private `(a, b) => a === b` that no callee could identify, so a comparator taken off the service could never reach `valueIndex`'s or the reconciliation guards' keyed fast path.
+
+The comparison performed is unchanged — it is the same `===`, with the same two quirks (`NaN` is not equal to itself; `+0` equals `-0`). Only the reference changed. `selection.service.spec.ts` pins both halves: the reference identity, and a 50-seed differential fuzz of `isSelected` / `select` / `deselect` / `toggle` against verbatim copies of the pre-change methods over a pool loaded with `NaN`, `±0` and structurally-equal-but-distinct objects.
+
+The constant lives in `@malva-ui/cdk/utils` rather than in `@malva-ui/core/dropdown` because the dropdown **depends on this library** (`mlv-dropdown-panel` injects `MlvSelectionService`), so importing it from there would invert that dependency.
+
+**No `Set` fast path was added to the membership scans.** The crossover sits in the low tens of membership queries per selection change — 16–24 on `scripts/benchmarks/selection-membership.mjs`, 16–32 on an independently written harness during review. Every remaining call site (`combobox.ts:818`, `:948`, `:1032`) makes exactly **one** query per user gesture, and a query that hits short-circuits the scan.
+
+At Q=1 an index is **6–23× slower** when the query misses, at selections up to 512 (~46× at 10,000, a size no selection reaches); when the query hits it is 7× slower at the tail and up to ~6700× at the head, because the scan stops on the first element while the index still builds over all of R. The gap is near-flat in R because it is structural, not a size effect: `Map.set` costs roughly 10–30× a `===`, so at Q=1 the index performs R sets to save R comparisons and loses by that ratio.
+
+Run it with `node scripts/benchmarks/selection-membership.mjs` (no build needed). The numbers above are a microbenchmark and move by a few units between runs; the ordering does not.
 
 ---
 
@@ -438,6 +453,7 @@ Implements `ControlValueAccessor`. Extend to create custom form controls.
 - `@lucide/angular` — `LucideCircleQuestionMark` for the `mlv-hint` trigger
 - `@malva-ui/core/tooltip` — `MlvTooltip`, which reveals the `mlv-hint` text
 - `@malva-ui/core/button` — `MlvClearMlvButton` chrome
+- `@malva-ui/cdk/utils` — `defaultCompareWith`, the shared `===` default for `MlvSelectionService.compareWith`
 
 ## Clearable value-gating (2026-07)
 

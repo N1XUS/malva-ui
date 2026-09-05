@@ -9,6 +9,8 @@ import {
   signal,
   ViewEncapsulation,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
 import type { Editor } from '@tiptap/core';
 import {
   LucideEllipsis,
@@ -159,22 +161,26 @@ export class MlvEditorTableControls {
 
   constructor() {
     const destroyRef = inject(DestroyRef);
-    const onPointerMove = (event: Event) => this._track(event);
-    const onPointerLeave = () => this._release();
 
-    // Registered on the document rather than on the editor DOM: the ProseMirror
+    // Subscribed on the document rather than on the editor DOM: the ProseMirror
     // element is replaced whenever the editor is recreated (a format switch, an
     // extension-set change), and a listener bound to the old node would go
-    // quiet without ever erroring. Capture is not needed — the events bubble.
-    document.addEventListener('pointermove', onPointerMove, { passive: true });
-    document.addEventListener('pointerleave', onPointerLeave, {
-      passive: true,
-    });
-    destroyRef.onDestroy(() => {
-      document.removeEventListener('pointermove', onPointerMove);
-      document.removeEventListener('pointerleave', onPointerLeave);
-      this._unregisterOverlay();
-    });
+    // quiet without ever erroring. Capture is not needed — the events bubble,
+    // and `passive` is carried through because neither handler calls
+    // `preventDefault()`.
+    //
+    // The *injected* document, never the ambient global: this component is
+    // constructed during server rendering too, where the two are different
+    // objects, so the bare global would bind a per-render component to a
+    // process-wide document that no teardown reaches.
+    fromEvent(this._document, 'pointermove', { passive: true })
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe((event) => this._track(event));
+    fromEvent(this._document, 'pointerleave', { passive: true })
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe(() => this._release());
+
+    destroyRef.onDestroy(() => this._unregisterOverlay());
   }
 
   /** @protected Inline placement for one grip box. */

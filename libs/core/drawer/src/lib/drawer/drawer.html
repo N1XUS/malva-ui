@@ -8,6 +8,8 @@
     [class.mlv-drawer--resizable]="resizable()"
     [style.width]="drawerDimensions['width']"
     [style.height]="drawerDimensions['height']"
+    [style.min-width]="drawerDimensions['minWidth']"
+    [style.min-height]="drawerDimensions['minHeight']"
     [style.max-width]="drawerDimensions['maxWidth']"
     [style.max-height]="drawerDimensions['maxHeight']"
     [style.--mlv-drawer-hidden-transform]="hiddenTransform()"
@@ -15,7 +17,7 @@
     role="dialog"
     aria-modal="true"
     [attr.aria-label]="_resolvedAriaLabel()"
-    [attr.aria-labelledby]="ariaLabelledBy() || null"
+    [attr.aria-labelledby]="_resolvedAriaLabelledBy()"
     cdkTrapFocus
     [cdkTrapFocusAutoCapture]="false"
   >

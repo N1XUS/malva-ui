@@ -1110,3 +1110,108 @@ describe('MlvTimePicker (state variants)', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Mobile full-screen sheet (#116)
+//
+// The sheet's own drum sizing is container-query based and lives entirely in
+// CSS, which jsdom cannot resolve — that half is asserted against the compiled
+// stylesheet in `time-picker-styles.spec.ts`. What *is* assertable here is the
+// switch: which panel gets the sheet treatment, and whether it still carries
+// everything it carried before.
+//
+// This project deliberately ships no `matchMedia` stub (unlike `mlv-select` and
+// `mlv-combobox`, whose `test-setup.ts` reports a desktop viewport), so
+// `MlvBreakpointService` stays pinned to its initial tier and the popup's
+// `mobileMode="auto"` resolves to full-screen. The desktop case therefore has
+// to install the stub itself, before the component is created.
+// ---------------------------------------------------------------------------
+
+describe('MlvTimePicker — mobile full-screen sheet', () => {
+  const SHEET = 'mlv-time-picker__panel--sheet';
+
+  async function make(): Promise<{
+    fixture: ComponentFixture<MlvTimePicker>;
+    panel: HTMLElement;
+    popup: MlvPopup;
+  }> {
+    await TestBed.configureTestingModule({
+      imports: [MlvTimePicker],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvTimePicker);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    openPopup(fixture.nativeElement, fixture);
+    await fixture.whenStable();
+
+    const overlayEl = TestBed.inject(OverlayContainer).getContainerElement();
+    return {
+      fixture,
+      panel: overlayEl.querySelector('.mlv-time-picker__panel') as HTMLElement,
+      popup: fixture.debugElement.query(By.directive(MlvPopup))
+        .componentInstance as MlvPopup,
+    };
+  }
+
+  it('marks the panel as a sheet while the popup is full-screen', async () => {
+    const { panel, popup } = await make();
+    expect(popup.isFullscreen()).toBe(true);
+    expect(panel.classList).toContain(SHEET);
+  });
+
+  it('keeps the density modifier alongside the sheet modifier', async () => {
+    // The two live on separate bindings — `[class]` writes the density
+    // modifier as a whole string while `[class.…--sheet]` toggles this one —
+    // so a regression that made either clobber the other would take the drum's
+    // desktop sizing or its sheet sizing out silently.
+    const { panel } = await make();
+    expect(panel.classList).toContain(SHEET);
+    expect(
+      [...panel.classList].filter((c) =>
+        /^mlv-time-picker__panel--(tight|compact|comfortable|spacious|airy)$/.test(
+          c,
+        ),
+      ).length,
+    ).toBe(1);
+  });
+
+  describe('on a desktop viewport', () => {
+    let restoreMatchMedia: (() => void) | undefined;
+
+    beforeEach(() => {
+      // `min-width` queries match, `max-width` ones do not — the same shape
+      // `libs/core/select/src/test-setup.ts` installs globally.
+      const original = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        configurable: true,
+        value: (query: string): MediaQueryList =>
+          ({
+            matches: /min-width/.test(query),
+            media: query,
+            onchange: null,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+            addListener: () => undefined,
+            removeListener: () => undefined,
+            dispatchEvent: () => false,
+          }) as unknown as MediaQueryList,
+      });
+      restoreMatchMedia = () => {
+        if (original) Object.defineProperty(window, 'matchMedia', original);
+        else delete (window as { matchMedia?: unknown }).matchMedia;
+      };
+    });
+
+    afterEach(() => restoreMatchMedia?.());
+
+    it('leaves the trigger-anchored dropdown unmarked', async () => {
+      const { panel, popup } = await make();
+      expect(popup.isFullscreen()).toBe(false);
+      expect(panel.classList).not.toContain(SHEET);
+    });
+  });
+});

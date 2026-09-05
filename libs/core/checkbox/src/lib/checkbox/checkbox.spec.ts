@@ -5,6 +5,11 @@ import axe from 'axe-core';
 import { MlvCheckbox } from './checkbox';
 import { MlvCheckboxGroup } from '../checkbox-group/checkbox-group';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type * as Sass from 'sass';
+import { stripCssLayersFromText } from '@malva-ui/internal-testing';
 
 @Component({
   template: `
@@ -105,6 +110,45 @@ describe('MlvCheckbox', () => {
     ).querySelector<HTMLInputElement>('.mlv-checkbox__native');
     expect(input?.hasAttribute('aria-label')).toBe(false);
     expect(input?.hasAttribute('aria-labelledby')).toBe(false);
+  });
+
+  // `indeterminate` is a DOM property with no HTML attribute, so it is written
+  // onto the native input from an `afterRenderEffect` rather than bound in the
+  // template — a template binding logged an NG0303 on every server render and
+  // dropped nothing useful there, since a DOM property cannot serialise into
+  // markup anyway (issue #124). These two cases are what stops that move from
+  // silently taking the browser-side property with it: the first pins the
+  // initial write, the second pins that later changes still land, which a
+  // one-shot `afterNextRender` would not do.
+  it('writes the indeterminate DOM property onto the native input', async () => {
+    fixture.componentRef.setInput('indeterminate', true);
+    await fixture.whenStable();
+
+    const input = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLInputElement>('.mlv-checkbox__native');
+    expect(input?.indeterminate).toBe(true);
+    // The attribute half of the tri-state, which is what a server render and a
+    // screen reader actually read.
+    expect(input?.getAttribute('aria-checked')).toBe('mixed');
+  });
+
+  it('tracks later changes to indeterminate on the native input', async () => {
+    const input = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLInputElement>('.mlv-checkbox__native');
+
+    fixture.componentRef.setInput('indeterminate', false);
+    await fixture.whenStable();
+    expect(input?.indeterminate).toBe(false);
+    expect(input?.getAttribute('aria-checked')).toBe('false');
+
+    // Ending on `true` is deliberate: `false` is also the DOM default, so a
+    // case that stops there passes with the write removed entirely.
+    fixture.componentRef.setInput('indeterminate', true);
+    await fixture.whenStable();
+    expect(input?.indeterminate).toBe(true);
+    expect(input?.getAttribute('aria-checked')).toBe('mixed');
   });
 });
 
@@ -261,5 +305,59 @@ describe('MlvCheckbox visible label input', () => {
         .querySelector('.mlv-checkbox__native')
         .getAttribute('aria-required'),
     ).toBe('true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stylesheet — compiled once; assertions read declarations by selector.
+// ---------------------------------------------------------------------------
+
+// `sass` is a Node-only dependency; loading it through `createRequire` keeps
+// it out of the browser-ish module graph vitest builds for this project.
+const nodeRequire = createRequire(import.meta.url);
+const sass = nodeRequire('sass') as typeof Sass;
+
+/**
+ * Declarations of every emitted rule whose selector list contains exactly
+ * `selector`, joined. Sass splits a block around a nested rule and emits
+ * shared declarations under one comma-separated selector list, so one
+ * selector can own several blocks and share others.
+ */
+function cssRule(css: string, selector: string): string {
+  const bodies: string[] = [];
+  for (const [, head, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selectors = head
+      .trim()
+      .split(/,\s*/)
+      .map((candidate) => candidate.trim());
+    if (selectors.includes(selector)) bodies.push(body);
+  }
+  expect(bodies.length, `rule "${selector}" is emitted`).toBeGreaterThan(0);
+  return bodies.join('\n');
+}
+
+describe('MlvCheckbox hidden native input containment', () => {
+  const css = stripCssLayersFromText(
+    sass.compile(
+      resolve(dirname(fileURLToPath(import.meta.url)), 'checkbox.scss'),
+    ).css,
+  );
+
+  // The native input is visually hidden with the `position: absolute` +
+  // `clip-path` pattern. An absolutely positioned box is laid out against its
+  // nearest *positioned* ancestor — with none inside the control, that is
+  // whatever the page happens to provide. Inside a drawer or dialog body it is
+  // the scrollbar host *outside* the scroll viewport: the 1px box then sits at
+  // its static position in that host's coordinate space, never moves with the
+  // viewport's scroll, inflates the body's scrollable overflow and, the moment
+  // the label is clicked, makes the browser scroll the `overflow: hidden`
+  // body to reveal the focused input — the content jumps out of view while the
+  // real viewport stays put. jsdom lays nothing out, so the containing block
+  // is pinned through the declaration that establishes it.
+  it('is positioned so the visually-hidden native input is contained by the control', () => {
+    expect(cssRule(css, '.mlv-checkbox')).toContain('position: relative');
+    expect(cssRule(css, '.mlv-checkbox__native')).toContain(
+      'position: absolute',
+    );
   });
 });

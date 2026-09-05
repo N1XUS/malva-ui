@@ -415,6 +415,49 @@ CDK virtual scroll requires a fixed item height so it can compute the positions 
 
 The viewport requires an explicit height because `cdk-virtual-scroll-viewport` does not derive its size from its content. The component exposes a `virtualViewportHeight` computed signal that returns `maxHeight()` if provided, otherwise falls back to `'24rem'`. Pass `[maxHeight]` (e.g. `'32rem'`) to control the visible height of the scroll area in virtual mode.
 
+### The repeater outlives every empty state
+
+`cdk-virtual-scroll-viewport` publishes its rendered range on a plain `Subject`, so a `*cdkVirtualFor` constructed while the viewport already exists receives no range until the range next changes — it renders nothing until somebody scrolls. The virtual `<tbody>` therefore keeps the repeater mounted unconditionally and drives it from an internal `_virtualRows()` computed (`flatRows()`, or `[]` while an error is shown); the no-data and error rows are siblings of the repeater, never a structural `@if` wrapped around it. With the repeater behind `@if`, any empty → refill transition (a search that matches nothing, then cleared) destroyed and rebuilt it against a surviving viewport, leaving a correctly sized scrollbar with zero rows and no message until the next scroll. No public API change; covered by `data-table-virtual-repeater.spec.ts`.
+
+### Scroll syncing and geometry are set up after render, never on a server
+
+The wrapper/viewport horizontal scroll mirroring and the gutter/extent
+measurement are registered from an **`afterNextRender`** scheduled by the
+virtual-scroll effect, not from the effect body itself. The block reads
+`offsetWidth`, `clientWidth` and `scrollWidth` and attaches `scroll` listeners
+plus a `ResizeObserver`. During server rendering the two `viewChild` refs it
+needs _do_ resolve — view queries run on the server — so the effect body ran
+there, the measurements resolved `undefined`, subtracted to `NaN`, and
+`NaNpx` was serialised into the markup. A `NaN` is not an exception, so nothing
+reached the `ErrorHandler` and the payload shipped silently corrupt.
+
+Render hooks never run on the server, so scheduling the whole block through one
+removes the class of problem rather than guarding each measurement. The
+dependency reads (`virtualScroll()`, `tableWrapperRef()`,
+`_virtualViewportRef()`) stay in the effect body, so the block is still
+re-scheduled when virtual scroll toggles or the viewport is re-created; the
+effect's `onCleanup` destroys a pending hook and unsubscribes the previous
+generation's listeners. No public API change. Covered by the SSR smoke suite in
+`@malva-ui/core` (`writes no NaN into the server payload`, with a
+`virtualScroll` host) and by `data-table-virtual-repeater.spec.ts` for the
+browser side.
+
+### The paging effects never track the data source
+
+`MlvDataTable` pushes `page` and `perPage` onto `effectiveDataSource()` from two
+`effect()`s. Both calls are wrapped in `untracked()`, and they must stay that
+way. A data source is free to read its own state inside those setters — a
+server-backed subclass typically compares the incoming value against the one it
+already holds so a no-op call does not cost a round trip — and tracked, those
+reads join the effects' dependency sets. `MlvDataSource.setPerPage` resets the
+page to 1, which is a write to one of them, so the two effects then retrigger
+each other synchronously inside a single change-detection pass. That loop never
+yields to a microtask: one click on "next page" freezes the tab outright, and
+page 1 hides it entirely because the subclass's guard short-circuits there. Only
+the table's own inputs belong in those dependency sets. Covered by
+`data-table-paging-effects.spec.ts`, whose fake source turns the runaway into a
+counted failure instead of a hung worker.
+
 ### Mutual exclusion with infinite scroll
 
 Virtual scroll and infinite scroll (`paginationMode="infinite"`) solve different problems and are **mutually exclusive** in this component:
@@ -687,7 +730,8 @@ focused unit tests.
 
 Set `resizable: true` on a column to render a visible, focusable separator on its right edge. `minWidth` and `maxWidth` constrain every interaction; complete pixel values are direct, while percentages resolve against the rendered header-table width. Declared CSS lengths such as `rem` remain valid for layout; a resize starts from the rendered header measurement instead of misreading the numeric prefix as pixels.
 
-- **Pointer:** mouse, touch, and pen share Pointer Events. Document-level tracking keeps the gesture intact if pointer capture is unavailable, while capture improves targeting when supported. The table ignores additional contacts, clamps live movement, cancels without committing on `pointercancel` or unexpected capture loss, and cleans up every listener if it is destroyed.
+- **Pointer:** mouse, touch, and pen share Pointer Events. Document-level tracking keeps the gesture intact if pointer capture is unavailable, while capture improves targeting when supported. The table ignores additional contacts, clamps live movement, cancels without committing on `pointercancel` or unexpected capture loss, and cleans up every listener if it is destroyed. The four drag listeners are `fromEvent` streams on the **injected `DOCUMENT`** (`pointermove`, `pointerup`, `pointercancel`) and on the handle (`lostpointercapture`), converted in #76. Each is piped through `takeUntil(pointerUp$)` **and** `takeUntilDestroyed(ref)`, where the terminator is filtered on the captured `pointerId` so a secondary contact lifting cannot end the gesture. They land in one `Subscription` that `_cleanupResize()` unsubscribes, keeping it the single idempotent teardown shared by pointer up, cancel, lost capture, width reset and `DestroyRef.onDestroy` — `unsubscribe()` on a closed `Subscription` is the no-op the stable bound handler references used to provide. `pointercancel` and `lostpointercapture` are the paths the gesture terminator cannot see, so that `unsubscribe()` is load-bearing there; both are asserted in `data-table.spec.ts`.
+- **Horizontal scroll sync:** the wrapper/viewport `scroll` listeners are `fromEvent(el, 'scroll', { passive: true })` streams released from their owning `effect`'s `onCleanup` — not `takeUntilDestroyed`, because both elements are re-resolved whenever the effect re-runs and a destroy-scoped release would keep every earlier generation subscribed.
 - **Keyboard:** `ArrowLeft`/`ArrowRight` resize by 8px, Shift uses a 32px step, Home/End move to the minimum/maximum, and Enter restores the declared width. The separator exposes localized `role="separator"` value metadata including an explicit pixel `aria-valuetext`.
 - **Layout:** before resizing, the table measures every visible data, selection, and action column. Once an override exists, it freezes those measurements and applies the same summed pixel width to the standard table or all virtual header/body/footer tables. The virtual viewport remains wrapper-width and synchronizes horizontal movement with the outer wrapper in both directions outside Angular, including focus-driven viewport scrolling. Measured native scrollbar gutters correct right-pinned offsets and extend the wrapper's scroll range through the final body pixel. This prevents browser table-layout redistribution, keeps both pin sides aligned, and leaves the outer wrapper as the sole user-facing horizontal scroll owner.
 - **Performance:** live width uses the lightweight `_liveResize` signal and is rAF-throttled to one update per frame. Release commits one `_columnWidths` map clone inside Angular.

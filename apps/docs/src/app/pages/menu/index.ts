@@ -17,6 +17,6 @@ export class MenuPageComponent {
   readonly meta: DocPageMeta = {
     title: 'Menu',
     description:
-      'Dropdown action menus with keyboard navigation, grouped items, separators, and nested submenus with triangle pointer tracking to prevent accidental closure on diagonal mouse movement.',
+      'Dropdown action menus with keyboard navigation, grouped items, separators, and nested submenus with triangle pointer tracking to prevent accidental closure on diagonal mouse movement. The same panel opens at the pointer on right-click via the context-menu trigger.',
   };
 }

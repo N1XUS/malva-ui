@@ -14,7 +14,7 @@ import {
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
-import type { ElementRef } from '@angular/core';
+import type { ElementRef, Signal } from '@angular/core';
 import type { ConnectedPosition } from '@angular/cdk/overlay';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
@@ -46,6 +46,7 @@ import type {
   MlvOptionsSearchFn,
   MlvSelectOption,
   MlvSelectOptionTransform,
+  MlvValueIndex,
 } from '@malva-ui/core/dropdown';
 import {
   MlvActiveDescendant,
@@ -57,6 +58,7 @@ import {
   MlvOptionsAdapter,
   filterOptions,
   optionId,
+  valueIndex,
 } from '@malva-ui/core/dropdown';
 import { MlvChip } from '@malva-ui/core/chip';
 import {
@@ -213,6 +215,52 @@ export class MlvCombobox<T>
   readonly mobileTitle = input<string | undefined>(undefined);
 
   /**
+   * Raises the dropdown panel's minimum width above its trigger.
+   *
+   * The panel is floored at the trigger's measured width by default. This
+   * input can only **raise** that floor — a value narrower than the trigger
+   * does not shrink the panel, because the trigger width stays in the
+   * resolved `max()`.
+   *
+   * Accepts a number of pixels or a CSS length string; the units resolve in
+   * the browser, not here. Absolute and font-relative lengths (`px`, `rem`,
+   * `em`, `ch`) and viewport units (`vw`) behave as written. **Percentages do
+   * not** — under flexible dimensions CDK lays the pane out as a `static` flex
+   * item of its bounding box, which it sizes to the space between the
+   * trigger's anchored edge and the viewport edge, so `'50%'` means half of
+   * *that*, and the same markup resolves differently depending on where the
+   * trigger sits on the page. `ch`, likewise, resolves against the pane's own
+   * font, not the option rows'.
+   *
+   * Two ceilings it deliberately outranks, per CSS's
+   * `max(min-width, min(max-width, width))`:
+   * - {@link dropdownMaxWidth} — a ceiling below the effective floor is
+   *   ignored, and the panel renders past its bounding box (nothing clips it).
+   * - the viewport. A floor wider than the space to the viewport edge pushes
+   *   the panel off-screen; the `.cdk-overlay-pane { max-width: 100% }` clamp
+   *   governs *content*-driven growth only.
+   */
+  readonly dropdownMinWidth = input<number | string | undefined>(undefined);
+
+  /**
+   * Caps the dropdown panel's width.
+   *
+   * With no value the viewport is the only ceiling — the flexible connected
+   * strategy sizes its bounding box to the space up to the viewport edge and
+   * `.cdk-overlay-pane { max-width: 100% }` caps the pane there. This input can
+   * only **tighten** that: a value wider than the viewport is still clamped by
+   * it. Accepts a CSS length string or a number of pixels.
+   *
+   * It cannot pull the panel below its floor. CSS resolves the used width as
+   * `max(min-width, min(max-width, width))`, so a ceiling under the effective
+   * floor — the trigger width, or {@link dropdownMinWidth} when that is higher
+   * — is **silently ignored** and the panel overflows its bounding box, which
+   * has no `overflow: hidden`. Set the floor down as well if you need the
+   * panel narrower than its trigger.
+   */
+  readonly dropdownMaxWidth = input<number | string | undefined>(undefined);
+
+  /**
    * @protected Resolved full-screen sheet title: explicit `mobileTitle` input
    * takes precedence over the field's label, then the resolved placeholder.
    */
@@ -293,10 +341,59 @@ export class MlvCombobox<T>
     this._adapter.items().map((item) => this.toOption()(item)),
   );
 
+  /**
+   * @private The resolved option **values**, indexed for repeated membership /
+   * resolution queries under {@link compareWith}. Rebuilt only when the option
+   * list or the comparator changes, and shared by every value-vs-options check
+   * in this control ({@link _allValuesMatched}, {@link _chipOptions},
+   * `_applyPendingValues`) — each of those used to run its own nested
+   * `selected × options` scan, so with a lazily paged source the total cost of
+   * a scroll session grew quadratically as pages accumulated.
+   *
+   * Carries an explicit type annotation for the same reason {@link _adapter}
+   * does: it is a new node on that documented inference cycle
+   * (`_adapter` → `eager` → `_allValuesMatched` → `_optionValueIndex` →
+   * `resolvedOptions` → `_adapter`), and pinning the type there keeps the
+   * cycle broken at two points rather than one. It is a `computed`, so nothing
+   * evaluates it during field initialisation — the adapter reads `eager` only
+   * from its effects, which run after construction.
+   */
+  private readonly _optionValueIndex: Signal<MlvValueIndex<T>> = computed(() =>
+    valueIndex(
+      this.resolvedOptions(),
+      this.compareWith(),
+      (option) => option.value,
+    ),
+  );
+
   readonly isOpen = signal(false);
   /** Current text in the input. For single-select this doubles as the committed label when not actively searching. */
   readonly searchQuery = signal('');
+  /**
+   * Measured pixel width of the trigger, fed to the dropdown as its **minimum**
+   * width. The panel is never narrower than the trigger and grows past it to
+   * fit a longer option rather than clipping it (#150).
+   */
   readonly triggerWidth = signal(0);
+
+  /**
+   * @protected The floor handed to the popup: the measured trigger width, or a
+   * CSS `max()` of it and {@link dropdownMinWidth} when that is set.
+   *
+   * Expressed as `max()` rather than resolved in TypeScript so the author's
+   * units (`rem`, `ch`, `%`, `vw`) keep their meaning — px is the only unit
+   * `triggerWidth` can be measured in, and converting the other side to it
+   * would freeze it against the root font size at open time.
+   */
+  protected readonly _resolvedDropdownMinWidth = computed<number | string>(
+    () => {
+      const trigger = this.triggerWidth();
+      const floor = this.dropdownMinWidth();
+      if (floor === undefined) return trigger;
+      const authored = typeof floor === 'number' ? `${floor}px` : floor;
+      return `max(${trigger}px, ${authored})`;
+    },
+  );
 
   /** @private Whether `searchQuery` represents live user search text (vs. a displayed committed label). */
   private readonly _searching = signal(false);
@@ -370,11 +467,8 @@ export class MlvCombobox<T>
 
   /** @protected Whether every committed value has a matching option (by `compareWith`). */
   protected readonly _allValuesMatched = computed(() => {
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    return this.selectionService
-      .selectedValues()
-      .every((v) => opts.some((o) => compare(o.value, v)));
+    const options = this._optionValueIndex();
+    return this.selectionService.selectedValues().every((v) => options.has(v));
   });
 
   /** @protected First payload arrived and no consumer-driven `loading`. */
@@ -400,9 +494,8 @@ export class MlvCombobox<T>
   protected readonly _chipOptions = computed(() => {
     const selected = this.selectedOptions();
     if (!this._awaitingValueLabel()) return selected;
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    return selected.filter((s) => opts.some((o) => compare(o.value, s.value)));
+    const options = this._optionValueIndex();
+    return selected.filter((s) => options.has(s.value));
   });
 
   /** @protected `Press Enter to add "{query}"` resolved through i18n. */
@@ -955,6 +1048,10 @@ export class MlvCombobox<T>
     this._input()?.focus();
   }
 
+  /**
+   * Re-measures the trigger from an `mlvResizeObserver` entry and republishes
+   * {@link triggerWidth} — the dropdown's minimum width.
+   */
   updateTriggerWidth(evt: ResizeObserverEntry[]): void {
     this.triggerWidth.set(evt[0].target.getBoundingClientRect().width);
   }
@@ -974,11 +1071,8 @@ export class MlvCombobox<T>
 
   /** @private Normalises the pending form values against the current options and syncs display text. */
   private _applyPendingValues(): void {
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    const normalized = this._pendingValues.map(
-      (v) => opts.find((o) => compare(o.value, v))?.value ?? v,
-    );
+    const options = this._optionValueIndex();
+    const normalized = this._pendingValues.map((v) => options.resolve(v));
     this.selectionService.setValues(normalized);
     // This effect re-runs on every `resolvedOptions()` change — which now
     // includes every remote response and every observable emission. Resyncing

@@ -4,6 +4,7 @@ export * from './lib/menu/menu-separator';
 export * from './lib/menu/menu-group';
 export * from './lib/menu/menu-group-label';
 export * from './lib/menu/menu-trigger';
+export * from './lib/menu/context-menu-trigger';
 export * from './lib/menu/menu.types';
 export * from './lib/menu/menu-data.types';
 export * from './lib/menu/menu-item-def';

@@ -1,4 +1,5 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -6,6 +7,7 @@ import {
   effect,
   forwardRef,
   inject,
+  Injector,
   input,
   model,
   output,
@@ -13,7 +15,7 @@ import {
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
-import type { AfterViewInit, ElementRef, OnInit } from '@angular/core';
+import type { ElementRef, OnInit } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   MlvTab,
@@ -79,7 +81,7 @@ import {
 })
 export class MlvColorPicker
   extends MlvSignalFormControlBase<string>
-  implements AfterViewInit, OnInit
+  implements OnInit
 {
   private static readonly _ALL_FORMATS: readonly MlvColorInputMode[] = [
     'hex',
@@ -185,6 +187,9 @@ export class MlvColorPicker
   /** @private DestroyRef for cleanup. */
   private readonly _destroyRef = inject(DestroyRef);
 
+  /** @private Injector used to schedule `afterNextRender` from outside an injection context. */
+  private readonly _injector = inject(Injector);
+
   /**
    * @private The canvas bounding rect captured once at pointerdown and reused
    * for every pointermove of that drag, avoiding a forced layout read
@@ -194,6 +199,18 @@ export class MlvColorPicker
 
   constructor() {
     super();
+    // The saturation/lightness plane is painted through the 2D canvas context,
+    // which no server DOM implements — Angular's bundled domino throws
+    // `NotYetImplemented` from `getContext`.
+    //
+    // Only two paint paths are not event handlers: this initial paint and the
+    // repaint in `_applyValue`. Both are scheduled through `afterNextRender`,
+    // which never runs on the server, so neither reaches `getContext` there.
+    // The remaining `_drawCanvas()` calls are direct and synchronous, and are
+    // SSR-safe only because they sit in pointer / input handlers that no
+    // server render fires. A new non-handler call site is not covered by
+    // either — schedule it through `afterNextRender` too.
+    afterNextRender(() => this._drawCanvas());
     effect(() => this._applyValue(this.value()));
     effect(() => {
       const formats = this._supportedFormats();
@@ -215,10 +232,6 @@ export class MlvColorPicker
     this._syncFromHsla();
   }
 
-  ngAfterViewInit(): void {
-    this._drawCanvas();
-  }
-
   // ---------------------------------------------------------------------------
   // Forms value
   // ---------------------------------------------------------------------------
@@ -232,8 +245,11 @@ export class MlvColorPicker
     const parsed = parseCssColor(value);
     this._hsla.set(parsed);
     this._syncFromHsla();
-    // Draw after change detection settles
-    setTimeout(() => this._drawCanvas(), 0);
+    // Draw once change detection has settled. `afterNextRender` is both the
+    // scheduling primitive and the SSR guard — the old `setTimeout(0)` fired
+    // on the server too, after the render had finished, where it threw
+    // uncatchably from `getContext`.
+    afterNextRender(() => this._drawCanvas(), { injector: this._injector });
   }
 
   // ---------------------------------------------------------------------------

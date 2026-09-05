@@ -18,11 +18,21 @@ import { MLV_SCROLLBAR_I18N } from '@malva-ui/i18n';
  */
 const resizeCallbacks: ResizeObserverCallback[] = [];
 
+/**
+ * Every element passed to `observe()`, in call order, across all instances.
+ * The component attaches exactly one observer, so this doubles as "what the
+ * live observer watches" — asserted by the `--mlv-sb-edge-*` tests, which turn
+ * on the tracks being watched at all rather than on a fabricated notification.
+ */
+const resizeObserved: Element[] = [];
+
 globalThis.ResizeObserver = class implements ResizeObserver {
   constructor(callback: ResizeObserverCallback) {
     resizeCallbacks.push(callback);
   }
-  readonly observe = vi.fn();
+  readonly observe = vi.fn((target: Element) => {
+    resizeObserved.push(target);
+  });
   readonly unobserve = vi.fn();
   readonly disconnect = vi.fn();
 };
@@ -391,6 +401,7 @@ describe('MlvScrollbar — viewportTabIndex passthrough', () => {
 
   beforeEach(async () => {
     resizeCallbacks.length = 0;
+    resizeObserved.length = 0;
 
     await TestBed.configureTestingModule({
       imports: [ScrollbarTabIndexHostComponent],
@@ -813,6 +824,12 @@ interface CachingHarness {
   resetReads: () => void;
   /** Replays the component's ResizeObserver callback → real `_updateGeometry`. */
   resize: () => Promise<void>;
+  /**
+   * Replays the same callback with entries whose targets are the two **tracks**
+   * — what the browser delivers when only a track's own box moved, e.g. because
+   * `--mlv-sb-edge-padding` / `--mlv-sb-edge-gap` were re-resolved.
+   */
+  resizeTracks: () => Promise<void>;
   /** Dispatches a native scroll event on the viewport → real `_onScroll`. */
   scroll: () => void;
   /** Reads a protected thumb signal. */
@@ -831,6 +848,7 @@ describe('MlvScrollbar — track metric caching', () => {
 
   beforeEach(() => {
     resizeCallbacks.length = 0;
+    resizeObserved.length = 0;
     originalGetComputedStyle = globalThis.getComputedStyle;
   });
 
@@ -947,6 +965,18 @@ describe('MlvScrollbar — track metric caching', () => {
         reads.vOffset = 0;
         reads.hStyle = 0;
         reads.hOffset = 0;
+      },
+      resizeTracks: async () => {
+        const callback = resizeCallbacks.at(-1);
+        expect(callback).toBeDefined();
+        callback?.(
+          [trackV, trackH].map(
+            (target) => ({ target }) as unknown as ResizeObserverEntry,
+          ),
+          {} as ResizeObserver,
+        );
+        fixture.detectChanges();
+        await fixture.whenStable();
       },
       resize: async () => {
         const callback = resizeCallbacks.at(-1);
@@ -1115,6 +1145,82 @@ describe('MlvScrollbar — track metric caching', () => {
 
       // usable 92; ratio 0.25 → 23 → clamped to 32.
       expect(h.thumb('_thumbHeight')).toBe(32);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 3b. Invalidation when only the TRACK box moves (#69)
+  // -------------------------------------------------------------------------
+
+  describe('cache invalidation when only the track box changes', () => {
+    it('watches both track elements, not only the scroller, viewport and content', async () => {
+      const h = await createHarness('both', {
+        scrollHeight: 400,
+        scrollWidth: 600,
+        clientWidth: 150,
+      });
+
+      // This is the whole defect: `--mlv-sb-edge-padding` and
+      // `--mlv-sb-edge-gap` are consumer-facing custom properties, and a theme
+      // swap or an ancestor class toggle re-resolves either without changing
+      // the size of the viewport or the content wrapper. Those were the only
+      // things observed, so nothing invalidated the cache and the thumb stayed
+      // laid out against the old padding until the next genuine resize.
+      //
+      // The default `ResizeObserver` box is content-box, so watching the tracks
+      // catches an edge-padding change (padding sits inside the track's border
+      // box but outside its content box) as well as an edge-gap change (which
+      // moves the track's own insets) and a root font-size change — both values
+      // are rem, which is the second half of this ticket.
+      //
+      // Booleans, not the elements themselves: a failed assertion against a
+      // DOM node makes vitest spend minutes pretty-printing it.
+      expect(resizeObserved.includes(h.trackV)).toBe(true);
+      expect(resizeObserved.includes(h.trackH)).toBe(true);
+    });
+
+    it('recomputes thumb geometry when the track padding changes with no viewport resize', async () => {
+      const h = await createHarness('vertical', { scrollHeight: 400 });
+      await h.resize();
+      h.scroll();
+
+      // extent 200, padding 4 → usable 192; ratio 100/400 → thumb 48.
+      expect(h.thumb('_thumbHeight')).toBe(48);
+
+      // Stands in for `--mlv-sb-edge-padding` being re-resolved. The viewport
+      // and the content wrapper are untouched.
+      h.trackV.style.padding = '20px 0';
+      await h.resizeTracks();
+
+      // extent 200, padding 20 → usable 160; ratio 0.25 → 40. No scroll event
+      // is needed: the track-only branch re-lays the thumb itself, so the
+      // change lands immediately rather than at the next scroll.
+      expect(h.thumb('_thumbHeight')).toBe(40);
+    });
+
+    it('does not re-derive the overflow decision on a track-only notification', async () => {
+      const h = await createHarness('vertical', { scrollHeight: 400 });
+      await h.resize();
+      expect((h.component as any)['_hasVerticalOverflow']()).toBe(true);
+
+      // The content did not change; only the track's box did. Running the full
+      // geometry pass here would re-read the viewport and rewrite the
+      // visibility classes that size these very tracks — feeding the observer
+      // back into itself, which is the `ResizeObserver loop completed with
+      // undelivered notifications` risk that kept the tracks unobserved until
+      // now. A track-only notification must therefore invalidate and re-lay
+      // the thumb, and nothing else.
+      //
+      // A stale viewport reading is the observable proxy: if the overflow
+      // decision is re-derived from it, it flips to false and the track picks
+      // up `--hidden`.
+      h.state.scrollHeight = 100;
+      await h.resizeTracks();
+
+      expect((h.component as any)['_hasVerticalOverflow']()).toBe(true);
+      expect(h.trackV.classList.contains('mlv-scrollbar__track--hidden')).toBe(
+        false,
+      );
     });
   });
 

@@ -6,6 +6,7 @@ import {
   contentChild,
   inject,
   input,
+  signal,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
@@ -57,21 +58,64 @@ export class MlvDrawer extends MlvOverlayHostBase {
   readonly ariaLabel = input<string>();
 
   /**
-   * Id of a visible element (typically a projected `[mlvDrawerHeader]`) that
-   * labels the drawer. When set, it takes precedence over `ariaLabel` and the
-   * i18n fallback via `aria-labelledby` — mirroring how `mlv-dialog` labels
-   * itself by its projected header.
+   * Id of a visible element that labels the drawer. When set, it takes
+   * precedence over the projected `mlv-drawer-header` title, `ariaLabel` and
+   * the i18n fallback via `aria-labelledby` — mirroring how `mlv-dialog`
+   * labels itself by its projected header.
    */
   readonly ariaLabelledBy = input<string>();
 
   /**
+   * @private Ids of the `mlv-drawer-header` titles currently registered as
+   * the drawer's label, in registration order. A header registers its title
+   * while it has text and withdraws it when it loses it.
+   */
+  private readonly _headerLabelIds = signal<readonly string[]>([]);
+
+  /**
+   * @protected Resolved `aria-labelledby` for the dialog surface: the explicit
+   * `ariaLabelledBy` input, else the registered header titles. An explicit
+   * `ariaLabel` suppresses the header titles — a consumer naming the drawer
+   * by hand wins over the automatic label, as it does for `mlv-dialog`.
+   */
+  protected readonly _resolvedAriaLabelledBy = computed(() => {
+    const explicit = this.ariaLabelledBy();
+    if (explicit) {
+      return explicit;
+    }
+    if (this.ariaLabel()) {
+      return null;
+    }
+    return this._headerLabelIds().join(' ') || null;
+  });
+
+  /**
    * @protected Resolved `aria-label` for the dialog surface: the explicit
-   * `ariaLabel` input, or the localized fallback. Suppressed (null) when
-   * `ariaLabelledBy` is set so the two naming methods never conflict.
+   * `ariaLabel` input, or the localized fallback. Suppressed (null) whenever
+   * `aria-labelledby` resolves so the two naming methods never conflict.
    */
   protected readonly _resolvedAriaLabel = computed(() =>
-    this.ariaLabelledBy() ? null : (this.ariaLabel() ?? this._i18n().drawer),
+    this._resolvedAriaLabelledBy()
+      ? null
+      : (this.ariaLabel() ?? this._i18n().drawer),
   );
+
+  /**
+   * @internal Registers a header title `id` as a label of the drawer. Used by
+   * `mlv-drawer-header`; the `ariaLabelledBy` / `ariaLabel` inputs still win.
+   */
+  _labelBy(id: string): void {
+    this._headerLabelIds.update((ids) =>
+      ids.includes(id) ? ids : [...ids, id],
+    );
+  }
+
+  /** @internal Reverses {@link _labelBy} when the header title empties or is destroyed. */
+  _unlabelBy(id: string): void {
+    this._headerLabelIds.update((ids) =>
+      ids.includes(id) ? ids.filter((candidate) => candidate !== id) : ids,
+    );
+  }
 
   /**
    * CSS width (left/right drawers) or height (top/bottom drawers) of the panel.
@@ -102,8 +146,15 @@ export class MlvDrawer extends MlvOverlayHostBase {
   readonly defaultSnap = input<number>(100);
 
   /**
-   * CSS min-size floor applied during drag resize.
-   * Only used when `resizable` is true.
+   * CSS min-size floor for the panel's sizing axis (width for `left`/`right`,
+   * height for `top`/`bottom`).
+   *
+   * Bound as `min-width` / `min-height` on the panel, so a drag resize (which
+   * writes the axis size through `--mlv-drawer-current-size`) can never
+   * shrink the panel below it. Honoured on the fixed-`size` path as well; the
+   * `'0px'` default is a no-op there. Clamped to the viewport like `maxSize`:
+   * `min-*` beats `max-*` in CSS, so an unclamped `40rem` floor would push the
+   * panel off a 375px screen.
    */
   readonly minSize = input('0px');
 
@@ -159,8 +210,22 @@ export class MlvDrawer extends MlvOverlayHostBase {
   }
 
   /**
+   * @private Combines `minSize` with the viewport ceiling for the sizing axis.
+   *
+   * `min-width` / `min-height` beat `max-*`, so an unclamped floor would undo
+   * the viewport clamp above. The `'0px'` default is passed through bare.
+   */
+  private _resolveMinSize(viewportCeiling: string): string {
+    const minSize = this.minSize();
+    return !minSize || minSize === '0px'
+      ? '0px'
+      : `min(${minSize}, ${viewportCeiling})`;
+  }
+
+  /**
    * Resolved inline geometry for the panel element: the sizing-axis `size`, the
-   * cross-axis viewport fill, and the max ceilings on both axes.
+   * cross-axis viewport fill, the `minSize` floor on the sizing axis, and the
+   * max ceilings on both axes.
    */
   get drawerDimensions(): Record<string, string> {
     const pos = this.position();
@@ -172,6 +237,7 @@ export class MlvDrawer extends MlvOverlayHostBase {
       return {
         width: size,
         height: '100dvh',
+        minWidth: this._resolveMinSize('100dvw'),
         maxWidth: this._resolveMaxSize('100dvw'),
         maxHeight: '100dvh',
       };
@@ -179,6 +245,7 @@ export class MlvDrawer extends MlvOverlayHostBase {
     return {
       height: size,
       width: '100dvw',
+      minHeight: this._resolveMinSize('100dvh'),
       maxHeight: this._resolveMaxSize('100dvh'),
       maxWidth: '100dvw',
     };

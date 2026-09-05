@@ -225,6 +225,60 @@ describe('MlvEditor composite focus', () => {
     expect(host.editor().isActive('bold')).toBe(true);
   });
 
+  it('claims disabled pointer, click, and activation keys in the capture phase, ahead of every descendant listener', async () => {
+    const { fixture, host, root } = await createHost();
+    const content = root.querySelector('.ProseMirror') as HTMLElement;
+    const status = root.querySelector('[mlvEditorStatus]') as HTMLButtonElement;
+
+    // Registered on descendants of the editor host, so they can only run
+    // before the editor's own handlers if those handlers gave up the capture
+    // phase. ProseMirror installs its listeners the same way, on `view.dom`
+    // inside the host, so this stands in for its ordering too.
+    const reached: string[] = [];
+    content.addEventListener('pointerdown', () => reached.push('pointerdown'));
+    content.addEventListener('click', () => reached.push('click'));
+    status.addEventListener('keydown', () => reached.push('keydown'));
+
+    host.disabled.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    content.dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true }),
+    );
+    content.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    );
+    status.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        key: 'Enter',
+        cancelable: true,
+      }),
+    );
+
+    expect(reached).toEqual([]);
+
+    // The same listeners must be reached once the composite is enabled again,
+    // so the emptiness above is the capture-phase block and not a dead host.
+    host.disabled.set(false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    content.dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true }),
+    );
+    status.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        key: 'Enter',
+        cancelable: true,
+      }),
+    );
+
+    expect(reached).toEqual(['pointerdown', 'keydown']);
+  });
+
   it('closes editor-owned overlays and removes composite focus when disabled', async () => {
     const { fixture, host, root } = await createHost();
     const registry = fixture.debugElement

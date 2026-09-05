@@ -9,7 +9,7 @@ import {
   inject,
   input,
 } from '@angular/core';
-import type { Subscription } from 'rxjs';
+import { Subscription, fromEvent } from 'rxjs';
 import type { MlvPopup } from '../popup/popup';
 import { POPUP_DETACH_WATCHDOG_MS } from '../popup/popup';
 import type { MlvPopupHandle } from '../popup.service';
@@ -70,7 +70,7 @@ export class MlvPopupTrigger implements OnDestroy {
    */
   private _detachWatchdog: ReturnType<typeof setTimeout> | null = null;
   /** @private Teardown callbacks for the overlay hover mouse listeners. */
-  private _overlayMouseListeners: (() => void)[] = [];
+  private _overlayMouseListeners = new Subscription();
 
   /**
    * The `MlvPopup` to control.
@@ -284,21 +284,28 @@ export class MlvPopupTrigger implements OnDestroy {
     const onEnter = () => this._clearHoverTimer();
     const onLeave = () => this._scheduleHoverClose();
 
-    overlayEl.addEventListener('mouseenter', onEnter);
-    overlayEl.addEventListener('mouseleave', onLeave);
-
-    this._overlayMouseListeners = [
-      () => overlayEl.removeEventListener('mouseenter', onEnter),
-      () => overlayEl.removeEventListener('mouseleave', onLeave),
-    ];
+    // Bound to the overlay element of this open and released by
+    // `_removeOverlayMouseListeners()`, which runs from the popup's `onClose`
+    // and from `ngOnDestroy`. `_attachOverlay` returns early while a handle
+    // exists, so exactly one pair is live at a time; `takeUntilDestroyed`
+    // would instead keep one pair per open alive.
+    this._overlayMouseListeners = new Subscription();
+    this._overlayMouseListeners.add(
+      fromEvent(overlayEl, 'mouseenter').subscribe(onEnter),
+    );
+    this._overlayMouseListeners.add(
+      fromEvent(overlayEl, 'mouseleave').subscribe(onLeave),
+    );
   }
 
-  /** @private Removes the overlay hover listeners. */
+  /**
+   * @private Removes the overlay hover listeners. Idempotent: `unsubscribe()`
+   * on an already-closed `Subscription` is a no-op, and the field is replaced
+   * with a fresh one so a later open starts from an empty teardown set.
+   */
   private _removeOverlayMouseListeners(): void {
-    for (const cleanup of this._overlayMouseListeners) {
-      cleanup();
-    }
-    this._overlayMouseListeners = [];
+    this._overlayMouseListeners.unsubscribe();
+    this._overlayMouseListeners = new Subscription();
   }
 
   /** @private Triggers the popup leave animation before detaching the overlay. */

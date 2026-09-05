@@ -14,6 +14,7 @@ import {
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
+import type { Signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
@@ -56,11 +57,13 @@ import {
   MlvDropdownPanel,
   MlvOptionsAdapter,
   optionId,
+  valueIndex,
 } from '@malva-ui/core/dropdown';
 import type {
   MlvOptionMatcher,
   MlvOptionsInput,
   MlvOptionsSearchFn,
+  MlvValueIndex,
 } from '@malva-ui/core/dropdown';
 import type {
   MlvSelectOption,
@@ -258,6 +261,52 @@ export class MlvSelect<T>
   readonly mobileTitle = input<string | undefined>(undefined);
 
   /**
+   * Raises the dropdown panel's minimum width above its trigger.
+   *
+   * The panel is floored at the trigger's measured width by default. This
+   * input can only **raise** that floor — a value narrower than the trigger
+   * does not shrink the panel, because the trigger width stays in the
+   * resolved `max()`.
+   *
+   * Accepts a number of pixels or a CSS length string; the units resolve in
+   * the browser, not here. Absolute and font-relative lengths (`px`, `rem`,
+   * `em`, `ch`) and viewport units (`vw`) behave as written. **Percentages do
+   * not** — under flexible dimensions CDK lays the pane out as a `static` flex
+   * item of its bounding box, which it sizes to the space between the
+   * trigger's anchored edge and the viewport edge, so `'50%'` means half of
+   * *that*, and the same markup resolves differently depending on where the
+   * trigger sits on the page. `ch`, likewise, resolves against the pane's own
+   * font, not the option rows'.
+   *
+   * Two ceilings it deliberately outranks, per CSS's
+   * `max(min-width, min(max-width, width))`:
+   * - {@link dropdownMaxWidth} — a ceiling below the effective floor is
+   *   ignored, and the panel renders past its bounding box (nothing clips it).
+   * - the viewport. A floor wider than the space to the viewport edge pushes
+   *   the panel off-screen; the `.cdk-overlay-pane { max-width: 100% }` clamp
+   *   governs *content*-driven growth only.
+   */
+  readonly dropdownMinWidth = input<number | string | undefined>(undefined);
+
+  /**
+   * Caps the dropdown panel's width.
+   *
+   * With no value the viewport is the only ceiling — the flexible connected
+   * strategy sizes its bounding box to the space up to the viewport edge and
+   * `.cdk-overlay-pane { max-width: 100% }` caps the pane there. This input can
+   * only **tighten** that: a value wider than the viewport is still clamped by
+   * it. Accepts a CSS length string or a number of pixels.
+   *
+   * It cannot pull the panel below its floor. CSS resolves the used width as
+   * `max(min-width, min(max-width, width))`, so a ceiling under the effective
+   * floor — the trigger width, or {@link dropdownMinWidth} when that is higher
+   * — is **silently ignored** and the panel overflows its bounding box, which
+   * has no `overflow: hidden`. Set the floor down as well if you need the
+   * panel narrower than its trigger.
+   */
+  readonly dropdownMaxWidth = input<number | string | undefined>(undefined);
+
+  /**
    * @protected Resolved full-screen sheet title: explicit `mobileTitle` input
    * takes precedence over the field's label, then the resolved placeholder.
    */
@@ -335,6 +384,69 @@ export class MlvSelect<T>
   );
 
   /**
+   * @private The resolved option **values**, indexed for repeated membership /
+   * resolution queries under {@link compareWith}. Rebuilt only when the option
+   * list or the comparator changes, and shared by every value-vs-options check
+   * in this control ({@link _allValuesMatched} and `_applyPendingValues`) —
+   * each of those used to run its own nested `selected × options` scan, so with
+   * a lazily paged source the total cost of a scroll session grew
+   * quadratically as pages accumulated.
+   *
+   * Carries an explicit type annotation for the same reason {@link _adapter}
+   * does: it is a new node on that documented inference cycle
+   * (`_adapter` → `eager` → `_allValuesMatched` → `_optionValueIndex` →
+   * `resolvedOptions` → `_adapter`), and pinning the type there keeps the
+   * cycle broken at two points rather than one. It is a `computed`, so nothing
+   * evaluates it during field initialisation — the adapter reads `eager` only
+   * from its effects, which run after construction.
+   */
+  private readonly _optionValueIndex: Signal<MlvValueIndex<T>> = computed(() =>
+    valueIndex(
+      this.resolvedOptions(),
+      this.compareWith(),
+      (option) => option.value,
+    ),
+  );
+
+  /**
+   * @private The **committed selection**, indexed for the per-option membership
+   * test the native `<select>` runs (`_isNativeOptionSelected`). A separate
+   * index from {@link _optionValueIndex}, and deliberately so — the two are
+   * keyed on different signals and invalidate independently: this one rebuilds
+   * when the selection or the comparator changes, that one when the option list
+   * or the comparator changes.
+   *
+   * **The haystack is the selection, not the options, because argument order is
+   * observable.** `_isNativeOptionSelected` calls `compare(selected, value)` —
+   * reversed relative to the other five value-vs-options checks in this file,
+   * which call `compare(option.value, committedValue)`. `valueIndex` applies
+   * `compare(indexedValue, queriedValue)`, so indexing the selection and
+   * querying with an option value reproduces the original order exactly.
+   * Indexing the options instead would silently transpose the arguments, and a
+   * consumer's `compareWith` is under no obligation to be symmetric.
+   *
+   * Holding `selectedValues()` by reference inside the index is safe *as this
+   * library drives it*: every write from `MlvSelect`, `MlvCombobox` and
+   * `MlvSelectionService`'s own mutators (`select` / `deselect` / `clear`)
+   * `set`s a freshly built array rather than mutating in place, so a stale
+   * index is always discarded by the signal, never silently re-read. Note this
+   * is a property of the call sites, not an invariant the service enforces —
+   * `setValues(values)` stores the caller's array as-is, and the service is
+   * publicly reachable, so an external caller that mutated an array it had
+   * already handed over would defeat both this index and the signal itself.
+   *
+   * The `compareWith()` read is tracked but, today, redundant: a comparator
+   * change invalidates {@link _optionValueIndex}, which re-runs the
+   * pending-values effect, which calls `setValues` with a fresh `map()` result
+   * — so the selection identity always changes alongside the comparator. It
+   * stays tracked because that coupling is incidental, not guaranteed.
+   */
+  private readonly _selectedValueIndex: Signal<MlvValueIndex<T>> = computed(
+    () =>
+      valueIndex(this.selectionService.selectedValues(), this.compareWith()),
+  );
+
+  /**
    * @protected Whether the native select is the active interaction surface.
    * `'auto'` follows the shared `md` breakpoint and updates when the viewport
    * changes.
@@ -379,11 +491,8 @@ export class MlvSelect<T>
 
   /** @protected Whether every committed value has a matching option (by `compareWith`). */
   protected readonly _allValuesMatched = computed(() => {
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    return this.selectionService
-      .selectedValues()
-      .every((v) => opts.some((o) => compare(o.value, v)));
+    const options = this._optionValueIndex();
+    return this.selectionService.selectedValues().every((v) => options.has(v));
   });
 
   /** @protected First payload arrived and the consumer is not reporting `loading`. */
@@ -407,7 +516,31 @@ export class MlvSelect<T>
   );
 
   readonly isOpen = signal(false);
+  /**
+   * Measured pixel width of the trigger, fed to the dropdown as its **minimum**
+   * width. The panel is never narrower than the trigger and grows past it to
+   * fit a longer option rather than clipping it (#150).
+   */
   readonly triggerWidth = signal(0);
+
+  /**
+   * @protected The floor handed to the popup: the measured trigger width, or a
+   * CSS `max()` of it and {@link dropdownMinWidth} when that is set.
+   *
+   * Expressed as `max()` rather than resolved in TypeScript so the author's
+   * units (`rem`, `ch`, `%`, `vw`) keep their meaning — px is the only unit
+   * `triggerWidth` can be measured in, and converting the other side to it
+   * would freeze it against the root font size at open time.
+   */
+  protected readonly _resolvedDropdownMinWidth = computed<number | string>(
+    () => {
+      const trigger = this.triggerWidth();
+      const floor = this.dropdownMinWidth();
+      if (floor === undefined) return trigger;
+      const authored = typeof floor === 'number' ? `${floor}px` : floor;
+      return `max(${trigger}px, ${authored})`;
+    },
+  );
 
   /**
    * Current text of the in-dropdown search field. Always `''` while the
@@ -568,7 +701,8 @@ export class MlvSelect<T>
     });
     effect(() => {
       this._pendingValues = toAriaValues(this.value());
-      // Reads resolvedOptions()/compareWith() → re-runs when options arrive later.
+      // Reads `_optionValueIndex()` (resolvedOptions() + compareWith()) → the
+      // effect still re-runs when options arrive later.
       this._applyPendingValues();
     });
     // A `searchFn` is lazy: the first open is what triggers its initial load.
@@ -854,12 +988,18 @@ export class MlvSelect<T>
     this._markTouched();
   }
 
-  /** @protected Whether a normalized option matches one of the committed values. */
+  /**
+   * @protected Whether a normalized option matches one of the committed values.
+   *
+   * Called once per rendered native `<option>` — and, being a template method
+   * rather than a computed, on *every* change-detection pass of the native
+   * branch, not only when a signal changes. It was the last nested
+   * `selected × options` scan in this control; it now resolves through the
+   * memoised {@link _selectedValueIndex}, whose `has()` preserves the original
+   * `compare(selected, value)` argument order.
+   */
   protected _isNativeOptionSelected(value: T): boolean {
-    const compare = this.compareWith();
-    return this.selectionService
-      .selectedValues()
-      .some((selected) => compare(selected, value));
+    return this._selectedValueIndex().has(value);
   }
 
   /** @private Resolves an internal native option key back to its public option. */
@@ -907,6 +1047,10 @@ export class MlvSelect<T>
     this._markTouched();
   }
 
+  /**
+   * Re-measures the trigger from an `mlvResizeObserver` entry and republishes
+   * {@link triggerWidth} — the dropdown's minimum width.
+   */
   updateTriggerWidth(evt: ResizeObserverEntry[]): void {
     this.triggerWidth.set(evt[0].target.getBoundingClientRect().width);
   }
@@ -953,14 +1097,12 @@ export class MlvSelect<T>
    * value is matched against the current options via {@link compareWith} and
    * replaced by the option's own instance, so the check-marks and the displayed
    * label agree — and a value written before its options exist resolves as soon
-   * as they arrive (the caller effect tracks `resolvedOptions()`).
+   * as they arrive (the caller effect reads `_optionValueIndex()`, which
+   * tracks `resolvedOptions()`).
    */
   private _applyPendingValues(): void {
-    const compare = this.compareWith();
-    const opts = this.resolvedOptions();
-    const normalized = this._pendingValues.map(
-      (v) => opts.find((o) => compare(o.value, v))?.value ?? v,
-    );
+    const options = this._optionValueIndex();
+    const normalized = this._pendingValues.map((v) => options.resolve(v));
     this.selectionService.setValues(normalized);
   }
 }

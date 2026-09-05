@@ -24,7 +24,7 @@ Exported from `libs/core/popup/src/index.ts`:
 | `MlvPopupContainer` | Component | Programmatic container — `mlv-popup-container` |
 | `MlvPopupService` | Service | Low-level overlay API |
 | `MlvPopupOpenConfig` | Interface | Config for `MlvPopupService.open()` |
-| `MlvPopupHandle` | Interface | `{ overlayRef, close }` |
+| `MlvPopupHandle` | Interface | `{ overlayRef, close, setPositionOrigin }` |
 | `MlvPopupSizeConfig` | Interface | Size options |
 | `MlvPopupScrollStrategy` | Type | `'reposition' \| 'close' \| 'block' \| 'noop'` |
 | `MlvPopupPositionName` | Type | Union of 12 named positions (`'bottom-end'`, `'top'`, etc.) |
@@ -97,6 +97,14 @@ Popup content is always rendered inside `.mlv-popup__scrollbar`, a shared `mlv-s
 **Header-content slot (`[mlvPopupHeaderContent]`).** An optional `<ng-template mlvPopupHeaderContent>` is rendered inside the full-screen header, directly beneath the title/close row, via `contentChild(MlvPopupHeaderContent)`. It is **only** stamped while `isFullscreen()` is `true` (and no-ops when the slot is absent), so trigger-anchored popups are byte-identical whether or not the slot is supplied. It exists because the full-screen sheet's solid backdrop + focus trap occlude/block any control that lives outside the overlay panel (in normal document flow): a consumer can move such a control into the sheet by projecting it here. `mlv-combobox` uses it to render an in-sheet search input (and multi-select chips) so type-to-filter keeps working full-screen — see `libs-combobox.md` → _Mobile fullscreen_. The slot sits inside the trapped panel, so projected focusable controls compose with the trap.
 
 **Pinned-content slot (`[mlvPopupPinnedContent]`).** Mode-independent, unlike the header slot: an optional `<ng-template mlvPopupPinnedContent>` is stamped as `.mlv-popup__pinned` directly **above** `.mlv-popup__scrollbar` in both anchored and full-screen panels (in full-screen it lands between `.mlv-popup__header` and the scroll region, still inside the trap). The panel is a flex column and the scrollbar is `flex: 1 1 auto; min-height: 0`, so the pinned block keeps its own height and the scroll region shrinks around it — content can never push it out of view. It carries no padding; the projected block owns its spacing. `mlv-select` uses it for the searchable dropdown's search row (`position: sticky` inside the viewport was fragile — see `libs-select.md` → _Searchable dropdown_).
+
+**How the sheet body fills the viewport.** `.mlv-popup__inner` carries `min-height: 100%`, and until #116 that percentage silently resolved to `0`: its containing block is `mlv-scrollbar`'s `.mlv-scrollbar__content` wrapper, whose own height is content-derived, and a percentage `min-height` against an indefinite containing block computes to `0`. The wrapper measures a full viewport only because _its_ `min-height: 100%` resolves against the scroll viewport, which the scrollbar's grid gives a definite height — that does not make the wrapper definite for its own children. Measured at 375x812, `__inner` was 32px inside a 751px viewport.
+
+Consequence: sheet content always sat at its natural size at the top of a viewport-tall sheet. Right for a list (`mlv-select`, `mlv-combobox` fill a tall sheet and scroll past it), wrong for fixed-size content, which was left with the rest of the sheet blank.
+
+The fill is now handed to flex, which distributes real space and needs no definite height anywhere: inside `.mlv-popup--fullscreen` the content wrapper becomes a column flex container and `.mlv-popup__inner` takes `flex: 1 1 auto`. `min-height` (not `height`) stays on the wrapper, so content taller than the sheet still grows it and still scrolls. Scoped to `--fullscreen`, so a trigger-anchored popup still shrink-wraps to its content.
+
+**What this does and does not give a consumer.** `__inner` is now sheet-tall, but it is a column flex container with the default `justify-content: flex-start`, so a fixed-size child still sits at the top unless the consumer asks for the space. `mlv-time-picker` opts in with `.mlv-time-picker__panel--sheet` (`flex: 1 1 0`, then a size container query). `mlv-day-picker` and `mlv-date-range-picker` do not, and both still show the top-anchored calendar with roughly half the sheet blank — observed, not inferred, at 375x812.
 
 `isFullscreen: Signal<boolean>` is **public** so consumers with their own inner focus trap (e.g. `mlv-date-range-picker`, whose inner panel carries `cdkTrapFocus`) can disable it via `[cdkTrapFocus]="!popup.isFullscreen()"` and avoid nesting two traps.
 
@@ -226,7 +234,8 @@ Creates CDK overlay at origin, attaches template portal, subscribes to position 
 
 ```ts
 interface MlvPopupOpenConfig {
-  origin: ElementRef;
+  origin: ElementRef; // positions the overlay, resolves its direction, owns focus restore
+  positionOrigin?: FlexibleConnectedPositionStrategyOrigin; // overrides *only* what the overlay is positioned against
   template: TemplateRef<unknown>;
   vcr: ViewContainerRef;
   positions: ConnectedPosition[];
@@ -245,10 +254,61 @@ interface MlvPopupOpenConfig {
 interface MlvPopupHandle {
   overlayRef: OverlayRef;
   close: () => void;
+  setPositionOrigin: (origin: FlexibleConnectedPositionStrategyOrigin, positions?: ConnectedPosition[]) => void;
 }
 ```
 
 `backdropClass` lets consumers replace the default transparent CDK backdrop when they need a styled overlay treatment while keeping the same close behavior.
+
+### Point-anchored overlays — `positionOrigin` / `setPositionOrigin`
+
+`positionOrigin` accepts anything CDK's `flexibleConnectedTo` does, including a
+bare `{ x, y }` viewport point. It exists for overlays anchored to a **cursor**
+rather than to an element — `MlvContextMenuTrigger` is the built-in consumer.
+
+`origin` is deliberately still required and still an `ElementRef` when
+`positionOrigin` is set, because a point carries none of what the rest of `open()`
+needs from it:
+
+- `direction` is resolved with `MlvRtlService.resolveDirection(origin)`, which
+  walks up the DOM for the nearest explicit `dir` — a scoped `[dir="rtl"]`
+  subtree must still mirror a cursor-anchored panel;
+- `watchDirection(origin, …)` keeps re-mirroring the portaled pane while open;
+- focus restoration and `dismissExcludeElements` are element concepts.
+
+`setPositionOrigin` re-anchors an **already-open** overlay and repositions it
+(`FlexibleConnectedPositionStrategy.setOrigin()` + `updatePosition()`). It is a
+no-op once disposed, while detached, and in `fullscreen` mode, which runs a
+global strategy with no origin. A second right-click on an open context menu goes
+through this rather than closing and reopening — reopening does not even work,
+because `close()` only _starts_ the leave animation and the immediately following
+`open()` bails on the still-`true` open flag.
+
+The optional `positions` argument re-applies `withPositions` in the same call. It
+matters when the anchor changes **kind**, not just place: a context menu opened
+from the keyboard is anchored to its host element with `MENU_POSITIONS`, whose
+entries carry `offsetY: ±8`. Re-anchoring that panel to a cursor without swapping
+the list would keep applying the 8px element gap to the point, leaving the panel
+hanging below the pointer.
+
+> A point-anchored overlay that must keep seeing pointer events on the page
+> **must also open with `hasBackdrop: false`**. The CDK backdrop is `inset: 0`
+> with `pointer-events: auto`, so it hit-tests the whole viewport; and a
+> right-click fires no `click`, so `backdropClick()` never runs either. With a
+> backdrop, a second right-click reaches neither the trigger nor the dismiss
+> path — it only loses its `preventDefault()`, and the **native browser menu**
+> opens over the panel. Click-outside dismissal still works without a backdrop
+> via the document listener `open()` installs.
+
+That listener is a **capture-phase** `click` on the **injected `DOCUMENT`**, and is
+a `fromEvent(document, 'click', { capture: true })` stream (converted in #76).
+The capture phase is load-bearing — dismissal has to see the click before a
+handler inside the page can stop its propagation — and `fromEvent` forwards the
+options object to the identical `addEventListener` call, so the phase is
+unchanged; `popup.service.spec.ts` pins it with a page handler that calls
+`stopImmediatePropagation()`. The subscription belongs to one open overlay and is
+released by the `cleanups` list on close, a shorter lifetime than
+`takeUntilDestroyed` on a `providedIn: 'root'` service could express.
 
 ---
 
@@ -298,6 +358,7 @@ providers: [providePopupPositions(new Map([...POPUP_POSITION_MAP, ['bottom', { o
 - `.mlv-popup__header` (column) / `.mlv-popup__header-row` (title + close flex row) / `.mlv-popup__title` / `.mlv-popup__close` — full-screen header bar
 - `.mlv-popup__header-content` — optional header extension stamped beneath the title row when `[mlvPopupHeaderContent]` is supplied
 - `.mlv-popup__pinned` — optional non-scrolling block stamped above `.mlv-popup__scrollbar` when `[mlvPopupPinnedContent]` is supplied (`flex: 0 0 auto`, `z-index: 3` so scrolled sticky content passes underneath; no padding of its own)
+- `.mlv-popup__inner` — the projected-content wrapper. Under `--fullscreen` it takes `flex: 1 1 auto` inside a `.mlv-scrollbar__content` made `display: flex; flex-direction: column`, so it is sheet-tall rather than content-tall (see _Mobile fullscreen inputs_)
 - `.mlv-popup-fullscreen-pane` (global) — CDK overlay panel class stretching the pane to the viewport (`100dvh`)
 - `.mlv-popup-fullscreen-backdrop` (global) — solid scrim (`--mlv-background-overlay`) shown behind the sheet
 

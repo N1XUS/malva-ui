@@ -347,7 +347,10 @@ describe('MlvArrayDataSource nullish rows', () => {
     source.setSort({ key: 'id', direction: 'asc' });
 
     expect(() => source.connect()()).not.toThrow();
-    expect(source.connect()()).toEqual([null, { id: 1 }, { id: 2 }]);
+    // The `null` row trails: since #83 a nullish row is an absent record and
+    // sinks in both directions. It used to lead under `asc`, because `_read`
+    // gave `undefined`, `?? ''` made it `''`, and `''` collates first.
+    expect(source.connect()()).toEqual([{ id: 1 }, { id: 2 }, null]);
   });
 });
 
@@ -966,15 +969,27 @@ interface SortCase {
   /** Expected `id` order under `'desc'`. */
   readonly desc: readonly number[];
   /**
-   * Set when the comparator returns `NaN` for some pair, which leaves the
-   * permutation up to the engine's sort implementation. The literal `asc`/
-   * `desc` above then only records what V8 happens to do today, so it is
-   * documented but not asserted — a V8 change would flip it without any
-   * behaviour of ours changing. The oracle cross-check still runs and is the
-   * real guarantee: same engine, same input, unchanged from before the
-   * decoration rewrite.
+   * Set when the **oracle** returns `NaN` for some pair in this column, which
+   * leaves its permutation implementation-defined (ECMA-262: a comparator
+   * returning `NaN` forfeits any ordering guarantee). The oracle cross-check
+   * is then skipped, carrying the reason.
+   *
+   * Not inverted into "the oracle must disagree". That reads like a stronger
+   * guard and is actually a liability: it would assert a property of V8's
+   * TimSort, and the oracle already lands on the post-fix order for a third of
+   * the permutations of these very columns — so a V8 change could turn it red
+   * with nothing of ours having changed. It is the same trap #10's
+   * `engineDefined` flag existed to avoid.
+   *
+   * Nothing is lost by skipping it. The literal `asc` / `desc` assertion above
+   * is the revert guard, and it is red against the pre-#81 comparator.
+   *
+   * The row-level table's marker is a different thing and *is* inverted: the
+   * old path there is `sort`'s `undefined` hoisting, which is specified, so
+   * "the old comparator still disagrees" is a claim about the spec rather than
+   * about an engine.
    */
-  readonly engineDefined?: true;
+  readonly oracleIsImplementationDefined?: string;
 }
 
 const sortCases: readonly SortCase[] = [
@@ -1030,14 +1045,17 @@ const sortCases: readonly SortCase[] = [
     asc: [2, 1, 0],
     desc: [0, 1, 2],
   },
-  // `av - bv` yields NaN, so the comparator returns NaN and the resulting
-  // permutation is engine-defined. Pinned, not fixed — see the oracle above.
+  // #81: `NaN` now ranks above `Infinity` instead of making the comparator
+  // return `NaN`. It is a rank, not a pinned end, so it flips with the
+  // direction like any other value.
   {
-    name: 'NaN keeps its engine-defined placement',
+    name: 'NaN ranks above every finite value and above Infinity',
     values: [3, NaN, 1, 2],
-    asc: [0, 1, 2, 3],
-    desc: [0, 1, 3, 2],
-    engineDefined: true,
+    asc: [2, 3, 0, 1],
+    desc: [1, 0, 3, 2],
+    oracleIsImplementationDefined:
+      'the oracle returns NaN for every pair touching the NaN — V8 happens to ' +
+      'leave this input as-is, but nothing requires it to',
   },
   {
     name: 'infinities order numerically',
@@ -1046,13 +1064,29 @@ const sortCases: readonly SortCase[] = [
     desc: [0, 3, 2, 1],
   },
   // `Infinity - Infinity` is NaN too, so a column that merely *repeats* an
-  // infinity reaches the NaN path with no NaN anywhere in the data.
+  // infinity used to reach the NaN path with no NaN anywhere in the data.
+  //
+  // No `divergesFromOracle`: V8's TimSort happens to leave this particular
+  // input correctly ordered despite the NaN return, and does so for every
+  // permutation of it. So the fix makes this case *specified* rather than
+  // changing it — the defect here was conformance, not an observed misorder,
+  // and the honest record of that is an oracle that still agrees.
   {
-    name: 'a repeated infinity reaches the NaN path without any NaN',
+    name: 'a repeated infinity no longer reaches a NaN comparator result',
     values: [Infinity, 3, Infinity, 1],
     asc: [3, 1, 0, 2],
     desc: [0, 2, 1, 3],
-    engineDefined: true,
+  },
+  // Every rank in the total order at once, including a repeated NaN so the
+  // tie-and-stability half is covered too.
+  {
+    name: 'the full non-finite ladder orders -Infinity < finite < Infinity < NaN',
+    values: [3, NaN, 1, Infinity, -Infinity, NaN],
+    asc: [4, 2, 0, 3, 1, 5],
+    desc: [1, 5, 3, 0, 2, 4],
+    oracleIsImplementationDefined:
+      'the oracle returns NaN for any pair touching either NaN, so it ' +
+      'produced 81 different permutations depending on input order',
   },
   // `0 - -0` is `0`, so the two tie and stability decides.
   {
@@ -1102,13 +1136,21 @@ describe('MlvArrayDataSource sort ordering parity', () => {
 
         const sorted = source.connect()();
 
-        if (!testCase.engineDefined) {
-          expect(sorted.map((row) => row.id)).toEqual(
-            direction === 'asc' ? testCase.asc : testCase.desc,
-          );
+        const expected = direction === 'asc' ? testCase.asc : testCase.desc;
+        expect(sorted.map((row) => row.id)).toEqual(expected);
+
+        // Compared as `id` arrays rather than as row objects: a failed
+        // `toEqual` over objects prints them, and the readable diff here is
+        // the permutation.
+        const oracle = oracleSort(rows, 'v', direction).map(
+          (row) => (row as { id: number }).id,
+        );
+        if (!testCase.oracleIsImplementationDefined) {
+          // …and identical to the pre-decoration comparator, element for
+          // element. Skipped where the oracle itself has no defined answer —
+          // see `SortCase.oracleIsImplementationDefined`.
+          expect(oracle).toEqual(expected);
         }
-        // …and identical to the pre-decoration comparator, element for element.
-        expect(sorted).toEqual(oracleSort(rows, 'v', direction));
       });
     }
   }
@@ -1150,41 +1192,62 @@ const rowLabel = (row: NullishRow): string | null | undefined =>
 
 /**
  * Row-level cases: the **array** holds nullish rows, not merely nullish
- * values. `undefined` and `null` diverge here, and the divergence is
- * `Array.prototype.sort`'s, not the comparator's: `sort` resolves every pair
- * involving an `undefined` *element* by itself — always to the end, in both
- * directions, without invoking the comparator — while a `null` element is
- * passed through, reads as `undefined`, stringifies to `''` and therefore
- * leads under `asc`.
+ * values. This is the gap the value-level table above cannot cover, because
+ * every row it builds is a real object.
  *
- * This is the gap the value-level table above cannot cover, because every row
- * it builds is a real object.
+ * Since #83 a nullish row is treated as an absent record rather than as the
+ * empty string: `null` and `undefined` rows are indistinguishable, they form a
+ * suffix in **both** directions, and their relative order is the input's.
+ *
+ * Before #83 the two diverged, and the divergence was `Array.prototype.sort`'s
+ * rather than the comparator's: `sort` resolved every pair involving an
+ * `undefined` *element* by itself — always to the end, in both directions,
+ * without invoking the comparator — while a `null` element was passed through,
+ * read as `undefined`, stringified to `''` and therefore led under `asc`. That
+ * gave `undefined` rows the right answer for the wrong reason and `null` rows
+ * the wrong answer.
  */
 interface NullishRowCase {
   readonly name: string;
   readonly rows: NullishRow[];
   readonly asc: readonly (string | null | undefined)[];
   readonly desc: readonly (string | null | undefined)[];
+  /**
+   * Set when #83 changed this case, carrying the direction(s) it changed in.
+   * The oracle assertion is inverted for those, exactly as in
+   * {@link SortCase.divergesFromOracle} — a case the old comparator already
+   * got right must keep agreeing with it, and one it got wrong must keep
+   * disagreeing, so neither half can be reverted with this suite green.
+   */
+  readonly divergesFromOracle?: readonly MlvSortDirection[];
 }
 
 const nullishRowCases: readonly NullishRowCase[] = [
+  // Unchanged by #83: `sort`'s own hoisting already put this row last. The
+  // mechanism moved from `sort` to the partition; the answer did not.
   {
     name: 'an undefined row sinks to the end in both directions',
     rows: [{ v: 'b' }, undefined, { v: 'a' }],
     asc: ['a', 'b', undefined],
     desc: ['b', 'a', undefined],
   },
+  // The headline change: a `null` row used to lead under `asc` because `''`
+  // collates before every non-empty string.
   {
-    name: 'a null row leads under asc and trails under desc',
+    name: 'a null row sinks to the end in both directions',
     rows: [{ v: 'b' }, null, { v: 'a' }],
-    asc: [null, 'a', 'b'],
+    asc: ['a', 'b', null],
     desc: ['b', 'a', null],
+    divergesFromOracle: ['asc'],
   },
+  // `undefined` before `null` in the suffix because that is the input order,
+  // not because one outranks the other.
   {
-    name: 'null and undefined rows do not sort alike',
+    name: 'null and undefined rows sort alike, keeping input order',
     rows: [{ v: 'b' }, undefined, null, { v: 'a' }],
-    asc: [null, 'a', 'b', undefined],
-    desc: ['b', 'a', null, undefined],
+    asc: ['a', 'b', undefined, null],
+    desc: ['b', 'a', undefined, null],
+    divergesFromOracle: ['asc', 'desc'],
   },
   {
     name: 'several undefined rows all sink',
@@ -1198,9 +1261,18 @@ const nullishRowCases: readonly NullishRowCase[] = [
     asc: [undefined, undefined],
     desc: [undefined, undefined],
   },
+  // The pair that proves "input order, not a rank": the same two rows in the
+  // opposite input order come back in that opposite order.
   {
-    name: 'a null row outranks an undefined row in both directions',
+    name: 'an undefined row before a null row keeps that order',
     rows: [undefined, null],
+    asc: [undefined, null],
+    desc: [undefined, null],
+    divergesFromOracle: ['asc', 'desc'],
+  },
+  {
+    name: 'a null row before an undefined row keeps that order',
+    rows: [null, undefined],
     asc: [null, undefined],
     desc: [null, undefined],
   },
@@ -1216,17 +1288,47 @@ describe('MlvArrayDataSource sort ordering parity — nullish rows', () => {
 
         const sorted = source.connect()();
 
-        expect(sorted.map(rowLabel)).toEqual(
-          direction === 'asc' ? testCase.asc : testCase.desc,
+        const expected = direction === 'asc' ? testCase.asc : testCase.desc;
+        expect(sorted.map(rowLabel)).toEqual(expected);
+
+        const oracle = oracleSort(testCase.rows, 'v', direction).map((row) =>
+          rowLabel(row as NullishRow),
         );
-        expect(sorted).toEqual(oracleSort(testCase.rows, 'v', direction));
+        if (testCase.divergesFromOracle?.includes(direction)) {
+          expect(oracle).not.toEqual(expected);
+        } else {
+          expect(oracle).toEqual(expected);
+        }
+      });
+
+      // The structural half of #83, asserted from the result rather than from
+      // a literal: whatever the column holds, every nullish row is in the
+      // trailing run and their relative order is the input's.
+      it(`${testCase.name} — nullish rows form a suffix in input order [${direction}]`, () => {
+        const source = new MlvArrayDataSource<NullishRow>(testCase.rows);
+        source.setPerPage(Infinity);
+        source.setSort({ key: 'v', direction });
+
+        const sorted = source.connect()();
+        const nullishCount = testCase.rows.filter((row) => row == null).length;
+        const suffixStart = sorted.length - nullishCount;
+
+        expect(sorted.slice(suffixStart).every((row) => row == null)).toBe(
+          true,
+        );
+        expect(sorted.slice(0, suffixStart).some((row) => row == null)).toBe(
+          false,
+        );
+        expect(sorted.slice(suffixStart).map(rowLabel)).toEqual(
+          testCase.rows.filter((row) => row == null).map(rowLabel),
+        );
       });
     }
   }
 
   it('does not push a real row off the first page with an undefined row', () => {
-    // The paging symptom of the divergence: an `undefined` row leading under
-    // `asc` renders a blank first row and bumps a real one to page 2.
+    // The paging symptom: a nullish row leading under `asc` renders a blank
+    // first row and bumps a real one to page 2.
     const source = new MlvArrayDataSource<NullishRow>([
       undefined,
       { v: 'a' },
@@ -1239,6 +1341,135 @@ describe('MlvArrayDataSource sort ordering parity — nullish rows', () => {
 
     source.setPage(2);
     expect(source.connect()().map(rowLabel)).toEqual([undefined]);
+  });
+
+  it('does not push a real row off the first page with a null row', () => {
+    // The same symptom for a `null` row, which is the one #83 actually fixes:
+    // before it, page 1 was `[null, 'a']` and `'b'` was on page 2.
+    const source = new MlvArrayDataSource<NullishRow>([
+      null,
+      { v: 'a' },
+      { v: 'b' },
+    ]);
+    source.setPerPage(2);
+    source.setSort({ key: 'v', direction: 'asc' });
+
+    expect(source.connect()().map(rowLabel)).toEqual(['a', 'b']);
+
+    source.setPage(2);
+    expect(source.connect()().map(rowLabel)).toEqual([null]);
+  });
+
+  it('counts nullish rows in totalItems', () => {
+    // The partition must not drop rows: `totalItems` is derived from the
+    // filtered array, and the sorted output has to carry the same count.
+    const source = new MlvArrayDataSource<NullishRow>([
+      { v: 'b' },
+      null,
+      undefined,
+      { v: 'a' },
+    ]);
+    source.setPerPage(Infinity);
+    source.setSort({ key: 'v', direction: 'asc' });
+
+    expect(source.totalItems()).toBe(4);
+    expect(source.connect()().length).toBe(4);
+  });
+});
+
+/** Every permutation of `values`, as arrays. */
+function permutations<V>(values: readonly V[]): V[][] {
+  if (values.length <= 1) return [[...values]];
+  const out: V[][] = [];
+  for (let i = 0; i < values.length; i++) {
+    const rest = [...values.slice(0, i), ...values.slice(i + 1)];
+    for (const tail of permutations(rest)) out.push([values[i], ...tail]);
+  }
+  return out;
+}
+
+/** A NaN-safe label, so a sorted key sequence can be compared as a string. */
+const numLabel = (value: number): string =>
+  Number.isNaN(value) ? 'NaN' : String(value);
+
+/**
+ * The transitivity proof for #81, run rather than argued.
+ *
+ * A comparator that is not transitive makes `Array.prototype.sort`'s output
+ * depend on the *order in which it happens to compare things* — so the same
+ * multiset, fed in different input orders, comes out differently. Sorting
+ * every permutation of one column and collapsing the results into a set turns
+ * that into a single assertion: **one** distinct output means the comparator
+ * induced a genuine total order over these values, **more than one** means it
+ * did not.
+ *
+ * This is stronger than asserting a literal order, which a comparator can
+ * satisfy for one input and violate for a permutation of it.
+ */
+describe('MlvArrayDataSource numeric sort is a total order', () => {
+  // Both infinities, a repeated NaN (so ties are covered), and finites either
+  // side of zero.
+  const column = [3, NaN, 1, Infinity, -Infinity, NaN];
+
+  for (const direction of ['asc', 'desc'] as const) {
+    it(`orders every permutation of a non-finite column identically [${direction}]`, () => {
+      const outcomes = new Set(
+        permutations(column).map((values) => {
+          const source = new MlvArrayDataSource(
+            values.map((v, id) => ({ id, v })),
+          );
+          source.setPerPage(Infinity);
+          source.setSort({ key: 'v', direction });
+          return source
+            .connect()()
+            .map((row) => numLabel(row.v))
+            .join(',');
+        }),
+      );
+
+      expect(outcomes.size).toBe(1);
+      expect([...outcomes][0]).toBe(
+        direction === 'asc'
+          ? '-Infinity,1,3,Infinity,NaN,NaN'
+          : 'NaN,NaN,Infinity,3,1,-Infinity',
+      );
+    });
+
+    it(`the pre-#81 comparator did not [${direction}]`, () => {
+      // Inverted, like the oracle checks in the parity tables: the defect has
+      // to stay demonstrable, or reverting the fix would leave this suite
+      // green. 720 permutations of the same six values, and the pre-#81
+      // comparator returns NaN for every pair touching either NaN.
+      const outcomes = new Set(
+        permutations(column).map((values) =>
+          oracleSort(
+            values.map((v, id) => ({ id, v })),
+            'v',
+            direction,
+          )
+            .map((row) => numLabel((row as { v: number }).v))
+            .join(','),
+        ),
+      );
+
+      expect(outcomes.size).toBeGreaterThan(1);
+    });
+  }
+
+  it('keeps a repeated infinity finite-comparable without any NaN in the data', () => {
+    // #81's second reachable path: `Infinity - Infinity` is NaN, so this column
+    // used to reach a NaN comparator result with entirely ordinary data.
+    const source = new MlvArrayDataSource(
+      [Infinity, 3, Infinity, 1].map((v, id) => ({ id, v })),
+    );
+    source.setPerPage(Infinity);
+    source.setSort({ key: 'v', direction: 'asc' });
+
+    expect(
+      source
+        .connect()()
+        .map((row) => numLabel(row.v)),
+    ).toEqual(['1', '3', 'Infinity', 'Infinity']);
   });
 });
 

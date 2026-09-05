@@ -1,0 +1,20 @@
+<div class="demo-row" style="align-items: center; gap: 1.5rem">
+  <mlv-scrubber
+    label="Hours"
+    [items]="hours"
+    [selectedValue]="hour()"
+    [displayWith]="twoDigits"
+    (valueChange)="hour.set($event)"
+  />
+  <p
+    style="
+      font-size: var(--mlv-typography-body-s-size);
+      color: var(--mlv-text-secondary);
+    "
+  >
+    Selected:
+    <strong style="color: var(--mlv-text-primary)"
+      >{{ twoDigits(hour()) }}</strong
+    >
+  </p>
+</div>

@@ -27,15 +27,19 @@ describe('MlvDrawerSections', () => {
   let fixture: ComponentFixture<SectionsHostComponent>;
   let host: SectionsHostComponent;
 
+  /** Elements handed to `IntersectionObserver.observe` by the double below. */
+  const observedElements: Element[] = [];
+
   beforeAll(() => {
     // jsdom ships no IntersectionObserver; MlvDrawerSectionsService constructs
-    // one eagerly to track the scrolled section. Scroll tracking is not what
-    // these tests exercise, so a no-op double is enough.
+    // one from a render hook to track the scrolled section. Scroll tracking is
+    // not what these tests exercise, so a recording double is enough — it only
+    // notes what was observed, which is what proves the hook ran at all.
     vi.stubGlobal(
       'IntersectionObserver',
       class {
-        observe(): void {
-          /* no-op */
+        observe(target: Element): void {
+          observedElements.push(target);
         }
         unobserve(): void {
           /* no-op */
@@ -88,6 +92,27 @@ describe('MlvDrawerSections', () => {
 
     expect(trigger()).not.toBeNull();
     expect(trigger()?.getAttribute('aria-haspopup')).toBe('menu');
+  });
+
+  it('observes every registered section in a browser', async () => {
+    // The service moved off a constructor `effect` onto `afterRenderEffect`
+    // so it cannot construct an `IntersectionObserver` during server
+    // rendering (see the SSR smoke suite in `@malva-ui/core`). Render hooks do
+    // not run on the server — but they must still run here, otherwise the fix
+    // would have silently turned scroll tracking off in the browser too.
+    observedElements.length = 0;
+    host.labels.set(['Meta', 'Details']);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // The distinct set, not the call count: one section observed twice across
+    // two render passes is still correct behaviour, and asserting `2` calls
+    // would fail on a scheduling change that regressed nothing.
+    const sections = fixture.nativeElement.querySelectorAll('section');
+    const observed = new Set(observedElements);
+
+    expect(observed.has(sections[0])).toBe(true);
+    expect(observed.has(sections[1])).toBe(true);
   });
 
   it('hides the navigator again when sections drop back to one', async () => {

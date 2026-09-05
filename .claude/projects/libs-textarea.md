@@ -232,10 +232,10 @@ readonly descCtrl = new FormControl('', Validators.required);
 
 ### Angular / third-party
 
-| Package                 | Usage                                                                                                            |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `@angular/core`         | `Component`, `model`, `computed`, `effect`, `viewChild`, `input`, `ViewEncapsulation`, `ChangeDetectionStrategy` |
-| `@angular/cdk/coercion` | `BooleanInput`, `coerceBooleanProperty`                                                                          |
+| Package                 | Usage                                                                                                                       |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `@angular/core`         | `Component`, `model`, `computed`, `afterRenderEffect`, `viewChild`, `input`, `ViewEncapsulation`, `ChangeDetectionStrategy` |
+| `@angular/cdk/coercion` | `BooleanInput`, `coerceBooleanProperty`                                                                                     |
 
 ### Internal (`@malva-ui/*`)
 
@@ -250,7 +250,7 @@ readonly descCtrl = new FormControl('', Validators.required);
 ## Signal-forms cutover (2026-07-22, slice 2)
 
 - **Base swap:** `FormControlBase<string>` → `MlvSignalFormControlBase<string>`; dropped `implements ControlValueAccessor` and the `NG_VALUE_ACCESSOR` provider (kept `MLV_FORM_CONTROL`). A control may not implement both CVA and `FormValueControl`.
-- **`value = model<string>('')`** replaces the former `internalValue` signal + CVA plumbing (`writeValue` removed; there is no `onChange`/`registerOn*`/`setDisabledState`). `charCount`/`isCountWarning`/`isCountError`/`hasValue` and the auto-resize effect all read `value()`; template renders `[value]="value() ?? ''"` defensively.
+- **`value = model<string>('')`** replaces the former `internalValue` signal + CVA plumbing (`writeValue` removed; there is no `onChange`/`registerOn*`/`setDisabledState`). `charCount`/`isCountWarning`/`isCountError`/`hasValue` and the auto-resize after-render effect all read `value()`; template renders `[value]="value() ?? ''"` defensively.
 - **Touch:** blur emits the base `touch` output via `_markTouched()` (was CVA `onTouched`). `clearValue()` now does `value.set('')` + `_markTouched()` (preserves the old clear-marks-touched behaviour).
 - **No constraint collisions:** the only `FormUiControl` same-named input is `maxLength` (`number | undefined`), whose type already matches the contract — no widening needed.
 - **Matrix spec:** `textarea-binding-matrix.spec.ts` runs `verifyFormsBinding` green in all three modes (`[formControl]`, `ngModel`, `[formField]`). Existing `textarea.spec.ts` updated off removed CVA APIs (`internalValue` → `value`, `writeValue` → `value.set`, added `touch`-output + `clearValue` assertions).
@@ -259,16 +259,24 @@ readonly descCtrl = new FormControl('', Validators.required);
 
 ## Auto-resize measurement (2026-09, issue #9)
 
-`_runAutoResize()` runs from a `value` effect. The height it applies is unchanged
-— it is always the true content height clamped to the row window — but how it is
-obtained is not.
+`_runAutoResize()` runs from a `value` after-render effect (a plain `effect`
+until issue #78 — see below). The height it applies is unchanged — it is always
+the true content height clamped to the row window — but how it is obtained is
+not.
 
 - **SSR:** the effect ran on the server too and called `getComputedStyle` there,
   throwing on every server render. Angular routes an `effect` exception to the
   `ErrorHandler` and keeps rendering, so the markup was always fine and the error
   silent. Now guarded by `isPlatformBrowser` (`_isBrowser`). Covered by
   `libs/core/src/ssr-smoke.spec.ts`, which asserts an **empty `ErrorHandler`
-  collection** — the markup assertions alone never caught it.
+  collection** — the markup assertions alone never caught it. **Since issue #78
+  that assertion no longer covers this component:** the hook is an
+  `afterRenderEffect`, which never runs on the server, so `_runAutoResize()` is
+  unreachable from the SSR suite and neutering `_isBrowser` no longer turns it
+  red. The guard is kept — a DOM-measuring method should refuse a non-browser
+  platform whoever calls it — and is now asserted directly by
+  `MlvTextarea auto-resize server guard` in `textarea.spec.ts`, with a
+  browser-platform control so the negative cannot pass vacuously.
 - **One computed style read per resize, on every path.** `lineHeight` /
   `paddingTop` / `paddingBottom` came from three separate `getComputedStyle(el)`
   calls; they now come off one declaration in `_readMetrics()`. This was never
@@ -362,6 +370,69 @@ remains a reasonable later enhancement behind `@supports`.
 
 ---
 
+## Auto-resize on a programmatic value (2026-09, issue #78)
+
+`_runAutoResize()` measures the **element**: `el.value` decides whether the
+`height: auto` reset can be skipped, and `el.scrollHeight` supplies the height.
+It ran from a plain component `effect`, which Angular flushes _before_ the
+template's update pass writes `[value]` into the `<textarea>`.
+
+Typing hid the defect completely — the keystroke mutates `el.value` before
+`onInput()` writes the signal, so the element is already current. A
+**programmatic** write (`value.set()`, a form patch, `clearValue()`) touches
+nothing but the signal, so the resize measured the text being replaced.
+
+Not a one-frame flicker: nothing re-runs the measurement afterwards, so the
+wrong height persists until the next value change — which then measures one
+value behind in turn. With `minRows=1`/`maxRows=20` and a four-line value set on
+a fresh control, the field settled at the one-row minimum and stayed there.
+
+**Fix.** The resize effect became an `afterRenderEffect`, matching the scrollbar
+`remeasure()` hook next to it. It is declared **first** of the two, so the
+remeasure that follows sees the height the resize has just applied. No
+measurement, clamp or fast-path rule changed — only when the hook runs.
+
+Reading the value from `value()` instead of `el.value` is not an alternative:
+`scrollHeight` is a layout read and needs the element to hold the new text
+whatever the fast path is told.
+
+**Regression coverage.** `textarea.spec.ts` → `programmatic value writes (#78)`.
+The **step under test** in each case is a model write; setup steps use `type()`
+on purpose, because typing is correct on both trees and that is what lets every
+case fail at its own assertion rather than in its setup. Against the plain
+`effect` all four go red at the assertion under test:
+
+| Case                                               | Expected | Unfixed |
+| -------------------------------------------------- | -------- | ------- |
+| set 4 lines on a fresh control                     | `90px`   | `30px`  |
+| `clearValue()` after a typed 5-line value          | `30px`   | `110px` |
+| set 2 lines after a typed 6-line value and a clear | `50px`   | `30px`  |
+| set 2 lines after a typed 4-line value             | `50px`   | `90px`  |
+
+The last two rows are the interesting ones. The third shows the height trailing
+one value behind in the _other_ direction; the fourth shows stale state doing
+worse than mismeasuring — the remembered value and `el.value` are the same
+four-line string at measurement time, so the fast path takes its "still fits"
+branch and writes nothing at all, leaving the field at four rows with no later
+write to correct it.
+
+The `type()`-based suite above passes either way, which is exactly why it never
+caught this — and why the ticket's own test note warns against reproducing this
+through an `input` event.
+
+**Live surface.** The jsdom stub is the only thing the specs can measure
+against, so `apps/docs/.../textarea/examples/2` (auto-resize) gained **Load
+sample text** / **Clear** buttons that write the bound signal directly. Nothing
+shipped combined `autoResize` with a programmatic write before, which is why the
+ticket's own reproduction could not be exercised by hand.
+
+**Not fixed here** (both noted on the issue, both pre-existing and independent
+of the hook change): the inline `height` is left behind when `autoResize` flips
+to `false`, and a container width change with no accompanying value change never
+re-runs the resize — there is no `ResizeObserver` on the field.
+
+---
+
 ## Visible scrollbar track (2026-09, issue #90)
 
 The control shipped with **no visible scrollbar in any configuration**: content
@@ -406,9 +477,11 @@ scrollbar's new public `remeasure()` from an `afterRenderEffect` on `value`.
 `afterRenderEffect`, not a plain `effect`: a component `effect` runs _before_
 the template's update pass writes `[value]` into the DOM, so a
 programmatically-set value would be measured against the previous text — the
-shape of issue #78. It also never runs on the server, so no DOM read escapes a
-browser guard. (The jsdom spec cannot discriminate the two hooks — it stubs
-`scrollHeight` — so this rests on ordering, not on an assertion.)
+same trap as issue #78, which the auto-resize hook has since been moved out of
+too. It also never runs on the server, so no DOM read escapes a browser guard.
+(The jsdom spec cannot discriminate the two hooks for the _scrollbar_ — it stubs
+`scrollHeight` on a fixed field — so this half rests on ordering, not on an
+assertion; the auto-resize half is asserted, see issue #78 above.)
 
 Every _height_ change is still covered by the observer: `rows`, the inline
 height `_runAutoResize()` writes, and container resizes all resize something it

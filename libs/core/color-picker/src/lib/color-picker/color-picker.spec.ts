@@ -489,6 +489,38 @@ describe('MlvColorPicker', () => {
     expect(hexInput?.value).toContain('00ff00');
   });
 
+  it('repaints the canvas when the value is set programmatically', async () => {
+    const canvas: HTMLCanvasElement = fixture.nativeElement.querySelector(
+      '.mlv-color-picker__canvas',
+    );
+
+    // jsdom implements no 2D context, so the paint is counted through a
+    // recording stub. `_drawCanvas` fills twice per paint (the white -> hue
+    // gradient, then the black overlay), and the repaint is scheduled through
+    // `afterNextRender`, so the count is read after `whenStable()`.
+    let fillRectCalls = 0;
+    const gradient = { addColorStop: (): void => undefined };
+    const context = {
+      createLinearGradient: (): unknown => gradient,
+      fillStyle: '',
+      fillRect: (): void => {
+        fillRectCalls += 1;
+      },
+    };
+    canvas.getContext = (() =>
+      context) as unknown as HTMLCanvasElement['getContext'];
+
+    const before = fillRectCalls;
+    component.value.set('#00ff00');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Asserted on the number, never on the stub or the canvas element: a
+    // failed assertion against a DOM node or an Angular instance hangs vitest
+    // for minutes pretty-printing the object graph.
+    expect(fillRectCalls).toBeGreaterThan(before);
+  });
+
   it('removes the window pointer listeners after each canvas drag (no leak across drags)', () => {
     const canvas: HTMLCanvasElement = fixture.nativeElement.querySelector(
       '.mlv-color-picker__canvas',

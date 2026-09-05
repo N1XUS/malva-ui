@@ -2158,8 +2158,12 @@
            children, so a wrapper collapses the body's flex-grow and pushes the
            footer past the bottom of the viewport. `tabindex="-1"` keeps each
            handler on a focusable container without adding a tab stop. -->
+      <!-- `closable="false"`: the header's own X would close the drawer
+           outright, but every dismissal here has to go through
+           `cancelDrawer()` so unstaged edits get their discard confirmation. -->
       <div
         mlvDrawerHeader
+        closable="false"
         class="settings-access-showcase__drawer-head"
         tabindex="-1"
         (keydown.escape)="cancelDrawer()"
@@ -2175,16 +2179,10 @@
           >
         </span>
         <mlv-spacer />
-        <button
-          mlvButton
-          type="button"
-          shape="circle"
-          variant="transparent"
-          aria-label="Close member access"
+        <mlv-button-close
+          ariaLabel="Close member access"
           (click)="cancelDrawer()"
-        >
-          <svg lucideX mlvButtonIcon [size]="16" />
-        </button>
+        />
       </div>
 
       <div mlvDrawerBody tabindex="-1" (keydown.escape)="cancelDrawer()">

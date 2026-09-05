@@ -3,7 +3,7 @@ import { RouterLink, ActivatedRoute } from '@angular/router';
 import {
   MlvDrawerRef,
   MlvDrawerHeader,
-  DrawerBodyDirective,
+  MlvDrawerBody,
   MlvDrawerFooter,
 } from '@malva-ui/core/drawer';
 import { MlvButton } from '@malva-ui/core/button';
@@ -20,15 +20,13 @@ import { MlvToolbar, MlvToolbarSpacer } from '@malva-ui/core/toolbar';
   imports: [
     MlvButton,
     MlvDrawerHeader,
-    DrawerBodyDirective,
+    MlvDrawerBody,
     MlvDrawerFooter,
     MlvToolbar,
     MlvToolbarSpacer,
   ],
   template: `
-    <div mlvDrawerHeader>
-      <h4>User Details</h4>
-    </div>
+    <mlv-drawer-header title="User Details" />
     <div mlvDrawerBody>
       <p>
         This drawer was opened by navigating to the

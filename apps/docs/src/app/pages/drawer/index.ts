@@ -7,14 +7,14 @@ import { DocPageComponent } from '../../shared/doc-page';
   imports: [DocPageComponent, RouterOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<docs-page
-    [meta]="meta"
-    [examples]="exampleArray"
-    header="drawer"
-  />
-  <router-outlet />`,
+      [meta]="meta"
+      [examples]="exampleArray"
+      header="drawer"
+    />
+    <router-outlet />`,
 })
 export class DrawerPageComponent {
-  exampleArray = new Array(3).fill(0).map((_, i) => i + 1);
+  exampleArray = new Array(6).fill(0).map((_, i) => i + 1);
 
   readonly meta: DocPageMeta = {
     title: 'Drawer',

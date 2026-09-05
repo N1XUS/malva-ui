@@ -139,6 +139,7 @@ const zhHans: MlvLanguage = {
   },
   drawer: {
     drawer: '抽屉',
+    closeDrawer: '关闭抽屉',
   },
   editor: {
     editorLabel: '富文本编辑器',

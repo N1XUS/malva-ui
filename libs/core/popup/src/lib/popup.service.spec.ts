@@ -8,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { Overlay, OverlayContainer } from '@angular/cdk/overlay';
+import { DOCUMENT } from '@angular/common';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvPopupService } from './popup.service';
 
@@ -235,7 +236,9 @@ describe('MlvPopupService — direction', () => {
     document.documentElement.removeAttribute('dir');
   });
 
-  function open(fixture: ReturnType<typeof TestBed.createComponent<HostComponent>>) {
+  function open(
+    fixture: ReturnType<typeof TestBed.createComponent<HostComponent>>,
+  ) {
     const host = fixture.componentInstance;
     return service.open({
       origin: host.origin(),
@@ -323,5 +326,143 @@ describe('MlvPopupService — direction', () => {
     TestBed.tick();
 
     expect(setDirection).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Listener binding: phase, target document, and teardown
+//
+// The click-outside listener moved from a raw `addEventListener(…, true)` to
+// `fromEvent(this._document, 'click', { capture: true })` (#76). All three
+// properties that made the raw call correct are asserted here, because none of
+// them is visible in the dismissal tests above.
+// ---------------------------------------------------------------------------
+
+/** Net listener count per event type on `target`. Restored by `afterEach`. */
+function trackListeners(target: EventTarget): Map<string, number> {
+  const net = new Map<string, number>();
+  const bump = (type: string, delta: number): void =>
+    void net.set(type, (net.get(type) ?? 0) + delta);
+  const realAdd = target.addEventListener.bind(target);
+  const realRemove = target.removeEventListener.bind(target);
+  vi.spyOn(target, 'addEventListener').mockImplementation(
+    (type, listener, options) => {
+      bump(type, 1);
+      realAdd(type, listener, options);
+    },
+  );
+  vi.spyOn(target, 'removeEventListener').mockImplementation(
+    (type, listener, options) => {
+      bump(type, -1);
+      realRemove(type, listener, options);
+    },
+  );
+  return net;
+}
+
+describe('MlvPopupService — dismissal listener binding', () => {
+  let service: MlvPopupService;
+  let overlayContainer: OverlayContainer;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ imports: [HostComponent] });
+    service = TestBed.inject(MlvPopupService);
+    overlayContainer = TestBed.inject(OverlayContainer);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    overlayContainer.ngOnDestroy();
+  });
+
+  function openBackdropless(requestClose: () => void) {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    const host = fixture.componentInstance;
+    const handle = service.open({
+      origin: host.origin(),
+      template: host.tpl(),
+      vcr: host.vcr,
+      positions: service.resolvePositions('bottom-start'),
+      hasBackdrop: false,
+      onClose: () => undefined,
+      onRequestClose: requestClose,
+    });
+    return { fixture, host, handle };
+  }
+
+  // The capture phase is the whole point of the listener: dismissal has to see
+  // the click before a handler inside the page can stop its propagation.
+  // A bubble-phase listener would never run here.
+  it('still dismisses when a page handler stops the click propagating', async () => {
+    const requestClose = vi.fn();
+    const { host, handle } = openBackdropless(requestClose);
+    await nextMacrotask();
+
+    const outside = host.trigger().nativeElement as HTMLElement;
+    const swallowed = vi.fn();
+    outside.addEventListener('click', (event) => {
+      swallowed();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    });
+
+    host
+      .field()
+      .nativeElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // The page handler did run — the click really was swallowed on the way up.
+    expect(swallowed).toHaveBeenCalledTimes(1);
+    // And dismissal still saw it, because it listens in the capture phase.
+    expect(requestClose).toHaveBeenCalledTimes(1);
+
+    handle.close();
+  });
+
+  it('releases the document listener when the popup closes', async () => {
+    const net = trackListeners(document);
+    const requestClose = vi.fn();
+    const { handle } = openBackdropless(requestClose);
+    await nextMacrotask();
+
+    expect(net.get('click')).toBeGreaterThan(0);
+
+    handle.close();
+
+    expect(net.get('click')).toBe(0);
+
+    // And it really is inert.
+    requestClose.mockClear();
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(requestClose).toHaveBeenCalledTimes(0);
+  });
+
+  // Under server rendering the injected `DOCUMENT` and the ambient `document`
+  // global are different objects *and the global is defined*, so binding the
+  // ambient one attaches a per-open listener to a process-wide object that no
+  // `cleanups` drain reaches — and nothing throws, so neither the SSR smoke
+  // suite nor the teardown test above can see it. Asserting *which* object
+  // received the listener is the only thing that can.
+  it('binds click-outside dismissal to the injected DOCUMENT, not the ambient global', async () => {
+    const isolated = document.implementation.createHTMLDocument('popup');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [{ provide: DOCUMENT, useValue: isolated }],
+    });
+    service = TestBed.inject(MlvPopupService);
+    overlayContainer = TestBed.inject(OverlayContainer);
+
+    const isolatedNet = trackListeners(isolated);
+    const ambientNet = trackListeners(document);
+
+    const { handle } = openBackdropless(vi.fn());
+    await nextMacrotask();
+
+    expect(isolatedNet.get('click')).toBeGreaterThan(0);
+    expect(ambientNet.get('click')).toBeUndefined();
+
+    handle.close();
+    expect(isolatedNet.get('click')).toBe(0);
   });
 });

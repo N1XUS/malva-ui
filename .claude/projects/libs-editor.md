@@ -369,10 +369,11 @@ and resize-cursor states with Malva theme tokens.
 `mlv-editor-table-controls` mounts inside `.mlv-editor__view`, the zoom layer,
 next to the block handle, and is `aria-hidden` chrome: pointer-only, every grip
 `tabindex="-1"`, with the toolbar menu above as the keyboard route to the same
-commands. A document-level `pointermove` listener tracks the hovered cell;
-because the listener is on the document, each instance first checks
-`layer().contains(cell)` so two editors on one page do not paint each other's
-grips. Placement is a pure function — `mlvEditorTableGeometry()` in
+commands. A document-level `pointermove` subscription tracks the hovered cell —
+`fromEvent` on the **injected** `DOCUMENT`, `{ passive: true }`, released by
+`takeUntilDestroyed`; because the listener is on the document, each instance
+first checks `layer().contains(cell)` so two editors on one page do not paint
+each other's grips. Placement is a pure function — `mlvEditorTableGeometry()` in
 `table/editor-table-geometry.ts` — which unscales viewport rects by the live
 layer scale (`getBoundingClientRect().width / offsetWidth`, not the CSS
 variable) into the layer's unscaled coordinate space and returns three boxes:
@@ -819,6 +820,48 @@ tooltips, semantic separators, focus-restoring overlays, and a horizontal
 upload progress, task checkboxes, and resize handles expose their relevant
 roles, labels, and states. Composite focus prevents toolbar and owned overlays
 from producing false blur/touch events.
+
+### DOM listener conventions
+
+Every DOM listener in this library goes through `fromEvent` with an explicit
+lifetime; `editor-block-handle.ts` is the sole, deliberate exception.
+
+- **`MlvEditor` composite host** (`focusin`, `focusout`, `pointerdown`, `click`,
+  `keydown`) — `takeUntilDestroyed(this._destroyRef)`, the ref passed
+  explicitly because `_bindCompositeFocusEvents()` runs from `ngAfterViewInit`,
+  which is not an injection context. All five are **capture** phase, and that is
+  load-bearing rather than stylistic: ProseMirror binds to `view.dom`, a
+  descendant of the host, so only capture-on-host runs ahead of it and lets the
+  disabled handlers `stopImmediatePropagation()` in time. `editor-focus.spec.ts`
+  pins the ordering against descendant listeners in both disabled and enabled
+  states.
+- **`MlvEditorOverlayRegistry.register()`** (`focusin`, `focusout`, capture) —
+  a per-entry `Subscription` unsubscribed by `_remove()`, i.e. the returned
+  teardown, `closeAll()` or `destroy()`. The lifetime is the **overlay's**, not
+  the registry's; `takeUntilDestroyed` is layered on only as a destroy-time net
+  for a consumer that never tears down, since the registry is editor-scoped and
+  outlives many open/close cycles.
+- **`MlvEditorColorControl`** (trigger `focus`, `pointerdown`) — released from
+  the owning `effect`'s `onCleanup`, **not** `takeUntilDestroyed`: the effect
+  re-runs whenever the picker publishes a different trigger element, and a
+  destroy-scoped teardown would keep every superseded generation subscribed.
+- **`MlvEditorTableControls`** (`pointermove`, `pointerleave`, `{ passive: true }`)
+  — `takeUntilDestroyed`, subscribed on the **injected `DOCUMENT`** rather than
+  the ambient global. The component is constructed during server rendering too,
+  where those are two different objects, so the bare global bound a per-render
+  component to a process-wide document no teardown reaches.
+- **`MlvEditorBlockHandle`** — the only raw `addEventListener`s left (8, three
+  of them capture). Kept raw for two reasons: the file is a plain ProseMirror
+  plugin with no Angular import, constructed outside any injection context, so
+  there is no `DestroyRef` to take and the lifetime that matters is the plugin
+  _view's_ `destroy()` (which fires on every editor recreation, not just on
+  component destroy); and the capture-phase `dragover`/`dragleave`/`drop` must
+  claim the drop before ProseMirror's own handlers on `view.dom`, an ordering no
+  unit test can drive because jsdom cannot perform a native HTML5 drag.
+
+`fromEvent`'s third argument is typed `EventListenerOptions`, **not** the legacy
+boolean — write `{ capture: true }`, never `true`. Vitest strips types without
+checking them, so a boolean passes the suite and fails only in `editor:build`.
 
 The shell supplies the block handle's four host capabilities to
 `mlvEditorDefaultExtensions()`: `mount` returns the `position: relative`

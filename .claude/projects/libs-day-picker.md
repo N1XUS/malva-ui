@@ -72,7 +72,7 @@ host: {
 
 #### Template Summary
 
-Optional label → `MlvPopupContainer` with trigger (displays `displayValue` or placeholder + calendar icon, `role="combobox"`) → `MlvPopup` containing `MlvCalendar` (bound to `value`, `min`, `max`). Optional message display.
+Optional label → `MlvPopupContainer` with trigger (displays `displayValue` or placeholder — `.mlv-day-picker__placeholder`, painted `--mlv-text-tertiary` like `mlv-input`'s `::placeholder` — + calendar icon, `role="combobox"`) → `MlvPopup` containing `MlvCalendar` (bound to `value`, `min`, `max`). Optional message display.
 
 Keyboard: Enter/Space opens, Escape closes.
 

@@ -1,10 +1,11 @@
-<div class="mlv-time-picker-column__track">
+<div class="mlv-scrubber__track">
   <ul
     #listRef
     ngListbox
-    class="mlv-time-picker-column__list"
+    class="mlv-scrubber__list"
     focusMode="activedescendant"
     selectionMode="follow"
+    [orientation]="orientation()"
     [wrap]="true"
     [disabled]="disabled()"
     [tabindex]="_listboxTabIndex()"
@@ -12,17 +13,15 @@
     (valueChange)="_onAriaValueChange($event)"
     [attr.aria-label]="label()"
   >
-    @for (item of _displayItems(); track item.value) {
+    @for (item of _displayItems(); track item.value; let index = $index) {
     <li
       ngOption
       #itemRef
-      [id]="'tp-col-item-' + _labelKey() + '-' + item.value"
+      [id]="_optionId(index)"
       [value]="item.value"
       [label]="item.label"
-      class="mlv-time-picker-column__item"
-      [class.mlv-time-picker-column__item--selected]="
-          item.value === selectedValue()
-        "
+      class="mlv-scrubber__item"
+      [class.mlv-scrubber__item--selected]="item.value === selectedValue()"
     >
       {{ item.label }}
     </li>
