@@ -81,6 +81,7 @@ import type {
   MlvTaskboardBeforeMove,
   MlvTaskboardCanDropFn,
   MlvTaskboardCanReorderColumnFn,
+  MlvTaskboardCardLabelFn,
   MlvTaskboardColumn,
   MlvTaskboardDenialReason,
   MlvTaskboardColumnGroup,
@@ -282,6 +283,19 @@ export class MlvTaskboard<TItem> {
   readonly canReorderColumnFn = input<
     MlvTaskboardCanReorderColumnFn | undefined
   >(undefined);
+  /**
+   * Optional name the board speaks a card by in every announcement it makes
+   * about that card — grabbed, moved, rejected, cancelled, released in place.
+   * Without one a card is announced by its `dataKey` value as text, which a
+   * uuid- or numeric-keyed board reads out verbatim.
+   *
+   * It names a card to a screen reader only: the built-in card surface keeps
+   * rendering the key, because a board that projects `mlvTaskboardItem` — the
+   * expected shape — draws its own card and never reaches that fallback.
+   */
+  readonly cardLabelFn = input<MlvTaskboardCardLabelFn<TItem> | undefined>(
+    undefined,
+  );
   /**
    * Fixed block size, in pixels, of one card in a virtualized cell. Supplying
    * a positive finite number opts the whole board into virtual card cells;
@@ -668,7 +682,7 @@ export class MlvTaskboard<TItem> {
     columnLabel: (columnId) =>
       this._index().columnById.get(columnId)?.label ?? String(columnId),
     laneLabel: (swimlaneId) => this._laneAnnouncement(swimlaneId),
-    cardLabel: (itemId) => String(itemId),
+    cardLabel: (itemId) => this._announcedCardLabel(itemId),
     denialReason: (reason) =>
       this._translate(MLV_TASKBOARD_DENIAL_REASONS[reason]),
     focusCard: (focus) => this._focusCardElement(focus),
@@ -1289,12 +1303,27 @@ export class MlvTaskboard<TItem> {
     });
   }
 
+  /**
+   * @private The name one card is announced by: what `cardLabelFn` calls it,
+   * or its key as text. A key with no card behind it — one already dropped
+   * from `items` while a guarded move settled — can only be named by itself.
+   */
+  private _announcedCardLabel(itemId: MlvTaskboardKey): string {
+    const item = this._index().itemById.get(itemId);
+    return item === undefined ? String(itemId) : this._announcedItemLabel(item);
+  }
+
+  /** @private The name one card is announced by, given the card itself. */
+  private _announcedItemLabel(item: TItem): string {
+    return this.cardLabelFn()?.(item) ?? String(this._itemId(item));
+  }
+
   /** @private States the outcome of a move that never changed the board. */
   private _announceMoveOutcome(
     reason: MlvTaskboardMoveCancelReason,
     itemId: MlvTaskboardKey,
   ): void {
-    const label = String(itemId);
+    const label = this._announcedCardLabel(itemId);
     if (reason === 'cancelled') {
       this._announce('moveCancelled', { label });
       return;
@@ -1621,7 +1650,7 @@ export class MlvTaskboard<TItem> {
     }
     this._recordCommand(before);
     this._announce('moved', {
-      label: String(this._itemId(result.item)),
+      label: this._announcedItemLabel(result.item),
       column:
         this._index().columnById.get(result.target.columnId)?.label ??
         String(result.target.columnId),

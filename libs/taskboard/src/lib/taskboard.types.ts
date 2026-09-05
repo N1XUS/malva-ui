@@ -170,6 +170,17 @@ export type MlvTaskboardCanReorderColumnFn = (
   columns: readonly MlvTaskboardColumn[],
 ) => boolean;
 
+/**
+ * How the board names one card when it announces something about it — a grab,
+ * a drop, a refusal, a cancellation. Without one the board falls back to the
+ * card's `dataKey` value as text, which on a uuid- or numeric-keyed board is
+ * read out to the user verbatim.
+ *
+ * @param item - The card being announced.
+ * @returns The plain-text name to speak. It is not escaped or truncated.
+ */
+export type MlvTaskboardCardLabelFn<TItem> = (item: TItem) => string;
+
 /** Payload emitted when a started move ends without changing the board. */
 export interface MlvTaskboardMoveCancelledEvent<TItem> {
   readonly reason: MlvTaskboardMoveCancelReason;

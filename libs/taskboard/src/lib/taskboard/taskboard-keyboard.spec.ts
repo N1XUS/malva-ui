@@ -4,6 +4,7 @@ import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { afterEach, describe, expect, it } from 'vitest';
 import type {
   MlvTaskboardBeforeMove,
+  MlvTaskboardCardLabelFn,
   MlvTaskboardMoveCancelledEvent,
 } from '../taskboard.types';
 import { MlvTaskboard } from './taskboard';
@@ -368,6 +369,23 @@ describe('MlvTaskboard keyboard interaction', () => {
     expect(live()).toBe('Move to Done, position 1 of 2.');
   });
 
+  it('names a card in its announcements the way cardLabelFn does', async () => {
+    const { fixture, key, focus, live } = await mountHost(LabelledHost);
+
+    focus('a');
+    key('a', ' ');
+    expect(live()).toBe(
+      'Grabbed the A ticket. Use the arrow keys to choose a slot, Space to drop, Escape to cancel.',
+    );
+
+    key('a', 'ArrowRight');
+    key('a', ' ');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(live()).toBe('Moved the A ticket to Done, position 1.');
+  });
+
   it('releases a grab dropped back where it started without cancelling it', async () => {
     const { fixture, key, focus, live } = await mount();
     const before = fixture.componentInstance.items();
@@ -502,4 +520,25 @@ class PendingHost {
   /** Never settles, so the board stays in its pending-move window. */
   readonly beforeMove: MlvTaskboardBeforeMove<Ticket> = () =>
     new Promise<boolean>(() => undefined);
+}
+
+@Component({
+  imports: [MlvTaskboard],
+  template: `<mlv-taskboard
+    [(items)]="items"
+    [columns]="columns"
+    [cardLabelFn]="cardLabelFn"
+    dataKey="id"
+    columnField="status"
+  />`,
+})
+class LabelledHost {
+  readonly items = signal<readonly Ticket[]>(INITIAL_ITEMS);
+  readonly columns = [
+    { id: 'todo', label: 'Todo' },
+    { id: 'done', label: 'Done' },
+  ];
+  /** Names a card the way the application would, never by its key. */
+  readonly cardLabelFn: MlvTaskboardCardLabelFn<Ticket> = (item) =>
+    `the ${item.id.toUpperCase()} ticket`;
 }
