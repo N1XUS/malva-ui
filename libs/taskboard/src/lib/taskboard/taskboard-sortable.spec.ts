@@ -1,8 +1,9 @@
+import { DOCUMENT } from '@angular/common';
 import { Component, signal, viewChild } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import Sortable from 'sortablejs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MlvTaskboard } from './taskboard';
 import type {
   MlvTaskboardBeforeMove,
@@ -825,5 +826,78 @@ describe('MlvTaskboard move history ledger', () => {
     const history = historyOf(fixture.componentInstance.board());
     expect(boardIds(history.undo())).toBe(external);
     expect(history.undo()).toBeNull();
+  });
+});
+
+// Isolated: this suite swaps the `DOCUMENT` provider, so it keeps its own
+// TestBed rather than the one every suite above shares.
+describe('MlvTaskboard drag document binding', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** Counts listeners a target gained (+1) and released (-1), by event type. */
+  function trackListeners(target: EventTarget): Map<string, number> {
+    const net = new Map<string, number>();
+    const bump = (type: string, delta: number): void =>
+      void net.set(type, (net.get(type) ?? 0) + delta);
+    const realAdd = target.addEventListener.bind(target);
+    const realRemove = target.removeEventListener.bind(target);
+    vi.spyOn(target, 'addEventListener').mockImplementation(
+      (type, listener, options) => {
+        bump(type, 1);
+        realAdd(type, listener, options);
+      },
+    );
+    vi.spyOn(target, 'removeEventListener').mockImplementation(
+      (type, listener, options) => {
+        bump(type, -1);
+        realRemove(type, listener, options);
+      },
+    );
+    return net;
+  }
+
+  // Under server rendering the injected `DOCUMENT` and the ambient `document`
+  // global are different objects and the global is defined, so binding the
+  // ambient one would attach a per-render board to a process-wide object no
+  // teardown reaches — and nothing would throw. Only asserting *which* object
+  // receives the listener can see that.
+  it('binds the Escape listener to the injected DOCUMENT, not the ambient global', async () => {
+    const isolated = document.implementation.createHTMLDocument('taskboard');
+    await TestBed.configureTestingModule({
+      imports: [SortableHost],
+      providers: [{ provide: DOCUMENT, useValue: isolated }],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(SortableHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+    const cancelled: MlvTaskboardMoveCancelReason[] = [];
+    fixture.componentInstance
+      .board()
+      .moveCancelled.subscribe((event) => cancelled.push(event.reason));
+
+    const isolatedNet = trackListeners(isolated);
+    const ambientNet = trackListeners(document);
+    const todoCards = cardsContainer(host, 'todo');
+    const doneCards = cardsContainer(host, 'done');
+    const card = cardElement(todoCards, 'a');
+    startDrag(todoCards, card);
+    hover(todoCards, card, doneCards, cardElement(doneCards, 'x'));
+
+    expect(isolatedNet.get('keydown')).toBeGreaterThan(0);
+    expect(ambientNet.get('keydown')).toBeUndefined();
+
+    // Escape on the ambient global must not reach a board bound elsewhere.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    isolated.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    endDrag(todoCards, card, doneCards);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(cancelled).toEqual(['cancelled']);
+    // The drag's listener is released with the drag, not left on the document.
+    expect(isolatedNet.get('keydown')).toBe(0);
+
+    fixture.destroy();
   });
 });
