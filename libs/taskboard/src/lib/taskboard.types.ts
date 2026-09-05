@@ -122,6 +122,23 @@ export type MlvTaskboardMoveCancelReason =
   | 'before-move-error'
   | 'stale';
 
+/**
+ * Application policy consulted for every candidate column order a pointer
+ * drag hovers. Returning `false` rejects that order; the board leaves its
+ * controlled `columns` collection referentially unchanged.
+ *
+ * @param column - The column being dragged.
+ * @param fromIndex - Its index in the current column collection.
+ * @param toIndex - The index it would occupy if the pointer were released.
+ * @param columns - The current, unmodified column collection.
+ */
+export type MlvTaskboardCanReorderColumnFn = (
+  column: MlvTaskboardColumn,
+  fromIndex: number,
+  toIndex: number,
+  columns: readonly MlvTaskboardColumn[],
+) => boolean;
+
 /** Payload emitted when a started move ends without changing the board. */
 export interface MlvTaskboardMoveCancelledEvent<TItem> {
   readonly reason: MlvTaskboardMoveCancelReason;

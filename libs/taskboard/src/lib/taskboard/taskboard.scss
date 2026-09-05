@@ -75,6 +75,21 @@
       border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-normal);
     }
 
+    &__column-row[data-mlv-taskboard-drop-state] {
+      border-radius: var(--mlv-radius-panel);
+      outline: var(--mlv-stroke-width-medium) solid transparent;
+      outline-offset: var(--mlv-focus-ring-offset);
+      transition: outline-color var(--mlv-duration-fast) var(--mlv-ease-default);
+    }
+
+    &__column-row[data-mlv-taskboard-drop-state='valid'] {
+      outline-color: var(--mlv-border-focus);
+    }
+
+    &__column-row[data-mlv-taskboard-drop-state='invalid'] {
+      outline-color: var(--mlv-border-error);
+    }
+
     &__group-row,
     &__column-row {
       display: grid;

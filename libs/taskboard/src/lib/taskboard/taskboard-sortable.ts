@@ -14,29 +14,22 @@ import type {
   MlvTaskboardMoveCancelReason,
   MlvTaskboardMoveRequest,
 } from '../taskboard.types';
-
-/** Data attribute carrying a rendered card's stable identifier. */
-export const MLV_TASKBOARD_CARD_ID_ATTRIBUTE = 'data-mlv-taskboard-card-id';
-/** Data attribute carrying a rendered element's column identifier. */
-export const MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE = 'data-mlv-taskboard-column-id';
-/** Data attribute carrying a rendered element's swimlane identifier. */
-export const MLV_TASKBOARD_SWIMLANE_ID_ATTRIBUTE =
-  'data-mlv-taskboard-swimlane-id';
-/** Data attribute reflecting whether the hovered container accepts the card. */
-export const MLV_TASKBOARD_DROP_STATE_ATTRIBUTE =
-  'data-mlv-taskboard-drop-state';
+import {
+  MLV_TASKBOARD_CARD_ID_ATTRIBUTE,
+  MLV_TASKBOARD_DROP_STATE_ATTRIBUTE,
+  captureMlvTaskboardDragResidue,
+  mlvTaskboardChildrenOf,
+  mlvTaskboardInsertionIndex,
+  mlvTaskboardSortableBaseOptions,
+  restoreMlvTaskboardDragResidue,
+  sanitizeMlvTaskboardClone,
+  type MlvTaskboardDragResidue,
+} from './taskboard-sortable-dom';
 
 /** BEM class of a rendered card element, and the only draggable selector. */
 const CARD_CLASS = 'mlv-taskboard__card';
 /** Private SortableJS group shared by every registered card container. */
 const CARDS_GROUP = 'mlv-taskboard-cards';
-/** Long-press delay applied to touch pointers only, in milliseconds. */
-const TOUCH_DELAY_MS = 150;
-/** Classes SortableJS writes on the dragged card for the drag's lifetime. */
-const CHOSEN_CLASS = 'mlv-taskboard__sortable-chosen';
-const DRAG_CLASS = 'mlv-taskboard__sortable-drag';
-const GHOST_CLASS = 'mlv-taskboard__sortable-ghost';
-const FALLBACK_CLASS = 'mlv-taskboard__sortable-fallback';
 /**
  * Elements that must keep their own pointer semantics inside a card. The card
  * root itself is a `button` in the default rendering, so the interactive
@@ -129,16 +122,8 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
   private _session: MlvTaskboardDragSession<TItem> | null = null;
   /** @private Canonical key of the dragged card, `null` between drags. */
   private _draggedId: MlvTaskboardKey | null = null;
-  /** @private The dragged element, kept so residue can be cleaned on drop. */
-  private _dragItem: HTMLElement | null = null;
-  /** @private The container the drag started in, used to restore the node. */
-  private _sourceElement: HTMLElement | null = null;
-  /** @private The dragged element's original sibling, for a defensive restore. */
-  private _nextSibling: Element | null = null;
-  /** @private The dragged element's inline style before SortableJS wrote one. */
-  private _originalStyle: string | null = null;
-  /** @private The dragged element's `draggable` attribute before the drag. */
-  private _originalDraggable: string | null = null;
+  /** @private The dragged card's pre-drag state, restored when the drag ends. */
+  private _residue: MlvTaskboardDragResidue | null = null;
   /** @private The slot the drag would commit if released right now. */
   private _preview: MlvTaskboardDropPreview<TItem> | null = null;
   /** @private Container currently carrying the drop-state attribute. */
@@ -204,14 +189,10 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
 
     this._session = session;
     this._draggedId = itemId;
-    this._dragItem = item;
-    this._sourceElement = event.from;
-    this._nextSibling = item.nextElementSibling;
-    this._originalStyle = item.getAttribute('style');
-    this._originalDraggable = item.getAttribute('draggable');
+    this._residue = captureMlvTaskboardDragResidue(item, event.from);
     const fallbackClone = Sortable.ghost;
     if (fallbackClone && fallbackClone !== item) {
-      this._sanitizeClone(fallbackClone);
+      sanitizeMlvTaskboardClone(fallbackClone);
     }
 
     fromEvent<KeyboardEvent>(this._document, 'keydown')
@@ -249,10 +230,10 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
       return false;
     }
 
-    const cards = this._cardsIn(container);
-    const domIndex = this._insertionIndex(event, cards);
+    const cards = mlvTaskboardChildrenOf(container, CARD_CLASS);
+    const domIndex = mlvTaskboardInsertionIndex(event, cards);
     const sourcePosition =
-      this._dragItem === null ? -1 : cards.indexOf(this._dragItem);
+      this._residue === null ? -1 : cards.indexOf(this._residue.item);
     // Sortable reports a slot among the rendered cards, which still include the
     // dragged card in its own bucket; a board index excludes it.
     const index =
@@ -291,7 +272,7 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
     const session = this._session;
     const preview = this._preview;
     const cancelled = this._cancelled;
-    this._restoreDraggedItem(event);
+    restoreMlvTaskboardDragResidue(this._residue, event.item);
     this._applyPreview(null, null);
     this._endDrag();
     if (!host || !session) return;
@@ -320,60 +301,15 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
   /** @private Shared options for every registered card container. */
   private _sortableOptions(): Sortable.Options {
     return {
+      ...mlvTaskboardSortableBaseOptions(),
       group: { name: CARDS_GROUP, pull: true, put: true },
       draggable: `.${CARD_CLASS}`,
       filter: DRAG_FILTER,
-      preventOnFilter: false,
-      forceFallback: true,
-      fallbackOnBody: true,
-      fallbackTolerance: 0,
-      delay: TOUCH_DELAY_MS,
-      delayOnTouchOnly: true,
-      removeCloneOnHide: true,
-      disabled: false,
-      animation: 0,
-      chosenClass: CHOSEN_CLASS,
-      dragClass: DRAG_CLASS,
-      ghostClass: GHOST_CLASS,
-      fallbackClass: FALLBACK_CLASS,
-      onClone: (event) => this._sanitizeClone(event.clone),
+      onClone: (event) => sanitizeMlvTaskboardClone(event.clone),
       onStart: (event) => this.start(event),
       onMove: (event) => this.move(event),
       onEnd: (event) => this.end(event),
     };
-  }
-
-  /**
-   * @private Removes a transient clone from the accessibility tree and stops a
-   * consumer entrance animation from owning the clone's `transform`.
-   */
-  private _sanitizeClone(clone: HTMLElement): void {
-    clone.setAttribute('aria-hidden', 'true');
-    clone.setAttribute('inert', '');
-    clone.removeAttribute('id');
-    for (const element of clone.querySelectorAll('[id]')) {
-      element.removeAttribute('id');
-    }
-    clone.style.animation = 'none';
-  }
-
-  /** @private The rendered card elements of a container, in document order. */
-  private _cardsIn(container: HTMLElement): HTMLElement[] {
-    return Array.from(container.children).filter(
-      (child): child is HTMLElement =>
-        child instanceof HTMLElement && child.classList.contains(CARD_CLASS),
-    );
-  }
-
-  /** @private Slot among a container's rendered cards the pointer hovers. */
-  private _insertionIndex(
-    event: Sortable.MoveEvent,
-    cards: readonly HTMLElement[],
-  ): number {
-    const related: HTMLElement | null = event.related ?? null;
-    const position = related === null ? -1 : cards.indexOf(related);
-    if (position < 0) return 0;
-    return event.willInsertAfter === true ? position + 1 : position;
   }
 
   /**
@@ -397,53 +333,11 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
     this._host?.setDropPreview(preview);
   }
 
-  /**
-   * @private Strips the classes and inline geometry SortableJS wrote on the
-   * dragged card, and returns the node to Angular's container if the engine
-   * relocated it despite the `onMove` guard.
-   */
-  private _restoreDraggedItem(event: Sortable.SortableEvent): void {
-    const item = this._dragItem ?? event.item;
-    const source = this._sourceElement;
-    if (item) {
-      item.classList.remove(
-        CHOSEN_CLASS,
-        DRAG_CLASS,
-        GHOST_CLASS,
-        FALLBACK_CLASS,
-      );
-      this._restoreAttribute(item, 'style', this._originalStyle);
-      this._restoreAttribute(item, 'draggable', this._originalDraggable);
-      if (source && item.isConnected && item.parentElement !== source) {
-        const sibling = this._nextSibling;
-        if (sibling && sibling.parentNode === source) {
-          source.insertBefore(item, sibling);
-        } else {
-          source.appendChild(item);
-        }
-      }
-    }
-    this._dragItem = null;
-    this._sourceElement = null;
-    this._nextSibling = null;
-    this._originalStyle = null;
-    this._originalDraggable = null;
-  }
-
-  /** @private Restores an attribute to its pre-drag value, or removes it. */
-  private _restoreAttribute(
-    element: HTMLElement,
-    name: string,
-    value: string | null,
-  ): void {
-    if (value === null) element.removeAttribute(name);
-    else element.setAttribute(name, value);
-  }
-
   /** @private Releases the live drag's session, token, and listeners. */
   private _endDrag(): void {
     this._session = null;
     this._draggedId = null;
+    this._residue = null;
     this._cancelled = false;
     this._dragEnd.next();
   }

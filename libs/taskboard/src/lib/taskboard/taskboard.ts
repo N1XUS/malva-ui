@@ -36,7 +36,7 @@ import {
   type MlvTaskboardSwimlaneDefContext,
 } from '../taskboard-defs';
 import { createMlvTaskboardHistory } from '../taskboard-history';
-import { sameMlvTaskboardKey } from '../taskboard-keys';
+import { mlvTaskboardKeyToken, sameMlvTaskboardKey } from '../taskboard-keys';
 import {
   createMlvTaskboardIndex,
   type MlvTaskboardIndex,
@@ -45,6 +45,7 @@ import type {
   MlvTaskboardState,
   MlvTaskboardBeforeMove,
   MlvTaskboardCanDropFn,
+  MlvTaskboardCanReorderColumnFn,
   MlvTaskboardColumn,
   MlvTaskboardColumnGroup,
   MlvTaskboardField,
@@ -58,15 +59,22 @@ import type {
   MlvTaskboardWipState,
 } from '../taskboard.types';
 import { MlvTaskboardCardsHost } from './taskboard-cards-host';
+import {
+  MLV_TASKBOARD_COLUMNS_REGISTRY,
+  MlvTaskboardColumnSortable,
+} from './taskboard-column-sortable';
+import { MlvTaskboardColumnsHost } from './taskboard-columns-host';
 import { MlvTaskboardMoveController } from './taskboard-move-controller';
 import {
   MLV_TASKBOARD_CARDS_REGISTRY,
-  MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE,
-  MLV_TASKBOARD_SWIMLANE_ID_ATTRIBUTE,
   MlvTaskboardSortable,
   type MlvTaskboardBucket,
   type MlvTaskboardDropPreview,
 } from './taskboard-sortable';
+import {
+  MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE,
+  MLV_TASKBOARD_SWIMLANE_ID_ATTRIBUTE,
+} from './taskboard-sortable-dom';
 
 /** Payload emitted for a card activation or context-menu request. */
 export interface MlvTaskboardCardEvent<TItem> {
@@ -81,6 +89,18 @@ export interface MlvTaskboardAddRequest {
   readonly column: MlvTaskboardColumn;
   readonly swimlane: MlvTaskboardSwimlane | undefined;
   readonly wip: MlvTaskboardWipState;
+}
+
+/** One rendered span of consecutive columns sharing a group. */
+interface MlvTaskboardGroupRun {
+  /** Stable `@for` key: the run's first column index plus its group. */
+  readonly key: string;
+  /** The shared group identifier, `undefined` for an ungrouped run. */
+  readonly groupId: MlvTaskboardKey | undefined;
+  /** The matching group definition, `undefined` for a spacer run. */
+  readonly group: MlvTaskboardColumnGroup | undefined;
+  /** Number of column tracks the run occupies. */
+  span: number;
 }
 
 /** Where the live drop indicator renders inside one board cell. */
@@ -98,7 +118,7 @@ interface MlvTaskboardDropAnchor {
  */
 @Component({
   selector: 'mlv-taskboard',
-  imports: [NgTemplateOutlet, MlvTaskboardCardsHost],
+  imports: [NgTemplateOutlet, MlvTaskboardCardsHost, MlvTaskboardColumnsHost],
   templateUrl: './taskboard.html',
   styleUrl: './taskboard.scss',
   encapsulation: ViewEncapsulation.None,
@@ -109,6 +129,11 @@ interface MlvTaskboardDropAnchor {
     {
       provide: MLV_TASKBOARD_CARDS_REGISTRY,
       useExisting: MlvTaskboardSortable,
+    },
+    MlvTaskboardColumnSortable,
+    {
+      provide: MLV_TASKBOARD_COLUMNS_REGISTRY,
+      useExisting: MlvTaskboardColumnSortable,
     },
   ],
   hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
@@ -159,6 +184,14 @@ export class MlvTaskboard<TItem> {
   readonly beforeMove = input<MlvTaskboardBeforeMove<TItem> | undefined>(
     undefined,
   );
+  /**
+   * Optional application policy consulted for every candidate column order a
+   * pointer drag hovers. Returning `false` rejects that order and leaves the
+   * controlled `columns` collection referentially unchanged.
+   */
+  readonly canReorderColumnFn = input<
+    MlvTaskboardCanReorderColumnFn | undefined
+  >(undefined);
   /** Application-owned selected card identifiers. */
   readonly selection = model<ReadonlySet<MlvTaskboardKey>>(new Set());
   /** Application-owned collapsed column identifiers. */
@@ -262,10 +295,48 @@ export class MlvTaskboard<TItem> {
     };
   });
 
-  /** @private Package-private SortableJS adapter provided by this component. */
+  /**
+   * Group header runs: maximal spans of consecutive columns sharing one
+   * `groupId`. A run whose columns carry no group — or one whose `groupId` has
+   * no matching definition — renders as an unlabeled spacer, so a reordered
+   * column never makes a group header span columns it no longer covers.
+   */
+  protected readonly _groupRuns = computed<readonly MlvTaskboardGroupRun[]>(
+    () => {
+      const groups = this.columnGroups();
+      const columns = this.columns();
+      const runs: MlvTaskboardGroupRun[] = [];
+      for (let index = 0; index < columns.length; index++) {
+        const column = columns[index];
+        if (column === undefined) continue;
+        const previous = runs[runs.length - 1];
+        if (
+          previous !== undefined &&
+          sameMlvTaskboardKey(previous.groupId, column.groupId)
+        ) {
+          previous.span += 1;
+          continue;
+        }
+        runs.push({
+          key: `${index}:${mlvTaskboardKeyToken(column.groupId)}`,
+          groupId: column.groupId,
+          group: groups.find((group) =>
+            sameMlvTaskboardKey(group.id, column.groupId),
+          ),
+          span: 1,
+        });
+      }
+      return runs;
+    },
+  );
+
+  /** @private Package-private SortableJS card adapter provided by this board. */
   private readonly _sortable = inject(
     MlvTaskboardSortable,
   ) as MlvTaskboardSortable<TItem>;
+
+  /** @private Package-private SortableJS column adapter for header dragging. */
+  private readonly _columnSortable = inject(MlvTaskboardColumnSortable);
 
   /** @private Guarded commit/cancel flow for one released pointer drop. */
   private readonly _moveController = new MlvTaskboardMoveController<TItem>({
@@ -292,6 +363,11 @@ export class MlvTaskboard<TItem> {
       commitMove: (request) => this._moveController.commit(request),
       cancelMove: (reason, request) =>
         this._moveController.cancel(reason, request),
+    });
+    this._columnSortable.connect({
+      columns: () => this.columns(),
+      canReorderColumn: () => this.canReorderColumnFn(),
+      reorderColumns: (next) => this._applyColumnOrder(next),
     });
   }
 
@@ -537,10 +613,9 @@ export class MlvTaskboard<TItem> {
     return String(key);
   }
 
-  /** Number of column tracks occupied by a grouped header. */
-  protected _groupColumnSpan(group: MlvTaskboardColumnGroup): number {
-    return this.columns().filter((column) => column.groupId === group.id)
-      .length;
+  /** Whether a column is pinned to its absolute index. */
+  protected _isColumnLocked(column: MlvTaskboardColumn): boolean {
+    return column.locked === true;
   }
 
   /** @private Whether a resolved drop anchor addresses this column/lane cell. */
@@ -593,6 +668,13 @@ export class MlvTaskboard<TItem> {
     this._recordCommand(before, { ...before, items: result.items });
     this.items.set(result.items);
     this.moved.emit(result);
+  }
+
+  /** @private Writes the replacement column order and records the command. */
+  private _applyColumnOrder(next: readonly MlvTaskboardColumn[]): void {
+    const before = this._board();
+    this._recordCommand(before, { ...before, columns: next });
+    this.columns.set(next);
   }
 
   /** @private Records one replayable board replacement in the history ledger. */

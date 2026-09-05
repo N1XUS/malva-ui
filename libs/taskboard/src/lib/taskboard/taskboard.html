@@ -15,12 +15,12 @@
   @if (columnGroups().length > 0) {
   <div class="mlv-taskboard__group-row" role="row">
     <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
-    @for (group of columnGroups(); track group.id) {
+    @for (run of _groupRuns(); track run.key) { @if (run.group; as group) {
     <div
       class="mlv-taskboard__group"
       role="columnheader"
-      [style.grid-column]="'span ' + _groupColumnSpan(group)"
-      [attr.aria-colspan]="_groupColumnSpan(group)"
+      [style.grid-column]="'span ' + run.span"
+      [attr.aria-colspan]="run.span"
       [attr.data-mlv-taskboard-group-id]="_keyAttribute(group.id)"
       [attr.aria-label]="group.label"
     >
@@ -31,16 +31,23 @@
       />
       } @else { {{ group.label }} }
     </div>
-    }
+    } @else {
+    <div
+      class="mlv-taskboard__group mlv-taskboard__group--spacer"
+      aria-hidden="true"
+      [style.grid-column]="'span ' + run.span"
+    ></div>
+    } }
   </div>
   }
-  <div class="mlv-taskboard__column-row" role="row">
+  <div class="mlv-taskboard__column-row" role="row" mlvTaskboardColumnsHost>
     <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
     @for (column of columns(); track column.id) {
     <div
       class="mlv-taskboard__column-header"
       role="columnheader"
       [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
+      [attr.data-mlv-taskboard-column-locked]="_isColumnLocked(column) || null"
       [attr.data-collapsed]="_isColumnCollapsed(column) || null"
     >
       @if (_columnHeaderDefs()[0]; as columnHeaderDef) {
