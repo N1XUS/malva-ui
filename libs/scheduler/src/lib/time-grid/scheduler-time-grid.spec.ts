@@ -1390,6 +1390,10 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
           id="timed"
           class="mlv-scheduler-event mlv-scheduler-time-grid__event mlv-scheduler-event--timed"
         ></div>
+        <div
+          id="ghost"
+          class="mlv-scheduler-event mlv-scheduler-time-grid__event mlv-scheduler-event--timed mlv-scheduler-event--ghost"
+        ></div>
       </div>
       <div class="mlv-scheduler-time-grid__all-day-cell">
         <div
@@ -1408,6 +1412,11 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
     order: readonly (keyof typeof sheets)[] = ['grid', 'chip'],
   ) => resolve(query<HTMLElement>(document, `#${id}`), 'position', order);
 
+  const pointerEventsOf = (
+    id: string,
+    order: readonly (keyof typeof sheets)[] = ['grid', 'chip'],
+  ) => resolve(query<HTMLElement>(document, `#${id}`), 'pointer-events', order);
+
   it('takes a timed chip out of flow whichever sheet is injected first', () => {
     // ['grid', 'chip'] is the order Angular actually produces; the reverse
     // proves the rule no longer depends on it.
@@ -1420,6 +1429,20 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
     // say `relative`; only the time grid's own chip layer overrides it.
     expect(positionOf('lane', ['grid', 'chip'])).toBe('relative');
     expect(positionOf('lane', ['chip', 'grid'])).toBe('relative');
+  });
+
+  it('leaves the drag ghost un-hit-testable whichever sheet is injected first', () => {
+    // The chip layer is `pointer-events: none` so the slots underneath keep
+    // their clicks, which is why a real timed chip has to opt back in — and
+    // that opt-in is written on the (0,2,0) `__events > __event` selector,
+    // which outweighs the chip sheet's own (0,1,0) `--ghost` rule. The drag
+    // preview must stay out of hit-testing all the same: the `inert` attribute
+    // on its host is a second line of defence, not a reason for the declared
+    // `pointer-events: none` to lose.
+    expect(pointerEventsOf('ghost', ['grid', 'chip'])).toBe('none');
+    expect(pointerEventsOf('ghost', ['chip', 'grid'])).toBe('none');
+    expect(pointerEventsOf('timed', ['grid', 'chip'])).toBe('auto');
+    expect(pointerEventsOf('timed', ['chip', 'grid'])).toBe('auto');
   });
 
   it('keeps media-nested rules out of the resolution entirely', () => {

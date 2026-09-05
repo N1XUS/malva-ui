@@ -298,6 +298,15 @@ $block: mlv-scheduler-time-grid;
       box-sizing: border-box;
       min-block-size: var(--mlv-scheduler-event-min-height);
       pointer-events: auto;
+
+      // The layer above opts a real chip back into hit-testing, and at (0,2,0)
+      // it also outranks the chip sheet's own `.mlv-scheduler-event--ghost`
+      // (0,1,0). The drag preview has to be re-excluded here, in the sheet that
+      // owns the layer, or the thing under the pointer for the whole gesture
+      // becomes a hit-test target.
+      &.mlv-scheduler-event--ghost {
+        pointer-events: none;
+      }
     }
 
     &__now {
