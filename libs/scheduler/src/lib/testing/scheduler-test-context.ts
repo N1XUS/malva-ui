@@ -9,6 +9,7 @@ import {
 import { vi } from 'vitest';
 import {
   computeVisibleRange,
+  hiddenWeekdays,
   normalizeEvent,
   visibleDays,
   type MlvSchedulerNormalizedEvent,
@@ -117,7 +118,10 @@ export function createSchedulerTestContext(
     date,
     range,
     days,
-    rowLength: computed(() => 7 - new Set(hiddenDays()).size),
+    // Through `hiddenWeekdays()`, so the fake context repairs `hiddenDays`
+    // exactly as the real root does: out-of-range entries are dropped and an
+    // all-seven set hides nothing (`rowLength` stays 7).
+    rowLength: computed(() => 7 - hiddenWeekdays(hiddenDays()).size),
     hiddenDays,
     today: computed(() => adapter.today()),
     nowMinutes: computed(() => 10 * 60),

@@ -419,19 +419,36 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     computation: () => null,
   });
 
-  /** @internal Selected rectangle: day span and minute span (or all-day). */
+  /**
+   * @internal Selected span: the first and last day, and the minute the range
+   * starts at ON `dayFrom` / ends at ON `dayTo` (or all-day).
+   *
+   * The two endpoints are ordered as `(dayIndex, minutes)` TUPLES, not by each
+   * component on its own. Minute-wise `Math.min` / `Math.max` is only correct
+   * while both endpoints sit on the same day: a backwards multi-day drag —
+   * press Tue 14:00, release Wed 09:00 — would otherwise report
+   * `from = 09:00`, `to = 14:00` and commit Tue 09:00 → Wed 14:30 instead of
+   * Tue 14:00 → Wed 09:30. On a single day the tuple order degenerates to the
+   * minute comparison, so an upward drag (14:00 → 09:00) still normalizes to
+   * 09:00 → 14:30. `_isSelected`, `_selectionRange` and `_announceSelection`
+   * all read this, so the paint, the commit and the hint cannot disagree.
+   */
   protected readonly _selectedBounds = computed(() => {
     const s = this._selection();
     if (!s) return null;
     const allDay = s.anchor.minutes === null;
     const a = s.anchor.minutes ?? 0;
     const h = s.head.minutes ?? a;
+    const anchorFirst =
+      s.anchor.dayIndex === s.head.dayIndex
+        ? a <= h
+        : s.anchor.dayIndex < s.head.dayIndex;
     return {
       allDay,
       dayFrom: Math.min(s.anchor.dayIndex, s.head.dayIndex),
       dayTo: Math.max(s.anchor.dayIndex, s.head.dayIndex),
-      from: allDay ? 0 : Math.min(a, h),
-      to: allDay ? 0 : Math.max(a, h),
+      from: allDay ? 0 : anchorFirst ? a : h,
+      to: allDay ? 0 : anchorFirst ? h : a,
     };
   });
 

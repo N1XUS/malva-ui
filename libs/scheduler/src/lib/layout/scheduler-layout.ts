@@ -99,10 +99,16 @@ export function computeVisibleRange<D>(
  * The weekday indices in `hiddenDays` that can actually hide a rendered day:
  * `getDayOfWeek` only ever returns an integer `0`–`6`, so anything else is
  * dropped. A set covering **every** weekday is ignored rather than rendering an
- * empty grid — `visibleDays` and `rowLength` share this repair so the two can
- * never disagree about how wide a week row is.
+ * empty grid — `visibleDays`, `rowLength`, `nextVisibleDate` and the month
+ * keyboard handler share this repair so they can never disagree about how wide
+ * a week row is or which columns exist.
+ *
+ * Internal: exported for the other layout / view modules only, never from
+ * `src/index.ts`.
  */
-function hiddenWeekdays(hiddenDays: readonly number[]): ReadonlySet<number> {
+export function hiddenWeekdays(
+  hiddenDays: readonly number[],
+): ReadonlySet<number> {
   const hidden = new Set(
     hiddenDays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
   );

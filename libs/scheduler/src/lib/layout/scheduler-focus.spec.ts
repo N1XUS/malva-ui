@@ -113,9 +113,24 @@ describe('scheduler-focus', () => {
       expect(nextVisibleDate(adapter, d(10), -1, [0, 6])).toEqual(d(7));
     });
 
-    it('gives up after seven steps when every weekday is hidden', () => {
+    it('ignores an all-seven hiddenDays, exactly as the rendered grid does', () => {
+      // `hiddenWeekdays()` drops a set covering every weekday — `visibleDays`
+      // and `rowLength` render the full week rather than nothing — so an arrow
+      // step lands one calendar day away instead of walking seven columns it
+      // believes are hidden and landing eight days out.
       expect(nextVisibleDate(adapter, d(5), 1, [0, 1, 2, 3, 4, 5, 6])).toEqual(
-        d(13),
+        d(6),
+      );
+      expect(nextVisibleDate(adapter, d(5), -1, [0, 1, 2, 3, 4, 5, 6])).toEqual(
+        d(4),
+      );
+    });
+
+    it('drops weekday indices that can hide nothing', () => {
+      // Duplicates and out-of-range entries never reach seven distinct
+      // weekdays, so they must not trip the all-seven repair either.
+      expect(nextVisibleDate(adapter, d(7), 1, [0, 0, 6, 6, 7, -1])).toEqual(
+        d(10),
       );
     });
   });

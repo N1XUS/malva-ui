@@ -249,6 +249,30 @@ describe('MlvSchedulerMonth', () => {
     expect(document.querySelector('.mlv-scheduler-month__popover')).toBeNull();
   });
 
+  it('toggles the overflow popover closed from its own trigger', async () => {
+    // No backdrop, and the trigger is excluded from the popup service's dismiss
+    // listener, so a second press re-enters `_openMore` with the panel still
+    // open: without the toggle it closes and immediately reopens, dropping
+    // focus on the first panel chip instead of returning it to the button.
+    const more = moreButton(8);
+    more.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(
+      document.querySelector('.mlv-scheduler-month__popover'),
+    ).not.toBeNull();
+    expect(host.moreClicks).toHaveLength(1);
+
+    more.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.querySelector('.mlv-scheduler-month__popover')).toBeNull();
+    expect(document.activeElement).toBe(more);
+    // A toggle-close is not an open: `moreClick` means "the button opened its
+    // popover".
+    expect(host.moreClicks).toHaveLength(1);
+  });
+
   it('keeps one roving tab stop, starting on the first day of the month', () => {
     expect(tabbable().map((c) => c.dataset['dayIndex'])).toEqual(['5']);
     cell(5).focus();
@@ -429,6 +453,26 @@ describe('MlvSchedulerMonth', () => {
       busy.querySelector('[data-event-id="t1"]'),
     );
     expect(host.slotClicks.length).toBe(3);
+  });
+
+  it('Enter focuses the chip in the pressed cell, not the first bar of a multi-row event', async () => {
+    // Sat 1 – Wed 4 Mar all-day: `sliceRows` cuts it into one segment per week
+    // row, and BOTH bars carry `data-event-id="cross"`. Pressing Enter on a
+    // cell of the second row must land on that row's bar — an id-only lookup
+    // resolves to the row-0 bar and throws focus into another week.
+    host.events.set([
+      { id: 'cross', title: 'Trip', start: m(1), end: m(5), allDay: true },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const bars = root.querySelectorAll<HTMLElement>('[data-event-id="cross"]');
+    expect(bars).toHaveLength(2);
+    expect(bars[0].closest('[data-day-index]')).toBe(cell(5)); // Sat 1 Mar
+    const monday = cell(7); // Mon 3 Mar, first day of the second week row
+    monday.focus();
+    key(monday, 'Enter');
+    expect(document.activeElement).toBe(bars[1]);
+    expect(document.activeElement?.closest('[data-day-index]')).toBe(monday);
   });
 
   it('leaves keys that originate on a chip to the chip', () => {

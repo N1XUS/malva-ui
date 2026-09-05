@@ -1,4 +1,5 @@
 import type { MlvDateAdapter } from '@malva-ui/core/date';
+import { hiddenWeekdays } from './scheduler-layout';
 
 /**
  * The chip element rendering `id`, or `null`. Attribute comparison, so ids
@@ -44,17 +45,26 @@ export function findCellElement(
   );
 }
 
-/** The next calendar day in `direction` that is not a hidden weekday (at most 7 steps away). */
+/**
+ * The next calendar day in `direction` that is not a hidden weekday (at most 7
+ * steps away).
+ *
+ * `hiddenDays` goes through `hiddenWeekdays()` rather than being tested raw, so
+ * this agrees with what the grid actually renders: an all-seven set is ignored
+ * (the views render the week rather than nothing), and out-of-range entries are
+ * dropped.
+ */
 export function nextVisibleDate<D>(
   adapter: MlvDateAdapter<D>,
   from: D,
   direction: -1 | 1,
   hiddenDays: readonly number[],
 ): D {
+  const hidden = hiddenWeekdays(hiddenDays);
   let date = adapter.addCalendarDays(from, direction);
   for (
     let step = 0;
-    step < 7 && hiddenDays.includes(adapter.getDayOfWeek(date));
+    step < 7 && hidden.has(adapter.getDayOfWeek(date));
     step++
   ) {
     date = adapter.addCalendarDays(date, direction);

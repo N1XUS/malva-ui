@@ -45,6 +45,7 @@ import {
 import {
   assignLanes,
   dayIndexOf,
+  hiddenWeekdays,
   layoutRow,
   sliceRows,
   type MlvSchedulerLaneSegment,
@@ -179,6 +180,8 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
   protected readonly _popoverId = mlvNextId('mlv-scheduler-month-popover');
   /** @private Open popover handle. */
   private _popoverHandle: MlvPopupHandle | null = null;
+  /** @private The `+N more` button the open popover belongs to; `null` when closed. */
+  private _popoverTrigger: HTMLElement | null = null;
 
   /** @protected Short weekday names for the header, in row order. */
   protected readonly _weekdays = computed(() => {
@@ -684,16 +687,28 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
    * intra-cell ring includes it. Keyboard activation is the button's own
    * `click`, so this method closes the focus round trip: it moves focus to the
    * first chip of the panel on open, and back to the button on close.
+   *
+   * The button TOGGLES its own panel. The overlay has no backdrop and excludes
+   * the trigger from the service's dismiss listener (see below), so a second
+   * press reaches this method with the panel still open; without the early
+   * return it would close and immediately reopen, throwing focus onto the first
+   * chip again. A toggle-close emits no `moreClick` — the output means "the
+   * button opened its popover".
    */
   protected _openMore(
     cell: MlvSchedulerMonthCell<D, TData>,
     event: MouseEvent,
   ): void {
     event.stopPropagation();
+    const trigger = event.currentTarget as HTMLElement;
+    if (this._popoverHandle && this._popoverTrigger === trigger) {
+      this._closePopover();
+      trigger.focus();
+      return;
+    }
     this._ctx.emitMoreClick({ date: cell.date, events: cell.hidden });
     this._closePopover();
     this._popoverDayIndex.set(cell.dayIndex);
-    const trigger = event.currentTarget as HTMLElement;
     const handle = this._popup.open({
       origin: new ElementRef(trigger),
       template: this._popoverTemplate(),
@@ -708,6 +723,7 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       dismissExcludeElements: [trigger],
       onClose: () => {
         this._popoverHandle = null;
+        this._popoverTrigger = null;
         this._popoverDayIndex.set(null);
         // The overlay is disposed before this runs, so focus that was inside
         // the panel has already fallen back to `<body>`: that — and only that —
@@ -720,6 +736,7 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       },
     });
     this._popoverHandle = handle;
+    this._popoverTrigger = trigger;
     // `attach()` renders the template portal synchronously, so the panel's
     // chips already exist here.
     handle.overlayRef.overlayElement
@@ -767,13 +784,19 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
    * none. Skips the drag-preview ghost through the segment's own `ghost` flag
    * rather than a `:not(--ghost)` DOM query, matching the time grid's
    * `_chipAt`: one definition of "is this a real chip", and no second query.
+   *
+   * `dayIndex` is passed on to `findEventElement`: `sliceRows` emits one
+   * segment per week row (and per `hiddenDays`-split run) and every one of them
+   * carries the same `data-event-id`, so an id alone resolves a multi-row
+   * all-day event to its first bar — a chip in another week than the cell the
+   * key was pressed in.
    */
   private _firstChipOf(dayIndex: number): HTMLElement | null {
     const segment = this._cellAt(dayIndex)?.segments.find(
       (candidate) => !candidate.normalized.ghost,
     );
     return segment
-      ? findEventElement(this._host, segment.normalized.event.id)
+      ? findEventElement(this._host, segment.normalized.event.id, dayIndex)
       : null;
   }
 
@@ -813,8 +836,12 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       this._ctx.days()[dayIndex],
       direction,
     );
+    // Through `hiddenWeekdays()`, not the raw array: an all-seven `hiddenDays`
+    // hides nothing (`visibleDays` ignores it), so testing the raw array would
+    // send every landing date off to `nextVisibleDate` for a column that is in
+    // fact rendered.
     this._jump(
-      hiddenDays.includes(adapter.getDayOfWeek(target))
+      hiddenWeekdays(hiddenDays).has(adapter.getDayOfWeek(target))
         ? nextVisibleDate(adapter, target, direction, hiddenDays)
         : target,
     );
@@ -850,5 +877,6 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
   private _closePopover(): void {
     this._popoverHandle?.close();
     this._popoverHandle = null;
+    this._popoverTrigger = null;
   }
 }

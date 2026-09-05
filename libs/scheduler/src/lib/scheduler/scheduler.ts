@@ -248,9 +248,10 @@ export class MlvScheduler<D = Date, TData = unknown>
    * In the **day** view `hiddenDays` steers navigation (`next()` / `previous()`
    * skip hidden weekdays, see `_step`) but never blanks the grid: a one-day
    * range whose weekday is hidden would otherwise filter down to `[]`, and the
-   * time grid would render a `role="grid"` with no row, no cell and therefore
-   * no roving tab stop. An anchor pointed straight at a hidden weekday — a
-   * `[date]` binding or an explicit `goTo()` — renders that day as asked.
+   * time grid would render its `role="group"` sheet with no column listbox, no
+   * slot and therefore no roving tab stop. An anchor pointed straight at a
+   * hidden weekday — a `[date]` binding or an explicit `goTo()` — renders that
+   * day as asked.
    */
   readonly days = computed(() => {
     const range = this.visibleRange();

@@ -321,6 +321,11 @@ describe('MlvSchedulerTimeGrid', () => {
     expect(scrollOffsetFor(8 * 60, 0, 30, 40)).toBe(640);
     expect(scrollOffsetFor(8 * 60, 7 * 60, 30, 40)).toBe(80);
     expect(scrollOffsetFor(5 * 60, 7 * 60, 30, 40)).toBe(0);
+    // G12: the headroom lifts the target row off the top edge of the viewport
+    // so the half-hour above it stays visible…
+    expect(scrollOffsetFor(8 * 60, 0, 30, 40, 10)).toBe(630);
+    // …and is clamped away at the very top rather than scrolling negative.
+    expect(scrollOffsetFor(0, 0, 30, 40, 10)).toBe(0);
     const firstSlot = query<HTMLElement>(
       root,
       '.mlv-scheduler-time-grid__slot',
@@ -543,6 +548,42 @@ describe('MlvSchedulerTimeGrid', () => {
       });
     });
 
+    it('orders a backwards multi-day drag by (day, minute), not per component', () => {
+      // Press Tue 14:00, release Wed 09:00. The interval is Tue 14:00 →
+      // Wed 09:30, not the per-component min/max Tue 09:00 → Wed 14:30: the
+      // minute of the EARLIER day starts the range and the minute of the later
+      // day ends it, whichever endpoint the pointer went down on.
+      slot(1, 840).dispatchEvent(pointerEvent('pointerdown', 200, 300));
+      slot(2, 540).dispatchEvent(pointerEvent('pointermove', 300, 40));
+      fixture.detectChanges();
+      // The paint reads the same bounds, so it moves with the commit.
+      expect(slot(1, 840).getAttribute('aria-selected')).toBe('true');
+      expect(slot(1, 810).getAttribute('aria-selected')).toBeNull(); // Tue 13:30
+      expect(slot(2, 540).getAttribute('aria-selected')).toBe('true');
+      expect(slot(2, 570).getAttribute('aria-selected')).toBeNull(); // Wed 09:30
+      slot(2, 540).dispatchEvent(pointerEvent('pointerup', 300, 40));
+      expect(host.ranges[0]).toEqual({
+        start: m(4, 14),
+        end: m(5, 9, 30),
+        allDay: false,
+        source: 'pointer',
+      });
+    });
+
+    it('still normalizes a same-day upward drag', () => {
+      // Tue 14:00 up to Tue 09:00 commits 09:00 → 14:30: with both endpoints on
+      // one day the tuple order degenerates to the minute comparison.
+      slot(1, 840).dispatchEvent(pointerEvent('pointerdown', 200, 300));
+      slot(1, 540).dispatchEvent(pointerEvent('pointermove', 200, 40));
+      slot(1, 540).dispatchEvent(pointerEvent('pointerup', 200, 40));
+      expect(host.ranges[0]).toEqual({
+        start: m(4, 9),
+        end: m(4, 14, 30),
+        allDay: false,
+        source: 'pointer',
+      });
+    });
+
     it('selects all-day cells as an all-day range', () => {
       allDayCell(2).dispatchEvent(pointerEvent('pointerdown', 10, 10));
       allDayCell(4).dispatchEvent(pointerEvent('pointermove', 100, 10));
@@ -663,6 +704,28 @@ describe('MlvSchedulerTimeGrid', () => {
       fixture.detectChanges();
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
       expect(host.ranges).toHaveLength(0);
+    });
+
+    it('orders a backwards keyboard selection by (day, minute) too', () => {
+      // Anchor Wed 09:00, walk the head one day back and then ten slots down:
+      // the head (Tue 14:00) is on the EARLIER day, so it starts the range.
+      const s = slot(2, 540);
+      s.focus();
+      key(s, 'ArrowLeft', { shiftKey: true });
+      for (let step = 0; step < 10; step++) {
+        key(focused(), 'ArrowDown', { shiftKey: true });
+      }
+      fixture.detectChanges();
+      expect(slot(1, 840).getAttribute('aria-selected')).toBe('true');
+      expect(slot(1, 810).getAttribute('aria-selected')).toBeNull(); // Tue 13:30
+      expect(slot(2, 570).getAttribute('aria-selected')).toBeNull(); // Wed 09:30
+      key(focused(), 'Enter');
+      expect(host.ranges[0]).toEqual({
+        start: m(4, 14),
+        end: m(5, 9, 30),
+        allDay: false,
+        source: 'keyboard',
+      });
     });
 
     it('mirrors the horizontal selection keys in RTL, vertical unchanged', () => {
