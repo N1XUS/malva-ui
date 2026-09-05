@@ -149,10 +149,7 @@
       overflow-y: auto;
 
       .mlv-taskboard__card {
-        min-block-size: var(
-          --mlv-taskboard-virtual-item-size,
-          var(--mlv-taskboard-cell-block-size, 2.75rem)
-        );
+        min-block-size: var(--mlv-taskboard-virtual-item-size, 2.75rem);
       }
     }
 
@@ -261,8 +258,10 @@
 
   // A printed page cannot be scrolled and nothing on it can be dragged, so
   // every clipped cell opens up and the interaction-only chrome is dropped.
-  // `print()` clears `virtualItemSize` for the same render, so the cells this
-  // rule un-clips really do hold every visible card.
+  // `print()` clears `virtualItemSize` for one render, so a board printed
+  // through it holds every visible card. A print the user starts themselves
+  // (Ctrl+P, the browser's own menu) never runs that code, so an un-clipped
+  // virtual cell still holds only its rendered window.
   @media print {
     #{$block} {
       overflow: visible;
