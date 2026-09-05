@@ -80,6 +80,24 @@ describe('collectTocEntries', () => {
     ]);
   });
 
+  it('skips headings a live preview renders and keeps the MDX prose around it', () => {
+    // `mlv-scheduler` renders its range title as an `<h2>`; without the skip
+    // every example on `/scheduler` would publish the same date range entry.
+    const host = panel(`
+      <h2>Views and model binding</h2>
+      <div class="example-container__preview">
+        <mlv-scheduler><h2 class="mlv-scheduler__title">31 Aug – 6 Sept 2026</h2></mlv-scheduler>
+      </div>
+      <h2>All-day and multi-day events</h2>
+    `);
+
+    expect(collectTocEntries(host).map((e) => e.text)).toEqual([
+      'Views and model binding',
+      'All-day and multi-day events',
+    ]);
+    expect(host.querySelector('.mlv-scheduler__title')?.id).toBe('');
+  });
+
   it('skips headings with no text', () => {
     const host = panel(`<h2>  </h2><h2>Kept</h2>`);
 

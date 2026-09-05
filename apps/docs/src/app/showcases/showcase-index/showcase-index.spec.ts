@@ -55,9 +55,9 @@ describe('ShowcaseIndexComponent', () => {
     expect(root.querySelectorAll('.showcase-index__card img')).toHaveLength(
       SHOWCASES.filter((showcase) => showcase.previewAsset !== null).length,
     );
-    expect(
-      SHOWCASES.every((showcase) => showcase.previewAsset !== null),
-    ).toBe(true);
+    expect(SHOWCASES.every((showcase) => showcase.previewAsset !== null)).toBe(
+      true,
+    );
   });
 
   it('filters cards from a linkable category query parameter', async () => {
@@ -71,8 +71,8 @@ describe('ShowcaseIndexComponent', () => {
       dataShowcases.length,
     );
     expect(
-      Array.from(root.querySelectorAll('.showcase-index__card')).map(
-        (card) => card.querySelector('h2')?.textContent?.trim(),
+      Array.from(root.querySelectorAll('.showcase-index__card')).map((card) =>
+        card.querySelector('h2')?.textContent?.trim(),
       ),
     ).toEqual(dataShowcases.map((showcase) => showcase.title));
   });

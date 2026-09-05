@@ -1,316 +1,316 @@
 @layer mlv.components {
-$block: mlv-popup;
+  $block: mlv-popup;
 
-.#{$block} {
-  --mlv-popup-bg: var(--mlv-elevation-bg-3);
-  --mlv-popup-border: 0.0625rem solid var(--mlv-border-subtle);
-  background-color: var(--mlv-popup-bg);
-  color: var(--mlv-text-primary);
-  border: var(--mlv-popup-border);
-  border-radius: var(--mlv-popover-surface-radius);
-  max-height: inherit;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 100%;
-
-  &__scrollbar {
-    position: relative;
-    z-index: 2;
-    flex: 1 1 auto;
-    width: 100%;
-    min-height: 0;
-  }
-
-  // Optional chrome pinned above the scroll region ([mlvPopupPinnedContent]).
-  // The panel is a flex column and the scrollbar is `flex: 1 1 auto` with
-  // `min-height: 0`, so this block keeps its own height and the scroll region
-  // shrinks around it. `z-index: 3` outranks `__scrollbar` so scrolled content
-  // (e.g. the dropdown panel's sticky group headers) passes underneath.
-  // No padding here — the projected block owns its own spacing.
-  &__pinned {
-    flex: 0 0 auto;
-    position: relative;
-    z-index: 3;
-  }
-
-  &__inner {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
-  }
-
-  &__scrollbar > .mlv-scrollbar__viewport {
-    overflow-x: hidden;
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: -0.5rem;
-    left: -0.5rem;
-    right: -0.5rem;
-    bottom: -0.5rem;
-    background: transparent;
-    z-index: 1;
-  }
-
-  &--shadow {
-    // Raw rgba kept intentionally: drop-shadow() accepts only a single shadow
-    // layer (so it wraps the arrow ::before alpha shape), whereas the
-    // --mlv-shadow-* tokens are multi-layer box-shadow lists and cannot be
-    // used inside a filter function. box-shadow carries the SL-R3 alias
-    // alongside it so the panel still declares its role in tokens.
-    filter: drop-shadow(0 0.75rem 1.75rem rgba(0, 0, 0, 0.12));
-    box-shadow: var(--mlv-shadow-floating);
-  }
-
-  // ─── Mobile full-screen sheet ──────────────────────────────────────────────
-  // Fills the overlay pane (sized to the viewport by .mlv-popup-fullscreen-pane).
-  // The enter/leave keyframes read the --mlv-popup-*-translate-y vars, so
-  // overriding them here turns the standard fade into a bottom slide-up sheet.
-  // The keyframes are already gated behind prefers-reduced-motion:no-preference
-  // in animations.scss, so reduced-motion users get an instant appearance.
-  &--fullscreen {
-    --mlv-popup-enter-from-translate-y: 100%;
-    --mlv-popup-enter-from-scale: 1;
-    --mlv-popup-enter-from-opacity: 1;
-    --mlv-popup-leave-to-translate-y: 100%;
-    --mlv-popup-leave-to-scale: 1;
-    --mlv-popup-leave-to-opacity: 1;
-    --mlv-popup-transform-origin: bottom center;
-
-    width: 100%;
-    height: 100%;
-    max-height: none;
-    border: none;
-    border-radius: 0;
-    // Keep content clear of notches / rounded corners / home indicators.
-    padding: env(safe-area-inset-top) env(safe-area-inset-right)
-      env(safe-area-inset-bottom) env(safe-area-inset-left);
-
-    .#{$block}__scrollbar > .mlv-scrollbar__viewport {
-      -webkit-overflow-scrolling: touch;
-
-      // `__inner`'s `min-height: 100%` never resolved here, so sheet content
-      // has always sat at its natural size at the top of a viewport-tall sheet
-      // — right for a list, wrong for fixed-size content, which was left with
-      // the rest of the sheet blank (#116).
-      //
-      // The percentage could not resolve: its containing block is this
-      // wrapper, whose own height is content-derived, and a percentage
-      // min-height against an indefinite containing block computes to `0`. The
-      // wrapper measures 100% of the viewport only because *its* `min-height`
-      // resolves against the viewport, which the grid gives a definite height
-      // — that does not make the wrapper itself definite for its children.
-      //
-      // So the fill is handed to flex, which distributes real space and needs
-      // no definite height anywhere. `min-height` (not `height`) is left in
-      // place on the wrapper, so content taller than the sheet still grows it
-      // and still scrolls.
-      > .mlv-scrollbar__content {
-        display: flex;
-        flex-direction: column;
-      }
-    }
-
-    .#{$block}__inner {
-      padding: var(--mlv-spacing-4);
-      flex: 1 1 auto;
-    }
-  }
-
-  &__header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--mlv-spacing-3);
-    flex: 0 0 auto;
-    padding: var(--mlv-spacing-3) var(--mlv-spacing-4);
-    border-bottom: var(--mlv-popup-border);
-    position: relative;
-    z-index: 2;
-  }
-
-  // Title + close button row. Kept as a dedicated flex row so an optional
-  // header-content block ([mlvPopupHeaderContent]) can stack beneath it while
-  // the close button's auto inline-start margin still anchors it to the end.
-  &__header-row {
-    display: flex;
-    align-items: center;
-    gap: var(--mlv-spacing-3);
-  }
-
-  // Optional header extension (e.g. an in-sheet combobox search input).
-  &__header-content {
-    display: flex;
-    flex-direction: column;
-  }
-
-  &__title {
-    font-family: var(--mlv-typography-family-heading);
-    font-size: var(--mlv-font-size-l);
-    font-weight: var(--mlv-font-weight-semibold);
+  .#{$block} {
+    --mlv-popup-bg: var(--mlv-elevation-bg-3);
+    --mlv-popup-border: 0.0625rem solid var(--mlv-border-subtle);
+    background-color: var(--mlv-popup-bg);
     color: var(--mlv-text-primary);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
+    border: var(--mlv-popup-border);
+    border-radius: var(--mlv-popover-surface-radius);
+    max-height: inherit;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    width: 100%;
 
-  &__close {
-    // Icon control — plain button with an accessible name, styled inline
-    // (no mlv-button dependency in the popup base).
-    margin-inline-start: auto;
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--mlv-height-s);
-    height: var(--mlv-height-s);
-    border: none;
-    background: transparent;
-    color: var(--mlv-text-secondary);
-    border-radius: var(--mlv-radius-full);
-    cursor: pointer;
-    transition:
-      background-color var(--mlv-duration-fast) var(--mlv-ease-default),
-      color var(--mlv-duration-fast) var(--mlv-ease-default);
-
-    &:hover {
-      background-color: var(--mlv-background-neutral-1-hover);
-      color: var(--mlv-text-primary);
+    &__scrollbar {
+      position: relative;
+      z-index: 2;
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 0;
     }
 
-    &:focus-visible {
-      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: var(--mlv-focus-ring-offset);
+    // Optional chrome pinned above the scroll region ([mlvPopupPinnedContent]).
+    // The panel is a flex column and the scrollbar is `flex: 1 1 auto` with
+    // `min-height: 0`, so this block keeps its own height and the scroll region
+    // shrinks around it. `z-index: 3` outranks `__scrollbar` so scrolled content
+    // (e.g. the dropdown panel's sticky group headers) passes underneath.
+    // No padding here — the projected block owns its own spacing.
+    &__pinned {
+      flex: 0 0 auto;
+      position: relative;
+      z-index: 3;
     }
-  }
 
-  &--arrow {
-    &::before {
+    &__inner {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+
+    &__scrollbar > .mlv-scrollbar__viewport {
+      overflow-x: hidden;
+    }
+
+    &::after {
       content: '';
       position: absolute;
-      width: 0.75rem;
-      height: 0.75rem;
-      background-color: var(--mlv-popup-bg);
-      border: var(--mlv-popup-border);
+      top: -0.5rem;
+      left: -0.5rem;
+      right: -0.5rem;
+      bottom: -0.5rem;
+      background: transparent;
       z-index: 1;
     }
 
-    &-top {
+    &--shadow {
+      // Raw rgba kept intentionally: drop-shadow() accepts only a single shadow
+      // layer (so it wraps the arrow ::before alpha shape), whereas the
+      // --mlv-shadow-* tokens are multi-layer box-shadow lists and cannot be
+      // used inside a filter function. box-shadow carries the SL-R3 alias
+      // alongside it so the panel still declares its role in tokens.
+      filter: drop-shadow(0 0.75rem 1.75rem rgba(0, 0, 0, 0.12));
+      box-shadow: var(--mlv-shadow-floating);
+    }
+
+    // ─── Mobile full-screen sheet ──────────────────────────────────────────────
+    // Fills the overlay pane (sized to the viewport by .mlv-popup-fullscreen-pane).
+    // The enter/leave keyframes read the --mlv-popup-*-translate-y vars, so
+    // overriding them here turns the standard fade into a bottom slide-up sheet.
+    // The keyframes are already gated behind prefers-reduced-motion:no-preference
+    // in animations.scss, so reduced-motion users get an instant appearance.
+    &--fullscreen {
+      --mlv-popup-enter-from-translate-y: 100%;
+      --mlv-popup-enter-from-scale: 1;
+      --mlv-popup-enter-from-opacity: 1;
+      --mlv-popup-leave-to-translate-y: 100%;
+      --mlv-popup-leave-to-scale: 1;
+      --mlv-popup-leave-to-opacity: 1;
+      --mlv-popup-transform-origin: bottom center;
+
+      width: 100%;
+      height: 100%;
+      max-height: none;
+      border: none;
+      border-radius: 0;
+      // Keep content clear of notches / rounded corners / home indicators.
+      padding: env(safe-area-inset-top) env(safe-area-inset-right)
+        env(safe-area-inset-bottom) env(safe-area-inset-left);
+
+      .#{$block}__scrollbar > .mlv-scrollbar__viewport {
+        -webkit-overflow-scrolling: touch;
+
+        // `__inner`'s `min-height: 100%` never resolved here, so sheet content
+        // has always sat at its natural size at the top of a viewport-tall sheet
+        // — right for a list, wrong for fixed-size content, which was left with
+        // the rest of the sheet blank (#116).
+        //
+        // The percentage could not resolve: its containing block is this
+        // wrapper, whose own height is content-derived, and a percentage
+        // min-height against an indefinite containing block computes to `0`. The
+        // wrapper measures 100% of the viewport only because *its* `min-height`
+        // resolves against the viewport, which the grid gives a definite height
+        // — that does not make the wrapper itself definite for its children.
+        //
+        // So the fill is handed to flex, which distributes real space and needs
+        // no definite height anywhere. `min-height` (not `height`) is left in
+        // place on the wrapper, so content taller than the sheet still grows it
+        // and still scrolls.
+        > .mlv-scrollbar__content {
+          display: flex;
+          flex-direction: column;
+        }
+      }
+
+      .#{$block}__inner {
+        padding: var(--mlv-spacing-4);
+        flex: 1 1 auto;
+      }
+    }
+
+    &__header {
+      display: flex;
+      flex-direction: column;
+      gap: var(--mlv-spacing-3);
+      flex: 0 0 auto;
+      padding: var(--mlv-spacing-3) var(--mlv-spacing-4);
+      border-bottom: var(--mlv-popup-border);
+      position: relative;
+      z-index: 2;
+    }
+
+    // Title + close button row. Kept as a dedicated flex row so an optional
+    // header-content block ([mlvPopupHeaderContent]) can stack beneath it while
+    // the close button's auto inline-start margin still anchors it to the end.
+    &__header-row {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-3);
+    }
+
+    // Optional header extension (e.g. an in-sheet combobox search input).
+    &__header-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    &__title {
+      font-family: var(--mlv-typography-family-heading);
+      font-size: var(--mlv-font-size-l);
+      font-weight: var(--mlv-font-weight-semibold);
+      color: var(--mlv-text-primary);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    &__close {
+      // Icon control — plain button with an accessible name, styled inline
+      // (no mlv-button dependency in the popup base).
+      margin-inline-start: auto;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--mlv-height-s);
+      height: var(--mlv-height-s);
+      border: none;
+      background: transparent;
+      color: var(--mlv-text-secondary);
+      border-radius: var(--mlv-radius-full);
+      cursor: pointer;
+      transition:
+        background-color var(--mlv-duration-fast) var(--mlv-ease-default),
+        color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+      &:hover {
+        background-color: var(--mlv-background-neutral-1-hover);
+        color: var(--mlv-text-primary);
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+    }
+
+    &--arrow {
       &::before {
-        top: -0.4375rem;
-        border-inline-end: none;
-        border-bottom: none;
-        transform: rotate(45deg);
+        content: '';
+        position: absolute;
+        width: 0.75rem;
+        height: 0.75rem;
+        background-color: var(--mlv-popup-bg);
+        border: var(--mlv-popup-border);
+        z-index: 1;
       }
-    }
 
-    &-bottom {
-      &::before {
-        bottom: -0.4375rem;
-        border-inline-start: none;
-        border-top: none;
-        transform: rotate(45deg);
-      }
-    }
-
-    &-left {
-      &::before {
-        left: -0.4375rem;
-        border-inline-end: none;
-        border-top: none;
-        transform: rotate(45deg);
-      }
-    }
-
-    &-right {
-      &::before {
-        right: -0.4375rem;
-        border-inline-start: none;
-        border-bottom: none;
-        transform: rotate(45deg);
-      }
-    }
-
-    &-start {
-      &.#{$block}--arrow {
-        &-top,
-        &-bottom {
-          &::before {
-            left: 1rem;
-          }
-        }
-
-        &-left,
-        &-right {
-          &::before {
-            top: 1rem;
-          }
+      &-top {
+        &::before {
+          top: -0.4375rem;
+          border-inline-end: none;
+          border-bottom: none;
+          transform: rotate(45deg);
         }
       }
-    }
 
-    &-center {
-      &.#{$block}--arrow {
-        &-top,
-        &-bottom {
-          &::before {
-            left: 50%;
-            margin-inline-start: -0.375rem;
-          }
+      &-bottom {
+        &::before {
+          bottom: -0.4375rem;
+          border-inline-start: none;
+          border-top: none;
+          transform: rotate(45deg);
         }
+      }
 
-        &-left,
-        &-right {
-          &::before {
-            top: 50%;
-            margin-top: -0.375rem;
+      &-left {
+        &::before {
+          left: -0.4375rem;
+          border-inline-end: none;
+          border-top: none;
+          transform: rotate(45deg);
+        }
+      }
+
+      &-right {
+        &::before {
+          right: -0.4375rem;
+          border-inline-start: none;
+          border-bottom: none;
+          transform: rotate(45deg);
+        }
+      }
+
+      &-start {
+        &.#{$block}--arrow {
+          &-top,
+          &-bottom {
+            &::before {
+              left: 1rem;
+            }
+          }
+
+          &-left,
+          &-right {
+            &::before {
+              top: 1rem;
+            }
           }
         }
       }
-    }
 
-    &-end {
-      &.#{$block}--arrow {
-        &-top,
-        &-bottom {
-          &::before {
-            right: 1rem;
+      &-center {
+        &.#{$block}--arrow {
+          &-top,
+          &-bottom {
+            &::before {
+              left: 50%;
+              margin-inline-start: -0.375rem;
+            }
+          }
+
+          &-left,
+          &-right {
+            &::before {
+              top: 50%;
+              margin-top: -0.375rem;
+            }
           }
         }
+      }
 
-        &-left,
-        &-right {
-          &::before {
-            bottom: 1rem;
+      &-end {
+        &.#{$block}--arrow {
+          &-top,
+          &-bottom {
+            &::before {
+              right: 1rem;
+            }
+          }
+
+          &-left,
+          &-right {
+            &::before {
+              bottom: 1rem;
+            }
           }
         }
       }
     }
   }
-}
 
-/* When flexible dimensions are enabled, the CDK bounding box sets max-height.
+  /* When flexible dimensions are enabled, the CDK bounding box sets max-height.
    Ensure the overlay pane and popup propagate the constraint so inner content scrolls. */
-.cdk-overlay-connected-position-bounding-box .cdk-overlay-pane {
-  max-height: inherit;
-}
+  .cdk-overlay-connected-position-bounding-box .cdk-overlay-pane {
+    max-height: inherit;
+  }
 
-/* Full-screen mobile sheet — the overlay pane is stretched to the viewport
+  /* Full-screen mobile sheet — the overlay pane is stretched to the viewport
    (a global position strategy, applied by MlvPopupService when fullscreen) and the
    popup panel fills it. Uses dvh so the sheet tracks the mobile browser chrome. */
-.mlv-popup-fullscreen-pane {
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-  max-width: 100vw;
-  max-height: 100vh;
-  max-height: 100dvh;
-}
+  .mlv-popup-fullscreen-pane {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100vw;
+    max-height: 100vh;
+    max-height: 100dvh;
+  }
 
-/* Full-screen backdrop — reuses the modal scrim token so it matches dialog/drawer. */
-.mlv-popup-fullscreen-backdrop {
-  background-color: var(--mlv-background-overlay);
-}
+  /* Full-screen backdrop — reuses the modal scrim token so it matches dialog/drawer. */
+  .mlv-popup-fullscreen-backdrop {
+    background-color: var(--mlv-background-overlay);
+  }
 }

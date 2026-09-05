@@ -160,7 +160,9 @@ describe('runScaleQuery — filters', () => {
   it('applies equals', () => {
     const result = runScaleQuery(
       rows,
-      state({ filters: [{ key: 'region', operator: 'equals', value: 'EMEA' }] }),
+      state({
+        filters: [{ key: 'region', operator: 'equals', value: 'EMEA' }],
+      }),
     );
     expect(result.rows.map((r) => r.id)).toEqual([1, 3]);
   });
@@ -283,7 +285,11 @@ describe('runScaleQuery — sort', () => {
   });
 
   it('is stable for equal keys', () => {
-    const tied = [row(1, { plan: 'A' }), row(2, { plan: 'A' }), row(3, { plan: 'A' })];
+    const tied = [
+      row(1, { plan: 'A' }),
+      row(2, { plan: 'A' }),
+      row(3, { plan: 'A' }),
+    ];
     expect(
       runScaleQuery(
         tied,

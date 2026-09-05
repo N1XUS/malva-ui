@@ -351,6 +351,34 @@ const pt: MlvLanguage = {
     rating: 'Classificação',
     rateValue: 'Classificar com {value} de {max}',
   },
+  scheduler: {
+    scheduler: 'Agendador',
+    today: 'Hoje',
+    previous:
+      '{view, select, month {Mês} week {Semana} day {Dia} other {Período}} anterior',
+    next: '{view, select, month {Mês} week {Semana} day {Dia} other {Período}} seguinte',
+    month: 'Mês',
+    week: 'Semana',
+    day: 'Dia',
+    viewSwitch: 'Vista',
+    allDay: 'Todo o dia',
+    moreEvents: '+{count, plural, one {# mais} other {# mais}}',
+    moreEventsLabel:
+      '{count, plural, one {mais # evento} other {mais # eventos}} em {date}',
+    gridLabel:
+      'Vista de {view, select, month {mês} week {semana} day {dia} other {agendador}}, {period}',
+    slotLabel: '{date}, {time}',
+    dayLabelToday: '{date}, hoje',
+    eventLabel: '{title}, das {start} às {end}',
+    eventLabelAllDay: '{title}, todo o dia, de {start} a {end}',
+    dragHint:
+      'Prima Alt e uma tecla de seta para mover. Prima Alt, Shift e uma tecla de seta para alterar o fim.',
+    eventMoved: '{title} movido para {start}',
+    eventResized: '{title} termina agora às {end}',
+    moveRejected: '{title} não pode ser colocado aí',
+    rangeChanged: 'A mostrar {period}',
+    selectionHint: 'De {start} a {end} selecionado. Prima Enter para confirmar',
+  },
   scrollbar: {
     scrollableRegion: 'Região deslocável',
   },

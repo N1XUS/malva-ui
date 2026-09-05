@@ -100,7 +100,9 @@ export const SCALE_MAX_VIRTUAL_ROWS = Math.floor(
 );
 
 /** @private Turns a string pool into the option list a filterable column takes. */
-function optionsOf(values: readonly string[]): { label: string; value: string }[] {
+function optionsOf(
+  values: readonly string[],
+): { label: string; value: string }[] {
   return values.map((value) => ({ label: value, value }));
 }
 

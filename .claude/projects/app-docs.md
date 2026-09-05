@@ -204,6 +204,35 @@ primitive across basic, bordered/hoverable, responsive, Pop In, and density
 variants. Keep it separate from the feature-rich Data Table page so the native
 markup and the data-grid API remain easy to compare.
 
+The Date Adapter page (`/date`, icon `calendar`, label override `Date Adapter`,
+Utilities group) is a prose-only reference for `@malva-ui/core/date` — no
+examples, so `examples` is `[]` and the shell renders the API tab beside the
+narrative. It exists because the API tab is built from a page's library barrel:
+when the adapter moved out of `@malva-ui/core/calendar` in 2026-09 its six
+symbols left `calendar.json` and, with no page mapping to `libs/core/date`, left
+the site entirely. `apiFor()` defaults an unlisted page to
+`{ family: 'core', entry: <page> }`, so the route alone regenerates `date.json`.
+Note that `provideMlvDateAdapter` does not appear on the API tab: the extractor
+classifies classes, interfaces, types, enums and `InjectionToken` variables, not
+plain functions (no `provide*` helper appears in any generated entry), so the
+page documents its signature in prose.
+
+The Scheduler page (`/scheduler`, icon `calendar-days`, API family `scheduler`,
+Data display group) documents the standalone `@malva-ui/scheduler` package in
+seven examples: views + model binding, all-day / multi-day events,
+drag / resize / vetoes, a custom chip template + colours, working hours / slots /
+hidden days, a custom header + external drop from a SortableJS list, and range
+selection + density. Every example gives `mlv-scheduler` an explicit
+`block-size`, because the month view measures its lanes against the height it is
+given. The custom-chip example narrows its typed `data` payload in a component
+method: the `mlvSchedulerEventDef` directive has no inputs, so a template's
+context always resolves to `MlvSchedulerEventContext<Date, unknown>` — the
+`$implicit` it carries is an `MlvSchedulerEvent`, and **both** type parameters
+fall back to their defaults, so `D` silently reads as `Date` on a custom
+adapter. Its seeds, like every other scheduler example's, are anchored to the
+start of the current week rather than to `today + n`, so nothing falls outside
+the pinned week view late in the week.
+
 Examples that mutate `MlvDensityService` provide the service in their own component
 decorator. This gives each preview an isolated density scope and prevents its
 controls from changing the documentation shell's global density.
@@ -750,6 +779,8 @@ Sticky right sidebar displaying a page-level Table of Contents. Inputs: `entries
 Applied to the **Examples** panel wrapper. Collects the panel's `h2`–`h4` headings, assigns each a **unique** id (preferring the MDX-provided id, suffixing `-2`, `-3`, … on collision so `getElementById` / ToC anchors / `@for track slug` never clash), and publishes the entries to `DocsTocService`. Because the examples are `[innerHTML]`-rendered MDX that resolves asynchronously, it scans on first render and re-scans on DOM mutations (debounced to a frame) until the content settles. The exported pure helper `collectTocEntries(host)` does the id-assignment and is unit-tested (`toc-source.directive.spec.ts`). The **API** panel does not use this directive — `docs-api-viewer` publishes its headings directly from the extracted data.
 
 Headings inside an **editable region** (`[contenteditable]`) are skipped. The `/editor` page renders live `mlv-editor` previews whose Tiptap document carries its own `h2`s: those are user content, not page structure, and writing an `id` into ProseMirror-managed DOM only makes ProseMirror revert it on its next flush — leaving the ToC with an entry whose anchor no longer resolves. The attribute-presence selector also covers readonly editors, which render `contenteditable="false"` yet still own their DOM.
+
+Headings a **live preview renders itself** (`.example-container__preview`) are skipped for the same reason: they belong to the demonstrated component, not to the page. `mlv-scheduler` renders its range title as an `<h2 class="mlv-scheduler__title">`, so without the skip "On this page" listed the same date range once per example on `/scheduler`; any library component with an internal `h2`–`h4` would do the same. MDX prose headings sit outside the preview box and are unaffected.
 
 ### `DocsTocService`
 

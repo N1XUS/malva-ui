@@ -1,0 +1,76 @@
+<div class="docs-scheduler-planner">
+  <ul #backlogList class="docs-scheduler-backlog" aria-label="Backlog">
+    @for (item of backlog(); track item) {
+    <li class="docs-scheduler-backlog__item">{{ item }}</li>
+    }
+  </ul>
+  <mlv-scheduler
+    [(events)]="events"
+    view="week"
+    dragGroup="docs-planner"
+    (externalDrop)="onDrop($event)"
+    style="block-size: 36rem"
+  >
+    <ng-template mlvSchedulerHeaderDef let-api>
+      <div class="docs-scheduler-header">
+        <button
+          mlvButton
+          variant="transparent"
+          shape="square"
+          type="button"
+          aria-label="Previous"
+          (click)="api.previous()"
+        >
+          <svg
+            class="docs-scheduler-header__chevron"
+            lucideChevronLeft
+            [size]="16"
+            aria-hidden="true"
+          />
+        </button>
+        <strong>{{ api.title }}</strong>
+        <button
+          mlvButton
+          variant="transparent"
+          shape="square"
+          type="button"
+          aria-label="Next"
+          (click)="api.next()"
+        >
+          <svg
+            class="docs-scheduler-header__chevron"
+            lucideChevronRight
+            [size]="16"
+            aria-hidden="true"
+          />
+        </button>
+        <button
+          mlvButton
+          variant="outlined"
+          type="button"
+          (click)="api.today()"
+        >
+          Today
+        </button>
+        <button
+          mlvButton
+          [variant]="api.view === 'week' ? 'primary' : 'secondary'"
+          type="button"
+          [attr.aria-pressed]="api.view === 'week'"
+          (click)="api.setView('week')"
+        >
+          Week
+        </button>
+        <button
+          mlvButton
+          [variant]="api.view === 'day' ? 'primary' : 'secondary'"
+          type="button"
+          [attr.aria-pressed]="api.view === 'day'"
+          (click)="api.setView('day')"
+        >
+          Day
+        </button>
+      </div>
+    </ng-template>
+  </mlv-scheduler>
+</div>

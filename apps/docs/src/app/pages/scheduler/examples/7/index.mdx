@@ -1,0 +1,9 @@
+## Range selection, density and locale
+
+Drag across empty cells (or press <kbd>Shift</kbd>+<kbd>Arrow</kbd> from a focused cell and confirm
+with <kbd>Enter</kbd>) to emit `rangeSelect` with `{ start, end, allDay, source }`; double-click a
+slot for `slotDoubleClick`. The scheduler is density-aware through `mlvDensity` and reads its
+toolbar, hint and announcement strings from `@malva-ui/i18n` — switch the docs language and
+direction in the preferences popup to see the translated labels, the mirrored toolbar and the
+flipped grids. Weekday names and hour labels come from the date adapter, not from `@malva-ui/i18n`:
+provide `MLV_DATE_LOCALE` (or your own `MlvDateAdapter`) to localize those.

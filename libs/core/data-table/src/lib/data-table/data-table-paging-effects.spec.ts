@@ -101,7 +101,9 @@ describe('MlvDataTable — paging effects and data-source setters', () => {
     // The page the table asked for is the page the source is holding — a
     // `setPerPage` retriggered by this write would have reset it to 1.
     expect(source.page()).toBe(2);
-    expect(source.setPageCalls + source.setPerPageCalls - callsBefore).toBeLessThan(10);
+    expect(
+      source.setPageCalls + source.setPerPageCalls - callsBefore,
+    ).toBeLessThan(10);
   });
 
   it('keeps the visitor on their page when only the page size effect re-runs', async () => {

@@ -344,6 +344,33 @@ const zhHans: MlvLanguage = {
     rating: '评分',
     rateValue: '{max} 分制，评为 {value} 分',
   },
+  scheduler: {
+    scheduler: '日程表',
+    today: '今天',
+    previous:
+      '{view, select, month {上个月} week {上一周} day {前一天} other {上一周期}}',
+    next: '{view, select, month {下个月} week {下一周} day {后一天} other {下一周期}}',
+    month: '月',
+    week: '周',
+    day: '日',
+    viewSwitch: '视图',
+    allDay: '全天',
+    moreEvents: '{count, plural, one {还有 # 项} other {还有 # 项}}',
+    moreEventsLabel:
+      '{date} {count, plural, one {还有 # 个日程} other {还有 # 个日程}}',
+    gridLabel:
+      '{view, select, month {月} week {周} day {日} other {日程表}}视图，{period}',
+    slotLabel: '{date} {time}',
+    dayLabelToday: '{date}，今天',
+    eventLabel: '{title}，{start} 至 {end}',
+    eventLabelAllDay: '{title}，全天，{start} 至 {end}',
+    dragHint: '按 Alt 和方向键可移动。按 Alt、Shift 和方向键可更改结束时间。',
+    eventMoved: '{title} 已移至 {start}',
+    eventResized: '{title} 现在于 {end} 结束',
+    moveRejected: '{title} 无法放置在此处',
+    rangeChanged: '正在显示 {period}',
+    selectionHint: '已选择 {start} 至 {end}。按 Enter 确认',
+  },
   scrollbar: {
     scrollableRegion: '可滚动区域',
   },

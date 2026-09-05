@@ -47,7 +47,9 @@
     <mlv-page-content>
       @if (onMainThread) {
       <mlv-alert tone="warning">
-        <ng-template mlvAlertTitle>These are not off-thread numbers</ng-template>
+        <ng-template mlvAlertTitle
+          >These are not off-thread numbers</ng-template
+        >
         This browser exposes no <code>Worker</code>, so the dataset and every
         query are running on the main thread instead. The page still works, but
         the frame rate below no longer demonstrates anything about moving work
@@ -59,7 +61,10 @@
         class="data-at-scale-showcase__panel"
         aria-labelledby="scale-controls-heading"
       >
-        <h2 id="scale-controls-heading" class="data-at-scale-showcase__panel-title">
+        <h2
+          id="scale-controls-heading"
+          class="data-at-scale-showcase__panel-title"
+        >
           Dataset and mode
         </h2>
 
@@ -115,10 +120,9 @@
           </ng-template>
           A virtual viewport still reserves
           <code>rowHeight × rowCount</code> pixels of scrollable height, and a
-          browser will not scroll past about
-          {{ maxScrollablePx | number }} CSS pixels. At
-          {{ rowHeight }} px a row that ceiling arrives at roughly
-          {{ maxVirtualRows | number }} rows — beyond it the spacer is silently
+          browser will not scroll past about {{ maxScrollablePx | number }} CSS
+          pixels. At {{ rowHeight }} px a row that ceiling arrives at roughly {{
+          maxVirtualRows | number }} rows — beyond it the spacer is silently
           clamped and the table renders nothing. This is a limit of the DOM, not
           of <code>mlv-data-table</code>, and it is the point where server-side
           paging stops being a preference.
@@ -258,9 +262,9 @@
             </p>
             <p class="data-at-scale-showcase__metric-caption">
               Frames presented while the table was scrolled. Your display is the
-              ceiling: the quickest frame of this run arrived in
-              {{ sample.fastestFrameMs | number: '1.0-1' }} ms, an observed
-              bound of about {{ sample.displayCapHz | number: '1.0-0' }} fps.
+              ceiling: the quickest frame of this run arrived in {{
+              sample.fastestFrameMs | number: '1.0-1' }} ms, an observed bound
+              of about {{ sample.displayCapHz | number: '1.0-0' }} fps.
             </p>
             <dl class="data-at-scale-showcase__breakdown">
               <div>
@@ -273,7 +277,10 @@
               </div>
               <div>
                 <dt>Frames over {{ longFrameMs }} ms</dt>
-                <dd>{{ sample.longFrames | number }} of {{ sample.frames | number }}</dd>
+                <dd>
+                  {{ sample.longFrames | number }} of {{ sample.frames | number
+                  }}
+                </dd>
               </div>
             </dl>
             } @else {
@@ -326,14 +333,13 @@
 
         @if (lastQuery(); as sample) {
         <p class="data-at-scale-showcase__note">
-          Last query ({{ lastQueryLabel() }}):
-          {{ sample.computeMs | number: '1.0-1' }} ms computing over
-          {{ sample.total | number }} matching rows,
-          {{ sample.transferMs | number: '1.0-1' }} ms transferring
-          {{ sample.rowsReturned | number }}
-          {{ sample.unpaged ? 'rows (the whole result set)' : 'rows (one page)' }},
-          {{ sample.identifyMs | number: '1.0-1' }} ms restoring row identity,
-          {{ sample.renderMs | number: '1.0-1' }} ms rendering.
+          Last query ({{ lastQueryLabel() }}): {{ sample.computeMs | number:
+          '1.0-1' }} ms computing over {{ sample.total | number }} matching
+          rows, {{ sample.transferMs | number: '1.0-1' }} ms transferring {{
+          sample.rowsReturned | number }} {{ sample.unpaged ? 'rows (the whole
+          result set)' : 'rows (one page)' }}, {{ sample.identifyMs | number:
+          '1.0-1' }} ms restoring row identity, {{ sample.renderMs | number:
+          '1.0-1' }} ms rendering.
         </p>
         }
       </section>
@@ -405,11 +411,11 @@
         <h3>The dataset</h3>
         <p>
           Rows are generated, never shipped. A seeded 32-bit PRNG (mulberry32)
-          produces the accounts from a fixed seed using only integer
-          operations, so the same row count yields byte-identical data in every
-          browser, on every machine, across reloads — and growing the dataset
-          extends it rather than reshuffling it. No fixture file is committed,
-          and no generated value depends on the clock, the locale, or
+          produces the accounts from a fixed seed using only integer operations,
+          so the same row count yields byte-identical data in every browser, on
+          every machine, across reloads — and growing the dataset extends it
+          rather than reshuffling it. No fixture file is committed, and no
+          generated value depends on the clock, the locale, or
           <code>Math.random()</code>.
         </p>
 
@@ -446,8 +452,8 @@
           The benchmark scrolls the table from inside an animation-frame
           callback for two seconds and records when each frame ran. Frames per
           second is the number of intervals observed divided by their total
-          span; the mean and 95th-percentile frame times are reported next to
-          it because an average hides a stutter. The rate is
+          span; the mean and 95th-percentile frame times are reported next to it
+          because an average hides a stutter. The rate is
           <strong>capped by your display</strong> — 60 fps on a 60 Hz panel is
           the ceiling, not a mediocre score — so the quickest frame of the run
           is reported beside it as the bound the result should be read against.
@@ -456,8 +462,7 @@
           hidden tab receives no frames at all, so the benchmark refuses to
           sample one. It also refuses when your system asks for reduced motion:
           the run is two seconds of scrolling you did not ask for, and a run
-          that does not scroll would measure an idle page rather than the
-          table.
+          that does not scroll would measure an idle page rather than the table.
         </p>
 
         <h3>Filter latency</h3>
@@ -492,11 +497,11 @@
           <li>
             Virtual scroll has a hard ceiling that has nothing to do with the
             table: a viewport reserves <code>rowHeight × rowCount</code> pixels
-            of scrollable height, and browsers stop scrolling at about
-            {{ maxScrollablePx | number }} CSS pixels — roughly
-            {{ maxVirtualRows | number }} rows at {{ rowHeight }} px each. Above
-            that this page pages on the backend instead, and says so, because
-            the alternative is a silently clamped spacer and an empty table.
+            of scrollable height, and browsers stop scrolling at about {{
+            maxScrollablePx | number }} CSS pixels — roughly {{ maxVirtualRows |
+            number }} rows at {{ rowHeight }} px each. Above that this page
+            pages on the backend instead, and says so, because the alternative
+            is a silently clamped spacer and an empty table.
           </li>
           <li>
             Transfer is a real, unavoidable main-thread cost: the structured

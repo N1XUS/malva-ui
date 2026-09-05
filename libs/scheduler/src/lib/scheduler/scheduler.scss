@@ -1,0 +1,124 @@
+@use 'sass:map';
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+$block: mlv-scheduler;
+
+// The whole density ramp in one place: the block declares the `comfortable`
+// rung as its default so a scheduler rendered before the density directive
+// resolves still paints, and every rung is emitted from this same map so the
+// default and its named modifier can never drift apart.
+$densities: (
+  'tight': (
+    'slot': 1.5rem,
+    'lane': 1.25rem,
+    'month-row': 6rem,
+  ),
+  'compact': (
+    'slot': 2rem,
+    'lane': 1.375rem,
+    'month-row': 7rem,
+  ),
+  'comfortable': (
+    'slot': 2.5rem,
+    'lane': 1.5rem,
+    'month-row': 8rem,
+  ),
+  'spacious': (
+    'slot': 3rem,
+    'lane': 1.75rem,
+    'month-row': 9rem,
+  ),
+  'airy': (
+    'slot': 3.5rem,
+    'lane': 2rem,
+    'month-row': 10rem,
+  ),
+);
+$default-density: map.get($densities, 'comfortable');
+
+@layer mlv.components {
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-m-size),
+      0,
+      0
+    );
+
+    // Density-driven geometry (state-scoped vars only; see .claude/rules/bem-scss.md).
+    --mlv-scheduler-slot-height: #{map.get($default-density, 'slot')};
+    --mlv-scheduler-lane-height: #{map.get($default-density, 'lane')};
+    --mlv-scheduler-month-row-min-height: #{map.get(
+        $default-density,
+        'month-row'
+      )};
+    // Consumed outside this sheet, declared here so one override on the host
+    // retunes every view: `--mlv-scheduler-column-min-width` and
+    // `--mlv-scheduler-gutter-width` build the time grid's column tracks
+    // (scheduler-time-grid.scss), `--mlv-scheduler-event-min-height` floors a
+    // chip (scheduler-event.scss) and a positioned time-grid chip.
+    --mlv-scheduler-column-min-width: 8rem;
+    --mlv-scheduler-gutter-width: 3.5rem;
+    --mlv-scheduler-event-min-height: 1.25rem;
+
+    display: flex;
+    flex-direction: column;
+    min-block-size: 0;
+    block-size: 100%;
+    color: var(--mlv-text-primary);
+    background: var(--mlv-background-base);
+
+    @each $name, $props in $densities {
+      &--#{$name} {
+        --mlv-scheduler-slot-height: #{map.get($props, 'slot')};
+        --mlv-scheduler-lane-height: #{map.get($props, 'lane')};
+        --mlv-scheduler-month-row-min-height: #{map.get($props, 'month-row')};
+      }
+    }
+
+    &__toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-3);
+      flex-wrap: wrap;
+      padding-block-end: var(--mlv-spacing-3);
+    }
+
+    &__nav {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-1);
+    }
+
+    &__nav-icon {
+      // previous / next chevrons follow the inline axis
+      transform: scaleX(var(--mlv-inline-direction));
+    }
+
+    &__title {
+      margin: 0;
+      flex: 1 1 auto;
+      font-family: var(--mlv-typography-family-heading);
+      font-size: var(--mlv-typography-heading-h5-size);
+      font-weight: var(--mlv-typography-heading-h5-weight);
+      line-height: var(--mlv-typography-heading-h5-line-height);
+      text-align: start;
+    }
+
+    &__body {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-block-size: 0;
+    }
+
+    // A SortableJS drag owns the pointer: the grab cursor and the suppressed
+    // selection must hold over the whole view, not only the dragged chip.
+    &--dragging &__body {
+      cursor: grabbing;
+      user-select: none;
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}

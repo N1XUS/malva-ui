@@ -1,0 +1,120 @@
+<div
+  class="mlv-scheduler-month__grid"
+  role="grid"
+  [attr.aria-label]="_gridLabel()"
+  [attr.aria-multiselectable]="_ctx.selectable() ? 'true' : null"
+>
+  <div class="mlv-scheduler-month__weekdays" role="row">
+    @for (name of _weekdays(); track $index) {
+    <div class="mlv-scheduler-month__weekday" role="columnheader">
+      {{ name }}
+    </div>
+    }
+  </div>
+  <div
+    class="mlv-scheduler-month__rows"
+    role="rowgroup"
+    #grid
+    (pointerdown)="_onGridPointerDown($event)"
+  >
+    @for (row of _rows(); track row.index) {
+    <div class="mlv-scheduler-month__row" role="row">
+      @for (cell of row.cells; track cell.dayIndex) {
+      <div
+        class="mlv-scheduler-month__cell"
+        role="gridcell"
+        [class.mlv-scheduler-month__cell--outside]="cell.outside"
+        [class.mlv-scheduler-month__cell--today]="cell.today"
+        [class.mlv-scheduler-month__cell--selected]="_isSelected(cell.dayIndex)"
+        [attr.aria-label]="cell.label"
+        [attr.aria-selected]="_isSelected(cell.dayIndex) || null"
+        [attr.tabindex]="cell.dayIndex === _focusedIndex() ? 0 : -1"
+        [attr.data-day-index]="cell.dayIndex"
+        data-minutes="all-day"
+        mlvSchedulerDropList="month-cell"
+        [dayIndex]="cell.dayIndex"
+        [items]="lanesEl"
+        (focus)="_onCellFocus(cell)"
+        (keydown)="_onKeydown($event)"
+        (click)="_onCellPointer('click', cell, $event)"
+        (dblclick)="_onCellPointer('dblclick', cell, $event)"
+        (contextmenu)="_onCellPointer('contextmenu', cell, $event)"
+      >
+        <span class="mlv-scheduler-month__day-number" aria-hidden="true"
+          >{{ cell.dayNumber }}</span
+        >
+        <div class="mlv-scheduler-month__lanes" #lanesEl>
+          @for (segment of cell.segments; track segment.key) {
+          <mlv-scheduler-event
+            class="mlv-scheduler-month__event"
+            [class.mlv-scheduler-month__event--spanning]="segment.endIndex > segment.startIndex"
+            [normalized]="segment.normalized"
+            [lane]="true"
+            [continuesBefore]="segment.continuesBefore"
+            [continuesAfter]="segment.continuesAfter"
+            [dayIndex]="segment.startIndex"
+            [style.--mlv-scheduler-lane]="segment.lane + 1"
+            [style.--mlv-scheduler-span]="segment.endIndex - segment.startIndex + 1"
+          />
+          } @if (cell.hidden.length) {
+          <button
+            type="button"
+            class="mlv-scheduler-month__more"
+            tabindex="-1"
+            aria-haspopup="dialog"
+            [style.--mlv-scheduler-lane]="_visibleLanes()"
+            [attr.aria-label]="cell.moreLabel"
+            [attr.aria-expanded]="_popoverDayIndex() === cell.dayIndex"
+            [attr.aria-controls]="
+              _popoverDayIndex() === cell.dayIndex ? _popoverId : null
+            "
+            (click)="_openMore(cell, $event)"
+            (keydown)="_onMoreKeydown($event)"
+          >
+            {{ cell.moreText }}
+          </button>
+          }
+        </div>
+      </div>
+      }
+    </div>
+    }
+  </div>
+</div>
+<span class="mlv-scheduler-month__lane-probe" aria-hidden="true" #probe></span>
+
+<ng-template #popover>
+  @if (_popoverCell(); as cell) {
+  <!--
+    A drop list like any month cell: the spec requires the overflowed chips to
+    be draggable straight out of the panel, and they are its direct children,
+    which is what SortableJS needs to start a drag. Deliberately NOT given a
+    `data-day-index` — that attribute is what a chip's `closest()` reads to find
+    its owning grid cell, and the panel is portaled to `<body>`, so claiming to
+    be one would re-point the chips' Tab ring and Escape at a detached box.
+  -->
+  <div
+    class="mlv-scheduler-month__popover"
+    role="group"
+    [class.mlv-scheduler-month__popover--dragging]="_ctx.dragging()"
+    [attr.aria-label]="cell.label"
+    [attr.id]="_popoverId"
+    tabindex="-1"
+    mlvSchedulerDropList="month-cell"
+    [dayIndex]="cell.dayIndex"
+  >
+    <div class="mlv-scheduler-month__popover-title">{{ cell.label }}</div>
+    @for (segment of cell.all; track segment.key) {
+    <mlv-scheduler-event
+      class="mlv-scheduler-month__event"
+      [normalized]="segment.normalized"
+      [lane]="true"
+      [continuesBefore]="segment.continuesBefore"
+      [continuesAfter]="segment.continuesAfter"
+      [dayIndex]="cell.dayIndex"
+      [tabIndex]="0"
+    />
+    }
+  </div>
+  }
+</ng-template>

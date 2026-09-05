@@ -59,7 +59,7 @@ const KIND_ORDER: Record<ApiSymbolKind, number> = {
 
 /** Result of resolving a docs page to a source library barrel. */
 export interface ResolvedLib {
-  /** The library family (`core` / `cdk` / `i18n` / `editor`). */
+  /** The library family (`core` / `cdk` / `i18n` / `editor` / `scheduler`). */
   family: string;
   /** The leaf library directory name. */
   dir: string;

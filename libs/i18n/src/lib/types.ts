@@ -26,6 +26,7 @@ import type { MlvPinInputI18n } from './tokens/pin-input';
 import type { MlvPopupI18n } from './tokens/popup';
 import type { MlvProgressI18n } from './tokens/progress';
 import type { MlvRatingI18n } from './tokens/rating';
+import type { MlvSchedulerI18n } from './tokens/scheduler';
 import type { MlvScrollbarI18n } from './tokens/scrollbar';
 import type { MlvSearchFieldI18n } from './tokens/search-field';
 import type { MlvSelectI18n } from './tokens/select';
@@ -68,6 +69,7 @@ export interface MlvLanguage {
   popup: MlvPopupI18n;
   progress: MlvProgressI18n;
   rating: MlvRatingI18n;
+  scheduler: MlvSchedulerI18n;
   scrollbar: MlvScrollbarI18n;
   searchField: MlvSearchFieldI18n;
   select: MlvSelectI18n;
