@@ -10,6 +10,30 @@ import type { MlvSchedulerPointerPosition } from './scheduler-drag.service';
  */
 export const TOUCH_GESTURE_DELAY = 200;
 
+/**
+ * The element under a pointer position, falling back to `fallback`.
+ *
+ * A gesture that hit-tests cells CANNOT read `event.target` on a `pointermove`:
+ * the Pointer Events spec gives a **touch** pointer implicit capture to the
+ * element its `pointerdown` landed on, so every subsequent move reports that
+ * one element no matter where the finger has travelled. A range selection
+ * resolved from the target therefore painted the pressed cell and nothing else
+ * on a touch screen, while the same gesture with a mouse — which has no
+ * implicit capture — painted the whole range.
+ *
+ * `elementFromPoint` is the position-based answer both pointer types agree on.
+ * It is absent in jsdom and returns `null` for a point outside the viewport, so
+ * the caller's own target is kept as the fallback in both cases.
+ */
+export function elementAt(
+  doc: Document,
+  at: MlvSchedulerPointerPosition,
+  fallback: EventTarget | null,
+): EventTarget | null {
+  if (typeof doc.elementFromPoint !== 'function') return fallback;
+  return doc.elementFromPoint(at.x, at.y) ?? fallback;
+}
+
 /** Callbacks of `attachPointerDrag`. */
 export interface MlvSchedulerPointerDragHandlers {
   /** Fires once, when the pointer first crosses the threshold. `point` is where the pointer went down. */

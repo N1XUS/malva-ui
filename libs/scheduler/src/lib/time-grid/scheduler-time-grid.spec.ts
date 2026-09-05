@@ -13,6 +13,7 @@ import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvScheduler } from '../scheduler/scheduler';
 import { MLV_SCHEDULER_CONTEXT } from '../scheduler/scheduler-context';
 import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
+import { TOUCH_GESTURE_DELAY } from '../drag/scheduler-pointer';
 import { createSchedulerTestContext } from '../testing/scheduler-test-context';
 import { MlvSchedulerTimeGrid, scrollOffsetFor } from './scheduler-time-grid';
 import type {
@@ -564,6 +565,72 @@ describe('MlvSchedulerTimeGrid', () => {
       expect(host.slotClicks).toHaveLength(0); // the trailing click is swallowed
       fixture.detectChanges();
       expect(root.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
+    });
+
+    /**
+     * jsdom implements no `elementFromPoint`; install one and take it back in
+     * `afterEach` rather than at the end of the spec, so a failing assertion
+     * cannot leave a stale hit test behind for axe and the scroll specs.
+     */
+    let restoreHitTest: (() => void) | null = null;
+    const stubHitTest = (result: Element) => {
+      Object.defineProperty(document, 'elementFromPoint', {
+        value: () => result,
+        configurable: true,
+      });
+      restoreHitTest = () =>
+        Reflect.deleteProperty(document, 'elementFromPoint');
+    };
+    afterEach(() => {
+      restoreHitTest?.();
+      restoreHitTest = null;
+      // Same reason: a touch case that fails mid-gesture would otherwise leave
+      // the fake timers installed for every later spec in the file.
+      vi.useRealTimers();
+    });
+
+    it('extends a TOUCH drag past the pressed slot, which keeps the moves', () => {
+      // The Pointer Events spec gives a touch pointer implicit capture to the
+      // element it went down on, so every `pointermove.target` is the pressed
+      // slot no matter where the finger travels. Resolving the head from the
+      // target therefore painted one slot and stopped — the mouse gesture two
+      // specs up passed the whole time. The head comes from the pointer's
+      // POSITION instead.
+      vi.useFakeTimers();
+      const from = slot(1, 540); // Tue 9:00
+      const to = slot(1, 630); // Tue 10:30
+      stubHitTest(to);
+
+      from.dispatchEvent(
+        Object.assign(pointerEvent('pointerdown', 10, 10), {
+          pointerType: 'touch',
+        }),
+      );
+      vi.advanceTimersByTime(TOUCH_GESTURE_DELAY);
+      // Target stays the pressed slot; only the coordinates move.
+      from.dispatchEvent(
+        Object.assign(pointerEvent('pointermove', 10, 80), {
+          pointerType: 'touch',
+        }),
+      );
+      fixture.detectChanges();
+      expect(
+        root.querySelectorAll(
+          '.mlv-scheduler-time-grid__slot[aria-selected="true"]',
+        ),
+      ).toHaveLength(4); // 9:00, 9:30, 10:00, 10:30
+
+      from.dispatchEvent(
+        Object.assign(pointerEvent('pointerup', 10, 80), {
+          pointerType: 'touch',
+        }),
+      );
+      expect(host.ranges[0]).toEqual({
+        start: m(4, 9),
+        end: m(4, 11),
+        allDay: false,
+        source: 'pointer',
+      });
     });
 
     it('spans days: the range runs from the first day/slot to the last day/slot', () => {

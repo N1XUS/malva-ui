@@ -10,6 +10,7 @@ import { MLV_DATE_LOCALE, MlvNativeDateAdapter } from '@malva-ui/core/date';
 import { MlvResizeObserverService, MlvRtlService } from '@malva-ui/cdk/utils';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvScheduler } from '../scheduler/scheduler';
+import { TOUCH_GESTURE_DELAY } from '../drag/scheduler-pointer';
 import type {
   MlvSchedulerEvent,
   MlvSchedulerEventInteraction,
@@ -710,6 +711,69 @@ describe('MlvSchedulerMonth', () => {
       });
       cell(14).dispatchEvent(new MouseEvent('click', { bubbles: true }));
       expect(host.slotClicks).toHaveLength(0);
+    });
+
+    /**
+     * jsdom implements no `elementFromPoint`; install one and take it back in
+     * `afterEach` rather than at the end of the spec, so a failing assertion
+     * cannot leave a stale hit test behind for axe and the scroll specs.
+     */
+    let restoreHitTest: (() => void) | null = null;
+    const stubHitTest = (result: Element) => {
+      Object.defineProperty(document, 'elementFromPoint', {
+        value: () => result,
+        configurable: true,
+      });
+      restoreHitTest = () =>
+        Reflect.deleteProperty(document, 'elementFromPoint');
+    };
+    afterEach(() => {
+      restoreHitTest?.();
+      restoreHitTest = null;
+      // Same reason: a touch case that fails mid-gesture would otherwise leave
+      // the fake timers installed for every later spec in the file.
+      vi.useRealTimers();
+    });
+
+    it('extends a TOUCH drag past the pressed cell, which keeps the moves', () => {
+      // A touch pointer is implicitly captured by the element it went down on,
+      // so every `pointermove.target` is the pressed cell however far the
+      // finger travels. The head is resolved from the pointer POSITION, not
+      // from the target, or the selection would never leave that one cell.
+      vi.useFakeTimers();
+      const from = cell(7); // Mon 3 Mar 2031
+      const to = cell(14); // Mon 10 Mar
+      stubHitTest(to);
+
+      from.dispatchEvent(
+        Object.assign(pointerEvent('pointerdown', 10, 10), {
+          pointerType: 'touch',
+        }),
+      );
+      vi.advanceTimersByTime(TOUCH_GESTURE_DELAY);
+      from.dispatchEvent(
+        Object.assign(pointerEvent('pointermove', 10, 120), {
+          pointerType: 'touch',
+        }),
+      );
+      fixture.detectChanges();
+      expect(
+        root.querySelectorAll(
+          '.mlv-scheduler-month__cell[aria-selected="true"]',
+        ),
+      ).toHaveLength(8);
+
+      from.dispatchEvent(
+        Object.assign(pointerEvent('pointerup', 10, 120), {
+          pointerType: 'touch',
+        }),
+      );
+      expect(host.ranges[0]).toEqual({
+        start: m(3),
+        end: m(11),
+        allDay: true,
+        source: 'pointer',
+      });
     });
 
     it('paints nothing, commits nothing and swallows no click when selection is off', () => {

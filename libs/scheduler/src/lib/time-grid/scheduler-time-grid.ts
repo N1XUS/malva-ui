@@ -24,6 +24,7 @@ import { MlvRtlService } from '@malva-ui/cdk/utils';
 import {
   TOUCH_GESTURE_DELAY,
   attachPointerDrag,
+  elementAt,
 } from '../drag/scheduler-pointer';
 import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
 import { MlvSchedulerDropList } from '../drag/scheduler-drop-list';
@@ -654,9 +655,14 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
                 this._selection.set({ anchor: pos, head: pos }),
               );
             },
-            onMove: (_p, event) => {
+            onMove: (at, event) => {
               const s = this._selection();
-              const pos = this._positionAt(event.target);
+              // The slot under the POINTER, not the event's target: a touch
+              // pointer is implicitly captured by the slot it went down on, so
+              // the target never changes for the whole gesture (see `elementAt`).
+              const pos = this._positionAt(
+                elementAt(this._host.ownerDocument, at, event.target),
+              );
               if (
                 !s ||
                 !pos ||

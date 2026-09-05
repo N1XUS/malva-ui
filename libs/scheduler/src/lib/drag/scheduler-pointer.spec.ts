@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { attachPointerDrag } from './scheduler-pointer';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { attachPointerDrag, elementAt } from './scheduler-pointer';
 
 /** jsdom has no PointerEvent; a plain Event with the pointer fields set is what the helper reads. */
 function pointerEvent(
@@ -291,5 +291,33 @@ describe('attachPointerDrag', () => {
     el.dispatchEvent(pointerEvent('pointerup', 0, 0));
     expect(onEnd).not.toHaveBeenCalled();
     el.remove();
+  });
+});
+
+describe('elementAt', () => {
+  /** jsdom implements no `elementFromPoint`; install one and take it back after every case. */
+  const stubHitTest = (result: Element | null) => {
+    Object.defineProperty(document, 'elementFromPoint', {
+      value: vi.fn(() => result),
+      configurable: true,
+    });
+  };
+  afterEach(() => Reflect.deleteProperty(document, 'elementFromPoint'));
+
+  it('hit-tests the pointer position rather than trusting the event target', () => {
+    const under = document.createElement('div');
+    const pressed = document.createElement('div');
+    stubHitTest(under);
+    expect(elementAt(document, { x: 12, y: 34 }, pressed)).toBe(under);
+    expect(document.elementFromPoint).toHaveBeenCalledWith(12, 34);
+  });
+
+  it('falls back to the pressed target when the hit test is missing or empty', () => {
+    const pressed = document.createElement('div');
+    // No `elementFromPoint` at all (jsdom, and old engines).
+    expect(elementAt(document, { x: 12, y: 34 }, pressed)).toBe(pressed);
+    // Present but answering nothing — a point outside the viewport.
+    stubHitTest(null);
+    expect(elementAt(document, { x: -1, y: -1 }, pressed)).toBe(pressed);
   });
 });

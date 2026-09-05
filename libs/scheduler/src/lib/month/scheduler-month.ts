@@ -21,6 +21,7 @@ import { isPlatformBrowser } from '@angular/common';
 import {
   TOUCH_GESTURE_DELAY,
   attachPointerDrag,
+  elementAt,
 } from '../drag/scheduler-pointer';
 import {
   DOWN_ARROW,
@@ -462,9 +463,14 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
                 this._selection.set({ anchor: pos, head: pos }),
               );
             },
-            onMove: (_p, event) => {
+            onMove: (at, event) => {
               const s = this._selection();
-              const pos = this._posOf(event.target);
+              // The cell under the POINTER, not the event's target: a touch
+              // pointer is implicitly captured by the cell it went down on, so
+              // the target never changes for the whole gesture (see `elementAt`).
+              const pos = this._posOf(
+                elementAt(this._host.ownerDocument, at, event.target),
+              );
               if (!s || !pos) return;
               if (pos.dayIndex === s.head.dayIndex) return;
               this._zone.run(() =>
