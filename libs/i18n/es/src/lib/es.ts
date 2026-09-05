@@ -391,6 +391,35 @@ const es: MlvLanguage = {
   tabs: {
     moreTabs: 'Más pestañas',
   },
+  taskboard: {
+    boardLabel: 'Tablero de tareas',
+    addCard: 'Añadir tarjeta',
+    emptyCell: 'Sin tarjetas',
+    cardLabel: 'Tarea {label}',
+    laneName: 'Carril {lane}',
+    keyboardInstructions:
+      'Pulsa Espacio para tomar una tarjeta, las teclas de flecha para elegir una posición, Espacio de nuevo para soltarla y Escape para cancelar.',
+    grabbed:
+      '{label} tomada. Usa las teclas de flecha para elegir una posición, Espacio para soltar y Escape para cancelar.',
+    targetValid: 'Mover a {column}, posición {position} de {count}. {lane}',
+    targetInvalid: 'No se puede mover a {column}: {reason}. {lane}',
+    moved: '{label} movida a {column}, posición {position}. {lane}',
+    moveRejected: '{label} no se movió: {reason}.',
+    moveCancelled: 'Se canceló el movimiento de {label}.',
+    releasedInPlace: '{label} se dejó en su sitio.',
+    wipState: '{count} de {limit}',
+    selectionCount:
+      '{count, plural, =0 {Ninguna tarjeta seleccionada} one {# tarjeta seleccionada} other {# tarjetas seleccionadas}}',
+    reasonInvalidDrop: 'esa posición no es un destino válido',
+    reasonCancelled: 'el movimiento se canceló',
+    reasonBeforeMoveRejected: 'la aplicación rechazó el movimiento',
+    reasonBeforeMoveError: 'la aplicación no pudo completar el movimiento',
+    reasonStale: 'el tablero cambió mientras el movimiento estaba pendiente',
+    reasonLocked: 'la tarjeta, su columna o su carril está bloqueado',
+    reasonTransition: 'esa transición de columna no está permitida',
+    reasonWip: 'se alcanzó el límite de trabajo en curso',
+    reasonPolicy: 'el tablero no admite ese destino',
+  },
   tile: {
     close: 'Cerrar',
     tileLabel: 'mosaico',

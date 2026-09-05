@@ -387,6 +387,36 @@ const id: MlvLanguage = {
   tabs: {
     moreTabs: 'Tab lainnya',
   },
+  taskboard: {
+    boardLabel: 'Papan tugas',
+    addCard: 'Tambah kartu',
+    emptyCell: 'Tidak ada kartu',
+    cardLabel: 'Tugas {label}',
+    laneName: 'Jalur {lane}',
+    keyboardInstructions:
+      'Tekan Spasi untuk mengambil kartu, tombol panah untuk memilih slot, Spasi lagi untuk meletakkannya, dan Escape untuk membatalkan.',
+    grabbed:
+      '{label} diambil. Gunakan tombol panah untuk memilih slot, Spasi untuk meletakkan, Escape untuk membatalkan.',
+    targetValid:
+      'Pindahkan ke {column}, posisi {position} dari {count}. {lane}',
+    targetInvalid: 'Tidak dapat dipindahkan ke {column}: {reason}. {lane}',
+    moved: '{label} dipindahkan ke {column}, posisi {position}. {lane}',
+    moveRejected: '{label} tidak dipindahkan: {reason}.',
+    moveCancelled: 'Pemindahan {label} dibatalkan.',
+    releasedInPlace: '{label} dibiarkan di tempatnya.',
+    wipState: '{count} dari {limit}',
+    selectionCount:
+      '{count, plural, =0 {Tidak ada kartu yang dipilih} one {# kartu dipilih} other {# kartu dipilih}}',
+    reasonInvalidDrop: 'slot itu bukan target yang valid',
+    reasonCancelled: 'pemindahan dibatalkan',
+    reasonBeforeMoveRejected: 'aplikasi menolak pemindahan',
+    reasonBeforeMoveError: 'aplikasi tidak dapat menyelesaikan pemindahan',
+    reasonStale: 'papan berubah saat pemindahan masih tertunda',
+    reasonLocked: 'kartu, kolomnya, atau jalurnya terkunci',
+    reasonTransition: 'transisi kolom itu tidak diizinkan',
+    reasonWip: 'batas pekerjaan yang sedang berjalan telah tercapai',
+    reasonPolicy: 'papan tidak mengizinkan target itu',
+  },
   tile: {
     close: 'Tutup',
     tileLabel: 'ubin',

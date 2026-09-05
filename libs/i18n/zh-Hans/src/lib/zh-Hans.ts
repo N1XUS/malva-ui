@@ -383,6 +383,35 @@ const zhHans: MlvLanguage = {
   tabs: {
     moreTabs: '更多标签页',
   },
+  taskboard: {
+    boardLabel: '任务看板',
+    addCard: '添加卡片',
+    emptyCell: '暂无卡片',
+    cardLabel: '任务 {label}',
+    laneName: '泳道 {lane}',
+    keyboardInstructions:
+      '按空格键拾取卡片，用方向键选择位置，再次按空格键放下，按 Escape 取消。',
+    grabbed: '已拾取 {label}。用方向键选择位置，按空格键放下，按 Escape 取消。',
+    targetValid:
+      '移动到 {column}，共 {count} 个位置中的第 {position} 个。{lane}',
+    targetInvalid: '无法移动到 {column}：{reason}。{lane}',
+    moved: '已将 {label} 移动到 {column} 的第 {position} 个位置。{lane}',
+    moveRejected: '{label} 未被移动：{reason}。',
+    moveCancelled: '已取消移动 {label}。',
+    releasedInPlace: '{label} 保持在原位。',
+    wipState: '{limit} 个中的 {count} 个',
+    selectionCount:
+      '{count, plural, =0 {未选择任何卡片} one {已选择 # 张卡片} other {已选择 # 张卡片}}',
+    reasonInvalidDrop: '该位置不是有效的目标',
+    reasonCancelled: '移动已取消',
+    reasonBeforeMoveRejected: '应用程序拒绝了此次移动',
+    reasonBeforeMoveError: '应用程序无法完成此次移动',
+    reasonStale: '移动待处理期间看板发生了变化',
+    reasonLocked: '该卡片、其列或其泳道已锁定',
+    reasonTransition: '不允许该列之间的转移',
+    reasonWip: '已达到在制品上限',
+    reasonPolicy: '看板不允许该目标',
+  },
   tile: {
     close: '关闭',
     tileLabel: '磁贴',

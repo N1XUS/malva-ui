@@ -396,6 +396,36 @@ const uk: MlvLanguage = {
   tabs: {
     moreTabs: 'Більше вкладок',
   },
+  taskboard: {
+    boardLabel: 'Дошка завдань',
+    addCard: 'Додати картку',
+    emptyCell: 'Немає карток',
+    cardLabel: 'Завдання {label}',
+    laneName: 'Доріжка {lane}',
+    keyboardInstructions:
+      'Натисніть Пробіл, щоб узяти картку, клавіші зі стрілками, щоб вибрати місце, Пробіл ще раз, щоб покласти її, та Escape, щоб скасувати.',
+    grabbed:
+      'Узято {label}. Клавішами зі стрілками виберіть місце, Пробілом покладіть картку, Escape скасовує дію.',
+    targetValid:
+      'Перемістити до {column}, позиція {position} з {count}. {lane}',
+    targetInvalid: 'Не вдається перемістити до {column}: {reason}. {lane}',
+    moved: '{label} переміщено до {column}, позиція {position}. {lane}',
+    moveRejected: '{label} не переміщено: {reason}.',
+    moveCancelled: 'Переміщення {label} скасовано.',
+    releasedInPlace: '{label} залишено на місці.',
+    wipState: '{count} з {limit}',
+    selectionCount:
+      '{count, plural, =0 {Не вибрано жодної картки} one {Вибрано # картку} few {Вибрано # картки} many {Вибрано # карток} other {Вибрано # картки}}',
+    reasonInvalidDrop: 'це місце не є допустимою ціллю',
+    reasonCancelled: 'переміщення скасовано',
+    reasonBeforeMoveRejected: 'застосунок відхилив переміщення',
+    reasonBeforeMoveError: 'застосунок не зміг завершити переміщення',
+    reasonStale: 'дошка змінилася, поки тривало переміщення',
+    reasonLocked: 'картку, її стовпець або її доріжку заблоковано',
+    reasonTransition: 'такий перехід між стовпцями заборонено',
+    reasonWip: 'досягнуто ліміту робіт у процесі',
+    reasonPolicy: 'дошка не дозволяє таку ціль',
+  },
   tile: {
     close: 'Закрити',
     tileLabel: 'плитка',

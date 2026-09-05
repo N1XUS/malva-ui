@@ -394,6 +394,35 @@ const pl: MlvLanguage = {
   tabs: {
     moreTabs: 'Więcej kart',
   },
+  taskboard: {
+    boardLabel: 'Tablica zadań',
+    addCard: 'Dodaj kartę',
+    emptyCell: 'Brak kart',
+    cardLabel: 'Zadanie {label}',
+    laneName: 'Tor {lane}',
+    keyboardInstructions:
+      'Naciśnij Spację, aby podnieść kartę, klawisze strzałek, aby wybrać miejsce, ponownie Spację, aby ją upuścić, oraz Escape, aby anulować.',
+    grabbed:
+      'Podniesiono {label}. Klawiszami strzałek wybierz miejsce, Spacją upuść kartę, Escape anuluje.',
+    targetValid: 'Przenieś do {column}, pozycja {position} z {count}. {lane}',
+    targetInvalid: 'Nie można przenieść do {column}: {reason}. {lane}',
+    moved: 'Przeniesiono {label} do {column}, pozycja {position}. {lane}',
+    moveRejected: 'Nie przeniesiono {label}: {reason}.',
+    moveCancelled: 'Anulowano przenoszenie {label}.',
+    releasedInPlace: '{label} pozostała na swoim miejscu.',
+    wipState: '{count} z {limit}',
+    selectionCount:
+      '{count, plural, =0 {Nie wybrano żadnych kart} one {Wybrano # kartę} few {Wybrano # karty} many {Wybrano # kart} other {Wybrano # karty}}',
+    reasonInvalidDrop: 'to miejsce nie jest prawidłowym celem',
+    reasonCancelled: 'przenoszenie zostało anulowane',
+    reasonBeforeMoveRejected: 'aplikacja odrzuciła przeniesienie',
+    reasonBeforeMoveError: 'aplikacja nie mogła dokończyć przeniesienia',
+    reasonStale: 'tablica zmieniła się w trakcie przenoszenia',
+    reasonLocked: 'karta, jej kolumna lub jej tor są zablokowane',
+    reasonTransition: 'to przejście między kolumnami jest niedozwolone',
+    reasonWip: 'osiągnięto limit prac w toku',
+    reasonPolicy: 'tablica nie zezwala na ten cel',
+  },
   tile: {
     close: 'Zamknij',
     tileLabel: 'kafelek',

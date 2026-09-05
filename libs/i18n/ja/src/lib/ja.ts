@@ -383,6 +383,35 @@ const ja: MlvLanguage = {
   tabs: {
     moreTabs: 'その他のタブ',
   },
+  taskboard: {
+    boardLabel: 'タスクボード',
+    addCard: 'カードを追加',
+    emptyCell: 'カードがありません',
+    cardLabel: 'タスク {label}',
+    laneName: 'レーン {lane}',
+    keyboardInstructions:
+      'スペースキーでカードをつかみ、矢印キーで置き場所を選び、もう一度スペースキーで置きます。Escape キーで取り消します。',
+    grabbed:
+      '{label} をつかみました。矢印キーで置き場所を選び、スペースキーで置き、Escape キーで取り消します。',
+    targetValid: '{column} の {count} 件中 {position} 番目に移動します。{lane}',
+    targetInvalid: '{column} には移動できません: {reason}。{lane}',
+    moved: '{label} を {column} の {position} 番目に移動しました。{lane}',
+    moveRejected: '{label} は移動されませんでした: {reason}。',
+    moveCancelled: '{label} の移動を取り消しました。',
+    releasedInPlace: '{label} は元の位置のままです。',
+    wipState: '{limit} 件中 {count} 件',
+    selectionCount:
+      '{count, plural, =0 {カードが選択されていません} one {# 件のカードを選択中} other {# 件のカードを選択中}}',
+    reasonInvalidDrop: 'その位置は有効な移動先ではありません',
+    reasonCancelled: '移動が取り消されました',
+    reasonBeforeMoveRejected: 'アプリケーションが移動を拒否しました',
+    reasonBeforeMoveError: 'アプリケーションが移動を完了できませんでした',
+    reasonStale: '移動の保留中にボードが変更されました',
+    reasonLocked: 'カード、その列、またはそのレーンがロックされています',
+    reasonTransition: 'その列への移動は許可されていません',
+    reasonWip: '仕掛かり作業の上限に達しました',
+    reasonPolicy: 'ボードはその移動先を許可していません',
+  },
   tile: {
     close: '閉じる',
     tileLabel: 'タイル',

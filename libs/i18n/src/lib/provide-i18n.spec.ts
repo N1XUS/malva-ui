@@ -4,6 +4,7 @@ import { provideMlvI18n } from './provide-i18n';
 import { MlvI18nService } from './i18n.service';
 import { MLV_DIALOG_I18N } from './tokens/dialog';
 import { MLV_DATA_TABLE_I18N } from './tokens/data-table';
+import { MLV_TASKBOARD_I18N } from './tokens/taskboard';
 import type { MlvLanguage } from './types';
 
 const mockEn: MlvLanguage = {
@@ -150,6 +151,35 @@ const mockEn: MlvLanguage = {
   select: { placeholder: 'Select...' },
   stepper: { optional: 'Optional' },
   tabs: { moreTabs: 'More tabs' },
+  taskboard: {
+    boardLabel: 'Taskboard',
+    addCard: 'Add card',
+    emptyCell: 'No cards',
+    cardLabel: 'Task {label}',
+    laneName: 'Lane {lane}',
+    keyboardInstructions:
+      'Press Space to pick up a card, the arrow keys to choose a slot, Space again to drop it, and Escape to cancel.',
+    grabbed:
+      'Grabbed {label}. Use the arrow keys to choose a slot, Space to drop, Escape to cancel.',
+    targetValid: 'Move to {column}, position {position} of {count}. {lane}',
+    targetInvalid: 'Cannot move to {column}: {reason}. {lane}',
+    moved: 'Moved {label} to {column}, position {position}. {lane}',
+    moveRejected: '{label} was not moved: {reason}.',
+    moveCancelled: 'Cancelled moving {label}.',
+    releasedInPlace: '{label} was left in place.',
+    wipState: '{count} of {limit}',
+    selectionCount:
+      '{count, plural, =0 {No cards selected} one {# card selected} other {# cards selected}}',
+    reasonInvalidDrop: 'that slot is not a valid target',
+    reasonCancelled: 'the move was cancelled',
+    reasonBeforeMoveRejected: 'the application rejected the move',
+    reasonBeforeMoveError: 'the application could not complete the move',
+    reasonStale: 'the board changed while the move was pending',
+    reasonLocked: 'the card, its column, or its lane is locked',
+    reasonTransition: 'that column transition is not allowed',
+    reasonWip: 'the work-in-progress limit is reached',
+    reasonPolicy: 'the board does not allow that target',
+  },
   tile: {
     close: 'Close',
     tileLabel: 'tile',
@@ -188,6 +218,62 @@ describe('provideMlvI18n', () => {
       ascending: 'Ascending',
       descending: 'Descending',
       clearSort: 'Clear sort',
+    });
+  });
+
+  it('should resolve every taskboard feedback slice the board announces', async () => {
+    TestBed.configureTestingModule({
+      providers: [provideMlvI18n(async () => ({ default: mockEn }))],
+    });
+
+    await TestBed.inject(ApplicationInitStatus).donePromise;
+
+    const taskboard = TestBed.inject(MLV_TASKBOARD_I18N);
+
+    // Keyboard instructions and the built-in affordances.
+    expect(taskboard()).toMatchObject({
+      boardLabel: 'Taskboard',
+      addCard: 'Add card',
+      emptyCell: 'No cards',
+      keyboardInstructions:
+        'Press Space to pick up a card, the arrow keys to choose a slot, Space again to drop it, and Escape to cancel.',
+    });
+
+    // Drop validity — the accepted and refused keyboard targets.
+    expect(taskboard()).toMatchObject({
+      targetValid: 'Move to {column}, position {position} of {count}. {lane}',
+      targetInvalid: 'Cannot move to {column}: {reason}. {lane}',
+    });
+
+    // Move, cancellation, and the no-op release.
+    expect(taskboard()).toMatchObject({
+      grabbed:
+        'Grabbed {label}. Use the arrow keys to choose a slot, Space to drop, Escape to cancel.',
+      moved: 'Moved {label} to {column}, position {position}. {lane}',
+      moveRejected: '{label} was not moved: {reason}.',
+      moveCancelled: 'Cancelled moving {label}.',
+      releasedInPlace: '{label} was left in place.',
+    });
+
+    // WIP readout, the swimlane qualifier, and the selection announcement.
+    expect(taskboard()).toMatchObject({
+      wipState: '{count} of {limit}',
+      laneName: 'Lane {lane}',
+      selectionCount:
+        '{count, plural, =0 {No cards selected} one {# card selected} other {# cards selected}}',
+    });
+
+    // Every restriction reason the board can name in a refusal.
+    expect(taskboard()).toMatchObject({
+      reasonInvalidDrop: 'that slot is not a valid target',
+      reasonCancelled: 'the move was cancelled',
+      reasonBeforeMoveRejected: 'the application rejected the move',
+      reasonBeforeMoveError: 'the application could not complete the move',
+      reasonStale: 'the board changed while the move was pending',
+      reasonLocked: 'the card, its column, or its lane is locked',
+      reasonTransition: 'that column transition is not allowed',
+      reasonWip: 'the work-in-progress limit is reached',
+      reasonPolicy: 'the board does not allow that target',
     });
   });
 });
