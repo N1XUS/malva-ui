@@ -25,7 +25,8 @@ const INITIAL_ITEMS: readonly Ticket[] = [
     [columns]="columns()"
     (columnsChange)="applyColumns($event)"
     [(selection)]="selection"
-    [(collapsedColumnIds)]="collapsedColumnIds"
+    [collapsedColumnIds]="collapsedColumnIds()"
+    (collapsedColumnIdsChange)="applyCollapsedColumns($event)"
     dataKey="id"
     columnField="status"
   />`,
@@ -39,8 +40,15 @@ class ApiHost {
   /** Every column order the board wrote back, newest last. */
   readonly columnOrders: (readonly MlvTaskboardKey[])[] = [];
   readonly selection = signal<ReadonlySet<string>>(new Set());
-  readonly collapsedColumnIds = signal<ReadonlySet<string>>(new Set());
+  readonly collapsedColumnIds = signal<ReadonlySet<MlvTaskboardKey>>(new Set());
+  /** Every collapsed-column set the board wrote back, newest last. */
+  readonly collapsedWrites: (readonly MlvTaskboardKey[])[] = [];
   readonly board = viewChild.required(MlvTaskboard<Ticket>);
+
+  applyCollapsedColumns(next: ReadonlySet<MlvTaskboardKey>): void {
+    this.collapsedWrites.push([...next]);
+    this.collapsedColumnIds.set(next);
+  }
 
   applyColumns(next: readonly MlvTaskboardColumn[]): void {
     this.columnOrders.push(next.map((column) => column.id));
@@ -70,7 +78,10 @@ describe('MlvTaskboard public surface', () => {
       }
       fixture.detectChanges();
     };
-    return { fixture, host, card, move };
+    const live = () =>
+      host.querySelector('.mlv-taskboard__live-region')?.textContent?.trim() ??
+      '';
+    return { fixture, host, card, move, live };
   }
 
   it('reports nothing to undo or redo on an untouched board', async () => {
@@ -204,6 +215,25 @@ describe('MlvTaskboard public surface', () => {
 
     expect(host.columnOrders).toEqual([]);
     expect(host.board().undo()).toBe(false);
+  });
+
+  it('restores state without rewriting unchanged sets or announcing them', async () => {
+    const { fixture, live } = await mount();
+    const host = fixture.componentInstance;
+    host.collapsedColumnIds.set(new Set(['done']));
+    fixture.detectChanges();
+    const snapshot = host.board().snapshot();
+    host.collapsedWrites.length = 0;
+
+    host.board().restore({ ...snapshot, selectedIds: ['b'] });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect([...host.selection()]).toEqual(['b']);
+    // The collapsed set the snapshot names is the one the board already has.
+    expect(host.collapsedWrites).toEqual([]);
+    // A restore is programmatic: nothing the user did needs announcing.
+    expect(live()).toBe('');
   });
 
   it('restores a virtual cell scroll offset after the next render', async () => {

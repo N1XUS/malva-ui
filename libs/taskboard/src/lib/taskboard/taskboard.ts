@@ -786,20 +786,23 @@ export class MlvTaskboard<TItem> {
     ) {
       this._applyColumnOrder(columns);
     }
-    this.collapsedColumnIds.set(
-      new Set(
-        snapshot.collapsedColumnIds.filter((id) => index.columnById.has(id)),
-      ),
+    const collapsedColumns = new Set(
+      snapshot.collapsedColumnIds.filter((id) => index.columnById.has(id)),
     );
-    this.collapsedSwimlaneIds.set(
-      new Set(
-        snapshot.collapsedSwimlaneIds.filter((id) =>
-          index.swimlaneById.has(id),
-        ),
-      ),
+    if (!this._sameKeys(this.collapsedColumnIds(), collapsedColumns)) {
+      this.collapsedColumnIds.set(collapsedColumns);
+    }
+    const collapsedSwimlanes = new Set(
+      snapshot.collapsedSwimlaneIds.filter((id) => index.swimlaneById.has(id)),
     );
+    if (!this._sameKeys(this.collapsedSwimlaneIds(), collapsedSwimlanes)) {
+      this.collapsedSwimlaneIds.set(collapsedSwimlanes);
+    }
+    // A restore is programmatic: nothing the user did needs announcing, and
+    // the live region must not report a selection they never made.
     this._setSelection(
       new Set(snapshot.selectedIds.filter((id) => index.itemById.has(id))),
+      false,
     );
     this._restoreFocus(snapshot.focusedId);
     afterNextRender(
@@ -1361,15 +1364,23 @@ export class MlvTaskboard<TItem> {
    * `visibleItems` filter hides are never removed here: only an explicit
    * gesture changes the selection, so a filtered-away card stays selected.
    */
-  private _setSelection(next: ReadonlySet<MlvTaskboardKey>): void {
-    const current = this.selection();
-    if (
-      current.size === next.size &&
-      [...next].every((key) => current.has(key))
-    )
-      return;
+  private _setSelection(
+    next: ReadonlySet<MlvTaskboardKey>,
+    announce = true,
+  ): void {
+    if (this._sameKeys(this.selection(), next)) return;
     this.selection.set(next);
-    this._announce('selectionCount', { count: next.size });
+    if (announce) this._announce('selectionCount', { count: next.size });
+  }
+
+  /** @private Whether two key sets hold exactly the same keys. */
+  private _sameKeys(
+    current: ReadonlySet<MlvTaskboardKey>,
+    next: ReadonlySet<MlvTaskboardKey>,
+  ): boolean {
+    return (
+      current.size === next.size && [...next].every((key) => current.has(key))
+    );
   }
 
   /** @private Replaces the polite live-region text with one localized event. */
