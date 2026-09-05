@@ -1,4 +1,4 @@
-import { Directive, inject, TemplateRef } from '@angular/core';
+import { Directive, inject, input, TemplateRef } from '@angular/core';
 import type {
   MlvTaskboardColumn,
   MlvTaskboardColumnGroup,
@@ -142,6 +142,14 @@ export class MlvTaskboardColumnHeaderDef {
 /** Marks a custom template for a column or swimlane cell's content. */
 @Directive({ selector: '[mlvTaskboardColumnContentDef]' })
 export class MlvTaskboardColumnContentDef<TItem = unknown> {
+  /**
+   * Carries the item type into the template context for strict template inference.
+   * The board does not consume this value as runtime data.
+   */
+  readonly from = input<TItem | undefined>(undefined, {
+    alias: 'mlvTaskboardColumnContentDefFrom',
+  });
+
   /** The template reference for this custom cell-content slot. */
   readonly templateRef = inject(
     TemplateRef<MlvTaskboardColumnContentDefContext<TItem>>,
@@ -174,6 +182,14 @@ export class MlvTaskboardSwimlaneDef {
 /** Marks a custom template for a taskboard card. */
 @Directive({ selector: '[mlvTaskboardItemDef]' })
 export class MlvTaskboardItemDef<TItem = unknown> {
+  /**
+   * Carries the card type into the template context for strict template inference.
+   * The board does not consume this value as runtime data.
+   */
+  readonly from = input<TItem | undefined>(undefined, {
+    alias: 'mlvTaskboardItemDefFrom',
+  });
+
   /** The template reference for this custom taskboard-card slot. */
   readonly templateRef = inject(TemplateRef<MlvTaskboardItemDefContext<TItem>>);
 
@@ -204,6 +220,14 @@ export class MlvTaskboardCardAddDef {
 /** Marks a custom template for a drag preview. */
 @Directive({ selector: '[mlvTaskboardDragPreviewDef]' })
 export class MlvTaskboardDragPreviewDef<TItem = unknown> {
+  /**
+   * Carries the card type into the template context for strict template inference.
+   * The board does not consume this value as runtime data.
+   */
+  readonly from = input<TItem | undefined>(undefined, {
+    alias: 'mlvTaskboardDragPreviewDefFrom',
+  });
+
   /** The template reference for this custom drag-preview slot. */
   readonly templateRef = inject(
     TemplateRef<MlvTaskboardDragPreviewDefContext<TItem>>,
@@ -236,6 +260,14 @@ export class MlvTaskboardEmptyStateDef {
 /** Marks a custom template for a cell drop indicator. */
 @Directive({ selector: '[mlvTaskboardDropIndicatorDef]' })
 export class MlvTaskboardDropIndicatorDef<TItem = unknown> {
+  /**
+   * Carries the item type into the template context for strict template inference.
+   * The board does not consume this value as runtime data.
+   */
+  readonly from = input<TItem | undefined>(undefined, {
+    alias: 'mlvTaskboardDropIndicatorDefFrom',
+  });
+
   /** The template reference for this custom drop-indicator slot. */
   readonly templateRef = inject(
     TemplateRef<MlvTaskboardDropIndicatorDefContext<TItem>>,

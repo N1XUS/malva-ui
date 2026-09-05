@@ -48,6 +48,7 @@ interface Ticket {
     >
     <ng-template
       mlvTaskboardColumnContentDef
+      [mlvTaskboardColumnContentDefFrom]="item"
       let-items
       let-column="column"
       let-lane="swimlane"
@@ -58,6 +59,7 @@ interface Ticket {
     >
     <ng-template
       mlvTaskboardItemDef
+      [mlvTaskboardItemDefFrom]="item"
       let-card
       let-column="column"
       let-lane="swimlane"
@@ -66,7 +68,11 @@ interface Ticket {
     <ng-template mlvTaskboardCardAddDef let-requestAdd="requestAdd"
       ><button type="button" (click)="requestAdd()">Add</button></ng-template
     >
-    <ng-template mlvTaskboardDragPreviewDef let-card let-location="location"
+    <ng-template
+      mlvTaskboardDragPreviewDef
+      [mlvTaskboardDragPreviewDefFrom]="item"
+      let-card
+      let-location="location"
       >{{ card.title }} {{ location.index }}</ng-template
     >
     <ng-template
@@ -77,6 +83,7 @@ interface Ticket {
     >
     <ng-template
       mlvTaskboardDropIndicatorDef
+      [mlvTaskboardDropIndicatorDefFrom]="item"
       let-valid="valid"
       let-target="target"
       >{{ valid }} {{ target.index }}</ng-template
@@ -84,6 +91,8 @@ interface Ticket {
   `,
 })
 class TaskboardDefsHost {
+  readonly item: Ticket = { id: 'ticket-1', title: 'Typed card' };
+
   readonly headerDef = viewChild.required(MlvTaskboardHeaderDef);
   readonly columnGroupDef = viewChild.required(MlvTaskboardColumnGroupDef);
   readonly columnHeaderDef = viewChild.required(MlvTaskboardColumnHeaderDef);
