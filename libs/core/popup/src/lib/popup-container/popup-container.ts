@@ -119,7 +119,12 @@ export class MlvPopupContainer implements OnDestroy, MlvPopupContainerRef {
       vcr: this._vcr,
       positions: popup.resolvedPositions(),
       size: popup.buildSizeConfig(),
-      fullscreen: popup.isFullscreen(),
+      // Fixes the mode for this open. The same read drives the overlay's
+      // position strategy, pane class, backdrop and scroll lock *and* the
+      // panel's own chrome, so a breakpoint crossed mid-open cannot desync the
+      // two halves — and the backdrop, at least, could not follow it anyway
+      // (CDK can only detach a scrim, never attach one after `attach()`).
+      fullscreen: popup.lockFullscreenForOpen(),
       hasBackdrop: popup.hasBackdrop() ?? this._hasBackdrop,
       scrollStrategy: popup.scrollStrategy(),
       flexibleDimensions: popup.flexibleDimensions(),
@@ -133,6 +138,13 @@ export class MlvPopupContainer implements OnDestroy, MlvPopupContainerRef {
         popup.animationState.set('idle');
         popup.opened.set(false);
         popup.afterClosed.emit();
+        // Released last, after `afterClosed`: through the leave animation the
+        // panel is still on screen and keeps the chrome it opened with, and
+        // `afterClosed` still belongs to that open — a consumer handler that
+        // branches on `isFullscreen()` (e.g. `mlv-combobox._onPopupClosed`)
+        // must see the mode the popup was actually rendering, not the mode a
+        // viewport change during the open would now resolve to.
+        popup.releaseFullscreenLock();
       },
       onRequestClose: () => this.close(),
     });

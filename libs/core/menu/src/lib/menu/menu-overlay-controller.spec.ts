@@ -43,7 +43,10 @@ interface PopupLike {
   readonly animationState: WritableSignal<PopupAnimationState>;
   readonly leaveAnimationDone$: Subject<void>;
   readonly opened: WritableSignal<boolean>;
+  readonly lockedFullscreen: WritableSignal<boolean | null>;
   beginEnterAnimation(): void;
+  lockFullscreenForOpen(): boolean;
+  releaseFullscreenLock(): void;
   popupTemplate(): TemplateRef<unknown>;
   updateArrowFromPosition(position: ConnectedPosition): void;
 }
@@ -95,8 +98,20 @@ function createPopup(): PopupLike {
     animationState: signal<PopupAnimationState>('idle'),
     leaveAnimationDone$: new Subject<void>(),
     opened: signal(false),
+    // `mlv-menu`'s popup never sets `mobileMode`, so the real
+    // `lockFullscreenForOpen()` always resolves `false` here — the stub records
+    // the latch so a spec can assert the lock is taken at attach and released
+    // at dispose, the invariant #126 rests on.
+    lockedFullscreen: signal<boolean | null>(null),
     beginEnterAnimation: vi.fn(function (this: PopupLike) {
       this.animationState.set('enter');
+    }),
+    lockFullscreenForOpen: vi.fn(function (this: PopupLike) {
+      this.lockedFullscreen.set(false);
+      return false;
+    }),
+    releaseFullscreenLock: vi.fn(function (this: PopupLike) {
+      this.lockedFullscreen.set(null);
     }),
     popupTemplate: vi.fn(() => null as unknown as TemplateRef<unknown>),
     updateArrowFromPosition: vi.fn(),
@@ -455,6 +470,33 @@ describe('MlvMenuOverlayController', () => {
     expect(enabledHarness.popupHarness.popupService.open).toHaveBeenCalledTimes(
       1,
     );
+  });
+
+  it('latches the popup full-screen mode for the life of the overlay (#126)', async () => {
+    // The third overlay owner. `MlvPopupContainer` and `MlvPopupTrigger` both
+    // pass `fullscreen: popup.lockFullscreenForOpen()`; this one used to pass
+    // nothing, so `isFullscreen()` would have stayed live-reactive over an
+    // overlay created with a fixed flag — #126 exactly — the day `mlv-menu`'s
+    // popup opts into `mobileMode`. Latched at attach, released at dispose.
+    const { controller, menu, popupHarness } = createController();
+
+    expect(menu.popup.lockedFullscreen()).toBeNull();
+
+    controller.open();
+    await flushOpenLifecycle();
+
+    expect(menu.popup.lockFullscreenForOpen).toHaveBeenCalledTimes(1);
+    expect(menu.popup.lockedFullscreen()).toBe(false);
+    expect(popupHarness.popupService.open.mock.calls[0][0].fullscreen).toBe(
+      false,
+    );
+
+    controller.close();
+    menu.popup.leaveAnimationDone$.next();
+    await flushOpenLifecycle();
+
+    expect(menu.popup.releaseFullscreenLock).toHaveBeenCalledTimes(1);
+    expect(menu.popup.lockedFullscreen()).toBeNull();
   });
 
   it('runs the close lifecycle after the popup leave animation finishes', async () => {

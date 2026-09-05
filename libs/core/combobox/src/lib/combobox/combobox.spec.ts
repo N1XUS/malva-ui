@@ -1,6 +1,6 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import type { Signal } from '@angular/core';
+import type { Signal, WritableSignal } from '@angular/core';
 import { Component, signal, viewChild } from '@angular/core';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { By } from '@angular/platform-browser';
@@ -13,6 +13,8 @@ import { MlvInput } from '@malva-ui/core/input';
 import { MlvPopup } from '@malva-ui/core/popup';
 import type { MlvPopupMobileMode } from '@malva-ui/core/popup';
 import { MlvDataSource } from '@malva-ui/cdk/data-source';
+import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
+import { MlvBreakpointService } from '@malva-ui/cdk/utils';
 import {
   defaultCompareWith,
   MlvSelectDataSource,
@@ -2253,5 +2255,134 @@ describe('MlvCombobox — option-side comparator argument order', () => {
     expect(committed()).toEqual(['sel:b']);
     expect(awaitingLabel()).toBe(true);
     expect(chipCount()).toBe(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Breakpoint flip while the sheet is open (#126 / #144)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `mlv-combobox` is the heaviest `isFullscreen()` consumer: the flag decides
+ * which of its two inputs owns `role="combobox"` and its ARIA, gates the blur
+ * handler, and drives the focus handoff. It also opens anchored with
+ * `[hasBackdrop]="false"`, so a mid-open conversion would need a scrim CDK
+ * cannot attach — which is why the popup latches the mode per open.
+ *
+ * Before the latch, a viewport flip mid-open moved `role="combobox"` from the
+ * focused in-sheet input back to the backdrop-occluded outer trigger input,
+ * leaving the focused element with no combobox semantics at all.
+ */
+class FakeBreakpointService {
+  readonly down: WritableSignal<boolean> = signal(false);
+  isDown(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return this.down;
+  }
+  isUp(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return signal(false);
+  }
+}
+
+describe('MlvCombobox — breakpoint flip while the sheet is open', () => {
+  @Component({
+    template: `<mlv-combobox
+      id="fav"
+      label="Favourite"
+      [options]="['Apple', 'Banana', 'Cherry']"
+      mobileMode="auto"
+    />`,
+    imports: [MlvCombobox],
+  })
+  class AutoModeHostComponent {
+    readonly combobox = viewChild.required(MlvCombobox<string>);
+  }
+
+  let fixture: ComponentFixture<AutoModeHostComponent>;
+  let overlayContainer: OverlayContainer;
+  let breakpoint: FakeBreakpointService;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [AutoModeHostComponent],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: MlvBreakpointService, useClass: FakeBreakpointService },
+      ],
+    }).compileComponents();
+
+    breakpoint = TestBed.inject(
+      MlvBreakpointService,
+    ) as unknown as FakeBreakpointService;
+    fixture = TestBed.createComponent(AutoModeHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    overlayContainer = TestBed.inject(OverlayContainer);
+  });
+
+  afterEach(() => overlayContainer.ngOnDestroy());
+
+  const overlayEl = (): HTMLElement => overlayContainer.getContainerElement();
+
+  const sheetInput = (): HTMLInputElement | null =>
+    overlayEl().querySelector('.mlv-combobox__sheet-input input');
+
+  const outerInput = (): HTMLInputElement =>
+    fixture.debugElement
+      .query(By.css('.mlv-combobox__input'))
+      .nativeElement.querySelector('input') as HTMLInputElement;
+
+  /** Every element in the component + overlay currently claiming the role. */
+  const comboboxRoleOwners = (): string[] =>
+    [
+      ...fixture.nativeElement.querySelectorAll('[role="combobox"]'),
+      ...overlayEl().querySelectorAll('[role="combobox"]'),
+    ].map((el: Element) => (el as HTMLElement).id || '(no id)');
+
+  async function open(): Promise<void> {
+    fixture.componentInstance.combobox().isOpen.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  async function crossBreakpoint(down: boolean): Promise<void> {
+    breakpoint.down.set(down);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it('keeps the in-sheet input owning role="combobox" when the viewport widens', async () => {
+    breakpoint.down.set(true);
+    await open();
+
+    const sheet = sheetInput();
+    expect(sheet).not.toBeNull();
+    // Exactly one combobox, and it is the in-sheet one the user is typing in.
+    expect(comboboxRoleOwners()).toEqual([sheet?.id ?? '(missing)']);
+
+    await crossBreakpoint(false);
+
+    // The pane is still a viewport-filling sheet with the outer input behind a
+    // solid scrim. Handing the role back to it would leave the focused in-sheet
+    // input with no combobox semantics and the occluded one claiming them.
+    expect(sheetInput()).not.toBeNull();
+    expect(comboboxRoleOwners()).toEqual([sheet?.id ?? '(missing)']);
+  });
+
+  it('keeps the outer input owning role="combobox" when the viewport narrows', async () => {
+    breakpoint.down.set(false);
+    await open();
+
+    expect(sheetInput()).toBeNull();
+    expect(comboboxRoleOwners()).toEqual([outerInput().id]);
+
+    await crossBreakpoint(true);
+
+    // The overlay stays an anchored, scrimless dropdown, so no in-sheet input
+    // is rendered — the outer input must not relinquish the role to nothing.
+    expect(sheetInput()).toBeNull();
+    expect(comboboxRoleOwners()).toEqual([outerInput().id]);
   });
 });

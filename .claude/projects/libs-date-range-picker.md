@@ -204,6 +204,11 @@ is true, and that modifier hides `.mlv-date-range-picker__calendar--end` and
   being width-capped, which is exactly `mlv-popup`'s full-screen state; keying off
   `isFullscreen()` also keeps SCSS and TS from drifting apart when a consumer
   overrides only one of `$mlv-breakpoint-md` / `provideMlvBreakpoints()`.
+- **It does not change mid-open.** `isFullscreen()` is resolved once per open
+  (#126 / #144), so a viewport crossing `md` while the picker is open neither
+  drops the second month out of an anchored dropdown nor strips the sheet's
+  header and close button off a full-screen one; the next open re-resolves.
+  See `libs-popup.md` → _Mode is resolved once per open_.
 - **Range selection is unaffected.** The pending range lives on
   `MlvDateRangePicker`, not on either `mlv-calendar`, so a range spanning two
   months is assembled in one panel through the calendar's own `‹` / `›` month
