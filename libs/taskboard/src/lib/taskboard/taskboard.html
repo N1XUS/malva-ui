@@ -14,6 +14,7 @@
 >
   @if (columnGroups().length > 0) {
   <div class="mlv-taskboard__group-row" role="row">
+    <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
     @for (group of columnGroups(); track group.id) {
     <div
       class="mlv-taskboard__group"
@@ -34,6 +35,7 @@
   </div>
   }
   <div class="mlv-taskboard__column-row" role="row">
+    <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
     @for (column of columns(); track column.id) {
     <div
       class="mlv-taskboard__column-header"
@@ -74,6 +76,7 @@
   </div>
   } @empty {
   <div class="mlv-taskboard__lane mlv-taskboard__lane--default" role="row">
+    <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
     @for (column of columns(); track column.id) {
     <ng-container
       [ngTemplateOutlet]="cellTemplate"
@@ -109,6 +112,8 @@
       class="mlv-taskboard__card"
       [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
       [attr.aria-selected]="selection().has(_itemId(item))"
+      (click)="_activate(item, column, swimlane, cardIndex, $event)"
+      (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
     >
       <ng-container
         [ngTemplateOutlet]="itemDef.templateRef"

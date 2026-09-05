@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 import {
@@ -59,6 +59,7 @@ class TaskboardHost {
   readonly items = signal(TASKBOARD_TEST_ITEMS);
   readonly collapsedColumnIds = signal<ReadonlySet<string>>(new Set(['done']));
   readonly itemType: TaskboardTestTicket = TASKBOARD_TEST_ITEMS[0];
+  readonly board = viewChild.required(MlvTaskboard<TaskboardTestTicket>);
 }
 
 describe('MlvTaskboard', () => {
@@ -143,6 +144,16 @@ describe('MlvTaskboard', () => {
         '[data-mlv-taskboard-swimlane-id="engineering"] > [role="gridcell"]',
       ),
     ).toHaveLength(2);
+    expect(
+      host.querySelector(
+        '.mlv-taskboard__group-row > .mlv-taskboard__lane-spacer',
+      ),
+    ).toBeTruthy();
+    expect(
+      host.querySelector(
+        '.mlv-taskboard__column-row > .mlv-taskboard__lane-spacer',
+      ),
+    ).toBeTruthy();
   });
 
   it('does not nest projected interactive card content in a board button', async () => {
@@ -158,6 +169,33 @@ describe('MlvTaskboard', () => {
     expect(projectedButton.closest('button')?.classList).not.toContain(
       'mlv-taskboard__card',
     );
+  });
+
+  it('emits projected card pointer actions without changing projected control semantics', async () => {
+    await TestBed.configureTestingModule({
+      imports: [TaskboardHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(TaskboardHost);
+    fixture.detectChanges();
+    const activated: string[] = [];
+    const contextual: string[] = [];
+    fixture.componentInstance
+      .board()
+      .cardActivated.subscribe((event) => activated.push(event.item.id));
+    fixture.componentInstance
+      .board()
+      .contextMenu.subscribe((event) => contextual.push(event.item.id));
+
+    const card = fixture.nativeElement.querySelector(
+      '[data-mlv-taskboard-card-id="one"]',
+    ) as HTMLElement;
+    card.click();
+    card.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(activated).toEqual(['one']);
+    expect(contextual).toEqual(['one']);
+    expect(card.getAttribute('role')).toBeNull();
+    expect(card.getAttribute('tabindex')).toBeNull();
   });
 
   it('keeps the default card surface keyboard-operable', async () => {

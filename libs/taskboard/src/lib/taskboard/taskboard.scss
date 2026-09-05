@@ -78,10 +78,10 @@
     &__group-row,
     &__column-row {
       display: grid;
-      grid-template-columns: repeat(
-        var(--mlv-taskboard-column-count),
-        minmax(var(--mlv-taskboard-column-width), 1fr)
-      );
+      grid-template-columns: minmax(8rem, auto) repeat(
+          var(--mlv-taskboard-column-count),
+          minmax(var(--mlv-taskboard-column-width), 1fr)
+        );
       gap: var(--mlv-taskboard-gap);
     }
 
@@ -98,6 +98,10 @@
       padding-inline: var(--mlv-taskboard-padding);
       padding-block: var(--mlv-spacing-2);
       background-color: var(--mlv-background-neutral-1);
+    }
+
+    &__lane-spacer {
+      min-inline-size: 8rem;
     }
 
     &__cell {
