@@ -244,15 +244,24 @@ describe('MlvTaskboard public surface', () => {
     if (view === null) throw new Error('Expected a browser test document.');
     const print = vi.spyOn(view, 'print').mockImplementation(() => undefined);
 
-    fixture.componentInstance.board().print();
-    fixture.detectChanges();
-    await fixture.whenStable();
+    try {
+      fixture.componentInstance.board().print();
+      fixture.detectChanges();
+      await fixture.whenStable();
 
-    expect(print).toHaveBeenCalledTimes(1);
+      expect(print).toHaveBeenCalledTimes(1);
+    } finally {
+      // The view is the shared jsdom window: a spy left installed is handed
+      // straight back by the next `vi.spyOn`, calls already recorded and all.
+      print.mockRestore();
+    }
   });
 
   it('does nothing on print when the document has no view', async () => {
+    // A detached document is the shape a server render hands the board: it has
+    // no `defaultView`, and the ambient one must not be reached for instead.
     const serverDocument = document.implementation.createHTMLDocument();
+    expect(serverDocument.defaultView).toBeNull();
     await TestBed.configureTestingModule({
       imports: [ApiHost],
       providers: [
@@ -262,11 +271,18 @@ describe('MlvTaskboard public surface', () => {
     }).compileComponents();
     const fixture = TestBed.createComponent(ApiHost);
     fixture.detectChanges();
+    const ambientPrint = vi
+      .spyOn(window, 'print')
+      .mockImplementation(() => undefined);
 
-    fixture.componentInstance.board().print();
-    fixture.detectChanges();
-    await fixture.whenStable();
+    try {
+      fixture.componentInstance.board().print();
+      fixture.detectChanges();
+      await fixture.whenStable();
 
-    expect(serverDocument.defaultView).toBeNull();
+      expect(ambientPrint).not.toHaveBeenCalled();
+    } finally {
+      ambientPrint.mockRestore();
+    }
   });
 });
