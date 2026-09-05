@@ -153,15 +153,19 @@ export function mlvTaskboardChildrenOf(
 /**
  * The slot among a container's draggable children the pointer hovers.
  *
- * A hover over the container itself (rather than one of its children) reports
- * the first slot, which is the only meaningful answer for an empty container.
+ * `related` is not always one of those children: SortableJS's insert-at-end
+ * branch reports the container itself, with `willInsertAfter` set, whenever
+ * the pointer sits over a direct child that does not match `draggable` (the
+ * live drop indicator is one). That payload means the tail slot, not the
+ * first — an empty container collapses the two anyway.
  */
 export function mlvTaskboardInsertionIndex(
   event: Sortable.MoveEvent,
   children: readonly HTMLElement[],
 ): number {
+  const insertAfter = event.willInsertAfter === true;
   const related: HTMLElement | null = event.related ?? null;
   const position = related === null ? -1 : children.indexOf(related);
-  if (position < 0) return 0;
-  return event.willInsertAfter === true ? position + 1 : position;
+  if (position < 0) return insertAfter ? children.length : 0;
+  return insertAfter ? position + 1 : position;
 }

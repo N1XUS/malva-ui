@@ -161,6 +161,10 @@
     }
 
     &__drop-indicator {
+      // The indicator is a direct child of the drop container, so a pointer
+      // over it would make SortableJS report the container's tail slot and
+      // move the indicator out from under the pointer, over and over.
+      pointer-events: none;
       block-size: var(--mlv-spacing-0-5);
       border-radius: var(--mlv-radius-full);
       background-color: var(--mlv-background-accent-1);

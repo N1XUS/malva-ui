@@ -324,6 +324,32 @@ describe('MlvTaskboard SortableJS card adapter', () => {
     ]);
   });
 
+  it('resolves the end-of-list payload to the tail slot, not the first one', async () => {
+    const { fixture, host, recorded } = await createFixture();
+    const todoCards = cardsContainer(host, 'todo');
+    const doneCards = cardsContainer(host, 'done');
+    const card = cardElement(todoCards, 'a');
+
+    startDrag(todoCards, card);
+    // SortableJS's insert-at-end branch reports the container itself as
+    // `related` with `willInsertAfter` set whenever the pointer sits over a
+    // direct child that is not a card — the live drop indicator is one.
+    hover(todoCards, card, doneCards, doneCards, true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(childClasses(doneCards)).toEqual([
+      'mlv-taskboard__card',
+      'mlv-taskboard__drop-indicator',
+    ]);
+
+    endDrag(todoCards, card, doneCards);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(recorded.moved).toEqual(['done:1:b,x,a']);
+  });
+
   it('commits the last previewed slot rather than the container Sortable reports on drop', async () => {
     const { fixture, host, recorded } = await createFixture();
     const todoCards = cardsContainer(host, 'todo');
