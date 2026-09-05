@@ -506,6 +506,42 @@ export class MlvTaskboard<TItem> {
     },
   );
 
+  /**
+   * @private Key tokens of every card keyboard navigation can currently reach:
+   * present in `items`, kept by `visibleItems`, and in an expanded cell.
+   */
+  private readonly _navigableCardTokens = computed<ReadonlySet<string>>(() => {
+    const index = this._index();
+    const tokens = new Set<string>();
+    for (const swimlaneId of this._navigableSwimlaneIds()) {
+      for (const columnId of this._navigableColumnIds()) {
+        for (const item of index.itemsFor(columnId, swimlaneId)) {
+          tokens.add(mlvTaskboardKeyToken(this._itemId(item)));
+        }
+      }
+    }
+    return tokens;
+  });
+
+  /**
+   * @private The card that owns the board's single tab stop. The focused card
+   * keeps it only while the board still renders it: once it is filtered out,
+   * removed, or collapsed away the stop falls back to the first card in
+   * reading order, so the board never drops out of the tab sequence.
+   */
+  private readonly _tabbableCardId = computed<MlvTaskboardKey | undefined>(
+    () => {
+      const focus = this._keyboard.focus();
+      if (
+        focus !== null &&
+        this._navigableCardTokens().has(mlvTaskboardKeyToken(focus.itemId))
+      ) {
+        return focus.itemId;
+      }
+      return this._firstNavigableCard();
+    },
+  );
+
   /** @protected Localized board copy; template-facing, so it has no prefix. */
   protected readonly _i18n = inject(MLV_TASKBOARD_I18N);
 
@@ -665,6 +701,17 @@ export class MlvTaskboard<TItem> {
       columns: () => this.columns(),
       canReorderColumn: () => this.canReorderColumnFn(),
       reorderColumns: (next) => this._applyColumnOrder(next),
+    });
+    // Logical focus outlives the element it names, so a card the board stops
+    // rendering would keep every later arrow step anchored to a cell that is
+    // no longer there.
+    effect(() => {
+      const focus = this._keyboard.focus();
+      const tokens = this._navigableCardTokens();
+      if (this._keyboard.grabbed()) return;
+      if (focus === null || tokens.has(mlvTaskboardKeyToken(focus.itemId)))
+        return;
+      untracked(() => this._keyboard.clearFocus());
     });
     // An application that rewrites `items` or `columns` has replaced the board
     // the ledger replays against, so the recorded commands no longer describe
@@ -1042,11 +1089,7 @@ export class MlvTaskboard<TItem> {
    * into the board always lands somewhere predictable.
    */
   protected _isCardTabbable(item: TItem): boolean {
-    const focus = this._keyboard.focus();
-    const id = this._itemId(item);
-    return focus === null
-      ? sameMlvTaskboardKey(this._firstNavigableCard(), id)
-      : sameMlvTaskboardKey(focus.itemId, id);
+    return sameMlvTaskboardKey(this._tabbableCardId(), this._itemId(item));
   }
 
   /** @protected Records focus arriving on a card without moving it again. */

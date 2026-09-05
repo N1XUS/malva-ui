@@ -140,6 +140,18 @@ export class MlvTaskboardKeyboardController<TItem> {
   }
 
   /**
+   * Forgets where logical focus sat, for a card the board no longer renders.
+   *
+   * Arrow steps are resolved against the focused cell, so a focus naming a
+   * card that has been filtered out, removed, or collapsed away would strand
+   * every later key press. Dropping it hands the tab stop back to the first
+   * card in reading order.
+   */
+  clearFocus(): void {
+    this._focus.set(null);
+  }
+
+  /**
    * Moves the grab target when a card is picked up, and the roving focus
    * otherwise. Returns whether anything moved, so the board only calls
    * `preventDefault()` for a key it actually consumed.

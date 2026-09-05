@@ -22,6 +22,8 @@ const INITIAL_ITEMS: readonly Ticket[] = [
   template: `<mlv-taskboard
     [(items)]="items"
     [columns]="columns"
+    [visibleItems]="visibleItems()"
+    [(collapsedColumnIds)]="collapsedColumnIds"
     [dir]="direction()"
     dataKey="id"
     columnField="status"
@@ -30,6 +32,8 @@ const INITIAL_ITEMS: readonly Ticket[] = [
 })
 class KeyboardHost {
   readonly items = signal<readonly Ticket[]>(INITIAL_ITEMS);
+  readonly visibleItems = signal<readonly Ticket[] | undefined>(undefined);
+  readonly collapsedColumnIds = signal<ReadonlySet<string>>(new Set());
   readonly columns = [
     { id: 'todo', label: 'Todo' },
     { id: 'done', label: 'Done' },
@@ -68,7 +72,11 @@ describe('MlvTaskboard keyboard interaction', () => {
     const live = () =>
       host.querySelector('.mlv-taskboard__live-region')?.textContent?.trim() ??
       '';
-    return { fixture, host, card, key, focus, live };
+    const tabbable = () =>
+      [...host.querySelectorAll('[data-mlv-taskboard-card-id]')]
+        .filter((element) => element.getAttribute('tabindex') === '0')
+        .map((element) => element.getAttribute('data-mlv-taskboard-card-id'));
+    return { fixture, host, card, key, focus, live, tabbable };
   }
 
   const mount = () => mountHost(KeyboardHost);
@@ -249,6 +257,47 @@ describe('MlvTaskboard keyboard interaction', () => {
 
     key('a', 'ArrowUp');
     expect(live()).toBe('Move to Todo, position 1 of 2.');
+  });
+
+  it('hands the tab stop on when the focused card stops being rendered', async () => {
+    const { fixture, focus, tabbable } = await mount();
+
+    focus('b');
+    expect(tabbable()).toEqual(['string:b']);
+
+    fixture.componentInstance.visibleItems.set(
+      INITIAL_ITEMS.filter((item) => item.id !== 'b'),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(tabbable()).toEqual(['string:a']);
+  });
+
+  it('hands the tab stop on when the focused card leaves the collection', async () => {
+    const { fixture, focus, tabbable } = await mount();
+
+    focus('b');
+    fixture.componentInstance.items.set(
+      INITIAL_ITEMS.filter((item) => item.id !== 'b'),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(tabbable()).toEqual(['string:a']);
+  });
+
+  it('hands the tab stop on when the focused card collapses out of view', async () => {
+    const { fixture, focus, key, tabbable } = await mount();
+
+    focus('a');
+    key('a', 'ArrowRight');
+    expect(tabbable()).toEqual(['string:x']);
+
+    fixture.componentInstance.collapsedColumnIds.set(new Set(['done']));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(tabbable()).toEqual(['string:a']);
   });
 
   it('releases a grab dropped back where it started without cancelling it', async () => {
