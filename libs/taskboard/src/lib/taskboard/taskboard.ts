@@ -1176,6 +1176,11 @@ export class MlvTaskboard<TItem> {
    * The horizontal pair goes through `MlvRtlService.normalizeArrowKey`, so
    * `ArrowLeft` means "next column" inside an RTL subtree and the board reads
    * the same way in both directions.
+   *
+   * That mirroring follows the **document** direction, not a `[dir]` scope:
+   * `normalizeArrowKey` reads the service's document-level direction only. So
+   * there is deliberately no scoped-`[dir]` keyboard spec — one would fail,
+   * and the sanctioned API is what the board calls.
    */
   protected _onCardKeydown(
     event: KeyboardEvent,
