@@ -1142,6 +1142,41 @@ describe('MlvSchedulerTimeGrid initial scroll', () => {
     expect(viewport.scrollTop).toBe(560); // 14:00 at 60 min rows
   });
 
+  it('does not replay a scrollToTime issued before the grid was created', async () => {
+    // `scheduler.html` renders the month view from a different branch than
+    // week / day, so month → week builds a NEW time grid — and the root never
+    // clears `scrollRequest`. The fresh instance's own first render is the
+    // whole defect, so the rows have to measure from the moment they exist:
+    // `measure()` sizes an element that is already in the DOM, which is one
+    // render too late here.
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(
+      function (this: HTMLElement) {
+        return this.classList.contains('mlv-scheduler-time-grid__slot')
+          ? 40
+          : 0;
+      },
+    );
+    ctx.scrollRequest.set({ time: '14:00', sequence: 1 });
+
+    const later = TestBed.createComponent(ScrollHost);
+    later.detectChanges();
+    await later.whenStable();
+    const laterViewport = query<HTMLElement>(
+      later.nativeElement as HTMLElement,
+      '.mlv-scrollbar__viewport',
+    );
+    // The documented initial scroll (08:00 top-aligned), not the 14:00 a
+    // consumer asked for before this grid existed — possibly while the month
+    // view was showing, where `scrollToTime()` is documented as a no-op.
+    expect(laterViewport.scrollTop).toBe(640);
+
+    // Only requests older than the instance are stale: a new sequence is a new
+    // request and still moves it.
+    ctx.scrollRequest.set({ time: '14:00', sequence: 2 });
+    await later.whenStable();
+    expect(laterViewport.scrollTop).toBe(1120);
+  });
+
   it('never reads the context clock, so it cannot cache a stale minute', async () => {
     // `nowMinutes` only ticks while `showCurrentTime` is on; a grid that read it
     // would cache whatever minute it first saw and re-centre that forever.

@@ -170,6 +170,21 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   private readonly _zone = inject(NgZone);
   /** @private No pointer drag on the server. */
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  /**
+   * @private `sequence` of the `scrollToTime()` request already standing when
+   * this grid was constructed, i.e. one issued before this instance existed.
+   *
+   * The root never clears `scrollRequest`, and `scheduler.html` renders the
+   * month view from a different branch than week / day — so month → week
+   * builds a NEW time grid whose request effect would otherwise fire once on
+   * its own first render and beat the documented initial scroll with a time
+   * asked for long ago, possibly while the month view was showing, where
+   * `scrollToTime()` is documented as a no-op. Anything at or below this
+   * sequence is stale; the same instance still honours every new one.
+   */
+  private readonly _seenScrollSequence = untracked(
+    () => this._ctx.scrollRequest()?.sequence ?? 0,
+  );
 
   /** @internal Model events plus the drag preview ghost. */
   protected readonly _events = computed(() =>
@@ -643,7 +658,9 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     // `sequence` still re-runs it, since that is read outside `untracked`.
     afterRenderEffect(() => {
       const request = this._ctx.scrollRequest();
-      if (!request) return;
+      // A request this instance was born with is stale — see
+      // `_seenScrollSequence`. Every later sequence is honoured as before.
+      if (!request || request.sequence <= this._seenScrollSequence) return;
       untracked(() => this._scrollTo(parseTime(request.time)));
     });
 
