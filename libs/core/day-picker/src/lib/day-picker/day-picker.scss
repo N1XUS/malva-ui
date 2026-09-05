@@ -90,6 +90,41 @@
     // been pushed off by a shared-modifier change.
     &__popup {
       padding: var(--mlv-popover-inset);
+
+      // The sheet is a three-region column whose middle region is the scroller,
+      // so it has to claim the sheet's leftover height instead of sitting at
+      // its natural size at the top with the rest blank.
+      //
+      // It claims it the way `mlv-time-picker__panel--sheet` does, and for the
+      // same reason: `flex: 1 1 0`, **not** `height: 100%` and not the
+      // `flex: 1` shorthand (whose basis is `0%`). Every percentage here
+      // resolves against an ancestor chain with no definite height —
+      // `.mlv-popup__inner` carries `min-height: 100%`, which popup.scss
+      // § `--fullscreen` records as never resolving either, because its
+      // containing block is content-derived. A `<length>` basis of `0` plus
+      // `flex-grow` is pure free-space distribution and needs no definite
+      // height anywhere. `min-height: 0` is what then lets the month scroller
+      // shrink below its content instead of growing this wrapper past the
+      // sheet.
+      //
+      // Unlike the range picker's panel this wrapper is not already a flex
+      // column, so it becomes one for the sheet to be laid out in.
+      //
+      // The popover inset goes with it: `--mlv-popover-inset` is the shared
+      // *dropdown* inset, and `.mlv-popup--fullscreen` already pads `__inner`
+      // for the sheet. Dropped here, the month list runs edge to edge.
+      &--sheet {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 0;
+        min-height: 0;
+        padding: 0;
+
+        .mlv-calendar-sheet {
+          flex: 1 1 0;
+          min-height: 0;
+        }
+      }
     }
   }
 }

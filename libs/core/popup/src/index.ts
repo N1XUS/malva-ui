@@ -1,6 +1,7 @@
 export * from './lib/popup/popup';
 export * from './lib/popup-content';
 export * from './lib/popup-header-content';
+export * from './lib/popup-header-actions';
 export * from './lib/popup-pinned-content';
 export * from './lib/popup-trigger/popup-trigger';
 export * from './lib/popup-container/popup-container';

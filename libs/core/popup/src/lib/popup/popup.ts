@@ -32,6 +32,7 @@ import { MLV_DENSITY_CONTEXT, MlvDensityService } from '@malva-ui/cdk/density';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import { MLV_POPUP_I18N } from '@malva-ui/i18n';
 import { MlvPopupContent } from '../popup-content';
+import { MlvPopupHeaderActions } from '../popup-header-actions';
 import { MlvPopupHeaderContent } from '../popup-header-content';
 import { MlvPopupPinnedContent } from '../popup-pinned-content';
 import type {
@@ -391,6 +392,15 @@ export class MlvPopup {
    * byte-identical whether or not the slot is supplied.
    */
   protected readonly headerContentRef = contentChild(MlvPopupHeaderContent);
+
+  /**
+   * @protected Optional trailing-action template projected via
+   * `[mlvPopupHeaderActions]`. Rendered inside the full-screen header's
+   * title/close row, immediately before the close button, and — like
+   * {@link headerContentRef} — only stamped while {@link isFullscreen} is
+   * `true`, so an anchored popup is unaffected by its presence.
+   */
+  protected readonly headerActionsRef = contentChild(MlvPopupHeaderActions);
 
   /**
    * @protected Optional pinned-chrome template projected via

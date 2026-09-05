@@ -44,28 +44,29 @@ function ruleBody(css: string, selector: string): string {
 }
 
 /**
- * jsdom implements no layout, so the clipping this file guards cannot be
- * asserted against a rendered component — `getBoundingClientRect()` reads 0.
- * The compiled stylesheet is where the fix actually lives, so these read that.
+ * jsdom implements no layout, so the geometry this file guards cannot be
+ * asserted against a rendered component — `getBoundingClientRect()` reads 0 and
+ * `getComputedStyle` resolves no percentage. The compiled stylesheet is where
+ * the behaviour actually lives, so these read that.
  *
- * Measured in Chrome at 375x812 with the fix ablated: the calendars row reports
- * `scrollWidth` 577px inside a 343px panel, so 235px of the second month sits
- * past `.mlv-date-range-picker__panel`'s `overflow: hidden` edge — 29px of a
- * 264px calendar visible. No user gesture reaches it: `overflow: hidden` paints
- * no scrollbar and refuses touch panning, and the only thing that moves
- * `scrollLeft` is the browser scrolling a focused cell into view, which pushes
- * the first month out in exchange.
+ * ### What changed at #130
  *
- * 577 is what the row measures *at that width*, not what two months need. The
- * first calendar is squeezed to ~248px there by `mlv-calendar`'s
- * `width: min(100%, 19rem)`, while the second keeps its natural 264px and
- * overflows. Given room to render naturally the row needs **593px** — 32px of
- * row padding (`padding: 1rem` is four-sided, so 16px per side), two 264px
- * calendars, and the 1px rule with its 1rem margins. 593 is the figure the SCSS
- * comment and the docs quote, and it is the one that answers "how wide must the
- * panel be for two months to fit".
+ * #121 shipped a stopgap here: `display: none` on `__calendar--end` and
+ * `__divider`, plus `justify-content: center` on the surviving row, because two
+ * 264px calendars need 593px of inline space and the sheet is the one place the
+ * panel is capped at the viewport. #130 replaced the sheet body with
+ * `mlv-calendar-sheet`, so there is no second month to hide, no divider to drop
+ * and no row to centre — the whole stopgap is gone, and the specs that pinned
+ * it went with it.
+ *
+ * What remains is the fill: the sheet is a three-region column whose middle
+ * region scrolls, so it has to claim the sheet's leftover height. Every
+ * percentage in this chain is inert — `.mlv-popup__inner`'s own
+ * `min-height: 100%` never resolves, because its containing block's height is
+ * content-derived (popup.scss § `--fullscreen`, measured at #116) — so the fill
+ * is flex, exactly as `mlv-time-picker__panel--sheet` does it.
  */
-describe('date-range-picker.scss — mobile full-screen sheet (#121)', () => {
+describe('date-range-picker.scss — mobile full-screen sheet (#130)', () => {
   // The stylesheet ships inside `@layer mlv.components`; jsdom cannot parse
   // `@layer` and drops the whole sheet, so it is flattened away here exactly as
   // `setup-strip-css-layers.js` does for the rendered specs.
@@ -75,51 +76,46 @@ describe('date-range-picker.scss — mobile full-screen sheet (#121)', () => {
 
   const SHEET = '.mlv-date-range-picker__panel--sheet';
 
-  it('drops the second month in the sheet', () => {
-    // The whole fix. In an anchored dropdown the CDK pane is sized to the
-    // row's 593px of content and both months fit at every viewport width; only
-    // the sheet caps the panel at the viewport, and below roughly 612px the
-    // second month goes past the clip edge.
-    const body = ruleBody(
-      css,
-      `${SHEET} .mlv-date-range-picker__calendar--end`,
-    );
-    expect(body).toContain('display: none');
+  it('claims the leftover sheet height with a length flex basis', () => {
+    // `flex: 1 1 0`, never `height: 100%` and never the `flex: 1` shorthand:
+    // both are percentages against an ancestor chain with no definite height,
+    // so both leave the panel content-sized and the sheet top-anchored with the
+    // rest of the viewport blank — the exact #116 symptom.
+    const body = ruleBody(css, SHEET);
+    expect(body).toMatch(/flex:\s*1\s+1\s+0(?!%)/);
+    expect(body).not.toMatch(/height:\s*100%/);
   });
 
-  it('drops the rule between the two months with it', () => {
-    // A 1px vertical rule with 1rem of margin on each side, left behind next to
-    // a single month, reads as a stray divider at the panel's inline-end edge.
-    const body = ruleBody(css, `${SHEET} .mlv-date-range-picker__divider`);
-    expect(body).toContain('display: none');
+  it('lets the month scroller shrink below its content', () => {
+    // Without this the column's `auto` minimum size floors the panel at the
+    // full height of every rendered month, so the sheet grows past the viewport
+    // and the inner `overflow-y: auto` never has anything to scroll.
+    expect(ruleBody(css, SHEET)).toContain('min-height: 0');
   });
 
-  it('centres the surviving month in the sheet', () => {
-    // Invisible in a dropdown, where the panel shrink-wraps to the row, and
-    // plain once `.mlv-popup__inner`'s `align-items: stretch` makes the sheet
-    // panel full-width: the row's default `justify-content: flex-start` would
-    // leave the 264px calendar against the inline-start edge with the leftover
-    // 47px dead at the other end.
-    const body = ruleBody(css, `${SHEET} .mlv-date-range-picker__calendars`);
-    expect(body).toContain('justify-content: center');
+  it('passes the same pair down to the sheet body', () => {
+    // `__panel` is the column flex container, so the sheet is a flex item in it
+    // and needs its own basis and floor for the fill to reach the scroller.
+    const body = ruleBody(css, `${SHEET} .mlv-calendar-sheet`);
+    expect(body).toMatch(/flex:\s*1\s+1\s+0(?!%)/);
+    expect(body).toContain('min-height: 0');
   });
 
-  it('hides nothing outside the sheet modifier', () => {
-    // Narrower than it sounds: this proves only that no *unscoped* rule for
-    // these three selectors carries `display: none`. It is not a byte-identity
-    // check on the anchored dropdown — it would still pass if someone added,
-    // say, `justify-content` to the unscoped `__calendars`. What it does buy
-    // is the one regression that would actually break the desktop layout:
-    // hiding a panel outside sheet mode.
+  it('hides nothing, in the sheet or out of it', () => {
+    // #121's `display: none` is gone whole. This is the regression guard on
+    // that removal: neither mode may reach for hiding a panel again — the sheet
+    // renders a different body instead of the same one with parts blanked out.
     for (const selector of [
       '.mlv-date-range-picker__divider',
       '.mlv-date-range-picker__calendars',
       '.mlv-date-range-picker__calendar',
+      '.mlv-date-range-picker__calendar--end',
+      `${SHEET} .mlv-date-range-picker__divider`,
+      `${SHEET} .mlv-date-range-picker__calendars`,
+      `${SHEET} .mlv-date-range-picker__calendar--end`,
     ]) {
       for (const body of rulesFor(css, selector)) {
-        expect(body, `unscoped rule for \`${selector}\``).not.toContain(
-          'display: none',
-        );
+        expect(body, `rule for \`${selector}\``).not.toContain('display: none');
       }
     }
   });

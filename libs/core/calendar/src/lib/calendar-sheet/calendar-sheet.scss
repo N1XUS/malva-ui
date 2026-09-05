@@ -1,0 +1,189 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-calendar-sheet;
+
+  .#{$block} {
+    @include mixins.base();
+
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    color: var(--mlv-text-primary);
+    user-select: none;
+
+    // The three regions share one 7-column track so the fixed weekday strip
+    // stays aligned with every month grid below it.
+    --mlv-calendar-sheet-columns: repeat(7, minmax(0, 1fr));
+
+    &__years {
+      flex: 0 0 auto;
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+
+      // The strip is one row of years, not a drum: it reads its own metrics
+      // from the item box, so only the track height is overridden here.
+      .mlv-scrubber {
+        --mlv-scrubber-item-size: 4.5rem;
+      }
+    }
+
+    &__weekdays {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: var(--mlv-calendar-sheet-columns);
+      padding: var(--mlv-padding-xs);
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+      background: var(--mlv-background-base);
+    }
+
+    &__weekday {
+      text-align: center;
+      font-size: var(--mlv-typography-body-s-size);
+      font-weight: var(--mlv-typography-body-s-weight);
+      color: var(--mlv-text-secondary);
+      text-transform: uppercase;
+    }
+
+    &__months {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+
+      // The offset positioning parent for every month section, so a section's
+      // `offsetTop` is directly the scroll offset that brings it to the top.
+      position: relative;
+
+      // Window growth is compensated in script; browser scroll anchoring would
+      // race that compensation and double-count the inserted block.
+      overflow-anchor: none;
+      -webkit-overflow-scrolling: touch;
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      }
+    }
+
+    &__month {
+      padding-block-end: var(--mlv-spacing-2);
+
+      & + & {
+        border-block-start: var(--mlv-stroke-width) solid
+          var(--mlv-border-subtle);
+      }
+    }
+
+    &__month-label {
+      margin: 0;
+      padding: var(--mlv-padding-s);
+      font-size: var(--mlv-typography-body-m-size);
+      font-weight: var(--mlv-typography-heading-h6-weight);
+      color: var(--mlv-text-primary);
+      text-transform: uppercase;
+
+      // A range that spans the boundary must not break at the section rule.
+      &--in-range {
+        background: var(--mlv-background-accent-1-pale);
+      }
+    }
+
+    // Real column headers for the grid; the visible strip above is fixed and
+    // therefore cannot live inside any one month's grid, so it is decoration
+    // and this row carries the semantics out of view.
+    &__columnheaders {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    &__week {
+      display: grid;
+      grid-template-columns: var(--mlv-calendar-sheet-columns);
+      padding-inline: var(--mlv-spacing-2);
+    }
+
+    &__cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      aspect-ratio: 1;
+
+      &--in-range {
+        background: var(--mlv-background-accent-1-pale);
+      }
+
+      &--range-row-start {
+        border-start-start-radius: var(--mlv-radius-full);
+        border-end-start-radius: var(--mlv-radius-full);
+      }
+
+      &--range-row-end {
+        border-start-end-radius: var(--mlv-radius-full);
+        border-end-end-radius: var(--mlv-radius-full);
+      }
+    }
+
+    &__day {
+      @include mixins.base(
+        var(--mlv-typography-family-text),
+        var(--mlv-typography-body-m-size),
+        0,
+        0
+      );
+
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 2.75rem;
+      aspect-ratio: 1;
+      border: none;
+      border-radius: var(--mlv-radius-full);
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      transition: background-color var(--mlv-duration-fast)
+        var(--mlv-ease-default);
+
+      &:hover:not(:disabled) {
+        background: var(--mlv-background-neutral-1-hover);
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+
+      &--today {
+        font-weight: var(--mlv-typography-body-m-weight);
+        box-shadow: inset 0 0 0 var(--mlv-stroke-width) var(--mlv-border-normal);
+      }
+
+      &--selected,
+      &--range-start,
+      &--range-end {
+        background: var(--mlv-background-accent-1);
+        color: var(--mlv-text-primary-on-accent-1);
+
+        &:hover:not(:disabled) {
+          background: var(--mlv-background-accent-1-hover);
+        }
+      }
+
+      &:disabled {
+        color: var(--mlv-text-disabled);
+        cursor: default;
+      }
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}

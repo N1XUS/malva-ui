@@ -69,6 +69,27 @@ describe('popup.scss — full-screen sheet fill', () => {
     expect(ruleBody(css, INNER)).toContain('flex: 1 1 auto');
   });
 
+  it('pushes the header actions to the trailing edge', () => {
+    // The title takes the leading edge and the close button claims the free
+    // space with its own `margin-inline-start: auto`. Without this the actions
+    // wrapper would sit flush against the title and the close button would fly
+    // off on its own; with it, the pair travels together as one trailing group.
+    // Logical, so it mirrors under RTL for free (`.claude/rules/rtl.md`).
+    const body = ruleBody(css, '.mlv-popup__header-actions');
+    expect(body).toContain('margin-inline-start: auto');
+  });
+
+  it('drops the close button’s own auto margin once actions precede it', () => {
+    // Two `auto` margins on the inline axis split the free space between them,
+    // which would leave a gap between Done and the dismiss button rather than
+    // the `gap`-sized one the header row asks for.
+    const body = ruleBody(
+      css,
+      '.mlv-popup__header-actions + .mlv-popup__close',
+    );
+    expect(body).toContain('margin-inline-start: 0');
+  });
+
   it('scopes the fill to the full-screen sheet', () => {
     // A trigger-anchored popup shrink-wraps to its content and must keep doing
     // so; every consumer that never goes full-screen (and `mlv-filter`, which

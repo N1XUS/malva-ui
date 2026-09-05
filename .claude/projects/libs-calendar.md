@@ -16,6 +16,7 @@ Exported from `libs/forms/calendar/src/index.ts`:
 | Export | Kind | Description |
 |--------|------|-------------|
 | `MlvCalendar` | Component | The calendar UI — selector `mlv-calendar` |
+| `MlvCalendarSheet` | Component | Full-screen mobile calendar layout — selector `mlv-calendar-sheet` |
 | `MlvCalendarView` | Type | `'month' \| 'year' \| 'multi-year'` |
 | `MlvCalendarRangeValue` | Type | `{ start: D \| null; end: D \| null }` for range mode |
 | `MlvDateAdapter` | Abstract class | Date manipulation and localization contract for calendar-aware components |
@@ -166,6 +167,194 @@ All month labels, weekday labels, year labels, header labels, and day ARIA label
 
 ---
 
+### `MlvCalendarSheet`
+
+**File:** `libs/core/calendar/src/lib/calendar-sheet/calendar-sheet.ts`
+
+- **Selector:** `mlv-calendar-sheet`
+- **Change Detection:** `OnPush`
+- **Encapsulation:** `None`
+- **Template:** `libs/core/calendar/src/lib/calendar-sheet/calendar-sheet.html`
+- **Styles:** `libs/core/calendar/src/lib/calendar-sheet/calendar-sheet.scss`
+
+The mobile counterpart to `MlvCalendar`: a horizontal year strip, a fixed
+weekday header and **one continuous vertical scroll of consecutive months**. It
+is a **body only** — `mlv-popup` owns the surface, header, close button, focus
+trap and scroll lock, and the host owns the confirm action. Added at #130 for
+`mlv-day-picker` and `mlv-date-range-picker`; it is not a drop-in replacement
+for `mlv-calendar` and has no view modes, no `‹` / `›` month navigation and no
+card chrome.
+
+Selection is **pending by construction**: writing `value` / `rangeValue` closes
+nothing and commits nothing, so a host seeds it on open, commits it on `Done`
+and drops it on dismiss.
+
+#### Models (two-way binding)
+
+| Name         | Type                                      | Default | Description                                           |
+| ------------ | ----------------------------------------- | ------- | ----------------------------------------------------- |
+| `value`      | `Model<D \| null>`                        | `null`  | The pending single-date selection                     |
+| `rangeValue` | `Model<MlvCalendarRangeValue<D> \| null>` | `null`  | The pending range selection; used when `range` is set |
+
+#### Inputs
+
+| Name             | Type                             | Default | Description                                                                              |
+| ---------------- | -------------------------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `range`          | `boolean`                        | `false` | Range selection mode, driving `rangeValue` instead of `value`                            |
+| `min`            | `D \| null`                      | `null`  | Minimum selectable date; also clamps how far back the month list can extend              |
+| `max`            | `D \| null`                      | `null`  | Maximum selectable date; also clamps how far forward the month list can extend           |
+| `disabledDates`  | `((date: D) => boolean) \| null` | `null`  | Custom predicate; return `true` to disable a date                                        |
+| `firstDayOfWeek` | `number`                         | `1`     | First day of the week (0 = Sunday)                                                       |
+| `windowMonths`   | `number`                         | `12`    | Half-extent, in months, of the window seeded around the selection — see _Bounded window_ |
+| `maxMonths`      | `number`                         | `121`   | Ceiling on rendered month sections; growth stops here — see _Bounded window_             |
+| `yearRange`      | `number`                         | `50`    | Half-extent, in years, of the year strip when `min` / `max` do not bound it              |
+
+#### Methods
+
+| Name               | Description                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `focusActiveDay()` | Moves keyboard focus to the grid's single roving tab stop, the way `mlv-calendar` hands focus to its own active day cell |
+
+#### Bounded window, not virtualisation
+
+The list is a **bounded window**, deliberately: it starts at `2 * windowMonths + 1`
+sections around the anchor month (the pending selection, else today) and grows by
+another `windowMonths` whenever the user scrolls within `96px` of either end.
+Nothing is recycled and no viewport measurement decides what exists, so there is
+no virtual-scroll bookkeeping to get wrong. Prepending compensates the scroll
+offset by exactly the height it added, and the scroller carries
+`overflow-anchor: none` so the browser's own scroll anchoring cannot
+double-count the same insertion.
+
+Three things stop the window growing, and the third is the one that always
+applies:
+
+- `min` / `max`, when set — growth never crosses either bound.
+- `maxMonths` (default `121`, ten years of sections) — a hard ceiling on
+  **scroll-driven** growth. `min` and `max` are both optional, so on an
+  unrestricted picker they bound nothing, and every growth rebuilds the whole
+  month array: the cost of the next growth climbs with the sections already
+  rendered. Growth simply stops at the ceiling. Long-distance navigation is the
+  year strip's job — scrubbing **reseeds** the window around its target rather
+  than extending it, so the ceiling never puts a date out of reach.
+  `_ensureMonthInWindow`, which the keyboard caret uses, is deliberately exempt:
+  a caret outside the rendered list has nothing to focus, and stranding it would
+  be worse than the sections it costs.
+- An in-flight scroll of the sheet's own — a scrub's smooth scroll, or a growth
+  whose sections have not rendered yet. Growing during the former would write
+  `scrollTop` to compensate a prepend, which per CSSOM-View cancels the
+  animation and strands the list away from the year the strip now shows. Growing
+  during the latter would grow again on every `scroll` event of the same fling,
+  since each still reads the pre-growth `scrollHeight`, so one fling would add
+  several chunks.
+
+#### Two-way scroll coupling
+
+The year strip (`mlv-scrubber`, `orientation="horizontal"` — #130 is its first
+horizontal consumer) and the month list drive each other:
+
+- **List → strip.** A settled scroll (150ms after the last `scroll` event,
+  matching the drum's own debounce) points the strip at the month sitting at the
+  top of the viewport. The listener is registered outside the Angular zone, for
+  the same reason `mlv-scrubber` does it: a `(scroll)` binding runs the
+  dirty-marking wrapper at momentum-scroll frequency and this handler writes
+  nothing reactive on most events.
+- **Strip → list.** Scrubbing a year re-seats the window if needed and scrolls
+  the list to that January.
+- **No echo.** A scrub arms a flag that suppresses the next settle, released on
+  a 500ms ceiling in case the requested scroll never moves the offset (a smooth
+  scroll that is already there produces no `scroll` event). Edge extension
+  deliberately does **not** arm it: its offset compensation holds the visible
+  month still, so the year the next settle derives is the one already showing.
+- **Reduced motion** is resolved in TypeScript, not left to CSS: per CSSOM-View
+  an explicit `behavior` passed to `scrollTo()` overrides the computed
+  `scroll-behavior`, so the stylesheet's reduced-motion rule alone would not stop
+  the animation.
+
+The `min` / `max` bound is enforced **twice** and deliberately: `_clampedWindow`
+clamps what is rendered, and `_maybeExtendWindow` refuses to grow past the bound
+in the first place. Either alone keeps the rendered months inside the bound, so
+the specs pin the rendered result rather than one of the two lines — dropping
+one is invisible to them, dropping both is not.
+
+#### Semantics and keyboard
+
+Each month section is a real `role="grid"` labelled by its own `<h3>` month
+heading, with a visually-hidden `role="row"` of seven `role="columnheader"`
+cells (the visible weekday strip is fixed above every grid, so it belongs to no
+single one and is `aria-hidden`). The scroller wrapping the sections is a
+`role="group"` — `aria-label` is not exposed on a generic element, so the
+`monthList` string would otherwise name nothing. Day cells are `role="gridcell"` carrying
+`aria-selected`; the selectable ones hold a `<button>` with the adapter's date
+label, `aria-current="date"` on today, and a **single roving `tabindex="0"`**
+across the whole list.
+
+Arrow keys move by day and week, `PageUp` / `PageDown` by month, `Home` / `End`
+to the ends of the current month, and `Enter` / `Space` select — all **continuous
+across month boundaries**: the window grows to cover wherever the caret lands and
+only `min` / `max` stop it — the `maxMonths` ceiling bounds scrolling, not the
+caret, which must always have a cell to focus. Horizontal arrows go through
+`MlvRtlService.normalizeArrowKey()`, so they mirror in RTL while the vertical
+pair, `Home` and `End` do not.
+
+#### Range highlighting
+
+A range paints continuously across a section boundary, not just within a month:
+adjacent-month filler cells inside the range are painted (`__cell--in-range`),
+and a month whose opening boundary the range crosses paints its own label
+(`__month-label--in-range`) so the band does not break at the section header.
+Row-edge cells take the logical `border-start-start-radius` /
+`border-end-end-radius` family, so the caps mirror in RTL for free.
+
+#### SCSS / BEM
+
+Block: `mlv-calendar-sheet`
+
+| Class                                                            | Description                                                             |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `.mlv-calendar-sheet`                                            | Host; a three-region flex column                                        |
+| `.mlv-calendar-sheet__years`                                     | Year-strip region wrapping `mlv-scrubber`                               |
+| `.mlv-calendar-sheet__weekdays`                                  | Fixed weekday header (decorative, `aria-hidden`)                        |
+| `.mlv-calendar-sheet__weekday`                                   | One weekday abbreviation                                                |
+| `.mlv-calendar-sheet__months`                                    | The scrolling month list; the only scroller. `role="group"`, labelled   |
+| `.mlv-calendar-sheet__month`                                     | One month `<section>`                                                   |
+| `.mlv-calendar-sheet__month-label`                               | The month heading                                                       |
+| `.mlv-calendar-sheet__month-label--in-range`                     | Heading a range crosses, so the band does not break at the section rule |
+| `.mlv-calendar-sheet__columnheaders`                             | Visually-hidden `role="row"` of column headers                          |
+| `.mlv-calendar-sheet__columnheader`                              | One `role="columnheader"` cell                                          |
+| `.mlv-calendar-sheet__week`                                      | One `role="row"` of seven cells                                         |
+| `.mlv-calendar-sheet__cell`                                      | One `role="gridcell"`                                                   |
+| `.mlv-calendar-sheet__cell--adjacent`                            | Filler cell from the previous/next month (no button)                    |
+| `.mlv-calendar-sheet__cell--in-range`                            | Cell inside the painted range                                           |
+| `.mlv-calendar-sheet__cell--range-row-start` / `--range-row-end` | Logical inline caps at a week-row edge                                  |
+| `.mlv-calendar-sheet__day`                                       | The selectable day button                                               |
+| `.mlv-calendar-sheet__day--selected`                             | The pending single selection                                            |
+| `.mlv-calendar-sheet__day--today`                                | Today                                                                   |
+| `.mlv-calendar-sheet__day--range-start` / `--range-end`          | The range's endpoints                                                   |
+
+The host declares `height: 100%` as its standalone default; a consumer that
+places it in a flex column (both pickers do) hands it `flex: 1 1 0; min-height: 0`
+instead — see `libs-day-picker.md` / `libs-date-range-picker.md`.
+
+#### Specs
+
+- `calendar-sheet.spec.ts` — window seeding and clamping, pending selection,
+  cross-boundary range painting, keyboard model, grid semantics, adapter-driven
+  localisation
+- `calendar-sheet-scroll.spec.ts` — the two coupled scroll surfaces, plus the
+  keyboard's scroll-into-view and the reduced-motion `behavior`. jsdom has no
+  layout, so `offsetTop` / `offsetHeight` / `clientHeight` / `scrollHeight` /
+  `scrollTo` are stubbed the way `scrubber.spec.ts` stubs the drum's metrics
+  (day buttons included, so a caret leaving the viewport is measurable), every
+  scroll is a **native** `scroll` event dispatched at the element that really
+  scrolls, so the listener wiring is under test and not just the handler body,
+  and `scrollTo()` calls are recorded rather than dropped
+- `calendar-sheet-rtl.spec.ts` — mirrored horizontal arrows, unchanged vertical /
+  `Home` / `End`, unchanged logical DOM order, and a scoped `[dir]` on an
+  ancestor with the document still LTR
+
+---
+
 ## Directives
 
 None.
@@ -259,9 +448,17 @@ bootstrapApplication(AppComponent, {
 
 ## Internationalization (i18n)
 
-Strings resolve through `MLV_CALENDAR_I18N` (`@malva-ui/i18n`): `previousPeriod`, `nextPeriod`, plus two ICU strings resolved via `MlvI18nResolverService` — `switchView` (`"Switch to {view, select, year {year} multiYear {multi-year} other {month}} view"`, exposed as the `_switchViewLabel` computed) and `selectMonthForYear` (`"Select month for {year}"`, used by `getYearViewLabel()`). Provide `provideMlvI18nTesting()` in specs.
+Strings resolve through `MLV_CALENDAR_I18N` (`@malva-ui/i18n`): `previousPeriod`, `nextPeriod`, plus two ICU strings resolved via `MlvI18nResolverService` — `switchView` (`"Switch to {view, select, year {year} multiYear {multi-year} other {month}} view"`, exposed as the `_switchViewLabel` computed) and `selectMonthForYear` (`"Select month for {year}"`, used by `getYearViewLabel()`).
+
+`MlvCalendarSheet` adds three plain strings to the same slice: `done` (the visible label of the sheet's confirm action, which both pickers render — it belongs to the sheet they share rather than being duplicated per picker), `selectYear` (the year strip's `aria-label`) and `monthList` (the scrolling month list's `aria-label`). Every month and weekday name comes from the date adapter, never from these packs.
+
+Provide `provideMlvI18nTesting()` in specs.
 
 ## Dependencies
 
 - `@angular/core` ^22.0.0 — signals, `computed()`, `model()`, `afterNextRender`, `ElementRef`, `Injector` (roving-focus management)
 - `@angular/common` — native control flow
+- `@angular/cdk/keycodes` — arrow / page key codes in `MlvCalendarSheet`'s grid keyboard model
+- `@malva-ui/core/scrubber` — `mlv-scrubber` as `MlvCalendarSheet`'s horizontal year strip (#130 is the scrubber's first horizontal consumer)
+- `@malva-ui/cdk/utils` — `MlvRtlService` for mirroring the sheet's horizontal arrow keys
+- `@malva-ui/i18n` — `MLV_CALENDAR_I18N`

@@ -31,6 +31,9 @@ const uk: MlvLanguage = {
     switchView:
       'Перейти до перегляду {view, select, year {року} multiYear {кількох років} other {місяця}}',
     selectMonthForYear: 'Вибрати місяць для {year} року',
+    done: 'Готово',
+    selectYear: 'Вибрати рік',
+    monthList: 'Місяці календаря',
   },
   chat: {
     chatLabel: 'Повідомлення чату',
@@ -136,6 +139,7 @@ const uk: MlvLanguage = {
   },
   dayPicker: {
     placeholder: 'Вибрати дату...',
+    selectDay: 'Виберіть день',
   },
   dialog: {
     closeDialog: 'Закрити діалогове вікно',

@@ -52,6 +52,7 @@ Exported from `libs/forms/day-picker/src/index.ts`:
 #### Internal Signals
 
 - `isOpen: signal(false)` — popup visibility
+- `_pendingValue: signal<D | null>(null)` — the selection the full-screen sheet is assembling; never the committed value
 - `displayValue` — formatted date string or `''`
 - `inputId` — auto-generated unique ID
 
@@ -66,13 +67,14 @@ host: {
 
 #### Key Methods
 
-- `toggleDropdown()` — open/close calendar popup
-- `onDateSelected(date: Date | null)` — handle date selection; closes popup
+- `toggleDropdown()` — open/close calendar popup; seeds the sheet's pending value from the committed one when opening
+- `onDateSelected(date: Date | null)` — handle a date selection from the **anchored** calendar; commits and closes
+- The sheet's commit path is a protected `_applyPending()` — it commits `_pendingValue` and closes, and is reached only through the `Done` action the popup stamps while full-screen.
 - External form writes update the public `value` model without emitting a user interaction.
 
 #### Template Summary
 
-Optional label → `MlvPopupContainer` with trigger (displays `displayValue` or placeholder — `.mlv-day-picker__placeholder`, painted `--mlv-text-tertiary` like `mlv-input`'s `::placeholder` — + calendar icon, `role="combobox"`) → `MlvPopup` containing `MlvCalendar` (bound to `value`, `min`, `max`). Optional message display.
+Optional label → `MlvPopupContainer` with trigger (displays `displayValue` or placeholder — `.mlv-day-picker__placeholder`, painted `--mlv-text-tertiary` like `mlv-input`'s `::placeholder` — + calendar icon, `role="combobox"`) → `MlvPopup` whose body branches on `dayPopup.isFullscreen()`: `MlvCalendarSheet` (bound to the pending `_pendingValue`, `min`, `max`) in the sheet, `MlvCalendar` (bound to `value`, `min`, `max`) in the anchored dropdown. Optional message display.
 
 Keyboard: Enter/Space opens, Escape closes.
 
@@ -102,8 +104,10 @@ Keyboard: Enter/Space opens, Escape closes.
 ## Dependencies
 
 - `@angular/forms/signals` — `FormValueControl` contract and `[formField]` binding
-- `@malva-ui/core/popup` — `MlvPopup`, `MlvPopupContent`, `MlvPopupContainer`
-- `@malva-ui/core/calendar` — `MlvCalendar`
+- `@malva-ui/core/popup` — `MlvPopup`, `MlvPopupContent`, `MlvPopupContainer`, `MlvPopupHeaderActions` (the sheet's `Done` slot)
+- `@malva-ui/core/calendar` — `MlvCalendar` (anchored dropdown), `MlvCalendarSheet` (mobile full-screen sheet)
+- `@malva-ui/core/button` — `mlvButton` on the sheet's `Done`
+- `@malva-ui/i18n` — `MLV_DAY_PICKER_I18N`, plus `MLV_CALENDAR_I18N` for the sheet's shared `done` label
 - `@lucide/angular` — `LucideCalendar` icon
 
 ---
@@ -116,7 +120,23 @@ Keyboard: Enter/Space opens, Escape closes.
 
 ## Mobile fullscreen
 
-The calendar `mlv-popup` opts into `mobileMode="auto"` (`[mobileTitle]="label() || _resolvedPlaceholder()"`), so below the `md` breakpoint (< 768px) the calendar opens as a full-screen sheet with a header bar + close button, scroll-locked page, and slide-up animation; on larger viewports it stays anchored to the trigger (unchanged). The existing `panelRole="dialog"` + `[modal]="true"` focus trap composes with the full-screen sheet, and `_onPopupOpened()` / `_onPopupClosed()` (focus-into-calendar / focus-restore) keep working. See `libs-popup.md` → _Mobile fullscreen inputs_.
+The calendar `mlv-popup` opts into `mobileMode="auto"` (`[mobileTitle]="label() || _i18n().selectDay"`), so below the `md` breakpoint (< 768px) the picker opens as a full-screen sheet with a header bar + close button, scroll-locked page, and slide-up animation; on larger viewports it stays anchored to the trigger (unchanged). The existing `panelRole="dialog"` + `[modal]="true"` focus trap composes with the full-screen sheet, and `_onPopupOpened()` / `_onPopupClosed()` (focus-into-calendar / focus-restore) keep working. See `libs-popup.md` → _Mobile fullscreen inputs_.
+
+### The sheet renders `mlv-calendar-sheet` (#130)
+
+```html
+@if (dayPopup.isFullscreen()) {
+<mlv-calendar-sheet [(value)]="_pendingValue" [min]="min()" [max]="max()" />
+} @else {
+<mlv-calendar embedded [value]="value()" (valueChange)="onDateSelected($event)" [min]="min()" [max]="max()" />
+}
+```
+
+- **Confirm, not commit-on-tap.** The anchored dropdown is unchanged: one tap picks and closes through `onDateSelected()`. The sheet does not commit on tap — a tap writes the protected `_pendingValue` signal, and the single commit path is `_applyPending()`, wired to a `Done` button projected through `[mlvPopupHeaderActions]` into the popup's own header row. The popup stamps that slot only while full-screen, so the anchored dropdown never sees a `Done` at all.
+- **Seeded on open, dropped on close.** `toggleDropdown()` seeds `_pendingValue` from the committed `value` when opening; `_onPopupClosed()` resets it back. Closing by any route other than `Done` — ✕, backdrop, `Escape` — therefore commits nothing, and reopening always starts from the committed value. The two are not redundant: `isOpen` is a public signal, so a host can open the popup without going through `toggleDropdown()`, and the reset on close is what makes that route start clean too. `afterClosed` fires on overlay **detach**, so a spec must let the leave settle before asserting the discard.
+- **Title.** `mobileTitle` reads `_i18n().selectDay` ("Select day") rather than the resolved placeholder. The placeholder is trigger copy ("Select date…") that reads as an empty field, not as a heading.
+- **Focus.** `_onPopupOpened()` prefers `.mlv-calendar-sheet__day[tabindex="0"]` before falling back to the generic first-tabbable scan; the year strip's listbox is the first tabbable node in the sheet, so the scan alone would leave a keyboard user on the year scrubber.
+- **Geometry.** `.mlv-day-picker__popup--sheet` becomes a flex column and takes `flex: 1 1 0; min-height: 0`, passing the same pair to `.mlv-calendar-sheet`, and drops `--mlv-popover-inset` so the month list runs edge to edge. `flex: 1 1 0` and not `height: 100%`: every percentage in this ancestor chain is inert, because `.mlv-popup__inner`'s own `min-height: 100%` does not resolve against a content-derived containing block (popup.scss § `--fullscreen`, measured at #116), so `height: 100%` would leave the list at its natural size at the top with the rest of the sheet blank.
 
 ---
 

@@ -23,7 +23,10 @@ general control wearing time-picker clothes. Generalised on three axes:
 - **Secondary entry point:** `@malva-ui/core/scrubber` (also re-exported from the grouped `@malva-ui/core` barrel)
 - **Package tags:** `scope:ui`, `family:core`, `type:ui`
 
-Consumers today: `mlv-time-picker` (hours / minutes / seconds, vertical).
+Consumers today: `mlv-time-picker` (hours / minutes / seconds, vertical) and
+`mlv-calendar-sheet` (the year strip, **horizontal** — #130 is the first
+horizontal consumer, and the first to override `--mlv-scrubber-item-size` on the
+inline axis).
 
 ## Public API
 
