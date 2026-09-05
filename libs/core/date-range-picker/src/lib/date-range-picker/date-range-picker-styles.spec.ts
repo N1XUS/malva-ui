@@ -101,6 +101,28 @@ describe('date-range-picker.scss — mobile full-screen sheet (#130)', () => {
     expect(body).toContain('min-height: 0');
   });
 
+  it('sheds the anchored panel’s floating chrome once it fills the viewport', () => {
+    // `__panel` is a dropdown surface: a raised fill, a hairline border, a 12px
+    // radius and `--mlv-shadow-floating`. Reused unchanged in the sheet, that
+    // shadow was the one the owner screenshotted — a viewport-filling surface
+    // painting a shadow it has nothing to float above. The border and the
+    // radius go with it for the same reason: with `mlv-popup--flush` the panel
+    // now reaches the sheet's own edges, where a hairline frame reads as a
+    // stray outline and a 12px radius rounds the sheet's square inner corners.
+    const body = ruleBody(css, SHEET);
+    expect(body).toContain('box-shadow: none');
+    expect(body).toContain('border: none');
+    expect(body).toMatch(/border-radius:\s*0(?![.\w])/);
+  });
+
+  it('keeps the floating chrome on the anchored panel', () => {
+    // Only the sheet sheds it. The desktop dropdown is the surface the tokens
+    // were chosen for and must be byte-identical.
+    const body = ruleBody(css, '.mlv-date-range-picker__panel');
+    expect(body).toContain('box-shadow: var(--mlv-shadow-floating)');
+    expect(body).toContain('border-radius: var(--mlv-radius-l)');
+  });
+
   it('hides nothing, in the sheet or out of it', () => {
     // #121's `display: none` is gone whole. This is the regression guard on
     // that removal: neither mode may reach for hiding a panel again — the sheet

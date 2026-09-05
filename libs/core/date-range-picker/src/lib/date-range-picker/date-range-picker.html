@@ -52,12 +52,19 @@
         }
       </div>
 
+      <!--
+        `class` is forwarded to the overlay panel. `mlv-popup--flush` drops the
+        full-screen sheet's default body inset, because `mlv-calendar-sheet`
+        owns its own inline spacing throughout; it is inert while the popup is
+        trigger-anchored, where `__inner` carries no padding at all.
+      -->
       <mlv-popup
         #rangePopup
         [(opened)]="_isOpen"
         [hasShadow]="true"
         [position]="['bottom-start', 'top-start', 'bottom-end', 'top-end']"
         mobileMode="auto"
+        class="mlv-popup--flush"
         [mobileTitle]="label() || _i18n().selectDateRange"
         [ariaLabel]="_i18n().selectDateRange"
         (afterOpened)="_onPanelOpened()"

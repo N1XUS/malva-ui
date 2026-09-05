@@ -122,10 +122,22 @@
     //
     // `__panel` is already the column flex container, so the sheet inside it
     // takes the same pair.
+    //
+    // The other half is chrome. `__panel` is a *dropdown* surface — a hairline
+    // border, a 12px radius and `--mlv-shadow-floating` — and the sheet reused
+    // it unchanged, so a viewport-filling surface painted a shadow it has
+    // nothing to float above (#149 review). Now that `mlv-popup--flush` drops
+    // the sheet's body inset the panel reaches the sheet's own edges too, where
+    // the border reads as a stray outline and the radius rounds the sheet's
+    // square inner corners — so all three go together. The fill stays:
+    // `mlv-popup` paints its own surface behind it and the two agree.
     // -------------------------------------------------------------------------
     &__panel--sheet {
       flex: 1 1 0;
       min-height: 0;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
 
       .mlv-calendar-sheet {
         flex: 1 1 0;

@@ -114,9 +114,29 @@
         }
       }
 
+      // The sheet's default body inset. Unlike `__pinned` above, this one is
+      // shared chrome the consumers lean on rather than supply: `mlv-select` /
+      // `mlv-combobox` carry only the 4px `--mlv-popover-inset` on their list,
+      // and `mlv-day-picker__popup--sheet`, `mlv-time-picker__panel--sheet` and
+      // `mlv-date-range-picker__panel--sheet` each write a `padding: 0` of
+      // their own *because* this rule pads for them.
       .#{$block}__inner {
         padding: var(--mlv-spacing-4);
         flex: 1 1 auto;
+      }
+
+      // …which is wrong for a block that lays itself out edge to edge. The date
+      // pickers' `mlv-calendar-sheet` owns its inline spacing throughout (a
+      // padded weekday strip, a padded month label, `padding-inline` on every
+      // week row), so the shared inset doubled up and left a full-width header
+      // sitting over a body that floated inside it.
+      //
+      // Passed as a panel class — `<mlv-popup class="mlv-popup--flush">`, which
+      // `_panelClasses()` forwards to the panel — rather than as an input, so
+      // it stays a styling concern and adds no public API. Inert while the
+      // popup is trigger-anchored, where `__inner` carries no padding at all.
+      &.#{$block}--flush .#{$block}__inner {
+        padding: 0;
       }
     }
 

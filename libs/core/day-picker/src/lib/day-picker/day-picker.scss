@@ -111,8 +111,12 @@
       // column, so it becomes one for the sheet to be laid out in.
       //
       // The popover inset goes with it: `--mlv-popover-inset` is the shared
-      // *dropdown* inset, and `.mlv-popup--fullscreen` already pads `__inner`
-      // for the sheet. Dropped here, the month list runs edge to edge.
+      // *dropdown* inset and belongs to the anchored panel alone. The sheet
+      // takes no inset from anywhere — the template also passes
+      // `mlv-popup--flush`, which drops `.mlv-popup--fullscreen`'s own body
+      // padding, because `mlv-calendar-sheet` owns its inline spacing
+      // throughout and the shared inset doubled up on it (#149 review). Net:
+      // the month list runs edge to edge, level with the sheet header above it.
       &--sheet {
         display: flex;
         flex-direction: column;

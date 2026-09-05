@@ -57,25 +57,25 @@
 
       @for (week of month.weeks; track $index) {
       <div class="mlv-calendar-sheet__week" role="row">
-        @for (cell of week; track cell.iso; let rowStart = $first; let rowEnd =
-        $last) {
+        @for (cell of week; track cell.iso; let i = $index) {
         <!--
-          `_isInRange` and `_isDisabled` each walk the adapter, and the cell
-          reads them from three and two bindings respectively. Every day in the
-          window re-evaluates on each change detection, so the calls are made
-          once per cell rather than once per binding.
+          `_isDisabled` walks the adapter and the day button reads it from two
+          bindings, so it is called once per cell rather than once per binding.
+          The cell-level helpers take the cell rather than its date, because
+          they have to know whether it is adjacent-month filler — see their
+          JSDoc. The row caps follow the painted run, not the raw row edge, so
+          the band stays capped where the filler cuts it off.
         -->
-        @let inRange = _isInRange(cell.date); @let dayDisabled =
-        _isDisabled(cell.date);
+        @let dayDisabled = _isDisabled(cell.date);
         <div
           class="mlv-calendar-sheet__cell"
           role="gridcell"
           [attr.data-date]="cell.iso"
           [class.mlv-calendar-sheet__cell--adjacent]="!cell.currentMonth"
-          [class.mlv-calendar-sheet__cell--in-range]="inRange"
-          [class.mlv-calendar-sheet__cell--range-row-start]="rowStart && inRange"
-          [class.mlv-calendar-sheet__cell--range-row-end]="rowEnd && inRange"
-          [attr.aria-selected]="_cellSelected(cell.date)"
+          [class.mlv-calendar-sheet__cell--in-range]="_isCellInRange(cell)"
+          [class.mlv-calendar-sheet__cell--range-row-start]="_isBandRowStart(week, i)"
+          [class.mlv-calendar-sheet__cell--range-row-end]="_isBandRowEnd(week, i)"
+          [attr.aria-selected]="_cellSelected(cell)"
         >
           @if (cell.currentMonth) {
           <button

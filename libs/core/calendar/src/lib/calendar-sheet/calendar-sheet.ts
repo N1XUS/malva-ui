@@ -497,9 +497,60 @@ export class MlvCalendarSheet<D = Date> implements AfterViewInit {
     return this._isInRange(previousLast) && this._isInRange(month.first);
   }
 
-  /** @protected The `aria-selected` value for a grid cell. */
-  protected _cellSelected(date: D): boolean {
-    return this.range() ? this._isInRange(date) : this._isSelected(date);
+  /**
+   * @protected Whether the cell takes part in the painted range band.
+   *
+   * Adjacent-month filler never does. A grid's leading and trailing filler
+   * stands for days the neighbouring month's own grid already renders, and this
+   * grid stamps a day button only for its own month — so a fill on filler is a
+   * band with nothing under it, repeating the previous month's tail as a
+   * detached shape inside the next month's grid (#149 review). The band still
+   * crosses the section boundary: {@link _isLabelInRange} paints the month
+   * label, which spans the full width.
+   */
+  protected _isCellInRange(cell: SheetDayCell<D>): boolean {
+    return cell.currentMonth && this._isInRange(cell.date);
+  }
+
+  /**
+   * @protected Whether the cell caps the band at the start of its painted run
+   * within the week row.
+   *
+   * The band is drawn cell by cell with square edges, so it needs a cap
+   * wherever the paint begins — which is the row's first cell for a row lying
+   * wholly inside the month, and the first cell after the leading
+   * adjacent-month filler otherwise. Same rule, same radii and the same two
+   * class names as `mlv-calendar`; the two calendars cap their bands
+   * identically and must stay that way.
+   */
+  protected _isBandRowStart(week: SheetDayCell<D>[], index: number): boolean {
+    return (
+      this._isCellInRange(week[index]) &&
+      (index === 0 || !this._isCellInRange(week[index - 1]))
+    );
+  }
+
+  /**
+   * @protected Whether the cell caps the band at the end of its painted run
+   * within the week row. Mirror of {@link _isBandRowStart}.
+   */
+  protected _isBandRowEnd(week: SheetDayCell<D>[], index: number): boolean {
+    return (
+      this._isCellInRange(week[index]) &&
+      (index === week.length - 1 || !this._isCellInRange(week[index + 1]))
+    );
+  }
+
+  /**
+   * @protected The `aria-selected` value for a grid cell, or `null` for
+   * adjacent-month filler — which renders nothing and cannot be selected, so it
+   * has no selected state to report in either direction.
+   */
+  protected _cellSelected(cell: SheetDayCell<D>): boolean | null {
+    if (!cell.currentMonth) return null;
+    return this.range()
+      ? this._isInRange(cell.date)
+      : this._isSelected(cell.date);
   }
 
   /** @protected Writes a tapped day into the pending selection. */

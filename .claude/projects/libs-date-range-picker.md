@@ -71,7 +71,7 @@ Block: `mlv-date-range-picker`
 | `.mlv-date-range-picker__separator`     | Arrow between start/end dates                                                                             |
 | `.mlv-date-range-picker__trigger-icon`  | Calendar icon                                                                                             |
 | `.mlv-date-range-picker__panel`         | Popup panel container                                                                                     |
-| `.mlv-date-range-picker__panel--sheet`  | Panel modifier, applied while the popup is a full-screen sheet; hands the sheet body the leftover height  |
+| `.mlv-date-range-picker__panel--sheet`  | Panel modifier while the popup is a full-screen sheet: leftover height to the body, dropdown chrome off   |
 | `.mlv-date-range-picker__calendars`     | Flex row wrapping two calendars (anchored dropdown only)                                                  |
 | `.mlv-date-range-picker__calendar`      | Wrapper around one `mlv-calendar` (anchored dropdown only)                                                |
 | `.mlv-date-range-picker__calendar--end` | The second (later-month) wrapper (anchored dropdown only)                                                 |
@@ -227,8 +227,8 @@ block for the sheet, so nothing in the dropdown layout is styled away.
   before falling back to the generic first-tabbable scan. The year strip's
   listbox is the first tabbable node in the sheet, so the scan alone would leave
   a keyboard user on the year scrubber with the calendar untouched.
-- **Geometry is all that is left in the modifier.** `.mlv-date-range-picker__panel--sheet`
-  now carries `flex: 1 1 0; min-height: 0` and passes the same pair to
+- **Geometry.** `.mlv-date-range-picker__panel--sheet` carries
+  `flex: 1 1 0; min-height: 0` and passes the same pair to
   `.mlv-calendar-sheet` — the way `mlv-time-picker__panel--sheet` claims its
   space, and for the same reason: every percentage here is inert, because
   `.mlv-popup__inner`'s own `min-height: 100%` does not resolve against a
@@ -236,6 +236,18 @@ block for the sheet, so nothing in the dropdown layout is styled away.
   #116). `height: 100%` would leave the sheet at its natural size at the top
   with the rest of the viewport blank. `min-height: 0` is what lets the month
   scroller shrink below its content instead of growing the panel past the sheet.
+- **Chrome, and the lack of it.** `__panel` is a dropdown surface — a hairline
+  border, `--mlv-radius-l` and `--mlv-shadow-floating` — and the sheet reused it
+  unchanged, so a viewport-filling surface painted a shadow it has nothing to
+  float above (#149 review). The modifier resets all three
+  (`border: none; border-radius: 0; box-shadow: none`); the anchored dropdown
+  keeps them. The fill stays — `mlv-popup` paints its own surface behind it.
+  Alongside that, the `<mlv-popup>` passes `class="mlv-popup--flush"` so the
+  sheet body takes no inset either: `mlv-calendar-sheet` owns its inline spacing
+  throughout, and the popup's shared inset doubled up on it and left a
+  full-width sheet header over a body that floated inside it. Together they put
+  the month grid flush against the sheet's own edges. See `libs-popup.md` →
+  _Full-bleed sheets_.
 - **Direction.** Which body the panel gets is a breakpoint question, not a
   direction one. The sheet mirrors inside itself — see `libs-calendar.md` →
   _Calendar sheet_ and `calendar-sheet-rtl.spec.ts`.

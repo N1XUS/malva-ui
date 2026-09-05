@@ -381,6 +381,23 @@ describe('MlvPopup — mobile fullscreen mode', () => {
     expect(closeBtn()?.getAttribute('aria-label')).toBe('Close');
   });
 
+  it('withholds the floating shadow while the sheet fills the viewport', () => {
+    // `--shadow` is the anchored popover's chrome; a surface that fills the
+    // viewport has nothing to float above. The template already gates the class
+    // on `!isFullscreen()` — this pins that gate, because the modifier sets both
+    // a `filter: drop-shadow()` and a `box-shadow` and the `--fullscreen` block
+    // resets neither, so the gate is the only thing standing between the sheet
+    // and a floating-panel shadow.
+    const { fixture, host, panel } = render();
+    expect(panel().classList.contains('mlv-popup--shadow')).toBe(true);
+
+    host.mode.set('fullscreen');
+    fixture.detectChanges();
+
+    expect(panel().classList.contains('mlv-popup--fullscreen')).toBe(true);
+    expect(panel().classList.contains('mlv-popup--shadow')).toBe(false);
+  });
+
   it('renders the mobileTitle in the fullscreen header', () => {
     const { fixture, host, panel } = render();
     host.mode.set('fullscreen');

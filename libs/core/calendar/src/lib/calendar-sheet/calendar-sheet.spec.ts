@@ -164,6 +164,25 @@ describe('MlvCalendarSheet', () => {
       expect(selected).toEqual(['2026-01-07']);
     });
 
+    it('leaves a lone selection free of the endpoint markers', () => {
+      // #149: a range endpoint drops the radius facing into the range so it
+      // meets the band as one shape. A lone selection has no band to meet —
+      // `mlv-day-picker`'s sheet renders only these — and stays a full circle
+      // by carrying neither endpoint class. The corner arithmetic itself is in
+      // `calendar-sheet-styles.spec.ts`; this is the half that keeps the
+      // classes off the element in the first place.
+      const selected = dayButton('2026-01-15');
+
+      expect(
+        selected.classList.contains('mlv-calendar-sheet__day--selected'),
+      ).toBe(true);
+      expect(
+        Array.from(selected.classList).filter((name) =>
+          name.startsWith('mlv-calendar-sheet__day--range-'),
+        ),
+      ).toEqual([]);
+    });
+
     it('refuses a keyboard commit on a day outside min/max', async () => {
       // The pointer never reaches `_selectDate` here: the button carries
       // `disabled`, so the click is swallowed before the handler runs, and a
@@ -233,8 +252,34 @@ describe('MlvCalendarSheet', () => {
       await fixture.whenStable();
     });
 
+    /**
+     * The cell an ISO date's **own** month renders it in.
+     *
+     * A date within a week of a month boundary is in the DOM twice — once as
+     * its own month's day and once as the neighbour's adjacent-month filler —
+     * and the shared `cell()` helper returns whichever comes first in document
+     * order. Range painting is now a property of the owning cell only, so these
+     * assertions have to name it rather than take the first match.
+     */
+    function ownCell(iso: string): HTMLElement {
+      const [year, month] = iso.split('-');
+      const key = `${Number(year)}-${Number(month) - 1}`;
+      const section = must(
+        root.querySelector(`[data-month="${key}"]`),
+        `the ${key} section`,
+      );
+      return must(
+        section.querySelector<HTMLElement>(
+          `[data-date="${iso}"]:not(.mlv-calendar-sheet__cell--adjacent)`,
+        ),
+        `an own-month cell for ${iso}`,
+      );
+    }
+
     function inRange(iso: string): boolean {
-      return cell(iso).classList.contains('mlv-calendar-sheet__cell--in-range');
+      return ownCell(iso).classList.contains(
+        'mlv-calendar-sheet__cell--in-range',
+      );
     }
 
     it('paints both endpoints and the days between them', () => {
@@ -253,20 +298,137 @@ describe('MlvCalendarSheet', () => {
       ]);
     });
 
-    it("paints January's leading adjacent-month cells so the band does not break", () => {
-      const januaryLeading = Array.from(
+    /**
+     * January's grid opens with the last few days of December, rendered as
+     * adjacent-month filler. They are the same dates December's own grid
+     * already showed.
+     */
+    function januaryLeadingFiller(): HTMLElement[] {
+      const cells = Array.from(
         must(
           root.querySelector('[data-month="2026-0"]'),
           'the January 2026 section',
         ).querySelectorAll<HTMLElement>('.mlv-calendar-sheet__cell--adjacent'),
       ).filter((el) => (el.dataset['date'] ?? '') < '2026-01-01');
+      expect(cells.length).toBeGreaterThan(0);
+      return cells;
+    }
 
-      expect(januaryLeading.length).toBeGreaterThan(0);
+    it("leaves January's leading adjacent-month cells unpainted", () => {
+      // #149 review: these cells hold no day button — the template stamps one
+      // only `@if (cell.currentMonth)` — so a fill on them is a band with
+      // nothing under it, repeating December's tail as a detached pill inside
+      // January's grid. The owner screenshotted a 15–31 December range
+      // reappearing across January's leading blanks. The band still crosses the
+      // section boundary: the month label carries its own in-range state, which
+      // spans the full width and is asserted directly below.
       expect(
-        januaryLeading.every((el) =>
+        januaryLeadingFiller().some((el) =>
           el.classList.contains('mlv-calendar-sheet__cell--in-range'),
         ),
-      ).toBe(true);
+      ).toBe(false);
+    });
+
+    it('does not announce an empty adjacent-month cell as selected', () => {
+      // The same defect in the a11y tree: `aria-selected="true"` on a gridcell
+      // that renders nothing and cannot be selected. Absent, not `"false"` —
+      // an adjacent cell is not a selectable thing in either state.
+      expect(
+        januaryLeadingFiller().map((el) => el.getAttribute('aria-selected')),
+      ).toEqual(januaryLeadingFiller().map(() => null));
+    });
+
+    /** The week-row cap modifiers on the cell that owns `iso`. */
+    function caps(iso: string): string[] {
+      return Array.from(ownCell(iso).classList)
+        .filter((name) =>
+          name.startsWith('mlv-calendar-sheet__cell--range-row'),
+        )
+        .map((name) => name.replace('mlv-calendar-sheet__cell--range-row-', ''))
+        .sort();
+    }
+
+    it('caps the band where the paint starts and ends in each week row', () => {
+      // #149: the sheet has to round its week-row edges exactly as
+      // `mlv-calendar` does — a range spanning several rows is a stack of
+      // pills, not a block with sheared corners, and the two calendars are one
+      // design (`calendar-sheet-styles.spec.ts` compares their radii).
+      //
+      // December 29–31 close out December's last row; January's first row opens
+      // with three days of December filler, so the paint there starts at
+      // January 1 rather than at the row's first cell. Both ends of both runs
+      // are capped; the day in the middle is not.
+      expect(caps('2025-12-29')).toEqual(['start']);
+      expect(caps('2025-12-31')).toEqual(['end']);
+      expect(caps('2026-01-01')).toEqual(['start']);
+      expect(caps('2026-01-02')).toEqual([]);
+      expect(caps('2026-01-03')).toEqual(['end']);
+    });
+
+    /** The endpoint modifiers on the day button the cell owning `iso` holds. */
+    function endpoints(iso: string): string[] {
+      const button = must(
+        ownCell(iso).querySelector<HTMLElement>('.mlv-calendar-sheet__day'),
+        `a day button for ${iso}`,
+      );
+      return Array.from(button.classList)
+        .filter((name) => name.startsWith('mlv-calendar-sheet__day--range-'))
+        .map((name) => name.replace('mlv-calendar-sheet__day--range-', ''))
+        .sort();
+    }
+
+    it('marks only the chronological endpoints of the range', () => {
+      // #149: these are the two cells that flatten the side facing into the
+      // range, so the endpoint is the band's cap rather than a circle floating
+      // inside it. Every cell between them keeps its resting circle and shows
+      // only the cell's pale fill.
+      expect(endpoints('2025-12-29')).toEqual(['start']);
+      expect(endpoints('2025-12-31')).toEqual([]);
+      expect(endpoints('2026-01-01')).toEqual([]);
+      expect(endpoints('2026-01-03')).toEqual(['end']);
+    });
+
+    it('marks a one-day range as both endpoints, which is a full circle again', async () => {
+      // The state a careless flattening breaks. `start === end` is its own
+      // start *and* end, so both flattenings apply and cancel: the day resolves
+      // back to `--mlv-radius-full` on all four corners
+      // (`calendar-sheet-styles.spec.ts` does that arithmetic). Were only one
+      // of the two classes stamped, the day would render as a half-pill with a
+      // squared side facing nothing.
+      host.rangeValue.set({
+        start: new Date(2026, 0, 12),
+        end: new Date(2026, 0, 12),
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(endpoints('2026-01-12')).toEqual(['end', 'start']);
+      expect(caps('2026-01-12')).toEqual(['end', 'start']);
+    });
+
+    it('reads the endpoints chronologically when the range is stored backwards', async () => {
+      // `_displayRange` normalises, so the flat side always faces the days in
+      // between whichever way round the model holds the pair.
+      host.rangeValue.set({
+        start: new Date(2026, 0, 16),
+        end: new Date(2026, 0, 12),
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(endpoints('2026-01-12')).toEqual(['start']);
+      expect(endpoints('2026-01-16')).toEqual(['end']);
+    });
+
+    it('never caps an adjacent-month cell', () => {
+      // The caps must not become a second route back to the bleed the guard
+      // above removed: a cap on unpainted filler is a stray rounded corner
+      // sitting in a month the range has nothing to do with.
+      expect(
+        januaryLeadingFiller().flatMap((el) =>
+          Array.from(el.classList).filter((name) => name.includes('range-row')),
+        ),
+      ).toEqual([]);
     });
 
     it("paints January's month label so the band crosses the section header", () => {

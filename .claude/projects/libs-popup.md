@@ -111,6 +111,10 @@ The fill is now handed to flex, which distributes real space and needs no defini
 
 **What this does and does not give a consumer.** `__inner` is now sheet-tall, but it is a column flex container with the default `justify-content: flex-start`, so a fixed-size child still sits at the top unless the consumer asks for the space. `mlv-time-picker` opts in with `.mlv-time-picker__panel--sheet` (`flex: 1 1 0`, then a size container query). Since #130 `mlv-day-picker` and `mlv-date-range-picker` opt in the same way — `flex: 1 1 0; min-height: 0` on their own sheet wrapper, passed down to `mlv-calendar-sheet` — so the month list fills the sheet and scrolls inside it. `flex: 1 1 0` and not `height: 100%`: a percentage against `__inner` is the same dead percentage described above, and would leave the body top-anchored with the rest of the sheet blank (observed, not inferred, at 375x812, which is what those two pickers looked like before #130).
 
+**Full-bleed sheets (`.mlv-popup--flush`).** `.mlv-popup--fullscreen .mlv-popup__inner` also carries a `var(--mlv-spacing-4)` body inset. That inset is shared chrome the consumers lean on rather than supply — `mlv-select` / `mlv-combobox` carry only the 4px `--mlv-popover-inset` on their list, and `mlv-day-picker__popup--sheet`, `mlv-time-picker__panel--sheet` and `mlv-date-range-picker__panel--sheet` each write a `padding: 0` of their own _because_ the popup pads for them — so it is not something a block can cancel from inside.
+
+A block that lays itself out edge to edge opts out by passing the panel class instead: `<mlv-popup class="mlv-popup--flush">`, forwarded to the panel by `class` / `_panelClasses()`. Both date pickers pass it, because `mlv-calendar-sheet` owns its inline spacing throughout (a padded weekday strip, a padded month label, `padding-inline` on every week row) — the shared inset doubled up on that and left a full-width sheet header sitting over a body that floated inside it (#149 review). The modifier is inert while the popup is trigger-anchored, where `__inner` carries no padding at all, so it is safe as a static class.
+
 `isFullscreen: Signal<boolean>` is **public** so consumers with their own inner focus trap (e.g. `mlv-date-range-picker`, whose inner panel carries `cdkTrapFocus`) can disable it via `[cdkTrapFocus]="!popup.isFullscreen()"` and avoid nesting two traps.
 
 #### Outputs
@@ -371,7 +375,8 @@ providers: [providePopupPositions(new Map([...POPUP_POSITION_MAP, ['bottom', { o
 - `.mlv-popup__header-content` — optional header extension stamped beneath the title row when `[mlvPopupHeaderContent]` is supplied
 - `.mlv-popup__header-actions` — optional trailing-action group stamped inside the title row, before `.mlv-popup__close`, when `[mlvPopupHeaderActions]` is supplied
 - `.mlv-popup__pinned` — optional non-scrolling block stamped above `.mlv-popup__scrollbar` when `[mlvPopupPinnedContent]` is supplied (`flex: 0 0 auto`, `z-index: 3` so scrolled sticky content passes underneath; no padding of its own)
-- `.mlv-popup__inner` — the projected-content wrapper. Under `--fullscreen` it takes `flex: 1 1 auto` inside a `.mlv-scrollbar__content` made `display: flex; flex-direction: column`, so it is sheet-tall rather than content-tall (see _Mobile fullscreen inputs_)
+- `.mlv-popup__inner` — the projected-content wrapper. Under `--fullscreen` it takes `flex: 1 1 auto` inside a `.mlv-scrollbar__content` made `display: flex; flex-direction: column`, so it is sheet-tall rather than content-tall (see _Mobile fullscreen inputs_), plus a `var(--mlv-spacing-4)` body inset
+- `.mlv-popup--flush` — consumer-passed opt-out of that body inset, for a projected block that lays itself out edge to edge (see _Full-bleed sheets_)
 - `.mlv-popup-fullscreen-pane` (global) — CDK overlay panel class stretching the pane to the viewport (`100dvh`)
 - `.mlv-popup-fullscreen-backdrop` (global) — solid scrim (`--mlv-background-overlay`) shown behind the sheet
 
