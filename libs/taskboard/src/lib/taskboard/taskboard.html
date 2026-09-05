@@ -55,7 +55,7 @@
         [ngTemplateOutlet]="columnHeaderDef.templateRef"
         [ngTemplateOutletContext]="_columnContext(column)"
       />
-      } @else { {{ column.label }} ({{ _wipFor(column, undefined).count }}) }
+      } @else { {{ column.label }} ({{ _wipLabel(column) }}) }
     </div>
     }
   </div>
@@ -148,7 +148,7 @@
         (click)="_activate(item, column, swimlane, cardIndex, $event)"
         (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
       >
-        Task {{ _itemId(item) }}
+        {{ _cardLabel(item) }}
       </button>
       } } @if (_isDropTail(column, swimlane)) {
       <ng-container
@@ -173,7 +173,7 @@
       class="mlv-taskboard__add"
       (click)="requestAdd(column, swimlane)"
     >
-      Add card
+      {{ _i18n().addCard }}
     </button>
     } }
   </div>
@@ -186,7 +186,7 @@
     [ngTemplateOutletContext]="_emptyContext(column, swimlane)"
   />
   } @else {
-  <p class="mlv-taskboard__empty">No cards</p>
+  <p class="mlv-taskboard__empty">{{ _i18n().emptyCell }}</p>
   }
 </ng-template>
 

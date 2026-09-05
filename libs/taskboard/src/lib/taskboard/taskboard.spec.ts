@@ -1,5 +1,7 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { MLV_TASKBOARD_I18N } from '@malva-ui/i18n';
+import { i18nTestProvider } from '@malva-ui/i18n/testing';
 import { describe, expect, it } from 'vitest';
 import {
   MlvTaskboardColumnHeaderDef,
@@ -12,6 +14,7 @@ import {
   TASKBOARD_TEST_GROUPS,
   TASKBOARD_TEST_ITEMS,
   TASKBOARD_TEST_LANES,
+  provideTaskboardTesting,
   type TaskboardTestTicket,
 } from '../testing/taskboard-test-context';
 
@@ -66,6 +69,7 @@ describe('MlvTaskboard', () => {
   it('renders grouped lanes with projected cards, header state, and empty slots', async () => {
     await TestBed.configureTestingModule({
       imports: [TaskboardHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(TaskboardHost);
     fixture.detectChanges();
@@ -100,6 +104,7 @@ describe('MlvTaskboard', () => {
   it('exposes keyboard-operable cards and a polite live region', async () => {
     await TestBed.configureTestingModule({
       imports: [TaskboardHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(TaskboardHost);
     fixture.detectChanges();
@@ -124,6 +129,7 @@ describe('MlvTaskboard', () => {
   it('maps grouped headers and lanes to deterministic board columns', async () => {
     await TestBed.configureTestingModule({
       imports: [TaskboardHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(TaskboardHost);
     fixture.detectChanges();
@@ -159,6 +165,7 @@ describe('MlvTaskboard', () => {
   it('does not nest projected interactive card content in a board button', async () => {
     await TestBed.configureTestingModule({
       imports: [ProjectedInteractiveHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(ProjectedInteractiveHost);
     fixture.detectChanges();
@@ -174,6 +181,7 @@ describe('MlvTaskboard', () => {
   it('emits projected card pointer actions without changing projected control semantics', async () => {
     await TestBed.configureTestingModule({
       imports: [TaskboardHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(TaskboardHost);
     fixture.detectChanges();
@@ -201,6 +209,7 @@ describe('MlvTaskboard', () => {
   it('keeps the default card surface keyboard-operable', async () => {
     await TestBed.configureTestingModule({
       imports: [DefaultCardHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(DefaultCardHost);
     fixture.detectChanges();
@@ -213,6 +222,7 @@ describe('MlvTaskboard', () => {
   it('keeps a density-aware logical grid inside a scoped RTL direction', async () => {
     await TestBed.configureTestingModule({
       imports: [TaskboardHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(TaskboardHost);
     fixture.detectChanges();
@@ -223,6 +233,44 @@ describe('MlvTaskboard', () => {
     expect(board.classList).toContain('mlv-taskboard--compact');
     expect(board.getAttribute('dir')).toBe('rtl');
     expect(board.querySelector('[role="gridcell"]')).toBeTruthy();
+  });
+  it('renders every built-in board string through the taskboard i18n token', async () => {
+    await TestBed.configureTestingModule({
+      imports: [LocalizedHost],
+      providers: [
+        provideTaskboardTesting(),
+        i18nTestProvider(MLV_TASKBOARD_I18N, {
+          boardLabel: 'Board',
+          addCard: 'New card',
+          emptyCell: 'Nothing here',
+          cardLabel: 'Ticket {label}',
+          wipState: '{count}/{limit}',
+        }),
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(LocalizedHost);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const headers = host.querySelectorAll('.mlv-taskboard__column-header');
+    expect(
+      host.querySelector('mlv-taskboard')?.getAttribute('aria-label'),
+    ).toBe('Board');
+    expect(host.querySelector('.mlv-taskboard__add')?.textContent?.trim()).toBe(
+      'New card',
+    );
+    expect(
+      host.querySelector('.mlv-taskboard__empty')?.textContent?.trim(),
+    ).toBe('Nothing here');
+    expect(
+      host.querySelector('.mlv-taskboard__card')?.textContent?.trim(),
+    ).toBe('Ticket one');
+    expect(headers[0]?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Todo (1/2)',
+    );
+    expect(headers[1]?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Done (0)',
+    );
   });
 });
 
@@ -267,4 +315,21 @@ class ProjectedInteractiveHost {
 class DefaultCardHost {
   readonly items = [{ id: 'one', status: 'todo' }];
   readonly columns = [{ id: 'todo', label: 'Todo' }];
+}
+
+@Component({
+  imports: [MlvTaskboard],
+  template: `<mlv-taskboard
+    [items]="items"
+    [columns]="columns"
+    dataKey="id"
+    columnField="status"
+  />`,
+})
+class LocalizedHost {
+  readonly items = [{ id: 'one', status: 'todo' }];
+  readonly columns = [
+    { id: 'todo', label: 'Todo', wipLimit: 2 },
+    { id: 'done', label: 'Done' },
+  ];
 }

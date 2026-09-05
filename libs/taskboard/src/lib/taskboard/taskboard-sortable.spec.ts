@@ -16,6 +16,7 @@ import type {
   MlvTaskboardState,
   MlvTaskboardTransition,
 } from '../taskboard.types';
+import { provideTaskboardTesting } from '../testing/taskboard-test-context';
 
 interface Ticket {
   readonly id: string;
@@ -163,6 +164,7 @@ async function createFixture(): Promise<{
 }> {
   await TestBed.configureTestingModule({
     imports: [SortableHost],
+    providers: [provideTaskboardTesting()],
   }).compileComponents();
   const fixture = TestBed.createComponent(SortableHost);
   fixture.detectChanges();
@@ -380,6 +382,7 @@ describe('MlvTaskboard SortableJS card adapter', () => {
   it('gives each board its own card group so two boards never accept each other', async () => {
     await TestBed.configureTestingModule({
       imports: [TwoBoardHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(TwoBoardHost);
     fixture.detectChanges();
@@ -455,6 +458,7 @@ describe('MlvTaskboard SortableJS card adapter', () => {
   it('hands a custom drop indicator the remaining cards its index counts', async () => {
     await TestBed.configureTestingModule({
       imports: [IndicatorHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(IndicatorHost);
     fixture.detectChanges();
@@ -478,6 +482,7 @@ describe('MlvTaskboard SortableJS card adapter', () => {
   it('never collapses a numeric and a string card identifier', async () => {
     await TestBed.configureTestingModule({
       imports: [MixedKeyHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(MixedKeyHost);
     fixture.detectChanges();
@@ -987,7 +992,10 @@ describe('MlvTaskboard drag document binding', () => {
     const isolated = document.implementation.createHTMLDocument('taskboard');
     await TestBed.configureTestingModule({
       imports: [SortableHost],
-      providers: [{ provide: DOCUMENT, useValue: isolated }],
+      providers: [
+        provideTaskboardTesting(),
+        { provide: DOCUMENT, useValue: isolated },
+      ],
     }).compileComponents();
     const fixture = TestBed.createComponent(SortableHost);
     fixture.detectChanges();

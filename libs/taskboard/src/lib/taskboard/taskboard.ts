@@ -16,6 +16,11 @@ import {
   MlvDensityDirective,
 } from '@malva-ui/cdk/density';
 import {
+  MLV_TASKBOARD_I18N,
+  MlvI18nResolverService,
+  type MlvTaskboardI18n,
+} from '@malva-ui/i18n';
+import {
   MlvTaskboardCardAddDef,
   MlvTaskboardColumnContentDef,
   MlvTaskboardColumnGroupDef,
@@ -140,7 +145,7 @@ interface MlvTaskboardDropAnchor {
   host: {
     class: 'mlv-taskboard',
     role: 'grid',
-    'aria-label': 'Taskboard',
+    '[attr.aria-label]': '_i18n().boardLabel',
     '[class.mlv-taskboard--move-pending]': '_movePending()',
     '[attr.aria-busy]': '_movePending() || null',
   },
@@ -329,6 +334,12 @@ export class MlvTaskboard<TItem> {
       return runs;
     },
   );
+
+  /** @protected Localized board copy; template-facing, so it has no prefix. */
+  protected readonly _i18n = inject(MLV_TASKBOARD_I18N);
+
+  /** @private Compiles the ICU strings the board announces and renders. */
+  private readonly _i18nResolver = inject(MlvI18nResolverService);
 
   /** @private Package-private SortableJS card adapter provided by this board. */
   private readonly _sortable = inject(
@@ -615,6 +626,41 @@ export class MlvTaskboard<TItem> {
       selectedIds: this.selection(),
       nativeEvent,
     });
+  }
+
+  /**
+   * @protected Resolves one localized string.
+   *
+   * Runs of whitespace are collapsed and the result trimmed, because several
+   * announcement messages carry an optional `{lane}` slot that is empty on a
+   * board without swimlanes; without the collapse an unlaned board would
+   * announce a trailing gap in every locale that keeps the slot inline.
+   */
+  protected _translate(
+    key: keyof MlvTaskboardI18n,
+    params?: Record<string, string | number>,
+  ): string {
+    return this._i18nResolver
+      .resolve(this._i18n() as unknown as Record<string, string>, key, params)
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /** @protected Text of the built-in card surface, when no card is projected. */
+  protected _cardLabel(item: TItem): string {
+    return this._translate('cardLabel', { label: String(this._itemId(item)) });
+  }
+
+  /**
+   * @protected Work-in-progress readout of a built-in column header. A column
+   * that declares no limit has nothing to state a ratio against, so it renders
+   * the bare count instead of a localized phrase.
+   */
+  protected _wipLabel(column: MlvTaskboardColumn): string {
+    const wip = this._wipFor(column, undefined);
+    return wip.limit === undefined
+      ? String(wip.count)
+      : this._translate('wipState', { count: wip.count, limit: wip.limit });
   }
 
   /** Returns the stable item key used by DOM adapters and selection. */

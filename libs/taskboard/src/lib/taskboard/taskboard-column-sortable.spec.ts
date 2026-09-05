@@ -12,6 +12,7 @@ import type {
   MlvTaskboardColumn,
   MlvTaskboardColumnGroup,
 } from '../taskboard.types';
+import { provideTaskboardTesting } from '../testing/taskboard-test-context';
 
 interface Ticket {
   readonly id: string;
@@ -79,6 +80,7 @@ class ColumnHost {
 async function createFixture(): Promise<ComponentFixture<ColumnHost>> {
   await TestBed.configureTestingModule({
     imports: [ColumnHost],
+    providers: [provideTaskboardTesting()],
   }).compileComponents();
   const fixture = TestBed.createComponent(ColumnHost);
   fixture.detectChanges();

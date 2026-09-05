@@ -17,6 +17,7 @@ import {
   type MlvTaskboardItemDefContext,
   MlvTaskboardSwimlaneDef,
 } from './taskboard-defs';
+import { provideTaskboardTesting } from './testing/taskboard-test-context';
 
 interface Ticket {
   readonly id: string;
@@ -112,6 +113,7 @@ describe('taskboard template definitions', () => {
       .mockImplementation(() => undefined);
     await TestBed.configureTestingModule({
       imports: [TaskboardDefsHost],
+      providers: [provideTaskboardTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(TaskboardDefsHost);
     fixture.detectChanges();

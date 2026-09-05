@@ -1,8 +1,19 @@
+import type { EnvironmentProviders } from '@angular/core';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import type {
   MlvTaskboardColumn,
   MlvTaskboardColumnGroup,
   MlvTaskboardSwimlane,
 } from '../taskboard.types';
+
+/**
+ * Providers every taskboard component spec needs. `MlvTaskboard` injects
+ * `MLV_TASKBOARD_I18N` at construction, so a `TestBed` without the i18n
+ * tokens cannot create the component at all.
+ */
+export function provideTaskboardTesting(): EnvironmentProviders {
+  return provideMlvI18nTesting();
+}
 
 /** Test-only card shape used by taskboard component integration tests. */
 export interface TaskboardTestTicket {
