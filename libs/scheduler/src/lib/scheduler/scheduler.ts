@@ -220,7 +220,10 @@ export class MlvScheduler<D = Date, TData = unknown>
   readonly externalDrop = output<MlvSchedulerExternalDropEvent<D>>();
   /** On init and whenever the rendered period changes. */
   readonly visibleRangeChange = output<MlvSchedulerVisibleRange<D>>();
-  /** "+N more" pressed (the popover opens regardless). */
+  /**
+   * A "+N more" press that OPENS its popover. The button toggles, and the
+   * closing press emits nothing.
+   */
   readonly moreClick = output<MlvSchedulerMoreClickEvent<D, TData>>();
 
   // ─── Slots ─────────────────────────────────────────────────────────────
@@ -582,7 +585,7 @@ export class MlvScheduler<D = Date, TData = unknown>
     this.rangeSelect.emit(payload);
   }
 
-  /** @internal Re-emits a month cell's "+N more" activation as `moreClick`; the popover opens either way. */
+  /** @internal Re-emits a month cell's "+N more" activation as `moreClick`; the view calls this only for the press that OPENS the popover, never for the one that toggles it shut. */
   emitMoreClick(payload: MlvSchedulerMoreClickEvent<D, TData>): void {
     this.moreClick.emit(payload);
   }
