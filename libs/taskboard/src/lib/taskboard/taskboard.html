@@ -115,6 +115,33 @@
       [ngTemplateOutlet]="contentDef.templateRef"
       [ngTemplateOutletContext]="_contentContext(column, swimlane)"
     />
+    } @else { @if (_virtualItemSize(); as itemSize) {
+    <cdk-virtual-scroll-viewport
+      class="mlv-taskboard__cards mlv-taskboard__cards--virtual"
+      mlvTaskboardCardsHost
+      [itemSize]="itemSize"
+      [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
+      [attr.data-mlv-taskboard-swimlane-id]="swimlane === undefined ? null : _keyAttribute(swimlane.id)"
+    >
+      <ng-container
+        *cdkVirtualFor="
+          let item of _itemsFor(column, swimlane);
+          let cardIndex = index;
+          trackBy: _trackCard
+        "
+      >
+        <ng-container
+          [ngTemplateOutlet]="cardTemplate"
+          [ngTemplateOutletContext]="{ item, column, swimlane, cardIndex }"
+        />
+      </ng-container>
+      @if (_isDropTail(column, swimlane)) {
+      <ng-container
+        [ngTemplateOutlet]="dropIndicatorTemplate"
+        [ngTemplateOutletContext]="{ column, swimlane }"
+      />
+      }
+    </cdk-virtual-scroll-viewport>
     } @else {
     <div
       class="mlv-taskboard__cards"
@@ -123,55 +150,19 @@
       [attr.data-mlv-taskboard-swimlane-id]="swimlane === undefined ? null : _keyAttribute(swimlane.id)"
     >
       @for (item of _itemsFor(column, swimlane); track _itemId(item); let
-      cardIndex = $index) { @if (_isDropAnchor(column, swimlane, item)) {
+      cardIndex = $index) {
       <ng-container
-        [ngTemplateOutlet]="dropIndicatorTemplate"
-        [ngTemplateOutletContext]="{ column, swimlane }"
+        [ngTemplateOutlet]="cardTemplate"
+        [ngTemplateOutletContext]="{ item, column, swimlane, cardIndex }"
       />
-      } @if (_itemDefs()[0]; as itemDef) {
-      <div
-        class="mlv-taskboard__card"
-        [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
-        [attr.aria-selected]="selection().has(_itemId(item))"
-        [attr.data-mlv-taskboard-selected]="selection().has(_itemId(item)) || null"
-        [attr.tabindex]="_isCardTabbable(item) ? 0 : -1"
-        [attr.aria-describedby]="_instructionsId"
-        (focus)="_onCardFocus(item, column, swimlane)"
-        (blur)="_onCardBlur()"
-        (keydown)="_onCardKeydown($event, item, column, swimlane, cardIndex)"
-        (click)="_activate(item, column, swimlane, cardIndex, $event)"
-        (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
-      >
-        <ng-container
-          [ngTemplateOutlet]="itemDef.templateRef"
-          [ngTemplateOutletContext]="_itemContext(item, column, swimlane, cardIndex)"
-        />
-      </div>
-      } @else {
-      <button
-        type="button"
-        class="mlv-taskboard__card"
-        [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
-        [attr.aria-selected]="selection().has(_itemId(item))"
-        [attr.data-mlv-taskboard-selected]="selection().has(_itemId(item)) || null"
-        [attr.tabindex]="_isCardTabbable(item) ? 0 : -1"
-        [attr.aria-describedby]="_instructionsId"
-        (focus)="_onCardFocus(item, column, swimlane)"
-        (blur)="_onCardBlur()"
-        (keydown)="_onCardKeydown($event, item, column, swimlane, cardIndex)"
-        (click)="_activate(item, column, swimlane, cardIndex, $event)"
-        (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
-      >
-        {{ _cardLabel(item) }}
-      </button>
-      } } @if (_isDropTail(column, swimlane)) {
+      } @if (_isDropTail(column, swimlane)) {
       <ng-container
         [ngTemplateOutlet]="dropIndicatorTemplate"
         [ngTemplateOutletContext]="{ column, swimlane }"
       />
       }
     </div>
-    @if (_itemsFor(column, swimlane).length === 0) {
+    } @if (_itemsFor(column, swimlane).length === 0) {
     <ng-container
       [ngTemplateOutlet]="emptyTemplate"
       [ngTemplateOutletContext]="{ column, swimlane }"
@@ -191,6 +182,57 @@
     </button>
     } }
   </div>
+</ng-template>
+
+<ng-template
+  #cardTemplate
+  let-item="item"
+  let-column="column"
+  let-swimlane="swimlane"
+  let-cardIndex="cardIndex"
+>
+  @if (_isDropAnchor(column, swimlane, item)) {
+  <ng-container
+    [ngTemplateOutlet]="dropIndicatorTemplate"
+    [ngTemplateOutletContext]="{ column, swimlane }"
+  />
+  } @if (_itemDefs()[0]; as itemDef) {
+  <div
+    class="mlv-taskboard__card"
+    [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
+    [attr.aria-selected]="selection().has(_itemId(item))"
+    [attr.data-mlv-taskboard-selected]="selection().has(_itemId(item)) || null"
+    [attr.tabindex]="_isCardTabbable(item) ? 0 : -1"
+    [attr.aria-describedby]="_instructionsId"
+    (focus)="_onCardFocus(item, column, swimlane)"
+    (blur)="_onCardBlur()"
+    (keydown)="_onCardKeydown($event, item, column, swimlane, cardIndex)"
+    (click)="_activate(item, column, swimlane, cardIndex, $event)"
+    (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
+  >
+    <ng-container
+      [ngTemplateOutlet]="itemDef.templateRef"
+      [ngTemplateOutletContext]="_itemContext(item, column, swimlane, cardIndex)"
+    />
+  </div>
+  } @else {
+  <button
+    type="button"
+    class="mlv-taskboard__card"
+    [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
+    [attr.aria-selected]="selection().has(_itemId(item))"
+    [attr.data-mlv-taskboard-selected]="selection().has(_itemId(item)) || null"
+    [attr.tabindex]="_isCardTabbable(item) ? 0 : -1"
+    [attr.aria-describedby]="_instructionsId"
+    (focus)="_onCardFocus(item, column, swimlane)"
+    (blur)="_onCardBlur()"
+    (keydown)="_onCardKeydown($event, item, column, swimlane, cardIndex)"
+    (click)="_activate(item, column, swimlane, cardIndex, $event)"
+    (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
+  >
+    {{ _cardLabel(item) }}
+  </button>
+  }
 </ng-template>
 
 <ng-template #emptyTemplate let-column="column" let-swimlane="swimlane">

@@ -141,6 +141,21 @@
       }
     }
 
+    // Virtual cells scroll inside a fixed block size: a viewport with no
+    // measurable height renders nothing, so the cell declares one. The card
+    // size the board was given is republished for consumers styling cards.
+    &__cards--virtual {
+      block-size: var(--mlv-taskboard-cell-block-size, 20rem);
+      overflow-y: auto;
+
+      .mlv-taskboard__card {
+        min-block-size: var(
+          --mlv-taskboard-virtual-item-size,
+          var(--mlv-taskboard-cell-block-size, 2.75rem)
+        );
+      }
+    }
+
     &__cards {
       display: flex;
       flex-direction: column;

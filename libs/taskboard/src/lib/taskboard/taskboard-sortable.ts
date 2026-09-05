@@ -15,6 +15,10 @@ import type {
   MlvTaskboardMoveRequest,
 } from '../taskboard.types';
 import {
+  mlvTaskboardBucketIndex,
+  type MlvTaskboardVirtualWindow,
+} from './taskboard-virtual';
+import {
   MLV_TASKBOARD_CARD_ID_ATTRIBUTE,
   MLV_TASKBOARD_DROP_STATE_ATTRIBUTE,
   captureMlvTaskboardDragResidue,
@@ -90,7 +94,15 @@ export interface MlvTaskboardSortableHost<TItem> {
 
 /** Registration surface the board's private cards-host directive consumes. */
 export interface MlvTaskboardCardsRegistry {
-  registerBucket(element: HTMLElement): void;
+  /**
+   * Registers one card container. A virtualized cell also supplies the window
+   * of cards it currently has in the DOM, because a slot read back from the
+   * DOM then counts only that window and not the whole bucket.
+   */
+  registerBucket(
+    element: HTMLElement,
+    virtualWindow?: () => MlvTaskboardVirtualWindow,
+  ): void;
   unregisterBucket(element: HTMLElement): void;
 }
 
@@ -123,6 +135,11 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
   private readonly _destroyRef = inject(DestroyRef);
   /** @private Live SortableJS instance per registered card container. */
   private readonly _instances = new Map<HTMLElement, Sortable>();
+  /** @private Rendered-window accessor of each virtualized card container. */
+  private readonly _virtualWindows = new Map<
+    HTMLElement,
+    () => MlvTaskboardVirtualWindow
+  >();
   /** @private This board's own group, so a sibling board never accepts it. */
   private readonly _group = mlvTaskboardGroupName(CARDS_GROUP_PREFIX);
   /** @private Board callbacks, connected once by the owning component. */
@@ -154,8 +171,14 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
   }
 
   /** Creates the SortableJS instance for one rendered card container. */
-  registerBucket(element: HTMLElement): void {
+  registerBucket(
+    element: HTMLElement,
+    virtualWindow?: () => MlvTaskboardVirtualWindow,
+  ): void {
     if (this._instances.has(element)) return;
+    if (virtualWindow !== undefined) {
+      this._virtualWindows.set(element, virtualWindow);
+    }
     const sortable = Sortable.create(element, this._sortableOptions());
     sortable.option('disabled', this._disabled);
     this._instances.set(element, sortable);
@@ -166,6 +189,7 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
     const sortable = this._instances.get(element);
     if (!sortable) return;
     this._instances.delete(element);
+    this._virtualWindows.delete(element);
     if (this._dropStateElement === element) this._dropStateElement = null;
     sortable.destroy();
   }
@@ -244,11 +268,15 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
     const sourcePosition =
       this._residue === null ? -1 : cards.indexOf(this._residue.item);
     // Sortable reports a slot among the rendered cards, which still include the
-    // dragged card in its own bucket; a board index excludes it.
-    const index =
+    // dragged card in its own bucket; a board index excludes it. A virtualized
+    // cell renders only a window of its bucket, so the slot is then offset by
+    // where that window starts.
+    const index = mlvTaskboardBucketIndex(
       sourcePosition >= 0 && domIndex > sourcePosition
         ? domIndex - 1
-        : domIndex;
+        : domIndex,
+      this._virtualWindows.get(container)?.() ?? null,
+    );
     const request = session.requestFor(
       bucket.columnId,
       bucket.swimlaneId,

@@ -6,10 +6,17 @@ import {
   UP_ARROW,
 } from '@angular/cdk/keycodes';
 import {
+  CdkFixedSizeVirtualScroll,
+  CdkVirtualForOf,
+  CdkVirtualScrollViewport,
+} from '@angular/cdk/scrolling';
+import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Injector,
   ViewEncapsulation,
+  afterNextRender,
   computed,
   contentChildren,
   inject,
@@ -17,6 +24,7 @@ import {
   model,
   output,
   signal,
+  viewChildren,
 } from '@angular/core';
 import {
   MLV_DENSITY_ELEMENT,
@@ -81,6 +89,7 @@ import {
 import { MlvTaskboardColumnsHost } from './taskboard-columns-host';
 import {
   MlvTaskboardKeyboardController,
+  type MlvTaskboardKeyboardFocus,
   type MlvTaskboardKeyboardStep,
   type MlvTaskboardKeyboardTarget,
 } from './taskboard-keyboard';
@@ -91,6 +100,7 @@ import {
   type MlvTaskboardBucket,
   type MlvTaskboardDropPreview,
 } from './taskboard-sortable';
+import { mlvTaskboardRenderedIndex } from './taskboard-virtual';
 import {
   MLV_TASKBOARD_CARD_ID_ATTRIBUTE,
   MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE,
@@ -161,7 +171,14 @@ interface MlvTaskboardDropAnchor {
  */
 @Component({
   selector: 'mlv-taskboard',
-  imports: [NgTemplateOutlet, MlvTaskboardCardsHost, MlvTaskboardColumnsHost],
+  imports: [
+    CdkFixedSizeVirtualScroll,
+    CdkVirtualForOf,
+    CdkVirtualScrollViewport,
+    NgTemplateOutlet,
+    MlvTaskboardCardsHost,
+    MlvTaskboardColumnsHost,
+  ],
   templateUrl: './taskboard.html',
   styleUrl: './taskboard.scss',
   encapsulation: ViewEncapsulation.None,
@@ -185,6 +202,7 @@ interface MlvTaskboardDropAnchor {
     role: 'grid',
     '[attr.aria-label]': '_i18n().boardLabel',
     '[class.mlv-taskboard--move-pending]': '_movePending()',
+    '[style.--mlv-taskboard-virtual-item-size]': '_virtualItemSizeVar()',
     '[attr.aria-busy]': '_movePending() || null',
   },
 })
@@ -235,6 +253,12 @@ export class MlvTaskboard<TItem> {
   readonly canReorderColumnFn = input<
     MlvTaskboardCanReorderColumnFn | undefined
   >(undefined);
+  /**
+   * Fixed block size, in pixels, of one card in a virtualized cell. Supplying
+   * a positive finite number opts the whole board into virtual card cells;
+   * leaving it unset renders every card of every cell.
+   */
+  readonly virtualItemSize = input<number | undefined>(undefined);
   /** Application-owned selected card identifiers. */
   readonly selection = model<ReadonlySet<MlvTaskboardKey>>(new Set());
   /** Application-owned collapsed column identifiers. */
@@ -456,6 +480,29 @@ export class MlvTaskboard<TItem> {
   /** @private Compiles the ICU strings the board announces and renders. */
   private readonly _i18nResolver = inject(MlvI18nResolverService);
 
+  /**
+   * @protected The validated card size a virtualized cell renders with, or
+   * `null` when this board renders plain, fully-rendered card lists.
+   */
+  protected readonly _virtualItemSize = computed<number | null>(() => {
+    const size = this.virtualItemSize();
+    return size !== undefined && Number.isFinite(size) && size > 0
+      ? size
+      : null;
+  });
+
+  /** @protected Publishes the card size to CSS, for cell sizing. */
+  protected _virtualItemSizeVar(): string | null {
+    const size = this._virtualItemSize();
+    return size === null ? null : `${size}px`;
+  }
+
+  /** @private Every rendered virtual cell viewport, keyed later by its bucket. */
+  private readonly _cardViewports = viewChildren(CdkVirtualScrollViewport);
+
+  /** @private Runs a post-render callback outside an injection context. */
+  private readonly _injector = inject(Injector);
+
   /** @private Host element, used to resolve a card key back to its element. */
   private readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -516,7 +563,7 @@ export class MlvTaskboard<TItem> {
     cardLabel: (itemId) => String(itemId),
     targetReason: (target, itemId) =>
       this._translate(this._targetReasonKey(target, itemId)),
-    focusCard: (focus) => this._focusCardElement(focus.itemId),
+    focusCard: (focus) => this._focusCardElement(focus),
   });
 
   /**
@@ -878,7 +925,35 @@ export class MlvTaskboard<TItem> {
    * @private Scrolls a newly focused card into view, then focuses it. The
    * card may sit outside the scrolled cell, so the scroll runs first.
    */
-  private _focusCardElement(itemId: MlvTaskboardKey): void {
+  private _focusCardElement(focus: MlvTaskboardKeyboardFocus): void {
+    const viewport = this._viewportFor(focus.columnId, focus.swimlaneId);
+    if (viewport !== undefined) {
+      const bucketIndex = this._index()
+        .itemsFor(focus.columnId, focus.swimlaneId)
+        .findIndex((item) =>
+          sameMlvTaskboardKey(this._itemId(item), focus.itemId),
+        );
+      const range = viewport.getRenderedRange();
+      const rendered = mlvTaskboardRenderedIndex(bucketIndex, {
+        start: range.start,
+        rendered: range.end - range.start,
+        total: viewport.getDataLength(),
+      });
+      if (bucketIndex !== -1 && rendered === null) {
+        // The card has no element yet, so it is scrolled back into the window
+        // first and focused once that render has landed.
+        viewport.scrollToIndex(bucketIndex);
+        afterNextRender(() => this._focusCardNode(focus.itemId), {
+          injector: this._injector,
+        });
+        return;
+      }
+    }
+    this._focusCardNode(focus.itemId);
+  }
+
+  /** @private Scrolls one rendered card into view and moves DOM focus onto it. */
+  private _focusCardNode(itemId: MlvTaskboardKey): void {
     const element = this._elementRef.nativeElement.querySelector<HTMLElement>(
       `[${MLV_TASKBOARD_CARD_ID_ATTRIBUTE}="${mlvTaskboardKeyToken(itemId)}"]`,
     );
@@ -888,6 +963,25 @@ export class MlvTaskboard<TItem> {
     }
     element.focus();
   }
+
+  /** @private The virtual viewport rendering one column/lane cell, if any. */
+  private _viewportFor(
+    columnId: MlvTaskboardKey,
+    swimlaneId: MlvTaskboardKey | undefined,
+  ): CdkVirtualScrollViewport | undefined {
+    return this._cardViewports().find((viewport) => {
+      const bucket = this._resolveBucket(viewport.elementRef.nativeElement);
+      return (
+        bucket !== undefined &&
+        sameMlvTaskboardKey(bucket.columnId, columnId) &&
+        sameMlvTaskboardKey(bucket.swimlaneId, swimlaneId)
+      );
+    });
+  }
+
+  /** @private Stable identity `*cdkVirtualFor` re-uses a card view by. */
+  protected _trackCard = (_index: number, item: TItem): MlvTaskboardKey =>
+    this._itemId(item);
 
   /**
    * @private The lane qualifier an announcement carries, or `''` on a board
@@ -1127,7 +1221,14 @@ export class MlvTaskboard<TItem> {
 
   /** @private Resolves a registered container element to its canonical bucket. */
   private _resolveBucket(element: HTMLElement): MlvTaskboardBucket | undefined {
-    const columnAttribute = element.getAttribute(
+    // A virtualized cell registers the viewport's content wrapper, which
+    // carries no board attributes of its own; `closest` walks out to the
+    // viewport host and matches the element itself for a plain cell.
+    const cell = element.closest<HTMLElement>(
+      `[${MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE}]`,
+    );
+    if (cell === null) return undefined;
+    const columnAttribute = cell.getAttribute(
       MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE,
     );
     if (columnAttribute === null) return undefined;
@@ -1135,7 +1236,7 @@ export class MlvTaskboard<TItem> {
       (candidate) => mlvTaskboardKeyToken(candidate.id) === columnAttribute,
     );
     if (!column) return undefined;
-    const swimlaneAttribute = element.getAttribute(
+    const swimlaneAttribute = cell.getAttribute(
       MLV_TASKBOARD_SWIMLANE_ID_ATTRIBUTE,
     );
     if (swimlaneAttribute === null) {
