@@ -158,12 +158,22 @@ export function mlvTaskboardChildrenOf(
  * the pointer sits over a direct child that does not match `draggable` (the
  * live drop indicator is one). That payload means the tail slot, not the
  * first — an empty container collapses the two anyway.
+ *
+ * `mirrored` converts the physical answer to a logical one for a container
+ * laid out on the inline axis. SortableJS decides `willInsertAfter` from raw
+ * screen coordinates — `_ghostIsLast` compares `clientX` with the last child's
+ * right edge, and the swap threshold compares it with the target's horizontal
+ * middle — so under `dir="rtl"` "physically after" is the slot *before* in DOM
+ * order. Block-axis containers are unaffected and never pass it.
  */
 export function mlvTaskboardInsertionIndex(
   event: Sortable.MoveEvent,
   children: readonly HTMLElement[],
+  mirrored = false,
 ): number {
-  const insertAfter = event.willInsertAfter === true;
+  const insertAfter = mirrored
+    ? event.willInsertAfter !== true
+    : event.willInsertAfter === true;
   const related: HTMLElement | null = event.related ?? null;
   const position = related === null ? -1 : children.indexOf(related);
   if (position < 0) return insertAfter ? children.length : 0;

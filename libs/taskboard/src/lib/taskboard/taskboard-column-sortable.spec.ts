@@ -1,8 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import Sortable from 'sortablejs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { MlvTaskboard } from './taskboard';
 import type {
   MlvTaskboardCanReorderColumnFn,
@@ -156,6 +157,14 @@ function groupRunSpans(host: HTMLElement): string[] {
 }
 
 describe('MlvTaskboard SortableJS column adapter', () => {
+  /** Set by the direction specs; the flip is global state and must be reset. */
+  let rtlService: MlvRtlService | null = null;
+
+  afterEach(() => {
+    rtlService?.setDirection('ltr');
+    rtlService = null;
+  });
+
   it('registers the header row in a private column group that only drags headers', async () => {
     const fixture = await createFixture();
     const sortable = sortableFor(headerRow(fixture.nativeElement));
@@ -184,6 +193,53 @@ describe('MlvTaskboard SortableJS column adapter', () => {
         host.querySelectorAll<HTMLElement>('.mlv-taskboard__column-header'),
       ).map((header) => header.getAttribute('data-mlv-taskboard-column-id')),
     ).toEqual(['c', 'a', 'b']);
+  });
+
+  it('keeps the physical insert side in LTR', async () => {
+    const fixture = await createFixture();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // A pointer physically past `a` is the slot after it while reading order
+    // runs left to right.
+    dropColumnOn(host, 'c', 'a', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(columnIds(fixture)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('mirrors the physical insert side under a global RTL flip', async () => {
+    const fixture = await createFixture();
+    const host = fixture.nativeElement as HTMLElement;
+    rtlService = TestBed.inject(MlvRtlService);
+    rtlService.setDirection('rtl');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // `willInsertAfter` is physical: SortableJS compares `clientX` with the
+    // target's rect edges, so in RTL "after" is the slot before in DOM order.
+    dropColumnOn(host, 'c', 'a', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(columnIds(fixture)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('follows a [dir] scope on an ancestor while the document stays LTR', async () => {
+    const fixture = await createFixture();
+    const host = fixture.nativeElement as HTMLElement;
+    rtlService = TestBed.inject(MlvRtlService);
+    host.setAttribute('dir', 'rtl');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(rtlService.direction()).toBe('ltr');
+
+    dropColumnOn(host, 'c', 'a', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(columnIds(fixture)).toEqual(['c', 'a', 'b']);
   });
 
   it('adopts the group of the new neighbours when a column crosses a run', async () => {

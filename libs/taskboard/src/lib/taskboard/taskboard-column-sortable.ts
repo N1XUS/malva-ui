@@ -1,6 +1,13 @@
 import { DOCUMENT } from '@angular/common';
-import { DestroyRef, Injectable, InjectionToken, inject } from '@angular/core';
+import {
+  DestroyRef,
+  ElementRef,
+  Injectable,
+  InjectionToken,
+  inject,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { Subject, filter, fromEvent, takeUntil } from 'rxjs';
 import Sortable from 'sortablejs';
 import type {
@@ -66,6 +73,14 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
   private readonly _document = inject(DOCUMENT);
   /** @private Ties every drag listener and the instance to the board's life. */
   private readonly _destroyRef = inject(DestroyRef);
+  /**
+   * @private The direction applying to the board, following any `[dir]` scope
+   * above it. The header row is the one taskboard container laid out on the
+   * inline axis, so the physical insert side SortableJS reports mirrors here.
+   */
+  private readonly _direction = inject(MlvRtlService).elementDirection(
+    inject(ElementRef<HTMLElement>),
+  );
   /** @private Board callbacks, connected once by the owning component. */
   private _host: MlvTaskboardColumnSortableHost | null = null;
   /** @private The registered header row element, `null` before first render. */
@@ -161,7 +176,11 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
       return false;
     }
     const headers = mlvTaskboardChildrenOf(row, COLUMN_HEADER_CLASS);
-    const domIndex = mlvTaskboardInsertionIndex(event, headers);
+    const domIndex = mlvTaskboardInsertionIndex(
+      event,
+      headers,
+      this._direction() === 'rtl',
+    );
     const sourcePosition =
       this._residue === null ? -1 : headers.indexOf(this._residue.item);
     // Sortable reports a slot among the rendered headers, which still include
