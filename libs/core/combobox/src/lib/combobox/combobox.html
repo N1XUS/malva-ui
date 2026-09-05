@@ -123,7 +123,8 @@
 
       <mlv-popup
         [(opened)]="isOpen"
-        [width]="triggerWidth()"
+        [minWidth]="_resolvedDropdownMinWidth()"
+        [maxWidth]="dropdownMaxWidth()"
         [hasShadow]="true"
         [hasBackdrop]="false"
         [flexibleDimensions]="true"
