@@ -25,10 +25,13 @@ export interface MlvTaskboardVirtualWindow {
  */
 export function mlvTaskboardBucketIndex(
   domIndex: number,
-  window: MlvTaskboardVirtualWindow | null,
+  renderedWindow: MlvTaskboardVirtualWindow | null,
 ): number {
-  if (window === null) return domIndex;
-  return Math.min(Math.max(window.start + domIndex, 0), window.total);
+  if (renderedWindow === null) return domIndex;
+  return Math.min(
+    Math.max(renderedWindow.start + domIndex, 0),
+    renderedWindow.total,
+  );
 }
 
 /**
@@ -38,9 +41,9 @@ export function mlvTaskboardBucketIndex(
  */
 export function mlvTaskboardRenderedIndex(
   bucketIndex: number,
-  window: MlvTaskboardVirtualWindow | null,
+  renderedWindow: MlvTaskboardVirtualWindow | null,
 ): number | null {
-  if (window === null) return bucketIndex;
-  const rendered = bucketIndex - window.start;
-  return rendered < 0 || rendered >= window.rendered ? null : rendered;
+  if (renderedWindow === null) return bucketIndex;
+  const rendered = bucketIndex - renderedWindow.start;
+  return rendered < 0 || rendered >= renderedWindow.rendered ? null : rendered;
 }

@@ -13,17 +13,21 @@ import {
   type MlvTaskboardVirtualWindow,
 } from './taskboard-virtual';
 
-const window: MlvTaskboardVirtualWindow = { start: 5, rendered: 5, total: 40 };
+const renderedWindow: MlvTaskboardVirtualWindow = {
+  start: 5,
+  rendered: 5,
+  total: 40,
+};
 
 describe('taskboard virtual window', () => {
   it('translates a rendered DOM index to the full bucket index', () => {
-    expect(mlvTaskboardBucketIndex(0, window)).toBe(5);
-    expect(mlvTaskboardBucketIndex(3, window)).toBe(8);
+    expect(mlvTaskboardBucketIndex(0, renderedWindow)).toBe(5);
+    expect(mlvTaskboardBucketIndex(3, renderedWindow)).toBe(8);
   });
 
   it('never reports a slot past the end of the bucket', () => {
-    expect(mlvTaskboardBucketIndex(99, window)).toBe(40);
-    expect(mlvTaskboardBucketIndex(-9, window)).toBe(0);
+    expect(mlvTaskboardBucketIndex(99, renderedWindow)).toBe(40);
+    expect(mlvTaskboardBucketIndex(-9, renderedWindow)).toBe(0);
   });
 
   it('leaves a plain, unvirtualized cell index untouched', () => {
@@ -32,13 +36,13 @@ describe('taskboard virtual window', () => {
   });
 
   it('translates a bucket index back into the rendered window', () => {
-    expect(mlvTaskboardRenderedIndex(5, window)).toBe(0);
-    expect(mlvTaskboardRenderedIndex(9, window)).toBe(4);
+    expect(mlvTaskboardRenderedIndex(5, renderedWindow)).toBe(0);
+    expect(mlvTaskboardRenderedIndex(9, renderedWindow)).toBe(4);
   });
 
   it('reports a card outside the rendered window as unrendered', () => {
-    expect(mlvTaskboardRenderedIndex(4, window)).toBeNull();
-    expect(mlvTaskboardRenderedIndex(10, window)).toBeNull();
+    expect(mlvTaskboardRenderedIndex(4, renderedWindow)).toBeNull();
+    expect(mlvTaskboardRenderedIndex(10, renderedWindow)).toBeNull();
   });
 });
 
