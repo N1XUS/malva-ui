@@ -77,6 +77,8 @@ CSS density classes applied: `mlv-slider--compact`, `mlv-slider--comfortable`.
 | `Home`                    | Move focused thumb to `min`            |
 | `End`                     | Move focused thumb to `max`            |
 
+Horizontal arrows are **logical** — in RTL `ArrowLeft` increases and `ArrowRight` decreases. Direction is resolved from the slider's own host (`normalizeArrowKey(event, this._elementRef)`), the same `ElementRef` that feeds `_direction` for the pointer maths, so a slider inside a scoped `dir="rtl"` subtree (or an overlay pane, which CDK stamps with its own `dir`) mirrors both halves together while the document stays LTR. Vertical arrows, `PageUp`/`PageDown` and `Home`/`End` never mirror.
+
 #### ARIA
 
 - `role="slider"` on each thumb

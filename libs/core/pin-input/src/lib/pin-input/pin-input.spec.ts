@@ -625,3 +625,84 @@ describe('MlvPinInput field surface', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Scoped direction (#147)
+//
+// Cell-to-cell movement is inline-axis, so it resolves against the pin input's
+// own host: a `[dir]` ancestor mirrors it while the document stays LTR, and so
+// does the `dir` CDK stamps on an overlay pane the field is rendered in.
+// ---------------------------------------------------------------------------
+
+@Component({
+  template: `<div [attr.dir]="scopeDir()">
+    <mlv-pin-input [length]="4" />
+  </div>`,
+  imports: [MlvPinInput],
+})
+class ScopedDirHostComponent {
+  readonly scopeDir = signal<'rtl' | 'ltr'>('rtl');
+}
+
+describe('MlvPinInput scoped direction', () => {
+  let fixture: ComponentFixture<ScopedDirHostComponent>;
+  let rtlService: MlvRtlService;
+
+  /** Index of the focused cell — a number, so a failure never prints a node. */
+  function focusedCellIndex(): number {
+    return getCells(fixture).indexOf(
+      document.activeElement as HTMLInputElement,
+    );
+  }
+
+  function focusCell(index: number): void {
+    getCells(fixture)[index].focus();
+  }
+
+  function keydown(index: number, key: string): void {
+    dispatchKeydown(getCells(fixture)[index], key);
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    fixture = await createFixture(ScopedDirHostComponent);
+    rtlService = TestBed.inject(MlvRtlService);
+  });
+
+  afterEach(() => {
+    rtlService?.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  it('mirrors horizontal cell navigation inside a [dir="rtl"] subtree while the document stays LTR', () => {
+    expect(rtlService.direction()).toBe('ltr');
+
+    focusCell(2);
+    keydown(2, 'ArrowLeft');
+    expect(focusedCellIndex()).toBe(3); // ArrowLeft is "next" once mirrored
+    keydown(3, 'ArrowRight');
+    expect(focusedCellIndex()).toBe(2);
+  });
+
+  it('leaves Home and End alone inside a [dir="rtl"] subtree', () => {
+    focusCell(2);
+    keydown(2, 'Home');
+    expect(focusedCellIndex()).toBe(0);
+    keydown(0, 'End');
+    expect(focusedCellIndex()).toBe(3);
+  });
+
+  it('keeps a [dir="ltr"] island unmirrored while the document is RTL', async () => {
+    fixture.componentInstance.scopeDir.set('ltr');
+    rtlService.setDirection('rtl');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(rtlService.direction()).toBe('rtl');
+
+    focusCell(2);
+    keydown(2, 'ArrowRight');
+    expect(focusedCellIndex()).toBe(3); // the island reads LTR
+    keydown(3, 'ArrowLeft');
+    expect(focusedCellIndex()).toBe(2);
+  });
+});

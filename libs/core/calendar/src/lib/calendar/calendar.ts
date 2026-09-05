@@ -79,7 +79,13 @@ export class MlvCalendar<D = Date> {
   /** @private Resolver for ICU parameterized i18n strings. */
   private readonly _resolver = inject(MlvI18nResolverService);
 
-  /** @private Host element used to locate the roving-focus cell. */
+  /**
+   * @private Host element used to locate the roving-focus cell, and the scope
+   * horizontal arrow keys resolve their direction against. Direction is scoped,
+   * so a calendar inside a `dir="rtl"` subtree — or inside a popup pane, which
+   * CDK stamps with its trigger's `dir` — must mirror even while the document
+   * is LTR.
+   */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /** @private Normalizes horizontal calendar navigation for RTL layouts. */
@@ -764,7 +770,10 @@ export class MlvCalendar<D = Date> {
   private _handleMonthViewKeydown(event: KeyboardEvent): void {
     let nextDate: D | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      event.key
+    ) {
       case LEFT_ARROW:
         nextDate = this._dateAdapter.addCalendarDays(this.activeDate(), -1);
         break;
@@ -817,7 +826,10 @@ export class MlvCalendar<D = Date> {
     const currentMonth = this._dateAdapter.getMonth(activeDate);
     let nextMonth: number | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      event.key
+    ) {
       case LEFT_ARROW:
         nextMonth = currentMonth - 1;
         break;
@@ -867,7 +879,10 @@ export class MlvCalendar<D = Date> {
     const blockStart = this._yearBlockStart(activeDate);
     let nextYear: number | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      event.key
+    ) {
       case LEFT_ARROW:
         nextYear = currentYear - 1;
         break;

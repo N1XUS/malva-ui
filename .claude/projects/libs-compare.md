@@ -148,13 +148,14 @@ in progress (never while merely hovering with `slideOnHover`).
 
 ## Accessibility
 
-Slider semantics come from the real `<input type="range" min="0" max="100"
+- **Direction (RTL): scoped, not per-document.** `_onKeydown` passes the host to `MlvRtlService.normalizeArrowKey(event, host)`, so a divider inside a `[dir="rtl"]` subtree mirrors its arrow stepping while the document stays LTR — and an LTR island under an RTL document does not. The same host feeds the pointer maths, so the keyboard and geometry halves cannot disagree. Vertical arrows, `Home` / `End` and `PageUp` / `PageDown` never mirror. Regressions in `compare.spec.ts`.
+  Slider semantics come from the real `<input type="range" min="0" max="100"
 step="any">` — role, `aria-valuenow`, `aria-valuemin/max` for free — plus
-`aria-valuetext="<n>%"`, `aria-orientation`, and an accessible name
-(`aria-labelledby` › `aria-label` › translated fallback). The input is
-visually hidden (`opacity: 0`), pointer-transparent, full-size (a screen
-reader's focus rectangle outlines the whole surface) and stays in the tab
-order. The divider/handle is `aria-hidden` and pointer-transparent.
+  `aria-valuetext="<n>%"`, `aria-orientation`, and an accessible name
+  (`aria-labelledby` › `aria-label` › translated fallback). The input is
+  visually hidden (`opacity: 0`), pointer-transparent, full-size (a screen
+  reader's focus rectangle outlines the whole surface) and stays in the tab
+  order. The divider/handle is `aria-hidden` and pointer-transparent.
 
 Focus ring: keyboard focus lives on the hidden input, so the ring is drawn on
 the handle the user sees —

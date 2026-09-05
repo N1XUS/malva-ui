@@ -328,7 +328,10 @@ export class MlvMenuTrigger {
   protected _onKeydown(event: KeyboardEvent): void {
     if (this.menuTriggerDisabled()) return;
 
-    const key = this._rtlService.normalizeArrowKey(event);
+    // Resolved against this trigger's own host, so a submenu trigger inside a
+    // scoped `[dir="rtl"]` subtree (or an overlay pane stamped with that
+    // direction) opens toward the inline end.
+    const key = this._rtlService.normalizeArrowKey(event, this._elementRef);
     switch (key ?? event.key) {
       case 'Enter':
       case ' ':

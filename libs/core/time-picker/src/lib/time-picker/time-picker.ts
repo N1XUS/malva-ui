@@ -1,9 +1,10 @@
-import type { ElementRef, Signal } from '@angular/core';
+import type { Signal } from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
   effect,
+  ElementRef,
   forwardRef,
   inject,
   input,
@@ -213,6 +214,14 @@ export class MlvTimePicker
    */
   private readonly _columns = viewChildren(MlvScrubber);
 
+  /**
+   * @private Host element; the scope inter-column arrow keys resolve their
+   * direction against. The columns render in a popup pane portaled to `<body>`,
+   * outside any `[dir]` scope the picker sits in, so the direction has to come
+   * from the picker's own host rather than from the document.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
   /** @private Normalizes horizontal column navigation for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
 
@@ -366,7 +375,7 @@ export class MlvTimePicker
    * focus between column listboxes.
    */
   protected _onPanelKeydown(event: KeyboardEvent): void {
-    const key = this._rtlService.normalizeArrowKey(event);
+    const key = this._rtlService.normalizeArrowKey(event, this._elementRef);
     if (key !== LEFT_ARROW && key !== RIGHT_ARROW) return;
 
     const columns = this._columns();

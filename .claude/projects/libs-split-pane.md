@@ -213,6 +213,7 @@ export class LayoutComponent {
 
 ## Accessibility
 
+- **Direction (RTL): scoped, not per-document.** The divider's `_onKeydown` passes the host to `MlvRtlService.normalizeArrowKey(event, host)`, so a horizontal split inside a `[dir="rtl"]` subtree mirrors its resize stepping while the document stays LTR; a vertical split is on the block axis and never mirrors. The same host feeds the pointer maths. Regressions in `split-pane.spec.ts`.
 - Each drag handle has `role="separator"`, `tabindex="0"`, and an `aria-label` (`"Resize panels horizontally"` or `"Resize panels vertically"`).
 - Because the separator is focusable it is a **window splitter** and carries `aria-valuenow` / `aria-valuemin` / `aria-valuemax` (WAI-ARIA required attrs). `aria-valuenow` is the leading panel's size (%), bounded by the two adjacent panels' `minSize`; `_updateHandleAria()` refreshes these whenever sizes change (initial layout, drag, keyboard).
 - `aria-orientation` is set to `"vertical"` on horizontal handles and `"horizontal"` on vertical handles (reflects the axis being split, matching the ARIA spec for separators).

@@ -176,6 +176,73 @@ describe('MlvRtlService scoped direction', () => {
     expect(service.resolveDirection(auto)).toBe('rtl');
   });
 
+  it('mirrors arrow keys against the scope the target sits in, not the document', () => {
+    const scope = document.createElement('div');
+    scope.setAttribute('dir', 'rtl');
+    const child = document.createElement('span');
+    scope.appendChild(child);
+    host.appendChild(scope);
+
+    // The document is still LTR; only the subtree is flipped.
+    expect(service.direction()).toBe('ltr');
+
+    expect(service.normalizeArrowKey(keyboardEvent('ArrowLeft'), child)).toBe(
+      RIGHT_ARROW,
+    );
+    expect(service.normalizeArrowKey(keyboardEvent('ArrowRight'), child)).toBe(
+      LEFT_ARROW,
+    );
+    expect(
+      service.normalizeArrowKey(
+        keyboardEvent('ArrowLeft'),
+        new ElementRef(child),
+      ),
+    ).toBe(RIGHT_ARROW);
+  });
+
+  it('leaves vertical arrows alone inside a scoped RTL subtree', () => {
+    const scope = document.createElement('div');
+    scope.setAttribute('dir', 'rtl');
+    host.appendChild(scope);
+
+    expect(service.normalizeArrowKey(keyboardEvent('ArrowUp'), scope)).toBe(
+      UP_ARROW,
+    );
+    expect(service.normalizeArrowKey(keyboardEvent('ArrowDown'), scope)).toBe(
+      DOWN_ARROW,
+    );
+    expect(service.normalizeArrowKey(keyboardEvent('Home'), scope)).toBeNull();
+  });
+
+  it('keeps an LTR island unmirrored while the document is RTL', () => {
+    const island = document.createElement('div');
+    island.setAttribute('dir', 'ltr');
+    host.appendChild(island);
+    service.setDirection('rtl');
+
+    expect(service.normalizeArrowKey(keyboardEvent('ArrowLeft'), island)).toBe(
+      LEFT_ARROW,
+    );
+    expect(service.normalizeArrowKey(keyboardEvent('ArrowRight'), island)).toBe(
+      RIGHT_ARROW,
+    );
+  });
+
+  it('falls back to the global direction when no target is given', () => {
+    const scope = document.createElement('div');
+    scope.setAttribute('dir', 'rtl');
+    host.appendChild(scope);
+
+    expect(service.normalizeArrowKey(keyboardEvent('ArrowLeft'))).toBe(
+      LEFT_ARROW,
+    );
+
+    service.setDirection('rtl');
+    expect(service.normalizeArrowKey(keyboardEvent('ArrowLeft'))).toBe(
+      RIGHT_ARROW,
+    );
+  });
+
   it('falls back to the global direction for a null target', () => {
     service.setDirection('rtl');
     expect(service.resolveDirection(null)).toBe('rtl');

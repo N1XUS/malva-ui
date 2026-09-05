@@ -55,7 +55,11 @@ const SNAP_TRANSITION_FALLBACK_MS = 1000;
   },
 })
 export class MlvDrawerResize {
-  /** @private Host element ref — the drawer resize handle. */
+  /**
+   * @private Host element ref — the drawer resize handle. Also the scope the
+   * horizontal resize arrows resolve their direction against: a drawer renders
+   * inside a CDK overlay pane, which carries its own `dir`.
+   */
   private readonly _el = inject(ElementRef<HTMLElement>);
   /** @private DestroyRef used for observable and listener cleanup. */
   private readonly _destroyRef = inject(DestroyRef);
@@ -304,7 +308,7 @@ export class MlvDrawerResize {
     const snapPoints = this.snapPoints();
     let newSize: number | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (this._rtlService.normalizeArrowKey(event, this._el) ?? event.key) {
       case UP_ARROW:
       case RIGHT_ARROW:
         newSize = currentSizePx + stepPx;

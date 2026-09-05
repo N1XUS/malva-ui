@@ -371,6 +371,12 @@ Density modifiers (`.mlv-tile--tight`, `--compact`, `--comfortable`, `--spacious
 
 ---
 
+## Direction (RTL)
+
+- **Scoped, not per-document.** The tile tree's keyboard handler passes its own host to `MlvRtlService.normalizeArrowKey(event, host)`, so a `mlv-tiles` grid inside a `[dir="rtl"]` subtree mirrors its horizontal stepping and its expand / collapse arrows while the document stays LTR — and an LTR island under an RTL document does not.
+- Vertical arrows, `Home` / `End` and activation keys never mirror.
+- Regressions in `tile.spec.ts`.
+
 ## Dependencies
 
 | Package                 | Role                                                                                 |

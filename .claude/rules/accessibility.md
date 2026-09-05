@@ -44,19 +44,19 @@ Tab navigation moves **between** widgets. Use the roving tabindex pattern (see b
 
 Use arrow keys to move focus **within** a composite widget:
 
-| Widget                | Keys                                         | CDK Helper                                          |
-| --------------------- | -------------------------------------------- | --------------------------------------------------- |
-| Radio group           | `ArrowUp` / `ArrowDown`                      | `FocusKeyManager`                                   |
-| Checkbox group        | `ArrowUp` / `ArrowDown`                      | `FocusKeyManager`                                   |
-| Switch group          | `ArrowUp` / `ArrowDown`                      | `FocusKeyManager`                                   |
-| Tab list (horizontal) | `ArrowLeft` / `ArrowRight` (mirrored in RTL) | Manual via `normalizeArrowKey` or `FocusKeyManager` |
-| Tab list (vertical)   | `ArrowUp` / `ArrowDown`                      | Manual or `FocusKeyManager`                         |
-| Listbox / dropdown    | `ArrowUp` / `ArrowDown`                      | `CdkListbox`                                        |
-| Menu                  | `ArrowUp` / `ArrowDown`                      | `FocusKeyManager`                                   |
+| Widget                | Keys                                         | CDK Helper                                                       |
+| --------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
+| Radio group           | `ArrowUp` / `ArrowDown`                      | `FocusKeyManager`                                                |
+| Checkbox group        | `ArrowUp` / `ArrowDown`                      | `FocusKeyManager`                                                |
+| Switch group          | `ArrowUp` / `ArrowDown`                      | `FocusKeyManager`                                                |
+| Tab list (horizontal) | `ArrowLeft` / `ArrowRight` (mirrored in RTL) | Manual via `normalizeArrowKey(event, host)` or `FocusKeyManager` |
+| Tab list (vertical)   | `ArrowUp` / `ArrowDown`                      | Manual or `FocusKeyManager`                                      |
+| Listbox / dropdown    | `ArrowUp` / `ArrowDown`                      | `CdkListbox`                                                     |
+| Menu                  | `ArrowUp` / `ArrowDown`                      | `FocusKeyManager`                                                |
 
 For `Home` / `End`: jump to first / last item.
 
-Horizontal arrows are **logical**. In RTL, `ArrowLeft` means _next_ and `ArrowRight` means _previous_; vertical arrows, text-caret movement and `aria-keyshortcuts` strings never change. Manual handlers switch on `MlvRtlService.normalizeArrowKey(event)` (`@malva-ui/cdk/utils` — returns CDK key-code constants with the horizontal pair swapped in RTL). A horizontal `FocusKeyManager` reads raw key codes internally, so it gets `.withHorizontalOrientation(direction)` and is rebuilt when the direction changes. Full contract: `.claude/rules/rtl.md`.
+Horizontal arrows are **logical**. In RTL, `ArrowLeft` means _next_ and `ArrowRight` means _previous_; vertical arrows, text-caret movement and `aria-keyshortcuts` strings never change. Manual handlers switch on `MlvRtlService.normalizeArrowKey(event, host)` (`@malva-ui/cdk/utils` — returns CDK key-code constants with the horizontal pair swapped in RTL). **Pass the component's own host** whenever the handler branches on the horizontal pair: direction is scoped, and without a target the helper reads the document — so a handler inside a `dir="rtl"` subtree, or inside a CDK overlay pane, mirrors its layout but not its keys. A horizontal `FocusKeyManager` reads raw key codes internally, so it gets `.withHorizontalOrientation(direction)` from `elementDirection(host)` and is rebuilt when the direction changes. Full contract: `.claude/rules/rtl.md`.
 
 ---
 

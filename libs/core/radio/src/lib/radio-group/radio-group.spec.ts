@@ -5,6 +5,7 @@ import type { Type } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MlvRadioGroup } from './radio-group';
 import { MlvRadio } from '../radio/radio';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 
 // ---------------------------------------------------------------------------
 // Host components
@@ -246,5 +247,117 @@ describe('MlvRadioGroup field surface', () => {
       description.id,
       message.id,
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scoped direction (#147)
+//
+// The group answers all four arrows for WAI-ARIA radiogroup semantics, so the
+// horizontal pair is direction-sensitive and resolves against the group's own
+// host — a `[dir]` ancestor mirrors it while the document stays LTR, and so
+// does the `dir` CDK stamps on an overlay pane the group is rendered in.
+// ---------------------------------------------------------------------------
+
+@Component({
+  template: `
+    <div [attr.dir]="scopeDir">
+      <mlv-radio-group [(value)]="value">
+        <mlv-radio [value]="'a'">A</mlv-radio>
+        <mlv-radio [value]="'b'">B</mlv-radio>
+        <mlv-radio [value]="'c'">C</mlv-radio>
+      </mlv-radio-group>
+    </div>
+  `,
+  imports: [MlvRadioGroup, MlvRadio],
+})
+class ScopedDirHost {
+  value: unknown = undefined;
+  scopeDir: 'rtl' | 'ltr' = 'rtl';
+}
+
+describe('MlvRadioGroup scoped direction', () => {
+  let rtlService: MlvRtlService | null = null;
+
+  afterEach(() => {
+    rtlService?.setDirection('ltr');
+    rtlService = null;
+    document.documentElement.removeAttribute('dir');
+  });
+
+  /**
+   * Attaches the fixture to the document so `radio.focus()` fires the focus
+   * event that syncs the FocusKeyManager's active item, seeds the selection on
+   * the first radio and runs `body` with the fixture live.
+   */
+  async function withScopedFixture(
+    scopeDir: 'rtl' | 'ltr',
+    documentDir: 'rtl' | 'ltr',
+    body: (
+      fixture: ComponentFixture<ScopedDirHost>,
+      keydown: (key: string) => void,
+    ) => void,
+  ): Promise<void> {
+    await TestBed.configureTestingModule({
+      imports: [ScopedDirHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ScopedDirHost);
+    fixture.componentInstance.scopeDir = scopeDir;
+    rtlService = TestBed.inject(MlvRtlService);
+    rtlService.setDirection(documentDir);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    document.body.appendChild(fixture.nativeElement);
+    try {
+      getRadios(fixture)[0].dispatchEvent(
+        new Event('change', { bubbles: true }),
+      );
+      fixture.detectChanges();
+
+      body(fixture, (key: string) => {
+        getGroupEl(fixture).dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        fixture.detectChanges();
+      });
+    } finally {
+      fixture.nativeElement.remove();
+    }
+  }
+
+  it('mirrors the horizontal arrows inside a [dir="rtl"] subtree while the document stays LTR', async () => {
+    await withScopedFixture('rtl', 'ltr', (fixture, keydown) => {
+      expect(rtlService?.direction()).toBe('ltr');
+
+      keydown('ArrowLeft');
+      expect(fixture.componentInstance.value).toBe('b'); // "next" once mirrored
+      keydown('ArrowRight');
+      expect(fixture.componentInstance.value).toBe('a');
+    });
+  });
+
+  it('leaves the vertical arrows alone inside a [dir="rtl"] subtree', async () => {
+    await withScopedFixture('rtl', 'ltr', (fixture, keydown) => {
+      keydown('ArrowDown');
+      expect(fixture.componentInstance.value).toBe('b'); // vertical never mirrors
+      keydown('ArrowUp');
+      expect(fixture.componentInstance.value).toBe('a');
+    });
+  });
+
+  it('keeps a [dir="ltr"] island unmirrored while the document is RTL', async () => {
+    await withScopedFixture('ltr', 'rtl', (fixture, keydown) => {
+      expect(rtlService?.direction()).toBe('rtl');
+
+      keydown('ArrowRight');
+      expect(fixture.componentInstance.value).toBe('b'); // the island reads LTR
+      keydown('ArrowLeft');
+      expect(fixture.componentInstance.value).toBe('a');
+    });
   });
 });

@@ -34,10 +34,7 @@ import {
   RIGHT_ARROW,
   UP_ARROW,
 } from '@angular/cdk/keycodes';
-import {
-  MlvRtlService,
-  type MlvTone,
-} from '@malva-ui/cdk/utils';
+import { MlvRtlService, type MlvTone } from '@malva-ui/cdk/utils';
 import { MLV_TILE_ITEM_CONTEXT } from '../tile-item-context';
 import { MLV_TILE_LOCKED } from '../tile-locked-context';
 import type { MlvTileTreeNode } from '../tile-tree.types';
@@ -210,7 +207,11 @@ export class MlvTile<TProps = unknown> {
   /** @private Component-scoped cleanup for the marked Sortable wrapper. */
   private readonly _destroyRef = inject(DestroyRef);
 
-  /** @private Rendered tile host used to resolve the direct list child. */
+  /**
+   * @private Rendered tile host used to resolve the direct list child, and the
+   * scope the handle's horizontal Alt+Arrow moves resolve their direction
+   * against.
+   */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /** @private Renderer used to mark and clean a consumer-owned wrapper root. */
@@ -332,7 +333,7 @@ export class MlvTile<TProps = unknown> {
     }
 
     let direction: MlvTileKeyboardMoveDirection | undefined;
-    switch (this._rtlService.normalizeArrowKey(event)) {
+    switch (this._rtlService.normalizeArrowKey(event, this._elementRef)) {
       case UP_ARROW:
         direction = 'up';
         break;

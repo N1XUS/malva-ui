@@ -71,6 +71,8 @@ Setting `label` renders a `<mlv-label>` whose `for` attribute points at the firs
 | `Home`                  | Move focus to first cell                               |
 | `End`                   | Move focus to last cell                                |
 
+`ArrowLeft` / `ArrowRight` are logical: they mirror in RTL and resolve their direction from the pin input's **own host**, via `normalizeArrowKey(event, host)` (#147). A `[dir="rtl"]` ancestor mirrors cell movement while the document stays LTR, as does the `dir` CDK stamps on an overlay pane the field is rendered in. `Backspace`, `Delete`, `Home` and `End` never mirror.
+
 #### Paste Behaviour
 
 Pasting any string distributes characters across cells starting from the **first cell** (index 0), regardless of which cell has focus. Whitespace is stripped before distribution.

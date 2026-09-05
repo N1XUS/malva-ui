@@ -815,6 +815,8 @@ Column filter triggers restore focus to the matching header button after their e
 
 ## Accessibility
 
+- **Direction (RTL): scoped, not per-document.** The column-header and resize handlers pass their host to `MlvRtlService.normalizeArrowKey(event, host)`, so a table inside a `[dir="rtl"]` subtree mirrors while the document stays LTR. `_onRowKeydown` deliberately omits the target: its switch matches only the vertical pair, `Home` / `End` and `Space` / `Enter`, where mirroring is a no-op either way — the call site says so in a comment. Regressions in `data-table.spec.ts`.
+
 ### Row-level grid keyboard navigation
 
 The table is a `role="grid"`. Data rows implement the **row-focus grid** pattern:

@@ -803,13 +803,14 @@ barrel.
 
 ## Status, accessibility, SSR, and theming
 
-`MlvEditorStatus` is public and reads the nearest editor context to expose
-reactive character and Unicode-whitespace word counts. It hides when a complete
-replacement extension set omits CharacterCount and announces remaining limits
-when `characterLimit` is configured. The shell also accepts projected
-`[mlvEditorStatus]` content, which is laid out **before** the built-in counts
-and separated from them by an `mlv-spacer`, so projected status sits at the
-inline start of the row and the counts stay pinned to the inline end.
+- **Direction (RTL): scoped, not per-document.** The table menu's `_onKeydown` (`editor-table.ts`) passes its own host to `MlvRtlService.normalizeArrowKey(event, host)` — that host is the popup's origin, so host and pane agree by construction — and an editor inside a `[dir="rtl"]` subtree mirrors its column-navigation arrows while the document stays LTR. Text-caret movement inside the document is the browser's and never goes through the helper. Regressions in `editor-table.spec.ts`.
+  `MlvEditorStatus` is public and reads the nearest editor context to expose
+  reactive character and Unicode-whitespace word counts. It hides when a complete
+  replacement extension set omits CharacterCount and announces remaining limits
+  when `characterLimit` is configured. The shell also accepts projected
+  `[mlvEditorStatus]` content, which is laid out **before** the built-in counts
+  and separated from them by an `mlv-spacer`, so projected status sits at the
+  inline start of the row and the counts stay pinned to the inline end.
 
 SSR renders the form shell but never constructs Tiptap or touches browser-only
 selection, observer, or DOM APIs; `editor()` remains `null` until browser view

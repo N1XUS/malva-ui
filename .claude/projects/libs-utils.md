@@ -147,14 +147,54 @@ CDK `Directionality` synchronized. `direction()` returns `'ltr'` or `'rtl'`,
 and `rtl()` is its boolean form. `setDirection()`, `setRtl()`, and `toggle()`
 update all three surfaces synchronously.
 
-#### `normalizeArrowKey(event: KeyboardEvent): MlvArrowKey | null`
+#### `normalizeArrowKey(event: KeyboardEvent, target?: MlvDirectionTarget): MlvArrowKey | null`
 
 Converts the browser's arrow-key name or legacy numeric key code to Angular CDK
-constants (`LEFT_ARROW`, `RIGHT_ARROW`, `UP_ARROW`, `DOWN_ARROW`). In RTL it
-swaps only the horizontal constants; Up/Down and non-arrow keys are unchanged
-or return `null`. Use this result for manual arrow-key switches. For a CDK
-`FocusKeyManager`, pass `direction()` to `withHorizontalOrientation()` so the
-manager can mirror its own navigation.
+constants (`LEFT_ARROW`, `RIGHT_ARROW`, `UP_ARROW`, `DOWN_ARROW`). Only the
+horizontal constants swap in RTL; Up/Down and non-arrow keys are unchanged or
+return `null`. Use this result for manual arrow-key switches. For a CDK
+`FocusKeyManager`, pass a direction to `withHorizontalOrientation()` so the
+manager can mirror its own navigation — `elementDirection(host)()` for a
+component, not the global `direction()`.
+
+- **`target` is the element the handler speaks for** — the component's own
+  host, never `event.target`. Resolved through `resolveDirection`, so the
+  nearest explicit `dir` ancestor wins and the global `direction()` is the
+  fallback.
+- **Pass it whenever the handler branches on `ArrowLeft`/`ArrowRight`.**
+  Direction is scoped: a handler inside a `dir="rtl"` subtree, or inside a CDK
+  overlay pane (CDK stamps `dir` on every overlay host, and `MlvPopupService`
+  resolves that from the trigger), must mirror while the document is still LTR.
+  Omitting it there is the #147 defect — mirrored layout, unmirrored keys.
+- **Omitting `target` keeps the global reading**, which is correct only for a
+  vertical-only handler — one that never matches the horizontal pair, where
+  mirroring is a no-op either way (`focusable-group-base`, `mlv-sidebar`'s
+  container nav, the `mlv-tabs` overflow popup, `mlv-autocomplete`,
+  `mlv-number-input`, `mlv-search-field`, `mlv-data-table`'s row nav,
+  `mlv-menubar`'s own switch — which delegates everything horizontal to its
+  `FocusKeyManager`). Every such site carries an inline comment saying so, so a
+  reader never has to guess whether the omission was deliberate.
+- **`event.target` is not a safe default**, which is why it is not one: the
+  event is usually handled on a host that is not where the key was pressed, and
+  a portaled overlay's pane sits outside its trigger's `[dir]` scope entirely.
+- **The component's own host is not always the right target either.** Pass the
+  element the handler is _bound to_ when the two can differ. `MlvMenu` is the
+  case in the repo: its panel is projected through `<ng-template mlvPopupContent>`
+  into an overlay pane whose `dir` comes from the **trigger**
+  (`resolveDirection(config.origin)`), while `<mlv-menu>` itself stays at its
+  declaration site — routinely outside the trigger's `[dir]` scope, since menus
+  are usually declared once at page level. It therefore passes
+  `event.currentTarget` (the `<mlv-list>` panel, always inside the pane).
+  Components whose host _is_ inside the pane or _is_ the popup origin
+  (`MlvMenuItem`, `MlvMenuTrigger`, `mlv-calendar`, `mlv-time-picker`,
+  `mlv-breadcrumb`, `mlv-sidebar-group`, the editor's table menu,
+  `mlv-drawer`'s resize handle) pass their own `ElementRef` and are correct.
+
+```ts
+switch (
+  this._rtlService.normalizeArrowKey(event, this._elementRef) ?? event.key
+) {
+```
 
 #### `resolveDirection(target: MlvDirectionTarget): MlvDirection`
 
@@ -213,6 +253,7 @@ constructor() {
 | `MlvAbstractToastService`                            | global `direction()` — toast stacks are document-level                                                     |
 | `MlvTabGroup`, `MlvSegmented`                        | re-measure the sliding indicator / pill on a direction flip                                                |
 | `MlvSlider`, `MlvRating`, `MlvSplitPane`             | mirror pointer-coordinate → value mapping                                                                  |
+| Every horizontal arrow handler                       | `normalizeArrowKey(event, host)` — resolved from the handler's own host, so keys and layout agree          |
 
 ---
 

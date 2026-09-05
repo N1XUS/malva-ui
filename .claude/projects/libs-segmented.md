@@ -130,7 +130,7 @@ The track carries `role="radiogroup"` plus `aria-label` / `aria-orientation` / `
 
 #### Keyboard (radio mode)
 
-`FocusKeyManager` over the projected items, configured with `.skipPredicate((item) => item.isDisabled())` and `.withWrap()` only — no type-ahead, no orientation lock. The handler treats both axes the same and is **not** RTL-aware (same as `mlv-radio-group`):
+`FocusKeyManager` over the projected items, configured with `.skipPredicate((item) => item.isDisabled())` and `.withWrap()` only — no type-ahead, no orientation lock. The handler treats both axes the same, and its horizontal pair is RTL-aware:
 
 | Key                        | Action                        | With no active item yet |
 | -------------------------- | ----------------------------- | ----------------------- |
@@ -140,6 +140,8 @@ The track carries `role="radiogroup"` plus `aria-label` / `aria-orientation` / `
 | `End`                      | Last enabled item             | Last enabled item       |
 
 The third column is the fallback when the key manager has no active item yet (nothing focused since the group was built), so the first arrow press always lands somewhere sensible from either end.
+
+`ArrowLeft` / `ArrowRight` mirror in RTL and resolve their direction **from the group's own host**, via `normalizeArrowKey(event, host)` — the same `ElementRef` the pill measurement's `elementDirection(host)` reads, so the two can never disagree (#147). A `[dir="rtl"]` ancestor mirrors the keys while the document stays LTR, as does the `dir` CDK stamps on an overlay pane a group is rendered in. The vertical pair, `Home` and `End` never mirror.
 
 Handled keys are `preventDefault()`ed; every other key is left alone. Moving focus also **selects** (WAI-ARIA radio group) — except while `readonly`, where `selectItem()` no-ops and focus moves alone.
 

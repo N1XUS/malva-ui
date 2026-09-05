@@ -40,10 +40,7 @@ import {
   MLV_DENSITY_ELEMENT,
   MlvDensityDirective,
 } from '@malva-ui/cdk/density';
-import {
-  MlvResizeObserverService,
-  MlvRtlService,
-} from '@malva-ui/cdk/utils';
+import { MlvResizeObserverService, MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvSegmentedItem } from '../segmented-item/segmented-item';
 import type { MlvSegmentedAccessor } from '../segmented-token';
 import { MLV_SEGMENTED } from '../segmented-token';
@@ -163,11 +160,18 @@ export class MlvSegmented
   private readonly _rtlService = inject(MlvRtlService);
 
   /**
+   * @private Host element. Both direction-aware halves of this component — the
+   * pill measurement and the arrow-key model — resolve against it, so they can
+   * never disagree about which direction applies inside a `[dir]` scope.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
+  /**
    * @private Effective direction of this group, tracking both the global
    * direction and any `[dir]` scope above the host. Drives pill re-measurement.
    */
   private readonly _direction = this._rtlService.elementDirection(
-    inject(ElementRef<HTMLElement>),
+    this._elementRef,
   );
 
   /** @private Bumped on every track resize to re-run the measuring render effect. */
@@ -283,7 +287,10 @@ export class MlvSegmented
     const manager = this._keyManager;
     if (!manager) return;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      event.key
+    ) {
       case RIGHT_ARROW:
       case DOWN_ARROW:
         if (manager.activeItem) manager.setNextItemActive();

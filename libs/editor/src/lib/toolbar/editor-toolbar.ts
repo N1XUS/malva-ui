@@ -106,7 +106,10 @@ export class MlvEditorToolbarRoot {
   });
   /** @internal Optional localized defaults. */
   private readonly _i18n = inject(MLV_EDITOR_I18N, { optional: true });
-  /** @internal Actual composite-root element. */
+  /**
+   * @internal Actual composite-root element. Also the scope the horizontal
+   * roving arrows resolve their direction against.
+   */
   private readonly _element = inject<ElementRef<HTMLElement>>(ElementRef);
   /** @internal Root teardown lifecycle. */
   private readonly _destroyRef = inject(DestroyRef);
@@ -151,7 +154,10 @@ export class MlvEditorToolbarRoot {
       this._registry.focusBoundary(event.key === 'Home' ? 'start' : 'end');
       return;
     }
-    const key = this._rtlService.normalizeArrowKey(event);
+    // Resolved against the toolbar root, not the document: direction is scoped,
+    // so a toolbar inside a `dir` subtree — or inside a CDK overlay pane, which
+    // is stamped with its own `dir` — must mirror on its own reading.
+    const key = this._rtlService.normalizeArrowKey(event, this._element);
     const direction =
       this.orientation() === 'vertical'
         ? key === UP_ARROW

@@ -6,6 +6,7 @@ import { By } from '@angular/platform-browser';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { vi } from 'vitest';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MLV_EDITOR_I18N } from '@malva-ui/i18n';
 import type { MlvEditorI18n } from '@malva-ui/i18n';
 import {
@@ -277,6 +278,13 @@ class MissingExtensionHost {
 }
 
 describe('MlvEditor toolbar', () => {
+  afterEach(() => {
+    // Direction is global state: `MlvRtlService` writes it onto <html>, which
+    // outlives the TestBed injector.
+    TestBed.inject(MlvRtlService).setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
   async function completeMenuLeave(
     fixture: ComponentFixture<unknown>,
   ): Promise<void> {
@@ -601,6 +609,99 @@ describe('MlvEditor toolbar', () => {
     expect(
       widgets.filter((widget) => widget.getAttribute('tabindex') === '0'),
     ).toHaveLength(1);
+  });
+
+  /**
+   * Accessible names of the toolbar widgets the roving registry actually
+   * visits, in DOM order. Derived rather than hardcoded so these direction
+   * assertions survive a change to the built-in toolbar's composition.
+   */
+  function rovingLabels(fixture: ComponentFixture<unknown>): string[] {
+    const toolbar = (fixture.nativeElement as HTMLElement).querySelector(
+      '[role="toolbar"]',
+    ) as HTMLElement;
+    return Array.from(
+      toolbar.querySelectorAll<HTMLButtonElement>(
+        'button[mlvEditorToolbarWidget]',
+      ),
+    )
+      .filter((widget) => !widget.disabled && !widget.closest('[hidden]'))
+      .map((widget) => widget.getAttribute('aria-label') ?? '');
+  }
+
+  function activeLabel(): string | null {
+    return (document.activeElement as HTMLElement).getAttribute('aria-label');
+  }
+
+  function arrow(target: Element, key: string): void {
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  }
+
+  it('mirrors roving arrows inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
+    const fixture = await createHost();
+    const editor = fixture.componentInstance.editor().editor();
+    if (!editor) throw new Error('Expected editor.');
+    editor.commands.insertContent('Toolbar');
+    await settleRoving(fixture);
+    const host = fixture.nativeElement as HTMLElement;
+    host.setAttribute('dir', 'rtl');
+    await settleRoving(fixture);
+
+    // The document is untouched — only this subtree is flipped, which is also
+    // the shape a CDK overlay pane takes (CDK stamps `dir` on every pane).
+    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+
+    const labels = rovingLabels(fixture);
+    expect(labels.length).toBeGreaterThan(1);
+    const first = host.querySelector(
+      `button[aria-label="${labels[0]}"]`,
+    ) as HTMLButtonElement;
+    first.focus();
+
+    // ArrowLeft is "next" once the toolbar is mirrored.
+    arrow(first, 'ArrowLeft');
+    fixture.detectChanges();
+    expect(activeLabel()).toBe(labels[1]);
+
+    arrow(document.activeElement as Element, 'ArrowRight');
+    fixture.detectChanges();
+    expect(activeLabel()).toBe(labels[0]);
+
+    // Home/End address the toolbar's start/end, which are already logical.
+    arrow(document.activeElement as Element, 'End');
+    fixture.detectChanges();
+    expect(activeLabel()).toBe(labels[labels.length - 1]);
+
+    arrow(document.activeElement as Element, 'Home');
+    fixture.detectChanges();
+    expect(activeLabel()).toBe(labels[0]);
+
+    // The vertical pair never mirrors, and a horizontal toolbar ignores it.
+    arrow(document.activeElement as Element, 'ArrowDown');
+    fixture.detectChanges();
+    expect(activeLabel()).toBe(labels[0]);
+  });
+
+  it('keeps roving arrows unmirrored in an LTR island while the document is RTL', async () => {
+    const fixture = await createHost();
+    const editor = fixture.componentInstance.editor().editor();
+    if (!editor) throw new Error('Expected editor.');
+    editor.commands.insertContent('Toolbar');
+    await settleRoving(fixture);
+    TestBed.inject(MlvRtlService).setDirection('rtl');
+    const host = fixture.nativeElement as HTMLElement;
+    host.setAttribute('dir', 'ltr');
+    await settleRoving(fixture);
+
+    const labels = rovingLabels(fixture);
+    const first = host.querySelector(
+      `button[aria-label="${labels[0]}"]`,
+    ) as HTMLButtonElement;
+    first.focus();
+    arrow(first, 'ArrowRight');
+    fixture.detectChanges();
+
+    expect(activeLabel()).toBe(labels[1]);
   });
 
   it('opens a heading menu from the keyboard and restores focus when it closes', async () => {

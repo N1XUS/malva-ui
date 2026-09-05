@@ -35,7 +35,32 @@ describe('MlvCalendar', () => {
     await fixture.whenStable();
   });
 
-  afterEach(() => rtlService?.setDirection('ltr'));
+  afterEach(() => {
+    scopeElement()?.removeAttribute('dir');
+    rtlService?.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  /** The ancestor a scoped `dir` is written on — never the calendar host itself. */
+  function scopeElement(): HTMLElement | null {
+    return (fixture?.nativeElement as HTMLElement | undefined)
+      ?.parentElement as HTMLElement | null;
+  }
+
+  /** Scopes `dir` to an ancestor of the calendar, leaving the document alone. */
+  function scopeDirection(direction: 'ltr' | 'rtl'): void {
+    const scope = scopeElement();
+    if (!scope)
+      throw new Error('Calendar host has no parent to scope `dir` on');
+    scope.setAttribute('dir', direction);
+  }
+
+  function pressKey(key: string): void {
+    fixture.nativeElement.dispatchEvent(
+      new KeyboardEvent('keydown', { key, bubbles: true }),
+    );
+    fixture.detectChanges();
+  }
 
   function dayButton(day: number): HTMLButtonElement {
     const button = Array.from(
@@ -245,6 +270,95 @@ describe('MlvCalendar', () => {
     );
     fixture.detectChanges();
     expect(component.activeDate().getDate()).toBe(9);
+  });
+
+  it('should mirror day navigation inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
+    scopeDirection('rtl');
+    component.activeDate.set(new Date(2026, 2, 15));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(rtlService.direction()).toBe('ltr');
+    expect(document.documentElement.getAttribute('dir')).not.toBe('rtl');
+
+    pressKey('ArrowLeft');
+    expect(component.activeDate().getDate()).toBe(16);
+
+    pressKey('ArrowRight');
+    expect(component.activeDate().getDate()).toBe(15);
+
+    // Block axis and paging never mirror.
+    pressKey('ArrowUp');
+    expect(component.activeDate().getDate()).toBe(8);
+
+    pressKey('ArrowDown');
+    expect(component.activeDate().getDate()).toBe(15);
+
+    pressKey('Home');
+    expect(component.activeDate().getDate()).toBe(1);
+
+    pressKey('End');
+    expect(component.activeDate().getDate()).toBe(31);
+
+    pressKey('PageUp');
+    expect(component.activeDate().getMonth()).toBe(1);
+
+    pressKey('PageDown');
+    expect(component.activeDate().getMonth()).toBe(2);
+  });
+
+  it('should mirror month navigation in the year view inside a scoped [dir="rtl"] subtree', async () => {
+    scopeDirection('rtl');
+    component.activeDate.set(new Date(2026, 2, 15));
+    component.currentView.set('year');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(rtlService.direction()).toBe('ltr');
+
+    pressKey('ArrowLeft');
+    expect(component.activeDate().getMonth()).toBe(3);
+
+    pressKey('ArrowRight');
+    expect(component.activeDate().getMonth()).toBe(2);
+
+    pressKey('ArrowDown');
+    expect(component.activeDate().getMonth()).toBe(6);
+  });
+
+  it('should mirror year navigation in the multi-year view inside a scoped [dir="rtl"] subtree', async () => {
+    scopeDirection('rtl');
+    component.activeDate.set(new Date(2026, 2, 15));
+    component.currentView.set('multi-year');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(rtlService.direction()).toBe('ltr');
+
+    pressKey('ArrowLeft');
+    expect(component.activeDate().getFullYear()).toBe(2027);
+
+    pressKey('ArrowRight');
+    expect(component.activeDate().getFullYear()).toBe(2026);
+
+    pressKey('ArrowDown');
+    expect(component.activeDate().getFullYear()).toBe(2030);
+  });
+
+  it('should leave a scoped [dir="ltr"] island unmirrored while the document is RTL', async () => {
+    rtlService.setDirection('rtl');
+    scopeDirection('ltr');
+    component.activeDate.set(new Date(2026, 2, 15));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(rtlService.direction()).toBe('rtl');
+
+    pressKey('ArrowLeft');
+    expect(component.activeDate().getDate()).toBe(14);
+
+    pressKey('ArrowRight');
+    expect(component.activeDate().getDate()).toBe(15);
   });
 
   it('should use roving tabindex and drop listitem roles in the year view', () => {

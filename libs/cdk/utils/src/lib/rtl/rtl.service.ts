@@ -77,15 +77,39 @@ export class MlvRtlService {
 
   /**
    * Converts DOM/legacy arrow events to CDK key-code constants and mirrors
-   * only the horizontal axis when the current direction is RTL.
+   * only the horizontal axis when the applicable direction is RTL.
+   *
+   * `target` is the element the handler speaks for — a component's own host,
+   * not `event.target`. Pass it whenever the handler branches on the horizontal
+   * pair: direction is scoped, so a handler inside a `dir="rtl"` subtree (or
+   * inside a CDK overlay pane, which is stamped with its own `dir`) must mirror
+   * even while the document is LTR. Resolution goes through
+   * {@link resolveDirection}, so the nearest explicit `dir` ancestor wins and
+   * the global {@link direction} is the fallback.
+   *
+   * Omitting `target` keeps the global reading. That is correct only for a
+   * handler that never branches on `ArrowLeft`/`ArrowRight` — a vertical-only
+   * group — where mirroring is a no-op either way.
+   *
+   * `event.target` is deliberately not the default: the event is usually
+   * handled on a host that is not where the key was pressed, and a portaled
+   * overlay's pane sits outside its trigger's `[dir]` scope entirely.
    */
-  normalizeArrowKey(event: KeyboardEvent): MlvArrowKey | null {
+  normalizeArrowKey(
+    event: KeyboardEvent,
+    target?: MlvDirectionTarget,
+  ): MlvArrowKey | null {
     const key = this._getArrowKeyCode(event);
     if (key === null) return null;
+    if (key !== LEFT_ARROW && key !== RIGHT_ARROW) return key;
 
-    if (key === LEFT_ARROW) return this.rtl() ? RIGHT_ARROW : LEFT_ARROW;
-    if (key === RIGHT_ARROW) return this.rtl() ? LEFT_ARROW : RIGHT_ARROW;
-    return key;
+    const rtl =
+      target === undefined
+        ? this.rtl()
+        : this.resolveDirection(target) === 'rtl';
+
+    if (key === LEFT_ARROW) return rtl ? RIGHT_ARROW : LEFT_ARROW;
+    return rtl ? LEFT_ARROW : RIGHT_ARROW;
   }
 
   /**
@@ -106,8 +130,8 @@ export class MlvRtlService {
     for (
       let node: Element | null = element;
       node;
-      node = node.parentElement ??
-        ((node.getRootNode() as ShadowRoot).host ?? null)
+      node =
+        node.parentElement ?? (node.getRootNode() as ShadowRoot).host ?? null
     ) {
       const dir = node.getAttribute?.('dir')?.toLowerCase();
       if (dir === 'rtl' || dir === 'ltr') return dir;

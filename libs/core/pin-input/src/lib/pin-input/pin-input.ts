@@ -6,6 +6,7 @@ import {
   computed,
   contentChild,
   effect,
+  ElementRef,
   forwardRef,
   inject,
   input,
@@ -167,6 +168,14 @@ export class MlvPinInput
 
   /** @private Normalizes horizontal cell navigation for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
+
+  /**
+   * @private Host element; the scope horizontal arrow keys resolve their
+   * direction against, so cell movement mirrors inside a `[dir]` subtree — or
+   * inside an overlay pane, which CDK stamps with its own `dir` — and not only
+   * on a document-wide flip.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /**
    * @protected Optional projected template used as separator content between
@@ -335,7 +344,7 @@ export class MlvPinInput
         break;
     }
 
-    switch (this._rtlService.normalizeArrowKey(event)) {
+    switch (this._rtlService.normalizeArrowKey(event, this._elementRef)) {
       case LEFT_ARROW:
         event.preventDefault();
         this._focusCell(index - 1);

@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvSplitPane } from './split-pane';
 import { MlvSplitPanePanel } from './split-pane-panel';
 
@@ -117,5 +118,72 @@ describe('MlvSplitPane', () => {
       By.directive(MlvSplitPanePanel),
     );
     expect(panels.length).toBe(2);
+  });
+});
+
+describe('MlvSplitPane — scoped direction', () => {
+  let fixture: ComponentFixture<BasicSplitPaneHost>;
+  let handle: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [BasicSplitPaneHost],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(BasicSplitPaneHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    handle = fixture.debugElement
+      .query(By.directive(MlvSplitPane))
+      .nativeElement.querySelector('.mlv-split-pane__handle') as HTMLElement;
+  });
+
+  afterEach(() => {
+    // `setDirection` is global state (it writes `dir` onto <html>) — reset both
+    // the service and the attribute so a direction never leaks into the next test.
+    TestBed.inject(MlvRtlService).setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  function keydown(key: string): void {
+    handle.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    fixture.detectChanges();
+  }
+
+  it('mirrors handle arrows inside a scoped [dir="rtl"] subtree while the document stays LTR', () => {
+    const scope = fixture.nativeElement as HTMLElement;
+    scope.setAttribute('dir', 'rtl');
+
+    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+    expect(handle.getAttribute('aria-valuenow')).toBe('30');
+
+    // ArrowLeft grows the inline-first panel once the axis runs right-to-left.
+    keydown('ArrowLeft');
+    expect(handle.getAttribute('aria-valuenow')).toBe('31');
+
+    keydown('ArrowRight');
+    expect(handle.getAttribute('aria-valuenow')).toBe('30');
+
+    // Vertical arrows are inert in a horizontal split and never mirror.
+    keydown('ArrowUp');
+    expect(handle.getAttribute('aria-valuenow')).toBe('30');
+
+    // Home/End are direction-agnostic: Home pins the leading panel at its min.
+    keydown('Home');
+    expect(handle.getAttribute('aria-valuenow')).toBe('5');
+
+    scope.removeAttribute('dir');
+  });
+
+  it('leaves a scoped [dir="ltr"] island unmirrored while the document is RTL', () => {
+    TestBed.inject(MlvRtlService).setDirection('rtl');
+    const scope = fixture.nativeElement as HTMLElement;
+    scope.setAttribute('dir', 'ltr');
+    fixture.detectChanges();
+
+    keydown('ArrowRight');
+    expect(handle.getAttribute('aria-valuenow')).toBe('31');
+
+    scope.removeAttribute('dir');
   });
 });

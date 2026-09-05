@@ -26,7 +26,12 @@ import { MlvBreadcrumbItem } from './breadcrumb-item';
 import { MlvBreadcrumbSeparator } from './breadcrumb-separator';
 import type { MlvBreadcrumbEntry } from './breadcrumb.types';
 import { MLV_BREADCRUMB_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
-import { DOWN_ARROW, LEFT_ARROW, RIGHT_ARROW, UP_ARROW } from '@angular/cdk/keycodes';
+import {
+  DOWN_ARROW,
+  LEFT_ARROW,
+  RIGHT_ARROW,
+  UP_ARROW,
+} from '@angular/cdk/keycodes';
 import { MlvRtlService, mlvNextId } from '@malva-ui/cdk/utils';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 
@@ -118,6 +123,15 @@ export class MlvBreadcrumb {
   /** @private Document reference used for focus navigation checks. */
   private readonly _document = inject(DOCUMENT);
   private readonly _rtlService = inject(MlvRtlService);
+
+  /**
+   * @private Host element; the scope horizontal arrow keys resolve their
+   * direction against. The overflow menu they drive renders in a CDK overlay
+   * pane portaled to `<body>` and stamped with its own `dir`, so reading the
+   * document direction there would mirror neither that pane nor a `[dir]`
+   * subtree the breadcrumb sits in.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /**
    * Data-driven list of breadcrumb items.
@@ -295,7 +309,10 @@ export class MlvBreadcrumb {
     const activeIndex = currentIndex >= 0 ? currentIndex : 0;
     let nextIndex = activeIndex;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      event.key
+    ) {
       case DOWN_ARROW:
       case RIGHT_ARROW:
         nextIndex = (activeIndex + 1) % items.length;

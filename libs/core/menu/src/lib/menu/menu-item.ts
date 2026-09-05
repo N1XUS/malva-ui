@@ -226,7 +226,11 @@ export class MlvMenuItem {
   protected _onKeydown(event: KeyboardEvent): void {
     if (this._isDisabled() || !this._hasAutomaticSubmenu()) return;
 
-    const key = this._rtlService.normalizeArrowKey(event) ?? event.key;
+    // Resolved against this row's own host — inside the overlay pane, which
+    // CDK stamps with the direction its trigger was in — so a generated
+    // submenu opens toward the inline end in a scoped `[dir="rtl"]` subtree.
+    const key =
+      this._rtlService.normalizeArrowKey(event, this._elementRef) ?? event.key;
     if (this._isMenubarDataItem()) {
       if (key === DOWN_ARROW && !this._dataItemContext?.isOpen()) {
         event.preventDefault();

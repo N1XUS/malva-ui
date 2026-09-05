@@ -49,7 +49,7 @@ Always use the `host` object inside `@Directive`. **Never** use `@HostBinding` o
 })
 ```
 
-Arrow-key handlers never compare `event.key` to `'ArrowLeft'` / `'ArrowRight'` — switch on `MlvRtlService.normalizeArrowKey(event)` (`@malva-ui/cdk/utils`) so the inline axis mirrors in RTL. See `.claude/rules/rtl.md`.
+Arrow-key handlers never compare `event.key` to `'ArrowLeft'` / `'ArrowRight'` — switch on `MlvRtlService.normalizeArrowKey(event, this._elementRef)` (`@malva-ui/cdk/utils`) so the inline axis mirrors in RTL. Pass the host whenever the handler branches on the horizontal pair; without it the helper reads the document direction and ignores any scoped `[dir]` above the host. See `.claude/rules/rtl.md`.
 
 ---
 

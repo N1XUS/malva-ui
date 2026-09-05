@@ -167,7 +167,11 @@ export class MlvCompare {
   /** @private Mirrors horizontal arrow keys and pointer geometry in RTL. */
   private readonly _rtlService = inject(MlvRtlService);
 
-  /** @private Host element — the geometry every pointer position is read against. */
+  /**
+   * @private Host element — the geometry every pointer position is read
+   * against, and the scope the arrow-key stepping resolves its direction
+   * against, so the two halves can never disagree.
+   */
   private readonly _hostRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /**
@@ -370,7 +374,10 @@ export class MlvCompare {
     const current = this._position();
     let next: number;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._hostRef) ??
+      event.key
+    ) {
       case RIGHT_ARROW:
         next = current + delta;
         break;

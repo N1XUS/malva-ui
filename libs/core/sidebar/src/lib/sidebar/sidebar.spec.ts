@@ -15,6 +15,7 @@ import type { BreakpointState } from '@angular/cdk/layout';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { BehaviorSubject } from 'rxjs';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvSidebar } from './sidebar';
 import type { MlvSidebarAppearance } from '../sidebar-appearance';
 import type { MlvSidebarMode } from '../sidebar-mode';
@@ -821,7 +822,22 @@ describe('MlvSidebarGroup collapsed flyout (menu)', () => {
 
   afterEach(() => {
     overlayContainer.ngOnDestroy();
+    // `setDirection` is global state (it writes `dir` onto <html>) — reset both
+    // the service and the attribute so a direction never leaks into the next test.
+    TestBed.inject(MlvRtlService).setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
   });
+
+  /** Dispatches a bubbling keydown, the way a real key press arrives. */
+  function keydown(target: HTMLElement, key: string): void {
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  }
+
+  function triggerEl(fixture: ComponentFixture<unknown>): HTMLElement {
+    return fixture.nativeElement.querySelector(
+      '.mlv-sidebar-group__icon-btn',
+    ) as HTMLElement;
+  }
 
   function group(fixture: ComponentFixture<unknown>): MlvSidebarGroup {
     return fixture.debugElement.query(
@@ -966,6 +982,61 @@ describe('MlvSidebarGroup collapsed flyout (menu)', () => {
     fixture.detectChanges();
 
     expect(group(fixture).flyoutOpen()).toBe(true);
+  });
+
+  it('mirrors the open/close arrows inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
+    const fixture = TestBed.createComponent(CollapsedGroupHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const scope = fixture.nativeElement as HTMLElement;
+    scope.setAttribute('dir', 'rtl');
+
+    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+
+    // The flyout hangs off the inline-end edge, so ArrowLeft opens it in RTL.
+    keydown(triggerEl(fixture), 'ArrowLeft');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await nextFrame();
+    expect(group(fixture).flyoutOpen()).toBe(true);
+
+    const panel = overlayContainerEl.querySelector(
+      '.mlv-sidebar-group__flyout',
+    ) as HTMLElement;
+
+    // Vertical arrows never mirror — ArrowDown still walks the menu.
+    keydown(panel, 'ArrowDown');
+    fixture.detectChanges();
+    expect(document.activeElement?.textContent).toContain('Marketing Site');
+
+    // …and ArrowRight is "back out" once mirrored.
+    keydown(panel, 'ArrowRight');
+    fixture.detectChanges();
+    expect(group(fixture).flyoutOpen()).toBe(false);
+
+    scope.removeAttribute('dir');
+  });
+
+  it('leaves a scoped [dir="ltr"] island unmirrored while the document is RTL', async () => {
+    TestBed.inject(MlvRtlService).setDirection('rtl');
+    const fixture = TestBed.createComponent(CollapsedGroupHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const scope = fixture.nativeElement as HTMLElement;
+    scope.setAttribute('dir', 'ltr');
+
+    keydown(triggerEl(fixture), 'ArrowLeft');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(group(fixture).flyoutOpen()).toBe(false);
+
+    keydown(triggerEl(fixture), 'ArrowRight');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(group(fixture).flyoutOpen()).toBe(true);
+
+    scope.removeAttribute('dir');
   });
 });
 

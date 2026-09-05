@@ -84,6 +84,13 @@ export class MlvEditorTable {
   /** @private Normalizes horizontal grid movement for RTL. */
   private readonly _rtlService = inject(MlvRtlService);
 
+  /**
+   * @private Host element; the scope horizontal arrow keys resolve their
+   * direction against. The grid renders in a popup pane portaled out of this
+   * subtree, so the handler speaks for the host, never for `event.target`.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
   /** @private Transaction and selection invalidation bridge. */
   private readonly _revision = inject(MLV_EDITOR_TOOLBAR_REVISION, {
     optional: true,
@@ -413,7 +420,13 @@ export class MlvEditorTable {
   protected _onGridKeydown(event: KeyboardEvent): void {
     const current = this._selectedSize();
     let next = current;
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    // Columns run along the inline axis, resolved against this control's own
+    // host rather than the document, so a scoped `dir` subtree — or a CDK
+    // overlay pane, which carries its own `dir` — mirrors the pair correctly.
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      event.key
+    ) {
       case LEFT_ARROW:
         next = { ...current, cols: Math.max(1, current.cols - 1) };
         break;
