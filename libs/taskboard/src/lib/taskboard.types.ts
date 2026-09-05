@@ -60,6 +60,26 @@ export interface MlvTaskboardDropTarget<TItem> {
   readonly wip: MlvTaskboardWipState;
 }
 
+/**
+ * Why a drag session refused one enumerated slot. The gates are evaluated in
+ * this order and the first failing one is recorded, so a slot refused by two
+ * of them reports the earlier:
+ *
+ * - `locked` — the card, its column or lane, or the target column or lane is
+ *   locked.
+ * - `transition` — the board's `transitions` forbid that column change.
+ * - `wip` — a column, group, or lane work-in-progress limit is reached.
+ * - `policy` — the application's `canDropFn` refused the target.
+ *
+ * The slot the card already occupies is not refused and records no reason:
+ * the session simply does not enumerate it.
+ */
+export type MlvTaskboardDenialReason =
+  | 'locked'
+  | 'transition'
+  | 'wip'
+  | 'policy';
+
 export type MlvTaskboardCanDropFn<TItem> = (
   card: MlvTaskboardItemContext<TItem>,
   target: MlvTaskboardDropTarget<TItem>,

@@ -13,6 +13,7 @@ import {
 import type {
   MlvTaskboardState,
   MlvTaskboardCanDropFn,
+  MlvTaskboardDenialReason,
   MlvTaskboardDropTarget,
   MlvTaskboardItemContext,
   MlvTaskboardKey,
@@ -26,12 +27,30 @@ const targetKey = (location: MlvTaskboardLocation): string =>
 export interface MlvTaskboardDragSession<TItem> {
   readonly card: MlvTaskboardItemContext<TItem>;
   readonly allowedLocationKeys: ReadonlySet<string>;
+  /**
+   * Why each refused slot refused the card, keyed by the same location token
+   * {@link allowedLocationKeys} uses. A slot is in exactly one of the two: the
+   * session records the first gate that failed while it enumerated the board,
+   * so nothing has to re-derive a policy answer the session already reached.
+   * The slot the card already occupies appears in neither.
+   */
+  readonly denials: ReadonlyMap<string, MlvTaskboardDenialReason>;
   canEnter(location: MlvTaskboardLocation): boolean;
   requestFor(
     columnId: MlvTaskboardKey,
     swimlaneId: MlvTaskboardKey | undefined,
     index: number,
   ): MlvTaskboardMoveRequest<TItem> | undefined;
+  /**
+   * The recorded reason one slot refused the card, or `undefined` when the
+   * slot is allowed, is the one the card already fills, or is not a slot this
+   * board offers at all.
+   */
+  denialFor(
+    columnId: MlvTaskboardKey,
+    swimlaneId: MlvTaskboardKey | undefined,
+    index: number,
+  ): MlvTaskboardDenialReason | undefined;
 }
 
 function permittedByWip<TItem>(
@@ -97,6 +116,7 @@ export function createMlvTaskboardDragSession<TItem>(
   };
   const allowedLocationKeys = new Set<string>();
   const requests = new Map<string, MlvTaskboardMoveRequest<TItem>>();
+  const denials = new Map<string, MlvTaskboardDenialReason>();
   const lanes = board.swimlanes?.length ? board.swimlanes : [undefined];
   const activeCanDropFn = canDropFn ?? board.canDropFn;
   beginMlvTaskboardDragAuthorization(board, activeCanDropFn !== undefined);
@@ -149,17 +169,33 @@ export function createMlvTaskboardDragSession<TItem>(
           sourceLane?.locked ||
           lane?.locked
         );
-        const policyAllowed =
-          unlocked && transitionAllowed && permittedByWip(index, card, target);
+        const wipAllowed = permittedByWip(index, card, target);
+        // The callback is consulted for every enumerated slot, whatever the
+        // board's own gates answered, so a policy that counts its calls sees
+        // the same board it always has.
         const callbackAllowed = activeCanDropFn?.(card, target) ?? true;
-        const allowed = policyAllowed && callbackAllowed;
-        if (!allowed) continue;
         const location: MlvTaskboardLocation = {
           columnId: column.id,
           swimlaneId: lane?.id,
           index: targetIndex,
         };
         const key = targetKey(location);
+        // One pass records both answers: the reason a refused slot refused is
+        // the first gate that failed here, so no consumer re-derives it from
+        // the board and disagrees with the session it is describing.
+        const denial: MlvTaskboardDenialReason | undefined = !unlocked
+          ? 'locked'
+          : !transitionAllowed
+            ? 'transition'
+            : !wipAllowed
+              ? 'wip'
+              : !callbackAllowed
+                ? 'policy'
+                : undefined;
+        if (denial !== undefined) {
+          denials.set(key, denial);
+          continue;
+        }
         allowedLocationKeys.add(key);
         const request: MlvTaskboardMoveRequest<TItem> = Object.freeze({
           board,
@@ -174,8 +210,11 @@ export function createMlvTaskboardDragSession<TItem>(
   return {
     card,
     allowedLocationKeys,
+    denials,
     canEnter: (location) => allowedLocationKeys.has(targetKey(location)),
     requestFor: (columnId, swimlaneId, targetIndex) =>
       requests.get(targetKey({ columnId, swimlaneId, index: targetIndex })),
+    denialFor: (columnId, swimlaneId, targetIndex) =>
+      denials.get(targetKey({ columnId, swimlaneId, index: targetIndex })),
   };
 }

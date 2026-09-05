@@ -82,6 +82,7 @@ import type {
   MlvTaskboardCanDropFn,
   MlvTaskboardCanReorderColumnFn,
   MlvTaskboardColumn,
+  MlvTaskboardDenialReason,
   MlvTaskboardColumnGroup,
   MlvTaskboardCsvField,
   MlvTaskboardField,
@@ -107,7 +108,6 @@ import {
   MlvTaskboardKeyboardController,
   type MlvTaskboardKeyboardFocus,
   type MlvTaskboardKeyboardStep,
-  type MlvTaskboardKeyboardTarget,
 } from './taskboard-keyboard';
 import { MlvTaskboardMoveController } from './taskboard-move-controller';
 import {
@@ -136,6 +136,21 @@ const MLV_TASKBOARD_CANCEL_REASONS: Record<
   'before-move-rejected': 'reasonBeforeMoveRejected',
   'before-move-error': 'reasonBeforeMoveError',
   stale: 'reasonStale',
+};
+
+/**
+ * The localized reason phrase each recorded drag-session denial is announced
+ * with. The session decides *why* a slot refused a card while it enumerates
+ * the board; this map only names the string that states it.
+ */
+const MLV_TASKBOARD_DENIAL_REASONS: Record<
+  MlvTaskboardDenialReason,
+  keyof MlvTaskboardI18n
+> = {
+  locked: 'reasonLocked',
+  transition: 'reasonTransition',
+  wip: 'reasonWip',
+  policy: 'reasonPolicy',
 };
 
 /** @private Distinguishes one board's keyboard-instruction element from another's. */
@@ -586,8 +601,8 @@ export class MlvTaskboard<TItem> {
       this._index().columnById.get(columnId)?.label ?? String(columnId),
     laneLabel: (swimlaneId) => this._laneAnnouncement(swimlaneId),
     cardLabel: (itemId) => String(itemId),
-    targetReason: (target, itemId) =>
-      this._translate(this._targetReasonKey(target, itemId)),
+    denialReason: (reason) =>
+      this._translate(MLV_TASKBOARD_DENIAL_REASONS[reason]),
     focusCard: (focus) => this._focusCardElement(focus),
   });
 
@@ -1145,60 +1160,6 @@ export class MlvTaskboard<TItem> {
     return this._translate('laneName', {
       lane: lane?.label ?? String(swimlaneId),
     });
-  }
-
-  /**
-   * @private Why a slot refuses the grabbed card.
-   *
-   * The drag session records only the slots it authorised, so the reason is
-   * re-derived from the same board inputs the session consulted. It is used
-   * for the announcement alone: the slot is refused either way, and the
-   * coarsest answer, `reasonPolicy`, is always a true statement.
-   */
-  private _targetReasonKey(
-    target: MlvTaskboardKeyboardTarget,
-    itemId: MlvTaskboardKey,
-  ): keyof MlvTaskboardI18n {
-    const index = this._index();
-    const item = index.itemById.get(itemId);
-    const sourceColumnId = item
-      ? (item[this.columnField()] as MlvTaskboardKey)
-      : undefined;
-    const lane =
-      target.swimlaneId === undefined
-        ? undefined
-        : index.swimlaneById.get(target.swimlaneId);
-    const locked =
-      this.lockedItemIds()?.some((id) => sameMlvTaskboardKey(id, itemId)) ??
-      false;
-    if (
-      locked ||
-      index.columnById.get(target.columnId)?.locked === true ||
-      lane?.locked === true ||
-      (sourceColumnId !== undefined &&
-        index.columnById.get(sourceColumnId)?.locked === true)
-    ) {
-      return 'reasonLocked';
-    }
-    const sameColumn = sameMlvTaskboardKey(sourceColumnId, target.columnId);
-    const transitions = this.transitions();
-    if (
-      !sameColumn &&
-      sourceColumnId !== undefined &&
-      transitions !== undefined &&
-      !transitions.some(
-        (transition) =>
-          sameMlvTaskboardKey(transition.from, sourceColumnId) &&
-          sameMlvTaskboardKey(transition.to, target.columnId),
-      )
-    ) {
-      return 'reasonTransition';
-    }
-    const wip = index.wipFor(target.columnId);
-    if (!sameColumn && wip.remaining !== undefined && wip.remaining <= 0) {
-      return 'reasonWip';
-    }
-    return 'reasonPolicy';
   }
 
   /** @private States the outcome of a move that never changed the board. */

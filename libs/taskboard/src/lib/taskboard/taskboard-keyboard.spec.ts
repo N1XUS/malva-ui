@@ -1,4 +1,4 @@
-import { Component, signal, viewChild } from '@angular/core';
+import { Component, signal, viewChild, type Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -42,13 +42,13 @@ class KeyboardHost {
 describe('MlvTaskboard keyboard interaction', () => {
   let rtlService: MlvRtlService;
 
-  async function mount() {
+  async function mountHost<THost>(type: Type<THost>) {
     await TestBed.configureTestingModule({
-      imports: [KeyboardHost],
+      imports: [type],
       providers: [provideTaskboardTesting()],
     }).compileComponents();
     rtlService = TestBed.inject(MlvRtlService);
-    const fixture = TestBed.createComponent(KeyboardHost);
+    const fixture = TestBed.createComponent(type);
     fixture.detectChanges();
     const host = fixture.nativeElement as HTMLElement;
     const card = (id: string) =>
@@ -70,6 +70,8 @@ describe('MlvTaskboard keyboard interaction', () => {
       '';
     return { fixture, host, card, key, focus, live };
   }
+
+  const mount = () => mountHost(KeyboardHost);
 
   afterEach(() => rtlService.setDirection('ltr'));
 
@@ -185,41 +187,81 @@ describe('MlvTaskboard keyboard interaction', () => {
   });
 
   it('announces a slot the board refuses and keeps the card in hand', async () => {
-    await TestBed.configureTestingModule({
-      imports: [LockedHost],
-      providers: [provideTaskboardTesting()],
-    }).compileComponents();
-    rtlService = TestBed.inject(MlvRtlService);
-    const fixture = TestBed.createComponent(LockedHost);
-    fixture.detectChanges();
-    const host = fixture.nativeElement as HTMLElement;
-    const card = host.querySelector(
-      '[data-mlv-taskboard-card-id="string:a"]',
-    ) as HTMLElement;
-    const live = () =>
-      host.querySelector('.mlv-taskboard__live-region')?.textContent?.trim() ??
-      '';
+    const { fixture, key, focus, live } = await mountHost(LockedHost);
 
-    card.dispatchEvent(new FocusEvent('focus'));
-    card.dispatchEvent(
-      new KeyboardEvent('keydown', { key: ' ', bubbles: true }),
-    );
-    card.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
-    );
-    fixture.detectChanges();
+    focus('a');
+    key('a', ' ');
+    key('a', 'ArrowRight');
     expect(live()).toBe(
       'Cannot move to Done: the work-in-progress limit is reached.',
     );
 
-    card.dispatchEvent(
-      new KeyboardEvent('keydown', { key: ' ', bubbles: true }),
-    );
-    fixture.detectChanges();
+    key('a', ' ');
     expect(fixture.componentInstance.items()[0]?.status).toBe('todo');
     expect(live()).toBe(
       'a was not moved: the work-in-progress limit is reached.',
     );
+  });
+
+  it('announces the group limit the drag session actually refused for', async () => {
+    const { key, focus, live } = await mountHost(GroupWipHost);
+
+    focus('a');
+    key('a', ' ');
+    key('a', 'ArrowRight');
+
+    expect(live()).toBe(
+      'Cannot move to Todo: the work-in-progress limit is reached.',
+    );
+  });
+
+  it('announces the lane limit the drag session actually refused for', async () => {
+    const { key, focus, live } = await mountHost(LaneWipHost);
+
+    focus('a');
+    key('a', ' ');
+    key('a', 'ArrowUp');
+
+    expect(live()).toBe(
+      'Cannot move to Todo: the work-in-progress limit is reached. Lane Alpha',
+    );
+  });
+
+  it('announces a lock the card carries from its own locked lane', async () => {
+    const { key, focus, live } = await mountHost(SourceLaneLockHost);
+
+    focus('a');
+    key('a', ' ');
+    key('a', 'ArrowDown');
+
+    expect(live()).toBe(
+      'Cannot move to Todo: the card, its column, or its lane is locked. Lane Beta',
+    );
+  });
+
+  it('treats the slot the card already fills as a target, not a refusal', async () => {
+    const { key, focus, live } = await mount();
+
+    focus('a');
+    key('a', ' ');
+    key('a', 'ArrowDown');
+    expect(live()).toBe('Move to Todo, position 2 of 2.');
+
+    key('a', 'ArrowUp');
+    expect(live()).toBe('Move to Todo, position 1 of 2.');
+  });
+
+  it('releases a grab dropped back where it started without cancelling it', async () => {
+    const { fixture, key, focus, live } = await mount();
+    const before = fixture.componentInstance.items();
+
+    focus('a');
+    key('a', ' ');
+    key('a', ' ');
+
+    expect(live()).toBe('a was left in place.');
+    expect(fixture.componentInstance.items()).toBe(before);
+    expect(fixture.componentInstance.cancellations).toEqual([]);
   });
 });
 
@@ -240,5 +282,86 @@ class LockedHost {
   readonly columns = [
     { id: 'todo', label: 'Todo' },
     { id: 'done', label: 'Done', wipLimit: 1 },
+  ];
+}
+
+interface LanedTicket {
+  readonly id: string;
+  readonly status: string;
+  readonly lane: string;
+}
+
+@Component({
+  imports: [MlvTaskboard],
+  template: `<mlv-taskboard
+    [(items)]="items"
+    [columns]="columns"
+    [columnGroups]="groups"
+    dataKey="id"
+    columnField="status"
+  />`,
+})
+class GroupWipHost {
+  readonly items = signal<readonly Ticket[]>([
+    { id: 'a', status: 'backlog' },
+    { id: 'b', status: 'todo' },
+    { id: 'c', status: 'doing' },
+  ]);
+  readonly columns = [
+    { id: 'backlog', label: 'Backlog' },
+    { id: 'todo', label: 'Todo', groupId: 'flow' },
+    { id: 'doing', label: 'Doing', groupId: 'flow' },
+  ];
+  readonly groups = [{ id: 'flow', label: 'Flow', wipLimit: 2 }];
+}
+
+@Component({
+  imports: [MlvTaskboard],
+  template: `<mlv-taskboard
+    [(items)]="items"
+    [columns]="columns"
+    [swimlanes]="lanes"
+    dataKey="id"
+    columnField="status"
+    swimlaneField="lane"
+  />`,
+})
+class LaneWipHost {
+  readonly items = signal<readonly LanedTicket[]>([
+    { id: 'a', status: 'todo', lane: 'beta' },
+    { id: 'b', status: 'done', lane: 'alpha' },
+  ]);
+  readonly columns = [
+    { id: 'todo', label: 'Todo' },
+    { id: 'done', label: 'Done' },
+  ];
+  readonly lanes = [
+    { id: 'alpha', label: 'Alpha', wipLimit: 1 },
+    { id: 'beta', label: 'Beta' },
+  ];
+}
+
+@Component({
+  imports: [MlvTaskboard],
+  template: `<mlv-taskboard
+    [(items)]="items"
+    [columns]="columns"
+    [swimlanes]="lanes"
+    dataKey="id"
+    columnField="status"
+    swimlaneField="lane"
+  />`,
+})
+class SourceLaneLockHost {
+  readonly items = signal<readonly LanedTicket[]>([
+    { id: 'a', status: 'todo', lane: 'alpha' },
+  ]);
+  readonly columns = [
+    { id: 'todo', label: 'Todo' },
+    { id: 'done', label: 'Done' },
+  ];
+  readonly lanes = [
+    { id: 'alpha', label: 'Alpha', locked: true },
+    { id: 'beta', label: 'Beta' },
   ];
 }

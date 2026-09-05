@@ -216,3 +216,97 @@ describe('createMlvTaskboardDragSession target index ranges', () => {
     expect(seen).toEqual(['todo:1:b,c', 'todo:2:b,c', 'done:0:x', 'done:1:x']);
   });
 });
+
+describe('createMlvTaskboardDragSession denial reasons', () => {
+  it.each([
+    [
+      'locked',
+      'destination lock',
+      makeBoard({
+        columns: [
+          { id: 'todo', label: 'Todo' },
+          { id: 'done', label: 'Done', locked: true },
+        ],
+      }),
+    ],
+    [
+      'locked',
+      'source lane lock',
+      makeBoard({
+        swimlanes: [
+          { id: 'sam', label: 'Sam', locked: true },
+          { id: 'alex', label: 'Alex' },
+        ],
+      }),
+    ],
+    [
+      'transition',
+      'a forbidden transition',
+      makeBoard({ transitions: [{ from: 'todo', to: 'todo' }] }),
+    ],
+    [
+      'wip',
+      'a column limit',
+      makeBoard({
+        columns: [
+          { id: 'todo', label: 'Todo' },
+          { id: 'done', label: 'Done', wipLimit: 1 },
+        ],
+      }),
+    ],
+    [
+      'wip',
+      'a group limit',
+      makeBoard({
+        columnGroups: [{ id: 'complete', label: 'Complete', wipLimit: 1 }],
+        columns: [
+          { id: 'todo', label: 'Todo' },
+          { id: 'done', label: 'Done', groupId: 'complete' },
+        ],
+      }),
+    ],
+    [
+      'wip',
+      'a lane limit',
+      makeBoard({
+        swimlanes: [
+          { id: 'sam', label: 'Sam', wipLimit: 1 },
+          { id: 'alex', label: 'Alex' },
+        ],
+      }),
+    ],
+  ])('records %s for a slot refused by %s', (reason, _label, board) => {
+    const session = createMlvTaskboardDragSession(board, 'a');
+
+    expect(session.denialFor('done', 'sam', 1)).toBe(reason);
+  });
+
+  it('records policy for a slot only the drop callback refuses', () => {
+    const canDrop: MlvTaskboardCanDropFn<Ticket> = (_card, target) =>
+      target.column.id !== 'done';
+    const session = createMlvTaskboardDragSession(makeBoard(), 'a', canDrop);
+
+    expect(session.denialFor('done', 'sam', 1)).toBe('policy');
+    expect(session.denialFor('todo', 'sam', 1)).toBeUndefined();
+  });
+
+  it('records nothing for an allowed slot or for the slot the card fills', () => {
+    const session = createMlvTaskboardDragSession(makeBoard(), 'a');
+
+    expect(session.denialFor('done', 'sam', 1)).toBeUndefined();
+    expect(session.denialFor('todo', 'sam', 0)).toBeUndefined();
+    expect(session.denials.size).toBe(0);
+  });
+
+  it('keys every recorded denial by the same token the allowed set uses', () => {
+    const session = createMlvTaskboardDragSession(
+      makeBoard({ transitions: [{ from: 'todo', to: 'todo' }] }),
+      'a',
+    );
+
+    expect([...session.denials.keys()]).toContain('string:done|string:sam|1');
+    expect(session.allowedLocationKeys.has('string:done|string:sam|1')).toBe(
+      false,
+    );
+  });
+});

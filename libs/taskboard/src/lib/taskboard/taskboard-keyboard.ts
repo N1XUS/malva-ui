@@ -3,6 +3,7 @@ import type { MlvTaskboardI18n } from '@malva-ui/i18n';
 import type { MlvTaskboardDragSession } from '../taskboard-drag-session';
 import { sameMlvTaskboardKey as sameKey } from '../taskboard-keys';
 import type {
+  MlvTaskboardDenialReason,
   MlvTaskboardKey,
   MlvTaskboardMoveCancelReason,
   MlvTaskboardMoveRequest,
@@ -87,14 +88,12 @@ export interface MlvTaskboardKeyboardHost<TItem> {
   /** Human card label used in announcements. */
   cardLabel(itemId: MlvTaskboardKey): string;
   /**
-   * The localized phrase explaining why a slot refuses the card. The board
-   * owns it, because only the board can tell a lock from a transition rule
-   * from a work-in-progress limit.
+   * The localized phrase for a reason the drag session recorded while it
+   * enumerated the board. The controller never derives a reason of its own:
+   * it reads the one the session refused with, so an announcement cannot
+   * contradict the refusal it describes.
    */
-  targetReason(
-    target: MlvTaskboardKeyboardTarget,
-    itemId: MlvTaskboardKey,
-  ): string;
+  denialReason(reason: MlvTaskboardDenialReason): string;
   /** Scrolls a newly focused card into view and moves DOM focus onto it. */
   focusCard(focus: MlvTaskboardKeyboardFocus): void;
 }
@@ -155,6 +154,17 @@ export class MlvTaskboardKeyboardController<TItem> {
   toggleGrab(): boolean {
     const grab = this._grab();
     if (grab === null) return this._beginGrab();
+    if (this._isSourceSlot(grab, grab.target)) {
+      // The card is aimed at the slot it already fills. That is not a refusal
+      // and not a cancellation: the grab simply ends, the board is untouched,
+      // and nothing is committed.
+      this._grab.set(null);
+      this._host.setDropPreview(null);
+      this._host.announce('releasedInPlace', {
+        label: this._host.cardLabel(grab.session.card.id),
+      });
+      return true;
+    }
     const request = grab.session.requestFor(
       grab.target.columnId,
       grab.target.swimlaneId,
@@ -165,7 +175,7 @@ export class MlvTaskboardKeyboardController<TItem> {
       // from would look like a completed move the user never asked for.
       this._host.announce('moveRejected', {
         label: this._host.cardLabel(grab.session.card.id),
-        reason: this._host.targetReason(grab.target, grab.session.card.id),
+        reason: this._denialReason(grab, grab.target),
       });
       return true;
     }
@@ -394,27 +404,62 @@ export class MlvTaskboardKeyboardController<TItem> {
     return true;
   }
 
+  /**
+   * @private Whether a slot is the one the grabbed card already fills. The
+   * session never enumerates it, so it is neither an authorised request nor a
+   * recorded denial — every branch that asks "would this slot take the card?"
+   * has to answer it separately.
+   */
+  private _isSourceSlot(
+    grab: MlvTaskboardKeyboardGrab<TItem>,
+    target: MlvTaskboardKeyboardTarget,
+  ): boolean {
+    const source = grab.session.card.source;
+    return (
+      sameKey(target.columnId, source.columnId) &&
+      sameKey(target.swimlaneId, source.swimlaneId) &&
+      target.index === source.index
+    );
+  }
+
+  /**
+   * @private The localized phrase for the reason the session recorded against
+   * one slot. A slot with no recorded reason is one the session never
+   * enumerated, which only the board's own policy can explain.
+   */
+  private _denialReason(
+    grab: MlvTaskboardKeyboardGrab<TItem>,
+    target: MlvTaskboardKeyboardTarget,
+  ): string {
+    return this._host.denialReason(
+      grab.session.denialFor(
+        target.columnId,
+        target.swimlaneId,
+        target.index,
+      ) ?? 'policy',
+    );
+  }
+
   /** @private Renders the board's drop indicator at the current target slot. */
   private _publishTarget(): void {
     const grab = this._grab();
     if (grab === null) return;
     const { session, target } = grab;
-    const source = session.card.source;
     const request = session.requestFor(
       target.columnId,
       target.swimlaneId,
       target.index,
     );
+    const isSourceSlot = this._isSourceSlot(grab, target);
     this._host.setDropPreview({
       columnId: target.columnId,
       swimlaneId: target.swimlaneId,
       index: target.index,
       itemId: session.card.id,
-      allowed: request !== undefined,
-      isSourceSlot:
-        sameKey(target.columnId, source.columnId) &&
-        sameKey(target.swimlaneId, source.swimlaneId) &&
-        target.index === source.index,
+      // The source slot carries no request — the session skips it — but it
+      // does take the card back, so the indicator does not paint it refused.
+      allowed: request !== undefined || isSourceSlot,
+      isSourceSlot,
       request,
     });
   }
@@ -427,13 +472,14 @@ export class MlvTaskboardKeyboardController<TItem> {
     const column = this._host.columnLabel(target.columnId);
     const lane = this._host.laneLabel(target.swimlaneId);
     const allowed =
+      this._isSourceSlot(grab, target) ||
       session.requestFor(target.columnId, target.swimlaneId, target.index) !==
-      undefined;
+        undefined;
     if (!allowed) {
       this._host.announce('targetInvalid', {
         column,
         lane,
-        reason: this._host.targetReason(target, session.card.id),
+        reason: this._denialReason(grab, target),
       });
       return;
     }
