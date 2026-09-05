@@ -912,3 +912,50 @@ describe('MlvSchedulerEventChip styles', () => {
     );
   });
 });
+
+// jsdom substitutes no custom property, so `background: var(…)` computes to
+// `rgba(0, 0, 0, 0)` whatever the variable holds — the ghost's surface has to
+// be read off the compiled text. The real-browser proof is in
+// `.superpowers/sdd/2026-09-02-scheduler/real-browser-dnd.mjs` (`ghostKeepsTone`).
+describe('MlvSchedulerEventChip ghost styles', () => {
+  let css: string;
+
+  beforeAll(() => {
+    css = stripCssLayersFromText(
+      compile(
+        fileURLToPath(
+          new URL(['.', 'scheduler-event.scss'].join('/'), import.meta.url),
+        ),
+      ).css,
+    );
+  });
+
+  /** Declarations of the rule with exactly this selector. */
+  function block(selector: string): string {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`).exec(css);
+    if (!match) throw new Error(`No rule found for "${selector}".`);
+    return match[1];
+  }
+
+  it('paints the ghost with the dragged event tone, not the accent surface', () => {
+    // `withPreview` copies the dragged event, so the ghost chip carries the
+    // same `--tone-*` / `--custom-color` modifier and therefore the same
+    // `--mlv-scheduler-event-bg`. Hardcoding the accent surface here made
+    // every ghost look blue whatever the event's tone.
+    const ghost = block('.mlv-scheduler-event--ghost');
+    expect(ghost).toMatch(/background:\s*var\(--mlv-scheduler-event-bg\)/);
+    expect(ghost).not.toMatch(/background:\s*var\(--mlv-background-accent-1/);
+  });
+
+  it('keeps the ghost readable as a preview rather than as the real chip', () => {
+    // The dashed border and the reduced opacity are what separate it from the
+    // faded original (`--dragging`, 0.4) once the fill matches the tone.
+    const ghost = block('.mlv-scheduler-event--ghost');
+    expect(ghost).toMatch(
+      /border:\s*var\(--mlv-stroke-width\) dashed var\(--mlv-scheduler-event-bar\)/,
+    );
+    expect(ghost).toMatch(/opacity:\s*0\.9/);
+    expect(block('.mlv-scheduler-event--dragging')).toMatch(/opacity:\s*0\.4/);
+  });
+});

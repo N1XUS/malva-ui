@@ -233,10 +233,15 @@ $tones: (
       cursor: grabbing;
     }
 
-    // Our own drag preview at the would-be position.
+    // Our own drag preview at the would-be position. `withPreview()` copies
+    // the dragged event, so the ghost carries the same `--tone-*` /
+    // `--custom-color` modifier: reading the resolved surface keeps the
+    // preview the colour of the thing being dragged. The dashed border and
+    // the opacity are what still separate it from the faded original
+    // (`--dragging`, 0.4).
     &--ghost {
       pointer-events: none;
-      background: var(--mlv-background-accent-1-pale);
+      background: var(--mlv-scheduler-event-bg);
       border: var(--mlv-stroke-width) dashed var(--mlv-scheduler-event-bar);
       border-inline-start-width: 0.1875rem;
       opacity: 0.9;
