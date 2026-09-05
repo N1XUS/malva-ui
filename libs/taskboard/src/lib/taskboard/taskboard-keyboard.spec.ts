@@ -324,6 +324,27 @@ describe('MlvTaskboard keyboard interaction', () => {
     expect(card('x').getAttribute('tabindex')).toBe('0');
   });
 
+  it('swallows Enter while a card is grabbed so the native button cannot fire', async () => {
+    const { fixture, card, key, focus } = await mount();
+    const activated: string[] = [];
+    fixture.componentInstance
+      .board()
+      .cardActivated.subscribe((event) => activated.push(event.item.id));
+
+    focus('a');
+    key('a', ' ');
+    const enter = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+    });
+    card('a').dispatchEvent(enter);
+    fixture.detectChanges();
+
+    expect(enter.defaultPrevented).toBe(true);
+    expect(activated).toEqual([]);
+  });
+
   it('releases a grab dropped back where it started without cancelling it', async () => {
     const { fixture, key, focus, live } = await mount();
     const before = fixture.componentInstance.items();

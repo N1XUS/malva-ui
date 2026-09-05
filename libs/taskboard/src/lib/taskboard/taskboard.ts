@@ -1175,8 +1175,13 @@ export class MlvTaskboard<TItem> {
       handled = this._keyboard.toggleGrab();
     } else if (event.key === 'Escape') {
       handled = this._keyboard.cancel();
-    } else if (event.key === 'Enter' && !this._keyboard.grabbed()) {
-      this._activate(item, column, swimlane, index, event);
+    } else if (event.key === 'Enter') {
+      // Enter is consumed either way: a grabbed card must not activate, and on
+      // the built-in `<button>` surface only `preventDefault()` stops the
+      // native activation from firing a click behind the grab.
+      if (!this._keyboard.grabbed()) {
+        this._activate(item, column, swimlane, index, event);
+      }
       handled = true;
     }
     if (handled) event.preventDefault();
