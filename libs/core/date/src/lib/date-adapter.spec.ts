@@ -176,8 +176,11 @@ describe('MlvNativeDateAdapter across DST transitions', () => {
   });
 
   it('runs in the pinned Europe/Berlin zone', () => {
-    // The DST cases below only mean something in a zone that observes DST;
-    // the pin lives in `libs/core/date/vite.config.mts` (`test.env.TZ`).
+    // The DST cases below only mean something in a zone that observes DST; the
+    // pin is a module-scope `process.env.TZ` assignment in
+    // `libs/core/date/vite.config.mts`, placed BEFORE `defineConfig` so every
+    // pooled worker inherits it before its first `Date`/`Intl` call caches the
+    // zone. `test.env.TZ` reaches ICU too late (see 3e5ae011).
     expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(
       'Europe/Berlin',
     );
