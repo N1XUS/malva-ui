@@ -94,6 +94,10 @@
   }
 </div>
 
+<p class="mlv-taskboard__instructions" [id]="_instructionsId">
+  {{ _i18n().keyboardInstructions }}
+</p>
+
 <div class="mlv-taskboard__live-region" aria-live="polite" aria-atomic="true">
   {{ _announcement() }}
 </div>
@@ -130,6 +134,11 @@
         [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
         [attr.aria-selected]="selection().has(_itemId(item))"
         [attr.data-mlv-taskboard-selected]="selection().has(_itemId(item)) || null"
+        [attr.tabindex]="_isCardTabbable(item) ? 0 : -1"
+        [attr.aria-describedby]="_instructionsId"
+        (focus)="_onCardFocus(item, column, swimlane)"
+        (blur)="_onCardBlur()"
+        (keydown)="_onCardKeydown($event, item, column, swimlane, cardIndex)"
         (click)="_activate(item, column, swimlane, cardIndex, $event)"
         (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
       >
@@ -145,6 +154,11 @@
         [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
         [attr.aria-selected]="selection().has(_itemId(item))"
         [attr.data-mlv-taskboard-selected]="selection().has(_itemId(item)) || null"
+        [attr.tabindex]="_isCardTabbable(item) ? 0 : -1"
+        [attr.aria-describedby]="_instructionsId"
+        (focus)="_onCardFocus(item, column, swimlane)"
+        (blur)="_onCardBlur()"
+        (keydown)="_onCardKeydown($event, item, column, swimlane, cardIndex)"
         (click)="_activate(item, column, swimlane, cardIndex, $event)"
         (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
       >

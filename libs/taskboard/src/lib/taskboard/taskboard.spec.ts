@@ -203,7 +203,9 @@ describe('MlvTaskboard', () => {
     expect(activated).toEqual(['one']);
     expect(contextual).toEqual(['one']);
     expect(card.getAttribute('role')).toBeNull();
-    expect(card.getAttribute('tabindex')).toBeNull();
+    // The card owns the board's roving tab stop, but takes no widget role of
+    // its own: the projected control keeps its native semantics.
+    expect(card.getAttribute('tabindex')).toBe('0');
   });
 
   it('keeps the default card surface keyboard-operable', async () => {

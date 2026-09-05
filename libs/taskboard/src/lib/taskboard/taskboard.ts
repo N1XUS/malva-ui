@@ -1,7 +1,14 @@
 import { NgTemplateOutlet } from '@angular/common';
 import {
+  DOWN_ARROW,
+  LEFT_ARROW,
+  RIGHT_ARROW,
+  UP_ARROW,
+} from '@angular/cdk/keycodes';
+import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   ViewEncapsulation,
   computed,
   contentChildren,
@@ -15,6 +22,7 @@ import {
   MLV_DENSITY_ELEMENT,
   MlvDensityDirective,
 } from '@malva-ui/cdk/density';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import {
   MLV_TASKBOARD_I18N,
   MlvI18nResolverService,
@@ -40,6 +48,7 @@ import {
   type MlvTaskboardItemDefContext,
   type MlvTaskboardSwimlaneDefContext,
 } from '../taskboard-defs';
+import { createMlvTaskboardDragSession } from '../taskboard-drag-session';
 import { createMlvTaskboardHistory } from '../taskboard-history';
 import { mlvTaskboardKeyToken, sameMlvTaskboardKey } from '../taskboard-keys';
 import {
@@ -57,6 +66,7 @@ import type {
   MlvTaskboardHistory,
   MlvTaskboardKey,
   MlvTaskboardLocation,
+  MlvTaskboardMoveCancelReason,
   MlvTaskboardMoveCancelledEvent,
   MlvTaskboardMoveResult,
   MlvTaskboardSwimlane,
@@ -69,6 +79,11 @@ import {
   MlvTaskboardColumnSortable,
 } from './taskboard-column-sortable';
 import { MlvTaskboardColumnsHost } from './taskboard-columns-host';
+import {
+  MlvTaskboardKeyboardController,
+  type MlvTaskboardKeyboardStep,
+  type MlvTaskboardKeyboardTarget,
+} from './taskboard-keyboard';
 import { MlvTaskboardMoveController } from './taskboard-move-controller';
 import {
   MLV_TASKBOARD_CARDS_REGISTRY,
@@ -77,16 +92,39 @@ import {
   type MlvTaskboardDropPreview,
 } from './taskboard-sortable';
 import {
+  MLV_TASKBOARD_CARD_ID_ATTRIBUTE,
   MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE,
   MLV_TASKBOARD_SWIMLANE_ID_ATTRIBUTE,
 } from './taskboard-sortable-dom';
+
+/**
+ * The localized reason phrase each move cancellation is announced with, so a
+ * screen-reader user hears why a card came back rather than only that it did.
+ */
+const MLV_TASKBOARD_CANCEL_REASONS: Record<
+  MlvTaskboardMoveCancelReason,
+  keyof MlvTaskboardI18n
+> = {
+  'invalid-drop': 'reasonInvalidDrop',
+  cancelled: 'reasonCancelled',
+  'before-move-rejected': 'reasonBeforeMoveRejected',
+  'before-move-error': 'reasonBeforeMoveError',
+  stale: 'reasonStale',
+};
+
+/** @private Distinguishes one board's keyboard-instruction element from another's. */
+let nextTaskboardId = 0;
 
 /** Payload emitted for a card activation or context-menu request. */
 export interface MlvTaskboardCardEvent<TItem> {
   readonly item: TItem;
   readonly location: MlvTaskboardLocation;
   readonly selectedIds: ReadonlySet<MlvTaskboardKey>;
-  readonly nativeEvent: MouseEvent;
+  /**
+   * The gesture that produced the request: a pointer event for a click or
+   * context menu, and the `Enter` keydown for a keyboard activation.
+   */
+  readonly nativeEvent: MouseEvent | KeyboardEvent;
 }
 
 /** Payload emitted when an application should add a card to a board cell. */
@@ -370,11 +408,62 @@ export class MlvTaskboard<TItem> {
     return order;
   });
 
+  /**
+   * @private Columns keyboard navigation walks. A collapsed column hides its
+   * cards, so it owns no tab stop and no keyboard drop target.
+   */
+  private readonly _navigableColumnIds = computed<readonly MlvTaskboardKey[]>(
+    () =>
+      this.columns()
+        .filter((column) => !this._isColumnCollapsed(column))
+        .map((column) => column.id),
+  );
+
+  /**
+   * @private Lanes keyboard navigation walks. A board without swimlanes still
+   * has exactly one row, reported as the single unlaned `undefined`.
+   */
+  private readonly _navigableSwimlaneIds = computed<
+    readonly (MlvTaskboardKey | undefined)[]
+  >(() => {
+    const lanes = this.swimlanes();
+    if (lanes.length === 0) return [undefined];
+    return lanes
+      .filter((lane) => !this._isSwimlaneCollapsed(lane))
+      .map((lane) => lane.id);
+  });
+
+  /**
+   * @private The card that owns the board's tab stop before anything has been
+   * focused: the first card of the first navigable cell in reading order.
+   */
+  private readonly _firstNavigableCard = computed<MlvTaskboardKey | undefined>(
+    () => {
+      const index = this._index();
+      for (const swimlaneId of this._navigableSwimlaneIds()) {
+        for (const columnId of this._navigableColumnIds()) {
+          const first = index.itemsFor(columnId, swimlaneId)[0];
+          if (first !== undefined) return this._itemId(first);
+        }
+      }
+      return undefined;
+    },
+  );
+
   /** @protected Localized board copy; template-facing, so it has no prefix. */
   protected readonly _i18n = inject(MLV_TASKBOARD_I18N);
 
   /** @private Compiles the ICU strings the board announces and renders. */
   private readonly _i18nResolver = inject(MlvI18nResolverService);
+
+  /** @private Host element, used to resolve a card key back to its element. */
+  private readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /** @private Mirrors the horizontal arrow keys inside an RTL subtree. */
+  private readonly _rtlService = inject(MlvRtlService);
+
+  /** @protected Id of the shared keyboard-instruction element cards describe. */
+  protected readonly _instructionsId = `mlv-taskboard-keys-${nextTaskboardId++}`;
 
   /** @private Package-private SortableJS card adapter provided by this board. */
   private readonly _sortable = inject(
@@ -389,8 +478,45 @@ export class MlvTaskboard<TItem> {
     boardCore: () => this._boardCore(),
     beforeMove: () => this.beforeMove(),
     apply: (result) => this._applyMoveResult(result),
-    cancelled: (event) => this.moveCancelled.emit(event),
+    cancelled: (event) => {
+      this.moveCancelled.emit(event);
+      // A keyboard cancellation carries no authorised request, so the
+      // controller's own `cancelMove` announces that one instead.
+      if (event.request !== undefined) {
+        this._announceMoveOutcome(event.reason, event.request.itemId);
+      }
+    },
     setPending: (pending) => this._setMovePending(pending),
+  });
+
+  /**
+   * @private Roving focus and keyboard grab state machine. It is handed the
+   * board's own geometry and the very commit flow the pointer path enters, so
+   * a keyboard move and a dropped drag cannot diverge.
+   */
+  private readonly _keyboard = new MlvTaskboardKeyboardController<TItem>({
+    columnIds: () => this._navigableColumnIds(),
+    swimlaneIds: () => this._navigableSwimlaneIds(),
+    cardsIn: (columnId, swimlaneId) =>
+      this._index()
+        .itemsFor(columnId, swimlaneId)
+        .map((item) => this._itemId(item)),
+    createSession: (itemId) =>
+      createMlvTaskboardDragSession(this._board(), itemId, this.canDropFn()),
+    setDropPreview: (preview) => this._dropPreview.set(preview),
+    commitMove: (request) => this._moveController.commit(request),
+    cancelMove: (reason, itemId) => {
+      this._moveController.cancel(reason);
+      this._announceMoveOutcome(reason, itemId);
+    },
+    announce: (key, params) => this._announce(key, params),
+    columnLabel: (columnId) =>
+      this._index().columnById.get(columnId)?.label ?? String(columnId),
+    laneLabel: (swimlaneId) => this._laneAnnouncement(swimlaneId),
+    cardLabel: (itemId) => String(itemId),
+    targetReason: (target, itemId) =>
+      this._translate(this._targetReasonKey(target, itemId)),
+    focusCard: (focus) => this._focusCardElement(focus.itemId),
   });
 
   /**
@@ -636,7 +762,7 @@ export class MlvTaskboard<TItem> {
     column: MlvTaskboardColumn,
     swimlane: MlvTaskboardSwimlane | undefined,
     index: number,
-    nativeEvent: MouseEvent,
+    nativeEvent: MouseEvent | KeyboardEvent,
   ): void {
     this._selectFromPointer(this._itemId(item), nativeEvent);
     this.cardActivated.emit({
@@ -665,6 +791,187 @@ export class MlvTaskboard<TItem> {
   }
 
   /**
+   * @protected Whether this card owns the board's single tab stop. Before
+   * anything is focused that is the first card in reading order, so a `Tab`
+   * into the board always lands somewhere predictable.
+   */
+  protected _isCardTabbable(item: TItem): boolean {
+    const focus = this._keyboard.focus();
+    const id = this._itemId(item);
+    return focus === null
+      ? sameMlvTaskboardKey(this._firstNavigableCard(), id)
+      : sameMlvTaskboardKey(focus.itemId, id);
+  }
+
+  /** @protected Records focus arriving on a card without moving it again. */
+  protected _onCardFocus(
+    item: TItem,
+    column: MlvTaskboardColumn,
+    swimlane: MlvTaskboardSwimlane | undefined,
+  ): void {
+    this._keyboard.noteFocus({
+      columnId: column.id,
+      swimlaneId: swimlane?.id,
+      itemId: this._itemId(item),
+    });
+  }
+
+  /**
+   * @protected Cancels a grab the user walked away from. Arrow keys move the
+   * target slot, not the DOM focus, so a blur while grabbed always means the
+   * card was abandoned rather than navigated past.
+   */
+  protected _onCardBlur(): void {
+    this._keyboard.releaseFocus();
+  }
+
+  /**
+   * @protected Routes one card keydown to the roving focus or the live grab.
+   *
+   * The horizontal pair goes through `MlvRtlService.normalizeArrowKey`, so
+   * `ArrowLeft` means "next column" inside an RTL subtree and the board reads
+   * the same way in both directions.
+   */
+  protected _onCardKeydown(
+    event: KeyboardEvent,
+    item: TItem,
+    column: MlvTaskboardColumn,
+    swimlane: MlvTaskboardSwimlane | undefined,
+    index: number,
+  ): void {
+    const step = this._keyboardStep(event);
+    let handled = false;
+    if (step !== null) {
+      handled = this._keyboard.step(step);
+    } else if (event.key === ' ' || event.key === 'Spacebar') {
+      handled = this._keyboard.toggleGrab();
+    } else if (event.key === 'Escape') {
+      handled = this._keyboard.cancel();
+    } else if (event.key === 'Enter' && !this._keyboard.grabbed()) {
+      this._activate(item, column, swimlane, index, event);
+      handled = true;
+    }
+    if (handled) event.preventDefault();
+  }
+
+  /** @private Resolves a keydown to the logical navigation command it means. */
+  private _keyboardStep(event: KeyboardEvent): MlvTaskboardKeyboardStep | null {
+    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+      case RIGHT_ARROW:
+        return 'next-column';
+      case LEFT_ARROW:
+        return 'previous-column';
+      case DOWN_ARROW:
+        return 'next-card';
+      case UP_ARROW:
+        return 'previous-card';
+      case 'Home':
+        return 'first-card';
+      case 'End':
+        return 'last-card';
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * @private Scrolls a newly focused card into view, then focuses it. The
+   * card may sit outside the scrolled cell, so the scroll runs first.
+   */
+  private _focusCardElement(itemId: MlvTaskboardKey): void {
+    const element = this._elementRef.nativeElement.querySelector<HTMLElement>(
+      `[${MLV_TASKBOARD_CARD_ID_ATTRIBUTE}="${mlvTaskboardKeyToken(itemId)}"]`,
+    );
+    if (element === null) return;
+    if (typeof element.scrollIntoView === 'function') {
+      element.scrollIntoView({ block: 'nearest' });
+    }
+    element.focus();
+  }
+
+  /**
+   * @private The lane qualifier an announcement carries, or `''` on a board
+   * with no swimlanes — `_translate` collapses the empty slot away.
+   */
+  private _laneAnnouncement(swimlaneId: MlvTaskboardKey | undefined): string {
+    if (swimlaneId === undefined) return '';
+    const lane = this._index().swimlaneById.get(swimlaneId);
+    return this._translate('laneName', {
+      lane: lane?.label ?? String(swimlaneId),
+    });
+  }
+
+  /**
+   * @private Why a slot refuses the grabbed card.
+   *
+   * The drag session records only the slots it authorised, so the reason is
+   * re-derived from the same board inputs the session consulted. It is used
+   * for the announcement alone: the slot is refused either way, and the
+   * coarsest answer, `reasonPolicy`, is always a true statement.
+   */
+  private _targetReasonKey(
+    target: MlvTaskboardKeyboardTarget,
+    itemId: MlvTaskboardKey,
+  ): keyof MlvTaskboardI18n {
+    const index = this._index();
+    const item = index.itemById.get(itemId);
+    const sourceColumnId = item
+      ? (item[this.columnField()] as MlvTaskboardKey)
+      : undefined;
+    const lane =
+      target.swimlaneId === undefined
+        ? undefined
+        : index.swimlaneById.get(target.swimlaneId);
+    const locked =
+      this.lockedItemIds()?.some((id) => sameMlvTaskboardKey(id, itemId)) ??
+      false;
+    if (
+      locked ||
+      index.columnById.get(target.columnId)?.locked === true ||
+      lane?.locked === true ||
+      (sourceColumnId !== undefined &&
+        index.columnById.get(sourceColumnId)?.locked === true)
+    ) {
+      return 'reasonLocked';
+    }
+    const sameColumn = sameMlvTaskboardKey(sourceColumnId, target.columnId);
+    const transitions = this.transitions();
+    if (
+      !sameColumn &&
+      sourceColumnId !== undefined &&
+      transitions !== undefined &&
+      !transitions.some(
+        (transition) =>
+          sameMlvTaskboardKey(transition.from, sourceColumnId) &&
+          sameMlvTaskboardKey(transition.to, target.columnId),
+      )
+    ) {
+      return 'reasonTransition';
+    }
+    const wip = index.wipFor(target.columnId);
+    if (!sameColumn && wip.remaining !== undefined && wip.remaining <= 0) {
+      return 'reasonWip';
+    }
+    return 'reasonPolicy';
+  }
+
+  /** @private States the outcome of a move that never changed the board. */
+  private _announceMoveOutcome(
+    reason: MlvTaskboardMoveCancelReason,
+    itemId: MlvTaskboardKey,
+  ): void {
+    const label = String(itemId);
+    if (reason === 'cancelled') {
+      this._announce('moveCancelled', { label });
+      return;
+    }
+    this._announce('moveRejected', {
+      label,
+      reason: this._translate(MLV_TASKBOARD_CANCEL_REASONS[reason]),
+    });
+  }
+
+  /**
    * @private Applies the selection gesture a card click carries.
    *
    * A plain click replaces the selection, `Ctrl`/`Cmd` toggles the clicked
@@ -673,7 +980,10 @@ export class MlvTaskboard<TItem> {
    * one whose anchor is no longer rendered — has no run to describe, so it
    * falls back to a plain replacement.
    */
-  private _selectFromPointer(id: MlvTaskboardKey, event: MouseEvent): void {
+  private _selectFromPointer(
+    id: MlvTaskboardKey,
+    event: MouseEvent | KeyboardEvent,
+  ): void {
     if (event.shiftKey) {
       const range = this._selectionRange(id);
       if (range !== null) {
@@ -844,6 +1154,14 @@ export class MlvTaskboard<TItem> {
     const before = this._boardCore();
     this.items.set(result.items);
     this._recordCommand(before);
+    this._announce('moved', {
+      label: String(this._itemId(result.item)),
+      column:
+        this._index().columnById.get(result.target.columnId)?.label ??
+        String(result.target.columnId),
+      lane: this._laneAnnouncement(result.target.swimlaneId),
+      position: result.target.index + 1,
+    });
     this.moved.emit(result);
   }
 
