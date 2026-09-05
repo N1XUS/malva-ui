@@ -1,0 +1,144 @@
+@if (_headerDefs()[0]; as headerDef) {
+<div class="mlv-taskboard__header" role="row">
+  <ng-container
+    [ngTemplateOutlet]="headerDef.templateRef"
+    [ngTemplateOutletContext]="_headerContext()"
+  />
+</div>
+}
+
+<div
+  class="mlv-taskboard__surface"
+  role="rowgroup"
+  [style.--mlv-taskboard-column-count]="columns().length"
+>
+  @for (group of columnGroups(); track group.id) {
+  <div
+    class="mlv-taskboard__group"
+    role="columnheader"
+    [attr.data-mlv-taskboard-group-id]="_keyAttribute(group.id)"
+    [attr.aria-label]="group.label"
+  >
+    @if (_groupDefs()[0]; as groupDef) {
+    <ng-container
+      [ngTemplateOutlet]="groupDef.templateRef"
+      [ngTemplateOutletContext]="_groupContext(group)"
+    />
+    } @else { {{ group.label }} }
+  </div>
+  } @for (column of columns(); track column.id) {
+  <div
+    class="mlv-taskboard__column-header"
+    role="columnheader"
+    [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
+    [attr.data-collapsed]="_isColumnCollapsed(column) || null"
+  >
+    @if (_columnHeaderDefs()[0]; as columnHeaderDef) {
+    <ng-container
+      [ngTemplateOutlet]="columnHeaderDef.templateRef"
+      [ngTemplateOutletContext]="_columnContext(column)"
+    />
+    } @else { {{ column.label }} ({{ _wipFor(column, undefined).count }}) }
+  </div>
+  } @for (swimlane of swimlanes(); track swimlane.id) {
+  <div
+    class="mlv-taskboard__lane"
+    role="row"
+    [attr.data-mlv-taskboard-swimlane-id]="_keyAttribute(swimlane.id)"
+    [attr.data-collapsed]="_isSwimlaneCollapsed(swimlane) || null"
+  >
+    <div class="mlv-taskboard__lane-header" role="rowheader">
+      @if (_swimlaneDefs()[0]; as swimlaneDef) {
+      <ng-container
+        [ngTemplateOutlet]="swimlaneDef.templateRef"
+        [ngTemplateOutletContext]="_swimlaneContext(swimlane)"
+      />
+      } @else { {{ swimlane.label }} }
+    </div>
+    @for (column of columns(); track column.id) {
+    <ng-container
+      [ngTemplateOutlet]="cellTemplate"
+      [ngTemplateOutletContext]="{ column, swimlane }"
+    />
+    }
+  </div>
+  } @empty {
+  <div class="mlv-taskboard__lane mlv-taskboard__lane--default" role="row">
+    @for (column of columns(); track column.id) {
+    <ng-container
+      [ngTemplateOutlet]="cellTemplate"
+      [ngTemplateOutletContext]="{ column, swimlane: undefined }"
+    />
+    }
+  </div>
+  }
+</div>
+
+<div
+  class="mlv-taskboard__live-region"
+  aria-live="polite"
+  aria-atomic="true"
+></div>
+
+<ng-template #cellTemplate let-column="column" let-swimlane="swimlane">
+  <div
+    class="mlv-taskboard__cell"
+    role="gridcell"
+    [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
+    [attr.data-mlv-taskboard-swimlane-id]="swimlane === undefined ? null : _keyAttribute(swimlane.id)"
+    [attr.data-collapsed]="(_isColumnCollapsed(column) || _isSwimlaneCollapsed(swimlane)) || null"
+  >
+    @if (_columnContentDefs()[0]; as contentDef) {
+    <ng-container
+      [ngTemplateOutlet]="contentDef.templateRef"
+      [ngTemplateOutletContext]="_contentContext(column, swimlane)"
+    />
+    } @else { @for (item of _itemsFor(column, swimlane); track _itemId(item);
+    let cardIndex = $index) {
+    <button
+      type="button"
+      class="mlv-taskboard__card"
+      [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
+      [attr.aria-selected]="selection().has(_itemId(item))"
+      (click)="_activate(item, column, swimlane, cardIndex, $event)"
+      (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
+    >
+      @if (_itemDefs()[0]; as itemDef) {
+      <ng-container
+        [ngTemplateOutlet]="itemDef.templateRef"
+        [ngTemplateOutletContext]="_itemContext(item, column, swimlane, cardIndex)"
+      />
+      } @else { Task {{ _keyAttribute(_itemId(item)) }} }
+    </button>
+    } @empty {
+    <ng-container
+      [ngTemplateOutlet]="emptyTemplate"
+      [ngTemplateOutletContext]="{ column, swimlane }"
+    />
+    } } @if (_cardAddDefs()[0]; as cardAddDef) {
+    <ng-container
+      [ngTemplateOutlet]="cardAddDef.templateRef"
+      [ngTemplateOutletContext]="_addContext(column, swimlane)"
+    />
+    } @else {
+    <button
+      type="button"
+      class="mlv-taskboard__add"
+      (click)="requestAdd(column, swimlane)"
+    >
+      Add card
+    </button>
+    }
+  </div>
+</ng-template>
+
+<ng-template #emptyTemplate let-column="column" let-swimlane="swimlane">
+  @if (_emptyStateDefs()[0]; as emptyStateDef) {
+  <ng-container
+    [ngTemplateOutlet]="emptyStateDef.templateRef"
+    [ngTemplateOutletContext]="_emptyContext(column, swimlane)"
+  />
+  } @else {
+  <p class="mlv-taskboard__empty">No cards</p>
+  }
+</ng-template>

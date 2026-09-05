@@ -3,6 +3,7 @@ import type {
   MlvTaskboardCanDropFn,
   MlvTaskboardColumn,
   MlvTaskboardItemDefContext,
+  MlvTaskboard,
 } from '@malva-ui/taskboard';
 
 interface Ticket {
@@ -23,3 +24,5 @@ const itemContext: MlvTaskboardItemDefContext<Ticket> = {
 void canDrop;
 void todo;
 void itemContext;
+const taskboardType: MlvTaskboard<Ticket> | undefined = undefined;
+void taskboardType;
