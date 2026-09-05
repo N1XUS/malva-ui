@@ -89,6 +89,8 @@ export function createSchedulerTestContext(
   const slotDuration = signal(options.slotDuration ?? 30);
   /** Writable so a spec can toggle the time grid's centred initial scroll on. */
   const scrollToCurrentTime = signal(false);
+  /** Writable so a spec can stand in for the root's `scrollToTime()`. */
+  const scrollRequest = signal<MlvSchedulerScrollRequest | null>(null);
   const snap = signal(options.snap ?? options.slotDuration ?? 30);
   /** Seeds the `*mlvSchedulerEventDef` template a chip renders instead of its default body. */
   const eventDef = signal<TemplateRef<MlvSchedulerEventContext> | null>(
@@ -144,7 +146,7 @@ export function createSchedulerTestContext(
     eventDef,
     dragHintId: 'mlv-scheduler-hint-test',
     pendingFocus: signal<MlvSchedulerFocusRequest<Date> | null>(null),
-    scrollRequest: signal<MlvSchedulerScrollRequest | null>(null),
+    scrollRequest,
     dragging: signal(false),
     translate: (key, params) =>
       resolver.resolve(
@@ -218,6 +220,7 @@ export function createSchedulerTestContext(
     minMinutes,
     maxMinutes,
     scrollToCurrentTime,
+    scrollRequest,
     eventDef,
     announcements,
     commits,

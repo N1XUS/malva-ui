@@ -59,9 +59,11 @@ import type { MlvSchedulerRangeSelectEvent } from '../scheduler/scheduler.types'
 /**
  * Pixel offset that puts `minutes` at the top of the viewport.
  *
- * @param headroomPx Pixels of the preceding row to keep visible, so the hour
- *   label — which straddles its line — is not cut in half by the sticky header.
- *   Defaults to `0`; the result is still clamped at `0`.
+ * @param headroomPx Pixels scrolled back ABOVE the target, i.e. how far down
+ *   the viewport the target ends up. Callers pass what that means for them:
+ *   half an hour-label for the top-aligned scroll (the label straddles its
+ *   line, so a target flush with the top edge is cut in half), half the visible
+ *   height for the centred one. Defaults to `0`; the result is clamped at `0`.
  */
 export function scrollOffsetFor(
   minutes: number,
@@ -599,34 +601,43 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       element.focus();
     });
 
-    afterRenderEffect(() => {
-      const request = this._ctx.scrollRequest();
-      if (!request) return;
-      this._scrollTo(parseTime(request.time));
-    });
-
     // Re-applied whenever the axis itself changes, not once per instance:
     // `scheduler.html` renders week and day from the SAME `@default` branch, so
     // a week ↔ day switch reuses this component and an `afterNextRender` would
     // never run again — the day view would open at whatever scroll offset the
     // week was left at, while month → week (a fresh instance) landed on the
     // business-hours start. `scrollTop` is in pixels, so a new `minTime` /
-    // `slotDuration` no longer names the same time either.
+    // `maxTime` / `slotDuration` no longer names the same time either.
+    //
+    // Registered BEFORE the `scrollRequest` effect below on purpose: two
+    // `afterRenderEffect`s of the same phase run in registration order, so a
+    // `scrollToTime()` issued in the same tick as a view switch has to be the
+    // LATER writer for the explicit request to win.
     afterRenderEffect(() => {
       this._ctx.view();
-      this._ctx.minMinutes();
+      const minMinutes = this._ctx.minMinutes();
+      const maxMinutes = this._ctx.maxMinutes();
       this._ctx.slotDuration();
       const centre = this._ctx.scrollToCurrentTime();
       untracked(() => {
-        // `nowMinutes` is read untracked on purpose: it ticks every minute, and
-        // depending on it would yank the viewport back to the now-line under a
-        // user who has scrolled away. Toggling the input still re-applies.
-        const now = this._ctx.nowMinutes();
-        const visible =
-          now >= this._ctx.minMinutes() && now < this._ctx.maxMinutes();
-        if (centre && visible) this._scrollTo(now, 'center');
+        // The clock is read straight off the adapter rather than through the
+        // context's `nowMinutes`: that computed's only dependency is a tick the
+        // root bumps ONLY while `showCurrentTime` is on, so with the line
+        // hidden it caches the minute it first saw and would re-centre that
+        // forever. Reading the adapter here also keeps the viewport still under
+        // a user who has scrolled away, because there is nothing to track.
+        const adapter = this._ctx.adapter;
+        const now = adapter.minutesOfDay(adapter.now());
+        if (centre && now >= minMinutes && now < maxMinutes)
+          this._scrollTo(now, 'center');
         else this._scrollTo(this._initialMinutes());
       });
+    });
+
+    afterRenderEffect(() => {
+      const request = this._ctx.scrollRequest();
+      if (!request) return;
+      this._scrollTo(parseTime(request.time));
     });
 
     afterRenderEffect((onCleanup) => {
@@ -950,8 +961,12 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
    *
    * `'center'` keeps the exact minute — the wall clock does not sit on a slot
    * boundary — clamped into `[minMinutes, maxMinutes]`, and gives back half the
-   * viewport instead of the label headroom. No label correction: the target is
-   * nowhere near the sticky header. The far end is clamped by the browser.
+   * VISIBLE region instead of the label headroom. The day-header row and the
+   * all-day band are sticky inside the scroll viewport, so they cover its top
+   * edge for the whole scroll: centring on `clientHeight / 2` would put the
+   * minute half that band ABOVE the visual centre. No label correction is
+   * needed — the target is nowhere near the top edge. The far end is clamped
+   * by the browser.
    */
   private _scrollTo(
     minutes: number,
@@ -967,12 +982,15 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
         this._ctx.maxMinutes(),
         Math.max(this._ctx.minMinutes(), minutes),
       );
+      const top = this._host.querySelector<HTMLElement>(
+        '.mlv-scheduler-time-grid__top',
+      );
       viewport.scrollTop = scrollOffsetFor(
         target,
         this._ctx.minMinutes(),
         this._ctx.slotDuration(),
         slot.offsetHeight,
-        viewport.clientHeight / 2,
+        (viewport.clientHeight + (top?.offsetHeight ?? 0)) / 2,
       );
       return;
     }

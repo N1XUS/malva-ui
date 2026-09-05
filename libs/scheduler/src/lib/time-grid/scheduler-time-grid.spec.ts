@@ -905,8 +905,10 @@ describe('MlvSchedulerTimeGrid', () => {
 });
 
 /**
- * The initial scroll reads the wall clock, so these cases run against the fake
- * context — its `nowMinutes` is pinned at 10:00 — rather than the real root.
+ * The initial scroll reads the wall clock straight off the adapter, so these
+ * cases pin `adapter.now()` rather than leaning on the context's `nowMinutes`.
+ * 10:17 is deliberately NOT a slot boundary: a snapped target is a different
+ * number, which is what makes the "exact minute" contract falsifiable.
  */
 @Component({
   imports: [MlvSchedulerTimeGrid],
@@ -921,10 +923,11 @@ describe('MlvSchedulerTimeGrid initial scroll', () => {
   let viewport: HTMLElement;
 
   /**
-   * jsdom lays nothing out: feed the effect a 40 px slot row (30 minutes) and a
-   * 400 px viewport. Re-run after a change that re-creates the first row.
+   * jsdom lays nothing out: feed the effect a 40 px slot row (30 minutes), a
+   * 400 px viewport and a sticky day-header band of `topPx` (0 = as if absent).
+   * Re-run after a change that re-creates the first row.
    */
-  const measure = () => {
+  const measure = (topPx = 0) => {
     Object.defineProperty(
       query<HTMLElement>(root, '.mlv-scheduler-time-grid__slot'),
       'offsetHeight',
@@ -934,6 +937,19 @@ describe('MlvSchedulerTimeGrid initial scroll', () => {
       value: 400,
       configurable: true,
     });
+    Object.defineProperty(
+      query<HTMLElement>(root, '.mlv-scheduler-time-grid__top'),
+      'offsetHeight',
+      { value: topPx, configurable: true },
+    );
+  };
+
+  /** Pins the adapter clock to today at `h:min` — the only clock the scroll reads. */
+  const pinClock = (h: number, min: number) => {
+    const adapter = ctx.context.adapter;
+    vi.spyOn(adapter, 'now').mockReturnValue(
+      adapter.withTime(adapter.today(), h, min),
+    );
   };
 
   beforeEach(async () => {
@@ -960,36 +976,82 @@ describe('MlvSchedulerTimeGrid initial scroll', () => {
     viewport = query<HTMLElement>(root, '.mlv-scrollbar__viewport');
   });
 
-  it('centres the current minute in the viewport when scrollToCurrentTime is on', async () => {
-    measure();
+  afterEach(() => vi.restoreAllMocks());
+
+  it('centres the exact current minute in the visible region when scrollToCurrentTime is on', async () => {
+    measure(100);
+    pinClock(10, 17);
     ctx.scrollToCurrentTime.set(true);
     await fixture.whenStable();
-    // 10:00 is 800 px down at 40 px per 30-minute row; half the 400 px viewport
-    // is given back so the line sits in the middle instead of at the top.
-    expect(viewport.scrollTop).toBe(600);
+    // 10:17 is 617 minutes, i.e. 617 / 30 × 40 = 822.67 px down — the exact
+    // minute, not 10:00 snapped down to a row (which would be 800). Half the
+    // VISIBLE region is given back: the day-header band is sticky INSIDE the
+    // scroller and covers the top 100 px of the 400 px viewport, so the centre
+    // of what the user can see sits (400 + 100) / 2 = 250 px down, not 200.
+    expect(viewport.scrollTop).toBeCloseTo((617 / 30) * 40 - 250, 5);
   });
 
   it('falls back to the top-aligned default when now is outside the window', async () => {
-    // 10:00 sits above a 00:00–09:00 window. Asserted on the max side because
-    // it is the one that discriminates: with a minTime above 10:00 the clamped
+    // 10:17 sits above a 00:00–09:00 window. Asserted on the max side because
+    // it is the one that discriminates: with a minTime above 10:17 the clamped
     // centre AND the clamped default both land on the first row (0).
     ctx.maxMinutes.set(9 * 60);
     await fixture.whenStable();
     measure();
+    pinClock(10, 17);
     ctx.scrollToCurrentTime.set(true);
     await fixture.whenStable();
     // 08:00 top-aligned (640), not 09:00 centred (520).
     expect(viewport.scrollTop).toBe(640);
   });
 
+  it('re-applies the fallback when maxTime narrows below the current time', async () => {
+    measure();
+    pinClock(10, 17);
+    ctx.scrollToCurrentTime.set(true);
+    await fixture.whenStable();
+    expect(viewport.scrollTop).toBeCloseTo((617 / 30) * 40 - 200, 5);
+    // Narrowing the far bound past `now` must re-run the effect and take the
+    // documented fallback, exactly as narrowing the near one does.
+    ctx.maxMinutes.set(9 * 60);
+    await fixture.whenStable();
+    expect(viewport.scrollTop).toBe(640); // 08:00 top-aligned
+  });
+
   it('re-centres on a week to day switch', async () => {
     measure();
+    pinClock(10, 17);
     ctx.scrollToCurrentTime.set(true);
     await fixture.whenStable();
     viewport.scrollTop = 0;
     ctx.view.set('day');
     await fixture.whenStable();
-    expect(viewport.scrollTop).toBe(600);
+    expect(viewport.scrollTop).toBeCloseTo((617 / 30) * 40 - 200, 5);
+  });
+
+  it('lets a scrollToTime issued in the same tick win over the initial scroll', async () => {
+    measure();
+    pinClock(10, 17);
+    ctx.scrollToCurrentTime.set(true);
+    await fixture.whenStable();
+    // One tick, both triggers: the view switch re-arms the initial scroll while
+    // the consumer asks for 14:00. Same-phase `afterRenderEffect`s run in
+    // registration order, so the explicit request has to be the later writer.
+    ctx.view.set('day');
+    ctx.scrollRequest.set({ time: '14:00', sequence: 1 });
+    await fixture.whenStable();
+    expect(viewport.scrollTop).toBe(1120); // 14:00 top-aligned
+  });
+
+  it('never reads the context clock, so it cannot cache a stale minute', async () => {
+    // `nowMinutes` only ticks while `showCurrentTime` is on; a grid that read it
+    // would cache whatever minute it first saw and re-centre that forever.
+    const stale = vi.spyOn(ctx.context, 'nowMinutes');
+    measure();
+    pinClock(10, 17);
+    ctx.scrollToCurrentTime.set(true);
+    await fixture.whenStable();
+    expect(stale).not.toHaveBeenCalled();
   });
 });
 
