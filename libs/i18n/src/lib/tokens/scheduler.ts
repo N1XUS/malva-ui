@@ -20,7 +20,7 @@ export interface MlvSchedulerI18n {
   viewSwitch: string;
   /** Header of the all-day row. */
   allDay: string;
-  /** Visible "+N more" button text. ICU: "+{count} more". */
+  /** Visible "+N more" button text. ICU: "+{count, plural, one {# more} other {# more}}". */
   moreEvents: string;
   /** aria-label of the "+N more" button. ICU: "{count, plural, one {# more event} other {# more events}} on {date}". */
   moreEventsLabel: string;
