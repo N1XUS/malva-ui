@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { Component, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
+import type { MlvTaskboardColumn, MlvTaskboardKey } from '../taskboard.types';
 import { MlvTaskboard } from './taskboard';
 import { provideTaskboardTesting } from '../testing/taskboard-test-context';
 
@@ -21,7 +22,8 @@ const INITIAL_ITEMS: readonly Ticket[] = [
   imports: [MlvTaskboard],
   template: `<mlv-taskboard
     [(items)]="items"
-    [(columns)]="columns"
+    [columns]="columns()"
+    (columnsChange)="applyColumns($event)"
     [(selection)]="selection"
     [(collapsedColumnIds)]="collapsedColumnIds"
     dataKey="id"
@@ -30,13 +32,20 @@ const INITIAL_ITEMS: readonly Ticket[] = [
 })
 class ApiHost {
   readonly items = signal<readonly Ticket[]>(INITIAL_ITEMS);
-  readonly columns = signal([
+  readonly columns = signal<readonly MlvTaskboardColumn[]>([
     { id: 'todo', label: 'Todo' },
     { id: 'done', label: 'Done' },
   ]);
+  /** Every column order the board wrote back, newest last. */
+  readonly columnOrders: (readonly MlvTaskboardKey[])[] = [];
   readonly selection = signal<ReadonlySet<string>>(new Set());
   readonly collapsedColumnIds = signal<ReadonlySet<string>>(new Set());
   readonly board = viewChild.required(MlvTaskboard<Ticket>);
+
+  applyColumns(next: readonly MlvTaskboardColumn[]): void {
+    this.columnOrders.push(next.map((column) => column.id));
+    this.columns.set(next);
+  }
 }
 
 describe('MlvTaskboard public surface', () => {
@@ -137,6 +146,64 @@ describe('MlvTaskboard public surface', () => {
     expect(fixture.componentInstance.board().snapshot().focusedId).toBe(
       undefined,
     );
+  });
+
+  it('restores the snapshot column order and keeps unknown columns behind it', async () => {
+    const { fixture } = await mount();
+    const host = fixture.componentInstance;
+    host.columns.set([
+      { id: 'todo', label: 'Todo' },
+      { id: 'done', label: 'Done' },
+      { id: 'review', label: 'Review' },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const snapshot = host.board().snapshot();
+
+    host.columns.set([
+      { id: 'review', label: 'Review' },
+      { id: 'todo', label: 'Todo' },
+      { id: 'done', label: 'Done' },
+      { id: 'extra', label: 'Extra' },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    host.columnOrders.length = 0;
+
+    host.board().restore(snapshot);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.columns().map((column) => column.id)).toEqual([
+      'todo',
+      'done',
+      'review',
+      'extra',
+    ]);
+    expect(host.columnOrders).toEqual([['todo', 'done', 'review', 'extra']]);
+
+    expect(host.board().undo()).toBe(true);
+    fixture.detectChanges();
+    expect(host.columns().map((column) => column.id)).toEqual([
+      'review',
+      'todo',
+      'done',
+      'extra',
+    ]);
+  });
+
+  it('writes no column order when the snapshot already matches the board', async () => {
+    const { fixture } = await mount();
+    const host = fixture.componentInstance;
+    const snapshot = host.board().snapshot();
+    host.columnOrders.length = 0;
+
+    host.board().restore(snapshot);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.columnOrders).toEqual([]);
+    expect(host.board().undo()).toBe(false);
   });
 
   it('restores a virtual cell scroll offset after the next render', async () => {

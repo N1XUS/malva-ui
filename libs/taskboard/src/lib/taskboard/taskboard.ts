@@ -777,6 +777,15 @@ export class MlvTaskboard<TItem> {
    */
   restore(snapshot: MlvTaskboardSnapshot): void {
     const index = this._index();
+    const columns = this._restoredColumnOrder(snapshot.columnIds);
+    if (
+      columns.some(
+        (column, position) =>
+          !sameMlvTaskboardKey(column.id, this.columns()[position]?.id),
+      )
+    ) {
+      this._applyColumnOrder(columns);
+    }
     this.collapsedColumnIds.set(
       new Set(
         snapshot.collapsedColumnIds.filter((id) => index.columnById.has(id)),
@@ -797,6 +806,36 @@ export class MlvTaskboard<TItem> {
       () => this._applyCellScrollPositions(snapshot.cellScrollPositions),
       { injector: this._injector },
     );
+  }
+
+  /**
+   * @private The column order a snapshot describes, resolved against the board
+   * it is being restored onto: the snapshot's still-known ids in snapshot
+   * order, then every column the snapshot never saw, in its current relative
+   * order. A column added since the snapshot was taken therefore keeps its
+   * place relative to its new neighbours instead of disappearing.
+   */
+  private _restoredColumnOrder(
+    columnIds: readonly MlvTaskboardKey[],
+  ): readonly MlvTaskboardColumn[] {
+    const current = this.columns();
+    const byToken = new Map(
+      current.map((column) => [mlvTaskboardKeyToken(column.id), column]),
+    );
+    const restored: MlvTaskboardColumn[] = [];
+    const placed = new Set<string>();
+    for (const id of columnIds) {
+      const token = mlvTaskboardKeyToken(id);
+      const column = byToken.get(token);
+      if (column === undefined || placed.has(token)) continue;
+      placed.add(token);
+      restored.push(column);
+    }
+    for (const column of current) {
+      if (placed.has(mlvTaskboardKeyToken(column.id))) continue;
+      restored.push(column);
+    }
+    return restored;
   }
 
   /** The whole board — cards, structure, and {@link snapshot} — as plain data. */
