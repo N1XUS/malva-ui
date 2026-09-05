@@ -6,7 +6,7 @@ Published packages:
 
 | Package               | Description                                                                        |
 | --------------------- | ---------------------------------------------------------------------------------- |
-| `@malva-ui/core`      | All UI components (button, input, dialog, data-table, …) — 75 entry points         |
+| `@malva-ui/core`      | All UI components (button, input, dialog, data-table, …) — 76 entry points         |
 | `@malva-ui/cdk`       | Headless primitives: accessibility, density, data-source, overlay, infinite-scroll |
 | `@malva-ui/i18n`      | Signal-based per-component i18n with ICU MessageFormat and 14 language packs       |
 | `@malva-ui/editor`    | SSR-safe Tiptap rich-text editor shell                                             |
