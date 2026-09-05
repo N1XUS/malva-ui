@@ -635,10 +635,16 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       });
     });
 
+    // `_scrollTo` reads `minMinutes` / `slotDuration` to turn minutes into
+    // pixels, so tracking its body would subscribe this effect to the axis
+    // too — and because it is the LATER writer (see above), a request that is
+    // never cleared would then re-apply itself on top of the initial scroll
+    // every time the axis changed. It must fire for a new request only; a new
+    // `sequence` still re-runs it, since that is read outside `untracked`.
     afterRenderEffect(() => {
       const request = this._ctx.scrollRequest();
       if (!request) return;
-      this._scrollTo(parseTime(request.time));
+      untracked(() => this._scrollTo(parseTime(request.time)));
     });
 
     afterRenderEffect((onCleanup) => {

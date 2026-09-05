@@ -1110,6 +1110,38 @@ describe('MlvSchedulerTimeGrid initial scroll', () => {
     expect(viewport.scrollTop).toBe(1120); // 14:00 top-aligned
   });
 
+  it('does not let a past scrollToTime win over a later axis change', async () => {
+    measure();
+    ctx.scrollRequest.set({ time: '14:00', sequence: 1 });
+    await fixture.whenStable();
+    expect(viewport.scrollTop).toBe(1120); // 14:00 top-aligned at 30 min rows
+
+    // `scrollRequest` is never cleared, and the request effect is registered
+    // after the initial-scroll one so that it wins a same-tick race. Widening
+    // the rows re-runs the initial scroll; the request must NOT come along for
+    // the ride, or every later `minTime` / `maxTime` / `slotDuration` change
+    // would land back on 14:00 instead of the documented initial offset.
+    // (`slotDuration` rather than `minTime` only because the slot list is
+    // keyed by minute: the first row survives a pitch change, so the height
+    // this fixture measured onto it survives too.)
+    ctx.slotDuration.set(60);
+    await fixture.whenStable();
+    expect(viewport.scrollTop).toBe(320); // 08:00 at 60 min rows, not 560
+  });
+
+  it('still honours a scrollToTime issued after an axis change', async () => {
+    measure();
+    ctx.scrollRequest.set({ time: '14:00', sequence: 1 });
+    await fixture.whenStable();
+    ctx.slotDuration.set(60);
+    await fixture.whenStable();
+    // The mirror of the case above: a NEW sequence is a new request and is
+    // read outside `untracked`, so it still re-runs the effect.
+    ctx.scrollRequest.set({ time: '14:00', sequence: 2 });
+    await fixture.whenStable();
+    expect(viewport.scrollTop).toBe(560); // 14:00 at 60 min rows
+  });
+
   it('never reads the context clock, so it cannot cache a stale minute', async () => {
     // `nowMinutes` only ticks while `showCurrentTime` is on; a grid that read it
     // would cache whatever minute it first saw and re-centre that forever.

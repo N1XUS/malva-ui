@@ -219,6 +219,7 @@ export function createSchedulerTestContext(
     snap,
     minMinutes,
     maxMinutes,
+    slotDuration,
     scrollToCurrentTime,
     scrollRequest,
     eventDef,
