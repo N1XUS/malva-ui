@@ -258,4 +258,34 @@
       white-space: nowrap;
     }
   }
+
+  // A printed page cannot be scrolled and nothing on it can be dragged, so
+  // every clipped cell opens up and the interaction-only chrome is dropped.
+  // `print()` clears `virtualItemSize` for the same render, so the cells this
+  // rule un-clips really do hold every visible card.
+  @media print {
+    #{$block} {
+      overflow: visible;
+
+      #{$block}__surface {
+        overflow: visible;
+      }
+
+      #{$block}__cards,
+      #{$block}__cards--virtual {
+        block-size: auto;
+        max-block-size: none;
+        overflow: visible;
+      }
+
+      #{$block}__add,
+      #{$block}__drop-indicator {
+        display: none;
+      }
+
+      #{$block}__card {
+        break-inside: avoid;
+      }
+    }
+  }
 }

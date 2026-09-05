@@ -1,4 +1,4 @@
-import { NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import {
   DOWN_ARROW,
   LEFT_ARROW,
@@ -19,11 +19,13 @@ import {
   afterNextRender,
   computed,
   contentChildren,
+  effect,
   inject,
   input,
   model,
   output,
   signal,
+  untracked,
   viewChildren,
 } from '@angular/core';
 import {
@@ -57,8 +59,19 @@ import {
   type MlvTaskboardSwimlaneDefContext,
 } from '../taskboard-defs';
 import { createMlvTaskboardDragSession } from '../taskboard-drag-session';
-import { createMlvTaskboardHistory } from '../taskboard-history';
-import { mlvTaskboardKeyToken, sameMlvTaskboardKey } from '../taskboard-keys';
+import {
+  exportMlvTaskboardCsv,
+  serializeMlvTaskboard,
+} from '../taskboard-export';
+import {
+  createMlvTaskboardHistory,
+  createMlvTaskboardSnapshot,
+} from '../taskboard-history';
+import {
+  mlvTaskboardBucketToken,
+  mlvTaskboardKeyToken,
+  sameMlvTaskboardKey,
+} from '../taskboard-keys';
 import {
   createMlvTaskboardIndex,
   type MlvTaskboardIndex,
@@ -70,6 +83,7 @@ import type {
   MlvTaskboardCanReorderColumnFn,
   MlvTaskboardColumn,
   MlvTaskboardColumnGroup,
+  MlvTaskboardCsvField,
   MlvTaskboardField,
   MlvTaskboardHistory,
   MlvTaskboardKey,
@@ -77,6 +91,8 @@ import type {
   MlvTaskboardMoveCancelReason,
   MlvTaskboardMoveCancelledEvent,
   MlvTaskboardMoveResult,
+  MlvTaskboardSerialized,
+  MlvTaskboardSnapshot,
   MlvTaskboardSwimlane,
   MlvTaskboardTransition,
   MlvTaskboardWipState,
@@ -343,6 +359,9 @@ export class MlvTaskboard<TItem> {
   /** @protected Whether an asynchronous `beforeMove` guard is still pending. */
   protected readonly _movePending = signal(false);
 
+  /** @private Whether the board is expanded for one in-flight `print()` call. */
+  private readonly _printing = signal(false);
+
   /** @private Where the live drop indicator renders, resolved by card key. */
   private readonly _dropAnchor = computed<MlvTaskboardDropAnchor | null>(() => {
     const preview = this._dropPreview();
@@ -485,6 +504,9 @@ export class MlvTaskboard<TItem> {
    * `null` when this board renders plain, fully-rendered card lists.
    */
   protected readonly _virtualItemSize = computed<number | null>(() => {
+    // Printing renders every card of every cell: a printed page cannot be
+    // scrolled, so a virtual window would drop most of the board.
+    if (this._printing()) return null;
     const size = this.virtualItemSize();
     return size !== undefined && Number.isFinite(size) && size > 0
       ? size
@@ -505,6 +527,9 @@ export class MlvTaskboard<TItem> {
 
   /** @private Host element, used to resolve a card key back to its element. */
   private readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /** @private The injected document; never the ambient global (SSR-safe). */
+  private readonly _document = inject(DOCUMENT);
 
   /** @private Mirrors the horizontal arrow keys inside an RTL subtree. */
   private readonly _rtlService = inject(MlvRtlService);
@@ -573,6 +598,12 @@ export class MlvTaskboard<TItem> {
    */
   private _history: MlvTaskboardHistory<TItem> | null = null;
 
+  /** @private The `items` value this board itself last wrote. */
+  private _committedItems: readonly TItem[] | null = null;
+
+  /** @private The `columns` value this board itself last wrote. */
+  private _committedColumns: readonly MlvTaskboardColumn[] | null = null;
+
   constructor() {
     this._sortable.connect({
       sessionBoard: () => this._board(),
@@ -588,6 +619,127 @@ export class MlvTaskboard<TItem> {
       canReorderColumn: () => this.canReorderColumnFn(),
       reorderColumns: (next) => this._applyColumnOrder(next),
     });
+    // An application that rewrites `items` or `columns` has replaced the board
+    // the ledger replays against, so the recorded commands no longer describe
+    // it. The board's own writes are recognised by identity and never reset it.
+    effect(() => {
+      const items = this.items();
+      const columns = this.columns();
+      untracked(() => {
+        if (this._history === null) return;
+        if (
+          items === this._committedItems &&
+          columns === this._committedColumns
+        )
+          return;
+        this._history.replace(this._boardCore());
+        this._noteCommitted();
+      });
+    });
+  }
+
+  /**
+   * Reverts the newest board-originated move or column reorder, writing the
+   * replacement collections back through the controlled models.
+   *
+   * @returns Whether there was anything left to undo.
+   */
+  undo(): boolean {
+    return this._applyHistoryBoard(this._history?.undo() ?? null);
+  }
+
+  /**
+   * Replays the move an {@link undo} reverted.
+   *
+   * @returns Whether there was anything left to redo.
+   */
+  redo(): boolean {
+    return this._applyHistoryBoard(this._history?.redo() ?? null);
+  }
+
+  /**
+   * The board's serializable UI state: column order, collapsed columns and
+   * lanes, the selection, the focused card, and each cell's scroll offset.
+   * It deliberately carries no card data — {@link exportJson} does that.
+   */
+  snapshot(): MlvTaskboardSnapshot {
+    const focusedId = this._keyboard.focus()?.itemId;
+    return createMlvTaskboardSnapshot({
+      columnIds: this.columns().map((column) => column.id),
+      collapsedColumnIds: [...this.collapsedColumnIds()],
+      collapsedSwimlaneIds: [...this.collapsedSwimlaneIds()],
+      selectedIds: [...this.selection()],
+      ...(focusedId === undefined ? {} : { focusedId }),
+      cellScrollPositions: this._cellScrollPositions(),
+    });
+  }
+
+  /**
+   * Restores the UI state of a {@link snapshot}. Identifiers the current board
+   * does not know — a removed column, a filtered-out card, a cell that no
+   * longer renders — are dropped silently, so a stored snapshot never throws
+   * against a board that has moved on. Scroll offsets are applied after the
+   * next render, once the cells they address exist.
+   */
+  restore(snapshot: MlvTaskboardSnapshot): void {
+    const index = this._index();
+    this.collapsedColumnIds.set(
+      new Set(
+        snapshot.collapsedColumnIds.filter((id) => index.columnById.has(id)),
+      ),
+    );
+    this.collapsedSwimlaneIds.set(
+      new Set(
+        snapshot.collapsedSwimlaneIds.filter((id) =>
+          index.swimlaneById.has(id),
+        ),
+      ),
+    );
+    this._setSelection(
+      new Set(snapshot.selectedIds.filter((id) => index.itemById.has(id))),
+    );
+    this._restoreFocus(snapshot.focusedId);
+    afterNextRender(
+      () => this._applyCellScrollPositions(snapshot.cellScrollPositions),
+      { injector: this._injector },
+    );
+  }
+
+  /** The whole board — cards, structure, and {@link snapshot} — as plain data. */
+  exportJson(): MlvTaskboardSerialized<TItem> {
+    return serializeMlvTaskboard(this._boardCore(), this.snapshot());
+  }
+
+  /**
+   * One column's cards as CSV, one row per card in board order.
+   *
+   * @param columnId The column to export; cards in other columns are skipped.
+   * @param fields The card properties to emit, in order, with their headings.
+   */
+  exportCsv(
+    columnId: MlvTaskboardKey,
+    fields: readonly MlvTaskboardCsvField<TItem>[],
+  ): string {
+    return exportMlvTaskboardCsv(this._boardCore(), columnId, fields);
+  }
+
+  /**
+   * Expands every virtual cell, then asks the browser to print.
+   *
+   * It is a no-op during a server render, where the injected document has no
+   * view to print through.
+   */
+  print(): void {
+    const view = this._document.defaultView;
+    if (view === null) return;
+    this._printing.set(true);
+    afterNextRender(
+      () => {
+        view.print();
+        this._printing.set(false);
+      },
+      { injector: this._injector },
+    );
   }
 
   /** Header context used by the optional projected board-header template. */
@@ -1250,6 +1402,77 @@ export class MlvTaskboard<TItem> {
       : { columnId: column.id, swimlaneId: swimlane.id };
   }
 
+  /**
+   * @private Writes both controlled collections back from one replayed board
+   * state, and marks them as this board's own writes so the external-change
+   * effect does not read the replay as an application rewrite.
+   */
+  private _applyHistoryBoard(board: MlvTaskboardState<TItem> | null): boolean {
+    if (board === null) return false;
+    this.items.set(board.items);
+    this.columns.set(board.columns);
+    this._noteCommitted();
+    return true;
+  }
+
+  /** @private Remembers the collections this board itself just wrote. */
+  private _noteCommitted(): void {
+    this._committedItems = this.items();
+    this._committedColumns = this.columns();
+  }
+
+  /** @private Every rendered cell's scroll offset, keyed by its bucket token. */
+  private _cellScrollPositions(): Record<string, number> {
+    const positions: Record<string, number> = {};
+    const cells = this._elementRef.nativeElement.querySelectorAll<HTMLElement>(
+      '.mlv-taskboard__cards',
+    );
+    for (const cell of cells) {
+      const bucket = this._resolveBucket(cell);
+      if (bucket === undefined) continue;
+      positions[mlvTaskboardBucketToken(bucket.columnId, bucket.swimlaneId)] =
+        cell.scrollTop;
+    }
+    return positions;
+  }
+
+  /** @private Puts each rendered cell back at the offset it was captured at. */
+  private _applyCellScrollPositions(
+    positions: Readonly<Record<string, number>>,
+  ): void {
+    const cells = this._elementRef.nativeElement.querySelectorAll<HTMLElement>(
+      '.mlv-taskboard__cards',
+    );
+    for (const cell of cells) {
+      const bucket = this._resolveBucket(cell);
+      if (bucket === undefined) continue;
+      const offset =
+        positions[mlvTaskboardBucketToken(bucket.columnId, bucket.swimlaneId)];
+      if (offset === undefined) continue;
+      cell.scrollTop = offset;
+    }
+  }
+
+  /**
+   * @private Restores the roving tab stop onto a card the board still renders.
+   * An unknown card leaves the focus untouched, so the board falls back to its
+   * first card rather than to a tab stop that cannot be reached.
+   */
+  private _restoreFocus(focusedId: MlvTaskboardKey | undefined): void {
+    if (focusedId === undefined) return;
+    const index = this._index();
+    for (const swimlaneId of this._navigableSwimlaneIds()) {
+      for (const columnId of this._navigableColumnIds()) {
+        const found = index
+          .itemsFor(columnId, swimlaneId)
+          .some((item) => sameMlvTaskboardKey(this._itemId(item), focusedId));
+        if (!found) continue;
+        this._keyboard.noteFocus({ columnId, swimlaneId, itemId: focusedId });
+        return;
+      }
+    }
+  }
+
   /** @private Writes the single replacement collection and records the move. */
   private _applyMoveResult(result: MlvTaskboardMoveResult<TItem>): void {
     const before = this._boardCore();
@@ -1289,6 +1512,7 @@ export class MlvTaskboard<TItem> {
     this._history ??= createMlvTaskboardHistory<TItem>(before);
     if (this._history.current() !== before) this._history.replace(before);
     this._history.push({ before, after: this._boardCore() });
+    this._noteCommitted();
   }
 
   /**
