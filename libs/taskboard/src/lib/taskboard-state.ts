@@ -10,16 +10,17 @@ import type {
   MlvTaskboardWipState,
 } from './taskboard.types';
 import {
+  mlvTaskboardBucketToken,
+  mlvTaskboardKeyToken,
+  sameMlvTaskboardKey as sameKey,
+} from './taskboard-keys';
+import {
   isMlvTaskboardMoveRequestAuthorized,
   requiresMlvTaskboardSessionAuthorization,
 } from './taskboard-move-authorization';
 
-const keyOf = (key: MlvTaskboardKey | undefined): string =>
-  key === undefined ? 'undefined' : `${typeof key}:${String(key)}`;
-const sameKey = (
-  left: MlvTaskboardKey | undefined,
-  right: MlvTaskboardKey | undefined,
-): boolean => keyOf(left) === keyOf(right);
+/** Shared empty bucket so a lookup miss keeps a stable array identity. */
+const EMPTY_BUCKET: readonly never[] = Object.freeze([]);
 
 function validateUnique<T extends { readonly id: MlvTaskboardKey }>(
   values: readonly T[],
@@ -27,7 +28,7 @@ function validateUnique<T extends { readonly id: MlvTaskboardKey }>(
 ): void {
   const known = new Set<string>();
   for (const value of values) {
-    const key = keyOf(value.id);
+    const key = mlvTaskboardKeyToken(value.id);
     if (known.has(key))
       throw new Error(`Duplicate taskboard ${label} id: ${String(value.id)}`);
     known.add(key);
@@ -45,6 +46,22 @@ function itemKey<TItem>(
     );
   }
   return key;
+}
+
+/** Appends one item to the bucket addressed by `token`, creating it on demand. */
+function appendToBucket<TItem>(
+  buckets: Map<string, TItem[]>,
+  token: string,
+  item: TItem,
+): void {
+  const bucket = buckets.get(token);
+  if (bucket) bucket.push(item);
+  else buckets.set(token, [item]);
+}
+
+/** Increments the canonical card count addressed by `token`. */
+function countInto(counts: Map<string, number>, token: string): void {
+  counts.set(token, (counts.get(token) ?? 0) + 1);
 }
 
 export interface MlvTaskboardIndex<TItem> {
@@ -112,9 +129,11 @@ export function createMlvTaskboardIndex<TItem>(
 
   const itemById = new Map<MlvTaskboardKey, TItem>();
   const canonicalKeys = new Set<string>();
+  const bucketCounts = new Map<string, number>();
+  const swimlaneCounts = new Map<string, number>();
   for (const item of board.items) {
     const id = itemKey(board, item);
-    const key = keyOf(id);
+    const key = mlvTaskboardKeyToken(id);
     if (canonicalKeys.has(key))
       throw new Error(`Duplicate taskboard item key: ${String(id)}`);
     canonicalKeys.add(key);
@@ -123,19 +142,23 @@ export function createMlvTaskboardIndex<TItem>(
     if (!columnById.has(columnId)) {
       throw new Error(`Unknown taskboard column id: ${String(columnId)}`);
     }
+    countInto(bucketCounts, mlvTaskboardBucketToken(columnId));
     if (board.swimlaneField !== undefined) {
       const swimlaneId = item[board.swimlaneField] as MlvTaskboardKey;
       if (!swimlaneById.has(swimlaneId)) {
         throw new Error(`Unknown taskboard swimlane id: ${String(swimlaneId)}`);
       }
+      countInto(bucketCounts, mlvTaskboardBucketToken(columnId, swimlaneId));
+      countInto(swimlaneCounts, mlvTaskboardKeyToken(swimlaneId));
     }
   }
 
   const visibleItems = board.visibleItems ?? board.items;
   const visibleKeys = new Set<string>();
+  const visibleBuckets = new Map<string, TItem[]>();
   for (const item of visibleItems) {
     const id = itemKey(board, item);
-    const key = keyOf(id);
+    const key = mlvTaskboardKeyToken(id);
     if (!canonicalKeys.has(key))
       throw new Error(
         `Visible taskboard item key is not canonical: ${String(id)}`,
@@ -143,25 +166,32 @@ export function createMlvTaskboardIndex<TItem>(
     if (visibleKeys.has(key))
       throw new Error(`Duplicate visible taskboard item key: ${String(id)}`);
     visibleKeys.add(key);
+    const columnId = item[board.columnField] as MlvTaskboardKey;
+    appendToBucket(visibleBuckets, mlvTaskboardBucketToken(columnId), item);
+    if (board.swimlaneField !== undefined) {
+      const swimlaneId = item[board.swimlaneField] as MlvTaskboardKey;
+      appendToBucket(
+        visibleBuckets,
+        mlvTaskboardBucketToken(columnId, swimlaneId),
+        item,
+      );
+    }
   }
+  for (const bucket of visibleBuckets.values()) Object.freeze(bucket);
 
-  const matches = (
-    item: TItem,
-    columnId: MlvTaskboardKey,
-    swimlaneId?: MlvTaskboardKey,
-  ): boolean =>
-    sameKey(item[board.columnField] as MlvTaskboardKey, columnId) &&
-    (swimlaneId === undefined ||
-      (board.swimlaneField !== undefined &&
-        sameKey(item[board.swimlaneField] as MlvTaskboardKey, swimlaneId)));
-  const wip = (
-    items: readonly TItem[],
+  const wipState = (
+    count: number,
     limit: number | undefined,
-  ): MlvTaskboardWipState => ({
-    count: items.length,
-    limit,
-    remaining: limit === undefined ? undefined : limit - items.length,
-  });
+  ): MlvTaskboardWipState =>
+    Object.freeze({
+      count,
+      limit,
+      remaining: limit === undefined ? undefined : limit - count,
+    });
+
+  const bucketWipCache = new Map<string, MlvTaskboardWipState>();
+  const swimlaneWipCache = new Map<string, MlvTaskboardWipState>();
+  const groupWipCache = new Map<string, MlvTaskboardWipState>();
 
   return {
     board,
@@ -171,34 +201,42 @@ export function createMlvTaskboardIndex<TItem>(
     swimlaneById,
     visibleItems,
     itemsFor: (columnId, swimlaneId) =>
-      visibleItems.filter((item) => matches(item, columnId, swimlaneId)),
+      visibleBuckets.get(mlvTaskboardBucketToken(columnId, swimlaneId)) ??
+      (EMPTY_BUCKET as readonly TItem[]),
     wipFor: (columnId, swimlaneId) => {
-      return wip(
-        board.items.filter((item) => matches(item, columnId, swimlaneId)),
+      const token = mlvTaskboardBucketToken(columnId, swimlaneId);
+      const cached = bucketWipCache.get(token);
+      if (cached) return cached;
+      const state = wipState(
+        bucketCounts.get(token) ?? 0,
         columnById.get(columnId)?.wipLimit,
       );
+      bucketWipCache.set(token, state);
+      return state;
     },
-    swimlaneWipFor: (swimlaneId) =>
-      wip(
-        board.items.filter(
-          (item) =>
-            board.swimlaneField !== undefined &&
-            sameKey(item[board.swimlaneField] as MlvTaskboardKey, swimlaneId),
-        ),
+    swimlaneWipFor: (swimlaneId) => {
+      const token = mlvTaskboardKeyToken(swimlaneId);
+      const cached = swimlaneWipCache.get(token);
+      if (cached) return cached;
+      const state = wipState(
+        swimlaneCounts.get(token) ?? 0,
         swimlaneById.get(swimlaneId)?.wipLimit,
-      ),
-    groupWipFor: (groupId) => {
-      const groupColumns = board.columns
-        .filter((column) => sameKey(column.groupId, groupId))
-        .map((column) => column.id);
-      return wip(
-        board.items.filter((item) =>
-          groupColumns.some((columnId) =>
-            sameKey(item[board.columnField] as MlvTaskboardKey, columnId),
-          ),
-        ),
-        groupById.get(groupId)?.wipLimit,
       );
+      swimlaneWipCache.set(token, state);
+      return state;
+    },
+    groupWipFor: (groupId) => {
+      const token = mlvTaskboardKeyToken(groupId);
+      const cached = groupWipCache.get(token);
+      if (cached) return cached;
+      let count = 0;
+      for (const column of board.columns) {
+        if (!sameKey(column.groupId, groupId)) continue;
+        count += bucketCounts.get(mlvTaskboardBucketToken(column.id)) ?? 0;
+      }
+      const state = wipState(count, groupById.get(groupId)?.wipLimit);
+      groupWipCache.set(token, state);
+      return state;
     },
   };
 }
@@ -297,7 +335,13 @@ export function applyMlvTaskboardMove<TItem>(
     request.target.columnId,
     request.target.swimlaneId,
   );
-  if (request.target.index > targetItems.length) return null;
+  // `target.index` is the moved card's final position among the destination
+  // bucket's visible cards *with the moved card removed*, so a same-bucket
+  // reorder spans `0..len-1` and a cross-bucket drop spans `0..len`.
+  const remainingTargetItems = targetItems.filter(
+    (candidate) => !sameKey(itemKey(board, candidate), request.itemId),
+  );
+  if (request.target.index > remainingTargetItems.length) return null;
   const sourceItems = index.itemsFor(
     request.source.columnId,
     request.source.swimlaneId,
@@ -353,7 +397,7 @@ export function applyMlvTaskboardMove<TItem>(
       return null;
     insertionIndex = anchorIndex + 1;
   } else {
-    const anchor = targetItems[request.target.index];
+    const anchor = remainingTargetItems[request.target.index];
     insertionIndex =
       anchor === undefined
         ? remaining.length

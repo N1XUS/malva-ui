@@ -106,37 +106,56 @@
       [ngTemplateOutlet]="contentDef.templateRef"
       [ngTemplateOutletContext]="_contentContext(column, swimlane)"
     />
-    } @else { @for (item of _itemsFor(column, swimlane); track _itemId(item);
-    let cardIndex = $index) { @if (_itemDefs()[0]; as itemDef) {
-    <div
-      class="mlv-taskboard__card"
-      [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
-      [attr.aria-selected]="selection().has(_itemId(item))"
-      (click)="_activate(item, column, swimlane, cardIndex, $event)"
-      (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
-    >
-      <ng-container
-        [ngTemplateOutlet]="itemDef.templateRef"
-        [ngTemplateOutletContext]="_itemContext(item, column, swimlane, cardIndex)"
-      />
-    </div>
     } @else {
-    <button
-      type="button"
-      class="mlv-taskboard__card"
-      [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
-      [attr.aria-selected]="selection().has(_itemId(item))"
-      (click)="_activate(item, column, swimlane, cardIndex, $event)"
-      (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
+    <div
+      class="mlv-taskboard__cards"
+      mlvTaskboardCardsHost
+      [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
+      [attr.data-mlv-taskboard-swimlane-id]="swimlane === undefined ? null : _keyAttribute(swimlane.id)"
     >
-      Task {{ _keyAttribute(_itemId(item)) }}
-    </button>
-    } } @empty {
+      @for (item of _itemsFor(column, swimlane); track _itemId(item); let
+      cardIndex = $index) { @if (_isDropAnchor(column, swimlane, item)) {
+      <ng-container
+        [ngTemplateOutlet]="dropIndicatorTemplate"
+        [ngTemplateOutletContext]="{ column, swimlane }"
+      />
+      } @if (_itemDefs()[0]; as itemDef) {
+      <div
+        class="mlv-taskboard__card"
+        [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
+        [attr.aria-selected]="selection().has(_itemId(item))"
+        (click)="_activate(item, column, swimlane, cardIndex, $event)"
+        (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
+      >
+        <ng-container
+          [ngTemplateOutlet]="itemDef.templateRef"
+          [ngTemplateOutletContext]="_itemContext(item, column, swimlane, cardIndex)"
+        />
+      </div>
+      } @else {
+      <button
+        type="button"
+        class="mlv-taskboard__card"
+        [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
+        [attr.aria-selected]="selection().has(_itemId(item))"
+        (click)="_activate(item, column, swimlane, cardIndex, $event)"
+        (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
+      >
+        Task {{ _keyAttribute(_itemId(item)) }}
+      </button>
+      } } @if (_isDropTail(column, swimlane)) {
+      <ng-container
+        [ngTemplateOutlet]="dropIndicatorTemplate"
+        [ngTemplateOutletContext]="{ column, swimlane }"
+      />
+      }
+    </div>
+    @if (_itemsFor(column, swimlane).length === 0) {
     <ng-container
       [ngTemplateOutlet]="emptyTemplate"
       [ngTemplateOutletContext]="{ column, swimlane }"
     />
-    } } @if (_cardAddDefs()[0]; as cardAddDef) {
+    } @if (_cardAddDefs()[0]; as cardAddDef) {
     <ng-container
       [ngTemplateOutlet]="cardAddDef.templateRef"
       [ngTemplateOutletContext]="_addContext(column, swimlane)"
@@ -149,7 +168,7 @@
     >
       Add card
     </button>
-    }
+    } }
   </div>
 </ng-template>
 
@@ -161,5 +180,20 @@
   />
   } @else {
   <p class="mlv-taskboard__empty">No cards</p>
+  }
+</ng-template>
+
+<ng-template #dropIndicatorTemplate let-column="column" let-swimlane="swimlane">
+  @if (_dropIndicatorDefs()[0]; as dropIndicatorDef) {
+  <ng-container
+    [ngTemplateOutlet]="dropIndicatorDef.templateRef"
+    [ngTemplateOutletContext]="_dropIndicatorContext(column, swimlane)"
+  />
+  } @else {
+  <div
+    class="mlv-taskboard__drop-indicator"
+    aria-hidden="true"
+    [class.mlv-taskboard__drop-indicator--invalid]="!_dropAllowed()"
+  ></div>
   }
 </ng-template>

@@ -191,7 +191,7 @@ describe('applyMlvTaskboardMove', () => {
       board,
       itemId: 'a',
       source: { columnId: 'todo', swimlaneId: 'sam', index: 0 },
-      target: { columnId: 'todo', swimlaneId: 'sam', index: 1 },
+      target: { columnId: 'todo', swimlaneId: 'sam', index: 0 },
     };
 
     expect(applyMlvTaskboardMove(board, forged)).toBeNull();
@@ -217,5 +217,83 @@ describe('applyMlvTaskboardMove', () => {
     };
 
     expect(applyMlvTaskboardMove(board, request)).toBeNull();
+  });
+});
+
+describe('applyMlvTaskboardMove target index semantics', () => {
+  interface Card {
+    readonly id: string;
+    readonly status: string;
+  }
+
+  const flatBoard: MlvTaskboardState<Card> = {
+    items: [
+      { id: 'a', status: 'todo' },
+      { id: 'b', status: 'todo' },
+      { id: 'c', status: 'todo' },
+    ],
+    columns: [
+      { id: 'todo', label: 'Todo' },
+      { id: 'done', label: 'Done' },
+    ],
+    dataKey: 'id',
+    columnField: 'status',
+  };
+
+  const moveA = (index: number): MlvTaskboardMoveRequest<Card> => ({
+    board: flatBoard,
+    itemId: 'a',
+    source: { columnId: 'todo', index: 0 },
+    target: { columnId: 'todo', index },
+  });
+
+  it.each([
+    [0, ['a', 'b', 'c']],
+    [1, ['b', 'a', 'c']],
+    [2, ['b', 'c', 'a']],
+  ])(
+    'places the card at position %i of the target bucket without the moved card',
+    (index, expected) => {
+      expect(
+        applyMlvTaskboardMove(flatBoard, moveA(index))?.items.map(
+          (item) => item.id,
+        ),
+      ).toEqual(expected);
+    },
+  );
+
+  it('returns null for a same-bucket index past the remaining item count', () => {
+    expect(applyMlvTaskboardMove(flatBoard, moveA(3))).toBeNull();
+  });
+
+  it('appends into another bucket at the remaining item count', () => {
+    const crossBoard: MlvTaskboardState<Card> = {
+      ...flatBoard,
+      items: [
+        { id: 'a', status: 'todo' },
+        { id: 'x', status: 'done' },
+      ],
+    };
+    const request: MlvTaskboardMoveRequest<Card> = {
+      board: crossBoard,
+      itemId: 'a',
+      source: { columnId: 'todo', index: 0 },
+      target: { columnId: 'done', index: 1 },
+    };
+
+    expect(
+      applyMlvTaskboardMove(crossBoard, request)?.items.map((item) => item.id),
+    ).toEqual(['x', 'a']);
+  });
+});
+
+describe('createMlvTaskboardIndex caching', () => {
+  it('returns the same rendered item and WIP references for repeated lookups', () => {
+    const index = createMlvTaskboardIndex(board);
+
+    expect(index.itemsFor('done', 'sam')).toBe(index.itemsFor('done', 'sam'));
+    expect(index.wipFor('done', 'sam')).toBe(index.wipFor('done', 'sam'));
+    expect(index.swimlaneWipFor('sam')).toBe(index.swimlaneWipFor('sam'));
+    expect(index.itemsFor('todo', 'alex')).toEqual([]);
   });
 });

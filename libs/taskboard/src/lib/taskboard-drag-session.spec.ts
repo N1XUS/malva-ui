@@ -121,7 +121,7 @@ describe('createMlvTaskboardDragSession', () => {
     expect(
       session.canEnter({ columnId: 'done', swimlaneId: 'sam', index: 1 }),
     ).toBe(false);
-    expect(canDrop).toHaveBeenCalledTimes(6);
+    expect(canDrop).toHaveBeenCalledTimes(5);
     expect(canDrop).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'a',
@@ -145,7 +145,7 @@ describe('createMlvTaskboardDragSession', () => {
 
     expect(request).toBeDefined();
     expect(applyMlvTaskboardMove(board, request)).not.toBeNull();
-    expect(canDrop).toHaveBeenCalledTimes(6);
+    expect(canDrop).toHaveBeenCalledTimes(5);
   });
 
   it('keeps an authorized request bound to the callback-validated target', () => {
@@ -160,5 +160,44 @@ describe('createMlvTaskboardDragSession', () => {
       (request as { target: { columnId: string } }).target.columnId = 'todo';
     }).toThrow(TypeError);
     expect(applyMlvTaskboardMove(board, request)?.target.columnId).toBe('done');
+  });
+});
+
+describe('createMlvTaskboardDragSession target index ranges', () => {
+  interface Card {
+    readonly id: string;
+    readonly status: string;
+  }
+
+  const flatBoard: MlvTaskboardState<Card> = {
+    items: [
+      { id: 'a', status: 'todo' },
+      { id: 'b', status: 'todo' },
+      { id: 'c', status: 'todo' },
+      { id: 'x', status: 'done' },
+    ],
+    columns: [
+      { id: 'todo', label: 'Todo' },
+      { id: 'done', label: 'Done' },
+    ],
+    dataKey: 'id',
+    columnField: 'status',
+  };
+
+  it('enumerates the source bucket without the dragged card and skips its own slot', () => {
+    const session = createMlvTaskboardDragSession(flatBoard, 'a');
+
+    expect(session.canEnter({ columnId: 'todo', index: 0 })).toBe(false);
+    expect(session.canEnter({ columnId: 'todo', index: 1 })).toBe(true);
+    expect(session.canEnter({ columnId: 'todo', index: 2 })).toBe(true);
+    expect(session.canEnter({ columnId: 'todo', index: 3 })).toBe(false);
+  });
+
+  it('enumerates one more slot than the rendered cards of another bucket', () => {
+    const session = createMlvTaskboardDragSession(flatBoard, 'a');
+
+    expect(session.canEnter({ columnId: 'done', index: 0 })).toBe(true);
+    expect(session.canEnter({ columnId: 'done', index: 1 })).toBe(true);
+    expect(session.canEnter({ columnId: 'done', index: 2 })).toBe(false);
   });
 });

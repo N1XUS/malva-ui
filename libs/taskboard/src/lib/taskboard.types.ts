@@ -96,6 +96,38 @@ export interface MlvTaskboardMoveResult<TItem> {
   readonly target: MlvTaskboardLocation;
 }
 
+/**
+ * Application guard consulted once per committed pointer drop, before the
+ * board writes any replacement item collection. Returning `false` — or a
+ * promise resolving to `false` — cancels the move and leaves the controlled
+ * `items` collection referentially unchanged.
+ */
+export type MlvTaskboardBeforeMove<TItem> = (
+  request: MlvTaskboardMoveRequest<TItem>,
+) => boolean | Promise<boolean>;
+
+/**
+ * Why a started move never produced a replacement item collection.
+ *
+ * - `invalid-drop` — the released slot was never a permitted target.
+ * - `cancelled` — the pointer drag was abandoned (Escape).
+ * - `before-move-rejected` — `beforeMove` answered `false`.
+ * - `before-move-error` — `beforeMove` threw or rejected.
+ * - `stale` — the controlled board changed while `beforeMove` was pending.
+ */
+export type MlvTaskboardMoveCancelReason =
+  | 'invalid-drop'
+  | 'cancelled'
+  | 'before-move-rejected'
+  | 'before-move-error'
+  | 'stale';
+
+/** Payload emitted when a started move ends without changing the board. */
+export interface MlvTaskboardMoveCancelledEvent<TItem> {
+  readonly reason: MlvTaskboardMoveCancelReason;
+  readonly request?: MlvTaskboardMoveRequest<TItem>;
+}
+
 /** Serializable UI state that applications can restore without card data. */
 export interface MlvTaskboardSnapshot {
   readonly columnIds: readonly MlvTaskboardKey[];

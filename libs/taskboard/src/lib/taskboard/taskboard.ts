@@ -5,9 +5,11 @@ import {
   ViewEncapsulation,
   computed,
   contentChildren,
+  inject,
   input,
   model,
   output,
+  signal,
 } from '@angular/core';
 import {
   MLV_DENSITY_ELEMENT,
@@ -18,6 +20,7 @@ import {
   MlvTaskboardColumnContentDef,
   MlvTaskboardColumnGroupDef,
   MlvTaskboardColumnHeaderDef,
+  MlvTaskboardDropIndicatorDef,
   MlvTaskboardEmptyStateDef,
   MlvTaskboardHeaderDef,
   MlvTaskboardItemDef,
@@ -26,27 +29,44 @@ import {
   type MlvTaskboardColumnContentDefContext,
   type MlvTaskboardColumnGroupDefContext,
   type MlvTaskboardColumnHeaderDefContext,
+  type MlvTaskboardDropIndicatorDefContext,
   type MlvTaskboardEmptyStateDefContext,
   type MlvTaskboardHeaderDefContext,
   type MlvTaskboardItemDefContext,
   type MlvTaskboardSwimlaneDefContext,
 } from '../taskboard-defs';
+import { createMlvTaskboardHistory } from '../taskboard-history';
+import { sameMlvTaskboardKey } from '../taskboard-keys';
 import {
   createMlvTaskboardIndex,
   type MlvTaskboardIndex,
 } from '../taskboard-state';
 import type {
   MlvTaskboardState,
+  MlvTaskboardBeforeMove,
   MlvTaskboardCanDropFn,
   MlvTaskboardColumn,
   MlvTaskboardColumnGroup,
   MlvTaskboardField,
+  MlvTaskboardHistory,
   MlvTaskboardKey,
   MlvTaskboardLocation,
+  MlvTaskboardMoveCancelledEvent,
+  MlvTaskboardMoveResult,
   MlvTaskboardSwimlane,
   MlvTaskboardTransition,
   MlvTaskboardWipState,
 } from '../taskboard.types';
+import { MlvTaskboardCardsHost } from './taskboard-cards-host';
+import { MlvTaskboardMoveController } from './taskboard-move-controller';
+import {
+  MLV_TASKBOARD_CARDS_REGISTRY,
+  MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE,
+  MLV_TASKBOARD_SWIMLANE_ID_ATTRIBUTE,
+  MlvTaskboardSortable,
+  type MlvTaskboardBucket,
+  type MlvTaskboardDropPreview,
+} from './taskboard-sortable';
 
 /** Payload emitted for a card activation or context-menu request. */
 export interface MlvTaskboardCardEvent<TItem> {
@@ -63,24 +83,41 @@ export interface MlvTaskboardAddRequest {
   readonly wip: MlvTaskboardWipState;
 }
 
+/** Where the live drop indicator renders inside one board cell. */
+interface MlvTaskboardDropAnchor {
+  readonly columnId: MlvTaskboardKey;
+  readonly swimlaneId: MlvTaskboardKey | undefined;
+  /** The card the indicator precedes, or `null` to render after the last one. */
+  readonly anchorId: MlvTaskboardKey | null;
+}
+
 /**
- * Controlled taskboard rendering shell. It renders immutable item data and
- * emits application-owned card actions; editing and drag adapters are added by
- * their dedicated taskboard features.
+ * Controlled taskboard rendering shell with guarded pointer and touch sorting.
+ * It renders immutable item data, emits application-owned card actions, and
+ * commits a released drop only through the pure move engine.
  */
 @Component({
   selector: 'mlv-taskboard',
-  imports: [NgTemplateOutlet],
+  imports: [NgTemplateOutlet, MlvTaskboardCardsHost],
   templateUrl: './taskboard.html',
   styleUrl: './taskboard.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [{ provide: MLV_DENSITY_ELEMENT, useValue: 'taskboard' }],
+  providers: [
+    { provide: MLV_DENSITY_ELEMENT, useValue: 'taskboard' },
+    MlvTaskboardSortable,
+    {
+      provide: MLV_TASKBOARD_CARDS_REGISTRY,
+      useExisting: MlvTaskboardSortable,
+    },
+  ],
   hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
   host: {
     class: 'mlv-taskboard',
     role: 'grid',
     'aria-label': 'Taskboard',
+    '[class.mlv-taskboard--move-pending]': '_movePending()',
+    '[attr.aria-busy]': '_movePending() || null',
   },
 })
 export class MlvTaskboard<TItem> {
@@ -114,6 +151,14 @@ export class MlvTaskboard<TItem> {
   readonly canDropFn = input<MlvTaskboardCanDropFn<TItem> | undefined>(
     undefined,
   );
+  /**
+   * Optional application guard consulted once per released drop. It may answer
+   * asynchronously; the board blocks further drags and leaves `items`
+   * referentially unchanged until the guard settles.
+   */
+  readonly beforeMove = input<MlvTaskboardBeforeMove<TItem> | undefined>(
+    undefined,
+  );
   /** Application-owned selected card identifiers. */
   readonly selection = model<ReadonlySet<MlvTaskboardKey>>(new Set());
   /** Application-owned collapsed column identifiers. */
@@ -129,6 +174,10 @@ export class MlvTaskboard<TItem> {
   readonly contextMenu = output<MlvTaskboardCardEvent<TItem>>();
   /** Emits an application-owned request to add a card in a specific cell. */
   readonly addRequested = output<MlvTaskboardAddRequest>();
+  /** Emits once per committed move, after `items` holds the replacement. */
+  readonly moved = output<MlvTaskboardMoveResult<TItem>>();
+  /** Emits when a started move ends without changing the controlled `items`. */
+  readonly moveCancelled = output<MlvTaskboardMoveCancelledEvent<TItem>>();
 
   /** Projected board header definition, when supplied. */
   protected readonly _headerDefs = contentChildren(MlvTaskboardHeaderDef);
@@ -152,14 +201,17 @@ export class MlvTaskboard<TItem> {
   protected readonly _emptyStateDefs = contentChildren(
     MlvTaskboardEmptyStateDef,
   );
-
-  /** Pure indexed state derived from the immutable controlled inputs. */
-  protected readonly _index = computed<MlvTaskboardIndex<TItem>>(() =>
-    createMlvTaskboardIndex(this._board()),
+  /** Projected drop-indicator definition, when supplied. */
+  protected readonly _dropIndicatorDefs = contentChildren(
+    MlvTaskboardDropIndicatorDef,
   );
 
-  /** Stable board state handed to the pure indexing API. */
-  private readonly _board = computed<MlvTaskboardState<TItem>>(() => ({
+  /**
+   * @private Structural board snapshot. It deliberately omits selection and
+   * `canDropFn`, so neither re-indexes the board nor invalidates a pending
+   * asynchronous move.
+   */
+  private readonly _boardCore = computed<MlvTaskboardState<TItem>>(() => ({
     items: this.items(),
     columns: this.columns(),
     columnGroups: this.columnGroups(),
@@ -170,9 +222,78 @@ export class MlvTaskboard<TItem> {
     swimlaneField: this.swimlaneField(),
     transitions: this.transitions(),
     lockedItemIds: this.lockedItemIds(),
+  }));
+
+  /** Pure indexed state derived from the immutable structural inputs. */
+  protected readonly _index = computed<MlvTaskboardIndex<TItem>>(() =>
+    createMlvTaskboardIndex(this._boardCore()),
+  );
+
+  /** @private Full board snapshot a drag session and its policies run against. */
+  private readonly _board = computed<MlvTaskboardState<TItem>>(() => ({
+    ...this._boardCore(),
     selectedIds: this.selection(),
     canDropFn: this.canDropFn(),
   }));
+
+  /** @protected The slot a live pointer drag would drop into, when dragging. */
+  protected readonly _dropPreview =
+    signal<MlvTaskboardDropPreview<TItem> | null>(null);
+
+  /** @protected Whether an asynchronous `beforeMove` guard is still pending. */
+  protected readonly _movePending = signal(false);
+
+  /** @private Where the live drop indicator renders, resolved by card key. */
+  private readonly _dropAnchor = computed<MlvTaskboardDropAnchor | null>(() => {
+    const preview = this._dropPreview();
+    if (!preview) return null;
+    const rendered = this._index().itemsFor(
+      preview.columnId,
+      preview.swimlaneId,
+    );
+    const remaining = rendered.filter(
+      (item) => !sameMlvTaskboardKey(this._itemId(item), preview.itemId),
+    );
+    const anchor = remaining[preview.index];
+    return {
+      columnId: preview.columnId,
+      swimlaneId: preview.swimlaneId,
+      anchorId: anchor === undefined ? null : this._itemId(anchor),
+    };
+  });
+
+  /** @private Package-private SortableJS adapter provided by this component. */
+  private readonly _sortable = inject(
+    MlvTaskboardSortable,
+  ) as MlvTaskboardSortable<TItem>;
+
+  /** @private Guarded commit/cancel flow for one released pointer drop. */
+  private readonly _moveController = new MlvTaskboardMoveController<TItem>({
+    boardCore: () => this._boardCore(),
+    beforeMove: () => this.beforeMove(),
+    apply: (result) => this._applyMoveResult(result),
+    cancelled: (event) => this.moveCancelled.emit(event),
+    setPending: (pending) => this._setMovePending(pending),
+  });
+
+  /**
+   * @private Replayable ledger of board-originated moves. It is seeded by the
+   * first committed move and is not exposed yet — the public undo/redo surface
+   * arrives with the keyboard grab feature.
+   */
+  private _history: MlvTaskboardHistory<TItem> | null = null;
+
+  constructor() {
+    this._sortable.connect({
+      sessionBoard: () => this._board(),
+      cardIdFor: (attribute) => this._resolveItemId(attribute),
+      bucketOf: (element) => this._resolveBucket(element),
+      setDropPreview: (preview) => this._dropPreview.set(preview),
+      commitMove: (request) => this._moveController.commit(request),
+      cancelMove: (reason, request) =>
+        this._moveController.cancel(reason, request),
+    });
+  }
 
   /** Header context used by the optional projected board-header template. */
   protected _headerContext(): MlvTaskboardHeaderDefContext {
@@ -279,6 +400,25 @@ export class MlvTaskboard<TItem> {
     };
   }
 
+  /** Context for a custom drop-indicator slot. */
+  protected _dropIndicatorContext(
+    column: MlvTaskboardColumn,
+    swimlane: MlvTaskboardSwimlane | undefined,
+  ): MlvTaskboardDropIndicatorDefContext<TItem> {
+    const valid = this._dropAllowed();
+    return {
+      $implicit: valid,
+      valid,
+      target: {
+        column,
+        swimlane,
+        index: this._dropPreview()?.index ?? 0,
+        items: this._itemsFor(column, swimlane),
+        wip: this._wipFor(column, swimlane),
+      },
+    };
+  }
+
   /** Returns cards rendered in a stable column/lane cell. */
   protected _itemsFor(
     column: MlvTaskboardColumn,
@@ -307,6 +447,39 @@ export class MlvTaskboard<TItem> {
     return (
       swimlane !== undefined && this.collapsedSwimlaneIds().has(swimlane.id)
     );
+  }
+
+  /** Whether the live drop indicator renders immediately before this card. */
+  protected _isDropAnchor(
+    column: MlvTaskboardColumn,
+    swimlane: MlvTaskboardSwimlane | undefined,
+    item: TItem,
+  ): boolean {
+    const anchor = this._dropAnchor();
+    return (
+      anchor !== null &&
+      anchor.anchorId !== null &&
+      this._isDropCell(anchor, column, swimlane) &&
+      sameMlvTaskboardKey(anchor.anchorId, this._itemId(item))
+    );
+  }
+
+  /** Whether the live drop indicator renders after this cell's last card. */
+  protected _isDropTail(
+    column: MlvTaskboardColumn,
+    swimlane: MlvTaskboardSwimlane | undefined,
+  ): boolean {
+    const anchor = this._dropAnchor();
+    return (
+      anchor !== null &&
+      anchor.anchorId === null &&
+      this._isDropCell(anchor, column, swimlane)
+    );
+  }
+
+  /** Whether the previewed slot is a target the drag session authorised. */
+  protected _dropAllowed(): boolean {
+    return this._dropPreview()?.allowed ?? false;
   }
 
   /** Emits an add request for the specified cell. */
@@ -368,5 +541,73 @@ export class MlvTaskboard<TItem> {
   protected _groupColumnSpan(group: MlvTaskboardColumnGroup): number {
     return this.columns().filter((column) => column.groupId === group.id)
       .length;
+  }
+
+  /** @private Whether a resolved drop anchor addresses this column/lane cell. */
+  private _isDropCell(
+    anchor: MlvTaskboardDropAnchor,
+    column: MlvTaskboardColumn,
+    swimlane: MlvTaskboardSwimlane | undefined,
+  ): boolean {
+    return (
+      sameMlvTaskboardKey(anchor.columnId, column.id) &&
+      sameMlvTaskboardKey(anchor.swimlaneId, swimlane?.id)
+    );
+  }
+
+  /** @private Resolves a card element's data attribute to its canonical key. */
+  private _resolveItemId(attribute: string): MlvTaskboardKey | undefined {
+    for (const id of this._index().itemById.keys()) {
+      if (String(id) === attribute) return id;
+    }
+    return undefined;
+  }
+
+  /** @private Resolves a registered container element to its canonical bucket. */
+  private _resolveBucket(element: HTMLElement): MlvTaskboardBucket | undefined {
+    const columnAttribute = element.getAttribute(
+      MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE,
+    );
+    if (columnAttribute === null) return undefined;
+    const column = this.columns().find(
+      (candidate) => String(candidate.id) === columnAttribute,
+    );
+    if (!column) return undefined;
+    const swimlaneAttribute = element.getAttribute(
+      MLV_TASKBOARD_SWIMLANE_ID_ATTRIBUTE,
+    );
+    if (swimlaneAttribute === null) {
+      return { columnId: column.id, swimlaneId: undefined };
+    }
+    const swimlane = this.swimlanes().find(
+      (candidate) => String(candidate.id) === swimlaneAttribute,
+    );
+    return swimlane === undefined
+      ? undefined
+      : { columnId: column.id, swimlaneId: swimlane.id };
+  }
+
+  /** @private Writes the single replacement collection and records the move. */
+  private _applyMoveResult(result: MlvTaskboardMoveResult<TItem>): void {
+    const before = this._board();
+    this._recordCommand(before, { ...before, items: result.items });
+    this.items.set(result.items);
+    this.moved.emit(result);
+  }
+
+  /** @private Records one replayable board replacement in the history ledger. */
+  private _recordCommand(
+    before: MlvTaskboardState<TItem>,
+    after: MlvTaskboardState<TItem>,
+  ): void {
+    this._history ??= createMlvTaskboardHistory<TItem>(before);
+    if (this._history.current() !== before) this._history.replace(before);
+    this._history.push({ before, after });
+  }
+
+  /** @private Toggles the pending state and blocks drags while it is set. */
+  private _setMovePending(pending: boolean): void {
+    this._movePending.set(pending);
+    this._sortable.setDragsDisabled(pending);
   }
 }

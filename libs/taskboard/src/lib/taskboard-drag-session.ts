@@ -6,6 +6,10 @@ import {
   authorizeMlvTaskboardMoveRequest,
   beginMlvTaskboardDragAuthorization,
 } from './taskboard-move-authorization';
+import {
+  mlvTaskboardKeyToken,
+  sameMlvTaskboardKey as sameKey,
+} from './taskboard-keys';
 import type {
   MlvTaskboardState,
   MlvTaskboardCanDropFn,
@@ -17,11 +21,7 @@ import type {
 } from './taskboard.types';
 
 const targetKey = (location: MlvTaskboardLocation): string =>
-  `${typeof location.columnId}:${String(location.columnId)}|${location.swimlaneId === undefined ? '' : `${typeof location.swimlaneId}:${String(location.swimlaneId)}`}|${location.index}`;
-const sameKey = (
-  left: MlvTaskboardKey | undefined,
-  right: MlvTaskboardKey | undefined,
-): boolean => typeof left === typeof right && left === right;
+  `${mlvTaskboardKeyToken(location.columnId)}|${mlvTaskboardKeyToken(location.swimlaneId)}|${location.index}`;
 
 export interface MlvTaskboardDragSession<TItem> {
   readonly card: MlvTaskboardItemContext<TItem>;
@@ -104,17 +104,16 @@ export function createMlvTaskboardDragSession<TItem>(
   for (const column of board.columns)
     for (const lane of lanes) {
       const renderedItems = index.itemsFor(column.id, lane?.id);
-      for (
-        let targetIndex = 0;
-        targetIndex <= renderedItems.length;
-        targetIndex++
-      ) {
-        if (
-          sameKey(column.id, source.columnId) &&
-          sameKey(lane?.id, source.swimlaneId) &&
-          targetIndex === source.index
-        )
-          continue;
+      const isSourceBucket =
+        sameKey(column.id, source.columnId) &&
+        sameKey(lane?.id, source.swimlaneId);
+      // A target index counts the destination bucket's rendered cards with the
+      // dragged card removed, so the source bucket offers one slot fewer.
+      const slotCount = isSourceBucket
+        ? renderedItems.length - 1
+        : renderedItems.length;
+      for (let targetIndex = 0; targetIndex <= slotCount; targetIndex++) {
+        if (isSourceBucket && targetIndex === source.index) continue;
         const target: MlvTaskboardDropTarget<TItem> = {
           column,
           swimlane: lane,
