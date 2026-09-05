@@ -1533,10 +1533,32 @@ export class MlvTaskboard<TItem> {
     }
   }
 
+  /** @private Whether DOM focus currently rests inside this board. */
+  private _ownsDomFocus(): boolean {
+    const active = this._document.activeElement;
+    return active !== null && this._elementRef.nativeElement.contains(active);
+  }
+
   /** @private Writes the single replacement collection and records the move. */
   private _applyMoveResult(result: MlvTaskboardMoveResult<TItem>): void {
     const before = this._boardCore();
+    // A cross-cell commit destroys the card's element and rebuilds it in the
+    // destination, so DOM focus would fall to the document body. Read the
+    // ownership before the write, so a pointer drop from outside the board
+    // never has focus pulled into it.
+    const hadFocus = this._ownsDomFocus();
     this.items.set(result.items);
+    const landed: MlvTaskboardKeyboardFocus = {
+      columnId: result.target.columnId,
+      swimlaneId: result.target.swimlaneId,
+      itemId: this._itemId(result.item),
+    };
+    this._keyboard.noteFocus(landed);
+    if (hadFocus) {
+      afterNextRender(() => this._focusCardElement(landed), {
+        injector: this._injector,
+      });
+    }
     this._recordCommand(before);
     this._announce('moved', {
       label: String(this._itemId(result.item)),

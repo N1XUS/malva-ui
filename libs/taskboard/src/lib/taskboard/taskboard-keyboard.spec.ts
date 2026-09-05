@@ -300,6 +300,30 @@ describe('MlvTaskboard keyboard interaction', () => {
     expect(tabbable()).toEqual(['string:a']);
   });
 
+  it('follows a committed move with the DOM focus and the arrow origin', async () => {
+    const { fixture, card, key } = await mount();
+
+    card('a').focus();
+    fixture.detectChanges();
+    key('a', ' ');
+    key('a', 'ArrowRight');
+    key('a', ' ');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(
+      fixture.componentInstance.items().find((item) => item.id === 'a')?.status,
+    ).toBe('done');
+    expect(document.activeElement).toBe(card('a'));
+
+    // Arrow stepping resumes from the cell the card landed in, not the one it
+    // was picked up from.
+    key('a', 'ArrowDown');
+    expect(card('x').getAttribute('tabindex')).toBe('0');
+  });
+
   it('releases a grab dropped back where it started without cancelling it', async () => {
     const { fixture, key, focus, live } = await mount();
     const before = fixture.componentInstance.items();
