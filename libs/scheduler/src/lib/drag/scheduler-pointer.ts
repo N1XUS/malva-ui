@@ -51,8 +51,16 @@ export interface MlvSchedulerPointerDragOptions {
   /** Distance in px before a press becomes a drag. Default `5`. */
   readonly threshold?: number;
   /**
-   * Capture the pointer on the element (`setPointerCapture`) so moves keep arriving outside it. Default `true`.
-   * Set `false` when the handler needs `event.target` hit-testing (range selection over cells).
+   * Capture the pointer on the element (`setPointerCapture`) so moves keep arriving outside it.
+   * Default `true`.
+   *
+   * `pointermove` / `pointerup` are listened on the DOCUMENT, so capture is not what keeps a
+   * gesture alive once the pointer leaves the element — it is what retargets the pointer's
+   * compatibility mouse events, and the `click` that follows them, to the captured element. Both
+   * range selections pass `false` for that reason: their gesture element is the whole grid
+   * surface, whose cells own the `click` / `dblclick` / `contextmenu` handlers a press still has
+   * to reach. A chip resize, whose handle is a few pixels wide and carries no click behaviour of
+   * its own, keeps the default.
    */
   readonly capture?: boolean;
   /** Return `true` for targets that must not start a drag (chips, buttons). */
