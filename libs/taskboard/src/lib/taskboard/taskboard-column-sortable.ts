@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { mlvTaskboardKeyToken } from '../taskboard-keys';
 import { Subject, filter, fromEvent, takeUntil } from 'rxjs';
 import Sortable from 'sortablejs';
 import type {
@@ -147,7 +148,7 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
     if (!host || attribute === null) return;
     const columns = host.columns();
     const fromIndex = columns.findIndex(
-      (column) => String(column.id) === attribute,
+      (column) => mlvTaskboardKeyToken(column.id) === attribute,
     );
     // A locked column is already excluded by `filter`; this is the guard for a
     // drag started before the lock reached the DOM.

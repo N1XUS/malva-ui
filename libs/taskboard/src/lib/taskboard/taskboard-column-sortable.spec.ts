@@ -72,7 +72,7 @@ function headerRow(host: HTMLElement): HTMLElement {
 
 function columnHeader(host: HTMLElement, columnId: string): HTMLElement {
   const header = host.querySelector<HTMLElement>(
-    `.mlv-taskboard__column-header[data-mlv-taskboard-column-id="${columnId}"]`,
+    `.mlv-taskboard__column-header[data-mlv-taskboard-column-id="string:${columnId}"]`,
   );
   if (!header) throw new Error(`Expected a rendered header for ${columnId}`);
   return header;
@@ -147,7 +147,7 @@ function columnIds(fixture: ComponentFixture<ColumnHost>): string[] {
   return fixture.componentInstance.columns().map((column) => String(column.id));
 }
 
-/** Each rendered group run as `<group id or '-'>:<column tracks it spans>`. */
+/** Each rendered group run as `<group key token or '-'>:<tracks it spans>`. */
 function groupRunSpans(host: HTMLElement): string[] {
   return Array.from(
     host.querySelectorAll<HTMLElement>('.mlv-taskboard__group'),
@@ -216,7 +216,7 @@ describe('MlvTaskboard SortableJS column adapter', () => {
       Array.from(
         host.querySelectorAll<HTMLElement>('.mlv-taskboard__column-header'),
       ).map((header) => header.getAttribute('data-mlv-taskboard-column-id')),
-    ).toEqual(['c', 'a', 'b']);
+    ).toEqual(['string:c', 'string:a', 'string:b']);
   });
 
   it('keeps the physical insert side in LTR', async () => {
@@ -326,10 +326,10 @@ describe('MlvTaskboard SortableJS column adapter', () => {
     const fixture = await createFixture();
     const host = fixture.nativeElement as HTMLElement;
 
-    expect(groupRunSpans(host)).toEqual(['left:2', 'right:1']);
+    expect(groupRunSpans(host)).toEqual(['string:left:2', 'string:right:1']);
     expect(
       host
-        .querySelector('[data-mlv-taskboard-group-id="left"]')
+        .querySelector('[data-mlv-taskboard-group-id="string:left"]')
         ?.getAttribute('aria-colspan'),
     ).toBe('2');
 
@@ -341,7 +341,11 @@ describe('MlvTaskboard SortableJS column adapter', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(groupRunSpans(host)).toEqual(['left:1', 'right:1', 'left:1']);
+    expect(groupRunSpans(host)).toEqual([
+      'string:left:1',
+      'string:right:1',
+      'string:left:1',
+    ]);
   });
 
   it('renders an unlabeled spacer run for columns that belong to no group', async () => {
@@ -355,7 +359,11 @@ describe('MlvTaskboard SortableJS column adapter', () => {
     await fixture.whenStable();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(groupRunSpans(host)).toEqual(['left:1', '-:1', 'right:1']);
+    expect(groupRunSpans(host)).toEqual([
+      'string:left:1',
+      '-:1',
+      'string:right:1',
+    ]);
     expect(
       host
         .querySelector('.mlv-taskboard__group--spacer')

@@ -622,9 +622,15 @@ export class MlvTaskboard<TItem> {
     return item[this.dataKey()] as MlvTaskboardKey;
   }
 
-  /** A string value safe for stable DOM data attributes. */
+  /**
+   * The canonical key token a DOM data attribute carries.
+   *
+   * The token keeps the value's runtime type, so the number `1` and the
+   * string `'1'` address different elements and an attribute read back
+   * resolves to exactly the key it was written from.
+   */
   protected _keyAttribute(key: MlvTaskboardKey): string {
-    return String(key);
+    return mlvTaskboardKeyToken(key);
   }
 
   /** Whether a column is pinned to its absolute index. */
@@ -647,7 +653,7 @@ export class MlvTaskboard<TItem> {
   /** @private Resolves a card element's data attribute to its canonical key. */
   private _resolveItemId(attribute: string): MlvTaskboardKey | undefined {
     for (const id of this._index().itemById.keys()) {
-      if (String(id) === attribute) return id;
+      if (mlvTaskboardKeyToken(id) === attribute) return id;
     }
     return undefined;
   }
@@ -659,7 +665,7 @@ export class MlvTaskboard<TItem> {
     );
     if (columnAttribute === null) return undefined;
     const column = this.columns().find(
-      (candidate) => String(candidate.id) === columnAttribute,
+      (candidate) => mlvTaskboardKeyToken(candidate.id) === columnAttribute,
     );
     if (!column) return undefined;
     const swimlaneAttribute = element.getAttribute(
@@ -669,7 +675,7 @@ export class MlvTaskboard<TItem> {
       return { columnId: column.id, swimlaneId: undefined };
     }
     const swimlane = this.swimlanes().find(
-      (candidate) => String(candidate.id) === swimlaneAttribute,
+      (candidate) => mlvTaskboardKeyToken(candidate.id) === swimlaneAttribute,
     );
     return swimlane === undefined
       ? undefined

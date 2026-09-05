@@ -148,7 +148,7 @@
         (click)="_activate(item, column, swimlane, cardIndex, $event)"
         (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
       >
-        Task {{ _keyAttribute(_itemId(item)) }}
+        Task {{ _itemId(item) }}
       </button>
       } } @if (_isDropTail(column, swimlane)) {
       <ng-container

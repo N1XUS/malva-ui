@@ -81,12 +81,12 @@ describe('MlvTaskboard', () => {
     expect(host.textContent).toContain('Empty Done Design');
     expect(
       host
-        .querySelector('[data-mlv-taskboard-column-id="done"]')
+        .querySelector('[data-mlv-taskboard-column-id="string:done"]')
         ?.getAttribute('data-collapsed'),
     ).toBe('true');
     expect(
       host
-        .querySelector('[data-mlv-taskboard-group-id="work"]')
+        .querySelector('[data-mlv-taskboard-group-id="string:work"]')
         ?.getAttribute('role'),
     ).toBe('columnheader');
     expect(host.querySelector('mlv-taskboard')?.classList).toContain(
@@ -131,7 +131,7 @@ describe('MlvTaskboard', () => {
     const host = fixture.nativeElement as HTMLElement;
     expect(
       host
-        .querySelector('[data-mlv-taskboard-group-id="work"]')
+        .querySelector('[data-mlv-taskboard-group-id="string:work"]')
         ?.getAttribute('aria-colspan'),
     ).toBe('2');
     expect(
@@ -141,7 +141,7 @@ describe('MlvTaskboard', () => {
     ).toHaveLength(2);
     expect(
       host.querySelectorAll(
-        '[data-mlv-taskboard-swimlane-id="engineering"] > [role="gridcell"]',
+        '[data-mlv-taskboard-swimlane-id="string:engineering"] > [role="gridcell"]',
       ),
     ).toHaveLength(2);
     expect(
@@ -187,7 +187,7 @@ describe('MlvTaskboard', () => {
       .contextMenu.subscribe((event) => contextual.push(event.item.id));
 
     const card = fixture.nativeElement.querySelector(
-      '[data-mlv-taskboard-card-id="one"]',
+      '[data-mlv-taskboard-card-id="string:one"]',
     ) as HTMLElement;
     card.click();
     card.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));

@@ -126,6 +126,31 @@ class IndicatorHost {
   }
 }
 
+interface MixedTicket {
+  readonly id: string | number;
+  readonly status: string;
+}
+
+@Component({
+  imports: [MlvTaskboard],
+  template: `
+    <mlv-taskboard
+      [(items)]="items"
+      [(columns)]="columns"
+      dataKey="id"
+      columnField="status"
+    />
+  `,
+})
+class MixedKeyHost {
+  readonly items = signal<readonly MixedTicket[]>([
+    { id: 1, status: 'todo' },
+    { id: '1', status: 'todo' },
+    { id: 'x', status: 'done' },
+  ]);
+  readonly columns = signal<readonly MlvTaskboardColumn[]>(INITIAL_COLUMNS);
+}
+
 interface Recorded {
   readonly moved: string[];
   readonly cancelled: MlvTaskboardMoveCancelReason[];
@@ -158,8 +183,10 @@ async function createFixture(): Promise<{
 }
 
 function cardsContainer(host: HTMLElement, columnId: string): HTMLElement {
+  // Data attributes carry the canonical key token, never a coerced string, so
+  // a numeric and a string identifier never address the same element.
   const container = host.querySelector<HTMLElement>(
-    `.mlv-taskboard__cards[data-mlv-taskboard-column-id="${columnId}"]`,
+    `.mlv-taskboard__cards[data-mlv-taskboard-column-id="string:${columnId}"]`,
   );
   if (!container) throw new Error(`Expected a cards container for ${columnId}`);
   return container;
@@ -196,7 +223,7 @@ function sortableFor(element: HTMLElement): Sortable {
 
 function cardElement(container: HTMLElement, id: string): HTMLElement {
   const card = container.querySelector<HTMLElement>(
-    `[data-mlv-taskboard-card-id="${id}"]`,
+    `[data-mlv-taskboard-card-id="string:${id}"]`,
   );
   if (!card) throw new Error(`Expected a rendered card ${id}`);
   return card;
@@ -446,6 +473,43 @@ describe('MlvTaskboard SortableJS card adapter', () => {
     const probe = todoCards.querySelector<HTMLElement>('.probe');
     expect(probe?.getAttribute('data-index')).toBe('1');
     expect(probe?.getAttribute('data-items')).toBe('b');
+  });
+
+  it('never collapses a numeric and a string card identifier', async () => {
+    await TestBed.configureTestingModule({
+      imports: [MixedKeyHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(MixedKeyHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+    const todoCards = cardsContainer(host, 'todo');
+    const doneCards = cardsContainer(host, 'done');
+
+    expect(
+      Array.from(todoCards.children).map((child) =>
+        child.getAttribute('data-mlv-taskboard-card-id'),
+      ),
+    ).toEqual(['number:1', 'string:1']);
+
+    const stringCard = todoCards.querySelector<HTMLElement>(
+      '[data-mlv-taskboard-card-id="string:1"]',
+    );
+    if (!stringCard) throw new Error('Expected the string-keyed card.');
+    startDrag(todoCards, stringCard);
+    hover(todoCards, stringCard, doneCards, cardElement(doneCards, 'x'));
+    endDrag(todoCards, stringCard, doneCards);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Coercing the attribute back would resolve `'1'` to the numeric card the
+    // pointer never touched, and move that one instead.
+    expect(
+      fixture.componentInstance
+        .items()
+        .map((item) => `${typeof item.id}:${String(item.id)}=${item.status}`)
+        .sort(),
+    ).toEqual(['number:1=todo', 'string:1=done', 'string:x=done']);
   });
 
   it('resolves the end-of-list payload to the tail slot, not the first one', async () => {
