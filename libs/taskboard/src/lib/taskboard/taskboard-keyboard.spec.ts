@@ -2,7 +2,10 @@ import { Component, signal, viewChild, type Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { MlvTaskboardMoveCancelledEvent } from '../taskboard.types';
+import type {
+  MlvTaskboardBeforeMove,
+  MlvTaskboardMoveCancelledEvent,
+} from '../taskboard.types';
 import { MlvTaskboard } from './taskboard';
 import { provideTaskboardTesting } from '../testing/taskboard-test-context';
 
@@ -345,6 +348,26 @@ describe('MlvTaskboard keyboard interaction', () => {
     expect(activated).toEqual([]);
   });
 
+  it('refuses a new grab while a guarded move is still settling', async () => {
+    const { fixture, host, key, focus, live } = await mountHost(PendingHost);
+
+    focus('a');
+    key('a', ' ');
+    key('a', 'ArrowRight');
+    key('a', ' ');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(host.querySelector('mlv-taskboard')?.getAttribute('aria-busy')).toBe(
+      'true',
+    );
+
+    // The guard has not answered, so `items` is still the collection any new
+    // session would be built against. Picking a card up now would aim at slots
+    // the pending commit is about to invalidate.
+    key('b', ' ');
+    expect(live()).toBe('Move to Done, position 1 of 2.');
+  });
+
   it('releases a grab dropped back where it started without cancelling it', async () => {
     const { fixture, key, focus, live } = await mount();
     const before = fixture.componentInstance.items();
@@ -458,4 +481,25 @@ class SourceLaneLockHost {
     { id: 'alpha', label: 'Alpha', locked: true },
     { id: 'beta', label: 'Beta' },
   ];
+}
+
+@Component({
+  imports: [MlvTaskboard],
+  template: `<mlv-taskboard
+    [(items)]="items"
+    [columns]="columns"
+    [beforeMove]="beforeMove"
+    dataKey="id"
+    columnField="status"
+  />`,
+})
+class PendingHost {
+  readonly items = signal<readonly Ticket[]>(INITIAL_ITEMS);
+  readonly columns = [
+    { id: 'todo', label: 'Todo' },
+    { id: 'done', label: 'Done' },
+  ];
+  /** Never settles, so the board stays in its pending-move window. */
+  readonly beforeMove: MlvTaskboardBeforeMove<Ticket> = () =>
+    new Promise<boolean>(() => undefined);
 }

@@ -1172,7 +1172,12 @@ export class MlvTaskboard<TItem> {
     if (step !== null) {
       handled = this._keyboard.step(step);
     } else if (event.key === ' ' || event.key === 'Spacebar') {
-      handled = this._keyboard.toggleGrab();
+      // A guarded move is still settling. Its replacement collection has not
+      // landed, so a session built now would aim at slots the pending commit
+      // is about to invalidate — the same window in which the pointer
+      // adapters are disabled. The key is still consumed, so the built-in
+      // button surface cannot activate behind the refusal.
+      handled = this._movePending() ? true : this._keyboard.toggleGrab();
     } else if (event.key === 'Escape') {
       handled = this._keyboard.cancel();
     } else if (event.key === 'Enter') {
