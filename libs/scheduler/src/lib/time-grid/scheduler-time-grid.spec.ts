@@ -1215,3 +1215,139 @@ describe('MlvSchedulerTimeGrid styles', () => {
     );
   });
 });
+
+// A timed chip is positioned by the GRID, but it is an `mlv-scheduler-event`
+// whose own block sets `position: relative` — the containing block its resize
+// handles need. Both rules live in `mlv.components`, so at equal specificity
+// the cascade falls through to source order, and Angular injects a component's
+// stylesheet the first time an instance renders: the grid's sheet lands before
+// the chip's, so `relative` used to win. Every chip then stayed in normal flow
+// and `inset-block-start` offset it from its preceding siblings instead of
+// from the column — the second chip of a column painted one chip-height too
+// low, and a drag preview inserted mid-list shoved its later siblings around.
+//
+// jsdom cannot judge this: its `getComputedStyle` resolves the cascade by
+// DOCUMENT ORDER ALONE (a `.b` rule appended after a `#t` rule wins there), so
+// it reports the defect whether or not it is fixed. The cascade is therefore
+// resolved here over the compiled sheets — jsdom still answers `matches()`,
+// which is the part it does implement — and asserted in BOTH injection orders,
+// because that independence is exactly what winning on specificity buys.
+describe('MlvSchedulerTimeGrid chip placement cascade', () => {
+  let sheets: Record<'grid' | 'chip', readonly StyleRule[]>;
+  let fixtureEl: HTMLElement;
+
+  interface StyleRule {
+    readonly selectors: readonly string[];
+    readonly specificity: number;
+    readonly declarations: string;
+  }
+
+  /**
+   * Top-level rules of a compiled sheet. `@media` blocks are skipped: none of
+   * them declares `position`, and their nested rules would need a media
+   * context jsdom does not evaluate.
+   */
+  function rulesOf(...segments: string[]): readonly StyleRule[] {
+    // Joined at runtime so Vite's asset rewrite never turns the stylesheet
+    // path into an http(s) URL under jsdom (same trick as `block()` above).
+    const css = stripCssLayersFromText(
+      compile(fileURLToPath(new URL(segments.join('/'), import.meta.url))).css,
+    );
+    const rules: StyleRule[] = [];
+    for (const [, prelude, declarations] of css.matchAll(
+      /([^{}]+)\{([^{}]*)\}/g,
+    )) {
+      if (prelude.includes('@')) continue;
+      const selectors = prelude
+        .split(',')
+        .map((one) => one.trim())
+        .filter(Boolean);
+      rules.push({
+        selectors,
+        specificity: Math.max(...selectors.map(specificityOf)),
+        declarations,
+      });
+    }
+    return rules;
+  }
+
+  /**
+   * Class-and-id weight of a selector. These sheets are class-only, so
+   * counting `#` and `.` (and never letting one overflow into the other)
+   * ranks them exactly as the real cascade does.
+   */
+  function specificityOf(selector: string): number {
+    const ids = selector.match(/#[\w-]+/g)?.length ?? 0;
+    const classes = selector.match(/\.[\w-]+/g)?.length ?? 0;
+    return ids * 1000 + classes;
+  }
+
+  /**
+   * The declared value the cascade gives `property` on `element` when the
+   * sheets are injected in `order` — highest specificity wins, ties go to the
+   * later declaration, exactly as a browser resolves it.
+   */
+  function resolve(
+    element: HTMLElement,
+    property: string,
+    order: readonly (keyof typeof sheets)[],
+  ): string | null {
+    let winner: { specificity: number; value: string } | null = null;
+    for (const name of order) {
+      for (const rule of sheets[name]) {
+        if (!rule.selectors.some((one) => element.matches(one))) continue;
+        const declared = new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`).exec(
+          rule.declarations,
+        );
+        if (!declared) continue;
+        if (winner && rule.specificity < winner.specificity) continue;
+        winner = { specificity: rule.specificity, value: declared[1].trim() };
+      }
+    }
+    return winner?.value ?? null;
+  }
+
+  beforeAll(() => {
+    sheets = {
+      grid: rulesOf('.', 'scheduler-time-grid.scss'),
+      chip: rulesOf('..', 'event', 'scheduler-event.scss'),
+    };
+    fixtureEl = document.createElement('div');
+    fixtureEl.innerHTML = `
+      <div class="mlv-scheduler-time-grid__events">
+        <div
+          id="timed"
+          class="mlv-scheduler-event mlv-scheduler-time-grid__event mlv-scheduler-event--timed"
+        ></div>
+      </div>
+      <div class="mlv-scheduler-time-grid__all-day-cell">
+        <div
+          id="lane"
+          class="mlv-scheduler-event mlv-scheduler-time-grid__lane-event mlv-scheduler-event--all-day"
+        ></div>
+      </div>
+    `;
+    document.body.append(fixtureEl);
+  });
+
+  afterAll(() => fixtureEl.remove());
+
+  const positionOf = (
+    id: string,
+    order: readonly (keyof typeof sheets)[] = ['grid', 'chip'],
+  ) => resolve(query<HTMLElement>(document, `#${id}`), 'position', order);
+
+  it('takes a timed chip out of flow whichever sheet is injected first', () => {
+    // ['grid', 'chip'] is the order Angular actually produces; the reverse
+    // proves the rule no longer depends on it.
+    expect(positionOf('timed', ['grid', 'chip'])).toBe('absolute');
+    expect(positionOf('timed', ['chip', 'grid'])).toBe('absolute');
+  });
+
+  it('leaves a lane chip relative, the containing block of its resize handles', () => {
+    // The chip block, the grid's `__lane-event` and the month `__event` all
+    // say `relative`; only the time grid's own chip layer overrides it.
+    expect(positionOf('lane', ['grid', 'chip'])).toBe('relative');
+    expect(positionOf('lane', ['chip', 'grid'])).toBe('relative');
+  });
+});

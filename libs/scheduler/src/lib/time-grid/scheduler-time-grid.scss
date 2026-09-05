@@ -276,7 +276,20 @@ $block: mlv-scheduler-time-grid;
       pointer-events: none;
     }
 
-    &__event {
+    // Anchored to the overlay on purpose. A timed chip is an
+    // `mlv-scheduler-event`, and that block sets `position: relative` — the
+    // containing block its resize handles need. Both rules live in
+    // `mlv.components` and `.mlv-scheduler-time-grid__event` weighs the same
+    // (0,1,0) as `.mlv-scheduler-event`, so the cascade fell through to source
+    // order — and Angular injects a component's stylesheet when its first
+    // instance renders, which puts this sheet BEFORE the chip's and let
+    // `relative` win. Every chip then stayed in normal flow and
+    // `inset-block-start` offset it from its preceding siblings instead of
+    // from the column, so the second chip of a column painted one chip-height
+    // too low and a drag preview inserted mid-list shoved its later siblings
+    // around. The `__events >` prefix (0,2,0) wins on specificity, whatever
+    // the injection order.
+    &__events > &__event {
       position: absolute;
       inset-block-start: var(--mlv-scheduler-event-top, 0%);
       inset-inline-start: var(--mlv-scheduler-event-start, 0%);
@@ -284,7 +297,6 @@ $block: mlv-scheduler-time-grid;
       block-size: var(--mlv-scheduler-event-height, auto);
       box-sizing: border-box;
       min-block-size: var(--mlv-scheduler-event-min-height);
-      padding-inline-end: var(--mlv-spacing-0-5);
       pointer-events: auto;
     }
 
