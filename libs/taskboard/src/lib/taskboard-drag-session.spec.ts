@@ -1,8 +1,8 @@
-import {
-  createMlvTaskboardDragSession,
-  type MlvTaskboard,
-  type MlvTaskboardCanDropFn,
-} from './taskboard-drag-session';
+import { createMlvTaskboardDragSession } from './taskboard-drag-session';
+import type {
+  MlvTaskboardCanDropFn,
+  MlvTaskboardState,
+} from './taskboard.types';
 import { applyMlvTaskboardMove } from './taskboard-state';
 
 interface Ticket {
@@ -12,8 +12,8 @@ interface Ticket {
 }
 
 const makeBoard = (
-  overrides: Partial<MlvTaskboard<Ticket>> = {},
-): MlvTaskboard<Ticket> => ({
+  overrides: Partial<MlvTaskboardState<Ticket>> = {},
+): MlvTaskboardState<Ticket> => ({
   items: [
     { id: 'a', status: 'todo', assignee: 'sam' },
     { id: 'b', status: 'done', assignee: 'sam' },

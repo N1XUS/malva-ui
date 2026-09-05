@@ -1,11 +1,5 @@
 import type {
-  MlvTaskboard,
-  MlvTaskboardCommand,
-  MlvTaskboardHistory,
-  MlvTaskboardSnapshot,
-} from './taskboard.types';
-
-export type {
+  MlvTaskboardState,
   MlvTaskboardCommand,
   MlvTaskboardHistory,
   MlvTaskboardSnapshot,
@@ -29,7 +23,7 @@ export function createMlvTaskboardSnapshot(
 }
 
 export function createMlvTaskboardHistory<TItem>(
-  initial: MlvTaskboard<TItem>,
+  initial: MlvTaskboardState<TItem>,
   limit = DEFAULT_HISTORY_LIMIT,
 ): MlvTaskboardHistory<TItem> {
   if (!Number.isInteger(limit) || limit < 1) {

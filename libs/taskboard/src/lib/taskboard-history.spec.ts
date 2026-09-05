@@ -1,4 +1,4 @@
-import type { MlvTaskboard } from './taskboard.types';
+import type { MlvTaskboardState } from './taskboard.types';
 import {
   createMlvTaskboardHistory,
   createMlvTaskboardSnapshot,
@@ -10,7 +10,7 @@ interface Ticket {
   readonly status: string;
 }
 
-const initial: MlvTaskboard<Ticket> = {
+const initial: MlvTaskboardState<Ticket> = {
   items: [
     { id: 'a', status: 'todo' },
     { id: 'b', status: 'todo' },
@@ -20,7 +20,7 @@ const initial: MlvTaskboard<Ticket> = {
   columnField: 'status',
 };
 
-const moved: MlvTaskboard<Ticket> = {
+const moved: MlvTaskboardState<Ticket> = {
   ...initial,
   items: [initial.items[1], initial.items[0]],
 };
@@ -43,7 +43,7 @@ describe('createMlvTaskboardHistory', () => {
 
   it('clears redo when a new command is pushed after undo', () => {
     const history = createMlvTaskboardHistory(initial);
-    const replacement: MlvTaskboard<Ticket> = {
+    const replacement: MlvTaskboardState<Ticket> = {
       ...initial,
       items: [initial.items[0]],
     };
@@ -58,7 +58,7 @@ describe('createMlvTaskboardHistory', () => {
 
   it('resets history for an external replacement without changing its stable item IDs', () => {
     const history = createMlvTaskboardHistory(initial);
-    const external: MlvTaskboard<Ticket> = {
+    const external: MlvTaskboardState<Ticket> = {
       ...initial,
       items: [
         { id: 'external-a', status: 'todo' },

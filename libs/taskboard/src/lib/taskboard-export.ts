@@ -1,21 +1,16 @@
 import type {
-  MlvTaskboard,
+  MlvTaskboardState,
   MlvTaskboardCsvField,
   MlvTaskboardKey,
   MlvTaskboardSerialized,
   MlvTaskboardSnapshot,
 } from './taskboard.types';
 
-export type {
-  MlvTaskboardCsvField,
-  MlvTaskboardSerialized,
-} from './taskboard.types';
-
 const sameKey = (left: MlvTaskboardKey, right: MlvTaskboardKey): boolean =>
   typeof left === typeof right && left === right;
 
 export function serializeMlvTaskboard<TItem>(
-  board: MlvTaskboard<TItem>,
+  board: MlvTaskboardState<TItem>,
   snapshot: MlvTaskboardSnapshot,
 ): MlvTaskboardSerialized<TItem> {
   return {
@@ -52,7 +47,7 @@ export function serializeMlvTaskboard<TItem>(
 }
 
 export function exportMlvTaskboardCsv<TItem>(
-  board: MlvTaskboard<TItem>,
+  board: MlvTaskboardState<TItem>,
   columnId: MlvTaskboardKey,
   fields: readonly MlvTaskboardCsvField<TItem>[],
 ): string {

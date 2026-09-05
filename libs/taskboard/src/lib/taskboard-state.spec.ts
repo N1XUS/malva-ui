@@ -1,9 +1,11 @@
 import {
   applyMlvTaskboardMove,
   createMlvTaskboardIndex,
-  type MlvTaskboard,
-  type MlvTaskboardMoveRequest,
 } from './taskboard-state';
+import type {
+  MlvTaskboardMoveRequest,
+  MlvTaskboardState,
+} from './taskboard.types';
 import { createMlvTaskboardDragSession } from './taskboard-drag-session';
 
 interface Ticket {
@@ -12,7 +14,7 @@ interface Ticket {
   readonly assignee: string;
 }
 
-const board: MlvTaskboard<Ticket> = {
+const board: MlvTaskboardState<Ticket> = {
   items: [
     { id: 'a', status: 'todo', assignee: 'sam' },
     { id: 'b', status: 'done', assignee: 'sam' },
@@ -90,7 +92,7 @@ describe('createMlvTaskboardIndex', () => {
 
 describe('applyMlvTaskboardMove', () => {
   it('updates only the moved card and anchors a filtered drop beside its visible target', () => {
-    const filteredBoard: MlvTaskboard<Ticket> = {
+    const filteredBoard: MlvTaskboardState<Ticket> = {
       ...board,
       columns: [
         { id: 'todo', label: 'Todo' },
@@ -164,7 +166,7 @@ describe('applyMlvTaskboardMove', () => {
   });
 
   it('enforces the board canDrop policy for direct requests', () => {
-    const policyBoard: MlvTaskboard<Ticket> = {
+    const policyBoard: MlvTaskboardState<Ticket> = {
       ...board,
       columns: [
         { id: 'todo', label: 'Todo' },

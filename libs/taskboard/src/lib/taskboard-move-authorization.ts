@@ -1,10 +1,13 @@
-import type { MlvTaskboard, MlvTaskboardMoveRequest } from './taskboard.types';
+import type {
+  MlvTaskboardState,
+  MlvTaskboardMoveRequest,
+} from './taskboard.types';
 
 const authorizedRequests = new WeakSet<object>();
 const boardsRequiringSessionAuthorization = new WeakSet<object>();
 
 export function beginMlvTaskboardDragAuthorization<TItem>(
-  board: MlvTaskboard<TItem>,
+  board: MlvTaskboardState<TItem>,
   hasPolicy: boolean,
 ): void {
   if (hasPolicy) boardsRequiringSessionAuthorization.add(board);
@@ -23,7 +26,7 @@ export function isMlvTaskboardMoveRequestAuthorized<TItem>(
 }
 
 export function requiresMlvTaskboardSessionAuthorization<TItem>(
-  board: MlvTaskboard<TItem>,
+  board: MlvTaskboardState<TItem>,
 ): boolean {
   return boardsRequiringSessionAuthorization.has(board);
 }

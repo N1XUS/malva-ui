@@ -1,5 +1,5 @@
 import type {
-  MlvTaskboard,
+  MlvTaskboardState,
   MlvTaskboardColumn,
   MlvTaskboardDropTarget,
   MlvTaskboardItemContext,
@@ -13,19 +13,6 @@ import {
   isMlvTaskboardMoveRequestAuthorized,
   requiresMlvTaskboardSessionAuthorization,
 } from './taskboard-move-authorization';
-
-export type {
-  MlvTaskboard,
-  MlvTaskboardColumn,
-  MlvTaskboardColumnGroup,
-  MlvTaskboardField,
-  MlvTaskboardKey,
-  MlvTaskboardLocation,
-  MlvTaskboardMoveRequest,
-  MlvTaskboardMoveResult,
-  MlvTaskboardSwimlane,
-  MlvTaskboardWipState,
-} from './taskboard.types';
 
 const keyOf = (key: MlvTaskboardKey | undefined): string =>
   key === undefined ? 'undefined' : `${typeof key}:${String(key)}`;
@@ -48,7 +35,7 @@ function validateUnique<T extends { readonly id: MlvTaskboardKey }>(
 }
 
 function itemKey<TItem>(
-  board: MlvTaskboard<TItem>,
+  board: MlvTaskboardState<TItem>,
   item: TItem,
 ): MlvTaskboardKey {
   const key = item[board.dataKey];
@@ -61,7 +48,7 @@ function itemKey<TItem>(
 }
 
 export interface MlvTaskboardIndex<TItem> {
-  readonly board: MlvTaskboard<TItem>;
+  readonly board: MlvTaskboardState<TItem>;
   readonly itemById: ReadonlyMap<MlvTaskboardKey, TItem>;
   readonly columnById: ReadonlyMap<MlvTaskboardKey, MlvTaskboardColumn>;
   readonly groupById: ReadonlyMap<
@@ -83,7 +70,7 @@ export interface MlvTaskboardIndex<TItem> {
 }
 
 export function createMlvTaskboardIndex<TItem>(
-  board: MlvTaskboard<TItem>,
+  board: MlvTaskboardState<TItem>,
 ): MlvTaskboardIndex<TItem> {
   if ((board.swimlanes?.length ?? 0) > 0 && board.swimlaneField === undefined) {
     throw new Error('Taskboard swimlanes require a swimlaneField.');
@@ -217,7 +204,7 @@ export function createMlvTaskboardIndex<TItem>(
 }
 
 export function applyMlvTaskboardMove<TItem>(
-  board: MlvTaskboard<TItem>,
+  board: MlvTaskboardState<TItem>,
   request: MlvTaskboardMoveRequest<TItem> | undefined,
 ): MlvTaskboardMoveResult<TItem> | null {
   if (

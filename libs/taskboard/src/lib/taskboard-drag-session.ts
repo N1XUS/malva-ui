@@ -7,7 +7,7 @@ import {
   beginMlvTaskboardDragAuthorization,
 } from './taskboard-move-authorization';
 import type {
-  MlvTaskboard,
+  MlvTaskboardState,
   MlvTaskboardCanDropFn,
   MlvTaskboardDropTarget,
   MlvTaskboardItemContext,
@@ -15,8 +15,6 @@ import type {
   MlvTaskboardLocation,
   MlvTaskboardMoveRequest,
 } from './taskboard.types';
-
-export type { MlvTaskboard, MlvTaskboardCanDropFn } from './taskboard.types';
 
 const targetKey = (location: MlvTaskboardLocation): string =>
   `${typeof location.columnId}:${String(location.columnId)}|${location.swimlaneId === undefined ? '' : `${typeof location.swimlaneId}:${String(location.swimlaneId)}`}|${location.index}`;
@@ -71,7 +69,7 @@ function permittedByWip<TItem>(
 }
 
 export function createMlvTaskboardDragSession<TItem>(
-  board: MlvTaskboard<TItem>,
+  board: MlvTaskboardState<TItem>,
   itemId: MlvTaskboardKey,
   canDropFn?: MlvTaskboardCanDropFn<TItem>,
 ): MlvTaskboardDragSession<TItem> {

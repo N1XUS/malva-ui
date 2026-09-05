@@ -1,4 +1,4 @@
-import type { MlvTaskboard } from './taskboard.types';
+import type { MlvTaskboardState } from './taskboard.types';
 import {
   exportMlvTaskboardCsv,
   serializeMlvTaskboard,
@@ -10,7 +10,7 @@ interface Ticket {
   readonly title: string;
 }
 
-const board: MlvTaskboard<Ticket> = {
+const board: MlvTaskboardState<Ticket> = {
   items: [
     { id: 'a', status: 'todo', title: 'Fix, "drag"\nstate' },
     { id: 'b', status: 'done', title: 'Outside requested column' },

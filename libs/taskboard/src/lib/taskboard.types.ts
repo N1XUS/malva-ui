@@ -81,11 +81,8 @@ export interface MlvTaskboardState<TItem> {
   readonly canDropFn?: MlvTaskboardCanDropFn<TItem>;
 }
 
-/** @internal Backward-compatible local name for pure taskboard helpers. */
-export type MlvTaskboard<TItem> = MlvTaskboardState<TItem>;
-
 export interface MlvTaskboardMoveRequest<TItem> {
-  readonly board: MlvTaskboard<TItem>;
+  readonly board: MlvTaskboardState<TItem>;
   readonly itemId: MlvTaskboardKey;
   readonly source: MlvTaskboardLocation;
   readonly target: MlvTaskboardLocation;
@@ -111,16 +108,16 @@ export interface MlvTaskboardSnapshot {
 
 /** An immutable board replacement that may be replayed by taskboard history. */
 export interface MlvTaskboardCommand<TItem> {
-  readonly before: MlvTaskboard<TItem>;
-  readonly after: MlvTaskboard<TItem>;
+  readonly before: MlvTaskboardState<TItem>;
+  readonly after: MlvTaskboardState<TItem>;
 }
 
 export interface MlvTaskboardHistory<TItem> {
-  current(): MlvTaskboard<TItem>;
+  current(): MlvTaskboardState<TItem>;
   push(command: MlvTaskboardCommand<TItem>): MlvTaskboardHistory<TItem>;
-  undo(): MlvTaskboard<TItem> | null;
-  redo(): MlvTaskboard<TItem> | null;
-  replace(board: MlvTaskboard<TItem>): MlvTaskboard<TItem>;
+  undo(): MlvTaskboardState<TItem> | null;
+  redo(): MlvTaskboardState<TItem> | null;
+  replace(board: MlvTaskboardState<TItem>): MlvTaskboardState<TItem>;
 }
 
 export interface MlvTaskboardCsvField<TItem> {
