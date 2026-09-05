@@ -82,6 +82,8 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
   private _cancelled = false;
   /** @private Ends the current drag's document listeners on drop. */
   private readonly _dragEnd = new Subject<void>();
+  /** @private Whether a pending guarded move currently blocks new drags. */
+  private _disabled = false;
 
   constructor() {
     this._destroyRef.onDestroy(() => this.destroy());
@@ -97,6 +99,7 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
     if (this._sortable) return;
     this._row = element;
     this._sortable = Sortable.create(element, this._sortableOptions());
+    this._sortable.option('disabled', this._disabled);
   }
 
   /** Destroys the instance of a header row leaving the DOM. */
@@ -105,6 +108,12 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
     this._row = null;
     this._sortable?.destroy();
     this._sortable = null;
+  }
+
+  /** Blocks or restores pointer dragging while a guarded move is pending. */
+  setDragsDisabled(disabled: boolean): void {
+    this._disabled = disabled;
+    this._sortable?.option('disabled', disabled);
   }
 
   /** Begins a drag: records the dragged column and watches for Escape. */

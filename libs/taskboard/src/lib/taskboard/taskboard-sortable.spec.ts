@@ -103,6 +103,12 @@ function cardsContainer(host: HTMLElement, columnId: string): HTMLElement {
   return container;
 }
 
+function columnRow(host: HTMLElement): HTMLElement {
+  const row = host.querySelector<HTMLElement>('.mlv-taskboard__column-row');
+  if (!row) throw new Error('Expected a rendered column header row.');
+  return row;
+}
+
 function sortableFor(element: HTMLElement): Sortable {
   const sortable = Sortable.get(element);
   if (!sortable) {
@@ -491,6 +497,42 @@ describe('MlvTaskboard SortableJS card adapter', () => {
       host.querySelector('mlv-taskboard')?.getAttribute('aria-busy'),
     ).toBeNull();
     expect(sortableFor(todoCards).options.disabled).toBe(false);
+  });
+
+  it('blocks column drags as well while a guarded move is pending', async () => {
+    const { fixture, host } = await createFixture();
+    let settle: ((accepted: boolean) => void) | undefined;
+    fixture.componentInstance.beforeMove.set(
+      () =>
+        new Promise<boolean>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const todoCards = cardsContainer(host, 'todo');
+    const doneCards = cardsContainer(host, 'done');
+    const card = cardElement(todoCards, 'a');
+
+    expect(sortableFor(columnRow(host)).options.disabled).toBe(false);
+
+    startDrag(todoCards, card);
+    hover(todoCards, card, doneCards, cardElement(doneCards, 'x'));
+    endDrag(todoCards, card, doneCards);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // A column drag during the pending guard would write `columns`, change the
+    // board snapshot, and make the settling move report `stale`.
+    expect(sortableFor(columnRow(host)).options.disabled).toBe(true);
+
+    settle?.(true);
+    await Promise.resolve();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(sortableFor(columnRow(host)).options.disabled).toBe(false);
   });
 
   it.each([

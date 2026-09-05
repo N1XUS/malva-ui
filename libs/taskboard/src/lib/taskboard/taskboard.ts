@@ -695,9 +695,16 @@ export class MlvTaskboard<TItem> {
     this._history.push({ before, after: this._boardCore() });
   }
 
-  /** @private Toggles the pending state and blocks drags while it is set. */
+  /**
+   * @private Toggles the pending state and blocks drags while it is set.
+   *
+   * Both adapters are disabled: a column drag while a card move is pending
+   * would write `columns`, change the board snapshot the guard captured, and
+   * make the settling move report `stale`.
+   */
   private _setMovePending(pending: boolean): void {
     this._movePending.set(pending);
     this._sortable.setDragsDisabled(pending);
+    this._columnSortable.setDragsDisabled(pending);
   }
 }
