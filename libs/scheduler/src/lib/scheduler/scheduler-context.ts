@@ -83,6 +83,8 @@ export interface MlvSchedulerContext<D = Date, TData = unknown> {
   readonly editable: Signal<boolean>;
   readonly selectable: Signal<boolean>;
   readonly showCurrentTime: Signal<boolean>;
+  /** `true` centres the current wall-clock minute on the time grid's initial scroll. */
+  readonly scrollToCurrentTime: Signal<boolean>;
   readonly dragGroup: Signal<string>;
   readonly eventDef: Signal<TemplateRef<
     MlvSchedulerEventContext<D, TData>

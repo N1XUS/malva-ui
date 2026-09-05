@@ -87,6 +87,8 @@ export function createSchedulerTestContext(
   const minMinutes = signal(options.minTime ?? 0);
   const maxMinutes = signal(options.maxTime ?? 1440);
   const slotDuration = signal(options.slotDuration ?? 30);
+  /** Writable so a spec can toggle the time grid's centred initial scroll on. */
+  const scrollToCurrentTime = signal(false);
   const snap = signal(options.snap ?? options.slotDuration ?? 30);
   /** Seeds the `*mlvSchedulerEventDef` template a chip renders instead of its default body. */
   const eventDef = signal<TemplateRef<MlvSchedulerEventContext> | null>(
@@ -137,6 +139,7 @@ export function createSchedulerTestContext(
     editable,
     selectable,
     showCurrentTime: computed(() => true),
+    scrollToCurrentTime,
     dragGroup: computed(() => 'mlv-scheduler'),
     eventDef,
     dragHintId: 'mlv-scheduler-hint-test',
@@ -214,6 +217,7 @@ export function createSchedulerTestContext(
     snap,
     minMinutes,
     maxMinutes,
+    scrollToCurrentTime,
     eventDef,
     announcements,
     commits,

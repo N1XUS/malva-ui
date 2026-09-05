@@ -102,6 +102,13 @@ class Host {
   readonly resizes: MlvSchedulerEventChange[] = [];
 }
 
+/** The bare attribute form of the boolean inputs: `<mlv-scheduler scrollToCurrentTime>`. */
+@Component({
+  imports: [MlvScheduler],
+  template: `<mlv-scheduler scrollToCurrentTime />`,
+})
+class AttributeHost {}
+
 describe('MlvScheduler (root)', () => {
   let fixture: ComponentFixture<Host>;
   let host: Host;
@@ -382,6 +389,17 @@ describe('MlvScheduler (root)', () => {
     expect(scheduler.minMinutes()).toBe(0);
     expect(scheduler.maxMinutes()).toBe(1440);
     expect(scheduler.snap()).toBe(30);
+  });
+
+  it('defaults scrollToCurrentTime to false and coerces the bare attribute', () => {
+    expect(scheduler.scrollToCurrentTime()).toBe(false);
+
+    const attr = TestBed.createComponent(AttributeHost);
+    attr.detectChanges();
+    const bare = attr.debugElement.query(By.directive(MlvScheduler))
+      .componentInstance as MlvScheduler;
+    expect(bare.scrollToCurrentTime()).toBe(true);
+    attr.destroy();
   });
 
   describe('hiddenDays', () => {

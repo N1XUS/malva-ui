@@ -11,7 +11,10 @@ import { MLV_DATE_LOCALE, MlvNativeDateAdapter } from '@malva-ui/core/date';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvScheduler } from '../scheduler/scheduler';
-import { scrollOffsetFor } from './scheduler-time-grid';
+import { MLV_SCHEDULER_CONTEXT } from '../scheduler/scheduler-context';
+import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
+import { createSchedulerTestContext } from '../testing/scheduler-test-context';
+import { MlvSchedulerTimeGrid, scrollOffsetFor } from './scheduler-time-grid';
 import type {
   MlvSchedulerEvent,
   MlvSchedulerRangeSelectEvent,
@@ -53,6 +56,7 @@ const m = (day: number, h = 0, min = 0) => new Date(2031, 2, day, h, min);
       [slotDuration]="slotDuration()"
       [businessHours]="businessHours()"
       [showCurrentTime]="showNow()"
+      [scrollToCurrentTime]="scrollToNow()"
       [selectable]="selectable()"
       (slotClick)="slotClicks.push($event)"
       (rangeSelect)="ranges.push($event)"
@@ -77,6 +81,7 @@ class Host {
     end: '17:00',
   });
   readonly showNow = signal(true);
+  readonly scrollToNow = signal(false);
   readonly selectable = signal(true);
   readonly slotClicks: MlvSchedulerSlotEvent[] = [];
   readonly ranges: MlvSchedulerRangeSelectEvent[] = [];
@@ -335,6 +340,31 @@ describe('MlvSchedulerTimeGrid', () => {
       configurable: true,
     });
     const viewport = query<HTMLElement>(root, '.mlv-scrollbar__viewport');
+    const scheduler = fixture.debugElement.children[0]
+      .componentInstance as MlvScheduler;
+    scheduler.scrollToTime('10:00');
+    fixture.detectChanges();
+    expect(viewport.scrollTop).toBe(800);
+  });
+
+  it('keeps scrollToTime top-aligned while scrollToCurrentTime is on', async () => {
+    // The centring is the INITIAL scroll only: an explicit `scrollToTime` still
+    // puts the named minute at the top, whatever the input says.
+    host.scrollToNow.set(true);
+    await fixture.whenStable();
+    const firstSlot = query<HTMLElement>(
+      root,
+      '.mlv-scheduler-time-grid__slot',
+    );
+    Object.defineProperty(firstSlot, 'offsetHeight', {
+      value: 40,
+      configurable: true,
+    });
+    const viewport = query<HTMLElement>(root, '.mlv-scrollbar__viewport');
+    Object.defineProperty(viewport, 'clientHeight', {
+      value: 400,
+      configurable: true,
+    });
     const scheduler = fixture.debugElement.children[0]
       .componentInstance as MlvScheduler;
     scheduler.scrollToTime('10:00');
@@ -871,6 +901,95 @@ describe('MlvSchedulerTimeGrid', () => {
       runOnly: { type: 'rule', values: AXE_RULES },
     });
     expect(results.violations).toEqual([]);
+  });
+});
+
+/**
+ * The initial scroll reads the wall clock, so these cases run against the fake
+ * context — its `nowMinutes` is pinned at 10:00 — rather than the real root.
+ */
+@Component({
+  imports: [MlvSchedulerTimeGrid],
+  template: `<mlv-scheduler-time-grid />`,
+})
+class ScrollHost {}
+
+describe('MlvSchedulerTimeGrid initial scroll', () => {
+  let fixture: ComponentFixture<ScrollHost>;
+  let ctx: ReturnType<typeof createSchedulerTestContext>;
+  let root: HTMLElement;
+  let viewport: HTMLElement;
+
+  /**
+   * jsdom lays nothing out: feed the effect a 40 px slot row (30 minutes) and a
+   * 400 px viewport. Re-run after a change that re-creates the first row.
+   */
+  const measure = () => {
+    Object.defineProperty(
+      query<HTMLElement>(root, '.mlv-scheduler-time-grid__slot'),
+      'offsetHeight',
+      { value: 40, configurable: true },
+    );
+    Object.defineProperty(viewport, 'clientHeight', {
+      value: 400,
+      configurable: true,
+    });
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ScrollHost],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: MLV_DATE_LOCALE, useValue: 'en-US' },
+        MlvSchedulerDragService,
+        {
+          provide: MLV_SCHEDULER_CONTEXT,
+          useFactory: () => (ctx = createSchedulerTestContext()).context,
+        },
+      ],
+    }).compileComponents();
+    // The grid registers its drop lists as it renders, so the engine must be
+    // bound to the fake context before the first pass — the root does this.
+    TestBed.inject(MlvSchedulerDragService).attach(
+      TestBed.inject(MLV_SCHEDULER_CONTEXT),
+    );
+    fixture = TestBed.createComponent(ScrollHost);
+    fixture.detectChanges();
+    root = fixture.nativeElement as HTMLElement;
+    viewport = query<HTMLElement>(root, '.mlv-scrollbar__viewport');
+  });
+
+  it('centres the current minute in the viewport when scrollToCurrentTime is on', async () => {
+    measure();
+    ctx.scrollToCurrentTime.set(true);
+    await fixture.whenStable();
+    // 10:00 is 800 px down at 40 px per 30-minute row; half the 400 px viewport
+    // is given back so the line sits in the middle instead of at the top.
+    expect(viewport.scrollTop).toBe(600);
+  });
+
+  it('falls back to the top-aligned default when now is outside the window', async () => {
+    // 10:00 sits above a 00:00–09:00 window. Asserted on the max side because
+    // it is the one that discriminates: with a minTime above 10:00 the clamped
+    // centre AND the clamped default both land on the first row (0).
+    ctx.maxMinutes.set(9 * 60);
+    await fixture.whenStable();
+    measure();
+    ctx.scrollToCurrentTime.set(true);
+    await fixture.whenStable();
+    // 08:00 top-aligned (640), not 09:00 centred (520).
+    expect(viewport.scrollTop).toBe(640);
+  });
+
+  it('re-centres on a week to day switch', async () => {
+    measure();
+    ctx.scrollToCurrentTime.set(true);
+    await fixture.whenStable();
+    viewport.scrollTop = 0;
+    ctx.view.set('day');
+    await fixture.whenStable();
+    expect(viewport.scrollTop).toBe(600);
   });
 });
 

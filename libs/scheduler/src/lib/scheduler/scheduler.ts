@@ -180,6 +180,16 @@ export class MlvScheduler<D = Date, TData = unknown>
   readonly showCurrentTime = input<boolean, BooleanInput>(true, {
     transform: coerceBooleanProperty,
   });
+  /**
+   * Centres the current wall-clock time in the time grid's viewport on the
+   * initial scroll, instead of top-aligning the business-hours start. Falls
+   * back to that default when the current time is outside `[minTime, maxTime)`.
+   * The target is the time of day, so a week without today still opens around
+   * now o'clock. `scrollToTime()` stays top-aligned; the month view ignores it.
+   */
+  readonly scrollToCurrentTime = input<boolean, BooleanInput>(false, {
+    transform: coerceBooleanProperty,
+  });
   /** `false` hides the built-in toolbar even without a header def. */
   readonly toolbar = input<boolean, BooleanInput>(true, {
     transform: coerceBooleanProperty,

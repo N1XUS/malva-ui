@@ -616,7 +616,17 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       this._ctx.view();
       this._ctx.minMinutes();
       this._ctx.slotDuration();
-      untracked(() => this._scrollTo(this._initialMinutes()));
+      const centre = this._ctx.scrollToCurrentTime();
+      untracked(() => {
+        // `nowMinutes` is read untracked on purpose: it ticks every minute, and
+        // depending on it would yank the viewport back to the now-line under a
+        // user who has scrolled away. Toggling the input still re-applies.
+        const now = this._ctx.nowMinutes();
+        const visible =
+          now >= this._ctx.minMinutes() && now < this._ctx.maxMinutes();
+        if (centre && visible) this._scrollTo(now, 'center');
+        else this._scrollTo(this._initialMinutes());
+      });
     });
 
     afterRenderEffect((onCleanup) => {
@@ -929,22 +939,46 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   }
 
   /**
-   * @private Scrolls the viewport so `minutes` sits at the top; nothing measurable → no-op.
+   * @private Puts `minutes` at the top of the viewport (`'start'`) or in the
+   * middle of it (`'center'`); nothing measurable → no-op.
    *
-   * The hour label is centred ON its line (`translate: 0 -50%`), so putting the
-   * line itself at the very top of the visible area clips the label's upper
-   * half behind the sticky header. Half a label height is scrolled back off,
-   * clamped at 0 by `scrollOffsetFor`.
+   * `'start'` snaps down to the slot that owns `minutes`, then scrolls half an
+   * hour-label height back off: the label is centred ON its line
+   * (`translate: 0 -50%`), so putting the line itself at the very top of the
+   * visible area clips the label's upper half behind the sticky header.
+   * `scrollOffsetFor` clamps the result at 0.
+   *
+   * `'center'` keeps the exact minute — the wall clock does not sit on a slot
+   * boundary — clamped into `[minMinutes, maxMinutes]`, and gives back half the
+   * viewport instead of the label headroom. No label correction: the target is
+   * nowhere near the sticky header. The far end is clamped by the browser.
    */
-  private _scrollTo(minutes: number): void {
+  private _scrollTo(
+    minutes: number,
+    align: 'start' | 'center' = 'start',
+  ): void {
     const slot = this._host.querySelector<HTMLElement>(
       '.mlv-scheduler-time-grid__slot',
     );
     if (!slot) return;
+    const viewport = this._scrollbar().viewportElement;
+    if (align === 'center') {
+      const target = Math.min(
+        this._ctx.maxMinutes(),
+        Math.max(this._ctx.minMinutes(), minutes),
+      );
+      viewport.scrollTop = scrollOffsetFor(
+        target,
+        this._ctx.minMinutes(),
+        this._ctx.slotDuration(),
+        slot.offsetHeight,
+        viewport.clientHeight / 2,
+      );
+      return;
+    }
     const label = this._host.querySelector<HTMLElement>(
       '.mlv-scheduler-time-grid__hour',
     );
-    const viewport = this._scrollbar().viewportElement;
     viewport.scrollTop = scrollOffsetFor(
       this._snapToSlot(minutes),
       this._ctx.minMinutes(),
