@@ -150,6 +150,17 @@ The button carries its own background, border reset and focus ring: without them
 
 1 item large (aspect ratio reserved from `width`/`height`), 2–4 in a 2-column grid, >4 collapses to four cells with a `+N` overlay. Skeleton per image until `load`. `video` renders poster + play badge + duration chip (no inline player); `gif` autoplays muted on a loop. `uploadProgress` dims the cell and overlays `mlv-progress`.
 
+**Muting a `<video>` takes both halves** (#136). Each `<video>` carries:
+
+- a **static `muted` attribute** in the template — serialises into the server payload, so an autoplaying `gif` cell cannot make noise between parse and hydration. It replaces a `[muted]="true"` property binding that could never serialise and logged one NG0303 per rendered `<video>` on every server render (`'muted' in element` is `false` on domino's `HTMLVideoElement` — the `indeterminate` defect class of #124);
+- **`MlvChatMutedVideo`** (`video[mlvChatMuted]`, `chat-media-grid/chat-muted-video.ts`, not exported from the barrel) — a constructor-only directive writing `nativeElement.muted = true`. That live property is what actually silences an element the browser created with `createElement` rather than the parser, and what Chrome's muted-autoplay allowance reads; without it the `gif` cell is an unmuted `autoplay` video the browser refuses to play. Not a template binding, so it never reaches the check that raises NG0303; on the server it writes a harmless expando and changes no markup.
+
+The second half is an **engine divergence in flight, not a spec invariant** — when every targeted engine has landed the change, delete the directive and keep the attribute. The current HTML Standard gives a media element a tristate `muted state` (`true`/`false`/`"default"`, initially `"default"`) and calls the element muted when its state is `"default"` **and** it has a `muted` content attribute, so under that text `createElement` + `setAttribute` already reports `muted === true`. Gecko implemented it in Firefox 153 (bugzilla 2037015); Chromium and jsdom 22 have not — measured in Chrome 152, `createElement` + `setAttribute` leaves `muted === false`, and a parsed `<video muted>` still reports `muted === true` after `removeAttribute('muted')`, which only the older one-time-transfer model produces.
+
+A **directive rather than an `afterRenderEffect` on the grid**: `mlv-chat` does not virtualise, so a long thread holds one live grid per message carrying media plus one per quoted reply, and one after-render sequence per grid would be walked on every `ApplicationRef.tick()` — the repeated-child-element cost `libs/core/CLAUDE.md` warns about. A constructor write costs nothing after creation and covers a cell that arrives on a later render for free, because that cell is a new element with its own directive instance.
+
+`playsinline` stays a plain static attribute: unlike `muted`, `HTMLVideoElement.playsInline` **is** a live reflection of its content attribute, so `setAttribute` after creation is enough, and a static attribute never reaches the property check that produces NG0303.
+
 ### Audio
 
 Native `HTMLAudioElement` created lazily through `MLV_CHAT_AUDIO_FACTORY` (overridable in tests). `MlvChatAudioService` is provided by `mlv-chat`, so only one audio message plays per chat; a standalone bubble injects it optionally and plays without coordination.
