@@ -45,7 +45,17 @@ export interface MlvTaskboardItemContext<TItem> {
 export interface MlvTaskboardDropTarget<TItem> {
   readonly column: MlvTaskboardColumn;
   readonly swimlane: MlvTaskboardSwimlane | undefined;
+  /**
+   * The moved card's final position among {@link items} — the target bucket's
+   * visible cards **with the moved card removed**. A same-bucket target spans
+   * `0..items.length - 1`; a cross-bucket target spans `0..items.length`.
+   */
   readonly index: number;
+  /**
+   * The target bucket's visible cards **with the moved card removed**, so it is
+   * exactly the list {@link index} counts: the card lands before `items[index]`,
+   * and `index === items.length` appends after the last one.
+   */
   readonly items: readonly TItem[];
   readonly wip: MlvTaskboardWipState;
 }

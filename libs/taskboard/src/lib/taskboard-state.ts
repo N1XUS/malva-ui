@@ -361,7 +361,9 @@ export function applyMlvTaskboardMove<TItem>(
     column: targetColumn,
     swimlane: targetLane,
     index: request.target.index,
-    items: targetItems,
+    // The same remaining list the drag session hands its policies, so a forged
+    // request and a session-authorised one describe the target identically.
+    items: remainingTargetItems,
     wip: index.wipFor(request.target.columnId, request.target.swimlaneId),
   };
   const sessionAuthorized = isMlvTaskboardMoveRequestAuthorized(request);

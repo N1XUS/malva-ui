@@ -200,4 +200,19 @@ describe('createMlvTaskboardDragSession target index ranges', () => {
     expect(session.canEnter({ columnId: 'done', index: 1 })).toBe(true);
     expect(session.canEnter({ columnId: 'done', index: 2 })).toBe(false);
   });
+  it('hands a same-bucket policy the cards its target index counts', () => {
+    const seen: string[] = [];
+    const canDrop: MlvTaskboardCanDropFn<Card> = (_card, target) => {
+      seen.push(
+        `${String(target.column.id)}:${target.index}:${target.items
+          .map((item) => item.id)
+          .join(',')}`,
+      );
+      return true;
+    };
+
+    createMlvTaskboardDragSession(flatBoard, 'a', canDrop);
+
+    expect(seen).toEqual(['todo:1:b,c', 'todo:2:b,c', 'done:0:x', 'done:1:x']);
+  });
 });

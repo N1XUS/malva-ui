@@ -108,17 +108,26 @@ export function createMlvTaskboardDragSession<TItem>(
         sameKey(column.id, source.columnId) &&
         sameKey(lane?.id, source.swimlaneId);
       // A target index counts the destination bucket's rendered cards with the
-      // dragged card removed, so the source bucket offers one slot fewer.
-      const slotCount = isSourceBucket
-        ? renderedItems.length - 1
-        : renderedItems.length;
-      for (let targetIndex = 0; targetIndex <= slotCount; targetIndex++) {
+      // dragged card removed, and `MlvTaskboardDropTarget.items` is that same
+      // remaining list — so the source bucket offers one slot fewer and every
+      // policy sees the cards the index it is handed actually counts.
+      const remainingItems = isSourceBucket
+        ? renderedItems.filter(
+            (candidate) =>
+              !sameKey(candidate[board.dataKey] as MlvTaskboardKey, itemId),
+          )
+        : renderedItems;
+      for (
+        let targetIndex = 0;
+        targetIndex <= remainingItems.length;
+        targetIndex++
+      ) {
         if (isSourceBucket && targetIndex === source.index) continue;
         const target: MlvTaskboardDropTarget<TItem> = {
           column,
           swimlane: lane,
           index: targetIndex,
-          items: renderedItems,
+          items: remainingItems,
           wip: index.wipFor(column.id, lane?.id),
         };
         const sourceColumn = index.columnById.get(source.columnId);
