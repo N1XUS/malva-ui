@@ -1,9 +1,12 @@
 // eslint-disable-next-line @nx/enforce-module-boundaries -- verifies the published package root contract.
+import { createMlvTaskboardIndex } from '@malva-ui/taskboard';
+// eslint-disable-next-line @nx/enforce-module-boundaries -- verifies the published package root contract.
 import type {
   MlvTaskboardCanDropFn,
   MlvTaskboardColumn,
   MlvTaskboardItemDefContext,
   MlvTaskboard,
+  MlvTaskboardState,
 } from '@malva-ui/taskboard';
 
 interface Ticket {
@@ -25,4 +28,12 @@ void canDrop;
 void todo;
 void itemContext;
 const taskboardType: MlvTaskboard<Ticket> | undefined = undefined;
+const taskboardState: MlvTaskboardState<Ticket> = {
+  items: [],
+  columns: [],
+  dataKey: 'id',
+  columnField: 'status',
+};
+const taskboardIndex = createMlvTaskboardIndex(taskboardState);
 void taskboardType;
+void taskboardIndex;

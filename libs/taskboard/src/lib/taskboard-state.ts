@@ -85,6 +85,9 @@ export interface MlvTaskboardIndex<TItem> {
 export function createMlvTaskboardIndex<TItem>(
   board: MlvTaskboard<TItem>,
 ): MlvTaskboardIndex<TItem> {
+  if ((board.swimlanes?.length ?? 0) > 0 && board.swimlaneField === undefined) {
+    throw new Error('Taskboard swimlanes require a swimlaneField.');
+  }
   validateUnique(board.columns, 'column');
   validateUnique(board.columnGroups ?? [], 'column group');
   validateUnique(board.swimlanes ?? [], 'swimlane');

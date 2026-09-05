@@ -36,7 +36,7 @@ import {
   type MlvTaskboardIndex,
 } from '../taskboard-state';
 import type {
-  MlvTaskboard as MlvTaskboardState,
+  MlvTaskboardState,
   MlvTaskboardCanDropFn,
   MlvTaskboardColumn,
   MlvTaskboardColumnGroup,
@@ -80,6 +80,7 @@ export interface MlvTaskboardAddRequest {
   host: {
     class: 'mlv-taskboard',
     role: 'grid',
+    'aria-label': 'Taskboard',
   },
 })
 export class MlvTaskboard<TItem> {
@@ -361,5 +362,11 @@ export class MlvTaskboard<TItem> {
   /** A string value safe for stable DOM data attributes. */
   protected _keyAttribute(key: MlvTaskboardKey): string {
     return String(key);
+  }
+
+  /** Number of column tracks occupied by a grouped header. */
+  protected _groupColumnSpan(group: MlvTaskboardColumnGroup): number {
+    return this.columns().filter((column) => column.groupId === group.id)
+      .length;
   }
 }

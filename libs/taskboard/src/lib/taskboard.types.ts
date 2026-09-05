@@ -66,7 +66,7 @@ export interface MlvTaskboardTransition {
  * with a new board snapshot and item identities. Requests for an older
  * snapshot are stale and must not be reused with the replacement board.
  */
-export interface MlvTaskboard<TItem> {
+export interface MlvTaskboardState<TItem> {
   readonly items: readonly TItem[];
   readonly columns: readonly MlvTaskboardColumn[];
   readonly columnGroups?: readonly MlvTaskboardColumnGroup[];
@@ -80,6 +80,9 @@ export interface MlvTaskboard<TItem> {
   readonly selectedIds?: ReadonlySet<MlvTaskboardKey>;
   readonly canDropFn?: MlvTaskboardCanDropFn<TItem>;
 }
+
+/** @internal Backward-compatible local name for pure taskboard helpers. */
+export type MlvTaskboard<TItem> = MlvTaskboardState<TItem>;
 
 export interface MlvTaskboardMoveRequest<TItem> {
   readonly board: MlvTaskboard<TItem>;

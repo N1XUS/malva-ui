@@ -48,12 +48,8 @@
     }
 
     &__surface {
-      display: grid;
-      grid-auto-flow: column;
-      grid-template-columns: repeat(
-        var(--mlv-taskboard-column-count),
-        minmax(var(--mlv-taskboard-column-width), 1fr)
-      );
+      display: flex;
+      flex-direction: column;
       gap: var(--mlv-taskboard-gap);
       overflow-x: auto;
       padding-inline: var(--mlv-taskboard-padding);
@@ -69,7 +65,6 @@
     }
 
     &__group {
-      grid-column: span 1;
       padding-inline: var(--mlv-taskboard-padding);
       padding-block: var(--mlv-spacing-1);
     }
@@ -80,8 +75,23 @@
       border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-normal);
     }
 
+    &__group-row,
+    &__column-row {
+      display: grid;
+      grid-template-columns: repeat(
+        var(--mlv-taskboard-column-count),
+        minmax(var(--mlv-taskboard-column-width), 1fr)
+      );
+      gap: var(--mlv-taskboard-gap);
+    }
+
     &__lane {
-      display: contents;
+      display: grid;
+      grid-template-columns: minmax(8rem, auto) repeat(
+          var(--mlv-taskboard-column-count),
+          minmax(var(--mlv-taskboard-column-width), 1fr)
+        );
+      gap: var(--mlv-taskboard-gap);
     }
 
     &__lane-header {

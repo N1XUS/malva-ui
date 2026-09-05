@@ -12,35 +12,45 @@
   role="rowgroup"
   [style.--mlv-taskboard-column-count]="columns().length"
 >
-  @for (group of columnGroups(); track group.id) {
-  <div
-    class="mlv-taskboard__group"
-    role="columnheader"
-    [attr.data-mlv-taskboard-group-id]="_keyAttribute(group.id)"
-    [attr.aria-label]="group.label"
-  >
-    @if (_groupDefs()[0]; as groupDef) {
-    <ng-container
-      [ngTemplateOutlet]="groupDef.templateRef"
-      [ngTemplateOutletContext]="_groupContext(group)"
-    />
-    } @else { {{ group.label }} }
+  @if (columnGroups().length > 0) {
+  <div class="mlv-taskboard__group-row" role="row">
+    @for (group of columnGroups(); track group.id) {
+    <div
+      class="mlv-taskboard__group"
+      role="columnheader"
+      [style.grid-column]="'span ' + _groupColumnSpan(group)"
+      [attr.aria-colspan]="_groupColumnSpan(group)"
+      [attr.data-mlv-taskboard-group-id]="_keyAttribute(group.id)"
+      [attr.aria-label]="group.label"
+    >
+      @if (_groupDefs()[0]; as groupDef) {
+      <ng-container
+        [ngTemplateOutlet]="groupDef.templateRef"
+        [ngTemplateOutletContext]="_groupContext(group)"
+      />
+      } @else { {{ group.label }} }
+    </div>
+    }
   </div>
-  } @for (column of columns(); track column.id) {
-  <div
-    class="mlv-taskboard__column-header"
-    role="columnheader"
-    [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
-    [attr.data-collapsed]="_isColumnCollapsed(column) || null"
-  >
-    @if (_columnHeaderDefs()[0]; as columnHeaderDef) {
-    <ng-container
-      [ngTemplateOutlet]="columnHeaderDef.templateRef"
-      [ngTemplateOutletContext]="_columnContext(column)"
-    />
-    } @else { {{ column.label }} ({{ _wipFor(column, undefined).count }}) }
+  }
+  <div class="mlv-taskboard__column-row" role="row">
+    @for (column of columns(); track column.id) {
+    <div
+      class="mlv-taskboard__column-header"
+      role="columnheader"
+      [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
+      [attr.data-collapsed]="_isColumnCollapsed(column) || null"
+    >
+      @if (_columnHeaderDefs()[0]; as columnHeaderDef) {
+      <ng-container
+        [ngTemplateOutlet]="columnHeaderDef.templateRef"
+        [ngTemplateOutletContext]="_columnContext(column)"
+      />
+      } @else { {{ column.label }} ({{ _wipFor(column, undefined).count }}) }
+    </div>
+    }
   </div>
-  } @for (swimlane of swimlanes(); track swimlane.id) {
+  @for (swimlane of swimlanes(); track swimlane.id) {
   <div
     class="mlv-taskboard__lane"
     role="row"
@@ -94,7 +104,18 @@
       [ngTemplateOutletContext]="_contentContext(column, swimlane)"
     />
     } @else { @for (item of _itemsFor(column, swimlane); track _itemId(item);
-    let cardIndex = $index) {
+    let cardIndex = $index) { @if (_itemDefs()[0]; as itemDef) {
+    <div
+      class="mlv-taskboard__card"
+      [attr.data-mlv-taskboard-card-id]="_keyAttribute(_itemId(item))"
+      [attr.aria-selected]="selection().has(_itemId(item))"
+    >
+      <ng-container
+        [ngTemplateOutlet]="itemDef.templateRef"
+        [ngTemplateOutletContext]="_itemContext(item, column, swimlane, cardIndex)"
+      />
+    </div>
+    } @else {
     <button
       type="button"
       class="mlv-taskboard__card"
@@ -103,14 +124,9 @@
       (click)="_activate(item, column, swimlane, cardIndex, $event)"
       (contextmenu)="_requestContextMenu(item, column, swimlane, cardIndex, $event)"
     >
-      @if (_itemDefs()[0]; as itemDef) {
-      <ng-container
-        [ngTemplateOutlet]="itemDef.templateRef"
-        [ngTemplateOutletContext]="_itemContext(item, column, swimlane, cardIndex)"
-      />
-      } @else { Task {{ _keyAttribute(_itemId(item)) }} }
+      Task {{ _keyAttribute(_itemId(item)) }}
     </button>
-    } @empty {
+    } } @empty {
     <ng-container
       [ngTemplateOutlet]="emptyTemplate"
       [ngTemplateOutletContext]="{ column, swimlane }"

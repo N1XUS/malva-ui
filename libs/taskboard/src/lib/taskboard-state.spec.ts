@@ -32,6 +32,16 @@ const board: MlvTaskboard<Ticket> = {
 };
 
 describe('createMlvTaskboardIndex', () => {
+  it('rejects swimlanes without a swimlane item field', () => {
+    expect(() =>
+      createMlvTaskboardIndex({
+        ...board,
+        swimlaneField: undefined,
+        swimlanes: [{ id: 'engineering', label: 'Engineering' }],
+      }),
+    ).toThrow('Taskboard swimlanes require a swimlaneField.');
+  });
+
   it('indexes canonical and visible items by their unique keys', () => {
     const index = createMlvTaskboardIndex(board);
 

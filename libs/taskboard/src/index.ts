@@ -13,6 +13,7 @@ export type {
   MlvTaskboardMoveRequest,
   MlvTaskboardMoveResult,
   MlvTaskboardSerialized,
+  MlvTaskboardState,
   MlvTaskboardSnapshot,
   MlvTaskboardSwimlane,
   MlvTaskboardTransition,
