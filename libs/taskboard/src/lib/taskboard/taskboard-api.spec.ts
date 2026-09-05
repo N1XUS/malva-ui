@@ -236,8 +236,10 @@ describe('MlvTaskboard public surface', () => {
     expect(live()).toBe('');
   });
 
-  it('restores a virtual cell scroll offset after the next render', async () => {
+  it('restores a plain cell scroll offset after the next render', async () => {
     const { fixture, host } = await mount();
+    // This board declares no `virtualItemSize`, so the cell restored here is
+    // the plain `.mlv-taskboard__cards` scroller, not a virtual viewport.
     const cell = host.querySelector('.mlv-taskboard__cards') as HTMLElement;
 
     fixture.componentInstance.board().restore({
