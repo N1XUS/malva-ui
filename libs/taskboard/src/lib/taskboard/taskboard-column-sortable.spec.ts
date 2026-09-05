@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import Sortable from 'sortablejs';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MLV_TASKBOARD_COLUMNS_REGISTRY } from './taskboard-column-sortable';
 import { MlvTaskboard } from './taskboard';
 import type {
@@ -31,12 +31,27 @@ const INITIAL_GROUPS: readonly MlvTaskboardColumnGroup[] = [
   { id: 'right', label: 'Right' },
 ];
 
+/** Inline spans of the three headers while reading order runs left to right. */
+const LTR_SPANS: Readonly<Record<string, readonly [number, number]>> = {
+  a: [0, 100],
+  b: [100, 200],
+  c: [200, 300],
+};
+
+/** The same three headers mirrored: `a` now sits at the physical right edge. */
+const RTL_SPANS: Readonly<Record<string, readonly [number, number]>> = {
+  a: [200, 300],
+  b: [100, 200],
+  c: [0, 100],
+};
+
 @Component({
   imports: [MlvTaskboard],
   template: `
     <mlv-taskboard
       [(items)]="items"
-      [(columns)]="columns"
+      [columns]="columns()"
+      (columnsChange)="onColumnsChange($event)"
       [columnGroups]="groups()"
       dataKey="id"
       columnField="status"
@@ -51,7 +66,14 @@ class ColumnHost {
   readonly canReorderColumnFn = signal<
     MlvTaskboardCanReorderColumnFn | undefined
   >(undefined);
+  /** How many times the board wrote a replacement column collection. */
+  readonly emissions = signal(0);
   readonly board = viewChild.required(MlvTaskboard<Ticket>);
+
+  onColumnsChange(next: readonly MlvTaskboardColumn[]): void {
+    this.emissions.update((count) => count + 1);
+    this.columns.set(next);
+  }
 }
 
 async function createFixture(): Promise<ComponentFixture<ColumnHost>> {
@@ -86,6 +108,44 @@ function sortableFor(element: HTMLElement): Sortable {
   return sortable;
 }
 
+/**
+ * Pins each header's inline span. jsdom lays nothing out and reports every
+ * rect as zero, so the adapter's midpoint comparison needs real numbers.
+ */
+function stubHeaderRects(
+  host: HTMLElement,
+  spans: Readonly<Record<string, readonly [number, number]>>,
+): void {
+  for (const [id, [left, right]] of Object.entries(spans)) {
+    const rect: DOMRect = {
+      x: left,
+      y: 0,
+      left,
+      right,
+      top: 0,
+      bottom: 40,
+      width: right - left,
+      height: 40,
+      toJSON: () => ({}),
+    };
+    vi.spyOn(columnHeader(host, id), 'getBoundingClientRect').mockReturnValue(
+      rect,
+    );
+  }
+}
+
+/** One hovered pointer position, plus the engine flags the row must ignore. */
+interface ColumnHover {
+  /** The pointer's physical `clientX`, the only input the slot comes from. */
+  readonly clientX: number;
+  /** Sends the coordinate as a `TouchEvent`-shaped payload instead. */
+  readonly touch?: boolean;
+  /** Deliberately contradicts the geometry; the header row must ignore it. */
+  readonly willInsertAfter?: boolean;
+  /** The header SortableJS names as `related`; also ignored by the row. */
+  readonly relatedId?: string;
+}
+
 function dragEvent(
   item: HTMLElement,
   container: HTMLElement,
@@ -110,7 +170,7 @@ function hoverEvent(
   dragged: HTMLElement,
   container: HTMLElement,
   related: HTMLElement,
-  willInsertAfter: boolean,
+  hover: ColumnHover,
 ): Sortable.MoveEvent {
   return {
     dragged,
@@ -119,24 +179,27 @@ function hoverEvent(
     related,
     relatedRect: related.getBoundingClientRect(),
     to: container,
-    willInsertAfter,
+    willInsertAfter: hover.willInsertAfter ?? false,
+    originalEvent: hover.touch
+      ? { touches: [{ clientX: hover.clientX }] }
+      : { clientX: hover.clientX },
     type: 'move',
   } as unknown as Sortable.MoveEvent;
 }
 
-/** Drags one column header over another and releases it there. */
-function dropColumnOn(
+/** Drags one column header to a pointer position and releases it there. */
+function dropColumnAt(
   host: HTMLElement,
   draggedId: string,
-  relatedId: string,
-  willInsertAfter = false,
+  hover: ColumnHover,
 ): boolean | -1 | 1 | void {
   const row = headerRow(host);
   const sortable = sortableFor(row);
   const dragged = columnHeader(host, draggedId);
+  const related = columnHeader(host, hover.relatedId ?? draggedId);
   sortable.options.onStart?.(dragEvent(dragged, row));
   const moveResult = sortable.options.onMove?.(
-    hoverEvent(dragged, row, columnHeader(host, relatedId), willInsertAfter),
+    hoverEvent(dragged, row, related, hover),
     new Event('pointermove'),
   );
   sortable.options.onEnd?.(dragEvent(dragged, row));
@@ -206,8 +269,9 @@ describe('MlvTaskboard SortableJS column adapter', () => {
   it('reorders the controlled columns without letting Sortable move the header', async () => {
     const fixture = await createFixture();
     const host = fixture.nativeElement as HTMLElement;
+    stubHeaderRects(host, LTR_SPANS);
 
-    expect(dropColumnOn(host, 'c', 'a')).toBe(false);
+    expect(dropColumnAt(host, 'c', { clientX: 30 })).toBe(false);
     fixture.detectChanges();
     await fixture.whenStable();
 
@@ -219,58 +283,203 @@ describe('MlvTaskboard SortableJS column adapter', () => {
     ).toEqual(['string:c', 'string:a', 'string:b']);
   });
 
-  it('keeps the physical insert side in LTR', async () => {
-    const fixture = await createFixture();
-    const host = fixture.nativeElement as HTMLElement;
+  describe('drop slots on the inline axis', () => {
+    it('counts the headers the pointer has passed in LTR', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      stubHeaderRects(host, LTR_SPANS);
 
-    // A pointer physically past `a` is the slot after it while reading order
-    // runs left to right.
-    dropColumnOn(host, 'c', 'a', true);
-    fixture.detectChanges();
-    await fixture.whenStable();
+      // Before `a`'s midpoint: the head of the row. `willInsertAfter` and
+      // `related` say the slot after `a`; the row ignores both.
+      dropColumnAt(host, 'c', {
+        clientX: 30,
+        relatedId: 'a',
+        willInsertAfter: true,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
 
-    expect(columnIds(fixture)).toEqual(['a', 'c', 'b']);
-  });
+      expect(columnIds(fixture)).toEqual(['c', 'a', 'b']);
+    });
 
-  it('mirrors the physical insert side under a global RTL flip', async () => {
-    const fixture = await createFixture();
-    const host = fixture.nativeElement as HTMLElement;
-    rtlService = TestBed.inject(MlvRtlService);
-    rtlService.setDirection('rtl');
-    fixture.detectChanges();
-    await fixture.whenStable();
+    it('counts a pointer past one midpoint as the second slot in LTR', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      stubHeaderRects(host, LTR_SPANS);
 
-    // `willInsertAfter` is physical: SortableJS compares `clientX` with the
-    // target's rect edges, so in RTL "after" is the slot before in DOM order.
-    dropColumnOn(host, 'c', 'a', true);
-    fixture.detectChanges();
-    await fixture.whenStable();
+      dropColumnAt(host, 'c', {
+        clientX: 150,
+        relatedId: 'a',
+        willInsertAfter: false,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
 
-    expect(columnIds(fixture)).toEqual(['c', 'a', 'b']);
-  });
+      expect(columnIds(fixture)).toEqual(['a', 'c', 'b']);
+    });
 
-  it('follows a [dir] scope on an ancestor while the document stays LTR', async () => {
-    const fixture = await createFixture();
-    const host = fixture.nativeElement as HTMLElement;
-    rtlService = TestBed.inject(MlvRtlService);
-    host.setAttribute('dir', 'rtl');
-    fixture.detectChanges();
-    await fixture.whenStable();
+    it('reads a touch payload the same way as a pointer one', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      stubHeaderRects(host, LTR_SPANS);
 
-    expect(rtlService.direction()).toBe('ltr');
+      dropColumnAt(host, 'c', {
+        clientX: 150,
+        touch: true,
+        relatedId: 'a',
+        willInsertAfter: false,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
 
-    dropColumnOn(host, 'c', 'a', true);
-    fixture.detectChanges();
-    await fixture.whenStable();
+      expect(columnIds(fixture)).toEqual(['a', 'c', 'b']);
+    });
 
-    expect(columnIds(fixture)).toEqual(['c', 'a', 'b']);
+    it('emits nothing while the pointer sits over the dragged header', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      stubHeaderRects(host, LTR_SPANS);
+      const before = fixture.componentInstance.columns();
+
+      dropColumnAt(host, 'c', {
+        clientX: 290,
+        relatedId: 'a',
+        willInsertAfter: true,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.columns()).toBe(before);
+      expect(fixture.componentInstance.emissions()).toBe(0);
+    });
+
+    it('emits nothing for free space past the end when the column is already last', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      stubHeaderRects(host, LTR_SPANS);
+      const before = fixture.componentInstance.columns();
+
+      dropColumnAt(host, 'c', {
+        clientX: 350,
+        relatedId: 'b',
+        willInsertAfter: false,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.columns()).toBe(before);
+      expect(fixture.componentInstance.emissions()).toBe(0);
+    });
+
+    it('sends a column to the tail from free space past the end in LTR', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      stubHeaderRects(host, LTR_SPANS);
+
+      dropColumnAt(host, 'a', {
+        clientX: 350,
+        relatedId: 'b',
+        willInsertAfter: false,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(columnIds(fixture)).toEqual(['b', 'c', 'a']);
+    });
+
+    it('counts from the inline-start edge under a global RTL flip', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      rtlService = TestBed.inject(MlvRtlService);
+      rtlService.setDirection('rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      stubHeaderRects(host, RTL_SPANS);
+
+      // 270 sits inside `a`, past its inline-start edge but before its
+      // midpoint, so the drop lands at the head of the row.
+      dropColumnAt(host, 'c', {
+        clientX: 270,
+        relatedId: 'a',
+        willInsertAfter: false,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(columnIds(fixture)).toEqual(['c', 'a', 'b']);
+    });
+
+    it('emits nothing at the inline-end of an RTL row for the last column', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      rtlService = TestBed.inject(MlvRtlService);
+      rtlService.setDirection('rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      stubHeaderRects(host, RTL_SPANS);
+      const before = fixture.componentInstance.columns();
+
+      dropColumnAt(host, 'c', {
+        clientX: 30,
+        relatedId: 'a',
+        willInsertAfter: false,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.columns()).toBe(before);
+      expect(fixture.componentInstance.emissions()).toBe(0);
+    });
+
+    it('sends a column to the tail past the inline-end in RTL', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      rtlService = TestBed.inject(MlvRtlService);
+      rtlService.setDirection('rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      stubHeaderRects(host, RTL_SPANS);
+
+      dropColumnAt(host, 'a', {
+        clientX: -50,
+        relatedId: 'b',
+        willInsertAfter: true,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(columnIds(fixture)).toEqual(['b', 'c', 'a']);
+    });
+
+    it('follows a [dir] scope on an ancestor while the document stays LTR', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      rtlService = TestBed.inject(MlvRtlService);
+      host.setAttribute('dir', 'rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      stubHeaderRects(host, RTL_SPANS);
+
+      expect(rtlService.direction()).toBe('ltr');
+
+      dropColumnAt(host, 'c', {
+        clientX: 270,
+        relatedId: 'a',
+        willInsertAfter: false,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(columnIds(fixture)).toEqual(['c', 'a', 'b']);
+    });
   });
 
   it('adopts the group of the new neighbours when a column crosses a run', async () => {
     const fixture = await createFixture();
     const host = fixture.nativeElement as HTMLElement;
+    stubHeaderRects(host, LTR_SPANS);
 
-    dropColumnOn(host, 'c', 'a');
+    dropColumnAt(host, 'c', { clientX: 30 });
     fixture.detectChanges();
     await fixture.whenStable();
 
@@ -292,8 +501,9 @@ describe('MlvTaskboard SortableJS column adapter', () => {
     await fixture.whenStable();
 
     const host = fixture.nativeElement as HTMLElement;
+    stubHeaderRects(host, LTR_SPANS);
     const before = fixture.componentInstance.columns();
-    dropColumnOn(host, 'c', 'a');
+    dropColumnAt(host, 'c', { clientX: 30 });
     fixture.detectChanges();
     await fixture.whenStable();
 
@@ -313,8 +523,9 @@ describe('MlvTaskboard SortableJS column adapter', () => {
     await fixture.whenStable();
 
     const host = fixture.nativeElement as HTMLElement;
+    stubHeaderRects(host, LTR_SPANS);
     const before = fixture.componentInstance.columns();
-    dropColumnOn(host, 'c', 'a');
+    dropColumnAt(host, 'c', { clientX: 30 });
     fixture.detectChanges();
     await fixture.whenStable();
 

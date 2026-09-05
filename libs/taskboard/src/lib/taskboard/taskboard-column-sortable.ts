@@ -22,12 +22,40 @@ import {
   captureMlvTaskboardDragResidue,
   mlvTaskboardChildrenOf,
   mlvTaskboardGroupName,
-  mlvTaskboardInsertionIndex,
   mlvTaskboardSortableBaseOptions,
   restoreMlvTaskboardDragResidue,
   sanitizeMlvTaskboardClone,
   type MlvTaskboardDragResidue,
 } from './taskboard-sortable-dom';
+
+/** The shapes a SortableJS move payload's `originalEvent` can arrive in. */
+interface MlvTaskboardPointerPayload {
+  readonly clientX?: unknown;
+  readonly touches?: ArrayLike<{ readonly clientX?: unknown }>;
+  readonly changedTouches?: ArrayLike<{ readonly clientX?: unknown }>;
+}
+
+/**
+ * The pointer's physical `clientX` for one move payload, or `null` when the
+ * engine reported no usable coordinate.
+ *
+ * SortableJS hands `onMove` the event that produced the hover as
+ * `originalEvent`: a synthesized `{ clientX, clientY, target }` object in
+ * fallback mode (which both taskboard adapters force), a `dragover` on the
+ * native path, and a `TouchEvent` on touch, where the coordinate lives on the
+ * first touch. The engine reads `(touch || evt).clientX` itself; this mirrors
+ * that, and treats anything else as "no answer" rather than guessing a slot.
+ */
+function mlvTaskboardPointerClientX(event: Sortable.MoveEvent): number | null {
+  const original = (event as { originalEvent?: unknown }).originalEvent;
+  if (original === null || typeof original !== 'object') return null;
+  const payload = original as MlvTaskboardPointerPayload;
+  const touch = payload.touches?.[0] ?? payload.changedTouches?.[0];
+  const clientX = touch === undefined ? payload.clientX : touch.clientX;
+  return typeof clientX === 'number' && Number.isFinite(clientX)
+    ? clientX
+    : null;
+}
 
 /** BEM class of a rendered column header, and the only draggable selector. */
 const COLUMN_HEADER_CLASS = 'mlv-taskboard__column-header';
@@ -68,6 +96,27 @@ export const MLV_TASKBOARD_COLUMNS_REGISTRY =
  * reorders the header row, and an accepted drop is expressed as one immutable
  * replacement column collection instead. The adapter is provided by
  * `MlvTaskboard` and is not part of the public barrel.
+ *
+ * Unlike the card adapter it ignores `related` / `willInsertAfter` entirely
+ * and derives the drop slot from the pointer's `clientX`. The header row is
+ * the one taskboard container on the **inline axis**, and that flag cannot be
+ * turned into a logical slot there:
+ *
+ * - Over a sibling header, `willInsertAfter` comes from `_getSwapDirection`'s
+ *   regular branch, which returns `_getInsertDirection(target)` —
+ *   `index(dragEl) < index(target)`, a **DOM-order** answer that is already
+ *   logical and must not be mirrored. (Its inverted branch is unreachable
+ *   here: it needs `targetMoveDistance`, which SortableJS assigns only after
+ *   an `onMove` that did not answer `false`.)
+ * - Over free space at either end, the flag comes from `_ghostIsLast` /
+ *   `_ghostIsFirst`, which compare raw screen coordinates with the first or
+ *   last child's edges — **physical**, and paired with a `related` that
+ *   changes with the branch, so its meaning is not a fixed offset either.
+ *
+ * Counting the remaining headers the pointer has passed answers all of those
+ * cases with one physical → logical conversion, at the boundary, and drops
+ * the incidental coupling to `targetMoveDistance`, which is module-global in
+ * SortableJS and therefore writable by any other consumer on the page.
  */
 @Injectable()
 export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
@@ -78,7 +127,8 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
   /**
    * @private The direction applying to the board, following any `[dir]` scope
    * above it. The header row is the one taskboard container laid out on the
-   * inline axis, so the physical insert side SortableJS reports mirrors here.
+   * inline axis, so the pointer's physical `clientX` becomes a logical slot
+   * only once this is known — see `_slotFor`.
    */
   private readonly _direction = inject(MlvRtlService).elementDirection(
     inject(ElementRef<HTMLElement>),
@@ -179,24 +229,20 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
   move(event: Sortable.MoveEvent): false {
     const host = this._host;
     const row = this._row;
-    if (!host || !row || this._fromIndex < 0 || event.to !== row) {
+    const clientX = mlvTaskboardPointerClientX(event);
+    if (
+      !host ||
+      !row ||
+      this._fromIndex < 0 ||
+      event.to !== row ||
+      clientX === null
+    ) {
       this._applyPreview(null);
       return false;
     }
     const headers = mlvTaskboardChildrenOf(row, COLUMN_HEADER_CLASS);
-    const domIndex = mlvTaskboardInsertionIndex(
-      event,
-      headers,
-      this._direction() === 'rtl',
-    );
-    const sourcePosition =
-      this._residue === null ? -1 : headers.indexOf(this._residue.item);
-    // Sortable reports a slot among the rendered headers, which still include
-    // the dragged header; a column index counts the order without it.
-    const toIndex =
-      sourcePosition >= 0 && domIndex > sourcePosition
-        ? domIndex - 1
-        : domIndex;
+    const dragged = this._residue?.item ?? event.dragged;
+    const toIndex = this._slotFor(headers, dragged, clientX);
     this._applyPreview(this._candidateOrder(host, this._fromIndex, toIndex));
     return false;
   }
@@ -222,6 +268,38 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
     this._row = null;
     this._sortable?.destroy();
     this._sortable = null;
+  }
+
+  /**
+   * @private The slot the pointer names among the header row's *remaining*
+   * columns — the count of rendered headers, the dragged one excluded, whose
+   * inline midpoint the pointer has already passed.
+   *
+   * That count is the target index directly: `_candidateOrder` splices the
+   * moved column out first, so it inserts into a list of exactly these
+   * headers. It answers a pointer over a sibling header, over free space at
+   * either end, and over the dragged column's own header (which yields the
+   * source index, and so no move) with one expression.
+   *
+   * `getBoundingClientRect()` is physical, so the comparison — and only the
+   * comparison — flips with the direction: "already passed" is a midpoint to
+   * the pointer's left in LTR and to its right in RTL. Rects are read fresh
+   * every move; autoscroll shifts them under a stationary pointer.
+   */
+  private _slotFor(
+    headers: readonly HTMLElement[],
+    dragged: HTMLElement,
+    clientX: number,
+  ): number {
+    const rtl = this._direction() === 'rtl';
+    let slot = 0;
+    for (const header of headers) {
+      if (header === dragged) continue;
+      const rect = header.getBoundingClientRect();
+      const middle = (rect.left + rect.right) / 2;
+      if (rtl ? middle > clientX : middle < clientX) slot++;
+    }
+    return slot;
   }
 
   /** @private Options for the single registered column header row. */

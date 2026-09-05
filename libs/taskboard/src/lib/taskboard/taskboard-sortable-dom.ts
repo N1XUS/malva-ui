@@ -167,7 +167,8 @@ export function mlvTaskboardChildrenOf(
 }
 
 /**
- * The slot among a container's draggable children the pointer hovers.
+ * The slot among a **block-axis** container's draggable children the pointer
+ * hovers, taken from SortableJS's own `related` / `willInsertAfter` answer.
  *
  * `related` is not always one of those children: SortableJS's insert-at-end
  * branch reports the container itself, with `willInsertAfter` set, whenever
@@ -175,21 +176,19 @@ export function mlvTaskboardChildrenOf(
  * live drop indicator is one). That payload means the tail slot, not the
  * first — an empty container collapses the two anyway.
  *
- * `mirrored` converts the physical answer to a logical one for a container
- * laid out on the inline axis. SortableJS decides `willInsertAfter` from raw
- * screen coordinates — `_ghostIsLast` compares `clientX` with the last child's
- * right edge, and the swap threshold compares it with the target's horizontal
- * middle — so under `dir="rtl"` "physically after" is the slot *before* in DOM
- * order. Block-axis containers are unaffected and never pass it.
+ * Only the card containers use this. They stack on the block axis, which never
+ * mirrors, so SortableJS's physically-derived answer *is* the logical slot in
+ * both directions. The column header row lays out on the inline axis and
+ * cannot use this at all — `willInsertAfter` mixes a DOM-order answer (the
+ * regular swap branch) with two physically-derived ones (`_ghostIsFirst` /
+ * `_ghostIsLast`), so no single mirroring recovers a logical slot from it.
+ * `MlvTaskboardColumnSortable` derives its slot from the pointer instead.
  */
 export function mlvTaskboardInsertionIndex(
   event: Sortable.MoveEvent,
   children: readonly HTMLElement[],
-  mirrored = false,
 ): number {
-  const insertAfter = mirrored
-    ? event.willInsertAfter !== true
-    : event.willInsertAfter === true;
+  const insertAfter = event.willInsertAfter === true;
   const related: HTMLElement | null = event.related ?? null;
   const position = related === null ? -1 : children.indexOf(related);
   if (position < 0) return insertAfter ? children.length : 0;

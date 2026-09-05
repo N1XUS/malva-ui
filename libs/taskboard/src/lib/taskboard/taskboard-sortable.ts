@@ -108,6 +108,12 @@ export const MLV_TASKBOARD_CARDS_REGISTRY =
  * so the rendered card list stays owned by Angular and every accepted drop is
  * expressed as a Task 2 move request instead. The adapter is provided by
  * `MlvTaskboard` and is not part of the public barrel.
+ *
+ * Card containers stack on the **block axis**, which never mirrors, so this
+ * adapter takes the hovered slot straight from SortableJS's `related` /
+ * `willInsertAfter` answer through `mlvTaskboardInsertionIndex` — the physical
+ * answer is the logical one in both directions. `MlvTaskboardColumnSortable`
+ * is on the inline axis and cannot; it derives its slot from the pointer.
  */
 @Injectable()
 export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
