@@ -1,9 +1,11 @@
 import { Component, signal, viewChild } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import Sortable from 'sortablejs';
 import { afterEach, describe, expect, it } from 'vitest';
+import { MLV_TASKBOARD_COLUMNS_REGISTRY } from './taskboard-column-sortable';
 import { MlvTaskboard } from './taskboard';
 import type {
   MlvTaskboardCanReorderColumnFn,
@@ -177,6 +179,26 @@ describe('MlvTaskboard SortableJS column adapter', () => {
       '[data-mlv-taskboard-column-locked="true"]',
     );
     expect(sortable.options.forceFallback).toBe(true);
+  });
+
+  it('registers a replacement header row and keeps it when the old one leaves', async () => {
+    const fixture = await createFixture();
+    const host = fixture.nativeElement as HTMLElement;
+    const registry = fixture.debugElement
+      .query(By.css('mlv-taskboard'))
+      .injector.get(MLV_TASKBOARD_COLUMNS_REGISTRY);
+    const first = headerRow(host);
+
+    // Angular can render a replacement row before the destroy hook of the one
+    // it replaces has run, so registration arrives before unregistration.
+    const replacement = document.createElement('div');
+    replacement.className = 'mlv-taskboard__column-row';
+    first.after(replacement);
+    registry.registerColumnRow(replacement);
+    registry.unregisterColumnRow(first);
+
+    expect(Sortable.get(replacement)).toBeTruthy();
+    expect(Sortable.get(first)).toBeNull();
   });
 
   it('reorders the controlled columns without letting Sortable move the header', async () => {

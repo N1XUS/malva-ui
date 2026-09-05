@@ -111,7 +111,11 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
 
   /** Creates the SortableJS instance for the rendered column header row. */
   registerColumnRow(element: HTMLElement): void {
-    if (this._sortable) return;
+    if (this._row === element && this._sortable) return;
+    // Angular can render a replacement row before the destroy hook of the row
+    // it replaces has run. Keeping the old instance would leave the live row
+    // unregistered, and that destroy would then take the only instance with it.
+    this._sortable?.destroy();
     this._row = element;
     this._sortable = Sortable.create(element, this._sortableOptions());
     this._sortable.option('disabled', this._disabled);
