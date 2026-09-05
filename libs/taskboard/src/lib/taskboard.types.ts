@@ -60,6 +60,12 @@ export interface MlvTaskboardTransition {
   readonly to: MlvTaskboardKey;
 }
 
+/**
+ * Immutable controlled board snapshot. Do not mutate a board in place after
+ * passing it to a drag session or move request; represent application updates
+ * with a new board snapshot and item identities. Requests for an older
+ * snapshot are stale and must not be reused with the replacement board.
+ */
 export interface MlvTaskboard<TItem> {
   readonly items: readonly TItem[];
   readonly columns: readonly MlvTaskboardColumn[];
