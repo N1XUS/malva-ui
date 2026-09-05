@@ -47,8 +47,9 @@ export interface MlvTaskboardDropTarget<TItem> {
   readonly swimlane: MlvTaskboardSwimlane | undefined;
   /**
    * The moved card's final position among {@link items} — the target bucket's
-   * visible cards **with the moved card removed**. A same-bucket target spans
-   * `0..items.length - 1`; a cross-bucket target spans `0..items.length`.
+   * visible cards **with the moved card removed**. Either way it spans
+   * `0..items.length`, minus the slot the card already occupies: a same-bucket
+   * move can still land last, but its own current slot is not a move.
    */
   readonly index: number;
   /**
