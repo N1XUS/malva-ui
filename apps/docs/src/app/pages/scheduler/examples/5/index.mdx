@@ -3,7 +3,7 @@
 `minTime` / `maxTime` clip the time axis; `slotDuration` sets the row height and the keyboard step;
 `snapDuration` (defaults to the slot) is the pointer snap for moves and resizes. `businessHours`
 shades the working range and the current-time line (`showCurrentTime`) follows the wall clock.
-`scrollToCurrentTime` opens the grid centred on the current time instead of on the business-hours
-start. `hiddenDays` removes weekdays from the month and week views — the day view still renders a
-hidden weekday it is pointed at, and only steps over it when navigating — and `firstDayOfWeek`
-rotates the week (`0` = Sunday).
+`scrollToCurrentTime` opens the grid centred on the current time when that time is inside the
+visible axis, and otherwise on the business-hours start. `hiddenDays` removes weekdays from the
+month and week views — the day view still renders a hidden weekday it is pointed at, and only
+steps over it when navigating — and `firstDayOfWeek` rotates the week (`0` = Sunday).
