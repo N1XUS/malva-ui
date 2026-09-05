@@ -450,6 +450,23 @@ export class MlvScheduler<D = Date, TData = unknown>
       );
       onCleanup(() => clearInterval(id));
     });
+
+    // The month-view no-op of `scrollToTime()`, decided when the view SETTLES
+    // rather than when the method is called. `view` is a `model()`, so a
+    // consumer bound with `[(view)]` who writes `view.set('week')` and then
+    // `scrollToTime('14:00')` in one tick has NOT pushed the new value into the
+    // input yet — testing `view()` inside the method would read `'month'` and
+    // silently drop the request that tick exists to make. A component `effect`
+    // runs during this scheduler's own change-detection pass, after the parent
+    // template has pushed the bound value, so by the time it reads `view()` the
+    // switch has landed: a same-tick switch to week / day keeps the request
+    // (the new time grid applies and consumes it), while one issued in a steady
+    // month view — or paired with a switch INTO the month — is cleared here,
+    // before any grid could replay it over its own initial scroll.
+    effect(() => {
+      if (this._scrollRequest() && this.view() === 'month')
+        this._scrollRequest.set(null);
+    });
   }
 
   // ─── Public methods ────────────────────────────────────────────────────
@@ -481,13 +498,14 @@ export class MlvScheduler<D = Date, TData = unknown>
   /**
    * Scrolls the time grid so `time` (`'HH:mm'`) sits at the top.
    *
-   * No-op in the month view: the call is dropped, not deferred. Recording it
-   * would leave a request standing for whichever time grid appears next, which
-   * would then open on a time asked for while another view was showing instead
-   * of on its documented initial scroll.
+   * No-op in the month view: the request is dropped, not deferred, once the
+   * month is the **settled** view — deferring it would leave a request standing
+   * for whichever time grid appears next, which would then open on a time asked
+   * for while another view was showing instead of on its documented initial
+   * scroll. The call itself always records the request, so a switch to week /
+   * day made in the same tick still wins (see the constructor's drop effect).
    */
   scrollToTime(time: string): void {
-    if (this.view() === 'month') return;
     this._scrollRequest.update((previous) => ({
       time,
       sequence: (previous?.sequence ?? 0) + 1,

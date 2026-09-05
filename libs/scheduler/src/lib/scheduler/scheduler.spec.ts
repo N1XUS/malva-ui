@@ -629,14 +629,21 @@ describe('MlvScheduler (root)', () => {
 
     afterEach(() => vi.restoreAllMocks());
 
-    it('drops the call in the month view instead of deferring it', async () => {
+    it('drops a request the settled view still shows the month for', async () => {
+      measureSlots();
       expect(scheduler.view()).toBe('month');
       scheduler.scrollToTime('14:00');
       await fixture.whenStable();
-      // Documented as a no-op there, so it must record nothing: a stored
-      // request would be replayed by the next time grid that appears, beating
-      // its initial scroll with a time asked for in another view.
+      // Recorded at call time, dropped once the view has settled on the month:
+      // a request left standing would be replayed by the next time grid that
+      // appears, beating its initial scroll with a time asked for in another
+      // view.
       expect(scheduler.scrollRequest()).toBeNull();
+      host.view.set('week');
+      await fixture.whenStable();
+      expect(query<HTMLElement>(el, '.mlv-scrollbar__viewport').scrollTop).toBe(
+        640, // the documented 08:00 initial scroll, not the dropped 14:00
+      );
     });
 
     it('wins over the initial scroll when issued in the same tick as the view switch', async () => {
@@ -652,6 +659,41 @@ describe('MlvScheduler (root)', () => {
       // Applied once and cleared, so a later week ↔ day switch re-runs the
       // documented initial scroll instead of landing back on 14:00.
       expect(scheduler.scrollRequest()).toBeNull();
+    });
+
+    it('wins when the same-tick switch comes through the [(view)] binding', async () => {
+      measureSlots();
+      // The binding, not `setView()`. A consumer's `view.set('week')` reaches
+      // the model input during the NEXT change detection, so at call time
+      // `view()` still reads `'month'` — deciding there would drop the request
+      // the consumer had just made. The decision belongs to the settled view.
+      host.view.set('week');
+      scheduler.scrollToTime('14:00');
+      await fixture.whenStable();
+      expect(query<HTMLElement>(el, '.mlv-scrollbar__viewport').scrollTop).toBe(
+        1120, // 14:00 top-aligned at 30 min rows, not 08:00 (640)
+      );
+      expect(scheduler.scrollRequest()).toBeNull();
+    });
+
+    it('drops a request paired with a same-tick switch into the month view', async () => {
+      measureSlots();
+      host.view.set('week');
+      await fixture.whenStable();
+      // Same tick, the other way round: the settled view is the month, so the
+      // request goes, even though `view()` still read `'week'` at call time.
+      host.view.set('month');
+      scheduler.scrollToTime('14:00');
+      await fixture.whenStable();
+      expect(scheduler.scrollRequest()).toBeNull();
+      // And nothing survives for the next grid: coming back to the week opens
+      // on the documented initial scroll, not on the 14:00 asked for on the
+      // way out.
+      host.view.set('week');
+      await fixture.whenStable();
+      expect(query<HTMLElement>(el, '.mlv-scrollbar__viewport').scrollTop).toBe(
+        640,
+      );
     });
   });
 
