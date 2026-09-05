@@ -9,6 +9,7 @@
     "build": {
       "executor": "@nx/angular:package",
       "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "dependsOn": ["^build", "template-typecheck"],
       "defaultConfiguration": "production",
       "options": {
         "project": "libs/taskboard/ng-package.json",
@@ -19,6 +20,21 @@
           "tsConfig": "libs/taskboard/tsconfig.lib.prod.json"
         },
         "development": {}
+      }
+    },
+    "template-typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production",
+        {
+          "externalDependencies": ["typescript", "@angular/compiler-cli"]
+        }
+      ],
+      "options": {
+        "cwd": "libs/taskboard",
+        "command": "../../node_modules/.bin/ngc -p tsconfig.template-typecheck.json"
       }
     },
     "lint": {
