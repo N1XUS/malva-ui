@@ -45,7 +45,14 @@ export type MlvSchedulerFocusRequest<D = Date> =
 /** A `scrollToTime()` call waiting for the time grid. */
 export interface MlvSchedulerScrollRequest {
   readonly time: string;
-  /** Monotonic, so two requests for the same time both apply. */
+  /**
+   * An identity for the `consumeScrollRequest()` handshake, not a clock. All
+   * it guarantees is that it differs from the request it replaces, so two
+   * calls for the same time both apply and a consume only clears the request
+   * it was issued for. Consumption resets the counter — the next request after
+   * one is cleared starts at `1` again — so never compare sequences across
+   * requests or read one as "newer".
+   */
   readonly sequence: number;
 }
 
@@ -96,7 +103,8 @@ export interface MlvSchedulerContext<D = Date, TData = unknown> {
   /**
    * Time grid → root: clears `scrollRequest` once that request has been
    * applied, so no time grid created later replays it. A no-op when the
-   * standing request is a newer one.
+   * standing request is a different one — a `scrollToTime()` issued between
+   * the scroll and this call, which is still waiting to be applied.
    */
   consumeScrollRequest(sequence: number): void;
   /** `true` while a SortableJS drag owns the pointer. */
