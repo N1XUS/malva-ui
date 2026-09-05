@@ -95,3 +95,45 @@ export interface MlvTaskboardMoveResult<TItem> {
   readonly source: MlvTaskboardLocation;
   readonly target: MlvTaskboardLocation;
 }
+
+/** Serializable UI state that applications can restore without card data. */
+export interface MlvTaskboardSnapshot {
+  readonly columnIds: readonly MlvTaskboardKey[];
+  readonly collapsedColumnIds: readonly MlvTaskboardKey[];
+  readonly collapsedSwimlaneIds: readonly MlvTaskboardKey[];
+  readonly selectedIds: readonly MlvTaskboardKey[];
+  readonly focusedId?: MlvTaskboardKey;
+  readonly cellScrollPositions: Readonly<Record<string, number>>;
+}
+
+/** An immutable board replacement that may be replayed by taskboard history. */
+export interface MlvTaskboardCommand<TItem> {
+  readonly before: MlvTaskboard<TItem>;
+  readonly after: MlvTaskboard<TItem>;
+}
+
+export interface MlvTaskboardHistory<TItem> {
+  current(): MlvTaskboard<TItem>;
+  push(command: MlvTaskboardCommand<TItem>): MlvTaskboardHistory<TItem>;
+  undo(): MlvTaskboard<TItem> | null;
+  redo(): MlvTaskboard<TItem> | null;
+  replace(board: MlvTaskboard<TItem>): MlvTaskboard<TItem>;
+}
+
+export interface MlvTaskboardCsvField<TItem> {
+  readonly field: MlvTaskboardField<TItem>;
+  readonly heading: string;
+}
+
+export interface MlvTaskboardSerialized<TItem> {
+  readonly items: readonly TItem[];
+  readonly columns: readonly MlvTaskboardColumn[];
+  readonly columnGroups?: readonly MlvTaskboardColumnGroup[];
+  readonly swimlanes?: readonly MlvTaskboardSwimlane[];
+  readonly snapshot: MlvTaskboardSnapshot;
+  readonly dataKey: MlvTaskboardField<TItem>;
+  readonly columnField: MlvTaskboardField<TItem>;
+  readonly swimlaneField?: MlvTaskboardField<TItem>;
+  readonly transitions?: readonly MlvTaskboardTransition[];
+  readonly lockedItemIds?: readonly MlvTaskboardKey[];
+}
