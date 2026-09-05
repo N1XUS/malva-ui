@@ -97,9 +97,8 @@
         <option value="" disabled [selected]="!hasValue()">
           {{ _resolvedPlaceholder() }}
         </option>
-        }
-        @for (group of _nativeOptionGroups(); track $index) {
-        @if (group.label) {
+        } @for (group of _nativeOptionGroups(); track $index) { @if
+        (group.label) {
         <optgroup [label]="group.label">
           @for (option of group.options; track option.key) {
           <option
@@ -111,8 +110,7 @@
           </option>
           }
         </optgroup>
-        } @else {
-        @for (option of group.options; track option.key) {
+        } @else { @for (option of group.options; track option.key) {
         <option
           [value]="option.key"
           [disabled]="option.disabled || false"
@@ -120,13 +118,9 @@
         >
           {{ option.label }}
         </option>
-        }
-        }
-        }
+        } } }
       </select>
-      }
-
-      @if (_showClear()) {
+      } @if (_showClear()) {
       <!-- DOM sibling of the role="combobox" trigger (a button nested inside it
            would trip nested-interactive); CSS overlays it just BEFORE the
            chevron. Tab order: trigger, then clear. -->
@@ -140,7 +134,8 @@
 
       <mlv-popup
         [(opened)]="isOpen"
-        [width]="triggerWidth()"
+        [minWidth]="_resolvedDropdownMinWidth()"
+        [maxWidth]="dropdownMaxWidth()"
         [hasShadow]="true"
         [flexibleDimensions]="true"
         [positions]="dropdownPositions"
