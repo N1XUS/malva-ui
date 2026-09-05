@@ -170,22 +170,6 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   private readonly _zone = inject(NgZone);
   /** @private No pointer drag on the server. */
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-  /**
-   * @private `sequence` of the `scrollToTime()` request already standing when
-   * this grid was constructed, i.e. one issued before this instance existed.
-   *
-   * The root never clears `scrollRequest`, and `scheduler.html` renders the
-   * month view from a different branch than week / day — so month → week
-   * builds a NEW time grid whose request effect would otherwise fire once on
-   * its own first render and beat the documented initial scroll with a time
-   * asked for long ago, possibly while the month view was showing, where
-   * `scrollToTime()` is documented as a no-op. Anything at or below this
-   * sequence is stale; the same instance still honours every new one.
-   */
-  private readonly _seenScrollSequence = untracked(
-    () => this._ctx.scrollRequest()?.sequence ?? 0,
-  );
-
   /** @internal Model events plus the drag preview ghost. */
   protected readonly _events = computed(() =>
     this._drag.withPreview(this._ctx.normalizedEvents()),
@@ -650,18 +634,25 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       });
     });
 
+    // A request is applied exactly once, by whichever grid is alive when it is
+    // issued, and then consumed. Consuming it is what keeps `scheduler.html`'s
+    // month branch honest: a `setView('week')` + `scrollToTime()` pair writes
+    // both signals before this instance exists, so the request MUST survive
+    // construction to be honoured — and must not still be standing afterwards,
+    // or the next grid to appear would replay it over its own initial scroll.
+    //
     // `_scrollTo` reads `minMinutes` / `slotDuration` to turn minutes into
-    // pixels, so tracking its body would subscribe this effect to the axis
-    // too — and because it is the LATER writer (see above), a request that is
-    // never cleared would then re-apply itself on top of the initial scroll
-    // every time the axis changed. It must fire for a new request only; a new
-    // `sequence` still re-runs it, since that is read outside `untracked`.
+    // pixels, so tracking its body would subscribe this effect to the axis too
+    // — and because it is the LATER writer (see above), the request would then
+    // re-apply itself on top of every axis change. Only the request itself is
+    // tracked; the write below re-runs this effect once more, on `null`.
     afterRenderEffect(() => {
       const request = this._ctx.scrollRequest();
-      // A request this instance was born with is stale — see
-      // `_seenScrollSequence`. Every later sequence is honoured as before.
-      if (!request || request.sequence <= this._seenScrollSequence) return;
-      untracked(() => this._scrollTo(parseTime(request.time)));
+      if (!request) return;
+      untracked(() => {
+        this._scrollTo(parseTime(request.time));
+        this._ctx.consumeScrollRequest(request.sequence);
+      });
     });
 
     afterRenderEffect((onCleanup) => {

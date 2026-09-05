@@ -1116,11 +1116,12 @@ describe('MlvSchedulerTimeGrid initial scroll', () => {
     await fixture.whenStable();
     expect(viewport.scrollTop).toBe(1120); // 14:00 top-aligned at 30 min rows
 
-    // `scrollRequest` is never cleared, and the request effect is registered
-    // after the initial-scroll one so that it wins a same-tick race. Widening
-    // the rows re-runs the initial scroll; the request must NOT come along for
-    // the ride, or every later `minTime` / `maxTime` / `slotDuration` change
-    // would land back on 14:00 instead of the documented initial offset.
+    // The request effect is registered after the initial-scroll one so that it
+    // wins a same-tick race. Widening the rows re-runs the initial scroll; the
+    // request must NOT come along for the ride, or every later `minTime` /
+    // `maxTime` / `slotDuration` change would land back on 14:00 instead of
+    // the documented initial offset. Two things keep it out: the request is
+    // consumed on apply, and the effect tracks nothing but the request itself.
     // (`slotDuration` rather than `minTime` only because the slot list is
     // keyed by minute: the first row survives a pitch change, so the height
     // this fixture measured onto it survives too.)
@@ -1142,13 +1143,15 @@ describe('MlvSchedulerTimeGrid initial scroll', () => {
     expect(viewport.scrollTop).toBe(560); // 14:00 at 60 min rows
   });
 
-  it('does not replay a scrollToTime issued before the grid was created', async () => {
+  it('applies a scrollToTime issued before the grid was created, then consumes it', async () => {
     // `scheduler.html` renders the month view from a different branch than
-    // week / day, so month → week builds a NEW time grid — and the root never
-    // clears `scrollRequest`. The fresh instance's own first render is the
-    // whole defect, so the rows have to measure from the moment they exist:
-    // `measure()` sizes an element that is already in the DOM, which is one
-    // render too late here.
+    // week / day, so `setView('week')` + `scrollToTime()` in ONE tick writes
+    // both signals before the week grid is constructed. The request is the
+    // whole point of that tick, so the grid that appears has to honour it —
+    // and then clear it, so no grid built later replays it. The fresh
+    // instance's own first render is the case, so the rows have to measure
+    // from the moment they exist: `measure()` sizes an element that is already
+    // in the DOM, which is one render too late here.
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(
       function (this: HTMLElement) {
         return this.classList.contains('mlv-scheduler-time-grid__slot')
@@ -1156,6 +1159,10 @@ describe('MlvSchedulerTimeGrid initial scroll', () => {
           : 0;
       },
     );
+    // The switch destroys the outgoing branch before the incoming one exists;
+    // two live grids sharing one context is not a state the app can reach, and
+    // the first would consume the request before the second ever saw it.
+    fixture.destroy();
     ctx.scrollRequest.set({ time: '14:00', sequence: 1 });
 
     const later = TestBed.createComponent(ScrollHost);
@@ -1165,16 +1172,17 @@ describe('MlvSchedulerTimeGrid initial scroll', () => {
       later.nativeElement as HTMLElement,
       '.mlv-scrollbar__viewport',
     );
-    // The documented initial scroll (08:00 top-aligned), not the 14:00 a
-    // consumer asked for before this grid existed — possibly while the month
-    // view was showing, where `scrollToTime()` is documented as a no-op.
-    expect(laterViewport.scrollTop).toBe(640);
-
-    // Only requests older than the instance are stale: a new sequence is a new
-    // request and still moves it.
-    ctx.scrollRequest.set({ time: '14:00', sequence: 2 });
-    await later.whenStable();
+    // The 14:00 the consumer asked for, not the documented initial scroll
+    // (08:00 top-aligned, 640).
     expect(laterViewport.scrollTop).toBe(1120);
+    // Consumed on apply: nothing is left for a later grid to replay.
+    expect(ctx.scrollRequest()).toBeNull();
+
+    // And a second request goes through the same cycle.
+    ctx.scrollRequest.set({ time: '09:00', sequence: 2 });
+    await later.whenStable();
+    expect(laterViewport.scrollTop).toBe(720); // 09:00 at 30 min rows
+    expect(ctx.scrollRequest()).toBeNull();
   });
 
   it('never reads the context clock, so it cannot cache a stale minute', async () => {

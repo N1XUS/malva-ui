@@ -479,10 +479,15 @@ export class MlvScheduler<D = Date, TData = unknown>
   }
 
   /**
-   * Scrolls the time grid so `time` (`'HH:mm'`) sits at the top. No-op in
-   * the month view.
+   * Scrolls the time grid so `time` (`'HH:mm'`) sits at the top.
+   *
+   * No-op in the month view: the call is dropped, not deferred. Recording it
+   * would leave a request standing for whichever time grid appears next, which
+   * would then open on a time asked for while another view was showing instead
+   * of on its documented initial scroll.
    */
   scrollToTime(time: string): void {
+    if (this.view() === 'month') return;
     this._scrollRequest.update((previous) => ({
       time,
       sequence: (previous?.sequence ?? 0) + 1,
@@ -667,6 +672,18 @@ export class MlvScheduler<D = Date, TData = unknown>
       performance.now() - this._suppressClickAt < 300;
     this._suppressClickAt = 0;
     return suppressed;
+  }
+
+  /**
+   * @internal Time grid → root: clears the request it has just applied.
+   *
+   * Guarded on `sequence` so a `scrollToTime()` issued between the scroll and
+   * this call survives: only the request that was actually applied is dropped.
+   */
+  consumeScrollRequest(sequence: number): void {
+    this._scrollRequest.update((current) =>
+      current && current.sequence === sequence ? null : current,
+    );
   }
 
   /** @internal Drag service → root: mirrors a running SortableJS drag onto `dragging`. */

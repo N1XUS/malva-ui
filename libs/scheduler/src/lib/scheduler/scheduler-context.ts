@@ -93,6 +93,12 @@ export interface MlvSchedulerContext<D = Date, TData = unknown> {
   readonly dragHintId: string;
   readonly pendingFocus: WritableSignal<MlvSchedulerFocusRequest<D> | null>;
   readonly scrollRequest: Signal<MlvSchedulerScrollRequest | null>;
+  /**
+   * Time grid → root: clears `scrollRequest` once that request has been
+   * applied, so no time grid created later replays it. A no-op when the
+   * standing request is a newer one.
+   */
+  consumeScrollRequest(sequence: number): void;
   /** `true` while a SortableJS drag owns the pointer. */
   readonly dragging: Signal<boolean>;
 

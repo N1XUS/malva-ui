@@ -614,6 +614,47 @@ describe('MlvScheduler (root)', () => {
     });
   });
 
+  describe('scrollToTime', () => {
+    // jsdom lays nothing out, so the time grid can only turn minutes into
+    // pixels if the slot rows report a height: 40 px per 30 minute row, every
+    // other box (the hour label's headroom included) zero.
+    const measureSlots = () =>
+      vi
+        .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+        .mockImplementation(function (this: HTMLElement) {
+          return this.classList.contains('mlv-scheduler-time-grid__slot')
+            ? 40
+            : 0;
+        });
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it('drops the call in the month view instead of deferring it', async () => {
+      expect(scheduler.view()).toBe('month');
+      scheduler.scrollToTime('14:00');
+      await fixture.whenStable();
+      // Documented as a no-op there, so it must record nothing: a stored
+      // request would be replayed by the next time grid that appears, beating
+      // its initial scroll with a time asked for in another view.
+      expect(scheduler.scrollRequest()).toBeNull();
+    });
+
+    it('wins over the initial scroll when issued in the same tick as the view switch', async () => {
+      measureSlots();
+      // `scheduler.html` renders the month view from another branch, so this
+      // pair writes both signals before the week grid exists.
+      scheduler.setView('week');
+      scheduler.scrollToTime('14:00');
+      await fixture.whenStable();
+      expect(query<HTMLElement>(el, '.mlv-scrollbar__viewport').scrollTop).toBe(
+        1120, // 14:00 top-aligned at 30 min rows, not 08:00 (640)
+      );
+      // Applied once and cleared, so a later week ↔ day switch re-runs the
+      // documented initial scroll instead of landing back on 14:00.
+      expect(scheduler.scrollRequest()).toBeNull();
+    });
+  });
+
   describe('direction and accessibility', () => {
     it.each(['month', 'week', 'day'] as const)(
       'passes axe in the %s view',
