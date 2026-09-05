@@ -376,6 +376,42 @@ describe('MlvTaskboard SortableJS card adapter', () => {
     expect(doneCards.getAttribute('data-mlv-taskboard-drop-state')).toBeNull();
   });
 
+  it('returns the dragged card to Angular and strips every Sortable residue', async () => {
+    const { fixture, host } = await createFixture();
+    const todoCards = cardsContainer(host, 'todo');
+    const doneCards = cardsContainer(host, 'done');
+    const card = cardElement(todoCards, 'a');
+    const sibling = card.nextElementSibling;
+    const beforeItems = fixture.componentInstance.items();
+
+    startDrag(todoCards, card);
+
+    // What a real drag leaves on the picked-up node: the engine's four state
+    // classes, the inline geometry it writes while the fallback follows the
+    // pointer, a `draggable` flag — and, if anything ever defeats the
+    // `onMove`-false guard, the node itself inside another container.
+    card.classList.add(
+      'mlv-taskboard__sortable-chosen',
+      'mlv-taskboard__sortable-drag',
+      'mlv-taskboard__sortable-ghost',
+      'mlv-taskboard__sortable-fallback',
+    );
+    card.setAttribute('style', 'transform: translate(10px, 20px);');
+    card.setAttribute('draggable', 'true');
+    doneCards.appendChild(card);
+
+    endDrag(todoCards, card, doneCards);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(card.parentElement).toBe(todoCards);
+    expect(card.nextElementSibling).toBe(sibling);
+    expect(card.className).toBe('mlv-taskboard__card');
+    expect(card.getAttribute('style')).toBeNull();
+    expect(card.getAttribute('draggable')).toBeNull();
+    expect(fixture.componentInstance.items()).toBe(beforeItems);
+  });
+
   it('emits nothing when the card is dropped back onto its own slot', async () => {
     const { fixture, host, recorded } = await createFixture();
     const todoCards = cardsContainer(host, 'todo');
