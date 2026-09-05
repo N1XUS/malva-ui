@@ -39,6 +39,11 @@ export interface MlvTaskboardI18n {
   moveRejected: string;
   /** Polite announcement for an abandoned move. ICU: `{label}`. */
   moveCancelled: string;
+  /**
+   * Polite announcement for a grab dropped back on the slot the card already
+   * occupied: nothing moved, and nothing was cancelled either. ICU: `{label}`.
+   */
+  releasedInPlace: string;
   /** Work-in-progress readout for a limited column. ICU: `{count}`, `{limit}`. */
   wipState: string;
   /** Polite announcement of the current selection size. ICU plural: `{count}`. */
@@ -142,6 +147,13 @@ export const MLV_TASKBOARD_I18N_CONTEXT: Record<
     usage: 'live-announcement',
     icuParams: ['label'],
     description: 'Announcement made when a started move is abandoned',
+  },
+  releasedInPlace: {
+    component: 'mlv-taskboard',
+    usage: 'live-announcement',
+    icuParams: ['label'],
+    description:
+      'Announcement made when a grabbed card is dropped back on the slot it already occupied',
   },
   wipState: {
     component: 'mlv-taskboard',

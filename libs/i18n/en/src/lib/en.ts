@@ -403,6 +403,7 @@ const en: MlvLanguage = {
     moved: 'Moved {label} to {column}, position {position}. {lane}',
     moveRejected: '{label} was not moved: {reason}.',
     moveCancelled: 'Cancelled moving {label}.',
+    releasedInPlace: '{label} was left in place.',
     wipState: '{count} of {limit}',
     selectionCount:
       '{count, plural, =0 {No cards selected} one {# card selected} other {# cards selected}}',
