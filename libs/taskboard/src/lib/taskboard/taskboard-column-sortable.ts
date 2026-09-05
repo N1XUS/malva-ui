@@ -20,6 +20,7 @@ import {
   MLV_TASKBOARD_DROP_STATE_ATTRIBUTE,
   captureMlvTaskboardDragResidue,
   mlvTaskboardChildrenOf,
+  mlvTaskboardGroupName,
   mlvTaskboardInsertionIndex,
   mlvTaskboardSortableBaseOptions,
   restoreMlvTaskboardDragResidue,
@@ -29,8 +30,8 @@ import {
 
 /** BEM class of a rendered column header, and the only draggable selector. */
 const COLUMN_HEADER_CLASS = 'mlv-taskboard__column-header';
-/** Private SortableJS group of the single column header row. */
-const COLUMNS_GROUP = 'mlv-taskboard-columns';
+/** Prefix of the per-board SortableJS group of the column header row. */
+const COLUMNS_GROUP_PREFIX = 'mlv-taskboard-columns';
 /** Locked columns never leave their absolute index, so they never drag. */
 const COLUMN_DRAG_FILTER = `[${MLV_TASKBOARD_COLUMN_LOCKED_ATTRIBUTE}="true"]`;
 
@@ -81,6 +82,8 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
   private readonly _direction = inject(MlvRtlService).elementDirection(
     inject(ElementRef<HTMLElement>),
   );
+  /** @private This board's own group, so a sibling board never accepts it. */
+  private readonly _group = mlvTaskboardGroupName(COLUMNS_GROUP_PREFIX);
   /** @private Board callbacks, connected once by the owning component. */
   private _host: MlvTaskboardColumnSortableHost | null = null;
   /** @private The registered header row element, `null` before first render. */
@@ -224,7 +227,7 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
   private _sortableOptions(): Sortable.Options {
     return {
       ...mlvTaskboardSortableBaseOptions(),
-      group: { name: COLUMNS_GROUP, pull: true, put: true },
+      group: { name: this._group, pull: true, put: true },
       draggable: `.${COLUMN_HEADER_CLASS}`,
       filter: COLUMN_DRAG_FILTER,
       onClone: (event) => sanitizeMlvTaskboardClone(event.clone),

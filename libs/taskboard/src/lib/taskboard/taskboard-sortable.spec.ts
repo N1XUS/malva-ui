@@ -64,6 +64,32 @@ class SortableHost {
   readonly board = viewChild.required(MlvTaskboard<Ticket>);
 }
 
+@Component({
+  imports: [MlvTaskboard],
+  template: `
+    <mlv-taskboard
+      [(items)]="firstItems"
+      [(columns)]="firstColumns"
+      dataKey="id"
+      columnField="status"
+    />
+    <mlv-taskboard
+      [(items)]="secondItems"
+      [(columns)]="secondColumns"
+      dataKey="id"
+      columnField="status"
+    />
+  `,
+})
+class TwoBoardHost {
+  readonly firstItems = signal<readonly Ticket[]>(INITIAL_ITEMS);
+  readonly secondItems = signal<readonly Ticket[]>(INITIAL_ITEMS);
+  readonly firstColumns =
+    signal<readonly MlvTaskboardColumn[]>(INITIAL_COLUMNS);
+  readonly secondColumns =
+    signal<readonly MlvTaskboardColumn[]>(INITIAL_COLUMNS);
+}
+
 interface Recorded {
   readonly moved: string[];
   readonly cancelled: MlvTaskboardMoveCancelReason[];
@@ -107,6 +133,21 @@ function columnRow(host: HTMLElement): HTMLElement {
   const row = host.querySelector<HTMLElement>('.mlv-taskboard__column-row');
   if (!row) throw new Error('Expected a rendered column header row.');
   return row;
+}
+
+/** The SortableJS group name a registered container was created with. */
+function groupNameOf(element: HTMLElement): string | undefined {
+  return (sortableFor(element).options.group as Sortable.GroupOptions).name;
+}
+
+/** The two `<mlv-taskboard>` elements of a two-board fixture, in order. */
+function boardElements(host: HTMLElement): [HTMLElement, HTMLElement] {
+  const boards = Array.from(
+    host.querySelectorAll<HTMLElement>('mlv-taskboard'),
+  );
+  const [first, second] = boards;
+  if (!first || !second) throw new Error('Expected two rendered taskboards.');
+  return [first, second];
 }
 
 function sortableFor(element: HTMLElement): Sortable {
@@ -249,13 +290,14 @@ describe('MlvTaskboard SortableJS card adapter', () => {
   it('registers one private group per rendered cards container with touch-safe fallback mechanics', async () => {
     const { host } = await createFixture();
     const todo = sortableFor(cardsContainer(host, 'todo'));
-    const done = sortableFor(cardsContainer(host, 'done'));
 
-    expect((todo.options.group as Sortable.GroupOptions).name).toBe(
-      'mlv-taskboard-cards',
+    // The suffix is per board instance (see the two-board spec below), so the
+    // assertion pins the private prefix and that one board shares one group.
+    expect(groupNameOf(cardsContainer(host, 'todo'))).toMatch(
+      /^mlv-taskboard-cards-\d+$/,
     );
-    expect((done.options.group as Sortable.GroupOptions).name).toBe(
-      'mlv-taskboard-cards',
+    expect(groupNameOf(cardsContainer(host, 'done'))).toBe(
+      groupNameOf(cardsContainer(host, 'todo')),
     );
     expect(todo.options.draggable).toBe('.mlv-taskboard__card');
     expect(todo.options.forceFallback).toBe(true);
@@ -270,6 +312,29 @@ describe('MlvTaskboard SortableJS card adapter', () => {
     expect(todo.options.fallbackClass).toBe('mlv-taskboard__sortable-fallback');
     expect(todo.options.filter).toContain('input');
     expect(todo.options.filter).toContain('[data-mlv-taskboard-no-drag]');
+  });
+
+  it('gives each board its own card group so two boards never accept each other', async () => {
+    await TestBed.configureTestingModule({
+      imports: [TwoBoardHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(TwoBoardHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const [first, second] = boardElements(fixture.nativeElement as HTMLElement);
+
+    // A shared group name would let a card dragged out of one board be put
+    // into the other, whose session knows nothing about it — the drop is
+    // rejected and the first board emits a spurious `invalid-drop`.
+    expect(groupNameOf(cardsContainer(first, 'todo'))).not.toBe(
+      groupNameOf(cardsContainer(second, 'todo')),
+    );
+    expect(groupNameOf(cardsContainer(second, 'todo'))).toBe(
+      groupNameOf(cardsContainer(second, 'done')),
+    );
+    expect(groupNameOf(columnRow(first))).not.toBe(
+      groupNameOf(columnRow(second)),
+    );
   });
 
   it('previews the hovered slot, clears the previous one, and never lets Sortable reorder Angular', async () => {

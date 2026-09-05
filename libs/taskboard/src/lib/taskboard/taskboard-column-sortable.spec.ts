@@ -171,8 +171,10 @@ describe('MlvTaskboard SortableJS column adapter', () => {
     const fixture = await createFixture();
     const sortable = sortableFor(headerRow(fixture.nativeElement));
 
-    expect((sortable.options.group as Sortable.GroupOptions).name).toBe(
-      'mlv-taskboard-columns',
+    // The suffix is per board instance, so two boards on one page never
+    // accept each other's header drags.
+    expect((sortable.options.group as Sortable.GroupOptions).name).toMatch(
+      /^mlv-taskboard-columns-\d+$/,
     );
     expect(sortable.options.draggable).toBe('.mlv-taskboard__column-header');
     expect(sortable.options.filter).toContain(

@@ -19,6 +19,7 @@ import {
   MLV_TASKBOARD_DROP_STATE_ATTRIBUTE,
   captureMlvTaskboardDragResidue,
   mlvTaskboardChildrenOf,
+  mlvTaskboardGroupName,
   mlvTaskboardInsertionIndex,
   mlvTaskboardSortableBaseOptions,
   restoreMlvTaskboardDragResidue,
@@ -28,8 +29,8 @@ import {
 
 /** BEM class of a rendered card element, and the only draggable selector. */
 const CARD_CLASS = 'mlv-taskboard__card';
-/** Private SortableJS group shared by every registered card container. */
-const CARDS_GROUP = 'mlv-taskboard-cards';
+/** Prefix of the per-board SortableJS group every card container joins. */
+const CARDS_GROUP_PREFIX = 'mlv-taskboard-cards';
 /**
  * Elements that must keep their own pointer semantics inside a card. The card
  * root itself is a `button` in the default rendering, so the interactive
@@ -116,6 +117,8 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
   private readonly _destroyRef = inject(DestroyRef);
   /** @private Live SortableJS instance per registered card container. */
   private readonly _instances = new Map<HTMLElement, Sortable>();
+  /** @private This board's own group, so a sibling board never accepts it. */
+  private readonly _group = mlvTaskboardGroupName(CARDS_GROUP_PREFIX);
   /** @private Board callbacks, connected once by the owning component. */
   private _host: MlvTaskboardSortableHost<TItem> | null = null;
   /** @private Cached authorisation for the drag currently in flight. */
@@ -302,7 +305,7 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
   private _sortableOptions(): Sortable.Options {
     return {
       ...mlvTaskboardSortableBaseOptions(),
-      group: { name: CARDS_GROUP, pull: true, put: true },
+      group: { name: this._group, pull: true, put: true },
       draggable: `.${CARD_CLASS}`,
       filter: DRAG_FILTER,
       onClone: (event) => sanitizeMlvTaskboardClone(event.clone),

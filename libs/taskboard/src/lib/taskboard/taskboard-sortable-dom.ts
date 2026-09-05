@@ -51,6 +51,22 @@ export function mlvTaskboardSortableBaseOptions(): Sortable.Options {
   };
 }
 
+/** Distinguishes the groups of every adapter instance created in one page. */
+let groupSequence = 0;
+
+/**
+ * A SortableJS group name private to one adapter instance.
+ *
+ * SortableJS matches containers by group name alone, so a name shared across
+ * boards would let each board `put` the other's dragged element: the receiving
+ * board has no drag session for it, the drop is refused, and the source board
+ * reports a spurious `invalid-drop` cancellation. One suffix per adapter keeps
+ * every board's containers connected only to each other.
+ */
+export function mlvTaskboardGroupName(prefix: string): string {
+  return `${prefix}-${++groupSequence}`;
+}
+
 /**
  * Removes a transient SortableJS clone from the accessibility tree and stops a
  * consumer entrance animation from owning the clone's `transform`.
