@@ -43,6 +43,7 @@ import { MLV_SIDEBAR_I18N } from './tokens/sidebar';
 import { MLV_SLIDER_I18N } from './tokens/slider';
 import { MLV_STEPPER_I18N } from './tokens/stepper';
 import { MLV_TABS_I18N } from './tokens/tabs';
+import { MLV_TASKBOARD_I18N } from './tokens/taskboard';
 import { MLV_TILE_I18N } from './tokens/tile';
 import { MLV_TIME_PICKER_I18N } from './tokens/time-picker';
 import { MLV_TOAST_I18N } from './tokens/toast';
@@ -222,6 +223,10 @@ export function provideMlvI18n(
     {
       provide: MLV_TABS_I18N,
       useFactory: () => inject(MlvI18nService).select('tabs'),
+    },
+    {
+      provide: MLV_TASKBOARD_I18N,
+      useFactory: () => inject(MlvI18nService).select('taskboard'),
     },
     {
       provide: MLV_TILE_I18N,

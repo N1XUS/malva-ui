@@ -37,6 +37,7 @@ export * from './lib/tokens/sidebar';
 export * from './lib/tokens/slider';
 export * from './lib/tokens/stepper';
 export * from './lib/tokens/tabs';
+export * from './lib/tokens/taskboard';
 export * from './lib/tokens/tile';
 export * from './lib/tokens/time-picker';
 export * from './lib/tokens/toast';
