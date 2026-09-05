@@ -4,6 +4,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import Sortable from 'sortablejs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MlvTaskboardDropIndicatorDef } from '../taskboard-defs';
 import { MlvTaskboard } from './taskboard';
 import type {
   MlvTaskboardBeforeMove,
@@ -89,6 +90,40 @@ class TwoBoardHost {
     signal<readonly MlvTaskboardColumn[]>(INITIAL_COLUMNS);
   readonly secondColumns =
     signal<readonly MlvTaskboardColumn[]>(INITIAL_COLUMNS);
+}
+
+@Component({
+  imports: [MlvTaskboard, MlvTaskboardDropIndicatorDef],
+  template: `
+    <mlv-taskboard
+      [(items)]="items"
+      [(columns)]="columns"
+      dataKey="id"
+      columnField="status"
+    >
+      <ng-template
+        mlvTaskboardDropIndicatorDef
+        [mlvTaskboardDropIndicatorDefFrom]="probe"
+        let-target="target"
+      >
+        <div
+          class="probe"
+          [attr.data-index]="target.index"
+          [attr.data-items]="join(target.items)"
+        ></div>
+      </ng-template>
+    </mlv-taskboard>
+  `,
+})
+class IndicatorHost {
+  readonly items = signal<readonly Ticket[]>(INITIAL_ITEMS);
+  readonly columns = signal<readonly MlvTaskboardColumn[]>(INITIAL_COLUMNS);
+  /** Carries the item type into the template context; never read as data. */
+  readonly probe: Ticket | undefined = undefined;
+
+  join(items: readonly Ticket[]): string {
+    return items.map((item) => item.id).join(',');
+  }
 }
 
 interface Recorded {
@@ -388,6 +423,29 @@ describe('MlvTaskboard SortableJS card adapter', () => {
       'mlv-taskboard__card',
       'mlv-taskboard__drop-indicator',
     ]);
+  });
+
+  it('hands a custom drop indicator the remaining cards its index counts', async () => {
+    await TestBed.configureTestingModule({
+      imports: [IndicatorHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(IndicatorHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+    const todoCards = cardsContainer(host, 'todo');
+    const card = cardElement(todoCards, 'a');
+
+    // Dragging inside its own bucket: the slot after `b` is index 1 of the
+    // list with `a` removed, so the template must be handed that same list.
+    startDrag(todoCards, card);
+    hover(todoCards, card, todoCards, cardElement(todoCards, 'b'), true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const probe = todoCards.querySelector<HTMLElement>('.probe');
+    expect(probe?.getAttribute('data-index')).toBe('1');
+    expect(probe?.getAttribute('data-items')).toBe('b');
   });
 
   it('resolves the end-of-list payload to the tail slot, not the first one', async () => {

@@ -476,20 +476,34 @@ export class MlvTaskboard<TItem> {
     };
   }
 
-  /** Context for a custom drop-indicator slot. */
+  /**
+   * Context for a custom drop-indicator slot.
+   *
+   * `target.index` counts the cell's cards with the dragged one removed, so
+   * `target.items` is that same remaining list — `items[index]` is the card
+   * the indicator sits before, and `index === items.length` is the tail.
+   */
   protected _dropIndicatorContext(
     column: MlvTaskboardColumn,
     swimlane: MlvTaskboardSwimlane | undefined,
   ): MlvTaskboardDropIndicatorDefContext<TItem> {
     const valid = this._dropAllowed();
+    const preview = this._dropPreview();
+    const rendered = this._itemsFor(column, swimlane);
+    const items =
+      preview === null
+        ? rendered
+        : rendered.filter(
+            (item) => !sameMlvTaskboardKey(this._itemId(item), preview.itemId),
+          );
     return {
       $implicit: valid,
       valid,
       target: {
         column,
         swimlane,
-        index: this._dropPreview()?.index ?? 0,
-        items: this._itemsFor(column, swimlane),
+        index: preview?.index ?? 0,
+        items,
         wip: this._wipFor(column, swimlane),
       },
     };

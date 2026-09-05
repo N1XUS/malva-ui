@@ -89,6 +89,12 @@ export interface MlvTaskboardEmptyStateDefContext {
 export interface MlvTaskboardDropIndicatorDefContext<TItem = unknown> {
   readonly $implicit: boolean;
   readonly valid: boolean;
+  /**
+   * The previewed slot. `target.items` holds the cell's cards **with the
+   * dragged card removed**, which is the list `target.index` counts: the
+   * indicator sits before `items[index]`, and `index === items.length` is the
+   * slot after the last card.
+   */
   readonly target: MlvTaskboardDropTarget<TItem>;
 }
 
