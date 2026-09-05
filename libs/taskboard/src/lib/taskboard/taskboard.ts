@@ -335,6 +335,41 @@ export class MlvTaskboard<TItem> {
     },
   );
 
+  /**
+   * @protected Text the polite live region currently carries. It is replaced,
+   * never appended to, so a screen reader reads only the latest board event.
+   */
+  protected readonly _announcement = signal('');
+
+  /**
+   * @private The card a shift-click ranges from: the last card selected by a
+   * plain or modifier click. A shift-click never moves it, so a run of
+   * shift-clicks keeps growing and shrinking the same range.
+   */
+  private readonly _selectionAnchor = signal<MlvTaskboardKey | null>(null);
+
+  /**
+   * @private Every rendered card key in board reading order — swimlane
+   * row-major, then column order, then card index inside the cell. This is the
+   * order a shift-click ranges over, so the range a user sees selected is
+   * exactly the run of cards between the anchor and the clicked card.
+   */
+  private readonly _renderedOrder = computed<readonly MlvTaskboardKey[]>(() => {
+    const index = this._index();
+    const lanes = this.swimlanes();
+    const rows: readonly (MlvTaskboardKey | undefined)[] =
+      lanes.length === 0 ? [undefined] : lanes.map((lane) => lane.id);
+    const order: MlvTaskboardKey[] = [];
+    for (const swimlaneId of rows) {
+      for (const column of this.columns()) {
+        for (const item of index.itemsFor(column.id, swimlaneId)) {
+          order.push(this._itemId(item));
+        }
+      }
+    }
+    return order;
+  });
+
   /** @protected Localized board copy; template-facing, so it has no prefix. */
   protected readonly _i18n = inject(MLV_TASKBOARD_I18N);
 
@@ -603,6 +638,7 @@ export class MlvTaskboard<TItem> {
     index: number,
     nativeEvent: MouseEvent,
   ): void {
+    this._selectFromPointer(this._itemId(item), nativeEvent);
     this.cardActivated.emit({
       item,
       location: this._itemContext(item, column, swimlane, index).location,
@@ -626,6 +662,81 @@ export class MlvTaskboard<TItem> {
       selectedIds: this.selection(),
       nativeEvent,
     });
+  }
+
+  /**
+   * @private Applies the selection gesture a card click carries.
+   *
+   * A plain click replaces the selection, `Ctrl`/`Cmd` toggles the clicked
+   * card, and `Shift` selects the inclusive run between the anchor and the
+   * clicked card in rendered board order. A shift-click with no anchor — or
+   * one whose anchor is no longer rendered — has no run to describe, so it
+   * falls back to a plain replacement.
+   */
+  private _selectFromPointer(id: MlvTaskboardKey, event: MouseEvent): void {
+    if (event.shiftKey) {
+      const range = this._selectionRange(id);
+      if (range !== null) {
+        this._setSelection(range);
+        return;
+      }
+    }
+    if (event.ctrlKey || event.metaKey) {
+      const next = new Set(this.selection());
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      this._selectionAnchor.set(id);
+      this._setSelection(next);
+      return;
+    }
+    this._selectionAnchor.set(id);
+    this._setSelection(new Set([id]));
+  }
+
+  /**
+   * @private The inclusive run of rendered keys between the anchor and `id`,
+   * or `null` when either end is not currently rendered.
+   */
+  private _selectionRange(
+    id: MlvTaskboardKey,
+  ): ReadonlySet<MlvTaskboardKey> | null {
+    const anchor = this._selectionAnchor();
+    if (anchor === null) return null;
+    const order = this._renderedOrder();
+    const from = order.findIndex((key) => sameMlvTaskboardKey(key, anchor));
+    const to = order.findIndex((key) => sameMlvTaskboardKey(key, id));
+    if (from === -1 || to === -1) return null;
+    const start = Math.min(from, to);
+    const end = Math.max(from, to);
+    return new Set(order.slice(start, end + 1));
+  }
+
+  /**
+   * @private Writes the selection model when the set really changed.
+   *
+   * The board owns no selection state of its own, so an unchanged set must not
+   * reach `selection.set` — a controlled application would otherwise see a
+   * `selectionChange` per click on an already-selected card. Keys the
+   * `visibleItems` filter hides are never removed here: only an explicit
+   * gesture changes the selection, so a filtered-away card stays selected.
+   */
+  private _setSelection(next: ReadonlySet<MlvTaskboardKey>): void {
+    const current = this.selection();
+    if (
+      current.size === next.size &&
+      [...next].every((key) => current.has(key))
+    )
+      return;
+    this.selection.set(next);
+    this._announce('selectionCount', { count: next.size });
+  }
+
+  /** @private Replaces the polite live-region text with one localized event. */
+  private _announce(
+    key: keyof MlvTaskboardI18n,
+    params?: Record<string, string | number>,
+  ): void {
+    this._announcement.set(this._translate(key, params));
   }
 
   /**

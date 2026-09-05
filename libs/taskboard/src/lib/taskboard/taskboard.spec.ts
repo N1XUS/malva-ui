@@ -234,6 +234,108 @@ describe('MlvTaskboard', () => {
     expect(board.getAttribute('dir')).toBe('rtl');
     expect(board.querySelector('[role="gridcell"]')).toBeTruthy();
   });
+  describe('selection', () => {
+    async function mountSelection() {
+      await TestBed.configureTestingModule({
+        imports: [SelectionHost],
+        providers: [provideTaskboardTesting()],
+      }).compileComponents();
+      const fixture = TestBed.createComponent(SelectionHost);
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      const click = (id: string, modifiers: MouseEventInit = {}) => {
+        const card = host.querySelector(
+          `[data-mlv-taskboard-card-id="string:${id}"]`,
+        ) as HTMLElement;
+        card.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, ...modifiers }),
+        );
+        fixture.detectChanges();
+      };
+      const selected = () => [...fixture.componentInstance.board().selection()];
+      return { fixture, host, click, selected };
+    }
+
+    it('replaces the selection on a plain click', async () => {
+      const { click, selected } = await mountSelection();
+
+      click('b');
+      expect(selected()).toEqual(['b']);
+
+      click('d');
+      expect(selected()).toEqual(['d']);
+    });
+
+    it('toggles one card on a modifier click', async () => {
+      const { click, selected } = await mountSelection();
+
+      click('b');
+      click('d', { ctrlKey: true });
+      expect(selected()).toEqual(['b', 'd']);
+
+      click('d', { metaKey: true });
+      expect(selected()).toEqual(['b']);
+    });
+
+    it('selects an inclusive range in rendered board order on a shift click', async () => {
+      const { click, selected } = await mountSelection();
+
+      click('b');
+      click('d', { shiftKey: true });
+
+      // Rendered order is lane row-major, then column order, then card index:
+      // eng/todo a, eng/doing b, eng/done c, design/todo d, design/doing e.
+      expect(selected()).toEqual(['b', 'c', 'd']);
+    });
+
+    it('keeps a selected key the visible-item filter hides', async () => {
+      const { fixture, click, selected } = await mountSelection();
+
+      click('c');
+      fixture.componentInstance.visibleItems.set(
+        fixture.componentInstance.items.filter((item) => item.id !== 'c'),
+      );
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(selected()).toEqual(['c']);
+      expect(
+        fixture.nativeElement.querySelector(
+          '[data-mlv-taskboard-card-id="string:c"]',
+        ),
+      ).toBeNull();
+    });
+
+    it('emits selectionChange only when the selected set really changes', async () => {
+      const { fixture, click } = await mountSelection();
+
+      click('b');
+      click('b');
+      click('b', { ctrlKey: true });
+
+      expect(fixture.componentInstance.emissions).toEqual([['b'], []]);
+    });
+
+    it('marks the selected card in the DOM and announces the selection size', async () => {
+      const { host, click } = await mountSelection();
+
+      click('b');
+      const card = host.querySelector(
+        '[data-mlv-taskboard-card-id="string:b"]',
+      ) as HTMLElement;
+      expect(card.getAttribute('data-mlv-taskboard-selected')).toBe('true');
+      expect(card.getAttribute('aria-selected')).toBe('true');
+      expect(
+        host.querySelector('.mlv-taskboard__live-region')?.textContent?.trim(),
+      ).toBe('1 card selected');
+
+      click('d', { shiftKey: true });
+      expect(
+        host.querySelector('.mlv-taskboard__live-region')?.textContent?.trim(),
+      ).toBe('3 cards selected');
+    });
+  });
+
   it('renders every built-in board string through the taskboard i18n token', async () => {
     await TestBed.configureTestingModule({
       imports: [LocalizedHost],
@@ -332,4 +434,47 @@ class LocalizedHost {
     { id: 'todo', label: 'Todo', wipLimit: 2 },
     { id: 'done', label: 'Done' },
   ];
+}
+
+@Component({
+  imports: [MlvTaskboard],
+  template: `<mlv-taskboard
+    [items]="items"
+    [columns]="columns"
+    [swimlanes]="lanes"
+    [visibleItems]="visibleItems()"
+    dataKey="id"
+    columnField="status"
+    swimlaneField="lane"
+    (selectionChange)="record($event)"
+  />`,
+})
+class SelectionHost {
+  readonly columns = [
+    { id: 'todo', label: 'Todo' },
+    { id: 'doing', label: 'Doing' },
+    { id: 'done', label: 'Done' },
+  ];
+  readonly lanes = [
+    { id: 'eng', label: 'Engineering' },
+    { id: 'design', label: 'Design' },
+  ];
+  readonly items = [
+    { id: 'a', status: 'todo', lane: 'eng' },
+    { id: 'b', status: 'doing', lane: 'eng' },
+    { id: 'c', status: 'done', lane: 'eng' },
+    { id: 'd', status: 'todo', lane: 'design' },
+    { id: 'e', status: 'doing', lane: 'design' },
+  ];
+  readonly visibleItems = signal<
+    readonly { id: string; status: string; lane: string }[] | undefined
+  >(undefined);
+  readonly emissions: string[][] = [];
+  readonly board = viewChild.required(
+    MlvTaskboard<{ id: string; status: string; lane: string }>,
+  );
+
+  record(next: ReadonlySet<string>): void {
+    this.emissions.push([...next]);
+  }
 }

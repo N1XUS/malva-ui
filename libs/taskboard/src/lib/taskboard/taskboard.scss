@@ -213,6 +213,14 @@
       text-align: start;
     }
 
+    // Persistent selection, so it takes the selected token pair rather than
+    // an `-active` fill, which means "the pointer is down right now".
+    &__card[data-mlv-taskboard-selected] {
+      border-color: var(--mlv-border-focus);
+      background-color: var(--mlv-background-selected);
+      color: var(--mlv-text-on-selected);
+    }
+
     &__card:focus-visible,
     &__add:focus-visible {
       outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
