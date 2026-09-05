@@ -2,6 +2,7 @@
 import type {
   MlvTaskboardCanDropFn,
   MlvTaskboardColumn,
+  MlvTaskboardItemDefContext,
 } from '@malva-ui/taskboard';
 
 interface Ticket {
@@ -10,5 +11,15 @@ interface Ticket {
 }
 const canDrop: MlvTaskboardCanDropFn<Ticket> = () => true;
 const todo: MlvTaskboardColumn = { id: 'todo', label: 'Todo' };
+const itemContext: MlvTaskboardItemDefContext<Ticket> = {
+  $implicit: { id: '1', status: 'todo' },
+  card: { id: '1', status: 'todo' },
+  column: todo,
+  swimlane: undefined,
+  location: { columnId: 'todo', index: 0 },
+  selected: false,
+  wip: { count: 1, limit: 3, remaining: 2 },
+};
 void canDrop;
 void todo;
+void itemContext;
