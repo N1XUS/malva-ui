@@ -8,8 +8,10 @@ import type {
   MlvTaskboardBeforeMove,
   MlvTaskboardCanDropFn,
   MlvTaskboardColumn,
+  MlvTaskboardHistory,
   MlvTaskboardKey,
   MlvTaskboardMoveCancelReason,
+  MlvTaskboardState,
   MlvTaskboardTransition,
 } from '../taskboard.types';
 
@@ -184,6 +186,51 @@ function endDrag(
   sortableFor(source).options.onEnd?.(
     dragEvent(card, source, to, newDraggableIndex),
   );
+}
+
+/**
+ * The board's private history ledger. The public undo/redo surface arrives
+ * with the keyboard grab feature; until then the ledger is only reachable
+ * through the component field it is stored in.
+ */
+function historyOf(board: MlvTaskboard<Ticket>): MlvTaskboardHistory<Ticket> {
+  const ledger = (
+    board as unknown as { _history: MlvTaskboardHistory<Ticket> | null }
+  )._history;
+  if (!ledger) throw new Error('Expected a seeded taskboard history ledger.');
+  return ledger;
+}
+
+/** Item identifiers of one recorded board state, as a comparable string. */
+function boardIds(board: MlvTaskboardState<Ticket> | null): string | null {
+  return board === null ? null : board.items.map((item) => item.id).join(',');
+}
+
+/** Item identifiers of the controlled collection, as a comparable string. */
+function itemIds(fixture: ComponentFixture<SortableHost>): string {
+  return fixture.componentInstance
+    .items()
+    .map((item) => item.id)
+    .join(',');
+}
+
+/** Drags one card onto the slot before `relatedId` and releases it there. */
+async function moveCard(
+  fixture: ComponentFixture<SortableHost>,
+  host: HTMLElement,
+  cardId: string,
+  fromColumnId: string,
+  toColumnId: string,
+  relatedId: string,
+): Promise<void> {
+  const from = cardsContainer(host, fromColumnId);
+  const to = cardsContainer(host, toColumnId);
+  const card = cardElement(from, cardId);
+  startDrag(from, card);
+  hover(from, card, to, cardElement(to, relatedId));
+  endDrag(from, card, to);
+  fixture.detectChanges();
+  await fixture.whenStable();
 }
 
 function childClasses(container: HTMLElement): string[] {
@@ -548,5 +595,66 @@ describe('MlvTaskboard SortableJS card adapter', () => {
     // `destroy()` clears the expando to `null`; an element that was never
     // registered reports `undefined`, so this pins the teardown, not absence.
     expect(Sortable.get(removed)).toBeNull();
+  });
+});
+
+describe('MlvTaskboard move history ledger', () => {
+  it('chains consecutive moves instead of resetting the ledger', async () => {
+    const { fixture, host } = await createFixture();
+    const initial = itemIds(fixture);
+
+    await moveCard(fixture, host, 'a', 'todo', 'done', 'x');
+    const afterFirst = itemIds(fixture);
+    await moveCard(fixture, host, 'x', 'done', 'todo', 'b');
+    const afterSecond = itemIds(fixture);
+
+    expect([initial, afterFirst, afterSecond]).toEqual([
+      'a,b,x',
+      'b,a,x',
+      'x,b,a',
+    ]);
+
+    const history = historyOf(fixture.componentInstance.board());
+    expect(boardIds(history.current())).toBe(afterSecond);
+    expect(boardIds(history.undo())).toBe(afterFirst);
+    expect(boardIds(history.undo())).toBe(initial);
+    expect(history.undo()).toBeNull();
+    expect(boardIds(history.redo())).toBe(afterFirst);
+    expect(boardIds(history.redo())).toBe(afterSecond);
+  });
+
+  it('keeps the ledger across a selection change, which is not a board change', async () => {
+    const { fixture, host } = await createFixture();
+    const initial = itemIds(fixture);
+
+    await moveCard(fixture, host, 'a', 'todo', 'done', 'x');
+    fixture.componentInstance.board().selection.set(new Set(['b']));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await moveCard(fixture, host, 'x', 'done', 'todo', 'b');
+
+    const history = historyOf(fixture.componentInstance.board());
+    expect(boardIds(history.undo())).toBe('b,a,x');
+    expect(boardIds(history.undo())).toBe(initial);
+  });
+
+  it('replaces the ledger when the controlled board changes elsewhere', async () => {
+    const { fixture, host } = await createFixture();
+
+    await moveCard(fixture, host, 'a', 'todo', 'done', 'x');
+    fixture.componentInstance.items.set([
+      { id: 'b', status: 'todo' },
+      { id: 'a', status: 'todo' },
+      { id: 'x', status: 'done' },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const external = itemIds(fixture);
+
+    await moveCard(fixture, host, 'a', 'todo', 'done', 'x');
+
+    const history = historyOf(fixture.componentInstance.board());
+    expect(boardIds(history.undo())).toBe(external);
+    expect(history.undo()).toBeNull();
   });
 });

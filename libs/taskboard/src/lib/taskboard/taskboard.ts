@@ -664,27 +664,35 @@ export class MlvTaskboard<TItem> {
 
   /** @private Writes the single replacement collection and records the move. */
   private _applyMoveResult(result: MlvTaskboardMoveResult<TItem>): void {
-    const before = this._board();
-    this._recordCommand(before, { ...before, items: result.items });
+    const before = this._boardCore();
     this.items.set(result.items);
+    this._recordCommand(before);
     this.moved.emit(result);
   }
 
   /** @private Writes the replacement column order and records the command. */
   private _applyColumnOrder(next: readonly MlvTaskboardColumn[]): void {
-    const before = this._board();
-    this._recordCommand(before, { ...before, columns: next });
+    const before = this._boardCore();
     this.columns.set(next);
+    this._recordCommand(before);
   }
 
-  /** @private Records one replayable board replacement in the history ledger. */
-  private _recordCommand(
-    before: MlvTaskboardState<TItem>,
-    after: MlvTaskboardState<TItem>,
-  ): void {
+  /**
+   * @private Records one replayable board replacement in the history ledger.
+   *
+   * The command's `after` is read back from `_boardCore()` *after* the model
+   * write, so it is the very snapshot the next command's `before` resolves to
+   * and consecutive moves chain onto one stack. Recording a hand-built literal
+   * instead would leave every later `before` unequal to the ledger's current
+   * board, and `replace` would clear both stacks on every move. `_boardCore`
+   * also excludes selection and `canDropFn`, so neither counts as a board
+   * change: `replace` fires only for a board that really changed outside this
+   * component.
+   */
+  private _recordCommand(before: MlvTaskboardState<TItem>): void {
     this._history ??= createMlvTaskboardHistory<TItem>(before);
     if (this._history.current() !== before) this._history.replace(before);
-    this._history.push({ before, after });
+    this._history.push({ before, after: this._boardCore() });
   }
 
   /** @private Toggles the pending state and blocks drags while it is set. */
