@@ -1270,33 +1270,65 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
 
   interface StyleRule {
     readonly selectors: readonly string[];
-    readonly specificity: number;
     readonly declarations: string;
   }
 
   /**
-   * Top-level rules of a compiled sheet. `@media` blocks are skipped: none of
-   * them declares `position`, and their nested rules would need a media
-   * context jsdom does not evaluate.
+   * A compiled sheet with every `@media` block cut out, braces balanced.
+   *
+   * The flat `/([^{}]+)\{([^{}]*)\}/` scan below cannot skip one: it never
+   * sees the `@media` prelude as a prelude — that text is followed by `{` and
+   * then another `{`, so the first match starts at the NESTED rule instead,
+   * and a `prelude.includes('@')` guard lets every media-nested rule in at
+   * full weight. Cutting the blocks out first is what actually keeps them out.
+   */
+  function withoutMediaBlocks(css: string): string {
+    let out = '';
+    let from = 0;
+    for (
+      let at = css.indexOf('@media');
+      at !== -1;
+      at = css.indexOf('@media', from)
+    ) {
+      out += css.slice(from, at);
+      const open = css.indexOf('{', at);
+      if (open === -1) return out;
+      let depth = 0;
+      let cursor = open;
+      for (; cursor < css.length; cursor++) {
+        if (css[cursor] === '{') depth++;
+        else if (css[cursor] === '}' && --depth === 0) break;
+      }
+      from = cursor + 1;
+    }
+    return out + css.slice(from);
+  }
+
+  /**
+   * Rules of a compiled sheet, `@media` blocks removed (see
+   * `withoutMediaBlocks`): their nested rules would need a media context jsdom
+   * does not evaluate, and none of them declares a property this harness
+   * resolves.
    */
   function rulesOf(...segments: string[]): readonly StyleRule[] {
     // Joined at runtime so Vite's asset rewrite never turns the stylesheet
     // path into an http(s) URL under jsdom (same trick as `block()` above).
-    const css = stripCssLayersFromText(
-      compile(fileURLToPath(new URL(segments.join('/'), import.meta.url))).css,
+    const css = withoutMediaBlocks(
+      stripCssLayersFromText(
+        compile(fileURLToPath(new URL(segments.join('/'), import.meta.url)))
+          .css,
+      ),
     );
     const rules: StyleRule[] = [];
     for (const [, prelude, declarations] of css.matchAll(
       /([^{}]+)\{([^{}]*)\}/g,
     )) {
       if (prelude.includes('@')) continue;
-      const selectors = prelude
-        .split(',')
-        .map((one) => one.trim())
-        .filter(Boolean);
       rules.push({
-        selectors,
-        specificity: Math.max(...selectors.map(specificityOf)),
+        selectors: prelude
+          .split(',')
+          .map((one) => one.trim())
+          .filter(Boolean),
         declarations,
       });
     }
@@ -1318,6 +1350,11 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
    * The declared value the cascade gives `property` on `element` when the
    * sheets are injected in `order` — highest specificity wins, ties go to the
    * later declaration, exactly as a browser resolves it.
+   *
+   * A selector LIST is weighed by the member that actually matched, not by its
+   * heaviest member: a browser scores each of `a, .b .c` on its own, so a rule
+   * that reaches this element through its lightest selector must not borrow
+   * the weight of a sibling selector that missed.
    */
   function resolve(
     element: HTMLElement,
@@ -1327,13 +1364,15 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
     let winner: { specificity: number; value: string } | null = null;
     for (const name of order) {
       for (const rule of sheets[name]) {
-        if (!rule.selectors.some((one) => element.matches(one))) continue;
+        const matched = rule.selectors.find((one) => element.matches(one));
+        if (!matched) continue;
         const declared = new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`).exec(
           rule.declarations,
         );
         if (!declared) continue;
-        if (winner && rule.specificity < winner.specificity) continue;
-        winner = { specificity: rule.specificity, value: declared[1].trim() };
+        const specificity = specificityOf(matched);
+        if (winner && specificity < winner.specificity) continue;
+        winner = { specificity, value: declared[1].trim() };
       }
     }
     return winner?.value ?? null;
@@ -1381,5 +1420,22 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
     // say `relative`; only the time grid's own chip layer overrides it.
     expect(positionOf('lane', ['grid', 'chip'])).toBe('relative');
     expect(positionOf('lane', ['chip', 'grid'])).toBe('relative');
+  });
+
+  it('keeps media-nested rules out of the resolution entirely', () => {
+    // Both sheets end in a `prefers-reduced-motion` block whose selector list
+    // matches `.mlv-scheduler-event`, and every declaration in it is
+    // `!important`. jsdom evaluates no media context, so those rules must not
+    // reach the cascade at all — and a `prelude.includes('@')` guard cannot
+    // keep them out, because the flat rule scan never sees the `@media`
+    // prelude AS a prelude. `animation-iteration-count` is declared nowhere
+    // else, so a non-null answer here means a media block leaked in.
+    expect(
+      resolve(
+        query<HTMLElement>(document, '#timed'),
+        'animation-iteration-count',
+        ['grid', 'chip'],
+      ),
+    ).toBeNull();
   });
 });
