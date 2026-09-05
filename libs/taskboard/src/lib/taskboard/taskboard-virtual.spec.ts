@@ -156,6 +156,22 @@ describe('MlvTaskboard virtual cells', () => {
     expect(Sortable.get(wrapperFor('todo'))).toBeTruthy();
   });
 
+  it('keeps the cell listbox on the viewport and hides the CDK wrapper', async () => {
+    const { host, viewportFor, wrapperFor } = await mountVirtual();
+    const viewport = viewportFor('todo').elementRef.nativeElement;
+
+    expect(viewport.getAttribute('role')).toBe('listbox');
+    expect(viewport.getAttribute('aria-multiselectable')).toBe('true');
+    expect(
+      host
+        .querySelector(`#${viewport.getAttribute('aria-labelledby')}`)
+        ?.textContent?.trim(),
+    ).toContain('Todo');
+    // The CDK wrapper is a layout box the board never owns: it must not sit
+    // between the listbox and its options.
+    expect(wrapperFor('todo').getAttribute('role')).toBe('presentation');
+  });
+
   it('offsets a hovered slot by the cell rendered start', async () => {
     const { fixture, viewportFor, wrapperFor, card } = await mountVirtual();
     const target = viewportFor('todo');

@@ -230,8 +230,6 @@ interface MlvTaskboardDropAnchor {
   hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
   host: {
     class: 'mlv-taskboard',
-    role: 'grid',
-    '[attr.aria-label]': '_i18n().boardLabel',
     '[class.mlv-taskboard--move-pending]': '_movePending()',
     '[style.--mlv-taskboard-virtual-item-size]': '_virtualItemSizeVar()',
     '[attr.aria-busy]': '_movePending() || null',
@@ -549,8 +547,42 @@ export class MlvTaskboard<TItem> {
   /** @private Mirrors the horizontal arrow keys inside an RTL subtree. */
   private readonly _rtlService = inject(MlvRtlService);
 
+  /**
+   * @private Prefix every id this board mints shares, so two boards on one page
+   * never collide on a header or instruction id.
+   */
+  private readonly _idPrefix = `mlv-taskboard-${nextTaskboardId++}`;
+
   /** @protected Id of the shared keyboard-instruction element cards describe. */
-  protected readonly _instructionsId = `mlv-taskboard-keys-${nextTaskboardId++}`;
+  protected readonly _instructionsId = `${this._idPrefix}-keys`;
+
+  /**
+   * @private Id minted for each column header, keyed by the column's key token.
+   * Indexed rather than derived from the key, because a key token carries a
+   * colon and would not survive as an id fragment.
+   */
+  private readonly _columnHeaderIds = computed(() => {
+    const ids = new Map<string, string>();
+    this.columns().forEach((column, index) => {
+      ids.set(
+        mlvTaskboardKeyToken(column.id),
+        `${this._idPrefix}-column-${index}`,
+      );
+    });
+    return ids;
+  });
+
+  /** @private Id minted for each swimlane header, keyed by its key token. */
+  private readonly _laneHeaderIds = computed(() => {
+    const ids = new Map<string, string>();
+    this.swimlanes().forEach((swimlane, index) => {
+      ids.set(
+        mlvTaskboardKeyToken(swimlane.id),
+        `${this._idPrefix}-lane-${index}`,
+      );
+    });
+    return ids;
+  });
 
   /** @private Package-private SortableJS card adapter provided by this board. */
   private readonly _sortable = inject(
@@ -1305,6 +1337,30 @@ export class MlvTaskboard<TItem> {
    */
   protected _keyAttribute(key: MlvTaskboardKey): string {
     return mlvTaskboardKeyToken(key);
+  }
+
+  /** @protected Id carried by one column's header cell. */
+  protected _columnHeaderId(column: MlvTaskboardColumn): string | null {
+    return this._columnHeaderIds().get(mlvTaskboardKeyToken(column.id)) ?? null;
+  }
+
+  /** @protected Id carried by one swimlane's row header cell. */
+  protected _laneHeaderId(swimlane: MlvTaskboardSwimlane): string | null {
+    return this._laneHeaderIds().get(mlvTaskboardKeyToken(swimlane.id)) ?? null;
+  }
+
+  /**
+   * @protected Accessible name of one cell's card listbox: its column header,
+   * plus the lane header when the board is laned.
+   */
+  protected _cellLabelledBy(
+    column: MlvTaskboardColumn,
+    swimlane: MlvTaskboardSwimlane | undefined,
+  ): string | null {
+    const columnId = this._columnHeaderId(column);
+    const laneId = swimlane === undefined ? null : this._laneHeaderId(swimlane);
+    const ids = [columnId, laneId].filter((id): id is string => id !== null);
+    return ids.length > 0 ? ids.join(' ') : null;
   }
 
   /** Whether a column is pinned to its absolute index. */

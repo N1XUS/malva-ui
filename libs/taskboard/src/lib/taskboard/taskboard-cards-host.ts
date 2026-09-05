@@ -58,6 +58,12 @@ export class MlvTaskboardCardsHost {
               `.${CONTENT_WRAPPER_CLASS}`,
             );
       if (element === null) return;
+      if (viewport !== null) {
+        // The wrapper is CDK's own layout box. Without a presentational role it
+        // would sit between the cell's `listbox` and its `option`s and break the
+        // ownership the pattern requires.
+        element.setAttribute('role', 'presentation');
+      }
       this._registered = element;
       this._registry.registerBucket(
         element,

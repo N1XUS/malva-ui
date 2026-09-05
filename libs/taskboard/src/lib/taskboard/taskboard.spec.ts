@@ -112,7 +112,7 @@ describe('MlvTaskboard', () => {
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('.mlv-taskboard__card')?.tagName).toBe('DIV');
     expect(
-      host.querySelector('mlv-taskboard')?.getAttribute('aria-label'),
+      host.querySelector('.mlv-taskboard__grid')?.getAttribute('aria-label'),
     ).toBe('Taskboard');
     expect(
       host.querySelector(
@@ -124,6 +124,58 @@ describe('MlvTaskboard', () => {
         .querySelector('.mlv-taskboard__live-region')
         ?.getAttribute('aria-live'),
     ).toBe('polite');
+  });
+
+  it('keeps the grid rows away from the hidden instruction and live nodes', async () => {
+    await TestBed.configureTestingModule({
+      imports: [TaskboardHost],
+      providers: [provideTaskboardTesting()],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(TaskboardHost);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const grid = host.querySelector('.mlv-taskboard__grid') as HTMLElement;
+    expect(grid.getAttribute('role')).toBe('grid');
+    expect(grid.getAttribute('aria-label')).toBe('Taskboard');
+    expect(
+      host.querySelector('mlv-taskboard')?.getAttribute('role'),
+    ).toBeNull();
+    expect(
+      [...grid.children].map((child) => child.getAttribute('role')),
+    ).toEqual(['rowgroup']);
+    expect(
+      grid.contains(host.querySelector('.mlv-taskboard__instructions')),
+    ).toBe(false);
+    expect(
+      grid.contains(host.querySelector('.mlv-taskboard__live-region')),
+    ).toBe(false);
+  });
+
+  it('owns the cards of one cell through a labelled multiselect listbox', async () => {
+    await TestBed.configureTestingModule({
+      imports: [TaskboardHost],
+      providers: [provideTaskboardTesting()],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(TaskboardHost);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const cards = host.querySelector('.mlv-taskboard__cards') as HTMLElement;
+    expect(cards.getAttribute('role')).toBe('listbox');
+    expect(cards.getAttribute('aria-multiselectable')).toBe('true');
+    expect(
+      (cards.getAttribute('aria-labelledby') ?? '')
+        .split(' ')
+        .map((id) => host.querySelector(`#${id}`)?.textContent?.trim()),
+    ).toEqual(['Todo (2)', 'Engineering']);
+    expect(
+      host.querySelector('.mlv-taskboard__card')?.getAttribute('role'),
+    ).toBe('option');
+    // The listbox owns options only: the empty state and the add affordance
+    // render as siblings of the cards host inside the same gridcell.
+    expect(cards.querySelector('.mlv-taskboard__add')).toBeNull();
+    expect(cards.querySelector('.mlv-taskboard__empty')).toBeNull();
   });
 
   it('maps grouped headers and lanes to deterministic board columns', async () => {
@@ -202,9 +254,9 @@ describe('MlvTaskboard', () => {
 
     expect(activated).toEqual(['one']);
     expect(contextual).toEqual(['one']);
-    expect(card.getAttribute('role')).toBeNull();
-    // The card owns the board's roving tab stop, but takes no widget role of
-    // its own: the projected control keeps its native semantics.
+    // The card is the option of its cell's listbox and owns the board's roving
+    // tab stop; the projected control keeps its own native semantics inside it.
+    expect(card.getAttribute('role')).toBe('option');
     expect(card.getAttribute('tabindex')).toBe('0');
   });
 
@@ -358,7 +410,7 @@ describe('MlvTaskboard', () => {
     const host = fixture.nativeElement as HTMLElement;
     const headers = host.querySelectorAll('.mlv-taskboard__column-header');
     expect(
-      host.querySelector('mlv-taskboard')?.getAttribute('aria-label'),
+      host.querySelector('.mlv-taskboard__grid')?.getAttribute('aria-label'),
     ).toBe('Board');
     expect(host.querySelector('.mlv-taskboard__add')?.textContent?.trim()).toBe(
       'New card',
