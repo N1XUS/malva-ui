@@ -1349,9 +1349,12 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
 
   /**
    * Rules of a compiled sheet, `@media` blocks removed (see
-   * `withoutMediaBlocks`): their nested rules would need a media context jsdom
-   * does not evaluate, and none of them declares a property this harness
-   * resolves.
+   * `withoutMediaBlocks`): jsdom evaluates no media context, so a nested rule
+   * left in would be scored as if its query always matched. That is not
+   * hypothetical — both sheets end in a `prefers-reduced-motion` block whose
+   * `!important` declarations this harness would happily resolve, and it
+   * models no `!important` either. "keeps media-nested rules out of the
+   * resolution entirely" below pins the removal.
    */
   function rulesOf(...segments: string[]): readonly StyleRule[] {
     // Joined at runtime so Vite's asset rewrite never turns the stylesheet
@@ -1394,10 +1397,11 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
    * sheets are injected in `order` — highest specificity wins, ties go to the
    * later declaration, exactly as a browser resolves it.
    *
-   * A selector LIST is weighed by the member that actually matched, not by its
-   * heaviest member: a browser scores each of `a, .b .c` on its own, so a rule
-   * that reaches this element through its lightest selector must not borrow
-   * the weight of a sibling selector that missed.
+   * A selector LIST is weighed by its MATCHING members, not by its heaviest
+   * member and not by whichever one happens to come first: a browser scores
+   * each of `a, .b .c` on its own and keeps the heaviest that matched, so a
+   * rule must neither borrow the weight of a sibling selector that missed nor
+   * be under-weighed because a lighter member was listed earlier.
    */
   function resolve(
     element: HTMLElement,
@@ -1407,13 +1411,13 @@ describe('MlvSchedulerTimeGrid chip placement cascade', () => {
     let winner: { specificity: number; value: string } | null = null;
     for (const name of order) {
       for (const rule of sheets[name]) {
-        const matched = rule.selectors.find((one) => element.matches(one));
-        if (!matched) continue;
+        const matched = rule.selectors.filter((one) => element.matches(one));
+        if (!matched.length) continue;
         const declared = new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`).exec(
           rule.declarations,
         );
         if (!declared) continue;
-        const specificity = specificityOf(matched);
+        const specificity = Math.max(...matched.map(specificityOf));
         if (winner && specificity < winner.specificity) continue;
         winner = { specificity, value: declared[1].trim() };
       }
