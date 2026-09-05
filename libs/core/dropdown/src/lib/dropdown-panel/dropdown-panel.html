@@ -23,7 +23,11 @@
      resolve each option via closest('[role="option"]').
      [listboxId] forwards the consumer id into aria's Listbox.id input so the rendered
      [attr.id]="id()" equals it — otherwise aria mints its own id and a parent
-     select/combobox trigger's aria-controls would dangle. -->
+     select/combobox trigger's aria-controls would dangle.
+     [value] is the RESOLVED selection, not the raw selectedValues() input: aria
+     matches values to options with ===, so a value matched only by compareWith
+     would read aria-selected="false" and be filtered straight back out by aria's
+     reconciliation effect. See _ariaValues. -->
   <mlv-list
     class="mlv-dropdown-panel__listbox"
     appearance="menu"
@@ -36,7 +40,7 @@
     [attr.aria-label]="ariaLabel()"
     [listboxId]="_resolvedListboxId()"
     [multiple]="multiple()"
-    [value]="selectedValues()"
+    [value]="_ariaValues()"
     (valueChange)="onValueChange($event)"
   >
     @if (_isGrouped()) {
@@ -104,7 +108,7 @@
           {<mark class="mlv-dropdown-panel__match">{{ seg.text }}</mark>} @else
           {{{ seg.text }}} } } @else {{{ option.label }}}
         </span>
-        @if (isValueSelected(option.value)) {
+        @if (_checkedRows()[index]) {
         <svg
           class="mlv-dropdown-panel__item-check"
           lucideCheck
