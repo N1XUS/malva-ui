@@ -88,7 +88,9 @@ bootstrapApplication(App, {
 
 ## Styling and test hooks
 
-Rendered elements carry stable data attributes: `data-mlv-taskboard-card-id`, `-column-id`, `-swimlane-id`, `-group-id`, `-column-locked`, `-selected`, `-drop-state`. Their value is the **key token** `` `${typeof key}:${String(key)}` `` — a card keyed `1` renders `data-mlv-taskboard-card-id="number:1"`, keyed `'1'` it renders `string:1`. Select on the token, not on the bare value.
+Rendered elements carry stable data attributes. The four **identifier** attributes — `data-mlv-taskboard-card-id`, `-column-id`, `-swimlane-id`, `-group-id` — carry the **key token** `` `${typeof key}:${String(key)}` ``, so a card keyed `1` renders `data-mlv-taskboard-card-id="number:1"` and one keyed `'1'` renders `string:1`. Select on the token, not on the bare value.
+
+The remaining three are not key tokens: `data-mlv-taskboard-column-locked` and `data-mlv-taskboard-selected` are `"true"` or absent, and `data-mlv-taskboard-drop-state` is `valid` or `invalid` on the container the drag is hovering.
 
 ## Peer dependencies
 
