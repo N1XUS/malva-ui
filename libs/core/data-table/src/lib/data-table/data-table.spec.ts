@@ -1481,3 +1481,108 @@ describe('MlvDataTable — resize document binding', () => {
     fixture.destroy();
   });
 });
+
+@Component({
+  imports: [MlvDataTable],
+  template: `<mlv-data-table [data]="data" [columns]="columns" />`,
+})
+class HideableHostComponent {
+  readonly data: Row[] = [
+    { id: 1, name: 'Alice' },
+    { id: 2, name: 'Bob' },
+  ];
+  readonly columns: MlvDataTableColumn[] = [
+    { key: 'id', title: 'ID', hideable: true },
+    { key: 'name', title: 'Name', hideable: true },
+  ];
+}
+
+describe('MlvDataTable — cell-style memoization coverage', () => {
+  let fixture: ComponentFixture<HideableHostComponent>;
+
+  function table(): MlvDataTable {
+    return fixture.debugElement.query(By.directive(MlvDataTable))
+      .componentInstance as MlvDataTable;
+  }
+
+  /** The declared column for `key`, whether or not it is currently visible. */
+  function column(key: string): MlvDataTableColumn {
+    const col = table()
+      .allColumns()
+      .find((c) => c.key === key);
+    if (!col) throw new Error(`No column declared for key "${key}"`);
+    return col;
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HideableHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(HideableHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  it('returns a stable cell-style reference for a hidden column', async () => {
+    table().toggleColumnVisibility('name');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(
+      table()
+        .visibleColumns()
+        .map((c) => c.key),
+    ).toEqual(['id']);
+
+    const hidden = column('name');
+    expect(table().getCellStyle(hidden)).toBe(table().getCellStyle(hidden));
+  });
+
+  // Pins the coverage invariant `getCellStyle`'s fallback rests on: every
+  // declared column is memoized, so no column a cell can be rendered for — and
+  // no column a consumer can legitimately pass — reaches the on-the-fly branch.
+  // Asserted over the declared set, not just the visible one, so re-narrowing
+  // the memo to `visibleColumns()` fails here instead of silently reintroducing
+  // a per-call allocation.
+  it('memoizes every declared column, hidden ones included', async () => {
+    table().toggleColumnVisibility('name');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    // Guard the precondition: if the toggle ever regresses to a no-op both
+    // columns stay visible, every column hits the memo, `unstable` is `[]` and
+    // the assertion below passes having exercised nothing.
+    expect(
+      table()
+        .visibleColumns()
+        .map((c) => c.key),
+    ).toEqual(['id']);
+
+    const unstable = table()
+      .allColumns()
+      .filter((col) => table().getCellStyle(col) !== table().getCellStyle(col))
+      .map((col) => col.key);
+
+    expect(unstable).toEqual([]);
+  });
+
+  it('builds a hidden column style from table state, not from the raw column input', async () => {
+    table().applyPresentationState({
+      visibleColumnKeys: ['id'],
+      columnWidths: { name: 160 },
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(
+      table()
+        .visibleColumns()
+        .map((c) => c.key),
+    ).toEqual(['id']);
+    expect(table().getCellStyle(column('name'))).toEqual({
+      width: '160px',
+      'min-width': '160px',
+      'max-width': '160px',
+    });
+  });
+});
