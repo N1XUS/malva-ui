@@ -32,6 +32,21 @@ class EmptyHost {
 }
 
 @Component({
+  imports: [MlvTaskboard],
+  template: `<mlv-taskboard
+    [(items)]="items"
+    [columns]="columns"
+    [virtualItemSize]="60"
+    dataKey="id"
+    columnField="status"
+  />`,
+})
+class VirtualEmptyHost {
+  readonly items = signal<readonly Ticket[]>(ITEMS);
+  readonly columns = COLUMNS;
+}
+
+@Component({
   imports: [MlvTaskboard, MlvTaskboardEmptyStateDef],
   template: `<mlv-taskboard
     [(items)]="items"
@@ -123,6 +138,30 @@ describe('MlvTaskboard empty cell', () => {
     ).toBe(true);
     expect(
       filledScroller.classList.contains('mlv-taskboard__cell-scroller--empty'),
+    ).toBe(false);
+  });
+
+  it("marks a virtualized empty cell's scroll box so it stops stretching too", async () => {
+    // A virtual cell has nothing to virtualize when it holds no cards, so it
+    // collapses to the drop-zone box exactly like a plain one; without the
+    // modifier the viewport keeps its 20rem `block-size` and `+ Add card`
+    // lands 20rem under the box (the defect R47 was written against).
+    const { host } = await mount(VirtualEmptyHost);
+    const cell = emptyCell(host);
+
+    const scroller = cell.querySelector<HTMLElement>(
+      '.mlv-taskboard__cell-scroller--virtual',
+    ) as HTMLElement;
+    expect(scroller).not.toBeNull();
+    expect(
+      scroller.classList.contains('mlv-taskboard__cell-scroller--empty'),
+    ).toBe(true);
+
+    const filled = host.querySelector<HTMLElement>(
+      '.mlv-taskboard__cell[data-mlv-taskboard-column-id="string:todo"] .mlv-taskboard__cell-scroller--virtual',
+    ) as HTMLElement;
+    expect(
+      filled.classList.contains('mlv-taskboard__cell-scroller--empty'),
     ).toBe(false);
   });
 

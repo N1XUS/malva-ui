@@ -190,6 +190,9 @@
              tracks at it instead of wrapping it in a second scroll box. -->
         <mlv-scrollbar
           class="mlv-taskboard__cell-scroller mlv-taskboard__cell-scroller--virtual"
+          [class.mlv-taskboard__cell-scroller--empty]="
+            _isCellEmpty(column, swimlane)
+          "
           [scroller]="cardsViewport.elementRef"
         >
           <cdk-virtual-scroll-viewport

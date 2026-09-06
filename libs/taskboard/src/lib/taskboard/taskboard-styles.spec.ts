@@ -54,6 +54,31 @@ describe('taskboard.scss', () => {
     expect(block).toContain(`${selector} .mlv-taskboard__empty`);
   });
 
+  it('never gives an empty virtual cell the fixed viewport height', () => {
+    // `block-size` is not a floor: `&__cards--empty`'s `min-block-size` cannot
+    // shrink it, and both modifiers are one class, so source order alone would
+    // decide. The height therefore states the exclusion in its own selector.
+    const declaration =
+      'block-size: var(--mlv-taskboard-cell-block-size, 20rem)';
+    const index = css.indexOf(declaration);
+    expect(index).toBeGreaterThan(-1);
+    // Only one rule may declare it, and that rule must exclude the empty cell.
+    expect(css.indexOf(declaration, index + 1)).toBe(-1);
+    const selector = css.slice(css.lastIndexOf('}', index) + 1, index);
+    expect(selector).toContain('.mlv-taskboard__cards--virtual');
+    expect(selector).toContain(':not(.mlv-taskboard__cards--empty)');
+  });
+
+  it('stops both an empty and a virtual scroll box stretching, in one rule', () => {
+    // The two modifiers say the same thing — "do not take the row's height" —
+    // so they share a declaration rather than drifting apart.
+    const index = css.indexOf('.mlv-taskboard__cell-scroller--virtual');
+    expect(index).toBeGreaterThan(-1);
+    const rule = css.slice(index, css.indexOf('}', index));
+    expect(rule).toContain('.mlv-taskboard__cell-scroller--empty');
+    expect(rule).toContain('flex: 0 0 auto');
+  });
+
   it('keeps the page-level rules out of a print the user started themselves', () => {
     // The `:has()` sheet is scoped to the modifier the component writes only
     // while `print()` is in flight, so Ctrl+P prints the page as it is.

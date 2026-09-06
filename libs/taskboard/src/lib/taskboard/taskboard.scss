@@ -354,16 +354,13 @@
       flex-direction: column;
     }
 
-    // A virtual cell is decorated, not wrapped: the CDK viewport stays the
-    // scroll box and keeps its own fixed block size, so the wrapper is a bare
-    // layout box around it.
-    &__cell-scroller--virtual {
-      flex: 0 0 auto;
-    }
-
-    // An empty cell is one drop-zone box tall, so its scroll box stops
-    // stretching to the row's height and the add control sits directly under
-    // the box instead of at the foot of a blank panel (R47).
+    // Two scroll boxes do not take the row's height, and they say it once:
+    // a virtual cell is decorated rather than wrapped, so the CDK viewport
+    // inside keeps its own fixed block size and the wrapper is a bare layout
+    // box around it; and an empty cell — plain or virtual — is one drop-zone
+    // box tall, so the add control sits directly under the box instead of at
+    // the foot of a blank panel (R47).
+    &__cell-scroller--virtual,
     &__cell-scroller--empty {
       flex: 0 0 auto;
     }
@@ -396,9 +393,17 @@
       );
     }
 
+    // A cell with no items has nothing to virtualize, so the fixed height is
+    // stated with the empty cell excluded from it rather than left to source
+    // order: `block-size` is not a floor, so `&__cards--empty`'s
+    // `min-block-size` cannot shrink it and the two single-class modifiers
+    // carry the same specificity.
+    &__cards--virtual:not(#{$block}__cards--empty) {
+      block-size: var(--mlv-taskboard-cell-block-size, 20rem);
+    }
+
     &__cards--virtual {
       flex: 0 0 auto;
-      block-size: var(--mlv-taskboard-cell-block-size, 20rem);
       overflow-y: auto;
       // The viewport is the decorated scroll box, so its native bar gives way
       // to the themed track `mlv-scrollbar` draws over it (R44).
