@@ -15,6 +15,7 @@ import { MLV_POPUP_I18N } from '@malva-ui/i18n';
 import { MlvPopup } from './popup';
 import type { MlvPopupMobileMode } from './popup';
 import { MlvPopupContent } from '../popup-content';
+import { MlvPopupHeaderActions } from '../popup-header-actions';
 import { MlvPopupHeaderContent } from '../popup-header-content';
 import { MlvPopupPinnedContent } from '../popup-pinned-content';
 
@@ -380,6 +381,23 @@ describe('MlvPopup — mobile fullscreen mode', () => {
     expect(closeBtn()?.getAttribute('aria-label')).toBe('Close');
   });
 
+  it('withholds the floating shadow while the sheet fills the viewport', () => {
+    // `--shadow` is the anchored popover's chrome; a surface that fills the
+    // viewport has nothing to float above. The template already gates the class
+    // on `!isFullscreen()` — this pins that gate, because the modifier sets both
+    // a `filter: drop-shadow()` and a `box-shadow` and the `--fullscreen` block
+    // resets neither, so the gate is the only thing standing between the sheet
+    // and a floating-panel shadow.
+    const { fixture, host, panel } = render();
+    expect(panel().classList.contains('mlv-popup--shadow')).toBe(true);
+
+    host.mode.set('fullscreen');
+    fixture.detectChanges();
+
+    expect(panel().classList.contains('mlv-popup--fullscreen')).toBe(true);
+    expect(panel().classList.contains('mlv-popup--shadow')).toBe(false);
+  });
+
   it('renders the mobileTitle in the fullscreen header', () => {
     const { fixture, host, panel } = render();
     host.mode.set('fullscreen');
@@ -589,5 +607,105 @@ describe('MlvPopup — pinned content slot', () => {
       '.mlv-popup',
     ) as HTMLElement;
     expect(panel.querySelector('.mlv-popup__pinned')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Header-actions slot ([mlvPopupHeaderActions])
+// ---------------------------------------------------------------------------
+
+describe('MlvPopup — header actions slot', () => {
+  @Component({
+    imports: [MlvPopup, MlvPopupContent, MlvPopupHeaderActions],
+    template: `
+      <mlv-popup [mobileMode]="mode()" mobileTitle="Pick a date">
+        @if (withActions()) {
+          <ng-template mlvPopupHeaderActions>
+            <button class="sheet-done">Done</button>
+          </ng-template>
+        }
+        <ng-template mlvPopupContent><button>content</button></ng-template>
+      </mlv-popup>
+      <ng-container #host />
+    `,
+  })
+  class HostComponent {
+    readonly mode = signal<MlvPopupMobileMode>('off');
+    readonly withActions = signal(true);
+    readonly popup = viewChild.required(MlvPopup);
+    readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+    stamp(): void {
+      this.host().createEmbeddedView(this.popup().popupTemplate());
+    }
+  }
+
+  function render(): {
+    fixture: ComponentFixture<HostComponent>;
+    host: HostComponent;
+    panel: () => HTMLElement;
+  } {
+    const fixture = TestBed.createComponent(HostComponent);
+    const host = fixture.componentInstance;
+    fixture.detectChanges();
+    host.stamp();
+    fixture.detectChanges();
+    return {
+      fixture,
+      host,
+      panel: () =>
+        fixture.nativeElement.querySelector('.mlv-popup') as HTMLElement,
+    };
+  }
+
+  it('does not stamp the actions while trigger-anchored (mode "off")', () => {
+    // The slot is for sheet chrome. An anchored dropdown has no header row at
+    // all, so a consumer that projects a confirm action here must be able to
+    // leave its own anchored affordance (a footer button) in place without the
+    // two both appearing.
+    const { panel } = render();
+    expect(panel().querySelector('.mlv-popup__header-actions')).toBeNull();
+    expect(panel().querySelector('.sheet-done')).toBeNull();
+  });
+
+  it('renders the actions in the title row when fullscreen', () => {
+    const { fixture, host, panel } = render();
+    host.mode.set('fullscreen');
+    fixture.detectChanges();
+
+    const actions = panel().querySelector(
+      '.mlv-popup__header-row > .mlv-popup__header-actions',
+    );
+    expect(actions).not.toBeNull();
+    expect(actions?.querySelector('.sheet-done')).not.toBeNull();
+  });
+
+  it('places the actions between the title and the close button', () => {
+    // Order is the contract: a confirm action after the close button would put
+    // the primary action past the dismiss one in both reading and tab order.
+    const { fixture, host, panel } = render();
+    host.mode.set('fullscreen');
+    fixture.detectChanges();
+
+    const row = panel().querySelector('.mlv-popup__header-row') as HTMLElement;
+    const classes = Array.from(row.children).map((el) => el.className);
+
+    expect(classes.indexOf('mlv-popup__title')).toBeLessThan(
+      classes.indexOf('mlv-popup__header-actions'),
+    );
+    expect(classes.indexOf('mlv-popup__header-actions')).toBeLessThan(
+      classes.findIndex((c) => c.includes('mlv-popup__close')),
+    );
+  });
+
+  it('stamps no actions wrapper when the slot is absent', () => {
+    const { fixture, host, panel } = render();
+    host.withActions.set(false);
+    host.mode.set('fullscreen');
+    fixture.detectChanges();
+
+    expect(panel().querySelector('.mlv-popup__header-actions')).toBeNull();
+    expect(panel().querySelector('.mlv-popup__title')).not.toBeNull();
+    expect(panel().querySelector('.mlv-popup__close')).not.toBeNull();
   });
 });

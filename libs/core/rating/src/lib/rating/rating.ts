@@ -96,17 +96,18 @@ export class MlvRating
    * @private Direction service backing `_direction` and the RTL-aware arrow-key
    * normalisation in `_onHostKeydown`.
    *
-   * The two are scoped differently, which is a trap worth naming here.
-   * `_direction` resolves per element, so a `[dir]` ancestor mirrors the paint
-   * and the hit test; `normalizeArrowKey` reads the service's **global**
-   * `direction()`, so inside such a scope the arrow keys keep their LTR
-   * meaning. Tracked as #147 and fixed in `MlvRtlService`, not here — the
-   * `MlvRating direction > keyboard` suite pins the current behaviour so the
-   * fix cannot land silently.
+   * Both are scoped to {@link _elementRef}: `_direction` resolves per element,
+   * and `normalizeArrowKey` is handed that same cached signal, so the paint,
+   * the hit test and the keyboard model can never disagree inside a `[dir]`
+   * subtree — or inside an overlay pane, which CDK stamps with its own `dir`
+   * (#147).
    */
   private readonly _rtlService = inject(MlvRtlService);
 
-  /** @private Host element — the delegation root for the hover listener. */
+  /**
+   * @private Host element — the delegation root for the hover listener, and the
+   * scope every direction-aware half of this component resolves against.
+   */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /**
@@ -322,7 +323,10 @@ export class MlvRating
     const stepSize = this.step();
     let next: number | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
+      event.key
+    ) {
       case RIGHT_ARROW:
       case UP_ARROW:
         next = Math.min(this.max(), current + stepSize);

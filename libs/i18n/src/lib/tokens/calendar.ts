@@ -14,6 +14,12 @@ export interface MlvCalendarI18n {
   switchView: string;
   /** aria-label for the year view grid. ICU: "Select month for {year}". */
   selectMonthForYear: string;
+  /** Visible label of the mobile sheet's confirm action. */
+  done: string;
+  /** aria-label for the mobile sheet's horizontal year strip. */
+  selectYear: string;
+  /** aria-label for the mobile sheet's scrolling month list. */
+  monthList: string;
 }
 
 export const MLV_CALENDAR_I18N = new InjectionToken<Signal<MlvCalendarI18n>>(
@@ -46,5 +52,21 @@ export const MLV_CALENDAR_I18N_CONTEXT: Record<
     usage: 'aria-label',
     icuParams: ['year'],
     description: 'Year view grid label, e.g. "Select month for 2026"',
+  },
+  done: {
+    component: 'mlv-calendar-sheet',
+    usage: 'button-text',
+    description:
+      'Confirms the pending selection and closes the full-screen calendar sheet',
+  },
+  selectYear: {
+    component: 'mlv-calendar-sheet',
+    usage: 'aria-label',
+    description: 'Horizontal year strip above the scrolling month list',
+  },
+  monthList: {
+    component: 'mlv-calendar-sheet',
+    usage: 'aria-label',
+    description: 'Scrolling list of consecutive months in the calendar sheet',
   },
 };

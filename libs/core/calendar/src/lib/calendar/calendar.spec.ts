@@ -37,7 +37,32 @@ describe('MlvCalendar', () => {
     await fixture.whenStable();
   });
 
-  afterEach(() => rtlService?.setDirection('ltr'));
+  afterEach(() => {
+    scopeElement()?.removeAttribute('dir');
+    rtlService?.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  /** The ancestor a scoped `dir` is written on — never the calendar host itself. */
+  function scopeElement(): HTMLElement | null {
+    return (fixture?.nativeElement as HTMLElement | undefined)
+      ?.parentElement as HTMLElement | null;
+  }
+
+  /** Scopes `dir` to an ancestor of the calendar, leaving the document alone. */
+  function scopeDirection(direction: 'ltr' | 'rtl'): void {
+    const scope = scopeElement();
+    if (!scope)
+      throw new Error('Calendar host has no parent to scope `dir` on');
+    scope.setAttribute('dir', direction);
+  }
+
+  function pressKey(key: string): void {
+    fixture.nativeElement.dispatchEvent(
+      new KeyboardEvent('keydown', { key, bubbles: true }),
+    );
+    fixture.detectChanges();
+  }
 
   function dayButton(day: number): HTMLButtonElement {
     const button = Array.from(
@@ -136,6 +161,153 @@ describe('MlvCalendar', () => {
         'mlv-calendar__day--range-complete',
       );
     }
+  });
+
+  describe('a range that crosses a month boundary', () => {
+    /**
+     * March 2026 opens on a Sunday, so with a Monday week start its grid leads
+     * with six February filler days (23-28) and trails with five April ones
+     * (1-5). Every assertion below picks a day out of one of those two runs.
+     */
+    function outsideDayButton(day: number): HTMLButtonElement {
+      const button = Array.from(
+        fixture.nativeElement.querySelectorAll<HTMLButtonElement>(
+          '.mlv-calendar__day--outside',
+        ),
+      ).find((candidate) => candidate.textContent?.trim() === String(day));
+
+      if (!button) {
+        throw new Error(`Could not find adjacent-month day ${day}`);
+      }
+
+      return button;
+    }
+
+    /** The `role="gridcell"` wrapping a day button. */
+    function cellOf(button: HTMLButtonElement): HTMLElement {
+      const cell = button.closest<HTMLElement>('[role="gridcell"]');
+      if (!cell) throw new Error('Day button has no gridcell');
+      return cell;
+    }
+
+    /** Range-related modifiers currently on a day button. */
+    function rangeClasses(button: HTMLButtonElement): string[] {
+      return Array.from(button.classList)
+        .filter((name) => name.startsWith('mlv-calendar__day--'))
+        .map((name) => name.replace('mlv-calendar__day--', ''))
+        .filter((name) => name.includes('range'))
+        .sort();
+    }
+
+    beforeEach(() => {
+      fixture.componentRef.setInput('range', true);
+      // The grid must stay on March while the range sits in a neighbouring
+      // month, the way `mlv-date-range-picker` pins each of its two panels.
+      fixture.componentRef.setInput('followSelection', false);
+      component.activeDate.set(new Date(2026, 2, 15));
+      fixture.detectChanges();
+    });
+
+    it('paints no band on the adjacent-month days a range spills onto', () => {
+      // #149 review: `isInDisplayRange` is date-based, so a range reaching back
+      // into February repainted a detached fragment of the band across March's
+      // leading filler — a band the neighbouring month's own grid already
+      // draws, floating inside a month it has nothing to do with.
+      component.rangeValue.set({
+        start: new Date(2026, 1, 20),
+        end: new Date(2026, 2, 5),
+      });
+      fixture.detectChanges();
+
+      for (const day of [23, 24, 25, 26, 27, 28]) {
+        expect(rangeClasses(outsideDayButton(day))).toEqual([]);
+      }
+    });
+
+    it('paints no band on the adjacent-month days after the month either', () => {
+      component.rangeValue.set({
+        start: new Date(2026, 2, 25),
+        end: new Date(2026, 3, 3),
+      });
+      fixture.detectChanges();
+
+      // April 3 is the range end and keeps its endpoint marker; the two days
+      // before it carry only the band, so they lose everything.
+      for (const day of [1, 2]) {
+        expect(rangeClasses(outsideDayButton(day))).toEqual([]);
+      }
+      expect(rangeClasses(outsideDayButton(3))).toEqual(['range-end']);
+    });
+
+    it('caps the band where the paint starts, not at the raw row edge', () => {
+      // Dropping the fill from filler must not leave the band with a squared
+      // edge butting into a blank cell: March 1 is the only painted cell in a
+      // row that opens with six February days, so it takes both caps.
+      component.rangeValue.set({
+        start: new Date(2026, 1, 20),
+        end: new Date(2026, 2, 5),
+      });
+      fixture.detectChanges();
+
+      expect(rangeClasses(dayButton(1))).toContain('range-row-start');
+      expect(rangeClasses(dayButton(1))).toContain('range-row-end');
+    });
+
+    it('caps the band where the paint ends, not at the raw row edge', () => {
+      component.rangeValue.set({
+        start: new Date(2026, 2, 25),
+        end: new Date(2026, 3, 3),
+      });
+      fixture.detectChanges();
+
+      expect(rangeClasses(dayButton(31))).toContain('range-row-end');
+    });
+
+    it('keeps the endpoint marker on an adjacent-month day that is an endpoint', () => {
+      // The band is an interval and does not belong on filler. An endpoint is a
+      // point on one real, visible, clickable day — the same thing
+      // `--selected` marks in single mode — so it stays, and the day does not
+      // read as out of range while remaining selectable.
+      component.rangeValue.set({
+        start: new Date(2026, 1, 10),
+        end: new Date(2026, 1, 25),
+      });
+      fixture.detectChanges();
+
+      expect(rangeClasses(outsideDayButton(25))).toEqual(['range-end']);
+      expect(cellOf(outsideDayButton(25)).getAttribute('aria-selected')).toBe(
+        'true',
+      );
+    });
+
+    it('reports aria-selected on adjacent-month days as what they paint', () => {
+      component.rangeValue.set({
+        start: new Date(2026, 1, 20),
+        end: new Date(2026, 2, 5),
+      });
+      fixture.detectChanges();
+
+      // Mid-range filler paints nothing, so it must not announce itself as
+      // selected either.
+      expect(cellOf(outsideDayButton(24)).getAttribute('aria-selected')).toBe(
+        'false',
+      );
+      // The owning month still reports the same date as selected.
+      expect(cellOf(dayButton(3)).getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('still paints the band inside the month itself', () => {
+      component.rangeValue.set({
+        start: new Date(2026, 1, 20),
+        end: new Date(2026, 2, 5),
+      });
+      fixture.detectChanges();
+
+      for (const day of [1, 2, 3, 4, 5]) {
+        expect(rangeClasses(dayButton(day))).toContain('in-range');
+        expect(rangeClasses(dayButton(day))).toContain('range-complete');
+      }
+    });
   });
 
   it('should clear an incomplete range preview when the pointer leaves the grid', () => {
@@ -247,6 +419,95 @@ describe('MlvCalendar', () => {
     );
     fixture.detectChanges();
     expect(component.activeDate().getDate()).toBe(9);
+  });
+
+  it('should mirror day navigation inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
+    scopeDirection('rtl');
+    component.activeDate.set(new Date(2026, 2, 15));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(rtlService.direction()).toBe('ltr');
+    expect(document.documentElement.getAttribute('dir')).not.toBe('rtl');
+
+    pressKey('ArrowLeft');
+    expect(component.activeDate().getDate()).toBe(16);
+
+    pressKey('ArrowRight');
+    expect(component.activeDate().getDate()).toBe(15);
+
+    // Block axis and paging never mirror.
+    pressKey('ArrowUp');
+    expect(component.activeDate().getDate()).toBe(8);
+
+    pressKey('ArrowDown');
+    expect(component.activeDate().getDate()).toBe(15);
+
+    pressKey('Home');
+    expect(component.activeDate().getDate()).toBe(1);
+
+    pressKey('End');
+    expect(component.activeDate().getDate()).toBe(31);
+
+    pressKey('PageUp');
+    expect(component.activeDate().getMonth()).toBe(1);
+
+    pressKey('PageDown');
+    expect(component.activeDate().getMonth()).toBe(2);
+  });
+
+  it('should mirror month navigation in the year view inside a scoped [dir="rtl"] subtree', async () => {
+    scopeDirection('rtl');
+    component.activeDate.set(new Date(2026, 2, 15));
+    component.currentView.set('year');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(rtlService.direction()).toBe('ltr');
+
+    pressKey('ArrowLeft');
+    expect(component.activeDate().getMonth()).toBe(3);
+
+    pressKey('ArrowRight');
+    expect(component.activeDate().getMonth()).toBe(2);
+
+    pressKey('ArrowDown');
+    expect(component.activeDate().getMonth()).toBe(6);
+  });
+
+  it('should mirror year navigation in the multi-year view inside a scoped [dir="rtl"] subtree', async () => {
+    scopeDirection('rtl');
+    component.activeDate.set(new Date(2026, 2, 15));
+    component.currentView.set('multi-year');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(rtlService.direction()).toBe('ltr');
+
+    pressKey('ArrowLeft');
+    expect(component.activeDate().getFullYear()).toBe(2027);
+
+    pressKey('ArrowRight');
+    expect(component.activeDate().getFullYear()).toBe(2026);
+
+    pressKey('ArrowDown');
+    expect(component.activeDate().getFullYear()).toBe(2030);
+  });
+
+  it('should leave a scoped [dir="ltr"] island unmirrored while the document is RTL', async () => {
+    rtlService.setDirection('rtl');
+    scopeDirection('ltr');
+    component.activeDate.set(new Date(2026, 2, 15));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(rtlService.direction()).toBe('rtl');
+
+    pressKey('ArrowLeft');
+    expect(component.activeDate().getDate()).toBe(14);
+
+    pressKey('ArrowRight');
+    expect(component.activeDate().getDate()).toBe(15);
   });
 
   it('should use roving tabindex and drop listitem roles in the year view', () => {
@@ -400,7 +661,7 @@ describe('MlvCalendar — followSelection', () => {
     await fixture.whenStable();
 
     // Without the opt-out this would snap to October and overwrite the
-    // parent's binding -- which is what made both `mlv-date-range-picker`
+    // parent's binding — which is what made both `mlv-date-range-picker`
     // panels paint the same month.
     expect(monthOf(fixture)).toBe(8);
   });

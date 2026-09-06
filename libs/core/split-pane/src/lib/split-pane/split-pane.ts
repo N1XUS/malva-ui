@@ -14,7 +14,12 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter, fromEvent, map, switchMap, tap, takeUntil } from 'rxjs';
-import { LEFT_ARROW, RIGHT_ARROW, UP_ARROW, DOWN_ARROW } from '@angular/cdk/keycodes';
+import {
+  LEFT_ARROW,
+  RIGHT_ARROW,
+  UP_ARROW,
+  DOWN_ARROW,
+} from '@angular/cdk/keycodes';
 import { MlvRtlService, clamp } from '@malva-ui/cdk/utils';
 import type { MlvSplitPaneOrientation } from './split-pane.types';
 import { MlvSplitPanePanel } from './split-pane-panel';
@@ -85,7 +90,11 @@ export class MlvSplitPane implements AfterContentInit {
   /** @private The inserted drag-handle elements, indexed by the pair they split. */
   private readonly _handles: HTMLElement[] = [];
 
-  /** @private Host element reference. */
+  /**
+   * @private Host element. Both direction-aware halves of this component — the
+   * drag geometry and the handle's arrow-key stepping — resolve against it, so
+   * they can never disagree about which direction applies.
+   */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /** @private Angular Renderer2 for all DOM mutations. */
@@ -369,7 +378,7 @@ export class MlvSplitPane implements AfterContentInit {
    */
   private _onHandleKeydown(event: KeyboardEvent, handleIndex: number): void {
     const isHorizontal = this.orientation() === 'horizontal';
-    const key = this._rtlService.normalizeArrowKey(event);
+    const key = this._rtlService.normalizeArrowKey(event, this._direction());
     const shouldDecrease =
       (isHorizontal && key === LEFT_ARROW) ||
       (!isHorizontal && key === UP_ARROW);

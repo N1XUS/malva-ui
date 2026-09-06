@@ -69,6 +69,50 @@ describe('popup.scss — full-screen sheet fill', () => {
     expect(ruleBody(css, INNER)).toContain('flex: 1 1 auto');
   });
 
+  it('insets the sheet body by default', () => {
+    // The inset is shared chrome, not an accident: `mlv-day-picker__popup--sheet`,
+    // `mlv-time-picker__panel--sheet` and `mlv-date-range-picker__panel--sheet`
+    // each write a `padding: 0` of their own *because* this rule pads for them.
+    // Dropping it would leave `mlv-select` / `mlv-combobox` (whose only inset is
+    // the 4px `--mlv-popover-inset` on the list) and the docs preferences popup
+    // with a body flush against a header that is still padded — so it stays,
+    // and a full-bleed block reaches for the opt-out below instead.
+    expect(ruleBody(css, INNER)).toContain('padding: var(--mlv-spacing-4)');
+  });
+
+  it('lets a full-bleed projected block opt out of that inset', () => {
+    // `mlv-calendar-sheet` owns its own inline spacing (a padded weekday strip,
+    // a padded month label, `padding-inline` on every week row), so the shared
+    // inset doubled up and left the grid floating inside a header that spans
+    // the whole sheet width. The two date pickers pass `mlv-popup--flush`.
+    const body = ruleBody(
+      css,
+      '.mlv-popup--fullscreen.mlv-popup--flush .mlv-popup__inner',
+    );
+    expect(body).toContain('padding: 0');
+  });
+
+  it('pushes the header actions to the trailing edge', () => {
+    // The title takes the leading edge and the close button claims the free
+    // space with its own `margin-inline-start: auto`. Without this the actions
+    // wrapper would sit flush against the title and the close button would fly
+    // off on its own; with it, the pair travels together as one trailing group.
+    // Logical, so it mirrors under RTL for free (`.claude/rules/rtl.md`).
+    const body = ruleBody(css, '.mlv-popup__header-actions');
+    expect(body).toContain('margin-inline-start: auto');
+  });
+
+  it('drops the close button’s own auto margin once actions precede it', () => {
+    // Two `auto` margins on the inline axis split the free space between them,
+    // which would leave a gap between Done and the dismiss button rather than
+    // the `gap`-sized one the header row asks for.
+    const body = ruleBody(
+      css,
+      '.mlv-popup__header-actions + .mlv-popup__close',
+    );
+    expect(body).toContain('margin-inline-start: 0');
+  });
+
   it('scopes the fill to the full-screen sheet', () => {
     // A trigger-anchored popup shrink-wraps to its content and must keep doing
     // so; every consumer that never goes full-screen (and `mlv-filter`, which

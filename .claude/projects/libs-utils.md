@@ -147,14 +147,63 @@ CDK `Directionality` synchronized. `direction()` returns `'ltr'` or `'rtl'`,
 and `rtl()` is its boolean form. `setDirection()`, `setRtl()`, and `toggle()`
 update all three surfaces synchronously.
 
-#### `normalizeArrowKey(event: KeyboardEvent): MlvArrowKey | null`
+#### `normalizeArrowKey(event: KeyboardEvent, direction?: MlvDirection): MlvArrowKey | null`
 
 Converts the browser's arrow-key name or legacy numeric key code to Angular CDK
-constants (`LEFT_ARROW`, `RIGHT_ARROW`, `UP_ARROW`, `DOWN_ARROW`). In RTL it
-swaps only the horizontal constants; Up/Down and non-arrow keys are unchanged
-or return `null`. Use this result for manual arrow-key switches. For a CDK
-`FocusKeyManager`, pass `direction()` to `withHorizontalOrientation()` so the
-manager can mirror its own navigation.
+constants (`LEFT_ARROW`, `RIGHT_ARROW`, `UP_ARROW`, `DOWN_ARROW`). Only the
+horizontal constants swap in RTL; Up/Down and non-arrow keys are unchanged or
+return `null`. Use this result for manual arrow-key switches. For a CDK
+`FocusKeyManager`, pass the same direction to `withHorizontalOrientation()` so
+the manager can mirror its own navigation.
+
+- **The second argument is a resolved direction, not an element.** Resolving
+  means walking `parentElement` to the nearest explicit `dir`, and a keydown
+  handler runs once per keystroke. `elementDirection(host)` does that walk once
+  and caches it behind the shared `dir` `MutationObserver`, so the caller
+  resolves in a field initializer and the handler reads the signal:
+  `normalizeArrowKey(event, this._direction())`. Most components already hold
+  that signal for a horizontal `FocusKeyManager` or for measured geometry —
+  reusing it is also what keeps the halves from disagreeing.
+- **Pass it whenever the handler branches on `ArrowLeft`/`ArrowRight`.**
+  Direction is scoped: a handler inside a `dir="rtl"` subtree, or inside a CDK
+  overlay pane (CDK stamps `dir` on every overlay host, and `MlvPopupService`
+  resolves that from the trigger), must mirror while the document is still LTR.
+  Omitting it there is the #147 defect — mirrored layout, unmirrored keys.
+- **Omitting it keeps the global `rtl()` reading**, which is correct only for a
+  vertical-only handler — one that never matches the horizontal pair, where
+  mirroring is a no-op either way (`focusable-group-base`, `mlv-sidebar`'s
+  container nav, the `mlv-tabs` overflow popup, `mlv-autocomplete`,
+  `mlv-number-input`, `mlv-search-field`, `mlv-data-table`'s row nav,
+  `mlv-menubar`'s own switch — which delegates everything horizontal to its
+  `FocusKeyManager`). Every such site carries an inline comment saying so, so a
+  reader never has to guess whether the omission was deliberate.
+- **Resolve from the element the handler speaks for**, never `event.target`:
+  the event is usually handled on a host that is not where the key was pressed,
+  and a portaled overlay's pane sits outside its trigger's `[dir]` scope
+  entirely.
+- **The component's own host is not always that element.** `MlvMenu` is the
+  case in the repo: its panel is projected through `<ng-template mlvPopupContent>`
+  into an overlay pane whose `dir` comes from the **trigger**
+  (`resolveDirection(config.origin)`), while `<mlv-menu>` itself stays at its
+  declaration site — routinely outside the trigger's `[dir]` scope, since menus
+  are usually declared once at page level. It resolves from `event.currentTarget`
+  (the `<mlv-list>` panel, always inside the pane), and because that panel is
+  re-created per attach and can be attached from triggers in different scopes,
+  it is the **one** handler that calls `resolveDirection()` per event rather
+  than reading a cached signal. Components whose host _is_ inside the pane or
+  _is_ the popup origin (`MlvMenuItem`, `MlvMenuTrigger`, `mlv-calendar`,
+  `mlv-time-picker`, `mlv-breadcrumb`, `mlv-sidebar-group`, the editor's table
+  menu, `mlv-drawer`'s resize handle) cache `elementDirection(host)`.
+
+```ts
+private readonly _direction = this._rtlService.elementDirection(
+  this._elementRef,
+);
+
+switch (
+  this._rtlService.normalizeArrowKey(event, this._direction()) ?? event.key
+) {
+```
 
 #### `resolveDirection(target: MlvDirectionTarget): MlvDirection`
 
@@ -175,7 +224,9 @@ overlay surface does this (see the table below).
 A signal of the direction applying to `target`, recomputed when the global
 direction changes **and** when any `dir` attribute changes anywhere in the
 document (one shared `MutationObserver`, started lazily and torn down with the
-calling injection context — so call it in an injection context).
+service itself — the root environment injector's lifetime, not the first
+caller's, so destroying one component cannot stop every other consumer's signal
+from updating).
 
 The shared observer is gated on `isPlatformBrowser(PLATFORM_ID)`, not on
 `typeof MutationObserver`: an SSR process with a DOM shim loaded passes the
@@ -185,9 +236,11 @@ server the signal simply resolves once from the static `dir` attributes.
 Covered by `libs/core/src/ssr-smoke.spec.ts`.
 
 Use it as an explicit dependency for anything that must be re-derived on a
-direction flip, above all **JS-measured geometry**. Mirroring a container moves
-its children without changing their size, so no `ResizeObserver` fires and no
-item query changes — nothing else tells the component to re-measure:
+direction flip: **JS-measured geometry** (mirroring a container moves its
+children without changing their size, so no `ResizeObserver` fires and no item
+query changes — nothing else tells the component to re-measure), the direction
+handed to `normalizeArrowKey()` and the one handed to a horizontal
+`FocusKeyManager`. One signal per component feeds all of them:
 
 ```ts
 private readonly _direction = inject(MlvRtlService).elementDirection(
@@ -205,14 +258,15 @@ constructor() {
 
 #### Consumers
 
-| Surface                                              | What it uses the direction for                                                                             |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete`   | `direction` on the CDK overlay config, resolved from the trigger element                                   |
-| `MlvOverlayServiceBase` (drawer), `MlvDialogService` | `direction` resolved from the focused element at open time; overridable via the config's `direction` field |
-| `MlvOverlayHostBase`                                 | `direction` resolved from the component host                                                               |
-| `MlvAbstractToastService`                            | global `direction()` — toast stacks are document-level                                                     |
-| `MlvTabGroup`, `MlvSegmented`                        | re-measure the sliding indicator / pill on a direction flip                                                |
-| `MlvSlider`, `MlvRating`, `MlvSplitPane`             | mirror pointer-coordinate → value mapping                                                                  |
+| Surface                                              | What it uses the direction for                                                                                          |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete`   | `direction` on the CDK overlay config, resolved from the trigger element                                                |
+| `MlvOverlayServiceBase` (drawer), `MlvDialogService` | `direction` resolved from the focused element at open time; overridable via the config's `direction` field              |
+| `MlvOverlayHostBase`                                 | `direction` resolved from the component host                                                                            |
+| `MlvAbstractToastService`                            | global `direction()` — toast stacks are document-level                                                                  |
+| `MlvTabGroup`, `MlvSegmented`                        | re-measure the sliding indicator / pill on a direction flip                                                             |
+| `MlvSlider`, `MlvRating`, `MlvSplitPane`             | mirror pointer-coordinate → value mapping                                                                               |
+| Every horizontal arrow handler                       | `normalizeArrowKey(event, this._direction())` — one cached `elementDirection()` per component, so keys and layout agree |
 
 ---
 

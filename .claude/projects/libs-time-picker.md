@@ -149,13 +149,13 @@ strips. Before #129 this was a private `MlvTimePickerColumn` in this library;
 the file is gone and there is no wrapper — the template renders `mlv-scrubber`
 directly. What this component still owns:
 
-| Concern                      | Here                                                                                                                                                   |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Number format                | `[displayWith]="_twoDigits"` — the zero-padded two-digit numeral. The strip renders `String(value)` on its own; the padding was never _its_ behaviour. |
-| Labels                       | `label="Hours" / "Minutes" / "Seconds"`.                                                                                                               |
-| Inter-column ArrowLeft/Right | `_onPanelKeydown` on `.mlv-time-picker__columns`, through `MlvRtlService.normalizeArrowKey`, using each strip's `listElement` and `focusList()`.       |
-| Focus on open                | `_onPopupOpened()` → `this._columns()[0]?.focusList()`, where `_columns = viewChildren(MlvScrubber)`.                                                  |
-| Geometry                     | The `--mlv-tp-*` → `--mlv-scrubber-*` alias layer — see _CSS custom properties_.                                                                       |
+| Concern                      | Here                                                                                                                                                                       |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Number format                | `[displayWith]="_twoDigits"` — the zero-padded two-digit numeral. The strip renders `String(value)` on its own; the padding was never _its_ behaviour.                     |
+| Labels                       | `label="Hours" / "Minutes" / "Seconds"`.                                                                                                                                   |
+| Inter-column ArrowLeft/Right | `_onPanelKeydown` on `.mlv-time-picker__columns`, through `MlvRtlService.normalizeArrowKey(event, this._direction())`, using each strip's `listElement` and `focusList()`. |
+| Focus on open                | `_onPopupOpened()` → `this._columns()[0]?.focusList()`, where `_columns = viewChildren(MlvScrubber)`.                                                                      |
+| Geometry                     | The `--mlv-tp-*` → `--mlv-scrubber-*` alias layer — see _CSS custom properties_.                                                                                           |
 
 Everything else — the headless `ngListbox`/`ngOption` wiring in
 `focusMode="activedescendant"`, the value bridging, the active-item seeding, the
@@ -166,6 +166,12 @@ The keyboard model the picker exposes is unchanged: ArrowUp/ArrowDown navigate
 and select within a column (wrapping), ArrowLeft/ArrowRight move between
 columns, Home/End jump to first/last, Enter/Space select, and typing digits
 seeks by the zero-padded label.
+
+Direction of the inter-column pair:
+
+- ArrowLeft/ArrowRight are **logical** (previous/next column) and mirror in RTL; ArrowUp/ArrowDown and Home/End never do.
+- `_onPanelKeydown` passes `this._direction()` — `elementDirection(this._elementRef)`, cached — to `normalizeArrowKey`, so direction resolves from the picker's **own host**, not the document.
+- Required because the columns render in a popup pane portaled to `<body>` — it inherits no `[dir]` scope from the trigger. A picker inside a scoped `dir="rtl"` subtree mirrors while `<html>` stays LTR, and a `dir="ltr"` island inside an RTL document does not.
 
 ---
 

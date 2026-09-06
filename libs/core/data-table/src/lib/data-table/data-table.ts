@@ -466,8 +466,16 @@ export class MlvDataTable {
   private readonly _rtlService = inject(MlvRtlService);
   /** @private Owning document for pointer fallback listeners and DOM queries. */
   private readonly _document = inject(DOCUMENT);
-  /** @private Host element ref, observed for width and used for row focus queries. */
+  /**
+   * @private Host element ref, observed for width, used for row focus queries,
+   * and the scope the column-resize arrow keys resolve their direction against.
+   */
   private readonly _el = inject(ElementRef);
+  /**
+   * @private Direction applying to this table, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(this._el);
   /** @private Injector used to schedule `afterNextRender` from imperative handlers. */
   private readonly _injector = inject(Injector);
   /** @private Angular zone — column-resize drag listeners run outside it so pointer moves don't trigger a full CD tick per event (see {@link onResizeStart}). */
@@ -1472,6 +1480,10 @@ export class MlvDataTable {
    * - `ArrowUp` / `ArrowDown` — move row focus by one (clamped)
    * - `Home` / `End` — jump to the first / last row
    * - `Space` / `Enter` — toggle selection of the focused row when selectable
+   *
+   * The switch never matches the horizontal pair, so `normalizeArrowKey` is
+   * deliberately called without a direction target — mirroring is a no-op here
+   * and the vertical keys never mirror in any direction.
    */
   _onRowKeydown(index: number, row: MlvDataRow, event: KeyboardEvent): void {
     if (event.target !== event.currentTarget) return;
@@ -1996,7 +2008,11 @@ export class MlvDataTable {
       return;
     }
 
-    const key = this._rtlService.normalizeArrowKey(event);
+    // Resolved against this table's own host, not the document: the separator
+    // rides the column's inline-end edge, so a table inside a scoped `dir`
+    // subtree — an overlay pane included, since CDK stamps every pane with its
+    // own `dir` — must mirror even while the document runs the other way.
+    const key = this._rtlService.normalizeArrowKey(event, this._direction());
     const supported =
       key === LEFT_ARROW ||
       key === RIGHT_ARROW ||

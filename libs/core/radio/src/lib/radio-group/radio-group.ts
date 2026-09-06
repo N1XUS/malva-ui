@@ -4,6 +4,7 @@ import {
   contentChildren,
   DestroyRef,
   effect,
+  ElementRef,
   forwardRef,
   inject,
   input,
@@ -112,6 +113,22 @@ export class MlvRadioGroup
   /** @private Normalizes horizontal radio navigation for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
 
+  /**
+   * @private Host element; the scope horizontal arrow keys resolve their
+   * direction against, so the group mirrors inside a `[dir]` subtree — or
+   * inside an overlay pane, which CDK stamps with its own `dir` — and not only
+   * on a document-wide flip.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
+  /**
+   * @private Direction applying to this group, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   constructor() {
     super();
     inject(DestroyRef).onDestroy(() => this._keyManager?.destroy());
@@ -151,7 +168,7 @@ export class MlvRadioGroup
    * radiogroup semantics, moving focus + selection via the FocusKeyManager.
    */
   _onKeydown(event: KeyboardEvent): void {
-    const key = this._rtlService.normalizeArrowKey(event);
+    const key = this._rtlService.normalizeArrowKey(event, this._direction());
     const isPrev = key === UP_ARROW || key === LEFT_ARROW;
     const isNext = key === DOWN_ARROW || key === RIGHT_ARROW;
     if (!isPrev && !isNext) return;

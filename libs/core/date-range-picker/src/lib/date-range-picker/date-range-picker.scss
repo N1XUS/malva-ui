@@ -95,57 +95,53 @@
     }
 
     // -------------------------------------------------------------------------
-    // Mobile full-screen sheet (#121)
+    // Mobile full-screen sheet
     //
-    // Two months need 593px of inline space: the row's 1rem padding, two 264px
-    // calendars, and the 1px rule with its 1rem margins. An anchored dropdown
-    // gets exactly that — the CDK pane is sized to the content — so the desktop
-    // layout never clips at any viewport width. The full-screen sheet is the one
-    // place the panel is capped at the viewport instead, and below roughly 612px
-    // the second month falls past `__panel`'s `overflow: hidden` edge. Measured
-    // in Chrome at 375x812 with this block ablated: 29px of a 264px calendar
-    // visible and 235px unreachable, with no user gesture that reaches it —
-    // `overflow: hidden` paints no scrollbar and refuses touch panning, and the
-    // only thing that moves `scrollLeft` is the browser scrolling a focused cell
-    // into view, which trades the first month away for the second.
+    // #121's stopgap lived here: it hid the second month with `display: none`
+    // because two 264px calendars need 593px of inline space and the sheet is
+    // the one place the panel is capped at the viewport. #130 removed the need
+    // for it — the sheet renders `mlv-calendar-sheet` instead of the two
+    // panels, so there is no second month to hide and no divider to drop, and a
+    // range spanning months is visible end to end rather than truncated at the
+    // panel anchored on its start.
     //
-    // The sheet therefore shows a single month. A range that spans two is still
-    // assembled through the calendar's own month navigation, because the pending
-    // range lives on the component rather than on either calendar.
+    // What is left is geometry: the sheet is a three-region column whose middle
+    // region is the scroller, so it has to claim the sheet's leftover height
+    // instead of sitting at its natural size at the top with the rest blank.
     //
-    // Two costs, both of which grew when #140 landed and made the panels show
-    // consecutive months. This block was written while both painted the *same*
-    // month, so dropping the second one lost nothing; it now hides distinct
-    // information.
+    // It claims it the way `mlv-time-picker__panel--sheet` does, and for the
+    // same reason: `flex: 1 1 0`, **not** `height: 100%` and not the `flex: 1`
+    // shorthand (whose basis is `0%`). Every percentage here resolves against
+    // an ancestor chain with no definite height — `.mlv-popup__inner` carries
+    // `min-height: 100%`, which popup.scss § `--fullscreen` records as never
+    // resolving either, because its containing block is content-derived. A
+    // `<length>` basis of `0` plus `flex-grow` is pure free-space distribution
+    // and needs no definite height anywhere. `min-height: 0` is what then lets
+    // the month scroller shrink below its content instead of growing the panel
+    // past the sheet, which the row's `auto` minimum size would otherwise do.
     //
-    //   1. Sheet mode runs to the `md` breakpoint (768px), not to the ~612px
-    //      where clipping starts, so between roughly 612px and 767px a month
-    //      that would have fitted is hidden anyway. One threshold, deliberately,
-    //      rather than a second one to keep in sync with `mobileMode`.
-    //   2. The visible panel is anchored to the range *start*, so with a
-    //      committed cross-month range the end date can be off-screen. Measured
-    //      at 375x812 with 20 Sep – 20 Oct 2026 committed: the sheet paints
-    //      September and the range highlight stops at the `4` in the trailing
-    //      overflow row, with nothing to say it continues to the 20th.
+    // `__panel` is already the column flex container, so the sheet inside it
+    // takes the same pair.
     //
-    // #130 fixes both properly with a continuously scrolling month list.
-    //
-    // Deliberately the smallest change that makes the content reachable, and
-    // scoped entirely under this one modifier: #130 replaces the sheet body with
-    // a dedicated mobile calendar, and this block is deleted whole when it lands.
+    // The other half is chrome. `__panel` is a *dropdown* surface — a hairline
+    // border, a 12px radius and `--mlv-shadow-floating` — and the sheet reused
+    // it unchanged, so a viewport-filling surface painted a shadow it has
+    // nothing to float above (#149 review). Now that `mlv-popup--flush` drops
+    // the sheet's body inset the panel reaches the sheet's own edges too, where
+    // the border reads as a stray outline and the radius rounds the sheet's
+    // square inner corners — so all three go together. The fill stays:
+    // `mlv-popup` paints its own surface behind it and the two agree.
     // -------------------------------------------------------------------------
     &__panel--sheet {
-      .#{$block}__calendars {
-        // `.mlv-popup__inner` stretches the sheet panel to the full sheet width,
-        // so the row's default `justify-content: flex-start` would leave the one
-        // remaining month against the inline-start edge with the leftover width
-        // dead at the other end. Symmetric, so it mirrors in RTL for free.
-        justify-content: center;
-      }
+      flex: 1 1 0;
+      min-height: 0;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
 
-      .#{$block}__calendar--end,
-      .#{$block}__divider {
-        display: none;
+      .mlv-calendar-sheet {
+        flex: 1 1 0;
+        min-height: 0;
       }
     }
 

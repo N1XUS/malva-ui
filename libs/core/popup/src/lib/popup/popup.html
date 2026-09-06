@@ -6,13 +6,27 @@
     [class.mlv-popup--fullscreen]="isFullscreen()"
     [class.mlv-popup--arrow]="hasArrow() && !isFullscreen()"
     [class.mlv-popup--shadow]="hasShadow() && !isFullscreen()"
-    [class.mlv-popup--arrow-top]="hasArrow() && !isFullscreen() && arrowEdge() === 'top'"
-    [class.mlv-popup--arrow-bottom]="hasArrow() && !isFullscreen() && arrowEdge() === 'bottom'"
-    [class.mlv-popup--arrow-left]="hasArrow() && !isFullscreen() && arrowEdge() === 'left'"
-    [class.mlv-popup--arrow-right]="hasArrow() && !isFullscreen() && arrowEdge() === 'right'"
-    [class.mlv-popup--arrow-start]="hasArrow() && !isFullscreen() && arrowAlign() === 'start'"
-    [class.mlv-popup--arrow-center]="hasArrow() && !isFullscreen() && arrowAlign() === 'center'"
-    [class.mlv-popup--arrow-end]="hasArrow() && !isFullscreen() && arrowAlign() === 'end'"
+    [class.mlv-popup--arrow-top]="
+      hasArrow() && !isFullscreen() && arrowEdge() === 'top'
+    "
+    [class.mlv-popup--arrow-bottom]="
+      hasArrow() && !isFullscreen() && arrowEdge() === 'bottom'
+    "
+    [class.mlv-popup--arrow-left]="
+      hasArrow() && !isFullscreen() && arrowEdge() === 'left'
+    "
+    [class.mlv-popup--arrow-right]="
+      hasArrow() && !isFullscreen() && arrowEdge() === 'right'
+    "
+    [class.mlv-popup--arrow-start]="
+      hasArrow() && !isFullscreen() && arrowAlign() === 'start'
+    "
+    [class.mlv-popup--arrow-center]="
+      hasArrow() && !isFullscreen() && arrowAlign() === 'center'
+    "
+    [class.mlv-popup--arrow-end]="
+      hasArrow() && !isFullscreen() && arrowAlign() === 'end'
+    "
     [class.mlv-popup--enter]="animationState() === 'enter'"
     [class.mlv-popup--leave]="animationState() === 'leave'"
     (animationend)="onAnimationEnd()"
@@ -22,33 +36,39 @@
     [cdkTrapFocus]="modal() || isFullscreen()"
   >
     @if (isFullscreen()) {
-    <div class="mlv-popup__header">
-      <div class="mlv-popup__header-row">
-        @if (mobileTitle(); as title) {
-        <span class="mlv-popup__title">{{ title }}</span>
+      <div class="mlv-popup__header">
+        <div class="mlv-popup__header-row">
+          @if (mobileTitle(); as title) {
+            <span class="mlv-popup__title">{{ title }}</span>
+          }
+          @if (headerActionsRef(); as actionsTpl) {
+            <div class="mlv-popup__header-actions">
+              <ng-template [ngTemplateOutlet]="actionsTpl.templateRef" />
+            </div>
+          }
+          <mlv-button-close
+            class="mlv-popup__close"
+            [ariaLabel]="_closeLabel()"
+            (click)="_onCloseClick()"
+            variant="secondary"
+          ></mlv-button-close>
+        </div>
+        @if (headerContentRef(); as headerTpl) {
+          <div class="mlv-popup__header-content">
+            <ng-template [ngTemplateOutlet]="headerTpl.templateRef" />
+          </div>
         }
-        <mlv-button-close
-          class="mlv-popup__close"
-          [ariaLabel]="_closeLabel()"
-          (click)="_onCloseClick()"
-          variant="secondary"
-        ></mlv-button-close>
       </div>
-      @if (headerContentRef(); as headerTpl) {
-      <div class="mlv-popup__header-content">
-        <ng-template [ngTemplateOutlet]="headerTpl.templateRef" />
+    }
+    @if (pinnedContentRef(); as pinnedTpl) {
+      <div class="mlv-popup__pinned">
+        <ng-template [ngTemplateOutlet]="pinnedTpl.templateRef" />
       </div>
-      }
-    </div>
-    } @if (pinnedContentRef(); as pinnedTpl) {
-    <div class="mlv-popup__pinned">
-      <ng-template [ngTemplateOutlet]="pinnedTpl.templateRef" />
-    </div>
     }
     <mlv-scrollbar class="mlv-popup__scrollbar">
       <div class="mlv-popup__inner">
         @if (contentRef(); as contentTpl) {
-        <ng-template [ngTemplateOutlet]="contentTpl.templateRef" />
+          <ng-template [ngTemplateOutlet]="contentTpl.templateRef" />
         }
       </div>
     </mlv-scrollbar>

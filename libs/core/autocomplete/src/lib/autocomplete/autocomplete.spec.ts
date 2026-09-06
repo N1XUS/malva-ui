@@ -921,3 +921,190 @@ describe('MlvAutocomplete — suggestion panel width (#150)', () => {
     expect(pane().style.width).toBe('');
   });
 });
+
+/**
+ * #154 — the panel #150 freed to grow still had nowhere to grow into: both
+ * suggestion positions were `start`-aligned, so a field near the viewport's
+ * inline-end edge got a bounding box only as wide as the sliver of room after
+ * it. `end`-aligned fallbacks let the panel anchor its inline-end edge to the
+ * field and grow back toward inline-start instead. The directive builds its own
+ * CDK overlay rather than going through `mlv-popup`, so it is pinned separately
+ * from `mlv-select` / `mlv-combobox` even though the position list is shared.
+ */
+describe('MlvAutocomplete — suggestion panel inline-axis fallback (#154)', () => {
+  const VIEWPORT_WIDTH = 1024;
+  const VIEWPORT_HEIGHT = 768;
+  /** The panel's own box: wider than the room left beside an edge field. */
+  const PANEL_WIDTH = 300;
+  const PANEL_HEIGHT = 200;
+
+  const rect = (left: number, width: number) => ({
+    x: left,
+    y: 100,
+    left,
+    top: 100,
+    right: left + width,
+    bottom: 132,
+    width,
+    height: 32,
+  });
+
+  /** 60px field with only 20px of room after its physical right edge. */
+  const RIGHT_EDGE_RECT = rect(944, 60);
+  /** The mirror image: 60px field 20px from the physical left edge. */
+  const LEFT_EDGE_RECT = rect(20, 60);
+  /** Room on both sides — the case the preferred `start` pair must keep. */
+  const ROOMY_RECT = rect(40, 200);
+
+  @Component({
+    template: `<input mlvAutocomplete [mlvAutocomplete]="options" />`,
+    imports: [MlvAutocomplete],
+  })
+  class HostComponent {
+    readonly options = ['a', 'b'];
+  }
+
+  let fixture: ComponentFixture<HostComponent>;
+  let input: HTMLInputElement;
+  let overlayContainer: OverlayContainer;
+  let rtlService: MlvRtlService;
+
+  const nativeGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+
+  /** Replaces an element's zero-sized jsdom box with a real one. */
+  function stubRect(element: Element, box: Record<string, number>): void {
+    const full = { toJSON: () => box, ...box };
+    element.getBoundingClientRect = () => full as unknown as DOMRect;
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    overlayContainer = TestBed.inject(OverlayContainer);
+    rtlService = TestBed.inject(MlvRtlService);
+    Object.defineProperty(document.documentElement, 'clientWidth', {
+      value: VIEWPORT_WIDTH,
+      configurable: true,
+    });
+    Object.defineProperty(document.documentElement, 'clientHeight', {
+      value: VIEWPORT_HEIGHT,
+      configurable: true,
+    });
+
+    // The pane does not exist until CDK attaches it and CDK measures it inside
+    // that same attach, so it is stubbed on the prototype rather than on the
+    // instance. With a 0x0 pane `isCompletelyWithinViewport` compares
+    // `0 === 0` and every candidate fits outright, so a spec that does not stub
+    // the pane pins `positions[0]` and can never reach a fallback.
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      if (this.classList?.contains('cdk-overlay-pane')) {
+        const box = {
+          x: 0,
+          y: 0,
+          left: 0,
+          top: 0,
+          right: PANEL_WIDTH,
+          bottom: PANEL_HEIGHT,
+          width: PANEL_WIDTH,
+          height: PANEL_HEIGHT,
+        };
+        return { toJSON: () => box, ...box } as unknown as DOMRect;
+      }
+      return nativeGetBoundingClientRect.call(this);
+    };
+  });
+
+  afterEach(() => {
+    Element.prototype.getBoundingClientRect = nativeGetBoundingClientRect;
+    rtlService.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+    Reflect.deleteProperty(document.documentElement, 'clientWidth');
+    Reflect.deleteProperty(document.documentElement, 'clientHeight');
+    overlayContainer.ngOnDestroy();
+  });
+
+  /** The input is both the width source and the overlay origin here. */
+  async function openAt(box: Record<string, number>): Promise<void> {
+    fixture.detectChanges();
+    stubRect(input, box);
+    input.dispatchEvent(new FocusEvent('focus'));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+  }
+
+  /**
+   * The anchored inset, the width and `align-items` together identify the
+   * applied pair. The opposite inset is not asserted: CDK writes `auto` there
+   * and jsdom's `cssstyle` rejects `auto` on `left`/`right`, silently keeping
+   * the `0px` left by CDK's own reset.
+   */
+  const boundingBox = () =>
+    overlayContainer
+      .getContainerElement()
+      .querySelector(
+        '.cdk-overlay-connected-position-bounding-box',
+      ) as HTMLElement | null;
+
+  it('anchors the panel to the field inline-end edge when inline-end room runs out (LTR)', async () => {
+    await openAt(RIGHT_EDGE_RECT);
+
+    const box = boundingBox();
+    expect(box?.getAttribute('dir')).toBe('ltr');
+    expect(box?.style.right).toBe(
+      `${VIEWPORT_WIDTH - RIGHT_EDGE_RECT.right}px`,
+    );
+    expect(box?.style.width).toBe(`${RIGHT_EDGE_RECT.right}px`);
+    expect(box?.style.alignItems).toBe('flex-end');
+  });
+
+  it('keeps the preferred start-aligned position when there is inline-end room', async () => {
+    await openAt(ROOMY_RECT);
+
+    const box = boundingBox();
+    expect(box?.getAttribute('dir')).toBe('ltr');
+    expect(box?.style.left).toBe(`${ROOMY_RECT.left}px`);
+    expect(box?.style.width).toBe(`${VIEWPORT_WIDTH - ROOMY_RECT.left}px`);
+    expect(box?.style.alignItems).toBe('flex-start');
+  });
+
+  it('mirrors the fallback under a global RTL flip', async () => {
+    // The directive does not go through `MlvPopupService`: it resolves the
+    // pane's direction itself with `MlvRtlService.resolveDirection(el)` on its
+    // own `flexibleConnectedTo`. The scoped case below covers the `[dir]` walk;
+    // this one covers the document-level source that walk falls back to, which
+    // no other spec exercises on this plumbing.
+    rtlService.setDirection('rtl');
+    // Inline-end is the physical LEFT edge in RTL, so it is a field hugging the
+    // left of the viewport that has nowhere to grow.
+    await openAt(LEFT_EDGE_RECT);
+
+    const box = boundingBox();
+    expect(box?.getAttribute('dir')).toBe('rtl');
+    expect(box?.style.left).toBe(`${LEFT_EDGE_RECT.left}px`);
+    expect(box?.style.width).toBe(`${VIEWPORT_WIDTH - LEFT_EDGE_RECT.left}px`);
+    expect(box?.style.alignItems).toBe('flex-end');
+  });
+
+  it('mirrors the fallback under a [dir="rtl"] scope while the document stays LTR', async () => {
+    input.setAttribute('dir', 'rtl');
+    // Inline-end is the physical LEFT edge in RTL, so it is a field hugging the
+    // left of the viewport that has nowhere to grow.
+    await openAt(LEFT_EDGE_RECT);
+
+    expect(rtlService.direction()).toBe('ltr');
+    const box = boundingBox();
+    expect(box?.getAttribute('dir')).toBe('rtl');
+    expect(box?.style.left).toBe(`${LEFT_EDGE_RECT.left}px`);
+    expect(box?.style.width).toBe(`${VIEWPORT_WIDTH - LEFT_EDGE_RECT.left}px`);
+    expect(box?.style.alignItems).toBe('flex-end');
+  });
+});

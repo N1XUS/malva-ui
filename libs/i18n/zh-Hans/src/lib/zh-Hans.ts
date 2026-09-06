@@ -29,6 +29,9 @@ const zhHans: MlvLanguage = {
     switchView:
       '切换到{view, select, year {年} multiYear {多年} other {月}}视图',
     selectMonthForYear: '选择 {year} 年的月份',
+    done: '完成',
+    selectYear: '选择年份',
+    monthList: '日历月份',
   },
   chat: {
     chatLabel: '聊天消息',
@@ -131,6 +134,7 @@ const zhHans: MlvLanguage = {
   },
   dayPicker: {
     placeholder: '选择日期...',
+    selectDay: '选择日期',
   },
   dialog: {
     closeDialog: '关闭对话框',

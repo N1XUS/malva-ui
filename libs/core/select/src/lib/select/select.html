@@ -102,6 +102,13 @@
       </div>
 
       @if (_nativeActive()) {
+        <!-- `selected` is bound as an attribute here, never as a property: domino
+           has no `HTMLOptionElement.selected`, so a property binding logged an
+           NG0303 per option on every server render (#135), and the attribute is
+           also the only form that serialises into that render. The live
+           selection is written as the DOM property by the
+           `_syncNativeSelection` after-render effect — see it for why both are
+           needed. -->
         <select
           #nativeSelect
           class="mlv-select__native"
@@ -118,7 +125,7 @@
           (change)="_onNativeChange($event)"
         >
           @if (!multiple()) {
-            <option value="" disabled [selected]="!hasValue()">
+            <option value="" disabled [attr.selected]="!hasValue() ? '' : null">
               {{ _resolvedPlaceholder() }}
             </option>
           }
@@ -129,7 +136,9 @@
                   <option
                     [value]="option.key"
                     [disabled]="option.disabled || false"
-                    [selected]="_isNativeOptionSelected(option.value)"
+                    [attr.selected]="
+                      _isNativeOptionSelected(option.value) ? '' : null
+                    "
                   >
                     {{ option.label }}
                   </option>
@@ -140,7 +149,9 @@
                 <option
                   [value]="option.key"
                   [disabled]="option.disabled || false"
-                  [selected]="_isNativeOptionSelected(option.value)"
+                  [attr.selected]="
+                    _isNativeOptionSelected(option.value) ? '' : null
+                  "
                 >
                   {{ option.label }}
                 </option>

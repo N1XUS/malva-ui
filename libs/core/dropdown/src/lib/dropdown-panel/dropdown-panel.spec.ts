@@ -772,3 +772,258 @@ describe('MlvDropdownPanel — activedescendant highlight parity (#75)', () => {
     ).not.toBe('');
   });
 });
+
+/**
+ * The check-mark is a membership test, and it has to give the same answer as
+ * every other membership test in the stack — `MlvSelectionService.isSelected`,
+ * `deselect`, and the `select`/`toggle` de-dup path, all of which run the
+ * injected comparator. It used to run `new Set(selectedValues()).has(value)`
+ * instead, and SameValueZero is not that comparator (#132).
+ */
+describe('MlvDropdownPanel — check-mark agrees with the comparator (#132)', () => {
+  interface Item {
+    readonly id: number;
+  }
+
+  async function setup<T>(
+    options: { label: string; value: T }[],
+    selectedValues: T[],
+  ): Promise<ComponentFixture<MlvDropdownPanel<T>>> {
+    await TestBed.configureTestingModule({
+      imports: [MlvDropdownPanel],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+
+    const fixture =
+      TestBed.createComponent<MlvDropdownPanel<T>>(MlvDropdownPanel);
+    fixture.componentRef.setInput('options', options);
+    fixture.componentRef.setInput('selectedValues', selectedValues);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  /**
+   * Swallows `@angular/aria`'s listbox violation warning for the duration of a
+   * NaN test, restoring `console.warn` afterwards.
+   *
+   * Nothing about this panel is being suppressed. `ngListbox.validate()`
+   * detects duplicate option values with `values.indexOf(val) !== idx`, and
+   * `indexOf` never matches `NaN` — so a listbox holding *one* NaN option is
+   * always reported as holding a duplicate. It then logs the offending element
+   * with `console.warn('… %o:', element)`, and Node's `%o` formatter throws
+   * `TypeError: Receiver must be an instance of class URL` while walking a
+   * jsdom element, which surfaces as a stack trace in the suite output. Both
+   * halves are upstream and neither depends on the selection.
+   *
+   * Only aria's two violation lines are dropped; every other warning still
+   * reaches the real `console.warn`, so a warning this library starts emitting
+   * during a NaN test (the panel's own dev-mode scroll-owner diagnostic, say)
+   * cannot hide behind the mute.
+   */
+  function silenceAriaNaNViolation(): () => void {
+    const original = console.warn;
+    console.warn = (...args: unknown[]) => {
+      const first = args[0];
+      if (
+        typeof first === 'string' &&
+        (first.startsWith('Violations found on element:') ||
+          first.startsWith('Duplicate option value'))
+      ) {
+        return;
+      }
+      (original as (...rest: unknown[]) => void)(...args);
+    };
+    return () => {
+      console.warn = original;
+    };
+  }
+
+  /** Labels of the rows currently rendering a check-mark, in DOM order. */
+  function checkedLabels(el: HTMLElement): string[] {
+    return [...el.querySelectorAll<HTMLElement>('[role="option"]')]
+      .filter((row) => row.querySelector('.mlv-dropdown-panel__item-check'))
+      .map((row) => row.textContent?.trim() ?? '');
+  }
+
+  /** `aria-selected` of every rendered row, in DOM order. */
+  function ariaSelected(el: HTMLElement): (string | null)[] {
+    return [...el.querySelectorAll<HTMLElement>('[role="option"]')].map((row) =>
+      row.getAttribute('aria-selected'),
+    );
+  }
+
+  it('leaves a NaN row unchecked, because === reports it unselected', async () => {
+    // `Set.has(NaN)` is true while `findIndex(v => v === NaN)` is -1, so the
+    // Set ticked a row that `MlvSelectionService` — and therefore the display
+    // value and the deselect path — considered not selected.
+    const restore = silenceAriaNaNViolation();
+    try {
+      const fixture = await setup<number>(
+        [
+          { label: 'Not a number', value: NaN },
+          { label: 'One', value: 1 },
+        ],
+        [NaN],
+      );
+
+      const service = TestBed.inject(MlvSelectionService);
+      service.setValues([NaN]);
+      expect(service.isSelected(NaN)).toBe(false);
+
+      expect(checkedLabels(fixture.nativeElement)).toEqual([]);
+      // aria reports the same, so the row is unselected by every account —
+      // the `Set` was the only thing claiming otherwise.
+      expect(ariaSelected(fixture.nativeElement)).not.toContain('true');
+    } finally {
+      restore();
+    }
+  });
+
+  it('checks the row a custom comparator matches, not the one === matches', async () => {
+    // The committed value is a fresh object (as a deserialised form value is),
+    // so it is `===`-equal to no option value. The comparator matches it to
+    // option B — the case `MlvSelectionService.compareWith`'s JSDoc promises
+    // keeps "check-marks / display value in agreement".
+    const options = [
+      { label: 'A', value: { id: 1 } },
+      { label: 'B', value: { id: 2 } },
+    ];
+    const committed: Item = { id: 2 };
+
+    await TestBed.configureTestingModule({
+      imports: [MlvDropdownPanel],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+
+    const service = TestBed.inject(MlvSelectionService);
+    service.compareWith.set((a, b) => (a as Item).id === (b as Item).id);
+    service.setValues([committed]);
+
+    const fixture =
+      TestBed.createComponent<MlvDropdownPanel<Item>>(MlvDropdownPanel);
+    fixture.componentRef.setInput('options', options);
+    fixture.componentRef.setInput('selectedValues', [committed]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // Guard the guard: the comparator really does call option B selected, so
+    // the DOM assertion below can only fail on the panel disagreeing with it.
+    expect(service.isSelected(options[1].value)).toBe(true);
+    expect(service.isSelected(options[0].value)).toBe(false);
+
+    expect(checkedLabels(fixture.nativeElement)).toEqual(['B']);
+
+    // `aria-selected` is asserted by its own test below, which also covers the
+    // reconciliation emit — the two share one cause (`@angular/aria` matching
+    // values to options with `===`) and one fix (`_ariaValues`). This test is
+    // deliberately narrower: it pins the check-mark gate alone, so an
+    // `_ariaValues` regression cannot be mistaken for a comparator regression.
+  });
+
+  it('takes an explicit compareWith input over the service default', async () => {
+    const options = [
+      { label: 'A', value: { id: 1 } },
+      { label: 'B', value: { id: 2 } },
+    ];
+
+    await TestBed.configureTestingModule({
+      imports: [MlvDropdownPanel],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+
+    const fixture =
+      TestBed.createComponent<MlvDropdownPanel<Item>>(MlvDropdownPanel);
+    fixture.componentRef.setInput('options', options);
+    fixture.componentRef.setInput('selectedValues', [{ id: 2 }]);
+    fixture.componentRef.setInput(
+      'compareWith',
+      (a: Item, b: Item) => a.id === b.id,
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(checkedLabels(fixture.nativeElement)).toEqual(['B']);
+  });
+
+  /**
+   * Renders a standalone panel whose committed value is a *fresh* object — as
+   * a deserialised form value is — matched to option B by `compareWith` alone,
+   * and records every `valueChange` from before the first render onward.
+   */
+  async function setupFreshObjectSelection(): Promise<{
+    fixture: ComponentFixture<MlvDropdownPanel<Item>>;
+    emitted: (readonly Item[])[];
+  }> {
+    await TestBed.configureTestingModule({
+      imports: [MlvDropdownPanel],
+      providers: [provideMlvI18nTesting(), MlvSelectionService],
+    }).compileComponents();
+
+    const fixture =
+      TestBed.createComponent<MlvDropdownPanel<Item>>(MlvDropdownPanel);
+    const emitted: (readonly Item[])[] = [];
+    fixture.componentInstance.valueChange.subscribe((values) =>
+      emitted.push(values),
+    );
+    fixture.componentRef.setInput('options', [
+      { label: 'A', value: { id: 1 } },
+      { label: 'B', value: { id: 2 } },
+    ]);
+    fixture.componentRef.setInput('selectedValues', [{ id: 2 }]);
+    fixture.componentRef.setInput(
+      'compareWith',
+      (a: Item, b: Item) => a.id === b.id,
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    // A second settle: aria reconciles `value` from an afterRenderEffect, so
+    // the emit under test lands one render after the one that paints the tick.
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return { fixture, emitted };
+  }
+
+  it('emits nothing on first render, so the tick it paints survives', async () => {
+    // `@angular/aria` reconciles its `value` model against the *rendered*
+    // options with `i.value() === v` — SameValueZero, no comparator — from an
+    // afterRenderEffect, and re-emits whatever survives. A value matched only
+    // by `compareWith` is invisible to that check, so the panel used to emit
+    // `[]` on first render with no user interaction. The wiring the docs
+    // example shows (`selected.set([...values])`) then cleared the selection
+    // and the check-mark vanished a frame after it appeared.
+    const { emitted } = await setupFreshObjectSelection();
+
+    expect(emitted).toEqual([]);
+  });
+
+  it('marks the matched row aria-selected, not just check-marked', async () => {
+    // Same cause as the spurious emit above: aria's option computes
+    // `aria-selected` as `listbox.value().includes(this.value())`, which takes
+    // no comparator. Normalising what the panel hands aria settles both — a
+    // screen reader and the check-mark now agree about which row is selected.
+    const { fixture } = await setupFreshObjectSelection();
+
+    expect(checkedLabels(fixture.nativeElement)).toEqual(['B']);
+    expect(ariaSelected(fixture.nativeElement)).toEqual(['false', 'true']);
+  });
+
+  it('still checks exactly the reference-equal rows under the default', async () => {
+    // The overwhelmingly common path, and the one that has to stay O(1) per
+    // row: plain values, default comparator, no hazard.
+    const fixture = await setup<string>(
+      [
+        { label: 'Alpha', value: 'a' },
+        { label: 'Beta', value: 'b' },
+        { label: 'Gamma', value: 'c' },
+      ],
+      ['b'],
+    );
+
+    expect(checkedLabels(fixture.nativeElement)).toEqual(['Beta']);
+  });
+});

@@ -2,6 +2,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import type { Type } from '@angular/core';
 import { Component } from '@angular/core';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvDrawerResize } from './drawer-resize';
 
 /**
@@ -184,5 +185,88 @@ describe('MlvDrawerResize — clamped box', () => {
       '200px',
     );
     expect(handle.getAttribute('aria-valuenow')).toBe('30');
+  });
+});
+
+describe('MlvDrawerResize — scoped direction', () => {
+  const innerWidth = window.innerWidth;
+
+  afterEach(() => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: innerWidth,
+    });
+    // `setDirection` is global state (it writes `dir` onto <html>) — reset both
+    // the service and the attribute so a direction never leaks into the next test.
+    TestBed.inject(MlvRtlService).setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  /**
+   * A 1000px viewport with the panel box stubbed at 300px, so every key press
+   * steps from the same base: 300 ± (1000 × 0.1).
+   */
+  async function scopedFixture(direction: 'ltr' | 'rtl'): Promise<{
+    fixture: ComponentFixture<FreeResizeHostComponent>;
+    handle: HTMLElement;
+    panel: HTMLElement;
+  }> {
+    const fixture = await createFixture(FreeResizeHostComponent);
+    const handle = fixture.nativeElement.querySelector(
+      '[mlvDrawerResize]',
+    ) as HTMLElement;
+    const panel = fixture.nativeElement.querySelector('.panel') as HTMLElement;
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 1000,
+    });
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+      width: 300,
+      height: 800,
+    } as DOMRect);
+    (fixture.nativeElement as HTMLElement).setAttribute('dir', direction);
+    fixture.detectChanges();
+    return { fixture, handle, panel };
+  }
+
+  function size(panel: HTMLElement): string {
+    return panel.style.getPropertyValue('--mlv-drawer-current-size');
+  }
+
+  function keydown(handle: HTMLElement, key: string): void {
+    handle.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  }
+
+  it('mirrors resize arrows inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
+    const { fixture, handle, panel } = await scopedFixture('rtl');
+
+    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+
+    // Vertical arrows never mirror: ArrowUp still grows the panel.
+    keydown(handle, 'ArrowUp');
+    fixture.detectChanges();
+    expect(size(panel)).toBe('400px');
+
+    // ArrowRight is "smaller" once the inline axis runs right-to-left…
+    keydown(handle, 'ArrowRight');
+    fixture.detectChanges();
+    expect(size(panel)).toBe('200px');
+
+    // …and ArrowLeft is "bigger".
+    keydown(handle, 'ArrowLeft');
+    fixture.detectChanges();
+    expect(size(panel)).toBe('400px');
+  });
+
+  it('leaves a scoped [dir="ltr"] island unmirrored while the document is RTL', async () => {
+    // The fixture comes first: `TestBed.inject` instantiates the test module,
+    // and `createFixture` still has to configure it.
+    const { fixture, handle, panel } = await scopedFixture('ltr');
+    TestBed.inject(MlvRtlService).setDirection('rtl');
+    fixture.detectChanges();
+
+    keydown(handle, 'ArrowRight');
+    fixture.detectChanges();
+    expect(size(panel)).toBe('400px');
   });
 });

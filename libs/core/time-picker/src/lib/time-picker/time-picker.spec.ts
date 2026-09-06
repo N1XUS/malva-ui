@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { By } from '@angular/platform-browser';
 import { MlvPopup } from '@malva-ui/core/popup';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvTimePicker } from './time-picker';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
@@ -785,6 +786,105 @@ describe('MlvTimePicker', () => {
       fixture.detectChanges();
 
       expect(component.value()).toBe('10:00');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Scoped direction
+  //
+  // The columns live in a popup pane portaled to <body>, so they inherit no
+  // `[dir]` scope from the trigger. Inter-column Arrow navigation therefore
+  // resolves its direction from the time picker's own host, not from the
+  // document — a picker inside a `dir="rtl"` island mirrors while the document
+  // stays LTR, and an `dir="ltr"` island inside an RTL document does not.
+  // ---------------------------------------------------------------------------
+
+  describe('scoped direction — inter-column navigation', () => {
+    let rtlService: MlvRtlService;
+
+    beforeEach(() => {
+      rtlService = TestBed.inject(MlvRtlService);
+    });
+
+    afterEach(() => {
+      hostEl.parentElement?.removeAttribute('dir');
+      rtlService.setDirection('ltr');
+      document.documentElement.removeAttribute('dir');
+    });
+
+    /** Scopes `dir` to an ancestor of the picker, leaving the document alone. */
+    function scopeDirection(direction: 'ltr' | 'rtl'): void {
+      const scope = hostEl.parentElement;
+      if (!scope) {
+        throw new Error('Time picker host has no parent to scope `dir` on');
+      }
+      scope.setAttribute('dir', direction);
+    }
+
+    function columnsContainer(): HTMLElement {
+      return overlayContainerEl.querySelector(
+        '.mlv-time-picker__columns',
+      ) as HTMLElement;
+    }
+
+    /** The accessible name of the column that currently holds DOM focus. */
+    function focusedColumnLabel(): string | null {
+      return (
+        (document.activeElement as HTMLElement | null)?.getAttribute(
+          'aria-label',
+        ) ?? null
+      );
+    }
+
+    function pressOnColumns(key: string): void {
+      columnsContainer().dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true }),
+      );
+      fixture.detectChanges();
+    }
+
+    it('should mirror inter-column arrows inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
+      scopeDirection('rtl');
+      openPopup(hostEl, fixture);
+      await fixture.whenStable();
+
+      expect(rtlService.direction()).toBe('ltr');
+      expect(document.documentElement.getAttribute('dir')).not.toBe('rtl');
+
+      getListbox(overlayContainerEl, 0).focus();
+      expect(focusedColumnLabel()).toBe('Hours');
+
+      pressOnColumns('ArrowLeft');
+      expect(focusedColumnLabel()).toBe('Minutes');
+
+      pressOnColumns('ArrowRight');
+      expect(focusedColumnLabel()).toBe('Hours');
+
+      // The block axis is not an inter-column axis and never mirrors.
+      pressOnColumns('ArrowUp');
+      expect(focusedColumnLabel()).toBe('Hours');
+
+      pressOnColumns('ArrowDown');
+      expect(focusedColumnLabel()).toBe('Hours');
+    });
+
+    it('should leave a scoped [dir="ltr"] island unmirrored while the document is RTL', async () => {
+      rtlService.setDirection('rtl');
+      scopeDirection('ltr');
+      openPopup(hostEl, fixture);
+      await fixture.whenStable();
+
+      expect(rtlService.direction()).toBe('rtl');
+
+      getListbox(overlayContainerEl, 0).focus();
+      expect(focusedColumnLabel()).toBe('Hours');
+
+      // ArrowLeft is "previous" here, and Hours is already the first column.
+      pressOnColumns('ArrowLeft');
+      expect(focusedColumnLabel()).toBe('Hours');
+
+      pressOnColumns('ArrowRight');
+      expect(focusedColumnLabel()).toBe('Minutes');
     });
   });
 

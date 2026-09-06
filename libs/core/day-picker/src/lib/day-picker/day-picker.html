@@ -1,10 +1,11 @@
 <mlv-form-control-wrapper>
   @if (label() || hint()) {
-  <mlv-label [id]="labelId()" [for]="id()" [required]="required()">
-    {{ label() }} @if (hint()) {
-    <mlv-hint>{{ hint() }}</mlv-hint>
-    }
-  </mlv-label>
+    <mlv-label [id]="labelId()" [for]="id()" [required]="required()">
+      {{ label() }}
+      @if (hint()) {
+        <mlv-hint>{{ hint() }}</mlv-hint>
+      }
+    </mlv-label>
   }
 
   <ng-template mlvFormControlWrapperControl>
@@ -31,37 +32,75 @@
         (blur)="_onTriggerBlur()"
       >
         @if (displayValue) {
-        <span class="mlv-day-picker__value">{{ displayValue }}</span>
+          <span class="mlv-day-picker__value">{{ displayValue }}</span>
         } @else {
-        <span class="mlv-day-picker__placeholder"
-          >{{ _resolvedPlaceholder() }}</span
-        >
+          <span class="mlv-day-picker__placeholder">{{
+            _resolvedPlaceholder()
+          }}</span>
         }
         <span class="mlv-day-picker__icon">
           <svg lucideCalendar></svg>
         </span>
       </div>
 
+      <!--
+        `class` is forwarded to the overlay panel. `mlv-popup--flush` drops the
+        full-screen sheet's default body inset, because `mlv-calendar-sheet`
+        owns its own inline spacing throughout; it is inert while the popup is
+        trigger-anchored, where `__inner` carries no padding at all.
+      -->
       <mlv-popup
+        #dayPopup
         [(opened)]="isOpen"
         [hasShadow]="true"
         panelRole="dialog"
         [modal]="true"
         mobileMode="auto"
-        [mobileTitle]="label() || _resolvedPlaceholder()"
+        class="mlv-popup--flush"
+        [mobileTitle]="label() || _i18n().selectDay"
         [ariaLabel]="label() || _resolvedPlaceholder()"
         (afterOpened)="_onPopupOpened()"
         (afterClosed)="_onPopupClosed()"
       >
+        <!--
+          Confirm action for the full-screen sheet. The popup stamps this slot
+          only while it is full-screen, so the anchored dropdown never sees it
+          and keeps committing on tap.
+        -->
+        <ng-template mlvPopupHeaderActions>
+          <button
+            type="button"
+            mlvButton
+            variant="primary"
+            size="s"
+            class="mlv-day-picker__done"
+            (click)="_applyPending()"
+          >
+            {{ _calendarI18n().done }}
+          </button>
+        </ng-template>
+
         <ng-template mlvPopupContent>
-          <div [id]="popupId()" class="mlv-day-picker__popup">
-            <mlv-calendar
-              embedded
-              [value]="value()"
-              (valueChange)="onDateSelected($event)"
-              [min]="min()"
-              [max]="max()"
-            />
+          <div
+            [id]="popupId()"
+            class="mlv-day-picker__popup"
+            [class.mlv-day-picker__popup--sheet]="dayPopup.isFullscreen()"
+          >
+            @if (dayPopup.isFullscreen()) {
+              <mlv-calendar-sheet
+                [(value)]="_pendingValue"
+                [min]="min()"
+                [max]="max()"
+              />
+            } @else {
+              <mlv-calendar
+                embedded
+                [value]="value()"
+                (valueChange)="onDateSelected($event)"
+                [min]="min()"
+                [max]="max()"
+              />
+            }
           </div>
         </ng-template>
       </mlv-popup>
@@ -69,10 +108,13 @@
   </ng-template>
 
   @if (description()) {
-  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-  } @if (message()) {
-  <mlv-message [id]="_messageId()" [state]="resolvedState()">
-    {{ message() }}
-  </mlv-message>
+    <mlv-description [id]="_descriptionId()">{{
+      description()
+    }}</mlv-description>
+  }
+  @if (message()) {
+    <mlv-message [id]="_messageId()" [state]="resolvedState()">
+      {{ message() }}
+    </mlv-message>
   }
 </mlv-form-control-wrapper>

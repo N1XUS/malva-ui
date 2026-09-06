@@ -60,6 +60,7 @@ describe('Slider', () => {
   afterEach(() => {
     // `MlvRtlService` writes the direction onto <html>, which outlives the
     // TestBed injector and would otherwise leak RTL into the next test.
+    TestBed.inject(MlvRtlService).setDirection('ltr');
     document.documentElement.removeAttribute('dir');
   });
 
@@ -154,6 +155,72 @@ describe('Slider', () => {
     fixture.detectChanges();
 
     expect(component.value()).toBe(80);
+  });
+
+  it('mirrors arrow stepping inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
+    const scope = fixture.nativeElement.parentElement as HTMLElement;
+    scope.setAttribute('dir', 'rtl');
+    fixture.componentRef.setInput('step', 1);
+    fixture.componentRef.setInput('value', 50);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // The document is untouched — only this subtree is flipped.
+    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+
+    const thumb = fixture.nativeElement.querySelector(
+      '.mlv-slider__thumb--low',
+    ) as HTMLElement;
+
+    // ArrowRight is "previous" once the track is mirrored.
+    thumb.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+    );
+    fixture.detectChanges();
+    expect(component.value()).toBe(49);
+
+    thumb.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
+    );
+    fixture.detectChanges();
+    expect(component.value()).toBe(50);
+
+    // Vertical arrows and Home/End never mirror.
+    thumb.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }),
+    );
+    fixture.detectChanges();
+    expect(component.value()).toBe(51);
+
+    thumb.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Home', bubbles: true }),
+    );
+    fixture.detectChanges();
+    expect(component.value()).toBe(0);
+
+    scope.removeAttribute('dir');
+  });
+
+  it('keeps arrow stepping unmirrored in an LTR island while the document is RTL', async () => {
+    TestBed.inject(MlvRtlService).setDirection('rtl');
+    const scope = fixture.nativeElement.parentElement as HTMLElement;
+    scope.setAttribute('dir', 'ltr');
+    fixture.componentRef.setInput('step', 1);
+    fixture.componentRef.setInput('value', 50);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const thumb = fixture.nativeElement.querySelector(
+      '.mlv-slider__thumb--low',
+    ) as HTMLElement;
+    thumb.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+    );
+    fixture.detectChanges();
+
+    expect(component.value()).toBe(51);
+
+    scope.removeAttribute('dir');
   });
 
   it('keeps the active thumb tooltip attached to smooth drag geometry and cleans up on pointer cancel', () => {

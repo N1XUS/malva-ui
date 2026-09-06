@@ -2,6 +2,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { SIDEBAR_CONTEXT } from '../sidebar-context';
 import type { MlvSidebarContextValue } from '../sidebar-context';
 import type { MlvSidebarMode } from '../sidebar-mode';
@@ -91,6 +92,50 @@ describe('MlvSidebarRail', () => {
     vi.restoreAllMocks();
     document.body.style.userSelect = '';
     document.body.style.cursor = '';
+    // `setDirection` is global state (it writes `dir` onto <html>) — reset both
+    // the service and the attribute so a direction never leaks into the next test.
+    TestBed.inject(MlvRtlService).setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  /** Dispatches a bubbling keydown on the rail, the way a real key press arrives. */
+  function keydown(key: string): void {
+    rail.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    fixture.detectChanges();
+  }
+
+  it('mirrors resize arrows inside a scoped [dir="rtl"] subtree while the document stays LTR', () => {
+    const scope = fixture.nativeElement as HTMLElement;
+    scope.setAttribute('dir', 'rtl');
+
+    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+    expect(rail.getAttribute('aria-valuenow')).toBe('260');
+
+    // ArrowRight is "narrower" once the inline axis runs right-to-left.
+    keydown('ArrowRight');
+    expect(rail.getAttribute('aria-valuenow')).toBe('250');
+
+    keydown('ArrowLeft');
+    expect(rail.getAttribute('aria-valuenow')).toBe('260');
+
+    // Vertical arrows and Home/End never mirror and never resize.
+    keydown('ArrowUp');
+    keydown('Home');
+    expect(rail.getAttribute('aria-valuenow')).toBe('260');
+
+    scope.removeAttribute('dir');
+  });
+
+  it('leaves a scoped [dir="ltr"] island unmirrored while the document is RTL', () => {
+    TestBed.inject(MlvRtlService).setDirection('rtl');
+    const scope = fixture.nativeElement as HTMLElement;
+    scope.setAttribute('dir', 'ltr');
+    fixture.detectChanges();
+
+    keydown('ArrowRight');
+    expect(rail.getAttribute('aria-valuenow')).toBe('270');
+
+    scope.removeAttribute('dir');
   });
 
   it('marks itself dragging on pointerdown and clears on pointerup', () => {

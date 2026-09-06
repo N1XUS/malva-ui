@@ -1,6 +1,6 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import type { Signal } from '@angular/core';
+import type { Signal, WritableSignal } from '@angular/core';
 import { Component, signal, viewChild } from '@angular/core';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { By } from '@angular/platform-browser';
@@ -13,7 +13,8 @@ import { MlvInput } from '@malva-ui/core/input';
 import { MlvPopup } from '@malva-ui/core/popup';
 import type { MlvPopupMobileMode } from '@malva-ui/core/popup';
 import { MlvDataSource } from '@malva-ui/cdk/data-source';
-import { MlvRtlService } from '@malva-ui/cdk/utils';
+import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
+import { MlvBreakpointService, MlvRtlService } from '@malva-ui/cdk/utils';
 import {
   defaultCompareWith,
   MlvSelectDataSource,
@@ -2485,5 +2486,313 @@ describe('MlvCombobox — dropdown panel width (#150)', () => {
     );
     expect(pane().style.minWidth).toBe('200px');
     expect(pane().style.width).toBe('');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Breakpoint flip while the sheet is open (#126 / #144)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `mlv-combobox` is the heaviest `isFullscreen()` consumer: the flag decides
+ * which of its two inputs owns `role="combobox"` and its ARIA, gates the blur
+ * handler, and drives the focus handoff. It also opens anchored with
+ * `[hasBackdrop]="false"`, so a mid-open conversion would need a scrim CDK
+ * cannot attach — which is why the popup latches the mode per open.
+ *
+ * Before the latch, a viewport flip mid-open moved `role="combobox"` from the
+ * focused in-sheet input back to the backdrop-occluded outer trigger input,
+ * leaving the focused element with no combobox semantics at all.
+ */
+class FakeBreakpointService {
+  readonly down: WritableSignal<boolean> = signal(false);
+  isDown(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return this.down;
+  }
+  isUp(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return signal(false);
+  }
+}
+
+describe('MlvCombobox — breakpoint flip while the sheet is open', () => {
+  @Component({
+    template: `<mlv-combobox
+      id="fav"
+      label="Favourite"
+      [options]="['Apple', 'Banana', 'Cherry']"
+      mobileMode="auto"
+    />`,
+    imports: [MlvCombobox],
+  })
+  class AutoModeHostComponent {
+    readonly combobox = viewChild.required(MlvCombobox<string>);
+  }
+
+  let fixture: ComponentFixture<AutoModeHostComponent>;
+  let overlayContainer: OverlayContainer;
+  let breakpoint: FakeBreakpointService;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [AutoModeHostComponent],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: MlvBreakpointService, useClass: FakeBreakpointService },
+      ],
+    }).compileComponents();
+
+    breakpoint = TestBed.inject(
+      MlvBreakpointService,
+    ) as unknown as FakeBreakpointService;
+    fixture = TestBed.createComponent(AutoModeHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    overlayContainer = TestBed.inject(OverlayContainer);
+  });
+
+  afterEach(() => overlayContainer.ngOnDestroy());
+
+  const overlayEl = (): HTMLElement => overlayContainer.getContainerElement();
+
+  const sheetInput = (): HTMLInputElement | null =>
+    overlayEl().querySelector('.mlv-combobox__sheet-input input');
+
+  const outerInput = (): HTMLInputElement =>
+    fixture.debugElement
+      .query(By.css('.mlv-combobox__input'))
+      .nativeElement.querySelector('input') as HTMLInputElement;
+
+  /** Every element in the component + overlay currently claiming the role. */
+  const comboboxRoleOwners = (): string[] =>
+    [
+      ...fixture.nativeElement.querySelectorAll('[role="combobox"]'),
+      ...overlayEl().querySelectorAll('[role="combobox"]'),
+    ].map((el: Element) => (el as HTMLElement).id || '(no id)');
+
+  async function open(): Promise<void> {
+    fixture.componentInstance.combobox().isOpen.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  async function crossBreakpoint(down: boolean): Promise<void> {
+    breakpoint.down.set(down);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it('keeps the in-sheet input owning role="combobox" when the viewport widens', async () => {
+    breakpoint.down.set(true);
+    await open();
+
+    const sheet = sheetInput();
+    expect(sheet).not.toBeNull();
+    // Exactly one combobox, and it is the in-sheet one the user is typing in.
+    expect(comboboxRoleOwners()).toEqual([sheet?.id ?? '(missing)']);
+
+    await crossBreakpoint(false);
+
+    // The pane is still a viewport-filling sheet with the outer input behind a
+    // solid scrim. Handing the role back to it would leave the focused in-sheet
+    // input with no combobox semantics and the occluded one claiming them.
+    expect(sheetInput()).not.toBeNull();
+    expect(comboboxRoleOwners()).toEqual([sheet?.id ?? '(missing)']);
+  });
+
+  it('keeps the outer input owning role="combobox" when the viewport narrows', async () => {
+    breakpoint.down.set(false);
+    await open();
+
+    expect(sheetInput()).toBeNull();
+    expect(comboboxRoleOwners()).toEqual([outerInput().id]);
+
+    await crossBreakpoint(true);
+
+    // The overlay stays an anchored, scrimless dropdown, so no in-sheet input
+    // is rendered — the outer input must not relinquish the role to nothing.
+    expect(sheetInput()).toBeNull();
+    expect(comboboxRoleOwners()).toEqual([outerInput().id]);
+  });
+});
+
+/**
+ * #154 — the panel #150 freed to grow still had nowhere to grow into: both
+ * dropdown positions were `start`-aligned, so a trigger near the viewport's
+ * inline-end edge got a bounding box only as wide as the sliver of room after
+ * it. `end`-aligned fallbacks let the panel anchor its inline-end edge to the
+ * trigger and grow back toward inline-start instead. See the equivalent block
+ * in `select.spec.ts` for the full grid; the position list is shared.
+ */
+describe('MlvCombobox — dropdown inline-axis fallback (#154)', () => {
+  const VIEWPORT_WIDTH = 1024;
+  const VIEWPORT_HEIGHT = 768;
+  /** The panel's own box: wider than the room left beside an edge trigger. */
+  const PANEL_WIDTH = 300;
+  const PANEL_HEIGHT = 200;
+
+  const rect = (left: number, width: number) => ({
+    x: left,
+    y: 100,
+    left,
+    top: 100,
+    right: left + width,
+    bottom: 132,
+    width,
+    height: 32,
+  });
+
+  /** 60px trigger with only 20px of room after its physical right edge. */
+  const RIGHT_EDGE_RECT = rect(944, 60);
+  /** The mirror image: 60px trigger 20px from the physical left edge. */
+  const LEFT_EDGE_RECT = rect(20, 60);
+  /** Room on both sides — the case the preferred `start` pair must keep. */
+  const ROOMY_RECT = rect(40, 200);
+
+  @Component({
+    template: `<mlv-combobox [options]="options" />`,
+    imports: [MlvCombobox],
+  })
+  class HostComponent {
+    readonly combobox = viewChild.required(MlvCombobox<string>);
+    readonly options = ['a', 'b'];
+  }
+
+  let fixture: ComponentFixture<HostComponent>;
+  let overlayContainer: OverlayContainer;
+  let rtlService: MlvRtlService;
+
+  const nativeGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+
+  /** Replaces an element's zero-sized jsdom box with a real one. */
+  function stubRect(element: Element, box: Record<string, number>): void {
+    const full = { toJSON: () => box, ...box };
+    element.getBoundingClientRect = () => full as unknown as DOMRect;
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(HostComponent);
+    overlayContainer = TestBed.inject(OverlayContainer);
+    rtlService = TestBed.inject(MlvRtlService);
+    Object.defineProperty(document.documentElement, 'clientWidth', {
+      value: VIEWPORT_WIDTH,
+      configurable: true,
+    });
+    Object.defineProperty(document.documentElement, 'clientHeight', {
+      value: VIEWPORT_HEIGHT,
+      configurable: true,
+    });
+
+    // The pane does not exist until CDK attaches it and CDK measures it inside
+    // that same attach, so it is stubbed on the prototype rather than on the
+    // instance. With a 0x0 pane `isCompletelyWithinViewport` compares
+    // `0 === 0` and every candidate fits outright, so a spec that does not stub
+    // the pane pins `positions[0]` and can never reach a fallback.
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      if (this.classList?.contains('cdk-overlay-pane')) {
+        const box = {
+          x: 0,
+          y: 0,
+          left: 0,
+          top: 0,
+          right: PANEL_WIDTH,
+          bottom: PANEL_HEIGHT,
+          width: PANEL_WIDTH,
+          height: PANEL_HEIGHT,
+        };
+        return { toJSON: () => box, ...box } as unknown as DOMRect;
+      }
+      return nativeGetBoundingClientRect.call(this);
+    };
+  });
+
+  afterEach(() => {
+    Element.prototype.getBoundingClientRect = nativeGetBoundingClientRect;
+    rtlService.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+    Reflect.deleteProperty(document.documentElement, 'clientWidth');
+    Reflect.deleteProperty(document.documentElement, 'clientHeight');
+    overlayContainer.ngOnDestroy();
+  });
+
+  /** Places the trigger at `box` and opens the dropdown. */
+  async function openAt(box: Record<string, number>): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector(
+      '.mlv-combobox__trigger',
+    ) as HTMLElement;
+    // The overlay's origin is the popup container, not the trigger it wraps.
+    stubRect(
+      fixture.nativeElement.querySelector('mlv-popup-container') as Element,
+      box,
+    );
+    stubRect(trigger, box);
+    fixture.componentInstance
+      .combobox()
+      .updateTriggerWidth([
+        { target: trigger } as unknown as ResizeObserverEntry,
+      ]);
+    fixture.componentInstance.combobox().isOpen.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  /**
+   * The anchored inset, the width and `align-items` together identify the
+   * applied pair. The opposite inset is not asserted: CDK writes `auto` there
+   * and jsdom's `cssstyle` rejects `auto` on `left`/`right`, silently keeping
+   * the `0px` left by CDK's own reset.
+   */
+  const boundingBox = () =>
+    overlayContainer
+      .getContainerElement()
+      .querySelector(
+        '.cdk-overlay-connected-position-bounding-box',
+      ) as HTMLElement | null;
+
+  it('anchors the panel to the trigger inline-end edge when inline-end room runs out (LTR)', async () => {
+    await openAt(RIGHT_EDGE_RECT);
+
+    const box = boundingBox();
+    expect(box?.style.right).toBe(
+      `${VIEWPORT_WIDTH - RIGHT_EDGE_RECT.right}px`,
+    );
+    expect(box?.style.width).toBe(`${RIGHT_EDGE_RECT.right}px`);
+    expect(box?.style.alignItems).toBe('flex-end');
+  });
+
+  it('keeps the preferred start-aligned position when there is inline-end room', async () => {
+    await openAt(ROOMY_RECT);
+
+    const box = boundingBox();
+    expect(box?.style.left).toBe(`${ROOMY_RECT.left}px`);
+    expect(box?.style.width).toBe(`${VIEWPORT_WIDTH - ROOMY_RECT.left}px`);
+    expect(box?.style.alignItems).toBe('flex-start');
+  });
+
+  it('mirrors the fallback under a [dir="rtl"] scope while the document stays LTR', async () => {
+    fixture.detectChanges();
+    (
+      fixture.nativeElement.querySelector('mlv-combobox') as HTMLElement
+    ).setAttribute('dir', 'rtl');
+    // Inline-end is the physical LEFT edge in RTL, so it is a trigger hugging
+    // the left of the viewport that has nowhere to grow.
+    await openAt(LEFT_EDGE_RECT);
+
+    expect(rtlService.direction()).toBe('ltr');
+    const box = boundingBox();
+    expect(box?.getAttribute('dir')).toBe('rtl');
+    expect(box?.style.left).toBe(`${LEFT_EDGE_RECT.left}px`);
+    expect(box?.style.width).toBe(`${VIEWPORT_WIDTH - LEFT_EDGE_RECT.left}px`);
+    expect(box?.style.alignItems).toBe('flex-end');
   });
 });

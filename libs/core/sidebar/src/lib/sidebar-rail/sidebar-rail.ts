@@ -51,7 +51,11 @@ export class MlvSidebarRail {
   /** @private Sidebar context for reading/writing state. */
   private readonly _context = inject(SIDEBAR_CONTEXT);
 
-  /** @private Reference to the host element. */
+  /**
+   * @private Host element. Both direction-sensitive halves of this rail — the
+   * sidebar it resolves for a drag and the arrow-key stepping — read it, so
+   * they can never disagree about which direction applies.
+   */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /** @private Angular zone for running outside zone during drag. */
@@ -69,6 +73,14 @@ export class MlvSidebarRail {
   private readonly _document = inject(DOCUMENT);
   /** @private Normalizes horizontal resize arrows for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
+
+  /**
+   * @private Direction applying to this rail, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
 
   /** @protected Whether a drag is in progress. */
   protected readonly _isDragging = signal(false);
@@ -117,7 +129,10 @@ export class MlvSidebarRail {
   /** @protected Handle keyboard navigation. */
   protected _onKeydown(event: KeyboardEvent): void {
     const step = 10;
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
+      event.key
+    ) {
       case LEFT_ARROW:
         event.preventDefault();
         if (!this._context.collapsed()) {
