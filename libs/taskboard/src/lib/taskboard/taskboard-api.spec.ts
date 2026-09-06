@@ -283,24 +283,34 @@ describe('MlvTaskboard public surface', () => {
     const host = fixture.componentInstance;
     const statusOf = (id: string) =>
       host.items().find((item) => item.id === id)?.status;
+    const columnOrder = () => host.columns().map((column) => column.id);
     const snapshot = host.board().snapshot();
 
     move();
     await fixture.whenStable();
+    // Both halves of the restore have to move, or an implementation recording
+    // one command per half passes on the cards alone: with the column order
+    // already matching, only one write ever happens.
+    host.columns.set([...host.columns()].reverse());
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect([statusOf('a'), columnOrder()]).toEqual(['done', ['done', 'todo']]);
+
     host.board().restore(snapshot);
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(statusOf('a')).toBe('todo');
+    expect([statusOf('a'), columnOrder()]).toEqual(['todo', ['todo', 'done']]);
 
+    // One step back over the whole restore — cards and column order together.
     expect(host.board().undo()).toBe(true);
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(statusOf('a')).toBe('done');
+    expect([statusOf('a'), columnOrder()]).toEqual(['done', ['done', 'todo']]);
 
     expect(host.board().redo()).toBe(true);
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(statusOf('a')).toBe('todo');
+    expect([statusOf('a'), columnOrder()]).toEqual(['todo', ['todo', 'done']]);
   });
 
   it('leaves the cards alone for a snapshot that carries none', async () => {
