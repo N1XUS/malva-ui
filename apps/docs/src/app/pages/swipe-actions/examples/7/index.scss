@@ -1,0 +1,38 @@
+.swipe-contact {
+  --mlv-swipe-actions-gap: var(--mlv-spacing-3);
+  --mlv-swipe-actions-inset: var(--mlv-spacing-4);
+
+  max-inline-size: 28rem;
+  border-radius: var(--mlv-radius-card);
+  background: var(--mlv-background-raised);
+  box-shadow: var(--mlv-shadow-raised);
+}
+
+.swipe-contact__card {
+  display: flex;
+  align-items: center;
+  gap: var(--mlv-spacing-3);
+  padding: var(--mlv-padding-l);
+}
+
+.swipe-contact__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-0-5);
+  min-inline-size: 0;
+}
+
+.swipe-contact__name {
+  font-weight: var(--mlv-typography-body-m-weight);
+}
+
+.swipe-contact__meta,
+.swipe-contact__empty {
+  margin: 0;
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-body-s-size);
+}
+
+.demo-row {
+  align-items: center;
+}

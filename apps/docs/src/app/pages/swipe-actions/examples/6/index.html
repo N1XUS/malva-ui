@@ -1,0 +1,57 @@
+@if (drafts().length) {
+  <div class="swipe-cards" role="list" aria-label="Drafts">
+    @for (draft of drafts(); track draft.id) {
+      <mlv-swipe-actions class="swipe-cards__row" role="listitem">
+        <div class="swipe-cards__card">
+          <span class="swipe-cards__title">{{ draft.title }}</span>
+          <span class="swipe-cards__summary">{{ draft.summary }}</span>
+        </div>
+
+        <button
+          mlvSwipeAction
+          appearance="plain"
+          mlvButton
+          shape="circle"
+          [attr.aria-label]="'Preview ' + draft.title"
+          (click)="act('Previewed', draft)"
+        >
+          <svg lucideEye [size]="18" aria-hidden="true" />
+        </button>
+        <button
+          mlvSwipeAction
+          appearance="plain"
+          mlvButton
+          shape="circle"
+          [attr.aria-label]="'Edit ' + draft.title"
+          (click)="act('Opened', draft)"
+        >
+          <svg lucidePencil [size]="18" aria-hidden="true" />
+        </button>
+        <button
+          mlvSwipeAction
+          appearance="plain"
+          mlvButton
+          shape="circle"
+          [attr.aria-label]="'Share ' + draft.title"
+          (click)="act('Shared', draft)"
+        >
+          <svg lucideShare2 [size]="18" aria-hidden="true" />
+        </button>
+        <button
+          mlvSwipeAction
+          appearance="plain"
+          mlvButton
+          shape="circle"
+          variant="error"
+          [attr.aria-label]="'Delete ' + draft.title"
+          (click)="remove(draft)"
+        >
+          <svg lucideTrash2 [size]="18" aria-hidden="true" />
+        </button>
+      </mlv-swipe-actions>
+    }
+  </div>
+} @else {
+  <p class="swipe-cards__empty">No drafts left.</p>
+}
+<p class="swipe-cards__status" aria-live="polite">{{ status() }}</p>

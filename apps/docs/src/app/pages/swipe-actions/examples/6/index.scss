@@ -1,0 +1,41 @@
+.swipe-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-3);
+  max-inline-size: 28rem;
+}
+
+// Each row is its own rounded surface; the actions fan out inside it with a
+// gap between them and an inset from the edge.
+.swipe-cards__row {
+  --mlv-swipe-actions-gap: var(--mlv-spacing-2);
+  --mlv-swipe-actions-inset: var(--mlv-spacing-3);
+
+  border-radius: var(--mlv-radius-card);
+  background: var(--mlv-background-raised);
+  box-shadow: var(--mlv-shadow-raised);
+}
+
+.swipe-cards__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-1);
+  padding: var(--mlv-padding-l);
+}
+
+.swipe-cards__title {
+  font-weight: var(--mlv-typography-body-m-weight);
+}
+
+.swipe-cards__summary,
+.swipe-cards__empty,
+.swipe-cards__status {
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-body-s-size);
+}
+
+.swipe-cards__empty,
+.swipe-cards__status {
+  margin: 0;
+  padding-block: var(--mlv-spacing-3);
+}

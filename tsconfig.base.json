@@ -105,6 +105,7 @@
         "libs/core/status-indicator/src/index.ts"
       ],
       "@malva-ui/core/switch": ["libs/core/switch/src/index.ts"],
+      "@malva-ui/core/swipe-actions": ["libs/core/swipe-actions/src/index.ts"],
       "@malva-ui/core/tabs": ["libs/core/tabs/src/index.ts"],
       "@malva-ui/core/tile": ["libs/core/tile/src/index.ts"],
       "@malva-ui/core/title": ["libs/core/title/src/index.ts"],
