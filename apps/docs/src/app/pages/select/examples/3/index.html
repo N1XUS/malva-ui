@@ -12,8 +12,9 @@
       <span>{{ option.value.flag }} {{ option.label }}</span>
     </ng-template>
     <ng-template mlvSelectSelectedTemplate let-values>
-      @if (values.length === 1) { {{ getCountryFlag(values[0]) }} {{
-      getCountryName(values[0]) }} }
+      @if (values.length === 1) {
+        {{ getCountryFlag(values[0]) }} {{ getCountryName(values[0]) }}
+      }
     </ng-template>
   </mlv-select>
 </div>

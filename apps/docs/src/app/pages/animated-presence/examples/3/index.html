@@ -1,17 +1,17 @@
 <div class="tabs-demo">
   <div class="tabs-demo__tablist" role="tablist" aria-label="Demo tabs">
     @for (tab of tabs; track tab.id) {
-    <button
-      class="tabs-demo__tab"
-      [class.tabs-demo__tab--active]="isActive(tab.id)"
-      role="tab"
-      [attr.aria-selected]="isActive(tab.id)"
-      [attr.tabindex]="isActive(tab.id) ? 0 : -1"
-      type="button"
-      (click)="selectTab(tab.id)"
-    >
-      {{ tab.label }}
-    </button>
+      <button
+        class="tabs-demo__tab"
+        [class.tabs-demo__tab--active]="isActive(tab.id)"
+        role="tab"
+        [attr.aria-selected]="isActive(tab.id)"
+        [attr.tabindex]="isActive(tab.id) ? 0 : -1"
+        type="button"
+        (click)="selectTab(tab.id)"
+      >
+        {{ tab.label }}
+      </button>
     }
   </div>
 
@@ -53,7 +53,7 @@
       <strong>Logs</strong>
       <p>
         Recent activity log entries. Combine with custom enter/leave classes to
-        use any animation from <code>@malva-ui/styles</code>.
+        use any animation from <code>&#64;malva-ui/styles</code>.
       </p>
     </div>
   </div>

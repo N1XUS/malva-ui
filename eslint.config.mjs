@@ -79,6 +79,18 @@ export default [
                 'family:i18n',
               ],
             },
+            // The scheduler sits above core like the editor: it composes the
+            // calendar date adapter, button, segmented, popup, scrollbar and
+            // tooltip. Nothing in core may depend back on it.
+            {
+              sourceTag: 'family:scheduler',
+              onlyDependOnLibsWithTags: [
+                'family:scheduler',
+                'family:core',
+                'family:cdk',
+                'family:i18n',
+              ],
+            },
             // The taskboard is the second package that sits above core rather
             // than inside it. Nothing in core may depend back on it, and it
             // reaches only the CDK and i18n families itself; the docs app
@@ -96,6 +108,7 @@ export default [
               onlyDependOnLibsWithTags: [
                 'family:docs',
                 'family:editor',
+                'family:scheduler',
                 'family:taskboard',
                 'family:core',
                 'family:cdk',

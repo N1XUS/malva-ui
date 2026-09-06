@@ -1,5 +1,6 @@
-@for (rk of _resolvedKeys(); track rk.key + $index) { @if ($index > 0) {
-<span class="mlv-kbd__separator" aria-hidden="true">{{ separator() }}</span>
-}
-<kbd class="mlv-kbd__key">{{ rk.label }}</kbd>
+@for (rk of _resolvedKeys(); track rk.key + $index) {
+  @if ($index > 0) {
+    <span class="mlv-kbd__separator" aria-hidden="true">{{ separator() }}</span>
+  }
+  <kbd class="mlv-kbd__key">{{ rk.label }}</kbd>
 }

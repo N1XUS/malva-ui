@@ -1,0 +1,8 @@
+## Custom event template and colors
+
+Project an `ng-template[mlvSchedulerEventDef]` to replace the chip body. The context gives you the
+event as `$implicit`, plus `view`, `allDay`, `continuesBefore` and `continuesAfter`. The chip keeps its
+own accessible name, resize handle and drag behaviour. `tone` picks a semantic palette
+(`info`, `success`, `warning`, `danger`); `color` accepts any CSS colour and is mixed into the theme's
+surface so text stays readable. `data` is a free typed payload (`MlvSchedulerEvent<D, TData>`) — the
+template context cannot infer `TData`, so narrow it in a component method as this example does.

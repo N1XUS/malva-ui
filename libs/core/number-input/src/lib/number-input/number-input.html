@@ -1,10 +1,11 @@
 <mlv-form-control-wrapper (clear)="clearValue()">
   @if (label() || hint()) {
-  <mlv-label [for]="id()" [required]="required()">
-    {{ label() }} @if (hint()) {
-    <mlv-hint>{{ hint() }}</mlv-hint>
-    }
-  </mlv-label>
+    <mlv-label [for]="id()" [required]="required()">
+      {{ label() }}
+      @if (hint()) {
+        <mlv-hint>{{ hint() }}</mlv-hint>
+      }
+    </mlv-label>
   }
 
   <ng-template mlvFormControlWrapperControl>
@@ -41,12 +42,13 @@
     </ng-template>
 
     @if (stack() === 'vertical' && controlAlignment() === 'left') {
-    <div class="mlv-number-input__steppers">
-      <ng-container [ngTemplateOutlet]="incrementStepper" />
+      <div class="mlv-number-input__steppers">
+        <ng-container [ngTemplateOutlet]="incrementStepper" />
+        <ng-container [ngTemplateOutlet]="decrementStepper" />
+      </div>
+    }
+    @if (stack() === 'horizontal') {
       <ng-container [ngTemplateOutlet]="decrementStepper" />
-    </div>
-    } @if (stack() === 'horizontal') {
-    <ng-container [ngTemplateOutlet]="decrementStepper" />
     }
 
     <input
@@ -75,20 +77,24 @@
     />
 
     @if (stack() === 'horizontal') {
-    <ng-container [ngTemplateOutlet]="incrementStepper" />
-    } @if (stack() === 'vertical' && controlAlignment() === 'right') {
-    <div class="mlv-number-input__steppers">
       <ng-container [ngTemplateOutlet]="incrementStepper" />
-      <ng-container [ngTemplateOutlet]="decrementStepper" />
-    </div>
+    }
+    @if (stack() === 'vertical' && controlAlignment() === 'right') {
+      <div class="mlv-number-input__steppers">
+        <ng-container [ngTemplateOutlet]="incrementStepper" />
+        <ng-container [ngTemplateOutlet]="decrementStepper" />
+      </div>
     }
   </ng-template>
 
   @if (description()) {
-  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-  } @if (message()) {
-  <mlv-message [id]="_messageId()" [state]="resolvedState()">
-    {{ message() }}
-  </mlv-message>
+    <mlv-description [id]="_descriptionId()">{{
+      description()
+    }}</mlv-description>
+  }
+  @if (message()) {
+    <mlv-message [id]="_messageId()" [state]="resolvedState()">
+      {{ message() }}
+    </mlv-message>
   }
 </mlv-form-control-wrapper>

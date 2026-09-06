@@ -1,404 +1,423 @@
 @if (appearance() === 'classic') {
-<div class="mlv-smart-filter-bar__query-row">
-  @if (showSearch()) {
-  <mlv-search-field
-    class="mlv-smart-filter-bar__search"
-    [value]="searchValue()"
-    [trigger]="searchTrigger()"
-    [debounce]="searchDebounce()"
-    [commitOnClear]="autoExecute() || searchTrigger() === 'live'"
-    [disabled]="disabled() || loading()"
-    [loading]="loading()"
-    (valueChange)="searchValue.set($event)"
-    (search)="_onSearch($event)"
-    (keydown.enter)="_onSearchEnter($event)"
-  />
-  }
-
-  <div class="mlv-smart-filter-bar__primary-actions">
-    <button
-      mlvButton
-      type="button"
-      [disabled]="disabled() || loading()"
-      [loading]="loading()"
-      (click)="executeQuery()"
-    >
-      {{ _i18n().go }}
-    </button>
-
-    <button
-      mlvButton
-      type="button"
-      variant="secondary"
-      shape="square"
-      [disabled]="disabled() || loading()"
-      [attr.aria-label]="_i18n().refresh"
-      (click)="refreshQuery()"
-    >
-      <svg mlvButtonIcon lucideRefreshCw [size]="16" aria-hidden="true"></svg>
-    </button>
-  </div>
-</div>
-
-<div class="mlv-smart-filter-bar__filter-toolbar">
-  <div class="mlv-smart-filter-bar__filter-actions">
-    <button
-      mlvButton
-      type="button"
-      variant="transparent"
-      [disabled]="disabled() || loading()"
-      [attr.aria-expanded]="filtersVisible()"
-      [attr.aria-controls]="_filtersId"
-      (click)="_toggleFilters()"
-    >
-      @if (filtersVisible()) {
-      <svg mlvButtonIcon lucideChevronUp [size]="16" aria-hidden="true"></svg>
-      {{ _i18n().hideFilters }} } @else {
-      <svg mlvButtonIcon lucideChevronDown [size]="16" aria-hidden="true"></svg>
-      {{ _i18n().showFilters }} }
-    </button>
-
-    <button
-      #managerButton
-      #managerTrigger="mlvPopupTrigger"
-      mlvButton
-      type="button"
-      variant="transparent"
-      [mlvPopupTrigger]="managerPopup"
-      [ariaHasPopup]="'dialog'"
-      [disabled]="disabled() || loading()"
-      [attr.aria-label]="_i18n().manageFilters"
-      [attr.aria-controls]="_managerId"
-    >
-      <svg mlvButtonIcon lucideSettings2 [size]="16" aria-hidden="true"></svg>
-      {{ _filtersLabel() }}
-    </button>
-
-    @if (_hasState()) {
-    <button
-      mlvButton
-      type="button"
-      variant="transparent"
-      [disabled]="disabled() || loading()"
-      (click)="clear()"
-    >
-      {{ _i18n().clear }}
-    </button>
-    }
-  </div>
-
-  <span class="mlv-smart-filter-bar__status" aria-live="polite">
-    {{ _appliedFiltersLabel() }}
-  </span>
-</div>
-
-@if (_showRequiredErrors()) {
-<div
-  class="mlv-smart-filter-bar__validation-summary"
-  [id]="_validationSummaryId"
-  role="alert"
->
-  {{ _requiredFiltersMessage() }}
-</div>
-}
-
-<mlv-expand #panel [id]="_filtersId" [opened]="filtersVisible()">
-  <div class="mlv-smart-filter-bar__filters">
-    @for (definition of visibleDefinitions(); track definition.key) {
-    <div
-      class="mlv-smart-filter-bar__field"
-      [class.mlv-smart-filter-bar__field--invalid]="
-      _isRequiredMissing(definition)
-    "
-    >
-      <mlv-filter
-        [key]="definition.key"
-        [label]="definition.label"
-        [editor]="definition.editor"
-        [options]="definition.options ?? []"
-        [operators]="_operatorsFor(definition)"
-        [operatorLabels]="definition.operatorLabels ?? {}"
-        [defaultOperator]="definition.defaultOperator ?? 'contains'"
-        [multiple]="definition.multiple ?? false"
-        [allowMultipleConditions]="_allowsMultipleConditions(definition)"
-        [placeholder]="definition.placeholder"
-        [applyMode]="filterApplyMode()"
-        [disabled]="
-        disabled() || loading() || (definition.disabled ?? false)
-      "
+  <div class="mlv-smart-filter-bar__query-row">
+    @if (showSearch()) {
+      <mlv-search-field
+        class="mlv-smart-filter-bar__search"
+        [value]="searchValue()"
+        [trigger]="searchTrigger()"
+        [debounce]="searchDebounce()"
+        [commitOnClear]="autoExecute() || searchTrigger() === 'live'"
+        [disabled]="disabled() || loading()"
         [loading]="loading()"
-        [invalid]="_isRequiredMissing(definition)"
-        [ariaDescribedBy]="
-        _isRequiredMissing(definition)
-          ? _requiredErrorId(definition)
-          : undefined
-      "
-        [valueEditor]="_valueEditorFor(definition)"
-        [conditions]="_conditionsFor(definition.key)"
-        [conditionStrategy]="_strategyFor(definition.key)"
-        (conditionsChange)="_setConditions(definition, $event)"
-        (conditionStrategyChange)="_setStrategy(definition, $event)"
+        (valueChange)="searchValue.set($event)"
+        (search)="_onSearch($event)"
+        (keydown.enter)="_onSearchEnter($event)"
       />
-      @if (_isRequiredMissing(definition)) {
-      <span
-        class="mlv-smart-filter-bar__field-error"
-        [id]="_requiredErrorId(definition)"
+    }
+
+    <div class="mlv-smart-filter-bar__primary-actions">
+      <button
+        mlvButton
+        type="button"
+        [disabled]="disabled() || loading()"
+        [loading]="loading()"
+        (click)="executeQuery()"
       >
-        {{ _requiredFilterMessage(definition) }}
-      </span>
+        {{ _i18n().go }}
+      </button>
+
+      <button
+        mlvButton
+        type="button"
+        variant="secondary"
+        shape="square"
+        [disabled]="disabled() || loading()"
+        [attr.aria-label]="_i18n().refresh"
+        (click)="refreshQuery()"
+      >
+        <svg mlvButtonIcon lucideRefreshCw [size]="16" aria-hidden="true"></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="mlv-smart-filter-bar__filter-toolbar">
+    <div class="mlv-smart-filter-bar__filter-actions">
+      <button
+        mlvButton
+        type="button"
+        variant="transparent"
+        [disabled]="disabled() || loading()"
+        [attr.aria-expanded]="filtersVisible()"
+        [attr.aria-controls]="_filtersId"
+        (click)="_toggleFilters()"
+      >
+        @if (filtersVisible()) {
+          <svg
+            mlvButtonIcon
+            lucideChevronUp
+            [size]="16"
+            aria-hidden="true"
+          ></svg>
+          {{ _i18n().hideFilters }}
+        } @else {
+          <svg
+            mlvButtonIcon
+            lucideChevronDown
+            [size]="16"
+            aria-hidden="true"
+          ></svg>
+          {{ _i18n().showFilters }}
+        }
+      </button>
+
+      <button
+        #managerButton
+        #managerTrigger="mlvPopupTrigger"
+        mlvButton
+        type="button"
+        variant="transparent"
+        [mlvPopupTrigger]="managerPopup"
+        [ariaHasPopup]="'dialog'"
+        [disabled]="disabled() || loading()"
+        [attr.aria-label]="_i18n().manageFilters"
+        [attr.aria-controls]="_managerId"
+      >
+        <svg mlvButtonIcon lucideSettings2 [size]="16" aria-hidden="true"></svg>
+        {{ _filtersLabel() }}
+      </button>
+
+      @if (_hasState()) {
+        <button
+          mlvButton
+          type="button"
+          variant="transparent"
+          [disabled]="disabled() || loading()"
+          (click)="clear()"
+        >
+          {{ _i18n().clear }}
+        </button>
       }
     </div>
-    }
-  </div>
-</mlv-expand>
 
-<mlv-popup
-  #managerPopup
-  panelRole="dialog"
-  [modal]="true"
-  [ariaLabel]="_i18n().manageFilters"
-  [position]="['bottom-end', 'top-end']"
-  [hasShadow]="true"
-  minWidth="18rem"
-  maxWidth="28rem"
-  (afterOpened)="_onManagerOpened()"
-  (afterClosed)="_onManagerClosed()"
->
-  <ng-template mlvPopupContent>
-    <div #managerPanel class="mlv-smart-filter-bar__manager" [id]="_managerId">
-      <div class="mlv-smart-filter-bar__manager-header">
-        <span class="mlv-smart-filter-bar__manager-title">
-          {{ _availableFiltersLabel() }}
-        </span>
-        <button
-          mlvButton
-          type="button"
-          variant="transparent"
-          [disabled]="disabled() || loading()"
-          (click)="_resetManagerSelection()"
-        >
-          {{ _i18n().reset }}
-        </button>
-      </div>
-
-      <mlv-search-field
-        class="mlv-smart-filter-bar__manager-search"
-        trigger="live"
-        [debounce]="0"
-        [value]="_availableSearch()"
-        [placeholder]="_i18n().searchAvailableFilters"
-        [ariaLabel]="_i18n().searchAvailableFilters"
-        [disabled]="disabled() || loading()"
-        (valueChange)="_availableSearch.set($event)"
-        (search)="_onAvailableSearch($event)"
-      />
-
-      <div
-        class="mlv-smart-filter-bar__manager-list"
-        role="group"
-        [attr.aria-label]="_availableFiltersLabel()"
-      >
-        @for (definition of _filteredDefinitions(); track definition.key) {
-        <mlv-checkbox
-          class="mlv-smart-filter-bar__manager-option"
-          [checked]="_isVisible(definition.key)"
-          [disabled]="
-            disabled() ||
-            loading() ||
-            (definition.required ?? false) ||
-            _isActive(definition.key)
-          "
-          (checkedChange)="_setVisible(definition, $event)"
-        >
-          <span class="mlv-smart-filter-bar__manager-option-label">
-            {{ definition.label }}
-          </span>
-          @if (definition.required) {
-          <span class="mlv-smart-filter-bar__manager-option-status">
-            {{ _i18n().required }}
-          </span>
-          } @if (_isActive(definition.key)) {
-          <span class="mlv-smart-filter-bar__manager-option-status">
-            {{ _i18n().active }}
-          </span>
-          }
-        </mlv-checkbox>
-        }
-      </div>
-
-      <div class="mlv-smart-filter-bar__manager-footer">
-        <button
-          mlvButton
-          type="button"
-          variant="transparent"
-          [disabled]="disabled() || loading()"
-          (click)="_cancelManager(managerTrigger)"
-        >
-          {{ _i18n().cancel }}
-        </button>
-        <button
-          mlvButton
-          type="button"
-          [disabled]="disabled() || loading()"
-          (click)="_applyManager(managerTrigger)"
-        >
-          {{ _i18n().apply }}
-        </button>
-      </div>
-    </div>
-  </ng-template>
-</mlv-popup>
-} @else {
-<div class="mlv-smart-filter-bar__query-filters">
-  @if (showSearch()) {
-  <mlv-search-field
-    class="mlv-smart-filter-bar__query-search"
-    [value]="searchValue()"
-    [trigger]="searchTrigger()"
-    [debounce]="searchDebounce()"
-    [commitOnClear]="autoExecute() || searchTrigger() === 'live'"
-    [disabled]="disabled() || loading()"
-    [loading]="loading()"
-    (valueChange)="searchValue.set($event)"
-    (search)="_onSearch($event)"
-    (keydown.enter)="_onSearchEnter($event)"
-  />
-  } @for (definition of _queryDefinitions(); track definition.key) {
-  <div class="mlv-smart-filter-bar__query-field">
-    <mlv-filter
-      [key]="definition.key"
-      appearance="query"
-      [queryRemovable]="!definition.required"
-      [label]="definition.label"
-      [editor]="definition.editor"
-      [options]="definition.options ?? []"
-      [operators]="_operatorsFor(definition)"
-      [operatorLabels]="definition.operatorLabels ?? {}"
-      [defaultOperator]="definition.defaultOperator ?? 'contains'"
-      [multiple]="definition.multiple ?? false"
-      [allowMultipleConditions]="_allowsMultipleConditions(definition)"
-      [placeholder]="definition.placeholder"
-      [applyMode]="filterApplyMode()"
-      [disabled]="disabled() || loading() || (definition.disabled ?? false)"
-      [loading]="loading()"
-      [invalid]="_isRequiredMissing(definition)"
-      [ariaDescribedBy]="
-        _isRequiredMissing(definition)
-          ? _requiredErrorId(definition)
-          : undefined
-      "
-      [valueEditor]="_valueEditorFor(definition)"
-      [conditions]="_conditionsFor(definition.key)"
-      [conditionStrategy]="_strategyFor(definition.key)"
-      (conditionsChange)="_setConditions(definition, $event)"
-      (conditionStrategyChange)="_setStrategy(definition, $event)"
-      (cleared)="_removeQueryFilter(definition)"
-    />
-    @if (_isRequiredMissing(definition)) {
-    <span
-      class="mlv-smart-filter-bar__field-error"
-      [id]="_requiredErrorId(definition)"
-    >
-      {{ _requiredFilterMessage(definition) }}
+    <span class="mlv-smart-filter-bar__status" aria-live="polite">
+      {{ _appliedFiltersLabel() }}
     </span>
-    }
   </div>
+
+  @if (_showRequiredErrors()) {
+    <div
+      class="mlv-smart-filter-bar__validation-summary"
+      [id]="_validationSummaryId"
+      role="alert"
+    >
+      {{ _requiredFiltersMessage() }}
+    </div>
   }
 
-  <button
-    #addButton
-    #addTrigger="mlvPopupTrigger"
-    mlvButton
-    type="button"
-    variant="transparent"
-    class="mlv-smart-filter-bar__add"
-    [mlvPopupTrigger]="addPopup"
-    [ariaHasPopup]="'dialog'"
-    [disabled]="disabled() || loading()"
-  >
-    <svg mlvButtonIcon lucidePlus [size]="14" aria-hidden="true"></svg>
-    {{ _i18n().addFilter }}
-  </button>
+  <mlv-expand #panel [id]="_filtersId" [opened]="filtersVisible()">
+    <div class="mlv-smart-filter-bar__filters">
+      @for (definition of visibleDefinitions(); track definition.key) {
+        <div
+          class="mlv-smart-filter-bar__field"
+          [class.mlv-smart-filter-bar__field--invalid]="
+            _isRequiredMissing(definition)
+          "
+        >
+          <mlv-filter
+            [key]="definition.key"
+            [label]="definition.label"
+            [editor]="definition.editor"
+            [options]="definition.options ?? []"
+            [operators]="_operatorsFor(definition)"
+            [operatorLabels]="definition.operatorLabels ?? {}"
+            [defaultOperator]="definition.defaultOperator ?? 'contains'"
+            [multiple]="definition.multiple ?? false"
+            [allowMultipleConditions]="_allowsMultipleConditions(definition)"
+            [placeholder]="definition.placeholder"
+            [applyMode]="filterApplyMode()"
+            [disabled]="
+              disabled() || loading() || (definition.disabled ?? false)
+            "
+            [loading]="loading()"
+            [invalid]="_isRequiredMissing(definition)"
+            [ariaDescribedBy]="
+              _isRequiredMissing(definition)
+                ? _requiredErrorId(definition)
+                : undefined
+            "
+            [valueEditor]="_valueEditorFor(definition)"
+            [conditions]="_conditionsFor(definition.key)"
+            [conditionStrategy]="_strategyFor(definition.key)"
+            (conditionsChange)="_setConditions(definition, $event)"
+            (conditionStrategyChange)="_setStrategy(definition, $event)"
+          />
+          @if (_isRequiredMissing(definition)) {
+            <span
+              class="mlv-smart-filter-bar__field-error"
+              [id]="_requiredErrorId(definition)"
+            >
+              {{ _requiredFilterMessage(definition) }}
+            </span>
+          }
+        </div>
+      }
+    </div>
+  </mlv-expand>
 
-  @if (_hasState()) {
-  <button
-    mlvButton
-    type="button"
-    variant="transparent"
-    class="mlv-smart-filter-bar__clear-all"
-    [disabled]="disabled() || loading()"
-    (click)="_clearQuery()"
+  <mlv-popup
+    #managerPopup
+    panelRole="dialog"
+    [modal]="true"
+    [ariaLabel]="_i18n().manageFilters"
+    [position]="['bottom-end', 'top-end']"
+    [hasShadow]="true"
+    minWidth="18rem"
+    maxWidth="28rem"
+    (afterOpened)="_onManagerOpened()"
+    (afterClosed)="_onManagerClosed()"
   >
-    {{ _i18n().clearAll }}
-  </button>
-  } @if (filterApplyMode() === 'explicit') {
-  <button
-    mlvButton
-    type="button"
-    class="mlv-smart-filter-bar__apply-query"
-    [disabled]="disabled() || loading()"
-    (click)="executeQuery()"
-  >
-    {{ _i18n().apply }}
-  </button>
-  }
-</div>
-
-@if (_showRequiredErrors()) {
-<div
-  class="mlv-smart-filter-bar__validation-summary"
-  [id]="_validationSummaryId"
-  role="alert"
->
-  {{ _requiredFiltersMessage() }}
-</div>
-}
-
-<mlv-popup
-  #addPopup
-  panelRole="dialog"
-  [ariaLabel]="_i18n().addFilter"
-  [position]="['bottom-start', 'top-start']"
-  [hasShadow]="true"
-  minWidth="14rem"
-  maxWidth="28rem"
-  (afterOpened)="_onAddOpened()"
-  (afterClosed)="_onAddClosed()"
->
-  <ng-template mlvPopupContent>
-    <div #addPanel class="mlv-smart-filter-bar__add-menu">
-      <mlv-search-field
-        class="mlv-smart-filter-bar__add-search"
-        trigger="live"
-        [debounce]="0"
-        [value]="_availableSearch()"
-        [placeholder]="_i18n().searchAvailableFilters"
-        [ariaLabel]="_i18n().searchAvailableFilters"
-        [disabled]="disabled() || loading()"
-        (valueChange)="_availableSearch.set($event)"
-        (search)="_onAvailableSearch($event)"
-      />
-      <ul class="mlv-smart-filter-bar__add-list">
-        @for (definition of _addableDefinitions(); track definition.key) {
-        <li class="mlv-smart-filter-bar__add-item">
+    <ng-template mlvPopupContent>
+      <div
+        #managerPanel
+        class="mlv-smart-filter-bar__manager"
+        [id]="_managerId"
+      >
+        <div class="mlv-smart-filter-bar__manager-header">
+          <span class="mlv-smart-filter-bar__manager-title">
+            {{ _availableFiltersLabel() }}
+          </span>
           <button
             mlvButton
             type="button"
             variant="transparent"
-            class="mlv-smart-filter-bar__add-option"
             [disabled]="disabled() || loading()"
-            (click)="_addQueryFilter(definition, addTrigger)"
+            (click)="_resetManagerSelection()"
           >
-            {{ definition.label }}
+            {{ _i18n().reset }}
           </button>
-        </li>
-        } @empty {
-        <li class="mlv-smart-filter-bar__add-empty">
-          {{ _i18n().noFiltersAvailable }}
-        </li>
+        </div>
+
+        <mlv-search-field
+          class="mlv-smart-filter-bar__manager-search"
+          trigger="live"
+          [debounce]="0"
+          [value]="_availableSearch()"
+          [placeholder]="_i18n().searchAvailableFilters"
+          [ariaLabel]="_i18n().searchAvailableFilters"
+          [disabled]="disabled() || loading()"
+          (valueChange)="_availableSearch.set($event)"
+          (search)="_onAvailableSearch($event)"
+        />
+
+        <div
+          class="mlv-smart-filter-bar__manager-list"
+          role="group"
+          [attr.aria-label]="_availableFiltersLabel()"
+        >
+          @for (definition of _filteredDefinitions(); track definition.key) {
+            <mlv-checkbox
+              class="mlv-smart-filter-bar__manager-option"
+              [checked]="_isVisible(definition.key)"
+              [disabled]="
+                disabled() ||
+                loading() ||
+                (definition.required ?? false) ||
+                _isActive(definition.key)
+              "
+              (checkedChange)="_setVisible(definition, $event)"
+            >
+              <span class="mlv-smart-filter-bar__manager-option-label">
+                {{ definition.label }}
+              </span>
+              @if (definition.required) {
+                <span class="mlv-smart-filter-bar__manager-option-status">
+                  {{ _i18n().required }}
+                </span>
+              }
+              @if (_isActive(definition.key)) {
+                <span class="mlv-smart-filter-bar__manager-option-status">
+                  {{ _i18n().active }}
+                </span>
+              }
+            </mlv-checkbox>
+          }
+        </div>
+
+        <div class="mlv-smart-filter-bar__manager-footer">
+          <button
+            mlvButton
+            type="button"
+            variant="transparent"
+            [disabled]="disabled() || loading()"
+            (click)="_cancelManager(managerTrigger)"
+          >
+            {{ _i18n().cancel }}
+          </button>
+          <button
+            mlvButton
+            type="button"
+            [disabled]="disabled() || loading()"
+            (click)="_applyManager(managerTrigger)"
+          >
+            {{ _i18n().apply }}
+          </button>
+        </div>
+      </div>
+    </ng-template>
+  </mlv-popup>
+} @else {
+  <div class="mlv-smart-filter-bar__query-filters">
+    @if (showSearch()) {
+      <mlv-search-field
+        class="mlv-smart-filter-bar__query-search"
+        [value]="searchValue()"
+        [trigger]="searchTrigger()"
+        [debounce]="searchDebounce()"
+        [commitOnClear]="autoExecute() || searchTrigger() === 'live'"
+        [disabled]="disabled() || loading()"
+        [loading]="loading()"
+        (valueChange)="searchValue.set($event)"
+        (search)="_onSearch($event)"
+        (keydown.enter)="_onSearchEnter($event)"
+      />
+    }
+    @for (definition of _queryDefinitions(); track definition.key) {
+      <div class="mlv-smart-filter-bar__query-field">
+        <mlv-filter
+          [key]="definition.key"
+          appearance="query"
+          [queryRemovable]="!definition.required"
+          [label]="definition.label"
+          [editor]="definition.editor"
+          [options]="definition.options ?? []"
+          [operators]="_operatorsFor(definition)"
+          [operatorLabels]="definition.operatorLabels ?? {}"
+          [defaultOperator]="definition.defaultOperator ?? 'contains'"
+          [multiple]="definition.multiple ?? false"
+          [allowMultipleConditions]="_allowsMultipleConditions(definition)"
+          [placeholder]="definition.placeholder"
+          [applyMode]="filterApplyMode()"
+          [disabled]="disabled() || loading() || (definition.disabled ?? false)"
+          [loading]="loading()"
+          [invalid]="_isRequiredMissing(definition)"
+          [ariaDescribedBy]="
+            _isRequiredMissing(definition)
+              ? _requiredErrorId(definition)
+              : undefined
+          "
+          [valueEditor]="_valueEditorFor(definition)"
+          [conditions]="_conditionsFor(definition.key)"
+          [conditionStrategy]="_strategyFor(definition.key)"
+          (conditionsChange)="_setConditions(definition, $event)"
+          (conditionStrategyChange)="_setStrategy(definition, $event)"
+          (cleared)="_removeQueryFilter(definition)"
+        />
+        @if (_isRequiredMissing(definition)) {
+          <span
+            class="mlv-smart-filter-bar__field-error"
+            [id]="_requiredErrorId(definition)"
+          >
+            {{ _requiredFilterMessage(definition) }}
+          </span>
         }
-      </ul>
+      </div>
+    }
+
+    <button
+      #addButton
+      #addTrigger="mlvPopupTrigger"
+      mlvButton
+      type="button"
+      variant="transparent"
+      class="mlv-smart-filter-bar__add"
+      [mlvPopupTrigger]="addPopup"
+      [ariaHasPopup]="'dialog'"
+      [disabled]="disabled() || loading()"
+    >
+      <svg mlvButtonIcon lucidePlus [size]="14" aria-hidden="true"></svg>
+      {{ _i18n().addFilter }}
+    </button>
+
+    @if (_hasState()) {
+      <button
+        mlvButton
+        type="button"
+        variant="transparent"
+        class="mlv-smart-filter-bar__clear-all"
+        [disabled]="disabled() || loading()"
+        (click)="_clearQuery()"
+      >
+        {{ _i18n().clearAll }}
+      </button>
+    }
+    @if (filterApplyMode() === 'explicit') {
+      <button
+        mlvButton
+        type="button"
+        class="mlv-smart-filter-bar__apply-query"
+        [disabled]="disabled() || loading()"
+        (click)="executeQuery()"
+      >
+        {{ _i18n().apply }}
+      </button>
+    }
+  </div>
+
+  @if (_showRequiredErrors()) {
+    <div
+      class="mlv-smart-filter-bar__validation-summary"
+      [id]="_validationSummaryId"
+      role="alert"
+    >
+      {{ _requiredFiltersMessage() }}
     </div>
-  </ng-template>
-</mlv-popup>
+  }
+
+  <mlv-popup
+    #addPopup
+    panelRole="dialog"
+    [ariaLabel]="_i18n().addFilter"
+    [position]="['bottom-start', 'top-start']"
+    [hasShadow]="true"
+    minWidth="14rem"
+    maxWidth="28rem"
+    (afterOpened)="_onAddOpened()"
+    (afterClosed)="_onAddClosed()"
+  >
+    <ng-template mlvPopupContent>
+      <div #addPanel class="mlv-smart-filter-bar__add-menu">
+        <mlv-search-field
+          class="mlv-smart-filter-bar__add-search"
+          trigger="live"
+          [debounce]="0"
+          [value]="_availableSearch()"
+          [placeholder]="_i18n().searchAvailableFilters"
+          [ariaLabel]="_i18n().searchAvailableFilters"
+          [disabled]="disabled() || loading()"
+          (valueChange)="_availableSearch.set($event)"
+          (search)="_onAvailableSearch($event)"
+        />
+        <ul class="mlv-smart-filter-bar__add-list">
+          @for (definition of _addableDefinitions(); track definition.key) {
+            <li class="mlv-smart-filter-bar__add-item">
+              <button
+                mlvButton
+                type="button"
+                variant="transparent"
+                class="mlv-smart-filter-bar__add-option"
+                [disabled]="disabled() || loading()"
+                (click)="_addQueryFilter(definition, addTrigger)"
+              >
+                {{ definition.label }}
+              </button>
+            </li>
+          } @empty {
+            <li class="mlv-smart-filter-bar__add-empty">
+              {{ _i18n().noFiltersAvailable }}
+            </li>
+          }
+        </ul>
+      </div>
+    </ng-template>
+  </mlv-popup>
 }

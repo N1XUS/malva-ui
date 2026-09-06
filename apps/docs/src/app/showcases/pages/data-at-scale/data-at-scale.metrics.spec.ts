@@ -233,7 +233,11 @@ describe('measureAfterPaint', () => {
     const frames = scriptedFrames([16]);
     let paintedAt = 0;
 
-    measureAfterPaint((value) => (paintedAt = value), frames.requestFrame, frames.now);
+    measureAfterPaint(
+      (value) => (paintedAt = value),
+      frames.requestFrame,
+      frames.now,
+    );
 
     expect(paintedAt).toBe(1016);
   });

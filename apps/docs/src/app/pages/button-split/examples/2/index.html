@@ -1,17 +1,17 @@
 <div class="demo-row">
   @for (variant of variants; track variant) {
-  <mlv-button-split
-    [variant]="variant"
-    [attr.aria-label]="variant + ' actions'"
-  >
-    <button mlvButton>{{ variant }}</button>
-    <button
-      mlvButton
-      shape="square"
-      [attr.aria-label]="'More ' + variant + ' actions'"
+    <mlv-button-split
+      [variant]="variant"
+      [attr.aria-label]="variant + ' actions'"
     >
-      <svg mlvButtonIcon lucideChevronDown aria-hidden="true" />
-    </button>
-  </mlv-button-split>
+      <button mlvButton>{{ variant }}</button>
+      <button
+        mlvButton
+        shape="square"
+        [attr.aria-label]="'More ' + variant + ' actions'"
+      >
+        <svg mlvButtonIcon lucideChevronDown aria-hidden="true" />
+      </button>
+    </mlv-button-split>
   }
 </div>

@@ -1,17 +1,21 @@
 <div class="demo-col" style="gap: 1.25rem; width: 100%">
   @for (entry of entries; track entry.tone) {
-  <div class="demo-col" style="gap: 0.375rem; width: 100%">
-    <div
-      style="display: flex; justify-content: space-between; font-size: 0.75rem"
-    >
-      <span style="color: var(--mlv-text-secondary)">{{ entry.label }}</span>
-      <span style="font-weight: 500">{{ entry.value }}%</span>
+    <div class="demo-col" style="gap: 0.375rem; width: 100%">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.75rem;
+        "
+      >
+        <span style="color: var(--mlv-text-secondary)">{{ entry.label }}</span>
+        <span style="font-weight: 500">{{ entry.value }}%</span>
+      </div>
+      <mlv-progress
+        [value]="entry.value"
+        [tone]="entry.tone"
+        [ariaLabel]="entry.label"
+      />
     </div>
-    <mlv-progress
-      [value]="entry.value"
-      [tone]="entry.tone"
-      [ariaLabel]="entry.label"
-    />
-  </div>
   }
 </div>

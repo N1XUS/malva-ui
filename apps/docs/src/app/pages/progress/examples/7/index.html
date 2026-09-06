@@ -1,13 +1,13 @@
 <div class="demo-row" style="gap: 2rem; flex-wrap: wrap; align-items: flex-end">
   @for (entry of entries; track entry.tone) {
-  <mlv-progress
-    shape="circle"
-    [value]="entry.value"
-    [tone]="entry.tone"
-    showPercentage
-    [ariaLabel]="entry.label + ' status'"
-  >
-    {{ entry.label }}
-  </mlv-progress>
+    <mlv-progress
+      shape="circle"
+      [value]="entry.value"
+      [tone]="entry.tone"
+      showPercentage
+      [ariaLabel]="entry.label + ' status'"
+    >
+      {{ entry.label }}
+    </mlv-progress>
   }
 </div>

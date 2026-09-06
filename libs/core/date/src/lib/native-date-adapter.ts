@@ -163,6 +163,56 @@ export class MlvNativeDateAdapter extends MlvDateAdapter<Date> {
     return !Number.isNaN(date.getTime());
   }
 
+  /** Returns the local wall-clock hour. */
+  override getHours(date: Date): number {
+    return date.getHours();
+  }
+
+  /** Returns the local wall-clock minute. */
+  override getMinutes(date: Date): number {
+    return date.getMinutes();
+  }
+
+  /** Creates a local date-time; throws for an invalid calendar date or time. */
+  override createDateTime(
+    year: number,
+    month: number,
+    day: number,
+    hours: number,
+    minutes: number,
+  ): Date {
+    const result = this.createDate(year, month, day);
+    if (
+      !Number.isInteger(hours) ||
+      !Number.isInteger(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      throw new Error(
+        `Invalid time "${hours}:${minutes}". Expected hours 0-23 and minutes 0-59.`,
+      );
+    }
+    result.setHours(hours, minutes, 0, 0);
+    return result;
+  }
+
+  /** Adds elapsed minutes using real time, so DST transitions keep their true length. */
+  override addMinutes(date: Date, minutes: number): Date {
+    return new Date(date.getTime() + minutes * 60_000);
+  }
+
+  /** Returns `first − second` in whole minutes, truncated toward zero. */
+  override differenceInMinutes(first: Date, second: Date): number {
+    return Math.trunc((first.getTime() - second.getTime()) / 60_000);
+  }
+
+  /** Returns the current local date-time. */
+  override now(): Date {
+    return new Date();
+  }
+
   /** @private Strips the time component, returning a new `Date` at local midnight. */
   private _normalizeDate(date: Date): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());

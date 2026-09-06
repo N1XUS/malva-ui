@@ -126,6 +126,17 @@ Internally provides: `MlvI18nService`, `APP_INITIALIZER` for lazy loading, and a
 
 Each component with translatable strings has a token file under `libs/i18n/src/lib/tokens/`:
 
+New keys are inserted **alphabetically by component key** everywhere the set is
+enumerated — `MlvLanguage` and its imports in `src/lib/types.ts`, the barrel in
+`src/index.ts`, the imports and provider list in `src/lib/provide-i18n.ts`, the
+mock map in `testing/src/lib/i18n-test-providers.ts`, and every language pack
+(`scheduler` before `scrollbar` before `searchField`). The **language packs**
+carry one pre-existing exception: `popup` sits after `tile` rather than between
+`pinInput` and `progress`; the token files, the barrel, the provider list and
+the mock map place it alphabetically. `tests/locale-contract.spec.ts` pins each
+pack's key **order** against `en`, so that placement is identical in all 14
+packs and a pack that is reordered alone fails the suite.
+
 | Token                        | Interface                | Component             | Keys                                                                                                                                                                                                                                                                          |
 | ---------------------------- | ------------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MLV_ALERT_I18N`             | `MlvAlertI18n`           | mlv-alert             | dismiss                                                                                                                                                                                                                                                                       |
@@ -156,6 +167,7 @@ Each component with translatable strings has a token file under `libs/i18n/src/l
 | `MLV_POPUP_I18N`             | `MlvPopupI18n`           | mlv-popup             | close (mobile fullscreen close button)                                                                                                                                                                                                                                        |
 | `MLV_PROGRESS_I18N`          | `MlvProgressI18n`        | mlv-progress          | progress                                                                                                                                                                                                                                                                      |
 | `MLV_RATING_I18N`            | `MlvRatingI18n`          | mlv-rating            | rating, rateValue (ICU)                                                                                                                                                                                                                                                       |
+| `MLV_SCHEDULER_I18N`         | `MlvSchedulerI18n`       | mlv-scheduler         | 22 keys: toolbar labels, ICU `view` select (previous/next/gridLabel), plural overflow (`moreEvents` + `moreEventsLabel`), slot/day/event aria-labels, dragHint, 5 live announcements                                                                                          |
 | `MLV_SCROLLBAR_I18N`         | `MlvScrollbarI18n`       | mlv-scrollbar         | scrollableRegion                                                                                                                                                                                                                                                              |
 | `MLV_SEARCH_FIELD_I18N`      | `MlvSearchFieldI18n`     | mlv-search-field      | placeholder, search, submit, clear                                                                                                                                                                                                                                            |
 | `MLV_SELECT_I18N`            | `MlvSelectI18n`          | mlv-select            | 5 keys (placeholder, searchPlaceholder, noResults, loading, resultsAvailable ICU)                                                                                                                                                                                             |

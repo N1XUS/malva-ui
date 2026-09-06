@@ -242,7 +242,8 @@ export class ScaleDataSource extends MlvDataSource<ScaleRow> {
       this._onResponse(response),
     );
     this._unsubscribeError =
-      backend.subscribeError?.((reason) => this._fail(reason)) ?? (() => undefined);
+      backend.subscribeError?.((reason) => this._fail(reason)) ??
+      (() => undefined);
     // `postMessage` preserves order, so the query queued below is always
     // processed after the dataset exists — no readiness handshake needed.
     backend.post({ type: 'init', config: this._config });
@@ -419,16 +420,13 @@ export class ScaleDataSource extends MlvDataSource<ScaleRow> {
    */
   private _armWatchdog(requestId: number): void {
     this._clearWatchdog();
-    this._watchdog = setTimeout(
-      () => {
-        this._watchdog = null;
-        if (this._currentRequestId !== requestId) return;
-        this._fail(
-          'The backend did not answer. It may have run out of memory generating this many rows.',
-        );
-      },
-      this._timeoutMs + this._latencyMs,
-    );
+    this._watchdog = setTimeout(() => {
+      this._watchdog = null;
+      if (this._currentRequestId !== requestId) return;
+      this._fail(
+        'The backend did not answer. It may have run out of memory generating this many rows.',
+      );
+    }, this._timeoutMs + this._latencyMs);
   }
 
   /** @private Disarms the watchdog, if one is running. */
@@ -534,7 +532,10 @@ export class ScaleDataSource extends MlvDataSource<ScaleRow> {
     if (cached) return cached;
     const children = row._mlvChildren;
     const canonical: ScaleRow = children?.length
-      ? { ...row, _mlvChildren: children.map((child) => this._identifyRow(child)) }
+      ? {
+          ...row,
+          _mlvChildren: children.map((child) => this._identifyRow(child)),
+        }
       : row;
     this._identity.set(row.id, canonical);
     return canonical;

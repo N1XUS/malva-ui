@@ -6,86 +6,89 @@
   <div class="sidebar-demo">
     <mlv-sidebar>
       @if (loading()) {
-      <div mlvSidebarHeader>
-        <div class="skeleton-header">
-          <mlv-skeleton shape="rectangle" width="28px" height="28px" />
-          <div class="skeleton-header__meta">
-            <mlv-skeleton shape="text" width="80%" />
-            <mlv-skeleton shape="text" width="50%" />
+        <div mlvSidebarHeader>
+          <div class="skeleton-header">
+            <mlv-skeleton shape="rectangle" width="28px" height="28px" />
+            <div class="skeleton-header__meta">
+              <mlv-skeleton shape="text" width="80%" />
+              <mlv-skeleton shape="text" width="50%" />
+            </div>
           </div>
         </div>
-      </div>
 
-      <div mlvSidebarContent>
-        @for (i of skeletonRows; track i) {
-        <div class="skeleton-row">
-          <mlv-skeleton shape="circle" width="16px" height="16px" />
-          <mlv-skeleton shape="text" [width]="i % 2 === 0 ? '60%' : '75%'" />
+        <div mlvSidebarContent>
+          @for (i of skeletonRows; track i) {
+            <div class="skeleton-row">
+              <mlv-skeleton shape="circle" width="16px" height="16px" />
+              <mlv-skeleton
+                shape="text"
+                [width]="i % 2 === 0 ? '60%' : '75%'"
+              />
+            </div>
+          }
         </div>
-        }
-      </div>
 
-      <div mlvSidebarFooter>
-        <div class="skeleton-row">
-          <mlv-skeleton shape="circle" width="24px" height="24px" />
-          <div class="skeleton-header__meta">
-            <mlv-skeleton shape="text" width="70%" />
-            <mlv-skeleton shape="text" width="55%" />
+        <div mlvSidebarFooter>
+          <div class="skeleton-row">
+            <mlv-skeleton shape="circle" width="24px" height="24px" />
+            <div class="skeleton-header__meta">
+              <mlv-skeleton shape="text" width="70%" />
+              <mlv-skeleton shape="text" width="55%" />
+            </div>
           </div>
         </div>
-      </div>
       } @else {
-      <div mlvSidebarHeader>
-        <div class="loaded-header">
-          <div class="loaded-header__logo">
-            <svg lucideCommand size="20" />
-          </div>
-          <div class="loaded-header__meta">
-            <span class="loaded-header__name">Acme Inc</span>
-            <span class="loaded-header__plan">Enterprise</span>
+        <div mlvSidebarHeader>
+          <div class="loaded-header">
+            <div class="loaded-header__logo">
+              <svg lucideCommand size="20" />
+            </div>
+            <div class="loaded-header__meta">
+              <span class="loaded-header__name">Acme Inc</span>
+              <span class="loaded-header__plan">Enterprise</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div mlvSidebarContent>
-        <mlv-sidebar-item label="Dashboard" [active]="true">
-          <ng-template mlvSidebarItemIcon>
-            <svg lucideHouse size="20" />
-          </ng-template>
-        </mlv-sidebar-item>
+        <div mlvSidebarContent>
+          <mlv-sidebar-item label="Dashboard" [active]="true">
+            <ng-template mlvSidebarItemIcon>
+              <svg lucideHouse size="20" />
+            </ng-template>
+          </mlv-sidebar-item>
 
-        <mlv-sidebar-item label="Analytics">
-          <ng-template mlvSidebarItemIcon>
-            <svg lucideChartArea size="20" />
-          </ng-template>
-        </mlv-sidebar-item>
+          <mlv-sidebar-item label="Analytics">
+            <ng-template mlvSidebarItemIcon>
+              <svg lucideChartArea size="20" />
+            </ng-template>
+          </mlv-sidebar-item>
 
-        <mlv-sidebar-item label="Projects">
-          <ng-template mlvSidebarItemIcon>
-            <svg lucideFolderOpen size="20" />
-          </ng-template>
-        </mlv-sidebar-item>
+          <mlv-sidebar-item label="Projects">
+            <ng-template mlvSidebarItemIcon>
+              <svg lucideFolderOpen size="20" />
+            </ng-template>
+          </mlv-sidebar-item>
 
-        <mlv-sidebar-item label="Team">
-          <ng-template mlvSidebarItemIcon>
-            <svg lucideUsers size="20" />
-          </ng-template>
-        </mlv-sidebar-item>
+          <mlv-sidebar-item label="Team">
+            <ng-template mlvSidebarItemIcon>
+              <svg lucideUsers size="20" />
+            </ng-template>
+          </mlv-sidebar-item>
 
-        <mlv-sidebar-item label="Settings">
-          <ng-template mlvSidebarItemIcon>
-            <svg lucideSettings size="20" />
-          </ng-template>
-        </mlv-sidebar-item>
-      </div>
+          <mlv-sidebar-item label="Settings">
+            <ng-template mlvSidebarItemIcon>
+              <svg lucideSettings size="20" />
+            </ng-template>
+          </mlv-sidebar-item>
+        </div>
 
-      <div mlvSidebarFooter>
-        <mlv-sidebar-item label="Jane Cooper">
-          <ng-template mlvSidebarItemIcon>
-            <mlv-avatar name="Jane Cooper" size="xs" />
-          </ng-template>
-        </mlv-sidebar-item>
-      </div>
+        <div mlvSidebarFooter>
+          <mlv-sidebar-item label="Jane Cooper">
+            <ng-template mlvSidebarItemIcon>
+              <mlv-avatar name="Jane Cooper" size="xs" />
+            </ng-template>
+          </mlv-sidebar-item>
+        </div>
       }
     </mlv-sidebar>
   </div>

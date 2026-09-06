@@ -51,9 +51,13 @@
           font-weight: 500;
         "
       >
-        @if (balanceControl.value === 50) { Centre } @else if
-        ((balanceControl.value ?? 50) < 50) { L {{ 50 - (balanceControl.value ??
-        50) }}% } @else { R {{ (balanceControl.value ?? 50) - 50 }}% }
+        @if (balanceControl.value === 50) {
+          Centre
+        } @else if ((balanceControl.value ?? 50) < 50) {
+          L {{ 50 - (balanceControl.value ?? 50) }}%
+        } @else {
+          R {{ (balanceControl.value ?? 50) - 50 }}%
+        }
       </span>
     </div>
     <mlv-slider [min]="0" [max]="100" [formControl]="balanceControl" />

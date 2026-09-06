@@ -1,15 +1,16 @@
 <mlv-form-control-wrapper>
   @if (label() || hint()) {
-  <mlv-label
-    [id]="labelId()"
-    [for]="id()"
-    [required]="required()"
-    (click)="_onLabelClick()"
-  >
-    {{ label() }} @if (hint()) {
-    <mlv-hint>{{ hint() }}</mlv-hint>
-    }
-  </mlv-label>
+    <mlv-label
+      [id]="labelId()"
+      [for]="id()"
+      [required]="required()"
+      (click)="_onLabelClick()"
+    >
+      {{ label() }}
+      @if (hint()) {
+        <mlv-hint>{{ hint() }}</mlv-hint>
+      }
+    </mlv-label>
   }
 
   <ng-template mlvFormControlWrapperControl>
@@ -18,18 +19,36 @@
         class="mlv-select__trigger"
         [class.mlv-select__trigger--with-clear]="_showClear()"
         [id]="_nativeActive() ? null : id()"
-        [hostRole]="_nativeActive() ? null : (_outerIsCombobox() ? 'combobox' : 'button')"
+        [hostRole]="
+          _nativeActive() ? null : _outerIsCombobox() ? 'combobox' : 'button'
+        "
         [disabled]="computedDisabled() || _nativeActive()"
         [attr.aria-hidden]="_nativeActive() ? 'true' : null"
         [attr.aria-expanded]="_nativeActive() ? null : isOpen()"
         [attr.aria-haspopup]="_nativeActive() ? null : 'listbox'"
-        [attr.aria-controls]="_nativeActive() ? null : (isOpen() ? listboxId() : null)"
-        [attr.aria-disabled]="_nativeActive() ? null : (computedDisabled() || null)"
-        [attr.aria-labelledby]="_nativeActive() ? null : (label() ? labelId() : null)"
-        [attr.aria-label]="_nativeActive() ? null : (label() ? null : ariaLabel())"
-        [attr.aria-required]="_nativeActive() ? null : (_outerIsCombobox() && required() ? true : null)"
+        [attr.aria-controls]="
+          _nativeActive() ? null : isOpen() ? listboxId() : null
+        "
+        [attr.aria-disabled]="
+          _nativeActive() ? null : computedDisabled() || null
+        "
+        [attr.aria-labelledby]="
+          _nativeActive() ? null : label() ? labelId() : null
+        "
+        [attr.aria-label]="
+          _nativeActive() ? null : label() ? null : ariaLabel()
+        "
+        [attr.aria-required]="
+          _nativeActive()
+            ? null
+            : _outerIsCombobox() && required()
+              ? true
+              : null
+        "
         [attr.aria-describedby]="_nativeActive() ? null : _describedBy()"
-        [attr.aria-busy]="_nativeActive() ? null : (_awaitingValueLabel() || null)"
+        [attr.aria-busy]="
+          _nativeActive() ? null : _awaitingValueLabel() || null
+        "
         mlvResizeObserver
         #trigger
         (resized)="updateTriggerWidth($event)"
@@ -45,102 +64,107 @@
         <!-- While a committed value's label is still resolving the trigger shows
              the i18n loading text instead of a raw (often unreadable) value. -->
         @if (_awaitingValueLabel()) {
-        <span class="mlv-select__placeholder">{{ _i18n().loading }}</span>
+          <span class="mlv-select__placeholder">{{ _i18n().loading }}</span>
         } @else if (displayValue) {
-        <span class="mlv-select__value">
-          @if (!_nativeActive() && selectedTemplate(); as templateTpl) {
-          <ng-container
-            *ngTemplateOutlet="templateTpl.templateRef; context: { $implicit: selectionService.selectedValues() }"
-          />
-          } @else { {{ displayValue }} }
-        </span>
+          <span class="mlv-select__value">
+            @if (!_nativeActive() && selectedTemplate(); as templateTpl) {
+              <ng-container
+                *ngTemplateOutlet="
+                  templateTpl.templateRef;
+                  context: { $implicit: selectionService.selectedValues() }
+                "
+              />
+            } @else {
+              {{ displayValue }}
+            }
+          </span>
         } @else {
-        <span class="mlv-select__placeholder"
-          >{{ _resolvedPlaceholder() }}</span
-        >
+          <span class="mlv-select__placeholder">{{
+            _resolvedPlaceholder()
+          }}</span>
         }
         <span class="mlv-select__arrow">
           <!-- The chevron is replaced by a spinner while the value's label
                resolves — the trigger is inert then, so the affordance would be
                a dead control. -->
           @if (_awaitingValueLabel()) {
-          <mlv-loader
-            variant="circle"
-            indeterminate
-            [size]="18"
-            [strokeWidth]="2"
-            [ariaLabel]="_i18n().loading"
-          />
+            <mlv-loader
+              variant="circle"
+              indeterminate
+              [size]="18"
+              [strokeWidth]="2"
+              [ariaLabel]="_i18n().loading"
+            />
           } @else {
-          <svg size="20" lucideChevronDown></svg>
+            <svg size="20" lucideChevronDown></svg>
           }
         </span>
       </div>
 
       @if (_nativeActive()) {
-      <select
-        #nativeSelect
-        class="mlv-select__native"
-        [id]="id()"
-        [multiple]="multiple()"
-        [required]="required()"
-        [disabled]="computedDisabled()"
-        [attr.aria-labelledby]="label() ? labelId() : null"
-        [attr.aria-label]="label() ? null : ariaLabel()"
-        [attr.aria-describedby]="_describedBy()"
-        [attr.aria-busy]="_awaitingValueLabel() || null"
-        (focus)="_onNativeFocus()"
-        (blur)="_onNativeBlur()"
-        (change)="_onNativeChange($event)"
-      >
-        @if (!multiple()) {
-        <option value="" disabled [selected]="!hasValue()">
-          {{ _resolvedPlaceholder() }}
-        </option>
-        }
-        @for (group of _nativeOptionGroups(); track $index) {
-        @if (group.label) {
-        <optgroup [label]="group.label">
-          @for (option of group.options; track option.key) {
-          <option
-            [value]="option.key"
-            [disabled]="option.disabled || false"
-            [selected]="_isNativeOptionSelected(option.value)"
-          >
-            {{ option.label }}
-          </option>
-          }
-        </optgroup>
-        } @else {
-        @for (option of group.options; track option.key) {
-        <option
-          [value]="option.key"
-          [disabled]="option.disabled || false"
-          [selected]="_isNativeOptionSelected(option.value)"
+        <select
+          #nativeSelect
+          class="mlv-select__native"
+          [id]="id()"
+          [multiple]="multiple()"
+          [required]="required()"
+          [disabled]="computedDisabled()"
+          [attr.aria-labelledby]="label() ? labelId() : null"
+          [attr.aria-label]="label() ? null : ariaLabel()"
+          [attr.aria-describedby]="_describedBy()"
+          [attr.aria-busy]="_awaitingValueLabel() || null"
+          (focus)="_onNativeFocus()"
+          (blur)="_onNativeBlur()"
+          (change)="_onNativeChange($event)"
         >
-          {{ option.label }}
-        </option>
-        }
-        }
-        }
-      </select>
+          @if (!multiple()) {
+            <option value="" disabled [selected]="!hasValue()">
+              {{ _resolvedPlaceholder() }}
+            </option>
+          }
+          @for (group of _nativeOptionGroups(); track $index) {
+            @if (group.label) {
+              <optgroup [label]="group.label">
+                @for (option of group.options; track option.key) {
+                  <option
+                    [value]="option.key"
+                    [disabled]="option.disabled || false"
+                    [selected]="_isNativeOptionSelected(option.value)"
+                  >
+                    {{ option.label }}
+                  </option>
+                }
+              </optgroup>
+            } @else {
+              @for (option of group.options; track option.key) {
+                <option
+                  [value]="option.key"
+                  [disabled]="option.disabled || false"
+                  [selected]="_isNativeOptionSelected(option.value)"
+                >
+                  {{ option.label }}
+                </option>
+              }
+            }
+          }
+        </select>
       }
-
       @if (_showClear()) {
-      <!-- DOM sibling of the role="combobox" trigger (a button nested inside it
+        <!-- DOM sibling of the role="combobox" trigger (a button nested inside it
            would trip nested-interactive); CSS overlays it just BEFORE the
            chevron. Tab order: trigger, then clear. -->
-      <mlv-button-close
-        class="mlv-select__clear"
-        (click)="onClear()"
-        mlvDensity="tight"
-        [ariaLabel]="_formI18n().clear"
-      />
+        <mlv-button-close
+          class="mlv-select__clear"
+          (click)="onClear()"
+          mlvDensity="tight"
+          [ariaLabel]="_formI18n().clear"
+        />
       }
 
       <mlv-popup
         [(opened)]="isOpen"
-        [width]="triggerWidth()"
+        [minWidth]="_resolvedDropdownMinWidth()"
+        [maxWidth]="dropdownMaxWidth()"
         [hasShadow]="true"
         [flexibleDimensions]="true"
         [positions]="dropdownPositions"
@@ -152,45 +176,45 @@
         (afterClosed)="_onPopupClosed()"
       >
         @if (searchable()) {
-        <!-- Pinned first row of the dropdown: projected into the popup's pinned
+          <!-- Pinned first row of the dropdown: projected into the popup's pinned
              slot, so it sits above the scroll region and a long option list can
              never push it out of view. While the dropdown is open this input —
              not the trigger — is the single exposed role="combobox". -->
-        <ng-template mlvPopupPinnedContent>
-          <div class="mlv-select__search">
-            <svg
-              class="mlv-select__search-icon"
-              lucideSearch
-              size="16"
-              aria-hidden="true"
-            ></svg>
-            <mlv-input
-              bare
-              class="mlv-select__search-input"
-              [id]="_searchInputId()"
-              [role]="'combobox'"
-              [ariaExpanded]="true"
-              [ariaHasPopup]="'listbox'"
-              [ariaAutocomplete]="'list'"
-              [ariaControls]="listboxId()"
-              [ariaActiveDescendant]="_activeOptionId()"
-              [ariaLabel]="label() || _resolvedPlaceholder()"
-              [required]="required()"
-              [placeholder]="_resolvedSearchPlaceholder()"
-              [value]="searchQuery()"
-              [autocomplete]="'off'"
-              (input)="_onSearchInput($event)"
-              (keydown.arrowDown)="_onSearchArrowDown($event)"
-              (keydown.arrowUp)="_onSearchArrowUp($event)"
-              (keydown.home)="_onSearchHome($event)"
-              (keydown.end)="_onSearchEnd($event)"
-              (keydown.enter)="_onSearchEnter($event)"
-              (keydown.escape)="_onSearchEscape($event)"
-              (keydown.tab)="_onSearchTab($event)"
-              (keydown.shift.tab)="_onSearchTab($event)"
-            />
-          </div>
-        </ng-template>
+          <ng-template mlvPopupPinnedContent>
+            <div class="mlv-select__search">
+              <svg
+                class="mlv-select__search-icon"
+                lucideSearch
+                size="16"
+                aria-hidden="true"
+              ></svg>
+              <mlv-input
+                bare
+                class="mlv-select__search-input"
+                [id]="_searchInputId()"
+                [role]="'combobox'"
+                [ariaExpanded]="true"
+                [ariaHasPopup]="'listbox'"
+                [ariaAutocomplete]="'list'"
+                [ariaControls]="listboxId()"
+                [ariaActiveDescendant]="_activeOptionId()"
+                [ariaLabel]="label() || _resolvedPlaceholder()"
+                [required]="required()"
+                [placeholder]="_resolvedSearchPlaceholder()"
+                [value]="searchQuery()"
+                [autocomplete]="'off'"
+                (input)="_onSearchInput($event)"
+                (keydown.arrowDown)="_onSearchArrowDown($event)"
+                (keydown.arrowUp)="_onSearchArrowUp($event)"
+                (keydown.home)="_onSearchHome($event)"
+                (keydown.end)="_onSearchEnd($event)"
+                (keydown.enter)="_onSearchEnter($event)"
+                (keydown.escape)="_onSearchEscape($event)"
+                (keydown.tab)="_onSearchTab($event)"
+                (keydown.shift.tab)="_onSearchTab($event)"
+              />
+            </div>
+          </ng-template>
         }
 
         <ng-template mlvPopupContent>
@@ -226,7 +250,7 @@
               (valueChange)="selectOption($event)"
             >
               @if (searchable()) {
-              <div class="mlv-select__empty">{{ _i18n().noResults }}</div>
+                <div class="mlv-select__empty">{{ _i18n().noResults }}</div>
               }
             </mlv-dropdown-panel>
           </div>
@@ -242,10 +266,13 @@
   </ng-template>
 
   @if (description()) {
-  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-  } @if (message()) {
-  <mlv-message [id]="_messageId()" [state]="resolvedState()">
-    {{ message() }}
-  </mlv-message>
+    <mlv-description [id]="_descriptionId()">{{
+      description()
+    }}</mlv-description>
+  }
+  @if (message()) {
+    <mlv-message [id]="_messageId()" [state]="resolvedState()">
+      {{ message() }}
+    </mlv-message>
   }
 </mlv-form-control-wrapper>

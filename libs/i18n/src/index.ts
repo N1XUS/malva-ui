@@ -30,6 +30,7 @@ export * from './lib/tokens/pin-input';
 export * from './lib/tokens/popup';
 export * from './lib/tokens/progress';
 export * from './lib/tokens/rating';
+export * from './lib/tokens/scheduler';
 export * from './lib/tokens/scrollbar';
 export * from './lib/tokens/search-field';
 export * from './lib/tokens/select';

@@ -14,7 +14,9 @@
      Screen readers use the viewport's native scroll semantics above. -->
 <div
   class="mlv-scrollbar__track mlv-scrollbar__track--vertical"
-  [class.mlv-scrollbar__track--hidden]="!_showVertical() || !_hasVerticalOverflow()"
+  [class.mlv-scrollbar__track--hidden]="
+    !_showVertical() || !_hasVerticalOverflow()
+  "
   aria-hidden="true"
   #trackV
 >
@@ -28,7 +30,9 @@
 
 <div
   class="mlv-scrollbar__track mlv-scrollbar__track--horizontal"
-  [class.mlv-scrollbar__track--hidden]="!_showHorizontal() || !_hasHorizontalOverflow()"
+  [class.mlv-scrollbar__track--hidden]="
+    !_showHorizontal() || !_hasHorizontalOverflow()
+  "
   aria-hidden="true"
   #trackH
 >

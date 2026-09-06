@@ -354,6 +354,36 @@ const pl: MlvLanguage = {
     rating: 'Ocena',
     rateValue: 'Oceń na {value} z {max}',
   },
+  scheduler: {
+    scheduler: 'Terminarz',
+    today: 'Dziś',
+    previous:
+      'Poprzedni {view, select, month {miesiąc} week {tydzień} day {dzień} other {okres}}',
+    next: 'Następny {view, select, month {miesiąc} week {tydzień} day {dzień} other {okres}}',
+    month: 'Miesiąc',
+    week: 'Tydzień',
+    day: 'Dzień',
+    viewSwitch: 'Widok',
+    allDay: 'Cały dzień',
+    moreEvents:
+      '+{count, plural, one {# więcej} few {# więcej} many {# więcej} other {# więcej}}',
+    moreEventsLabel:
+      '{count, plural, one {# inne wydarzenie} few {# inne wydarzenia} many {# innych wydarzeń} other {# innego wydarzenia}} w dniu {date}',
+    gridLabel:
+      'Widok {view, select, month {miesiąca} week {tygodnia} day {dnia} other {terminarza}}, {period}',
+    slotLabel: '{date}, godz. {time}',
+    dayLabelToday: '{date}, dzisiaj',
+    eventLabel: '{title}, od {start} do {end}',
+    eventLabelAllDay: '{title}, cały dzień, od {start} do {end}',
+    dragHint:
+      'Naciśnij Alt i klawisz strzałki, aby przenieść. Naciśnij Alt, Shift i klawisz strzałki, aby zmienić koniec.',
+    eventMoved: '{title} przeniesiono na {start}',
+    eventResized: '{title} kończy się teraz o {end}',
+    moveRejected: '{title} nie może zostać umieszczone w tym miejscu',
+    rangeChanged: 'Wyświetlanie: {period}',
+    selectionHint:
+      'Zaznaczono od {start} do {end}. Naciśnij Enter, aby potwierdzić',
+  },
   scrollbar: {
     scrollableRegion: 'Obszar przewijania',
   },

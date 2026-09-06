@@ -1,8 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type {
-  ScaleRequest,
-  ScaleResponse,
-} from './backend/scale-protocol';
+import type { ScaleRequest, ScaleResponse } from './backend/scale-protocol';
 
 /**
  * Where the `data-at-scale` dataset actually lives and where its sort, filter

@@ -1,14 +1,14 @@
 <div class="demo-col">
   <div class="demo-row">
     @for (d of densities; track d) {
-    <button
-      mlvButton
-      [variant]="density() === d ? 'primary' : 'outlined'"
-      size="s"
-      (click)="setDensity(d)"
-    >
-      {{ d }}
-    </button>
+      <button
+        mlvButton
+        [variant]="density() === d ? 'primary' : 'outlined'"
+        size="s"
+        (click)="setDensity(d)"
+      >
+        {{ d }}
+      </button>
     }
   </div>
 

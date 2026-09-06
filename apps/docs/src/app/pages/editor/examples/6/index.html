@@ -26,18 +26,16 @@
     ariaLabel="Editor event playground"
     (focus)="log('focus')"
     (blur)="log('blur')"
-    (selectionChange)="
-      log('selection: ' + $event.editor.state.selection.from)
-    "
+    (selectionChange)="log('selection: ' + $event.editor.state.selection.from)"
     (transaction)="log('transaction: ' + $event.transaction.steps.length)"
     (editorError)="log('error: ' + $event.message)"
   />
 
   <ol aria-live="polite">
     @for (event of events(); track $index) {
-    <li>{{ event }}</li>
+      <li>{{ event }}</li>
     } @empty {
-    <li>No events yet.</li>
+      <li>No events yet.</li>
     }
   </ol>
 </div>

@@ -1,27 +1,27 @@
 <div class="faq-accordion">
   @for (item of items; track item.question; let i = $index) {
-  <div class="faq-accordion__item">
-    <button
-      class="faq-accordion__trigger"
-      type="button"
-      [attr.aria-expanded]="isOpen(i)"
-      (click)="toggle(i)"
-    >
-      <span>{{ item.question }}</span>
-      <svg
-        lucideChevronDown
-        class="faq-accordion__chevron"
-        [class.faq-accordion__chevron--open]="isOpen(i)"
-        [size]="16"
-      />
-    </button>
+    <div class="faq-accordion__item">
+      <button
+        class="faq-accordion__trigger"
+        type="button"
+        [attr.aria-expanded]="isOpen(i)"
+        (click)="toggle(i)"
+      >
+        <span>{{ item.question }}</span>
+        <svg
+          lucideChevronDown
+          class="faq-accordion__chevron"
+          [class.faq-accordion__chevron--open]="isOpen(i)"
+          [size]="16"
+        />
+      </button>
 
-    <mlv-expand
-      [opened]="isOpen(i)"
-      (openedChange)="isOpen(i) !== $event && toggle(i)"
-    >
-      <div class="faq-accordion__body">{{ item.answer }}</div>
-    </mlv-expand>
-  </div>
+      <mlv-expand
+        [opened]="isOpen(i)"
+        (openedChange)="isOpen(i) !== $event && toggle(i)"
+      >
+        <div class="faq-accordion__body">{{ item.answer }}</div>
+      </mlv-expand>
+    </div>
   }
 </div>

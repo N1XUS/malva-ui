@@ -4,19 +4,19 @@
   [columnGroups]="columnGroups"
 >
   <span
-    *mlvDataTableCell="'q1Revenue'; let row from reports"
+    *mlvDataTableCell="'q1Revenue'; let row; from: reports"
     class="dt-currency"
   >
     {{ formatCurrency(row.q1Revenue) }}
   </span>
   <span
-    *mlvDataTableCell="'q1Expenses'; let row from reports"
+    *mlvDataTableCell="'q1Expenses'; let row; from: reports"
     class="dt-currency"
   >
     {{ formatCurrency(row.q1Expenses) }}
   </span>
   <span
-    *mlvDataTableCell="'q1Profit'; let row from reports"
+    *mlvDataTableCell="'q1Profit'; let row; from: reports"
     class="dt-currency"
     [class.dt-currency--negative]="row.q1Profit < 0"
     [class.dt-currency--positive]="row.q1Profit > 0"
@@ -25,19 +25,19 @@
   </span>
 
   <span
-    *mlvDataTableCell="'q2Revenue'; let row from reports"
+    *mlvDataTableCell="'q2Revenue'; let row; from: reports"
     class="dt-currency"
   >
     {{ formatCurrency(row.q2Revenue) }}
   </span>
   <span
-    *mlvDataTableCell="'q2Expenses'; let row from reports"
+    *mlvDataTableCell="'q2Expenses'; let row; from: reports"
     class="dt-currency"
   >
     {{ formatCurrency(row.q2Expenses) }}
   </span>
   <span
-    *mlvDataTableCell="'q2Profit'; let row from reports"
+    *mlvDataTableCell="'q2Profit'; let row; from: reports"
     class="dt-currency"
     [class.dt-currency--negative]="row.q2Profit < 0"
     [class.dt-currency--positive]="row.q2Profit > 0"

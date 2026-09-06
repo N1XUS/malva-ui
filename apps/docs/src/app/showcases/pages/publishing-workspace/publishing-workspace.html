@@ -14,34 +14,34 @@
   >
     <mlv-sidebar-group label="Drafts">
       @for (document of draftDocuments; track document.id) {
-      <mlv-sidebar-item
-        [label]="document.title"
-        [active]="document.id === activeDocumentId()"
-        (click)="selectDocument(document.id)"
-      >
-        <svg
-          lucideFileText
-          *mlvSidebarItemIcon
-          [size]="16"
-          aria-hidden="true"
-        ></svg>
-      </mlv-sidebar-item>
+        <mlv-sidebar-item
+          [label]="document.title"
+          [active]="document.id === activeDocumentId()"
+          (click)="selectDocument(document.id)"
+        >
+          <svg
+            lucideFileText
+            *mlvSidebarItemIcon
+            [size]="16"
+            aria-hidden="true"
+          ></svg>
+        </mlv-sidebar-item>
       }
     </mlv-sidebar-group>
     <mlv-sidebar-group label="Published">
       @for (document of publishedDocuments; track document.id) {
-      <mlv-sidebar-item
-        [label]="document.title"
-        [active]="document.id === activeDocumentId()"
-        (click)="selectDocument(document.id)"
-      >
-        <svg
-          lucideFileText
-          *mlvSidebarItemIcon
-          [size]="16"
-          aria-hidden="true"
-        ></svg>
-      </mlv-sidebar-item>
+        <mlv-sidebar-item
+          [label]="document.title"
+          [active]="document.id === activeDocumentId()"
+          (click)="selectDocument(document.id)"
+        >
+          <svg
+            lucideFileText
+            *mlvSidebarItemIcon
+            [size]="16"
+            aria-hidden="true"
+          ></svg>
+        </mlv-sidebar-item>
       }
     </mlv-sidebar-group>
   </mlv-sidebar>
@@ -92,100 +92,100 @@
       </output>
 
       @if (selectedVersion(); as version) {
-      <section
-        class="publishing-workspace-showcase__compare"
-        aria-label="Version comparison"
-      >
-        <header class="publishing-workspace-showcase__compare-header">
-          <h2>Comparing with {{ version.label }}</h2>
-          <button
-            mlvButton
-            type="button"
-            variant="secondary"
-            (click)="closeCompare()"
-          >
-            <svg lucideX mlvButtonIcon [size]="16" aria-hidden="true"></svg>
-            Close comparison
-          </button>
-        </header>
-        <mlv-split-pane class="publishing-workspace-showcase__compare-panes">
-          <mlv-split-pane-panel [minSize]="25">
-            <article
-              class="publishing-workspace-showcase__compare-doc"
-              aria-label="Current draft"
+        <section
+          class="publishing-workspace-showcase__compare"
+          aria-label="Version comparison"
+        >
+          <header class="publishing-workspace-showcase__compare-header">
+            <h2>Comparing with {{ version.label }}</h2>
+            <button
+              mlvButton
+              type="button"
+              variant="secondary"
+              (click)="closeCompare()"
             >
-              <h3>Current draft</h3>
-              <div
-                class="publishing-workspace-showcase__version-doc"
-                [innerHTML]="documentHtml() ?? ''"
-              ></div>
-            </article>
-          </mlv-split-pane-panel>
-          <mlv-split-pane-panel [minSize]="25">
-            <article
-              class="publishing-workspace-showcase__compare-doc"
-              [attr.aria-label]="version.label"
-            >
-              <h3>{{ version.label }} · {{ version.timestamp }}</h3>
-              <div
-                class="publishing-workspace-showcase__version-doc"
-                [innerHTML]="version.contentHtml"
-              ></div>
-            </article>
-          </mlv-split-pane-panel>
-        </mlv-split-pane>
-      </section>
+              <svg lucideX mlvButtonIcon [size]="16" aria-hidden="true"></svg>
+              Close comparison
+            </button>
+          </header>
+          <mlv-split-pane class="publishing-workspace-showcase__compare-panes">
+            <mlv-split-pane-panel [minSize]="25">
+              <article
+                class="publishing-workspace-showcase__compare-doc"
+                aria-label="Current draft"
+              >
+                <h3>Current draft</h3>
+                <div
+                  class="publishing-workspace-showcase__version-doc"
+                  [innerHTML]="documentHtml() ?? ''"
+                ></div>
+              </article>
+            </mlv-split-pane-panel>
+            <mlv-split-pane-panel [minSize]="25">
+              <article
+                class="publishing-workspace-showcase__compare-doc"
+                [attr.aria-label]="version.label"
+              >
+                <h3>{{ version.label }} · {{ version.timestamp }}</h3>
+                <div
+                  class="publishing-workspace-showcase__version-doc"
+                  [innerHTML]="version.contentHtml"
+                ></div>
+              </article>
+            </mlv-split-pane-panel>
+          </mlv-split-pane>
+        </section>
       } @else {
-      <mlv-editor
-        docsPublishingAiGate
-        class="publishing-workspace-showcase__editor"
-        ariaLabel="Article body"
-        placeholder="Write the release notes…"
-        [aiProvider]="aiProvider"
-        [readonly]="previewing()"
-        [(value)]="documentHtml"
-        (valueChange)="markEdited()"
-      >
-        <mlv-editor-ai-menu mlvEditorToolbarStart />
-        <mlv-editor-ai-review-bar mlvEditorStatus />
-      </mlv-editor>
+        <mlv-editor
+          docsPublishingAiGate
+          class="publishing-workspace-showcase__editor"
+          ariaLabel="Article body"
+          placeholder="Write the release notes…"
+          [aiProvider]="aiProvider"
+          [readonly]="previewing()"
+          [(value)]="documentHtml"
+          (valueChange)="markEdited()"
+        >
+          <mlv-editor-ai-menu mlvEditorToolbarStart />
+          <mlv-editor-ai-review-bar mlvEditorStatus />
+        </mlv-editor>
 
-      <section
-        class="publishing-workspace-showcase__media"
-        aria-label="Cover image and attachments"
-      >
-        <h2>Media</h2>
-        <mlv-file-upload
-          accept="image/*"
-          [maxSize]="5242880"
-          title="Cover image & attachments"
-          subtitle="Uploads are simulated locally — the first attempt fails once so the retry path stays visible."
-          actionLabel="Browse images"
-          [value]="attachments()"
-          (filesChange)="onAttachmentsChange($event)"
-        />
-        @for (failed of failedAttachments(); track failed.id) {
-        <div class="publishing-workspace-showcase__retry-row">
-          <span class="publishing-workspace-showcase__retry-message">
-            {{ failed.name }} failed to upload.
-          </span>
-          <button
-            mlvButton
-            type="button"
-            variant="secondary"
-            (click)="retryUpload(failed.id)"
-          >
-            <svg
-              lucideRotateCcw
-              mlvButtonIcon
-              [size]="16"
-              aria-hidden="true"
-            ></svg>
-            Retry upload
-          </button>
-        </div>
-        }
-      </section>
+        <section
+          class="publishing-workspace-showcase__media"
+          aria-label="Cover image and attachments"
+        >
+          <h2>Media</h2>
+          <mlv-file-upload
+            accept="image/*"
+            [maxSize]="5242880"
+            title="Cover image & attachments"
+            subtitle="Uploads are simulated locally — the first attempt fails once so the retry path stays visible."
+            actionLabel="Browse images"
+            [value]="attachments()"
+            (filesChange)="onAttachmentsChange($event)"
+          />
+          @for (failed of failedAttachments(); track failed.id) {
+            <div class="publishing-workspace-showcase__retry-row">
+              <span class="publishing-workspace-showcase__retry-message">
+                {{ failed.name }} failed to upload.
+              </span>
+              <button
+                mlvButton
+                type="button"
+                variant="secondary"
+                (click)="retryUpload(failed.id)"
+              >
+                <svg
+                  lucideRotateCcw
+                  mlvButtonIcon
+                  [size]="16"
+                  aria-hidden="true"
+                ></svg>
+                Retry upload
+              </button>
+            </div>
+          }
+        </section>
       }
     </section>
 
@@ -305,46 +305,46 @@
         >
           <h2>AI review</h2>
           @if (reviewSuggestion()) {
-          <p class="publishing-workspace-showcase__inspector-hint">
-            A tracked suggestion is pending in the editor.
-          </p>
-          <div class="publishing-workspace-showcase__inspector-actions">
-            <button
-              mlvButton
-              type="button"
-              variant="secondary"
-              (click)="acceptSuggestion()"
-            >
-              Accept suggestion
-            </button>
-            <button
-              mlvButton
-              type="button"
-              variant="secondary"
-              (click)="rejectSuggestion()"
-            >
-              Reject suggestion
-            </button>
-          </div>
+            <p class="publishing-workspace-showcase__inspector-hint">
+              A tracked suggestion is pending in the editor.
+            </p>
+            <div class="publishing-workspace-showcase__inspector-actions">
+              <button
+                mlvButton
+                type="button"
+                variant="secondary"
+                (click)="acceptSuggestion()"
+              >
+                Accept suggestion
+              </button>
+              <button
+                mlvButton
+                type="button"
+                variant="secondary"
+                (click)="rejectSuggestion()"
+              >
+                Reject suggestion
+              </button>
+            </div>
           } @else {
-          <p class="publishing-workspace-showcase__inspector-hint">
-            Run a tracked AI pass over the intro paragraph.
-          </p>
-          <button
-            mlvButton
-            type="button"
-            variant="secondary"
-            [disabled]="aiBusy() || comparing() || previewing()"
-            (click)="requestSuggestion('shorten')"
-          >
-            <svg
-              lucideSparkles
-              mlvButtonIcon
-              [size]="16"
-              aria-hidden="true"
-            ></svg>
-            Suggest tighter intro
-          </button>
+            <p class="publishing-workspace-showcase__inspector-hint">
+              Run a tracked AI pass over the intro paragraph.
+            </p>
+            <button
+              mlvButton
+              type="button"
+              variant="secondary"
+              [disabled]="aiBusy() || comparing() || previewing()"
+              (click)="requestSuggestion('shorten')"
+            >
+              <svg
+                lucideSparkles
+                mlvButtonIcon
+                [size]="16"
+                aria-hidden="true"
+              ></svg>
+              Suggest tighter intro
+            </button>
           }
         </section>
 
@@ -355,22 +355,24 @@
           <h2>Versions</h2>
           <ul class="publishing-workspace-showcase__versions">
             @for (version of versions; track version.id) {
-            <li>
-              <button
-                type="button"
-                class="publishing-workspace-showcase__version"
-                [class.publishing-workspace-showcase__version--selected]="version.id === selectedVersionId()"
-                [attr.aria-pressed]="version.id === selectedVersionId()"
-                (click)="selectVersion(version.id)"
-              >
-                <span class="publishing-workspace-showcase__version-label">
-                  {{ version.label }}
-                </span>
-                <span class="publishing-workspace-showcase__version-time">
-                  {{ version.timestamp }}
-                </span>
-              </button>
-            </li>
+              <li>
+                <button
+                  type="button"
+                  class="publishing-workspace-showcase__version"
+                  [class.publishing-workspace-showcase__version--selected]="
+                    version.id === selectedVersionId()
+                  "
+                  [attr.aria-pressed]="version.id === selectedVersionId()"
+                  (click)="selectVersion(version.id)"
+                >
+                  <span class="publishing-workspace-showcase__version-label">
+                    {{ version.label }}
+                  </span>
+                  <span class="publishing-workspace-showcase__version-time">
+                    {{ version.timestamp }}
+                  </span>
+                </button>
+              </li>
             }
           </ul>
         </section>
@@ -382,14 +384,14 @@
           <h2>Review comments</h2>
           <ul class="publishing-workspace-showcase__comments">
             @for (comment of comments; track comment.id) {
-            <li class="publishing-workspace-showcase__comment">
-              <p class="publishing-workspace-showcase__comment-meta">
-                {{ comment.author }} · {{ comment.timestamp }}
-              </p>
-              <p class="publishing-workspace-showcase__comment-text">
-                {{ comment.text }}
-              </p>
-            </li>
+              <li class="publishing-workspace-showcase__comment">
+                <p class="publishing-workspace-showcase__comment-meta">
+                  {{ comment.author }} · {{ comment.timestamp }}
+                </p>
+                <p class="publishing-workspace-showcase__comment-text">
+                  {{ comment.text }}
+                </p>
+              </li>
             }
           </ul>
         </section>

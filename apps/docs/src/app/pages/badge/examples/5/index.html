@@ -55,15 +55,15 @@
     </thead>
     <tbody>
       @for (task of tasks; track task.id) {
-      <tr style="border-bottom: 1px solid var(--mlv-border-subtle)">
-        <td style="padding: 0.5rem 0.75rem; opacity: 0.5">{{ task.id }}</td>
-        <td style="padding: 0.5rem 0.75rem">{{ task.name }}</td>
-        <td style="padding: 0.5rem 0.75rem">
-          <mlv-badge [tone]="task.tone" [muted]="isMuted()"
-            >{{ task.status }}</mlv-badge
-          >
-        </td>
-      </tr>
+        <tr style="border-bottom: 1px solid var(--mlv-border-subtle)">
+          <td style="padding: 0.5rem 0.75rem; opacity: 0.5">{{ task.id }}</td>
+          <td style="padding: 0.5rem 0.75rem">{{ task.name }}</td>
+          <td style="padding: 0.5rem 0.75rem">
+            <mlv-badge [tone]="task.tone" [muted]="isMuted()">{{
+              task.status
+            }}</mlv-badge>
+          </td>
+        </tr>
       }
     </tbody>
   </table>

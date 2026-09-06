@@ -5057,6 +5057,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@malva-ui/scheduler@workspace:libs/scheduler":
+  version: 0.0.0-use.local
+  resolution: "@malva-ui/scheduler@workspace:libs/scheduler"
+  dependencies:
+    sortablejs: "npm:^1.15.7"
+  peerDependencies:
+    "@angular/cdk": 0.0.0-angular-cdk-package-version
+    "@angular/common": 0.0.0-angular-common-package-version
+    "@angular/core": 0.0.0-angular-core-package-version
+    "@lucide/angular": 0.0.0-lucide-angular-package-version
+    "@malva-ui/cdk": 0.0.0-malva-ui-package-version
+    "@malva-ui/core": 0.0.0-malva-ui-package-version
+    "@malva-ui/i18n": 0.0.0-malva-ui-package-version
+  languageName: unknown
+  linkType: soft
+
 "@malva-ui/source@workspace:.":
   version: 0.0.0-use.local
   resolution: "@malva-ui/source@workspace:."

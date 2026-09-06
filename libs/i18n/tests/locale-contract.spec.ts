@@ -266,6 +266,7 @@ const dutchEnglishMatches = [
   'filter.filters',
   'pagination.items',
   'pagination.itemCount',
+  'scheduler.week',
 ] as const;
 
 it.each([

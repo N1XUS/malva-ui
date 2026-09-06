@@ -1,143 +1,168 @@
 @if (hasToolbarContent()) {
-<div class="mlv-data-table__toolbar">
-  @if (showSearch() && hasSearchableColumns()) {
-  <mlv-search-field
-    class="mlv-data-table__search"
-    [value]="_searchDraft()"
-    (valueChange)="_searchDraft.set($event)"
-    [trigger]="searchTrigger()"
-    [debounce]="searchDebounce()"
-    [loading]="loading()"
-    [placeholder]="_i18n().searchPlaceholder"
-    [ariaLabel]="_i18n().searchLabel"
-    (search)="onSearch($event)"
-  />
-  } @if (filterDisplay() !== 'none' && hasFilters()) {
-  <span class="mlv-data-table__filter-badge" aria-live="polite">
-    {{ activeFilterLabel() }}
-  </span>
-  }
-  <div class="mlv-data-table__toolbar-actions">
-    @if (editable() && addRow()) {
-    <button
-      mlvButton
-      variant="secondary"
-      mlvDensity="compact"
-      type="button"
-      (click)="onAddRow()"
-      [attr.aria-label]="_i18n().addNewRow"
-    >
-      <svg lucidePlus mlvButtonIcon [size]="14" />
-      {{ _i18n().addRow }}
-    </button>
-    } @if (showSortMenu() && hasSortableColumns()) {
-    <button
-      mlvButton
-      variant="secondary"
-      mlvDensity="compact"
-      type="button"
-      data-mlv-table-sort-trigger
-      [mlvMenuTrigger]="sortMenu"
-      [attr.aria-label]="_i18n().sortMenu"
-    >
-      <svg mlvButtonIcon lucideArrowUpDown [size]="14" />
-      {{ _i18n().sort }}
-    </button>
-    <mlv-menu #sortMenu [label]="_i18n().sortMenu" mlvDensity="compact">
-      @for (column of columns(); track column.key) { @if (column.sortable) { @if
-      (currentSort()?.key === column.key) {
-      <mlv-list-item
-        mlvMenuItem
-        [mlvMenuTrigger]="directionMenu"
-        [isSubmenuTrigger]="true"
-      >
-        {{ column.title ?? column.key }}
-      </mlv-list-item>
-      <mlv-menu
-        #directionMenu
-        [label]="getSortLabel(column)"
-        mlvDensity="compact"
-      >
-        <mlv-list-item mlvMenuItem (itemClick)="_applyMenuSort(column, 'asc')">
-          {{ _i18n().ascending }}
-        </mlv-list-item>
-        <mlv-list-item mlvMenuItem (itemClick)="_applyMenuSort(column, 'desc')">
-          {{ _i18n().descending }}
-        </mlv-list-item>
-        <mlv-list-item mlvMenuItem (itemClick)="_applyMenuSort(column, null)">
-          {{ _i18n().clearSort }}
-        </mlv-list-item>
-      </mlv-menu>
-      } @else {
-      <mlv-list-item mlvMenuItem (itemClick)="_applyMenuSort(column, 'asc')">
-        {{ column.title ?? column.key }}
-      </mlv-list-item>
-      } } }
-    </mlv-menu>
-    } @if (hasHideableColumns()) {
-    <button
-      mlvButton
-      [variant]="columnsPopup.opened() ? 'primary' : 'secondary'"
-      mlvDensity="compact"
-      type="button"
-      [mlvPopupTrigger]="columnsPopup"
-      #columnsTrigger="mlvPopupTrigger"
-      [attr.aria-label]="_i18n().toggleColumnVisibility"
-    >
-      <svg mlvButtonIcon lucideEye [size]="14" />
-      {{ _i18n().columns }}
-    </button>
-
-    <mlv-popup #columnsPopup>
-      <div *mlvPopupContent class="mlv-data-table__columns-dropdown">
-        @for (col of allColumns(); track col.key) { @if (col.hideable) {
-        <div class="mlv-data-table__columns-item">
-          <mlv-checkbox
-            [checked]="!isColumnHidden(col.key)"
-            [ariaLabel]="col.title ?? col.key"
-            (checkedChange)="toggleColumnVisibility(col.key)"
-          />
-          <span>{{ col.title ?? col.key }}</span>
-        </div>
-        } }
-      </div>
-    </mlv-popup>
-    } @if (filterDisplay() === 'toolbar' && hasFilterableColumns()) {
-    <button
-      #filterBtn
-      mlvButton
-      [variant]="filtersPopup.opened() ? 'primary' : 'secondary'"
-      mlvDensity="compact"
-      type="button"
-      [mlvPopupTrigger]="filtersPopup"
-      #trigger="mlvPopupTrigger"
-      [ariaHasPopup]="'dialog'"
-      [attr.aria-label]="_i18n().toggleFilters"
-    >
-      <svg lucideFilter mlvButtonIcon [size]="14" />
-      {{ _i18n().filters }} @if (hasFilters()) {
-      <mlv-badge tone="primary" rounded>{{ activeFilters().length }}</mlv-badge>
-      }
-    </button>
-
-    <mlv-popup
-      #filtersPopup
-      panelRole="dialog"
-      [ariaLabel]="_i18n().filters"
-      (afterClosed)="_onFiltersClosed()"
-    >
-      <mlv-dt-filter-dropdown
-        *mlvPopupContent
-        [columns]="columns()"
-        [(activeFilters)]="activeFilters"
-        (closed)="trigger.close()"
+  <div class="mlv-data-table__toolbar">
+    @if (showSearch() && hasSearchableColumns()) {
+      <mlv-search-field
+        class="mlv-data-table__search"
+        [value]="_searchDraft()"
+        (valueChange)="_searchDraft.set($event)"
+        [trigger]="searchTrigger()"
+        [debounce]="searchDebounce()"
+        [loading]="loading()"
+        [placeholder]="_i18n().searchPlaceholder"
+        [ariaLabel]="_i18n().searchLabel"
+        (search)="onSearch($event)"
       />
-    </mlv-popup>
-    } @if (_toolbarActions(); as actions) {
-    <ng-container [ngTemplateOutlet]="actions.templateRef" />
     }
+    @if (filterDisplay() !== 'none' && hasFilters()) {
+      <span class="mlv-data-table__filter-badge" aria-live="polite">
+        {{ activeFilterLabel() }}
+      </span>
+    }
+    <div class="mlv-data-table__toolbar-actions">
+      @if (editable() && addRow()) {
+        <button
+          mlvButton
+          variant="secondary"
+          mlvDensity="compact"
+          type="button"
+          (click)="onAddRow()"
+          [attr.aria-label]="_i18n().addNewRow"
+        >
+          <svg lucidePlus mlvButtonIcon [size]="14" />
+          {{ _i18n().addRow }}
+        </button>
+      }
+      @if (showSortMenu() && hasSortableColumns()) {
+        <button
+          mlvButton
+          variant="secondary"
+          mlvDensity="compact"
+          type="button"
+          data-mlv-table-sort-trigger
+          [mlvMenuTrigger]="sortMenu"
+          [attr.aria-label]="_i18n().sortMenu"
+        >
+          <svg mlvButtonIcon lucideArrowUpDown [size]="14" />
+          {{ _i18n().sort }}
+        </button>
+        <mlv-menu #sortMenu [label]="_i18n().sortMenu" mlvDensity="compact">
+          @for (column of columns(); track column.key) {
+            @if (column.sortable) {
+              @if (currentSort()?.key === column.key) {
+                <mlv-list-item
+                  mlvMenuItem
+                  [mlvMenuTrigger]="directionMenu"
+                  [isSubmenuTrigger]="true"
+                >
+                  {{ column.title ?? column.key }}
+                </mlv-list-item>
+                <mlv-menu
+                  #directionMenu
+                  [label]="getSortLabel(column)"
+                  mlvDensity="compact"
+                >
+                  <mlv-list-item
+                    mlvMenuItem
+                    (itemClick)="_applyMenuSort(column, 'asc')"
+                  >
+                    {{ _i18n().ascending }}
+                  </mlv-list-item>
+                  <mlv-list-item
+                    mlvMenuItem
+                    (itemClick)="_applyMenuSort(column, 'desc')"
+                  >
+                    {{ _i18n().descending }}
+                  </mlv-list-item>
+                  <mlv-list-item
+                    mlvMenuItem
+                    (itemClick)="_applyMenuSort(column, null)"
+                  >
+                    {{ _i18n().clearSort }}
+                  </mlv-list-item>
+                </mlv-menu>
+              } @else {
+                <mlv-list-item
+                  mlvMenuItem
+                  (itemClick)="_applyMenuSort(column, 'asc')"
+                >
+                  {{ column.title ?? column.key }}
+                </mlv-list-item>
+              }
+            }
+          }
+        </mlv-menu>
+      }
+      @if (hasHideableColumns()) {
+        <button
+          mlvButton
+          [variant]="columnsPopup.opened() ? 'primary' : 'secondary'"
+          mlvDensity="compact"
+          type="button"
+          [mlvPopupTrigger]="columnsPopup"
+          #columnsTrigger="mlvPopupTrigger"
+          [attr.aria-label]="_i18n().toggleColumnVisibility"
+        >
+          <svg mlvButtonIcon lucideEye [size]="14" />
+          {{ _i18n().columns }}
+        </button>
+
+        <mlv-popup #columnsPopup>
+          <div *mlvPopupContent class="mlv-data-table__columns-dropdown">
+            @for (col of allColumns(); track col.key) {
+              @if (col.hideable) {
+                <div class="mlv-data-table__columns-item">
+                  <mlv-checkbox
+                    [checked]="!isColumnHidden(col.key)"
+                    [ariaLabel]="col.title ?? col.key"
+                    (checkedChange)="toggleColumnVisibility(col.key)"
+                  />
+                  <span>{{ col.title ?? col.key }}</span>
+                </div>
+              }
+            }
+          </div>
+        </mlv-popup>
+      }
+      @if (filterDisplay() === 'toolbar' && hasFilterableColumns()) {
+        <button
+          #filterBtn
+          mlvButton
+          [variant]="filtersPopup.opened() ? 'primary' : 'secondary'"
+          mlvDensity="compact"
+          type="button"
+          [mlvPopupTrigger]="filtersPopup"
+          #trigger="mlvPopupTrigger"
+          [ariaHasPopup]="'dialog'"
+          [attr.aria-label]="_i18n().toggleFilters"
+        >
+          <svg lucideFilter mlvButtonIcon [size]="14" />
+          {{ _i18n().filters }}
+          @if (hasFilters()) {
+            <mlv-badge tone="primary" rounded>{{
+              activeFilters().length
+            }}</mlv-badge>
+          }
+        </button>
+
+        <mlv-popup
+          #filtersPopup
+          panelRole="dialog"
+          [ariaLabel]="_i18n().filters"
+          (afterClosed)="_onFiltersClosed()"
+        >
+          <mlv-dt-filter-dropdown
+            *mlvPopupContent
+            [columns]="columns()"
+            [(activeFilters)]="activeFilters"
+            (closed)="trigger.close()"
+          />
+        </mlv-popup>
+      }
+      @if (_toolbarActions(); as actions) {
+        <ng-container [ngTemplateOutlet]="actions.templateRef" />
+      }
+    </div>
   </div>
-</div>
 }
 
 <div
@@ -156,40 +181,40 @@
   (loadMore)="onInfiniteScrollLoadMore($event)"
 >
   @if (virtualScroll()) {
-  <!-- ==================== Virtual scroll mode ==================== -->
-  <!-- Header table — sits naturally at the top of the wrapper, outside the viewport -->
-  <table
-    class="mlv-data-table__table mlv-data-table__table--virtual mlv-data-table__table--virtual-header"
-    [class.mlv-data-table__table--bordered]="bordered()"
-    [style.width.px]="resizedTableWidth()"
-    [style.flex]="resizedTableWidth() === null ? null : '0 0 auto'"
-    role="grid"
-  >
-    <ng-container [ngTemplateOutlet]="colgroupTpl" />
-    <thead class="mlv-data-table__head">
-      <ng-container [ngTemplateOutlet]="headRowsTpl" />
-    </thead>
-  </table>
+    <!-- ==================== Virtual scroll mode ==================== -->
+    <!-- Header table — sits naturally at the top of the wrapper, outside the viewport -->
+    <table
+      class="mlv-data-table__table mlv-data-table__table--virtual mlv-data-table__table--virtual-header"
+      [class.mlv-data-table__table--bordered]="bordered()"
+      [style.width.px]="resizedTableWidth()"
+      [style.flex]="resizedTableWidth() === null ? null : '0 0 auto'"
+      role="grid"
+    >
+      <ng-container [ngTemplateOutlet]="colgroupTpl" />
+      <thead class="mlv-data-table__head">
+        <ng-container [ngTemplateOutlet]="headRowsTpl" />
+      </thead>
+    </table>
 
-  <!-- CDK virtual scroll viewport — owns the only vertical scroll surface in this mode.
+    <!-- CDK virtual scroll viewport — owns the only vertical scroll surface in this mode.
          Infinite scroll is intentionally disabled in virtual mode: virtual scrolling is the
          rendering optimisation for already-loaded data, and the two strategies are mutually
          exclusive in this component. -->
-  <cdk-virtual-scroll-viewport
-    class="mlv-data-table__virtual-viewport"
-    [itemSize]="rowHeight()"
-    [style.height]="virtualViewportHeight()"
-  >
-    <table
-      class="mlv-data-table__table mlv-data-table__table--virtual mlv-data-table__table--virtual-body"
-      [class.mlv-data-table__table--striped]="striped()"
-      [class.mlv-data-table__table--bordered]="bordered()"
-      [style.width.px]="resizedTableWidth()"
-      role="presentation"
+    <cdk-virtual-scroll-viewport
+      class="mlv-data-table__virtual-viewport"
+      [itemSize]="rowHeight()"
+      [style.height]="virtualViewportHeight()"
     >
-      <ng-container [ngTemplateOutlet]="colgroupTpl" />
-      <tbody class="mlv-data-table__body">
-        <!--
+      <table
+        class="mlv-data-table__table mlv-data-table__table--virtual mlv-data-table__table--virtual-body"
+        [class.mlv-data-table__table--striped]="striped()"
+        [class.mlv-data-table__table--bordered]="bordered()"
+        [style.width.px]="resizedTableWidth()"
+        role="presentation"
+      >
+        <ng-container [ngTemplateOutlet]="colgroupTpl" />
+        <tbody class="mlv-data-table__body">
+          <!--
           The repeater stays mounted in every state — empty result set, error,
           anything. `cdk-virtual-scroll-viewport` publishes its rendered range
           on a plain Subject, so a `CdkVirtualForOf` created while the viewport
@@ -200,315 +225,326 @@
           anywhere. `_virtualRows` empties instead, which is what lets the error
           and no-data rows below take over without touching the repeater.
         -->
-        <tr
-          *cdkVirtualFor="
-                let row of _virtualRows();
-                let i = index;
-                trackBy: trackByRow
-              "
-          class="mlv-data-table__row mlv-data-table__row--data"
-          [class.mlv-data-table__row--expanded]="isRowExpanded(row)"
-          [class.mlv-data-table__row--editing]="isEditing(i)"
-          [class.mlv-data-table__row--selected]="isRowSelected(row)"
-          [style.height.px]="rowHeight()"
-          [attr.aria-level]="getDepth(row) > 0 ? getDepth(row) + 1 : null"
-          [attr.aria-selected]="selectable() ? isRowSelected(row) : null"
-          [attr.tabindex]="_rowTabIndex(i)"
-          [attr.data-row-index]="i"
-          (click)="onRowClick(row, i, $event)"
-          (focus)="_onRowFocus(i)"
-          (keydown)="_onRowKeydown(i, row, $event)"
-        >
-          <ng-container
-            [ngTemplateOutlet]="rowCellsTpl"
-            [ngTemplateOutletContext]="getCellContext(row, i)"
-          />
-        </tr>
-        @if (showError()) {
-        <ng-container [ngTemplateOutlet]="errorRowTpl" />
-        } @else if (flatRows().length === 0) {
-        <ng-container [ngTemplateOutlet]="noDataRowTpl" />
-        }
-      </tbody>
-    </table>
-  </cdk-virtual-scroll-viewport>
+          <tr
+            *cdkVirtualFor="
+              let row of _virtualRows();
+              let i = index;
+              trackBy: trackByRow
+            "
+            class="mlv-data-table__row mlv-data-table__row--data"
+            [class.mlv-data-table__row--expanded]="isRowExpanded(row)"
+            [class.mlv-data-table__row--editing]="isEditing(i)"
+            [class.mlv-data-table__row--selected]="isRowSelected(row)"
+            [style.height.px]="rowHeight()"
+            [attr.aria-level]="getDepth(row) > 0 ? getDepth(row) + 1 : null"
+            [attr.aria-selected]="selectable() ? isRowSelected(row) : null"
+            [attr.tabindex]="_rowTabIndex(i)"
+            [attr.data-row-index]="i"
+            (click)="onRowClick(row, i, $event)"
+            (focus)="_onRowFocus(i)"
+            (keydown)="_onRowKeydown(i, row, $event)"
+          >
+            <ng-container
+              [ngTemplateOutlet]="rowCellsTpl"
+              [ngTemplateOutletContext]="getCellContext(row, i)"
+            />
+          </tr>
+          @if (showError()) {
+            <ng-container [ngTemplateOutlet]="errorRowTpl" />
+          } @else if (flatRows().length === 0) {
+            <ng-container [ngTemplateOutlet]="noDataRowTpl" />
+          }
+        </tbody>
+      </table>
+    </cdk-virtual-scroll-viewport>
 
-  <!-- Footer summary table — only when a footer template is projected -->
-  @if (getFooterTemplate(); as footerTpl) {
-  <table
-    class="mlv-data-table__table mlv-data-table__table--virtual mlv-data-table__table--virtual-footer"
-    [class.mlv-data-table__table--bordered]="bordered()"
-    [style.width.px]="resizedTableWidth()"
-    [style.flex]="resizedTableWidth() === null ? null : '0 0 auto'"
-    role="presentation"
-  >
-    <ng-container [ngTemplateOutlet]="colgroupTpl" />
-    <tfoot class="mlv-data-table__foot">
-      <tr class="mlv-data-table__row mlv-data-table__row--footer">
-        <ng-container
-          [ngTemplateOutlet]="footerTpl"
-          [ngTemplateOutletContext]="{ $implicit: visibleColumns() }"
-        />
-      </tr>
-    </tfoot>
-  </table>
-  }
+    <!-- Footer summary table — only when a footer template is projected -->
+    @if (getFooterTemplate(); as footerTpl) {
+      <table
+        class="mlv-data-table__table mlv-data-table__table--virtual mlv-data-table__table--virtual-footer"
+        [class.mlv-data-table__table--bordered]="bordered()"
+        [style.width.px]="resizedTableWidth()"
+        [style.flex]="resizedTableWidth() === null ? null : '0 0 auto'"
+        role="presentation"
+      >
+        <ng-container [ngTemplateOutlet]="colgroupTpl" />
+        <tfoot class="mlv-data-table__foot">
+          <tr class="mlv-data-table__row mlv-data-table__row--footer">
+            <ng-container
+              [ngTemplateOutlet]="footerTpl"
+              [ngTemplateOutletContext]="{ $implicit: visibleColumns() }"
+            />
+          </tr>
+        </tfoot>
+      </table>
+    }
 
-  <!-- Extends only the outer horizontal scroll range to match the viewport's
+    <!-- Extends only the outer horizontal scroll range to match the viewport's
          native range, including a classic vertical scrollbar gutter. -->
-  <div
-    class="mlv-data-table__virtual-horizontal-sizer"
-    [style.width.px]="_virtualHorizontalScrollExtent()"
-    aria-hidden="true"
-  ></div>
+    <div
+      class="mlv-data-table__virtual-horizontal-sizer"
+      [style.width.px]="_virtualHorizontalScrollExtent()"
+      aria-hidden="true"
+    ></div>
   } @else if (_cellNav()) {
-  <!-- ========= Experimental cell-level grid navigation (aria ngGrid) ========= -->
-  <!--
+    <!-- ========= Experimental cell-level grid navigation (aria ngGrid) ========= -->
+    <!--
       Opt-in via [cellNavigation]="true" (non-virtual only). The aria Grid pattern owns
       roving focus, arrow/Home/End navigation across cells, and aria-activedescendant.
       Only the data <tbody> rows/cells are registered as grid rows/cells; header cells
       stay outside grid navigation. Interactive cells (edit inputs, action buttons)
       expose an ngGridCellWidget so Enter pauses grid nav to interact and Escape resumes.
     -->
-  <table
-    ngGrid
-    rowWrap="nowrap"
-    colWrap="nowrap"
-    class="mlv-data-table__table"
-    [class.mlv-data-table__table--striped]="striped()"
-    [class.mlv-data-table__table--bordered]="bordered()"
-    [style.width.px]="resizedTableWidth()"
-    [style.table-layout]="resizedTableWidth() === null ? null : 'fixed'"
-    role="grid"
-    #tableEl
-  >
-    <ng-container [ngTemplateOutlet]="colgroupTpl" />
-    <thead
-      class="mlv-data-table__head"
-      [class.mlv-data-table__head--sticky]="stickyHeader()"
+    <table
+      ngGrid
+      rowWrap="nowrap"
+      colWrap="nowrap"
+      class="mlv-data-table__table"
+      [class.mlv-data-table__table--striped]="striped()"
+      [class.mlv-data-table__table--bordered]="bordered()"
+      [style.width.px]="resizedTableWidth()"
+      [style.table-layout]="resizedTableWidth() === null ? null : 'fixed'"
+      role="grid"
+      #tableEl
     >
-      <ng-container [ngTemplateOutlet]="headRowsTpl" />
-    </thead>
-
-    <tbody class="mlv-data-table__body">
-      @if (showError()) {
-      <ng-container [ngTemplateOutlet]="errorRowTpl" />
-      } @else if (flatRows().length === 0) {
-      <ng-container [ngTemplateOutlet]="noDataRowTpl" />
-      } @else { @for (row of flatRows(); track $index; let i = $index) {
-      <tr
-        ngGridRow
-        class="mlv-data-table__row mlv-data-table__row--data"
-        [class.mlv-data-table__row--expanded]="isRowExpanded(row)"
-        [class.mlv-data-table__row--editing]="isEditing(i)"
-        [class.mlv-data-table__row--selected]="isRowSelected(row)"
-        [attr.aria-level]="getDepth(row) > 0 ? getDepth(row) + 1 : null"
-        [attr.aria-selected]="selectable() ? isRowSelected(row) : null"
-        [attr.data-row-index]="i"
-        (click)="onRowClick(row, i, $event)"
+      <ng-container [ngTemplateOutlet]="colgroupTpl" />
+      <thead
+        class="mlv-data-table__head"
+        [class.mlv-data-table__head--sticky]="stickyHeader()"
       >
-        @if (selectable()) {
-        <td
-          ngGridCell
-          class="mlv-data-table__cell mlv-data-table__cell--data mlv-data-table__cell--select"
-          [style]="getAuxiliaryColumnStyle('selection')"
-        >
-          <mlv-checkbox
-            [checked]="isRowSelected(row)"
-            [tabbable]="false"
-            (checkedChange)="toggleRowSelection(row)"
-            (click)="$event.stopPropagation()"
-            [ariaLabel]="'Select row ' + (i + 1)"
-          />
-        </td>
-        } @for (col of visibleColumns(); track col.key; let ci = $index) {
-        <td
-          ngGridCell
-          class="mlv-data-table__cell mlv-data-table__cell--data"
-          [class.mlv-data-table__cell--pinned]="col.pinned"
-          [class.mlv-data-table__cell--pinned-left]="
+        <ng-container [ngTemplateOutlet]="headRowsTpl" />
+      </thead>
+
+      <tbody class="mlv-data-table__body">
+        @if (showError()) {
+          <ng-container [ngTemplateOutlet]="errorRowTpl" />
+        } @else if (flatRows().length === 0) {
+          <ng-container [ngTemplateOutlet]="noDataRowTpl" />
+        } @else {
+          @for (row of flatRows(); track $index; let i = $index) {
+            <tr
+              ngGridRow
+              class="mlv-data-table__row mlv-data-table__row--data"
+              [class.mlv-data-table__row--expanded]="isRowExpanded(row)"
+              [class.mlv-data-table__row--editing]="isEditing(i)"
+              [class.mlv-data-table__row--selected]="isRowSelected(row)"
+              [attr.aria-level]="getDepth(row) > 0 ? getDepth(row) + 1 : null"
+              [attr.aria-selected]="selectable() ? isRowSelected(row) : null"
+              [attr.data-row-index]="i"
+              (click)="onRowClick(row, i, $event)"
+            >
+              @if (selectable()) {
+                <td
+                  ngGridCell
+                  class="mlv-data-table__cell mlv-data-table__cell--data mlv-data-table__cell--select"
+                  [style]="getAuxiliaryColumnStyle('selection')"
+                >
+                  <mlv-checkbox
+                    [checked]="isRowSelected(row)"
+                    [tabbable]="false"
+                    (checkedChange)="toggleRowSelection(row)"
+                    (click)="$event.stopPropagation()"
+                    [ariaLabel]="'Select row ' + (i + 1)"
+                  />
+                </td>
+              }
+              @for (col of visibleColumns(); track col.key; let ci = $index) {
+                <td
+                  ngGridCell
+                  class="mlv-data-table__cell mlv-data-table__cell--data"
+                  [class.mlv-data-table__cell--pinned]="col.pinned"
+                  [class.mlv-data-table__cell--pinned-left]="
                     col.pinned && col.pinSide !== 'right'
                   "
-          [class.mlv-data-table__cell--pinned-right]="
+                  [class.mlv-data-table__cell--pinned-right]="
                     col.pinned && col.pinSide === 'right'
                   "
-          [class]="getAlignClass(col)"
-          [style]="getCellStyle(col)"
-        >
-          @if ( editable() && isEditing(i) && getEditTemplate(col.key); as
-          editTpl ) {
-          <div
-            ngGridCellWidget
-            widgetType="editable"
-            class="mlv-data-table__cell-content"
-          >
-            <ng-container
-              [ngTemplateOutlet]="editTpl"
-              [ngTemplateOutletContext]="getCellContext(row, i)"
-            />
-          </div>
-          } @else {
-          <ng-container
-            [ngTemplateOutlet]="cellContentTpl"
-            [ngTemplateOutletContext]="{
+                  [class]="getAlignClass(col)"
+                  [style]="getCellStyle(col)"
+                >
+                  @if (
+                    editable() && isEditing(i) && getEditTemplate(col.key);
+                    as editTpl
+                  ) {
+                    <div
+                      ngGridCellWidget
+                      widgetType="editable"
+                      class="mlv-data-table__cell-content"
+                    >
+                      <ng-container
+                        [ngTemplateOutlet]="editTpl"
+                        [ngTemplateOutletContext]="getCellContext(row, i)"
+                      />
+                    </div>
+                  } @else {
+                    <ng-container
+                      [ngTemplateOutlet]="cellContentTpl"
+                      [ngTemplateOutletContext]="{
                         $implicit: row,
                         index: i,
                         col: col,
                         ci: ci,
                       }"
-          />
+                    />
+                  }
+                </td>
+              }
+              @if (editable()) {
+                <td
+                  ngGridCell
+                  class="mlv-data-table__cell mlv-data-table__cell--data mlv-data-table__cell--actions"
+                  [style]="getAuxiliaryColumnStyle('actions')"
+                >
+                  <div
+                    ngGridCellWidget
+                    widgetType="complex"
+                    class="mlv-data-table__cell-content mlv-data-table__actions"
+                  >
+                    <ng-container
+                      [ngTemplateOutlet]="actionsButtonsTpl"
+                      [ngTemplateOutletContext]="{ $implicit: row, index: i }"
+                    />
+                  </div>
+                </td>
+              }
+            </tr>
           }
-        </td>
-        } @if (editable()) {
-        <td
-          ngGridCell
-          class="mlv-data-table__cell mlv-data-table__cell--data mlv-data-table__cell--actions"
-          [style]="getAuxiliaryColumnStyle('actions')"
-        >
-          <div
-            ngGridCellWidget
-            widgetType="complex"
-            class="mlv-data-table__cell-content mlv-data-table__actions"
-          >
-            <ng-container
-              [ngTemplateOutlet]="actionsButtonsTpl"
-              [ngTemplateOutletContext]="{ $implicit: row, index: i }"
-            />
-          </div>
-        </td>
         }
-      </tr>
-      } }
-    </tbody>
+      </tbody>
 
-    @if (getFooterTemplate(); as footerTpl) {
-    <tfoot
-      class="mlv-data-table__foot"
-      [class.mlv-data-table__foot--sticky]="stickyHeader()"
-    >
-      <tr class="mlv-data-table__row mlv-data-table__row--footer">
-        <ng-container
-          [ngTemplateOutlet]="footerTpl"
-          [ngTemplateOutletContext]="{ $implicit: visibleColumns() }"
-        />
-      </tr>
-    </tfoot>
-    }
-  </table>
+      @if (getFooterTemplate(); as footerTpl) {
+        <tfoot
+          class="mlv-data-table__foot"
+          [class.mlv-data-table__foot--sticky]="stickyHeader()"
+        >
+          <tr class="mlv-data-table__row mlv-data-table__row--footer">
+            <ng-container
+              [ngTemplateOutlet]="footerTpl"
+              [ngTemplateOutletContext]="{ $implicit: visibleColumns() }"
+            />
+          </tr>
+        </tfoot>
+      }
+    </table>
 
-  @if (paginationMode() === 'infinite' && loading()) {
-  <div
-    class="mlv-data-table__loading-bottom"
-    aria-live="polite"
-    aria-busy="true"
-  >
-    <mlv-loader
-      variant="circle"
-      [indeterminate]="true"
-      [size]="24"
-      ariaLabel="Loading more rows"
-    />
-  </div>
-  } } @else {
-  <!-- ==================== Standard (non-virtual) mode ==================== -->
-  <table
-    class="mlv-data-table__table"
-    [class.mlv-data-table__table--striped]="striped()"
-    [class.mlv-data-table__table--bordered]="bordered()"
-    [style.width.px]="resizedTableWidth()"
-    [style.table-layout]="resizedTableWidth() === null ? null : 'fixed'"
-    role="grid"
-    #tableEl
-  >
-    <ng-container [ngTemplateOutlet]="colgroupTpl" />
-    <thead
-      class="mlv-data-table__head"
-      [class.mlv-data-table__head--sticky]="stickyHeader()"
-    >
-      <ng-container [ngTemplateOutlet]="headRowsTpl" />
-    </thead>
-
-    <tbody class="mlv-data-table__body">
-      @if (showError()) {
-      <ng-container [ngTemplateOutlet]="errorRowTpl" />
-      } @else if (flatRows().length === 0) {
-      <ng-container [ngTemplateOutlet]="noDataRowTpl" />
-      } @else { @for (row of flatRows(); track $index; let i = $index) {
-      <tr
-        class="mlv-data-table__row mlv-data-table__row--data"
-        [class.mlv-data-table__row--expanded]="isRowExpanded(row)"
-        [class.mlv-data-table__row--editing]="isEditing(i)"
-        [class.mlv-data-table__row--selected]="isRowSelected(row)"
-        [attr.aria-level]="getDepth(row) > 0 ? getDepth(row) + 1 : null"
-        [attr.aria-selected]="selectable() ? isRowSelected(row) : null"
-        [attr.tabindex]="_rowTabIndex(i)"
-        [attr.data-row-index]="i"
-        (click)="onRowClick(row, i, $event)"
-        (focus)="_onRowFocus(i)"
-        (keydown)="_onRowKeydown(i, row, $event)"
+    @if (paginationMode() === 'infinite' && loading()) {
+      <div
+        class="mlv-data-table__loading-bottom"
+        aria-live="polite"
+        aria-busy="true"
       >
-        <ng-container
-          [ngTemplateOutlet]="rowCellsTpl"
-          [ngTemplateOutletContext]="getCellContext(row, i)"
+        <mlv-loader
+          variant="circle"
+          [indeterminate]="true"
+          [size]="24"
+          ariaLabel="Loading more rows"
         />
-      </tr>
-      } }
-    </tbody>
-
-    @if (getFooterTemplate(); as footerTpl) {
-    <tfoot
-      class="mlv-data-table__foot"
-      [class.mlv-data-table__foot--sticky]="stickyHeader()"
-    >
-      <tr class="mlv-data-table__row mlv-data-table__row--footer">
-        <ng-container
-          [ngTemplateOutlet]="footerTpl"
-          [ngTemplateOutletContext]="{ $implicit: visibleColumns() }"
-        />
-      </tr>
-    </tfoot>
+      </div>
     }
-  </table>
+  } @else {
+    <!-- ==================== Standard (non-virtual) mode ==================== -->
+    <table
+      class="mlv-data-table__table"
+      [class.mlv-data-table__table--striped]="striped()"
+      [class.mlv-data-table__table--bordered]="bordered()"
+      [style.width.px]="resizedTableWidth()"
+      [style.table-layout]="resizedTableWidth() === null ? null : 'fixed'"
+      role="grid"
+      #tableEl
+    >
+      <ng-container [ngTemplateOutlet]="colgroupTpl" />
+      <thead
+        class="mlv-data-table__head"
+        [class.mlv-data-table__head--sticky]="stickyHeader()"
+      >
+        <ng-container [ngTemplateOutlet]="headRowsTpl" />
+      </thead>
 
-  @if (paginationMode() === 'infinite' && loading()) {
-  <div
-    class="mlv-data-table__loading-bottom"
-    aria-live="polite"
-    aria-busy="true"
-  >
-    <mlv-loader
-      variant="circle"
-      [indeterminate]="true"
-      [size]="24"
-      ariaLabel="Loading more rows"
-    />
-  </div>
-  } }
+      <tbody class="mlv-data-table__body">
+        @if (showError()) {
+          <ng-container [ngTemplateOutlet]="errorRowTpl" />
+        } @else if (flatRows().length === 0) {
+          <ng-container [ngTemplateOutlet]="noDataRowTpl" />
+        } @else {
+          @for (row of flatRows(); track $index; let i = $index) {
+            <tr
+              class="mlv-data-table__row mlv-data-table__row--data"
+              [class.mlv-data-table__row--expanded]="isRowExpanded(row)"
+              [class.mlv-data-table__row--editing]="isEditing(i)"
+              [class.mlv-data-table__row--selected]="isRowSelected(row)"
+              [attr.aria-level]="getDepth(row) > 0 ? getDepth(row) + 1 : null"
+              [attr.aria-selected]="selectable() ? isRowSelected(row) : null"
+              [attr.tabindex]="_rowTabIndex(i)"
+              [attr.data-row-index]="i"
+              (click)="onRowClick(row, i, $event)"
+              (focus)="_onRowFocus(i)"
+              (keydown)="_onRowKeydown(i, row, $event)"
+            >
+              <ng-container
+                [ngTemplateOutlet]="rowCellsTpl"
+                [ngTemplateOutletContext]="getCellContext(row, i)"
+              />
+            </tr>
+          }
+        }
+      </tbody>
+
+      @if (getFooterTemplate(); as footerTpl) {
+        <tfoot
+          class="mlv-data-table__foot"
+          [class.mlv-data-table__foot--sticky]="stickyHeader()"
+        >
+          <tr class="mlv-data-table__row mlv-data-table__row--footer">
+            <ng-container
+              [ngTemplateOutlet]="footerTpl"
+              [ngTemplateOutletContext]="{ $implicit: visibleColumns() }"
+            />
+          </tr>
+        </tfoot>
+      }
+    </table>
+
+    @if (paginationMode() === 'infinite' && loading()) {
+      <div
+        class="mlv-data-table__loading-bottom"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <mlv-loader
+          variant="circle"
+          [indeterminate]="true"
+          [size]="24"
+          ariaLabel="Loading more rows"
+        />
+      </div>
+    }
+  }
 </div>
 
 @if (paginationMode() === 'paged' && !virtualScroll()) {
-<div class="mlv-data-table__footer">
-  <mlv-pagination
-    [totalItems]="totalItems()"
-    [currentPage]="currentPage()"
-    [itemsPerPage]="currentPerPage()"
-    (currentPageChange)="_onPageChange($event)"
-    (itemsPerPageChange)="_onPerPageChange($event)"
-  />
-</div>
-} @if (paginationMode() === 'paged' && loading()) {
-<div
-  class="mlv-data-table__loading-overlay"
-  aria-live="polite"
-  aria-busy="true"
->
-  <mlv-loader
-    variant="circle"
-    [indeterminate]="true"
-    [size]="48"
-    ariaLabel="Loading table data"
-  />
-</div>
+  <div class="mlv-data-table__footer">
+    <mlv-pagination
+      [totalItems]="totalItems()"
+      [currentPage]="currentPage()"
+      [itemsPerPage]="currentPerPage()"
+      (currentPageChange)="_onPageChange($event)"
+      (itemsPerPageChange)="_onPerPageChange($event)"
+    />
+  </div>
+}
+@if (paginationMode() === 'paged' && loading()) {
+  <div
+    class="mlv-data-table__loading-overlay"
+    aria-live="polite"
+    aria-busy="true"
+  >
+    <mlv-loader
+      variant="circle"
+      [indeterminate]="true"
+      [size]="48"
+      ariaLabel="Loading table data"
+    />
+  </div>
 }
 
 <!-- ==================== Reusable templates ==================== -->
@@ -521,17 +557,19 @@
 <ng-template #colgroupTpl>
   <colgroup>
     @if (selectable() === 'multi' || selectable() === 'single') {
-    <col
-      class="mlv-data-table__col--select"
-      [style.width]="getAuxiliaryColumnWidth('selection')"
-    />
-    } @for (col of visibleColumns(); track col.key) {
-    <col [style.width]="getColWidth(col)" />
-    } @if (editable()) {
-    <col
-      class="mlv-data-table__col--actions"
-      [style.width]="getAuxiliaryColumnWidth('actions')"
-    />
+      <col
+        class="mlv-data-table__col--select"
+        [style.width]="getAuxiliaryColumnWidth('selection')"
+      />
+    }
+    @for (col of visibleColumns(); track col.key) {
+      <col [style.width]="getColWidth(col)" />
+    }
+    @if (editable()) {
+      <col
+        class="mlv-data-table__col--actions"
+        [style.width]="getAuxiliaryColumnWidth('actions')"
+      />
     }
   </colgroup>
 </ng-template>
@@ -539,46 +577,48 @@
 <!-- Header rows — emits the same content the original `<thead>` did. -->
 <ng-template #headRowsTpl>
   @if (hasColumnGroups()) {
-  <!-- Group header row -->
-  <tr class="mlv-data-table__row mlv-data-table__row--group-header">
-    @if (selectable() === 'multi') {
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--select"
-      [style]="getAuxiliaryColumnStyle('selection')"
-      rowspan="2"
-    >
-      <mlv-checkbox
-        [checked]="allRowsSelected()"
-        [indeterminate]="someRowsSelected()"
-        (checkedChange)="toggleSelectAll()"
-        [ariaLabel]="_i18n().selectAllRows"
-      />
-    </th>
-    } @else if (selectable() === 'single') {
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--select"
-      [style]="getAuxiliaryColumnStyle('selection')"
-      rowspan="2"
-    ></th>
-    } @for (col of visibleColumns(); track col.key) { @if (headerLayout(); as
-    layout) { @if (layout.standaloneKeys.has(col.key)) {
-    <!-- Standalone column spans both header rows -->
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--standalone"
-      [class.mlv-data-table__cell--sortable]="col.sortable"
-      [class.mlv-data-table__cell--pinned]="col.pinned"
-      [class.mlv-data-table__cell--pinned-left]="
+    <!-- Group header row -->
+    <tr class="mlv-data-table__row mlv-data-table__row--group-header">
+      @if (selectable() === 'multi') {
+        <th
+          class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--select"
+          [style]="getAuxiliaryColumnStyle('selection')"
+          rowspan="2"
+        >
+          <mlv-checkbox
+            [checked]="allRowsSelected()"
+            [indeterminate]="someRowsSelected()"
+            (checkedChange)="toggleSelectAll()"
+            [ariaLabel]="_i18n().selectAllRows"
+          />
+        </th>
+      } @else if (selectable() === 'single') {
+        <th
+          class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--select"
+          [style]="getAuxiliaryColumnStyle('selection')"
+          rowspan="2"
+        ></th>
+      }
+      @for (col of visibleColumns(); track col.key) {
+        @if (headerLayout(); as layout) {
+          @if (layout.standaloneKeys.has(col.key)) {
+            <!-- Standalone column spans both header rows -->
+            <th
+              class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--standalone"
+              [class.mlv-data-table__cell--sortable]="col.sortable"
+              [class.mlv-data-table__cell--pinned]="col.pinned"
+              [class.mlv-data-table__cell--pinned-left]="
                 col.pinned && col.pinSide !== 'right'
               "
-      [class.mlv-data-table__cell--pinned-right]="
+              [class.mlv-data-table__cell--pinned-right]="
                 col.pinned && col.pinSide === 'right'
               "
-      [class]="getAlignClass(col)"
-      [style]="getCellStyle(col)"
-      [attr.data-mlv-column-key]="col.key"
-      rowspan="2"
-      scope="col"
-      [attr.aria-sort]="
+              [class]="getAlignClass(col)"
+              [style]="getCellStyle(col)"
+              [attr.data-mlv-column-key]="col.key"
+              rowspan="2"
+              scope="col"
+              [attr.aria-sort]="
                 col.sortable
                   ? getSortDirection(col) === 'asc'
                     ? 'ascending'
@@ -587,63 +627,69 @@
                       : 'none'
                   : null
               "
-    >
-      <ng-container
-        [ngTemplateOutlet]="headerCellInnerTpl"
-        [ngTemplateOutletContext]="{ $implicit: col }"
-      />
-    </th>
-    } @else {
-    <!-- Check if this column is the first column of a group -->
-    @for (group of columnGroups(); track group.title) { @if (group.columns[0]
-    === col.key) {
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--group-header"
-      [class.mlv-data-table__cell--align-left]="
+            >
+              <ng-container
+                [ngTemplateOutlet]="headerCellInnerTpl"
+                [ngTemplateOutletContext]="{ $implicit: col }"
+              />
+            </th>
+          } @else {
+            <!-- Check if this column is the first column of a group -->
+            @for (group of columnGroups(); track group.title) {
+              @if (group.columns[0] === col.key) {
+                <th
+                  class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--group-header"
+                  [class.mlv-data-table__cell--align-left]="
                     group.align === 'left'
                   "
-      [class.mlv-data-table__cell--align-center]="
+                  [class.mlv-data-table__cell--align-center]="
                     group.align === 'center' || !group.align
                   "
-      [class.mlv-data-table__cell--align-right]="
+                  [class.mlv-data-table__cell--align-right]="
                     group.align === 'right'
                   "
-      [attr.colspan]="group.columns.length"
-      scope="colgroup"
-    >
-      {{ group.title }}
-    </th>
-    } } } } } @if (editable()) {
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--actions"
-      [style]="getAuxiliaryColumnStyle('actions')"
-      rowspan="2"
-    >
-      <span class="mlv-data-table__visually-hidden"
-        >{{ actionsHeaderLabel() }}</span
-      >
-    </th>
-    }
-  </tr>
-  <!-- Sub-header row for grouped columns -->
-  <tr class="mlv-data-table__row mlv-data-table__row--header">
-    @for (col of visibleColumns(); track col.key) { @if (headerLayout(); as
-    layout) { @if (layout.groupedKeys.has(col.key)) {
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header"
-      [class.mlv-data-table__cell--sortable]="col.sortable"
-      [class.mlv-data-table__cell--pinned]="col.pinned"
-      [class.mlv-data-table__cell--pinned-left]="
+                  [attr.colspan]="group.columns.length"
+                  scope="colgroup"
+                >
+                  {{ group.title }}
+                </th>
+              }
+            }
+          }
+        }
+      }
+      @if (editable()) {
+        <th
+          class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--actions"
+          [style]="getAuxiliaryColumnStyle('actions')"
+          rowspan="2"
+        >
+          <span class="mlv-data-table__visually-hidden">{{
+            actionsHeaderLabel()
+          }}</span>
+        </th>
+      }
+    </tr>
+    <!-- Sub-header row for grouped columns -->
+    <tr class="mlv-data-table__row mlv-data-table__row--header">
+      @for (col of visibleColumns(); track col.key) {
+        @if (headerLayout(); as layout) {
+          @if (layout.groupedKeys.has(col.key)) {
+            <th
+              class="mlv-data-table__cell mlv-data-table__cell--header"
+              [class.mlv-data-table__cell--sortable]="col.sortable"
+              [class.mlv-data-table__cell--pinned]="col.pinned"
+              [class.mlv-data-table__cell--pinned-left]="
                 col.pinned && col.pinSide !== 'right'
               "
-      [class.mlv-data-table__cell--pinned-right]="
+              [class.mlv-data-table__cell--pinned-right]="
                 col.pinned && col.pinSide === 'right'
               "
-      [class]="getAlignClass(col)"
-      [style]="getCellStyle(col)"
-      [attr.data-mlv-column-key]="col.key"
-      scope="col"
-      [attr.aria-sort]="
+              [class]="getAlignClass(col)"
+              [style]="getCellStyle(col)"
+              [attr.data-mlv-column-key]="col.key"
+              scope="col"
+              [attr.aria-sort]="
                 col.sortable
                   ? getSortDirection(col) === 'asc'
                     ? 'ascending'
@@ -652,49 +698,52 @@
                       : 'none'
                   : null
               "
-    >
-      <ng-container
-        [ngTemplateOutlet]="headerCellInnerTpl"
-        [ngTemplateOutletContext]="{ $implicit: col }"
-      />
-    </th>
-    } } }
-  </tr>
+            >
+              <ng-container
+                [ngTemplateOutlet]="headerCellInnerTpl"
+                [ngTemplateOutletContext]="{ $implicit: col }"
+              />
+            </th>
+          }
+        }
+      }
+    </tr>
   } @else {
-  <!-- Standard single-row header -->
-  <tr class="mlv-data-table__row mlv-data-table__row--header">
-    @if (selectable() === 'multi') {
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--select"
-      [style]="getAuxiliaryColumnStyle('selection')"
-    >
-      <mlv-checkbox
-        [checked]="allRowsSelected()"
-        [indeterminate]="someRowsSelected()"
-        (checkedChange)="toggleSelectAll()"
-        [ariaLabel]="_i18n().selectAllRows"
-      />
-    </th>
-    } @else if (selectable() === 'single') {
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--select"
-      [style]="getAuxiliaryColumnStyle('selection')"
-    ></th>
-    } @for (col of visibleColumns(); track col.key) {
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header"
-      [class.mlv-data-table__cell--sortable]="col.sortable"
-      [class.mlv-data-table__cell--pinned]="col.pinned"
-      [class.mlv-data-table__cell--pinned-left]="
+    <!-- Standard single-row header -->
+    <tr class="mlv-data-table__row mlv-data-table__row--header">
+      @if (selectable() === 'multi') {
+        <th
+          class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--select"
+          [style]="getAuxiliaryColumnStyle('selection')"
+        >
+          <mlv-checkbox
+            [checked]="allRowsSelected()"
+            [indeterminate]="someRowsSelected()"
+            (checkedChange)="toggleSelectAll()"
+            [ariaLabel]="_i18n().selectAllRows"
+          />
+        </th>
+      } @else if (selectable() === 'single') {
+        <th
+          class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--select"
+          [style]="getAuxiliaryColumnStyle('selection')"
+        ></th>
+      }
+      @for (col of visibleColumns(); track col.key) {
+        <th
+          class="mlv-data-table__cell mlv-data-table__cell--header"
+          [class.mlv-data-table__cell--sortable]="col.sortable"
+          [class.mlv-data-table__cell--pinned]="col.pinned"
+          [class.mlv-data-table__cell--pinned-left]="
             col.pinned && col.pinSide !== 'right'
           "
-      [class.mlv-data-table__cell--pinned-right]="
+          [class.mlv-data-table__cell--pinned-right]="
             col.pinned && col.pinSide === 'right'
           "
-      [class]="getAlignClass(col)"
-      [style]="getCellStyle(col)"
-      [attr.data-mlv-column-key]="col.key"
-      [attr.aria-sort]="
+          [class]="getAlignClass(col)"
+          [style]="getCellStyle(col)"
+          [attr.data-mlv-column-key]="col.key"
+          [attr.aria-sort]="
             col.sortable
               ? getSortDirection(col) === 'asc'
                 ? 'ascending'
@@ -703,24 +752,25 @@
                   : 'none'
               : null
           "
-      scope="col"
-    >
-      <ng-container
-        [ngTemplateOutlet]="headerCellInnerTpl"
-        [ngTemplateOutletContext]="{ $implicit: col }"
-      />
-    </th>
-    } @if (editable()) {
-    <th
-      class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--actions"
-      [style]="getAuxiliaryColumnStyle('actions')"
-    >
-      <span class="mlv-data-table__visually-hidden"
-        >{{ actionsHeaderLabel() }}</span
-      >
-    </th>
-    }
-  </tr>
+          scope="col"
+        >
+          <ng-container
+            [ngTemplateOutlet]="headerCellInnerTpl"
+            [ngTemplateOutletContext]="{ $implicit: col }"
+          />
+        </th>
+      }
+      @if (editable()) {
+        <th
+          class="mlv-data-table__cell mlv-data-table__cell--header mlv-data-table__cell--actions"
+          [style]="getAuxiliaryColumnStyle('actions')"
+        >
+          <span class="mlv-data-table__visually-hidden">{{
+            actionsHeaderLabel()
+          }}</span>
+        </th>
+      }
+    </tr>
   }
 </ng-template>
 
@@ -734,89 +784,96 @@
 <ng-template #headerCellInnerTpl let-col>
   <div class="mlv-data-table__cell-inner">
     @if (col.sortable) {
-    <button
-      type="button"
-      class="mlv-data-table__sort-button"
-      [attr.aria-label]="getSortLabel(col)"
-      (click)="onSortClick(col)"
-    >
-      <span class="mlv-data-table__header-title"
-        >{{ col.title ?? col.key }}</span
+      <button
+        type="button"
+        class="mlv-data-table__sort-button"
+        [attr.aria-label]="getSortLabel(col)"
+        (click)="onSortClick(col)"
       >
-      <span class="mlv-data-table__sort-icon" aria-hidden="true">
-        @if (getSortDirection(col) === 'asc') {
-        <svg lucideArrowUp />
-        } @else if (getSortDirection(col) === 'desc') {
-        <svg lucideArrowDown />
-        } @else {
-        <svg lucideChevronsUpDown class="mlv-data-table__sort-icon--inactive" />
-        }
-      </span>
-    </button>
+        <span class="mlv-data-table__header-title">{{
+          col.title ?? col.key
+        }}</span>
+        <span class="mlv-data-table__sort-icon" aria-hidden="true">
+          @if (getSortDirection(col) === 'asc') {
+            <svg lucideArrowUp />
+          } @else if (getSortDirection(col) === 'desc') {
+            <svg lucideArrowDown />
+          } @else {
+            <svg
+              lucideChevronsUpDown
+              class="mlv-data-table__sort-icon--inactive"
+            />
+          }
+        </span>
+      </button>
     } @else {
-    <span class="mlv-data-table__header-title">{{ col.title ?? col.key }}</span>
-    } @if (col.pinnable) {
-    <ng-container
-      [ngTemplateOutlet]="pinButtonTpl"
-      [ngTemplateOutletContext]="{ $implicit: col }"
-    />
-    } @if (filterDisplay() === 'column' && col.filterable) {
-    <button
-      mlvButton
-      class="mlv-data-table__column-filter"
-      [class.mlv-data-table__column-filter--active]="
+      <span class="mlv-data-table__header-title">{{
+        col.title ?? col.key
+      }}</span>
+    }
+    @if (col.pinnable) {
+      <ng-container
+        [ngTemplateOutlet]="pinButtonTpl"
+        [ngTemplateOutletContext]="{ $implicit: col }"
+      />
+    }
+    @if (filterDisplay() === 'column' && col.filterable) {
+      <button
+        mlvButton
+        class="mlv-data-table__column-filter"
+        [class.mlv-data-table__column-filter--active]="
           isColumnFiltered(col.key)
         "
-      [variant]="
+        [variant]="
           columnFilterPopup.opened() || isColumnFiltered(col.key)
             ? 'primary'
             : 'transparent'
         "
-      shape="square"
-      mlvDensity="tight"
-      type="button"
-      [attr.data-column-key]="col.key"
-      [mlvPopupTrigger]="columnFilterPopup"
-      #columnFilterTrigger="mlvPopupTrigger"
-      [ariaHasPopup]="'dialog'"
-      [attr.aria-label]="getFilterLabel(col)"
-    >
-      <svg lucideFunnel mlvButtonIcon [size]="14" />
-    </button>
+        shape="square"
+        mlvDensity="tight"
+        type="button"
+        [attr.data-column-key]="col.key"
+        [mlvPopupTrigger]="columnFilterPopup"
+        #columnFilterTrigger="mlvPopupTrigger"
+        [ariaHasPopup]="'dialog'"
+        [attr.aria-label]="getFilterLabel(col)"
+      >
+        <svg lucideFunnel mlvButtonIcon [size]="14" />
+      </button>
 
-    <mlv-popup
-      #columnFilterPopup
-      panelRole="dialog"
-      [ariaLabel]="getFilterLabel(col)"
-      (afterClosed)="focusColumnFilterTrigger(col.key)"
-    >
-      <mlv-dt-filter-dropdown
-        *mlvPopupContent
-        [columns]="getColumnFilterColumns(col)"
-        [activeFilters]="activeFilters()"
-        (activeFiltersChange)="onColumnFiltersChange(col.key, $event)"
-        (closed)="columnFilterTrigger.close()"
-      />
-    </mlv-popup>
+      <mlv-popup
+        #columnFilterPopup
+        panelRole="dialog"
+        [ariaLabel]="getFilterLabel(col)"
+        (afterClosed)="focusColumnFilterTrigger(col.key)"
+      >
+        <mlv-dt-filter-dropdown
+          *mlvPopupContent
+          [columns]="getColumnFilterColumns(col)"
+          [activeFilters]="activeFilters()"
+          (activeFiltersChange)="onColumnFiltersChange(col.key, $event)"
+          (closed)="columnFilterTrigger.close()"
+        />
+      </mlv-popup>
     }
   </div>
   @if (col.resizable) {
-  <div
-    #resizeHandle
-    class="mlv-data-table__resize-handle"
-    [attr.data-column-key]="col.key"
-    role="separator"
-    tabindex="0"
-    aria-orientation="vertical"
-    [attr.aria-label]="getColumnResizeLabel(col)"
-    [attr.aria-valuenow]="getColumnResizeValue(col)"
-    [attr.aria-valuemin]="getColumnResizeMin(col)"
-    [attr.aria-valuemax]="getColumnResizeMax(col)"
-    [attr.aria-valuetext]="getColumnResizeValueText(col)"
-    (pointerdown)="onResizeStart(col, $event)"
-    (keydown)="onColumnResizeKeydown(col, $event)"
-    (dblclick)="resetColumnWidth(col.key)"
-  ></div>
+    <div
+      #resizeHandle
+      class="mlv-data-table__resize-handle"
+      [attr.data-column-key]="col.key"
+      role="separator"
+      tabindex="0"
+      aria-orientation="vertical"
+      [attr.aria-label]="getColumnResizeLabel(col)"
+      [attr.aria-valuenow]="getColumnResizeValue(col)"
+      [attr.aria-valuemin]="getColumnResizeMin(col)"
+      [attr.aria-valuemax]="getColumnResizeMax(col)"
+      [attr.aria-valuetext]="getColumnResizeValueText(col)"
+      (pointerdown)="onResizeStart(col, $event)"
+      (keydown)="onColumnResizeKeydown(col, $event)"
+      (dblclick)="resetColumnWidth(col.key)"
+    ></div>
   }
 </ng-template>
 
@@ -828,12 +885,12 @@
       [attr.colspan]="totalColumnCount()"
     >
       @if (getNoDataTemplate()) {
-      <ng-container [ngTemplateOutlet]="getNoDataTemplate()!" />
+        <ng-container [ngTemplateOutlet]="getNoDataTemplate()!" />
       } @else {
-      <div class="mlv-data-table__no-data-default">
-        <svg lucideTable2 [size]="40" aria-hidden="true" />
-        <span>No data available</span>
-      </div>
+        <div class="mlv-data-table__no-data-default">
+          <svg lucideTable2 [size]="40" aria-hidden="true" />
+          <span>No data available</span>
+        </div>
       }
     </td>
   </tr>
@@ -853,32 +910,32 @@
     >
       <div class="mlv-data-table__error" role="alert" aria-live="assertive">
         @if (getErrorTemplate(); as errorTpl) {
-        <ng-container
-          [ngTemplateOutlet]="errorTpl"
-          [ngTemplateOutletContext]="_errorContext()"
-        />
-        } @else {
-        <mlv-empty-state>
-          <svg
-            mlvEmptyStateIcon
-            lucideTriangleAlert
-            class="mlv-data-table__error-icon"
-            [size]="40"
-            aria-hidden="true"
+          <ng-container
+            [ngTemplateOutlet]="errorTpl"
+            [ngTemplateOutletContext]="_errorContext()"
           />
-          <span mlvEmptyStateTitle>{{ _i18n().errorTitle }}</span>
-          <span mlvEmptyStateDescription>{{ errorMessage() }}</span>
-          <button
-            mlvEmptyStateActions
-            mlvButton
-            variant="secondary"
-            type="button"
-            class="mlv-data-table__error-retry"
-            (click)="onRetry()"
-          >
-            {{ _i18n().retry }}
-          </button>
-        </mlv-empty-state>
+        } @else {
+          <mlv-empty-state>
+            <svg
+              mlvEmptyStateIcon
+              lucideTriangleAlert
+              class="mlv-data-table__error-icon"
+              [size]="40"
+              aria-hidden="true"
+            />
+            <span mlvEmptyStateTitle>{{ _i18n().errorTitle }}</span>
+            <span mlvEmptyStateDescription>{{ errorMessage() }}</span>
+            <button
+              mlvEmptyStateActions
+              mlvButton
+              variant="secondary"
+              type="button"
+              class="mlv-data-table__error-retry"
+              (click)="onRetry()"
+            >
+              {{ _i18n().retry }}
+            </button>
+          </mlv-empty-state>
         }
       </div>
     </td>
@@ -893,58 +950,60 @@
 -->
 <ng-template #rowCellsTpl let-row let-i="index">
   @if (selectable()) {
-  <td
-    class="mlv-data-table__cell mlv-data-table__cell--data mlv-data-table__cell--select"
-    [style]="getAuxiliaryColumnStyle('selection')"
-  >
-    <!--
+    <td
+      class="mlv-data-table__cell mlv-data-table__cell--data mlv-data-table__cell--select"
+      [style]="getAuxiliaryColumnStyle('selection')"
+    >
+      <!--
         [tabbable]="false" keeps this checkbox out of the tab order so the row is
         the single tab stop: the row's Space/Enter toggles selection, and the
         checkbox stays operable via the mouse. Avoids a per-row double tab stop.
       -->
-    <mlv-checkbox
-      [checked]="isRowSelected(row)"
-      [tabbable]="false"
-      (checkedChange)="toggleRowSelection(row)"
-      (click)="$event.stopPropagation()"
-      [ariaLabel]="'Select row ' + (i + 1)"
-    />
-  </td>
-  } @for (col of visibleColumns(); track col.key; let ci = $index) {
-  <td
-    class="mlv-data-table__cell mlv-data-table__cell--data"
-    [class.mlv-data-table__cell--pinned]="col.pinned"
-    [class.mlv-data-table__cell--pinned-left]="
+      <mlv-checkbox
+        [checked]="isRowSelected(row)"
+        [tabbable]="false"
+        (checkedChange)="toggleRowSelection(row)"
+        (click)="$event.stopPropagation()"
+        [ariaLabel]="'Select row ' + (i + 1)"
+      />
+    </td>
+  }
+  @for (col of visibleColumns(); track col.key; let ci = $index) {
+    <td
+      class="mlv-data-table__cell mlv-data-table__cell--data"
+      [class.mlv-data-table__cell--pinned]="col.pinned"
+      [class.mlv-data-table__cell--pinned-left]="
         col.pinned && col.pinSide !== 'right'
       "
-    [class.mlv-data-table__cell--pinned-right]="
+      [class.mlv-data-table__cell--pinned-right]="
         col.pinned && col.pinSide === 'right'
       "
-    [class]="getAlignClass(col)"
-    [style]="getCellStyle(col)"
-  >
-    <ng-container
-      [ngTemplateOutlet]="cellContentTpl"
-      [ngTemplateOutletContext]="{
+      [class]="getAlignClass(col)"
+      [style]="getCellStyle(col)"
+    >
+      <ng-container
+        [ngTemplateOutlet]="cellContentTpl"
+        [ngTemplateOutletContext]="{
           $implicit: row,
           index: i,
           col: col,
           ci: ci,
         }"
-    />
-  </td>
-  } @if (editable()) {
-  <td
-    class="mlv-data-table__cell mlv-data-table__cell--data mlv-data-table__cell--actions"
-    [style]="getAuxiliaryColumnStyle('actions')"
-  >
-    <div class="mlv-data-table__cell-content mlv-data-table__actions">
-      <ng-container
-        [ngTemplateOutlet]="actionsButtonsTpl"
-        [ngTemplateOutletContext]="{ $implicit: row, index: i }"
       />
-    </div>
-  </td>
+    </td>
+  }
+  @if (editable()) {
+    <td
+      class="mlv-data-table__cell mlv-data-table__cell--data mlv-data-table__cell--actions"
+      [style]="getAuxiliaryColumnStyle('actions')"
+    >
+      <div class="mlv-data-table__cell-content mlv-data-table__actions">
+        <ng-container
+          [ngTemplateOutlet]="actionsButtonsTpl"
+          [ngTemplateOutletContext]="{ $implicit: row, index: i }"
+        />
+      </div>
+    </td>
   }
 </ng-template>
 
@@ -953,40 +1012,40 @@
 -->
 <ng-template #actionsButtonsTpl let-row let-i="index">
   @if (isEditing(i)) {
-  <button
-    mlvButton
-    variant="transparent"
-    shape="square"
-    mlvDensity="tight"
-    type="button"
-    (click)="saveEdit(row, i)"
-    [attr.aria-label]="_i18n().saveChanges"
-  >
-    <svg lucideCheck mlvButtonIcon />
-  </button>
-  <button
-    mlvButton
-    variant="transparent"
-    shape="square"
-    mlvDensity="tight"
-    type="button"
-    (click)="cancelEdit(row, i)"
-    [attr.aria-label]="_i18n().cancelEditing"
-  >
-    <svg lucideX mlvButtonIcon />
-  </button>
+    <button
+      mlvButton
+      variant="transparent"
+      shape="square"
+      mlvDensity="tight"
+      type="button"
+      (click)="saveEdit(row, i)"
+      [attr.aria-label]="_i18n().saveChanges"
+    >
+      <svg lucideCheck mlvButtonIcon />
+    </button>
+    <button
+      mlvButton
+      variant="transparent"
+      shape="square"
+      mlvDensity="tight"
+      type="button"
+      (click)="cancelEdit(row, i)"
+      [attr.aria-label]="_i18n().cancelEditing"
+    >
+      <svg lucideX mlvButtonIcon />
+    </button>
   } @else {
-  <button
-    mlvButton
-    variant="transparent"
-    shape="square"
-    mlvDensity="tight"
-    type="button"
-    (click)="startEdit(row, i)"
-    [attr.aria-label]="_i18n().editRow"
-  >
-    <svg lucidePencil mlvButtonIcon />
-  </button>
+    <button
+      mlvButton
+      variant="transparent"
+      shape="square"
+      mlvDensity="tight"
+      type="button"
+      (click)="startEdit(row, i)"
+      [attr.aria-label]="_i18n().editRow"
+    >
+      <svg lucidePencil mlvButtonIcon />
+    </button>
   }
 </ng-template>
 
@@ -1000,129 +1059,137 @@
 <ng-template #cellContentTpl let-row let-i="index" let-col="col" let-ci="ci">
   <div class="mlv-data-table__cell-content">
     @if (ci === 0 && getDepth(row) > 0) {
-    <span
-      class="mlv-data-table__indent"
-      [style.padding-left.rem]="getDepth(row) * 1.25"
-      aria-hidden="true"
-    ></span>
-    } @if (ci === 0 && hasChildren(row)) {
-    <button
-      mlvButton
-      variant="transparent"
-      shape="square"
-      mlvDensity="tight"
-      type="button"
-      class="mlv-data-table__expand-btn"
-      (click)="toggleExpand(row, $event)"
-      [attr.aria-expanded]="isRowExpanded(row)"
-      [attr.aria-label]="
+      <span
+        class="mlv-data-table__indent"
+        [style.padding-left.rem]="getDepth(row) * 1.25"
+        aria-hidden="true"
+      ></span>
+    }
+    @if (ci === 0 && hasChildren(row)) {
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvDensity="tight"
+        type="button"
+        class="mlv-data-table__expand-btn"
+        (click)="toggleExpand(row, $event)"
+        [attr.aria-expanded]="isRowExpanded(row)"
+        [attr.aria-label]="
           isRowExpanded(row) ? _i18n().collapseRow : _i18n().expandRow
         "
-    >
-      <svg
-        lucideChevronRight
-        mlvButtonIcon
-        class="mlv-data-table__expand-icon"
-        [class.mlv-data-table__expand-icon--open]="isRowExpanded(row)"
+      >
+        <svg
+          lucideChevronRight
+          mlvButtonIcon
+          class="mlv-data-table__expand-icon"
+          [class.mlv-data-table__expand-icon--open]="isRowExpanded(row)"
+        />
+      </button>
+    }
+    @if (editable() && isEditing(i) && getEditTemplate(col.key); as editTpl) {
+      <ng-container
+        [ngTemplateOutlet]="editTpl"
+        [ngTemplateOutletContext]="getCellContext(row, i)"
       />
-    </button>
-    } @if (editable() && isEditing(i) && getEditTemplate(col.key); as editTpl) {
-    <ng-container
-      [ngTemplateOutlet]="editTpl"
-      [ngTemplateOutletContext]="getCellContext(row, i)"
-    />
     } @else if (getTemplate(col.key); as tpl) {
-    <ng-container
-      [ngTemplateOutlet]="tpl"
-      [ngTemplateOutletContext]="getCellContext(row, i)"
-    />
+      <ng-container
+        [ngTemplateOutlet]="tpl"
+        [ngTemplateOutletContext]="getCellContext(row, i)"
+      />
     } @else {
-    <!--
+      <!--
         Default cell renderer. `valueLabels` (or the `filterConfig.options` fallback)
         maps the raw value to a label; `tone` promotes the cell to a muted badge.
       -->
-    @if (getCellTone(row, col); as tone) {
-    <mlv-badge [tone]="tone" muted
-      >{{ getCellDisplayValue(row, col) }}</mlv-badge
-    >
-    } @else { {{ getCellDisplayValue(row, col) }} } }
+      @if (getCellTone(row, col); as tone) {
+        <mlv-badge [tone]="tone" muted>{{
+          getCellDisplayValue(row, col)
+        }}</mlv-badge>
+      } @else {
+        {{ getCellDisplayValue(row, col) }}
+      }
+    }
   </div>
 </ng-template>
 
 <!-- Reusable pin button template. Rendered via ngTemplateOutlet from every header cell that supports pinning. -->
 <ng-template #pinButtonTpl let-col>
-  @if (getPinnableSides(col); as sides) { @if (sides.length > 1) {
-  <button
-    class="mlv-data-table__pin-btn"
-    [class.mlv-data-table__pin-btn--active]="isColumnPinned(col)"
-    type="button"
-    [mlvPopupTrigger]="pinPopup"
-    #pinTrigger="mlvPopupTrigger"
-    (click)="$event.stopPropagation()"
-    [attr.aria-label]="
+  @if (getPinnableSides(col); as sides) {
+    @if (sides.length > 1) {
+      <button
+        class="mlv-data-table__pin-btn"
+        [class.mlv-data-table__pin-btn--active]="isColumnPinned(col)"
+        type="button"
+        [mlvPopupTrigger]="pinPopup"
+        #pinTrigger="mlvPopupTrigger"
+        (click)="$event.stopPropagation()"
+        [attr.aria-label]="
           isColumnPinned(col) ? _i18n().changePinSide : _i18n().pinColumn
         "
-    [attr.aria-haspopup]="'menu'"
-    [attr.aria-expanded]="pinPopup.opened()"
-    [attr.aria-pressed]="isColumnPinned(col)"
-  >
-    @if (isColumnPinned(col)) {
-    <svg lucidePinOff />
-    } @else {
-    <svg lucidePin />
-    }
-  </button>
-  <mlv-popup #pinPopup>
-    <div *mlvPopupContent class="mlv-data-table__pin-popup" role="menu">
-      @for (side of sides; track side) {
-      <button
-        type="button"
-        role="menuitemradio"
-        class="mlv-data-table__pin-popup-item"
-        [class.mlv-data-table__pin-popup-item--active]="
-                getColumnPinSide(col) === side
-              "
-        [attr.aria-checked]="getColumnPinSide(col) === side"
-        (click)="
-                pinTo(col, side); pinTrigger.close(); $event.stopPropagation()
-              "
+        [attr.aria-haspopup]="'menu'"
+        [attr.aria-expanded]="pinPopup.opened()"
+        [attr.aria-pressed]="isColumnPinned(col)"
       >
-        <svg lucidePin [size]="14" />
-        @if (side === 'left') {
-        <span>Pin left</span>
+        @if (isColumnPinned(col)) {
+          <svg lucidePinOff />
         } @else {
-        <span>Pin right</span>
+          <svg lucidePin />
         }
       </button>
-      } @if (isColumnPinned(col)) {
+      <mlv-popup #pinPopup>
+        <div *mlvPopupContent class="mlv-data-table__pin-popup" role="menu">
+          @for (side of sides; track side) {
+            <button
+              type="button"
+              role="menuitemradio"
+              class="mlv-data-table__pin-popup-item"
+              [class.mlv-data-table__pin-popup-item--active]="
+                getColumnPinSide(col) === side
+              "
+              [attr.aria-checked]="getColumnPinSide(col) === side"
+              (click)="
+                pinTo(col, side); pinTrigger.close(); $event.stopPropagation()
+              "
+            >
+              <svg lucidePin [size]="14" />
+              @if (side === 'left') {
+                <span>Pin left</span>
+              } @else {
+                <span>Pin right</span>
+              }
+            </button>
+          }
+          @if (isColumnPinned(col)) {
+            <button
+              type="button"
+              role="menuitem"
+              class="mlv-data-table__pin-popup-item mlv-data-table__pin-popup-item--unpin"
+              (click)="unpin(col); pinTrigger.close(); $event.stopPropagation()"
+            >
+              <svg lucidePinOff [size]="14" />
+              <span>{{ _i18n().unpin }}</span>
+            </button>
+          }
+        </div>
+      </mlv-popup>
+    } @else {
       <button
+        class="mlv-data-table__pin-btn"
+        [class.mlv-data-table__pin-btn--active]="isColumnPinned(col)"
         type="button"
-        role="menuitem"
-        class="mlv-data-table__pin-popup-item mlv-data-table__pin-popup-item--unpin"
-        (click)="unpin(col); pinTrigger.close(); $event.stopPropagation()"
-      >
-        <svg lucidePinOff [size]="14" />
-        <span>{{ _i18n().unpin }}</span>
-      </button>
-      }
-    </div>
-  </mlv-popup>
-  } @else {
-  <button
-    class="mlv-data-table__pin-btn"
-    [class.mlv-data-table__pin-btn--active]="isColumnPinned(col)"
-    type="button"
-    (click)="togglePin(col, sides[0]); $event.stopPropagation()"
-    [attr.aria-label]="
+        (click)="togglePin(col, sides[0]); $event.stopPropagation()"
+        [attr.aria-label]="
           isColumnPinned(col) ? _i18n().unpinColumn : _i18n().pinColumn
         "
-    [attr.aria-pressed]="isColumnPinned(col)"
-  >
-    @if (isColumnPinned(col)) {
-    <svg lucidePinOff />
-    } @else {
-    <svg lucidePin />
+        [attr.aria-pressed]="isColumnPinned(col)"
+      >
+        @if (isColumnPinned(col)) {
+          <svg lucidePinOff />
+        } @else {
+          <svg lucidePin />
+        }
+      </button>
     }
-  </button>
-  } }
+  }
 </ng-template>

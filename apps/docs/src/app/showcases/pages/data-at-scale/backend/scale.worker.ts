@@ -14,11 +14,7 @@
 import { buildScaleDataset } from './scale-dataset';
 import { runScaleQuery } from './scale-engine';
 import { absoluteNow } from './scale-protocol';
-import type {
-  ScaleRequest,
-  ScaleResponse,
-  ScaleRow,
-} from './scale-protocol';
+import type { ScaleRequest, ScaleResponse, ScaleRow } from './scale-protocol';
 
 /** @private The generated dataset. Replaced wholesale by every `init` request. */
 let dataset: readonly ScaleRow[] = [];

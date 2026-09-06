@@ -1,39 +1,39 @@
 <div class="demo-row" style="align-items: flex-end; gap: 2rem">
   @for (ch of channels; track ch.label) {
-  <div
-    style="
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-    "
-  >
-    <span
+    <div
       style="
-        font-size: var(--mlv-typography-ui-s-size);
-        font-weight: 600;
-        min-width: 2ch;
-        text-align: center;
-        color: var(--mlv-text-primary);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
       "
     >
-      {{ ch.value() }}
-    </span>
-    <mlv-slider
-      orientation="vertical"
-      [min]="0"
-      [max]="100"
-      style="height: 10rem"
-      [(ngModel)]="ch.value"
-    />
-    <span
-      style="
-        font-size: var(--mlv-typography-ui-s-size);
-        color: var(--mlv-text-secondary);
-      "
-    >
-      {{ ch.label }}
-    </span>
-  </div>
+      <span
+        style="
+          font-size: var(--mlv-typography-ui-s-size);
+          font-weight: 600;
+          min-width: 2ch;
+          text-align: center;
+          color: var(--mlv-text-primary);
+        "
+      >
+        {{ ch.value() }}
+      </span>
+      <mlv-slider
+        orientation="vertical"
+        [min]="0"
+        [max]="100"
+        style="height: 10rem"
+        [(ngModel)]="ch.value"
+      />
+      <span
+        style="
+          font-size: var(--mlv-typography-ui-s-size);
+          color: var(--mlv-text-secondary);
+        "
+      >
+        {{ ch.label }}
+      </span>
+    </div>
   }
 </div>

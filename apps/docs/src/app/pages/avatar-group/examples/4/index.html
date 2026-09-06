@@ -23,13 +23,15 @@
     "
   >
     @if (lastClickedCount() !== null) {
-    <span>groupClick emitted — {{ lastClickedCount() }} total members</span>
-    } @if (lastOverflowCount() !== null) {
-    <span
-      >overflowClick emitted — {{ lastOverflowCount() }} hidden members</span
-    >
-    } @if (lastClickedCount() === null && lastOverflowCount() === null) {
-    <span>Click the group or the +N chip to see outputs</span>
+      <span>groupClick emitted — {{ lastClickedCount() }} total members</span>
+    }
+    @if (lastOverflowCount() !== null) {
+      <span
+        >overflowClick emitted — {{ lastOverflowCount() }} hidden members</span
+      >
+    }
+    @if (lastClickedCount() === null && lastOverflowCount() === null) {
+      <span>Click the group or the +N chip to see outputs</span>
     }
   </div>
 </div>

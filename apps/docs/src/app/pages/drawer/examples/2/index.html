@@ -16,9 +16,17 @@
         and 100% of the viewport height. Swipe down quickly to dismiss.
       </p>
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap">
-        @for (option of ['Copy link', 'Send via email', 'Export as PDF', 'Share
-        to Slack']; track option) {
-        <button mlvButton variant="secondary">{{ option }}</button>
+        @for (
+          option of [
+            'Copy link',
+            'Send via email',
+            'Export as PDF',
+            'Share
+        to Slack',
+          ];
+          track option
+        ) {
+          <button mlvButton variant="secondary">{{ option }}</button>
         }
       </div>
     </div>

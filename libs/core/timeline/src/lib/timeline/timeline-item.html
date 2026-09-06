@@ -10,11 +10,12 @@
     <div class="mlv-timeline-item__header">
       <span class="mlv-timeline-item__title">{{ title() }}</span>
       @if (timestamp()) {
-      <time class="mlv-timeline-item__timestamp">{{ timestamp() }}</time>
-      } @if (_metaRef()) {
-      <span class="mlv-timeline-item__meta">
-        <ng-container [ngTemplateOutlet]="_metaRef()!.templateRef" />
-      </span>
+        <time class="mlv-timeline-item__timestamp">{{ timestamp() }}</time>
+      }
+      @if (_metaRef()) {
+        <span class="mlv-timeline-item__meta">
+          <ng-container [ngTemplateOutlet]="_metaRef()!.templateRef" />
+        </span>
       }
     </div>
     <div class="mlv-timeline-item__description">
@@ -26,9 +27,9 @@
 <div class="mlv-timeline-item__spine">
   <div class="mlv-timeline-item__node-circle">
     @if (_iconRef()) {
-    <span class="mlv-timeline-item__node-icon" aria-hidden="true">
-      <ng-container [ngTemplateOutlet]="_iconRef()!.templateRef" />
-    </span>
+      <span class="mlv-timeline-item__node-icon" aria-hidden="true">
+        <ng-container [ngTemplateOutlet]="_iconRef()!.templateRef" />
+      </span>
     }
   </div>
   <div class="mlv-timeline-item__connector" aria-hidden="true"></div>

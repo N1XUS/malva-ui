@@ -34,15 +34,17 @@
       Run this from the Angular workspace root. The installer adds Tailwind v4,
       the PostCSS adapter, and the runtime styles required by the token bridge.
     </p>
-    @if (installCommand | highlight: 'bash' : codeTheme() | async; as
-    highlighted) {
-    <div
-      class="tailwind-page__code"
-      tabindex="0"
-      role="region"
-      aria-label="Tailwind install command"
-      [innerHTML]="highlighted"
-    ></div>
+    @if (
+      installCommand | highlight: 'bash' : codeTheme() | async;
+      as highlighted
+    ) {
+      <div
+        class="tailwind-page__code"
+        tabindex="0"
+        role="region"
+        aria-label="Tailwind install command"
+        [innerHTML]="highlighted"
+      ></div>
     }
     <p>
       It creates
@@ -101,28 +103,32 @@
     <div class="tailwind-page__code-grid">
       <div class="tailwind-page__code-block">
         <h3>1. Install the runtime packages</h3>
-        @if (manualInstallCommand | highlight: 'bash' : codeTheme() | async; as
-        highlighted) {
-        <div
-          class="tailwind-page__code"
-          tabindex="0"
-          role="region"
-          aria-label="Malva Tailwind runtime package command"
-          [innerHTML]="highlighted"
-        ></div>
+        @if (
+          manualInstallCommand | highlight: 'bash' : codeTheme() | async;
+          as highlighted
+        ) {
+          <div
+            class="tailwind-page__code"
+            tabindex="0"
+            role="region"
+            aria-label="Malva Tailwind runtime package command"
+            [innerHTML]="highlighted"
+          ></div>
         }
       </div>
       <div class="tailwind-page__code-block">
         <h3>2. Install the Tailwind tooling</h3>
-        @if (toolingInstallCommand | highlight: 'bash' : codeTheme() | async; as
-        highlighted) {
-        <div
-          class="tailwind-page__code"
-          tabindex="0"
-          role="region"
-          aria-label="Tailwind tooling package command"
-          [innerHTML]="highlighted"
-        ></div>
+        @if (
+          toolingInstallCommand | highlight: 'bash' : codeTheme() | async;
+          as highlighted
+        ) {
+          <div
+            class="tailwind-page__code"
+            tabindex="0"
+            role="region"
+            aria-label="Tailwind tooling package command"
+            [innerHTML]="highlighted"
+          ></div>
         }
       </div>
     </div>
@@ -130,28 +136,32 @@
     <div class="tailwind-page__code-grid">
       <div class="tailwind-page__code-block">
         <h3>3. Add the PostCSS adapter</h3>
-        @if (postcssExample | highlight: 'json' : codeTheme() | async; as
-        highlighted) {
-        <div
-          class="tailwind-page__code"
-          tabindex="0"
-          role="region"
-          aria-label="PostCSS configuration example"
-          [innerHTML]="highlighted"
-        ></div>
+        @if (
+          postcssExample | highlight: 'json' : codeTheme() | async;
+          as highlighted
+        ) {
+          <div
+            class="tailwind-page__code"
+            tabindex="0"
+            role="region"
+            aria-label="PostCSS configuration example"
+            [innerHTML]="highlighted"
+          ></div>
         }
       </div>
       <div class="tailwind-page__code-block">
         <h3>4. Import the theme</h3>
-        @if (stylesheetExample | highlight: 'css' : codeTheme() | async; as
-        highlighted) {
-        <div
-          class="tailwind-page__code"
-          tabindex="0"
-          role="region"
-          aria-label="Tailwind stylesheet imports"
-          [innerHTML]="highlighted"
-        ></div>
+        @if (
+          stylesheetExample | highlight: 'css' : codeTheme() | async;
+          as highlighted
+        ) {
+          <div
+            class="tailwind-page__code"
+            tabindex="0"
+            role="region"
+            aria-label="Tailwind stylesheet imports"
+            [innerHTML]="highlighted"
+          ></div>
         }
       </div>
     </div>
@@ -316,15 +326,17 @@
       </article>
     </div>
 
-    @if (liveExample | highlight: 'html' : codeTheme() | async; as highlighted)
-    {
-    <div
-      class="tailwind-page__code"
-      tabindex="0"
-      role="region"
-      aria-label="Live Tailwind utility example"
-      [innerHTML]="highlighted"
-    ></div>
+    @if (
+      liveExample | highlight: 'html' : codeTheme() | async;
+      as highlighted
+    ) {
+      <div
+        class="tailwind-page__code"
+        tabindex="0"
+        role="region"
+        aria-label="Live Tailwind utility example"
+        [innerHTML]="highlighted"
+      ></div>
     }
   </section>
 
@@ -335,15 +347,17 @@
       can update the generated imports on a later run while preserving your
       surrounding CSS.
     </p>
-    @if (managedStylesheetExample | highlight: 'css' : codeTheme() | async; as
-    highlighted) {
-    <div
-      class="tailwind-page__code"
-      tabindex="0"
-      role="region"
-      aria-label="Managed stylesheet boundaries"
-      [innerHTML]="highlighted"
-    ></div>
+    @if (
+      managedStylesheetExample | highlight: 'css' : codeTheme() | async;
+      as highlighted
+    ) {
+      <div
+        class="tailwind-page__code"
+        tabindex="0"
+        role="region"
+        aria-label="Managed stylesheet boundaries"
+        [innerHTML]="highlighted"
+      ></div>
     }
     <ul class="tailwind-page__checklist">
       <li>

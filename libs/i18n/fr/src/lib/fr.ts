@@ -351,6 +351,35 @@ const fr: MlvLanguage = {
     rating: 'Évaluation',
     rateValue: 'Noter {value} sur {max}',
   },
+  scheduler: {
+    scheduler: 'Planificateur',
+    today: "Aujourd'hui",
+    previous:
+      '{view, select, month {Mois précédent} week {Semaine précédente} day {Jour précédent} other {Période précédente}}',
+    next: '{view, select, month {Mois suivant} week {Semaine suivante} day {Jour suivant} other {Période suivante}}',
+    month: 'Mois',
+    week: 'Semaine',
+    day: 'Jour',
+    viewSwitch: 'Affichage',
+    allDay: 'Toute la journée',
+    moreEvents: '+{count, plural, one {# de plus} other {# de plus}}',
+    moreEventsLabel:
+      '{count, plural, one {# autre événement} other {# autres événements}} le {date}',
+    gridLabel:
+      'Vue {view, select, month {mois} week {semaine} day {jour} other {planificateur}}, {period}',
+    slotLabel: '{date}, {time}',
+    dayLabelToday: "{date}, aujourd'hui",
+    eventLabel: '{title}, de {start} à {end}',
+    eventLabelAllDay: '{title}, toute la journée, du {start} au {end}',
+    dragHint:
+      'Appuyez sur Alt et une touche fléchée pour déplacer. Appuyez sur Alt, Maj et une touche fléchée pour modifier la fin.',
+    eventMoved: '{title} déplacé vers {start}',
+    eventResized: '{title} se termine maintenant à {end}',
+    moveRejected: '{title} ne peut pas être placé ici',
+    rangeChanged: 'Affichage de {period}',
+    selectionHint:
+      'De {start} à {end} sélectionné. Appuyez sur Entrée pour confirmer',
+  },
   scrollbar: {
     scrollableRegion: 'Zone défilable',
   },
