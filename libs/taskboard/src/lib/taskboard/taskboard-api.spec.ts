@@ -2,7 +2,11 @@ import { DOCUMENT } from '@angular/common';
 import { Component, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
-import type { MlvTaskboardColumn, MlvTaskboardKey } from '../taskboard.types';
+import type {
+  MlvTaskboardColumn,
+  MlvTaskboardKey,
+  MlvTaskboardUiSnapshot,
+} from '../taskboard.types';
 import { MlvTaskboard } from './taskboard';
 import { provideTaskboardTesting } from '../testing/taskboard-test-context';
 
@@ -318,6 +322,102 @@ describe('MlvTaskboard public surface', () => {
     await fixture.whenStable();
 
     expect(host.items()).toBe(moved);
+  });
+
+  it('keeps a card whose captured column is gone at its current placement', async () => {
+    const { fixture, host: dom } = await mount();
+    const host = fixture.componentInstance;
+    const statusOf = (id: string) =>
+      host.items().find((item) => item.id === id)?.status;
+    host.columns.set([
+      { id: 'todo', label: 'Todo' },
+      { id: 'doing', label: 'Doing' },
+      { id: 'done', label: 'Done' },
+    ]);
+    host.items.set([
+      { id: 'a', status: 'todo', title: 'First' },
+      { id: 'b', status: 'doing', title: 'Second, with comma' },
+      { id: 'x', status: 'done', title: 'Third' },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const snapshot = host.board().snapshot();
+
+    // The board moves on the way a consumer moves it on: `done` is retired and
+    // the card it held is moved into a column that survives, along with the
+    // card the snapshot captured in `todo`.
+    host.items.set([
+      { id: 'a', status: 'doing', title: 'First' },
+      { id: 'b', status: 'doing', title: 'Second, with comma' },
+      { id: 'x', status: 'doing', title: 'Third' },
+    ]);
+    host.columns.set([
+      { id: 'todo', label: 'Todo' },
+      { id: 'doing', label: 'Doing' },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    host.board().restore(snapshot);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // `a` and `b` name columns the board still has, so they go back where the
+    // snapshot found them; `x` named the retired one and keeps its current
+    // placement instead of naming a column the index would reject.
+    expect([statusOf('a'), statusOf('b'), statusOf('x')]).toEqual([
+      'todo',
+      'doing',
+      'doing',
+    ]);
+    expect(dom.querySelectorAll('[data-mlv-taskboard-card-id]')).toHaveLength(
+      3,
+    );
+
+    expect(host.board().undo()).toBe(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(statusOf('a')).toBe('doing');
+  });
+
+  it('treats a snapshot whose items are undefined as UI-only', async () => {
+    const { fixture, move } = await mount();
+    const host = fixture.componentInstance;
+
+    move();
+    await fixture.whenStable();
+    const moved = host.items();
+    // A hand-built or round-tripped object can carry an explicit `undefined`
+    // where a captured snapshot carries the array. That is absent placement,
+    // not empty placement.
+    const withoutItems = {
+      ...host.board().snapshot(),
+      items: undefined,
+    } as unknown as MlvTaskboardUiSnapshot;
+
+    host.board().restore(withoutItems);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.items()).toBe(moved);
+    // The restore recorded nothing of its own, so the one undo is the move's.
+    expect(host.board().undo()).toBe(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(host.items().find((item) => item.id === 'a')?.status).toBe('todo');
+  });
+
+  it('records no command for a restore that changes nothing', async () => {
+    const { fixture } = await mount();
+    const host = fixture.componentInstance;
+    const before = host.items();
+
+    host.board().restore(host.board().snapshot());
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.items()).toBe(before);
+    expect(host.board().undo()).toBe(false);
   });
 
   it('embeds the UI-only projection of a snapshot in the JSON export', async () => {
