@@ -21,22 +21,22 @@ Selector `mlv-taskboard`. Host class `mlv-taskboard`, plus `mlv-taskboard--move-
 
 ### Inputs
 
-| Input                              | Type                                             | Default     | Notes                                                                                                                           |
-| ---------------------------------- | ------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `dataKey`                          | `MlvTaskboardField<TItem>` — **required**        | —           | Property whose `string \| number` value identifies a card. Never coerced: `1` and `'1'` are different keys.                     |
-| `columnField`                      | `MlvTaskboardField<TItem>` — **required**        | —           | Property holding a card's current column id.                                                                                    |
-| `columnGroups`                     | `readonly MlvTaskboardColumnGroup[]`             | `[]`        | Phase labels above contiguous runs of columns sharing a `groupId`; a group may carry its own `wipLimit`.                        |
-| `swimlanes`                        | `readonly MlvTaskboardSwimlane[]`                | `[]`        | Rows that split every column into cells. Supplying lanes without `swimlaneField` throws from the index builder.                 |
-| `swimlaneField`                    | `MlvTaskboardField<TItem> \| undefined`          | `undefined` | Property holding a card's lane id.                                                                                              |
-| `visibleItems`                     | `readonly TItem[] \| undefined`                  | `undefined` | Filtered **view**. `items` stays authoritative for WIP counts, transitions and drop policy; `undefined` means no filter.        |
-| `transitions`                      | `readonly MlvTaskboardTransition[] \| undefined` | `undefined` | Allowed `{ from, to }` column changes. Unset means every column change is allowed.                                              |
-| `lockedItemIds`                    | `readonly MlvTaskboardKey[] \| undefined`        | `undefined` | Cards that may never move. Columns and lanes lock through their own `locked` flag.                                              |
-| `canDropFn`                        | `MlvTaskboardCanDropFn<TItem> \| undefined`      | `undefined` | Synchronous per-slot permission, evaluated **after** lock, transition and WIP.                                                  |
-| `beforeMove`                       | `MlvTaskboardBeforeMove<TItem> \| undefined`     | `undefined` | Guard consulted once per committed move (pointer drop and keyboard grab alike), `boolean` or `Promise<boolean>`.                |
-| `canReorderColumnFn`               | `MlvTaskboardCanReorderColumnFn \| undefined`    | `undefined` | Vetoes a candidate column order `(column, fromIndex, toIndex, columns) => boolean` while a header drag hovers.                  |
-| `cardLabelFn`                      | `MlvTaskboardCardLabelFn<TItem> \| undefined`    | `undefined` | Names a card in every announcement about it. Announcement copy only — the built-in card surface still renders the key.          |
-| `virtualItemSize`                  | `number \| undefined`                            | `undefined` | Fixed card height in **pixels**. A positive finite number virtualizes every cell; anything else is ignored.                     |
-| `mlvDensity` _(via hostDirective)_ | `MlvDensity`                                     | resolved    | `tight \| compact \| comfortable \| spacious \| airy`. Unset, it follows the nearest density context, then `MlvDensityService`. |
+| Input                              | Type                                             | Default     | Notes                                                                                                                                                                |
+| ---------------------------------- | ------------------------------------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataKey`                          | `MlvTaskboardField<TItem>` — **required**        | —           | Property whose `string \| number` value identifies a card. Never coerced: `1` and `'1'` are different keys.                                                          |
+| `columnField`                      | `MlvTaskboardField<TItem>` — **required**        | —           | Property holding a card's current column id.                                                                                                                         |
+| `columnGroups`                     | `readonly MlvTaskboardColumnGroup[]`             | `[]`        | Phase labels above contiguous runs of columns sharing a `groupId`; a group may carry its own `wipLimit`.                                                             |
+| `swimlanes`                        | `readonly MlvTaskboardSwimlane[]`                | `[]`        | Rows that split every column into cells. Supplying lanes without `swimlaneField` throws from the index builder.                                                      |
+| `swimlaneField`                    | `MlvTaskboardField<TItem> \| undefined`          | `undefined` | Property holding a card's lane id.                                                                                                                                   |
+| `visibleItems`                     | `readonly TItem[] \| undefined`                  | `undefined` | Filtered **view**. `items` stays authoritative for WIP counts, transitions and drop policy; `undefined` means no filter.                                             |
+| `transitions`                      | `readonly MlvTaskboardTransition[] \| undefined` | `undefined` | Allowed `{ from, to }` column changes. Unset means every column change is allowed.                                                                                   |
+| `lockedItemIds`                    | `readonly MlvTaskboardKey[] \| undefined`        | `undefined` | Cards that may never move. Columns and lanes lock through their own `locked` flag.                                                                                   |
+| `canDropFn`                        | `MlvTaskboardCanDropFn<TItem> \| undefined`      | `undefined` | Synchronous per-slot permission. Invoked for **every** enumerated slot whatever lock, transition and WIP answered — only the recorded denial _reason_ ranks it last. |
+| `beforeMove`                       | `MlvTaskboardBeforeMove<TItem> \| undefined`     | `undefined` | Guard consulted once per committed move (pointer drop and keyboard grab alike), `boolean` or `Promise<boolean>`.                                                     |
+| `canReorderColumnFn`               | `MlvTaskboardCanReorderColumnFn \| undefined`    | `undefined` | Vetoes a candidate column order `(column, fromIndex, toIndex, columns) => boolean` while a header drag hovers.                                                       |
+| `cardLabelFn`                      | `MlvTaskboardCardLabelFn<TItem> \| undefined`    | `undefined` | Names a card in every announcement about it. Announcement copy only — the built-in card surface still renders the key.                                               |
+| `virtualItemSize`                  | `number \| undefined`                            | `undefined` | Fixed card height in **pixels**. A positive finite number virtualizes every cell; anything else is ignored.                                                          |
+| `mlvDensity` _(via hostDirective)_ | `MlvDensity`                                     | resolved    | `tight \| compact \| comfortable \| spacious \| airy`. Unset, it follows the nearest density context, then `MlvDensityService`.                                      |
 
 ### Models
 
@@ -64,14 +64,14 @@ Two-way; each writes a replacement value and emits its `…Change` output only w
 
 ### Methods
 
-| Method                        | Returns                         | Behaviour                                                                                                                                                                                                                                                                                                                                  |
-| ----------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `undo()` / `redo()`           | `boolean`                       | Replays the board-originated move ledger into `items` and `columns`; returns whether anything moved. An application rewrite of either collection replaces the ledger's current state rather than stacking on it.                                                                                                                           |
-| `snapshot()`                  | `MlvTaskboardSnapshot`          | Column order, collapsed columns and lanes, selection, focused card, and each cell's scroll offset. Carries no card data. Frozen.                                                                                                                                                                                                           |
-| `restore(snapshot)`           | `void`                          | Applies that state, silently dropping identifiers the current board no longer knows. Columns take the snapshot's order, with columns the snapshot never saw kept behind them in their current relative order, written as one undoable command that fires `columnsChange` only on a real change; scroll offsets land after the next render. |
-| `exportJson()`                | `MlvTaskboardSerialized<TItem>` | The whole board plus its snapshot as plain data, via `serializeMlvTaskboard`.                                                                                                                                                                                                                                                              |
-| `exportCsv(columnId, fields)` | `string`                        | One column's cards as CSV, one row per card in board order, headings from the `MlvTaskboardCsvField` list, via `exportMlvTaskboardCsv`. Values containing `"`, `,`, CR or LF are quoted and doubled.                                                                                                                                       |
-| `print()`                     | `void`                          | Expands every virtual cell for one render, then calls the injected document view's `print()`. A no-op during a server render.                                                                                                                                                                                                              |
+| Method                        | Returns                         | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `undo()` / `redo()`           | `boolean`                       | Replays the board-originated move ledger into `items` and `columns`; returns whether anything moved. An application rewrite of either collection replaces the ledger's current state rather than stacking on it.                                                                                                                                                                                                                                                                                    |
+| `snapshot()`                  | `MlvTaskboardSnapshot`          | Column order, collapsed columns and lanes, selection, focused card, and each cell's scroll offset. Carries no card data. Frozen.                                                                                                                                                                                                                                                                                                                                                                    |
+| `restore(snapshot)`           | `void`                          | Applies that state, silently dropping identifiers the current board no longer knows. Columns take the snapshot's order, with columns the snapshot never saw kept behind them in their current relative order, written as one undoable command that fires `columnsChange` only on a real change; scroll offsets land after the next render. The restore itself is **silent** — a programmatic selection write announces nothing, so the live region never reports a selection the user did not make. |
+| `exportJson()`                | `MlvTaskboardSerialized<TItem>` | The whole board plus its snapshot as plain data, via `serializeMlvTaskboard`.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `exportCsv(columnId, fields)` | `string`                        | One column's cards as CSV, one row per card in board order, headings from the `MlvTaskboardCsvField` list, via `exportMlvTaskboardCsv`. Values containing `"`, `,`, CR or LF are quoted and doubled.                                                                                                                                                                                                                                                                                                |
+| `print()`                     | `void`                          | Expands every virtual cell for one render, then calls the injected document view's `print()`. A no-op during a server render.                                                                                                                                                                                                                                                                                                                                                                       |
 
 ## Projection slots
 
@@ -98,37 +98,39 @@ Each directive exposes its `templateRef` and a static `ngTemplateContextGuard` f
 
 ## Types
 
-| Type                                    | Shape                                                                                                                         |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `MlvTaskboardKey`                       | `string \| number`                                                                                                            |
-| `MlvTaskboardField<TItem>`              | `Extract<keyof TItem, string>`                                                                                                |
-| `MlvTaskboardColumn`                    | `{ id, label, groupId?, locked?, collapsible?, wipLimit? }`                                                                   |
-| `MlvTaskboardColumnGroup`               | `{ id, label, wipLimit? }`                                                                                                    |
-| `MlvTaskboardSwimlane`                  | `{ id, label, wipLimit?, locked? }`                                                                                           |
-| `MlvTaskboardLocation`                  | `{ columnId, swimlaneId?, index }`                                                                                            |
-| `MlvTaskboardWipState`                  | `{ count, limit, remaining }` — `limit`/`remaining` are `undefined` when unlimited                                            |
-| `MlvTaskboardItemContext<TItem>`        | `{ item, id, source, selected }` — the card half of `canDropFn`                                                               |
-| `MlvTaskboardDropTarget<TItem>`         | `{ column, swimlane, index, items, wip }` — the slot half of `canDropFn`                                                      |
-| `MlvTaskboardDenialReason`              | `'locked' \| 'transition' \| 'wip' \| 'policy'`                                                                               |
-| `MlvTaskboardTransition`                | `{ from, to }`                                                                                                                |
-| `MlvTaskboardState<TItem>`              | The immutable controlled board snapshot every pure helper takes                                                               |
-| `MlvTaskboardMoveRequest<TItem>`        | `{ board, itemId, source, target, anchorId? }`                                                                                |
-| `MlvTaskboardMoveResult<TItem>`         | `{ items, item, source, target }`                                                                                             |
-| `MlvTaskboardMoveCancelReason`          | `'invalid-drop' \| 'cancelled' \| 'before-move-rejected' \| 'before-move-error' \| 'stale'`                                   |
-| `MlvTaskboardMoveCancelledEvent<TItem>` | `{ reason, request? }`                                                                                                        |
-| `MlvTaskboardSnapshot`                  | `{ columnIds, collapsedColumnIds, collapsedSwimlaneIds, selectedIds, focusedId?, cellScrollPositions }`                       |
-| `MlvTaskboardSerialized<TItem>`         | `{ items, columns, columnGroups?, swimlanes?, snapshot, dataKey, columnField, swimlaneField?, transitions?, lockedItemIds? }` |
-| `MlvTaskboardCsvField<TItem>`           | `{ field, heading }`                                                                                                          |
-| `MlvTaskboardCommand<TItem>`            | `{ before, after }`                                                                                                           |
-| `MlvTaskboardHistory<TItem>`            | `current()`, `push(command)`, `undo()`, `redo()`, `replace(board)`                                                            |
-| `MlvTaskboardIndex<TItem>`              | Lookup maps plus `itemsFor`, `wipFor`, `swimlaneWipFor`, `groupWipFor`                                                        |
-| `MlvTaskboardDragSession<TItem>`        | `card`, `allowedLocationKeys`, `denials`, `canEnter`, `requestFor`, `denialFor`                                               |
+| Type                                    | Shape                                                                                                                                         |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MlvTaskboardKey`                       | `string \| number`                                                                                                                            |
+| `MlvTaskboardField<TItem>`              | `Extract<keyof TItem, string>`                                                                                                                |
+| `MlvTaskboardColumn`                    | `{ id, label, groupId?, locked?, collapsible?, wipLimit? }`                                                                                   |
+| `MlvTaskboardColumnGroup`               | `{ id, label, wipLimit? }`                                                                                                                    |
+| `MlvTaskboardSwimlane`                  | `{ id, label, wipLimit?, locked? }`                                                                                                           |
+| `MlvTaskboardLocation`                  | `{ columnId, swimlaneId?, index }`                                                                                                            |
+| `MlvTaskboardWipState`                  | `{ count, limit, remaining }` — `limit`/`remaining` are `undefined` when unlimited                                                            |
+| `MlvTaskboardItemContext<TItem>`        | `{ item, id, source, selected }` — the card half of `canDropFn`                                                                               |
+| `MlvTaskboardDropTarget<TItem>`         | `{ column, swimlane, index, items, wip }` — the slot half of `canDropFn`                                                                      |
+| `MlvTaskboardDenialReason`              | `'locked' \| 'transition' \| 'wip' \| 'policy'`                                                                                               |
+| `MlvTaskboardTransition`                | `{ from, to }`                                                                                                                                |
+| `MlvTaskboardState<TItem>`              | The immutable controlled board snapshot every pure helper takes                                                                               |
+| `MlvTaskboardMoveRequest<TItem>`        | `{ board, itemId, source, target, anchorId? }`                                                                                                |
+| `MlvTaskboardMoveResult<TItem>`         | `{ items, item, source, target }`                                                                                                             |
+| `MlvTaskboardMoveCancelReason`          | `'invalid-drop' \| 'cancelled' \| 'before-move-rejected' \| 'before-move-error' \| 'stale'`                                                   |
+| `MlvTaskboardMoveCancelledEvent<TItem>` | `{ reason, request? }`                                                                                                                        |
+| `MlvTaskboardCardEvent<TItem>`          | `{ item, location, selectedIds, nativeEvent }` — payload of `cardActivated` and `contextMenu`; `nativeEvent` is `MouseEvent \| KeyboardEvent` |
+| `MlvTaskboardAddRequest`                | `{ column, swimlane, wip }` — payload of `addRequested`; `swimlane` is `undefined` on a board without lanes                                   |
+| `MlvTaskboardSnapshot`                  | `{ columnIds, collapsedColumnIds, collapsedSwimlaneIds, selectedIds, focusedId?, cellScrollPositions }`                                       |
+| `MlvTaskboardSerialized<TItem>`         | `{ items, columns, columnGroups?, swimlanes?, snapshot, dataKey, columnField, swimlaneField?, transitions?, lockedItemIds? }`                 |
+| `MlvTaskboardCsvField<TItem>`           | `{ field, heading }`                                                                                                                          |
+| `MlvTaskboardCommand<TItem>`            | `{ before, after }`                                                                                                                           |
+| `MlvTaskboardHistory<TItem>`            | `current()`, `push(command)`, `undo()`, `redo()`, `replace(board)`                                                                            |
+| `MlvTaskboardIndex<TItem>`              | Lookup maps plus `itemsFor`, `wipFor`, `swimlaneWipFor`, `groupWipFor`                                                                        |
+| `MlvTaskboardDragSession<TItem>`        | `card`, `allowedLocationKeys`, `denials`, `canEnter`, `requestFor`, `denialFor`                                                               |
 
 ## Pure helpers
 
 The board's engine is exported so an application can compute the same answers headlessly. Every one of them is pure and takes an immutable `MlvTaskboardState<TItem>`.
 
-- `createMlvTaskboardIndex(board)` — buckets, lookup maps and WIP maths. Throws on duplicate column / group / lane ids, on a negative or non-finite `wipLimit`, and on swimlanes without a `swimlaneField`.
+- `createMlvTaskboardIndex(board)` — buckets, lookup maps and WIP maths. Throws on duplicate column / group / lane ids, on a negative or non-finite `wipLimit`, on swimlanes without a `swimlaneField`, on a `column.groupId` naming an unknown group, on a `dataKey` value that is neither `string` nor `number`, on a duplicate item key, on a card whose `columnField` names an unknown column, on a card whose `swimlaneField` names an unknown lane, on a `visibleItems` entry whose key is not in `items`, and on a duplicate visible item key.
 - `applyMlvTaskboardMove(board, request)` — the replacement collection for one request, or `null` when the request does not fit the board it names (including a stale `request.board`).
 - `createMlvTaskboardDragSession(board, itemId, canDropFn?)` — enumerates every slot once, recording the allowed ones and the first failing gate for each refused one. Throws for an unknown card key.
 - `createMlvTaskboardHistory(initial, limit = 100)` — the replayable ledger; `push` rejects a command whose `before` is not the current state, and the undo stack is capped at `limit`.
@@ -141,7 +143,7 @@ Key comparison helpers (`mlvTaskboardKeyToken`, `sameMlvTaskboardKey`, `mlvTaskb
 
 - Pointer/touch drags never reorder the DOM: both SortableJS adapters answer `onMove` with `false` and commit an immutable replacement collection instead.
 - Card drops run the pure move engine, then the optional `beforeMove` guard (sync or async). Every non-committing outcome leaves `items` referentially unchanged and emits `moveCancelled` with a concrete reason: `invalid-drop`, `cancelled`, `before-move-rejected`, `before-move-error`, or `stale` (the controlled board changed while the guard was pending). A superseded pending move settles silently — its successor owns the outcome.
-- While an asynchronous guard is pending, the pointer adapters are disabled, `Space` is consumed without starting a grab, the host carries `aria-busy="true"` and `mlv-taskboard--move-pending`.
+- While an asynchronous guard is pending, the pointer adapters are disabled, `Space` is consumed without starting a grab **or committing one** — the refusal short-circuits both halves of the toggle — the host carries `aria-busy="true"` and `mlv-taskboard--move-pending`.
 - Column headers reorder by pointer: locked columns keep their absolute index, `canReorderColumnFn` may veto an order, and a moved column adopts its new neighbours' `groupId`.
 - Group headers render as contiguous runs of consecutive columns sharing a `groupId`; an ungrouped run renders as an unlabeled spacer.
 - Selection is pointer-driven: a plain click replaces it, `Ctrl`/`Cmd` toggles the clicked card, `Shift` selects the inclusive run from the anchor in rendered board order (swimlane row-major, then column order, then card index). The board never prunes a key `visibleItems` hides, and writes `selection` only when the set really changed.
@@ -152,16 +154,16 @@ Key comparison helpers (`mlvTaskboardKeyToken`, `sameMlvTaskboardKey`, `mlvTaskb
 
 ## Keyboard map
 
-Exactly one card is tabbable — the last focused one, else the first card in reading order.
+Exactly one card is tabbable — the last focused one, else the first card in reading order. When the focused card leaves the rendered set — filtered out through `visibleItems`, removed from `items`, or inside a collapsed column or lane — the stale logical focus is **cleared** and the tab stop falls back to the first navigable card, so a later arrow step is not resolved against a cell that is no longer there.
 
-| Key                        | While navigating              | While grabbed                                                                                           |
-| -------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `ArrowUp` / `ArrowDown`    | Previous / next card          | Move the target slot within the cell                                                                    |
-| `ArrowLeft` / `ArrowRight` | Previous / next column        | Move the target slot across columns (mirrored in an RTL **document**)                                   |
-| `Home` / `End`             | First / last card in the cell | First / last slot in the cell                                                                           |
-| `Space`                    | Grab the card                 | Commit through the same guarded flow a pointer drop enters; on the card's own slot it releases in place |
-| `Escape`                   | —                             | Cancel; `items` untouched                                                                               |
-| `Enter`                    | Emit `cardActivated`          | Consumed, so a grabbed card never activates                                                             |
+| Key                        | While navigating              | While grabbed                                                                                                                                             |
+| -------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ArrowUp` / `ArrowDown`    | Previous / next card          | Move the target slot within the cell                                                                                                                      |
+| `ArrowLeft` / `ArrowRight` | Previous / next column        | Move the target slot across columns (mirrored in an RTL **document**)                                                                                     |
+| `Home` / `End`             | First / last card in the cell | First / last slot in the cell                                                                                                                             |
+| `Space`                    | Grab the card                 | Commit through the same guarded flow a pointer drop enters; on the card's own slot it releases in place, announced through the `releasedInPlace` i18n key |
+| `Escape`                   | —                             | Cancel; `items` untouched                                                                                                                                 |
+| `Enter`                    | Emit `cardActivated`          | Consumed, so a grabbed card never activates                                                                                                               |
 
 Blur while grabbed cancels the grab — arrow keys move the target slot, not DOM focus, so losing focus always means the card was abandoned. Focus follows a committed move to the card's new position, scrolling a virtualized cell first when the destination is outside its rendered window.
 
@@ -171,23 +173,23 @@ Blur while grabbed cancels the grab — arrow keys move the target slot, not DOM
 - Role tree: `grid > rowgroup > row > gridcell > listbox > option`. Each cell's card container (`.mlv-taskboard__cards`, or the `cdk-virtual-scroll-viewport` in virtual mode) is the `listbox`, carries `aria-multiselectable="true"` and is named by `aria-labelledby` from its column header id plus its lane header id; every card is its `option` with `aria-selected` and `aria-describedby`.
 - No `aria-grabbed` / `aria-dropeffect` (both deprecated): the keyboard model is described by a visually-hidden instructions paragraph every card references, and every outcome is announced in the polite live region.
 - The empty state and the add affordance are siblings of the listbox, never options inside it. CDK's virtual content wrapper takes `role="presentation"` and the scroll spacer stays role-less, so the virtual tree is AXE-clean.
-- Cards are `<button>`s in the built-in surface, so projected templates must not nest interactive elements inside `mlvTaskboardItemDef` without providing their own surface.
+- Every card is an `option`, so a projected `mlvTaskboardItemDef` must not nest interactive elements inside it: interactive content inside `role="option"` is not exposed as such, and a listbox option's name comes from its text content. The card surface itself differs — the built-in one is a `<button>`, while a projected item def renders a `<div role="option">` — but the ARIA constraint applies to both.
 
 ## DOM contract
 
 Stable hooks for styling and for tests. Identifier attributes carry the **key token**, not the raw value: `` `${typeof key}:${String(key)}` `` — so the number `1` renders `number:1` and the string `'1'` renders `string:1`, and the two never collide. An absent key renders `undefined`.
 
-| Attribute / class                                                   | Where                                                         |
-| ------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `data-mlv-taskboard-card-id`                                        | Every rendered card                                           |
-| `data-mlv-taskboard-column-id`                                      | Column header, cell, card container                           |
-| `data-mlv-taskboard-swimlane-id`                                    | Lane header, cell, card container (absent without swimlanes)  |
-| `data-mlv-taskboard-group-id`                                       | Column-group header                                           |
-| `data-mlv-taskboard-column-locked`                                  | A column header the pointer may never reorder                 |
-| `data-mlv-taskboard-selected`                                       | A selected card                                               |
-| `data-collapsed`                                                    | A cell whose column or lane is collapsed                      |
-| `data-mlv-taskboard-drop-state`                                     | The hovered container, reflecting whether it accepts the drag |
-| `mlv-taskboard__sortable-chosen` / `-drag` / `-ghost` / `-fallback` | SortableJS drag classes                                       |
+| Attribute / class                                                   | Where                                                                                           |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `data-mlv-taskboard-card-id`                                        | Every rendered card                                                                             |
+| `data-mlv-taskboard-column-id`                                      | Column header, cell, card container                                                             |
+| `data-mlv-taskboard-swimlane-id`                                    | Lane header, cell, card container (absent without swimlanes)                                    |
+| `data-mlv-taskboard-group-id`                                       | Column-group header                                                                             |
+| `data-mlv-taskboard-column-locked`                                  | A column header the pointer may never reorder                                                   |
+| `data-mlv-taskboard-selected`                                       | A selected card                                                                                 |
+| `data-collapsed`                                                    | A collapsed column header, a collapsed lane row, and any cell whose column or lane is collapsed |
+| `data-mlv-taskboard-drop-state`                                     | The hovered container, reflecting whether it accepts the drag                                   |
+| `mlv-taskboard__sortable-chosen` / `-drag` / `-ghost` / `-fallback` | SortableJS drag classes                                                                         |
 
 Density re-declares four custom properties on the host — `--mlv-taskboard-padding`, `--mlv-taskboard-gap`, `--mlv-taskboard-column-width`, `--mlv-taskboard-card-gap` — and a virtualized cell reads `--mlv-taskboard-cell-block-size` (default `20rem`) for its height while the board publishes `--mlv-taskboard-virtual-item-size`.
 

@@ -20,6 +20,6 @@ Every chrome the board draws is a replaceable `ng-template`, and each one hands 
 
 The board owns no menu. It cancels the browser's native context menu on a card and emits `contextMenu` with the card, its location, and the selection, leaving the panel to the application: here a wrapper carries `[mlvContextMenuTrigger]` from `@malva-ui/core/menu`, the same `contextmenu` event bubbles to it, and the panel opens at the pointer. Cards are focusable, so the ContextMenu key and `Shift+F10` reach the same panel.
 
-The four generic definition directives (`mlvTaskboardItemDef`, `mlvTaskboardColumnContentDef`, `mlvTaskboardDropIndicatorDef`, `mlvTaskboardDragPreviewDef`) each take a `…From` input purely to carry the card type into the template context.
+The four generic definition directives (`mlvTaskboardItemDef`, `mlvTaskboardColumnContentDef`, `mlvTaskboardDropIndicatorDef`, `mlvTaskboardDragPreviewDef`) each take a `…From` input purely to carry the card type into the template context. `mlvTaskboardDragPreviewDef` is the exception to the rest of this page: the directive is exported, but `MlvTaskboard` never queries it, so projecting one renders nothing — this example leaves it out.
 
 Outputs used: `addRequested`, `contextMenu`.

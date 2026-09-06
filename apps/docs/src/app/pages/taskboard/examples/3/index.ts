@@ -82,8 +82,9 @@ export default class TaskboardPoliciesExampleComponent {
 
   /**
    * Synchronous permission policy. It is consulted for every candidate slot a
-   * drag enumerates, so it must stay cheap and free of side effects. It runs
-   * last: locks, transitions and WIP limits have already had their say.
+   * drag enumerates — whatever locks, transitions and WIP limits answered for
+   * that slot — so it must stay cheap and free of side effects. Only the
+   * recorded denial reason ranks it last, behind those three gates.
    */
   readonly canDrop: MlvTaskboardCanDropFn<Ticket> = (card, target) =>
     !(card.item.needsReview && target.column.id === 'blocked');

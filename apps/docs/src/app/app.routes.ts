@@ -199,11 +199,6 @@ export const pageRoutes = [
       import('./pages/compare/index').then((m) => m.ComparePageComponent),
   },
   {
-    path: 'taskboard',
-    loadComponent: () =>
-      import('./pages/taskboard/index').then((m) => m.TaskboardPageComponent),
-  },
-  {
     path: 'copy-to-clipboard',
     loadComponent: () =>
       import('./pages/copy-to-clipboard/index').then(
@@ -219,6 +214,11 @@ export const pageRoutes = [
     path: 'table',
     loadComponent: () =>
       import('./pages/table/index').then((m) => m.TablePageComponent),
+  },
+  {
+    path: 'taskboard',
+    loadComponent: () =>
+      import('./pages/taskboard/index').then((m) => m.TaskboardPageComponent),
   },
   {
     path: 'search-field',
