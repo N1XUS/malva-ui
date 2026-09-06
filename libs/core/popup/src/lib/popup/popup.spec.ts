@@ -11,6 +11,7 @@ import { MlvBreakpointService } from '@malva-ui/cdk/utils';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
 import { MLV_DENSITY_CONTEXT, MlvDensityService } from '@malva-ui/cdk/density';
 import type { MlvDensity } from '@malva-ui/cdk/density';
+import type { ConnectedPosition } from '@angular/cdk/overlay';
 import { MLV_POPUP_I18N } from '@malva-ui/i18n';
 import { MlvPopup } from './popup';
 import type { MlvPopupMobileMode } from './popup';
@@ -707,5 +708,175 @@ describe('MlvPopup — header actions slot', () => {
     expect(panel().querySelector('.mlv-popup__header-actions')).toBeNull();
     expect(panel().querySelector('.mlv-popup__title')).not.toBeNull();
     expect(panel().querySelector('.mlv-popup__close')).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Arrow geometry — logical `ConnectedPosition` pair → physical arrow edge (#163)
+//
+// CDK mirrors `start`/`end` against the *pane's* direction (`_isRtl()` reads
+// `overlayRef.getDirection()`), so the pair `updateArrowFromPosition` receives
+// is logical. `arrowEdge` is physical — it selects `.mlv-popup--arrow-left` /
+// `--arrow-right`, whose `::before` is drawn with a physical `rotate(45deg)`
+// and a physical inset — so the pair has to be converted, not copied.
+// ---------------------------------------------------------------------------
+
+describe('MlvPopup — arrow geometry', () => {
+  /** A popup instance with no host, template or overlay — the mapping is pure. */
+  function popup(): MlvPopup {
+    const fixture = TestBed.createComponent(MlvPopup);
+    fixture.detectChanges();
+    return fixture.componentInstance;
+  }
+
+  /** `left-*`: the popup hangs off the trigger's inline-start side. */
+  const INLINE_START_OF_TRIGGER = {
+    originX: 'start',
+    originY: 'top',
+    overlayX: 'end',
+    overlayY: 'top',
+  } as const satisfies ConnectedPosition;
+
+  /** `right-*`: the popup hangs off the trigger's inline-end side. */
+  const INLINE_END_OF_TRIGGER = {
+    originX: 'end',
+    originY: 'center',
+    overlayX: 'start',
+    overlayY: 'center',
+  } as const satisfies ConnectedPosition;
+
+  /** `bottom-start`: below the trigger, inline-start edges aligned. */
+  const BELOW_TRIGGER_START = {
+    originX: 'start',
+    originY: 'bottom',
+    overlayX: 'start',
+    overlayY: 'top',
+  } as const satisfies ConnectedPosition;
+
+  /** `top-end`: above the trigger, inline-end edges aligned. */
+  const ABOVE_TRIGGER_END = {
+    originX: 'end',
+    originY: 'top',
+    overlayX: 'end',
+    overlayY: 'bottom',
+  } as const satisfies ConnectedPosition;
+
+  describe('side-anchored positions', () => {
+    it('puts the arrow on the physical right edge in LTR', () => {
+      const p = popup();
+      p.updateArrowFromPosition(INLINE_START_OF_TRIGGER, 'ltr');
+      // `overlayX: 'end'` + `originX: 'start'` places the panel to the LEFT of
+      // the trigger in LTR, so the arrow points right, off the panel's right edge.
+      expect(p.arrowEdge()).toBe('right');
+    });
+
+    it('puts the arrow on the physical LEFT edge for the same pair in RTL', () => {
+      const p = popup();
+      p.updateArrowFromPosition(INLINE_START_OF_TRIGGER, 'rtl');
+      // Same logical pair, mirrored pane: `start` is the trigger's right edge and
+      // `overlayX: 'end'` pins the panel's right edge there, so the panel is to
+      // the RIGHT of the trigger and the arrow belongs on its left edge.
+      expect(p.arrowEdge()).toBe('left');
+    });
+
+    it('puts the arrow on the physical left edge in LTR for the mirrored pair', () => {
+      const p = popup();
+      p.updateArrowFromPosition(INLINE_END_OF_TRIGGER, 'ltr');
+      expect(p.arrowEdge()).toBe('left');
+    });
+
+    it('puts the arrow on the physical RIGHT edge for that pair in RTL', () => {
+      const p = popup();
+      p.updateArrowFromPosition(INLINE_END_OF_TRIGGER, 'rtl');
+      expect(p.arrowEdge()).toBe('right');
+    });
+
+    it('keeps the block-axis alignment unmirrored', () => {
+      // A side arrow's alignment rides `overlayY`, and the block axis never
+      // mirrors — `top` is `top` in both directions.
+      const ltr = popup();
+      const rtl = popup();
+      ltr.updateArrowFromPosition(INLINE_START_OF_TRIGGER, 'ltr');
+      rtl.updateArrowFromPosition(INLINE_START_OF_TRIGGER, 'rtl');
+      expect(ltr.arrowAlign()).toBe('start');
+      expect(rtl.arrowAlign()).toBe('start');
+
+      const bottom = {
+        ...INLINE_START_OF_TRIGGER,
+        overlayY: 'bottom',
+      } as const;
+      const p = popup();
+      p.updateArrowFromPosition(bottom, 'rtl');
+      expect(p.arrowAlign()).toBe('end');
+
+      const centred = popup();
+      centred.updateArrowFromPosition(INLINE_END_OF_TRIGGER, 'rtl');
+      expect(centred.arrowAlign()).toBe('center');
+    });
+  });
+
+  describe('top/bottom-anchored positions', () => {
+    it('keeps the edge on the block axis in both directions', () => {
+      const ltr = popup();
+      const rtl = popup();
+      ltr.updateArrowFromPosition(BELOW_TRIGGER_START, 'ltr');
+      rtl.updateArrowFromPosition(BELOW_TRIGGER_START, 'rtl');
+      expect(ltr.arrowEdge()).toBe('top');
+      expect(rtl.arrowEdge()).toBe('top');
+    });
+
+    it('mirrors the inline alignment of a `bottom-start` panel in RTL', () => {
+      const ltr = popup();
+      const rtl = popup();
+      ltr.updateArrowFromPosition(BELOW_TRIGGER_START, 'ltr');
+      rtl.updateArrowFromPosition(BELOW_TRIGGER_START, 'rtl');
+      // `overlayX: 'start'` pins the panel's left edge to the trigger's left in
+      // LTR and its right edge to the trigger's right in RTL, so the arrow sits
+      // 1rem from the physical left, then 1rem from the physical right.
+      expect(ltr.arrowAlign()).toBe('start');
+      expect(rtl.arrowAlign()).toBe('end');
+    });
+
+    it('mirrors the inline alignment of a `top-end` panel in RTL', () => {
+      const ltr = popup();
+      const rtl = popup();
+      ltr.updateArrowFromPosition(ABOVE_TRIGGER_END, 'ltr');
+      rtl.updateArrowFromPosition(ABOVE_TRIGGER_END, 'rtl');
+      expect(ltr.arrowEdge()).toBe('bottom');
+      expect(rtl.arrowEdge()).toBe('bottom');
+      expect(ltr.arrowAlign()).toBe('end');
+      expect(rtl.arrowAlign()).toBe('start');
+    });
+
+    it('leaves a centred panel centred', () => {
+      const p = popup();
+      p.updateArrowFromPosition(
+        { ...BELOW_TRIGGER_START, originX: 'center', overlayX: 'center' },
+        'rtl',
+      );
+      expect(p.arrowAlign()).toBe('center');
+    });
+  });
+
+  it('assumes LTR when no direction is supplied', () => {
+    // The parameter is optional so the public method stays source-compatible;
+    // the default has to reproduce the pre-#163 mapping exactly.
+    const p = popup();
+    p.updateArrowFromPosition(INLINE_START_OF_TRIGGER);
+    expect(p.arrowEdge()).toBe('right');
+  });
+
+  it('derives the hidden-transform offset from the physical edge', () => {
+    // `popupHiddenTransform` switches on `arrowEdge`, so the conversion reaches
+    // it too. It is bound to `--mlv-popup-hidden-transform`, which **no**
+    // stylesheet in the workspace reads — the `popup-enter` / `popup-leave`
+    // keyframes read the `--mlv-popup-enter-from-*` / `--mlv-popup-leave-to-*`
+    // set instead — so this pins the computed, not a visual effect.
+    const ltr = popup();
+    const rtl = popup();
+    ltr.updateArrowFromPosition(INLINE_START_OF_TRIGGER, 'ltr');
+    rtl.updateArrowFromPosition(INLINE_START_OF_TRIGGER, 'rtl');
+    expect(ltr.popupHiddenTransform()).toBe('translateX(4px)');
+    expect(rtl.popupHiddenTransform()).toBe('translateX(-4px)');
   });
 });

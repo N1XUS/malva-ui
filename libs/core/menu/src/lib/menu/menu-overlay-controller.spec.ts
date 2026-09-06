@@ -11,7 +11,11 @@ import {
   signal,
 } from '@angular/core';
 import type { NgZone } from '@angular/core';
-import type { ConnectedPosition, OverlayRef } from '@angular/cdk/overlay';
+import type {
+  ConnectedOverlayPositionChange,
+  ConnectedPosition,
+  OverlayRef,
+} from '@angular/cdk/overlay';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import {
   MENU_POSITIONS,
@@ -19,6 +23,7 @@ import {
   SUBMENU_POSITIONS,
 } from '@malva-ui/core/popup';
 import type { MlvPopupHandle, MlvPopupOpenConfig } from '@malva-ui/core/popup';
+import type { MlvDirection } from '@malva-ui/cdk/utils';
 import { Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { DOCUMENT } from '@angular/common';
@@ -48,7 +53,10 @@ interface PopupLike {
   lockFullscreenForOpen(): boolean;
   releaseFullscreenLock(): void;
   popupTemplate(): TemplateRef<unknown>;
-  updateArrowFromPosition(position: ConnectedPosition): void;
+  updateArrowFromPosition(
+    position: ConnectedPosition,
+    direction?: MlvDirection,
+  ): void;
 }
 
 interface MenuLike {
@@ -605,5 +613,36 @@ describe('MlvMenuOverlayController', () => {
     expect(isolatedNet.get('mousemove')).toBe(0);
 
     vi.restoreAllMocks();
+  });
+
+  // ---------------------------------------------------------------------
+  // Arrow direction (#163)
+  //
+  // `mlv-menu` is the third overlay owner. The pane it opens is portaled to
+  // <body> and takes its direction from the trigger, so the pair CDK reports
+  // is mirrored against that direction and not against the document's.
+  // ---------------------------------------------------------------------
+  it('forwards the pane direction alongside the resolved position pair', async () => {
+    const { menu, controller, popupHarness } = createController();
+    controller.open();
+    await flushOpenLifecycle();
+
+    const pair: ConnectedPosition = {
+      originX: 'end',
+      originY: 'top',
+      overlayX: 'start',
+      overlayY: 'top',
+    };
+    popupHarness.config?.onPositionChange?.(
+      { connectionPair: pair } as ConnectedOverlayPositionChange,
+      'rtl',
+    );
+
+    // Without the direction the popup falls back to LTR and puts a menu that
+    // opened to the *left* of its trigger's arrow on the left edge as well.
+    expect(menu.popup.updateArrowFromPosition).toHaveBeenCalledWith(
+      pair,
+      'rtl',
+    );
   });
 });

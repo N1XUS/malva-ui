@@ -209,8 +209,8 @@ export class MlvMenuOverlayController {
         }
       },
       onRequestClose: () => menu.close(),
-      onPositionChange: (change) =>
-        popup.updateArrowFromPosition(change.connectionPair),
+      onPositionChange: (change, direction) =>
+        popup.updateArrowFromPosition(change.connectionPair, direction),
     });
 
     popup.opened.set(true);
