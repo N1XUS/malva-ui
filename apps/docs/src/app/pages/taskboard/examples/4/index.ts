@@ -4,7 +4,7 @@ import {
   computed,
   signal,
 } from '@angular/core';
-import { MlvAvatar } from '@malva-ui/core/avatar';
+import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
 import type {
@@ -73,7 +73,13 @@ const TICKETS: readonly Ticket[] = [
 @Component({
   selector: 'docs-taskboard-selection-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvAvatar, MlvButton, MlvTaskboard, MlvTaskboardItemDef],
+  imports: [
+    MlvAvatar,
+    MlvColorFromTextPipe,
+    MlvButton,
+    MlvTaskboard,
+    MlvTaskboardItemDef,
+  ],
   templateUrl: './index.html',
   styleUrl: './index.scss',
 })

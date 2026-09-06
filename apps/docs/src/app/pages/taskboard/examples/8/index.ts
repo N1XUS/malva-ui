@@ -5,7 +5,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { MlvAvatar } from '@malva-ui/core/avatar';
+import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvDialogService } from '@malva-ui/core/dialog';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
@@ -76,7 +76,13 @@ const CSV_FIELDS: readonly MlvTaskboardCsvField<Ticket>[] = [
 @Component({
   selector: 'docs-taskboard-history-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvAvatar, MlvButton, MlvTaskboard, MlvTaskboardItemDef],
+  imports: [
+    MlvAvatar,
+    MlvColorFromTextPipe,
+    MlvButton,
+    MlvTaskboard,
+    MlvTaskboardItemDef,
+  ],
   templateUrl: './index.html',
   styleUrl: './index.scss',
 })

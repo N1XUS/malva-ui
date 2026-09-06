@@ -73,7 +73,12 @@
       }
     </span>
     <span class="ticket__footer">
-      <mlv-avatar class="ticket__avatar" size="xs" [name]="card.owner" />
+      <mlv-avatar
+        class="ticket__avatar"
+        size="xs"
+        [name]="card.owner"
+        [color]="card.owner | mlvColorFromText"
+      />
       @if (card.progress !== undefined) {
         <mlv-progress
           class="ticket__progress"

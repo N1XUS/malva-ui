@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { LucideChevronDown } from '@lucide/angular';
-import { MlvAvatar } from '@malva-ui/core/avatar';
+import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvProgress } from '@malva-ui/core/progress';
 import {
@@ -113,6 +113,7 @@ const TICKETS: readonly Ticket[] = [
   imports: [
     LucideChevronDown,
     MlvAvatar,
+    MlvColorFromTextPipe,
     MlvButton,
     MlvProgress,
     MlvTaskboard,

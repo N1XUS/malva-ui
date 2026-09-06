@@ -4,7 +4,7 @@ import {
   computed,
   signal,
 } from '@angular/core';
-import { MlvAvatar } from '@malva-ui/core/avatar';
+import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import { MlvProgress } from '@malva-ui/core/progress';
 import { MlvSearchField } from '@malva-ui/core/search-field';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
@@ -77,6 +77,7 @@ const TICKETS = buildTickets();
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MlvAvatar,
+    MlvColorFromTextPipe,
     MlvProgress,
     MlvSearchField,
     MlvTaskboard,

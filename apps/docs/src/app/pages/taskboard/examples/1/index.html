@@ -20,7 +20,12 @@
       }
     </span>
     <span class="ticket__footer">
-      <mlv-avatar class="ticket__avatar" size="xs" [name]="card.owner" />
+      <mlv-avatar
+        class="ticket__avatar"
+        size="xs"
+        [name]="card.owner"
+        [color]="card.owner | mlvColorFromText"
+      />
     </span>
   </ng-template>
 </mlv-taskboard>

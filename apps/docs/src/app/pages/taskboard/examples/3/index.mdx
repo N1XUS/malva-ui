@@ -4,7 +4,7 @@ Four gates decide whether one slot accepts a card, and a drag session evaluates 
 
 1. `locked` — the card is in `lockedItemIds`, or its source or target column or lane carries `locked: true`.
 2. `transition` — `transitions` is set and holds no `{ from, to }` pair for that column change. Include the same-column pair (`{ from: 'draft', to: 'draft' }`) if reordering inside a column should stay possible.
-3. `wip` — a column, group, or lane limit would be exceeded.
+3. `wip` — a column, group, or lane limit would be exceeded. **Active** carries `wipLimit: 2` and already holds two cards, so its count pill renders in the warning tone (`data-mlv-taskboard-wip="at-limit"`) and a third card is refused here before `canDropFn` is ever asked.
 4. `policy` — your `canDropFn` returned `false`.
 
 That recorded reason is the exported `MlvTaskboardDenialReason` union, and it is what the keyboard announcement reads out, so what the board says can never disagree with what it refused.

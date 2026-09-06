@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { LucideLock } from '@lucide/angular';
-import { MlvAvatar } from '@malva-ui/core/avatar';
+import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
 import type {
   MlvTaskboardCanDropFn,
@@ -69,7 +69,13 @@ const TICKETS: readonly Ticket[] = [
 @Component({
   selector: 'docs-taskboard-policies-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LucideLock, MlvAvatar, MlvTaskboard, MlvTaskboardItemDef],
+  imports: [
+    LucideLock,
+    MlvAvatar,
+    MlvColorFromTextPipe,
+    MlvTaskboard,
+    MlvTaskboardItemDef,
+  ],
   templateUrl: './index.html',
   styleUrl: './index.scss',
 })
@@ -77,10 +83,14 @@ export default class TaskboardPoliciesExampleComponent {
   /** `archived` is locked: nothing enters it and nothing leaves it. */
   readonly columns = signal<readonly MlvTaskboardColumn[]>([
     { id: 'draft', label: 'Draft', accent: 'var(--mlv-background-info-1)' },
+    // Two cards live here and the limit is two, so the built-in count pill
+    // renders in its warning tone and a third card is refused with `wip` —
+    // the third of the four gates this example is about.
     {
       id: 'active',
       label: 'Active',
       accent: 'var(--mlv-background-success-1)',
+      wipLimit: 2,
     },
     {
       id: 'blocked',

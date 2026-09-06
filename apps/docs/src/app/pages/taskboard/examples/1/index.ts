@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
-import { MlvAvatar } from '@malva-ui/core/avatar';
+import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
 import type {
   MlvTaskboardColumn,
@@ -60,7 +60,7 @@ const TICKETS: readonly Ticket[] = [
 @Component({
   selector: 'docs-taskboard-basic-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvAvatar, MlvTaskboard, MlvTaskboardItemDef],
+  imports: [MlvAvatar, MlvColorFromTextPipe, MlvTaskboard, MlvTaskboardItemDef],
   templateUrl: './index.html',
   styleUrl: './index.scss',
 })

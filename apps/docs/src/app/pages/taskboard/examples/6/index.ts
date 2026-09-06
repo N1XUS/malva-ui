@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import type { MlvDensity } from '@malva-ui/cdk/density';
-import { MlvAvatar } from '@malva-ui/core/avatar';
+import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
 import type { MlvTaskboardColumn } from '@malva-ui/taskboard';
@@ -66,6 +66,7 @@ const TICKETS: readonly Ticket[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MlvAvatar,
+    MlvColorFromTextPipe,
     MlvSegmented,
     MlvSegmentedItem,
     MlvTaskboard,
