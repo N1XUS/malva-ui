@@ -1,4 +1,5 @@
 import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
+import type { ListRange } from '@angular/cdk/collections';
 import {
   DOWN_ARROW,
   LEFT_ARROW,
@@ -33,6 +34,7 @@ import {
   MlvDensityDirective,
 } from '@malva-ui/cdk/density';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import type { Subscription } from 'rxjs';
 import {
   MLV_TASKBOARD_I18N,
   MlvI18nResolverService,
@@ -187,6 +189,20 @@ interface MlvTaskboardGroupRun {
   readonly group: MlvTaskboardColumnGroup | undefined;
   /** Number of column tracks the run occupies. */
   span: number;
+}
+
+/**
+ * One navigable cell, paired with the cards it currently has elements for.
+ *
+ * `rendered` is `items` itself on a plain board and the virtual window's slice
+ * on a virtualized one, so a reader that needs a card the user can actually
+ * reach — the tab stop — never has to know which of the two it is looking at.
+ */
+interface MlvTaskboardNavigableCell<TItem> {
+  /** Every navigable card in the cell, in board order. */
+  readonly items: readonly TItem[];
+  /** The subset of them the board has an element for right now. */
+  readonly rendered: readonly TItem[];
 }
 
 /** Where the live drop indicator renders inside one board cell. */
@@ -546,21 +562,83 @@ export class MlvTaskboard<TItem> {
   });
 
   /**
+   * @private The window each virtualized cell currently renders, keyed by its
+   * bucket token. CDK's `renderedRangeStream` is a bare `Subject` with no
+   * replay, so an entry is seeded from `getRenderedRange()` when its viewport
+   * is first seen and kept current from the stream after that. A bucket with
+   * no entry — a plain cell, or one whose viewport has not rendered yet — has
+   * every card of the bucket on the page.
+   */
+  private readonly _renderedRanges = signal<ReadonlyMap<string, ListRange>>(
+    new Map(),
+  );
+
+  /**
+   * @private Every navigable cell in reading order, each paired with the cards
+   * it has elements for. On a virtualized board that is the cell's slice of
+   * the rendered window; on a plain one it is the whole bucket.
+   */
+  private readonly _navigableCells = computed<
+    readonly MlvTaskboardNavigableCell<TItem>[]
+  >(() => {
+    const index = this._index();
+    const ranges =
+      this._virtualItemSize() === null ? undefined : this._renderedRanges();
+    const cells: MlvTaskboardNavigableCell<TItem>[] = [];
+    for (const swimlaneId of this._navigableSwimlaneIds()) {
+      for (const columnId of this._navigableColumnIds()) {
+        const items = index.itemsFor(columnId, swimlaneId);
+        const range = ranges?.get(
+          mlvTaskboardBucketToken(columnId, swimlaneId),
+        );
+        cells.push({
+          items,
+          rendered:
+            range === undefined ? items : items.slice(range.start, range.end),
+        });
+      }
+    }
+    return cells;
+  });
+
+  /**
    * @private The card that owns the board's single tab stop. The focused card
    * keeps it only while the board still renders it: once it is filtered out,
    * removed, or collapsed away the stop falls back to the first card in
    * reading order, so the board never drops out of the tab sequence.
+   *
+   * A virtualized cell renders only its window, so "still renders it" is not
+   * the same question as "still holds it": a card scrolled out of the window
+   * is navigable but has no element to carry `tabindex="0"`. The stop then
+   * moves to the first rendered card of the same cell, else to the first
+   * rendered card anywhere — so a board with any card on the page always has
+   * exactly one, and a plain board keeps the candidate it always had.
    */
   private readonly _tabbableCardId = computed<MlvTaskboardKey | undefined>(
     () => {
       const focus = this._keyboard.focus();
-      if (
+      const candidate =
         focus !== null &&
         this._navigableCardTokens().has(mlvTaskboardKeyToken(focus.itemId))
-      ) {
-        return focus.itemId;
+          ? focus.itemId
+          : this._firstNavigableCard();
+      if (candidate === undefined) return undefined;
+      const token = mlvTaskboardKeyToken(candidate);
+      const holds = (item: TItem): boolean =>
+        mlvTaskboardKeyToken(this._itemId(item)) === token;
+      let candidateCell: MlvTaskboardNavigableCell<TItem> | undefined;
+      let firstRendered: TItem | undefined;
+      for (const cell of this._navigableCells()) {
+        if (firstRendered === undefined && cell.rendered.length > 0) {
+          firstRendered = cell.rendered[0];
+        }
+        if (candidateCell !== undefined) continue;
+        if (!cell.items.some(holds)) continue;
+        if (cell.rendered.some(holds)) return candidate;
+        candidateCell = cell;
       }
-      return this._firstNavigableCard();
+      const fallback = candidateCell?.rendered[0] ?? firstRendered;
+      return fallback === undefined ? undefined : this._itemId(fallback);
     },
   );
 
@@ -735,6 +813,40 @@ export class MlvTaskboard<TItem> {
       columns: () => this.columns(),
       canReorderColumn: () => this.canReorderColumnFn(),
       reorderColumns: (next) => this._applyColumnOrder(next),
+    });
+    // The tab stop has to name a card that is on the page, so the rendered
+    // window of every virtual cell is mirrored into a signal. The stream is
+    // re-subscribed whenever the set of viewports changes, so the release
+    // belongs to this effect's cleanup rather than to `takeUntilDestroyed`,
+    // which would fire only at destroy and leak every earlier generation.
+    effect((onCleanup) => {
+      const viewports = this._cardViewports();
+      const subscriptions: Subscription[] = [];
+      untracked(() => {
+        const ranges = new Map<string, ListRange>();
+        for (const viewport of viewports) {
+          const bucket = this._resolveBucket(viewport.elementRef.nativeElement);
+          if (bucket === undefined) continue;
+          const token = mlvTaskboardBucketToken(
+            bucket.columnId,
+            bucket.swimlaneId,
+          );
+          ranges.set(token, viewport.getRenderedRange());
+          subscriptions.push(
+            viewport.renderedRangeStream.subscribe((range) => {
+              this._renderedRanges.update((current) => {
+                const next = new Map(current);
+                next.set(token, range);
+                return next;
+              });
+            }),
+          );
+        }
+        this._renderedRanges.set(ranges);
+      });
+      onCleanup(() => {
+        for (const subscription of subscriptions) subscription.unsubscribe();
+      });
     });
     // Logical focus outlives the element it names, so a card the board stops
     // rendering would keep every later arrow step anchored to a cell that is
@@ -926,8 +1038,11 @@ export class MlvTaskboard<TItem> {
       const token = mlvTaskboardKeyToken(key);
       const current = held.get(key);
       // A card the board no longer holds is not brought back, and a captured
-      // array that names one card twice places it once.
-      if (current === undefined || placed.has(token)) continue;
+      // array that names one card twice places it once. The truthiness guard
+      // is what `applyMlvTaskboardMove` uses for the same lookup: `TItem` is
+      // unconstrained, so a value narrowed only against `undefined` is still
+      // nullable to the compiler and cannot be indexed.
+      if (!current || placed.has(token)) continue;
       placed.add(token);
       const capturedColumn = captured[columnField] as MlvTaskboardKey;
       const capturedLane =

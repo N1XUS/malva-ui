@@ -155,7 +155,7 @@ Key comparison helpers (`mlvTaskboardKeyToken`, `sameMlvTaskboardKey`, `mlvTaskb
 
 ## Keyboard map
 
-Exactly one card is tabbable — the last focused one, else the first card in reading order. When the focused card leaves the rendered set — filtered out through `visibleItems`, removed from `items`, or inside a collapsed column or lane — the stale logical focus is **cleared** and the tab stop falls back to the first navigable card, so a later arrow step is not resolved against a cell that is no longer there.
+Exactly one card is tabbable — the last focused one, else the first card in reading order. When the focused card leaves the rendered set — filtered out through `visibleItems`, removed from `items`, or inside a collapsed column or lane — the stale logical focus is **cleared** and the tab stop falls back to the first navigable card, so a later arrow step is not resolved against a cell that is no longer there. A virtualized cell renders only its window, so a card can be navigable and still have no element: when the window has scrolled past the card that would own the stop, it moves to the first rendered card of that cell, else to the first rendered card anywhere. Whenever the board renders a card at all, exactly one rendered card carries `tabindex="0"`.
 
 | Key                        | While navigating              | While grabbed                                                                                                                                             |
 | -------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -219,6 +219,7 @@ The built-in column header renders `mlv-taskboard__column-title`, an optional in
 - Every DOM-derived slot index is offset by the cell's rendered start through `taskboard-virtual.ts` (`mlvTaskboardBucketIndex` / `mlvTaskboardRenderedIndex`, package-private), so a drop into a scrolled cell lands where it looks like it landed.
 - `virtualItemSize` is the whole pitch from one card to the next — the card **plus** the `--mlv-taskboard-card-gap` beneath it — because CDK's fixed-size strategy computes offsets from it. A virtualized cell cannot space its cards with the container's `gap` (the viewport's only child is CDK's content wrapper), so the gap rides on the card as a `margin-block-end` and the board applies `virtualItemSize` **minus** that gap as the card's `min-block-size`. The number is pixels against rem-based card metrics, so it holds only at the density and root font size it was measured at.
 - Keyboard focus scrolls an off-window card in first and focuses it after that render.
+- Each cell's rendered window is mirrored into a signal from CDK's `renderedRangeStream`, so the tab stop follows the window instead of naming a card that scrolled out of the DOM.
 - A cell whose content is projected through `mlvTaskboardColumnContentDef` is never virtualized.
 - `print()` clears virtualization for one render; a browser-initiated print does not.
 

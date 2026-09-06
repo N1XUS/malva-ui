@@ -77,6 +77,13 @@ class VirtualHost {
   ];
 }
 
+/** Card ids of every rendered card the board puts in the tab sequence. */
+function tabStops(host: HTMLElement): readonly string[] {
+  return Array.from(
+    host.querySelectorAll('[data-mlv-taskboard-card-id][tabindex="0"]'),
+  ).map((element) => element.getAttribute('data-mlv-taskboard-card-id') ?? '');
+}
+
 /** The board's live drop preview, which is protected on the component. */
 function previewIndexOf(board: MlvTaskboard<Ticket>): number | undefined {
   return (
@@ -234,5 +241,37 @@ describe('MlvTaskboard virtual cells', () => {
     );
     fixture.detectChanges();
     expect(scrollToIndex).toHaveBeenCalledWith(2);
+  });
+
+  it('moves the tab stop into the window when it scrolls past the focused card', async () => {
+    const { fixture, host, viewportFor, card } = await mountVirtual();
+    card('c0').focus();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(tabStops(host)).toEqual(['string:c0']);
+
+    // The window moves past the focused card, so it leaves the DOM: a tab stop
+    // left on it would take the whole board out of the tab sequence.
+    viewportFor('todo').setRenderedRange({ start: 10, end: 15 });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(card('c0')).toBeNull();
+    expect(tabStops(host)).toEqual(['string:c10']);
+  });
+
+  it('falls back to another cell when the focused one renders nothing', async () => {
+    const { fixture, host, viewportFor, card } = await mountVirtual();
+    card('c0').focus();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    viewportFor('todo').setRenderedRange({ start: 0, end: 0 });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(tabStops(host)).toEqual(['string:x']);
   });
 });
