@@ -74,6 +74,14 @@
       text-align: start;
     }
 
+    // The column strip scrolls through `mlv-scrollbar`, so the themed track is
+    // the only bar the board ever shows on this axis (R44). The host is a grid
+    // whose single cell is the viewport, so it needs a floor of its own to be
+    // allowed to shrink below the surface's intrinsic inline size.
+    &__strip {
+      min-inline-size: 0;
+    }
+
     &__surface {
       display: flex;
       flex-direction: column;
@@ -81,7 +89,6 @@
       // nothing separates the rows; the inline gutter between columns lives on
       // each grid row instead, and laned boards space their bands themselves.
       row-gap: 0;
-      overflow-x: auto;
     }
 
     &__group-row,
@@ -287,6 +294,29 @@
       }
     }
 
+    // Each cell's cards area scrolls through `mlv-scrollbar` too. A plain cell
+    // is wrapped, so the component's own viewport is the scroll box; the
+    // wrapper has to carry the cell's column layout through to the list, or
+    // the list would stop filling the panel and stop being a full-height drop
+    // target.
+    &__cell-scroller {
+      display: grid;
+      flex: 1 1 auto;
+      min-block-size: 0;
+    }
+
+    &__cell-scroller > .mlv-scrollbar__viewport > .mlv-scrollbar__content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    // A virtual cell is decorated, not wrapped: the CDK viewport stays the
+    // scroll box and keeps its own fixed block size, so the wrapper is a bare
+    // layout box around it.
+    &__cell-scroller--virtual {
+      flex: 0 0 auto;
+    }
+
     &__cards {
       display: flex;
       flex: 1 1 auto;
@@ -295,7 +325,9 @@
       min-block-size: var(--mlv-spacing-6);
       border-radius: var(--mlv-radius-card);
       outline: var(--mlv-stroke-width-medium) solid transparent;
-      outline-offset: var(--mlv-focus-ring-offset);
+      // Inset, because the list now sits inside a scroll box that clips: an
+      // outward offset would put the drop outline under the viewport's edge.
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
       transition: outline-color var(--mlv-duration-fast) var(--mlv-ease-default);
     }
 
@@ -306,6 +338,14 @@
       flex: 0 0 auto;
       block-size: var(--mlv-taskboard-cell-block-size, 20rem);
       overflow-y: auto;
+      // The viewport is the decorated scroll box, so its native bar gives way
+      // to the themed track `mlv-scrollbar` draws over it (R44).
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
 
       .mlv-taskboard__card {
         // The viewport's only child is CDK's content wrapper, so the `gap` on
@@ -502,6 +542,17 @@
 
       #{$block}__surface {
         overflow: visible;
+      }
+
+      // Every scroll box the board owns is an `mlv-scrollbar` viewport now, so
+      // un-clipping the board means un-clipping those too, and the overlay
+      // tracks have nothing to point at on paper.
+      .mlv-scrollbar__viewport {
+        overflow: visible;
+      }
+
+      .mlv-scrollbar__track {
+        display: none;
       }
 
       #{$block}__cards,

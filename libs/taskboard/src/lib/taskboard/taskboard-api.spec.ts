@@ -1,6 +1,8 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   MlvTaskboardColumn,
@@ -240,12 +242,34 @@ describe('MlvTaskboard public surface', () => {
     expect(live()).toBe('');
   });
 
-  it('restores a plain cell scroll offset after the next render', async () => {
+  it('captures and restores a plain cell offset on the element that scrolls', async () => {
     const { fixture, host } = await mount();
-    // This board declares no `virtualItemSize`, so the cell restored here is
-    // the plain `.mlv-taskboard__cards` scroller, not a virtual viewport.
-    const cell = host.querySelector('.mlv-taskboard__cards') as HTMLElement;
+    // This board declares no `virtualItemSize`, so the cell is a plain cards
+    // list — and the element that actually scrolls is the `mlv-scrollbar`
+    // viewport wrapped around it, not the list itself. Asserting on the
+    // wrapper is the point: an offset written to a box with no overflow is
+    // silently discarded, and the snapshot would restore nothing.
+    const cards = host.querySelector('.mlv-taskboard__cards') as HTMLElement;
+    // The *nearest* enclosing viewport, not any enclosing one: the column
+    // strip's scrollbar also contains this list, and writing an offset there
+    // would prove nothing about the cell.
+    const scroller = cards.closest<HTMLElement>('.mlv-scrollbar__viewport');
+    expect(scroller).not.toBeNull();
+    expect(
+      fixture.debugElement
+        .queryAll(By.directive(MlvScrollbar))
+        .map((debugElement) => debugElement.injector.get(MlvScrollbar))
+        .map((scrollbar) => scrollbar.viewportElement),
+    ).toContain(scroller);
 
+    (scroller as HTMLElement).scrollTop = 24;
+    expect(
+      fixture.componentInstance.board().snapshot().cellScrollPositions[
+        'string:todo|undefined'
+      ],
+    ).toBe(24);
+
+    (scroller as HTMLElement).scrollTop = 0;
     fixture.componentInstance.board().restore({
       columnIds: ['todo', 'done'],
       collapsedColumnIds: [],
@@ -256,7 +280,7 @@ describe('MlvTaskboard public surface', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(cell.scrollTop).toBe(24);
+    expect((scroller as HTMLElement).scrollTop).toBe(24);
   });
 
   it('restores the card placement a snapshot captured', async () => {

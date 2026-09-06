@@ -12,143 +12,150 @@
     </div>
   }
 
-  <div
-    class="mlv-taskboard__surface"
-    role="rowgroup"
-    [style.--mlv-taskboard-column-count]="columns().length"
-  >
-    @if (columnGroups().length > 0) {
-      <div class="mlv-taskboard__group-row" role="row">
-        <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
-        @for (run of _groupRuns(); track run.key) {
-          @if (run.group; as group) {
-            <div
-              class="mlv-taskboard__group"
-              role="columnheader"
-              [style.grid-column]="'span ' + run.span"
-              [style.--mlv-taskboard-group-accent]="group.accent ?? null"
-              [attr.aria-colspan]="run.span"
-              [attr.data-mlv-taskboard-group-id]="_keyAttribute(group.id)"
-              [attr.aria-label]="group.label"
-            >
-              @if (_groupDefs()[0]; as groupDef) {
-                <ng-container
-                  [ngTemplateOutlet]="groupDef.templateRef"
-                  [ngTemplateOutletContext]="_groupContext(group)"
-                />
-              } @else {
-                <span class="mlv-taskboard__group-title">{{
-                  group.label
-                }}</span>
-              }
-            </div>
-          } @else {
-            <div
-              class="mlv-taskboard__group mlv-taskboard__group--spacer"
-              aria-hidden="true"
-              [style.grid-column]="'span ' + run.span"
-            ></div>
+  <mlv-scrollbar class="mlv-taskboard__strip" orientation="horizontal">
+    <div
+      class="mlv-taskboard__surface"
+      role="rowgroup"
+      [style.--mlv-taskboard-column-count]="columns().length"
+    >
+      @if (columnGroups().length > 0) {
+        <div class="mlv-taskboard__group-row" role="row">
+          <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
+          @for (run of _groupRuns(); track run.key) {
+            @if (run.group; as group) {
+              <div
+                class="mlv-taskboard__group"
+                role="columnheader"
+                [style.grid-column]="'span ' + run.span"
+                [style.--mlv-taskboard-group-accent]="group.accent ?? null"
+                [attr.aria-colspan]="run.span"
+                [attr.data-mlv-taskboard-group-id]="_keyAttribute(group.id)"
+                [attr.aria-label]="group.label"
+              >
+                @if (_groupDefs()[0]; as groupDef) {
+                  <ng-container
+                    [ngTemplateOutlet]="groupDef.templateRef"
+                    [ngTemplateOutletContext]="_groupContext(group)"
+                  />
+                } @else {
+                  <span class="mlv-taskboard__group-title">{{
+                    group.label
+                  }}</span>
+                }
+              </div>
+            } @else {
+              <div
+                class="mlv-taskboard__group mlv-taskboard__group--spacer"
+                aria-hidden="true"
+                [style.grid-column]="'span ' + run.span"
+              ></div>
+            }
           }
+        </div>
+      }
+      <div class="mlv-taskboard__column-row" role="row" mlvTaskboardColumnsHost>
+        <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
+        @for (column of columns(); track column.id) {
+          <div
+            class="mlv-taskboard__column-header"
+            role="columnheader"
+            [attr.id]="_columnHeaderId(column)"
+            [style.--mlv-taskboard-column-accent]="column.accent ?? null"
+            [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
+            [attr.data-mlv-taskboard-column-locked]="
+              _isColumnLocked(column) || null
+            "
+            [attr.data-collapsed]="_isColumnCollapsed(column) || null"
+          >
+            @if (_columnHeaderDefs()[0]; as columnHeaderDef) {
+              <ng-container
+                [ngTemplateOutlet]="columnHeaderDef.templateRef"
+                [ngTemplateOutletContext]="_columnContext(column)"
+              />
+            } @else {
+              <span class="mlv-taskboard__column-title">{{
+                column.label
+              }}</span>
+              @if (_isColumnLocked(column)) {
+                <svg
+                  class="mlv-taskboard__lock"
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="4" y="10" width="16" height="11" rx="2" />
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                </svg>
+              }
+              <!--
+                An interpolated space, not a whitespace-only text node Angular
+                would strip: the cell's `aria-labelledby` name is built from this
+                header's text, and "Todo1/2" is not what the column is called.
+              -->
+              {{ ' '
+              }}<span
+                class="mlv-taskboard__count"
+                [attr.data-mlv-taskboard-wip]="
+                  _wipAtLimit(column) ? 'at-limit' : null
+                "
+                >{{ _wipLabel(column) }}</span
+              >
+            }
+          </div>
         }
       </div>
-    }
-    <div class="mlv-taskboard__column-row" role="row" mlvTaskboardColumnsHost>
-      <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
-      @for (column of columns(); track column.id) {
+      @for (swimlane of swimlanes(); track swimlane.id) {
         <div
-          class="mlv-taskboard__column-header"
-          role="columnheader"
-          [attr.id]="_columnHeaderId(column)"
-          [style.--mlv-taskboard-column-accent]="column.accent ?? null"
-          [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
-          [attr.data-mlv-taskboard-column-locked]="
-            _isColumnLocked(column) || null
-          "
-          [attr.data-collapsed]="_isColumnCollapsed(column) || null"
+          class="mlv-taskboard__lane"
+          role="row"
+          [attr.data-mlv-taskboard-swimlane-id]="_keyAttribute(swimlane.id)"
+          [attr.data-collapsed]="_isSwimlaneCollapsed(swimlane) || null"
         >
-          @if (_columnHeaderDefs()[0]; as columnHeaderDef) {
-            <ng-container
-              [ngTemplateOutlet]="columnHeaderDef.templateRef"
-              [ngTemplateOutletContext]="_columnContext(column)"
-            />
-          } @else {
-            <span class="mlv-taskboard__column-title">{{ column.label }}</span>
-            @if (_isColumnLocked(column)) {
-              <svg
-                class="mlv-taskboard__lock"
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <rect x="4" y="10" width="16" height="11" rx="2" />
-                <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-              </svg>
+          <div
+            class="mlv-taskboard__lane-header"
+            role="rowheader"
+            [attr.id]="_laneHeaderId(swimlane)"
+          >
+            @if (_swimlaneDefs()[0]; as swimlaneDef) {
+              <ng-container
+                [ngTemplateOutlet]="swimlaneDef.templateRef"
+                [ngTemplateOutletContext]="_swimlaneContext(swimlane)"
+              />
+            } @else {
+              <span class="mlv-taskboard__lane-title">{{ swimlane.label }}</span
+              >{{ ' '
+              }}<span class="mlv-taskboard__count">{{
+                _laneCount(swimlane)
+              }}</span>
             }
-            <!--
-              An interpolated space, not a whitespace-only text node Angular
-              would strip: the cell's `aria-labelledby` name is built from this
-              header's text, and "Todo1/2" is not what the column is called.
-            -->
-            {{ ' '
-            }}<span
-              class="mlv-taskboard__count"
-              [attr.data-mlv-taskboard-wip]="
-                _wipAtLimit(column) ? 'at-limit' : null
-              "
-              >{{ _wipLabel(column) }}</span
-            >
+          </div>
+          @for (column of columns(); track column.id) {
+            <ng-container
+              [ngTemplateOutlet]="cellTemplate"
+              [ngTemplateOutletContext]="{ column, swimlane }"
+            />
+          }
+        </div>
+      } @empty {
+        <div
+          class="mlv-taskboard__lane mlv-taskboard__lane--default"
+          role="row"
+        >
+          <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
+          @for (column of columns(); track column.id) {
+            <ng-container
+              [ngTemplateOutlet]="cellTemplate"
+              [ngTemplateOutletContext]="{ column, swimlane: undefined }"
+            />
           }
         </div>
       }
     </div>
-    @for (swimlane of swimlanes(); track swimlane.id) {
-      <div
-        class="mlv-taskboard__lane"
-        role="row"
-        [attr.data-mlv-taskboard-swimlane-id]="_keyAttribute(swimlane.id)"
-        [attr.data-collapsed]="_isSwimlaneCollapsed(swimlane) || null"
-      >
-        <div
-          class="mlv-taskboard__lane-header"
-          role="rowheader"
-          [attr.id]="_laneHeaderId(swimlane)"
-        >
-          @if (_swimlaneDefs()[0]; as swimlaneDef) {
-            <ng-container
-              [ngTemplateOutlet]="swimlaneDef.templateRef"
-              [ngTemplateOutletContext]="_swimlaneContext(swimlane)"
-            />
-          } @else {
-            <span class="mlv-taskboard__lane-title">{{ swimlane.label }}</span
-            >{{ ' '
-            }}<span class="mlv-taskboard__count">{{
-              _laneCount(swimlane)
-            }}</span>
-          }
-        </div>
-        @for (column of columns(); track column.id) {
-          <ng-container
-            [ngTemplateOutlet]="cellTemplate"
-            [ngTemplateOutletContext]="{ column, swimlane }"
-          />
-        }
-      </div>
-    } @empty {
-      <div class="mlv-taskboard__lane mlv-taskboard__lane--default" role="row">
-        <div class="mlv-taskboard__lane-spacer" aria-hidden="true"></div>
-        @for (column of columns(); track column.id) {
-          <ng-container
-            [ngTemplateOutlet]="cellTemplate"
-            [ngTemplateOutletContext]="{ column, swimlane: undefined }"
-          />
-        }
-      </div>
-    }
-  </div>
+  </mlv-scrollbar>
 </div>
 
 <p class="mlv-taskboard__instructions" [id]="_instructionsId">
@@ -178,66 +185,87 @@
       />
     } @else {
       @if (_virtualItemSize(); as itemSize) {
-        <cdk-virtual-scroll-viewport
-          class="mlv-taskboard__cards mlv-taskboard__cards--virtual"
-          mlvTaskboardCardsHost
-          role="listbox"
-          aria-multiselectable="true"
-          [attr.aria-labelledby]="_cellLabelledBy(column, swimlane)"
-          [itemSize]="itemSize"
-          [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
-          [attr.data-mlv-taskboard-swimlane-id]="
-            swimlane === undefined ? null : _keyAttribute(swimlane.id)
-          "
+        <!-- The CDK viewport stays the real scroller: `getRenderedRange()` and
+             `scrollToIndex()` act on that element, so `[scroller]` points the
+             tracks at it instead of wrapping it in a second scroll box. -->
+        <mlv-scrollbar
+          class="mlv-taskboard__cell-scroller mlv-taskboard__cell-scroller--virtual"
+          [scroller]="cardsViewport.elementRef"
         >
-          <ng-container
-            *cdkVirtualFor="
-              let item of _itemsFor(column, swimlane);
-              let cardIndex = index;
-              trackBy: _trackCard
+          <cdk-virtual-scroll-viewport
+            #cardsViewport
+            class="mlv-taskboard__cards mlv-taskboard__cards--virtual"
+            mlvTaskboardCardsHost
+            role="listbox"
+            aria-multiselectable="true"
+            [attr.aria-labelledby]="_cellLabelledBy(column, swimlane)"
+            [itemSize]="itemSize"
+            [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
+            [attr.data-mlv-taskboard-swimlane-id]="
+              swimlane === undefined ? null : _keyAttribute(swimlane.id)
             "
           >
             <ng-container
-              [ngTemplateOutlet]="cardTemplate"
-              [ngTemplateOutletContext]="{ item, column, swimlane, cardIndex }"
-            />
-          </ng-container>
-          @if (_isDropTail(column, swimlane)) {
-            <ng-container
-              [ngTemplateOutlet]="dropIndicatorTemplate"
-              [ngTemplateOutletContext]="{ column, swimlane }"
-            />
-          }
-        </cdk-virtual-scroll-viewport>
+              *cdkVirtualFor="
+                let item of _itemsFor(column, swimlane);
+                let cardIndex = index;
+                trackBy: _trackCard
+              "
+            >
+              <ng-container
+                [ngTemplateOutlet]="cardTemplate"
+                [ngTemplateOutletContext]="{
+                  item,
+                  column,
+                  swimlane,
+                  cardIndex,
+                }"
+              />
+            </ng-container>
+            @if (_isDropTail(column, swimlane)) {
+              <ng-container
+                [ngTemplateOutlet]="dropIndicatorTemplate"
+                [ngTemplateOutletContext]="{ column, swimlane }"
+              />
+            }
+          </cdk-virtual-scroll-viewport>
+        </mlv-scrollbar>
       } @else {
-        <div
-          class="mlv-taskboard__cards"
-          mlvTaskboardCardsHost
-          role="listbox"
-          aria-multiselectable="true"
-          [attr.aria-labelledby]="_cellLabelledBy(column, swimlane)"
-          [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
-          [attr.data-mlv-taskboard-swimlane-id]="
-            swimlane === undefined ? null : _keyAttribute(swimlane.id)
-          "
-        >
-          @for (
-            item of _itemsFor(column, swimlane);
-            track _itemId(item);
-            let cardIndex = $index
-          ) {
-            <ng-container
-              [ngTemplateOutlet]="cardTemplate"
-              [ngTemplateOutletContext]="{ item, column, swimlane, cardIndex }"
-            />
-          }
-          @if (_isDropTail(column, swimlane)) {
-            <ng-container
-              [ngTemplateOutlet]="dropIndicatorTemplate"
-              [ngTemplateOutletContext]="{ column, swimlane }"
-            />
-          }
-        </div>
+        <mlv-scrollbar class="mlv-taskboard__cell-scroller">
+          <div
+            class="mlv-taskboard__cards"
+            mlvTaskboardCardsHost
+            role="listbox"
+            aria-multiselectable="true"
+            [attr.aria-labelledby]="_cellLabelledBy(column, swimlane)"
+            [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
+            [attr.data-mlv-taskboard-swimlane-id]="
+              swimlane === undefined ? null : _keyAttribute(swimlane.id)
+            "
+          >
+            @for (
+              item of _itemsFor(column, swimlane);
+              track _itemId(item);
+              let cardIndex = $index
+            ) {
+              <ng-container
+                [ngTemplateOutlet]="cardTemplate"
+                [ngTemplateOutletContext]="{
+                  item,
+                  column,
+                  swimlane,
+                  cardIndex,
+                }"
+              />
+            }
+            @if (_isDropTail(column, swimlane)) {
+              <ng-container
+                [ngTemplateOutlet]="dropIndicatorTemplate"
+                [ngTemplateOutletContext]="{ column, swimlane }"
+              />
+            }
+          </div>
+        </mlv-scrollbar>
       }
       @if (_itemsFor(column, swimlane).length === 0) {
         <ng-container

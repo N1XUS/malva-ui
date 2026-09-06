@@ -34,6 +34,7 @@ import {
   MlvDensityDirective,
 } from '@malva-ui/cdk/density';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import type { Subscription } from 'rxjs';
 import {
   MLV_TASKBOARD_I18N,
@@ -225,6 +226,7 @@ interface MlvTaskboardDropAnchor {
     CdkVirtualForOf,
     CdkVirtualScrollViewport,
     NgTemplateOutlet,
+    MlvScrollbar,
     MlvTaskboardCardsHost,
     MlvTaskboardColumnsHost,
   ],
@@ -670,6 +672,15 @@ export class MlvTaskboard<TItem> {
 
   /** @private Every rendered virtual cell viewport, keyed later by its bucket. */
   private readonly _cardViewports = viewChildren(CdkVirtualScrollViewport);
+
+  /**
+   * @private Every `mlv-scrollbar` the board renders — the column strip plus
+   * one per cell. Read for `viewportElement`, which is the element that really
+   * scrolls in both of the component's modes: its own viewport when it wraps a
+   * plain cards list, and the decorated CDK viewport when it only decorates
+   * one. Snapshot offsets and scroll-into-view have to name that element.
+   */
+  private readonly _scrollbars = viewChildren(MlvScrollbar);
 
   /** @private Runs a post-render callback outside an injection context. */
   private readonly _injector = inject(Injector);
@@ -1878,6 +1889,27 @@ export class MlvTaskboard<TItem> {
     this._committedColumns = this.columns();
   }
 
+  /**
+   * @private The element a cell's cards list actually scrolls in, which since
+   * R44 is no longer the list itself. `mlv-scrollbar` reports it: for a plain
+   * cell the list is wrapped, so the scroller is the nearest enclosing
+   * viewport; for a virtual cell the CDK viewport is decorated, so it *is* the
+   * reported scroller. Walking up from the list finds the cell's scrollbar
+   * before the column strip's, and an unwrapped list (a projected
+   * `mlvTaskboardColumnContentDef`) falls back to itself.
+   */
+  private _scrollerFor(cards: HTMLElement): HTMLElement {
+    const scrollers = new Set(
+      this._scrollbars().map((scrollbar) => scrollbar.viewportElement),
+    );
+    let node: HTMLElement | null = cards;
+    while (node !== null) {
+      if (scrollers.has(node)) return node;
+      node = node.parentElement;
+    }
+    return cards;
+  }
+
   /** @private Every rendered cell's scroll offset, keyed by its bucket token. */
   private _cellScrollPositions(): Record<string, number> {
     const positions: Record<string, number> = {};
@@ -1888,7 +1920,7 @@ export class MlvTaskboard<TItem> {
       const bucket = this._resolveBucket(cell);
       if (bucket === undefined) continue;
       positions[mlvTaskboardBucketToken(bucket.columnId, bucket.swimlaneId)] =
-        cell.scrollTop;
+        this._scrollerFor(cell).scrollTop;
     }
     return positions;
   }
@@ -1906,7 +1938,7 @@ export class MlvTaskboard<TItem> {
       const offset =
         positions[mlvTaskboardBucketToken(bucket.columnId, bucket.swimlaneId)];
       if (offset === undefined) continue;
-      cell.scrollTop = offset;
+      this._scrollerFor(cell).scrollTop = offset;
     }
   }
 

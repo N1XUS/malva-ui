@@ -91,14 +91,16 @@ export default [
                 'family:i18n',
               ],
             },
-            // The taskboard is the second package that sits above core rather
-            // than inside it. Nothing in core may depend back on it, and it
-            // reaches only the CDK and i18n families itself; the docs app
+            // The taskboard is the third package that sits above core rather
+            // than inside it: it composes `mlv-scrollbar` for every scroll
+            // surface it owns, so it reaches the core family as well as CDK
+            // and i18n. Nothing in core may depend back on it; the docs app
             // documents it, so `family:docs` must be able to import it.
             {
               sourceTag: 'family:taskboard',
               onlyDependOnLibsWithTags: [
                 'family:taskboard',
+                'family:core',
                 'family:cdk',
                 'family:i18n',
               ],

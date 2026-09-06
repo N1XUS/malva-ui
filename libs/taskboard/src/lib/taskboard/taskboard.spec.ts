@@ -141,9 +141,18 @@ describe('MlvTaskboard', () => {
     expect(
       host.querySelector('mlv-taskboard')?.getAttribute('role'),
     ).toBeNull();
+    // The strip's `mlv-scrollbar` sits between the grid and its row group, so
+    // the row group is a descendant rather than a child. It is still the only
+    // role the grid owns: the wrappers in between are generic, role-less and
+    // non-focusable, which is exactly what ARIA ownership walks through.
     expect(
-      [...grid.children].map((child) => child.getAttribute('role')),
-    ).toEqual(['rowgroup']);
+      [...grid.querySelectorAll('[role]')].map((node) =>
+        node.getAttribute('role'),
+      )[0],
+    ).toBe('rowgroup');
+    expect(
+      [...grid.children].every((child) => child.getAttribute('role') === null),
+    ).toBe(true);
     expect(
       grid.contains(host.querySelector('.mlv-taskboard__instructions')),
     ).toBe(false);
