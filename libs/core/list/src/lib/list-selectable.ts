@@ -92,7 +92,7 @@ export class MlvListSelectable<T> {
 @Directive({
   // eslint-disable-next-line @angular-eslint/directive-selector
   selector: 'mlv-list-item[value]',
-  exportAs: 'uiListItemSelectable',
+  exportAs: 'mlvListItemSelectable',
   hostDirectives: [
     {
       directive: Option,

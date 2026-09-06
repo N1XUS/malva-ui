@@ -128,6 +128,14 @@ Returns an observable that emits whenever the element's size changes. Automatica
 
 Cleans up all observers on `ngOnDestroy`.
 
+Contract pinned by `resize-observer.spec.ts` — the load-bearing parts for any future change to how observers are allocated:
+
+- **Per-element stream isolation.** A subscriber for element `E` receives only batches reported for `E`. Consumers depend on it: `mlv-avatar-group`, `mlv-copy-to-clipboard`, `mlv-data-table`, `mlv-page-content`, `mlv-editor-toolbar`, `mlv-editor-zoom` and two docs examples index `entries[0]` / `entries[entries.length - 1]` and treat it as their own element's rect. A shared observer forwarding whole batches — as CDK's private `SharedResizeObserver` does — silently breaks all of them.
+- **Per-element refcount.** Observing one element twice allocates one `ResizeObserver`; the first unsubscribe leaves the second subscriber receiving; the last disconnects. Unobserving one element never disturbs another's.
+- **`MlvResizeObserverFactory` is the only path to the platform.** No global `ResizeObserver` is ever touched, so a server render (factory returns `null`) subscribes and tears down without emitting or throwing.
+
+One `ResizeObserver` per distinct element, not one shared across all. Measured (Chrome 152, #15): at the ~12 elements a composed Malva page observes, sharing saves **0.0 ms** per resize round and **~286 bytes**; the delta only becomes measurable past ~200 observed elements (0.1–0.8 ms) — a scale no consumer reaches, since each observes exactly one element.
+
 ---
 
 ### `MlvResizeObserverFactory`

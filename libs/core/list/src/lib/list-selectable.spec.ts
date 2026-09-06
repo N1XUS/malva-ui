@@ -157,4 +157,38 @@ describe('MlvListSelectable (aria listbox migration)', () => {
     fixture.detectChanges();
     expect(list.getAttribute('id')).toBe('other-listbox');
   });
+  it('is reachable from a template through exportAs "mlvListItemSelectable"', () => {
+    // The `Mlv` prefix migration (docs/migrations/2026-07-mlv-prefix.md) renamed
+    // every public name with no deprecated aliases. `exportAs` is public template
+    // API, and this one was missed on both halves — the directive still declared
+    // `uiListItemSelectable` and libs-list.md still documented it, so the two
+    // agreed with each other and disagreed with every other symbol in the repo.
+    // Nothing catches an `exportAs` typo except a template that uses it, and no
+    // template did. Reference case: MlvResizeObserver, same defect, same PR.
+    @Component({
+      imports: [MlvList, MlvListItem, MlvListSelectable, MlvListItemSelectable],
+      template: `
+        <mlv-list selectable listRole="listbox">
+          <mlv-list-item
+            #ref="mlvListItemSelectable"
+            itemRole="option"
+            [value]="'apple'"
+            label="Apple"
+            >Apple</mlv-list-item
+          >
+        </mlv-list>
+      `,
+    })
+    class ExportAsHost {}
+
+    const exportFixture = TestBed.createComponent(ExportAsHost);
+    exportFixture.detectChanges();
+
+    const ref = exportFixture.debugElement.query(
+      By.directive(MlvListItemSelectable),
+    );
+    expect(ref.injector.get(MlvListItemSelectable)).toBeInstanceOf(
+      MlvListItemSelectable,
+    );
+  });
 });
