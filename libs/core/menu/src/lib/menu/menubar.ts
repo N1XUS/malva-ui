@@ -123,6 +123,15 @@ export class MlvMenubar<
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
   private readonly _itemRegistry = inject(MLV_MENUBAR_ITEM_REGISTRY);
   private readonly _rtlService = inject(MlvRtlService);
+
+  /**
+   * @private Direction applying to this menubar, following any `[dir]` scope
+   * above it rather than the document. `FocusKeyManager` reads raw key codes,
+   * so it is handed this direction and rebuilt whenever it flips.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
   private readonly _dataSourceAdapter = new MlvMenuDataSourceAdapter<
     MlvMenubarEntry<TItem>
   >();
@@ -216,19 +225,22 @@ export class MlvMenubar<
       untracked(() => this._itemRegistry.syncOrder(projectedItems));
     });
 
-    // (Re)build the key manager whenever the set of top-level items changes.
+    // (Re)build the key manager whenever the set of top-level items changes, or
+    // the direction applying to this menubar flips — `FocusKeyManager` reads
+    // raw key codes, so its horizontal orientation is baked in at construction.
     //
-    // The effect deliberately depends ONLY on the `_items()` query. All the
-    // imperative work below both READS reactive signals (`menuTriggerDisabled()`
-    // via the key manager's `skipPredicate`) and WRITES them (`_tabIndex` in
-    // `_syncTabIndices`). Because writing `_tabIndex` dirties the child trigger
-    // effects — and therefore the view — leaving those reads tracked would let
-    // the effect re-notify itself on every view refresh, spinning synchronously.
-    // Running the side effects in `untracked` keeps the sole reactive dependency
-    // the item set, which is the only thing that should trigger a rebuild.
+    // The effect deliberately depends ONLY on the `_items()` query and
+    // `_direction()`. All the imperative work below both READS reactive signals
+    // (`menuTriggerDisabled()` via the key manager's `skipPredicate`) and WRITES
+    // them (`_tabIndex` in `_syncTabIndices`). Because writing `_tabIndex`
+    // dirties the child trigger effects — and therefore the view — leaving those
+    // reads tracked would let the effect re-notify itself on every view refresh,
+    // spinning synchronously. Running the side effects in `untracked` keeps the
+    // reactive dependencies to the only two things that should trigger a
+    // rebuild.
     effect(() => {
       const items = this._items() as unknown as MlvMenubarItem[];
-      const direction = this._rtlService.direction();
+      const direction = this._direction();
       untracked(() => {
         if (items.length > 0) {
           this._initKeyManager(items, direction);
@@ -313,6 +325,12 @@ export class MlvMenubar<
    * to `FocusKeyManager` for horizontal navigation, Home/End, and type-ahead.
    * If a dropdown is open when the active item changes, the newly-focused item's
    * menu is opened (open-follow).
+   *
+   * The switch below only matches `Enter` / `Space` and the vertical pair, and
+   * everything horizontal is delegated to the `FocusKeyManager` (which already
+   * carries `withHorizontalOrientation(this._direction())`). So
+   * `normalizeArrowKey` is deliberately called without a direction target —
+   * mirroring is a no-op here, and the vertical keys never mirror.
    */
   protected _onKeydown(event: KeyboardEvent): void {
     const key = this._rtlService.normalizeArrowKey(event);

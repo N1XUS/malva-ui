@@ -6,6 +6,7 @@ import { DOCUMENT } from '@angular/common';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import axe from 'axe-core';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvDataTable } from './data-table';
 import { MlvDataTableToolbarActions } from '../data-table-toolbar-actions';
@@ -787,6 +788,12 @@ describe('MlvDataTable — column resize', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    // Direction is global state: `MlvRtlService` writes it onto <html>, which
+    // outlives the TestBed injector, and the scoped `dir` sits on the fixture's
+    // parent, which the next fixture reuses.
+    fixture.nativeElement.parentElement?.removeAttribute('dir');
+    TestBed.inject(MlvRtlService).setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
   });
 
   it('uses pointer capture and the measured header width before committing', () => {
@@ -1033,6 +1040,53 @@ describe('MlvDataTable — column resize', () => {
       { key: 'id', width: 80, source: 'keyboard' },
       { key: 'id', width: 180, source: 'keyboard' },
     ]);
+  });
+
+  it('mirrors keyboard resizing inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
+    const scope = fixture.nativeElement.parentElement as HTMLElement;
+    scope.setAttribute('dir', 'rtl');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // The document is untouched — only this subtree is flipped. A CDK overlay
+    // pane is stamped the same way, so this is also the in-overlay case.
+    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+
+    // The separator sits on the column's mirrored inline-end edge, so
+    // ArrowLeft grows the column and ArrowRight shrinks it.
+    dispatchResizeKey('ArrowLeft');
+    expect(idColumn()._currentWidth).toBe(128);
+
+    dispatchResizeKey('ArrowRight');
+    expect(idColumn()._currentWidth).toBe(120);
+
+    dispatchResizeKey('ArrowLeft', true);
+    expect(idColumn()._currentWidth).toBe(152);
+
+    // Home/End address the resolved bounds, not an inline side, and the
+    // handler ignores the vertical pair in both directions.
+    dispatchResizeKey('Home');
+    expect(idColumn()._currentWidth).toBe(80);
+
+    dispatchResizeKey('ArrowUp');
+    expect(idColumn()._currentWidth).toBe(80);
+
+    dispatchResizeKey('End');
+    expect(idColumn()._currentWidth).toBe(180);
+  });
+
+  it('keeps keyboard resizing unmirrored in an LTR island while the document is RTL', async () => {
+    TestBed.inject(MlvRtlService).setDirection('rtl');
+    const scope = fixture.nativeElement.parentElement as HTMLElement;
+    scope.setAttribute('dir', 'ltr');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    dispatchResizeKey('ArrowRight');
+    expect(idColumn()._currentWidth).toBe(128);
+
+    dispatchResizeKey('ArrowLeft');
+    expect(idColumn()._currentWidth).toBe(120);
   });
 
   it('exposes complete localized separator ARIA markup', () => {

@@ -1,7 +1,8 @@
-import type { ElementRef, TemplateRef } from '@angular/core';
+import type { TemplateRef } from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   ViewEncapsulation,
   computed,
   contentChild,
@@ -94,6 +95,22 @@ export class MlvSidebarGroup {
   /** @private Document handle used to resolve the overlay-rendered flyout panel by id. */
   private readonly _document = inject(DOCUMENT);
   private readonly _rtlService = inject(MlvRtlService);
+
+  /**
+   * @private Host element — the scope the flyout's horizontal arrow keys
+   * resolve their direction against. The panel itself is portaled into a CDK
+   * overlay outside any `[dir]` the group sits in, so the group's own host is
+   * the only element that still carries the authored scope.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
+  /**
+   * @private Direction applying to this group, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
 
   /** @protected Stable id linking the collapsed-mode flyout panel so its focusable items can be resolved. */
   protected readonly _flyoutId = mlvNextId('mlv-sidebar-flyout');
@@ -261,7 +278,7 @@ export class MlvSidebarGroup {
   protected onFlyoutKeydown(event: Event): void {
     const e = event as KeyboardEvent;
     const panel = e.currentTarget as HTMLElement;
-    const key = this._rtlService.normalizeArrowKey(e);
+    const key = this._rtlService.normalizeArrowKey(e, this._direction());
 
     // Close flyout and return focus to trigger
     if (key === LEFT_ARROW || e.key === 'Escape') {
@@ -304,7 +321,7 @@ export class MlvSidebarGroup {
    */
   protected onTriggerKeydown(event: Event): void {
     const e = event as KeyboardEvent;
-    const key = this._rtlService.normalizeArrowKey(e);
+    const key = this._rtlService.normalizeArrowKey(e, this._direction());
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       this._flyoutContainer()?.toggle();

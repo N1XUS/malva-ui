@@ -167,6 +167,7 @@ as a `var()` fallback.
 - Uses semantic `<ol>` + `<li>` list structure in **data-driven** mode
 - Overflow popover focuses the first hidden link when opened
 - Overflow popover supports Arrow Up/Down/Left/Right, Home, End, and Escape keyboard navigation
+- The popover's horizontal arrows mirror in RTL and resolve their direction from the **breadcrumb's own host** — a cached `elementDirection(host)` signal passed to `normalizeArrowKey(event, direction)` (#147) — which matters twice: the menu renders in a CDK overlay pane portaled to `<body>` and stamped with its own `dir`, and the breadcrumb itself can sit in a `[dir="rtl"]` subtree while the document stays LTR. Arrow Up/Down, Home, End and Escape never mirror
 
 > **`MlvBreadcrumbItem` content projection** — the item template exposes a
 > single `<ng-content>` via a shared `#content` `ng-template` that is stamped

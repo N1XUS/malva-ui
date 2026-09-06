@@ -12,6 +12,7 @@ import { MlvBreadcrumbItem } from './breadcrumb-item';
 import { MlvBreadcrumbSeparator } from './breadcrumb-separator';
 import type { MlvBreadcrumbEntry } from './breadcrumb.types';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 
 // ─── Test Host Components ────────────────────────────────────────────────────
 
@@ -625,8 +626,9 @@ function tokenHex(token: string, theme: 'light' | 'dark'): string {
 
     // color-mix(in srgb, <A> <P>%, <B>) — sRGB mixing interpolates the
     // non-linear channels directly, so a plain per-channel lerp matches.
-    const mix =
-      /^color-mix\( ?in srgb, ?(.+?) ([\d.]+)%, ?(.+?) ?\)$/.exec(value);
+    const mix = /^color-mix\( ?in srgb, ?(.+?) ([\d.]+)%, ?(.+?) ?\)$/.exec(
+      value,
+    );
     if (mix) {
       const [a, b] = [resolveColor(mix[1]), resolveColor(mix[3])];
       const weight = Number(mix[2]) / 100;
@@ -709,5 +711,123 @@ describe('MlvBreadcrumb — colour contract', () => {
       contrast(tokenHex('--mlv-text-secondary', theme), bg),
       `separator on ${background} (${theme})`,
     ).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ─── Scoped direction (#147) ─────────────────────────────────────────────────
+//
+// The overflow menu's arrow model is inline-axis, so it resolves against the
+// breadcrumb's own host — not the document. That matters twice over here: the
+// menu itself renders in a CDK overlay pane, which is portaled to `<body>` and
+// stamped with its own `dir`, and a breadcrumb can equally sit inside a
+// `[dir]` subtree while the document stays LTR.
+
+@Component({
+  imports: [MlvBreadcrumb],
+  template: `
+    <div [attr.dir]="scopeDir">
+      <nav mlvBreadcrumb [items]="items" [maxItems]="3"></nav>
+    </div>
+  `,
+})
+class ScopedDirOverflowHostComponent {
+  scopeDir: 'rtl' | 'ltr' = 'rtl';
+  items: MlvBreadcrumbEntry[] = [
+    { label: 'Home', href: '/' },
+    { label: 'Category', href: '/cat' },
+    { label: 'Sub-Category', href: '/cat/sub' },
+    { label: 'Product', href: '/cat/sub/product' },
+    { label: 'Widget Pro' },
+  ];
+}
+
+describe('MlvBreadcrumb — scoped direction', () => {
+  let fixture: ComponentFixture<ScopedDirOverflowHostComponent>;
+  let overlayContainer: OverlayContainer;
+  let rtlService: MlvRtlService;
+
+  /** Label of the focused overflow link — a string, never the node itself. */
+  const focusedLabel = (): string =>
+    document.activeElement?.textContent?.trim() ?? '';
+
+  function keydown(key: string): void {
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+    );
+    fixture.detectChanges();
+  }
+
+  /** Opens the overflow popup and settles focus on its first link. */
+  async function openOverflow(): Promise<void> {
+    (
+      fixture.nativeElement.querySelector(
+        '.mlv-breadcrumb__ellipsis',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ScopedDirOverflowHostComponent],
+      providers: [
+        provideMlvI18nTesting(),
+        provideRouter([]),
+        provideAnimationsAsync(),
+      ],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+    rtlService = TestBed.inject(MlvRtlService);
+    fixture = TestBed.createComponent(ScopedDirOverflowHostComponent);
+  });
+
+  afterEach(() => {
+    overlayContainer.ngOnDestroy();
+    rtlService?.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  it('mirrors the horizontal arrows inside a [dir="rtl"] subtree while the document stays LTR', async () => {
+    fixture.detectChanges();
+    expect(rtlService.direction()).toBe('ltr');
+
+    await openOverflow();
+    expect(focusedLabel()).toBe('Category');
+
+    keydown('ArrowLeft');
+    expect(focusedLabel()).toBe('Sub-Category'); // "next" once mirrored
+    keydown('ArrowRight');
+    expect(focusedLabel()).toBe('Category');
+  });
+
+  it('leaves the vertical arrows and Home/End alone inside a [dir="rtl"] subtree', async () => {
+    fixture.detectChanges();
+    await openOverflow();
+
+    keydown('ArrowDown');
+    expect(focusedLabel()).toBe('Sub-Category'); // vertical never mirrors
+    keydown('ArrowUp');
+    expect(focusedLabel()).toBe('Category');
+    keydown('End');
+    expect(focusedLabel()).toBe('Product');
+    keydown('Home');
+    expect(focusedLabel()).toBe('Category');
+  });
+
+  it('keeps a [dir="ltr"] island unmirrored while the document is RTL', async () => {
+    fixture.componentInstance.scopeDir = 'ltr';
+    rtlService.setDirection('rtl');
+    fixture.detectChanges();
+    expect(rtlService.direction()).toBe('rtl');
+
+    await openOverflow();
+    expect(focusedLabel()).toBe('Category');
+
+    keydown('ArrowRight');
+    expect(focusedLabel()).toBe('Sub-Category'); // the island reads LTR
+    keydown('ArrowLeft');
+    expect(focusedLabel()).toBe('Category');
   });
 });

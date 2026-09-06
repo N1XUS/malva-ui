@@ -624,6 +624,16 @@ describe('MlvRating direction', () => {
     readonly ctrl = new FormControl<number>(0);
   }
 
+  @Component({
+    template: `<div dir="ltr">
+      <mlv-rating [max]="5" [step]="0.5" [formControl]="ctrl" />
+    </div>`,
+    imports: [MlvRating, ReactiveFormsModule],
+  })
+  class ScopedLtrHostComponent {
+    readonly ctrl = new FormControl<number>(0);
+  }
+
   describe('half-star fill', () => {
     it('eats the unfilled remainder from the inline-end (physical left) edge in RTL', async () => {
       const fixture = await createFixture(HalfStepHostComponent);
@@ -833,42 +843,62 @@ describe('MlvRating direction', () => {
     });
 
     /**
-     * The arrow mirror is **document-scoped**, unlike the paint and the hit
-     * test. `MlvRtlService.normalizeArrowKey` reads the service's global
-     * `direction()` signal, not `elementDirection(host)`, so under a
-     * `[dir="rtl"]` ancestor with the document still LTR a rating paints and
-     * hit-tests RTL while its arrow keys keep their LTR meaning.
-     *
-     * That is a defect in `MlvRtlService`, tracked as **#147**, and out of
-     * scope for #127 — but the three tests above all use `setDirection('rtl')`,
-     * the one case where it is invisible, so without this the suite would
-     * *mask* the gap rather than merely not cover it. This pins today's
-     * behaviour: when #147 lands it fails, and the `Direction (RTL)` and
-     * `Keyboard Navigation` sections of `.claude/projects/libs-rating.md` have
-     * to be corrected with it.
+     * The paint, the hit test and the arrow model are all scoped to the host
+     * (#147), so a `[dir="rtl"]` ancestor mirrors all three while the document
+     * stays LTR. Before #147, `normalizeArrowKey` read the service's global
+     * `direction()` and only the first two followed the scope — the three tests
+     * above use `setDirection('rtl')`, the one case where that gap is
+     * invisible, so this is the case that pins the fix.
      */
-    it('does NOT mirror the horizontal arrows under a scoped [dir] — the document direction governs (#147)', async () => {
+    it('mirrors the horizontal arrows under a scoped [dir="rtl"] while the document stays LTR (#147)', async () => {
       const fixture = await createFixture(ScopedRtlHostComponent);
       fixture.componentInstance.ctrl.setValue(3);
       fixture.detectChanges();
       await fixture.whenStable();
       expect(directionService().direction()).toBe('ltr');
 
-      // The paint does follow the scope — star 4 is empty, clipped from the
-      // left, which is the RTL form (LTR would read `inset(0 100% 0 0)`).
+      // The paint follows the scope — star 4 is empty, clipped from the left,
+      // which is the RTL form (LTR would read `inset(0 100% 0 0)`).
       expect(filledIcon(getStars(fixture)[3]).style.clipPath).toBe(
         'inset(0 0 0 100%)',
       );
 
-      // The arrows do not: ArrowLeft still decrements, as it would in LTR.
+      // And so do the arrows: ArrowLeft is "next", as under a global flip.
       keydown(fixture, 'ArrowLeft');
-      expect(fixture.componentInstance.ctrl.value).toBe(2.5);
+      expect(fixture.componentInstance.ctrl.value).toBe(3.5);
       keydown(fixture, 'ArrowRight');
       expect(fixture.componentInstance.ctrl.value).toBe(3);
     });
 
-    it.todo(
-      'mirrors the horizontal arrows under a scoped [dir] once #147 lands',
-    );
+    it('leaves the vertical arrows and Home/End alone under a scoped [dir="rtl"]', async () => {
+      const fixture = await createFixture(ScopedRtlHostComponent);
+      fixture.componentInstance.ctrl.setValue(3);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      keydown(fixture, 'ArrowUp');
+      expect(fixture.componentInstance.ctrl.value).toBe(3.5);
+      keydown(fixture, 'ArrowDown');
+      expect(fixture.componentInstance.ctrl.value).toBe(3);
+      keydown(fixture, 'End');
+      expect(fixture.componentInstance.ctrl.value).toBe(5);
+      keydown(fixture, 'Home');
+      expect(fixture.componentInstance.ctrl.value).toBe(0);
+    });
+
+    it('keeps a [dir="ltr"] island unmirrored while the document is RTL', async () => {
+      const fixture = await createFixture(ScopedLtrHostComponent);
+      directionService().setDirection('rtl');
+      fixture.componentInstance.ctrl.setValue(3);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(directionService().direction()).toBe('rtl');
+
+      // The island reads LTR, so ArrowRight increments as it would there.
+      keydown(fixture, 'ArrowRight');
+      expect(fixture.componentInstance.ctrl.value).toBe(3.5);
+      keydown(fixture, 'ArrowLeft');
+      expect(fixture.componentInstance.ctrl.value).toBe(3);
+    });
   });
 });
