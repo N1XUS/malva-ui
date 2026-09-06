@@ -19,6 +19,7 @@ import {
   type MlvTaskboardVirtualWindow,
 } from './taskboard-virtual';
 import {
+  adoptMlvTaskboardCloneStyle,
   MLV_TASKBOARD_CARD_ID_ATTRIBUTE,
   MLV_TASKBOARD_DROP_STATE_ATTRIBUTE,
   captureMlvTaskboardDragResidue,
@@ -250,6 +251,9 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
     const fallbackClone = Sortable.ghost;
     if (fallbackClone && fallbackClone !== item) {
       sanitizeMlvTaskboardClone(fallbackClone);
+      // The clone lives on `<body>`, where none of the board's inherited
+      // values reach it; it takes them from the element it was cloned from.
+      adoptMlvTaskboardCloneStyle(fallbackClone, item);
     }
 
     fromEvent<KeyboardEvent>(this._document, 'keydown')

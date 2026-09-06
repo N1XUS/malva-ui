@@ -581,6 +581,37 @@ describe('MlvTaskboard SortableJS column adapter', () => {
     });
   });
 
+  it('gives the pointer-following clone the surface its source header resolves', async () => {
+    const style = document.createElement('style');
+    style.textContent =
+      '.mlv-taskboard .mlv-taskboard__column-header { padding: 9px; color: rgb(4, 5, 6); }';
+    document.head.append(style);
+    const previousGhost = Sortable.ghost;
+    try {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      const header = columnHeader(host, 'a');
+      const clone = header.cloneNode(true) as HTMLElement;
+      document.body.append(clone);
+
+      expect(getComputedStyle(clone).paddingTop).not.toBe('9px');
+
+      Sortable.ghost = clone;
+      const row = headerRow(host);
+      sortableFor(row).options.onStart?.(dragEvent(header, row));
+
+      expect(clone.style.paddingTop).toBe('9px');
+      expect(getComputedStyle(clone).color).toBe(
+        getComputedStyle(header).color,
+      );
+      clone.remove();
+      sortableFor(row).options.onEnd?.(dragEvent(header, row));
+    } finally {
+      Sortable.ghost = previousGhost;
+      style.remove();
+    }
+  });
+
   it('adopts the group of the new neighbours when a column crosses a run', async () => {
     const fixture = await createFixture();
     const host = fixture.nativeElement as HTMLElement;

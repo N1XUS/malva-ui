@@ -16,6 +16,7 @@ import type {
   MlvTaskboardColumn,
 } from '../taskboard.types';
 import {
+  adoptMlvTaskboardCloneStyle,
   MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE,
   MLV_TASKBOARD_COLUMN_LOCKED_ATTRIBUTE,
   MLV_TASKBOARD_DROP_EDGE_ATTRIBUTE,
@@ -212,6 +213,9 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
     const fallbackClone = Sortable.ghost;
     if (fallbackClone && fallbackClone !== item) {
       sanitizeMlvTaskboardClone(fallbackClone);
+      // The clone lives on `<body>`, where none of the board's inherited
+      // values reach it; it takes them from the element it was cloned from.
+      adoptMlvTaskboardCloneStyle(fallbackClone, item);
     }
 
     fromEvent<KeyboardEvent>(this._document, 'keydown')

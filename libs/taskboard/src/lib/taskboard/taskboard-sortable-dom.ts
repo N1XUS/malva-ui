@@ -93,6 +93,94 @@ export function sanitizeMlvTaskboardClone(clone: HTMLElement): void {
   clone.style.animation = 'none';
 }
 
+/**
+ * The computed declarations a fallback clone adopts from the element it was
+ * cloned from.
+ *
+ * These are **physical** longhands on purpose, and the exception is a narrow
+ * one: they are read back from a *resolved computed style*, which the browser
+ * has already resolved against the source element's own direction, so copying
+ * them across cannot flip anything. Reading logical longhands instead would
+ * re-resolve them against the clone's parent — `<body>`, whose direction is
+ * not necessarily the board's.
+ * // physical: values copied from an already direction-resolved computed style
+ *
+ * Deliberately absent: `width`, `height`, `position`, `inset`, `transform` and
+ * `margin`. SortableJS sizes and positions the fallback itself from the source
+ * element's rect, and overwriting any of those would leave the clone somewhere
+ * the pointer is not.
+ */
+const MLV_TASKBOARD_CLONE_DECLARATIONS: readonly string[] = [
+  'box-sizing',
+  'padding-top',
+  'padding-right',
+  'padding-bottom',
+  'padding-left',
+  'border-top-width',
+  'border-right-width',
+  'border-bottom-width',
+  'border-left-width',
+  'border-top-style',
+  'border-right-style',
+  'border-bottom-style',
+  'border-left-style',
+  'border-top-color',
+  'border-right-color',
+  'border-bottom-color',
+  'border-left-color',
+  'border-top-left-radius',
+  'border-top-right-radius',
+  'border-bottom-right-radius',
+  'border-bottom-left-radius',
+  'background-color',
+  'color',
+  'box-shadow',
+  'font-family',
+  'font-size',
+  'font-style',
+  'font-weight',
+  'line-height',
+  'letter-spacing',
+  'text-align',
+  'white-space',
+  'gap',
+];
+
+/**
+ * Copies the source element's resolved surface onto the clone that follows the
+ * pointer, so a dragged card or column header looks exactly like the one it
+ * came from.
+ *
+ * Both adapters force `forceFallback` + `fallbackOnBody`, so SortableJS
+ * appends the clone to `<body>`. Everything the board's look is built from —
+ * `--mlv-taskboard-card-padding` and its siblings, the density modifier, a
+ * scoped theme island's tokens, the inherited font — is declared on the board
+ * host or above the card *inside* it, and resolves to nothing out there. The
+ * clone therefore adopts two things: the values above, already resolved; and
+ * every `--mlv-*` custom property the source resolves, so a projected card
+ * template that reads one keeps working. Browsers that do not enumerate custom
+ * properties in a computed style simply contribute nothing to the second half
+ * — the first is what paints the box either way.
+ */
+export function adoptMlvTaskboardCloneStyle(
+  clone: HTMLElement,
+  source: HTMLElement,
+): void {
+  const view = source.ownerDocument.defaultView;
+  if (view === null) return;
+  const computed = view.getComputedStyle(source);
+  for (const property of MLV_TASKBOARD_CLONE_DECLARATIONS) {
+    const value = computed.getPropertyValue(property);
+    if (value !== '') clone.style.setProperty(property, value);
+  }
+  for (let index = 0; index < computed.length; index++) {
+    const property = computed.item(index);
+    if (!property.startsWith('--mlv-')) continue;
+    const value = computed.getPropertyValue(property);
+    if (value !== '') clone.style.setProperty(property, value);
+  }
+}
+
 /** The pre-drag state of one dragged element, captured so it can be restored. */
 export interface MlvTaskboardDragResidue {
   /** The element the pointer picked up. */

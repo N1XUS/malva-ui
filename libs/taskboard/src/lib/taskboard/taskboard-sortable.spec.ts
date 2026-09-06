@@ -569,6 +569,44 @@ describe('MlvTaskboard SortableJS card adapter', () => {
     expect(doneCards.getAttribute('data-mlv-taskboard-drop-state')).toBeNull();
   });
 
+  it('gives the pointer-following clone the surface its source card resolves', async () => {
+    // The card's real padding comes from a custom property declared on the
+    // board host, so a clone SortableJS appends to `<body>` resolves nothing.
+    // A board-scoped literal stands in for that here: jsdom resolves no
+    // `var()`, so only a rule the clone's new parent chain cannot match makes
+    // the defect visible.
+    const style = document.createElement('style');
+    style.textContent =
+      '.mlv-taskboard .mlv-taskboard__card { padding: 7px; background-color: rgb(1, 2, 3); }';
+    document.head.append(style);
+    const previousGhost = Sortable.ghost;
+    try {
+      const { host } = await createFixture();
+      const todoCards = cardsContainer(host, 'todo');
+      const card = cardElement(todoCards, 'a');
+      const clone = card.cloneNode(true) as HTMLElement;
+      document.body.append(clone);
+
+      // Precondition: on `<body>` the clone matches no board-scoped rule.
+      expect(getComputedStyle(clone).paddingTop).not.toBe('7px');
+
+      Sortable.ghost = clone;
+      startDrag(todoCards, card);
+
+      expect(clone.style.paddingTop).toBe('7px');
+      expect(getComputedStyle(clone).paddingTop).toBe(
+        getComputedStyle(card).paddingTop,
+      );
+      expect(getComputedStyle(clone).backgroundColor).toBe(
+        getComputedStyle(card).backgroundColor,
+      );
+      clone.remove();
+    } finally {
+      Sortable.ghost = previousGhost;
+      style.remove();
+    }
+  });
+
   it('returns the dragged card to Angular and strips every Sortable residue', async () => {
     const { fixture, host } = await createFixture();
     const todoCards = cardsContainer(host, 'todo');

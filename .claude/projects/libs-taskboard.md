@@ -92,7 +92,7 @@ Every chrome the board draws is a replaceable `ng-template`. The three generic d
 Each directive exposes its `templateRef` and a static `ngTemplateContextGuard` for strict template inference.
 
 - `mlvTaskboardColumnContentDef` replaces the **whole** cell, listbox and virtual viewport included, so a board that projects it owns the cell's ARIA and its scrolling, and is not virtualized.
-- The pointer drag has **no replaceable preview slot**: what the user drags is SortableJS's own fallback clone of the card.
+- The pointer drag has **no replaceable preview slot**: what the user drags is SortableJS's own fallback clone of the card. Both adapters force `forceFallback` + `fallbackOnBody`, so that clone hangs off `<body>`, where none of the board's inherited values reach it — so at drag start it adopts the source element's _resolved_ surface (padding, border, radius, fill, shadow, colour and typography) plus every `--mlv-*` custom property the source resolves, and renders identically to the card or header it came from in every theme, density and scoped theme island (R48). Sizing and positioning are left to SortableJS, which writes them from the source's rect.
 - `MlvTaskboardDropTarget.items` is the target cell's visible cards **with the dragged card removed** — exactly the list `target.index` counts (R17). The card lands before `items[index]`; `index === items.length` appends.
 
 ## Types
