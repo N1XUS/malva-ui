@@ -137,6 +137,11 @@ export interface MlvSchedulerContext<D = Date, TData = unknown> {
     payload: MlvSchedulerEventInteraction<D, TData>,
   ): void;
   /**
+   * Chip → root: `Delete` / `Backspace` on a focused chip. Emits `eventDelete`
+   * and writes nothing — removing the event is the consumer's call.
+   */
+  emitEventDelete(payload: MlvSchedulerEventInteraction<D, TData>): void;
+  /**
    * `selection` is the pending keyboard range selection when the interacted
    * cell lies inside it — passed for `contextmenu` only, so the slot menu can
    * offer the whole selection instead of the one cell. `null` / omitted

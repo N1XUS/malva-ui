@@ -2,6 +2,7 @@ import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   NgZone,
   PLATFORM_ID,
@@ -12,6 +13,8 @@ import {
   input,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
 import {
   DOWN_ARROW,
   LEFT_ARROW,
@@ -37,6 +40,7 @@ import { minutesFromOffset } from '../layout/scheduler-time';
 import {
   MLV_SCHEDULER_CONTEXT,
   type MlvSchedulerContext,
+  type MlvSchedulerFocusRequest,
   type MlvSchedulerInteractionKind,
 } from '../scheduler/scheduler-context';
 import type {
@@ -114,6 +118,17 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
   private readonly _rtl = inject(MlvRtlService);
   /** @private Pointer events exist only in the browser. */
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  /** @private Files the focus hand-off of a chip removed while focused. */
+  private readonly _destroyRef = inject(DestroyRef);
+  /**
+   * @private Where focus goes if this chip is torn down while it holds it:
+   * the owning cell, captured on `focusin` because at destroy the host is
+   * already detached and `closest()` finds nothing. `null` while unfocused;
+   * a `focusout` without `relatedTarget` clears it one microtask late, so
+   * the blur Chromium dispatches for the removal itself — before the node
+   * detaches — does not void the return the destroy is about to file.
+   */
+  private _focusReturn: MlvSchedulerFocusRequest<D> | null = null;
 
   /** The underlying event. */
   readonly event = computed(() => this.normalized().event);
@@ -190,6 +205,44 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
       );
       onCleanup(() => detach.forEach((stop) => stop()));
     });
+
+    // A chip that leaves the model while focused — after `eventDelete`, or
+    // any other consumer write — would drop focus on `<body>`. Its owning
+    // cell takes it instead. `fromEvent`, not host bindings: neither event
+    // needs a change-detection pass (best-practices § DOM Listeners).
+    fromEvent<FocusEvent>(this._host, 'focusin')
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => (this._focusReturn = this._cellFocusRequest()));
+    fromEvent<FocusEvent>(this._host, 'focusout')
+      .pipe(takeUntilDestroyed())
+      .subscribe((event) => {
+        // Focus moved to a known element: the return is void at once.
+        if (event.relatedTarget !== null) {
+          this._focusReturn = null;
+          return;
+        }
+        // No `relatedTarget`: focus went to `<body>` or to another window —
+        // or Chromium is dispatching the blur of a host that is being removed
+        // while focused, which it does *before* the node detaches
+        // (`isConnected` is still true and cannot tell the cases apart;
+        // Firefox and WebKit raise nothing on removal). A removal destroys
+        // the chip synchronously in the same task, so decide after it: a chip
+        // still holding focus at the next microtask — itself or a projected
+        // control inside it — has come straight back, one that does not has
+        // genuinely lost it.
+        queueMicrotask(() => {
+          if (!this._host.contains(this._host.ownerDocument.activeElement)) {
+            this._focusReturn = null;
+          }
+        });
+      });
+    this._destroyRef.onDestroy(() => {
+      const request = this._focusReturn;
+      // Never over a standing request: `PageDown` from a chip asks for the
+      // new period's cell before this segment is torn down with the old one.
+      if (!request || this._ctx.pendingFocus() !== null) return;
+      this._ctx.pendingFocus.set(request);
+    });
   }
 
   /** Focuses the host. */
@@ -213,9 +266,11 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
 
   /**
    * @protected `Enter` / `Space` activate; the ContextMenu key / `Shift+F10` emit the chip's
-   * `contextmenu` interaction; `Alt+Arrow` moves; `Alt+Shift+Arrow` resizes the end edge and
-   * `Ctrl+Alt+Arrow` the start edge; `Escape` returns to the owning cell; `Tab` cycles sibling chips.
-   * A key that maps to no gesture here is left to bubble — the grid still owns it.
+   * `contextmenu` interaction; `Delete` / `Backspace` (no modifier, while `editable`) emit
+   * `eventDelete` — the consumer removes the event; `Alt+Arrow` moves; `Alt+Shift+Arrow` resizes
+   * the end edge and `Ctrl+Alt+Arrow` the start edge; `Escape` returns to the owning cell; `Tab`
+   * cycles sibling chips. A key that maps to no gesture here is left to bubble — the grid still
+   * owns it.
    */
   protected _onKeydown(event: KeyboardEvent): void {
     if (this._ghost() || this._fromInteractiveDescendant(event)) return;
@@ -232,6 +287,18 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       this._ctx.emitEventInteraction('click', {
+        event: this.event(),
+        element: this._host,
+        nativeEvent: event,
+      });
+      return;
+    }
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey)
+        return;
+      if (!this._ctx.editable()) return;
+      event.preventDefault();
+      this._ctx.emitEventDelete({
         event: this.event(),
         element: this._host,
         nativeEvent: event,
@@ -446,6 +513,26 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
         `[data-minutes="${this._owningSlotMinutes()}"]`,
       ) ?? null
     );
+  }
+
+  /**
+   * @private The `pendingFocus` request for this chip's owning cell, read off
+   * that cell's own `data-day-index` / `data-minutes` so it names exactly what
+   * `findCellElement` resolves. `null` outside a grid — a chip in the `+N`
+   * popover is left to the popover's own focus handling.
+   */
+  private _cellFocusRequest(): MlvSchedulerFocusRequest<D> | null {
+    const cell = this._owningCell();
+    if (!cell) return null;
+    const date = this._ctx.days()[Number(cell.dataset['dayIndex'])];
+    if (date === undefined) return null;
+    const minutes = cell.dataset['minutes'];
+    return {
+      kind: 'cell',
+      date,
+      minutes:
+        minutes === undefined || minutes === 'all-day' ? null : Number(minutes),
+    };
   }
 
   /**

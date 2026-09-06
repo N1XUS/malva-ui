@@ -8,4 +8,7 @@ over a focused cell or chip. The slot template receives the range the menu is ab
 time grid, or the pending <kbd>Shift</kbd>+<kbd>Arrow</kbd> selection when the right-clicked cell lies
 inside one (`selection` is then `true`). The event template receives the event. `slotContextMenu` and
 `eventContextMenu` still emit, with the native event already prevented; without a def, right-clicks
-are left to the browser exactly as before.
+are left to the browser exactly as before. <kbd>Delete</kbd> / <kbd>Backspace</kbd> on a focused chip
+emits `eventDelete` — this example routes it through the same confirmation as the menu's _Delete…_
+item. The scheduler never removes anything itself, and once the event is gone focus lands on the
+cell the chip sat in.

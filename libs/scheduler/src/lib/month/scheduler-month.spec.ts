@@ -629,6 +629,61 @@ describe('MlvSchedulerMonth', () => {
     expect(ids()).toEqual(['span', 't1', 't2', 't4']);
   });
 
+  it('takes focus back onto the popover group when its focused chip leaves the model', async () => {
+    // A popover chip has no owning grid cell, so the chip itself files no
+    // focus request on removal (`eventDelete` → the consumer drops the event,
+    // or any other write): the panel takes focus back instead of letting it
+    // fall to `<body>` with the panel still open.
+    moreButton(8).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const panel = popover();
+    chip(panel, 't3').focus();
+    expect(document.activeElement).toBe(chip(panel, 't3'));
+
+    host.events.update((events) => events.filter((e) => e.id !== 't3'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(panel.querySelector('[data-event-id="t3"]')).toBeNull();
+    expect(panel.isConnected).toBe(true);
+    expect(document.activeElement).toBe(panel);
+  });
+
+  it('closes the popover and focuses the day cell once removals leave nothing overflowing', async () => {
+    // The `+N more` button renders only while the day overflows its lanes.
+    // Once removals bring the day within them the button — the element the
+    // panel's close-time focus restore targets — is gone, so the panel closes
+    // and the day cell takes the focus the panel held.
+    moreButton(8).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    chip(popover(), 't4').focus();
+
+    // Day 8 holds five segments over three lanes; two removals leave three.
+    host.events.update((events) =>
+      events.filter((e) => e.id !== 't3' && e.id !== 't4'),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(cell(8).querySelector('.mlv-scheduler-month__more')).toBeNull();
+    expect(document.querySelector('.mlv-scheduler-month__popover')).toBeNull();
+    expect(document.activeElement).toBe(cell(8));
+    expect(cell(8).tabIndex).toBe(0);
+  });
+
+  it('leaves focus alone when a popover chip leaves the model without holding it', async () => {
+    moreButton(8).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const panel = popover();
+    chip(panel, 't2').focus();
+
+    host.events.update((events) => events.filter((e) => e.id !== 't3'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(chip(panel, 't2'));
+  });
+
   it('declares the grid multi-selectable exactly while selection is enabled', () => {
     // Several cells carry `aria-selected` during a range selection, and a
     // `role="grid"` without `aria-multiselectable` advertises single-select.

@@ -1,4 +1,9 @@
-<mlv-scheduler [(events)]="events" view="week" style="block-size: 36rem">
+<mlv-scheduler
+  [(events)]="events"
+  view="week"
+  style="block-size: 36rem"
+  (eventDelete)="remove($event.event)"
+>
   <ng-template mlvSchedulerSlotMenuDef let-range let-selection="selection">
     <mlv-list-item mlvMenuItem (itemClick)="create(range)">
       <svg mlvListItemPrefix lucidePlus [size]="14"></svg>

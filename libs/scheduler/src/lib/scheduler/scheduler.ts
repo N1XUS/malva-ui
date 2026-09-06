@@ -243,6 +243,14 @@ export class MlvScheduler<D = Date, TData = unknown>
    * and prevented its default.
    */
   readonly eventContextMenu = output<MlvSchedulerEventInteraction<D, TData>>();
+  /**
+   * `Delete` or `Backspace` (no modifier) on a focused chip while `editable`.
+   * The scheduler removes nothing itself: drop the event from `events` — or
+   * confirm first — in the handler. `nativeEvent` is the prevented
+   * `KeyboardEvent`. A chip that leaves the model while it has focus hands
+   * focus to the cell it sat in.
+   */
+  readonly eventDelete = output<MlvSchedulerEventInteraction<D, TData>>();
   /** Click on an empty slot / cell, or Space on a focused cell. */
   readonly slotClick = output<MlvSchedulerSlotEvent<D>>();
   /** Double click on an empty slot / cell. */
@@ -709,6 +717,11 @@ export class MlvScheduler<D = Date, TData = unknown>
           ? this.eventDoubleClick
           : this.eventContextMenu;
     target.emit(payload);
+  }
+
+  /** @internal See `MlvSchedulerContext.emitEventDelete`. */
+  emitEventDelete(payload: MlvSchedulerEventInteraction<D, TData>): void {
+    this.eventDelete.emit(payload);
   }
 
   /**

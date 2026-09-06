@@ -183,6 +183,7 @@ export function createSchedulerTestContext(
     previous: vi.fn(),
     announce: (message) => announcements.push(message),
     emitEventInteraction: vi.fn(),
+    emitEventDelete: vi.fn(),
     emitSlotInteraction: vi.fn(),
     emitRangeSelect: vi.fn(),
     emitMoreClick: vi.fn(),

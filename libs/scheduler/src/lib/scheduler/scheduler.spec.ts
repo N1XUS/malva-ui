@@ -10,6 +10,7 @@ import { MlvSchedulerHeaderDef } from './scheduler-defs';
 import type {
   MlvSchedulerEvent,
   MlvSchedulerEventChange,
+  MlvSchedulerEventInteraction,
   MlvSchedulerView,
   MlvSchedulerVisibleRange,
 } from './scheduler.types';
@@ -59,10 +60,12 @@ const d = (day: number, h = 0, m = 0, month = 8) =>
       [toolbar]="toolbar()"
       [ariaLabel]="ariaLabel()"
       [canMove]="canMove()"
+      [editable]="editable()"
       [mlvDensity]="density()"
       (visibleRangeChange)="ranges.push($event)"
       (eventMove)="moves.push($event)"
       (eventResize)="resizes.push($event)"
+      (eventDelete)="deletes.push($event)"
     >
       @if (customHeader()) {
         <ng-template mlvSchedulerHeaderDef let-api>
@@ -97,9 +100,11 @@ class Host {
       ) => boolean)
     | null
   >(null);
+  readonly editable = signal(true);
   readonly ranges: MlvSchedulerVisibleRange[] = [];
   readonly moves: MlvSchedulerEventChange[] = [];
   readonly resizes: MlvSchedulerEventChange[] = [];
+  readonly deletes: MlvSchedulerEventInteraction[] = [];
 }
 
 /** The bare attribute form of the boolean inputs: `<mlv-scheduler scrollToCurrentTime>`. */
@@ -576,6 +581,97 @@ describe('MlvScheduler (root)', () => {
         regions.some((text) => text.includes('Night shift moved to')),
       ).toBe(true);
       expect(regions.some((text) => text.startsWith('Showing'))).toBe(true);
+    });
+  });
+
+  describe('delete keys', () => {
+    const keydown = (
+      target: HTMLElement,
+      key: string,
+      init: KeyboardEventInit = {},
+    ) => {
+      const event = new KeyboardEvent('keydown', {
+        key,
+        bubbles: true,
+        cancelable: true,
+        ...init,
+      });
+      target.dispatchEvent(event);
+      return event;
+    };
+    const chipA = () => query<HTMLElement>(el, '[data-event-id="a"]');
+
+    it('Delete on a month chip emits eventDelete and, once the consumer drops the event, focuses its cell', async () => {
+      const chip = chipA();
+      chip.focus();
+      const event = keydown(chip, 'Delete');
+      expect(event.defaultPrevented).toBe(true);
+      expect(host.deletes).toHaveLength(1);
+      expect(host.deletes[0].event.id).toBe('a');
+      expect(host.deletes[0].element).toBe(chip);
+      expect(host.deletes[0].nativeEvent).toBe(event);
+      // The scheduler writes nothing; the consumer does.
+      expect(host.events()).toHaveLength(1);
+      expect(focused()).toBe(chip);
+
+      host.events.set([]);
+      await fixture.whenStable();
+      expect(el.querySelector('[data-event-id="a"]')).toBeNull();
+      // Wed 2 Sep is index 2 of a grid starting Mon 31 Aug.
+      expect(focused().dataset['dayIndex']).toBe('2');
+      expect(focused().dataset['minutes']).toBe('all-day');
+    });
+
+    it('Backspace on a timed week chip focuses the slot the chip started in', async () => {
+      host.view.set('week');
+      await fixture.whenStable();
+      const chip = chipA();
+      chip.focus();
+      expect(keydown(chip, 'Backspace').defaultPrevented).toBe(true);
+      expect(host.deletes).toHaveLength(1);
+
+      host.events.set([]);
+      await fixture.whenStable();
+      expect(focused().dataset['dayIndex']).toBe('2');
+      expect(focused().dataset['minutes']).toBe('540');
+    });
+
+    it('hands focus to the cell even when the browser blurs the chip before detaching it', async () => {
+      // Chromium dispatches the blur of a focused node being removed *before*
+      // it detaches: `focusout` with no `relatedTarget` on a still connected
+      // chip, then the removal, all in one task. jsdom (like Firefox and
+      // WebKit) raises nothing on removal, so stage that order by hand.
+      const chip = chipA();
+      chip.focus();
+      keydown(chip, 'Delete');
+      host.events.set([]);
+      chip.dispatchEvent(
+        new FocusEvent('focusout', { bubbles: true, relatedTarget: null }),
+      );
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(el.querySelector('[data-event-id="a"]')).toBeNull();
+      expect(focused().dataset['dayIndex']).toBe('2');
+      expect(focused().dataset['minutes']).toBe('all-day');
+    });
+
+    it('keeps focus on the chip while the consumer keeps the event', async () => {
+      const chip = chipA();
+      chip.focus();
+      keydown(chip, 'Delete');
+      await fixture.whenStable();
+      expect(host.deletes).toHaveLength(1);
+      expect(focused()).toBe(chip);
+    });
+
+    it('leaves the keys alone while not editable', async () => {
+      host.editable.set(false);
+      await fixture.whenStable();
+      const chip = chipA();
+      chip.focus();
+      expect(keydown(chip, 'Delete').defaultPrevented).toBe(false);
+      expect(keydown(chip, 'Backspace').defaultPrevented).toBe(false);
+      expect(host.deletes).toHaveLength(0);
     });
   });
 

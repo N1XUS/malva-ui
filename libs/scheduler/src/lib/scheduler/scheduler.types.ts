@@ -53,7 +53,7 @@ export interface MlvSchedulerEventChange<D = Date, TData = unknown> {
   source: MlvSchedulerChangeSource;
 }
 
-/** Payload of `eventClick`, `eventDoubleClick` and `eventContextMenu`. */
+/** Payload of `eventClick`, `eventDoubleClick`, `eventContextMenu` and `eventDelete`. */
 export interface MlvSchedulerEventInteraction<D = Date, TData = unknown> {
   /** The event the chip renders, straight out of the `events` model. */
   event: MlvSchedulerEvent<D, TData>;
@@ -61,8 +61,9 @@ export interface MlvSchedulerEventInteraction<D = Date, TData = unknown> {
   element: HTMLElement;
   /**
    * The originating DOM event: the `click` / `dblclick` / `contextmenu`
-   * `MouseEvent`, or the `KeyboardEvent` of `Enter` / `Space` (click) and of
-   * the ContextMenu key / `Shift+F10` (context menu). On a `contextmenu`
+   * `MouseEvent`, or the `KeyboardEvent` of `Enter` / `Space` (click), of
+   * the ContextMenu key / `Shift+F10` (context menu) or of `Delete` /
+   * `Backspace` (`eventDelete`, always prevented). On a `contextmenu`
    * `MouseEvent`, `defaultPrevented` is `true` only when a matching
    * `*mlvScheduler…MenuDef` opened the built-in menu on it. A context-menu
    * `KeyboardEvent` is always prevented — the scheduler claims the key, def

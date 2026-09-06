@@ -403,6 +403,42 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       element?.focus();
     });
 
+    // A popover chip has no owning grid cell, so a chip removed from the open
+    // panel while it holds focus — after `eventDelete`, or any other consumer
+    // write — files no focus request of its own and would leave focus on
+    // `<body>` with the panel still open. The panel takes it back onto its
+    // group instead. Focus on `<body>` while the panel is open is read as
+    // dropped that way: an outside press lands on a cell or closes the panel,
+    // and the panel's own chrome focuses the group. The one benign case is a
+    // Tab out to the browser chrome, where a later model write would move
+    // focus back into the panel — which is where Shift+Tab lands anyway.
+    //
+    // Once the removals leave nothing overflowing, the `+N more` button that
+    // owns the panel unrenders (`@if (cell.hidden.length)`), so the close-time
+    // restore would target a detached button: the panel closes here and the
+    // focus it held goes to the day cell instead.
+    afterRenderEffect(() => {
+      const cell = this._popoverCell();
+      if (!cell) return;
+      const doc = this._host.ownerDocument;
+      const active = doc.activeElement;
+      const pane = this._popoverHandle?.overlayRef.overlayElement ?? null;
+      const dropped = !active || active === doc.body;
+      if (cell.hidden.length === 0) {
+        const held = dropped || (!!pane && !!active && pane.contains(active));
+        untracked(() => this._closePopover());
+        if (!held) return;
+        const cellEl = findCellElement(this._host, cell.dayIndex, null);
+        untracked(() => this._focusedIndex.set(cell.dayIndex));
+        cellEl?.focus();
+        return;
+      }
+      if (!dropped) return;
+      pane
+        ?.querySelector<HTMLElement>('.mlv-scheduler-month__popover')
+        ?.focus();
+    });
+
     // The panel is hidden — not disposed — while a drag is in flight, and
     // disposed once it settles. It owns the SortableJS instance that drags its
     // own chips out (the spec requires that), and disposing it on drag start
