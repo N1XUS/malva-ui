@@ -302,6 +302,11 @@ describe('MlvNumberInput', () => {
   });
 
   describe('scroll wheel', () => {
+    // The registration/teardown tests below spy on `addEventListener` and
+    // `removeEventListener`; without this the prototype spy chains into the
+    // next test in this file.
+    afterEach(() => vi.restoreAllMocks());
+
     it('should increment on wheel up (deltaY < 0)', () => {
       component['_isFocused'].set(true);
       fixture.componentRef.setInput('scrollable', true);
@@ -390,6 +395,116 @@ describe('MlvNumberInput', () => {
 
       expect(event.defaultPrevented).toBe(false);
       expect(component.value()).toBe(10);
+    });
+
+    // The dispatched tests above cover "wheel up while scrollable" and the
+    // `scrollable === false` branch. The rest of the wiring the `_onWheel`
+    // JSDoc and `libs-number-input.md` promise — the explicit
+    // `{ passive: false }`, the other two guard branches, the down direction
+    // and the teardown — was only ever asserted by reading the source. #21 is
+    // what that costs: the comment and the code drifted apart and nothing
+    // went red. These pin the registration itself.
+    it('registers the wheel listener with an explicit { passive: false }', async () => {
+      const addSpy = vi.spyOn(HTMLInputElement.prototype, 'addEventListener');
+
+      const probe = TestBed.createComponent(MlvNumberInput);
+      probe.detectChanges();
+      await probe.whenStable();
+
+      const wheelRegistrations = addSpy.mock.calls.filter(
+        ([type]) => type === 'wheel',
+      );
+
+      // `defaultPrevented` separates `passive: false` from `passive: true`,
+      // but *not* from passing no options at all — a wheel listener defaults
+      // to non-passive in jsdom exactly as it does in a browser. Only the
+      // registration shows the option is explicit, which is what the rule
+      // ("pass `{ passive: false }` explicitly and say why") actually asks for.
+      expect(wheelRegistrations).toHaveLength(1);
+      expect(wheelRegistrations[0][2]).toEqual({ passive: false });
+
+      probe.destroy();
+    });
+
+    it('steps down on a wheel event dispatched at the native input', () => {
+      fixture.componentRef.setInput('scrollable', true);
+      fixture.detectChanges();
+      component['_isFocused'].set(true);
+      component.value.set(10);
+
+      nativeInput().dispatchEvent(
+        new WheelEvent('wheel', {
+          deltaY: 100,
+          cancelable: true,
+          bubbles: true,
+        }),
+      );
+
+      expect(component.value()).toBe(9);
+    });
+
+    it('leaves a dispatched wheel event alone while the input is unfocused', () => {
+      fixture.componentRef.setInput('scrollable', true);
+      fixture.detectChanges();
+      component['_isFocused'].set(false);
+      component.value.set(10);
+
+      const event = new WheelEvent('wheel', {
+        deltaY: -100,
+        cancelable: true,
+        bubbles: true,
+      });
+      nativeInput().dispatchEvent(event);
+
+      expect(component.value()).toBe(10);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('leaves a dispatched wheel event alone while disabled', async () => {
+      fixture.componentRef.setInput('scrollable', true);
+      fixture.componentRef.setInput('disabled', true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      component['_isFocused'].set(true);
+      component.value.set(10);
+
+      const event = new WheelEvent('wheel', {
+        deltaY: -100,
+        cancelable: true,
+        bubbles: true,
+      });
+      nativeInput().dispatchEvent(event);
+
+      expect(component.value()).toBe(10);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('releases the wheel listener when the component is destroyed', () => {
+      fixture.componentRef.setInput('scrollable', true);
+      fixture.detectChanges();
+      const input = nativeInput();
+      const removeSpy = vi.spyOn(input, 'removeEventListener');
+      component['_isFocused'].set(true);
+      component.value.set(10);
+
+      fixture.destroy();
+
+      expect(
+        removeSpy.mock.calls.filter(([type]) => type === 'wheel'),
+      ).toHaveLength(1);
+
+      // A removal count cannot see a listener that was added twice and taken
+      // off once, so dispatch after destroy and assert the handler no longer
+      // runs. Asserting that nothing threw would see neither.
+      const event = new WheelEvent('wheel', {
+        deltaY: -100,
+        cancelable: true,
+        bubbles: true,
+      });
+      input.dispatchEvent(event);
+
+      expect(component.value()).toBe(10);
+      expect(event.defaultPrevented).toBe(false);
     });
   });
 });

@@ -355,7 +355,9 @@ export class MlvNumberInput
   }
 
   /**
-   * @protected Handles scroll-wheel input when scrollable and focused.
+   * @protected Handles scroll-wheel input. Steps the value only when
+   * `scrollable` is set, the input has focus, and the control is not disabled
+   * — all three are guard branches, and all three are covered.
    * The wheel listener is attached via fromEvent with { passive: false } so
    * preventDefault() actually suppresses page scroll.
    */
