@@ -248,9 +248,97 @@ Three consequences to know about:
   custom `MlvDataSource` subclass is still the right shape for server-filtered
   data.
 
-`contains` / `not-contains` normalise their comparand **once per filter pass**
-rather than once per row; the identity operators (`equals`, `not-equals`, `in`,
-`not-in`) never normalise it at all.
+### Filter cost — the per-column normalisation memo
+
+Both sides of a `contains` / `not-contains` predicate are memoised, on
+different clocks:
+
+| side                       | normalised                                   | held in                            |
+| -------------------------- | -------------------------------------------- | ---------------------------------- |
+| comparand (`filter.value`) | once per `_filtered` **pass**                | `_prepareFilter`'s prepared filter |
+| row value (`row[key]`)     | once per `(data array identity, filter key)` | `_filterHaystack`, a column memo   |
+
+The identity operators (`equals`, `not-equals`, `in`, `not-in`) compare by
+identity and normalise **neither** side.
+
+`_filterHaystack` is shaped like `_haystack` and does no work either: it hands
+out an empty `Map<string, string[]>` and exists only to key the memos on
+`(data array identity, filter key set)`. The shared shape is where the
+resemblance stops — see the eviction note below. `_prepareFilter` creates a
+column's entry on first
+sight of the key, and `_applyFilter` fills row `i` of it with `??=` the first
+time a pass actually reaches that row — so the short-circuiting `every` is
+preserved and a row an earlier filter already rejected never pays. `??=` and
+not `||=`: a nullish cell stringifies to `''`, which is a valid memo entry and
+must not be recomputed every pass.
+
+The keys are split out of `_filters()` into a `_filterKeys` computed, so typing
+in a filter input — which changes only `value`, handing over fresh
+`MlvFilterState` objects every time — leaves the memo valid.
+
+**`_filterKeys` is an eviction policy, not a correctness dependency**, and this
+is where it differs from `_searchKeys` despite the identical shape. A
+`_haystack` entry is indexed by _position in the key list_, so entry `i` only
+answers for `keys[i]` and a reorder genuinely must rebuild — `_searchKeys` is
+load-bearing. A `_filterHaystack` entry is addressed by the key _string_; it is
+a pure function of `(row identity, key)` and nothing the filter list does can
+make it wrong. `_filterKeys` exists only to bound retention: normalised text is
+held for the columns currently filtered and no others, so dropping a column
+from the filter list releases its strings on the next read.
+
+Because order is not part of that bound, `_filterKeys` canonicalises — it
+deduplicates and sorts. That is not cosmetic: `mlv-data-table`'s per-column
+funnel handler (`onColumnFiltersChange`) rebuilds `activeFilters` as "every
+filter except the edited key, then the edited key", so **every column-filter
+edit reorders the list**. Under a positional comparator that dropped every
+memo on each edit, which is exactly the multi-filter case #64 is about.
+Deduplicating likewise keeps the entry when one of two predicates on a single
+column is removed. A changed **column set** rebuilds; a changed `value`,
+`operator` or _order_ does not. Every filter is mapped into `_filterKeys`, not
+just the two operators that read a memo, so flipping `equals` → `contains` on a
+key already in the set keeps that column's cache.
+
+The memo is keyed by **column key**, not by filter position, so a `contains`
+and a `not-contains` on one column share a single entry and normalise it once
+between them.
+
+`_applyFilter` still hoists `_read` above its switch, so it runs on a memo hit
+too, where `contains` / `not-contains` never look at the value. That is one
+wasted property read per row per pass, kept deliberately: the identity
+operators need the value from that same read, and moving it into the two arms
+that use it would make the number of times a column's getter fires depend on
+whether its memo is warm. A guard pins the count at one per row per pass across
+a warm and a cold pass.
+
+An active `contains` filter over R rows therefore costs `R + 2` on the first
+pass and `2` on every later one (the empty search query plus the comparand),
+instead of `R + 2` every pass — the point of #64. Combined with search, a
+keystroke over a 10 000-row table with a column filter applied drops from
+`2 × 10 000 + 2` normalisations to the 2 that are irreducible (the query and
+the comparand); the row side goes to zero.
+
+Two consequences carry over from `_haystack`. The normalised strings stay
+retained for as long as the computed holds its value, bounded by rows ×
+**currently filtered** columns. And an in-place mutation of the data is not
+observed — in two different ways, worth separating:
+
+- A **row object** mutated in place, with the same array reference published,
+  keeps its cached text: the row answers with what it used to say.
+- The **array itself** mutated in place (`splice`, `shift`, `sort`) is worse,
+  because both memos are indexed by position. After `rows.shift()` row `i` is
+  answered by row `i + 1`'s cached text — a row matched against a _different_
+  row's value, not merely a stale one. One asymmetry: a _growing_ in-place
+  mutation (`push`) makes `_haystack` throw, because the memo array is shorter
+  than the data, while the filter memo stays silent and answers the new tail
+  correctly by accident.
+
+Neither is new to #64 — the search path has behaved this way since #4, and the
+contract has always been that a `Signal<T[]>` publishes a new array reference.
+The filter memo extends the same hazard to a second axis.
+
+A column that is both searched and filtered is normalised once into each memo —
+the two structures are independent, and deduplicating them is not worth
+coupling the prefix-indexed search entry to the column-keyed filter one.
 
 ### Sort cost — decorate–sort–undecorate + one hoisted collator
 
@@ -446,6 +534,23 @@ declarations.
     `1 + 2R`; a changed `keys` array (including a reorder) or a new data
     reference rebuilds, a changed `query` does not; a `contains` filter costs
     `R + 2` (not `2R + 1`), and identity operators cost 1;
+  - **filter normalisation-count** guards, the same style one level down
+    (`describe('MlvArrayDataSource filter normalisation cost')`): N passes over
+    R rows moving only `filter.value` cost `R + 2 + 2(N-1)` rather than
+    `N(R + 2)`; a changed filter `key` or a new data array rebuilds while a
+    changed `value` does not; a **reorder** of the filter list does not (the
+    shape `mlv-data-table` produces on every column-filter edit — the guard
+    fails at `3 + 2R` against a positional comparator), nor does dropping one
+    of two predicates on a single column (the dedupe); `_read` fires once per
+    row per pass whether the memo is warm or cold; two `contains` filters on
+    different keys memoise
+    `R` each; a row rejected by an earlier filter never has its later columns
+    normalised, and pays for exactly the one missing value when a widened
+    filter reaches it; a nullish column value memoises as `''` and is not
+    recomputed (the `??=` vs `||=` guard); a `contains` and a `not-contains` on
+    one key share `R`; and search + filter across keystrokes costs `2R` once
+    and `2` per later keystroke, with a search-key change rebuilding only the
+    haystack;
   - **lazy-memo correctness** guards: a query moving between fields in both
     directions, a key-list reorder, natural fields after the data array is
     replaced, and a partially filled memo staying valid when only `_filters()`

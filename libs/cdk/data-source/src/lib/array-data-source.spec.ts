@@ -735,6 +735,337 @@ describe('MlvArrayDataSource normalisation cost', () => {
   });
 });
 
+/**
+ * Builds `count` rows with two independently filterable columns. Both carry a
+ * diacritic on purpose, so `normalizeForMatch` takes its full NFD-fold path
+ * rather than the ASCII `toLowerCase()` short cut — the cost these guards are
+ * about.
+ */
+function makeFilterRows(count: number, salt = 'x'): Record<string, string>[] {
+  return Array.from({ length: count }, (_, i) => ({
+    name: `Café ${salt}-${i}`,
+    city: `Zürich ${salt}-${i}`,
+  }));
+}
+
+describe('MlvArrayDataSource filter normalisation cost', () => {
+  beforeEach(() => {
+    normalizeCounter.calls = 0;
+  });
+
+  it('normalizes a contains column value once per (data, filter key), not once per pass', () => {
+    const rowCount = 40;
+    const values = ['c', 'ca', 'caf', 'cafe'];
+    const source = new MlvArrayDataSource(makeFilterRows(rowCount));
+    source.setPerPage(Infinity);
+
+    normalizeCounter.calls = 0;
+    for (const value of values) {
+      source.setFilters([{ key: 'name', operator: 'contains', value }]);
+      source.connect()();
+    }
+
+    // Derivation. Every pass pays 2 unconditionally: 1 for the (empty) search
+    // query and 1 for the hoisted comparand. The row side is paid once.
+    //   pass 1: 2 + rowCount     (the column memo is empty)
+    //   passes 2..4: 2 each      (only `value` moved, so `_filterKeys` — and
+    //                             therefore the memo generation — is unchanged)
+    // = rowCount + 2 + (values.length - 1) * 2 = 40 + 2 + 6 = 48.
+    // Without the memo every pass re-normalised every row:
+    // values.length * (2 + rowCount) = 4 * 42 = 168.
+    expect(normalizeCounter.calls).toBe(rowCount + 2 + (values.length - 1) * 2);
+    expect(source.totalItems()).toBe(rowCount);
+  });
+
+  it('rebuilds the column memo when the filter key changes, but not when only the value does', () => {
+    const rowCount = 20;
+    const source = new MlvArrayDataSource(makeFilterRows(rowCount));
+    source.setPerPage(Infinity);
+
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'cafe' }]);
+    expect(source.totalItems()).toBe(rowCount);
+
+    // Same key, a fresh state object and a different comparand: no rebuild, so
+    // only the query and the comparand are normalised.
+    normalizeCounter.calls = 0;
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'café' }]);
+    expect(source.totalItems()).toBe(rowCount);
+    expect(normalizeCounter.calls).toBe(2);
+
+    // A different key hands out a fresh generation: `city` has never been
+    // normalised, so all rowCount values are paid for.
+    normalizeCounter.calls = 0;
+    source.setFilters([{ key: 'city', operator: 'contains', value: 'zurich' }]);
+    expect(source.totalItems()).toBe(rowCount);
+    expect(normalizeCounter.calls).toBe(2 + rowCount);
+
+    // Going back to `name` pays again. This is the eviction policy, not a
+    // correctness requirement: the entries are addressed by key *string*, so
+    // `name`'s cached text could not have gone wrong — the key set genuinely
+    // changed, so the generation it bounded was released. Widening the policy
+    // (see the reorder and dedupe guards below) is always safe; the only thing
+    // it trades away is the retention bound.
+    normalizeCounter.calls = 0;
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'cafe' }]);
+    expect(source.totalItems()).toBe(rowCount);
+    expect(normalizeCounter.calls).toBe(2 + rowCount);
+  });
+
+  it('reads a filtered column once per row per pass whether or not the memo is warm', () => {
+    const rowCount = 8;
+    let reads = 0;
+    const rows = Array.from({ length: rowCount }, (_, i) => ({
+      get name(): string {
+        reads++;
+        return `Café x-${i}`;
+      },
+    }));
+    const source = new MlvArrayDataSource(rows);
+    source.setPerPage(Infinity);
+
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'cafe' }]);
+    expect(source.totalItems()).toBe(rowCount);
+    expect(reads).toBe(rowCount);
+
+    // Second pass: every row's normalised text now comes off the memo, and
+    // `contains` never looks at `val`. `_applyFilter` still hoists `_read`
+    // above the switch anyway, so a column backed by a side-effecting or
+    // throwing getter is invoked exactly as often as it was before #64 — the
+    // memo is not allowed to make property-read counts depend on cache
+    // temperature. Pushing `_read` into the arms that use it would report 0
+    // here and is the change this guard exists to catch.
+    reads = 0;
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'caf' }]);
+    expect(source.totalItems()).toBe(rowCount);
+    expect(reads).toBe(rowCount);
+  });
+
+  it('keeps both column memos when the filter list is only reordered', () => {
+    const rowCount = 20;
+    const source = new MlvArrayDataSource(makeFilterRows(rowCount));
+    source.setPerPage(Infinity);
+
+    source.setFilters([
+      { key: 'name', operator: 'contains', value: 'cafe' },
+      { key: 'city', operator: 'contains', value: 'zurich' },
+    ]);
+    expect(source.totalItems()).toBe(rowCount);
+
+    // Byte-for-byte what `mlv-data-table.onColumnFiltersChange('name', …)`
+    // produces (`data-table.ts`): the list is rebuilt as "every filter whose
+    // key is not the edited one, then the edited one", so editing `name` moves
+    // it to the **end**. The memo generation must survive that — the entries
+    // are keyed by column string, so order cannot make one wrong, and this is
+    // the ordinary per-edit path of every filterable column.
+    normalizeCounter.calls = 0;
+    source.setFilters([
+      { key: 'city', operator: 'contains', value: 'zurich' },
+      { key: 'name', operator: 'contains', value: 'caf' },
+    ]);
+    expect(source.totalItems()).toBe(rowCount);
+    // 1 query + 2 comparands, and nothing else: both columns are read off the
+    // memo. A positional `_filterKeys` comparator sees ['name','city'] !==
+    // ['city','name'], hands out a fresh map, and pays 3 + 2 * rowCount = 43.
+    expect(normalizeCounter.calls).toBe(3);
+  });
+
+  it('keeps the column memo when one of two predicates on a column is removed', () => {
+    const rowCount = 20;
+    const source = new MlvArrayDataSource(makeFilterRows(rowCount));
+    source.setPerPage(Infinity);
+
+    source.setFilters([
+      { key: 'name', operator: 'contains', value: 'cafe' },
+      { key: 'name', operator: 'not-contains', value: 'x-1' },
+    ]);
+    expect(source.totalItems()).toBe(9);
+
+    // The filtered *column set* is unchanged — it was {name} and still is —
+    // so dropping the second predicate must not evict `name`'s entries.
+    normalizeCounter.calls = 0;
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'cafe' }]);
+    expect(source.totalItems()).toBe(rowCount);
+    // 1 query + 1 comparand. Without the dedupe, `_filterKeys` moves from
+    // ['name','name'] to ['name'], the lengths differ, and the pass pays
+    // 2 + rowCount = 22.
+    expect(normalizeCounter.calls).toBe(2);
+  });
+
+  it('rebuilds the column memo on a new data array and re-reads the new values', () => {
+    const rowCount = 20;
+    const data = signal(makeFilterRows(rowCount, 'x'));
+    const source = new MlvArrayDataSource(data);
+    source.setPerPage(Infinity);
+
+    // 'x-1' hits `x-1` plus `x-10`..`x-19` — 11 of the 20 rows.
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'x-1' }]);
+    expect(source.totalItems()).toBe(11);
+
+    normalizeCounter.calls = 0;
+    data.set(makeFilterRows(rowCount, 'y'));
+    // Non-vacuity: the memo really was dropped. The new rows carry 'y-…', so a
+    // stale memo would still be reporting the 11 'x-1' hits.
+    expect(source.totalItems()).toBe(0);
+    // 1 query + 1 comparand + every row's `name` re-read from the new array.
+    expect(normalizeCounter.calls).toBe(2 + rowCount);
+  });
+
+  it('memoises each filtered column separately when two contains filters are active', () => {
+    const rowCount = 20;
+    const source = new MlvArrayDataSource(makeFilterRows(rowCount));
+    source.setPerPage(Infinity);
+
+    normalizeCounter.calls = 0;
+    source.setFilters([
+      { key: 'name', operator: 'contains', value: 'cafe' },
+      { key: 'city', operator: 'contains', value: 'zurich' },
+    ]);
+    expect(source.totalItems()).toBe(rowCount);
+    // 1 query + 2 comparands + rowCount `name` values + rowCount `city`
+    // values. Every row passes the first filter, so the `every` never
+    // short-circuits and the second column is walked in full.
+    expect(normalizeCounter.calls).toBe(3 + rowCount * 2);
+
+    // Moving only the second comparand runs the whole pass off both memos.
+    normalizeCounter.calls = 0;
+    source.setFilters([
+      { key: 'name', operator: 'contains', value: 'cafe' },
+      { key: 'city', operator: 'contains', value: 'zuri' },
+    ]);
+    expect(source.totalItems()).toBe(rowCount);
+    expect(normalizeCounter.calls).toBe(3);
+  });
+
+  it('never normalises a column for a row an earlier filter already rejected', () => {
+    const rows = [
+      { name: 'Café one', city: 'Zürich' },
+      { name: 'Tea two', city: 'Zürich' },
+      { name: 'Café three', city: 'Zürich' },
+    ];
+    const source = new MlvArrayDataSource(rows);
+    source.setPerPage(Infinity);
+
+    normalizeCounter.calls = 0;
+    source.setFilters([
+      { key: 'name', operator: 'contains', value: 'cafe' },
+      { key: 'city', operator: 'contains', value: 'zurich' },
+    ]);
+    expect(source.connect()()).toEqual([rows[0], rows[2]]);
+    // 1 query + 2 comparands + 3 `name` values + only the 2 `city` values of
+    // the rows that survived the first filter. The memo is filled on demand,
+    // so row 1's `city` is never normalised — the short-circuiting `every` in
+    // `_filtered` is preserved exactly as it was.
+    expect(normalizeCounter.calls).toBe(3 + 3 + 2);
+
+    // Widening the first filter reaches the row that was skipped, and pays for
+    // exactly that one missing `city` value.
+    normalizeCounter.calls = 0;
+    source.setFilters([
+      { key: 'name', operator: 'contains', value: 'e' },
+      { key: 'city', operator: 'contains', value: 'zurich' },
+    ]);
+    expect(source.connect()()).toEqual(rows);
+    expect(normalizeCounter.calls).toBe(3 + 1);
+  });
+
+  it('memoises a nullish column value as the empty string and does not re-normalise it', () => {
+    interface NullishRow {
+      name?: string | null;
+    }
+    const rows: NullishRow[] = [
+      { name: 'Café' },
+      { name: null },
+      { name: undefined },
+      {},
+    ];
+    const source = new MlvArrayDataSource(rows);
+    source.setPerPage(Infinity);
+
+    normalizeCounter.calls = 0;
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'cafe' }]);
+    expect(source.connect()()).toEqual([rows[0]]);
+    // 1 query + 1 comparand + one normalisation per row. The three nullish
+    // values each memoise as '' — `String(null ?? '')`, unchanged semantics.
+    expect(normalizeCounter.calls).toBe(2 + rows.length);
+
+    // '' is a legitimate memo entry, so a second pass must not recompute it:
+    // the fill has to be `??=`, not `||=`. A `||=` memo would re-normalise the
+    // three nullish rows here and report 2 + 3.
+    normalizeCounter.calls = 0;
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'caf' }]);
+    expect(source.connect()()).toEqual([rows[0]]);
+    expect(normalizeCounter.calls).toBe(2);
+
+    // A nullish comparand normalises to '' and therefore matches every row,
+    // nullish ones included — still off the memo.
+    normalizeCounter.calls = 0;
+    source.setFilters([{ key: 'name', operator: 'contains', value: null }]);
+    expect(source.connect()()).toEqual(rows);
+    expect(normalizeCounter.calls).toBe(2);
+  });
+
+  it('shares one column memo between a contains and a not-contains on the same key', () => {
+    const rowCount = 20;
+    const source = new MlvArrayDataSource(makeFilterRows(rowCount));
+    source.setPerPage(Infinity);
+
+    normalizeCounter.calls = 0;
+    source.setFilters([
+      { key: 'name', operator: 'contains', value: 'cafe' },
+      { key: 'name', operator: 'not-contains', value: 'x-1' },
+    ]);
+    // Every row contains 'cafe'; 'x-1' excludes `x-1` plus `x-10`..`x-19`,
+    // so 20 - 11 = 9 rows survive.
+    expect(source.totalItems()).toBe(9);
+    // 1 query + 2 comparands + rowCount. The memo is keyed on the *column
+    // key*, so the `not-contains` arm reads the entry the `contains` arm
+    // filled; a memo keyed per filter position would have paid rowCount twice.
+    expect(normalizeCounter.calls).toBe(3 + rowCount);
+
+    normalizeCounter.calls = 0;
+    source.setFilters([
+      { key: 'name', operator: 'contains', value: 'cafe' },
+      { key: 'name', operator: 'not-contains', value: 'x-2' },
+    ]);
+    // 'x-2' excludes `x-2` alone.
+    expect(source.totalItems()).toBe(rowCount - 1);
+    expect(normalizeCounter.calls).toBe(3);
+  });
+
+  it('keeps the search haystack and the column memo independent across keystrokes', () => {
+    const rowCount = 30;
+    const queries = ['z', 'zu', 'zur', 'zuri'];
+    const source = new MlvArrayDataSource(makeFilterRows(rowCount));
+    source.setPerPage(Infinity);
+
+    source.setFilters([{ key: 'name', operator: 'contains', value: 'cafe' }]);
+
+    normalizeCounter.calls = 0;
+    for (const query of queries) {
+      source.setSearch({ query, keys: ['city'] });
+      source.connect()();
+    }
+    // Keystroke 1: 1 query + 1 comparand + rowCount search-haystack entries
+    // (`city`) + rowCount filter-memo entries (`name`).
+    // Keystrokes 2..4: 1 query + 1 comparand only — the search keys and the
+    // filter key list are both unchanged, so neither memo is rebuilt.
+    // = 2 + rowCount * 2 + 3 * 2 = 2 + 60 + 6 = 68.
+    expect(normalizeCounter.calls).toBe(
+      2 + rowCount * 2 + (queries.length - 1) * 2,
+    );
+    expect(source.totalItems()).toBe(rowCount);
+
+    // Changing the *search keys* rebuilds only the haystack. The filter memo
+    // is keyed on the filter key list, which did not move, so it survives —
+    // rowCount normalisations, not rowCount * 2.
+    normalizeCounter.calls = 0;
+    source.setSearch({ query: 'cafe', keys: ['name'] });
+    source.connect()();
+    expect(normalizeCounter.calls).toBe(2 + rowCount);
+    expect(source.totalItems()).toBe(rowCount);
+  });
+});
+
 describe('MlvArrayDataSource lazy-memo correctness', () => {
   const memoRows = [
     { a: 'alpha', b: 'bravo', c: 'charlie' },

@@ -5,8 +5,8 @@ import { MlvDataSource } from './data-source';
 import type { MlvFilterState } from './data-source.types';
 
 /**
- * @private One active filter plus the comparand normalisation hoisted out of
- * the row loop.
+ * @private One active filter, the comparand normalisation hoisted out of the
+ * row loop, and the row-side memo its column reads through.
  *
  * `normalizedValue` is populated **only** for the two operators that read it
  * (`contains` / `not-contains`); every other operator compares the raw
@@ -20,6 +20,17 @@ interface MlvPreparedFilter {
    * `not-contains`; an unread empty string for every other operator.
    */
   readonly normalizedValue: string;
+  /**
+   * This filter's column memo out of {@link MlvArrayDataSource._filterHaystack}
+   * — `normalizeForMatch(String(_read(row, state.key) ?? ''))` per row, indexed
+   * by position in the **raw** data array and filled on demand.
+   *
+   * The reference is shared by every prepared filter naming the same `key`, so
+   * a `contains` and a `not-contains` on one column normalise it once between
+   * them. The identity operators never read it; they still carry one so the
+   * entry survives an operator flip on an otherwise unchanged filter.
+   */
+  readonly memo: string[];
 }
 
 /**
@@ -159,13 +170,86 @@ export class MlvArrayDataSource<T> extends MlvDataSource<T> {
    * each entry is a pure function of `(row identity, key)`.
    *
    * Trade-off: the normalised strings stay retained for as long as this
-   * computed holds a value, and a row object mutated in place without
-   * publishing a new array reference is not re-read. See the library
-   * CLAUDE.md.
+   * computed holds a value, and an in-place mutation that publishes no new
+   * array reference is not observed. Two distinct cases — a mutated *row*
+   * keeps its own stale text, while a mutated *array* (`splice`, `shift`)
+   * shifts the alignment, so a row is answered by a **different** row's text.
+   * See the library CLAUDE.md.
    */
   private readonly _haystack = computed<readonly string[][]>(() => {
     this._searchKeys();
     return this._rawData().map(() => []);
+  });
+
+  /**
+   * @private The filtered column `key`s split off `_filters()` — deduplicated
+   * and sorted into a canonical **set** — so that editing a filter does not
+   * invalidate {@link _filterHaystack}.
+   *
+   * **Not the analogue of {@link _searchKeys}, despite the shape.** The two
+   * exist for different reasons, and conflating them is what makes this
+   * comparator easy to get wrong:
+   *
+   * - `_haystack` entries are indexed by **position in the key list** (see the
+   *   prefix invariant on {@link _matchesQuery}), so entry `i` only answers for
+   *   `keys[i]`. There `_searchKeys` is load-bearing for **correctness**: a
+   *   reorder genuinely must rebuild.
+   * - `_filterHaystack` entries are addressed by the key **string**. A memo
+   *   entry is a pure function of `(row identity, key)` and cannot be made
+   *   wrong by anything the filter list does. So `_filterKeys` is purely an
+   *   **eviction policy**, and its only job is to bound retention.
+   *
+   * The bound it buys: normalised text is retained for the columns currently
+   * filtered, and no others — drop a column from the filter list and its
+   * strings are released on the next read. Nothing about correctness rests on
+   * that, which is why the comparator is free to be as coarse as it likes.
+   *
+   * Hence the canonical form. Order is not part of the eviction key, and
+   * `mlv-data-table.onColumnFiltersChange()` rebuilds `activeFilters` with the
+   * edited key moved to the **end** of the list, so a positional comparator
+   * dropped every memo on each column-filter edit — precisely the multi-filter
+   * case #64 is about. Deduplicating likewise keeps the entry when one of two
+   * predicates on a single column is removed.
+   *
+   * Deliberately maps **every** filter, not just the two operators that read a
+   * memo. An operator flipped from `equals` to `contains` on a key already in
+   * the set then keeps that column's cache, and the identity operators pay one
+   * empty array for it.
+   */
+  private readonly _filterKeys = computed<readonly string[]>(
+    () => [...new Set(this._filters().map((f) => f.key))].sort(),
+    {
+      equal: (a, b) => a.length === b.length && a.every((k, i) => k === b[i]),
+    },
+  );
+
+  /**
+   * @private One normalisation memo per filtered **column key**, each indexed
+   * by position in `_rawData()` and filled on demand by
+   * {@link _prepareFilter} / {@link _filterColumnText}.
+   *
+   * Like {@link _haystack} this computed does no work: it hands out an empty
+   * map and exists only to key the memos on `(data array identity, filter key
+   * set)`. The data dependency is the one that matters — a new array must not
+   * be answered by the old one's cached text. The key-set dependency is an
+   * eviction bound only; see {@link _filterKeys}. A changed filter *value*
+   * invalidates neither, which is the whole point — the comparand is already
+   * hoisted, and typing in a filter input must re-scan cached strings rather
+   * than re-normalise the dataset.
+   *
+   * Keyed by column rather than by filter position so two predicates on one
+   * column (the `contains` + `not-contains` pair a range-ish text filter
+   * produces) share a single entry.
+   *
+   * Filling it from inside `_filtered` is memoisation, not reactive state — no
+   * signal is written, so there is no glitch and no purity hazard. The same
+   * staleness and retention trade-offs as `_haystack` apply; see the library
+   * CLAUDE.md.
+   */
+  private readonly _filterHaystack = computed<Map<string, string[]>>(() => {
+    this._rawData();
+    this._filterKeys();
+    return new Map<string, string[]>();
   });
 
   /** @private Raw data passed through the active filter predicates. */
@@ -178,12 +262,14 @@ export class MlvArrayDataSource<T> extends MlvDataSource<T> {
     if (!filters.length && !normalizedQuery) return data;
 
     // Hoisted once per pass: `contains`/`not-contains` used to re-normalise
-    // their constant comparand for every single row.
-    const prepared = filters.map((f) => this._prepareFilter(f));
+    // their constant comparand for every single row. The row side comes off
+    // the per-column memo, which outlives the pass.
+    const memos = this._filterHaystack();
+    const prepared = filters.map((f) => this._prepareFilter(f, memos));
 
     if (!normalizedQuery) {
-      return data.filter((row) =>
-        prepared.every((f) => this._applyFilter(row, f)),
+      return data.filter((row, index) =>
+        prepared.every((f) => this._applyFilter(row, index, f)),
       );
     }
 
@@ -192,7 +278,7 @@ export class MlvArrayDataSource<T> extends MlvDataSource<T> {
     return data.filter(
       (row, index) =>
         this._matchesQuery(row, keys, haystack[index], normalizedQuery) &&
-        prepared.every((f) => this._applyFilter(row, f)),
+        prepared.every((f) => this._applyFilter(row, index, f)),
     );
   });
 
@@ -373,11 +459,21 @@ export class MlvArrayDataSource<T> extends MlvDataSource<T> {
 
   /**
    * @private Pairs a filter with the one comparand normalisation its operator
-   * needs, computed once per `_filtered` pass instead of once per row. Only
-   * `contains` / `not-contains` read `normalizedValue`; the identity operators
-   * (`equals`, `not-equals`, `in`, `not-in`) must not pay for it.
+   * needs — computed once per `_filtered` pass instead of once per row — and
+   * with its column's memo out of `memos`, created on first sight of the key.
+   *
+   * Only `contains` / `not-contains` read `normalizedValue`; the identity
+   * operators (`equals`, `not-equals`, `in`, `not-in`) must not pay for it.
    */
-  private _prepareFilter(f: MlvFilterState): MlvPreparedFilter {
+  private _prepareFilter(
+    f: MlvFilterState,
+    memos: Map<string, string[]>,
+  ): MlvPreparedFilter {
+    let memo = memos.get(f.key);
+    if (memo === undefined) {
+      memo = [];
+      memos.set(f.key, memo);
+    }
     const normalizesValue =
       f.operator === 'contains' || f.operator === 'not-contains';
     return {
@@ -385,11 +481,45 @@ export class MlvArrayDataSource<T> extends MlvDataSource<T> {
       normalizedValue: normalizesValue
         ? normalizeForMatch(String(f.value ?? ''))
         : '',
+      memo,
     };
   }
 
-  /** @private Evaluates a single prepared filter against a row, returning `true` when the row passes. */
-  private _applyFilter(row: T, f: MlvPreparedFilter): boolean {
+  /**
+   * @private This row's filtered column value, normalised at most once per
+   * `(data array, filter key)` pair.
+   *
+   * `??=` and not `||=`: a nullish cell stringifies to `''`, which is a
+   * perfectly good memo entry and must not be recomputed on every later pass —
+   * exactly the case `contains` sees most of, since a missing column reads as
+   * `undefined` for every row that lacks it.
+   *
+   * `index` is the row's position in `_rawData()`, which is what `_filtered`
+   * iterates in both of its branches, so the memo stays index-aligned with the
+   * array its generation was keyed on.
+   */
+  private _filterColumnText(
+    index: number,
+    value: unknown,
+    f: MlvPreparedFilter,
+  ): string {
+    return (f.memo[index] ??= normalizeForMatch(String(value ?? '')));
+  }
+
+  /**
+   * @private Evaluates a single prepared filter against a row, returning `true`
+   * when the row passes.
+   *
+   * `_read` is hoisted above the switch and therefore still runs on a memo hit,
+   * where `contains` / `not-contains` will not look at `val` at all. That is
+   * one wasted property read per row per pass, kept deliberately: the four
+   * identity operators need `val` from this same read, and pushing it into the
+   * two arms that use it would make the number of times a column's getter is
+   * invoked depend on whether its memo happens to be warm. A column backed by a
+   * throwing or counting getter keeps firing once per row per pass exactly as
+   * it did before the memo — pinned by the `_read`-count guard in the spec.
+   */
+  private _applyFilter(row: T, index: number, f: MlvPreparedFilter): boolean {
     const val = this._read(row, f.state.key);
     const fval = f.state.value;
     switch (f.state.operator) {
@@ -398,9 +528,11 @@ export class MlvArrayDataSource<T> extends MlvDataSource<T> {
       case 'not-equals':
         return val !== fval;
       case 'contains':
-        return normalizeForMatch(String(val ?? '')).includes(f.normalizedValue);
+        return this._filterColumnText(index, val, f).includes(
+          f.normalizedValue,
+        );
       case 'not-contains':
-        return !normalizeForMatch(String(val ?? '')).includes(
+        return !this._filterColumnText(index, val, f).includes(
           f.normalizedValue,
         );
       case 'in':
