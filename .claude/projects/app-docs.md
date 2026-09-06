@@ -595,6 +595,31 @@ five examples cover the stacked form, fieldset grids, live `[mlvDensity]` /
 fallback. Its API tab resolves through the default rule
 (`{ family: 'core', entry: 'form' }`), so it needs no `API_OVERRIDES` entry.
 
+The **Taskboard** page (`/taskboard`, Data display group, icon `kanban`)
+documents the standalone package **`@malva-ui/taskboard`** — never
+`@malva-ui/core/taskboard`, which does not exist. Its API tab resolves the
+package root through the `API_OVERRIDES` entry
+`{ family: 'taskboard', entry: '' }` (the same package-root shape the editor
+uses), so `docs:extract-api` reads `libs/taskboard/src/index.ts`. Registering it
+also required `family:docs` to be allowed to depend on `family:taskboard` in
+`eslint.config.mjs`, and the `kanban` icon in `DocsIconName` / `NAV_ICONS`.
+
+Its eight examples build up in order: (1) a projected board with `dataKey` /
+`columnField` and `(moved)`; (2) column groups, swimlanes, WIP limits and the
+consumer-owned collapse toggles the board renders but never writes;
+(3) `transitions`, `lockedItemIds`, `canDropFn` and `(moveCancelled)`;
+(4) the `selection` model with a bulk toolbar; (5) every replaceable slot plus
+`(contextMenu)` driving a `[mlvContextMenuTrigger]` panel from
+`@malva-ui/core/menu`; (6) a density segmented control bound to `[mlvDensity]`
+beside a scoped `dir="rtl"` board; (7) `virtualItemSize` over 500 cards with a
+`visibleItems` filter; (8) the imperative surface — `undo()`/`redo()`,
+`snapshot()`/`restore()`, `exportJson()`/`exportCsv()`, `print()` — with a
+`beforeMove` guard awaiting `MlvDialogService.confirm()`.
+
+Every example imports only published entry points (`@malva-ui/taskboard`,
+`@malva-ui/core/<leaf>`, `@malva-ui/cdk/<leaf>`); `pages/taskboard/index.spec.ts`
+asserts the route, manifest, navigation, lazy load and that import rule.
+
 The home page and Getting Started guide are intentional custom pages. The home page is a vibrant, reuse-first product landing (see `pages/home/CLAUDE.md` for the full section map): an aurora hero with a rotating headline word and theme-aware codex-generated glass artwork (`public/malva-ui-hero-glass-{light,dark}.webp`; `public/malva-ui-cta-aurora.webp` for the CTA), a dual-direction component marquee, animated stat counters, an interactive bento grid, a light/dark theme-split slider, and a showcase reel fed by the showcase registry's preview assets — with scroll reveals throughout and the below-the-fold scenes code-split via `@defer (on viewport)`. The workspace preview composes `MlvPageShell`, `MlvSidebar`, native `mlv-page-header`/`mlv-page-content` chrome, buttons, cards, badges, and progress; the principles are `MlvCard` surfaces. Getting Started uses semantic guide markup, accessible copy actions, responsive BEM styles, and `DocsTocSourceDirective`; it does not use `DocPageComponent`, numbered examples, or an API child route.
 
 The **Tailwind** guide (`/tailwind`, Overview group, icon `palette`) is another

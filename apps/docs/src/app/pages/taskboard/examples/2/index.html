@@ -1,0 +1,69 @@
+<mlv-taskboard
+  [(items)]="tickets"
+  [(columns)]="columns"
+  [columnGroups]="columnGroups"
+  [swimlanes]="swimlanes"
+  [(collapsedColumnIds)]="collapsedColumns"
+  [(collapsedSwimlaneIds)]="collapsedLanes"
+  dataKey="id"
+  columnField="status"
+  swimlaneField="team"
+>
+  <ng-template mlvTaskboardColumnHeaderDef let-column let-wip="wip">
+    <div class="phase-header">
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        type="button"
+        class="phase-header__toggle"
+        [class.phase-header__toggle--collapsed]="isColumnCollapsed(column.id)"
+        [attr.aria-expanded]="!isColumnCollapsed(column.id)"
+        [attr.aria-label]="'Cards in ' + column.label"
+        (click)="toggleColumn(column.id)"
+      >
+        <svg lucideChevronDown [size]="16"></svg>
+      </button>
+      <span class="phase-header__label">{{ column.label }}</span>
+      @if (wip.limit !== undefined) {
+      <span
+        class="phase-header__wip"
+        [class.phase-header__wip--full]="wip.remaining === 0"
+      >
+        {{ wip.count }}/{{ wip.limit }}
+      </span>
+      }
+    </div>
+  </ng-template>
+
+  <ng-template mlvTaskboardSwimlaneDef let-lane let-wip="wip">
+    <div class="phase-header">
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        type="button"
+        class="phase-header__toggle"
+        [class.phase-header__toggle--collapsed]="isLaneCollapsed(lane.id)"
+        [attr.aria-expanded]="!isLaneCollapsed(lane.id)"
+        [attr.aria-label]="'Cards in the ' + lane.label + ' lane'"
+        (click)="toggleLane(lane.id)"
+      >
+        <svg lucideChevronDown [size]="16"></svg>
+      </button>
+      <span class="phase-header__label">{{ lane.label }}</span>
+      @if (wip.limit !== undefined) {
+      <span class="phase-header__wip">{{ wip.count }}/{{ wip.limit }}</span>
+      }
+    </div>
+  </ng-template>
+
+  <ng-template
+    mlvTaskboardItemDef
+    [mlvTaskboardItemDefFrom]="ticketType"
+    let-card
+  >
+    <span class="ticket__id">{{ card.id }}</span>
+    <span class="ticket__title">{{ card.title }}</span>
+  </ng-template>
+</mlv-taskboard>

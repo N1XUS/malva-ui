@@ -1,0 +1,51 @@
+<div class="density-toolbar">
+  <mlv-segmented [(value)]="density" ariaLabel="Board density">
+    @for (option of densities; track option) {
+    <button mlvSegmentedItem [value]="option" class="density-toolbar__step">
+      {{ option }}
+    </button>
+    }
+  </mlv-segmented>
+</div>
+
+<mlv-taskboard
+  [mlvDensity]="density()"
+  [(items)]="tickets"
+  [(columns)]="columns"
+  dataKey="id"
+  columnField="status"
+>
+  <ng-template
+    mlvTaskboardItemDef
+    [mlvTaskboardItemDefFrom]="ticketType"
+    let-card
+  >
+    <span class="ticket__id">{{ card.id }}</span>
+    <span class="ticket__title">{{ card.title }}</span>
+  </ng-template>
+</mlv-taskboard>
+
+<p class="board-caption">
+  The same board under <code>dir="rtl"</code>. Columns run right to left, the
+  card rows keep their block order, and a header drag lands in the mirrored
+  slot.
+</p>
+
+<div dir="rtl" class="mirrored-frame">
+  <mlv-taskboard
+    [mlvDensity]="density()"
+    [(items)]="mirroredTickets"
+    [(columns)]="mirroredColumns"
+    dataKey="id"
+    columnField="status"
+  >
+    <ng-template
+      mlvTaskboardItemDef
+      [mlvTaskboardItemDefFrom]="ticketType"
+      let-card
+    >
+      <span class="ticket__id">{{ card.id }}</span>
+      <span class="ticket__title">{{ card.title }}</span>
+    </ng-template>
+  </mlv-taskboard>
+</div>

@@ -1,0 +1,11 @@
+## Selection and bulk actions
+
+`selection` is a two-way `model<ReadonlySet<MlvTaskboardKey>>`. Bind a `Set`, read a `Set`; the board never mutates the one you gave it, it writes a replacement — and only when the set really changed, so clicking an already-selected card emits nothing.
+
+Pointer gestures follow the platform: a plain click **replaces** the selection with the clicked card, `Ctrl`/`Cmd` + click **toggles** that card, and `Shift` + click selects the inclusive run from the anchor in rendered board order (swimlane row-major, then column order, then card index). Keys the board is not currently rendering — cards hidden by `visibleItems` — are never pruned from the set, so a filter does not quietly discard a selection.
+
+Selection is expressed to assistive technology on the card itself: each cell's card container is a `listbox` with `aria-multiselectable="true"`, each card is an `option`, and a selected card carries `aria-selected="true"` plus a `data-mlv-taskboard-selected` attribute you can style. The board also announces the selection size in its polite live region.
+
+A click is both a selection gesture and an activation: `cardActivated` fires after the selection settles, carrying the card, its `location`, the selection at that moment, and the `nativeEvent` — a `MouseEvent` for a click, a `KeyboardEvent` for `Enter`. Bulk work belongs to the application: the toolbar here rewrites `items` for every selected key.
+
+Inputs used: `selection`. Outputs used: `selectionChange`, `cardActivated`. Template context used: `selected`.

@@ -1,0 +1,71 @@
+<div [mlvContextMenuTrigger]="cardMenu">
+  <mlv-taskboard
+    [(items)]="tickets"
+    [(columns)]="columns"
+    dataKey="id"
+    columnField="status"
+    (addRequested)="onAddRequested($event)"
+    (contextMenu)="onContextMenu($event)"
+  >
+    <ng-template mlvTaskboardHeaderDef let-columns>
+      <p class="board-header">
+        Release pipeline — {{ columns.length }} columns
+      </p>
+    </ng-template>
+
+    <ng-template mlvTaskboardColumnHeaderDef let-column let-wip="wip">
+      <span class="slot-header">{{ column.label }}</span>
+      <span class="slot-header__count">
+        {{ wip.count }}@if (wip.limit !== undefined) {<span
+          >/{{ wip.limit }}</span
+        >}
+      </span>
+    </ng-template>
+
+    <ng-template
+      mlvTaskboardItemDef
+      [mlvTaskboardItemDefFrom]="ticketType"
+      let-card
+    >
+      <span class="ticket__title">{{ card.title }}</span>
+      <span class="ticket__id">{{ card.id }}</span>
+    </ng-template>
+
+    <ng-template mlvTaskboardEmptyStateDef let-column>
+      <p class="slot-empty">Nothing staged for {{ column.label }} yet.</p>
+    </ng-template>
+
+    <ng-template mlvTaskboardCardAddDef let-requestAdd let-column="column">
+      <button
+        mlvButton
+        variant="transparent"
+        type="button"
+        class="slot-add"
+        [attr.aria-label]="'Add a card to ' + column.label"
+        (click)="requestAdd()"
+      >
+        <svg lucidePlus [size]="14" aria-hidden="true"></svg>
+        Add to {{ column.label }}
+      </button>
+    </ng-template>
+
+    <ng-template mlvTaskboardDropIndicatorDef let-valid let-target="target">
+      <div
+        class="slot-drop"
+        [class.slot-drop--invalid]="!valid"
+        aria-hidden="true"
+      >
+        {{ valid ? 'Drop into ' + target.column.label : 'Not allowed here' }}
+      </div>
+    </ng-template>
+  </mlv-taskboard>
+</div>
+
+<mlv-menu #cardMenu label="Card actions">
+  <mlv-list-item mlvMenuItem (itemClick)="releaseTarget()">
+    Mark released
+  </mlv-list-item>
+  <mlv-list-item mlvMenuItem (itemClick)="removeTarget()">Delete</mlv-list-item>
+</mlv-menu>
+
+<p class="board-note" aria-live="polite">{{ lastRequest() }}</p>

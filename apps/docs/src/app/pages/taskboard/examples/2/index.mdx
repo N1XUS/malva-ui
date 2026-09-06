@@ -1,0 +1,11 @@
+## Phases, swimlanes, WIP limits, and collapse
+
+`columnGroups` labels **phases** — contiguous runs of adjacent columns sharing a `groupId`. A run of columns with no group renders as an unlabeled spacer, so a partially grouped board still lines up.
+
+`swimlanes` plus `swimlaneField` splits every column into one cell per lane. A board that declares swimlanes must declare `swimlaneField`, otherwise the pure index throws.
+
+A `wipLimit` can sit on a column, on a group, or on a swimlane. Limits are advisory for the data you pass in and binding for moves: a drop whose target would exceed any of the three limits is refused, and the keyboard announcement names the work-in-progress reason. The count behind a limit is always the **canonical** `items`, never the filtered `visibleItems`, so filtering a board never makes a full column look droppable. Each header template receives the live `wip` context (`count`, `limit`, `remaining`).
+
+**Collapse is consumer-owned.** The board renders no collapse control and ships no collapse i18n string. It only reflects your `collapsedColumnIds` / `collapsedSwimlaneIds` sets as `data-collapsed` on the column header, the lane row, and each affected cell, and styles the collapsed cell down. The toggle in this example is the page's own `mlvTaskboardColumnHeaderDef` / `mlvTaskboardSwimlaneDef` content: an `mlvButton` with its own accessible name and its own `aria-expanded`, writing new `Set`s back through the two-way models. A collapsed column keeps its cards in `items`; it just stops rendering them, and a collapsed cell owns no keyboard tab stop.
+
+Inputs used: `columnGroups`, `swimlanes`, `swimlaneField`, `collapsedColumnIds`, `collapsedSwimlaneIds`. Directives used: `mlvTaskboardColumnHeaderDef`, `mlvTaskboardSwimlaneDef`, `mlvTaskboardItemDef`.

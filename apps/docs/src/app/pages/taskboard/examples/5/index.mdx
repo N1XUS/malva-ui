@@ -1,0 +1,25 @@
+## Custom slots and a context menu
+
+Every chrome the board draws is a replaceable `ng-template`, and each one hands its template a typed context:
+
+| Directive                         | Context                                             |
+| --------------------------------- | --------------------------------------------------- |
+| `mlvTaskboardHeaderDef`           | `$implicit`/`columns`, `columnGroups`, `swimlanes`  |
+| `mlvTaskboardColumnGroupDef`      | `$implicit`/`group`, `wip`                          |
+| `mlvTaskboardColumnHeaderDef`     | `$implicit`/`column`, `wip`                         |
+| `mlvTaskboardSwimlaneDef`         | `$implicit`/`swimlane`, `wip`                       |
+| `mlvTaskboardColumnContentDef`    | `$implicit`/`items`, `column`, `swimlane`, `wip`    |
+| `mlvTaskboardItemDef`             | `$implicit`/`card`, `column`, `swimlane`, `location`, `selected`, `wip` |
+| `mlvTaskboardEmptyStateDef`       | `$implicit`/`column`, `swimlane`, `wip`             |
+| `mlvTaskboardCardAddDef`          | `$implicit`/`requestAdd`, `column`, `swimlane`, `wip` |
+| `mlvTaskboardDropIndicatorDef`    | `$implicit`/`valid`, `target`                       |
+
+`mlvTaskboardCardAddDef` gets the `requestAdd` callback rather than a card action: calling it emits `addRequested` with the cell's column, swimlane and `wip`, and the application creates the card. `mlvTaskboardDropIndicatorDef` renders wherever the live drop preview points; `valid` says whether that slot would be accepted, and `target.index` counts `target.items` — the cell's cards with the dragged one removed.
+
+`mlvTaskboardColumnContentDef` replaces the **whole** cell, listbox included, so it also takes over the cards' ARIA. Reach for it only when a cell is not a list of cards.
+
+The board owns no menu. It cancels the browser's native context menu on a card and emits `contextMenu` with the card, its location, and the selection, leaving the panel to the application: here a wrapper carries `[mlvContextMenuTrigger]` from `@malva-ui/core/menu`, the same `contextmenu` event bubbles to it, and the panel opens at the pointer. Cards are focusable, so the ContextMenu key and `Shift+F10` reach the same panel.
+
+The four generic definition directives (`mlvTaskboardItemDef`, `mlvTaskboardColumnContentDef`, `mlvTaskboardDropIndicatorDef`, `mlvTaskboardDragPreviewDef`) each take a `…From` input purely to carry the card type into the template context.
+
+Outputs used: `addRequested`, `contextMenu`.

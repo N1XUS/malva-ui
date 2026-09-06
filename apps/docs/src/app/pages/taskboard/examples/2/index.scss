@@ -1,0 +1,43 @@
+.phase-header {
+  display: flex;
+  align-items: center;
+  gap: var(--mlv-spacing-2);
+}
+
+.phase-header__toggle svg {
+  transition: transform var(--mlv-duration-fast) var(--mlv-ease-default);
+}
+
+.phase-header__toggle--collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.phase-header__label {
+  font-weight: var(--mlv-typography-body-m-weight);
+}
+
+.phase-header__wip {
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+
+.phase-header__wip--full {
+  color: var(--mlv-text-warning);
+}
+
+.ticket__id {
+  display: block;
+  font-family: var(--mlv-typography-family-code);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+
+.ticket__title {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phase-header__toggle svg {
+    transition: none;
+  }
+}

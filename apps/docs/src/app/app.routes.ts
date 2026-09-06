@@ -199,6 +199,11 @@ export const pageRoutes = [
       import('./pages/compare/index').then((m) => m.ComparePageComponent),
   },
   {
+    path: 'taskboard',
+    loadComponent: () =>
+      import('./pages/taskboard/index').then((m) => m.TaskboardPageComponent),
+  },
+  {
     path: 'copy-to-clipboard',
     loadComponent: () =>
       import('./pages/copy-to-clipboard/index').then(
@@ -571,6 +576,7 @@ export type DocsIconName =
   | 'house'
   | 'inbox'
   | 'info'
+  | 'kanban'
   | 'keyboard'
   | 'languages'
   | 'layers'
@@ -620,7 +626,7 @@ export type DocsIconName =
   | 'wrench';
 
 export interface DocsApiTarget {
-  family: 'core' | 'cdk' | 'i18n' | 'editor';
+  family: 'core' | 'cdk' | 'i18n' | 'editor' | 'taskboard';
   entry: string;
 }
 
@@ -752,6 +758,7 @@ const GROUP_DEFINITIONS = [
       'status-indicator',
       'stepper',
       'table',
+      'taskboard',
       'tile',
       'timeline',
       'title',
@@ -877,6 +884,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   stepper: 'list-checks',
   switch: 'toggle-left',
   tabs: 'layout-template',
+  taskboard: 'kanban',
   textarea: 'align-left',
   theming: 'palette',
   'time-picker': 'clock',
@@ -900,6 +908,7 @@ const API_OVERRIDES: Partial<Record<DocsPagePath, DocsApiTarget | null>> = {
   'infinite-scroll': { family: 'cdk', entry: 'infinite-scroll' },
   internationalization: { family: 'i18n', entry: '' },
   overlay: { family: 'cdk', entry: 'overlay' },
+  taskboard: { family: 'taskboard', entry: '' },
   theming: null,
   utils: { family: 'cdk', entry: 'utils' },
   'button-group': { family: 'core', entry: 'button' },

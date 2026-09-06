@@ -1,0 +1,31 @@
+.density-toolbar {
+  margin-block-end: var(--mlv-spacing-4);
+}
+
+.density-toolbar__step {
+  text-transform: capitalize;
+}
+
+.ticket__id {
+  display: block;
+  font-family: var(--mlv-typography-family-code);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+
+.ticket__title {
+  display: block;
+  font-weight: var(--mlv-typography-body-m-weight);
+}
+
+.board-caption {
+  margin-block: var(--mlv-spacing-6) var(--mlv-spacing-3);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+
+.mirrored-frame {
+  border: var(--mlv-stroke-width) dashed var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-panel);
+  padding: var(--mlv-padding-m);
+}

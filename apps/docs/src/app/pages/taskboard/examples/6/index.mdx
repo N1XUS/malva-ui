@@ -1,0 +1,24 @@
+## Density and RTL
+
+The board carries `MlvDensityDirective` as a host directive, so `[mlvDensity]` is an input on `<mlv-taskboard>` itself. With no explicit value it resolves the usual way — the nearest ancestor density context, then the global `MlvDensityService` — so a board inside a `[mlvDensityRoot]` shell follows the application without a binding.
+
+Each step re-declares four custom properties on the host, and everything below is expressed in terms of them:
+
+| Property                          | What it drives                      |
+| --------------------------------- | ----------------------------------- |
+| `--mlv-taskboard-padding`         | The surface's own padding           |
+| `--mlv-taskboard-gap`             | Space between columns and lanes     |
+| `--mlv-taskboard-column-width`    | Column track width (14rem → 24rem)  |
+| `--mlv-taskboard-card-gap`        | Space between cards inside a cell   |
+
+Override any of them on the host to retune one board without leaving the ramp.
+
+### What mirrors in RTL, and what does not
+
+Direction is the `dir` attribute, not an input, and the board reads the direction that applies to **its own host** through `MlvRtlService.elementDirection()`. So a scoped `dir="rtl"` on a wrapper flips that board while the rest of the page stays LTR — that is the second board above.
+
+- **Column order and the header drop slot mirror.** While a column header is dragged, the landing slot is derived from the pointer position against the remaining headers' inline midpoints, resolved against the board's own direction. Dropping past a header's inline-start edge in RTL inserts before it, exactly as inline-end does in LTR.
+- **Card containers do not mirror**, because they are on the block axis: a cell stacks its cards top to bottom in both directions, and SortableJS places the dragged card by the same vertical geometry.
+- **Arrow keys follow the document, not the wrapper.** `MlvRtlService.normalizeArrowKey()` is document-scoped, so <kbd>ArrowLeft</kbd> / <kbd>ArrowRight</kbd> swap only when the page itself is RTL. Inside a scoped `dir="rtl"` subtree on an LTR page, pointer geometry mirrors but the horizontal arrow keys keep their LTR meaning. Use the docs preference popup's **Direction: RTL** switch to see the keyboard half.
+
+Inputs used: `mlvDensity` (host directive).

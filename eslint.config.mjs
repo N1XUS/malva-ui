@@ -79,11 +79,24 @@ export default [
                 'family:i18n',
               ],
             },
+            // The taskboard is the second package that sits above core rather
+            // than inside it. Nothing in core may depend back on it, and it
+            // reaches only the CDK and i18n families itself; the docs app
+            // documents it, so `family:docs` must be able to import it.
+            {
+              sourceTag: 'family:taskboard',
+              onlyDependOnLibsWithTags: [
+                'family:taskboard',
+                'family:cdk',
+                'family:i18n',
+              ],
+            },
             {
               sourceTag: 'family:docs',
               onlyDependOnLibsWithTags: [
                 'family:docs',
                 'family:editor',
+                'family:taskboard',
                 'family:core',
                 'family:cdk',
                 'family:i18n',

@@ -1,0 +1,17 @@
+.ticket__title {
+  display: block;
+}
+
+.ticket__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mlv-spacing-1);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+
+.board-note {
+  margin-block-start: var(--mlv-spacing-3);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
