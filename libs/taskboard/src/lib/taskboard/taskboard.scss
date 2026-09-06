@@ -334,6 +334,17 @@
     // Virtual cells scroll inside a fixed block size: a viewport with no
     // measurable height renders nothing, so the cell declares one. The card
     // size the board was given is republished for consumers styling cards.
+    // An empty cards area stops stretching, so the add control sits directly
+    // under the placeholder box instead of at the foot of the panel. It keeps
+    // a card row of its own height so the drop slot is still reachable when a
+    // consumer replaces the box through `mlvTaskboardEmptyStateDef`.
+    &__cards--empty {
+      flex: 0 0 auto;
+      min-block-size: calc(
+        var(--mlv-taskboard-card-padding) * 2 + var(--mlv-spacing-5)
+      );
+    }
+
     &__cards--virtual {
       flex: 0 0 auto;
       block-size: var(--mlv-taskboard-cell-block-size, 20rem);
@@ -434,7 +445,6 @@
       gap: var(--mlv-spacing-1-5);
       inline-size: 100%;
       min-block-size: var(--mlv-height-m);
-      margin-block-start: auto;
       border: 0;
       border-radius: var(--mlv-radius-button);
       background-color: transparent;
@@ -463,12 +473,45 @@
 
     // ------------------------------------------------------------ empty state
 
+    // The placeholder box *is* the empty cell's drop slot, so it is one card
+    // row tall at the top of the cards area rather than a label floating in a
+    // stretched panel (R47).
     &__empty {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      // A pointer over the box has to read as a pointer over the container it
+      // sits in, the way the drop indicator already does.
+      pointer-events: none;
       margin: 0;
-      padding-block: var(--mlv-spacing-4);
+      padding: var(--mlv-padding-m);
+      min-block-size: calc(
+        var(--mlv-taskboard-card-padding) * 2 + var(--mlv-spacing-5)
+      );
+      border: var(--mlv-stroke-width) dashed var(--mlv-border-normal);
+      border-radius: var(--mlv-radius-card);
       color: var(--mlv-text-secondary);
       font-size: var(--mlv-typography-body-s-size);
       text-align: center;
+      transition: var(--mlv-transition-colors);
+    }
+
+    // The box takes the drop affordance the container already publishes, so
+    // there is no second indicator system to keep in step.
+    &__cards[data-mlv-taskboard-drop-state='valid'] &__empty {
+      border-color: var(--mlv-border-focus);
+      background-color: var(--mlv-background-accent-1-pale);
+    }
+
+    &__cards[data-mlv-taskboard-drop-state='invalid'] &__empty {
+      border-color: var(--mlv-border-error);
+    }
+
+    // In an empty cell the box is the affordance, so the tail indicator would
+    // draw a second one underneath it.
+    &__cards--empty &__drop-indicator {
+      display: none;
     }
 
     // ---------------------------------------------------------- drag feedback

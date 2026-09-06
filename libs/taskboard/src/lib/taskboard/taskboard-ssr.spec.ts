@@ -163,7 +163,8 @@ describe('MlvTaskboard server rendering', () => {
     ).toHaveLength(1);
 
     // The empty cell keeps its placeholder, and the localized chrome resolves.
-    expect(html).toContain('>No cards</p>');
+    expect(html).toContain('class="mlv-taskboard__empty"');
+    expect(html).toContain('No cards');
     expect(html).toContain('Add card');
     expect(html).toContain('aria-label="Taskboard"');
     expect(html).toContain('aria-live="polite"');

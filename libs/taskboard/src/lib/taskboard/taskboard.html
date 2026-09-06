@@ -198,6 +198,7 @@
             mlvTaskboardCardsHost
             role="listbox"
             aria-multiselectable="true"
+            [class.mlv-taskboard__cards--empty]="_isCellEmpty(column, swimlane)"
             [attr.aria-labelledby]="_cellLabelledBy(column, swimlane)"
             [itemSize]="itemSize"
             [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
@@ -205,6 +206,10 @@
               swimlane === undefined ? null : _keyAttribute(swimlane.id)
             "
           >
+            <ng-container
+              [ngTemplateOutlet]="emptyBoxTemplate"
+              [ngTemplateOutletContext]="{ column, swimlane }"
+            />
             <ng-container
               *cdkVirtualFor="
                 let item of _itemsFor(column, swimlane);
@@ -237,12 +242,17 @@
             mlvTaskboardCardsHost
             role="listbox"
             aria-multiselectable="true"
+            [class.mlv-taskboard__cards--empty]="_isCellEmpty(column, swimlane)"
             [attr.aria-labelledby]="_cellLabelledBy(column, swimlane)"
             [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
             [attr.data-mlv-taskboard-swimlane-id]="
               swimlane === undefined ? null : _keyAttribute(swimlane.id)
             "
           >
+            <ng-container
+              [ngTemplateOutlet]="emptyBoxTemplate"
+              [ngTemplateOutletContext]="{ column, swimlane }"
+            />
             @for (
               item of _itemsFor(column, swimlane);
               track _itemId(item);
@@ -267,11 +277,19 @@
           </div>
         </mlv-scrollbar>
       }
-      @if (_itemsFor(column, swimlane).length === 0) {
-        <ng-container
-          [ngTemplateOutlet]="emptyTemplate"
-          [ngTemplateOutletContext]="{ column, swimlane }"
-        />
+      <!--
+        A projected empty state stays a *sibling* of the listbox, exactly where
+        it has always rendered, so interactive content inside it keeps its own
+        semantics. Only the built-in box moved inside the drop container — it
+        is presentational, and being inside is what makes it a drop slot.
+      -->
+      @if (_emptyStateDefs()[0]; as emptyStateDef) {
+        @if (_isCellEmpty(column, swimlane)) {
+          <ng-container
+            [ngTemplateOutlet]="emptyStateDef.templateRef"
+            [ngTemplateOutletContext]="_emptyContext(column, swimlane)"
+          />
+        }
       }
       @if (_cardAddDefs()[0]; as cardAddDef) {
         <ng-container
@@ -367,14 +385,17 @@
   }
 </ng-template>
 
-<ng-template #emptyTemplate let-column="column" let-swimlane="swimlane">
-  @if (_emptyStateDefs()[0]; as emptyStateDef) {
-    <ng-container
-      [ngTemplateOutlet]="emptyStateDef.templateRef"
-      [ngTemplateOutletContext]="_emptyContext(column, swimlane)"
-    />
-  } @else {
-    <p class="mlv-taskboard__empty">{{ _i18n().emptyCell }}</p>
+<!--
+  The built-in empty-cell placeholder: a dashed drop-zone box at the top of the
+  cards area. It is `aria-hidden` for the same reason the drop indicator is —
+  a `listbox` owns `option`s, and this box names no card — so the empty cell's
+  listbox stays genuinely empty in the accessibility tree.
+-->
+<ng-template #emptyBoxTemplate let-column="column" let-swimlane="swimlane">
+  @if (_isCellEmpty(column, swimlane) && _emptyStateDefs().length === 0) {
+    <div class="mlv-taskboard__empty" aria-hidden="true">
+      {{ _i18n().emptyCell }}
+    </div>
   }
 </ng-template>
 

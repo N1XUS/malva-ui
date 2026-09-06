@@ -1324,6 +1324,17 @@ export class MlvTaskboard<TItem> {
     return this._index().itemsFor(column.id, swimlane?.id);
   }
 
+  /**
+   * @protected Whether a cell renders no cards, so the built-in placeholder box
+   * takes the top of its cards area and the area stops stretching (R47).
+   */
+  protected _isCellEmpty(
+    column: MlvTaskboardColumn,
+    swimlane: MlvTaskboardSwimlane | undefined,
+  ): boolean {
+    return this._itemsFor(column, swimlane).length === 0;
+  }
+
   /** Returns the authoritative WIP state for a column/lane cell. */
   protected _wipFor(
     column: MlvTaskboardColumn,
