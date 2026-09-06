@@ -18,6 +18,7 @@ import type {
 import {
   MLV_TASKBOARD_COLUMN_ID_ATTRIBUTE,
   MLV_TASKBOARD_COLUMN_LOCKED_ATTRIBUTE,
+  MLV_TASKBOARD_DROP_EDGE_ATTRIBUTE,
   MLV_TASKBOARD_DROP_STATE_ATTRIBUTE,
   captureMlvTaskboardDragResidue,
   mlvTaskboardChildrenOf,
@@ -147,6 +148,8 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
   private _fromIndex = -1;
   /** @private The order the drag would commit if released right now. */
   private _next: readonly MlvTaskboardColumn[] | null = null;
+  /** @private The header currently carrying the insertion bar, if any. */
+  private _edgeHeader: HTMLElement | null = null;
   /** @private Whether Escape abandoned the drag currently in flight. */
   private _cancelled = false;
   /** @private Ends the current drag's document listeners on drop. */
@@ -243,7 +246,18 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
     const headers = mlvTaskboardChildrenOf(row, COLUMN_HEADER_CLASS);
     const dragged = this._residue?.item ?? event.dragged;
     const toIndex = this._slotFor(headers, dragged, clientX);
-    this._applyPreview(this._candidateOrder(host, this._fromIndex, toIndex));
+    const next = this._candidateOrder(host, this._fromIndex, toIndex);
+    this._applyPreview(next);
+    // A refused order shows no accept affordance — the row's `invalid` drop
+    // state is the whole feedback there.
+    this._applyEdge(
+      next === null
+        ? null
+        : this._edgeFor(
+            headers.filter((header) => header !== dragged),
+            toIndex,
+          ),
+    );
     return false;
   }
 
@@ -254,6 +268,7 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
     const cancelled = this._cancelled;
     restoreMlvTaskboardDragResidue(this._residue, event.item);
     this._applyPreview(null);
+    this._applyEdge(null);
     this._endDrag();
     if (!host || cancelled || next === null) return;
     host.reorderColumns(next);
@@ -263,6 +278,7 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
   destroy(): void {
     this._host = null;
     this._applyPreview(null);
+    this._applyEdge(null);
     this._endDrag();
     this._dragEnd.complete();
     this._row = null;
@@ -373,6 +389,39 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
     return adopted;
   }
 
+  /**
+   * @private The header and inline edge the insertion bar belongs on for a
+   * landing at `toIndex` among the row's *remaining* headers — the same list
+   * `_slotFor` counts and `_candidateOrder` splices into, so the bar and the
+   * order it previews can never disagree.
+   *
+   * The side is logical: `'start'` mirrors to the physical right edge under
+   * `[dir="rtl"]` through `inset-inline-start`, with no second conversion here.
+   */
+  private _edgeFor(
+    rest: readonly HTMLElement[],
+    toIndex: number,
+  ): { readonly header: HTMLElement; readonly side: 'start' | 'end' } | null {
+    const before = rest[toIndex];
+    if (before !== undefined) return { header: before, side: 'start' };
+    const last = rest[rest.length - 1];
+    return last === undefined ? null : { header: last, side: 'end' };
+  }
+
+  /** @private Moves the insertion bar to one header edge, or removes it. */
+  private _applyEdge(
+    edge: {
+      readonly header: HTMLElement;
+      readonly side: 'start' | 'end';
+    } | null,
+  ): void {
+    if (this._edgeHeader !== null && this._edgeHeader !== edge?.header) {
+      this._edgeHeader.removeAttribute(MLV_TASKBOARD_DROP_EDGE_ATTRIBUTE);
+    }
+    this._edgeHeader = edge?.header ?? null;
+    edge?.header.setAttribute(MLV_TASKBOARD_DROP_EDGE_ATTRIBUTE, edge.side);
+  }
+
   /** @private Reflects the hovered order's validity on the header row. */
   private _applyPreview(next: readonly MlvTaskboardColumn[] | null): void {
     this._next = next;
@@ -394,6 +443,7 @@ export class MlvTaskboardColumnSortable implements MlvTaskboardColumnsRegistry {
     this._residue = null;
     this._cancelled = false;
     this._row?.removeAttribute(MLV_TASKBOARD_DROP_STATE_ATTRIBUTE);
+    this._applyEdge(null);
     this._dragEnd.next();
   }
 }

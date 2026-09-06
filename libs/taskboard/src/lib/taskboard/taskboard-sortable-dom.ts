@@ -10,6 +10,18 @@ export const MLV_TASKBOARD_SWIMLANE_ID_ATTRIBUTE =
 /** Data attribute marking a column header the pointer may never reorder. */
 export const MLV_TASKBOARD_COLUMN_LOCKED_ATTRIBUTE =
   'data-mlv-taskboard-column-locked';
+/**
+ * Data attribute naming the column header the insertion bar is drawn against
+ * while a header drag hovers, and which of its inline edges carries it —
+ * `'start'` when the dragged column would land before that header, `'end'` on
+ * the last remaining header when it would land after every one of them.
+ *
+ * The bar is what makes a header drag's target slot visible: SortableJS never
+ * reorders the board's Angular-owned header row (`onMove` answers `false`), so
+ * the moving placeholder stays where the drag started and cannot show where
+ * the column will land.
+ */
+export const MLV_TASKBOARD_DROP_EDGE_ATTRIBUTE = 'data-mlv-taskboard-drop-edge';
 /** Data attribute reflecting whether the hovered container accepts the drag. */
 export const MLV_TASKBOARD_DROP_STATE_ATTRIBUTE =
   'data-mlv-taskboard-drop-state';

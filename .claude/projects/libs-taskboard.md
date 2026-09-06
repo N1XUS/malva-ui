@@ -189,6 +189,7 @@ Stable hooks for styling and for tests. Identifier attributes carry the **key to
 | `data-mlv-taskboard-selected`                                       | A selected card                                                                                 |
 | `data-collapsed`                                                    | A collapsed column header, a collapsed lane row, and any cell whose column or lane is collapsed |
 | `data-mlv-taskboard-drop-state`                                     | The hovered container, reflecting whether it accepts the drag                                   |
+| `data-mlv-taskboard-drop-edge`                                      | `start` / `end` — the column header the header-drag insertion bar is drawn against              |
 | `data-mlv-taskboard-wip="at-limit"`                                 | A built-in column header's count pill whose column has reached its WIP limit                    |
 | `mlv-taskboard__sortable-chosen` / `-drag` / `-ghost` / `-fallback` | SortableJS drag classes                                                                         |
 
@@ -205,12 +206,14 @@ Three surfaces make one elevation ladder, and it has to be read off the ladder r
 
 An **empty cell** opens with `mlv-taskboard__empty`: a dashed `--mlv-border-normal` box with `--mlv-radius-card` corners, one card row tall, holding the centred `emptyCell` label in `--mlv-text-secondary` at the _top_ of the cards area, with the add control directly beneath it. The cards area carries `mlv-taskboard__cards--empty` and stops stretching, so nothing is pinned to the foot of the panel while the column still stretches to the row height. While a drag hovers, the box takes the container's own `data-mlv-taskboard-drop-state` affordance — an accent outline on `--mlv-background-accent-1-pale`, `--mlv-border-error` when the slot is refused — and the tail drop indicator stands down, because the box is already the indicator. A consumer `mlvTaskboardEmptyStateDef` replaces the box wholesale and renders in its documented place, beside the listbox.
 
+While a **column header** is dragged, the source header states it with an inset dashed `--mlv-border-focus` outline over `--mlv-background-accent-1-pale`, and the target slot is a `--mlv-background-accent-1` bar absolutely positioned in the column gutter against the header named by `data-mlv-taskboard-drop-edge` (R46) — nothing resizes and no neighbour moves while it follows the pointer. A slot the board would refuse (a locked column pushed off its index, a `canReorderColumnFn` veto) draws no bar at all; the row's `data-mlv-taskboard-drop-state="invalid"` is the whole feedback there.
+
 The built-in column header renders `mlv-taskboard__column-title`, an optional inline lock glyph (`mlv-taskboard__lock`, `aria-hidden`) and `mlv-taskboard__count`; the built-in lane header renders `mlv-taskboard__lane-title` plus the same count pill. The count pill stays in the accessible name, so a cell's `aria-labelledby` name carries the column's load. `mlv-taskboard__add` carries an `aria-hidden` plus glyph (`mlv-taskboard__add-icon`) before its translated label. A selected card is a 2px accent ring — `--mlv-background-accent-1` border plus an inset `box-shadow` of the same colour — never a fill.
 
 ## RTL contract
 
 - The board reads the direction that applies to **its own host** through `MlvRtlService.elementDirection()`, so a scoped `dir="rtl"` mirrors that board while the rest of the page stays LTR.
-- Column order and the **column-header drop slot** mirror: while a header is dragged, the landing slot is derived from the pointer position against the remaining headers' inline midpoints, resolved against that direction.
+- Column order and the **column-header drop slot** mirror: while a header is dragged, the landing slot is derived from the pointer position against the remaining headers' inline midpoints, resolved against that direction, and the insertion bar that marks it (R46) is placed with logical `inset-inline-start` / `-end`, so the physical → logical conversion happens once, at the pointer boundary.
 - Card containers are on the **block axis** and do not mirror; a cell stacks its cards top to bottom in both directions and SortableJS places the dragged card by the same vertical geometry.
 - Horizontal **arrow keys mirror against the board's own host** — `MlvRtlService.normalizeArrowKey(event, elementDirection(host)())` — so `ArrowLeft` means "next column" inside a scoped `dir="rtl"` board on an LTR page and the keys agree with the pointer geometry, which resolves against the same element; pinned by the scoped-`[dir]` specs in `taskboard-keyboard.spec.ts` (both islands, with `ArrowUp`/`ArrowDown`/`Home`/`End` asserted unchanged).
 

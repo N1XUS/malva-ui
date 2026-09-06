@@ -208,6 +208,35 @@ function dropColumnAt(
   return moveResult;
 }
 
+/** Starts a header drag and hovers it, leaving the drag in flight. */
+function hoverColumnAt(
+  host: HTMLElement,
+  draggedId: string,
+  hover: ColumnHover,
+): { readonly release: () => void } {
+  const row = headerRow(host);
+  const sortable = sortableFor(row);
+  const dragged = columnHeader(host, draggedId);
+  const related = columnHeader(host, hover.relatedId ?? draggedId);
+  sortable.options.onStart?.(dragEvent(dragged, row));
+  sortable.options.onMove?.(
+    hoverEvent(dragged, row, related, hover),
+    new Event('pointermove'),
+  );
+  return { release: () => sortable.options.onEnd?.(dragEvent(dragged, row)) };
+}
+
+/** The header carrying the insertion-edge marker, as `<id>:<side>`. */
+function dropEdge(host: HTMLElement): string | null {
+  const marked = host.querySelector<HTMLElement>(
+    '[data-mlv-taskboard-drop-edge]',
+  );
+  if (marked === null) return null;
+  return `${String(
+    marked.getAttribute('data-mlv-taskboard-column-id'),
+  )}:${String(marked.getAttribute('data-mlv-taskboard-drop-edge'))}`;
+}
+
 function columnIds(fixture: ComponentFixture<ColumnHost>): string[] {
   return fixture.componentInstance.columns().map((column) => String(column.id));
 }
@@ -473,6 +502,82 @@ describe('MlvTaskboard SortableJS column adapter', () => {
       await fixture.whenStable();
 
       expect(columnIds(fixture)).toEqual(['c', 'a', 'b']);
+    });
+  });
+
+  describe('drop indicator', () => {
+    it('marks the insertion edge while a header drag hovers, and clears it on drop', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      stubHeaderRects(host, LTR_SPANS);
+
+      // Past `b`'s midpoint only: `a` would land between `b` and `c`, so the
+      // slot shows at `c`'s inline-start edge.
+      const between = hoverColumnAt(host, 'a', { clientX: 160 });
+      expect(dropEdge(host)).toBe('string:c:start');
+      between.release();
+      expect(dropEdge(host)).toBeNull();
+
+      // Past every remaining midpoint: the slot is the tail, drawn on the
+      // inline-end edge of the last remaining header.
+      const tail = hoverColumnAt(host, 'a', { clientX: 290 });
+      expect(dropEdge(host)).toBe('string:c:end');
+      tail.release();
+      expect(dropEdge(host)).toBeNull();
+    });
+
+    it('marks no slot for a hover that would not move the column', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      stubHeaderRects(host, LTR_SPANS);
+
+      const drag = hoverColumnAt(host, 'a', { clientX: 30 });
+      expect(dropEdge(host)).toBeNull();
+      expect(
+        headerRow(host).getAttribute('data-mlv-taskboard-drop-state'),
+      ).toBe('invalid');
+      drag.release();
+    });
+
+    it('shows no accept affordance for an order a locked column denies', async () => {
+      const fixture = await createFixture();
+      fixture.componentInstance.columns.set([
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B', locked: true },
+        { id: 'c', label: 'C' },
+      ]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const host = fixture.nativeElement as HTMLElement;
+      stubHeaderRects(host, LTR_SPANS);
+
+      // Moving `a` past `b` would shift the locked column out of index 1.
+      const drag = hoverColumnAt(host, 'a', { clientX: 160 });
+      expect(dropEdge(host)).toBeNull();
+      expect(
+        headerRow(host).getAttribute('data-mlv-taskboard-drop-state'),
+      ).toBe('invalid');
+      drag.release();
+    });
+
+    it('resolves the insertion edge against a scoped RTL direction', async () => {
+      const fixture = await createFixture();
+      const host = fixture.nativeElement as HTMLElement;
+      rtlService = TestBed.inject(MlvRtlService);
+      host.setAttribute('dir', 'rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      stubHeaderRects(host, RTL_SPANS);
+
+      expect(rtlService.direction()).toBe('ltr');
+
+      // Mirrored, `c` sits at the physical left. A pointer just inside it has
+      // passed `b`'s midpoint only, so `a` lands before `c` — the same logical
+      // edge the LTR case reports, on the header the mirrored geometry names.
+      const drag = hoverColumnAt(host, 'a', { clientX: 90 });
+      expect(dropEdge(host)).toBe('string:c:start');
+      drag.release();
+      host.removeAttribute('dir');
     });
   });
 

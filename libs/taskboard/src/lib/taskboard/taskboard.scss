@@ -148,6 +148,46 @@
       cursor: default;
     }
 
+    // A dragged header's target slot (R46). SortableJS never reorders the
+    // board's own header row, so the moving placeholder stays at the source
+    // and cannot show where the column lands; the bar names the slot instead.
+    // It is absolutely positioned inside the column gutter, so no header
+    // changes width and no neighbour shifts while it follows the pointer.
+    &__column-header[data-mlv-taskboard-drop-edge] {
+      position: relative;
+    }
+
+    &__column-header[data-mlv-taskboard-drop-edge]::after {
+      content: '';
+      position: absolute;
+      inset-block: 0;
+      inline-size: 0.125rem;
+      border-radius: var(--mlv-radius-full);
+      background-color: var(--mlv-background-accent-1);
+      pointer-events: none;
+    }
+
+    // Logical insets, so the bar sits on the header's reading-order start edge
+    // in LTR and on its physical right edge under `[dir="rtl"]`. Half the
+    // column gutter centres it between two headers.
+    &__column-header[data-mlv-taskboard-drop-edge='start']::after {
+      inset-inline-start: calc(var(--mlv-taskboard-gap) * -0.5);
+    }
+
+    &__column-header[data-mlv-taskboard-drop-edge='end']::after {
+      inset-inline-end: calc(var(--mlv-taskboard-gap) * -0.5);
+    }
+
+    // The source column while it is being dragged. The card ghost's dashed
+    // border would push the header's own content by a hairline, so the header
+    // states it as an inset outline over the accent-pale surface instead.
+    &__column-header#{$block}__sortable-ghost {
+      border-block-start-color: var(--mlv-border-focus);
+      outline: var(--mlv-stroke-width) dashed var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      background-color: var(--mlv-background-accent-1-pale);
+    }
+
     &__column-title {
       flex: 1 1 auto;
       min-inline-size: 0;

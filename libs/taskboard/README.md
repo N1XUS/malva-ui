@@ -91,7 +91,7 @@ bootstrapApplication(App, {
 
 Rendered elements carry stable data attributes. The four **identifier** attributes — `data-mlv-taskboard-card-id`, `-column-id`, `-swimlane-id`, `-group-id` — carry the **key token** `` `${typeof key}:${String(key)}` ``, so a card keyed `1` renders `data-mlv-taskboard-card-id="number:1"` and one keyed `'1'` renders `string:1`. Select on the token, not on the bare value.
 
-The remaining four are not key tokens: `data-mlv-taskboard-column-locked` and `data-mlv-taskboard-selected` are `"true"` or absent, `data-mlv-taskboard-drop-state` is `valid` or `invalid` on the container the drag is hovering, and `data-mlv-taskboard-wip="at-limit"` marks a built-in column header's count pill that has reached its column's limit.
+The remaining five are not key tokens: `data-mlv-taskboard-column-locked` and `data-mlv-taskboard-selected` are `"true"` or absent, `data-mlv-taskboard-drop-state` is `valid` or `invalid` on the container the drag is hovering, `data-mlv-taskboard-drop-edge` is `start` or `end` on the column header a header drag would land against, and `data-mlv-taskboard-wip="at-limit"` marks a built-in column header's count pill that has reached its column's limit.
 
 ## Peer dependencies
 
