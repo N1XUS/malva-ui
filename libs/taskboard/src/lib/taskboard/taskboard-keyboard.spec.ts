@@ -213,6 +213,36 @@ describe('MlvTaskboard keyboard interaction', () => {
     expect(live()).toBe('Cancelled moving a.');
   });
 
+  it('reports a stale commit when items are replaced under a keyboard grab', async () => {
+    const { fixture, key, focus, live } = await mount();
+
+    focus('a');
+    key('a', ' ');
+    key('a', 'ArrowRight');
+
+    // The application replaces `items` while the card is still in hand, so the
+    // board the grabbed session enumerated is no longer the board on screen.
+    const replacement: readonly Ticket[] = [
+      ...fixture.componentInstance.items(),
+      { id: 'c', status: 'todo' },
+    ];
+    fixture.componentInstance.items.set(replacement);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    key('a', ' ');
+    await fixture.whenStable();
+
+    expect(
+      fixture.componentInstance.cancellations.map((event) => event.reason),
+    ).toEqual(['stale']);
+    // The commit must not write, so the card the application added survives.
+    expect(fixture.componentInstance.items()).toBe(replacement);
+    expect(live()).toBe(
+      'a was not moved: the board changed while the move was pending.',
+    );
+  });
+
   it('cancels a grab the user blurs away from', async () => {
     const { fixture, card, key, focus, live } = await mount();
 

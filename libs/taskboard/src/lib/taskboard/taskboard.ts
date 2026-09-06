@@ -355,8 +355,8 @@ export class MlvTaskboard<TItem> {
 
   /**
    * @private Structural board snapshot. It deliberately omits selection and
-   * `canDropFn`, so neither re-indexes the board nor invalidates a pending
-   * asynchronous move.
+   * `canDropFn`, so neither re-indexes the board nor counts as a board change
+   * the history ledger has to replace itself for.
    */
   private readonly _boardCore = computed<MlvTaskboardState<TItem>>(() => ({
     items: this.items(),
@@ -376,7 +376,11 @@ export class MlvTaskboard<TItem> {
     createMlvTaskboardIndex(this._boardCore()),
   );
 
-  /** @private Full board snapshot a drag session and its policies run against. */
+  /**
+   * @private Full board snapshot a drag session and its policies run against,
+   * and the board a commit is applied to: a request that names an earlier one
+   * describes a board that has been replaced, and is reported `stale`.
+   */
   private readonly _board = computed<MlvTaskboardState<TItem>>(() => ({
     ...this._boardCore(),
     selectedIds: this.selection(),
@@ -660,7 +664,7 @@ export class MlvTaskboard<TItem> {
 
   /** @private Guarded commit/cancel flow for one released pointer drop. */
   private readonly _moveController = new MlvTaskboardMoveController<TItem>({
-    boardCore: () => this._boardCore(),
+    board: () => this._board(),
     beforeMove: () => this.beforeMove(),
     apply: (result) => this._applyMoveResult(result),
     cancelled: (event) => {

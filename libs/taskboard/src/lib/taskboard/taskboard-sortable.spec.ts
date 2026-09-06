@@ -872,6 +872,35 @@ describe('MlvTaskboard SortableJS card adapter', () => {
     expect(fixture.componentInstance.items()).toBe(replacement);
   });
 
+  it('reports a stale drop when the controlled items change during the drag', async () => {
+    const { fixture, host, recorded } = await createFixture();
+    const todoCards = cardsContainer(host, 'todo');
+    const doneCards = cardsContainer(host, 'done');
+    const card = cardElement(todoCards, 'a');
+
+    startDrag(todoCards, card);
+    hover(todoCards, card, doneCards, cardElement(doneCards, 'x'));
+
+    // No guard is bound, so this drop takes the synchronous commit path — the
+    // one an application write during the drag has to invalidate just as it
+    // invalidates a move waiting on an asynchronous guard.
+    const replacement: readonly Ticket[] = [
+      ...fixture.componentInstance.items(),
+      { id: 'c', status: 'todo' },
+    ];
+    fixture.componentInstance.items.set(replacement);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    endDrag(todoCards, card, doneCards);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(recorded.cancelled).toEqual(['stale']);
+    expect(recorded.moved).toEqual([]);
+    expect(fixture.componentInstance.items()).toBe(replacement);
+  });
+
   it('registers and destroys instances as columns are added and removed', async () => {
     const { fixture, host } = await createFixture();
     const removed = cardsContainer(host, 'done');

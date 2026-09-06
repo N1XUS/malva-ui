@@ -156,7 +156,10 @@ export type MlvTaskboardBeforeMove<TItem> = (
  * - `cancelled` — the pointer drag was abandoned (Escape).
  * - `before-move-rejected` — `beforeMove` answered `false`.
  * - `before-move-error` — `beforeMove` threw or rejected.
- * - `stale` — the controlled board changed while `beforeMove` was pending.
+ * - `stale` — the controlled `items` or `columns` were replaced between the
+ *   moment the move was started and the moment it would have committed, so the
+ *   request names a board that no longer exists. It covers both a guarded move
+ *   settling late and an unguarded drop or keyboard commit.
  */
 export type MlvTaskboardMoveCancelReason =
   | 'invalid-drop'

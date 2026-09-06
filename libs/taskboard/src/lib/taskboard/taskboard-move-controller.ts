@@ -11,10 +11,11 @@ import type {
 /** Board-owned callbacks the guarded move flow drives. */
 export interface MlvTaskboardMoveControllerConfig<TItem> {
   /**
-   * The board snapshot a staleness check compares by identity. It excludes
-   * selection and `canDropFn`, so neither invalidates a pending move.
+   * The board a move applies against, read fresh at commit time — the very
+   * snapshot a drag session is built from, so a request that names a different
+   * one describes a board that has since been replaced.
    */
-  boardCore(): MlvTaskboardState<TItem>;
+  board(): MlvTaskboardState<TItem>;
   /** The application guard to consult, when one is bound. */
   beforeMove(): MlvTaskboardBeforeMove<TItem> | undefined;
   /** Writes the single immutable replacement collection and emits `moved`. */
@@ -75,7 +76,6 @@ export class MlvTaskboardMoveController<TItem> {
     }
 
     const token = ++this._token;
-    const boardCore = this._config.boardCore();
     this._config.setPending(true);
     void Promise.resolve(decision).then(
       (accepted) => {
@@ -84,10 +84,8 @@ export class MlvTaskboardMoveController<TItem> {
           this.cancel('before-move-rejected', request);
           return;
         }
-        if (this._config.boardCore() !== boardCore) {
-          this.cancel('stale', request);
-          return;
-        }
+        // The staleness check lives in `_finish`, so a move waiting on a guard
+        // and one committing straight away are invalidated by the same read.
         this._finish(request);
       },
       () => {
@@ -109,7 +107,18 @@ export class MlvTaskboardMoveController<TItem> {
 
   /** @private Applies the accepted request, or reports why it no longer fits. */
   private _finish(request: MlvTaskboardMoveRequest<TItem>): void {
-    const result = applyMlvTaskboardMove(request.board, request);
+    const board = this._config.board();
+    // A request names the board its session enumerated. Anything that replaced
+    // `items` or `columns` since — an application write, an undo, a settled
+    // sibling move — left that board behind, so the move is reported stale
+    // rather than applied to a board it never saw. Checked here rather than
+    // left to `applyMlvTaskboardMove`, whose `null` cannot say which of the
+    // two reasons it means.
+    if (request.board !== board) {
+      this.cancel('stale', request);
+      return;
+    }
+    const result = applyMlvTaskboardMove(board, request);
     if (!result) {
       this.cancel('invalid-drop', request);
       return;

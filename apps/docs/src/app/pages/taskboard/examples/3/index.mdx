@@ -11,6 +11,6 @@ That recorded reason is the exported `MlvTaskboardDenialReason` union, and it is
 
 `canDropFn` is consulted for **every** candidate slot a drag enumerates, not once per drop — keep it synchronous, cheap, and free of side effects. It receives the dragged card's context and the target: `target.items` is the target bucket's visible cards **with the dragged card removed**, and `target.index` counts that list, so `index === target.items.length` means "after the last card". Use `beforeMove` (example 8) when the answer needs a round trip or a confirmation.
 
-A move that never lands leaves `items` referentially unchanged and emits `moveCancelled` with an `MlvTaskboardMoveCancelReason` — `invalid-drop` for a slot that was never permitted, `cancelled` for an abandoned drag, and the three `before-move-*` / `stale` reasons for a guarded move.
+A move that never lands leaves `items` referentially unchanged and emits `moveCancelled` with an `MlvTaskboardMoveCancelReason` — `invalid-drop` for a slot that was never permitted, `cancelled` for an abandoned drag, the two `before-move-*` reasons for a guarded move, and `stale` when the application replaced `items` or `columns` between the start of the move and its commit.
 
 Inputs used: `transitions`, `lockedItemIds`, `canDropFn`. Outputs used: `moveCancelled`.
