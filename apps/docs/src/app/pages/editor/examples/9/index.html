@@ -25,17 +25,17 @@
     Rendered structurally from the parsed document — no HTML is injected:
   </p>
   @if (blocks().length) {
-  <ul style="margin: 0; padding-inline-start: 1.25rem">
-    @for (block of blocks(); track $index) {
-    <li>
-      <strong>{{ block.type }}</strong>
-      <code>{{ block.attrs }}</code>
-      — {{ block.text }}
-    </li>
-    }
-  </ul>
+    <ul style="margin: 0; padding-inline-start: 1.25rem">
+      @for (block of blocks(); track $index) {
+        <li>
+          <strong>{{ block.type }}</strong>
+          <code>{{ block.attrs }}</code>
+          — {{ block.text }}
+        </li>
+      }
+    </ul>
   } @else {
-  <p style="margin: 0; color: var(--mlv-text-secondary)">Empty document.</p>
+    <p style="margin: 0; color: var(--mlv-text-secondary)">Empty document.</p>
   }
 
   <p style="margin: 0; color: var(--mlv-text-secondary)">

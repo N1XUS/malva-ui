@@ -349,6 +349,35 @@ const tr: MlvLanguage = {
     rating: 'Değerlendirme',
     rateValue: '{max} üzerinden {value} puan ver',
   },
+  scheduler: {
+    scheduler: 'Zamanlayıcı',
+    today: 'Bugün',
+    previous:
+      'Önceki {view, select, month {ay} week {hafta} day {gün} other {dönem}}',
+    next: 'Sonraki {view, select, month {ay} week {hafta} day {gün} other {dönem}}',
+    month: 'Ay',
+    week: 'Hafta',
+    day: 'Gün',
+    viewSwitch: 'Görünüm',
+    allDay: 'Tüm gün',
+    moreEvents: '+{count, plural, one {# daha} other {# daha}}',
+    moreEventsLabel:
+      '{date} tarihinde {count, plural, one {# etkinlik daha} other {# etkinlik daha}}',
+    gridLabel:
+      '{view, select, month {Ay} week {Hafta} day {Gün} other {Zamanlayıcı}} görünümü, {period}',
+    slotLabel: '{date}, saat {time}',
+    dayLabelToday: '{date}, bugün',
+    eventLabel: '{title}, {start} ile {end} arası',
+    eventLabelAllDay: '{title}, tüm gün, {start} ile {end} arası',
+    dragHint:
+      'Taşımak için Alt ve bir ok tuşuna basın. Bitişi değiştirmek için Alt, Shift ve bir ok tuşuna basın.',
+    eventMoved: '{title} {start} saatine taşındı',
+    eventResized: '{title} artık {end} saatinde bitiyor',
+    moveRejected: '{title} oraya yerleştirilemez',
+    rangeChanged: '{period} gösteriliyor',
+    selectionHint:
+      '{start} ile {end} arası seçildi. Onaylamak için Enter tuşuna basın',
+  },
   scrollbar: {
     scrollableRegion: 'Kaydırılabilir bölge',
   },

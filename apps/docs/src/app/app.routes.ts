@@ -265,6 +265,11 @@ export const pageRoutes = [
       import('./pages/day-picker/index').then((m) => m.DayPickerPageComponent),
   },
   {
+    path: 'date',
+    loadComponent: () =>
+      import('./pages/date/index').then((m) => m.DatePageComponent),
+  },
+  {
     path: 'date-range-picker',
     loadComponent: () =>
       import('./pages/date-range-picker/index').then(
@@ -324,6 +329,11 @@ export const pageRoutes = [
     path: 'list',
     loadComponent: () =>
       import('./pages/list/index').then((m) => m.ListPageComponent),
+  },
+  {
+    path: 'scheduler',
+    loadComponent: () =>
+      import('./pages/scheduler/index').then((m) => m.SchedulerPageComponent),
   },
   {
     path: 'scrollbar',
@@ -620,7 +630,7 @@ export type DocsIconName =
   | 'wrench';
 
 export interface DocsApiTarget {
-  family: 'core' | 'cdk' | 'i18n' | 'editor';
+  family: 'core' | 'cdk' | 'i18n' | 'editor' | 'scheduler';
   entry: string;
 }
 
@@ -748,6 +758,7 @@ const GROUP_DEFINITIONS = [
       'list',
       'loader',
       'progress',
+      'scheduler',
       'skeleton',
       'status-indicator',
       'stepper',
@@ -779,6 +790,7 @@ const GROUP_DEFINITIONS = [
     paths: [
       'accessibility',
       'animated-presence',
+      'date',
       'density',
       'infinite-scroll',
       'internationalization',
@@ -796,6 +808,7 @@ const LABEL_OVERRIDES: Partial<Record<DocsPagePath, string>> = {
   'pin-input': 'PIN Input',
   'button-split': 'Split Button',
   'button-toggle': 'Toggle Button',
+  date: 'Date Adapter',
   internationalization: 'Internationalization',
   utils: 'CDK Utilities',
 };
@@ -828,6 +841,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   'copy-to-clipboard': 'clipboard-check',
   'data-table': 'table-2',
   table: 'table-2',
+  date: 'calendar',
   'date-range-picker': 'calendar-days',
   'day-picker': 'calendar-days',
   density: 'scaling',
@@ -863,6 +877,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   progress: 'gauge',
   radio: 'circle-dot',
   rating: 'star',
+  scheduler: 'calendar-days',
   scrollbar: 'scroll-text',
   scrubber: 'chevrons-up-down',
   'search-field': 'search',
@@ -900,6 +915,7 @@ const API_OVERRIDES: Partial<Record<DocsPagePath, DocsApiTarget | null>> = {
   'infinite-scroll': { family: 'cdk', entry: 'infinite-scroll' },
   internationalization: { family: 'i18n', entry: '' },
   overlay: { family: 'cdk', entry: 'overlay' },
+  scheduler: { family: 'scheduler', entry: '' },
   theming: null,
   utils: { family: 'cdk', entry: 'utils' },
   'button-group': { family: 'core', entry: 'button' },

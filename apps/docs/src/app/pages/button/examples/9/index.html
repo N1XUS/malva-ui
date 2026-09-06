@@ -1,18 +1,18 @@
 <div class="docs-button-close-example__list">
   @for (variant of variants; track variant) {
-  <div>
-    <p>{{ variant }}</p>
+    <div>
+      <p>{{ variant }}</p>
 
-    @for (density of densities; track density) {
-    <div class="docs-button-close-example__item">
-      <mlv-button-close
-        [mlvDensity]="density"
-        [variant]="variant"
-        [ariaLabel]="'Close (' + density + ')'"
-      />
-      <span>{{ density }}</span>
+      @for (density of densities; track density) {
+        <div class="docs-button-close-example__item">
+          <mlv-button-close
+            [mlvDensity]="density"
+            [variant]="variant"
+            [ariaLabel]="'Close (' + density + ')'"
+          />
+          <span>{{ density }}</span>
+        </div>
+      }
     </div>
-    }
-  </div>
   }
 </div>

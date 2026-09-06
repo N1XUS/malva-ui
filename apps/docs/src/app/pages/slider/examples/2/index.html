@@ -16,15 +16,15 @@
         Price range
       </span>
       @if (priceRange(); as r) {
-      <span
-        style="
-          font-size: var(--mlv-typography-body-s-size);
-          color: var(--mlv-text-primary);
-          font-weight: 500;
-        "
-      >
-        ${{ (r)[0] }} — ${{ (r)[1] }}
-      </span>
+        <span
+          style="
+            font-size: var(--mlv-typography-body-s-size);
+            color: var(--mlv-text-primary);
+            font-weight: 500;
+          "
+        >
+          ${{ r[0] }} — ${{ r[1] }}
+        </span>
       }
     </div>
     <mlv-slider
@@ -53,15 +53,15 @@
         Year
       </span>
       @if (yearRange(); as r) {
-      <span
-        style="
-          font-size: var(--mlv-typography-body-s-size);
-          color: var(--mlv-text-primary);
-          font-weight: 500;
-        "
-      >
-        {{ (r)[0] }} — {{ (r)[1] }}
-      </span>
+        <span
+          style="
+            font-size: var(--mlv-typography-body-s-size);
+            color: var(--mlv-text-primary);
+            font-weight: 500;
+          "
+        >
+          {{ r[0] }} — {{ r[1] }}
+        </span>
       }
     </div>
     <mlv-slider

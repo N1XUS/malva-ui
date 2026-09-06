@@ -609,6 +609,41 @@ describe('MlvCompare', () => {
     expect(component.value()).toBe(51);
   });
 
+  it('mirrors arrow stepping inside a scoped [dir="rtl"] subtree while the document stays LTR', () => {
+    const scope = host.parentElement as HTMLElement;
+    scope.setAttribute('dir', 'rtl');
+    fixture.detectChanges();
+
+    expect(rtl.direction()).toBe('ltr');
+
+    keydown(input, 'ArrowRight');
+    expect(component.value()).toBe(49);
+
+    keydown(input, 'ArrowLeft');
+    expect(component.value()).toBe(50);
+
+    // Vertical arrows and Home/End never mirror.
+    keydown(input, 'ArrowUp');
+    expect(component.value()).toBe(51);
+
+    keydown(input, 'Home');
+    expect(component.value()).toBe(0);
+
+    scope.removeAttribute('dir');
+  });
+
+  it('leaves a scoped [dir="ltr"] island unmirrored while the document is RTL', () => {
+    rtl.setDirection('rtl');
+    const scope = host.parentElement as HTMLElement;
+    scope.setAttribute('dir', 'ltr');
+    fixture.detectChanges();
+
+    keydown(input, 'ArrowRight');
+    expect(component.value()).toBe(51);
+
+    scope.removeAttribute('dir');
+  });
+
   it('treats ArrowDown as an increase in vertical orientation', () => {
     fixture.componentRef.setInput('orientation', 'vertical');
     fixture.detectChanges();

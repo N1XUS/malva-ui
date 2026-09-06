@@ -355,6 +355,35 @@ const es: MlvLanguage = {
     rating: 'Valoración',
     rateValue: 'Valorar con {value} de {max}',
   },
+  scheduler: {
+    scheduler: 'Planificador',
+    today: 'Hoy',
+    previous:
+      '{view, select, month {Mes} week {Semana} day {Día} other {Periodo}} anterior',
+    next: '{view, select, month {Mes} week {Semana} day {Día} other {Periodo}} siguiente',
+    month: 'Mes',
+    week: 'Semana',
+    day: 'Día',
+    viewSwitch: 'Vista',
+    allDay: 'Todo el día',
+    moreEvents: '+{count, plural, one {# más} other {# más}}',
+    moreEventsLabel:
+      '{count, plural, one {# evento más} other {# eventos más}} el {date}',
+    gridLabel:
+      'Vista de {view, select, month {mes} week {semana} day {día} other {planificador}}, {period}',
+    slotLabel: '{date}, {time}',
+    dayLabelToday: '{date}, hoy',
+    eventLabel: '{title}, de {start} a {end}',
+    eventLabelAllDay: '{title}, todo el día, de {start} a {end}',
+    dragHint:
+      'Pulsa Alt y una tecla de flecha para mover. Pulsa Alt, Mayús y una tecla de flecha para cambiar el final.',
+    eventMoved: '{title} se ha movido a {start}',
+    eventResized: '{title} ahora termina a las {end}',
+    moveRejected: '{title} no se puede colocar ahí',
+    rangeChanged: 'Mostrando {period}',
+    selectionHint:
+      'De {start} a {end} seleccionado. Pulsa Intro para confirmar',
+  },
   scrollbar: {
     scrollableRegion: 'Región desplazable',
   },

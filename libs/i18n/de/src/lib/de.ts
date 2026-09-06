@@ -340,6 +340,34 @@ const de: MlvLanguage = {
     rating: 'Bewertung',
     rateValue: 'Mit {value} von {max} bewerten',
   },
+  scheduler: {
+    scheduler: 'Terminplaner',
+    today: 'Heute',
+    previous:
+      '{view, select, month {Vorheriger Monat} week {Vorherige Woche} day {Vorheriger Tag} other {Vorheriger Zeitraum}}',
+    next: '{view, select, month {Nächster Monat} week {Nächste Woche} day {Nächster Tag} other {Nächster Zeitraum}}',
+    month: 'Monat',
+    week: 'Woche',
+    day: 'Tag',
+    viewSwitch: 'Ansicht',
+    allDay: 'Ganztägig',
+    moreEvents: '+{count, plural, one {# weiterer} other {# weitere}}',
+    moreEventsLabel:
+      '{count, plural, one {# weiterer Termin} other {# weitere Termine}} am {date}',
+    gridLabel:
+      '{view, select, month {Monats} week {Wochen} day {Tages} other {Terminplaner}}ansicht, {period}',
+    slotLabel: '{date}, {time}',
+    dayLabelToday: '{date}, heute',
+    eventLabel: '{title}, {start} bis {end}',
+    eventLabelAllDay: '{title}, ganztägig, {start} bis {end}',
+    dragHint:
+      'Alt und eine Pfeiltaste drücken, um zu verschieben. Alt, Umschalt und eine Pfeiltaste drücken, um das Ende zu ändern.',
+    eventMoved: '{title} verschoben nach {start}',
+    eventResized: '{title} endet jetzt um {end}',
+    moveRejected: '{title} kann dort nicht abgelegt werden',
+    rangeChanged: 'Zeige {period}',
+    selectionHint: '{start} bis {end} ausgewählt. Enter drücken zum Bestätigen',
+  },
   scrollbar: { scrollableRegion: 'Scrollbarer Bereich' },
   searchField: {
     placeholder: 'Suchen...',

@@ -7,11 +7,11 @@
 
 The Calendar library (`@malva-ui/core/calendar`) provides a fully accessible, keyboard-navigable date picker component with three view modes: **month**, **year**, and **multi-year**. It supports date constraints (min/max), custom disabled-date logic, single-date and range selection, and adapter-backed localization / date math.
 
-It also defines the shared Malva UI date-adapter contract used to abstract date math, localized labels, and formatting away from the native `Date` object. Applications can provide their own adapter implementation for libraries such as Luxon, Moment, or date-fns-based wrappers.
+Date math and localized labels go through the `MlvDateAdapter<D>` contract from `@malva-ui/core/date` (moved out of this library in 2026-09 — see [libs-date.md](libs-date.md)); the calendar itself only depends on that abstract surface.
 
 ## Public API
 
-Exported from `libs/forms/calendar/src/index.ts`:
+Exported from `libs/core/calendar/src/index.ts`:
 
 | Export | Kind | Description |
 |--------|------|-------------|
@@ -19,11 +19,6 @@ Exported from `libs/forms/calendar/src/index.ts`:
 | `MlvCalendarSheet` | Component | Full-screen mobile calendar layout — selector `mlv-calendar-sheet` |
 | `MlvCalendarView` | Type | `'month' \| 'year' \| 'multi-year'` |
 | `MlvCalendarRangeValue` | Type | `{ start: D \| null; end: D \| null }` for range mode |
-| `MlvDateAdapter` | Abstract class | Date manipulation and localization contract for calendar-aware components |
-| `MLV_DATE_ADAPTER` | InjectionToken | App-level token for providing a custom `MlvDateAdapter` implementation |
-| `MLV_DATE_LOCALE` | InjectionToken | App-level locale token consumed by date adapters |
-| `MlvNativeDateAdapter` | Service | Default adapter built on native `Date` and `Intl.DateTimeFormat` |
-| `provideMlvDateAdapter` | Provider helper | Registers a custom adapter class and optional locale for the app |
 
 ---
 
@@ -132,14 +127,19 @@ host: {
 
 #### Keyboard Navigation (month view)
 
-| Key                     | Action                  |
-| ----------------------- | ----------------------- |
-| `←` / `→`               | Move one day left/right |
-| `↑` / `↓`               | Move one week up/down   |
-| `Page Up` / `Page Down` | Previous/next month     |
-| `Home`                  | First day of month      |
-| `End`                   | Last day of month       |
-| `Enter` / `Space`       | Select the active date  |
+| Key                     | Action                                               |
+| ----------------------- | ---------------------------------------------------- |
+| `←` / `→`               | Move one day back/forward (logical — mirrors in RTL) |
+| `↑` / `↓`               | Move one week up/down                                |
+| `Page Up` / `Page Down` | Previous/next month                                  |
+| `Home`                  | First day of month                                   |
+| `End`                   | Last day of month                                    |
+| `Enter` / `Space`       | Select the active date                               |
+
+- `←` / `→` are **logical** (previous/next) and mirror in RTL; `↑` / `↓`, `Page Up` / `Page Down`, `Home` / `End` never do.
+- All three view handlers (month, year, multi-year) go through `MlvRtlService.normalizeArrowKey(event, this._direction())` — one cached `elementDirection(this._elementRef)` signal, so direction resolves from the calendar's **own host**, not the document.
+- So a calendar inside a scoped `dir="rtl"` subtree, or inside a `mlv-day-picker` / `mlv-date-range-picker` popup pane (CDK stamps the pane with the trigger's `dir`), mirrors while `<html>` stays LTR.
+- `_elementRef` is the same host the roving-focus lookup uses, so grid layout and key handling cannot disagree about direction.
 
 #### Template Structure (`calendar.html`)
 
@@ -424,31 +424,7 @@ None.
 
 ## Services
 
-### `MlvNativeDateAdapter`
-
-**File:** `libs/forms/calendar/src/lib/date-provider/native-date-adapter.ts`
-
-Default adapter shipped by the library. Uses native `Date` for date math and `Intl.DateTimeFormat` for localized labels, month names, weekday names, and accessible date strings.
-
-### `MlvDateAdapter<D>`
-
-**File:** `libs/forms/calendar/src/lib/date-provider/date-adapter.ts`
-
-Abstract contract for adapter-backed date operations. Key responsibilities:
-
-- clone / create / validate date instances
-- add calendar days, months, and years
-- compare dates without relying on native object identity
-- produce localized month names, weekday names, and formatted labels
-- deserialize unknown values into the adapter’s date type
-
-The calendar component itself only relies on this abstract contract for user-facing labels and calendar arithmetic.
-
-### Provider Tokens
-
-- `MLV_DATE_ADAPTER` — injects the active adapter instance
-- `MLV_DATE_LOCALE` — provides the app-level locale string
-- `provideMlvDateAdapter(AdapterClass, locale?)` — helper for app configuration
+None owned here. The date adapter (`MlvDateAdapter<D>`, `MlvNativeDateAdapter`, `MLV_DATE_ADAPTER`, `MLV_DATE_LOCALE`, `provideMlvDateAdapter`) lives in `@malva-ui/core/date` — see [libs-date.md](libs-date.md).
 
 ---
 
@@ -486,7 +462,7 @@ export class MyComponent {
 
 ```ts
 import { bootstrapApplication } from '@angular/platform-browser';
-import { MlvNativeDateAdapter, provideMlvDateAdapter } from '@malva-ui/core/calendar';
+import { MlvNativeDateAdapter, provideMlvDateAdapter } from '@malva-ui/core/date';
 
 bootstrapApplication(AppComponent, {
   providers: [...provideMlvDateAdapter(MlvNativeDateAdapter, 'ro-RO')],
@@ -522,6 +498,7 @@ Provide `provideMlvI18nTesting()` in specs.
 - `@angular/core` ^22.0.0 — signals, `computed()`, `model()`, `afterNextRender`, `ElementRef`, `Injector` (roving-focus management)
 - `@angular/common` — native control flow
 - `@angular/cdk/keycodes` — arrow / page key codes in `MlvCalendarSheet`'s grid keyboard model
+- `@malva-ui/core/date` — `MLV_DATE_ADAPTER`, `MlvNativeDateAdapter`, `MlvDateAdapter`, `MlvDateFormatOptions` (the adapter contract, moved out of this library in 2026-09)
 - `@malva-ui/core/scrubber` — `mlv-scrubber` as `MlvCalendarSheet`'s horizontal year strip (#130 is the scrubber's first horizontal consumer)
 - `@malva-ui/cdk/utils` — `MlvRtlService` for mirroring the sheet's horizontal arrow keys
 - `@malva-ui/i18n` — `MLV_CALENDAR_I18N`

@@ -106,6 +106,7 @@ Keyboard: Enter/Space opens, Escape closes.
 - `@angular/forms/signals` — `FormValueControl` contract and `[formField]` binding
 - `@malva-ui/core/popup` — `MlvPopup`, `MlvPopupContent`, `MlvPopupContainer`, `MlvPopupHeaderActions` (the sheet's `Done` slot)
 - `@malva-ui/core/calendar` — `MlvCalendar` (anchored dropdown), `MlvCalendarSheet` (mobile full-screen sheet)
+- `@malva-ui/core/date` — `MLV_DATE_ADAPTER`, `MlvNativeDateAdapter`, `MlvDateAdapter` (date math and localized labels; moved out of `@malva-ui/core/calendar` in 2026-09)
 - `@malva-ui/core/button` — `mlvButton` on the sheet's `Done`
 - `@malva-ui/i18n` — `MLV_DAY_PICKER_I18N`, plus `MLV_CALENDAR_I18N` for the sheet's shared `done` label
 - `@lucide/angular` — `LucideCalendar` icon

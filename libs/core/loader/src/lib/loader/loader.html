@@ -1,23 +1,29 @@
 @if (_showHint() && variant() === 'bar') {
-<span class="mlv-loader__hint" aria-hidden="true">{{ _hintText() }}</span>
+  <span class="mlv-loader__hint" aria-hidden="true">{{ _hintText() }}</span>
 }
 <div class="mlv-loader__track">
   <div class="mlv-loader__bar"></div>
 </div>
 
 @if (variant() === 'circle') {
-<div class="mlv-loader__circle-wrapper">
-  <svg aria-hidden="true" height="100%" width="100%" class="mlv-loader__circle">
-    <circle cx="50%" cy="50%" class="mlv-loader__circle-track" />
+  <div class="mlv-loader__circle-wrapper">
+    <svg
+      aria-hidden="true"
+      height="100%"
+      width="100%"
+      class="mlv-loader__circle"
+    >
+      <circle cx="50%" cy="50%" class="mlv-loader__circle-track" />
 
-    <circle
-      cx="50%"
-      cy="50%"
-      class="mlv-loader__circle-fill"
-      [class.mlv-loader__circle-fill--filled]="_progressVisible()"
-    />
-  </svg>
-</div>
-@if (_showHint()) {
-<span class="mlv-loader__hint" aria-hidden="true">{{ _hintText() }}</span>
-} }
+      <circle
+        cx="50%"
+        cy="50%"
+        class="mlv-loader__circle-fill"
+        [class.mlv-loader__circle-fill--filled]="_progressVisible()"
+      />
+    </svg>
+  </div>
+  @if (_showHint()) {
+    <span class="mlv-loader__hint" aria-hidden="true">{{ _hintText() }}</span>
+  }
+}

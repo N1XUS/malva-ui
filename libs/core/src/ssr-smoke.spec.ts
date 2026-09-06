@@ -317,6 +317,20 @@ import {
           [options]="options"
           [(value)]="option"
         />
+        <!-- The same control in its *other* rendering mode. The native input
+             defaults to false, so the instance above stops at the custom
+             trigger and never reaches the branch that stamps a real select and
+             one option per entry - the shape that made #135 invisible here
+             (#137 is that blind spot in general). Keep this instance and keep
+             its committed value: without the native attribute, neither the
+             unknown-property assertion nor the selected-in-markup one has
+             anything to bite on. (No backticks in a host template, as above.) -->
+        <mlv-select
+          label="Environment (native)"
+          native
+          [options]="options"
+          [(value)]="option"
+        />
         <mlv-combobox label="City" [options]="options" [(value)]="option" />
         <mlv-number-input label="Quantity" [(value)]="quantity" />
         <mlv-search-field [(value)]="query" />
@@ -373,7 +387,10 @@ class SsrFormControlsHost {
     { label: 'Production', value: 'prod' },
     { label: 'Staging', value: 'staging' },
   ];
-  readonly option = signal<string | null>('prod');
+  // Deliberately not the *first* option: a native select with nothing selected
+  // falls back to its first entry, so a committed 'prod' would look identical
+  // to no selection at all in the server markup.
+  readonly option = signal<string | null>('staging');
   readonly quantity = signal<number | null>(1);
   readonly query = signal('');
   readonly pin = signal('');
@@ -835,8 +852,26 @@ class SsrDataHost {
     { name: 'Ada Lovelace', role: 'Engineer' },
   ];
   readonly treeNodes: MlvTreeNode[] = [{ id: '1', label: 'Root' }];
+  // The attachments are not decoration. `mlv-chat-media-grid` is the only
+  // template in the library that renders a `<video>`, and it renders nothing
+  // at all for a message without `attachments` — so a text-only fixture put
+  // `mlv-chat` in a host template while leaving every `<video>` binding in the
+  // library unrendered, which is how issue #136 sat here uncaught. One of each
+  // cell shape, because they take different branches: `gif` is the
+  // autoplay/loop video, a poster-less `video` is the preload-metadata video,
+  // and a `video` with a poster renders an `<img>` and no `<video>` at all.
   readonly messages: MlvChatMessageData[] = [
-    { id: 'm1', authorId: 'me', text: 'Hello', timestamp: new Date(0) },
+    {
+      id: 'm1',
+      authorId: 'me',
+      text: 'Hello',
+      timestamp: new Date(0),
+      attachments: [
+        { id: 'a1', kind: 'gif', src: 'loop.mp4' },
+        { id: 'a2', kind: 'video', src: 'clip.mp4' },
+        { id: 'a3', kind: 'video', src: 'talk.mp4', poster: 'talk.jpg' },
+      ],
+    },
   ];
   readonly variants: readonly MlvViewVariant<null>[] = [
     {
@@ -1382,8 +1417,19 @@ describe('@malva-ui/core SSR safety', () => {
     // browser test, because the check `@angular/core` runs is `propName in
     // element` against the live element — true in a browser, false on domino
     // for any property its DOM classes do not implement (`indeterminate` is
-    // the known case; `muted` / `selected` are content attributes and take the
-    // `[attr.*]` form instead).
+    // the known case; `muted` is #136 and `selected` is #135). Note that
+    // swapping such a binding for the `[attr.*]` or static-attribute form is
+    // not automatically equivalent — see the `muted` case below.
+    //
+    // `selected` is not the same trap as `muted`, so do not copy the property
+    // write from there without measuring. A *pristine* `<option>` — one whose
+    // selectedness has never been set programmatically or by the user — does
+    // track its content attribute live (measured in Chrome 152:
+    // `createElement('option')` + `setAttribute('selected', '')` reports
+    // `selected === true`, moves `selectedIndex` once inside a `<select>`, and
+    // goes back to `false` on `removeAttribute`). It stops once that option is
+    // dirty, which is the mechanism #135 is about; check which case a call
+    // site is in.
     //
     // This assertion is the reason `renderHost` captures `console.error` at
     // all; the `ErrorHandler` never sees this class. Keep it asserting the
@@ -1394,6 +1440,40 @@ describe('@malva-ui/core SSR safety', () => {
       'a server render wrote to console.error. NG0303 means a property ' +
         'binding names something the server DOM does not implement: set that ' +
         'DOM property from an `afterRenderEffect` instead of binding it.',
+    ).toEqual([]);
+  });
+
+  it('server-renders every chat video muted', async () => {
+    const { html } = await renderAllHosts();
+
+    // The visible half of #136, and the reason the NG0303 fix is not simply
+    // "delete the binding": the attribute is what makes a server-rendered
+    // `<video>` arrive muted before hydration, so an autoplaying gif cell
+    // cannot make noise in that window.
+    //
+    // It is also not, on its own, enough for an element the *client* created.
+    // In Chromium and jsdom a `muted` content attribute reaches the live
+    // `muted` property only for a parser-created element (measured in Chrome
+    // 152: `createElement('video')` + `setAttribute('muted', '')` leaves
+    // `muted === false`), which is why `MlvChatMutedVideo` writes the property
+    // on creation and why chat-media-grid.spec.ts asserts it. That is an
+    // engine divergence in flight, not a spec rule — the HTML Standard now
+    // gives media elements a tristate `muted state` the attribute does feed,
+    // and Gecko shipped it in Firefox 153 — but this assertion is unaffected
+    // either way: the server payload needs the attribute under both models.
+    const videos = [...html.matchAll(/<video[^>]*>/g)].map((match) => match[0]);
+
+    expect(
+      videos.length,
+      'no <video> in the server payload — the chat fixture in SsrDataHost ' +
+        'lost its video attachments, so the media grid rendered nothing and ' +
+        'every assertion about a server-rendered <video> is now vacuous',
+    ).toBeGreaterThan(0);
+
+    expect(
+      videos.filter((video) => !/\smuted[\s=>]/.test(video)),
+      'these server-rendered <video> elements carry no muted attribute, so ' +
+        'they would arrive unmuted in the pre-hydration document',
     ).toEqual([]);
   });
 
@@ -1409,6 +1489,31 @@ describe('@malva-ui/core SSR safety', () => {
       html.includes('aria-checked="mixed"'),
       'no aria-checked="mixed" in the server markup — the indeterminate ' +
         'checkbox in SsrFormControlsHost did not render its mixed state',
+    ).toBe(true);
+  });
+
+  it('server-renders the native select selection into the markup', async () => {
+    const { html } = await renderAllHosts();
+
+    // The visible half of #135. `selected` is a DOM property domino does not
+    // implement *and* a content attribute it does, so the property binding
+    // that used to be here logged NG0303 and put nothing in the payload: every
+    // server-rendered `mlv-select native` shipped with no option selected, and
+    // a browser showing the first one until hydration corrected it. The
+    // `[attr.selected]` form survives the render — this pins that, so the
+    // browser-side property write cannot quietly take the server payload with
+    // it again.
+    const nativeSelect = /<select[^>]*>[\s\S]*?<\/select>/.exec(html)?.[0];
+    expect(
+      nativeSelect,
+      'no <select> in the server markup — the native mlv-select in ' +
+        'SsrFormControlsHost did not render',
+    ).toBeTruthy();
+    expect(
+      /<option[^>]*\bselected[^>]*>\s*Staging\s*<\/option>/.test(
+        nativeSelect ?? '',
+      ),
+      `the committed option is not marked selected in the server markup: ${nativeSelect}`,
     ).toBe(true);
   });
 

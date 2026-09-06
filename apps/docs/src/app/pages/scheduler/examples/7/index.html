@@ -1,0 +1,11 @@
+<div class="docs-scheduler-controls">
+  <mlv-select label="Density" [options]="densityOptions" [(value)]="density" />
+</div>
+<mlv-scheduler
+  [(events)]="events"
+  view="week"
+  [mlvDensity]="density()"
+  (rangeSelect)="onRange($event)"
+  (slotDoubleClick)="onSlot($event)"
+  style="block-size: 36rem"
+/>

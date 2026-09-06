@@ -27,8 +27,8 @@ import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import {
   MLV_DATE_ADAPTER,
   type MlvDateAdapter,
-} from '../date-provider/date-adapter';
-import { MlvNativeDateAdapter } from '../date-provider/native-date-adapter';
+  MlvNativeDateAdapter,
+} from '@malva-ui/core/date';
 import { MLV_CALENDAR_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
 
 export type MlvCalendarView = 'month' | 'year' | 'multi-year';
@@ -79,11 +79,26 @@ export class MlvCalendar<D = Date> {
   /** @private Resolver for ICU parameterized i18n strings. */
   private readonly _resolver = inject(MlvI18nResolverService);
 
-  /** @private Host element used to locate the roving-focus cell. */
+  /**
+   * @private Host element used to locate the roving-focus cell, and the scope
+   * horizontal arrow keys resolve their direction against. Direction is scoped,
+   * so a calendar inside a `dir="rtl"` subtree — or inside a popup pane, which
+   * CDK stamps with its trigger's `dir` — must mirror even while the document
+   * is LTR.
+   */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /** @private Normalizes horizontal calendar navigation for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
+
+  /**
+   * @private Direction applying to this calendar, resolved once and cached
+   * behind the shared `dir` observer rather than re-walked on every arrow
+   * keypress — the day grid answers three separate keydown handlers.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
 
   /** @private Injector for scheduling post-render focus of the active cell. */
   private readonly _injector = inject(Injector);
@@ -830,7 +845,10 @@ export class MlvCalendar<D = Date> {
   private _handleMonthViewKeydown(event: KeyboardEvent): void {
     let nextDate: D | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
+      event.key
+    ) {
       case LEFT_ARROW:
         nextDate = this._dateAdapter.addCalendarDays(this.activeDate(), -1);
         break;
@@ -883,7 +901,10 @@ export class MlvCalendar<D = Date> {
     const currentMonth = this._dateAdapter.getMonth(activeDate);
     let nextMonth: number | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
+      event.key
+    ) {
       case LEFT_ARROW:
         nextMonth = currentMonth - 1;
         break;
@@ -933,7 +954,10 @@ export class MlvCalendar<D = Date> {
     const blockStart = this._yearBlockStart(activeDate);
     let nextYear: number | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
+      event.key
+    ) {
       case LEFT_ARROW:
         nextYear = currentYear - 1;
         break;

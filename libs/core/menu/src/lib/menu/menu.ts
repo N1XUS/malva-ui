@@ -423,7 +423,30 @@ export class MlvMenu<
       return;
     }
 
-    const key = this._rtlService.normalizeArrowKey(event);
+    // Resolved against the panel the handler is bound to, NOT `_elementRef`.
+    // `<mlv-menu>` stays at its declaration site while its panel is portaled
+    // into a CDK overlay pane whose `dir` comes from the *trigger*
+    // (`MlvPopupService` → `resolveDirection(config.origin)`). A menu declared
+    // once at page level and triggered from inside a `[dir="rtl"]` subtree
+    // would otherwise resolve LTR from its own host while the pane it renders
+    // into is mirrored — arrow keys running the opposite way to the layout,
+    // which is the exact #147 symptom this call site exists to fix.
+    // `currentTarget` is the `<mlv-list>` panel, always inside the pane.
+    //
+    // This is the one arrow-key handler that resolves per event instead of
+    // reading a cached `elementDirection` signal: the element that scopes it is
+    // the panel, which is re-created per overlay attach and can be attached
+    // from triggers in different `[dir]` scopes, so there is no static target
+    // to cache against. The walk is a handful of `parentElement` hops inside a
+    // menu panel.
+    const panel =
+      event.currentTarget instanceof Element
+        ? event.currentTarget
+        : this._elementRef;
+    const key = this._rtlService.normalizeArrowKey(
+      event,
+      this._rtlService.resolveDirection(panel),
+    );
 
     // Top-level menubar dropdown: ArrowRight / ArrowLeft cross to the adjacent
     // menubar menu. A focused submenu-trigger item handles ArrowRight itself

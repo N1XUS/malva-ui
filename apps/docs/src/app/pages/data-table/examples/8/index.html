@@ -11,9 +11,9 @@
     [mlvDataTableCellFrom]="issues"
     let-row
   >
-    <mlv-badge [tone]="statusColor(row.status)" muted
-      >{{ statusLabel(row.status) }}</mlv-badge
-    >
+    <mlv-badge [tone]="statusColor(row.status)" muted>{{
+      statusLabel(row.status)
+    }}</mlv-badge>
   </ng-template>
 
   <ng-template
@@ -21,9 +21,9 @@
     [mlvDataTableCellFrom]="issues"
     let-row
   >
-    <mlv-badge [tone]="priorityColor(row.priority)" muted
-      >{{ row.priority }}</mlv-badge
-    >
+    <mlv-badge [tone]="priorityColor(row.priority)" muted>{{
+      row.priority
+    }}</mlv-badge>
   </ng-template>
 
   <ng-template
@@ -34,7 +34,7 @@
     <div class="dt-assignee">
       <mlv-avatar
         [name]="row.assignee.name"
-        [color]=" row.assignee.name | mlvColorFromText"
+        [color]="row.assignee.name | mlvColorFromText"
         size="s"
       />
       <span>{{ row.assignee.name }}</span>
@@ -48,7 +48,7 @@
   >
     <div class="dt-labels">
       @for (label of row.labels; track label) {
-      <mlv-chip>{{ label }}</mlv-chip>
+        <mlv-chip>{{ label }}</mlv-chip>
       }
     </div>
   </ng-template>

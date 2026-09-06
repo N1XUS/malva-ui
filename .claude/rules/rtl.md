@@ -29,11 +29,11 @@ Inject `MlvRtlService`. **Never inject CDK `Directionality` directly** — the s
 
 Every `left` / `right` you write or touch is one of three kinds — **classify before choosing a form**:
 
-| Kind          | Test                                                     | Form                                                                             |
-| ------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **Semantic**  | means start / end, previous / next                       | logical property · `normalizeArrowKey` · `start` / `end` position                |
-| **Physical**  | a screen coordinate, or a physical edge chosen by layout | stays physical **and carries a `// physical: <reason>` comment**                 |
-| **Symmetric** | both sides equal (`left: 0; right: 0`)                   | `inset-inline: 0` — already direction-agnostic, just write the logical shorthand |
+| Kind          | Test                                                     | Form                                                                                |
+| ------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Semantic**  | means start / end, previous / next                       | logical property · `normalizeArrowKey(event, direction)` · `start` / `end` position |
+| **Physical**  | a screen coordinate, or a physical edge chosen by layout | stays physical **and carries a `// physical: <reason>` comment**                    |
+| **Symmetric** | both sides equal (`left: 0; right: 0`)                   | `inset-inline: 0` — already direction-agnostic, just write the logical shorthand    |
 
 ---
 
@@ -105,7 +105,16 @@ Anything not in this table is semantic. Do not add a row without a spec or migra
 
 ## TypeScript — Keyboard
 
-Manual arrow handlers switch on `normalizeArrowKey(event)`, never on `event.key === 'ArrowLeft'`. It returns the CDK key-code constants with only the horizontal pair swapped in RTL, `UP_ARROW` / `DOWN_ARROW` unchanged, and `null` for non-arrow keys — so `?? event.key` keeps `Home` / `End` / `Escape` in the same `switch`:
+Manual arrow handlers switch on `normalizeArrowKey(event, direction)`, never on `event.key === 'ArrowLeft'`. It returns the CDK key-code constants with only the horizontal pair swapped in RTL, `UP_ARROW` / `DOWN_ARROW` unchanged, and `null` for non-arrow keys — so `?? event.key` keeps `Home` / `End` / `Escape` in the same `switch`.
+
+**Pass a direction, resolved once.** Direction is scoped, and the second argument is what makes the helper honour that. Without it the helper reads the _document_, and a handler inside a `dir="rtl"` subtree mirrors its layout but not its keys — the two halves of one component disagreeing. This is not an exotic case: CDK stamps `dir` on **every** overlay host, so every pane opened through `MlvPopupService` (menu, calendar, autocomplete, sidebar-group flyout) is a scoped `[dir]` subtree by construction.
+
+The argument is a resolved `MlvDirection`, not an element, because resolving means walking `parentElement` to the nearest explicit `dir` and a keydown handler runs per keystroke. `elementDirection(host)` does that walk once and caches it behind one shared `dir` `MutationObserver`, re-running it only when a `dir` attribute actually changes — so the component resolves in a field initializer and the handler reads the signal.
+
+- The element the direction is resolved **from** is the one the handler **speaks for** — usually the component's own host `ElementRef`, hoisted into a named field so the same element also feeds a horizontal `FocusKeyManager` and any measured geometry. Then no two halves can disagree, and most components already hold the signal for one of those.
+- **A component's own host is not always the element it speaks for.** Check where the handler is actually bound before reaching for `_elementRef`: a component that projects its interactive surface through `<ng-template mlvPopupContent>` keeps its host at the declaration site while the surface is portaled into a pane whose `dir` comes from the **trigger** (`resolveDirection(config.origin)`). `MlvMenu` is that case — menus are routinely declared once at page level and triggered from inside a scoped subtree — so it resolves from `event.currentTarget` (the `<mlv-list>` panel, always inside the pane). Resolving from its own host would report the document's direction while the pane it renders into is mirrored: mirrored layout, unmirrored keys, which is the very defect the argument exists to prevent. That panel is re-created per overlay attach and can be attached from triggers in different `[dir]` scopes, so there is no static target to cache against: this is the **one** handler that calls `resolveDirection(panel)` per event, and it says so in a comment.
+- **Never `event.target`.** It is the deepest element the key reached, which is not a stable contract; `currentTarget` is the element the listener is bound to, and is only the right answer when that element is inside the mirrored subtree and the component's host is not.
+- Omit it **only** in a handler that never matches `LEFT_ARROW` / `RIGHT_ARROW` — a vertical-only group, where mirroring is a no-op either way. Say so in a comment at the call site, so the omission reads as deliberate. Adding a horizontal branch to such a handler means adding the direction with it.
 
 ```ts
 import { DOWN_ARROW, LEFT_ARROW, RIGHT_ARROW, UP_ARROW } from '@angular/cdk/keycodes';
@@ -114,8 +123,19 @@ import { MlvRtlService } from '@malva-ui/cdk/utils';
 /** @private Mirrors horizontal arrow keys in RTL. */
 private readonly _rtlService = inject(MlvRtlService);
 
+/** @private Host element; the scope both the keys and the geometry resolve against. */
+private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
+/**
+ * @private Direction applying to this host, resolved once and cached behind the
+ * shared `dir` observer rather than re-walked on every arrow keypress.
+ */
+private readonly _direction = this._rtlService.elementDirection(this._elementRef);
+
 protected _onKeydown(event: KeyboardEvent): void {
-  switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+  switch (
+    this._rtlService.normalizeArrowKey(event, this._direction()) ?? event.key
+  ) {
     case RIGHT_ARROW: // "next" in both directions
       this._step(1);
       event.preventDefault();
@@ -141,14 +161,16 @@ effect(() => {
   untracked(() => {
     this._keyManager?.destroy();
     this._keyManager = new FocusKeyManager(items)
-      .withHorizontalOrientation(direction) // never a literal 'ltr'
+      .withHorizontalOrientation(direction) // never a literal 'ltr', never the global `direction()`
       .withWrap()
       .withHomeAndEnd();
   });
 });
 ```
 
-Untouched by direction: vertical-only groups (`MlvFocusableGroupBase` — radio / checkbox / switch groups), text-caret movement inside inputs and the editor, `aria-keyshortcuts` values and any user-facing "Left / Right" copy.
+Untouched by direction: **vertical-only** groups — `MlvFocusableGroupBase` (which backs the checkbox and switch groups) delegates only `ArrowUp` / `ArrowDown` — text-caret movement inside inputs and the editor, `aria-keyshortcuts` values and any user-facing "Left / Right" copy. Those handlers may call `normalizeArrowKey(event)` without a direction, because a switch that never matches the horizontal pair cannot mirror.
+
+`mlv-radio-group` is **not** in that set despite the name: it does not extend the base and handles all four arrows for WAI-ARIA radiogroup semantics, so it mirrors and passes its own scoped direction.
 
 ---
 
@@ -157,8 +179,11 @@ Untouched by direction: vertical-only groups (`MlvFocusableGroupBase` — radio 
 `clientX`, `DOMRect.left` / `.right`, `offsetLeft` and `scrollLeft` are physical. Convert to a logical progress **once, at the boundary**, using the element's own direction (the slider pattern):
 
 ```ts
+/** @private Host element; the one scope every direction-aware half resolves against. */
+private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
 /** @private Direction applying to this host, following any `[dir]` scope above it. */
-private readonly _direction = this._rtlService.elementDirection(inject(ElementRef<HTMLElement>));
+private readonly _direction = this._rtlService.elementDirection(this._elementRef);
 
 // 0% sits at the inline-start edge — the track's right edge in RTL.
 const offset = this._direction() === 'rtl' ? rect.right - event.clientX : event.clientX - rect.left;
@@ -179,12 +204,14 @@ constructor() {
 
 Which accessor:
 
-| Need                                                    | Use                                                           |
-| ------------------------------------------------------- | ------------------------------------------------------------- |
-| Direction of **this component** (scoped)                | `elementDirection(host)` — signal; needs an injection context |
-| One-off resolution in a service / imperative API        | `resolveDirection(target)`                                    |
-| React to flips from imperative code (open overlay)      | `watchDirection(target, onChange)` — returns a teardown       |
-| A **document-level** surface with no host (toast stack) | `direction()` / `rtl()`                                       |
+Hoist the host `ElementRef` into a named field, derive **one** `elementDirection()` signal from it, and feed every direction-aware half from that signal — `normalizeArrowKey(event, this._direction())`, `withHorizontalOrientation(this._direction())`, the measuring `effect()`. Two halves reading the same signal cannot disagree; two halves reading different sources is the whole defect class (#127, #147).
+
+| Need                                                    | Use                                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Direction of **this component** (scoped)                | `elementDirection(host)` — signal; cached, call in a field initializer |
+| One-off resolution in a service / imperative API        | `resolveDirection(target)`                                             |
+| React to flips from imperative code (open overlay)      | `watchDirection(target, onChange)` — returns a teardown                |
+| A **document-level** surface with no host (toast stack) | `direction()` / `rtl()`                                                |
 
 ### The one sanctioned `Directionality` provider
 
@@ -295,13 +322,13 @@ it('follows a [dir] scope on an ancestor while the document stays LTR', () => {
 });
 ```
 
-| Surface           | Assert                                                                                                                                                                                       |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Keyboard          | horizontal pair swapped, vertical pair unchanged, `Home` / `End` unchanged                                                                                                                   |
-| Pointer           | a `clientX` at the track's right edge maps to `min` in RTL                                                                                                                                   |
-| Measured geometry | after `setDirection('rtl')` + `await fixture.whenStable()` the indicator variable re-measures (tabs pattern)                                                                                 |
-| Overlay           | `overlayRef.getDirection()` is `'rtl'` for a global flip, for a scoped origin (`origin.setAttribute('dir', 'rtl')`), and after a flip while open (`TestBed.tick()`, `updatePosition` called) |
-| SCSS              | mixin output is covered by `libs/styles/src/lib/mixins.spec.mjs`; a component's compiled-CSS spec reads through `stripCssLayersFromText()`                                                   |
+| Surface           | Assert                                                                                                                                                                                        |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keyboard          | horizontal pair swapped, vertical pair unchanged, `Home` / `End` unchanged — asserted under a **scoped** `[dir="rtl"]` ancestor with the document still LTR, plus the LTR-island mirror image |
+| Pointer           | a `clientX` at the track's right edge maps to `min` in RTL                                                                                                                                    |
+| Measured geometry | after `setDirection('rtl')` + `await fixture.whenStable()` the indicator variable re-measures (tabs pattern)                                                                                  |
+| Overlay           | `overlayRef.getDirection()` is `'rtl'` for a global flip, for a scoped origin (`origin.setAttribute('dir', 'rtl')`), and after a flip while open (`TestBed.tick()`, `updatePosition` called)  |
+| SCSS              | mixin output is covered by `libs/styles/src/lib/mixins.spec.mjs`; a component's compiled-CSS spec reads through `stripCssLayersFromText()`                                                    |
 
 Manual check: docs app → preferences popup → **Direction: RTL**, then walk the component page in both directions.
 
@@ -311,7 +338,7 @@ Manual check: docs app → preferences popup → **Direction: RTL**, then walk t
 
 - [ ] No physical `margin` / `padding` / `border` / inset / `text-align` / `float` on the inline axis; every remaining physical value carries `// physical: <reason>` and matches the exceptions table.
 - [ ] `transform` / `transform-origin` / `box-shadow` inline components go through `inline-distance()` / `--mlv-inline-direction`; no `[dir='rtl']` duplicate rules.
-- [ ] Arrow handlers switch on `normalizeArrowKey(event)`; horizontal `FocusKeyManager`s get `withHorizontalOrientation(direction)` and rebuild on change; vertical, caret and `aria-keyshortcuts` untouched.
+- [ ] Arrow handlers switch on `normalizeArrowKey(event, this._direction())` whenever the handler branches on the horizontal pair — one cached `elementDirection()` signal per component, resolved from the element the handler is _bound to_, which is the component's host unless its surface is portaled into an overlay pane (then `resolveDirection(event.currentTarget)` per event, because no static target exists), never `event.target`; horizontal `FocusKeyManager`s get `withHorizontalOrientation()` from the same signal (never the global `direction()`) and rebuild on change; vertical, caret and `aria-keyshortcuts` untouched.
 - [ ] Pointer maths converts `clientX` to inline progress once; measured indicators depend on `elementDirection(host)`.
 - [ ] CDK `Directionality` is not injected; if it is _provided_, it is backed by `elementDirection(host)`, justified in JSDoc, and pinned by a scoped-`[dir]` spec that fails when the provider is ablated.
 - [ ] Overlays: `start` / `end` positions, `direction` on the config, `watchDirection` for long-lived panes, `offsetX` sign from the resolved direction.

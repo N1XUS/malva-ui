@@ -2,21 +2,19 @@
 <mlv-tile #tileRef [tile]="current" mlvDensity="comfortable">
   <ng-template mlvTileHeader>
     @if (editing()) {
-    <mlv-input
-      #titleInput
-      class="docs-tile-tree-node__editor"
-      [value]="current.props.title"
-      [ariaLabel]="'Rename ' + current.props.title"
-      autofocus
-      (keydown.enter)="
-          saveTitle(tileRef, current.props, titleInput.value())
-        "
-      (keydown.escape)="cancelTitle()"
-    />
+      <mlv-input
+        #titleInput
+        class="docs-tile-tree-node__editor"
+        [value]="current.props.title"
+        [ariaLabel]="'Rename ' + current.props.title"
+        autofocus
+        (keydown.enter)="saveTitle(tileRef, current.props, titleInput.value())"
+        (keydown.escape)="cancelTitle()"
+      />
     } @else {
-    <strong class="docs-tile-tree-node__title">
-      {{ current.props.title }}
-    </strong>
+      <strong class="docs-tile-tree-node__title">
+        {{ current.props.title }}
+      </strong>
     }
   </ng-template>
 
@@ -73,10 +71,10 @@
   </span>
 
   @if (current.acceptsChildren) {
-  <mlv-tiles layout="grid">
-    @for (child of current.children; track child.id) {
-    <docs-tile-tree-node [tile]="child" />
-    }
-  </mlv-tiles>
+    <mlv-tiles layout="grid">
+      @for (child of current.children; track child.id) {
+        <docs-tile-tree-node [tile]="child" />
+      }
+    </mlv-tiles>
   }
 </mlv-tile>

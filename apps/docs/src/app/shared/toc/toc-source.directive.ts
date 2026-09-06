@@ -37,6 +37,12 @@ function slugify(text: string): string {
  * The attribute-presence selector also covers readonly editors, which render
  * `contenteditable="false"` but still manage their own DOM.
  *
+ * Headings a **live preview renders itself** (`.example-container__preview`) are
+ * skipped for the same reason: they belong to the demonstrated component, not to
+ * the page. `mlv-scheduler` renders its range title as an `<h2>`, so without this
+ * every example on `/scheduler` would publish "31 Aug – 6 Sept 2026" into "On
+ * this page". MDX prose headings live outside the preview box and are kept.
+ *
  * Exported for unit testing; used by {@link DocsTocSourceDirective}.
  */
 export function collectTocEntries(host: HTMLElement): TocEntry[] {
@@ -45,7 +51,7 @@ export function collectTocEntries(host: HTMLElement): TocEntry[] {
   const entries: TocEntry[] = [];
 
   for (const el of headings) {
-    if (el.closest('[contenteditable]')) continue;
+    if (el.closest('[contenteditable], .example-container__preview')) continue;
 
     const text = (el.textContent ?? '').trim();
     if (!text) continue;

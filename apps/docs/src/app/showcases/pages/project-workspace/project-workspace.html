@@ -12,18 +12,18 @@
     ariaLabel="Workspace"
   >
     @for (item of railNavItems; track item.id) {
-    <mlv-sidebar-item
-      [label]="item.label"
-      [active]="activeRailId() === item.id"
-      (click)="selectRailItem(item.id)"
-    >
-      <svg
-        *mlvSidebarItemIcon
-        [lucideIcon]="icon(item.icon)"
-        [size]="20"
-        aria-hidden="true"
-      ></svg>
-    </mlv-sidebar-item>
+      <mlv-sidebar-item
+        [label]="item.label"
+        [active]="activeRailId() === item.id"
+        (click)="selectRailItem(item.id)"
+      >
+        <svg
+          *mlvSidebarItemIcon
+          [lucideIcon]="icon(item.icon)"
+          [size]="20"
+          aria-hidden="true"
+        ></svg>
+      </mlv-sidebar-item>
     }
   </mlv-sidebar>
 
@@ -40,27 +40,6 @@
     [(collapsed)]="projectNavCollapsed"
   >
     @for (item of projectNavItems; track item.id) {
-    <mlv-sidebar-item
-      [label]="item.label"
-      [active]="activeNavId() === item.id"
-      (click)="selectNav(item.id)"
-    >
-      <svg
-        *mlvSidebarItemIcon
-        [lucideIcon]="icon(item.icon)"
-        [size]="20"
-        aria-hidden="true"
-      ></svg>
-    </mlv-sidebar-item>
-    }
-    <mlv-sidebar-group [label]="workflowNav.label">
-      <svg
-        *mlvSidebarItemIcon
-        [lucideIcon]="icon(workflowNav.icon)"
-        [size]="20"
-        aria-hidden="true"
-      ></svg>
-      @for (item of workflowNav.items; track item.id) {
       <mlv-sidebar-item
         [label]="item.label"
         [active]="activeNavId() === item.id"
@@ -73,6 +52,27 @@
           aria-hidden="true"
         ></svg>
       </mlv-sidebar-item>
+    }
+    <mlv-sidebar-group [label]="workflowNav.label">
+      <svg
+        *mlvSidebarItemIcon
+        [lucideIcon]="icon(workflowNav.icon)"
+        [size]="20"
+        aria-hidden="true"
+      ></svg>
+      @for (item of workflowNav.items; track item.id) {
+        <mlv-sidebar-item
+          [label]="item.label"
+          [active]="activeNavId() === item.id"
+          (click)="selectNav(item.id)"
+        >
+          <svg
+            *mlvSidebarItemIcon
+            [lucideIcon]="icon(item.icon)"
+            [size]="20"
+            aria-hidden="true"
+          ></svg>
+        </mlv-sidebar-item>
       }
     </mlv-sidebar-group>
   </mlv-sidebar>
@@ -89,9 +89,9 @@
         </div>
       </ng-template>
       <ng-template mlvPageHeaderStatus>
-        <mlv-badge tone="success" muted
-          >{{ projectMeta.statusLabel }}</mlv-badge
-        >
+        <mlv-badge tone="success" muted>{{
+          projectMeta.statusLabel
+        }}</mlv-badge>
       </ng-template>
       <ng-template mlvPageHeaderActions>
         <button
@@ -158,28 +158,31 @@
                   let-row
                 >
                   @if (groupRow(row); as group) {
-                  <span class="project-workspace-showcase__group-cell">
-                    <button
-                      type="button"
-                      class="project-workspace-showcase__group-toggle"
-                      [attr.aria-expanded]="isGroupExpanded(group.id)"
-                      (click)="toggleGroup(group.id)"
-                    >
-                      <svg
-                        lucideChevronDown
-                        class="project-workspace-showcase__group-chevron"
-                        [class.project-workspace-showcase__group-chevron--collapsed]="!isGroupExpanded(group.id)"
-                        [size]="16"
-                        aria-hidden="true"
-                      ></svg>
-                      {{ group.label }}
-                    </button>
-                    <mlv-badge muted>{{ group.taskCount }} tasks</mlv-badge>
-                  </span>
-                  } @if (taskRow(row); as task) {
-                  <span class="project-workspace-showcase__task-title">
-                    {{ task.title }}
-                  </span>
+                    <span class="project-workspace-showcase__group-cell">
+                      <button
+                        type="button"
+                        class="project-workspace-showcase__group-toggle"
+                        [attr.aria-expanded]="isGroupExpanded(group.id)"
+                        (click)="toggleGroup(group.id)"
+                      >
+                        <svg
+                          lucideChevronDown
+                          class="project-workspace-showcase__group-chevron"
+                          [class.project-workspace-showcase__group-chevron--collapsed]="
+                            !isGroupExpanded(group.id)
+                          "
+                          [size]="16"
+                          aria-hidden="true"
+                        ></svg>
+                        {{ group.label }}
+                      </button>
+                      <mlv-badge muted>{{ group.taskCount }} tasks</mlv-badge>
+                    </span>
+                  }
+                  @if (taskRow(row); as task) {
+                    <span class="project-workspace-showcase__task-title">
+                      {{ task.title }}
+                    </span>
                   }
                 </ng-template>
                 <ng-template
@@ -188,14 +191,14 @@
                   let-row
                 >
                   @if (taskRow(row); as task) {
-                  <span class="project-workspace-showcase__assignee">
-                    <mlv-avatar
-                      [name]="task.assignee.name"
-                      [initials]="task.assignee.initials"
-                      size="s"
-                    />
-                    <span>{{ task.assignee.name }}</span>
-                  </span>
+                    <span class="project-workspace-showcase__assignee">
+                      <mlv-avatar
+                        [name]="task.assignee.name"
+                        [initials]="task.assignee.initials"
+                        size="s"
+                      />
+                      <span>{{ task.assignee.name }}</span>
+                    </span>
                   }
                 </ng-template>
                 <ng-template
@@ -204,40 +207,40 @@
                   let-row
                 >
                   @if (taskRow(row); as task) {
-                  <span class="project-workspace-showcase__status-cell">
-                    <mlv-badge [tone]="statusTone(task.status)" muted>
-                      {{ statusLabel(task.status) }}
-                    </mlv-badge>
-                    <button
-                      mlvButton
-                      type="button"
-                      variant="transparent"
-                      shape="square"
-                      size="s"
-                      [attr.aria-label]="'Change status for ' + task.title"
-                      [mlvMenuTrigger]="statusMenu"
-                    >
-                      <svg
-                        lucideChevronDown
-                        mlvButtonIcon
-                        [size]="16"
-                        aria-hidden="true"
-                      ></svg>
-                    </button>
-                    <mlv-menu
-                      #statusMenu
-                      [label]="'Status options for ' + task.title"
-                    >
-                      @for (option of statusOptions; track option.value) {
-                      <mlv-list-item
-                        mlvMenuItem
-                        (itemClick)="setTaskStatus(task.id, option.value)"
+                    <span class="project-workspace-showcase__status-cell">
+                      <mlv-badge [tone]="statusTone(task.status)" muted>
+                        {{ statusLabel(task.status) }}
+                      </mlv-badge>
+                      <button
+                        mlvButton
+                        type="button"
+                        variant="transparent"
+                        shape="square"
+                        size="s"
+                        [attr.aria-label]="'Change status for ' + task.title"
+                        [mlvMenuTrigger]="statusMenu"
                       >
-                        {{ option.label }}
-                      </mlv-list-item>
-                      }
-                    </mlv-menu>
-                  </span>
+                        <svg
+                          lucideChevronDown
+                          mlvButtonIcon
+                          [size]="16"
+                          aria-hidden="true"
+                        ></svg>
+                      </button>
+                      <mlv-menu
+                        #statusMenu
+                        [label]="'Status options for ' + task.title"
+                      >
+                        @for (option of statusOptions; track option.value) {
+                          <mlv-list-item
+                            mlvMenuItem
+                            (itemClick)="setTaskStatus(task.id, option.value)"
+                          >
+                            {{ option.label }}
+                          </mlv-list-item>
+                        }
+                      </mlv-menu>
+                    </span>
                   }
                 </ng-template>
                 <ng-template
@@ -246,7 +249,7 @@
                   let-row
                 >
                   @if (taskRow(row); as task) {
-                  <span>{{ task.dueDate | date: 'MMM d' }}</span>
+                    <span>{{ task.dueDate | date: 'MMM d' }}</span>
                   }
                 </ng-template>
                 <ng-template
@@ -255,9 +258,9 @@
                   let-row
                 >
                   @if (taskRow(row); as task) {
-                  <span class="project-workspace-showcase__priority">
-                    {{ task.priority }}
-                  </span>
+                    <span class="project-workspace-showcase__priority">
+                      {{ task.priority }}
+                    </span>
                   }
                 </ng-template>
                 <ng-template
@@ -266,12 +269,12 @@
                   let-row
                 >
                   @if (taskRow(row); as task) {
-                  <mlv-progress
-                    [value]="task.progress"
-                    size="s"
-                    showPercentage
-                    [ariaLabel]="'Progress for ' + task.title"
-                  />
+                    <mlv-progress
+                      [value]="task.progress"
+                      size="s"
+                      showPercentage
+                      [ariaLabel]="'Progress for ' + task.title"
+                    />
                   }
                 </ng-template>
               </mlv-data-table>
@@ -283,13 +286,13 @@
                 <h2 id="project-milestones-title">Milestones</h2>
                 <mlv-timeline>
                   @for (event of timelineEvents; track event.id) {
-                  <mlv-timeline-item
-                    [title]="event.title"
-                    [timestamp]="event.timestamp"
-                    [tone]="event.tone"
-                  >
-                    {{ event.description }}
-                  </mlv-timeline-item>
+                    <mlv-timeline-item
+                      [title]="event.title"
+                      [timestamp]="event.timestamp"
+                      [tone]="event.tone"
+                    >
+                      {{ event.description }}
+                    </mlv-timeline-item>
                   }
                 </mlv-timeline>
               </section>
@@ -304,11 +307,13 @@
               aria-label="Recent activity"
             >
               @for (entry of activityEntries; track entry.id) {
-              <li class="project-workspace-showcase__activity-entry">
-                <mlv-avatar [name]="entry.actor" size="s" />
-                <p><strong>{{ entry.actor }}</strong> {{ entry.action }}</p>
-                <span>{{ entry.time }}</span>
-              </li>
+                <li class="project-workspace-showcase__activity-entry">
+                  <mlv-avatar [name]="entry.actor" size="s" />
+                  <p>
+                    <strong>{{ entry.actor }}</strong> {{ entry.action }}
+                  </p>
+                  <span>{{ entry.time }}</span>
+                </li>
               }
             </ul>
           </ng-template>
@@ -321,15 +326,15 @@
               aria-label="Project files"
             >
               @for (file of files; track file.id) {
-              <li class="project-workspace-showcase__file">
-                <svg lucideFileText [size]="16" aria-hidden="true"></svg>
-                <span class="project-workspace-showcase__file-name">
-                  {{ file.name }}
-                </span>
-                <span class="project-workspace-showcase__file-meta">
-                  {{ file.size }} · Updated {{ file.updated }}
-                </span>
-              </li>
+                <li class="project-workspace-showcase__file">
+                  <svg lucideFileText [size]="16" aria-hidden="true"></svg>
+                  <span class="project-workspace-showcase__file-name">
+                    {{ file.name }}
+                  </span>
+                  <span class="project-workspace-showcase__file-meta">
+                    {{ file.size }} · Updated {{ file.updated }}
+                  </span>
+                </li>
               }
             </ul>
           </ng-template>
@@ -397,7 +402,7 @@
           <h3>Tags</h3>
           <div class="project-workspace-showcase__tags">
             @for (tag of tags; track tag) {
-            <mlv-badge muted>{{ tag }}</mlv-badge>
+              <mlv-badge muted>{{ tag }}</mlv-badge>
             }
           </div>
         </div>
@@ -405,11 +410,11 @@
           <h3>Collaborators</h3>
           <ul class="project-workspace-showcase__collaborators">
             @for (person of collaborators; track person.name) {
-            <li>
-              <mlv-avatar [name]="person.name" size="s" />
-              <span>{{ person.name }}</span>
-              <small>{{ person.role }}</small>
-            </li>
+              <li>
+                <mlv-avatar [name]="person.name" size="s" />
+                <span>{{ person.name }}</span>
+                <small>{{ person.role }}</small>
+              </li>
             }
           </ul>
         </div>
@@ -417,10 +422,10 @@
           <h3>Recent activity</h3>
           <ul class="project-workspace-showcase__inspector-activity">
             @for (entry of inspectorActivity; track entry.id) {
-            <li>
-              <p>{{ entry.actor }} {{ entry.action }}</p>
-              <span>{{ entry.time }}</span>
-            </li>
+              <li>
+                <p>{{ entry.actor }} {{ entry.action }}</p>
+                <span>{{ entry.time }}</span>
+              </li>
             }
           </ul>
         </div>

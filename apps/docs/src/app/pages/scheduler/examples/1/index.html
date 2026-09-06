@@ -1,0 +1,12 @@
+<div class="docs-scheduler-controls">
+  <button mlvButton variant="outlined" type="button" (click)="addEvent()">
+    Add an event
+  </button>
+  <span>{{ events().length }} events · {{ view() }} view</span>
+</div>
+<mlv-scheduler
+  [(events)]="events"
+  [(view)]="view"
+  [(date)]="date"
+  style="block-size: 40rem"
+/>

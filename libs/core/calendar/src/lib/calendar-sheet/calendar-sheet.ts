@@ -33,9 +33,9 @@ import { fromEvent } from 'rxjs';
 import type { MlvCalendarRangeValue } from '../calendar/calendar';
 import {
   MLV_DATE_ADAPTER,
+  MlvNativeDateAdapter,
   type MlvDateAdapter,
-} from '../date-provider/date-adapter';
-import { MlvNativeDateAdapter } from '../date-provider/native-date-adapter';
+} from '@malva-ui/core/date';
 
 /**
  * @private Distance from either end of the month list, in pixels, at which the

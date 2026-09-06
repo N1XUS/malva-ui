@@ -175,6 +175,7 @@ date.
 ## Dependencies
 
 - `@malva-ui/core/calendar` — `mlv-calendar` with `[range]="true"` mode for the anchored dropdown; `mlv-calendar-sheet` with `range` for the mobile full-screen sheet
+- `@malva-ui/core/date` — `MLV_DATE_ADAPTER`, `MlvNativeDateAdapter`, `MlvDateAdapter` (date math and localized labels; moved out of `@malva-ui/core/calendar` in 2026-09)
 - `@malva-ui/core/popup` — `mlv-popup` for the floating panel overlay; `[mlvPopupHeaderActions]` for the sheet's `Done` action
 - `@malva-ui/core/button` — `mlvButton` on the footer `Clear` / `Apply` and the sheet's `Done`
 - `@malva-ui/i18n` — `MLV_DATE_RANGE_PICKER_I18N`, plus `MLV_CALENDAR_I18N` for the sheet's shared `done` label

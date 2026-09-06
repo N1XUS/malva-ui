@@ -215,6 +215,52 @@ export class MlvCombobox<T>
   readonly mobileTitle = input<string | undefined>(undefined);
 
   /**
+   * Raises the dropdown panel's minimum width above its trigger.
+   *
+   * The panel is floored at the trigger's measured width by default. This
+   * input can only **raise** that floor — a value narrower than the trigger
+   * does not shrink the panel, because the trigger width stays in the
+   * resolved `max()`.
+   *
+   * Accepts a number of pixels or a CSS length string; the units resolve in
+   * the browser, not here. Absolute and font-relative lengths (`px`, `rem`,
+   * `em`, `ch`) and viewport units (`vw`) behave as written. **Percentages do
+   * not** — under flexible dimensions CDK lays the pane out as a `static` flex
+   * item of its bounding box, which it sizes to the space between the
+   * trigger's anchored edge and the viewport edge, so `'50%'` means half of
+   * *that*, and the same markup resolves differently depending on where the
+   * trigger sits on the page. `ch`, likewise, resolves against the pane's own
+   * font, not the option rows'.
+   *
+   * Two ceilings it deliberately outranks, per CSS's
+   * `max(min-width, min(max-width, width))`:
+   * - {@link dropdownMaxWidth} — a ceiling below the effective floor is
+   *   ignored, and the panel renders past its bounding box (nothing clips it).
+   * - the viewport. A floor wider than the space to the viewport edge pushes
+   *   the panel off-screen; the `.cdk-overlay-pane { max-width: 100% }` clamp
+   *   governs *content*-driven growth only.
+   */
+  readonly dropdownMinWidth = input<number | string | undefined>(undefined);
+
+  /**
+   * Caps the dropdown panel's width.
+   *
+   * With no value the viewport is the only ceiling — the flexible connected
+   * strategy sizes its bounding box to the space up to the viewport edge and
+   * `.cdk-overlay-pane { max-width: 100% }` caps the pane there. This input can
+   * only **tighten** that: a value wider than the viewport is still clamped by
+   * it. Accepts a CSS length string or a number of pixels.
+   *
+   * It cannot pull the panel below its floor. CSS resolves the used width as
+   * `max(min-width, min(max-width, width))`, so a ceiling under the effective
+   * floor — the trigger width, or {@link dropdownMinWidth} when that is higher
+   * — is **silently ignored** and the panel overflows its bounding box, which
+   * has no `overflow: hidden`. Set the floor down as well if you need the
+   * panel narrower than its trigger.
+   */
+  readonly dropdownMaxWidth = input<number | string | undefined>(undefined);
+
+  /**
    * @protected Resolved full-screen sheet title: explicit `mobileTitle` input
    * takes precedence over the field's label, then the resolved placeholder.
    */
@@ -323,7 +369,31 @@ export class MlvCombobox<T>
   readonly isOpen = signal(false);
   /** Current text in the input. For single-select this doubles as the committed label when not actively searching. */
   readonly searchQuery = signal('');
+  /**
+   * Measured pixel width of the trigger, fed to the dropdown as its **minimum**
+   * width. The panel is never narrower than the trigger and grows past it to
+   * fit a longer option rather than clipping it (#150).
+   */
   readonly triggerWidth = signal(0);
+
+  /**
+   * @protected The floor handed to the popup: the measured trigger width, or a
+   * CSS `max()` of it and {@link dropdownMinWidth} when that is set.
+   *
+   * Expressed as `max()` rather than resolved in TypeScript so the author's
+   * units (`rem`, `ch`, `%`, `vw`) keep their meaning — px is the only unit
+   * `triggerWidth` can be measured in, and converting the other side to it
+   * would freeze it against the root font size at open time.
+   */
+  protected readonly _resolvedDropdownMinWidth = computed<number | string>(
+    () => {
+      const trigger = this.triggerWidth();
+      const floor = this.dropdownMinWidth();
+      if (floor === undefined) return trigger;
+      const authored = typeof floor === 'number' ? `${floor}px` : floor;
+      return `max(${trigger}px, ${authored})`;
+    },
+  );
 
   /** @private Whether `searchQuery` represents live user search text (vs. a displayed committed label). */
   private readonly _searching = signal(false);
@@ -978,6 +1048,10 @@ export class MlvCombobox<T>
     this._input()?.focus();
   }
 
+  /**
+   * Re-measures the trigger from an `mlvResizeObserver` entry and republishes
+   * {@link triggerWidth} — the dropdown's minimum width.
+   */
   updateTriggerWidth(evt: ResizeObserverEntry[]): void {
     this.triggerWidth.set(evt[0].target.getBoundingClientRect().width);
   }

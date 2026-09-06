@@ -270,7 +270,7 @@ export class MyComponent {
 
 Malva UI mirrors at runtime, **scoped per `[dir]`** — a `dir="rtl"` on any ancestor flips that subtree. Inject `MlvRtlService` (`@malva-ui/cdk/utils`); never inject CDK `Directionality` directly (the service owns the document `dir` and the CDK sync).
 
-- **Arrow keys** — switch on `normalizeArrowKey(event)` (CDK constants, horizontal pair swapped in RTL), not `event.key === 'ArrowLeft'`.
+- **Arrow keys** — switch on `normalizeArrowKey(event, this._direction())` (CDK constants, horizontal pair swapped in RTL), not `event.key === 'ArrowLeft'`. `_direction` is one cached `elementDirection(host)` signal per component; pass it whenever the handler branches on the horizontal pair, since omitting it falls back to the document direction and misses every scoped `[dir]` subtree, overlay panes included.
 - **Measured geometry** (sliding indicator, pill, thumb) — read `elementDirection(host)()` inside the measuring `effect()`; a mirror moves children without resizing them, so no `ResizeObserver` or query fires.
 - **Pointer maths** — `clientX` / `DOMRect` / `offsetLeft` are physical; convert to inline progress once at the boundary.
 - **Overlays** — pass `direction: resolveDirection(trigger)` on the overlay config and use `start` / `end` in every `ConnectedPosition`; the pane is portaled to `<body>` and inherits no `[dir]`.

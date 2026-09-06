@@ -5,7 +5,7 @@ import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MlvCalendarSheet } from './calendar-sheet';
 import type { MlvCalendarRangeValue } from '../calendar/calendar';
-import { MlvNativeDateAdapter } from '../date-provider/native-date-adapter';
+import { MlvNativeDateAdapter } from '@malva-ui/core/date';
 
 @Component({
   imports: [MlvCalendarSheet],

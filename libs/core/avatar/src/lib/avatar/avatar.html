@@ -1,36 +1,39 @@
 <div class="mlv-avatar__visual" [style.background-color]="_backgroundColor()">
   @if (_showSkeleton()) {
-  <div class="mlv-avatar__skeleton" aria-hidden="true"></div>
-  } @if (_showImage()) {
-  <img
-    class="mlv-avatar__image"
-    [src]="src()"
-    [class.mlv-avatar__image--loaded]="_imageLoaded()"
-    (load)="_onImageLoad()"
-    (error)="_onImageError()"
-    alt=""
-    aria-hidden="true"
-  />
-  } @if (_showInitials()) {
-  <span class="mlv-avatar__initials" aria-hidden="true"
-    >{{ _resolvedInitials() }}</span
-  >
-  } @if (_showContent()) {
-  <span class="mlv-avatar__content">
-    <ng-content />
-  </span>
+    <div class="mlv-avatar__skeleton" aria-hidden="true"></div>
+  }
+  @if (_showImage()) {
+    <img
+      class="mlv-avatar__image"
+      [src]="src()"
+      [class.mlv-avatar__image--loaded]="_imageLoaded()"
+      (load)="_onImageLoad()"
+      (error)="_onImageError()"
+      alt=""
+      aria-hidden="true"
+    />
+  }
+  @if (_showInitials()) {
+    <span class="mlv-avatar__initials" aria-hidden="true">{{
+      _resolvedInitials()
+    }}</span>
+  }
+  @if (_showContent()) {
+    <span class="mlv-avatar__content">
+      <ng-content />
+    </span>
   }
 </div>
 
 @if (_labelWords().length > 0) {
-<div class="mlv-avatar__label">
-  @for (word of _labelWords(); track $index) {
-  <span
-    class="mlv-avatar__label-word"
-    [mlvFade]="'horizontal'"
-    mlvFadeSize="1.5em"
-    >{{ word }}</span
-  >
-  }
-</div>
+  <div class="mlv-avatar__label">
+    @for (word of _labelWords(); track $index) {
+      <span
+        class="mlv-avatar__label-word"
+        [mlvFade]="'horizontal'"
+        mlvFadeSize="1.5em"
+        >{{ word }}</span
+      >
+    }
+  </div>
 }

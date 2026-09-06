@@ -1,10 +1,7 @@
 <ul class="home-reel" aria-label="Full-size showcases">
   @for (showcase of showcases; track showcase.slug) {
     <li class="home-reel__item">
-      <a
-        class="home-reel__card"
-        [routerLink]="['/showcases', showcase.slug]"
-      >
+      <a class="home-reel__card" [routerLink]="['/showcases', showcase.slug]">
         <span class="home-reel__preview">
           @if (showcase.previewAsset; as previewAsset) {
             <img [ngSrc]="previewAsset" width="1600" height="1000" alt="" />

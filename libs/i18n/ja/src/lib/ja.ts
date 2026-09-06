@@ -349,6 +349,33 @@ const ja: MlvLanguage = {
     rating: '評価',
     rateValue: '{max} 段階中 {value} を評価',
   },
+  scheduler: {
+    scheduler: 'スケジューラー',
+    today: '今日',
+    previous: '前の{view, select, month {月} week {週} day {日} other {期間}}',
+    next: '次の{view, select, month {月} week {週} day {日} other {期間}}',
+    month: '月',
+    week: '週',
+    day: '日',
+    viewSwitch: '表示',
+    allDay: '終日',
+    moreEvents: '{count, plural, one {他 # 件} other {他 # 件}}',
+    moreEventsLabel:
+      '{count, plural, one {他 # 件の予定} other {他 # 件の予定}}（{date}）',
+    gridLabel:
+      '{view, select, month {月} week {週} day {日} other {スケジューラー}}表示、{period}',
+    slotLabel: '{date} {time}',
+    dayLabelToday: '{date}、今日',
+    eventLabel: '{title}、{start} から {end}',
+    eventLabelAllDay: '{title}、終日、{start} から {end}',
+    dragHint:
+      'Alt キーと矢印キーで移動します。Alt キー、Shift キーと矢印キーで終了時刻を変更します。',
+    eventMoved: '{title} を {start} に移動しました',
+    eventResized: '{title} の終了時刻が {end} になりました',
+    moveRejected: '{title} はそこに配置できません',
+    rangeChanged: '{period} を表示しています',
+    selectionHint: '{start} から {end} を選択しました。Enter キーで確定します',
+  },
   scrollbar: {
     scrollableRegion: 'スクロール可能な領域',
   },

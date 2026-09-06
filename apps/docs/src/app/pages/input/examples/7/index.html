@@ -7,14 +7,14 @@
   #strength="mlvPasswordStrength"
 >
   @if (presentations[strength.score()]; as presentation) {
-  <span
-    *mlvFormControlAppend
-    class="docs-password-emoji"
-    role="img"
-    aria-live="polite"
-    [attr.aria-label]="presentation.label + ' password strength'"
-  >
-    {{ presentation.emoji }}
-  </span>
+    <span
+      *mlvFormControlAppend
+      class="docs-password-emoji"
+      role="img"
+      aria-live="polite"
+      [attr.aria-label]="presentation.label + ' password strength'"
+    >
+      {{ presentation.emoji }}
+    </span>
   }
 </mlv-input>

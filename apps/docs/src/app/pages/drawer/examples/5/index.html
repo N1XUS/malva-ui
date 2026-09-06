@@ -25,25 +25,25 @@
     <div mlvDrawerBody>
       <mlv-list>
         @for (item of notifications(); track item.id) {
-        <mlv-list-item [unread]="item.unread">
-          <mlv-avatar mlvListItemMedia size="m" [name]="item.author" />
-          <span mlvListItemTitle>{{ item.title }}</span>
-          <span mlvListItemByline>{{ item.byline }}</span>
-          <span mlvListItemMeta>{{ item.when }}</span>
-          @if (item.unread) {
-          <div mlvListItemActions>
-            <button
-              mlvButton
-              mlvDensity="compact"
-              variant="transparent"
-              type="button"
-              (click)="markRead(item.id)"
-            >
-              Mark read
-            </button>
-          </div>
-          }
-        </mlv-list-item>
+          <mlv-list-item [unread]="item.unread">
+            <mlv-avatar mlvListItemMedia size="m" [name]="item.author" />
+            <span mlvListItemTitle>{{ item.title }}</span>
+            <span mlvListItemByline>{{ item.byline }}</span>
+            <span mlvListItemMeta>{{ item.when }}</span>
+            @if (item.unread) {
+              <div mlvListItemActions>
+                <button
+                  mlvButton
+                  mlvDensity="compact"
+                  variant="transparent"
+                  type="button"
+                  (click)="markRead(item.id)"
+                >
+                  Mark read
+                </button>
+              </div>
+            }
+          </mlv-list-item>
         }
       </mlv-list>
     </div>

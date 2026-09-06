@@ -1,0 +1,22 @@
+<div class="docs-scheduler-controls">
+  <mlv-checkbox [(checked)]="hideWeekend" label="Hide weekend" />
+  <mlv-select
+    label="Slot"
+    [options]="slotOptions"
+    [toOption]="slotToOption"
+    [(value)]="slotDuration"
+  />
+</div>
+<mlv-scheduler
+  [(events)]="events"
+  view="week"
+  minTime="07:00"
+  maxTime="20:00"
+  [slotDuration]="slotDuration()"
+  [snapDuration]="15"
+  [businessHours]="businessHours"
+  [hiddenDays]="hideWeekend() ? [0, 6] : []"
+  [firstDayOfWeek]="1"
+  scrollToCurrentTime
+  style="block-size: 36rem"
+/>

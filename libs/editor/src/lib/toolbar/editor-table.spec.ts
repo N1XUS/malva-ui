@@ -6,6 +6,7 @@ import { Editor, type Extensions } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { fileURLToPath } from 'node:url';
 import { compile } from 'sass';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MLV_EDITOR_I18N, type MlvEditorI18n } from '@malva-ui/i18n';
 import {
   i18nTestProvider,
@@ -100,6 +101,10 @@ describe('MlvEditorTable', () => {
     fixture.destroy();
     (fixture.nativeElement as HTMLElement).remove();
     overlayContainer.ngOnDestroy();
+    // Direction is global state: `MlvRtlService` writes it onto <html>, which
+    // outlives the TestBed injector.
+    TestBed.inject(MlvRtlService).setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
   });
 
   async function settle(): Promise<void> {
@@ -282,6 +287,68 @@ describe('MlvEditorTable', () => {
       { type: 'tableRow', cells: ['tableCell', 'tableCell'] },
       { type: 'tableRow', cells: ['tableCell', 'tableCell'] },
     ]);
+  });
+
+  it('mirrors grid column stepping inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
+    (fixture.nativeElement as HTMLElement).setAttribute('dir', 'rtl');
+    await settle();
+    tableTrigger().click();
+    await settle();
+
+    // The document is untouched — only the editor's subtree is flipped, which
+    // is also the shape a CDK overlay pane takes (CDK stamps `dir` on it).
+    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Insert table: 3 × 3',
+    );
+
+    // Columns run along the mirrored inline axis: ArrowLeft adds one.
+    key(document.activeElement as Element, 'ArrowLeft');
+    await settle();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Insert table: 3 × 4',
+    );
+
+    key(document.activeElement as Element, 'ArrowRight');
+    key(document.activeElement as Element, 'ArrowRight');
+    await settle();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Insert table: 3 × 2',
+    );
+
+    // Rows are the block axis and Home/End address the grid bounds — neither
+    // mirrors in any direction.
+    key(document.activeElement as Element, 'ArrowDown');
+    await settle();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Insert table: 4 × 2',
+    );
+
+    key(document.activeElement as Element, 'Home');
+    await settle();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Insert table: 1 × 1',
+    );
+
+    key(document.activeElement as Element, 'End');
+    await settle();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Insert table: 10 × 10',
+    );
+  });
+
+  it('keeps grid column stepping unmirrored in an LTR island while the document is RTL', async () => {
+    TestBed.inject(MlvRtlService).setDirection('rtl');
+    (fixture.nativeElement as HTMLElement).setAttribute('dir', 'ltr');
+    await settle();
+    tableTrigger().click();
+    await settle();
+
+    key(document.activeElement as Element, 'ArrowRight');
+    await settle();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Insert table: 3 × 4',
+    );
   });
 
   it('executes every row, column, header, and delete action against a real table', async () => {
@@ -622,8 +689,8 @@ describe('MlvEditorTable', () => {
       const trigger = toolbarFixture.nativeElement.querySelector(
         'mlv-editor-table button[aria-label="Table"]',
       ) as HTMLButtonElement;
-    // Outside a table the widget is an insert-dialog trigger; inside one it is
-    // a menu button. It is never a toggle, so it carries no `aria-pressed`.
+      // Outside a table the widget is an insert-dialog trigger; inside one it is
+      // a menu button. It is never a toggle, so it carries no `aria-pressed`.
       const tableWidget = () =>
         toolbarFixture.nativeElement.querySelector(
           'mlv-editor-table button[aria-label="Table"]',

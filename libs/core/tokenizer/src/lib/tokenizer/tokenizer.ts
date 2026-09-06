@@ -5,6 +5,7 @@ import {
   contentChild,
   DestroyRef,
   effect,
+  ElementRef,
   forwardRef,
   inject,
   input,
@@ -119,6 +120,17 @@ export class MlvTokenizer<T = string>
   /** @private Supplies the current inline direction to the horizontal key manager. */
   private readonly _rtlService = inject(MlvRtlService);
 
+  /**
+   * @private Direction applying to this tokenizer, following any `[dir]` scope
+   * above it rather than the document. `FocusKeyManager` reads raw key codes,
+   * so it is handed this direction and rebuilt whenever it flips — reading the
+   * global `direction()` would leave the tokens laid out right-to-left inside a
+   * scoped `[dir="rtl"]` while ArrowRight still stepped left-to-right.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    inject(ElementRef<HTMLElement>),
+  );
+
   /** @private Subscription to the key manager's active-item changes. */
   private _changeSub?: Subscription;
 
@@ -186,7 +198,7 @@ export class MlvTokenizer<T = string>
     // tabindex). Rebuilt whenever the token set changes.
     effect(() => {
       const tokens = [...this._tokens()];
-      const direction = this._rtlService.direction();
+      const direction = this._direction();
       this._changeSub?.unsubscribe();
       this._keyManager?.destroy();
 

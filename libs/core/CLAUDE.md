@@ -164,18 +164,31 @@ under `yarn nx run core:test`.
   root tag itself comes from the `document` string, so it proves nothing), the
   indeterminate checkbox emitted `aria-checked="mixed"` (the visible half of
   #124 — an attribute binding, so unlike the property binding beside it, it
-  does survive the server render), no `cdk-overlay-*` in the payload, and no
-  `NaN` anywhere in it (a viewport measured during construction serialises as
-  `NaNpx` without ever throwing).
+  does survive the server render), the native `mlv-select` marked its committed
+  option `selected` (the visible half of #135, same reasoning), no
+  `cdk-overlay-*` in the payload, and no `NaN` anywhere in it (a viewport
+  measured during construction serialises as `NaNpx` without ever throwing).
 - **Property bindings that the server DOM cannot satisfy** are a class of their
   own: the check is `'<prop>' in element`, so anything domino's DOM lacks fails
   there and passes in every browser test. `mapPropName` rescues `class`, `for`,
   `formaction`, `innerHtml`, `readonly` and `tabindex`; a property domino's DOM
-  does not implement (`indeterminate` is the known case) has nothing to rescue
-  it. The test is `'<prop>' in element` against domino's classes, not a
-  browser's. Write those from an `afterRenderEffect` instead of binding them,
-  or bind the attribute form where the property mirrors a content attribute
-  (`[attr.selected]`, `[attr.muted]`).
+  does not implement (`indeterminate`, `option.selected` and `video.muted` are
+  the known cases) has nothing to rescue it. The test is `'<prop>' in element`
+  against domino's classes, not a browser's. Write those from script rather
+  than binding them — an `afterRenderEffect` for a property on the component's
+  own host or on one element it owns (#124, #135), a constructor-time attribute
+  directive on the element itself for a property on a _repeated_ child (#136),
+  since one after-render sequence per repeated element is a cost the template
+  binding it replaced did not have. Bind the attribute form as well where the
+  property mirrors a content attribute (`[attr.selected]`, `muted`) — see
+  _Writing SSR-safe components_ for why the attribute alone is not a
+  substitute.
+- **A component rendered only in its default state is only covered in that
+  state.** The whole native branch of `mlv-select` sits behind
+  `@if (_nativeActive())` with `native` defaulting to `false`, so #135 rendered
+  here on every run without ever reaching the code that logged it. The host
+  templates now carry a second, `native` select for that reason; #137 tracks the
+  blind spot in general.
 - **Eight hosts**, one `SSR_HOSTS` entry each: form controls, pickers,
   navigation, shell, surfaces, data, display, and a drawer-sections host that
   provides `MlvDrawerSectionsService` itself. The split is for readability only
@@ -237,14 +250,12 @@ barrels reach` re-finds every `@Component(` with an independent,
 ### Writing SSR-safe components
 
 - Never bind a **DOM property domino does not implement** in a template
-  (`input.indeterminate` is the known case). The unknown-property check is
-  `'<prop>' in element` against domino's classes, not a browser's, so a
-  property that exists in every browser can still fail there; `muted` and
-  `selected`, by contrast, are content attributes and take `[attr.muted]` /
-  `[attr.selected]`. Where domino lacks the property every server render logs
-  NG0303 per instance, and the binding buys nothing there anyway — a DOM
-  property cannot serialise into markup. Write the property from an
-  `afterRenderEffect` reading the input
+  (`input.indeterminate` and `option.selected` are the known cases). The
+  unknown-property check is `'<prop>' in element` against domino's classes, not
+  a browser's, so a property that exists in every browser can still fail there.
+  Where domino lacks the property every server render logs NG0303 per instance,
+  and the binding buys nothing there anyway — a DOM property cannot serialise
+  into markup. Write the property from an `afterRenderEffect` reading the input
   signal: browser-only by construction, and it still tracks later changes,
   which a one-shot `afterNextRender` would not. `MlvCheckbox` is the reference
   case.
@@ -255,9 +266,46 @@ barrels reach` re-finds every `@Component(` with an independent,
   every `ApplicationRef.tick()`, dirty or not — unlike the template binding it
   replaces, which cost nothing while its `OnPush` view was clean. One per
   checkbox is negligible; one per `<option>` inside a `<select>` is not. For a
-  repeated child element, prefer a cheaper route: set the parent property once
-  (`select.value`), or use the attribute form where one exists. Pick per case
-  rather than applying this rule mechanically.
+  repeated child element, do not register a sequence per child: register **one
+  per component** and let it walk the children (`MlvSelect._syncNativeSelection`
+  is the reference case — one effect, one pass over `select.options`). Pick per
+  case rather than applying this rule mechanically.
+
+  **An `[attr.*]` form is not automatically a substitute.** `selected` and
+  `muted` do have content attributes, and binding those is right for the server
+  payload — the attribute is the only channel that serialises. But an
+  attribute sets the element's _default_ state, which is not always the live
+  one: per the HTML spec an `<option>` carries a **dirtiness** flag, raised by
+  the user's first pick, after which adding or removing `selected` no longer
+  changes selectedness at all. A spec can reach that state because jsdom raises
+  the flag from the `select.value` and `option.selected` setters too, as the
+  spec says to — Chrome 148 raises it only on a real user pick, so drive
+  dirtiness in a spec through the value setter, and never read jsdom's setter
+  behaviour as a description of the browser. Bind the attribute **and** write
+  the property when the state is both serialisable and user-mutable; `MlvSelect`
+  does both, and the specs that hold the pair in place are in `select.spec.ts` →
+  "native mode API and synchronization".
+
+  `select.value` is **not** an escape route from either problem: domino has no
+  `HTMLSelectElement.value` either, so a `[value]` binding just trades N+1
+  NG0303 lines for one — and a `<select>`'s value can only be assigned after
+  its options exist, which is later than the binding runs.
+
+  **Check that the attribute form is actually equivalent before swapping.** Not
+  every content attribute reaches its property on an element the browser created
+  with `createElement`. `muted` is the live counter-example (#136): Chromium and
+  jsdom still implement the pre-2024 one-time transfer, where the attribute
+  seeds `muted` only for a _parser_-created element, so `[attr.muted]` alone
+  leaves a client-rendered `<video>` audible — the attribute serialises the
+  server payload and something else must write the property. The cheapest
+  "something else" for a repeated element is a **constructor-only attribute
+  directive** on that element (`MlvChatMutedVideo`, `video[mlvChatMuted]`): one
+  write at creation, no after-render sequence, no query, later elements covered
+  because each gets its own instance, and no NG0303 because a constructor write
+  is not a template binding. Verify the swap by ablation, in the engines the
+  library targets — the HTML Standard has since made `muted` a tristate the
+  attribute _does_ feed, and Gecko shipped that in Firefox 153, so this
+  particular divergence is expected to expire.
 
 - Prefer **`afterNextRender` / `afterRenderEffect`** for anything that measures,
   paints, or observes. Neither runs on the server, so the hook doubles as the

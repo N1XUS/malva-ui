@@ -17,10 +17,12 @@ import {
   MlvCalendar,
   MlvCalendarSheet,
   type MlvCalendarRangeValue,
+} from '@malva-ui/core/calendar';
+import {
   MLV_DATE_ADAPTER,
   MlvNativeDateAdapter,
   type MlvDateAdapter,
-} from '@malva-ui/core/calendar';
+} from '@malva-ui/core/date';
 import {
   MlvPopup,
   MlvPopupContent,

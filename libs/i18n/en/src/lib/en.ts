@@ -352,6 +352,34 @@ const en: MlvLanguage = {
     rating: 'Rating',
     rateValue: 'Rate {value} out of {max}',
   },
+  scheduler: {
+    scheduler: 'Scheduler',
+    today: 'Today',
+    previous:
+      'Previous {view, select, month {month} week {week} day {day} other {period}}',
+    next: 'Next {view, select, month {month} week {week} day {day} other {period}}',
+    month: 'Month',
+    week: 'Week',
+    day: 'Day',
+    viewSwitch: 'View',
+    allDay: 'All day',
+    moreEvents: '+{count, plural, one {# more} other {# more}}',
+    moreEventsLabel:
+      '{count, plural, one {# more event} other {# more events}} on {date}',
+    gridLabel:
+      '{view, select, month {Month} week {Week} day {Day} other {Scheduler}} view, {period}',
+    slotLabel: '{date}, {time}',
+    dayLabelToday: '{date}, today',
+    eventLabel: '{title}, {start} to {end}',
+    eventLabelAllDay: '{title}, all day, {start} to {end}',
+    dragHint:
+      'Press Alt and an arrow key to move. Press Alt, Shift and an arrow key to change the end.',
+    eventMoved: '{title} moved to {start}',
+    eventResized: '{title} now ends at {end}',
+    moveRejected: '{title} cannot be placed there',
+    rangeChanged: 'Showing {period}',
+    selectionHint: '{start} to {end} selected. Press Enter to confirm',
+  },
   scrollbar: {
     scrollableRegion: 'Scrollable region',
   },

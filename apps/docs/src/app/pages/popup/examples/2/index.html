@@ -16,14 +16,14 @@
     "
   >
     @for (pos of positions; track pos) {
-    <button
-      mlvButton
-      size="s"
-      [variant]="selectedPosition() === pos ? 'primary' : 'outlined'"
-      (click)="selectedPosition.set(pos)"
-    >
-      {{ pos }}
-    </button>
+      <button
+        mlvButton
+        size="s"
+        [variant]="selectedPosition() === pos ? 'primary' : 'outlined'"
+        (click)="selectedPosition.set(pos)"
+      >
+        {{ pos }}
+      </button>
     }
   </div>
 

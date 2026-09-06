@@ -15,6 +15,9 @@
   </div>
 </div>
 <p class="stage__status" aria-live="polite">
-  @if (assignee(); as name) { Assigned to <strong>{{ name }}</strong>
-  } @else { Unassigned }
+  @if (assignee(); as name) {
+    Assigned to <strong>{{ name }}</strong>
+  } @else {
+    Unassigned
+  }
 </p>

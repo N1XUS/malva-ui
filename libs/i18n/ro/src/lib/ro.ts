@@ -359,6 +359,36 @@ const ro: MlvLanguage = {
     rating: 'Evaluare',
     rateValue: 'Evaluează cu {value} din {max}',
   },
+  scheduler: {
+    scheduler: 'Planificator',
+    today: 'Astăzi',
+    previous:
+      '{view, select, month {Luna} week {Săptămâna} day {Ziua} other {Perioada}} anterioară',
+    next: '{view, select, month {Luna} week {Săptămâna} day {Ziua} other {Perioada}} următoare',
+    month: 'Lună',
+    week: 'Săptămână',
+    day: 'Zi',
+    viewSwitch: 'Vizualizare',
+    allDay: 'Toată ziua',
+    moreEvents:
+      '+{count, plural, one {# în plus} few {# în plus} other {# în plus}}',
+    moreEventsLabel:
+      '{count, plural, one {încă # eveniment} few {încă # evenimente} other {încă # de evenimente}} pe {date}',
+    gridLabel:
+      'Vizualizare {view, select, month {lunară} week {săptămânală} day {zilnică} other {planificator}}, {period}',
+    slotLabel: '{date}, {time}',
+    dayLabelToday: '{date}, astăzi',
+    eventLabel: '{title}, de la {start} până la {end}',
+    eventLabelAllDay: '{title}, toată ziua, de la {start} până la {end}',
+    dragHint:
+      'Apăsați Alt și o tastă săgeată pentru a muta. Apăsați Alt, Shift și o tastă săgeată pentru a modifica sfârșitul.',
+    eventMoved: '{title} a fost mutat la {start}',
+    eventResized: '{title} se încheie acum la {end}',
+    moveRejected: '{title} nu poate fi plasat acolo',
+    rangeChanged: 'Se afișează {period}',
+    selectionHint:
+      'De la {start} până la {end} selectat. Apăsați Enter pentru confirmare',
+  },
   scrollbar: {
     scrollableRegion: 'Regiune derulabilă',
   },

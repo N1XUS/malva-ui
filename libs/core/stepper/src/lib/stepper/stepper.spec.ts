@@ -347,3 +347,125 @@ describe('MlvStepper — vertical orientation', () => {
     expect(results.violations).toEqual([]);
   });
 });
+
+// ─── Scoped [dir] keyboard mirroring (#147) ──────────────────────────────────
+
+@Component({
+  template: `
+    <div [attr.dir]="scopeDir()">
+      <mlv-stepper orientation="horizontal">
+        <mlv-step label="Step 1">Content 1</mlv-step>
+        <mlv-step label="Step 2">Content 2</mlv-step>
+        <mlv-step label="Step 3">Content 3</mlv-step>
+      </mlv-stepper>
+    </div>
+  `,
+  imports: [MlvStepper, MlvStep],
+})
+class ScopedStepperHostComponent {
+  readonly scopeDir = signal<'ltr' | 'rtl'>('rtl');
+}
+
+describe('MlvStepper — scoped [dir] keyboard mirroring', () => {
+  let fixture: ComponentFixture<ScopedStepperHostComponent>;
+  let rtlService: MlvRtlService;
+
+  const KEY = {
+    ArrowRight: 39,
+    ArrowLeft: 37,
+    ArrowDown: 40,
+    ArrowUp: 38,
+    Home: 36,
+  } as const;
+
+  function dispatchKey(
+    element: HTMLElement,
+    key: string,
+    keyCode: number,
+  ): void {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true });
+    Object.defineProperty(event, 'keyCode', { get: () => keyCode });
+    element.dispatchEvent(event);
+  }
+
+  function headers(): HTMLElement[] {
+    return Array.from(
+      fixture.nativeElement.querySelectorAll<HTMLElement>(
+        '.mlv-stepper__step-header',
+      ),
+    );
+  }
+
+  async function build(dir: 'ltr' | 'rtl'): Promise<HTMLElement[]> {
+    fixture = TestBed.createComponent(ScopedStepperHostComponent);
+    fixture.componentInstance.scopeDir.set(dir);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return headers();
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ScopedStepperHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    rtlService = TestBed.inject(MlvRtlService);
+  });
+
+  afterEach(() => {
+    rtlService.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  it('mirrors horizontal stepping inside a [dir="rtl"] subtree while the document stays LTR', async () => {
+    const els = await build('rtl');
+    expect(rtlService.direction()).toBe('ltr');
+
+    els[0].focus();
+    dispatchKey(els[0], 'ArrowLeft', KEY.ArrowLeft);
+    fixture.detectChanges();
+
+    // ArrowLeft is "next" once the headers are laid out right-to-left.
+    expect(document.activeElement).toBe(els[1]);
+  });
+
+  it('keeps horizontal stepping unmirrored in an LTR island while the document is RTL', async () => {
+    rtlService.setDirection('rtl');
+    const els = await build('ltr');
+
+    els[0].focus();
+    dispatchKey(els[0], 'ArrowRight', KEY.ArrowRight);
+    fixture.detectChanges();
+
+    expect(document.activeElement).toBe(els[1]);
+  });
+
+  it('leaves the vertical pair and Home unmirrored in the same scope', async () => {
+    const els = await build('rtl');
+
+    // Step into the middle through the manager itself, so the assertions below
+    // run against a live key-manager session rather than a bare `.focus()`.
+    els[0].focus();
+    dispatchKey(els[0], 'ArrowLeft', KEY.ArrowLeft);
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(els[1]);
+
+    // The block axis never mirrors. (CDK's `ListKeyManager` leaves vertical
+    // navigation enabled alongside a horizontal orientation, so these keys do
+    // move — the point is only that they keep their LTR meaning: Down = next,
+    // Up = previous, in both directions.)
+    dispatchKey(els[1], 'ArrowDown', KEY.ArrowDown);
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(els[2]);
+
+    dispatchKey(els[2], 'ArrowUp', KEY.ArrowUp);
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(els[1]);
+
+    // Home means "first", never "last", in either direction.
+    dispatchKey(els[1], 'Home', KEY.Home);
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(els[0]);
+  });
+});

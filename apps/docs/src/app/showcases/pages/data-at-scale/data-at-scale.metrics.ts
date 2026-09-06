@@ -28,7 +28,9 @@ export const SCALE_SCROLL_SAMPLE_MS = 2000;
 export const SCALE_SCROLL_STEP_PX = 40;
 
 /** Schedules a callback for the next animation frame. */
-export type ScaleFrameScheduler = (callback: (timestamp: number) => void) => void;
+export type ScaleFrameScheduler = (
+  callback: (timestamp: number) => void,
+) => void;
 
 /** Reads a monotonic clock in milliseconds. */
 export type ScaleClock = () => number;
