@@ -103,7 +103,7 @@
 
     &__group {
       padding-block-end: var(--mlv-spacing-2);
-      border-block-end: 0.1875rem solid
+      border-block-end: var(--mlv-taskboard-stripe-size) solid
         var(--mlv-taskboard-group-accent, var(--mlv-border-normal));
       font-weight: 600;
       text-align: center;
