@@ -1938,6 +1938,136 @@ describe('MlvSelect — native mode API and synchronization', () => {
       Array.from(nativeSelect.selectedOptions).map((option) => option.text),
     ).toEqual(['Apple', 'Banana']);
   });
+
+  // The cases below pin the native selection to the *selectedness* of the
+  // option elements rather than to a template binding. `selected` is a DOM
+  // property domino does not implement, so binding it logged an NG0303 on
+  // every server render (issue #135); it is now written onto the options from
+  // a single `afterRenderEffect`, with `[attr.selected]` carrying the same
+  // state into the server payload.
+  //
+  // The attribute alone would not do. Per the HTML spec an option carries a
+  // "dirtiness" flag, set the moment the user picks in the select — and by
+  // jsdom's `select.value` setter, which is how this suite simulates a pick.
+  // Once it is set, adding or removing the `selected` content attribute no
+  // longer changes selectedness, so the attribute would keep tracking the
+  // model while the rendered control quietly stopped following it. That is
+  // what the "after the user has picked" cases exist to catch.
+  //
+  // The next two are behavioural pins, not discriminating ones: a pristine
+  // option still tracks its `selected` attribute, so both stay green against
+  // an attribute-only implementation. They characterise the contract; the
+  // "after the user has picked" pair is what fails without the property write.
+  it('selects the placeholder while a single native select has no value', async () => {
+    const fixture = render(true);
+    await fixture.whenStable();
+
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+    expect(nativeSelect.selectedIndex).toBe(0);
+    expect(nativeSelect.options[0].selected).toBe(true);
+    expect(nativeSelect.options[0].text.trim()).toBe('Select...');
+  });
+
+  it('moves the native selection when the model changes programmatically', async () => {
+    const fixture = render(true);
+    fixture.componentInstance.value.set('banana');
+    await fixture.whenStable();
+
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Banana']);
+  });
+
+  it('moves the native selection on a model change after the user has picked', async () => {
+    const fixture = render(true);
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+
+    // Two picks, so *both* real options are dirty before the model is written
+    // from code. One is not enough to characterise the attribute: adding
+    // `selected` to a still-clean sibling clears the others, so a single-select
+    // that only ever moves onto a clean option survives on the attribute alone.
+    nativeSelect.value = '1';
+    nativeSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(fixture.componentInstance.value()).toBe('banana');
+
+    nativeSelect.value = '0';
+    nativeSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(fixture.componentInstance.value()).toBe('apple');
+
+    fixture.componentInstance.value.set('banana');
+    await fixture.whenStable();
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Banana']);
+
+    // And back to nothing: the placeholder has to take the selection again, or
+    // the control keeps showing a value the model no longer holds.
+    fixture.componentInstance.value.set(null);
+    await fixture.whenStable();
+    expect(nativeSelect.options[0].selected).toBe(true);
+  });
+
+  it('moves the native multi-selection on a model change after the user has picked', async () => {
+    const fixture = render(true, true);
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+
+    nativeSelect.value = '0';
+    nativeSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(fixture.componentInstance.value()).toEqual(['apple']);
+
+    fixture.componentInstance.value.set(['banana']);
+    await fixture.whenStable();
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Banana']);
+  });
+
+  it('restores the native selection when auto mode re-creates the select', async () => {
+    const fixture = render('auto');
+    fixture.componentInstance.value.set('banana');
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('select')).toBeNull();
+
+    breakpoint.down.set(true);
+    await fixture.whenStable();
+
+    // A fresh set of option elements, so the effect has to re-run off the
+    // view-query signal rather than off a selection change — nothing about the
+    // model moved here.
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+    expect(
+      Array.from(nativeSelect.selectedOptions).map((option) => option.text),
+    ).toEqual(['Banana']);
+  });
+
+  it('carries the committed selection as an attribute, so a server render can serialise it', async () => {
+    const fixture = render(true);
+    fixture.componentInstance.value.set('banana');
+    await fixture.whenStable();
+
+    const nativeSelect = fixture.nativeElement.querySelector(
+      'select',
+    ) as HTMLSelectElement;
+    expect(
+      Array.from(nativeSelect.options)
+        .filter((option) => option.hasAttribute('selected'))
+        .map((option) => option.text),
+    ).toEqual(['Banana']);
+  });
 });
 
 /**
@@ -2589,6 +2719,210 @@ describe('MlvSelect stylesheet', () => {
     expect(cssRule(css, '.mlv-select__placeholder')).toContain(
       'color: var(--mlv-text-tertiary)',
     );
+  });
+});
+
+/**
+ * `NaN` is the one value on which `===` (the default `compareWith`) and
+ * SameValueZero (`Set` membership) disagree, and the dropdown panel used to
+ * gate its check-mark on a `Set`. Nothing in `mlv-select` masked it: the
+ * `options.resolve()` normalisation that hides the *object* half of #132
+ * cannot collapse `NaN` onto its option either, so the panel ticked a row the
+ * selection service reported unselected.
+ */
+describe('MlvSelect — NaN never renders a phantom check-mark (#132)', () => {
+  @Component({
+    imports: [MlvSelect],
+    template: `<mlv-select id="num" [options]="options" />`,
+  })
+  class HostComponent {
+    options = [NaN, 1];
+  }
+
+  /** The same options, but with the one comparator that recognises `NaN`. */
+  @Component({
+    imports: [MlvSelect],
+    template: `<mlv-select
+      id="num-is"
+      [options]="options"
+      [compareWith]="cmp"
+    />`,
+  })
+  class ObjectIsHostComponent {
+    options = [NaN, 1];
+    readonly cmp = Object.is;
+  }
+
+  let overlayContainer: OverlayContainer;
+  let overlayEl: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HostComponent, ObjectIsHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    overlayContainer = TestBed.inject(OverlayContainer);
+    overlayEl = overlayContainer.getContainerElement();
+  });
+
+  afterEach(() => overlayContainer.ngOnDestroy());
+
+  it('ticks no row for a committed NaN, agreeing with isSelected', async () => {
+    // `ngListbox.validate()` finds duplicates with `values.indexOf(val) !== idx`
+    // and `indexOf` never matches NaN, so a listbox holding *one* NaN option is
+    // always reported as holding a duplicate; it then logs the element with
+    // `console.warn('… %o:', el)`, which Node's `%o` formatter cannot walk in
+    // jsdom. Both halves are upstream and independent of the selection.
+    // Only those two lines are dropped — anything else this library warns
+    // about still reaches the real `console.warn` rather than hiding here.
+    const warn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      const first = args[0];
+      if (
+        typeof first === 'string' &&
+        (first.startsWith('Violations found on element:') ||
+          first.startsWith('Duplicate option value'))
+      ) {
+        return;
+      }
+      (warn as (...rest: unknown[]) => void)(...args);
+    };
+    try {
+      const fixture = TestBed.createComponent(HostComponent);
+      fixture.detectChanges();
+      const select = fixture.debugElement.query(By.directive(MlvSelect))
+        .componentInstance as MlvSelect<number>;
+
+      select.value.set(NaN);
+      select.openDropdown();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // Positive control: the panel is open with both rows rendered, so a zero
+      // check-mark count below cannot come from an empty listbox.
+      expect(overlayEl.querySelectorAll('[role="option"]').length).toBe(2);
+      // Every other membership check in the stack says nothing is selected.
+      expect(select.selectionService.isSelected(NaN)).toBe(false);
+
+      expect(
+        overlayEl.querySelectorAll('.mlv-dropdown-panel__item-check').length,
+      ).toBe(0);
+    } finally {
+      console.warn = warn;
+    }
+  });
+
+  it('still shows NaN in the trigger, which the tick and isSelected both deny', async () => {
+    // The residual disagreement, pinned rather than papered over. `NaN` is
+    // simply not a selectable value here: `===` is the default comparator and
+    // `NaN === NaN` is false, so `isSelected` denies a value the service is
+    // holding, and no row can tick. The trigger nonetheless renders it,
+    // because `displayValue` maps `selectedValues()` through `toOption`
+    // directly — it does not require the value to have matched an option, and
+    // must not: a committed value with no option (`5` against `[1, 2]`) is a
+    // *supported* state where `isSelected` is true and the trigger is the only
+    // thing that can show it.
+    //
+    // Fixing this in the display would therefore mean special-casing NaN in
+    // value rendering, which just moves the incoherence somewhere less
+    // visible. Documented instead, in `.claude/projects/libs-dropdown.md`
+    // § Check-mark identity.
+    const warn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      const first = args[0];
+      if (
+        typeof first === 'string' &&
+        (first.startsWith('Violations found on element:') ||
+          first.startsWith('Duplicate option value'))
+      ) {
+        return;
+      }
+      (warn as (...rest: unknown[]) => void)(...args);
+    };
+    try {
+      const fixture = TestBed.createComponent(HostComponent);
+      fixture.detectChanges();
+      const select = fixture.debugElement.query(By.directive(MlvSelect))
+        .componentInstance as MlvSelect<number>;
+
+      select.value.set(NaN);
+      select.openDropdown();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // The service is holding the value…
+      expect(select.hasValue()).toBe(true);
+      expect(select.displayValue).toBe('NaN');
+      expect(
+        (
+          fixture.nativeElement.querySelector(
+            '.mlv-select__trigger',
+          ) as HTMLElement
+        ).textContent?.trim(),
+      ).toBe('NaN');
+      // …and denying that it is selected, because `===` cannot see it.
+      expect(select.selectionService.isSelected(NaN)).toBe(false);
+      expect(
+        overlayEl.querySelectorAll('.mlv-dropdown-panel__item-check').length,
+      ).toBe(0);
+      expect(
+        [...overlayEl.querySelectorAll<HTMLElement>('[role="option"]')].map(
+          (row) => row.getAttribute('aria-selected'),
+        ),
+      ).toEqual(['false', 'false']);
+    } finally {
+      console.warn = warn;
+    }
+  });
+
+  it('is not rescued by compareWith=Object.is — aria matches options with ===', async () => {
+    // The obvious escape hatch, pinned as *not* working so the documentation
+    // above cannot drift into recommending it. `Object.is(NaN, NaN)` is true,
+    // so the selection service and the panel's check-mark would both accept
+    // the value — but `@angular/aria` matches values to options with `===` in
+    // three places it owns (`validate`, the option's `aria-selected`, and the
+    // reconciliation `afterRenderEffect`), none of which take a comparator. So
+    // the moment the listbox renders, aria filters the NaN out and re-emits;
+    // `mlv-select` reads that as a genuine deselect (the option *is* visible,
+    // so it is not filtered-out-committed) and drops the value. The trigger
+    // falls back to the placeholder.
+    //
+    // Verified to behave identically before the #132 panel fix, so this is
+    // upstream, not a consequence of normalising the panel's aria value.
+    const warn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      const first = args[0];
+      if (
+        typeof first === 'string' &&
+        (first.startsWith('Violations found on element:') ||
+          first.startsWith('Duplicate option value'))
+      ) {
+        return;
+      }
+      (warn as (...rest: unknown[]) => void)(...args);
+    };
+    try {
+      const fixture = TestBed.createComponent(ObjectIsHostComponent);
+      fixture.detectChanges();
+      const select = fixture.debugElement.query(By.directive(MlvSelect))
+        .componentInstance as MlvSelect<number>;
+
+      select.value.set(NaN);
+      select.openDropdown();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(select.selectionService.selectedValues()).toEqual([]);
+      expect(select.displayValue).toBe('');
+      expect(
+        overlayEl.querySelectorAll('.mlv-dropdown-panel__item-check').length,
+      ).toBe(0);
+    } finally {
+      console.warn = warn;
+    }
   });
 });
 

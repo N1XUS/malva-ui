@@ -1,10 +1,11 @@
 <mlv-form-control-wrapper (clear)="onClear()">
   @if (label() || hint()) {
-  <mlv-label [for]="id()" [required]="required()">
-    {{ label() }} @if (hint()) {
-    <mlv-hint>{{ hint() }}</mlv-hint>
-    }
-  </mlv-label>
+    <mlv-label [for]="id()" [required]="required()">
+      {{ label() }}
+      @if (hint()) {
+        <mlv-hint>{{ hint() }}</mlv-hint>
+      }
+    </mlv-label>
   }
 
   <ng-template mlvFormControlWrapperControl>
@@ -16,20 +17,26 @@
         [attr.aria-busy]="_awaitingValueLabel() || null"
         (resized)="updateTriggerWidth($event)"
       >
-        @if (multiple()) { @for (opt of _chipOptions(); track opt.value) {
-        <mlv-chip
-          class="mlv-combobox__chip"
-          [class.mlv-combobox__chip--armed]="_isChipArmed(opt)"
-          muted
-          [closable]="!computedDisabled() && !readonly()"
-          (mousedown)="$event.preventDefault()"
-          (chipClose)="removeSelected(opt.value)"
-        >
-          @if (selectedTemplate()?.templateRef; as tpl) {
-          <ng-container *ngTemplateOutlet="tpl; context: { $implicit: opt }" />
-          } @else { {{ opt.label }} }
-        </mlv-chip>
-        } }
+        @if (multiple()) {
+          @for (opt of _chipOptions(); track opt.value) {
+            <mlv-chip
+              class="mlv-combobox__chip"
+              [class.mlv-combobox__chip--armed]="_isChipArmed(opt)"
+              muted
+              [closable]="!computedDisabled() && !readonly()"
+              (mousedown)="$event.preventDefault()"
+              (chipClose)="removeSelected(opt.value)"
+            >
+              @if (selectedTemplate()?.templateRef; as tpl) {
+                <ng-container
+                  *ngTemplateOutlet="tpl; context: { $implicit: opt }"
+                />
+              } @else {
+                {{ opt.label }}
+              }
+            </mlv-chip>
+          }
+        }
 
         <div
           class="mlv-combobox__field"
@@ -72,52 +79,52 @@
           />
 
           @if (_showSingleTemplate()) {
-          <div class="mlv-combobox__single-display" aria-hidden="true">
-            <ng-container
-              *ngTemplateOutlet="
-                selectedTemplate()!.templateRef;
-                context: { $implicit: selectedOptions()[0] }
-              "
-            />
-          </div>
+            <div class="mlv-combobox__single-display" aria-hidden="true">
+              <ng-container
+                *ngTemplateOutlet="
+                  selectedTemplate()!.templateRef;
+                  context: { $implicit: selectedOptions()[0] }
+                "
+              />
+            </div>
           }
         </div>
 
         @if (clearable() && hasValue() && !computedDisabled() && !readonly()) {
-        <!-- Inline clear, BEFORE the chevron (ownsClearButton suppresses the
+          <!-- Inline clear, BEFORE the chevron (ownsClearButton suppresses the
              wrapper's trailing copy). mousedown is prevented so the input keeps
              focus while clearing. -->
-        <mlv-button-close
-          class="mlv-combobox__clear"
-          (mousedown)="$event.preventDefault()"
-          (click)="onClear()"
-          mlvDensity="tight"
-          [ariaLabel]="_formI18n().clear"
-        />
+          <mlv-button-close
+            class="mlv-combobox__clear"
+            (mousedown)="$event.preventDefault()"
+            (click)="onClear()"
+            mlvDensity="tight"
+            [ariaLabel]="_formI18n().clear"
+          />
         }
         <!-- The chevron is replaced by a spinner while the committed value's
              label is still resolving — the field is inert then, so a toggle
              button would be a dead control. -->
         @if (_awaitingValueLabel()) {
-        <mlv-loader
-          class="mlv-combobox__loader"
-          variant="circle"
-          indeterminate
-          [size]="18"
-          [strokeWidth]="2"
-          [ariaLabel]="_i18n().loading"
-        />
+          <mlv-loader
+            class="mlv-combobox__loader"
+            variant="circle"
+            indeterminate
+            [size]="18"
+            [strokeWidth]="2"
+            [ariaLabel]="_i18n().loading"
+          />
         } @else {
-        <button
-          type="button"
-          class="mlv-combobox__arrow"
-          tabindex="-1"
-          [attr.aria-label]="_i18n().toggleOptions"
-          [disabled]="computedDisabled()"
-          (mousedown)="onChevronMousedown($event)"
-        >
-          <svg size="20" lucideChevronDown></svg>
-        </button>
+          <button
+            type="button"
+            class="mlv-combobox__arrow"
+            tabindex="-1"
+            [attr.aria-label]="_i18n().toggleOptions"
+            [disabled]="computedDisabled()"
+            (mousedown)="onChevronMousedown($event)"
+          >
+            <svg size="20" lucideChevronDown></svg>
+          </button>
         }
       </div>
 
@@ -144,24 +151,26 @@
         <ng-template mlvPopupHeaderContent>
           <div class="mlv-combobox__sheet-header">
             @if (multiple() && _chipOptions().length) {
-            <div class="mlv-combobox__sheet-chips">
-              @for (opt of _chipOptions(); track opt.value) {
-              <mlv-chip
-                class="mlv-combobox__chip"
-                [class.mlv-combobox__chip--armed]="_isChipArmed(opt)"
-                muted
-                [closable]="!computedDisabled() && !readonly()"
-                (mousedown)="$event.preventDefault()"
-                (chipClose)="removeSelected(opt.value)"
-              >
-                @if (selectedTemplate()?.templateRef; as tpl) {
-                <ng-container
-                  *ngTemplateOutlet="tpl; context: { $implicit: opt }"
-                />
-                } @else { {{ opt.label }} }
-              </mlv-chip>
-              }
-            </div>
+              <div class="mlv-combobox__sheet-chips">
+                @for (opt of _chipOptions(); track opt.value) {
+                  <mlv-chip
+                    class="mlv-combobox__chip"
+                    [class.mlv-combobox__chip--armed]="_isChipArmed(opt)"
+                    muted
+                    [closable]="!computedDisabled() && !readonly()"
+                    (mousedown)="$event.preventDefault()"
+                    (chipClose)="removeSelected(opt.value)"
+                  >
+                    @if (selectedTemplate()?.templateRef; as tpl) {
+                      <ng-container
+                        *ngTemplateOutlet="tpl; context: { $implicit: opt }"
+                      />
+                    } @else {
+                      {{ opt.label }}
+                    }
+                  </mlv-chip>
+                }
+              </div>
             }
 
             <mlv-input
@@ -172,9 +181,7 @@
               [ariaExpanded]="_isFullscreen() ? isOpen() : null"
               [ariaHasPopup]="_isFullscreen() ? 'listbox' : null"
               [ariaAutocomplete]="_isFullscreen() ? 'list' : null"
-              [ariaControls]="
-                _isFullscreen() && isOpen() ? listboxId() : null
-              "
+              [ariaControls]="_isFullscreen() && isOpen() ? listboxId() : null"
               [ariaActiveDescendant]="
                 _isFullscreen() ? _activeOptionId() : null
               "
@@ -227,8 +234,11 @@
               (valueChange)="selectValues($event)"
             >
               <div class="mlv-combobox__empty">
-                @if (allowCreate() && searchQuery().trim()) { {{
-                _pressEnterToAdd() }} } @else { {{ _i18n().noResults }} }
+                @if (allowCreate() && searchQuery().trim()) {
+                  {{ _pressEnterToAdd() }}
+                } @else {
+                  {{ _i18n().noResults }}
+                }
               </div>
             </mlv-dropdown-panel>
           </div>
@@ -247,10 +257,13 @@
   </ng-template>
 
   @if (description()) {
-  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-  } @if (message()) {
-  <mlv-message [id]="_messageId()" [state]="resolvedState()">
-    {{ message() }}
-  </mlv-message>
+    <mlv-description [id]="_descriptionId()">{{
+      description()
+    }}</mlv-description>
+  }
+  @if (message()) {
+    <mlv-message [id]="_messageId()" [state]="resolvedState()">
+      {{ message() }}
+    </mlv-message>
   }
 </mlv-form-control-wrapper>
