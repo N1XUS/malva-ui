@@ -88,7 +88,13 @@
                 <path d="M8 10V7a4 4 0 0 1 8 0v3" />
               </svg>
             }
-            <span
+            <!--
+              An interpolated space, not a whitespace-only text node Angular
+              would strip: the cell's `aria-labelledby` name is built from this
+              header's text, and "Todo1/2" is not what the column is called.
+            -->
+            {{ ' '
+            }}<span
               class="mlv-taskboard__count"
               [attr.data-mlv-taskboard-wip]="
                 _wipAtLimit(column) ? 'at-limit' : null
@@ -117,8 +123,11 @@
               [ngTemplateOutletContext]="_swimlaneContext(swimlane)"
             />
           } @else {
-            <span class="mlv-taskboard__lane-title">{{ swimlane.label }}</span>
-            <span class="mlv-taskboard__count">{{ _laneCount(swimlane) }}</span>
+            <span class="mlv-taskboard__lane-title">{{ swimlane.label }}</span
+            >{{ ' '
+            }}<span class="mlv-taskboard__count">{{
+              _laneCount(swimlane)
+            }}</span>
           }
         </div>
         @for (column of columns(); track column.id) {

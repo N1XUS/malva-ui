@@ -2,7 +2,7 @@
 
 Set `virtualItemSize` to the fixed card height in **pixels** and every cell renders through a `cdk-virtual-scroll-viewport` instead of a plain container — 500 cards here, of which only a window is ever in the DOM. A value that is not a finite number greater than zero is ignored and the board renders normally.
 
-The size is a contract, not a hint: CDK's fixed-size strategy computes scroll offsets from it, so cards must actually be that tall. The board publishes it back as `--mlv-taskboard-virtual-item-size` and applies it as a `min-block-size` on each card, so a card that overflows grows the row and drifts out of sync. The scrolling cell itself takes its height from `--mlv-taskboard-cell-block-size` (default `20rem`); override that custom property rather than styling the viewport.
+The size is a contract, not a hint: CDK's fixed-size strategy computes scroll offsets from it, so it must be the whole pitch from one card to the next — the card **plus** the `--mlv-taskboard-card-gap` beneath it, which a virtualized cell carries as a `margin-block-end` on the card because the container's `gap` cannot reach inside CDK's content wrapper. The board publishes the number back as `--mlv-taskboard-virtual-item-size` and applies it, less that gap, as a `min-block-size` on each card, so a card that overflows grows the row and drifts out of sync. Being pixels against rem-based card metrics, the value holds only at the density and root font size it was measured at: `144` here is the comfortable-density card and its gap, and another density needs another number. The scrolling cell itself takes its height from `--mlv-taskboard-cell-block-size` (default `20rem`); override that custom property rather than styling the viewport.
 
 Three consequences worth knowing:
 

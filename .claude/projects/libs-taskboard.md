@@ -217,7 +217,7 @@ The built-in column header renders `mlv-taskboard__column-title`, an optional in
 
 - `virtualItemSize` (a positive finite number of pixels) opts **every** cell into a `cdk-virtual-scroll-viewport`; the sortable container is then the viewport's content wrapper.
 - Every DOM-derived slot index is offset by the cell's rendered start through `taskboard-virtual.ts` (`mlvTaskboardBucketIndex` / `mlvTaskboardRenderedIndex`, package-private), so a drop into a scrolled cell lands where it looks like it landed.
-- Cards must really be `virtualItemSize` tall — CDK's fixed-size strategy computes offsets from it. The board applies it as a card `min-block-size`.
+- `virtualItemSize` is the whole pitch from one card to the next — the card **plus** the `--mlv-taskboard-card-gap` beneath it — because CDK's fixed-size strategy computes offsets from it. A virtualized cell cannot space its cards with the container's `gap` (the viewport's only child is CDK's content wrapper), so the gap rides on the card as a `margin-block-end` and the board applies `virtualItemSize` **minus** that gap as the card's `min-block-size`. The number is pixels against rem-based card metrics, so it holds only at the density and root font size it was measured at.
 - Keyboard focus scrolls an off-window card in first and focuses it after that render.
 - A cell whose content is projected through `mlvTaskboardColumnContentDef` is never virtualized.
 - `print()` clears virtualization for one render; a browser-initiated print does not.

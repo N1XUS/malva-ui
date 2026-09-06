@@ -125,7 +125,8 @@
       align-items: center;
       gap: var(--mlv-spacing-2);
       padding-block: var(--mlv-spacing-3);
-      padding-inline: var(--mlv-spacing-4);
+      // The inline padding belongs to the look, not to the header: each of the
+      // two blocks below sets it so the title lines up with the cards under it.
       // Block-start, so the stripe never mirrors: it is not on the inline axis.
       border-block-start: var(--mlv-taskboard-stripe-size) solid
         var(--mlv-taskboard-column-accent, var(--mlv-border-normal));
@@ -202,6 +203,9 @@
     // Boards without swimlanes render each column as a soft panel: an accent
     // stripe, the header band, and the cell below it as one rounded surface.
     &:not(#{$block}--swimlanes) &__column-header {
+      // The panel's own inline padding, matching the cell below it, so the
+      // title sits over the cards rather than a quarter rem inboard of them.
+      padding-inline: var(--mlv-spacing-3);
       border-start-start-radius: var(--mlv-radius-card);
       border-start-end-radius: var(--mlv-radius-card);
       border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-normal);
@@ -245,6 +249,12 @@
     &--swimlanes &__column-row {
       padding-block-end: var(--mlv-spacing-2);
       border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+    }
+
+    // No panel to sit inside, and the cells below carry no padding either, so
+    // the title starts flush with the cards in its column.
+    &--swimlanes &__column-header {
+      padding-inline: 0;
     }
 
     &--swimlanes &__lane {
@@ -298,7 +308,18 @@
       overflow-y: auto;
 
       .mlv-taskboard__card {
-        min-block-size: var(--mlv-taskboard-virtual-item-size, 2.75rem);
+        // The viewport's only child is CDK's content wrapper, so the `gap` on
+        // the cards container never reaches the cards and they would abut.
+        // The gap rides on the card instead, and comes *out* of the declared
+        // item size rather than adding to it: CDK's fixed-size strategy reads
+        // `virtualItemSize` as the whole pitch from one card to the next, so
+        // card + gap has to be that number or every offset drifts.
+        margin-block-end: var(--mlv-taskboard-card-gap);
+        min-block-size: calc(
+          var(--mlv-taskboard-virtual-item-size, 2.75rem) - var(
+              --mlv-taskboard-card-gap
+            )
+        );
       }
     }
 
