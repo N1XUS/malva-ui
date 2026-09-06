@@ -789,7 +789,8 @@ export class MlvTaskboard<TItem> {
    * The board's serializable state: the cards as they are placed right now,
    * plus the column order, collapsed columns and lanes, the selection, the
    * focused card, and each cell's scroll offset. Card *content* stays the
-   * application's — a restore puts placement back, nothing else.
+   * application's — a {@link restore} puts the captured placement, cell and
+   * order, back onto the board's current cards and writes nothing else.
    */
   snapshot(): MlvTaskboardSnapshot<TItem> {
     const focusedId = this._keyboard.focus()?.itemId;
@@ -806,14 +807,16 @@ export class MlvTaskboard<TItem> {
 
   /**
    * Restores a {@link snapshot}. A snapshot that carries `items` puts the
-   * cards back where they were; a UI-only one leaves them alone. Identifiers
-   * the current board does not know — a removed column, a filtered-out card, a
-   * cell that no longer renders — are dropped silently, so a stored snapshot
-   * never throws against a board that has moved on. A captured card whose
-   * column, or whose lane on a laned board, no longer exists keeps the
-   * placement it has right now instead, and is dropped only when the board no
-   * longer holds that card either. Scroll offsets are applied after the next
-   * render, once the cells they address exist.
+   * captured placement — cell and order — back onto the board's **current**
+   * cards; a UI-only one leaves them alone. Card content edited since the
+   * capture survives, a card removed since the capture is not brought back,
+   * and a card added since the capture stays, after the captured ones.
+   * Identifiers the current board does not know — a removed column, a
+   * filtered-out card, a cell that no longer renders — are dropped silently,
+   * so a stored snapshot never throws against a board that has moved on: a
+   * captured card whose column, or whose lane on a laned board, no longer
+   * exists keeps the cell it is in right now instead. Scroll offsets are
+   * applied after the next render, once the cells they address exist.
    *
    * The card and column writes are recorded as **one** command, so a single
    * {@link undo} reverts the whole restore and {@link redo} replays it.
@@ -878,26 +881,32 @@ export class MlvTaskboard<TItem> {
   }
 
   /**
-   * @private A snapshot's cards merged onto the board they are restored onto,
-   * so the write can never name a cell the index would reject.
+   * @private The captured placement projected onto the board's **current**
+   * cards: a restore puts cell and order back, never card content.
    *
-   * `restore()` promises never to throw against a board that has moved on, but
-   * it writes `items` before anything reads them back — and
-   * `createMlvTaskboardIndex` rejects a card whose `columnField` names an
-   * unknown column, or whose `swimlaneField` names an unknown lane on a board
-   * that has a lane field at all. So each captured card is resolved against
-   * the current `columns` / `swimlanes` first: one whose cell still exists
-   * keeps its captured record, which is the placement the restore exists to
-   * put back; one whose cell is gone falls back to the record the board holds
-   * for that card **now**, valid by construction because the board renders it;
-   * and one the board no longer holds either is dropped.
+   * A snapshot is a photograph of where the cards were, taken possibly long
+   * ago; the records in it are whatever the application held then. Writing
+   * those back would undo every edit made since and resurrect cards the
+   * application has deleted, so each captured card is resolved against the
+   * board as it is now:
    *
-   * The merge *is* the validity check — building a throwaway index to probe
-   * the captured array would index the board twice and still leave a caller
-   * with an exception it was promised it would never see. A snapshot every
-   * card of which still resolves — the ordinary case — is handed back as the
-   * very array it captured, so `MlvTaskboardSnapshot.items` keeps its promise
-   * of returning the reference the consumer already held.
+   * - not held any more (by `dataKey`) — dropped, never re-created;
+   * - held, its captured cell still exists (column known; lane known, or the
+   *   board has no `swimlaneField`) and its current placement differs — a
+   *   shallow copy of the **current** record with the `columnField` and
+   *   `swimlaneField` values taken from the capture, so the edit survives the
+   *   restore and only the placement moves;
+   * - held and already where the snapshot wants it, or held with a captured
+   *   cell the board no longer has — the current record itself, identity
+   *   intact, so `_samePlacement` can recognise a restore with nothing to do.
+   *
+   * Cards the snapshot never saw follow, in their current relative order.
+   *
+   * Resolving each cell against `columns` / `swimlanes` is also what keeps the
+   * write valid: `restore()` promises never to throw against a board that has
+   * moved on, and `createMlvTaskboardIndex` rejects a card whose `columnField`
+   * names an unknown column, or whose `swimlaneField` names an unknown lane on
+   * a board that has a lane field at all.
    */
   private _resolvedPlacement(items: readonly TItem[]): readonly TItem[] {
     const columnField = this.columnField();
@@ -911,22 +920,54 @@ export class MlvTaskboard<TItem> {
     );
     const held = this._index().itemById;
     const resolved: TItem[] = [];
-    let merged = false;
-    for (const item of items) {
-      const column = mlvTaskboardKeyToken(item[columnField] as MlvTaskboardKey);
-      const lane =
+    const placed = new Set<string>();
+    for (const captured of items) {
+      const key = captured[dataKey] as MlvTaskboardKey;
+      const token = mlvTaskboardKeyToken(key);
+      const current = held.get(key);
+      // A card the board no longer holds is not brought back, and a captured
+      // array that names one card twice places it once.
+      if (current === undefined || placed.has(token)) continue;
+      placed.add(token);
+      const capturedColumn = captured[columnField] as MlvTaskboardKey;
+      const capturedLane =
         swimlaneField === undefined
           ? undefined
-          : mlvTaskboardKeyToken(item[swimlaneField] as MlvTaskboardKey);
-      if (columns.has(column) && (lane === undefined || swimlanes.has(lane))) {
-        resolved.push(item);
-        continue;
-      }
-      merged = true;
-      const current = held.get(item[dataKey] as MlvTaskboardKey);
-      if (current !== undefined) resolved.push(current);
+          : (captured[swimlaneField] as MlvTaskboardKey);
+      const cellExists =
+        columns.has(mlvTaskboardKeyToken(capturedColumn)) &&
+        (capturedLane === undefined ||
+          swimlanes.has(mlvTaskboardKeyToken(capturedLane)));
+      const moves =
+        cellExists &&
+        (!sameMlvTaskboardKey(
+          current[columnField] as MlvTaskboardKey,
+          capturedColumn,
+        ) ||
+          (swimlaneField !== undefined &&
+            !sameMlvTaskboardKey(
+              current[swimlaneField] as MlvTaskboardKey,
+              capturedLane,
+            )));
+      resolved.push(
+        moves
+          ? ({
+              ...current,
+              [columnField]: capturedColumn,
+              ...(swimlaneField === undefined
+                ? {}
+                : { [swimlaneField]: capturedLane }),
+            } as TItem)
+          : current,
+      );
     }
-    return merged ? resolved : items;
+    for (const current of this.items()) {
+      const token = mlvTaskboardKeyToken(current[dataKey] as MlvTaskboardKey);
+      if (placed.has(token)) continue;
+      placed.add(token);
+      resolved.push(current);
+    }
+    return resolved;
   }
 
   /**

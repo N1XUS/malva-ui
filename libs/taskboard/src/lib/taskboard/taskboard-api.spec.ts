@@ -275,7 +275,102 @@ describe('MlvTaskboard public surface', () => {
     await fixture.whenStable();
 
     expect(statusOf('a')).toBe('todo');
-    expect(host.items()).toBe(snapshot.items);
+    expect(host.items().map((item) => item.id)).toEqual(['a', 'b', 'x']);
+  });
+
+  it('restores placement onto card content edited since the capture', async () => {
+    const { fixture, move } = await mount();
+    const host = fixture.componentInstance;
+    const snapshot = host.board().snapshot();
+
+    move();
+    await fixture.whenStable();
+    // The application edits the card after the capture, the way a controlled
+    // store does: a replacement record, not a mutation.
+    host.items.set(
+      host
+        .items()
+        .map((item) =>
+          item.id === 'a' ? { ...item, title: 'Renamed' } : item,
+        ),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    host.board().restore(snapshot);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const restored = host.items().find((item) => item.id === 'a');
+    // Placement comes back; content stays the application's.
+    expect([restored?.status, restored?.title]).toEqual(['todo', 'Renamed']);
+    expect(host.items().map((item) => item.id)).toEqual(['a', 'b', 'x']);
+  });
+
+  it('never resurrects a card removed since the capture', async () => {
+    const { fixture, move } = await mount();
+    const host = fixture.componentInstance;
+    const snapshot = host.board().snapshot();
+
+    move();
+    await fixture.whenStable();
+    host.items.set(host.items().filter((item) => item.id !== 'b'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    host.board().restore(snapshot);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.items().map((item) => item.id)).toEqual(['a', 'x']);
+  });
+
+  it('keeps a card added since the capture, behind the captured ones', async () => {
+    const { fixture, move } = await mount();
+    const host = fixture.componentInstance;
+    const snapshot = host.board().snapshot();
+
+    move();
+    await fixture.whenStable();
+    // Added at the front, so "kept" and "kept in place" cannot both pass by
+    // accident: the restore has to put it behind every captured card.
+    host.items.set([
+      { id: 'c', status: 'todo', title: 'Fourth' },
+      ...host.items(),
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    host.board().restore(snapshot);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.items().map((item) => item.id)).toEqual(['a', 'b', 'x', 'c']);
+    expect(host.items().find((item) => item.id === 'c')?.status).toBe('todo');
+  });
+
+  it('writes nothing for a store that re-creates every card in place', async () => {
+    const { fixture } = await mount();
+    const host = fixture.componentInstance;
+    const snapshot = host.board().snapshot();
+
+    // A store that emits fresh objects on every tick without moving anything:
+    // the placement the snapshot describes is the placement on screen.
+    const recreated = host.items().map((item) => ({ ...item }));
+    host.items.set(recreated);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const writes: (readonly Ticket[])[] = [];
+    host.board().items.subscribe((value) => writes.push(value));
+
+    host.board().restore(snapshot);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(writes).toEqual([]);
+    expect(host.items()).toBe(recreated);
+    expect(host.board().undo()).toBe(false);
   });
 
   it('records one undoable command for a restore that moves cards back', async () => {

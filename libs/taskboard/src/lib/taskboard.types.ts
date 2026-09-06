@@ -220,9 +220,10 @@ export interface MlvTaskboardUiSnapshot {
 export interface MlvTaskboardSnapshot<TItem = unknown>
   extends MlvTaskboardUiSnapshot {
   /**
-   * The `items` array as it was when the snapshot was taken — a frozen copy,
-   * so a restore hands the consumer back exactly the array they already saw.
-   * Card *content* is still theirs; only placement comes back.
+   * The `items` array as it was when the snapshot was taken — a frozen copy.
+   * Only the placement it records is restored, onto the board's **current**
+   * cards: content edited since the capture survives, a card removed since is
+   * not brought back, and a card added since stays, after the captured ones.
    */
   readonly items: readonly TItem[];
 }
