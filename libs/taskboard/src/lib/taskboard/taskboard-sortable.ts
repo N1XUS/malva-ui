@@ -73,6 +73,30 @@ export interface MlvTaskboardDropPreview<TItem> {
   readonly request: MlvTaskboardMoveRequest<TItem> | undefined;
 }
 
+/**
+ * Whether two previews name the same slot with the same verdict.
+ *
+ * Every field is compared: the scalars by value, and `request` by identity,
+ * because a session memoizes one frozen request per authorised slot and hands
+ * back that same object every time the slot is asked for.
+ */
+function sameMlvTaskboardDropPreview<TItem>(
+  a: MlvTaskboardDropPreview<TItem> | null,
+  b: MlvTaskboardDropPreview<TItem> | null,
+): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return (
+    sameMlvTaskboardKey(a.columnId, b.columnId) &&
+    sameMlvTaskboardKey(a.swimlaneId, b.swimlaneId) &&
+    a.index === b.index &&
+    sameMlvTaskboardKey(a.itemId, b.itemId) &&
+    a.allowed === b.allowed &&
+    a.isSourceSlot === b.isSourceSlot &&
+    a.request === b.request
+  );
+}
+
 /** Board-owned services the adapter needs while a pointer drag is live. */
 export interface MlvTaskboardSortableHost<TItem> {
   /** The current controlled board snapshot a drag session is built from. */
@@ -352,11 +376,23 @@ export class MlvTaskboardSortable<TItem> implements MlvTaskboardCardsRegistry {
   /**
    * @private Moves the drop-state attribute onto the hovered container and
    * publishes the preview slot the board renders its indicator from.
+   *
+   * A pointer that travels inside one slot re-derives that same slot on every
+   * `pointermove`, so an unchanged preview writes nothing: the attribute is
+   * already on this container with this value, and publishing a fresh object
+   * would notify the board's signal — and re-run the indicator — for a slot
+   * that did not move.
    */
   private _applyPreview(
     preview: MlvTaskboardDropPreview<TItem> | null,
     container: HTMLElement | null,
   ): void {
+    if (
+      container === this._dropStateElement &&
+      sameMlvTaskboardDropPreview(this._preview, preview)
+    ) {
+      return;
+    }
     const previous = this._dropStateElement;
     if (previous && previous !== container) {
       previous.removeAttribute(MLV_TASKBOARD_DROP_STATE_ATTRIBUTE);
