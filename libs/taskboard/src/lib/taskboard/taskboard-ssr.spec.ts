@@ -81,6 +81,11 @@ describe('MlvTaskboard server rendering', () => {
     const resizeObserver = shadowGlobal('ResizeObserver');
     const matchMedia = shadowGlobal('matchMedia');
     const defaultViewReads = vi.fn();
+    // Both halves of the `defaultView` counter: the proxy the board was handed
+    // and the document behind it, so a spec can prove the counter moves for a
+    // read the render never performed.
+    let serverDocument: Document | null = null;
+    let proxiedDocument: Document | null = null;
 
     try {
       const html = await renderApplication(
@@ -92,8 +97,9 @@ describe('MlvTaskboard server rendering', () => {
                 provideTaskboardTesting(),
                 {
                   provide: DOCUMENT,
-                  useFactory: () =>
-                    new Proxy(inject(DOCUMENT, { skipSelf: true }), {
+                  useFactory: () => {
+                    serverDocument = inject(DOCUMENT, { skipSelf: true });
+                    proxiedDocument = new Proxy(serverDocument, {
                       get(target, property, receiver) {
                         if (property === 'defaultView') defaultViewReads();
                         const value = Reflect.get(target, property, receiver);
@@ -101,7 +107,9 @@ describe('MlvTaskboard server rendering', () => {
                           ? value.bind(target)
                           : value;
                       },
-                    }),
+                    });
+                    return proxiedDocument;
+                  },
                 },
               ],
             },
@@ -118,6 +126,8 @@ describe('MlvTaskboard server rendering', () => {
         resizeObserver: resizeObserver.spy,
         matchMedia: matchMedia.spy,
         defaultViewReads,
+        serverDocument: serverDocument as Document | null,
+        proxiedDocument: proxiedDocument as Document | null,
       };
     } finally {
       resizeObserver.restore();
@@ -160,8 +170,14 @@ describe('MlvTaskboard server rendering', () => {
   }, 30_000);
 
   it('reaches for no browser-only API while rendering that tree', async () => {
-    const { sortableCreate, resizeObserver, matchMedia, defaultViewReads } =
-      await renderWithSpies(SsrHost);
+    const {
+      sortableCreate,
+      resizeObserver,
+      matchMedia,
+      defaultViewReads,
+      serverDocument,
+      proxiedDocument,
+    } = await renderWithSpies(SsrHost);
 
     // The pointer-drag adapter registers a bucket per cell from
     // `afterNextRender`, which never runs on the server.
@@ -170,5 +186,11 @@ describe('MlvTaskboard server rendering', () => {
     expect(matchMedia).not.toHaveBeenCalled();
     // `print()` is the board's only `defaultView` read; a render performs none.
     expect(defaultViewReads).not.toHaveBeenCalled();
+
+    // Positive control: the assertion above has to be able to fail. One read
+    // through the same proxy the board was given moves the counter, and returns
+    // exactly what the document behind it holds.
+    expect(proxiedDocument?.defaultView).toBe(serverDocument?.defaultView);
+    expect(defaultViewReads).toHaveBeenCalledTimes(1);
   }, 30_000);
 });

@@ -31,6 +31,7 @@ const A11Y_COLUMNS: readonly MlvTaskboardColumn[] = [
       [columns]="columns"
       [swimlanes]="lanes"
       [selection]="selection()"
+      [collapsedColumnIds]="collapsedColumnIds()"
       [collapsedSwimlaneIds]="collapsedSwimlaneIds()"
       [virtualItemSize]="virtualItemSize()"
       dataKey="id"
@@ -44,6 +45,7 @@ class A11yHost {
   readonly lanes = TASKBOARD_TEST_LANES;
   readonly items = signal<readonly TaskboardTestTicket[]>(TASKBOARD_TEST_ITEMS);
   readonly selection = signal<ReadonlySet<string>>(new Set());
+  readonly collapsedColumnIds = signal<ReadonlySet<string>>(new Set());
   readonly collapsedSwimlaneIds = signal<ReadonlySet<string>>(new Set());
   readonly virtualItemSize = signal<number | undefined>(undefined);
 }
@@ -149,7 +151,7 @@ describe('MlvTaskboard accessibility', () => {
     const card = host.querySelector(
       '[data-mlv-taskboard-card-id="string:one"]',
     ) as HTMLElement;
-    card.dispatchEvent(new FocusEvent('focus'));
+    card.focus();
     fixture.detectChanges();
     press(host, 'one', ' ');
     fixture.detectChanges();
@@ -163,6 +165,24 @@ describe('MlvTaskboard accessibility', () => {
     expect(
       host.querySelector('.mlv-taskboard__live-region')?.textContent,
     ).toContain('Cannot move to Done');
+
+    expect(await violationsOf(host)).toEqual([]);
+  }, 30_000);
+
+  it('has no axe violations with a collapsed column', async () => {
+    const { fixture, host } = await mount(A11yHost);
+
+    // State: the `done` column is collapsed, so its header and both of its
+    // cells are marked collapsed while they stay in the grid.
+    fixture.componentInstance.collapsedColumnIds.set(new Set(['done']));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(
+      host.querySelectorAll('.mlv-taskboard__column-header[data-collapsed]'),
+    ).toHaveLength(1);
+    expect(
+      host.querySelectorAll('.mlv-taskboard__cell[data-collapsed]'),
+    ).toHaveLength(2);
 
     expect(await violationsOf(host)).toEqual([]);
   }, 30_000);
