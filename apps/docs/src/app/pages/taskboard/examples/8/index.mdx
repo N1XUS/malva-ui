@@ -5,15 +5,15 @@ Everything on this toolbar is an imperative method on the board instance, reache
 | Method                        | Returns                     | What it covers                                                |
 | ----------------------------- | --------------------------- | ------------------------------------------------------------- |
 | `undo()` / `redo()`           | `boolean`                   | The newest board-originated move or column reorder            |
-| `snapshot()`                  | `MlvTaskboardSnapshot`      | UI state only — no card data                                  |
-| `restore(snapshot)`           | `void`                      | Puts that UI state back                                       |
+| `snapshot()`                  | `MlvTaskboardSnapshot<T>`   | Where the cards were, plus the UI state around them           |
+| `restore(snapshot)`           | `void`                      | Puts both back as one undoable command                        |
 | `exportJson()`                | `MlvTaskboardSerialized<T>` | Cards, structure, field names and the snapshot, as plain data |
 | `exportCsv(columnId, fields)` | `string`                    | One column's cards, one row per card in board order           |
 | `print()`                     | `void`                      | Expands every virtual cell, then asks the browser to print    |
 
 **History is the board's own ledger.** It records the moves and column reorders the board committed, so `undo()` writes replacement collections back through the controlled `items` / `columns` models — the application sees an ordinary model write. An edit the application makes itself replaces the ledger's current state rather than stacking on it, so undo never rewinds past a change the board did not make. Both methods return `false` when there is nothing left.
 
-**A snapshot is UI state, not data.** It carries the column order, the collapsed column and swimlane identifiers, the selection, the focused card and each cell's scroll offset — never cards. `restore()` drops identifiers the current board no longer knows (a removed column, a filtered-out card, a cell that is not rendered) instead of throwing, and applies scroll offsets after the next render, once those cells exist. Pair it with `exportJson()`, which embeds the snapshot alongside the data, when you need both halves.
+**A snapshot is a placement, not a copy of your data.** It carries the `items` array as it stood — a frozen copy of the array you already had — plus the column order, the collapsed column and swimlane identifiers, the selection, the focused card and each cell's scroll offset. So capture, move a card, reverse the columns, and `restore()` puts the cards **and** the column order back, written as **one** undoable command rather than two. Card *content* is still yours: the restore hands your own array straight back through `items`. `restore()` also accepts a UI-only `MlvTaskboardUiSnapshot`, which leaves the cards where they are. Either way it drops identifiers the current board no longer knows (a removed column, a filtered-out card, a cell that is not rendered) instead of throwing, and applies scroll offsets after the next render, once those cells exist. `exportJson().snapshot` is the UI-only projection — the cards are already its `items` field, so the export never lists them twice.
 
 **`exportCsv` takes the headings with it.** Each `MlvTaskboardCsvField` is a `{ field, heading }` pair, `field` being a property of the card type, so the emitted column order is the array's order. Cards in other columns are skipped.
 

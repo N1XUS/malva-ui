@@ -95,6 +95,7 @@ import type {
   MlvTaskboardMoveResult,
   MlvTaskboardSerialized,
   MlvTaskboardSnapshot,
+  MlvTaskboardUiSnapshot,
   MlvTaskboardSwimlane,
   MlvTaskboardTransition,
   MlvTaskboardWipState,
@@ -769,13 +770,15 @@ export class MlvTaskboard<TItem> {
   }
 
   /**
-   * The board's serializable UI state: column order, collapsed columns and
-   * lanes, the selection, the focused card, and each cell's scroll offset.
-   * It deliberately carries no card data — {@link exportJson} does that.
+   * The board's serializable state: the cards as they are placed right now,
+   * plus the column order, collapsed columns and lanes, the selection, the
+   * focused card, and each cell's scroll offset. Card *content* stays the
+   * application's — a restore puts placement back, nothing else.
    */
-  snapshot(): MlvTaskboardSnapshot {
+  snapshot(): MlvTaskboardSnapshot<TItem> {
     const focusedId = this._keyboard.focus()?.itemId;
-    return createMlvTaskboardSnapshot({
+    return createMlvTaskboardSnapshot<TItem>({
+      items: this.items(),
       columnIds: this.columns().map((column) => column.id),
       collapsedColumnIds: [...this.collapsedColumnIds()],
       collapsedSwimlaneIds: [...this.collapsedSwimlaneIds()],
@@ -786,14 +789,28 @@ export class MlvTaskboard<TItem> {
   }
 
   /**
-   * Restores the UI state of a {@link snapshot}. Identifiers the current board
-   * does not know — a removed column, a filtered-out card, a cell that no
-   * longer renders — are dropped silently, so a stored snapshot never throws
-   * against a board that has moved on. Scroll offsets are applied after the
-   * next render, once the cells they address exist.
+   * Restores a {@link snapshot}. A snapshot that carries `items` puts the
+   * cards back where they were; a UI-only one leaves them alone. Identifiers
+   * the current board does not know — a removed column, a filtered-out card, a
+   * cell that no longer renders — are dropped silently, so a stored snapshot
+   * never throws against a board that has moved on. Scroll offsets are applied
+   * after the next render, once the cells they address exist.
+   *
+   * The card and column writes are recorded as **one** command, so a single
+   * {@link undo} reverts the whole restore and {@link redo} replays it.
    */
-  restore(snapshot: MlvTaskboardSnapshot): void {
-    const index = this._index();
+  restore(
+    snapshot: MlvTaskboardSnapshot<TItem> | MlvTaskboardUiSnapshot,
+  ): void {
+    const before = this._boardCore();
+    let replaced = false;
+    // Cards first: the column order the snapshot names is resolved against
+    // `columns`, but every step after it — the collapse filters, the selection
+    // filter and the focus restore — reads the index the cards build.
+    if ('items' in snapshot && !this._samePlacement(snapshot.items)) {
+      this.items.set(snapshot.items);
+      replaced = true;
+    }
     const columns = this._restoredColumnOrder(snapshot.columnIds);
     if (
       columns.some(
@@ -801,8 +818,15 @@ export class MlvTaskboard<TItem> {
           !sameMlvTaskboardKey(column.id, this.columns()[position]?.id),
       )
     ) {
-      this._applyColumnOrder(columns);
+      // Written directly rather than through `_applyColumnOrder`, which would
+      // record a second command and split one restore across two undo steps.
+      this.columns.set(columns);
+      replaced = true;
     }
+    if (replaced) this._recordCommand(before);
+    // Re-read after the writes above, so the filters below see the board the
+    // restore just produced rather than the one it replaced.
+    const index = this._index();
     const collapsedColumns = new Set(
       snapshot.collapsedColumnIds.filter((id) => index.columnById.has(id)),
     );
@@ -826,6 +850,22 @@ export class MlvTaskboard<TItem> {
       () => this._applyCellScrollPositions(snapshot.cellScrollPositions),
       { injector: this._injector },
     );
+  }
+
+  /**
+   * @private Whether a snapshot's cards already describe the board's own.
+   *
+   * `snapshot()` freezes a **copy**, so the reference always differs and a
+   * reference test would make every round trip record a command a user never
+   * asked for. `items` is an immutable controlled collection — a card is
+   * replaced, never edited in place — so identical entries in identical
+   * positions are the same placement, and there is nothing to restore.
+   */
+  private _samePlacement(items: readonly TItem[]): boolean {
+    const current = this.items();
+    if (items === current) return true;
+    if (items.length !== current.length) return false;
+    return items.every((item, position) => item === current[position]);
   }
 
   /**

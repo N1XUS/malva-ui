@@ -83,14 +83,26 @@ export default class TaskboardHistoryExampleComponent {
   /** Type carrier for the card template; never read at runtime. */
   readonly ticketType = TICKETS[0];
 
-  /** The stored UI snapshot, or `null` while nothing has been captured. */
-  readonly storedSnapshot = signal<MlvTaskboardSnapshot | null>(null);
+  /**
+   * The stored snapshot, or `null` while nothing has been captured. It carries
+   * the cards as well as the UI state, so a restore puts both back.
+   */
+  readonly storedSnapshot = signal<MlvTaskboardSnapshot<Ticket> | null>(null);
 
   /** Text of the last export, rendered under the toolbar. */
   readonly output = signal('');
 
   /** Status line describing the result of the last toolbar action. */
   readonly status = signal('Drag a card into Done to see the guard.');
+
+  /**
+   * Reverses the column order without touching the cards, so a restore has a
+   * column order to put back as well as a card placement.
+   */
+  reverseColumns(): void {
+    this.columns.update((columns) => [...columns].reverse());
+    this.status.set('Reversed the column order.');
+  }
 
   /**
    * Asks for confirmation before anything lands in Done, and lets every other
@@ -122,18 +134,25 @@ export default class TaskboardHistoryExampleComponent {
     );
   }
 
-  /** Captures column order, collapse, selection, focus and scroll offsets. */
+  /** Captures the cards plus column order, collapse, selection, focus and scroll. */
   captureSnapshot(): void {
     this.storedSnapshot.set(this.board().snapshot());
-    this.status.set('Snapshot captured — reorder columns, then restore.');
+    this.status.set(
+      'Snapshot captured — move a card and reverse the columns, then restore.',
+    );
   }
 
-  /** Puts the stored UI state back; unknown identifiers are dropped silently. */
+  /**
+   * Puts the stored cards and UI state back as one undoable command; unknown
+   * identifiers are dropped silently.
+   */
   restoreSnapshot(): void {
     const snapshot = this.storedSnapshot();
     if (snapshot === null) return;
     this.board().restore(snapshot);
-    this.status.set('Snapshot restored.');
+    this.status.set(
+      'Snapshot restored — cards and column order are both back.',
+    );
   }
 
   /** Serializes the whole board — cards, structure and snapshot — as data. */

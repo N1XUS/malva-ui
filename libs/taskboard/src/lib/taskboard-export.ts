@@ -3,15 +3,20 @@ import type {
   MlvTaskboardCsvField,
   MlvTaskboardKey,
   MlvTaskboardSerialized,
-  MlvTaskboardSnapshot,
+  MlvTaskboardUiSnapshot,
 } from './taskboard.types';
 
 const sameKey = (left: MlvTaskboardKey, right: MlvTaskboardKey): boolean =>
   typeof left === typeof right && left === right;
 
+/**
+ * The whole board as plain data. The embedded `snapshot` is rebuilt field by
+ * field from the UI half only: the cards already sit in `items`, so a full
+ * {@link MlvTaskboardSnapshot} passed here never duplicates them into it.
+ */
 export function serializeMlvTaskboard<TItem>(
   board: MlvTaskboardState<TItem>,
-  snapshot: MlvTaskboardSnapshot,
+  snapshot: MlvTaskboardUiSnapshot,
 ): MlvTaskboardSerialized<TItem> {
   return {
     items: [...board.items],

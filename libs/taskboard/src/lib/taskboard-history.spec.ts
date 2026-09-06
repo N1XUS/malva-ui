@@ -89,9 +89,11 @@ describe('createMlvTaskboardHistory', () => {
 });
 
 describe('createMlvTaskboardSnapshot', () => {
-  it('copies only serializable UI state without retaining caller-owned collections', () => {
+  it('copies serializable state without retaining caller-owned collections', () => {
     const columnIds = ['todo'];
+    const items = [{ id: 'a' }];
     const snapshot = createMlvTaskboardSnapshot({
+      items,
       columnIds,
       collapsedColumnIds: ['done'],
       collapsedSwimlaneIds: ['sam'],
@@ -100,8 +102,12 @@ describe('createMlvTaskboardSnapshot', () => {
       cellScrollPositions: { 'todo:sam': 120 },
     });
     columnIds.push('done');
+    items.push({ id: 'b' });
 
     expect(snapshot).toEqual({
+      // The card array is copied, so a later push by the caller never edits
+      // the placement a restore is meant to put back.
+      items: [{ id: 'a' }],
       columnIds: ['todo'],
       collapsedColumnIds: ['done'],
       collapsedSwimlaneIds: ['sam'],

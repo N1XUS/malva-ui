@@ -57,7 +57,7 @@ interface MlvTaskboardSwimlane {
 
 The required `dataKey` and `columnField` identify consumer properties. Optional `swimlaneField` enables lanes. Moving a card creates an immutable card replacement with the target field values and returns a new `items` array while retaining identities for every untouched card. For a filtered view, target placement is anchored to the nearest visible card key rather than an absolute visible index, preserving hidden cards in the canonical array. Consumers with an independent server-side ordering field receive the move request and may persist their own ordering instead.
 
-The board exposes model inputs for `items`, `columns`, `selection`, `collapsedColumnIds`, and `collapsedSwimlaneIds`. It also exposes a `snapshot` getter and `restore(snapshot)` method. Snapshot state contains column order, collapsed IDs, selected IDs, logical focus, and per-cell scroll offsets; it intentionally excludes the application-owned card content.
+The board exposes model inputs for `items`, `columns`, `selection`, `collapsedColumnIds`, and `collapsedSwimlaneIds`. It also exposes a `snapshot` getter and `restore(snapshot)` method. Snapshot state contains the card placement (`items`) alongside column order, collapsed IDs, selected IDs, logical focus, and per-cell scroll offsets, so a capture / move / `restore()` round trip puts the cards back and the whole restore is one undoable command. Card *content* stays application-owned — the snapshot holds a frozen copy of the `items` array the application already had and hands it straight back. `restore()` also accepts the UI-only `MlvTaskboardUiSnapshot` projection, which leaves the cards untouched.
 
 ## Drop, Transition, WIP, and Permission Contract
 
@@ -143,7 +143,7 @@ Per-cell scroll offsets are restored after a filter, collapse, or input update. 
 
 All board-originated immutable changes are commands: card moves, column reorders, collapse toggles, and explicit `updateItem`, `removeItems`, or `insertItem` method calls. `undo()` and `redo()` replay the stored replacement state, emit the same controlled model outputs, and return `false` at the ends of history. External changes to `items` or `columns` clear redo history but preserve selection/focus/scroll by ID; applications that want an externally edited card in undo history call `updateItem` instead of replacing it themselves.
 
-`exportJson()` returns a serializable object containing canonical items, columns, groups, lanes, and the UI snapshot. `exportCsv(columnId, fields)` returns CSV for the canonical items in one column; callers choose typed field descriptors and headings so the board does not guess how to serialize nested data. `print()` and print CSS produce the print-ready current board view without downloading files or making network calls.
+`exportJson()` returns a serializable object containing canonical items, columns, groups, lanes, and the UI snapshot — the embedded snapshot is the UI-only projection (`MlvTaskboardUiSnapshot`), because the cards are already the `items` field and are never listed twice. `exportCsv(columnId, fields)` returns CSV for the canonical items in one column; callers choose typed field descriptors and headings so the board does not guess how to serialize nested data. `print()` and print CSS produce the print-ready current board view without downloading files or making network calls.
 
 ## Testing and Documentation
 

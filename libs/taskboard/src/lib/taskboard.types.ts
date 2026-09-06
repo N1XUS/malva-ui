@@ -200,13 +200,28 @@ export interface MlvTaskboardMoveCancelledEvent<TItem> {
 }
 
 /** Serializable UI state that applications can restore without card data. */
-export interface MlvTaskboardSnapshot {
+export interface MlvTaskboardUiSnapshot {
   readonly columnIds: readonly MlvTaskboardKey[];
   readonly collapsedColumnIds: readonly MlvTaskboardKey[];
   readonly collapsedSwimlaneIds: readonly MlvTaskboardKey[];
   readonly selectedIds: readonly MlvTaskboardKey[];
   readonly focusedId?: MlvTaskboardKey;
   readonly cellScrollPositions: Readonly<Record<string, number>>;
+}
+
+/**
+ * A full board snapshot: the UI state above plus where the cards were. A
+ * capture / move / restore round trip therefore puts the cards back, and the
+ * restore itself is one undoable command.
+ */
+export interface MlvTaskboardSnapshot<TItem = unknown>
+  extends MlvTaskboardUiSnapshot {
+  /**
+   * The `items` array as it was when the snapshot was taken — a frozen copy,
+   * so a restore hands the consumer back exactly the array they already saw.
+   * Card *content* is still theirs; only placement comes back.
+   */
+  readonly items: readonly TItem[];
 }
 
 /** An immutable board replacement that may be replayed by taskboard history. */
@@ -233,7 +248,11 @@ export interface MlvTaskboardSerialized<TItem> {
   readonly columns: readonly MlvTaskboardColumn[];
   readonly columnGroups?: readonly MlvTaskboardColumnGroup[];
   readonly swimlanes?: readonly MlvTaskboardSwimlane[];
-  readonly snapshot: MlvTaskboardSnapshot;
+  /**
+   * The UI-only projection of the board's snapshot. The cards are already the
+   * `items` field above, so the embedded snapshot never duplicates them.
+   */
+  readonly snapshot: MlvTaskboardUiSnapshot;
   readonly dataKey: MlvTaskboardField<TItem>;
   readonly columnField: MlvTaskboardField<TItem>;
   readonly swimlaneField?: MlvTaskboardField<TItem>;

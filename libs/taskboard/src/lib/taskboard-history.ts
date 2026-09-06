@@ -7,10 +7,11 @@ import type {
 
 const DEFAULT_HISTORY_LIMIT = 100;
 
-export function createMlvTaskboardSnapshot(
-  snapshot: MlvTaskboardSnapshot,
-): MlvTaskboardSnapshot {
+export function createMlvTaskboardSnapshot<TItem>(
+  snapshot: MlvTaskboardSnapshot<TItem>,
+): MlvTaskboardSnapshot<TItem> {
   return Object.freeze({
+    items: Object.freeze([...snapshot.items]),
     columnIds: Object.freeze([...snapshot.columnIds]),
     collapsedColumnIds: Object.freeze([...snapshot.collapsedColumnIds]),
     collapsedSwimlaneIds: Object.freeze([...snapshot.collapsedSwimlaneIds]),

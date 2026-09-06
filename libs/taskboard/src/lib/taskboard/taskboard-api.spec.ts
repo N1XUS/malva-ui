@@ -255,6 +255,80 @@ describe('MlvTaskboard public surface', () => {
     expect(cell.scrollTop).toBe(24);
   });
 
+  it('restores the card placement a snapshot captured', async () => {
+    const { fixture, move } = await mount();
+    const host = fixture.componentInstance;
+    const statusOf = (id: string) =>
+      host.items().find((item) => item.id === id)?.status;
+    const snapshot = host.board().snapshot();
+
+    move();
+    await fixture.whenStable();
+    expect(statusOf('a')).toBe('done');
+
+    host.board().restore(snapshot);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(statusOf('a')).toBe('todo');
+    expect(host.items()).toBe(snapshot.items);
+  });
+
+  it('records one undoable command for a restore that moves cards back', async () => {
+    const { fixture, move } = await mount();
+    const host = fixture.componentInstance;
+    const statusOf = (id: string) =>
+      host.items().find((item) => item.id === id)?.status;
+    const snapshot = host.board().snapshot();
+
+    move();
+    await fixture.whenStable();
+    host.board().restore(snapshot);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(statusOf('a')).toBe('todo');
+
+    expect(host.board().undo()).toBe(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(statusOf('a')).toBe('done');
+
+    expect(host.board().redo()).toBe(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(statusOf('a')).toBe('todo');
+  });
+
+  it('leaves the cards alone for a snapshot that carries none', async () => {
+    const { fixture, move } = await mount();
+    const host = fixture.componentInstance;
+
+    move();
+    await fixture.whenStable();
+    const moved = host.items();
+
+    host.board().restore({
+      columnIds: ['todo', 'done'],
+      collapsedColumnIds: [],
+      collapsedSwimlaneIds: [],
+      selectedIds: [],
+      cellScrollPositions: {},
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.items()).toBe(moved);
+  });
+
+  it('embeds the UI-only projection of a snapshot in the JSON export', async () => {
+    const { fixture } = await mount();
+
+    const json = fixture.componentInstance.board().exportJson();
+
+    expect('items' in json.snapshot).toBe(false);
+    expect(json.items.map((item) => item.id)).toEqual(['a', 'b', 'x']);
+  });
+
   it('delegates the exports to the pure board helpers', async () => {
     const { fixture } = await mount();
 
