@@ -30,6 +30,9 @@ const fr: MlvLanguage = {
     switchView:
       'Passer à la vue {view, select, year {année} multiYear {pluriannuelle} other {mois}}',
     selectMonthForYear: 'Sélectionner le mois pour {year}',
+    done: 'Terminé',
+    selectYear: "Sélectionner l'année",
+    monthList: 'Mois du calendrier',
   },
   chat: {
     chatLabel: 'Messages du chat',
@@ -135,6 +138,7 @@ const fr: MlvLanguage = {
   },
   dayPicker: {
     placeholder: 'Sélectionner une date...',
+    selectDay: 'Sélectionner le jour',
   },
   dialog: {
     closeDialog: 'Fermer la boîte de dialogue',

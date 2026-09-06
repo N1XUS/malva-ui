@@ -3,11 +3,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   forwardRef,
   inject,
   input,
   model,
   signal,
+  untracked,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
@@ -15,13 +17,15 @@ import {
   MlvPopup,
   MlvPopupContent,
   MlvPopupContainer,
+  MlvPopupHeaderActions,
 } from '@malva-ui/core/popup';
-import { MlvCalendar } from '@malva-ui/core/calendar';
+import { MlvCalendar, MlvCalendarSheet } from '@malva-ui/core/calendar';
 import {
   MLV_DATE_ADAPTER,
   MlvNativeDateAdapter,
   type MlvDateAdapter,
 } from '@malva-ui/core/date';
+import { MlvButton } from '@malva-ui/core/button';
 import { LucideCalendar } from '@lucide/angular';
 import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
 import {
@@ -34,7 +38,7 @@ import {
   MlvMessage,
   MlvSignalFormControlBase,
 } from '@malva-ui/core/form-utils';
-import { MLV_DAY_PICKER_I18N } from '@malva-ui/i18n';
+import { MLV_CALENDAR_I18N, MLV_DAY_PICKER_I18N } from '@malva-ui/i18n';
 
 /**
  * Visual/validation state of the day picker. Mirrors {@link MlvFormState}.
@@ -47,7 +51,10 @@ export type MlvDayPickerState = MlvFormState;
     MlvPopup,
     MlvPopupContent,
     MlvPopupContainer,
+    MlvPopupHeaderActions,
     MlvCalendar,
+    MlvCalendarSheet,
+    MlvButton,
     LucideCalendar,
     MlvFormControlWrapper,
     MlvFormControlWrapperControl,
@@ -98,6 +105,38 @@ export class MlvDayPicker<D = Date>
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_DAY_PICKER_I18N);
 
+  /**
+   * @protected The calendar i18n slice, for the sheet's confirm label. The
+   * string belongs to the calendar sheet, which both pickers share, so it is
+   * defined once there rather than duplicated per picker.
+   */
+  protected readonly _calendarI18n = inject(MLV_CALENDAR_I18N);
+
+  /**
+   * @protected The selection the full-screen sheet is assembling.
+   *
+   * The anchored dropdown commits on tap and is unchanged. The sheet does not:
+   * it has an explicit confirm, so a tap only moves this pending value and
+   * `Done` is the single path to the committed {@link value}. Seeded from the
+   * committed value on every open, and dropped on close.
+   */
+  protected readonly _pendingValue = signal<D | null>(null);
+
+  constructor() {
+    super();
+
+    // Keyed on the open flag rather than on the trigger, because `isOpen` is a
+    // public signal a consumer can set directly — seeding only inside
+    // `toggleDropdown()` would leave such an open showing no selection, and
+    // `Done` would then commit that empty pending value over the committed
+    // date. The committed value is read untracked so a form patch arriving
+    // while the sheet is open does not overwrite what the user has tapped.
+    effect(() => {
+      this.isOpen();
+      untracked(() => this._pendingValue.set(this.value()));
+    });
+  }
+
   /** @protected Resolved placeholder: explicit input takes precedence over i18n default. */
   protected readonly _resolvedPlaceholder = computed(
     () => this.placeholder() ?? this._i18n().placeholder,
@@ -141,6 +180,17 @@ export class MlvDayPicker<D = Date>
     this.isOpen.set(false);
   }
 
+  /**
+   * @protected Commits the sheet's pending selection and closes.
+   *
+   * Only the full-screen sheet reaches this — `Done` is projected into the
+   * popup's header, which the popup stamps only while it is full-screen.
+   */
+  protected _applyPending(): void {
+    this.value.set(this._pendingValue());
+    this.isOpen.set(false);
+  }
+
   /** @protected Marks the control touched when the trigger loses focus. */
   protected _onTriggerBlur(): void {
     this.setFocused(false);
@@ -153,9 +203,13 @@ export class MlvDayPicker<D = Date>
    */
   protected _onPopupOpened(): void {
     const panel = document.getElementById(this.popupId());
-    const target = panel?.querySelector<HTMLElement>(
-      '[tabindex="0"], button, [tabindex]',
-    );
+    // The sheet's roving day tab stop is the meaningful landing spot; without
+    // this the generic scan would stop on the year strip's listbox instead.
+    const target =
+      panel?.querySelector<HTMLElement>(
+        '.mlv-calendar-sheet__day[tabindex="0"]',
+      ) ??
+      panel?.querySelector<HTMLElement>('[tabindex="0"], button, [tabindex]');
     target?.focus();
   }
 

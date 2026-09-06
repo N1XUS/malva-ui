@@ -29,6 +29,9 @@ const ja: MlvLanguage = {
     switchView:
       '{view, select, year {年} multiYear {複数年} other {月}}表示に切り替え',
     selectMonthForYear: '{year}年の月を選択',
+    done: '完了',
+    selectYear: '年を選択',
+    monthList: 'カレンダーの月',
   },
   chat: {
     chatLabel: 'チャットメッセージ',
@@ -132,6 +135,7 @@ const ja: MlvLanguage = {
   },
   dayPicker: {
     placeholder: '日付を選択...',
+    selectDay: '日を選択',
   },
   dialog: {
     closeDialog: 'ダイアログを閉じる',

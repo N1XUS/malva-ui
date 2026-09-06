@@ -567,6 +567,72 @@ export class MlvCalendar<D = Date> {
     );
   }
 
+  /**
+   * @protected Whether the cell takes part in the painted range band.
+   *
+   * Adjacent-month cells never do. The days a grid shows outside its own month
+   * are the same days the neighbouring month's grid already paints, so a band
+   * running over them repeats a fragment of the range as a detached shape
+   * inside a month it does not belong to (#149 review). What stays on such a
+   * day is the *point* state — `--selected`, or `--range-start` /
+   * `--range-end` — because that marks one real, visible, clickable date
+   * rather than an interval, exactly as `--selected` has always done in single
+   * mode.
+   */
+  protected _isCellInRange(day: CalendarDayCell<D>): boolean {
+    return day.currentMonth && this.isInDisplayRange(day.date);
+  }
+
+  /**
+   * @protected Whether the cell caps the band at the start of its painted run
+   * within the week row.
+   *
+   * The band is drawn cell by cell with square edges, so it needs a cap
+   * wherever the paint begins. That used to be the row's first cell, which was
+   * the same thing while adjacent-month cells were painted too; now the paint
+   * can also begin partway into a row, right after the last filler day. Rows
+   * that lie wholly inside the month are unaffected.
+   */
+  protected _isBandRowStart(
+    week: CalendarDayCell<D>[],
+    index: number,
+  ): boolean {
+    return (
+      this._isCellInRange(week[index]) &&
+      (index === 0 || !this._isCellInRange(week[index - 1]))
+    );
+  }
+
+  /**
+   * @protected Whether the cell caps the band at the end of its painted run
+   * within the week row. Mirror of {@link _isBandRowStart}.
+   */
+  protected _isBandRowEnd(week: CalendarDayCell<D>[], index: number): boolean {
+    return (
+      this._isCellInRange(week[index]) &&
+      (index === week.length - 1 || !this._isCellInRange(week[index + 1]))
+    );
+  }
+
+  /**
+   * @protected The `aria-selected` value for a grid cell.
+   *
+   * Reports what the cell paints, so the accessibility tree and the grid never
+   * disagree. In range mode an adjacent-month cell paints only when it is a
+   * committed endpoint, so only then does it announce itself as selected; the
+   * month that owns the date reports the rest of the band. Preview endpoints
+   * are excluded on both paths — a hovered date is not selected yet.
+   */
+  protected _cellSelected(day: CalendarDayCell<D>): boolean {
+    if (!this.range()) {
+      return this.isSelected(day.date);
+    }
+
+    return day.currentMonth
+      ? this.isInRange(day.date)
+      : this.isRangeStart(day.date) || this.isRangeEnd(day.date);
+  }
+
   /** Previews a potential range end without changing the selected range value. */
   previewRange(date: D): void {
     const value = this.rangeValue();

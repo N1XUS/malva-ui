@@ -27,6 +27,28 @@ class ReactiveFormHostComponent {
 }
 
 // ---------------------------------------------------------------------------
+// Breakpoint stub
+// ---------------------------------------------------------------------------
+
+/**
+ * Stubs {@link MlvBreakpointService} so the sheet/dropdown switch can be driven
+ * from the spec. jsdom's `matchMedia` never matches a `min-width` query, so the
+ * real service is pinned to `'sm'` and `isFullscreen()` is stuck `true` — which
+ * cannot prove anything about the anchored dropdown. Since #130 the two modes
+ * render different templates rather than the same one styled two ways, so
+ * **every** suite that opens the popup has to say which one it means.
+ */
+class FakeBreakpointService {
+  readonly down: WritableSignal<boolean> = signal(false);
+  isDown(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return this.down;
+  }
+  isUp(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return signal(false);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // MlvDateRangePicker — basic creation & internal state
 // ---------------------------------------------------------------------------
 
@@ -572,7 +594,14 @@ describe('MlvDateRangePicker — the two panels show consecutive months', () => 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MlvDateRangePicker],
-      providers: [provideMlvI18nTesting()],
+      providers: [
+        provideMlvI18nTesting(),
+        // These are claims about the *anchored dropdown*'s two panels, and
+        // since #130 the sheet renders a different template with no
+        // `mlv-calendar` in it at all. Left to jsdom's `matchMedia`, the popup
+        // would be full-screen and every one of them would read an empty DOM.
+        { provide: MlvBreakpointService, useClass: FakeBreakpointService },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(MlvDateRangePicker<Date>);
@@ -785,24 +814,8 @@ describe('MlvDateRangePicker stylesheet', () => {
 });
 
 // ---------------------------------------------------------------------------
-// MlvDateRangePicker — mobile full-screen sheet (#121)
+// MlvDateRangePicker — mobile full-screen sheet (#130)
 // ---------------------------------------------------------------------------
-
-/**
- * Stubs {@link MlvBreakpointService} so the sheet/dropdown switch can be driven
- * from the spec. jsdom's `matchMedia` never matches a `min-width` query, so the
- * real service would be pinned to `'sm'` and `isFullscreen()` would be stuck
- * `true` — which cannot prove the anchored dropdown keeps both months.
- */
-class FakeBreakpointService {
-  readonly down: WritableSignal<boolean> = signal(false);
-  isDown(_bp: MlvBreakpoint): WritableSignal<boolean> {
-    return this.down;
-  }
-  isUp(_bp: MlvBreakpoint): WritableSignal<boolean> {
-    return signal(false);
-  }
-}
 
 describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
   let component: MlvDateRangePicker<Date>;
@@ -813,6 +826,12 @@ describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
   /** The panel element, which the popup renders into a CDK overlay. */
   const panel = (): HTMLElement | null =>
     document.getElementById(component.panelId());
+
+  /** The trigger's `aria-expanded`, i.e. whether the popup is open to a user. */
+  const expanded = (): string | null =>
+    hostEl
+      .querySelector('.mlv-date-range-picker__trigger')
+      ?.getAttribute('aria-expanded') ?? null;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -846,11 +865,56 @@ describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
     await fixture.whenStable();
   }
 
-  it('names the second month panel so the sheet can drop it', async () => {
-    // The `--end` modifier is what the sheet's `display: none` targets. A
-    // structural `:last-child` would silently follow any future sibling added
-    // to the row.
+  /**
+   * The sheet header's dismiss control. `mlv-button-close` puts the click
+   * handler on its own host, so either the host or its inner `<button>`
+   * dismisses; the inner one is what a user actually hits.
+   */
+  const sheetCloseButton = (): HTMLElement => {
+    const host = document.querySelector<HTMLElement>('.mlv-popup__close');
+    if (!host) throw new Error('the sheet header renders no close button');
+    return host.querySelector('button') ?? host;
+  };
+
+  /** The sheet's day button for an ISO date, if the month list renders it. */
+  const sheetDay = (iso: string): HTMLButtonElement => {
+    const button = panel()?.querySelector<HTMLButtonElement>(
+      `[data-date="${iso}"] .mlv-calendar-sheet__day`,
+    );
+    if (!button) throw new Error(`sheet renders no day button for ${iso}`);
+    return button;
+  };
+
+  /** Clicks a sheet day and flushes. */
+  const clickSheetDay = async (iso: string): Promise<void> => {
+    sheetDay(iso).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  };
+
+  /** `YYYY-MM-DD` for a date, matching the adapter's `data-date` hook. */
+  const iso = (date: Date): string =>
+    `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
+
+  it('renders the calendar sheet instead of the two anchored panels', async () => {
+    // The sheet is not the dropdown with one month hidden — it is a different
+    // body. #121 hid `--end` with `display: none`; #130 stops rendering the row
+    // at all, which is what lets a cross-month range be visible end to end.
+    breakpoint.down.set(true);
     await open();
+
+    expect(panel()?.querySelectorAll('mlv-calendar-sheet').length).toBe(1);
+    expect(
+      panel()?.querySelectorAll('.mlv-date-range-picker__calendar').length,
+    ).toBe(0);
+    expect(panel()?.querySelectorAll('mlv-calendar').length).toBe(0);
+  });
+
+  it('leaves the anchored dropdown on the two-panel body', async () => {
+    breakpoint.down.set(false);
+    await open();
+
+    expect(panel()?.querySelectorAll('mlv-calendar-sheet').length).toBe(0);
     expect(
       panel()?.querySelectorAll('.mlv-date-range-picker__calendar').length,
     ).toBe(2);
@@ -867,10 +931,11 @@ describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
     ).toBe(true);
   });
 
-  it('leaves the anchored dropdown unmarked, so it keeps both months', async () => {
-    // Measured in Chrome at 1000x812: the CDK pane sizes itself to the row's
-    // 593px of content, so the anchored dropdown never clips regardless of
-    // viewport width. Only the sheet caps the panel.
+  it('leaves the anchored dropdown unmarked', async () => {
+    // The modifier no longer hides anything; it hands the sheet body the height
+    // the popup resolved. An anchored pane is sized to its content, so it must
+    // not claim `height: 100%` against an ancestor chain that has no definite
+    // height to give.
     breakpoint.down.set(false);
     await open();
     expect(
@@ -888,9 +953,12 @@ describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
     // pane with no scrim, and drop its second month for no reason.
     breakpoint.down.set(false);
     await open();
+    expect(panel()?.querySelectorAll('mlv-calendar-sheet').length).toBe(0);
+
     breakpoint.down.set(true);
     fixture.detectChanges();
     await fixture.whenStable();
+
     expect(
       panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
     ).toBe(false);
@@ -911,85 +979,163 @@ describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
     expect(
       panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
     ).toBe(true);
+    expect(panel()?.querySelectorAll('mlv-calendar-sheet').length).toBe(1);
   });
 
-  it("assembles a two-month range through the visible panel's own month navigation", async () => {
-    // The claim this covers is the one the sheet's whole design rests on: with
-    // one month on screen, a range spanning two is assembled by navigating that
-    // panel, because the pending range lives on this component rather than on
-    // either calendar. The previous version of this test asserted that by
-    // calling `onRangeChanged` twice and never navigating — it passed with the
-    // sheet off, with the modifier absent, and with the second calendar deleted.
-    //
-    // This is deliberately NOT a test of the `--sheet` fix itself. jsdom loads
-    // no stylesheet, so `display: none` does not apply here and both calendars
-    // are in the DOM; the fix is covered by `date-range-picker-styles.spec.ts`.
-    // What this covers is the precondition the fix depends on.
+  it('assembles a cross-month range without leaving the scroll', async () => {
+    // The claim the sheet exists for. #121's one-month panel could only reach a
+    // second month by navigating away from the first; the continuous list has
+    // both on screen, so the two endpoints are two taps in the same scroll.
     breakpoint.down.set(true);
     await open();
 
-    const visibleCalendar = (): HTMLElement =>
-      panel()?.querySelectorAll<HTMLElement>('mlv-calendar')[0] as HTMLElement;
+    // Derived, not literals: this suite does not fake the clock. Both months
+    // sit well inside the sheet's default ±12-month window.
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth() + 1, 20);
+    const end = new Date(today.getFullYear(), today.getMonth() + 2, 15);
 
-    const monthLabel = (): string | undefined =>
-      visibleCalendar()
-        .querySelector('.mlv-calendar__header-button')
-        ?.textContent?.trim();
-
-    const clickDay = async (day: number) => {
-      const cell = Array.from(
-        visibleCalendar().querySelectorAll<HTMLElement>('.mlv-calendar__day'),
-      ).find((d) => d.textContent?.trim() === String(day));
-      expect(cell, `day ${day} in ${monthLabel()}`).toBeTruthy();
-      cell?.click();
-      fixture.detectChanges();
-      await fixture.whenStable();
-    };
-
-    // Both chevrons share `.mlv-calendar__nav-button` with no direction
-    // modifier, so they are told apart by DOM order: previous first, next second.
-    const navigateNext = async () => {
-      const navs = visibleCalendar().querySelectorAll<HTMLButtonElement>(
-        '.mlv-calendar__nav-button',
-      );
-      expect(navs.length).toBe(2);
-      navs[1].click();
-      fixture.detectChanges();
-      await fixture.whenStable();
-    };
-
-    // Derived, not asserted against literals: this suite does not fake the clock.
-    const startMonth = monthLabel();
-    await clickDay(20);
-
-    await navigateNext();
-    const endMonth = monthLabel();
-    expect(endMonth).not.toBe(startMonth);
-
-    await clickDay(15);
+    await clickSheetDay(iso(start));
+    await clickSheetDay(iso(end));
 
     expect(component.canApply()).toBe(true);
-    component.applySelection();
-
-    const value = component.value();
-    expect(value?.start).toBeTruthy();
-    expect(value?.end).toBeTruthy();
-    // The two endpoints landed in different months — which is only possible
-    // because the start survived the month change.
-    expect(value?.start?.getMonth()).not.toBe(value?.end?.getMonth());
+    // Both endpoints are rendered at once — the assertion the one-month panel
+    // could not make, because only the start month was ever on screen.
+    expect(sheetDay(iso(start)).isConnected).toBe(true);
+    expect(sheetDay(iso(end)).isConnected).toBe(true);
   });
 
-  it('does not announce the sole sheet calendar as the start month', async () => {
-    // In the sheet this calendar is also where the end date is picked, so
-    // naming it "Start month" would tell a screen-reader user they are in the
-    // start group while they choose the end. The grouping wrapper earns its
-    // role only when there are two groups to tell apart.
+  it('confirms the pending range through the header Done action', async () => {
     breakpoint.down.set(true);
     await open();
 
-    const first = panel()?.querySelector('.mlv-date-range-picker__calendar');
-    expect(first?.getAttribute('role')).toBeNull();
-    expect(first?.getAttribute('aria-label')).toBeNull();
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth() + 1, 10);
+    const end = new Date(today.getFullYear(), today.getMonth() + 2, 4);
+
+    await clickSheetDay(iso(start));
+    await clickSheetDay(iso(end));
+    // A tap is pending only: nothing is committed until Done.
+    expect(component.value()).toBeNull();
+
+    const done = document.querySelector<HTMLButtonElement>(
+      '.mlv-date-range-picker__done',
+    );
+    if (!done) throw new Error('the sheet header renders no Done action');
+    done.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.value()?.start?.getMonth()).toBe(start.getMonth());
+    expect(component.value()?.end?.getMonth()).toBe(end.getMonth());
+    expect(expanded()).toBe('false');
+  });
+
+  it('discards the pending range when the sheet is dismissed', async () => {
+    breakpoint.down.set(true);
+    await open();
+
+    const today = new Date();
+    await clickSheetDay(
+      iso(new Date(today.getFullYear(), today.getMonth() + 1, 10)),
+    );
+    await clickSheetDay(
+      iso(new Date(today.getFullYear(), today.getMonth() + 1, 18)),
+    );
+
+    sheetCloseButton().click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.value()).toBeNull();
+    expect(expanded()).toBe('false');
+  });
+
+  it('keeps Done out of the anchored dropdown, which confirms in its footer', async () => {
+    breakpoint.down.set(false);
+    await open();
+
+    expect(
+      document.querySelectorAll('.mlv-date-range-picker__done').length,
+    ).toBe(0);
+    expect(
+      panel()?.querySelectorAll('.mlv-date-range-picker__apply-btn').length,
+    ).toBe(1);
+  });
+
+  it('leaves the focus trap to the popup in the sheet', async () => {
+    // The panel is only part of the sheet: the popup's own header row — with
+    // the Done action and the dismiss button — sits outside it. A trap on the
+    // panel would fence Tab inside the month list and put both of those out of
+    // keyboard reach, so the sheet hands trapping to `mlv-popup`, which wraps
+    // the whole surface.
+    //
+    // A disabled `cdkTrapFocus` keeps its anchors in the DOM and strips their
+    // `tabindex` instead of removing them, so the attribute is what says
+    // whether the trap is live (`FocusTrap._toggleAnchorTabIndex`).
+    breakpoint.down.set(true);
+    await open();
+
+    const anchors = Array.from(
+      panel()?.parentElement?.querySelectorAll<HTMLElement>(
+        '.cdk-focus-trap-anchor',
+      ) ?? [],
+    );
+
+    expect(anchors.length).toBeGreaterThan(0);
+    expect(anchors.map((a) => a.getAttribute('tabindex'))).toEqual(
+      anchors.map(() => null),
+    );
+  });
+
+  it('keeps the focus trap on the anchored dropdown', async () => {
+    // The dropdown is the whole surface, so it traps for itself.
+    breakpoint.down.set(false);
+    await open();
+
+    const anchors = Array.from(
+      panel()?.parentElement?.querySelectorAll<HTMLElement>(
+        '.cdk-focus-trap-anchor',
+      ) ?? [],
+    );
+
+    expect(anchors.length).toBeGreaterThan(0);
+    expect(anchors.map((a) => a.getAttribute('tabindex'))).toEqual(
+      anchors.map(() => '0'),
+    );
+  });
+
+  it("lands focus on the sheet's day grid, not the year strip", async () => {
+    // The year strip's listbox is the first tabbable node in the sheet, so the
+    // generic first-tabbable scan would leave a keyboard user on the year
+    // scrubber with the calendar untouched.
+    breakpoint.down.set(true);
+    await open();
+
+    (component as unknown as { _onPanelOpened(): void })._onPanelOpened();
+
+    expect(
+      document.activeElement?.classList.contains('mlv-calendar-sheet__day'),
+    ).toBe(true);
+  });
+
+  it('announces no month group in the sheet', async () => {
+    // "Start month" / "End month" name the two panels apart. The sheet has one
+    // continuous list, so there is nothing to tell apart and the labels would
+    // announce a structure that is not there.
+    //
+    // Scoped to the panel wrappers that carry those names rather than to every
+    // `role="group"`: the sheet's own scrolling month list is a labelled group
+    // too, and it is the one thing here that should be announced.
+    breakpoint.down.set(true);
+    await open();
+
+    expect(
+      panel()?.querySelectorAll('.mlv-date-range-picker__calendar').length,
+    ).toBe(0);
+    expect(
+      panel()?.querySelectorAll('.mlv-date-range-picker__calendars').length,
+    ).toBe(0);
   });
 
   it('still names both month groups in the anchored dropdown', async () => {
@@ -1008,10 +1154,10 @@ describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
     expect(groups[0][1]).not.toBe(groups[1][1]);
   });
 
-  it('marks the sheet the same way in RTL', async () => {
-    // The sheet layout is direction-agnostic (`display: none` plus
-    // `justify-content: center`), so a mirrored document must not change which
-    // panel is dropped or whether the modifier is applied at all.
+  it('renders the same sheet body in RTL', async () => {
+    // Which body the panel gets is a breakpoint question, not a direction one.
+    // The sheet mirrors inside itself (see `calendar-sheet-rtl.spec.ts`); a
+    // mirrored document must not change what is rendered.
     document.documentElement.setAttribute('dir', 'rtl');
     try {
       breakpoint.down.set(true);
@@ -1019,10 +1165,10 @@ describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
       expect(
         panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
       ).toBe(true);
+      expect(panel()?.querySelectorAll('mlv-calendar-sheet').length).toBe(1);
       expect(
-        panel()?.querySelectorAll('.mlv-date-range-picker__calendar--end')
-          .length,
-      ).toBe(1);
+        panel()?.querySelectorAll('.mlv-date-range-picker__calendar').length,
+      ).toBe(0);
     } finally {
       document.documentElement.removeAttribute('dir');
     }

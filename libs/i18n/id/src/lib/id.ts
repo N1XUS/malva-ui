@@ -30,6 +30,9 @@ const id: MlvLanguage = {
     switchView:
       'Beralih ke tampilan {view, select, year {tahun} multiYear {beberapa tahun} other {bulan}}',
     selectMonthForYear: 'Pilih bulan untuk {year}',
+    done: 'Selesai',
+    selectYear: 'Pilih tahun',
+    monthList: 'Bulan kalender',
   },
   chat: {
     chatLabel: 'Pesan obrolan',
@@ -133,6 +136,7 @@ const id: MlvLanguage = {
   },
   dayPicker: {
     placeholder: 'Pilih tanggal...',
+    selectDay: 'Pilih hari',
   },
   dialog: {
     closeDialog: 'Tutup dialog',

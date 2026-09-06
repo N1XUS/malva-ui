@@ -36,7 +36,7 @@ import {
   MlvButtonSplit,
   MlvButtonToggle,
 } from '@malva-ui/core/button';
-import { MlvCalendar } from '@malva-ui/core/calendar';
+import { MlvCalendar, MlvCalendarSheet } from '@malva-ui/core/calendar';
 import { MlvCard } from '@malva-ui/core/card';
 import {
   MlvChat,
@@ -417,6 +417,7 @@ class SsrFormControlsHost {
   selector: 'mlv-ssr-pickers-host',
   imports: [
     MlvCalendar,
+    MlvCalendarSheet,
     MlvDayPicker,
     MlvScrubber,
     MlvTimePicker,
@@ -428,6 +429,13 @@ class SsrFormControlsHost {
   ],
   template: `
     <mlv-calendar [(value)]="day" />
+    <!--
+      The sheet measures scroll offsets and registers a scroll listener, but
+      only from afterNextRender / ngAfterViewInit, and resolves reduced motion
+      through a guarded matchMedia — so it must server-render its month list
+      without reaching a browser global.
+    -->
+    <mlv-calendar-sheet [(value)]="day" [windowMonths]="1" [yearRange]="1" />
     <mlv-day-picker label="Date" [(value)]="day" />
     <mlv-time-picker label="Start" [(value)]="time" />
     <mlv-scrubber

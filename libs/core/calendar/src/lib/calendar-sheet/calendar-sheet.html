@@ -1,0 +1,105 @@
+<div class="mlv-calendar-sheet__years">
+  <mlv-scrubber
+    orientation="horizontal"
+    [label]="_i18n().selectYear"
+    [items]="_years()"
+    [selectedValue]="_yearInView()"
+    [displayWith]="_formatYear"
+    (valueChange)="_onYearScrubbed($event)"
+  />
+</div>
+
+<!--
+  The strip is fixed above every month grid, so it belongs to no single grid and
+  cannot be that grid's header row. Each grid carries its own column headers
+  instead; this copy is decoration.
+-->
+<div class="mlv-calendar-sheet__weekdays" aria-hidden="true">
+  @for (weekday of _weekdays(); track $index) {
+  <span class="mlv-calendar-sheet__weekday">{{ weekday }}</span>
+  }
+</div>
+
+<div
+  #monthsRef
+  class="mlv-calendar-sheet__months"
+  role="group"
+  tabindex="-1"
+  [attr.aria-label]="_i18n().monthList"
+  (keydown)="_onKeydown($event)"
+>
+  @for (month of _months(); track month.key) {
+  <section
+    #monthRef
+    class="mlv-calendar-sheet__month"
+    [attr.data-month]="month.key"
+  >
+    <h3
+      class="mlv-calendar-sheet__month-label"
+      [class.mlv-calendar-sheet__month-label--in-range]="_isLabelInRange(month)"
+      [id]="_monthLabelId(month)"
+    >
+      {{ month.label }}
+    </h3>
+
+    <div
+      class="mlv-calendar-sheet__grid"
+      role="grid"
+      [attr.aria-labelledby]="_monthLabelId(month)"
+    >
+      <div class="mlv-calendar-sheet__columnheaders" role="row">
+        @for (weekday of _weekdayNames(); track $index) {
+        <span class="mlv-calendar-sheet__columnheader" role="columnheader"
+          >{{ weekday }}</span
+        >
+        }
+      </div>
+
+      @for (week of month.weeks; track $index) {
+      <div class="mlv-calendar-sheet__week" role="row">
+        @for (cell of week; track cell.iso; let i = $index) {
+        <!--
+          `_isDisabled` walks the adapter and the day button reads it from two
+          bindings, so it is called once per cell rather than once per binding.
+          The cell-level helpers take the cell rather than its date, because
+          they have to know whether it is adjacent-month filler — see their
+          JSDoc. The row caps follow the painted run, not the raw row edge, so
+          the band stays capped where the filler cuts it off.
+        -->
+        @let dayDisabled = _isDisabled(cell.date);
+        <div
+          class="mlv-calendar-sheet__cell"
+          role="gridcell"
+          [attr.data-date]="cell.iso"
+          [class.mlv-calendar-sheet__cell--adjacent]="!cell.currentMonth"
+          [class.mlv-calendar-sheet__cell--in-range]="_isCellInRange(cell)"
+          [class.mlv-calendar-sheet__cell--range-row-start]="_isBandRowStart(week, i)"
+          [class.mlv-calendar-sheet__cell--range-row-end]="_isBandRowEnd(week, i)"
+          [attr.aria-selected]="_cellSelected(cell)"
+        >
+          @if (cell.currentMonth) {
+          <button
+            type="button"
+            class="mlv-calendar-sheet__day"
+            [class.mlv-calendar-sheet__day--selected]="_isSelected(cell.date)"
+            [class.mlv-calendar-sheet__day--today]="_isToday(cell.date)"
+            [class.mlv-calendar-sheet__day--range-start]="_isRangeStart(cell.date)"
+            [class.mlv-calendar-sheet__day--range-end]="_isRangeEnd(cell.date)"
+            [attr.tabindex]="_isActive(cell.date) ? 0 : -1"
+            [attr.aria-label]="_dayLabel(cell.date)"
+            [attr.aria-current]="_isToday(cell.date) ? 'date' : null"
+            [attr.aria-disabled]="dayDisabled"
+            [disabled]="dayDisabled"
+            (click)="_selectDate(cell.date)"
+          >
+            {{ _dayNumber(cell.date) }}
+          </button>
+          }
+        </div>
+        }
+      </div>
+      }
+    </div>
+  </section>
+  }
+</div>

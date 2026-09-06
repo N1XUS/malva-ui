@@ -15,6 +15,7 @@ import {
 import { MlvTabbableElementService } from '@malva-ui/cdk/accessibility';
 import {
   MlvCalendar,
+  MlvCalendarSheet,
   type MlvCalendarRangeValue,
 } from '@malva-ui/core/calendar';
 import {
@@ -26,6 +27,7 @@ import {
   MlvPopup,
   MlvPopupContent,
   MlvPopupContainer,
+  MlvPopupHeaderActions,
 } from '@malva-ui/core/popup';
 import {
   MlvFormControlWrapper,
@@ -41,7 +43,7 @@ import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
 import { LucideCalendarDays } from '@lucide/angular';
 import { A11yModule } from '@angular/cdk/a11y';
 import { MlvButton } from '@malva-ui/core/button';
-import { MLV_DATE_RANGE_PICKER_I18N } from '@malva-ui/i18n';
+import { MLV_CALENDAR_I18N, MLV_DATE_RANGE_PICKER_I18N } from '@malva-ui/i18n';
 
 /**
  * Visual/validation state of the date range picker. Mirrors {@link MlvFormState}.
@@ -77,7 +79,9 @@ function coerceBoundaryDate<D>(
     MlvPopup,
     MlvPopupContent,
     MlvPopupContainer,
+    MlvPopupHeaderActions,
     MlvCalendar,
+    MlvCalendarSheet,
     LucideCalendarDays,
     MlvFormControlWrapper,
     MlvFormControlWrapperControl,
@@ -157,6 +161,13 @@ export class MlvDateRangePicker<D = Date>
 
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_DATE_RANGE_PICKER_I18N);
+
+  /**
+   * @protected The calendar i18n slice, for the sheet's confirm label. The
+   * string belongs to the calendar sheet, which both pickers share, so it is
+   * defined once there rather than duplicated per picker.
+   */
+  protected readonly _calendarI18n = inject(MLV_CALENDAR_I18N);
 
   /**
    * @private Reference to the trigger element, used to restore focus when the
@@ -360,13 +371,21 @@ export class MlvDateRangePicker<D = Date>
 
   /**
    * @protected Moves focus into the popup panel when it opens.
-   * Focuses the first tabbable element, falling back to the panel container
-   * (which carries `tabindex="-1"`) so focus always lands inside the modal.
+   *
+   * In the full-screen sheet the meaningful landing spot is the day grid's
+   * roving tab stop, the way the anchored dropdown lands on a calendar day:
+   * the generic first-tabbable scan would stop on the year strip's listbox,
+   * which comes first in DOM order. Everywhere else it falls back to that scan,
+   * and finally to the panel container (which carries `tabindex="-1"`), so
+   * focus always lands inside the modal.
    */
   protected _onPanelOpened(): void {
     const panel = this._document.getElementById(this.panelId());
     if (!panel) return;
-    const first = this._tabbable.getTabbableElement(panel, false, true);
+    const day = panel.querySelector<HTMLElement>(
+      '.mlv-calendar-sheet__day[tabindex="0"]',
+    );
+    const first = day ?? this._tabbable.getTabbableElement(panel, false, true);
     (first ?? panel).focus();
   }
 

@@ -29,6 +29,9 @@ const nl: MlvLanguage = {
     switchView:
       'Overschakelen naar {view, select, year {jaarweergave} multiYear {meerjarenweergave} other {maandweergave}}',
     selectMonthForYear: 'Maand selecteren voor {year}',
+    done: 'Gereed',
+    selectYear: 'Jaar selecteren',
+    monthList: 'Kalendermaanden',
   },
   chat: {
     chatLabel: 'Chatberichten',
@@ -134,6 +137,7 @@ const nl: MlvLanguage = {
   },
   dayPicker: {
     placeholder: 'Datum selecteren...',
+    selectDay: 'Dag selecteren',
   },
   dialog: {
     closeDialog: 'Dialoog sluiten',

@@ -16,6 +16,7 @@ Exported from `libs/core/popup/src/index.ts`:
 | `MlvPopup` | Component | Popup panel — `mlv-popup` |
 | `MlvPopupContent` | Directive | Content slot — `[mlvPopupContent]` |
 | `MlvPopupHeaderContent` | Directive | Full-screen header extension slot — `[mlvPopupHeaderContent]` |
+| `MlvPopupHeaderActions` | Directive | Full-screen header trailing-action slot — `[mlvPopupHeaderActions]` |
 | `MlvPopupPinnedContent` | Directive | Chrome pinned above the scroll region in every mode — `[mlvPopupPinnedContent]` |
 | `MlvPopupArrowEdge` | Type | `'top' \| 'bottom' \| 'left' \| 'right'` |
 | `MlvPopupArrowAlign` | Type | `'start' \| 'center' \| 'end'` |
@@ -92,7 +93,7 @@ Opt-in mechanism that renders the popup as a full-screen mobile sheet (header ba
 | `mobileTitle`      | `string \| undefined`                | `undefined` | Optional visible heading rendered in the full-screen header bar. When omitted the header shows only the close button.                                                                                                     |
 | `mobileCloseLabel` | `string \| undefined`                | `undefined` | Override for the full-screen close-button accessible name. Falls back to the `MLV_POPUP_I18N` `close` string (`'Close'`).                                                                                                 |
 
-Popup content is always rendered inside `.mlv-popup__scrollbar`, a shared `mlv-scrollbar` instance that owns overflow for both anchored popovers and full-screen sheets. In full-screen mode: a global (viewport-filling) CDK position strategy replaces the connected one; a solid backdrop (`.mlv-popup-fullscreen-backdrop`, always on) plus a **block** scroll strategy lock the page behind the sheet without layout shift; the panel gets `.mlv-popup--fullscreen` with safe-area-inset padding, a header (`.mlv-popup__header` with a `.mlv-popup__header-row` for `__title` / `__close`, plus an optional `.mlv-popup__header-content` extension — see below), a scrolling body, and a bottom slide-up animation (fade under `prefers-reduced-motion`). Focus is trapped (`cdkTrapFocus` when `modal() || isFullscreen()`); the close button, backdrop click, and `Escape` all close via the `opened` model so consumer `afterClosed`/focus-restore runs.
+Popup content is always rendered inside `.mlv-popup__scrollbar`, a shared `mlv-scrollbar` instance that owns overflow for both anchored popovers and full-screen sheets. In full-screen mode: a global (viewport-filling) CDK position strategy replaces the connected one; a solid backdrop (`.mlv-popup-fullscreen-backdrop`, always on) plus a **block** scroll strategy lock the page behind the sheet without layout shift; the panel gets `.mlv-popup--fullscreen` with safe-area-inset padding, a header (`.mlv-popup__header` with a `.mlv-popup__header-row` for `__title` / optional `__header-actions` / `__close`, plus an optional `.mlv-popup__header-content` extension — see below), a scrolling body, and a bottom slide-up animation (fade under `prefers-reduced-motion`). Focus is trapped (`cdkTrapFocus` when `modal() || isFullscreen()`); the close button, backdrop click, and `Escape` all close via the `opened` model so consumer `afterClosed`/focus-restore runs.
 
 **Mode is resolved once per open (#126 / #144).** `MlvPopupService.open`'s `fullscreen` flag selects four overlay-level things at `Overlay.create()` time: the global vs connected position strategy, the `mlv-popup-fullscreen-pane` class, the solid scrim, and the block scroll strategy. CDK can change **three** of them on an attached overlay (`updatePositionStrategy`, `addPanelClass`/`removePanelClass`, `updateScrollStrategy`) — but **not the scrim**: `_attachBackdrop()` is private and runs only from `attach()`, and `detachBackdrop()` is one-way. A popup opened anchored with `[hasBackdrop]="false"` (`mlv-combobox` does exactly this) therefore cannot grow a scrim when it goes full-screen without a detach/re-attach, which loses focus position and replays the enter animation. So the panel half holds still with the overlay half rather than chasing the viewport.
 
@@ -115,6 +116,10 @@ All three overlay owners — `MlvPopupContainer._attachOverlay()`, standalone `M
 
 **Header-content slot (`[mlvPopupHeaderContent]`).** An optional `<ng-template mlvPopupHeaderContent>` is rendered inside the full-screen header, directly beneath the title/close row, via `contentChild(MlvPopupHeaderContent)`. It is **only** stamped while `isFullscreen()` is `true` (and no-ops when the slot is absent), so trigger-anchored popups are byte-identical whether or not the slot is supplied. It exists because the full-screen sheet's solid backdrop + focus trap occlude/block any control that lives outside the overlay panel (in normal document flow): a consumer can move such a control into the sheet by projecting it here. `mlv-combobox` uses it to render an in-sheet search input (and multi-select chips) so type-to-filter keeps working full-screen — see `libs-combobox.md` → _Mobile fullscreen_. The slot sits inside the trapped panel, so projected focusable controls compose with the trap.
 
+**Header-actions slot (`[mlvPopupHeaderActions]`).** An optional `<ng-template mlvPopupHeaderActions>` is rendered as `.mlv-popup__header-actions` **inside** the title/close row, between `__title` and `__close`, via `contentChild(MlvPopupHeaderActions)`. Like the header-content slot it is only stamped while `isFullscreen()` is `true` and no-ops when absent, so anchored popups are unaffected by its presence. It is for a **trailing action that belongs to the sheet chrome rather than the scrolling body** — a confirm the body would otherwise have to reserve footer space for, and which would then scroll away with the content. `mlv-day-picker` and `mlv-date-range-picker` project their `Done` here (#130), which is exactly why the anchored dropdown keeps commit-on-tap / its footer `Apply` and never grows a second confirm: the slot is simply not stamped there.
+
+Order is the contract, not an accident: the actions come **before** the close button, so the primary action is not read or tabbed past the dismiss one. `.mlv-popup__header-actions` takes the auto inline-start margin the close button otherwise claims, and the close button's own margin is zeroed when it follows the group, so the pair stays anchored to the inline-end edge as one unit.
+
 **Pinned-content slot (`[mlvPopupPinnedContent]`).** Mode-independent, unlike the header slot: an optional `<ng-template mlvPopupPinnedContent>` is stamped as `.mlv-popup__pinned` directly **above** `.mlv-popup__scrollbar` in both anchored and full-screen panels (in full-screen it lands between `.mlv-popup__header` and the scroll region, still inside the trap). The panel is a flex column and the scrollbar is `flex: 1 1 auto; min-height: 0`, so the pinned block keeps its own height and the scroll region shrinks around it — content can never push it out of view. It carries no padding; the projected block owns its spacing. `mlv-select` uses it for the searchable dropdown's search row (`position: sticky` inside the viewport was fragile — see `libs-select.md` → _Searchable dropdown_).
 
 **How the sheet body fills the viewport.** `.mlv-popup__inner` carries `min-height: 100%`, and until #116 that percentage silently resolved to `0`: its containing block is `mlv-scrollbar`'s `.mlv-scrollbar__content` wrapper, whose own height is content-derived, and a percentage `min-height` against an indefinite containing block computes to `0`. The wrapper measures a full viewport only because _its_ `min-height: 100%` resolves against the scroll viewport, which the scrollbar's grid gives a definite height — that does not make the wrapper definite for its own children. Measured at 375x812, `__inner` was 32px inside a 751px viewport.
@@ -123,7 +128,11 @@ Consequence: sheet content always sat at its natural size at the top of a viewpo
 
 The fill is now handed to flex, which distributes real space and needs no definite height anywhere: inside `.mlv-popup--fullscreen` the content wrapper becomes a column flex container and `.mlv-popup__inner` takes `flex: 1 1 auto`. `min-height` (not `height`) stays on the wrapper, so content taller than the sheet still grows it and still scrolls. Scoped to `--fullscreen`, so a trigger-anchored popup still shrink-wraps to its content.
 
-**What this does and does not give a consumer.** `__inner` is now sheet-tall, but it is a column flex container with the default `justify-content: flex-start`, so a fixed-size child still sits at the top unless the consumer asks for the space. `mlv-time-picker` opts in with `.mlv-time-picker__panel--sheet` (`flex: 1 1 0`, then a size container query). `mlv-day-picker` and `mlv-date-range-picker` do not, and both still show the top-anchored calendar with roughly half the sheet blank — observed, not inferred, at 375x812.
+**What this does and does not give a consumer.** `__inner` is now sheet-tall, but it is a column flex container with the default `justify-content: flex-start`, so a fixed-size child still sits at the top unless the consumer asks for the space. `mlv-time-picker` opts in with `.mlv-time-picker__panel--sheet` (`flex: 1 1 0`, then a size container query). Since #130 `mlv-day-picker` and `mlv-date-range-picker` opt in the same way — `flex: 1 1 0; min-height: 0` on their own sheet wrapper, passed down to `mlv-calendar-sheet` — so the month list fills the sheet and scrolls inside it. `flex: 1 1 0` and not `height: 100%`: a percentage against `__inner` is the same dead percentage described above, and would leave the body top-anchored with the rest of the sheet blank (observed, not inferred, at 375x812, which is what those two pickers looked like before #130).
+
+**Full-bleed sheets (`.mlv-popup--flush`).** `.mlv-popup--fullscreen .mlv-popup__inner` also carries a `var(--mlv-spacing-4)` body inset. That inset is shared chrome the consumers lean on rather than supply — `mlv-select` / `mlv-combobox` carry only the 4px `--mlv-popover-inset` on their list, and `mlv-day-picker__popup--sheet`, `mlv-time-picker__panel--sheet` and `mlv-date-range-picker__panel--sheet` each write a `padding: 0` of their own _because_ the popup pads for them — so it is not something a block can cancel from inside.
+
+A block that lays itself out edge to edge opts out by passing the panel class instead: `<mlv-popup class="mlv-popup--flush">`, forwarded to the panel by `class` / `_panelClasses()`. Both date pickers pass it, because `mlv-calendar-sheet` owns its inline spacing throughout (a padded weekday strip, a padded month label, `padding-inline` on every week row) — the shared inset doubled up on that and left a full-width sheet header sitting over a body that floated inside it (#149 review). The modifier is inert while the popup is trigger-anchored, where `__inner` carries no padding at all, so it is safe as a static class.
 
 `isFullscreen: Signal<boolean>` is **public** so consumers with their own inner focus trap (e.g. `mlv-date-range-picker`, whose inner panel carries `cdkTrapFocus`) can disable it via `[cdkTrapFocus]="!popup.isFullscreen()"` and avoid nesting two traps. Because it is stable for the duration of an open, a consumer can also branch its whole panel body on it without the body being re-created under the user mid-interaction.
 
@@ -136,11 +145,12 @@ The fill is now handed to flex, which distributes real space and needs no defini
 
 #### Content Children (content slots)
 
-| Query              | Directive               | Stamped where                                                                 |
-| ------------------ | ----------------------- | ----------------------------------------------------------------------------- |
-| `contentRef`       | `MlvPopupContent`       | `.mlv-popup__inner`, inside the scroll region — every mode                    |
-| `headerContentRef` | `MlvPopupHeaderContent` | `.mlv-popup__header-content`, under the title/close row — **fullscreen only** |
-| `pinnedContentRef` | `MlvPopupPinnedContent` | `.mlv-popup__pinned`, directly above the scroll region — **every mode**       |
+| Query              | Directive               | Stamped where                                                                                   |
+| ------------------ | ----------------------- | ----------------------------------------------------------------------------------------------- |
+| `contentRef`       | `MlvPopupContent`       | `.mlv-popup__inner`, inside the scroll region — every mode                                      |
+| `headerContentRef` | `MlvPopupHeaderContent` | `.mlv-popup__header-content`, under the title/close row — **fullscreen only**                   |
+| `headerActionsRef` | `MlvPopupHeaderActions` | `.mlv-popup__header-actions`, inside the title/close row before `__close` — **fullscreen only** |
+| `pinnedContentRef` | `MlvPopupPinnedContent` | `.mlv-popup__pinned`, directly above the scroll region — **every mode**                         |
 
 Each is a `contentChild(...)`; an absent slot stamps nothing, so a popup that
 declares none is byte-identical to one before the slots existed.
@@ -213,6 +223,12 @@ Wrapper for programmatic popup management. Required content child: `MlvPopup`.
 **Selector:** `[mlvPopupContent]` | Provides `templateRef: TemplateRef` for content rendering.
 
 ---
+
+### `MlvPopupHeaderActions`
+
+**Selector:** `[mlvPopupHeaderActions]` | **File:** `libs/core/popup/src/lib/popup-header-actions.ts`
+
+Marks an `<ng-template>` as a trailing action group inside the **full-screen** header's title/close row, between the title and the close button (`contentChild(MlvPopupHeaderActions)`). Generic and reusable; only stamped while `isFullscreen()` is `true` and a no-op when absent, so anchored popups are unaffected. Used by `mlv-day-picker` and `mlv-date-range-picker` for the sheet's `Done` confirm. Extends `MlvStructural` (provides `templateRef`).
 
 ### `MlvPopupHeaderContent`
 
@@ -376,8 +392,10 @@ providers: [providePopupPositions(new Map([...POPUP_POSITION_MAP, ['bottom', { o
 - `.mlv-popup--fullscreen` — full-screen mobile sheet: fills the pane, no border/radius, safe-area padding, slide-up animation (overrides the `--mlv-popup-*-translate-y` keyframe vars)
 - `.mlv-popup__header` (column) / `.mlv-popup__header-row` (title + close flex row) / `.mlv-popup__title` / `.mlv-popup__close` — full-screen header bar
 - `.mlv-popup__header-content` — optional header extension stamped beneath the title row when `[mlvPopupHeaderContent]` is supplied
+- `.mlv-popup__header-actions` — optional trailing-action group stamped inside the title row, before `.mlv-popup__close`, when `[mlvPopupHeaderActions]` is supplied
 - `.mlv-popup__pinned` — optional non-scrolling block stamped above `.mlv-popup__scrollbar` when `[mlvPopupPinnedContent]` is supplied (`flex: 0 0 auto`, `z-index: 3` so scrolled sticky content passes underneath; no padding of its own)
-- `.mlv-popup__inner` — the projected-content wrapper. Under `--fullscreen` it takes `flex: 1 1 auto` inside a `.mlv-scrollbar__content` made `display: flex; flex-direction: column`, so it is sheet-tall rather than content-tall (see _Mobile fullscreen inputs_)
+- `.mlv-popup__inner` — the projected-content wrapper. Under `--fullscreen` it takes `flex: 1 1 auto` inside a `.mlv-scrollbar__content` made `display: flex; flex-direction: column`, so it is sheet-tall rather than content-tall (see _Mobile fullscreen inputs_), plus a `var(--mlv-spacing-4)` body inset
+- `.mlv-popup--flush` — consumer-passed opt-out of that body inset, for a projected block that lays itself out edge to edge (see _Full-bleed sheets_)
 - `.mlv-popup-fullscreen-pane` (global) — CDK overlay panel class stretching the pane to the viewport (`100dvh`)
 - `.mlv-popup-fullscreen-backdrop` (global) — solid scrim (`--mlv-background-overlay`) shown behind the sheet
 

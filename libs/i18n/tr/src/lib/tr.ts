@@ -29,6 +29,9 @@ const tr: MlvLanguage = {
     switchView:
       '{view, select, year {Yıl} multiYear {Çok yıllı} other {Ay}} görünümüne geç',
     selectMonthForYear: '{year} yılı için ay seç',
+    done: 'Tamam',
+    selectYear: 'Yıl seç',
+    monthList: 'Takvim ayları',
   },
   chat: {
     chatLabel: 'Sohbet mesajları',
@@ -131,6 +134,7 @@ const tr: MlvLanguage = {
   },
   dayPicker: {
     placeholder: 'Tarih seç...',
+    selectDay: 'Gün seç',
   },
   dialog: {
     closeDialog: 'İletişim kutusunu kapat',

@@ -31,6 +31,9 @@ const ro: MlvLanguage = {
     switchView:
       'Comută la vizualizarea {view, select, year {anuală} multiYear {multianuală} other {lunară}}',
     selectMonthForYear: 'Selectează luna pentru {year}',
+    done: 'Gata',
+    selectYear: 'Selectează anul',
+    monthList: 'Lunile calendarului',
   },
   chat: {
     chatLabel: 'Mesaje de chat',
@@ -136,6 +139,7 @@ const ro: MlvLanguage = {
   },
   dayPicker: {
     placeholder: 'Selectează data...',
+    selectDay: 'Selectează ziua',
   },
   dialog: {
     closeDialog: 'Închide dialogul',

@@ -26,6 +26,10 @@
       <div class="mlv-popup__header-row">
         @if (mobileTitle(); as title) {
         <span class="mlv-popup__title">{{ title }}</span>
+        } @if (headerActionsRef(); as actionsTpl) {
+        <div class="mlv-popup__header-actions">
+          <ng-template [ngTemplateOutlet]="actionsTpl.templateRef" />
+        </div>
         }
         <mlv-button-close
           class="mlv-popup__close"

@@ -42,19 +42,56 @@
         </span>
       </div>
 
+      <!--
+        `class` is forwarded to the overlay panel. `mlv-popup--flush` drops the
+        full-screen sheet's default body inset, because `mlv-calendar-sheet`
+        owns its own inline spacing throughout; it is inert while the popup is
+        trigger-anchored, where `__inner` carries no padding at all.
+      -->
       <mlv-popup
+        #dayPopup
         [(opened)]="isOpen"
         [hasShadow]="true"
         panelRole="dialog"
         [modal]="true"
         mobileMode="auto"
-        [mobileTitle]="label() || _resolvedPlaceholder()"
+        class="mlv-popup--flush"
+        [mobileTitle]="label() || _i18n().selectDay"
         [ariaLabel]="label() || _resolvedPlaceholder()"
         (afterOpened)="_onPopupOpened()"
         (afterClosed)="_onPopupClosed()"
       >
+        <!--
+          Confirm action for the full-screen sheet. The popup stamps this slot
+          only while it is full-screen, so the anchored dropdown never sees it
+          and keeps committing on tap.
+        -->
+        <ng-template mlvPopupHeaderActions>
+          <button
+            type="button"
+            mlvButton
+            variant="primary"
+            size="s"
+            class="mlv-day-picker__done"
+            (click)="_applyPending()"
+          >
+            {{ _calendarI18n().done }}
+          </button>
+        </ng-template>
+
         <ng-template mlvPopupContent>
-          <div [id]="popupId()" class="mlv-day-picker__popup">
+          <div
+            [id]="popupId()"
+            class="mlv-day-picker__popup"
+            [class.mlv-day-picker__popup--sheet]="dayPopup.isFullscreen()"
+          >
+            @if (dayPopup.isFullscreen()) {
+            <mlv-calendar-sheet
+              [(value)]="_pendingValue"
+              [min]="min()"
+              [max]="max()"
+            />
+            } @else {
             <mlv-calendar
               embedded
               [value]="value()"
@@ -62,6 +99,7 @@
               [min]="min()"
               [max]="max()"
             />
+            }
           </div>
         </ng-template>
       </mlv-popup>

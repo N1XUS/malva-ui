@@ -53,23 +53,30 @@
   >
     @for (week of monthWeeks(); track $index) {
     <div class="mlv-calendar__week" role="row">
-      @for (day of week; track trackDay($index, day); let rowStart = $first; let
-      rowEnd = $last) {
+      @for (day of week; track trackDay($index, day); let i = $index) {
+      <!--
+        The band is an interval and is painted only on the month's own days —
+        `_isCellInRange` carries that guard, and the row caps follow the painted
+        run rather than the raw row edge. The endpoint and selected markers
+        below are deliberately *not* guarded: they mark one real, clickable
+        date, which an adjacent-month cell still renders.
+      -->
+      @let inBand = _isCellInRange(day);
       <div
         class="mlv-calendar__day-cell"
         role="gridcell"
-        [attr.aria-selected]="range() ? isInRange(day.date) : isSelected(day.date)"
+        [attr.aria-selected]="_cellSelected(day)"
       >
         <button
           class="mlv-calendar__cell-button mlv-calendar__day"
           [class.mlv-calendar__day--active]="isActive(day.date)"
-          [class.mlv-calendar__day--in-range]="isInDisplayRange(day.date)"
-          [class.mlv-calendar__day--range-preview]="isRangePreviewing() && isInDisplayRange(day.date)"
-          [class.mlv-calendar__day--range-complete]="hasCompletedRange() && isInDisplayRange(day.date)"
+          [class.mlv-calendar__day--in-range]="inBand"
+          [class.mlv-calendar__day--range-preview]="isRangePreviewing() && inBand"
+          [class.mlv-calendar__day--range-complete]="hasCompletedRange() && inBand"
           [class.mlv-calendar__day--range-start]="isDisplayRangeStart(day.date)"
           [class.mlv-calendar__day--range-end]="isDisplayRangeEnd(day.date)"
-          [class.mlv-calendar__day--range-row-start]="rowStart && isInDisplayRange(day.date)"
-          [class.mlv-calendar__day--range-row-end]="rowEnd && isInDisplayRange(day.date)"
+          [class.mlv-calendar__day--range-row-start]="_isBandRowStart(week, i)"
+          [class.mlv-calendar__day--range-row-end]="_isBandRowEnd(week, i)"
           [class.mlv-calendar__day--outside]="!day.currentMonth"
           [class.mlv-calendar__day--today]="isToday(day.date)"
           [class.mlv-calendar__day--selected]="isSelected(day.date)"
