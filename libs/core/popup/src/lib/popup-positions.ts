@@ -10,13 +10,37 @@ import type { ConnectedPosition } from '@angular/cdk/overlay';
  * The set of named popup positions supported out of the box.
  *
  * Positions follow the `{side}-{alignment}` convention:
- * - **side** — the side of the trigger the popup appears on (`top`, `bottom`, `left`, `right`)
- * - **alignment** — where the popup edge aligns to the trigger:
- *   `start` = top (for left/right) or left (for top/bottom),
- *   `end`   = bottom (for left/right) or right (for top/bottom),
- *   _(omitted)_ = centered
+ * - **side** — the side of the trigger the popup appears on (`top`, `bottom`,
+ *   `left`, `right`)
+ * - **alignment** — which pair of the popup's and the trigger's edges is
+ *   aligned; _(omitted)_ = centred
  *
  * All positions include an 8px gap between the trigger and the popup.
+ *
+ * ### `left` / `right` are **logical aliases**, and so is `-start` / `-end` on
+ * the inline axis
+ *
+ * Every entry in {@link POPUP_POSITION_MAP} is written with CDK's logical
+ * `'start'` / `'end'`, which `FlexibleConnectedPositionStrategy` mirrors
+ * against the pane's own direction — so these names mirror in RTL:
+ *
+ * | Name          | Maps to                            | LTR                       | RTL                        |
+ * | ------------- | ---------------------------------- | ------------------------- | -------------------------- |
+ * | `left-*`      | `originX: 'start'`, `offsetX: -8`  | trigger's **left** side   | trigger's **right** side   |
+ * | `right-*`     | `originX: 'end'`, `offsetX: 8`     | trigger's **right** side  | trigger's **left** side    |
+ * | `top-start`   | `overlayX: 'start'`                | **left** edges aligned    | **right** edges aligned    |
+ * | `bottom-end`  | `overlayX: 'end'`                  | **right** edges aligned   | **left** edges aligned     |
+ *
+ * `top` / `bottom` are the block axis and never mirror; neither does the
+ * alignment of a `left-*` / `right-*` position, which rides `originY`
+ * (`-start` = top, `-end` = bottom, in both directions).
+ *
+ * Do not confuse this with `MlvPopupArrowAlign`, whose `'start'` /
+ * `'end'` are **physical** ends of a physical edge: the conversion from this
+ * logical vocabulary to that physical one happens once, in
+ * `MlvPopup.updateArrowFromPosition()`. A `bottom-start` popup therefore
+ * resolves to `arrowAlign: 'end'` in RTL — both meaning "the corner nearest
+ * the trigger". See `.claude/rules/rtl.md` § Public API.
  */
 export type MlvPopupPositionName =
   | 'top-start'

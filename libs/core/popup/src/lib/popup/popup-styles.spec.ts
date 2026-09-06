@@ -124,3 +124,109 @@ describe('popup.scss — full-screen sheet fill', () => {
     );
   });
 });
+
+/**
+ * Returns the declaration block of the first rule whose comma-separated
+ * selector list contains `selector`. The arrow rules compile to grouped
+ * selectors (`…--arrow-start.…--arrow-top::before, …--arrow-start.…--arrow-bottom::before`),
+ * which `ruleBody`'s line anchor cannot address.
+ */
+function groupedRuleBody(css: string, selector: string): string {
+  // `popup.scss` contains no at-rules, so after the layer wrapper is stripped
+  // every `{ … }` is a flat rule and splitting on braces is unambiguous.
+  for (const chunk of css.split('}')) {
+    const brace = chunk.indexOf('{');
+    if (brace === -1) continue;
+    const selectors = chunk
+      .slice(0, brace)
+      .split(',')
+      .map((part) => part.trim());
+    if (selectors.includes(selector)) return chunk.slice(brace + 1);
+  }
+  expect.fail(`no rule whose selector list contains \`${selector}\``);
+}
+
+/**
+ * The arrow glyph is physical, and deliberately so (#163).
+ *
+ * `MlvPopup.arrowEdge` / `arrowAlign` are resolved to **physical** values in
+ * `updateArrowFromPosition`, which converts the logical `ConnectedPosition`
+ * pair CDK applied against the pane's own direction. `.claude/rules/rtl.md`
+ * names the collision-resolved overlay arrow as an allowed physical exception
+ * for exactly this reason: CDK picks the actual physical side after flipping,
+ * and the arrow follows that side rather than the requested one.
+ *
+ * A logical declaration here would mirror a *second* time, on top of the
+ * conversion — and the glyph is a square rotated a physical `45deg`, so which
+ * two of its borders are dropped is a physical decision that no logical
+ * property can express.
+ */
+describe('popup.scss — arrow glyph is physical', () => {
+  const css = stripCssLayersFromText(sass.compile(POPUP_SCSS).css);
+
+  it('drops the two borders facing away from the tip physically', () => {
+    // `rotate(45deg)` sends the top-left corner straight up, so an upward tip
+    // keeps the top and left borders. Under a logical `border-inline-end`, an
+    // RTL pane would drop the *left* border instead and the glyph would point
+    // sideways — the panel would grow a wedge on its corner, not a tip.
+    expect(ruleBody(css, '.mlv-popup--arrow-top::before')).toContain(
+      'border-right: none',
+    );
+    expect(ruleBody(css, '.mlv-popup--arrow-bottom::before')).toContain(
+      'border-left: none',
+    );
+    expect(ruleBody(css, '.mlv-popup--arrow-left::before')).toContain(
+      'border-right: none',
+    );
+    expect(ruleBody(css, '.mlv-popup--arrow-right::before')).toContain(
+      'border-left: none',
+    );
+  });
+
+  it('uses no logical border anywhere in the stylesheet', () => {
+    // The four declarations above are the only `border-inline-*` the file ever
+    // had; asserting their absence outright keeps a new one from creeping back.
+    expect(css).not.toContain('border-inline');
+  });
+
+  it('offsets the side arrows from the physical edge they name', () => {
+    expect(ruleBody(css, '.mlv-popup--arrow-left::before')).toContain(
+      'left: -0.4375rem',
+    );
+    expect(ruleBody(css, '.mlv-popup--arrow-right::before')).toContain(
+      'right: -0.4375rem',
+    );
+  });
+
+  it('offsets `--arrow-start` / `--arrow-end` from the physical left / right', () => {
+    // `arrowAlign` is physical too: a `bottom-start` popup in RTL resolves to
+    // `'end'`, so the arrow lands 1rem from the right — over the trigger, which
+    // an RTL `overlayX: 'start'` pins to the panel's right edge.
+    expect(
+      groupedRuleBody(
+        css,
+        '.mlv-popup--arrow-start.mlv-popup--arrow-top::before',
+      ),
+    ).toContain('left: 1rem');
+    expect(
+      groupedRuleBody(
+        css,
+        '.mlv-popup--arrow-end.mlv-popup--arrow-top::before',
+      ),
+    ).toContain('right: 1rem');
+  });
+
+  it('centres the top/bottom arrow with a physical margin', () => {
+    // `left: 50%` + a negative start margin is a centring pair. `margin-inline-start`
+    // resolves to `margin-right` in an RTL pane, and for an absolutely positioned
+    // box with `left` set and `right: auto` the end margin moves nothing — the
+    // glyph would sit 6px off centre rather than under the trigger's middle.
+    const body = groupedRuleBody(
+      css,
+      '.mlv-popup--arrow-center.mlv-popup--arrow-top::before',
+    );
+    expect(body).toContain('left: 50%');
+    expect(body).toContain('margin-left: -0.375rem');
+    expect(body).not.toContain('margin-inline-start');
+  });
+});

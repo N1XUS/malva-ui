@@ -4,10 +4,11 @@ import type { WritableSignal } from '@angular/core';
 import { Component, signal, viewChild } from '@angular/core';
 import { Overlay, OverlayContainer } from '@angular/cdk/overlay';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
-import { MlvBreakpointService } from '@malva-ui/cdk/utils';
+import { MlvBreakpointService, MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvPopup, POPUP_DETACH_WATCHDOG_MS } from '../popup/popup';
 import { MlvPopupContent } from '../popup-content';
 import { MlvPopupTrigger } from '../popup-trigger/popup-trigger';
+import type { MlvPopupPositionName } from '../popup-positions';
 import { MlvPopupContainer } from './popup-container';
 
 @Component({
@@ -362,5 +363,146 @@ describe('MlvPopupContainer — breakpoint flip while the popup is open', () => 
     expect(paneIsFullscreen()).toBe(true);
     expect(panelIsFullscreen()).toBe(true);
     expect(fixture.componentInstance.popup().isFullscreen()).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Arrow direction through the real overlay owner (#163)
+//
+// `MlvPopupService` resolves the pane's direction from the trigger — the pane
+// is portaled to <body> and inherits no `[dir]` scope — and CDK mirrors the
+// `start`/`end` pair it applies against exactly that. So the direction the
+// arrow is derived from has to be the one that travelled with the config, not
+// the document's.
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvPopupContainer, MlvPopup, MlvPopupContent, MlvPopupTrigger],
+  template: `
+    <div [attr.dir]="scope()">
+      <mlv-popup-container>
+        <button mlvPopupTrigger>open</button>
+        <mlv-popup [position]="position()" [hasArrow]="true">
+          <ng-template mlvPopupContent><span>panel body</span></ng-template>
+        </mlv-popup>
+      </mlv-popup-container>
+    </div>
+  `,
+})
+class ArrowHostComponent {
+  readonly scope = signal<string | null>(null);
+  readonly position = signal<MlvPopupPositionName>('left-start');
+  readonly container = viewChild.required(MlvPopupContainer);
+  readonly popup = viewChild.required(MlvPopup);
+}
+
+describe('MlvPopupContainer — arrow direction', () => {
+  let overlayContainer: OverlayContainer;
+  let fixture: ComponentFixture<ArrowHostComponent>;
+  let rtl: MlvRtlService;
+
+  beforeEach(async () => {
+    document.documentElement.removeAttribute('dir');
+    await TestBed.configureTestingModule({
+      imports: [ArrowHostComponent],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+    rtl = TestBed.inject(MlvRtlService);
+    fixture = TestBed.createComponent(ArrowHostComponent);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    // `setDirection` writes `document.documentElement.dir` and the root CDK
+    // `Directionality` — global state that leaks into every later spec.
+    rtl.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+    overlayContainer.ngOnDestroy();
+  });
+
+  async function open(): Promise<MlvPopup> {
+    fixture.componentInstance.container().open();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return fixture.componentInstance.popup();
+  }
+
+  function panelClasses(): string {
+    const panel = overlayContainer
+      .getContainerElement()
+      .querySelector('.mlv-popup') as HTMLElement;
+    return panel.className;
+  }
+
+  it('anchors a `left-start` arrow to the physical right edge in LTR', async () => {
+    const popup = await open();
+
+    expect(popup.arrowEdge()).toBe('right');
+    expect(panelClasses()).toContain('mlv-popup--arrow-right');
+  });
+
+  it('anchors the same arrow to the physical left edge under a global flip', async () => {
+    rtl.setDirection('rtl');
+    fixture.detectChanges();
+
+    const popup = await open();
+
+    expect(popup.arrowEdge()).toBe('left');
+    expect(panelClasses()).toContain('mlv-popup--arrow-left');
+  });
+
+  it('follows a `[dir]` scope around the trigger while the document stays LTR', async () => {
+    // The load-bearing case: a global flip also writes the root CDK
+    // `Directionality`, so a global-only spec passes with the whole fix ablated.
+    // Only a scoped `[dir]` proves the direction came from the trigger.
+    fixture.componentInstance.scope.set('rtl');
+    fixture.detectChanges();
+
+    const popup = await open();
+
+    expect(rtl.direction()).toBe('ltr');
+    expect(popup.arrowEdge()).toBe('left');
+    expect(panelClasses()).toContain('mlv-popup--arrow-left');
+  });
+
+  it('keeps an LTR island unmirrored inside an RTL document', async () => {
+    rtl.setDirection('rtl');
+    fixture.componentInstance.scope.set('ltr');
+    fixture.detectChanges();
+
+    const popup = await open();
+
+    expect(popup.arrowEdge()).toBe('right');
+    expect(panelClasses()).toContain('mlv-popup--arrow-right');
+  });
+
+  it('mirrors the inline alignment of a `bottom-start` arrow in a scoped RTL subtree', async () => {
+    fixture.componentInstance.position.set('bottom-start');
+    fixture.componentInstance.scope.set('rtl');
+    fixture.detectChanges();
+
+    const popup = await open();
+
+    expect(rtl.direction()).toBe('ltr');
+    expect(popup.arrowEdge()).toBe('top');
+    expect(popup.arrowAlign()).toBe('end');
+    expect(panelClasses()).toContain('mlv-popup--arrow-end');
+  });
+
+  it('re-derives the arrow when the direction flips while the popup is open', async () => {
+    const popup = await open();
+    expect(popup.arrowEdge()).toBe('right');
+
+    // CDK only re-emits `positionChanges` when the *chosen* position object
+    // changes; mirroring re-resolves `start`/`end` within the same entry, so
+    // nothing would tell the arrow the pane it lives in just flipped.
+    rtl.setDirection('rtl');
+    TestBed.tick();
+    fixture.detectChanges();
+
+    expect(popup.arrowEdge()).toBe('left');
+    expect(panelClasses()).toContain('mlv-popup--arrow-left');
   });
 });

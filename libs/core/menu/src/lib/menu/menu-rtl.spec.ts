@@ -479,6 +479,65 @@ describe('menu direction (RTL)', () => {
       expect(fixture.componentInstance.rootMenu._isOpen()).toBe(true);
     });
 
+    // ─── Arrow geometry (#163) ─────────────────────────────────────────────
+    //
+    // End-to-end proof for the menu path: `menu-overlay-controller.spec.ts`
+    // supplies the direction to the callback itself, so it only shows the
+    // controller forwarding its second argument. This drives the real
+    // `MlvPopupService` and asserts the *physical* edge the panel ends up with,
+    // from a trigger inside a scoped `[dir]` and a `<mlv-menu>` outside it.
+    //
+    // A submenu uses `SUBMENU_POSITIONS` (`right-start`, falling back to
+    // `left-start`), so the edge itself flips — the load-bearing case, unlike a
+    // top-level dropdown where only the alignment moves.
+    async function openDetachedSubmenu(dir: 'ltr' | 'rtl') {
+      const fixture = TestBed.createComponent(DetachedMenuHost);
+      fixture.componentInstance.scopeDir.set(dir);
+      fixture.detectChanges();
+      const settings = fixture.debugElement
+        .queryAll(By.css('button'))
+        .map((d) => d.nativeElement as HTMLButtonElement)
+        .find((b) => b.textContent?.includes('Settings')) as HTMLButtonElement;
+      settings.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const row = Array.from(
+        overlayContainerEl.querySelectorAll('[role="menuitem"]'),
+      ).find((item) => item.textContent?.includes('Appearance')) as HTMLElement;
+      row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await flushTimers();
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('puts the submenu arrow on the physical left edge in an LTR scope', async () => {
+      const fixture = await openDetachedSubmenu('ltr');
+
+      expect(fixture.componentInstance.themeMenu._isOpen()).toBe(true);
+      // `right-start` → `originX: 'end'` + `overlayX: 'start'`: the panel hangs
+      // off the trigger's right, so the arrow rides its left edge.
+      expect(fixture.componentInstance.themeMenu._popup().arrowEdge()).toBe(
+        'left',
+      );
+    });
+
+    it('puts it on the physical right edge under a scoped [dir="rtl"] while the document stays LTR', async () => {
+      const fixture = await openDetachedSubmenu('rtl');
+
+      expect(rtlService.direction()).toBe('ltr');
+      expect(fixture.componentInstance.themeMenu._isOpen()).toBe(true);
+      // Same logical pair, mirrored pane: the panel is now to the trigger's
+      // left, so the arrow belongs on the panel's right edge. Resolving the
+      // direction from `<mlv-menu>`'s own host — which sits outside the scope —
+      // would report LTR here and leave the arrow on the left.
+      expect(fixture.componentInstance.themeMenu._popup().arrowEdge()).toBe(
+        'right',
+      );
+    });
+
     it('stays unmirrored when the trigger scope is LTR under an RTL document', async () => {
       rtlService.setDirection('rtl');
       const { fixture, buttons } = await openDetachedMenubar('ltr');

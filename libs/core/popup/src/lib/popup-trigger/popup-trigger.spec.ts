@@ -4,7 +4,7 @@ import type { WritableSignal } from '@angular/core';
 import { Component, signal, viewChild } from '@angular/core';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
-import { MlvBreakpointService } from '@malva-ui/cdk/utils';
+import { MlvBreakpointService, MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvPopup, POPUP_DETACH_WATCHDOG_MS } from '../popup/popup';
 import { MlvPopupContent } from '../popup-content';
 import { MlvPopupTrigger } from './popup-trigger';
@@ -153,5 +153,88 @@ describe('MlvPopupTrigger — standalone mode, breakpoint flip while open', () =
     expect(panelIsFullscreen()).toBe(false);
     expect(hasCloseButton()).toBe(false);
     expect(fixture.componentInstance.popup().isFullscreen()).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Arrow direction in standalone mode (#163)
+//
+// `MlvPopupTrigger` is its own overlay owner — it calls `MlvPopupService.open()`
+// directly rather than going through `MlvPopupContainer` — so it wires
+// `onPositionChange` itself and needs its own coverage.
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvPopup, MlvPopupContent, MlvPopupTrigger],
+  template: `
+    <div [attr.dir]="scope()">
+      <button [mlvPopupTrigger]="arrowPopup" triggerOn="click">open</button>
+      <mlv-popup #arrowPopup position="right-start" [hasArrow]="true">
+        <ng-template mlvPopupContent><span>panel body</span></ng-template>
+      </mlv-popup>
+    </div>
+  `,
+})
+class ArrowHostComponent {
+  readonly scope = signal<string | null>(null);
+  readonly trigger = viewChild.required(MlvPopupTrigger);
+  readonly popup = viewChild.required(MlvPopup);
+}
+
+describe('MlvPopupTrigger — arrow direction', () => {
+  let overlayContainer: OverlayContainer;
+  let fixture: ComponentFixture<ArrowHostComponent>;
+  let rtl: MlvRtlService;
+
+  beforeEach(async () => {
+    document.documentElement.removeAttribute('dir');
+    await TestBed.configureTestingModule({
+      imports: [ArrowHostComponent],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+    rtl = TestBed.inject(MlvRtlService);
+    fixture = TestBed.createComponent(ArrowHostComponent);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    // Global state: `setDirection` writes `documentElement.dir` and the root
+    // CDK `Directionality`.
+    rtl.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+    overlayContainer.ngOnDestroy();
+  });
+
+  async function open(): Promise<MlvPopup> {
+    fixture.componentInstance.trigger().open();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return fixture.componentInstance.popup();
+  }
+
+  it('anchors a `right-start` arrow to the physical left edge in LTR', async () => {
+    const popup = await open();
+    expect(popup.arrowEdge()).toBe('left');
+  });
+
+  it('anchors it to the physical right edge under a scoped `[dir="rtl"]`', async () => {
+    fixture.componentInstance.scope.set('rtl');
+    fixture.detectChanges();
+
+    const popup = await open();
+
+    expect(rtl.direction()).toBe('ltr');
+    expect(popup.arrowEdge()).toBe('right');
+  });
+
+  it('anchors it to the physical right edge under a global flip', async () => {
+    rtl.setDirection('rtl');
+    fixture.detectChanges();
+
+    const popup = await open();
+
+    expect(popup.arrowEdge()).toBe('right');
   });
 });
