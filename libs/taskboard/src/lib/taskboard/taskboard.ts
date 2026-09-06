@@ -231,6 +231,9 @@ interface MlvTaskboardDropAnchor {
   hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
   host: {
     class: 'mlv-taskboard',
+    // Lanes replace the per-column panel with an open band, so the whole
+    // presentation switches on one host modifier rather than per element.
+    '[class.mlv-taskboard--swimlanes]': 'swimlanes().length > 0',
     '[class.mlv-taskboard--move-pending]': '_movePending()',
     '[style.--mlv-taskboard-virtual-item-size]': '_virtualItemSizeVar()',
     '[attr.aria-busy]': '_movePending() || null',
@@ -1458,6 +1461,30 @@ export class MlvTaskboard<TItem> {
     return wip.limit === undefined
       ? String(wip.count)
       : this._translate('wipState', { count: wip.count, limit: wip.limit });
+  }
+
+  /**
+   * @protected Whether a built-in column header's count pill has reached the
+   * column's limit. A column with no limit can never be at one, so it renders
+   * the neutral pill however many cards it holds.
+   */
+  protected _wipAtLimit(column: MlvTaskboardColumn): boolean {
+    const wip = this._wipFor(column, undefined);
+    return wip.limit !== undefined && wip.count >= wip.limit;
+  }
+
+  /**
+   * @protected How many cards a built-in lane header counts: the cards the
+   * lane actually renders, summed across the columns, so a `visibleItems`
+   * filter is reflected the same way each cell's own contents are.
+   */
+  protected _laneCount(swimlane: MlvTaskboardSwimlane): number {
+    const index = this._index();
+    let count = 0;
+    for (const column of this.columns()) {
+      count += index.itemsFor(column.id, swimlane.id).length;
+    }
+    return count;
   }
 
   /** Returns the stable item key used by DOM adapters and selection. */

@@ -8,12 +8,24 @@ export interface MlvTaskboardColumn {
   readonly locked?: boolean;
   readonly collapsible?: boolean;
   readonly wipLimit?: number;
+  /**
+   * Colour of the column's top stripe; falls back to the neutral stripe when
+   * omitted. Any CSS `<color>`, a `var(--mlv-…)` expression being the expected
+   * form — it is written straight onto the header as a custom property.
+   */
+  readonly accent?: string;
 }
 
 export interface MlvTaskboardColumnGroup {
   readonly id: MlvTaskboardKey;
   readonly label: string;
   readonly wipLimit?: number;
+  /**
+   * Colour of the group's underline; falls back to the neutral stripe when
+   * omitted. Any CSS `<color>`, a `var(--mlv-…)` expression being the expected
+   * form — it is written straight onto the group header as a custom property.
+   */
+  readonly accent?: string;
 }
 
 export interface MlvTaskboardSwimlane {

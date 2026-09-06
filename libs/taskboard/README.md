@@ -83,6 +83,7 @@ bootstrapApplication(App, {
 - **Selection** — a two-way `ReadonlySet` model with click / `Ctrl`-click / `Shift`-click semantics and `aria-multiselectable` listbox cells.
 - **Virtual columns** — `virtualItemSize` puts every cell on a CDK virtual viewport; drop indices are translated back through the rendered window.
 - **History, snapshots, export, print** — `undo()`, `redo()`, `snapshot()`, `restore()`, `exportJson()`, `exportCsv()`, `print()`.
+- **Column panels and accents** — a board without swimlanes renders each column as a soft panel with an accent stripe along its top edge; a laned board drops the panels for open bands. `MlvTaskboardColumn.accent` / `MlvTaskboardColumnGroup.accent` take any CSS `<color>` (a `var(--mlv-…)` token is the expected form) and colour the stripe and the group underline.
 - **Density and RTL** — `[mlvDensity]` on the board itself; the inline axis mirrors from the `dir` attribute that applies to the host.
 - **Server-rendering safe** — the whole grid role tree renders on the server; the drag engine attaches in the browser only.
 
@@ -90,7 +91,7 @@ bootstrapApplication(App, {
 
 Rendered elements carry stable data attributes. The four **identifier** attributes — `data-mlv-taskboard-card-id`, `-column-id`, `-swimlane-id`, `-group-id` — carry the **key token** `` `${typeof key}:${String(key)}` ``, so a card keyed `1` renders `data-mlv-taskboard-card-id="number:1"` and one keyed `'1'` renders `string:1`. Select on the token, not on the bare value.
 
-The remaining three are not key tokens: `data-mlv-taskboard-column-locked` and `data-mlv-taskboard-selected` are `"true"` or absent, and `data-mlv-taskboard-drop-state` is `valid` or `invalid` on the container the drag is hovering.
+The remaining four are not key tokens: `data-mlv-taskboard-column-locked` and `data-mlv-taskboard-selected` are `"true"` or absent, `data-mlv-taskboard-drop-state` is `valid` or `invalid` on the container the drag is hovering, and `data-mlv-taskboard-wip="at-limit"` marks a built-in column header's count pill that has reached its column's limit.
 
 ## Peer dependencies
 

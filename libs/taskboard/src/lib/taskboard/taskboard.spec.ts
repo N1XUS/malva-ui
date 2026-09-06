@@ -168,7 +168,10 @@ describe('MlvTaskboard', () => {
       (cards.getAttribute('aria-labelledby') ?? '')
         .split(' ')
         .map((id) => host.querySelector(`#${id}`)?.textContent?.trim()),
-    ).toEqual(['Todo (2)', 'Engineering']);
+      // This host projects a column header, so that half is its own markup;
+      // the lane header is the built-in one — a title span plus a count pill,
+      // which stays in the accessible name so the cell announces its load.
+    ).toEqual(['Todo (2)', 'Engineering2']);
     expect(
       host.querySelector('.mlv-taskboard__card')?.getAttribute('role'),
     ).toBe('option');
@@ -421,12 +424,13 @@ describe('MlvTaskboard', () => {
     expect(
       host.querySelector('.mlv-taskboard__card')?.textContent?.trim(),
     ).toBe('Ticket one');
+    // The built-in header renders the label and the count as two elements —
+    // a title span and a pill — so the concatenated text carries no bracket.
+    // A column with a limit still states the translated `wipState` ratio.
     expect(headers[0]?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Todo (1/2)',
+      'Todo1/2',
     );
-    expect(headers[1]?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Done (0)',
-    );
+    expect(headers[1]?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Done0');
   });
 });
 

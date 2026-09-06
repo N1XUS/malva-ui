@@ -26,6 +26,7 @@
               class="mlv-taskboard__group"
               role="columnheader"
               [style.grid-column]="'span ' + run.span"
+              [style.--mlv-taskboard-group-accent]="group.accent ?? null"
               [attr.aria-colspan]="run.span"
               [attr.data-mlv-taskboard-group-id]="_keyAttribute(group.id)"
               [attr.aria-label]="group.label"
@@ -36,7 +37,9 @@
                   [ngTemplateOutletContext]="_groupContext(group)"
                 />
               } @else {
-                {{ group.label }}
+                <span class="mlv-taskboard__group-title">{{
+                  group.label
+                }}</span>
               }
             </div>
           } @else {
@@ -56,6 +59,7 @@
           class="mlv-taskboard__column-header"
           role="columnheader"
           [attr.id]="_columnHeaderId(column)"
+          [style.--mlv-taskboard-column-accent]="column.accent ?? null"
           [attr.data-mlv-taskboard-column-id]="_keyAttribute(column.id)"
           [attr.data-mlv-taskboard-column-locked]="
             _isColumnLocked(column) || null
@@ -68,7 +72,29 @@
               [ngTemplateOutletContext]="_columnContext(column)"
             />
           } @else {
-            {{ column.label }} ({{ _wipLabel(column) }})
+            <span class="mlv-taskboard__column-title">{{ column.label }}</span>
+            @if (_isColumnLocked(column)) {
+              <svg
+                class="mlv-taskboard__lock"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="4" y="10" width="16" height="11" rx="2" />
+                <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+              </svg>
+            }
+            <span
+              class="mlv-taskboard__count"
+              [attr.data-mlv-taskboard-wip]="
+                _wipAtLimit(column) ? 'at-limit' : null
+              "
+              >{{ _wipLabel(column) }}</span
+            >
           }
         </div>
       }
@@ -91,7 +117,8 @@
               [ngTemplateOutletContext]="_swimlaneContext(swimlane)"
             />
           } @else {
-            {{ swimlane.label }}
+            <span class="mlv-taskboard__lane-title">{{ swimlane.label }}</span>
+            <span class="mlv-taskboard__count">{{ _laneCount(swimlane) }}</span>
           }
         </div>
         @for (column of columns(); track column.id) {
@@ -220,6 +247,18 @@
           class="mlv-taskboard__add"
           (click)="requestAdd(column, swimlane)"
         >
+          <svg
+            class="mlv-taskboard__add-icon"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
           {{ _i18n().addCard }}
         </button>
       }

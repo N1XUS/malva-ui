@@ -9,74 +9,300 @@
   #{$block} {
     @include mixins.base();
 
-    --mlv-taskboard-padding: var(--mlv-padding-m);
-    --mlv-taskboard-gap: var(--mlv-spacing-3);
+    // Every one of these is a single length, never a `--mlv-padding-*` pair:
+    // they are fed to `padding-inline`, `padding-block` and `gap`, where a
+    // two-value pair would be split across sides instead of applied to each.
+    --mlv-taskboard-padding: var(--mlv-spacing-4);
+    --mlv-taskboard-gap: var(--mlv-spacing-4);
     --mlv-taskboard-column-width: 18rem;
-    --mlv-taskboard-card-gap: var(--mlv-spacing-2);
+    --mlv-taskboard-card-gap: var(--mlv-spacing-3);
+    --mlv-taskboard-card-padding: var(--mlv-spacing-5);
+    --mlv-taskboard-stripe-size: 0.25rem;
+
+    // `--mlv-taskboard-column-accent` and `--mlv-taskboard-group-accent` are
+    // deliberately *not* declared here: the header binding writes them per
+    // element, and a declaration on the block would win over an inherited
+    // value only to hand every column the same stripe.
 
     display: block;
     color: var(--mlv-text-primary);
-    background-color: var(--mlv-elevation-bg-1);
+    background-color: var(--mlv-elevation-bg-2);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-card);
     padding: var(--mlv-taskboard-padding);
 
     @include density.density-tight {
-      --mlv-taskboard-padding: var(--mlv-padding-xs);
-      --mlv-taskboard-gap: var(--mlv-spacing-1);
+      --mlv-taskboard-padding: var(--mlv-spacing-2);
+      --mlv-taskboard-gap: var(--mlv-spacing-2);
       --mlv-taskboard-column-width: 14rem;
       --mlv-taskboard-card-gap: var(--mlv-spacing-1);
+      --mlv-taskboard-card-padding: var(--mlv-spacing-2);
     }
 
     @include density.density-compact {
-      --mlv-taskboard-padding: var(--mlv-padding-s);
-      --mlv-taskboard-gap: var(--mlv-spacing-2);
+      --mlv-taskboard-padding: var(--mlv-spacing-3);
+      --mlv-taskboard-gap: var(--mlv-spacing-3);
       --mlv-taskboard-column-width: 16rem;
-      --mlv-taskboard-card-gap: var(--mlv-spacing-1-5);
+      --mlv-taskboard-card-gap: var(--mlv-spacing-2);
+      --mlv-taskboard-card-padding: var(--mlv-spacing-3);
     }
 
     @include density.density-spacious {
-      --mlv-taskboard-padding: var(--mlv-padding-l);
-      --mlv-taskboard-gap: var(--mlv-spacing-4);
+      --mlv-taskboard-padding: var(--mlv-spacing-5);
+      --mlv-taskboard-gap: var(--mlv-spacing-5);
       --mlv-taskboard-column-width: 21rem;
       --mlv-taskboard-card-gap: var(--mlv-spacing-3);
+      --mlv-taskboard-card-padding: var(--mlv-spacing-5);
     }
 
     @include density.density-airy {
-      --mlv-taskboard-padding: var(--mlv-padding-xl);
-      --mlv-taskboard-gap: var(--mlv-spacing-5);
+      --mlv-taskboard-padding: var(--mlv-spacing-6);
+      --mlv-taskboard-gap: var(--mlv-spacing-6);
       --mlv-taskboard-column-width: 24rem;
       --mlv-taskboard-card-gap: var(--mlv-spacing-4);
+      --mlv-taskboard-card-padding: var(--mlv-spacing-6);
+    }
+
+    &__header {
+      margin-block-end: var(--mlv-spacing-3);
+      font-weight: 600;
+      text-align: start;
     }
 
     &__surface {
       display: flex;
       flex-direction: column;
-      gap: var(--mlv-taskboard-gap);
+      // The column header band and the cells beneath it read as one panel, so
+      // nothing separates the rows; the inline gutter between columns lives on
+      // each grid row instead, and laned boards space their bands themselves.
+      row-gap: 0;
       overflow-x: auto;
-      padding-inline: var(--mlv-taskboard-padding);
-      padding-block: var(--mlv-taskboard-padding);
     }
 
-    &__header,
-    &__group,
-    &__column-header,
+    &__group-row,
+    &__column-row,
+    &__lane {
+      display: grid;
+      grid-template-columns: minmax(8rem, auto) repeat(
+          var(--mlv-taskboard-column-count),
+          minmax(var(--mlv-taskboard-column-width), 1fr)
+        );
+      column-gap: var(--mlv-taskboard-gap);
+    }
+
+    &__lane-spacer {
+      min-inline-size: 8rem;
+    }
+
+    // ---------------------------------------------------------------- group
+
+    &__group {
+      padding-block-end: var(--mlv-spacing-2);
+      border-block-end: 0.1875rem solid
+        var(--mlv-taskboard-group-accent, var(--mlv-border-normal));
+      font-weight: 600;
+      text-align: center;
+      text-transform: none;
+    }
+
+    &__group--spacer {
+      border-block-end: 0;
+    }
+
+    &__group-row {
+      margin-block-end: var(--mlv-spacing-3);
+    }
+
+    // -------------------------------------------------------- column header
+
+    &__column-header {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-2);
+      padding-block: var(--mlv-spacing-3);
+      padding-inline: var(--mlv-spacing-4);
+      // Block-start, so the stripe never mirrors: it is not on the inline axis.
+      border-block-start: var(--mlv-taskboard-stripe-size) solid
+        var(--mlv-taskboard-column-accent, var(--mlv-border-normal));
+      font-size: var(--mlv-typography-body-m-size);
+      font-weight: 600;
+      text-align: start;
+      // The header is the column's drag handle.
+      cursor: grab;
+    }
+
+    &__column-header[data-mlv-taskboard-column-locked] {
+      cursor: default;
+    }
+
+    &__column-title {
+      flex: 1 1 auto;
+      min-inline-size: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__lock {
+      flex: 0 0 auto;
+      inline-size: 0.875rem;
+      block-size: 0.875rem;
+      color: var(--mlv-text-secondary);
+    }
+
+    // ----------------------------------------------------------- lane header
+
     &__lane-header {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-2);
+      padding-inline-end: var(--mlv-spacing-4);
+      padding-block: var(--mlv-spacing-2);
       font-weight: 600;
       text-align: start;
     }
 
-    &__group {
-      padding-inline: var(--mlv-taskboard-padding);
-      padding-block: var(--mlv-spacing-1);
+    &__lane-title {
+      min-inline-size: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    &__column-header {
-      padding-inline: var(--mlv-taskboard-padding);
-      padding-block: var(--mlv-spacing-2);
-      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+    // ------------------------------------------------------------ count pill
+
+    &__count {
+      flex: 0 0 auto;
+      min-inline-size: 1.5rem;
+      padding-inline: var(--mlv-spacing-2);
+      border-radius: var(--mlv-radius-full);
+      background-color: var(--mlv-background-neutral-1);
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+      font-weight: 500;
+      text-align: center;
+    }
+
+    &__count[data-mlv-taskboard-wip='at-limit'] {
+      background-color: var(--mlv-background-warning-1-pale);
+      color: var(--mlv-text-warning);
+    }
+
+    // ------------------------------------------------------------- panel look
+
+    // Boards without swimlanes render each column as a soft panel: an accent
+    // stripe, the header band, and the cell below it as one rounded surface.
+    &:not(#{$block}--swimlanes) &__column-header {
+      border-start-start-radius: var(--mlv-radius-card);
+      border-start-end-radius: var(--mlv-radius-card);
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+      background-color: var(--mlv-background-subtle);
+    }
+
+    // No lane headers to align against, so the lane gutter collapses and the
+    // columns start at the board's inline edge.
+    &:not(#{$block}--swimlanes) &__group-row,
+    &:not(#{$block}--swimlanes) &__column-row,
+    &:not(#{$block}--swimlanes) &__lane {
+      grid-template-columns: repeat(
+        var(--mlv-taskboard-column-count),
+        minmax(var(--mlv-taskboard-column-width), 1fr)
+      );
+    }
+
+    &:not(#{$block}--swimlanes) &__lane-spacer {
+      display: none;
+    }
+
+    &__lane--default {
+      // Every panel ends level with the tallest one.
+      align-items: stretch;
+    }
+
+    &__lane--default &__cell {
+      padding-block: var(--mlv-spacing-3);
+      padding-inline: var(--mlv-spacing-3);
+      border: 0;
+      border-end-start-radius: var(--mlv-radius-card);
+      border-end-end-radius: var(--mlv-radius-card);
+      background-color: var(--mlv-background-subtle);
+      min-block-size: 12rem;
+    }
+
+    // --------------------------------------------------------- open-band look
+
+    // Laned boards drop the panel entirely: the header row and each lane are
+    // open bands on the board surface, separated by hairlines.
+    &--swimlanes &__column-row {
+      padding-block-end: var(--mlv-spacing-2);
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    }
+
+    &--swimlanes &__lane {
+      align-items: start;
+      padding-block: var(--mlv-spacing-4);
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    }
+
+    // Cells carry no fill, border or radius of their own — the panel look
+    // adds them on the default lane — so a laned cell only needs a floor.
+    &--swimlanes &__cell {
+      min-block-size: 4rem;
+    }
+
+    // ------------------------------------------------------------------ cells
+
+    &__cell {
+      display: flex;
+      flex-direction: column;
+      gap: var(--mlv-taskboard-card-gap);
+      min-inline-size: var(--mlv-taskboard-column-width);
+    }
+
+    &__cell[data-collapsed='true'] {
+      min-block-size: auto;
+
+      .mlv-taskboard__card,
+      .mlv-taskboard__add {
+        display: none;
+      }
+    }
+
+    &__cards {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      gap: var(--mlv-taskboard-card-gap);
+      min-block-size: var(--mlv-spacing-6);
+      border-radius: var(--mlv-radius-card);
+      outline: var(--mlv-stroke-width-medium) solid transparent;
+      outline-offset: var(--mlv-focus-ring-offset);
+      transition: outline-color var(--mlv-duration-fast) var(--mlv-ease-default);
+    }
+
+    // Virtual cells scroll inside a fixed block size: a viewport with no
+    // measurable height renders nothing, so the cell declares one. The card
+    // size the board was given is republished for consumers styling cards.
+    &__cards--virtual {
+      flex: 0 0 auto;
+      block-size: var(--mlv-taskboard-cell-block-size, 20rem);
+      overflow-y: auto;
+
+      .mlv-taskboard__card {
+        min-block-size: var(--mlv-taskboard-virtual-item-size, 2.75rem);
+      }
+    }
+
+    &__cards[data-mlv-taskboard-drop-state='valid'] {
+      outline-color: var(--mlv-border-focus);
+    }
+
+    &__cards[data-mlv-taskboard-drop-state='invalid'] {
+      outline-color: var(--mlv-border-error);
     }
 
     &__column-row[data-mlv-taskboard-drop-state] {
-      border-radius: var(--mlv-radius-panel);
+      border-radius: var(--mlv-radius-card);
       outline: var(--mlv-stroke-width-medium) solid transparent;
       outline-offset: var(--mlv-focus-ring-offset);
       transition: outline-color var(--mlv-duration-fast) var(--mlv-ease-default);
@@ -90,97 +316,105 @@
       outline-color: var(--mlv-border-error);
     }
 
-    &__group-row,
-    &__column-row {
-      display: grid;
-      grid-template-columns: minmax(8rem, auto) repeat(
-          var(--mlv-taskboard-column-count),
-          minmax(var(--mlv-taskboard-column-width), 1fr)
-        );
-      gap: var(--mlv-taskboard-gap);
-    }
+    // ------------------------------------------------------------------ cards
 
-    &__lane {
-      display: grid;
-      grid-template-columns: minmax(8rem, auto) repeat(
-          var(--mlv-taskboard-column-count),
-          minmax(var(--mlv-taskboard-column-width), 1fr)
-        );
-      gap: var(--mlv-taskboard-gap);
-    }
-
-    &__lane-header {
-      padding-inline: var(--mlv-taskboard-padding);
-      padding-block: var(--mlv-spacing-2);
-      background-color: var(--mlv-background-neutral-1);
-    }
-
-    &__lane-spacer {
-      min-inline-size: 8rem;
-    }
-
-    &__cell {
-      display: flex;
-      flex-direction: column;
-      min-inline-size: var(--mlv-taskboard-column-width);
-      min-block-size: 8rem;
-      gap: var(--mlv-taskboard-card-gap);
-      padding-inline: var(--mlv-taskboard-padding);
-      padding-block: var(--mlv-taskboard-padding);
-      border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+    &__card {
+      display: block;
+      inline-size: 100%;
+      padding: var(--mlv-taskboard-card-padding);
+      border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
       border-radius: var(--mlv-radius-card);
       background-color: var(--mlv-elevation-bg-2);
+      box-shadow: var(--mlv-shadow-flat);
+      color: var(--mlv-text-primary);
+      font: inherit;
+      appearance: none;
+      text-align: start;
+      cursor: grab;
+      transition:
+        border-color var(--mlv-duration-fast) var(--mlv-ease-default),
+        box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
     }
 
-    &__cell[data-collapsed='true'] {
-      min-block-size: auto;
-
-      .mlv-taskboard__card,
-      .mlv-taskboard__add {
-        display: none;
-      }
+    &__card:hover {
+      border-color: var(--mlv-border-normal);
+      box-shadow: var(--mlv-shadow-raised);
     }
 
-    // Virtual cells scroll inside a fixed block size: a viewport with no
-    // measurable height renders nothing, so the cell declares one. The card
-    // size the board was given is republished for consumers styling cards.
-    &__cards--virtual {
-      block-size: var(--mlv-taskboard-cell-block-size, 20rem);
-      overflow-y: auto;
-
-      .mlv-taskboard__card {
-        min-block-size: var(--mlv-taskboard-virtual-item-size, 2.75rem);
-      }
+    // Persistent selection reads as a ring, not a fill: an `-active` token
+    // would mean "the pointer is down right now", and a fill would fight the
+    // card content the application projects.
+    &__card[data-mlv-taskboard-selected] {
+      border-color: var(--mlv-background-accent-1);
+      box-shadow: inset 0 0 0 var(--mlv-stroke-width)
+        var(--mlv-background-accent-1);
     }
 
-    &__cards {
-      display: flex;
-      flex-direction: column;
-      gap: var(--mlv-taskboard-card-gap);
-      min-block-size: var(--mlv-spacing-6);
-      border-radius: var(--mlv-radius-card);
-      outline: var(--mlv-stroke-width-medium) solid transparent;
+    &__card:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
       outline-offset: var(--mlv-focus-ring-offset);
-      transition: outline-color var(--mlv-duration-fast) var(--mlv-ease-default);
     }
 
-    &__cards[data-mlv-taskboard-drop-state='valid'] {
-      outline-color: var(--mlv-border-focus);
+    // --------------------------------------------------------------- add card
+
+    &__add {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--mlv-spacing-1-5);
+      inline-size: 100%;
+      min-block-size: var(--mlv-height-m);
+      margin-block-start: auto;
+      border: 0;
+      border-radius: var(--mlv-radius-button);
+      background-color: transparent;
+      color: var(--mlv-text-secondary);
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--mlv-transition-colors);
     }
 
-    &__cards[data-mlv-taskboard-drop-state='invalid'] {
-      outline-color: var(--mlv-border-error);
+    &__add:hover {
+      background-color: var(--mlv-background-neutral-1);
+      color: var(--mlv-text-primary);
     }
+
+    &__add:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+
+    &__add-icon {
+      flex: 0 0 auto;
+      inline-size: 1rem;
+      block-size: 1rem;
+    }
+
+    // ------------------------------------------------------------ empty state
+
+    &__empty {
+      margin: 0;
+      padding-block: var(--mlv-spacing-4);
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+      text-align: center;
+    }
+
+    // ---------------------------------------------------------- drag feedback
 
     &__drop-indicator {
       // The indicator is a direct child of the drop container, so a pointer
       // over it would make SortableJS report the container's tail slot and
       // move the indicator out from under the pointer, over and over.
       pointer-events: none;
-      block-size: var(--mlv-spacing-0-5);
+      flex: 0 0 auto;
+      block-size: 0.125rem;
+      // Half the card gap on each side, so slotting the bar between two cards
+      // does not push the rest of the cell down while the pointer hovers.
+      margin-block: calc(var(--mlv-taskboard-card-gap) * -0.5);
       border-radius: var(--mlv-radius-full);
       background-color: var(--mlv-background-accent-1);
-      flex: 0 0 auto;
     }
 
     &__drop-indicator--invalid {
@@ -192,7 +426,10 @@
     }
 
     &__sortable-ghost {
-      opacity: var(--mlv-disabled-opacity);
+      opacity: 0.4;
+      border: var(--mlv-stroke-width) dashed var(--mlv-border-normal);
+      background-color: var(--mlv-background-neutral-1);
+      box-shadow: none;
     }
 
     &__sortable-drag,
@@ -210,40 +447,7 @@
       pointer-events: none;
     }
 
-    &__card,
-    &__add {
-      inline-size: 100%;
-      min-block-size: 2.75rem;
-      padding-inline: var(--mlv-taskboard-padding);
-      padding-block: var(--mlv-spacing-2);
-      border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
-      border-radius: var(--mlv-radius-button);
-      color: var(--mlv-text-primary);
-      background-color: var(--mlv-elevation-bg-3);
-      cursor: pointer;
-      justify-content: flex-start;
-      text-align: start;
-    }
-
-    // Persistent selection, so it takes the selected token pair rather than
-    // an `-active` fill, which means "the pointer is down right now".
-    &__card[data-mlv-taskboard-selected] {
-      border-color: var(--mlv-border-focus);
-      background-color: var(--mlv-background-selected);
-      color: var(--mlv-text-on-selected);
-    }
-
-    &__card:focus-visible,
-    &__add:focus-visible {
-      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: var(--mlv-focus-ring-offset);
-    }
-
-    &__empty {
-      margin-block: 0;
-      margin-inline: 0;
-      color: var(--mlv-text-secondary);
-    }
+    // ------------------------------------------------- assistive-only regions
 
     &__instructions,
     &__live-region {

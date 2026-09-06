@@ -17,7 +17,7 @@ One component, `mlv-taskboard`, renders a typed card collection as columns, opti
 
 ## `MlvTaskboard<TItem>`
 
-Selector `mlv-taskboard`. Host class `mlv-taskboard`, plus `mlv-taskboard--move-pending` and `aria-busy="true"` while an asynchronous `beforeMove` guard is settling, and the `--mlv-taskboard-virtual-item-size` custom property when virtualized. `hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }]` and `{ provide: MLV_DENSITY_ELEMENT, useValue: 'taskboard' }`.
+Selector `mlv-taskboard`. Host class `mlv-taskboard`, plus `mlv-taskboard--swimlanes` whenever `swimlanes` is non-empty (it switches the whole presentation between the column-panel look and the open-band look), `mlv-taskboard--move-pending` and `aria-busy="true"` while an asynchronous `beforeMove` guard is settling, and the `--mlv-taskboard-virtual-item-size` custom property when virtualized. `hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }]` and `{ provide: MLV_DENSITY_ELEMENT, useValue: 'taskboard' }`.
 
 ### Inputs
 
@@ -102,8 +102,8 @@ Each directive exposes its `templateRef` and a static `ngTemplateContextGuard` f
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MlvTaskboardKey`                       | `string \| number`                                                                                                                            |
 | `MlvTaskboardField<TItem>`              | `Extract<keyof TItem, string>`                                                                                                                |
-| `MlvTaskboardColumn`                    | `{ id, label, groupId?, locked?, collapsible?, wipLimit? }`                                                                                   |
-| `MlvTaskboardColumnGroup`               | `{ id, label, wipLimit? }`                                                                                                                    |
+| `MlvTaskboardColumn`                    | `{ id, label, groupId?, locked?, collapsible?, wipLimit?, accent? }` — `accent` is any CSS `<color>` for the column's top stripe              |
+| `MlvTaskboardColumnGroup`               | `{ id, label, wipLimit?, accent? }` — `accent` colours the group's underline                                                                  |
 | `MlvTaskboardSwimlane`                  | `{ id, label, wipLimit?, locked? }`                                                                                                           |
 | `MlvTaskboardLocation`                  | `{ columnId, swimlaneId?, index }`                                                                                                            |
 | `MlvTaskboardWipState`                  | `{ count, limit, remaining }` — `limit`/`remaining` are `undefined` when unlimited                                                            |
@@ -189,9 +189,21 @@ Stable hooks for styling and for tests. Identifier attributes carry the **key to
 | `data-mlv-taskboard-selected`                                       | A selected card                                                                                 |
 | `data-collapsed`                                                    | A collapsed column header, a collapsed lane row, and any cell whose column or lane is collapsed |
 | `data-mlv-taskboard-drop-state`                                     | The hovered container, reflecting whether it accepts the drag                                   |
+| `data-mlv-taskboard-wip="at-limit"`                                 | A built-in column header's count pill whose column has reached its WIP limit                    |
 | `mlv-taskboard__sortable-chosen` / `-drag` / `-ghost` / `-fallback` | SortableJS drag classes                                                                         |
 
-Density re-declares four custom properties on the host — `--mlv-taskboard-padding`, `--mlv-taskboard-gap`, `--mlv-taskboard-column-width`, `--mlv-taskboard-card-gap` — and a virtualized cell reads `--mlv-taskboard-cell-block-size` (default `20rem`) for its height while the board publishes `--mlv-taskboard-virtual-item-size`.
+Density re-declares five custom properties on the host — `--mlv-taskboard-padding`, `--mlv-taskboard-gap`, `--mlv-taskboard-column-width`, `--mlv-taskboard-card-gap`, `--mlv-taskboard-card-padding`. Each is a **single length**, never a `--mlv-padding-*` pair, because they are fed to `padding-inline` / `padding-block` / `gap`. `--mlv-taskboard-stripe-size` (`0.25rem`) sizes the column stripe. A virtualized cell reads `--mlv-taskboard-cell-block-size` (default `20rem`) for its height while the board publishes `--mlv-taskboard-virtual-item-size`.
+
+`--mlv-taskboard-column-accent` and `--mlv-taskboard-group-accent` are written **per header** from `MlvTaskboardColumn.accent` / `MlvTaskboardColumnGroup.accent` and are deliberately never declared on the block, so a column without an accent falls back to `--mlv-border-normal` through the `var()` fallback instead of inheriting a board-wide value.
+
+## Visual structure
+
+The host is the board surface: `--mlv-elevation-bg-2`, a `--mlv-border-subtle` hairline, `--mlv-radius-card` corners and one `--mlv-taskboard-padding`. Columns scroll on the inline axis inside it. The look switches on the host modifier `mlv-taskboard--swimlanes` (present whenever `swimlanes` is non-empty):
+
+- **Panel look** (no swimlanes) — each column is a soft `--mlv-background-subtle` panel: an accent stripe on the header's block-start edge, the header band inside the panel with a hairline under it, and the default lane's cell closing the panel with the bottom radii. Every panel stretches to the tallest column and `mlv-taskboard__add` sits at its foot. The lane gutter collapses, since there are no lane headers to align against.
+- **Open-band look** (swimlanes) — the column header row sits on the board surface with a hairline beneath it, panels and fills disappear, and each lane is an open band separated by a hairline.
+
+The built-in column header renders `mlv-taskboard__column-title`, an optional inline lock glyph (`mlv-taskboard__lock`, `aria-hidden`) and `mlv-taskboard__count`; the built-in lane header renders `mlv-taskboard__lane-title` plus the same count pill. The count pill stays in the accessible name, so a cell's `aria-labelledby` name carries the column's load. `mlv-taskboard__add` carries an `aria-hidden` plus glyph (`mlv-taskboard__add-icon`) before its translated label. A selected card is a 2px accent ring — `--mlv-background-accent-1` border plus an inset `box-shadow` of the same colour — never a fill.
 
 ## RTL contract
 
