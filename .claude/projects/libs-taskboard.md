@@ -160,7 +160,7 @@ Exactly one card is tabbable — the last focused one, else the first card in re
 | Key                        | While navigating              | While grabbed                                                                                                                                             |
 | -------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ArrowUp` / `ArrowDown`    | Previous / next card          | Move the target slot within the cell                                                                                                                      |
-| `ArrowLeft` / `ArrowRight` | Previous / next column        | Move the target slot across columns (mirrored in an RTL **document**)                                                                                     |
+| `ArrowLeft` / `ArrowRight` | Previous / next column        | Move the target slot across columns (mirrored whenever the **board's own host** is RTL)                                                                   |
 | `Home` / `End`             | First / last card in the cell | First / last slot in the cell                                                                                                                             |
 | `Space`                    | Grab the card                 | Commit through the same guarded flow a pointer drop enters; on the card's own slot it releases in place, announced through the `releasedInPlace` i18n key |
 | `Escape`                   | —                             | Cancel; `items` untouched                                                                                                                                 |
@@ -211,7 +211,7 @@ The built-in column header renders `mlv-taskboard__column-title`, an optional in
 - The board reads the direction that applies to **its own host** through `MlvRtlService.elementDirection()`, so a scoped `dir="rtl"` mirrors that board while the rest of the page stays LTR.
 - Column order and the **column-header drop slot** mirror: while a header is dragged, the landing slot is derived from the pointer position against the remaining headers' inline midpoints, resolved against that direction.
 - Card containers are on the **block axis** and do not mirror; a cell stacks its cards top to bottom in both directions and SortableJS places the dragged card by the same vertical geometry.
-- Horizontal **arrow keys follow the document**, not a `[dir]` scope: `MlvRtlService.normalizeArrowKey` is document-scoped by design, so inside a scoped RTL subtree on an LTR page the pointer geometry mirrors and the arrow keys do not. There is deliberately no scoped-`[dir]` keyboard spec — one would fail, and the sanctioned API is what the board calls.
+- Horizontal **arrow keys mirror against the board's own host** — `MlvRtlService.normalizeArrowKey(event, elementDirection(host)())` — so `ArrowLeft` means "next column" inside a scoped `dir="rtl"` board on an LTR page and the keys agree with the pointer geometry, which resolves against the same element; pinned by the scoped-`[dir]` specs in `taskboard-keyboard.spec.ts` (both islands, with `ArrowUp`/`ArrowDown`/`Home`/`End` asserted unchanged).
 
 ## Virtual rendering
 

@@ -135,6 +135,50 @@ describe('MlvTaskboard keyboard interaction', () => {
     expect(card('x').getAttribute('tabindex')).toBe('0');
   });
 
+  it('mirrors the horizontal arrows inside a scoped RTL board on an LTR page', async () => {
+    const { card, key, focus, fixture } = await mount();
+    fixture.componentInstance.direction.set('rtl');
+    fixture.detectChanges();
+
+    // The board host is the only `[dir="rtl"]` on the page: the document, and
+    // therefore the service's global reading, stays LTR.
+    expect(rtlService.direction()).toBe('ltr');
+
+    focus('a');
+    key('a', 'ArrowLeft');
+    expect(card('x').getAttribute('tabindex')).toBe('0');
+
+    // Vertical arrows, `Home` and `End` never mirror: the same keys walk the
+    // same cell in both directions.
+    key('x', 'ArrowDown');
+    expect(card('x').getAttribute('tabindex')).toBe('0');
+
+    key('x', 'ArrowRight');
+    expect(card('a').getAttribute('tabindex')).toBe('0');
+
+    key('a', 'End');
+    expect(card('b').getAttribute('tabindex')).toBe('0');
+
+    key('b', 'Home');
+    expect(card('a').getAttribute('tabindex')).toBe('0');
+  });
+
+  it('keeps the horizontal arrows unmirrored in an LTR board on an RTL page', async () => {
+    const { card, key, focus, fixture } = await mount();
+    rtlService.setDirection('rtl');
+    fixture.componentInstance.direction.set('ltr');
+    fixture.detectChanges();
+
+    expect(rtlService.direction()).toBe('rtl');
+
+    focus('a');
+    key('a', 'ArrowRight');
+    expect(card('x').getAttribute('tabindex')).toBe('0');
+
+    key('x', 'ArrowLeft');
+    expect(card('a').getAttribute('tabindex')).toBe('0');
+  });
+
   it('grabs, aims, and commits a move through the shared pipeline', async () => {
     const { fixture, key, focus, live } = await mount();
 

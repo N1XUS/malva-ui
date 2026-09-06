@@ -602,6 +602,18 @@ export class MlvTaskboard<TItem> {
   private readonly _rtlService = inject(MlvRtlService);
 
   /**
+   * @private The direction applying to this board's own host, resolved once
+   * and cached behind the service's shared `dir` observer rather than re-walked
+   * on every arrow keypress. Cards are rendered inside this host, so it is the
+   * scope their keydown handler speaks for — and the same element the column
+   * header row's pointer geometry resolves against, so the two halves of the
+   * inline axis cannot disagree.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
+  /**
    * @private Prefix every id this board mints shares, so two boards on one page
    * never collide on a header or instruction id.
    */
@@ -1281,10 +1293,11 @@ export class MlvTaskboard<TItem> {
    * `ArrowLeft` means "next column" inside an RTL subtree and the board reads
    * the same way in both directions.
    *
-   * That mirroring follows the **document** direction, not a `[dir]` scope:
-   * `normalizeArrowKey` reads the service's document-level direction only. So
-   * there is deliberately no scoped-`[dir]` keyboard spec — one would fail,
-   * and the sanctioned API is what the board calls.
+   * That mirroring resolves against the direction applying to the **board's
+   * own host** (`_direction`), so it follows a scoped `dir="rtl"` subtree and
+   * not only the document: the keys and the column-header pointer geometry
+   * read the same element and cannot disagree. Pinned by the scoped-`[dir]`
+   * specs in `taskboard-keyboard.spec.ts`.
    */
   protected _onCardKeydown(
     event: KeyboardEvent,
@@ -1320,7 +1333,10 @@ export class MlvTaskboard<TItem> {
 
   /** @private Resolves a keydown to the logical navigation command it means. */
   private _keyboardStep(event: KeyboardEvent): MlvTaskboardKeyboardStep | null {
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
+      event.key
+    ) {
       case RIGHT_ARROW:
         return 'next-column';
       case LEFT_ARROW:
