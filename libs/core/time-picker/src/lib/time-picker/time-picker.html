@@ -1,10 +1,11 @@
 <mlv-form-control-wrapper>
   @if (label() || hint()) {
-  <mlv-label [for]="id()" [required]="required()">
-    {{ label() }} @if (hint()) {
-    <mlv-hint>{{ hint() }}</mlv-hint>
-    }
-  </mlv-label>
+    <mlv-label [for]="id()" [required]="required()">
+      {{ label() }}
+      @if (hint()) {
+        <mlv-hint>{{ hint() }}</mlv-hint>
+      }
+    </mlv-label>
   }
 
   <ng-template mlvFormControlWrapperControl>
@@ -85,45 +86,48 @@
               />
 
               @if (showSeconds()) {
-              <span class="mlv-time-picker__divider" aria-hidden="true">:</span>
+                <span class="mlv-time-picker__divider" aria-hidden="true"
+                  >:</span
+                >
 
-              <!-- Seconds column -->
-              <mlv-scrubber
-                label="Seconds"
-                [items]="_secondItems()"
-                [selectedValue]="_second()"
-                [displayWith]="_twoDigits"
-                [disabled]="computedDisabled()"
-                (valueChange)="_onSecondChange($event)"
-              />
-              } @if (mode() === '12h') {
-              <!-- AM/PM toggle -->
-              <div
-                class="mlv-time-picker__ampm"
-                role="group"
-                [attr.aria-label]="_i18n().period"
-              >
-                <button
-                  type="button"
-                  mlvButton
-                  [variant]="_period() === 'AM' ? 'primary' : 'outlined'"
-                  [attr.aria-pressed]="_period() === 'AM'"
+                <!-- Seconds column -->
+                <mlv-scrubber
+                  label="Seconds"
+                  [items]="_secondItems()"
+                  [selectedValue]="_second()"
+                  [displayWith]="_twoDigits"
                   [disabled]="computedDisabled()"
-                  (click)="_onPeriodChange('AM')"
+                  (valueChange)="_onSecondChange($event)"
+                />
+              }
+              @if (mode() === '12h') {
+                <!-- AM/PM toggle -->
+                <div
+                  class="mlv-time-picker__ampm"
+                  role="group"
+                  [attr.aria-label]="_i18n().period"
                 >
-                  AM
-                </button>
-                <button
-                  type="button"
-                  mlvButton
-                  [variant]="_period() === 'PM' ? 'primary' : 'outlined'"
-                  [attr.aria-pressed]="_period() === 'PM'"
-                  [disabled]="computedDisabled()"
-                  (click)="_onPeriodChange('PM')"
-                >
-                  PM
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    mlvButton
+                    [variant]="_period() === 'AM' ? 'primary' : 'outlined'"
+                    [attr.aria-pressed]="_period() === 'AM'"
+                    [disabled]="computedDisabled()"
+                    (click)="_onPeriodChange('AM')"
+                  >
+                    AM
+                  </button>
+                  <button
+                    type="button"
+                    mlvButton
+                    [variant]="_period() === 'PM' ? 'primary' : 'outlined'"
+                    [attr.aria-pressed]="_period() === 'PM'"
+                    [disabled]="computedDisabled()"
+                    (click)="_onPeriodChange('PM')"
+                  >
+                    PM
+                  </button>
+                </div>
               }
             </div>
           </div>
@@ -133,10 +137,13 @@
   </ng-template>
 
   @if (description()) {
-  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-  } @if (message()) {
-  <mlv-message [id]="_messageId()" [state]="resolvedState()">
-    {{ message() }}
-  </mlv-message>
+    <mlv-description [id]="_descriptionId()">{{
+      description()
+    }}</mlv-description>
+  }
+  @if (message()) {
+    <mlv-message [id]="_messageId()" [state]="resolvedState()">
+      {{ message() }}
+    </mlv-message>
   }
 </mlv-form-control-wrapper>

@@ -41,183 +41,191 @@
 
   <!-- Opacity slider -->
   @if (showOpacity()) {
-  <div class="mlv-color-picker__slider-row">
-    <div
-      class="mlv-color-picker__slider-track mlv-color-picker__slider-track--opacity"
-    >
+    <div class="mlv-color-picker__slider-row">
       <div
-        class="mlv-color-picker__opacity-gradient"
-        [style.background]="'linear-gradient(to right, transparent, ' + _hueColor() + ')'"
-        aria-hidden="true"
-      ></div>
-      <input
-        type="range"
-        class="mlv-color-picker__range-input"
-        min="0"
-        max="100"
-        step="1"
-        [value]="_getOpacityPercent()"
-        [disabled]="computedDisabled()"
-        (input)="_onOpacityChange($event)"
-        [attr.aria-label]="_i18n().opacity"
-      />
+        class="mlv-color-picker__slider-track mlv-color-picker__slider-track--opacity"
+      >
+        <div
+          class="mlv-color-picker__opacity-gradient"
+          [style.background]="
+            'linear-gradient(to right, transparent, ' + _hueColor() + ')'
+          "
+          aria-hidden="true"
+        ></div>
+        <input
+          type="range"
+          class="mlv-color-picker__range-input"
+          min="0"
+          max="100"
+          step="1"
+          [value]="_getOpacityPercent()"
+          [disabled]="computedDisabled()"
+          (input)="_onOpacityChange($event)"
+          [attr.aria-label]="_i18n().opacity"
+        />
+      </div>
     </div>
-  </div>
   }
 </div>
 
 @if (_supportedFormats().length === 1) {
-<ng-container
-  [ngTemplateOutlet]="modeInputs"
-  [ngTemplateOutletContext]="{ $implicit: _supportedFormats()[0] }"
-/>
+  <ng-container
+    [ngTemplateOutlet]="modeInputs"
+    [ngTemplateOutletContext]="{ $implicit: _supportedFormats()[0] }"
+  />
 } @else {
-<mlv-tab-group
-  class="mlv-color-picker__format-tabs"
-  mlvDensity="tight"
-  [activeTab]="_inputMode()"
-  (activeTabChange)="_setInputMode($event)"
->
-  @for (format of _supportedFormats(); track format) {
-  <mlv-tab [value]="format">
-    <ng-template mlvTabDef>{{ format.toUpperCase() }}</ng-template>
-    <ng-template mlvTabContent>
-      <ng-container
-        [ngTemplateOutlet]="modeInputs"
-        [ngTemplateOutletContext]="{ $implicit: format }"
-      />
-    </ng-template>
-  </mlv-tab>
-  }
-</mlv-tab-group>
+  <mlv-tab-group
+    class="mlv-color-picker__format-tabs"
+    mlvDensity="tight"
+    [activeTab]="_inputMode()"
+    (activeTabChange)="_setInputMode($event)"
+  >
+    @for (format of _supportedFormats(); track format) {
+      <mlv-tab [value]="format">
+        <ng-template mlvTabDef>{{ format.toUpperCase() }}</ng-template>
+        <ng-template mlvTabContent>
+          <ng-container
+            [ngTemplateOutlet]="modeInputs"
+            [ngTemplateOutletContext]="{ $implicit: format }"
+          />
+        </ng-template>
+      </mlv-tab>
+    }
+  </mlv-tab-group>
 }
 
 <ng-template #modeInputs let-mode>
   <div class="mlv-color-picker__inputs">
-    @switch (mode) { @case ('hex') {
-    <div class="mlv-color-picker__input-group">
-      <mlv-input
-        type="text"
-        class="mlv-color-picker__text-input"
-        [value]="_hexInput()"
-        [disabled]="computedDisabled()"
-        (input)="_onHexInput($event)"
-        [ariaLabel]="_i18n().hexColorValue"
-        autocomplete="off"
-        [maxLength]="9"
-      />
-      <span class="mlv-color-picker__input-label">HEX</span>
-    </div>
-    } @case ('rgb') {
-    <div class="mlv-color-picker__input-group">
-      <mlv-input
-        type="number"
-        class="mlv-color-picker__text-input"
-        [value]="_rgbRInput()"
-        [disabled]="computedDisabled()"
-        (input)="_onRgbRInput($event)"
-        [min]="0"
-        [max]="255"
-        [ariaLabel]="_i18n().redChannel"
-      />
-      <span class="mlv-color-picker__input-label">R</span>
-    </div>
-    <div class="mlv-color-picker__input-group">
-      <mlv-input
-        type="number"
-        class="mlv-color-picker__text-input"
-        [value]="_rgbGInput()"
-        [disabled]="computedDisabled()"
-        (input)="_onRgbGInput($event)"
-        [min]="0"
-        [max]="255"
-        [ariaLabel]="_i18n().greenChannel"
-      />
-      <span class="mlv-color-picker__input-label">G</span>
-    </div>
-    <div class="mlv-color-picker__input-group">
-      <mlv-input
-        type="number"
-        class="mlv-color-picker__text-input"
-        [value]="_rgbBInput()"
-        [disabled]="computedDisabled()"
-        (input)="_onRgbBInput($event)"
-        [min]="0"
-        [max]="255"
-        [ariaLabel]="_i18n().blueChannel"
-      />
-      <span class="mlv-color-picker__input-label">B</span>
-    </div>
-    @if (showOpacity()) {
-    <div class="mlv-color-picker__input-group">
-      <mlv-input
-        type="number"
-        class="mlv-color-picker__text-input"
-        [value]="_rgbAInput()"
-        [disabled]="computedDisabled()"
-        (input)="_onRgbAInput($event)"
-        [min]="0"
-        [max]="1"
-        [step]="0.01"
-        [ariaLabel]="_i18n().alphaChannel"
-      />
-      <span class="mlv-color-picker__input-label">A</span>
-    </div>
-    } } @case ('hsl') {
-    <div class="mlv-color-picker__input-group">
-      <mlv-input
-        type="number"
-        class="mlv-color-picker__text-input"
-        [value]="_hslHInput()"
-        [disabled]="computedDisabled()"
-        (input)="_onHslHInput($event)"
-        [min]="0"
-        [max]="360"
-        [ariaLabel]="_i18n().hslHue"
-      />
-      <span class="mlv-color-picker__input-label">H</span>
-    </div>
-    <div class="mlv-color-picker__input-group">
-      <mlv-input
-        type="number"
-        class="mlv-color-picker__text-input"
-        [value]="_hslSInput()"
-        [disabled]="computedDisabled()"
-        (input)="_onHslSInput($event)"
-        [min]="0"
-        [max]="100"
-        [ariaLabel]="_i18n().hslSaturation"
-      />
-      <span class="mlv-color-picker__input-label">S</span>
-    </div>
-    <div class="mlv-color-picker__input-group">
-      <mlv-input
-        type="number"
-        class="mlv-color-picker__text-input"
-        [value]="_hslLInput()"
-        [disabled]="computedDisabled()"
-        (input)="_onHslLInput($event)"
-        [min]="0"
-        [max]="100"
-        [ariaLabel]="_i18n().hslLightness"
-      />
-      <span class="mlv-color-picker__input-label">L</span>
-    </div>
-    @if (showOpacity()) {
-    <div class="mlv-color-picker__input-group">
-      <mlv-input
-        type="number"
-        class="mlv-color-picker__text-input"
-        [value]="_hslAInput()"
-        [disabled]="computedDisabled()"
-        (input)="_onHslAInput($event)"
-        [min]="0"
-        [max]="1"
-        [step]="0.01"
-        [ariaLabel]="_i18n().hslAlpha"
-      />
-      <span class="mlv-color-picker__input-label">A</span>
-    </div>
-    } } }
+    @switch (mode) {
+      @case ('hex') {
+        <div class="mlv-color-picker__input-group">
+          <mlv-input
+            type="text"
+            class="mlv-color-picker__text-input"
+            [value]="_hexInput()"
+            [disabled]="computedDisabled()"
+            (input)="_onHexInput($event)"
+            [ariaLabel]="_i18n().hexColorValue"
+            autocomplete="off"
+            [maxLength]="9"
+          />
+          <span class="mlv-color-picker__input-label">HEX</span>
+        </div>
+      }
+      @case ('rgb') {
+        <div class="mlv-color-picker__input-group">
+          <mlv-input
+            type="number"
+            class="mlv-color-picker__text-input"
+            [value]="_rgbRInput()"
+            [disabled]="computedDisabled()"
+            (input)="_onRgbRInput($event)"
+            [min]="0"
+            [max]="255"
+            [ariaLabel]="_i18n().redChannel"
+          />
+          <span class="mlv-color-picker__input-label">R</span>
+        </div>
+        <div class="mlv-color-picker__input-group">
+          <mlv-input
+            type="number"
+            class="mlv-color-picker__text-input"
+            [value]="_rgbGInput()"
+            [disabled]="computedDisabled()"
+            (input)="_onRgbGInput($event)"
+            [min]="0"
+            [max]="255"
+            [ariaLabel]="_i18n().greenChannel"
+          />
+          <span class="mlv-color-picker__input-label">G</span>
+        </div>
+        <div class="mlv-color-picker__input-group">
+          <mlv-input
+            type="number"
+            class="mlv-color-picker__text-input"
+            [value]="_rgbBInput()"
+            [disabled]="computedDisabled()"
+            (input)="_onRgbBInput($event)"
+            [min]="0"
+            [max]="255"
+            [ariaLabel]="_i18n().blueChannel"
+          />
+          <span class="mlv-color-picker__input-label">B</span>
+        </div>
+        @if (showOpacity()) {
+          <div class="mlv-color-picker__input-group">
+            <mlv-input
+              type="number"
+              class="mlv-color-picker__text-input"
+              [value]="_rgbAInput()"
+              [disabled]="computedDisabled()"
+              (input)="_onRgbAInput($event)"
+              [min]="0"
+              [max]="1"
+              [step]="0.01"
+              [ariaLabel]="_i18n().alphaChannel"
+            />
+            <span class="mlv-color-picker__input-label">A</span>
+          </div>
+        }
+      }
+      @case ('hsl') {
+        <div class="mlv-color-picker__input-group">
+          <mlv-input
+            type="number"
+            class="mlv-color-picker__text-input"
+            [value]="_hslHInput()"
+            [disabled]="computedDisabled()"
+            (input)="_onHslHInput($event)"
+            [min]="0"
+            [max]="360"
+            [ariaLabel]="_i18n().hslHue"
+          />
+          <span class="mlv-color-picker__input-label">H</span>
+        </div>
+        <div class="mlv-color-picker__input-group">
+          <mlv-input
+            type="number"
+            class="mlv-color-picker__text-input"
+            [value]="_hslSInput()"
+            [disabled]="computedDisabled()"
+            (input)="_onHslSInput($event)"
+            [min]="0"
+            [max]="100"
+            [ariaLabel]="_i18n().hslSaturation"
+          />
+          <span class="mlv-color-picker__input-label">S</span>
+        </div>
+        <div class="mlv-color-picker__input-group">
+          <mlv-input
+            type="number"
+            class="mlv-color-picker__text-input"
+            [value]="_hslLInput()"
+            [disabled]="computedDisabled()"
+            (input)="_onHslLInput($event)"
+            [min]="0"
+            [max]="100"
+            [ariaLabel]="_i18n().hslLightness"
+          />
+          <span class="mlv-color-picker__input-label">L</span>
+        </div>
+        @if (showOpacity()) {
+          <div class="mlv-color-picker__input-group">
+            <mlv-input
+              type="number"
+              class="mlv-color-picker__text-input"
+              [value]="_hslAInput()"
+              [disabled]="computedDisabled()"
+              (input)="_onHslAInput($event)"
+              [min]="0"
+              [max]="1"
+              [step]="0.01"
+              [ariaLabel]="_i18n().hslAlpha"
+            />
+            <span class="mlv-color-picker__input-label">A</span>
+          </div>
+        }
+      }
+    }
   </div>
 </ng-template>

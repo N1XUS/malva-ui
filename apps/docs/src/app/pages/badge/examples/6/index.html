@@ -39,10 +39,10 @@
     </span>
     <div style="display: flex; align-items: center; gap: 0.5rem">
       @for (density of densities; track density) {
-      <mlv-badge tone="success" [mlvDensity]="density">
-        <svg lucideCheck mlvBadgeIcon></svg>
-        {{ density }}
-      </mlv-badge>
+        <mlv-badge tone="success" [mlvDensity]="density">
+          <svg lucideCheck mlvBadgeIcon></svg>
+          {{ density }}
+        </mlv-badge>
       }
     </div>
   </div>

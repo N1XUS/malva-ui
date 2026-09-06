@@ -8,37 +8,43 @@
     (collapsedChange)="sidebarCollapsed.set($event)"
   >
     @if (!sidebarCollapsed() || isMobile()) {
-    <div class="docs-shell__search">
-      <mlv-search-field
-        ariaLabel="Filter documentation pages"
-        placeholder="Filter pages…"
-        mlvDensity="compact"
-        [value]="navigationQuery()"
-        (valueChange)="navigationQuery.set($event)"
-      ></mlv-search-field>
-    </div>
-    } @for (group of navigationGroups(); track group.id) {
-    <mlv-sidebar-group [label]="group.label">
-      <svg *mlvSidebarItemIcon [lucideIcon]="_icon(group.icon)" [size]="20" />
-      @for (item of group.items; track item.link) {
-      <mlv-sidebar-item [label]="item.label">
-        <a
-          *mlvSidebarItemTitle
-          [routerLink]="item.link"
-          routerLinkActive="docs-shell__nav-link--active"
-          ariaCurrentWhenActive="page"
-          [routerLinkActiveOptions]="{ exact: !!item.exact }"
-        >
-          {{ item.label }}
-        </a>
-        <svg *mlvSidebarItemIcon [lucideIcon]="_icon(item.icon)" [size]="20" />
-      </mlv-sidebar-item>
-      }
-    </mlv-sidebar-group>
-    } @if (navigationGroups().length === 0) {
-    <p class="docs-shell__empty-navigation" role="status">
-      No pages match your filter.
-    </p>
+      <div class="docs-shell__search">
+        <mlv-search-field
+          ariaLabel="Filter documentation pages"
+          placeholder="Filter pages…"
+          mlvDensity="compact"
+          [value]="navigationQuery()"
+          (valueChange)="navigationQuery.set($event)"
+        ></mlv-search-field>
+      </div>
+    }
+    @for (group of navigationGroups(); track group.id) {
+      <mlv-sidebar-group [label]="group.label">
+        <svg *mlvSidebarItemIcon [lucideIcon]="_icon(group.icon)" [size]="20" />
+        @for (item of group.items; track item.link) {
+          <mlv-sidebar-item [label]="item.label">
+            <a
+              *mlvSidebarItemTitle
+              [routerLink]="item.link"
+              routerLinkActive="docs-shell__nav-link--active"
+              ariaCurrentWhenActive="page"
+              [routerLinkActiveOptions]="{ exact: !!item.exact }"
+            >
+              {{ item.label }}
+            </a>
+            <svg
+              *mlvSidebarItemIcon
+              [lucideIcon]="_icon(item.icon)"
+              [size]="20"
+            />
+          </mlv-sidebar-item>
+        }
+      </mlv-sidebar-group>
+    }
+    @if (navigationGroups().length === 0) {
+      <p class="docs-shell__empty-navigation" role="status">
+        No pages match your filter.
+      </p>
     }
 
     <mlv-spacer />

@@ -12,7 +12,9 @@
     [loading]="loading()"
     [attr.aria-controls]="_panelId"
     [attr.aria-label]="_triggerAriaLabel()"
-    [attr.title]="appearance() === 'query' && hasValue() ? _querySentence() : null"
+    [attr.title]="
+      appearance() === 'query' && hasValue() ? _querySentence() : null
+    "
     [attr.aria-invalid]="invalid() || null"
     [attr.aria-describedby]="ariaDescribedBy() || null"
   >
@@ -21,40 +23,43 @@
       [class.mlv-filter__summary--query]="appearance() === 'query'"
     >
       @if (appearance() === 'query') {
-      <span class="mlv-filter__sentence">{{ _querySentence() }}</span>
-      } @else { @if (hasValue()) {
-      <span class="mlv-filter__label">{{ label() }}:</span>
-      <strong class="mlv-filter__value">{{ primaryValue() }}</strong>
-      @if (additionalValueCount() > 0) {
-      <span class="mlv-filter__more">{{ _moreValuesLabel() }}</span>
-      } } @else {
-      <span class="mlv-filter__label">{{ label() }}</span>
-      } }
+        <span class="mlv-filter__sentence">{{ _querySentence() }}</span>
+      } @else {
+        @if (hasValue()) {
+          <span class="mlv-filter__label">{{ label() }}:</span>
+          <strong class="mlv-filter__value">{{ primaryValue() }}</strong>
+          @if (additionalValueCount() > 0) {
+            <span class="mlv-filter__more">{{ _moreValuesLabel() }}</span>
+          }
+        } @else {
+          <span class="mlv-filter__label">{{ label() }}</span>
+        }
+      }
     </span>
     @if (appearance() === 'field') {
-    <svg
-      mlvButtonIcon
-      lucideChevronDown
-      [size]="14"
-      aria-hidden="true"
-      class="mlv-filter__chevron"
-    ></svg>
+      <svg
+        mlvButtonIcon
+        lucideChevronDown
+        [size]="14"
+        aria-hidden="true"
+        class="mlv-filter__chevron"
+      ></svg>
     }
   </button>
 
   @if (_showsClearAction()) {
-  <button
-    mlvButton
-    type="button"
-    variant="secondary"
-    shape="square"
-    class="mlv-filter__clear"
-    [disabled]="disabled() || loading()"
-    [attr.aria-label]="_clearAriaLabel()"
-    (click)="_clear($event)"
-  >
-    <svg mlvButtonIcon lucideX [size]="14" aria-hidden="true"></svg>
-  </button>
+    <button
+      mlvButton
+      type="button"
+      variant="secondary"
+      shape="square"
+      class="mlv-filter__clear"
+      [disabled]="disabled() || loading()"
+      [attr.aria-label]="_clearAriaLabel()"
+      (click)="_clear($event)"
+    >
+      <svg mlvButtonIcon lucideX [size]="14" aria-hidden="true"></svg>
+    </button>
   }
 </div>
 
@@ -73,157 +78,192 @@
   <ng-template mlvPopupContent>
     <div class="mlv-filter__panel" [id]="_panelId">
       @if (_usesOptions()) {
-      <mlv-dropdown-panel
-        class="mlv-filter__options"
-        [ariaLabel]="label()"
-        [maxHeight]="_optionsMaxHeight"
-        [options]="_panelOptions()"
-        [multiple]="multiple()"
-        [selectedValues]="_selectedValues()"
-        (valueChange)="_onOptionValuesChange($event)"
-      >
-        <span class="mlv-filter__empty">{{ _i18n().selectValue }}</span>
-      </mlv-dropdown-panel>
-      } @else {
-      <div class="mlv-filter__conditions">
-        @if (_draft().length > 1) {
-        <mlv-select
-          class="mlv-filter__strategy"
-          [options]="_strategies"
-          [toOption]="_strategyTransform"
-          [value]="_strategy()"
+        <mlv-dropdown-panel
+          class="mlv-filter__options"
           [ariaLabel]="label()"
-          [disabled]="_editorDisabled()"
-          mobileMode="off"
-          (valueChange)="_setStrategy($any($event))"
-        />
-        } @for ( condition of _draft(); track condition.id || $index; let index
-        = $index ) {
-        <div class="mlv-filter__condition">
-          <mlv-select
-            class="mlv-filter__operator"
-            [options]="operators()"
-            [toOption]="_operatorTransform"
-            [value]="condition.operator"
-            [ariaLabel]="label() + ' ' + (index + 1)"
-            [disabled]="_editorDisabled()"
-            mobileMode="off"
-            (valueChange)="_setOperator(index, $any($event))"
-          />
-
-          @if ( condition.operator !== 'empty' && condition.operator !==
-          'not-empty' ) {
-          <div class="mlv-filter__value-cell" #valueCell>
-            @if (_valueEditorTemplate(); as editorTemplate) {
-            <ng-container
-              [ngTemplateOutlet]="editorTemplate"
-              [ngTemplateOutletContext]="_valueEditorContext(condition, index)"
-            />
-            } @else { @if (condition.operator === 'between') {
-            <div class="mlv-filter__range">
-              <mlv-input
-                class="mlv-filter__input"
-                [type]="_resolvedEditor() === 'number' ? 'number' : 'text'"
-                [value]="$any(_conditionRangeValue(condition, 0))"
-                [placeholder]="_resolvedPlaceholder()"
-                [ariaLabel]="label() + ' ' + (index + 1) + ' 1'"
-                [disabled]="_editorDisabled()"
-                (valueChange)="_setConditionRangeValue(index, 0, $event)"
-                (keydown.enter)="applyMode() === 'explicit' && _apply()"
-              />
-              <span class="mlv-filter__range-separator" aria-hidden="true"
-                >–</span
-              >
-              <mlv-input
-                class="mlv-filter__input"
-                [type]="_resolvedEditor() === 'number' ? 'number' : 'text'"
-                [value]="$any(_conditionRangeValue(condition, 1))"
-                [placeholder]="_resolvedPlaceholder()"
-                [ariaLabel]="label() + ' ' + (index + 1) + ' 2'"
-                [disabled]="_editorDisabled()"
-                (valueChange)="_setConditionRangeValue(index, 1, $event)"
-                (keydown.enter)="applyMode() === 'explicit' && _apply()"
-              />
-            </div>
-            } @else {
-            <mlv-input
-              class="mlv-filter__input"
-              [type]="_resolvedEditor() === 'number' ? 'number' : 'text'"
-              [value]="$any(condition.value)"
-              [placeholder]="_resolvedPlaceholder()"
-              [ariaLabel]="label() + ' ' + (index + 1)"
+          [maxHeight]="_optionsMaxHeight"
+          [options]="_panelOptions()"
+          [multiple]="multiple()"
+          [selectedValues]="_selectedValues()"
+          (valueChange)="_onOptionValuesChange($event)"
+        >
+          <span class="mlv-filter__empty">{{ _i18n().selectValue }}</span>
+        </mlv-dropdown-panel>
+      } @else {
+        <div class="mlv-filter__conditions">
+          @if (_draft().length > 1) {
+            <mlv-select
+              class="mlv-filter__strategy"
+              [options]="_strategies"
+              [toOption]="_strategyTransform"
+              [value]="_strategy()"
+              [ariaLabel]="label()"
               [disabled]="_editorDisabled()"
-              (valueChange)="_setConditionValue(index, $event)"
-              (keydown.enter)="applyMode() === 'explicit' && _apply()"
+              mobileMode="off"
+              (valueChange)="_setStrategy($any($event))"
             />
-            } }
-          </div>
-          } @if (allowMultipleConditions() && _draft().length > 1) {
-          <button
-            mlvButton
-            type="button"
-            shape="square"
-            variant="transparent"
-            class="mlv-filter__remove-condition"
-            [disabled]="_editorDisabled()"
-            [attr.aria-label]="_i18n().removeCondition"
-            (click)="_removeCondition(index)"
-          >
-            <svg
-              mlvButtonIcon
-              lucideTrash2
-              [size]="16"
-              aria-hidden="true"
-            ></svg>
-          </button>
+          }
+          @for (
+            condition of _draft();
+            track condition.id || $index;
+            let index = $index
+          ) {
+            <div class="mlv-filter__condition">
+              <mlv-select
+                class="mlv-filter__operator"
+                [options]="operators()"
+                [toOption]="_operatorTransform"
+                [value]="condition.operator"
+                [ariaLabel]="label() + ' ' + (index + 1)"
+                [disabled]="_editorDisabled()"
+                mobileMode="off"
+                (valueChange)="_setOperator(index, $any($event))"
+              />
+
+              @if (
+                condition.operator !== 'empty' &&
+                condition.operator !== 'not-empty'
+              ) {
+                <div class="mlv-filter__value-cell" #valueCell>
+                  @if (_valueEditorTemplate(); as editorTemplate) {
+                    <ng-container
+                      [ngTemplateOutlet]="editorTemplate"
+                      [ngTemplateOutletContext]="
+                        _valueEditorContext(condition, index)
+                      "
+                    />
+                  } @else {
+                    @if (condition.operator === 'between') {
+                      <div class="mlv-filter__range">
+                        <mlv-input
+                          class="mlv-filter__input"
+                          [type]="
+                            _resolvedEditor() === 'number' ? 'number' : 'text'
+                          "
+                          [value]="$any(_conditionRangeValue(condition, 0))"
+                          [placeholder]="_resolvedPlaceholder()"
+                          [ariaLabel]="label() + ' ' + (index + 1) + ' 1'"
+                          [disabled]="_editorDisabled()"
+                          (valueChange)="
+                            _setConditionRangeValue(index, 0, $event)
+                          "
+                          (keydown.enter)="
+                            applyMode() === 'explicit' && _apply()
+                          "
+                        />
+                        <span
+                          class="mlv-filter__range-separator"
+                          aria-hidden="true"
+                          >–</span
+                        >
+                        <mlv-input
+                          class="mlv-filter__input"
+                          [type]="
+                            _resolvedEditor() === 'number' ? 'number' : 'text'
+                          "
+                          [value]="$any(_conditionRangeValue(condition, 1))"
+                          [placeholder]="_resolvedPlaceholder()"
+                          [ariaLabel]="label() + ' ' + (index + 1) + ' 2'"
+                          [disabled]="_editorDisabled()"
+                          (valueChange)="
+                            _setConditionRangeValue(index, 1, $event)
+                          "
+                          (keydown.enter)="
+                            applyMode() === 'explicit' && _apply()
+                          "
+                        />
+                      </div>
+                    } @else {
+                      <mlv-input
+                        class="mlv-filter__input"
+                        [type]="
+                          _resolvedEditor() === 'number' ? 'number' : 'text'
+                        "
+                        [value]="$any(condition.value)"
+                        [placeholder]="_resolvedPlaceholder()"
+                        [ariaLabel]="label() + ' ' + (index + 1)"
+                        [disabled]="_editorDisabled()"
+                        (valueChange)="_setConditionValue(index, $event)"
+                        (keydown.enter)="applyMode() === 'explicit' && _apply()"
+                      />
+                    }
+                  }
+                </div>
+              }
+              @if (allowMultipleConditions() && _draft().length > 1) {
+                <button
+                  mlvButton
+                  type="button"
+                  shape="square"
+                  variant="transparent"
+                  class="mlv-filter__remove-condition"
+                  [disabled]="_editorDisabled()"
+                  [attr.aria-label]="_i18n().removeCondition"
+                  (click)="_removeCondition(index)"
+                >
+                  <svg
+                    mlvButtonIcon
+                    lucideTrash2
+                    [size]="16"
+                    aria-hidden="true"
+                  ></svg>
+                </button>
+              }
+            </div>
+          }
+          @if (allowMultipleConditions()) {
+            <button
+              mlvButton
+              type="button"
+              variant="transparent"
+              class="mlv-filter__add-condition"
+              [disabled]="_editorDisabled()"
+              (click)="_addCondition()"
+            >
+              <svg
+                mlvButtonIcon
+                lucidePlus
+                [size]="16"
+                aria-hidden="true"
+              ></svg>
+              {{ _i18n().addCondition }}
+            </button>
           }
         </div>
-        } @if (allowMultipleConditions()) {
-        <button
-          mlvButton
-          type="button"
-          variant="transparent"
-          class="mlv-filter__add-condition"
-          [disabled]="_editorDisabled()"
-          (click)="_addCondition()"
-        >
-          <svg mlvButtonIcon lucidePlus [size]="16" aria-hidden="true"></svg>
-          {{ _i18n().addCondition }}
-        </button>
-        }
-      </div>
-      } @if (_draft().length > 0 || applyMode() === 'explicit') {
-      <mlv-toolbar class="mlv-filter__panel-footer">
-        @if (_draft().length > 0) {
-        <a
-          mlvLink
-          class="mlv-filter__panel-clear"
-          [disabled]="_editorDisabled()"
-          (mlvClick)="_clearDraft()"
-          >{{ _i18n().clear }}</a
-        >
-        <mlv-spacer />
-        } @if ((applyMode() === 'explicit')) {
-        <button
-          mlvButton
-          type="button"
-          mlvDensity="compact"
-          variant="transparent"
-          (click)="_cancel()"
-        >
-          {{ _i18n().cancel }}
-        </button>
-        <button
-          mlvButton
-          type="button"
-          mlvDensity="compact"
-          [disabled]="_editorDisabled()"
-          (click)="_apply()"
-        >
-          {{ _i18n().apply }}
-        </button>
-        }
-      </mlv-toolbar>
+      }
+      @if (_draft().length > 0 || applyMode() === 'explicit') {
+        <mlv-toolbar class="mlv-filter__panel-footer">
+          @if (_draft().length > 0) {
+            <a
+              mlvLink
+              class="mlv-filter__panel-clear"
+              [disabled]="_editorDisabled()"
+              (mlvClick)="_clearDraft()"
+              >{{ _i18n().clear }}</a
+            >
+            <mlv-spacer />
+          }
+          @if (applyMode() === 'explicit') {
+            <button
+              mlvButton
+              type="button"
+              mlvDensity="compact"
+              variant="transparent"
+              (click)="_cancel()"
+            >
+              {{ _i18n().cancel }}
+            </button>
+            <button
+              mlvButton
+              type="button"
+              mlvDensity="compact"
+              [disabled]="_editorDisabled()"
+              (click)="_apply()"
+            >
+              {{ _i18n().apply }}
+            </button>
+          }
+        </mlv-toolbar>
       }
     </div>
   </ng-template>

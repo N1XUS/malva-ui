@@ -1,14 +1,14 @@
 @if (topRef(); as topTpl) {
-<header class="mlv-layout__header">
-  <ng-template [ngTemplateOutlet]="topTpl.templateRef"></ng-template>
-</header>
+  <header class="mlv-layout__header">
+    <ng-template [ngTemplateOutlet]="topTpl.templateRef"></ng-template>
+  </header>
 }
 
 <section class="mlv-layout__container">
   @if (sideRef(); as sideTpl) {
-  <aside class="mlv-layout__side">
-    <ng-template [ngTemplateOutlet]="sideTpl.templateRef"></ng-template>
-  </aside>
+    <aside class="mlv-layout__side">
+      <ng-template [ngTemplateOutlet]="sideTpl.templateRef"></ng-template>
+    </aside>
   }
 
   <ng-content />

@@ -39,22 +39,22 @@
     <header mlvActionBar mlvPageTopbar contrast mlvDensity="compact">
       <div class="app-shell-preview__bar-side">
         @if (sidebarMode() === 'offcanvas') {
-        <!-- The sidebar's own trigger lives inside the drawer, so it cannot
+          <!-- The sidebar's own trigger lives inside the drawer, so it cannot
              reopen a closed one. `mlv-drawer` traps focus and renders a
              backdrop, which is what makes the dialog semantics here honest. -->
-        <button
-          mlvButton
-          variant="transparent"
-          shape="square"
-          mlvDensity="compact"
-          type="button"
-          aria-label="Open navigation"
-          aria-haspopup="dialog"
-          [attr.aria-expanded]="!collapsed()"
-          (click)="toggleSidebar()"
-        >
-          <svg lucideMenu [size]="18" />
-        </button>
+          <button
+            mlvButton
+            variant="transparent"
+            shape="square"
+            mlvDensity="compact"
+            type="button"
+            aria-label="Open navigation"
+            aria-haspopup="dialog"
+            [attr.aria-expanded]="!collapsed()"
+            (click)="toggleSidebar()"
+          >
+            <svg lucideMenu [size]="18" />
+          </button>
         }
 
         <div mlvActionBarLogo>

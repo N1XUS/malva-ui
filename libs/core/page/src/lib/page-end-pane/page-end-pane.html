@@ -1,22 +1,22 @@
 @if (_compact()) {
-<mlv-drawer
-  [opened]="opened()"
-  position="right"
-  [size]="width()"
-  [ariaLabel]="ariaLabel()"
-  [closeOnBackdropClick]="closeOnBackdropClick()"
-  [closeOnEscape]="closeOnEscape()"
-  [initialFocus]="initialFocus()"
-  [restoreFocus]="false"
-  (openedChange)="_onDrawerOpenedChange($event)"
-  (afterClosed)="_onDrawerDisposed()"
->
-  <ng-template mlvDrawerContent>
-    <ng-container [ngTemplateOutlet]="_content().templateRef" />
-  </ng-template>
-</mlv-drawer>
+  <mlv-drawer
+    [opened]="opened()"
+    position="right"
+    [size]="width()"
+    [ariaLabel]="ariaLabel()"
+    [closeOnBackdropClick]="closeOnBackdropClick()"
+    [closeOnEscape]="closeOnEscape()"
+    [initialFocus]="initialFocus()"
+    [restoreFocus]="false"
+    (openedChange)="_onDrawerOpenedChange($event)"
+    (afterClosed)="_onDrawerDisposed()"
+  >
+    <ng-template mlvDrawerContent>
+      <ng-container [ngTemplateOutlet]="_content().templateRef" />
+    </ng-template>
+  </mlv-drawer>
 } @else if (opened()) {
-<aside class="mlv-page-end-pane__surface" [attr.aria-label]="ariaLabel()">
-  <ng-container [ngTemplateOutlet]="_content().templateRef" />
-</aside>
+  <aside class="mlv-page-end-pane__surface" [attr.aria-label]="ariaLabel()">
+    <ng-container [ngTemplateOutlet]="_content().templateRef" />
+  </aside>
 }

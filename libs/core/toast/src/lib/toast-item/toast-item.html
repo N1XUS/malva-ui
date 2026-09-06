@@ -1,49 +1,55 @@
 <div class="mlv-toast-item__wrapper">
   <div class="mlv-toast-item__body">
     @if (_showIcon()) {
-    <span class="mlv-toast-item__icon" aria-hidden="true">
-      @switch (toast().tone) { @case ('success') {
-      <svg lucideCheckCircle [size]="18" />
-      } @case ('warning') {
-      <svg lucideTriangleAlert [size]="18" />
-      } @case ('danger') {
-      <svg lucideCircleX [size]="18" />
-      } @case ('info') {
-      <svg lucideInfo [size]="18" />
-      } }
-    </span>
+      <span class="mlv-toast-item__icon" aria-hidden="true">
+        @switch (toast().tone) {
+          @case ('success') {
+            <svg lucideCheckCircle [size]="18" />
+          }
+          @case ('warning') {
+            <svg lucideTriangleAlert [size]="18" />
+          }
+          @case ('danger') {
+            <svg lucideCircleX [size]="18" />
+          }
+          @case ('info') {
+            <svg lucideInfo [size]="18" />
+          }
+        }
+      </span>
     }
     <div class="mlv-toast-item__content">
       @if (_templateContent(); as template) {
-      <div class="mlv-toast-item__dynamic-content">
-        <ng-container
-          [ngTemplateOutlet]="template"
-          [ngTemplateOutletContext]="toast().contentContext"
-          [ngTemplateOutletInjector]="toast().contentInjector"
-        />
-      </div>
+        <div class="mlv-toast-item__dynamic-content">
+          <ng-container
+            [ngTemplateOutlet]="template"
+            [ngTemplateOutletContext]="toast().contentContext"
+            [ngTemplateOutletInjector]="toast().contentInjector"
+          />
+        </div>
       } @else if (_componentContent(); as component) {
-      <div
-        class="mlv-toast-item__dynamic-content mlv-toast-item__dynamic-content--component"
-      >
-        <ng-container
-          [ngComponentOutlet]="component"
-          [ngComponentOutletInjector]="toast().contentInjector"
-        />
-      </div>
+        <div
+          class="mlv-toast-item__dynamic-content mlv-toast-item__dynamic-content--component"
+        >
+          <ng-container
+            [ngComponentOutlet]="component"
+            [ngComponentOutletInjector]="toast().contentInjector"
+          />
+        </div>
       } @else {
-      <span mlvToastTitle>{{ toast().title }}</span>
-      } @if (toast().description) {
-      <span mlvToastDescription>{{ toast().description }}</span>
+        <span mlvToastTitle>{{ toast().title }}</span>
+      }
+      @if (toast().description) {
+        <span mlvToastDescription>{{ toast().description }}</span>
       }
     </div>
     @if (toast().closable) {
-    <mlv-button-close
-      class="mlv-toast-item__dismiss"
-      [ariaLabel]="_i18n().dismiss"
-      mlvDensity="tight"
-      (click)="onClose()"
-    />
+      <mlv-button-close
+        class="mlv-toast-item__dismiss"
+        [ariaLabel]="_i18n().dismiss"
+        mlvDensity="tight"
+        (click)="onClose()"
+      />
     }
   </div>
 </div>

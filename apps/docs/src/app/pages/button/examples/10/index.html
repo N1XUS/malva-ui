@@ -1,40 +1,40 @@
 <div style="display: flex; flex-direction: column; gap: 1rem">
   @for (row of rows; track row.id) {
-  <div
-    style="
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid var(--mlv-border-subtle);
-    "
-  >
-    <span>{{ row.name }}</span>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--mlv-border-subtle);
+      "
+    >
+      <span>{{ row.name }}</span>
 
-    <div style="display: flex; gap: 0.25rem">
-      <!-- No variant and no mlvButtonIcon: the neutral `secondary` treatment
+      <div style="display: flex; gap: 0.25rem">
+        <!-- No variant and no mlvButtonIcon: the neutral `secondary` treatment
            and the icon-only sizing are both inferred from `shape`. -->
-      <button mlvButton shape="square" [attr.aria-label]="'Edit ' + row.name">
-        <svg lucidePencil></svg>
-      </button>
+        <button mlvButton shape="square" [attr.aria-label]="'Edit ' + row.name">
+          <svg lucidePencil></svg>
+        </button>
 
-      <!-- The mlvButtonIcon directive keeps working and is still the right
+        <!-- The mlvButtonIcon directive keeps working and is still the right
            choice when the label content changes at runtime. -->
-      <button mlvButton shape="square" [attr.aria-label]="'More ' + row.name">
-        <svg mlvButtonIcon lucideEllipsis></svg>
-      </button>
+        <button mlvButton shape="square" [attr.aria-label]="'More ' + row.name">
+          <svg mlvButtonIcon lucideEllipsis></svg>
+        </button>
 
-      <!-- An explicit variant always wins over the shape-aware default. -->
-      <button
-        mlvButton
-        shape="square"
-        variant="error"
-        [attr.aria-label]="'Delete ' + row.name"
-      >
-        <svg lucideTrash2></svg>
-      </button>
+        <!-- An explicit variant always wins over the shape-aware default. -->
+        <button
+          mlvButton
+          shape="square"
+          variant="error"
+          [attr.aria-label]="'Delete ' + row.name"
+        >
+          <svg lucideTrash2></svg>
+        </button>
+      </div>
     </div>
-  </div>
   }
 </div>

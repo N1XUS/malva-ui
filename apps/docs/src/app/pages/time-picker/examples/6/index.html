@@ -2,35 +2,48 @@
   <!-- State selector buttons -->
   <div class="demo-row" style="flex-wrap: wrap; gap: 0.5rem">
     @for (config of configs; track config.state) {
-    <button
-      type="button"
-      style="
-        padding: 0.375rem 0.875rem;
-        border-radius: var(--mlv-radius-m);
-        border: 1px solid var(--mlv-border-normal);
-        background: var(--mlv-background-base);
-        color: var(--mlv-text-primary);
-        cursor: pointer;
-        font-size: var(--mlv-typography-body-s-size);
-        transition: background var(--mlv-duration-fast) var(--mlv-ease-default);
-      "
-      [style.background]="selectedConfig().state === config.state ? 'var(--mlv-background-accent-1)' : 'var(--mlv-background-base)'"
-      [style.color]="selectedConfig().state === config.state ? 'var(--mlv-text-primary-on-accent-1)' : 'var(--mlv-text-primary)'"
-      [style.border-color]="selectedConfig().state === config.state ? 'var(--mlv-background-accent-1)' : 'var(--mlv-border-normal)'"
-      (click)="select(config)"
-    >
-      {{ config.state }}
-    </button>
+      <button
+        type="button"
+        style="
+          padding: 0.375rem 0.875rem;
+          border-radius: var(--mlv-radius-m);
+          border: 1px solid var(--mlv-border-normal);
+          background: var(--mlv-background-base);
+          color: var(--mlv-text-primary);
+          cursor: pointer;
+          font-size: var(--mlv-typography-body-s-size);
+          transition: background var(--mlv-duration-fast)
+            var(--mlv-ease-default);
+        "
+        [style.background]="
+          selectedConfig().state === config.state
+            ? 'var(--mlv-background-accent-1)'
+            : 'var(--mlv-background-base)'
+        "
+        [style.color]="
+          selectedConfig().state === config.state
+            ? 'var(--mlv-text-primary-on-accent-1)'
+            : 'var(--mlv-text-primary)'
+        "
+        [style.border-color]="
+          selectedConfig().state === config.state
+            ? 'var(--mlv-background-accent-1)'
+            : 'var(--mlv-border-normal)'
+        "
+        (click)="select(config)"
+      >
+        {{ config.state }}
+      </button>
     }
   </div>
 
   <!-- The time picker with the selected state -->
   @if (selectedConfig(); as cfg) {
-  <mlv-time-picker
-    [label]="cfg.label"
-    [state]="cfg.state"
-    [message]="cfg.message"
-    [formControl]="timeCtrl"
-  />
+    <mlv-time-picker
+      [label]="cfg.label"
+      [state]="cfg.state"
+      [message]="cfg.message"
+      [formControl]="timeCtrl"
+    />
   }
 </div>

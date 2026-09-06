@@ -22,12 +22,15 @@
       Save draft
     </button>
     @if (gate.ai.hasPendingSuggestions()) {
-    <span>Resolve the pending suggestions to enable saving.</span>
+      <span>Resolve the pending suggestions to enable saving.</span>
     }
   </div>
 
   <p aria-live="polite">
-    @if (savedValue(); as saved) { Saved: {{ saved }} } @else { Nothing saved
-    yet. }
+    @if (savedValue(); as saved) {
+      Saved: {{ saved }}
+    } @else {
+      Nothing saved yet.
+    }
   </p>
 </div>

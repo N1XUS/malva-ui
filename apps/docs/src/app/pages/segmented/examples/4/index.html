@@ -8,11 +8,11 @@
   "
 >
   @for (tone of tones; track tone) {
-  <mlv-segmented [tone]="tone" [(value)]="value" [ariaLabel]="tone + ' tone'">
-    <button mlvSegmentedItem value="one">One</button>
-    <button mlvSegmentedItem value="two">{{ tone }}</button>
-    <button mlvSegmentedItem value="three">Three</button>
-  </mlv-segmented>
+    <mlv-segmented [tone]="tone" [(value)]="value" [ariaLabel]="tone + ' tone'">
+      <button mlvSegmentedItem value="one">One</button>
+      <button mlvSegmentedItem value="two">{{ tone }}</button>
+      <button mlvSegmentedItem value="three">Three</button>
+    </mlv-segmented>
   }
 
   <mlv-segmented

@@ -11,13 +11,13 @@
     </p>
     <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap">
       @for (name of circleNames; track name; let i = $index) {
-      <mlv-avatar
-        [size]="sizes[i]"
-        shape="circle"
-        [name]="name"
-        [color]="name | mlvColorFromText"
-        [label]="sizes[i]"
-      />
+        <mlv-avatar
+          [size]="sizes[i]"
+          shape="circle"
+          [name]="name"
+          [color]="name | mlvColorFromText"
+          [label]="sizes[i]"
+        />
       }
     </div>
   </div>
@@ -34,13 +34,13 @@
     </p>
     <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap">
       @for (name of squareNames; track name; let i = $index) {
-      <mlv-avatar
-        [size]="sizes[i]"
-        shape="square"
-        [name]="name"
-        [color]="name | mlvColorFromText"
-        [label]="sizes[i]"
-      />
+        <mlv-avatar
+          [size]="sizes[i]"
+          shape="square"
+          [name]="name"
+          [color]="name | mlvColorFromText"
+          [label]="sizes[i]"
+        />
       }
     </div>
   </div>

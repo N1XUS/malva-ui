@@ -5,10 +5,10 @@
   [attr.aria-label]="_resolvedAriaLabel()"
 >
   @if (startTemplate(); as template) {
-  <ng-container
-    [ngTemplateOutlet]="template"
-    [ngTemplateOutletContext]="{ $implicit: context() }"
-  />
+    <ng-container
+      [ngTemplateOutlet]="template"
+      [ngTemplateOutletContext]="{ $implicit: context() }"
+    />
   }
   <span #_startSlotAnchor class="mlv-editor-toolbar__slot-anchor"></span>
   <mlv-editor-undo-redo />
@@ -24,10 +24,10 @@
   <mlv-editor-block-insert />
   <span #_endSlotAnchor class="mlv-editor-toolbar__slot-anchor"></span>
   @if (endTemplate(); as template) {
-  <ng-container
-    [ngTemplateOutlet]="template"
-    [ngTemplateOutletContext]="{ $implicit: context() }"
-  />
+    <ng-container
+      [ngTemplateOutlet]="template"
+      [ngTemplateOutletContext]="{ $implicit: context() }"
+    />
   }
   <ng-content />
 </mlv-toolbar>

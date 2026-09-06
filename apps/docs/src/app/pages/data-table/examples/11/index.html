@@ -1,6 +1,10 @@
 <div class="dt-selection-summary">
-  <strong>{{ selectedCount() }}</strong> selected @if (selectedCount() > 0) {
-  <span> — total MRR: <strong>${{ totalMrr() }}</strong>/mo</span>
+  <strong>{{ selectedCount() }}</strong> selected
+  @if (selectedCount() > 0) {
+    <span>
+      — total MRR: <strong>${{ totalMrr() }}</strong
+      >/mo</span
+    >
   }
 </div>
 

@@ -8,24 +8,24 @@
   (click)="_toggle()"
 >
   @if (_playing()) {
-  <svg lucidePause [size]="16" aria-hidden="true" />
+    <svg lucidePause [size]="16" aria-hidden="true" />
   } @else {
-  <svg lucidePlay [size]="16" aria-hidden="true" />
+    <svg lucidePlay [size]="16" aria-hidden="true" />
   }
 </button>
 @if (_uploading()) {
-<span class="mlv-chat-audio__upload">
-  <mlv-progress size="s" [value]="attachment().uploadProgress ?? 0" />
-</span>
+  <span class="mlv-chat-audio__upload">
+    <mlv-progress size="s" [value]="attachment().uploadProgress ?? 0" />
+  </span>
 } @else {
-<mlv-slider
-  class="mlv-chat-audio__seek"
-  [min]="0"
-  [max]="_duration()"
-  [value]="_currentTime()"
-  [label]="_i18n().playAudio"
-  (valueChange)="_seek($event)"
-/>
+  <mlv-slider
+    class="mlv-chat-audio__seek"
+    [min]="0"
+    [max]="_duration()"
+    [value]="_currentTime()"
+    [label]="_i18n().playAudio"
+    (valueChange)="_seek($event)"
+  />
 }
 <span class="mlv-chat-audio__time">
   {{ _formatDuration(_currentTime()) }} / {{ _formatDuration(_duration()) }}

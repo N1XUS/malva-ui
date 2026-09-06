@@ -253,7 +253,9 @@
             <span>{{ row.renewalDate | date: 'MMM d, y' }}</span>
             <small
               class="data-operations-showcase__renewal-days"
-              [class.data-operations-showcase__renewal-days--urgent]="row.renewalDays <= 60"
+              [class.data-operations-showcase__renewal-days--urgent]="
+                row.renewalDays <= 60
+              "
             >
               {{ row.renewalDays }} days
             </small>
@@ -286,46 +288,49 @@
   >
     <ng-template mlvPageEndPaneContent>
       @if (selectedAccount(); as account) {
-      <section class="data-operations-showcase__inspector" data-account-details>
-        <header class="data-operations-showcase__inspector-header">
-          <div>
-            <p>Account details</p>
-            <h2>{{ account.name }}</h2>
-          </div>
-          <button
-            mlvButton
-            type="button"
-            variant="transparent"
-            shape="square"
-            aria-label="Close account details"
-            (click)="accountDetails.close()"
-          >
-            <svg lucideX mlvButtonIcon [size]="18" aria-hidden="true"></svg>
-          </button>
-        </header>
-        <dl class="data-operations-showcase__details">
-          <div>
-            <dt>Owner</dt>
-            <dd>{{ account.owner ?? 'Unassigned' }}</dd>
-          </div>
-          <div>
-            <dt>Plan</dt>
-            <dd>{{ account.plan }}</dd>
-          </div>
-          <div>
-            <dt>ARR</dt>
-            <dd>{{ account.arr | currency: 'USD' : 'symbol' : '1.0-0' }}</dd>
-          </div>
-          <div>
-            <dt>Renewal</dt>
-            <dd>{{ account.renewalDate | date: 'MMMM d, y' }}</dd>
-          </div>
-          <div>
-            <dt>Last activity</dt>
-            <dd>{{ account.lastActivity }}</dd>
-          </div>
-        </dl>
-      </section>
+        <section
+          class="data-operations-showcase__inspector"
+          data-account-details
+        >
+          <header class="data-operations-showcase__inspector-header">
+            <div>
+              <p>Account details</p>
+              <h2>{{ account.name }}</h2>
+            </div>
+            <button
+              mlvButton
+              type="button"
+              variant="transparent"
+              shape="square"
+              aria-label="Close account details"
+              (click)="accountDetails.close()"
+            >
+              <svg lucideX mlvButtonIcon [size]="18" aria-hidden="true"></svg>
+            </button>
+          </header>
+          <dl class="data-operations-showcase__details">
+            <div>
+              <dt>Owner</dt>
+              <dd>{{ account.owner ?? 'Unassigned' }}</dd>
+            </div>
+            <div>
+              <dt>Plan</dt>
+              <dd>{{ account.plan }}</dd>
+            </div>
+            <div>
+              <dt>ARR</dt>
+              <dd>{{ account.arr | currency: 'USD' : 'symbol' : '1.0-0' }}</dd>
+            </div>
+            <div>
+              <dt>Renewal</dt>
+              <dd>{{ account.renewalDate | date: 'MMMM d, y' }}</dd>
+            </div>
+            <div>
+              <dt>Last activity</dt>
+              <dd>{{ account.lastActivity }}</dd>
+            </div>
+          </dl>
+        </section>
       }
     </ng-template>
   </mlv-page-end-pane>

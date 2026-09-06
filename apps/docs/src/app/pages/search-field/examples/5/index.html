@@ -17,23 +17,27 @@
     />
 
     @if (open()) {
-    <mlv-dropdown-panel
-      class="search-field-combobox__panel"
-      focusMode="activedescendant"
-      [listboxId]="listboxId"
-      [options]="filtered()"
-      [activeIndex]="activeDescendant.index()"
-      [highlightQuery]="query()"
-      (valueChange)="onPanelValueChange($event)"
-    />
+      <mlv-dropdown-panel
+        class="search-field-combobox__panel"
+        focusMode="activedescendant"
+        [listboxId]="listboxId"
+        [options]="filtered()"
+        [activeIndex]="activeDescendant.index()"
+        [highlightQuery]="query()"
+        (valueChange)="onPanelValueChange($event)"
+      />
     }
   </div>
 
   <p class="search-field-combobox__result" aria-live="polite">
-    @if (picked()) { Picked suggestion:
-    <strong>{{ picked() }}</strong>
-    } @else if (searched()) { Plain search:
-    <strong>{{ searched() }}</strong>
-    } @else { Type to filter, then use the arrow keys and Enter. }
+    @if (picked()) {
+      Picked suggestion:
+      <strong>{{ picked() }}</strong>
+    } @else if (searched()) {
+      Plain search:
+      <strong>{{ searched() }}</strong>
+    } @else {
+      Type to filter, then use the arrow keys and Enter.
+    }
   </p>
 </div>

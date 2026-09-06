@@ -1,75 +1,77 @@
 @if (presentation() === 'icon') {
-<button
-  mlvButton
-  class="mlv-search-field__trigger-icon"
-  type="button"
-  shape="circle"
-  variant="transparent"
-  [disabled]="disabled()"
-  [attr.aria-label]="_resolvedAriaLabel()"
-  [attr.aria-expanded]="opened()"
-  [attr.aria-haspopup]="'dialog'"
-  (click)="_openOverlay()"
->
-  <svg mlvButtonIcon lucideSearch />
-</button>
+  <button
+    mlvButton
+    class="mlv-search-field__trigger-icon"
+    type="button"
+    shape="circle"
+    variant="transparent"
+    [disabled]="disabled()"
+    [attr.aria-label]="_resolvedAriaLabel()"
+    [attr.aria-expanded]="opened()"
+    [attr.aria-haspopup]="'dialog'"
+    (click)="_openOverlay()"
+  >
+    <svg mlvButtonIcon lucideSearch />
+  </button>
 } @else {
-<!--
+  <!--
   The dialog-trigger and combobox semantics go through `mlv-input`'s own aria
   inputs rather than `[attr.*]` on this host, so they land on the focusable
   `<input>` where a screen reader reads them.
 -->
-<mlv-input
-  class="mlv-search-field__input"
-  type="search"
-  inputMode="search"
-  autocomplete="off"
-  [placeholder]="_resolvedPlaceholder()"
-  [ariaLabel]="_resolvedAriaLabel()"
-  [disabled]="disabled()"
-  [loading]="loading()"
-  [value]="value()"
-  [readonly]="_overlayEnabled()"
-  [role]="_resolvedRole()"
-  [ariaExpanded]="_resolvedAriaExpanded()"
-  [ariaHasPopup]="_overlayEnabled() ? 'dialog' : null"
-  [ariaAutocomplete]="ariaAutocomplete()"
-  [ariaControls]="ariaControls()"
-  [ariaActiveDescendant]="ariaActiveDescendant()"
-  (valueChange)="_onValueChange($event)"
-  (keydown)="_onNavigationKey($event)"
-  (keydown.enter)="_onEnter($event)"
-  (keydown.space)="_onTriggerSpace($event)"
-  (click)="_onTriggerClick($event)"
->
-  @if (_showLeadingIcon()) {
-  <span class="mlv-search-field__leading" *mlvFormControlPrepend>
-    <svg
-      class="mlv-search-field__leading-icon"
-      lucideSearch
-      aria-hidden="true"
-    />
-  </span>
-  }
+  <mlv-input
+    class="mlv-search-field__input"
+    type="search"
+    inputMode="search"
+    autocomplete="off"
+    [placeholder]="_resolvedPlaceholder()"
+    [ariaLabel]="_resolvedAriaLabel()"
+    [disabled]="disabled()"
+    [loading]="loading()"
+    [value]="value()"
+    [readonly]="_overlayEnabled()"
+    [role]="_resolvedRole()"
+    [ariaExpanded]="_resolvedAriaExpanded()"
+    [ariaHasPopup]="_overlayEnabled() ? 'dialog' : null"
+    [ariaAutocomplete]="ariaAutocomplete()"
+    [ariaControls]="ariaControls()"
+    [ariaActiveDescendant]="ariaActiveDescendant()"
+    (valueChange)="_onValueChange($event)"
+    (keydown)="_onNavigationKey($event)"
+    (keydown.enter)="_onEnter($event)"
+    (keydown.space)="_onTriggerSpace($event)"
+    (click)="_onTriggerClick($event)"
+  >
+    @if (_showLeadingIcon()) {
+      <span class="mlv-search-field__leading" *mlvFormControlPrepend>
+        <svg
+          class="mlv-search-field__leading-icon"
+          lucideSearch
+          aria-hidden="true"
+        />
+      </span>
+    }
 
-  <div class="mlv-search-field__actions" *mlvFormControlAppend>
-    @if (_showClear()) {
-    <mlv-button-close
-      mlvDensity="tight"
-      [ariaLabel]="_i18n().clear"
-      (mousedown)="$event.preventDefault()"
-      (click)="_clear()"
-    ></mlv-button-close>
-    } @if (_showStandaloneLoader()) {
-    <mlv-loader
-      class="mlv-search-field__loader"
-      variant="circle"
-      indeterminate
-      [size]="18"
-      [strokeWidth]="2"
-    />
-    } @if (_showSubmitAction()) {
-    <!--
+    <div class="mlv-search-field__actions" *mlvFormControlAppend>
+      @if (_showClear()) {
+        <mlv-button-close
+          mlvDensity="tight"
+          [ariaLabel]="_i18n().clear"
+          (mousedown)="$event.preventDefault()"
+          (click)="_clear()"
+        ></mlv-button-close>
+      }
+      @if (_showStandaloneLoader()) {
+        <mlv-loader
+          class="mlv-search-field__loader"
+          variant="circle"
+          indeterminate
+          [size]="18"
+          [strokeWidth]="2"
+        />
+      }
+      @if (_showSubmitAction()) {
+        <!--
       `[loading]="loading()"` stays bound to mlvButton so its own host
       bindings keep driving native `disabled`/`aria-busy` — an external
       `[attr.aria-busy]` binding on this same host element loses to
@@ -84,33 +86,33 @@
       visible, keeping both loading spinners in this component pixel-
       identical.
     -->
-    <button
-      mlvButton
-      class="mlv-search-field__submit"
-      mlvDensity="tight"
-      type="button"
-      shape="circle"
-      variant="transparent"
-      [disabled]="disabled()"
-      [loading]="loading()"
-      [attr.aria-label]="_i18n().submit"
-      (click)="_onSubmitClick($event)"
-    >
-      @if (loading()) {
-      <mlv-loader
-        class="mlv-search-field__loader"
-        variant="circle"
-        indeterminate
-        [size]="18"
-        [strokeWidth]="2"
-      />
-      } @else {
-      <svg mlvButtonIcon lucideSearch />
+        <button
+          mlvButton
+          class="mlv-search-field__submit"
+          mlvDensity="tight"
+          type="button"
+          shape="circle"
+          variant="transparent"
+          [disabled]="disabled()"
+          [loading]="loading()"
+          [attr.aria-label]="_i18n().submit"
+          (click)="_onSubmitClick($event)"
+        >
+          @if (loading()) {
+            <mlv-loader
+              class="mlv-search-field__loader"
+              variant="circle"
+              indeterminate
+              [size]="18"
+              [strokeWidth]="2"
+            />
+          } @else {
+            <svg mlvButtonIcon lucideSearch />
+          }
+        </button>
       }
-    </button>
-    }
-  </div>
-</mlv-input>
+    </div>
+  </mlv-input>
 }
 
 <ng-template #overlayTemplate>
@@ -127,12 +129,12 @@
   >
     <div class="mlv-search-field__overlay-panel">
       @if (_overlayContentDef(); as contentDef) {
-      <ng-container
-        [ngTemplateOutlet]="contentDef.templateRef"
-        [ngTemplateOutletContext]="_overlayContext()"
-      />
+        <ng-container
+          [ngTemplateOutlet]="contentDef.templateRef"
+          [ngTemplateOutletContext]="_overlayContext()"
+        />
       } @else {
-      <!--
+        <!--
         The overlay's default body is another search field, so the overlay
         inherits every affordance of the inline control instead of re-declaring a
         near-copy of it. It is configured as a pure input surface: `submit` mode
@@ -140,19 +142,19 @@
         `commitOnClear` is off — this host owns commit, through `valueChange` for
         live mode and `_onOverlayEnter` for Enter.
       -->
-      <mlv-search-field
-        class="mlv-search-field__overlay-input"
-        trigger="submit"
-        [showSubmit]="false"
-        [commitOnClear]="false"
-        [clearable]="clearable()"
-        [loading]="loading()"
-        [placeholder]="_resolvedPlaceholder()"
-        [ariaLabel]="_resolvedAriaLabel()"
-        [value]="value()"
-        (valueChange)="_onValueChange($event)"
-        (keydown.enter)="_onOverlayEnter($event)"
-      />
+        <mlv-search-field
+          class="mlv-search-field__overlay-input"
+          trigger="submit"
+          [showSubmit]="false"
+          [commitOnClear]="false"
+          [clearable]="clearable()"
+          [loading]="loading()"
+          [placeholder]="_resolvedPlaceholder()"
+          [ariaLabel]="_resolvedAriaLabel()"
+          [value]="value()"
+          (valueChange)="_onValueChange($event)"
+          (keydown.enter)="_onOverlayEnter($event)"
+        />
       }
 
       <!--

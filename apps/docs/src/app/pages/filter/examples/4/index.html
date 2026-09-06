@@ -55,27 +55,27 @@
       let-set="setValue"
     >
       @if (operator === 'between') {
-      <div class="query-filter-demo__range">
-        <mlv-day-picker
-          [value]="toDate(rangeAt(value, 0))"
-          [disabled]="disabled"
-          [ariaLabel]="'Renewal date from'"
-          (valueChange)="setRangeAt(value, 0, toIso($event), set)"
-        />
-        <mlv-day-picker
-          [value]="toDate(rangeAt(value, 1))"
-          [disabled]="disabled"
-          [ariaLabel]="'Renewal date to'"
-          (valueChange)="setRangeAt(value, 1, toIso($event), set)"
-        />
-      </div>
+        <div class="query-filter-demo__range">
+          <mlv-day-picker
+            [value]="toDate(rangeAt(value, 0))"
+            [disabled]="disabled"
+            [ariaLabel]="'Renewal date from'"
+            (valueChange)="setRangeAt(value, 0, toIso($event), set)"
+          />
+          <mlv-day-picker
+            [value]="toDate(rangeAt(value, 1))"
+            [disabled]="disabled"
+            [ariaLabel]="'Renewal date to'"
+            (valueChange)="setRangeAt(value, 1, toIso($event), set)"
+          />
+        </div>
       } @else {
-      <mlv-day-picker
-        [value]="toDate(value)"
-        [disabled]="disabled"
-        [ariaLabel]="'Renewal date'"
-        (valueChange)="set(toIso($event))"
-      />
+        <mlv-day-picker
+          [value]="toDate(value)"
+          [disabled]="disabled"
+          [ariaLabel]="'Renewal date'"
+          (valueChange)="set(toIso($event))"
+        />
       }
     </ng-template>
   </mlv-smart-filter-bar>
