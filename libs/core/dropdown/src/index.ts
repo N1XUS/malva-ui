@@ -1,4 +1,5 @@
 export * from './lib/dropdown-panel/dropdown-panel';
+export * from './lib/dropdown-positions';
 export * from './lib/select-option';
 export * from './lib/option-matcher';
 export * from './lib/active-descendant';

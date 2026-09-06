@@ -114,6 +114,7 @@ The directive is intentionally **not** wired to `@malva-ui/i18n` — a headless 
 - Under flexible dimensions **with `withPush(false)`** (hard-coded at `autocomplete.ts`'s strategy build) CDK **clears `max-width` on the pane** and applies `OverlayConfig.maxWidth` to the bounding box; `_hasExactPosition()` is `!_hasFlexibleDimensions || _isPushed`, so with push enabled the cap would move back onto the pane. Specs assert the cap on `.cdk-overlay-connected-position-bounding-box`, the floor on `.cdk-overlay-pane`.
 - The overlay is created per open (disposed on close), so both values are read fresh each time — no stale first-open measurement.
 - Same contract in `mlv-select` / `mlv-combobox` as `dropdownMinWidth` / `dropdownMaxWidth`.
+- **How far it may grow depends on which field edge is anchored (#154).** The strategy is built with the shared `DROPDOWN_POSITIONS` from `@malva-ui/core/dropdown` (replacing the directive's private `AUTOCOMPLETE_POSITIONS`) — start-aligned below/above preferred, end-aligned below/above as the inline fallback — so a narrow field near the viewport's inline-end edge anchors its panel's inline-end edge to the field and grows back toward inline-start instead of being boxed into the sliver after it. See `libs-dropdown.md` → _Overlay positions (#154)_.
 
 ## Dependencies
 
