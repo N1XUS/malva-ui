@@ -60,8 +60,14 @@ export interface MlvSchedulerEventInteraction<D = Date, TData = unknown> {
   /** The chip host — anchor for consumer menus and popups. */
   element: HTMLElement;
   /**
-   * The originating DOM event. `defaultPrevented` only when a matching
-   * `*mlvScheduler…MenuDef` opened the built-in context menu on it.
+   * The originating DOM event: the `click` / `dblclick` / `contextmenu`
+   * `MouseEvent`, or the `KeyboardEvent` of `Enter` / `Space` (click) and of
+   * the ContextMenu key / `Shift+F10` (context menu). On a `contextmenu`
+   * `MouseEvent`, `defaultPrevented` is `true` only when a matching
+   * `*mlvScheduler…MenuDef` opened the built-in menu on it. A context-menu
+   * `KeyboardEvent` is always prevented — the scheduler claims the key, def
+   * or not, so the browser does not synthesise a second `contextmenu` from
+   * the same press — and so carries no such signal.
    */
   nativeEvent: MouseEvent | KeyboardEvent;
 }
@@ -75,8 +81,14 @@ export interface MlvSchedulerSlotEvent<D = Date> {
   /** The cell or slot element that was activated. */
   element: HTMLElement;
   /**
-   * The originating DOM event. `defaultPrevented` only when a matching
-   * `*mlvScheduler…MenuDef` opened the built-in context menu on it.
+   * The originating DOM event: the `click` / `dblclick` / `contextmenu`
+   * `MouseEvent`, or the `KeyboardEvent` of `Enter` / `Space` (click) and of
+   * the ContextMenu key / `Shift+F10` (context menu). On a `contextmenu`
+   * `MouseEvent`, `defaultPrevented` is `true` only when a matching
+   * `*mlvScheduler…MenuDef` opened the built-in menu on it. A context-menu
+   * `KeyboardEvent` is always prevented — the scheduler claims the key, def
+   * or not, so the browser does not synthesise a second `contextmenu` from
+   * the same press — and so carries no such signal.
    */
   nativeEvent: MouseEvent | KeyboardEvent;
 }

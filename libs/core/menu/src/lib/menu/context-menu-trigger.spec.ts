@@ -8,7 +8,11 @@ import { MlvListItem } from '@malva-ui/core/list';
 import { MlvMenu } from './menu';
 import { MlvMenuItem } from './menu-item';
 import { MlvMenuSeparator } from './menu-separator';
-import { MlvContextMenuTrigger } from './context-menu-trigger';
+import {
+  MlvContextMenuTrigger,
+  mlvClaimContextMenuKey,
+  mlvIsContextMenuKey,
+} from './context-menu-trigger';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -56,6 +60,30 @@ function ctrlClick(x: number, y: number): MouseEvent {
     buttons: 0,
     detail: 1,
     ctrlKey: true,
+  });
+}
+
+/**
+ * The `keydown` a browser delivers for Shift+F10 — on macOS the only thing it
+ * delivers, since Chromium and WebKit there synthesise no `contextmenu` from
+ * the keyboard at all.
+ */
+function shiftF10(init: KeyboardEventInit = {}): KeyboardEvent {
+  return new KeyboardEvent('keydown', {
+    key: 'F10',
+    shiftKey: true,
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  });
+}
+
+/** The `keydown` of the dedicated ContextMenu (Menu / Application) key. */
+function contextMenuKey(): KeyboardEvent {
+  return new KeyboardEvent('keydown', {
+    key: 'ContextMenu',
+    bubbles: true,
+    cancelable: true,
   });
 }
 
@@ -137,6 +165,22 @@ class NestedGlobalHost {}
 @Component({
   imports: [MlvMenu, MlvMenuItem, MlvContextMenuTrigger, MlvListItem],
   template: `
+    <div data-page [mlvContextMenuTrigger]="pageMenu">
+      <div data-card [mlvContextMenuTrigger]="cardMenu">Card</div>
+    </div>
+    <mlv-menu #cardMenu label="Card">
+      <mlv-list-item mlvMenuItem>Rename</mlv-list-item>
+    </mlv-menu>
+    <mlv-menu #pageMenu label="Page">
+      <mlv-list-item mlvMenuItem>Reload</mlv-list-item>
+    </mlv-menu>
+  `,
+})
+class NestedTargetedHost {}
+
+@Component({
+  imports: [MlvMenu, MlvMenuItem, MlvContextMenuTrigger, MlvListItem],
+  template: `
     <div data-target role="button" tabindex="0" [mlvContextMenuTrigger]="menu">
       Widget host
     </div>
@@ -194,6 +238,7 @@ describe('MlvContextMenuTrigger', () => {
         TargetedHost,
         GlobalHost,
         NestedGlobalHost,
+        NestedTargetedHost,
         WidgetHost,
         ScopedRtlHost,
         SharedTriggerHost,
@@ -382,6 +427,313 @@ describe('MlvContextMenuTrigger', () => {
 
     const items = overlayContainerEl.querySelectorAll('[role="menuitem"]');
     expect(document.activeElement).toBe(items[0]);
+  });
+
+  // ─── Keyboard keys handled by the directive itself ────────────────────────
+
+  it('opens anchored to the host with the first item focused on the Shift+F10 keydown, without waiting for a synthesised contextmenu', async () => {
+    const { fixture, target } = await createTargeted();
+    target.tabIndex = 0;
+    target.focus();
+
+    const event = shiftF10();
+    target.dispatchEvent(event);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await flushTimers();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Prevented, so a browser that would synthesise `contextmenu` from this
+    // keydown (Windows, Linux) no longer does — one open, not two.
+    expect(event.defaultPrevented).toBe(true);
+    expect(overlayContainerEl.querySelector('[role="menu"]')).toBeTruthy();
+    // Element-anchored: the host box, not a cursor point.
+    expect(pane()?.style.left).toBe('0px');
+    expect(document.activeElement).toBe(
+      overlayContainerEl.querySelector('[role="menuitem"]'),
+    );
+  });
+
+  it('opens on the ContextMenu key', async () => {
+    const { fixture, target } = await createTargeted();
+    target.tabIndex = 0;
+    target.focus();
+
+    const event = contextMenuKey();
+    target.dispatchEvent(event);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await flushTimers();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(
+      overlayContainerEl.querySelector('[role="menuitem"]'),
+    );
+  });
+
+  it('ignores a plain F10, a differently modified Shift+F10 and any other key', async () => {
+    const { fixture, target } = await createTargeted();
+
+    for (const event of [
+      shiftF10({ shiftKey: false }),
+      shiftF10({ ctrlKey: true }),
+      shiftF10({ altKey: true }),
+      shiftF10({ metaKey: true }),
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    ]) {
+      target.dispatchEvent(event);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(event.defaultPrevented).toBe(false);
+      expect(overlayContainerEl.querySelector('[role="menu"]')).toBeNull();
+    }
+  });
+
+  it('leaves the Shift+F10 keydown alone while disabled', async () => {
+    const { fixture, target } = await createTargeted();
+    fixture.componentInstance.disabled.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const event = shiftF10();
+    target.dispatchEvent(event);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(overlayContainerEl.querySelector('[role="menu"]')).toBeNull();
+  });
+
+  it('re-anchors to the host and focuses the first item on Shift+F10 while the panel is open', async () => {
+    const { fixture, target } = await createTargeted();
+    target.tabIndex = 0;
+
+    target.dispatchEvent(rightClick(150, 220));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(pane()?.style.left).toBe('150px');
+
+    target.dispatchEvent(shiftF10());
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await flushTimers();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(overlayContainerEl.querySelectorAll('[role="menu"]').length).toBe(1);
+    expect(pane()?.style.left).toBe('0px');
+    expect(document.activeElement).toBe(
+      overlayContainerEl.querySelector('[role="menuitem"]'),
+    );
+  });
+
+  it('opens from a Shift+F10 keydown anywhere in the document in global mode', async () => {
+    const fixture = TestBed.createComponent(GlobalHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const outside = fixture.debugElement.query(By.css('[data-outside]'))
+      .nativeElement as HTMLElement;
+    const event = shiftF10();
+    outside.dispatchEvent(event);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await flushTimers();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(
+      overlayContainerEl.querySelector('[role="menuitem"]'),
+    );
+  });
+
+  it('leaves a text field its own native menu on Shift+F10 in global mode', async () => {
+    const fixture = TestBed.createComponent(GlobalHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const field = fixture.debugElement.query(By.css('[data-field]'))
+      .nativeElement as HTMLElement;
+    const event = shiftF10();
+    field.dispatchEvent(event);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(overlayContainerEl.querySelector('[role="menu"]')).toBeNull();
+  });
+
+  it('opens only the nearest panel on Shift+F10 when a targeted trigger sits inside a global one', async () => {
+    const fixture = TestBed.createComponent(NestedGlobalHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = fixture.debugElement.query(By.css('[data-card]'))
+      .nativeElement as HTMLElement;
+    card.dispatchEvent(shiftF10());
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const menus = overlayContainerEl.querySelectorAll('[role="menu"]');
+    expect(menus.length).toBe(1);
+    expect(menus[0].getAttribute('aria-label')).toBe('Card');
+  });
+
+  it('claims the ContextMenu key keyup — the event Windows synthesises contextmenu from — once, after it opened on the keydown', async () => {
+    const { fixture, target } = await createTargeted();
+    target.tabIndex = 0;
+    target.focus();
+
+    target.dispatchEvent(contextMenuKey());
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await flushTimers();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Focus has moved into the panel by the time the key is released, so the
+    // keyup lands on a menu item, not on the host.
+    const item = document.activeElement as HTMLElement;
+    expect(item.getAttribute('role')).toBe('menuitem');
+    const keyup = new KeyboardEvent('keyup', {
+      key: 'ContextMenu',
+      bubbles: true,
+      cancelable: true,
+    });
+    item.dispatchEvent(keyup);
+    expect(keyup.defaultPrevented).toBe(true);
+
+    // The guard is one press long: a later ContextMenu keyup with no claimed
+    // keydown before it is the browser's again.
+    const later = new KeyboardEvent('keyup', {
+      key: 'ContextMenu',
+      bubbles: true,
+      cancelable: true,
+    });
+    item.dispatchEvent(later);
+    expect(later.defaultPrevented).toBe(false);
+  });
+
+  it('claims a held key’s repeats without re-opening or moving focus again', async () => {
+    const { fixture, target } = await createTargeted();
+    target.tabIndex = 0;
+    target.focus();
+
+    target.dispatchEvent(shiftF10());
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await flushTimers();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const items =
+      overlayContainerEl.querySelectorAll<HTMLElement>('[role="menuitem"]');
+    items[1].focus();
+    expect(document.activeElement).toBe(items[1]);
+
+    const repeat = shiftF10({ repeat: true });
+    target.dispatchEvent(repeat);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await flushTimers();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(repeat.defaultPrevented).toBe(true);
+    expect(overlayContainerEl.querySelectorAll('[role="menu"]').length).toBe(1);
+    expect(document.activeElement).toBe(items[1]);
+  });
+
+  it('opens only the nearest panel on Shift+F10 when a targeted trigger sits inside another targeted one', async () => {
+    const fixture = TestBed.createComponent(NestedTargetedHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = fixture.debugElement.query(By.css('[data-card]'))
+      .nativeElement as HTMLElement;
+    card.dispatchEvent(shiftF10());
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const menus = overlayContainerEl.querySelectorAll('[role="menu"]');
+    expect(menus.length).toBe(1);
+    expect(menus[0].getAttribute('aria-label')).toBe('Card');
+  });
+
+  it('opens only the nearest panel on a right-click when a targeted trigger sits inside another targeted one', async () => {
+    const fixture = TestBed.createComponent(NestedTargetedHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = fixture.debugElement.query(By.css('[data-card]'))
+      .nativeElement as HTMLElement;
+    card.dispatchEvent(rightClick(40, 50));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const menus = overlayContainerEl.querySelectorAll('[role="menu"]');
+    expect(menus.length).toBe(1);
+    expect(menus[0].getAttribute('aria-label')).toBe('Card');
+  });
+
+  it('mlvClaimContextMenuKey prevents the keydown, guards one ContextMenu keyup, and arms nothing for a repeat', () => {
+    const f10 = shiftF10();
+    mlvClaimContextMenuKey(f10, document);
+    expect(f10.defaultPrevented).toBe(true);
+    // Shift+F10 is synthesised from the keydown only; no keyup guard.
+    const f10Up = new KeyboardEvent('keyup', { key: 'F10', cancelable: true });
+    document.dispatchEvent(f10Up);
+    expect(f10Up.defaultPrevented).toBe(false);
+
+    const repeat = new KeyboardEvent('keydown', {
+      key: 'ContextMenu',
+      repeat: true,
+      cancelable: true,
+    });
+    mlvClaimContextMenuKey(repeat, document);
+    expect(repeat.defaultPrevented).toBe(true);
+    const unguarded = new KeyboardEvent('keyup', {
+      key: 'ContextMenu',
+      cancelable: true,
+    });
+    document.dispatchEvent(unguarded);
+    expect(unguarded.defaultPrevented).toBe(false);
+
+    const press = contextMenuKey();
+    mlvClaimContextMenuKey(press, document);
+    mlvClaimContextMenuKey(press, document); // a second claim of the same press
+    const guarded = new KeyboardEvent('keyup', {
+      key: 'ContextMenu',
+      cancelable: true,
+    });
+    document.dispatchEvent(guarded);
+    expect(guarded.defaultPrevented).toBe(true);
+    const next = new KeyboardEvent('keyup', {
+      key: 'ContextMenu',
+      cancelable: true,
+    });
+    document.dispatchEvent(next);
+    expect(next.defaultPrevented).toBe(false);
+  });
+
+  it('mlvIsContextMenuKey recognises exactly Shift+F10 and the ContextMenu key', () => {
+    expect(mlvIsContextMenuKey(shiftF10())).toBe(true);
+    expect(mlvIsContextMenuKey(contextMenuKey())).toBe(true);
+    expect(mlvIsContextMenuKey(shiftF10({ shiftKey: false }))).toBe(false);
+    expect(mlvIsContextMenuKey(shiftF10({ ctrlKey: true }))).toBe(false);
+    expect(mlvIsContextMenuKey(shiftF10({ altKey: true }))).toBe(false);
+    expect(mlvIsContextMenuKey(shiftF10({ metaKey: true }))).toBe(false);
+    expect(
+      mlvIsContextMenuKey(new KeyboardEvent('keydown', { key: 'Escape' })),
+    ).toBe(false);
   });
 
   // ─── Global mode ──────────────────────────────────────────────────────────
@@ -682,6 +1034,41 @@ describe('MlvContextMenuTrigger', () => {
       await pressEscape(fixture, panel as HTMLElement);
 
       // Focus restoration targets the anchor, not the hidden trigger host.
+      expect(document.activeElement).toBe(rowA);
+    });
+
+    it('openFromEvent opens anchored to the element for a Shift+F10 keydown and ignores any other keydown', async () => {
+      const { fixture, trigger, rowA } = await createShared();
+      rowA.focus();
+
+      const other = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      });
+      trigger.openFromEvent(other, rowA);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(other.defaultPrevented).toBe(false);
+      expect(overlayContainerEl.querySelector('[role="menu"]')).toBeNull();
+
+      const event = shiftF10();
+      trigger.openFromEvent(event, rowA);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await flushTimers();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(event.defaultPrevented).toBe(true);
+      const panel =
+        overlayContainerEl.querySelector<HTMLElement>('[role="menu"]');
+      expect(panel).toBeTruthy();
+      expect(document.activeElement).toBe(
+        overlayContainerEl.querySelector('[role="menuitem"]'),
+      );
+
+      await pressEscape(fixture, panel as HTMLElement);
       expect(document.activeElement).toBe(rowA);
     });
 

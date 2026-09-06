@@ -21,14 +21,19 @@ import {
   type Signal,
   type TemplateRef,
 } from '@angular/core';
-import { NgTemplateOutlet, isPlatformBrowser } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet, isPlatformBrowser } from '@angular/common';
 import {
   coerceBooleanProperty,
   type BooleanInput,
 } from '@angular/cdk/coercion';
 import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import { MlvButton } from '@malva-ui/core/button';
-import { MlvContextMenuTrigger, MlvMenu } from '@malva-ui/core/menu';
+import {
+  MlvContextMenuTrigger,
+  MlvMenu,
+  mlvClaimContextMenuKey,
+  mlvIsContextMenuKey,
+} from '@malva-ui/core/menu';
 import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
 import {
   MLV_DATE_ADAPTER,
@@ -330,6 +335,8 @@ export class MlvScheduler<D = Date, TData = unknown>
   private readonly _resolver = inject(MlvI18nResolverService);
   /** @private Only the browser ticks the clock. */
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  /** @private Where a claimed ContextMenu key's keyup guard is attached. */
+  private readonly _document = inject(DOCUMENT);
   /** @private The minute ticker runs outside the zone. */
   private readonly _zone = inject(NgZone);
   /** @private Pointer drag engine; one per scheduler. */
@@ -680,9 +687,10 @@ export class MlvScheduler<D = Date, TData = unknown>
     kind: MlvSchedulerInteractionKind,
     payload: MlvSchedulerEventInteraction<D, TData>,
   ): void {
-    if (kind === 'contextmenu') {
+    if (kind === 'contextmenu' && this._opensContextMenu(payload.nativeEvent)) {
+      if (this._claimContextMenuKey(payload.nativeEvent)) return;
       const def = this._eventMenuDefRef();
-      if (def && payload.nativeEvent instanceof MouseEvent) {
+      if (def) {
         this._openContextMenu(
           {
             template: def.templateRef,
@@ -714,9 +722,10 @@ export class MlvScheduler<D = Date, TData = unknown>
     payload: MlvSchedulerSlotEvent<D>,
     selection: MlvSchedulerNextRange<D> | null = null,
   ): void {
-    if (kind === 'contextmenu') {
+    if (kind === 'contextmenu' && this._opensContextMenu(payload.nativeEvent)) {
+      if (this._claimContextMenuKey(payload.nativeEvent)) return;
       const def = this._slotMenuDefRef();
-      if (def && payload.nativeEvent instanceof MouseEvent) {
+      if (def) {
         const range = selection ?? this._slotRange(payload);
         const opened = this._openContextMenu(
           {
@@ -861,16 +870,51 @@ export class MlvScheduler<D = Date, TData = unknown>
   }
 
   /**
+   * @private Whether a `contextmenu` interaction's native event is one the
+   * trigger will actually open on: a `contextmenu` mouse event, or the
+   * ContextMenu key / `Shift+F10` keydown the views forward. Guarding here
+   * keeps `_contextMenu` from being armed for an open that never happens —
+   * `_onContextMenuClosed` would then never run and the pending-selection
+   * hold would stick.
+   */
+  private _opensContextMenu(event: MouseEvent | KeyboardEvent): boolean {
+    return event instanceof MouseEvent || mlvIsContextMenuKey(event);
+  }
+
+  /**
+   * @private Claims a context-menu keydown the views forwarded — def or not.
+   *
+   * Left unclaimed, Windows / Linux browsers synthesise a `contextmenu` from
+   * the same press (from the Shift+F10 keydown, from the ContextMenu key's
+   * keyup) and the cell's / chip's `contextmenu` listener would emit the
+   * output a second time, with a `MouseEvent`, for one gesture. So the
+   * scheduler owns the key: the keyboard interaction is the whole gesture,
+   * emitted once. That is why `nativeEvent.defaultPrevented` says nothing
+   * about the built-in menu for a `KeyboardEvent`, unlike for a right-click.
+   *
+   * Returns `true` for a held key's repeat, which is claimed (so the browser
+   * still synthesises nothing) but neither opens nor emits again.
+   */
+  private _claimContextMenuKey(event: MouseEvent | KeyboardEvent): boolean {
+    if (!(event instanceof KeyboardEvent)) return false;
+    mlvClaimContextMenuKey(event, this._document);
+    return event.repeat;
+  }
+
+  /**
    * @private Hands `menu` to the panel and opens it from `event`: at the
-   * cursor for a pointer-initiated event, anchored to the cell / chip for a
-   * keyboard-initiated one (ContextMenu key, Shift+F10). The anchor also
-   * resolves the panel's direction and takes focus back on close. A second
-   * right-click while open re-targets the same panel. Returns `false` when
-   * the trigger is not rendered yet (a def projected in this very tick).
+   * cursor for a pointer-initiated `contextmenu`, anchored to the cell / chip
+   * for a keyboard-initiated one — a `contextmenu` an assistive technology
+   * synthesised, or the ContextMenu key / `Shift+F10` keydown itself, which
+   * the views forward because macOS browsers synthesise nothing for it. The
+   * anchor also resolves the panel's direction and takes focus back on
+   * close. A second right-click while open re-targets the same panel.
+   * Returns `false` when the trigger is not rendered yet (a def projected in
+   * this very tick).
    */
   private _openContextMenu(
     menu: MlvSchedulerContextMenuState<D, TData>,
-    event: MouseEvent,
+    event: MouseEvent | KeyboardEvent,
     anchor: HTMLElement,
   ): boolean {
     const trigger = this._contextMenuTrigger();

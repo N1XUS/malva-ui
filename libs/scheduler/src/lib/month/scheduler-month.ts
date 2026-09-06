@@ -29,6 +29,7 @@ import {
   RIGHT_ARROW,
   UP_ARROW,
 } from '@angular/cdk/keycodes';
+import { mlvIsContextMenuKey } from '@malva-ui/core/menu';
 import { MlvPopupService, type MlvPopupHandle } from '@malva-ui/core/popup';
 import {
   MlvResizeObserverService,
@@ -593,6 +594,14 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       this._commitSelection('keyboard');
       return;
     }
+    // Not prevented and the selection not cleared here: the root claims the
+    // key (def or not, so the browser synthesises no second `contextmenu`),
+    // and a menu opened over the pending selection releases it on close
+    // (`selectionRelease`).
+    if (mlvIsContextMenuKey(event)) {
+      this._emitKeyboardContextMenu(dayIndex, target, event);
+      return;
+    }
     const arrow = this._rtl.normalizeArrowKey(event);
     if (event.shiftKey && arrow !== null && this._ctx.selectable()) {
       event.preventDefault();
@@ -900,6 +909,27 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       element,
       nativeEvent,
     });
+  }
+
+  /**
+   * @private `slotContextMenu` from the ContextMenu key / `Shift+F10` — the
+   * same payload and pending-selection hand-off as a right-click on the cell.
+   */
+  private _emitKeyboardContextMenu(
+    dayIndex: number,
+    element: HTMLElement,
+    nativeEvent: KeyboardEvent,
+  ): void {
+    this._ctx.emitSlotInteraction(
+      'contextmenu',
+      {
+        date: this._ctx.days()[dayIndex],
+        allDay: true,
+        element,
+        nativeEvent,
+      },
+      this._isSelected(dayIndex) ? this._selectionRange() : null,
+    );
   }
 
   /** @private Disposes the overflow popover, if one is open. */

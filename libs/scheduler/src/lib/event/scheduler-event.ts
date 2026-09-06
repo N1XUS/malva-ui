@@ -20,6 +20,7 @@ import {
 } from '@angular/cdk/keycodes';
 import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { mlvIsContextMenuKey } from '@malva-ui/core/menu';
 import {
   TOUCH_GESTURE_DELAY,
   attachPointerDrag,
@@ -211,12 +212,23 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
   }
 
   /**
-   * @protected `Enter` / `Space` activate; `Alt+Arrow` moves; `Alt+Shift+Arrow` resizes the end edge and
+   * @protected `Enter` / `Space` activate; the ContextMenu key / `Shift+F10` emit the chip's
+   * `contextmenu` interaction; `Alt+Arrow` moves; `Alt+Shift+Arrow` resizes the end edge and
    * `Ctrl+Alt+Arrow` the start edge; `Escape` returns to the owning cell; `Tab` cycles sibling chips.
    * A key that maps to no gesture here is left to bubble — the grid still owns it.
    */
   protected _onKeydown(event: KeyboardEvent): void {
     if (this._ghost() || this._fromInteractiveDescendant(event)) return;
+    // Not prevented here: the root claims the key — def or not — so the
+    // browser does not synthesise a second `contextmenu` from the same press.
+    if (mlvIsContextMenuKey(event)) {
+      this._ctx.emitEventInteraction('contextmenu', {
+        event: this.event(),
+        element: this._host,
+        nativeEvent: event,
+      });
+      return;
+    }
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       this._ctx.emitEventInteraction('click', {

@@ -11,9 +11,11 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import type { ConnectedPosition } from '@angular/cdk/overlay';
+import { fromEvent } from 'rxjs';
 import {
   MlvMenuOverlayController,
   type MlvMenuOverlayTarget,
@@ -39,6 +41,83 @@ const MOZ_SOURCE_KEYBOARD = 6;
  * @private
  */
 const EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable]';
+
+/**
+ * Whether a `keydown` is the keyboard's "open the context menu" gesture: the
+ * dedicated ContextMenu (Menu / Application) key, or `Shift+F10` with no other
+ * modifier.
+ *
+ * Handled from the key itself rather than from the `contextmenu` event a
+ * browser may synthesise for it, because that synthesis is platform-bound:
+ * Windows and Linux browsers dispatch `contextmenu` for both keys, while
+ * Chromium and WebKit on macOS dispatch nothing at all and Mac keyboards carry
+ * no ContextMenu key — so a directive that only listened for `contextmenu`
+ * would be unreachable from the keyboard there. Exported so a component that
+ * shares one `[mlvContextMenuTrigger]` between many elements can recognise the
+ * gesture in its own `keydown` handler and forward it to `openFromEvent`.
+ */
+export function mlvIsContextMenuKey(event: KeyboardEvent): boolean {
+  if (event.key === 'ContextMenu') return true;
+  return (
+    event.key === 'F10' &&
+    event.shiftKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !event.metaKey
+  );
+}
+
+/**
+ * Keydowns `mlvClaimContextMenuKey` has already armed a keyup guard for, so a
+ * second claim of the same press — the scheduler root claims, then hands the
+ * event to the trigger, which claims again — arms nothing twice.
+ */
+const CLAIMED_KEYDOWNS = new WeakSet<KeyboardEvent>();
+
+/**
+ * Claims a context-menu keydown for the application, so the browser does not
+ * turn the same press into a `contextmenu` of its own and open a second menu
+ * on top of the one the application opened:
+ *
+ * - the keydown is prevented — Windows and Linux browsers synthesise
+ *   `contextmenu` from the Shift+F10 keydown, and a prevented keydown is one
+ *   they treat as handled;
+ * - for the ContextMenu key the matching **keyup** is prevented too, because
+ *   Windows browsers synthesise from that one (Chromium's
+ *   `WebViewImpl::HandleKeyEvent`). By the time it fires the open has moved
+ *   focus into the panel, so the keyup lands on a menu item rather than on
+ *   the element the keydown was handled on — it is caught on the document,
+ *   in the capture phase, and the guard removes itself on that keyup.
+ *
+ * Idempotent per press: a repeat, or a second claim of the same event, arms
+ * nothing more. Exported alongside `mlvIsContextMenuKey` for a component that
+ * turns the key into a context-menu interaction of its own without opening a
+ * trigger (`@malva-ui/scheduler` with no menu def projected), where the
+ * browser's second `contextmenu` would otherwise fire that interaction twice.
+ */
+export function mlvClaimContextMenuKey(
+  event: KeyboardEvent,
+  document: Document,
+): void {
+  event.preventDefault();
+  if (
+    event.key !== 'ContextMenu' ||
+    event.repeat ||
+    CLAIMED_KEYDOWNS.has(event)
+  ) {
+    return;
+  }
+  CLAIMED_KEYDOWNS.add(event);
+  // Raw listener on purpose: it lives for one key press and has no injection
+  // context to take a DestroyRef from — the DOM-listener rule's self-removing
+  // case. Capture, so it runs before the panel's own keyup handling.
+  const guard = (keyup: KeyboardEvent): void => {
+    if (keyup.key !== 'ContextMenu') return;
+    keyup.preventDefault();
+    document.removeEventListener('keyup', guard, { capture: true });
+  };
+  document.addEventListener('keyup', guard, { capture: true });
+}
 
 /**
  * ARIA states that a `role="generic"` element may not carry.
@@ -89,12 +168,21 @@ const CONTEXT_MENU_POSITIONS: ConnectedPosition[] = [
  *
  * ## Keyboard access
  *
- * Right-click is a pointer-only gesture, but browsers dispatch the same
- * `contextmenu` event for the **ContextMenu key** and **Shift+F10**, so keyboard
- * users reach the menu through this directive too — provided the host is
- * focusable. Put the directive on a natively focusable element, or give it a
- * `tabindex`. A keyboard-initiated open carries no cursor, so the panel anchors
- * to the host element and focus moves straight to the first item.
+ * Right-click is a pointer-only gesture, so the directive opens the same panel
+ * from the **ContextMenu key** and **Shift+F10** itself, on `keydown` —
+ * provided the host is focusable. Put the directive on a natively focusable
+ * element, or give it a `tabindex`. A keyboard-initiated open carries no
+ * cursor, so the panel anchors to the host element and focus moves straight to
+ * the first item.
+ *
+ * The keys are handled here and not left to the browser because only Windows
+ * and Linux browsers synthesise a `contextmenu` event for them; Chromium and
+ * WebKit on macOS dispatch nothing, and Mac keyboards have no ContextMenu key.
+ * The press is claimed (`mlvClaimContextMenuKey`): the keydown is prevented,
+ * which stops the Shift+F10 synthesis, and for the ContextMenu key its keyup
+ * as well, because Windows synthesises from that one — one open per press
+ * everywhere. A `contextmenu` that still arrives from an assistive technology
+ * (VoiceOver's "open shortcut menu") keeps opening the panel as before.
  *
  * That covers WCAG 2.1.1 on its own. A visible affordance (an ellipsis button
  * using the regular `[mlvMenuTrigger]` on the same `mlv-menu`) is still the
@@ -105,8 +193,9 @@ const CONTEXT_MENU_POSITIONS: ConnectedPosition[] = [
  *
  * A list whose every row opens the same menu does not need a trigger per row:
  * put the directive on one hidden element beside the panel and forward each
- * row's `contextmenu` event to `openFromEvent(event, row)`. The row becomes
- * the **anchor** — a keyboard-initiated open positions against it, its
+ * row's `contextmenu` event — and its `keydown`, which `openFromEvent` acts on
+ * only for the two context-menu keys — to `openFromEvent(event, row)`. The row
+ * becomes the **anchor** — a keyboard-initiated open positions against it, its
  * `[dir]` scope decides the panel's direction, and focus returns to it when
  * the panel closes. `@malva-ui/scheduler` drives its cell and event menus
  * this way.
@@ -165,8 +254,9 @@ export class MlvContextMenuTrigger {
   });
 
   /**
-   * When `true`, listens for `contextmenu` on the document instead of on the
-   * host element, so a right-click anywhere on the page opens the menu.
+   * When `true`, listens for `contextmenu` (and the context-menu keys) on the
+   * document instead of on the host element, so a right-click or Shift+F10
+   * anywhere on the page opens the menu.
    *
    * Three kinds of right-click are left to the browser: those inside an open
    * overlay panel (the menu's own panel is portaled to `<body>`, outside the
@@ -279,24 +369,38 @@ export class MlvContextMenuTrigger {
     this._elementRef.nativeElement,
   );
 
-  /** @private Teardown for the document listener installed by `global` mode. */
-  private _globalCleanup: (() => void) | null = null;
+  /** @private Teardowns for the document listeners installed by `global` mode. */
+  private _globalCleanups: (() => void)[] = [];
 
   constructor() {
-    // `global` is an input, so the listener has to follow it rather than being
-    // installed once in the constructor.
+    // `global` is an input, so the listeners have to follow it rather than
+    // being installed once in the constructor.
     effect(() => {
       const isGlobal = this.global();
-      this._removeGlobalListener();
+      this._removeGlobalListeners();
       if (!isGlobal) return;
-      this._globalCleanup = this._renderer.listen(
-        this._document,
-        'contextmenu',
-        (event: MouseEvent) => this._onGlobalContextMenu(event),
-      );
+      this._globalCleanups = [
+        this._renderer.listen(
+          this._document,
+          'contextmenu',
+          (event: MouseEvent) => this._onGlobalContextMenu(event),
+        ),
+        this._renderer.listen(
+          this._document,
+          'keydown',
+          (event: KeyboardEvent) => this._onGlobalKeydown(event),
+        ),
+      ];
     });
 
-    this._destroyRef.onDestroy(() => this._removeGlobalListener());
+    this._destroyRef.onDestroy(() => this._removeGlobalListeners());
+
+    // Not a host `(keydown)` binding: Angular wraps those in a mark-dirty +
+    // scheduler notification per event, and every keystroke typed anywhere
+    // inside the host would pay it (best-practices § DOM Listeners).
+    fromEvent<KeyboardEvent>(this._elementRef.nativeElement, 'keydown')
+      .pipe(takeUntilDestroyed())
+      .subscribe((event) => this._onHostKeydown(event));
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────
@@ -352,23 +456,39 @@ export class MlvContextMenuTrigger {
   }
 
   /**
-   * Opens the menu from a `contextmenu` event that reached the page somewhere
-   * other than the host, suppressing the native menu exactly as the host's
-   * own listener does: at the cursor for a pointer-initiated event, anchored
-   * to `anchor` (else the host) with the first item focused for a
-   * keyboard-initiated one (ContextMenu key, Shift+F10).
+   * Opens the menu from an event that reached the page somewhere other than
+   * the host, exactly as the host's own listeners would:
+   *
+   * - a `contextmenu` event — the native menu is suppressed and the panel
+   *   opens at the cursor, or anchored to `anchor` (else the host) with the
+   *   first item focused when the event was keyboard-synthesised;
+   * - a `keydown` — acted on only when it is the ContextMenu key or
+   *   `Shift+F10` (see `mlvIsContextMenuKey`), which is then claimed
+   *   (`mlvClaimContextMenuKey`) and opens the panel anchored with the first
+   *   item focused; a held key's repeats are claimed but open nothing more.
+   *   Any other key is ignored and left unprevented, so a `keydown` handler
+   *   can forward every key here unfiltered.
    *
    * For one panel shared by many elements — a table's rows, a calendar's
    * cells — where a trigger per element would be waste: put the directive on
-   * a hidden element next to the panel and forward each element's event here
+   * a hidden element next to the panel and forward each element's events here
    * with the element as `anchor`, so direction and focus restoration still
-   * come from the element that was right-clicked.
+   * come from the element that was right-clicked or focused.
    *
    * No-op while `contextMenuDisabled` is set; the native menu is then left
    * alone.
    */
-  openFromEvent(event: MouseEvent, anchor?: HTMLElement): void {
+  openFromEvent(event: MouseEvent | KeyboardEvent, anchor?: HTMLElement): void {
     if (this.contextMenuDisabled()) return;
+
+    if (event instanceof KeyboardEvent) {
+      if (!mlvIsContextMenuKey(event)) return;
+      mlvClaimContextMenuKey(event, this._document);
+      // A held key repeats its keydown; the first press already opened.
+      if (event.repeat) return;
+      this.openFromKeyboard(anchor);
+      return;
+    }
 
     event.preventDefault();
 
@@ -390,14 +510,28 @@ export class MlvContextMenuTrigger {
    * @protected `contextmenu` on the host element (targeted mode).
    *
    * Skipped in `global` mode, where the document listener already sees this
-   * event as it bubbles — handling both would open twice for one right-click.
+   * event as it bubbles — handling both would open twice for one right-click
+   * — and for an event a nearer targeted trigger already claimed, so nested
+   * targeted triggers open one panel, the nearest, like the global case.
    */
   protected _onHostContextMenu(event: MouseEvent): void {
-    if (this.global()) return;
-    this._handleContextMenu(event);
+    if (this.global() || event.defaultPrevented) return;
+    this.openFromEvent(event);
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
+
+  /**
+   * @private `keydown` on the host element (targeted mode): the ContextMenu
+   * key and `Shift+F10` open the panel, every other key is left alone. Same
+   * two skips as `contextmenu`. Unlike `global` mode there is no text-field
+   * carve-out: the host is the element the consumer chose, and a key pressed
+   * inside it is the host's.
+   */
+  private _onHostKeydown(event: KeyboardEvent): void {
+    if (this.global() || event.defaultPrevented) return;
+    this.openFromEvent(event);
+  }
 
   /**
    * @private `contextmenu` anywhere in the document (global mode).
@@ -407,33 +541,42 @@ export class MlvContextMenuTrigger {
    * the menu on top of itself.
    */
   private _onGlobalContextMenu(event: MouseEvent): void {
-    // A nearer trigger already claimed this right-click. The event still
-    // bubbles to the document afterwards — the propagation path is fixed at
-    // dispatch — so without this a targeted trigger nested inside a global one
-    // would open both panels, stacked at the same point, for one right-click.
-    if (event.defaultPrevented) return;
-
-    const target = event.target;
-    if (target instanceof Element) {
-      // The menu's own panel is portaled to `<body>`, outside the host's
-      // subtree; a right-click on a menu item must not re-open the menu on top
-      // of itself.
-      if (target.closest('.cdk-overlay-container') !== null) return;
-      // A text field's own menu (spell-check, paste, undo) beats an
-      // application menu. Without this, one global trigger removes it from
-      // every input on the page.
-      if (target.closest(EDITABLE_SELECTOR) !== null) return;
-    }
-
-    this._handleContextMenu(event);
+    if (this._isClaimedElsewhere(event)) return;
+    this.openFromEvent(event);
   }
 
   /**
-   * @private Suppresses the native menu and opens the panel — at the cursor for
-   * a pointer-initiated event, at the host element for a keyboard-initiated one.
+   * @private `keydown` anywhere in the document (global mode). Same skips as
+   * the right-click: a key pressed inside the open panel is the panel's own
+   * navigation, and a text field keeps its native menu.
    */
-  private _handleContextMenu(event: MouseEvent): void {
+  private _onGlobalKeydown(event: KeyboardEvent): void {
+    if (!mlvIsContextMenuKey(event)) return;
+    if (this._isClaimedElsewhere(event)) return;
     this.openFromEvent(event);
+  }
+
+  /**
+   * @private Whether a document-level event belongs to someone else — a
+   * nearer trigger, an overlay pane, or a text field — and must be left alone.
+   */
+  private _isClaimedElsewhere(event: Event): boolean {
+    // A nearer trigger already claimed this event. It still bubbles to the
+    // document afterwards — the propagation path is fixed at dispatch — so
+    // without this a targeted trigger nested inside a global one would open
+    // both panels, stacked at the same point, for one gesture.
+    if (event.defaultPrevented) return true;
+
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    // The menu's own panel is portaled to `<body>`, outside the host's
+    // subtree; a right-click on a menu item must not re-open the menu on top
+    // of itself.
+    if (target.closest('.cdk-overlay-container') !== null) return true;
+    // A text field's own menu (spell-check, paste, undo) beats an
+    // application menu. Without this, one global trigger removes it from
+    // every input on the page.
+    return target.closest(EDITABLE_SELECTOR) !== null;
   }
 
   /**
@@ -464,9 +607,9 @@ export class MlvContextMenuTrigger {
     return event.detail === 0 && event.clientX === 0 && event.clientY === 0;
   }
 
-  /** @private Detaches the document listener, if one is installed. */
-  private _removeGlobalListener(): void {
-    this._globalCleanup?.();
-    this._globalCleanup = null;
+  /** @private Detaches the document listeners, if any are installed. */
+  private _removeGlobalListeners(): void {
+    for (const cleanup of this._globalCleanups) cleanup();
+    this._globalCleanups = [];
   }
 }

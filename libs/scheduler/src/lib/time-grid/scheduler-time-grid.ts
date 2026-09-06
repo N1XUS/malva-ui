@@ -20,6 +20,7 @@ import {
   RIGHT_ARROW,
   UP_ARROW,
 } from '@angular/cdk/keycodes';
+import { mlvIsContextMenuKey } from '@malva-ui/core/menu';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import {
@@ -816,6 +817,14 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       this._commitSelection('keyboard');
       return;
     }
+    // Not prevented and the selection not cleared here: the root claims the
+    // key (def or not, so the browser synthesises no second `contextmenu`),
+    // and a menu opened over the pending selection releases it on close
+    // (`selectionRelease`).
+    if (mlvIsContextMenuKey(event)) {
+      this._emitKeyboardContextMenu(this._positionOf(target), target, event);
+      return;
+    }
     const arrow = this._rtl.normalizeArrowKey(event);
     if (event.shiftKey && arrow !== null && this._ctx.selectable()) {
       event.preventDefault();
@@ -1170,5 +1179,33 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       element,
       nativeEvent,
     });
+  }
+
+  /**
+   * @private `slotContextMenu` from the ContextMenu key / `Shift+F10` — the
+   * same payload and pending-selection hand-off as a right-click on the slot
+   * or all-day cell.
+   */
+  private _emitKeyboardContextMenu(
+    position: MlvSchedulerGridPos,
+    element: HTMLElement,
+    nativeEvent: KeyboardEvent,
+  ): void {
+    const day = this._ctx.days()[position.dayIndex];
+    this._ctx.emitSlotInteraction(
+      'contextmenu',
+      {
+        date:
+          position.minutes === null
+            ? day
+            : this._slotDate(day, position.minutes),
+        allDay: position.minutes === null,
+        element,
+        nativeEvent,
+      },
+      this._isSelected(position.dayIndex, position.minutes)
+        ? this._selectionRange()
+        : null,
+    );
   }
 }

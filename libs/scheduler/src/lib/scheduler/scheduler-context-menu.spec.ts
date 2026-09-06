@@ -51,6 +51,19 @@ function keyboardContextMenu(): MouseEvent {
   });
 }
 
+/**
+ * The `keydown` of Shift+F10 — on macOS the only event a browser delivers for
+ * it, so the scheduler must open its menu from the key itself.
+ */
+function shiftF10(): KeyboardEvent {
+  return new KeyboardEvent('keydown', {
+    key: 'F10',
+    shiftKey: true,
+    bubbles: true,
+    cancelable: true,
+  });
+}
+
 /** Waits for the macrotask queue so `setTimeout(…, 0)` focus hops settle. */
 function flushTimers(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -446,6 +459,158 @@ describe('MlvScheduler context menus', () => {
 
     expect(panel()).toBeNull();
     expect(focused()).toBe(target);
+  });
+
+  it('opens the event menu on Shift+F10 on a focused chip, anchored with the first item focused, and returns focus on Escape', async () => {
+    const target = chip('a');
+    target.focus();
+
+    const event = shiftF10();
+    target.dispatchEvent(event);
+    await settle();
+    await flushTimers();
+    await settle();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(panel()?.getAttribute('aria-label')).toBe('Actions for Standup');
+    expect(focused()).toBe(query(overlay, '.event-item'));
+    expect(host.eventMenus.map((e) => e.event.id)).toEqual(['a']);
+
+    focused().dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    await finishLeave();
+
+    expect(panel()).toBeNull();
+    expect(focused()).toBe(target);
+  });
+
+  it('opens the slot menu on the ContextMenu key on a focused month cell with the whole day as the range', async () => {
+    const cell = dayCell(10);
+    cell.focus();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'ContextMenu',
+      bubbles: true,
+      cancelable: true,
+    });
+    cell.dispatchEvent(event);
+    await settle();
+    await flushTimers();
+    await settle();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(panel()?.getAttribute('aria-label')).toBe(
+      'Actions for Thursday, September 10, 2026',
+    );
+    expect(focused()).toBe(query(overlay, '.slot-item'));
+    expect(host.slotMenus.map((e) => e.date)).toEqual([d(10)]);
+
+    // Released with focus already inside the panel: the keyup Windows would
+    // synthesise a second contextmenu from is claimed there too.
+    const release = new KeyboardEvent('keyup', {
+      key: 'ContextMenu',
+      bubbles: true,
+      cancelable: true,
+    });
+    focused()?.dispatchEvent(release);
+    expect(release.defaultPrevented).toBe(true);
+
+    query(overlay, '.slot-item').click();
+    await finishLeave();
+    expect(host.created).toEqual([{ start: d(10), end: d(11), allDay: true }]);
+    expect(focused()).toBe(cell);
+  });
+
+  it('hands a pending selection to the slot menu on Shift+F10 inside it and keeps it until the menu closes', async () => {
+    const anchor = dayCell(10);
+    anchor.focus();
+    key(anchor, 'ArrowRight', { shiftKey: true });
+    key(anchor, 'ArrowRight', { shiftKey: true });
+    await settle();
+    expect(dayCell(12).getAttribute('aria-selected')).toBe('true');
+
+    // Focus stays on the anchor while the head moves, so the key lands there.
+    anchor.dispatchEvent(shiftF10());
+    await settle();
+    await flushTimers();
+    await settle();
+
+    expect(overlay.querySelector('.selection-item')).toBeTruthy();
+    // Opening did not abandon the selection the way a plain key would.
+    expect(dayCell(12).getAttribute('aria-selected')).toBe('true');
+
+    query(overlay, '.slot-item').click();
+    await finishLeave();
+    expect(host.created).toEqual([{ start: d(10), end: d(13), allDay: true }]);
+    expect(dayCell(12).getAttribute('aria-selected')).toBeNull();
+  });
+
+  it('opens the slot menu on Shift+F10 on a focused time-grid slot', async () => {
+    host.view.set('week');
+    await settle();
+
+    const target = slot(2, 570);
+    target.focus();
+    const event = shiftF10();
+    target.dispatchEvent(event);
+    await settle();
+    await flushTimers();
+    await settle();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(panel()?.getAttribute('aria-label')).toBe(
+      'Actions for Sep 2, 9:30 AM',
+    );
+    expect(focused()).toBe(query(overlay, '.slot-item'));
+    query(overlay, '.slot-item').click();
+    await finishLeave();
+    expect(host.created).toEqual([
+      { start: d(2, 9, 30), end: d(2, 10), allDay: false },
+    ]);
+  });
+
+  it('claims the key without a def — prevented, so the browser synthesises no second contextmenu — opens nothing and emits once', async () => {
+    host.withEventMenu.set(false);
+    await settle();
+
+    const target = chip('a');
+    target.focus();
+    const event = shiftF10();
+    target.dispatchEvent(event);
+    await settle();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(panel()).toBeNull();
+    expect(host.eventMenus.map((e) => e.event.id)).toEqual(['a']);
+    expect(host.eventMenus[0].nativeEvent).toBe(event);
+
+    // The ContextMenu key: Windows synthesises from its keyup, so that is
+    // claimed too — on whatever element it lands.
+    const press = new KeyboardEvent('keydown', {
+      key: 'ContextMenu',
+      bubbles: true,
+      cancelable: true,
+    });
+    target.dispatchEvent(press);
+    await settle();
+    expect(press.defaultPrevented).toBe(true);
+    expect(host.eventMenus.length).toBe(2);
+    const release = new KeyboardEvent('keyup', {
+      key: 'ContextMenu',
+      bubbles: true,
+      cancelable: true,
+    });
+    target.dispatchEvent(release);
+    expect(release.defaultPrevented).toBe(true);
+
+    // A held key's repeats are claimed but emit nothing more.
+    const repeat = shiftF10();
+    Object.defineProperty(repeat, 'repeat', { value: true });
+    target.dispatchEvent(repeat);
+    await settle();
+    expect(repeat.defaultPrevented).toBe(true);
+    expect(host.eventMenus.length).toBe(2);
   });
 
   it('re-targets an open menu on a second right-click instead of stacking a panel', async () => {
