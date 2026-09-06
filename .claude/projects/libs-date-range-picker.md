@@ -15,7 +15,7 @@ The Date Range Picker library (`@malva-ui/core/date-range-picker`) provides a da
 **Features:**
 
 - Trigger button showing formatted date range or placeholder
-- Two side-by-side calendar panels (left = month M, right = M+1) with coordinated range selection
+- Two side-by-side calendar panels (left = month M, right = M+1) with coordinated range selection — **one panel only in the mobile full-screen sheet** (see _Mobile full-screen sheet_ below)
 - First click sets start date, second click sets end date
 - Hover preview shows the potential range while selecting
 - Clear and Apply buttons in the footer
@@ -62,22 +62,25 @@ Exported from `libs/core/date-range-picker/src/index.ts`:
 
 Block: `mlv-date-range-picker`
 
-| Class                                  | Description                           |
-| -------------------------------------- | ------------------------------------- |
-| `.mlv-date-range-picker`               | Host element                          |
-| `.mlv-date-range-picker__trigger`      | Clickable trigger button/div          |
-| `.mlv-date-range-picker__value`        | Formatted range text                  |
-| `.mlv-date-range-picker__placeholder`  | Placeholder text when no range        |
-| `.mlv-date-range-picker__separator`    | Arrow between start/end dates         |
-| `.mlv-date-range-picker__trigger-icon` | Calendar icon                         |
-| `.mlv-date-range-picker__panel`        | Popup panel container                 |
-| `.mlv-date-range-picker__calendars`    | Flex row wrapping two calendars       |
-| `.mlv-date-range-picker__divider`      | Vertical divider between calendars    |
-| `.mlv-date-range-picker__footer`       | Clear/Apply action row                |
-| `--open` modifier                      | When popup is open                    |
-| `--disabled` modifier                  | Disabled state                        |
-| `--selecting` modifier                 | After start date chosen, awaiting end |
-| `--state-*` modifiers                  | Validation state border color         |
+| Class                                   | Description                                                    |
+| --------------------------------------- | -------------------------------------------------------------- |
+| `.mlv-date-range-picker`                | Host element                                                   |
+| `.mlv-date-range-picker__trigger`       | Clickable trigger button/div                                   |
+| `.mlv-date-range-picker__value`         | Formatted range text                                           |
+| `.mlv-date-range-picker__placeholder`   | Placeholder text when no range                                 |
+| `.mlv-date-range-picker__separator`     | Arrow between start/end dates                                  |
+| `.mlv-date-range-picker__trigger-icon`  | Calendar icon                                                  |
+| `.mlv-date-range-picker__panel`         | Popup panel container                                          |
+| `.mlv-date-range-picker__panel--sheet`  | Panel modifier, applied while the popup is a full-screen sheet |
+| `.mlv-date-range-picker__calendars`     | Flex row wrapping two calendars                                |
+| `.mlv-date-range-picker__calendar`      | Wrapper around one `mlv-calendar`                              |
+| `.mlv-date-range-picker__calendar--end` | The second (later-month) wrapper; hidden under `--sheet`       |
+| `.mlv-date-range-picker__divider`       | Vertical divider between calendars; hidden under `--sheet`     |
+| `.mlv-date-range-picker__footer`        | Clear/Apply action row                                         |
+| `--open` modifier                       | When popup is open                                             |
+| `--disabled` modifier                   | Disabled state                                                 |
+| `--selecting` modifier                  | After start date chosen, awaiting end                          |
+| `--state-*` modifiers                   | Validation state border color                                  |
 
 ## Dependencies
 
@@ -93,6 +96,39 @@ Block: `mlv-date-range-picker`
 - Pending range (in-popup selection) is separate from committed range (form control value); Apply commits, Clear resets.
 - `_isSelecting` computed flag drives the `--selecting` modifier when start is chosen but end is not yet.
 - **Mobile fullscreen:** the `mlv-popup` opts into `mobileMode="auto"` (`[mobileTitle]="label() || _i18n().selectDateRange"`), so below the `md` breakpoint (< 768px) both calendars open in a full-screen sheet with a header + close button and scroll-locked page. Because the **inner** panel already carries `role="dialog"` + `cdkTrapFocus`, the inner trap is disabled while the sheet is full-screen via `[cdkTrapFocus]="!rangePopup.isFullscreen()"` (reading the popup's public `isFullscreen` signal through the `#rangePopup` ref) so the outer full-screen trap is the only active one — the close button in the sheet header stays reachable. `_onPanelOpened()` / `_onPanelClosed()` focus-in/restore are unchanged. See `libs-popup.md` → _Mobile fullscreen inputs_.
+
+### Mobile full-screen sheet: one month, not two (#121)
+
+The panel carries `.mlv-date-range-picker__panel--sheet` while `rangePopup.isFullscreen()`
+is true, and that modifier hides `.mlv-date-range-picker__calendar--end` and
+`.mlv-date-range-picker__divider` and centres the surviving month.
+
+- **Why.** The two-panel row needs 593px of inline space (1rem row padding, two
+  264px calendars, a 1px rule with 1rem margins). An anchored dropdown gets it —
+  the CDK pane is sized to the content, so the desktop layout never clips at any
+  viewport width. The sheet is the only mode that caps the panel at the viewport,
+  and below roughly 612px the second month falls past `__panel`'s
+  `overflow: hidden` edge. Measured in Chrome at 375x812: 29px of a 264px panel
+  visible, 236px unreachable, and no user gesture reaches it — `overflow: hidden`
+  paints no scrollbar and refuses touch panning.
+- **The modifier tracks sheet mode, not a media query.** The trigger is the panel
+  being width-capped, which is exactly `mlv-popup`'s full-screen state; keying off
+  `isFullscreen()` also keeps SCSS and TS from drifting apart when a consumer
+  overrides only one of `$mlv-breakpoint-md` / `provideMlvBreakpoints()`.
+- **Range selection is unaffected.** The pending range lives on
+  `MlvDateRangePicker`, not on either `mlv-calendar`, so a range spanning two
+  months is assembled in one panel through the calendar's own `‹` / `›` month
+  navigation and survives the month change.
+- **Keyboard.** `display: none` takes the hidden calendar's four roving tab stops
+  out of the tab order and out of the a11y tree. Before the fix they stayed
+  focusable inside the clipped region, and focusing one made the browser scroll
+  the `overflow: hidden` panel to `scrollLeft: 236` — revealing the second month
+  by pushing the first one out, with no way back.
+- **Between ~612px and 768px** the sheet is wide enough for two months and still
+  shows one. That is deliberate: sheet mode behaves one way at every width, with
+  no second threshold to keep in sync.
+- **Removable.** Every declaration is scoped under the one modifier; #130 replaces
+  the sheet body with a dedicated mobile calendar and deletes the block whole.
 
 ---
 

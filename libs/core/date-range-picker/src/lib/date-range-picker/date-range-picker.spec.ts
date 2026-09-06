@@ -1,9 +1,10 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
-import { Component } from '@angular/core';
+import { Component, signal, type WritableSignal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { MlvPopup } from '@malva-ui/core/popup';
+import { MlvBreakpointService, type MlvBreakpoint } from '@malva-ui/cdk/utils';
 import { MlvDateRangePicker } from './date-range-picker';
 import type { MlvDateRangePickerValue } from './date-range-picker';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -483,5 +484,159 @@ describe('MlvDateRangePicker (focus management)', () => {
     fixture.detectChanges();
 
     expect(document.activeElement).toBe(trigger);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MlvDateRangePicker — mobile full-screen sheet (#121)
+// ---------------------------------------------------------------------------
+
+/**
+ * Stubs {@link MlvBreakpointService} so the sheet/dropdown switch can be driven
+ * from the spec. jsdom's `matchMedia` never matches a `min-width` query, so the
+ * real service would be pinned to `'sm'` and `isFullscreen()` would be stuck
+ * `true` — which cannot prove the anchored dropdown keeps both months.
+ */
+class FakeBreakpointService {
+  readonly down: WritableSignal<boolean> = signal(false);
+  isDown(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return this.down;
+  }
+  isUp(_bp: MlvBreakpoint): WritableSignal<boolean> {
+    return signal(false);
+  }
+}
+
+describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
+  let component: MlvDateRangePicker<Date>;
+  let fixture: ComponentFixture<MlvDateRangePicker<Date>>;
+  let hostEl: HTMLElement;
+  let breakpoint: FakeBreakpointService;
+
+  /** The panel element, which the popup renders into a CDK overlay. */
+  const panel = (): HTMLElement | null =>
+    document.getElementById(component.panelId());
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvDateRangePicker],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: MlvBreakpointService, useClass: FakeBreakpointService },
+      ],
+    }).compileComponents();
+
+    breakpoint = TestBed.inject(
+      MlvBreakpointService,
+    ) as unknown as FakeBreakpointService;
+
+    fixture = TestBed.createComponent(MlvDateRangePicker<Date>);
+    component = fixture.componentInstance;
+    hostEl = fixture.nativeElement;
+    document.body.appendChild(hostEl);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    hostEl.remove();
+  });
+
+  /** Opens the popup so the panel is stamped into the overlay. */
+  async function open(): Promise<void> {
+    component.toggleDropdown();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  it('names the second month panel so the sheet can drop it', async () => {
+    // The `--end` modifier is what the sheet's `display: none` targets. A
+    // structural `:last-child` would silently follow any future sibling added
+    // to the row.
+    await open();
+    expect(
+      panel()?.querySelectorAll('.mlv-date-range-picker__calendar').length,
+    ).toBe(2);
+    expect(
+      panel()?.querySelectorAll('.mlv-date-range-picker__calendar--end').length,
+    ).toBe(1);
+  });
+
+  it('marks the panel as a sheet when the popup goes full-screen', async () => {
+    breakpoint.down.set(true);
+    await open();
+    expect(
+      panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
+    ).toBe(true);
+  });
+
+  it('leaves the anchored dropdown unmarked, so it keeps both months', async () => {
+    // Measured in Chrome at 1000x812: the CDK pane sizes itself to the row's
+    // 593px of content, so the anchored dropdown never clips regardless of
+    // viewport width. Only the sheet caps the panel.
+    breakpoint.down.set(false);
+    await open();
+    expect(
+      panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
+    ).toBe(false);
+  });
+
+  it('follows the breakpoint while the popup stays open', async () => {
+    breakpoint.down.set(false);
+    await open();
+    breakpoint.down.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(
+      panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
+    ).toBe(true);
+  });
+
+  it('keeps the pending range across a month navigation in the sheet', async () => {
+    // The sheet shows one month, so a range that spans two is assembled by
+    // navigating. That works only because the pending range lives on this
+    // component rather than on either calendar — a start date must survive the
+    // month change and still be there when the end date is clicked.
+    breakpoint.down.set(true);
+    await open();
+
+    const start = new Date(2026, 8, 20);
+    const end = new Date(2026, 9, 4);
+
+    component.onRangeChanged({ start, end: null });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const calendars = panel()?.querySelectorAll('mlv-calendar') ?? [];
+    expect(calendars.length).toBe(2);
+
+    component.onRangeChanged({ start, end });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.canApply()).toBe(true);
+    component.applySelection();
+    expect(component.value()?.start).toBe(start);
+    expect(component.value()?.end).toBe(end);
+  });
+
+  it('marks the sheet the same way in RTL', async () => {
+    // The sheet layout is direction-agnostic (`display: none` plus
+    // `justify-content: center`), so a mirrored document must not change which
+    // panel is dropped or whether the modifier is applied at all.
+    document.documentElement.setAttribute('dir', 'rtl');
+    try {
+      breakpoint.down.set(true);
+      await open();
+      expect(
+        panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
+      ).toBe(true);
+      expect(
+        panel()?.querySelectorAll('.mlv-date-range-picker__calendar--end')
+          .length,
+      ).toBe(1);
+    } finally {
+      document.documentElement.removeAttribute('dir');
+    }
   });
 });

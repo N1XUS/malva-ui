@@ -42,7 +42,15 @@ export default [
         'error',
         {
           enforceBuildableLibDependency: true,
-          allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
+          // This block re-declares the rule wholesale, so the root config's
+          // `allow` list does not merge in — it is restated here. The
+          // second entry is the spec-only `stripCssLayersFromText()` helper
+          // under `scripts/testing`; without it every compiled-CSS spec in
+          // this project fails as "Imports of apps are forbidden".
+          allow: [
+            '^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$',
+            '@malva-ui/internal-testing',
+          ],
           depConstraints: [
             {
               sourceTag: 'scope:ui',

@@ -66,6 +66,9 @@
         <ng-template mlvPopupContent>
           <div
             class="mlv-date-range-picker__panel"
+            [class.mlv-date-range-picker__panel--sheet]="
+              rangePopup.isFullscreen()
+            "
             [id]="panelId()"
             role="dialog"
             aria-modal="true"
@@ -97,7 +100,7 @@
               ></div>
 
               <div
-                class="mlv-date-range-picker__calendar"
+                class="mlv-date-range-picker__calendar mlv-date-range-picker__calendar--end"
                 role="group"
                 [attr.aria-label]="_i18n().endMonth"
               >
