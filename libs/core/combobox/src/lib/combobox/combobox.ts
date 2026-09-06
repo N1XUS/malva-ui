@@ -52,6 +52,7 @@ import {
   MlvActiveDescendant,
   defaultCompareWith,
   defaultOptionTransform,
+  DROPDOWN_POSITIONS,
   filteredOutCommitted,
   isReconciliationEmit,
   MlvDropdownPanel,
@@ -412,22 +413,14 @@ export class MlvCombobox<T>
   /** The HTML `id` assigned to the inner listbox element for `aria-controls` linking. */
   readonly listboxId = computed(() => `${this.id()}-listbox`);
 
-  readonly dropdownPositions: ConnectedPosition[] = [
-    {
-      originX: 'start',
-      originY: 'bottom',
-      overlayX: 'start',
-      overlayY: 'top',
-      offsetY: 8,
-    },
-    {
-      originX: 'start',
-      originY: 'top',
-      overlayX: 'start',
-      overlayY: 'bottom',
-      offsetY: -8,
-    },
-  ];
+  /**
+   * Ordered CDK positions handed to the dropdown's overlay: below the trigger
+   * first, flipping above it, then anchoring the panel's inline-end edge to the
+   * trigger when there is not enough room after it. See
+   * {@link DROPDOWN_POSITIONS}, shared with `mlv-select` and
+   * `[mlvAutocomplete]`.
+   */
+  readonly dropdownPositions: ConnectedPosition[] = DROPDOWN_POSITIONS;
 
   readonly filteredOptions = computed(() => {
     const resolved = this.resolvedOptions();

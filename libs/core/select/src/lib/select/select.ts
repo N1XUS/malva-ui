@@ -51,6 +51,7 @@ import { MlvBreakpointService, MlvResizeObserver } from '@malva-ui/cdk/utils';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import {
   defaultCompareWith,
+  DROPDOWN_POSITIONS,
   filteredOutCommitted,
   filterOptions,
   isReconciliationEmit,
@@ -676,22 +677,14 @@ export class MlvSelect<T>
    */
   readonly labelId = computed(() => `${this.id()}-label`);
 
-  readonly dropdownPositions: ConnectedPosition[] = [
-    {
-      originX: 'start',
-      originY: 'bottom',
-      overlayX: 'start',
-      overlayY: 'top',
-      offsetY: 8,
-    },
-    {
-      originX: 'start',
-      originY: 'top',
-      overlayX: 'start',
-      overlayY: 'bottom',
-      offsetY: -8,
-    },
-  ];
+  /**
+   * Ordered CDK positions handed to the dropdown's overlay: below the trigger
+   * first, flipping above it, then anchoring the panel's inline-end edge to the
+   * trigger when there is not enough room after it. See
+   * {@link DROPDOWN_POSITIONS}, shared with `mlv-combobox` and
+   * `[mlvAutocomplete]`.
+   */
+  readonly dropdownPositions: ConnectedPosition[] = DROPDOWN_POSITIONS;
 
   readonly selectionService = inject(MlvSelectionService);
 

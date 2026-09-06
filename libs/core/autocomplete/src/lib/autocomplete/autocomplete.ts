@@ -20,12 +20,13 @@ import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { Overlay } from '@angular/cdk/overlay';
 import { DOWN_ARROW, UP_ARROW } from '@angular/cdk/keycodes';
-import type { ConnectedPosition, OverlayRef } from '@angular/cdk/overlay';
+import type { OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, timer } from 'rxjs';
 import { debounce } from 'rxjs/operators';
 import {
+  DROPDOWN_POSITIONS,
   MlvActiveDescendant,
   MlvDropdownPanel,
   MlvOptionsAdapter,
@@ -49,24 +50,6 @@ import type { MlvDensity } from '@malva-ui/cdk/density';
 
 /** Alias of {@link MlvOptionsSearchFn} — kept for backwards compatibility. */
 export type MlvAutocompleteSearchFn<T> = MlvOptionsSearchFn<T>;
-
-/** Connected-overlay positions: below the input first, above as the fallback. */
-const AUTOCOMPLETE_POSITIONS: ConnectedPosition[] = [
-  {
-    originX: 'start',
-    originY: 'bottom',
-    overlayX: 'start',
-    overlayY: 'top',
-    offsetY: 8,
-  },
-  {
-    originX: 'start',
-    originY: 'top',
-    overlayX: 'start',
-    overlayY: 'bottom',
-    offsetY: -8,
-  },
-];
 
 /**
  * `[mlvAutocomplete]` — a reusable autocomplete/typeahead behaviour applicable
@@ -879,7 +862,10 @@ export class MlvAutocomplete<T = unknown> {
         .flexibleConnectedTo(el)
         .withFlexibleDimensions(true)
         .withPush(false)
-        .withPositions(AUTOCOMPLETE_POSITIONS);
+        // Below the field first, flipping above it, then anchoring the panel's
+        // inline-end edge to the field when there is not enough room after it
+        // — shared with `mlv-select` / `mlv-combobox` (#154).
+        .withPositions(DROPDOWN_POSITIONS);
 
       this._overlayRef = this._overlay.create({
         positionStrategy,

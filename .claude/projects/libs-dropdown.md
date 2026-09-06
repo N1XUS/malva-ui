@@ -17,6 +17,7 @@ Exported from `libs/core/dropdown/src/index.ts`:
 | Export | Kind | Description |
 |--------|------|-------------|
 | `MlvDropdownPanel<T>` | Component | Dropdown list panel — `mlv-dropdown-panel` |
+| `DROPDOWN_POSITIONS` | Const | `ConnectedPosition[]` — the ordered overlay positions every option panel is anchored with (`mlv-select`, `mlv-combobox`, `[mlvAutocomplete]`). See _Overlay positions (#154)_ |
 | `MlvSelectOption<T>` | Interface | `{ label: string; value: T; group?: string; disabled?: boolean }` |
 | `MlvSelectOptionTransform<T>` | Type | `(item: T) => MlvSelectOption<T>` |
 | `defaultOptionTransform<T>` | Function | Converts item using `String(item)` as label |
@@ -300,6 +301,59 @@ that is not mirrored fails there instead of drifting apart visually. It also
 asserts the active rule out-specifies every `outline` rule in `list-item.scss`,
 declares no background on any selector, and declares no `z-index` while the
 group header still does.
+
+## Overlay positions (#154)
+
+`DROPDOWN_POSITIONS` (`dropdown-positions.ts`) is the single ordered
+`ConnectedPosition[]` behind all three option controls — `mlv-select` and
+`mlv-combobox` pass it to `mlv-popup` as `dropdownPositions`, `[mlvAutocomplete]`
+hands it to its own `flexibleConnectedTo(...).withPositions(...)`.
+
+- **Four placements, `start`/`end` × below/above**, in that order:
+  `start` below (8px gap) → `start` above (−8px) → `end` below → `end` above.
+- **Order decides on the fitting path, and only breaks ties on the other one.**
+  `FlexibleConnectedPositionStrategy.apply()` applies the first candidate whose
+  box lies wholly inside the viewport and returns, so **a panel that fits never
+  flips**: a field with room keeps the start-aligned placement it has always had
+  and only a field without room reaches the fallbacks. Nothing about the
+  preferred pair changed in #154. When nothing fits outright, CDK instead scores
+  every candidate `_canFitWithFlexibleDimensions` accepts (with a `minWidth` on
+  the config since #150, usually all of them) by bounding-box area and keeps the
+  largest, `score > bestScore` handing an exact tie to the earlier entry. Ties
+  there are the exception: the `start` box spans from the field's inline-start
+  edge to the viewport's inline-end edge and the `end` box from the viewport's
+  inline-start edge to the field's inline-end edge, equal only for a field
+  centred on the viewport — past that midline the `end` entry wins on area
+  outright, which is the #154 case.
+- **Why the `end` pair exists.** Under `withFlexibleDimensions(true)` the
+  bounding box spans from the _anchored_ edge to the viewport edge. With every
+  position anchored to the field's inline-start edge, a narrow field near the
+  viewport's inline-end edge got a box only as wide as the sliver after it — the
+  panel #150 freed to grow had nowhere to grow into. The `end` pair anchors the
+  panel's inline-end edge to the field so it grows back toward inline-start.
+- **Logical, and no `offsetX`.** The pane is portaled to `<body>` and carries a
+  `direction` resolved from its trigger (`MlvPopupService`;
+  `MlvRtlService.resolveDirection` in the directive), so CDK mirrors
+  `start`/`end` against it. `offsetX` is deliberately absent: CDK adds it as raw
+  physical pixels and never flips it in RTL, so an `end`-aligned entry would
+  need the opposite sign from its `start`-aligned twin. The field/panel gap
+  lives on the block axis, where `offsetY` means the same in both directions.
+- The same four placements, in the same order, already back menu panels
+  (`MENU_POSITIONS`, `@malva-ui/core/popup`) and context menus
+  (`CONTEXT_MENU_POSITIONS`, private to `[mlvContextMenuTrigger]`). They are
+  spelled out here rather than resolved from `POPUP_POSITION_MAP` so this
+  package — and with it `[mlvAutocomplete]`, which builds its own overlay —
+  needs no dependency on the popup package.
+- Pinned by `dropdown-positions.spec.ts` (the list's shape: order, logical names
+  only, no `offsetX`) and end-to-end by the `#154` blocks in `select.spec.ts`,
+  `combobox.spec.ts` and `autocomplete.spec.ts`, which drive the real CDK
+  strategy over a stubbed viewport/origin/pane and assert the bounding box the
+  fallback produces in LTR, under a global RTL flip and under a scoped
+  `[dir="rtl"]`. The **order** itself is guarded behaviourally by one case in
+  `select.spec.ts` — a 150px panel against a trigger with room on both sides, so
+  both inline candidates fit outright and only the list order can separate them.
+  Every other case is decided by geometry and survives an end-pair-first
+  reordering, so that one test is what fails if the order is disturbed.
 
 ## Interfaces / Types
 
