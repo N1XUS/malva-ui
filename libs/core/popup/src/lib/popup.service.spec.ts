@@ -327,6 +327,42 @@ describe('MlvPopupService — direction', () => {
 
     expect(setDirection).not.toHaveBeenCalled();
   });
+
+  it('re-resolves the direction from the origin when re-anchored while open', () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    const host = fixture.componentInstance;
+    const ltrRow = host.origin().nativeElement as HTMLElement;
+    const rtlRow = document.createElement('div');
+    rtlRow.setAttribute('dir', 'rtl');
+    ltrRow.appendChild(rtlRow);
+
+    // An origin that resolves lazily — a context menu shared by many rows
+    // points it at whichever row was right-clicked last. No `dir` attribute
+    // changes between the two opens, so `watchDirection` sees nothing; the
+    // re-anchor itself has to re-read the direction.
+    let anchor: HTMLElement = ltrRow;
+    const origin = Object.defineProperty(
+      new ElementRef<HTMLElement>(ltrRow),
+      'nativeElement',
+      { configurable: true, get: () => anchor },
+    );
+    const handle = service.open({
+      origin,
+      template: host.tpl(),
+      vcr: host.vcr,
+      positions: service.resolvePositions('bottom-start'),
+      hasBackdrop: false,
+      onClose: () => undefined,
+    });
+    expect(handle.overlayRef.getDirection()).toBe('ltr');
+
+    anchor = rtlRow;
+    handle.setPositionOrigin({ x: 10, y: 10 });
+
+    expect(handle.overlayRef.getDirection()).toBe('rtl');
+    expect(handle.overlayRef.hostElement.getAttribute('dir')).toBe('rtl');
+  });
 });
 
 // ---------------------------------------------------------------------------

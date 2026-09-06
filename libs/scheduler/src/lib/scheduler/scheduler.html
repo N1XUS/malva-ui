@@ -86,3 +86,35 @@
     >{{ message }}</span
   >
 }
+@if (_hasContextMenu()) {
+  <!--
+    One panel for every cell and chip. The projected def renders inside the
+    menu's content through an injector taken from INSIDE that content, so the
+    consumer's `[mlvMenuItem]`s register with this menu instead of with
+    whatever the def was declared under. The hidden trigger only owns the
+    panel; the views forward each `contextmenu` with the cell / chip as anchor.
+  -->
+  <mlv-menu
+    #contextMenu
+    [label]="_contextMenuLabel()"
+    [mlvDensity]="_density()"
+  >
+    <ng-container #contextMenuOutlet>
+      @if (_contextMenu(); as menu) {
+        <ng-container
+          *ngTemplateOutlet="
+            menu.template;
+            context: menu.context;
+            injector: _contextMenuInjector()
+          "
+        />
+      }
+    </ng-container>
+  </mlv-menu>
+  <span
+    hidden
+    class="mlv-scheduler__context-menu-trigger"
+    [mlvContextMenuTrigger]="contextMenu"
+    (menuClosed)="_onContextMenuClosed()"
+  ></span>
+}

@@ -49,12 +49,14 @@ const d = (day: number, h = 0, m = 0) => new Date(2026, 8, day, h, m);
       data-minutes="all-day"
     >
       <div class="mlv-scheduler-month__lanes">
-        <mlv-scheduler-event
-          [normalized]="laneEvent()"
-          [lane]="true"
-          [dayIndex]="1"
-          style="--mlv-scheduler-span: 2"
-        />
+        @if (showLane()) {
+          <mlv-scheduler-event
+            [normalized]="laneEvent()"
+            [lane]="true"
+            [dayIndex]="1"
+            style="--mlv-scheduler-span: 2"
+          />
+        }
       </div>
     </div>
   `,
@@ -68,6 +70,8 @@ class Host {
   readonly lane = signal(false);
   readonly before = signal(false);
   readonly after = signal(false);
+  /** Unrenders the all-day bar — the "chip removed while focused" cases. */
+  readonly showLane = signal(true);
 
   /** @private The fake context, so the lane bar can be derived from the model. */
   private readonly _ctx = inject(MLV_SCHEDULER_CONTEXT);
@@ -790,6 +794,161 @@ describe('MlvSchedulerEventChip', () => {
       cellEl.tabIndex = -1;
       key(bar, 'Escape');
       expect(document.activeElement).toBe(cellEl);
+    });
+  });
+
+  describe('delete keys and focus on removal', () => {
+    const laneChip = () =>
+      query<HTMLElement>(
+        root,
+        '.mlv-scheduler-month__lanes .mlv-scheduler-event',
+      );
+    const deletePayload = (call = 0) => {
+      const spy = ctx.context.emitEventDelete as ReturnType<typeof vi.fn>;
+      return spy.mock.calls[call]?.[0] as
+        | { event: MlvSchedulerEvent; element: HTMLElement; nativeEvent: Event }
+        | undefined;
+    };
+
+    it('Delete emits the delete interaction with the chip and the prevented key', () => {
+      const event = key(chip, 'Delete');
+      expect(event.defaultPrevented).toBe(true);
+      expect(ctx.context.emitEventDelete).toHaveBeenCalledTimes(1);
+      expect(deletePayload()?.event.id).toBe('a');
+      expect(deletePayload()?.element).toBe(chip);
+      expect(deletePayload()?.nativeEvent).toBe(event);
+      // Emitted, never written: the model is the consumer's.
+      expect(ctx.events()).toHaveLength(1);
+    });
+
+    it('Backspace does the same', () => {
+      const event = key(chip, 'Backspace');
+      expect(event.defaultPrevented).toBe(true);
+      expect(deletePayload()?.nativeEvent).toBe(event);
+    });
+
+    it('leaves the keys alone while not editable, and with a modifier held', () => {
+      ctx.editable.set(false);
+      expect(key(chip, 'Delete').defaultPrevented).toBe(false);
+      expect(key(chip, 'Backspace').defaultPrevented).toBe(false);
+      ctx.editable.set(true);
+      expect(key(chip, 'Delete', { metaKey: true }).defaultPrevented).toBe(
+        false,
+      );
+      expect(key(chip, 'Backspace', { ctrlKey: true }).defaultPrevented).toBe(
+        false,
+      );
+      expect(ctx.context.emitEventDelete).not.toHaveBeenCalled();
+    });
+
+    it('asks the view to focus the owning cell when removed while focused', () => {
+      const bar = laneChip();
+      bar.focus();
+      expect(document.activeElement).toBe(bar);
+      host.showLane.set(false);
+      fixture.detectChanges();
+      expect(ctx.context.pendingFocus()).toEqual({
+        kind: 'cell',
+        date: d(1),
+        minutes: null,
+      });
+    });
+
+    it('asks for nothing when removed without focus', () => {
+      host.showLane.set(false);
+      fixture.detectChanges();
+      expect(ctx.context.pendingFocus()).toBeNull();
+    });
+
+    it('asks for nothing once focus has already left it', () => {
+      const bar = laneChip();
+      const cellEl = closest<HTMLElement>(bar, '[data-day-index]');
+      cellEl.tabIndex = -1;
+      bar.focus();
+      cellEl.focus();
+      expect(document.activeElement).toBe(cellEl);
+      host.showLane.set(false);
+      fixture.detectChanges();
+      expect(ctx.context.pendingFocus()).toBeNull();
+    });
+
+    it('still asks for the cell when the browser blurs the chip before detaching it', () => {
+      // Chromium dispatches the blur of a focused node that is being removed
+      // *before* the node detaches: `focusout` arrives on a connected host
+      // with no `relatedTarget`, then the removal and the destroy follow in
+      // the same task. jsdom (like Firefox and WebKit) raises nothing on
+      // removal, so stage that order by hand.
+      const bar = laneChip();
+      bar.focus();
+      bar.dispatchEvent(
+        new FocusEvent('focusout', { bubbles: true, relatedTarget: null }),
+      );
+      host.showLane.set(false);
+      fixture.detectChanges();
+      expect(ctx.context.pendingFocus()).toEqual({
+        kind: 'cell',
+        date: d(1),
+        minutes: null,
+      });
+    });
+
+    // Both cases below stage their events by hand: jsdom's `blur()` reports
+    // the *document* as `relatedTarget`, so it takes the immediate-clear
+    // branch and never reaches the microtask a browser's click-away does.
+
+    it('asks for nothing when focus went to the body before a later removal', async () => {
+      // A click on a non-focusable area: `focusout` with no `relatedTarget`,
+      // focus genuinely elsewhere by the time the microtask runs, and the
+      // chip lives on. Removing it later must not pull focus back into the
+      // grid.
+      const bar = laneChip();
+      const cellEl = closest<HTMLElement>(bar, '[data-day-index]');
+      cellEl.tabIndex = -1;
+      bar.focus();
+      cellEl.focus();
+      // Re-arm the return without moving focus back (the handler reads only
+      // the DOM around the chip): jsdom cannot move focus off the chip
+      // without raising a `focusout` that carries the new target, so the
+      // browser's "blur first, focus settles on the body later in the same
+      // task" ordering is staged as "return armed, focus already elsewhere"
+      // — the state the microtask has to judge.
+      bar.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      bar.dispatchEvent(
+        new FocusEvent('focusout', { bubbles: true, relatedTarget: null }),
+      );
+      await Promise.resolve();
+      host.showLane.set(false);
+      fixture.detectChanges();
+      expect(ctx.context.pendingFocus()).toBeNull();
+    });
+
+    it('keeps the return when the chip still has focus at the microtask', async () => {
+      // A `focusout` with no `relatedTarget` after which the chip is the
+      // active element again (blur and refocus in one task) is not a loss of
+      // focus.
+      const bar = laneChip();
+      bar.focus();
+      bar.dispatchEvent(
+        new FocusEvent('focusout', { bubbles: true, relatedTarget: null }),
+      );
+      expect(document.activeElement).toBe(bar);
+      await Promise.resolve();
+      host.showLane.set(false);
+      fixture.detectChanges();
+      expect(ctx.context.pendingFocus()).toEqual({
+        kind: 'cell',
+        date: d(1),
+        minutes: null,
+      });
+    });
+
+    it('never overwrites a focus request that is already standing', () => {
+      const bar = laneChip();
+      bar.focus();
+      ctx.context.pendingFocus.set({ kind: 'event', id: 'lane' });
+      host.showLane.set(false);
+      fixture.detectChanges();
+      expect(ctx.context.pendingFocus()).toEqual({ kind: 'event', id: 'lane' });
     });
   });
 

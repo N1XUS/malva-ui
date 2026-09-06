@@ -30,7 +30,8 @@
     "@lucide/angular": "0.0.0-lucide-angular-package-version",
     "@malva-ui/cdk": "0.0.0-malva-ui-package-version",
     "@malva-ui/core": "0.0.0-malva-ui-package-version",
-    "@malva-ui/i18n": "0.0.0-malva-ui-package-version"
+    "@malva-ui/i18n": "0.0.0-malva-ui-package-version",
+    "rxjs": "0.0.0-rxjs-package-version"
   },
   "dependencies": {
     "sortablejs": "^1.15.7"

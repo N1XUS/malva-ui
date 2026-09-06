@@ -219,10 +219,12 @@ page documents its signature in prose.
 
 The Scheduler page (`/scheduler`, icon `calendar-days`, API family `scheduler`,
 Data display group) documents the standalone `@malva-ui/scheduler` package in
-seven examples: views + model binding, all-day / multi-day events,
+eight examples: views + model binding, all-day / multi-day events,
 drag / resize / vetoes, a custom chip template + colours, working hours / slots /
-hidden days, a custom header + external drop from a SortableJS list, and range
-selection + density. Every example gives `mlv-scheduler` an explicit
+hidden days, a custom header + external drop from a SortableJS list, range
+selection + density, and context menus (`*mlvSchedulerSlotMenuDef` creating an
+event for the cell / slot / pending selection, `*mlvSchedulerEventMenuDef` with
+rename / duplicate / a `MlvDialogService.confirm()`-guarded delete). Every example gives `mlv-scheduler` an explicit
 `block-size`, because the month view measures its lanes against the height it is
 given. The custom-chip example narrows its typed `data` payload in a component
 method: the `mlvSchedulerEventDef` directive has no inputs, so a template's

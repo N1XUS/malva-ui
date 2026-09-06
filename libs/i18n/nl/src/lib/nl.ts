@@ -381,6 +381,8 @@ const nl: MlvLanguage = {
     rangeChanged: '{period} wordt weergegeven',
     selectionHint:
       '{start} tot {end} geselecteerd. Druk op Enter om te bevestigen',
+    eventMenu: 'Acties voor {title}',
+    slotMenu: 'Acties voor {start}',
   },
   scrollbar: {
     scrollableRegion: 'Schuifbaar gebied',

@@ -53,13 +53,23 @@ export interface MlvSchedulerEventChange<D = Date, TData = unknown> {
   source: MlvSchedulerChangeSource;
 }
 
-/** Payload of `eventClick`, `eventDoubleClick` and `eventContextMenu`. */
+/** Payload of `eventClick`, `eventDoubleClick`, `eventContextMenu` and `eventDelete`. */
 export interface MlvSchedulerEventInteraction<D = Date, TData = unknown> {
   /** The event the chip renders, straight out of the `events` model. */
   event: MlvSchedulerEvent<D, TData>;
   /** The chip host — anchor for consumer menus and popups. */
   element: HTMLElement;
-  /** The originating DOM event. Never prevented by the scheduler. */
+  /**
+   * The originating DOM event: the `click` / `dblclick` / `contextmenu`
+   * `MouseEvent`, or the `KeyboardEvent` of `Enter` / `Space` (click), of
+   * the ContextMenu key / `Shift+F10` (context menu) or of `Delete` /
+   * `Backspace` (`eventDelete`, always prevented). On a `contextmenu`
+   * `MouseEvent`, `defaultPrevented` is `true` only when a matching
+   * `*mlvScheduler…MenuDef` opened the built-in menu on it. A context-menu
+   * `KeyboardEvent` is always prevented — the scheduler claims the key, def
+   * or not, so the browser does not synthesise a second `contextmenu` from
+   * the same press — and so carries no such signal.
+   */
   nativeEvent: MouseEvent | KeyboardEvent;
 }
 
@@ -71,7 +81,16 @@ export interface MlvSchedulerSlotEvent<D = Date> {
   allDay: boolean;
   /** The cell or slot element that was activated. */
   element: HTMLElement;
-  /** The originating DOM event. Never prevented by the scheduler. */
+  /**
+   * The originating DOM event: the `click` / `dblclick` / `contextmenu`
+   * `MouseEvent`, or the `KeyboardEvent` of `Enter` / `Space` (click) and of
+   * the ContextMenu key / `Shift+F10` (context menu). On a `contextmenu`
+   * `MouseEvent`, `defaultPrevented` is `true` only when a matching
+   * `*mlvScheduler…MenuDef` opened the built-in menu on it. A context-menu
+   * `KeyboardEvent` is always prevented — the scheduler claims the key, def
+   * or not, so the browser does not synthesise a second `contextmenu` from
+   * the same press — and so carries no such signal.
+   */
   nativeEvent: MouseEvent | KeyboardEvent;
 }
 
@@ -161,6 +180,28 @@ export interface MlvSchedulerEventContext<D = Date, TData = unknown> {
   continuesBefore: boolean;
   /** The event ends after this rendered segment. */
   continuesAfter: boolean;
+}
+
+/** Context handed to `*mlvSchedulerSlotMenuDef`. */
+export interface MlvSchedulerSlotMenuContext<D = Date> {
+  /**
+   * Bind with `let-range`. The whole day of a month / all-day cell, the slot's
+   * own duration on the time grid, or the pending keyboard selection when the
+   * right-clicked cell lies inside one (`selection` is then `true`).
+   */
+  $implicit: MlvSchedulerNextRange<D>;
+  /** `true` when `$implicit` is a pending keyboard selection rather than the one cell. */
+  selection: boolean;
+  /** The view the cell belongs to. */
+  view: MlvSchedulerView;
+}
+
+/** Context handed to `*mlvSchedulerEventMenuDef`. */
+export interface MlvSchedulerEventMenuContext<D = Date, TData = unknown> {
+  /** Bind with `let-event`. */
+  $implicit: MlvSchedulerEvent<D, TData>;
+  /** The view the chip is rendered in. */
+  view: MlvSchedulerView;
 }
 
 /** Payload of `moreClick`. */

@@ -374,6 +374,8 @@ const zhHans: MlvLanguage = {
     moveRejected: '{title} 无法放置在此处',
     rangeChanged: '正在显示 {period}',
     selectionHint: '已选择 {start} 至 {end}。按 Enter 确认',
+    eventMenu: '{title} 的操作',
+    slotMenu: '{start} 的操作',
   },
   scrollbar: {
     scrollableRegion: '可滚动区域',

@@ -29,6 +29,7 @@ import {
   RIGHT_ARROW,
   UP_ARROW,
 } from '@angular/cdk/keycodes';
+import { mlvIsContextMenuKey } from '@malva-ui/core/menu';
 import { MlvPopupService, type MlvPopupHandle } from '@malva-ui/core/popup';
 import {
   MlvResizeObserverService,
@@ -59,6 +60,7 @@ import {
 } from '../scheduler/scheduler-context';
 import type {
   MlvSchedulerEvent,
+  MlvSchedulerNextRange,
   MlvSchedulerRangeSelectEvent,
 } from '../scheduler/scheduler.types';
 
@@ -355,22 +357,27 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     }
   }
 
+  /** @private The selection as the all-day range it would commit, or `null` without one. */
+  private _selectionRange(): MlvSchedulerNextRange<D> | null {
+    const b = this._selectedBounds();
+    if (!b) return null;
+    const adapter = this._ctx.adapter;
+    const days = this._ctx.days();
+    return {
+      start: adapter.startOfDay(days[b.dayFrom]),
+      end: adapter.addCalendarDays(days[b.dayTo], 1),
+      allDay: true,
+    };
+  }
+
   /** @internal Commits the selection as an all-day `rangeSelect` and clears it. */
   protected _commitSelection(
     source: MlvSchedulerRangeSelectEvent<D>['source'],
   ): void {
-    const b = this._selectedBounds();
+    const range = this._selectionRange();
     this._selection.set(null);
-    if (!b) return;
-    const ctx = this._ctx;
-    const adapter = ctx.adapter;
-    const days = ctx.days();
-    ctx.emitRangeSelect({
-      start: adapter.startOfDay(days[b.dayFrom]),
-      end: adapter.addCalendarDays(days[b.dayTo], 1),
-      allDay: true,
-      source,
-    });
+    if (!range) return;
+    this._ctx.emitRangeSelect({ ...range, source });
   }
 
   constructor() {
@@ -396,6 +403,42 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       element?.focus();
     });
 
+    // A popover chip has no owning grid cell, so a chip removed from the open
+    // panel while it holds focus — after `eventDelete`, or any other consumer
+    // write — files no focus request of its own and would leave focus on
+    // `<body>` with the panel still open. The panel takes it back onto its
+    // group instead. Focus on `<body>` while the panel is open is read as
+    // dropped that way: an outside press lands on a cell or closes the panel,
+    // and the panel's own chrome focuses the group. The one benign case is a
+    // Tab out to the browser chrome, where a later model write would move
+    // focus back into the panel — which is where Shift+Tab lands anyway.
+    //
+    // Once the removals leave nothing overflowing, the `+N more` button that
+    // owns the panel unrenders (`@if (cell.hidden.length)`), so the close-time
+    // restore would target a detached button: the panel closes here and the
+    // focus it held goes to the day cell instead.
+    afterRenderEffect(() => {
+      const cell = this._popoverCell();
+      if (!cell) return;
+      const doc = this._host.ownerDocument;
+      const active = doc.activeElement;
+      const pane = this._popoverHandle?.overlayRef.overlayElement ?? null;
+      const dropped = !active || active === doc.body;
+      if (cell.hidden.length === 0) {
+        const held = dropped || (!!pane && !!active && pane.contains(active));
+        untracked(() => this._closePopover());
+        if (!held) return;
+        const cellEl = findCellElement(this._host, cell.dayIndex, null);
+        untracked(() => this._focusedIndex.set(cell.dayIndex));
+        cellEl?.focus();
+        return;
+      }
+      if (!dropped) return;
+      pane
+        ?.querySelector<HTMLElement>('.mlv-scheduler-month__popover')
+        ?.focus();
+    });
+
     // The panel is hidden — not disposed — while a drag is in flight, and
     // disposed once it settles. It owns the SortableJS instance that drags its
     // own chips out (the spec requires that), and disposing it on drag start
@@ -407,6 +450,15 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     effect(() => {
       if (this._ctx.dragging()) return;
       untracked(() => this._closePopover());
+    });
+
+    // A context menu that was handed the pending selection is its
+    // confirmation step: once that menu closes — activated or dismissed —
+    // the selection is spent, so it is not left painted and armed for
+    // `Enter` to commit a second time.
+    effect(() => {
+      this._ctx.selectionRelease();
+      untracked(() => this._selection.set(null));
     });
 
     // Installs the row-size observer and nothing else. Every read here is
@@ -542,12 +594,20 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     const target = event.target as HTMLElement;
     if (target.closest('.mlv-scheduler-event, .mlv-scheduler-month__more'))
       return;
-    this._ctx.emitSlotInteraction(kind, {
-      date: cell.date,
-      allDay: true,
-      element: event.currentTarget as HTMLElement,
-      nativeEvent: event,
-    });
+    this._ctx.emitSlotInteraction(
+      kind,
+      {
+        date: cell.date,
+        allDay: true,
+        element: event.currentTarget as HTMLElement,
+        nativeEvent: event,
+      },
+      // A right-click inside a pending keyboard selection is about the whole
+      // selection: the slot menu offers it instead of the one cell.
+      kind === 'contextmenu' && this._isSelected(cell.dayIndex)
+        ? this._selectionRange()
+        : null,
+    );
   }
 
   /** @protected Roving cell focus. */
@@ -568,6 +628,14 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     if (event.key === 'Enter' && this._selection()) {
       event.preventDefault();
       this._commitSelection('keyboard');
+      return;
+    }
+    // Not prevented and the selection not cleared here: the root claims the
+    // key (def or not, so the browser synthesises no second `contextmenu`),
+    // and a menu opened over the pending selection releases it on close
+    // (`selectionRelease`).
+    if (mlvIsContextMenuKey(event)) {
+      this._emitKeyboardContextMenu(dayIndex, target, event);
       return;
     }
     const arrow = this._rtl.normalizeArrowKey(event);
@@ -877,6 +945,27 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
       element,
       nativeEvent,
     });
+  }
+
+  /**
+   * @private `slotContextMenu` from the ContextMenu key / `Shift+F10` — the
+   * same payload and pending-selection hand-off as a right-click on the cell.
+   */
+  private _emitKeyboardContextMenu(
+    dayIndex: number,
+    element: HTMLElement,
+    nativeEvent: KeyboardEvent,
+  ): void {
+    this._ctx.emitSlotInteraction(
+      'contextmenu',
+      {
+        date: this._ctx.days()[dayIndex],
+        allDay: true,
+        element,
+        nativeEvent,
+      },
+      this._isSelected(dayIndex) ? this._selectionRange() : null,
+    );
   }
 
   /** @private Disposes the overflow popover, if one is open. */
