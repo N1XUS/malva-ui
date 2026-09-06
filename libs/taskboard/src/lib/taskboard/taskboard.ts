@@ -416,8 +416,14 @@ export class MlvTaskboard<TItem> {
   /** @protected Whether an asynchronous `beforeMove` guard is still pending. */
   protected readonly _movePending = signal(false);
 
-  /** @private Whether the board is expanded for one in-flight `print()` call. */
-  private readonly _printing = signal(false);
+  /**
+   * @protected Whether the board is expanded for one in-flight `print()` call.
+   *
+   * Template-facing: the host binding writes `mlv-taskboard--printing` from it,
+   * and a host binding is compiled like a template expression, so a `private`
+   * member fails the AOT build (TS2341) while the JIT unit suite passes.
+   */
+  protected readonly _printing = signal(false);
 
   /** @private Where the live drop indicator renders, resolved by card key. */
   private readonly _dropAnchor = computed<MlvTaskboardDropAnchor | null>(() => {
