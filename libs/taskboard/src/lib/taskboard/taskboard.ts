@@ -787,9 +787,8 @@ export class MlvTaskboard<TItem> {
   });
 
   /**
-   * @private Replayable ledger of board-originated moves. It is seeded by the
-   * first committed move and is not exposed yet — the public undo/redo surface
-   * arrives with the keyboard grab feature.
+   * @private Replayable ledger of board-originated moves, seeded by the first
+   * committed move and read back through the public `undo()` / `redo()`.
    */
   private _history: MlvTaskboardHistory<TItem> | null = null;
 

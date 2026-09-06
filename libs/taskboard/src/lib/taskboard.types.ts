@@ -140,10 +140,11 @@ export interface MlvTaskboardMoveResult<TItem> {
 }
 
 /**
- * Application guard consulted once per committed pointer drop, before the
- * board writes any replacement item collection. Returning `false` — or a
- * promise resolving to `false` — cancels the move and leaves the controlled
- * `items` collection referentially unchanged.
+ * Application guard consulted once per committed move — a pointer drop and a
+ * keyboard commit alike — before the board writes any replacement item
+ * collection. Returning `false` — or a promise resolving to `false` — cancels
+ * the move and leaves the controlled `items` collection referentially
+ * unchanged.
  */
 export type MlvTaskboardBeforeMove<TItem> = (
   request: MlvTaskboardMoveRequest<TItem>,
