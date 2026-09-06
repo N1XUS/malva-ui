@@ -1,4 +1,18 @@
-<docs-app-bar />
+<docs-app-bar>
+  <button
+    docsAppBarLeading
+    class="docs-shell__mobile-menu"
+    mlvButton
+    shape="square"
+    variant="transparent"
+    type="button"
+    [attr.aria-label]="navigationToggleLabel()"
+    [attr.aria-expanded]="!sidebarCollapsed()"
+    (click)="_toggleSidebar()"
+  >
+    <svg [lucideIcon]="_expandIcon" [size]="20" aria-hidden="true" />
+  </button>
+</docs-app-bar>
 
 <mlv-layout class="docs-shell" mlvDensityRoot>
   <mlv-sidebar
@@ -59,19 +73,6 @@
   </mlv-sidebar>
 
   <div class="docs-shell__main-area">
-    <button
-      class="docs-shell__mobile-menu"
-      mlvButton
-      shape="square"
-      variant="transparent"
-      type="button"
-      [attr.aria-label]="navigationToggleLabel()"
-      [attr.aria-expanded]="!sidebarCollapsed()"
-      (click)="_toggleSidebar()"
-    >
-      <svg [lucideIcon]="_expandIcon" [size]="20" aria-hidden="true" />
-    </button>
-
     <main
       #mainContent
       id="main-content"

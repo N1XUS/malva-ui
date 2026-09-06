@@ -1,8 +1,11 @@
 $block: docs-shell;
 
 .#{$block} {
+  // Projected into the app bar's leading slot, ahead of the brand link;
+  // desktop widths keep the icon rail and hide it.
   &__mobile-menu {
     display: none;
+    flex: 0 0 auto;
   }
 
   &__search {

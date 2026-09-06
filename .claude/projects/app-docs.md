@@ -826,8 +826,10 @@ The root component is deliberately minimal and contains only the top-level `<rou
 `docs-app-bar.html`, `docs-app-bar-preferences.ts`
 
 The app bar owns the one semantic header across the home page, documentation
-shell, and showcases. It supplies the skip link, Malva brand, Docs/Showcases
-segmented navigation, GitHub link, and the display-preferences popup. The
+shell, and showcases. It supplies the skip link, a `[docsAppBarLeading]`
+content slot ahead of the brand (the documentation shell projects its
+navigation trigger there), Malva brand, Docs/Showcases segmented navigation,
+GitHub link, and the display-preferences popup. The
 preferences popup also exposes the global LTR/RTL direction selector, which
 updates the document direction and CDK directionality for component previews.
 `DocsAppBarPreferencesComponent` owns persisted theme mode, global density,
@@ -850,6 +852,7 @@ app bar.
 
 ```
 <docs-app-bar>
+  <button docsAppBarLeading class="docs-shell__mobile-menu">  ← navigation trigger, below md only
 <mlv-layout>
   <mlv-sidebar>                     ← searchable grouped navigation
     @for (group of navigationGroups())
@@ -865,9 +868,12 @@ alphabetized within semantic groups. It includes a page filter, uses an icon
 rail on larger screens, and switches to an auto-closing off-canvas sidebar on
 small screens.
 
-The shell's labelled mobile-navigation trigger appears at the start of the
-content row, below the shared app bar. Documentation content and preference
-labels remain English.
+The shell's labelled mobile-navigation trigger (`aria-expanded` follows the
+sidebar) is projected into the app bar's `[docsAppBarLeading]` slot, so it is
+the **first item of the primary `<nav>`**, ahead of the brand link, at the same
+height as the rest of the chrome. The shell still owns its state and toggling;
+`docs-app-bar` only offers the slot, which home and showcase routes leave
+empty. Documentation content and preference labels remain English.
 
 The docs codebase now demonstrates the grouped public package surface in example imports wherever possible, while the underlying leaf libraries remain the granular Nx implementation units.
 

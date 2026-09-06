@@ -58,6 +58,18 @@ class DocsRouteComponent {}
 })
 class ShowcasesRouteComponent {}
 
+@Component({
+  selector: 'docs-test-leading-route',
+  imports: [DocsAppBarComponent],
+  template: `
+    <docs-app-bar>
+      <button docsAppBarLeading class="leading" type="button">Menu</button>
+    </docs-app-bar>
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+class LeadingRouteComponent {}
+
 async function renderAt(
   url: string,
 ): Promise<{ harness: RouterTestingHarness; root: HTMLElement }> {
@@ -89,6 +101,7 @@ async function renderAt(
           children: [
             { path: '', pathMatch: 'full', component: HomeRouteComponent },
             { path: 'button', component: DocsRouteComponent },
+            { path: 'leading', component: LeadingRouteComponent },
             { path: 'showcases', component: ShowcasesRouteComponent },
             {
               path: 'showcases/data-operations',
@@ -198,6 +211,25 @@ describe('DocsAppBarComponent', () => {
 
       expect(logo?.getAttribute('alt')).toBe('');
     });
+  });
+
+  it('renders projected leading content as the first item of the primary nav', async () => {
+    const { root } = await renderAt('/leading');
+    const nav = root.querySelector('nav[aria-label="Primary"]') as HTMLElement;
+
+    expect(nav.firstElementChild?.classList.contains('leading')).toBe(true);
+    expect(nav.children[1]?.classList.contains('mlv-action-bar__logo')).toBe(
+      true,
+    );
+  });
+
+  it('renders nothing ahead of the brand link when no leading content is projected', async () => {
+    const { root } = await renderAt('/button');
+    const nav = root.querySelector('nav[aria-label="Primary"]') as HTMLElement;
+
+    expect(
+      nav.firstElementChild?.classList.contains('mlv-action-bar__logo'),
+    ).toBe(true);
   });
 
   it('provides one semantic header and a skip link', async () => {
