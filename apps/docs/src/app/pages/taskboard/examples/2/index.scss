@@ -1,10 +1,24 @@
+@use '../ticket';
+
 .phase-header {
   display: flex;
   align-items: center;
   gap: var(--mlv-spacing-2);
 }
 
+.phase-header__toggle {
+  // Chromeless: no fill until the pointer is over it, so the header band
+  // stays quiet next to the accent stripe.
+  color: var(--mlv-text-secondary);
+  border-radius: var(--mlv-radius-button);
+}
+
+.phase-header__toggle:hover {
+  background-color: var(--mlv-background-neutral-1);
+}
+
 .phase-header__toggle svg {
+  // Rotation is not on the inline axis, so it never mirrors in RTL.
   transition: transform var(--mlv-duration-fast) var(--mlv-ease-default);
 }
 
@@ -23,17 +37,6 @@
 
 .phase-header__wip--full {
   color: var(--mlv-text-warning);
-}
-
-.ticket__id {
-  display: block;
-  font-family: var(--mlv-typography-family-code);
-  font-size: var(--mlv-typography-body-s-size);
-  color: var(--mlv-text-secondary);
-}
-
-.ticket__title {
-  display: block;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { LucidePlus } from '@lucide/angular';
+import { MlvAvatar } from '@malva-ui/core/avatar';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvListItem } from '@malva-ui/core/list';
 import {
@@ -25,13 +26,36 @@ import type {
 interface Ticket {
   readonly id: string;
   readonly title: string;
+  readonly description?: string;
+  readonly tags: readonly string[];
+  readonly owner: string;
   readonly status: string;
 }
 
 const TICKETS: readonly Ticket[] = [
-  { id: 'MLV-501', title: 'Replace the column header', status: 'inbox' },
-  { id: 'MLV-502', title: 'Replace the add affordance', status: 'inbox' },
-  { id: 'MLV-503', title: 'Replace the empty state', status: 'staged' },
+  {
+    id: 'MLV-501',
+    title: 'Replace the column header',
+    description: 'A projected header owns its own count and controls.',
+    tags: ['slots'],
+    owner: 'Ada Lovelace',
+    status: 'inbox',
+  },
+  {
+    id: 'MLV-502',
+    title: 'Replace the add affordance',
+    tags: ['slots'],
+    owner: 'Grace Hopper',
+    status: 'inbox',
+  },
+  {
+    id: 'MLV-503',
+    title: 'Replace the empty state',
+    description: 'Right-click a card for the context menu.',
+    tags: ['slots', 'menu'],
+    owner: 'Linus Pauling',
+    status: 'staged',
+  },
 ];
 
 @Component({
@@ -39,6 +63,7 @@ const TICKETS: readonly Ticket[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     LucidePlus,
+    MlvAvatar,
     MlvButton,
     MlvContextMenuTrigger,
     MlvListItem,
@@ -57,9 +82,18 @@ const TICKETS: readonly Ticket[] = [
 })
 export default class TaskboardSlotsExampleComponent {
   readonly columns = signal<readonly MlvTaskboardColumn[]>([
-    { id: 'inbox', label: 'Inbox' },
-    { id: 'staged', label: 'Staged', wipLimit: 4 },
-    { id: 'released', label: 'Released' },
+    { id: 'inbox', label: 'Inbox', accent: 'var(--mlv-background-info-1)' },
+    {
+      id: 'staged',
+      label: 'Staged',
+      wipLimit: 4,
+      accent: 'var(--mlv-background-warning-1)',
+    },
+    {
+      id: 'released',
+      label: 'Released',
+      accent: 'var(--mlv-background-success-1)',
+    },
   ]);
 
   readonly tickets = signal<readonly Ticket[]>(TICKETS);
@@ -81,7 +115,13 @@ export default class TaskboardSlotsExampleComponent {
     const id = `MLV-${this._nextId}`;
     this.tickets.update((current) => [
       ...current,
-      { id, title: 'New card', status: String(request.column.id) },
+      {
+        id,
+        title: 'New card',
+        tags: ['new'],
+        owner: 'Unassigned',
+        status: String(request.column.id),
+      },
     ]);
     this.lastRequest.set(`Added ${id} to ${request.column.label}.`);
   }

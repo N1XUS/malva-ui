@@ -5,6 +5,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { MlvAvatar } from '@malva-ui/core/avatar';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvDialogService } from '@malva-ui/core/dialog';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
@@ -19,6 +20,8 @@ import { firstValueFrom } from 'rxjs';
 interface Ticket {
   readonly id: string;
   readonly title: string;
+  readonly description?: string;
+  readonly tags: readonly string[];
   readonly owner: string;
   readonly status: string;
 }
@@ -27,26 +30,38 @@ const TICKETS: readonly Ticket[] = [
   {
     id: 'MLV-801',
     title: 'Draft the release note',
-    owner: 'Ada',
+    description: 'One paragraph per breaking change.',
+    tags: ['docs'],
+    owner: 'Ada Lovelace',
     status: 'todo',
   },
   {
     id: 'MLV-802',
     title: 'Bump the peer range',
-    owner: 'Grace',
+    tags: ['release'],
+    owner: 'Grace Hopper',
     status: 'todo',
   },
   {
     id: 'MLV-803',
     title: 'Re-run the a11y sweep',
-    owner: 'Linus',
+    description: 'Axe over every example, both themes.',
+    tags: ['a11y'],
+    owner: 'Linus Pauling',
     status: 'doing',
   },
-  { id: 'MLV-804', title: 'Tag the package', owner: 'Ada', status: 'doing' },
+  {
+    id: 'MLV-804',
+    title: 'Tag the package',
+    tags: ['release'],
+    owner: 'Ada Lovelace',
+    status: 'doing',
+  },
   {
     id: 'MLV-805',
     title: 'Publish the docs page',
-    owner: 'Grace',
+    tags: ['docs'],
+    owner: 'Grace Hopper',
     status: 'done',
   },
 ];
@@ -61,7 +76,7 @@ const CSV_FIELDS: readonly MlvTaskboardCsvField<Ticket>[] = [
 @Component({
   selector: 'docs-taskboard-history-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvButton, MlvTaskboard, MlvTaskboardItemDef],
+  imports: [MlvAvatar, MlvButton, MlvTaskboard, MlvTaskboardItemDef],
   templateUrl: './index.html',
   styleUrl: './index.scss',
 })
@@ -73,9 +88,13 @@ export default class TaskboardHistoryExampleComponent {
   readonly board = viewChild.required<MlvTaskboard<Ticket>>('board');
 
   readonly columns = signal<readonly MlvTaskboardColumn[]>([
-    { id: 'todo', label: 'To do' },
-    { id: 'doing', label: 'In progress' },
-    { id: 'done', label: 'Done' },
+    { id: 'todo', label: 'To do', accent: 'var(--mlv-background-info-1)' },
+    {
+      id: 'doing',
+      label: 'In progress',
+      accent: 'var(--mlv-background-warning-1)',
+    },
+    { id: 'done', label: 'Done', accent: 'var(--mlv-background-success-1)' },
   ]);
 
   readonly tickets = signal<readonly Ticket[]>(TICKETS);

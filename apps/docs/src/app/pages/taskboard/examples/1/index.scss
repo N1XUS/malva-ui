@@ -1,20 +1,4 @@
-.ticket__id {
-  display: block;
-  font-family: var(--mlv-typography-family-code);
-  font-size: var(--mlv-typography-body-s-size);
-  color: var(--mlv-text-secondary);
-}
-
-.ticket__title {
-  display: block;
-  font-weight: var(--mlv-typography-body-m-weight);
-}
-
-.ticket__owner {
-  display: block;
-  font-size: var(--mlv-typography-body-s-size);
-  color: var(--mlv-text-secondary);
-}
+@use '../ticket';
 
 .board-note {
   margin-block-start: var(--mlv-spacing-3);

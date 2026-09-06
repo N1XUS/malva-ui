@@ -1,3 +1,5 @@
+@use '../ticket';
+
 .board-header {
   margin: 0;
   font-weight: var(--mlv-typography-body-m-weight);
@@ -37,15 +39,10 @@
   color: var(--mlv-text-negative);
 }
 
-.ticket__title {
-  display: block;
-}
-
-.ticket__id {
-  display: block;
+// The status line names cards by id, so this example keeps the id visible —
+// as a tag rather than the old monospace line.
+.ticket__tag--id {
   font-family: var(--mlv-typography-family-code);
-  font-size: var(--mlv-typography-body-s-size);
-  color: var(--mlv-text-secondary);
 }
 
 .board-note {

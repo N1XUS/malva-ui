@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { LucideChevronDown } from '@lucide/angular';
+import { MlvAvatar } from '@malva-ui/core/avatar';
 import { MlvButton } from '@malva-ui/core/button';
+import { MlvProgress } from '@malva-ui/core/progress';
 import {
   MlvTaskboard,
   MlvTaskboardColumnHeaderDef,
@@ -17,19 +19,92 @@ import type {
 interface Ticket {
   readonly id: string;
   readonly title: string;
+  readonly description?: string;
+  readonly tags: readonly string[];
+  readonly owner: string;
+  /** Percent complete, rendered as a bar in the card footer. */
+  readonly progress?: number;
   readonly status: string;
   readonly team: string;
 }
 
 const TICKETS: readonly Ticket[] = [
-  { id: 'MLV-201', title: 'Token audit', status: 'triage', team: 'design' },
-  { id: 'MLV-202', title: 'Focus ring pass', status: 'build', team: 'design' },
-  { id: 'MLV-203', title: 'Contrast sweep', status: 'build', team: 'design' },
-  { id: 'MLV-204', title: 'Release notes', status: 'review', team: 'design' },
-  { id: 'MLV-205', title: 'Drag adapters', status: 'triage', team: 'core' },
-  { id: 'MLV-206', title: 'Virtual cells', status: 'build', team: 'core' },
-  { id: 'MLV-207', title: 'Keyboard model', status: 'review', team: 'core' },
-  { id: 'MLV-208', title: 'Locale packs', status: 'shipped', team: 'core' },
+  {
+    id: 'MLV-201',
+    title: 'Token audit',
+    description: 'Sweep every surface token for a dark-mode twin.',
+    tags: ['tokens'],
+    owner: 'Ada Lovelace',
+    progress: 20,
+    status: 'triage',
+    team: 'design',
+  },
+  {
+    id: 'MLV-202',
+    title: 'Focus ring pass',
+    tags: ['a11y'],
+    owner: 'Grace Hopper',
+    progress: 55,
+    status: 'build',
+    team: 'design',
+  },
+  {
+    id: 'MLV-203',
+    title: 'Contrast sweep',
+    description: 'AA minimums on both themes.',
+    tags: ['a11y', 'theme'],
+    owner: 'Ada Lovelace',
+    progress: 70,
+    status: 'build',
+    team: 'design',
+  },
+  {
+    id: 'MLV-204',
+    title: 'Release notes',
+    tags: ['docs'],
+    owner: 'Grace Hopper',
+    progress: 90,
+    status: 'review',
+    team: 'design',
+  },
+  {
+    id: 'MLV-205',
+    title: 'Drag adapters',
+    description: 'One adapter per axis, no DOM reordering.',
+    tags: ['drag'],
+    owner: 'Linus Pauling',
+    progress: 15,
+    status: 'triage',
+    team: 'core',
+  },
+  {
+    id: 'MLV-206',
+    title: 'Virtual cells',
+    tags: ['cdk', 'perf'],
+    owner: 'Linus Pauling',
+    progress: 45,
+    status: 'build',
+    team: 'core',
+  },
+  {
+    id: 'MLV-207',
+    title: 'Keyboard model',
+    description: 'Grab, aim, commit — through the same guard a drop enters.',
+    tags: ['a11y'],
+    owner: 'Katherine Johnson',
+    progress: 80,
+    status: 'review',
+    team: 'core',
+  },
+  {
+    id: 'MLV-208',
+    title: 'Locale packs',
+    tags: ['i18n'],
+    owner: 'Katherine Johnson',
+    progress: 100,
+    status: 'shipped',
+    team: 'core',
+  },
 ];
 
 @Component({
@@ -37,7 +112,9 @@ const TICKETS: readonly Ticket[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     LucideChevronDown,
+    MlvAvatar,
     MlvButton,
+    MlvProgress,
     MlvTaskboard,
     MlvTaskboardColumnHeaderDef,
     MlvTaskboardItemDef,
@@ -49,15 +126,47 @@ const TICKETS: readonly Ticket[] = [
 export default class TaskboardStructureExampleComponent {
   /** Two phases spanning four columns; a group limit caps the whole phase. */
   readonly columnGroups: readonly MlvTaskboardColumnGroup[] = [
-    { id: 'planning', label: 'Planning' },
-    { id: 'delivery', label: 'Delivery', wipLimit: 5 },
+    // `accent` colours the underline beneath a phase label.
+    {
+      id: 'planning',
+      label: 'Planning',
+      accent: 'var(--mlv-background-info-1)',
+    },
+    {
+      id: 'delivery',
+      label: 'Delivery',
+      wipLimit: 5,
+      accent: 'var(--mlv-background-success-1)',
+    },
   ];
 
   readonly columns = signal<readonly MlvTaskboardColumn[]>([
-    { id: 'triage', label: 'Triage', groupId: 'planning' },
-    { id: 'build', label: 'Build', groupId: 'delivery', wipLimit: 3 },
-    { id: 'review', label: 'Review', groupId: 'delivery', wipLimit: 2 },
-    { id: 'shipped', label: 'Shipped', groupId: 'delivery' },
+    {
+      id: 'triage',
+      label: 'Triage',
+      groupId: 'planning',
+      accent: 'var(--mlv-background-info-1)',
+    },
+    {
+      id: 'build',
+      label: 'Build',
+      groupId: 'delivery',
+      wipLimit: 3,
+      accent: 'var(--mlv-background-warning-1)',
+    },
+    {
+      id: 'review',
+      label: 'Review',
+      groupId: 'delivery',
+      wipLimit: 2,
+      accent: 'var(--mlv-background-danger-1)',
+    },
+    {
+      id: 'shipped',
+      label: 'Shipped',
+      groupId: 'delivery',
+      accent: 'var(--mlv-background-success-1)',
+    },
   ]);
 
   /** One row per team; the lane limit counts every card in that row. */

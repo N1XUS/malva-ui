@@ -1,13 +1,9 @@
-.ticket__title {
-  display: block;
-}
+@use '../ticket';
 
-.ticket__meta {
+.ticket__tag--locked {
   display: inline-flex;
   align-items: center;
   gap: var(--mlv-spacing-1);
-  font-size: var(--mlv-typography-body-s-size);
-  color: var(--mlv-text-secondary);
 }
 
 .board-note {

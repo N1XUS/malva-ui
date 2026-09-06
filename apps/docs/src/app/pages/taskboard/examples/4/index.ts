@@ -4,6 +4,7 @@ import {
   computed,
   signal,
 } from '@angular/core';
+import { MlvAvatar } from '@malva-ui/core/avatar';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
 import type {
@@ -15,30 +16,76 @@ import type {
 interface Ticket {
   readonly id: string;
   readonly title: string;
+  readonly description?: string;
+  readonly tags: readonly string[];
+  readonly owner: string;
   readonly status: string;
 }
 
 const TICKETS: readonly Ticket[] = [
-  { id: 'MLV-401', title: 'Split the sortable adapter', status: 'todo' },
-  { id: 'MLV-402', title: 'Name the denial reasons', status: 'todo' },
-  { id: 'MLV-403', title: 'Cover the SSR path', status: 'todo' },
-  { id: 'MLV-404', title: 'Trim the announcement layer', status: 'doing' },
-  { id: 'MLV-405', title: 'Publish the locale packs', status: 'doing' },
-  { id: 'MLV-406', title: 'Freeze the DOM contract', status: 'done' },
+  {
+    id: 'MLV-401',
+    title: 'Split the sortable adapter',
+    description: 'One adapter for cards, one for headers.',
+    tags: ['drag'],
+    owner: 'Ada Lovelace',
+    status: 'todo',
+  },
+  {
+    id: 'MLV-402',
+    title: 'Name the denial reasons',
+    tags: ['policy'],
+    owner: 'Grace Hopper',
+    status: 'todo',
+  },
+  {
+    id: 'MLV-403',
+    title: 'Cover the SSR path',
+    description: 'The grid renders on the server; the drag engine does not.',
+    tags: ['ssr'],
+    owner: 'Linus Pauling',
+    status: 'todo',
+  },
+  {
+    id: 'MLV-404',
+    title: 'Trim the announcement layer',
+    tags: ['a11y'],
+    owner: 'Katherine Johnson',
+    status: 'doing',
+  },
+  {
+    id: 'MLV-405',
+    title: 'Publish the locale packs',
+    tags: ['i18n'],
+    owner: 'Ada Lovelace',
+    status: 'doing',
+  },
+  {
+    id: 'MLV-406',
+    title: 'Freeze the DOM contract',
+    description: 'Key tokens on every identifier attribute.',
+    tags: ['docs'],
+    owner: 'Grace Hopper',
+    status: 'done',
+  },
 ];
 
 @Component({
   selector: 'docs-taskboard-selection-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvButton, MlvTaskboard, MlvTaskboardItemDef],
+  imports: [MlvAvatar, MlvButton, MlvTaskboard, MlvTaskboardItemDef],
   templateUrl: './index.html',
   styleUrl: './index.scss',
 })
 export default class TaskboardSelectionExampleComponent {
   readonly columns = signal<readonly MlvTaskboardColumn[]>([
-    { id: 'todo', label: 'To do' },
-    { id: 'doing', label: 'In progress' },
-    { id: 'done', label: 'Done' },
+    { id: 'todo', label: 'To do', accent: 'var(--mlv-background-info-1)' },
+    {
+      id: 'doing',
+      label: 'In progress',
+      accent: 'var(--mlv-background-warning-1)',
+    },
+    { id: 'done', label: 'Done', accent: 'var(--mlv-background-success-1)' },
   ]);
 
   readonly tickets = signal<readonly Ticket[]>(TICKETS);

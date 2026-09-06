@@ -1,3 +1,5 @@
+@use '../ticket';
+
 .virtual-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -12,19 +14,15 @@
   color: var(--mlv-text-secondary);
 }
 
+// `virtualItemSize` is a fixed height, so the title may never wrap into a
+// second line and push the card out of sync with CDK's offsets.
+.virtual-board .ticket__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .virtual-board {
   // Each virtual cell scrolls inside this height; the default is 20rem.
   --mlv-taskboard-cell-block-size: 26rem;
-}
-
-.ticket__id {
-  display: block;
-  font-family: var(--mlv-typography-family-code);
-  font-size: var(--mlv-typography-body-s-size);
-  color: var(--mlv-text-secondary);
-}
-
-.ticket__title {
-  display: block;
-  font-weight: var(--mlv-typography-body-m-weight);
 }

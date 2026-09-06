@@ -1,3 +1,5 @@
+@use '../ticket';
+
 .history-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -21,20 +23,6 @@
   font-size: var(--mlv-typography-body-s-size);
 }
 
-.ticket__id {
-  display: block;
+.ticket__tag--id {
   font-family: var(--mlv-typography-family-code);
-  font-size: var(--mlv-typography-body-s-size);
-  color: var(--mlv-text-secondary);
-}
-
-.ticket__title {
-  display: block;
-  font-weight: var(--mlv-typography-body-m-weight);
-}
-
-.ticket__owner {
-  display: block;
-  font-size: var(--mlv-typography-body-s-size);
-  color: var(--mlv-text-secondary);
 }

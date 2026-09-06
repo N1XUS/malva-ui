@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { MlvAvatar } from '@malva-ui/core/avatar';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
 import type {
   MlvTaskboardColumn,
@@ -9,6 +10,8 @@ import type {
 interface Ticket {
   readonly id: string;
   readonly title: string;
+  readonly description?: string;
+  readonly tags: readonly string[];
   readonly owner: string;
   readonly status: string;
 }
@@ -17,31 +20,39 @@ const TICKETS: readonly Ticket[] = [
   {
     id: 'MLV-101',
     title: 'Audit the focus ring',
-    owner: 'Ada',
+    description: 'Every interactive surface, both themes.',
+    tags: ['a11y', 'tokens'],
+    owner: 'Ada Lovelace',
     status: 'todo',
   },
   {
     id: 'MLV-102',
     title: 'Ship the dark palette',
-    owner: 'Grace',
+    description: 'Contrast pass over the elevation ramp.',
+    tags: ['theme'],
+    owner: 'Grace Hopper',
     status: 'todo',
   },
   {
     id: 'MLV-103',
     title: 'Split the overlay base',
-    owner: 'Linus',
+    tags: ['cdk', 'refactor'],
+    owner: 'Linus Pauling',
     status: 'doing',
   },
   {
     id: 'MLV-104',
     title: 'Translate the toast pack',
-    owner: 'Ada',
+    description: 'Fourteen locales, ICU plurals included.',
+    tags: ['i18n'],
+    owner: 'Ada Lovelace',
     status: 'doing',
   },
   {
     id: 'MLV-105',
     title: 'Retire the legacy grid',
-    owner: 'Grace',
+    tags: ['cleanup'],
+    owner: 'Grace Hopper',
     status: 'done',
   },
 ];
@@ -49,16 +60,22 @@ const TICKETS: readonly Ticket[] = [
 @Component({
   selector: 'docs-taskboard-basic-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvTaskboard, MlvTaskboardItemDef],
+  imports: [MlvAvatar, MlvTaskboard, MlvTaskboardItemDef],
   templateUrl: './index.html',
   styleUrl: './index.scss',
 })
 export default class TaskboardBasicExampleComponent {
   /** Application-owned column collection, two-way bound so header drags land here. */
   readonly columns = signal<readonly MlvTaskboardColumn[]>([
-    { id: 'todo', label: 'To do' },
-    { id: 'doing', label: 'In progress' },
-    { id: 'done', label: 'Done' },
+    // `accent` colours the stripe along the column panel's top edge. Any CSS
+    // `<color>` works; a token keeps it theme-aware.
+    { id: 'todo', label: 'To do', accent: 'var(--mlv-background-info-1)' },
+    {
+      id: 'doing',
+      label: 'In progress',
+      accent: 'var(--mlv-background-warning-1)',
+    },
+    { id: 'done', label: 'Done', accent: 'var(--mlv-background-success-1)' },
   ]);
 
   /** Application-owned cards. Every committed drop replaces this array. */

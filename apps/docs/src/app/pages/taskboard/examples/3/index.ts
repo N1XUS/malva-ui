@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { LucideLock } from '@lucide/angular';
+import { MlvAvatar } from '@malva-ui/core/avatar';
 import { MlvTaskboard, MlvTaskboardItemDef } from '@malva-ui/taskboard';
 import type {
   MlvTaskboardCanDropFn,
@@ -12,33 +13,54 @@ import type {
 interface Ticket {
   readonly id: string;
   readonly title: string;
+  readonly description?: string;
+  readonly tags: readonly string[];
+  readonly owner: string;
   readonly status: string;
   readonly needsReview: boolean;
 }
 
 const TICKETS: readonly Ticket[] = [
-  { id: 'MLV-301', title: 'Draft the RFC', status: 'draft', needsReview: true },
+  {
+    id: 'MLV-301',
+    title: 'Draft the RFC',
+    description: 'Scope the controlled-state contract before any code.',
+    tags: ['rfc'],
+    owner: 'Ada Lovelace',
+    status: 'draft',
+    needsReview: true,
+  },
   {
     id: 'MLV-302',
     title: 'Prototype the panel',
+    tags: ['spike'],
+    owner: 'Grace Hopper',
     status: 'draft',
     needsReview: false,
   },
   {
     id: 'MLV-303',
     title: 'Implement the guard',
+    description: 'One answer per drop, sync or async.',
+    tags: ['policy'],
+    owner: 'Linus Pauling',
     status: 'active',
     needsReview: true,
   },
   {
     id: 'MLV-304',
     title: 'Write the migration',
+    tags: ['docs'],
+    owner: 'Katherine Johnson',
     status: 'active',
     needsReview: false,
   },
   {
     id: 'MLV-305',
     title: 'Archived spike',
+    description: 'Kept for the record; nothing leaves this column.',
+    tags: ['spike'],
+    owner: 'Grace Hopper',
     status: 'archived',
     needsReview: false,
   },
@@ -47,17 +69,32 @@ const TICKETS: readonly Ticket[] = [
 @Component({
   selector: 'docs-taskboard-policies-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LucideLock, MlvTaskboard, MlvTaskboardItemDef],
+  imports: [LucideLock, MlvAvatar, MlvTaskboard, MlvTaskboardItemDef],
   templateUrl: './index.html',
   styleUrl: './index.scss',
 })
 export default class TaskboardPoliciesExampleComponent {
   /** `archived` is locked: nothing enters it and nothing leaves it. */
   readonly columns = signal<readonly MlvTaskboardColumn[]>([
-    { id: 'draft', label: 'Draft' },
-    { id: 'active', label: 'Active' },
-    { id: 'blocked', label: 'Blocked' },
-    { id: 'archived', label: 'Archived', locked: true },
+    { id: 'draft', label: 'Draft', accent: 'var(--mlv-background-info-1)' },
+    {
+      id: 'active',
+      label: 'Active',
+      accent: 'var(--mlv-background-success-1)',
+    },
+    {
+      id: 'blocked',
+      label: 'Blocked',
+      accent: 'var(--mlv-background-warning-1)',
+    },
+    // The locked column wears the danger accent, so the stripe says what the
+    // cursor and the `data-mlv-taskboard-column-locked` attribute already do.
+    {
+      id: 'archived',
+      label: 'Archived',
+      locked: true,
+      accent: 'var(--mlv-background-danger-1)',
+    },
   ]);
 
   /** Only these column changes exist; every other pair is refused. */

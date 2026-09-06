@@ -1,0 +1,47 @@
+// Card body shared by every taskboard example. The library ships the card
+// surface — elevation, radius, hover and selection ring — and the content
+// inside it is the consumer's, so this partial is docs-owned styling of a
+// projected `mlvTaskboardItemDef`, not a library class.
+
+.ticket__title {
+  display: block;
+  font-size: var(--mlv-typography-ui-m-size);
+  font-weight: 600;
+  color: var(--mlv-text-primary);
+}
+
+.ticket__description {
+  display: block;
+  margin-block-start: var(--mlv-spacing-1);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+
+.ticket__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mlv-spacing-1-5);
+  margin-block-start: var(--mlv-spacing-3);
+}
+
+.ticket__tag {
+  padding: var(--mlv-spacing-0-5) var(--mlv-spacing-2);
+  border-radius: var(--mlv-radius-s);
+  background-color: var(--mlv-background-neutral-1);
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-body-s-size);
+  font-weight: 500;
+}
+
+.ticket__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mlv-spacing-2);
+  margin-block-start: var(--mlv-spacing-3);
+}
+
+.ticket__progress {
+  flex: 1 1 auto;
+  max-inline-size: 7rem;
+}

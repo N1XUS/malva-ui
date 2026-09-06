@@ -15,7 +15,7 @@
     [(items)]="tickets"
     [(columns)]="columns"
     [visibleItems]="visibleTickets()"
-    [virtualItemSize]="56"
+    [virtualItemSize]="132"
     dataKey="id"
     columnField="status"
   >
@@ -24,8 +24,21 @@
       [mlvTaskboardItemDefFrom]="ticketType"
       let-card
     >
-      <span class="ticket__id">{{ card.id }}</span>
       <span class="ticket__title">{{ card.title }}</span>
+      <span class="ticket__tags">
+        @for (tag of card.tags; track tag) {
+          <span class="ticket__tag">{{ tag }}</span>
+        }
+      </span>
+      <span class="ticket__footer">
+        <mlv-avatar class="ticket__avatar" size="xs" [name]="card.owner" />
+        <mlv-progress
+          class="ticket__progress"
+          size="s"
+          [value]="card.progress"
+          [ariaLabel]="card.title + ' progress'"
+        />
+      </span>
     </ng-template>
   </mlv-taskboard>
 </div>

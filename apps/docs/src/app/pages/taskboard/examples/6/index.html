@@ -20,8 +20,15 @@
     [mlvTaskboardItemDefFrom]="ticketType"
     let-card
   >
-    <span class="ticket__id">{{ card.id }}</span>
     <span class="ticket__title">{{ card.title }}</span>
+    <span class="ticket__tags">
+      @for (tag of card.tags; track tag) {
+        <span class="ticket__tag">{{ tag }}</span>
+      }
+    </span>
+    <span class="ticket__footer">
+      <mlv-avatar class="ticket__avatar" size="xs" [name]="card.owner" />
+    </span>
   </ng-template>
 </mlv-taskboard>
 
@@ -44,8 +51,15 @@
       [mlvTaskboardItemDefFrom]="ticketType"
       let-card
     >
-      <span class="ticket__id">{{ card.id }}</span>
       <span class="ticket__title">{{ card.title }}</span>
+      <span class="ticket__tags">
+        @for (tag of card.tags; track tag) {
+          <span class="ticket__tag">{{ tag }}</span>
+        }
+      </span>
+      <span class="ticket__footer">
+        <mlv-avatar class="ticket__avatar" size="xs" [name]="card.owner" />
+      </span>
     </ng-template>
   </mlv-taskboard>
 </div>

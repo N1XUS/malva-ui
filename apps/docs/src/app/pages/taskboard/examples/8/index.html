@@ -56,9 +56,21 @@
     [mlvTaskboardItemDefFrom]="ticketType"
     let-card
   >
-    <span class="ticket__id">{{ card.id }}</span>
     <span class="ticket__title">{{ card.title }}</span>
-    <span class="ticket__owner">{{ card.owner }}</span>
+    @if (card.description) {
+      <span class="ticket__description">{{ card.description }}</span>
+    }
+    <span class="ticket__tags">
+      <!-- The CSV export lists cards by id, so this example keeps it on the
+           card as a small tag. -->
+      <span class="ticket__tag ticket__tag--id">{{ card.id }}</span>
+      @for (tag of card.tags; track tag) {
+        <span class="ticket__tag">{{ tag }}</span>
+      }
+    </span>
+    <span class="ticket__footer">
+      <mlv-avatar class="ticket__avatar" size="xs" [name]="card.owner" />
+    </span>
   </ng-template>
 </mlv-taskboard>
 
