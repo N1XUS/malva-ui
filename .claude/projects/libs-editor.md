@@ -864,6 +864,62 @@ lifetime; `editor-block-handle.ts` is the sole, deliberate exception.
 boolean — write `{ capture: true }`, never `true`. Vitest strips types without
 checking them, so a boolean passes the suite and fails only in `editor:build`.
 
+Not an event listener, but the library's other observed-DOM subscription:
+**`MlvEditorToolbarRovingRegistry`** runs one `MutationObserver` on the toolbar
+root (`attributeFilter: ['aria-disabled', 'disabled', 'hidden']` plus
+`childList`/`subtree`), disconnected when the connected root is released or the
+last widget unregisters. It carries **no debounce, deliberately** — see #18,
+which asked for one and for a `MutationRecord` filter, and got neither.
+
+- **Callbacks are already coalesced by the platform.** `MutationObserver`
+  delivers one callback per microtask checkpoint carrying every record
+  accumulated since the last one, so a batch of attribute writes across the
+  whole toolbar is already a single invalidation: disabling the editor writes 22
+  attributes and lands in the callback once. Mutations spread across separate
+  microtasks are not merged by a `queueMicrotask` debounce either — each already
+  lands in its own turn, which is where such a debounce flushes.
+- **Even a debounce that did coalesce would save ~nothing now.** After the memo
+  below, a redundant invalidation costs exactly one derivation (21
+  `closest('[hidden]')` walks), paid for with a turn of tab-stop staleness. This
+  is the durable argument; the coalescing one only holds until someone finds an
+  interleaving.
+- **The toolbar is not mutation-quiet, so "it never fires" was never the
+  argument.** `MlvEditorCommandButton._disabled()` re-reads `_revision()` and
+  `_context.can(canCommand)` on every transaction and selection update, and nine
+  buttons pass a `canCommand` (four inline marks, blockquote, code block,
+  horizontal rule, undo, redo). Measured on the built-in toolbar: moving the
+  caret between a paragraph and a code block is 1 callback / 8 records each way
+  (four buttons flipping, `disabled` + `aria-disabled` each); the first
+  keystroke inside the code block is 1 callback / 2 records. Only _continued_
+  typing within one node type, once undo/redo has flipped, is quiet — 0
+  callbacks. The narrow claim, that steady-state typing is mutation-free, holds;
+  the broad one, that the observer stops firing during editing, does not.
+- **The cost worth removing was the fan-out, not the callback count.**
+  `isActive()` runs once per registered widget (21 on the built-in toolbar) and
+  Angular settles a `disabled` transition in about two change-detection passes,
+  so the enabled order used to be re-filtered and re-sorted `≈2N + c` times, each
+  walking `closest('[hidden]')` once per widget. That is `(≈2N + c) × N` — about
+  `2N^2`, **not** `N^2`, which at N=21 would be 441. Measured over `disabled`
+  false → true at N=21: **841** walks on the code this replaced, **924** with
+  only the `computed()` removed and everything else as it now stands, and **21**
+  as written. `_enabledWidgets` is a `computed()` keyed on `_domStateRevision`,
+  so every consumer also shares one consistent snapshot per generation.
+
+`editor-toolbar-context.spec.ts` pins both halves: the DOM walks per
+invalidation banded to `[N, 2N]` (a floor as well as a ceiling — a
+`toBeLessThanOrEqual` alone is satisfied by zero, so a `_enabled()` that stopped
+calling `closest('[hidden]')` would leave the guard measuring nothing while
+staying green), and the platform coalescing that makes a manual debounce
+unnecessary.
+
+**#18's second half — the observer at `libs/core/form-utils/src/lib/hint/hint.ts:113`
+— is also declined, and for a different reason.** Each `MlvHint` instance owns its _own_
+`MutationObserver` over its _own_ projected content, so a page with 30 hints has
+30 observers, each seeing exactly one record per interpolation change. A
+per-instance microtask debounce would coalesce 1 → 1, thirty times over, and add
+30 microtask hops. There is nothing to batch, so nothing was changed there and
+`libs-form-utils.md` is deliberately untouched.
+
 The shell supplies the block handle's four host capabilities to
 `mlvEditorDefaultExtensions()`: `mount` returns the `position: relative`
 `.mlv-editor__view` layer (through an optional `viewChild`, because the option
