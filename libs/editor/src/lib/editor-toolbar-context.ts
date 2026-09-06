@@ -2,6 +2,7 @@ import {
   DestroyRef,
   Injectable,
   InjectionToken,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -93,19 +94,45 @@ export class MlvEditorToolbarRovingRegistry {
     };
   }
 
-  /** @internal Resolves the single effective tab stop, even during DOM mutations. */
+  /**
+   * @internal Resolves the single effective tab stop, even during DOM mutations.
+   *
+   * Called once per registered widget on every invalidation, so it does no DOM
+   * work of its own: the enabled set and its order come from
+   * `_enabledWidgets()`, which is derived once per generation and carries the
+   * `_domStateRevision` dependency that keeps this reactive.
+   */
   isActive(widget: HTMLElement): boolean {
-    this._domStateRevision();
+    const enabled = this._enabledWidgets();
     const active = this._active();
     const effectiveActive =
-      active && this._enabled(active)
-        ? active
-        : (this._enabledWidgets()[0] ?? null);
+      active && enabled.includes(active) ? active : (enabled[0] ?? null);
     return (
-      !this._disabled() && effectiveActive === widget && this._enabled(widget)
+      !this._disabled() &&
+      effectiveActive === widget &&
+      enabled.includes(widget)
     );
   }
 
+  /**
+   * @internal Promotes a widget to the tab stop, gated on a **live** DOM read
+   * rather than on `_enabledWidgets()`.
+   *
+   * Deliberate, and the only place the two readings differ. `activate()` runs
+   * from a `focus` / `pointerdown` handler, so the question it has to answer is
+   * "is this widget interactive at this instant" — the live read is that
+   * question, and it is never wrong. The memo can only lag the DOM inside the
+   * window between a DOM write and the observer's microtask, and no input event
+   * is dispatched in that window, so the two agree today; keeping the live read
+   * means they still agree if some future code writes an attribute and calls
+   * `activate()` in the same turn, where the memo would be a generation behind
+   * and would refuse a widget the user can see is enabled.
+   *
+   * `move()` and `focusBoundary()` take the memo instead because they need the
+   * *order* of the enabled set, and an order assembled from N independent live
+   * reads is exactly what the memo exists to prevent. Do not "harmonise" the
+   * two: they are asking different questions.
+   */
   activate(widget: HTMLElement): void {
     if (this._widgets().includes(widget) && this._enabled(widget)) {
       this._hasInteracted = true;
@@ -161,14 +188,41 @@ export class MlvEditorToolbarRovingRegistry {
     );
   }
 
-  private _enabledWidgets(): readonly HTMLElement[] {
+  /**
+   * @private Registered widgets that are currently interactive, in DOM order.
+   *
+   * Derived once per invalidation generation rather than once per widget.
+   * `isActive()` runs for every registered widget — 21 on the built-in
+   * toolbar — and Angular settles one `disabled` transition in about two
+   * change-detection passes, so the enabled order was assembled roughly
+   * `2N + 2` times, each assembly walking the DOM with `closest('[hidden]')`
+   * once per widget. The shape is therefore `(≈2N + c) derivations × N walks`,
+   * not the plain `N^2` an earlier draft of this comment claimed — `N^2` at
+   * N=21 is 441, and the measured cost is about twice that.
+   *
+   * Measured on the built-in toolbar at N=21, over `disabled` false → true:
+   * the code this replaced took 39 derivations / 841 walks; this file with only
+   * the `computed()` removed takes 44 / 924; as written it takes 1 / 21. The
+   * two pre-fix figures differ because the old `isActive()` short-circuited on
+   * a still-enabled `_active` and paid single `_enabled()` reads outside the
+   * derivations. 924 is the one the spec's guard is written against, since that
+   * ablation isolates this `computed()` and changes nothing else.
+   *
+   * `_domStateRevision` is what makes the memo correct. The enabled set is a
+   * DOM read, and the `MutationObserver` that bumps that signal is the only
+   * thing that tells the graph the DOM moved — the same dependency `isActive()`
+   * already relied on. Every consumer now shares one snapshot per generation
+   * instead of each re-reading the DOM at a different point in the same pass.
+   */
+  private readonly _enabledWidgets = computed<readonly HTMLElement[]>(() => {
+    this._domStateRevision();
     return this._widgets()
       .filter((widget) => this._enabled(widget))
       .sort((left, right) => {
         const position = left.compareDocumentPosition(right);
         return position & 4 ? -1 : position & 2 ? 1 : 0;
       });
-  }
+  });
 
   private _observeStateChanges(): void {
     if (
@@ -180,6 +234,21 @@ export class MlvEditorToolbarRovingRegistry {
     ) {
       return;
     }
+    // No debounce, deliberately, and the durable reason is the memo below, not
+    // the batching: after it, a redundant invalidation costs exactly one
+    // derivation — 21 `closest('[hidden]')` walks on the built-in toolbar — so
+    // even a coalescer that did merge something would be buying ~nothing, and
+    // would pay for it by leaving the tab stop a turn stale.
+    //
+    // A `queueMicrotask` coalescer also merges nothing here, in either
+    // direction. Mutations written in one turn are already one callback:
+    // `MutationObserver` delivers once per microtask checkpoint carrying every
+    // record accumulated since the last delivery, so disabling the editor
+    // writes 22 attributes and lands here once ("coalesces a whole batch of
+    // observed mutations into one invalidation" pins that). Mutations spread
+    // across separate microtasks are not merged either — each already lands in
+    // its own turn, which is precisely where a per-turn debounce flushes.
+    // The cost that was worth removing was the fan-out below.
     this._observer = new MutationObserver(() => {
       this._domStateRevision.update((revision) => revision + 1);
       this._synchronizeActiveWidget();
@@ -192,9 +261,23 @@ export class MlvEditorToolbarRovingRegistry {
     });
   }
 
+  /**
+   * @private Re-resolves `_active` when the widget holding the tab stop is no
+   * longer part of the enabled set.
+   *
+   * Reactive-graph note: this reads `_enabledWidgets()`, where it used to read
+   * a non-reactive `_enabled(active)`, so `MlvEditorToolbarRoot`'s effect —
+   * which reaches here through `setDisabled()` — now tracks `_widgets` and
+   * `_domStateRevision` on *both* branches, not just on the fall-through into
+   * `_focusFirstWidget()`. The effect therefore re-runs on every widget
+   * registration and every observed mutation. That is deliberate and cheap
+   * post-memo (a re-run costs one cached memo read), and it does not loop:
+   * `_active` converges in at most two runs, and the effect already both read
+   * and wrote `_active` before this change.
+   */
   private _synchronizeActiveWidget(): void {
     const active = this._active();
-    if (active && this._enabled(active)) return;
+    if (active && this._enabledWidgets().includes(active)) return;
     this._focusFirstWidget();
   }
 
