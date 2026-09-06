@@ -54,6 +54,21 @@ describe('taskboard.scss', () => {
     expect(block).toContain(`${selector} .mlv-taskboard__empty`);
   });
 
+  it('draws the tail insertion bar inside the last header, not past it', () => {
+    // The strip is an `mlv-scrollbar` viewport since R44, so a bar half a
+    // gutter beyond the last header is painted outside the scroll box: the one
+    // slot the user cannot see, plus `gap / 2` of extra scrollable overflow on
+    // a board that otherwise fits.
+    const selector =
+      '.mlv-taskboard__column-header[data-mlv-taskboard-drop-edge=end]::after';
+    const index = css.indexOf(selector);
+    expect(index).toBeGreaterThan(-1);
+    const rule = css.slice(index, css.indexOf('}', index));
+    const inset = /inset-inline-end:\s*([^;}]+)/.exec(rule)?.[1]?.trim();
+    expect(inset).toBeDefined();
+    expect(inset).not.toContain('-');
+  });
+
   it('never gives an empty virtual cell the fixed viewport height', () => {
     // `block-size` is not a floor: `&__cards--empty`'s `min-block-size` cannot
     // shrink it, and both modifiers are one class, so source order alone would

@@ -169,13 +169,21 @@
 
     // Logical insets, so the bar sits on the header's reading-order start edge
     // in LTR and on its physical right edge under `[dir="rtl"]`. Half the
-    // column gutter centres it between two headers.
+    // column gutter centres it between two headers — every interior slot is a
+    // `start` edge, so they all keep the look they had.
     &__column-header[data-mlv-taskboard-drop-edge='start']::after {
       inset-inline-start: calc(var(--mlv-taskboard-gap) * -0.5);
     }
 
+    // `end` is only ever the tail slot, and so only ever on the *last* header,
+    // whose inline-end edge is the strip's own: since R44 that strip is an
+    // `mlv-scrollbar` viewport, so half a gutter beyond the header falls
+    // outside the scroll box — the bar would be invisible at the one position
+    // it names, and would add `gap / 2` of scrollable overflow to a board that
+    // otherwise fits. It therefore sits *on* that edge, inset inward, rather
+    // than in a gutter that does not exist there.
     &__column-header[data-mlv-taskboard-drop-edge='end']::after {
-      inset-inline-end: calc(var(--mlv-taskboard-gap) * -0.5);
+      inset-inline-end: 0;
     }
 
     // The source column while it is being dragged. The card ghost's dashed
