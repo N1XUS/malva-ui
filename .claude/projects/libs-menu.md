@@ -292,11 +292,18 @@ Opens an ordinary `mlv-menu` at the pointer on right-click. It replaces **only t
 
 #### Methods
 
-| Method               | Description                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| `openAt(x, y)`       | Opens at a viewport point; **moves** an already-open panel instead of stacking a second one |
-| `openFromKeyboard()` | Opens anchored to the host element with the first item focused                              |
-| `close()`            | Closes the panel                                                                            |
+| Method                          | Description                                                                                                                                                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `openAt(x, y, anchor?)`         | Opens at a viewport point; **moves** an already-open panel instead of stacking a second one                                                                                                                  |
+| `openFromKeyboard(anchor?)`     | Opens anchored to the host element (or `anchor`) with the first item focused                                                                                                                                 |
+| `openFromEvent(event, anchor?)` | The host listener's logic as a public method: suppresses the native menu and opens at the cursor or, for a keyboard-initiated event, anchored with the first item focused. No-op while `contextMenuDisabled` |
+| `close()`                       | Closes the panel                                                                                                                                                                                             |
+
+#### One panel, many elements — the `anchor` argument
+
+A list whose every row opens the same menu does not need a trigger per row: put the directive on one hidden element beside the panel and forward each row's `contextmenu` to `openFromEvent(event, row)`. The `anchor` is the element the open speaks for — a keyboard-initiated open positions the panel against it, its `[dir]` scope resolves the panel's direction, and focus returns to it when the panel closes. `@malva-ui/scheduler` drives its cell and event menus this way.
+
+Mechanism: the controller's `origin` is a real `ElementRef` (CDK's position strategy only reads a bounding box from an `instanceof ElementRef`, the `menu-data-item.ts` trick) whose `nativeElement` is a lazy getter returning the current anchor, else the host. Everything the controller derives from its origin — direction at open, the element-anchored position for a keyboard open, `_restoreFocusToTrigger()` — follows it without the controller knowing. Every open sets the anchor — `openAt(x, y)` with no anchor resets it to the host — so a plain open after an anchored one resolves against the host again; `onClosed` drops it too, purely so a detached row is not retained between opens (focus was restored to it on `menu.closed`, before the leave animation). Re-anchoring an **open** panel to an element in another `[dir]` scope re-mirrors it: `MlvPopupHandle.setPositionOrigin` re-resolves the direction from `config.origin` (see `libs-popup.md`), because `watchDirection` only reacts to `dir` attributes changing, not to the origin changing.
 
 #### Host bindings
 
@@ -595,7 +602,7 @@ libs/core/menu/src/
       menu-group-label.ts         — MlvMenuGroupLabel ([mlvMenuGroupLabel])
       menu-trigger.ts             — MlvMenuTrigger ([mlvMenuTrigger])
       context-menu-trigger.ts     — MlvContextMenuTrigger ([mlvContextMenuTrigger])
-      context-menu-trigger.spec.ts — right-click open, cursor anchoring, global mode, keyboard, RTL
+      context-menu-trigger.spec.ts — right-click open, cursor anchoring, global mode, keyboard, RTL, anchored opens (openFromEvent / anchor)
       menu-overlay-controller.ts  — MlvMenuOverlayController (shared popup/focus/submenu-intent lifecycle)
       menubar.ts                  — MlvMenubar (mlv-menubar)
       menubar.scss                — BEM styles

@@ -59,7 +59,10 @@ export interface MlvSchedulerEventInteraction<D = Date, TData = unknown> {
   event: MlvSchedulerEvent<D, TData>;
   /** The chip host — anchor for consumer menus and popups. */
   element: HTMLElement;
-  /** The originating DOM event. Never prevented by the scheduler. */
+  /**
+   * The originating DOM event. `defaultPrevented` only when a matching
+   * `*mlvScheduler…MenuDef` opened the built-in context menu on it.
+   */
   nativeEvent: MouseEvent | KeyboardEvent;
 }
 
@@ -71,7 +74,10 @@ export interface MlvSchedulerSlotEvent<D = Date> {
   allDay: boolean;
   /** The cell or slot element that was activated. */
   element: HTMLElement;
-  /** The originating DOM event. Never prevented by the scheduler. */
+  /**
+   * The originating DOM event. `defaultPrevented` only when a matching
+   * `*mlvScheduler…MenuDef` opened the built-in context menu on it.
+   */
   nativeEvent: MouseEvent | KeyboardEvent;
 }
 
@@ -161,6 +167,28 @@ export interface MlvSchedulerEventContext<D = Date, TData = unknown> {
   continuesBefore: boolean;
   /** The event ends after this rendered segment. */
   continuesAfter: boolean;
+}
+
+/** Context handed to `*mlvSchedulerSlotMenuDef`. */
+export interface MlvSchedulerSlotMenuContext<D = Date> {
+  /**
+   * Bind with `let-range`. The whole day of a month / all-day cell, the slot's
+   * own duration on the time grid, or the pending keyboard selection when the
+   * right-clicked cell lies inside one (`selection` is then `true`).
+   */
+  $implicit: MlvSchedulerNextRange<D>;
+  /** `true` when `$implicit` is a pending keyboard selection rather than the one cell. */
+  selection: boolean;
+  /** The view the cell belongs to. */
+  view: MlvSchedulerView;
+}
+
+/** Context handed to `*mlvSchedulerEventMenuDef`. */
+export interface MlvSchedulerEventMenuContext<D = Date, TData = unknown> {
+  /** Bind with `let-event`. */
+  $implicit: MlvSchedulerEvent<D, TData>;
+  /** The view the chip is rendered in. */
+  view: MlvSchedulerView;
 }
 
 /** Payload of `moreClick`. */

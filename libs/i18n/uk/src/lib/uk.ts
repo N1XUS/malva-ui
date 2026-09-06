@@ -388,6 +388,8 @@ const uk: MlvLanguage = {
     rangeChanged: 'Показано {period}',
     selectionHint:
       'Вибрано з {start} до {end}. Натисніть Enter для підтвердження',
+    eventMenu: 'Дії для {title}',
+    slotMenu: 'Дії для {start}',
   },
   scrollbar: {
     scrollableRegion: 'Область прокручування',

@@ -35,12 +35,12 @@ describe('scheduler documentation page', () => {
     if (!component)
       throw new Error('Expected the scheduler page to lazy load.');
     const instance = new component();
-    expect(instance.examples).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(instance.examples).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     expect(instance.meta.title).toBe('Scheduler');
   }, 60_000);
 
   it('keeps every scheduler example on the grouped public entry point', () => {
-    for (let index = 1; index <= 7; index += 1) {
+    for (let index = 1; index <= 8; index += 1) {
       const source = readFileSync(
         join(pageDirectory, 'examples', String(index), 'index.ts'),
         'utf8',

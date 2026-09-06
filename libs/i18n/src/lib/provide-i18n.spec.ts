@@ -162,6 +162,8 @@ const mockEn: MlvLanguage = {
     moveRejected: '{title} cannot be placed there',
     rangeChanged: 'Showing {period}',
     selectionHint: '{start} to {end} selected. Press Enter to confirm',
+    eventMenu: 'Actions for {title}',
+    slotMenu: 'Actions for {start}',
   },
   scrollbar: { scrollableRegion: 'Scrollable region' },
   searchField: {

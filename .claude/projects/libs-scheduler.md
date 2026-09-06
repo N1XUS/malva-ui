@@ -14,13 +14,13 @@ Month / week / day calendar views (`mlv-scheduler`) for timed, all-day and multi
 - **Import path:** `@malva-ui/scheduler` (a standalone published package; **not** re-exported from `@malva-ui/core`)
 - **Nx project:** `scheduler` (tags `scope:ui`, `family:scheduler`, `type:ui`)
 - **Packaging:** ng-packagr package root, entry `src/index.ts`
-- **Peers:** `@malva-ui/core` (date adapter, popup, segmented, button, scrollbar), `@malva-ui/cdk`, `@malva-ui/i18n`, `@angular/cdk`, `@angular/common`, `@angular/core`, `@lucide/angular`
+- **Peers:** `@malva-ui/core` (date adapter, popup, menu, segmented, button, scrollbar), `@malva-ui/cdk`, `@malva-ui/i18n`, `@angular/cdk`, `@angular/common`, `@angular/core`, `@lucide/angular`
 - **Dependencies:** `sortablejs ^1.15.7`, declared by `libs/scheduler/package.json` itself (`libs/core/package.json` declares its own copy; the workspace root carries `sortablejs` + `@types/sortablejs` as **devDependencies**, because `apps/docs`' external-drop example imports SortableJS directly) and allow-listed in `ng-package.json` `allowedNonPeerDependencies`
-- **Docs page:** `/scheduler` in `apps/docs` (seven examples), API family `scheduler`
+- **Docs page:** `/scheduler` in `apps/docs` (eight examples), API family `scheduler`
 
 ## Public API
 
-`@malva-ui/scheduler` exports the component `MlvScheduler`, the two template-def directives `MlvSchedulerEventDef` and `MlvSchedulerHeaderDef`, and the types in `scheduler.types.ts`: `MlvSchedulerView`, `MlvSchedulerEvent<D, TData>`, `MlvSchedulerChangeSource`, `MlvSchedulerEventChange`, `MlvSchedulerNextRange`, `MlvSchedulerEventInteraction`, `MlvSchedulerSlotEvent`, `MlvSchedulerRangeSelectEvent`, `MlvSchedulerExternalDropEvent`, `MlvSchedulerVisibleRange`, `MlvSchedulerBusinessHours`, `MlvSchedulerCanChange`, `MlvSchedulerHeaderContext`, `MlvSchedulerHeaderApi`, `MlvSchedulerEventContext` and `MlvSchedulerMoreClickEvent`.
+`@malva-ui/scheduler` exports the component `MlvScheduler`, the four template-def directives `MlvSchedulerEventDef`, `MlvSchedulerHeaderDef`, `MlvSchedulerSlotMenuDef` and `MlvSchedulerEventMenuDef`, and the types in `scheduler.types.ts`: `MlvSchedulerView`, `MlvSchedulerEvent<D, TData>`, `MlvSchedulerChangeSource`, `MlvSchedulerEventChange`, `MlvSchedulerNextRange`, `MlvSchedulerEventInteraction`, `MlvSchedulerSlotEvent`, `MlvSchedulerRangeSelectEvent`, `MlvSchedulerExternalDropEvent`, `MlvSchedulerVisibleRange`, `MlvSchedulerBusinessHours`, `MlvSchedulerCanChange`, `MlvSchedulerHeaderContext`, `MlvSchedulerHeaderApi`, `MlvSchedulerEventContext`, `MlvSchedulerSlotMenuContext`, `MlvSchedulerEventMenuContext` and `MlvSchedulerMoreClickEvent`.
 
 Deliberately **not** exported: the drag service and its drop-list directive, the SortableJS class names and the `__mlv-ghost` preview-id helper, the pointer-gesture helper, the layout engine and the month / time-grid / chip view components. They are implementation detail and may change without a migration note.
 
@@ -68,20 +68,20 @@ Each model emits the usual `<name>Change` output, so `[(events)]`, `[(view)]` an
 
 #### Outputs
 
-| Name                 | Payload                         | Description                                                       |
-| -------------------- | ------------------------------- | ----------------------------------------------------------------- |
-| `eventMove`          | `MlvSchedulerEventChange`       | A drag or keyboard move landed (after `canMove`).                 |
-| `eventResize`        | `MlvSchedulerEventChange`       | A resize landed (after `canResize`).                              |
-| `eventClick`         | `MlvSchedulerEventInteraction`  | Chip activated by click, `Enter` or `Space`.                      |
-| `eventDoubleClick`   | `MlvSchedulerEventInteraction`  | Chip double-clicked.                                              |
-| `eventContextMenu`   | `MlvSchedulerEventInteraction`  | Chip context menu (the native event is not prevented).            |
-| `slotClick`          | `MlvSchedulerSlotEvent`         | Empty slot or month cell activated.                               |
-| `slotDoubleClick`    | `MlvSchedulerSlotEvent`         | Empty slot or month cell double-clicked.                          |
-| `slotContextMenu`    | `MlvSchedulerSlotEvent`         | Empty slot or month cell context menu.                            |
-| `rangeSelect`        | `MlvSchedulerRangeSelectEvent`  | Pointer drag across empty cells, or `Shift+Arrow` + `Enter`.      |
-| `externalDrop`       | `MlvSchedulerExternalDropEvent` | A foreign SortableJS item of the same `dragGroup` was dropped.    |
-| `visibleRangeChange` | `MlvSchedulerVisibleRange`      | Emitted on init and whenever the view or the range bounds change. |
-| `moreClick`          | `MlvSchedulerMoreClickEvent`    | A month cell's `+N more` button opened its popover.               |
+| Name                 | Payload                         | Description                                                                                                                                                                                               |
+| -------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eventMove`          | `MlvSchedulerEventChange`       | A drag or keyboard move landed (after `canMove`).                                                                                                                                                         |
+| `eventResize`        | `MlvSchedulerEventChange`       | A resize landed (after `canResize`).                                                                                                                                                                      |
+| `eventClick`         | `MlvSchedulerEventInteraction`  | Chip activated by click, `Enter` or `Space`.                                                                                                                                                              |
+| `eventDoubleClick`   | `MlvSchedulerEventInteraction`  | Chip double-clicked.                                                                                                                                                                                      |
+| `eventContextMenu`   | `MlvSchedulerEventInteraction`  | Chip context menu. Always emitted; with a `*mlvSchedulerEventMenuDef` the built-in menu has already opened on it and `nativeEvent.defaultPrevented` is `true`, without one the native event is untouched. |
+| `slotClick`          | `MlvSchedulerSlotEvent`         | Empty slot or month cell activated.                                                                                                                                                                       |
+| `slotDoubleClick`    | `MlvSchedulerSlotEvent`         | Empty slot or month cell double-clicked.                                                                                                                                                                  |
+| `slotContextMenu`    | `MlvSchedulerSlotEvent`         | Empty slot or month cell context menu; same `defaultPrevented` rule with `*mlvSchedulerSlotMenuDef`.                                                                                                      |
+| `rangeSelect`        | `MlvSchedulerRangeSelectEvent`  | Pointer drag across empty cells, or `Shift+Arrow` + `Enter`.                                                                                                                                              |
+| `externalDrop`       | `MlvSchedulerExternalDropEvent` | A foreign SortableJS item of the same `dragGroup` was dropped.                                                                                                                                            |
+| `visibleRangeChange` | `MlvSchedulerVisibleRange`      | Emitted on init and whenever the view or the range bounds change.                                                                                                                                         |
+| `moreClick`          | `MlvSchedulerMoreClickEvent`    | A month cell's `+N more` button opened its popover.                                                                                                                                                       |
 
 #### Public methods
 
@@ -103,7 +103,7 @@ Read-only, and covered by the migration policy like any other public member. Use
 | `title`        | `Signal<string>`                   | Localized range label: month-year, `"Aug 31 – Sep 6, 2026"`, or the full day label — the same string the built-in toolbar shows. |
 | `visibleRange` | `Signal<MlvSchedulerVisibleRange>` | The rendered period, i.e. the value `visibleRangeChange` last emitted.                                                           |
 
-`MlvScheduler` also implements the internal `MlvSchedulerContext` that the view components inject. Those members (`adapter`, `i18n`, `range` — the context's `@internal` alias of the public `visibleRange` —, `days`, `rowLength`, `today`, `nowMinutes`, `normalizedEvents`, `minMinutes`, `maxMinutes`, `snap`, `eventDef`, `dragHintId`, `pendingFocus`, `scrollRequest`, `dragging`, `translate()`, `announce()`, `commitChange()`, `emit*()`, …) are `@internal` plumbing between the root and its views: they are not part of the supported surface and are not covered by the migration policy. `title` and `visibleRange` are **not** in that set.
+`MlvScheduler` also implements the internal `MlvSchedulerContext` that the view components inject. Those members (`adapter`, `i18n`, `range` — the context's `@internal` alias of the public `visibleRange` —, `days`, `rowLength`, `today`, `nowMinutes`, `normalizedEvents`, `minMinutes`, `maxMinutes`, `snap`, `eventDef`, `dragHintId`, `pendingFocus`, `scrollRequest`, `selectionRelease`, `dragging`, `translate()`, `announce()`, `commitChange()`, `emit*()`, …) are `@internal` plumbing between the root and its views: they are not part of the supported surface and are not covered by the migration policy. `title` and `visibleRange` are **not** in that set.
 
 ### `MlvSchedulerEventDef`
 
@@ -120,13 +120,33 @@ The directive takes no inputs, so a template's context always resolves to `MlvSc
 
 `ng-template[mlvSchedulerHeaderDef]` replaces the built-in toolbar (`toolbar` is then ignored). The context is `MlvSchedulerHeaderContext`, whose `$implicit` is a `MlvSchedulerHeaderApi`: `title`, `view`, `range`, `next()`, `previous()`, `today()`, `setView()`.
 
+### `MlvSchedulerSlotMenuDef` / `MlvSchedulerEventMenuDef`
+
+`ng-template[mlvSchedulerSlotMenuDef]` and `ng-template[mlvSchedulerEventMenuDef]` hold the **items** of the context menu the scheduler opens on `contextmenu` — a right-click, or the ContextMenu key / `Shift+F10` on a focused cell or chip — over an empty cell / slot and over an event chip respectively. The template content is what the content of an `mlv-menu` would be: `mlv-list-item[mlvMenuItem]` rows, `mlv-menu-separator`s, `mlv-menu-group`s (consumers import `MlvListItem` + `MlvMenuItem` themselves). Contexts:
+
+- `MlvSchedulerSlotMenuContext` — `$implicit: MlvSchedulerNextRange` (`let-range`), `selection: boolean`, `view`. The range is the whole day of a month / all-day cell, the slot's own `slotDuration` on the time grid (clamped to `maxTime`, the end of the axis mapped to the next midnight), or — when the right-clicked cell lies inside a **pending keyboard selection** (`Shift+Arrow`, not yet committed) — that whole selection, with `selection: true`. A pointer drag-select commits and clears on release, so it never reaches the menu. **A menu that took the pending selection is its confirmation step**: once that menu closes — an item activated, or dismissed with `Escape` / an outside click alike, `mlv-menu` reports no close reason — the view drops the selection (`MlvSchedulerContext.selectionRelease`, a root → view counter bumped from the trigger's `menuClosed`), so it is not left painted and armed for `Enter` to commit a second `rangeSelect`. A menu opened on a cell **outside** the selection leaves it in place.
+- `MlvSchedulerEventMenuContext` — `$implicit: MlvSchedulerEvent` (`let-event`), `view`.
+
+Both defs have the same `D = Date` / `TData = unknown` degradation as `MlvSchedulerEventDef`.
+
+How it works, and the rules that fall out of it:
+
+- **One panel, one trigger.** The root renders a single `mlv-menu` plus a hidden `span[mlvContextMenuTrigger]` only while at least one def is projected (`_hasContextMenu`); with no def there is no menu plumbing in the DOM at all and `contextmenu` events are left to the browser exactly as before. The views keep emitting through `emitSlotInteraction` / `emitEventInteraction`; the root opens the menu from there with `MlvContextMenuTrigger.openFromEvent(event, element)` — the cell / chip is the **anchor**: a keyboard-initiated open positions the panel against it, its `[dir]` scope resolves the panel's direction (a scheduler inside `dir="rtl"` mirrors its menus even in an LTR document), and focus returns to it on close. A second right-click while open re-targets the same panel (`setPositionOrigin`, which also re-resolves direction) rather than stacking one.
+- **The def renders inside the menu through an injector taken from inside the menu's content** (`ngTemplateOutlet`'s `injector:` with the `ViewContainerRef.injector` of an `ng-container` projected into `mlv-menu`, memoised in a `computed` because that getter builds a new object per read and the outlet re-creates its view on identity change). The def is declared under the consumer, whose injector chain never reaches the scheduler's `mlv-menu`; the embedded-view injector is consulted at the embedded view's boundary before the declaration chain, so the consumer's `[mlvMenuItem]`s register with this menu's item registry and `MENU_TOKEN`. Nested `@if` blocks inside the def inherit it.
+- **The panel's accessible name** is `aria-label` = i18n `eventMenu` (`"Actions for {title}"`) or `slotMenu` (`"Actions for {start}"`, `start` = `getDateLabel` for an all-day range, `formatDateTime` otherwise). The scheduler's resolved density is forwarded to the panel (`[mlvDensity]`), since the pane is portaled out of the host's cascade.
+- **The menu state is cleared from the trigger's `menuClosed`**, i.e. after the leave animation, so the consumer template is not torn down under a playing animation. A right-click during that ~100 ms leave re-targets the leaving panel and its context is then cleared on close — pre-existing `MlvContextMenuTrigger` behaviour, accepted.
+- **A projected def must render at least one item.** The scheduler opens the panel whenever a def is projected; a template that renders nothing for a given context (every row behind a false `@if`) opens an empty `role="menu"`. Leave the def out — or render a disabled row — rather than emptying it.
+- **Consumers opening their own menu from `eventContextMenu` / `slotContextMenu`** should check `nativeEvent.defaultPrevented` first: `true` means the built-in menu has already opened on that event, and a second panel would stack on it.
+
 ### Types
 
 - `MlvSchedulerEvent<D, TData>` — `id`, `title`, `start`, exclusive `end`, optional `allDay`, `tone` (`MlvTone`), `color` (any CSS colour, wins over `tone`), `draggable`, `resizable`, `data`. `end <= start` is repaired to `start + defaultEventDuration` (timed) or one day (all-day).
 - `MlvSchedulerNextRange<D>` — `{ start, end (exclusive), allDay }`; the proposed range of a move or resize, and the shape `previous` and `canMove` / `canResize`' second argument share.
 - `MlvSchedulerEventChange` — `{ event, previous: MlvSchedulerNextRange, source }`; `event` is the **new** object already written to the model.
-- `MlvSchedulerEventInteraction` — `{ event, element, nativeEvent }`; `element` is the chip host, an anchor for consumer menus.
-- `MlvSchedulerSlotEvent` — `{ date, allDay, element, nativeEvent }`.
+- `MlvSchedulerEventInteraction` — `{ event, element, nativeEvent }`; `element` is the chip host, an anchor for consumer menus. `nativeEvent.defaultPrevented` is `true` only when the built-in context menu opened on it.
+- `MlvSchedulerSlotEvent` — `{ date, allDay, element, nativeEvent }`; same `defaultPrevented` rule.
+- `MlvSchedulerSlotMenuContext<D>` — `{ $implicit: MlvSchedulerNextRange, selection, view }`; context of `*mlvSchedulerSlotMenuDef`.
+- `MlvSchedulerEventMenuContext<D, TData>` — `{ $implicit: MlvSchedulerEvent, view }`; context of `*mlvSchedulerEventMenuDef`.
 - `MlvSchedulerRangeSelectEvent` — `{ start, end (exclusive), allDay, source }`.
 - `MlvSchedulerExternalDropEvent` — `{ element, start, end, allDay }`; the foreign element is returned to its own list, nothing is inserted.
 - `MlvSchedulerVisibleRange` — `{ view, start (inclusive), end (exclusive) }`.
@@ -161,6 +181,7 @@ Horizontal keys are logical: they mirror in RTL through `MlvRtlService.normalize
 | Chips        | `Enter` / `Space` activate, `Alt+Arrow` moves by one snap step (one day / one week for a lane bar), `Alt+Shift+Arrow` resizes the **end** edge, `Ctrl+Alt+Arrow` (`⌃⌥Arrow` on macOS) resizes the **start** edge, `Escape` returns focus to the owning cell, `Tab` / `Shift+Tab` cycle the cell's chips and its `+N more` button. A timed chip resizes on the block axis only, so `Alt+Shift+←/→` and `Ctrl+Alt+←/→` fall through to the grid there |
 | `+N more`    | `Enter` / `Space` toggle the popover — the first press opens it, a second closes it and returns focus to the button, and only the opening press emits `moreClick` —, `Shift+Tab` steps back to the cell's last chip (the button is the last stop of the intra-cell ring), `Escape` returns focus to the cell                                                                                                                                        |
 | `+N` popover | `Escape`, an outside click, the end of a drag, or a second press on the `+N more` trigger close it and return focus to that button; opening it focuses the first chip inside                                                                                                                                                                                                                                                                        |
+| Context menu | With a `*mlvSchedulerSlotMenuDef` / `*mlvSchedulerEventMenuDef`: the ContextMenu key or `Shift+F10` on a focused cell / chip opens its menu anchored to that element with the first item focused (`mlv-menu`'s own arrow / `Home` / `End` / type-ahead model inside); `Escape` closes it and returns focus to the cell / chip. Same on a right-click, minus the initial focus move                                                                  |
 
 ## Behaviour notes and caveats
 
@@ -185,7 +206,7 @@ Horizontal keys are logical: they mirror in RTL through `MlvRtlService.normalize
 
 ## i18n keys
 
-The `scheduler` section of every locale pack (token `MLV_SCHEDULER_I18N` from `@malva-ui/i18n`, type `MlvSchedulerI18n`) declares: `scheduler`, `today`, `previous`, `next`, `month`, `week`, `day`, `viewSwitch`, `allDay`, `moreEvents`, `moreEventsLabel`, `gridLabel`, `slotLabel`, `dayLabelToday`, `eventLabel`, `eventLabelAllDay`, `dragHint`, `eventMoved`, `eventResized`, `moveRejected`, `rangeChanged`, `selectionHint`.
+The `scheduler` section of every locale pack (token `MLV_SCHEDULER_I18N` from `@malva-ui/i18n`, type `MlvSchedulerI18n`) declares: `scheduler`, `today`, `previous`, `next`, `month`, `week`, `day`, `viewSwitch`, `allDay`, `moreEvents`, `moreEventsLabel`, `gridLabel`, `slotLabel`, `dayLabelToday`, `eventLabel`, `eventLabelAllDay`, `dragHint`, `eventMoved`, `eventResized`, `moveRejected`, `rangeChanged`, `selectionHint`, `eventMenu`, `slotMenu`.
 
 ## Styling
 
@@ -199,4 +220,4 @@ Grid cells and the `+N` popover use the inset **Form B**; chips and the `+N more
 
 ## Tests
 
-`yarn nx run scheduler:test` — the layout engine (pure functions), the root component, the month view, the time grid, the chip, the drag service, the pointer helper, keyboard move / resize / selection, compiled-CSS style specs (through `stripCssLayersFromText()`) and an axe pass in every view. Specs are zoneless (`await fixture.whenStable()` after a signal write) and synthesize pointer input with `new Event('pointerdown')` plus `Object.assign`, because jsdom has no `PointerEvent` and returns zeroed layout rects.
+`yarn nx run scheduler:test` — the layout engine (pure functions), the root component, the month view, the time grid, the chip, the drag service, the pointer helper, keyboard move / resize / selection, the context menus (`scheduler-context-menu.spec.ts`: both defs, the slot range per view incl. the `maxTime` clamp and the midnight end, the pending-selection hand-off in both views and its release on activation / `Escape`, density forwarding, keyboard open + focus return, re-targeting, the no-def paths and an axe pass with the panel open), compiled-CSS style specs (through `stripCssLayersFromText()`) and an axe pass in every view. Specs are zoneless (`await fixture.whenStable()` after a signal write) and synthesize pointer input with `new Event('pointerdown')` plus `Object.assign`, because jsdom has no `PointerEvent` and returns zeroed layout rects.

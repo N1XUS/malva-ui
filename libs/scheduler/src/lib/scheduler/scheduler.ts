@@ -3,6 +3,7 @@ import {
   Component,
   NgZone,
   PLATFORM_ID,
+  ViewContainerRef,
   ViewEncapsulation,
   afterRenderEffect,
   computed,
@@ -15,6 +16,8 @@ import {
   output,
   signal,
   untracked,
+  viewChild,
+  type Injector,
   type Signal,
   type TemplateRef,
 } from '@angular/core';
@@ -25,6 +28,7 @@ import {
 } from '@angular/cdk/coercion';
 import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import { MlvButton } from '@malva-ui/core/button';
+import { MlvContextMenuTrigger, MlvMenu } from '@malva-ui/core/menu';
 import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
 import {
   MLV_DATE_ADAPTER,
@@ -43,7 +47,7 @@ import {
 } from '@malva-ui/i18n';
 import { MlvSchedulerDragService } from '../drag/scheduler-drag.service';
 import { nextVisibleDate } from '../layout/scheduler-focus';
-import { parseTime } from '../layout/scheduler-time';
+import { MINUTES_PER_DAY, parseTime } from '../layout/scheduler-time';
 import {
   computeVisibleRange,
   normalizeEvent,
@@ -60,7 +64,12 @@ import {
   type MlvSchedulerInteractionKind,
   type MlvSchedulerScrollRequest,
 } from './scheduler-context';
-import { MlvSchedulerEventDef, MlvSchedulerHeaderDef } from './scheduler-defs';
+import {
+  MlvSchedulerEventDef,
+  MlvSchedulerEventMenuDef,
+  MlvSchedulerHeaderDef,
+  MlvSchedulerSlotMenuDef,
+} from './scheduler-defs';
 import type {
   MlvSchedulerBusinessHours,
   MlvSchedulerCanChange,
@@ -69,17 +78,32 @@ import type {
   MlvSchedulerEventChange,
   MlvSchedulerEventContext,
   MlvSchedulerEventInteraction,
+  MlvSchedulerEventMenuContext,
   MlvSchedulerExternalDropEvent,
   MlvSchedulerHeaderContext,
   MlvSchedulerMoreClickEvent,
   MlvSchedulerNextRange,
   MlvSchedulerRangeSelectEvent,
   MlvSchedulerSlotEvent,
+  MlvSchedulerSlotMenuContext,
   MlvSchedulerView,
   MlvSchedulerVisibleRange,
 } from './scheduler.types';
 
 const VIEWS: readonly MlvSchedulerView[] = ['month', 'week', 'day'];
+
+/**
+ * What the built-in context menu renders for one open: the projected def's
+ * template, the context it receives and the panel's accessible name.
+ * @private
+ */
+interface MlvSchedulerContextMenuState<D, TData> {
+  template: TemplateRef<unknown>;
+  context:
+    | MlvSchedulerSlotMenuContext<D>
+    | MlvSchedulerEventMenuContext<D, TData>;
+  label: string;
+}
 
 /**
  * Calendar scheduler with month, week and day views, timed / all-day /
@@ -99,6 +123,8 @@ const VIEWS: readonly MlvSchedulerView[] = ['month', 'week', 'day'];
     MlvSegmentedItem,
     LucideChevronLeft,
     LucideChevronRight,
+    MlvMenu,
+    MlvContextMenuTrigger,
     MlvSchedulerMonth,
     MlvSchedulerTimeGrid,
   ],
@@ -206,13 +232,21 @@ export class MlvScheduler<D = Date, TData = unknown>
   readonly eventClick = output<MlvSchedulerEventInteraction<D, TData>>();
   /** Double click on a chip. */
   readonly eventDoubleClick = output<MlvSchedulerEventInteraction<D, TData>>();
-  /** `contextmenu` on a chip; the default is never prevented. */
+  /**
+   * `contextmenu` on a chip. Emitted whether or not a `*mlvSchedulerEventMenuDef`
+   * is projected; with one, the built-in menu has already opened on the event
+   * and prevented its default.
+   */
   readonly eventContextMenu = output<MlvSchedulerEventInteraction<D, TData>>();
   /** Click on an empty slot / cell, or Space on a focused cell. */
   readonly slotClick = output<MlvSchedulerSlotEvent<D>>();
   /** Double click on an empty slot / cell. */
   readonly slotDoubleClick = output<MlvSchedulerSlotEvent<D>>();
-  /** `contextmenu` on an empty slot / cell. */
+  /**
+   * `contextmenu` on an empty slot / cell. Emitted whether or not a
+   * `*mlvSchedulerSlotMenuDef` is projected; with one, the built-in menu has
+   * already opened on the event and prevented its default.
+   */
   readonly slotContextMenu = output<MlvSchedulerSlotEvent<D>>();
   /** Pointer drag over empty slots / cells, or Shift+Arrow then Enter. */
   readonly rangeSelect = output<MlvSchedulerRangeSelectEvent<D>>();
@@ -231,6 +265,63 @@ export class MlvScheduler<D = Date, TData = unknown>
   private readonly _eventDefRef = contentChild(MlvSchedulerEventDef);
   /** @protected Custom toolbar. */
   protected readonly headerDefRef = contentChild(MlvSchedulerHeaderDef);
+  /** @private The projected `*mlvSchedulerSlotMenuDef`; its presence turns cell right-clicks into a menu. */
+  private readonly _slotMenuDefRef = contentChild(MlvSchedulerSlotMenuDef);
+  /** @private The projected `*mlvSchedulerEventMenuDef`; its presence turns chip right-clicks into a menu. */
+  private readonly _eventMenuDefRef = contentChild(MlvSchedulerEventMenuDef);
+
+  // ─── Context menu ──────────────────────────────────────────────────────
+  /** @protected Whether any menu def is projected; without one no panel or trigger is rendered at all. */
+  protected readonly _hasContextMenu = computed(
+    () => !!this._slotMenuDefRef() || !!this._eventMenuDefRef(),
+  );
+  /**
+   * @protected What the panel renders for the current open — `null` while
+   * closed, so the consumer's template is not instantiated needlessly. Reset
+   * from the trigger's `menuClosed`, i.e. after the leave animation.
+   */
+  protected readonly _contextMenu = signal<MlvSchedulerContextMenuState<
+    D,
+    TData
+  > | null>(null);
+  /** @protected `aria-label` of the panel for the current open. */
+  protected readonly _contextMenuLabel = computed(
+    () => this._contextMenu()?.label ?? '',
+  );
+  /**
+   * @private Whether the current open was handed the view's pending keyboard
+   * selection. Sticky across re-targets until the panel closes, when the
+   * view is told to release that selection.
+   */
+  private _menuHoldsSelection = false;
+  /** @private The hidden trigger that owns the one shared panel. */
+  private readonly _contextMenuTrigger = viewChild(MlvContextMenuTrigger);
+  /**
+   * @private A view container INSIDE the menu's content, read only for its
+   * injector: the consumer's def is rendered through that injector so its
+   * `[mlvMenuItem]`s resolve the menu's item registry and `MENU_TOKEN` —
+   * the def was declared under the consumer, whose injector chain does not
+   * reach this menu.
+   */
+  private readonly _contextMenuOutlet = viewChild('contextMenuOutlet', {
+    read: ViewContainerRef,
+  });
+  /**
+   * @protected That injector, memoised: `ViewContainerRef.injector` builds a
+   * new object per read, and `ngTemplateOutlet` re-creates its view whenever
+   * the injector identity changes.
+   */
+  protected readonly _contextMenuInjector = computed<Injector | null>(
+    () => this._contextMenuOutlet()?.injector ?? null,
+  );
+  /**
+   * @protected The density applied to the host, forwarded to the panel: the
+   * menu is portaled out of the scheduler's cascade and would otherwise fall
+   * back to the ancestor context or the global default.
+   */
+  protected readonly _density = inject(MlvDensityDirective, {
+    self: true,
+  }).effectiveDensity;
 
   // ─── Context surface ───────────────────────────────────────────────────
   /** @internal Resolved scheduler translation strings. */
@@ -351,6 +442,10 @@ export class MlvScheduler<D = Date, TData = unknown>
   );
   /** @internal The latest `scrollToTime()` call waiting for the time grid. */
   readonly scrollRequest = this._scrollRequest.asReadonly();
+  /** @private Backing signal of `selectionRelease`. */
+  private readonly _selectionRelease = signal(0);
+  /** @internal Bumped when a context menu that took the pending selection has closed. */
+  readonly selectionRelease = this._selectionRelease.asReadonly();
   /** @private Backing signal of `dragging`. */
   private readonly _dragging = signal(false);
   /** @internal `true` while a SortableJS drag owns the pointer. */
@@ -575,11 +670,30 @@ export class MlvScheduler<D = Date, TData = unknown>
     );
   }
 
-  /** @internal Fans one chip interaction out to `eventClick` / `eventDoubleClick` / `eventContextMenu`. */
+  /**
+   * @internal Fans one chip interaction out to `eventClick` / `eventDoubleClick`
+   * / `eventContextMenu`. A `contextmenu` first opens the built-in menu when an
+   * event menu def is projected, so the output sees the event already
+   * prevented.
+   */
   emitEventInteraction(
     kind: MlvSchedulerInteractionKind,
     payload: MlvSchedulerEventInteraction<D, TData>,
   ): void {
+    if (kind === 'contextmenu') {
+      const def = this._eventMenuDefRef();
+      if (def && payload.nativeEvent instanceof MouseEvent) {
+        this._openContextMenu(
+          {
+            template: def.templateRef,
+            context: { $implicit: payload.event, view: this.view() },
+            label: this.translate('eventMenu', { title: payload.event.title }),
+          },
+          payload.nativeEvent,
+          payload.element,
+        );
+      }
+    }
     const target =
       kind === 'click'
         ? this.eventClick
@@ -589,11 +703,41 @@ export class MlvScheduler<D = Date, TData = unknown>
     target.emit(payload);
   }
 
-  /** @internal Fans one cell interaction out to `slotClick` / `slotDoubleClick` / `slotContextMenu`. */
+  /**
+   * @internal Fans one cell interaction out to `slotClick` / `slotDoubleClick`
+   * / `slotContextMenu`. A `contextmenu` first opens the built-in menu when a
+   * slot menu def is projected, over `selection` when the view passed one and
+   * over the cell's own range otherwise.
+   */
   emitSlotInteraction(
     kind: MlvSchedulerInteractionKind,
     payload: MlvSchedulerSlotEvent<D>,
+    selection: MlvSchedulerNextRange<D> | null = null,
   ): void {
+    if (kind === 'contextmenu') {
+      const def = this._slotMenuDefRef();
+      if (def && payload.nativeEvent instanceof MouseEvent) {
+        const range = selection ?? this._slotRange(payload);
+        const opened = this._openContextMenu(
+          {
+            template: def.templateRef,
+            context: {
+              $implicit: range,
+              selection: selection !== null,
+              view: this.view(),
+            },
+            label: this.translate('slotMenu', {
+              start: range.allDay
+                ? this.adapter.getDateLabel(range.start)
+                : this.formatDateTime(range.start),
+            }),
+          },
+          payload.nativeEvent,
+          payload.element,
+        );
+        if (opened && selection) this._menuHoldsSelection = true;
+      }
+    }
     const target =
       kind === 'click'
         ? this.slotClick
@@ -714,6 +858,64 @@ export class MlvScheduler<D = Date, TData = unknown>
   protected _onViewSwitch(value: unknown): void {
     if (VIEWS.includes(value as MlvSchedulerView))
       this.setView(value as MlvSchedulerView);
+  }
+
+  /**
+   * @private Hands `menu` to the panel and opens it from `event`: at the
+   * cursor for a pointer-initiated event, anchored to the cell / chip for a
+   * keyboard-initiated one (ContextMenu key, Shift+F10). The anchor also
+   * resolves the panel's direction and takes focus back on close. A second
+   * right-click while open re-targets the same panel. Returns `false` when
+   * the trigger is not rendered yet (a def projected in this very tick).
+   */
+  private _openContextMenu(
+    menu: MlvSchedulerContextMenuState<D, TData>,
+    event: MouseEvent,
+    anchor: HTMLElement,
+  ): boolean {
+    const trigger = this._contextMenuTrigger();
+    if (!trigger) return false;
+    this._contextMenu.set(menu);
+    trigger.openFromEvent(event, anchor);
+    return true;
+  }
+
+  /**
+   * @protected The trigger's `menuClosed`, i.e. after the leave animation.
+   * Drops the panel content and, when this open had taken the view's pending
+   * keyboard selection, tells the view to release it — see
+   * `MlvSchedulerContext.selectionRelease`.
+   */
+  protected _onContextMenuClosed(): void {
+    this._contextMenu.set(null);
+    if (!this._menuHoldsSelection) return;
+    this._menuHoldsSelection = false;
+    this._selectionRelease.update((sequence) => sequence + 1);
+  }
+
+  /**
+   * @private The range a slot menu is about when no selection applies: the
+   * whole day of a month / all-day cell, else the slot's own duration —
+   * clamped to `maxTime`, and the end of the axis mapped onto the next
+   * midnight rather than an invalid `24:00`.
+   */
+  private _slotRange(
+    payload: MlvSchedulerSlotEvent<D>,
+  ): MlvSchedulerNextRange<D> {
+    const adapter = this.adapter;
+    const day = adapter.startOfDay(payload.date);
+    if (payload.allDay) {
+      return { start: day, end: adapter.addCalendarDays(day, 1), allDay: true };
+    }
+    const endMinutes = Math.min(
+      adapter.minutesOfDay(payload.date) + this.slotDuration(),
+      this.maxMinutes(),
+    );
+    const end =
+      endMinutes >= MINUTES_PER_DAY
+        ? adapter.addCalendarDays(day, 1)
+        : adapter.withTime(day, Math.floor(endMinutes / 60), endMinutes % 60);
+    return { start: payload.date, end, allDay: false };
   }
 
   /** @private Steps the anchor by one period and announces. */

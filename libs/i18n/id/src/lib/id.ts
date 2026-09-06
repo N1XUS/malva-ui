@@ -380,6 +380,8 @@ const id: MlvLanguage = {
     rangeChanged: 'Menampilkan {period}',
     selectionHint:
       '{start} sampai {end} dipilih. Tekan Enter untuk mengonfirmasi',
+    eventMenu: 'Tindakan untuk {title}',
+    slotMenu: 'Tindakan untuk {start}',
   },
   scrollbar: {
     scrollableRegion: 'Area yang dapat digulir',

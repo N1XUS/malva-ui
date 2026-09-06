@@ -312,9 +312,16 @@ needs from it:
 - focus restoration and `dismissExcludeElements` are element concepts.
 
 `setPositionOrigin` re-anchors an **already-open** overlay and repositions it
-(`FlexibleConnectedPositionStrategy.setOrigin()` + `updatePosition()`). It is a
-no-op once disposed, while detached, and in `fullscreen` mode, which runs a
-global strategy with no origin. A second right-click on an open context menu goes
+(`FlexibleConnectedPositionStrategy.setOrigin()` + `updatePosition()`), and
+**re-resolves the pane's direction from `config.origin`** first
+(`overlayRef.setDirection(resolveDirection(config.origin))`). That matters for
+an origin that resolves lazily to different elements over time — a context menu
+shared by many rows points its `ElementRef` at whichever row was right-clicked
+last — because `watchDirection` only reacts to a `dir` attribute changing, not to
+the origin element changing; without the re-read a panel re-anchored from an LTR
+row to a row inside `[dir="rtl"]` would keep its LTR layout. It is a no-op once
+disposed, while detached, and in `fullscreen` mode, which runs a global strategy
+with no origin. A second right-click on an open context menu goes
 through this rather than closing and reopening — reopening does not even work,
 because `close()` only _starts_ the leave animation and the immediately following
 `open()` bails on the still-`true` open flag.

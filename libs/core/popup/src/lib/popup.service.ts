@@ -386,6 +386,12 @@ export class MlvPopupService {
       const strategy = positionStrategy as FlexibleConnectedPositionStrategy;
       strategy.setOrigin(origin);
       if (positions) strategy.withPositions(positions);
+      // `config.origin` is allowed to resolve lazily to another element — a
+      // context menu re-anchored from one row to the next, possibly across a
+      // `[dir]` scope — and `watchDirection` only reacts to `dir` attributes
+      // changing, not to the origin changing, so the pane's direction is
+      // re-read here rather than only at open.
+      overlayRef.setDirection(this._rtl.resolveDirection(config.origin));
       overlayRef.updatePosition();
     };
 

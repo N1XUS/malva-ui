@@ -107,6 +107,14 @@ export interface MlvSchedulerContext<D = Date, TData = unknown> {
    * the scroll and this call, which is still waiting to be applied.
    */
   consumeScrollRequest(sequence: number): void;
+  /**
+   * Root → view: bumped once a context menu that was handed the view's
+   * pending keyboard selection has closed — activated or dismissed alike.
+   * The view drops that selection then: the menu was its confirmation step,
+   * and a range still painted and armed after it was acted on would commit
+   * a second time on `Enter`.
+   */
+  readonly selectionRelease: Signal<number>;
   /** `true` while a SortableJS drag owns the pointer. */
   readonly dragging: Signal<boolean>;
 
@@ -128,9 +136,16 @@ export interface MlvSchedulerContext<D = Date, TData = unknown> {
     kind: MlvSchedulerInteractionKind,
     payload: MlvSchedulerEventInteraction<D, TData>,
   ): void;
+  /**
+   * `selection` is the pending keyboard range selection when the interacted
+   * cell lies inside it — passed for `contextmenu` only, so the slot menu can
+   * offer the whole selection instead of the one cell. `null` / omitted
+   * otherwise.
+   */
   emitSlotInteraction(
     kind: MlvSchedulerInteractionKind,
     payload: MlvSchedulerSlotEvent<D>,
+    selection?: MlvSchedulerNextRange<D> | null,
   ): void;
   emitRangeSelect(payload: MlvSchedulerRangeSelectEvent<D>): void;
   emitMoreClick(payload: MlvSchedulerMoreClickEvent<D, TData>): void;

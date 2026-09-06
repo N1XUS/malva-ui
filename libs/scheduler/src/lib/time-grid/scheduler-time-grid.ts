@@ -7,6 +7,7 @@ import {
   ViewEncapsulation,
   afterRenderEffect,
   computed,
+  effect,
   inject,
   linkedSignal,
   untracked,
@@ -601,6 +602,15 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       element.focus();
     });
 
+    // A context menu that was handed the pending selection is its
+    // confirmation step: once that menu closes — activated or dismissed —
+    // the selection is spent, so it is not left painted and armed for
+    // `Enter` to commit a second time.
+    effect(() => {
+      this._ctx.selectionRelease();
+      untracked(() => this._selection.set(null));
+    });
+
     // Re-applied whenever the axis itself changes, not once per instance:
     // `scheduler.html` renders week and day from the SAME `@default` branch, so
     // a week ↔ day switch reuses this component and an `afterNextRender` would
@@ -736,12 +746,20 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   ): void {
     if (kind === 'click' && performance.now() < this._ignoreClicksUntil) return;
     if ((event.target as HTMLElement).closest('.mlv-scheduler-event')) return;
-    this._ctx.emitSlotInteraction(kind, {
-      date: this._slotDate(column.date, slot.minutes),
-      allDay: false,
-      element: event.currentTarget as HTMLElement,
-      nativeEvent: event,
-    });
+    this._ctx.emitSlotInteraction(
+      kind,
+      {
+        date: this._slotDate(column.date, slot.minutes),
+        allDay: false,
+        element: event.currentTarget as HTMLElement,
+        nativeEvent: event,
+      },
+      // A right-click inside a pending keyboard selection is about the whole
+      // selection: the slot menu offers it instead of the one slot.
+      kind === 'contextmenu' && this._isSelected(column.dayIndex, slot.minutes)
+        ? this._selectionRange()
+        : null,
+    );
   }
 
   /** @protected Pointer interaction on an all-day cell. */
@@ -752,12 +770,18 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   ): void {
     if (kind === 'click' && performance.now() < this._ignoreClicksUntil) return;
     if ((event.target as HTMLElement).closest('.mlv-scheduler-event')) return;
-    this._ctx.emitSlotInteraction(kind, {
-      date: column.date,
-      allDay: true,
-      element: event.currentTarget as HTMLElement,
-      nativeEvent: event,
-    });
+    this._ctx.emitSlotInteraction(
+      kind,
+      {
+        date: column.date,
+        allDay: true,
+        element: event.currentTarget as HTMLElement,
+        nativeEvent: event,
+      },
+      kind === 'contextmenu' && this._isSelected(column.dayIndex, null)
+        ? this._selectionRange()
+        : null,
+    );
   }
 
   /** @protected Roving focus bookkeeping. */

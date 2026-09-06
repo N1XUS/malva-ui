@@ -1,0 +1,11 @@
+## Context menus
+
+Project `ng-template[mlvSchedulerSlotMenuDef]` and / or `ng-template[mlvSchedulerEventMenuDef]`
+holding `mlv-list-item[mlvMenuItem]` rows (separators and groups too) and the scheduler opens them in
+one shared `mlv-menu` on a right-click, or on <kbd>Shift</kbd>+<kbd>F10</kbd> / the ContextMenu key
+over a focused cell or chip. The slot template receives the range the menu is about as `$implicit`
+(`{ start, end, allDay }`): the whole day of a month or all-day cell, the slot's own duration on the
+time grid, or the pending <kbd>Shift</kbd>+<kbd>Arrow</kbd> selection when the right-clicked cell lies
+inside one (`selection` is then `true`). The event template receives the event. `slotContextMenu` and
+`eventContextMenu` still emit, with the native event already prevented; without a def, right-clicks
+are left to the browser exactly as before.

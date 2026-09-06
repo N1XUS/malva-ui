@@ -59,6 +59,7 @@ import {
 } from '../scheduler/scheduler-context';
 import type {
   MlvSchedulerEvent,
+  MlvSchedulerNextRange,
   MlvSchedulerRangeSelectEvent,
 } from '../scheduler/scheduler.types';
 
@@ -355,22 +356,27 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     }
   }
 
+  /** @private The selection as the all-day range it would commit, or `null` without one. */
+  private _selectionRange(): MlvSchedulerNextRange<D> | null {
+    const b = this._selectedBounds();
+    if (!b) return null;
+    const adapter = this._ctx.adapter;
+    const days = this._ctx.days();
+    return {
+      start: adapter.startOfDay(days[b.dayFrom]),
+      end: adapter.addCalendarDays(days[b.dayTo], 1),
+      allDay: true,
+    };
+  }
+
   /** @internal Commits the selection as an all-day `rangeSelect` and clears it. */
   protected _commitSelection(
     source: MlvSchedulerRangeSelectEvent<D>['source'],
   ): void {
-    const b = this._selectedBounds();
+    const range = this._selectionRange();
     this._selection.set(null);
-    if (!b) return;
-    const ctx = this._ctx;
-    const adapter = ctx.adapter;
-    const days = ctx.days();
-    ctx.emitRangeSelect({
-      start: adapter.startOfDay(days[b.dayFrom]),
-      end: adapter.addCalendarDays(days[b.dayTo], 1),
-      allDay: true,
-      source,
-    });
+    if (!range) return;
+    this._ctx.emitRangeSelect({ ...range, source });
   }
 
   constructor() {
@@ -407,6 +413,15 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     effect(() => {
       if (this._ctx.dragging()) return;
       untracked(() => this._closePopover());
+    });
+
+    // A context menu that was handed the pending selection is its
+    // confirmation step: once that menu closes — activated or dismissed —
+    // the selection is spent, so it is not left painted and armed for
+    // `Enter` to commit a second time.
+    effect(() => {
+      this._ctx.selectionRelease();
+      untracked(() => this._selection.set(null));
     });
 
     // Installs the row-size observer and nothing else. Every read here is
@@ -542,12 +557,20 @@ export class MlvSchedulerMonth<D = Date, TData = unknown> {
     const target = event.target as HTMLElement;
     if (target.closest('.mlv-scheduler-event, .mlv-scheduler-month__more'))
       return;
-    this._ctx.emitSlotInteraction(kind, {
-      date: cell.date,
-      allDay: true,
-      element: event.currentTarget as HTMLElement,
-      nativeEvent: event,
-    });
+    this._ctx.emitSlotInteraction(
+      kind,
+      {
+        date: cell.date,
+        allDay: true,
+        element: event.currentTarget as HTMLElement,
+        nativeEvent: event,
+      },
+      // A right-click inside a pending keyboard selection is about the whole
+      // selection: the slot menu offers it instead of the one cell.
+      kind === 'contextmenu' && this._isSelected(cell.dayIndex)
+        ? this._selectionRange()
+        : null,
+    );
   }
 
   /** @protected Roving cell focus. */

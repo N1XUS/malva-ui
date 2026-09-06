@@ -101,6 +101,16 @@ const CONTEXT_MENU_POSITIONS: ConnectedPosition[] = [
  * friendlier pattern for discoverability, and is recommended whenever the
  * context menu holds actions available nowhere else.
  *
+ * ## One panel, many elements
+ *
+ * A list whose every row opens the same menu does not need a trigger per row:
+ * put the directive on one hidden element beside the panel and forward each
+ * row's `contextmenu` event to `openFromEvent(event, row)`. The row becomes
+ * the **anchor** — a keyboard-initiated open positions against it, its
+ * `[dir]` scope decides the panel's direction, and focus returns to it when
+ * the panel closes. `@malva-ui/scheduler` drives its cell and event menus
+ * this way.
+ *
  * @example Targeted — right-click one element
  * ```html
  * <div [mlvContextMenuTrigger]="rowMenu" tabindex="0">Right-click this row</div>
@@ -193,10 +203,37 @@ export class MlvContextMenuTrigger {
    */
   private readonly _point = signal<MlvContextMenuPoint | null>(null);
 
+  /**
+   * @private Element the current open was anchored to through the `anchor`
+   * argument of `openAt` / `openFromKeyboard` / `openFromEvent`; `null` when
+   * the host itself is the anchor. Reset when the panel closes.
+   */
+  private _anchor: HTMLElement | null = null;
+
+  /**
+   * @private The controller's origin: a real `ElementRef` whose
+   * `nativeElement` resolves lazily to the current anchor, falling back to the
+   * host. Everything the controller derives from its origin — the panel's
+   * direction, the element a keyboard-initiated open positions against, the
+   * element focus returns to on close — therefore follows the anchor.
+   *
+   * A real `ElementRef` instance, not a plain object of the same shape: CDK's
+   * position strategy only reads a bounding box from an origin that passes
+   * `instanceof ElementRef` (see `menu-data-item.ts` for the same trick).
+   */
+  private readonly _origin: ElementRef<HTMLElement> = Object.defineProperty(
+    new ElementRef<HTMLElement>(this._elementRef.nativeElement),
+    'nativeElement',
+    {
+      configurable: true,
+      get: (): HTMLElement => this._anchor ?? this._elementRef.nativeElement,
+    },
+  );
+
   /** @private Shared overlay lifecycle, reused verbatim from `MlvMenuTrigger`. */
   private readonly _overlayController = new MlvMenuOverlayController({
     getMenu: () => this.mlvContextMenuTrigger(),
-    origin: this._elementRef,
+    origin: this._origin,
     getPositionOrigin: () => this._point() ?? undefined,
     getPositions: () =>
       this._point() ? CONTEXT_MENU_POSITIONS : /* element-anchored */ undefined,
@@ -220,7 +257,13 @@ export class MlvContextMenuTrigger {
     },
     requestClose: () => this.close(),
     onOpened: () => this.menuOpened.emit(),
-    onClosed: () => this.menuClosed.emit(),
+    onClosed: () => {
+      // Every open sets the anchor again, so this only stops a detached row
+      // from being retained between opens. Focus was already restored to it
+      // when the menu requested to close, before the leave animation.
+      this._anchor = null;
+      this.menuClosed.emit();
+    },
   });
 
   /** @protected Whether the menu overlay is currently open. */
@@ -263,9 +306,15 @@ export class MlvContextMenuTrigger {
    *
    * Moves an already-open panel to the new point rather than stacking a second
    * one. No-op while `contextMenuDisabled` is set.
+   *
+   * `anchor` is the element the open speaks for when it is not the host — a
+   * row, a cell, one item of a list that shares a single panel. Its `[dir]`
+   * scope resolves the panel's direction and it receives focus when the panel
+   * closes; omitted, the host plays that part.
    */
-  openAt(x: number, y: number): void {
+  openAt(x: number, y: number, anchor?: HTMLElement): void {
     if (this.contextMenuDisabled()) return;
+    this._anchor = anchor ?? null;
     this._point.set({ x, y });
     if (this._isOpen()) {
       this._overlayController.updatePositionOrigin();
@@ -279,9 +328,13 @@ export class MlvContextMenuTrigger {
    * the keyboard equivalent of a right-click.
    *
    * No-op while `contextMenuDisabled` is set.
+   *
+   * With `anchor`, the panel positions against that element instead of the
+   * host, resolves its direction from it and returns focus to it on close.
    */
-  openFromKeyboard(): void {
+  openFromKeyboard(anchor?: HTMLElement): void {
     if (this.contextMenuDisabled()) return;
+    this._anchor = anchor ?? null;
     this._point.set(null);
 
     // Already open (a right-click focused the host, then ContextMenu was
@@ -296,6 +349,34 @@ export class MlvContextMenuTrigger {
     }
 
     this._overlayController.openWithFirstItemFocused();
+  }
+
+  /**
+   * Opens the menu from a `contextmenu` event that reached the page somewhere
+   * other than the host, suppressing the native menu exactly as the host's
+   * own listener does: at the cursor for a pointer-initiated event, anchored
+   * to `anchor` (else the host) with the first item focused for a
+   * keyboard-initiated one (ContextMenu key, Shift+F10).
+   *
+   * For one panel shared by many elements — a table's rows, a calendar's
+   * cells — where a trigger per element would be waste: put the directive on
+   * a hidden element next to the panel and forward each element's event here
+   * with the element as `anchor`, so direction and focus restoration still
+   * come from the element that was right-clicked.
+   *
+   * No-op while `contextMenuDisabled` is set; the native menu is then left
+   * alone.
+   */
+  openFromEvent(event: MouseEvent, anchor?: HTMLElement): void {
+    if (this.contextMenuDisabled()) return;
+
+    event.preventDefault();
+
+    if (this._isKeyboardInitiated(event)) {
+      this.openFromKeyboard(anchor);
+    } else {
+      this.openAt(event.clientX, event.clientY, anchor);
+    }
   }
 
   /** Closes the menu overlay. No-op if it is not open. */
@@ -352,15 +433,7 @@ export class MlvContextMenuTrigger {
    * a pointer-initiated event, at the host element for a keyboard-initiated one.
    */
   private _handleContextMenu(event: MouseEvent): void {
-    if (this.contextMenuDisabled()) return;
-
-    event.preventDefault();
-
-    if (this._isKeyboardInitiated(event)) {
-      this.openFromKeyboard();
-    } else {
-      this.openAt(event.clientX, event.clientY);
-    }
+    this.openFromEvent(event);
   }
 
   /**

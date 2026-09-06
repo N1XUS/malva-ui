@@ -387,6 +387,8 @@ const pl: MlvLanguage = {
     rangeChanged: 'Wyświetlanie: {period}',
     selectionHint:
       'Zaznaczono od {start} do {end}. Naciśnij Enter, aby potwierdzić',
+    eventMenu: 'Akcje dla {title}',
+    slotMenu: 'Akcje dla {start}',
   },
   scrollbar: {
     scrollableRegion: 'Obszar przewijania',

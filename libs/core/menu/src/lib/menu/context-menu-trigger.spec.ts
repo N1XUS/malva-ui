@@ -160,6 +160,27 @@ class WidgetHost {}
 })
 class ScopedRtlHost {}
 
+/**
+ * One trigger shared by many elements: the host element never sees a
+ * right-click itself, and the owner hands `openAt` / `openFromEvent` the row
+ * that was actually right-clicked. Row B sits in its own `[dir]` scope so the
+ * pane's direction proves which element the panel resolved against.
+ */
+@Component({
+  imports: [MlvMenu, MlvMenuItem, MlvContextMenuTrigger, MlvListItem],
+  template: `
+    <span data-trigger hidden [mlvContextMenuTrigger]="menu"></span>
+    <div data-row-a tabindex="0">Row A</div>
+    <div dir="rtl">
+      <div data-row-b tabindex="0">Row B</div>
+    </div>
+    <mlv-menu #menu>
+      <mlv-list-item mlvMenuItem>Edit</mlv-list-item>
+    </mlv-menu>
+  `,
+})
+class SharedTriggerHost {}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('MlvContextMenuTrigger', () => {
@@ -175,6 +196,7 @@ describe('MlvContextMenuTrigger', () => {
         NestedGlobalHost,
         WidgetHost,
         ScopedRtlHost,
+        SharedTriggerHost,
       ],
     }).compileComponents();
 
@@ -606,5 +628,98 @@ describe('MlvContextMenuTrigger', () => {
     // The document stays LTR — only the `[dir="rtl"]` ancestor scopes it.
     expect(rtlService.direction()).toBe('ltr');
     expect(boundingBox()?.getAttribute('dir')).toBe('rtl');
+  });
+
+  // ─── Anchored opens (one trigger, many elements) ──────────────────────────
+
+  describe('anchored opens', () => {
+    async function createShared() {
+      const fixture = TestBed.createComponent(SharedTriggerHost);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const trigger = fixture.debugElement
+        .query(By.directive(MlvContextMenuTrigger))
+        .injector.get(MlvContextMenuTrigger);
+      const rowA = fixture.debugElement.query(By.css('[data-row-a]'))
+        .nativeElement as HTMLElement;
+      const rowB = fixture.debugElement.query(By.css('[data-row-b]'))
+        .nativeElement as HTMLElement;
+      return { fixture, trigger, rowA, rowB };
+    }
+
+    it('openFromEvent suppresses the native menu and opens at the cursor for a pointer event', async () => {
+      const { fixture, trigger, rowA } = await createShared();
+
+      const event = rightClick(120, 90);
+      trigger.openFromEvent(event, rowA);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(overlayContainerEl.querySelector('[role="menu"]')).toBeTruthy();
+      expect(pane()?.style.left).toBe('120px');
+      expect(pane()?.style.top).toBe('90px');
+    });
+
+    it('openFromEvent anchors to the element and focuses the first item for a keyboard event, then returns focus to that element', async () => {
+      const { fixture, trigger, rowA } = await createShared();
+      rowA.focus();
+
+      trigger.openFromEvent(keyboardContextMenu(), rowA);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await flushTimers();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const panel =
+        overlayContainerEl.querySelector<HTMLElement>('[role="menu"]');
+      expect(panel).toBeTruthy();
+      expect(document.activeElement).toBe(
+        overlayContainerEl.querySelector('[role="menuitem"]'),
+      );
+
+      await pressEscape(fixture, panel as HTMLElement);
+
+      // Focus restoration targets the anchor, not the hidden trigger host.
+      expect(document.activeElement).toBe(rowA);
+    });
+
+    it('resolves the pane direction from the anchor, not from the trigger host', async () => {
+      const { fixture, trigger, rowB } = await createShared();
+
+      trigger.openAt(40, 40, rowB);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(rtlService.direction()).toBe('ltr');
+      expect(boundingBox()?.getAttribute('dir')).toBe('rtl');
+    });
+
+    it('moves an open panel to the new anchor on a second anchored open instead of stacking', async () => {
+      const { fixture, trigger, rowA, rowB } = await createShared();
+
+      trigger.openAt(40, 40, rowA);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(boundingBox()?.getAttribute('dir')).toBe('ltr');
+
+      trigger.openAt(200, 200, rowB);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(overlayContainerEl.querySelectorAll('[role="menu"]').length).toBe(
+        1,
+      );
+      // A move re-anchors the overlay; direction follows the new anchor too.
+      expect(boundingBox()?.getAttribute('dir')).toBe('rtl');
+      // CDK writes a `start`-aligned overlay's inline offset as `right` once
+      // the pane is RTL, so the block offset moved and the inline one changed
+      // hands — both only happen if the position was recomputed against the
+      // new anchor's direction.
+      expect(pane()?.style.top).toBe('200px');
+      expect(pane()?.style.left).toBe('');
+      expect(pane()?.style.right).not.toBe('');
+    });
   });
 });
