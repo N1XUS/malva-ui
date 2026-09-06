@@ -1,8 +1,9 @@
 @if (legend(); as text) {
-<legend class="mlv-fieldset__legend">{{ text }}</legend>
+  <legend class="mlv-fieldset__legend">{{ text }}</legend>
 } @else {
-<ng-content select="legend" />
-} @if (description(); as text) {
-<p class="mlv-fieldset__description" [id]="_descriptionId()">{{ text }}</p>
+  <ng-content select="legend" />
+}
+@if (description(); as text) {
+  <p class="mlv-fieldset__description" [id]="_descriptionId()">{{ text }}</p>
 }
 <div class="mlv-fieldset__body"><ng-content /></div>

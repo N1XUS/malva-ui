@@ -1,16 +1,19 @@
 <div class="stage">
   @for (direction of directions; track direction) {
-  <div class="stage__cell">
-    <span class="stage__label">direction="{{ direction }}"</span>
-    <mlv-speed-dial
-      [items]="items"
-      [direction]="direction"
-      [ariaLabel]="'Actions (' + direction + ')'"
-    />
-  </div>
+    <div class="stage__cell">
+      <span class="stage__label">direction="{{ direction }}"</span>
+      <mlv-speed-dial
+        [items]="items"
+        [direction]="direction"
+        [ariaLabel]="'Actions (' + direction + ')'"
+      />
+    </div>
   }
 </div>
 <p class="stage__status" aria-live="polite">
-  @if (lastAction(); as action) { Last action: <strong>{{ action }}</strong>
-  } @else { Open a dial and pick an action. }
+  @if (lastAction(); as action) {
+    Last action: <strong>{{ action }}</strong>
+  } @else {
+    Open a dial and pick an action.
+  }
 </p>

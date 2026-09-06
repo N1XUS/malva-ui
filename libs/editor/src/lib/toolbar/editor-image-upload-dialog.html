@@ -11,27 +11,32 @@
         (filesChange)="_onFilesChange($event)"
       />
 
-      @if (_file(); as selected) { @if (selected.previewUrl) {
-      <img
-        class="mlv-editor-image-upload-dialog__preview"
-        [src]="selected.previewUrl"
-        [alt]="_previewAlt()"
-      />
-      } @if (_item(); as item) { @if (item.status === 'uploading') {
-      <mlv-progress
-        [value]="item.progress"
-        [showPercentage]="true"
-        [ariaLabel]="_progressLabel(item.progress)"
-      />
-      } @else {
-      <p
-        class="mlv-editor-image-upload-dialog__error"
-        role="alert"
-        aria-live="assertive"
-      >
-        {{ _copy().failed }}
-      </p>
-      } } }
+      @if (_file(); as selected) {
+        @if (selected.previewUrl) {
+          <img
+            class="mlv-editor-image-upload-dialog__preview"
+            [src]="selected.previewUrl"
+            [alt]="_previewAlt()"
+          />
+        }
+        @if (_item(); as item) {
+          @if (item.status === 'uploading') {
+            <mlv-progress
+              [value]="item.progress"
+              [showPercentage]="true"
+              [ariaLabel]="_progressLabel(item.progress)"
+            />
+          } @else {
+            <p
+              class="mlv-editor-image-upload-dialog__error"
+              role="alert"
+              aria-live="assertive"
+            >
+              {{ _copy().failed }}
+            </p>
+          }
+        }
+      }
 
       <mlv-input
         [label]="_copy().alt"
@@ -69,47 +74,47 @@
 
   <mlv-dialog-footer>
     @if (_item()?.status === 'uploading') {
-    <button
-      mlvButton
-      type="button"
-      variant="secondary"
-      [attr.aria-label]="_copy().cancel"
-      (click)="_cancel()"
-    >
-      {{ _copy().cancel }}
-    </button>
+      <button
+        mlvButton
+        type="button"
+        variant="secondary"
+        [attr.aria-label]="_copy().cancel"
+        (click)="_cancel()"
+      >
+        {{ _copy().cancel }}
+      </button>
     } @else if (_item()?.status === 'failed') {
-    <button
-      mlvButton
-      type="button"
-      variant="primary"
-      [attr.aria-label]="_copy().retry"
-      [disabled]="_disabled()"
-      (click)="_retry()"
-    >
-      {{ _copy().retry }}
-    </button>
-    <button
-      mlvButton
-      type="button"
-      variant="secondary"
-      [attr.aria-label]="_removeLabel()"
-      [disabled]="_disabled()"
-      (click)="_remove()"
-    >
-      {{ _removeLabel() }}
-    </button>
+      <button
+        mlvButton
+        type="button"
+        variant="primary"
+        [attr.aria-label]="_copy().retry"
+        [disabled]="_disabled()"
+        (click)="_retry()"
+      >
+        {{ _copy().retry }}
+      </button>
+      <button
+        mlvButton
+        type="button"
+        variant="secondary"
+        [attr.aria-label]="_removeLabel()"
+        [disabled]="_disabled()"
+        (click)="_remove()"
+      >
+        {{ _removeLabel() }}
+      </button>
     } @else {
-    <button
-      mlvButton
-      type="button"
-      variant="primary"
-      [attr.aria-label]="_copy().title"
-      [disabled]="_submitDisabled()"
-      (click)="_submit()"
-    >
-      {{ _copy().title }}
-    </button>
+      <button
+        mlvButton
+        type="button"
+        variant="primary"
+        [attr.aria-label]="_copy().title"
+        [disabled]="_submitDisabled()"
+        (click)="_submit()"
+      >
+        {{ _copy().title }}
+      </button>
     }
   </mlv-dialog-footer>
 </mlv-dialog>

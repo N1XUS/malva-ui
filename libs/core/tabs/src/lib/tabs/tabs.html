@@ -10,15 +10,15 @@
   #tabListRef
 >
   @for (tab of visibleTabs(); track tab.value(); let i = $index) {
-  <mlv-tab-item
-    ngTab
-    [value]="tab.value()"
-    [active]="isActive(tab.value())"
-    [disabled]="tab.disabled()"
-    (activate)="selectTab(tab.value())"
-  >
-    @if (tab.defTemplate(); as def) {
-    <!--
+    <mlv-tab-item
+      ngTab
+      [value]="tab.value()"
+      [active]="isActive(tab.value())"
+      [disabled]="tab.disabled()"
+      (activate)="selectTab(tab.value())"
+    >
+      @if (tab.defTemplate(); as def) {
+        <!--
       The label is rendered directly inside the roving `role="tab"`
       (<mlv-tab-item>, ngTab). Routed tabs do NOT wrap it in an <a href>: an
       anchor is inherently interactive, and nesting it inside `role="tab"` fails
@@ -28,59 +28,66 @@
       deep-linkable; the only thing lost versus a nested anchor is native
       middle-click / open-in-new-tab, an accepted trade-off.
     -->
-    <ng-template
-      [ngTemplateOutlet]="def.templateRef"
-      [ngTemplateOutletContext]="{ $implicit: false }"
-    />
-    }
-  </mlv-tab-item>
-  } @if (overflowTabs().length > 0) {
-  <button
-    type="button"
-    #moreTrigger
-    class="mlv-tab-group__more-trigger"
-    [mlvPopupTrigger]="morePopup"
-    triggerOn="click"
-    [ariaHasPopup]="'menu'"
-    [attr.aria-expanded]="morePopupRef()?.opened() ?? false"
-    [attr.aria-label]="_i18n().moreTabs"
-  >
-    More ({{ overflowTabs().length }})
-  </button>
-  <mlv-popup
-    #morePopup
-    [hasShadow]="true"
-    (afterOpened)="onMorePopupAfterOpened()"
-    (afterClosed)="onMorePopupAfterClosed()"
-  >
-    <ng-template mlvPopupContent>
-      <div tabindex="-1" (keydown)="onOverflowKeydown($event)">
-        <mlv-list listRole="menu" appearance="menu">
-          @for (tab of overflowTabs(); track tab.value(); let i = $index) {
-          <mlv-list-item
-            #overflowItem
-            itemRole="menuitemradio"
-            [class.mlv-list-item--active]="isActive(tab.value())"
-            [attr.tabindex]="overflowFocusedIndex() === i ? 0 : -1"
-            [attr.data-overflow-item-index]="i"
-            [attr.aria-disabled]="tab.disabled() || null"
-            [attr.aria-checked]="isActive(tab.value())"
-            (click)="selectOverflowTab(tab.value())"
-            (keydown.enter)="selectOverflowTab(tab.value()); $event.stopPropagation()"
-            (keydown.space)="selectOverflowTab(tab.value()); $event.stopPropagation(); $event.preventDefault()"
-          >
-            @if (tab.defTemplate(); as def) {
-            <ng-template
-              [ngTemplateOutlet]="def.templateRef"
-              [ngTemplateOutletContext]="{ $implicit: true }"
-            />
+        <ng-template
+          [ngTemplateOutlet]="def.templateRef"
+          [ngTemplateOutletContext]="{ $implicit: false }"
+        />
+      }
+    </mlv-tab-item>
+  }
+  @if (overflowTabs().length > 0) {
+    <button
+      type="button"
+      #moreTrigger
+      class="mlv-tab-group__more-trigger"
+      [mlvPopupTrigger]="morePopup"
+      triggerOn="click"
+      [ariaHasPopup]="'menu'"
+      [attr.aria-expanded]="morePopupRef()?.opened() ?? false"
+      [attr.aria-label]="_i18n().moreTabs"
+    >
+      More ({{ overflowTabs().length }})
+    </button>
+    <mlv-popup
+      #morePopup
+      [hasShadow]="true"
+      (afterOpened)="onMorePopupAfterOpened()"
+      (afterClosed)="onMorePopupAfterClosed()"
+    >
+      <ng-template mlvPopupContent>
+        <div tabindex="-1" (keydown)="onOverflowKeydown($event)">
+          <mlv-list listRole="menu" appearance="menu">
+            @for (tab of overflowTabs(); track tab.value(); let i = $index) {
+              <mlv-list-item
+                #overflowItem
+                itemRole="menuitemradio"
+                [class.mlv-list-item--active]="isActive(tab.value())"
+                [attr.tabindex]="overflowFocusedIndex() === i ? 0 : -1"
+                [attr.data-overflow-item-index]="i"
+                [attr.aria-disabled]="tab.disabled() || null"
+                [attr.aria-checked]="isActive(tab.value())"
+                (click)="selectOverflowTab(tab.value())"
+                (keydown.enter)="
+                  selectOverflowTab(tab.value()); $event.stopPropagation()
+                "
+                (keydown.space)="
+                  selectOverflowTab(tab.value());
+                  $event.stopPropagation();
+                  $event.preventDefault()
+                "
+              >
+                @if (tab.defTemplate(); as def) {
+                  <ng-template
+                    [ngTemplateOutlet]="def.templateRef"
+                    [ngTemplateOutletContext]="{ $implicit: true }"
+                  />
+                }
+              </mlv-list-item>
             }
-          </mlv-list-item>
-          }
-        </mlv-list>
-      </div>
-    </ng-template>
-  </mlv-popup>
+          </mlv-list>
+        </div>
+      </ng-template>
+    </mlv-popup>
   }
 
   <div class="mlv-tab-group__indicator" #indicatorRef></div>
@@ -88,11 +95,11 @@
 
 <div class="mlv-tab-group__body">
   @if (activeContentTemplate(); as tmpl) {
-  <mlv-tab-content ngTabPanel [value]="activeTab()">
-    <ng-template ngTabContent>
-      <ng-container [ngTemplateOutlet]="tmpl" />
-    </ng-template>
-  </mlv-tab-content>
+    <mlv-tab-content ngTabPanel [value]="activeTab()">
+      <ng-template ngTabContent>
+        <ng-container [ngTemplateOutlet]="tmpl" />
+      </ng-template>
+    </mlv-tab-content>
   }
   <!--
     Inert stub panels for the visible-but-inactive tabs. Every `ngTab` must
@@ -101,10 +108,11 @@
     above; the remaining visible tabs get an empty, `ngTabContent`-carrying
     panel so their `aria-controls` resolves without rendering duplicate content.
   -->
-  @for (tab of visibleTabs(); track tab.value()) { @if (!isActive(tab.value()))
-  {
-  <div class="mlv-tab-group__panel-stub" ngTabPanel [value]="tab.value()">
-    <ng-template ngTabContent></ng-template>
-  </div>
-  } }
+  @for (tab of visibleTabs(); track tab.value()) {
+    @if (!isActive(tab.value())) {
+      <div class="mlv-tab-group__panel-stub" ngTabPanel [value]="tab.value()">
+        <ng-template ngTabContent></ng-template>
+      </div>
+    }
+  }
 </div>

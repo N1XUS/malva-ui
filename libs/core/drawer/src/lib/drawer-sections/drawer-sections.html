@@ -1,28 +1,28 @@
 @if (_hasMultipleSections()) {
-<button
-  type="button"
-  mlvButton
-  [mlvPopupTrigger]="popup"
-  [ariaHasPopup]="'menu'"
-  triggerOn="hover"
-  mlvDensity="compact"
-  variant="transparent"
->
-  {{ sectionsService.currentScrolledSection()?.label() }}
-  <svg lucideChevronDown mlvButtonIcon />
-</button>
-<mlv-popup #popup [(opened)]="isOpen">
-  <ng-template mlvPopupContent>
-    <mlv-list style="min-width: 100px" [listRole]="'menu'" appearance="menu">
-      @for (section of sectionsService.normalizedSections(); track section) {
-      <mlv-list-item
-        itemRole="menuitem"
-        (mlvClick)="navigateToSection(section.elementRef)"
-      >
-        {{ section.label() }}
-      </mlv-list-item>
-      }
-    </mlv-list>
-  </ng-template>
-</mlv-popup>
+  <button
+    type="button"
+    mlvButton
+    [mlvPopupTrigger]="popup"
+    [ariaHasPopup]="'menu'"
+    triggerOn="hover"
+    mlvDensity="compact"
+    variant="transparent"
+  >
+    {{ sectionsService.currentScrolledSection()?.label() }}
+    <svg lucideChevronDown mlvButtonIcon />
+  </button>
+  <mlv-popup #popup [(opened)]="isOpen">
+    <ng-template mlvPopupContent>
+      <mlv-list style="min-width: 100px" [listRole]="'menu'" appearance="menu">
+        @for (section of sectionsService.normalizedSections(); track section) {
+          <mlv-list-item
+            itemRole="menuitem"
+            (mlvClick)="navigateToSection(section.elementRef)"
+          >
+            {{ section.label() }}
+          </mlv-list-item>
+        }
+      </mlv-list>
+    </ng-template>
+  </mlv-popup>
 }

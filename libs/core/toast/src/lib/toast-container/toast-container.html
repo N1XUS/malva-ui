@@ -1,13 +1,13 @@
 @for (toast of toasts(); track toast.id) {
-<div
-  class="mlv-toast-item-wrapper"
-  animate.enter="mlv-toast-item-wrapper--enter"
-  animate.leave="mlv-toast-item-wrapper--leave"
->
-  <ng-template
-    [ngComponentOutlet]="component"
-    [ngComponentOutletInjector]="itemInjector"
-    [ngComponentOutletInputs]="{ toast }"
-  ></ng-template>
-</div>
+  <div
+    class="mlv-toast-item-wrapper"
+    animate.enter="mlv-toast-item-wrapper--enter"
+    animate.leave="mlv-toast-item-wrapper--leave"
+  >
+    <ng-template
+      [ngComponentOutlet]="component"
+      [ngComponentOutletInjector]="itemInjector"
+      [ngComponentOutletInputs]="{ toast }"
+    ></ng-template>
+  </div>
 }

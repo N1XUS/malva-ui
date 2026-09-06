@@ -21,29 +21,29 @@
 
   <!-- Determinate rows -->
   @for (tone of tones; track tone) {
-  <div
-    style="
-      display: grid;
-      grid-template-columns: 7rem 1fr 3.5rem 3.5rem;
-      gap: 0.5rem;
-      align-items: center;
-    "
-  >
-    <span style="font-size: 0.875rem; text-transform: capitalize"
-      >{{ tone }}</span
+    <div
+      style="
+        display: grid;
+        grid-template-columns: 7rem 1fr 3.5rem 3.5rem;
+        gap: 0.5rem;
+        align-items: center;
+      "
     >
-    <mlv-loader variant="bar" [value]="65" [tone]="tone" [size]="6" />
-    <div style="display: flex; justify-content: center">
-      <mlv-loader variant="circle" [value]="65" [tone]="tone" [size]="36" />
+      <span style="font-size: 0.875rem; text-transform: capitalize">{{
+        tone
+      }}</span>
+      <mlv-loader variant="bar" [value]="65" [tone]="tone" [size]="6" />
+      <div style="display: flex; justify-content: center">
+        <mlv-loader variant="circle" [value]="65" [tone]="tone" [size]="36" />
+      </div>
+      <div style="display: flex; justify-content: center">
+        <mlv-loader
+          variant="circle"
+          [indeterminate]="true"
+          [tone]="tone"
+          [size]="36"
+        />
+      </div>
     </div>
-    <div style="display: flex; justify-content: center">
-      <mlv-loader
-        variant="circle"
-        [indeterminate]="true"
-        [tone]="tone"
-        [size]="36"
-      />
-    </div>
-  </div>
   }
 </div>

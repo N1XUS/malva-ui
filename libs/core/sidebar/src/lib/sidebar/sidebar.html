@@ -13,29 +13,29 @@
     tabindex="-1"
   >
     @if (_hasSlots()) {
-    <ng-container [ngTemplateOutlet]="projectedContent" />
-    } @else {
-    <mlv-scrollbar class="mlv-sidebar__scrollbar">
       <ng-container [ngTemplateOutlet]="projectedContent" />
-    </mlv-scrollbar>
+    } @else {
+      <mlv-scrollbar class="mlv-sidebar__scrollbar">
+        <ng-container [ngTemplateOutlet]="projectedContent" />
+      </mlv-scrollbar>
     }
   </div>
 </ng-template>
 
 @if (effectiveMode() === 'offcanvas') {
-<mlv-drawer
-  [opened]="!_effectiveCollapsed()"
-  position="left"
-  [size]="width()"
-  [hasBackdrop]="true"
-  [restoreFocus]="_shouldRestoreDrawerFocus()"
-  (openedChange)="_onDrawerOpenedChange($event)"
-  (afterClosed)="_onDrawerAfterClosed()"
->
-  <ng-template mlvDrawerContent>
-    <ng-container [ngTemplateOutlet]="body" />
-  </ng-template>
-</mlv-drawer>
+  <mlv-drawer
+    [opened]="!_effectiveCollapsed()"
+    position="left"
+    [size]="width()"
+    [hasBackdrop]="true"
+    [restoreFocus]="_shouldRestoreDrawerFocus()"
+    (openedChange)="_onDrawerOpenedChange($event)"
+    (afterClosed)="_onDrawerAfterClosed()"
+  >
+    <ng-template mlvDrawerContent>
+      <ng-container [ngTemplateOutlet]="body" />
+    </ng-template>
+  </mlv-drawer>
 } @else {
-<ng-container [ngTemplateOutlet]="body" />
+  <ng-container [ngTemplateOutlet]="body" />
 }

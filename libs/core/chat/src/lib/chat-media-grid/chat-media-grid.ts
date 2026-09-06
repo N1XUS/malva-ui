@@ -16,6 +16,7 @@ import { MlvProgress } from '@malva-ui/core/progress';
 import { MlvSkeleton } from '@malva-ui/core/skeleton';
 import type { MlvChatAttachment } from '../chat.types';
 import { formatChatDuration } from '../chat-format';
+import { MlvChatMutedVideo } from './chat-muted-video';
 
 /**
  * Internal renderer for the image/gif/video attachments of a chat message.
@@ -27,7 +28,13 @@ import { formatChatDuration } from '../chat-format';
   styleUrl: './chat-media-grid.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LucidePlay, MlvProgress, MlvSkeleton, MlvTranslatePipe],
+  imports: [
+    LucidePlay,
+    MlvChatMutedVideo,
+    MlvProgress,
+    MlvSkeleton,
+    MlvTranslatePipe,
+  ],
   host: {
     class: 'mlv-chat-media-grid',
     '[class.mlv-chat-media-grid--single]': '_visible().length === 1',
@@ -53,7 +60,9 @@ export class MlvChatMediaGrid {
   protected readonly _loaded = signal<ReadonlySet<string>>(new Set());
 
   /** @internal Cells rendered to the DOM: one in quote mode, otherwise the first four. */
-  protected readonly _visible = computed(() => this.attachments().slice(0, this.quote() ? 1 : 4));
+  protected readonly _visible = computed(() =>
+    this.attachments().slice(0, this.quote() ? 1 : 4),
+  );
 
   /** @internal Count of attachments hidden behind the +N overlay. */
   protected readonly _extra = computed(() =>
@@ -65,7 +74,10 @@ export class MlvChatMediaGrid {
 
   /** @internal True while an attachment carries upload progress, so the overlay shows. */
   protected _isUploading(attachment: MlvChatAttachment): boolean {
-    return attachment.uploadProgress !== undefined && attachment.uploadProgress !== null;
+    return (
+      attachment.uploadProgress !== undefined &&
+      attachment.uploadProgress !== null
+    );
   }
 
   /** @internal Marks an image as loaded so its skeleton placeholder is removed. */

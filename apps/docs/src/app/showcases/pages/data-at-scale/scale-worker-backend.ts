@@ -24,9 +24,12 @@ import { createMainThreadScaleBackend } from './scale-main-thread-backend';
  * a jsdom environment that has no `Worker` at all.
  */
 export function createWorkerScaleBackend(): ScaleBackend {
-  const worker = new Worker(new URL('./backend/scale.worker', import.meta.url), {
-    type: 'module',
-  });
+  const worker = new Worker(
+    new URL('./backend/scale.worker', import.meta.url),
+    {
+      type: 'module',
+    },
+  );
   const listeners = new Set<(response: ScaleResponse) => void>();
   const errorListeners = new Set<(reason: string) => void>();
 

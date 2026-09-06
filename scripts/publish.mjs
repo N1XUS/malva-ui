@@ -184,6 +184,8 @@ const libraries = [
   // here with it, so a consumer who never imports the editor no longer sees
   // them at all.
   { name: '@malva-ui/editor', distDir: 'dist/libs/editor' },
+  // Also after core: peer-depends on it for the date adapter and toolbar parts.
+  { name: '@malva-ui/scheduler', distDir: 'dist/libs/scheduler' },
 ];
 
 const dependencyFields = [

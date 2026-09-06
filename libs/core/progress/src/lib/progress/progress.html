@@ -1,52 +1,53 @@
-@if (shape() === 'bar') { @if (showPercentage()) {
-<span class="mlv-progress__percentage" aria-hidden="true"
-  >{{ _percentageText() }}</span
->
-}
-<div class="mlv-progress__track">
-  <div
-    class="mlv-progress__fill"
-    [class.mlv-progress__fill--animated]="_progressVisible()"
-    [style.width.%]="_clampedValue()"
-  ></div>
-</div>
-<div class="mlv-progress__label" aria-hidden="true">
-  <ng-content />
-</div>
-} @else {
-<div class="mlv-progress__svg-wrapper">
-  <svg
-    aria-hidden="true"
-    class="mlv-progress__svg"
-    [attr.viewBox]="_circleDimensions().viewBox"
-    width="100%"
-    height="100%"
-  >
-    <circle
-      class="mlv-progress__circle-track"
-      [attr.cx]="_circleDimensions().center"
-      [attr.cy]="_circleDimensions().center"
-      [attr.r]="_circleDimensions().radius"
-      [attr.stroke-width]="_circleDimensions().strokeWidth"
-    />
-    <circle
-      class="mlv-progress__circle-fill"
-      [class.mlv-progress__circle-fill--animated]="_progressVisible()"
-      [attr.cx]="_circleDimensions().center"
-      [attr.cy]="_circleDimensions().center"
-      [attr.r]="_circleDimensions().radius"
-      [attr.stroke-width]="_circleDimensions().strokeWidth"
-      [attr.stroke-dasharray]="_circleDimensions().circumference"
-      [attr.stroke-dashoffset]="_strokeDashoffset()"
-    />
-  </svg>
+@if (shape() === 'bar') {
   @if (showPercentage()) {
-  <span class="mlv-progress__percentage" aria-hidden="true"
-    >{{ _percentageText() }}</span
-  >
+    <span class="mlv-progress__percentage" aria-hidden="true">{{
+      _percentageText()
+    }}</span>
   }
-</div>
-<div class="mlv-progress__label" aria-hidden="true">
-  <ng-content />
-</div>
+  <div class="mlv-progress__track">
+    <div
+      class="mlv-progress__fill"
+      [class.mlv-progress__fill--animated]="_progressVisible()"
+      [style.width.%]="_clampedValue()"
+    ></div>
+  </div>
+  <div class="mlv-progress__label" aria-hidden="true">
+    <ng-content />
+  </div>
+} @else {
+  <div class="mlv-progress__svg-wrapper">
+    <svg
+      aria-hidden="true"
+      class="mlv-progress__svg"
+      [attr.viewBox]="_circleDimensions().viewBox"
+      width="100%"
+      height="100%"
+    >
+      <circle
+        class="mlv-progress__circle-track"
+        [attr.cx]="_circleDimensions().center"
+        [attr.cy]="_circleDimensions().center"
+        [attr.r]="_circleDimensions().radius"
+        [attr.stroke-width]="_circleDimensions().strokeWidth"
+      />
+      <circle
+        class="mlv-progress__circle-fill"
+        [class.mlv-progress__circle-fill--animated]="_progressVisible()"
+        [attr.cx]="_circleDimensions().center"
+        [attr.cy]="_circleDimensions().center"
+        [attr.r]="_circleDimensions().radius"
+        [attr.stroke-width]="_circleDimensions().strokeWidth"
+        [attr.stroke-dasharray]="_circleDimensions().circumference"
+        [attr.stroke-dashoffset]="_strokeDashoffset()"
+      />
+    </svg>
+    @if (showPercentage()) {
+      <span class="mlv-progress__percentage" aria-hidden="true">{{
+        _percentageText()
+      }}</span>
+    }
+  </div>
+  <div class="mlv-progress__label" aria-hidden="true">
+    <ng-content />
+  </div>
 }

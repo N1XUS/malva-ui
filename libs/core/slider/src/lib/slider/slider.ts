@@ -17,7 +17,12 @@ import {
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { DOWN_ARROW, LEFT_ARROW, RIGHT_ARROW, UP_ARROW } from '@angular/cdk/keycodes';
+import {
+  DOWN_ARROW,
+  LEFT_ARROW,
+  RIGHT_ARROW,
+  UP_ARROW,
+} from '@angular/cdk/keycodes';
 import type { MlvFormControl } from '@malva-ui/core/form-utils';
 import {
   MLV_FORM_CONTROL,
@@ -182,11 +187,20 @@ export class MlvSlider
   private readonly _rtlService = inject(MlvRtlService);
 
   /**
+   * @private Host element. Every direction-aware half of this component — the
+   * pointer-to-value mapping and the arrow-key stepping — resolves against it,
+   * so they can never disagree about which direction applies. Declared here,
+   * ahead of `_direction`, because a field initializer cannot read a member the
+   * constructor body assigns later.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
+  /**
    * @private Effective direction of this slider, tracking the global direction
    * and any `[dir]` scope above the host. Mirrors pointer-to-value mapping.
    */
   private readonly _direction = this._rtlService.elementDirection(
-    inject(ElementRef<HTMLElement>),
+    this._elementRef,
   );
 
   /**
@@ -249,13 +263,9 @@ export class MlvSlider
 
   constructor() {
     super();
-    this._elementRef = inject(ElementRef);
     this._renderer = inject(Renderer2);
     this._destroyRef = inject(DestroyRef);
   }
-
-  /** @private Host element ref for pointer-to-value calculation. */
-  private _elementRef: ElementRef<HTMLElement>;
 
   /** @private Renderer2 for SSR-safe + auto-cleanup window listeners during drag. */
   private _renderer: Renderer2;
@@ -451,7 +461,10 @@ export class MlvSlider
     const step = this.step();
     const pageStep = Math.max(step, (max - min) * 0.1);
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
+      event.key
+    ) {
       case RIGHT_ARROW:
       case UP_ARROW:
         return this._clamp(currentValue + step);
@@ -492,9 +505,10 @@ export class MlvSlider
       );
     }
     // 0% sits at the inline-start edge, which is the track's right edge in RTL.
-    const offset = this._direction() === 'rtl'
-      ? rect.right - event.clientX
-      : event.clientX - rect.left;
+    const offset =
+      this._direction() === 'rtl'
+        ? rect.right - event.clientX
+        : event.clientX - rect.left;
     return Math.min(100, Math.max(0, (offset / rect.width) * 100));
   }
 

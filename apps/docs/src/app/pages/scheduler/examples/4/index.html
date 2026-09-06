@@ -1,0 +1,18 @@
+<mlv-scheduler [(events)]="events" view="week" style="block-size: 36rem">
+  <ng-template
+    mlvSchedulerEventDef
+    let-event
+    let-allDay="allDay"
+    let-view="view"
+  >
+    <span class="docs-scheduler-chip">
+      <mlv-avatar size="xs" [name]="meeting(event)?.owner ?? ''" />
+      <span class="docs-scheduler-chip__title">{{ event.title }}</span>
+      @if (!allDay && view !== 'month') {
+        <span class="docs-scheduler-chip__room">{{
+          meeting(event)?.room
+        }}</span>
+      }
+    </span>
+  </ng-template>
+</mlv-scheduler>

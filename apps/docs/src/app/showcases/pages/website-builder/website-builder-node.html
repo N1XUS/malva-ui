@@ -15,273 +15,280 @@
     <span class="cdk-visually-hidden">{{ stateSentence() }}</span>
 
     @if (inheritedOff()) {
-    <svg
-      lucideEyeOff
-      [size]="12"
-      aria-hidden="true"
-      class="wb-node__hidden-mark"
-    />
+      <svg
+        lucideEyeOff
+        [size]="12"
+        aria-hidden="true"
+        class="wb-node__hidden-mark"
+      />
     }
 
     <svg [lucideIcon]="icon()" [size]="16" aria-hidden="true" />
 
     <strong class="wb-node__title">{{ props.label }}</strong>
 
-    <mlv-badge [tone]="kindTone" muted mlvDensity="tight"
-      >{{ kindText() }}</mlv-badge
-    >
+    <mlv-badge [tone]="kindTone" muted mlvDensity="tight">{{
+      kindText()
+    }}</mlv-badge>
 
     @if (!props.enabled) {
-    <mlv-badge tone="warning" muted mlvDensity="tight">Off</mlv-badge>
-    } @if (invalid()) {
-    <mlv-badge
-      tone="danger"
-      muted
-      mlvDensity="tight"
-      [mlvTooltip]="invalidMessage()"
-      tooltipPlacement="top"
-      >Check span</mlv-badge
-    >
+      <mlv-badge tone="warning" muted mlvDensity="tight">Off</mlv-badge>
+    }
+    @if (invalid()) {
+      <mlv-badge
+        tone="danger"
+        muted
+        mlvDensity="tight"
+        [mlvTooltip]="invalidMessage()"
+        tooltipPlacement="top"
+        >Check span</mlv-badge
+      >
     }
 
     <!-- Container: column count at the viewed breakpoint, and width mode -->
     @if (props.kind === 'container') {
-    <mlv-badge
-      tone="default"
-      muted
-      mlvDensity="tight"
-      [mlvTooltip]="columnTooltip()"
-      [tooltipDisabled]="columnTooltip().length === 0"
-      tooltipPlacement="top"
-      >{{ columnBadge() }}</mlv-badge
-    >
-    <mlv-badge muted mlvDensity="tight">{{ widthBadge() }}</mlv-badge>
+      <mlv-badge
+        tone="default"
+        muted
+        mlvDensity="tight"
+        [mlvTooltip]="columnTooltip()"
+        [tooltipDisabled]="columnTooltip().length === 0"
+        tooltipPlacement="top"
+        >{{ columnBadge() }}</mlv-badge
+      >
+      <mlv-badge muted mlvDensity="tight">{{ widthBadge() }}</mlv-badge>
     }
 
     <!-- Row: the always-present span meter (UX §4.2a) -->
     @if (props.kind === 'row') {
-    <span class="wb-span">
-      <span
-        class="wb-span__track"
-        aria-hidden="true"
-        [style.--wb-cols]="spanTicks().length"
-      >
-        @for (tick of spanTicks(); track tick) {
+      <span class="wb-span">
         <span
-          class="wb-span__cell"
-          [class.wb-span__cell--filled]="tick <= span()"
-        ></span>
-        }
+          class="wb-span__track"
+          aria-hidden="true"
+          [style.--wb-cols]="spanTicks().length"
+        >
+          @for (tick of spanTicks(); track tick) {
+            <span
+              class="wb-span__cell"
+              [class.wb-span__cell--filled]="tick <= span()"
+            ></span>
+          }
+        </span>
+        <span
+          class="wb-span__text"
+          [mlvTooltip]="span() + ' of ' + parentSpanMax() + ' columns'"
+          tooltipPlacement="top"
+          >{{ span() }} of {{ parentSpanMax() }} columns</span
+        >
       </span>
-      <span
-        class="wb-span__text"
-        [mlvTooltip]="span() + ' of ' + parentSpanMax() + ' columns'"
-        tooltipPlacement="top"
-        >{{ span() }} of {{ parentSpanMax() }} columns</span
-      >
-    </span>
     }
   </ng-template>
 
   <!-- ── State and configuration ──────────────────────────────────────── -->
   @if (!locked()) {
-  <ng-template mlvTileActions>
-    <mlv-switch
-      mlvDensity="compact"
-      [checked]="props.enabled"
-      [ariaLabel]="'Enable ' + props.label"
-      (checkedChange)="requestToggle(tileRef, $event)"
-    />
-    <button
-      mlvButton
-      type="button"
-      shape="square"
-      variant="transparent"
-      aria-haspopup="dialog"
-      [id]="settingsId()"
-      [attr.aria-label]="'Settings for ' + props.label"
-      [mlvTooltip]="'Settings'"
-      (click)="requestConfigure(tileRef)"
-    >
-      <svg lucideSettings2 mlvButtonIcon [size]="14" />
-    </button>
-  </ng-template>
-
-  <!-- ── Tree mutations, after the grip ───────────────────────────────── -->
-  <ng-template mlvTileTrailingActions>
-    @if (hasAdd()) { @if (addIsMenu()) {
-    <button
-      mlvButton
-      type="button"
-      shape="square"
-      variant="transparent"
-      [id]="addId()"
-      [attr.aria-label]="addLabel()"
-      [mlvTooltip]="addTooltip()"
-      [mlvMenuTrigger]="addMenu"
-    >
-      <svg lucidePlus mlvButtonIcon [size]="14" />
-    </button>
-    } @else {
-    <button
-      mlvButton
-      type="button"
-      shape="square"
-      variant="transparent"
-      [id]="addId()"
-      [attr.aria-label]="addLabel()"
-      [mlvTooltip]="addTooltip()"
-      (click)="requestAdd(tileRef, null)"
-    >
-      <svg lucidePlus mlvButtonIcon [size]="14" />
-    </button>
-    } }
-    <button
-      mlvButton
-      type="button"
-      shape="square"
-      variant="transparent"
-      [attr.aria-label]="'Remove ' + props.label"
-      [mlvTooltip]="'Remove'"
-      (click)="requestRemove(tileRef)"
-    >
-      <svg lucideTrash2 mlvButtonIcon [size]="14" />
-    </button>
-  </ng-template>
-  }
-
-  <!-- ── Body ─────────────────────────────────────────────────────────── -->
-  @switch (props.kind) { @case ('block') {
-  <p class="wb-node__summary">{{ blockSummary() }}</p>
-  } @case ('container') {
-  <div
-    class="wb-ruler"
-    aria-hidden="true"
-    [style.--wb-cols]="rulerTicks().length"
-  >
-    @for (tick of rulerTicks(); track tick) {
-    <span class="wb-ruler__cell"></span>
-    }
-  </div>
-
-  <mlv-tiles
-    class="wb-node__children"
-    layout="grid"
-    role="group"
-    [class.wb-node__children--tracks]="tracksEnabled()"
-  >
-    <ng-template mlvTilesEmpty>
-      <mlv-empty-state class="wb-empty">
-        <svg mlvEmptyStateIcon lucideRows3 [size]="40" />
-        <p mlvEmptyStateTitle>No rows yet</p>
-        <p mlvEmptyStateDescription>
-          Rows divide this container’s columns. Add a row, then fill it with
-          blocks.
-        </p>
-        @if (!locked()) {
-        <button
-          mlvEmptyStateActions
-          mlvButton
-          type="button"
-          variant="secondary"
-          mlvDensity="compact"
-          [attr.aria-label]="'Add row to ' + props.label"
-          (click)="requestAdd(tileRef, null)"
-        >
-          <svg lucidePlus mlvButtonIcon [size]="14" />
-          Add row
-        </button>
-        }
-      </mlv-empty-state>
+    <ng-template mlvTileActions>
+      <mlv-switch
+        mlvDensity="compact"
+        [checked]="props.enabled"
+        [ariaLabel]="'Enable ' + props.label"
+        (checkedChange)="requestToggle(tileRef, $event)"
+      />
+      <button
+        mlvButton
+        type="button"
+        shape="square"
+        variant="transparent"
+        aria-haspopup="dialog"
+        [id]="settingsId()"
+        [attr.aria-label]="'Settings for ' + props.label"
+        [mlvTooltip]="'Settings'"
+        (click)="requestConfigure(tileRef)"
+      >
+        <svg lucideSettings2 mlvButtonIcon [size]="14" />
+      </button>
     </ng-template>
 
-    @for (child of children(); track child.id; let index = $index) {
-    <docs-wb-node
-      [node]="child"
-      [level]="level() + 1"
-      [position]="index + 1"
-      [siblingCount]="children().length"
-      [ancestorEnabled]="childAncestorEnabled()"
-      [parentColumns]="childColumns()"
-      [breakpoint]="breakpoint()"
-      [gridPreview]="gridPreview()"
-      [locked]="locked()"
-      [rowDepth]="0"
-      (configure)="configure.emit($event)"
-      (addChild)="addChild.emit($event)"
-      (removeNode)="removeNode.emit($event)"
-      (toggleEnabled)="toggleEnabled.emit($event)"
-      (escapeToParent)="focusSettings()"
-    />
-    }
-  </mlv-tiles>
-  } @case ('row') {
-  <mlv-tiles
-    class="wb-node__children"
-    layout="grid"
-    role="group"
-    [class.wb-node__children--tracks]="tracksEnabled()"
-  >
-    <ng-template mlvTilesEmpty>
-      <mlv-empty-state class="wb-empty">
-        <svg mlvEmptyStateIcon lucideSquareDashed [size]="40" />
-        <p mlvEmptyStateTitle>Empty row</p>
-        <p mlvEmptyStateDescription>
-          Add another row to split this one, or add a block to fill it. A row
-          holds rows or blocks — not both.
-        </p>
-        @if (!locked()) {
-        <span mlvEmptyStateActions class="wb-empty__actions">
-          @if (canAddRow()) {
+    <!-- ── Tree mutations, after the grip ───────────────────────────────── -->
+    <ng-template mlvTileTrailingActions>
+      @if (hasAdd()) {
+        @if (addIsMenu()) {
           <button
             mlvButton
             type="button"
-            variant="secondary"
-            mlvDensity="compact"
-            [attr.aria-label]="'Add row to ' + props.label"
-            (click)="requestAdd(tileRef, null)"
-          >
-            <svg lucideRows3 mlvButtonIcon [size]="14" />
-            Add row
-          </button>
-          }
-          <button
-            mlvButton
-            type="button"
-            variant="secondary"
-            mlvDensity="compact"
-            [attr.aria-label]="'Add a block to ' + props.label"
+            shape="square"
+            variant="transparent"
+            [id]="addId()"
+            [attr.aria-label]="addLabel()"
+            [mlvTooltip]="addTooltip()"
             [mlvMenuTrigger]="addMenu"
           >
             <svg lucidePlus mlvButtonIcon [size]="14" />
-            Add block
           </button>
-        </span>
+        } @else {
+          <button
+            mlvButton
+            type="button"
+            shape="square"
+            variant="transparent"
+            [id]="addId()"
+            [attr.aria-label]="addLabel()"
+            [mlvTooltip]="addTooltip()"
+            (click)="requestAdd(tileRef, null)"
+          >
+            <svg lucidePlus mlvButtonIcon [size]="14" />
+          </button>
         }
-      </mlv-empty-state>
+      }
+      <button
+        mlvButton
+        type="button"
+        shape="square"
+        variant="transparent"
+        [attr.aria-label]="'Remove ' + props.label"
+        [mlvTooltip]="'Remove'"
+        (click)="requestRemove(tileRef)"
+      >
+        <svg lucideTrash2 mlvButtonIcon [size]="14" />
+      </button>
     </ng-template>
+  }
 
-    @for (child of children(); track child.id; let index = $index) {
-    <docs-wb-node
-      [node]="child"
-      [level]="level() + 1"
-      [position]="index + 1"
-      [siblingCount]="children().length"
-      [ancestorEnabled]="childAncestorEnabled()"
-      [parentColumns]="childColumns()"
-      [breakpoint]="breakpoint()"
-      [gridPreview]="gridPreview()"
-      [locked]="locked()"
-      [rowDepth]="rowDepth() + 1"
-      (configure)="configure.emit($event)"
-      (addChild)="addChild.emit($event)"
-      (removeNode)="removeNode.emit($event)"
-      (toggleEnabled)="toggleEnabled.emit($event)"
-      (escapeToParent)="focusSettings()"
-    />
+  <!-- ── Body ─────────────────────────────────────────────────────────── -->
+  @switch (props.kind) {
+    @case ('block') {
+      <p class="wb-node__summary">{{ blockSummary() }}</p>
     }
-  </mlv-tiles>
-  } }
+    @case ('container') {
+      <div
+        class="wb-ruler"
+        aria-hidden="true"
+        [style.--wb-cols]="rulerTicks().length"
+      >
+        @for (tick of rulerTicks(); track tick) {
+          <span class="wb-ruler__cell"></span>
+        }
+      </div>
+
+      <mlv-tiles
+        class="wb-node__children"
+        layout="grid"
+        role="group"
+        [class.wb-node__children--tracks]="tracksEnabled()"
+      >
+        <ng-template mlvTilesEmpty>
+          <mlv-empty-state class="wb-empty">
+            <svg mlvEmptyStateIcon lucideRows3 [size]="40" />
+            <p mlvEmptyStateTitle>No rows yet</p>
+            <p mlvEmptyStateDescription>
+              Rows divide this container’s columns. Add a row, then fill it with
+              blocks.
+            </p>
+            @if (!locked()) {
+              <button
+                mlvEmptyStateActions
+                mlvButton
+                type="button"
+                variant="secondary"
+                mlvDensity="compact"
+                [attr.aria-label]="'Add row to ' + props.label"
+                (click)="requestAdd(tileRef, null)"
+              >
+                <svg lucidePlus mlvButtonIcon [size]="14" />
+                Add row
+              </button>
+            }
+          </mlv-empty-state>
+        </ng-template>
+
+        @for (child of children(); track child.id; let index = $index) {
+          <docs-wb-node
+            [node]="child"
+            [level]="level() + 1"
+            [position]="index + 1"
+            [siblingCount]="children().length"
+            [ancestorEnabled]="childAncestorEnabled()"
+            [parentColumns]="childColumns()"
+            [breakpoint]="breakpoint()"
+            [gridPreview]="gridPreview()"
+            [locked]="locked()"
+            [rowDepth]="0"
+            (configure)="configure.emit($event)"
+            (addChild)="addChild.emit($event)"
+            (removeNode)="removeNode.emit($event)"
+            (toggleEnabled)="toggleEnabled.emit($event)"
+            (escapeToParent)="focusSettings()"
+          />
+        }
+      </mlv-tiles>
+    }
+    @case ('row') {
+      <mlv-tiles
+        class="wb-node__children"
+        layout="grid"
+        role="group"
+        [class.wb-node__children--tracks]="tracksEnabled()"
+      >
+        <ng-template mlvTilesEmpty>
+          <mlv-empty-state class="wb-empty">
+            <svg mlvEmptyStateIcon lucideSquareDashed [size]="40" />
+            <p mlvEmptyStateTitle>Empty row</p>
+            <p mlvEmptyStateDescription>
+              Add another row to split this one, or add a block to fill it. A
+              row holds rows or blocks — not both.
+            </p>
+            @if (!locked()) {
+              <span mlvEmptyStateActions class="wb-empty__actions">
+                @if (canAddRow()) {
+                  <button
+                    mlvButton
+                    type="button"
+                    variant="secondary"
+                    mlvDensity="compact"
+                    [attr.aria-label]="'Add row to ' + props.label"
+                    (click)="requestAdd(tileRef, null)"
+                  >
+                    <svg lucideRows3 mlvButtonIcon [size]="14" />
+                    Add row
+                  </button>
+                }
+                <button
+                  mlvButton
+                  type="button"
+                  variant="secondary"
+                  mlvDensity="compact"
+                  [attr.aria-label]="'Add a block to ' + props.label"
+                  [mlvMenuTrigger]="addMenu"
+                >
+                  <svg lucidePlus mlvButtonIcon [size]="14" />
+                  Add block
+                </button>
+              </span>
+            }
+          </mlv-empty-state>
+        </ng-template>
+
+        @for (child of children(); track child.id; let index = $index) {
+          <docs-wb-node
+            [node]="child"
+            [level]="level() + 1"
+            [position]="index + 1"
+            [siblingCount]="children().length"
+            [ancestorEnabled]="childAncestorEnabled()"
+            [parentColumns]="childColumns()"
+            [breakpoint]="breakpoint()"
+            [gridPreview]="gridPreview()"
+            [locked]="locked()"
+            [rowDepth]="rowDepth() + 1"
+            (configure)="configure.emit($event)"
+            (addChild)="addChild.emit($event)"
+            (removeNode)="removeNode.emit($event)"
+            (toggleEnabled)="toggleEnabled.emit($event)"
+            (escapeToParent)="focusSettings()"
+          />
+        }
+      </mlv-tiles>
+    }
+  }
 </mlv-tile>
 
 <!--
@@ -292,29 +299,36 @@
 -->
 <mlv-menu #addMenu [label]="addLabel()" mlvDensity="compact">
   @if (canAddRow()) {
-  <mlv-menu-group>
-    <span mlvMenuGroupLabel>Layout</span>
-    <mlv-list-item mlvMenuItem (itemClick)="requestAdd(tileRef, null)">
-      <svg lucideRows3 mlvListItemPrefix [size]="14" aria-hidden="true" />
-      Row
-    </mlv-list-item>
-  </mlv-menu-group>
-  @if (canAddBlock()) {
-  <mlv-menu-separator />
-  } } @if (canAddBlock()) { @for (group of blockGroups; track group.id) {
-  <mlv-menu-group>
-    <span mlvMenuGroupLabel>{{ group.label }}</span>
-    @for (entry of group.blocks; track entry.type) {
-    <mlv-list-item mlvMenuItem (itemClick)="requestAdd(tileRef, entry.type)">
-      <svg
-        [lucideIcon]="entry.icon"
-        mlvListItemPrefix
-        [size]="14"
-        aria-hidden="true"
-      />
-      {{ entry.label }}
-    </mlv-list-item>
+    <mlv-menu-group>
+      <span mlvMenuGroupLabel>Layout</span>
+      <mlv-list-item mlvMenuItem (itemClick)="requestAdd(tileRef, null)">
+        <svg lucideRows3 mlvListItemPrefix [size]="14" aria-hidden="true" />
+        Row
+      </mlv-list-item>
+    </mlv-menu-group>
+    @if (canAddBlock()) {
+      <mlv-menu-separator />
     }
-  </mlv-menu-group>
-  } }
+  }
+  @if (canAddBlock()) {
+    @for (group of blockGroups; track group.id) {
+      <mlv-menu-group>
+        <span mlvMenuGroupLabel>{{ group.label }}</span>
+        @for (entry of group.blocks; track entry.type) {
+          <mlv-list-item
+            mlvMenuItem
+            (itemClick)="requestAdd(tileRef, entry.type)"
+          >
+            <svg
+              [lucideIcon]="entry.icon"
+              mlvListItemPrefix
+              [size]="14"
+              aria-hidden="true"
+            />
+            {{ entry.label }}
+          </mlv-list-item>
+        }
+      </mlv-menu-group>
+    }
+  }
 </mlv-menu>

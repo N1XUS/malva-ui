@@ -31,7 +31,9 @@
       [attr.aria-label]="isCompact() ? 'Ask the knowledge base' : null"
     >
       <svg lucideSparkles mlvButtonIcon [size]="14" />
-      @if (!isCompact()) { Ask the knowledge base }
+      @if (!isCompact()) {
+        Ask the knowledge base
+      }
     </button>
 
     <button
@@ -117,25 +119,30 @@
 
       <div mlvSidebarContent>
         @for (view of views; track view.id) {
-        <mlv-sidebar-item
-          [label]="view.label"
-          [active]="activeViewId() === view.id"
-          [badge]="badgeFor(view.id)"
-          [badgeTone]="view.id === 'mentions' ? 'accent' : 'default'"
-          (click)="selectView(view.id)"
-        >
-          <ng-template mlvSidebarItemIcon>
-            @switch (view.id) { @case ('mine') {
-            <svg lucideUserRound [size]="16" />
-            } @case ('unassigned') {
-            <svg lucideUserPlus [size]="16" />
-            } @case ('mentions') {
-            <svg lucideAtSign [size]="16" />
-            } @default {
-            <svg lucideInbox [size]="16" />
-            } }
-          </ng-template>
-        </mlv-sidebar-item>
+          <mlv-sidebar-item
+            [label]="view.label"
+            [active]="activeViewId() === view.id"
+            [badge]="badgeFor(view.id)"
+            [badgeTone]="view.id === 'mentions' ? 'accent' : 'default'"
+            (click)="selectView(view.id)"
+          >
+            <ng-template mlvSidebarItemIcon>
+              @switch (view.id) {
+                @case ('mine') {
+                  <svg lucideUserRound [size]="16" />
+                }
+                @case ('unassigned') {
+                  <svg lucideUserPlus [size]="16" />
+                }
+                @case ('mentions') {
+                  <svg lucideAtSign [size]="16" />
+                }
+                @default {
+                  <svg lucideInbox [size]="16" />
+                }
+              }
+            </ng-template>
+          </mlv-sidebar-item>
         }
 
         <mlv-sidebar-group label="Saved views">
@@ -144,33 +151,39 @@
           </ng-template>
 
           @for (view of savedViews; track view.id) {
-          <mlv-sidebar-item
-            [label]="view.label"
-            [active]="activeViewId() === view.id"
-            [badge]="badgeFor(view.id)"
-            [badgeTone]="
-            view.id === 'breached'
-              ? 'danger'
-              : view.id === 'urgent'
-                ? 'warning'
-                : 'default'
-          "
-            (click)="selectView(view.id)"
-          >
-            <ng-template mlvSidebarItemIcon>
-              @switch (view.id) { @case ('urgent') {
-              <svg lucideCircleAlert [size]="16" />
-              } @case ('breached') {
-              <svg lucideTriangleAlert [size]="16" />
-              } @case ('waiting') {
-              <svg lucideClock [size]="16" />
-              } @case ('snoozed') {
-              <svg lucideMoon [size]="16" />
-              } @default {
-              <svg lucideCircleCheck [size]="16" />
-              } }
-            </ng-template>
-          </mlv-sidebar-item>
+            <mlv-sidebar-item
+              [label]="view.label"
+              [active]="activeViewId() === view.id"
+              [badge]="badgeFor(view.id)"
+              [badgeTone]="
+                view.id === 'breached'
+                  ? 'danger'
+                  : view.id === 'urgent'
+                    ? 'warning'
+                    : 'default'
+              "
+              (click)="selectView(view.id)"
+            >
+              <ng-template mlvSidebarItemIcon>
+                @switch (view.id) {
+                  @case ('urgent') {
+                    <svg lucideCircleAlert [size]="16" />
+                  }
+                  @case ('breached') {
+                    <svg lucideTriangleAlert [size]="16" />
+                  }
+                  @case ('waiting') {
+                    <svg lucideClock [size]="16" />
+                  }
+                  @case ('snoozed') {
+                    <svg lucideMoon [size]="16" />
+                  }
+                  @default {
+                    <svg lucideCircleCheck [size]="16" />
+                  }
+                }
+              </ng-template>
+            </mlv-sidebar-item>
           }
         </mlv-sidebar-group>
 
@@ -180,28 +193,35 @@
           </ng-template>
 
           @for (channel of channels; track channel) {
-          <mlv-sidebar-item
-            [label]="channelLabel[channel]"
-            [active]="activeViewId() === 'channel:' + channel"
-            [badge]="badgeFor('channel:' + channel)"
-            (click)="selectView('channel:' + channel)"
-          >
-            <ng-template mlvSidebarItemIcon>
-              @switch (channel) { @case ('email') {
-              <svg lucideMail [size]="16" />
-              } @case ('chat') {
-              <svg lucideMessageSquare [size]="16" />
-              } @case ('phone') {
-              <svg lucidePhone [size]="16" />
-              } @case ('api') {
-              <svg lucideCode [size]="16" />
-              } @case ('social') {
-              <svg lucideAtSign [size]="16" />
-              } @default {
-              <svg lucideFileText [size]="16" />
-              } }
-            </ng-template>
-          </mlv-sidebar-item>
+            <mlv-sidebar-item
+              [label]="channelLabel[channel]"
+              [active]="activeViewId() === 'channel:' + channel"
+              [badge]="badgeFor('channel:' + channel)"
+              (click)="selectView('channel:' + channel)"
+            >
+              <ng-template mlvSidebarItemIcon>
+                @switch (channel) {
+                  @case ('email') {
+                    <svg lucideMail [size]="16" />
+                  }
+                  @case ('chat') {
+                    <svg lucideMessageSquare [size]="16" />
+                  }
+                  @case ('phone') {
+                    <svg lucidePhone [size]="16" />
+                  }
+                  @case ('api') {
+                    <svg lucideCode [size]="16" />
+                  }
+                  @case ('social') {
+                    <svg lucideAtSign [size]="16" />
+                  }
+                  @default {
+                    <svg lucideFileText [size]="16" />
+                  }
+                }
+              </ng-template>
+            </mlv-sidebar-item>
           }
         </mlv-sidebar-group>
 
@@ -211,21 +231,21 @@
           </ng-template>
 
           @for (agent of agents; track agent.id) {
-          <mlv-sidebar-item
-            [label]="agent.name"
-            [active]="activeViewId() === 'agent:' + agent.id"
-            [badge]="agent.load"
-            [badgeTone]="agent.presence === 'online' ? 'success' : 'default'"
-            (click)="selectView('agent:' + agent.id)"
-          >
-            <ng-template mlvSidebarItemIcon>
-              <mlv-avatar
-                size="xs"
-                [name]="agent.name"
-                [color]="agent.name | mlvColorFromText"
-              />
-            </ng-template>
-          </mlv-sidebar-item>
+            <mlv-sidebar-item
+              [label]="agent.name"
+              [active]="activeViewId() === 'agent:' + agent.id"
+              [badge]="agent.load"
+              [badgeTone]="agent.presence === 'online' ? 'success' : 'default'"
+              (click)="selectView('agent:' + agent.id)"
+            >
+              <ng-template mlvSidebarItemIcon>
+                <mlv-avatar
+                  size="xs"
+                  [name]="agent.name"
+                  [color]="agent.name | mlvColorFromText"
+                />
+              </ng-template>
+            </mlv-sidebar-item>
           }
         </mlv-sidebar-group>
       </div>
@@ -243,9 +263,9 @@
               {{ currentAgent.name }}
               <mlv-status-indicator tone="success" ariaLabel="Available" />
             </span>
-            <span class="support-inbox__agent-role"
-              >{{ currentAgent.role }}</span
-            >
+            <span class="support-inbox__agent-role">{{
+              currentAgent.role
+            }}</span>
           </span>
           <button
             mlvButton
@@ -263,16 +283,18 @@
 
   <div
     class="support-inbox__workspace"
-    [class.support-inbox__workspace--details]="showDetails() && !!activeTicket()"
+    [class.support-inbox__workspace--details]="
+      showDetails() && !!activeTicket()
+    "
   >
     <!-- ── Column 1 · conversation list ─────────────────────────────── -->
     <section class="support-inbox__list" aria-label="Conversation list">
       <header class="support-inbox__list-header">
         <div class="support-inbox__list-heading">
           <h2 mlvTitle level="5">{{ activeViewLabel() }}</h2>
-          <mlv-badge muted mlvDensity="tight"
-            >{{ visibleTickets().length }}</mlv-badge
-          >
+          <mlv-badge muted mlvDensity="tight">{{
+            visibleTickets().length
+          }}</mlv-badge>
           <mlv-spacer />
           <button
             mlvButton
@@ -287,23 +309,27 @@
           </button>
           <mlv-menu #sortMenu label="Sort conversations">
             <mlv-list-item mlvMenuItem (itemClick)="sort.set('newest')">
-              Newest activity @if (sort() === 'newest') {
-              <svg lucideCheck [size]="14" />
+              Newest activity
+              @if (sort() === 'newest') {
+                <svg lucideCheck [size]="14" />
               }
             </mlv-list-item>
             <mlv-list-item mlvMenuItem (itemClick)="sort.set('oldest')">
-              Oldest activity @if (sort() === 'oldest') {
-              <svg lucideCheck [size]="14" />
+              Oldest activity
+              @if (sort() === 'oldest') {
+                <svg lucideCheck [size]="14" />
               }
             </mlv-list-item>
             <mlv-list-item mlvMenuItem (itemClick)="sort.set('priority')">
-              Priority @if (sort() === 'priority') {
-              <svg lucideCheck [size]="14" />
+              Priority
+              @if (sort() === 'priority') {
+                <svg lucideCheck [size]="14" />
               }
             </mlv-list-item>
             <mlv-list-item mlvMenuItem (itemClick)="sort.set('sla')">
-              SLA risk @if (sort() === 'sla') {
-              <svg lucideCheck [size]="14" />
+              SLA risk
+              @if (sort() === 'sla') {
+                <svg lucideCheck [size]="14" />
               }
             </mlv-list-item>
           </mlv-menu>
@@ -331,144 +357,156 @@
       </header>
 
       @if (visibleTickets().length) {
-      <mlv-scrollbar
-        class="support-inbox__list-scroll"
-        ariaLabel="Conversations"
-      >
-        <mlv-list
-          selectable
-          listRole="listbox"
-          [multiple]="false"
-          selectionMode="explicit"
-          [softDisabled]="false"
-          [value]="selectedIds()"
-          (valueChange)="selectTicketId($event[0])"
-          aria-label="Conversations"
+        <mlv-scrollbar
+          class="support-inbox__list-scroll"
+          ariaLabel="Conversations"
         >
-          @for (ticket of visibleTickets(); track ticket.id) {
-          <mlv-list-item
-            class="support-inbox__row"
-            itemRole="option"
-            [value]="ticket.id"
-            [label]="rowLabel(ticket)"
-            [unread]="ticket.unread > 0"
-            [accent]="
-              ticket.priority === 'urgent'
-                ? 'negative'
-                : ticket.priority === 'high'
-                  ? 'warning'
-                  : undefined
-            "
+          <mlv-list
+            selectable
+            listRole="listbox"
+            [multiple]="false"
+            selectionMode="explicit"
+            [softDisabled]="false"
+            [value]="selectedIds()"
+            (valueChange)="selectTicketId($event[0])"
+            aria-label="Conversations"
           >
-            <mlv-avatar
-              mlvListItemMedia
-              size="m"
-              [name]="ticket.requester.name"
-              [color]="ticket.requester.name | mlvColorFromText"
-            />
-
-            <span mlvListItemTitle class="support-inbox__row-title">
-              <span class="support-inbox__row-name">
-                {{ ticket.requester.name }}
-              </span>
-              @if (ticket.requester.online) {
-              <mlv-status-indicator tone="success" ariaLabel="Online" />
-              }
-              <mlv-spacer />
-              @if ( ticket.sla.resolutionState === 'breached' ||
-              ticket.sla.resolutionState === 'at-risk' ) {
-              <mlv-status-indicator
-                class="support-inbox__row-sla-dot"
-                [tone]="slaTone(ticket.sla.resolutionState)"
-                [ariaLabel]="
-                  ticket.sla.resolutionState === 'breached'
-                    ? 'SLA breached'
-                    : 'SLA at risk'
+            @for (ticket of visibleTickets(); track ticket.id) {
+              <mlv-list-item
+                class="support-inbox__row"
+                itemRole="option"
+                [value]="ticket.id"
+                [label]="rowLabel(ticket)"
+                [unread]="ticket.unread > 0"
+                [accent]="
+                  ticket.priority === 'urgent'
+                    ? 'negative'
+                    : ticket.priority === 'high'
+                      ? 'warning'
+                      : undefined
                 "
-              />
-              }
-              <span class="support-inbox__row-time">
-                {{ ticket.updatedAt | date: 'shortTime' }}
-              </span>
-            </span>
+              >
+                <mlv-avatar
+                  mlvListItemMedia
+                  size="m"
+                  [name]="ticket.requester.name"
+                  [color]="ticket.requester.name | mlvColorFromText"
+                />
 
-            <span mlvListItemByline class="support-inbox__row-byline">
-              <span class="support-inbox__row-subject"
-                >{{ ticket.subject }}</span
-              >
-              <span class="support-inbox__row-snippet"
-                >{{ snippetFor(ticket) }}</span
-              >
-              <span class="support-inbox__row-meta">
-                <span class="support-inbox__row-channel">
-                  @switch (ticket.channel) { @case ('email') {
-                  <svg lucideMail [size]="12" />
-                  } @case ('chat') {
-                  <svg lucideMessageSquare [size]="12" />
-                  } @case ('phone') {
-                  <svg lucidePhone [size]="12" />
-                  } @case ('api') {
-                  <svg lucideCode [size]="12" />
-                  } @case ('social') {
-                  <svg lucideAtSign [size]="12" />
-                  } @default {
-                  <svg lucideFileText [size]="12" />
-                  } } {{ ticket.account.name }}
+                <span mlvListItemTitle class="support-inbox__row-title">
+                  <span class="support-inbox__row-name">
+                    {{ ticket.requester.name }}
+                  </span>
+                  @if (ticket.requester.online) {
+                    <mlv-status-indicator tone="success" ariaLabel="Online" />
+                  }
+                  <mlv-spacer />
+                  @if (
+                    ticket.sla.resolutionState === 'breached' ||
+                    ticket.sla.resolutionState === 'at-risk'
+                  ) {
+                    <mlv-status-indicator
+                      class="support-inbox__row-sla-dot"
+                      [tone]="slaTone(ticket.sla.resolutionState)"
+                      [ariaLabel]="
+                        ticket.sla.resolutionState === 'breached'
+                          ? 'SLA breached'
+                          : 'SLA at risk'
+                      "
+                    />
+                  }
+                  <span class="support-inbox__row-time">
+                    {{ ticket.updatedAt | date: 'shortTime' }}
+                  </span>
                 </span>
-                @if (ticket.sla.resolutionState === 'breached') {
-                <mlv-badge tone="danger" muted mlvDensity="tight"
-                  >SLA breached</mlv-badge
-                >
-                } @else if (ticket.sla.resolutionState === 'at-risk') {
-                <mlv-badge tone="warning" muted mlvDensity="tight"
-                  >SLA at risk</mlv-badge
-                >
-                } @if (ticket.priority === 'urgent') {
-                <mlv-badge tone="danger" muted mlvDensity="tight"
-                  >Urgent</mlv-badge
-                >
-                }
-              </span>
-            </span>
 
-            <div mlvListItemActions class="support-inbox__row-actions">
-              @if (ticket.starred) {
-              <svg
-                lucideStar
-                [size]="13"
-                class="support-inbox__row-star"
-                aria-hidden="true"
-              />
-              } @if (ticket.unread) {
-              <mlv-badge tone="primary" aria-hidden="true"
-                >{{ ticket.unread }}</mlv-badge
-              >
-              }
-            </div>
-          </mlv-list-item>
-          }
-        </mlv-list>
-      </mlv-scrollbar>
+                <span mlvListItemByline class="support-inbox__row-byline">
+                  <span class="support-inbox__row-subject">{{
+                    ticket.subject
+                  }}</span>
+                  <span class="support-inbox__row-snippet">{{
+                    snippetFor(ticket)
+                  }}</span>
+                  <span class="support-inbox__row-meta">
+                    <span class="support-inbox__row-channel">
+                      @switch (ticket.channel) {
+                        @case ('email') {
+                          <svg lucideMail [size]="12" />
+                        }
+                        @case ('chat') {
+                          <svg lucideMessageSquare [size]="12" />
+                        }
+                        @case ('phone') {
+                          <svg lucidePhone [size]="12" />
+                        }
+                        @case ('api') {
+                          <svg lucideCode [size]="12" />
+                        }
+                        @case ('social') {
+                          <svg lucideAtSign [size]="12" />
+                        }
+                        @default {
+                          <svg lucideFileText [size]="12" />
+                        }
+                      }
+                      {{ ticket.account.name }}
+                    </span>
+                    @if (ticket.sla.resolutionState === 'breached') {
+                      <mlv-badge tone="danger" muted mlvDensity="tight"
+                        >SLA breached</mlv-badge
+                      >
+                    } @else if (ticket.sla.resolutionState === 'at-risk') {
+                      <mlv-badge tone="warning" muted mlvDensity="tight"
+                        >SLA at risk</mlv-badge
+                      >
+                    }
+                    @if (ticket.priority === 'urgent') {
+                      <mlv-badge tone="danger" muted mlvDensity="tight"
+                        >Urgent</mlv-badge
+                      >
+                    }
+                  </span>
+                </span>
+
+                <div mlvListItemActions class="support-inbox__row-actions">
+                  @if (ticket.starred) {
+                    <svg
+                      lucideStar
+                      [size]="13"
+                      class="support-inbox__row-star"
+                      aria-hidden="true"
+                    />
+                  }
+                  @if (ticket.unread) {
+                    <mlv-badge tone="primary" aria-hidden="true">{{
+                      ticket.unread
+                    }}</mlv-badge>
+                  }
+                </div>
+              </mlv-list-item>
+            }
+          </mlv-list>
+        </mlv-scrollbar>
       } @else {
-      <mlv-empty-state class="support-inbox__list-empty">
-        <ng-container mlvEmptyStateIcon>
-          <svg lucideInbox [size]="36" />
-        </ng-container>
-        <span mlvEmptyStateTitle>Nothing here</span>
-        <span mlvEmptyStateDescription>
-          No conversation matches {{ activeViewLabel() }} with these filters.
-        </span>
-        <ng-container mlvEmptyStateActions>
-          <button
-            mlvButton
-            variant="secondary"
-            type="button"
-            (click)="clearFilters()"
-          >
-            Clear search and filters
-          </button>
-        </ng-container>
-      </mlv-empty-state>
+        <mlv-empty-state class="support-inbox__list-empty">
+          <ng-container mlvEmptyStateIcon>
+            <svg lucideInbox [size]="36" />
+          </ng-container>
+          <span mlvEmptyStateTitle>Nothing here</span>
+          <span mlvEmptyStateDescription>
+            No conversation matches {{ activeViewLabel() }} with these filters.
+          </span>
+          <ng-container mlvEmptyStateActions>
+            <button
+              mlvButton
+              variant="secondary"
+              type="button"
+              (click)="clearFilters()"
+            >
+              Clear search and filters
+            </button>
+          </ng-container>
+        </mlv-empty-state>
       }
     </section>
 
@@ -481,307 +519,318 @@
       [attr.aria-label]="activeTicket() ? null : 'Conversation'"
     >
       @if (activeTicket(); as ticket) {
-      <mlv-toolbar class="support-inbox__thread-header" [gap]="0.5">
-        <button
-          *mlvBreakpointDown="'md'"
-          mlvButton
-          shape="square"
-          variant="transparent"
-          type="button"
-          class="support-inbox__thread-back"
-          aria-label="Back to conversations"
-          (click)="backToList()"
-        >
-          <svg lucideArrowLeft mlvButtonIcon [size]="18" />
-        </button>
-
-        <mlv-avatar
-          *mlvBreakpointUp="'md'"
-          size="s"
-          [name]="ticket.requester.name"
-          [color]="ticket.requester.name | mlvColorFromText"
-        />
-
-        <span class="support-inbox__thread-identity">
-          <h2
-            mlvTitle
-            level="6"
-            id="support-inbox-thread-title"
-            tabindex="-1"
-            class="support-inbox__thread-title"
-          >
-            {{ ticket.subject }}
-          </h2>
-          <span class="support-inbox__thread-sub">
-            <span class="support-inbox__ref" *mlvBreakpointUp="'md'"
-              >{{ ticket.id }} ·</span
-            >
-            {{ ticket.requester.name }} @if (ticket.requester.online) { · Online
-            <mlv-status-indicator tone="success" ariaLabel="Online" />
-            } @else { · Last seen {{ ticket.requester.lastSeen }} }
-          </span>
-        </span>
-
-        <div class="support-inbox__thread-actions">
-          <ng-container *mlvBreakpointUp="'lg'">
-            <mlv-badge [tone]="statusTone(ticket.status)" muted>
-              {{ ticket.status }}
-            </mlv-badge>
-            <mlv-badge [tone]="priorityTone(ticket.priority)" muted>
-              {{ ticket.priority }}
-            </mlv-badge>
-          </ng-container>
-
-          <ng-container *mlvBreakpointUp="'lg'">
-            <button
-              mlvIconToggle
-              type="button"
-              tone="warning"
-              [pressed]="ticket.starred"
-              [mlvTooltip]="ticket.starred ? 'Unstar' : 'Star'"
-              aria-label="Star conversation"
-              (pressedChange)="toggleStar()"
-            >
-              <svg lucideStar [size]="16" aria-hidden="true" />
-            </button>
-
-            <button
-              mlvButton
-              variant="secondary"
-              type="button"
-              [mlvMenuTrigger]="assignMenu"
-            >
-              @if (activeAssignee(); as assignee) {
-              <mlv-avatar
-                size="xs"
-                [name]="assignee.name"
-                [color]="assignee.name | mlvColorFromText"
-              />
-              {{ assignee.name }} } @else { Unassigned }
-              <svg lucideChevronDown [size]="14" />
-            </button>
-          </ng-container>
-
+        <mlv-toolbar class="support-inbox__thread-header" [gap]="0.5">
           <button
-            *mlvBreakpointUp="'md'"
-            mlvButton
-            variant="secondary"
-            type="button"
-            (click)="setStatus('solved')"
-          >
-            @if (isWide()) {
-            <svg lucideCheck mlvButtonIcon [size]="15" />
-            } Solve
-          </button>
-
-          <button
+            *mlvBreakpointDown="'md'"
             mlvButton
             shape="square"
             variant="transparent"
             type="button"
-            [mlvMenuTrigger]="threadMenu"
-            aria-label="Conversation actions"
+            class="support-inbox__thread-back"
+            aria-label="Back to conversations"
+            (click)="backToList()"
           >
-            <svg lucideEllipsis mlvButtonIcon [size]="16" />
+            <svg lucideArrowLeft mlvButtonIcon [size]="18" />
           </button>
-          <mlv-menu #threadMenu label="Conversation actions">
-            <ng-container *mlvBreakpointDown="'md'">
-              <mlv-list-item mlvMenuItem (itemClick)="setStatus('solved')">
-                <svg lucideCheck [size]="14" />
-                Solve
+
+          <mlv-avatar
+            *mlvBreakpointUp="'md'"
+            size="s"
+            [name]="ticket.requester.name"
+            [color]="ticket.requester.name | mlvColorFromText"
+          />
+
+          <span class="support-inbox__thread-identity">
+            <h2
+              mlvTitle
+              level="6"
+              id="support-inbox-thread-title"
+              tabindex="-1"
+              class="support-inbox__thread-title"
+            >
+              {{ ticket.subject }}
+            </h2>
+            <span class="support-inbox__thread-sub">
+              <span class="support-inbox__ref" *mlvBreakpointUp="'md'"
+                >{{ ticket.id }} ·</span
+              >
+              {{ ticket.requester.name }}
+              @if (ticket.requester.online) {
+                · Online
+                <mlv-status-indicator tone="success" ariaLabel="Online" />
+              } @else {
+                · Last seen {{ ticket.requester.lastSeen }}
+              }
+            </span>
+          </span>
+
+          <div class="support-inbox__thread-actions">
+            <ng-container *mlvBreakpointUp="'lg'">
+              <mlv-badge [tone]="statusTone(ticket.status)" muted>
+                {{ ticket.status }}
+              </mlv-badge>
+              <mlv-badge [tone]="priorityTone(ticket.priority)" muted>
+                {{ ticket.priority }}
+              </mlv-badge>
+            </ng-container>
+
+            <ng-container *mlvBreakpointUp="'lg'">
+              <button
+                mlvIconToggle
+                type="button"
+                tone="warning"
+                [pressed]="ticket.starred"
+                [mlvTooltip]="ticket.starred ? 'Unstar' : 'Star'"
+                aria-label="Star conversation"
+                (pressedChange)="toggleStar()"
+              >
+                <svg lucideStar [size]="16" aria-hidden="true" />
+              </button>
+
+              <button
+                mlvButton
+                variant="secondary"
+                type="button"
+                [mlvMenuTrigger]="assignMenu"
+              >
+                @if (activeAssignee(); as assignee) {
+                  <mlv-avatar
+                    size="xs"
+                    [name]="assignee.name"
+                    [color]="assignee.name | mlvColorFromText"
+                  />
+                  {{ assignee.name }}
+                } @else {
+                  Unassigned
+                }
+                <svg lucideChevronDown [size]="14" />
+              </button>
+            </ng-container>
+
+            <button
+              *mlvBreakpointUp="'md'"
+              mlvButton
+              variant="secondary"
+              type="button"
+              (click)="setStatus('solved')"
+            >
+              @if (isWide()) {
+                <svg lucideCheck mlvButtonIcon [size]="15" />
+              }
+              Solve
+            </button>
+
+            <button
+              mlvButton
+              shape="square"
+              variant="transparent"
+              type="button"
+              [mlvMenuTrigger]="threadMenu"
+              aria-label="Conversation actions"
+            >
+              <svg lucideEllipsis mlvButtonIcon [size]="16" />
+            </button>
+            <mlv-menu #threadMenu label="Conversation actions">
+              <ng-container *mlvBreakpointDown="'md'">
+                <mlv-list-item mlvMenuItem (itemClick)="setStatus('solved')">
+                  <svg lucideCheck [size]="14" />
+                  Solve
+                </mlv-list-item>
+                <mlv-list-item mlvMenuItem (itemClick)="toggleStar()">
+                  <svg lucideStar [size]="14" />
+                  {{ activeTicket()?.starred ? 'Remove star' : 'Star' }}
+                </mlv-list-item>
+                <mlv-list-item mlvMenuItem [mlvMenuTrigger]="assignMenu">
+                  <svg lucideUserPlus [size]="14" />
+                  Assign…
+                </mlv-list-item>
+                <mlv-menu-separator />
+              </ng-container>
+              <mlv-list-item mlvMenuItem (itemClick)="setStatus('pending')">
+                <svg lucideClock [size]="14" />
+                Set pending
               </mlv-list-item>
-              <mlv-list-item mlvMenuItem (itemClick)="toggleStar()">
-                <svg lucideStar [size]="14" />
-                {{ activeTicket()?.starred ? 'Remove star' : 'Star' }}
-              </mlv-list-item>
-              <mlv-list-item mlvMenuItem [mlvMenuTrigger]="assignMenu">
-                <svg lucideUserPlus [size]="14" />
-                Assign…
+              <mlv-list-item mlvMenuItem (itemClick)="setStatus('on-hold')">
+                <svg lucideMoon [size]="14" />
+                Put on hold
               </mlv-list-item>
               <mlv-menu-separator />
-            </ng-container>
-            <mlv-list-item mlvMenuItem (itemClick)="setStatus('pending')">
-              <svg lucideClock [size]="14" />
-              Set pending
-            </mlv-list-item>
-            <mlv-list-item mlvMenuItem (itemClick)="setStatus('on-hold')">
-              <svg lucideMoon [size]="14" />
-              Put on hold
-            </mlv-list-item>
-            <mlv-menu-separator />
-            <mlv-list-item mlvMenuItem (itemClick)="setPriority('urgent')">
-              <svg lucideCircleAlert [size]="14" />
-              Mark urgent
-            </mlv-list-item>
-            <mlv-list-item mlvMenuItem (itemClick)="setPriority('normal')">
-              <svg lucideGauge [size]="14" />
-              Reset priority
-            </mlv-list-item>
-            <mlv-menu-separator />
-            <mlv-list-item mlvMenuItem (itemClick)="setStatus('closed')">
-              <svg lucideArchive [size]="14" />
-              Close conversation
-            </mlv-list-item>
-          </mlv-menu>
+              <mlv-list-item mlvMenuItem (itemClick)="setPriority('urgent')">
+                <svg lucideCircleAlert [size]="14" />
+                Mark urgent
+              </mlv-list-item>
+              <mlv-list-item mlvMenuItem (itemClick)="setPriority('normal')">
+                <svg lucideGauge [size]="14" />
+                Reset priority
+              </mlv-list-item>
+              <mlv-menu-separator />
+              <mlv-list-item mlvMenuItem (itemClick)="setStatus('closed')">
+                <svg lucideArchive [size]="14" />
+                Close conversation
+              </mlv-list-item>
+            </mlv-menu>
 
-          <button
-            mlvButton
-            shape="circle"
-            variant="transparent"
-            type="button"
-            [mlvPageEndPaneTrigger]="details"
-            mlvTooltip="Toggle details"
-            aria-label="Toggle details panel"
-          >
-            @if (isWide()) {
-            <svg lucidePanelRight mlvButtonIcon [size]="16" />
-            } @else {
-            <svg lucideInfo mlvButtonIcon [size]="18" />
-            }
-          </button>
+            <button
+              mlvButton
+              shape="circle"
+              variant="transparent"
+              type="button"
+              [mlvPageEndPaneTrigger]="details"
+              mlvTooltip="Toggle details"
+              aria-label="Toggle details panel"
+            >
+              @if (isWide()) {
+                <svg lucidePanelRight mlvButtonIcon [size]="16" />
+              } @else {
+                <svg lucideInfo mlvButtonIcon [size]="18" />
+              }
+            </button>
+          </div>
+        </mlv-toolbar>
+
+        <mlv-chat
+          class="support-inbox__chat"
+          [messages]="chatMessages()"
+          [users]="chatUsers()"
+          [selfId]="chatSelfId()"
+          [typingUsers]="typingUsers()"
+          (retry)="onRetry($event)"
+        />
+
+        <div class="support-inbox__composer">
+          <div class="support-inbox__composer-tabs">
+            <mlv-segmented [(value)]="composerMode" ariaLabel="Composer mode">
+              <button mlvSegmentedItem value="reply">Reply</button>
+              <button mlvSegmentedItem value="note">{{ noteLabel() }}</button>
+            </mlv-segmented>
+
+            <mlv-spacer />
+
+            <button
+              mlvButton
+              variant="transparent"
+              type="button"
+              [shape]="isCompact() ? 'square' : 'default'"
+              [attr.aria-label]="isCompact() ? 'Macros' : null"
+              [mlvMenuTrigger]="macroMenu"
+            >
+              <svg lucideZap mlvButtonIcon [size]="14" />
+              @if (!isCompact()) {
+                Macros
+              }
+            </button>
+            <mlv-menu #macroMenu label="Macros">
+              <mlv-list-item
+                mlvMenuItem
+                (itemClick)="
+                  draft.set(
+                    'Thanks for the details — I am looking into this right now and will come back within the hour.'
+                  )
+                "
+              >
+                Acknowledge · investigating
+              </mlv-list-item>
+              <mlv-list-item
+                mlvMenuItem
+                (itemClick)="
+                  draft.set(
+                    'A fix for this is scheduled in the next release. I will let you know the moment it ships.'
+                  )
+                "
+              >
+                Fix scheduled
+              </mlv-list-item>
+              <mlv-list-item
+                mlvMenuItem
+                (itemClick)="
+                  draft.set(
+                    'Could you send the exact steps you took plus a screenshot of the error? That will let me reproduce it here.'
+                  )
+                "
+              >
+                Request reproduction
+              </mlv-list-item>
+            </mlv-menu>
+          </div>
+
+          @if (composerMode() === 'reply') {
+            <mlv-textarea
+              class="support-inbox__composer-field"
+              [(value)]="draft"
+              [rows]="composerRows()"
+              autoResize
+              [maxRows]="composerMaxRows()"
+              [maxLength]="2000"
+              placeholder="Reply to {{ ticket.requester.name }}…"
+              ariaLabel="Reply"
+            >
+              <ng-template mlvFormControlAppend>
+                <span class="support-inbox__composer-actions">
+                  <button
+                    mlvButton
+                    shape="circle"
+                    variant="transparent"
+                    type="button"
+                    aria-label="Attach a file"
+                  >
+                    <svg lucidePaperclip mlvButtonIcon [size]="15" />
+                  </button>
+                  <button
+                    mlvButton
+                    shape="circle"
+                    variant="primary"
+                    type="button"
+                    aria-label="Send reply"
+                    [disabled]="!draft().trim()"
+                    (click)="sendReply()"
+                  >
+                    <svg lucideSend mlvButtonIcon [size]="15" />
+                  </button>
+                </span>
+              </ng-template>
+            </mlv-textarea>
+          } @else {
+            <mlv-textarea
+              class="support-inbox__composer-field support-inbox__composer-field--note"
+              [(value)]="noteDraft"
+              [rows]="composerRows()"
+              autoResize
+              [maxRows]="composerMaxRows()"
+              placeholder="Write a note only teammates can see…"
+              ariaLabel="Internal note"
+            >
+              <ng-template mlvFormControlAppend>
+                <span class="support-inbox__composer-actions">
+                  <button
+                    mlvButton
+                    shape="circle"
+                    variant="primary"
+                    type="button"
+                    aria-label="Save note"
+                    [disabled]="!noteDraft().trim()"
+                    (click)="addNote()"
+                  >
+                    <svg lucideStickyNote mlvButtonIcon [size]="15" />
+                  </button>
+                </span>
+              </ng-template>
+            </mlv-textarea>
+          }
         </div>
-      </mlv-toolbar>
-
-      <mlv-chat
-        class="support-inbox__chat"
-        [messages]="chatMessages()"
-        [users]="chatUsers()"
-        [selfId]="chatSelfId()"
-        [typingUsers]="typingUsers()"
-        (retry)="onRetry($event)"
-      />
-
-      <div class="support-inbox__composer">
-        <div class="support-inbox__composer-tabs">
-          <mlv-segmented [(value)]="composerMode" ariaLabel="Composer mode">
-            <button mlvSegmentedItem value="reply">Reply</button>
-            <button mlvSegmentedItem value="note">{{ noteLabel() }}</button>
-          </mlv-segmented>
-
-          <mlv-spacer />
-
-          <button
-            mlvButton
-            variant="transparent"
-            type="button"
-            [shape]="isCompact() ? 'square' : 'default'"
-            [attr.aria-label]="isCompact() ? 'Macros' : null"
-            [mlvMenuTrigger]="macroMenu"
-          >
-            <svg lucideZap mlvButtonIcon [size]="14" />
-            @if (!isCompact()) { Macros }
-          </button>
-          <mlv-menu #macroMenu label="Macros">
-            <mlv-list-item
-              mlvMenuItem
-              (itemClick)="
-                draft.set(
-                  'Thanks for the details — I am looking into this right now and will come back within the hour.'
-                )
-              "
-            >
-              Acknowledge · investigating
-            </mlv-list-item>
-            <mlv-list-item
-              mlvMenuItem
-              (itemClick)="
-                draft.set(
-                  'A fix for this is scheduled in the next release. I will let you know the moment it ships.'
-                )
-              "
-            >
-              Fix scheduled
-            </mlv-list-item>
-            <mlv-list-item
-              mlvMenuItem
-              (itemClick)="
-                draft.set(
-                  'Could you send the exact steps you took plus a screenshot of the error? That will let me reproduce it here.'
-                )
-              "
-            >
-              Request reproduction
-            </mlv-list-item>
-          </mlv-menu>
-        </div>
-
-        @if (composerMode() === 'reply') {
-        <mlv-textarea
-          class="support-inbox__composer-field"
-          [(value)]="draft"
-          [rows]="composerRows()"
-          autoResize
-          [maxRows]="composerMaxRows()"
-          [maxLength]="2000"
-          placeholder="Reply to {{ ticket.requester.name }}…"
-          ariaLabel="Reply"
-        >
-          <ng-template mlvFormControlAppend>
-            <span class="support-inbox__composer-actions">
-              <button
-                mlvButton
-                shape="circle"
-                variant="transparent"
-                type="button"
-                aria-label="Attach a file"
-              >
-                <svg lucidePaperclip mlvButtonIcon [size]="15" />
-              </button>
-              <button
-                mlvButton
-                shape="circle"
-                variant="primary"
-                type="button"
-                aria-label="Send reply"
-                [disabled]="!draft().trim()"
-                (click)="sendReply()"
-              >
-                <svg lucideSend mlvButtonIcon [size]="15" />
-              </button>
-            </span>
-          </ng-template>
-        </mlv-textarea>
-        } @else {
-        <mlv-textarea
-          class="support-inbox__composer-field support-inbox__composer-field--note"
-          [(value)]="noteDraft"
-          [rows]="composerRows()"
-          autoResize
-          [maxRows]="composerMaxRows()"
-          placeholder="Write a note only teammates can see…"
-          ariaLabel="Internal note"
-        >
-          <ng-template mlvFormControlAppend>
-            <span class="support-inbox__composer-actions">
-              <button
-                mlvButton
-                shape="circle"
-                variant="primary"
-                type="button"
-                aria-label="Save note"
-                [disabled]="!noteDraft().trim()"
-                (click)="addNote()"
-              >
-                <svg lucideStickyNote mlvButtonIcon [size]="15" />
-              </button>
-            </span>
-          </ng-template>
-        </mlv-textarea>
-        }
-      </div>
       } @else {
-      <mlv-empty-state
-        *mlvBreakpointUp="'md'"
-        class="support-inbox__thread-empty"
-      >
-        <ng-container mlvEmptyStateIcon>
-          <svg lucideInbox [size]="48" />
-        </ng-container>
-        <span mlvEmptyStateTitle>Select a conversation</span>
-        <span mlvEmptyStateDescription>
-          Pick a conversation from the list to read the thread and its context.
-        </span>
-      </mlv-empty-state>
+        <mlv-empty-state
+          *mlvBreakpointUp="'md'"
+          class="support-inbox__thread-empty"
+        >
+          <ng-container mlvEmptyStateIcon>
+            <svg lucideInbox [size]="48" />
+          </ng-container>
+          <span mlvEmptyStateTitle>Select a conversation</span>
+          <span mlvEmptyStateDescription>
+            Pick a conversation from the list to read the thread and its
+            context.
+          </span>
+        </mlv-empty-state>
       }
     </section>
 
@@ -797,533 +846,546 @@
     >
       <ng-template mlvPageEndPaneContent>
         @if (activeTicket(); as ticket) {
-        <div class="support-inbox__details">
-          <header class="support-inbox__details-header">
-            <mlv-avatar
-              size="m"
-              [name]="ticket.requester.name"
-              [color]="ticket.requester.name | mlvColorFromText"
-            />
-            <span class="support-inbox__details-who">
-              <span class="support-inbox__requester-name">
-                {{ ticket.requester.name }} @if (ticket.requester.verified) {
-                <svg
-                  lucideCircleCheck
-                  [size]="14"
-                  class="support-inbox__verified"
-                  title="Verified email"
-                />
-                }
-              </span>
-              <span class="support-inbox__requester-role">
-                {{ ticket.requester.title }} · {{ ticket.account.name }}
-              </span>
-            </span>
-            <mlv-spacer />
-            <button
-              mlvButton
-              shape="circle"
-              variant="transparent"
-              type="button"
-              aria-label="Close conversation details"
-              (click)="details.opened.set(false)"
-            >
-              <svg lucideX mlvButtonIcon [size]="16" />
-            </button>
-            <h2 mlvTitle level="6" class="support-inbox__details-subject">
-              {{ ticket.subject }}
-            </h2>
-          </header>
-
-          <mlv-scrollbar
-            class="support-inbox__details-scroll"
-            ariaLabel="Conversation details"
-            [viewportTabIndex]="-1"
-          >
-            <div class="support-inbox__details-body">
-              <div class="support-inbox__quick-actions">
-                <button mlvButton variant="secondary" type="button">
-                  <svg lucideMail mlvButtonIcon [size]="14" />
-                  Email
-                </button>
-                @if (ticket.requester.phone) {
-                <button mlvButton variant="secondary" type="button">
-                  <svg lucidePhone mlvButtonIcon [size]="14" />
-                  Call
-                </button>
-                }
-                <button
-                  mlvButton
-                  variant="secondary"
-                  type="button"
-                  [mlvMenuTrigger]="detailsMenu"
-                  aria-label="More requester actions"
-                >
-                  <svg lucideEllipsis mlvButtonIcon [size]="14" />
-                </button>
-                <mlv-menu #detailsMenu label="Requester actions">
-                  <mlv-list-item mlvMenuItem
-                    >Open customer profile</mlv-list-item
-                  >
-                  <mlv-list-item mlvMenuItem>Merge conversations</mlv-list-item>
-                  <mlv-list-item mlvMenuItem>Block sender</mlv-list-item>
-                </mlv-menu>
-              </div>
-
-              <!-- Conversation properties -->
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideTimer [size]="14" />
-                  Service level
-                </h3>
-                <p class="support-inbox__section-note">
-                  {{ ticket.sla.policy }}
-                </p>
-
-                <dl class="support-inbox__fields">
-                  <div class="support-inbox__field">
-                    <dt>First response</dt>
-                    <dd>
-                      <mlv-badge
-                        [tone]="slaTone(ticket.sla.firstResponseState)"
-                        muted
-                        >{{ ticket.sla.firstResponseLabel }}</mlv-badge
-                      >
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Resolution</dt>
-                    <dd>
-                      <mlv-badge
-                        [tone]="slaTone(ticket.sla.resolutionState)"
-                        muted
-                        >{{ ticket.sla.resolutionLabel }}</mlv-badge
-                      >
-                    </dd>
-                  </div>
-                </dl>
-
-                <mlv-progress
-                  [value]="ticket.sla.resolutionPercent"
-                  size="s"
-                  [tone]="slaTone(ticket.sla.resolutionState)"
-                  ariaLabel="Resolution window consumed"
-                />
-              </section>
-
-              <mlv-divider muted />
-
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideBuilding2 [size]="14" />
-                  Account
-                </h3>
-                <dl class="support-inbox__fields">
-                  <div class="support-inbox__field">
-                    <dt>Company</dt>
-                    <dd>{{ ticket.account.name }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Domain</dt>
-                    <dd>{{ ticket.account.domain }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Plan</dt>
-                    <dd>
-                      <mlv-badge tone="accent" muted mlvDensity="tight">
-                        {{ ticket.account.plan }}
-                      </mlv-badge>
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Seats</dt>
-                    <dd class="support-inbox__numeric">
-                      {{ ticket.account.seats }}
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>MRR</dt>
-                    <dd class="support-inbox__numeric">
-                      ${{ ticket.account.mrr }}
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Renewal</dt>
-                    <dd>{{ ticket.account.renewalIso }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Customer since</dt>
-                    <dd>{{ ticket.account.customerSinceIso }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Open invoices</dt>
-                    <dd class="support-inbox__numeric">
-                      {{ ticket.account.openInvoices }}
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Success owner</dt>
-                    <dd>
-                      @if (activeAccountOwner(); as owner) {
-                      <span class="support-inbox__inline-person">
-                        <mlv-avatar
-                          size="xs"
-                          [name]="owner.name"
-                          [color]="owner.name | mlvColorFromText"
-                        />
-                        {{ owner.name }}
-                      </span>
-                      }
-                    </dd>
-                  </div>
-                </dl>
-
-                <div class="support-inbox__health">
-                  <span class="support-inbox__health-label">
-                    Health score
-                    <strong>{{ ticket.account.healthScore }}</strong>
-                  </span>
-                  <mlv-progress
-                    [value]="ticket.account.healthScore"
-                    size="s"
-                    [tone]="healthTone(ticket.account.health)"
-                    ariaLabel="Account health score"
-                  />
-                </div>
-              </section>
-
-              <mlv-divider muted />
-
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideStickyNote [size]="14" />
-                  Internal notes
-                </h3>
-                @if (ticket.notes.length) {
-                <ul class="support-inbox__notes">
-                  @for (note of ticket.notes; track note.id) {
-                  <li class="support-inbox__note">
-                    <span class="support-inbox__note-head">
-                      <mlv-avatar
-                        size="xs"
-                        [name]="agentById(note.authorId)?.name ?? 'Agent'"
-                        [color]="
-                          (agentById(note.authorId)?.name ?? 'Agent')
-                            | mlvColorFromText
-                        "
-                      />
-                      <strong>{{ agentById(note.authorId)?.name }}</strong>
-                      <span class="support-inbox__muted">
-                        {{ note.at | date: 'd MMM, HH:mm' }}
-                      </span>
-                    </span>
-                    <p>{{ note.text }}</p>
-                  </li>
+          <div class="support-inbox__details">
+            <header class="support-inbox__details-header">
+              <mlv-avatar
+                size="m"
+                [name]="ticket.requester.name"
+                [color]="ticket.requester.name | mlvColorFromText"
+              />
+              <span class="support-inbox__details-who">
+                <span class="support-inbox__requester-name">
+                  {{ ticket.requester.name }}
+                  @if (ticket.requester.verified) {
+                    <svg
+                      lucideCircleCheck
+                      [size]="14"
+                      class="support-inbox__verified"
+                      title="Verified email"
+                    />
                   }
-                </ul>
-                } @else {
-                <p class="support-inbox__section-note">
-                  No notes yet — switch the composer to “Internal note” to add
-                  one.
-                </p>
-                }
-              </section>
+                </span>
+                <span class="support-inbox__requester-role">
+                  {{ ticket.requester.title }} · {{ ticket.account.name }}
+                </span>
+              </span>
+              <mlv-spacer />
+              <button
+                mlvButton
+                shape="circle"
+                variant="transparent"
+                type="button"
+                aria-label="Close conversation details"
+                (click)="details.opened.set(false)"
+              >
+                <svg lucideX mlvButtonIcon [size]="16" />
+              </button>
+              <h2 mlvTitle level="6" class="support-inbox__details-subject">
+                {{ ticket.subject }}
+              </h2>
+            </header>
 
-              <mlv-divider muted />
-
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideTicket [size]="14" />
-                  Conversation
-                </h3>
-                <dl class="support-inbox__fields">
-                  <div class="support-inbox__field">
-                    <dt>Reference</dt>
-                    <dd>
-                      <mlv-copy-to-clipboard [value]="ticket.id">
-                        {{ ticket.id }}
-                      </mlv-copy-to-clipboard>
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Status</dt>
-                    <dd>
-                      <mlv-badge [tone]="statusTone(ticket.status)" muted
-                        >{{ ticket.status }}</mlv-badge
-                      >
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Priority</dt>
-                    <dd>
-                      <mlv-badge [tone]="priorityTone(ticket.priority)" muted
-                        >{{ ticket.priority }}</mlv-badge
-                      >
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Type</dt>
-                    <dd>{{ ticket.type }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Assignee</dt>
-                    <dd>
-                      @if (activeAssignee(); as assignee) {
-                      <span class="support-inbox__inline-person">
-                        <mlv-avatar
-                          size="xs"
-                          [name]="assignee.name"
-                          [color]="assignee.name | mlvColorFromText"
-                        />
-                        {{ assignee.name }}
-                      </span>
-                      } @else { Unassigned }
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Team</dt>
-                    <dd>{{ ticket.team }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Channel</dt>
-                    <dd>{{ channelLabel[ticket.channel] }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Waiting on</dt>
-                    <dd>
-                      {{ ticket.waitingOn === 'agent' ? 'Us' : 'Customer' }}
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Opened</dt>
-                    <dd>{{ ticket.createdAt | date: 'd MMM, HH:mm' }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Last update</dt>
-                    <dd>{{ ticket.updatedAt | date: 'd MMM, HH:mm' }}</dd>
-                  </div>
-                </dl>
-              </section>
-
-              <mlv-divider muted />
-
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideUserRound [size]="14" />
-                  Requester
-                </h3>
-                <dl class="support-inbox__fields">
-                  <div class="support-inbox__field">
-                    <dt>Email</dt>
-                    <dd>
-                      <mlv-copy-to-clipboard [value]="ticket.requester.email">
-                        {{ ticket.requester.email }}
-                      </mlv-copy-to-clipboard>
-                    </dd>
-                  </div>
+            <mlv-scrollbar
+              class="support-inbox__details-scroll"
+              ariaLabel="Conversation details"
+              [viewportTabIndex]="-1"
+            >
+              <div class="support-inbox__details-body">
+                <div class="support-inbox__quick-actions">
+                  <button mlvButton variant="secondary" type="button">
+                    <svg lucideMail mlvButtonIcon [size]="14" />
+                    Email
+                  </button>
                   @if (ticket.requester.phone) {
-                  <div class="support-inbox__field">
-                    <dt>Phone</dt>
-                    <dd>{{ ticket.requester.phone }}</dd>
-                  </div>
+                    <button mlvButton variant="secondary" type="button">
+                      <svg lucidePhone mlvButtonIcon [size]="14" />
+                      Call
+                    </button>
                   }
-                  <div class="support-inbox__field">
-                    <dt>Local time</dt>
-                    <dd>
-                      {{ ticket.requester.localTime }}
-                      <span class="support-inbox__muted">
-                        · {{ ticket.environment.timezone }}
-                      </span>
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Location</dt>
-                    <dd>
-                      <svg lucideMapPin [size]="12" />
-                      {{ ticket.requester.location }}
-                    </dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Language</dt>
-                    <dd>{{ ticket.requester.language }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Last seen</dt>
-                    <dd>{{ ticket.requester.lastSeen }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Conversations</dt>
-                    <dd>{{ ticket.requester.conversations }}</dd>
-                  </div>
-                </dl>
-              </section>
-
-              <mlv-divider muted />
-
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideTag [size]="14" />
-                  Tags
-                </h3>
-                <div class="support-inbox__tags">
-                  @for (tag of ticket.tags; track tag) {
-                  <mlv-chip muted mlvDensity="tight">{{ tag }}</mlv-chip>
-                  }
-                </div>
-              </section>
-
-              <mlv-divider muted />
-
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideMonitor [size]="14" />
-                  Environment
-                </h3>
-                <dl class="support-inbox__fields">
-                  <div class="support-inbox__field">
-                    <dt>App version</dt>
-                    <dd>{{ ticket.environment.appVersion }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Browser</dt>
-                    <dd>{{ ticket.environment.browser }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>OS</dt>
-                    <dd>{{ ticket.environment.os }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Device</dt>
-                    <dd>{{ ticket.environment.device }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Locale</dt>
-                    <dd>{{ ticket.environment.locale }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Network</dt>
-                    <dd>{{ ticket.environment.ipRegion }}</dd>
-                  </div>
-                  <div class="support-inbox__field">
-                    <dt>Session</dt>
-                    <dd>
-                      <mlv-copy-to-clipboard
-                        [value]="ticket.environment.sessionId"
-                      >
-                        {{ ticket.environment.sessionId }}
-                      </mlv-copy-to-clipboard>
-                    </dd>
-                  </div>
-                </dl>
-
-                @if (ticket.environment.lastError) {
-                <p class="support-inbox__error">
-                  <svg lucideCircleAlert [size]="13" />
-                  {{ ticket.environment.lastError }}
-                </p>
-                }
-              </section>
-
-              <mlv-divider muted />
-
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideCopy [size]="14" />
-                  Linked records
-                </h3>
-                <mlv-list
-                  class="support-inbox__linked"
-                  aria-label="Linked records"
-                >
-                  @for (record of ticket.linked; track record.reference) {
-                  <mlv-list-item>
-                    <span mlvListItemTitle>{{ record.reference }}</span>
-                    <span mlvListItemByline>
-                      {{ record.label }} · {{ record.meta }}
-                    </span>
-                  </mlv-list-item>
-                  }
-                </mlv-list>
-              </section>
-
-              <mlv-divider muted />
-
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideThumbsUp [size]="14" />
-                  Satisfaction
-                </h3>
-                @if (ticket.satisfaction.rating; as rating) {
-                <p class="support-inbox__csat">
-                  <strong>{{ rating }} / 5</strong>
-                  <span class="support-inbox__muted">
-                    · {{ ticket.satisfaction.responses }} responses, average {{
-                    ticket.satisfaction.average }}
-                  </span>
-                </p>
-                @if (ticket.satisfaction.comment) {
-                <blockquote class="support-inbox__quote">
-                  {{ ticket.satisfaction.comment }}
-                </blockquote>
-                } } @else if (ticket.satisfaction.responses) {
-                <p class="support-inbox__section-note">
-                  Survey not answered yet · requester average {{
-                  ticket.satisfaction.average }} over {{
-                  ticket.satisfaction.responses }} responses.
-                </p>
-                } @else {
-                <p class="support-inbox__section-note">
-                  Survey not answered yet · this requester has never rated a
-                  conversation.
-                </p>
-                }
-              </section>
-
-              <mlv-divider muted />
-
-              <section class="support-inbox__section">
-                <h3 class="support-inbox__section-title">
-                  <svg lucideClock [size]="14" />
-                  Activity
-                </h3>
-                <mlv-timeline class="support-inbox__timeline">
-                  @for (event of activeActivity(); track event.id) {
-                  <mlv-timeline-item
-                    [title]="event.action"
-                    [timestamp]="(event.at | date: 'd MMM, HH:mm') ?? ''"
-                    [tone]="event.tone"
+                  <button
+                    mlvButton
+                    variant="secondary"
+                    type="button"
+                    [mlvMenuTrigger]="detailsMenu"
+                    aria-label="More requester actions"
                   >
-                    {{ event.actor }}@if (event.detail) { — {{ event.detail }} }
-                  </mlv-timeline-item>
-                  }
-                </mlv-timeline>
-              </section>
-            </div>
-          </mlv-scrollbar>
+                    <svg lucideEllipsis mlvButtonIcon [size]="14" />
+                  </button>
+                  <mlv-menu #detailsMenu label="Requester actions">
+                    <mlv-list-item mlvMenuItem
+                      >Open customer profile</mlv-list-item
+                    >
+                    <mlv-list-item mlvMenuItem
+                      >Merge conversations</mlv-list-item
+                    >
+                    <mlv-list-item mlvMenuItem>Block sender</mlv-list-item>
+                  </mlv-menu>
+                </div>
 
-          <footer
-            *mlvBreakpointDown="'lg'"
-            class="support-inbox__details-actions"
-          >
-            <button
-              mlvButton
-              variant="primary"
-              type="button"
-              (click)="setStatus('solved')"
+                <!-- Conversation properties -->
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideTimer [size]="14" />
+                    Service level
+                  </h3>
+                  <p class="support-inbox__section-note">
+                    {{ ticket.sla.policy }}
+                  </p>
+
+                  <dl class="support-inbox__fields">
+                    <div class="support-inbox__field">
+                      <dt>First response</dt>
+                      <dd>
+                        <mlv-badge
+                          [tone]="slaTone(ticket.sla.firstResponseState)"
+                          muted
+                          >{{ ticket.sla.firstResponseLabel }}</mlv-badge
+                        >
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Resolution</dt>
+                      <dd>
+                        <mlv-badge
+                          [tone]="slaTone(ticket.sla.resolutionState)"
+                          muted
+                          >{{ ticket.sla.resolutionLabel }}</mlv-badge
+                        >
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <mlv-progress
+                    [value]="ticket.sla.resolutionPercent"
+                    size="s"
+                    [tone]="slaTone(ticket.sla.resolutionState)"
+                    ariaLabel="Resolution window consumed"
+                  />
+                </section>
+
+                <mlv-divider muted />
+
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideBuilding2 [size]="14" />
+                    Account
+                  </h3>
+                  <dl class="support-inbox__fields">
+                    <div class="support-inbox__field">
+                      <dt>Company</dt>
+                      <dd>{{ ticket.account.name }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Domain</dt>
+                      <dd>{{ ticket.account.domain }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Plan</dt>
+                      <dd>
+                        <mlv-badge tone="accent" muted mlvDensity="tight">
+                          {{ ticket.account.plan }}
+                        </mlv-badge>
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Seats</dt>
+                      <dd class="support-inbox__numeric">
+                        {{ ticket.account.seats }}
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>MRR</dt>
+                      <dd class="support-inbox__numeric">
+                        ${{ ticket.account.mrr }}
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Renewal</dt>
+                      <dd>{{ ticket.account.renewalIso }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Customer since</dt>
+                      <dd>{{ ticket.account.customerSinceIso }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Open invoices</dt>
+                      <dd class="support-inbox__numeric">
+                        {{ ticket.account.openInvoices }}
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Success owner</dt>
+                      <dd>
+                        @if (activeAccountOwner(); as owner) {
+                          <span class="support-inbox__inline-person">
+                            <mlv-avatar
+                              size="xs"
+                              [name]="owner.name"
+                              [color]="owner.name | mlvColorFromText"
+                            />
+                            {{ owner.name }}
+                          </span>
+                        }
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div class="support-inbox__health">
+                    <span class="support-inbox__health-label">
+                      Health score
+                      <strong>{{ ticket.account.healthScore }}</strong>
+                    </span>
+                    <mlv-progress
+                      [value]="ticket.account.healthScore"
+                      size="s"
+                      [tone]="healthTone(ticket.account.health)"
+                      ariaLabel="Account health score"
+                    />
+                  </div>
+                </section>
+
+                <mlv-divider muted />
+
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideStickyNote [size]="14" />
+                    Internal notes
+                  </h3>
+                  @if (ticket.notes.length) {
+                    <ul class="support-inbox__notes">
+                      @for (note of ticket.notes; track note.id) {
+                        <li class="support-inbox__note">
+                          <span class="support-inbox__note-head">
+                            <mlv-avatar
+                              size="xs"
+                              [name]="agentById(note.authorId)?.name ?? 'Agent'"
+                              [color]="
+                                agentById(note.authorId)?.name ?? 'Agent'
+                                  | mlvColorFromText
+                              "
+                            />
+                            <strong>{{
+                              agentById(note.authorId)?.name
+                            }}</strong>
+                            <span class="support-inbox__muted">
+                              {{ note.at | date: 'd MMM, HH:mm' }}
+                            </span>
+                          </span>
+                          <p>{{ note.text }}</p>
+                        </li>
+                      }
+                    </ul>
+                  } @else {
+                    <p class="support-inbox__section-note">
+                      No notes yet — switch the composer to “Internal note” to
+                      add one.
+                    </p>
+                  }
+                </section>
+
+                <mlv-divider muted />
+
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideTicket [size]="14" />
+                    Conversation
+                  </h3>
+                  <dl class="support-inbox__fields">
+                    <div class="support-inbox__field">
+                      <dt>Reference</dt>
+                      <dd>
+                        <mlv-copy-to-clipboard [value]="ticket.id">
+                          {{ ticket.id }}
+                        </mlv-copy-to-clipboard>
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Status</dt>
+                      <dd>
+                        <mlv-badge [tone]="statusTone(ticket.status)" muted>{{
+                          ticket.status
+                        }}</mlv-badge>
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Priority</dt>
+                      <dd>
+                        <mlv-badge
+                          [tone]="priorityTone(ticket.priority)"
+                          muted
+                          >{{ ticket.priority }}</mlv-badge
+                        >
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Type</dt>
+                      <dd>{{ ticket.type }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Assignee</dt>
+                      <dd>
+                        @if (activeAssignee(); as assignee) {
+                          <span class="support-inbox__inline-person">
+                            <mlv-avatar
+                              size="xs"
+                              [name]="assignee.name"
+                              [color]="assignee.name | mlvColorFromText"
+                            />
+                            {{ assignee.name }}
+                          </span>
+                        } @else {
+                          Unassigned
+                        }
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Team</dt>
+                      <dd>{{ ticket.team }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Channel</dt>
+                      <dd>{{ channelLabel[ticket.channel] }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Waiting on</dt>
+                      <dd>
+                        {{ ticket.waitingOn === 'agent' ? 'Us' : 'Customer' }}
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Opened</dt>
+                      <dd>{{ ticket.createdAt | date: 'd MMM, HH:mm' }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Last update</dt>
+                      <dd>{{ ticket.updatedAt | date: 'd MMM, HH:mm' }}</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <mlv-divider muted />
+
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideUserRound [size]="14" />
+                    Requester
+                  </h3>
+                  <dl class="support-inbox__fields">
+                    <div class="support-inbox__field">
+                      <dt>Email</dt>
+                      <dd>
+                        <mlv-copy-to-clipboard [value]="ticket.requester.email">
+                          {{ ticket.requester.email }}
+                        </mlv-copy-to-clipboard>
+                      </dd>
+                    </div>
+                    @if (ticket.requester.phone) {
+                      <div class="support-inbox__field">
+                        <dt>Phone</dt>
+                        <dd>{{ ticket.requester.phone }}</dd>
+                      </div>
+                    }
+                    <div class="support-inbox__field">
+                      <dt>Local time</dt>
+                      <dd>
+                        {{ ticket.requester.localTime }}
+                        <span class="support-inbox__muted">
+                          · {{ ticket.environment.timezone }}
+                        </span>
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Location</dt>
+                      <dd>
+                        <svg lucideMapPin [size]="12" />
+                        {{ ticket.requester.location }}
+                      </dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Language</dt>
+                      <dd>{{ ticket.requester.language }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Last seen</dt>
+                      <dd>{{ ticket.requester.lastSeen }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Conversations</dt>
+                      <dd>{{ ticket.requester.conversations }}</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <mlv-divider muted />
+
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideTag [size]="14" />
+                    Tags
+                  </h3>
+                  <div class="support-inbox__tags">
+                    @for (tag of ticket.tags; track tag) {
+                      <mlv-chip muted mlvDensity="tight">{{ tag }}</mlv-chip>
+                    }
+                  </div>
+                </section>
+
+                <mlv-divider muted />
+
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideMonitor [size]="14" />
+                    Environment
+                  </h3>
+                  <dl class="support-inbox__fields">
+                    <div class="support-inbox__field">
+                      <dt>App version</dt>
+                      <dd>{{ ticket.environment.appVersion }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Browser</dt>
+                      <dd>{{ ticket.environment.browser }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>OS</dt>
+                      <dd>{{ ticket.environment.os }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Device</dt>
+                      <dd>{{ ticket.environment.device }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Locale</dt>
+                      <dd>{{ ticket.environment.locale }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Network</dt>
+                      <dd>{{ ticket.environment.ipRegion }}</dd>
+                    </div>
+                    <div class="support-inbox__field">
+                      <dt>Session</dt>
+                      <dd>
+                        <mlv-copy-to-clipboard
+                          [value]="ticket.environment.sessionId"
+                        >
+                          {{ ticket.environment.sessionId }}
+                        </mlv-copy-to-clipboard>
+                      </dd>
+                    </div>
+                  </dl>
+
+                  @if (ticket.environment.lastError) {
+                    <p class="support-inbox__error">
+                      <svg lucideCircleAlert [size]="13" />
+                      {{ ticket.environment.lastError }}
+                    </p>
+                  }
+                </section>
+
+                <mlv-divider muted />
+
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideCopy [size]="14" />
+                    Linked records
+                  </h3>
+                  <mlv-list
+                    class="support-inbox__linked"
+                    aria-label="Linked records"
+                  >
+                    @for (record of ticket.linked; track record.reference) {
+                      <mlv-list-item>
+                        <span mlvListItemTitle>{{ record.reference }}</span>
+                        <span mlvListItemByline>
+                          {{ record.label }} · {{ record.meta }}
+                        </span>
+                      </mlv-list-item>
+                    }
+                  </mlv-list>
+                </section>
+
+                <mlv-divider muted />
+
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideThumbsUp [size]="14" />
+                    Satisfaction
+                  </h3>
+                  @if (ticket.satisfaction.rating; as rating) {
+                    <p class="support-inbox__csat">
+                      <strong>{{ rating }} / 5</strong>
+                      <span class="support-inbox__muted">
+                        · {{ ticket.satisfaction.responses }} responses, average
+                        {{ ticket.satisfaction.average }}
+                      </span>
+                    </p>
+                    @if (ticket.satisfaction.comment) {
+                      <blockquote class="support-inbox__quote">
+                        {{ ticket.satisfaction.comment }}
+                      </blockquote>
+                    }
+                  } @else if (ticket.satisfaction.responses) {
+                    <p class="support-inbox__section-note">
+                      Survey not answered yet · requester average
+                      {{ ticket.satisfaction.average }} over
+                      {{ ticket.satisfaction.responses }} responses.
+                    </p>
+                  } @else {
+                    <p class="support-inbox__section-note">
+                      Survey not answered yet · this requester has never rated a
+                      conversation.
+                    </p>
+                  }
+                </section>
+
+                <mlv-divider muted />
+
+                <section class="support-inbox__section">
+                  <h3 class="support-inbox__section-title">
+                    <svg lucideClock [size]="14" />
+                    Activity
+                  </h3>
+                  <mlv-timeline class="support-inbox__timeline">
+                    @for (event of activeActivity(); track event.id) {
+                      <mlv-timeline-item
+                        [title]="event.action"
+                        [timestamp]="(event.at | date: 'd MMM, HH:mm') ?? ''"
+                        [tone]="event.tone"
+                      >
+                        {{ event.actor }}
+                        @if (event.detail) {
+                          — {{ event.detail }}
+                        }
+                      </mlv-timeline-item>
+                    }
+                  </mlv-timeline>
+                </section>
+              </div>
+            </mlv-scrollbar>
+
+            <footer
+              *mlvBreakpointDown="'lg'"
+              class="support-inbox__details-actions"
             >
-              <svg lucideCheck mlvButtonIcon [size]="15" />
-              Solve
-            </button>
-            <button
-              mlvButton
-              variant="secondary"
-              type="button"
-              [mlvMenuTrigger]="assignMenu"
-            >
-              Assign…
-            </button>
-          </footer>
-        </div>
+              <button
+                mlvButton
+                variant="primary"
+                type="button"
+                (click)="setStatus('solved')"
+              >
+                <svg lucideCheck mlvButtonIcon [size]="15" />
+                Solve
+              </button>
+              <button
+                mlvButton
+                variant="secondary"
+                type="button"
+                [mlvMenuTrigger]="assignMenu"
+              >
+                Assign…
+              </button>
+            </footer>
+          </div>
         }
       </ng-template>
     </mlv-page-end-pane>
@@ -1333,14 +1395,14 @@
        can trigger it. -->
   <mlv-menu #assignMenu label="Assign conversation">
     @for (agent of agents; track agent.id) {
-    <mlv-list-item mlvMenuItem (itemClick)="assignTo(agent)">
-      <mlv-avatar
-        size="xs"
-        [name]="agent.name"
-        [color]="agent.name | mlvColorFromText"
-      />
-      {{ agent.name }}
-    </mlv-list-item>
+      <mlv-list-item mlvMenuItem (itemClick)="assignTo(agent)">
+        <mlv-avatar
+          size="xs"
+          [name]="agent.name"
+          [color]="agent.name | mlvColorFromText"
+        />
+        {{ agent.name }}
+      </mlv-list-item>
     }
   </mlv-menu>
 </mlv-layout>

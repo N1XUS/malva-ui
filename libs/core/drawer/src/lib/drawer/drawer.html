@@ -22,17 +22,18 @@
     [cdkTrapFocusAutoCapture]="false"
   >
     @if (resizable()) {
-    <div
-      class="mlv-drawer__handle"
-      mlvDrawerResize
-      [position]="position()"
-      [snapPoints]="snapPoints()"
-      (dismissed)="close()"
-    >
-      <span class="mlv-drawer__handle-pill" aria-hidden="true"></span>
-    </div>
-    } @if (contentRef(); as contentTpl) {
-    <ng-template [ngTemplateOutlet]="contentTpl.templateRef" />
+      <div
+        class="mlv-drawer__handle"
+        mlvDrawerResize
+        [position]="position()"
+        [snapPoints]="snapPoints()"
+        (dismissed)="close()"
+      >
+        <span class="mlv-drawer__handle-pill" aria-hidden="true"></span>
+      </div>
+    }
+    @if (contentRef(); as contentTpl) {
+      <ng-template [ngTemplateOutlet]="contentTpl.templateRef" />
     }
   </div>
 </ng-template>

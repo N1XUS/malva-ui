@@ -6,19 +6,19 @@
   >
     <div class="dt-file-cell">
       @if (row.type === 'folder') {
-      <svg
-        lucideFolder
-        [size]="16"
-        class="dt-file-icon dt-file-icon--folder"
-        aria-hidden="true"
-      />
+        <svg
+          lucideFolder
+          [size]="16"
+          class="dt-file-icon dt-file-icon--folder"
+          aria-hidden="true"
+        />
       } @else {
-      <svg
-        lucideFile
-        [size]="16"
-        class="dt-file-icon dt-file-icon--file"
-        aria-hidden="true"
-      />
+        <svg
+          lucideFile
+          [size]="16"
+          class="dt-file-icon dt-file-icon--file"
+          aria-hidden="true"
+        />
       }
       <span>{{ row.name }}</span>
     </div>

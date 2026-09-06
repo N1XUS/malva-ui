@@ -4,72 +4,78 @@
   duplicate navigation landmark.
 -->
 <div class="mlv-bottom-nav__bar">
-  @for (item of _displayItems(); track item.label; let i = $index) { @if
-  (!_isManaged() && !item.disabled) {
-  <a
-    class="mlv-bottom-nav__item"
-    [routerLink]="item.route"
-    routerLinkActive="mlv-bottom-nav__item--active"
-    ariaCurrentWhenActive="page"
-    [routerLinkActiveOptions]="{ exact: true }"
-  >
-    <svg
-      class="mlv-bottom-nav__icon"
-      [lucideIcon]="item.icon"
-      size="20"
-      aria-hidden="true"
-    />
-    <span class="mlv-bottom-nav__label">{{ item.label }}</span>
-  </a>
-  } @else {
-  <button
-    type="button"
-    class="mlv-bottom-nav__item"
-    [class.mlv-bottom-nav__item--active]="_isManaged() && i === activeIndex()"
-    [class.mlv-bottom-nav__item--disabled]="!!item.disabled"
-    [disabled]="item.disabled || null"
-    [attr.aria-disabled]="item.disabled || null"
-    [attr.aria-current]="_isManaged() && i === activeIndex() ? 'page' : null"
-    (click)="_onItemClick(i)"
-  >
-    <svg
-      class="mlv-bottom-nav__icon"
-      [lucideIcon]="item.icon"
-      size="20"
-      aria-hidden="true"
-    />
-    <span class="mlv-bottom-nav__label">{{ item.label }}</span>
-  </button>
-  } } @if (_hasOverflow()) {
-  <button
-    type="button"
-    class="mlv-bottom-nav__item mlv-bottom-nav__more"
-    [mlvMenuTrigger]="overflowMenu"
-    [attr.aria-label]="_i18n().moreOptions"
-  >
-    <svg
-      class="mlv-bottom-nav__icon"
-      lucideIcon="ellipsis"
-      size="20"
-      aria-hidden="true"
-    />
-    <span class="mlv-bottom-nav__label mlv-bottom-nav__label--always"
-      >{{ _i18n().more }}</span
+  @for (item of _displayItems(); track item.label; let i = $index) {
+    @if (!_isManaged() && !item.disabled) {
+      <a
+        class="mlv-bottom-nav__item"
+        [routerLink]="item.route"
+        routerLinkActive="mlv-bottom-nav__item--active"
+        ariaCurrentWhenActive="page"
+        [routerLinkActiveOptions]="{ exact: true }"
+      >
+        <svg
+          class="mlv-bottom-nav__icon"
+          [lucideIcon]="item.icon"
+          size="20"
+          aria-hidden="true"
+        />
+        <span class="mlv-bottom-nav__label">{{ item.label }}</span>
+      </a>
+    } @else {
+      <button
+        type="button"
+        class="mlv-bottom-nav__item"
+        [class.mlv-bottom-nav__item--active]="
+          _isManaged() && i === activeIndex()
+        "
+        [class.mlv-bottom-nav__item--disabled]="!!item.disabled"
+        [disabled]="item.disabled || null"
+        [attr.aria-disabled]="item.disabled || null"
+        [attr.aria-current]="
+          _isManaged() && i === activeIndex() ? 'page' : null
+        "
+        (click)="_onItemClick(i)"
+      >
+        <svg
+          class="mlv-bottom-nav__icon"
+          [lucideIcon]="item.icon"
+          size="20"
+          aria-hidden="true"
+        />
+        <span class="mlv-bottom-nav__label">{{ item.label }}</span>
+      </button>
+    }
+  }
+  @if (_hasOverflow()) {
+    <button
+      type="button"
+      class="mlv-bottom-nav__item mlv-bottom-nav__more"
+      [mlvMenuTrigger]="overflowMenu"
+      [attr.aria-label]="_i18n().moreOptions"
     >
-  </button>
-
-  <mlv-menu #overflowMenu [label]="_i18n().moreMenu">
-    @for (item of _overflowItems(); track item.label; let j = $index) {
-    <mlv-list-item mlvMenuItem (itemClick)="_onOverflowItemClick(j)">
       <svg
-        mlvListItemPrefix
-        [lucideIcon]="item.icon"
-        size="16"
+        class="mlv-bottom-nav__icon"
+        lucideIcon="ellipsis"
+        size="20"
         aria-hidden="true"
       />
-      {{ item.label }}
-    </mlv-list-item>
-    }
-  </mlv-menu>
+      <span class="mlv-bottom-nav__label mlv-bottom-nav__label--always">{{
+        _i18n().more
+      }}</span>
+    </button>
+
+    <mlv-menu #overflowMenu [label]="_i18n().moreMenu">
+      @for (item of _overflowItems(); track item.label; let j = $index) {
+        <mlv-list-item mlvMenuItem (itemClick)="_onOverflowItemClick(j)">
+          <svg
+            mlvListItemPrefix
+            [lucideIcon]="item.icon"
+            size="16"
+            aria-hidden="true"
+          />
+          {{ item.label }}
+        </mlv-list-item>
+      }
+    </mlv-menu>
   }
 </div>

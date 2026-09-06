@@ -1,0 +1,88 @@
+@if (headerDefRef(); as def) {
+  <ng-container
+    *ngTemplateOutlet="def.templateRef; context: _headerContext()"
+  />
+} @else if (toolbar()) {
+  <div class="mlv-scheduler__toolbar">
+    <div class="mlv-scheduler__nav">
+      <button
+        mlvButton
+        type="button"
+        shape="square"
+        variant="transparent"
+        class="mlv-scheduler__previous"
+        [attr.aria-label]="_previousLabel()"
+        (click)="previous()"
+      >
+        <svg
+          class="mlv-scheduler__nav-icon"
+          lucideChevronLeft
+          [size]="16"
+          aria-hidden="true"
+        ></svg>
+      </button>
+      <button
+        mlvButton
+        type="button"
+        shape="square"
+        variant="transparent"
+        class="mlv-scheduler__next"
+        [attr.aria-label]="_nextLabel()"
+        (click)="next()"
+      >
+        <svg
+          class="mlv-scheduler__nav-icon"
+          lucideChevronRight
+          [size]="16"
+          aria-hidden="true"
+        ></svg>
+      </button>
+      <button
+        mlvButton
+        type="button"
+        variant="outlined"
+        class="mlv-scheduler__today"
+        (click)="goToToday()"
+      >
+        {{ i18n().today }}
+      </button>
+    </div>
+    <h2 class="mlv-scheduler__title">{{ title() }}</h2>
+    <mlv-segmented
+      class="mlv-scheduler__view-switch"
+      [value]="view()"
+      (valueChange)="_onViewSwitch($event)"
+      [ariaLabel]="i18n().viewSwitch"
+    >
+      <button mlvSegmentedItem type="button" value="month">
+        {{ i18n().month }}
+      </button>
+      <button mlvSegmentedItem type="button" value="week">
+        {{ i18n().week }}
+      </button>
+      <button mlvSegmentedItem type="button" value="day">
+        {{ i18n().day }}
+      </button>
+    </mlv-segmented>
+  </div>
+}
+<div class="mlv-scheduler__body">
+  @switch (view()) {
+    @case ('month') {
+      <mlv-scheduler-month />
+    }
+    @default {
+      <mlv-scheduler-time-grid />
+    }
+  }
+</div>
+<span class="cdk-visually-hidden" [id]="dragHintId">{{ i18n().dragHint }}</span>
+@for (message of _liveMessages(); track $index) {
+  <span
+    class="cdk-visually-hidden mlv-scheduler__status"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+    >{{ message }}</span
+  >
+}

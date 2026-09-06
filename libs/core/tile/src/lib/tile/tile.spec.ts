@@ -11,6 +11,7 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { parse } from 'postcss';
 import { compile } from 'sass';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { stripCssLayersFromText } from '@malva-ui/internal-testing';
 import { MlvTile } from './tile';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -248,8 +249,9 @@ function compiledTileCss(): string {
   // the rules where these assertions walk for them — at the root of the
   // parsed stylesheet — and matches what the jsdom specs read.
   return stripCssLayersFromText(
-    compile(fileURLToPath(new URL(['.', 'tile.scss'].join('/'), import.meta.url)))
-      .css,
+    compile(
+      fileURLToPath(new URL(['.', 'tile.scss'].join('/'), import.meta.url)),
+    ).css,
   );
 }
 
@@ -1255,5 +1257,84 @@ describe('MlvTile — drag handle hit-area geometry', () => {
     handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
 
     expect(target).toBe(handle);
+  });
+});
+
+describe('MlvTile — scoped direction', () => {
+  let fixture: ComponentFixture<TileDragTestHost>;
+  let handle: HTMLElement;
+  let moves: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [TileDragTestHost],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(TileDragTestHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const root = fixture.debugElement.query(By.directive(MlvTiles))
+      .componentInstance as MlvTiles<DragTestProps>;
+    // The tree operation itself is covered by the coordinator specs; what this
+    // suite asserts is *which* logical direction each physical key resolves to.
+    moves = vi
+      .spyOn(root, 'moveByKeyboard')
+      .mockImplementation(() => undefined);
+    handle = fixture.nativeElement.querySelector(
+      '.mlv-tile__drag-handle',
+    ) as HTMLElement;
+  });
+
+  afterEach(() => {
+    moves.mockRestore();
+    // `setDirection` is global state (it writes `dir` onto <html>) — reset both
+    // the service and the attribute so a direction never leaks into the next test.
+    TestBed.inject(MlvRtlService).setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  function altArrow(key: string): void {
+    handle.dispatchEvent(
+      new KeyboardEvent('keydown', { key, altKey: true, bubbles: true }),
+    );
+    fixture.detectChanges();
+  }
+
+  /** The `direction` argument of every recorded move, in order. */
+  function directions(): string[] {
+    return moves.mock.calls.map((call) => String(call[1]));
+  }
+
+  it('mirrors Alt+Arrow moves inside a scoped [dir="rtl"] subtree while the document stays LTR', () => {
+    const scope = fixture.nativeElement as HTMLElement;
+    scope.setAttribute('dir', 'rtl');
+
+    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+
+    altArrow('ArrowRight');
+    altArrow('ArrowLeft');
+    // Vertical arrows never mirror.
+    altArrow('ArrowUp');
+    altArrow('ArrowDown');
+
+    expect(directions()).toEqual(['left', 'right', 'up', 'down']);
+
+    scope.removeAttribute('dir');
+  });
+
+  it('leaves a scoped [dir="ltr"] island unmirrored while the document is RTL', () => {
+    TestBed.inject(MlvRtlService).setDirection('rtl');
+    const scope = fixture.nativeElement as HTMLElement;
+    scope.setAttribute('dir', 'ltr');
+    fixture.detectChanges();
+
+    altArrow('ArrowRight');
+    altArrow('ArrowLeft');
+
+    expect(directions()).toEqual(['right', 'left']);
+
+    scope.removeAttribute('dir');
   });
 });

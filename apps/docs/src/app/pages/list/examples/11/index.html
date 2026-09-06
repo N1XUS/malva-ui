@@ -8,25 +8,25 @@
   class="docs-assign-owner-list"
 >
   @for (teammate of teammates; track teammate.id) {
-  <mlv-list-item
-    itemRole="option"
-    [value]="teammate.id"
-    [label]="teammate.name"
-  >
-    <mlv-avatar
-      mlvListItemMedia
-      shape="circle"
-      size="l"
-      [name]="teammate.name"
-    ></mlv-avatar>
-    <span mlvListItemTitle>{{ teammate.name }}</span>
-    <span mlvListItemByline>{{ teammate.role }}</span>
-  </mlv-list-item>
+    <mlv-list-item
+      itemRole="option"
+      [value]="teammate.id"
+      [label]="teammate.name"
+    >
+      <mlv-avatar
+        mlvListItemMedia
+        shape="circle"
+        size="l"
+        [name]="teammate.name"
+      ></mlv-avatar>
+      <span mlvListItemTitle>{{ teammate.name }}</span>
+      <span mlvListItemByline>{{ teammate.role }}</span>
+    </mlv-list-item>
   }
 </mlv-list>
 
 @if (selectedTeammate(); as owner) {
-<p class="docs-assign-owner-feedback">
-  Assigned to <strong>{{ owner.name }}</strong>
-</p>
+  <p class="docs-assign-owner-feedback">
+    Assigned to <strong>{{ owner.name }}</strong>
+  </p>
 }

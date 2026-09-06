@@ -1,6 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { By } from '@angular/platform-browser';
 import { MlvTokenizer } from './tokenizer';
 import type { MlvSelectOption } from '@malva-ui/core/dropdown';
@@ -441,5 +442,132 @@ describe('MlvTokenizer — value/tokens alias sync', () => {
     expect(host.value().map((t) => t.value)).toEqual(['angular']);
     expect(cmp.tokens().map((t) => t.value)).toEqual(['angular']);
     expect(labels(fixture)).toEqual(['Angular']);
+  });
+});
+
+// ─── Scoped [dir] keyboard mirroring (#147) ──────────────────────────────────
+
+@Component({
+  template: `
+    <div [attr.dir]="scopeDir()">
+      <mlv-tokenizer [(tokens)]="tokens" />
+    </div>
+  `,
+  imports: [MlvTokenizer],
+})
+class ScopedTokenizerHostComponent {
+  readonly scopeDir = signal<'ltr' | 'rtl'>('rtl');
+  readonly tokens = signal<MlvSelectOption<string>[]>([
+    { label: 'React', value: 'react' },
+    { label: 'Angular', value: 'angular' },
+    { label: 'Vue', value: 'vue' },
+  ]);
+}
+
+describe('MlvTokenizer — scoped [dir] keyboard mirroring', () => {
+  let fixture: ComponentFixture<ScopedTokenizerHostComponent>;
+  let rtlService: MlvRtlService;
+
+  const KEY = { ArrowRight: 39, ArrowLeft: 37, ArrowDown: 40 } as const;
+
+  /** Dispatches a keydown carrying a `keyCode` (CDK's FocusKeyManager reads it). */
+  function dispatchKey(
+    element: HTMLElement,
+    key: string,
+    keyCode: number,
+  ): void {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true });
+    Object.defineProperty(event, 'keyCode', { get: () => keyCode });
+    element.dispatchEvent(event);
+  }
+
+  function tokens(): HTMLElement[] {
+    return Array.from(
+      fixture.nativeElement.querySelectorAll<HTMLElement>('mlv-token'),
+    );
+  }
+
+  async function build(dir: 'ltr' | 'rtl'): Promise<HTMLElement[]> {
+    fixture = TestBed.createComponent(ScopedTokenizerHostComponent);
+    fixture.componentInstance.scopeDir.set(dir);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return tokens();
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ScopedTokenizerHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    rtlService = TestBed.inject(MlvRtlService);
+  });
+
+  afterEach(() => {
+    rtlService.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  /**
+   * The roving tabindex the manager publishes through `_syncTokenTabIndices`.
+   * Asserted instead of `document.activeElement` because `MlvToken.focus()`
+   * focuses an inner control, not the `<mlv-token>` host this reads.
+   */
+  function tabbableIndex(els: HTMLElement[]): number {
+    return els.findIndex((t) => t.getAttribute('tabindex') === '0');
+  }
+
+  /**
+   * Nothing activates the key manager on focus, so it starts at index -1 and
+   * the first arrow of any kind lands on index 0. Absorb that hop here so each
+   * test's own assertion is about direction, not about the entry step.
+   */
+  function activateFirst(els: HTMLElement[], key: string, code: number): void {
+    dispatchKey(els[0], key, code);
+    fixture.detectChanges();
+    expect(tabbableIndex(els)).toBe(0);
+  }
+
+  it('mirrors token stepping inside a [dir="rtl"] subtree while the document stays LTR', async () => {
+    const els = await build('rtl');
+    expect(rtlService.direction()).toBe('ltr');
+    expect(els.length).toBe(3);
+    activateFirst(els, 'ArrowLeft', KEY.ArrowLeft);
+
+    // ArrowLeft is "next" once the tokens are laid out right-to-left…
+    dispatchKey(els[0], 'ArrowLeft', KEY.ArrowLeft);
+    fixture.detectChanges();
+    expect(tabbableIndex(els)).toBe(1);
+
+    // …and ArrowRight is "previous", wrapping back past the first token.
+    dispatchKey(els[1], 'ArrowRight', KEY.ArrowRight);
+    fixture.detectChanges();
+    expect(tabbableIndex(els)).toBe(0);
+  });
+
+  it('keeps token stepping unmirrored in an LTR island while the document is RTL', async () => {
+    rtlService.setDirection('rtl');
+    const els = await build('ltr');
+    activateFirst(els, 'ArrowRight', KEY.ArrowRight);
+
+    dispatchKey(els[0], 'ArrowRight', KEY.ArrowRight);
+    fixture.detectChanges();
+    expect(tabbableIndex(els)).toBe(1);
+
+    dispatchKey(els[1], 'ArrowLeft', KEY.ArrowLeft);
+    fixture.detectChanges();
+    expect(tabbableIndex(els)).toBe(0);
+  });
+
+  it('leaves the block axis unmirrored in the same scope', async () => {
+    const els = await build('rtl');
+    activateFirst(els, 'ArrowLeft', KEY.ArrowLeft);
+
+    // CDK's `ListKeyManager` keeps vertical navigation enabled alongside a
+    // horizontal orientation; the point is that it keeps its LTR meaning.
+    dispatchKey(els[0], 'ArrowDown', KEY.ArrowDown);
+    fixture.detectChanges();
+    expect(tabbableIndex(els)).toBe(1);
   });
 });

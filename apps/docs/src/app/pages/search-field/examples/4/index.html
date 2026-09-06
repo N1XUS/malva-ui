@@ -21,8 +21,11 @@
   </div>
 
   <p class="overlay-search-example__result" aria-live="polite">
-    @if (lastCommitted()) { Last committed query:
-    <strong>{{ lastCommitted() }}</strong>
-    } @else { Nothing committed yet. }
+    @if (lastCommitted()) {
+      Last committed query:
+      <strong>{{ lastCommitted() }}</strong>
+    } @else {
+      Nothing committed yet.
+    }
   </p>
 </div>

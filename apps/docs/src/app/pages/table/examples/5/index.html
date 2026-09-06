@@ -1,16 +1,16 @@
 <div class="table-density-example">
   <div class="table-density-example__controls" aria-label="Table density">
     @for (density of densities; track density) {
-    <button
-      mlvButton
-      mlvDensity="compact"
-      type="button"
-      [variant]="activeDensity() === density ? 'primary' : 'secondary'"
-      [attr.aria-pressed]="activeDensity() === density"
-      (click)="setDensity(density)"
-    >
-      {{ density }}
-    </button>
+      <button
+        mlvButton
+        mlvDensity="compact"
+        type="button"
+        [variant]="activeDensity() === density ? 'primary' : 'secondary'"
+        [attr.aria-pressed]="activeDensity() === density"
+        (click)="setDensity(density)"
+      >
+        {{ density }}
+      </button>
     }
   </div>
 
@@ -21,7 +21,10 @@
     aria-label="Density preview"
   >
     <caption>
-      Current density: {{ activeDensity() }}
+      Current density:
+      {{
+        activeDensity()
+      }}
     </caption>
     <thead>
       <tr>

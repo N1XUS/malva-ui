@@ -361,9 +361,9 @@ describe('MlvSegmented (radio mode)', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expect(track().style.getPropertyValue('--mlv-segmented-indicator-left')).toBe(
-      '60px',
-    );
+    expect(
+      track().style.getPropertyValue('--mlv-segmented-indicator-left'),
+    ).toBe('60px');
 
     // Mirroring the group moves every item without changing its size, so no
     // ResizeObserver fires — the direction itself has to drive the re-measure.
@@ -373,9 +373,9 @@ describe('MlvSegmented (radio mode)', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(track().style.getPropertyValue('--mlv-segmented-indicator-left')).toBe(
-      '12px',
-    );
+    expect(
+      track().style.getPropertyValue('--mlv-segmented-indicator-left'),
+    ).toBe('12px');
   });
 
   it('collapses the indicator when no item is active', async () => {
@@ -770,5 +770,109 @@ describe('MlvSegmented stylesheet', () => {
       'background: var(--mlv-background-neutral-1-active)',
     );
     expect(item).toContain('&:active:not(&--active):not(&--disabled)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scoped direction (#147)
+//
+// Direction is scoped: a `dir` attribute on any ancestor flips that subtree
+// while the document stays LTR — and CDK stamps `dir` on every overlay host, so
+// a segmented group rendered in a popup, menu or dialog is such a subtree by
+// construction. Both direction-aware halves of this component — the pill
+// measurement and the arrow-key model — resolve against the host, so they can
+// never disagree about which direction applies.
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvSegmented, MlvSegmentedItem],
+  template: `
+    <div [attr.dir]="scopeDir()">
+      <mlv-segmented [(value)]="value" ariaLabel="Period">
+        <button mlvSegmentedItem value="day">Day</button>
+        <button mlvSegmentedItem value="week">Week</button>
+        <button mlvSegmentedItem value="month">Month</button>
+      </mlv-segmented>
+    </div>
+  `,
+})
+class ScopedDirHost {
+  readonly value = signal<unknown>('day');
+  readonly scopeDir = signal<'rtl' | 'ltr'>('rtl');
+}
+
+describe('MlvSegmented scoped direction', () => {
+  let fixture: ComponentFixture<ScopedDirHost>;
+  let host: ScopedDirHost;
+  let rtlService: MlvRtlService;
+
+  const items = (): HTMLButtonElement[] =>
+    Array.from(
+      fixture.nativeElement.querySelectorAll('button[mlvSegmentedItem]'),
+    );
+
+  function keydown(key: string): void {
+    (
+      fixture.nativeElement.querySelector(
+        '.mlv-segmented__track',
+      ) as HTMLElement
+    ).dispatchEvent(
+      new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+    );
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ScopedDirHost],
+    }).compileComponents();
+    fixture = TestBed.createComponent(ScopedDirHost);
+    host = fixture.componentInstance;
+    rtlService = TestBed.inject(MlvRtlService);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    rtlService?.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  it('mirrors the horizontal arrows inside a [dir="rtl"] subtree while the document stays LTR', () => {
+    expect(rtlService.direction()).toBe('ltr');
+
+    items()[0].focus();
+    keydown('ArrowLeft');
+    expect(host.value()).toBe('week'); // ArrowLeft is "next" once mirrored
+    keydown('ArrowRight');
+    expect(host.value()).toBe('day');
+  });
+
+  it('leaves the vertical arrows and Home/End alone inside a [dir="rtl"] subtree', () => {
+    expect(rtlService.direction()).toBe('ltr');
+
+    items()[0].focus();
+    keydown('ArrowDown');
+    expect(host.value()).toBe('week'); // vertical never mirrors
+    keydown('ArrowUp');
+    expect(host.value()).toBe('day');
+    keydown('End');
+    expect(host.value()).toBe('month');
+    keydown('Home');
+    expect(host.value()).toBe('day');
+  });
+
+  it('keeps a [dir="ltr"] island unmirrored while the document is RTL', async () => {
+    host.scopeDir.set('ltr');
+    rtlService.setDirection('rtl');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(rtlService.direction()).toBe('rtl');
+
+    items()[0].focus();
+    keydown('ArrowRight');
+    expect(host.value()).toBe('week'); // the island reads LTR
+    keydown('ArrowLeft');
+    expect(host.value()).toBe('day');
   });
 });

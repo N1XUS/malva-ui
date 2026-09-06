@@ -2,14 +2,14 @@
   <mlv-rating [max]="5" [formControl]="ratingCtrl" />
 
   @if (ratingCtrl.invalid && ratingCtrl.touched) {
-  <span
-    style="
-      font-size: var(--mlv-typography-body-s-size);
-      color: var(--mlv-text-negative);
-    "
-  >
-    Please select a rating.
-  </span>
+    <span
+      style="
+        font-size: var(--mlv-typography-body-s-size);
+        color: var(--mlv-text-negative);
+      "
+    >
+      Please select a rating.
+    </span>
   }
 
   <div class="demo-row" style="gap: 0.75rem; align-items: center">

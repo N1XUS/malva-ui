@@ -245,6 +245,13 @@ splitByComma = (v: string) =>
 
 ---
 
+## Direction (RTL)
+
+- **Scoped, not per-document.** The token `FocusKeyManager` takes `withHorizontalOrientation(this._direction())`, where `_direction` is `elementDirection(host)` — **not** the global `direction()` — and the manager is rebuilt whenever the token set or the direction changes.
+- So tokens inside a `[dir="rtl"]` subtree step with `ArrowLeft` = next and `ArrowRight` = previous while the document stays LTR, and an LTR island under an RTL document does not mirror. Reading the global direction here was the #147 defect in its `FocusKeyManager` form: chips laid out right-to-left, arrows still stepping left-to-right.
+- The manager is not activated on focus, so the first arrow of any kind lands on index 0 before stepping begins.
+- Regressions in `tokenizer.spec.ts` → _scoped [dir] keyboard mirroring_.
+
 ## Dependencies
 
 - `@angular/forms/signals` — signal-control contract; reactive/ngModel compatibility is built into Angular

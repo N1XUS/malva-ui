@@ -18,9 +18,9 @@
 
   <ul aria-live="polite">
     @for (event of events(); track $index) {
-    <li>{{ event }}</li>
+      <li>{{ event }}</li>
     } @empty {
-    <li>No upload events yet.</li>
+      <li>No upload events yet.</li>
     }
   </ul>
 </div>

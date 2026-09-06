@@ -446,6 +446,12 @@ export class MlvTabGroup implements MlvTabGroupAccessor, AfterViewInit {
     const count = items.length;
     if (count === 0) return;
 
+    // Vertical-only: this handler answers `ArrowUp` / `ArrowDown` / `Escape`
+    // inside the overflow popup and never the horizontal pair, so
+    // `normalizeArrowKey` is deliberately called without a direction target.
+    // (`mlv-tabs` has no horizontal arrow navigation at all — its tab strip
+    // binds only `keydown.enter` / `keydown.space`. That missing roving
+    // Left/Right on a `role="tablist"` is a separate WAI-ARIA gap.)
     const key = this._rtlService.normalizeArrowKey(event);
     if (key === DOWN_ARROW) {
       event.preventDefault();

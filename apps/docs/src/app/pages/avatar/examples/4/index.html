@@ -1,10 +1,10 @@
 <div style="display: flex; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap">
   @for (member of team; track member.initials) {
-  <mlv-avatar
-    size="l"
-    [initials]="member.initials"
-    [color]="member.color"
-    [label]="member.label"
-  />
+    <mlv-avatar
+      size="l"
+      [initials]="member.initials"
+      [color]="member.color"
+      [label]="member.label"
+    />
   }
 </div>
