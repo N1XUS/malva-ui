@@ -1,7 +1,8 @@
 <div class="bulk-bar" role="group" aria-label="Bulk actions">
   <span class="bulk-bar__count">
-    {{ selectedIds().length }} selected @if (selectedIds().length > 0) {
-    <span class="bulk-bar__keys">({{ selectedIds().join(', ') }})</span>
+    {{ selectedIds().length }} selected
+    @if (selectedIds().length > 0) {
+      <span class="bulk-bar__keys">({{ selectedIds().join(', ') }})</span>
     }
   </span>
   <button
@@ -50,7 +51,7 @@
   >
     <span class="ticket__title">{{ card.title }}</span>
     @if (selected) {
-    <span class="ticket__flag">Selected</span>
+      <span class="ticket__flag">Selected</span>
     }
   </ng-template>
 </mlv-taskboard>

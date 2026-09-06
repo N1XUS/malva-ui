@@ -16,10 +16,10 @@
     <span class="ticket__title">{{ card.title }}</span>
     <span class="ticket__meta">
       @if (isLocked(card.id)) {
-      <svg lucideLock [size]="12" aria-hidden="true"></svg>
-      <span>Locked</span>
+        <svg lucideLock [size]="12" aria-hidden="true"></svg>
+        <span>Locked</span>
       } @else if (card.needsReview) {
-      <span>Needs review</span>
+        <span>Needs review</span>
       }
     </span>
   </ng-template>

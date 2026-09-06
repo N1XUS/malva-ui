@@ -1,9 +1,9 @@
 <div class="density-toolbar">
   <mlv-segmented [(value)]="density" ariaLabel="Board density">
     @for (option of densities; track option) {
-    <button mlvSegmentedItem [value]="option" class="density-toolbar__step">
-      {{ option }}
-    </button>
+      <button mlvSegmentedItem [value]="option" class="density-toolbar__step">
+        {{ option }}
+      </button>
     }
   </mlv-segmented>
 </div>

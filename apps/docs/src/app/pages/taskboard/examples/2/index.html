@@ -26,12 +26,12 @@
       </button>
       <span class="phase-header__label">{{ column.label }}</span>
       @if (wip.limit !== undefined) {
-      <span
-        class="phase-header__wip"
-        [class.phase-header__wip--full]="wip.remaining === 0"
-      >
-        {{ wip.count }}/{{ wip.limit }}
-      </span>
+        <span
+          class="phase-header__wip"
+          [class.phase-header__wip--full]="wip.remaining === 0"
+        >
+          {{ wip.count }}/{{ wip.limit }}
+        </span>
       }
     </div>
   </ng-template>
@@ -53,7 +53,7 @@
       </button>
       <span class="phase-header__label">{{ lane.label }}</span>
       @if (wip.limit !== undefined) {
-      <span class="phase-header__wip">{{ wip.count }}/{{ wip.limit }}</span>
+        <span class="phase-header__wip">{{ wip.count }}/{{ wip.limit }}</span>
       }
     </div>
   </ng-template>

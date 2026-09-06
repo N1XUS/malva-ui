@@ -16,9 +16,10 @@
     <ng-template mlvTaskboardColumnHeaderDef let-column let-wip="wip">
       <span class="slot-header">{{ column.label }}</span>
       <span class="slot-header__count">
-        {{ wip.count }}@if (wip.limit !== undefined) {<span
-          >/{{ wip.limit }}</span
-        >}
+        {{ wip.count }}
+        @if (wip.limit !== undefined) {
+          <span>/{{ wip.limit }}</span>
+        }
       </span>
     </ng-template>
 
