@@ -1,111 +1,125 @@
 <div class="demo-col" style="gap: 1.25rem; max-width: 28rem">
   <!-- File list -->
   @for (file of files(); track file.name) {
-  <div
-    style="
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      border: 1px solid var(--mlv-border-subtle);
-      border-radius: var(--mlv-radius-m);
-      background: var(--mlv-background-raised);
-    "
-  >
-    <!-- File info row -->
-    <div style="display: flex; align-items: center; gap: 0.75rem">
-      <!-- Status icon / spinner -->
-      <div
-        style="
-          flex-shrink: 0;
-          width: 2rem;
-          height: 2rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        "
-      >
-        @if (file.status === 'uploading') {
-        <mlv-loader
-          variant="circle"
-          [indeterminate]="true"
-          [size]="24"
-          [strokeWidth]="2.5"
-          [tone]="stateFor(file)"
-          ariaLabel="Uploading"
-        />
-        } @else if (file.status === 'done') {
-        <svg lucideCheck [size]="18" style="color: var(--mlv-text-positive)" />
-        } @else if (file.status === 'error') {
-        <svg lucideX [size]="18" style="color: var(--mlv-text-negative)" />
-        } @else {
-        <svg lucideUpload [size]="18" style="opacity: 0.4" />
+    <div
+      style="
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--mlv-border-subtle);
+        border-radius: var(--mlv-radius-m);
+        background: var(--mlv-background-raised);
+      "
+    >
+      <!-- File info row -->
+      <div style="display: flex; align-items: center; gap: 0.75rem">
+        <!-- Status icon / spinner -->
+        <div
+          style="
+            flex-shrink: 0;
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          @if (file.status === 'uploading') {
+            <mlv-loader
+              variant="circle"
+              [indeterminate]="true"
+              [size]="24"
+              [strokeWidth]="2.5"
+              [tone]="stateFor(file)"
+              ariaLabel="Uploading"
+            />
+          } @else if (file.status === 'done') {
+            <svg
+              lucideCheck
+              [size]="18"
+              style="color: var(--mlv-text-positive)"
+            />
+          } @else if (file.status === 'error') {
+            <svg lucideX [size]="18" style="color: var(--mlv-text-negative)" />
+          } @else {
+            <svg lucideUpload [size]="18" style="opacity: 0.4" />
+          }
+        </div>
+
+        <!-- Name + size -->
+        <div style="flex: 1; min-width: 0">
+          <div
+            style="
+              font-size: 0.875rem;
+              font-weight: 500;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            "
+          >
+            {{ file.name }}
+          </div>
+          <div style="font-size: 0.75rem; color: var(--mlv-text-secondary)">
+            {{ file.size }}
+          </div>
+        </div>
+
+        <!-- Progress % -->
+        @if (file.status === 'uploading' || file.status === 'done') {
+          <span
+            style="
+              font-size: 0.8125rem;
+              font-weight: 500;
+              color: var(--mlv-text-secondary);
+              white-space: nowrap;
+            "
+          >
+            {{
+              file.status === 'done'
+                ? '100'
+                : (file.progress | number: '1.0-0')
+            }}%
+          </span>
+        }
+        @if (file.status === 'error') {
+          <span style="font-size: 0.75rem; color: var(--mlv-text-negative)"
+            >Failed</span
+          >
         }
       </div>
 
-      <!-- Name + size -->
-      <div style="flex: 1; min-width: 0">
-        <div
-          style="
-            font-size: 0.875rem;
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          "
-        >
-          {{ file.name }}
-        </div>
-        <div style="font-size: 0.75rem; color: var(--mlv-text-secondary)">
-          {{ file.size }}
-        </div>
-      </div>
-
-      <!-- Progress % -->
-      @if (file.status === 'uploading' || file.status === 'done') {
-      <span
-        style="
-          font-size: 0.8125rem;
-          font-weight: 500;
-          color: var(--mlv-text-secondary);
-          white-space: nowrap;
-        "
-      >
-        {{ file.status === 'done' ? '100' : (file.progress | number:'1.0-0') }}%
-      </span>
-      } @if (file.status === 'error') {
-      <span style="font-size: 0.75rem; color: var(--mlv-text-negative)"
-        >Failed</span
-      >
+      <!-- Progress bar -->
+      @if (
+        file.status === 'uploading' ||
+        file.status === 'done' ||
+        file.status === 'error'
+      ) {
+        <mlv-loader
+          variant="bar"
+          [value]="file.progress"
+          [size]="3"
+          [tone]="stateFor(file)"
+        />
       }
     </div>
-
-    <!-- Progress bar -->
-    @if (file.status === 'uploading' || file.status === 'done' || file.status
-    === 'error') {
-    <mlv-loader
-      variant="bar"
-      [value]="file.progress"
-      [size]="3"
-      [tone]="stateFor(file)"
-    />
-    }
-  </div>
   }
 
   <!-- Action buttons -->
   <div class="demo-row">
     @if (!isUploading() && !allDone()) {
-    <button mlvButton (click)="startUpload()">
-      <ng-template mlvButtonBefore
-        ><svg lucideUpload [size]="16"
-      /></ng-template>
-      Upload all
-    </button>
-    } @if (isUploading()) {
-    <button mlvButton variant="secondary" disabled>Uploading…</button>
-    } @if (allDone()) {
-    <button mlvButton variant="secondary" (click)="reset()">Reset</button>
+      <button mlvButton (click)="startUpload()">
+        <ng-template mlvButtonBefore
+          ><svg lucideUpload [size]="16"
+        /></ng-template>
+        Upload all
+      </button>
+    }
+    @if (isUploading()) {
+      <button mlvButton variant="secondary" disabled>Uploading…</button>
+    }
+    @if (allDone()) {
+      <button mlvButton variant="secondary" (click)="reset()">Reset</button>
     }
   </div>
 </div>

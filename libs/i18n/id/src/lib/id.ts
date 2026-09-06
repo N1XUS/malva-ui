@@ -348,6 +348,35 @@ const id: MlvLanguage = {
     rating: 'Peringkat',
     rateValue: 'Beri nilai {value} dari {max}',
   },
+  scheduler: {
+    scheduler: 'Penjadwal',
+    today: 'Hari ini',
+    previous:
+      '{view, select, month {Bulan} week {Minggu} day {Hari} other {Periode}} sebelumnya',
+    next: '{view, select, month {Bulan} week {Minggu} day {Hari} other {Periode}} berikutnya',
+    month: 'Bulan',
+    week: 'Minggu',
+    day: 'Hari',
+    viewSwitch: 'Tampilan',
+    allDay: 'Sepanjang hari',
+    moreEvents: '+{count, plural, one {# lainnya} other {# lainnya}}',
+    moreEventsLabel:
+      '{count, plural, one {# acara lainnya} other {# acara lainnya}} pada {date}',
+    gridLabel:
+      'Tampilan {view, select, month {bulan} week {minggu} day {hari} other {penjadwal}}, {period}',
+    slotLabel: '{date}, pukul {time}',
+    dayLabelToday: '{date}, hari ini',
+    eventLabel: '{title}, {start} sampai {end}',
+    eventLabelAllDay: '{title}, sepanjang hari, {start} sampai {end}',
+    dragHint:
+      'Tekan Alt dan tombol panah untuk memindahkan. Tekan Alt, Shift, dan tombol panah untuk mengubah akhir.',
+    eventMoved: '{title} dipindahkan ke {start}',
+    eventResized: '{title} kini berakhir pada {end}',
+    moveRejected: '{title} tidak dapat ditempatkan di sana',
+    rangeChanged: 'Menampilkan {period}',
+    selectionHint:
+      '{start} sampai {end} dipilih. Tekan Enter untuk mengonfirmasi',
+  },
   scrollbar: {
     scrollableRegion: 'Area yang dapat digulir',
   },

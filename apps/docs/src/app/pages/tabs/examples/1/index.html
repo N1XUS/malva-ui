@@ -1,7 +1,11 @@
 <mlv-tab-group [(activeTab)]="activeTab">
   <mlv-tab value="overview">
     <ng-template mlvTabDef let-hidden>
-      @if (!hidden) { Overview } @else { Overview }
+      @if (!hidden) {
+        Overview
+      } @else {
+        Overview
+      }
     </ng-template>
     <ng-template mlvTabContent>
       <div style="padding: 1rem">

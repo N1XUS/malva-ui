@@ -76,20 +76,20 @@
           (activeTabChange)="setActiveTab($event)"
         >
           @for (tab of tabs; track tab.value) {
-          <mlv-tab [value]="tab.value">
-            <ng-template mlvTabDef>
-              <span class="website-builder__tab-label">
-                {{ tab.label }}
-                <mlv-badge muted mlvDensity="tight"
-                  >{{ tileCount(tab.value) }}</mlv-badge
-                >
-              </span>
-            </ng-template>
-            <!-- The strip lives in the sticky header chrome; the panel body is
+            <mlv-tab [value]="tab.value">
+              <ng-template mlvTabDef>
+                <span class="website-builder__tab-label">
+                  {{ tab.label }}
+                  <mlv-badge muted mlvDensity="tight">{{
+                    tileCount(tab.value)
+                  }}</mlv-badge>
+                </span>
+              </ng-template>
+              <!-- The strip lives in the sticky header chrome; the panel body is
                  the canvas inside `mlv-page-content`, so each tab supplies an
                  empty panel purely so its `aria-controls` resolves. -->
-            <ng-template mlvTabContent></ng-template>
-          </mlv-tab>
+              <ng-template mlvTabContent></ng-template>
+            </mlv-tab>
           }
         </mlv-tab-group>
       </ng-template>
@@ -122,25 +122,27 @@
       </ng-template>
 
       <mlv-page-summary summaryLabel="Layout summary">
-        <mlv-page-summary-item label="Containers"
-          >{{ counts().containers }}</mlv-page-summary-item
-        >
-        <mlv-page-summary-item label="Rows"
-          >{{ counts().rows }}</mlv-page-summary-item
-        >
-        <mlv-page-summary-item label="Blocks"
-          >{{ counts().blocks }}</mlv-page-summary-item
-        >
+        <mlv-page-summary-item label="Containers">{{
+          counts().containers
+        }}</mlv-page-summary-item>
+        <mlv-page-summary-item label="Rows">{{
+          counts().rows
+        }}</mlv-page-summary-item>
+        <mlv-page-summary-item label="Blocks">{{
+          counts().blocks
+        }}</mlv-page-summary-item>
         <mlv-page-summary-item label="Disabled">
           @if (counts().disabled > 0) {
-          <mlv-badge tone="warning" muted mlvDensity="tight"
-            >{{ counts().disabled }}</mlv-badge
-          >
-          } @else { 0 }
+            <mlv-badge tone="warning" muted mlvDensity="tight">{{
+              counts().disabled
+            }}</mlv-badge>
+          } @else {
+            0
+          }
         </mlv-page-summary-item>
-        <mlv-page-summary-item label="Grid"
-          >{{ gridSummary() }}</mlv-page-summary-item
-        >
+        <mlv-page-summary-item label="Grid">{{
+          gridSummary()
+        }}</mlv-page-summary-item>
       </mlv-page-summary>
     </mlv-page-header>
 
@@ -152,131 +154,138 @@
         aria-label="Layout structure"
       >
         @for (section of sections(); track section.slot) {
-        <section
-          class="wb-section"
-          [class.wb-section--locked]="section.locked"
-          [class.wb-section--off]="!section.root.props.enabled"
-          [attr.aria-label]="section.regionLabel"
-        >
-          <header class="wb-section__bar">
-            @if (section.locked) {
-            <svg lucideLock [size]="14" aria-hidden="true" />
-            }
-            <svg
-              [lucideIcon]="sectionIcons[section.slot]"
-              [size]="18"
-              aria-hidden="true"
-            />
-            <h2 class="wb-section__title">{{ section.title }}</h2>
-            <mlv-badge tone="primary" muted mlvDensity="tight"
-              >Section</mlv-badge
-            >
-            @if (section.locked) {
-            <mlv-badge muted mlvDensity="tight">Shared</mlv-badge>
-            } @else if (!section.root.props.enabled) {
-            <mlv-badge tone="warning" muted mlvDensity="tight">Off</mlv-badge>
-            }
-            <span class="wb-section__summary"
-              >{{ sectionSummary(section.root) }}</span
-            >
-
-            <mlv-spacer />
-
-            @if (section.locked) {
-            <button
-              mlvButton
-              type="button"
-              variant="transparent"
-              mlvDensity="compact"
-              (click)="editInAll(section.slot)"
-            >
-              <svg lucidePencil mlvButtonIcon [size]="14" />
-              Edit in All
-            </button>
-            } @else {
-            <mlv-switch
-              mlvDensity="compact"
-              [checked]="section.root.props.enabled"
-              [ariaLabel]="'Enable ' + section.title + ' section'"
-              (checkedChange)="toggleSection(section.key, $event)"
-            />
-            <button
-              mlvButton
-              type="button"
-              shape="square"
-              variant="secondary"
-              mlvDensity="compact"
-              [id]="'wb-section-add-' + section.slot"
-              [attr.aria-label]="'Add container to ' + section.title"
-              [mlvTooltip]="'Add container'"
-              (click)="addContainerToSection(section)"
-            >
-              <svg lucidePlus mlvButtonIcon [size]="14" />
-            </button>
-            }
-          </header>
-
-          <mlv-tiles
-            class="wb-section__tiles"
-            layout="list"
-            [tree]="section.root"
-            [accepts]="accepts"
-            [locked]="section.locked"
-            (treeChange)="onTreeChange(section.key, $event)"
-            (moved)="onMoved()"
+          <section
+            class="wb-section"
+            [class.wb-section--locked]="section.locked"
+            [class.wb-section--off]="!section.root.props.enabled"
+            [attr.aria-label]="section.regionLabel"
           >
-            <ng-template mlvTilesEmpty>
-              <mlv-empty-state class="wb-empty">
-                <!-- Each control-flow branch keeps exactly one projectable
-                     root, so every node still lands in its named slot. -->
-                @if (section.slot === 'content') {
-                <svg mlvEmptyStateIcon lucideLayoutTemplate [size]="48" />
-                } @else {
-                <svg mlvEmptyStateIcon lucideContainer [size]="40" />
-                }
-                <p mlvEmptyStateTitle>{{ sectionEmptyTitle(section.slot) }}</p>
-                <p mlvEmptyStateDescription>
-                  {{ sectionEmptyDescription(section.slot) }}
-                </p>
-                @if (!section.locked) {
+            <header class="wb-section__bar">
+              @if (section.locked) {
+                <svg lucideLock [size]="14" aria-hidden="true" />
+              }
+              <svg
+                [lucideIcon]="sectionIcons[section.slot]"
+                [size]="18"
+                aria-hidden="true"
+              />
+              <h2 class="wb-section__title">{{ section.title }}</h2>
+              <mlv-badge tone="primary" muted mlvDensity="tight"
+                >Section</mlv-badge
+              >
+              @if (section.locked) {
+                <mlv-badge muted mlvDensity="tight">Shared</mlv-badge>
+              } @else if (!section.root.props.enabled) {
+                <mlv-badge tone="warning" muted mlvDensity="tight"
+                  >Off</mlv-badge
+                >
+              }
+              <span class="wb-section__summary">{{
+                sectionSummary(section.root)
+              }}</span>
+
+              <mlv-spacer />
+
+              @if (section.locked) {
                 <button
-                  mlvEmptyStateActions
                   mlvButton
                   type="button"
+                  variant="transparent"
+                  mlvDensity="compact"
+                  (click)="editInAll(section.slot)"
+                >
+                  <svg lucidePencil mlvButtonIcon [size]="14" />
+                  Edit in All
+                </button>
+              } @else {
+                <mlv-switch
+                  mlvDensity="compact"
+                  [checked]="section.root.props.enabled"
+                  [ariaLabel]="'Enable ' + section.title + ' section'"
+                  (checkedChange)="toggleSection(section.key, $event)"
+                />
+                <button
+                  mlvButton
+                  type="button"
+                  shape="square"
                   variant="secondary"
                   mlvDensity="compact"
+                  [id]="'wb-section-add-' + section.slot"
                   [attr.aria-label]="'Add container to ' + section.title"
+                  [mlvTooltip]="'Add container'"
                   (click)="addContainerToSection(section)"
                 >
                   <svg lucidePlus mlvButtonIcon [size]="14" />
-                  Add container
                 </button>
-                }
-              </mlv-empty-state>
-            </ng-template>
+              }
+            </header>
 
-            @for (node of section.root.children; track node.id; let index =
-            $index) {
-            <docs-wb-node
-              [node]="node"
-              [level]="1"
-              [position]="index + 1"
-              [siblingCount]="section.root.children.length"
-              [ancestorEnabled]="section.root.props.enabled"
-              [parentColumns]="sectionColumns"
-              [breakpoint]="viewBreakpoint()"
-              [gridPreview]="gridPreview()"
+            <mlv-tiles
+              class="wb-section__tiles"
+              layout="list"
+              [tree]="section.root"
+              [accepts]="accepts"
               [locked]="section.locked"
-              [rowDepth]="0"
-              (configure)="onConfigure($event)"
-              (addChild)="onAddChild($event)"
-              (removeNode)="onRemoveNode($event)"
-              (toggleEnabled)="onToggleEnabled($event)"
-              (escapeToParent)="onEscapeToTop()"
-            />
-            }
-          </mlv-tiles>
-        </section>
+              (treeChange)="onTreeChange(section.key, $event)"
+              (moved)="onMoved()"
+            >
+              <ng-template mlvTilesEmpty>
+                <mlv-empty-state class="wb-empty">
+                  <!-- Each control-flow branch keeps exactly one projectable
+                     root, so every node still lands in its named slot. -->
+                  @if (section.slot === 'content') {
+                    <svg mlvEmptyStateIcon lucideLayoutTemplate [size]="48" />
+                  } @else {
+                    <svg mlvEmptyStateIcon lucideContainer [size]="40" />
+                  }
+                  <p mlvEmptyStateTitle>
+                    {{ sectionEmptyTitle(section.slot) }}
+                  </p>
+                  <p mlvEmptyStateDescription>
+                    {{ sectionEmptyDescription(section.slot) }}
+                  </p>
+                  @if (!section.locked) {
+                    <button
+                      mlvEmptyStateActions
+                      mlvButton
+                      type="button"
+                      variant="secondary"
+                      mlvDensity="compact"
+                      [attr.aria-label]="'Add container to ' + section.title"
+                      (click)="addContainerToSection(section)"
+                    >
+                      <svg lucidePlus mlvButtonIcon [size]="14" />
+                      Add container
+                    </button>
+                  }
+                </mlv-empty-state>
+              </ng-template>
+
+              @for (
+                node of section.root.children;
+                track node.id;
+                let index = $index
+              ) {
+                <docs-wb-node
+                  [node]="node"
+                  [level]="1"
+                  [position]="index + 1"
+                  [siblingCount]="section.root.children.length"
+                  [ancestorEnabled]="section.root.props.enabled"
+                  [parentColumns]="sectionColumns"
+                  [breakpoint]="viewBreakpoint()"
+                  [gridPreview]="gridPreview()"
+                  [locked]="section.locked"
+                  [rowDepth]="0"
+                  (configure)="onConfigure($event)"
+                  (addChild)="onAddChild($event)"
+                  (removeNode)="onRemoveNode($event)"
+                  (toggleEnabled)="onToggleEnabled($event)"
+                  (escapeToParent)="onEscapeToTop()"
+                />
+              }
+            </mlv-tiles>
+          </section>
         }
       </section>
     </mlv-page-content>
@@ -285,9 +294,9 @@
     <mlv-page-dock sticky appearance="bar">
       <div mlvPageDockStart class="website-builder__dock-start">
         @if (dirty() && !saving()) {
-        <mlv-badge tone="warning" muted mlvDensity="tight"
-          >{{ dirtyCount() }}</mlv-badge
-        >
+          <mlv-badge tone="warning" muted mlvDensity="tight">{{
+            dirtyCount()
+          }}</mlv-badge>
         }
         <span>{{ dockMessage() }}</span>
       </div>
@@ -377,16 +386,16 @@
           />
 
           @if (containerNeedsWidth()) {
-          <mlv-number-input
-            [label]="containerWidthLabel()"
-            [min]="320"
-            [max]="2560"
-            [step]="10"
-            [value]="containerDraft().widthPx"
-            [state]="stateFor(containerWidthMessage())"
-            [message]="containerWidthMessage()"
-            (valueChange)="setContainerWidthPx($event)"
-          />
+            <mlv-number-input
+              [label]="containerWidthLabel()"
+              [min]="320"
+              [max]="2560"
+              [step]="10"
+              [value]="containerDraft().widthPx"
+              [state]="stateFor(containerWidthMessage())"
+              [message]="containerWidthMessage()"
+              (valueChange)="setContainerWidthPx($event)"
+            />
           }
         </fieldset>
 
@@ -403,43 +412,56 @@
               (activeTabChange)="setDialogBreakpoint($event)"
             >
               @for (bp of breakpoints; track bp) {
-              <mlv-tab [value]="bp">
-                <ng-template mlvTabDef>
-                  @switch (bp) { @case ('desktop') {
-                  <svg lucideMonitor [size]="14" aria-hidden="true" />
-                  } @case ('tablet') {
-                  <svg lucideTablet [size]="14" aria-hidden="true" />
-                  } @default {
-                  <svg lucideSmartphone [size]="14" aria-hidden="true" />
-                  } } {{ breakpointLabels[bp] }}
-                </ng-template>
-                <ng-template mlvTabContent>
-                  <mlv-number-input
-                    label="Columns"
-                    [min]="1"
-                    [max]="24"
-                    [step]="1"
-                    [description]="breakpointRanges[bp]"
-                    [value]="containerDraft().columns[bp]"
-                    [state]="stateFor(containerColumnsMessage(bp))"
-                    [message]="containerColumnsMessage(bp)"
-                    (valueChange)="setContainerColumns(bp, $event)"
-                  />
-                </ng-template>
-              </mlv-tab>
+                <mlv-tab [value]="bp">
+                  <ng-template mlvTabDef>
+                    @switch (bp) {
+                      @case ('desktop') {
+                        <svg lucideMonitor [size]="14" aria-hidden="true" />
+                      }
+                      @case ('tablet') {
+                        <svg lucideTablet [size]="14" aria-hidden="true" />
+                      }
+                      @default {
+                        <svg lucideSmartphone [size]="14" aria-hidden="true" />
+                      }
+                    }
+                    {{ breakpointLabels[bp] }}
+                  </ng-template>
+                  <ng-template mlvTabContent>
+                    <mlv-number-input
+                      label="Columns"
+                      [min]="1"
+                      [max]="24"
+                      [step]="1"
+                      [description]="breakpointRanges[bp]"
+                      [value]="containerDraft().columns[bp]"
+                      [state]="stateFor(containerColumnsMessage(bp))"
+                      [message]="containerColumnsMessage(bp)"
+                      (valueChange)="setContainerColumns(bp, $event)"
+                    />
+                  </ng-template>
+                </mlv-tab>
               }
             </mlv-tab-group>
           </div>
 
           @if (containerClampWarning(); as warning) {
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-alert tone="warning" outlined>
-              <ng-template mlvAlertTitle>Some rows would overflow</ng-template>
-              {{ warning.count }} {{ warning.count === 1 ? 'row spans' : 'rows
-              span' }} more columns than this container will offer at {{
-              warning.breakpoints }}. Their span will be clamped on save.
-            </mlv-alert>
-          </div>
+            <div [mlvFieldsetSpan]="'full'">
+              <mlv-alert tone="warning" outlined>
+                <ng-template mlvAlertTitle
+                  >Some rows would overflow</ng-template
+                >
+                {{ warning.count }}
+                {{
+                  warning.count === 1
+                    ? 'row spans'
+                    : 'rows
+              span'
+                }}
+                more columns than this container will offer at
+                {{ warning.breakpoints }}. Their span will be clamped on save.
+              </mlv-alert>
+            </div>
           }
         </fieldset>
       </form>
@@ -503,52 +525,58 @@
               (activeTabChange)="setDialogBreakpoint($event)"
             >
               @for (bp of breakpoints; track bp) {
-              <mlv-tab [value]="bp">
-                <ng-template mlvTabDef>
-                  @switch (bp) { @case ('desktop') {
-                  <svg lucideMonitor [size]="14" aria-hidden="true" />
-                  } @case ('tablet') {
-                  <svg lucideTablet [size]="14" aria-hidden="true" />
-                  } @default {
-                  <svg lucideSmartphone [size]="14" aria-hidden="true" />
-                  } } {{ breakpointLabels[bp] }}
-                </ng-template>
-                <ng-template mlvTabContent>
-                  <p class="website-builder__dialog-context">
-                    {{ rowParentSentence(bp) }}
-                  </p>
-
-                  <span class="wb-span website-builder__dialog-meter">
-                    <span
-                      class="wb-span__track"
-                      aria-hidden="true"
-                      [style.--wb-cols]="rowSpanTicks(bp).length"
-                    >
-                      @for (tick of rowSpanTicks(bp); track tick) {
-                      <span
-                        class="wb-span__cell"
-                        [class.wb-span__cell--filled]="tick <= rowSpan(bp)"
-                      ></span>
+                <mlv-tab [value]="bp">
+                  <ng-template mlvTabDef>
+                    @switch (bp) {
+                      @case ('desktop') {
+                        <svg lucideMonitor [size]="14" aria-hidden="true" />
                       }
-                    </span>
-                    <span class="wb-span__text"
-                      >{{ rowSpan(bp) }} of {{ rowParentMax(bp) }} columns</span
-                    >
-                  </span>
+                      @case ('tablet') {
+                        <svg lucideTablet [size]="14" aria-hidden="true" />
+                      }
+                      @default {
+                        <svg lucideSmartphone [size]="14" aria-hidden="true" />
+                      }
+                    }
+                    {{ breakpointLabels[bp] }}
+                  </ng-template>
+                  <ng-template mlvTabContent>
+                    <p class="website-builder__dialog-context">
+                      {{ rowParentSentence(bp) }}
+                    </p>
 
-                  <mlv-number-input
-                    label="Columns spanned"
-                    [min]="1"
-                    [max]="rowParentMax(bp)"
-                    [step]="1"
-                    [description]="rowSpanDescription(bp)"
-                    [value]="rowSpan(bp)"
-                    [state]="stateFor(rowSpanMessage(bp))"
-                    [message]="rowSpanMessage(bp)"
-                    (valueChange)="setRowSpan(bp, $event)"
-                  />
-                </ng-template>
-              </mlv-tab>
+                    <span class="wb-span website-builder__dialog-meter">
+                      <span
+                        class="wb-span__track"
+                        aria-hidden="true"
+                        [style.--wb-cols]="rowSpanTicks(bp).length"
+                      >
+                        @for (tick of rowSpanTicks(bp); track tick) {
+                          <span
+                            class="wb-span__cell"
+                            [class.wb-span__cell--filled]="tick <= rowSpan(bp)"
+                          ></span>
+                        }
+                      </span>
+                      <span class="wb-span__text"
+                        >{{ rowSpan(bp) }} of
+                        {{ rowParentMax(bp) }} columns</span
+                      >
+                    </span>
+
+                    <mlv-number-input
+                      label="Columns spanned"
+                      [min]="1"
+                      [max]="rowParentMax(bp)"
+                      [step]="1"
+                      [description]="rowSpanDescription(bp)"
+                      [value]="rowSpan(bp)"
+                      [state]="stateFor(rowSpanMessage(bp))"
+                      [message]="rowSpanMessage(bp)"
+                      (valueChange)="setRowSpan(bp, $event)"
+                    />
+                  </ng-template>
+                </mlv-tab>
               }
             </mlv-tab-group>
           </div>
@@ -603,668 +631,710 @@
 
         <!-- Blocks are breakpoint-agnostic: no nested breakpoint tabs here. -->
         @switch (blockDraft().blockType) {
-
-        <!-- ── Top menu ─────────────────────────────────────────────── -->
-        @case ('top-menu') { @let menu = topMenuSettings();
-        <fieldset
-          mlvFieldset
-          legend="Menu"
-          description="Which navigation menu this block renders."
-          [columns]="2"
-        >
-          <mlv-select
-            label="Menu source"
-            required
-            [options]="menuSources.values"
-            [toOption]="menuSources.toOption"
-            [value]="menu.source"
-            (valueChange)="patchSettings({ source: str($event) })"
-          />
-          <mlv-number-input
-            label="Levels shown"
-            [min]="1"
-            [max]="3"
-            [value]="menu.levels"
-            [state]="
-              menu.levels >= 1 && menu.levels <= 3 ? 'default' : 'error'
-            "
-            [message]="
-              menu.levels >= 1 && menu.levels <= 3
-                ? ''
-                : 'Show between 1 and 3 levels.'
-            "
-            (valueChange)="patchSettings({ levels: num($event) })"
-          />
-          <mlv-switch
-            label="Show item icons"
-            [checked]="menu.showIcons"
-            (checkedChange)="patchSettings({ showIcons: $event })"
-          />
-          <mlv-select
-            label="On mobile"
-            required
-            [options]="menuMobile.values"
-            [toOption]="menuMobile.toOption"
-            [value]="menu.onMobile"
-            (valueChange)="patchSettings({ onMobile: str($event) })"
-          />
-        </fieldset>
-        }
-
-        <!-- ── Rich text ────────────────────────────────────────────── -->
-        @case ('rich-text') { @let text = richTextSettings();
-        <fieldset mlvFieldset legend="Content" [columns]="1">
-          <mlv-textarea
-            label="Text"
-            required
-            [rows]="6"
-            [maxLength]="2000"
-            [value]="text.text"
-            [state]="text.text.trim().length > 0 ? 'default' : 'error'"
-            [message]="text.text.trim().length > 0 ? '' : 'Add some text.'"
-            (valueChange)="patchSettings({ text: $event })"
-          />
-          <mlv-select
-            label="Alignment"
-            required
-            [options]="textAlignments.values"
-            [toOption]="textAlignments.toOption"
-            [value]="text.alignment"
-            (valueChange)="patchSettings({ alignment: str($event) })"
-          />
-          <mlv-switch
-            label="Constrain reading width"
-            [checked]="text.constrainWidth"
-            (checkedChange)="patchSettings({ constrainWidth: $event })"
-          />
-          <mlv-description
-            >Caps the line length at roughly 65 characters.</mlv-description
-          >
-        </fieldset>
-        }
-
-        <!-- ── Article body ─────────────────────────────────────────── -->
-        @case ('article-body') { @let body = articleBodySettings();
-        <fieldset
-          mlvFieldset
-          legend="Article body"
-          description="What the article renderer includes."
-          [columns]="2"
-        >
-          <mlv-switch
-            label="Show lead paragraph"
-            [checked]="body.showLead"
-            (checkedChange)="patchSettings({ showLead: $event })"
-          />
-          <mlv-switch
-            label="Show author byline"
-            [checked]="body.showByline"
-            (checkedChange)="patchSettings({ showByline: $event })"
-          />
-          <mlv-switch
-            label="Show reading time"
-            [checked]="body.showReadingTime"
-            (checkedChange)="patchSettings({ showReadingTime: $event })"
-          />
-          <mlv-select
-            label="Media handling"
-            required
-            [options]="articleMedia.values"
-            [toOption]="articleMedia.toOption"
-            [value]="body.media"
-            (valueChange)="patchSettings({ media: str($event) })"
-          />
-        </fieldset>
-        }
-
-        <!-- ── Articles ─────────────────────────────────────────────── -->
-        @case ('articles') { @let list = articlesSettings();
-        <fieldset
-          mlvFieldset
-          legend="Which articles"
-          description="How this block decides what to show."
-          [columns]="2"
-        >
-          <mlv-select
-            label="Fill with"
-            required
-            [options]="articleFills.values"
-            [toOption]="articleFills.toOption"
-            [value]="list.fill"
-            (valueChange)="patchSettings({ fill: str($event) })"
-          />
-
-          @if (list.fill === 'category') {
-          <mlv-select
-            searchable
-            label="Category"
-            required
-            [options]="categories.values"
-            [toOption]="categories.toOption"
-            [value]="list.categoryId"
-            [state]="list.categoryId ? 'default' : 'error'"
-            [message]="list.categoryId ? '' : 'Choose a category.'"
-            (valueChange)="patchSettings({ categoryId: str($event) })"
-          />
-          <mlv-switch
-            label="Include sub-categories"
-            [checked]="list.includeSubcategories"
-            (checkedChange)="patchSettings({ includeSubcategories: $event })"
-          />
-          } @if (list.fill === 'manual') {
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-tokenizer
-              label="Articles"
-              placeholder="Type an article title and press Enter"
-              description="A title that matches the catalog resolves to that article; anything else is kept as typed."
-              [value]="articleTokens()"
-              [createToken]="createArticleToken"
-              [state]="list.articleIds.length > 0 ? 'default' : 'error'"
-              [message]="
-                list.articleIds.length > 0
-                  ? ''
-                  : 'Choose at least one article.'
-              "
-              (valueChange)="setArticleTokens($event)"
-            />
-          </div>
-          } @else {
-          <mlv-number-input
-            label="How many"
-            [min]="1"
-            [max]="24"
-            [value]="list.count"
-            [state]="
-              list.count >= 1 && list.count <= 24 ? 'default' : 'error'
-            "
-            [message]="
-              list.count >= 1 && list.count <= 24
-                ? ''
-                : 'Show between 1 and 24 articles.'
-            "
-            (valueChange)="patchSettings({ count: num($event) })"
-          />
-          }
-        </fieldset>
-
-        <fieldset mlvFieldset legend="How they look" [columns]="2">
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-segmented
-              equalWidth
-              label="Display as"
-              [value]="list.display"
-              (valueChange)="patchSettings({ display: str($event) })"
+          <!-- ── Top menu ─────────────────────────────────────────────── -->
+          @case ('top-menu') {
+            @let menu = topMenuSettings();
+            <fieldset
+              mlvFieldset
+              legend="Menu"
+              description="Which navigation menu this block renders."
+              [columns]="2"
             >
-              <button mlvSegmentedItem type="button" value="grid">
-                <svg lucideLayoutGrid [size]="14" aria-hidden="true" />
-                Grid
-              </button>
-              <button mlvSegmentedItem type="button" value="list">
-                <svg lucideList [size]="14" aria-hidden="true" />
-                List
-              </button>
-              <button mlvSegmentedItem type="button" value="carousel">
-                <svg lucideGalleryHorizontal [size]="14" aria-hidden="true" />
-                Carousel
-              </button>
-            </mlv-segmented>
-          </div>
-
-          @if (list.display === 'grid') {
-          <mlv-number-input
-            label="Columns per row"
-            [min]="1"
-            [max]="6"
-            [value]="list.columnsPerRow"
-            [state]="
-              list.columnsPerRow >= 1 && list.columnsPerRow <= 6
-                ? 'default'
-                : 'error'
-            "
-            [message]="
-              list.columnsPerRow >= 1 && list.columnsPerRow <= 6
-                ? ''
-                : 'Use between 1 and 6 columns.'
-            "
-            (valueChange)="patchSettings({ columnsPerRow: num($event) })"
-          />
-          } @if (list.display === 'carousel') {
-          <mlv-switch
-            label="Advance automatically"
-            [checked]="list.autoplay"
-            (checkedChange)="patchSettings({ autoplay: $event })"
-          />
-          @if (list.autoplay) {
-          <mlv-number-input
-            label="Slide interval (seconds)"
-            [min]="2"
-            [max]="30"
-            [value]="list.slideInterval"
-            (valueChange)="patchSettings({ slideInterval: num($event) })"
-          />
-          } }
-
-          <mlv-switch
-            label="Show thumbnail"
-            [checked]="list.showThumbnail"
-            (checkedChange)="patchSettings({ showThumbnail: $event })"
-          />
-          <mlv-switch
-            label="Show excerpt"
-            [checked]="list.showExcerpt"
-            (checkedChange)="patchSettings({ showExcerpt: $event })"
-          />
-        </fieldset>
-        }
-
-        <!-- ── Hero ─────────────────────────────────────────────────── -->
-        @case ('hero') { @let hero = heroSettings();
-        <fieldset mlvFieldset legend="Message" [columns]="1">
-          <mlv-input
-            label="Headline"
-            required
-            [maxLength]="80"
-            [value]="hero.headline"
-            [state]="hero.headline.trim().length > 0 ? 'default' : 'error'"
-            [message]="
-              hero.headline.trim().length > 0 ? '' : 'Add a headline.'
-            "
-            (valueChange)="patchSettings({ headline: $event })"
-          />
-          <mlv-textarea
-            label="Supporting text"
-            [rows]="2"
-            [maxLength]="160"
-            [value]="hero.supportingText"
-            (valueChange)="patchSettings({ supportingText: $event })"
-          />
-        </fieldset>
-
-        <fieldset mlvFieldset legend="Background" [columns]="2">
-          <mlv-select
-            label="Background"
-            required
-            [options]="heroBackgrounds.values"
-            [toOption]="heroBackgrounds.toOption"
-            [value]="hero.background"
-            (valueChange)="patchSettings({ background: str($event) })"
-          />
-          <mlv-select
-            label="Height"
-            required
-            [options]="heroHeights.values"
-            [toOption]="heroHeights.toOption"
-            [value]="hero.height"
-            (valueChange)="patchSettings({ height: str($event) })"
-          />
-
-          @if (hero.background === 'image') {
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-file-upload
-              compact
-              accept="image/*"
-              [multiple]="false"
-              title="Drag an image here"
-              actionLabel="Browse images"
-              [value]="heroFiles()"
-              (valueChange)="setHeroImage($event)"
-            />
-            @if (hero.imageName) {
-            <mlv-description>Using {{ hero.imageName }}.</mlv-description>
-            } @else {
-            <mlv-description>Choose an image.</mlv-description>
-            }
-          </div>
-          } @if (hero.background === 'solid') {
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-color-picker
-              label="Colour"
-              required
-              [value]="hero.colour"
-              (valueChange)="patchSettings({ colour: $event })"
-            />
-          </div>
-          } @if (hero.background === 'video') {
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-input
-              type="url"
-              label="Video URL"
-              required
-              [value]="hero.videoUrl"
-              [state]="hero.videoUrl.trim().length > 0 ? 'default' : 'error'"
-              [message]="
-                hero.videoUrl.trim().length > 0 ? '' : 'Enter a valid URL.'
-              "
-              (valueChange)="patchSettings({ videoUrl: $event })"
-            />
-          </div>
-          }
-        </fieldset>
-
-        <fieldset mlvFieldset legend="Call to action" [columns]="2">
-          <mlv-input
-            label="Button label"
-            [maxLength]="32"
-            [value]="hero.buttonLabel"
-            (valueChange)="patchSettings({ buttonLabel: $event })"
-          />
-          <mlv-input
-            type="url"
-            label="Button URL"
-            [value]="hero.buttonUrl"
-            [state]="
-              hero.buttonLabel.trim().length > 0 && !hero.buttonUrl
-                ? 'error'
-                : 'default'
-            "
-            [message]="
-              hero.buttonLabel.trim().length > 0 && !hero.buttonUrl
-                ? 'Add a link for the button.'
-                : ''
-            "
-            (valueChange)="patchSettings({ buttonUrl: $event })"
-          />
-        </fieldset>
-        }
-
-        <!-- ── Banner ───────────────────────────────────────────────── -->
-        @case ('banner') { @let banner = bannerSettings();
-        <fieldset mlvFieldset legend="Banner" [columns]="2">
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-input
-              label="Message"
-              required
-              [maxLength]="120"
-              [value]="banner.message"
-              [state]="banner.message.trim().length > 0 ? 'default' : 'error'"
-              [message]="
-                banner.message.trim().length > 0 ? '' : 'Add a message.'
-              "
-              (valueChange)="patchSettings({ message: $event })"
-            />
-          </div>
-          <mlv-select
-            label="Tone"
-            required
-            [options]="bannerTones.values"
-            [toOption]="bannerTones.toOption"
-            [value]="banner.tone"
-            (valueChange)="patchSettings({ tone: str($event) })"
-          />
-          <div>
-            <mlv-switch
-              label="Dismissible"
-              [checked]="banner.dismissible"
-              (checkedChange)="patchSettings({ dismissible: $event })"
-            />
-            <mlv-description
-              >Lets visitors close the banner for the rest of the
-              session.</mlv-description
-            >
-          </div>
-          <mlv-input
-            label="Link label"
-            [maxLength]="32"
-            [value]="banner.linkLabel"
-            (valueChange)="patchSettings({ linkLabel: $event })"
-          />
-          <mlv-input
-            type="url"
-            label="Link URL"
-            [value]="banner.linkUrl"
-            [state]="
-              banner.linkLabel.trim().length > 0 && !banner.linkUrl
-                ? 'error'
-                : 'default'
-            "
-            [message]="
-              banner.linkLabel.trim().length > 0 && !banner.linkUrl
-                ? 'Add a link for the label.'
-                : ''
-            "
-            (valueChange)="patchSettings({ linkUrl: $event })"
-          />
-        </fieldset>
-        }
-
-        <!-- ── Newsletter ───────────────────────────────────────────── -->
-        @case ('newsletter') { @let news = newsletterSettings();
-        <fieldset mlvFieldset legend="Sign-up" [columns]="2">
-          <mlv-input
-            label="Heading"
-            [maxLength]="60"
-            [value]="news.heading"
-            (valueChange)="patchSettings({ heading: $event })"
-          />
-          <mlv-select
-            label="Layout"
-            required
-            [options]="newsletterLayouts.values"
-            [toOption]="newsletterLayouts.toOption"
-            [value]="news.layout"
-            (valueChange)="patchSettings({ layout: str($event) })"
-          />
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-textarea
-              label="Supporting text"
-              [rows]="2"
-              [maxLength]="200"
-              [value]="news.supportingText"
-              (valueChange)="patchSettings({ supportingText: $event })"
-            />
-          </div>
-          <mlv-input
-            label="Mailing list ID"
-            required
-            [value]="news.listId"
-            [state]="news.listId.trim().length > 0 ? 'default' : 'error'"
-            [message]="
-              news.listId.trim().length > 0 ? '' : 'Enter the mailing list ID.'
-            "
-            (valueChange)="patchSettings({ listId: $event })"
-          />
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-input
-              label="Consent text"
-              required
-              [value]="news.consentText"
-              [state]="
-                news.consentText.trim().length > 0 ? 'default' : 'error'
-              "
-              [message]="
-                news.consentText.trim().length > 0
-                  ? ''
-                  : 'Consent text is required.'
-              "
-              (valueChange)="patchSettings({ consentText: $event })"
-            />
-          </div>
-        </fieldset>
-        }
-
-        <!-- ── Search ───────────────────────────────────────────────── -->
-        @case ('search') { @let search = searchSettings();
-        <fieldset mlvFieldset legend="Search" [columns]="2">
-          <mlv-input
-            label="Placeholder"
-            [maxLength]="60"
-            [value]="search.placeholder"
-            (valueChange)="patchSettings({ placeholder: $event })"
-          />
-          <mlv-select
-            label="Search in"
-            required
-            [options]="searchScopes.values"
-            [toOption]="searchScopes.toOption"
-            [value]="search.scope"
-            (valueChange)="patchSettings({ scope: str($event) })"
-          />
-          <mlv-switch
-            label="Show recent searches"
-            [checked]="search.showRecent"
-            (checkedChange)="patchSettings({ showRecent: $event })"
-          />
-          <mlv-select
-            label="Open results"
-            required
-            [options]="searchTargets.values"
-            [toOption]="searchTargets.toOption"
-            [value]="search.openResults"
-            (valueChange)="patchSettings({ openResults: str($event) })"
-          />
-          @if (search.openResults === 'page') {
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-input
-              type="url"
-              label="Results page URL"
-              required
-              [value]="search.resultsUrl"
-              [state]="
-                search.resultsUrl.trim().length > 0 ? 'default' : 'error'
-              "
-              [message]="
-                search.resultsUrl.trim().length > 0
-                  ? ''
-                  : 'Enter the results page URL.'
-              "
-              (valueChange)="patchSettings({ resultsUrl: $event })"
-            />
-          </div>
-          }
-        </fieldset>
-        }
-
-        <!-- ── Breadcrumbs ──────────────────────────────────────────── -->
-        @case ('breadcrumbs') { @let crumbs = breadcrumbsSettings();
-        <fieldset mlvFieldset legend="Breadcrumbs" [columns]="2">
-          <mlv-input
-            label="Root label"
-            required
-            [maxLength]="24"
-            [value]="crumbs.rootLabel"
-            [state]="crumbs.rootLabel.trim().length > 0 ? 'default' : 'error'"
-            [message]="
-              crumbs.rootLabel.trim().length > 0 ? '' : 'Enter a root label.'
-            "
-            (valueChange)="patchSettings({ rootLabel: $event })"
-          />
-          <mlv-select
-            label="Separator"
-            required
-            [options]="breadcrumbSeparators.values"
-            [toOption]="breadcrumbSeparators.toOption"
-            [value]="crumbs.separator"
-            (valueChange)="patchSettings({ separator: str($event) })"
-          />
-          <mlv-switch
-            label="Show the current page"
-            [checked]="crumbs.showCurrent"
-            (checkedChange)="patchSettings({ showCurrent: $event })"
-          />
-          <mlv-number-input
-            label="Collapse after"
-            description="Middle steps beyond this count collapse into an ellipsis."
-            [min]="2"
-            [max]="10"
-            [value]="crumbs.collapseAfter"
-            [state]="
-              crumbs.collapseAfter >= 2 && crumbs.collapseAfter <= 10
-                ? 'default'
-                : 'error'
-            "
-            [message]="
-              crumbs.collapseAfter >= 2 && crumbs.collapseAfter <= 10
-                ? ''
-                : 'Collapse after 2 to 10 steps.'
-            "
-            (valueChange)="patchSettings({ collapseAfter: num($event) })"
-          />
-        </fieldset>
-        }
-
-        <!-- ── Category tree ────────────────────────────────────────── -->
-        @case ('category-tree') { @let tree = categoryTreeSettings();
-        <fieldset mlvFieldset legend="Category tree" [columns]="2">
-          <mlv-select
-            searchable
-            label="Start from"
-            [options]="categoryRoots.values"
-            [toOption]="categoryRoots.toOption"
-            [value]="tree.startFrom ?? ''"
-            (valueChange)="patchSettings({ startFrom: str($event) || null })"
-          />
-          <mlv-number-input
-            label="Levels shown"
-            [min]="1"
-            [max]="5"
-            [value]="tree.levels"
-            [state]="
-              tree.levels >= 1 && tree.levels <= 5 ? 'default' : 'error'
-            "
-            [message]="
-              tree.levels >= 1 && tree.levels <= 5
-                ? ''
-                : 'Show between 1 and 5 levels.'
-            "
-            (valueChange)="patchSettings({ levels: num($event) })"
-          />
-          <mlv-switch
-            label="Show article counts"
-            [checked]="tree.showCounts"
-            (checkedChange)="patchSettings({ showCounts: $event })"
-          />
-          <mlv-switch
-            label="Expanded by default"
-            [checked]="tree.expanded"
-            (checkedChange)="patchSettings({ expanded: $event })"
-          />
-        </fieldset>
-        }
-
-        <!-- ── Social links ─────────────────────────────────────────── -->
-        @case ('social-links') { @let social = socialLinksSettings();
-        <fieldset mlvFieldset legend="Social links" [columns]="2">
-          <div [mlvFieldsetSpan]="'full'">
-            <mlv-checkbox-group
-              class="website-builder__networks"
-              label="Networks"
-              [state]="social.networks.length > 0 ? 'default' : 'error'"
-            >
-              @for (network of socialNetworks; track network.id) {
-              <mlv-checkbox
-                [label]="network.label"
-                [checked]="hasNetwork(network.id)"
-                (checkedChange)="toggleNetwork(network.id, $event)"
+              <mlv-select
+                label="Menu source"
+                required
+                [options]="menuSources.values"
+                [toOption]="menuSources.toOption"
+                [value]="menu.source"
+                (valueChange)="patchSettings({ source: str($event) })"
               />
+              <mlv-number-input
+                label="Levels shown"
+                [min]="1"
+                [max]="3"
+                [value]="menu.levels"
+                [state]="
+                  menu.levels >= 1 && menu.levels <= 3 ? 'default' : 'error'
+                "
+                [message]="
+                  menu.levels >= 1 && menu.levels <= 3
+                    ? ''
+                    : 'Show between 1 and 3 levels.'
+                "
+                (valueChange)="patchSettings({ levels: num($event) })"
+              />
+              <mlv-switch
+                label="Show item icons"
+                [checked]="menu.showIcons"
+                (checkedChange)="patchSettings({ showIcons: $event })"
+              />
+              <mlv-select
+                label="On mobile"
+                required
+                [options]="menuMobile.values"
+                [toOption]="menuMobile.toOption"
+                [value]="menu.onMobile"
+                (valueChange)="patchSettings({ onMobile: str($event) })"
+              />
+            </fieldset>
+          }
+
+          <!-- ── Rich text ────────────────────────────────────────────── -->
+          @case ('rich-text') {
+            @let text = richTextSettings();
+            <fieldset mlvFieldset legend="Content" [columns]="1">
+              <mlv-textarea
+                label="Text"
+                required
+                [rows]="6"
+                [maxLength]="2000"
+                [value]="text.text"
+                [state]="text.text.trim().length > 0 ? 'default' : 'error'"
+                [message]="text.text.trim().length > 0 ? '' : 'Add some text.'"
+                (valueChange)="patchSettings({ text: $event })"
+              />
+              <mlv-select
+                label="Alignment"
+                required
+                [options]="textAlignments.values"
+                [toOption]="textAlignments.toOption"
+                [value]="text.alignment"
+                (valueChange)="patchSettings({ alignment: str($event) })"
+              />
+              <mlv-switch
+                label="Constrain reading width"
+                [checked]="text.constrainWidth"
+                (checkedChange)="patchSettings({ constrainWidth: $event })"
+              />
+              <mlv-description
+                >Caps the line length at roughly 65 characters.</mlv-description
+              >
+            </fieldset>
+          }
+
+          <!-- ── Article body ─────────────────────────────────────────── -->
+          @case ('article-body') {
+            @let body = articleBodySettings();
+            <fieldset
+              mlvFieldset
+              legend="Article body"
+              description="What the article renderer includes."
+              [columns]="2"
+            >
+              <mlv-switch
+                label="Show lead paragraph"
+                [checked]="body.showLead"
+                (checkedChange)="patchSettings({ showLead: $event })"
+              />
+              <mlv-switch
+                label="Show author byline"
+                [checked]="body.showByline"
+                (checkedChange)="patchSettings({ showByline: $event })"
+              />
+              <mlv-switch
+                label="Show reading time"
+                [checked]="body.showReadingTime"
+                (checkedChange)="patchSettings({ showReadingTime: $event })"
+              />
+              <mlv-select
+                label="Media handling"
+                required
+                [options]="articleMedia.values"
+                [toOption]="articleMedia.toOption"
+                [value]="body.media"
+                (valueChange)="patchSettings({ media: str($event) })"
+              />
+            </fieldset>
+          }
+
+          <!-- ── Articles ─────────────────────────────────────────────── -->
+          @case ('articles') {
+            @let list = articlesSettings();
+            <fieldset
+              mlvFieldset
+              legend="Which articles"
+              description="How this block decides what to show."
+              [columns]="2"
+            >
+              <mlv-select
+                label="Fill with"
+                required
+                [options]="articleFills.values"
+                [toOption]="articleFills.toOption"
+                [value]="list.fill"
+                (valueChange)="patchSettings({ fill: str($event) })"
+              />
+
+              @if (list.fill === 'category') {
+                <mlv-select
+                  searchable
+                  label="Category"
+                  required
+                  [options]="categories.values"
+                  [toOption]="categories.toOption"
+                  [value]="list.categoryId"
+                  [state]="list.categoryId ? 'default' : 'error'"
+                  [message]="list.categoryId ? '' : 'Choose a category.'"
+                  (valueChange)="patchSettings({ categoryId: str($event) })"
+                />
+                <mlv-switch
+                  label="Include sub-categories"
+                  [checked]="list.includeSubcategories"
+                  (checkedChange)="
+                    patchSettings({ includeSubcategories: $event })
+                  "
+                />
               }
-            </mlv-checkbox-group>
-            @if (social.networks.length === 0) {
-            <mlv-description>Choose at least one network.</mlv-description>
-            }
-          </div>
-          <mlv-select
-            label="Icon style"
-            required
-            [options]="socialStyles.values"
-            [toOption]="socialStyles.toOption"
-            [value]="social.iconStyle"
-            (valueChange)="patchSettings({ iconStyle: str($event) })"
-          />
-          <mlv-select
-            label="Icon size"
-            required
-            [options]="socialSizes.values"
-            [toOption]="socialSizes.toOption"
-            [value]="social.iconSize"
-            (valueChange)="patchSettings({ iconSize: str($event) })"
-          />
-          <mlv-switch
-            label="Open in a new tab"
-            [checked]="social.newTab"
-            (checkedChange)="patchSettings({ newTab: $event })"
-          />
-        </fieldset>
-        } }
+              @if (list.fill === 'manual') {
+                <div [mlvFieldsetSpan]="'full'">
+                  <mlv-tokenizer
+                    label="Articles"
+                    placeholder="Type an article title and press Enter"
+                    description="A title that matches the catalog resolves to that article; anything else is kept as typed."
+                    [value]="articleTokens()"
+                    [createToken]="createArticleToken"
+                    [state]="list.articleIds.length > 0 ? 'default' : 'error'"
+                    [message]="
+                      list.articleIds.length > 0
+                        ? ''
+                        : 'Choose at least one article.'
+                    "
+                    (valueChange)="setArticleTokens($event)"
+                  />
+                </div>
+              } @else {
+                <mlv-number-input
+                  label="How many"
+                  [min]="1"
+                  [max]="24"
+                  [value]="list.count"
+                  [state]="
+                    list.count >= 1 && list.count <= 24 ? 'default' : 'error'
+                  "
+                  [message]="
+                    list.count >= 1 && list.count <= 24
+                      ? ''
+                      : 'Show between 1 and 24 articles.'
+                  "
+                  (valueChange)="patchSettings({ count: num($event) })"
+                />
+              }
+            </fieldset>
+
+            <fieldset mlvFieldset legend="How they look" [columns]="2">
+              <div [mlvFieldsetSpan]="'full'">
+                <mlv-segmented
+                  equalWidth
+                  label="Display as"
+                  [value]="list.display"
+                  (valueChange)="patchSettings({ display: str($event) })"
+                >
+                  <button mlvSegmentedItem type="button" value="grid">
+                    <svg lucideLayoutGrid [size]="14" aria-hidden="true" />
+                    Grid
+                  </button>
+                  <button mlvSegmentedItem type="button" value="list">
+                    <svg lucideList [size]="14" aria-hidden="true" />
+                    List
+                  </button>
+                  <button mlvSegmentedItem type="button" value="carousel">
+                    <svg
+                      lucideGalleryHorizontal
+                      [size]="14"
+                      aria-hidden="true"
+                    />
+                    Carousel
+                  </button>
+                </mlv-segmented>
+              </div>
+
+              @if (list.display === 'grid') {
+                <mlv-number-input
+                  label="Columns per row"
+                  [min]="1"
+                  [max]="6"
+                  [value]="list.columnsPerRow"
+                  [state]="
+                    list.columnsPerRow >= 1 && list.columnsPerRow <= 6
+                      ? 'default'
+                      : 'error'
+                  "
+                  [message]="
+                    list.columnsPerRow >= 1 && list.columnsPerRow <= 6
+                      ? ''
+                      : 'Use between 1 and 6 columns.'
+                  "
+                  (valueChange)="patchSettings({ columnsPerRow: num($event) })"
+                />
+              }
+              @if (list.display === 'carousel') {
+                <mlv-switch
+                  label="Advance automatically"
+                  [checked]="list.autoplay"
+                  (checkedChange)="patchSettings({ autoplay: $event })"
+                />
+                @if (list.autoplay) {
+                  <mlv-number-input
+                    label="Slide interval (seconds)"
+                    [min]="2"
+                    [max]="30"
+                    [value]="list.slideInterval"
+                    (valueChange)="
+                      patchSettings({ slideInterval: num($event) })
+                    "
+                  />
+                }
+              }
+
+              <mlv-switch
+                label="Show thumbnail"
+                [checked]="list.showThumbnail"
+                (checkedChange)="patchSettings({ showThumbnail: $event })"
+              />
+              <mlv-switch
+                label="Show excerpt"
+                [checked]="list.showExcerpt"
+                (checkedChange)="patchSettings({ showExcerpt: $event })"
+              />
+            </fieldset>
+          }
+
+          <!-- ── Hero ─────────────────────────────────────────────────── -->
+          @case ('hero') {
+            @let hero = heroSettings();
+            <fieldset mlvFieldset legend="Message" [columns]="1">
+              <mlv-input
+                label="Headline"
+                required
+                [maxLength]="80"
+                [value]="hero.headline"
+                [state]="hero.headline.trim().length > 0 ? 'default' : 'error'"
+                [message]="
+                  hero.headline.trim().length > 0 ? '' : 'Add a headline.'
+                "
+                (valueChange)="patchSettings({ headline: $event })"
+              />
+              <mlv-textarea
+                label="Supporting text"
+                [rows]="2"
+                [maxLength]="160"
+                [value]="hero.supportingText"
+                (valueChange)="patchSettings({ supportingText: $event })"
+              />
+            </fieldset>
+
+            <fieldset mlvFieldset legend="Background" [columns]="2">
+              <mlv-select
+                label="Background"
+                required
+                [options]="heroBackgrounds.values"
+                [toOption]="heroBackgrounds.toOption"
+                [value]="hero.background"
+                (valueChange)="patchSettings({ background: str($event) })"
+              />
+              <mlv-select
+                label="Height"
+                required
+                [options]="heroHeights.values"
+                [toOption]="heroHeights.toOption"
+                [value]="hero.height"
+                (valueChange)="patchSettings({ height: str($event) })"
+              />
+
+              @if (hero.background === 'image') {
+                <div [mlvFieldsetSpan]="'full'">
+                  <mlv-file-upload
+                    compact
+                    accept="image/*"
+                    [multiple]="false"
+                    title="Drag an image here"
+                    actionLabel="Browse images"
+                    [value]="heroFiles()"
+                    (valueChange)="setHeroImage($event)"
+                  />
+                  @if (hero.imageName) {
+                    <mlv-description
+                      >Using {{ hero.imageName }}.</mlv-description
+                    >
+                  } @else {
+                    <mlv-description>Choose an image.</mlv-description>
+                  }
+                </div>
+              }
+              @if (hero.background === 'solid') {
+                <div [mlvFieldsetSpan]="'full'">
+                  <mlv-color-picker
+                    label="Colour"
+                    required
+                    [value]="hero.colour"
+                    (valueChange)="patchSettings({ colour: $event })"
+                  />
+                </div>
+              }
+              @if (hero.background === 'video') {
+                <div [mlvFieldsetSpan]="'full'">
+                  <mlv-input
+                    type="url"
+                    label="Video URL"
+                    required
+                    [value]="hero.videoUrl"
+                    [state]="
+                      hero.videoUrl.trim().length > 0 ? 'default' : 'error'
+                    "
+                    [message]="
+                      hero.videoUrl.trim().length > 0
+                        ? ''
+                        : 'Enter a valid URL.'
+                    "
+                    (valueChange)="patchSettings({ videoUrl: $event })"
+                  />
+                </div>
+              }
+            </fieldset>
+
+            <fieldset mlvFieldset legend="Call to action" [columns]="2">
+              <mlv-input
+                label="Button label"
+                [maxLength]="32"
+                [value]="hero.buttonLabel"
+                (valueChange)="patchSettings({ buttonLabel: $event })"
+              />
+              <mlv-input
+                type="url"
+                label="Button URL"
+                [value]="hero.buttonUrl"
+                [state]="
+                  hero.buttonLabel.trim().length > 0 && !hero.buttonUrl
+                    ? 'error'
+                    : 'default'
+                "
+                [message]="
+                  hero.buttonLabel.trim().length > 0 && !hero.buttonUrl
+                    ? 'Add a link for the button.'
+                    : ''
+                "
+                (valueChange)="patchSettings({ buttonUrl: $event })"
+              />
+            </fieldset>
+          }
+
+          <!-- ── Banner ───────────────────────────────────────────────── -->
+          @case ('banner') {
+            @let banner = bannerSettings();
+            <fieldset mlvFieldset legend="Banner" [columns]="2">
+              <div [mlvFieldsetSpan]="'full'">
+                <mlv-input
+                  label="Message"
+                  required
+                  [maxLength]="120"
+                  [value]="banner.message"
+                  [state]="
+                    banner.message.trim().length > 0 ? 'default' : 'error'
+                  "
+                  [message]="
+                    banner.message.trim().length > 0 ? '' : 'Add a message.'
+                  "
+                  (valueChange)="patchSettings({ message: $event })"
+                />
+              </div>
+              <mlv-select
+                label="Tone"
+                required
+                [options]="bannerTones.values"
+                [toOption]="bannerTones.toOption"
+                [value]="banner.tone"
+                (valueChange)="patchSettings({ tone: str($event) })"
+              />
+              <div>
+                <mlv-switch
+                  label="Dismissible"
+                  [checked]="banner.dismissible"
+                  (checkedChange)="patchSettings({ dismissible: $event })"
+                />
+                <mlv-description
+                  >Lets visitors close the banner for the rest of the
+                  session.</mlv-description
+                >
+              </div>
+              <mlv-input
+                label="Link label"
+                [maxLength]="32"
+                [value]="banner.linkLabel"
+                (valueChange)="patchSettings({ linkLabel: $event })"
+              />
+              <mlv-input
+                type="url"
+                label="Link URL"
+                [value]="banner.linkUrl"
+                [state]="
+                  banner.linkLabel.trim().length > 0 && !banner.linkUrl
+                    ? 'error'
+                    : 'default'
+                "
+                [message]="
+                  banner.linkLabel.trim().length > 0 && !banner.linkUrl
+                    ? 'Add a link for the label.'
+                    : ''
+                "
+                (valueChange)="patchSettings({ linkUrl: $event })"
+              />
+            </fieldset>
+          }
+
+          <!-- ── Newsletter ───────────────────────────────────────────── -->
+          @case ('newsletter') {
+            @let news = newsletterSettings();
+            <fieldset mlvFieldset legend="Sign-up" [columns]="2">
+              <mlv-input
+                label="Heading"
+                [maxLength]="60"
+                [value]="news.heading"
+                (valueChange)="patchSettings({ heading: $event })"
+              />
+              <mlv-select
+                label="Layout"
+                required
+                [options]="newsletterLayouts.values"
+                [toOption]="newsletterLayouts.toOption"
+                [value]="news.layout"
+                (valueChange)="patchSettings({ layout: str($event) })"
+              />
+              <div [mlvFieldsetSpan]="'full'">
+                <mlv-textarea
+                  label="Supporting text"
+                  [rows]="2"
+                  [maxLength]="200"
+                  [value]="news.supportingText"
+                  (valueChange)="patchSettings({ supportingText: $event })"
+                />
+              </div>
+              <mlv-input
+                label="Mailing list ID"
+                required
+                [value]="news.listId"
+                [state]="news.listId.trim().length > 0 ? 'default' : 'error'"
+                [message]="
+                  news.listId.trim().length > 0
+                    ? ''
+                    : 'Enter the mailing list ID.'
+                "
+                (valueChange)="patchSettings({ listId: $event })"
+              />
+              <div [mlvFieldsetSpan]="'full'">
+                <mlv-input
+                  label="Consent text"
+                  required
+                  [value]="news.consentText"
+                  [state]="
+                    news.consentText.trim().length > 0 ? 'default' : 'error'
+                  "
+                  [message]="
+                    news.consentText.trim().length > 0
+                      ? ''
+                      : 'Consent text is required.'
+                  "
+                  (valueChange)="patchSettings({ consentText: $event })"
+                />
+              </div>
+            </fieldset>
+          }
+
+          <!-- ── Search ───────────────────────────────────────────────── -->
+          @case ('search') {
+            @let search = searchSettings();
+            <fieldset mlvFieldset legend="Search" [columns]="2">
+              <mlv-input
+                label="Placeholder"
+                [maxLength]="60"
+                [value]="search.placeholder"
+                (valueChange)="patchSettings({ placeholder: $event })"
+              />
+              <mlv-select
+                label="Search in"
+                required
+                [options]="searchScopes.values"
+                [toOption]="searchScopes.toOption"
+                [value]="search.scope"
+                (valueChange)="patchSettings({ scope: str($event) })"
+              />
+              <mlv-switch
+                label="Show recent searches"
+                [checked]="search.showRecent"
+                (checkedChange)="patchSettings({ showRecent: $event })"
+              />
+              <mlv-select
+                label="Open results"
+                required
+                [options]="searchTargets.values"
+                [toOption]="searchTargets.toOption"
+                [value]="search.openResults"
+                (valueChange)="patchSettings({ openResults: str($event) })"
+              />
+              @if (search.openResults === 'page') {
+                <div [mlvFieldsetSpan]="'full'">
+                  <mlv-input
+                    type="url"
+                    label="Results page URL"
+                    required
+                    [value]="search.resultsUrl"
+                    [state]="
+                      search.resultsUrl.trim().length > 0 ? 'default' : 'error'
+                    "
+                    [message]="
+                      search.resultsUrl.trim().length > 0
+                        ? ''
+                        : 'Enter the results page URL.'
+                    "
+                    (valueChange)="patchSettings({ resultsUrl: $event })"
+                  />
+                </div>
+              }
+            </fieldset>
+          }
+
+          <!-- ── Breadcrumbs ──────────────────────────────────────────── -->
+          @case ('breadcrumbs') {
+            @let crumbs = breadcrumbsSettings();
+            <fieldset mlvFieldset legend="Breadcrumbs" [columns]="2">
+              <mlv-input
+                label="Root label"
+                required
+                [maxLength]="24"
+                [value]="crumbs.rootLabel"
+                [state]="
+                  crumbs.rootLabel.trim().length > 0 ? 'default' : 'error'
+                "
+                [message]="
+                  crumbs.rootLabel.trim().length > 0
+                    ? ''
+                    : 'Enter a root label.'
+                "
+                (valueChange)="patchSettings({ rootLabel: $event })"
+              />
+              <mlv-select
+                label="Separator"
+                required
+                [options]="breadcrumbSeparators.values"
+                [toOption]="breadcrumbSeparators.toOption"
+                [value]="crumbs.separator"
+                (valueChange)="patchSettings({ separator: str($event) })"
+              />
+              <mlv-switch
+                label="Show the current page"
+                [checked]="crumbs.showCurrent"
+                (checkedChange)="patchSettings({ showCurrent: $event })"
+              />
+              <mlv-number-input
+                label="Collapse after"
+                description="Middle steps beyond this count collapse into an ellipsis."
+                [min]="2"
+                [max]="10"
+                [value]="crumbs.collapseAfter"
+                [state]="
+                  crumbs.collapseAfter >= 2 && crumbs.collapseAfter <= 10
+                    ? 'default'
+                    : 'error'
+                "
+                [message]="
+                  crumbs.collapseAfter >= 2 && crumbs.collapseAfter <= 10
+                    ? ''
+                    : 'Collapse after 2 to 10 steps.'
+                "
+                (valueChange)="patchSettings({ collapseAfter: num($event) })"
+              />
+            </fieldset>
+          }
+
+          <!-- ── Category tree ────────────────────────────────────────── -->
+          @case ('category-tree') {
+            @let tree = categoryTreeSettings();
+            <fieldset mlvFieldset legend="Category tree" [columns]="2">
+              <mlv-select
+                searchable
+                label="Start from"
+                [options]="categoryRoots.values"
+                [toOption]="categoryRoots.toOption"
+                [value]="tree.startFrom ?? ''"
+                (valueChange)="
+                  patchSettings({ startFrom: str($event) || null })
+                "
+              />
+              <mlv-number-input
+                label="Levels shown"
+                [min]="1"
+                [max]="5"
+                [value]="tree.levels"
+                [state]="
+                  tree.levels >= 1 && tree.levels <= 5 ? 'default' : 'error'
+                "
+                [message]="
+                  tree.levels >= 1 && tree.levels <= 5
+                    ? ''
+                    : 'Show between 1 and 5 levels.'
+                "
+                (valueChange)="patchSettings({ levels: num($event) })"
+              />
+              <mlv-switch
+                label="Show article counts"
+                [checked]="tree.showCounts"
+                (checkedChange)="patchSettings({ showCounts: $event })"
+              />
+              <mlv-switch
+                label="Expanded by default"
+                [checked]="tree.expanded"
+                (checkedChange)="patchSettings({ expanded: $event })"
+              />
+            </fieldset>
+          }
+
+          <!-- ── Social links ─────────────────────────────────────────── -->
+          @case ('social-links') {
+            @let social = socialLinksSettings();
+            <fieldset mlvFieldset legend="Social links" [columns]="2">
+              <div [mlvFieldsetSpan]="'full'">
+                <mlv-checkbox-group
+                  class="website-builder__networks"
+                  label="Networks"
+                  [state]="social.networks.length > 0 ? 'default' : 'error'"
+                >
+                  @for (network of socialNetworks; track network.id) {
+                    <mlv-checkbox
+                      [label]="network.label"
+                      [checked]="hasNetwork(network.id)"
+                      (checkedChange)="toggleNetwork(network.id, $event)"
+                    />
+                  }
+                </mlv-checkbox-group>
+                @if (social.networks.length === 0) {
+                  <mlv-description
+                    >Choose at least one network.</mlv-description
+                  >
+                }
+              </div>
+              <mlv-select
+                label="Icon style"
+                required
+                [options]="socialStyles.values"
+                [toOption]="socialStyles.toOption"
+                [value]="social.iconStyle"
+                (valueChange)="patchSettings({ iconStyle: str($event) })"
+              />
+              <mlv-select
+                label="Icon size"
+                required
+                [options]="socialSizes.values"
+                [toOption]="socialSizes.toOption"
+                [value]="social.iconSize"
+                (valueChange)="patchSettings({ iconSize: str($event) })"
+              />
+              <mlv-switch
+                label="Open in a new tab"
+                [checked]="social.newTab"
+                (checkedChange)="patchSettings({ newTab: $event })"
+              />
+            </fieldset>
+          }
+        }
       </form>
     </mlv-dialog-body>
     <mlv-dialog-footer>

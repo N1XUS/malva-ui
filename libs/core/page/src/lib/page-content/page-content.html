@@ -1,7 +1,7 @@
 <div class="mlv-page-content__main"><ng-content /></div>
 
 @if (_asideRef()?.templateRef; as asideTpl) {
-<aside class="mlv-page-content__aside" [attr.aria-label]="asideLabel()">
-  <ng-template [ngTemplateOutlet]="asideTpl" />
-</aside>
+  <aside class="mlv-page-content__aside" [attr.aria-label]="asideLabel()">
+    <ng-template [ngTemplateOutlet]="asideTpl" />
+  </aside>
 }

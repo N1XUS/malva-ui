@@ -1,52 +1,65 @@
-@if (headerRef() || actionsRef() || trailingActionsRef() || _hasCloseAction() ||
-_hasDragHandle()) {
-<div class="mlv-tile__header">
-  @if (_hasDragHandle()) { @if (_hasInteractiveDragHandle()) {
-  <button
-    class="mlv-tile__drag-handle"
-    type="button"
-    mlvDensity="compact"
-    [disabled]="dragDisabled()"
-    [attr.aria-disabled]="dragDisabled() ? 'true' : null"
-    [attr.aria-label]="_dragHandleLabel()"
-    [attr.aria-describedby]="_keyboardInstructionsId()"
-    aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight"
-    (keydown)="_onDragHandleKeydown($event)"
-  >
-    <svg lucideGripVertical size="20" />
-  </button>
-  } @else {
-  <span class="mlv-tile__drag-handle" aria-hidden="true">
-    <svg lucideGripVertical size="16" />
-  </span>
-  } } @if (headerRef(); as headerTpl) {
-  <div class="mlv-tile__title">
-    <ng-container [ngTemplateOutlet]="headerTpl.templateRef" />
-  </div>
-  } @if (actionsRef() || trailingActionsRef() || _hasCloseAction()) {
-  <div
-    class="mlv-tile__controls"
-    [class.mlv-tile__controls--crowded]="actionsRef() || trailingActionsRef()"
-  >
-    @if (actionsRef(); as actionsTpl) {
-    <div class="mlv-tile__actions">
-      <ng-container [ngTemplateOutlet]="actionsTpl.templateRef" />
-    </div>
-    } @if (trailingActionsRef(); as trailingActionsTpl) {
-    <div class="mlv-tile__trailing-actions">
-      <ng-container [ngTemplateOutlet]="trailingActionsTpl.templateRef" />
-    </div>
-    } @if (_hasCloseAction()) {
-    <mlv-button-close
-      class="mlv-tile__close"
-      mlvDensity="compact"
-      [ariaLabel]="_i18n().close"
-      (click)="closed.emit()"
-    />
+@if (
+  headerRef() ||
+  actionsRef() ||
+  trailingActionsRef() ||
+  _hasCloseAction() ||
+  _hasDragHandle()
+) {
+  <div class="mlv-tile__header">
+    @if (_hasDragHandle()) {
+      @if (_hasInteractiveDragHandle()) {
+        <button
+          class="mlv-tile__drag-handle"
+          type="button"
+          mlvDensity="compact"
+          [disabled]="dragDisabled()"
+          [attr.aria-disabled]="dragDisabled() ? 'true' : null"
+          [attr.aria-label]="_dragHandleLabel()"
+          [attr.aria-describedby]="_keyboardInstructionsId()"
+          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight"
+          (keydown)="_onDragHandleKeydown($event)"
+        >
+          <svg lucideGripVertical size="20" />
+        </button>
+      } @else {
+        <span class="mlv-tile__drag-handle" aria-hidden="true">
+          <svg lucideGripVertical size="16" />
+        </span>
+      }
+    }
+    @if (headerRef(); as headerTpl) {
+      <div class="mlv-tile__title">
+        <ng-container [ngTemplateOutlet]="headerTpl.templateRef" />
+      </div>
+    }
+    @if (actionsRef() || trailingActionsRef() || _hasCloseAction()) {
+      <div
+        class="mlv-tile__controls"
+        [class.mlv-tile__controls--crowded]="
+          actionsRef() || trailingActionsRef()
+        "
+      >
+        @if (actionsRef(); as actionsTpl) {
+          <div class="mlv-tile__actions">
+            <ng-container [ngTemplateOutlet]="actionsTpl.templateRef" />
+          </div>
+        }
+        @if (trailingActionsRef(); as trailingActionsTpl) {
+          <div class="mlv-tile__trailing-actions">
+            <ng-container [ngTemplateOutlet]="trailingActionsTpl.templateRef" />
+          </div>
+        }
+        @if (_hasCloseAction()) {
+          <mlv-button-close
+            class="mlv-tile__close"
+            mlvDensity="compact"
+            [ariaLabel]="_i18n().close"
+            (click)="closed.emit()"
+          />
+        }
+      </div>
     }
   </div>
-  }
-</div>
 }
 
 <div class="mlv-tile__body">

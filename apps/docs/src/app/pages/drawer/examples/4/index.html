@@ -17,7 +17,7 @@
   <ng-template mlvDrawerContent>
     <mlv-drawer-header title="Filters">
       @if (activeCount(); as count) {
-      <mlv-badge tone="info" muted>{{ count }} active</mlv-badge>
+        <mlv-badge tone="info" muted>{{ count }} active</mlv-badge>
       }
     </mlv-drawer-header>
 
@@ -25,12 +25,12 @@
       <form mlvForm id="filters-form" (ngSubmit)="apply()">
         <mlv-checkbox-group label="Category">
           @for (category of categories(); track category.id) {
-          <mlv-checkbox
-            [checked]="category.checked"
-            (checkedChange)="setCategory(category.id, $event)"
-          >
-            {{ category.label }}
-          </mlv-checkbox>
+            <mlv-checkbox
+              [checked]="category.checked"
+              (checkedChange)="setCategory(category.id, $event)"
+            >
+              {{ category.label }}
+            </mlv-checkbox>
           }
         </mlv-checkbox-group>
 

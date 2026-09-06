@@ -1,11 +1,11 @@
 <div style="display: flex; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap">
   @for (user of users; track user.name) {
-  <mlv-avatar
-    size="l"
-    [src]="user.src"
-    [name]="user.name"
-    [color]="user.name | mlvColorFromText"
-    [label]="user.name"
-  />
+    <mlv-avatar
+      size="l"
+      [src]="user.src"
+      [name]="user.name"
+      [color]="user.name | mlvColorFromText"
+      [label]="user.name"
+    />
   }
 </div>

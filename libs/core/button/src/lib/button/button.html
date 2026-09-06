@@ -1,16 +1,16 @@
 @if (loading()) {
-<mlv-loader
-  variant="circle"
-  color="currentColor"
-  trackColor="transparent"
-  indeterminate
-  [size]="20"
-  [strokeWidth]="2"
-/>
+  <mlv-loader
+    variant="circle"
+    color="currentColor"
+    trackColor="transparent"
+    indeterminate
+    [size]="20"
+    [strokeWidth]="2"
+  />
 } @else if (beforeRef(); as beforeTpl) {
-<div class="mlv-button__before">
-  <ng-template [ngTemplateOutlet]="beforeTpl.templateRef"></ng-template>
-</div>
+  <div class="mlv-button__before">
+    <ng-template [ngTemplateOutlet]="beforeTpl.templateRef"></ng-template>
+  </div>
 }
 
 <span class="mlv-button__text" #textRef>
@@ -18,7 +18,7 @@
 </span>
 
 @if (!loading() && afterRef(); as afterTpl) {
-<div class="mlv-button__after">
-  <ng-template [ngTemplateOutlet]="afterTpl.templateRef"></ng-template>
-</div>
+  <div class="mlv-button__after">
+    <ng-template [ngTemplateOutlet]="afterTpl.templateRef"></ng-template>
+  </div>
 }

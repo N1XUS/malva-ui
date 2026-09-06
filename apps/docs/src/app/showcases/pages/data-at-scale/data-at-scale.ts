@@ -306,9 +306,8 @@ export class DataAtScaleShowcaseComponent {
   );
 
   /** Saved views. In-memory only — this showcase persists nothing. */
-  readonly variants = signal<readonly MlvViewVariant<ScaleViewState>[]>(
-    SCALE_VIEW_VARIANTS,
-  );
+  readonly variants =
+    signal<readonly MlvViewVariant<ScaleViewState>[]>(SCALE_VIEW_VARIANTS);
 
   /** Id of the selected saved view. */
   readonly activeId = signal(
@@ -420,11 +419,12 @@ export class DataAtScaleShowcaseComponent {
   );
 
   /** Rows currently selected in the table — survives every refetch by design. */
-  readonly selectedCount = computed(() => this.table()?.selectedRows().size ?? 0);
+  readonly selectedCount = computed(
+    () => this.table()?.selectedRows().size ?? 0,
+  );
 
   /** What the backend reported about the generated dataset. */
   readonly dataset = this.source.dataset;
-
 
   /** Human label of the interaction behind {@link lastQuery}. */
   readonly lastQueryLabel = computed(() => {
@@ -818,7 +818,8 @@ export class DataAtScaleShowcaseComponent {
   ): void {
     const renderMs = Math.max(0, paintedAt - arrivedAt);
     const sample: ScaleQuerySample = {
-      interaction: pending?.interaction ?? (this._awaitingFirstPaint ? 'load' : 'query'),
+      interaction:
+        pending?.interaction ?? (this._awaitingFirstPaint ? 'load' : 'query'),
       rowsReturned: metrics.rowsReturned,
       total: metrics.total,
       computeMs: metrics.computeMs,
@@ -826,7 +827,9 @@ export class DataAtScaleShowcaseComponent {
       transferMs: metrics.transferMs,
       identifyMs: metrics.identifyMs,
       renderMs,
-      commitToPaintMs: pending ? Math.max(0, paintedAt - pending.startedAt) : null,
+      commitToPaintMs: pending
+        ? Math.max(0, paintedAt - pending.startedAt)
+        : null,
       unpaged: metrics.unpaged,
     };
     this.lastQuery.set(sample);
@@ -877,14 +880,18 @@ export class DataAtScaleShowcaseComponent {
    * writes the table's own signals, and the table may not have picked up the
    * search/filter writes made a line earlier yet.
    */
-  private _applyState(state: ScaleViewState, interaction?: ScaleInteraction): void {
+  private _applyState(
+    state: ScaleViewState,
+    interaction?: ScaleInteraction,
+  ): void {
     if (interaction) this._markInteraction(interaction);
     this.search.set(state.search);
     this.filters.set([...state.filters]);
     const table = cloneTableState(state.table);
     this.tableState.set(table);
     queueMicrotask(() => {
-      if (!this._destroyRef.destroyed) this.table()?.applyPresentationState(table);
+      if (!this._destroyRef.destroyed)
+        this.table()?.applyPresentationState(table);
     });
   }
 

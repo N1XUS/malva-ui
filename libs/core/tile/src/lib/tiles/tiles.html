@@ -1,15 +1,15 @@
 <ng-content />
 @if (_isRoot) {
-<span class="cdk-visually-hidden" [id]="keyboardInstructionsId()"
-  >{{ _i18n().keyboardInstructions }}</span
->
-<span
-  class="cdk-visually-hidden mlv-tiles__keyboard-status"
-  role="status"
-  aria-live="polite"
-  aria-atomic="true"
-  >{{ _keyboardAnnouncement() }}</span
->
+  <span class="cdk-visually-hidden" [id]="keyboardInstructionsId()">{{
+    _i18n().keyboardInstructions
+  }}</span>
+  <span
+    class="cdk-visually-hidden mlv-tiles__keyboard-status"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+    >{{ _keyboardAnnouncement() }}</span
+  >
 }
 <span
   class="mlv-tiles__restriction"
@@ -18,12 +18,14 @@
   >{{ _i18n().restrictedTarget }}</span
 >
 @if (isEmpty() && !lockedState()) {
-<div
-  class="mlv-tiles__empty"
-  [class.mlv-tiles__empty--projected]="emptyRef() !== undefined"
->
-  @if (emptyRef(); as emptyTpl) {
-  <ng-container [ngTemplateOutlet]="emptyTpl.templateRef" />
-  } @else { {{ emptyLabel() ?? _i18n().emptyTarget }} }
-</div>
+  <div
+    class="mlv-tiles__empty"
+    [class.mlv-tiles__empty--projected]="emptyRef() !== undefined"
+  >
+    @if (emptyRef(); as emptyTpl) {
+      <ng-container [ngTemplateOutlet]="emptyTpl.templateRef" />
+    } @else {
+      {{ emptyLabel() ?? _i18n().emptyTarget }}
+    }
+  </div>
 }

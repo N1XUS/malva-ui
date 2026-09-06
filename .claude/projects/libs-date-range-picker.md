@@ -174,6 +174,7 @@ date.
 ## Dependencies
 
 - `@malva-ui/core/calendar` — `mlv-calendar` with `[range]="true"` mode
+- `@malva-ui/core/date` — `MLV_DATE_ADAPTER`, `MlvNativeDateAdapter`, `MlvDateAdapter` (date math and localized labels; moved out of `@malva-ui/core/calendar` in 2026-09)
 - `@malva-ui/core/popup` — `mlv-popup` for the floating panel overlay
 - `@malva-ui/core/form-utils` — `MlvSignalFormControlBase` signal-control base class
 - `@malva-ui/cdk/utils` — theme/utility injection tokens

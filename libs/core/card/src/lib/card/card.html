@@ -1,13 +1,15 @@
 @if (headerRef() || actionsRef()) {
-<div class="mlv-card__header-row">
-  @if (headerRef(); as headerTpl) {
-  <ng-container [ngTemplateOutlet]="headerTpl.templateRef" />
-  } @if (actionsRef(); as actionsTpl) {
-  <ng-container [ngTemplateOutlet]="actionsTpl.templateRef" />
-  }
-</div>
-} @if (subheaderRef(); as subheaderTpl) {
-<ng-container [ngTemplateOutlet]="subheaderTpl.templateRef" />
+  <div class="mlv-card__header-row">
+    @if (headerRef(); as headerTpl) {
+      <ng-container [ngTemplateOutlet]="headerTpl.templateRef" />
+    }
+    @if (actionsRef(); as actionsTpl) {
+      <ng-container [ngTemplateOutlet]="actionsTpl.templateRef" />
+    }
+  </div>
+}
+@if (subheaderRef(); as subheaderTpl) {
+  <ng-container [ngTemplateOutlet]="subheaderTpl.templateRef" />
 }
 
 <div
@@ -18,5 +20,5 @@
 </div>
 
 @if (footerRef(); as footerTpl) {
-<ng-container [ngTemplateOutlet]="footerTpl.templateRef" />
+  <ng-container [ngTemplateOutlet]="footerTpl.templateRef" />
 }

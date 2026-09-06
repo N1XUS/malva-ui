@@ -2,21 +2,27 @@
   <div class="demo-row">
     <button
       mlvButton
-      [variant]="densityService.density() === 'compact' ? 'primary' : 'secondary'"
+      [variant]="
+        densityService.density() === 'compact' ? 'primary' : 'secondary'
+      "
       (click)="setDensity('compact')"
     >
       Compact
     </button>
     <button
       mlvButton
-      [variant]="densityService.density() === 'comfortable' ? 'primary' : 'secondary'"
+      [variant]="
+        densityService.density() === 'comfortable' ? 'primary' : 'secondary'
+      "
       (click)="setDensity('comfortable')"
     >
       Comfortable
     </button>
     <button
       mlvButton
-      [variant]="densityService.density() === 'spacious' ? 'primary' : 'secondary'"
+      [variant]="
+        densityService.density() === 'spacious' ? 'primary' : 'secondary'
+      "
       (click)="setDensity('spacious')"
     >
       Spacious

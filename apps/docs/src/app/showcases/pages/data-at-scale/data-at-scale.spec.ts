@@ -80,10 +80,13 @@ function createSpecBackend(): ScaleBackend {
     for (const listener of [...listeners]) listener(response);
   };
   const later = (delayMs: number, run: () => void): void => {
-    const timer = setTimeout(() => {
-      timers.delete(timer);
-      run();
-    }, Math.max(0, delayMs));
+    const timer = setTimeout(
+      () => {
+        timers.delete(timer);
+        run();
+      },
+      Math.max(0, delayMs),
+    );
     timers.add(timer);
   };
 
@@ -227,7 +230,9 @@ async function renderShowcase(
 }
 
 function textOf(root: HTMLElement, selector: string): string {
-  return (root.querySelector(selector)?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  return (root.querySelector(selector)?.textContent ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
@@ -259,7 +264,9 @@ describe('DataAtScaleShowcaseComponent', () => {
 
     expect(rendered.root.querySelectorAll('main')).toHaveLength(1);
     expect(textOf(rendered.root, 'h1')).toBe('Data at scale');
-    const method = rendered.root.querySelector('.data-at-scale-showcase__method');
+    const method = rendered.root.querySelector(
+      '.data-at-scale-showcase__method',
+    );
     expect(method?.querySelector('h2')?.textContent).toContain(
       'How these numbers are measured',
     );
@@ -382,9 +389,9 @@ describe('DataAtScaleShowcaseComponent', () => {
     // The superseded answer was the whole result set; only the reshaped one may
     // reach the table.
     expect(rendered.component.lastQuery()?.unpaged).toBe(false);
-    expect(
-      rendered.component.source.connect()().length,
-    ).toBeLessThanOrEqual(25);
+    expect(rendered.component.source.connect()().length).toBeLessThanOrEqual(
+      25,
+    );
     expect(
       rendered.root.querySelectorAll('.mlv-data-table__row--data').length,
     ).toBeLessThanOrEqual(25);
@@ -458,9 +465,9 @@ describe('DataAtScaleShowcaseComponent', () => {
     expect(sample?.datasetRows).toBe(SPEC_ROWS);
     expect(Number.isFinite(sample?.renderMs)).toBe(true);
     expect(sample?.endToEndMs).toBeGreaterThanOrEqual(sample?.renderMs ?? 0);
-    expect(textOf(rendered.root, '.data-at-scale-showcase__metric-value')).toMatch(
-      /^[\d,.]+ ?ms$/,
-    );
+    expect(
+      textOf(rendered.root, '.data-at-scale-showcase__metric-value'),
+    ).toMatch(/^[\d,.]+ ?ms$/);
   });
 
   it('discards a paint measurement taken while the tab is hidden, then re-measures', async () => {
@@ -720,9 +727,9 @@ describe('DataAtScaleShowcaseComponent', () => {
       SPEC_ROWS,
     );
     expect(
-      rendered.component.source.connect()().some(
-        (row) => (row._mlvChildren?.length ?? 0) > 0,
-      ),
+      rendered.component.source
+        .connect()()
+        .some((row) => (row._mlvChildren?.length ?? 0) > 0),
     ).toBe(true);
     // The dataset change restarts the initial-render measurement.
     expect(rendered.component.initialRender()).not.toBeNull();
@@ -731,7 +738,9 @@ describe('DataAtScaleShowcaseComponent', () => {
   it('keeps the default and paged compositions axe-clean', async () => {
     const rendered = await renderShowcase();
     const runAxe = async () =>
-      axe.run(rendered.root, { rules: { 'color-contrast': { enabled: false } } });
+      axe.run(rendered.root, {
+        rules: { 'color-contrast': { enabled: false } },
+      });
 
     expect((await runAxe()).violations).toEqual([]);
 

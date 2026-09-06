@@ -11,8 +11,16 @@
       label="Travel dates"
       hint="Select your check-in and check-out dates"
       placeholder="Pick dates"
-      [state]="form.controls.dateRange.touched && form.controls.dateRange.invalid ? 'error' : 'default'"
-      [message]="form.controls.dateRange.touched && form.controls.dateRange.invalid ? 'Travel dates are required.' : ''"
+      [state]="
+        form.controls.dateRange.touched && form.controls.dateRange.invalid
+          ? 'error'
+          : 'default'
+      "
+      [message]="
+        form.controls.dateRange.touched && form.controls.dateRange.invalid
+          ? 'Travel dates are required.'
+          : ''
+      "
     />
 
     <div style="display: flex; gap: 0.5rem">
@@ -24,19 +32,19 @@
   </form>
 
   @if (submitted()) {
-  <div
-    style="
-      padding: 1rem;
-      background: var(--mlv-background-neutral-1);
-      border-radius: var(--mlv-radius-m);
-      font-size: 0.875rem;
-      line-height: 1.6;
-    "
-  >
-    <strong>Booking summary</strong>
-    @for (line of summaryLines(); track line) {
-    <p style="margin: 0.25rem 0">{{ line }}</p>
-    }
-  </div>
+    <div
+      style="
+        padding: 1rem;
+        background: var(--mlv-background-neutral-1);
+        border-radius: var(--mlv-radius-m);
+        font-size: 0.875rem;
+        line-height: 1.6;
+      "
+    >
+      <strong>Booking summary</strong>
+      @for (line of summaryLines(); track line) {
+        <p style="margin: 0.25rem 0">{{ line }}</p>
+      }
+    </div>
   }
 </div>

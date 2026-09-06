@@ -79,11 +79,24 @@ export default [
                 'family:i18n',
               ],
             },
+            // The scheduler sits above core like the editor: it composes the
+            // calendar date adapter, button, segmented, popup, scrollbar and
+            // tooltip. Nothing in core may depend back on it.
+            {
+              sourceTag: 'family:scheduler',
+              onlyDependOnLibsWithTags: [
+                'family:scheduler',
+                'family:core',
+                'family:cdk',
+                'family:i18n',
+              ],
+            },
             {
               sourceTag: 'family:docs',
               onlyDependOnLibsWithTags: [
                 'family:docs',
                 'family:editor',
+                'family:scheduler',
                 'family:core',
                 'family:cdk',
                 'family:i18n',

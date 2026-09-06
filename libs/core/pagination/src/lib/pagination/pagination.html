@@ -1,116 +1,120 @@
 <div class="mlv-pagination__items-count-wrapper">
   <div class="mlv-pagination__items-count">
     @if (_itemsCountRef()?.templateRef; as itemsCountTpl) {
-    <ng-template
-      [ngTemplateOutlet]="itemsCountTpl"
-      [ngTemplateOutletContext]="getCellContext()"
-    ></ng-template>
+      <ng-template
+        [ngTemplateOutlet]="itemsCountTpl"
+        [ngTemplateOutletContext]="getCellContext()"
+      ></ng-template>
     } @else {
-    <span>{{ _resolvedItemCount() }}</span>
+      <span>{{ _resolvedItemCount() }}</span>
     }
   </div>
 
   @if (_service.normalizedItemsPerPageOptions().length) {
-  <div class="mlv-pagination__items-per-page">
-    @if (_itemsPerPageRef()?.templateRef; as itemsPerPageTpl) {
-    <ng-template
-      [ngTemplateOutlet]="itemsPerPageTpl"
-      [ngTemplateOutletContext]="getCellContext()"
-    ></ng-template>
-    } @else {
-    <button
-      type="button"
-      mlvButton
-      mlvDensity="compact"
-      variant="transparent"
-      #popupTrigger="mlvPopupTrigger"
-      [mlvPopupTrigger]="perPagePopup"
-      [ariaHasPopup]="'listbox'"
-      [attr.aria-controls]="_perPageListboxId"
-    >
-      @if (infinity === itemsPerPage()) { {{ _resolvedAllItems() }} } @else { {{
-      _resolvedRange() }} }
-    </button>
-    <mlv-popup #perPagePopup [mlvDensity]="mlvDensity()">
-      <!--
+    <div class="mlv-pagination__items-per-page">
+      @if (_itemsPerPageRef()?.templateRef; as itemsPerPageTpl) {
+        <ng-template
+          [ngTemplateOutlet]="itemsPerPageTpl"
+          [ngTemplateOutletContext]="getCellContext()"
+        ></ng-template>
+      } @else {
+        <button
+          type="button"
+          mlvButton
+          mlvDensity="compact"
+          variant="transparent"
+          #popupTrigger="mlvPopupTrigger"
+          [mlvPopupTrigger]="perPagePopup"
+          [ariaHasPopup]="'listbox'"
+          [attr.aria-controls]="_perPageListboxId"
+        >
+          @if (infinity === itemsPerPage()) {
+            {{ _resolvedAllItems() }}
+          } @else {
+            {{ _resolvedRange() }}
+          }
+        </button>
+        <mlv-popup #perPagePopup [mlvDensity]="mlvDensity()">
+          <!--
         The shared panel owns the listbox pattern: it pins listRole/itemRole and
         the aria selection defaults, and renders the selected state, so none of
         that is hand-rolled here. Same composition mlv-select uses.
       -->
-      <mlv-dropdown-panel
-        *mlvPopupContent
-        [options]="_perPageOptions()"
-        [selectedValues]="_selectedPerPage()"
-        [listboxId]="_perPageListboxId"
-        (valueChange)="_onPerPageChange($event); popupTrigger.close()"
-      />
-    </mlv-popup>
-    }
-  </div>
+          <mlv-dropdown-panel
+            *mlvPopupContent
+            [options]="_perPageOptions()"
+            [selectedValues]="_selectedPerPage()"
+            [listboxId]="_perPageListboxId"
+            (valueChange)="_onPerPageChange($event); popupTrigger.close()"
+          />
+        </mlv-popup>
+      }
+    </div>
   }
 </div>
 
 @if (_service.totalPages() > 1) {
-<div
-  class="mlv-pagination__items-wrapper"
-  role="navigation"
-  [attr.aria-label]="_i18n().navigationLabel"
->
-  <div class="mlv-pagination__items">
-    <button
-      type="button"
-      mlvDensity="compact"
-      class="mlv-pagination__item"
-      shape="square"
-      variant="transparent"
-      mlvButton
-      [disabled]="currentPage() === 1"
-      (mlvClick)="goToPage(currentPage() - 1)"
-      [attr.aria-label]="_i18n().previousPage"
-    >
-      <svg lucideChevronLeft size="20" />
-    </button>
-
-    <div class="mlv-pagination__items__container">
-      @for (page of _service.pages(); track `${page}-${$index}`) { @if (page ===
-      _service.moreElementValue) {
-      <mlv-input
-        type="number"
-        (keydown.enter)="setPageFromInput($event)"
-        class="mlv-pagination__item mlv-pagination__item--input"
-        placeholder="..."
-        [ariaLabel]="_i18n().goToPage"
-      />
-      } @else {
+  <div
+    class="mlv-pagination__items-wrapper"
+    role="navigation"
+    [attr.aria-label]="_i18n().navigationLabel"
+  >
+    <div class="mlv-pagination__items">
       <button
         type="button"
         mlvDensity="compact"
         class="mlv-pagination__item"
-        [variant]="page === currentPage() ? 'primary' : 'transparent'"
+        shape="square"
+        variant="transparent"
+        mlvButton
+        [disabled]="currentPage() === 1"
+        (mlvClick)="goToPage(currentPage() - 1)"
+        [attr.aria-label]="_i18n().previousPage"
+      >
+        <svg lucideChevronLeft size="20" />
+      </button>
+
+      <div class="mlv-pagination__items__container">
+        @for (page of _service.pages(); track `${page}-${$index}`) {
+          @if (page === _service.moreElementValue) {
+            <mlv-input
+              type="number"
+              (keydown.enter)="setPageFromInput($event)"
+              class="mlv-pagination__item mlv-pagination__item--input"
+              placeholder="..."
+              [ariaLabel]="_i18n().goToPage"
+            />
+          } @else {
+            <button
+              type="button"
+              mlvDensity="compact"
+              class="mlv-pagination__item"
+              [variant]="page === currentPage() ? 'primary' : 'transparent'"
+              shape="square"
+              mlvButton
+              (mlvClick)="goToPage(page)"
+              [attr.aria-current]="page === currentPage() ? 'page' : null"
+              [attr.aria-label]="_pageAriaLabel(page)"
+            >
+              {{ page }}
+            </button>
+          }
+        }
+      </div>
+
+      <button
+        type="button"
+        mlvDensity="compact"
+        class="mlv-pagination__item"
+        variant="transparent"
         shape="square"
         mlvButton
-        (mlvClick)="goToPage(page)"
-        [attr.aria-current]="page === currentPage() ? 'page' : null"
-        [attr.aria-label]="_pageAriaLabel(page)"
+        [disabled]="currentPage() === _service.totalPages()"
+        (mlvClick)="goToPage(currentPage() + 1)"
+        [attr.aria-label]="_i18n().nextPage"
       >
-        {{ page }}
+        <svg lucideChevronRight size="20" />
       </button>
-      } }
     </div>
-
-    <button
-      type="button"
-      mlvDensity="compact"
-      class="mlv-pagination__item"
-      variant="transparent"
-      shape="square"
-      mlvButton
-      [disabled]="currentPage() === _service.totalPages()"
-      (mlvClick)="goToPage(currentPage() + 1)"
-      [attr.aria-label]="_i18n().nextPage"
-    >
-      <svg lucideChevronRight size="20" />
-    </button>
   </div>
-</div>
 }

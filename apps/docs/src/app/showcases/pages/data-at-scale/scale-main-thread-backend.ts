@@ -32,10 +32,13 @@ export function createMainThreadScaleBackend(): ScaleBackend {
   };
 
   const later = (delayMs: number, run: () => void): void => {
-    const timer = setTimeout(() => {
-      timers.delete(timer);
-      run();
-    }, Math.max(0, delayMs));
+    const timer = setTimeout(
+      () => {
+        timers.delete(timer);
+        run();
+      },
+      Math.max(0, delayMs),
+    );
     timers.add(timer);
   };
 

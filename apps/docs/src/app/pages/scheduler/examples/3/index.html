@@ -1,0 +1,17 @@
+<div class="docs-scheduler-controls">
+  <mlv-checkbox [(checked)]="editable" label="Editable" />
+</div>
+<mlv-scheduler
+  [(events)]="events"
+  view="week"
+  [editable]="editable()"
+  [canMove]="canMove"
+  (eventMove)="onChange('moved', $event)"
+  (eventResize)="onChange('resized', $event)"
+  style="block-size: 36rem"
+/>
+<ul class="docs-scheduler-log" aria-live="polite">
+  @for (line of log(); track $index) {
+    <li>{{ line }}</li>
+  }
+</ul>

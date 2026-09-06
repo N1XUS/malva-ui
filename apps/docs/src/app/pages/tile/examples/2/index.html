@@ -1,10 +1,12 @@
 <div class="tiles-column">
   @for (s of states; track s.value) {
-  <mlv-tile [tone]="s.value">
-    <ng-template mlvTileHeader>
-      <span class="state-label state-label--{{ s.value }}">{{ s.label }}</span>
-    </ng-template>
-    {{ s.description }}
-  </mlv-tile>
+    <mlv-tile [tone]="s.value">
+      <ng-template mlvTileHeader>
+        <span class="state-label state-label--{{ s.value }}">{{
+          s.label
+        }}</span>
+      </ng-template>
+      {{ s.description }}
+    </mlv-tile>
   }
 </div>

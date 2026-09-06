@@ -1,59 +1,10 @@
-@if (bare()) { @if (projectControl()) {
-<!-- Consumer-projected native input (e.g. carrying @angular/aria's [ngCombobox]). -->
-<ng-content select="input[mlvInputNative]" />
-} @else {
-<!-- autofocus is an opt-in API forwarded to the native input (see best-practices.md);
-     it stays off unless the consumer explicitly sets it. -->
-<!-- eslint-disable @angular-eslint/template/no-autofocus -->
-<input
-  #native
-  class="mlv-input__native"
-  [id]="id()"
-  [type]="type()"
-  [placeholder]="placeholder()"
-  [disabled]="computedDisabled()"
-  [readOnly]="readonly()"
-  [value]="value() ?? ''"
-  [attr.name]="name()"
-  [attr.autocomplete]="autocomplete() || null"
-  [attr.autofocus]="autofocus() ? '' : null"
-  [attr.inputmode]="inputMode()"
-  [attr.maxlength]="maxLength()"
-  [attr.minlength]="minLength()"
-  [attr.pattern]="pattern()"
-  [attr.min]="min()"
-  [attr.max]="max()"
-  [attr.step]="step()"
-  [attr.role]="role()"
-  [attr.aria-expanded]="ariaExpanded()"
-  [attr.aria-haspopup]="ariaHasPopup()"
-  [attr.aria-autocomplete]="ariaAutocomplete()"
-  [attr.aria-controls]="ariaControls()"
-  [attr.aria-activedescendant]="ariaActiveDescendant()"
-  [attr.aria-label]="ariaLabel()"
-  [attr.aria-required]="required() || null"
-  [attr.aria-invalid]="resolvedState() === 'error'"
-  [attr.aria-describedby]="ariaDescribedBy() ?? _describedBy()"
-  (input)="onInput($event)"
-  (focus)="onFocus($event)"
-  (blur)="onBlur($event)"
-/>
-<!-- eslint-enable @angular-eslint/template/no-autofocus -->
-} } @else {
-<mlv-form-control-wrapper (clear)="clearValue()">
-  @if (label() || hint()) {
-  <mlv-label [for]="id()" [required]="required()">
-    {{ label() }} @if (hint()) {
-    <mlv-hint>{{ hint() }}</mlv-hint>
-    }
-  </mlv-label>
-  }
-
-  <ng-template mlvFormControlWrapperControl>
-    @if (projectControl()) {
+@if (bare()) {
+  @if (projectControl()) {
     <!-- Consumer-projected native input (e.g. carrying @angular/aria's [ngCombobox]). -->
     <ng-content select="input[mlvInputNative]" />
-    } @else {
+  } @else {
+    <!-- autofocus is an opt-in API forwarded to the native input (see best-practices.md);
+     it stays off unless the consumer explicitly sets it. -->
     <!-- eslint-disable @angular-eslint/template/no-autofocus -->
     <input
       #native
@@ -89,15 +40,70 @@
       (blur)="onBlur($event)"
     />
     <!-- eslint-enable @angular-eslint/template/no-autofocus -->
-    }
-  </ng-template>
-
-  @if (description()) {
-  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-  } @if (message()) {
-  <mlv-message [id]="_messageId()" [state]="resolvedState()">
-    {{ message() }}
-  </mlv-message>
   }
-</mlv-form-control-wrapper>
+} @else {
+  <mlv-form-control-wrapper (clear)="clearValue()">
+    @if (label() || hint()) {
+      <mlv-label [for]="id()" [required]="required()">
+        {{ label() }}
+        @if (hint()) {
+          <mlv-hint>{{ hint() }}</mlv-hint>
+        }
+      </mlv-label>
+    }
+
+    <ng-template mlvFormControlWrapperControl>
+      @if (projectControl()) {
+        <!-- Consumer-projected native input (e.g. carrying @angular/aria's [ngCombobox]). -->
+        <ng-content select="input[mlvInputNative]" />
+      } @else {
+        <!-- eslint-disable @angular-eslint/template/no-autofocus -->
+        <input
+          #native
+          class="mlv-input__native"
+          [id]="id()"
+          [type]="type()"
+          [placeholder]="placeholder()"
+          [disabled]="computedDisabled()"
+          [readOnly]="readonly()"
+          [value]="value() ?? ''"
+          [attr.name]="name()"
+          [attr.autocomplete]="autocomplete() || null"
+          [attr.autofocus]="autofocus() ? '' : null"
+          [attr.inputmode]="inputMode()"
+          [attr.maxlength]="maxLength()"
+          [attr.minlength]="minLength()"
+          [attr.pattern]="pattern()"
+          [attr.min]="min()"
+          [attr.max]="max()"
+          [attr.step]="step()"
+          [attr.role]="role()"
+          [attr.aria-expanded]="ariaExpanded()"
+          [attr.aria-haspopup]="ariaHasPopup()"
+          [attr.aria-autocomplete]="ariaAutocomplete()"
+          [attr.aria-controls]="ariaControls()"
+          [attr.aria-activedescendant]="ariaActiveDescendant()"
+          [attr.aria-label]="ariaLabel()"
+          [attr.aria-required]="required() || null"
+          [attr.aria-invalid]="resolvedState() === 'error'"
+          [attr.aria-describedby]="ariaDescribedBy() ?? _describedBy()"
+          (input)="onInput($event)"
+          (focus)="onFocus($event)"
+          (blur)="onBlur($event)"
+        />
+        <!-- eslint-enable @angular-eslint/template/no-autofocus -->
+      }
+    </ng-template>
+
+    @if (description()) {
+      <mlv-description [id]="_descriptionId()">{{
+        description()
+      }}</mlv-description>
+    }
+    @if (message()) {
+      <mlv-message [id]="_messageId()" [state]="resolvedState()">
+        {{ message() }}
+      </mlv-message>
+    }
+  </mlv-form-control-wrapper>
 }

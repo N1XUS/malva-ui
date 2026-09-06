@@ -187,7 +187,11 @@ describe('ScaleDataSource — initial load', () => {
     await microtasks();
     manual.flush();
 
-    expect(source.connect()().map((row) => row.id)).toEqual(
+    expect(
+      source
+        .connect()()
+        .map((row) => row.id),
+    ).toEqual(
       runScaleQuery(DATASET, baseState({ perPage: 25 })).rows.map((r) => r.id),
     );
     expect(source.connect()()).toHaveLength(25);
@@ -224,7 +228,11 @@ describe('ScaleDataSource — server-side query state', () => {
     manual.flush();
 
     expect(manual.queries().at(-1)?.state.page).toBe(3);
-    expect(source.connect()().map((row) => row.id)).toEqual(
+    expect(
+      source
+        .connect()()
+        .map((row) => row.id),
+    ).toEqual(
       runScaleQuery(DATASET, baseState({ page: 3 })).rows.map((r) => r.id),
     );
     expect(source.totalItems()).toBe(400);
@@ -250,9 +258,11 @@ describe('ScaleDataSource — server-side query state', () => {
       key: 'arr',
       direction: 'desc',
     });
-    expect(source.connect()().map((row) => row.arr)).toEqual(
-      expected.map((row) => row.arr),
-    );
+    expect(
+      source
+        .connect()()
+        .map((row) => row.arr),
+    ).toEqual(expected.map((row) => row.arr));
     expect(source.connect()()[0].arr).toBe(
       Math.max(...DATASET.map((row) => row.arr)),
     );
@@ -276,7 +286,9 @@ describe('ScaleDataSource — server-side query state', () => {
     expect(expected).toBeLessThan(400);
     expect(source.totalItems()).toBe(expected);
     expect(
-      source.connect()().every((row) => row.region === 'APAC'),
+      source
+        .connect()()
+        .every((row) => row.region === 'APAC'),
     ).toBe(true);
     source.destroy();
   });
@@ -472,7 +484,11 @@ describe('ScaleDataSource — request discipline', () => {
     manual.release(1);
     manual.release(0);
 
-    expect(source.connect()().map((row) => row.id)).toEqual(
+    expect(
+      source
+        .connect()()
+        .map((row) => row.id),
+    ).toEqual(
       runScaleQuery(DATASET, baseState({ page: 4 })).rows.map((r) => r.id),
     );
     expect(source.loading()).toBe(false);
@@ -523,7 +539,9 @@ describe('ScaleDataSource — row identity', () => {
     source.setSort({ key: 'ref', direction: 'asc' });
     await microtasks();
     manual.flush();
-    const again = source.connect()().find((row) => row.id === first.id);
+    const again = source
+      .connect()()
+      .find((row) => row.id === first.id);
 
     expect(again).toBe(first);
     source.destroy();
@@ -548,7 +566,9 @@ describe('ScaleDataSource — row identity', () => {
     await microtasks();
     manual.flush();
 
-    const again = source.connect()().find((row) => row.id === parent?.id);
+    const again = source
+      .connect()()
+      .find((row) => row.id === parent?.id);
     expect(again).toBe(parent);
     expect(again?._mlvChildren?.[0]).toBe(parent?._mlvChildren?.[0]);
     source.destroy();

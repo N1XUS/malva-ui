@@ -255,6 +255,56 @@ export class MlvAutocomplete<T = unknown> {
   });
 
   /**
+   * Raises the suggestion panel's minimum width above the input field.
+   *
+   * The panel is floored at the field's measured width by default. This input
+   * can only **raise** that floor — a value narrower than the field does not
+   * shrink the panel, because the measured width stays in the resolved
+   * `max()`.
+   *
+   * Accepts a number of pixels or a CSS length string; the units resolve in
+   * the browser, not here. Absolute and font-relative lengths (`px`, `rem`,
+   * `em`, `ch`) and viewport units (`vw`) behave as written. **Percentages do
+   * not** — under flexible dimensions CDK lays the pane out as a `static` flex
+   * item of its bounding box, which it sizes to the space between the field's
+   * anchored edge and the viewport edge, so `'50%'` means half of *that*, and
+   * the same markup resolves differently depending on where the field sits on
+   * the page. `ch`, likewise, resolves against the pane's own font, not the
+   * suggestion rows'.
+   *
+   * Two ceilings it deliberately outranks, per CSS's
+   * `max(min-width, min(max-width, width))`:
+   * - {@link maxWidth} — a ceiling below the effective floor is ignored, and
+   *   the panel renders past its bounding box (nothing clips it).
+   * - the viewport. A floor wider than the space to the viewport edge pushes
+   *   the panel off-screen; the `.cdk-overlay-pane { max-width: 100% }` clamp
+   *   governs *content*-driven growth only.
+   */
+  readonly minWidth = input<number | string | undefined>(undefined, {
+    alias: 'mlvAutocompleteMinWidth',
+  });
+
+  /**
+   * Caps the suggestion panel's width.
+   *
+   * With no value the viewport is the only ceiling — the flexible connected
+   * strategy sizes its bounding box to the space up to the viewport edge and
+   * `.cdk-overlay-pane { max-width: 100% }` caps the pane there. This input can
+   * only **tighten** that: a value wider than the viewport is still clamped by
+   * it. Accepts a CSS length string or a number of pixels.
+   *
+   * It cannot pull the panel below its floor. CSS resolves the used width as
+   * `max(min-width, min(max-width, width))`, so a ceiling under the effective
+   * floor — the field width, or {@link minWidth} when that is higher — is
+   * **silently ignored** and the panel overflows its bounding box, which has
+   * no `overflow: hidden`. Set the floor down as well if you need the panel
+   * narrower than its field.
+   */
+  readonly maxWidth = input<number | string | undefined>(undefined, {
+    alias: 'mlvAutocompleteMaxWidth',
+  });
+
+  /**
    * The raw value of the last selected suggestion, or `null`. Two-way bindable
    * (`[(mlvAutocompleteValue)]`) so a parent can observe the committed pick.
    */
@@ -835,7 +885,13 @@ export class MlvAutocomplete<T = unknown> {
         positionStrategy,
         direction: this._rtlService.resolveDirection(el),
         scrollStrategy: this._overlay.scrollStrategies.reposition(),
-        width: el.getBoundingClientRect().width,
+        // A floor, not a cap: a suggestion longer than the field grows the
+        // panel instead of being clipped. The flexible connected strategy
+        // sizes its bounding box to the space up to the viewport edge and
+        // `.cdk-overlay-pane { max-width: 100% }` caps the pane there, so
+        // content wider than the viewport still clamps (#150).
+        minWidth: this._resolveMinWidth(el),
+        ...(this.maxWidth() !== undefined ? { maxWidth: this.maxWidth() } : {}),
         hasBackdrop: false,
       });
 
@@ -906,6 +962,23 @@ export class MlvAutocomplete<T = unknown> {
       this._overlayRef.dispose();
       this._overlayRef = null;
     }
+  }
+
+  /**
+   * @private The floor handed to the overlay: the field's measured width, or a
+   * CSS `max()` of it and {@link minWidth} when that is set.
+   *
+   * Expressed as `max()` rather than resolved here so the author's units
+   * (`rem`, `ch`, `%`, `vw`) keep their meaning — px is the only unit the
+   * field can be measured in, and converting the other side to it would
+   * freeze it against the root font size at open time.
+   */
+  private _resolveMinWidth(el: HTMLElement): number | string {
+    const measured = el.getBoundingClientRect().width;
+    const floor = this.minWidth();
+    if (floor === undefined) return measured;
+    const authored = typeof floor === 'number' ? `${floor}px` : floor;
+    return `max(${measured}px, ${authored})`;
   }
 
   /** @private Whether all interaction paths are suppressed. */

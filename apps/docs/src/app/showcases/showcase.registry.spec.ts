@@ -159,10 +159,9 @@ describe('showcase registry', () => {
       'website-builder',
       'data-at-scale',
     ]);
-    expect(showcasesForComponent('view-variant').map((item) => item.slug)).toEqual([
-      'data-operations',
-      'data-at-scale',
-    ]);
+    expect(
+      showcasesForComponent('view-variant').map((item) => item.slug),
+    ).toEqual(['data-operations', 'data-at-scale']);
     expect(showcasesForComponent('chat').map((item) => item.slug)).toEqual([
       'support-inbox',
     ]);

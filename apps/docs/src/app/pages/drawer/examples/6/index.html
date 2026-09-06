@@ -68,8 +68,16 @@
           <dd>{{ resizable() ? 'yes' : 'no' }}</dd>
           <dt>Snap points</dt>
           <dd>
-            {{ !resizable() ? '—' : snapPoints().length ? snapPoints().join(' /
-            ') + ' %' : 'free' }}
+            {{
+              !resizable()
+                ? '—'
+                : snapPoints().length
+                  ? snapPoints().join(
+                      ' /
+            '
+                    ) + ' %'
+                  : 'free'
+            }}
           </dd>
           <dt>Backdrop</dt>
           <dd>{{ backdrop() ? 'yes' : 'no' }}</dd>

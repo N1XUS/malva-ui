@@ -5,14 +5,14 @@
     </button>
 
     @for (option of sizes; track option) {
-    <button
-      mlvButton
-      variant="transparent"
-      [attr.aria-pressed]="size() === option"
-      (click)="size.set(option)"
-    >
-      size {{ option }}
-    </button>
+      <button
+        mlvButton
+        variant="transparent"
+        [attr.aria-pressed]="size() === option"
+        (click)="size.set(option)"
+      >
+        size {{ option }}
+      </button>
     }
   </div>
 

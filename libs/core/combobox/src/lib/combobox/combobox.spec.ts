@@ -13,6 +13,7 @@ import { MlvInput } from '@malva-ui/core/input';
 import { MlvPopup } from '@malva-ui/core/popup';
 import type { MlvPopupMobileMode } from '@malva-ui/core/popup';
 import { MlvDataSource } from '@malva-ui/cdk/data-source';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import {
   defaultCompareWith,
   MlvSelectDataSource,
@@ -2253,5 +2254,236 @@ describe('MlvCombobox — option-side comparator argument order', () => {
     expect(committed()).toEqual(['sel:b']);
     expect(awaitingLabel()).toBe(true);
     expect(chipCount()).toBe(0);
+  });
+});
+
+/**
+ * #150 — the dropdown takes the trigger's measured width as a **floor**, never
+ * as an exact width, so an option longer than the trigger grows the panel
+ * instead of being clipped.
+ *
+ * jsdom runs no layout, so "the panel grew" is asserted where the constraint is
+ * actually expressed — the CDK overlay pane's own inline sizing. An exact
+ * `width` pins the pane to the trigger's box (the bug); a `min-width` with no
+ * `width` leaves the pane a `fit-content` flex item inside the flexible
+ * bounding box (the fix), free to grow to its content and clamped by that box
+ * (which CDK sizes to the space up to the viewport edge) via CDK's own
+ * `.cdk-overlay-pane { max-width: 100% }`.
+ */
+describe('MlvCombobox — dropdown panel width (#150)', () => {
+  const VIEWPORT_WIDTH = 1024;
+  const VIEWPORT_HEIGHT = 768;
+  /** Trigger box: 200px wide, 40px from the viewport's inline-start edge. */
+  const TRIGGER_RECT = {
+    x: 40,
+    y: 100,
+    left: 40,
+    top: 100,
+    right: 240,
+    bottom: 132,
+    width: 200,
+    height: 32,
+  };
+  /** A label far wider than the 200px trigger. */
+  const LONG_OPTION = 'comfortable — the density every control starts at';
+
+  @Component({
+    template: `<mlv-combobox
+      [options]="options"
+      [multiple]="multiple()"
+      [dropdownMinWidth]="dropdownMinWidth()"
+      [dropdownMaxWidth]="dropdownMaxWidth()"
+      [(value)]="value"
+    />`,
+    imports: [MlvCombobox],
+  })
+  class HostComponent {
+    readonly combobox = viewChild.required(MlvCombobox<string>);
+    readonly options = ['compact', LONG_OPTION, 'spacious'];
+    readonly multiple = signal(false);
+    readonly value = signal<string | string[] | null>(null);
+    readonly dropdownMinWidth = signal<number | string | undefined>(undefined);
+    readonly dropdownMaxWidth = signal<number | string | undefined>(undefined);
+  }
+
+  let fixture: ComponentFixture<HostComponent>;
+  let overlayContainer: OverlayContainer;
+  let rtlService: MlvRtlService;
+
+  /** Replaces an element's zero-sized jsdom box with a real one. */
+  function stubRect(element: Element, rect: Record<string, number>): void {
+    const full = { toJSON: () => rect, ...rect };
+    element.getBoundingClientRect = () => full as unknown as DOMRect;
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(HostComponent);
+    overlayContainer = TestBed.inject(OverlayContainer);
+    rtlService = TestBed.inject(MlvRtlService);
+    // jsdom reports `documentElement.clientWidth === 0`; CDK reads it as the viewport.
+    Object.defineProperty(document.documentElement, 'clientWidth', {
+      value: VIEWPORT_WIDTH,
+      configurable: true,
+    });
+    Object.defineProperty(document.documentElement, 'clientHeight', {
+      value: VIEWPORT_HEIGHT,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    rtlService.setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+    Reflect.deleteProperty(document.documentElement, 'clientWidth');
+    Reflect.deleteProperty(document.documentElement, 'clientHeight');
+    overlayContainer.ngOnDestroy();
+  });
+
+  /** Measures the trigger through the real `mlvResizeObserver` path, then opens. */
+  async function open(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector(
+      '.mlv-combobox__trigger',
+    ) as HTMLElement;
+    // The overlay's origin is the popup container, not the trigger it wraps.
+    stubRect(
+      fixture.nativeElement.querySelector('mlv-popup-container') as Element,
+      TRIGGER_RECT,
+    );
+    stubRect(trigger, TRIGGER_RECT);
+    fixture.componentInstance
+      .combobox()
+      .updateTriggerWidth([
+        { target: trigger } as unknown as ResizeObserverEntry,
+      ]);
+    fixture.componentInstance.combobox().isOpen.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  const pane = () =>
+    overlayContainer
+      .getContainerElement()
+      .querySelector('.cdk-overlay-pane') as HTMLElement;
+  const boundingBox = () =>
+    overlayContainer
+      .getContainerElement()
+      .querySelector(
+        '.cdk-overlay-connected-position-bounding-box',
+      ) as HTMLElement | null;
+
+  it('floors the panel at the trigger width instead of pinning it', async () => {
+    await open();
+
+    expect(overlayContainer.getContainerElement().textContent).toContain(
+      LONG_OPTION,
+    );
+    expect(pane().style.minWidth).toBe('200px');
+    expect(pane().style.width).toBe('');
+  });
+
+  it('raises the floor to an explicit dropdownMinWidth', async () => {
+    fixture.componentInstance.dropdownMinWidth.set('30rem');
+    await open();
+
+    // Both bounds survive as a CSS `max()`, so the author's units resolve in
+    // the browser rather than being converted to px in TypeScript.
+    expect(pane().style.minWidth).toBe('max(200px, 30rem)');
+    expect(pane().style.width).toBe('');
+  });
+
+  it('never lets dropdownMinWidth shrink the panel below its trigger', async () => {
+    // The input raises the floor; it does not replace it. A value under the
+    // trigger width is the reading a consumer is most likely to get wrong, so
+    // the trigger width stays in the `max()` and wins.
+    fixture.componentInstance.dropdownMinWidth.set(80);
+    await open();
+
+    expect(pane().style.minWidth).toBe('max(200px, 80px)');
+  });
+
+  it('caps the panel at an explicit dropdownMaxWidth', async () => {
+    fixture.componentInstance.dropdownMaxWidth.set('24rem');
+    await open();
+
+    // With flexible dimensions the cap lands on the bounding box, not the
+    // pane: CDK clears `max-width` on the pane and applies the configured
+    // value to the box the pane is laid out inside. That is the same
+    // mechanism the viewport clamp uses, so the two compose.
+    expect(boundingBox()?.style.maxWidth).toBe('24rem');
+    // The floor is unaffected by the ceiling.
+    expect(pane().style.minWidth).toBe('200px');
+  });
+
+  it('emits no max-width when none is set, leaving the viewport as the only cap', async () => {
+    await open();
+
+    expect(boundingBox()?.style.maxWidth).toBe('');
+    expect(pane().style.maxWidth).toBe('');
+  });
+
+  it('keeps the floor with the panel check marks (multi-select)', async () => {
+    fixture.componentInstance.multiple.set(true);
+    fixture.componentInstance.value.set([LONG_OPTION]);
+    await open();
+
+    expect(
+      overlayContainer
+        .getContainerElement()
+        .querySelectorAll('.mlv-dropdown-panel__item-check').length,
+    ).toBe(1);
+    expect(pane().style.minWidth).toBe('200px');
+    expect(pane().style.width).toBe('');
+  });
+
+  it('grows toward inline-end and stays anchored at the start edge (LTR)', async () => {
+    await open();
+
+    const box = boundingBox();
+    expect(box?.getAttribute('dir')).toBe('ltr');
+    expect(box?.style.left).toBe(`${TRIGGER_RECT.left}px`);
+    // Bounded by the viewport's inline-end edge — the clamp for a pane that
+    // carries no `width` of its own.
+    expect(box?.style.width).toBe(`${VIEWPORT_WIDTH - TRIGGER_RECT.left}px`);
+    expect(box?.style.alignItems).toBe('flex-start');
+    expect(pane().style.width).toBe('');
+    expect(pane().style.maxWidth).toBe('');
+  });
+
+  it('grows toward inline-end (leftward) under a global RTL flip', async () => {
+    rtlService.setDirection('rtl');
+    await open();
+
+    const box = boundingBox();
+    expect(box?.getAttribute('dir')).toBe('rtl');
+    // Anchored at the trigger's start edge — its RIGHT edge in RTL.
+    expect(box?.style.right).toBe(`${VIEWPORT_WIDTH - TRIGGER_RECT.right}px`);
+    expect(box?.style.width).toBe(`${TRIGGER_RECT.right}px`);
+    expect(pane().style.minWidth).toBe('200px');
+    expect(pane().style.width).toBe('');
+  });
+
+  it('follows a [dir="rtl"] scope while the document stays LTR', async () => {
+    fixture.detectChanges();
+    (
+      fixture.nativeElement.querySelector('mlv-combobox') as HTMLElement
+    ).setAttribute('dir', 'rtl');
+    await open();
+
+    expect(rtlService.direction()).toBe('ltr');
+    expect(document.documentElement.getAttribute('dir')).not.toBe('rtl');
+    expect(boundingBox()?.getAttribute('dir')).toBe('rtl');
+    expect(boundingBox()?.style.right).toBe(
+      `${VIEWPORT_WIDTH - TRIGGER_RECT.right}px`,
+    );
+    expect(pane().style.minWidth).toBe('200px');
+    expect(pane().style.width).toBe('');
   });
 });
