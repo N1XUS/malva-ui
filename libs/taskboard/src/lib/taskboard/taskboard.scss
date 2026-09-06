@@ -328,7 +328,11 @@
     &__cell[data-collapsed='true'] {
       min-block-size: auto;
 
+      // The empty-cell box is the cards area's own drop slot, so it goes with
+      // the cards rather than drawing a full-width dashed panel under a
+      // collapsed column or lane.
       .mlv-taskboard__card,
+      .mlv-taskboard__empty,
       .mlv-taskboard__add {
         display: none;
       }
