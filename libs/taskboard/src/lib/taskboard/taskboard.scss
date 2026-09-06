@@ -572,9 +572,12 @@
       border-color: var(--mlv-border-error);
     }
 
-    // In an empty cell the box is the affordance, so the tail indicator would
-    // draw a second one underneath it.
-    &__cards--empty &__drop-indicator {
+    // Where the built-in box is drawn it *is* the affordance, so the tail
+    // indicator would put a second one underneath it. The suppression hangs off
+    // the box itself rather than off `&__cards--empty`, because a cell whose
+    // box a consumer replaced through `mlvTaskboardEmptyStateDef` is empty too
+    // — and there the indicator is the only slot marker left.
+    &__empty ~ &__drop-indicator {
       display: none;
     }
 
@@ -685,21 +688,29 @@
     // the class then. `:has()` is supported by every browser this repository's
     // browserslist targets, so the sheet can say this declaratively instead of
     // walking the page from TypeScript.
+    // physical page-level rule set; `!important` is deliberate on both rules
+    // below: inside a layer an important declaration outranks every normal
+    // unlayered rule, which is what lets a library print sheet beat the host
+    // page's own layout.
     body:has(#{$block}--printing) {
-      // physical page-level rule set; `!important` is deliberate: inside a layer an
-      // important declaration outranks every normal unlayered rule, which is what
-      // lets a library print sheet beat the host page's own layout.
       *:not(:has(#{$block}--printing)):not(#{$block}--printing):not(
           #{$block}--printing *
         ) {
         display: none !important;
       }
+    }
 
-      :has(#{$block}--printing) {
-        overflow: visible !important;
-        height: auto !important;
-        max-height: none !important;
-      }
+    // The board's ancestor chain, un-clipped so a board inside a scrolling
+    // shell prints whole. `body:has(X) :has(X)` is a *descendant* combinator,
+    // so it can never reach `<body>` or `<html>` themselves — and an app shell
+    // with `html, body { height: 100%; overflow: hidden }` is precisely where
+    // that matters, so both are named outright beside it.
+    html:has(#{$block}--printing),
+    body:has(#{$block}--printing),
+    body:has(#{$block}--printing) :has(#{$block}--printing) {
+      overflow: visible !important;
+      height: auto !important;
+      max-height: none !important;
     }
 
     #{$block}--printing {

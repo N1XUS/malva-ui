@@ -42,6 +42,21 @@ describe('taskboard.scss', () => {
     expect(rule).toContain('max-height: none !important');
   });
 
+  it('un-clips <html> and <body> as well as the ancestors between them', () => {
+    // The descendant combinator above cannot reach either, and an app shell
+    // with `html, body { height: 100%; overflow: hidden }` clips the printed
+    // board to one page unless both are named.
+    const anchor =
+      'body:has(.mlv-taskboard--printing) :has(.mlv-taskboard--printing)';
+    const start = print.lastIndexOf('}', print.indexOf(anchor)) + 1;
+    const selectorList = print.slice(
+      start,
+      print.indexOf(anchor) + anchor.length,
+    );
+    expect(selectorList).toContain('html:has(.mlv-taskboard--printing)');
+    expect(selectorList).toContain('body:has(.mlv-taskboard--printing),');
+  });
+
   it('hides the empty-cell box in a collapsed cell, like the cards it stands in for', () => {
     // The box is the empty cell's drop slot, so it belongs to the cards area
     // and disappears with it when the column or lane is collapsed — otherwise a

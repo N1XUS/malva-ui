@@ -158,9 +158,19 @@ const MLV_TASKBOARD_CLONE_DECLARATIONS: readonly string[] = [
  * host or above the card *inside* it, and resolves to nothing out there. The
  * clone therefore adopts two things: the values above, already resolved; and
  * every `--mlv-*` custom property the source resolves, so a projected card
- * template that reads one keeps working. Browsers that do not enumerate custom
- * properties in a computed style simply contribute nothing to the second half
- * — the first is what paints the box either way.
+ * template that reads one keeps working. The two halves cover different things
+ * and neither substitutes for the other: the longhand list paints the clone's
+ * **own** box, while the custom properties are what its **descendants** read —
+ * a projected card whose content resolves a `--mlv-*` inside a scoped theme
+ * island has only the enumeration half to fall back on. So on a browser that
+ * does not enumerate custom properties in a computed style the clone's own
+ * surface still matches its source, and only such descendants would read
+ * `<body>`'s tokens instead. Every target this repository builds for does
+ * enumerate them.
+ *
+ * The loop writes on the order of a few hundred inherited `--mlv-*`
+ * properties onto the clone's inline style. That is affordable exactly because
+ * it runs **once per drag**, at `start` — never move it into `onMove`.
  */
 export function adoptMlvTaskboardCloneStyle(
   clone: HTMLElement,

@@ -1180,8 +1180,9 @@ export class MlvTaskboard<TItem> {
    * which every browser this repository's browserslist targets supports
    * (Chrome/Edge 105+, Safari 15.4+, Firefox 121+), so nothing has to walk the
    * page from TypeScript and no host markup is touched. The class comes off as
-   * soon as the dialog closes, so a print the user starts themselves prints
-   * the page as it is.
+   * soon as the dialog closes — and in a `finally`, so a refused or stubbed
+   * `print()` cannot strand it there — so a print the user starts themselves
+   * prints the page as it is.
    *
    * It is a no-op during a server render, where the injected document has no
    * view to print through.
@@ -1192,8 +1193,15 @@ export class MlvTaskboard<TItem> {
     this._printing.set(true);
     afterNextRender(
       () => {
-        view.print();
-        this._printing.set(false);
+        // `finally`, not a plain sequence: a browser that refuses the dialog —
+        // or a host that stubs `print()` with a thrower — would otherwise leave
+        // the class on the host for good, and the *next* print the user starts
+        // themselves would silently print the board alone.
+        try {
+          view.print();
+        } finally {
+          this._printing.set(false);
+        }
       },
       { injector: this._injector },
     );
@@ -1929,11 +1937,15 @@ export class MlvTaskboard<TItem> {
    * reported scroller. Walking up from the list finds the cell's scrollbar
    * before the column strip's, and an unwrapped list (a projected
    * `mlvTaskboardColumnContentDef`) falls back to itself.
+   *
+   * @param scrollers The board's scroll boxes, from `_scrollerSet()`. Passed in
+   * because every caller walks a whole board's worth of cells against the same
+   * set.
    */
-  private _scrollerFor(cards: HTMLElement): HTMLElement {
-    const scrollers = new Set(
-      this._scrollbars().map((scrollbar) => scrollbar.viewportElement),
-    );
+  private _scrollerFor(
+    cards: HTMLElement,
+    scrollers: ReadonlySet<HTMLElement>,
+  ): HTMLElement {
     let node: HTMLElement | null = cards;
     while (node !== null) {
       if (scrollers.has(node)) return node;
@@ -1942,17 +1954,30 @@ export class MlvTaskboard<TItem> {
     return cards;
   }
 
+  /**
+   * @private The board's scroll boxes as one lookup, built once per
+   * `snapshot()` / `restore()` rather than per cell: the board now owns
+   * `columns × lanes + 1` scrollbars, and each caller walks every rendered
+   * cell.
+   */
+  private _scrollerSet(): ReadonlySet<HTMLElement> {
+    return new Set(
+      this._scrollbars().map((scrollbar) => scrollbar.viewportElement),
+    );
+  }
+
   /** @private Every rendered cell's scroll offset, keyed by its bucket token. */
   private _cellScrollPositions(): Record<string, number> {
     const positions: Record<string, number> = {};
     const cells = this._elementRef.nativeElement.querySelectorAll<HTMLElement>(
       '.mlv-taskboard__cards',
     );
+    const scrollers = this._scrollerSet();
     for (const cell of cells) {
       const bucket = this._resolveBucket(cell);
       if (bucket === undefined) continue;
       positions[mlvTaskboardBucketToken(bucket.columnId, bucket.swimlaneId)] =
-        this._scrollerFor(cell).scrollTop;
+        this._scrollerFor(cell, scrollers).scrollTop;
     }
     return positions;
   }
@@ -1964,13 +1989,14 @@ export class MlvTaskboard<TItem> {
     const cells = this._elementRef.nativeElement.querySelectorAll<HTMLElement>(
       '.mlv-taskboard__cards',
     );
+    const scrollers = this._scrollerSet();
     for (const cell of cells) {
       const bucket = this._resolveBucket(cell);
       if (bucket === undefined) continue;
       const offset =
         positions[mlvTaskboardBucketToken(bucket.columnId, bucket.swimlaneId)];
       if (offset === undefined) continue;
-      this._scrollerFor(cell).scrollTop = offset;
+      this._scrollerFor(cell, scrollers).scrollTop = offset;
     }
   }
 

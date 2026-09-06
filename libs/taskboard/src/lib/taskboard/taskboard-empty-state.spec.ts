@@ -1,9 +1,24 @@
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { describe, expect, it } from 'vitest';
+import type * as Sass from 'sass';
+import { afterEach, describe, expect, it } from 'vitest';
 import { MlvTaskboard } from './taskboard';
 import { MlvTaskboardEmptyStateDef } from '../taskboard-defs';
 import { provideTaskboardTesting } from '../testing/taskboard-test-context';
+
+// `sass` is a Node-only dependency; loading it through `createRequire` keeps it
+// out of the browser-ish module graph vitest builds for this project. The
+// compiled sheet is what the two drop-indicator tests read computed styles
+// through — `setup-strip-css-layers` flattens `@layer` on the way into the
+// `<style>` element, so jsdom parses it.
+const nodeRequire = createRequire(import.meta.url);
+const sass = nodeRequire('sass') as typeof Sass;
+const TASKBOARD_CSS = sass.compile(
+  resolve(dirname(fileURLToPath(import.meta.url)), './taskboard.scss'),
+).css;
 
 interface Ticket {
   readonly id: string;
@@ -82,7 +97,34 @@ function emptyCell(host: HTMLElement): HTMLElement {
   ) as HTMLElement;
 }
 
+/** Renders the tail drop indicator the board draws while a drag hovers a cell. */
+function appendDropIndicator(cards: HTMLElement): HTMLElement {
+  // The board renders this element from `dropIndicatorTemplate` as the last
+  // child of the cards container once `_isDropTail()` is true. Appending it is
+  // the same DOM without driving a whole SortableJS gesture; what is under test
+  // is which rule of the shipped sheet then wins on it.
+  const indicator = document.createElement('div');
+  indicator.className = 'mlv-taskboard__drop-indicator';
+  indicator.setAttribute('aria-hidden', 'true');
+  cards.append(indicator);
+  return indicator;
+}
+
 describe('MlvTaskboard empty cell', () => {
+  let stylesheet: HTMLStyleElement | null = null;
+
+  /** Puts the component's own compiled CSS in the document for one test. */
+  function useTaskboardStylesheet(): void {
+    stylesheet = document.createElement('style');
+    stylesheet.textContent = TASKBOARD_CSS;
+    document.head.append(stylesheet);
+  }
+
+  afterEach(() => {
+    stylesheet?.remove();
+    stylesheet = null;
+  });
+
   it('opens an empty cell with a drop-zone box inside its cards area', async () => {
     const { host } = await mount(EmptyHost);
     const cell = emptyCell(host);
@@ -177,6 +219,35 @@ describe('MlvTaskboard empty cell', () => {
         .querySelector('.mlv-taskboard__cards')
         ?.classList.contains('mlv-taskboard__cards--empty'),
     ).toBe(false);
+  });
+
+  it('stands the built-in drop indicator down behind the box that replaces it', async () => {
+    useTaskboardStylesheet();
+    const { host } = await mount(EmptyHost);
+    const cards = emptyCell(host).querySelector<HTMLElement>(
+      '.mlv-taskboard__cards',
+    ) as HTMLElement;
+    expect(cards.querySelector('.mlv-taskboard__empty')).not.toBeNull();
+
+    const indicator = appendDropIndicator(cards);
+    // The box already paints the accept affordance, so a bar under it would be
+    // a second indicator for the same slot.
+    expect(getComputedStyle(indicator).display).toBe('none');
+  });
+
+  it('keeps the built-in drop indicator in a cell whose box a consumer replaced', async () => {
+    useTaskboardStylesheet();
+    const { host } = await mount(ProjectedEmptyHost);
+    const cards = emptyCell(host).querySelector<HTMLElement>(
+      '.mlv-taskboard__cards',
+    ) as HTMLElement;
+    // No built-in box here — the projected empty state took its place — so
+    // nothing else draws the slot and the indicator has to.
+    expect(cards.querySelector('.mlv-taskboard__empty')).toBeNull();
+    expect(cards.classList.contains('mlv-taskboard__cards--empty')).toBe(true);
+
+    const indicator = appendDropIndicator(cards);
+    expect(getComputedStyle(indicator).display).not.toBe('none');
   });
 
   it('lets a projected empty state replace the default box wholesale', async () => {

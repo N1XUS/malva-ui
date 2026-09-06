@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, signal, viewChild } from '@angular/core';
+import { Component, ErrorHandler, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
@@ -602,6 +602,45 @@ describe('MlvTaskboard public surface', () => {
     } finally {
       // The view is the shared jsdom window: a spy left installed is handed
       // straight back by the next `vi.spyOn`, calls already recorded and all.
+      print.mockRestore();
+    }
+  });
+
+  it('takes the printing class off again when the print dialog throws', async () => {
+    // A blocked dialog, or a host that stubs `print()` with a thrower, would
+    // otherwise leave `mlv-taskboard--printing` on the host for good — and the
+    // *next* user-started Ctrl+P would silently print the board alone.
+    const { fixture } = await mount();
+    const view = TestBed.inject(DOCUMENT).defaultView;
+    if (view === null) throw new Error('Expected a browser test document.');
+    const print = vi.spyOn(view, 'print').mockImplementation(() => {
+      throw new Error('print blocked');
+    });
+    // The render pass reports the failure to the application's error handler
+    // rather than rejecting `whenStable()`, so the spy is how this asserts the
+    // throw *left* `print()` instead of being swallowed there.
+    const handleError = vi
+      .spyOn(TestBed.inject(ErrorHandler), 'handleError')
+      .mockImplementation(() => undefined);
+    const board = fixture.nativeElement.querySelector(
+      'mlv-taskboard',
+    ) as HTMLElement;
+
+    try {
+      fixture.componentInstance.board().print();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(print).toHaveBeenCalledTimes(1);
+      expect(handleError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'print blocked' }),
+      );
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(board.classList.contains('mlv-taskboard--printing')).toBe(false);
+    } finally {
+      handleError.mockRestore();
       print.mockRestore();
     }
   });
