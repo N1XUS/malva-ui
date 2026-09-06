@@ -7,8 +7,6 @@ import {
   MlvTaskboardColumnContentDef,
   MlvTaskboardColumnGroupDef,
   MlvTaskboardColumnHeaderDef,
-  MlvTaskboardDragPreviewDef,
-  type MlvTaskboardDragPreviewDefContext,
   MlvTaskboardDropIndicatorDef,
   type MlvTaskboardDropIndicatorDefContext,
   MlvTaskboardEmptyStateDef,
@@ -33,7 +31,6 @@ interface Ticket {
     MlvTaskboardSwimlaneDef,
     MlvTaskboardItemDef,
     MlvTaskboardCardAddDef,
-    MlvTaskboardDragPreviewDef,
     MlvTaskboardEmptyStateDef,
     MlvTaskboardDropIndicatorDef,
   ],
@@ -70,13 +67,6 @@ interface Ticket {
       ><button type="button" (click)="requestAdd()">Add</button></ng-template
     >
     <ng-template
-      mlvTaskboardDragPreviewDef
-      [mlvTaskboardDragPreviewDefFrom]="item"
-      let-card
-      let-location="location"
-      >{{ card.title }} {{ location.index }}</ng-template
-    >
-    <ng-template
       mlvTaskboardEmptyStateDef
       let-column="column"
       let-lane="swimlane"
@@ -101,7 +91,6 @@ class TaskboardDefsHost {
   readonly swimlaneDef = viewChild.required(MlvTaskboardSwimlaneDef);
   readonly itemDef = viewChild.required(MlvTaskboardItemDef);
   readonly cardAddDef = viewChild.required(MlvTaskboardCardAddDef);
-  readonly dragPreviewDef = viewChild.required(MlvTaskboardDragPreviewDef);
   readonly emptyStateDef = viewChild.required(MlvTaskboardEmptyStateDef);
   readonly dropIndicatorDef = viewChild.required(MlvTaskboardDropIndicatorDef);
 }
@@ -130,7 +119,6 @@ describe('taskboard template definitions', () => {
     expect(fixture.componentInstance.swimlaneDef().templateRef).toBeTruthy();
     expect(fixture.componentInstance.itemDef().templateRef).toBeTruthy();
     expect(fixture.componentInstance.cardAddDef().templateRef).toBeTruthy();
-    expect(fixture.componentInstance.dragPreviewDef().templateRef).toBeTruthy();
     expect(fixture.componentInstance.emptyStateDef().templateRef).toBeTruthy();
     expect(
       fixture.componentInstance.dropIndicatorDef().templateRef,
@@ -138,7 +126,7 @@ describe('taskboard template definitions', () => {
     consoleError.mockRestore();
   });
 
-  it('exposes the stable item, add, drag-preview, and drop-indicator contexts', () => {
+  it('exposes the stable item, add, and drop-indicator contexts', () => {
     const column = { id: 'todo', label: 'Todo' };
     const swimlane = { id: 'engineering', label: 'Engineering' };
     const wip = { count: 1, limit: 3, remaining: 2 };
@@ -160,15 +148,6 @@ describe('taskboard template definitions', () => {
       swimlane,
       wip,
     };
-    const dragPreviewContext: MlvTaskboardDragPreviewDefContext<Ticket> = {
-      $implicit: card,
-      card,
-      column,
-      swimlane,
-      location,
-      selected: true,
-      wip,
-    };
     const dropIndicatorContext: MlvTaskboardDropIndicatorDefContext<Ticket> = {
       $implicit: true,
       valid: true,
@@ -185,12 +164,6 @@ describe('taskboard template definitions', () => {
       MlvTaskboardCardAddDef.ngTemplateContextGuard(
         undefined as never,
         addContext,
-      ),
-    ).toBe(true);
-    expect(
-      MlvTaskboardDragPreviewDef.ngTemplateContextGuard<Ticket>(
-        undefined as never,
-        dragPreviewContext,
       ),
     ).toBe(true);
     expect(

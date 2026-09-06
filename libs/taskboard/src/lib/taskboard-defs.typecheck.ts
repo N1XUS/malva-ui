@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import {
   MlvTaskboardColumnContentDef,
-  MlvTaskboardDragPreviewDef,
   MlvTaskboardDropIndicatorDef,
   MlvTaskboardItemDef,
 } from './taskboard-defs';
@@ -14,19 +13,11 @@ interface Ticket {
 @Component({
   imports: [
     MlvTaskboardItemDef,
-    MlvTaskboardDragPreviewDef,
     MlvTaskboardColumnContentDef,
     MlvTaskboardDropIndicatorDef,
   ],
   template: `
     <ng-template mlvTaskboardItemDef [mlvTaskboardItemDefFrom]="item" let-card>
-      {{ card.title }}
-    </ng-template>
-    <ng-template
-      mlvTaskboardDragPreviewDef
-      [mlvTaskboardDragPreviewDefFrom]="item"
-      let-card
-    >
       {{ card.title }}
     </ng-template>
     <ng-template

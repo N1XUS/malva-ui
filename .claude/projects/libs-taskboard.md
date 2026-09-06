@@ -75,7 +75,7 @@ Two-way; each writes a replacement value and emits its `…Change` output only w
 
 ## Projection slots
 
-Every chrome the board draws is a replaceable `ng-template`. The four generic directives take a `…From` input purely to carry the card type into the context; the board never reads that value.
+Every chrome the board draws is a replaceable `ng-template`. The three generic directives take a `…From` input purely to carry the card type into the context; the board never reads that value.
 
 | Directive                      | Selector                         | Context fields                                                          | Type carrier                       |
 | ------------------------------ | -------------------------------- | ----------------------------------------------------------------------- | ---------------------------------- |
@@ -88,12 +88,11 @@ Every chrome the board draws is a replaceable `ng-template`. The four generic di
 | `MlvTaskboardCardAddDef`       | `[mlvTaskboardCardAddDef]`       | `$implicit`/`requestAdd` (`() => void`), `column`, `swimlane`, `wip`    | —                                  |
 | `MlvTaskboardEmptyStateDef`    | `[mlvTaskboardEmptyStateDef]`    | `$implicit`/`column`, `swimlane`, `wip`                                 | —                                  |
 | `MlvTaskboardDropIndicatorDef` | `[mlvTaskboardDropIndicatorDef]` | `$implicit`/`valid`, `target` (`MlvTaskboardDropTarget<TItem>`)         | `mlvTaskboardDropIndicatorDefFrom` |
-| `MlvTaskboardDragPreviewDef`   | `[mlvTaskboardDragPreviewDef]`   | `$implicit`/`card`, `column`, `swimlane`, `location`, `selected`, `wip` | `mlvTaskboardDragPreviewDefFrom`   |
 
 Each directive exposes its `templateRef` and a static `ngTemplateContextGuard` for strict template inference.
 
 - `mlvTaskboardColumnContentDef` replaces the **whole** cell, listbox and virtual viewport included, so a board that projects it owns the cell's ARIA and its scrolling, and is not virtualized.
-- **`MlvTaskboardDragPreviewDef` is exported but not queried** by `MlvTaskboard` as of this version: projecting it renders nothing and the pointer drag uses SortableJS's own fallback clone. Tracked for Task 10.
+- The pointer drag has **no replaceable preview slot**: what the user drags is SortableJS's own fallback clone of the card.
 - `MlvTaskboardDropTarget.items` is the target cell's visible cards **with the dragged card removed** — exactly the list `target.index` counts (R17). The card lands before `items[index]`; `index === items.length` appends.
 
 ## Types

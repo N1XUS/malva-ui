@@ -66,17 +66,6 @@ export interface MlvTaskboardCardAddDefContext {
   readonly wip: MlvTaskboardWipState;
 }
 
-/** Context provided to a custom drag-preview template. */
-export interface MlvTaskboardDragPreviewDefContext<TItem = unknown> {
-  readonly $implicit: TItem;
-  readonly card: TItem;
-  readonly column: MlvTaskboardColumn;
-  readonly swimlane: MlvTaskboardSwimlane | undefined;
-  readonly location: MlvTaskboardLocation;
-  readonly selected: boolean;
-  readonly wip: MlvTaskboardWipState;
-}
-
 /** Context provided when a column or swimlane has no cards to render. */
 export interface MlvTaskboardEmptyStateDefContext {
   readonly $implicit: MlvTaskboardColumn;
@@ -219,31 +208,6 @@ export class MlvTaskboardCardAddDef {
     _dir: MlvTaskboardCardAddDef,
     _ctx: unknown,
   ): _ctx is MlvTaskboardCardAddDefContext {
-    return true;
-  }
-}
-
-/** Marks a custom template for a drag preview. */
-@Directive({ selector: '[mlvTaskboardDragPreviewDef]' })
-export class MlvTaskboardDragPreviewDef<TItem = unknown> {
-  /**
-   * Carries the card type into the template context for strict template inference.
-   * The board does not consume this value as runtime data.
-   */
-  readonly from = input<TItem | undefined>(undefined, {
-    alias: 'mlvTaskboardDragPreviewDefFrom',
-  });
-
-  /** The template reference for this custom drag-preview slot. */
-  readonly templateRef = inject(
-    TemplateRef<MlvTaskboardDragPreviewDefContext<TItem>>,
-  );
-
-  /** Narrows the template context for strict template type checking. */
-  static ngTemplateContextGuard<TItem>(
-    _dir: MlvTaskboardDragPreviewDef<TItem>,
-    _ctx: unknown,
-  ): _ctx is MlvTaskboardDragPreviewDefContext<TItem> {
     return true;
   }
 }
