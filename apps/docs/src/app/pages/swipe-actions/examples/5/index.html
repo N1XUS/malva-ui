@@ -1,0 +1,39 @@
+<mlv-switch class="swipe-demo__toggle" [(checked)]="locked">
+  Lock the first row
+</mlv-switch>
+
+<div class="swipe-demo">
+  <mlv-swipe-actions [disabled]="locked()">
+    <div class="swipe-demo__content">
+      <span class="swipe-demo__title">
+        {{ locked() ? 'Locked — the row does not move' : 'Unlocked' }}
+      </span>
+      <span class="swipe-demo__byline">
+        The actions stay in the accessibility tree either way.
+      </span>
+    </div>
+    <button mlvSwipeAction tone="danger">
+      <svg lucideTrash2 [size]="20" aria-hidden="true" />
+      Delete
+    </button>
+  </mlv-swipe-actions>
+
+  <div dir="rtl">
+    <mlv-swipe-actions>
+      <button mlvSwipeAction side="start" tone="success">
+        <svg lucideArchive [size]="20" aria-hidden="true" />
+        أرشفة
+      </button>
+      <div class="swipe-demo__content">
+        <span class="swipe-demo__title">صف من اليمين إلى اليسار</span>
+        <span class="swipe-demo__byline">
+          <code>dir="rtl"</code> on an ancestor mirrors both edges.
+        </span>
+      </div>
+      <button mlvSwipeAction tone="danger">
+        <svg lucideTrash2 [size]="20" aria-hidden="true" />
+        حذف
+      </button>
+    </mlv-swipe-actions>
+  </div>
+</div>

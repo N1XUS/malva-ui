@@ -1,0 +1,250 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+@use 'sass:map';
+
+@layer mlv.components {
+  $block: mlv-swipe-actions;
+  $action: mlv-swipe-action;
+
+  // How many start-side actions keep a deterministic paint order. Deeper
+  // stacks still render; only the fan-out layering past this depth falls back
+  // to document order.
+  $stack-depth: 8;
+
+  $tones: (
+    'neutral': (
+      'bg': var(--mlv-background-neutral-1),
+      'bg-hover': var(--mlv-background-neutral-1-hover),
+      'bg-active': var(--mlv-background-neutral-1-active),
+      'color': var(--mlv-text-primary),
+    ),
+    'accent': (
+      'bg': var(--mlv-background-accent-1),
+      'bg-hover': var(--mlv-background-accent-1-hover),
+      'bg-active': var(--mlv-background-accent-1-active),
+      'color': var(--mlv-text-primary-on-accent-1),
+    ),
+    'info': (
+      'bg': var(--mlv-background-info-1),
+      'bg-hover': var(--mlv-background-info-1-hover),
+      'bg-active': var(--mlv-background-info-1-active),
+      'color': var(--mlv-text-on-info),
+    ),
+    'success': (
+      'bg': var(--mlv-background-success-1),
+      'bg-hover': var(--mlv-background-success-1-hover),
+      'bg-active': var(--mlv-background-success-1-active),
+      'color': var(--mlv-text-on-success),
+    ),
+    'warning': (
+      'bg': var(--mlv-background-warning-1),
+      'bg-hover': var(--mlv-background-warning-1-hover),
+      'bg-active': var(--mlv-background-warning-1-active),
+      'color': var(--mlv-text-on-warning),
+    ),
+    'danger': (
+      'bg': var(--mlv-background-danger-1),
+      'bg-hover': var(--mlv-background-danger-1-hover),
+      'bg-active': var(--mlv-background-danger-1-active),
+      'color': var(--mlv-text-on-danger),
+    ),
+  );
+
+  // ── The row: a horizontal scroll-snap container ─────────────────────────
+  //
+  // `[start][content][end]` are the three snap stops. The browser owns the
+  // gesture; nothing here runs per frame.
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-m-size),
+      0,
+      0
+    );
+
+    // Minimum inline size of one `block` action (iOS uses 74pt).
+    --mlv-swipe-actions-action-size: 4.5rem;
+    // Space between the actions of one side, and between the outermost
+    // action and the row's edge. Zero is the flush iOS look; a few spacing
+    // steps turn a side into a fanned-out row of `plain` icon buttons.
+    --mlv-swipe-actions-gap: 0;
+    --mlv-swipe-actions-inset: 0;
+
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    // Closed: no rubber-band at the content edge and no chaining into an
+    // outer horizontal scroller or a browser navigation gesture.
+    overscroll-behavior-x: none;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    // The inset is padding on the slot (the resting position) and, below,
+    // the sticky offset of each action (the pinned position), so the stack
+    // sits the same distance off the edge while it slides in and once it
+    // has landed.
+    &__start,
+    &__end {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: stretch;
+      gap: var(--mlv-swipe-actions-gap);
+      padding-inline: var(--mlv-swipe-actions-inset);
+    }
+
+    // An empty side takes no inset: with padding it would be a phantom
+    // snap stop of pure whitespace.
+    &__start:empty,
+    &__end:empty {
+      padding-inline: 0;
+    }
+
+    &__start {
+      scroll-snap-align: start;
+    }
+
+    &__end {
+      scroll-snap-align: end;
+    }
+
+    &__content {
+      flex: 0 0 100%;
+      min-inline-size: 0;
+      scroll-snap-align: start;
+      // A flick from one side never skips the content and lands on the other.
+      scroll-snap-stop: always;
+    }
+
+    // Until the start slot is measured and the row moved onto its content,
+    // the slot stays out of flow: server-rendered markup shows the content at
+    // offset zero instead of the start actions.
+    &:not(&--ready) &__start {
+      position: absolute;
+      inset-inline-start: 0;
+      visibility: hidden;
+    }
+
+    // Displaced: the local bounce at a fully revealed side is natural, but the
+    // scroll still never chains outward.
+    &--displaced {
+      overscroll-behavior-x: contain;
+    }
+
+    &--disabled {
+      overflow-x: hidden;
+    }
+  }
+
+  // ── One action: a sticky flex item ──────────────────────────────────────
+  //
+  // Sticky against the edge its side reveals from, constrained to its own
+  // slot: while the slot is only partly scrolled in, every action pins to the
+  // row's edge and the later ones paint over the earlier — the outermost is
+  // the hero — then each slides out from beneath the next as the slot comes
+  // fully into view. No measurement, no equal-width assumption, mirrors with
+  // the logical inset.
+  //
+  // The bare selector emits nothing. The directive also decorates hosts that
+  // paint themselves (`button[mlvButton]`, `mlv-switch`), so every piece of
+  // chrome — the base reset included — lives under `--block`, and the
+  // placement lives on the slot-scoped rules below.
+  .#{$action} {
+    // A control with its own look sits on the row's centre line instead of
+    // stretching to its full height.
+    &--plain {
+      align-self: center;
+    }
+
+    // The iOS look: a full-height, solid-filled block, icon above label.
+    &--block {
+      @include mixins.base(
+        var(--mlv-typography-family-text),
+        var(--mlv-typography-body-s-size),
+        0,
+        var(--mlv-padding-xs)
+      );
+
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--mlv-spacing-1);
+      min-inline-size: var(--mlv-swipe-actions-action-size);
+      border: 0;
+      border-radius: 0;
+      font-weight: var(--mlv-typography-body-s-weight);
+      line-height: var(--mlv-typography-body-s-line-height);
+      color: var(--mlv-swipe-action-color);
+      background-color: var(--mlv-swipe-action-bg);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color var(--mlv-duration-fast)
+        var(--mlv-ease-default);
+
+      &:hover {
+        background-color: var(--mlv-swipe-action-bg-hover);
+      }
+
+      &:active {
+        background-color: var(--mlv-swipe-action-bg-active);
+      }
+
+      // Form B: the row clips its overflow, so the ring is drawn inset.
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      }
+
+      &:disabled {
+        opacity: var(--mlv-disabled-opacity);
+        cursor: not-allowed;
+      }
+    }
+
+    @each $name, $props in $tones {
+      &--tone-#{$name} {
+        --mlv-swipe-action-bg: #{map.get($props, 'bg')};
+        --mlv-swipe-action-bg-hover: #{map.get($props, 'bg-hover')};
+        --mlv-swipe-action-bg-active: #{map.get($props, 'bg-active')};
+        --mlv-swipe-action-color: #{map.get($props, 'color')};
+      }
+    }
+  }
+
+  // Placement is scoped to the slot, a (0,2,0) selector: a self-painting host
+  // declares its own `position` at (0,1,0) in this same layer
+  // (`.mlv-switch { position: relative }`), and a bare `.mlv-swipe-action`
+  // rule would beat it or lose to it by stylesheet load order alone.
+  .#{$block}__end > .#{$action} {
+    position: sticky;
+    flex: 0 0 auto;
+    inset-inline-end: var(--mlv-swipe-actions-inset);
+  }
+
+  .#{$block}__start > .#{$action} {
+    position: sticky;
+    flex: 0 0 auto;
+    inset-inline-start: var(--mlv-swipe-actions-inset);
+
+    // Document order paints the last child on top, which on the end side is
+    // the outermost action. The start side is the mirror image, so its paint
+    // order is reversed for the first $stack-depth children to keep the edge
+    // action the hero on both sides; any child past that depth paints in
+    // document order again (a later, inner one over an earlier, outer one).
+    @for $i from 1 through $stack-depth {
+      &:nth-child(#{$i}) {
+        z-index: $stack-depth + 1 - $i;
+      }
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+  @include mixins.reduced-motion($action);
+}

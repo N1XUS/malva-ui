@@ -1,0 +1,7 @@
+## Basic Usage
+
+Wrap a row in `mlv-swipe-actions` and add `<button mlvSwipeAction>` elements next to its content — everything that is not an action is the content, here an `mlv-list-item`. Actions land on the inline-end edge by default and reveal when the row is swiped towards it.
+
+Inside a list the row **is** the list item: it takes `role="listitem"`, and the projected `mlv-list-item` steps down to `itemRole="none"`. The actions sit beside the content, and a list may own nothing but items — a roleless row would hand its buttons to the list.
+
+The gesture is the browser's own horizontal scroll with `scroll-snap`, so momentum, axis locking against the vertical list and rubber-banding behave like the platform. On a desktop the row scrolls sideways with a trackpad or Shift + wheel, and Tabbing to an action scrolls it into view. Activating an action closes the row; so does a press or a focus move outside it, Escape, or starting to swipe another row.

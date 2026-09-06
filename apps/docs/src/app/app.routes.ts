@@ -413,6 +413,13 @@ export const pageRoutes = [
       import('./pages/switch/index').then((m) => m.SwitchPageComponent),
   },
   {
+    path: 'swipe-actions',
+    loadComponent: () =>
+      import('./pages/swipe-actions/index').then(
+        (m) => m.SwipeActionsPageComponent,
+      ),
+  },
+  {
     path: 'card',
     loadComponent: () =>
       import('./pages/card/index').then((m) => m.CardPageComponent),
@@ -671,6 +678,7 @@ const GROUP_DEFINITIONS = [
       'icon-toggle',
       'link',
       'speed-dial',
+      'swipe-actions',
     ],
   },
   {
@@ -890,6 +898,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   'split-pane': 'columns-2',
   'status-indicator': 'radar',
   stepper: 'list-checks',
+  'swipe-actions': 'arrow-left-right',
   switch: 'toggle-left',
   tabs: 'layout-template',
   textarea: 'align-left',

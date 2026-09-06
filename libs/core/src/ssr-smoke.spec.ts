@@ -167,6 +167,7 @@ import { MlvSpeedDial, type MlvSpeedDialItem } from '@malva-ui/core/speed-dial';
 import { MlvSplitPane, MlvSplitPanePanel } from '@malva-ui/core/split-pane';
 import { MlvStatusIndicator } from '@malva-ui/core/status-indicator';
 import { MlvStep, MlvStepper } from '@malva-ui/core/stepper';
+import { MlvSwipeAction, MlvSwipeActions } from '@malva-ui/core/swipe-actions';
 import { MlvSwitch, MlvSwitchGroup } from '@malva-ui/core/switch';
 import { MlvTable, MlvTableCell, MlvTableRow } from '@malva-ui/core/table';
 import {
@@ -501,6 +502,8 @@ class SsrPickersHost {
     MlvListItem,
     MlvListItemLink,
     MlvListItemGroup,
+    MlvSwipeActions,
+    MlvSwipeAction,
     MlvLink,
     MlvMenu,
     MlvMenubar,
@@ -557,7 +560,11 @@ class SsrPickersHost {
 
     <mlv-list>
       <mlv-list-item><a mlvListItemLink href="/a">Item A</a></mlv-list-item>
-      <mlv-list-item>Item B</mlv-list-item>
+      <mlv-swipe-actions role="listitem">
+        <button mlvSwipeAction side="start" tone="success">Archive</button>
+        <mlv-list-item itemRole="none">Item B</mlv-list-item>
+        <button mlvSwipeAction tone="danger">Delete</button>
+      </mlv-swipe-actions>
     </mlv-list>
     <mlv-list-item-group label="Recent"
       ><p>Grouped rows</p></mlv-list-item-group

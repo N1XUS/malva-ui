@@ -1,0 +1,33 @@
+.swipe-demo__toggle {
+  margin-block-end: var(--mlv-spacing-3);
+}
+
+.swipe-demo {
+  max-inline-size: 28rem;
+  border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-l);
+  overflow: hidden;
+  background: var(--mlv-background-base);
+
+  > * + * {
+    border-top: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+}
+
+.swipe-demo__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mlv-spacing-0-5);
+  justify-content: center;
+  min-block-size: var(--mlv-height-l);
+  padding: var(--mlv-padding-m);
+}
+
+.swipe-demo__title {
+  font-weight: var(--mlv-typography-body-m-weight);
+}
+
+.swipe-demo__byline {
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-body-s-size);
+}

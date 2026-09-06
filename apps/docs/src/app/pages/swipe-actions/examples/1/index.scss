@@ -1,0 +1,24 @@
+.swipe-demo {
+  max-inline-size: 28rem;
+  border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  border-radius: var(--mlv-radius-l);
+  overflow: hidden;
+
+  // The list paints its hairline between adjacent rows; wrapped rows need it
+  // on the wrapper instead.
+  > mlv-swipe-actions + mlv-swipe-actions {
+    border-top: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+  }
+}
+
+.swipe-demo__empty,
+.swipe-demo__status {
+  margin: 0;
+  padding: var(--mlv-padding-m);
+  color: var(--mlv-text-secondary);
+  font-size: var(--mlv-typography-body-s-size);
+}
+
+.swipe-demo__status {
+  padding-inline: 0;
+}

@@ -1,0 +1,48 @@
+<div class="swipe-demo">
+  <mlv-swipe-actions
+    class="swipe-demo__row"
+    [(opened)]="opened"
+    (openedChange)="onOpened($event)"
+  >
+    <button mlvSwipeAction side="start" tone="success" (click)="act('Archive')">
+      <svg lucideArchive [size]="20" aria-hidden="true" />
+      Archive
+    </button>
+
+    <div class="swipe-demo__content">
+      <span class="swipe-demo__title">Quarterly numbers</span>
+      <span class="swipe-demo__byline">
+        Settled side: <code>{{ opened() ?? 'null' }}</code>
+      </span>
+    </div>
+
+    <button mlvSwipeAction tone="warning" (click)="act('Star')">
+      <svg lucideStar [size]="20" aria-hidden="true" />
+      Star
+    </button>
+    <button mlvSwipeAction tone="danger" (click)="act('Delete')">
+      <svg lucideTrash2 [size]="20" aria-hidden="true" />
+      Delete
+    </button>
+  </mlv-swipe-actions>
+</div>
+
+<div class="demo-row">
+  <button mlvButton variant="secondary" size="s" (click)="reveal('start')">
+    Reveal start
+  </button>
+  <button mlvButton variant="secondary" size="s" (click)="reveal('end')">
+    Reveal end
+  </button>
+  <button mlvButton variant="secondary" size="s" (click)="reveal(null)">
+    Close
+  </button>
+</div>
+
+<ol class="swipe-demo__log" aria-label="Events" reversed>
+  @for (entry of log(); track $index) {
+    <li>{{ entry }}</li>
+  } @empty {
+    <li class="swipe-demo__log-empty">No events yet.</li>
+  }
+</ol>

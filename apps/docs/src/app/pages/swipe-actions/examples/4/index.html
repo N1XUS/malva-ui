@@ -1,0 +1,52 @@
+<div class="swipe-demo">
+  <mlv-swipe-actions>
+    <div class="swipe-demo__content">
+      <span class="swipe-demo__title">Neutral, accent and info</span>
+      <span class="swipe-demo__byline">Swipe to the end</span>
+    </div>
+    <button mlvSwipeAction>
+      <svg lucideEllipsis [size]="20" aria-hidden="true" />
+      More
+    </button>
+    <button mlvSwipeAction tone="accent">
+      <svg lucideSparkles [size]="20" aria-hidden="true" />
+      Accent
+    </button>
+    <button mlvSwipeAction tone="info">
+      <svg lucideInfo [size]="20" aria-hidden="true" />
+      Info
+    </button>
+  </mlv-swipe-actions>
+
+  <mlv-swipe-actions>
+    <div class="swipe-demo__content">
+      <span class="swipe-demo__title">Success, warning and danger</span>
+      <span class="swipe-demo__byline">Swipe to the end</span>
+    </div>
+    <button mlvSwipeAction tone="success">
+      <svg lucideCheck [size]="20" aria-hidden="true" />
+      Success
+    </button>
+    <button mlvSwipeAction tone="warning">
+      <svg lucideTriangleAlert [size]="20" aria-hidden="true" />
+      Warning
+    </button>
+    <button mlvSwipeAction tone="danger">
+      <svg lucideTrash2 [size]="20" aria-hidden="true" />
+      Danger
+    </button>
+  </mlv-swipe-actions>
+
+  <mlv-swipe-actions>
+    <div class="swipe-demo__content">
+      <span class="swipe-demo__title">Icon only</span>
+      <span class="swipe-demo__byline">Give the button an accessible name</span>
+    </div>
+    <button mlvSwipeAction tone="info" aria-label="Mute">
+      <svg lucideBellOff [size]="20" aria-hidden="true" />
+    </button>
+    <button mlvSwipeAction tone="danger" aria-label="Delete">
+      <svg lucideTrash2 [size]="20" aria-hidden="true" />
+    </button>
+  </mlv-swipe-actions>
+</div>
