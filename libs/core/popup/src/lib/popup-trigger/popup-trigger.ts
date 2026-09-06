@@ -242,7 +242,9 @@ export class MlvPopupTrigger implements OnDestroy {
       vcr: this._vcr,
       positions: popup.resolvedPositions(),
       size: popup.buildSizeConfig(),
-      fullscreen: popup.isFullscreen(),
+      // Fixes the mode for this open — see the identical read in
+      // `MlvPopupContainer._attachOverlay()`.
+      fullscreen: popup.lockFullscreenForOpen(),
       hasBackdrop: popup.hasBackdrop() ?? !isHover,
       scrollStrategy: popup.scrollStrategy(),
       onPositionChange: (change) =>
@@ -256,6 +258,9 @@ export class MlvPopupTrigger implements OnDestroy {
         popup.animationState.set('idle');
         popup.opened.set(false);
         popup.afterClosed.emit();
+        // Released last, after `afterClosed` — see `MlvPopupContainer`'s
+        // `onClose` for why that handler still belongs to the finished open.
+        popup.releaseFullscreenLock();
       },
       onRequestClose: () => this.close(),
     });

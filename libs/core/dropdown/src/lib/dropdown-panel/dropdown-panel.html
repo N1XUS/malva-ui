@@ -1,9 +1,9 @@
 @if (scrollMode() === 'self') {
-<mlv-scrollbar class="mlv-dropdown-panel__scrollbar" [viewportTabIndex]="-1">
-  <ng-container [ngTemplateOutlet]="panelContent" />
-</mlv-scrollbar>
+  <mlv-scrollbar class="mlv-dropdown-panel__scrollbar" [viewportTabIndex]="-1">
+    <ng-container [ngTemplateOutlet]="panelContent" />
+  </mlv-scrollbar>
 } @else {
-<ng-container [ngTemplateOutlet]="panelContent" />
+  <ng-container [ngTemplateOutlet]="panelContent" />
 }
 
 <ng-template #panelContent>
@@ -11,10 +11,10 @@
        listbox so the listbox element (aria-controls target) still exists while a
        search resolves; the empty "no results" projection is suppressed meanwhile. -->
   @if (loading()) {
-  <div class="mlv-dropdown-panel__loading" role="status" aria-live="polite">
-    <span class="mlv-dropdown-panel__spinner" aria-hidden="true"></span>
-    <span class="mlv-dropdown-panel__loading-text">{{ loadingText() }}</span>
-  </div>
+    <div class="mlv-dropdown-panel__loading" role="status" aria-live="polite">
+      <span class="mlv-dropdown-panel__spinner" aria-hidden="true"></span>
+      <span class="mlv-dropdown-panel__loading-text">{{ loadingText() }}</span>
+    </div>
   }
 
   <!-- selectionMode="explicit" + softDisabled="false" reproduce the previous CdkListbox
@@ -44,43 +44,57 @@
     (valueChange)="onValueChange($event)"
   >
     @if (_isGrouped()) {
-    <!-- Grouped rendering: consecutive same-group runs become APG listbox groups
+      <!-- Grouped rendering: consecutive same-group runs become APG listbox groups
        (role="group" + aria-labelledby → a non-selectable, presentational sticky
        header). Options stay flat descendants of the listbox, so aria registers
        and navigates them exactly as ungrouped; headers are not aria options and
        are skipped by keyboard nav / type-ahead. Each option keeps its flat index
        so optionId / activeIndex line up with an owning combobox. -->
-    @for (group of _groups(); track $index) { @if (group.label) {
-    <div
-      class="mlv-dropdown-panel__group"
-      role="group"
-      [attr.aria-labelledby]="group.headerId"
-    >
-      <div
-        class="mlv-dropdown-panel__group-header"
-        role="presentation"
-        [id]="group.headerId"
-      >
-        {{ group.label }}
-      </div>
-      @for (entry of group.entries; track entry.option.value) {
-      <ng-container
-        *ngTemplateOutlet="optionRow; context: { option: entry.option, index: entry.index }"
-      />
+      @for (group of _groups(); track $index) {
+        @if (group.label) {
+          <div
+            class="mlv-dropdown-panel__group"
+            role="group"
+            [attr.aria-labelledby]="group.headerId"
+          >
+            <div
+              class="mlv-dropdown-panel__group-header"
+              role="presentation"
+              [id]="group.headerId"
+            >
+              {{ group.label }}
+            </div>
+            @for (entry of group.entries; track entry.option.value) {
+              <ng-container
+                *ngTemplateOutlet="
+                  optionRow;
+                  context: { option: entry.option, index: entry.index }
+                "
+              />
+            }
+          </div>
+        } @else {
+          @for (entry of group.entries; track entry.option.value) {
+            <ng-container
+              *ngTemplateOutlet="
+                optionRow;
+                context: { option: entry.option, index: entry.index }
+              "
+            />
+          }
+        }
       }
-    </div>
-    } @else { @for (entry of group.entries; track entry.option.value) {
-    <ng-container
-      *ngTemplateOutlet="optionRow; context: { option: entry.option, index: entry.index }"
-    />
-    } } } } @else { @for (option of options(); track option.value; let i =
-    $index) {
-    <ng-container
-      *ngTemplateOutlet="optionRow; context: { option: option, index: i }"
-    />
-    } @empty { @if (!loading()) {
-    <ng-content />
-    } } }
+    } @else {
+      @for (option of options(); track option.value; let i = $index) {
+        <ng-container
+          *ngTemplateOutlet="optionRow; context: { option: option, index: i }"
+        />
+      } @empty {
+        @if (!loading()) {
+          <ng-content />
+        }
+      }
+    }
 
     <!-- Single source of truth for an option row, outlet-ed by both the flat and
        the grouped branches. Declared INSIDE <mlv-list> so its declaration
@@ -98,24 +112,32 @@
         [optionId]="optionId(index)"
       >
         @if (itemTemplate()) {
-        <ng-container
-          *ngTemplateOutlet="itemTemplate()!; context: { $implicit: option }"
-        />
+          <ng-container
+            *ngTemplateOutlet="itemTemplate()!; context: { $implicit: option }"
+          />
         } @else {
-        <span class="mlv-dropdown-panel__item-label">
+          <!--
+          The label is a single inline text run assembled from @if / @for bodies.
+          Those blocks are not elements, so prettier indents them and the newlines
+          it adds render as spaces between the highlight segments, turning a
+          matched "Banana" into "B an ana". Keep this subtree as written.
+        -->
+          <!-- prettier-ignore -->
+          <span class="mlv-dropdown-panel__item-label">
           @if (highlightQuery()) { @for (seg of option.label |
           mlvHighlightMatch: highlightQuery(); track $index) { @if (seg.matched)
           {<mark class="mlv-dropdown-panel__match">{{ seg.text }}</mark>} @else
           {{{ seg.text }}} } } @else {{{ option.label }}}
         </span>
-        @if (_checkedRows()[index]) {
-        <svg
-          class="mlv-dropdown-panel__item-check"
-          lucideCheck
-          size="16"
-          strokeWidth="2"
-        />
-        } }
+          @if (_checkedRows()[index]) {
+            <svg
+              class="mlv-dropdown-panel__item-check"
+              lucideCheck
+              size="16"
+              strokeWidth="2"
+            />
+          }
+        }
       </mlv-list-item>
     </ng-template>
   </mlv-list>
@@ -124,14 +146,14 @@
        `__loading` row) so appended rows are not pushed around, and stays a
        polite status region — the listbox itself keeps its options interactive. -->
   @if (loadingMore()) {
-  <div
-    class="mlv-dropdown-panel__loading-more"
-    role="status"
-    aria-live="polite"
-  >
-    <span class="mlv-dropdown-panel__spinner" aria-hidden="true"></span>
-    <span class="mlv-dropdown-panel__loading-text">{{ loadingText() }}</span>
-  </div>
+    <div
+      class="mlv-dropdown-panel__loading-more"
+      role="status"
+      aria-live="polite"
+    >
+      <span class="mlv-dropdown-panel__spinner" aria-hidden="true"></span>
+      <span class="mlv-dropdown-panel__loading-text">{{ loadingText() }}</span>
+    </div>
   }
 
   <!-- Paging sentinel. The directive listens on the real scroll owner via
