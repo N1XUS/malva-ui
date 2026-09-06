@@ -1,47 +1,64 @@
 @for (att of _visible(); track att.id; let last = $last) {
-  <button
-    type="button"
-    class="mlv-chat-media-grid__cell"
-    [class.mlv-chat-media-grid__cell--uploading]="_isUploading(att)"
-    [style.aspect-ratio]="att.width && att.height ? att.width + ' / ' + att.height : null"
-    [attr.aria-label]="
+<button
+  type="button"
+  class="mlv-chat-media-grid__cell"
+  [class.mlv-chat-media-grid__cell--uploading]="_isUploading(att)"
+  [style.aspect-ratio]="att.width && att.height ? att.width + ' / ' + att.height : null"
+  [attr.aria-label]="
       last && _extra() > 0
         ? (_i18n().moreMedia | mlvTranslate: { count: _extra() })
         : (att.alt ?? _i18n().imageFallbackAlt)
     "
-    (click)="mediaClick.emit(att)"
+  (click)="mediaClick.emit(att)"
+>
+  @switch (att.kind) { @case ('gif') {
+  <video
+    mlvChatMuted
+    [src]="att.src"
+    [autoplay]="true"
+    [loop]="true"
+    muted
+    playsinline
+  ></video>
+  } @case ('video') { @if (att.poster) {
+  <img [src]="att.poster" [alt]="att.alt ?? ''" loading="lazy" />
+  } @else {
+  <video
+    mlvChatMuted
+    [src]="att.src"
+    preload="metadata"
+    muted
+    playsinline
+  ></video>
+  }
+  <span class="mlv-chat-media-grid__play">
+    <svg lucidePlay [size]="20" aria-hidden="true" />
+  </span>
+  @if (att.duration) {
+  <span class="mlv-chat-media-grid__duration"
+    >{{ _formatDuration(att.duration) }}</span
   >
-    @switch (att.kind) {
-      @case ('gif') {
-        <video [src]="att.src" [autoplay]="true" [muted]="true" [loop]="true" playsinline></video>
-      }
-      @case ('video') {
-        @if (att.poster) {
-          <img [src]="att.poster" [alt]="att.alt ?? ''" loading="lazy" />
-        } @else {
-          <video [src]="att.src" preload="metadata" [muted]="true" playsinline></video>
-        }
-        <span class="mlv-chat-media-grid__play">
-          <svg lucidePlay [size]="20" aria-hidden="true" />
-        </span>
-        @if (att.duration) {
-          <span class="mlv-chat-media-grid__duration">{{ _formatDuration(att.duration) }}</span>
-        }
-      }
-      @default {
-        @if (!_loaded().has(att.id)) {
-          <mlv-skeleton class="mlv-chat-media-grid__placeholder" width="100%" height="100%" />
-        }
-        <img [src]="att.src" [alt]="att.alt ?? ''" loading="lazy" (load)="_onLoad(att.id)" />
-      }
-    }
-    @if (_isUploading(att)) {
-      <span class="mlv-chat-media-grid__upload">
-        <mlv-progress shape="circle" size="s" [value]="att.uploadProgress ?? 0" />
-      </span>
-    }
-    @if (last && _extra() > 0) {
-      <span class="mlv-chat-media-grid__more" aria-hidden="true">+{{ _extra() }}</span>
-    }
-  </button>
+  } } @default { @if (!_loaded().has(att.id)) {
+  <mlv-skeleton
+    class="mlv-chat-media-grid__placeholder"
+    width="100%"
+    height="100%"
+  />
+  }
+  <img
+    [src]="att.src"
+    [alt]="att.alt ?? ''"
+    loading="lazy"
+    (load)="_onLoad(att.id)"
+  />
+  } } @if (_isUploading(att)) {
+  <span class="mlv-chat-media-grid__upload">
+    <mlv-progress shape="circle" size="s" [value]="att.uploadProgress ?? 0" />
+  </span>
+  } @if (last && _extra() > 0) {
+  <span class="mlv-chat-media-grid__more" aria-hidden="true"
+    >+{{ _extra() }}</span
+  >
+  }
+</button>
 }

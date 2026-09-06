@@ -172,12 +172,17 @@ under `yarn nx run core:test`.
   own: the check is `'<prop>' in element`, so anything domino's DOM lacks fails
   there and passes in every browser test. `mapPropName` rescues `class`, `for`,
   `formaction`, `innerHtml`, `readonly` and `tabindex`; a property domino's DOM
-  does not implement (`indeterminate` and `option.selected` are the known cases)
-  has nothing to rescue it. The test is `'<prop>' in element` against domino's
-  classes, not a browser's. Write those from an `afterRenderEffect` instead of
-  binding them, and bind the attribute form as well where the property mirrors
-  a content attribute (`[attr.selected]`, `[attr.muted]`) — see _Writing
-  SSR-safe components_ for why the attribute alone is not a substitute.
+  does not implement (`indeterminate`, `option.selected` and `video.muted` are
+  the known cases) has nothing to rescue it. The test is `'<prop>' in element`
+  against domino's classes, not a browser's. Write those from script rather
+  than binding them — an `afterRenderEffect` for a property on the component's
+  own host or on one element it owns (#124, #135), a constructor-time attribute
+  directive on the element itself for a property on a _repeated_ child (#136),
+  since one after-render sequence per repeated element is a cost the template
+  binding it replaced did not have. Bind the attribute form as well where the
+  property mirrors a content attribute (`[attr.selected]`, `muted`) — see
+  _Writing SSR-safe components_ for why the attribute alone is not a
+  substitute.
 - **A component rendered only in its default state is only covered in that
   state.** The whole native branch of `mlv-select` sits behind
   `@if (_nativeActive())` with `native` defaulting to `false`, so #135 rendered
@@ -285,6 +290,22 @@ barrels reach` re-finds every `@Component(` with an independent,
   `HTMLSelectElement.value` either, so a `[value]` binding just trades N+1
   NG0303 lines for one — and a `<select>`'s value can only be assigned after
   its options exist, which is later than the binding runs.
+
+  **Check that the attribute form is actually equivalent before swapping.** Not
+  every content attribute reaches its property on an element the browser created
+  with `createElement`. `muted` is the live counter-example (#136): Chromium and
+  jsdom still implement the pre-2024 one-time transfer, where the attribute
+  seeds `muted` only for a _parser_-created element, so `[attr.muted]` alone
+  leaves a client-rendered `<video>` audible — the attribute serialises the
+  server payload and something else must write the property. The cheapest
+  "something else" for a repeated element is a **constructor-only attribute
+  directive** on that element (`MlvChatMutedVideo`, `video[mlvChatMuted]`): one
+  write at creation, no after-render sequence, no query, later elements covered
+  because each gets its own instance, and no NG0303 because a constructor write
+  is not a template binding. Verify the swap by ablation, in the engines the
+  library targets — the HTML Standard has since made `muted` a tristate the
+  attribute _does_ feed, and Gecko shipped that in Firefox 153, so this
+  particular divergence is expected to expire.
 
 - Prefer **`afterNextRender` / `afterRenderEffect`** for anything that measures,
   paints, or observes. Neither runs on the server, so the hook doubles as the
