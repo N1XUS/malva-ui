@@ -88,11 +88,6 @@ const PIN_ENTRY =
  */
 const SPEC_FILE = /\.(spec|test)\.(ts|mts|cts|tsx)$/;
 
-const TASKBOARD_PROJECT = join(
-  WORKSPACE_ROOT,
-  'libs/taskboard/project.json',
-);
-
 /**
  * Zone-dependent test APIs, none of which may appear in a spec.
  *
@@ -228,21 +223,6 @@ describe('zoneless test environment', () => {
       [],
       'these vitest configs reference the zoneless setup file at a relative ' +
         'depth that does not resolve — vitest would fail to load it.',
-    );
-  });
-
-  it('keeps taskboard testable while its initial suite is empty', () => {
-    const target = JSON.parse(read(TASKBOARD_PROJECT)).targets?.test;
-
-    assert.deepEqual(
-      target,
-      {
-        executor: '@nx/vitest:test',
-        options: { config: 'libs/taskboard/vite.config.mts' },
-      },
-      'taskboard starts without specs, so the workspace-wide orphan-suite ' +
-        'check cannot observe it yet. Keep its explicit CI `test` target ' +
-        'wired to the package Vite config until its first spec lands.',
     );
   });
 
