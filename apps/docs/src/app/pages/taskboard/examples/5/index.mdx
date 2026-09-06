@@ -2,17 +2,17 @@
 
 Every chrome the board draws is a replaceable `ng-template`, and each one hands its template a typed context:
 
-| Directive                         | Context                                             |
-| --------------------------------- | --------------------------------------------------- |
-| `mlvTaskboardHeaderDef`           | `$implicit`/`columns`, `columnGroups`, `swimlanes`  |
-| `mlvTaskboardColumnGroupDef`      | `$implicit`/`group`, `wip`                          |
-| `mlvTaskboardColumnHeaderDef`     | `$implicit`/`column`, `wip`                         |
-| `mlvTaskboardSwimlaneDef`         | `$implicit`/`swimlane`, `wip`                       |
-| `mlvTaskboardColumnContentDef`    | `$implicit`/`items`, `column`, `swimlane`, `wip`    |
-| `mlvTaskboardItemDef`             | `$implicit`/`card`, `column`, `swimlane`, `location`, `selected`, `wip` |
-| `mlvTaskboardEmptyStateDef`       | `$implicit`/`column`, `swimlane`, `wip`             |
-| `mlvTaskboardCardAddDef`          | `$implicit`/`requestAdd`, `column`, `swimlane`, `wip` |
-| `mlvTaskboardDropIndicatorDef`    | `$implicit`/`valid`, `target`                       |
+| Directive                      | Context                                                                 |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `mlvTaskboardHeaderDef`        | `$implicit`/`columns`, `columnGroups`, `swimlanes`                      |
+| `mlvTaskboardColumnGroupDef`   | `$implicit`/`group`, `wip`                                              |
+| `mlvTaskboardColumnHeaderDef`  | `$implicit`/`column`, `wip`                                             |
+| `mlvTaskboardSwimlaneDef`      | `$implicit`/`swimlane`, `wip`                                           |
+| `mlvTaskboardColumnContentDef` | `$implicit`/`items`, `column`, `swimlane`, `wip`                        |
+| `mlvTaskboardItemDef`          | `$implicit`/`card`, `column`, `swimlane`, `location`, `selected`, `wip` |
+| `mlvTaskboardEmptyStateDef`    | `$implicit`/`column`, `swimlane`, `wip`                                 |
+| `mlvTaskboardCardAddDef`       | `$implicit`/`requestAdd`, `column`, `swimlane`, `wip`                   |
+| `mlvTaskboardDropIndicatorDef` | `$implicit`/`valid`, `target`                                           |
 
 `mlvTaskboardCardAddDef` gets the `requestAdd` callback rather than a card action: calling it emits `addRequested` with the cell's column, swimlane and `wip`, and the application creates the card. `mlvTaskboardDropIndicatorDef` renders wherever the live drop preview points; `valid` says whether that slot would be accepted, and `target.index` counts `target.items` — the cell's cards with the dragged one removed.
 

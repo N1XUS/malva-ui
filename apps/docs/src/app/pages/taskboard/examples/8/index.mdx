@@ -2,14 +2,14 @@
 
 Everything on this toolbar is an imperative method on the board instance, reached through a template reference — the board exposes no history or export inputs.
 
-| Method                     | Returns                       | What it covers                                                                |
-| -------------------------- | ----------------------------- | ----------------------------------------------------------------------------- |
-| `undo()` / `redo()`        | `boolean`                     | The newest board-originated move or column reorder                            |
-| `snapshot()`               | `MlvTaskboardSnapshot`        | UI state only — no card data                                                  |
-| `restore(snapshot)`        | `void`                        | Puts that UI state back                                                       |
-| `exportJson()`             | `MlvTaskboardSerialized<T>`   | Cards, structure, field names and the snapshot, as plain data                 |
-| `exportCsv(columnId, fields)` | `string`                   | One column's cards, one row per card in board order                           |
-| `print()`                  | `void`                        | Expands every virtual cell, then asks the browser to print                    |
+| Method                        | Returns                     | What it covers                                                |
+| ----------------------------- | --------------------------- | ------------------------------------------------------------- |
+| `undo()` / `redo()`           | `boolean`                   | The newest board-originated move or column reorder            |
+| `snapshot()`                  | `MlvTaskboardSnapshot`      | UI state only — no card data                                  |
+| `restore(snapshot)`           | `void`                      | Puts that UI state back                                       |
+| `exportJson()`                | `MlvTaskboardSerialized<T>` | Cards, structure, field names and the snapshot, as plain data |
+| `exportCsv(columnId, fields)` | `string`                    | One column's cards, one row per card in board order           |
+| `print()`                     | `void`                      | Expands every virtual cell, then asks the browser to print    |
 
 **History is the board's own ledger.** It records the moves and column reorders the board committed, so `undo()` writes replacement collections back through the controlled `items` / `columns` models — the application sees an ordinary model write. An edit the application makes itself replaces the ledger's current state rather than stacking on it, so undo never rewinds past a change the board did not make. Both methods return `false` when there is nothing left.
 
