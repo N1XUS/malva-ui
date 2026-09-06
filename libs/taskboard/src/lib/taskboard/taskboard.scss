@@ -654,5 +654,47 @@
         break-inside: avoid;
       }
     }
+
+    // `print()` puts `--printing` on the host for the length of the dialog, and
+    // these rules take the page apart around it so the board prints alone. A
+    // print the user starts themselves never sees them, because nothing writes
+    // the class then. `:has()` is supported by every browser this repository's
+    // browserslist targets, so the sheet can say this declaratively instead of
+    // walking the page from TypeScript.
+    body:has(#{$block}--printing) {
+      // physical page-level rule set; `!important` is deliberate: inside a layer an
+      // important declaration outranks every normal unlayered rule, which is what
+      // lets a library print sheet beat the host page's own layout.
+      *:not(:has(#{$block}--printing)):not(#{$block}--printing):not(
+          #{$block}--printing *
+        ) {
+        display: none !important;
+      }
+
+      :has(#{$block}--printing) {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+      }
+    }
+
+    #{$block}--printing {
+      // A sheet of paper cannot be scrolled sideways, so the column tracks give
+      // up the minimum that forces the strip to overflow and share the page
+      // width instead. Everything else the printed board needs — expanded
+      // cells, un-clipped scroll boxes, no tracks, no add controls — is already
+      // in the block above, which a browser-initiated print gets too.
+      #{$block}__group-row,
+      #{$block}__column-row,
+      #{$block}__lane {
+        grid-template-columns:
+          minmax(0, auto)
+          repeat(var(--mlv-taskboard-column-count), minmax(0, 1fr));
+      }
+
+      #{$block}__cell {
+        min-inline-size: 0;
+      }
+    }
   }
 }

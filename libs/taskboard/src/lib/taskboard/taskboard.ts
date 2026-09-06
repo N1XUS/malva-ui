@@ -254,6 +254,10 @@ interface MlvTaskboardDropAnchor {
     // presentation switches on one host modifier rather than per element.
     '[class.mlv-taskboard--swimlanes]': 'swimlanes().length > 0',
     '[class.mlv-taskboard--move-pending]': '_movePending()',
+    // The print sheet keys off this class: it is on the host for exactly as
+    // long as `print()` holds the dialog open, and gone again afterwards, so a
+    // browser-initiated print never takes the surrounding page apart.
+    '[class.mlv-taskboard--printing]': '_printing()',
     '[style.--mlv-taskboard-virtual-item-size]': '_virtualItemSizeVar()',
     '[attr.aria-busy]': '_movePending() || null',
   },
@@ -1160,7 +1164,18 @@ export class MlvTaskboard<TItem> {
   }
 
   /**
-   * Expands every virtual cell, then asks the browser to print.
+   * Prints the board alone: expands every virtual cell, marks the host with
+   * `mlv-taskboard--printing`, and asks the browser to print.
+   *
+   * The stylesheet's `@media print` block does the rest — while that class is
+   * on the host, everything on the page that is neither the board, an ancestor
+   * of it, nor inside it is hidden, and the ancestor chain is un-clipped so a
+   * board inside a scrolling shell prints whole. It is written with `:has()`,
+   * which every browser this repository's browserslist targets supports
+   * (Chrome/Edge 105+, Safari 15.4+, Firefox 121+), so nothing has to walk the
+   * page from TypeScript and no host markup is touched. The class comes off as
+   * soon as the dialog closes, so a print the user starts themselves prints
+   * the page as it is.
    *
    * It is a no-op during a server render, where the injected document has no
    * view to print through.

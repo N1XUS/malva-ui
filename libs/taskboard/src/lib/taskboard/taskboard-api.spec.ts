@@ -579,12 +579,26 @@ describe('MlvTaskboard public surface', () => {
     if (view === null) throw new Error('Expected a browser test document.');
     const print = vi.spyOn(view, 'print').mockImplementation(() => undefined);
 
+    // The print sheet keys off a host class, so what matters is that the class
+    // is on the host at the moment the dialog opens — not merely afterwards.
+    let printingWhileOpen: boolean | null = null;
+    const board = fixture.nativeElement.querySelector(
+      'mlv-taskboard',
+    ) as HTMLElement;
+    print.mockImplementation(() => {
+      printingWhileOpen = board.classList.contains('mlv-taskboard--printing');
+    });
+
     try {
       fixture.componentInstance.board().print();
       fixture.detectChanges();
       await fixture.whenStable();
 
       expect(print).toHaveBeenCalledTimes(1);
+      expect(printingWhileOpen).toBe(true);
+      // ...and off again once the dialog is closed, so a later browser-driven
+      // print does not hide the rest of the page.
+      expect(board.classList.contains('mlv-taskboard--printing')).toBe(false);
     } finally {
       // The view is the shared jsdom window: a spy left installed is handed
       // straight back by the next `vi.spyOn`, calls already recorded and all.

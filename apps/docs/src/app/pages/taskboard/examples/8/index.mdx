@@ -9,7 +9,7 @@ Everything on this toolbar is an imperative method on the board instance, reache
 | `restore(snapshot)`           | `void`                      | Puts both back as one undoable command                        |
 | `exportJson()`                | `MlvTaskboardSerialized<T>` | Cards, structure, field names and the snapshot, as plain data |
 | `exportCsv(columnId, fields)` | `string`                    | One column's cards, one row per card in board order           |
-| `print()`                     | `void`                      | Expands every virtual cell, then asks the browser to print    |
+| `print()`                     | `void`                      | Expands every virtual cell, hides the rest of the page, prints |
 
 **History is the board's own ledger.** It records the moves and column reorders the board committed, so `undo()` writes replacement collections back through the controlled `items` / `columns` models — the application sees an ordinary model write. An edit the application makes itself replaces the ledger's current state rather than stacking on it, so undo never rewinds past a change the board did not make. Both methods return `false` when there is nothing left.
 
@@ -17,7 +17,7 @@ Everything on this toolbar is an imperative method on the board instance, reache
 
 **`exportCsv` takes the headings with it.** Each `MlvTaskboardCsvField` is a `{ field, heading }` pair, `field` being a property of the card type, so the emitted column order is the array's order. Cards in other columns are skipped.
 
-**`print()` is not the browser's print.** It clears virtualization for one render so every card is on the page, then calls `window.print()`; it is a no-op during a server render. A print the reader starts themselves (<kbd>Ctrl</kbd>+<kbd>P</kbd>) never runs it, so a virtual cell still prints only its rendered window.
+**`print()` is not the browser's print.** It clears virtualization for one render so every card is on the page, marks the host `mlv-taskboard--printing`, and calls `window.print()`; it is a no-op during a server render. That class is what makes the sheet print the **board alone** — while it is set, a `body:has(.mlv-taskboard--printing)` rule hides everything that is neither the board, an ancestor of it, nor inside it, un-clips the ancestor chain so a board inside a scrolling shell prints whole, and lets the column tracks share the page width instead of scrolling sideways. The class comes off as soon as the dialog closes. A print the reader starts themselves (<kbd>Ctrl</kbd>+<kbd>P</kbd>) never runs any of it, so the surrounding page prints as it is and a virtual cell prints only its rendered window.
 
 ### Confirming a move before it commits
 
