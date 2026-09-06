@@ -11,6 +11,7 @@ import {
   model,
   output,
   signal,
+  untracked,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
@@ -333,19 +334,83 @@ export class MlvPopup {
   readonly mobileCloseLabel = input<string | undefined>(undefined);
 
   /**
+   * @private Live resolution of the full-screen decision from the current
+   * inputs and viewport. Read directly only while the popup is closed —
+   * {@link isFullscreen} latches it for the duration of each open.
+   */
+  private readonly _liveFullscreen = computed<boolean>(() => {
+    const mode = this.mobileMode();
+    if (mode === 'off') return false;
+    if (mode === 'fullscreen') return true;
+    return this._breakpoint.isDown(this.mobileBreakpoint())();
+  });
+
+  /**
+   * @private The mode the currently-open overlay was created with, or `null`
+   * while no overlay is attached.
+   *
+   * Written only by {@link lockFullscreenForOpen} / {@link releaseFullscreenLock},
+   * which the overlay owner calls at attach and at dispose. Of the overlay's own
+   * full-screen half, CDK can change three parts on an attached overlay — the
+   * position strategy, the `mlv-popup-fullscreen-pane` class and the block
+   * scroll strategy — but **not the scrim**: `_attachBackdrop()` is private and
+   * runs only from `attach()`, and `detachBackdrop()` is one-way. A popup opened
+   * anchored with no backdrop therefore cannot grow one mid-open, so this side
+   * has to hold still too.
+   */
+  private readonly _lockedFullscreen = signal<boolean | null>(null);
+
+  /**
    * Whether the popup is currently rendering as a full-screen mobile sheet.
    *
    * `'off'` → always `false`; `'fullscreen'` → always `true`; `'auto'` → `true`
    * when the viewport is below {@link mobileBreakpoint}. Public so consumers with
    * their own inner focus trap (e.g. `mlv-date-range-picker`) can disable it to
    * avoid nesting two traps inside the full-screen panel.
+   *
+   * **Resolved once per open.** While an overlay is attached this reports the
+   * mode that overlay was built with and does not track the viewport, the
+   * {@link mobileMode} input or the {@link mobileBreakpoint} input: a sheet the
+   * user opened stays a sheet for as long as it is open, and an anchored
+   * dropdown stays anchored. A breakpoint crossed *between* opens is picked up
+   * by the next open. See `docs/migrations/2026-09-popup-fullscreen-per-open.md`.
    */
-  readonly isFullscreen = computed<boolean>(() => {
-    const mode = this.mobileMode();
-    if (mode === 'off') return false;
-    if (mode === 'fullscreen') return true;
-    return this._breakpoint.isDown(this.mobileBreakpoint())();
-  });
+  readonly isFullscreen = computed<boolean>(
+    () => this._lockedFullscreen() ?? this._liveFullscreen(),
+  );
+
+  /**
+   * @internal Fixes the full-screen mode for one open and returns it.
+   *
+   * Assumes **one attached overlay per popup instance** — the latch is a single
+   * tri-state, not a refcount. Every owner that attaches an overlay must call
+   * this and pair it with {@link releaseFullscreenLock}; an owner that skipped
+   * it would leave {@link isFullscreen} live-reactive over an overlay built
+   * with a fixed flag, which is #126.
+   *
+   * Called by the overlay owner (`MlvPopupContainer`, `MlvPopupTrigger`,
+   * `MlvMenuOverlayController`) at the
+   * moment it builds the overlay, so the flag the CDK overlay is created with
+   * and the value {@link isFullscreen} reports for that open are the same read —
+   * they cannot drift apart while the overlay lives. Paired with
+   * {@link releaseFullscreenLock}, which the owner calls once the overlay is
+   * disposed.
+   */
+  lockFullscreenForOpen(): boolean {
+    const resolved = untracked(this._liveFullscreen);
+    this._lockedFullscreen.set(resolved);
+    return resolved;
+  }
+
+  /**
+   * @internal Releases the per-open lock so {@link isFullscreen} tracks the
+   * inputs and the viewport again. Called by the overlay owner after the
+   * overlay is disposed, never during the leave animation — the panel is still
+   * on screen then and must keep the chrome it opened with.
+   */
+  releaseFullscreenLock(): void {
+    this._lockedFullscreen.set(null);
+  }
 
   /** @protected Resolved accessible name for the full-screen close button. */
   protected readonly _closeLabel = computed(

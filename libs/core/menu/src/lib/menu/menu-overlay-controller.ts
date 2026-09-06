@@ -174,6 +174,14 @@ export class MlvMenuOverlayController {
       template: popup.popupTemplate(),
       vcr: this._config.vcr,
       positions,
+      // Takes the per-open full-screen lock like the other two overlay owners
+      // (`MlvPopupContainer`, `MlvPopupTrigger`), so the flag the overlay is
+      // created with and the value `popup.isFullscreen()` reports are the same
+      // read. `mlv-menu`'s own popup never sets `mobileMode`, so this resolves
+      // `false` today — but the invariant is "every attach latches", and
+      // leaving the one owner that skips it would make #126 reappear silently
+      // the day a mobile menu opts in.
+      fullscreen: popup.lockFullscreenForOpen(),
       hasBackdrop:
         this._config.getHasBackdrop?.() ?? (!isSubmenu && !isMenubarChild),
       dismissExcludeElements:
@@ -186,6 +194,9 @@ export class MlvMenuOverlayController {
         popup.animationState.set('idle');
         popup.opened.set(false);
         menu._isOpen.set(false);
+        // Released after the state writes above, matching the other owners:
+        // the lock covers exactly the window in which an overlay is attached.
+        popup.releaseFullscreenLock();
         this._openSubscriptions.forEach((subscription) =>
           subscription.unsubscribe(),
         );

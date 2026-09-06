@@ -249,6 +249,10 @@ block for the sheet, so nothing in the dropdown layout is styled away.
   full-width sheet header over a body that floated inside it. Together they put
   the month grid flush against the sheet's own edges. See `libs-popup.md` →
   _Full-bleed sheets_.
+- **Mode is resolved once per open (#126 / #144).** Which body the panel gets
+  is latched by `mlv-popup` at attach, so a viewport crossing `md` while the
+  picker is open neither swaps a sheet for the two panels nor the reverse; the
+  next open re-resolves. See `libs-popup.md` → _Mode is resolved once per open_.
 - **Direction.** Which body the panel gets is a breakpoint question, not a
   direction one. The sheet mirrors inside itself — see `libs-calendar.md` →
   _Calendar sheet_ and `calendar-sheet-rtl.spec.ts`.

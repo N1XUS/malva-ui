@@ -943,14 +943,14 @@ describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
     ).toBe(false);
   });
 
-  it('swaps the body when the breakpoint changes while the popup is open', async () => {
-    // The *panel contents* follow the breakpoint mid-open, because the `@if`
-    // and the modifier both read `isFullscreen()` on every pass.
-    // `MlvPopupContainer` does not: it snapshots `fullscreen` once at attach, so
-    // the pane's position strategy, fullscreen pane class, backdrop and scroll
-    // strategy all stay as they were when it opened — see #144. This asserts
-    // the half that works; do not read it as proof the popup becomes a real
-    // sheet here.
+  it('keeps the anchored dropdown when the breakpoint changes while the popup is open', async () => {
+    // `mlv-popup` resolves full-screen vs anchored once per open (#126/#144).
+    // The overlay's own half — global position strategy, fullscreen pane class,
+    // solid backdrop, block scroll strategy — is fixed by `Overlay.create()`
+    // and CDK cannot add a backdrop to an attached overlay, so the panel must
+    // hold still with it. A dropdown that re-marked itself as a sheet here
+    // would paint a full-screen sheet inside a content-sized, trigger-anchored
+    // pane with no scrim, and drop its second month for no reason.
     breakpoint.down.set(false);
     await open();
     expect(panel()?.querySelectorAll('mlv-calendar-sheet').length).toBe(0);
@@ -959,6 +959,23 @@ describe('MlvDateRangePicker (mobile full-screen sheet)', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
+    expect(
+      panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
+    ).toBe(false);
+    expect(
+      panel()?.querySelectorAll('.mlv-date-range-picker__calendar').length,
+    ).toBe(2);
+  });
+
+  it('keeps the sheet when the breakpoint changes while the popup is open', async () => {
+    // The other direction: a sheet the user opened stays a sheet, so the
+    // full-screen pane and its scrim never outlive the header and the close
+    // button that make the sheet dismissible.
+    breakpoint.down.set(true);
+    await open();
+    breakpoint.down.set(false);
+    fixture.detectChanges();
+    await fixture.whenStable();
     expect(
       panel()?.classList.contains('mlv-date-range-picker__panel--sheet'),
     ).toBe(true);
