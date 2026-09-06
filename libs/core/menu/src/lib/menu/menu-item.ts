@@ -84,6 +84,16 @@ export class MlvMenuItem {
   /** @private Host element used to call `focus()` for `FocusKeyManager`. */
   readonly _elementRef = inject(ElementRef<HTMLElement>);
 
+  /**
+   * @private Direction applying to this row, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   * A row is created with the overlay pane it renders into and disposed with
+   * it, so the cached walk cannot outlive the pane whose `dir` it read.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   constructor() {
     this._registry?.register(this);
     afterRenderEffect(() => this._registry?.resync());
@@ -230,7 +240,7 @@ export class MlvMenuItem {
     // CDK stamps with the direction its trigger was in — so a generated
     // submenu opens toward the inline end in a scoped `[dir="rtl"]` subtree.
     const key =
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ?? event.key;
+      this._rtlService.normalizeArrowKey(event, this._direction()) ?? event.key;
     if (this._isMenubarDataItem()) {
       if (key === DOWN_ARROW && !this._dataItemContext?.isOpen()) {
         event.preventDefault();

@@ -462,7 +462,7 @@ export class MlvSlider
     const pageStep = Math.max(step, (max - min) * 0.1);
 
     switch (
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case RIGHT_ARROW:

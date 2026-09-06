@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { ElementRef } from '@angular/core';
+import { Component, ElementRef, inject } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Directionality } from '@angular/cdk/bidi';
 import {
@@ -183,19 +183,22 @@ describe('MlvRtlService scoped direction', () => {
     scope.appendChild(child);
     host.appendChild(scope);
 
-    // The document is still LTR; only the subtree is flipped.
+    // The document is still LTR; only the subtree is flipped. Callers hand
+    // `normalizeArrowKey` a resolved direction — in a component that is a
+    // cached `elementDirection` signal, here the equivalent one-off walk.
     expect(service.direction()).toBe('ltr');
+    const direction = service.resolveDirection(child);
 
-    expect(service.normalizeArrowKey(keyboardEvent('ArrowLeft'), child)).toBe(
-      RIGHT_ARROW,
-    );
-    expect(service.normalizeArrowKey(keyboardEvent('ArrowRight'), child)).toBe(
-      LEFT_ARROW,
-    );
+    expect(
+      service.normalizeArrowKey(keyboardEvent('ArrowLeft'), direction),
+    ).toBe(RIGHT_ARROW);
+    expect(
+      service.normalizeArrowKey(keyboardEvent('ArrowRight'), direction),
+    ).toBe(LEFT_ARROW);
     expect(
       service.normalizeArrowKey(
         keyboardEvent('ArrowLeft'),
-        new ElementRef(child),
+        service.resolveDirection(new ElementRef(child)),
       ),
     ).toBe(RIGHT_ARROW);
   });
@@ -205,13 +208,18 @@ describe('MlvRtlService scoped direction', () => {
     scope.setAttribute('dir', 'rtl');
     host.appendChild(scope);
 
-    expect(service.normalizeArrowKey(keyboardEvent('ArrowUp'), scope)).toBe(
+    const direction = service.resolveDirection(scope);
+    expect(direction).toBe('rtl');
+
+    expect(service.normalizeArrowKey(keyboardEvent('ArrowUp'), direction)).toBe(
       UP_ARROW,
     );
-    expect(service.normalizeArrowKey(keyboardEvent('ArrowDown'), scope)).toBe(
-      DOWN_ARROW,
-    );
-    expect(service.normalizeArrowKey(keyboardEvent('Home'), scope)).toBeNull();
+    expect(
+      service.normalizeArrowKey(keyboardEvent('ArrowDown'), direction),
+    ).toBe(DOWN_ARROW);
+    expect(
+      service.normalizeArrowKey(keyboardEvent('Home'), direction),
+    ).toBeNull();
   });
 
   it('keeps an LTR island unmirrored while the document is RTL', () => {
@@ -220,15 +228,18 @@ describe('MlvRtlService scoped direction', () => {
     host.appendChild(island);
     service.setDirection('rtl');
 
-    expect(service.normalizeArrowKey(keyboardEvent('ArrowLeft'), island)).toBe(
-      LEFT_ARROW,
-    );
-    expect(service.normalizeArrowKey(keyboardEvent('ArrowRight'), island)).toBe(
-      RIGHT_ARROW,
-    );
+    const direction = service.resolveDirection(island);
+    expect(direction).toBe('ltr');
+
+    expect(
+      service.normalizeArrowKey(keyboardEvent('ArrowLeft'), direction),
+    ).toBe(LEFT_ARROW);
+    expect(
+      service.normalizeArrowKey(keyboardEvent('ArrowRight'), direction),
+    ).toBe(RIGHT_ARROW);
   });
 
-  it('falls back to the global direction when no target is given', () => {
+  it('falls back to the global direction when no direction is given', () => {
     const scope = document.createElement('div');
     scope.setAttribute('dir', 'rtl');
     host.appendChild(scope);
@@ -274,6 +285,42 @@ describe('MlvRtlService scoped direction', () => {
     await new Promise((resolve) => setTimeout(resolve));
 
     expect(direction()).toBe('rtl');
+  });
+
+  it('keeps the shared dir observer alive when the caller that started it is destroyed', async () => {
+    @Component({ template: '' })
+    class FirstCaller {
+      readonly direction = inject(MlvRtlService).elementDirection(
+        inject(ElementRef<HTMLElement>),
+      );
+    }
+
+    // This component is the first `elementDirection` caller against this
+    // service instance, so it is the one that starts the shared `dir`
+    // observer. The second signal is created while that observer is running,
+    // so it does not (and cannot) start one of its own — which is exactly why
+    // the observer's lifetime has to be the service's and not the first
+    // caller's.
+    const fixture = TestBed.createComponent(FirstCaller);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.direction()).toBe('ltr');
+
+    const scope = document.createElement('div');
+    const child = document.createElement('span');
+    scope.appendChild(child);
+    host.appendChild(scope);
+
+    const survivor = TestBed.runInInjectionContext(() =>
+      service.elementDirection(child),
+    );
+    expect(survivor()).toBe('ltr');
+
+    fixture.destroy();
+
+    scope.setAttribute('dir', 'rtl');
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(survivor()).toBe('rtl');
   });
 });
 

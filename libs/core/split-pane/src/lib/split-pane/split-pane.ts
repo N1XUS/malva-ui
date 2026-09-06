@@ -378,7 +378,7 @@ export class MlvSplitPane implements AfterContentInit {
    */
   private _onHandleKeydown(event: KeyboardEvent, handleIndex: number): void {
     const isHorizontal = this.orientation() === 'horizontal';
-    const key = this._rtlService.normalizeArrowKey(event, this._elementRef);
+    const key = this._rtlService.normalizeArrowKey(event, this._direction());
     const shouldDecrease =
       (isHorizontal && key === LEFT_ARROW) ||
       (!isHorizontal && key === UP_ARROW);

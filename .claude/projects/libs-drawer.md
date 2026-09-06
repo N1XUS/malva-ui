@@ -754,7 +754,7 @@ export default class UserDetailsComponent {
 
 ## Direction (RTL)
 
-- **Scoped, not per-document.** `MlvDrawerResize`'s `_onKeydown` passes its own host to `MlvRtlService.normalizeArrowKey(event, host)` — the handle lives inside the drawer pane, so host and pane agree by construction. A drawer inside a `[dir="rtl"]` subtree therefore mirrors its resize stepping while the document stays LTR, and an LTR island under an RTL document does not.
+- **Scoped, not per-document.** `MlvDrawerResize`'s `_onKeydown` passes a cached `elementDirection(host)` signal to `MlvRtlService.normalizeArrowKey(event, direction)` — the handle lives inside the drawer pane, so host and pane agree by construction. A drawer inside a `[dir="rtl"]` subtree therefore mirrors its resize stepping while the document stays LTR, and an LTR island under an RTL document does not.
 - The same host feeds the pointer maths, so the keyboard and geometry halves of the resize cannot disagree.
 - A bottom-sheet drawer resizes on the block axis and never mirrors. `Home` / `End` mean first / last in both directions.
 - Regressions in `drawer.spec.ts`.

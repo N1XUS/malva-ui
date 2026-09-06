@@ -94,6 +94,15 @@ export class MlvMenuTrigger {
   /** @private Host element reference. */
   readonly _elementRef = inject(ElementRef<HTMLElement>);
 
+  /**
+   * @private Direction applying to this trigger, resolved once and cached
+   * behind the shared `dir` observer rather than re-walked on every arrow
+   * keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   /** @private DestroyRef for cleanup on directive destruction. */
   private readonly _destroyRef = inject(DestroyRef);
 
@@ -331,7 +340,7 @@ export class MlvMenuTrigger {
     // Resolved against this trigger's own host, so a submenu trigger inside a
     // scoped `[dir="rtl"]` subtree (or an overlay pane stamped with that
     // direction) opens toward the inline end.
-    const key = this._rtlService.normalizeArrowKey(event, this._elementRef);
+    const key = this._rtlService.normalizeArrowKey(event, this._direction());
     switch (key ?? event.key) {
       case 'Enter':
       case ' ':

@@ -148,7 +148,7 @@ in progress (never while merely hovering with `slideOnHover`).
 
 ## Accessibility
 
-- **Direction (RTL): scoped, not per-document.** `_onKeydown` passes the host to `MlvRtlService.normalizeArrowKey(event, host)`, so a divider inside a `[dir="rtl"]` subtree mirrors its arrow stepping while the document stays LTR — and an LTR island under an RTL document does not. The same host feeds the pointer maths, so the keyboard and geometry halves cannot disagree. Vertical arrows, `Home` / `End` and `PageUp` / `PageDown` never mirror. Regressions in `compare.spec.ts`.
+- **Direction (RTL): scoped, not per-document.** `_onKeydown` passes the cached `_direction` signal to `MlvRtlService.normalizeArrowKey(event, direction)`, so a divider inside a `[dir="rtl"]` subtree mirrors its arrow stepping while the document stays LTR — and an LTR island under an RTL document does not. The same signal feeds the pointer maths, so the keyboard and geometry halves cannot disagree. Vertical arrows, `Home` / `End` and `PageUp` / `PageDown` never mirror. Regressions in `compare.spec.ts`.
   Slider semantics come from the real `<input type="range" min="0" max="100"
 step="any">` — role, `aria-valuenow`, `aria-valuemin/max` for free — plus
   `aria-valuetext="<n>%"`, `aria-orientation`, and an accessible name

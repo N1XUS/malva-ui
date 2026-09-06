@@ -91,6 +91,15 @@ export class MlvEditorTable {
    */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
+  /**
+   * @private Direction applying to this control, resolved once and cached
+   * behind the shared `dir` observer rather than re-walked on every arrow
+   * keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   /** @private Transaction and selection invalidation bridge. */
   private readonly _revision = inject(MLV_EDITOR_TOOLBAR_REVISION, {
     optional: true,
@@ -424,7 +433,7 @@ export class MlvEditorTable {
     // host rather than the document, so a scoped `dir` subtree — or a CDK
     // overlay pane, which carries its own `dir` — mirrors the pair correctly.
     switch (
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case LEFT_ARROW:

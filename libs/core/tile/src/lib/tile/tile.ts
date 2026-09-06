@@ -214,6 +214,14 @@ export class MlvTile<TProps = unknown> {
    */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
+  /**
+   * @private Direction applying to this tile, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   /** @private Renderer used to mark and clean a consumer-owned wrapper root. */
   private readonly _renderer = inject(Renderer2);
 
@@ -333,7 +341,7 @@ export class MlvTile<TProps = unknown> {
     }
 
     let direction: MlvTileKeyboardMoveDirection | undefined;
-    switch (this._rtlService.normalizeArrowKey(event, this._elementRef)) {
+    switch (this._rtlService.normalizeArrowKey(event, this._direction())) {
       case UP_ARROW:
         direction = 'up';
         break;

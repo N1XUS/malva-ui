@@ -225,6 +225,14 @@ export class MlvTimePicker
   /** @private Normalizes horizontal column navigation for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
 
+  /**
+   * @private Direction applying to this picker, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   /** @private Density directive instance for reading the resolved density level. */
   private readonly _densityDirective = inject(MlvDensityDirective);
 
@@ -375,7 +383,7 @@ export class MlvTimePicker
    * focus between column listboxes.
    */
   protected _onPanelKeydown(event: KeyboardEvent): void {
-    const key = this._rtlService.normalizeArrowKey(event, this._elementRef);
+    const key = this._rtlService.normalizeArrowKey(event, this._direction());
     if (key !== LEFT_ARROW && key !== RIGHT_ARROW) return;
 
     const columns = this._columns();

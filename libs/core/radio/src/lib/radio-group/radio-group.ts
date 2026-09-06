@@ -121,6 +121,14 @@ export class MlvRadioGroup
    */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
+  /**
+   * @private Direction applying to this group, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   constructor() {
     super();
     inject(DestroyRef).onDestroy(() => this._keyManager?.destroy());
@@ -160,7 +168,7 @@ export class MlvRadioGroup
    * radiogroup semantics, moving focus + selection via the FocusKeyManager.
    */
   _onKeydown(event: KeyboardEvent): void {
-    const key = this._rtlService.normalizeArrowKey(event, this._elementRef);
+    const key = this._rtlService.normalizeArrowKey(event, this._direction());
     const isPrev = key === UP_ARROW || key === LEFT_ARROW;
     const isNext = key === DOWN_ARROW || key === RIGHT_ARROW;
     if (!isPrev && !isNext) return;

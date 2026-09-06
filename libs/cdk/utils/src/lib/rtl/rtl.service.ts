@@ -15,7 +15,6 @@ import {
   Injectable,
   Injector,
   PLATFORM_ID,
-  runInInjectionContext,
   signal,
   untracked,
 } from '@angular/core';
@@ -77,36 +76,42 @@ export class MlvRtlService {
 
   /**
    * Converts DOM/legacy arrow events to CDK key-code constants and mirrors
-   * only the horizontal axis when the applicable direction is RTL.
+   * only the horizontal axis when `direction` is RTL.
    *
-   * `target` is the element the handler speaks for — a component's own host,
-   * not `event.target`. Pass it whenever the handler branches on the horizontal
-   * pair: direction is scoped, so a handler inside a `dir="rtl"` subtree (or
-   * inside a CDK overlay pane, which is stamped with its own `dir`) must mirror
-   * even while the document is LTR. Resolution goes through
-   * {@link resolveDirection}, so the nearest explicit `dir` ancestor wins and
-   * the global {@link direction} is the fallback.
+   * The parameter is a *resolved* direction rather than an element on purpose.
+   * Direction is scoped — a handler inside a `dir="rtl"` subtree (or inside a
+   * CDK overlay pane, which is stamped with its own `dir`) must mirror even
+   * while the document is LTR — but resolving that scope means walking
+   * `parentElement` to the nearest explicit `dir`, and a keydown handler runs
+   * on every keystroke. So the caller resolves once, in a field initializer:
    *
-   * Omitting `target` keeps the global reading. That is correct only for a
-   * handler that never branches on `ArrowLeft`/`ArrowRight` — a vertical-only
-   * group — where mirroring is a no-op either way.
+   * ```ts
+   * private readonly _direction = this._rtlService.elementDirection(
+   *   inject(ElementRef<HTMLElement>),
+   * );
+   * // …
+   * const key = this._rtlService.normalizeArrowKey(event, this._direction());
+   * ```
    *
-   * `event.target` is deliberately not the default: the event is usually
-   * handled on a host that is not where the key was pressed, and a portaled
-   * overlay's pane sits outside its trigger's `[dir]` scope entirely.
+   * {@link elementDirection} caches that walk behind one shared `dir`
+   * `MutationObserver` and re-runs it only when a `dir` attribute actually
+   * changes; taking an element here instead would re-walk the DOM per
+   * keystroke, and per component would duplicate a signal most of them already
+   * hold for a horizontal `FocusKeyManager` or for measured geometry.
+   *
+   * Omitting `direction` keeps the global {@link rtl} reading. That is correct
+   * only for a handler that never branches on `ArrowLeft`/`ArrowRight` — a
+   * vertical-only group — where mirroring is a no-op either way.
    */
   normalizeArrowKey(
     event: KeyboardEvent,
-    target?: MlvDirectionTarget,
+    direction?: MlvDirection,
   ): MlvArrowKey | null {
     const key = this._getArrowKeyCode(event);
     if (key === null) return null;
     if (key !== LEFT_ARROW && key !== RIGHT_ARROW) return key;
 
-    const rtl =
-      target === undefined
-        ? this.rtl()
-        : this.resolveDirection(target) === 'rtl';
+    const rtl = direction === undefined ? this.rtl() : direction === 'rtl';
 
     if (key === LEFT_ARROW) return rtl ? RIGHT_ARROW : LEFT_ARROW;
     return rtl ? LEFT_ARROW : RIGHT_ARROW;
@@ -147,10 +152,10 @@ export class MlvRtlService {
    *
    * Use it for anything that must be re-derived on a direction flip — most
    * importantly JS-measured geometry (sliding indicators, pills, thumbs), which
-   * no `ResizeObserver` reports because a mirrored element keeps its size.
-   *
-   * Must be called in an injection context: the shared `dir` observer is torn
-   * down with the calling scope.
+   * no `ResizeObserver` reports because a mirrored element keeps its size, and
+   * the direction handed to {@link normalizeArrowKey} or to a horizontal
+   * `FocusKeyManager`, where re-walking the DOM per keystroke is the
+   * alternative.
    */
   elementDirection(target: MlvDirectionTarget): Signal<MlvDirection> {
     this._observeDirAttributes();
@@ -164,9 +169,9 @@ export class MlvRtlService {
    * Calls `onChange` whenever the direction applying to `target` changes, and
    * returns a teardown that stops the watch.
    *
-   * {@link elementDirection} needs an injection context; this does not, so it
-   * works from an imperative API — the case it exists for is a CDK overlay,
-   * which is created inside a service method and lives until it is disposed.
+   * {@link elementDirection} gives a signal; this pushes, so it works from an
+   * imperative API with no reactive consumer — the case it exists for is a CDK
+   * overlay, created inside a service method and living until it is disposed.
    * An open overlay is portaled outside its trigger's `[dir]` scope, so nothing
    * re-mirrors it when the direction flips underneath: the pane keeps its stale
    * `dir` and a connected position strategy keeps resolving `start`/`end`
@@ -178,12 +183,7 @@ export class MlvRtlService {
     target: MlvDirectionTarget,
     onChange: (direction: MlvDirection) => void,
   ): () => void {
-    // `elementDirection` needs an injection context of its own (the shared
-    // `dir` observer is torn down with it); borrowing the root injector keeps
-    // the observer alive for as long as this service is.
-    const scoped = runInInjectionContext(this._injector, () =>
-      this.elementDirection(target),
-    );
+    const scoped = this.elementDirection(target);
     let previous = untracked(scoped);
 
     // Callers are imperative APIs that may themselves be driven from an effect
@@ -211,6 +211,13 @@ export class MlvRtlService {
   private readonly _injector = inject(Injector);
 
   /**
+   * @private This service's own lifetime — the root environment injector's,
+   * since it is `providedIn: 'root'`. Owns the shared `dir` observer so no
+   * single caller's destruction can tear it down for the others.
+   */
+  private readonly _destroyRef = inject(DestroyRef);
+
+  /**
    * @private Bumped by the shared `dir` `MutationObserver`; the dependency that
    * makes {@link elementDirection} recompute on a scoped direction change.
    */
@@ -223,6 +230,13 @@ export class MlvRtlService {
    * @private Starts one document-wide observer for `dir` attribute mutations,
    * shared by every {@link elementDirection} caller. No-op outside a browser or
    * once already started.
+   *
+   * Teardown hangs off this service's own {@link DestroyRef} — the root
+   * environment injector's, because the service is `providedIn: 'root'` — not
+   * off whichever caller happened to start it. Injecting the `DestroyRef` here
+   * would resolve the *first* caller's, so destroying that one component would
+   * disconnect the observer every other `elementDirection` signal still depends
+   * on and leave them stale on a scoped `dir` change.
    *
    * The platform check is the load-bearing one. `typeof MutationObserver` alone
    * is not enough: an SSR process that has a DOM shim loaded (a jsdom-hosted
@@ -247,7 +261,7 @@ export class MlvRtlService {
     });
     this._dirObserver = observer;
 
-    inject(DestroyRef, { optional: true })?.onDestroy(() => {
+    this._destroyRef.onDestroy(() => {
       observer.disconnect();
       this._dirObserver = null;
     });

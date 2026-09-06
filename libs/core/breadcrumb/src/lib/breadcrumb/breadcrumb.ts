@@ -134,6 +134,15 @@ export class MlvBreadcrumb {
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /**
+   * @private Direction applying to this breadcrumb, resolved once and cached
+   * behind the shared `dir` observer rather than re-walked on every arrow
+   * keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
+  /**
    * Data-driven list of breadcrumb items.
    * When provided, items are rendered from this array.
    * The last item in the array is automatically treated as the current page.
@@ -310,7 +319,7 @@ export class MlvBreadcrumb {
     let nextIndex = activeIndex;
 
     switch (
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case DOWN_ARROW:

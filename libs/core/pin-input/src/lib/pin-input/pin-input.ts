@@ -178,6 +178,14 @@ export class MlvPinInput
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /**
+   * @private Direction applying to this field, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
+  /**
    * @protected Optional projected template used as separator content between
    * cells. When absent the component renders a default Lucide dot icon.
    */
@@ -344,7 +352,7 @@ export class MlvPinInput
         break;
     }
 
-    switch (this._rtlService.normalizeArrowKey(event, this._elementRef)) {
+    switch (this._rtlService.normalizeArrowKey(event, this._direction())) {
       case LEFT_ARROW:
         event.preventDefault();
         this._focusCell(index - 1);

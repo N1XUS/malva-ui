@@ -104,6 +104,14 @@ export class MlvSidebarGroup {
    */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
+  /**
+   * @private Direction applying to this group, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   /** @protected Stable id linking the collapsed-mode flyout panel so its focusable items can be resolved. */
   protected readonly _flyoutId = mlvNextId('mlv-sidebar-flyout');
 
@@ -270,7 +278,7 @@ export class MlvSidebarGroup {
   protected onFlyoutKeydown(event: Event): void {
     const e = event as KeyboardEvent;
     const panel = e.currentTarget as HTMLElement;
-    const key = this._rtlService.normalizeArrowKey(e, this._elementRef);
+    const key = this._rtlService.normalizeArrowKey(e, this._direction());
 
     // Close flyout and return focus to trigger
     if (key === LEFT_ARROW || e.key === 'Escape') {
@@ -313,7 +321,7 @@ export class MlvSidebarGroup {
    */
   protected onTriggerKeydown(event: Event): void {
     const e = event as KeyboardEvent;
-    const key = this._rtlService.normalizeArrowKey(e, this._elementRef);
+    const key = this._rtlService.normalizeArrowKey(e, this._direction());
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       this._flyoutContainer()?.toggle();

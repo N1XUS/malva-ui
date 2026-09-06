@@ -135,7 +135,7 @@ Visually-hidden (clip-path) native `<input #nativeInput type="radio" [attr.tabin
 
 `FocusKeyManager` (vertical, wrapping) — Arrow Up/Down moves focus, skips disabled radios via `disabled()`, and auto-selects the focused radio.
 
-`_onKeydown` answers **all four** arrows for WAI-ARIA radiogroup semantics (`ArrowUp`/`ArrowLeft` → previous, `ArrowDown`/`ArrowRight` → next), so the group **is** horizontal-sensitive despite the vertical key manager. The horizontal pair resolves its direction from the group's own host — `normalizeArrowKey(event, host)` (#147) — so it mirrors inside a `[dir="rtl"]` subtree while the document stays LTR, and inside an overlay pane (CDK stamps `dir` on every one), not only on a document-wide flip. The vertical pair never mirrors.
+`_onKeydown` answers **all four** arrows for WAI-ARIA radiogroup semantics (`ArrowUp`/`ArrowLeft` → previous, `ArrowDown`/`ArrowRight` → next), so the group **is** horizontal-sensitive despite the vertical key manager. The horizontal pair resolves its direction from the group's own host — a cached `elementDirection(host)` signal passed to `normalizeArrowKey(event, direction)` (#147) — so it mirrors inside a `[dir="rtl"]` subtree while the document stays LTR, and inside an overlay pane (CDK stamps `dir` on every one), not only on a document-wide flip. The vertical pair never mirrors.
 
 #### Tab Management
 

@@ -803,7 +803,7 @@ barrel.
 
 ## Status, accessibility, SSR, and theming
 
-- **Direction (RTL): scoped, not per-document.** The table menu's `_onKeydown` (`editor-table.ts`) passes its own host to `MlvRtlService.normalizeArrowKey(event, host)` — that host is the popup's origin, so host and pane agree by construction — and an editor inside a `[dir="rtl"]` subtree mirrors its column-navigation arrows while the document stays LTR. Text-caret movement inside the document is the browser's and never goes through the helper. Regressions in `editor-table.spec.ts`.
+- **Direction (RTL): scoped, not per-document.** The table menu's `_onKeydown` (`editor-table.ts`) passes a cached `elementDirection(host)` signal to `MlvRtlService.normalizeArrowKey(event, direction)` — that host is the popup's origin, so host and pane agree by construction — and an editor inside a `[dir="rtl"]` subtree mirrors its column-navigation arrows while the document stays LTR. Text-caret movement inside the document is the browser's and never goes through the helper. Regressions in `editor-table.spec.ts`.
   `MlvEditorStatus` is public and reads the nearest editor context to expose
   reactive character and Unicode-whitespace word counts. It hides when a complete
   replacement extension set omits CharacterCount and announces remaining limits

@@ -91,6 +91,15 @@ export class MlvCalendar<D = Date> {
   /** @private Normalizes horizontal calendar navigation for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
 
+  /**
+   * @private Direction applying to this calendar, resolved once and cached
+   * behind the shared `dir` observer rather than re-walked on every arrow
+   * keypress — the day grid answers three separate keydown handlers.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   /** @private Injector for scheduling post-render focus of the active cell. */
   private readonly _injector = inject(Injector);
 
@@ -771,7 +780,7 @@ export class MlvCalendar<D = Date> {
     let nextDate: D | null = null;
 
     switch (
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case LEFT_ARROW:
@@ -827,7 +836,7 @@ export class MlvCalendar<D = Date> {
     let nextMonth: number | null = null;
 
     switch (
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case LEFT_ARROW:
@@ -880,7 +889,7 @@ export class MlvCalendar<D = Date> {
     let nextYear: number | null = null;
 
     switch (
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case LEFT_ARROW:

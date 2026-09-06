@@ -141,7 +141,7 @@ host: {
 | `Enter` / `Space`       | Select the active date                               |
 
 - `←` / `→` are **logical** (previous/next) and mirror in RTL; `↑` / `↓`, `Page Up` / `Page Down`, `Home` / `End` never do.
-- All three view handlers (month, year, multi-year) go through `MlvRtlService.normalizeArrowKey(event, this._elementRef)` — direction resolves from the calendar's **own host**, not the document.
+- All three view handlers (month, year, multi-year) go through `MlvRtlService.normalizeArrowKey(event, this._direction())` — one cached `elementDirection(this._elementRef)` signal, so direction resolves from the calendar's **own host**, not the document.
 - So a calendar inside a scoped `dir="rtl"` subtree, or inside a `mlv-day-picker` / `mlv-date-range-picker` popup pane (CDK stamps the pane with the trigger's `dir`), mirrors while `<html>` stays LTR.
 - `_elementRef` is the same host the roving-focus lookup uses, so grid layout and key handling cannot disagree about direction.
 

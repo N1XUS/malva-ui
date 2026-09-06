@@ -74,6 +74,14 @@ export class MlvSidebarRail {
   /** @private Normalizes horizontal resize arrows for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
 
+  /**
+   * @private Direction applying to this rail, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   /** @protected Whether a drag is in progress. */
   protected readonly _isDragging = signal(false);
 
@@ -122,7 +130,7 @@ export class MlvSidebarRail {
   protected _onKeydown(event: KeyboardEvent): void {
     const step = 10;
     switch (
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case LEFT_ARROW:

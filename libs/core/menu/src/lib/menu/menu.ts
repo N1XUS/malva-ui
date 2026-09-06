@@ -432,11 +432,20 @@ export class MlvMenu<
     // into is mirrored — arrow keys running the opposite way to the layout,
     // which is the exact #147 symptom this call site exists to fix.
     // `currentTarget` is the `<mlv-list>` panel, always inside the pane.
-    const key = this._rtlService.normalizeArrowKey(
-      event,
+    //
+    // This is the one arrow-key handler that resolves per event instead of
+    // reading a cached `elementDirection` signal: the element that scopes it is
+    // the panel, which is re-created per overlay attach and can be attached
+    // from triggers in different `[dir]` scopes, so there is no static target
+    // to cache against. The walk is a handful of `parentElement` hops inside a
+    // menu panel.
+    const panel =
       event.currentTarget instanceof Element
         ? event.currentTarget
-        : this._elementRef,
+        : this._elementRef;
+    const key = this._rtlService.normalizeArrowKey(
+      event,
+      this._rtlService.resolveDirection(panel),
     );
 
     // Top-level menubar dropdown: ArrowRight / ArrowLeft cross to the adjacent

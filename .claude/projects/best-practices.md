@@ -147,7 +147,7 @@ the `remove` sits on a path that may never run — that is exactly the `drawer-r
 - All components **must pass all AXE checks**
 - All components **must follow WCAG AA minimums**: focus management, color contrast, ARIA attributes
 - Ensure keyboard navigability for interactive elements
-- Horizontal keyboard and pointer behaviour mirrors in RTL: arrow handlers go through `MlvRtlService.normalizeArrowKey(event, host)` (the host passed whenever the handler branches on the horizontal pair — direction is scoped, and every CDK overlay pane is its own `[dir]` scope), horizontal `FocusKeyManager`s take the live scoped direction, overlays carry `direction` on their config. See `.claude/rules/rtl.md`
+- Horizontal keyboard and pointer behaviour mirrors in RTL: arrow handlers go through `MlvRtlService.normalizeArrowKey(event, this._direction())` — the second argument is a resolved `MlvDirection`, one cached `elementDirection(host)` signal per component, passed whenever the handler branches on the horizontal pair (direction is scoped, and every CDK overlay pane is its own `[dir]` scope), horizontal `FocusKeyManager`s take the live scoped direction, overlays carry `direction` on their config. See `.claude/rules/rtl.md`
 - Use semantic HTML; add ARIA roles/labels only when native semantics are insufficient
 
 ---

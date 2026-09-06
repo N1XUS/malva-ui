@@ -97,9 +97,10 @@ export class MlvRating
    * normalisation in `_onHostKeydown`.
    *
    * Both are scoped to {@link _elementRef}: `_direction` resolves per element,
-   * and `normalizeArrowKey` is handed the same host, so the paint, the hit test
-   * and the keyboard model can never disagree inside a `[dir]` subtree — or
-   * inside an overlay pane, which CDK stamps with its own `dir` (#147).
+   * and `normalizeArrowKey` is handed that same cached signal, so the paint,
+   * the hit test and the keyboard model can never disagree inside a `[dir]`
+   * subtree — or inside an overlay pane, which CDK stamps with its own `dir`
+   * (#147).
    */
   private readonly _rtlService = inject(MlvRtlService);
 
@@ -323,7 +324,7 @@ export class MlvRating
     let next: number | null = null;
 
     switch (
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case RIGHT_ARROW:

@@ -288,7 +288,7 @@ export class MlvSegmented
     if (!manager) return;
 
     switch (
-      this._rtlService.normalizeArrowKey(event, this._elementRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case RIGHT_ARROW:

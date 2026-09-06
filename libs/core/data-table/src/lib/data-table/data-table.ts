@@ -471,6 +471,11 @@ export class MlvDataTable {
    * and the scope the column-resize arrow keys resolve their direction against.
    */
   private readonly _el = inject(ElementRef);
+  /**
+   * @private Direction applying to this table, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(this._el);
   /** @private Injector used to schedule `afterNextRender` from imperative handlers. */
   private readonly _injector = inject(Injector);
   /** @private Angular zone — column-resize drag listeners run outside it so pointer moves don't trigger a full CD tick per event (see {@link onResizeStart}). */
@@ -2007,7 +2012,7 @@ export class MlvDataTable {
     // rides the column's inline-end edge, so a table inside a scoped `dir`
     // subtree — an overlay pane included, since CDK stamps every pane with its
     // own `dir` — must mirror even while the document runs the other way.
-    const key = this._rtlService.normalizeArrowKey(event, this._el);
+    const key = this._rtlService.normalizeArrowKey(event, this._direction());
     const supported =
       key === LEFT_ARROW ||
       key === RIGHT_ARROW ||

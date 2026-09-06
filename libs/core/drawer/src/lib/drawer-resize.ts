@@ -69,6 +69,13 @@ export class MlvDrawerResize {
   private readonly _rtlService = inject(MlvRtlService);
 
   /**
+   * @private Direction applying to this handle, resolved once and cached
+   * behind the shared `dir` observer rather than re-walked on every arrow
+   * keypress.
+   */
+  private readonly _direction = this._rtlService.elementDirection(this._el);
+
+  /**
    * Drawer edge position — determines drag axis and dismiss direction.
    */
   readonly position = input.required<MlvDrawerPosition>();
@@ -308,7 +315,10 @@ export class MlvDrawerResize {
     const snapPoints = this.snapPoints();
     let newSize: number | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event, this._el) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
+      event.key
+    ) {
       case UP_ARROW:
       case RIGHT_ARROW:
         newSize = currentSizePx + stepPx;

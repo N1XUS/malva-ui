@@ -375,7 +375,7 @@ export class MlvCompare {
     let next: number;
 
     switch (
-      this._rtlService.normalizeArrowKey(event, this._hostRef) ??
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
       event.key
     ) {
       case RIGHT_ARROW:
