@@ -259,6 +259,7 @@ describe('provideMlvI18n', () => {
       boardLabel: 'Taskboard',
       addCard: 'Add card',
       emptyCell: 'No cards',
+      cardLabel: 'Task {label}',
       keyboardInstructions:
         'Press Space to pick up a card, the arrow keys to choose a slot, Space again to drop it, and Escape to cancel.',
     });
@@ -299,5 +300,10 @@ describe('provideMlvI18n', () => {
       reasonWip: 'the work-in-progress limit is reached',
       reasonPolicy: 'the board does not allow that target',
     });
+
+    // `toMatchObject` ignores keys it was not given, so the count is what makes
+    // the blocks above exhaustive: a twenty-fifth key has to be asserted here
+    // rather than shipping unread.
+    expect(Object.keys(taskboard())).toHaveLength(24);
   });
 });
