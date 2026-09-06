@@ -361,6 +361,13 @@
       flex: 0 0 auto;
     }
 
+    // An empty cell is one drop-zone box tall, so its scroll box stops
+    // stretching to the row's height and the add control sits directly under
+    // the box instead of at the foot of a blank panel (R47).
+    &__cell-scroller--empty {
+      flex: 0 0 auto;
+    }
+
     &__cards {
       display: flex;
       flex: 1 1 auto;

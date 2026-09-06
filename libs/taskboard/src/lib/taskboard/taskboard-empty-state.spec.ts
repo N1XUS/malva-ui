@@ -105,6 +105,27 @@ describe('MlvTaskboard empty cell', () => {
     ).toBeTruthy();
   });
 
+  it("stops the empty cell's scroll box stretching, so the add control sits under the box", async () => {
+    const { host } = await mount(EmptyHost);
+    const emptyScroller = emptyCell(host).querySelector<HTMLElement>(
+      '.mlv-taskboard__cell-scroller',
+    ) as HTMLElement;
+    const filledScroller = host
+      .querySelectorAll<HTMLElement>('.mlv-taskboard__cell')[0]
+      ?.querySelector<HTMLElement>(
+        '.mlv-taskboard__cell-scroller',
+      ) as HTMLElement;
+
+    // Without this the wrapper still grows to the row's height and the add
+    // control lands at the bottom of the panel instead of under the box.
+    expect(
+      emptyScroller.classList.contains('mlv-taskboard__cell-scroller--empty'),
+    ).toBe(true);
+    expect(
+      filledScroller.classList.contains('mlv-taskboard__cell-scroller--empty'),
+    ).toBe(false);
+  });
+
   it('draws no box in a cell that has cards', async () => {
     const { host } = await mount(EmptyHost);
     const filled = host.querySelector<HTMLElement>(

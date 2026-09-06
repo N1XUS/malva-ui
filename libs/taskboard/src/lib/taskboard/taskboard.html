@@ -236,7 +236,12 @@
           </cdk-virtual-scroll-viewport>
         </mlv-scrollbar>
       } @else {
-        <mlv-scrollbar class="mlv-taskboard__cell-scroller">
+        <mlv-scrollbar
+          class="mlv-taskboard__cell-scroller"
+          [class.mlv-taskboard__cell-scroller--empty]="
+            _isCellEmpty(column, swimlane)
+          "
+        >
           <div
             class="mlv-taskboard__cards"
             mlvTaskboardCardsHost
