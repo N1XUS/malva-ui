@@ -266,3 +266,14 @@ splitByComma = (v: string) =>
 - Inherited `ariaLabel` overrides the i18n `addToken` label on the inner input when supplied.
 - Inherited `description` renders `<mlv-description>` below the control; the inner bare input receives `[ariaDescribedBy]="_describedBy()"`.
 - The non-reactive public `messageId` string field is gone; `<mlv-message>` carries the base's `_messageId()`.
+
+---
+
+## Rendering identity (2026-09)
+
+- The token `@for` tracks by **object identity** — `track token`, not `track token.value` (#185). A token's rendered row, its `MlvToken` instance and everything attached to that DOM node (`armed`, the roving `tabindex`, DOM focus, and any component state a consumer's `[mlvTokenTemplate]` holds) belong to **that option object** for as long as the object stays in the collection.
+- Required because `allowDuplicates` deliberately permits several tokens sharing one `value`: `track token.value` handed Angular duplicate keys (NG0955), and the reconciler then paired old row _i_ with new item _i_ by key. Removing the **first** of three identical-valued tokens detached the row built for the **last** one and slid the survivors' content one row up — the model was always right (`removeToken` is `filter((t) => t !== token)`), only the rows were wrong.
+- Safe because nothing on the value path re-wraps an element: `_syncModels` and `_setTokens` propagate one array reference to both model surfaces, `visibleTokens` is `all.slice(0, max)`, and `MlvSignalFormControlBase` declares the `value` model without cloning. A consumer keeping its option objects stable keeps its rows.
+- **`createToken` must return a fresh object per call** (the default does). One returning a cached instance re-introduces duplicate keys — as does a consumer binding literally the same object twice (`[(tokens)]="[a, a]"`). Both are already ambiguous to the component, since `removeToken(a)` drops every match, so NG0955 there is an honest signal rather than a regression.
+- `track $index` is the rejected alternative: it re-creates every row on an insertion at the front, discarding exactly the per-token state this contract protects.
+- Regressions in `tokenizer-tracking.spec.ts` → _rendering identity with duplicate token values_.

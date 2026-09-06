@@ -21,7 +21,7 @@
           role="list"
           [attr.aria-label]="label() || _i18n().selectedItems"
         >
-          @for (token of visibleTokens(); track token.value) {
+          @for (token of visibleTokens(); track token) {
             <mlv-token
               [value]="token"
               [removable]="!computedDisabled()"
