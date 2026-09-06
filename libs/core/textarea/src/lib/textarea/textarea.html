@@ -2,11 +2,12 @@
 
 <mlv-form-control-wrapper (clear)="clearValue()">
   @if (label() || hint()) {
-  <mlv-label [for]="id()" [required]="required()">
-    {{ label() }} @if (hint()) {
-    <mlv-hint>{{ hint() }}</mlv-hint>
-    }
-  </mlv-label>
+    <mlv-label [for]="id()" [required]="required()">
+      {{ label() }}
+      @if (hint()) {
+        <mlv-hint>{{ hint() }}</mlv-hint>
+      }
+    </mlv-label>
   }
 
   <ng-template mlvFormControlWrapperControl>
@@ -44,24 +45,28 @@
   </ng-template>
 
   @if (description()) {
-  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-  } @if (message()) {
-  <mlv-message [id]="_messageId()" [state]="resolvedState()">
-    {{ message() }}
-  </mlv-message>
-  } @if (maxLength()) {
-  <!-- The wrapper's aside slot — a plain child of mlv-form-control-wrapper
+    <mlv-description [id]="_descriptionId()">{{
+      description()
+    }}</mlv-description>
+  }
+  @if (message()) {
+    <mlv-message [id]="_messageId()" [state]="resolvedState()">
+      {{ message() }}
+    </mlv-message>
+  }
+  @if (maxLength()) {
+    <!-- The wrapper's aside slot — a plain child of mlv-form-control-wrapper
        matches no projection slot and would be dropped. -->
-  <div
-    mlvFormControlWrapperAside
-    [id]="countId()"
-    class="mlv-textarea__count"
-    [class.mlv-textarea__count--warning]="isCountWarning()"
-    [class.mlv-textarea__count--error]="isCountError()"
-    aria-live="polite"
-  >
-    {{ charCount() }}/{{ maxLength() }}
-  </div>
+    <div
+      mlvFormControlWrapperAside
+      [id]="countId()"
+      class="mlv-textarea__count"
+      [class.mlv-textarea__count--warning]="isCountWarning()"
+      [class.mlv-textarea__count--error]="isCountError()"
+      aria-live="polite"
+    >
+      {{ charCount() }}/{{ maxLength() }}
+    </div>
   }
 </mlv-form-control-wrapper>
 

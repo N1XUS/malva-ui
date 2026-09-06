@@ -16,7 +16,9 @@
       <ng-template mlvPageHeaderStatus>
         <mlv-badge tone="warning" muted mlvDensity="compact">Draft</mlv-badge>
         @if (unsaved()) {
-        <mlv-badge tone="danger" muted mlvDensity="compact">Unsaved</mlv-badge>
+          <mlv-badge tone="danger" muted mlvDensity="compact"
+            >Unsaved</mlv-badge
+          >
         }
       </ng-template>
 
@@ -65,10 +67,11 @@
         >
           <button mlvSegmentedItem value="details">Details</button>
           <button mlvSegmentedItem value="changes">
-            Changes @if (changes().length > 0) {
-            <mlv-badge tone="warning" muted mlvDensity="tight">
-              {{ changes().length }}
-            </mlv-badge>
+            Changes
+            @if (changes().length > 0) {
+              <mlv-badge tone="warning" muted mlvDensity="tight">
+                {{ changes().length }}
+              </mlv-badge>
             }
           </button>
           <button mlvSegmentedItem value="history">History</button>
@@ -93,241 +96,262 @@
 
     <div class="record-editor__body">
       @switch (activeTab()) {
-      <!-- ————— Details tab ————— -->
-      @case ('details') { @if (isLive()) {
-      <mlv-card class="record-editor__card">
-        <h2 *mlvCardHeaderDef mlvCardHeader>Live version</h2>
-        <dl class="record-editor__live-grid">
-          <div>
-            <dt>Product name</dt>
-            <dd>{{ live().name }}</dd>
-          </div>
-          <div>
-            <dt>Availability</dt>
-            <dd>{{ live().availability }}</dd>
-          </div>
-          <div>
-            <dt>Price</dt>
-            <dd>{{ live().price }} USD</dd>
-          </div>
-          <div>
-            <dt>Lead time</dt>
-            <dd>{{ live().leadTime }} days</dd>
-          </div>
-          <div class="record-editor__live-wide">
-            <dt>Description</dt>
-            <dd>{{ live().description }}</dd>
-          </div>
-        </dl>
-      </mlv-card>
-      } @else {
-      <mlv-card class="record-editor__card">
-        <h2 *mlvCardHeaderDef mlvCardHeader>General</h2>
-        <div class="record-editor__fields">
-          <div class="record-editor__field">
-            <span class="record-editor__field-label">
-              Product name @if (changedFields().has('name')) {
-              <mlv-badge tone="warning" muted mlvDensity="tight">
-                CHANGED
-              </mlv-badge>
-              }
-            </span>
-            <mlv-input ariaLabel="Product name" [(value)]="name" />
-          </div>
+        <!-- ————— Details tab ————— -->
+        @case ('details') {
+          @if (isLive()) {
+            <mlv-card class="record-editor__card">
+              <h2 *mlvCardHeaderDef mlvCardHeader>Live version</h2>
+              <dl class="record-editor__live-grid">
+                <div>
+                  <dt>Product name</dt>
+                  <dd>{{ live().name }}</dd>
+                </div>
+                <div>
+                  <dt>Availability</dt>
+                  <dd>{{ live().availability }}</dd>
+                </div>
+                <div>
+                  <dt>Price</dt>
+                  <dd>{{ live().price }} USD</dd>
+                </div>
+                <div>
+                  <dt>Lead time</dt>
+                  <dd>{{ live().leadTime }} days</dd>
+                </div>
+                <div class="record-editor__live-wide">
+                  <dt>Description</dt>
+                  <dd>{{ live().description }}</dd>
+                </div>
+              </dl>
+            </mlv-card>
+          } @else {
+            <mlv-card class="record-editor__card">
+              <h2 *mlvCardHeaderDef mlvCardHeader>General</h2>
+              <div class="record-editor__fields">
+                <div class="record-editor__field">
+                  <span class="record-editor__field-label">
+                    Product name
+                    @if (changedFields().has('name')) {
+                      <mlv-badge tone="warning" muted mlvDensity="tight">
+                        CHANGED
+                      </mlv-badge>
+                    }
+                  </span>
+                  <mlv-input ariaLabel="Product name" [(value)]="name" />
+                </div>
 
-          <div class="record-editor__field">
-            <span class="record-editor__field-label">
-              Availability @if (changedFields().has('availability')) {
-              <mlv-badge tone="warning" muted mlvDensity="tight">
-                CHANGED
-              </mlv-badge>
-              } @if (suggestionFor('availability'); as suggestion) {
-              <mlv-chip
-                tone="info"
-                muted
-                mlvDensity="tight"
-                closable
-                [mlvTooltip]="suggestion.summary + ' — press to apply'"
-                (click)="applySuggestion(suggestion)"
-                (keydown.enter)="applySuggestion(suggestion)"
-                (chipClose)="dismissSuggestion(suggestion)"
-              >
-                <svg lucideSparkles [size]="12" />
-                suggestion
-              </mlv-chip>
-              }
-            </span>
-            <mlv-select
-              ariaLabel="Availability"
-              [options]="availabilityOptions"
-              [(value)]="availability"
-            />
-          </div>
-        </div>
-      </mlv-card>
+                <div class="record-editor__field">
+                  <span class="record-editor__field-label">
+                    Availability
+                    @if (changedFields().has('availability')) {
+                      <mlv-badge tone="warning" muted mlvDensity="tight">
+                        CHANGED
+                      </mlv-badge>
+                    }
+                    @if (suggestionFor('availability'); as suggestion) {
+                      <mlv-chip
+                        tone="info"
+                        muted
+                        mlvDensity="tight"
+                        closable
+                        [mlvTooltip]="suggestion.summary + ' — press to apply'"
+                        (click)="applySuggestion(suggestion)"
+                        (keydown.enter)="applySuggestion(suggestion)"
+                        (chipClose)="dismissSuggestion(suggestion)"
+                      >
+                        <svg lucideSparkles [size]="12" />
+                        suggestion
+                      </mlv-chip>
+                    }
+                  </span>
+                  <mlv-select
+                    ariaLabel="Availability"
+                    [options]="availabilityOptions"
+                    [(value)]="availability"
+                  />
+                </div>
+              </div>
+            </mlv-card>
 
-      <mlv-card class="record-editor__card">
-        <h2 *mlvCardHeaderDef mlvCardHeader>Commercial</h2>
-        <div class="record-editor__fields">
-          <div class="record-editor__field">
-            <span class="record-editor__field-label">
-              Price @if (changedFields().has('price')) {
-              <mlv-badge tone="warning" muted mlvDensity="tight">
-                CHANGED
-              </mlv-badge>
-              } @if (suggestionFor('price'); as suggestion) {
-              <mlv-chip
-                tone="info"
-                muted
-                mlvDensity="tight"
-                closable
-                [mlvTooltip]="suggestion.summary + ' — press to apply'"
-                (click)="applySuggestion(suggestion)"
-                (keydown.enter)="applySuggestion(suggestion)"
-                (chipClose)="dismissSuggestion(suggestion)"
-              >
-                <svg lucideSparkles [size]="12" />
-                suggestion
-              </mlv-chip>
-              }
-            </span>
-            <mlv-input ariaLabel="Price" inputMode="decimal" [(value)]="price">
-              <span *mlvFormControlAppend>USD</span>
-            </mlv-input>
-          </div>
+            <mlv-card class="record-editor__card">
+              <h2 *mlvCardHeaderDef mlvCardHeader>Commercial</h2>
+              <div class="record-editor__fields">
+                <div class="record-editor__field">
+                  <span class="record-editor__field-label">
+                    Price
+                    @if (changedFields().has('price')) {
+                      <mlv-badge tone="warning" muted mlvDensity="tight">
+                        CHANGED
+                      </mlv-badge>
+                    }
+                    @if (suggestionFor('price'); as suggestion) {
+                      <mlv-chip
+                        tone="info"
+                        muted
+                        mlvDensity="tight"
+                        closable
+                        [mlvTooltip]="suggestion.summary + ' — press to apply'"
+                        (click)="applySuggestion(suggestion)"
+                        (keydown.enter)="applySuggestion(suggestion)"
+                        (chipClose)="dismissSuggestion(suggestion)"
+                      >
+                        <svg lucideSparkles [size]="12" />
+                        suggestion
+                      </mlv-chip>
+                    }
+                  </span>
+                  <mlv-input
+                    ariaLabel="Price"
+                    inputMode="decimal"
+                    [(value)]="price"
+                  >
+                    <span *mlvFormControlAppend>USD</span>
+                  </mlv-input>
+                </div>
 
-          <div class="record-editor__field">
-            <span class="record-editor__field-label">Unit cost</span>
-            <mlv-input
-              ariaLabel="Unit cost"
-              inputMode="decimal"
-              [(value)]="unitCost"
-            >
-              <span *mlvFormControlAppend>USD</span>
-            </mlv-input>
-          </div>
+                <div class="record-editor__field">
+                  <span class="record-editor__field-label">Unit cost</span>
+                  <mlv-input
+                    ariaLabel="Unit cost"
+                    inputMode="decimal"
+                    [(value)]="unitCost"
+                  >
+                    <span *mlvFormControlAppend>USD</span>
+                  </mlv-input>
+                </div>
 
-          <div class="record-editor__field">
-            <span class="record-editor__field-label">
-              Lead time @if (changedFields().has('leadTime')) {
-              <mlv-badge tone="warning" muted mlvDensity="tight">
-                CHANGED
-              </mlv-badge>
-              }
-            </span>
-            <mlv-input
-              ariaLabel="Lead time"
-              inputMode="numeric"
-              [(value)]="leadTime"
-            >
-              <span *mlvFormControlAppend>days</span>
-            </mlv-input>
-          </div>
+                <div class="record-editor__field">
+                  <span class="record-editor__field-label">
+                    Lead time
+                    @if (changedFields().has('leadTime')) {
+                      <mlv-badge tone="warning" muted mlvDensity="tight">
+                        CHANGED
+                      </mlv-badge>
+                    }
+                  </span>
+                  <mlv-input
+                    ariaLabel="Lead time"
+                    inputMode="numeric"
+                    [(value)]="leadTime"
+                  >
+                    <span *mlvFormControlAppend>days</span>
+                  </mlv-input>
+                </div>
 
-          <div class="record-editor__field">
-            <span class="record-editor__field-label">
-              Featured in storefront @if (changedFields().has('featured')) {
-              <mlv-badge tone="warning" muted mlvDensity="tight">
-                CHANGED
-              </mlv-badge>
-              }
-            </span>
-            <mlv-switch [(checked)]="featured">
-              {{ featured() ? 'Enabled' : 'Disabled' }}
-            </mlv-switch>
-          </div>
-        </div>
-      </mlv-card>
+                <div class="record-editor__field">
+                  <span class="record-editor__field-label">
+                    Featured in storefront
+                    @if (changedFields().has('featured')) {
+                      <mlv-badge tone="warning" muted mlvDensity="tight">
+                        CHANGED
+                      </mlv-badge>
+                    }
+                  </span>
+                  <mlv-switch [(checked)]="featured">
+                    {{ featured() ? 'Enabled' : 'Disabled' }}
+                  </mlv-switch>
+                </div>
+              </div>
+            </mlv-card>
 
-      <mlv-card class="record-editor__card">
-        <h2 *mlvCardHeaderDef mlvCardHeader>Content</h2>
-        <div class="record-editor__fields record-editor__fields--stacked">
-          <div class="record-editor__field">
-            <span class="record-editor__field-label">
-              Description @if (changedFields().has('description')) {
-              <mlv-badge tone="warning" muted mlvDensity="tight">
-                CHANGED
-              </mlv-badge>
-              }
-            </span>
-            <mlv-textarea
-              ariaLabel="Description"
-              [rows]="3"
-              [(value)]="description"
-            />
-          </div>
+            <mlv-card class="record-editor__card">
+              <h2 *mlvCardHeaderDef mlvCardHeader>Content</h2>
+              <div class="record-editor__fields record-editor__fields--stacked">
+                <div class="record-editor__field">
+                  <span class="record-editor__field-label">
+                    Description
+                    @if (changedFields().has('description')) {
+                      <mlv-badge tone="warning" muted mlvDensity="tight">
+                        CHANGED
+                      </mlv-badge>
+                    }
+                  </span>
+                  <mlv-textarea
+                    ariaLabel="Description"
+                    [rows]="3"
+                    [(value)]="description"
+                  />
+                </div>
 
-          <div class="record-editor__field">
-            <span class="record-editor__field-label">
-              Tags @if (changedFields().has('tags')) {
-              <mlv-badge tone="warning" muted mlvDensity="tight">
-                CHANGED
-              </mlv-badge>
-              } @if (suggestionFor('tags'); as suggestion) {
-              <mlv-chip
-                tone="info"
-                muted
-                mlvDensity="tight"
-                closable
-                [mlvTooltip]="suggestion.summary + ' — press to apply'"
-                (click)="applySuggestion(suggestion)"
-                (keydown.enter)="applySuggestion(suggestion)"
-                (chipClose)="dismissSuggestion(suggestion)"
-              >
-                <svg lucideSparkles [size]="12" />
-                suggestion
-              </mlv-chip>
-              }
-            </span>
-            <mlv-tokenizer placeholder="Add tag…" [(tokens)]="tags" />
-          </div>
-        </div>
-      </mlv-card>
-      } }
-      <!-- ————— Changes tab (diff view) ————— -->
-      @case ('changes') {
-      <mlv-card class="record-editor__card">
-        <h2 *mlvCardHeaderDef mlvCardHeader>Pending changes</h2>
-        <span *mlvCardSubheaderDef mlvCardSubheader>
-          Draft compared against the live version
-        </span>
-        @if (changes().length === 0) {
-        <p class="record-editor__empty">
-          No pending changes — the draft matches the live version.
-        </p>
-        } @else {
-        <ul class="record-editor__diff" aria-label="Pending changes">
-          @for (change of changes(); track change.field) {
-          <li class="record-editor__diff-row">
-            <span class="record-editor__diff-field">{{ change.field }}</span>
-            <del class="record-editor__diff-from">{{ change.from }}</del>
-            <ins class="record-editor__diff-to">{{ change.to }}</ins>
-          </li>
+                <div class="record-editor__field">
+                  <span class="record-editor__field-label">
+                    Tags
+                    @if (changedFields().has('tags')) {
+                      <mlv-badge tone="warning" muted mlvDensity="tight">
+                        CHANGED
+                      </mlv-badge>
+                    }
+                    @if (suggestionFor('tags'); as suggestion) {
+                      <mlv-chip
+                        tone="info"
+                        muted
+                        mlvDensity="tight"
+                        closable
+                        [mlvTooltip]="suggestion.summary + ' — press to apply'"
+                        (click)="applySuggestion(suggestion)"
+                        (keydown.enter)="applySuggestion(suggestion)"
+                        (chipClose)="dismissSuggestion(suggestion)"
+                      >
+                        <svg lucideSparkles [size]="12" />
+                        suggestion
+                      </mlv-chip>
+                    }
+                  </span>
+                  <mlv-tokenizer placeholder="Add tag…" [(tokens)]="tags" />
+                </div>
+              </div>
+            </mlv-card>
           }
-        </ul>
         }
-      </mlv-card>
+        <!-- ————— Changes tab (diff view) ————— -->
+        @case ('changes') {
+          <mlv-card class="record-editor__card">
+            <h2 *mlvCardHeaderDef mlvCardHeader>Pending changes</h2>
+            <span *mlvCardSubheaderDef mlvCardSubheader>
+              Draft compared against the live version
+            </span>
+            @if (changes().length === 0) {
+              <p class="record-editor__empty">
+                No pending changes — the draft matches the live version.
+              </p>
+            } @else {
+              <ul class="record-editor__diff" aria-label="Pending changes">
+                @for (change of changes(); track change.field) {
+                  <li class="record-editor__diff-row">
+                    <span class="record-editor__diff-field">{{
+                      change.field
+                    }}</span>
+                    <del class="record-editor__diff-from">{{
+                      change.from
+                    }}</del>
+                    <ins class="record-editor__diff-to">{{ change.to }}</ins>
+                  </li>
+                }
+              </ul>
+            }
+          </mlv-card>
+        }
+        <!-- ————— History tab ————— -->
+        @case ('history') {
+          <mlv-card class="record-editor__card">
+            <h2 *mlvCardHeaderDef mlvCardHeader>Version history</h2>
+            <mlv-timeline>
+              @for (version of versions(); track version.id) {
+                <mlv-timeline-item
+                  [title]="version.title"
+                  [timestamp]="version.timestamp"
+                  [tone]="version.tone"
+                >
+                  <ng-template mlvTimelineItemMeta>
+                    <mlv-avatar size="xs" [initials]="version.author" />
+                  </ng-template>
+                  {{ version.note }}
+                </mlv-timeline-item>
+              }
+            </mlv-timeline>
+          </mlv-card>
+        }
       }
-      <!-- ————— History tab ————— -->
-      @case ('history') {
-      <mlv-card class="record-editor__card">
-        <h2 *mlvCardHeaderDef mlvCardHeader>Version history</h2>
-        <mlv-timeline>
-          @for (version of versions(); track version.id) {
-          <mlv-timeline-item
-            [title]="version.title"
-            [timestamp]="version.timestamp"
-            [tone]="version.tone"
-          >
-            <ng-template mlvTimelineItemMeta>
-              <mlv-avatar size="xs" [initials]="version.author" />
-            </ng-template>
-            {{ version.note }}
-          </mlv-timeline-item>
-          }
-        </mlv-timeline>
-      </mlv-card>
-      } }
     </div>
 
     <mlv-page-dock appearance="floating">
@@ -340,11 +364,12 @@
           aria-label="Workflow actions"
         >
           <span class="record-editor__dock-status">
-            {{ changes().length }} pending changes · {{ suggestions().length }}
-            open suggestions @if (scheduledFor(); as scheduled) {
-            <mlv-badge tone="info" muted mlvDensity="compact">
-              Publishes {{ scheduled | date: 'MMM d' }}
-            </mlv-badge>
+            {{ changes().length }} pending changes ·
+            {{ suggestions().length }} open suggestions
+            @if (scheduledFor(); as scheduled) {
+              <mlv-badge tone="info" muted mlvDensity="compact">
+                Publishes {{ scheduled | date: 'MMM d' }}
+              </mlv-badge>
             }
           </span>
 

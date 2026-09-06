@@ -10,7 +10,10 @@
   </mlv-editor>
 
   <p aria-live="polite">
-    @if (lastError(); as error) { Recoverable {{ error.code }} error: {{
-    error.message }} } @else { No editor errors yet. }
+    @if (lastError(); as error) {
+      Recoverable {{ error.code }} error: {{ error.message }}
+    } @else {
+      No editor errors yet.
+    }
   </p>
 </div>

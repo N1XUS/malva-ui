@@ -22,9 +22,9 @@
     aria-hidden="true"
   >
     @if (!indeterminate()) {
-    <svg size="20" class="mlv-checkbox__check" lucideCheck />
+      <svg size="20" class="mlv-checkbox__check" lucideCheck />
     } @else {
-    <svg size="20" class="mlv-checkbox__check" lucideMinus />
+      <svg size="20" class="mlv-checkbox__check" lucideMinus />
     }
   </span>
   <span class="mlv-checkbox__text">
@@ -33,7 +33,7 @@
          accessible name computed from the wrapping <label>. -->
     <span #content class="mlv-checkbox__content"><ng-content /></span>
     @if (label()) {
-    <span class="mlv-checkbox__label-text">{{ label() }}</span>
+      <span class="mlv-checkbox__label-text">{{ label() }}</span>
     }
   </span>
 </label>

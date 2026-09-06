@@ -1,48 +1,51 @@
 @if (label() || hint()) {
-<mlv-label [for]="_cellId(0)" [required]="required()">
-  {{ label() }} @if (hint()) {
-  <mlv-hint>{{ hint() }}</mlv-hint>
-  }
-</mlv-label>
+  <mlv-label [for]="_cellId(0)" [required]="required()">
+    {{ label() }}
+    @if (hint()) {
+      <mlv-hint>{{ hint() }}</mlv-hint>
+    }
+  </mlv-label>
 }
 
 <div class="mlv-pin-input__cells">
-  @for (i of _cellIndices(); track i) { @if (_hasSeparatorBefore(i)) {
-  <span class="mlv-pin-input__separator" aria-hidden="true">
-    @if (_separatorTemplate(); as tpl) {
-    <ng-container [ngTemplateOutlet]="tpl" />
-    } @else {
-    <svg lucideDot [size]="16" />
+  @for (i of _cellIndices(); track i) {
+    @if (_hasSeparatorBefore(i)) {
+      <span class="mlv-pin-input__separator" aria-hidden="true">
+        @if (_separatorTemplate(); as tpl) {
+          <ng-container [ngTemplateOutlet]="tpl" />
+        } @else {
+          <svg lucideDot [size]="16" />
+        }
+      </span>
     }
-  </span>
-  }
-  <mlv-input
-    class="mlv-pin-input__cell"
-    [id]="_cellId(i)"
-    [type]="type()"
-    [state]="resolvedState()"
-    [placeholder]="placeholder()"
-    [value]="_values()[i] ?? ''"
-    [disabled]="computedDisabled()"
-    [readonly]="readonly()"
-    autocomplete="one-time-code"
-    inputMode="numeric"
-    [ariaLabel]="_cellLabel(i)"
-    [ariaDescribedBy]="_describedBy()"
-    [required]="required()"
-    (valueChange)="_onCellChange(i, $event)"
-    (keydown)="_onCellKeydown(i, $event)"
-    (paste)="_onCellPaste(i, $event)"
-    (inputFocus)="_onCellFocus(i)"
-    (inputBlur)="_onCellBlur()"
-  />
+    <mlv-input
+      class="mlv-pin-input__cell"
+      [id]="_cellId(i)"
+      [type]="type()"
+      [state]="resolvedState()"
+      [placeholder]="placeholder()"
+      [value]="_values()[i] ?? ''"
+      [disabled]="computedDisabled()"
+      [readonly]="readonly()"
+      autocomplete="one-time-code"
+      inputMode="numeric"
+      [ariaLabel]="_cellLabel(i)"
+      [ariaDescribedBy]="_describedBy()"
+      [required]="required()"
+      (valueChange)="_onCellChange(i, $event)"
+      (keydown)="_onCellKeydown(i, $event)"
+      (paste)="_onCellPaste(i, $event)"
+      (inputFocus)="_onCellFocus(i)"
+      (inputBlur)="_onCellBlur()"
+    />
   }
 </div>
 
 @if (description()) {
-<mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-} @if (message()) {
-<mlv-message [id]="_messageId()" [state]="resolvedState()">
-  {{ message() }}
-</mlv-message>
+  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
+}
+@if (message()) {
+  <mlv-message [id]="_messageId()" [state]="resolvedState()">
+    {{ message() }}
+  </mlv-message>
 }

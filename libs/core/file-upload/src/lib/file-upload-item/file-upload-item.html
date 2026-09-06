@@ -1,54 +1,56 @@
 <div class="mlv-file-upload-item__thumbnail">
   @if (file().previewUrl) {
-  <img
-    [src]="file().previewUrl"
-    [alt]="file().name"
-    class="mlv-file-upload-item__thumbnail-img"
-  />
+    <img
+      [src]="file().previewUrl"
+      [alt]="file().name"
+      class="mlv-file-upload-item__thumbnail-img"
+    />
   } @else {
-  <svg lucideFile [size]="20" aria-hidden="true" />
+    <svg lucideFile [size]="20" aria-hidden="true" />
   }
 </div>
 
 <div class="mlv-file-upload-item__info">
-  <span class="mlv-file-upload-item__name" [title]="file().name"
-    >{{ file().name }}</span
-  >
+  <span class="mlv-file-upload-item__name" [title]="file().name">{{
+    file().name
+  }}</span>
 
   @if (file().error) {
-  <span class="mlv-file-upload-item__meta mlv-file-upload-item__meta--error">
-    {{ file().error!.message }}
-  </span>
+    <span class="mlv-file-upload-item__meta mlv-file-upload-item__meta--error">
+      {{ file().error!.message }}
+    </span>
   } @else {
-  <span class="mlv-file-upload-item__meta">{{ _formattedSize() }}</span>
-  } @if (_showProgress()) {
-  <mlv-loader
-    class="mlv-file-upload-item__progress"
-    variant="bar"
-    [value]="_progress()"
-    [size]="3"
-    [ariaLabel]="'Uploading ' + file().name + ', ' + _progress() + '%'"
-  />
+    <span class="mlv-file-upload-item__meta">{{ _formattedSize() }}</span>
+  }
+  @if (_showProgress()) {
+    <mlv-loader
+      class="mlv-file-upload-item__progress"
+      variant="bar"
+      [value]="_progress()"
+      [size]="3"
+      [ariaLabel]="'Uploading ' + file().name + ', ' + _progress() + '%'"
+    />
   }
 </div>
 
 <div class="mlv-file-upload-item__actions">
   @if (file().state === 'success') {
-  <svg
-    lucideCircleCheck
-    class="mlv-file-upload-item__status-icon mlv-file-upload-item__status-icon--success"
-    [size]="18"
-    [attr.aria-label]="_i18n().uploadComplete"
-    role="img"
-  />
-  } @if (file().state === 'error') {
-  <svg
-    lucideCircleX
-    class="mlv-file-upload-item__status-icon mlv-file-upload-item__status-icon--error"
-    [size]="18"
-    [attr.aria-label]="_i18n().uploadFailed"
-    role="img"
-  />
+    <svg
+      lucideCircleCheck
+      class="mlv-file-upload-item__status-icon mlv-file-upload-item__status-icon--success"
+      [size]="18"
+      [attr.aria-label]="_i18n().uploadComplete"
+      role="img"
+    />
+  }
+  @if (file().state === 'error') {
+    <svg
+      lucideCircleX
+      class="mlv-file-upload-item__status-icon mlv-file-upload-item__status-icon--error"
+      [size]="18"
+      [attr.aria-label]="_i18n().uploadFailed"
+      role="img"
+    />
   }
 
   <mlv-button-close

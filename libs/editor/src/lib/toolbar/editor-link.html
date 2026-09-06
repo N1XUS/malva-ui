@@ -45,9 +45,9 @@
         (valueChange)="_textDraft.set($event)"
         (keydown.enter)="_apply()"
       />
-      <mlv-switch [label]="_copy().openInNewTab" [(checked)]="_newTab"
-        >{{_copy().openInNewTab}}</mlv-switch
-      >
+      <mlv-switch [label]="_copy().openInNewTab" [(checked)]="_newTab">{{
+        _copy().openInNewTab
+      }}</mlv-switch>
       <div class="mlv-editor-link__actions">
         <button
           mlvButton
@@ -59,15 +59,15 @@
           {{ _copy().applyLink }}
         </button>
         @if (_canRemove()) {
-        <button
-          mlvButton
-          type="button"
-          variant="secondary"
-          [disabled]="_disabled()"
-          (click)="_remove()"
-        >
-          {{ _copy().removeLink }}
-        </button>
+          <button
+            mlvButton
+            type="button"
+            variant="secondary"
+            [disabled]="_disabled()"
+            (click)="_remove()"
+          >
+            {{ _copy().removeLink }}
+          </button>
         }
       </div>
     </div>

@@ -4,9 +4,14 @@
       Insert 3 × 3 table
     </button>
     @for (level of [80, 100, 125]; track level) {
-    <button mlvButton type="button" variant="outlined" (click)="setZoom(level)">
-      {{ level }}%
-    </button>
+      <button
+        mlvButton
+        type="button"
+        variant="outlined"
+        (click)="setZoom(level)"
+      >
+        {{ level }}%
+      </button>
     }
   </div>
 
@@ -18,8 +23,8 @@
   />
 
   <p style="margin: 0">
-    View zoom: {{ zoom() }}% · Last zoom preserved serialized value: {{
-    zoomPreservedValue() }}
+    View zoom: {{ zoom() }}% · Last zoom preserved serialized value:
+    {{ zoomPreservedValue() }}
   </p>
   <pre style="white-space: pre-wrap">{{ value() ?? 'null' }}</pre>
 </div>

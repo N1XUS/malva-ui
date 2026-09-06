@@ -1,86 +1,94 @@
 <ng-template #workspaceRow let-option let-location="location">
   <span class="mlv-sidebar-workspace__logo" aria-hidden="true">
     @if (_logoTemplate(); as logoTemplate) {
-    <ng-container
-      [ngTemplateOutlet]="logoTemplate.templateRef"
-      [ngTemplateOutletContext]="_templateContext(option)"
-    />
+      <ng-container
+        [ngTemplateOutlet]="logoTemplate.templateRef"
+        [ngTemplateOutletContext]="_templateContext(option)"
+      />
     } @else {
-    <span class="mlv-sidebar-workspace__monogram">
-      {{ _initials(option.label) }}
-    </span>
+      <span class="mlv-sidebar-workspace__monogram">
+        {{ _initials(option.label) }}
+      </span>
     }
   </span>
 
   <span class="mlv-sidebar-workspace__text">
     @if (_textTemplate(); as textTemplate) {
-    <ng-container
-      [ngTemplateOutlet]="textTemplate.templateRef"
-      [ngTemplateOutletContext]="_templateContext(option)"
-    />
+      <ng-container
+        [ngTemplateOutlet]="textTemplate.templateRef"
+        [ngTemplateOutletContext]="_templateContext(option)"
+      />
     } @else {
-    <span class="mlv-sidebar-workspace__label">{{ option.label }}</span>
-    @if (option.description) {
-    <span class="mlv-sidebar-workspace__description">
-      {{ option.description }}
-    </span>
-    } }
+      <span class="mlv-sidebar-workspace__label">{{ option.label }}</span>
+      @if (option.description) {
+        <span class="mlv-sidebar-workspace__description">
+          {{ option.description }}
+        </span>
+      }
+    }
   </span>
 
   @if (location === 'trigger' && _hasMultiple()) {
-  <svg
-    class="mlv-sidebar-workspace__chevron"
-    lucideChevronsUpDown
-    [size]="16"
-    aria-hidden="true"
-  ></svg>
-  } @if (location === 'option' && _isSelected(option)) {
-  <svg
-    class="mlv-sidebar-workspace__check"
-    lucideCheck
-    [size]="16"
-    aria-hidden="true"
-  ></svg>
+    <svg
+      class="mlv-sidebar-workspace__chevron"
+      lucideChevronsUpDown
+      [size]="16"
+      aria-hidden="true"
+    ></svg>
+  }
+  @if (location === 'option' && _isSelected(option)) {
+    <svg
+      class="mlv-sidebar-workspace__check"
+      lucideCheck
+      [size]="16"
+      aria-hidden="true"
+    ></svg>
   }
 </ng-template>
 
 @if (_hasMultiple()) {
-<button
-  type="button"
-  mlvButton
-  variant="transparent"
-  class="mlv-sidebar-workspace__trigger"
-  [mlvMenuTrigger]="workspaceMenu"
-  [attr.aria-label]="_triggerAriaLabel()"
-  (menuOpened)="_opened.set(true)"
-  (menuClosed)="_opened.set(false)"
->
-  <ng-container
-    [ngTemplateOutlet]="workspaceRow"
-    [ngTemplateOutletContext]="{ $implicit: workspace(), location: 'trigger' }"
-  />
-</button>
-
-<mlv-menu #workspaceMenu [label]="_i18n().workspaceMenu">
-  @for (option of workspaces(); track option.id) {
-  <mlv-list-item
-    mlvMenuItem
-    class="mlv-sidebar-workspace__option"
-    [attr.aria-current]="_isSelected(option) ? 'true' : null"
-    (itemClick)="_selectWorkspace(option)"
+  <button
+    type="button"
+    mlvButton
+    variant="transparent"
+    class="mlv-sidebar-workspace__trigger"
+    [mlvMenuTrigger]="workspaceMenu"
+    [attr.aria-label]="_triggerAriaLabel()"
+    (menuOpened)="_opened.set(true)"
+    (menuClosed)="_opened.set(false)"
   >
     <ng-container
       [ngTemplateOutlet]="workspaceRow"
-      [ngTemplateOutletContext]="{ $implicit: option, location: 'option' }"
+      [ngTemplateOutletContext]="{
+        $implicit: workspace(),
+        location: 'trigger',
+      }"
     />
-  </mlv-list-item>
-  }
-</mlv-menu>
+  </button>
+
+  <mlv-menu #workspaceMenu [label]="_i18n().workspaceMenu">
+    @for (option of workspaces(); track option.id) {
+      <mlv-list-item
+        mlvMenuItem
+        class="mlv-sidebar-workspace__option"
+        [attr.aria-current]="_isSelected(option) ? 'true' : null"
+        (itemClick)="_selectWorkspace(option)"
+      >
+        <ng-container
+          [ngTemplateOutlet]="workspaceRow"
+          [ngTemplateOutletContext]="{ $implicit: option, location: 'option' }"
+        />
+      </mlv-list-item>
+    }
+  </mlv-menu>
 } @else {
-<div class="mlv-sidebar-workspace__trigger">
-  <ng-container
-    [ngTemplateOutlet]="workspaceRow"
-    [ngTemplateOutletContext]="{ $implicit: workspace(), location: 'trigger' }"
-  />
-</div>
+  <div class="mlv-sidebar-workspace__trigger">
+    <ng-container
+      [ngTemplateOutlet]="workspaceRow"
+      [ngTemplateOutletContext]="{
+        $implicit: workspace(),
+        location: 'trigger',
+      }"
+    />
+  </div>
 }

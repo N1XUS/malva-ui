@@ -1,15 +1,15 @@
 <div class="demo-col" style="align-items: stretch; gap: 1rem">
   <div class="demo-row">
     @for (candidate of widths; track candidate) {
-    <button
-      mlvButton
-      type="button"
-      [variant]="contentWidth() === candidate ? 'primary' : 'outlined'"
-      [attr.aria-pressed]="contentWidth() === candidate"
-      (click)="contentWidth.set(candidate)"
-    >
-      {{ candidate }}
-    </button>
+      <button
+        mlvButton
+        type="button"
+        [variant]="contentWidth() === candidate ? 'primary' : 'outlined'"
+        [attr.aria-pressed]="contentWidth() === candidate"
+        (click)="contentWidth.set(candidate)"
+      >
+        {{ candidate }}
+      </button>
     }
   </div>
 

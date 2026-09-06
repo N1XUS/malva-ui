@@ -1,75 +1,88 @@
 <mlv-list class="docs-integrations-list">
-  @for (integration of integrations; track integration.id) { @if
-  (integration.overflow) {
-  <mlv-list-item>
-    @switch (integration.icon) { @case ('git') {
-    <svg mlvListItemMedia lucideGitBranch [size]="20"></svg>
-    } @case ('calendar') {
-    <svg mlvListItemMedia lucideCalendarDays [size]="20"></svg>
-    } @case ('backup') {
-    <svg mlvListItemMedia lucideHardDrive [size]="20"></svg>
-    } @case ('billing') {
-    <svg mlvListItemMedia lucideCreditCard [size]="20"></svg>
-    } @case ('warehouse') {
-    <svg mlvListItemMedia lucideDatabase [size]="20"></svg>
-    } }
-    <span mlvListItemTitle>{{ integration.title }}</span>
-    <span mlvListItemByline>{{ integration.byline }}</span>
-    <div mlvListItemActions>
-      <button
-        mlvButton
-        type="button"
-        variant="transparent"
-        shape="circle"
-        size="s"
-        [attr.aria-label]="'More actions for ' + integration.title"
-        [mlvMenuTrigger]="rowMenu"
-      >
-        <svg lucideEllipsis [size]="16"></svg>
-      </button>
-    </div>
-  </mlv-list-item>
-  <mlv-menu #rowMenu [label]="'More actions for ' + integration.title">
-    <mlv-list-item mlvMenuItem (itemClick)="reconfigure(integration)"
-      >Reconfigure</mlv-list-item
-    >
-    <mlv-list-item mlvMenuItem (itemClick)="viewLogs(integration)"
-      >View sync logs</mlv-list-item
-    >
-    <mlv-list-item mlvMenuItem (itemClick)="disconnect(integration)"
-      >Disconnect</mlv-list-item
-    >
-  </mlv-menu>
-  } @else {
-  <mlv-list-item>
-    @switch (integration.icon) { @case ('git') {
-    <svg mlvListItemMedia lucideGitBranch [size]="20"></svg>
-    } @case ('calendar') {
-    <svg mlvListItemMedia lucideCalendarDays [size]="20"></svg>
-    } @case ('backup') {
-    <svg mlvListItemMedia lucideHardDrive [size]="20"></svg>
-    } @case ('billing') {
-    <svg mlvListItemMedia lucideCreditCard [size]="20"></svg>
-    } @case ('warehouse') {
-    <svg mlvListItemMedia lucideDatabase [size]="20"></svg>
-    } }
-    <span mlvListItemTitle>{{ integration.title }}</span>
-    <span mlvListItemByline>{{ integration.byline }}</span>
-    <div mlvListItemActions>
-      <button
-        mlvButton
-        type="button"
-        variant="secondary"
-        size="s"
-        (click)="disconnect(integration)"
-      >
-        Disconnect
-      </button>
-    </div>
-  </mlv-list-item>
-  } }
+  @for (integration of integrations; track integration.id) {
+    @if (integration.overflow) {
+      <mlv-list-item>
+        @switch (integration.icon) {
+          @case ('git') {
+            <svg mlvListItemMedia lucideGitBranch [size]="20"></svg>
+          }
+          @case ('calendar') {
+            <svg mlvListItemMedia lucideCalendarDays [size]="20"></svg>
+          }
+          @case ('backup') {
+            <svg mlvListItemMedia lucideHardDrive [size]="20"></svg>
+          }
+          @case ('billing') {
+            <svg mlvListItemMedia lucideCreditCard [size]="20"></svg>
+          }
+          @case ('warehouse') {
+            <svg mlvListItemMedia lucideDatabase [size]="20"></svg>
+          }
+        }
+        <span mlvListItemTitle>{{ integration.title }}</span>
+        <span mlvListItemByline>{{ integration.byline }}</span>
+        <div mlvListItemActions>
+          <button
+            mlvButton
+            type="button"
+            variant="transparent"
+            shape="circle"
+            size="s"
+            [attr.aria-label]="'More actions for ' + integration.title"
+            [mlvMenuTrigger]="rowMenu"
+          >
+            <svg lucideEllipsis [size]="16"></svg>
+          </button>
+        </div>
+      </mlv-list-item>
+      <mlv-menu #rowMenu [label]="'More actions for ' + integration.title">
+        <mlv-list-item mlvMenuItem (itemClick)="reconfigure(integration)"
+          >Reconfigure</mlv-list-item
+        >
+        <mlv-list-item mlvMenuItem (itemClick)="viewLogs(integration)"
+          >View sync logs</mlv-list-item
+        >
+        <mlv-list-item mlvMenuItem (itemClick)="disconnect(integration)"
+          >Disconnect</mlv-list-item
+        >
+      </mlv-menu>
+    } @else {
+      <mlv-list-item>
+        @switch (integration.icon) {
+          @case ('git') {
+            <svg mlvListItemMedia lucideGitBranch [size]="20"></svg>
+          }
+          @case ('calendar') {
+            <svg mlvListItemMedia lucideCalendarDays [size]="20"></svg>
+          }
+          @case ('backup') {
+            <svg mlvListItemMedia lucideHardDrive [size]="20"></svg>
+          }
+          @case ('billing') {
+            <svg mlvListItemMedia lucideCreditCard [size]="20"></svg>
+          }
+          @case ('warehouse') {
+            <svg mlvListItemMedia lucideDatabase [size]="20"></svg>
+          }
+        }
+        <span mlvListItemTitle>{{ integration.title }}</span>
+        <span mlvListItemByline>{{ integration.byline }}</span>
+        <div mlvListItemActions>
+          <button
+            mlvButton
+            type="button"
+            variant="secondary"
+            size="s"
+            (click)="disconnect(integration)"
+          >
+            Disconnect
+          </button>
+        </div>
+      </mlv-list-item>
+    }
+  }
 </mlv-list>
 
 @if (lastAction()) {
-<p class="docs-integrations-feedback">{{ lastAction() }}</p>
+  <p class="docs-integrations-feedback">{{ lastAction() }}</p>
 }

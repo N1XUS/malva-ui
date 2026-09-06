@@ -17,9 +17,9 @@
     (click)="togglePasswordVisibility()"
   >
     @if (passwordVisible()) {
-    <svg mlvButtonIcon lucideEyeOff [size]="16" />
+      <svg mlvButtonIcon lucideEyeOff [size]="16" />
     } @else {
-    <svg mlvButtonIcon lucideEye [size]="16" />
+      <svg mlvButtonIcon lucideEye [size]="16" />
     }
   </button>
 
@@ -34,16 +34,16 @@
     [attr.aria-valuetext]="strengthLabel(strength.score())"
   >
     @for (level of levels; track level) {
-    <span
-      class="docs-password-strength__segment"
-      [class]="
-        'docs-password-strength__segment docs-password-strength__segment--level-' +
-        level
-      "
-      [class.docs-password-strength__segment--active]="
-        strength.score() >= level
-      "
-    ></span>
+      <span
+        class="docs-password-strength__segment"
+        [class]="
+          'docs-password-strength__segment docs-password-strength__segment--level-' +
+          level
+        "
+        [class.docs-password-strength__segment--active]="
+          strength.score() >= level
+        "
+      ></span>
     }
   </div>
 </mlv-input>

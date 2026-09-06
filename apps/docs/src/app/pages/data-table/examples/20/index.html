@@ -19,26 +19,26 @@
 </div>
 
 @if (customTemplate()) {
-<mlv-data-table
-  [data]="rows()"
-  [columns]="columns"
-  [error]="error()"
-  [loading]="isLoading()"
-  (retry)="reload()"
->
-  <ng-template mlvDataTableError let-message let-retry="retry">
-    <p style="margin: 0 0 0.75rem">{{ message }}</p>
-    <button mlvButton variant="primary" type="button" (click)="retry()">
-      Reload invoices
-    </button>
-  </ng-template>
-</mlv-data-table>
+  <mlv-data-table
+    [data]="rows()"
+    [columns]="columns"
+    [error]="error()"
+    [loading]="isLoading()"
+    (retry)="reload()"
+  >
+    <ng-template mlvDataTableError let-message let-retry="retry">
+      <p style="margin: 0 0 0.75rem">{{ message }}</p>
+      <button mlvButton variant="primary" type="button" (click)="retry()">
+        Reload invoices
+      </button>
+    </ng-template>
+  </mlv-data-table>
 } @else {
-<mlv-data-table
-  [data]="rows()"
-  [columns]="columns"
-  [error]="error()"
-  [loading]="isLoading()"
-  (retry)="reload()"
-/>
+  <mlv-data-table
+    [data]="rows()"
+    [columns]="columns"
+    [error]="error()"
+    [loading]="isLoading()"
+    (retry)="reload()"
+  />
 }

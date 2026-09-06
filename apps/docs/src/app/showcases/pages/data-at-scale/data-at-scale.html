@@ -46,15 +46,15 @@
 
     <mlv-page-content>
       @if (onMainThread) {
-      <mlv-alert tone="warning">
-        <ng-template mlvAlertTitle
-          >These are not off-thread numbers</ng-template
-        >
-        This browser exposes no <code>Worker</code>, so the dataset and every
-        query are running on the main thread instead. The page still works, but
-        the frame rate below no longer demonstrates anything about moving work
-        off the main thread.
-      </mlv-alert>
+        <mlv-alert tone="warning">
+          <ng-template mlvAlertTitle
+            >These are not off-thread numbers</ng-template
+          >
+          This browser exposes no <code>Worker</code>, so the dataset and every
+          query are running on the main thread instead. The page still works,
+          but the frame rate below no longer demonstrates anything about moving
+          work off the main thread.
+        </mlv-alert>
       }
 
       <section
@@ -114,30 +114,34 @@
         </div>
 
         @if (!virtualScrollFits()) {
-        <mlv-alert tone="info">
-          <ng-template mlvAlertTitle>
-            Too many rows for one scroller
-          </ng-template>
-          A virtual viewport still reserves
-          <code>rowHeight × rowCount</code> pixels of scrollable height, and a
-          browser will not scroll past about {{ maxScrollablePx | number }} CSS
-          pixels. At {{ rowHeight }} px a row that ceiling arrives at roughly {{
-          maxVirtualRows | number }} rows — beyond it the spacer is silently
-          clamped and the table renders nothing. This is a limit of the DOM, not
-          of <code>mlv-data-table</code>, and it is the point where server-side
-          paging stops being a preference.
-        </mlv-alert>
+          <mlv-alert tone="info">
+            <ng-template mlvAlertTitle>
+              Too many rows for one scroller
+            </ng-template>
+            A virtual viewport still reserves
+            <code>rowHeight × rowCount</code> pixels of scrollable height, and a
+            browser will not scroll past about
+            {{ maxScrollablePx | number }} CSS pixels. At {{ rowHeight }} px a
+            row that ceiling arrives at roughly
+            {{ maxVirtualRows | number }} rows — beyond it the spacer is
+            silently clamped and the table renders nothing. This is a limit of
+            the DOM, not of <code>mlv-data-table</code>, and it is the point
+            where server-side paging stops being a preference.
+          </mlv-alert>
         }
 
         <p class="data-at-scale-showcase__note">
-          @if (effectiveMode() === 'virtual') { Virtual scroll and server-side
-          paging are mutually exclusive in <code>mlv-data-table</code>: with
-          <code>virtualScroll</code> on, the table asks its source for
-          <em>every</em> matching row and renders only the slice that fits the
-          viewport. The transfer cost of that answer is measured below rather
-          than hidden. } @else { The backend returns exactly one page. Sorting,
-          filtering, searching and paging all happen there; the main thread
-          never holds more than the rows you can see. }
+          @if (effectiveMode() === 'virtual') {
+            Virtual scroll and server-side paging are mutually exclusive in
+            <code>mlv-data-table</code>: with <code>virtualScroll</code> on, the
+            table asks its source for <em>every</em> matching row and renders
+            only the slice that fits the viewport. The transfer cost of that
+            answer is measured below rather than hidden.
+          } @else {
+            The backend returns exactly one page. Sorting, filtering, searching
+            and paging all happen there; the main thread never holds more than
+            the rows you can see.
+          }
         </p>
 
         <p class="data-at-scale-showcase__note">
@@ -153,7 +157,7 @@
         <dl class="data-at-scale-showcase__facts">
           <div>
             <dt>Generated rows</dt>
-            <dd>{{ (dataset()?.totalRows ?? 0) | number }}</dd>
+            <dd>{{ dataset()?.totalRows ?? 0 | number }}</dd>
           </div>
           <div>
             <dt>Matching rows</dt>
@@ -164,10 +168,10 @@
             <dd>{{ source.connect()().length | number }}</dd>
           </div>
           @if (effectiveMode() === 'paged') {
-          <div>
-            <dt>Selected rows</dt>
-            <dd>{{ selectedCount() | number }}</dd>
-          </div>
+            <div>
+              <dt>Selected rows</dt>
+              <dd>{{ selectedCount() | number }}</dd>
+            </div>
           }
         </dl>
       </section>
@@ -227,120 +231,125 @@
           <article class="data-at-scale-showcase__metric">
             <h3>Initial render</h3>
             @if (initialRender(); as sample) {
-            <p class="data-at-scale-showcase__metric-value">
-              {{ sample.renderMs | number: '1.0-1' }}<span>ms</span>
-            </p>
-            <p class="data-at-scale-showcase__metric-caption">
-              Rows reaching the main thread to the frame that shows them.
-            </p>
-            <dl class="data-at-scale-showcase__breakdown">
-              <div>
-                <dt>End to end</dt>
-                <dd>{{ sample.endToEndMs | number: '1.0-1' }} ms</dd>
-              </div>
-              <div>
-                <dt>Dataset generated</dt>
-                <dd>{{ sample.generateMs | number: '1.0-1' }} ms</dd>
-              </div>
-              <div>
-                <dt>Rows delivered</dt>
-                <dd>{{ sample.rowsReturned | number }}</dd>
-              </div>
-            </dl>
+              <p class="data-at-scale-showcase__metric-value">
+                {{ sample.renderMs | number: '1.0-1' }}<span>ms</span>
+              </p>
+              <p class="data-at-scale-showcase__metric-caption">
+                Rows reaching the main thread to the frame that shows them.
+              </p>
+              <dl class="data-at-scale-showcase__breakdown">
+                <div>
+                  <dt>End to end</dt>
+                  <dd>{{ sample.endToEndMs | number: '1.0-1' }} ms</dd>
+                </div>
+                <div>
+                  <dt>Dataset generated</dt>
+                  <dd>{{ sample.generateMs | number: '1.0-1' }} ms</dd>
+                </div>
+                <div>
+                  <dt>Rows delivered</dt>
+                  <dd>{{ sample.rowsReturned | number }}</dd>
+                </div>
+              </dl>
             } @else {
-            <p class="data-at-scale-showcase__metric-pending">
-              Waiting for the first painted frame…
-            </p>
+              <p class="data-at-scale-showcase__metric-pending">
+                Waiting for the first painted frame…
+              </p>
             }
           </article>
 
           <article class="data-at-scale-showcase__metric">
             <h3>Scroll frame rate</h3>
             @if (scrollSample(); as sample) {
-            <p class="data-at-scale-showcase__metric-value">
-              {{ sample.fps | number: '1.0-0' }}<span>fps</span>
-            </p>
-            <p class="data-at-scale-showcase__metric-caption">
-              Frames presented while the table was scrolled. Your display is the
-              ceiling: the quickest frame of this run arrived in {{
-              sample.fastestFrameMs | number: '1.0-1' }} ms, an observed bound
-              of about {{ sample.displayCapHz | number: '1.0-0' }} fps.
-            </p>
-            <dl class="data-at-scale-showcase__breakdown">
-              <div>
-                <dt>Mean frame</dt>
-                <dd>{{ sample.meanFrameMs | number: '1.0-1' }} ms</dd>
-              </div>
-              <div>
-                <dt>95th percentile</dt>
-                <dd>{{ sample.p95FrameMs | number: '1.0-1' }} ms</dd>
-              </div>
-              <div>
-                <dt>Frames over {{ longFrameMs }} ms</dt>
-                <dd>
-                  {{ sample.longFrames | number }} of {{ sample.frames | number
-                  }}
-                </dd>
-              </div>
-            </dl>
+              <p class="data-at-scale-showcase__metric-value">
+                {{ sample.fps | number: '1.0-0' }}<span>fps</span>
+              </p>
+              <p class="data-at-scale-showcase__metric-caption">
+                Frames presented while the table was scrolled. Your display is
+                the ceiling: the quickest frame of this run arrived in
+                {{ sample.fastestFrameMs | number: '1.0-1' }} ms, an observed
+                bound of about {{ sample.displayCapHz | number: '1.0-0' }} fps.
+              </p>
+              <dl class="data-at-scale-showcase__breakdown">
+                <div>
+                  <dt>Mean frame</dt>
+                  <dd>{{ sample.meanFrameMs | number: '1.0-1' }} ms</dd>
+                </div>
+                <div>
+                  <dt>95th percentile</dt>
+                  <dd>{{ sample.p95FrameMs | number: '1.0-1' }} ms</dd>
+                </div>
+                <div>
+                  <dt>Frames over {{ longFrameMs }} ms</dt>
+                  <dd>
+                    {{ sample.longFrames | number }} of
+                    {{ sample.frames | number }}
+                  </dd>
+                </div>
+              </dl>
             } @else {
-            <p class="data-at-scale-showcase__metric-pending">
-              Run the scroll benchmark to sample frames.
-            </p>
+              <p class="data-at-scale-showcase__metric-pending">
+                Run the scroll benchmark to sample frames.
+              </p>
             }
           </article>
 
           <article class="data-at-scale-showcase__metric">
             <h3>Filter latency</h3>
             @if (filterSample(); as sample) {
-            <p class="data-at-scale-showcase__metric-value">
-              {{ (sample.commitToPaintMs ?? sample.renderMs) | number: '1.0-1'
-              }}<span>ms</span>
-            </p>
-            <p class="data-at-scale-showcase__metric-caption">
-              Applying the {{ sample.interaction }} to the frame that shows the
-              result, over {{ sample.total | number }} matching rows.
-            </p>
-            <dl class="data-at-scale-showcase__breakdown">
-              <div>
-                <dt>Backend compute</dt>
-                <dd>{{ sample.computeMs | number: '1.0-1' }} ms</dd>
-              </div>
-              <div>
-                <dt>Artificial latency</dt>
-                <dd>{{ sample.latencyMs | number: '1.0-0' }} ms</dd>
-              </div>
-              <div>
-                <dt>Transfer</dt>
-                <dd>{{ sample.transferMs | number: '1.0-1' }} ms</dd>
-              </div>
-              <div>
-                <dt>Row identity</dt>
-                <dd>{{ sample.identifyMs | number: '1.0-1' }} ms</dd>
-              </div>
-              <div>
-                <dt>Main-thread render</dt>
-                <dd>{{ sample.renderMs | number: '1.0-1' }} ms</dd>
-              </div>
-            </dl>
+              <p class="data-at-scale-showcase__metric-value">
+                {{ sample.commitToPaintMs ?? sample.renderMs | number: '1.0-1'
+                }}<span>ms</span>
+              </p>
+              <p class="data-at-scale-showcase__metric-caption">
+                Applying the {{ sample.interaction }} to the frame that shows
+                the result, over {{ sample.total | number }} matching rows.
+              </p>
+              <dl class="data-at-scale-showcase__breakdown">
+                <div>
+                  <dt>Backend compute</dt>
+                  <dd>{{ sample.computeMs | number: '1.0-1' }} ms</dd>
+                </div>
+                <div>
+                  <dt>Artificial latency</dt>
+                  <dd>{{ sample.latencyMs | number: '1.0-0' }} ms</dd>
+                </div>
+                <div>
+                  <dt>Transfer</dt>
+                  <dd>{{ sample.transferMs | number: '1.0-1' }} ms</dd>
+                </div>
+                <div>
+                  <dt>Row identity</dt>
+                  <dd>{{ sample.identifyMs | number: '1.0-1' }} ms</dd>
+                </div>
+                <div>
+                  <dt>Main-thread render</dt>
+                  <dd>{{ sample.renderMs | number: '1.0-1' }} ms</dd>
+                </div>
+              </dl>
             } @else {
-            <p class="data-at-scale-showcase__metric-pending">
-              Filter, search, or press Measure filter latency.
-            </p>
+              <p class="data-at-scale-showcase__metric-pending">
+                Filter, search, or press Measure filter latency.
+              </p>
             }
           </article>
         </div>
 
         @if (lastQuery(); as sample) {
-        <p class="data-at-scale-showcase__note">
-          Last query ({{ lastQueryLabel() }}): {{ sample.computeMs | number:
-          '1.0-1' }} ms computing over {{ sample.total | number }} matching
-          rows, {{ sample.transferMs | number: '1.0-1' }} ms transferring {{
-          sample.rowsReturned | number }} {{ sample.unpaged ? 'rows (the whole
-          result set)' : 'rows (one page)' }}, {{ sample.identifyMs | number:
-          '1.0-1' }} ms restoring row identity, {{ sample.renderMs | number:
-          '1.0-1' }} ms rendering.
-        </p>
+          <p class="data-at-scale-showcase__note">
+            Last query ({{ lastQueryLabel() }}):
+            {{ sample.computeMs | number: '1.0-1' }} ms computing over
+            {{ sample.total | number }} matching rows,
+            {{ sample.transferMs | number: '1.0-1' }} ms transferring
+            {{ sample.rowsReturned | number }}
+            {{
+              sample.unpaged
+                ? 'rows (the whole
+          result set)'
+                : 'rows (one page)'
+            }}, {{ sample.identifyMs | number: '1.0-1' }} ms restoring row
+            identity, {{ sample.renderMs | number: '1.0-1' }} ms rendering.
+          </p>
         }
       </section>
 
@@ -497,11 +506,11 @@
           <li>
             Virtual scroll has a hard ceiling that has nothing to do with the
             table: a viewport reserves <code>rowHeight × rowCount</code> pixels
-            of scrollable height, and browsers stop scrolling at about {{
-            maxScrollablePx | number }} CSS pixels — roughly {{ maxVirtualRows |
-            number }} rows at {{ rowHeight }} px each. Above that this page
-            pages on the backend instead, and says so, because the alternative
-            is a silently clamped spacer and an empty table.
+            of scrollable height, and browsers stop scrolling at about
+            {{ maxScrollablePx | number }} CSS pixels — roughly
+            {{ maxVirtualRows | number }} rows at {{ rowHeight }} px each. Above
+            that this page pages on the backend instead, and says so, because
+            the alternative is a silently clamped spacer and an empty table.
           </li>
           <li>
             Transfer is a real, unavoidable main-thread cost: the structured

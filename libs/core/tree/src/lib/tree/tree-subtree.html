@@ -1,111 +1,114 @@
 @for (node of nodes(); track node.id) {
-<div
-  ngTreeItem
-  #item="ngTreeItem"
-  class="mlv-tree__item"
-  [parent]="parent()"
-  [value]="node.id"
-  [label]="node.label"
-  [disabled]="!!node.disabled"
-  [selectable]="tree.selectMode() !== 'none'"
-  [preserveContent]="true"
-  [expanded]="tree._isExpanded(node.id)"
-  (expandedChange)="tree._onExpandedChange(node, $event)"
-  [class.mlv-tree__item--expanded]="item.expanded()"
-  [class.mlv-tree__item--selected]="tree._isSelected(node.id)"
-  [class.mlv-tree__item--disabled]="node.disabled"
-  [class.mlv-tree__item--leaf]="!tree._hasChildren(node)"
-  [class.mlv-tree__item--loading]="tree._isLoading(node.id)"
-  [style.padding-inline-start]="depth() * tree.indentSize() + 'rem'"
-  (click)="tree._onRowClick(node, $event)"
-  (keydown.enter)="tree._onActivateKey(node)"
-  (keydown.space)="tree._onActivateKey(node)"
->
-  <div class="mlv-tree__item__content">
-    @if (tree._hasChildren(node); as hasChildren) {
-    <!-- Expand/collapse toggle — swap chevron icon based on state -->
-    <button
-      class="mlv-tree__toggle"
-      [class.mlv-tree__toggle--expanded]="item.expanded()"
-      type="button"
-      tabindex="-1"
-      [attr.aria-label]="
-          item.expanded() ? 'Collapse ' + node.label : 'Expand ' + node.label
-        "
-      (click)="tree._onToggle(node, item, $event)"
-    >
-      @if (!tree._isLoading(node.id)) { @if (item.expanded()) {
-      <svg lucideChevronDown [size]="16" />
-      } @else {
-      <svg lucideChevronRight [size]="16" />
-      } }
-    </button>
-    }
-
-    <!-- Loading spinner (lazy load in progress) -->
-    @if (tree._isLoading(node.id)) {
-    <span class="mlv-tree__spinner" aria-hidden="true">
-      <mlv-loader
-        variant="circle"
-        [size]="16"
-        [indeterminate]="true"
-        ariaLabel="Loading children"
-      />
-    </span>
-    }
-
-    <!-- Multi-select checkbox — presentational reflection of aria selection. -->
-    @if (tree.selectMode() === 'multi') {
-    <mlv-checkbox
-      class="mlv-tree__checkbox"
-      [checked]="tree._isSelected(node.id)"
-      [disabled]="!!node.disabled"
-      [tabbable]="false"
-      [ariaLabel]="'Select ' + node.label"
-    />
-    }
-
-    <!-- Node content: custom template or default label -->
-    <span class="mlv-tree__content">
-      @if (tree._nodeDefDirective(); as def) {
-      <ng-template
-        [ngTemplateOutlet]="def.templateRef"
-        [ngTemplateOutletContext]="_nodeContext(node)"
-      />
-      } @else { @if (node.icon) {
-      <svg
-        class="mlv-tree__icon"
-        [lucideIcon]="node.icon"
-        [size]="16"
-        aria-hidden="true"
-      ></svg>
-      }
-      <span class="mlv-tree__label">{{ node.label }}</span>
-      }
-    </span>
-  </div>
-
-  <!-- Children: aria group + mlv-expand animated height transition -->
-  @if (tree._hasChildren(node)) {
   <div
-    role="group"
-    class="mlv-tree__group"
-    [style.--mlv-tree-connector-offset]="
+    ngTreeItem
+    #item="ngTreeItem"
+    class="mlv-tree__item"
+    [parent]="parent()"
+    [value]="node.id"
+    [label]="node.label"
+    [disabled]="!!node.disabled"
+    [selectable]="tree.selectMode() !== 'none'"
+    [preserveContent]="true"
+    [expanded]="tree._isExpanded(node.id)"
+    (expandedChange)="tree._onExpandedChange(node, $event)"
+    [class.mlv-tree__item--expanded]="item.expanded()"
+    [class.mlv-tree__item--selected]="tree._isSelected(node.id)"
+    [class.mlv-tree__item--disabled]="node.disabled"
+    [class.mlv-tree__item--leaf]="!tree._hasChildren(node)"
+    [class.mlv-tree__item--loading]="tree._isLoading(node.id)"
+    [style.padding-inline-start]="depth() * tree.indentSize() + 'rem'"
+    (click)="tree._onRowClick(node, $event)"
+    (keydown.enter)="tree._onActivateKey(node)"
+    (keydown.space)="tree._onActivateKey(node)"
+  >
+    <div class="mlv-tree__item__content">
+      @if (tree._hasChildren(node); as hasChildren) {
+        <!-- Expand/collapse toggle — swap chevron icon based on state -->
+        <button
+          class="mlv-tree__toggle"
+          [class.mlv-tree__toggle--expanded]="item.expanded()"
+          type="button"
+          tabindex="-1"
+          [attr.aria-label]="
+            item.expanded() ? 'Collapse ' + node.label : 'Expand ' + node.label
+          "
+          (click)="tree._onToggle(node, item, $event)"
+        >
+          @if (!tree._isLoading(node.id)) {
+            @if (item.expanded()) {
+              <svg lucideChevronDown [size]="16" />
+            } @else {
+              <svg lucideChevronRight [size]="16" />
+            }
+          }
+        </button>
+      }
+
+      <!-- Loading spinner (lazy load in progress) -->
+      @if (tree._isLoading(node.id)) {
+        <span class="mlv-tree__spinner" aria-hidden="true">
+          <mlv-loader
+            variant="circle"
+            [size]="16"
+            [indeterminate]="true"
+            ariaLabel="Loading children"
+          />
+        </span>
+      }
+
+      <!-- Multi-select checkbox — presentational reflection of aria selection. -->
+      @if (tree.selectMode() === 'multi') {
+        <mlv-checkbox
+          class="mlv-tree__checkbox"
+          [checked]="tree._isSelected(node.id)"
+          [disabled]="!!node.disabled"
+          [tabbable]="false"
+          [ariaLabel]="'Select ' + node.label"
+        />
+      }
+
+      <!-- Node content: custom template or default label -->
+      <span class="mlv-tree__content">
+        @if (tree._nodeDefDirective(); as def) {
+          <ng-template
+            [ngTemplateOutlet]="def.templateRef"
+            [ngTemplateOutletContext]="_nodeContext(node)"
+          />
+        } @else {
+          @if (node.icon) {
+            <svg
+              class="mlv-tree__icon"
+              [lucideIcon]="node.icon"
+              [size]="16"
+              aria-hidden="true"
+            ></svg>
+          }
+          <span class="mlv-tree__label">{{ node.label }}</span>
+        }
+      </span>
+    </div>
+
+    <!-- Children: aria group + mlv-expand animated height transition -->
+    @if (tree._hasChildren(node)) {
+      <div
+        role="group"
+        class="mlv-tree__group"
+        [style.--mlv-tree-connector-offset]="
           (depth() + 1) * tree.indentSize() + 0.75 + 'rem'
         "
-  >
-    <ng-template ngTreeItemGroup [ownedBy]="item" #group="ngTreeItemGroup">
-      <mlv-expand [opened]="item.expanded()">
-        @if (!tree._isLoading(node.id)) {
-        <mlv-tree-subtree
-          [nodes]="tree._children(node)"
-          [parent]="group"
-          [depth]="depth() + 1"
-        />
-        }
-      </mlv-expand>
-    </ng-template>
+      >
+        <ng-template ngTreeItemGroup [ownedBy]="item" #group="ngTreeItemGroup">
+          <mlv-expand [opened]="item.expanded()">
+            @if (!tree._isLoading(node.id)) {
+              <mlv-tree-subtree
+                [nodes]="tree._children(node)"
+                [parent]="group"
+                [depth]="depth() + 1"
+              />
+            }
+          </mlv-expand>
+        </ng-template>
+      </div>
+    }
   </div>
-  }
-</div>
 }

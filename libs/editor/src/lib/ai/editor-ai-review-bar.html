@@ -1,105 +1,106 @@
 @if (_running()) {
-<button
-  mlvButton
-  type="button"
-  variant="secondary"
-  mlvDensity="tight"
-  class="mlv-editor-ai-review-bar__stop"
-  [disabled]="_disabled()"
-  [mlvTooltip]="_copy().aiStopGeneration"
-  (click)="_stop()"
->
-  <svg mlvButtonIcon lucideCircleStop aria-hidden="true" />
-  {{ _copy().aiStopGeneration }}
-</button>
-} @if (_reviewing()) {
-<span class="mlv-editor-ai-review-bar__count">{{ _countText() }}</span>
-<!-- Screen-reader-only description of the current suggestion: the removed
-     text exists only in the aria-hidden strikethrough widget, so the
-     accept/reject buttons point here via aria-describedby. -->
-<span
-  class="mlv-editor-ai-review-bar__current-description"
-  [id]="_descriptionId"
-  >{{ _currentDescription() }}</span
->
-<div class="mlv-editor-ai-review-bar__group">
-  <button
-    mlvButton
-    type="button"
-    shape="square"
-    variant="transparent"
-    mlvDensity="tight"
-    [disabled]="_disabled()"
-    [attr.aria-label]="_copy().aiPreviousSuggestion"
-    [mlvTooltip]="_copy().aiPreviousSuggestion"
-    (click)="_previous()"
-  >
-    <svg mlvButtonIcon lucideChevronLeft aria-hidden="true" />
-  </button>
-  <button
-    mlvButton
-    type="button"
-    shape="square"
-    variant="transparent"
-    mlvDensity="tight"
-    [disabled]="_disabled()"
-    [attr.aria-label]="_copy().aiNextSuggestion"
-    [mlvTooltip]="_copy().aiNextSuggestion"
-    (click)="_next()"
-  >
-    <svg mlvButtonIcon lucideChevronRight aria-hidden="true" />
-  </button>
-</div>
-<div class="mlv-editor-ai-review-bar__group">
-  <button
-    mlvButton
-    type="button"
-    shape="square"
-    variant="transparent"
-    mlvDensity="tight"
-    [disabled]="_disabled()"
-    [attr.aria-label]="_copy().aiAcceptSuggestion"
-    [attr.aria-describedby]="_descriptionId"
-    [mlvTooltip]="_copy().aiAcceptSuggestion"
-    (click)="_acceptCurrent()"
-  >
-    <svg mlvButtonIcon lucideCheck aria-hidden="true" />
-  </button>
-  <button
-    mlvButton
-    type="button"
-    shape="square"
-    variant="transparent"
-    mlvDensity="tight"
-    [disabled]="_disabled()"
-    [attr.aria-label]="_copy().aiRejectSuggestion"
-    [attr.aria-describedby]="_descriptionId"
-    [mlvTooltip]="_copy().aiRejectSuggestion"
-    (click)="_rejectCurrent()"
-  >
-    <svg mlvButtonIcon lucideX aria-hidden="true" />
-  </button>
-</div>
-<div class="mlv-editor-ai-review-bar__group">
-  <button
-    mlvButton
-    type="button"
-    variant="primary"
-    mlvDensity="tight"
-    [disabled]="_disabled()"
-    (click)="_acceptAll()"
-  >
-    {{ _copy().aiAcceptAll }}
-  </button>
   <button
     mlvButton
     type="button"
     variant="secondary"
     mlvDensity="tight"
+    class="mlv-editor-ai-review-bar__stop"
     [disabled]="_disabled()"
-    (click)="_rejectAll()"
+    [mlvTooltip]="_copy().aiStopGeneration"
+    (click)="_stop()"
   >
-    {{ _copy().aiRejectAll }}
+    <svg mlvButtonIcon lucideCircleStop aria-hidden="true" />
+    {{ _copy().aiStopGeneration }}
   </button>
-</div>
+}
+@if (_reviewing()) {
+  <span class="mlv-editor-ai-review-bar__count">{{ _countText() }}</span>
+  <!-- Screen-reader-only description of the current suggestion: the removed
+     text exists only in the aria-hidden strikethrough widget, so the
+     accept/reject buttons point here via aria-describedby. -->
+  <span
+    class="mlv-editor-ai-review-bar__current-description"
+    [id]="_descriptionId"
+    >{{ _currentDescription() }}</span
+  >
+  <div class="mlv-editor-ai-review-bar__group">
+    <button
+      mlvButton
+      type="button"
+      shape="square"
+      variant="transparent"
+      mlvDensity="tight"
+      [disabled]="_disabled()"
+      [attr.aria-label]="_copy().aiPreviousSuggestion"
+      [mlvTooltip]="_copy().aiPreviousSuggestion"
+      (click)="_previous()"
+    >
+      <svg mlvButtonIcon lucideChevronLeft aria-hidden="true" />
+    </button>
+    <button
+      mlvButton
+      type="button"
+      shape="square"
+      variant="transparent"
+      mlvDensity="tight"
+      [disabled]="_disabled()"
+      [attr.aria-label]="_copy().aiNextSuggestion"
+      [mlvTooltip]="_copy().aiNextSuggestion"
+      (click)="_next()"
+    >
+      <svg mlvButtonIcon lucideChevronRight aria-hidden="true" />
+    </button>
+  </div>
+  <div class="mlv-editor-ai-review-bar__group">
+    <button
+      mlvButton
+      type="button"
+      shape="square"
+      variant="transparent"
+      mlvDensity="tight"
+      [disabled]="_disabled()"
+      [attr.aria-label]="_copy().aiAcceptSuggestion"
+      [attr.aria-describedby]="_descriptionId"
+      [mlvTooltip]="_copy().aiAcceptSuggestion"
+      (click)="_acceptCurrent()"
+    >
+      <svg mlvButtonIcon lucideCheck aria-hidden="true" />
+    </button>
+    <button
+      mlvButton
+      type="button"
+      shape="square"
+      variant="transparent"
+      mlvDensity="tight"
+      [disabled]="_disabled()"
+      [attr.aria-label]="_copy().aiRejectSuggestion"
+      [attr.aria-describedby]="_descriptionId"
+      [mlvTooltip]="_copy().aiRejectSuggestion"
+      (click)="_rejectCurrent()"
+    >
+      <svg mlvButtonIcon lucideX aria-hidden="true" />
+    </button>
+  </div>
+  <div class="mlv-editor-ai-review-bar__group">
+    <button
+      mlvButton
+      type="button"
+      variant="primary"
+      mlvDensity="tight"
+      [disabled]="_disabled()"
+      (click)="_acceptAll()"
+    >
+      {{ _copy().aiAcceptAll }}
+    </button>
+    <button
+      mlvButton
+      type="button"
+      variant="secondary"
+      mlvDensity="tight"
+      [disabled]="_disabled()"
+      (click)="_rejectAll()"
+    >
+      {{ _copy().aiRejectAll }}
+    </button>
+  </div>
 }

@@ -24,19 +24,21 @@
       <div class="mlv-scheduler-time-grid__header" role="row">
         <div class="mlv-scheduler-time-grid__corner" role="presentation"></div>
         @for (column of _columns(); track column.dayIndex) {
-        <div
-          class="mlv-scheduler-time-grid__day-header"
-          role="columnheader"
-          [class.mlv-scheduler-time-grid__day-header--today]="column.today"
-          [attr.aria-label]="column.label"
-        >
-          <span class="mlv-scheduler-time-grid__weekday" aria-hidden="true"
-            >{{ column.weekday }}</span
+          <div
+            class="mlv-scheduler-time-grid__day-header"
+            role="columnheader"
+            [class.mlv-scheduler-time-grid__day-header--today]="column.today"
+            [attr.aria-label]="column.label"
           >
-          <span class="mlv-scheduler-time-grid__day-number" aria-hidden="true"
-            >{{ column.dayNumber }}</span
-          >
-        </div>
+            <span class="mlv-scheduler-time-grid__weekday" aria-hidden="true">{{
+              column.weekday
+            }}</span>
+            <span
+              class="mlv-scheduler-time-grid__day-number"
+              aria-hidden="true"
+              >{{ column.dayNumber }}</span
+            >
+          </div>
         }
       </div>
       <div class="mlv-scheduler-time-grid__all-day" role="row">
@@ -53,123 +55,160 @@
           {{ _ctx.i18n().allDay }}
         </div>
         @for (column of _columns(); track column.dayIndex) {
-        <div
-          class="mlv-scheduler-time-grid__all-day-cell"
-          role="gridcell"
-          mlvSchedulerDropList="all-day-cell"
-          [dayIndex]="column.dayIndex"
-          [items]="allDayLanesEl"
-          [class.mlv-scheduler-time-grid__all-day-cell--today]="column.today"
-          [class.mlv-scheduler-time-grid__all-day-cell--selected]="_isSelected(column.dayIndex, null)"
-          [attr.aria-label]="column.label"
-          [attr.aria-selected]="_isSelected(column.dayIndex, null) || null"
-          [attr.tabindex]="_focus().dayIndex === column.dayIndex && _focus().minutes === null ? 0 : -1"
-          [attr.data-day-index]="column.dayIndex"
-          data-minutes="all-day"
-          (focus)="_onCellFocus($event)"
-          (keydown)="_onKeydown($event)"
-          (click)="_onAllDayPointer('click', column, $event)"
-          (dblclick)="_onAllDayPointer('dblclick', column, $event)"
-          (contextmenu)="_onAllDayPointer('contextmenu', column, $event)"
-        >
-          <div class="mlv-scheduler-time-grid__all-day-lanes" #allDayLanesEl>
-            @for (segment of _lanesOf(column.dayIndex); track segment.key) {
-            <mlv-scheduler-event
-              class="mlv-scheduler-time-grid__lane-event"
-              [class.mlv-scheduler-time-grid__lane-event--spanning]="segment.endIndex > segment.startIndex"
-              [normalized]="segment.normalized"
-              [lane]="true"
-              [continuesBefore]="segment.continuesBefore"
-              [continuesAfter]="segment.continuesAfter"
-              [dayIndex]="segment.startIndex"
-              [style.--mlv-scheduler-lane]="segment.lane + 1"
-              [style.--mlv-scheduler-span]="segment.endIndex - segment.startIndex + 1"
-            />
-            }
+          <div
+            class="mlv-scheduler-time-grid__all-day-cell"
+            role="gridcell"
+            mlvSchedulerDropList="all-day-cell"
+            [dayIndex]="column.dayIndex"
+            [items]="allDayLanesEl"
+            [class.mlv-scheduler-time-grid__all-day-cell--today]="column.today"
+            [class.mlv-scheduler-time-grid__all-day-cell--selected]="
+              _isSelected(column.dayIndex, null)
+            "
+            [attr.aria-label]="column.label"
+            [attr.aria-selected]="_isSelected(column.dayIndex, null) || null"
+            [attr.tabindex]="
+              _focus().dayIndex === column.dayIndex && _focus().minutes === null
+                ? 0
+                : -1
+            "
+            [attr.data-day-index]="column.dayIndex"
+            data-minutes="all-day"
+            (focus)="_onCellFocus($event)"
+            (keydown)="_onKeydown($event)"
+            (click)="_onAllDayPointer('click', column, $event)"
+            (dblclick)="_onAllDayPointer('dblclick', column, $event)"
+            (contextmenu)="_onAllDayPointer('contextmenu', column, $event)"
+          >
+            <div class="mlv-scheduler-time-grid__all-day-lanes" #allDayLanesEl>
+              @for (segment of _lanesOf(column.dayIndex); track segment.key) {
+                <mlv-scheduler-event
+                  class="mlv-scheduler-time-grid__lane-event"
+                  [class.mlv-scheduler-time-grid__lane-event--spanning]="
+                    segment.endIndex > segment.startIndex
+                  "
+                  [normalized]="segment.normalized"
+                  [lane]="true"
+                  [continuesBefore]="segment.continuesBefore"
+                  [continuesAfter]="segment.continuesAfter"
+                  [dayIndex]="segment.startIndex"
+                  [style.--mlv-scheduler-lane]="segment.lane + 1"
+                  [style.--mlv-scheduler-span]="
+                    segment.endIndex - segment.startIndex + 1
+                  "
+                />
+              }
+            </div>
           </div>
-        </div>
         }
       </div>
     </div>
     <div class="mlv-scheduler-time-grid__body" role="presentation">
       <div class="mlv-scheduler-time-grid__gutter" aria-hidden="true">
         @for (hour of _hours(); track hour.minutes) {
-        <span
-          class="mlv-scheduler-time-grid__hour"
-          [style.--mlv-scheduler-offset]="hour.offset + '%'"
-          ><bdi>{{ hour.label }}</bdi></span
-        >
+          <span
+            class="mlv-scheduler-time-grid__hour"
+            [style.--mlv-scheduler-offset]="hour.offset + '%'"
+            ><bdi>{{ hour.label }}</bdi></span
+          >
         }
       </div>
       @for (column of _columns(); track column.dayIndex) {
-      <div
-        class="mlv-scheduler-time-grid__column"
-        role="presentation"
-        mlvSchedulerDropList="time-column"
-        [attr.data-day-index]="column.dayIndex"
-        [dayIndex]="column.dayIndex"
-        [items]="eventsEl"
-        [class.mlv-scheduler-time-grid__column--today]="column.today"
-      >
         <div
-          class="mlv-scheduler-time-grid__slots"
-          role="listbox"
-          [attr.aria-label]="column.label"
-          [attr.aria-multiselectable]="_ctx.selectable() ? 'true' : null"
+          class="mlv-scheduler-time-grid__column"
+          role="presentation"
+          mlvSchedulerDropList="time-column"
+          [attr.data-day-index]="column.dayIndex"
+          [dayIndex]="column.dayIndex"
+          [items]="eventsEl"
+          [class.mlv-scheduler-time-grid__column--today]="column.today"
         >
-          @for (slot of column.slots; track slot.minutes) {
           <div
-            class="mlv-scheduler-time-grid__slot"
-            role="option"
-            [class.mlv-scheduler-time-grid__slot--outside-business]="slot.outsideBusiness"
-            [class.mlv-scheduler-time-grid__slot--hour]="slot.hour"
-            [class.mlv-scheduler-time-grid__slot--selected]="_isSelected(column.dayIndex, slot.minutes)"
-            [attr.aria-label]="slot.label"
-            [attr.aria-selected]="_isSelected(column.dayIndex, slot.minutes) || null"
-            [attr.tabindex]="_focus().dayIndex === column.dayIndex && _focus().minutes === slot.minutes ? 0 : -1"
-            [attr.data-day-index]="column.dayIndex"
-            [attr.data-minutes]="slot.minutes"
-            (focus)="_onCellFocus($event)"
-            (keydown)="_onKeydown($event)"
-            (click)="_onSlotPointer('click', column, slot, $event)"
-            (dblclick)="_onSlotPointer('dblclick', column, slot, $event)"
-            (contextmenu)="_onSlotPointer('contextmenu', column, slot, $event)"
-          ></div>
-          }
-        </div>
-        <!--
+            class="mlv-scheduler-time-grid__slots"
+            role="listbox"
+            [attr.aria-label]="column.label"
+            [attr.aria-multiselectable]="_ctx.selectable() ? 'true' : null"
+          >
+            @for (slot of column.slots; track slot.minutes) {
+              <div
+                class="mlv-scheduler-time-grid__slot"
+                role="option"
+                [class.mlv-scheduler-time-grid__slot--outside-business]="
+                  slot.outsideBusiness
+                "
+                [class.mlv-scheduler-time-grid__slot--hour]="slot.hour"
+                [class.mlv-scheduler-time-grid__slot--selected]="
+                  _isSelected(column.dayIndex, slot.minutes)
+                "
+                [attr.aria-label]="slot.label"
+                [attr.aria-selected]="
+                  _isSelected(column.dayIndex, slot.minutes) || null
+                "
+                [attr.tabindex]="
+                  _focus().dayIndex === column.dayIndex &&
+                  _focus().minutes === slot.minutes
+                    ? 0
+                    : -1
+                "
+                [attr.data-day-index]="column.dayIndex"
+                [attr.data-minutes]="slot.minutes"
+                (focus)="_onCellFocus($event)"
+                (keydown)="_onKeydown($event)"
+                (click)="_onSlotPointer('click', column, slot, $event)"
+                (dblclick)="_onSlotPointer('dblclick', column, slot, $event)"
+                (contextmenu)="
+                  _onSlotPointer('contextmenu', column, slot, $event)
+                "
+              ></div>
+            }
+          </div>
+          <!--
           Presentational overlay, per the design spec: the chips are buttons,
           so they must not sit inside the listbox (an `option` may hold nothing
           focusable), and the layer itself is not a cell of anything.
         -->
-        <div
-          class="mlv-scheduler-time-grid__events"
-          role="presentation"
-          #eventsEl
-        >
-          @for (segment of _segmentsOf(column.dayIndex); track segment.key) {
-          <mlv-scheduler-event
-            class="mlv-scheduler-time-grid__event"
-            [normalized]="segment.normalized"
-            [lane]="false"
-            [continuesBefore]="segment.continuesBefore"
-            [continuesAfter]="segment.continuesAfter"
-            [dayIndex]="segment.dayIndex"
-            [style.--mlv-scheduler-event-top]="((segment.startMinutes - _ctx.minMinutes()) / _spanMinutes()) * 100 + '%'"
-            [style.--mlv-scheduler-event-height]="((segment.endMinutes - segment.startMinutes) / _spanMinutes()) * 100 + '%'"
-            [style.--mlv-scheduler-event-start]="(segment.column / segment.columns) * 100 + '%'"
-            [style.--mlv-scheduler-event-width]="100 / segment.columns + '%'"
-          />
+          <div
+            class="mlv-scheduler-time-grid__events"
+            role="presentation"
+            #eventsEl
+          >
+            @for (segment of _segmentsOf(column.dayIndex); track segment.key) {
+              <mlv-scheduler-event
+                class="mlv-scheduler-time-grid__event"
+                [normalized]="segment.normalized"
+                [lane]="false"
+                [continuesBefore]="segment.continuesBefore"
+                [continuesAfter]="segment.continuesAfter"
+                [dayIndex]="segment.dayIndex"
+                [style.--mlv-scheduler-event-top]="
+                  ((segment.startMinutes - _ctx.minMinutes()) /
+                    _spanMinutes()) *
+                    100 +
+                  '%'
+                "
+                [style.--mlv-scheduler-event-height]="
+                  ((segment.endMinutes - segment.startMinutes) /
+                    _spanMinutes()) *
+                    100 +
+                  '%'
+                "
+                [style.--mlv-scheduler-event-start]="
+                  (segment.column / segment.columns) * 100 + '%'
+                "
+                [style.--mlv-scheduler-event-width]="
+                  100 / segment.columns + '%'
+                "
+              />
+            }
+          </div>
+          @if (column.today && _nowOffset() !== null) {
+            <div
+              class="mlv-scheduler-time-grid__now"
+              aria-hidden="true"
+              [style.--mlv-scheduler-offset]="_nowOffset() + '%'"
+            ></div>
           }
         </div>
-        @if (column.today && _nowOffset() !== null) {
-        <div
-          class="mlv-scheduler-time-grid__now"
-          aria-hidden="true"
-          [style.--mlv-scheduler-offset]="_nowOffset() + '%'"
-        ></div>
-        }
-      </div>
       }
     </div>
   </div>

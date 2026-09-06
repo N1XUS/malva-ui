@@ -17,51 +17,52 @@
 </ng-template>
 
 <div class="mlv-list-item__surface">
-  @if (_hasRichLayout()) { @if (_hasLeadingSlot()) {
-  <span class="mlv-list-item__media">
-    <ng-container [ngTemplateOutlet]="leadingContent" />
-  </span>
-  }
+  @if (_hasRichLayout()) {
+    @if (_hasLeadingSlot()) {
+      <span class="mlv-list-item__media">
+        <ng-container [ngTemplateOutlet]="leadingContent" />
+      </span>
+    }
 
-  <div class="mlv-list-item__body">
-    <div class="mlv-list-item__copy">
-      <div class="mlv-list-item__headline">
-        <span class="mlv-list-item__title">
-          @if (_titleSlot()) {
-          <ng-content select="[mlvListItemTitle]" />
-          } @else {
-          <ng-container [ngTemplateOutlet]="defaultContent" />
+    <div class="mlv-list-item__body">
+      <div class="mlv-list-item__copy">
+        <div class="mlv-list-item__headline">
+          <span class="mlv-list-item__title">
+            @if (_titleSlot()) {
+              <ng-content select="[mlvListItemTitle]" />
+            } @else {
+              <ng-container [ngTemplateOutlet]="defaultContent" />
+            }
+          </span>
+
+          @if (_metaSlot()) {
+            <span class="mlv-list-item__meta">
+              <ng-content select="[mlvListItemMeta]" />
+            </span>
           }
-        </span>
+        </div>
 
-        @if (_metaSlot()) {
-        <span class="mlv-list-item__meta">
-          <ng-content select="[mlvListItemMeta]" />
-        </span>
+        @if (_bylineSlot()) {
+          <div class="mlv-list-item__byline">
+            <ng-content select="[mlvListItemByline]" />
+          </div>
         }
       </div>
 
-      @if (_bylineSlot()) {
-      <div class="mlv-list-item__byline">
-        <ng-content select="[mlvListItemByline]" />
-      </div>
+      @if (_hasTrailingSlot()) {
+        <div
+          class="mlv-list-item__actions"
+          [class.mlv-list-item__actions--reveal-on-hover]="_revealActions()"
+        >
+          <ng-container [ngTemplateOutlet]="trailingContent" />
+        </div>
       }
     </div>
-
-    @if (_hasTrailingSlot()) {
-    <div
-      class="mlv-list-item__actions"
-      [class.mlv-list-item__actions--reveal-on-hover]="_revealActions()"
-    >
-      <ng-container [ngTemplateOutlet]="trailingContent" />
-    </div>
-    }
-  </div>
   } @else {
-  <ng-container [ngTemplateOutlet]="leadingContent" />
-  <span class="mlv-list-item__content">
-    <ng-container [ngTemplateOutlet]="defaultContent" />
-  </span>
-  <ng-container [ngTemplateOutlet]="trailingContent" />
+    <ng-container [ngTemplateOutlet]="leadingContent" />
+    <span class="mlv-list-item__content">
+      <ng-container [ngTemplateOutlet]="defaultContent" />
+    </span>
+    <ng-container [ngTemplateOutlet]="trailingContent" />
   }
 </div>

@@ -1,21 +1,21 @@
 <mlv-list class="docs-conversations-list">
   @for (c of conversations; track c.id) {
-  <mlv-list-item>
-    <mlv-avatar
-      mlvListItemMedia
-      shape="circle"
-      size="l"
-      [src]="c.avatarUrl ?? null"
-      [name]="c.name"
-    ></mlv-avatar>
-    <span mlvListItemTitle>{{ c.name }}</span>
-    <span mlvListItemByline>{{ c.preview }}</span>
-    <div mlvListItemActions class="docs-conversations-list__trailing">
-      <span class="docs-conversations-list__time">{{ c.time }}</span>
-      @if (c.unreadCount > 0) {
-      <mlv-badge tone="primary">{{ c.unreadCount }}</mlv-badge>
-      }
-    </div>
-  </mlv-list-item>
+    <mlv-list-item>
+      <mlv-avatar
+        mlvListItemMedia
+        shape="circle"
+        size="l"
+        [src]="c.avatarUrl ?? null"
+        [name]="c.name"
+      ></mlv-avatar>
+      <span mlvListItemTitle>{{ c.name }}</span>
+      <span mlvListItemByline>{{ c.preview }}</span>
+      <div mlvListItemActions class="docs-conversations-list__trailing">
+        <span class="docs-conversations-list__time">{{ c.time }}</span>
+        @if (c.unreadCount > 0) {
+          <mlv-badge tone="primary">{{ c.unreadCount }}</mlv-badge>
+        }
+      </div>
+    </mlv-list-item>
   }
 </mlv-list>

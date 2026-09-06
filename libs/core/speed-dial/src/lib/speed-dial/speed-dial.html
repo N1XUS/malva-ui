@@ -53,39 +53,42 @@
       (keydown)="_onMenuKeydown($event)"
     >
       @for (entry of _entries(); track entry.key) {
-      <li
-        role="none"
-        class="mlv-speed-dial__item"
-        [style.--mlv-speed-dial-item-x]="entry.x"
-        [style.--mlv-speed-dial-item-y]="entry.y"
-        [style.--mlv-stagger-index]="entry.delayIndex"
-      >
-        <button
-          mlvButton
-          type="button"
-          shape="circle"
-          role="menuitem"
-          tabindex="-1"
-          class="mlv-speed-dial__action"
-          [variant]="itemVariant()"
-          [mlvDensity]="_density()"
-          [disabled]="entry.disabled"
-          [attr.aria-label]="entry.item.label"
-          [mlvTooltip]="entry.item.label"
-          [tooltipDisabled]="!showTooltips()"
-          [tooltipPlacement]="_tooltipPlacement()"
-          (click)="_onItemClick(entry, $event)"
+        <li
+          role="none"
+          class="mlv-speed-dial__item"
+          [style.--mlv-speed-dial-item-x]="entry.x"
+          [style.--mlv-speed-dial-item-y]="entry.y"
+          [style.--mlv-stagger-index]="entry.delayIndex"
         >
-          @if (_itemDef(); as def) {
-          <ng-template
-            [ngTemplateOutlet]="def.templateRef"
-            [ngTemplateOutletContext]="{ $implicit: entry.item, index: entry.index }"
-          />
-          } @else if (entry.item.icon; as icon) {
-          <svg [lucideIcon]="icon" [size]="18" aria-hidden="true" />
-          }
-        </button>
-      </li>
+          <button
+            mlvButton
+            type="button"
+            shape="circle"
+            role="menuitem"
+            tabindex="-1"
+            class="mlv-speed-dial__action"
+            [variant]="itemVariant()"
+            [mlvDensity]="_density()"
+            [disabled]="entry.disabled"
+            [attr.aria-label]="entry.item.label"
+            [mlvTooltip]="entry.item.label"
+            [tooltipDisabled]="!showTooltips()"
+            [tooltipPlacement]="_tooltipPlacement()"
+            (click)="_onItemClick(entry, $event)"
+          >
+            @if (_itemDef(); as def) {
+              <ng-template
+                [ngTemplateOutlet]="def.templateRef"
+                [ngTemplateOutletContext]="{
+                  $implicit: entry.item,
+                  index: entry.index,
+                }"
+              />
+            } @else if (entry.item.icon; as icon) {
+              <svg [lucideIcon]="icon" [size]="18" aria-hidden="true" />
+            }
+          </button>
+        </li>
       }
     </ul>
   </div>

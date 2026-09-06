@@ -1,87 +1,111 @@
 @if (_typeTemplate(); as tpl) {
-<ng-container
-  [ngTemplateOutlet]="tpl"
-  [ngTemplateOutletContext]="{
+  <ng-container
+    [ngTemplateOutlet]="tpl"
+    [ngTemplateOutletContext]="{
       $implicit: message(),
       isOwn: own(),
       groupPosition: groupPosition(),
       quote: quote(),
     }"
-/>
-} @else { @if (quote()) {
-<span class="mlv-chat-message__quote-author"
-  >{{ _userName(message().authorId) }}</span
->
-@if (message().replyTo) {
-<svg
-  class="mlv-chat-message__reply-marker"
-  lucideCornerUpLeft
-  [size]="12"
-  aria-hidden="true"
-/>
-} } @else if (message().replyTo; as reply) {
-<button
-  type="button"
-  class="mlv-chat-message__reply"
-  (click)="replyClick.emit(reply)"
->
-  <mlv-chat-message [message]="reply" quote />
-</button>
-} @if (_mediaAttachments().length) {
-<mlv-chat-media-grid
-  [attachments]="_mediaAttachments()"
-  [quote]="quote()"
-  (mediaClick)="mediaClick.emit($event)"
-/>
-} @if (quote()) { @if (_audioAttachments()[0]; as audio) {
-<span class="mlv-chat-message__quote-audio">
-  <svg lucideMusic [size]="12" aria-hidden="true" />
-  {{ _formatDuration(audio.duration ?? 0) }}
-</span>
-} } @else { @for (audio of _audioAttachments(); track audio.id) {
-<mlv-chat-audio [attachment]="audio" />
-} } @if (message().text; as text) {
-<span class="mlv-chat-message__text">{{ text }}</span>
-} } @if (!quote()) {
-<span class="mlv-chat-message__meta">
-  @if (own() && message().status === 'failed') {
-  <button type="button" class="mlv-chat-message__retry" (click)="retry.emit()">
-    <svg lucideCircleAlert [size]="14" aria-hidden="true" />
-    {{ _i18n().retry }}
-  </button>
+  />
+} @else {
+  @if (quote()) {
+    <span class="mlv-chat-message__quote-author">{{
+      _userName(message().authorId)
+    }}</span>
+    @if (message().replyTo) {
+      <svg
+        class="mlv-chat-message__reply-marker"
+        lucideCornerUpLeft
+        [size]="12"
+        aria-hidden="true"
+      />
+    }
+  } @else if (message().replyTo; as reply) {
+    <button
+      type="button"
+      class="mlv-chat-message__reply"
+      (click)="replyClick.emit(reply)"
+    >
+      <mlv-chat-message [message]="reply" quote />
+    </button>
   }
-  <time class="mlv-chat-message__time" [attr.datetime]="_date().toISOString()">
-    {{ _date() | date: 'shortTime' }}
-  </time>
-  @if (own() && message().status; as status) { @switch (status) { @case
-  ('sending') {
-  <svg
-    class="mlv-chat-message__status mlv-chat-message__status--sending"
-    lucideClock
-    [size]="14"
-    aria-hidden="true"
-  />
-  } @case ('sent') {
-  <svg
-    class="mlv-chat-message__status mlv-chat-message__status--sent"
-    lucideCheck
-    [size]="14"
-    aria-hidden="true"
-  />
-  } @case ('delivered') {
-  <svg
-    class="mlv-chat-message__status mlv-chat-message__status--delivered"
-    lucideCheckCheck
-    [size]="14"
-    aria-hidden="true"
-  />
-  } @case ('read') {
-  <svg
-    class="mlv-chat-message__status mlv-chat-message__status--read"
-    lucideCheckCheck
-    [size]="14"
-    aria-hidden="true"
-  />
-  } } }
-</span>
+  @if (_mediaAttachments().length) {
+    <mlv-chat-media-grid
+      [attachments]="_mediaAttachments()"
+      [quote]="quote()"
+      (mediaClick)="mediaClick.emit($event)"
+    />
+  }
+  @if (quote()) {
+    @if (_audioAttachments()[0]; as audio) {
+      <span class="mlv-chat-message__quote-audio">
+        <svg lucideMusic [size]="12" aria-hidden="true" />
+        {{ _formatDuration(audio.duration ?? 0) }}
+      </span>
+    }
+  } @else {
+    @for (audio of _audioAttachments(); track audio.id) {
+      <mlv-chat-audio [attachment]="audio" />
+    }
+  }
+  @if (message().text; as text) {
+    <span class="mlv-chat-message__text">{{ text }}</span>
+  }
+}
+@if (!quote()) {
+  <span class="mlv-chat-message__meta">
+    @if (own() && message().status === 'failed') {
+      <button
+        type="button"
+        class="mlv-chat-message__retry"
+        (click)="retry.emit()"
+      >
+        <svg lucideCircleAlert [size]="14" aria-hidden="true" />
+        {{ _i18n().retry }}
+      </button>
+    }
+    <time
+      class="mlv-chat-message__time"
+      [attr.datetime]="_date().toISOString()"
+    >
+      {{ _date() | date: 'shortTime' }}
+    </time>
+    @if (own() && message().status; as status) {
+      @switch (status) {
+        @case ('sending') {
+          <svg
+            class="mlv-chat-message__status mlv-chat-message__status--sending"
+            lucideClock
+            [size]="14"
+            aria-hidden="true"
+          />
+        }
+        @case ('sent') {
+          <svg
+            class="mlv-chat-message__status mlv-chat-message__status--sent"
+            lucideCheck
+            [size]="14"
+            aria-hidden="true"
+          />
+        }
+        @case ('delivered') {
+          <svg
+            class="mlv-chat-message__status mlv-chat-message__status--delivered"
+            lucideCheckCheck
+            [size]="14"
+            aria-hidden="true"
+          />
+        }
+        @case ('read') {
+          <svg
+            class="mlv-chat-message__status mlv-chat-message__status--read"
+            lucideCheckCheck
+            [size]="14"
+            aria-hidden="true"
+          />
+        }
+      }
+    }
+  </span>
 }
