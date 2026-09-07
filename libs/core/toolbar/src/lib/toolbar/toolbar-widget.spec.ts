@@ -1,6 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, ErrorHandler, signal } from '@angular/core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvToolbar } from './toolbar';
 import { MlvToolbarRoving, MlvToolbarWidget } from './toolbar-widget';
 
@@ -162,5 +163,59 @@ describe('Toolbar roving directives', () => {
 
       expect(host.selected()).toContain('center');
     });
+  });
+});
+
+/**
+ * Accessibility sweep — the opt-in WAI-ARIA toolbar pattern.
+ *
+ * `mlvToolbarRoving` is the only configuration in which `mlv-toolbar` claims
+ * `role="toolbar"`, and `@angular/aria`'s pattern then writes the roving
+ * tabindex, `aria-disabled` and — for the selection form — `aria-pressed` /
+ * `aria-checked` onto the widgets. That is an ARIA surface no other toolbar
+ * render has, so both shapes the directive's own docs promote are swept: the
+ * action toolbar (with one disabled, soft-disabled widget still in the focus
+ * order) and the `[(value)]` selection toolbar.
+ */
+describe('MlvToolbar roving accessibility', () => {
+  it('has no axe violations for an action toolbar with a disabled widget', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ActionToolbarHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ActionToolbarHost);
+    fixture.componentInstance.secondDisabled.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: the pattern has taken over — the container is a `toolbar` and
+    // exactly one widget is the tab stop, the rest being reachable by arrow.
+    const toolbar = host.querySelector('mlv-toolbar') as HTMLElement;
+    expect(toolbar.getAttribute('role')).toBe('toolbar');
+    const widgets = [...host.querySelectorAll('button')];
+    expect(widgets).toHaveLength(3);
+    expect(
+      widgets.filter((b) => b.getAttribute('tabindex') === '0'),
+    ).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations for a selection toolbar', async () => {
+    await TestBed.configureTestingModule({
+      imports: [SelectionToolbarHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(SelectionToolbarHost);
+    fixture.componentInstance.selected.set(['center']);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: a value is selected, so the pattern's selection ARIA is present
+    // rather than the sweep judging an all-unselected group.
+    expect(fixture.componentInstance.selected()).toEqual(['center']);
+    expect(host.querySelectorAll('button')).toHaveLength(3);
+
+    await expectNoAxeViolations(host);
   });
 });

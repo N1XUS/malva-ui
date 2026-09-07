@@ -72,6 +72,13 @@ import { coerceBooleanProperty } from '@angular/cdk/coercion';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-breadcrumb__item',
+    // `<mlv-breadcrumb-item>` is projected straight into the breadcrumb's own
+    // `<ol>`, so without this the list has non-`<li>` children and the whole
+    // trail stops being exposed as a list (axe `list`, WCAG 1.3.1). The
+    // data-driven branch stamps real `<li>`s and needs nothing; this is the
+    // projected branch's equivalent. `[mlvBreadcrumbItem]` deliberately does
+    // NOT set it — that directive also goes on the `<a>` inside an `<li>`.
+    role: 'listitem',
   },
 })
 export class MlvBreadcrumbItem {

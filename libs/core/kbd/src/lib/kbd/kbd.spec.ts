@@ -1,5 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+import { Component } from '@angular/core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvKbd } from './kbd';
 
 describe('MlvKbd', () => {
@@ -58,5 +60,51 @@ describe('MlvKbd', () => {
     create(['escape']);
     const seps = fixture.nativeElement.querySelectorAll('.mlv-kbd__separator');
     expect(seps.length).toBe(0);
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * `mlv-kbd` renders one `<kbd>` per key with `aria-hidden` separators between
+ * them, and puts the whole shortcut on the host as an `aria-label` so it is
+ * announced as one phrase rather than glyph by glyph. Both the single-key and
+ * the multi-key renders are swept, because the separator element only exists
+ * from the second key on.
+ */
+describe('MlvKbd accessibility', () => {
+  @Component({
+    imports: [MlvKbd],
+    template: `
+      <mlv-kbd [keys]="['cmd', 'k']" />
+      <mlv-kbd [keys]="['ctrl', 'shift', 'z']" separator="–" />
+      <mlv-kbd [keys]="['enter']" />
+    `,
+  })
+  class KbdA11yHost {}
+
+  it('has no axe violations for single- and multi-key shortcuts', async () => {
+    await TestBed.configureTestingModule({
+      imports: [KbdA11yHost],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(KbdA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: six `<kbd>` elements across three shortcuts, three separators
+    // hidden from assistive tech, and a non-empty label on every host.
+    expect(host.querySelectorAll('kbd.mlv-kbd__key')).toHaveLength(6);
+    expect(
+      host.querySelectorAll('.mlv-kbd__separator[aria-hidden="true"]'),
+    ).toHaveLength(3);
+    expect(
+      [...host.querySelectorAll('mlv-kbd')].every(
+        (el) => (el.getAttribute('aria-label') ?? '').length > 0,
+      ),
+    ).toBe(true);
+
+    await expectNoAxeViolations(host);
   });
 });
