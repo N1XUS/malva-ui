@@ -33,6 +33,10 @@ Exported from `libs/forms/form-utils/src/index.ts`:
 | `MlvFocusableGroupBase<T>` | Abstract Directive | Roving-tabindex focus scaffold for composite groups; extended by `mlv-checkbox-group` / `mlv-switch-group` |
 | `MlvClearMlvButton` | Component | Shared clear-X button (`mlv-clear-button`) used by the wrapper and inlined by select/combobox |
 | `MlvFocusableGroupItem` | Interface | Per-item contract for the base: `FocusableOption` + `tabIndex: WritableSignal<number>` |
+| `MLV_FORM_FIELD` | Token | `InjectionToken<MlvFormFieldAccessor>` — `mlv-form-field` provides itself; `mlv-label` and every control pull the label↔control association from it |
+| `MlvFormFieldAccessor` | Interface | `labelId: Signal<string \| null>` + `labelableControlId: Signal<string \| null>` |
+| `MlvFormControlLabelStrategy` | Type | `'native' \| 'aria' \| 'none'` — how a label rendered outside a control may name it |
+| `MlvFormControlLabelTarget` | Interface | `{ id: string; labelable: boolean }` — what a control publishes as `labelTarget` |
 
 ---
 
@@ -96,25 +100,138 @@ Round-trips: `fromAriaValues(toAriaValues(v, multi), multi)` yields the canonica
 
 When the selected strategy makes an error visible, `resolvedState()` becomes `error` and the field applies the error border token to the projected control wrapper as well as rendering the error message. The direct-child CSS scope prevents an outer field from recoloring controls owned by a nested field.
 
-#### Accessible name — the field does NOT provide one
+#### Accessible name — the field associates label and control (2026-09, #197)
 
-`mlv-form-field` lays a projected `<mlv-label>` out above the control and does
-nothing else with it: the template is `<ng-content select="mlv-label" />` plus
-`<ng-content />`, with no `labelId`, no `aria-labelledby` and no `for` plumbing
-between the two. **The projected control must carry its own accessible name.**
-Either give `<mlv-label>` a `for` and the control a matching `id`, or give the
-control an `aria-label`.
+`mlv-form-field` is the only component that sees both an `<mlv-label>` and a
+control, so it is where the association is made. Until #197 it made none: the
+template was two bare `<ng-content>`s, `<mlv-label>` emitted `for=""` and the
+control kept its auto-generated `mlv-control-NN` — so the documented
+compose-a-field pattern shipped inputs with no accessible name and labels that
+focused nothing.
 
-Omitting both is a real WCAG 4.1.2 defect, not a cosmetic one: an unnamed
-`mlv-select` inside a field renders a `role="combobox"` with no name at all. It
-is the shape axe's `label` / `aria-input-field-name` rules report, and it ships
-today in `apps/docs` (`pages/form-field/examples/1`, `…/3`,
-`pages/action-bar/examples/2`), so a spec that hits it in a harness should name
-the harness _and_ check whether real consumers hit it too — see
-`.claude/rules/accessibility.md` § _Asserting It_.
+**The rule, and why it is two rules.** `<label for>` only names an HTML
+_labelable_ element (`button`, `input`, `meter`, `output`, `progress`,
+`select`, `textarea`). It cannot name `mlv-select`'s `div[role="combobox"]`, a
+`role="radiogroup"` host, or any custom-element host — pointing it there is
+_worse_ than omitting it, because the label reads as associated in review while
+focusing nothing. `aria-labelledby` names both, but is ARIA layered over native
+semantics. So:
 
-The same holds for `MlvFormControlWrapper`, which is a visual shell and
-likewise names nothing.
+| Control's focus target                                              | Association                              | Emitted by                           |
+| ------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------ |
+| labelable (`<input>`, `<textarea>`, `<select>`, `<button>`)         | native `<label for>`                     | `MlvLabel`, resolved from the field  |
+| non-labelable (`div[role="combobox"]`, `role="radiogroup"` host, …) | `aria-labelledby`                        | the control, resolved from the field |
+| neither (composite / self-naming)                                   | nothing at all — plus a dev-mode warning | —                                    |
+
+**Mechanism — both children pull, the field never pushes.** Content projection
+means the field cannot bind inputs on either child, and only the control knows
+which element inside its own view carries the name. So `MlvFormField` provides
+itself under `MLV_FORM_FIELD` and both sides inject it optionally, following
+`.claude/rules/angular-directive.md` § _Injection Tokens for Parent–Child
+Communication_ (a node injector follows the _declaration_ tree, so a projected
+child resolves the field it is written inside). The field reads back through
+two content queries — `contentChild(MlvLabel)` and
+`contentChild(MLV_FORM_CONTROL)`; the latter matches by provider token, the
+same mechanism as the existing `contentChild(NgControl)`, so a raw `<input>` or
+a third-party control resolves `null` instead of erroring. A control that
+renders its _own_ `<mlv-label>` from its `label` input does so in its **view**,
+which no content query of the field reaches, so the two never collide.
+
+| Member                     | On                           | Meaning                                                                          |
+| -------------------------- | ---------------------------- | -------------------------------------------------------------------------------- |
+| `labelId`                  | `MlvFormField`               | id of the projected `<mlv-label>`'s `<label>`, or `null`                         |
+| `labelableControlId`       | `MlvFormField`               | id for the label's `for`, or `null` when the control is not labelable            |
+| `labelId`                  | `MlvLabel`                   | generated id, always emitted on the inner `<label>`                              |
+| `labelTarget`              | `MlvSignalFormUiControlBase` | `{ id, labelable }` or `null` — what the field reads                             |
+| `label`                    | `MlvFormControl`             | the control's own label text; read **only** by the double-label warning below    |
+| `_externalLabelStrategy()` | `MlvSignalFormUiControlBase` | `'none'` by default; each control overrides                                      |
+| `_labelTargetId()`         | `MlvSignalFormUiControlBase` | which id `labelTarget` publishes; `id()` unless the focus target cannot carry it |
+| `_fieldLabelId()`          | `MlvSignalFormUiControlBase` | the field's `labelId` — only for `'aria'` controls                               |
+| `_externallyLabelled()`    | `MlvSignalFormUiControlBase` | whether the field's label names this control, under **either** strategy          |
+
+An explicit `[for]` on the `<mlv-label>` always wins, and the field never
+rewrites the control's `id`.
+
+**`_labelTargetId()` is not always `id()`.** A control normally puts `id()` on
+its own focus target, so the default is right. `[mlvTitle]` is the exception:
+its host is the consumer's own heading and a **static** `id="…"` attribute is
+both bound to the inherited `id` input and left on that heading by the
+compiler, so pointing the `for` at `id()` would mean one id on two elements.
+Its `<textarea>` takes `` `${id()}-input` `` and reports that instead.
+
+**A non-nullable `aria-label` fallback must consult `_externallyLabelled()`.**
+`aria-label` **outranks** `<label for>` in the accessible-name computation, so
+a `'native'` control that always emits one keeps its own name and reduces the
+field's label to click-to-focus. `_fieldLabelId()` cannot be the test — it is
+populated only on the `'aria'` path — hence the separate signal. Two controls
+need it (`mlv-tokenizer`'s `_i18n().addToken`, `mlv-color-picker-popup`'s
+`_i18n().colorPicker`); every other control's fallback is a bare `ariaLabel()`,
+which is `null` unless the consumer asked for it and therefore needs nothing.
+
+**The control's own `label` beats the field's**, everywhere. `'aria'` controls
+bind `[attr.aria-labelledby]="label() ? labelId() : _fieldLabelId()"` — never
+`_fieldLabelId()` alone, which silently made the field's label win — and
+suppress `aria-label` when either resolves. All five now carry a public
+`labelId` (`` `${id()}-label` ``) on their own `<mlv-label>` for the first
+branch.
+
+**A control's own inner label never borrows the field's target.**
+`mlv-radio-group`, `mlv-segmented` and `mlv-checkbox-group` render an
+`<mlv-label>` with no `for` inside their own view. `MlvLabel` injects
+`MLV_FORM_CONTROL` optionally: a label in a control's view is that control's
+descendant and resolves it, and skips field resolution; a label projected into
+`mlv-form-field` beside a control is its sibling and resolves `null`, so it
+does resolve. Without that guard a field holding more than one control would
+point an inner label at the first one — a wrong association rather than the old
+inert `for=""`.
+
+**Per-control strategy.** `'native'`: `mlv-input` (unless `projectControl`),
+`mlv-textarea`, `mlv-number-input`, `mlv-combobox`, `mlv-tokenizer` (while
+enabled), `mlv-color-picker-popup` (field presentation), `mlv-title` (while
+`editable`), `mlv-select` while its native `<select>` is live. `'aria'`:
+`mlv-select`'s custom trigger, `mlv-day-picker`, `mlv-time-picker`,
+`mlv-date-range-picker`, `mlv-radio-group`. `'none'` (the base default — these
+name themselves through `label` / `ariaLabel` / projected text, and several
+already warn when unnamed): `mlv-checkbox`, `mlv-switch`, `mlv-slider`,
+`mlv-pin-input`, `mlv-file-upload`, `mlv-color-picker`, `mlv-segmented`,
+`mlv-rating`, `mlv-editor`.
+
+Three of those reach `'none'` by a different route: `mlv-file-upload`,
+`mlv-checkbox-group` and `mlv-switch-group` extend the base but never
+**provide** `MLV_FORM_CONTROL`, so `contentChild(MLV_FORM_CONTROL)` does not
+resolve them at all. The outcome for a consumer is the same — no association,
+and the warning fires — except that the group cases resolve the field's query
+to the first nested `<mlv-checkbox>` / `<mlv-switch>` instead (`contentChild`
+defaults to `descendants: true`), so the warning names the child. Latent while
+no field holds a group beside a second control; tracked separately.
+
+**Two dev-mode warnings**, each de-duplicated per control class through its own
+module-scoped set (same shape as `WARNED_UNMAPPED_KEYS`; separate sets, so
+whichever fires first cannot silence the other). Both name the control by
+`constructor.name` rather than by its host tag — the field registers no content
+query just to feed a message `isDevMode()` gates off in production, and neither
+a consumer's dev build nor ng-packagr's output is minified.
+
+| Shape                                                                          | Warning                                                                                               |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| projected `<mlv-label>` with no `for`, and neither association resolves        | "names nothing" — reach for the control's own `label` / `ariaLabel`, or wire `[for]` + `[id]` by hand |
+| projected `<mlv-label>` **and** the control's own `label` input both non-empty | "two labels" — keep one                                                                               |
+
+**The double-label hazard.** Nothing stops a consumer writing
+`<mlv-form-field><mlv-label>Start</mlv-label><mlv-time-picker label="Meeting time" /></mlv-form-field>`.
+Both labels render, and on a `'native'` control both `<label>` elements carry
+the same `for`, so the accessible name is their **concatenation** ("Start
+Meeting time") rather than either one; on an `'aria'` control the projected
+label names nothing at all while staying visible, which is a WCAG 2.5.3 hazard
+of its own. The field cannot pick for the author — either label may be the
+intended one — so it warns and renders both. The two warnings are mutually
+exclusive by construction: the "names nothing" effect bails on this shape,
+because telling an author to reach for `[label]` when they already have one is
+worse than silence.
+
+`MlvFormControlWrapper` is unchanged and still contributes no name: it is a
+visual shell inside a control, not a composition point, and the control it
+lives in already publishes `labelTarget` on its behalf.
 
 ---
 
@@ -130,14 +247,21 @@ likewise names nothing.
 | `for`      | `string`             | `''`    |
 | `required` | `boolean` (`coerce`) | `false` |
 
-Renders `<label [attr.for]="for">`. Supports nested `<mlv-hint>`, projected into
-`.mlv-label__hint` — which renders as an icon + tooltip, not inline text (see `MlvHint`).
+Renders `<label [attr.id]="labelId" [attr.for]="_resolvedFor()">`. Supports nested
+`<mlv-hint>`, projected into `.mlv-label__hint` — which renders as an icon + tooltip,
+not inline text (see `MlvHint`).
 
-`for` defaults to `''`, which associates the label with nothing. Nothing derives
-it: inside `mlv-form-field` the label and the control are two independent
-projections, so the consumer supplies both the `for` and a matching `id` on the
-control (or an `aria-label` on the control instead). See _`MlvFormField` →
-Accessible name_ above.
+`for` still defaults to `''` and an explicit value still wins, but `''` no longer
+_renders_ `for=""`. It means "resolve from the enclosing `mlv-form-field`", and when
+nothing resolves **no `for` attribute is emitted at all** — a dangling `for` reads as
+associated in review while focusing nothing. See _`MlvFormField` → Accessible name_
+above.
+
+`labelId` (public, non-input) is a generated `mlv-label-NN` always rendered on the
+inner `<label>`, so a control whose focus target `<label for>` cannot name can point
+`aria-labelledby` at it. It is on the inner `<label>` and not the `mlv-label` host
+because consumers — and `mlv-select` / `mlv-day-picker` themselves — bind `[id]` on
+the host.
 
 `required` renders `<span class="mlv-label__required" aria-hidden="true">*</span>` plus a
 `.cdk-visually-hidden` node carrying the translated `formUtils.required` word (falls back to

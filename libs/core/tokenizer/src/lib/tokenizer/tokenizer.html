@@ -56,7 +56,9 @@
           [placeholder]="tokens().length === 0 ? placeholder() : ''"
           [disabled]="computedDisabled()"
           [state]="resolvedState()"
-          [ariaLabel]="ariaLabel() ?? _i18n().addToken"
+          [ariaLabel]="
+            _externallyLabelled() ? null : (ariaLabel() ?? _i18n().addToken)
+          "
           [required]="required()"
           [ariaDescribedBy]="_describedBy()"
           (keydown.enter)="onInputEnter($event)"

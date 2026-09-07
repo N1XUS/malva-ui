@@ -1,6 +1,6 @@
 <mlv-form-control-wrapper>
   @if (label() || hint()) {
-    <mlv-label [for]="id()" [required]="required()">
+    <mlv-label [id]="labelId()" [for]="id()" [required]="required()">
       {{ label() }}
       @if (hint()) {
         <mlv-hint>{{ hint() }}</mlv-hint>
@@ -17,7 +17,10 @@
         role="combobox"
         [attr.aria-expanded]="isOpen()"
         [attr.aria-haspopup]="'dialog'"
-        [attr.aria-label]="_resolvedAriaLabel()"
+        [attr.aria-labelledby]="label() ? labelId() : _fieldLabelId()"
+        [attr.aria-label]="
+          label() || _fieldLabelId() ? null : _resolvedAriaLabel()
+        "
         [attr.aria-disabled]="computedDisabled()"
         [attr.aria-controls]="isOpen() ? panelId() : null"
         [attr.aria-required]="required() || null"

@@ -303,3 +303,24 @@ Border, background, and focus styling are handled by `mlv-form-control-wrapper` 
 - Inherited `required` renders the `mlv-label` marker and sets `aria-required` on the `role="combobox"` trigger.
 - Inherited `description` renders `<mlv-description>` below the control; `aria-describedby` is the base's `_describedBy()`.
 - The public `messageId` computed is gone — `<mlv-message>` carries the base's `_messageId()`.
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvTimePicker` reports `_externalLabelStrategy()` **`'aria'`**: `id()` sits on
+the trigger `div[role="combobox"]`, which `<label for>` cannot name, so an
+`<mlv-label>` projected beside it into `mlv-form-field` reaches it through
+`aria-labelledby`. Only the **trigger** is affected — the popup panel keeps its
+own `role="group"` + `_resolvedAriaLabel()`.
+
+The control's **own** `label` wins over the field's: the trigger binds
+`[attr.aria-labelledby]="label() ? labelId() : _fieldLabelId()"` (the idiom
+`MlvSignalFormUiControlBase._fieldLabelId` prescribes) and suppresses
+`aria-label` whenever either resolves. `labelId` is a new public computed,
+`` `${id()}-label` ``, rendered on the control's own `<mlv-label>` — the same
+shape `mlv-select` and `mlv-day-picker` already had. It also gives a standalone
+control the name its visible label shows: before it announced the generic
+`_resolvedAriaLabel()` / `ariaLabel()` while displaying `label`, a WCAG 2.5.3
+mismatch.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

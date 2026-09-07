@@ -75,11 +75,11 @@ export class MlvBadge {
   readonly tone = input<MlvBadgeTone>('default');
 
   /**
-   * @deprecated No-op. Badges always render with fully rounded (pill)
-   * corners via `--mlv-radius-full`; this input has never affected the
-   * rendered radius and is kept only so existing `[rounded]` bindings keep
-   * compiling. Override `border-radius` on `.mlv-badge` if you need a
-   * different shape.
+   * @deprecated since 0.1.10 — removed in 1.0. No-op, and there is no
+   * replacement input: badges always render with fully rounded (pill) corners
+   * via `--mlv-radius-full`, so this input has never affected the rendered
+   * radius and is kept only so existing `[rounded]` bindings keep compiling.
+   * Override `border-radius` on `.mlv-badge` if you need a different shape.
    */
   readonly rounded = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,

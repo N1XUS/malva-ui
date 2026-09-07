@@ -213,3 +213,16 @@ no inset of its own — one padded box per control, owned by whichever
 element (the wrapper, or the composite's own trigger row) actually draws
 the field's boundary. Font-size is unaffected by `bare` — it still reads
 `var(--form-ctrl-font-size, var(--mlv-font-size-m))` regardless.
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvInput` reports `_externalLabelStrategy()` **`'native'`**: `id()` lands on its
+own native `<input>`, so an `<mlv-label>` projected beside it into
+`mlv-form-field` names it with a plain `for` and clicking the label focuses the
+field — no `for`/`id` pair to hand-write. The exception is `projectControl`,
+where the native input is the consumer's own and carries whatever `id` they
+gave it; the strategy is `'none'` then, so the field points at nothing rather
+than at the wrong element.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

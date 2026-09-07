@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { compile } from 'sass';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvButtonClose } from './button-close';
 
 @Component({
@@ -146,5 +147,37 @@ describe('MlvButtonClose focus ring', () => {
     const button = document.createElement('button');
     button.className = 'mlv-button mlv-button--close mlv-button--icon-only';
     expect(button.matches(sizeRule?.selectorText ?? '')).toBe(true);
+  });
+});
+
+/**
+ * Accessibility sweep — `mlv-button-close`.
+ *
+ * The component's whole a11y surface is one required input: `ariaLabel` is the
+ * only source of the inner button's accessible name, because the button
+ * projects nothing but an `aria-hidden` glyph. Density changes geometry only,
+ * so the six densities in the host are one state for axe rather than six — but
+ * they are swept together, since each renders its own button and a name that
+ * failed to reach one of them would show up as a node here.
+ */
+describe('MlvButtonClose accessibility', () => {
+  it('has no axe violations across every density', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ButtonCloseTestHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ButtonCloseTestHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    const buttons = [
+      ...host.querySelectorAll('button.mlv-button'),
+    ] as HTMLButtonElement[];
+    expect(buttons).toHaveLength(6);
+    // Every close button is named, and nothing inside it contributes text.
+    expect(buttons.every((b) => !!b.getAttribute('aria-label'))).toBe(true);
+    expect(buttons.every((b) => b.textContent?.trim() === '')).toBe(true);
+
+    await expectNoAxeViolations(host);
   });
 });

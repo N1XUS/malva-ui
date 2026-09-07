@@ -385,3 +385,13 @@ reflects `bare()` as a host class and zeroes its own native padding
 whenever it is set (`mlv-input.scss`'s `&--bare &__native` rule) — the
 trigger is the sole padded box. See `.claude/projects/libs-input.md` →
 _Padding ownership in `bare` mode_.
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvCombobox` reports `_externalLabelStrategy()` **`'native'`**: `id()` is
+forwarded to the inner `mlv-input`, which puts it on a native `<input>` — a
+labelable element even while it carries `role="combobox"` — so an `<mlv-label>`
+projected beside it into `mlv-form-field` names it with a plain `for`.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

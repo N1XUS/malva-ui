@@ -4,6 +4,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { compile } from 'sass';
 import { MlvButtonGroup } from '../button-group/button-group';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvButtonToggle } from './button-toggle';
 
 @Component({
@@ -106,5 +107,57 @@ describe('MlvButtonToggle disabled+pressed styling', () => {
     ).toBe('var(--mlv-text-disabled)');
 
     style.remove();
+  });
+});
+
+/**
+ * Accessibility sweep — `mlv-button-toggle`.
+ *
+ * A toggle is a `<button>` whose state lives entirely in `aria-pressed`, so
+ * both values of it are swept: `aria-pressed` is what a screen reader reads out
+ * and what `aria-allowed-attr` judges against the element's role. The disabled
+ * sibling is in the same host, and the sweep is rooted above both so the
+ * enclosing `role="group"` — which owns them — is in scope too.
+ */
+describe('MlvButtonToggle accessibility', () => {
+  let a11yFixture: ComponentFixture<ButtonToggleTestHost>;
+
+  beforeEach(async () => {
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [ButtonToggleTestHost],
+    }).compileComponents();
+
+    a11yFixture = TestBed.createComponent(ButtonToggleTestHost);
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+  });
+
+  it('has no axe violations unpressed, and with a disabled sibling', async () => {
+    const host = a11yFixture.nativeElement as HTMLElement;
+
+    const buttons = [
+      ...host.querySelectorAll('mlv-button-toggle button'),
+    ] as HTMLButtonElement[];
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0].getAttribute('aria-pressed')).toBe('false');
+    expect(buttons[1].disabled).toBe(true);
+    expect(host.querySelector('[role="group"]')).not.toBeNull();
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations pressed', async () => {
+    a11yFixture.componentInstance.pressed.set(true);
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+    const host = a11yFixture.nativeElement as HTMLElement;
+
+    const first = host.querySelector(
+      'mlv-button-toggle button',
+    ) as HTMLButtonElement;
+    expect(first.getAttribute('aria-pressed')).toBe('true');
+
+    await expectNoAxeViolations(host);
   });
 });

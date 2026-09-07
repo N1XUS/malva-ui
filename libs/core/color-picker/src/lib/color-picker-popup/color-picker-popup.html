@@ -29,7 +29,9 @@
             [attr.aria-required]="required() || null"
             [attr.aria-describedby]="_describedBy()"
             [attr.aria-label]="
-              label() ? null : (ariaLabel() ?? _i18n().colorPicker)
+              label() || _externallyLabelled()
+                ? null
+                : (ariaLabel() ?? _i18n().colorPicker)
             "
             (input)="_onInput($event)"
             (focus)="_onInputFocus()"

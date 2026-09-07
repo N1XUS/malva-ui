@@ -27,7 +27,11 @@ import {
   MlvPopupPinnedContent,
 } from '@malva-ui/core/popup';
 import type { MlvPopupMobileMode } from '@malva-ui/core/popup';
-import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormState,
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvDescription,
   MlvFormControlWrapper,
@@ -157,6 +161,18 @@ export class MlvSelect<T>
   extends MlvSignalFormControlBase<T | T[] | null>
   implements MlvFormControl
 {
+  /**
+   * @protected The select has two interaction surfaces and they take a name
+   * differently. While the native `<select>` is live it carries {@link id} and
+   * is labelable, so a plain `for` works. Behind the custom trigger the id sits
+   * on a `div[role="combobox"]`, which `<label for>` cannot name at all — the
+   * `aria-input-field-name` violation this defect produced (#197) — so the
+   * trigger references the label through `aria-labelledby` instead.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return this._nativeActive() ? 'native' : 'aria';
+  }
+
   /** The scalar, array, or null selection used by all Angular forms APIs. */
   readonly value = model<T | T[] | null>(null);
   /**
