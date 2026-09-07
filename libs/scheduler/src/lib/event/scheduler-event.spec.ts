@@ -1074,8 +1074,8 @@ describe('MlvSchedulerEventChip styles', () => {
 
 // jsdom substitutes no custom property, so `background: var(…)` computes to
 // `rgba(0, 0, 0, 0)` whatever the variable holds — the ghost's surface has to
-// be read off the compiled text. The real-browser proof is in
-// `.superpowers/sdd/2026-09-02-scheduler/real-browser-dnd.mjs` (`ghostKeepsTone`).
+// be read off the compiled text. It was additionally proved in a real browser,
+// where the ghost keeps its tone; that check cannot run under jsdom.
 describe('MlvSchedulerEventChip ghost styles', () => {
   let css: string;
 

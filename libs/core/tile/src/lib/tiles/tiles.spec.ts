@@ -13,6 +13,7 @@ import { TestBed } from '@angular/core/testing';
 import { parse } from 'postcss';
 import { compile } from 'sass';
 import Sortable from 'sortablejs';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 import {
@@ -1331,5 +1332,89 @@ describe('MlvTiles item-root and drag feedback styling', () => {
     expect(fallback.get('transition')).toContain('box-shadow');
     expect(css).not.toContain('cdk-drop-list');
     expect(css).not.toContain('logical-ghost');
+  });
+});
+
+/**
+ * Accessibility sweep — compound tree.
+ *
+ * Registering a tile with `[tile]` is what turns its decorative grip into an
+ * operable `<button>`, and that button's contract spans two components: its
+ * `aria-describedby` points at a `cdk-visually-hidden` instructions span that
+ * only the ROOT `mlv-tiles` renders, and its `aria-keyshortcuts` advertises the
+ * keyboard move. A dangling `aria-describedby` is invisible in a per-component
+ * sweep and is exactly what `aria-valid-attr-value` catches, so the sweep runs
+ * over the whole tree rather than one tile. The empty-target render is swept
+ * separately because its `mlv-tiles__empty` prompt (default and projected)
+ * exists only while a container has no children.
+ */
+describe('MlvTiles accessibility', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
+
+  it('has no axe violations for a nested compound tree', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CompoundTileTreeTestHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(CompoundTileTreeTestHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: four registered tiles, so four operable handles, each named and
+    // each pointing at the one instructions span the root actually rendered.
+    const handles = [
+      ...host.querySelectorAll('button.mlv-tile__drag-handle'),
+    ] as HTMLButtonElement[];
+    expect(handles).toHaveLength(4);
+    const describedBy = handles[0].getAttribute('aria-describedby') as string;
+    expect(handles[0].getAttribute('aria-label')).toBeTruthy();
+    expect(host.querySelectorAll(`#${describedBy}`)).toHaveLength(1);
+    expect(
+      handles.every((h) => h.getAttribute('aria-describedby') === describedBy),
+    ).toBe(true);
+    // The polite status region the keyboard move announces through.
+    expect(host.querySelectorAll('[role="status"]')).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations for a grid layout with an empty container', async () => {
+    await TestBed.configureTestingModule({
+      imports: [NestedTreeTestHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(NestedTreeTestHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: `empty-row` has no children, so the default drop prompt rendered
+    // inside a grid-layout container.
+    expect(
+      host.querySelectorAll('.mlv-tiles__empty').length,
+    ).toBeGreaterThanOrEqual(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations with a projected empty-target prompt', async () => {
+    await TestBed.configureTestingModule({
+      imports: [EmptyTilesTestHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(EmptyTilesTestHost);
+    fixture.componentInstance.projectEmpty.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: the consumer's own control is projected into the empty target, so
+    // the prompt is interactive rather than a caption.
+    expect(host.querySelector('button.test-add')).toBeTruthy();
+    expect(host.querySelectorAll('.mlv-tiles__empty--projected')).toHaveLength(
+      1,
+    );
+
+    await expectNoAxeViolations(host);
   });
 });

@@ -6,13 +6,12 @@ Malva UI mirrors **at runtime** and **scoped**: a `dir="rtl"` attribute on any a
 
 Source of truth — codify, never reinvent:
 
-| Piece                                                                                              | Where                                                                                                               |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `MlvRtlService`, `MlvDirection`, `MlvArrowKey`                                                     | `@malva-ui/cdk/utils` (`libs/cdk/utils/src/lib/rtl/rtl.service.ts`)                                                 |
-| `--mlv-inline-direction` token                                                                     | `libs/styles/src/lib/theme.scss` § Direction                                                                        |
-| `rtl()`, `ltr()`, `margin-inline()`, `padding-inline()`, `inline-distance()`, `translate-inline()` | `libs/styles/src/lib/mixins.scss` (tested by `mixins.spec.mjs`)                                                     |
-| Overlay `direction` plumbing                                                                       | `@malva-ui/cdk/overlay`, `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete`, `MlvDialogService`                     |
-| Design + audit                                                                                     | `docs/superpowers/specs/2026-08-30-rtl-support-design.md`, `…/2026-07-27-expanded-locale-packs-rtl-audit-design.md` |
+| Piece                                                                                              | Where                                                                                           |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `MlvRtlService`, `MlvDirection`, `MlvArrowKey`                                                     | `@malva-ui/cdk/utils` (`libs/cdk/utils/src/lib/rtl/rtl.service.ts`)                             |
+| `--mlv-inline-direction` token                                                                     | `libs/styles/src/lib/theme.scss` § Direction                                                    |
+| `rtl()`, `ltr()`, `margin-inline()`, `padding-inline()`, `inline-distance()`, `translate-inline()` | `libs/styles/src/lib/mixins.scss` (tested by `mixins.spec.mjs`)                                 |
+| Overlay `direction` plumbing                                                                       | `@malva-ui/cdk/overlay`, `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete`, `MlvDialogService` |
 
 Inject `MlvRtlService`. **Never inject CDK `Directionality` directly** — the service owns the document `dir`, the CDK `Directionality` sync and the scoped `[dir]` observer. There is exactly one sanctioned exception, for _providing_ the token to a third-party pattern: see _The one sanctioned `Directionality` provider_ below.
 

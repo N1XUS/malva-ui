@@ -1,5 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+import { Component } from '@angular/core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvLoader } from './loader';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
@@ -291,5 +293,72 @@ describe('Loader', () => {
       const sw = hostEl.style.getPropertyValue('--mlv-l-stroke-width');
       expect(sw).toBe('6px');
     });
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * `mlv-loader` is a `role="progressbar"` whose required ARIA is conditional:
+ * `aria-valuenow` / `-valuemin` / `-valuemax` are emitted only while
+ * determinate, and dropped entirely when `indeterminate` — the two shapes
+ * `aria-valid-attr-value` and `aria-allowed-attr` judge differently. Both
+ * variants are swept in both modes, plus `showHint`, which is the only render
+ * that puts visible text inside the progressbar (and hides it, since the value
+ * is already announced through the ARIA).
+ */
+describe('MlvLoader accessibility', () => {
+  @Component({
+    imports: [MlvLoader],
+    template: `
+      <mlv-loader [value]="40" />
+      <mlv-loader variant="circle" [value]="70" tone="success" />
+      <mlv-loader indeterminate id="bar-indeterminate" />
+      <mlv-loader variant="circle" indeterminate />
+      <mlv-loader [value]="55" showHint id="bar-hint" />
+      <mlv-loader variant="circle" [value]="55" showHint />
+      <mlv-loader [value]="10" ariaLabel="Uploading attachment" id="named" />
+    `,
+  })
+  class LoaderA11yHost {}
+
+  it('has no axe violations in determinate, indeterminate and hint modes', async () => {
+    await TestBed.configureTestingModule({
+      imports: [LoaderA11yHost],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(LoaderA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: seven progressbars, all named. The determinate ones carry the
+    // full value triple; the indeterminate ones carry none of it, which is
+    // what tells assistive tech the progress is unknown rather than zero.
+    const bars = [...host.querySelectorAll('[role="progressbar"]')];
+    expect(bars).toHaveLength(7);
+    expect(
+      bars.every((el) => (el.getAttribute('aria-label') ?? '').length > 0),
+    ).toBe(true);
+    expect(
+      host.querySelector('#bar-indeterminate')?.getAttribute('aria-valuenow'),
+    ).toBeNull();
+    expect(host.querySelector('#named')?.getAttribute('aria-label')).toBe(
+      'Uploading attachment',
+    );
+    expect(host.querySelector('#named')?.getAttribute('aria-valuemax')).toBe(
+      '100',
+    );
+
+    // The hint is visible text inside a progressbar, and is hidden so it is
+    // not announced twice.
+    const hints = [...host.querySelectorAll('.mlv-loader__hint')];
+    expect(hints).toHaveLength(2);
+    expect(hints.every((el) => el.getAttribute('aria-hidden') === 'true')).toBe(
+      true,
+    );
+
+    await expectNoAxeViolations(host);
   });
 });
