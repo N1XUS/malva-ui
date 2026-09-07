@@ -297,13 +297,27 @@ import {
   template: `
     <form mlvForm>
       <fieldset mlvFieldset legend="Contact">
+        <!-- The label-to-control association (#197) resolves through
+             MLV_FORM_FIELD + contentChild(MLV_FORM_CONTROL) and lands on the
+             *server* payload, so it needs a server case: no for attribute and
+             no control-side label input here, or the field resolves nothing
+             and the whole path stays untested. This one is the native half -
+             the id lands on mlv-input's own input element, so the projected
+             label names it with a plain for. (No backticks in a host template,
+             as elsewhere in this file.) -->
         <mlv-form-field>
-          <mlv-label for="ssr-name"
-            >Name <mlv-hint>required</mlv-hint></mlv-label
-          >
-          <mlv-input label="Name" [(value)]="text" />
+          <mlv-label>Name <mlv-hint>required</mlv-hint></mlv-label>
+          <mlv-input [(value)]="text" />
           <mlv-description>Shown on your public profile.</mlv-description>
           <mlv-message state="error">This field is required.</mlv-message>
+        </mlv-form-field>
+
+        <!-- The aria half: mlv-select's custom trigger is a
+             div[role=combobox], which a label for attribute cannot name, so
+             the trigger points aria-labelledby at the projected label's id. -->
+        <mlv-form-field>
+          <mlv-label>Region</mlv-label>
+          <mlv-select [options]="options" [(value)]="option" />
         </mlv-form-field>
 
         <mlv-textarea
@@ -1521,6 +1535,50 @@ describe('@malva-ui/core SSR safety', () => {
         nativeSelect ?? '',
       ),
       `the committed option is not marked selected in the server markup: ${nativeSelect}`,
+    ).toBe(true);
+  });
+
+  it('server-renders the form-field label association into the markup', async () => {
+    const { html } = await renderAllHosts();
+
+    // #197 resolves the association through an injection token and two content
+    // queries, and neither is a browser-only mechanism — so it must land in
+    // the pre-hydration payload, not only after hydration. This repo has two
+    // recorded SSR regressions of exactly that shape (a domino `instanceof`
+    // case and an `effect()` → `afterRenderEffect` one), which is why the
+    // assertion is on the rendered attributes rather than on a component
+    // fixture. `mlv-form-field` does not nest, so a non-greedy match per
+    // field is exact.
+    const fields =
+      html.match(/<mlv-form-field[\s\S]*?<\/mlv-form-field>/g) ?? [];
+    const ids = new Set(
+      Array.from(html.matchAll(/\sid="([^"]+)"/g), (match) => match[1]),
+    );
+
+    const nativeField = fields.find((field) => field.includes('<input'));
+    const resolvedFor = /<label[^>]*\sfor="([^"]+)"/.exec(
+      nativeField ?? '',
+    )?.[1];
+    expect(
+      resolvedFor,
+      `no resolved <label for> in the native form field: ${nativeField}`,
+    ).toBeTruthy();
+    expect(
+      ids.has(resolvedFor as string),
+      `the server payload's <label for="${resolvedFor}"> names no element`,
+    ).toBe(true);
+
+    const ariaField = fields.find((field) =>
+      field.includes('mlv-select__trigger'),
+    );
+    const labelledBy = /\saria-labelledby="([^"]+)"/.exec(ariaField ?? '')?.[1];
+    expect(
+      labelledBy,
+      `the select trigger carries no aria-labelledby on the server: ${ariaField}`,
+    ).toBeTruthy();
+    expect(
+      new RegExp(`<label[^>]*\\sid="${labelledBy}"`).test(ariaField ?? ''),
+      `aria-labelledby="${labelledBy}" names no <label> in the same field`,
     ).toBe(true);
   });
 

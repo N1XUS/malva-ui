@@ -21,7 +21,11 @@ import {
   MlvDensityDirective,
   MLV_DENSITY_ELEMENT,
 } from '@malva-ui/cdk/density';
-import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormState,
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvFormControlWrapper,
   MlvFormControlWrapperControl,
@@ -113,6 +117,15 @@ export class MlvTimePicker
   extends MlvSignalFormControlBase<string>
   implements MlvFormControl
 {
+  /**
+   * @protected {@link id} sits on the trigger `div[role="combobox"]`, which
+   * `<label for>` cannot name, so a projected `<mlv-label>` reaches it through
+   * `aria-labelledby`.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return 'aria';
+  }
+
   /** The `HH:mm`/`HH:mm:ss` value used by all Angular forms APIs. */
   readonly value = model<string>('');
   /**
@@ -151,6 +164,14 @@ export class MlvTimePicker
   protected readonly _period = signal<'AM' | 'PM'>('AM');
 
   /** Unique ID for the message element, used for aria-describedby linking. */
+
+  /**
+   * The HTML `id` assigned to the visible `<mlv-label>` element. The trigger
+   * references it via `aria-labelledby` (a `<label for>` cannot name a
+   * `div[role="combobox"]`), which is also what makes a label written on this
+   * control win over one projected beside it into `mlv-form-field`.
+   */
+  readonly labelId = computed(() => `${this.id()}-label`);
 
   /** Unique ID for the popup panel, used for aria-controls linking. */
   readonly panelId = computed(() => `${this.id()}-panel`);

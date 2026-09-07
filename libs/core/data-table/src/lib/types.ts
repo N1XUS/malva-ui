@@ -10,7 +10,10 @@ export type { MlvSearchFieldTrigger } from '@malva-ui/core/search-field';
 // re-exported from `@malva-ui/cdk/data-source` by the star export in
 // `data-source.ts`, so this module does not restate them.
 
-/** @deprecated Use `MlvDataSourceFilterOperator` from `@malva-ui/cdk/data-source`. */
+/**
+ * @deprecated since 0.1.12 — removed in 1.0. Use `MlvDataSourceFilterOperator`
+ * from `@malva-ui/cdk/data-source`.
+ */
 export type MlvDataTableFilterOperator = MlvDataSourceFilterOperator;
 
 export interface MlvDataTableFilterOption {

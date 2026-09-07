@@ -107,3 +107,25 @@ Exported from `libs/core/title/src/index.ts`:
 
 - The editable `<textarea>` now carries `[attr.aria-label]="ariaLabel()"` and `[attr.aria-required]="required() || null"` from the inherited base inputs.
 - `mlv-title` renders no `mlv-description` / `mlv-message` chrome, so the inherited `description` input has no effect and no `aria-describedby` is emitted — wrap the title in `mlv-form-field` when a field description is needed.
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvTitle` reports `_externalLabelStrategy()` **`'native'`** while `editable`:
+the editing `<textarea>` now carries an id (it previously carried none), so an
+`<mlv-label>` projected beside `[mlvTitle]` into `mlv-form-field` names it with
+a plain `for`. A read-only `[mlvTitle]` is a heading, not a control, and reports
+`'none'`.
+
+That id is **`` `${id()}-input` ``**, not `id()` itself — `_editorId()`, which
+`_labelTargetId()` also reports so the `for` still lands on the labelable
+element. `[mlvTitle]`'s host is the consumer's own heading and a **static**
+`id="…"` attribute is both bound to the inherited `id` input _and_ left on that
+heading by the compiler, so reusing it would put one id on two elements. The
+idiom is already live four times in `apps/docs` (`pages/page/examples/1`, `…/4`,
+`…/2` twice), each a `<section aria-labelledby="…">` naming itself from its
+`[mlvTitle]` heading — adding `editable` there must not make that reference
+ambiguous. Consumers who need a specific id on the editor bind `[id]` and get
+`<value>-input`.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

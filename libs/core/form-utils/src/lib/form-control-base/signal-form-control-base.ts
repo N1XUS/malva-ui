@@ -3,6 +3,7 @@ import {
   computed,
   contentChild,
   Directive,
+  inject,
   input,
   output,
   signal,
@@ -17,6 +18,11 @@ import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { mlvNextId } from '@malva-ui/cdk/utils';
 import type { MlvFormControl } from '../models/form-control-connector';
+import type {
+  MlvFormControlLabelStrategy,
+  MlvFormControlLabelTarget,
+} from '../models/form-field-connector';
+import { MLV_FORM_FIELD } from '../models/form-field-connector';
 import { MlvFormControlAppend } from '../form-control-sides';
 import { MlvFormControlInset } from '../form-control-sides';
 import { MlvFormControlPrepend } from '../form-control-sides';
@@ -160,6 +166,89 @@ export abstract class MlvSignalFormUiControlBase implements MlvFormControl {
    * Use it when the control renders no visible `<mlv-label>`.
    */
   readonly ariaLabel = input<string | null>(null);
+
+  /**
+   * @private The enclosing `mlv-form-field`, when this control is projected
+   * into one. Optional — every control still works standalone.
+   */
+  private readonly _formField = inject(MLV_FORM_FIELD, { optional: true });
+
+  /**
+   * @protected How an `<mlv-label>` projected beside this control into
+   * `mlv-form-field` may name it. `'none'` by default, which is the only safe
+   * default: guessing `'native'` would emit a `for` that names nothing on
+   * every composite control, and guessing `'aria'` would publish an
+   * `aria-labelledby` no template consumes. Concrete controls override it —
+   * see `MlvFormControlLabelStrategy` for what each value asserts.
+   *
+   * A method rather than a field so an override may read signals (`mlv-select`
+   * is `'native'` while its native `<select>` is the live surface and `'aria'`
+   * behind its `div[role="combobox"]`) without depending on subclass field
+   * initialisation order.
+   */
+  protected _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return 'none';
+  }
+
+  /**
+   * @protected Id of the element {@link labelTarget} points at. Defaults to
+   * {@link id}, because a control normally puts that id on its own focus
+   * target.
+   *
+   * Overridden where the focus target cannot carry {@link id} itself:
+   * `[mlvTitle]`'s host is the consumer's own heading, and a **static** `id`
+   * attribute both feeds this input and stays on that heading — so the
+   * `<textarea>` takes a derived id and reports it here, keeping the two
+   * elements distinct.
+   */
+  protected _labelTargetId(): string {
+    return this.id();
+  }
+
+  /**
+   * The element inside this control that a label rendered outside it may name,
+   * and how — `null` when nothing can. Read by `mlv-form-field`; see
+   * {@link MlvFormControl.labelTarget}.
+   */
+  readonly labelTarget = computed<MlvFormControlLabelTarget | null>(() => {
+    const strategy = this._externalLabelStrategy();
+    if (strategy === 'none') return null;
+    return { id: this._labelTargetId(), labelable: strategy === 'native' };
+  });
+
+  /**
+   * @protected Whether an `<mlv-label>` projected beside this control into
+   * `mlv-form-field` is naming it — through **either** association strategy.
+   *
+   * {@link _fieldLabelId} cannot answer this: it is populated only on the
+   * `'aria'` path. A `'native'` control reads `null` there and keeps emitting
+   * whatever `aria-label` fallback its template supplies — and `aria-label`
+   * outranks `<label for>` in the accessible-name computation, so the field's
+   * label would deliver click-to-focus and no name at all (#197 review).
+   *
+   * Templates read it to suppress a **non-nullable** `aria-label` fallback:
+   * `[attr.aria-label]="_externallyLabelled() ? null : (ariaLabel() ?? _i18n().x)"`.
+   * A control whose fallback is already `ariaLabel()` alone needs nothing: a
+   * consumer who wrote one asked for it.
+   */
+  protected readonly _externallyLabelled = computed<boolean>(() => {
+    if (this._externalLabelStrategy() === 'none') return false;
+    return this._formField?.labelId() != null;
+  });
+
+  /**
+   * @protected Id of an `<mlv-label>` projected beside this control into
+   * `mlv-form-field`, for controls whose focus target `<label for>` cannot
+   * name. `null` for every other case — including when the control renders its
+   * own label from {@link label}, which wins because it is the nearer,
+   * explicitly-authored name.
+   *
+   * Templates read it as `[attr.aria-labelledby]="label() ? labelId() : _fieldLabelId()"`.
+   */
+  protected readonly _fieldLabelId = computed<string | null>(() => {
+    if (this._externalLabelStrategy() !== 'aria') return null;
+    return this._formField?.labelId() ?? null;
+  });
 
   /** @protected Id of the rendered `<mlv-description>` element. */
   protected readonly _descriptionId = computed(

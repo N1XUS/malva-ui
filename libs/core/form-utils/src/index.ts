@@ -1,6 +1,7 @@
 export * from './lib/models/form-state';
 export * from './lib/models/error-display-strategy';
 export * from './lib/models/form-control-connector';
+export * from './lib/models/form-field-connector';
 export * from './lib/label/label';
 export * from './lib/hint/hint';
 export * from './lib/description/description';

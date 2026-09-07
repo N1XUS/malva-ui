@@ -31,8 +31,13 @@ export class MlvClick {
 
   /**
    * ARIA role applied to the host element. Defaults to `'button'` for
-   * keyboard-accessible click semantics. Set to `null` when the host
-   * already has an appropriate semantic role (e.g. `role="combobox"`).
+   * keyboard-accessible click semantics.
+   *
+   * A non-`button` role goes **through this input** (`mlv-select` passes
+   * `'combobox'`), not into a `role` attribute written beside the directive:
+   * this is a host `[attr.role]` binding, so it wins over a static `role` and a
+   * `null` here removes it. Pass `null` only when the host's semantics are
+   * native — an `<a href>`, a `<button>` — and so cannot be written away.
    */
   readonly hostRole = input<string | null>('button');
 

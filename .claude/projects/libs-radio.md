@@ -222,3 +222,23 @@ interface MlvRadioGroupAccessor {
 previously had no type ramp at all. `&__label`'s `gap` also moved from the
 raw literal `0.25rem` to `var(--mlv-spacing-1)` (same value, tokenized). See
 `.claude/projects/libs-form-utils.md` → _Control-text type & padding ramp_.
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvRadioGroup` reports `_externalLabelStrategy()` **`'aria'`**: `id()` sits on
+the `role="radiogroup"` host, and a group is never labelable, so an
+`<mlv-label>` projected beside it into `mlv-form-field` names it through
+`aria-labelledby` — the association WAI-ARIA prescribes for a radiogroup. The
+host binds `[attr.aria-labelledby]="label() ? labelId() : _fieldLabelId()"` and
+suppresses `aria-label` whenever either resolves, so a field-composed group no
+longer needs its own `label` input repeated beside the projected label. `labelId`
+is a new public computed, `` `${id()}-label` ``, rendered on the group's own
+`<mlv-label>`.
+
+The group's own `label` therefore wins over the field's — and over `ariaLabel`,
+which previously took precedence (`ariaLabel() ?? label()`). That matches
+`mlv-select` / `mlv-day-picker`, and it means the announced name is the visible
+label text rather than a string that may differ from it.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

@@ -74,6 +74,13 @@ and `build` and `revert` all move the version; `docs`, `chore`, `test`, `ci` and
 `style` do not. Breaking changes take a `!` — `refactor!:` is the form this
 workspace uses — and belong in [`docs/migrations/`](docs/migrations/).
 
+Before writing a `!`, check [`VERSIONING.md`](VERSIONING.md): it decides which
+surfaces are public (TypeScript exports, selectors, inputs, injection tokens,
+`--mlv-*` tokens, BEM class names, i18n keys, peer ranges), which changes need
+a major, and what a removal owes a consumer first — one minor with a working
+`@deprecated` alias, and a `docs/migrations/` entry in the same pull request.
+A behaviour-only change with nothing renamed is still breaking.
+
 `lint-staged` runs on the `pre-commit` hook and will format what you staged.
 
 ## Documentation
@@ -95,7 +102,33 @@ member is undocumented.
 - Make sure `yarn nx run-many -t lint test typecheck` is clean before opening it.
 - Describe the user-visible effect, not just the diff.
 
+## Deprecating public API
+
+Every `@deprecated` tag under `libs/` names the release it shipped in and the
+major that removes it:
+
+```ts
+/** @deprecated since 0.1.12 — removed in 1.0. Use `MlvOther` instead. */
+```
+
+```bash
+yarn nx run @malva-ui/source:check-deprecations
+```
+
+The guard runs as a dependency of the root `test` target, so it fails CI on a
+tag that misses either version, schedules its removal somewhere other than a
+major, names a major the workspace has already reached, or is spelled in any
+casing but lowercase `@deprecated` (TypeScript recognises no other, so a
+mis-cased tag warns nobody).
+
+**File the deprecating commit as `feat`.** It is the only type `nx.json` maps to
+the minor the policy requires; a `refactor` derives a patch and leaves nobody
+able to tell whether the one-minor window was honoured.
+
+Rationale and the full window: [`VERSIONING.md`](VERSIONING.md).
+
 ## Releases
 
 Releases are maintainer-only and manually triggered. See
-[`docs/RELEASING.md`](docs/RELEASING.md).
+[`docs/RELEASING.md`](docs/RELEASING.md) for the mechanics and
+[`VERSIONING.md`](VERSIONING.md) for what a given bump promises.
