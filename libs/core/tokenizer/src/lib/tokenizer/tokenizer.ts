@@ -32,16 +32,99 @@ import {
   MlvSignalFormControlBase,
 } from '@malva-ui/core/form-utils';
 import { MlvInput } from '@malva-ui/core/input';
-import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { defaultCompareWith, MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvToken } from '../token/token';
 import { MlvTokenTemplate } from '../token-template';
-import type { MlvSelectOption } from '@malva-ui/core/dropdown';
+import { valueIndex } from '@malva-ui/core/dropdown';
+import type { MlvSelectOption, MlvValueIndex } from '@malva-ui/core/dropdown';
 import { MLV_TOKENIZER_I18N } from '@malva-ui/i18n';
 
 const defaultCreateToken = (value: string): MlvSelectOption<string> => ({
   label: value,
   value,
 });
+
+/**
+ * Reads the comparable value out of a token — {@link valueIndex}'s `project`
+ * hook, and the projection the scan below reaches through.
+ *
+ * Declared once at module level rather than as an inline arrow: the index takes
+ * its source *unmapped*, precisely so that nothing walks the collection eagerly
+ * on the way in, and a fresh closure per entry would allocate for nothing.
+ */
+const tokenValue = <T>(token: MlvSelectOption<T>): T => token.value;
+
+/**
+ * Position of the first token whose value is `value` under the same `===` the
+ * index uses, or `-1`. The short-circuiting scan that answers the
+ * existing-token question until an index is worth building (see
+ * {@link INDEX_COST_RATIO}), and the definition of what that index answers
+ * once there is one.
+ *
+ * It returns the position rather than a boolean because the position *is* the
+ * scan's cost: a match at `i` compared `i + 1` values, a miss compared every
+ * one. `Array.prototype.indexOf` cannot stand in — it compares the tokens, not
+ * their values — and an explicit loop, unlike `some`, allocates no closure per
+ * call.
+ */
+const indexOfValue = <T>(
+  tokens: readonly MlvSelectOption<T>[],
+  value: T,
+): number => {
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].value === value) return i;
+  }
+  return -1;
+};
+
+/**
+ * What one `Map` insertion costs, in units of the `===` the scan it replaces
+ * does — the exchange rate between the two ways of answering "is this value
+ * already a token?", and the only number the switch between them needs.
+ *
+ * Everything is priced in comparisons. A scan that matches at position `i`
+ * spends `i + 1`; one that matches nothing spends all `n`. An index spends one
+ * `Map` insertion per token walked, so it costs `n` x this ratio — i.e. about
+ * eighteen full scans — and every query after it is free.
+ *
+ * Both halves of that pricing are per element, so the exchange rate does not
+ * move with `n`. Measured on this loop — batches in which every value misses,
+ * against 100 / 500 / 2000 existing tokens, one dedicated node process per
+ * cell, five timed rounds, minimum reported — indexing overtakes rescanning
+ * between 16 and 20 misses at all three sizes, which is the ratio stated as a
+ * count of full scans. It is the same per-element ratio
+ * `@malva-ui/core/dropdown`'s {@link valueIndex} documents from its own side
+ * ("somewhere around 6-29 all-miss queries"), the spread there being V8 tiers.
+ *
+ * The switch spends it twice, and needs both:
+ *
+ * - **Buy only once the scanning has cost an index.** That is the ski-rental
+ *   rule, so an entry never pays much more than whichever strategy suits it —
+ *   an entry whose values keep matching near the head never reaches the price
+ *   and never leaves the scan, and one that keeps missing has already spent an
+ *   index before it commits to one.
+ * - **Buy only while enough values remain to repay it.** The index costs this
+ *   many full scans and can save at most one scan per value left, so with
+ *   fewer than that still to come it cannot come out ahead, however expensive
+ *   the scanning has been.
+ *
+ * A gate on `values.length` had neither property: it could not see that a hit
+ * near the head costs one comparison where a miss costs `n`, so it bought an
+ * index for batches that never ran a single full scan. Against 2000 existing
+ * tokens, a batch of 32 head-matching duplicates plus one new value measured
+ * 2.9 us on the two nested scans this whole thing replaces and 50 us behind a
+ * `values.length > 32` gate — 17x, switched on by one extra batch element, and
+ * reachable for any batch size the gate could have named.
+ *
+ * **It is a speed knob and nothing else.** Both arms answer the same question
+ * the same way — `MlvValueIndex.has` is *defined* as the scan it replaces —
+ * and the within-batch half of the dedupe never consults it, so retuning this,
+ * or removing it and always indexing, cannot change which tokens an entry
+ * adds. Set to 0, 1, 2, 3, 19, 20, 200 or 100000, every behavioural spec in
+ * `tokenizer.spec.ts` stays green; only the two cost guards move, and only
+ * outside 2..19, which is the band they bracket it to without naming it.
+ */
+const INDEX_COST_RATIO = 18;
 
 @Component({
   selector: 'mlv-tokenizer',
@@ -306,16 +389,59 @@ export class MlvTokenizer<T = string>
       : [raw];
     const create = this.createToken();
     const current = this.tokens();
+    const allowDuplicates = this.allowDuplicates();
     const newTokens: MlvSelectOption<T>[] = [];
 
-    for (const val of values) {
-      const token = create(val);
-      const isDuplicate =
-        current.some((t) => t.value === token.value) ||
-        newTokens.some((t) => t.value === token.value);
-      if (this.allowDuplicates() || !isDuplicate) {
-        newTokens.push(token);
+    // The existing-token half of the dedupe. It starts as `indexOfValue`, a
+    // scan that stops at its first match, and switches to an index once the
+    // scanning has cost as much as an index would and enough values remain for
+    // one to repay itself (see INDEX_COST_RATIO). Both arms answer the same
+    // question: `MlvValueIndex.has` is *defined* as the scan.
+    //
+    // `valueIndex` is also what keeps this comparison `===` rather than the
+    // SameValueZero a bare `Set` would impose: it keys values only while the
+    // ones it has walked past cannot tell the two relations apart, and reverts
+    // to the pairwise scan the moment one can.
+    let existingIndex: MlvValueIndex<T> | null = null;
+    /** Comparisons the scan arm has spent, against what an index would cost. */
+    let scanned = 0;
+    const indexCost = current.length * INDEX_COST_RATIO;
+
+    // Values accepted earlier in this same entry. Allocated on the first
+    // acceptance, so an entry that adds nothing never builds one.
+    let accepted: Set<T> | null = null;
+
+    for (let i = 0; i < values.length; i++) {
+      // `create` is consumer-supplied and may be impure, so it runs exactly
+      // once per value, in order, whether or not the result survives dedupe.
+      const token = create(values[i]);
+      if (!allowDuplicates) {
+        const value = token.value;
+        let isExisting: boolean;
+        if (existingIndex) {
+          isExisting = existingIndex.has(value);
+        } else {
+          const at = indexOfValue(current, value);
+          isExisting = at >= 0;
+          // A match at `at` compared `at + 1` tokens; a miss compared them all.
+          scanned += isExisting ? at + 1 : current.length;
+          // Buy once the scanning has cost an index, and only while enough
+          // values remain for one to repay itself — see INDEX_COST_RATIO.
+          if (scanned > indexCost && values.length - i - 1 > INDEX_COST_RATIO) {
+            existingIndex = valueIndex(current, defaultCompareWith, tokenValue);
+          }
+        }
+        if (isExisting) continue;
+        if (accepted?.has(value)) continue;
+        // A `Set` keys on SameValueZero, which parts company with `===` on
+        // exactly one value: `NaN`, which `===` does not match even against
+        // itself. The index above reconciles the two by latching on that
+        // hazard; this half's contents grow as the loop runs, so it never
+        // admits one instead — a key that is never added is never found, which
+        // is the answer `===` gives.
+        if (!Number.isNaN(value)) (accepted ??= new Set<T>()).add(value);
       }
+      newTokens.push(token);
     }
 
     if (newTokens.length > 0) {

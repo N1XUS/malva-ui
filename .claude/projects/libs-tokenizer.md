@@ -96,11 +96,44 @@ host: {
 | Method                    | Description                                                                                                                                            |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `focusInput()`            | Focus the text input (also disarms any Backspace chip-selection)                                                                                       |
-| `onInputEnter(event)`     | Disarm, then parse input with `createToken` + optional `splitFn`; add tokens (deduplication); clear input                                              |
+| `onInputEnter(event)`     | Disarm, then parse input with `createToken` + optional `splitFn`; add tokens (deduplication — see _Bulk entry and dedupe_); clear input                |
 | `onInputBackspace(event)` | Empty-input Backspace: arm the last chip (first press), then remove-and-re-arm from the end (subsequent presses). See _Backspace chip-selection flow_. |
 | `onInputDelete(event)`    | Delete parity: removes the armed chip and re-arms the new last one; no-op when nothing armed                                                           |
 | `removeToken(token)`      | Remove a specific token                                                                                                                                |
 | `onTokenKeydown(event)`   | Delegate to `FocusKeyManager` for token-to-token navigation                                                                                            |
+
+#### Bulk entry and dedupe
+
+`onInputEnter` is the only path that adds tokens. With no `splitFn` it commits one value; with a `splitFn` (`(v) => v.split(',')`) it commits the whole entry at once, which is how a pasted list becomes many tokens.
+
+- `createToken` runs **exactly once per value, in order**, whether or not the result survives dedupe — it is consumer-supplied and may be impure.
+- Dedupe compares the **created** `token.value`, not the raw text, so normalisation inside `createToken` (trim, lower-case) participates.
+- A value is rejected when it matches an existing token **or** a value accepted earlier in the same entry. Both checks are skipped entirely when `allowDuplicates` is set.
+- Equality is **`===`**, unchanged. So `NaN` never collapses (not even against itself), `-0` ties `0`, and a non-primitive `T` compares by reference — a `createToken` minting a fresh object per call never dedupes, which is what `apps/docs`' email example (`value: { email: value }`) relies on.
+- Nothing is committed when every value is rejected: `tokens` / `value` keep their array reference and no form write happens.
+
+Cost. The existing-token half of the dedupe can answer "is this value already a token?" two ways, and a long entry uses both. It starts with a scan that stops at its first match; once that scanning has cost as much as an index would — **and** enough values remain for an index to repay itself — the rest of the entry goes through `valueIndex` from `@malva-ui/core/dropdown`, the same "is this value among those?" primitive `mlv-select` and `mlv-combobox` use. `valueIndex` is also what keeps the comparison `===`: it keys on a `Map` only while the values it has walked past cannot tell `===` and SameValueZero apart, and reverts to the pairwise scan the moment one can. The within-batch half is a `Set` of accepted values, filled as the loop runs and consulted at every batch size, which turns the old rescan of the pending tokens from `O(k^2)` into `O(k)`; `NaN` is never admitted to it, so `Set` membership stays an exact stand-in for `===`.
+
+**The switch is priced in comparisons, not gated on the batch size.** A scan that matches at position `i` spends `i + 1` comparisons and one that matches nothing spends all `n`; an index spends one `Map` insertion per token walked, measured at about eighteen comparisons each (`INDEX_COST_RATIO`), so a build costs eighteen full scans and every query after it is free. Both are per element, so the exchange rate does not move with `n`. `values.length` cannot see any of that — it cannot tell a value that matches `current[0]` from one that matches nothing — and a `values.length > 32` gate therefore bought an index for batches that never ran a single full scan, at up to **17x** the loop it replaced. Both conditions are needed: the first (ski-rental) keeps an entry from paying for an index it will not use, the second keeps it from buying one with nothing left to spend it on. `INDEX_COST_RATIO` is a **speed knob only** — both arms answer the same question the same way, and the within-batch half never consults it, so retuning it cannot change which tokens an entry adds; `tokenizer.spec.ts` brackets it to 2..19 without naming it, and every behavioural spec there stays green at 0, 1, 20, 200 and 100000.
+
+Measured on this loop (node 24, one dedicated process per shape and cell so V8 never tiers one against the other's feedback, 21 timed rounds, minimum reported, `n = 2000` existing tokens). `main` is the two nested scans this replaces; the last column is what a `values.length > 32` gate measured on the same cell.
+
+| batch shape                                              |   k | main      | now      | ratio            | batch-size gate  |
+| -------------------------------------------------------- | --: | --------- | -------- | ---------------- | ---------------- |
+| the same new value repeated                              | 500 | 2018.6 us | 125.3 us | **16.1x faster** | 59.7 us          |
+| every value new — the pasted-list case #19 was filed for | 500 | 1677.0 us | 115.9 us | **14.5x faster** | 72.0 us          |
+| half new, half already present                           | 500 | 1297.7 us | 98.6 us  | **13.2x faster** | 57.7 us          |
+| every value already present, spread through `current`    | 500 | 909.3 us  | 120.2 us | **7.6x faster**  | 55.4 us          |
+| every value new                                          |  33 | 93.4 us   | 98.3 us  | 1.05x            | 57.2 us          |
+| a re-paste that all matches `current[0]`                 | 500 | 1.78 us   | 1.85 us  | 1.04x            | 3.08 us (1.73x)  |
+| ditto, plus one new value at the end                     |  33 | 2.88 us   | 2.65 us  | 0.92x            | 50.07 us (17.4x) |
+| a `NaN` among the existing token values                  |  33 | 51.0 us   | 41.0 us  | 0.80x            | 72.8 us (1.43x)  |
+| a `NaN` among the existing token values                  | 256 | 414.3 us  | 495.7 us | 1.20x            | 479.5 us (1.16x) |
+| a `NaN` among the existing token values                  | 500 | 880.2 us  | 995.4 us | 1.13x            | 964.0 us (1.10x) |
+
+The last two columns are the trade. A batch-size gate is two to fourteen times faster on the four wins at the top — it indexes from the first value where this indexes after about eighteen scans' worth — and seventeen times slower on the head-matching row, where it buys an index no value in the batch will use. Across a 484-cell sweep (eleven batch shapes x `n` in 20…2000 x `k` in 1…500), every cell added exactly the tokens `main` added, and every cell that showed a ratio above 1.3x was re-measured one at a time on an unloaded machine (the sweep shares a runner, so a contended cell reads slow). Twenty-five of the twenty-six fell to 1.30x or below; the one that survived is **1.35x**, a 500-value re-paste all matching `current[0]` against only twenty existing tokens, which is +0.7 us — the one place the pricing misjudges, because it charges the past honestly and then assumes the values still to come cost like the ones already seen, where here they each cost one comparison and there is nothing for an index to save. The largest absolute regression anywhere in the sweep is the `NaN` shape below, at +115 us.
+
+The `NaN` rows are the one shape that can still buy an index and get nothing back. A `NaN` anywhere among the existing token values makes `valueIndex` latch and answer every query with a pairwise scan, so the build is pure waste. It is reachable — a numeric `createToken` plus one unparseable entry — and sticky, since the `NaN` stays a token. **This is a real regression, not a rounding error:** one walk of `current`, **+81 us at k = 256 and +115 us at k = 500** for `n = 2000`. What the gate buys is that it is bounded and no longer cheap to trigger: the entry never builds the index until it has already spent that much scanning, and at `k = 33` — where the batch-size gate paid the walk and lost 43% — it now never builds one at all and comes out ahead. Removing the waste entirely needs `valueIndex` to expose whether it has latched, which is `@malva-ui/core/dropdown`'s API to change — left for a follow-up rather than widened into this ticket.
 
 #### Backspace chip-selection flow
 
@@ -257,6 +290,10 @@ splitByComma = (v: string) =>
 - `@angular/forms/signals` — signal-control contract; reactive/ngModel compatibility is built into Angular
 - `@angular/cdk/a11y` — `FocusKeyManager`, `FocusableOption`
 - `@malva-ui/core/form-utils` — `MlvSignalFormControlBase`, `MlvFormControlWrapper`, `MlvLabel`, `MlvHint`, `MlvMessage`
+- `@malva-ui/core/input` — `MlvInput`, the text field the tokenizer wraps
+- `@malva-ui/core/dropdown` — **runtime** since the bulk-entry dedupe (2026-09): `valueIndex` + the `MlvValueIndex` type, plus the `MlvSelectOption<T>` shape a token is. It was a type-only import before, so the built `fesm2022` bundle now carries a real `from '@malva-ui/core/dropdown'`
+- `@malva-ui/cdk/utils` — `MlvRtlService` (scoped direction for the token `FocusKeyManager`) and `defaultCompareWith`, the identity comparator `valueIndex` has to _recognise_ for its keyed fast path
+- `@malva-ui/i18n` — `MLV_TOKENIZER_I18N`
 
 ---
 
