@@ -105,7 +105,7 @@ Read the table as: _this change requires at least this bump_.
 | Removed or renamed BEM block, element or modifier class                                                               | major      |
 | Removed or renamed i18n key, or a **new required** key on an `Mlv<X>I18n` interface                                   | major      |
 | Removed or renamed published entry point / `exports` path / schematic option                                          | major      |
-| **Narrowed** type of an input, output, token value or exported function parameter — except a peer range, see §9       | major      |
+| **Narrowed** type of an input, output, token value or exported function parameter, a peer range included              | major      |
 | New **required** input, or a new abstract member on a subclassing contract (§2.4)                                     | major      |
 | Changed **default value** of an input                                                                                 | major      |
 | Changed **default behaviour** at an unchanged API — ordering, timing, emitted events, focus, ARIA, what a value means | major      |
@@ -113,7 +113,6 @@ Read the table as: _this change requires at least this bump_.
 | New exported symbol, entry point, component, token, `--mlv-*` token, BEM modifier, schematic option                   | minor      |
 | New optional input / output / model; widened input type; new optional i18n key with a shipped default                 | minor      |
 | Existing symbol marked `@deprecated` (behaviour unchanged) — see _Rows no commit type reaches_ below                  | minor      |
-| Angular **minor floor** raised in `peerDependencies` (§9) — see _Rows no commit type reaches_ below                   | minor      |
 | Bug fix that restores documented behaviour                                                                            | patch      |
 | Performance work with no observable behaviour change                                                                  | patch      |
 | Visual change within an existing token — new value for an existing `--mlv-*` token                                    | patch      |
@@ -132,16 +131,15 @@ Two rules that follow from the table and are easy to get wrong:
 
 ### Rows no commit type reaches
 
-`nx.json` maps exactly one commit type to a minor: `feat`. Two rows above ask
+`nx.json` maps exactly one commit type to a minor: `feat`. One row above asks
 for a minor that no natural commit type produces, so **the bump is chosen at the
 release, not derived from the commits**:
 
-| Row                             | What the commits derive            | What to do                                                                          |
-| ------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
-| Marking a symbol deprecated     | `feat` → minor; `refactor` → patch | File it as `feat`. §5 requires this — the alias is a new name, so `feat` is honest. |
-| Raising the Angular minor floor | `build` / `fix` → patch            | Cut the release with the `minor` specifier (`release.yml` → `specifier`, §11).      |
+| Row                         | What the commits derive            | What to do                                                                          |
+| --------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| Marking a symbol deprecated | `feat` → minor; `refactor` → patch | File it as `feat`. §5 requires this — the alias is a new name, so `feat` is honest. |
 
-Neither is machine-enforced. §11 says which controls exist and which of them a
+It is not machine-enforced. §11 says which controls exist and which of them a
 human has to reach for.
 
 ### Not covered by the matrix
@@ -390,58 +388,86 @@ delivery mechanism — treat it as unsupported.
 ## 9. Angular and peer dependencies
 
 The workspace pins Angular exactly for reproducible builds
-(`package.json` → `@angular/core: 22.0.7`). `scripts/publish.mjs`
-(`widenPeerRange`) widens each exact pin into `^<major>.<minor>.0` in the
-published `peerDependencies` — `22.0.7` → `^22.0.0`, `3.29.2` → `^3.29.0`.
-Ranges the root already expresses (`^1.25.0`, `~7.8.0`) pass through untouched,
-and `@malva-ui/*` siblings stay exact because they release together.
+(`package.json` → `@angular/core: 22.0.7`). `scripts/widen-peer-range.mjs`
+widens each exact pin before publish, at one of **two widths**:
 
-| Change in the workspace pin         | Published range       | Malva bump | Consumer effect                                                                     |
-| ----------------------------------- | --------------------- | ---------- | ----------------------------------------------------------------------------------- |
-| Angular patch (`22.0.7` → `22.0.9`) | unchanged (`^22.0.0`) | none       | none                                                                                |
-| Angular minor (`22.0.7` → `22.1.2`) | `^22.0.0` → `^22.1.0` | **minor**  | Raises the floor. A consumer on Angular `22.0.x` stays on the previous Malva minor. |
-| Angular major (`22.x` → `23.0.0`)   | `^22.0.0` → `^23.0.0` | **major**  | Angular major and Malva major are upgraded together.                                |
+| Peer                                                         | Published range               | Example              |
+| ------------------------------------------------------------ | ----------------------------- | -------------------- |
+| `@angular/*` — `core`, `common`, `forms`, `cdk`, `aria`      | `^<major>.0.0`                | `22.1.5` → `^22.0.0` |
+| Every other exact pin — the twelve `@tiptap/*`, `sortablejs` | `^<major>.<minor>.0`          | `3.29.2` → `^3.29.0` |
+| Ranges the root already expresses                            | untouched                     | `^1.25.0`, `~7.8.0`  |
+| `@malva-ui/*` siblings                                       | exact — they release together | `0.1.12`             |
+
+**The Angular floor is the major, never the minor.** The workspace's Angular
+minor does not reach the published range at all, so there is no such thing as a
+floor raise inside a major:
+
+| Change in the workspace pin         | Published range       | Malva bump | Consumer effect                                      |
+| ----------------------------------- | --------------------- | ---------- | ---------------------------------------------------- |
+| Angular patch (`22.0.7` → `22.0.9`) | unchanged (`^22.0.0`) | none       | none                                                 |
+| Angular minor (`22.0.7` → `22.1.2`) | unchanged (`^22.0.0`) | none       | none                                                 |
+| Angular major (`22.x` → `23.0.0`)   | `^22.0.0` → `^23.0.0` | **major**  | Angular major and Malva major are upgraded together. |
+
+### Why the floor is the major and not the minor
+
+Narrowing `^22.0.0` to `^22.1.0` would be a **narrowing of a public API** — §2
+#8 makes `peerDependencies` public, and §3 majors a narrowing — and the failure
+it produces is worse than the typecheck failures §3 majors: npm reports an
+unsatisfiable peer as **`ERESOLVE`**, an install that stops, not a warning. A
+consumer on Angular `22.0.9` with `"@malva-ui/core": "^1.2.0"` would resolve
+`1.3.0` and their install would fail.
+
+Rather than either majoring on it (Angular ships a minor every few weeks, and
+Malva supports one Angular major at a time, so that would burn majors at
+Angular's minor cadence and make §5's one-minor deprecation window and §8's
+six-month support window meaningless) or excusing it as a minor that may break
+an install, **the narrowing does not happen**. The published floor is the
+Angular major the release was built for, and it moves only when that major does.
+
+Three reasons this is the right width and not merely the convenient one:
+
+- **Angular's own minors are additive by policy.** A library built against
+  `22.3` is expected to run on `22.0`; where that is untrue it is a bug in
+  Angular's own compatibility promise, not a fact Malva should encode.
+- **It matches what the ecosystem publishes.** `@angular/material@22.1.5`
+  declares `@angular/core: ^22.0.0 || ^23.0.0` — no minor floor at all. (It
+  also spans two majors; Malva does not, see below.)
+- **Otherwise a routine workspace bump silently changes public API.** The
+  workspace pin moves for reasons that have nothing to do with what the library
+  requires — a patch, an `ng update` run for an unrelated reason. Deriving a
+  published floor from it means a public promise nobody wrote down and no
+  reviewer saw.
+
+The cost is real and is accepted: if the library starts using an API that landed
+in `22.3`, a consumer on `22.0` gets a compile or runtime failure where a
+narrowed floor would have refused the install cleanly. Two things follow, and
+they are the price:
+
+- **The release notes name the Angular minor the release was built against**, so
+  a consumer knows what was actually exercised.
+- **A genuine minimum above the major floor is a bug report, not a silent
+  narrowing.** If the library truly cannot run on `22.0`, that is either an
+  accidental use of a newer API — fix the code — or a deliberate requirement,
+  which is a major.
+
+Other rules that hold regardless:
 
 - Malva UI supports **one Angular major at a time**. There is no dual-major
-  range.
-- The same rules apply to `@angular/cdk`, `@angular/aria`, `@angular/forms`,
+  range. Material's `^22.0.0 || ^23.0.0` is a claim backed by a CI matrix
+  against both majors; Malva has no such matrix, so declaring the range would be
+  aspirational rather than tested.
+- The same widths apply to `@angular/cdk`, `@angular/aria`, `@angular/common`
+  and `@angular/forms` — they version-lock to Angular's major — while
   `@lucide/angular`, `rxjs` and the twelve `@tiptap/*` peers of
-  `@malva-ui/editor`.
-- `@malva-ui/tailwind` declares `tailwindcss: ^4.0.0` by hand; raising that major
-  is a Malva major.
+  `@malva-ui/editor` keep the minor floor. Tiptap makes no additive-minor
+  promise, and a `@tiptap/*` peer resolved at `3.0.0` predates APIs the build
+  uses.
+- `@malva-ui/tailwind` declares `tailwindcss: ^4.0.0` by hand; raising that
+  major is a Malva major.
 
-### Why the floor raise is a minor and not a major
-
-It is a **narrowing**, and §3 majors a narrowing. `^22.0.0` → `^22.1.0` admits
-strictly fewer versions, `peerDependencies` ranges are public API (§2 #8), and
-the failure is worse than the typecheck failures §3 majors: npm reports an
-unsatisfiable peer as **`ERESOLVE`**, an install that stops, not a warning. A
-consumer on Angular `22.0.9` with `"@malva-ui/core": "^1.2.0"` resolves `1.3.0`
-and their install fails.
-
-It is a minor anyway, and this is the exception §3's narrowing row points at:
-
-- **Angular's own minors are non-breaking**, so the consumer's remedy is to
-  upgrade Angular within the major they are already on — a cheap, in-major move,
-  not the migration a Malva major asks for.
-- **The alternative is worse.** Malva supports one Angular major at a time, and
-  Angular ships a minor every few weeks. Majoring on each floor raise would burn
-  majors at Angular's minor cadence, which would make §5's one-minor deprecation
-  window and §8's six-month support window meaningless.
-
-So this is a documented case where **a minor can fail an install**. Two things
-follow, and they are the price of the exception:
-
-- **The floor is raised only when the library genuinely requires the newer
-  Angular** — never as a side effect of a routine workspace bump. A pin moved
-  for convenience gets pinned back before release.
-- **The release notes name the new floor**, so a consumer can see it before
-  upgrading.
-
-If you are pinned to an Angular minor you cannot move off, pin Malva to the
-minor as well — `~1.2.0` rather than `^1.2.0` — and take patches only. That is
-the supported way to sit on an old Angular minor; §12 is not, because a floor
-raise announced in the release notes is intended behaviour, not a regression.
+`scripts/widen-peer-range.spec.mjs` pins all of this, including that moving the
+workspace's Angular minor leaves the published range unchanged. It runs as part
+of `nx run @malva-ui/source:test`.
 
 ---
 
@@ -502,7 +528,7 @@ one.
    `specifier` input takes `patch | minor | major | prerelease` and hands it
    straight to `nx release`, replacing whatever the commits derived. This is how
    0.x published derived majors as patches (§7), and it is unchanged at `1.0.0`.
-   It is also the only way to reach the two rows in §3 that no commit type
+   It is also the only way to reach the one row in §3 that no commit type
    produces, so it cannot simply be removed — **leave it on `auto` unless §3
    asks for a bump the commits cannot derive.**
 2. **`docs:check-doc-api` is not wired into CI.** No workflow selects it and no
