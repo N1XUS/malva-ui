@@ -588,7 +588,7 @@ visitor's own browser.
 The Project Workspace showcase is the flagship four-region `MlvPageShell`
 composition: icon rail (first `mlvPageSidebar`), project navigation sidebar
 (second `mlvPageSidebar`, off-canvas below `lg` with a header
-`mlv-sidebar-trigger`), central `main[mlvPage]`, and a `mlv-page-end-pane`
+`button[mlvSidebarTrigger]`), central `main[mlvPage]`, and a `mlv-page-end-pane`
 inspector — each chrome region carries a `data-region` attribute whose DOM
 order (`rail`, `project-navigation`, content, `inspector`) is asserted by its
 spec. Grouped tasks are a component-owned discriminated row union (group

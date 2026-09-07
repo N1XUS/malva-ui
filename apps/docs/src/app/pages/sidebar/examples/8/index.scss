@@ -38,8 +38,8 @@
     transform: translateX(0);
     visibility: visible;
     transition:
-      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-      transform var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+      opacity var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+      transform var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
       visibility var(--mlv-duration-instant) linear;
   }
 
@@ -88,14 +88,11 @@
 }
 
 .mlv-sidebar--collapsed {
-  .workspace {
-    // Preserve the second track so the mounted label cannot be auto-placed on
-    // another row while it fades out.
-    grid-template-columns:
-      var(--mlv-sidebar-icon-column-width, 2.375rem)
-      minmax(0, 0fr);
-  }
-
+  // The track list is deliberately NOT changed here. Nothing transitions
+  // `grid-template-columns`, so collapsing the text track to `0fr` clipped the
+  // label away in one frame while the rail was still at full width — a cut,
+  // where every `mlv-sidebar-item` below it fades. Left alone, the `1fr` track
+  // narrows with the animated host width and the fade below rides it.
   .workspace__meta {
     opacity: 0;
     transform: translateX(-0.25rem);

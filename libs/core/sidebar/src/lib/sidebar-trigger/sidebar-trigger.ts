@@ -1,97 +1,85 @@
 import {
-  ChangeDetectionStrategy,
-  Component,
-  ViewEncapsulation,
+  DestroyRef,
+  Directive,
+  ElementRef,
   computed,
   inject,
   input,
-  viewChild,
 } from '@angular/core';
-import type { ElementRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
 import type { MlvSidebarContextValue } from '../sidebar-context';
 import { SIDEBAR_CONTEXT } from '../sidebar-context';
 import type { MlvSidebarMode } from '../sidebar-mode';
-import {
-  LucideMenu,
-  LucidePanelLeftClose,
-  LucidePanelLeftOpen,
-  LucideX,
-} from '@lucide/angular';
 import { MLV_SIDEBAR_I18N } from '@malva-ui/i18n';
 
 /**
- * Sidebar trigger button that toggles the sidebar's collapsed state.
- * Renders as a transparent icon button visually matching collapsed sidebar
- * items, so it sits flush with the rest of the sidebar chrome.
- * Automatically hides itself in fixed mode.
+ * Turns any element into a control that toggles a sidebar's collapsed state.
  *
- * When the sidebar's effective mode is `'offcanvas'` (either `mode="offcanvas"`
- * or a `collapseBelow` breakpoint override) the trigger renders as a
- * hamburger/close menu button instead of the rail collapse chevrons.
+ * The directive renders nothing and owns no chrome — the host element is the
+ * button. Inside the rail that host is an ordinary `mlv-sidebar-item`, so the
+ * toggle is a normal row with an icon and a label rather than a bespoke
+ * glyph-only button; outside it, it is usually a `button[mlvButton]`.
  *
- * Usage:
+ * It contributes only behaviour: a click listener that calls
+ * {@link MlvSidebarContextValue.toggle}, an `aria-expanded` state, and
+ * `display: none` while the sidebar's effective mode is `'fixed'` (where the
+ * sidebar cannot collapse at all). The host keeps its own accessible name —
+ * `mlv-sidebar-item`'s `label` input, or an `aria-label` on a bare button —
+ * and {@link label} hands the call site the localized string for it, so the
+ * visible text and the accessible name stay the same string.
+ *
  * ```html
- * <mlv-sidebar [collapsed]="collapsed()">
- *   <mlv-sidebar-trigger />
+ * <mlv-sidebar [(collapsed)]="collapsed">
+ *   <mlv-sidebar-item
+ *     mlvSidebarTrigger
+ *     #trigger="mlvSidebarTrigger"
+ *     [label]="trigger.label()"
+ *   >
+ *     <ng-template mlvSidebarItemIcon>
+ *       @if (trigger.collapsed()) {
+ *         <svg lucidePanelLeftOpen [size]="20" />
+ *       } @else {
+ *         <svg lucidePanelLeftClose [size]="20" />
+ *       }
+ *     </ng-template>
+ *   </mlv-sidebar-item>
  * </mlv-sidebar>
  * ```
  *
- * An offcanvas sidebar does not render its projected content while closed, so
+ * An offcanvas sidebar renders none of its projected content while closed, so
  * a trigger that must reopen the drawer has to live outside `<mlv-sidebar>`.
  * Point it at the sidebar with the `sidebar` input:
  *
  * ```html
  * <mlv-sidebar #nav collapseBelow="md">…</mlv-sidebar>
- * <mlv-sidebar-trigger [sidebar]="nav" />
+ *
+ * <button
+ *   mlvButton
+ *   variant="transparent"
+ *   shape="square"
+ *   mlvSidebarTrigger
+ *   #trigger="mlvSidebarTrigger"
+ *   [sidebar]="nav"
+ *   [attr.aria-label]="trigger.label()"
+ * >
+ *   <svg lucideMenu [size]="20" />
+ * </button>
  * ```
  */
-@Component({
-  selector: 'mlv-sidebar-trigger',
-  template: `
-    <button
-      #triggerButton
-      type="button"
-      class="mlv-sidebar-trigger__btn"
-      [attr.aria-label]="_resolvedAriaLabel()"
-      [attr.aria-expanded]="!_collapsed()"
-      (click)="_toggle()"
-    >
-      @if (_isDrawerTrigger()) {
-        @if (_collapsed()) {
-          <svg lucideMenu [size]="20" class="mlv-sidebar-trigger__icon" />
-        } @else {
-          <svg lucideX [size]="20" class="mlv-sidebar-trigger__icon" />
-        }
-      } @else if (_collapsed()) {
-        <svg
-          lucidePanelLeftOpen
-          [size]="20"
-          class="mlv-sidebar-trigger__icon"
-        />
-      } @else {
-        <svg
-          lucidePanelLeftClose
-          [size]="20"
-          class="mlv-sidebar-trigger__icon"
-        />
-      }
-    </button>
-  `,
-  styleUrl: './sidebar-trigger.scss',
-  encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LucideMenu, LucidePanelLeftClose, LucidePanelLeftOpen, LucideX],
+@Directive({
+  selector: '[mlvSidebarTrigger]',
+  exportAs: 'mlvSidebarTrigger',
   host: {
-    class: 'mlv-sidebar-trigger',
-    '[class.mlv-sidebar-trigger--hidden]': '_isHidden()',
-    '[class.mlv-sidebar-trigger--menu]': '_isDrawerTrigger()',
+    '[attr.aria-expanded]': '!collapsed()',
+    // Inline, rather than a `--hidden` class: the host is the consumer's own
+    // element (an `mlv-sidebar-item` carries `display: grid`, a `mlvButton`
+    // `inline-flex`), so a class-based `display: none` would have to outrank
+    // whatever that element already declares.
+    '[style.display]': 'isHidden() ? "none" : null',
   },
 })
 export class MlvSidebarTrigger {
-  /** @private Native button query backing the public focus target. */
-  private readonly _triggerButton =
-    viewChild<ElementRef<HTMLButtonElement>>('triggerButton');
-
   /**
    * The sidebar this trigger controls, for triggers rendered outside
    * `<mlv-sidebar>`. Pass the sidebar's template reference
@@ -104,14 +92,8 @@ export class MlvSidebarTrigger {
    */
   readonly sidebar = input<MlvSidebarContextValue | undefined>(undefined);
 
-  /**
-   * The connected native button rendered by this trigger, or `null` before
-   * its view exists. Pass this to an overlay's explicit focus-restoration
-   * option when the activating control can disappear with an offcanvas view.
-   */
-  readonly focusTarget = computed(
-    () => this._triggerButton()?.nativeElement ?? null,
-  );
+  /** @private Host element — the element this directive turns into the toggle. */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /** @protected Localised labels for the sidebar trigger. */
   protected readonly _i18n = inject(MLV_SIDEBAR_I18N);
@@ -129,10 +111,12 @@ export class MlvSidebarTrigger {
     () => this.sidebar() ?? this._injectedContext,
   );
 
-  /** @protected Whether the sidebar is collapsed (drawer closed in offcanvas). */
-  protected readonly _collapsed = computed(
-    () => this._context()?.collapsed() ?? false,
-  );
+  /**
+   * Whether the sidebar is collapsed — the drawer closed, in offcanvas mode.
+   * Read it to pick the host's icon and, where the copy differs from
+   * {@link label}, its text.
+   */
+  readonly collapsed = computed(() => this._context()?.collapsed() ?? false);
 
   /** @private The sidebar's effective layout mode, responsive override included. */
   private readonly _mode = computed<MlvSidebarMode>(() => {
@@ -142,22 +126,65 @@ export class MlvSidebarTrigger {
   });
 
   /**
-   * @protected True when the sidebar currently behaves as an overlay drawer, so
-   * the trigger renders as a menu button rather than a rail collapse toggle.
+   * True when the sidebar currently behaves as an overlay drawer, so the host
+   * should read as a menu button rather than a rail collapse toggle. Follows a
+   * `collapseBelow` override, not only an authored `mode="offcanvas"`.
    */
-  protected readonly _isDrawerTrigger = computed(
-    () => this._mode() === 'offcanvas',
-  );
+  readonly isDrawerTrigger = computed(() => this._mode() === 'offcanvas');
 
   /**
-   * The connected native trigger button while its sidebar currently behaves
-   * as an offcanvas drawer; otherwise `null`. Use this as an explicit overlay
-   * focus fallback when a projected activator can disappear with the drawer,
-   * while retaining the overlay's default opener restoration in inline modes.
+   * True while the sidebar cannot collapse at all (`mode="fixed"`), which
+   * hides the host. A `collapseBelow` override therefore reveals it again on a
+   * narrow viewport, where the sidebar does become a drawer.
    */
-  offcanvasFocusTarget(): HTMLButtonElement | null {
+  readonly isHidden = computed(() => this._mode() === 'fixed');
+
+  /**
+   * The localized name for the action in its current state — `expand` /
+   * `collapse` on a rail, `openNavigation` / `closeNavigation` while the
+   * sidebar is a drawer. Bind it to the host's label (`mlv-sidebar-item`'s
+   * `label` input, or `aria-label` on a bare button); the directive
+   * deliberately does not write the name itself, so it never fights the host
+   * component for the attribute.
+   */
+  readonly label = computed(() => {
+    const strings = this._i18n();
+    if (this.isDrawerTrigger()) {
+      return this.collapsed()
+        ? strings.openNavigation
+        : strings.closeNavigation;
+    }
+    return this.collapsed() ? strings.expand : strings.collapse;
+  });
+
+  /**
+   * The host element acting as this trigger. Pass it to an overlay's explicit
+   * focus-restoration option when the activating control can disappear with an
+   * offcanvas view.
+   */
+  readonly focusTarget = computed<HTMLElement>(
+    () => this._elementRef.nativeElement,
+  );
+
+  constructor() {
+    // `fromEvent`, not a host `(click)` binding: a listener binding is wrapped
+    // in Angular's mark-dirty scheduler notification, and this handler runs on
+    // a plain element the consumer owns. Enter/Space arrive here too —
+    // `mlv-sidebar-item` turns them into a real click on its host.
+    fromEvent<MouseEvent>(this._elementRef.nativeElement, 'click')
+      .pipe(takeUntilDestroyed(inject(DestroyRef)))
+      .subscribe(() => this._context()?.toggle());
+  }
+
+  /**
+   * The connected host element while its sidebar currently behaves as an
+   * offcanvas drawer; otherwise `null`. Use this as an explicit overlay focus
+   * fallback when a projected activator can disappear with the drawer, while
+   * retaining the overlay's default opener restoration in inline modes.
+   */
+  offcanvasFocusTarget(): HTMLElement | null {
     const target = this.focusTarget();
-    return this._isDrawerTrigger() && target?.isConnected ? target : null;
+    return this.isDrawerTrigger() && target.isConnected ? target : null;
   }
 
   /**
@@ -165,25 +192,6 @@ export class MlvSidebarTrigger {
    * restore-focus option: it resolves to the connected external trigger in
    * offcanvas mode and to the overlay's captured-opener default otherwise.
    */
-  readonly restoreFocusResolver = (): true | HTMLButtonElement =>
+  readonly restoreFocusResolver = (): true | HTMLElement =>
     this.offcanvasFocusTarget() ?? true;
-
-  /** @protected Whether the trigger should be hidden (fixed mode). */
-  protected readonly _isHidden = computed(() => this._mode() === 'fixed');
-
-  /** @protected Accessible name matching the current affordance and state. */
-  protected readonly _resolvedAriaLabel = computed(() => {
-    const strings = this._i18n();
-    if (this._isDrawerTrigger()) {
-      return this._collapsed()
-        ? strings.openNavigation
-        : strings.closeNavigation;
-    }
-    return this._collapsed() ? strings.expand : strings.collapse;
-  });
-
-  /** @protected Toggle the sidebar collapsed state. */
-  protected _toggle(): void {
-    this._context()?.toggle();
-  }
 }

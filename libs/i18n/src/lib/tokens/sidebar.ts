@@ -13,13 +13,18 @@ export interface MlvSidebarI18n {
   switchWorkspace: string;
   /** Accessible name for the workspace switcher menu. */
   workspaceMenu: string;
-  /** Accessible label for expanding the sidebar. */
+  /**
+   * Name of the action that expands the sidebar. Surfaced by
+   * `[mlvSidebarTrigger].label()`, which the call site binds to its host —
+   * visible row text on an `mlv-sidebar-item`, an `aria-label` on an icon-only
+   * button.
+   */
   expand: string;
-  /** Accessible label for collapsing the sidebar. */
+  /** Name of the action that collapses the sidebar. See {@link expand}. */
   collapse: string;
-  /** Accessible label for opening the sidebar as an overlay navigation drawer. */
+  /** Name of the action that opens the sidebar as an overlay navigation drawer. */
   openNavigation: string;
-  /** Accessible label for closing the sidebar overlay navigation drawer. */
+  /** Name of the action that closes the sidebar overlay navigation drawer. */
   closeNavigation: string;
 }
 
@@ -56,25 +61,27 @@ export const MLV_SIDEBAR_I18N_CONTEXT: Record<
     description: 'Accessible name for the workspace selection menu',
   },
   expand: {
-    component: 'mlv-sidebar-trigger',
-    usage: 'aria-label',
-    description: 'Expand the sidebar',
+    component: '[mlvSidebarTrigger]',
+    usage: 'label',
+    description:
+      'Expand the sidebar — visible row text when the trigger is a sidebar item, accessible name when it is an icon-only button',
   },
   collapse: {
-    component: 'mlv-sidebar-trigger',
-    usage: 'aria-label',
-    description: 'Collapse the sidebar',
+    component: '[mlvSidebarTrigger]',
+    usage: 'label',
+    description:
+      'Collapse the sidebar — visible row text when the trigger is a sidebar item, accessible name when it is an icon-only button',
   },
   openNavigation: {
-    component: 'mlv-sidebar-trigger',
-    usage: 'aria-label',
+    component: '[mlvSidebarTrigger]',
+    usage: 'label',
     description:
-      'Open the navigation menu — shown on the hamburger trigger while the sidebar is an offcanvas drawer',
+      'Open the navigation menu — used by the hamburger trigger while the sidebar is an offcanvas drawer',
   },
   closeNavigation: {
-    component: 'mlv-sidebar-trigger',
-    usage: 'aria-label',
+    component: '[mlvSidebarTrigger]',
+    usage: 'label',
     description:
-      'Close the navigation menu — shown on the trigger while the offcanvas navigation drawer is open',
+      'Close the navigation menu — used by the trigger while the offcanvas navigation drawer is open',
   },
 };

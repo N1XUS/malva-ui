@@ -50,7 +50,21 @@
     <mlv-page-header>
       <ng-template mlvPageTitle>
         <div class="publishing-workspace-showcase__title-row">
-          <mlv-sidebar-trigger [sidebar]="documentsSidebar" />
+          <button
+            mlvButton
+            variant="transparent"
+            shape="square"
+            mlvSidebarTrigger
+            #documentsSidebarTrigger="mlvSidebarTrigger"
+            [sidebar]="documentsSidebar"
+            [attr.aria-label]="documentsSidebarTrigger.label()"
+          >
+            @if (documentsSidebarTrigger.collapsed()) {
+              <svg lucideMenu [size]="20" />
+            } @else {
+              <svg lucideX [size]="20" />
+            }
+          </button>
           <h1
             mlvTitle
             editable

@@ -20,6 +20,7 @@ import { MlvSidebar } from './sidebar';
 import type { MlvSidebarAppearance } from '../sidebar-appearance';
 import type { MlvSidebarMode } from '../sidebar-mode';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvSidebarGroup } from '../sidebar-group/sidebar-group';
 import { MlvSidebarItem } from '../sidebar-item/sidebar-item';
 import { MlvSidebarHeader } from '../sidebar-header';
@@ -506,86 +507,160 @@ describe('MlvSidebarRail', () => {
 });
 
 describe('MlvSidebarTrigger', () => {
-  it('should render a button with toggle functionality', async () => {
-    @Component({
-      template: `
-        <mlv-sidebar mode="icon">
-          <mlv-sidebar-trigger />
-        </mlv-sidebar>
-      `,
-      imports: [MlvSidebar, MlvSidebarTrigger],
-    })
-    class TriggerTestHost {}
+  @Component({
+    template: `
+      <mlv-sidebar [mode]="mode()">
+        <mlv-sidebar-item
+          mlvSidebarTrigger
+          #collapseTrigger="mlvSidebarTrigger"
+          [label]="collapseTrigger.label()"
+        />
+      </mlv-sidebar>
+    `,
+    imports: [MlvSidebar, MlvSidebarItem, MlvSidebarTrigger],
+  })
+  class TriggerTestHost {
+    readonly mode = signal<MlvSidebarMode>('icon');
+  }
 
+  async function renderTrigger(
+    mode: MlvSidebarMode = 'icon',
+  ): Promise<ComponentFixture<TriggerTestHost>> {
     const fixture = TestBed.configureTestingModule({
       imports: [TriggerTestHost],
       providers: [provideMlvI18nTesting()],
     }).createComponent(TriggerTestHost);
+    fixture.componentInstance.mode.set(mode);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  function triggerRow(fixture: ComponentFixture<unknown>): HTMLElement {
+    return fixture.nativeElement.querySelector(
+      'mlv-sidebar-item',
+    ) as HTMLElement;
+  }
+
+  it('turns its host row into a named, expanded-state toggle', async () => {
+    const fixture = await renderTrigger();
+    const row = triggerRow(fixture);
+
+    // The directive renders no chrome of its own — the row is an ordinary
+    // `mlv-sidebar-item`, which is exactly the point of the refactor.
+    expect(
+      fixture.nativeElement.querySelector('mlv-sidebar-trigger'),
+    ).toBeNull();
+    expect(row.getAttribute('role')).toBe('button');
+    expect(row.getAttribute('aria-expanded')).toBe('true');
+    expect(row.getAttribute('aria-label')).toBe('Collapse sidebar');
+    expect(row.textContent?.trim()).toBe('Collapse sidebar');
+  });
+
+  it('toggles the sidebar on click and re-labels itself', async () => {
+    const fixture = await renderTrigger();
+    const sidebar = fixture.debugElement.children[0]
+      .componentInstance as MlvSidebar;
+    const row = triggerRow(fixture);
+    expect(sidebar.collapsed()).toBe(false);
+
+    row.click();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const trigger = fixture.nativeElement.querySelector('.mlv-sidebar-trigger');
-    expect(trigger).toBeTruthy();
+    expect(sidebar.collapsed()).toBe(true);
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    expect(row.getAttribute('aria-label')).toBe('Expand sidebar');
 
-    const button = trigger.querySelector('button');
-    expect(button).toBeTruthy();
-    expect(button.getAttribute('aria-expanded')).toBe('true');
-    expect(button.getAttribute('aria-label')).toBe('Collapse sidebar');
+    row.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(sidebar.collapsed()).toBe(false);
   });
 
-  it('should toggle sidebar on click', async () => {
+  it('toggles from the keyboard, which the row turns into a click', async () => {
+    const fixture = await renderTrigger();
+    const sidebar = fixture.debugElement.children[0]
+      .componentInstance as MlvSidebar;
+
+    triggerRow(fixture).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(sidebar.collapsed()).toBe(true);
+  });
+
+  it('names itself for the drawer while the sidebar is offcanvas', async () => {
+    await renderTrigger('offcanvas');
+
+    // The drawer projects its content only while open, so the row is in the
+    // overlay rather than in the fixture host.
+    const row = document.querySelector('mlv-sidebar-item') as HTMLElement;
+    expect(row.getAttribute('aria-label')).toBe('Close navigation menu');
+  });
+
+  it('hides its host in fixed mode, where the sidebar cannot collapse', async () => {
+    const fixture = await renderTrigger('fixed');
+
+    expect(triggerRow(fixture).style.display).toBe('none');
+
+    fixture.componentInstance.mode.set('icon');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(triggerRow(fixture).style.display).toBe('');
+  });
+
+  it('drives a sidebar it is not nested in through the sidebar input', async () => {
     @Component({
       template: `
-        <mlv-sidebar mode="icon">
-          <mlv-sidebar-trigger />
-        </mlv-sidebar>
+        <mlv-sidebar #nav mode="icon" />
+        <button
+          mlvSidebarTrigger
+          #navTrigger="mlvSidebarTrigger"
+          type="button"
+          [sidebar]="nav"
+          [attr.aria-label]="navTrigger.label()"
+        ></button>
       `,
       imports: [MlvSidebar, MlvSidebarTrigger],
     })
-    class TriggerClickTestHost {}
+    class ExternalTriggerHost {
+      readonly nav = viewChild.required(MlvSidebar);
+    }
 
     const fixture = TestBed.configureTestingModule({
-      imports: [TriggerClickTestHost],
+      imports: [ExternalTriggerHost],
       providers: [provideMlvI18nTesting()],
-    }).createComponent(TriggerClickTestHost);
+    }).createComponent(ExternalTriggerHost);
     await fixture.whenStable();
-    fixture.detectChanges();
-
-    const sidebar = fixture.debugElement.children[0]
-      .componentInstance as MlvSidebar;
-    expect(sidebar.collapsed()).toBe(false);
-
-    sidebar.toggle();
     fixture.detectChanges();
 
     const button = fixture.nativeElement.querySelector(
-      '.mlv-sidebar-trigger button',
-    );
-    expect(sidebar.collapsed()).toBe(true);
-    expect(button.getAttribute('aria-label')).toBe('Expand sidebar');
-    expect(button.getAttribute('aria-expanded')).toBe('false');
-  });
+      'button',
+    ) as HTMLButtonElement;
+    expect(button.getAttribute('aria-label')).toBe('Collapse sidebar');
 
-  it('should be hidden in fixed mode', async () => {
-    @Component({
-      template: `<mlv-sidebar mode="fixed"
-        ><mlv-sidebar-trigger
-      /></mlv-sidebar>`,
-      imports: [MlvSidebar, MlvSidebarTrigger],
-    })
-    class FixedTestHost {}
-
-    const fixture = TestBed.configureTestingModule({
-      imports: [FixedTestHost],
-      providers: [provideMlvI18nTesting()],
-    }).createComponent(FixedTestHost);
+    button.click();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const trigger = fixture.nativeElement.querySelector('.mlv-sidebar-trigger');
-    expect(trigger.classList.contains('mlv-sidebar-trigger--hidden')).toBe(
-      true,
-    );
+    expect(fixture.componentInstance.nav().collapsed()).toBe(true);
+    expect(button.getAttribute('aria-label')).toBe('Expand sidebar');
+  });
+
+  it('has no axe violations in either state', async () => {
+    const fixture = await renderTrigger();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+
+    triggerRow(fixture).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });
 
@@ -1342,7 +1417,13 @@ describe('MlvSidebar responsive collapseBelow', () => {
           />
         </div>
       </mlv-sidebar>
-      <mlv-sidebar-trigger #externalTrigger [sidebar]="nav" />
+      <button
+        mlvSidebarTrigger
+        #externalTrigger="mlvSidebarTrigger"
+        type="button"
+        [sidebar]="nav"
+        [attr.aria-label]="externalTrigger.label()"
+      ></button>
 
       <ng-template #activationDialog>
         <mlv-dialog>
@@ -1435,7 +1516,7 @@ describe('MlvSidebar responsive collapseBelow', () => {
     fixture: ComponentFixture<ResponsiveHost>,
   ): HTMLButtonElement {
     return fixture.nativeElement.querySelector(
-      '.mlv-sidebar-trigger__btn',
+      'button[mlvSidebarTrigger]',
     ) as HTMLButtonElement;
   }
 
@@ -1811,10 +1892,8 @@ describe('MlvSidebar responsive collapseBelow', () => {
 
   it('renders the trigger as a labelled menu button while the drawer is in play', async () => {
     const fixture = await render();
-    const trigger = fixture.nativeElement.querySelector(
-      'mlv-sidebar-trigger',
-    ) as HTMLElement;
-    expect(trigger.classList.contains('mlv-sidebar-trigger--menu')).toBe(false);
+    const trigger = fixture.componentInstance.externalTrigger();
+    expect(trigger.isDrawerTrigger()).toBe(false);
     expect(triggerButton(fixture).getAttribute('aria-label')).toBe(
       'Collapse sidebar',
     );
@@ -1824,7 +1903,7 @@ describe('MlvSidebar responsive collapseBelow', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(trigger.classList.contains('mlv-sidebar-trigger--menu')).toBe(true);
+    expect(trigger.isDrawerTrigger()).toBe(true);
     expect(triggerButton(fixture).getAttribute('aria-label')).toBe(
       'Open navigation menu',
     );
@@ -1865,12 +1944,8 @@ describe('MlvSidebar responsive collapseBelow', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    const trigger = fixture.nativeElement.querySelector(
-      'mlv-sidebar-trigger',
-    ) as HTMLElement;
-    expect(trigger.classList.contains('mlv-sidebar-trigger--hidden')).toBe(
-      true,
-    );
+    const trigger = triggerButton(fixture);
+    expect(trigger.style.display).toBe('none');
 
     setViewport('sm');
     fixture.detectChanges();
@@ -1879,9 +1954,7 @@ describe('MlvSidebar responsive collapseBelow', () => {
 
     const sidebar = fixture.componentInstance.sidebar();
     expect(sidebar.effectiveMode()).toBe('offcanvas');
-    expect(trigger.classList.contains('mlv-sidebar-trigger--hidden')).toBe(
-      false,
-    );
+    expect(trigger.style.display).toBe('');
     // Collapse is no longer suppressed, so the drawer really is closed.
     expect(sidebar.collapsed()).toBe(true);
   });

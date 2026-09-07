@@ -13,6 +13,7 @@ import {
 import {
   LucideFileText,
   LucideHistory,
+  LucideMenu,
   LucideRotateCcw,
   LucideSparkles,
   LucideX,
@@ -189,6 +190,7 @@ interface DocumentWorkState {
     MlvTitle,
     LucideFileText,
     LucideHistory,
+    LucideMenu,
     LucideRotateCcw,
     LucideSparkles,
     LucideX,

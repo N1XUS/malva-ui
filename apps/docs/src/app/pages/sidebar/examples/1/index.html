@@ -111,7 +111,19 @@
         </ng-template>
       </mlv-sidebar-item>
 
-      <mlv-sidebar-trigger />
+      <mlv-sidebar-item
+        mlvSidebarTrigger
+        #collapseTrigger="mlvSidebarTrigger"
+        [label]="collapseTrigger.label()"
+      >
+        <ng-template mlvSidebarItemIcon>
+          @if (collapseTrigger.collapsed()) {
+            <svg lucidePanelLeftOpen size="20" />
+          } @else {
+            <svg lucidePanelLeftClose size="20" />
+          }
+        </ng-template>
+      </mlv-sidebar-item>
     </div>
   </mlv-sidebar>
 </div>
