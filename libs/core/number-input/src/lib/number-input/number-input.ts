@@ -18,7 +18,10 @@ import {
 import { fromEvent } from 'rxjs';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import type { MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvSignalFormControlBase,
   MlvDescription,
@@ -99,6 +102,14 @@ export class MlvNumberInput
   extends MlvSignalFormControlBase<number | null>
   implements MlvFormControl
 {
+  /**
+   * @protected {@link id} lands on the native `<input>`, which is labelable,
+   * so a projected `<mlv-label>` names it with a plain `for`.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return 'native';
+  }
+
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_NUMBER_INPUT_I18N);
 

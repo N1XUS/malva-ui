@@ -15,7 +15,10 @@ import {
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
-import type { MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvSignalFormControlBase,
   MLV_FORM_CONTROL,
@@ -77,6 +80,38 @@ export class MlvTitle
   extends MlvSignalFormControlBase<string | null>
   implements MlvFormControl
 {
+  /**
+   * @protected Only an editable title has a focus target at all — the
+   * `<textarea>` that carries {@link _editorId}, which is labelable. A
+   * read-only `[mlvTitle]` is a heading, not a control, so nothing outside it
+   * may be pointed at.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return this.editable() ? 'native' : 'none';
+  }
+
+  /**
+   * @protected Id of the `<textarea>` — derived from {@link id} rather than
+   * equal to it.
+   *
+   * `[mlvTitle]`'s host is the consumer's own heading, and a **static** `id`
+   * attribute is both bound to this inherited input and left on that heading
+   * by the compiler. `<h2 id="overview-title" mlvTitle editable>` would
+   * therefore put `overview-title` on two elements at once, and an
+   * `aria-labelledby` aimed at the heading — the idiom `apps/docs` ships four
+   * times over — would resolve to whichever came first in the document. The
+   * suffix keeps the two distinct while staying derivable from `id`.
+   */
+  protected readonly _editorId = computed(() => `${this.id()}-input`);
+
+  /**
+   * @protected The `<textarea>` is the labelable element here, not the
+   * heading, so that is what a projected `<mlv-label>`'s `for` must name.
+   */
+  protected override _labelTargetId(): string {
+    return this._editorId();
+  }
+
   /** Explicit visual title level. Falls back to the host heading tag. */
   readonly level = input<
     MlvTitleLevel | undefined,

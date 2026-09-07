@@ -27,6 +27,7 @@ import {
   MlvMessage,
   MlvSignalFormControlBase,
 } from '@malva-ui/core/form-utils';
+import type { MlvFormControlLabelStrategy } from '@malva-ui/core/form-utils';
 import { MlvButton, MlvButtonIcon } from '@malva-ui/core/button';
 import { MlvTooltip } from '@malva-ui/core/tooltip';
 import {
@@ -91,6 +92,16 @@ import { isCssColorValue, tryParseCssColor } from '../color-utils/color-utils';
   },
 })
 export class MlvColorPickerPopup extends MlvSignalFormControlBase<string> {
+  /**
+   * @protected In field presentation {@link id} lands on the native text
+   * `<input>`, which is labelable. The swatch and icon presentations render a
+   * button trigger that carries no `id`, so nothing outside can be pointed at
+   * and the control names itself from {@link ariaLabel} instead.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return this.presentation() === 'field' ? 'native' : 'none';
+  }
+
   /** The committed CSS color string used by all Angular forms APIs. */
   readonly value = model<string>('#ff0000');
 

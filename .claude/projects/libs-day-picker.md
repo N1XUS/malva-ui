@@ -162,3 +162,14 @@ Decision: keep manual. No public API, template, or spec changes. This is the pla
 - Inherited `ariaLabel` names the trigger when no visible `label` is set (a visible label still wins through `aria-labelledby`).
 - Inherited `description` renders `<mlv-description>` below the control; the trigger's `aria-describedby` is the base's `_describedBy()`.
 - The public `messageId` computed is gone — `<mlv-message>` now carries the base's `_messageId()`, which previously had no id at all on some paths.
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvDayPicker` reports `_externalLabelStrategy()` **`'aria'`**: `id()` sits on
+the trigger `div[role="combobox"]`, which `<label for>` cannot name, so an
+`<mlv-label>` projected beside it into `mlv-form-field` reaches it through
+`aria-labelledby` (`label() ? labelId() : _fieldLabelId()`); `aria-label` is
+suppressed when either resolves.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
