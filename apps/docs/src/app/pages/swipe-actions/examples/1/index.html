@@ -1,0 +1,31 @@
+@if (messages().length) {
+  <mlv-list class="swipe-demo" aria-label="Inbox">
+    @for (message of messages(); track message.id) {
+      <!-- Inside a list the row is the list item: the actions sit beside the
+           content, and a list may own nothing but items. The projected
+           mlv-list-item keeps its layout and steps down to a plain box. -->
+      <mlv-swipe-actions role="listitem">
+        <mlv-list-item
+          itemRole="none"
+          [accent]="message.flagged ? 'warning' : undefined"
+        >
+          <mlv-avatar mlvListItemMedia [name]="message.from" />
+          <span mlvListItemTitle>{{ message.from }}</span>
+          <span mlvListItemByline>{{ message.subject }}</span>
+        </mlv-list-item>
+
+        <button mlvSwipeAction tone="warning" (click)="flag(message)">
+          <svg lucideFlag [size]="20" aria-hidden="true" />
+          {{ message.flagged ? 'Unflag' : 'Flag' }}
+        </button>
+        <button mlvSwipeAction tone="danger" (click)="remove(message)">
+          <svg lucideTrash2 [size]="20" aria-hidden="true" />
+          Delete
+        </button>
+      </mlv-swipe-actions>
+    }
+  </mlv-list>
+} @else {
+  <p class="swipe-demo__empty">Inbox zero.</p>
+}
+<p class="swipe-demo__status" aria-live="polite">{{ status() }}</p>

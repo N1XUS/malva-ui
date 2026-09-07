@@ -4,7 +4,7 @@ import { MlvResizeObserverService } from './resize-observer.service';
 
 @Directive({
   selector: '[mlvResizeObserver]',
-  exportAs: 'uiResizeObserver',
+  exportAs: 'mlvResizeObserver',
 })
 export class MlvResizeObserver {
   /**

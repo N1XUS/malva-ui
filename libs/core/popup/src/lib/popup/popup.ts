@@ -22,13 +22,14 @@ import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import type {
   ConnectedPosition,
   HorizontalConnectionPos,
+  VerticalConnectionPos,
 } from '@angular/cdk/overlay';
 import { OverlayModule } from '@angular/cdk/overlay';
 import { A11yModule } from '@angular/cdk/a11y';
 import { PortalModule } from '@angular/cdk/portal';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvBreakpointService } from '@malva-ui/cdk/utils';
-import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
+import type { MlvBreakpoint, MlvDirection } from '@malva-ui/cdk/utils';
 import { MLV_DENSITY_CONTEXT, MlvDensityService } from '@malva-ui/cdk/density';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import { MLV_POPUP_I18N } from '@malva-ui/i18n';
@@ -44,8 +45,61 @@ import type { MlvPopupPositionName } from '../popup-positions';
 import { MlvPopupPositionResolver, POPUP_POSITIONS } from '../popup-positions';
 import { MlvButtonClose } from '@malva-ui/core/button';
 
+/**
+ * The edge of the popup panel the arrow is drawn on.
+ *
+ * **Physical, not a logical alias** — `'left'` is the viewport's left edge in
+ * both LTR and RTL, exactly like `'top'` and `'bottom'` are. The panel's
+ * `::before` glyph is a square rotated a physical `45deg`, so which edge it
+ * hangs off and which two of its borders survive are physical decisions no
+ * logical property can express.
+ *
+ * {@link MlvPopup.updateArrowFromPosition} is where the conversion happens: the
+ * `ConnectedPosition` CDK reports is logical, and it is mirrored there against
+ * the direction of the pane the panel was rendered into. See
+ * `.claude/rules/rtl.md`, "collision-resolved overlay arrow".
+ */
 export type MlvPopupArrowEdge = 'top' | 'bottom' | 'left' | 'right';
+
+/**
+ * Where along its {@link MlvPopupArrowEdge} the arrow sits.
+ *
+ * **Physical, not a logical alias**, for the same reason as the edge:
+ * `'start'` is the left end of a `top` / `bottom` edge and the top end of a
+ * `left` / `right` edge, in both directions; `'end'` is the right / bottom end.
+ * A `bottom-start` popup therefore resolves to `'start'` in LTR and `'end'` in
+ * RTL — both meaning "the corner nearest the trigger".
+ */
 export type MlvPopupArrowAlign = 'start' | 'center' | 'end';
+
+/**
+ * Maps a resolved `overlayX` onto the physical end of a `top` / `bottom` arrow
+ * edge.
+ *
+ * `overlayX` is logical — CDK mirrors `start` / `end` against the pane's own
+ * direction — while {@link MlvPopupArrowAlign} is physical, so the two ends
+ * swap in RTL. `'center'` is direction-agnostic.
+ */
+function toInlineAlign(
+  overlayX: HorizontalConnectionPos,
+  rtl: boolean,
+): MlvPopupArrowAlign {
+  if (overlayX === 'center') return 'center';
+  const physicallyAtStart = rtl ? overlayX === 'end' : overlayX === 'start';
+  return physicallyAtStart ? 'start' : 'end';
+}
+
+/**
+ * Maps a resolved `overlayY` onto the physical end of a `left` / `right` arrow
+ * edge. The block axis never mirrors, so this takes no direction.
+ */
+function toBlockAlign(overlayY: VerticalConnectionPos): MlvPopupArrowAlign {
+  return overlayY === 'top'
+    ? 'start'
+    : overlayY === 'bottom'
+      ? 'end'
+      : 'center';
+}
 
 /**
  * Fallback delay (ms) after which a pending leave is force-completed when the
@@ -425,13 +479,32 @@ export class MlvPopup {
   readonly afterClosed = output<void>();
 
   readonly animationState = signal<'enter' | 'leave' | 'idle'>('idle');
+  /**
+   * The physical panel edge the arrow is currently drawn on. Written by
+   * {@link updateArrowFromPosition} on every CDK position change.
+   */
   readonly arrowEdge = signal<MlvPopupArrowEdge>('top');
+
+  /**
+   * Where along {@link arrowEdge} the arrow currently sits — physical, see
+   * {@link MlvPopupArrowAlign}.
+   */
   readonly arrowAlign = signal<MlvPopupArrowAlign>('start');
 
   /**
-   * CSS transform value for the popup's hidden/offscreen position.
-   * Used as `--mlv-popup-hidden-transform` so the enter/leave keyframes
-   * slide in from the correct edge depending on where the popup is placed.
+   * A physical offscreen offset derived from {@link arrowEdge} — 4px away from
+   * the trigger, on whichever physical side the panel ended up on.
+   *
+   * Bound to `--mlv-popup-hidden-transform` on the panel.
+   *
+   * **Currently inert.** No stylesheet in the workspace reads that custom
+   * property: the `popup-enter` / `popup-leave` keyframes in
+   * `libs/styles/src/lib/animations.scss` read
+   * `--mlv-popup-enter-from-translate-y` / `-scale` / `-opacity` and the
+   * matching `--mlv-popup-leave-to-*`, which this value has never fed. So the
+   * computed is correct but has no visual effect, and it is not part of what
+   * #163 fixed — see `.claude/projects/libs-popup.md` → _Arrow geometry is
+   * physical_.
    */
   readonly popupHiddenTransform = computed(() => {
     switch (this.arrowEdge()) {
@@ -610,45 +683,65 @@ export class MlvPopup {
   }
 
   /**
-   * Derives `arrowEdge` and `arrowAlign` from a resolved CDK `ConnectedPosition`.
+   * Derives the **physical** {@link arrowEdge} / {@link arrowAlign} from the
+   * `ConnectedPosition` CDK actually applied.
    *
-   * Detection logic:
-   * - `overlayX='end'` + `originX='start'`  → popup is to the **left** of the trigger  → arrow on right edge
-   * - `overlayX='start'` + `originX='end'`  → popup is to the **right** of the trigger → arrow on left edge
-   * - `overlayY='top'` (all other cases)   → popup is **below** the trigger           → arrow on top edge
-   * - `overlayY='bottom'` (all other cases) → popup is **above** the trigger           → arrow on bottom edge
+   * The pair is **logical**. `FlexibleConnectedPositionStrategy` mirrors
+   * `start` / `end` against the pane's own direction (its `_isRtl()` reads
+   * `overlayRef.getDirection()`), and the pane is portaled to `<body>`, so that
+   * direction is the **trigger's**, not the document's — a popup opened from
+   * inside a `dir="rtl"` subtree mirrors while the page around it does not.
+   * Copying the pair through therefore inverts both side arrows: in RTL
+   * `overlayX: 'end'` + `originX: 'start'` puts the panel to the *right* of the
+   * trigger, and an arrow on the right edge points away from it (#163).
    *
-   * For left/right arrows the vertical alignment is read from `overlayY`
-   * (`'top'` → `'start'`, `'center'` → `'center'`, `'bottom'` → `'end'`).
-   * For top/bottom arrows the horizontal alignment comes directly from `overlayX`.
+   * `direction` is the value the overlay was created with, read back off the
+   * overlay by `MlvPopupService` and handed to `onPositionChange`, so the arrow
+   * cannot disagree with the geometry CDK produced from it.
+   *
+   * Detection logic, stated in LTR — the inline axis mirrors in RTL, the block
+   * axis never moves:
+   * - `overlayX='end'` + `originX='start'` → panel to the trigger's **inline start**
+   *   → arrow on the panel's inline-end edge → physical `right` (LTR) / `left` (RTL)
+   * - `overlayX='start'` + `originX='end'` → panel to the trigger's **inline end**
+   *   → arrow on the panel's inline-start edge → physical `left` (LTR) / `right` (RTL)
+   * - `overlayY='top'` (all other cases) → panel **below** the trigger → arrow on top
+   * - `overlayY='bottom'` (all other cases) → panel **above** the trigger → arrow on bottom
+   *
+   * A side arrow's alignment rides `overlayY` (block axis — never mirrors); a
+   * top/bottom arrow's rides `overlayX` and mirrors with it.
+   *
+   * @param pair — the position CDK resolved, from
+   *   `ConnectedOverlayPositionChange.connectionPair`.
+   * @param direction — the direction of the pane the panel is rendered into.
+   *   Optional so the signature stays source-compatible; omitting it assumes
+   *   `'ltr'` and reproduces the pre-#163 mapping exactly. Every overlay owner
+   *   in this library passes it.
    */
-  updateArrowFromPosition(pair: ConnectedPosition): void {
+  updateArrowFromPosition(
+    pair: ConnectedPosition,
+    direction: MlvDirection = 'ltr',
+  ): void {
     const { originX, overlayX, overlayY } = pair;
+    const rtl = direction === 'rtl';
 
     if (overlayX === 'end' && originX === 'start') {
-      // Popup is to the LEFT of the trigger — arrow on the right edge
-      this.arrowEdge.set('right');
-      this.arrowAlign.set(
-        overlayY === 'top' ? 'start' : overlayY === 'bottom' ? 'end' : 'center',
-      );
+      // Panel hangs off the trigger's inline-START side, so the arrow rides the
+      // panel's inline-END edge — physically right in LTR, left in RTL.
+      this.arrowEdge.set(rtl ? 'left' : 'right');
+      this.arrowAlign.set(toBlockAlign(overlayY));
     } else if (overlayX === 'start' && originX === 'end') {
-      // Popup is to the RIGHT of the trigger — arrow on the left edge
-      this.arrowEdge.set('left');
-      this.arrowAlign.set(
-        overlayY === 'top' ? 'start' : overlayY === 'bottom' ? 'end' : 'center',
-      );
+      // Panel hangs off the trigger's inline-END side — the mirror image.
+      this.arrowEdge.set(rtl ? 'right' : 'left');
+      this.arrowAlign.set(toBlockAlign(overlayY));
     } else if (overlayY === 'top') {
-      // Popup is BELOW the trigger — arrow on the top edge
+      // Panel is BELOW the trigger — arrow on the top edge.
       this.arrowEdge.set('top');
-      this.arrowAlign.set(
-        overlayX as HorizontalConnectionPos & MlvPopupArrowAlign,
-      );
+      this.arrowAlign.set(toInlineAlign(overlayX, rtl));
     } else {
-      // Popup is ABOVE the trigger — arrow on the bottom edge
+      // Panel is ABOVE the trigger — arrow on the bottom edge.
       this.arrowEdge.set('bottom');
-      this.arrowAlign.set(
-        overlayX as HorizontalConnectionPos & MlvPopupArrowAlign,
-      );
+      this.arrowAlign.set(toInlineAlign(overlayX, rtl));
     }
   }
 }

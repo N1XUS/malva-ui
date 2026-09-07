@@ -219,10 +219,12 @@ page documents its signature in prose.
 
 The Scheduler page (`/scheduler`, icon `calendar-days`, API family `scheduler`,
 Data display group) documents the standalone `@malva-ui/scheduler` package in
-seven examples: views + model binding, all-day / multi-day events,
+eight examples: views + model binding, all-day / multi-day events,
 drag / resize / vetoes, a custom chip template + colours, working hours / slots /
-hidden days, a custom header + external drop from a SortableJS list, and range
-selection + density. Every example gives `mlv-scheduler` an explicit
+hidden days, a custom header + external drop from a SortableJS list, range
+selection + density, and context menus (`*mlvSchedulerSlotMenuDef` creating an
+event for the cell / slot / pending selection, `*mlvSchedulerEventMenuDef` with
+rename / duplicate / a `MlvDialogService.confirm()`-guarded delete). Every example gives `mlv-scheduler` an explicit
 `block-size`, because the month view measures its lanes against the height it is
 given. The custom-chip example narrows its typed `data` payload in a component
 method: the `mlvSchedulerEventDef` directive has no inputs, so a template's
@@ -851,8 +853,10 @@ The root component is deliberately minimal and contains only the top-level `<rou
 `docs-app-bar.html`, `docs-app-bar-preferences.ts`
 
 The app bar owns the one semantic header across the home page, documentation
-shell, and showcases. It supplies the skip link, Malva brand, Docs/Showcases
-segmented navigation, GitHub link, and the display-preferences popup. The
+shell, and showcases. It supplies the skip link, a `[docsAppBarLeading]`
+content slot ahead of the brand (the documentation shell projects its
+navigation trigger there), Malva brand, Docs/Showcases segmented navigation,
+GitHub link, and the display-preferences popup. The
 preferences popup also exposes the global LTR/RTL direction selector, which
 updates the document direction and CDK directionality for component previews.
 `DocsAppBarPreferencesComponent` owns persisted theme mode, global density,
@@ -875,6 +879,7 @@ app bar.
 
 ```
 <docs-app-bar>
+  <button docsAppBarLeading class="docs-shell__mobile-menu">  ← navigation trigger, below md only
 <mlv-layout>
   <mlv-sidebar>                     ← searchable grouped navigation
     @for (group of navigationGroups())
@@ -890,9 +895,12 @@ alphabetized within semantic groups. It includes a page filter, uses an icon
 rail on larger screens, and switches to an auto-closing off-canvas sidebar on
 small screens.
 
-The shell's labelled mobile-navigation trigger appears at the start of the
-content row, below the shared app bar. Documentation content and preference
-labels remain English.
+The shell's labelled mobile-navigation trigger (`aria-expanded` follows the
+sidebar) is projected into the app bar's `[docsAppBarLeading]` slot, so it is
+the **first item of the primary `<nav>`**, ahead of the brand link, at the same
+height as the rest of the chrome. The shell still owns its state and toggling;
+`docs-app-bar` only offers the slot, which home and showcase routes leave
+empty. Documentation content and preference labels remain English.
 
 The docs codebase now demonstrates the grouped public package surface in example imports wherever possible, while the underlying leaf libraries remain the granular Nx implementation units.
 

@@ -367,6 +367,8 @@ const de: MlvLanguage = {
     moveRejected: '{title} kann dort nicht abgelegt werden',
     rangeChanged: 'Zeige {period}',
     selectionHint: '{start} bis {end} ausgewählt. Enter drücken zum Bestätigen',
+    eventMenu: 'Aktionen für {title}',
+    slotMenu: 'Aktionen für {start}',
   },
   scrollbar: { scrollableRegion: 'Scrollbarer Bereich' },
   searchField: {

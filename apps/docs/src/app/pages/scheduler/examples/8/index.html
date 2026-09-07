@@ -1,0 +1,33 @@
+<mlv-scheduler
+  [(events)]="events"
+  view="week"
+  style="block-size: 36rem"
+  (eventDelete)="remove($event.event)"
+>
+  <ng-template mlvSchedulerSlotMenuDef let-range let-selection="selection">
+    <mlv-list-item mlvMenuItem (itemClick)="create(range)">
+      <svg mlvListItemPrefix lucidePlus [size]="14"></svg>
+      {{ selection ? 'New event for the selection' : 'New event here' }}
+    </mlv-list-item>
+  </ng-template>
+  <ng-template mlvSchedulerEventMenuDef let-event>
+    <mlv-list-item mlvMenuItem (itemClick)="rename(event)">
+      <svg mlvListItemPrefix lucidePencil [size]="14"></svg>
+      Rename
+    </mlv-list-item>
+    <mlv-list-item mlvMenuItem (itemClick)="duplicate(event)">
+      <svg mlvListItemPrefix lucideCopy [size]="14"></svg>
+      Duplicate
+    </mlv-list-item>
+    <mlv-menu-separator />
+    <mlv-list-item mlvMenuItem (itemClick)="remove(event)">
+      <svg mlvListItemPrefix lucideTrash2 [size]="14"></svg>
+      Delete…
+    </mlv-list-item>
+  </ng-template>
+</mlv-scheduler>
+<ul class="docs-scheduler-log" aria-live="polite">
+  @for (line of log(); track $index) {
+    <li>{{ line }}</li>
+  }
+</ul>

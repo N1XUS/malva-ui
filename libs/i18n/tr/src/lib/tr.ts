@@ -377,6 +377,8 @@ const tr: MlvLanguage = {
     rangeChanged: '{period} gösteriliyor',
     selectionHint:
       '{start} ile {end} arası seçildi. Onaylamak için Enter tuşuna basın',
+    eventMenu: '{title} için işlemler',
+    slotMenu: '{start} için işlemler',
   },
   scrollbar: {
     scrollableRegion: 'Kaydırılabilir bölge',

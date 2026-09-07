@@ -1,0 +1,5 @@
+## Disabled and Right-to-Left
+
+`disabled` locks the row on its content: the scroll axis is hidden, an open row closes, and `open()` / `peek()` are ignored. The actions remain in the DOM and in the accessibility tree — disable the buttons themselves if they must not be activated at all.
+
+Direction is scoped: `dir="rtl"` on any ancestor mirrors the row — the `start` actions move to the right edge, the `end` actions to the left, and swiping mirrors with them. There is no direction input; the attribute is the API.

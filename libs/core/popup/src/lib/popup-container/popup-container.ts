@@ -129,8 +129,8 @@ export class MlvPopupContainer implements OnDestroy, MlvPopupContainerRef {
       scrollStrategy: popup.scrollStrategy(),
       flexibleDimensions: popup.flexibleDimensions(),
       dismissExcludeElements: popup.dismissExcludeElements(),
-      onPositionChange: (change) =>
-        popup.updateArrowFromPosition(change.connectionPair),
+      onPositionChange: (change, direction) =>
+        popup.updateArrowFromPosition(change.connectionPair, direction),
       onClose: () => {
         this._clearDetachWatchdog();
         this._handle = null;

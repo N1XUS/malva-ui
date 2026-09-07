@@ -1,0 +1,5 @@
+## Both Sides and the Hint
+
+A static `side="start"` attribute puts an action on the inline-start edge; everything else stays on the inline-end edge. The row rests on its content in between, so it swipes either way, and a flick from one side always stops on the content before reaching the other. Both edges are logical — the whole row mirrors under `dir="rtl"`.
+
+`hint` plays a one-time peek of the end actions once the row is positioned, an onboarding cue for the gesture. Put it on the first row of a list, not on all of them; it never plays under `prefers-reduced-motion`.

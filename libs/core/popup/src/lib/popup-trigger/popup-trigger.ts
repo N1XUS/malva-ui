@@ -247,8 +247,8 @@ export class MlvPopupTrigger implements OnDestroy {
       fullscreen: popup.lockFullscreenForOpen(),
       hasBackdrop: popup.hasBackdrop() ?? !isHover,
       scrollStrategy: popup.scrollStrategy(),
-      onPositionChange: (change) =>
-        popup.updateArrowFromPosition(change.connectionPair),
+      onPositionChange: (change, direction) =>
+        popup.updateArrowFromPosition(change.connectionPair, direction),
       onClose: () => {
         this._removeOverlayMouseListeners();
         this._clearHoverTimer();

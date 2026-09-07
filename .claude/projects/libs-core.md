@@ -44,6 +44,7 @@
 - `@malva-ui/core/slider`
 - `@malva-ui/core/status-indicator`
 - `@malva-ui/core/switch`
+- `@malva-ui/core/swipe-actions`
 - `@malva-ui/core/tabs`
 - `@malva-ui/core/tile`
 - `@malva-ui/core/title`
@@ -93,6 +94,7 @@ Exported from `libs/core/src/index.ts`:
 - All exports from `@malva-ui/core/slider`
 - All exports from `@malva-ui/core/status-indicator`
 - All exports from `@malva-ui/core/switch`
+- All exports from `@malva-ui/core/swipe-actions`
 - All exports from `@malva-ui/core/tabs`
 - All exports from `@malva-ui/core/tile`
 - All exports from `@malva-ui/core/title`
@@ -227,6 +229,7 @@ rather than being required of consumers):
 - `@malva-ui/core/slider`
 - `@malva-ui/core/status-indicator`
 - `@malva-ui/core/switch`
+- `@malva-ui/core/swipe-actions`
 - `@malva-ui/core/tabs`
 - `@malva-ui/core/tile`
 - `@malva-ui/core/title`

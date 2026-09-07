@@ -48,8 +48,9 @@
       content: '';
       position: absolute;
       top: -0.5rem;
-      left: -0.5rem;
-      right: -0.5rem;
+      // Symmetric: both inline sides carry the same value, so the logical
+      // shorthand says it once and is direction-agnostic by construction.
+      inset-inline: -0.5rem;
       bottom: -0.5rem;
       background: transparent;
       z-index: 1;
@@ -221,6 +222,20 @@
       }
     }
 
+    // The arrow glyph is deliberately PHYSICAL end to end.
+    //
+    // `MlvPopup.updateArrowFromPosition()` converts the logical
+    // `ConnectedPosition` CDK applied into a physical `arrowEdge`/`arrowAlign`
+    // using the direction of the pane the panel is rendered into — the one CDK
+    // itself mirrored `start`/`end` against. `.claude/rules/rtl.md` lists the
+    // collision-resolved overlay arrow as an allowed physical exception for
+    // exactly this: the arrow follows the side CDK actually chose, not the side
+    // that was requested. A logical declaration here would mirror a *second*
+    // time on top of that conversion and land the tip back on the far edge.
+    //
+    // The glyph is also a square rotated a physical `45deg`, so which corner
+    // becomes the tip — and therefore which two borders survive — is a physical
+    // fact that no logical property can express.
     &--arrow {
       &::before {
         content: '';
@@ -235,7 +250,9 @@
       &-top {
         &::before {
           top: -0.4375rem;
-          border-inline-end: none;
+          // physical: `rotate(45deg)` sends the top-left corner straight up, so
+          // an upward tip keeps the top and left borders in both directions.
+          border-right: none;
           border-bottom: none;
           transform: rotate(45deg);
         }
@@ -244,7 +261,7 @@
       &-bottom {
         &::before {
           bottom: -0.4375rem;
-          border-inline-start: none;
+          border-left: none; // physical: downward tip keeps bottom + right
           border-top: none;
           transform: rotate(45deg);
         }
@@ -252,8 +269,8 @@
 
       &-left {
         &::before {
-          left: -0.4375rem;
-          border-inline-end: none;
+          left: -0.4375rem; // physical: `arrowEdge` is a physical edge
+          border-right: none; // physical: leftward tip keeps bottom + left
           border-top: none;
           transform: rotate(45deg);
         }
@@ -261,8 +278,8 @@
 
       &-right {
         &::before {
-          right: -0.4375rem;
-          border-inline-start: none;
+          right: -0.4375rem; // physical: `arrowEdge` is a physical edge
+          border-left: none; // physical: rightward tip keeps top + right
           border-bottom: none;
           transform: rotate(45deg);
         }
@@ -273,6 +290,9 @@
           &-top,
           &-bottom {
             &::before {
+              // physical: `arrowAlign` is a physical end — a `bottom-start`
+              // popup resolves to `--arrow-end` in RTL, where the trigger is
+              // under the panel's right corner.
               left: 1rem;
             }
           }
@@ -291,8 +311,13 @@
           &-top,
           &-bottom {
             &::before {
+              // physical: centring pair (rtl.md's "Centering pair" row, which
+              // names the popup arrow). The end margin of an absolutely
+              // positioned box with `left` set and `right: auto` moves nothing,
+              // so a logical `margin-inline-start` would leave the glyph 6px
+              // off centre in an RTL pane.
               left: 50%;
-              margin-inline-start: -0.375rem;
+              margin-left: -0.375rem;
             }
           }
 
@@ -311,7 +336,7 @@
           &-top,
           &-bottom {
             &::before {
-              right: 1rem;
+              right: 1rem; // physical: see `--arrow-start` above
             }
           }
 

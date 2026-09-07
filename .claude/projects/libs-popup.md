@@ -18,8 +18,8 @@ Exported from `libs/core/popup/src/index.ts`:
 | `MlvPopupHeaderContent` | Directive | Full-screen header extension slot — `[mlvPopupHeaderContent]` |
 | `MlvPopupHeaderActions` | Directive | Full-screen header trailing-action slot — `[mlvPopupHeaderActions]` |
 | `MlvPopupPinnedContent` | Directive | Chrome pinned above the scroll region in every mode — `[mlvPopupPinnedContent]` |
-| `MlvPopupArrowEdge` | Type | `'top' \| 'bottom' \| 'left' \| 'right'` |
-| `MlvPopupArrowAlign` | Type | `'start' \| 'center' \| 'end'` |
+| `MlvPopupArrowEdge` | Type | `'top' \| 'bottom' \| 'left' \| 'right'` — **physical edges**, not logical aliases (see _Arrow geometry is physical_) |
+| `MlvPopupArrowAlign` | Type | `'start' \| 'center' \| 'end'` — **physical ends** of that edge (left/top → `'start'`, right/bottom → `'end'`) |
 | `MlvPopupTrigger` | Directive | Trigger element — `[mlvPopupTrigger]` |
 | `MlvPopupTriggerType` | Type | `'click' \| 'hover' \| 'focus'` |
 | `MlvPopupContainer` | Component | Programmatic container — `mlv-popup-container` |
@@ -28,7 +28,7 @@ Exported from `libs/core/popup/src/index.ts`:
 | `MlvPopupHandle` | Interface | `{ overlayRef, close, setPositionOrigin }` |
 | `MlvPopupSizeConfig` | Interface | Size options |
 | `MlvPopupScrollStrategy` | Type | `'reposition' \| 'close' \| 'block' \| 'noop'` |
-| `MlvPopupPositionName` | Type | Union of 12 named positions (`'bottom-end'`, `'top'`, etc.) |
+| `MlvPopupPositionName` | Type | Union of 12 named positions (`'bottom-end'`, `'top'`, etc.). `left` / `right` and the inline `-start` / `-end` halves are **logical aliases** — they map to CDK's `'start'` / `'end'` and mirror in RTL, unlike `MlvPopupArrowEdge` / `MlvPopupArrowAlign` (see _Arrow geometry is physical_) |
 | `POPUP_POSITIONS` | Token | `InjectionToken<ReadonlyMap<MlvPopupPositionName, ConnectedPosition>>` |
 | `POPUP_POSITION_MAP` | Const | Default map of all 12 named positions |
 | `MlvPopupPositionResolver` | Class | Static helper — `resolve()`, `allPositions()` |
@@ -158,8 +158,12 @@ declares none is byte-identical to one before the slots existed.
 #### Internal Signals
 
 - `animationState: signal<'enter' \| 'leave' \| 'idle'>`
-- `arrowEdge: signal<MlvPopupArrowEdge>`
-- `arrowAlign: signal<MlvPopupArrowAlign>`
+- `arrowEdge: signal<MlvPopupArrowEdge>` — the **physical** panel edge the arrow is drawn on
+- `arrowAlign: signal<MlvPopupArrowAlign>` — the **physical** end of that edge the arrow sits at
+
+Both are written by `updateArrowFromPosition(pair, direction?)` on every CDK
+position change — see _Arrow geometry is physical_.
+
 - `isFullscreen: computed<boolean>` — **public**; whether the popup is rendering as a full-screen mobile sheet. Latched for the lifetime of one open via `lockFullscreenForOpen()` / `releaseFullscreenLock()` (see _Mode is resolved once per open_)
 
 #### Leave-animation fallback
@@ -283,7 +287,7 @@ interface MlvPopupOpenConfig {
   dismissExcludeElements?: readonly HTMLElement[]; // trigger/anchor elements treated as "inside" for backdrop-less click-outside detection
   onClose: () => void;
   onRequestClose?: () => void;
-  onPositionChange?: (change: ConnectedOverlayPositionChange) => void;
+  onPositionChange?: (change: ConnectedOverlayPositionChange, direction: MlvDirection) => void; // `direction` is the *pane's*, read back off the overlay
 }
 
 interface MlvPopupHandle {
@@ -294,6 +298,82 @@ interface MlvPopupHandle {
 ```
 
 `backdropClass` lets consumers replace the default transparent CDK backdrop when they need a styled overlay treatment while keeping the same close behavior.
+
+### Arrow geometry is physical
+
+`MlvPopupArrowEdge` / `MlvPopupArrowAlign` name **physical** screen edges and
+ends, in both directions. The conversion happens once, in
+`MlvPopup.updateArrowFromPosition(pair, direction)`.
+
+- The `ConnectedPosition` CDK reports is **logical**:
+  `FlexibleConnectedPositionStrategy._isRtl()` reads `overlayRef.getDirection()`
+  and mirrors `start` / `end` against it. In RTL, `overlayX: 'end'` +
+  `originX: 'start'` puts the panel to the **right** of the trigger — the mirror
+  image of LTR — so copying the pair through pointed both side arrows at the far
+  edge (#163). `arrowAlign` inverted the same way: a `bottom-start` popup put its
+  arrow in the corner opposite the trigger.
+- The pane is portaled to `<body>`, so the direction that governs it is the
+  **trigger's**, not the document's. `MlvPopupService` resolves it
+  (`resolveDirection(origin)`), hands it to `Overlay.create()`, and then reads it
+  back off the overlay (`overlayRef.getDirection()`) for `onPositionChange` — one
+  source of truth, so the arrow can never disagree with the geometry CDK built
+  from the same value. Nothing resolves a direction a second time. Pinned by
+  `popup.service.spec.ts` → _reports the pane direction, not a re-resolved origin
+  direction_, which is the only spec that separates the two (it calls
+  `overlayRef.setDirection()` out of band, so the origin still resolves LTR);
+  every other direction spec keeps them in sync and passes either way.
+- CDK re-emits `positionChanges` only when the _chosen_ `ConnectedPosition`
+  object changes (or the scroll visibility does), and mirroring usually
+  re-resolves `start` / `end` within the same entry. So `watchDirection`
+  re-delivers the freshest pair with the new direction after `updatePosition()`;
+  without it a flip while the popup is open moved the panel and left the arrow
+  behind. The re-delivery is unconditional, so when CDK _does_ also emit,
+  `onPositionChange` fires **twice** with the same pair and direction — harmless
+  for deriving state, visible to a handler that counts calls.
+- `popupHiddenTransform` switches on `arrowEdge` to pick `translateX(±4px)` and
+  is bound to `--mlv-popup-hidden-transform`. **No stylesheet reads that
+  property** — the `popup-enter` / `popup-leave` keyframes in
+  `libs/styles/src/lib/animations.scss` read `--mlv-popup-enter-from-translate-y`
+  / `-scale` / `-opacity` and the matching `--mlv-popup-leave-to-*` — so the
+  computed follows the physical edge but has no visual effect. Pre-existing dead
+  CSS, not something #163 introduced or fixed.
+
+**Scope of the #163 defect.** `hasArrow` defaults to `false` and the only
+`hasArrow` binding anywhere in `libs/` is `avatar-group.html`, which sets it to
+`false`; every `[hasArrow]="true"` in the repo is an `apps/docs` example. So the
+mis-mapping was visible to **consumers that opt into `[hasArrow]="true"` under
+RTL, plus the docs examples** — not to `mlv-select` / `mlv-combobox` / `mlv-menu`
+/ the pickers, which draw no arrow. `arrowEdge` / `arrowAlign` are still written
+for every popup (the signals are unconditional; only the class bindings are
+gated), which is why the mapping is worth getting right and why the specs assert
+the signals rather than only the rendered classes.
+
+`popup.scss` therefore stays physical — `left` / `right` insets, `border-right` /
+`border-left` removals, a `left: 50%` + `margin-left` centring pair — each line
+carrying a `// physical:` reason. Two independently sufficient grounds, both
+straight out of `.claude/rules/rtl.md`:
+
+1. **Public API** (rtl.md § Public API) names `MlvPopupArrowEdge` by name among
+   the existing `'left' | 'right'` unions that stay for compatibility, whose
+   JSDoc must declare logical-alias vs physical-edge and which must never be
+   silently re-interpreted. It is declared physical.
+2. **The exceptions table** cites `.mlv-popup--arrow-left` by name as the
+   "collision-resolved overlay arrow" case, and § Overlays item 5 requires the
+   arrow side be derived from the _resolved_ pair — the side CDK actually chose
+   after collision handling, not the side that was requested.
+
+A logical declaration would also mirror a _second_ time on top of the
+conversion, and the border-drop pair is not expressible with logical properties
+(`border-inline-end` mirrors; the rule needs "drop the physical right border").
+Mirroring the rotated glyph with `scaleX(var(--mlv-inline-direction))` is a
+perfectly good technique in general — it is rtl.md's own idiom for a directional
+glyph — so it is _not_ the reason this stylesheet stays physical; grounds 1 and 2
+are.
+
+`direction` is optional on `updateArrowFromPosition` and defaults to `'ltr'`,
+which reproduces the pre-#163 mapping exactly; every overlay owner in the library
+(`MlvPopupContainer`, standalone `MlvPopupTrigger`, `MlvMenuOverlayController`)
+passes it.
 
 ### Point-anchored overlays — `positionOrigin` / `setPositionOrigin`
 
@@ -312,9 +392,16 @@ needs from it:
 - focus restoration and `dismissExcludeElements` are element concepts.
 
 `setPositionOrigin` re-anchors an **already-open** overlay and repositions it
-(`FlexibleConnectedPositionStrategy.setOrigin()` + `updatePosition()`). It is a
-no-op once disposed, while detached, and in `fullscreen` mode, which runs a
-global strategy with no origin. A second right-click on an open context menu goes
+(`FlexibleConnectedPositionStrategy.setOrigin()` + `updatePosition()`), and
+**re-resolves the pane's direction from `config.origin`** first
+(`overlayRef.setDirection(resolveDirection(config.origin))`). That matters for
+an origin that resolves lazily to different elements over time — a context menu
+shared by many rows points its `ElementRef` at whichever row was right-clicked
+last — because `watchDirection` only reacts to a `dir` attribute changing, not to
+the origin element changing; without the re-read a panel re-anchored from an LTR
+row to a row inside `[dir="rtl"]` would keep its LTR layout. It is a no-op once
+disposed, while detached, and in `fullscreen` mode, which runs a global strategy
+with no origin. A second right-click on an open context menu goes
 through this rather than closing and reopening — reopening does not even work,
 because `close()` only _starts_ the leave animation and the immediately following
 `open()` bails on the still-`true` open flag.
@@ -387,7 +474,7 @@ providers: [providePopupPositions(new Map([...POPUP_POSITION_MAP, ['bottom', { o
 
 - `.mlv-popup` — background, border, radius, padding, flex column
 - `.mlv-popup--shadow` — `filter: drop-shadow(0 4px 30px rgba(0,0,0,0.16))`
-- `.mlv-popup--arrow` + `.mlv-popup--arrow-{edge}` + `.mlv-popup--arrow-{align}` — positioned arrow via `::before` pseudo-element
+- `.mlv-popup--arrow` + `.mlv-popup--arrow-{edge}` + `.mlv-popup--arrow-{align}` — positioned arrow via `::before` pseudo-element. `{edge}` and `{align}` are **physical** and do not mirror; the mirroring happens in `updateArrowFromPosition` (see _Arrow geometry is physical_)
 - `.mlv-popup--enter` / `.mlv-popup--leave` — animation state classes
 - `.mlv-popup--fullscreen` — full-screen mobile sheet: fills the pane, no border/radius, safe-area padding, slide-up animation (overrides the `--mlv-popup-*-translate-y` keyframe vars)
 - `.mlv-popup__header` (column) / `.mlv-popup__header-row` (title + close flex row) / `.mlv-popup__title` / `.mlv-popup__close` — full-screen header bar

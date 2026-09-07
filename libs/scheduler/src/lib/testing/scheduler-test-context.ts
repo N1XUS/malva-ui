@@ -95,6 +95,12 @@ export function createSchedulerTestContext(
    * a spec can read it back to assert the request was consumed.
    */
   const scrollRequest = signal<MlvSchedulerScrollRequest | null>(null);
+  /**
+   * Writable so a spec can stand in for the root closing a context menu that
+   * took the view's pending keyboard selection; bump it to make the view drop
+   * that selection.
+   */
+  const selectionRelease = signal(0);
   const snap = signal(options.snap ?? options.slotDuration ?? 30);
   /** Seeds the `*mlvSchedulerEventDef` template a chip renders instead of its default body. */
   const eventDef = signal<TemplateRef<MlvSchedulerEventContext> | null>(
@@ -155,6 +161,7 @@ export function createSchedulerTestContext(
       scrollRequest.update((current) =>
         current && current.sequence === sequence ? null : current,
       ),
+    selectionRelease,
     dragging: signal(false),
     translate: (key, params) =>
       resolver.resolve(
@@ -176,6 +183,7 @@ export function createSchedulerTestContext(
     previous: vi.fn(),
     announce: (message) => announcements.push(message),
     emitEventInteraction: vi.fn(),
+    emitEventDelete: vi.fn(),
     emitSlotInteraction: vi.fn(),
     emitRangeSelect: vi.fn(),
     emitMoreClick: vi.fn(),
@@ -230,6 +238,7 @@ export function createSchedulerTestContext(
     slotDuration,
     scrollToCurrentTime,
     scrollRequest,
+    selectionRelease,
     eventDef,
     announcements,
     commits,

@@ -766,7 +766,25 @@ export class MlvDataTable {
   readonly totalItems = computed(() => this.effectiveDataSource().totalItems());
   readonly shownItems = computed(() => this.flatRows().length);
 
-  readonly visibleColumns = computed<MlvColumnState[]>(() => {
+  /**
+   * @private Every *declared* column enriched with the table's own live state —
+   * pin overrides, the committed or in-flight resize width, and responsive
+   * visibility. {@link visibleColumns} is this list with the hidden columns
+   * dropped and the rest ordered by pin side.
+   *
+   * Hidden columns keep their state here so {@link _columnStyles} can memoize a
+   * style object for every column {@link getCellStyle} can legitimately be
+   * handed. That makes a column's *width* and *pin state* resolve from this
+   * table's live state whether or not it is currently visible.
+   *
+   * Its sticky *offset* does not, and deliberately so: {@link columnOffsets} is
+   * the running sum over the **visible** pinned run, so a hidden pinned column
+   * has no entry there and `columnCellStyles` falls back to `0px`. That is the
+   * right answer for rendering — an unrendered column occupies no space in the
+   * pinned run — so the caveat is documented on {@link getCellStyle} rather than
+   * papered over by computing offsets for columns that are not laid out.
+   */
+  private readonly _columnStates = computed<MlvColumnState[]>(() => {
     const cols = this.columns() as MlvColumnState[];
     const containerW = this.containerWidth();
     const widths = this._columnWidths();
@@ -774,28 +792,39 @@ export class MlvDataTable {
     const measured = this._measuredColumnWidths();
     const freezeLayout = this._columnLayoutFrozen();
     const pinOverrides = this._pinning.overrides();
+
+    return cols.map((col) => {
+      const visible = isColumnVisible(col, containerW);
+      // During a drag the live width wins over the committed map value so the
+      // column tracks the pointer before the map is updated on pointer release.
+      const w = live && live.key === col.key ? live.width : widths.get(col.key);
+      const override = pinOverrides.get(col.key);
+      return {
+        ...col,
+        pinned: override ? override.pinned : col.pinned,
+        pinSide: override ? override.pinSide : col.pinSide,
+        _currentWidth:
+          w ??
+          (freezeLayout
+            ? (measured.get(col.key) ?? parsePixelWidth(col.width))
+            : undefined),
+        _visible: visible,
+      } as MlvColumnState;
+    });
+  });
+
+  /**
+   * The columns this table actually renders, in render order: the declared
+   * {@link columns} minus those dropped by responsive visibility at the current
+   * container width and those switched off in the column-visibility menu, ordered
+   * pinned-left → unpinned → pinned-right. Each entry carries the table's live state
+   * on top of the declared column — pin override, and the committed or in-flight
+   * resize width. Use {@link allColumns} for the declared set, hidden columns included.
+   */
+  readonly visibleColumns = computed<MlvColumnState[]>(() => {
     const hidden = this._visibility.hiddenColumns();
 
-    return cols
-      .map((col) => {
-        const visible = isColumnVisible(col, containerW);
-        // During a drag the live width wins over the committed map value so the
-        // column tracks the pointer before the map is updated on pointer release.
-        const w =
-          live && live.key === col.key ? live.width : widths.get(col.key);
-        const override = pinOverrides.get(col.key);
-        return {
-          ...col,
-          pinned: override ? override.pinned : col.pinned,
-          pinSide: override ? override.pinSide : col.pinSide,
-          _currentWidth:
-            w ??
-            (freezeLayout
-              ? (measured.get(col.key) ?? parsePixelWidth(col.width))
-              : undefined),
-          _visible: visible,
-        } as MlvColumnState;
-      })
+    return this._columnStates()
       .filter((c) => c._visible !== false && !hidden.has(c.key))
       .sort((a, b) => {
         const order = (col: MlvColumnState): number => {
@@ -861,19 +890,25 @@ export class MlvDataTable {
   });
 
   /**
-   * @private Memoized inline `[style]` object per visible column, keyed by column key.
-   * Rebuilt only when {@link visibleColumns} or {@link columnOffsets} change (width /
+   * @private Memoized inline `[style]` object per declared column, keyed by column key.
+   * Rebuilt only when {@link _columnStates} or {@link columnOffsets} change (width /
    * pin / visibility / responsive / live-resize changes). Cell `[style]` bindings read
    * this map through {@link getCellStyle} so they receive a *stable* object reference
    * across change-detection cycles instead of a freshly allocated `Record` per cell per
    * CD; the header and body cells of a column share one object.
+   *
+   * Built from {@link _columnStates} rather than {@link visibleColumns} so a hidden
+   * column is memoized too: {@link getCellStyle} is public, a consumer may hand it any
+   * declared column, and keying the memo on the *visible* set made the answer for one
+   * column depend on whether it happened to be rendered — a stable, state-derived
+   * object while visible and a freshly built, input-derived one while hidden.
    */
   private readonly _columnStyles = computed<
     Map<string, Record<string, string>>
   >(() => {
     const offsets = this.columnOffsets();
     const map = new Map<string, Record<string, string>>();
-    for (const col of this.visibleColumns()) {
+    for (const col of this._columnStates()) {
       map.set(col.key, columnCellStyles(col, offsets));
     }
     return map;
@@ -1871,18 +1906,39 @@ export class MlvDataTable {
 
   /**
    * Inline `[style]` object (width / min-width, plus sticky offsets for pinned columns)
-   * for a column's header and body cells. Reads the memoized {@link _columnStyles} map
-   * so the returned reference is stable across change-detection cycles (no per-cell
-   * allocation). Every visible column is present in the map; the on-the-fly fallback is
-   * a defensive path for a column outside the current visible set.
+   * for a column's header and body cells. Reads a memoized per-column map, so the
+   * returned reference is stable across change-detection cycles (no per-cell
+   * allocation).
+   *
+   * Every column passed to {@link columns} is in that map, visible or not, so no cell
+   * this table renders can miss. The on-the-fly fallback is reachable only for a column
+   * this table does not own — a key absent from {@link columns} — which has no memoized
+   * state to return and cannot be resolved any other way.
+   *
+   * For a **hidden** column the width and pin state still come from this table's live
+   * state (resize width, pin override, responsive visibility), but the sticky offset is
+   * always `0px`: offsets are the running sum over the *visible* pinned run, and a
+   * column that is not rendered takes up no space in it. So do not read the offset of a
+   * hidden column to predict where it would sit once shown — show it first, then read.
    */
   getCellStyle(col: MlvColumnState): Record<string, string> {
+    // No dev-mode warning on the fallback: a column this table does not own is
+    // legal input that is served correctly here (width and pin state come off the
+    // argument; the 0px offset is right for a column outside the pinned run). The
+    // repo's dev warnings fire on input a component *skips* — an unknown popup
+    // position name, an invalid density — which is not this.
     return (
       this._columnStyles().get(col.key) ??
       columnCellStyles(col, this.columnOffsets())
     );
   }
 
+  /**
+   * The alignment modifier class for a column's header and body cells, derived from
+   * the column's own `align`. Returns `''` when the column declares no alignment, so
+   * the class binding contributes nothing and the cell keeps the inherited
+   * inline-start alignment.
+   */
   getAlignClass(col: MlvDataTableColumn): string {
     return col.align ? `mlv-data-table__cell--align-${col.align}` : '';
   }

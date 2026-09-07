@@ -375,6 +375,8 @@ const ja: MlvLanguage = {
     moveRejected: '{title} はそこに配置できません',
     rangeChanged: '{period} を表示しています',
     selectionHint: '{start} から {end} を選択しました。Enter キーで確定します',
+    eventMenu: '{title} の操作',
+    slotMenu: '{start} の操作',
   },
   scrollbar: {
     scrollableRegion: 'スクロール可能な領域',

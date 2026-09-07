@@ -1,0 +1,39 @@
+@if (present()) {
+  <mlv-swipe-actions class="swipe-contact">
+    <div class="swipe-contact__card">
+      <mlv-avatar name="Mara Lindqvist" size="l" />
+      <div class="swipe-contact__text">
+        <span class="swipe-contact__name">Mara Lindqvist</span>
+        <span class="swipe-contact__meta">
+          Design systems · {{ muted() ? 'muted' : 'notifications on' }}
+        </span>
+      </div>
+    </div>
+
+    <mlv-switch
+      mlvSwipeAction
+      appearance="plain"
+      closeOnActivate="false"
+      ariaLabel="Mute Mara Lindqvist"
+      [(checked)]="muted"
+    />
+    <button
+      mlvSwipeAction
+      appearance="plain"
+      mlvButton
+      shape="circle"
+      variant="error"
+      aria-label="Remove Mara Lindqvist"
+      (click)="present.set(false)"
+    >
+      <svg lucideTrash2 [size]="18" aria-hidden="true" />
+    </button>
+  </mlv-swipe-actions>
+} @else {
+  <div class="demo-row">
+    <p class="swipe-contact__empty">Contact removed.</p>
+    <button mlvButton variant="secondary" size="s" (click)="restore()">
+      Restore
+    </button>
+  </div>
+}

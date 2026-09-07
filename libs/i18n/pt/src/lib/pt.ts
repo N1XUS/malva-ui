@@ -382,6 +382,8 @@ const pt: MlvLanguage = {
     moveRejected: '{title} não pode ser colocado aí',
     rangeChanged: 'A mostrar {period}',
     selectionHint: 'De {start} a {end} selecionado. Prima Enter para confirmar',
+    eventMenu: 'Ações para {title}',
+    slotMenu: 'Ações para {start}',
   },
   scrollbar: {
     scrollableRegion: 'Região deslocável',

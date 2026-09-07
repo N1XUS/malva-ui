@@ -8,9 +8,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { Overlay, OverlayContainer } from '@angular/cdk/overlay';
+import type { FlexibleConnectedPositionStrategy } from '@angular/cdk/overlay';
 import { DOCUMENT } from '@angular/common';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvPopupService } from './popup.service';
+import type { MlvPopupOpenConfig } from './popup.service';
 
 @Component({
   template: `
@@ -238,6 +240,7 @@ describe('MlvPopupService — direction', () => {
 
   function open(
     fixture: ReturnType<typeof TestBed.createComponent<HostComponent>>,
+    extra: Partial<MlvPopupOpenConfig> = {},
   ) {
     const host = fixture.componentInstance;
     return service.open({
@@ -247,6 +250,7 @@ describe('MlvPopupService — direction', () => {
       positions: service.resolvePositions('bottom-start'),
       hasBackdrop: false,
       onClose: () => undefined,
+      ...extra,
     });
   }
 
@@ -314,6 +318,41 @@ describe('MlvPopupService — direction', () => {
     expect(handle.overlayRef.getDirection()).toBe('rtl');
   });
 
+  // The "one source of truth" property behind #163: `onPositionChange`'s
+  // `direction` is read back off the **pane** (`overlayRef.getDirection()`),
+  // never re-resolved from the origin, so the physical arrow the consumer
+  // derives can never disagree with the geometry CDK produced from the same
+  // value. Every other direction spec in this file keeps the two in sync, so
+  // they pass with `resolveDirection(config.origin)` substituted in — only a
+  // pane whose direction was set out of band separates them.
+  it('reports the pane direction, not a re-resolved origin direction', () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    const onPositionChange = vi.fn();
+    const handle = open(fixture, { onPositionChange });
+
+    // Out of band: no `dir` attribute changes, so `watchDirection` never fires
+    // and the origin still resolves LTR. Only the pane is RTL.
+    handle.overlayRef.setDirection('rtl');
+    expect(
+      TestBed.inject(MlvRtlService).resolveDirection(
+        fixture.componentInstance.origin(),
+      ),
+    ).toBe('ltr');
+    expect(handle.overlayRef.getDirection()).toBe('rtl');
+
+    // Force a fresh emission. CDK deduplicates `positionChanges` by the
+    // identity of the chosen `ConnectedPosition`, and `withPositions()` clears
+    // `_lastPosition` when the previous choice is no longer in the list.
+    const strategy = handle.overlayRef.getConfig()
+      .positionStrategy as FlexibleConnectedPositionStrategy;
+    strategy.withPositions(service.resolvePositions('top-end'));
+    handle.overlayRef.updatePosition();
+
+    expect(onPositionChange).toHaveBeenLastCalledWith(expect.anything(), 'rtl');
+    handle.close();
+  });
+
   it('stops watching once the popup closes', () => {
     const fixture = TestBed.createComponent(HostComponent);
     fixture.detectChanges();
@@ -326,6 +365,42 @@ describe('MlvPopupService — direction', () => {
     TestBed.tick();
 
     expect(setDirection).not.toHaveBeenCalled();
+  });
+
+  it('re-resolves the direction from the origin when re-anchored while open', () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    const host = fixture.componentInstance;
+    const ltrRow = host.origin().nativeElement as HTMLElement;
+    const rtlRow = document.createElement('div');
+    rtlRow.setAttribute('dir', 'rtl');
+    ltrRow.appendChild(rtlRow);
+
+    // An origin that resolves lazily — a context menu shared by many rows
+    // points it at whichever row was right-clicked last. No `dir` attribute
+    // changes between the two opens, so `watchDirection` sees nothing; the
+    // re-anchor itself has to re-read the direction.
+    let anchor: HTMLElement = ltrRow;
+    const origin = Object.defineProperty(
+      new ElementRef<HTMLElement>(ltrRow),
+      'nativeElement',
+      { configurable: true, get: () => anchor },
+    );
+    const handle = service.open({
+      origin,
+      template: host.tpl(),
+      vcr: host.vcr,
+      positions: service.resolvePositions('bottom-start'),
+      hasBackdrop: false,
+      onClose: () => undefined,
+    });
+    expect(handle.overlayRef.getDirection()).toBe('ltr');
+
+    anchor = rtlRow;
+    handle.setPositionOrigin({ x: 10, y: 10 });
+
+    expect(handle.overlayRef.getDirection()).toBe('rtl');
+    expect(handle.overlayRef.hostElement.getAttribute('dir')).toBe('rtl');
   });
 });
 

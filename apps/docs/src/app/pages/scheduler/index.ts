@@ -18,5 +18,5 @@ export class SchedulerPageComponent {
       'Month, week and day calendar views for timed, all-day and multi-day events, with two-way model binding, pointer and keyboard drag-move, resize and range selection, and a replaceable toolbar.',
   };
 
-  readonly examples = new Array(7).fill(0).map((_, index) => index + 1);
+  readonly examples = new Array(8).fill(0).map((_, index) => index + 1);
 }

@@ -1,0 +1,39 @@
+<div class="swipe-demo" role="list" aria-label="Tasks">
+  @for (task of tasks(); track task.id; let first = $first) {
+    <mlv-swipe-actions [hint]="first" role="listitem">
+      <button
+        mlvSwipeAction
+        side="start"
+        tone="success"
+        (click)="complete(task)"
+      >
+        <svg lucideCheck [size]="20" aria-hidden="true" />
+        {{ task.done ? 'Reopen' : 'Done' }}
+      </button>
+      <button mlvSwipeAction side="start" tone="info" (click)="pin(task)">
+        <svg lucidePin [size]="20" aria-hidden="true" />
+        {{ task.pinned ? 'Unpin' : 'Pin' }}
+      </button>
+
+      <div class="swipe-demo__row" [class.swipe-demo__row--done]="task.done">
+        <span class="swipe-demo__title">
+          @if (task.pinned) {
+            <svg lucidePin [size]="14" aria-label="Pinned" />
+          }
+          {{ task.title }}
+        </span>
+        <span class="swipe-demo__byline">{{ task.due }}</span>
+      </div>
+
+      <button mlvSwipeAction (click)="more(task)">
+        <svg lucideEllipsis [size]="20" aria-hidden="true" />
+        More
+      </button>
+      <button mlvSwipeAction tone="danger" (click)="remove(task)">
+        <svg lucideTrash2 [size]="20" aria-hidden="true" />
+        Delete
+      </button>
+    </mlv-swipe-actions>
+  }
+</div>
+<p class="swipe-demo__status" aria-live="polite">{{ status() }}</p>

@@ -7,6 +7,7 @@ import {
   ViewEncapsulation,
   afterRenderEffect,
   computed,
+  effect,
   inject,
   linkedSignal,
   untracked,
@@ -19,6 +20,7 @@ import {
   RIGHT_ARROW,
   UP_ARROW,
 } from '@angular/cdk/keycodes';
+import { mlvIsContextMenuKey } from '@malva-ui/core/menu';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import {
@@ -601,6 +603,15 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       element.focus();
     });
 
+    // A context menu that was handed the pending selection is its
+    // confirmation step: once that menu closes — activated or dismissed —
+    // the selection is spent, so it is not left painted and armed for
+    // `Enter` to commit a second time.
+    effect(() => {
+      this._ctx.selectionRelease();
+      untracked(() => this._selection.set(null));
+    });
+
     // Re-applied whenever the axis itself changes, not once per instance:
     // `scheduler.html` renders week and day from the SAME `@default` branch, so
     // a week ↔ day switch reuses this component and an `afterNextRender` would
@@ -736,12 +747,20 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   ): void {
     if (kind === 'click' && performance.now() < this._ignoreClicksUntil) return;
     if ((event.target as HTMLElement).closest('.mlv-scheduler-event')) return;
-    this._ctx.emitSlotInteraction(kind, {
-      date: this._slotDate(column.date, slot.minutes),
-      allDay: false,
-      element: event.currentTarget as HTMLElement,
-      nativeEvent: event,
-    });
+    this._ctx.emitSlotInteraction(
+      kind,
+      {
+        date: this._slotDate(column.date, slot.minutes),
+        allDay: false,
+        element: event.currentTarget as HTMLElement,
+        nativeEvent: event,
+      },
+      // A right-click inside a pending keyboard selection is about the whole
+      // selection: the slot menu offers it instead of the one slot.
+      kind === 'contextmenu' && this._isSelected(column.dayIndex, slot.minutes)
+        ? this._selectionRange()
+        : null,
+    );
   }
 
   /** @protected Pointer interaction on an all-day cell. */
@@ -752,12 +771,18 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   ): void {
     if (kind === 'click' && performance.now() < this._ignoreClicksUntil) return;
     if ((event.target as HTMLElement).closest('.mlv-scheduler-event')) return;
-    this._ctx.emitSlotInteraction(kind, {
-      date: column.date,
-      allDay: true,
-      element: event.currentTarget as HTMLElement,
-      nativeEvent: event,
-    });
+    this._ctx.emitSlotInteraction(
+      kind,
+      {
+        date: column.date,
+        allDay: true,
+        element: event.currentTarget as HTMLElement,
+        nativeEvent: event,
+      },
+      kind === 'contextmenu' && this._isSelected(column.dayIndex, null)
+        ? this._selectionRange()
+        : null,
+    );
   }
 
   /** @protected Roving focus bookkeeping. */
@@ -790,6 +815,14 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
     if (event.key === 'Enter' && this._selection()) {
       event.preventDefault();
       this._commitSelection('keyboard');
+      return;
+    }
+    // Not prevented and the selection not cleared here: the root claims the
+    // key (def or not, so the browser synthesises no second `contextmenu`),
+    // and a menu opened over the pending selection releases it on close
+    // (`selectionRelease`).
+    if (mlvIsContextMenuKey(event)) {
+      this._emitKeyboardContextMenu(this._positionOf(target), target, event);
       return;
     }
     const arrow = this._rtl.normalizeArrowKey(event);
@@ -1146,5 +1179,33 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       element,
       nativeEvent,
     });
+  }
+
+  /**
+   * @private `slotContextMenu` from the ContextMenu key / `Shift+F10` — the
+   * same payload and pending-selection hand-off as a right-click on the slot
+   * or all-day cell.
+   */
+  private _emitKeyboardContextMenu(
+    position: MlvSchedulerGridPos,
+    element: HTMLElement,
+    nativeEvent: KeyboardEvent,
+  ): void {
+    const day = this._ctx.days()[position.dayIndex];
+    this._ctx.emitSlotInteraction(
+      'contextmenu',
+      {
+        date:
+          position.minutes === null
+            ? day
+            : this._slotDate(day, position.minutes),
+        allDay: position.minutes === null,
+        element,
+        nativeEvent,
+      },
+      this._isSelected(position.dayIndex, position.minutes)
+        ? this._selectionRange()
+        : null,
+    );
   }
 }

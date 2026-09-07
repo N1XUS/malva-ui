@@ -202,7 +202,7 @@ Aria's pointer selection resolves the clicked option via `closest('[role="option
 ### `MlvListItemSelectable`
 
 **Selector:** `mlv-list-item[value]`
-**Export as:** `uiListItemSelectable`
+**Export as:** `mlvListItemSelectable`
 
 Applies `@angular/aria`'s `Option` (`ngOption`) as a host directive, forwarding `value` (required), `disabled`, `label`, and `optionId`. Set `label` to the visible option text so aria's type-ahead works (aria reads the explicit `label`; `mlv-dropdown-panel` sets it from the option label). `optionId` re-exposes aria's `ngOption` `id` (aliased `'id: optionId'`), rendered as the option element's `[attr.id]`; forwarding a deterministic id lets an owning combobox point its input's `aria-activedescendant` at the active option (the activedescendant model). Also set `itemRole="option"` on the `mlv-list-item` (see Roles above).
 

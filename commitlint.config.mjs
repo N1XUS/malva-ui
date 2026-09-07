@@ -78,6 +78,7 @@ export default {
         'split-pane',
         'status-indicator',
         'stepper',
+        'swipe-actions',
         'switch',
         'table',
         'tabs',

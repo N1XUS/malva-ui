@@ -12,6 +12,7 @@ import type {
 import { Overlay } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import type { MlvDirection } from '@malva-ui/cdk/utils';
 import type { MlvPopupPositionName } from './popup-positions';
 import { MlvPopupPositionResolver, POPUP_POSITIONS } from './popup-positions';
 
@@ -122,8 +123,33 @@ export interface MlvPopupOpenConfig {
    * Defaults to `onClose` when not provided.
    */
   onRequestClose?: () => void;
-  /** Called each time CDK selects a different `ConnectedPosition`. */
-  onPositionChange?: (change: ConnectedOverlayPositionChange) => void;
+  /**
+   * Called each time CDK selects a different `ConnectedPosition`, and again
+   * whenever the pane's direction flips while the overlay is open.
+   *
+   * `direction` is the pane's own — read back off the overlay, which is what
+   * `FlexibleConnectedPositionStrategy` mirrored `start` / `end` against when
+   * it produced `change.connectionPair`. Anything deriving a **physical** side
+   * from that logical pair (the popup's arrow) needs both halves, and taking
+   * the direction from anywhere else would let the two disagree.
+   *
+   * The parameter is additive: a handler declared as `(change) => …` still
+   * satisfies this type.
+   *
+   * **May fire twice for a single direction flip.** The flip re-delivers the
+   * freshest pair unconditionally, because CDK's own `positionChanges` is
+   * deduplicated by the identity of the chosen `ConnectedPosition` and usually
+   * stays silent when mirroring only re-resolves `start` / `end` within the
+   * same entry. When the flip *does* change the chosen position (or the
+   * scroll visibility), CDK emits as well and the handler sees both calls,
+   * with an identical pair and direction and in that order. Deriving state
+   * from the arguments is idempotent and safe; **counting** or logging calls
+   * is not.
+   */
+  onPositionChange?: (
+    change: ConnectedOverlayPositionChange,
+    direction: MlvDirection,
+  ) => void;
 }
 
 /** Return value of {@link MlvPopupService.open}. */
@@ -291,12 +317,28 @@ export class MlvPopupService {
     const portal = new TemplatePortal(config.template, config.vcr);
     overlayRef.attach(portal);
 
+    // The freshest pair CDK applied, kept so a direction flip can re-deliver it
+    // (see the direction watch below). `null` until the strategy first runs.
+    let lastPositionChange: ConnectedOverlayPositionChange | null = null;
+
     // Position changes only occur for the connected strategy; the global
     // (full-screen) strategy exposes no positionChanges stream.
+    //
+    // No `cleanups` entry: `positionChanges` is the strategy's own Subject and
+    // `overlayRef.dispose()` calls `positionStrategy.dispose()`, which
+    // completes it — completion tears the subscriber down. (The closure now
+    // also captures `overlayRef`, but that is the object being disposed, so it
+    // keeps nothing alive past `close()` either.)
     if (config.onPositionChange && !fullscreen) {
       (
         positionStrategy as FlexibleConnectedPositionStrategy
-      ).positionChanges.subscribe(config.onPositionChange);
+      ).positionChanges.subscribe((change) => {
+        lastPositionChange = change;
+        // The pane's own direction — the one CDK just mirrored `start`/`end`
+        // against — rather than the value resolved above, which is already
+        // stale once `watchDirection` has re-mirrored an open overlay.
+        config.onPositionChange?.(change, overlayRef.getDirection());
+      });
     }
 
     // Collect cleanup callbacks so they all run on close regardless of how it was triggered.
@@ -312,6 +354,25 @@ export class MlvPopupService {
       this._rtl.watchDirection(config.origin, (direction) => {
         overlayRef.setDirection(direction);
         overlayRef.updatePosition();
+        // `updatePosition()` re-runs the strategy, but CDK only re-emits
+        // `positionChanges` when the *chosen* `ConnectedPosition` object
+        // changes — and mirroring usually re-resolves `start`/`end` within the
+        // same entry. So the emission above cannot be relied on to tell a
+        // consumer deriving physical geometry that the axis just flipped;
+        // re-deliver the freshest pair explicitly. Idempotent: if the strategy
+        // did emit, it has already refreshed `lastPositionChange` and set the
+        // same direction.
+        //
+        // `!fullscreen` is stated rather than left to the fact that a global
+        // strategy never fills `lastPositionChange` — the guard on the
+        // subscription above is the one that matters, and this one says so in
+        // the same terms instead of resting on that data invariant.
+        if (!fullscreen && lastPositionChange) {
+          config.onPositionChange?.(
+            lastPositionChange,
+            overlayRef.getDirection(),
+          );
+        }
       }),
     );
 
@@ -386,6 +447,12 @@ export class MlvPopupService {
       const strategy = positionStrategy as FlexibleConnectedPositionStrategy;
       strategy.setOrigin(origin);
       if (positions) strategy.withPositions(positions);
+      // `config.origin` is allowed to resolve lazily to another element — a
+      // context menu re-anchored from one row to the next, possibly across a
+      // `[dir]` scope — and `watchDirection` only reacts to `dir` attributes
+      // changing, not to the origin changing, so the pane's direction is
+      // re-read here rather than only at open.
+      overlayRef.setDirection(this._rtl.resolveDirection(config.origin));
       overlayRef.updatePosition();
     };
 

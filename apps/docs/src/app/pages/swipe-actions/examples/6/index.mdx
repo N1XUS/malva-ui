@@ -1,0 +1,5 @@
+## Icon Buttons
+
+`[mlvSwipeAction]` works on any host, not only a bare `<button>`. With `appearance="plain"` it paints nothing itself — the element keeps its own look and is only centred on the row and wired to close it when activated. Here the actions are circular `mlvButton`s: three secondary and one `variant="error"`.
+
+Two custom properties on the row shape the reveal: `--mlv-swipe-actions-gap` spaces the actions of one side, and `--mlv-swipe-actions-inset` keeps the outermost one off the row's edge. Both default to `0` for the flush iOS block look. The stacked fan-out is unchanged — while the side is only partly revealed the buttons pin to the edge and the last one is on top.

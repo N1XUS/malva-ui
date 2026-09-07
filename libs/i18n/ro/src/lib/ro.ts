@@ -388,6 +388,8 @@ const ro: MlvLanguage = {
     rangeChanged: 'Se afișează {period}',
     selectionHint:
       'De la {start} până la {end} selectat. Apăsați Enter pentru confirmare',
+    eventMenu: 'Acțiuni pentru {title}',
+    slotMenu: 'Acțiuni pentru {start}',
   },
   scrollbar: {
     scrollableRegion: 'Regiune derulabilă',

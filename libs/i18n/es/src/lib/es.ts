@@ -383,6 +383,8 @@ const es: MlvLanguage = {
     rangeChanged: 'Mostrando {period}',
     selectionHint:
       'De {start} a {end} seleccionado. Pulsa Intro para confirmar',
+    eventMenu: 'Acciones para {title}',
+    slotMenu: 'Acciones para {start}',
   },
   scrollbar: {
     scrollableRegion: 'Región desplazable',

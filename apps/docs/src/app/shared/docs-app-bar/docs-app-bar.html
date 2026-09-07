@@ -1,6 +1,8 @@
 <header class="docs-app-bar">
   <a class="docs-app-bar__skip-link" href="#main-content">Skip to content</a>
   <nav mlvActionBar fixed aria-label="Primary">
+    <!-- Leading slot: the documentation shell puts its navigation trigger here. -->
+    <ng-content select="[docsAppBarLeading]" />
     <!-- The brand text is hidden below the mobile breakpoint, and the logo is
          decorative (alt=""), so the link carries its own name. It is stated
          explicitly rather than derived from the text so that the name is

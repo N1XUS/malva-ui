@@ -46,6 +46,10 @@ export interface MlvSchedulerI18n {
   rangeChanged: string;
   /** Live announcement while a keyboard range selection is pending. ICU: "{start} to {end} selected. Press Enter to confirm". */
   selectionHint: string;
+  /** `aria-label` of the built-in event context menu. ICU: "Actions for {title}". */
+  eventMenu: string;
+  /** `aria-label` of the built-in slot context menu; `start` is the day or the slot start. ICU: "Actions for {start}". */
+  slotMenu: string;
 }
 
 export const MLV_SCHEDULER_I18N = new InjectionToken<Signal<MlvSchedulerI18n>>(
@@ -186,5 +190,19 @@ export const MLV_SCHEDULER_I18N_CONTEXT: Record<
     usage: 'live-announcement',
     icuParams: ['start', 'end'],
     description: 'Announced while a keyboard range selection is being extended',
+  },
+  eventMenu: {
+    component: 'mlv-scheduler',
+    usage: 'aria-label',
+    icuParams: ['title'],
+    description:
+      'Accessible name of the context menu opened on an event; title is the event title',
+  },
+  slotMenu: {
+    component: 'mlv-scheduler',
+    usage: 'aria-label',
+    icuParams: ['start'],
+    description:
+      'Accessible name of the context menu opened on an empty cell or time slot; start is the localized day or slot start',
   },
 };

@@ -71,6 +71,49 @@ describe('DocsShellComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('header')).toHaveLength(1);
   });
 
+  describe('navigation trigger', () => {
+    function trigger(): HTMLButtonElement {
+      return fixture.nativeElement.querySelector('.docs-shell__mobile-menu');
+    }
+
+    it('is the first item of the app bar, ahead of the brand link', () => {
+      const nav = fixture.nativeElement.querySelector(
+        'header nav[aria-label="Primary"]',
+      ) as HTMLElement;
+
+      expect(nav.firstElementChild).toBe(trigger());
+      expect(
+        nav
+          .querySelector('.mlv-action-bar__logo')
+          ?.compareDocumentPosition(trigger()) as number &
+          Node['DOCUMENT_POSITION_PRECEDING'],
+      ).toBe(Node.DOCUMENT_POSITION_PRECEDING);
+      expect(
+        fixture.nativeElement.querySelector(
+          '.docs-shell__main-area .docs-shell__mobile-menu',
+        ),
+      ).toBeNull();
+    });
+
+    it('toggles the sidebar and reflects it as aria-expanded', async () => {
+      const shell = fixture.componentInstance;
+      expect(trigger().getAttribute('aria-label')).toBe(
+        'Close documentation navigation',
+      );
+      expect(trigger().getAttribute('aria-expanded')).toBe('true');
+
+      trigger().click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(shell.sidebarCollapsed()).toBe(true);
+      expect(trigger().getAttribute('aria-label')).toBe(
+        'Open documentation navigation',
+      );
+      expect(trigger().getAttribute('aria-expanded')).toBe('false');
+    });
+  });
+
   describe('NavigationEnd focus guard', () => {
     let main: HTMLElement;
     let scrollTo: ReturnType<typeof vi.spyOn>;
