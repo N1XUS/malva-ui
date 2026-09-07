@@ -2,6 +2,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvExpand } from './expand';
 import { MlvExpandContent } from './expand-content';
 
@@ -135,5 +136,135 @@ describe('MlvExpand — lazy content', () => {
     await f.whenStable();
 
     expect(f.debugElement.query(By.css('.lazy-content'))).toBeTruthy();
+  });
+});
+
+@Component({
+  imports: [MlvExpand, MlvExpandContent],
+  template: `
+    <h2 id="details-heading">Shipping details</h2>
+    <button
+      type="button"
+      [attr.aria-expanded]="eager()"
+      aria-controls="details-panel"
+      (click)="eager.set(!eager())"
+    >
+      Details
+    </button>
+    <mlv-expand
+      id="details-panel"
+      [(opened)]="eager"
+      ariaLabelledBy="details-heading"
+    >
+      <p>Eager body</p>
+      <a href="#tracking">Track this order</a>
+    </mlv-expand>
+
+    <mlv-expand [(opened)]="lazy" ariaLabel="Advanced options">
+      <ng-template mlvExpandContent>
+        <button type="button">Lazy control</button>
+      </ng-template>
+    </mlv-expand>
+
+    <mlv-expand disabled>
+      <p>Never openable</p>
+    </mlv-expand>
+  `,
+})
+class ExpandA11yHost {
+  readonly eager = signal(false);
+  readonly lazy = signal(false);
+}
+
+/**
+ * Accessibility sweeps — `mlv-expand`.
+ *
+ * The panel renders nothing at all while closed, so the closed and open
+ * renderings are genuinely different markup rather than one markup with a
+ * class on it — a default-state sweep would assert nothing about the body.
+ * Open, the body becomes a `role="region"` if and only if the consumer gave it
+ * a name, and `aria-labelledby` has to resolve to an element that exists; both
+ * naming paths are swept, rooted at the fixture so the referenced heading is in
+ * scope. The lazy path is swept separately because its content is constructed
+ * on first open by a different code path than `<ng-content>`.
+ */
+describe('MlvExpand accessibility', () => {
+  let a11yFixture: ComponentFixture<ExpandA11yHost>;
+  let root: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [ExpandA11yHost],
+    }).compileComponents();
+
+    a11yFixture = TestBed.createComponent(ExpandA11yHost);
+    root = a11yFixture.nativeElement as HTMLElement;
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+  });
+
+  it('has no axe violations with every panel closed', async () => {
+    // State: no body element exists at all, so the trigger's `aria-controls`
+    // points at the still-empty `mlv-expand` host and reports collapsed.
+    expect(root.querySelectorAll('.mlv-expand__body')).toHaveLength(0);
+    expect(
+      root
+        .querySelector('button[aria-controls]')
+        ?.getAttribute('aria-expanded'),
+    ).toBe('false');
+
+    await expectNoAxeViolations(root);
+  });
+
+  it('has no axe violations with the eager panel open and labelled by a heading', async () => {
+    a11yFixture.componentInstance.eager.set(true);
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+
+    // State: the body exists and claims `role="region"`, named by an element
+    // that must actually be in the document for the name to resolve.
+    const body = root.querySelector('.mlv-expand__body') as HTMLElement;
+    expect(body.getAttribute('role')).toBe('region');
+    const labelledBy = body.getAttribute('aria-labelledby') as string;
+    expect(root.querySelectorAll(`#${labelledBy}`)).toHaveLength(1);
+    expect(root.querySelector('a[href="#tracking"]')).not.toBeNull();
+
+    await expectNoAxeViolations(root);
+  });
+
+  it('has no axe violations with the lazy panel open and labelled inline', async () => {
+    a11yFixture.componentInstance.lazy.set(true);
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+
+    // State: the deferred template is constructed for the first time, inside a
+    // region named by `aria-label` rather than by reference.
+    const body = root.querySelector('.mlv-expand__body') as HTMLElement;
+    expect(body.getAttribute('role')).toBe('region');
+    expect(body.getAttribute('aria-label')).toBe('Advanced options');
+    expect(body.querySelector('button')?.textContent).toContain('Lazy control');
+
+    await expectNoAxeViolations(root);
+  });
+
+  it('has no axe violations for an unnamed open panel', async () => {
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MlvExpand],
+    }).compileComponents();
+    const bare = TestBed.createComponent(MlvExpand);
+    bare.componentInstance.opened.set(true);
+    bare.detectChanges();
+    await bare.whenStable();
+
+    // State: with no name the body deliberately claims no role, so it never
+    // becomes an unnamed `region` — the thing `aria-region-name` would flag.
+    const body = (bare.nativeElement as HTMLElement).querySelector(
+      '.mlv-expand__body',
+    ) as HTMLElement;
+    expect(body.hasAttribute('role')).toBe(false);
+
+    await expectNoAxeViolations(bare.nativeElement as HTMLElement);
   });
 });

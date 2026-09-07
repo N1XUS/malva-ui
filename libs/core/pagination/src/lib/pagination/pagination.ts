@@ -284,6 +284,25 @@ export class MlvPagination {
   /** @protected Id linking the trigger's `aria-controls` to the panel's listbox. */
   protected readonly _perPageListboxId = mlvNextId('mlv-pagination-per-page');
 
+  /**
+   * @protected Accessible name for the per-page listbox inside the popup.
+   *
+   * `mlv-dropdown-panel` renders an `mlv-list[selectable]` whose host claims
+   * `role="listbox"`, and a listbox owes an accessible name (axe
+   * `aria-input-field-name`, WCAG 4.1.2). The panel takes that name through its
+   * `ariaLabel` input and invents none of its own, so without this the popup
+   * opened an unnamed listbox.
+   *
+   * The wording is the current selection's own label — "10 items per page", or
+   * "All (Z)" for `Infinity` — which reuses {@link _resolvedPerPageLabel} and
+   * so needs no new i18n key and stays translated in every pack. It is also
+   * what a screen reader would announce if the panel could be labelled by the
+   * trigger it belongs to, which it cannot: the panel exposes `ariaLabel` only.
+   */
+  protected readonly _perPageListboxLabel = computed(() =>
+    this._resolvedPerPageLabel(this.itemsPerPage()),
+  );
+
   /** @private Aggregated pagination inputs pushed into the pagination service. */
   private readonly _paginationObject = computed<MlvPaginationObject>(() => ({
     totalItems: this.totalItems(),
