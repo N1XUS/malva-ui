@@ -19,7 +19,7 @@ maintainers, and it lets us discuss and patch before anything is public.
 
 Please include:
 
-- the affected package (`@malva-ui/core`, `cdk`, `i18n`, `editor`, `tailwind`) and version
+- the affected package (`@malva-ui/core`, `cdk`, `editor`, `i18n`, `scheduler`, `taskboard`, `tailwind`) and version
 - what an attacker can do with it
 - a minimal reproduction — a StackBlitz, a repository, or a code snippet
 

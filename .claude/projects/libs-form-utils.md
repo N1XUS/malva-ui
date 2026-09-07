@@ -311,7 +311,8 @@ the constant `--mlv-spacing-1` block half):
 | spacious    | `--mlv-font-size-l` (16)  | `--mlv-spacing-4`       |
 | airy        | `--mlv-font-size-xl` (18) | `--mlv-spacing-5`       |
 
-Matches CH-R3 in `docs/superpowers/specs/2026-08-24-visual-language-spec.md`.
+This is the workspace's **control-text ramp**: the type ramp is locked to the
+height ramp, so one density step moves both together.
 Both custom properties are declared once here and **inherited** by every
 descendant of the wrapper — `mlv-input`, `mlv-textarea`, `mlv-number-input`,
 the `mlv-select` / `mlv-combobox` / `mlv-day-picker` / `mlv-time-picker`
@@ -339,11 +340,9 @@ carried a hardcoded `--mlv-font-size-l` instead of the ramp (`mlv-input`,
 `mlv-number-input`, `mlv-tokenizer`'s overflow badge, `mlv-combobox`'s empty
 row) or diverged from the ramp's exact steps (`mlv-switch`'s `compact` /
 `airy` label size). `mlv-checkbox` and `mlv-radio` had no label type ramp at
-all. All are now on the shared ramp; see
-`docs/superpowers/specs/2026-08-24-visual-language-spec.md` CH-R3 and the
-form-density-standardization report
-(`.superpowers/sdd/form-density-standardization-report.md`) for the full
-before/after inventory. `mlv-pin-input`'s cell text and `mlv-rating` (no
+all. All are now on the shared ramp — the type ramp is locked to the height ramp,
+so one density step moves both together, and no control may read a step the
+ramp does not define. `mlv-pin-input`'s cell text and `mlv-rating` (no
 visible text) are documented exceptions and stay off the ramp.
 
 **Superseded (2026-08-26, round 2 of the same day).** The "zero the
