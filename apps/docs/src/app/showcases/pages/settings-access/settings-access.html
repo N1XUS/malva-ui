@@ -180,10 +180,22 @@
         </ng-template>
 
         <ng-template mlvPageHeaderActions>
-          <mlv-sidebar-trigger
+          <button
+            mlvButton
+            variant="transparent"
+            shape="square"
+            mlvSidebarTrigger
             class="settings-access-showcase__rail-trigger"
+            #railTrigger="mlvSidebarTrigger"
             [sidebar]="rail"
-          />
+            [attr.aria-label]="railTrigger.label()"
+          >
+            @if (railTrigger.collapsed()) {
+              <svg lucideMenu [size]="20" />
+            } @else {
+              <svg lucideX [size]="20" />
+            }
+          </button>
           <button
             mlvButton
             type="button"

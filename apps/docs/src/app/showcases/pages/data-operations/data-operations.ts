@@ -13,6 +13,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   LucideChevronDown,
   LucideDownload,
+  LucideMenu,
   LucidePlus,
   LucideX,
 } from '@lucide/angular';
@@ -143,6 +144,7 @@ export function normalizeAccountsViewState(
     MlvViewVariantStatus,
     LucideChevronDown,
     LucideDownload,
+    LucideMenu,
     LucidePlus,
     LucideX,
   ],

@@ -31,7 +31,21 @@
     <mlv-page-header>
       <ng-template mlvPageTitle>
         <div class="data-operations-showcase__title-row">
-          <mlv-sidebar-trigger #viewsSidebarTrigger [sidebar]="viewsSidebar" />
+          <button
+            mlvButton
+            variant="transparent"
+            shape="square"
+            mlvSidebarTrigger
+            #viewsSidebarTrigger="mlvSidebarTrigger"
+            [sidebar]="viewsSidebar"
+            [attr.aria-label]="viewsSidebarTrigger.label()"
+          >
+            @if (viewsSidebarTrigger.collapsed()) {
+              <svg lucideMenu [size]="20" />
+            } @else {
+              <svg lucideX [size]="20" />
+            }
+          </button>
           <h1>{{ activeVariant()?.name ?? 'Accounts' }}</h1>
         </div>
 

@@ -16,7 +16,11 @@ import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { DOWN_ARROW, UP_ARROW } from '@angular/cdk/keycodes';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
-import { clamp, MlvBreakpointService, MlvRtlService } from '@malva-ui/cdk/utils';
+import {
+  clamp,
+  MlvBreakpointService,
+  MlvRtlService,
+} from '@malva-ui/cdk/utils';
 import type { MlvSidebarContextValue } from '../sidebar-context';
 import { SIDEBAR_CONTEXT } from '../sidebar-context';
 import type { MlvSidebarMode } from '../sidebar-mode';
@@ -112,7 +116,7 @@ export class MlvSidebar implements MlvSidebarContextValue {
    *
    * `null` (the default) keeps the sidebar on {@link mode} at every width.
    * Setting it to `'md'` makes the sidebar an overlay drawer below 768px — it
-   * closes itself on entering that range, opens from a `mlv-sidebar-trigger`,
+   * closes itself on entering that range, opens from a `[mlvSidebarTrigger]`,
    * and dismisses on Escape, backdrop click, or focus leaving the drawer, like
    * any `mode="offcanvas"` sidebar. The previous collapsed state is restored
    * when the viewport grows back past the breakpoint.
@@ -333,10 +337,13 @@ export class MlvSidebar implements MlvSidebarContextValue {
   /**
    * @protected Handles `ArrowDown`/`ArrowUp` keydown events on the sidebar container
    * to move focus between focusable sidebar items and group triggers in DOM order.
-   * Wraps around at the list boundaries and skips elements inside `.cdk-overlay-container`.
+   * Wraps around at the list boundaries and skips elements inside
+   * `.cdk-overlay-container` or an `inert`/`hidden` subtree.
    */
   protected onContainerKeydown(event: Event): void {
     const e = event as KeyboardEvent;
+    // Vertical-only handler: `ArrowLeft`/`ArrowRight` are never matched, so
+    // mirroring is a no-op and no scoped direction is needed here.
     const key = this._rtlService.normalizeArrowKey(e);
     if (key !== DOWN_ARROW && key !== UP_ARROW) return;
 
@@ -351,7 +358,18 @@ export class MlvSidebar implements MlvSidebarContextValue {
     const items: HTMLElement[] = [];
     const seen = new Set<HTMLElement>();
     const add = (el: HTMLElement | null | undefined): void => {
-      if (el && !seen.has(el) && !el.closest('.cdk-overlay-container')) {
+      // `inert`/`hidden` candidates must be dropped, not merely stepped over:
+      // `HTMLElement.focus()` on one is a silent no-op, so keeping it in the
+      // list parks focus on the current row for every further keypress rather
+      // than moving past it. A collapsed `mlv-sidebar-group` is exactly that
+      // case — it keeps its expanded header mounted and `inert` so the label
+      // can fade, and that header sits between the row above and the collapsed
+      // icon trigger below it.
+      if (
+        el &&
+        !seen.has(el) &&
+        !el.closest('.cdk-overlay-container, [inert], [hidden]')
+      ) {
         seen.add(el);
         items.push(el);
       }
@@ -375,7 +393,7 @@ export class MlvSidebar implements MlvSidebarContextValue {
         add(el);
       });
 
-    const idx = items.indexOf(document.activeElement as HTMLElement);
+    const idx = items.indexOf(this._document.activeElement as HTMLElement);
     if (idx === -1) return;
 
     if (key === DOWN_ARROW) {

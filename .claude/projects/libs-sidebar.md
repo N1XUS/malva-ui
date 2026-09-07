@@ -8,7 +8,7 @@ DOM focus belongs to the link rather than the sidebar-item host.
 
 ## Overview
 
-The `@malva-ui/core/sidebar` library provides a navigation sidebar shell with collapsible group support, four layout modes (`icon`, `offcanvas`, `floating`, `fixed`), drag-to-resize rail, structural slot directives (header/content/footer), a workspace switcher, and a toggle trigger component. It exports a root container (`mlv-sidebar`), a styled workspace selector (`mlv-sidebar-workspace`), a collapsible group component (`mlv-sidebar-group`), a standalone item component (`mlv-sidebar-item`), a drag-to-resize rail (`mlv-sidebar-rail`), a toggle button (`mlv-sidebar-trigger`), and supporting directives for logo/text/icon/title/structural slots. The library handles both expanded and collapsed layouts transparently, sharing state via the `SIDEBAR_CONTEXT` injection token.
+The `@malva-ui/core/sidebar` library provides a navigation sidebar shell with collapsible group support, four layout modes (`icon`, `offcanvas`, `floating`, `fixed`), drag-to-resize rail, structural slot directives (header/content/footer), a workspace switcher, and a collapse-toggle directive. It exports a root container (`mlv-sidebar`), a styled workspace selector (`mlv-sidebar-workspace`), a collapsible group component (`mlv-sidebar-group`), a standalone item component (`mlv-sidebar-item`), a drag-to-resize rail (`mlv-sidebar-rail`), a chrome-less collapse toggle (`[mlvSidebarTrigger]`), and supporting directives for logo/text/icon/title/structural slots. The library handles both expanded and collapsed layouts transparently, sharing state via the `SIDEBAR_CONTEXT` injection token.
 
 ## Public API
 
@@ -20,7 +20,7 @@ Exported from `libs/core/sidebar/src/index.ts`:
 | `MlvSidebarGroup` | Component | Collapsible group with `mlv-expand` accordion + `mlv-popup` flyout — `mlv-sidebar-group` |
 | `MlvSidebarItem` | Component | Individual navigation item — `mlv-sidebar-item` |
 | `MlvSidebarRail` | Component | Drag-to-resize rail with snap-to-collapse — `mlv-sidebar-rail` |
-| `MlvSidebarTrigger` | Component | Toggle button for collapsing/expanding the sidebar, exposing `focusTarget()`, `offcanvasFocusTarget()`, and a disposal-time `restoreFocusResolver` — `mlv-sidebar-trigger` |
+| `MlvSidebarTrigger` | Directive | Turns its host element into the sidebar's collapse toggle, exposing `label()`, `collapsed()`, `isDrawerTrigger()`, `isHidden()`, `focusTarget()`, `offcanvasFocusTarget()`, and a disposal-time `restoreFocusResolver` — `[mlvSidebarTrigger]` |
 | `MlvSidebarWorkspace` | Component | Styled active-workspace row and multi-workspace menu — `mlv-sidebar-workspace` |
 | `MlvSidebarWorkspaceLogo` | Structural directive | Custom logo template reused by the trigger and menu options — `[mlvSidebarWorkspaceLogo]` |
 | `MlvSidebarWorkspaceText` | Structural directive | Custom text template reused by the trigger and menu options — `[mlvSidebarWorkspaceText]` |
@@ -143,20 +143,26 @@ Both branches project `<ng-content />` and handle `(keydown)="onContainerKeydown
 #### Inline Style Summary
 
 - **Block `.mlv-sidebar`:** owns the animated total width and exposes `--mlv-sidebar-expanded-width`, `--mlv-sidebar-collapsed-width`, `--mlv-sidebar-gutter`, `--mlv-sidebar-border-width`, derived `--mlv-sidebar-icon-column-width`, `--mlv-sidebar-row-height`, and the three state-surface variables (`--mlv-sidebar-hover-bg`, `--mlv-sidebar-active-bg`, `--mlv-sidebar-rail-color` — see **State surfaces**). The icon column is `collapsedWidth - (2 × gutter) - (2 × border)` and is shared by item, group, project-selector, header, and footer icon containers.
-- **`--mlv-sidebar-row-height`** (default `2.25rem`) is the single source of truth for the height of every navigable row — `mlv-sidebar-item`, `.mlv-sidebar-group__header`, `.mlv-sidebar-group__icon-btn`, and `.mlv-sidebar-trigger__btn` all resolve `min-height: var(--mlv-sidebar-row-height, 2.25rem)`, so a mixed list keeps one rhythm. It is density-aware on the sidebar block: tight `var(--mlv-spacing-6)` (1.5rem/24px — off the height ramp by design, one step under compact so the order holds now that `--mlv-height-xs` is 28px), compact `--mlv-height-xs`, comfortable (default) `2.25rem`, spacious `--mlv-height-s`, airy `--mlv-height-m`. The icon column deliberately does **not** scale with density — it stays derived from `collapsedWidth`.
+- **`--mlv-sidebar-row-height`** (default `2.25rem`) is the single source of truth for the height of every navigable row — `mlv-sidebar-item`, `.mlv-sidebar-group__header`, and `.mlv-sidebar-group__icon-btn` all resolve `min-height: var(--mlv-sidebar-row-height, 2.25rem)`, so a mixed list keeps one rhythm. It is density-aware on the sidebar block: tight `var(--mlv-spacing-6)` (1.5rem/24px — off the height ramp by design, one step under compact so the order holds now that `--mlv-height-xs` is 28px), compact `--mlv-height-xs`, comfortable (default) `2.25rem`, spacious `--mlv-height-s`, airy `--mlv-height-m`. The icon column deliberately does **not** scale with density — it stays derived from `collapsedWidth`.
 - **Element `.mlv-sidebar__container`:** flex column, `height: 100%`, `width: 100%`, `gap: 1px`, and `overflow: hidden`; it clips fading labels while the host's trailing edge contracts.
-- **Element `.mlv-sidebar__header`:** `flex-shrink: 0` — stays pinned at top.
+- **`--mlv-sidebar-slot-gap`** (default `--mlv-spacing-2`) separates the header and footer chrome from the scrolling item list. It is deliberately **not** the container's `gap`, which is the 1px hairline rhythm _between_ rows: with only that hairline, the header sat one pixel off the first item and read as another row rather than as chrome around the list.
+- **Element `.mlv-sidebar__header`:** `flex-shrink: 0`, `margin-block-end: var(--mlv-sidebar-slot-gap)` — stays pinned at top.
 - **Element `.mlv-sidebar__content`:** `flex: 1 1 0`, `overflow: hidden`, `min-height: 0` — middle-region host whose internal `.mlv-sidebar__content-scrollbar` owns scrolling. Unslotted legacy content is wrapped by `.mlv-sidebar__scrollbar` at the sidebar level.
-- **Element `.mlv-sidebar__footer`:** `flex-shrink: 0` — stays pinned at bottom.
+- **Element `.mlv-sidebar__footer`:** `flex-shrink: 0`, `margin-block-start: var(--mlv-sidebar-slot-gap)` — stays pinned at bottom.
 - **Modifier `.mlv-sidebar--collapsed`:** switches only the host width. Descendant icon tracks remain start-anchored at the same derived width while labels fade and become `visibility: hidden` after the transition.
 - **Modifier `.mlv-sidebar--flat`:** removes only the inline sidebar's outer radius and shadow (`--mlv-shadow-flat`); its border and raised background remain. Page Shell continues to own its chrome seam.
 - **Modifier `.mlv-sidebar--offcanvas`:** removes border, shadow, and padding, and collapses the host to `width: 0` (`flex: 0 0 auto`, `overflow: hidden`). The panel lives in a CDK overlay, so the host is only an anchor in the page flow — it previously claimed `width: 100%` and squeezed the content beside it, which also broke the layout the moment `collapseBelow` crossed its breakpoint.
 - **Modifier `.mlv-sidebar--floating`:** `position: absolute`, `z-index: 100`, elevated shadow (`--mlv-shadow-overlay` — a side overlay per SL-R3), `translateX(-100%)` when collapsed.
 - **Modifier `.mlv-sidebar--full-height`:** `position: sticky`, full viewport height via `100dvh`, respects `--mlv-sidebar-offset-top` and `--mlv-sidebar-offset-bottom` CSS custom properties.
 - **Drawer context** (`.mlv-drawer .mlv-sidebar`): fills drawer width, forces labels visible.
-- **Reduced motion:** host, floating transform, label, badge, group heading, and trigger transitions use the instant duration when `prefers-reduced-motion: reduce` is active.
+- **Reduced motion:** host, floating transform, label, badge, group heading, and the collapsed-group cross-fade use the instant duration when `prefers-reduced-motion: reduce` is active.
 
-For a custom project selector or another consumer-owned header/footer row, keep all grid children in the same explicit row during collapse. Collapse trailing tracks to zero instead of removing them, for example `grid-template-columns: var(--mlv-sidebar-icon-column-width) minmax(0, 0fr) 0`; otherwise CSS auto-placement can move mounted fading text onto extra rows and add vertical spacing.
+For a custom project selector or another consumer-owned header/footer row, lay the row out as a grid with **the same track list in both states** — `grid-template-columns: var(--mlv-sidebar-icon-column-width) minmax(0, 1fr)` — and express the collapse purely as `opacity` / `transform` on the text wrapper, on `--mlv-duration-normal` with `--mlv-ease-in-out-strong`. Two things follow from that:
+
+- Keep every child mounted and in the same explicit row. Removing one (`@if`, `display: none`) lets CSS auto-placement move the mounted fading text onto an extra row and adds vertical spacing.
+- **Never narrow the text track on collapse.** Nothing in this codebase transitions `grid-template-columns`, so `minmax(0, 0fr)` (or a `0` track) clips the label away in a single frame while the rail is still at its full width — a cut, next to a list of `mlv-sidebar-item`s that all fade. Left at `1fr` the track narrows _with_ the animated host width, exactly as an item's label track does, and the opacity fade rides on top of it. `mlv-sidebar-workspace` and the docs examples were all corrected this way in 2026-09; do not reintroduce the `0fr` form.
+
+Hide the text from the a11y tree at the end of the fade with `visibility: hidden` on a `transition-delay` equal to the duration, the way `.mlv-sidebar-item__label` does.
 
 ---
 
@@ -187,6 +193,13 @@ Styled workspace identity row intended for `[mlvSidebarHeader]`. It renders a no
 | `[mlvSidebarWorkspaceText]` | `$implicit: MlvSidebarWorkspaceOption`, `selected: boolean` | Renders the primary/secondary copy for the active trigger and every menu option. Falls back to `label` + `description`. |
 
 The component consumes `SIDEBAR_CONTEXT.collapsed` automatically. Collapsed mode retains the logo track and accessible trigger name while fading/clipping the text and chevron tracks. The overlay menu stays fully expanded because it renders outside the collapsed sidebar ancestry.
+
+Two things keep the trigger's logo on the same vertical line as every item glyph below it, and both are load-bearing:
+
+- **`justify-content: start` on `__trigger`.** The trigger is a `button[mlvButton]`, and `.mlv-button` brings `justify-content: center` — which for a _grid_ container centres the whole track set, splitting any overflow across both edges. Alignment must not depend on the tracks fitting.
+- **The chevron empties its own box on collapse** (`inline-size: 1rem` → `0`, transitioned on `--mlv-duration-normal`). It owns the third, `auto` track: fading it without shrinking it left `38 + 0 + 16 = 54px` of tracks in a 38px rail, and the centred overflow pulled the logo 8px inline-start of the icon column (logo centre 20px against every item glyph at 28px). `inline-size` is transitionable where `grid-template-columns` is not, so the track empties continuously instead of snapping at frame 0.
+
+Both are pinned by `sidebar-collapsed-alignment.spec.ts`.
 
 The trigger uses the shared `button[mlvButton]` and `mlv-menu` primitives. The menu provides Arrow Up/Down, Home/End, type-ahead, Enter/Space activation, Escape/outside-click dismissal, and focus restoration. The active option carries `aria-current="true"` and a decorative check mark.
 
@@ -410,7 +423,7 @@ count is not folded in — prefer the input-based path for full a11y of the coun
 - **Element `__icon`:** centers projected icon content inside `--mlv-sidebar-icon-column-width` in both states.
 - **Element `__label`:** `min-width: 0`, ellipsis, opacity/translation fade, and delayed `visibility: hidden` in collapsed mode.
 - **Element `__badge`:** trailing badge with the same opacity/delayed-visibility behavior.
-- **Element `__status`:** `position: absolute`, top-right (`0.1875rem`), `pointer-events: none` — collapsed-rail status dot overlaying the icon.
+- **Element `__status`:** `position: absolute`, top-right (`0.1875rem`), `pointer-events: none` — collapsed-rail status dot overlaying the icon. Its rule is written as `.mlv-sidebar-item__icon .mlv-sidebar-item__status` **on purpose**: `mlv-status-indicator` declares `position: relative` on its own host class, which is the same specificity in the same cascade layer, so a bare `__status` rule won or lost on stylesheet order alone — and the indicator's file loads later. In flow the dot became a flex sibling of the glyph inside the centred `__icon`, so a badged row's glyph sat 2px inside the icon column while every unbadged row stayed on it (24px vs 28px from the rail's inline-start edge). Pinned by `sidebar-collapsed-alignment.spec.ts`.
 - **Element `__tooltip`:** absolute, right of item, hidden (`opacity: 0`), shown on hover/focus-visible in collapsed mode.
 - **Modifier `--active`:** `--mlv-text-on-selected` + `font-weight: 600` on the modifier, plus the active pill (`--mlv-sidebar-active-bg`, default `--mlv-background-selected`) written against the block class so it survives `:hover`. Selection is its own token (SF-R1) — never the pressed `-active` fill. See **State surfaces**.
 - **Modifier `--collapsed`:** leaves the icon track unchanged; disables interaction on the label and fades trailing content while the sidebar container clips it.
@@ -485,13 +498,22 @@ host: {
 ### `MlvSidebarTrigger`
 
 **File:** `libs/core/sidebar/src/lib/sidebar-trigger/sidebar-trigger.ts`
-**Styles:** `libs/core/sidebar/src/lib/sidebar-trigger/sidebar-trigger.scss`
+**Styles:** none — see the migration note below.
 
-- **Selector:** `mlv-sidebar-trigger`
-- **Change Detection:** `ChangeDetectionStrategy.OnPush`
-- **Encapsulation:** `ViewEncapsulation.None`
+- **Kind:** `@Directive` (was a component until [2026-09](../../docs/migrations/2026-09-sidebar-trigger-directive.md))
+- **Selector:** `[mlvSidebarTrigger]`
+- **exportAs:** `mlvSidebarTrigger`
 
-Toggle button that collapses/expands the sidebar. Renders a plain transparent icon button styled to match collapsed sidebar items, so it sits flush with the rest of the sidebar chrome. Auto-hides in `fixed` mode, and turns into a hamburger/close menu button while the sidebar's **effective** mode is `'offcanvas'`.
+Turns **any element** into the sidebar's collapse toggle. It renders nothing and
+owns no chrome: the host is the control. Inside the rail that host is an
+ordinary `mlv-sidebar-item`, so the toggle is a normal row with an icon and a
+label and inherits the row surface (hover fill, active pill, density, the shared
+`--mlv-sidebar-row-height`, container arrow-key nav) instead of re-deriving a
+subset of it. Outside the rail it is usually a `button[mlvButton]`.
+
+The directive contributes exactly three things: a click listener that calls
+`toggle()`, `aria-expanded` on the host, and `display: none` while the sidebar's
+effective mode is `'fixed'`.
 
 #### Inputs
 
@@ -499,51 +521,76 @@ Toggle button that collapses/expands the sidebar. Renders a plain transparent ic
 | --------- | ------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sidebar` | `MlvSidebarContextValue \| undefined` | `undefined` | The sidebar to control when the trigger is rendered **outside** `<mlv-sidebar>` — pass the sidebar's template reference (`<mlv-sidebar #nav />` → `[sidebar]="nav"`). Required for any sidebar that can become an offcanvas drawer: a closed drawer renders none of its projected content, so a nested trigger disappears with it. Falls back to the ancestor `SIDEBAR_CONTEXT`. |
 
+#### Public signals
+
+The call site owns the host's icon and text, so everything it needs to pick them
+is public.
+
+| Signal            | Type              | Description                                                                                                                                                                                                                                                  |
+| ----------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `label`           | `Signal<string>`  | The localized name of the action in its current state — `expand`/`collapse` on a rail, `openNavigation`/`closeNavigation` while the sidebar is a drawer, all from `MLV_SIDEBAR_I18N`. Bind it to the host's own label (see **The name is the call site's**). |
+| `collapsed`       | `Signal<boolean>` | Whether the sidebar is collapsed (the drawer closed, in offcanvas mode).                                                                                                                                                                                     |
+| `isDrawerTrigger` | `Signal<boolean>` | `true` when the effective mode is `'offcanvas'`, so the host should read as a menu button. Follows a `collapseBelow` override, not only an authored `mode="offcanvas"`.                                                                                      |
+| `isHidden`        | `Signal<boolean>` | `true` when the effective mode is `'fixed'`, which hides the host. A `collapseBelow` override therefore reveals it again on a narrow viewport.                                                                                                               |
+
+#### The name is the call site's
+
+The directive deliberately does **not** write `aria-label`. Its host is an
+element the consumer owns and that usually names itself already —
+`mlv-sidebar-item` binds `aria-label` from its required `label` input — and two
+directives writing the same host attribute is resolved by matching order, not by
+intent. `label()` hands over the string instead, so the visible row text and the
+accessible name are the same read:
+
+```html
+<mlv-sidebar-item mlvSidebarTrigger #collapseTrigger="mlvSidebarTrigger" [label]="collapseTrigger.label()">
+  <ng-template mlvSidebarItemIcon>
+    @if (collapseTrigger.collapsed()) {
+    <svg lucidePanelLeftOpen size="20" />
+    } @else {
+    <svg lucidePanelLeftClose size="20" />
+    }
+  </ng-template>
+</mlv-sidebar-item>
+```
+
+On a bare icon-only button, bind `[attr.aria-label]="trigger.label()"` instead.
+
 #### Public focus helpers
 
-| Member                   | Type                                | Description                                                                                                                                                                                             |
-| ------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `focusTarget`            | `Signal<HTMLButtonElement \| null>` | The connected native trigger button, or `null` before its view exists. Pass it to an overlay's explicit restore-focus option when the activating offcanvas control disappears.                          |
-| `offcanvasFocusTarget()` | `HTMLButtonElement \| null`         | Point-in-time connected native trigger only while the sidebar's effective mode is `offcanvas`; otherwise `null`. Connectivity and effective mode are checked on every call.                             |
-| `restoreFocusResolver`   | `() => true \| HTMLButtonElement`   | Stable function for a dynamic Dialog restore option. At disposal it returns the connected external trigger in offcanvas mode, or `true` so Dialog uses its connected captured opener in an inline mode. |
+| Member                   | Type                        | Description                                                                                                                                                                                             |
+| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `focusTarget`            | `Signal<HTMLElement>`       | The host element acting as the trigger. Pass it to an overlay's explicit restore-focus option when the activating offcanvas control disappears.                                                         |
+| `offcanvasFocusTarget()` | `HTMLElement \| null`       | Point-in-time connected host only while the sidebar's effective mode is `offcanvas`; otherwise `null`. Connectivity and effective mode are checked on every call.                                       |
+| `restoreFocusResolver`   | `() => true \| HTMLElement` | Stable function for a dynamic Dialog restore option. At disposal it returns the connected external trigger in offcanvas mode, or `true` so Dialog uses its connected captured opener in an inline mode. |
 
 #### Host Bindings
 
 ```ts
 host: {
-  class: 'mlv-sidebar-trigger',
-  '[class.mlv-sidebar-trigger--hidden]': '_isHidden()',
-  '[class.mlv-sidebar-trigger--menu]': '_isDrawerTrigger()',
+  '[attr.aria-expanded]': '!collapsed()',
+  '[style.display]': 'isHidden() ? "none" : null',
 }
 ```
 
+`display` is written inline rather than through a `--hidden` class because the
+host is the consumer's own element: a class-based `display: none` would have to
+outrank whatever `display` that element already declares.
+
 #### Internal Computed Signals
 
-| Signal               | Description                                                                                                                            |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `_context`           | Private. `sidebar() ?? inject(SIDEBAR_CONTEXT, { optional: true })` — the context this trigger drives. All reads are null-safe.        |
-| `_mode`              | Private. `_context()?.effectiveMode?.() ?? _context()?.mode()` (defaults to `'icon'` when there is no context at all).                 |
-| `_collapsed`         | Reads `collapsed()` from the resolved context. Drives icon swap and ARIA attributes.                                                   |
-| `_isDrawerTrigger`   | `true` when `_mode()` is `'offcanvas'`. Swaps in the hamburger/close icons and adds the `--menu` modifier.                             |
-| `_isHidden`          | `true` when `_mode()` is `'fixed'`. Hides the trigger via `display: none` — a `collapseBelow` override therefore unhides it on mobile. |
-| `_resolvedAriaLabel` | Drawer mode: `openNavigation`/`closeNavigation`. Rail mode: `expand`/`collapse`. All four come from `MLV_SIDEBAR_I18N`.                |
+| Signal     | Description                                                                                                            |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `_context` | Private. `sidebar() ?? inject(SIDEBAR_CONTEXT, { optional: true })` — the context this trigger drives. Null-safe.      |
+| `_mode`    | Private. `_context()?.effectiveMode?.() ?? _context()?.mode()` (defaults to `'icon'` when there is no context at all). |
 
-#### Template Summary
+#### Click handling
 
-Renders a plain `<button class="mlv-sidebar-trigger__btn">` with:
-
-- `[attr.aria-label]` bound to `_resolvedAriaLabel()`.
-- `[attr.aria-expanded]` bound to `!_collapsed()`.
-- `(click)` calls the protected `_toggle()` method.
-- Icons at `[size]="20"`: drawer mode swaps `lucideMenu` (closed) / `lucideX` (open); rail mode swaps `lucidePanelLeftOpen` (collapsed) / `lucidePanelLeftClose` (expanded).
-
-#### Inline Style Summary
-
-- **Block `.mlv-sidebar-trigger`:** `display: flex; width: 100%`.
-- **Modifier `--hidden`:** `display: none`.
-- **Modifier `--menu`:** `width: auto` and a square `__btn` sized from `--mlv-sidebar-row-height` — the drawer trigger usually lives outside the sidebar, where the rail's icon column does not exist.
-- **Element `__btn`:** transparent icon button with `width: var(--mlv-sidebar-icon-column-width)`, zero padding, the shared `--mlv-sidebar-row-height`, secondary text color, hover background, focus-visible outline, and centered icon.
-- **Element `__icon`:** smooth `transform` transition on the SVG.
+The listener is a `fromEvent(host, 'click')` stream released by
+`takeUntilDestroyed`, not a host `(click)` binding: a listener binding is wrapped
+in Angular's mark-dirty scheduler notification, and this handler sits on an
+element the consumer owns. Enter/Space arrive through it too — `mlv-sidebar-item`
+turns a key activation into a real `.click()` on its host.
 
 ---
 
@@ -714,7 +761,7 @@ export interface MlvSidebarContextValue {
 - `MlvSidebarGroup` — reads `parentCtx?.collapsed()` to switch between accordion and icon-button layouts.
 - `MlvSidebarItem` — reads `ctx?.collapsed()` and `ctx?.inFlyout?.()` to compute `isCollapsed`.
 - `MlvSidebarRail` — reads `collapsed()`, calls `toggle()` and `setWidth()` during drag/keyboard interactions.
-- `MlvSidebarTrigger` — reads `collapsed()` and `effectiveMode?.() ?? mode()`, calls `toggle()` on click, and exposes its native button through `focusTarget()`, the point-in-time `offcanvasFocusTarget()`, and the stable disposal-time `restoreFocusResolver`. Injects the token **optionally** so it can be pointed at a sidebar with its `sidebar` input from outside the sidebar tree.
+- `MlvSidebarTrigger` — reads `collapsed()` and `effectiveMode?.() ?? mode()`, calls `toggle()` on click, and exposes its **host element** through `focusTarget()`, the point-in-time `offcanvasFocusTarget()`, and the stable disposal-time `restoreFocusResolver`. Injects the token **optionally** so it can be pointed at a sidebar with its `sidebar` input from outside the sidebar tree.
 
 ---
 
@@ -728,11 +775,11 @@ Three component-scoped variables declared on `.mlv-sidebar` (`sidebar.scss`)
 carry every state fill in the sidebar. They are the **only** supported seam for
 a host that paints the sidebar on its own chrome.
 
-| Variable                   | Default                           | Consumed by                                                                                                                                                                                                                 |
-| -------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--mlv-sidebar-hover-bg`   | `var(--mlv-background-neutral-1)` | `mlv-sidebar-item:hover/:focus-visible`, `.mlv-sidebar-group__header:hover/:focus-visible`, `.mlv-sidebar-group__icon-btn:hover/:focus-visible`, `.mlv-sidebar-trigger__btn:hover`, `.mlv-sidebar-workspace__trigger:hover` |
-| `--mlv-sidebar-active-bg`  | `var(--mlv-background-selected)`  | `.mlv-sidebar-item--active` and `.mlv-sidebar-group__icon-btn--active` (both including their `:hover`/`:focus-visible` states)                                                                                              |
-| `--mlv-sidebar-rail-color` | `var(--mlv-border-normal)`        | `.mlv-sidebar-group__content.mlv-expand--open` tree line                                                                                                                                                                    |
+| Variable                   | Default                           | Consumed by                                                                                                                                                                              |
+| -------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mlv-sidebar-hover-bg`   | `var(--mlv-background-neutral-1)` | `mlv-sidebar-item:hover/:focus-visible`, `.mlv-sidebar-group__header:hover/:focus-visible`, `.mlv-sidebar-group__icon-btn:hover/:focus-visible`, `.mlv-sidebar-workspace__trigger:hover` |
+| `--mlv-sidebar-active-bg`  | `var(--mlv-background-selected)`  | `.mlv-sidebar-item--active` and `.mlv-sidebar-group__icon-btn--active` (both including their `:hover`/`:focus-visible` states)                                                           |
+| `--mlv-sidebar-rail-color` | `var(--mlv-border-normal)`        | `.mlv-sidebar-group__content.mlv-expand--open` tree line                                                                                                                                 |
 
 **Why they exist.** The three globals resolve against the _page_ surface. A host
 that renders the sidebar on an arbitrary background — `mlv-page-shell` puts the
@@ -766,19 +813,19 @@ hover/active ramp) from its computed chrome foreground — see `libs-page.md` �
 
 ### `mlv-sidebar` (block — `sidebar.scss`)
 
-| Class                      | Type     | Description                                                                                                  |
-| -------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
-| `mlv-sidebar`              | Block    | Root sidebar element.                                                                                        |
-| `mlv-sidebar__container`   | Element  | Inner flex column container; drives width animation and defines `--_label-w`.                                |
-| `mlv-sidebar__header`      | Element  | Sticky top region (applied by `[mlvSidebarHeader]`). `flex-shrink: 0`.                                       |
-| `mlv-sidebar__content`     | Element  | Scrollable middle region (applied by `[mlvSidebarContent]`). `flex: 1 1 0`.                                  |
-| `mlv-sidebar__footer`      | Element  | Sticky bottom region (applied by `[mlvSidebarFooter]`). `flex-shrink: 0`.                                    |
-| `mlv-sidebar--collapsed`   | Modifier | Applied when `_effectiveCollapsed()` is true; switches to icon-only layout.                                  |
-| `mlv-sidebar--icon`        | Modifier | Applied when `mode()` is `'icon'` (default). No additional styles beyond base.                               |
-| `mlv-sidebar--offcanvas`   | Modifier | Removes border, shadow, padding; container fills drawer width.                                               |
-| `mlv-sidebar--floating`    | Modifier | `position: absolute`, elevated shadow, `translateX(-100%)` when collapsed.                                   |
-| `mlv-sidebar--fixed`       | Modifier | Applied when `mode()` is `'fixed'`. No additional styles (collapse is suppressed via `_effectiveCollapsed`). |
-| `mlv-sidebar--full-height` | Modifier | `position: sticky`, `height: 100dvh` minus offsets, `align-self: flex-start`.                                |
+| Class                      | Type     | Description                                                                                                       |
+| -------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `mlv-sidebar`              | Block    | Root sidebar element.                                                                                             |
+| `mlv-sidebar__container`   | Element  | Inner flex column container; drives width animation and defines `--_label-w`.                                     |
+| `mlv-sidebar__header`      | Element  | Sticky top region (applied by `[mlvSidebarHeader]`). `flex-shrink: 0` + a `--mlv-sidebar-slot-gap` bottom margin. |
+| `mlv-sidebar__content`     | Element  | Scrollable middle region (applied by `[mlvSidebarContent]`). `flex: 1 1 0`.                                       |
+| `mlv-sidebar__footer`      | Element  | Sticky bottom region (applied by `[mlvSidebarFooter]`). `flex-shrink: 0` + a `--mlv-sidebar-slot-gap` top margin. |
+| `mlv-sidebar--collapsed`   | Modifier | Applied when `_effectiveCollapsed()` is true; switches to icon-only layout.                                       |
+| `mlv-sidebar--icon`        | Modifier | Applied when `mode()` is `'icon'` (default). No additional styles beyond base.                                    |
+| `mlv-sidebar--offcanvas`   | Modifier | Removes border, shadow, padding; container fills drawer width.                                                    |
+| `mlv-sidebar--floating`    | Modifier | `position: absolute`, elevated shadow, `translateX(-100%)` when collapsed.                                        |
+| `mlv-sidebar--fixed`       | Modifier | Applied when `mode()` is `'fixed'`. No additional styles (collapse is suppressed via `_effectiveCollapsed`).      |
+| `mlv-sidebar--full-height` | Modifier | `position: sticky`, `height: 100dvh` minus offsets, `align-self: flex-start`.                                     |
 
 ### `mlv-sidebar-group` (block — `sidebar-group.scss`)
 
@@ -823,13 +870,14 @@ hover/active ramp) from its computed chrome foreground — see `libs-page.md` �
 | `mlv-sidebar-rail`           | Block    | Vertical resize handle positioned on the sidebar's right edge.     |
 | `mlv-sidebar-rail--dragging` | Modifier | Applied during pointer drag; same visual as `:hover` (accent bar). |
 
-### `mlv-sidebar-trigger` (block — `sidebar-trigger.scss`)
+### `[mlvSidebarTrigger]` — no block of its own
 
-| Class                         | Type     | Description                                            |
-| ----------------------------- | -------- | ------------------------------------------------------ |
-| `mlv-sidebar-trigger`         | Block    | Wrapper for the toggle button. `display: inline-flex`. |
-| `mlv-sidebar-trigger--hidden` | Modifier | `display: none`. Applied in `fixed` mode.              |
-| `mlv-sidebar-trigger__icon`   | Element  | Icon SVG with smooth transform transition.             |
+The collapse toggle ships **no stylesheet**. Its host is the consumer's own
+element and keeps that element's classes: `mlv-sidebar-item` in the rail,
+`mlv-button` outside it. `fixed`-mode hiding is an inline
+`style="display: none"` on the host rather than a `--hidden` modifier, because a
+class-based `display: none` would have to outrank whatever `display` the host
+element already declares (`grid` for an item, `inline-flex` for a button).
 
 ---
 
@@ -867,19 +915,33 @@ readonly sidebarCollapsed = signal(false);
 ```
 
 ```html
-<mlv-sidebar [collapsed]="sidebarCollapsed()" width="260px" collapsedWidth="56px">
+<mlv-sidebar [(collapsed)]="sidebarCollapsed" width="260px" collapsedWidth="56px">
   <mlv-sidebar-item label="Home">
     <ng-template mlvSidebarItemIcon>
-      <lucide-icon name="home" size="20" />
+      <svg lucideHouse size="20" />
     </ng-template>
     <ng-template mlvSidebarItemTitle>
       <a routerLink="/home" routerLinkActive>Home</a>
     </ng-template>
   </mlv-sidebar-item>
-</mlv-sidebar>
 
-<button type="button" (click)="sidebarCollapsed.update(v => !v)">Toggle sidebar</button>
+  <!-- The toggle is an ordinary row: `[mlvSidebarTrigger]` adds only the click,
+       `aria-expanded`, and the localized name it hands back through `label()`. -->
+  <mlv-sidebar-item mlvSidebarTrigger #collapseTrigger="mlvSidebarTrigger" [label]="collapseTrigger.label()">
+    <ng-template mlvSidebarItemIcon>
+      @if (collapseTrigger.collapsed()) {
+      <svg lucidePanelLeftOpen size="20" />
+      } @else {
+      <svg lucidePanelLeftClose size="20" />
+      }
+    </ng-template>
+  </mlv-sidebar-item>
+</mlv-sidebar>
 ```
+
+Bind `collapsed` **two-way**. `[collapsed]="sidebarCollapsed()"` alone leaves the
+host's signal stale the moment the sidebar toggles itself — from the trigger, a
+`mlv-sidebar-rail` snap, or a `collapseBelow` override.
 
 ### Badges on items and groups
 
@@ -972,7 +1034,7 @@ When the sidebar is **expanded**, groups render as an accordion. When the sideba
 
 ## Internationalization (i18n)
 
-The `mlv-sidebar` landmark `aria-label` resolves through `MLV_SIDEBAR_I18N` (`@malva-ui/i18n`) key `navigation` — unless the author sets the `ariaLabel` input, which wins. The badge count folded into a collapsed item/group accessible name resolves through the `notifications` ICU-plural key (`"{count, plural, one {# notification} other {# notifications}}"`). `mlv-sidebar-workspace` uses the `switchWorkspace` ICU key (parameter `{ workspace }`) for its trigger and `workspaceMenu` for its menu label. The sidebar trigger uses `expand`/`collapse` in rail mode and `openNavigation`/`closeNavigation` while it is a drawer (offcanvas) menu button. ICU values resolve through `MlvI18nResolverService`. Provide `provideMlvI18nTesting()` in specs that instantiate any sidebar component.
+The `mlv-sidebar` landmark `aria-label` resolves through `MLV_SIDEBAR_I18N` (`@malva-ui/i18n`) key `navigation` — unless the author sets the `ariaLabel` input, which wins. The badge count folded into a collapsed item/group accessible name resolves through the `notifications` ICU-plural key (`"{count, plural, one {# notification} other {# notifications}}"`). `mlv-sidebar-workspace` uses the `switchWorkspace` ICU key (parameter `{ workspace }`) for its trigger and `workspaceMenu` for its menu label. `[mlvSidebarTrigger]` resolves `expand`/`collapse` in rail mode and `openNavigation`/`closeNavigation` while it is a drawer (offcanvas) menu button, and surfaces the result as `label()` for the call site to bind — visible row text on an `mlv-sidebar-item`, `aria-label` on an icon-only button. ICU values resolve through `MlvI18nResolverService`. Provide `provideMlvI18nTesting()` in specs that instantiate any sidebar component.
 
 ## Dependencies
 
@@ -995,14 +1057,14 @@ The `mlv-sidebar` landmark `aria-label` resolves through `MLV_SIDEBAR_I18N` (`@m
 
 ### External packages
 
-| Package                      | Usage                                                                                                                                                                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@angular/cdk/coercion`      | `BooleanInput`, `coerceBooleanProperty` — boolean input coercion on `fullHeight` and `active`.                                                                                                                            |
-| `@angular/router`            | `RouterLink`, `RouterLinkActive` — used by `MlvSidebarItem` to auto-detect active state from projected router links.                                                                                                      |
-| `@lucide/angular`            | Sidebar group/trigger icons (`LucidePanelLeftOpen`/`LucidePanelLeftClose` for the rail toggle, `LucideMenu`/`LucideX` for the drawer menu button) plus `LucideChevronsUpDown` and `LucideCheck` in `MlvSidebarWorkspace`. |
-| `@angular/common`            | `NgTemplateOutlet` — template rendering in `MlvSidebar` (shared body outlet), `MlvSidebarGroup`, and `MlvSidebarItem`; `DOCUMENT` — resolving the overlay-rendered flyout panel by id in `MlvSidebarGroup`.               |
-| `@angular/core/rxjs-interop` | `takeUntilDestroyed` — manages `RouterLinkActive.isActiveChange` subscription lifecycle in `MlvSidebarItem`.                                                                                                              |
-| `@malva-ui/cdk/utils`        | `clamp` (`MlvSidebar.setWidth`), `mlvNextId` (`MlvSidebarGroup` flyout id), `MlvBreakpointService` + `MlvBreakpoint` (`MlvSidebar.collapseBelow`).                                                                        |
+| Package                      | Usage                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@angular/cdk/coercion`      | `BooleanInput`, `coerceBooleanProperty` — boolean input coercion on `fullHeight` and `active`.                                                                                                                                                                                                                                              |
+| `@angular/router`            | `RouterLink`, `RouterLinkActive` — used by `MlvSidebarItem` to auto-detect active state from projected router links.                                                                                                                                                                                                                        |
+| `@lucide/angular`            | `LucideChevronDown` on the group accordion header, plus `LucideChevronsUpDown` and `LucideCheck` in `MlvSidebarWorkspace`. The collapse toggle ships **no** icons — `[mlvSidebarTrigger]` renders nothing, so the call site imports its own (`LucidePanelLeftOpen`/`LucidePanelLeftClose` for a rail, `LucideMenu`/`LucideX` for a drawer). |
+| `@angular/common`            | `NgTemplateOutlet` — template rendering in `MlvSidebar` (shared body outlet), `MlvSidebarGroup`, and `MlvSidebarItem`; `DOCUMENT` — resolving the overlay-rendered flyout panel by id in `MlvSidebarGroup`.                                                                                                                                 |
+| `@angular/core/rxjs-interop` | `takeUntilDestroyed` — manages `RouterLinkActive.isActiveChange` subscription lifecycle in `MlvSidebarItem`.                                                                                                                                                                                                                                |
+| `@malva-ui/cdk/utils`        | `clamp` (`MlvSidebar.setWidth`), `mlvNextId` (`MlvSidebarGroup` flyout id), `MlvBreakpointService` + `MlvBreakpoint` (`MlvSidebar.collapseBelow`).                                                                                                                                                                                          |
 
 ---
 
@@ -1027,14 +1089,20 @@ Set **`collapseBelow`** (`MlvBreakpoint` = `'sm' | 'md' | 'lg'`, default `null` 
 </mlv-sidebar>
 
 <!-- Outside the sidebar: a closed drawer renders none of its projected content. -->
-<mlv-sidebar-trigger [sidebar]="nav" />
+<button mlvButton variant="transparent" shape="square" mlvSidebarTrigger #navTrigger="mlvSidebarTrigger" [sidebar]="nav" [attr.aria-label]="navTrigger.label()">
+  @if (navTrigger.collapsed()) {
+  <svg lucideMenu [size]="20" />
+  } @else {
+  <svg lucideX [size]="20" />
+  }
+</button>
 ```
 
 Below the breakpoint:
 
 - `effectiveMode()` reports `'offcanvas'` regardless of `mode` (including `'fixed'`), so the host gets `.mlv-sidebar--offcanvas` and the drawer branch renders.
 - The sidebar **closes itself** on entry (the previous `collapsed()` value is stored and restored when the viewport grows back past the breakpoint).
-- `mlv-sidebar-trigger` becomes a hamburger (`lucideMenu`) / close (`lucideX`) menu button, is no longer hidden by `mode="fixed"`, and is named `openNavigation`/`closeNavigation`.
+- `[mlvSidebarTrigger]`'s `isDrawerTrigger()` flips to `true` and `label()` switches to `openNavigation`/`closeNavigation`, so the call site swaps in the hamburger (`lucideMenu`) / close (`lucideX`) pair; `isHidden()` goes `false`, so a `mode="fixed"` trigger reappears.
 - Dismissal is the normal offcanvas behaviour inherited from `mlv-drawer`: Escape, backdrop click, or the trigger. The drawer captures focus on open and only mounts its content while open.
 - `closeOnActivation` is optional and defaults to `false`. When enabled, a projected navigation or action activation also dismisses the compact drawer; desktop/inline behavior is unchanged. Focus returns to the external trigger for ordinary navigation. An activation-opened `dialog` or `alertdialog` retains focus through Drawer disposal; configure that modal with `restoreFocus: externalTrigger.restoreFocusResolver` (pass the function, do not invoke it). Because Dialog samples it at disposal, a dialog that survives either breakpoint direction restores to the connected external trigger in offcanvas mode or its reconnected projected opener in inline mode. Detached and hidden stale targets are never selected.
 

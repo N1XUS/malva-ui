@@ -1,13 +1,13 @@
 <div class="sidebar-demo">
-  <mlv-sidebar mode="floating" [collapsed]="collapsed()">
+  <mlv-sidebar mode="floating" [(collapsed)]="collapsed">
     <div mlvSidebarHeader>
       <div class="workspace">
         <div class="workspace__logo">
           <svg lucideCommand size="20" />
         </div>
-        @if (!collapsed()) {
+        <div class="workspace__meta">
           <span class="workspace__name">Acme Inc</span>
-        }
+        </div>
       </div>
     </div>
 
@@ -56,7 +56,19 @@
 
       <mlv-spacer />
 
-      <mlv-sidebar-trigger />
+      <mlv-sidebar-item
+        mlvSidebarTrigger
+        #collapseTrigger="mlvSidebarTrigger"
+        [label]="collapseTrigger.label()"
+      >
+        <ng-template mlvSidebarItemIcon>
+          @if (collapseTrigger.collapsed()) {
+            <svg lucidePanelLeftOpen size="20" />
+          } @else {
+            <svg lucidePanelLeftClose size="20" />
+          }
+        </ng-template>
+      </mlv-sidebar-item>
     </div>
   </mlv-sidebar>
 

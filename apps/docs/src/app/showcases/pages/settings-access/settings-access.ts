@@ -29,6 +29,7 @@ import {
   LucideKeyboard,
   LucideLogOut,
   LucideMailPlus,
+  LucideMenu,
   LucideMonitorCheck,
   LucidePackage,
   LucideRotateCw,
@@ -42,6 +43,7 @@ import {
   LucideUserPlus,
   LucideUserRound,
   LucideUsers,
+  LucideX,
 } from '@lucide/angular';
 import { MlvSpacer } from '@malva-ui/cdk/utils';
 import { MlvAlert, MlvAlertTitle } from '@malva-ui/core/alert';
@@ -813,6 +815,7 @@ function hoursBetween(start: string, end: string): number {
     LucideKeyboard,
     LucideLogOut,
     LucideMailPlus,
+    LucideMenu,
     LucideMonitorCheck,
     LucidePackage,
     LucideRotateCw,
@@ -826,6 +829,7 @@ function hoursBetween(start: string, end: string): number {
     LucideUserPlus,
     LucideUserRound,
     LucideUsers,
+    LucideX,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {

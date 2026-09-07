@@ -34,6 +34,13 @@
     flex-direction: column;
     min-width: 0;
     line-height: var(--mlv-line-height-snug);
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+    transition:
+      opacity var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+      transform var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+      visibility var(--mlv-duration-instant) linear;
   }
 
   &__name,
@@ -82,5 +89,16 @@
     color: var(--mlv-text-secondary);
     font-size: var(--mlv-font-size-m);
     line-height: var(--mlv-line-height-normal);
+  }
+}
+
+.mlv-sidebar--collapsed {
+  // Fade on the same 200ms the rail takes to narrow, like every row below.
+  .workspace__meta {
+    opacity: 0;
+    transform: translateX(-0.25rem);
+    visibility: hidden;
+    pointer-events: none;
+    transition-delay: 0s, 0s, var(--mlv-duration-normal);
   }
 }
