@@ -171,6 +171,13 @@ export class MlvPopupContainer implements OnDestroy, MlvPopupContainerRef {
    * `FlexibleConnectedPositionStrategy` resolves a position against 0,0 and
    * puts the panel in the top-left corner of the viewport, silently (#225).
    * Falling back keeps the panel on its container instead.
+   *
+   * The predicate is `isConnected` — still in the **document**, not still
+   * rendered. A trigger hidden with `display: none` on itself or an ancestor
+   * stays connected and still measures an all-zero rect, so the fallback does
+   * not fire for it. That is deliberate: widening the test to
+   * `getClientRects().length > 0` would silently relocate panels anchored to
+   * intentionally 0×0 elements, which is an established positioning pattern.
    */
   private _resolveOrigin(): ElementRef {
     const trigger = this._triggerOrigin;

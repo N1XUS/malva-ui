@@ -232,13 +232,23 @@ Two rules keep that origin honest:
 
 - **Container mode** — an ancestor provides `POPUP_CONTAINER`. The trigger owns
   no overlay: it registers its host as the container's origin and delegates
-  `open`/`close`/`toggle`. Written as a bare attribute.
+  `open`/`close`/`toggle`. Written as a bare attribute — and a **bound**
+  `[mlvPopupTrigger]="somePopup"` inside a container is silently ignored and
+  drives the container instead, because the constructor branches on `_container`
+  before it ever creates the standalone effect
+  (`popup-trigger.ts:116-139`).
 - **Standalone mode** — no container in scope. The trigger manages its own CDK
   overlay for the popup bound as `[mlvPopupTrigger]="somePopup"`.
 
 `MlvPopup` provides `POPUP_CONTAINER: null`, so a trigger **inside** a
 `<mlv-popup>`'s panel is always standalone even when the popup itself belongs to
 a container — see _Overlay origin_ above (#225).
+
+That provider guards the panel, not the container's whole subtree: a
+trigger-bearing component placed inside `<mlv-popup-container>` but **outside**
+`<mlv-popup>` still resolves the container, and `MlvPopup` is not on that
+injector chain. Zero occurrences today; the detached-origin fallback is what
+keeps such a case from reproducing #225's symptom.
 
 #### Inputs
 
