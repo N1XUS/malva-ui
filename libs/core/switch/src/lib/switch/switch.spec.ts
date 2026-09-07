@@ -390,9 +390,9 @@ describe('MlvSwitch stylesheet', () => {
   const dir = dirname(fileURLToPath(import.meta.url));
   const scss = readFileSync(join(dir, 'switch.scss'), 'utf8');
 
-  // Locks `--mlv-switch-font-size` onto the shared control-text ramp
-  // (CH-R3 in docs/superpowers/specs/2026-08-24-visual-language-spec.md),
-  // the same five values `--form-ctrl-font-size` uses in
+  // Locks `--mlv-switch-font-size` onto the shared control-text ramp — the
+  // type ramp is locked to the height ramp, so one density step moves both —
+  // using the same five values `--form-ctrl-font-size` uses in
   // form-control-wrapper.scss. `compact` and `airy` previously read one
   // step below the ramp (body-s / body-l instead of body-m / font-size-xl),
   // so a switch label rendered smaller than an input's text at those two

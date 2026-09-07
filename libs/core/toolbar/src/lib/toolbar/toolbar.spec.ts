@@ -1,6 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvToolbar } from './toolbar';
 import { MlvToolbarSpacer } from './toolbar-spacer';
 
@@ -65,5 +66,60 @@ describe('MlvToolbar', () => {
   it('should render spacer', () => {
     const spacer = fixture.nativeElement.querySelector('.mlv-toolbar-spacer');
     expect(spacer).toBeTruthy();
+  });
+});
+
+/**
+ * Accessibility sweep — plain toolbar.
+ *
+ * `mlv-toolbar` adds no role on purpose (the WAI-ARIA toolbar pattern is opt-in
+ * through `mlvToolbarRoving`, swept in `toolbar-widget.spec.ts`), so what this
+ * sweep covers is the layout container itself and `mlv-toolbar-spacer` — an
+ * element that renders literally nothing, which is precisely the shape that
+ * breaks a parent claiming `role="list"` or `role="toolbar"` around it. Both
+ * text and icon-only children are included, since an icon-only control in a
+ * toolbar is where a missing name shows up.
+ */
+describe('MlvToolbar accessibility', () => {
+  @Component({
+    imports: [MlvToolbar, MlvToolbarSpacer],
+    template: `
+      <mlv-toolbar>
+        <button type="button">Save</button>
+        <mlv-toolbar-spacer />
+        <button type="button" aria-label="More options">
+          <svg aria-hidden="true"></svg>
+        </button>
+      </mlv-toolbar>
+
+      <mlv-toolbar equalSize [gap]="0.5">
+        <button type="button">One</button>
+        <button type="button">Two</button>
+        <a href="/three">Three</a>
+      </mlv-toolbar>
+    `,
+  })
+  class ToolbarA11yHost {}
+
+  it('has no axe violations for plain and equal-size toolbars', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ToolbarA11yHost],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ToolbarA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: two containers, neither claiming a role, and the spacer really is
+    // an empty element sitting between two named controls.
+    const bars = [...host.querySelectorAll('mlv-toolbar')];
+    expect(bars).toHaveLength(2);
+    expect(bars.every((el) => el.getAttribute('role') === null)).toBe(true);
+    const spacer = host.querySelector('mlv-toolbar-spacer') as HTMLElement;
+    expect(spacer.childElementCount).toBe(0);
+    expect((spacer.textContent ?? '').trim()).toBe('');
+
+    await expectNoAxeViolations(host);
   });
 });

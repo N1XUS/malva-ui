@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Component } from '@angular/core';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvEmptyState } from './empty-state';
 
 @Component({
@@ -201,5 +202,66 @@ describe('MlvEmptyState — colour contract', () => {
     expect(dark).toBeLessThan(4.5);
     expect(Number(light.toFixed(2))).toBe(2.31);
     expect(Number(dark.toFixed(2))).toBe(4.18);
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * `mlv-empty-state` is a static `role="status"` live region wrapped around four
+ * projection slots, and each slot renders its wrapper `<div>` whether or not
+ * anything was projected into it. So the sweep covers both the full render and
+ * the title-only one: an empty `mlv-empty-state__icon` / `__actions` inside a
+ * live region is exactly the shape that would otherwise announce nothing, and
+ * the icon slot is where an unnamed graphic would surface.
+ */
+describe('MlvEmptyState accessibility', () => {
+  @Component({
+    imports: [MlvEmptyState],
+    template: `
+      <mlv-empty-state id="full">
+        <ng-container mlvEmptyStateIcon>
+          <svg aria-hidden="true"></svg>
+        </ng-container>
+        <h3 mlvEmptyStateTitle>No items</h3>
+        <p mlvEmptyStateDescription>Try adjusting your filters.</p>
+        <ng-container mlvEmptyStateActions>
+          <button type="button">Create</button>
+          <a href="/docs">Learn more</a>
+        </ng-container>
+      </mlv-empty-state>
+
+      <mlv-empty-state id="minimal">
+        <span mlvEmptyStateTitle>Nothing here yet</span>
+      </mlv-empty-state>
+    `,
+  })
+  class EmptyStateA11yHost {}
+
+  it('has no axe violations with every slot and with the title alone', async () => {
+    await TestBed.configureTestingModule({
+      imports: [EmptyStateA11yHost],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(EmptyStateA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: two live regions; the minimal one really did render its empty
+    // icon and actions wrappers, which is what makes it a distinct shape.
+    const regions = [...host.querySelectorAll('[role="status"]')];
+    expect(regions).toHaveLength(2);
+    const minimal = host.querySelector('#minimal') as HTMLElement;
+    expect(
+      (minimal.querySelector('.mlv-empty-state__icon') as HTMLElement)
+        .childElementCount,
+    ).toBe(0);
+    expect(
+      (minimal.querySelector('.mlv-empty-state__actions') as HTMLElement)
+        .childElementCount,
+    ).toBe(0);
+
+    await expectNoAxeViolations(host);
   });
 });

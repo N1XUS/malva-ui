@@ -7,7 +7,7 @@ import {
   DestroyRef,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { NgTemplateOutlet, AsyncPipe, JsonPipe } from '@angular/common';
+import { NgTemplateOutlet, AsyncPipe } from '@angular/common';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
@@ -125,7 +125,6 @@ function canonicalPathForDocsHeader(header: string): string | null {
     DocsDocumentationPipe,
     MlvDensityDirective,
     LucideLink,
-    JsonPipe,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

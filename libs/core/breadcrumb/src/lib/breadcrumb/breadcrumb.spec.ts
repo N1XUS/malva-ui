@@ -7,6 +7,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvBreadcrumb } from './breadcrumb';
 import { MlvBreadcrumbItem } from './breadcrumb-item';
 import { MlvBreadcrumbSeparator } from './breadcrumb-separator';
@@ -434,11 +435,27 @@ describe('MlvBreadcrumbItem', () => {
     }).compileComponents();
   });
 
-  it('should not claim role=listitem on the custom-element host (WCAG: only valid inside <ol>/<ul>)', () => {
+  /**
+   * This assertion used to be the opposite — `role` had to be absent, on the
+   * grounds that `listitem` is "only valid inside `<ol>`/`<ul>`". That premise
+   * holds; the conclusion did not follow. `<mlv-breadcrumb-item>` is projected
+   * through the `<ng-content />` that `breadcrumb.html` places INSIDE its own
+   * `<ol>`, so the element's DOM parent is always that list. Leaving the role
+   * off meant every projected-mode breadcrumb handed the `<ol>` non-`<li>`
+   * children, and axe's `list` rule (serious, WCAG 1.3.1) fired on the `<ol>` —
+   * the trail stopped being exposed as a list at all. `only-listitems` accepts
+   * a child whose resolved role is `listitem` (`axe-core/axe.js:25846`), which
+   * is exactly what this restores.
+   *
+   * `[mlvBreadcrumbItem]` (`MlvBreadcrumbItemHost`) still sets no role: that
+   * directive is documented for the `<a>` inside an `<li>` as well as the
+   * `<li>` itself, so it has no such guarantee about its parent.
+   */
+  it('claims role=listitem so the breadcrumb <ol> keeps its list semantics', () => {
     const fixture = TestBed.createComponent(ItemDefaultHostComponent);
     fixture.detectChanges();
     const el = fixture.debugElement.query(By.css('mlv-breadcrumb-item'));
-    expect(el.nativeElement.getAttribute('role')).toBeNull();
+    expect(el.nativeElement.getAttribute('role')).toBe('listitem');
   });
 
   it('should apply mlv-breadcrumb__item class to host', () => {
@@ -829,5 +846,101 @@ describe('MlvBreadcrumb — scoped direction', () => {
     expect(focusedLabel()).toBe('Sub-Category'); // the island reads LTR
     keydown('ArrowLeft');
     expect(focusedLabel()).toBe('Category');
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * The breadcrumb is `role="navigation"` wrapping an `<ol>`, and both of its
+ * usage modes have to survive that: data-driven stamps its own `<li>`s, while
+ * projected mode drops `<mlv-breadcrumb-item>` elements straight into the
+ * `<ol>` through `<ng-content>`. Truncation adds a third shape — a named
+ * `aria-haspopup="menu"` ellipsis button and, once opened, a `role="menu"`
+ * portaled into the CDK overlay container with a `role="menuitem"` per hidden
+ * crumb (including the `aria-disabled` span branch). Each is swept in the mode
+ * that produces it.
+ */
+describe('MlvBreadcrumb accessibility', () => {
+  async function mount<T>(type: new (...args: never[]) => T) {
+    await TestBed.configureTestingModule({
+      imports: [type],
+      providers: [
+        provideMlvI18nTesting(),
+        provideRouter([]),
+        provideAnimationsAsync(),
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(type);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    return { fixture, host: fixture.nativeElement as HTMLElement };
+  }
+
+  it('has no axe violations in data-driven mode', async () => {
+    const { host } = await mount(DataDrivenHostComponent);
+
+    // State: a named navigation landmark over three crumbs, the last of which
+    // is the `aria-current="page"` span rather than a link.
+    const nav = host.querySelector('nav') as HTMLElement;
+    expect(nav.getAttribute('role')).toBe('navigation');
+    expect(nav.getAttribute('aria-label')).toBeTruthy();
+    expect(host.querySelectorAll('li.mlv-breadcrumb__item')).toHaveLength(3);
+    expect(host.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations with disabled and plain crumbs', async () => {
+    const { host } = await mount(DisabledItemHostComponent);
+
+    // State: the two non-navigable branches — `--disabled` and the plain
+    // ancestor — render as spans, so nothing claims to be an inert link.
+    expect(
+      host.querySelectorAll('.mlv-breadcrumb__link--disabled'),
+    ).toHaveLength(1);
+    expect(host.querySelectorAll('a')).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations in projected mode', async () => {
+    const { host } = await mount(ProjectedHostComponent);
+
+    // State: three `<mlv-breadcrumb-item>` elements projected straight into the
+    // component's own `<ol>` — the shape `list` / `listitem` judges.
+    expect(host.querySelectorAll('mlv-breadcrumb-item')).toHaveLength(3);
+    expect(host.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations with the overflow menu open', async () => {
+    const { fixture, host } = await mount(OverflowHostComponent);
+    const overlayContainer = TestBed.inject(OverlayContainer);
+    try {
+      const overlayEl = overlayContainer.getContainerElement();
+
+      const ellipsis = host.querySelector(
+        '.mlv-breadcrumb__ellipsis',
+      ) as HTMLButtonElement;
+      expect(ellipsis.getAttribute('aria-haspopup')).toBe('menu');
+      expect(ellipsis.getAttribute('aria-label')).toBeTruthy();
+
+      ellipsis.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // State: the menu is attached with one `menuitem` per hidden crumb.
+      const menu = overlayEl.querySelector('[role="menu"]') as HTMLElement;
+      expect(menu).toBeTruthy();
+      expect(menu.querySelectorAll('[role="menuitem"]')).toHaveLength(3);
+      expect(ellipsis.getAttribute('aria-expanded')).toBe('true');
+
+      await expectNoAxeViolations(document.body);
+    } finally {
+      overlayContainer.ngOnDestroy();
+    }
   });
 });

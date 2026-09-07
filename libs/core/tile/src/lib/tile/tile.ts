@@ -18,7 +18,7 @@ import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { NgTemplateOutlet } from '@angular/common';
 import { LucideGripVertical } from '@lucide/angular';
-import { MlvButtonClose, MlvButtonIcon } from '@malva-ui/core/button';
+import { MlvButtonClose } from '@malva-ui/core/button';
 import {
   MLV_DENSITY_ELEMENT,
   MlvDensityDirective,
@@ -47,14 +47,7 @@ const MLV_TILE_ITEM_ROOT_CLASS = 'mlv-tiles__item-root';
 
 @Component({
   selector: 'mlv-tile',
-  imports: [
-    NgTemplateOutlet,
-    LucideGripVertical,
-    MlvButtonClose,
-    MlvTileActions,
-    MlvTileTrailingActions,
-    MlvButtonIcon,
-  ],
+  imports: [NgTemplateOutlet, LucideGripVertical, MlvButtonClose],
   templateUrl: './tile.html',
   styleUrl: './tile.scss',
   encapsulation: ViewEncapsulation.None,

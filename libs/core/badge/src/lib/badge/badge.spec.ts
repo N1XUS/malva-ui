@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { compile } from 'sass';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvBadge } from './badge';
 import { MlvBadgeIcon } from '../badge-icon';
 
@@ -146,5 +147,76 @@ describe('MlvBadge icon styling', () => {
     expect(rule('.mlv-badge__icon--end')?.style.getPropertyValue('order')).toBe(
       '1',
     );
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * A badge adds no role and no ARIA of its own — what it does add is a projected
+ * `[mlvBadgeIcon]` that the directive marks `aria-hidden="true"`, which is only
+ * correct while the badge still has a text label beside it. So the sweep covers
+ * the whole tone × muted matrix the docs page promotes
+ * (`apps/docs/src/app/pages/badge/examples/1`, `…/2`) together with both icon
+ * positions (`…/6`) and a density override (`…/3`), and asserts that every
+ * badge keeps an accessible text of its own next to the hidden glyph.
+ */
+@Component({
+  imports: [MlvBadge, MlvBadgeIcon],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @for (tone of tones; track tone) {
+      <mlv-badge [tone]="tone">{{ tone }}</mlv-badge>
+      <mlv-badge [tone]="tone" muted>{{ tone }} muted</mlv-badge>
+    }
+
+    <mlv-badge tone="success" muted>
+      <svg mlvBadgeIcon></svg>
+      Published
+    </mlv-badge>
+
+    <mlv-badge tone="info">
+      Syncing
+      <svg mlvBadgeIcon position="end"></svg>
+    </mlv-badge>
+
+    <mlv-badge tone="primary" muted mlvDensity="compact">New</mlv-badge>
+    <mlv-badge tone="primary" muted mlvDensity="spacious">New</mlv-badge>
+  `,
+})
+class BadgeA11yHost {
+  readonly tones = [
+    'default',
+    'primary',
+    'secondary',
+    'accent',
+    'success',
+    'info',
+    'warning',
+    'danger',
+  ] as const;
+}
+
+describe('MlvBadge accessibility', () => {
+  it('has no axe violations across tones, icons and density', async () => {
+    await TestBed.configureTestingModule({
+      imports: [BadgeA11yHost],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(BadgeA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: the eight tones twice over, both icon positions and two density
+    // overrides — 20 badges, every one of them still carrying visible text.
+    const badges = [...host.querySelectorAll('mlv-badge')];
+    expect(badges).toHaveLength(20);
+    expect(badges.every((b) => (b.textContent ?? '').trim().length > 0)).toBe(
+      true,
+    );
+    expect(host.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(2);
+
+    await expectNoAxeViolations(host);
   });
 });

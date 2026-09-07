@@ -1,7 +1,9 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
+import { OverlayContainer } from '@angular/cdk/overlay';
 import { Subject } from 'rxjs';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import { MlvAvatarGroup } from './avatar-group';
 import type { MlvAvatarGroupMember } from './avatar-group';
@@ -533,5 +535,132 @@ describe('MlvAvatarGroup', () => {
       fixture.detectChanges();
       expect(getHost(fixture).classList).toContain('mlv-avatar-group--size-xs');
     });
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * The group's markup is not one shape but four, and three of them only exist
+ * in an overflowing group: the host swaps `role="group"` for `role="button"`
+ * (plus a tab stop) under `interactive`, the `+N` counter is a second,
+ * separately-named `role="button"` tab stop, and the member popup — a
+ * `role="list"` portaled into the CDK overlay container, outside
+ * `fixture.nativeElement` entirely — only exists while open. A sweep of the
+ * default render sees none of that, so each is swept in the state that
+ * produces it.
+ */
+describe('MlvAvatarGroup accessibility', () => {
+  let overlayContainer: OverlayContainer;
+
+  afterEach(() => overlayContainer?.ngOnDestroy());
+
+  it('has no axe violations for a plain group that fits', async () => {
+    const { fixture } = await setupBasicFixture();
+    overlayContainer = TestBed.inject(OverlayContainer);
+    simulateWidth(9999, fixture);
+    await fixture.whenStable();
+
+    // State: three avatars, no overflow counter, host named by total count.
+    expect(getAvatarItems(fixture)).toHaveLength(3);
+    expect(getOverflow(fixture)).toBeNull();
+    expect(getHost(fixture).getAttribute('role')).toBe('group');
+    expect(getHost(fixture).getAttribute('aria-label')).toBe('3 members');
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+
+  it('has no axe violations for an interactive group', async () => {
+    const { fixture, host } = await setupBasicFixture();
+    overlayContainer = TestBed.inject(OverlayContainer);
+    host.interactive.set(true);
+    fixture.detectChanges();
+    simulateWidth(9999, fixture);
+    await fixture.whenStable();
+
+    // State: the host is now a named, tabbable `role="button"` — the shape
+    // `aria-allowed-attr` / `aria-required-attr` judge differently from a group.
+    const el = getHost(fixture);
+    expect(el.getAttribute('role')).toBe('button');
+    expect(el.getAttribute('tabindex')).toBe('0');
+    expect(el.getAttribute('aria-label')).toBe('3 members');
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+
+  it('has no axe violations for an empty group', async () => {
+    resizeSubject = new Subject<ResizeObserverEntry[]>();
+    await TestBed.configureTestingModule({
+      imports: [EmptyTestHost],
+      providers: [
+        provideMlvI18nTesting(),
+        {
+          provide: MlvResizeObserverService,
+          useValue: { observe: () => resizeSubject.asObservable() },
+        },
+      ],
+    }).compileComponents();
+    overlayContainer = TestBed.inject(OverlayContainer);
+
+    const fixture = TestBed.createComponent(EmptyTestHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // State: no avatars at all, and the host still carries a name rather than
+    // an empty `aria-label`.
+    expect(getAvatarItems(fixture)).toHaveLength(0);
+    expect(getHost(fixture).getAttribute('aria-label')).toBe('No members');
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+
+  it('has no axe violations with the +N counter rendered', async () => {
+    const { fixture, host } = await setupBasicFixture();
+    overlayContainer = TestBed.inject(OverlayContainer);
+    host.members.set(MEMBERS_7);
+    fixture.detectChanges();
+    simulateWidth(136, fixture);
+    await fixture.whenStable();
+
+    // State: three visible avatars plus a named `role="button"` counter that
+    // is a tab stop of its own inside the group.
+    const overflow = getOverflow(fixture) as HTMLElement;
+    expect(getAvatarItems(fixture)).toHaveLength(3);
+    expect(getOverflowInitials(fixture)).toBe('+4');
+    expect(overflow.getAttribute('role')).toBe('button');
+    expect(overflow.getAttribute('tabindex')).toBe('0');
+    expect(overflow.getAttribute('aria-label')).toBeTruthy();
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+
+  it('has no axe violations with the member popup open', async () => {
+    const { fixture, host } = await setupBasicFixture();
+    overlayContainer = TestBed.inject(OverlayContainer);
+    const overlayEl = overlayContainer.getContainerElement();
+
+    host.members.set(MEMBERS_7);
+    fixture.detectChanges();
+    simulateWidth(136, fixture);
+    await fixture.whenStable();
+
+    // `triggerOn` is `['hover', 'focus']`, so a pointer entering the counter
+    // is what a user does to reveal the hidden members.
+    (getOverflow(fixture) as HTMLElement).dispatchEvent(
+      new MouseEvent('mouseenter', { bubbles: false }),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // State: the popup is attached and lists ALL seven members, not just the
+    // hidden four. It lives in the overlay container, so the fixture root
+    // cannot see it — sweep the document.
+    const list = overlayEl.querySelector('[role="list"]') as HTMLElement;
+    expect(list).toBeTruthy();
+    expect(list.querySelectorAll('[role="listitem"]')).toHaveLength(7);
+    expect(list.getAttribute('aria-label')).toBeTruthy();
+
+    await expectNoAxeViolations(document.body);
   });
 });

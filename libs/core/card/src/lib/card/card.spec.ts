@@ -3,6 +3,7 @@ import { Component, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { compile } from 'sass';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import type { MlvCardBodyLayout } from './card';
 import { MlvCard } from './card';
 import { MlvCardHeaderDef } from '../card-header-def';
@@ -217,5 +218,88 @@ describe('MlvCard body layout styling', () => {
     expect(declaredValue('.mlv-card--size-l', '--mlv-card-body-gap')).toBe(
       'var(--mlv-spacing-4)',
     );
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * `mlv-card` adds no role and no ARIA — it is four template outlets and a body
+ * slot. What the sweep is actually checking is that the chrome the docs page
+ * puts in those slots survives being stamped into the header row: a heading in
+ * `mlvCardHeaderDef` next to icon-only action buttons in `mlvCardActionsDef`
+ * (`apps/docs/src/app/pages/card/examples/3`, where every action is a glyph
+ * with an `aria-label`), a subheader, a footer, and the `backgroundImage`
+ * variant (`…/4`) whose image is a decorative CSS custom property with no
+ * element of its own to name.
+ */
+describe('MlvCard accessibility', () => {
+  @Component({
+    imports: [
+      MlvCard,
+      MlvCardHeaderDef,
+      MlvCardSubheaderDef,
+      MlvCardActionsDef,
+      MlvCardFooterDef,
+    ],
+    template: `
+      @for (size of sizes; track size) {
+        <mlv-card [size]="size" [elevated]="size === 'l'">
+          <ng-template mlvCardHeaderDef>
+            <h3>{{ size }} card</h3>
+          </ng-template>
+          <ng-template mlvCardSubheaderDef>
+            <p>Subtitle</p>
+          </ng-template>
+          <ng-template mlvCardActionsDef>
+            <button type="button" aria-label="Edit">
+              <svg aria-hidden="true"></svg>
+            </button>
+            <button type="button" aria-label="Delete">
+              <svg aria-hidden="true"></svg>
+            </button>
+          </ng-template>
+          <p>Body content</p>
+          <ng-template mlvCardFooterDef>
+            <a href="/details">Details</a>
+          </ng-template>
+        </mlv-card>
+      }
+
+      <mlv-card
+        elevated
+        bodyLayout="stack"
+        backgroundImage="https://example.com/cover.jpg"
+      >
+        <ng-template mlvCardHeaderDef>
+          <h3>Cover</h3>
+        </ng-template>
+        <p>Stacked body over a decorative background.</p>
+      </mlv-card>
+    `,
+  })
+  class CardA11yHost {
+    readonly sizes = ['s', 'm', 'l'] as const;
+  }
+
+  it('has no axe violations across sizes, slots and the image variant', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CardA11yHost],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(CardA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: four cards, three with the full slot set. The header row really
+    // did render (it is `@if`-gated on the two content children), and every
+    // icon-only action carries a name.
+    expect(host.querySelectorAll('mlv-card')).toHaveLength(4);
+    expect(host.querySelectorAll('.mlv-card__header-row')).toHaveLength(4);
+    expect(host.querySelectorAll('button')).toHaveLength(6);
+    expect(host.querySelectorAll('.mlv-card__body--stack')).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
   });
 });
