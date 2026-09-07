@@ -1,0 +1,204 @@
+name: Playground template
+
+# The networked half of #25's "CI check that the template builds against the
+# latest release". It writes a real playground project with
+# `docs:write-playground-project` — the same `createPlaygroundProject` the docs
+# button posts to StackBlitz — then runs a real `npm install` and `ng build`
+# against the packages on the public registry.
+#
+# What this proves that `docs:test` cannot: that the versions the template names
+# exist on npm, that npm can resolve the tree they form, and that the project
+# then compiles. What `docs:test` proves that this cannot: that all 474 examples
+# generate a coherent project, not just the three sampled here.
+#
+# Not on every pull request, deliberately: it needs the network and a full
+# Angular toolchain install per matrix leg. The preflight step below turns the
+# two states where npm legitimately does not have the versions the template
+# names — a release window, and a package that has never been published — into
+# an explicit, named skip rather than a red nobody can fix.
+#
+# Every value a `run:` block reads reaches it through `env:`, never through a
+# `${{ }}` interpolation. Nothing here is exploitable today — the values are
+# repo-controlled and this workflow is unreachable from a fork pull request —
+# but interpolating a step output into a shell script is the shape that stops
+# being safe the moment either of those facts changes, and `env:` costs nothing.
+on:
+  schedule:
+    # Mondays, 05:00 UTC. Late enough after a Friday release to be meaningful,
+    # early enough that a broken template is found before the week's traffic.
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      # The generator, the version resolution, and the manifests every version
+      # in the template is derived from.
+      - 'apps/docs/tools/playground-manifest.ts'
+      - 'apps/docs/tools/playground-corpus.ts'
+      - 'apps/docs/tools/write-playground-project.ts'
+      - 'apps/docs/src/app/shared/playground/playground-project.ts'
+      - 'package.json'
+      - 'libs/*/package.json'
+      - '.github/workflows/playground.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-template:
+    runs-on: ubuntu-latest
+    strategy:
+      # One leg per shape of dependency closure: core only, the editor's twelve
+      # Tiptap peers, and a standalone package that peers back on core. A
+      # failure in one must not hide the others.
+      fail-fast: false
+      matrix:
+        example:
+          - button/examples/1
+          - editor/examples/1
+          - scheduler/examples/1
+    name: ${{ matrix.example }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+
+      # Corepack before setup-node, for the same reason as ci.yml: setup-node's
+      # yarn cache probe shells out to the runner's global Yarn 1.x otherwise.
+      - run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'yarn'
+
+      - run: yarn install --immutable
+
+      - name: Write the playground project
+        id: write
+        env:
+          EXAMPLE: ${{ matrix.example }}
+        run: |
+          # `pipefail` is not on by default in Actions' `bash -e`, and the
+          # writer's exit code is the one that matters — without it a failed
+          # generation is masked by `tee` succeeding.
+          set -euo pipefail
+          # `--allow-unpublished`: writing the project and deciding whether npm
+          # can install it are separate jobs. The browser button refuses an
+          # example naming an unpublished package because it has no network to
+          # ask; here the preflight below asks, and skips loudly. Without the
+          # flag the scheduler leg could not run at all.
+          yarn nx run docs:write-playground-project \
+            -- --example "$EXAMPLE" --out dist/playground --allow-unpublished \
+            | tee "$RUNNER_TEMP/write.log"
+          # The tool prints `malva-ui-version=`, `malva-ui-packages=` and
+          # `malva-ui-unpublished=` lines.
+          version="$(sed -n 's/^malva-ui-version=//p' "$RUNNER_TEMP/write.log")"
+          packages="$(sed -n 's/^malva-ui-packages=//p' "$RUNNER_TEMP/write.log")"
+          unpublished="$(sed -n 's/^malva-ui-unpublished=//p' "$RUNNER_TEMP/write.log")"
+          if [ -z "$version" ] || [ -z "$packages" ]; then
+            echo "The writer printed no version or package list; refusing to guess." >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+          echo "unpublished=$unpublished" >> "$GITHUB_OUTPUT"
+
+      # The online half of the pin on `UNPUBLISHED_PACKAGES`. That list takes the
+      # docs button away from sixteen examples; the moment it stops being true it
+      # is a bug, and this is the only place with a network to notice. A failure
+      # rather than a notice on purpose — the offline half in
+      # `playground-corpus.spec.ts` cannot fire until the next release.
+      - name: Check the packages the docs button withholds itself for
+        if: steps.write.outputs.unpublished != ''
+        env:
+          UNPUBLISHED: ${{ steps.write.outputs.unpublished }}
+        run: |
+          set -euo pipefail
+          read -ra names <<< "$UNPUBLISHED"
+          shipped=""
+          for name in "${names[@]}"; do
+            if npm view "$name" version > /dev/null 2>&1; then
+              shipped="$shipped $name"
+            fi
+          done
+
+          if [ -n "$shipped" ]; then
+            echo "::error::Now on npm:$shipped — delete it from UNPUBLISHED_PACKAGES in apps/docs/src/app/shared/playground/playground-project.ts, and from UNPUBLISHED_EXAMPLES in apps/docs/tools/playground-corpus.spec.ts, so those examples get their button back."
+            exit 1
+          fi
+
+      # Two legitimate reasons the exact versions the template names may not be
+      # on npm, neither of them a template defect:
+      #
+      #  - the window between the release commit bumping the root manifest
+      #    (where the template reads its versions from) and scripts/publish.mjs
+      #    pushing the tarballs;
+      #  - a package in nx.json -> release.projects that has not had a release
+      #    since it landed. @malva-ui/scheduler and @malva-ui/taskboard are both
+      #    in that state as of 0.1.15 — never published, so `npm install` 404s.
+      #
+      # Failing here would make this workflow red for reasons nobody can fix by
+      # editing the template, which is how a check gets ignored. Skip loudly
+      # instead: the leg goes green-with-a-notice, names the package, and starts
+      # proving something the moment that package ships.
+      - name: Check every Malva package the template names is on npm
+        id: preflight
+        env:
+          PACKAGES: ${{ steps.write.outputs.packages }}
+        run: |
+          set -euo pipefail
+          read -ra specs <<< "$PACKAGES"
+          missing=""
+          for spec in "${specs[@]}"; do
+            if ! npm view "$spec" version > /dev/null 2>&1; then
+              missing="$missing $spec"
+            fi
+          done
+
+          if [ -z "$missing" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "missing=" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "missing=$missing" >> "$GITHUB_OUTPUT"
+            echo "::notice::Not on npm yet:$missing — the template names what the next release will publish. Skipping the install and build."
+          fi
+
+      - name: Install the template against the published packages
+        if: steps.preflight.outputs.published == 'true'
+        working-directory: dist/playground
+        # Not `npm ci`: the generated project ships no lockfile on purpose, so
+        # that this resolves the published dependency ranges exactly as a user's
+        # first install (and StackBlitz's WebContainer) will.
+        run: npm install --no-audit --no-fund
+
+      - name: Build the template
+        if: steps.preflight.outputs.published == 'true'
+        working-directory: dist/playground
+        run: npm run build
+
+      - name: Summarise
+        if: always()
+        env:
+          EXAMPLE: ${{ matrix.example }}
+          VERSION: ${{ steps.write.outputs.version }}
+          PACKAGES: ${{ steps.write.outputs.packages }}
+          PUBLISHED: ${{ steps.preflight.outputs.published }}
+          MISSING: ${{ steps.preflight.outputs.missing }}
+        run: |
+          {
+            echo "### Playground template — \`$EXAMPLE\`"
+            echo
+            echo "- Malva UI version: \`$VERSION\`"
+            echo "- Packages: \`$PACKAGES\`"
+            echo "- All on npm: \`$PUBLISHED\`"
+            if [ -n "$MISSING" ]; then
+              echo "- Skipped, not published:\`$MISSING\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

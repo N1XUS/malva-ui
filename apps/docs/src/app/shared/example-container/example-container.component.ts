@@ -22,6 +22,7 @@ import {
 } from '@malva-ui/core/tabs';
 import { MlvThemeService } from '@malva-ui/core/layout';
 import { ShikiHighlightService } from '../shiki-highlight.service';
+import { OpenInPlaygroundComponent } from '../playground';
 
 export interface ExampleFile {
   filename: string;
@@ -56,6 +57,7 @@ const LANG_MAP: Record<string, string> = {
     MlvButtonIcon,
     RouterLink,
     LucideExternalLink,
+    OpenInPlaygroundComponent,
   ],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -88,22 +90,28 @@ const LANG_MAP: Record<string, string> = {
           </mlv-tab>
         }
       </mlv-tab-group>
-      @if (fullExampleRoute(); as route) {
-        <a
-          class="example-container__open-full"
-          mlvButton
-          variant="transparent"
-          [routerLink]="route"
-        >
-          <svg
-            mlvButtonIcon
-            lucideExternalLink
-            [size]="16"
-            aria-hidden="true"
-          />
-          Open full example
-        </a>
-      }
+      <div class="example-container__actions">
+        <docs-open-in-playground
+          [files]="resolvedFiles()"
+          [heading]="heading() ?? ''"
+        />
+        @if (fullExampleRoute(); as route) {
+          <a
+            class="example-container__open-full"
+            mlvButton
+            variant="transparent"
+            [routerLink]="route"
+          >
+            <svg
+              mlvButtonIcon
+              lucideExternalLink
+              [size]="16"
+              aria-hidden="true"
+            />
+            Open full example
+          </a>
+        }
+      </div>
     </div>
   `,
   styles: `
@@ -114,6 +122,15 @@ const LANG_MAP: Record<string, string> = {
       border: 0.0625rem solid var(--mlv-border-normal);
       border-radius: var(--mlv-radius-l);
       background: var(--mlv-background-raised);
+    }
+
+    /* No padding or gap of its own: with a non-portable example and no
+       showcase route both children render nothing, and the row must then
+       take up no space at all. Spacing lives on the buttons instead. */
+    .example-container__actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     .example-container__open-full {

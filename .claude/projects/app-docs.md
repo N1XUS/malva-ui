@@ -100,6 +100,11 @@ apps/docs/
         example-container/
           example-container.component.ts  # ExampleContainerComponent
           index.ts
+        playground/
+          open-in-playground.ts    # OpenInPlaygroundComponent (docs-open-in-playground)
+          playground-project.ts    # createPlaygroundProject() — pure payload builder
+          playground-submit.ts     # StackBlitz POST /run form hand-off
+          index.ts                 # Barrel export
         toc/
           toc.component.ts       # DocsTableOfContentsComponent
           toc.component.html     # ToC template
@@ -126,7 +131,13 @@ apps/docs/
     extract-api.spec.ts          # Vitest spec for the extractor
     generated-output.ts          # In-place writer for src/generated/api (never removes the dir)
     generated-output.spec.ts     # Vitest spec for the writer
-  src/generated/                 # GIT-IGNORED — produced by docs:extract-api
+    playground-manifest.ts       # Resolves playground versions/peers from the ROOT package.json
+    generate-playground-versions.ts  # docs:generate-playground-versions CLI
+    playground-corpus.ts         # Reads docs examples off disk (shared: sweep + writer)
+    playground-corpus.spec.ts    # Sweeps all 474 examples through the payload builder
+    write-playground-project.ts  # docs:write-playground-project CLI (materialises one to disk)
+                                 #   --allow-unpublished for the networked CI legs
+  src/generated/                 # GIT-IGNORED — produced by docs:extract-api / :generate-playground-versions
     api/
       <name>.json                # One ApiEntry per documented library
       index.ts                   # Generated lazy-loader module map (apiEntryLoaders)
@@ -770,10 +781,118 @@ pages receive no route.
 
 Renders a single example in a tabbed UI: Preview tab (live `NgComponentOutlet`) + source-file tabs. Source imports resolve up front so their tab labels can render, but Shiki highlighting is lazy: it runs only when a source tab becomes active, never while Preview is selected. When `fullExampleRoute` is non-null, it renders a normal Malva button-style `RouterLink` labeled **Open full example**; when the input is `null`, it renders no expansion control. Re-highlights the active source automatically on theme change.
 
+It also renders `<docs-open-in-playground>` in the same action row, which is the
+single call site through which all 474 examples get their "Open in StackBlitz"
+button — see §5b.
+
 Complex examples must open through this routed link; never add a browser-native
 fullscreen control or call the Fullscreen API in the docs application.
 
 Inputs: `component: Type<unknown> | null`, `content: any`, `files: ExampleFile[]`, `heading?: string`, `fullExampleRoute: string | null`.
+
+### `OpenInPlaygroundComponent` (`docs-open-in-playground`) — the zero-install playground
+
+**Files:** `apps/docs/src/app/shared/playground/open-in-playground.ts`,
+`playground-project.ts`, `playground-submit.ts`
+
+Turns the source `ExampleContainerComponent` already resolved for the code tabs
+into a self-contained Angular CLI project and POSTs it to StackBlitz. Rendered
+from `docs-example-container`, the one call site every example flows through, so
+no page under `pages/` is touched.
+
+| Piece                       | Responsibility                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createPlaygroundProject()` | Pure, Angular-free. Source files + version tables in, a `{ title, description, template, files, openFile }` payload out.                                                 |
+| `submitPlaygroundProject()` | Builds a hidden `<form method="post" target="_blank" rel="noopener noreferrer">` of `project[files][<path>]` fields against `https://stackblitz.com/run` and submits it. |
+| `OpenInPlaygroundComponent` | The button. Renders **nothing** when the payload builder returns `null`.                                                                                                 |
+
+**Files payload, not a repo URL.** StackBlitz can boot from a GitHub URL, but
+that needs a public repository (#22) and could not carry a per-build version
+table. The POSTed file set works today and keeps working after the flip. No
+`@stackblitz/sdk` dependency: the SDK builds this exact form, and going direct
+keeps the tested unit a plain payload object rather than a mocked SDK call.
+Swapping the SDK in is a one-file change in `playground-submit.ts`.
+
+**Versions come from the workspace root `package.json`, never a literal.**
+`docs:generate-playground-versions` writes `src/generated/playground-versions.ts`
+(`PLAYGROUND_VERSIONS` + `PLAYGROUND_PEERS`) using the same placeholder table
+`scripts/publish.mjs` resolves from, and `nx.json` → `release.version` already
+makes the root manifest the canonical version of every published project. When
+`0.2.0` ships, the next docs build emits `0.2.0` with no edit anywhere. The
+peer graph is read from each published `libs/*/package.json`, so
+`@malva-ui/editor`'s twelve Tiptap peers land in the generated project without a
+hand-written companion list.
+
+**The generated project is a real `ng add` install.** The three packages
+`ng add @malva-ui/core` adds, the published stylesheet at
+`node_modules/@malva-ui/core/styles/malva-ui.css`, and `provideDefaultTheme` /
+`provideMlvDensity` in `main.ts`. It bootstraps with
+`provideZonelessChangeDetection()` and ships **no `zone.js` and no `polyfills`
+entry** — a starter that contradicted the library's zoneless-only stance would
+mislead every evaluator who copied it. It carries no `@angular/animations`
+either: nothing under `libs/` imports it and it is deprecated in Angular 22.
+
+The example's own files keep their names (`src/example/index.ts` / `.html` /
+`.scss`), so `templateUrl: './index.html'` needs no rewriting and what the
+evaluator opens is byte-identical to what the docs page showed.
+
+**Twenty-one examples get no button**, for two unrelated reasons.
+
+_Five import docs-local code that is not published:_ `autocomplete/4`,
+`checkbox/1`, `combobox/10` reach outside their own directory; `select/8` and
+`tile/5` import a sibling file the `docsExample` pipe does not resolve. The check
+is derived from the source text, not a list, so an example that becomes
+non-portable loses its button on the same commit.
+
+_Sixteen import a package npm has never seen_ — all eight `scheduler/*` and all
+eight `taskboard/*`. Being in `nx.json` → `release.projects` means "will be
+published at the next release", not "is on npm now": both landed after `v0.1.15`
+and neither has shipped, so `npm install @malva-ui/scheduler@0.1.15` 404s. The
+networked workflow already skipped its own install for these; the button had no
+equivalent guard, so a visitor got a WebContainer that died during install.
+`UNPUBLISHED_PACKAGES` in `playground-project.ts` is that guard, and it is
+**temporary and pinned twice** so it cannot outlive its reason:
+`tools/playground-corpus.spec.ts` fails as soon as the root manifest moves off
+`UNPUBLISHED_VERIFIED_AT` (publication can only change at a release, and
+`scripts/publish.mjs` already ships `@malva-ui/scheduler`), and
+`.github/workflows/playground.yml` fails if `npm view` resolves any name in the
+list. Either failure means delete the entry.
+
+`tools/playground-corpus.spec.ts` asserts the blocked set is _exactly_ those
+twenty-one, each for the reason its own list exists for, so a twenty-second fails
+the suite instead of vanishing quietly.
+
+**The mounted tag is read from code, not from text.** `parseBootstrapSelector`
+scans a `maskNonCode()` copy of the example — comment bodies, string bodies and
+template-literal bodies blanked, every index preserved — before taking the last
+`@Component` above `export default class`. Without that, an example that
+_displays_ Angular source (as `getting-started` and `tailwind` already do) or
+that leaves a commented-out `selector:` above the live one mounts a tag no
+component declares: `ng build` succeeds, `bootstrapApplication` finds no host,
+and the page is blank with nothing to read. The corpus sweep re-reads every
+example's selector with the real TypeScript parser
+(`declaredBootstrapSelector()`, Node-only, never in the bundle) rather than the
+builder's own regex, so "the builder agrees with itself" is not what is being
+asserted.
+
+**Two checks, and they prove different things.** `tools/playground-corpus.spec.ts`
+runs in `docs:test` and sweeps all 474 examples offline: every one builds a
+project or is a named exception, every imported package is declared with a
+version, every declared `templateUrl` / `styleUrl` exists, and the version table
+is a fresh derivation of the root manifest rather than a copy. It proves nothing
+about npm. `.github/workflows/playground.yml` does the other half — a real
+`npm install` + `ng build` of a generated project against the published packages
+— on a schedule, on `workflow_dispatch`, and on pushes that touch the generator.
+Its preflight skips (loudly, naming the package) when a version the template
+declares is not on npm, which covers both a release window and a package that
+has never been published; a second step fails outright if a package in
+`UNPUBLISHED_PACKAGES` _has_ since been published. It writes its project with
+`--allow-unpublished`, because materialising a project and deciding whether npm
+can install it are separate jobs — that is what keeps the `scheduler` leg
+running and ready to start proving something the day the package ships.
+
+Every value its `run:` blocks read arrives through `env:`, never a `${{ }}`
+interpolation into shell.
 
 ### `ExamplePipe` (`docsExample`)
 
@@ -966,15 +1085,17 @@ Landing-page layout and visual styling are component-scoped in `pages/home/home.
 
 **File:** `apps/docs/project.json`
 
-| Target          | Executor                  | Notes                                                                                                                                                                     |
-| --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `extract-api`   | `nx:run-commands`         | Runs `tools/extract-api.ts` (via `jiti`) to regenerate `src/generated/api/**`. `dependsOn` of both `build` and `serve`. Cacheable.                                        |
-| `check-doc-api` | `nx:run-commands`         | Runs `scripts/check-doc-api.mjs` — compares each library's `CLAUDE.md` API tables against the extracted JSON. `dependsOn: ['extract-api']`. Cacheable. See §9c.           |
-| `build`         | `@nx/angular:application` | Entry: `src/main.ts`. Plugins: `mdx-transform.ts`. `dependsOn: ['extract-api']`. Bundles `styles.scss`. Copies `public/**` and `pages/**/examples/**/*` as static assets. |
-| `serve`         | `@nx/angular:dev-server`  | Reads plugins from build target. `dependsOn: ['extract-api']`. Full HMR for MDX changes.                                                                                  |
-| `test`          | `@nx/vitest:test`         | Vitest via `vite.config.mts`. `dependsOn: ['extract-api']` — see below. Cacheable. Run it as `yarn nx test docs`.                                                         |
-| `lint`          | `@nx/eslint:lint`         |                                                                                                                                                                           |
-| `serve-static`  | `@nx/web:file-server`     | Serves `dist/apps/docs/browser` as SPA.                                                                                                                                   |
+| Target                         | Executor                  | Notes                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extract-api`                  | `nx:run-commands`         | Runs `tools/extract-api.ts` (via `jiti`) to regenerate `src/generated/api/**`. `dependsOn` of both `build` and `serve`. Cacheable.                                                                                                                                                                                                                  |
+| `generate-playground-versions` | `nx:run-commands`         | Runs `tools/generate-playground-versions.ts` to regenerate `src/generated/playground-versions.ts` from the workspace **root** `package.json`. `dependsOn` of `build`, `serve`, `test` and `typecheck`. Cacheable — its `inputs` are the root manifest, `nx.json` and `libs/*/package.json`, so a release bump invalidates it and nothing else does. |
+| `write-playground-project`     | `nx:run-commands`         | Materialises one example's playground project on disk (`--example <page>/examples/<n>`, `--out <dir>`, `--allow-unpublished`). Not cached; used by `.github/workflows/playground.yml`.                                                                                                                                                              |
+| `check-doc-api`                | `nx:run-commands`         | Runs `scripts/check-doc-api.mjs` — compares each library's `CLAUDE.md` API tables against the extracted JSON. `dependsOn: ['extract-api']`. Cacheable. See §9c.                                                                                                                                                                                     |
+| `build`                        | `@nx/angular:application` | Entry: `src/main.ts`. Plugins: `mdx-transform.ts`. `dependsOn: ['extract-api', 'generate-playground-versions']`. Bundles `styles.scss`. Copies `public/**` and `pages/**/examples/**/*` as static assets.                                                                                                                                           |
+| `serve`                        | `@nx/angular:dev-server`  | Reads plugins from build target. `dependsOn: ['extract-api', 'generate-playground-versions']`. Full HMR for MDX changes.                                                                                                                                                                                                                            |
+| `test`                         | `@nx/vitest:test`         | Vitest via `vite.config.mts`. `dependsOn: ['extract-api', 'generate-playground-versions']` — see below. Cacheable. Run it as `yarn nx test docs`.                                                                                                                                                                                                   |
+| `lint`                         | `@nx/eslint:lint`         |                                                                                                                                                                                                                                                                                                                                                     |
+| `serve-static`                 | `@nx/web:file-server`     | Serves `dist/apps/docs/browser` as SPA.                                                                                                                                                                                                                                                                                                             |
 
 **Important:** `pages/**/examples/**/*` are copied as static assets so `ExampleContainerComponent` can fetch source files by URL at runtime.
 
@@ -1054,16 +1175,21 @@ the client, mirroring the MDX transform.
 
 ### Files
 
-| File                                     | Role                                                                                                                                                         |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tools/extract-api.ts`                   | CLI entry run by the `docs:extract-api` target. Enumerates pages, writes JSON + the module map. Side-effecting.                                              |
-| `tools/api-extractor.ts`                 | Pure ts-morph extraction core (barrel resolution, classification, signal/base-class walking). Unit-tested.                                                   |
-| `tools/extract-api.spec.ts`              | Vitest spec asserting the extracted shape against real libraries.                                                                                            |
-| `tools/generated-output.ts`              | `syncGeneratedDir()` — writes the output directory in place: unchanged files untouched, changed files renamed into place, stale entries pruned. Unit-tested. |
-| `tools/generated-output.spec.ts`         | Vitest spec for the writer (untouched mtime/inode, replacement, pruning).                                                                                    |
-| `src/app/shared/api-viewer/api.types.ts` | The `ApiEntry` / `ApiSymbol` / `ApiMember` / `ApiMethod` contract shared with the viewer (Phase E).                                                          |
-| `src/generated/api/<name>.json`          | **Git-ignored.** One `ApiEntry` per documented library.                                                                                                      |
-| `src/generated/api/index.ts`             | **Git-ignored, generated.** `apiEntryLoaders` — lazy `() => import('./<name>.json')` map keyed by page.                                                      |
+| File                                     | Role                                                                                                                                                                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tools/extract-api.ts`                   | CLI entry run by the `docs:extract-api` target. Enumerates pages, writes JSON + the module map. Side-effecting.                                                                                                                            |
+| `tools/api-extractor.ts`                 | Pure ts-morph extraction core (barrel resolution, classification, signal/base-class walking). Unit-tested.                                                                                                                                 |
+| `tools/extract-api.spec.ts`              | Vitest spec asserting the extracted shape against real libraries.                                                                                                                                                                          |
+| `tools/generated-output.ts`              | `syncGeneratedDir()` — writes the output directory in place: unchanged files untouched, changed files renamed into place, stale entries pruned. Unit-tested.                                                                               |
+| `tools/generated-output.spec.ts`         | Vitest spec for the writer (untouched mtime/inode, replacement, pruning).                                                                                                                                                                  |
+| `tools/playground-manifest.ts`           | Resolves the playground's npm versions and peer graph from the workspace root `package.json`. Pure, unit-tested through the corpus spec.                                                                                                   |
+| `tools/generate-playground-versions.ts`  | CLI run by `docs:generate-playground-versions`. Writes `src/generated/playground-versions.ts`. Side-effecting.                                                                                                                             |
+| `tools/playground-corpus.ts`             | Reads docs examples off disk in the shape the runtime hands the payload builder. Shared by the sweep and the disk writer.                                                                                                                  |
+| `tools/playground-corpus.spec.ts`        | Sweeps all 474 examples through `createPlaygroundProject`; asserts the blocked set is exactly twenty-one, that each mounts the selector the TypeScript parser reads off its default export, and that the version table is freshly derived. |
+| `tools/write-playground-project.ts`      | CLI run by `docs:write-playground-project`. Materialises one example's project for the networked CI job. Side-effecting.                                                                                                                   |
+| `src/app/shared/api-viewer/api.types.ts` | The `ApiEntry` / `ApiSymbol` / `ApiMember` / `ApiMethod` contract shared with the viewer (Phase E).                                                                                                                                        |
+| `src/generated/api/<name>.json`          | **Git-ignored.** One `ApiEntry` per documented library.                                                                                                                                                                                    |
+| `src/generated/api/index.ts`             | **Git-ignored, generated.** `apiEntryLoaders` — lazy `() => import('./<name>.json')` map keyed by page.                                                                                                                                    |
 
 ### How it works
 

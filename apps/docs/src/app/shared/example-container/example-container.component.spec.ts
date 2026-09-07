@@ -79,6 +79,56 @@ describe('ExampleContainerComponent', () => {
     expect(source).not.toContain('fullscreenchange');
   });
 
+  it('offers the playground for an example whose source can stand alone', async () => {
+    const { fixture } = createFixture();
+    fixture.componentRef.setInput('heading', 'Button');
+    fixture.componentRef.setInput('content', {
+      TypeScript: `import { Component } from '@angular/core';
+import { MlvButton } from '@malva-ui/core/button';
+
+@Component({
+  selector: 'docs-button-basic-example',
+  imports: [MlvButton],
+  template: '<button mlvButton>Save</button>',
+})
+export default class ButtonBasicExampleComponent {}
+`,
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await vi.waitFor(() =>
+      expect(
+        fixture.nativeElement.querySelector('.open-in-playground'),
+      ).not.toBeNull(),
+    );
+  });
+
+  it('withholds the playground from an example that imports docs-local code', async () => {
+    const { fixture } = createFixture();
+    fixture.componentRef.setInput('content', {
+      TypeScript: `import { Component } from '@angular/core';
+import { DocsInspectorComponent } from '../../../../shared';
+
+@Component({
+  selector: 'docs-checkbox-basic-example',
+  imports: [DocsInspectorComponent],
+  template: '<docs-inspector />',
+})
+export default class CheckboxBasicExampleComponent {}
+`,
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await vi.waitFor(() =>
+      expect(fixture.componentInstance.resolvedFiles()).toHaveLength(1),
+    );
+    expect(
+      fixture.nativeElement.querySelector('.open-in-playground'),
+    ).toBeNull();
+  });
+
   it('does not highlight source files until a code tab becomes active', async () => {
     const { fixture, highlight } = createFixture();
     fixture.componentRef.setInput('content', {

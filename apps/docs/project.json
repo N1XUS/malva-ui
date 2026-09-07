@@ -23,12 +23,35 @@
         "command": "node node_modules/jiti/lib/jiti-cli.mjs apps/docs/tools/extract-api.ts"
       }
     },
+    "generate-playground-versions": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/apps/docs/tools/generate-playground-versions.ts",
+        "{workspaceRoot}/apps/docs/tools/playground-manifest.ts",
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/nx.json",
+        "{workspaceRoot}/libs/*/package.json"
+      ],
+      "outputs": ["{projectRoot}/src/generated/playground-versions.ts"],
+      "options": {
+        "command": "node node_modules/jiti/lib/jiti-cli.mjs apps/docs/tools/generate-playground-versions.ts"
+      }
+    },
+    "write-playground-project": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "node node_modules/jiti/lib/jiti-cli.mjs apps/docs/tools/write-playground-project.ts",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "typecheck": {
-      "dependsOn": ["extract-api"]
+      "dependsOn": ["extract-api", "generate-playground-versions"]
     },
     "test": {
       "executor": "@nx/vitest:test",
-      "dependsOn": ["extract-api"],
+      "dependsOn": ["extract-api", "generate-playground-versions"],
       "options": {
         "config": "apps/docs/vite.config.mts"
       }
@@ -54,7 +77,7 @@
     "build": {
       "executor": "@nx/angular:application",
       "outputs": ["{options.outputPath}"],
-      "dependsOn": ["extract-api"],
+      "dependsOn": ["extract-api", "generate-playground-versions"],
       "options": {
         "outputPath": "dist/apps/docs",
         "browser": "apps/docs/src/main.ts",
@@ -100,7 +123,7 @@
     "serve": {
       "continuous": true,
       "executor": "@nx/angular:dev-server",
-      "dependsOn": ["extract-api"],
+      "dependsOn": ["extract-api", "generate-playground-versions"],
       "configurations": {
         "production": {
           "buildTarget": "docs:build:production"
