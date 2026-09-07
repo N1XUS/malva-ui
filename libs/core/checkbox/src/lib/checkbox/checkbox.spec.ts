@@ -1,7 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvCheckbox } from './checkbox';
 import { MlvCheckboxGroup } from '../checkbox-group/checkbox-group';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -195,11 +195,8 @@ describe('MlvCheckbox host aria-label/aria-labelledby forwarding', () => {
     expect(input?.getAttribute('aria-label')).toBe('Select row 4');
   });
 
-  it('has no aria-prohibited-attr violations (axe)', async () => {
-    const results = await axe.run(fixture.nativeElement as HTMLElement, {
-      runOnly: { type: 'rule', values: ['aria-prohibited-attr'] },
-    });
-    expect(results.violations).toEqual([]);
+  it('has no axe violations', async () => {
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });
 

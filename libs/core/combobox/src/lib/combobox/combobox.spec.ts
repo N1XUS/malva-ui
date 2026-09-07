@@ -7,7 +7,7 @@ import { By } from '@angular/platform-browser';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { Subject } from 'rxjs';
 import { MlvInput } from '@malva-ui/core/input';
 import { MlvPopup } from '@malva-ui/core/popup';
@@ -1121,15 +1121,7 @@ describe('MlvCombobox — dropdown panel accessible name', () => {
 
   it('is axe-clean with the dropdown open', async () => {
     await open();
-    const results = await axe.run(document.body, {
-      rules: {
-        'color-contrast': { enabled: false },
-        // The isolated TestBed document intentionally has no application-level
-        // main landmark; that responsibility belongs to the consuming shell.
-        region: { enabled: false },
-      },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(document.body);
   });
 });
 
@@ -1417,12 +1409,7 @@ describe('MlvCombobox (inline clear button)', () => {
     expect(closeHost.getAttribute('tabindex')).toBeNull();
     expect(closeHost.querySelectorAll('button')).toHaveLength(1);
 
-    const results = await axe.run(fixture.nativeElement, {
-      rules: { 'color-contrast': { enabled: false } },
-    });
-    expect(results.violations.map(({ id }) => id)).not.toContain(
-      'nested-interactive',
-    );
+    await expectNoAxeViolations(fixture.nativeElement);
 
     clearButton.click();
     expect(valueChanges).toHaveBeenCalledTimes(1);

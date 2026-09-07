@@ -3,7 +3,7 @@ import { Component, DOCUMENT, inject, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { MlvResizeObserverFactory, MlvRtlService } from '@malva-ui/cdk/utils';
-import axe from 'axe-core';
+import { expectNoAxeViolations, runAxe } from '@malva-ui/internal-testing/axe';
 import { compile } from 'sass';
 import { MlvSwipeAction } from '../swipe-action/swipe-action';
 import { MlvSwipeActionsCoordinator } from '../swipe-actions-coordinator';
@@ -141,26 +141,6 @@ function settle(el: HTMLElement): void {
   el.dispatchEvent(new Event('scrollend'));
 }
 
-/**
- * axe rules the swipe markup can break and that jsdom can evaluate
- * (colour-contrast and target-size need a real layout engine and are covered
- * by the browser pass on the docs page).
- */
-const AXE_RULES = [
-  'aria-allowed-attr',
-  'aria-allowed-role',
-  'aria-hidden-focus',
-  'aria-prohibited-attr',
-  'aria-required-children',
-  'aria-required-parent',
-  'aria-roles',
-  'aria-valid-attr',
-  'aria-valid-attr-value',
-  'button-name',
-  'nested-interactive',
-  'tabindex',
-];
-
 describe('MlvSwipeActions', () => {
   let fixture: ComponentFixture<HostComponent>;
   let host: HostComponent;
@@ -234,10 +214,7 @@ describe('MlvSwipeActions', () => {
     });
 
     it('has no axe violations, the list around the row included', async () => {
-      const results = await axe.run(fixture.nativeElement, {
-        runOnly: { type: 'rule', values: AXE_RULES },
-      });
-      expect(results.violations).toEqual([]);
+      await expectNoAxeViolations(fixture.nativeElement);
     });
 
     it('needs the listitem role on the row itself: a list owns the actions through a roleless row', async () => {
@@ -248,7 +225,10 @@ describe('MlvSwipeActions', () => {
       el.removeAttribute('role');
       contentSlot.querySelector('.content')?.setAttribute('role', 'listitem');
 
-      const results = await axe.run(fixture.nativeElement, {
+      // `runAxe`, not `expectNoAxeViolations`: this case asserts that a
+      // violation IS raised, and needs the raw result to read its related
+      // nodes.
+      const results = await runAxe(fixture.nativeElement, {
         runOnly: { type: 'rule', values: ['aria-required-children'] },
       });
 

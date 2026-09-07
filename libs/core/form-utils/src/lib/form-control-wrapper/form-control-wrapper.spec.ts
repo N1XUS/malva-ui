@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 import { MlvDescription } from '../description/description';
@@ -23,7 +23,7 @@ import { MlvFormControlWrapperControl } from './form-control-wrapper-control';
   template: `
     <mlv-form-control-wrapper>
       <ng-template mlvFormControlWrapperControl>
-        <input />
+        <input aria-label="Test control" />
       </ng-template>
     </mlv-form-control-wrapper>
   `,
@@ -44,7 +44,7 @@ class HostComponent {
   template: `
     <mlv-form-control-wrapper>
       <ng-template mlvFormControlWrapperControl>
-        <input data-main-control />
+        <input data-main-control aria-label="Test control" />
       </ng-template>
     </mlv-form-control-wrapper>
   `,
@@ -77,7 +77,7 @@ class InsetHostComponent {
   template: `
     <mlv-form-control-wrapper>
       <ng-template mlvFormControlWrapperControl>
-        <input />
+        <input aria-label="Test control" />
       </ng-template>
       <mlv-description id="d1">Help text</mlv-description>
       <mlv-message state="error">Too short</mlv-message>
@@ -148,12 +148,7 @@ describe('MlvFormControlWrapper', () => {
     expect(closeHost.getAttribute('tabindex')).toBeNull();
     expect(closeHost.querySelectorAll('button')).toHaveLength(1);
 
-    const results = await axe.run(clearFixture.nativeElement, {
-      rules: { 'color-contrast': { enabled: false } },
-    });
-    expect(results.violations.map(({ id }) => id)).not.toContain(
-      'nested-interactive',
-    );
+    await expectNoAxeViolations(clearFixture.nativeElement);
 
     clearButton.click();
     expect(cleared).toHaveBeenCalledTimes(1);

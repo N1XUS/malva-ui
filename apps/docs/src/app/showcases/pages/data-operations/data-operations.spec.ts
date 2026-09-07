@@ -11,7 +11,7 @@ import { By } from '@angular/platform-browser';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, Router, RouterOutlet } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { BehaviorSubject } from 'rxjs';
 import { vi } from 'vitest';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
@@ -905,25 +905,14 @@ describe('DataOperationsShowcaseComponent', () => {
 
   it('keeps the default, dirty controls, and compact details overlay axe-clean', async () => {
     const rendered = await renderAt();
-    const runAxe = async (
-      context: Element | DocumentFragment = rendered.root,
-    ) =>
-      axe.run(context, {
-        rules: {
-          'color-contrast': { enabled: false },
-        },
-      });
-
-    expect((await runAxe()).violations).toEqual([]);
+    await expectNoAxeViolations(rendered.root);
     await typeInAccountSearch(rendered, 'enterprise');
     await clickButton(rendered, 'Sort', rendered.root);
     const overlayContainer = document.querySelector<HTMLElement>(
       '.cdk-overlay-container',
     );
     expect(overlayContainer).not.toBeNull();
-    expect(
-      (await runAxe(overlayContainer ?? rendered.root)).violations,
-    ).toEqual([]);
+    await expectNoAxeViolations(overlayContainer ?? rendered.root);
 
     document
       .querySelector<HTMLElement>('[role="menu"]')
@@ -933,9 +922,7 @@ describe('DataOperationsShowcaseComponent', () => {
     await finishClosing(rendered);
     await clickTableRow(rendered, 'Acme Corporation');
     await setViewport(rendered, 'compact');
-    expect((await runAxe(rendered.root)).violations).toEqual([]);
-    expect(
-      (await runAxe(overlayContainer ?? rendered.root)).violations,
-    ).toEqual([]);
+    await expectNoAxeViolations(rendered.root);
+    await expectNoAxeViolations(overlayContainer ?? rendered.root);
   });
 });

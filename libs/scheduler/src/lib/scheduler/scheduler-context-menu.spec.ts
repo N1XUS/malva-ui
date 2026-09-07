@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { OverlayContainer } from '@angular/cdk/overlay';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import { MLV_DATE_LOCALE } from '@malva-ui/core/date';
 import { MlvListItem } from '@malva-ui/core/list';
@@ -663,21 +663,6 @@ describe('MlvScheduler context menus', () => {
     chip('a').dispatchEvent(rightClick());
     await settle();
 
-    const results = await axe.run(document.body, {
-      runOnly: {
-        type: 'rule',
-        values: [
-          'aria-allowed-attr',
-          'aria-allowed-role',
-          'aria-required-children',
-          'aria-required-parent',
-          'aria-roles',
-          'aria-valid-attr',
-          'aria-valid-attr-value',
-          'nested-interactive',
-        ],
-      },
-    });
-    expect(results.violations).toEqual([]);
+    await expectNoAxeViolations(document.body);
   });
 });

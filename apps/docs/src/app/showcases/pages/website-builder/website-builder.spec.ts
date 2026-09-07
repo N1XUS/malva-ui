@@ -2,7 +2,7 @@ import { ApplicationInitStatus, ApplicationRef } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
 // The service/provider contract is static; only locale data is split into lazy packs.
 // eslint-disable-next-line @nx/enforce-module-boundaries
@@ -301,9 +301,6 @@ function dialogFieldNames(): string[] {
 function hasField(name: string): boolean {
   return dialogFieldNames().includes(name);
 }
-
-const runAxe = (root: Element) =>
-  axe.run(root, { rules: { 'color-contrast': { enabled: false } } });
 
 /* ========================================================================== */
 
@@ -1523,13 +1520,13 @@ describe('website builder showcase', () => {
   describe('accessibility', () => {
     it('keeps the All tab axe-clean', async () => {
       const rendered = await render();
-      expect((await runAxe(rendered.root)).violations).toEqual([]);
+      await expectNoAxeViolations(rendered.root);
     });
 
     it('keeps a page-type tab with locked previews axe-clean', async () => {
       const rendered = await render();
       await click(rendered, tabButton(rendered, 'Homepage'));
-      expect((await runAxe(rendered.root)).violations).toEqual([]);
+      await expectNoAxeViolations(rendered.root);
     });
 
     it('keeps an empty container and an empty row axe-clean', async () => {
@@ -1538,7 +1535,7 @@ describe('website builder showcase', () => {
       // `pg-appendix` seeds an empty container and `pg-reserved-row` an empty
       // row, so both empty states are on screen without mutating anything.
       expect(all(rendered.root, '.wb-empty').length).toBeGreaterThanOrEqual(2);
-      expect((await runAxe(rendered.root)).violations).toEqual([]);
+      await expectNoAxeViolations(rendered.root);
     });
 
     it('keeps an emptied section axe-clean', async () => {
@@ -1560,7 +1557,7 @@ describe('website builder showcase', () => {
       expect(rendered.component['_header']().children.length).toBe(0);
       const section = byAriaLabel(rendered.root, 'Header section');
       expect(section.textContent).toContain('No containers yet');
-      expect((await runAxe(rendered.root)).violations).toEqual([]);
+      await expectNoAxeViolations(rendered.root);
     });
 
     it('keeps each dialog axe-clean', async () => {
@@ -1575,7 +1572,7 @@ describe('website builder showcase', () => {
         await settle(rendered);
         const dialog = overlayRoot().querySelector('.mlv-dialog-pane');
         expect(dialog).not.toBeNull();
-        expect((await runAxe(dialog as Element)).violations).toEqual([]);
+        await expectNoAxeViolations(dialog as Element);
 
         const cancel = all(overlayRoot(), '.mlv-dialog button').find((button) =>
           (button.textContent ?? '').includes('Cancel'),
@@ -1591,7 +1588,7 @@ describe('website builder showcase', () => {
       await click(rendered, byId('wb-add-hdr-utility-row'));
       const menu = overlayRoot().querySelector('[role="menu"]');
       expect(menu).not.toBeNull();
-      expect((await runAxe(menu as Element)).violations).toEqual([]);
+      await expectNoAxeViolations(menu as Element);
     });
 
     it('names every node group with its level, position and label', async () => {

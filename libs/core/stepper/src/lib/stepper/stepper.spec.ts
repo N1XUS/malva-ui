@@ -1,7 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvStepper } from './stepper';
 import { MlvStep } from './step';
 import type { MlvStepperOrientation } from './stepper.types';
@@ -249,11 +249,8 @@ describe('MlvStepper', () => {
 
   // ─── aria-required-children: tablist owns only tabs (horizontal) ────────────
 
-  it('has no aria-required-children violations in horizontal mode (axe)', async () => {
-    const results = await axe.run(host, {
-      runOnly: { type: 'rule', values: ['aria-required-children'] },
-    });
-    expect(results.violations).toEqual([]);
+  it('has no axe violations in horizontal mode', async () => {
+    await expectNoAxeViolations(host);
   });
 
   it('renders the horizontal tabpanel outside the tablist', () => {
@@ -340,11 +337,8 @@ describe('MlvStepper — vertical orientation', () => {
     ]);
   });
 
-  it('has no aria-required-children violations in vertical mode (axe)', async () => {
-    const results = await axe.run(host, {
-      runOnly: { type: 'rule', values: ['aria-required-children'] },
-    });
-    expect(results.violations).toEqual([]);
+  it('has no axe violations in vertical mode', async () => {
+    await expectNoAxeViolations(host);
   });
 });
 

@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvChat } from './chat';
 import type { MlvChatMessageData, MlvChatUser } from '../chat.types';
@@ -19,7 +19,12 @@ const original: MlvChatMessageData = {
 };
 
 const MESSAGES: MlvChatMessageData[] = [
-  { id: 'm1', authorId: 'u1', text: 'plain text', timestamp: new Date('2026-07-27T10:00:00') },
+  {
+    id: 'm1',
+    authorId: 'u1',
+    text: 'plain text',
+    timestamp: new Date('2026-07-27T10:00:00'),
+  },
   {
     id: 'm2',
     authorId: 'u2',
@@ -59,7 +64,12 @@ const MESSAGES: MlvChatMessageData[] = [
 @Component({
   imports: [MlvChat],
   template: `
-    <mlv-chat [messages]="messages()" [users]="users()" selfId="me" [typingUsers]="['u2']" />
+    <mlv-chat
+      [messages]="messages()"
+      [users]="users()"
+      selfId="me"
+      [typingUsers]="['u2']"
+    />
   `,
 })
 class A11yHost {
@@ -91,7 +101,8 @@ describe('MlvChat accessibility', () => {
     const buttons = Array.from(el().querySelectorAll('button'));
     expect(buttons.length).toBeGreaterThan(0);
     for (const button of buttons) {
-      const name = button.getAttribute('aria-label') ?? button.textContent?.trim() ?? '';
+      const name =
+        button.getAttribute('aria-label') ?? button.textContent?.trim() ?? '';
       expect(name.length).toBeGreaterThan(0);
     }
   });
@@ -102,22 +113,26 @@ describe('MlvChat accessibility', () => {
     for (const image of images) {
       expect(image.getAttribute('alt')).not.toBeNull();
     }
-    const labels = Array.from(el().querySelectorAll('.mlv-chat-media-grid__cell')).map((cell) =>
-      cell.getAttribute('aria-label'),
-    );
+    const labels = Array.from(
+      el().querySelectorAll('.mlv-chat-media-grid__cell'),
+    ).map((cell) => cell.getAttribute('aria-label'));
     expect(labels).toContain('A labelled image');
     expect(labels).toContain('Image attachment');
   });
 
   it('hides status ticks from assistive technology and states them in the article label', () => {
-    for (const status of Array.from(el().querySelectorAll('.mlv-chat-message__status'))) {
+    for (const status of Array.from(
+      el().querySelectorAll('.mlv-chat-message__status'),
+    )) {
       expect(status.getAttribute('aria-hidden')).toBe('true');
     }
-    const labels = Array.from(el().querySelectorAll('.mlv-chat__item')).map((item) =>
-      item.getAttribute('aria-label'),
+    const labels = Array.from(el().querySelectorAll('.mlv-chat__item')).map(
+      (item) => item.getAttribute('aria-label'),
     );
     expect(labels.some((label) => label?.includes('Read'))).toBe(true);
-    expect(labels.some((label) => label?.includes('Failed to send'))).toBe(true);
+    expect(labels.some((label) => label?.includes('Failed to send'))).toBe(
+      true,
+    );
   });
 
   it('renders the retry affordance as a real button', () => {
@@ -126,22 +141,7 @@ describe('MlvChat accessibility', () => {
     expect(retry?.getAttribute('type')).toBe('button');
   });
 
-  it('has no axe violations for the rules the chat markup can break', async () => {
-    const results = await axe.run(el(), {
-      runOnly: {
-        type: 'rule',
-        values: [
-          'aria-prohibited-attr',
-          'aria-valid-attr-value',
-          'aria-required-attr',
-          'aria-allowed-role',
-          'button-name',
-          'image-alt',
-          'nested-interactive',
-          'duplicate-id-aria',
-        ],
-      },
-    });
-    expect(results.violations).toEqual([]);
+  it('has no axe violations', async () => {
+    await expectNoAxeViolations(el());
   }, 20_000);
 });

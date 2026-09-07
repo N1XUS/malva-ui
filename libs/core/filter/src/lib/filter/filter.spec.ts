@@ -6,7 +6,7 @@ import { By } from '@angular/platform-browser';
 import { MlvDropdownPanel } from '@malva-ui/core/dropdown';
 import { MlvSelect } from '@malva-ui/core/select';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
-import * as axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import type { MlvFilterCondition, MlvFilterOperator } from '../filter.types';
 import { MlvFilter } from './filter';
 import { MlvFilterValueEditorDef } from './filter-value-editor';
@@ -756,15 +756,7 @@ describe('MlvFilter', () => {
 
   it('is axe-clean with its option dialog open', async () => {
     await open();
-    const results = await axe.run(document.body, {
-      rules: {
-        'color-contrast': { enabled: false },
-        // The isolated TestBed document intentionally has no application-level
-        // main landmark; that responsibility belongs to the consuming shell.
-        region: { enabled: false },
-      },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(document.body);
   });
 
   it('is axe-clean with a query chip editor open', async () => {
@@ -772,13 +764,7 @@ describe('MlvFilter', () => {
     component.conditions.set([{ operator: 'equals', value: 'draft' }]);
     fixture.detectChanges();
     await open();
-    const results = await axe.run(document.body, {
-      rules: {
-        'color-contrast': { enabled: false },
-        region: { enabled: false },
-      },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(document.body);
   });
 
   describe('custom value editor slot', () => {

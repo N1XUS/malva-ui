@@ -1,6 +1,6 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -118,11 +118,22 @@ describe('MlvEditor accessibility', () => {
     ).toBeLessThanOrEqual(2);
   });
 
-  it('has no serious or critical axe violations in representative states', async () => {
+  it('has no axe violations in representative states', async () => {
     const fixture = await createHost();
     const host = fixture.componentInstance;
     const editor = host.editor().editor();
     editor?.commands.insertTable({ rows: 2, cols: 1, withHeaderRow: true });
+    // `insertTable` leaves the caret in the header cell, and axe's
+    // `empty-table-header` fires on the blank `<th>` it leaves behind. Fixed in
+    // the fixture rather than narrowed at the call site — `mlv-scheduler`
+    // narrows the same rule — because of what the empty header IS in each
+    // case. Here it is *document* content this fixture happened not to author:
+    // the editor renders whatever the document holds, and a real user types a
+    // header, so the harness is the defect. In the scheduler the empty subtree
+    // is emitted by the component itself (`aria-hidden` spans under a named
+    // `columnheader`) and no content change can satisfy a rule whose only
+    // check is `has-visible-text`, so there the narrowing is the honest answer.
+    editor?.commands.insertContent('Name');
     editor?.commands.insertUploadPlaceholder({
       id: 'accessible-upload',
       progress: 42,
@@ -134,17 +145,7 @@ describe('MlvEditor accessibility', () => {
       host.disabled.set(state === 'disabled');
       host.state.set(state === 'error' ? 'error' : 'default');
       fixture.detectChanges();
-      const results = await axe.run(fixture.nativeElement as HTMLElement, {
-        resultTypes: ['violations'],
-        // jsdom has no canvas-backed contrast computation; token contrast is
-        // covered by browser/manual review rather than a false automated result.
-        rules: { 'color-contrast': { enabled: false } },
-      });
-      expect(
-        results.violations.filter(
-          ({ impact }) => impact === 'serious' || impact === 'critical',
-        ),
-      ).toEqual([]);
+      await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
     }
   }, 20_000);
 });

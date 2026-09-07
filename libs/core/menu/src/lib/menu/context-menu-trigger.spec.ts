@@ -2,7 +2,7 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { OverlayContainer } from '@angular/cdk/overlay';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvListItem } from '@malva-ui/core/list';
 import { MlvMenu } from './menu';
@@ -925,16 +925,15 @@ describe('MlvContextMenuTrigger', () => {
 
   // ─── Accessibility ────────────────────────────────────────────────────────
 
-  it('has no aria-allowed-attr violations on a roleless host', async () => {
+  it('has no axe violations with the context menu open on a roleless host', async () => {
     const { fixture, target } = await createTargeted();
     target.dispatchEvent(rightClick(120, 90));
     fixture.detectChanges();
     await fixture.whenStable();
 
-    const results = await axe.run(fixture.nativeElement as HTMLElement, {
-      runOnly: { type: 'rule', values: ['aria-allowed-attr'] },
-    });
-    expect(results.violations).toEqual([]);
+    // The panel is portaled into the overlay container, so the sweep spans
+    // both the trigger host and the open menu.
+    await expectNoAxeViolations(document.body);
   });
 
   it('omits aria-expanded on a roleless host but keeps it on a widget host', async () => {

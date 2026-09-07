@@ -8,7 +8,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { Subject } from 'rxjs';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
 import { MlvBreakpointService, MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvPopup } from '@malva-ui/core/popup';
@@ -395,15 +395,7 @@ describe('MlvSelect — dropdown panel accessible name', () => {
 
   it('is axe-clean with the dropdown open', async () => {
     await open();
-    const results = await axe.run(document.body, {
-      rules: {
-        'color-contrast': { enabled: false },
-        // The isolated TestBed document intentionally has no application-level
-        // main landmark; that responsibility belongs to the consuming shell.
-        region: { enabled: false },
-      },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(document.body);
   });
 });
 
@@ -636,7 +628,15 @@ describe('MlvSelect — mobile fullscreen', () => {
 // Inline clear button (value-gated, overlaid before the chevron)
 // ---------------------------------------------------------------------------
 @Component({
-  template: `<mlv-select clearable [options]="['Apple', 'Banana']" />`,
+  // `ariaLabel` because the trigger carries `role="combobox"` — an ARIA input
+  // field, which axe's `aria-input-field-name` requires to be named. The name
+  // comes from the consumer's `label`/`ariaLabel`; the component cannot invent
+  // one, so a harness without either is unrealistic rather than a defect.
+  template: `<mlv-select
+    clearable
+    ariaLabel="Fruit"
+    [options]="['Apple', 'Banana']"
+  />`,
   imports: [MlvSelect],
 })
 class ClearableSelectHostComponent {
@@ -714,12 +714,7 @@ describe('MlvSelect (inline clear button)', () => {
     expect(closeHost.getAttribute('tabindex')).toBeNull();
     expect(closeHost.querySelectorAll('button')).toHaveLength(1);
 
-    const results = await axe.run(fixture.nativeElement, {
-      rules: { 'color-contrast': { enabled: false } },
-    });
-    expect(results.violations.map(({ id }) => id)).not.toContain(
-      'nested-interactive',
-    );
+    await expectNoAxeViolations(fixture.nativeElement);
 
     clearButton.click();
     expect(valueChanges).toHaveBeenCalledTimes(1);

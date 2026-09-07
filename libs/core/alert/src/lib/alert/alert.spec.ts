@@ -1,7 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvAlert } from './alert';
@@ -160,12 +160,7 @@ describe('MlvAlert', () => {
       expect(closeHost.getAttribute('tabindex')).toBeNull();
       expect(closeHost.querySelectorAll('button')).toHaveLength(1);
 
-      const results = await axe.run(hostEl, {
-        rules: { 'color-contrast': { enabled: false } },
-      });
-      expect(results.violations.map(({ id }) => id)).not.toContain(
-        'nested-interactive',
-      );
+      await expectNoAxeViolations(hostEl);
 
       dismissButton.click();
       fixture.detectChanges();

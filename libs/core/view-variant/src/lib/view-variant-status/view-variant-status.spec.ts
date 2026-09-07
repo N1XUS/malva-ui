@@ -1,6 +1,6 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvViewVariantStatus, type MlvViewVariant } from '../../index';
 
@@ -220,7 +220,6 @@ describe('MlvViewVariantStatus', () => {
     );
     fixture.detectChanges();
 
-    const results = await axe.run(host);
-    expect(results.violations).toEqual([]);
+    await expectNoAxeViolations(host);
   });
 });

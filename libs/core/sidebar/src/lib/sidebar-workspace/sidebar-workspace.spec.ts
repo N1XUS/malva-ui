@@ -2,7 +2,7 @@ import { OverlayContainer } from '@angular/cdk/overlay';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvSidebar } from '../sidebar/sidebar';
 import {
   MlvSidebarWorkspaceLogo,
@@ -183,9 +183,6 @@ describe('MlvSidebarWorkspace', () => {
     const fixture = TestBed.createComponent(WorkspaceHost);
     fixture.detectChanges();
 
-    const results = await axe.run(fixture.nativeElement as HTMLElement, {
-      rules: { region: { enabled: false } },
-    });
-    expect(results.violations).toEqual([]);
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });

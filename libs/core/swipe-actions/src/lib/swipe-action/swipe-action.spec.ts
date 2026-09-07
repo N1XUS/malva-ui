@@ -3,7 +3,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvSwitch } from '@malva-ui/core/switch';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import type { MlvSwipeActionsHost } from '../swipe-actions-token';
 import { MLV_SWIPE_ACTIONS } from '../swipe-actions-token';
 import type { MlvSwipeActionTone } from './swipe-action';
@@ -256,12 +256,6 @@ describe('MlvSwipeAction on a self-painting host', () => {
   });
 
   it('has no axe violations on the composed hosts', async () => {
-    const results = await axe.run(fixture.nativeElement, {
-      runOnly: {
-        type: 'rule',
-        values: ['button-name', 'nested-interactive', 'aria-allowed-attr'],
-      },
-    });
-    expect(results.violations).toEqual([]);
+    await expectNoAxeViolations(fixture.nativeElement);
   });
 });
