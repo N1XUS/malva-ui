@@ -13,6 +13,10 @@ libs/core/styles/tokens.md
 # build-time generated API reference (docs:extract-api target — always regenerated)
 apps/docs/src/generated/
 
+# one-off QA evidence tables — every path in them points at an ephemeral
+# capture under /private/tmp or /var/folders that no longer exists. See #22.
+/design-qa.md
+
 # dependencies
 node_modules
 

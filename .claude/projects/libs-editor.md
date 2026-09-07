@@ -453,9 +453,8 @@ also reach `editorError`. The stable error codes are `configuration`, `parse`,
 
 ## AI toolkit (`@malva-ui/editor/ai`)
 
-Phases 1 and 2 of the AI toolkit (design spec:
-`docs/superpowers/specs/2026-08-01-editor-ai-toolkit-design.md`): selection
-transforms with streaming insert, and suggestion/diff review. Bring-your-own
+Phases 1 and 2 of the AI toolkit: selection transforms with streaming insert,
+and suggestion/diff review. Bring-your-own
 transport — the library never performs network requests.
 
 - **Entry point and layout:** `libs/editor/ai` is an ng-packagr secondary

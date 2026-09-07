@@ -4,7 +4,7 @@
 
 ## Overview
 
-`@malva-ui/core/form` is the **layout** layer for forms (the control infrastructure lives in `@malva-ui/core/form-utils`). It enhances native `<form>` / `<fieldset>` / `<legend>` with Malva rhythm and grid, and makes a form the single density source for every control inside it. Design: `docs/superpowers/specs/2026-08-16-form-layout-design.md`.
+`@malva-ui/core/form` is the **layout** layer for forms (the control infrastructure lives in `@malva-ui/core/form-utils`). It enhances native `<form>` / `<fieldset>` / `<legend>` with Malva rhythm and grid, and makes a form the single density source for every control inside it.
 
 ## Public API
 
