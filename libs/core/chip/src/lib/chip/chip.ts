@@ -20,7 +20,6 @@ import type { MlvTone } from '@malva-ui/cdk/utils';
 import { LucideX } from '@lucide/angular';
 import { MlvChipAppend, MlvChipPrepend } from './chip.directives';
 import { MLV_CHIP_I18N } from '@malva-ui/i18n';
-import { MlvButtonClose } from '@malva-ui/core/button';
 
 /**
  * Available tone variants for the chip component.
@@ -58,7 +57,7 @@ export type MlvChipTone =
   styleUrl: './chip.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, LucideX, MlvButtonClose],
+  imports: [NgTemplateOutlet, LucideX],
   providers: [{ provide: MLV_DENSITY_ELEMENT, useValue: 'chip' }],
   hostDirectives: [
     {

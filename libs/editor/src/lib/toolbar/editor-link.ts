@@ -14,11 +14,7 @@ import {
 import type { Editor } from '@tiptap/core';
 import { getMarkRange } from '@tiptap/core';
 import { LucideLink } from '@lucide/angular';
-import {
-  MlvButton,
-  MlvButtonIcon,
-  MlvButtonToggle,
-} from '@malva-ui/core/button';
+import { MlvButton, MlvButtonIcon } from '@malva-ui/core/button';
 import { MlvInput } from '@malva-ui/core/input';
 import {
   MlvPopup,
@@ -48,7 +44,6 @@ interface EditorLinkSelection {
   imports: [
     MlvButton,
     MlvButtonIcon,
-    MlvButtonToggle,
     MlvTooltip,
     LucideLink,
     MlvEditorToolbarWidget,
