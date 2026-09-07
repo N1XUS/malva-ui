@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -6,6 +6,7 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest';
 import { Subject } from 'rxjs';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvCopyToClipboard } from './copy-to-clipboard';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
@@ -349,5 +350,110 @@ describe('MlvCopyToClipboard', () => {
       fixture.detectChanges();
       expect(host.copiedEvents).toEqual(['projected-value']);
     });
+  });
+});
+
+@Component({
+  selector: 'mlv-copy-a11y-host',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MlvCopyToClipboard],
+  template: `
+    <mlv-copy-to-clipboard [disabled]="disabled()">
+      npm i @malva-ui/core
+    </mlv-copy-to-clipboard>
+  `,
+})
+class CopyA11yHost {
+  readonly disabled = signal(false);
+}
+
+/**
+ * Accessibility sweeps — `mlv-copy-to-clipboard`.
+ *
+ * The component synthesises a widget on a non-interactive element: `role`,
+ * `tabindex`, `aria-label` and `aria-disabled` all live on the host, and the
+ * only visible affordance — the copy/check glyph pair — is deliberately
+ * `aria-hidden`, with a polite live region carrying the confirmation instead.
+ * So the sweep is rooted at the fixture root and parameterised over the three
+ * states that change those attributes or that region's content: idle, copied,
+ * and disabled.
+ *
+ * Kept in its own top-level `describe` because the suite above installs fake
+ * timers for every test, and axe's own async pipeline runs on real ones.
+ */
+describe('MlvCopyToClipboard accessibility', () => {
+  let fixture: ComponentFixture<CopyA11yHost>;
+  let root: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CopyA11yHost],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: Clipboard, useValue: { copy: () => true } },
+        {
+          provide: MlvResizeObserverService,
+          useValue: { observe: () => new Subject<ResizeObserverEntry[]>() },
+        },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(CopyA11yHost);
+    root = fixture.nativeElement as HTMLElement;
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  /** The synthesised widget host. */
+  function widget(): HTMLElement {
+    return root.querySelector('mlv-copy-to-clipboard') as HTMLElement;
+  }
+
+  it('has no axe violations idle', async () => {
+    // State: a named, focusable synthetic button; the glyph pair is hidden and
+    // holds nothing focusable, and the live region is empty.
+    const el = widget();
+    expect(el.getAttribute('role')).toBe('button');
+    expect(el.getAttribute('tabindex')).toBe('0');
+    expect(el.getAttribute('aria-label')).toBeTruthy();
+    expect(
+      el
+        .querySelector('.mlv-copy-to-clipboard__indicator')
+        ?.getAttribute('aria-hidden'),
+    ).toBe('true');
+    expect(
+      el.querySelector('.mlv-copy-to-clipboard__live')?.textContent?.trim(),
+    ).toBe('');
+
+    await expectNoAxeViolations(root);
+  });
+
+  it('has no axe violations in the copied state', async () => {
+    widget().click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // State: the success glyph is showing and the polite region now carries
+    // the confirmation text — markup the idle sweep never saw.
+    const el = widget();
+    expect(el.classList.contains('mlv-copy-to-clipboard--copied')).toBe(true);
+    expect(
+      el.querySelector('.mlv-copy-to-clipboard__live')?.textContent?.trim(),
+    ).toBeTruthy();
+
+    await expectNoAxeViolations(root);
+  });
+
+  it('has no axe violations disabled', async () => {
+    fixture.componentInstance.disabled.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // State: out of the tab order and reported disabled, still named.
+    const el = widget();
+    expect(el.getAttribute('tabindex')).toBe('-1');
+    expect(el.getAttribute('aria-disabled')).toBe('true');
+
+    await expectNoAxeViolations(root);
   });
 });

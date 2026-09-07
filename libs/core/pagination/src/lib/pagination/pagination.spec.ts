@@ -1,6 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvPagination } from './pagination';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
@@ -230,5 +231,111 @@ describe('MlvPagination', () => {
         '25 items per page',
       ]);
     });
+  });
+});
+
+@Component({
+  template: `<mlv-pagination
+    [totalItems]="totalItems()"
+    [(currentPage)]="currentPage"
+    [(itemsPerPage)]="itemsPerPage"
+  />`,
+  imports: [MlvPagination],
+})
+class PaginationA11yHost {
+  readonly totalItems = signal(500);
+  readonly currentPage = signal(6);
+  readonly itemsPerPage = signal(10);
+}
+
+/**
+ * Accessibility sweeps — `mlv-pagination`.
+ *
+ * The component renders three things worth judging, and they do not all exist
+ * at once: a labelled `role="navigation"` landmark that is only present while
+ * there is more than one page, an ellipsis slot that becomes a numeric
+ * `mlv-input` when the page run is truncated, and an items-per-page listbox
+ * that lives in a CDK overlay. So the sweeps cover the many-page rendering, the
+ * single-page rendering (where the landmark is gone entirely), and the open
+ * popup — the last rooted at `.cdk-overlay-container`, because the panel is
+ * portaled out of the fixture and `fixture.nativeElement` holds none of it.
+ */
+describe('MlvPagination accessibility', () => {
+  let a11yFixture: ComponentFixture<PaginationA11yHost>;
+  let root: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [PaginationA11yHost],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    a11yFixture = TestBed.createComponent(PaginationA11yHost);
+    root = a11yFixture.nativeElement as HTMLElement;
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+  });
+
+  afterEach(() => {
+    document
+      .querySelectorAll('.cdk-overlay-container')
+      .forEach((element) => element.remove());
+  });
+
+  it('has no axe violations for a truncated many-page run', async () => {
+    // State: a labelled navigation landmark, exactly one `aria-current="page"`,
+    // named prev/next buttons and at least one truncation input.
+    const nav = root.querySelector('[role="navigation"]') as HTMLElement;
+    expect(nav.getAttribute('aria-label')).toBeTruthy();
+    expect(root.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+    expect(
+      root.querySelectorAll('.mlv-pagination__item--input').length,
+    ).toBeGreaterThan(0);
+
+    await expectNoAxeViolations(root);
+  });
+
+  it('has no axe violations when a single page removes the navigation', async () => {
+    a11yFixture.componentInstance.totalItems.set(5);
+    a11yFixture.componentInstance.currentPage.set(1);
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+
+    // State: the whole page-button block is gone — with a single page there is
+    // no navigation landmark, no prev/next and no page buttons, only the count.
+    expect(root.querySelector('[role="navigation"]')).toBeNull();
+    expect(root.querySelectorAll('.mlv-pagination__item')).toHaveLength(0);
+    expect(root.querySelector('.mlv-pagination__items-count')).not.toBeNull();
+
+    await expectNoAxeViolations(root);
+  });
+
+  it('has no axe violations with the items-per-page listbox open', async () => {
+    const trigger = root.querySelector(
+      '.mlv-pagination__items-per-page button',
+    ) as HTMLButtonElement;
+    trigger.click();
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+
+    // State: the portaled panel, whose listbox and options exist nowhere in
+    // the fixture. The trigger's `aria-controls` must resolve to that listbox.
+    const container = document.querySelector(
+      '.cdk-overlay-container',
+    ) as HTMLElement;
+    expect(container).not.toBeNull();
+    const controls = trigger.getAttribute('aria-controls') as string;
+    expect(container.querySelectorAll(`#${controls}`)).toHaveLength(1);
+    expect(
+      container.querySelectorAll('[role="option"]').length,
+    ).toBeGreaterThan(0);
+    // The listbox owes an accessible name and the panel invents none — the
+    // component has to hand it one.
+    expect(
+      container.querySelector('[role="listbox"]')?.getAttribute('aria-label'),
+    ).toBeTruthy();
+
+    await expectNoAxeViolations(container);
   });
 });

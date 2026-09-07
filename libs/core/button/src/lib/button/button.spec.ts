@@ -4,8 +4,14 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { compile } from 'sass';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
+import { LucideX } from '@lucide/angular';
 import { MlvButton } from './button';
-import { MlvButtonIcon } from '../button.directives';
+import {
+  MlvButtonAfter,
+  MlvButtonBefore,
+  MlvButtonIcon,
+} from '../button.directives';
 import { MlvButtonGroup } from '../button-group/button-group';
 import type { MlvButtonShape } from '../button.types';
 
@@ -405,5 +411,103 @@ describe('MlvButton icon wrapper styling', () => {
 
     expect(rule).toBeDefined();
     expect(svg.matches(rule?.selectorText ?? '')).toBe(false);
+  });
+});
+
+@Component({
+  imports: [MlvButton, MlvButtonIcon, MlvButtonBefore, MlvButtonAfter, LucideX],
+  template: `
+    <button mlvButton>Save</button>
+
+    <button mlvButton [loading]="loading()">Submitting</button>
+
+    <button mlvButton disabled>Delete</button>
+
+    <button mlvButton shape="circle" aria-label="Add item">
+      <svg lucideX mlvButtonIcon></svg>
+    </button>
+
+    <button mlvButton>
+      <ng-template mlvButtonBefore>
+        <svg lucideX mlvButtonIcon></svg>
+      </ng-template>
+      Export
+      <ng-template mlvButtonAfter>
+        <svg lucideX mlvButtonIcon></svg>
+      </ng-template>
+    </button>
+
+    <a mlvButton href="#docs">Read the docs</a>
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+class ButtonA11yHost {
+  readonly loading = signal(false);
+}
+
+/**
+ * Accessibility sweep — `button[mlvButton]` / `a[mlvButton]`.
+ *
+ * The states here are the ones that change what the host exposes, not just how
+ * it looks: `loading` swaps the projected content for a `role="progressbar"`
+ * and adds `disabled` + `aria-busy`; `disabled` removes the tab stop;
+ * `shape="circle"` with no text is the icon-only inference, where the whole
+ * accessible name is an `aria-label` beside an `aria-hidden` glyph; the
+ * before/after slots put two more glyphs inside the name computation; and the
+ * anchor selector renders a link rather than a button. Variant and density
+ * change only classes, so they are not separate states for axe.
+ */
+describe('MlvButton accessibility', () => {
+  let a11yFixture: ComponentFixture<ButtonA11yHost>;
+
+  beforeEach(async () => {
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [ButtonA11yHost],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    a11yFixture = TestBed.createComponent(ButtonA11yHost);
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+  });
+
+  it('has no axe violations across shape, slot and element states', async () => {
+    const host = a11yFixture.nativeElement as HTMLElement;
+
+    expect(host.querySelectorAll('.mlv-button')).toHaveLength(6);
+    // The icon-only button is named only by aria-label; its glyph is hidden.
+    const iconOnly = host.querySelector(
+      '.mlv-button--icon-only',
+    ) as HTMLButtonElement;
+    expect(iconOnly.getAttribute('aria-label')).toBe('Add item');
+    expect(iconOnly.querySelector('svg')?.getAttribute('aria-hidden')).toBe(
+      'true',
+    );
+    // The anchor branch stays a link, not a synthesised button.
+    const link = host.querySelector('a.mlv-button') as HTMLAnchorElement;
+    expect(link.hasAttribute('role')).toBe(false);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations while loading', async () => {
+    a11yFixture.componentInstance.loading.set(true);
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+    const host = a11yFixture.nativeElement as HTMLElement;
+
+    // State: a `role="progressbar"` now lives inside the button, which is
+    // itself disabled and busy — the loader must carry its own name for that
+    // role, and the button must still resolve one from its text.
+    const loading = host.querySelector(
+      '.mlv-button--loading',
+    ) as HTMLButtonElement;
+    expect(loading.getAttribute('aria-busy')).toBe('true');
+    expect(loading.hasAttribute('disabled')).toBe(true);
+    const loader = loading.querySelector('[role="progressbar"]') as HTMLElement;
+    expect(loader.getAttribute('aria-label')).toBeTruthy();
+
+    await expectNoAxeViolations(host);
   });
 });

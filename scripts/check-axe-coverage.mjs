@@ -218,36 +218,18 @@ export const EXEMPT = {
  * shipped without one — and that is the case this guard exists to block.
  */
 export const ROLLOUT_PENDING = [
-  // libs/cdk — these DO emit accessibility-relevant DOM and need a host harness.
-  // `[mlvClick]` writes `role`/`tabindex`; `MlvOverlayHostBase` builds panes
-  // that carry `role`/`aria-modal` and trap focus; `cdk-utils` ships `MlvFade`
-  // (wrapper + `data-orientation`), `MlvSpacer` (an empty element that lands
-  // inside `role="toolbar"` / `role="list"` parents) and `MlvAutofocus`.
-  'cdk-accessibility',
-  'cdk-overlay',
-  'cdk-utils',
   // libs/core
-  'core-accordion',
   'core-autocomplete',
-  'core-bottom-nav',
-  'core-button',
-  'core-calendar',
   'core-color-picker',
-  'core-copy-to-clipboard',
   'core-date-range-picker',
   'core-day-picker',
   'core-drawer',
   'core-dropdown',
-  'core-expand',
   'core-file-upload',
   'core-form',
-  'core-icon-toggle',
   'core-input',
-  'core-layout',
-  'core-list',
   'core-notification',
   'core-number-input',
-  'core-pagination',
   'core-pin-input',
   'core-popup',
   'core-rating',

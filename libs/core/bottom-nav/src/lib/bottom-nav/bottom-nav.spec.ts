@@ -14,6 +14,7 @@ import {
   LucideCalendar,
 } from '@lucide/angular';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvBottomNav } from './bottom-nav';
 import type { MlvNavItem } from '@malva-ui/cdk/utils';
 
@@ -287,5 +288,150 @@ describe('MlvBottomNav', () => {
 
       expect(fixture.componentInstance.lastClickedIndex).toBe(null);
     });
+  });
+});
+
+/**
+ * Accessibility sweeps.
+ *
+ * `mlv-bottom-nav` renders three different item elements depending on mode —
+ * `<a routerLink>` in router mode, `<button>` for a disabled item or in managed
+ * mode, and a synthetic "More" menu trigger past five items — and every one of
+ * them is named by a `<span>` label beside an `aria-hidden` glyph. Each of those
+ * is swept, because a sweep of the default three-anchor rendering says nothing
+ * about the button branch.
+ *
+ * The overflow menu is the state that is *not* in the fixture: `mlvMenuTrigger`
+ * portals its panel into a CDK overlay attached to `<body>`, so that sweep is
+ * rooted at `.cdk-overlay-container`.
+ */
+describe('MlvBottomNav accessibility', () => {
+  const lucideProviders = [
+    provideLucideIcons(
+      LucideHome,
+      LucideSearch,
+      LucideSettings,
+      LucideBell,
+      LucideUser,
+      LucideHelpCircle,
+      LucideEllipsis,
+      LucideCalendar,
+    ),
+    provideMlvI18nTesting(),
+  ];
+
+  const OVERFLOWING_ITEMS: MlvNavItem[] = [
+    { icon: 'home', label: 'Home', route: '/home' },
+    { icon: 'search', label: 'Search', route: '/search' },
+    { icon: 'bell', label: 'Alerts', route: '/alerts' },
+    { icon: 'calendar', label: 'Calendar', route: '/calendar' },
+    { icon: 'user', label: 'Profile', route: '/profile' },
+    { icon: 'help-circle', label: 'Help', route: '/help' },
+  ];
+
+  afterEach(() => {
+    document
+      .querySelectorAll('.cdk-overlay-container')
+      .forEach((el) => el.remove());
+  });
+
+  it('has no axe violations in router mode', async () => {
+    await TestBed.configureTestingModule({
+      imports: [TestHostComponent, RouterModule.forRoot([])],
+      providers: lucideProviders,
+    }).compileComponents();
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: three enabled router items, so three named anchors under one
+    // named navigation landmark and no overflow trigger.
+    expect(host.querySelectorAll('a.mlv-bottom-nav__item')).toHaveLength(3);
+    expect(host.querySelector('.mlv-bottom-nav__more')).toBeNull();
+    const nav = host.querySelector('[role="navigation"]') as HTMLElement;
+    expect(nav.getAttribute('aria-label')).toBeTruthy();
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations in router mode with a disabled item', async () => {
+    await TestBed.configureTestingModule({
+      imports: [TestHostComponent, RouterModule.forRoot([])],
+      providers: lucideProviders,
+    }).compileComponents();
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.componentInstance.items.set([
+      { icon: 'home', label: 'Home', route: '/home' },
+      { icon: 'search', label: 'Search', route: '/search', disabled: true },
+      { icon: 'settings', label: 'Settings', route: '/settings' },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: the disabled branch, which swaps the anchor for a native disabled
+    // <button> carrying aria-disabled as well.
+    const disabled = host.querySelector(
+      'button.mlv-bottom-nav__item',
+    ) as HTMLButtonElement;
+    expect(disabled.disabled).toBe(true);
+    expect(disabled.getAttribute('aria-disabled')).toBe('true');
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations in managed mode with an active and a disabled item', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ManagedHostComponent, RouterModule.forRoot([])],
+      providers: lucideProviders,
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ManagedHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: every item is a <button>, exactly one carries aria-current.
+    expect(host.querySelectorAll('a.mlv-bottom-nav__item')).toHaveLength(0);
+    expect(host.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+    expect(host.querySelectorAll('[aria-disabled="true"]')).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations with the overflow trigger rendered and with its menu open', async () => {
+    await TestBed.configureTestingModule({
+      imports: [TestHostComponent, RouterModule.forRoot([])],
+      providers: lucideProviders,
+    }).compileComponents();
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.componentInstance.items.set(OVERFLOWING_ITEMS);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: four anchors plus the synthetic More trigger, menu still closed.
+    const more = host.querySelector(
+      '.mlv-bottom-nav__more',
+    ) as HTMLButtonElement;
+    expect(more.getAttribute('aria-haspopup')).toBe('menu');
+    expect(more.getAttribute('aria-label')).toBeTruthy();
+    await expectNoAxeViolations(host);
+
+    more.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // State: the menu panel, which is portaled out of the fixture — a sweep of
+    // `fixture.nativeElement` would not contain a single node of it.
+    const container = document.querySelector(
+      '.cdk-overlay-container',
+    ) as HTMLElement;
+    expect(container).not.toBeNull();
+    expect(
+      container.querySelectorAll('[role="menuitem"]').length,
+    ).toBeGreaterThan(0);
+
+    await expectNoAxeViolations(container);
   });
 });

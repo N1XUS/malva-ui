@@ -3,6 +3,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvCalendarSheet } from './calendar-sheet';
 import type { MlvCalendarRangeValue } from '../calendar/calendar';
 import { MlvNativeDateAdapter } from '@malva-ui/core/date';
@@ -704,5 +705,103 @@ describe('MlvCalendarSheet', () => {
 
   afterEach(() => {
     fixture.destroy();
+  });
+});
+
+/**
+ * Accessibility sweeps — `mlv-calendar-sheet`.
+ *
+ * The sheet renders one `role="grid"` per month inside a labelled
+ * `role="group"` scroller, plus a horizontal `mlv-scrubber` listbox for the
+ * year strip. Every sweep is rooted at the fixture root so all three container
+ * roles are in scope: `aria-required-children` on each grid, `aria-labelledby`
+ * from each grid to its own `<h3>`, and the scrubber's listbox contract are all
+ * decided on the container, not on a day button.
+ *
+ * The states are the renderings that differ: single-select, a completed range
+ * (which paints the band and sets `aria-selected` across many cells), and a
+ * min/max window (which disables day buttons and mirrors it in ARIA).
+ */
+describe('MlvCalendarSheet accessibility', () => {
+  let a11yFixture: ComponentFixture<SheetHost>;
+  let a11yHost: SheetHost;
+  let a11yRoot: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [SheetHost],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    a11yFixture = TestBed.createComponent(SheetHost);
+    a11yHost = a11yFixture.componentInstance;
+    a11yRoot = a11yFixture.nativeElement as HTMLElement;
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+  });
+
+  it('has no axe violations for the single-select sheet', async () => {
+    // State: one labelled scroller, one grid per rendered month, each grid
+    // named by its own heading, and the decorative weekday strip hidden.
+    const scroller = must(
+      a11yRoot.querySelector<HTMLElement>('.mlv-calendar-sheet__months'),
+      'the month scroller',
+    );
+    expect(scroller.getAttribute('role')).toBe('group');
+    expect(scroller.getAttribute('aria-label')).toBeTruthy();
+
+    const grids = [...a11yRoot.querySelectorAll('[role="grid"]')];
+    expect(grids.length).toBeGreaterThan(0);
+    for (const grid of grids) {
+      const labelledBy = grid.getAttribute('aria-labelledby') as string;
+      expect(a11yRoot.querySelectorAll(`#${labelledBy}`)).toHaveLength(1);
+      expect(grid.querySelectorAll('[role="columnheader"]')).toHaveLength(7);
+    }
+    expect(
+      must(
+        a11yRoot.querySelector('.mlv-calendar-sheet__weekdays'),
+        'the weekday strip',
+      ).getAttribute('aria-hidden'),
+    ).toBe('true');
+
+    await expectNoAxeViolations(a11yRoot);
+  });
+
+  it('has no axe violations with a completed range', async () => {
+    a11yHost.range.set(true);
+    a11yHost.rangeValue.set({
+      start: new Date(2026, 0, 10),
+      end: new Date(2026, 0, 22),
+    });
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+
+    // State: the band paints across cells and both endpoints report selection.
+    expect(
+      a11yRoot.querySelectorAll('.mlv-calendar-sheet__cell--in-range').length,
+    ).toBeGreaterThan(0);
+    expect(
+      a11yRoot.querySelectorAll('[aria-selected="true"]').length,
+    ).toBeGreaterThanOrEqual(2);
+
+    await expectNoAxeViolations(a11yRoot);
+  });
+
+  it('has no axe violations with a min/max window disabling days', async () => {
+    a11yHost.min.set(new Date(2026, 0, 10));
+    a11yHost.max.set(new Date(2026, 0, 20));
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+
+    // State: day buttons outside the window are natively disabled and say so
+    // in ARIA too.
+    const disabled = a11yRoot.querySelectorAll(
+      '.mlv-calendar-sheet__day[disabled]',
+    );
+    expect(disabled.length).toBeGreaterThan(0);
+    expect(disabled[0].getAttribute('aria-disabled')).toBe('true');
+
+    await expectNoAxeViolations(a11yRoot);
   });
 });

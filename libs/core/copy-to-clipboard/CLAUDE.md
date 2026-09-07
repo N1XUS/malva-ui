@@ -1,1 +1,1 @@
-../../.claude/projects/libs-copy-to-clipboard.md
+../../../.claude/projects/libs-copy-to-clipboard.md
