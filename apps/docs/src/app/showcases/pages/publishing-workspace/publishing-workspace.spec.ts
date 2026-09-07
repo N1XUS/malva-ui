@@ -11,7 +11,7 @@ import { By } from '@angular/platform-browser';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, RouterOutlet } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { BehaviorSubject } from 'rxjs';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
 import type { MlvUploadedFile } from '@malva-ui/core/file-upload';
@@ -378,11 +378,6 @@ describe('PublishingWorkspaceShowcaseComponent', () => {
 
   it('keeps the default workspace state axe-clean', async () => {
     const rendered = await renderAt();
-    const results = await axe.run(rendered.root, {
-      rules: {
-        'color-contrast': { enabled: false },
-      },
-    });
-    expect(results.violations).toEqual([]);
+    await expectNoAxeViolations(rendered.root);
   });
 });

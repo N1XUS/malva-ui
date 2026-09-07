@@ -11,7 +11,7 @@ import { By } from '@angular/platform-browser';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, Router, RouterOutlet } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { BehaviorSubject } from 'rxjs';
 import { describe, expect, it } from 'vitest';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
@@ -737,15 +737,10 @@ describe('DataAtScaleShowcaseComponent', () => {
 
   it('keeps the default and paged compositions axe-clean', async () => {
     const rendered = await renderShowcase();
-    const runAxe = async () =>
-      axe.run(rendered.root, {
-        rules: { 'color-contrast': { enabled: false } },
-      });
-
-    expect((await runAxe()).violations).toEqual([]);
+    await expectNoAxeViolations(rendered.root);
 
     rendered.component.setMode('paged');
     await settle(rendered);
-    expect((await runAxe()).violations).toEqual([]);
+    await expectNoAxeViolations(rendered.root);
   });
 });

@@ -6,10 +6,102 @@ All components in this codebase **must** pass AXE checks and meet **WCAG 2.1 AA*
 
 ## Core Requirements
 
-- **AXE clean** — zero violations in automated AXE tests for every component.
+- **AXE clean** — zero violations from a **full** axe sweep, asserted through the shared helper. See _Asserting It_ below; enforced by `scripts/check-axe-coverage.mjs`.
 - **WCAG 2.1 AA** — color contrast ≥ 4.5:1 for normal text, ≥ 3:1 for large text and UI components.
 - **Keyboard accessible** — every interactive element reachable and operable via keyboard alone.
 - **Semantic HTML first** — use native elements (`<button>`, `<a>`, `<input>`, `<select>`) before adding ARIA. ARIA never overrides native semantics unless intentional.
+
+---
+
+## Asserting It
+
+One helper, one call shape, everywhere:
+
+```ts
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
+
+it('has no axe violations', async () => {
+  const fixture = TestBed.createComponent(HostComponent);
+  fixture.detectChanges();
+  await fixture.whenStable();
+  await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+});
+```
+
+| Export                               | Use                                                                                      |
+| ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `expectNoAxeViolations(root, opts?)` | The assertion. Full sweep, every rule minus the two disabled below                       |
+| `runAxe(root, opts?)`                | Raw result — only when the spec asserts a violation **is** raised, or needs `incomplete` |
+| `formatAxeViolations(violations)`    | The report string, for a spec that builds its own assertion                              |
+| `AXE_JSDOM_DISABLED_RULES`           | The centrally disabled rules                                                             |
+
+### What a new component must ship
+
+- **At least one full sweep** over its rendered output. `.claude/rules/angular-component.md`'s checklist is not complete without it.
+- **One sweep per state that changes the markup** — open/closed, selected, error, disabled, RTL, a responsive variant. A default-state sweep is not coverage of a panel that only exists while open.
+- **Overlay content**: sweep `document.body` or `document.querySelector('.cdk-overlay-container')`. The pane is portaled out of the fixture, so `fixture.nativeElement` never contains it.
+- **A named harness — once you have checked it is only the harness.** A component cannot invent its own name, so an unnamed `<input>` / `role="combobox"` in a test host is usually the host's defect: give it an `aria-label` rather than disabling `label` / `aria-input-field-name`. **Check before you name it.** Grep `apps/docs` and `libs/` for real consumers of the same control that also ship without a name; if any do, name the harness _and_ file the finding — the sweep found something true. Naming the harness without looking is how a live WCAG 4.1.2 defect becomes invisible.
+  - Known open case, do not re-derive it: `MlvFormField` never associates a projected `<mlv-label>` with the control it labels — no `labelId`, no `aria-labelledby`, no `for` plumbing, and `MlvLabel.for` defaults to `''`, so the consumer must supply both an id and a matching `id` on the control. `<mlv-form-field><mlv-label>Country</mlv-label><mlv-select …/></mlv-form-field>` therefore renders a `role="combobox"` with no accessible name; it ships that way in `apps/docs` (`pages/form-field/examples/1`, `…/3`, `pages/action-bar/examples/2`).
+
+### Never
+
+- `expect(results.violations).toEqual([])` — each axe node holds a live `element`, so a failure pretty-prints the component and its injector graph (minutes of CPU). The helper asserts on a short string instead.
+- `import axe from 'axe-core'` in a spec — `check-axe-coverage.mjs` fails on it, in `libs/**` and in `apps/**` alike. The one exception is a Playwright suite under a project's own top-level `e2e/`, which injects `axe.source` into a real browser page. A directory named `e2e` anywhere else is not an exception and buys nothing.
+- `runOnly: { type: 'rule', values: [...] }` to get a suite green — it asserts nothing about every rule it omits while reading like full coverage.
+- Disabling a rule that is failing, without a comment saying so.
+
+### Disabled rules
+
+Central, in `scripts/testing/axe.js`, each with its reason in the source. Only two, and neither is "jsdom limitation":
+
+| Rule             | axe tags        | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `color-contrast` | `wcag2aa`       | Never evaluates here — axe reports it **`inapplicable`** under jsdom, so it yields no violation, no pass and no `incomplete` (measured: enabling it leaves `core-table`, `core-select` and `scheduler` green). Off deliberately all the same: every colour in the library is a token and jsdom resolves no `var()`, so `getComputedStyle(el).color` is `''` — a jsdom that grew layout would switch the rule on for every component at once, on colours it still could not read. Checked in the browser pass instead. |
+| `region`         | `best-practice` | Judges **page** structure. A spec mounts one component into an empty `<body>`; the landmark around it is the consuming shell's decision.                                                                                                                                                                                                                                                                                                                                                                              |
+
+A third rule firing is a **real finding**. Fix it. Narrow at the call site only when you cannot, and then say which of the two reasons it is — a narrowing whose comment does not settle that is the thing this rule exists to stop:
+
+```ts
+await expectNoAxeViolations(root, {
+  // NARROWED, not clean: `<rule>` fires on `<selector>` — <reason>.
+  // Fixable, deferred: tracked in #NNN.
+  rules: { '<rule>': { enabled: false } },
+});
+```
+
+```ts
+await expectNoAxeViolations(root, {
+  // NARROWED, not clean: `<rule>` fires on `<selector>` — <reason>.
+  // PERMANENT: <why the rule cannot pass a correct implementation>. No issue
+  // is owed. (`mlv-scheduler`'s `empty-table-header` is the worked example:
+  // the rule's whole check list is `any: ['has-visible-text']`, so a named
+  // `columnheader` with an `aria-hidden` subtree can never satisfy it.)
+  rules: { '<rule>': { enabled: false } },
+});
+```
+
+Keep the narrowing no wider than its reason. A sweep parameterised over several states narrows only the states the reason names — see `scheduler.spec.ts`, where the month view has no time grid and sweeps unnarrowed.
+
+### Coverage guard
+
+`scripts/check-axe-coverage.mjs`, run by `nx run @malva-ui/source:test` and covered by `scripts/check-axe-coverage.spec.mjs`. It fails when:
+
+| Finding                               | Meaning                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `uncovered`                           | A `libs/**` project declares an `@Component`/`@Directive` and no spec it owns asserts with axe                |
+| `stale-rollout`                       | A `ROLLOUT_PENDING` entry now has a sweep (delete the line) or names no project                               |
+| `stale-exempt`                        | An `EXEMPT` entry gained a sweep, or its `rendersDom` no longer matches reality                               |
+| `raw-axe-import`                      | A spec outside a project's own top-level `e2e/` imports `axe-core` directly                                   |
+| `walk-error` / `no-sources` / `floor` | The walk saw nothing, so every answer above would be vacuously clean. Asserted before anything is reported OK |
+
+- Coverage, `EXEMPT` and `ROLLOUT_PENDING` are asked of `libs/**` library projects — that is what the issue's acceptance is about. `raw-axe-import` is a rule about how a spec is written, so it is asked of `apps/**` too.
+- `EXEMPT` — permanent. A project qualifies only when nothing it emits can change any axe rule's outcome: no element, no ARIA role/attribute/state, no accessible name, no focusability, no interactive semantics — only classes, custom properties, geometry or plain data. "It is a directive" is not a reason: `[mlvClick]` writes `role` and `tabindex`, so it is not exempt.
+- `ROLLOUT_PENDING` — temporary (#47 phase 2). Only ever shrinks; **adding a project to it is a regression**.
+- Coverage means an **import of the helper plus a call to it**, in a spec `nx test` runs. A comment mentioning the helper is not coverage, and a directory named `e2e` is not an exemption unless it is the project's own top-level one.
+
+### "Full sweep" means every rule that can run here
+
+`axe.getRules()` lists **105** rules in axe-core 4.12.1, of which **96** are enabled by default (9 are deprecated or experimental and ship off). This workspace turns 2 of those 96 off, so **94** are asked of every sweep. Of the 94, however many do not match the markup come back `inapplicable` — `color-contrast` always does, under jsdom. So read a green sweep as "every rule axe would apply to this markup in a default run", not as "all 105 rules pass".
 
 ---
 

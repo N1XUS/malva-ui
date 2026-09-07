@@ -1,7 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component } from '@angular/core';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvRadio } from './radio';
 import { MlvRadioGroup } from '../radio-group/radio-group';
 import { createRequire } from 'node:module';
@@ -105,11 +105,8 @@ describe('MlvRadio host aria-label/aria-labelledby forwarding', () => {
     expect(input?.getAttribute('aria-labelledby')).toBe('ext-label');
   });
 
-  it('has no aria-prohibited-attr violations (axe)', async () => {
-    const results = await axe.run(fixture.nativeElement as HTMLElement, {
-      runOnly: { type: 'rule', values: ['aria-prohibited-attr'] },
-    });
-    expect(results.violations).toEqual([]);
+  it('has no axe violations', async () => {
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });
 

@@ -13,7 +13,7 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": true,
-      "//": "check-test-targets.mjs and assert-zoneless-config.spec.js both answer a question about the shape of the whole workspace, so the inputs are workspace-wide globs: a project added anywhere — or a spec that reaches for a zone-based test API anywhere — must re-run the guards rather than hit the cache.",
+      "//": "check-test-targets.mjs, assert-zoneless-config.spec.js and check-axe-coverage.mjs all answer a question about the shape of the whole workspace, so the inputs are workspace-wide globs: a project added anywhere — a spec that reaches for a zone-based test API, or a library that grows a component without an axe sweep — must re-run the guards rather than hit the cache. The libs source glob is in the set because check-axe-coverage derives 'renders DOM' from the non-spec library sources, so a new @Component changes its answer; its extension list covers every extension that script's SOURCE_PATTERN accepts. It needs no apps/ source glob: an application is only swept for raw axe imports, which reads specs, and those are already covered by the *.{spec,test}.* glob.",
       "inputs": [
         "{workspaceRoot}/scripts/testing/strip-css-layers.js",
         "{workspaceRoot}/scripts/testing/setup-strip-css-layers.js",
@@ -21,17 +21,21 @@
         "{workspaceRoot}/scripts/testing/setup-assert-zoneless.js",
         "{workspaceRoot}/scripts/testing/assert-zoneless-config.spec.js",
         "{workspaceRoot}/scripts/check-test-targets.mjs",
+        "{workspaceRoot}/scripts/check-axe-coverage.mjs",
+        "{workspaceRoot}/scripts/testing/axe.js",
         "{workspaceRoot}/nx.json",
         "{workspaceRoot}/**/project.json",
         "{workspaceRoot}/**/package.json",
         "{workspaceRoot}/**/vite.config.mts",
         "{workspaceRoot}/**/test-setup.ts",
-        "{workspaceRoot}/**/*.{spec,test}.*"
+        "{workspaceRoot}/**/*.{spec,test}.*",
+        "{workspaceRoot}/libs/**/*.{ts,mts,cts,tsx}"
       ],
       "options": {
         "commands": [
-          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js",
-          "node scripts/check-test-targets.mjs"
+          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js scripts/check-axe-coverage.spec.mjs",
+          "node scripts/check-test-targets.mjs",
+          "node scripts/check-axe-coverage.mjs"
         ],
         "parallel": false,
         "cwd": "{workspaceRoot}"

@@ -2,7 +2,7 @@ import { ApplicationInitStatus, ApplicationRef } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
 // The service/provider contract is static; only locale data is split into lazy packs.
 // eslint-disable-next-line @nx/enforce-module-boundaries
@@ -476,16 +476,11 @@ describe('SupportInboxShowcaseComponent', () => {
 
   it('keeps the composition axe-clean with and without the details panel', async () => {
     const rendered = await render();
-    const runAxe = () =>
-      axe.run(rendered.root, {
-        rules: { 'color-contrast': { enabled: false } },
-      });
-
-    expect((await runAxe()).violations).toEqual([]);
+    await expectNoAxeViolations(rendered.root);
 
     rendered.component.toggleDetails();
     await settle(rendered);
     expect(rendered.root.querySelector('.support-inbox__details')).toBeNull();
-    expect((await runAxe()).violations).toEqual([]);
+    await expectNoAxeViolations(rendered.root);
   });
 });

@@ -2,8 +2,8 @@ import { CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { Component, signal, type Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import axe from 'axe-core';
 import { describe, expect, it } from 'vitest';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvTaskboardItemDef } from '../taskboard-defs';
 import type { MlvTaskboardColumn } from '../taskboard.types';
 import { MlvTaskboard } from './taskboard';
@@ -93,25 +93,6 @@ describe('MlvTaskboard accessibility', () => {
     return { fixture, host };
   }
 
-  /**
-   * Runs axe over the whole rendered board.
-   *
-   * `color-contrast` is off because jsdom has no canvas-backed colour
-   * computation, so the rule can only guess; token contrast is covered by
-   * `libs/styles` and manual review instead.
-   */
-  async function violationsOf(host: HTMLElement) {
-    const results = await axe.run(host, {
-      resultTypes: ['violations'],
-      rules: { 'color-contrast': { enabled: false } },
-    });
-    return results.violations.map(({ id, impact, nodes }) => ({
-      id,
-      impact,
-      nodes: nodes.map((node) => node.html),
-    }));
-  }
-
   /** Focuses a card and presses `key` on it, as a keyboard user would. */
   function press(host: HTMLElement, cardId: string, key: string): void {
     const card = host.querySelector(
@@ -128,7 +109,7 @@ describe('MlvTaskboard accessibility', () => {
     expect(host.querySelectorAll('[role="listbox"]')).toHaveLength(4);
     expect(host.querySelectorAll('[role="option"]')).toHaveLength(3);
 
-    expect(await violationsOf(host)).toEqual([]);
+    await expectNoAxeViolations(host);
   }, 30_000);
 
   it('has no axe violations with a card selected', async () => {
@@ -140,7 +121,7 @@ describe('MlvTaskboard accessibility', () => {
     await fixture.whenStable();
     expect(host.querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
 
-    expect(await violationsOf(host)).toEqual([]);
+    await expectNoAxeViolations(host);
   }, 30_000);
 
   it('has no axe violations while a grab aims at an invalid drop target', async () => {
@@ -166,7 +147,7 @@ describe('MlvTaskboard accessibility', () => {
       host.querySelector('.mlv-taskboard__live-region')?.textContent,
     ).toContain('Cannot move to Done');
 
-    expect(await violationsOf(host)).toEqual([]);
+    await expectNoAxeViolations(host);
   }, 30_000);
 
   it('has no axe violations with a collapsed column', async () => {
@@ -184,7 +165,7 @@ describe('MlvTaskboard accessibility', () => {
       host.querySelectorAll('.mlv-taskboard__cell[data-collapsed]'),
     ).toHaveLength(2);
 
-    expect(await violationsOf(host)).toEqual([]);
+    await expectNoAxeViolations(host);
   }, 30_000);
 
   it('has no axe violations with a collapsed swimlane', async () => {
@@ -202,7 +183,7 @@ describe('MlvTaskboard accessibility', () => {
       host.querySelectorAll('.mlv-taskboard__cell[data-collapsed]'),
     ).toHaveLength(2);
 
-    expect(await violationsOf(host)).toEqual([]);
+    await expectNoAxeViolations(host);
   }, 30_000);
 
   it('has no axe violations when every cell is empty', async () => {
@@ -216,7 +197,7 @@ describe('MlvTaskboard accessibility', () => {
     expect(host.querySelectorAll('[role="option"]')).toHaveLength(0);
     expect(host.querySelectorAll('.mlv-taskboard__empty')).toHaveLength(4);
 
-    expect(await violationsOf(host)).toEqual([]);
+    await expectNoAxeViolations(host);
   }, 30_000);
 
   it('has no axe violations on a virtualized cell', async () => {
@@ -275,7 +256,7 @@ describe('MlvTaskboard accessibility', () => {
     expect(spacer?.parentElement?.getAttribute('role')).toBe('listbox');
     expect(spacer?.hasAttribute('role')).toBe(false);
 
-    expect(await violationsOf(host)).toEqual([]);
+    await expectNoAxeViolations(host);
   }, 30_000);
 
   it('has no axe violations with a custom card template', async () => {
@@ -288,6 +269,6 @@ describe('MlvTaskboard accessibility', () => {
       host.querySelectorAll('div.mlv-taskboard__card[role="option"]'),
     ).toHaveLength(3);
 
-    expect(await violationsOf(host)).toEqual([]);
+    await expectNoAxeViolations(host);
   }, 30_000);
 });

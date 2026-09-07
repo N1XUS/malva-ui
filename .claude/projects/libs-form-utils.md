@@ -96,6 +96,26 @@ Round-trips: `fromAriaValues(toAriaValues(v, multi), multi)` yields the canonica
 
 When the selected strategy makes an error visible, `resolvedState()` becomes `error` and the field applies the error border token to the projected control wrapper as well as rendering the error message. The direct-child CSS scope prevents an outer field from recoloring controls owned by a nested field.
 
+#### Accessible name — the field does NOT provide one
+
+`mlv-form-field` lays a projected `<mlv-label>` out above the control and does
+nothing else with it: the template is `<ng-content select="mlv-label" />` plus
+`<ng-content />`, with no `labelId`, no `aria-labelledby` and no `for` plumbing
+between the two. **The projected control must carry its own accessible name.**
+Either give `<mlv-label>` a `for` and the control a matching `id`, or give the
+control an `aria-label`.
+
+Omitting both is a real WCAG 4.1.2 defect, not a cosmetic one: an unnamed
+`mlv-select` inside a field renders a `role="combobox"` with no name at all. It
+is the shape axe's `label` / `aria-input-field-name` rules report, and it ships
+today in `apps/docs` (`pages/form-field/examples/1`, `…/3`,
+`pages/action-bar/examples/2`), so a spec that hits it in a harness should name
+the harness _and_ check whether real consumers hit it too — see
+`.claude/rules/accessibility.md` § _Asserting It_.
+
+The same holds for `MlvFormControlWrapper`, which is a visual shell and
+likewise names nothing.
+
 ---
 
 ### `MlvLabel`
@@ -112,6 +132,12 @@ When the selected strategy makes an error visible, `resolvedState()` becomes `er
 
 Renders `<label [attr.for]="for">`. Supports nested `<mlv-hint>`, projected into
 `.mlv-label__hint` — which renders as an icon + tooltip, not inline text (see `MlvHint`).
+
+`for` defaults to `''`, which associates the label with nothing. Nothing derives
+it: inside `mlv-form-field` the label and the control are two independent
+projections, so the consumer supplies both the `for` and a matching `id` on the
+control (or an `aria-label` on the control instead). See _`MlvFormField` →
+Accessible name_ above.
 
 `required` renders `<span class="mlv-label__required" aria-hidden="true">*</span>` plus a
 `.cdk-visually-hidden` node carrying the translated `formUtils.required` word (falls back to
@@ -224,6 +250,11 @@ Animated enter/leave (fade + slide). Sets `aria-live` / `role` based on state.
 **Selector:** `mlv-form-control-wrapper`
 
 Visual shell for form controls. Projects label, control, prefix/suffix, and message via directive slots.
+
+**It contributes no accessible name.** The wrapper is chrome: it projects the
+slots and paints state, and wires no `aria-labelledby` / `for` between the label
+slot and the control slot. The projected control must carry its own name — see
+_`MlvFormField` → Accessible name_ above.
 
 #### Inputs
 

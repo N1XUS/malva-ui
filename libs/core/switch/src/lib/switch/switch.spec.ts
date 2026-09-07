@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MlvDensityService } from '@malva-ui/cdk/density';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvSwitch } from './switch';
 import { MlvSwitchGroup } from '../switch-group/switch-group';
 import { createRequire } from 'node:module';
@@ -154,11 +154,8 @@ describe('MlvSwitch host aria-label/aria-labelledby forwarding', () => {
     expect(input?.getAttribute('aria-labelledby')).toBe('ext-label');
   });
 
-  it('has no aria-prohibited-attr violations (axe)', async () => {
-    const results = await axe.run(fixture.nativeElement as HTMLElement, {
-      runOnly: { type: 'rule', values: ['aria-prohibited-attr'] },
-    });
-    expect(results.violations).toEqual([]);
+  it('has no axe violations', async () => {
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });
 

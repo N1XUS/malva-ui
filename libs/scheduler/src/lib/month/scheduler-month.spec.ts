@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { Component, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { compile } from 'sass';
 import Sortable from 'sortablejs';
 import { stripCssLayersFromText } from '@malva-ui/internal-testing';
@@ -19,24 +19,6 @@ import type {
   MlvSchedulerSlotEvent,
 } from '../scheduler/scheduler.types';
 import { focused, present, query } from '../testing/scheduler-test-dom';
-
-const AXE_RULES = [
-  'aria-allowed-attr',
-  'aria-allowed-role',
-  'aria-conditional-attr',
-  'aria-hidden-focus',
-  'aria-prohibited-attr',
-  'aria-required-attr',
-  'aria-required-children',
-  'aria-required-parent',
-  'aria-roles',
-  'aria-valid-attr',
-  'aria-valid-attr-value',
-  'button-name',
-  'duplicate-id-aria',
-  'nested-interactive',
-  'tabindex',
-];
 
 // March 2031: the 1st is a Saturday, so the grid opens with five outside days
 // and "today" is never inside the range (no wall-clock dependence).
@@ -1037,15 +1019,8 @@ describe('MlvSchedulerMonth', () => {
     // is portaled OUT of `root` and closed at that point, `aria-selected` only
     // exists while a selection is live, and `hiddenDays` rebuilds the row into
     // five columnheaders and five cells. Each of those is its own state.
-    const violations = async (target: Element) =>
-      (
-        await axe.run(target, {
-          runOnly: { type: 'rule', values: AXE_RULES },
-        })
-      ).violations;
-
     it('passes in the default state', async () => {
-      expect(await violations(root)).toEqual([]);
+      await expectNoAxeViolations(root);
     });
 
     it('passes with a range selected', async () => {
@@ -1057,14 +1032,14 @@ describe('MlvSchedulerMonth', () => {
       expect(
         root.querySelectorAll('[aria-selected="true"]').length,
       ).toBeGreaterThan(1);
-      expect(await violations(root)).toEqual([]);
+      await expectNoAxeViolations(root);
     });
 
     it('passes with hidden weekdays', async () => {
       host.hiddenDays.set([0, 6]);
       fixture.detectChanges();
       await fixture.whenStable();
-      expect(await violations(root)).toEqual([]);
+      await expectNoAxeViolations(root);
     });
 
     it('passes with the overflow popover open', async () => {
@@ -1074,7 +1049,7 @@ describe('MlvSchedulerMonth', () => {
       expect(popover()).toBeTruthy();
       // The panel lives in the CDK overlay container, so the run has to start
       // above both it and the scheduler root it points `aria-describedby` into.
-      expect(await violations(document.body)).toEqual([]);
+      await expectNoAxeViolations(document.body);
     });
   });
 });

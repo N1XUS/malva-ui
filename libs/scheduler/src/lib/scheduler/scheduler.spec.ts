@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MLV_DATE_LOCALE, MlvNativeDateAdapter } from '@malva-ui/core/date';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -16,33 +16,6 @@ import type {
 } from './scheduler.types';
 import { normalizeEvent } from '../layout/scheduler-layout';
 import { focused, query } from '../testing/scheduler-test-dom';
-
-const AXE_RULES = [
-  'aria-allowed-attr',
-  'aria-allowed-role',
-  'aria-conditional-attr',
-  'aria-hidden-focus',
-  'aria-prohibited-attr',
-  'aria-required-attr',
-  'aria-required-children',
-  'aria-required-parent',
-  'aria-roles',
-  'aria-toggle-field-name',
-  'aria-valid-attr',
-  'aria-valid-attr-value',
-  'button-name',
-  'duplicate-id-aria',
-  'link-name',
-  'nested-interactive',
-  'tabindex',
-];
-
-async function expectNoAxeViolations(root: HTMLElement): Promise<void> {
-  const results = await axe.run(root, {
-    runOnly: { type: 'rule', values: AXE_RULES },
-  });
-  expect(results.violations).toEqual([]);
-}
 
 const d = (day: number, h = 0, m = 0, month = 8) =>
   new Date(2026, month, day, h, m);
@@ -800,7 +773,32 @@ describe('MlvScheduler (root)', () => {
         host.view.set(view);
         fixture.detectChanges();
         await fixture.whenStable();
-        await expectNoAxeViolations(root);
+        if (view === 'month') {
+          // The month view renders no time grid, so it has no columnheader to
+          // narrow for and sweeps unnarrowed — as `scheduler-month.spec.ts`
+          // already does. A narrowing wider than its own reason hides whatever
+          // else the wider view might have grown.
+          await expectNoAxeViolations(root);
+          return;
+        }
+        await expectNoAxeViolations(root, {
+          // NARROWED, not clean: `empty-table-header` (best-practice, minor)
+          // fires on every
+          // `.mlv-scheduler-time-grid__day-header[role="columnheader"]`. The
+          // header's visible "Mon"/"3" spans carry `aria-hidden="true"` so the
+          // columnheader is announced from its `aria-label` ("Monday, March 3,
+          // 2031") instead of the abbreviation, which leaves axe's subtree text
+          // empty.
+          //
+          // PERMANENT, and not a scheduler defect: the rule's whole check list
+          // is `any: ['has-visible-text']` (axe-core 4.12.1, `axe.js:32321`).
+          // Unlike its sibling `empty-heading`, whose `any` also accepts
+          // `aria-label` / `aria-labelledby` / `title`, it has no way to see an
+          // accessible name — so a correctly named columnheader with an
+          // `aria-hidden` subtree cannot pass it however the grid is written.
+          // Nothing to fix here and nothing to follow up: no issue is owed.
+          rules: { 'empty-table-header': { enabled: false } },
+        });
       },
     );
 

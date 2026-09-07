@@ -1,6 +1,6 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvSearchField } from './search-field';
 
@@ -207,12 +207,7 @@ describe('MlvSearchField', () => {
     expect(closeHost.getAttribute('tabindex')).toBeNull();
     expect(closeHost.querySelectorAll('button')).toHaveLength(1);
 
-    const results = await axe.run(host, {
-      rules: { 'color-contrast': { enabled: false } },
-    });
-    expect(results.violations.map(({ id }) => id)).not.toContain(
-      'nested-interactive',
-    );
+    await expectNoAxeViolations(host);
 
     nativeInput().focus();
     clearButton.dispatchEvent(

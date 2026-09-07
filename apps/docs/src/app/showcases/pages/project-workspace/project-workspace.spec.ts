@@ -11,7 +11,7 @@ import { By } from '@angular/platform-browser';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, RouterOutlet } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { BehaviorSubject } from 'rxjs';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
 // The service/provider contract is static; only locale data is split into lazy packs.
@@ -471,11 +471,6 @@ describe('ProjectWorkspaceShowcaseComponent', () => {
 
   it('keeps the default desktop state axe-clean', async () => {
     const rendered = await renderAt();
-    const results = await axe.run(rendered.root, {
-      rules: {
-        'color-contrast': { enabled: false },
-      },
-    });
-    expect(results.violations).toEqual([]);
+    await expectNoAxeViolations(rendered.root);
   });
 });

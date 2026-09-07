@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import type { Routes } from '@angular/router';
 import {
   NavigationEnd,
@@ -16,38 +16,6 @@ import {
 import { MlvSegmented } from './segmented';
 import { MlvSegmentedItem } from '../segmented-item/segmented-item';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
-
-/**
- * axe rules the segmented markup can break and that jsdom can evaluate
- * (colour-contrast and target-size need a real layout engine and are covered
- * by the browser pass on the docs page).
- */
-const AXE_RULES = [
-  'aria-allowed-attr',
-  'aria-allowed-role',
-  'aria-conditional-attr',
-  'aria-hidden-focus',
-  'aria-prohibited-attr',
-  'aria-required-attr',
-  'aria-required-children',
-  'aria-required-parent',
-  'aria-roles',
-  'aria-toggle-field-name',
-  'aria-valid-attr',
-  'aria-valid-attr-value',
-  'button-name',
-  'duplicate-id-aria',
-  'link-name',
-  'nested-interactive',
-  'tabindex',
-];
-
-async function expectNoAxeViolations(root: HTMLElement): Promise<void> {
-  const results = await axe.run(root, {
-    runOnly: { type: 'rule', values: AXE_RULES },
-  });
-  expect(results.violations).toEqual([]);
-}
 
 @Component({
   imports: [MlvSegmented, MlvSegmentedItem],

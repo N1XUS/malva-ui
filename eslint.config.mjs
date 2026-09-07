@@ -42,7 +42,15 @@ export default [
           enforceBuildableLibDependency: false,
           // `@malva-ui/internal-testing` is a spec-only helper under
           // `scripts/testing`, not a workspace library, so it has no tags to
-          // constrain and never reaches a published bundle.
+          // constrain and never reaches a published bundle. The one entry
+          // covers its secondary entry points (`/axe`) too: `allow` is matched
+          // by `matchImportWithWildcard`, whose no-wildcard branch is
+          // `new RegExp(allowableImport).test(extractedImport)` — an
+          // UNANCHORED regex test, not an equality check — so the bare name
+          // matches any specifier containing it. Ablate this line and
+          // `nx run core-select:lint` fails on `@malva-ui/internal-testing/axe`;
+          // add a `/*` sibling and nothing changes, because it is already
+          // covered.
           allow: [
             '^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$',
             '@malva-ui/internal-testing',

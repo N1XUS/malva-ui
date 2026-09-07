@@ -8,7 +8,7 @@ import { ComponentPortal } from '@angular/cdk/portal';
 import { ApplicationRef, Component, inject, viewChild } from '@angular/core';
 import type { TemplateRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { vi } from 'vitest';
 
@@ -941,14 +941,7 @@ describe('MlvDialogService.confirm', () => {
 
   // ---- axe --------------------------------------------------------------
 
-  const axeRules = [
-    'aria-dialog-name',
-    'aria-valid-attr-value',
-    'aria-allowed-attr',
-    'aria-required-attr',
-  ];
-
-  it('has no aria-dialog-name/aria-valid-attr-value/aria-allowed-attr/aria-required-attr violations for a destructive confirm() (axe)', async () => {
+  it('has no axe violations for a destructive confirm()', async () => {
     service
       .confirm({
         title: 'Delete account?',
@@ -958,21 +951,17 @@ describe('MlvDialogService.confirm', () => {
       .subscribe();
     await stabilize();
 
-    const results = await axe.run(
+    await expectNoAxeViolations(
       document.querySelector('.cdk-overlay-container') as HTMLElement,
-      { runOnly: { type: 'rule', values: axeRules } },
     );
-    expect(results.violations).toEqual([]);
   });
 
-  it('has no aria-dialog-name/aria-valid-attr-value/aria-allowed-attr/aria-required-attr violations for a plain confirm() (axe)', async () => {
+  it('has no axe violations for a plain confirm()', async () => {
     service.confirm({ title: 'Save?', message: 'Keep changes.' }).subscribe();
     await stabilize();
 
-    const results = await axe.run(
+    await expectNoAxeViolations(
       document.querySelector('.cdk-overlay-container') as HTMLElement,
-      { runOnly: { type: 'rule', values: axeRules } },
     );
-    expect(results.violations).toEqual([]);
   });
 });

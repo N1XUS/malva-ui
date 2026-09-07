@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 import { Component, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { compile } from 'sass';
 import Sortable from 'sortablejs';
 import { stripCssLayersFromText } from '@malva-ui/internal-testing';
@@ -23,24 +23,6 @@ import type {
   MlvSchedulerView,
 } from '../scheduler/scheduler.types';
 import { focused, present, query } from '../testing/scheduler-test-dom';
-
-const AXE_RULES = [
-  'aria-allowed-attr',
-  'aria-allowed-role',
-  'aria-conditional-attr',
-  'aria-hidden-focus',
-  'aria-prohibited-attr',
-  'aria-required-attr',
-  'aria-required-children',
-  'aria-required-parent',
-  'aria-roles',
-  'aria-valid-attr',
-  'aria-valid-attr-value',
-  'button-name',
-  'duplicate-id-aria',
-  'nested-interactive',
-  'tabindex',
-];
 
 // Week of Mon 3 – Sun 9 March 2031 (never "today").
 const m = (day: number, h = 0, min = 0) => new Date(2031, 2, day, h, min);
@@ -964,10 +946,24 @@ describe('MlvSchedulerTimeGrid', () => {
   });
 
   it('passes axe', async () => {
-    const results = await axe.run(root, {
-      runOnly: { type: 'rule', values: AXE_RULES },
+    await expectNoAxeViolations(root, {
+      // NARROWED, not clean: `empty-table-header` (best-practice, minor)
+      // fires on every
+      // `.mlv-scheduler-time-grid__day-header[role="columnheader"]`. The
+      // header's visible "Mon"/"3" spans carry `aria-hidden="true"` so the
+      // columnheader is announced from its `aria-label` ("Monday, March 3,
+      // 2031") instead of the abbreviation, which leaves axe's subtree text
+      // empty.
+      //
+      // PERMANENT, and not a scheduler defect: the rule's whole check list
+      // is `any: ['has-visible-text']` (axe-core 4.12.1, `axe.js:32321`).
+      // Unlike its sibling `empty-heading`, whose `any` also accepts
+      // `aria-label` / `aria-labelledby` / `title`, it has no way to see an
+      // accessible name — so a correctly named columnheader with an
+      // `aria-hidden` subtree cannot pass it however the grid is written.
+      // Nothing to fix here and nothing to follow up: no issue is owed.
+      rules: { 'empty-table-header': { enabled: false } },
     });
-    expect(results.violations).toEqual([]);
   });
 });
 

@@ -4,7 +4,7 @@ import { Component, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { DOCUMENT } from '@angular/common';
 import { OverlayContainer } from '@angular/cdk/overlay';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvButton } from '@malva-ui/core/button';
@@ -523,13 +523,7 @@ describe('MlvDataTable — toolbar sort menu', () => {
     fixture.detectChanges();
     await openMenuWithKeyboard();
 
-    expect(
-      (
-        await axe.run(overlay, {
-          rules: { 'color-contrast': { enabled: false } },
-        })
-      ).violations,
-    ).toEqual([]);
+    await expectNoAxeViolations(overlay);
   });
 
   it('keeps the root menu open when click activates the active-column direction submenu', async () => {
@@ -556,13 +550,7 @@ describe('MlvDataTable — toolbar sort menu', () => {
     expect(activeColumn.getAttribute('aria-expanded')).toBe('true');
     expect(menuItem(rootPanel, 'Name')).toBeTruthy();
     expect(menuItem(menuPanel('Sort by ID'), 'Descending')).toBeTruthy();
-    expect(
-      (
-        await axe.run(overlay, {
-          rules: { 'color-contrast': { enabled: false } },
-        })
-      ).violations,
-    ).toEqual([]);
+    await expectNoAxeViolations(overlay);
   });
 
   it('opens the active direction submenu with Enter and Space and restores nested focus on Escape', async () => {

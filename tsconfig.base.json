@@ -140,6 +140,7 @@
       "@malva-ui/core/view-variant": ["./libs/core/view-variant/src/index.ts"],
       "@malva-ui/core/table": ["./libs/core/table/src/index.ts"],
       "@malva-ui/internal-testing": ["scripts/testing/strip-css-layers"],
+      "@malva-ui/internal-testing/axe": ["scripts/testing/axe"],
       "@malva-ui/taskboard": ["./libs/taskboard/src/index.ts"]
     },
     "strict": false,

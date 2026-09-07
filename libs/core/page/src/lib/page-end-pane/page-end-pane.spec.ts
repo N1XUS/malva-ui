@@ -2,7 +2,7 @@ import type { Signal } from '@angular/core';
 import { Component, computed, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
 import { MlvBreakpointService } from '@malva-ui/cdk/utils';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -218,23 +218,11 @@ describe('MlvPageEndPane', () => {
   it('has no axe violations in inline and compact states', async () => {
     host.open.set(true);
     fixture.detectChanges();
-    let results = await axe.run(document.body, {
-      rules: {
-        'color-contrast': { enabled: false },
-        region: { enabled: false },
-      },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(document.body);
 
     breakpoint.setDown('lg', true);
     fixture.detectChanges();
-    results = await axe.run(document.body, {
-      rules: {
-        'color-contrast': { enabled: false },
-        region: { enabled: false },
-      },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(document.body);
   });
 
   it('removes the overlay pane when destroyed while open', () => {

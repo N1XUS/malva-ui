@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { fileURLToPath } from 'node:url';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { Component, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
@@ -73,35 +73,6 @@ function keydown(
   });
   target.dispatchEvent(event);
   return event;
-}
-
-/**
- * axe rules the compare markup can break and that jsdom can evaluate
- * (colour-contrast and target-size need a real layout engine and are covered
- * by the browser pass on the docs page).
- */
-const AXE_RULES = [
-  'aria-allowed-attr',
-  'aria-allowed-role',
-  'aria-conditional-attr',
-  'aria-hidden-focus',
-  'aria-input-field-name',
-  'aria-prohibited-attr',
-  'aria-required-attr',
-  'aria-roles',
-  'aria-valid-attr',
-  'aria-valid-attr-value',
-  'duplicate-id-aria',
-  'label',
-  'nested-interactive',
-  'tabindex',
-];
-
-async function expectNoAxeViolations(root: HTMLElement): Promise<void> {
-  const results = await axe.run(root, {
-    runOnly: { type: 'rule', values: AXE_RULES },
-  });
-  expect(results.violations).toEqual([]);
 }
 
 describe('MlvCompare', () => {

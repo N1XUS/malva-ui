@@ -144,7 +144,7 @@ the `remove` sits on a path that may never run — that is exactly the `drawer-r
 
 ## Accessibility Requirements
 
-- All components **must pass all AXE checks**
+- All components **must pass all AXE checks** — a full sweep per rendered state, asserted with `expectNoAxeViolations` from `@malva-ui/internal-testing/axe`. Never `import axe from 'axe-core'` in a spec and never `expect(results.violations).toEqual([])`. The contract, the two centrally disabled rules, how to narrow one at a call site and the `scripts/check-axe-coverage.mjs` guard (run by `nx run @malva-ui/source:test`) are all in `.claude/rules/accessibility.md` § _Asserting It_
 - All components **must follow WCAG AA minimums**: focus management, color contrast, ARIA attributes
 - Ensure keyboard navigability for interactive elements
 - Horizontal keyboard and pointer behaviour mirrors in RTL: arrow handlers go through `MlvRtlService.normalizeArrowKey(event, this._direction())` — the second argument is a resolved `MlvDirection`, one cached `elementDirection(host)` signal per component, passed whenever the handler branches on the horizontal pair (direction is scoped, and every CDK overlay pane is its own `[dir]` scope), horizontal `FocusKeyManager`s take the live scoped direction, overlays carry `direction` on their config. See `.claude/rules/rtl.md`
@@ -357,9 +357,15 @@ The test environment therefore flattens layers away; the shipped CSS keeps them.
 | Compiled CSS **text** or a PostCSS AST     | Wrap the `sass.compile(...).css` in `stripCssLayersFromText()` from `@malva-ui/internal-testing` — the wrapper's indentation is removed with it, so line anchors hold. |
 | The `.scss` **source** text                | Nothing — the source is read as written.                                                                                                                               |
 
-`@malva-ui/internal-testing` maps to `scripts/testing/strip-css-layers.js`. It is
-spec-only, never bundled, and allow-listed in `@nx/enforce-module-boundaries`.
-Its own tests run as `nx run @malva-ui/source:test`.
+`@malva-ui/internal-testing` maps to `scripts/testing/strip-css-layers.js`, and
+`@malva-ui/internal-testing/axe` to `scripts/testing/axe.js` (see
+`.claude/rules/accessibility.md`). Both are spec-only, never bundled, and
+allow-listed in `@nx/enforce-module-boundaries` under the **single** entry
+`@malva-ui/internal-testing`. That one entry covers every secondary entry point:
+Nx matches `allow` with `matchImportWithWildcard`, whose no-wildcard branch is
+`new RegExp(allowableImport).test(extractedImport)` — an unanchored regex test,
+not an equality check — so a `/*` sibling would be dead code. Their own tests
+run as `nx run @malva-ui/source:test`.
 
 ---
 

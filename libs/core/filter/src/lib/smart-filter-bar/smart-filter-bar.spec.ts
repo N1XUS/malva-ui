@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvSearchField } from '@malva-ui/core/search-field';
-import * as axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvFilter } from '../filter/filter';
 import { MlvFilterValueEditorDef } from '../filter/filter-value-editor';
 import type {
@@ -393,13 +393,7 @@ describe('MlvSmartFilterBar', () => {
     option?.focus();
     expect(document.activeElement).toBe(option);
 
-    const results = await axe.run(overlay, {
-      rules: {
-        'color-contrast': { enabled: false },
-        region: { enabled: false },
-      },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(overlay);
   });
 
   it('falls back to Add filter focus after the popup detaches when metadata removes the selected field', async () => {
@@ -843,13 +837,7 @@ describe('MlvSmartFilterBar', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const results = await axe.run(overlay, {
-      rules: {
-        'color-contrast': { enabled: false },
-        region: { enabled: false },
-      },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(overlay);
 
     const search = overlay.querySelector<HTMLInputElement>(
       '.mlv-smart-filter-bar__manager-search input',
@@ -980,13 +968,7 @@ describe('MlvSmartFilterBar', () => {
       overlay.querySelector('.mlv-smart-filter-bar__manager-search input'),
     );
 
-    const results = await axe.run(overlay, {
-      rules: {
-        'color-contrast': { enabled: false },
-        region: { enabled: false },
-      },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(overlay);
 
     const cancel = [
       ...overlay.querySelectorAll<HTMLButtonElement>('button'),
@@ -1046,10 +1028,7 @@ describe('MlvSmartFilterBar', () => {
   });
 
   it('is axe-clean in its expanded default state', async () => {
-    const results = await axe.run(host, {
-      rules: { 'color-contrast': { enabled: false } },
-    });
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoAxeViolations(host);
   });
 
   it('routes keyed editor templates to matching fields, key-less to the rest', async () => {

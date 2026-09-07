@@ -1,7 +1,7 @@
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { TestBed } from '@angular/core/testing';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import DataTableToolbarExampleComponent from './index';
 
 function buttonNamed(scope: ParentNode, name: string): HTMLButtonElement {
@@ -128,13 +128,7 @@ describe('DataTableToolbarExampleComponent', () => {
     let directionPanel = menuPanel(overlay, 'Sort by Amount');
     expect(rootPanel.closest('.mlv-popup--leave')).toBeNull();
     expect(document.activeElement).toBe(menuItem(directionPanel, 'Ascending'));
-    expect(
-      (
-        await axe.run(overlay, {
-          rules: { 'color-contrast': { enabled: false } },
-        })
-      ).violations,
-    ).toEqual([]);
+    await expectNoAxeViolations(overlay);
 
     dispatchKey(directionPanel, 'Escape');
     fixture.detectChanges();
@@ -203,13 +197,7 @@ describe('DataTableToolbarExampleComponent', () => {
     buttonNamed(host, 'Toggle column visibility').click();
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(
-      (
-        await axe.run(overlay, {
-          rules: { 'color-contrast': { enabled: false } },
-        })
-      ).violations,
-    ).toEqual([]);
+    await expectNoAxeViolations(overlay);
     const statusControl = Array.from(
       overlay.querySelectorAll<HTMLElement>('.mlv-data-table__columns-item'),
     )
@@ -231,13 +219,7 @@ describe('DataTableToolbarExampleComponent', () => {
     fixture.detectChanges();
     expect(component.exportMessage()).toBe('Prepared 3 orders for export.');
     expect(host.textContent).toContain('Prepared 3 orders for export.');
-    expect(
-      (
-        await axe.run(host, {
-          rules: { 'color-contrast': { enabled: false } },
-        })
-      ).violations,
-    ).toEqual([]);
+    await expectNoAxeViolations(host);
 
     buttonNamed(host, 'Toggle column visibility').click();
     fixture.detectChanges();

@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
-import axe from 'axe-core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvTable } from './table';
 import { MlvTableCell } from './table-cell';
 import { MlvTableRow } from './table-row';
@@ -121,11 +121,6 @@ describe('MlvTable', () => {
   });
 
   it('has no axe violations in the native table structure', async () => {
-    const result = await axe.run(table, {
-      rules: {
-        'color-contrast': { enabled: false },
-      },
-    });
-    expect(result.violations).toEqual([]);
+    await expectNoAxeViolations(table);
   });
 });

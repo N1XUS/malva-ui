@@ -2,7 +2,11 @@ import { ApplicationInitStatus, ApplicationRef } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import axe from 'axe-core';
+import {
+  expectNoAxeViolations,
+  formatAxeViolations,
+  runAxe,
+} from '@malva-ui/internal-testing/axe';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
 // The service/provider contract is static; only locale data is split into lazy packs.
 // eslint-disable-next-line @nx/enforce-module-boundaries
@@ -1374,12 +1378,9 @@ describe('SettingsAccessShowcaseComponent', () => {
   /* §6.7 — axe                                                             */
   /* ---------------------------------------------------------------------- */
 
-  const runAxe = (root: Element) =>
-    axe.run(root, { rules: { 'color-contrast': { enabled: false } } });
-
   it('keeps the default section axe-clean', async () => {
     const rendered = await render();
-    expect((await runAxe(rendered.root)).violations).toEqual([]);
+    await expectNoAxeViolations(rendered.root);
   });
 
   it('keeps each tabbed section axe-clean', async () => {
@@ -1399,8 +1400,13 @@ describe('SettingsAccessShowcaseComponent', () => {
       tab(rendered, tabLabel).click();
       await advance(rendered, COLLECTION_DELAY);
       vi.useRealTimers();
-      const result = await runAxe(rendered.root);
-      expect(result.violations, `${section} / ${tabLabel}`).toEqual([]);
+      // `runAxe` + `formatAxeViolations` rather than `expectNoAxeViolations`:
+      // the loop needs the section in the failure message to say which state
+      // broke, and the assertion is still on the helper's report string.
+      const { violations } = await runAxe(rendered.root);
+      expect(formatAxeViolations(violations), `${section} / ${tabLabel}`).toBe(
+        '',
+      );
       vi.useFakeTimers();
     }
   });
@@ -1429,7 +1435,7 @@ describe('SettingsAccessShowcaseComponent', () => {
     ).toContain(teammate.name);
 
     vi.useRealTimers();
-    expect((await runAxe(document.body)).violations).toEqual([]);
+    await expectNoAxeViolations(document.body);
   });
 
   it('keeps the invite dialog axe-clean', async () => {
@@ -1445,7 +1451,7 @@ describe('SettingsAccessShowcaseComponent', () => {
     expect(rendered.component.inviteOpen()).toBe(true);
 
     vi.useRealTimers();
-    expect((await runAxe(document.body)).violations).toEqual([]);
+    await expectNoAxeViolations(document.body);
   });
 
   it('keeps the step-up dialog axe-clean', async () => {
@@ -1464,6 +1470,6 @@ describe('SettingsAccessShowcaseComponent', () => {
     expect(rendered.component.stepUpOpen()).toBe(true);
 
     vi.useRealTimers();
-    expect((await runAxe(document.body)).violations).toEqual([]);
+    await expectNoAxeViolations(document.body);
   });
 });
