@@ -314,3 +314,20 @@ splitByComma = (v: string) =>
 - **`createToken` must return a fresh object per call** (the default does). One returning a cached instance re-introduces duplicate keys — as does a consumer binding literally the same object twice (`[(tokens)]="[a, a]"`). Both are already ambiguous to the component, since `removeToken(a)` drops every match, so NG0955 there is an honest signal rather than a regression.
 - `track $index` is the rejected alternative: it re-creates every row on an insertion at the front, discarding exactly the per-token state this contract protects.
 - Regressions in `tokenizer-tracking.spec.ts` → _rendering identity with duplicate token values_.
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvTokenizer` reports `_externalLabelStrategy()` **`'native'`** while enabled:
+`id()` is forwarded to the inner `mlv-input`'s native `<input>`, so an
+`<mlv-label>` projected beside it into `mlv-form-field` names it with a plain
+`for`. A disabled tokenizer renders no input at all and reports `'none'`.
+
+The inner input's `aria-label` falls back to the non-null `_i18n().addToken`,
+and `aria-label` **outranks** `<label for>` in the accessible-name computation —
+so the fallback is now suppressed through the base's `_externallyLabelled()`
+whenever the field's label names the control. Without that the `for` would buy
+click-to-focus and no name. Standalone, and in a field with no projected label,
+the i18n fallback still applies.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

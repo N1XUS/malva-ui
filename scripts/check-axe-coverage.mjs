@@ -276,7 +276,6 @@ export const ROLLOUT_PENDING = [
   'core-tile',
   'core-time-picker',
   'core-timeline',
-  'core-title',
   'core-toast',
   'core-tokenizer',
   'core-toolbar',

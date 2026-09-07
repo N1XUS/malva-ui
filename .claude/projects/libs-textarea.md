@@ -500,3 +500,12 @@ programmatic `value` set, and dispatches its scroll events at the `<textarea>`;
 a negative case dispatches at the `mlv-scrollbar` host and asserts nothing
 happens, since `scroll` does not bubble and a host-aimed dispatch would pass
 vacuously (that is what hid issue #73).
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvTextarea` reports `_externalLabelStrategy()` **`'native'`**: `id()` lands on
+the native `<textarea>`, which is labelable, so an `<mlv-label>` projected beside
+it into `mlv-form-field` names it with a plain `for`.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

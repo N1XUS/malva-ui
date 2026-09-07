@@ -618,3 +618,20 @@ The dropdown `mlv-popup` is wired to `[mobileMode]="mobileMode()"` (default `'au
 ## Dropdown panel accessible name (2026-08)
 
 `mlv-dropdown-panel`'s inner `role="listbox"` is an ARIA input field (axe `aria-input-field-name`, WCAG 4.1.2) and needs its own accessible name — it is not implicitly named by the trigger it belongs to. `mlv-select` binds `[ariaLabel]="_panelAriaLabel()"` on its `<mlv-dropdown-panel>`, where `_panelAriaLabel` mirrors the trigger's own resolution: the visible `label` when set, else the explicit `ariaLabel` input — `null` when neither is set (same as an unlabelled trigger, an existing condition outside this fix's scope). Mirrors `mlv-combobox` and `mlv-filter` (which passes its field `label` directly).
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvSelect` reports `_externalLabelStrategy()` **`'native'` while the native
+`<select>` is the live surface** (`_nativeActive()`) and **`'aria'` behind the
+custom trigger**, where `id()` sits on a `div[role="combobox"]` that
+`<label for>` cannot name. In the `'aria'` case the trigger's
+`aria-labelledby` falls back to the field's label id
+(`label() ? labelId() : _fieldLabelId()`) and its `aria-label` is suppressed
+when either resolves, so exactly one authored name is exposed. This closes the
+`aria-input-field-name [serious]` violation an `<mlv-label>` + `mlv-select`
+composition produced — the concrete finding that opened #197, and the condition the
+dropdown-panel naming note above called "an existing condition outside this
+fix's scope".
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

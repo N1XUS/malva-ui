@@ -27,7 +27,11 @@ import {
 } from '@malva-ui/core/date';
 import { MlvButton } from '@malva-ui/core/button';
 import { LucideCalendar } from '@lucide/angular';
-import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormState,
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvFormControlWrapper,
   MlvFormControlWrapperControl,
@@ -84,6 +88,15 @@ export class MlvDayPicker<D = Date>
   extends MlvSignalFormControlBase<D | null>
   implements MlvFormControl
 {
+  /**
+   * @protected {@link id} sits on the trigger `div[role="combobox"]`, which
+   * `<label for>` cannot name, so a projected `<mlv-label>` reaches it through
+   * `aria-labelledby`.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return 'aria';
+  }
+
   /** @private Active date adapter — injected token, falling back to the native adapter. */
   private readonly _dateAdapter =
     (inject(MLV_DATE_ADAPTER, {

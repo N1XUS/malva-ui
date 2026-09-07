@@ -294,3 +294,21 @@ libs/core/color-picker/src/
 - Inherited `required` renders the `mlv-label` marker and sets `aria-required` on the field input.
 - Inherited `description` renders `<mlv-description>` below the control; `aria-describedby` is the base's `_describedBy()` (replacing the local `_messageId()` computed).
 - `mlv-color-picker` itself (the panel body) renders no label/description chrome, so `required` / `description` have no effect there — use `mlv-color-picker-popup` or an outer `mlv-form-field`.
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvColorPickerPopup` reports `_externalLabelStrategy()` **`'native'`** in
+`presentation="field"`, where `id()` lands on the native text `<input>`. The
+`swatch` / `icon` presentations render a button trigger carrying no `id`, so
+they report `'none'` and name themselves through `ariaLabel`. `MlvColorPicker`
+(the inline canvas + range strips) is a composite with no single name target and
+stays `'none'`.
+
+The field input's `aria-label` falls back to the non-null `_i18n().colorPicker`
+and was suppressed only by the control's own `label` **input** — which is empty
+in exactly the case the name comes from the field. Since `aria-label` outranks
+`<label for>`, that left the projected label delivering click-to-focus and no
+name; the binding now also consults the base's `_externallyLabelled()`.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

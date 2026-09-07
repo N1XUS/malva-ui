@@ -140,3 +140,12 @@ libs/core/number-input/
 - Inherited `required` renders the `mlv-label` marker and sets `aria-required` on the spinbutton input.
 - Inherited `description` renders `<mlv-description>` below the control; `aria-describedby` is the base's `_describedBy()` (description + message ids, `null` when neither renders).
 - The public `messageId` computed is gone — `<mlv-message>` carries the base's `_messageId()`.
+
+## Naming from a projected `<mlv-label>` (2026-09, #197)
+
+`MlvNumberInput` reports `_externalLabelStrategy()` **`'native'`**: `id()` lands
+on the native `<input>`, which is labelable, so an `<mlv-label>` projected beside
+it into `mlv-form-field` names it with a plain `for`.
+
+Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
+`.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.

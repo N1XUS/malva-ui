@@ -26,7 +26,10 @@ import {
   MlvPopupHeaderContent,
 } from '@malva-ui/core/popup';
 import type { MlvPopupMobileMode } from '@malva-ui/core/popup';
-import type { MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvDescription,
   MlvFormControlWrapper,
@@ -124,6 +127,15 @@ export class MlvCombobox<T>
   extends MlvSignalFormControlBase<T | T[] | null>
   implements MlvFormControl
 {
+  /**
+   * @protected {@link id} is forwarded to the inner `mlv-input`, which puts it
+   * on a native `<input>` — labelable, so a projected `<mlv-label>` names it
+   * with a plain `for` even though the input also carries `role="combobox"`.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return 'native';
+  }
+
   /** The scalar, array, or null selection used by all Angular forms APIs. */
   readonly value = model<T | T[] | null>(null);
   /**

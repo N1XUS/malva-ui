@@ -24,7 +24,10 @@ import type { FocusableOption } from '@angular/cdk/a11y';
 import { MlvRadio } from '../radio/radio';
 import type { MlvRadioGroupAccessor } from '../radio-group-token';
 import { RADIO_GROUP } from '../radio-group-token';
-import type { MlvFormState } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormState,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvDescription,
   MlvLabel,
@@ -46,7 +49,7 @@ type RadioFocusItem = MlvRadio & FocusableOption;
   selector: 'mlv-radio-group',
   template: `
     @if (label()) {
-      <mlv-label [required]="required()">
+      <mlv-label [id]="labelId()" [required]="required()">
         {{ label() }}
       </mlv-label>
     }
@@ -85,7 +88,8 @@ type RadioFocusItem = MlvRadio & FocusableOption;
     '[class.mlv-radio-group--readonly]': 'readonly()',
     '[attr.id]': 'id()',
     role: 'radiogroup',
-    '[attr.aria-label]': 'ariaLabel() ?? label()',
+    '[attr.aria-labelledby]': 'label() ? labelId() : _fieldLabelId()',
+    '[attr.aria-label]': 'label() || _fieldLabelId() ? null : ariaLabel()',
     '[attr.aria-required]': 'required() || null',
     '[attr.aria-describedby]': '_describedBy()',
     '[attr.aria-disabled]': 'computedDisabled() || null',
@@ -96,6 +100,24 @@ export class MlvRadioGroup
   extends MlvSignalFormControlBase<unknown>
   implements MlvRadioGroupAccessor
 {
+  /**
+   * @protected {@link id} sits on the `role="radiogroup"` host. A group is
+   * never labelable, so a projected `<mlv-label>` names it through
+   * `aria-labelledby` — the pattern WAI-ARIA prescribes for a radiogroup.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return 'aria';
+  }
+
+  /**
+   * The HTML `id` assigned to the visible `<mlv-label>` element. The
+   * `role="radiogroup"` host references it via `aria-labelledby` (a
+   * `<label for>` cannot name a group), which is also what makes a label
+   * written on this control win over one projected beside it into
+   * `mlv-form-field`.
+   */
+  readonly labelId = computed(() => `${this.id()}-label`);
+
   /** Two-way bindable selected value of the group. */
   readonly value = model<unknown>();
 

@@ -7,11 +7,7 @@
       Full Name
       <mlv-hint>Required</mlv-hint>
     </mlv-label>
-    <mlv-input
-      [formField]="fields.name"
-      ariaLabel="Full Name"
-      placeholder="Enter your full name"
-    />
+    <mlv-input [formField]="fields.name" placeholder="Enter your full name" />
   </mlv-form-field>
 
   <mlv-form-field>
@@ -21,7 +17,6 @@
     </mlv-label>
     <mlv-input
       [formField]="fields.email"
-      ariaLabel="Email"
       type="email"
       placeholder="user{'@'}example.com"
     />
@@ -31,7 +26,6 @@
     <mlv-label>Password</mlv-label>
     <mlv-input
       [formField]="fields.password"
-      ariaLabel="Password"
       type="password"
       placeholder="Enter password"
     />
@@ -42,7 +36,6 @@
     <mlv-select
       [formField]="fields.country"
       [options]="countries"
-      ariaLabel="Country"
       placeholder="Select a country"
     />
   </mlv-form-field>

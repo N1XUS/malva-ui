@@ -20,7 +20,10 @@ import { NgTemplateOutlet } from '@angular/common';
 import type { Subscription } from 'rxjs';
 import { FocusKeyManager } from '@angular/cdk/a11y';
 import type { FocusableOption } from '@angular/cdk/a11y';
-import type { MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvDescription,
   MlvFormControlWrapper,
@@ -159,6 +162,16 @@ export class MlvTokenizer<T = string>
   extends MlvSignalFormControlBase<MlvSelectOption<T>[]>
   implements MlvFormControl
 {
+  /**
+   * @protected {@link id} is forwarded to the inner `mlv-input`, which puts it
+   * on a native `<input>` — labelable, so a projected `<mlv-label>` names it
+   * with a plain `for`. That input is only rendered while the tokenizer is
+   * enabled; a disabled control is not a tab stop, so no name is due.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return this.computedDisabled() ? 'none' : 'native';
+  }
+
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_TOKENIZER_I18N);
 
