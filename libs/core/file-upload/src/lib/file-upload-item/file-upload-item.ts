@@ -12,7 +12,6 @@ import { LucideFile, LucideCircleCheck, LucideCircleX } from '@lucide/angular';
 import { MLV_FILE_UPLOAD_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
 import type { MlvUploadedFile } from '../file-upload/file-upload.types';
 import { MlvButtonClose } from '@malva-ui/core/button';
-import { MlvClick } from '@malva-ui/cdk/accessibility';
 
 /**
  * Renders a single uploaded file row with thumbnail, metadata, progress bar,
@@ -30,7 +29,6 @@ import { MlvClick } from '@malva-ui/cdk/accessibility';
     LucideCircleCheck,
     LucideCircleX,
     MlvButtonClose,
-    MlvClick,
   ],
   host: {
     class: 'mlv-file-upload-item',

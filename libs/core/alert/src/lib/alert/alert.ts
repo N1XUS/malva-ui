@@ -16,7 +16,6 @@ import {
   LucideCheckCircle,
   LucideTriangleAlert,
   LucideCircleX,
-  LucideX,
 } from '@lucide/angular';
 import { MlvAlertIcon, MlvAlertTitle } from './alert.directives';
 import type { MlvTone } from '@malva-ui/cdk/utils';
@@ -70,7 +69,6 @@ import { MlvButtonClose } from '@malva-ui/core/button';
     LucideCheckCircle,
     LucideTriangleAlert,
     LucideCircleX,
-    LucideX,
     MlvButtonClose,
   ],
   host: {
