@@ -1,6 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { Injectable } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvCalendar } from './calendar';
 import {
   MlvNativeDateAdapter,
@@ -712,5 +713,125 @@ describe('MlvCalendar — followSelection', () => {
     await fixture.whenStable();
 
     expect(monthOf(fixture)).toBe(9);
+  });
+});
+
+/**
+ * Accessibility sweeps — `mlv-calendar`.
+ *
+ * Every sweep is rooted at the component host, which is the ancestor of the
+ * `role="grid"` / `role="group"` container each view renders. That matters
+ * here more than usual: the month view is a full grid tree — `grid` owning a
+ * header `row` of `columnheader`s and a `rowgroup` of `row`s of `gridcell`s —
+ * and `aria-required-children` / `aria-required-parent` are evaluated on the
+ * container, so a sweep rooted at a day button would pass without ever asking
+ * whether the structure holds.
+ *
+ * The three views are three different renderings, not three skins, and the
+ * range mode changes `aria-selected` on cells, so each is swept in turn.
+ */
+describe('MlvCalendar accessibility', () => {
+  let a11yFixture: ComponentFixture<MlvCalendar>;
+
+  beforeEach(async () => {
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MlvCalendar],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    a11yFixture = TestBed.createComponent(MlvCalendar);
+    await a11yFixture.whenStable();
+  });
+
+  /** Renders the current inputs and returns the host element. */
+  async function render(): Promise<HTMLElement> {
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+    return a11yFixture.nativeElement as HTMLElement;
+  }
+
+  it('has no axe violations in the month view grid', async () => {
+    const host = await render();
+
+    // State: the whole grid tree — one labelled grid, one header row of
+    // columnheaders, and one gridcell per rendered day, each holding a named
+    // button with a roving tabindex.
+    const grid = host.querySelector('[role="grid"]') as HTMLElement;
+    expect(grid.getAttribute('aria-label')).toBeTruthy();
+    expect(grid.querySelectorAll('[role="columnheader"]')).toHaveLength(7);
+    expect(
+      grid.querySelectorAll('[role="gridcell"]').length,
+    ).toBeGreaterThanOrEqual(28);
+    expect(
+      host.querySelectorAll('.mlv-calendar__day[tabindex="0"]'),
+    ).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations with a selection and disabled days', async () => {
+    a11yFixture.componentRef.setInput('value', new Date(2026, 0, 15));
+    a11yFixture.componentRef.setInput('min', new Date(2026, 0, 10));
+    a11yFixture.componentRef.setInput('max', new Date(2026, 0, 20));
+    const host = await render();
+
+    // State: some day buttons are natively disabled and mirror it in ARIA, and
+    // one gridcell reports `aria-selected="true"`.
+    expect(
+      host.querySelectorAll('.mlv-calendar__day[disabled]').length,
+    ).toBeGreaterThan(0);
+    expect(host.querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations with a completed range', async () => {
+    a11yFixture.componentRef.setInput('range', true);
+    a11yFixture.componentRef.setInput('rangeValue', {
+      start: new Date(2026, 0, 10),
+      end: new Date(2026, 0, 20),
+    });
+    const host = await render();
+
+    // State: the range band paints across many cells and both endpoints are
+    // reported as selected.
+    expect(
+      host.querySelectorAll('.mlv-calendar__day--in-range').length,
+    ).toBeGreaterThan(0);
+    expect(
+      host.querySelectorAll('[aria-selected="true"]').length,
+    ).toBeGreaterThanOrEqual(2);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations in the year view', async () => {
+    // `startView` seeds `currentView` in a field initializer, so it is read at
+    // construction and a later `setInput` would not switch the view.
+    a11yFixture.componentInstance.currentView.set('year');
+    const host = await render();
+
+    // State: a labelled `role="group"` of twelve month toggles, exactly one of
+    // which is pressed and in the tab order.
+    const group = host.querySelector('[role="group"]') as HTMLElement;
+    expect(group.getAttribute('aria-label')).toBeTruthy();
+    expect(group.querySelectorAll('button')).toHaveLength(12);
+    expect(group.querySelectorAll('[aria-pressed="true"]')).toHaveLength(1);
+    expect(host.querySelector('[role="grid"]')).toBeNull();
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations in the multi-year view', async () => {
+    a11yFixture.componentInstance.currentView.set('multi-year');
+    const host = await render();
+
+    // State: the same `role="group"` shell over year toggles.
+    const group = host.querySelector('[role="group"]') as HTMLElement;
+    expect(group.querySelectorAll('button').length).toBeGreaterThan(1);
+    expect(group.querySelectorAll('[aria-pressed="true"]')).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
   });
 });

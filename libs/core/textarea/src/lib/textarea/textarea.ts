@@ -13,7 +13,10 @@ import {
   viewChild,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import type { MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvSignalFormControlBase,
   MlvDescription,
@@ -149,6 +152,14 @@ export class MlvTextarea
   extends MlvSignalFormControlBase<string>
   implements MlvFormControl
 {
+  /**
+   * @protected {@link id} lands on the native `<textarea>`, which is
+   * labelable, so a projected `<mlv-label>` names it with a plain `for`.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return 'native';
+  }
+
   /** Placeholder text shown inside the textarea when empty. */
   readonly placeholder = input('');
 

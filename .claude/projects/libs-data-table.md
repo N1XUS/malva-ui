@@ -29,7 +29,7 @@ Feature-rich data table component for Angular. Accepts a plain `T[]` array or a 
 | `MlvDataTableColumnGroup`       | Interface      | Column group definition for multi-row headers                                                                                 |
 | `MlvFilterState`                | Interface      | Active filter state (`{ key, operator, value }`)                                                                              |
 | `MlvDataSourceFilterOperator`   | Type           | `'contains' \| 'not-contains' \| 'equals' \| 'not-equals' \| 'in' \| 'not-in'` — re-exported from `@malva-ui/cdk/data-source` |
-| `MlvDataTableFilterOperator`    | Type           | **Deprecated** alias of `MlvDataSourceFilterOperator`                                                                         |
+| `MlvDataTableFilterOperator`    | Type           | **Deprecated since 0.1.12, removed in 1.0** — alias of `MlvDataSourceFilterOperator`                                          |
 | `MlvSearchState`                | Interface      | Global query plus the explicit column keys it may inspect                                                                     |
 | `MlvSearchFieldTrigger`         | Type           | `'live' \| 'submit'` search commit strategy                                                                                   |
 | `MlvFilterDisplay`              | Type           | `'toolbar' \| 'column' \| 'none'` filter-control placement                                                                    |

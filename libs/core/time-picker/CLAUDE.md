@@ -1,1 +1,1 @@
-/Users/denisseverin/Projects/claude-test/angular-ui-lib/.claude/projects/libs-time-picker.md
+../../../.claude/projects/libs-time-picker.md

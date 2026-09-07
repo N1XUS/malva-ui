@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { Listbox, Option } from '@angular/aria/listbox';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvList } from './list/list';
 import { MlvListItem } from './list-item/list-item';
 import { MlvListItemSelectable, MlvListSelectable } from './list-selectable';
@@ -10,9 +11,13 @@ import { MlvListItemSelectable, MlvListSelectable } from './list-selectable';
 @Component({
   imports: [MlvList, MlvListItem, MlvListSelectable, MlvListItemSelectable],
   template: `
+    <!-- aria-label because a listbox owes an accessible name and mlv-list
+         cannot invent one: the shipped consumer, mlv-dropdown-panel, binds
+         [attr.aria-label]="ariaLabel()" on this same element. -->
     <mlv-list
       selectable
       listRole="listbox"
+      aria-label="Fruit"
       [listboxId]="listboxId()"
       [multiple]="multiple()"
       [selectionMode]="selectionMode()"
@@ -190,5 +195,66 @@ describe('MlvListSelectable (aria listbox migration)', () => {
     expect(ref.injector.get(MlvListItemSelectable)).toBeInstanceOf(
       MlvListItemSelectable,
     );
+  });
+});
+
+/**
+ * Accessibility sweeps — `mlv-list[selectable]`.
+ *
+ * `selectable` puts `@angular/aria`'s `Listbox` on the same host that already
+ * carries `mlv-list`'s `listRole`, so the container role here is `listbox` and
+ * the rows are `option`s. Like every container role, `listbox` owns its rows,
+ * and both `aria-required-children` (on the listbox) and `aria-required-parent`
+ * (on each option) are decided from the container down — so the sweeps are
+ * rooted at the fixture root, not at a row.
+ *
+ * The states swept are the ones that change what the rows expose: single
+ * selection with one option selected, and multi-select with two, each alongside
+ * a disabled option that reports `aria-disabled` rather than vanishing.
+ */
+describe('MlvListSelectable accessibility', () => {
+  let a11yFixture: ComponentFixture<HostComponent>;
+  let root: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+    }).compileComponents();
+    a11yFixture = TestBed.createComponent(HostComponent);
+    root = a11yFixture.nativeElement as HTMLElement;
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+  });
+
+  it('has no axe violations for a single-select listbox', async () => {
+    a11yFixture.componentInstance.value.set(['banana']);
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+
+    // State: a listbox owning three options, one selected and one disabled,
+    // with a single roving tab stop.
+    const list = root.querySelector('mlv-list') as HTMLElement;
+    expect(list.getAttribute('role')).toBe('listbox');
+    expect(list.querySelectorAll('[role="option"]')).toHaveLength(3);
+    expect(list.querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
+    expect(list.querySelectorAll('[aria-disabled="true"]')).toHaveLength(1);
+
+    await expectNoAxeViolations(root);
+  });
+
+  it('has no axe violations for a multi-select listbox', async () => {
+    a11yFixture.componentInstance.multiple.set(true);
+    a11yFixture.componentInstance.value.set(['apple', 'banana']);
+    a11yFixture.detectChanges();
+    await a11yFixture.whenStable();
+
+    // State: `aria-multiselectable` is now on the container and two options
+    // report selection — a different node set to the single-select sweep.
+    const list = root.querySelector('mlv-list') as HTMLElement;
+    expect(list.getAttribute('aria-multiselectable')).toBe('true');
+    expect(list.querySelectorAll('[aria-selected="true"]')).toHaveLength(2);
+
+    await expectNoAxeViolations(root);
   });
 });

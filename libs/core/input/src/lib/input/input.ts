@@ -13,7 +13,11 @@ import {
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormState,
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import {
   MlvSignalFormControlBase,
   MlvDescription,
@@ -88,6 +92,17 @@ export class MlvInput
   extends MlvSignalFormControlBase<string>
   implements MlvFormControl
 {
+  /**
+   * @protected {@link id} lands on this component's own native `<input>`,
+   * which is labelable — so an `<mlv-label>` projected beside `mlv-input` into
+   * `mlv-form-field` names it with a plain `for`. The exception is
+   * {@link projectControl}: the native input is then the consumer's own and
+   * carries whatever `id` they gave it, so the field must not point at ours.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return this.projectControl() ? 'none' : 'native';
+  }
+
   readonly type = input<MlvInputType>('text');
   readonly placeholder = input('');
 

@@ -120,3 +120,11 @@ overwriting it.
 Tailwind utilities are an optional layer for application layout and visual
 composition. Malva components continue to use their published CSS and runtime
 tokens independently.
+
+## Versioning and support
+
+Semver contract, what counts as public API, the deprecation window and the
+support window per major:
+[VERSIONING.md](https://github.com/N1XUS/malva-ui/blob/main/VERSIONING.md)
+(the repository is private while the library is pre-1.0, so the link needs
+repository access — ask us for the policy if it 404s for you).

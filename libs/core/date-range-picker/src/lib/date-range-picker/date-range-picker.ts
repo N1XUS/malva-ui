@@ -39,7 +39,11 @@ import {
   MlvMessage,
   MlvSignalFormControlBase,
 } from '@malva-ui/core/form-utils';
-import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
+import type {
+  MlvFormState,
+  MlvFormControl,
+  MlvFormControlLabelStrategy,
+} from '@malva-ui/core/form-utils';
 import { LucideCalendarDays } from '@lucide/angular';
 import { A11yModule } from '@angular/cdk/a11y';
 import { MlvButton } from '@malva-ui/core/button';
@@ -115,6 +119,15 @@ export class MlvDateRangePicker<D = Date>
   extends MlvSignalFormControlBase<MlvDateRangePickerValue<D> | null>
   implements MlvFormControl
 {
+  /**
+   * @protected {@link id} sits on the trigger `div[role="button"]`, which
+   * `<label for>` cannot name, so a projected `<mlv-label>` reaches it through
+   * `aria-labelledby`.
+   */
+  protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
+    return 'aria';
+  }
+
   /** The committed date range used by all Angular forms APIs. */
   readonly value = model<MlvDateRangePickerValue<D> | null>(null);
   /** @private The active date adapter — a provided `MLV_DATE_ADAPTER`, or the native fallback. */
@@ -217,6 +230,14 @@ export class MlvDateRangePicker<D = Date>
   override readonly focused = computed(() => this._focused() || this._isOpen());
 
   /** Unique ID for the optional message element used by aria-describedby. */
+
+  /**
+   * The HTML `id` assigned to the visible `<mlv-label>` element. The trigger
+   * references it via `aria-labelledby` (a `<label for>` cannot name a
+   * `div[role="button"]`), which is also what makes a label written on this
+   * control win over one projected beside it into `mlv-form-field`.
+   */
+  readonly labelId = computed(() => `${this.id()}-label`);
 
   /** Unique ID for the popup panel element used by aria-controls. */
   readonly panelId = computed(() => `${this.id()}-panel`);

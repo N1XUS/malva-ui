@@ -35,6 +35,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { collectBrokenExports } from './dist-exports.mjs';
+import { widenPeerRange } from './widen-peer-range.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(__dirname, '..');
@@ -87,31 +88,6 @@ if (rootPkg.version === '0.0.0') {
 const dep = (name) =>
   rootPkg.dependencies?.[name] ?? rootPkg.devDependencies?.[name];
 
-/**
- * Widens an exact third-party peer version into a caret range.
- *
- * The root manifest pins Angular exactly (`22.0.7`) so the workspace builds
- * deterministically, but copying that pin straight into a published
- * `peerDependencies` makes every consumer on any *other* patch of the same
- * major fail to install — npm reports the mismatch as ERESOLVE rather than a
- * warning.
- *
- * The published range keeps the minor the workspace builds against and opens
- * the patch upwards: `22.0.7` → `^22.0.0` (the whole Angular 22.0 line, which
- * is what every Angular library ships), `3.29.2` → `^3.29.0`. Dropping to
- * `^3.0.0` would be wrong — a peer resolved at 3.0.0 predates APIs the build
- * actually uses.
- *
- * Left alone:
- *   - ranges the root already expresses (`^1.25.0`, `~7.8.0`)
- *   - the `@malva-ui/*` siblings — `release.projectsRelationship` is "fixed",
- *     so they are always published together at one exact version.
- */
-const widenPeerRange = (name, version) => {
-  if (name.startsWith('@malva-ui/')) return version;
-  const exact = /^(\d+)\.(\d+)\.\d+$/.exec(version);
-  return exact ? `^${exact[1]}.${exact[2]}.0` : version;
-};
 
 const tiptapPackages = [
   '@tiptap/core',

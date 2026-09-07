@@ -10,10 +10,24 @@
         "storage": "tmp/local-registry/storage"
       }
     },
+    "check-deprecations": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "//": "VERSIONING.md §5 guarantee: every `@deprecated` tag names the release it shipped in and the major that removes it. The glob mirrors the script's own traversal exactly — ROOTS = ['libs'] with SCANNED_EXTENSIONS = ['.ts', '.scss', '.css'], no `src/` segment — because an input narrower than the traversal makes the target a cache hit on a file it does scan, so it passes green on a tree it would fail. `libs/core/styles/malva-ui.scss` (the published global stylesheet, where a `--mlv-*` or BEM deprecation is written) and `libs/tailwind/theme.css` (the whole published surface of `@malva-ui/tailwind`) both sit outside `libs/**/src/**`. Deliberately over-inclusive: spec files match the glob but are skipped by the scan, which costs only a cache miss — under-listing costs a silent pass.",
+      "inputs": [
+        "{workspaceRoot}/scripts/check-deprecations.mjs",
+        "{workspaceRoot}/libs/**/*.{ts,scss,css}"
+      ],
+      "options": {
+        "command": "node scripts/check-deprecations.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "cache": true,
-      "//": "check-test-targets.mjs, assert-zoneless-config.spec.js and check-axe-coverage.mjs all answer a question about the shape of the whole workspace, so the inputs are workspace-wide globs: a project added anywhere — a spec that reaches for a zone-based test API, or a library that grows a component without an axe sweep — must re-run the guards rather than hit the cache. The libs source glob is in the set because check-axe-coverage derives 'renders DOM' from the non-spec library sources, so a new @Component changes its answer; its extension list covers every extension that script's SOURCE_PATTERN accepts. It needs no apps/ source glob: an application is only swept for raw axe imports, which reads specs, and those are already covered by the *.{spec,test}.* glob.",
+      "dependsOn": ["check-deprecations"],
+      "//": "check-test-targets.mjs, assert-zoneless-config.spec.js and check-axe-coverage.mjs all answer a question about the shape of the whole workspace, so the inputs are workspace-wide globs: a project added anywhere — a spec that reaches for a zone-based test API, or a library that grows a component without an axe sweep — must re-run the guards rather than hit the cache. The libs source glob is in the set because check-axe-coverage derives 'renders DOM' from the non-spec library sources, so a new @Component changes its answer; its extension list covers every extension that script's SOURCE_PATTERN accepts. It needs no apps/ source glob: an application is only swept for raw axe imports, which reads specs, and those are already covered by the *.{spec,test}.* glob. widen-peer-range.spec.mjs is here rather than in a project of its own because scripts/ is not an nx project; it is a plain node:test unit over release machinery that has no other coverage.",
       "inputs": [
         "{workspaceRoot}/scripts/testing/strip-css-layers.js",
         "{workspaceRoot}/scripts/testing/setup-strip-css-layers.js",
@@ -23,6 +37,9 @@
         "{workspaceRoot}/scripts/check-test-targets.mjs",
         "{workspaceRoot}/scripts/check-axe-coverage.mjs",
         "{workspaceRoot}/scripts/testing/axe.js",
+        "{workspaceRoot}/scripts/check-deprecations.mjs",
+        "{workspaceRoot}/scripts/widen-peer-range.mjs",
+        "{workspaceRoot}/scripts/widen-peer-range.spec.mjs",
         "{workspaceRoot}/nx.json",
         "{workspaceRoot}/**/project.json",
         "{workspaceRoot}/**/package.json",
@@ -33,7 +50,7 @@
       ],
       "options": {
         "commands": [
-          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js scripts/check-axe-coverage.spec.mjs",
+          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js scripts/check-axe-coverage.spec.mjs scripts/check-deprecations.spec.mjs scripts/widen-peer-range.spec.mjs",
           "node scripts/check-test-targets.mjs",
           "node scripts/check-axe-coverage.mjs"
         ],

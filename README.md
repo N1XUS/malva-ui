@@ -13,6 +13,11 @@ Published packages:
 | `@malva-ui/scheduler` | Month / week / day calendar scheduler with draggable, resizable events             |
 | `@malva-ui/tailwind`  | Tailwind CSS v4 theme adapter for the Malva UI design tokens                       |
 
+All six share one version and are released together. What each part of that
+version may change, what counts as public API, how long a deprecated symbol
+survives and how long a superseded major is supported:
+**[VERSIONING.md](VERSIONING.md)**.
+
 ---
 
 ## Install in an Angular application
@@ -85,6 +90,10 @@ The placeholders are valid prerelease versions so package-manager validation
 and Nx dependency inference continue to work before the packages are built.
 
 ### Versioning and the Changelog
+
+The semver contract itself — what a major, minor and patch may each change, and
+across which surfaces — is [VERSIONING.md](VERSIONING.md). This section covers
+only the machinery that applies it.
 
 Both are derived from Conventional Commits — nothing is bumped or written by
 hand. `commitlint` enforces the format on every commit, and `nx.json`'s

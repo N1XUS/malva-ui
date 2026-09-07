@@ -31,12 +31,12 @@ Exported from `libs/core/badge/src/index.ts`:
 
 #### Inputs
 
-| Name                               | Type                      | Default     | Description                                                                                                           |
-| ---------------------------------- | ------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------- |
-| `tone`                             | `MlvBadgeTone`            | `'default'` | Semantic tone. Maps to `--mlv-color-{tone}` (solid) or `--mlv-color-{tone}-muted-2-surface` (muted) for background.   |
-| `muted`                            | `BooleanInput`            | `false`     | When true, uses muted tint tokens instead of solid fill. Supports attribute syntax: `<mlv-badge muted>`.              |
-| `rounded`                          | `BooleanInput`            | `false`     | **Deprecated no-op.** Badges are always pill-shaped (`--mlv-radius-full`); kept only so `[rounded]` bindings compile. |
-| `mlvDensity` _(via hostDirective)_ | `MlvDensity \| undefined` | —           | Explicit density override; falls back to `MlvDensityService`.                                                         |
+| Name                               | Type                      | Default     | Description                                                                                                                                                                                                                     |
+| ---------------------------------- | ------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tone`                             | `MlvBadgeTone`            | `'default'` | Semantic tone. Maps to `--mlv-color-{tone}` (solid) or `--mlv-color-{tone}-muted-2-surface` (muted) for background.                                                                                                             |
+| `muted`                            | `BooleanInput`            | `false`     | When true, uses muted tint tokens instead of solid fill. Supports attribute syntax: `<mlv-badge muted>`.                                                                                                                        |
+| `rounded`                          | `BooleanInput`            | `false`     | **Deprecated since 0.1.10, removed in 1.0.** No-op with no replacement input: badges are always pill-shaped (`--mlv-radius-full`); kept only so `[rounded]` bindings compile. Override `border-radius` on `.mlv-badge` instead. |
+| `mlvDensity` _(via hostDirective)_ | `MlvDensity \| undefined` | —           | Explicit density override; falls back to `MlvDensityService`.                                                                                                                                                                   |
 
 #### Host Bindings
 

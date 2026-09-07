@@ -144,7 +144,11 @@ Renders projected link content plus a trailing `LucideChevronRight`. Integrates 
 | ------ | -------------- | ------- |
 | `open` | `BooleanInput` | `false` |
 
+`open` is a plain `model<BooleanInput>` with **no `coerceBooleanProperty` transform**, so the bare attribute form `<mlv-list-item-group open>` binds `''` and reads falsy — the group renders collapsed. Bind `[open]="true"` for an initially-expanded group.
+
 Template: group header button with chevron icon and collapsible projected content. The header's `aria-controls` targets the content region's id, generated via `mlvNextId('mlv-list-group-content')` from `@malva-ui/cdk/utils` (replacing a hand-rolled module counter).
+
+**ARIA structure — `role="listitem"` on the host, `role="list"` on the content region.** A group is projected straight into `<mlv-list>`, whose host claims a container role, and a container role owns every roled or focusable descendant reached through roleless wrappers. With no role on the group host, the toggler `<button>` was a direct child of `role="list"`, which may own nothing but `listitem` — axe `aria-required-children`, WCAG 1.3.1, and the whole list stopped being exposed as a list. The group host is therefore one `listitem` row of the outer list, its toggler lives inside that row, and `.mlv-list-item-group__content` claims `role="list"` so nested `mlv-list-item` rows keep the `list` context `listitem` requires — the `<li><button aria-expanded><ul>…</ul></li>` disclosure shape. Both halves are load-bearing (dropping the host role re-raises `aria-required-children`; dropping the content role raises `aria-required-parent`) and both are pinned by `MlvList accessibility › collapsible groups inside a role="list"` in `list.spec.ts`. The role is unconditional, so a group rendered outside an `mlv-list` has a `listitem` with no `list` parent — the component is documented and used only as a list section.
 
 ---
 
