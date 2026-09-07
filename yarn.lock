@@ -5204,6 +5204,7 @@ __metadata:
     "@angular/common": 0.0.0-angular-common-package-version
     "@angular/core": 0.0.0-angular-core-package-version
     "@malva-ui/cdk": 0.0.0-malva-ui-package-version
+    "@malva-ui/core": 0.0.0-malva-ui-package-version
     "@malva-ui/i18n": 0.0.0-malva-ui-package-version
   languageName: unknown
   linkType: soft
