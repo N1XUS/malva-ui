@@ -13,6 +13,7 @@ import { parse } from 'postcss';
 import { compile } from 'sass';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { stripCssLayersFromText } from '@malva-ui/internal-testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvTile } from './tile';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvTileHeader } from '../tile-header';
@@ -1336,5 +1337,85 @@ describe('MlvTile — scoped direction', () => {
     expect(directions()).toEqual(['right', 'left']);
 
     scope.removeAttribute('dir');
+  });
+});
+
+/**
+ * Accessibility sweep — standalone tile.
+ *
+ * A standalone `mlv-tile` renders no role, but its header row assembles up to
+ * four separately-named things: the projected header, the leading and trailing
+ * action slots, an `mlv-button-close` whose only content is a glyph, and — for
+ * `draggable` without a `[tile]` registration — a **decorative** grip that is a
+ * `<span aria-hidden="true">` rather than a button, because a standalone tile
+ * has no tree to move within. That distinction is the point of this sweep: an
+ * operable handle appears only in the compound case (swept in `tiles.spec.ts`),
+ * and a nameless focusable grip here would be a defect.
+ */
+describe('MlvTile accessibility — standalone', () => {
+  @Component({
+    imports: [MlvTile, MlvTileHeader, MlvTileActions, MlvTileTrailingActions],
+    template: `
+      @for (tone of tones; track tone) {
+        <mlv-tile [tone]="tone">
+          <ng-template mlvTileHeader>{{ tone }} tile</ng-template>
+          Body copy
+        </mlv-tile>
+      }
+
+      <mlv-tile closable draggable id="chrome">
+        <ng-template mlvTileHeader>Hero section</ng-template>
+        <ng-template mlvTileActions>
+          <button type="button" aria-label="Edit">
+            <svg aria-hidden="true"></svg>
+          </button>
+        </ng-template>
+        <ng-template mlvTileTrailingActions>
+          <button type="button">Publish</button>
+        </ng-template>
+        Published content
+      </mlv-tile>
+
+      <mlv-tile inactive locked id="frozen">
+        <ng-template mlvTileHeader>Archived</ng-template>
+        Read-only body
+      </mlv-tile>
+    `,
+    changeDetection: ChangeDetectionStrategy.OnPush,
+  })
+  class TileA11yHost {
+    readonly tones = [
+      'default',
+      'info',
+      'success',
+      'warning',
+      'danger',
+    ] as const;
+  }
+
+  it('has no axe violations across tones, slots and the close action', async () => {
+    await TestBed.configureTestingModule({
+      imports: [TileA11yHost],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(TileA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: seven tiles. The chrome one really did render its close button
+    // with a name, and its standalone grip is the decorative `<span>` branch —
+    // hidden, not a nameless tab stop.
+    expect(host.querySelectorAll('mlv-tile')).toHaveLength(7);
+    const close = host.querySelector(
+      '.mlv-tile__close button',
+    ) as HTMLButtonElement;
+    expect(close.getAttribute('aria-label')).toBeTruthy();
+    const grip = host.querySelector('.mlv-tile__drag-handle') as HTMLElement;
+    expect(grip.tagName.toLowerCase()).toBe('span');
+    expect(grip.getAttribute('aria-hidden')).toBe('true');
+
+    await expectNoAxeViolations(host);
   });
 });

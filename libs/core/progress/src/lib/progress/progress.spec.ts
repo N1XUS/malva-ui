@@ -1,6 +1,8 @@
+import { Component } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvProgress } from './progress';
 import type {
   MlvProgressShape,
@@ -666,5 +668,75 @@ describe('MlvProgress', () => {
       // Angular [style.width.%] converts to string with up to 6 decimal places
       expect(parseFloat(fill.style.width)).toBeCloseTo(33.5, 1);
     });
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * `mlv-progress` is always determinate — the indeterminate spinner is
+ * `mlv-loader`, a different component — so the axis that changes its markup is
+ * `shape`, plus the two pieces of visible text it can render: the
+ * `showPercentage` readout and the projected `<ng-content>` label. Both are
+ * `aria-hidden`, because the value and the name are already on the host as
+ * `aria-valuenow` / `aria-label`; that is exactly the arrangement that would
+ * leave a progressbar nameless if the fallback label ever went missing, so the
+ * sweep pins the boundary values (0 and 100) alongside the default.
+ */
+describe('MlvProgress accessibility', () => {
+  @Component({
+    imports: [MlvProgress],
+    template: `
+      <mlv-progress [value]="0" />
+      <mlv-progress [value]="42" tone="success" size="s" />
+      <mlv-progress [value]="100" tone="danger" size="xl" />
+      <mlv-progress [value]="60" showPercentage id="bar-percentage" />
+      <mlv-progress [value]="60">Uploading files</mlv-progress>
+      <mlv-progress shape="circle" [value]="35" />
+      <mlv-progress shape="circle" [value]="35" showPercentage />
+      <mlv-progress [value]="20" ariaLabel="Import progress" id="named" />
+    `,
+  })
+  class ProgressA11yHost {}
+
+  it('has no axe violations across shapes, tones and both text affordances', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ProgressA11yHost],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ProgressA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: eight progressbars, every one named and carrying the full value
+    // triple, including the 0 and 100 ends.
+    const bars = [...host.querySelectorAll('[role="progressbar"]')];
+    expect(bars).toHaveLength(8);
+    expect(
+      bars.every(
+        (el) =>
+          (el.getAttribute('aria-label') ?? '').length > 0 &&
+          el.getAttribute('aria-valuemin') === '0' &&
+          el.getAttribute('aria-valuemax') === '100' &&
+          el.getAttribute('aria-valuenow') !== null,
+      ),
+    ).toBe(true);
+    expect(bars[0].getAttribute('aria-valuenow')).toBe('0');
+    expect(bars[2].getAttribute('aria-valuenow')).toBe('100');
+    expect(host.querySelector('#named')?.getAttribute('aria-label')).toBe(
+      'Import progress',
+    );
+
+    // Both visible-text affordances are hidden, so neither is announced on top
+    // of the value the role already exposes.
+    const percentages = [...host.querySelectorAll('.mlv-progress__percentage')];
+    expect(percentages).toHaveLength(2);
+    expect(
+      percentages.every((el) => el.getAttribute('aria-hidden') === 'true'),
+    ).toBe(true);
+
+    await expectNoAxeViolations(host);
   });
 });

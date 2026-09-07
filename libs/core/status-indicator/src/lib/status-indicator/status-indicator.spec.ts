@@ -1,5 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+import { Component } from '@angular/core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvStatusIndicator } from './status-indicator';
 
 describe('MlvStatusIndicator', () => {
@@ -100,5 +102,76 @@ describe('MlvStatusIndicator', () => {
     expect(host.style.getPropertyValue('--mlv-status-indicator-size')).toBe(
       '1rem',
     );
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * The dot renders no content at all, so its meaning lives entirely in three
+ * mutually-dependent host attributes: with an `ariaLabel` it becomes a named
+ * `role="img"`, and without one it becomes `aria-hidden="true"` so a bare
+ * coloured dot is not announced as an anonymous graphic. Both branches are
+ * swept — the unnamed one beside the visible text it is decorating, which is
+ * the arrangement that makes hiding it correct rather than lossy.
+ */
+describe('MlvStatusIndicator accessibility', () => {
+  @Component({
+    imports: [MlvStatusIndicator],
+    template: `
+      @for (tone of tones; track tone) {
+        <span class="row">
+          <mlv-status-indicator [tone]="tone" />
+          {{ tone }}
+        </span>
+      }
+
+      <mlv-status-indicator tone="success" ariaLabel="Online" id="named" />
+      <mlv-status-indicator tone="danger" pulse ariaLabel="Recording" />
+      <mlv-status-indicator tone="info" pulse [size]="12" id="decorative" />
+    `,
+  })
+  class StatusIndicatorA11yHost {
+    readonly tones = [
+      'default',
+      'primary',
+      'secondary',
+      'accent',
+      'info',
+      'success',
+      'warning',
+      'danger',
+    ] as const;
+  }
+
+  it('has no axe violations for named and decorative dots alike', async () => {
+    await TestBed.configureTestingModule({
+      imports: [StatusIndicatorA11yHost],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(StatusIndicatorA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+
+    // State: the two named dots are `role="img"` and not hidden; the nine
+    // unnamed ones are hidden and carry no role, so there is no nameless
+    // `role="img"` anywhere.
+    const named = [...el.querySelectorAll('mlv-status-indicator[role="img"]')];
+    expect(named).toHaveLength(2);
+    expect(named.every((d) => d.getAttribute('aria-hidden') === null)).toBe(
+      true,
+    );
+    const hidden = [
+      ...el.querySelectorAll('mlv-status-indicator[aria-hidden="true"]'),
+    ];
+    expect(hidden).toHaveLength(9);
+    expect(hidden.every((d) => d.getAttribute('role') === null)).toBe(true);
+    expect(el.querySelector('#named')?.getAttribute('aria-label')).toBe(
+      'Online',
+    );
+    expect(el.querySelector('#decorative')?.getAttribute('role')).toBeNull();
+
+    await expectNoAxeViolations(el);
   });
 });

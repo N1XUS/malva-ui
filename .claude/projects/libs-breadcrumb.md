@@ -65,9 +65,14 @@ There is **no `separator` input**. The separator is a projected template:
 | Attribute | Value                  |
 | --------- | ---------------------- |
 | `class`   | `mlv-breadcrumb__item` |
+| `role`    | `listitem`             |
 
-The host deliberately claims **no** `role` — see the _Known axe exception_ note
-under Accessibility.
+`role="listitem"` is what keeps the breadcrumb `<ol>` a list in **projected**
+mode: the element is projected through the `<ng-content />` that sits inside
+that `<ol>`, so its DOM parent is always the list, and without the role the
+`<ol>` has non-`<li>` children and stops being exposed as a list at all (axe
+`list`, serious, WCAG 1.3.1). `[mlvBreadcrumbItem]` (`MlvBreadcrumbItemHost`)
+sets **no** role — it also goes on the `<a>` inside an `<li>`.
 
 ---
 
@@ -176,13 +181,18 @@ as a `var()` fallback.
 > branch empty (Angular projects into the first-declared slot only), which
 > rendered projected labels as empty links.
 >
-> **Known axe exception (`list`)** — in **projected** mode the `<ol>` directly
-> contains `<mlv-breadcrumb-item>` custom elements. axe's `list` rule wants
-> only `<li>` children. The item host deliberately does **not** claim
-> `role="listitem"` (a standalone item outside a list would be an orphan
-> listitem — see the `MlvBreadcrumbItem` spec), so this is an accepted
-> trade-off for the projected API; the data-driven API uses real `<li>` and is
-> clean.
+> **`list` in projected mode — resolved (#202).** The `<ol>` directly contains
+> `<mlv-breadcrumb-item>` custom elements, and axe's `list` rule wants only
+> `<li>` children. This was previously an accepted exception on the grounds
+> that a standalone item outside a list would be an orphan `listitem`; that
+> case is not supported usage: the item is documented and intended only as a
+> projected child of `mlv-breadcrumb`, where its DOM parent is always that
+> component's own `<ol>`. `MlvBreadcrumbItem` now claims `role="listitem"`,
+> which `only-listitems` accepts (`axe-core/axe.js:25846`), and both modes
+> sweep clean. Placed outside a list the item would now raise
+> `aria-required-parent` instead — `listitem` declares
+> `requiredContext: ['list']` (`axe-core/axe.js:14577`) — trading a violation
+> that fired under correct use for one that fires only under misuse.
 
 ---
 

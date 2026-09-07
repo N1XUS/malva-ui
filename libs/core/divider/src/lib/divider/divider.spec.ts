@@ -1,6 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvDivider } from './divider';
 
 describe('MlvDivider', () => {
@@ -83,5 +84,47 @@ describe('MlvDivider', () => {
 
   it('should have mlv-divider base class', () => {
     expect(el.classList.contains('mlv-divider')).toBe(true);
+  });
+});
+
+/**
+ * Accessibility sweep.
+ *
+ * The divider's entire contract is ARIA: a static `role="separator"` plus an
+ * `aria-orientation` bound to the `orientation` input. Both orientations are
+ * swept, and both the bare rule and the labelled variant — a separator with
+ * projected text is the render where the role and the content have to agree.
+ */
+describe('MlvDivider accessibility', () => {
+  @Component({
+    imports: [MlvDivider],
+    template: `
+      <mlv-divider />
+      <mlv-divider dashed muted />
+      <mlv-divider>Section</mlv-divider>
+      <mlv-divider orientation="vertical" />
+      <mlv-divider orientation="vertical" dashed>or</mlv-divider>
+    `,
+  })
+  class DividerA11yHost {}
+
+  it('has no axe violations in both orientations, bare and labelled', async () => {
+    await TestBed.configureTestingModule({
+      imports: [DividerA11yHost],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DividerA11yHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    // State: five separators, each announcing its own orientation.
+    const separators = [...host.querySelectorAll('[role="separator"]')];
+    expect(separators).toHaveLength(5);
+    expect(separators.map((el) => el.getAttribute('aria-orientation'))).toEqual(
+      ['horizontal', 'horizontal', 'horizontal', 'vertical', 'vertical'],
+    );
+
+    await expectNoAxeViolations(host);
   });
 });
