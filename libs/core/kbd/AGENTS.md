@@ -1,1 +1,1 @@
-../../../../.claude/projects/libs-kbd.md
+../../../.claude/projects/libs-kbd.md

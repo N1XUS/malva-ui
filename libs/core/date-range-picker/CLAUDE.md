@@ -1,1 +1,1 @@
-/Users/denisseverin/Projects/claude-test/angular-ui-lib/.claude/projects/libs-date-range-picker.md
+../../../.claude/projects/libs-date-range-picker.md

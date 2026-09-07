@@ -83,6 +83,19 @@ playwright/.cache
 # superpowers plan-execution scratch (ledgers, briefs, review packages)
 .superpowers/
 
-# internal working docs (migrations, plans, superpowers specs) — kept local only.
-# Anchored so apps/docs and any libs/*/docs stay tracked.
-/docs/
+# Internal working notes — plans, superpowers specs and the audit screenshot
+# corpus — are kept local only. Anchored so apps/docs and any libs/*/docs stay
+# tracked.
+#
+# `docs/migrations/` is the exception and IS tracked: CLAUDE.md's migration
+# index links into it from the repository root, so ignoring it made those links
+# resolve only on a machine that happened to have the files. A fresh clone got
+# 17 dead links describing breaking API changes — the one part of these notes a
+# consumer, or a new contributor, actually needs. See #195.
+#
+# A negation cannot re-include a path whose *parent directory* is excluded, so
+# the exclusion is written as `/docs/*` (the entries directly under docs/) plus
+# a re-include of the one subtree. `/docs/` would make git skip the directory
+# without ever reading this line.
+/docs/*
+!/docs/migrations/
