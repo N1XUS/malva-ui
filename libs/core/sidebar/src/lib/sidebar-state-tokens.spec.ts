@@ -61,7 +61,6 @@ describe('sidebar state surface contract', () => {
   const sidebarCss = compile('sidebar/sidebar.scss');
   const itemCss = compile('sidebar-item/sidebar-item.scss');
   const groupCss = compile('sidebar-group/sidebar-group.scss');
-  const triggerCss = compile('sidebar-trigger/sidebar-trigger.scss');
   const workspaceCss = compile('sidebar-workspace/sidebar-workspace.scss');
   const themeCss = compile('../../../../styles/src/lib/theme.scss');
 
@@ -95,7 +94,6 @@ describe('sidebar state surface contract', () => {
       () => groupCss,
       '.mlv-sidebar-group__icon-btn:hover,.mlv-sidebar-group__icon-btn:focus-visible',
     ],
-    ['collapse trigger', () => triggerCss, '.mlv-sidebar-trigger__btn:hover'],
     [
       'workspace trigger',
       () => workspaceCss,
@@ -109,7 +107,7 @@ describe('sidebar state surface contract', () => {
   );
 
   it('no longer reaches for the raw neutral globals in a row hover state', () => {
-    for (const css of [itemCss, groupCss, triggerCss, workspaceCss]) {
+    for (const css of [itemCss, groupCss, workspaceCss]) {
       expect(css).not.toContain(
         'background-color:var(--mlv-background-neutral-1);',
       );

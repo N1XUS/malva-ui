@@ -16,7 +16,13 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { LucideGauge, LucidePlay, LucideRotateCcw } from '@lucide/angular';
+import {
+  LucideGauge,
+  LucideMenu,
+  LucidePlay,
+  LucideRotateCcw,
+  LucideX,
+} from '@lucide/angular';
 import { MlvAlert, MlvAlertTitle } from '@malva-ui/core/alert';
 import { MlvBadge } from '@malva-ui/core/badge';
 import { MlvButton, MlvButtonIcon } from '@malva-ui/core/button';
@@ -182,8 +188,10 @@ export function normalizeScaleViewState(state: ScaleViewState): ScaleViewState {
     MlvViewVariantList,
     MlvViewVariantStatus,
     LucideGauge,
+    LucideMenu,
     LucidePlay,
     LucideRotateCcw,
+    LucideX,
   ],
   templateUrl: './data-at-scale.html',
   styleUrl: './data-at-scale.scss',

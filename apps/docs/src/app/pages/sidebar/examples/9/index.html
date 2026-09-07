@@ -72,7 +72,27 @@
     <div class="app-content__header">
       <!-- Outside <mlv-sidebar>: a closed drawer renders none of its projected
            content, so a trigger nested inside could never reopen it. -->
-      <mlv-sidebar-trigger [sidebar]="nav" />
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvSidebarTrigger
+        #navTrigger="mlvSidebarTrigger"
+        [sidebar]="nav"
+        [attr.aria-label]="navTrigger.label()"
+      >
+        @if (navTrigger.isDrawerTrigger()) {
+          @if (navTrigger.collapsed()) {
+            <svg lucideMenu size="20" />
+          } @else {
+            <svg lucideX size="20" />
+          }
+        } @else if (navTrigger.collapsed()) {
+          <svg lucidePanelLeftOpen size="20" />
+        } @else {
+          <svg lucidePanelLeftClose size="20" />
+        }
+      </button>
       <h3 class="app-content__title">Dashboard</h3>
     </div>
     <p class="app-content__body">

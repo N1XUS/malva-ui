@@ -353,7 +353,27 @@
       <mlv-page-shell class="malva-home__application-shell" mlvTheme="dark">
         <div class="malva-home__application-toolbar" mlvPageTopbar>
           <div>
-            <mlv-sidebar-trigger [sidebar]="workspaceSidebar" />
+            <button
+              mlvButton
+              variant="transparent"
+              shape="square"
+              mlvSidebarTrigger
+              #workspaceSidebarTrigger="mlvSidebarTrigger"
+              [sidebar]="workspaceSidebar"
+              [attr.aria-label]="workspaceSidebarTrigger.label()"
+            >
+              @if (workspaceSidebarTrigger.isDrawerTrigger()) {
+                @if (workspaceSidebarTrigger.collapsed()) {
+                  <svg lucideMenu [size]="20" />
+                } @else {
+                  <svg lucideX [size]="20" />
+                }
+              } @else if (workspaceSidebarTrigger.collapsed()) {
+                <svg lucidePanelLeftOpen [size]="20" />
+              } @else {
+                <svg lucidePanelLeftClose [size]="20" />
+              }
+            </button>
             <span><small>Workspace</small><strong>Portfolio</strong></span>
           </div>
           <div>

@@ -1,205 +1,217 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 @layer mlv.components {
-$block: mlv-sidebar-item;
+  $block: mlv-sidebar-item;
 
-.#{$block} {
-  position: relative;
-  display: grid;
-  grid-template-columns:
-    var(--mlv-sidebar-icon-column-width, 3.5rem)
-    minmax(0, 1fr) auto;
-  align-items: center;
-  width: 100%;
-  // Shared sidebar row height — see `--mlv-sidebar-row-height` in sidebar.scss.
-  min-height: var(--mlv-sidebar-row-height, 2.25rem);
-  padding: 0;
-  border-radius: var(--mlv-radius-m);
-  font-size: var(--mlv-font-size-l);
-  color: var(--mlv-text-secondary);
-  line-height: var(--mlv-line-height-snug);
-  cursor: pointer;
-  outline: none;
-  user-select: none;
-  transition:
-    background-color var(--mlv-duration-fast) var(--mlv-ease-default),
-    color var(--mlv-duration-fast) var(--mlv-ease-default);
-
-  * {
-    color: inherit;
-  }
-
-  &__icon {
-    // Positioning context for the collapsed-rail status dot, which is pinned to
-    // the top-right corner of the centered icon glyph.
+  .#{$block} {
     position: relative;
-    display: inline-flex;
+    display: grid;
+    grid-template-columns:
+      var(--mlv-sidebar-icon-column-width, 3.5rem)
+      minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: center;
-    min-width: 0;
-
-    > * {
-      flex-shrink: 0;
-    }
-  }
-
-  svg {
-    flex-shrink: 0;
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-
-  &:hover,
-  &:focus-visible {
-    // Seam for a host painting the sidebar on its own chrome — see the
-    // `--mlv-sidebar-*` block in sidebar.scss. The fallback repeats the global
-    // because a flyout-rendered item lives outside `.mlv-sidebar`.
-    background-color: var(
-      --mlv-sidebar-hover-bg,
-      var(--mlv-background-neutral-1)
-    );
-    color: var(--mlv-text-primary);
-  }
-
-  &:focus-visible {
-    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-    outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
-  }
-
-  &--active {
-    // Selection is its own token (SF-R1) — never the pressed/`-active` fill.
-    color: var(--mlv-text-on-selected) !important;
-    font-weight: 600;
-  }
-
-  // The active pill. Colour alone is not enough: a host may already be using
-  // the action colour as the sidebar foreground, which leaves an active row
-  // indistinguishable — and a group's collapsed icon button has always had a
-  // pill, so a plain item without one read as a different kind of row.
-  //
-  // The modifier is repeated against the block class on purpose. `--active` is
-  // one class and loses to the `:hover` rule above (class + pseudo-class), so
-  // hovering the active row would dim it back to the hover tint.
-  &.#{$block}--active,
-  &.#{$block}--active:hover,
-  &.#{$block}--active:focus-visible {
-    background-color: var(
-      --mlv-sidebar-active-bg,
-      var(--mlv-background-selected)
-    );
-  }
-
-  // Label — clipped by the stable second grid track while the shell resizes.
-  &__label {
-    min-width: 0;
-    padding-inline-end: var(--mlv-spacing-2);
+    width: 100%;
+    // Shared sidebar row height — see `--mlv-sidebar-row-height` in sidebar.scss.
+    min-height: var(--mlv-sidebar-row-height, 2.25rem);
+    padding: 0;
+    border-radius: var(--mlv-radius-m);
     font-size: var(--mlv-font-size-l);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    opacity: 1;
-    transform: translateX(0);
-    visibility: visible;
+    color: var(--mlv-text-secondary);
+    line-height: var(--mlv-line-height-snug);
+    cursor: pointer;
+    outline: none;
+    user-select: none;
     transition:
-      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-      transform var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-      visibility var(--mlv-duration-instant) linear;
+      background-color var(--mlv-duration-fast) var(--mlv-ease-default),
+      color var(--mlv-duration-fast) var(--mlv-ease-default);
 
-    > a {
+    * {
       color: inherit;
-      text-decoration: inherit;
-      display: block;
     }
-  }
 
-  // Trailing badge — shown in expanded mode after the label; flush right.
-  &__badge {
-    flex-shrink: 0;
-    margin-inline-end: var(--mlv-spacing-2);
-    opacity: 1;
-    visibility: visible;
-    transition:
-      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-      visibility var(--mlv-duration-instant) linear;
-  }
+    &__icon {
+      // Positioning context for the collapsed-rail status dot, which is pinned to
+      // the top-right corner of the centered icon glyph.
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
 
-  // Collapsed-rail status dot — pinned to the top-right corner of the centered
-  // 1.25rem icon glyph (dot centre sits on the corner), inside the icon box.
-  &__status {
-    position: absolute;
-    top: calc(50% - 0.625rem);
-    inset-inline-end: calc(50% - 0.625rem);
-    // The X half-step pushes the dot outward past its inline-end anchor, so it
-    // has to change sign with the inline axis.
-    transform: translate(mixins.inline-distance(50%), -50%);
-    pointer-events: none;
-  }
+      > * {
+        flex-shrink: 0;
+      }
+    }
 
-  // Link overlay — absolute element that makes the icon area clickable when collapsed.
-  // Rendered whenever the expanded label is absent.
-  &__link-overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
+    svg {
+      flex-shrink: 0;
+      width: 1.25rem;
+      height: 1.25rem;
+    }
 
-    > a {
-      display: block;
+    &:hover,
+    &:focus-visible {
+      // Seam for a host painting the sidebar on its own chrome — see the
+      // `--mlv-sidebar-*` block in sidebar.scss. The fallback repeats the global
+      // because a flyout-rendered item lives outside `.mlv-sidebar`.
+      background-color: var(
+        --mlv-sidebar-hover-bg,
+        var(--mlv-background-neutral-1)
+      );
+      color: var(--mlv-text-primary);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    }
+
+    &--active {
+      // Selection is its own token (SF-R1) — never the pressed/`-active` fill.
+      color: var(--mlv-text-on-selected) !important;
+      font-weight: 600;
+    }
+
+    // The active pill. Colour alone is not enough: a host may already be using
+    // the action colour as the sidebar foreground, which leaves an active row
+    // indistinguishable — and a group's collapsed icon button has always had a
+    // pill, so a plain item without one read as a different kind of row.
+    //
+    // The modifier is repeated against the block class on purpose. `--active` is
+    // one class and loses to the `:hover` rule above (class + pseudo-class), so
+    // hovering the active row would dim it back to the hover tint.
+    &.#{$block}--active,
+    &.#{$block}--active:hover,
+    &.#{$block}--active:focus-visible {
+      background-color: var(
+        --mlv-sidebar-active-bg,
+        var(--mlv-background-selected)
+      );
+    }
+
+    // Label — clipped by the stable second grid track while the shell resizes.
+    &__label {
+      min-width: 0;
+      padding-inline-end: var(--mlv-spacing-2);
+      font-size: var(--mlv-font-size-l);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: 1;
+      transform: translateX(0);
+      visibility: visible;
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+        transform var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+        visibility var(--mlv-duration-instant) linear;
+
+      > a {
+        color: inherit;
+        text-decoration: inherit;
+        display: block;
+      }
+    }
+
+    // Trailing badge — shown in expanded mode after the label; flush right.
+    &__badge {
+      flex-shrink: 0;
+      margin-inline-end: var(--mlv-spacing-2);
+      opacity: 1;
+      visibility: visible;
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+        visibility var(--mlv-duration-instant) linear;
+    }
+
+    // Collapsed-rail status dot — pinned to the top-right corner of the centered
+    // 1.25rem icon glyph (dot centre sits on the corner), inside the icon box.
+    //
+    // Scoped under `__icon` deliberately. `mlv-status-indicator` declares
+    // `position: relative` on its own host class, which is the same specificity
+    // (0,1,0) in the same cascade layer as a bare `&__status` — so which one won
+    // came down to stylesheet order, and the indicator's file loads later. In
+    // flow the dot is a flex sibling of the glyph inside a centred `__icon`, so
+    // every badged row's glyph sat 2px inside the icon column while every
+    // unbadged row stayed centred on it (measured: 24px vs 28px from the rail's
+    // inline-start edge). The descendant form is (0,2,0) and settles it by
+    // specificity instead.
+    &__icon &__status {
+      position: absolute;
+      top: calc(50% - 0.625rem);
+      inset-inline-end: calc(50% - 0.625rem);
+      // The X half-step pushes the dot outward past its inline-end anchor, so it
+      // has to change sign with the inline axis.
+      transform: translate(mixins.inline-distance(50%), -50%);
+      pointer-events: none;
+    }
+
+    // Link overlay — absolute element that makes the icon area clickable when collapsed.
+    // Rendered whenever the expanded label is absent.
+    &__link-overlay {
       position: absolute;
       inset: 0;
-      pointer-events: auto;
-      font-size: 0; // visually hidden; screen readers still read aria-label on host
-      color: transparent;
-      text-decoration: none;
-      border-radius: var(--mlv-radius-m);
+      pointer-events: none;
 
-      &:focus-visible {
-        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      > a {
+        display: block;
+        position: absolute;
+        inset: 0;
+        pointer-events: auto;
+        font-size: 0; // visually hidden; screen readers still read aria-label on host
+        color: transparent;
+        text-decoration: none;
+        border-radius: var(--mlv-radius-m);
+
+        &:focus-visible {
+          outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+          outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+        }
+      }
+    }
+
+    // Tooltip anchor — covers the full item so the popup is anchored correctly
+    &__tooltip-anchor {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      padding: var(--mlv-padding-s);
+    }
+
+    &__tooltip-container {
+      &.mlv-popup {
+        padding: var(--mlv-padding-m);
+      }
+    }
+
+    // ─── Collapsed (icon-only) mode ─────────────────────────────────────────────
+    &--collapsed {
+      .#{$block}__label {
+        opacity: 0;
+        transform: translateX(mixins.inline-distance(-0.25rem));
+        visibility: hidden;
+        pointer-events: none;
+        transition:
+          opacity var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+          transform var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+          visibility var(--mlv-duration-instant) linear
+            var(--mlv-duration-normal);
+      }
+
+      .#{$block}__badge {
+        margin-inline-end: 0;
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          opacity var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+          visibility var(--mlv-duration-instant) linear
+            var(--mlv-duration-normal);
       }
     }
   }
 
-  // Tooltip anchor — covers the full item so the popup is anchored correctly
-  &__tooltip-anchor {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    padding: var(--mlv-padding-s);
-  }
-
-  &__tooltip-container {
-    &.mlv-popup {
-      padding: var(--mlv-padding-m);
-    }
-  }
-
-  // ─── Collapsed (icon-only) mode ─────────────────────────────────────────────
-  &--collapsed {
-    .#{$block}__label {
-      opacity: 0;
-      transform: translateX(mixins.inline-distance(-0.25rem));
-      visibility: hidden;
-      pointer-events: none;
-      transition:
-        opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-        transform var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-        visibility var(--mlv-duration-instant) linear var(--mlv-duration-normal);
-    }
-
+  @media (prefers-reduced-motion: reduce) {
+    .#{$block}__label,
     .#{$block}__badge {
-      margin-inline-end: 0;
-      opacity: 0;
-      visibility: hidden;
-      transition:
-        opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-        visibility var(--mlv-duration-instant) linear var(--mlv-duration-normal);
+      transition-duration: var(--mlv-duration-instant);
     }
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .#{$block}__label,
-  .#{$block}__badge {
-    transition-duration: var(--mlv-duration-instant);
-  }
-}
 }

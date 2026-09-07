@@ -156,13 +156,10 @@ $severities: (
   &__rail-trigger {
     flex: 0 0 auto;
 
-    // The trigger sizes from `--mlv-sidebar-row-height` (2.25rem), under the
-    // 2.75rem touch floor. `::ng-deep` because the button is in the trigger
-    // component's own template.
-    ::ng-deep .mlv-sidebar-trigger__btn {
-      min-inline-size: 2.75rem;
-      min-block-size: 2.75rem;
-    }
+    // `mlv-button` sizes from `--mlv-height-m` (2.25rem), under the 2.75rem
+    // touch floor for the one control that reopens the navigation.
+    min-inline-size: 2.75rem;
+    min-block-size: 2.75rem;
   }
 
   // ── Page header ─────────────────────────────────────────────────────────

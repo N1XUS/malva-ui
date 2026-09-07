@@ -8,6 +8,7 @@ import {
   MlvSidebarTrigger,
   SidebarContentDirective,
 } from '@malva-ui/core/sidebar';
+import { MlvButton } from '@malva-ui/core/button';
 import {
   LucideCalendar,
   LucideCommand,
@@ -15,8 +16,12 @@ import {
   LucideFolderOpen,
   LucideInbox,
   LucideLayoutDashboard,
+  LucideMenu,
+  LucidePanelLeftClose,
+  LucidePanelLeftOpen,
   LucideSettings,
   LucideUsers,
+  LucideX,
 } from '@lucide/angular';
 
 @Component({
@@ -29,14 +34,19 @@ import {
     MlvSidebarItemIcon,
     MlvSidebarTrigger,
     SidebarContentDirective,
+    MlvButton,
     LucideCalendar,
     LucideCommand,
     LucideFileText,
     LucideFolderOpen,
     LucideInbox,
     LucideLayoutDashboard,
+    LucideMenu,
+    LucidePanelLeftClose,
+    LucidePanelLeftOpen,
     LucideSettings,
     LucideUsers,
+    LucideX,
   ],
   templateUrl: './index.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
