@@ -500,6 +500,41 @@ exception.
 - **Always** prefix private/internal members with an underscore. Protected members that are **template-facing** (bound/called from the component's own template, incl. signal queries like `protected readonly headerRef = contentChild(...)`) may omit the prefix; protected members that are implementation details keep the `_` prefix. All of them get JSDoc describing purpose and caveats
 - **Always** prefix all private/internal properties and methods with underscore, include JSDoc comments describing their purpose and any important implementation details or caveats
 
+## Versioning and Deprecation
+
+[`VERSIONING.md`](../../VERSIONING.md) is the semver contract: which surfaces are
+public, which change requires which bump, and what a removal owes a consumer
+first. Consult it before any change that alters a published surface.
+
+- **Public API is not just TypeScript.** Component selectors, `exportAs`, input /
+  output / model names and types, exported injection tokens and the shape of
+  their values, `--mlv-*` tokens listed in `libs/styles/tokens.md`, BEM class
+  names, i18n keys on an `Mlv<X>I18n` interface, published `exports` paths and
+  `peerDependencies` ranges are all public. `ViewEncapsulation.None` is mandatory,
+  so a BEM class name is the only override handle a consumer has.
+- **Not public:** anything outside a published barrel, `@internal` members,
+  `_`-prefixed members, `libs/styles` SCSS (mixins, maps, partials — only the
+  compiled `malva-ui.css` ships), and DOM structure below the named BEM elements.
+- **A rename is a removal.** Add the new name in a minor with a working
+  `@deprecated` alias; delete the old one in the next major.
+- **Changing a default value or default behaviour is breaking** even when nothing
+  is renamed, and still needs a `docs/migrations/` entry.
+- **Every `@deprecated` tag under `libs/` names both versions** — `since <major.minor>`
+  (name the patch too while the line is `0.x`, where the minor identifies no
+  release) and `removed in <major>.0`, the removal always landing on a major
+  boundary and always still ahead of the version in the root `package.json`.
+  Spell the tag lowercase: TypeScript recognises only `@deprecated`, so
+  `@DEPRECATED` strikes nothing through and warns no consumer. Enforced by
+  `scripts/check-deprecations.mjs` →
+  `yarn nx run @malva-ui/source:check-deprecations`, a `dependsOn` of the root
+  `test` target. Its inputs mirror the script's traversal (`libs/**/*.{ts,scss,css}`)
+  rather than `libs/**/src/**`; narrowing them back would make the target a
+  cache hit on the global stylesheet and on `@malva-ui/tailwind`, which it scans.
+- **File a deprecating commit as `feat`.** It is the only type `nx.json` maps to
+  a minor, and the deprecation window is measured in minors.
+
+---
+
 ## Keeping Documentation Current
 
 - After **any** change to a component, directive, service, or public API in a library, update the corresponding `.claude/projects/libs-<name>.md`

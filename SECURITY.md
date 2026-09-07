@@ -9,6 +9,16 @@ Malva UI is pre-1.0. Only the latest published version receives security fixes.
 | 0.1.x (latest) | ✅        |
 | anything older | ❌        |
 
+From 1.0.0 the window is set by [`VERSIONING.md`](VERSIONING.md) § Support
+window. The current major receives everything. The previous major is _intended_
+to receive security fixes for six months after the new major takes `latest` —
+but read § Support window before you plan around that: the release pipeline
+cannot currently deliver a backport, because it runs on `main` only and has no
+dist-tag for a maintenance line. Until both exist, **treat anything but the
+current major as unsupported**, exactly as `VERSIONING.md` says.
+
+The scope below defines what counts as a security fix in either case.
+
 ## Reporting a vulnerability
 
 **Do not open a public issue for a security problem.**
@@ -19,7 +29,7 @@ maintainers, and it lets us discuss and patch before anything is public.
 
 Please include:
 
-- the affected package (`@malva-ui/core`, `cdk`, `i18n`, `editor`, `tailwind`) and version
+- the affected package (`@malva-ui/core`, `cdk`, `i18n`, `editor`, `scheduler`, `tailwind`) and version
 - what an attacker can do with it
 - a minimal reproduction — a StackBlitz, a repository, or a code snippet
 

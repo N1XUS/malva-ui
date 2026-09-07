@@ -1,5 +1,9 @@
 # Releasing Malva UI
 
+How a release is cut. What a release *promises* — the semver contract, the
+deprecation window and the support window per major — is
+[`../VERSIONING.md`](../VERSIONING.md).
+
 Releases are **manual**. A push to `main` never publishes anything — CI lints,
 tests, builds and typechecks. A release starts when a human runs the **Release**
 workflow (`.github/workflows/release.yml`).
@@ -9,8 +13,8 @@ suite. The gate is CI on `main` — release a commit CI has already gone green o
 
 One run does all of this, in order:
 
-1. `nx release` → `preVersionCommand` builds `cdk`, `core`, `i18n`, `editor`, `tailwind` in production mode.
-2. Versions the workspace root `package.json` (all five packages move together — `projectsRelationship: "fixed"`).
+1. `nx release` → `preVersionCommand` builds `cdk`, `core`, `i18n`, `editor`, `scheduler`, `tailwind` in production mode.
+2. Versions the workspace root `package.json` (all six packages move together — `projectsRelationship: "fixed"`).
 3. Writes `CHANGELOG.md` from the conventional commits since the last tag.
 4. Commits (`chore(release): v{version}`), tags (`v{version}`), **pushes to `main`**, creates the GitHub Release.
 5. `scripts/generate-ai-docs.mjs`.
@@ -125,8 +129,8 @@ cannot be turned on yet, for two independent reasons:
 **Migration order, once the repo is public:**
 
 1. Run one release with `auth: token` so `@malva-ui/tailwind` exists on npm.
-2. For **each** of the five packages — `@malva-ui/cdk`, `core`, `i18n`, `editor`,
-   `tailwind` — open npmjs.com → the package → **Settings → Publishing access →
+2. For **each** of the six packages — `@malva-ui/cdk`, `core`, `i18n`, `editor`,
+   `scheduler`, `tailwind` — open npmjs.com → the package → **Settings → Publishing access →
    Trusted publisher → GitHub Actions**, and enter:
 
    | Field | Value |
