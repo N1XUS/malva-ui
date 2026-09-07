@@ -6,6 +6,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { MlvAccordion, MlvAccordionItem } from '@malva-ui/core/accordion';
 import { MlvCopyToClipboard } from '@malva-ui/core/copy-to-clipboard';
+import { MlvLink } from '@malva-ui/core/link';
 import { DocsTocSourceDirective } from '../../shared/toc';
 
 @Component({
@@ -14,6 +15,7 @@ import { DocsTocSourceDirective } from '../../shared/toc';
     MlvAccordion,
     MlvAccordionItem,
     MlvCopyToClipboard,
+    MlvLink,
     DocsTocSourceDirective,
   ],
   templateUrl: './index.html',
