@@ -189,6 +189,31 @@ describe('MlvEditorAiMenu', () => {
     return button;
   }
 
+  /**
+   * The element's resolved accessible name, following `aria-labelledby` to the
+   * elements it references and falling back to `aria-label`. Asserting the name
+   * rather than one attribute keeps the assertion about what a screen reader
+   * announces, so a control that renames itself through the other mechanism
+   * stays covered instead of going red.
+   */
+  function accessibleName(element: Element | null): string | null {
+    if (!element) {
+      return null;
+    }
+    const labelledBy = element.getAttribute('aria-labelledby');
+    if (labelledBy) {
+      return labelledBy
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(
+          (id) => element.ownerDocument.getElementById(id)?.textContent ?? '',
+        )
+        .join(' ')
+        .trim();
+    }
+    return element.getAttribute('aria-label');
+  }
+
   function type(input: HTMLInputElement, value: string): void {
     input.value = value;
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -354,9 +379,13 @@ describe('MlvEditorAiMenu', () => {
 
     // The output-mode choice must be a *named* radiogroup: without an
     // accessible name a screen-reader user lands on two bare radios with no
-    // indication of what the choice is about.
+    // indication of what the choice is about. The name is asserted, not the
+    // mechanism: `mlv-radio-group` names itself through `aria-labelledby`
+    // pointing at its own visible `<mlv-label>` when it has one (this menu
+    // passes `[label]`), and falls back to `aria-label` when it does not - see
+    // `docs/migrations/2026-09-form-field-label-association.md`.
     const outputGroup = panel.querySelector('[role="radiogroup"]');
-    expect(outputGroup?.getAttribute('aria-label')).toBe('Output');
+    expect(accessibleName(outputGroup)).toBe('Output');
 
     const radios = [
       ...panel.querySelectorAll<HTMLInputElement>('input[type="radio"]'),
