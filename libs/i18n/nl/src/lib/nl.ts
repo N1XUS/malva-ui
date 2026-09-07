@@ -423,6 +423,36 @@ const nl: MlvLanguage = {
   tabs: {
     moreTabs: 'Meer tabbladen',
   },
+  taskboard: {
+    boardLabel: 'Takenbord',
+    addCard: 'Kaart toevoegen',
+    emptyCell: 'Geen kaarten',
+    cardLabel: 'Taak {label}',
+    laneName: 'Baan {lane}',
+    keyboardInstructions:
+      'Druk op Spatie om een kaart op te pakken, op de pijltoetsen om een plek te kiezen, opnieuw op Spatie om hem neer te zetten en op Escape om te annuleren.',
+    grabbed:
+      '{label} opgepakt. Kies met de pijltoetsen een plek, zet neer met Spatie, annuleer met Escape.',
+    targetValid:
+      'Verplaatsen naar {column}, positie {position} van {count}. {lane}',
+    targetInvalid: 'Kan niet naar {column} verplaatsen: {reason}. {lane}',
+    moved: '{label} verplaatst naar {column}, positie {position}. {lane}',
+    moveRejected: '{label} is niet verplaatst: {reason}.',
+    moveCancelled: 'Verplaatsen van {label} geannuleerd.',
+    releasedInPlace: '{label} is op zijn plek gebleven.',
+    wipState: '{count} van {limit}',
+    selectionCount:
+      '{count, plural, =0 {Geen kaarten geselecteerd} one {# kaart geselecteerd} other {# kaarten geselecteerd}}',
+    reasonInvalidDrop: 'die plek is geen geldig doel',
+    reasonCancelled: 'de verplaatsing is geannuleerd',
+    reasonBeforeMoveRejected: 'de toepassing heeft de verplaatsing geweigerd',
+    reasonBeforeMoveError: 'de toepassing kon de verplaatsing niet voltooien',
+    reasonStale: 'het bord is gewijzigd terwijl de verplaatsing liep',
+    reasonLocked: 'de kaart, de kolom of de baan is vergrendeld',
+    reasonTransition: 'die kolomovergang is niet toegestaan',
+    reasonWip: 'de limiet voor onderhanden werk is bereikt',
+    reasonPolicy: 'het bord staat dat doel niet toe',
+  },
   tile: {
     close: 'Sluiten',
     tileLabel: 'tegel',

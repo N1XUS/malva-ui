@@ -431,6 +431,35 @@ const ro: MlvLanguage = {
   tabs: {
     moreTabs: 'Mai multe file',
   },
+  taskboard: {
+    boardLabel: 'Panou de sarcini',
+    addCard: 'Adaugă card',
+    emptyCell: 'Niciun card',
+    cardLabel: 'Sarcina {label}',
+    laneName: 'Culoarul {lane}',
+    keyboardInstructions:
+      'Apasă Spațiu pentru a ridica un card, tastele săgeată pentru a alege o poziție, din nou Spațiu pentru a-l plasa și Escape pentru a anula.',
+    grabbed:
+      '{label} a fost ridicat. Folosește tastele săgeată pentru a alege o poziție, Spațiu pentru a plasa, Escape pentru a anula.',
+    targetValid: 'Mută în {column}, poziția {position} din {count}. {lane}',
+    targetInvalid: 'Nu se poate muta în {column}: {reason}. {lane}',
+    moved: '{label} a fost mutat în {column}, poziția {position}. {lane}',
+    moveRejected: '{label} nu a fost mutat: {reason}.',
+    moveCancelled: 'Mutarea {label} a fost anulată.',
+    releasedInPlace: '{label} a rămas pe loc.',
+    wipState: '{count} din {limit}',
+    selectionCount:
+      '{count, plural, =0 {Niciun card selectat} one {# card selectat} few {# carduri selectate} other {# de carduri selectate}}',
+    reasonInvalidDrop: 'acea poziție nu este o destinație validă',
+    reasonCancelled: 'mutarea a fost anulată',
+    reasonBeforeMoveRejected: 'aplicația a respins mutarea',
+    reasonBeforeMoveError: 'aplicația nu a putut finaliza mutarea',
+    reasonStale: 'panoul s-a modificat în timp ce mutarea era în așteptare',
+    reasonLocked: 'cardul, coloana sau culoarul său este blocat',
+    reasonTransition: 'acea tranziție între coloane nu este permisă',
+    reasonWip: 'limita lucrărilor în curs a fost atinsă',
+    reasonPolicy: 'panoul nu permite acea destinație',
+  },
   tile: {
     close: 'Închide',
     tileLabel: 'dală',

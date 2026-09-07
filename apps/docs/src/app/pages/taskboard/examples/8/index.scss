@@ -1,0 +1,28 @@
+@use '../ticket';
+
+.history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mlv-spacing-2);
+}
+
+.history-status {
+  margin-block: var(--mlv-spacing-3);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+
+.history-output {
+  margin-block-start: var(--mlv-spacing-4);
+  max-block-size: 18rem;
+  overflow: auto;
+  padding: var(--mlv-padding-m);
+  border-radius: var(--mlv-radius-panel);
+  background-color: var(--mlv-background-subtle);
+  font-family: var(--mlv-typography-family-code);
+  font-size: var(--mlv-typography-body-s-size);
+}
+
+.ticket__tag--id {
+  font-family: var(--mlv-typography-family-code);
+}

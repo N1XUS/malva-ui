@@ -216,6 +216,11 @@ export const pageRoutes = [
       import('./pages/table/index').then((m) => m.TablePageComponent),
   },
   {
+    path: 'taskboard',
+    loadComponent: () =>
+      import('./pages/taskboard/index').then((m) => m.TaskboardPageComponent),
+  },
+  {
     path: 'search-field',
     loadComponent: () =>
       import('./pages/search-field/index').then(
@@ -588,6 +593,7 @@ export type DocsIconName =
   | 'house'
   | 'inbox'
   | 'info'
+  | 'kanban'
   | 'keyboard'
   | 'languages'
   | 'layers'
@@ -637,7 +643,7 @@ export type DocsIconName =
   | 'wrench';
 
 export interface DocsApiTarget {
-  family: 'core' | 'cdk' | 'i18n' | 'editor' | 'scheduler';
+  family: 'core' | 'cdk' | 'i18n' | 'editor' | 'scheduler' | 'taskboard';
   entry: string;
 }
 
@@ -771,6 +777,7 @@ const GROUP_DEFINITIONS = [
       'status-indicator',
       'stepper',
       'table',
+      'taskboard',
       'tile',
       'timeline',
       'title',
@@ -901,6 +908,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   'swipe-actions': 'arrow-left-right',
   switch: 'toggle-left',
   tabs: 'layout-template',
+  taskboard: 'kanban',
   textarea: 'align-left',
   theming: 'palette',
   'time-picker': 'clock',
@@ -925,6 +933,7 @@ const API_OVERRIDES: Partial<Record<DocsPagePath, DocsApiTarget | null>> = {
   internationalization: { family: 'i18n', entry: '' },
   overlay: { family: 'cdk', entry: 'overlay' },
   scheduler: { family: 'scheduler', entry: '' },
+  taskboard: { family: 'taskboard', entry: '' },
   theming: null,
   utils: { family: 'cdk', entry: 'utils' },
   'button-group': { family: 'core', entry: 'button' },

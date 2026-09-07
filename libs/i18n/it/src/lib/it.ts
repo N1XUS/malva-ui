@@ -425,6 +425,36 @@ const it: MlvLanguage = {
   tabs: {
     moreTabs: 'Altre schede',
   },
+  taskboard: {
+    boardLabel: 'Bacheca attività',
+    addCard: 'Aggiungi scheda',
+    emptyCell: 'Nessuna scheda',
+    cardLabel: 'Attività {label}',
+    laneName: 'Corsia {lane}',
+    keyboardInstructions:
+      'Premi Spazio per prendere una scheda, i tasti freccia per scegliere una posizione, di nuovo Spazio per rilasciarla ed Esc per annullare.',
+    grabbed:
+      '{label} presa. Usa i tasti freccia per scegliere una posizione, Spazio per rilasciare, Esc per annullare.',
+    targetValid: 'Sposta in {column}, posizione {position} di {count}. {lane}',
+    targetInvalid: 'Impossibile spostare in {column}: {reason}. {lane}',
+    moved: '{label} spostata in {column}, posizione {position}. {lane}',
+    moveRejected: '{label} non è stata spostata: {reason}.',
+    moveCancelled: 'Spostamento di {label} annullato.',
+    releasedInPlace: '{label} è rimasta al suo posto.',
+    wipState: '{count} di {limit}',
+    selectionCount:
+      '{count, plural, =0 {Nessuna scheda selezionata} one {# scheda selezionata} other {# schede selezionate}}',
+    reasonInvalidDrop: 'quella posizione non è una destinazione valida',
+    reasonCancelled: 'lo spostamento è stato annullato',
+    reasonBeforeMoveRejected: 'l’applicazione ha rifiutato lo spostamento',
+    reasonBeforeMoveError:
+      'l’applicazione non è riuscita a completare lo spostamento',
+    reasonStale: 'la bacheca è cambiata mentre lo spostamento era in sospeso',
+    reasonLocked: 'la scheda, la sua colonna o la sua corsia è bloccata',
+    reasonTransition: 'quella transizione di colonna non è consentita',
+    reasonWip: 'il limite di lavoro in corso è stato raggiunto',
+    reasonPolicy: 'la bacheca non consente quella destinazione',
+  },
   tile: {
     close: 'Chiudi',
     tileLabel: 'riquadro',

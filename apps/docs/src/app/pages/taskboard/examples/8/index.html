@@ -1,0 +1,84 @@
+<div class="history-toolbar" role="group" aria-label="Board actions">
+  <button mlvButton variant="secondary" type="button" (click)="undo()">
+    Undo
+  </button>
+  <button mlvButton variant="secondary" type="button" (click)="redo()">
+    Redo
+  </button>
+  <button
+    mlvButton
+    variant="secondary"
+    type="button"
+    (click)="reverseColumns()"
+  >
+    Reverse columns
+  </button>
+  <button
+    mlvButton
+    variant="secondary"
+    type="button"
+    (click)="captureSnapshot()"
+  >
+    Capture snapshot
+  </button>
+  <button
+    mlvButton
+    variant="secondary"
+    type="button"
+    [disabled]="storedSnapshot() === null"
+    (click)="restoreSnapshot()"
+  >
+    Restore snapshot
+  </button>
+  <button mlvButton variant="secondary" type="button" (click)="exportJson()">
+    Export JSON
+  </button>
+  <button mlvButton variant="secondary" type="button" (click)="exportCsv()">
+    Export CSV
+  </button>
+  <button mlvButton variant="secondary" type="button" (click)="print()">
+    Print
+  </button>
+</div>
+
+<p class="history-status" aria-live="polite">{{ status() }}</p>
+
+<mlv-taskboard
+  #board
+  [(items)]="tickets"
+  [(columns)]="columns"
+  [beforeMove]="confirmMove"
+  dataKey="id"
+  columnField="status"
+>
+  <ng-template
+    mlvTaskboardItemDef
+    [mlvTaskboardItemDefFrom]="ticketType"
+    let-card
+  >
+    <span class="ticket__title">{{ card.title }}</span>
+    @if (card.description) {
+      <span class="ticket__description">{{ card.description }}</span>
+    }
+    <span class="ticket__tags">
+      <!-- The CSV export lists cards by id, so this example keeps it on the
+           card as a small tag. -->
+      <span class="ticket__tag ticket__tag--id">{{ card.id }}</span>
+      @for (tag of card.tags; track tag) {
+        <span class="ticket__tag">{{ tag }}</span>
+      }
+    </span>
+    <span class="ticket__footer">
+      <mlv-avatar
+        class="ticket__avatar"
+        size="xs"
+        [name]="card.owner"
+        [color]="card.owner | mlvColorFromText"
+      />
+    </span>
+  </ng-template>
+</mlv-taskboard>
+
+@if (output(); as text) {
+  <pre class="history-output"><code>{{ text }}</code></pre>
+}

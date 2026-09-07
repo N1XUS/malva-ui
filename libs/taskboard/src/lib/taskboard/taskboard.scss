@@ -1,0 +1,735 @@
+@use '../../../../styles/src/lib/density' as density;
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: '.mlv-taskboard';
+
+  @include mixins.reduced-motion('mlv-taskboard');
+
+  #{$block} {
+    @include mixins.base();
+
+    // Every one of these is a single length, never a `--mlv-padding-*` pair:
+    // they are fed to `padding-inline`, `padding-block` and `gap`, where a
+    // two-value pair would be split across sides instead of applied to each.
+    --mlv-taskboard-padding: var(--mlv-spacing-4);
+    --mlv-taskboard-gap: var(--mlv-spacing-4);
+    --mlv-taskboard-column-width: 18rem;
+    --mlv-taskboard-card-gap: var(--mlv-spacing-3);
+    --mlv-taskboard-card-padding: var(--mlv-spacing-5);
+    --mlv-taskboard-stripe-size: 0.25rem;
+
+    // `--mlv-taskboard-column-accent` and `--mlv-taskboard-group-accent` are
+    // deliberately *not* declared here: the header binding writes them per
+    // element, and a declaration on the block would win over an inherited
+    // value only to hand every column the same stripe.
+
+    display: block;
+    color: var(--mlv-text-primary);
+    // The three surfaces are one elevation ladder in both themes: the board
+    // sits below its panels (`--mlv-background-subtle`), and a card sits above
+    // them. Reading them off the raw palette instead would collapse to one
+    // flat slab in dark, where `--mlv-elevation-bg-2` and
+    // `--mlv-background-subtle` are the same neutral.
+    background-color: var(--mlv-background-raised);
+    border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-card);
+    padding: var(--mlv-taskboard-padding);
+
+    @include density.density-tight {
+      --mlv-taskboard-padding: var(--mlv-spacing-2);
+      --mlv-taskboard-gap: var(--mlv-spacing-2);
+      --mlv-taskboard-column-width: 14rem;
+      --mlv-taskboard-card-gap: var(--mlv-spacing-1);
+      --mlv-taskboard-card-padding: var(--mlv-spacing-2);
+    }
+
+    @include density.density-compact {
+      --mlv-taskboard-padding: var(--mlv-spacing-3);
+      --mlv-taskboard-gap: var(--mlv-spacing-3);
+      --mlv-taskboard-column-width: 16rem;
+      --mlv-taskboard-card-gap: var(--mlv-spacing-2);
+      --mlv-taskboard-card-padding: var(--mlv-spacing-3);
+    }
+
+    @include density.density-spacious {
+      --mlv-taskboard-padding: var(--mlv-spacing-5);
+      --mlv-taskboard-gap: var(--mlv-spacing-5);
+      --mlv-taskboard-column-width: 21rem;
+      --mlv-taskboard-card-gap: var(--mlv-spacing-3);
+      --mlv-taskboard-card-padding: var(--mlv-spacing-5);
+    }
+
+    @include density.density-airy {
+      --mlv-taskboard-padding: var(--mlv-spacing-6);
+      --mlv-taskboard-gap: var(--mlv-spacing-6);
+      --mlv-taskboard-column-width: 24rem;
+      --mlv-taskboard-card-gap: var(--mlv-spacing-4);
+      --mlv-taskboard-card-padding: var(--mlv-spacing-6);
+    }
+
+    &__header {
+      margin-block-end: var(--mlv-spacing-3);
+      font-weight: 600;
+      text-align: start;
+    }
+
+    // The column strip scrolls through `mlv-scrollbar`, so the themed track is
+    // the only bar the board ever shows on this axis (R44). The host is a grid
+    // whose single cell is the viewport, so it needs a floor of its own to be
+    // allowed to shrink below the surface's intrinsic inline size.
+    &__strip {
+      min-inline-size: 0;
+    }
+
+    &__surface {
+      display: flex;
+      flex-direction: column;
+      // The column header band and the cells beneath it read as one panel, so
+      // nothing separates the rows; the inline gutter between columns lives on
+      // each grid row instead, and laned boards space their bands themselves.
+      row-gap: 0;
+    }
+
+    &__group-row,
+    &__column-row,
+    &__lane {
+      display: grid;
+      grid-template-columns: minmax(8rem, auto) repeat(
+          var(--mlv-taskboard-column-count),
+          minmax(var(--mlv-taskboard-column-width), 1fr)
+        );
+      column-gap: var(--mlv-taskboard-gap);
+    }
+
+    &__lane-spacer {
+      min-inline-size: 8rem;
+    }
+
+    // ---------------------------------------------------------------- group
+
+    &__group {
+      padding-block-end: var(--mlv-spacing-2);
+      border-block-end: var(--mlv-taskboard-stripe-size) solid
+        var(--mlv-taskboard-group-accent, var(--mlv-border-normal));
+      font-weight: 600;
+      text-align: center;
+      text-transform: none;
+    }
+
+    &__group--spacer {
+      border-block-end: 0;
+    }
+
+    &__group-row {
+      margin-block-end: var(--mlv-spacing-3);
+    }
+
+    // -------------------------------------------------------- column header
+
+    &__column-header {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-2);
+      padding-block: var(--mlv-spacing-3);
+      // The inline padding belongs to the look, not to the header: each of the
+      // two blocks below sets it so the title lines up with the cards under it.
+      // Block-start, so the stripe never mirrors: it is not on the inline axis.
+      border-block-start: var(--mlv-taskboard-stripe-size) solid
+        var(--mlv-taskboard-column-accent, var(--mlv-border-normal));
+      font-size: var(--mlv-typography-body-m-size);
+      font-weight: 600;
+      text-align: start;
+      // The header is the column's drag handle.
+      cursor: grab;
+    }
+
+    &__column-header[data-mlv-taskboard-column-locked] {
+      cursor: default;
+    }
+
+    // A dragged header's target slot (R46). SortableJS never reorders the
+    // board's own header row, so the moving placeholder stays at the source
+    // and cannot show where the column lands; the bar names the slot instead.
+    // It is absolutely positioned inside the column gutter, so no header
+    // changes width and no neighbour shifts while it follows the pointer.
+    &__column-header[data-mlv-taskboard-drop-edge] {
+      position: relative;
+    }
+
+    &__column-header[data-mlv-taskboard-drop-edge]::after {
+      content: '';
+      position: absolute;
+      inset-block: 0;
+      inline-size: 0.125rem;
+      border-radius: var(--mlv-radius-full);
+      background-color: var(--mlv-background-accent-1);
+      pointer-events: none;
+    }
+
+    // Logical insets, so the bar sits on the header's reading-order start edge
+    // in LTR and on its physical right edge under `[dir="rtl"]`. Half the
+    // column gutter centres it between two headers — every interior slot is a
+    // `start` edge, so they all keep the look they had.
+    &__column-header[data-mlv-taskboard-drop-edge='start']::after {
+      inset-inline-start: calc(var(--mlv-taskboard-gap) * -0.5);
+    }
+
+    // `end` is only ever the tail slot, and so only ever on the *last* header,
+    // whose inline-end edge is the strip's own: since R44 that strip is an
+    // `mlv-scrollbar` viewport, so half a gutter beyond the header falls
+    // outside the scroll box — the bar would be invisible at the one position
+    // it names, and would add `gap / 2` of scrollable overflow to a board that
+    // otherwise fits. It therefore sits *on* that edge, inset inward, rather
+    // than in a gutter that does not exist there.
+    &__column-header[data-mlv-taskboard-drop-edge='end']::after {
+      inset-inline-end: 0;
+    }
+
+    // The source column while it is being dragged. The card ghost's dashed
+    // border would push the header's own content by a hairline, so the header
+    // states it as an inset outline over the accent-pale surface instead.
+    &__column-header#{$block}__sortable-ghost {
+      border-block-start-color: var(--mlv-border-focus);
+      outline: var(--mlv-stroke-width) dashed var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      background-color: var(--mlv-background-accent-1-pale);
+    }
+
+    &__column-title {
+      flex: 1 1 auto;
+      min-inline-size: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__lock {
+      flex: 0 0 auto;
+      inline-size: 0.875rem;
+      block-size: 0.875rem;
+      color: var(--mlv-text-secondary);
+    }
+
+    // ----------------------------------------------------------- lane header
+
+    &__lane-header {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-2);
+      padding-inline-end: var(--mlv-spacing-4);
+      padding-block: var(--mlv-spacing-2);
+      font-weight: 600;
+      text-align: start;
+    }
+
+    &__lane-title {
+      min-inline-size: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    // ------------------------------------------------------------ count pill
+
+    &__count {
+      flex: 0 0 auto;
+      min-inline-size: 1.5rem;
+      padding-inline: var(--mlv-spacing-2);
+      // The neutral fill is the same colour as the panel band it sits on in
+      // both themes, so the outline is what makes the pill a pill.
+      border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+      border-radius: var(--mlv-radius-full);
+      background-color: var(--mlv-background-neutral-1);
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+      font-weight: 500;
+      text-align: center;
+    }
+
+    &__count[data-mlv-taskboard-wip='at-limit'] {
+      border-color: var(--mlv-border-warning);
+      background-color: var(--mlv-background-warning-1-pale);
+      color: var(--mlv-text-warning);
+    }
+
+    // ------------------------------------------------------------- panel look
+
+    // Boards without swimlanes render each column as a soft panel: an accent
+    // stripe, the header band, and the cell below it as one rounded surface.
+    &:not(#{$block}--swimlanes) &__column-header {
+      // The panel's own inline padding, matching the cell below it, so the
+      // title sits over the cards rather than a quarter rem inboard of them.
+      padding-inline: var(--mlv-spacing-3);
+      border-start-start-radius: var(--mlv-radius-card);
+      border-start-end-radius: var(--mlv-radius-card);
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+      background-color: var(--mlv-background-subtle);
+    }
+
+    // No lane headers to align against, so the lane gutter collapses and the
+    // columns start at the board's inline edge.
+    &:not(#{$block}--swimlanes) &__group-row,
+    &:not(#{$block}--swimlanes) &__column-row,
+    &:not(#{$block}--swimlanes) &__lane {
+      grid-template-columns: repeat(
+        var(--mlv-taskboard-column-count),
+        minmax(var(--mlv-taskboard-column-width), 1fr)
+      );
+    }
+
+    &:not(#{$block}--swimlanes) &__lane-spacer {
+      display: none;
+    }
+
+    &__lane--default {
+      // Every panel ends level with the tallest one.
+      align-items: stretch;
+    }
+
+    &__lane--default &__cell {
+      padding-block: var(--mlv-spacing-3);
+      padding-inline: var(--mlv-spacing-3);
+      border: 0;
+      border-end-start-radius: var(--mlv-radius-card);
+      border-end-end-radius: var(--mlv-radius-card);
+      background-color: var(--mlv-background-subtle);
+      min-block-size: 12rem;
+    }
+
+    // --------------------------------------------------------- open-band look
+
+    // Laned boards drop the panel entirely: the header row and each lane are
+    // open bands on the board surface, separated by hairlines.
+    &--swimlanes &__column-row {
+      padding-block-end: var(--mlv-spacing-2);
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+    }
+
+    // No panel to sit inside, and the cells below carry no padding either, so
+    // the title starts flush with the cards in its column.
+    &--swimlanes &__column-header {
+      padding-inline: 0;
+    }
+
+    &--swimlanes &__lane {
+      align-items: start;
+      padding-block: var(--mlv-spacing-4);
+      border-block-end: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+    }
+
+    // Cells carry no fill, border or radius of their own — the panel look
+    // adds them on the default lane — so a laned cell only needs a floor.
+    &--swimlanes &__cell {
+      min-block-size: 4rem;
+    }
+
+    // ------------------------------------------------------------------ cells
+
+    &__cell {
+      display: flex;
+      flex-direction: column;
+      gap: var(--mlv-taskboard-card-gap);
+      min-inline-size: var(--mlv-taskboard-column-width);
+    }
+
+    &__cell[data-collapsed='true'] {
+      min-block-size: auto;
+
+      // The empty-cell box is the cards area's own drop slot, so it goes with
+      // the cards rather than drawing a full-width dashed panel under a
+      // collapsed column or lane.
+      .mlv-taskboard__card,
+      .mlv-taskboard__empty,
+      .mlv-taskboard__add {
+        display: none;
+      }
+    }
+
+    // Each cell's cards area scrolls through `mlv-scrollbar` too. A plain cell
+    // is wrapped, so the component's own viewport is the scroll box; the
+    // wrapper has to carry the cell's column layout through to the list, or
+    // the list would stop filling the panel and stop being a full-height drop
+    // target.
+    &__cell-scroller {
+      display: grid;
+      flex: 1 1 auto;
+      min-block-size: 0;
+    }
+
+    &__cell-scroller > .mlv-scrollbar__viewport > .mlv-scrollbar__content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    // Two scroll boxes do not take the row's height, and they say it once:
+    // a virtual cell is decorated rather than wrapped, so the CDK viewport
+    // inside keeps its own fixed block size and the wrapper is a bare layout
+    // box around it; and an empty cell — plain or virtual — is one drop-zone
+    // box tall, so the add control sits directly under the box instead of at
+    // the foot of a blank panel (R47).
+    &__cell-scroller--virtual,
+    &__cell-scroller--empty {
+      flex: 0 0 auto;
+    }
+
+    &__cards {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      gap: var(--mlv-taskboard-card-gap);
+      min-block-size: var(--mlv-spacing-6);
+      border-radius: var(--mlv-radius-card);
+      outline: var(--mlv-stroke-width-medium) solid transparent;
+      // Inset, because the list now sits inside a scroll box that clips: an
+      // outward offset would put the drop outline under the viewport's edge.
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      transition: outline-color var(--mlv-duration-fast) var(--mlv-ease-default);
+    }
+
+    // Virtual cells scroll inside a fixed block size: a viewport with no
+    // measurable height renders nothing, so the cell declares one. The card
+    // size the board was given is republished for consumers styling cards.
+    // An empty cards area stops stretching, so the add control sits directly
+    // under the placeholder box instead of at the foot of the panel. It keeps
+    // a card row of its own height so the drop slot is still reachable when a
+    // consumer replaces the box through `mlvTaskboardEmptyStateDef`.
+    &__cards--empty {
+      flex: 0 0 auto;
+      min-block-size: calc(
+        var(--mlv-taskboard-card-padding) * 2 + var(--mlv-spacing-5)
+      );
+    }
+
+    // A cell with no items has nothing to virtualize, so the fixed height is
+    // stated with the empty cell excluded from it rather than left to source
+    // order: `block-size` is not a floor, so `&__cards--empty`'s
+    // `min-block-size` cannot shrink it and the two single-class modifiers
+    // carry the same specificity.
+    &__cards--virtual:not(#{$block}__cards--empty) {
+      block-size: var(--mlv-taskboard-cell-block-size, 20rem);
+    }
+
+    &__cards--virtual {
+      flex: 0 0 auto;
+      overflow-y: auto;
+      // The viewport is the decorated scroll box, so its native bar gives way
+      // to the themed track `mlv-scrollbar` draws over it (R44).
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+
+      .mlv-taskboard__card {
+        // The viewport's only child is CDK's content wrapper, so the `gap` on
+        // the cards container never reaches the cards and they would abut.
+        // The gap rides on the card instead, and comes *out* of the declared
+        // item size rather than adding to it: CDK's fixed-size strategy reads
+        // `virtualItemSize` as the whole pitch from one card to the next, so
+        // card + gap has to be that number or every offset drifts.
+        margin-block-end: var(--mlv-taskboard-card-gap);
+        min-block-size: calc(
+          var(--mlv-taskboard-virtual-item-size, 2.75rem) - var(
+              --mlv-taskboard-card-gap
+            )
+        );
+      }
+    }
+
+    &__cards[data-mlv-taskboard-drop-state='valid'] {
+      outline-color: var(--mlv-border-focus);
+    }
+
+    &__cards[data-mlv-taskboard-drop-state='invalid'] {
+      outline-color: var(--mlv-border-error);
+    }
+
+    &__column-row[data-mlv-taskboard-drop-state] {
+      border-radius: var(--mlv-radius-card);
+      outline: var(--mlv-stroke-width-medium) solid transparent;
+      outline-offset: var(--mlv-focus-ring-offset);
+      transition: outline-color var(--mlv-duration-fast) var(--mlv-ease-default);
+    }
+
+    &__column-row[data-mlv-taskboard-drop-state='valid'] {
+      outline-color: var(--mlv-border-focus);
+    }
+
+    &__column-row[data-mlv-taskboard-drop-state='invalid'] {
+      outline-color: var(--mlv-border-error);
+    }
+
+    // ------------------------------------------------------------------ cards
+
+    &__card {
+      display: block;
+      inline-size: 100%;
+      padding: var(--mlv-taskboard-card-padding);
+      border: var(--mlv-stroke-width) solid var(--mlv-border-subtle);
+      border-radius: var(--mlv-radius-card);
+      background-color: var(--mlv-elevation-bg-3);
+      box-shadow: var(--mlv-shadow-flat);
+      color: var(--mlv-text-primary);
+      font: inherit;
+      appearance: none;
+      text-align: start;
+      cursor: grab;
+      transition:
+        border-color var(--mlv-duration-fast) var(--mlv-ease-default),
+        box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
+    }
+
+    &__card:hover {
+      border-color: var(--mlv-border-normal);
+      box-shadow: var(--mlv-shadow-raised);
+    }
+
+    // Persistent selection reads as a ring, not a fill: an `-active` token
+    // would mean "the pointer is down right now", and a fill would fight the
+    // card content the application projects.
+    &__card[data-mlv-taskboard-selected] {
+      border-color: var(--mlv-background-accent-1);
+      box-shadow: inset 0 0 0 var(--mlv-stroke-width)
+        var(--mlv-background-accent-1);
+    }
+
+    &__card:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+
+    // --------------------------------------------------------------- add card
+
+    &__add {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--mlv-spacing-1-5);
+      inline-size: 100%;
+      min-block-size: var(--mlv-height-m);
+      border: 0;
+      border-radius: var(--mlv-radius-button);
+      background-color: transparent;
+      color: var(--mlv-text-secondary);
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--mlv-transition-colors);
+    }
+
+    &__add:hover {
+      background-color: var(--mlv-background-neutral-1);
+      color: var(--mlv-text-primary);
+    }
+
+    &__add:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+
+    &__add-icon {
+      flex: 0 0 auto;
+      inline-size: 1rem;
+      block-size: 1rem;
+    }
+
+    // ------------------------------------------------------------ empty state
+
+    // The placeholder box *is* the empty cell's drop slot, so it is one card
+    // row tall at the top of the cards area rather than a label floating in a
+    // stretched panel (R47).
+    &__empty {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      // A pointer over the box has to read as a pointer over the container it
+      // sits in, the way the drop indicator already does.
+      pointer-events: none;
+      margin: 0;
+      padding: var(--mlv-padding-m);
+      min-block-size: calc(
+        var(--mlv-taskboard-card-padding) * 2 + var(--mlv-spacing-5)
+      );
+      border: var(--mlv-stroke-width) dashed var(--mlv-border-normal);
+      border-radius: var(--mlv-radius-card);
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+      text-align: center;
+      transition: var(--mlv-transition-colors);
+    }
+
+    // The box takes the drop affordance the container already publishes, so
+    // there is no second indicator system to keep in step.
+    &__cards[data-mlv-taskboard-drop-state='valid'] &__empty {
+      border-color: var(--mlv-border-focus);
+      background-color: var(--mlv-background-accent-1-pale);
+    }
+
+    &__cards[data-mlv-taskboard-drop-state='invalid'] &__empty {
+      border-color: var(--mlv-border-error);
+    }
+
+    // Where the built-in box is drawn it *is* the affordance, so the tail
+    // indicator would put a second one underneath it. The suppression hangs off
+    // the box itself rather than off `&__cards--empty`, because a cell whose
+    // box a consumer replaced through `mlvTaskboardEmptyStateDef` is empty too
+    // — and there the indicator is the only slot marker left.
+    &__empty ~ &__drop-indicator {
+      display: none;
+    }
+
+    // ---------------------------------------------------------- drag feedback
+
+    &__drop-indicator {
+      // The indicator is a direct child of the drop container, so a pointer
+      // over it would make SortableJS report the container's tail slot and
+      // move the indicator out from under the pointer, over and over.
+      pointer-events: none;
+      flex: 0 0 auto;
+      block-size: 0.125rem;
+      // Half the card gap on each side, so slotting the bar between two cards
+      // does not push the rest of the cell down while the pointer hovers.
+      margin-block: calc(var(--mlv-taskboard-card-gap) * -0.5);
+      border-radius: var(--mlv-radius-full);
+      background-color: var(--mlv-background-accent-1);
+    }
+
+    &__drop-indicator--invalid {
+      background-color: var(--mlv-border-error);
+    }
+
+    &__sortable-chosen {
+      cursor: grabbing;
+    }
+
+    &__sortable-ghost {
+      opacity: 0.4;
+      border: var(--mlv-stroke-width) dashed var(--mlv-border-normal);
+      background-color: var(--mlv-background-neutral-1);
+      box-shadow: none;
+    }
+
+    &__sortable-drag,
+    &__sortable-fallback {
+      box-shadow: var(--mlv-shadow-floating);
+      cursor: grabbing;
+      pointer-events: none;
+    }
+
+    &--move-pending &__cards {
+      cursor: progress;
+    }
+
+    &--move-pending &__card {
+      pointer-events: none;
+    }
+
+    // ------------------------------------------------- assistive-only regions
+
+    &__instructions,
+    &__live-region {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  // A printed page cannot be scrolled and nothing on it can be dragged, so
+  // every clipped cell opens up and the interaction-only chrome is dropped.
+  // `print()` clears `virtualItemSize` for one render, so a board printed
+  // through it holds every visible card. A print the user starts themselves
+  // (Ctrl+P, the browser's own menu) never runs that code, so an un-clipped
+  // virtual cell still holds only its rendered window.
+  @media print {
+    #{$block} {
+      overflow: visible;
+
+      #{$block}__surface {
+        overflow: visible;
+      }
+
+      // Every scroll box the board owns is an `mlv-scrollbar` viewport now, so
+      // un-clipping the board means un-clipping those too, and the overlay
+      // tracks have nothing to point at on paper.
+      .mlv-scrollbar__viewport {
+        overflow: visible;
+      }
+
+      .mlv-scrollbar__track {
+        display: none;
+      }
+
+      #{$block}__cards,
+      #{$block}__cards--virtual {
+        block-size: auto;
+        max-block-size: none;
+        overflow: visible;
+      }
+
+      #{$block}__add,
+      #{$block}__drop-indicator {
+        display: none;
+      }
+
+      #{$block}__card {
+        break-inside: avoid;
+      }
+    }
+
+    // `print()` puts `--printing` on the host for the length of the dialog, and
+    // these rules take the page apart around it so the board prints alone. A
+    // print the user starts themselves never sees them, because nothing writes
+    // the class then. `:has()` is supported by every browser this repository's
+    // browserslist targets, so the sheet can say this declaratively instead of
+    // walking the page from TypeScript.
+    // physical page-level rule set; `!important` is deliberate on both rules
+    // below: inside a layer an important declaration outranks every normal
+    // unlayered rule, which is what lets a library print sheet beat the host
+    // page's own layout.
+    body:has(#{$block}--printing) {
+      *:not(:has(#{$block}--printing)):not(#{$block}--printing):not(
+          #{$block}--printing *
+        ) {
+        display: none !important;
+      }
+    }
+
+    // The board's ancestor chain, un-clipped so a board inside a scrolling
+    // shell prints whole. `body:has(X) :has(X)` is a *descendant* combinator,
+    // so it can never reach `<body>` or `<html>` themselves — and an app shell
+    // with `html, body { height: 100%; overflow: hidden }` is precisely where
+    // that matters, so both are named outright beside it.
+    html:has(#{$block}--printing),
+    body:has(#{$block}--printing),
+    body:has(#{$block}--printing) :has(#{$block}--printing) {
+      overflow: visible !important;
+      height: auto !important;
+      max-height: none !important;
+    }
+
+    #{$block}--printing {
+      // A sheet of paper cannot be scrolled sideways, so the column tracks give
+      // up the minimum that forces the strip to overflow and share the page
+      // width instead. Everything else the printed board needs — expanded
+      // cells, un-clipped scroll boxes, no tracks, no add controls — is already
+      // in the block above, which a browser-initiated print gets too.
+      #{$block}__group-row,
+      #{$block}__column-row,
+      #{$block}__lane {
+        grid-template-columns:
+          minmax(0, auto)
+          repeat(var(--mlv-taskboard-column-count), minmax(0, 1fr));
+      }
+
+      #{$block}__cell {
+        min-inline-size: 0;
+      }
+    }
+  }
+}

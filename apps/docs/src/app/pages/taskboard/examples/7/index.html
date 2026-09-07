@@ -1,0 +1,49 @@
+<div class="virtual-toolbar">
+  <mlv-search-field
+    trigger="live"
+    [debounce]="200"
+    placeholder="Filter 500 cards"
+    (search)="query.set($event)"
+  />
+  <p class="virtual-toolbar__count" aria-live="polite">
+    {{ visibleCount() }} of {{ tickets().length }} cards shown
+  </p>
+</div>
+
+<div class="virtual-board">
+  <mlv-taskboard
+    [(items)]="tickets"
+    [(columns)]="columns"
+    [visibleItems]="visibleTickets()"
+    [virtualItemSize]="144"
+    dataKey="id"
+    columnField="status"
+  >
+    <ng-template
+      mlvTaskboardItemDef
+      [mlvTaskboardItemDefFrom]="ticketType"
+      let-card
+    >
+      <span class="ticket__title">{{ card.title }}</span>
+      <span class="ticket__tags">
+        @for (tag of card.tags; track tag) {
+          <span class="ticket__tag">{{ tag }}</span>
+        }
+      </span>
+      <span class="ticket__footer">
+        <mlv-avatar
+          class="ticket__avatar"
+          size="xs"
+          [name]="card.owner"
+          [color]="card.owner | mlvColorFromText"
+        />
+        <mlv-progress
+          class="ticket__progress"
+          size="s"
+          [value]="card.progress"
+          [ariaLabel]="card.title + ' progress'"
+        />
+      </span>
+    </ng-template>
+  </mlv-taskboard>
+</div>

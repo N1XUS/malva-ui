@@ -1,0 +1,33 @@
+## History, snapshots, export and print
+
+Everything on this toolbar is an imperative method on the board instance, reached through a template reference — the board exposes no history or export inputs.
+
+| Method                        | Returns                     | What it covers                                                 |
+| ----------------------------- | --------------------------- | -------------------------------------------------------------- |
+| `undo()` / `redo()`           | `boolean`                   | The newest board-originated move or column reorder             |
+| `snapshot()`                  | `MlvTaskboardSnapshot<T>`   | Where the cards were, plus the UI state around them            |
+| `restore(snapshot)`           | `void`                      | Puts both back as one undoable command                         |
+| `exportJson()`                | `MlvTaskboardSerialized<T>` | Cards, structure, field names and the snapshot, as plain data  |
+| `exportCsv(columnId, fields)` | `string`                    | One column's cards, one row per card in board order            |
+| `print()`                     | `void`                      | Expands every virtual cell, hides the rest of the page, prints |
+
+**History is the board's own ledger.** It records the moves and column reorders the board committed, so `undo()` writes replacement collections back through the controlled `items` / `columns` models — the application sees an ordinary model write. An edit the application makes itself replaces the ledger's current state rather than stacking on it, so undo never rewinds past a change the board did not make. Both methods return `false` when there is nothing left.
+
+**A snapshot is a placement, not a copy of your data.** It carries the `items` array as it stood — a frozen copy of the array you already had — plus the column order, the collapsed column and swimlane identifiers, the selection, the focused card and each cell's scroll offset. So capture, move a card, reverse the columns, and `restore()` puts the cards **and** the column order back, written as **one** undoable command rather than two. Card _content_ is still yours: the restore puts the captured placement — cell and order — back onto the cards the board holds **now**, so an edit you made since the capture survives it, a card you deleted is not brought back, and a card you added stays, behind the captured ones. `restore()` also accepts a UI-only `MlvTaskboardUiSnapshot`, which leaves the cards where they are. Either way it drops identifiers the current board no longer knows (a removed column, a filtered-out card, a cell that is not rendered) instead of throwing, and applies scroll offsets after the next render, once those cells exist. `exportJson().snapshot` is the UI-only projection — the cards are already its `items` field, so the export never lists them twice.
+
+**`exportCsv` takes the headings with it.** Each `MlvTaskboardCsvField` is a `{ field, heading }` pair, `field` being a property of the card type, so the emitted column order is the array's order. Cards in other columns are skipped.
+
+**`print()` is not the browser's print.** It clears virtualization for one render so every card is on the page, marks the host `mlv-taskboard--printing`, and calls `window.print()`; it is a no-op during a server render. That class is what makes the sheet print the **board alone** — while it is set, a `body:has(.mlv-taskboard--printing)` rule hides everything that is neither the board, an ancestor of it, nor inside it, un-clips the ancestor chain so a board inside a scrolling shell prints whole, and lets the column tracks share the page width instead of scrolling sideways. The class comes off as soon as the dialog closes. A print the reader starts themselves (<kbd>Ctrl</kbd>+<kbd>P</kbd>) never runs any of it, so the surrounding page prints as it is and a virtual cell prints only its rendered window.
+
+### Confirming a move before it commits
+
+`beforeMove` is consulted once per committed move — pointer drop and keyboard grab alike — before the board writes anything, and may answer `boolean` or `Promise<boolean>`. Here it opens `MlvDialogService.confirm()` and awaits the answer:
+
+- **`false`** — the move is abandoned, `items` stays referentially unchanged, and `moveCancelled` reports `before-move-rejected`.
+- **throws or rejects** — `before-move-error`, same untouched board.
+- **the board changed while the promise was pending** — `stale`; the answer is discarded rather than applied to a board it was never asked about.
+- **a newer move started first** — the superseded one settles silently, since its successor owns the outcome.
+
+While an asynchronous guard is pending the host carries `aria-busy="true"` and the `mlv-taskboard--move-pending` class, so the wait is both announced and styleable.
+
+Inputs used: `beforeMove`. Methods used: `undo`, `redo`, `snapshot`, `restore`, `exportJson`, `exportCsv`, `print`.

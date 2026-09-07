@@ -420,6 +420,36 @@ const tr: MlvLanguage = {
   tabs: {
     moreTabs: 'Daha fazla sekme',
   },
+  taskboard: {
+    boardLabel: 'Görev panosu',
+    addCard: 'Kart ekle',
+    emptyCell: 'Kart yok',
+    cardLabel: 'Görev {label}',
+    laneName: 'Şerit {lane}',
+    keyboardInstructions:
+      'Bir kartı almak için Boşluk tuşuna, yer seçmek için ok tuşlarına, bırakmak için yeniden Boşluk tuşuna ve iptal etmek için Escape tuşuna basın.',
+    grabbed:
+      '{label} alındı. Yer seçmek için ok tuşlarını, bırakmak için Boşluk tuşunu, iptal etmek için Escape tuşunu kullanın.',
+    targetValid:
+      '{column} sütununa taşı, {count} konumdan {position}. konum. {lane}',
+    targetInvalid: '{column} sütununa taşınamıyor: {reason}. {lane}',
+    moved: '{label} {column} sütununa taşındı, {position}. konum. {lane}',
+    moveRejected: '{label} taşınmadı: {reason}.',
+    moveCancelled: '{label} taşıma işlemi iptal edildi.',
+    releasedInPlace: '{label} yerinde bırakıldı.',
+    wipState: '{limit} içinden {count}',
+    selectionCount:
+      '{count, plural, =0 {Hiçbir kart seçilmedi} one {# kart seçildi} other {# kart seçildi}}',
+    reasonInvalidDrop: 'bu konum geçerli bir hedef değil',
+    reasonCancelled: 'taşıma iptal edildi',
+    reasonBeforeMoveRejected: 'uygulama taşımayı reddetti',
+    reasonBeforeMoveError: 'uygulama taşımayı tamamlayamadı',
+    reasonStale: 'taşıma beklerken pano değişti',
+    reasonLocked: 'kart, sütunu veya şeridi kilitli',
+    reasonTransition: 'bu sütun geçişine izin verilmiyor',
+    reasonWip: 'devam eden iş sınırına ulaşıldı',
+    reasonPolicy: 'pano bu hedefe izin vermiyor',
+  },
   tile: {
     close: 'Kapat',
     tileLabel: 'kutucuk',

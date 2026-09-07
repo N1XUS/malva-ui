@@ -422,6 +422,35 @@ const en: MlvLanguage = {
   tabs: {
     moreTabs: 'More tabs',
   },
+  taskboard: {
+    boardLabel: 'Taskboard',
+    addCard: 'Add card',
+    emptyCell: 'No cards',
+    cardLabel: 'Task {label}',
+    laneName: 'Lane {lane}',
+    keyboardInstructions:
+      'Press Space to pick up a card, the arrow keys to choose a slot, Space again to drop it, and Escape to cancel.',
+    grabbed:
+      'Grabbed {label}. Use the arrow keys to choose a slot, Space to drop, Escape to cancel.',
+    targetValid: 'Move to {column}, position {position} of {count}. {lane}',
+    targetInvalid: 'Cannot move to {column}: {reason}. {lane}',
+    moved: 'Moved {label} to {column}, position {position}. {lane}',
+    moveRejected: '{label} was not moved: {reason}.',
+    moveCancelled: 'Cancelled moving {label}.',
+    releasedInPlace: '{label} was left in place.',
+    wipState: '{count} of {limit}',
+    selectionCount:
+      '{count, plural, =0 {No cards selected} one {# card selected} other {# cards selected}}',
+    reasonInvalidDrop: 'that slot is not a valid target',
+    reasonCancelled: 'the move was cancelled',
+    reasonBeforeMoveRejected: 'the application rejected the move',
+    reasonBeforeMoveError: 'the application could not complete the move',
+    reasonStale: 'the board changed while the move was pending',
+    reasonLocked: 'the card, its column, or its lane is locked',
+    reasonTransition: 'that column transition is not allowed',
+    reasonWip: 'the work-in-progress limit is reached',
+    reasonPolicy: 'the board does not allow that target',
+  },
   tile: {
     close: 'Close',
     tileLabel: 'tile',

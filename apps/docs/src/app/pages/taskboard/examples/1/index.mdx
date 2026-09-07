@@ -1,0 +1,11 @@
+## Basic projected board
+
+`mlv-taskboard` is **controlled**: it owns no card data. `items` and `columns` are required two-way models, `dataKey` names the property that identifies a card, and `columnField` names the property that says which column the card is in. The board buckets `items` by `columnField` and renders one cell per column.
+
+Nothing is dragged in the DOM. When a pointer drop is released the board runs its pure move engine and writes a **new** array back through `items` — the same path a keyboard drop takes — then emits `moved` with the item, its source and its target location. A drop the board refuses leaves `items` referentially unchanged and emits `moveCancelled` instead.
+
+Each `MlvTaskboardColumn` may also carry an `accent` — any CSS `<color>`, a `var(--mlv-…)` token being the expected form — which colours the stripe along the top of that column's panel. `MlvTaskboardColumnGroup.accent` does the same for a phase underline (example 2). A column without one falls back to the neutral hairline.
+
+`*mlvTaskboardItemDef` is the card template. It is a generic structural directive, so bind `mlvTaskboardItemDefFrom` to a value of your card type to carry that type into the template context: `let-card` is then a typed `Ticket`, not `unknown`. The bound value is a type carrier only — the board never reads it. Without a projected card template the board draws a built-in `<button>` surface showing the `dataKey` value.
+
+Inputs used: `items`, `columns`, `dataKey`, `columnField`. Outputs used: `moved`. Directives used: `mlvTaskboardItemDef` (with `mlvTaskboardItemDefFrom`).

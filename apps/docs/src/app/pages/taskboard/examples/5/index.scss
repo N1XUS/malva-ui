@@ -1,0 +1,52 @@
+@use '../ticket';
+
+.board-header {
+  margin: 0;
+  font-weight: var(--mlv-typography-body-m-weight);
+}
+
+.slot-header {
+  font-weight: var(--mlv-typography-body-m-weight);
+}
+
+.slot-header__count {
+  margin-inline-start: var(--mlv-spacing-2);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+
+.slot-empty {
+  margin: 0;
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}
+
+.slot-add {
+  inline-size: 100%;
+}
+
+.slot-drop {
+  border-radius: var(--mlv-radius-s);
+  background-color: var(--mlv-background-accent-1-pale);
+  color: var(--mlv-text-action);
+  font-size: var(--mlv-typography-body-s-size);
+  padding: var(--mlv-padding-xs);
+  text-align: center;
+}
+
+.slot-drop--invalid {
+  background-color: var(--mlv-background-danger-1-pale);
+  color: var(--mlv-text-negative);
+}
+
+// The status line names cards by id, so this example keeps the id visible —
+// as a tag rather than the old monospace line.
+.ticket__tag--id {
+  font-family: var(--mlv-typography-family-code);
+}
+
+.board-note {
+  margin-block-start: var(--mlv-spacing-3);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}

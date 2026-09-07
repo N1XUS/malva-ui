@@ -34,6 +34,7 @@ import type { MlvSidebarI18n } from './tokens/sidebar';
 import type { MlvSliderI18n } from './tokens/slider';
 import type { MlvStepperI18n } from './tokens/stepper';
 import type { MlvTabsI18n } from './tokens/tabs';
+import type { MlvTaskboardI18n } from './tokens/taskboard';
 import type { MlvTileI18n } from './tokens/tile';
 import type { MlvTimePickerI18n } from './tokens/time-picker';
 import type { MlvToastI18n } from './tokens/toast';
@@ -77,6 +78,7 @@ export interface MlvLanguage {
   slider: MlvSliderI18n;
   stepper: MlvStepperI18n;
   tabs: MlvTabsI18n;
+  taskboard: MlvTaskboardI18n;
   tile: MlvTileI18n;
   timePicker: MlvTimePickerI18n;
   toast: MlvToastI18n;

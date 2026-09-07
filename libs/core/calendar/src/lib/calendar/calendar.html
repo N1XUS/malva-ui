@@ -40,114 +40,138 @@
 </div>
 
 @if (currentView() === 'month') {
-<div class="mlv-calendar__month" [attr.aria-label]="headerLabel()" role="grid">
-  <div class="mlv-calendar__weekdays" role="row">
-    @for (day of weekdays(); track day) {
-    <span class="mlv-calendar__weekday" role="columnheader">{{ day }}</span>
-    }
-  </div>
   <div
-    class="mlv-calendar__days"
-    role="rowgroup"
-    (mouseleave)="clearRangePreview()"
+    class="mlv-calendar__month"
+    [attr.aria-label]="headerLabel()"
+    role="grid"
   >
-    @for (week of monthWeeks(); track $index) {
-    <div class="mlv-calendar__week" role="row">
-      @for (day of week; track trackDay($index, day); let i = $index) {
-      <!--
+    <div class="mlv-calendar__weekdays" role="row">
+      @for (day of weekdays(); track day) {
+        <span class="mlv-calendar__weekday" role="columnheader">{{ day }}</span>
+      }
+    </div>
+    <div
+      class="mlv-calendar__days"
+      role="rowgroup"
+      (mouseleave)="clearRangePreview()"
+    >
+      @for (week of monthWeeks(); track $index) {
+        <div class="mlv-calendar__week" role="row">
+          @for (day of week; track trackDay($index, day); let i = $index) {
+            <!--
         The band is an interval and is painted only on the month's own days —
         `_isCellInRange` carries that guard, and the row caps follow the painted
         run rather than the raw row edge. The endpoint and selected markers
         below are deliberately *not* guarded: they mark one real, clickable
         date, which an adjacent-month cell still renders.
       -->
-      @let inBand = _isCellInRange(day);
-      <div
-        class="mlv-calendar__day-cell"
-        role="gridcell"
-        [attr.aria-selected]="_cellSelected(day)"
-      >
-        <button
-          class="mlv-calendar__cell-button mlv-calendar__day"
-          [class.mlv-calendar__day--active]="isActive(day.date)"
-          [class.mlv-calendar__day--in-range]="inBand"
-          [class.mlv-calendar__day--range-preview]="isRangePreviewing() && inBand"
-          [class.mlv-calendar__day--range-complete]="hasCompletedRange() && inBand"
-          [class.mlv-calendar__day--range-start]="isDisplayRangeStart(day.date)"
-          [class.mlv-calendar__day--range-end]="isDisplayRangeEnd(day.date)"
-          [class.mlv-calendar__day--range-row-start]="_isBandRowStart(week, i)"
-          [class.mlv-calendar__day--range-row-end]="_isBandRowEnd(week, i)"
-          [class.mlv-calendar__day--outside]="!day.currentMonth"
-          [class.mlv-calendar__day--today]="isToday(day.date)"
-          [class.mlv-calendar__day--selected]="isSelected(day.date)"
-          [class.mlv-calendar__day--disabled]="isDateDisabled(day.date)"
-          [attr.tabindex]="isActive(day.date) ? 0 : -1"
-          [attr.aria-label]="getDayLabel(day.date)"
-          [attr.aria-current]="isToday(day.date) ? 'date' : null"
-          [attr.aria-disabled]="isDateDisabled(day.date)"
-          [disabled]="isDateDisabled(day.date)"
-          mlvButton
-          shape="circle"
-          [variant]="isSelected(day.date) || isDisplayRangeStart(day.date) || isDisplayRangeEnd(day.date) ? 'primary' : 'transparent'"
-          mlvDensity="compact"
-          (mouseenter)="previewRange(day.date)"
-          (focus)="previewRange(day.date)"
-          (blur)="clearRangePreview()"
-          (click)="selectDate(day.date)"
-          type="button"
-        >
-          {{ getDayNumber(day.date) }}
-        </button>
-      </div>
+            @let inBand = _isCellInRange(day);
+            <div
+              class="mlv-calendar__day-cell"
+              role="gridcell"
+              [attr.aria-selected]="_cellSelected(day)"
+            >
+              <button
+                class="mlv-calendar__cell-button mlv-calendar__day"
+                [class.mlv-calendar__day--active]="isActive(day.date)"
+                [class.mlv-calendar__day--in-range]="inBand"
+                [class.mlv-calendar__day--range-preview]="
+                  isRangePreviewing() && inBand
+                "
+                [class.mlv-calendar__day--range-complete]="
+                  hasCompletedRange() && inBand
+                "
+                [class.mlv-calendar__day--range-start]="
+                  isDisplayRangeStart(day.date)
+                "
+                [class.mlv-calendar__day--range-end]="
+                  isDisplayRangeEnd(day.date)
+                "
+                [class.mlv-calendar__day--range-row-start]="
+                  _isBandRowStart(week, i)
+                "
+                [class.mlv-calendar__day--range-row-end]="
+                  _isBandRowEnd(week, i)
+                "
+                [class.mlv-calendar__day--outside]="!day.currentMonth"
+                [class.mlv-calendar__day--today]="isToday(day.date)"
+                [class.mlv-calendar__day--selected]="isSelected(day.date)"
+                [class.mlv-calendar__day--disabled]="isDateDisabled(day.date)"
+                [attr.tabindex]="isActive(day.date) ? 0 : -1"
+                [attr.aria-label]="getDayLabel(day.date)"
+                [attr.aria-current]="isToday(day.date) ? 'date' : null"
+                [attr.aria-disabled]="isDateDisabled(day.date)"
+                [disabled]="isDateDisabled(day.date)"
+                mlvButton
+                shape="circle"
+                [variant]="
+                  isSelected(day.date) ||
+                  isDisplayRangeStart(day.date) ||
+                  isDisplayRangeEnd(day.date)
+                    ? 'primary'
+                    : 'transparent'
+                "
+                mlvDensity="compact"
+                (mouseenter)="previewRange(day.date)"
+                (focus)="previewRange(day.date)"
+                (blur)="clearRangePreview()"
+                (click)="selectDate(day.date)"
+                type="button"
+              >
+                {{ getDayNumber(day.date) }}
+              </button>
+            </div>
+          }
+        </div>
       }
     </div>
+  </div>
+}
+@if (currentView() === 'year') {
+  <div
+    class="mlv-calendar__selection-grid"
+    [attr.aria-label]="getYearViewLabel()"
+    role="group"
+  >
+    @for (month of months(); track month; let i = $index) {
+      <button
+        class="mlv-calendar__cell-button mlv-calendar__selection-button mlv-calendar__month-button"
+        [class.mlv-calendar__selection-button--current]="isCurrentMonthIndex(i)"
+        [attr.aria-pressed]="isCurrentMonthIndex(i)"
+        [attr.tabindex]="isCurrentMonthIndex(i) ? 0 : -1"
+        [disabled]="isMonthDisabled(i)"
+        mlvButton
+        [variant]="isCurrentMonthIndex(i) ? 'primary' : 'transparent'"
+        mlvDensity="compact"
+        (click)="selectMonth(i)"
+        type="button"
+      >
+        {{ month }}
+      </button>
     }
   </div>
-</div>
-} @if (currentView() === 'year') {
-<div
-  class="mlv-calendar__selection-grid"
-  [attr.aria-label]="getYearViewLabel()"
-  role="group"
->
-  @for (month of months(); track month; let i = $index) {
-  <button
-    class="mlv-calendar__cell-button mlv-calendar__selection-button mlv-calendar__month-button"
-    [class.mlv-calendar__selection-button--current]="isCurrentMonthIndex(i)"
-    [attr.aria-pressed]="isCurrentMonthIndex(i)"
-    [attr.tabindex]="isCurrentMonthIndex(i) ? 0 : -1"
-    [disabled]="isMonthDisabled(i)"
-    mlvButton
-    [variant]="isCurrentMonthIndex(i) ? 'primary' : 'transparent'"
-    mlvDensity="compact"
-    (click)="selectMonth(i)"
-    type="button"
+}
+@if (currentView() === 'multi-year') {
+  <div
+    class="mlv-calendar__selection-grid"
+    [attr.aria-label]="headerLabel()"
+    role="group"
   >
-    {{ month }}
-  </button>
-  }
-</div>
-} @if (currentView() === 'multi-year') {
-<div
-  class="mlv-calendar__selection-grid"
-  [attr.aria-label]="headerLabel()"
-  role="group"
->
-  @for (year of years(); track year) {
-  <button
-    class="mlv-calendar__cell-button mlv-calendar__selection-button"
-    [class.mlv-calendar__selection-button--current]="isCurrentYear(year)"
-    [attr.aria-pressed]="isCurrentYear(year)"
-    [attr.tabindex]="isCurrentYear(year) ? 0 : -1"
-    [disabled]="isYearDisabled(year)"
-    mlvButton
-    [variant]="isCurrentYear(year) ? 'primary' : 'transparent'"
-    mlvDensity="compact"
-    (click)="selectYear(year)"
-    type="button"
-  >
-    {{ getYearOptionLabel(year) }}
-  </button>
-  }
-</div>
+    @for (year of years(); track year) {
+      <button
+        class="mlv-calendar__cell-button mlv-calendar__selection-button"
+        [class.mlv-calendar__selection-button--current]="isCurrentYear(year)"
+        [attr.aria-pressed]="isCurrentYear(year)"
+        [attr.tabindex]="isCurrentYear(year) ? 0 : -1"
+        [disabled]="isYearDisabled(year)"
+        mlvButton
+        [variant]="isCurrentYear(year) ? 'primary' : 'transparent'"
+        mlvDensity="compact"
+        (click)="selectYear(year)"
+        type="button"
+      >
+        {{ getYearOptionLabel(year) }}
+      </button>
+    }
+  </div>
 }

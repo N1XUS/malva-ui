@@ -1,0 +1,7 @@
+@use '../ticket';
+
+.board-note {
+  margin-block-start: var(--mlv-spacing-3);
+  font-size: var(--mlv-typography-body-s-size);
+  color: var(--mlv-text-secondary);
+}

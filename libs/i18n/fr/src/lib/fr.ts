@@ -426,6 +426,36 @@ const fr: MlvLanguage = {
   tabs: {
     moreTabs: 'Plus d’onglets',
   },
+  taskboard: {
+    boardLabel: 'Tableau des tâches',
+    addCard: 'Ajouter une carte',
+    emptyCell: 'Aucune carte',
+    cardLabel: 'Tâche {label}',
+    laneName: 'Couloir {lane}',
+    keyboardInstructions:
+      'Appuyez sur Espace pour saisir une carte, sur les touches fléchées pour choisir un emplacement, de nouveau sur Espace pour la déposer et sur Échap pour annuler.',
+    grabbed:
+      '{label} saisie. Utilisez les touches fléchées pour choisir un emplacement, Espace pour déposer, Échap pour annuler.',
+    targetValid:
+      'Déplacer vers {column}, position {position} sur {count}. {lane}',
+    targetInvalid: 'Déplacement vers {column} impossible : {reason}. {lane}',
+    moved: '{label} déplacée vers {column}, position {position}. {lane}',
+    moveRejected: '{label} n’a pas été déplacée : {reason}.',
+    moveCancelled: 'Déplacement de {label} annulé.',
+    releasedInPlace: '{label} est restée à sa place.',
+    wipState: '{count} sur {limit}',
+    selectionCount:
+      '{count, plural, =0 {Aucune carte sélectionnée} one {# carte sélectionnée} other {# cartes sélectionnées}}',
+    reasonInvalidDrop: 'cet emplacement n’est pas une cible valide',
+    reasonCancelled: 'le déplacement a été annulé',
+    reasonBeforeMoveRejected: 'l’application a refusé le déplacement',
+    reasonBeforeMoveError: 'l’application n’a pas pu terminer le déplacement',
+    reasonStale: 'le tableau a changé pendant le déplacement',
+    reasonLocked: 'la carte, sa colonne ou son couloir est verrouillé',
+    reasonTransition: 'cette transition de colonne n’est pas autorisée',
+    reasonWip: 'la limite de travaux en cours est atteinte',
+    reasonPolicy: 'le tableau n’autorise pas cette cible',
+  },
   tile: {
     close: 'Fermer',
     tileLabel: 'tuile',

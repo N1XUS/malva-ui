@@ -425,6 +425,35 @@ const pt: MlvLanguage = {
   tabs: {
     moreTabs: 'Mais separadores',
   },
+  taskboard: {
+    boardLabel: 'Quadro de tarefas',
+    addCard: 'Adicionar cartão',
+    emptyCell: 'Sem cartões',
+    cardLabel: 'Tarefa {label}',
+    laneName: 'Faixa {lane}',
+    keyboardInstructions:
+      'Prima Espaço para pegar num cartão, as teclas de seta para escolher uma posição, Espaço novamente para o largar e Escape para cancelar.',
+    grabbed:
+      '{label} agarrado. Use as teclas de seta para escolher uma posição, Espaço para largar, Escape para cancelar.',
+    targetValid: 'Mover para {column}, posição {position} de {count}. {lane}',
+    targetInvalid: 'Não é possível mover para {column}: {reason}. {lane}',
+    moved: '{label} movido para {column}, posição {position}. {lane}',
+    moveRejected: '{label} não foi movido: {reason}.',
+    moveCancelled: 'Movimento de {label} cancelado.',
+    releasedInPlace: '{label} ficou no mesmo lugar.',
+    wipState: '{count} de {limit}',
+    selectionCount:
+      '{count, plural, =0 {Nenhum cartão selecionado} one {# cartão selecionado} other {# cartões selecionados}}',
+    reasonInvalidDrop: 'essa posição não é um destino válido',
+    reasonCancelled: 'o movimento foi cancelado',
+    reasonBeforeMoveRejected: 'a aplicação rejeitou o movimento',
+    reasonBeforeMoveError: 'a aplicação não conseguiu concluir o movimento',
+    reasonStale: 'o quadro mudou enquanto o movimento estava pendente',
+    reasonLocked: 'o cartão, a sua coluna ou a sua faixa está bloqueado',
+    reasonTransition: 'essa transição de coluna não é permitida',
+    reasonWip: 'o limite de trabalho em curso foi atingido',
+    reasonPolicy: 'o quadro não permite esse destino',
+  },
   tile: {
     close: 'Fechar',
     tileLabel: 'bloco',

@@ -1,10 +1,11 @@
 <mlv-form-control-wrapper>
   @if (label() || hint()) {
-  <mlv-label [id]="labelId()" [for]="id()" [required]="required()">
-    {{ label() }} @if (hint()) {
-    <mlv-hint>{{ hint() }}</mlv-hint>
-    }
-  </mlv-label>
+    <mlv-label [id]="labelId()" [for]="id()" [required]="required()">
+      {{ label() }}
+      @if (hint()) {
+        <mlv-hint>{{ hint() }}</mlv-hint>
+      }
+    </mlv-label>
   }
 
   <ng-template mlvFormControlWrapperControl>
@@ -31,11 +32,11 @@
         (blur)="_onTriggerBlur()"
       >
         @if (displayValue) {
-        <span class="mlv-day-picker__value">{{ displayValue }}</span>
+          <span class="mlv-day-picker__value">{{ displayValue }}</span>
         } @else {
-        <span class="mlv-day-picker__placeholder"
-          >{{ _resolvedPlaceholder() }}</span
-        >
+          <span class="mlv-day-picker__placeholder">{{
+            _resolvedPlaceholder()
+          }}</span>
         }
         <span class="mlv-day-picker__icon">
           <svg lucideCalendar></svg>
@@ -86,19 +87,19 @@
             [class.mlv-day-picker__popup--sheet]="dayPopup.isFullscreen()"
           >
             @if (dayPopup.isFullscreen()) {
-            <mlv-calendar-sheet
-              [(value)]="_pendingValue"
-              [min]="min()"
-              [max]="max()"
-            />
+              <mlv-calendar-sheet
+                [(value)]="_pendingValue"
+                [min]="min()"
+                [max]="max()"
+              />
             } @else {
-            <mlv-calendar
-              embedded
-              [value]="value()"
-              (valueChange)="onDateSelected($event)"
-              [min]="min()"
-              [max]="max()"
-            />
+              <mlv-calendar
+                embedded
+                [value]="value()"
+                (valueChange)="onDateSelected($event)"
+                [min]="min()"
+                [max]="max()"
+              />
             }
           </div>
         </ng-template>
@@ -107,10 +108,13 @@
   </ng-template>
 
   @if (description()) {
-  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-  } @if (message()) {
-  <mlv-message [id]="_messageId()" [state]="resolvedState()">
-    {{ message() }}
-  </mlv-message>
+    <mlv-description [id]="_descriptionId()">{{
+      description()
+    }}</mlv-description>
+  }
+  @if (message()) {
+    <mlv-message [id]="_messageId()" [state]="resolvedState()">
+      {{ message() }}
+    </mlv-message>
   }
 </mlv-form-control-wrapper>

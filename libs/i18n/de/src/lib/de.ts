@@ -405,6 +405,37 @@ const de: MlvLanguage = {
   },
   stepper: { optional: 'Optional' },
   tabs: { moreTabs: 'Weitere Tabs' },
+  taskboard: {
+    boardLabel: 'Aufgabenboard',
+    addCard: 'Karte hinzufügen',
+    emptyCell: 'Keine Karten',
+    cardLabel: 'Aufgabe {label}',
+    laneName: 'Bahn {lane}',
+    keyboardInstructions:
+      'Drücken Sie die Leertaste, um eine Karte aufzunehmen, die Pfeiltasten, um einen Platz zu wählen, erneut die Leertaste, um sie abzulegen, und Escape, um abzubrechen.',
+    grabbed:
+      '{label} aufgenommen. Wählen Sie mit den Pfeiltasten einen Platz, legen Sie mit der Leertaste ab, brechen Sie mit Escape ab.',
+    targetValid:
+      'Nach {column} verschieben, Position {position} von {count}. {lane}',
+    targetInvalid: 'Verschieben nach {column} nicht möglich: {reason}. {lane}',
+    moved: '{label} nach {column} verschoben, Position {position}. {lane}',
+    moveRejected: '{label} wurde nicht verschoben: {reason}.',
+    moveCancelled: 'Verschieben von {label} abgebrochen.',
+    releasedInPlace: '{label} wurde an Ort und Stelle belassen.',
+    wipState: '{count} von {limit}',
+    selectionCount:
+      '{count, plural, =0 {Keine Karten ausgewählt} one {# Karte ausgewählt} other {# Karten ausgewählt}}',
+    reasonInvalidDrop: 'dieser Platz ist kein gültiges Ziel',
+    reasonCancelled: 'das Verschieben wurde abgebrochen',
+    reasonBeforeMoveRejected: 'die Anwendung hat das Verschieben abgelehnt',
+    reasonBeforeMoveError:
+      'die Anwendung konnte das Verschieben nicht abschließen',
+    reasonStale: 'das Board hat sich während des Verschiebens geändert',
+    reasonLocked: 'die Karte, ihre Spalte oder ihre Bahn ist gesperrt',
+    reasonTransition: 'dieser Spaltenübergang ist nicht zulässig',
+    reasonWip: 'das Limit für laufende Arbeiten ist erreicht',
+    reasonPolicy: 'das Board lässt dieses Ziel nicht zu',
+  },
   tile: {
     close: 'Schließen',
     tileLabel: 'Kachel',

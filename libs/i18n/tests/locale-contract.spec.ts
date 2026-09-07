@@ -461,12 +461,16 @@ it('preserves every Polish cardinal plural category', () => {
     const branches = branchSignature(message, 'pl');
     for (const [argument, categories] of Object.entries(branches)) {
       if (argument.startsWith('6:')) {
-        expect(categories, `pl:${key}:${argument}`).toEqual([
-          'few',
-          'many',
-          'one',
-          'other',
-        ]);
+        // An `=N` branch is an ICU exact match, not a CLDR plural category:
+        // ICU consults it before the plural rules, so it neither satisfies
+        // nor replaces `one`/`few`/`many`/`other`. Drop those before
+        // comparing, so a message that pins a literal count (English
+        // `taskboard.selectionCount` pins `=0`) is still held to all four
+        // Polish categories.
+        expect(
+          categories.filter((category) => !category.startsWith('=')),
+          `pl:${key}:${argument}`,
+        ).toEqual(['few', 'many', 'one', 'other']);
       }
     }
   }

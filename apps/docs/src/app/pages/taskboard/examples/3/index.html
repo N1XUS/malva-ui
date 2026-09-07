@@ -1,0 +1,44 @@
+<mlv-taskboard
+  [(items)]="tickets"
+  [(columns)]="columns"
+  [transitions]="transitions"
+  [lockedItemIds]="lockedItemIds"
+  [canDropFn]="canDrop"
+  dataKey="id"
+  columnField="status"
+  (moveCancelled)="onMoveCancelled($event)"
+>
+  <ng-template
+    mlvTaskboardItemDef
+    [mlvTaskboardItemDefFrom]="ticketType"
+    let-card
+  >
+    <span class="ticket__title">{{ card.title }}</span>
+    @if (card.description) {
+      <span class="ticket__description">{{ card.description }}</span>
+    }
+    <span class="ticket__tags">
+      @for (tag of card.tags; track tag) {
+        <span class="ticket__tag">{{ tag }}</span>
+      }
+      @if (isLocked(card.id)) {
+        <span class="ticket__tag ticket__tag--locked">
+          <svg lucideLock [size]="12" aria-hidden="true"></svg>
+          Locked
+        </span>
+      } @else if (card.needsReview) {
+        <span class="ticket__tag">Needs review</span>
+      }
+    </span>
+    <span class="ticket__footer">
+      <mlv-avatar
+        class="ticket__avatar"
+        size="xs"
+        [name]="card.owner"
+        [color]="card.owner | mlvColorFromText"
+      />
+    </span>
+  </ng-template>
+</mlv-taskboard>
+
+<p class="board-note" aria-live="polite">{{ lastRefusal() }}</p>

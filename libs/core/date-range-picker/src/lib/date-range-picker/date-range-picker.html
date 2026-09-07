@@ -1,10 +1,11 @@
 <mlv-form-control-wrapper>
   @if (label() || hint()) {
-  <mlv-label [for]="id()" [required]="required()">
-    {{ label() }} @if (hint()) {
-    <mlv-hint>{{ hint() }}</mlv-hint>
-    }
-  </mlv-label>
+    <mlv-label [for]="id()" [required]="required()">
+      {{ label() }}
+      @if (hint()) {
+        <mlv-hint>{{ hint() }}</mlv-hint>
+      }
+    </mlv-label>
   }
 
   <ng-template mlvFormControlWrapperControl>
@@ -24,7 +25,9 @@
         [attr.tabindex]="computedDisabled() ? -1 : 0"
         (click)="toggleDropdown()"
         (keydown.enter)="!computedDisabled() && toggleDropdown()"
-        (keydown.space)="!computedDisabled() && toggleDropdown(); $event.preventDefault()"
+        (keydown.space)="
+          !computedDisabled() && toggleDropdown(); $event.preventDefault()
+        "
         (keydown.escape)="closeDropdown()"
         (focus)="setFocused(true)"
         (blur)="_onTriggerBlur()"
@@ -34,21 +37,21 @@
         </span>
 
         @if (startDisplayValue || endDisplayValue) {
-        <span class="mlv-date-range-picker__value">
-          <span class="mlv-date-range-picker__value-start"
-            >{{ startDisplayValue || '...' }}</span
-          >
-          <span class="mlv-date-range-picker__separator" aria-hidden="true"
-            >—</span
-          >
-          <span class="mlv-date-range-picker__value-end"
-            >{{ endDisplayValue || '...' }}</span
-          >
-        </span>
+          <span class="mlv-date-range-picker__value">
+            <span class="mlv-date-range-picker__value-start">{{
+              startDisplayValue || '...'
+            }}</span>
+            <span class="mlv-date-range-picker__separator" aria-hidden="true"
+              >—</span
+            >
+            <span class="mlv-date-range-picker__value-end">{{
+              endDisplayValue || '...'
+            }}</span>
+          </span>
         } @else {
-        <span class="mlv-date-range-picker__placeholder"
-          >{{ _resolvedPlaceholder() }}</span
-        >
+          <span class="mlv-date-range-picker__placeholder">{{
+            _resolvedPlaceholder()
+          }}</span>
         }
       </div>
 
@@ -105,91 +108,91 @@
             (keydown.escape)="closeDropdown()"
           >
             @if (rangePopup.isFullscreen()) {
-            <!--
+              <!--
               The sheet is the whole body: one continuous scroll of months with
               its own year strip and fixed weekday header. It replaces the
               side-by-side panels rather than hiding one of them, so a range
               spanning two months is visible end to end (#130).
             -->
-            <mlv-calendar-sheet
-              range
-              [(rangeValue)]="_pendingRange"
-              [min]="min()"
-              [max]="max()"
-              [disabledDates]="disabledDates()"
-            />
+              <mlv-calendar-sheet
+                range
+                [(rangeValue)]="_pendingRange"
+                [min]="min()"
+                [max]="max()"
+                [disabledDates]="disabledDates()"
+              />
             } @else {
-            <div class="mlv-date-range-picker__calendars">
-              <div
-                class="mlv-date-range-picker__calendar"
-                role="group"
-                [attr.aria-label]="_i18n().startMonth"
-              >
-                <mlv-calendar
-                  embedded
-                  [range]="true"
-                  [followSelection]="false"
-                  [activeDate]="leftCalendarActiveDate()"
-                  [rangeValue]="_pendingRange()"
-                  [min]="min()"
-                  [max]="max()"
-                  [disabledDates]="disabledDates()"
-                  (activeDateChange)="_onLeftActiveDateChange($event)"
-                  (rangeValueChange)="onRangeChanged($event)"
-                />
+              <div class="mlv-date-range-picker__calendars">
+                <div
+                  class="mlv-date-range-picker__calendar"
+                  role="group"
+                  [attr.aria-label]="_i18n().startMonth"
+                >
+                  <mlv-calendar
+                    embedded
+                    [range]="true"
+                    [followSelection]="false"
+                    [activeDate]="leftCalendarActiveDate()"
+                    [rangeValue]="_pendingRange()"
+                    [min]="min()"
+                    [max]="max()"
+                    [disabledDates]="disabledDates()"
+                    (activeDateChange)="_onLeftActiveDateChange($event)"
+                    (rangeValueChange)="onRangeChanged($event)"
+                  />
+                </div>
+
+                <div
+                  class="mlv-date-range-picker__divider"
+                  aria-hidden="true"
+                ></div>
+
+                <div
+                  class="mlv-date-range-picker__calendar mlv-date-range-picker__calendar--end"
+                  role="group"
+                  [attr.aria-label]="_i18n().endMonth"
+                >
+                  <mlv-calendar
+                    embedded
+                    [range]="true"
+                    [followSelection]="false"
+                    [activeDate]="rightCalendarActiveDate()"
+                    [rangeValue]="_pendingRange()"
+                    [min]="min()"
+                    [max]="max()"
+                    [disabledDates]="disabledDates()"
+                    (activeDateChange)="_onRightActiveDateChange($event)"
+                    (rangeValueChange)="onRangeChanged($event)"
+                  />
+                </div>
               </div>
 
-              <div
-                class="mlv-date-range-picker__divider"
-                aria-hidden="true"
-              ></div>
+              <div class="mlv-date-range-picker__footer">
+                <button
+                  mlvButton
+                  variant="transparent"
+                  size="s"
+                  type="button"
+                  class="mlv-date-range-picker__clear-btn"
+                  (click)="clearSelection()"
+                  [attr.aria-label]="_i18n().clearDateRange"
+                >
+                  Clear
+                </button>
 
-              <div
-                class="mlv-date-range-picker__calendar mlv-date-range-picker__calendar--end"
-                role="group"
-                [attr.aria-label]="_i18n().endMonth"
-              >
-                <mlv-calendar
-                  embedded
-                  [range]="true"
-                  [followSelection]="false"
-                  [activeDate]="rightCalendarActiveDate()"
-                  [rangeValue]="_pendingRange()"
-                  [min]="min()"
-                  [max]="max()"
-                  [disabledDates]="disabledDates()"
-                  (activeDateChange)="_onRightActiveDateChange($event)"
-                  (rangeValueChange)="onRangeChanged($event)"
-                />
+                <button
+                  mlvButton
+                  variant="primary"
+                  size="s"
+                  type="button"
+                  class="mlv-date-range-picker__apply-btn"
+                  [attr.disabled]="canApply() ? null : true"
+                  (click)="applySelection()"
+                  [attr.aria-label]="_i18n().applyDateRange"
+                >
+                  Apply
+                </button>
               </div>
-            </div>
-
-            <div class="mlv-date-range-picker__footer">
-              <button
-                mlvButton
-                variant="transparent"
-                size="s"
-                type="button"
-                class="mlv-date-range-picker__clear-btn"
-                (click)="clearSelection()"
-                [attr.aria-label]="_i18n().clearDateRange"
-              >
-                Clear
-              </button>
-
-              <button
-                mlvButton
-                variant="primary"
-                size="s"
-                type="button"
-                class="mlv-date-range-picker__apply-btn"
-                [attr.disabled]="canApply() ? null : true"
-                (click)="applySelection()"
-                [attr.aria-label]="_i18n().applyDateRange"
-              >
-                Apply
-              </button>
-            </div>
             }
           </div>
         </ng-template>
@@ -198,10 +201,13 @@
   </ng-template>
 
   @if (description()) {
-  <mlv-description [id]="_descriptionId()">{{ description() }}</mlv-description>
-  } @if (message()) {
-  <mlv-message [id]="_messageId()" [state]="resolvedState()">
-    {{ message() }}
-  </mlv-message>
+    <mlv-description [id]="_descriptionId()">{{
+      description()
+    }}</mlv-description>
+  }
+  @if (message()) {
+    <mlv-message [id]="_messageId()" [state]="resolvedState()">
+      {{ message() }}
+    </mlv-message>
   }
 </mlv-form-control-wrapper>

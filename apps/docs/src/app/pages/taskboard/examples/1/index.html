@@ -1,0 +1,33 @@
+<mlv-taskboard
+  [(items)]="tickets"
+  [(columns)]="columns"
+  dataKey="id"
+  columnField="status"
+  (moved)="onMoved($event)"
+>
+  <ng-template
+    mlvTaskboardItemDef
+    [mlvTaskboardItemDefFrom]="ticketType"
+    let-card
+  >
+    <span class="ticket__title">{{ card.title }}</span>
+    @if (card.description) {
+      <span class="ticket__description">{{ card.description }}</span>
+    }
+    <span class="ticket__tags">
+      @for (tag of card.tags; track tag) {
+        <span class="ticket__tag">{{ tag }}</span>
+      }
+    </span>
+    <span class="ticket__footer">
+      <mlv-avatar
+        class="ticket__avatar"
+        size="xs"
+        [name]="card.owner"
+        [color]="card.owner | mlvColorFromText"
+      />
+    </span>
+  </ng-template>
+</mlv-taskboard>
+
+<p class="board-note" aria-live="polite">{{ lastMove() }}</p>
