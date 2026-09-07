@@ -207,6 +207,7 @@ Convert route params before binding.
 - The ellipsis "jump to page" field is a `mlv-input` (`type="number"`) with `[ariaLabel]="_i18n().goToPage"` (English: "Go to page") so it has an accessible name despite only showing a `...` placeholder.
 - i18n keys consumed: `navigationLabel`, `previousPage`, `nextPage`, `page`, `goToPage`, plus the ICU display keys `itemRange`, `itemCount`, `itemsPerPage` and `allItems` — see `MLV_PAGINATION_I18N`. (`items` is declared on `MlvPaginationI18n` but this component does not read it.)
 - Items-per-page selector: the trigger declares `aria-haspopup="listbox"` (via `MlvPopupTrigger`'s `ariaHasPopup` input) plus `aria-controls` pointing at the panel's `listboxId`, and `MlvPopupTrigger` reflects `aria-expanded`. The listbox semantics — roles, `aria-selected`, roving focus and type-ahead — come from `mlv-dropdown-panel` rather than being wired here, which also closes the roving-tabindex gap the hand-rolled list had.
+- The popup's listbox is **named**: `mlv-dropdown-panel` takes `[ariaLabel]="_perPageListboxLabel()"`. The panel renders an `mlv-list[selectable]` whose host claims `role="listbox"`, a listbox owes an accessible name (axe `aria-input-field-name`, WCAG 4.1.2), and the panel invents none of its own — without this the popup opened an unnamed listbox. The wording reuses the current selection's own label (`_resolvedPerPageLabel`) — "10 items per page", or "All (Z)" for `Infinity` — so it needs no new i18n key and stays translated in every pack.
 
 ---
 

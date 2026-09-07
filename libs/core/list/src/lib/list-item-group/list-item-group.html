@@ -8,7 +8,13 @@
   <svg class="mlv-list-item-group__arrow" size="16" lucideChevronRight></svg>
   <span>{{ label() }}</span>
 </button>
-<div class="mlv-list-item-group__content" [id]="_contentId">
+<!--
+  role="list" so the mlv-list-item rows nested in this group keep the `list`
+  context their `listitem` role requires: the group host is itself a `listitem`
+  of the outer mlv-list (see its `host` block), and a `listitem` is not a valid
+  parent for another one.
+-->
+<div class="mlv-list-item-group__content" role="list" [id]="_contentId">
   <div>
     <div>
       <ng-content />

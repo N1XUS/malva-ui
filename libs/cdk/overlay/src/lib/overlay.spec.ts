@@ -16,6 +16,7 @@ import type {
 import { OverlayModule } from '@angular/cdk/overlay';
 import { A11yModule } from '@angular/cdk/a11y';
 import { firstValueFrom } from 'rxjs';
+import { expectNoAxeViolations, runAxe } from '@malva-ui/internal-testing/axe';
 
 import type { MlvBaseOverlayConfig } from './overlay-config';
 import { MlvOverlayRef } from './overlay-ref';
@@ -126,7 +127,17 @@ describe('MlvOverlayRef', () => {
   template: `
     <button class="trigger">Open</button>
     <ng-template #tpl>
-      <div class="test-panel" role="dialog" (animationend)="onAnimationEnd()">
+      <!-- aria-label is the harness playing the part of a real subclass:
+           MlvOverlayHostBase emits no ARIA of its own, and MlvDrawer names its
+           own role="dialog" surface (through mlv-drawer-header's
+           aria-labelledby registration). Without it the sweep below would be
+           judging a subclass nobody ships. -->
+      <div
+        class="test-panel"
+        role="dialog"
+        aria-label="Test overlay"
+        (animationend)="onAnimationEnd()"
+      >
         <button class="mlv-button--close">Close</button>
         <button class="inside">Inside</button>
       </div>
@@ -487,5 +498,149 @@ describe('MlvOverlayServiceBase', () => {
 
     expect(document.activeElement).toBe(trigger);
     trigger.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Accessibility
+// ---------------------------------------------------------------------------
+
+/**
+ * A subclass that names its pane, which is what `MlvOverlayServiceBase`'s
+ * contract asks of one: the base writes `role="dialog"` + `aria-modal="true"`
+ * and stops there, leaving the accessible name to `_decoratePanel`.
+ * `MlvDrawerService` does exactly this (`panelEl.setAttribute('aria-label',
+ * this._i18n().drawer)`), so this is the shipped shape, and
+ * `TestOverlayService` above — which omits it — is the counter-example the
+ * last test in this file pins.
+ */
+@Injectable()
+class NamedOverlayService extends TestOverlayService {
+  protected override _decoratePanel(panelEl: HTMLElement): void {
+    super._decoratePanel(panelEl);
+    panelEl.setAttribute('aria-label', 'Test overlay');
+  }
+}
+
+/**
+ * Accessibility sweeps.
+ *
+ * Both overlay paths portal their pane to `<body>`, outside the fixture, so
+ * every sweep here is rooted at the `.cdk-overlay-container` that actually
+ * holds the panel — `fixture.nativeElement` never contains it, and a sweep
+ * rooted there would pass while asserting nothing about the overlay.
+ *
+ * The states swept are the ones that change what is in that container: open
+ * with a backdrop, open without one, and the imperative service path (whose
+ * pane carries `role`/`aria-modal`/`tabindex` written by the base rather than
+ * by a template).
+ */
+describe('MlvOverlayHostBase accessibility', () => {
+  let fixture: ComponentFixture<TestHostComponent>;
+  let host: TestHostComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [TestHostComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(TestHostComponent);
+    host = fixture.componentInstance;
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    fixture.destroy();
+    fixture.nativeElement.remove();
+    document
+      .querySelectorAll('.cdk-overlay-container')
+      .forEach((el) => el.remove());
+  });
+
+  /** The `.cdk-overlay-container` holding the attached panel. */
+  function overlayContainer(): HTMLElement {
+    const panel = document.querySelector('.test-panel');
+    expect(panel).not.toBeNull();
+    const container = panel?.closest('.cdk-overlay-container');
+    expect(container).not.toBeNull();
+    return container as HTMLElement;
+  }
+
+  it('has no axe violations for an open modal overlay with a backdrop', async () => {
+    host.opened.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // State: pane attached, backdrop rendered, focus moved inside.
+    const container = overlayContainer();
+    expect(container.querySelector('.test-host-backdrop')).not.toBeNull();
+
+    await expectNoAxeViolations(container);
+  });
+
+  it('has no axe violations for an open overlay with no backdrop', async () => {
+    fixture.componentRef.setInput('hasBackdrop', false);
+    host.opened.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // State: same pane, no backdrop element between it and the page.
+    const container = overlayContainer();
+    expect(container.querySelector('.test-host-backdrop')).toBeNull();
+
+    await expectNoAxeViolations(container);
+  });
+});
+
+describe('MlvOverlayServiceBase accessibility', () => {
+  afterEach(() => {
+    document
+      .querySelectorAll('.cdk-overlay-container')
+      .forEach((el) => el.remove());
+  });
+
+  it('has no axe violations for a named service-opened pane', async () => {
+    TestBed.configureTestingModule({ providers: [NamedOverlayService] });
+    const service = TestBed.inject(NamedOverlayService);
+    service.open(TestContentComponent);
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    const panel = document.querySelector('.test-svc-panel') as HTMLElement;
+    // State: the semantics the base writes onto every pane it opens.
+    expect(panel.getAttribute('role')).toBe('dialog');
+    expect(panel.getAttribute('aria-modal')).toBe('true');
+    expect(panel.getAttribute('tabindex')).toBe('-1');
+
+    await expectNoAxeViolations(
+      panel.closest('.cdk-overlay-container') as HTMLElement,
+    );
+  });
+
+  /**
+   * Non-vacuity, and the base's contract stated as a test. `role="dialog"` with
+   * `aria-modal="true"` and no accessible name is a real WCAG 4.1.2 failure, and
+   * `MlvOverlayServiceBase` writes that pair without ever naming the pane — so a
+   * subclass whose `_decoratePanel` forgets the name ships an unnamed modal.
+   * `TestOverlayService` is that subclass; asserting the violation here is what
+   * keeps the clean sweep above from being clean because axe saw nothing.
+   */
+  it('leaves a subclass that never names its pane failing aria-dialog-name', async () => {
+    TestBed.configureTestingModule({ providers: [TestOverlayService] });
+    const service = TestBed.inject(TestOverlayService);
+    service.open(TestContentComponent);
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    const panel = document.querySelector('.test-svc-panel') as HTMLElement;
+    expect(panel.hasAttribute('aria-label')).toBe(false);
+    expect(panel.hasAttribute('aria-labelledby')).toBe(false);
+
+    const results = await runAxe(
+      panel.closest('.cdk-overlay-container') as HTMLElement,
+    );
+    expect(results.violations.map((violation) => violation.id)).toContain(
+      'aria-dialog-name',
+    );
   });
 });
