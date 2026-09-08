@@ -45,8 +45,16 @@ export class MlvLabel {
    * `for` attribute is rendered at all, because a `for` that names nothing
    * reads as associated in review while focusing nothing (#197). An explicit
    * value always wins.
+   *
+   * `null` and `undefined` are accepted and mean the same as `''` — emit no
+   * `for`. That is what a control binding its own label's
+   * `[for]="_ownLabelFor()"` passes while its name target is not labelable
+   * (#216); the read type stays `string`, so nothing that consumed this input
+   * has to widen.
    */
-  readonly for = input<string>('');
+  readonly for = input<string, string | null | undefined>('', {
+    transform: (value) => value ?? '',
+  });
 
   /**
    * Id of the rendered `<label>` element. Stable for the lifetime of the

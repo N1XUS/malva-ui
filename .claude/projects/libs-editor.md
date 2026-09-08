@@ -821,6 +821,27 @@ upload progress, task checkboxes, and resize handles expose their relevant
 roles, labels, and states. Composite focus prevents toolbar and owned overlays
 from producing false blur/touch events.
 
+### Its own label (2026-09, #216)
+
+`MlvEditor`'s own `<mlv-label>` bound `[for]="id()"`, but `id()` is on no
+element in the editor's view: ProseMirror's contenteditable `div` is not
+labelable and takes its name from `aria-labelledby` pointing at the label host
+(`` `${id()}-label` ``). The `for` therefore named nothing while reading as an
+association in review, and focused nothing on click. It now binds
+`[for]="_ownLabelFor()"`, which is `null` for this control's `'none'` strategy,
+so no `for` attribute is emitted at all. The accessible name is unchanged.
+
+The label also binds `(click)="_onLabelClick()"`, which runs Tiptap's `focus`
+command — the click-to-focus a native `<label for>` would have given it, and
+the same gap the three date/time pickers close on their triggers. `focus()`
+restores the stored selection rather than dropping the caret at the document
+start; `readonly` still focuses (a read-only `<textarea>` does) and
+`computedDisabled()` returns early. Both halves are pinned by
+`editor-a11y.spec.ts`. Note for spec authors: Tiptap defers the DOM focus into
+a `requestAnimationFrame`, so `await fixture.whenStable()` alone lands before
+it — the suite waits a frame, and a negative assertion that does not is
+vacuous.
+
 ### DOM listener conventions
 
 Every DOM listener in this library goes through `fromEvent` with an explicit

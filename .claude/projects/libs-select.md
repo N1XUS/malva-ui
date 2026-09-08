@@ -635,3 +635,14 @@ fix's scope".
 
 Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
 `.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
+
+## Its own label (2026-09, #216)
+
+The `<mlv-label>` `MlvSelect` renders from its own `label` input binds
+`[for]="_ownLabelFor()"`, which is `id()` **only while the native `<select>` is
+the live surface** and `null` behind the custom trigger — where `id()` sits on
+a `div[role="combobox"]` a `<label for>` cannot name. It previously emitted
+`[for]="id()"` unconditionally: a dangling attribute that read as an
+association while naming nothing. The name is unchanged either way, through
+`aria-labelledby`. `(click)="_onLabelClick()"` on the label is unchanged and
+still **opens** the dropdown behind the custom trigger.

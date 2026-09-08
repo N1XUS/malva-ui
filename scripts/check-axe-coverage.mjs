@@ -220,8 +220,6 @@ export const EXEMPT = {
 export const ROLLOUT_PENDING = [
   // libs/core
   'core-color-picker',
-  'core-date-range-picker',
-  'core-day-picker',
   'core-dropdown',
   'core-file-upload',
   'core-form',
@@ -238,7 +236,6 @@ export const ROLLOUT_PENDING = [
   'core-split-pane',
   'core-tabs',
   'core-textarea',
-  'core-time-picker',
   'core-toast',
   'core-tokenizer',
   'core-tooltip',

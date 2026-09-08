@@ -217,61 +217,65 @@ describe('MlvInputNative / projectControl — the single projection slot', () =>
 });
 
 /**
- * Pins the naming gap this PR knowingly ships — NOT clean, deferred.
+ * Pins what still does NOT name the projected control — NOT clean, deferred.
  *
- * Making the wrapped shape render at all is what exposes it: before #256 the
- * branch rendered no control, so there was nothing to name and nothing to point
- * a `for` at. Now there is, and two separate defects are reachable:
+ * Making the wrapped shape render at all (#256) is what made any of this
+ * reachable: before it the branch rendered no control, so there was nothing to
+ * name and nothing to point a `for` at. Two defects became visible then, and
+ * one of them is now fixed:
  *
- * 1. `input.html`'s own `<mlv-label [for]="id()">` binds explicitly, and
- *    `MlvLabel._resolvedFor` returns an explicit `for` before it consults the
- *    `labelTarget` machinery — so the attribute is emitted even though, under
- *    `projectControl`, nothing carries `id()`: the internal `<input [id]>` is
- *    not rendered and `MlvInputNative` assigns no id of its own. A `for` naming
- *    nothing. Owned by #216, which converts all eight such bindings at once.
- * 2. `mlv-input` emits no accessible name for the consumer's input, so it has
- *    one only if the consumer writes `aria-label` / `aria-labelledby`. Owned by
- *    #259, which will name it from the component's own `<mlv-label>`.
+ * 1. FIXED by #216. `input.html` bound `<mlv-label [for]="id()">`
+ *    unconditionally, and `MlvLabel._resolvedFor` returns an explicit `for`
+ *    before it consults the `labelTarget` machinery — so the attribute was
+ *    emitted even though, under `projectControl`, nothing carries `id()`: the
+ *    internal `<input [id]>` is not rendered and `MlvInputNative` assigns no id
+ *    of its own. It now binds `[for]="_ownLabelFor()"`, which reads
+ *    `labelTarget()` — `null` here, because `_externalLabelStrategy()` is
+ *    `'none'` under `projectControl` — so no attribute is emitted at all. The
+ *    assertion below is the inverse of the one it replaces, deliberately: a
+ *    `for` that resolves to nothing must stay absent, not come back empty.
+ * 2. STILL OPEN, #259. `mlv-input` emits no accessible name for the consumer's
+ *    input, so it has one only if the consumer writes `aria-label` /
+ *    `aria-labelledby`. The visible `<mlv-label>` is now honestly unassociated
+ *    rather than dishonestly associated — better, but still not a name.
  *
- * Deliberately asserted with plain DOM reads rather than a narrowed axe sweep:
- * axe raises `label` for (2) but has no rule at all for (1), so a sweep could
- * only pin half the state and would pin that half by DISABLING the rule that
- * sees it — i.e. by asserting nothing. These reads assert both halves
- * positively. (A sweep would also cost `core-input`'s `ROLLOUT_PENDING` line in
- * `scripts/check-axe-coverage.mjs`, which one `hasAxe` boolean ties to both the
- * `uncovered` and `stale-rollout` rules; that list only ever shrinks, so the
- * first sweep commits the project to full-state coverage — a bigger promise
- * than a projection-slot fix should be making.)
+ * Deliberately asserted with plain DOM reads rather than a narrowed axe sweep.
+ * Axe raises `label` for (2) but had no rule at all for (1), so a sweep could
+ * only ever pin half of this, and would pin that half by DISABLING the rule
+ * that sees it — i.e. by asserting nothing. (A sweep would also cost
+ * `core-input`'s `ROLLOUT_PENDING` line in `scripts/check-axe-coverage.mjs`,
+ * which one `hasAxe` boolean ties to both the `uncovered` and `stale-rollout`
+ * rules; that list only ever shrinks, so the first sweep commits the project to
+ * full-state coverage — a bigger promise than a projection-slot fix should be
+ * making.)
  *
- * EXPECTED TO GO RED when either issue lands. That is the point: #216 flips the
- * first expectation to `hasAttribute('for') === false`, #259 the second to a
+ * EXPECTED TO GO RED when #259 lands: the last two expectations become a
  * resolved name. Update it there, do not delete it.
  */
-describe('MlvInputNative / projectControl — the known naming gap (#216, #259)', () => {
+describe('MlvInputNative / projectControl — the projected control is still unnamed (#259)', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       providers: [provideMlvI18nTesting()],
     }).compileComponents();
   });
 
-  it('still emits a dangling `for` and leaves the projected input unnamed', async () => {
+  it('emits no `for` at all, and nothing else names the projected input', async () => {
     const fixture = TestBed.createComponent(WrappedProjectedHostComponent);
     fixture.detectChanges();
     await fixture.whenStable();
     const host = fixture.nativeElement as HTMLElement;
 
-    // The control the fix restored, so the gap below is reachable at all.
+    // The control #256 restored, so the gap below is reachable at all.
     const control = host.querySelector<HTMLInputElement>('input');
     expect(control?.id).toBe('wrapped-native');
 
-    // (1) #216 — the label points at an id no element in the tree carries.
+    // (1) #216 — the label is rendered, and carries no `for`. Not `for=""`,
+    // and not a `for` naming some other element: no attribute.
     const label = host.querySelector('label');
-    const forAttr = label?.getAttribute('for') ?? null;
-    expect(forAttr).not.toBeNull();
-    expect(forAttr).not.toBe('wrapped-native');
-    expect(host.querySelector(`[id="${forAttr}"]`)).toBeNull();
+    expect(label).not.toBeNull();
+    expect(label?.hasAttribute('for')).toBe(false);
 
-    // (2) #259 — and nothing else names the control either.
+    // (2) #259 — so nothing names the control at all.
     expect(control?.getAttribute('aria-label')).toBeNull();
     expect(control?.getAttribute('aria-labelledby')).toBeNull();
   });

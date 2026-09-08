@@ -331,3 +331,12 @@ the i18n fallback still applies.
 
 Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
 `.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
+
+## Its own label (2026-09, #216)
+
+The `<mlv-label>` `MlvTokenizer` renders from its own `label` input binds
+`[for]="_ownLabelFor()"` instead of `[for]="id()"`, so it follows the same
+enabled / disabled split as the projected case. Enabled, nothing changes.
+**Disabled** the inner `mlv-input` is not rendered, so the `for` is now absent
+rather than pointing at an id no element carries; a disabled control is not a
+tab stop and no name is due.

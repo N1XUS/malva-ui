@@ -356,6 +356,20 @@ export class MlvTimePicker
     this._triggerRef()?.nativeElement.focus();
   }
 
+  /**
+   * @protected Focuses the trigger when the control's own `<mlv-label>` is
+   * clicked.
+   *
+   * The trigger is a `div`, so `<label for>` cannot name it and the native
+   * click-to-focus a field label owes its control never runs — the label was
+   * inert on click (#216). Focus only: opening the overlay is more than a
+   * native label click does, and a stray click should not raise a modal.
+   */
+  protected _onLabelClick(): void {
+    if (this.computedDisabled()) return;
+    this._triggerRef()?.nativeElement.focus();
+  }
+
   /** @protected Marks the control touched when the trigger loses focus. */
   protected _onTriggerBlur(): void {
     this.setFocused(false);

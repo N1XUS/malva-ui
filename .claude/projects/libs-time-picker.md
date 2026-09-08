@@ -324,3 +324,27 @@ mismatch.
 
 Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
 `.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
+
+## Its own label (2026-09, #216)
+
+The `<mlv-label>` `MlvTimePicker` renders from its own `label` input binds
+`[for]="_ownLabelFor()"`, which is `null` here — the strategy is `'aria'`, so
+no `for` attribute is emitted at all. It previously emitted `[for]="id()"`,
+pointing at the trigger `div`: an attribute that read as an association while
+naming nothing, and that focused nothing on click. The name is unchanged,
+through `aria-labelledby`.
+
+The label now binds `(click)="_onLabelClick()"`, which focuses the trigger —
+the click-to-focus a native `<label for>` would have provided. It focuses only;
+opening the panel is more than a native label click does, and the handler
+returns early while `computedDisabled()`.
+
+`core-time-picker` left `ROLLOUT_PENDING` in `scripts/check-axe-coverage.mjs`
+with this change. What earns that is `time-picker-a11y.spec.ts`, which sweeps
+four states from `document.body` — closed, the anchored 24h panel, the 12h
+panel with seconds (three drums plus the AM/PM button pair), and the
+full-screen sheet. The drums are `mlv-scrubber`'s `@angular/aria` listbox in
+activedescendant mode and exist only while open, portaled into the CDK overlay
+container. The suite stubs `MlvBreakpointService`: jsdom's `matchMedia` never
+matches a `min-width` query, so the real service is pinned to `'sm'` and every
+open would be the sheet.

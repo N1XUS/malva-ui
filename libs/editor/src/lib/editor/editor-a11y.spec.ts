@@ -75,6 +75,77 @@ describe('MlvEditor accessibility', () => {
     expect(content.getAttribute('tabindex')).toBe('-1');
   });
 
+  /**
+   * The same dangling-`for` shape as #216's five. `mlv-editor`'s own
+   * `<mlv-label>` bound `[for]="id()"`, but `id()` is on no element in the
+   * editor's view — ProseMirror's contenteditable `div` is not labelable and
+   * takes its name through `aria-labelledby` instead (asserted above). A `for`
+   * that resolves to nothing reads as an association in review while naming
+   * nothing.
+   */
+  it('emits no `for` from its own label onto the contenteditable', async () => {
+    const fixture = await createHost();
+    const root = fixture.nativeElement as HTMLElement;
+    const label = root.querySelector('mlv-label label') as HTMLLabelElement;
+
+    expect(label.hasAttribute('for')).toBe(false);
+  });
+
+  /**
+   * Tiptap's `focus` command moves DOM focus inside a `requestAnimationFrame`,
+   * so a `whenStable()` alone lands before it. Both label-click assertions
+   * below — the positive and the negative — wait a frame, so the negative is a
+   * real negative rather than a read taken too early.
+   */
+  const nextFrame = (): Promise<void> =>
+    new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
+  /**
+   * The other half of #216 for this control: a `for` that named nothing also
+   * meant no native click-to-focus, so the visible label was inert. The three
+   * date/time pickers close the same gap by focusing their trigger; here the
+   * focus target is ProseMirror's contenteditable root.
+   */
+  it('focuses the editable content when its own label is clicked', async () => {
+    const fixture = await createHost();
+    const root = fixture.nativeElement as HTMLElement;
+    const label = root.querySelector('mlv-label label') as HTMLLabelElement;
+    const content = root.querySelector('.ProseMirror') as HTMLElement;
+    expect(document.activeElement).not.toBe(content);
+
+    label.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await nextFrame();
+
+    expect(document.activeElement).toBe(content);
+  });
+
+  /**
+   * Measured, so it is not over-claimed: this holds the **behaviour**, not the
+   * `computedDisabled()` guard in `_onLabelClick`. Ablating that guard leaves
+   * this green, because a disabled editor is also non-editable and
+   * ProseMirror's `EditorView.focus()` refuses on a non-editable view. Two
+   * mechanisms, one outcome — the assertion fails only if both regress, which
+   * is what a consumer actually cares about.
+   */
+  it('does not focus the content from a label click while disabled', async () => {
+    const fixture = await createHost();
+    const root = fixture.nativeElement as HTMLElement;
+    fixture.componentInstance.disabled.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const label = root.querySelector('mlv-label label') as HTMLLabelElement;
+    const content = root.querySelector('.ProseMirror') as HTMLElement;
+
+    label.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await nextFrame();
+
+    expect(document.activeElement).not.toBe(content);
+  });
+
   it('uses Tiptap placeholder decorations without serializing placeholder text', async () => {
     const fixture = await createHost();
     const editor = fixture.componentInstance.editor().editor();

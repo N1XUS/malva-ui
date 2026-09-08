@@ -173,3 +173,26 @@ suppressed when either resolves.
 
 Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
 `.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
+
+## Its own label (2026-09, #216)
+
+The `<mlv-label>` `MlvDayPicker` renders from its own `label` input binds
+`[for]="_ownLabelFor()"`, which is `null` here — the strategy is `'aria'`, so
+no `for` attribute is emitted at all. It previously emitted `[for]="id()"`,
+pointing at the trigger `div`: an attribute that read as an association while
+naming nothing, and that focused nothing on click. The name is unchanged,
+through `aria-labelledby`.
+
+The label now binds `(click)="_onLabelClick()"`, which focuses the trigger —
+the click-to-focus a native `<label for>` would have provided. It focuses only;
+opening the calendar is more than a native label click does, and the handler
+returns early while `computedDisabled()`.
+
+`core-day-picker` left `ROLLOUT_PENDING` in `scripts/check-axe-coverage.mjs`
+with this change. What earns that is `day-picker-a11y.spec.ts`, which sweeps
+three states from `document.body` — closed, the anchored calendar open, and the
+full-screen `mlv-calendar-sheet` open. The grid exists only while open and is
+portaled into the CDK overlay container, so a sweep of `fixture.nativeElement`
+in the default state covers none of it. The suite stubs `MlvBreakpointService`:
+jsdom's `matchMedia` never matches a `min-width` query, so the real service is
+pinned to `'sm'` and every open would be the sheet.

@@ -1,6 +1,10 @@
 <mlv-form-control-wrapper (clear)="clearValue()">
   @if (label() || hint()) {
-    <mlv-label [for]="id()" [id]="_labelId()">
+    <mlv-label
+      [for]="_ownLabelFor()"
+      [id]="_labelId()"
+      (click)="_onLabelClick()"
+    >
       {{ label() }}
       @if (hint()) {
         <mlv-hint>{{ hint() }}</mlv-hint>
