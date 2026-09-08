@@ -5,6 +5,7 @@ import {
   computed,
   contentChild,
   effect,
+  ElementRef,
   forwardRef,
   inject,
   model,
@@ -24,11 +25,13 @@ import {
 import type { MlvSidebarContextValue } from '../sidebar-context';
 import { SIDEBAR_CONTEXT } from '../sidebar-context';
 import type { MlvSidebarMode } from '../sidebar-mode';
+import type { MlvSidebarDrawerSide } from '../sidebar-drawer-side';
 import type { MlvSidebarAppearance } from '../sidebar-appearance';
 import { MlvSidebarHeader } from '../sidebar-header';
 import { MlvSidebarFooter } from '../sidebar-footer';
 import { SidebarContentDirective } from '../sidebar-content';
 import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
+import type { MlvDrawerPosition } from '@malva-ui/core/drawer';
 import { MlvDrawer, MlvDrawerContent } from '@malva-ui/core/drawer';
 import { MLV_SIDEBAR_I18N } from '@malva-ui/i18n';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
@@ -70,6 +73,17 @@ export class MlvSidebar implements MlvSidebarContextValue {
   private readonly _breakpoint = inject(MlvBreakpointService);
   private readonly _rtlService = inject(MlvRtlService);
 
+  /** @private Host element; the scope the drawer edge is resolved against. */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
+  /**
+   * @private Direction applying to this host, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked whenever the drawer opens.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
+
   /** @private Owning document used to preserve focus when activation opens another modal. */
   private readonly _document = inject(DOCUMENT);
 
@@ -106,6 +120,20 @@ export class MlvSidebar implements MlvSidebarContextValue {
    * - `'fixed'` — always fully expanded; collapse is a no-op.
    */
   readonly mode = input<MlvSidebarMode>('icon');
+
+  /**
+   * Which edge an `'offcanvas'` sidebar's drawer slides from.
+   *
+   * Logical, so it mirrors: `'start'` is the left edge in LTR and the right one
+   * in RTL. Defaults to `'start'`, the primary navigation sidebar's edge — pass
+   * `'end'` on a trailing sidebar (an inspector projected into
+   * `[mlvPageEndSidebar]`), where a drawer that slid in from the opposite edge
+   * would contradict the column it replaces.
+   *
+   * Only read in `'offcanvas'` mode; an inline sidebar takes its side from the
+   * order it is projected in.
+   */
+  readonly drawerSide = input<MlvSidebarDrawerSide>('start');
 
   /** Outer surface treatment for an inline sidebar. */
   readonly appearance = input<MlvSidebarAppearance>('raised');
@@ -185,6 +213,21 @@ export class MlvSidebar implements MlvSidebarContextValue {
   readonly effectiveMode = computed<MlvSidebarMode>(() =>
     this._isBelowCollapseBreakpoint() ? 'offcanvas' : this.mode(),
   );
+
+  /**
+   * @protected Physical edge the offcanvas drawer slides from, resolved from
+   * {@link drawerSide} against the direction in force at this host.
+   *
+   * `MlvDrawerPosition`'s `'left'` / `'right'` are physical — the drawer's own
+   * position strategy calls `positionStrategy.left('0')` — so the mirroring has
+   * to happen here rather than being left to the drawer.
+   */
+  protected readonly _drawerPosition = computed<MlvDrawerPosition>(() => {
+    const isEnd = this.drawerSide() === 'end';
+    const isRtl = this._direction() === 'rtl';
+
+    return isEnd === isRtl ? 'left' : 'right';
+  });
 
   /**
    * Effective collapsed state. Always `false` in `'fixed'` mode so the sidebar

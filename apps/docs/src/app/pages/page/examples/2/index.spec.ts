@@ -112,7 +112,7 @@ describe('PageAppShellExampleComponent', () => {
 
     expect(shell.chrome.mlvChromeColor()).toBe('var(--mlv-demo-shell-color)');
     expect(shellElement.style.getPropertyValue('--mlv-demo-shell-color')).toBe(
-      '#7138d0',
+      '#a83011',
     );
     expect(customButton.getAttribute('aria-pressed')).toBe('true');
     expect(autoButton.getAttribute('aria-pressed')).toBe('false');

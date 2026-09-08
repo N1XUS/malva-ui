@@ -59,23 +59,35 @@
 
         <div mlvActionBarLogo>
           <strong>Acme Studio</strong>
-          <mlv-badge mlvDensity="compact">Beta</mlv-badge>
+          @if (showsChrome()) {
+            <mlv-badge mlvDensity="compact">Beta</mlv-badge>
+          }
         </div>
 
-        <nav mlvActionBarActions aria-label="Global navigation">
-          <mlv-toolbar>
-            <a
-              mlvButton
-              variant="transparent"
-              mlvDensity="tight"
-              href="#projects"
-              >Projects</a
-            >
-            <a mlvButton variant="transparent" mlvDensity="tight" href="#teams"
-              >Teams</a
-            >
-          </mlv-toolbar>
-        </nav>
+        <!-- `[mlvActionBarActions]` sheds these at the medium *viewport*
+             breakpoint, which is the wrong question for a shell that is a box
+             inside a documentation page. The links live in the drawer, so
+             withholding them here costs no destination. -->
+        @if (showsChrome()) {
+          <nav mlvActionBarActions aria-label="Global navigation">
+            <mlv-toolbar>
+              <a
+                mlvButton
+                variant="transparent"
+                mlvDensity="tight"
+                href="#projects"
+                >Projects</a
+              >
+              <a
+                mlvButton
+                variant="transparent"
+                mlvDensity="tight"
+                href="#teams"
+                >Teams</a
+              >
+            </mlv-toolbar>
+          </nav>
+        }
       </div>
 
       <mlv-search-field
@@ -91,19 +103,30 @@
 
       <div class="app-shell-preview__bar-side app-shell-preview__bar-side--end">
         <mlv-toolbar>
-          <button mlvButton mlvDensity="compact">
-            <svg lucidePlus [size]="16" />
-            Create
-          </button>
-          <button
-            mlvButton
-            variant="transparent"
-            shape="square"
-            mlvDensity="compact"
-            aria-label="Notifications"
-          >
-            <svg lucideBell [size]="18" />
-          </button>
+          @if (showsChrome()) {
+            <button mlvButton mlvDensity="compact">
+              <svg lucidePlus [size]="16" />
+              Create
+            </button>
+            <button
+              mlvButton
+              variant="transparent"
+              shape="square"
+              mlvDensity="compact"
+              aria-label="Notifications"
+            >
+              <svg lucideBell [size]="18" />
+            </button>
+          } @else {
+            <button
+              mlvButton
+              shape="square"
+              mlvDensity="compact"
+              aria-label="Create"
+            >
+              <svg lucidePlus [size]="16" />
+            </button>
+          }
           <button
             mlvButton
             variant="transparent"
@@ -114,6 +137,9 @@
               inspectorCollapsed() ? 'Open inspector' : 'Collapse inspector'
             "
             [attr.aria-expanded]="!inspectorCollapsed()"
+            [attr.aria-haspopup]="
+              inspectorMode() === 'offcanvas' ? 'dialog' : null
+            "
             (click)="toggleInspector()"
           >
             <svg lucidePanelsTopLeft [size]="18" />
@@ -123,42 +149,47 @@
       </div>
     </header>
 
-    <mlv-sidebar
-      class="app-shell-preview__rail"
-      mlvPageSidebar
-      data-slot="rail"
-      ariaLabel="Workspace rail"
-      mode="fixed"
-      width="3.5rem"
-    >
-      <div mlvSidebarContent>
-        <mlv-sidebar-item label="Home" active>
-          <ng-template mlvSidebarItemIcon>
-            <svg lucideHouse [size]="20" />
-          </ng-template>
-        </mlv-sidebar-item>
-        <mlv-sidebar-item label="Inbox">
-          <ng-template mlvSidebarItemIcon>
-            <svg lucideInbox [size]="20" />
-          </ng-template>
-        </mlv-sidebar-item>
-      </div>
-      <div mlvSidebarFooter>
-        <button
-          mlvButton
-          variant="transparent"
-          shape="square"
-          type="button"
-          [attr.aria-label]="
-            collapsed() ? 'Open navigation' : 'Collapse navigation'
-          "
-          [attr.aria-expanded]="!collapsed()"
-          (click)="toggleSidebar()"
-        >
-          <svg lucideMenu [size]="18" />
-        </button>
-      </div>
-    </mlv-sidebar>
+    <!-- The rail is a second navigation column and its two destinations are
+         already in the drawer, so below the offcanvas threshold its 3.5rem
+         is a sixth of the shell spent on chrome that duplicates it. -->
+    @if (showsChrome()) {
+      <mlv-sidebar
+        class="app-shell-preview__rail"
+        mlvPageSidebar
+        data-slot="rail"
+        ariaLabel="Workspace rail"
+        mode="fixed"
+        width="3.5rem"
+      >
+        <div mlvSidebarContent>
+          <mlv-sidebar-item label="Home" active>
+            <ng-template mlvSidebarItemIcon>
+              <svg lucideHouse [size]="20" />
+            </ng-template>
+          </mlv-sidebar-item>
+          <mlv-sidebar-item label="Inbox">
+            <ng-template mlvSidebarItemIcon>
+              <svg lucideInbox [size]="20" />
+            </ng-template>
+          </mlv-sidebar-item>
+        </div>
+        <div mlvSidebarFooter>
+          <button
+            mlvButton
+            variant="transparent"
+            shape="square"
+            type="button"
+            [attr.aria-label]="
+              collapsed() ? 'Open navigation' : 'Collapse navigation'
+            "
+            [attr.aria-expanded]="!collapsed()"
+            (click)="toggleSidebar()"
+          >
+            <svg lucideMenu [size]="18" />
+          </button>
+        </div>
+      </mlv-sidebar>
+    }
 
     <mlv-sidebar
       class="app-shell-preview__navigation"
@@ -310,7 +341,8 @@
       mlvPageEndSidebar
       data-slot="inspector"
       ariaLabel="Project inspector"
-      mode="icon"
+      [mode]="inspectorMode()"
+      drawerSide="end"
       [collapsed]="inspectorCollapsed()"
       [attr.inert]="inspectorCollapsed() ? '' : null"
       [attr.aria-hidden]="inspectorCollapsed() ? 'true' : null"
