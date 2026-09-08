@@ -62,7 +62,7 @@
 } @else {
   <mlv-form-control-wrapper (clear)="clearValue()">
     @if (label() || hint()) {
-      <mlv-label [for]="id()" [required]="required()">
+      <mlv-label [for]="_ownLabelFor()" [required]="required()">
         {{ label() }}
         @if (hint()) {
           <mlv-hint>{{ hint() }}</mlv-hint>

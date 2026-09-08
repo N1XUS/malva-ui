@@ -137,17 +137,18 @@ a third-party control resolves `null` instead of erroring. A control that
 renders its _own_ `<mlv-label>` from its `label` input does so in its **view**,
 which no content query of the field reaches, so the two never collide.
 
-| Member                     | On                           | Meaning                                                                          |
-| -------------------------- | ---------------------------- | -------------------------------------------------------------------------------- |
-| `labelId`                  | `MlvFormField`               | id of the projected `<mlv-label>`'s `<label>`, or `null`                         |
-| `labelableControlId`       | `MlvFormField`               | id for the label's `for`, or `null` when the control is not labelable            |
-| `labelId`                  | `MlvLabel`                   | generated id, always emitted on the inner `<label>`                              |
-| `labelTarget`              | `MlvSignalFormUiControlBase` | `{ id, labelable }` or `null` — what the field reads                             |
-| `label`                    | `MlvFormControl`             | the control's own label text; read **only** by the double-label warning below    |
-| `_externalLabelStrategy()` | `MlvSignalFormUiControlBase` | `'none'` by default; each control overrides                                      |
-| `_labelTargetId()`         | `MlvSignalFormUiControlBase` | which id `labelTarget` publishes; `id()` unless the focus target cannot carry it |
-| `_fieldLabelId()`          | `MlvSignalFormUiControlBase` | the field's `labelId` — only for `'aria'` controls                               |
-| `_externallyLabelled()`    | `MlvSignalFormUiControlBase` | whether the field's label names this control, under **either** strategy          |
+| Member                     | On                           | Meaning                                                                                         |
+| -------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| `labelId`                  | `MlvFormField`               | id of the projected `<mlv-label>`'s `<label>`, or `null`                                        |
+| `labelableControlId`       | `MlvFormField`               | id for the label's `for`, or `null` when the control is not labelable                           |
+| `labelId`                  | `MlvLabel`                   | generated id, always emitted on the inner `<label>`                                             |
+| `labelTarget`              | `MlvSignalFormUiControlBase` | `{ id, labelable }` or `null` — what the field reads                                            |
+| `label`                    | `MlvFormControl`             | the control's own label text; read **only** by the double-label warning below                   |
+| `_externalLabelStrategy()` | `MlvSignalFormUiControlBase` | `'none'` by default; each control overrides                                                     |
+| `_labelTargetId()`         | `MlvSignalFormUiControlBase` | which id `labelTarget` publishes; `id()` unless the focus target cannot carry it                |
+| `_fieldLabelId()`          | `MlvSignalFormUiControlBase` | the field's `labelId` — only for `'aria'` controls                                              |
+| `_externallyLabelled()`    | `MlvSignalFormUiControlBase` | whether the field's label names this control, under **either** strategy                         |
+| `_ownLabelFor()`           | `MlvSignalFormUiControlBase` | `for` for the control's **own** `<mlv-label>` — `labelTarget().id` while labelable, else `null` |
 
 An explicit `[for]` on the `<mlv-label>` always wins, and the field never
 rewrites the control's `id`.
@@ -174,6 +175,51 @@ bind `[attr.aria-labelledby]="label() ? labelId() : _fieldLabelId()"` — never
 suppress `aria-label` when either resolves. All five now carry a public
 `labelId` (`` `${id()}-label` ``) on their own `<mlv-label>` for the first
 branch.
+
+#### A control's own label uses the same test (2026-09, #216)
+
+`_ownLabelFor()` is the `for` a control renders on the `<mlv-label>` it draws
+**itself** from its `label` input: `labelTarget()`'s id while that target is
+labelable, `null` otherwise — and `null` emits no attribute at all.
+
+`MlvLabel._resolvedFor()` returns an explicit `[for]` first, so a control that
+hard-coded `[for]="id()"` short-circuited the whole #197 mechanism and kept
+emitting a `for` even where the id sits on a `div`. Seven did: `mlv-select`
+behind its custom trigger, `mlv-day-picker`, `mlv-time-picker`,
+`mlv-date-range-picker`, `mlv-input` with `projectControl`, `mlv-tokenizer`
+while disabled, and `mlv-editor` (whose id is on no element at all). The name
+was already correct — every one of them carries `aria-labelledby` — so what the
+attribute bought was a false association in review and a label that focused
+nothing on click.
+
+**Eight** templates bind `_ownLabelFor()`, not seven: `mlv-combobox` was
+already emitting a correct `for` (its `id` reaches the inner `mlv-input`'s
+native `<input>`) and converts anyway, so the answer has one source rather than
+two that happen to agree. Its rendered attribute is unchanged;
+`combobox-own-label.spec.ts` pins the strategy that makes that true.
+
+The question a control's own label asks is the one `labelTarget` already
+answers, so both read one source of truth rather than each deciding again.
+Bind `[for]="_ownLabelFor()"`; a control whose `for` names something **other**
+than its name target keeps its own binding (`mlv-pin-input` points at its first
+cell, which no external label may use).
+
+`mlv-select` is why this must be a signal and not a constant: it flips between
+`'native'` and `'aria'` as the native `<select>` takes over, and the `for` has
+to follow. `mlv-day-picker`, `mlv-time-picker`, `mlv-date-range-picker` and `mlv-editor`
+bind `(click)` on their own `<mlv-label>` to focus their real focus target,
+replacing the native click-to-focus a non-labelable element can never provide;
+`mlv-select`'s handler predates this and **opens** the dropdown instead.
+
+Covered inside this library by `form-control-base/own-label-for.spec.ts` (the
+three strategies plus a live flip, against a test double) and by the nullish
+`for` cases in `label/label.spec.ts`. Both were added in #216 review: every
+assertion protecting `_ownLabelFor` had lived in the downstream projects, so a
+refactor here passed this library's own suite. Note that the widened
+`MlvLabel.for` **write** type is a compile-time contract only — `_resolvedFor()`
+treats `null`, `undefined` and `''` alike at runtime, so a unit test cannot see
+the transform disappear. Reverting it fails `nx run core:build` with TS2322 at
+`input.html`, which is the gate that actually holds it.
 
 **A control's own inner label never borrows the field's target.**
 `mlv-radio-group`, `mlv-segmented` and `mlv-checkbox-group` render an
@@ -242,10 +288,10 @@ lives in already publishes `labelTarget` on its behalf.
 
 #### Inputs
 
-| Name       | Type                 | Default |
-| ---------- | -------------------- | ------- |
-| `for`      | `string`             | `''`    |
-| `required` | `boolean` (`coerce`) | `false` |
+| Name       | Type                                             | Default |
+| ---------- | ------------------------------------------------ | ------- |
+| `for`      | `string` (accepts `string \| null \| undefined`) | `''`    |
+| `required` | `boolean` (`coerce`)                             | `false` |
 
 Renders `<label [attr.id]="labelId" [attr.for]="_resolvedFor()">`. Supports nested
 `<mlv-hint>`, projected into `.mlv-label__hint` — which renders as an icon + tooltip,
@@ -256,6 +302,12 @@ _renders_ `for=""`. It means "resolve from the enclosing `mlv-form-field`", and 
 nothing resolves **no `for` attribute is emitted at all** — a dangling `for` reads as
 associated in review while focusing nothing. See _`MlvFormField` → Accessible name_
 above.
+
+`null` / `undefined` are accepted on the write side and normalized to `''` by a
+transform, so they mean the same thing: emit no `for`. That is what a control
+binding its own label's `[for]="_ownLabelFor()"` passes while its name target is
+not labelable (#216). The read type stays `string`, so nothing that consumed
+this input has to widen.
 
 `labelId` (public, non-input) is a generated `mlv-label-NN` always rendered on the
 inner `<label>`, so a control whose focus target `<label for>` cannot name can point

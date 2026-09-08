@@ -2,7 +2,7 @@
   @if (label() || hint()) {
     <mlv-label
       [id]="labelId()"
-      [for]="id()"
+      [for]="_ownLabelFor()"
       [required]="required()"
       (click)="_onLabelClick()"
     >

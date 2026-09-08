@@ -217,6 +217,31 @@ export abstract class MlvSignalFormUiControlBase implements MlvFormControl {
   });
 
   /**
+   * @protected Value for the `for` attribute of the `<mlv-label>` a control
+   * renders **itself** from {@link label} — the id of its name target when
+   * that target is HTML-labelable, else `null`, which emits no attribute at
+   * all.
+   *
+   * The question a control's own label asks is the same one
+   * {@link labelTarget} already answers for a label projected beside it — "is
+   * the id I would point `for` at on an element `<label for>` can name?" — so
+   * both read one source of truth rather than each deciding again. Binding
+   * `[for]="id()"` unconditionally is what #216 removes: on `mlv-select`'s
+   * `div[role="combobox"]`, the three pickers' trigger `div`s, a
+   * `projectControl` `mlv-input`, a disabled `mlv-tokenizer` and `mlv-editor`'s
+   * contenteditable, that attribute named nothing while reading as an
+   * association in review, and clicking the label focused nothing.
+   *
+   * Templates read it as `[for]="_ownLabelFor()"`. A control whose `for` is
+   * some element other than its name target — `mlv-pin-input` points at its
+   * first cell — keeps its own explicit binding.
+   */
+  protected readonly _ownLabelFor = computed<string | null>(() => {
+    const target = this.labelTarget();
+    return target?.labelable ? target.id : null;
+  });
+
+  /**
    * @protected Whether an `<mlv-label>` projected beside this control into
    * `mlv-form-field` is naming it — through **either** association strategy.
    *

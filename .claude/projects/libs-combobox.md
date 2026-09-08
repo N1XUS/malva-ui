@@ -395,3 +395,13 @@ projected beside it into `mlv-form-field` names it with a plain `for`.
 
 Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
 `.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
+
+## Its own label (2026-09, #216)
+
+`MlvCombobox` was listed in #216 with the four `'aria'` controls but was
+already correct — its `id()` reaches a native `<input>`, so its own
+`<mlv-label>`'s `for` names a real element. It now binds `[for]="_ownLabelFor()"`
+for one source of truth with the projected case; the rendered attribute is
+byte-identical. `combobox-own-label.spec.ts` pins it, so a future change that
+moved `id()` onto the `__trigger` div would fail rather than silently drop the
+name.

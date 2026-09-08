@@ -142,22 +142,25 @@ consumer's, so `mlv-input` emits no accessible name for it. Give it an
 axe sweep reports `label` (critical — measured on the wrapped shape). Naming it
 from the component's own `<mlv-label>` instead is **#259**.
 
-**And that label currently carries a `for` that names nothing.** `input.html`
-binds `<mlv-label [for]="id()">` unconditionally, and `MlvLabel._resolvedFor`
-returns an explicit `for` **before** it consults the `labelTarget` machinery —
-so the attribute is emitted even though nothing under `projectControl` carries
-`id()`: the internal `<input [id]>` is not rendered and `MlvInputNative`
-assigns no id of its own. Measured: `for="mlv-control-0"`, no such element.
-Owned by **#216**, which sweeps the library's own-label `for` bindings onto a
-shared labelable-target check in one pass. No axe rule sees a dangling `for` at
-all, so both halves are pinned by DOM assertions in `input-native.spec.ts`
-rather than by a sweep.
+**The label emits no `for` in this mode** — since #216, and briefly it emitted
+a dangling one. `input.html` used to bind `<mlv-label [for]="id()">`
+unconditionally, and `MlvLabel._resolvedFor` returns an explicit `for`
+**before** it consults the `labelTarget` machinery, so the attribute was written
+even though nothing under `projectControl` carries `id()`: the internal
+`<input [id]>` is not rendered and `MlvInputNative` assigns no id of its own
+(measured `for="mlv-control-0"`, no such element). It now binds
+`[for]="_ownLabelFor()"`, which resolves `labelTarget()` — `null` here — so the
+attribute is absent rather than dangling. What remains is that the visible
+caption names nothing, which is honest but is still not a name: that is #259.
+No axe rule sees a dangling `for` at all, so this is pinned by DOM assertions in
+`input-native.spec.ts` rather than by a sweep.
 
-Note that `_externalLabelStrategy()` — `'none'` under `projectControl` — is a
-**different question** and does not govern this. It decides whether a label
-_outside_ the control, projected into an enclosing `mlv-form-field`, may name
-it (#197). `mlv-input`'s own internal `<mlv-label>` is bound explicitly and
-bypasses it entirely.
+`_externalLabelStrategy()` decides whether a label _outside_ the control,
+projected into an enclosing `mlv-form-field`, may name it (#197). Since #216 the
+component's own `<mlv-label>` reads the same answer through `_ownLabelFor()`,
+so the two agree by construction — but they are still different questions, and
+they diverge exactly where #259 lives: a consumer's projected `<input>` **is**
+labelable, and only its id is unknown to `mlv-input`.
 
 ### One projection slot (2026-09, #256)
 
@@ -293,3 +296,28 @@ labels would otherwise both claim the same control.
 
 Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
 `.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
+
+## Its own label (2026-09, #216)
+
+The `<mlv-label>` `MlvInput` renders from its own `label` input binds
+`[for]="_ownLabelFor()"` instead of `[for]="id()"`, so it follows the same
+`'native'` / `'none'` split as the projected case. Nothing changes without
+`projectControl`; **with** it the `for` is now absent rather than pointing at
+an id no element in the document carries. Name a projected control with its own
+`aria-label`, `aria-labelledby`, or an `id` matching a `for` you write yourself.
+
+Two things to know before building on this:
+
+- The visible label is now associated with **nothing** under `projectControl`,
+  and nothing warns — `MlvFormField`'s "names nothing" warning covers only
+  labels projected into a field. `_ownLabelFor()` reuses
+  `_externalLabelStrategy()`, which answers "may a label _outside_ me name me";
+  for a control's own label the questions diverge here, because the consumer's
+  `<input>` **is** labelable and only its id is unknown. Letting the consumer
+  hand that id in is **#259**, decided on top of `_ownLabelFor()`.
+- The wrapped (non-`bare`) `projectControl` shape used to render **no input at
+  all** — `input.html` declared `<ng-content select="input[mlvInputNative]" />`
+  twice and Angular binds a projected node to the first matching slot — so a
+  fixture written against that shape could assert nothing about the projected
+  control. Fixed in **#256**; see _One projection slot_ above for why exactly
+  one slot may exist.
