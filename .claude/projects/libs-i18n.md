@@ -34,27 +34,29 @@ The i18n library (`@malva-ui/i18n`) provides a signal-based, per-component inter
 
 Exported from `libs/i18n/src/index.ts`:
 
-| Export                       | Kind           | Description                                           |
-| ---------------------------- | -------------- | ----------------------------------------------------- |
-| `MlvLanguage`                | Interface      | Aggregate of all 40 component i18n interfaces         |
-| `MlvTranslationProvider`     | Interface      | AI provider contract for batch translation            |
-| `MlvTranslationRequest`      | Interface      | Single translation request                            |
-| `MlvTranslationResult`       | Interface      | Single translation result                             |
-| `MlvTranslationContext`      | Interface      | Context metadata for AI translators                   |
-| `MlvAiTranslationConfig`     | Interface      | Runtime AI translation configuration                  |
-| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (40 total)                  |
-| `Mlv*I18n`                   | Interface      | Per-component string interfaces (40 total)            |
-| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (40 total) |
-| `MlvI18nService`             | Service        | Central language state management                     |
-| `MlvI18nResolverService`     | Service        | ICU MessageFormat resolution with caching             |
-| `MlvTranslatePipe`           | Pipe           | Template pipe for ICU string resolution               |
-| `provideMlvI18n`             | Function       | Root provider factory with lazy loading               |
-| `MLV_AI_TRANSLATION_CONFIG`  | InjectionToken | AI translation configuration token                    |
-| `MLV_AI_TRANSLATION_ENABLED` | InjectionToken | Per-subtree AI toggle                                 |
-| `MlvAiTranslationService`    | Service        | Runtime AI translation with caching                   |
-| `provideMlvAiTranslation`    | Function       | AI translation provider factory                       |
-| `claudeProvider`             | Function       | Claude adapter factory                                |
-| `MlvClaudeProviderConfig`    | Interface      | Claude adapter configuration                          |
+| Export                       | Kind           | Description                                                   |
+| ---------------------------- | -------------- | ------------------------------------------------------------- |
+| `MlvLanguage`                | Interface      | Aggregate of all 40 component i18n interfaces                 |
+| `MlvLanguageModule`          | Type           | A loaded pack module: `{ default }` or `{ <locale>Language }` |
+| `resolveMlvLanguage`         | Function       | Unwraps the `MlvLanguage` out of either module shape          |
+| `MlvTranslationProvider`     | Interface      | AI provider contract for batch translation                    |
+| `MlvTranslationRequest`      | Interface      | Single translation request                                    |
+| `MlvTranslationResult`       | Interface      | Single translation result                                     |
+| `MlvTranslationContext`      | Interface      | Context metadata for AI translators                           |
+| `MlvAiTranslationConfig`     | Interface      | Runtime AI translation configuration                          |
+| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (40 total)                          |
+| `Mlv*I18n`                   | Interface      | Per-component string interfaces (40 total)                    |
+| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (40 total)         |
+| `MlvI18nService`             | Service        | Central language state management                             |
+| `MlvI18nResolverService`     | Service        | ICU MessageFormat resolution with caching                     |
+| `MlvTranslatePipe`           | Pipe           | Template pipe for ICU string resolution                       |
+| `provideMlvI18n`             | Function       | Root provider factory with lazy loading                       |
+| `MLV_AI_TRANSLATION_CONFIG`  | InjectionToken | AI translation configuration token                            |
+| `MLV_AI_TRANSLATION_ENABLED` | InjectionToken | Per-subtree AI toggle                                         |
+| `MlvAiTranslationService`    | Service        | Runtime AI translation with caching                           |
+| `provideMlvAiTranslation`    | Function       | AI translation provider factory                               |
+| `claudeProvider`             | Function       | Claude adapter factory                                        |
+| `MlvClaudeProviderConfig`    | Interface      | Claude adapter configuration                                  |
 
 ---
 
@@ -66,11 +68,11 @@ Exported from `libs/i18n/src/index.ts`:
 
 Central service managing the active language pack. Not `providedIn: 'root'` — provided by `provideMlvI18n()`.
 
-| Method                                      | Description                                               |
-| ------------------------------------------- | --------------------------------------------------------- |
-| `setLanguage(lang: MlvLanguage)`            | Sets the active language pack (called by APP_INITIALIZER) |
-| `switchLanguage(loader)`                    | Switches via lazy import; the latest request wins         |
-| `select<K>(key: K): Signal<MlvLanguage[K]>` | Returns a computed signal for a component's i18n slice    |
+| Method                                      | Description                                                             |
+| ------------------------------------------- | ----------------------------------------------------------------------- |
+| `setLanguage(lang: MlvLanguage)`            | Sets the active language pack (called by APP_INITIALIZER)               |
+| `switchLanguage(loader)`                    | Switches via lazy import (`MlvLanguageModule`); the latest request wins |
+| `select<K>(key: K): Signal<MlvLanguage[K]>` | Returns a computed signal for a component's i18n slice                  |
 
 ### `MlvI18nResolverService`
 
@@ -119,6 +121,56 @@ export const appConfig = {
 ```
 
 Internally provides: `MlvI18nService`, `APP_INITIALIZER` for lazy loading, and all 40 per-component injection tokens.
+
+### `MlvLanguageModule` and `resolveMlvLanguage()` — the two loaded shapes
+
+**File:** `libs/i18n/src/lib/language-module.ts`
+
+`provideMlvI18n()` and `MlvI18nService.switchLanguage()` both take
+`() => Promise<MlvLanguageModule>`, which is the union of
+
+- `{ default: MlvLanguage }` — a hand-written pack, and what a locale entry
+  point resolves to **inside this workspace**, where `tsconfig.base.json` maps
+  `@malva-ui/i18n/en` to source; and
+- `{ <locale>Language: MlvLanguage }` — what the **published** package emits.
+  Each locale's `index.ts` exports its pack both ways, but ng-packagr keeps only
+  the named export when it flattens an entry point, so
+  `dist/libs/i18n/types/malva-ui-i18n-en.d.ts` is
+  `export { en as enLanguage }` and carries no default at all (#227).
+
+`resolveMlvLanguage(module)` unwraps whichever arrived, and it **throws**,
+naming the exported keys, when neither shape is there. That replaces the old
+`setLanguage(m.default)`, which passed `undefined` straight into the service and
+surfaced as an unrelated-looking crash in the first component to read a string.
+
+**One module, one pack.** That is the constraint a consumer inherits, and it has
+two halves:
+
+- `default` wins whenever it is there, and is returned **unread** — a pack may hold
+  whatever slices it likes, including one named `contractLanguage`. The one
+  `default` that is not the pack is an interop-synthesised module namespace,
+  recognised by what a namespace **is** (`__esModule`, `Symbol.toStringTag ===
+'Module'`, or a `default` pointing back at the module), never by what it
+  contains. Detecting it by "has a key ending in `Language`" — the first cut —
+  silently replaced any pack carrying such a slice with that slice, and
+  TypeScript could not see it, because the excess-property check does not fire
+  through a variable.
+- With no `default`, two `<locale>Language` exports **throw**. A barrel that `export *`s two
+  locales type-checks (a distributed union accepts extra properties), and the
+  first cut returned whichever `Object.entries` yielded first — so the active
+  language depended on the order the barrel was written in.
+
+`MlvLanguageExportName` enumerates the fourteen names rather than being written
+as a template-literal index signature keyed on `` `${string}Language` ``:
+an index signature constrains only keys that exist, so a module with no matching
+key satisfies it vacuously — `@malva-ui/i18n/testing` type-checks against it —
+which would make the parameter accept every module in existence.
+
+It is **not exported**. Its members are the names ng-packagr happens to emit, so
+a barrel export would version the library against a build tool's naming
+(`VERSIONING.md` §2/§3/§5) — the very change the gate exists to _detect_. The
+declaration still reaches the published `.d.ts` as a referenced type, the way
+`MlvNamedLanguageModule` does. `MlvLanguageModule` is the public type.
 
 ---
 
@@ -206,7 +258,44 @@ Every shipped pack is a typed secondary entry point:
 
 `libs/i18n/tests/locale-contract.spec.ts` validates exact key parity, ICU named
 arguments, select branches, required plural branches, compilation, and
-representative formatting across all fourteen packs.
+representative formatting across all fourteen packs. It also asserts that
+`packs` covers every locale directory on disk, and that no pack has a top-level
+key ending in `Language` — which keeps the resolver's module scan from ever
+meeting a pack slice.
+
+`libs/i18n/tests/published-package.spec.ts` is the **consumer gate**: it writes a
+throwaway project under `tmp/` whose `node_modules/@malva-ui/i18n` symlinks to
+`dist/libs/i18n` — so `@malva-ui/i18n/en` resolves through the generated
+`exports` map, exactly as an installed consumer does — and type-checks
+`provideMlvI18n(() => import('@malva-ui/i18n/<locale>'))` for every locale with
+`tsc`. It exists because every in-repo consumer resolves the path mapping to
+**source**, so nothing else in the workspace ever type-checks against the built
+package; that is how #227 shipped. The `test` target therefore declares
+`dependsOn: ["build"]` (CI already selects `build`, so the edge is a cache hit
+there and ~2s cold locally) rather than adding a target name CI would have to be
+taught.
+
+Its locale set is **derived from the built package** — the `exports` map of
+`dist/libs/i18n/package.json`, each entry point classified by whether its own
+`.d.ts` exports a `MlvLanguage`-typed constant — and never listed in the spec.
+That is what makes "a locale with no `MlvLanguageExportName` entry fails this
+gate" a true statement: ng-packagr auto-discovers entry points from
+per-directory `ng-package.json` files, so a fifteenth locale enters the gate the
+moment it builds. The comparison runs both ways, so a name in the union that no
+longer matches a published locale fails too. It also asserts the non-locale
+entry points (`.`, `./testing`), so a locale that stopped emitting a
+`<locale>Language` name cannot drop out of the derived set unnoticed, holds a
+floor under the locale count, and resolves each built `.mjs` through
+`resolveMlvLanguage` so the published shape is proven at runtime and not only at
+the type level.
+
+Four locale lists exist, none of them generated: `MlvLanguageExportName`, the
+`packs` map in `locale-contract.spec.ts`, `DOCS_LOCALE_CODES` in `apps/docs`,
+and the derived set above. The first is cross-checked against the derived set;
+the other two are cross-checked against the locale directories on disk in their
+own specs — the same set one build step earlier — rather than against `dist/`,
+which would make a content-parity suite and an app spec depend on this library's
+build.
 
 ### Adding a new language
 
@@ -218,8 +307,12 @@ node scripts/malva-ui-translate.mjs --target uk --provider claude --api-key <key
 
 Or create manually under `libs/i18n/<locale>/src/lib/<locale>.ts` following the
 English pack structure, with `ng-package.json` and entry `src/index.ts`. Adding
-another shipped locale also requires extending the all-locale contract and the
-strict update list above.
+another shipped locale also requires extending the all-locale contract, the
+strict update list above, `MlvLanguageExportName` in
+`src/lib/language-module.ts`, and `DOCS_LOCALE_CODES` / `DOCS_LOCALE_METADATA`
+in `apps/docs`. Nothing in `tests/published-package.spec.ts` needs editing — it
+derives its locale set from the build — and each of the other three lists has a
+spec that fails when it is the one left behind.
 
 ---
 

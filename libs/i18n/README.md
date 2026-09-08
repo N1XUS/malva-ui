@@ -26,6 +26,43 @@ export const appConfig: ApplicationConfig = {
 
 The pack is fetched during app initialisation, so it is a separate chunk — you ship one locale, not fourteen.
 
+The loader may resolve to either shape of `MlvLanguageModule`: a module whose
+`default` export is the pack, or one that exposes it under a `<locale>Language`
+name — which is what the published locale entry points carry, since the package
+build flattens each one to a single named export. Importing a locale entry point
+directly, as above, therefore works unchanged; a pack you write yourself uses
+`export default`.
+
+```ts
+import { provideMlvI18n, type MlvLanguageModule } from '@malva-ui/i18n';
+
+// Both are accepted.
+provideMlvI18n(() => import('@malva-ui/i18n/en')); // export const enLanguage
+provideMlvI18n(() => import('./my-own-pack')); // export default myPack
+
+// `MlvLanguageModule` types a loader you hold yourself.
+const loader: () => Promise<MlvLanguageModule> = () => import('@malva-ui/i18n/uk');
+```
+
+`MlvI18nService.switchLanguage()` takes the same two shapes, so runtime locale
+switching needs no wrapper either.
+
+**One module, one pack.** `default` wins whenever it is there, and is used
+as-is. Without one, the module must expose exactly one `<locale>Language` — the
+loader throws rather than guessing:
+
+```ts
+// Fine — `default` is returned as-is, whatever your pack's keys are called.
+provideMlvI18n(async () => ({ default: myPack }));
+
+// Throws: two `<locale>Language` exports, and which one wins would be the order
+// your barrel happens to declare them in.
+provideMlvI18n(() => import('./locales')); // export * from '…/en'; export * from '…/de';
+```
+
+Re-export a single locale, or pick one explicitly —
+`import('@malva-ui/i18n/en').then((pack) => ({ default: pack.enLanguage }))`.
+
 ## Available locales
 
 `de` · `en` · `es` · `fr` · `id` · `it` · `ja` · `nl` · `pl` · `pt` · `ro` · `tr` · `uk` · `zh-Hans`

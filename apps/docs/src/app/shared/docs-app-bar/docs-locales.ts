@@ -1,4 +1,4 @@
-import type { MlvLanguage } from '@malva-ui/i18n';
+import type { MlvLanguageModule } from '@malva-ui/i18n';
 import type { MlvSelectOptionTransform } from '@malva-ui/core/select';
 
 export type DocsLocale =
@@ -20,7 +20,14 @@ export type DocsLocale =
 interface DocsLocaleMetadata {
   readonly name: string;
   readonly flag: string;
-  readonly load: () => Promise<{ default: MlvLanguage }>;
+  /**
+   * Loads the pack. Typed `MlvLanguageModule`, not `{ default: MlvLanguage }`:
+   * the narrow shape only compiled because `tsconfig.base.json` maps
+   * `@malva-ui/i18n/<locale>` to source, where each entry point still carries a
+   * `default`. The published package carries `<locale>Language` instead, so the
+   * narrow annotation was the same latent break as #227, one layer up.
+   */
+  readonly load: () => Promise<MlvLanguageModule>;
 }
 
 export const DOCS_LOCALE_CODES: readonly DocsLocale[] = [
