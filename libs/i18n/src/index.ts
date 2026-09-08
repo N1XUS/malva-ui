@@ -1,5 +1,6 @@
 // Types
 export * from './lib/types';
+export * from './lib/language-module';
 
 // Tokens
 export * from './lib/tokens/alert';

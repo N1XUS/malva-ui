@@ -1,3 +1,7 @@
+import { existsSync, readdirSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import IntlMessageFormat from 'intl-messageformat';
 import en from '../en/src/lib/en';
 import de from '../de/src/lib/de';
@@ -475,3 +479,44 @@ it('preserves every Polish cardinal plural category', () => {
     }
   }
 });
+
+it('covers every locale entry point the library ships', () => {
+  // `packs` above is hand-maintained, and it is one of four locale lists
+  // (`MlvLanguageExportName`, this, `DOCS_LOCALE_CODES`, and the set
+  // `tests/published-package.spec.ts` derives from `dist/`). ng-packagr
+  // auto-discovers an entry point from its own `ng-package.json`, so a
+  // fifteenth locale ships whether or not anybody edits a list — this is what
+  // makes the omission fail here rather than quietly leave a pack unvalidated.
+  //
+  // Derived from the source directories, not from `dist/`: this suite asserts
+  // translation content and should not acquire a dependency on the library's
+  // build. It is the same set one build step earlier, and
+  // `published-package.spec.ts` covers the built half.
+  const libraryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const shipped = readdirSync(libraryRoot, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        entry.name !== 'testing' &&
+        existsSync(join(libraryRoot, entry.name, 'ng-package.json')),
+    )
+    .map((entry) => entry.name);
+
+  expect(Object.keys(packs).sort()).toEqual(shipped.sort());
+});
+
+it.each(Object.entries(packs))(
+  'keeps %s free of a top-level key ending in "Language"',
+  (_locale, pack) => {
+    // `resolveMlvLanguage` finds a pack by scanning a *module* object for a
+    // `<locale>Language` key (see language-module.ts). It never scans a pack —
+    // `default` is returned unread — so this is not what makes the happy path
+    // correct. What it buys is that the scan can never meet a pack slice: a
+    // pack handed in where a module was expected, or reached through an interop
+    // namespace, surfaces as the "no MlvLanguage" error rather than as a slice
+    // masquerading as a language.
+    expect(Object.keys(pack).filter((key) => key.endsWith('Language'))).toEqual(
+      [],
+    );
+  },
+);

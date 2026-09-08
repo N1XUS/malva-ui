@@ -700,9 +700,13 @@ function renderMain(
     // the `.d.ts` and the `.mjs` of every locale pack expose only
     // `<lang>Language`. So `provideMlvI18n(() => import('@malva-ui/i18n/en'))`,
     // which is what `libs/i18n/README.md` documents and what `apps/docs` runs
-    // against the tsconfig path mapping, fails to compile AND to run for a real
-    // consumer of the published package. Reported separately; until it is
-    // fixed, the template has to say what actually works.
+    // against the tsconfig path mapping, used to fail to compile AND to run for
+    // a real consumer of the published package.
+    //
+    // Fixed in #227: `provideMlvI18n()` now accepts the named shape too. This
+    // wrapper stays until a release carrying that fix is published, because a
+    // StackBlitz project installs @malva-ui/i18n from npm — delete it (and this
+    // comment) once the published package has the widened loader.
     "provideMlvI18n(() =>\n      import('@malva-ui/i18n/en').then((pack) => ({\n        default: pack.enLanguage,\n      })),\n    )",
   ];
 
