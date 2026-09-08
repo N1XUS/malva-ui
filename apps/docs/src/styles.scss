@@ -71,8 +71,17 @@ body {
 }
 
 /* The rail follows the reading column instead of scrolling away with it, and
-   takes its own scrollbar once the navigation outgrows the viewport — it is
-   1921px tall with every group open, against a 900px viewport.
+   scrolls itself once the navigation outgrows the viewport — it is 1921px tall
+   with every group open, against a 900px viewport.
+
+   Only the height is set here. `mlv-sidebar` already wraps unslotted content
+   in `mlv-scrollbar`, whose viewport is `flex: 1 1 auto; min-height: 0` inside
+   a `height: 100%` container — so a *definite* height on the host is the whole
+   contract, and the component's own themed scrollbar does the scrolling.
+   `max-height` is not a substitute: the container's `height: 100%` resolves
+   against an indefinite box and collapses to `auto`, the flex chain never
+   bounds, and an `overflow` on the host would scroll a second, native scroller
+   outside the component's own.
 
    The app bar is `position: fixed`, so the rail is offset by its height rather
    than padded by it: with `padding-top` the padding scrolls away inside the
@@ -84,10 +93,8 @@ body {
   position: sticky;
   top: 4.75rem;
   align-self: flex-start;
-  max-height: calc(100vh - 4.75rem);
-  max-height: calc(100svh - 4.75rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  height: calc(100vh - 4.75rem);
+  height: calc(100svh - 4.75rem);
 }
 
 /* The reading column is a full-bleed band between the two rails, not a card:
@@ -109,8 +116,7 @@ body {
   .docs-shell .mlv-page-shell__sidebar {
     position: static;
     top: auto;
-    max-height: none;
-    overflow-y: visible;
+    height: auto;
     padding-top: 4.25rem;
   }
 
