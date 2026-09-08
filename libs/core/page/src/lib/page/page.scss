@@ -1,4 +1,5 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
+@use 'page-container' as container;
 
 @layer mlv.components {
   $block: mlv-page;
@@ -162,9 +163,12 @@
       --mlv-page-inset-inline: var(--mlv-page-inset, 0rem);
       --mlv-page-inset-block: var(--mlv-page-inset, 0rem);
 
-      // Size container so page chrome (header rows, docks) can adapt to the
-      // canvas width instead of the viewport.
+      // Named size container so page chrome (header rows, docks) can adapt to
+      // the canvas width instead of the viewport. Named, so a nested container
+      // a consumer establishes inside the page cannot answer a query the page
+      // chrome asked of the canvas.
       container-type: inline-size;
+      container-name: container.$page-container;
       width: 100%;
       min-height: 100%;
       max-width: var(--mlv-page-max-width, none);
@@ -338,4 +342,22 @@
   }
 
   @include mixins.reduced-motion($block);
+
+  // Responsive withholding of page-chrome regions, resolved here and nowhere
+  // else. A region says *when* it is withheld (`[hideOn]` → `data-hide-on`);
+  // this is the only place that knows what "narrow" means, so the definition
+  // cannot drift between a breakpoint hook, a stylesheet and a doc the way
+  // Primer's did. Scoped to `.mlv-page` because the width being asked about is
+  // the page canvas: outside a page there is no canvas to be narrow.
+  @container #{container.$page-container} (width <= #{container.$page-narrow}) {
+    .mlv-page [data-hide-on='narrow'] {
+      display: none;
+    }
+  }
+
+  @container #{container.$page-container} (width > #{container.$page-narrow}) {
+    .mlv-page [data-hide-on='wide'] {
+      display: none;
+    }
+  }
 }

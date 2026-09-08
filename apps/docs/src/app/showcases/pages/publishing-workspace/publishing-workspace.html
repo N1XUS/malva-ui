@@ -48,39 +48,42 @@
 
   <main mlvPage padding="l" surface="flat" id="main-content">
     <mlv-page-header>
+      <div mlvPageContext>
+        <!-- The nav trigger is leading context, not title content: the title
+             template is instantiated once per type role, so a control declared
+             inside it would exist twice. -->
+        <button
+          mlvButton
+          variant="transparent"
+          shape="square"
+          mlvSidebarTrigger
+          #documentsSidebarTrigger="mlvSidebarTrigger"
+          [sidebar]="documentsSidebar"
+          [attr.aria-label]="documentsSidebarTrigger.label()"
+        >
+          @if (documentsSidebarTrigger.collapsed()) {
+            <svg lucideMenu [size]="20" />
+          } @else {
+            <svg lucideX [size]="20" />
+          }
+        </button>
+      </div>
       <ng-template mlvPageTitle>
-        <div class="publishing-workspace-showcase__title-row">
-          <button
-            mlvButton
-            variant="transparent"
-            shape="square"
-            mlvSidebarTrigger
-            #documentsSidebarTrigger="mlvSidebarTrigger"
-            [sidebar]="documentsSidebar"
-            [attr.aria-label]="documentsSidebarTrigger.label()"
-          >
-            @if (documentsSidebarTrigger.collapsed()) {
-              <svg lucideMenu [size]="20" />
-            } @else {
-              <svg lucideX [size]="20" />
-            }
-          </button>
-          <h1
-            mlvTitle
-            editable
-            class="publishing-workspace-showcase__title"
-            ariaLabel="Article title"
-            placeholder="Untitled article"
-            [(value)]="articleTitle"
-          >
-            {{ articleTitle() }}
-          </h1>
-        </div>
+        <h1
+          mlvTitle
+          editable
+          class="publishing-workspace-showcase__title"
+          ariaLabel="Article title"
+          placeholder="Untitled article"
+          [(value)]="articleTitle"
+        >
+          {{ articleTitle() }}
+        </h1>
       </ng-template>
-      <ng-template mlvPageHeaderStatus>
+      <div mlvPageStatus>
         <mlv-badge [tone]="statusTone()" muted>{{ statusLabel() }}</mlv-badge>
-      </ng-template>
-      <ng-template mlvPageHeaderActions>
+      </div>
+      <div mlvPageActions>
         <mlv-avatar-group [members]="collaborators" size="s" />
         <button
           mlvButton
@@ -91,7 +94,7 @@
           <svg lucideHistory mlvButtonIcon [size]="16" aria-hidden="true"></svg>
           Review & versions
         </button>
-      </ng-template>
+      </div>
     </mlv-page-header>
 
     <section

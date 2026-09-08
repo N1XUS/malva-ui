@@ -1,16 +1,6 @@
 $block: project-workspace-showcase;
 
 .#{$block} {
-  &__title-row {
-    display: flex;
-    align-items: center;
-    gap: var(--mlv-spacing-2);
-  }
-
-  &__title-row h1 {
-    margin: 0;
-  }
-
   &__fact {
     min-block-size: var(--mlv-spacing-12);
   }

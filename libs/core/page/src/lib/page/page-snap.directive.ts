@@ -4,6 +4,7 @@ import {
   DestroyRef,
   Directive,
   ElementRef,
+  InjectionToken,
   inject,
   input,
   signal,
@@ -13,6 +14,29 @@ import { MlvPageSnapRegionBase } from './page-snap-region-base';
 
 /** How an element behaves while the page chrome snaps. */
 export type MlvPageSnapMode = 'hide' | 'fade' | 'keep';
+
+/** A region's own stagger window on the 0..1 snap timeline. */
+export interface MlvPageSnapWindow {
+  /** Progress at which the region's content starts fading. */
+  readonly from: number;
+  /** Progress at which the region's content has fully faded. */
+  readonly to: number;
+}
+
+/**
+ * Lets a region declare the stagger window its host `MlvPageSnap` defaults to.
+ *
+ * A region that composes `MlvPageSnap` through `hostDirectives` cannot bind
+ * that directive's inputs — nothing stands between the two to write them — and
+ * a window is exactly the kind of default a region should own rather than the
+ * page header growing one input per region to declare it. Providing this token
+ * on the region moves the default down to the region; a consumer's own
+ * `[snapFrom]` / `[snapTo]` still wins, because these are only the inputs'
+ * initial values.
+ */
+export const MLV_PAGE_SNAP_WINDOW = new InjectionToken<MlvPageSnapWindow>(
+  'MLV_PAGE_SNAP_WINDOW',
+);
 
 /**
  * Lets any element inside `main[mlvPage]` define its own state on the snap
@@ -56,14 +80,23 @@ export type MlvPageSnapMode = 'hide' | 'fade' | 'keep';
   },
 })
 export class MlvPageSnap extends MlvPageSnapRegionBase {
+  /**
+   * @private Window this region declared for itself, when the directive is
+   * composed onto one. Read before the two inputs are declared, because it
+   * supplies their initial values.
+   */
+  private readonly _declaredWindow = inject(MLV_PAGE_SNAP_WINDOW, {
+    optional: true,
+  });
+
   /** Behaviour on the snap timeline. An empty attribute value means `hide`. */
   readonly mlvPageSnap = input<MlvPageSnapMode | ''>('');
 
   /** Progress at which this element's content starts fading (0..1). */
-  readonly snapFrom = input(0);
+  readonly snapFrom = input(this._declaredWindow?.from ?? 0);
 
   /** Progress at which this element's content has fully faded (0..1). */
-  readonly snapTo = input(1);
+  readonly snapTo = input(this._declaredWindow?.to ?? 1);
 
   /** @protected Effective behaviour; the bare attribute defaults to `hide`. */
   protected readonly _mode = computed(() => this.mlvPageSnap() || 'hide');

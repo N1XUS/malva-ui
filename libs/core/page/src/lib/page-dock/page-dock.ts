@@ -73,6 +73,7 @@ export type MlvPageDockAppearance = 'bar' | 'floating';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-page-dock',
+    'data-slot': 'page-dock',
     '[class.mlv-page-dock--sticky]': 'sticky()',
     '[class.mlv-page-dock--floating]': 'appearance() === "floating"',
   },

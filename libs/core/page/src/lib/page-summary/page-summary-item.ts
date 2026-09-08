@@ -20,6 +20,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-page-summary-item',
+    'data-slot': 'page-summary-item',
   },
 })
 export class MlvPageSummaryItem {

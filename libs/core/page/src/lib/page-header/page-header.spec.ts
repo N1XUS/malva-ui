@@ -1,6 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, Directive, inject, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { By } from '@angular/platform-browser';
+import { MlvResizeObserverFactory } from '@malva-ui/cdk/utils';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,20 +9,18 @@ import * as sass from 'sass';
 import { MlvPageSnapController } from '../page/page-snap-controller';
 import { MlvPageSummary } from '../page-summary/page-summary';
 import { MlvPageSummaryItem } from '../page-summary/page-summary-item';
+import { MLV_PAGE_HEADER_STATE } from './page-header-state';
+import type { MlvPageHeaderState } from './page-header-state';
 import {
-  MlvPageBreadcrumb,
-  MlvPageHeaderActions,
-  MlvPageHeaderDescription,
-  MlvPageHeaderMeta,
-  MlvPageHeaderStatus,
-  MlvPageHeaderTabsActions,
-  MlvPageHeaderTabs,
+  MlvPageActions,
+  MlvPageContext,
+  MlvPageDescription,
+  MlvPageMeta,
+  MlvPageStatus,
+  MlvPageTabs,
   MlvPageTitle,
 } from './page-header.directives';
 import { MlvPageHeader } from './page-header';
-
-@Component({ template: '' })
-class EmptyRouteComponent {}
 
 const HEADER_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -39,49 +38,43 @@ const PAGE_CSS = sass.compile(join(HEADER_DIR, '../page/page.scss'), {
 
 @Component({
   template: `
-    <mlv-page-header back="/projects" (backClick)="backClicks = backClicks + 1">
-      <ng-template mlvPageBreadcrumb><span>Workspace</span></ng-template>
+    <mlv-page-header>
+      <div mlvPageContext><span>Workspace</span></div>
       <ng-template mlvPageTitle><h1>Project Atlas</h1></ng-template>
-      <ng-template mlvPageHeaderActions
-        ><button type="button">Share</button></ng-template
-      >
-      <ng-template mlvPageHeaderDescription><p>Description</p></ng-template>
-      <ng-template mlvPageHeaderMeta><span>Updated today</span></ng-template>
-      <ng-template mlvPageHeaderTabs><span>Overview</span></ng-template>
-      <ng-template mlvPageHeaderTabsActions
-        ><button type="button">Filter</button></ng-template
-      >
+      <div mlvPageActions><button type="button">Share</button></div>
+      <p mlvPageDescription id="host-description" class="host-owned">
+        Description
+      </p>
+      <div mlvPageMeta><span>Updated today</span></div>
+      <div mlvPageTabs>
+        <span>Overview</span>
+        <button type="button">Filter</button>
+      </div>
     </mlv-page-header>
   `,
   imports: [
     MlvPageHeader,
-    MlvPageBreadcrumb,
+    MlvPageContext,
     MlvPageTitle,
-    MlvPageHeaderActions,
-    MlvPageHeaderDescription,
-    MlvPageHeaderMeta,
-    MlvPageHeaderTabs,
-    MlvPageHeaderTabsActions,
+    MlvPageActions,
+    MlvPageDescription,
+    MlvPageMeta,
+    MlvPageTabs,
   ],
 })
-class PageHeaderTestHost {
-  backClicks = 0;
-}
+class PageHeaderTestHost {}
 
 describe('MlvPageHeader', () => {
-  it('renders structured slots in a predictable hierarchy', async () => {
+  it('renders every projected region in a predictable hierarchy', async () => {
     const fixture = TestBed.configureTestingModule({
       imports: [PageHeaderTestHost],
-      providers: [
-        provideRouter([{ path: 'projects', component: EmptyRouteComponent }]),
-      ],
     }).createComponent(PageHeaderTestHost);
     await fixture.whenStable();
 
     const header = fixture.nativeElement.querySelector('mlv-page-header');
     expect(header.querySelector('h1')?.textContent).toBe('Project Atlas');
     expect(
-      header.querySelector('.mlv-page-header__breadcrumb')?.textContent,
+      header.querySelector('.mlv-page-header__context')?.textContent,
     ).toContain('Workspace');
     expect(
       header.querySelector('.mlv-page-header__description')?.textContent,
@@ -89,43 +82,43 @@ describe('MlvPageHeader', () => {
     expect(
       header.querySelector('.mlv-page-header__meta')?.textContent,
     ).toContain('Updated today');
-    expect(
-      header.querySelector('.mlv-page-header__tabs-row')?.textContent,
-    ).toContain('Overview');
+
+    // One tabs region, not a strip plus a trailing action slot: whatever the
+    // consumer puts after the tab group sits at the trailing edge of the same
+    // flex row.
+    const tabs = header.querySelector('.mlv-page-header__tabs') as HTMLElement;
+    expect(tabs.textContent).toContain('Overview');
+    expect(tabs.querySelector('button')?.textContent).toContain('Filter');
   });
 
-  it('emits when the back link is activated', async () => {
+  it('projects the consumer own element, not a wrapper around it', async () => {
     const fixture = TestBed.configureTestingModule({
       imports: [PageHeaderTestHost],
-      providers: [
-        provideRouter([{ path: 'projects', component: EmptyRouteComponent }]),
-      ],
     }).createComponent(PageHeaderTestHost);
     await fixture.whenStable();
 
-    const back = fixture.nativeElement.querySelector(
-      '.mlv-page-header__back',
-    ) as HTMLAnchorElement;
-    back.click();
-    await fixture.whenStable();
-    expect(fixture.componentInstance.backClicks).toBe(1);
+    // The whole point of an element region over a template slot: the node in
+    // the DOM is the one the consumer wrote, so their tag, id and class are on
+    // the same element the library styles — selectable and stylable without
+    // piercing encapsulation.
+    const description = fixture.nativeElement.querySelector(
+      '.mlv-page-header__description',
+    ) as HTMLElement;
+    expect(description.tagName).toBe('P');
+    expect(description.id).toBe('host-description');
+    expect(description.classList).toContain('host-owned');
   });
 
-  it('renders the compact size, status slot, and centered tabs', async () => {
+  it('renders the compact size, status region, and centered tabs', async () => {
     @Component({
       template: `
         <mlv-page-header size="s" tabsAlign="center">
           <ng-template mlvPageTitle><h1>Wireless Headphones</h1></ng-template>
-          <ng-template mlvPageHeaderStatus><span>Draft</span></ng-template>
-          <ng-template mlvPageHeaderTabs><span>Details</span></ng-template>
+          <span mlvPageStatus>Draft</span>
+          <div mlvPageTabs><span>Details</span></div>
         </mlv-page-header>
       `,
-      imports: [
-        MlvPageHeader,
-        MlvPageTitle,
-        MlvPageHeaderStatus,
-        MlvPageHeaderTabs,
-      ],
+      imports: [MlvPageHeader, MlvPageTitle, MlvPageStatus, MlvPageTabs],
     })
     class CompactHeaderTestHost {}
 
@@ -142,6 +135,31 @@ describe('MlvPageHeader', () => {
     expect(
       header.querySelector('.mlv-page-header__status')?.textContent,
     ).toContain('Draft');
+  });
+
+  it('names every structural part with a data-slot handle', async () => {
+    const fixture = TestBed.configureTestingModule({
+      imports: [PageHeaderTestHost],
+    }).createComponent(PageHeaderTestHost);
+    await fixture.whenStable();
+
+    // A test, a screenshot diff and a consumer override all need a handle that
+    // is not a BEM class, because a BEM class is also the styling surface: it
+    // cannot be renamed without breaking overrides, and it cannot be queried
+    // without coupling the query to the visual API.
+    const slots = [
+      ...fixture.nativeElement.querySelectorAll('[data-slot]'),
+    ].map((element: Element) => element.getAttribute('data-slot'));
+    expect(slots).toEqual(
+      expect.arrayContaining([
+        'page-header',
+        'page-context',
+        'page-actions',
+        'page-description',
+        'page-meta',
+        'page-tabs',
+      ]),
+    );
   });
 
   it('marks itself scrolled once the chrome sits over content', async () => {
@@ -208,6 +226,7 @@ describe('MlvPageHeader', () => {
     const button = chevron();
     expect(button).toBeTruthy();
     expect(button?.getAttribute('aria-label')).toBe('Expand header');
+    expect(button?.getAttribute('data-slot')).toBe('page-header-expand');
 
     // Nothing registered a scroller, so the reveal closes on its own fallback
     // rather than on a scroll that never arrives.
@@ -270,6 +289,224 @@ describe('MlvPageHeader', () => {
       fixture.nativeElement.querySelector('.mlv-page-header__expand'),
     ).toBeNull();
   });
+
+  describe('responsive withholding', () => {
+    @Component({
+      template: `
+        <mlv-page-header>
+          <ng-template mlvPageTitle><h1>Record</h1></ng-template>
+          <div mlvPageMeta hideOn="narrow"><span>Updated today</span></div>
+          <div mlvPageTabs><span>Overview</span></div>
+        </mlv-page-header>
+      `,
+      imports: [MlvPageHeader, MlvPageTitle, MlvPageMeta, MlvPageTabs],
+    })
+    class HideOnTestHost {}
+
+    it('serialises the decision onto the region as an attribute', async () => {
+      const fixture = TestBed.configureTestingModule({
+        imports: [HideOnTestHost],
+      }).createComponent(HideOnTestHost);
+      await fixture.whenStable();
+
+      // The whole mechanism: an attribute one container query reads. No
+      // breakpoint signal, no resize listener, nothing to be wrong about on
+      // the server — and a region that declares nothing emits no attribute at
+      // all rather than a `data-hide-on="null"` for a stylesheet to trip over.
+      const meta = fixture.nativeElement.querySelector(
+        '.mlv-page-header__meta',
+      ) as HTMLElement;
+      const tabs = fixture.nativeElement.querySelector(
+        '.mlv-page-header__tabs',
+      ) as HTMLElement;
+      expect(meta.getAttribute('data-hide-on')).toBe('narrow');
+      expect(tabs.hasAttribute('data-hide-on')).toBe(false);
+    });
+
+    it('is resolved against the page canvas, in one place', () => {
+      // Both halves of the contract are asserted on the compiled stylesheet
+      // rather than in jsdom, which resolves no container query: the canvas is
+      // a *named* container so a nested scroller cannot answer for it, and the
+      // two rules use range syntax so neither width is matched by both.
+      expect(PAGE_CSS).toContain('container-name: mlv-page');
+      expect(PAGE_CSS).toContain('@container mlv-page (width <= 40rem)');
+      expect(PAGE_CSS).toContain('@container mlv-page (width > 40rem)');
+      expect(PAGE_CSS).toContain('[data-hide-on=narrow]');
+      expect(PAGE_CSS).toContain('[data-hide-on=wide]');
+    });
+  });
+
+  describe('collapse state is readable without wiring', () => {
+    /** A projected region reading the collapse the way a consumer would. */
+    @Directive({ selector: '[mlvTestStateProbe]' })
+    class StateProbe {
+      readonly state = inject<MlvPageHeaderState>(MLV_PAGE_HEADER_STATE);
+    }
+
+    @Component({
+      template: `
+        <mlv-page-header #header="mlvPageHeader">
+          <ng-template mlvPageTitle><h1>Record</h1></ng-template>
+          <div mlvPageMeta mlvTestStateProbe><span>Updated today</span></div>
+        </mlv-page-header>
+        <!-- Outside the header: the template reference is the point, and the
+             header projects only the regions it declares slots for. -->
+        <span class="test-readout">{{ header.collapsed() }}</span>
+      `,
+      imports: [MlvPageHeader, MlvPageTitle, MlvPageMeta, StateProbe],
+    })
+    class HeaderStateTestHost {}
+
+    it('publishes the collapse to a projected region and to a template ref', async () => {
+      TestBed.configureTestingModule({
+        imports: [HeaderStateTestHost],
+        providers: [MlvPageSnapController],
+      });
+      const controller = TestBed.inject(MlvPageSnapController);
+      const fixture = TestBed.createComponent(HeaderStateTestHost);
+      await fixture.whenStable();
+
+      const probe = fixture.debugElement
+        .query((node) => !!node.injector.get(StateProbe, null))
+        .injector.get(StateProbe);
+      const readout = (): string =>
+        (
+          fixture.nativeElement.querySelector('.test-readout') as HTMLElement
+        ).textContent?.trim() ?? '';
+
+      expect(probe.state.collapsed()).toBe(false);
+      expect(probe.state.progress()).toBe(0);
+      expect(readout()).toBe('false');
+
+      controller.registerCollapse(signal(96));
+      controller.updateFromScroll(96);
+      await fixture.whenStable();
+
+      // Same three signals, two ways in, no output to forward and no state
+      // mirrored into the consumer's component.
+      expect(probe.state.collapsed()).toBe(true);
+      expect(probe.state.progress()).toBe(1);
+      expect(readout()).toBe('true');
+    });
+  });
+
+  describe('title clipping is reported, never acted on', () => {
+    /** Stand-in for the platform observer; jsdom implements none. */
+    class FakeResizeObserver implements ResizeObserver {
+      static instances: FakeResizeObserver[] = [];
+
+      readonly targets = new Set<Element>();
+
+      constructor(private readonly _callback: ResizeObserverCallback) {
+        FakeResizeObserver.instances.push(this);
+      }
+
+      observe(target: Element): void {
+        this.targets.add(target);
+      }
+
+      unobserve(target: Element): void {
+        this.targets.delete(target);
+      }
+
+      disconnect(): void {
+        this.targets.clear();
+      }
+
+      /** Delivers a batch the way the platform would. */
+      emit(): void {
+        this._callback(
+          [...this.targets].map(
+            (target) => ({ target }) as ResizeObserverEntry,
+          ),
+          this,
+        );
+      }
+    }
+
+    @Component({
+      template: `
+        <mlv-page-header #header="mlvPageHeader">
+          <ng-template mlvPageTitle
+            ><h1>A very long record title</h1></ng-template
+          >
+        </mlv-page-header>
+      `,
+      imports: [MlvPageHeader, MlvPageTitle],
+    })
+    class ClippedTitleTestHost {}
+
+    beforeEach(() => {
+      FakeResizeObserver.instances = [];
+    });
+
+    /** Fakes layout for one node: jsdom reports every box as zero-sized. */
+    function setInlineOverflow(
+      element: HTMLElement,
+      scrollWidth: number,
+      clientWidth: number,
+    ): void {
+      Object.defineProperty(element, 'scrollWidth', {
+        configurable: true,
+        value: scrollWidth,
+      });
+      Object.defineProperty(element, 'clientWidth', {
+        configurable: true,
+        value: clientWidth,
+      });
+    }
+
+    it('follows whichever title role is currently on screen', async () => {
+      TestBed.configureTestingModule({
+        imports: [ClippedTitleTestHost],
+        providers: [
+          MlvPageSnapController,
+          {
+            provide: MlvResizeObserverFactory,
+            useValue: {
+              create: (callback: ResizeObserverCallback) =>
+                new FakeResizeObserver(callback),
+            },
+          },
+        ],
+      });
+      const controller = TestBed.inject(MlvPageSnapController);
+      const fixture = TestBed.createComponent(ClippedTitleTestHost);
+      await fixture.whenStable();
+
+      const header = fixture.debugElement
+        .query((node) => !!node.injector.get(MlvPageHeader, null))
+        .injector.get(MlvPageHeader);
+      const [large, small] = [
+        ...fixture.nativeElement.querySelectorAll(
+          '.mlv-page-header__title-node',
+        ),
+      ] as HTMLElement[];
+
+      expect(header.titleClipped()).toBe(false);
+
+      // Only the expanded role overflows. The smaller role is the whole point
+      // of the crossfade: a title that does not fit at h4 may well fit at h6.
+      setInlineOverflow(large, 480, 240);
+      setInlineOverflow(small, 200, 240);
+      for (const observer of FakeResizeObserver.instances) {
+        observer.emit();
+      }
+      await fixture.whenStable();
+      expect(header.titleClipped()).toBe(true);
+
+      controller.registerCollapse(signal(96));
+      controller.updateFromScroll(96);
+      await fixture.whenStable();
+
+      // Reported, not fixed: the header changes nothing about the title, it
+      // only stops claiming the hidden role's overflow as the visible one's.
+      expect(header.collapsed()).toBe(true);
+      expect(header.titleClipped()).toBe(false);
+      expect(large.style.textOverflow).toBe('');
+    });
+  });
+
   describe('scrubbed meta row and keyboard focus', () => {
     // The *title block* collapses and the navigation stays, so the scrubbed
     // region under test is the meta row — the tabs row is deliberately not one.
@@ -277,12 +514,12 @@ describe('MlvPageHeader', () => {
       template: `
         <mlv-page-header>
           <ng-template mlvPageTitle><h1>Record</h1></ng-template>
-          <ng-template mlvPageHeaderMeta>
+          <div mlvPageMeta>
             <button type="button" class="test-tab">Owner</button>
-          </ng-template>
+          </div>
         </mlv-page-header>
       `,
-      imports: [MlvPageHeader, MlvPageTitle, MlvPageHeaderMeta],
+      imports: [MlvPageHeader, MlvPageTitle, MlvPageMeta],
     })
     class SnapFocusTestHost {}
 
@@ -456,20 +693,13 @@ describe('MlvPageHeader', () => {
       template: `
         <mlv-page-header>
           <ng-template mlvPageTitle><h1>Quarterly report</h1></ng-template>
-          <ng-template mlvPageHeaderMeta>
-            <span>Updated today</span>
-          </ng-template>
-          <ng-template mlvPageHeaderTabs>
+          <div mlvPageMeta><span>Updated today</span></div>
+          <div mlvPageTabs>
             <button type="button" class="test-tab">Overview</button>
-          </ng-template>
+          </div>
         </mlv-page-header>
       `,
-      imports: [
-        MlvPageHeader,
-        MlvPageTitle,
-        MlvPageHeaderMeta,
-        MlvPageHeaderTabs,
-      ],
+      imports: [MlvPageHeader, MlvPageTitle, MlvPageMeta, MlvPageTabs],
     })
     class TwoTitleTestHost {}
 
@@ -525,6 +755,71 @@ describe('MlvPageHeader', () => {
       controller.updateFromScroll(96);
       await fixture.whenStable();
       await expectNoAxeViolations(root);
+    });
+
+    it('focuses whichever title role is live, never the inert copy', async () => {
+      const { controller, fixture, nodes } = await createTwoTitleHost();
+      const header = fixture.debugElement.query(By.directive(MlvPageHeader))
+        .componentInstance as MlvPageHeader;
+
+      expect(header.focusTitle()).toBe(true);
+      expect(document.activeElement).toBe(nodes[0]);
+
+      controller.updateFromScroll(96);
+      await fixture.whenStable();
+
+      // A route handler that had queried the DOM itself would still be holding
+      // the first copy, which is now `inert` and silently refuses focus.
+      expect(header.focusTitle()).toBe(true);
+      expect(document.activeElement).toBe(nodes[1]);
+    });
+
+    it('says so when the projected title carries an id of its own', async () => {
+      const warn = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      try {
+        @Component({
+          template: `
+            <mlv-page-header>
+              <ng-template mlvPageTitle>
+                <h1 id="page-title">Quarterly report</h1>
+              </ng-template>
+            </mlv-page-header>
+          `,
+          imports: [MlvPageHeader, MlvPageTitle],
+        })
+        class IdentifiedTitleTestHost {}
+
+        TestBed.configureTestingModule({ imports: [IdentifiedTitleTestHost] });
+        const fixture = TestBed.createComponent(IdentifiedTitleTestHost);
+        await fixture.whenStable();
+
+        // The id is in the document twice, so `getElementById` answers with
+        // the copy that is inert half the time. That is a defect a consumer
+        // cannot see from their own template.
+        expect(
+          fixture.nativeElement.querySelectorAll('#page-title'),
+        ).toHaveLength(2);
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toContain('page-title');
+        expect(warn.mock.calls[0][0]).toContain('focusTitle()');
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it('stays quiet when the title only carries generated ids', async () => {
+      const warn = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      try {
+        const { fixture } = await createTwoTitleHost();
+        expect(fixture.nativeElement).toBeTruthy();
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
     });
   });
 });

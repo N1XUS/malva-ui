@@ -3,7 +3,10 @@ import { describe, it, before } from 'node:test';
 
 import { JSDOM, VirtualConsole } from 'jsdom';
 
-import { stripCssLayersFromText } from './strip-css-layers.js';
+import {
+  flattenCssForJsdom,
+  stripCssLayersFromText,
+} from './strip-css-layers.js';
 
 const collapse = (css) => css.replace(/\s+/g, ' ').trim();
 
@@ -124,6 +127,74 @@ describe('jsdom @layer support', () => {
   });
 });
 
+describe('flattenCssForJsdom', () => {
+  it('drops a container query block', () => {
+    assert.equal(
+      collapse(
+        flattenCssForJsdom(
+          '@container mlv-page (width <= 40rem) { .probe { color: red } }',
+        ),
+      ),
+      '',
+    );
+  });
+
+  it('drops a container query nested inside a layer', () => {
+    assert.equal(
+      collapse(
+        flattenCssForJsdom(
+          '@layer mlv.components { .probe { color: blue }' +
+            ' @container mlv-page (width <= 40rem) { .probe { color: red } } }',
+        ),
+      ),
+      '.probe { color: blue }',
+    );
+  });
+
+  it('keeps container-name and container-type declarations', () => {
+    const css = '.probe { container-name: mlv-page; container-type: inline-size }';
+    assert.equal(flattenCssForJsdom(css), css);
+  });
+
+  it('returns css with neither at-rule byte-identical', () => {
+    const css = '.probe { color: red }\n';
+    assert.equal(flattenCssForJsdom(css), css);
+  });
+
+  it('leaves container queries alone in the text helper', () => {
+    // The text helper is what a spec asserting on *compiled* CSS uses, and
+    // that spec is asserting on the shipped stylesheet — where the query is
+    // real. Only the DOM path, which jsdom is about to parse, drops them.
+    const css = '@container mlv-page (width <= 40rem) { .probe { color: red } }';
+    assert.equal(stripCssLayersFromText(css), css);
+  });
+});
+
+// The second half of the regression: same failure, different keyword.
+describe('jsdom @container support', () => {
+  it('still discards a whole stylesheet over one container query', () => {
+    assert.equal(
+      computed(
+        '.probe { color: red }' +
+          ' @container mlv-page (width <= 40rem) { .probe { color: blue } }',
+      ),
+      '',
+    );
+  });
+
+  it('reads the rest of the stylesheet once the query is dropped', () => {
+    assert.equal(
+      computed(
+        flattenCssForJsdom(
+          '.probe { color: red }' +
+            ' @container mlv-page (width <= 40rem) { .probe { color: blue } }',
+        ),
+      ),
+      'rgb(255, 0, 0)',
+    );
+  });
+});
+
 describe('setup-strip-css-layers', () => {
   /** @type {import('jsdom').DOMWindow} */
   let window;
@@ -202,6 +273,17 @@ describe('setup-strip-css-layers', () => {
         style.textContent = '.probe { color: blue }';
       }),
       'rgb(0, 0, 255)',
+    );
+  });
+
+  it('drops container queries assigned through textContent', () => {
+    assert.equal(
+      attach((style) => {
+        style.textContent =
+          '@layer mlv.components { .probe { color: red }' +
+          ' @container mlv-page (width <= 40rem) { .probe { color: blue } } }';
+      }),
+      'rgb(255, 0, 0)',
     );
   });
 });

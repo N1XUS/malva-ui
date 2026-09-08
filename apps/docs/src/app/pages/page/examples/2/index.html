@@ -205,20 +205,18 @@
 
     <main mlvPage padding="m">
       <mlv-page-header>
-        <ng-template mlvPageBreadcrumb>
-          <nav mlvBreadcrumb [items]="breadcrumbs"></nav>
-        </ng-template>
+        <nav mlvBreadcrumb mlvPageContext [items]="breadcrumbs"></nav>
         <ng-template mlvPageTitle>
           <h1 mlvTitle>Website redesign</h1>
         </ng-template>
-        <ng-template mlvPageHeaderActions>
+        <div mlvPageActions>
           <button mlvButton variant="outlined">Share</button>
           <button mlvButton>New task</button>
-        </ng-template>
-        <ng-template mlvPageHeaderDescription>
-          <p>Coordinate the next version of the marketing experience.</p>
-        </ng-template>
-        <ng-template mlvPageHeaderTabs>
+        </div>
+        <p mlvPageDescription>
+          Coordinate the next version of the marketing experience.
+        </p>
+        <div mlvPageTabs>
           <mlv-tab-group [(activeTab)]="activeTab">
             <mlv-tab value="summary">
               <ng-template mlvTabDef>Summary</ng-template>
@@ -230,7 +228,7 @@
               <ng-template mlvTabDef>Files</ng-template>
             </mlv-tab>
           </mlv-tab-group>
-        </ng-template>
+        </div>
       </mlv-page-header>
 
       <section

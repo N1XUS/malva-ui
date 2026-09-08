@@ -15,7 +15,7 @@ Shows how the Page primitives form a rounded application canvas beneath global n
 
 | #   | Title               | What it demonstrates                                                                                                                                                                                                                                                                                                         |
 | --- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Structured Page     | Anchored page surface, breadcrumb/title/actions header slots, main content, and a sticky end aside.                                                                                                                                                                                                                          |
+| 1   | Structured Page     | Anchored page surface, the projected `[mlvPageContext]` / `[mlvPageTitle]` / `[mlvPageActions]` / `[mlvPageDescription]` / `[mlvPageMeta]` header regions, main content, and a consumer-owned sticky `<aside mlvPageAside>`.                                                                                                 |
 | 2   | Application Shell   | Dark action bar and collapsible icon rail framing one attached, rounded Page canvas with a responsive end inspector. Also responsive to its own width — see below.                                                                                                                                                           |
 | 3   | Record editor       | Publishing workflow page: compact sticky header (`size="s"`, status badges, Draft/Live `mlv-button-toggle` group, More menu, centered tabs), `mlv-page-summary` with pin + snap-on-scroll collapse, host-owned diff view / suggestions / version history / delayed publish, and `mlv-page-dock` workflow actions. See below. |
 | 4   | Responsive end pane | One `mlvPageEndPaneContent` template rendered as a labelled inline aside above `lg` and a modal Drawer below it, controlled by the public native-button trigger with one logical open and focus lifecycle.                                                                                                                   |
@@ -55,7 +55,7 @@ and slots; the example component owns every piece of domain state.
   height. The timeline's length is the chrome's own measured collapse
   distance, so content and chrome move 1:1 with no declared range. The
   description, the meta row and the summary strip give up their height over
-  staggered fade windows and the title crossfades h4 → h6; the breadcrumb and
+  staggered fade windows and the title crossfades h4 → h6; the context row and
   the tabs row stay. The expand chevron comes from
   `mlv-page-header[snapControls]`.
 - **Bottom toolbar** — the entire workflow row lives inside one white pill
@@ -73,7 +73,7 @@ and slots; the example component owns every piece of domain state.
 
 ## Libraries Used
 
-- `@malva-ui/core/page` — application shell geometry, page surface, structured header, responsive content grid, and aside slot
+- `@malva-ui/core/page` — application shell geometry, page surface, structured header regions, responsive content grid, and the `[mlvPageAside]` region
 - Example 4 uses `MlvPageEndPane`, `MlvPageEndPaneContent`, and `MlvPageEndPaneTrigger` for responsive trailing account details without custom breakpoint or Drawer code.
 - `@malva-ui/core/action-bar` — global top navigation, brand slot, and responsive action group in the shell example
 - `@malva-ui/cdk/utils` — `MlvResizeObserverService` measures the shell preview so the topbar and sidebar respond to their own container

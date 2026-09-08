@@ -34,6 +34,7 @@ import { MlvPageEndPaneContent } from './page-end-pane-content';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-page-end-pane',
+    'data-slot': 'page-end-pane',
     '[class.mlv-page-end-pane--overlay]': '_compact()',
     '[attr.id]': 'panelId',
     '[style.--mlv-page-end-pane-width]': '_hostWidth()',

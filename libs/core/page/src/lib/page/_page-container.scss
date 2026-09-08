@@ -1,0 +1,6 @@
+// The page canvas is a named size container, and this is the one definition of
+// "narrow" every stylesheet in the package resolves against. Primer shipped
+// three disagreeing definitions of the same word across a hook, its CSS and its
+// docs; one variable in one place is the whole prevention.
+$page-container: mlv-page;
+$page-narrow: 40rem;

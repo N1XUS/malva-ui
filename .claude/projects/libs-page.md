@@ -26,22 +26,26 @@ Exported from `libs/core/page/src/index.ts`:
 | `MlvPage`                      | Component        | `main[mlvPage]`                                                 |
 | `MlvPageHeader`                | Component        | `mlv-page-header`                                               |
 | `MlvPageContent`               | Component        | `mlv-page-content`                                              |
-| `MlvPageBreadcrumb`            | Template slot    | `[mlvPageBreadcrumb]`                                           |
-| `MlvPageHeaderIcon`            | Template slot    | `[mlvPageHeaderIcon]`                                           |
+| `MlvPageContext`               | Header region    | `[mlvPageContext]`                                              |
 | `MlvPageTitle`                 | Template slot    | `[mlvPageTitle]`                                                |
-| `MlvPageHeaderStatus`          | Template slot    | `[mlvPageHeaderStatus]`                                         |
-| `MlvPageHeaderActions`         | Template slot    | `[mlvPageHeaderActions]`                                        |
-| `MlvPageHeaderDescription`     | Template slot    | `[mlvPageHeaderDescription]`                                    |
-| `MlvPageHeaderMeta`            | Template slot    | `[mlvPageHeaderMeta]`                                           |
-| `MlvPageHeaderTabs`            | Template slot    | `[mlvPageHeaderTabs]`                                           |
-| `MlvPageHeaderTabsActions`     | Template slot    | `[mlvPageHeaderTabsActions]`                                    |
-| `MlvPageAside`                 | Template slot    | `[mlvPageAside]`                                                |
+| `MlvPageStatus`                | Header region    | `[mlvPageStatus]`                                               |
+| `MlvPageActions`               | Header region    | `[mlvPageActions]`                                              |
+| `MlvPageDescription`           | Header region    | `[mlvPageDescription]`                                          |
+| `MlvPageMeta`                  | Header region    | `[mlvPageMeta]`                                                 |
+| `MlvPageTabs`                  | Header region    | `[mlvPageTabs]`                                                 |
+| `MlvPageAside`                 | Content region   | `[mlvPageAside]`                                                |
 | `MlvPageSummary`               | Component        | `mlv-page-summary`                                              |
 | `MlvPageSummaryItem`           | Component        | `mlv-page-summary-item`                                         |
 | `MlvPageDock`                  | Component        | `mlv-page-dock`                                                 |
 | `MlvPageDockStart`             | Dock slot        | `[mlvPageDockStart]`                                            |
 | `MlvPageDockCenter`            | Dock slot        | `[mlvPageDockCenter]`                                           |
 | `MlvPageDockEnd`               | Dock slot        | `[mlvPageDockEnd]`                                              |
+| `MlvPageChromeRegion`          | Abstract base    | `hideOn` — every projected chrome region extends it             |
+| `MlvPageRegionHide`            | Type             | `'narrow' \| 'wide' \| null`                                    |
+| `MlvPageHeaderState`           | Interface        | `{ progress; collapsed; titleClipped }`                         |
+| `MLV_PAGE_HEADER_STATE`        | Token            | collapse state of the enclosing `mlv-page-header`               |
+| `MLV_PAGE_SNAP_WINDOW`         | Token            | a region's own default stagger window                           |
+| `MlvPageSnapWindow`            | Interface        | `{ from; to }`                                                  |
 | `MlvPageGeometry`              | Service          | provided by `MlvPage`                                           |
 | `MlvPageSnapState`             | Interface        | `{ progress; snapped; overlapped; collapseDistance; expand() }` |
 | `MlvPageSnapBehavior`          | Type             | `'pinned' \| 'enterAlways' \| 'exitUntilCollapsed'`             |
@@ -62,8 +66,65 @@ Exported from `libs/core/page/src/index.ts`:
 | `MlvPageSurface`               | Type             | `'anchored' \| 'flat'`                                          |
 | `MlvPageHeaderSize`            | Type             | `'m' \| 's'`                                                    |
 | `MlvPageHeaderTabsAlign`       | Type             | `'start' \| 'center'`                                           |
-| `MlvPageAsidePlacement`        | Type             | `'start' \| 'end'`                                              |
 | `MlvPageContentGap`            | Type             | `'s' \| 'm' \| 'l'`                                             |
+
+## Regions are projected elements
+
+Every chrome slot except the page title is an **element the consumer owns**,
+selected out of the projected content by an attribute — `[mlvPageContext]`,
+`[mlvPageStatus]`, `[mlvPageActions]`, `[mlvPageDescription]`, `[mlvPageMeta]`,
+`[mlvPageTabs]`, `[mlvPageAside]`, and the three dock slots. Region _order_ is
+still the component's, because the projection sites are in its template; what
+the consumer gains is that the node in the DOM is the one they wrote —
+selectable and stylable without piercing encapsulation, never re-instantiated
+when a sibling region appears or disappears, and free to be a semantic element
+(`<nav mlvPageContext>`, `<p mlvPageDescription>`, `<aside mlvPageAside>`).
+
+**`[mlvPageTitle]` is the one template**, and for the same structural reason the
+end pane keeps one: the header renders the title _twice_, at two complete type
+roles, and crossfades between them. A projected element is one DOM node and can
+land in only one slot.
+
+### `MlvPageChromeRegion`
+
+Every region extends one abstract base carrying exactly one input, because
+responsive withholding is the only behaviour all of them share.
+
+| Input    | Type                | Default | Description                                     |
+| -------- | ------------------- | ------- | ----------------------------------------------- |
+| `hideOn` | `MlvPageRegionHide` | `null`  | Withholds the region on a narrow or wide canvas |
+
+`hideOn` is serialised onto the host as `data-hide-on` and resolved by **one
+container query** in `page.scss`, against the page canvas (`.mlv-page__inner`
+is a _named_ size container, `mlv-page`) rather than the viewport. So it costs
+no change detection, needs no resize listener, renders correctly on the server,
+and a region withheld inside a narrow canvas on a wide screen is withheld
+because the canvas is narrow. Outside `main[mlvPage]` there is no canvas and
+nothing is withheld. `40rem` is the single definition of "narrow", in
+`_page-container.scss`; the two queries use range syntax (`width <= 40rem` /
+`width > 40rem`) so neither width is matched by both.
+
+Everything else a region needs it declares for itself. `[mlvPageDescription]`
+and `[mlvPageMeta]` compose `MlvPageSnap` through `hostDirectives` and supply
+their own stagger windows by providing `MLV_PAGE_SNAP_WINDOW` (0–0.6 and
+0.15–0.75) — a `hostDirectives` entry cannot have its inputs bound, and a
+window is exactly the kind of default that belongs to the region rather than to
+one more input on the header.
+
+### `data-slot`
+
+Every structural part of the page family carries a `data-slot` attribute naming
+it: `page`, `page-shell`, `page-topbar`, `page-sidebar`, `page-end-sidebar`,
+`page-header`, `page-context`, `page-status`, `page-actions`,
+`page-description`, `page-meta`, `page-tabs`, `page-header-expand`,
+`page-content`, `page-main`, `page-aside`, `page-summary`, `page-summary-item`,
+`page-end-pane`, `page-dock`, `page-dock-start`, `page-dock-center`,
+`page-dock-end`.
+
+A test, a screenshot diff and a consumer override all need a handle on a part,
+and a BEM class is the wrong one: it is simultaneously the styling surface, so
+it cannot be renamed without breaking overrides and cannot be queried without
+coupling the query to the visual API. `data-slot` is a name with no other job.
 
 ## `MlvPageShell`
 
@@ -661,28 +722,100 @@ plumbing; consumers call `expand()`, never these.
 
 ## `MlvPageHeader`
 
-The header renders a predictable hierarchy for breadcrumb/back navigation, one semantic page title, inline status, actions, supporting description, metadata, and a tabs row. All content areas are optional structural template slots.
+The header renders a predictable hierarchy: leading context, one semantic page
+title with inline status and trailing actions, a supporting description, a
+metadata row, and a navigation row. **Six projected element regions and one
+template**, all optional.
 
-| Input / output | Type                           | Default           | Description                                                                |
-| -------------- | ------------------------------ | ----------------- | -------------------------------------------------------------------------- |
-| `back`         | `string \| string[] \| null`   | `null`            | Optional Router destination for a built-in back link.                      |
-| `backLabel`    | `string`                       | `'Back'`          | Visible and accessible back-link text.                                     |
-| `sticky`       | `boolean`                      | `false`           | Makes this header sticky independently of `MlvPage`.                       |
-| `size`         | `MlvPageHeaderSize`            | `'m'`             | `'s'` renders the compact record-editor header with a smaller title scale. |
-| `tabsAlign`    | `MlvPageHeaderTabsAlign`       | `'start'`         | Centers the tabs row when `'center'`.                                      |
-| `snapControls` | `boolean`                      | `false`           | Shows the expand chevron in the title row once the chrome is snapped.      |
-| `expandLabel`  | `string`                       | `'Expand header'` | Accessible label of the expand chevron.                                    |
-| `backClick`    | `OutputEmitterRef<MouseEvent>` | —                 | Emits when the built-in back link is activated.                            |
+| Region                 | Where it renders                              | Collapses on scroll |
+| ---------------------- | --------------------------------------------- | ------------------- |
+| `[mlvPageContext]`     | above the title — breadcrumb, back link, icon | no                  |
+| `[mlvPageTitle]`       | the title row (**an `ng-template`**)          | crossfades          |
+| `[mlvPageStatus]`      | inline, directly after the title              | no                  |
+| `[mlvPageActions]`     | trailing edge of the title row                | no                  |
+| `[mlvPageDescription]` | below the title row                           | 0–0.6               |
+| `[mlvPageMeta]`        | below the description                         | 0.15–0.75           |
+| `[mlvPageTabs]`        | the bottom navigation row                     | never               |
+
+`[mlvPageContext]` is one region, not three stacked rows: it also replaces the
+header's built-in back link, which forwarded a restricted destination to a
+router link _and_ emitted a click — conflating "navigate to this destination"
+with "go back" — while making every consumer of the header pull in
+`@angular/router` for a link most of them never rendered. A back link is now
+the consumer's own `<a mlvLink routerLink="…">` inside that region.
+
+`[mlvPageTabs]` is likewise one region, not a tab strip plus a trailing action
+slot: it is a flex row, so a projected tab group takes the free inline size and
+anything after it sits at the trailing edge.
+
+| Input          | Type                     | Default           | Description                                                                |
+| -------------- | ------------------------ | ----------------- | -------------------------------------------------------------------------- |
+| `sticky`       | `boolean`                | `false`           | Makes this header sticky independently of `MlvPage`.                       |
+| `size`         | `MlvPageHeaderSize`      | `'m'`             | `'s'` renders the compact record-editor header with a smaller title scale. |
+| `tabsAlign`    | `MlvPageHeaderTabsAlign` | `'start'`         | Centers the tabs row when `'center'`.                                      |
+| `snapControls` | `boolean`                | `false`           | Shows the expand chevron in the title row once the chrome is snapped.      |
+| `expandLabel`  | `string`                 | `'Expand header'` | Accessible label of the expand chevron.                                    |
+
+| Method         | Returns   | Description                                                             |
+| -------------- | --------- | ----------------------------------------------------------------------- |
+| `focusTitle()` | `boolean` | Focuses the title role currently on screen; `false` when there is none. |
 
 Consumers should project exactly one semantic `<h1>` through `[mlvPageTitle]`.
-`[mlvPageHeaderStatus]` renders inline right after the title — intended for
-draft/live badges or an unsaved indicator.
+
+#### The title template holds the title and nothing else
+
+`[mlvPageTitle]` is the one **template** region, and the header instantiates it
+**twice** — once per type role (see _The title is two nodes_ below). Anything
+with identity or state declared inside it therefore exists twice, in ways the
+consumer cannot see from their own template:
+
+| Declared in the title slot  | What actually happens                                                                                                                               |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id="…"`                    | The id is in the document twice; `getElementById` answers with the copy that is `inert` while the header is collapsed. **The header warns in dev.** |
+| `tabindex="-1"`             | Two focus candidates, one of them `inert`, which silently refuses focus                                                                             |
+| `ng-template[mlvDialog]`    | Two dialog hosts — one open request renders two dialogs                                                                                             |
+| A control, a trigger, a CVA | Two instances registering with whatever they register with                                                                                          |
+
+Two consequences worth spelling out, because both were live defects the rebuild
+had to fix in `apps/docs`:
+
+- **A leading nav trigger goes in `[mlvPageContext]`**, not inline with the
+  `<h1>`. That region is a projected _element_, rendered once, and a back link
+  or menu button is leading context by definition.
+- **The focus target is `focusTitle()`**, not an id the route wrote. A "back to
+  the top" handler calls it and reads the returned boolean; the header focuses
+  whichever of its two `tabindex="-1"` title nodes is live. The nodes are
+  programmatic targets only — neither is ever a tab stop.
+
+### Collapse state (`MLV_PAGE_HEADER_STATE`, `exportAs: 'mlvPageHeader'`)
+
+The header publishes three signals — `progress`, `collapsed`, `titleClipped` —
+and there are two ways in, neither of which needs an output forwarded or state
+mirrored into the consumer's component:
+
+```html
+<mlv-page-header #header="mlvPageHeader">…</mlv-page-header> <span>{{ header.collapsed() }}</span>
+```
+
+```ts
+// From a projected region — the element injector reaches the header it is
+// declared inside.
+readonly state = inject(MLV_PAGE_HEADER_STATE);
+```
+
+`titleClipped` is **reported, never acted on**: it says the title node
+currently on screen is wider than its box, and how a truncated title should
+degrade — a tooltip, a shorter string, a second line — is the consumer's
+decision. It follows whichever of the two title roles is exposed, so a title
+that does not fit at `h4` but does at `h6` reports `true` expanded and `false`
+snapped.
 
 **Snap behaviour (scrubbed).** Inside `main[mlvPage]` the header takes its
 progress from `--mlv-page-snap`. **The title block collapses; the navigation
 does not.** The description gives up its height over the 0–0.6 window and the
-meta row over 0.15–0.75 (both via `[mlvPageSnap]`); the breadcrumb, the back
-link, the tabs row, the status and the actions stay exactly where they are.
+meta row over 0.15–0.75 (both regions declaring their own window, see
+_Regions are projected elements_); the context row, the tabs row, the status
+and the actions stay exactly where they are.
 Both platforms make that choice for the same reason — navigation is the thing a
 reader needs _most_ once scrolled — and it is what makes the collapsed bar a
 real bar rather than a strip of leftovers.
@@ -703,6 +836,11 @@ one node is exposed at a time: the inactive one takes `aria-hidden` **and**
 `inert`, because an opacity-zero heading is still announced and still focusable
 on the web. A `display: none` would not do — the node has to stay laid out to
 be measurable.
+
+That is also the whole cost of the crossfade, and it is paid by the consumer's
+template rather than by the header: see _The title template holds the title and
+nothing else_ above for what must not be declared inside it, and use
+`focusTitle()` rather than reaching for a node by id.
 
 `mlv-page-header--scrolled` (raised shadow) follows the snap controller's
 `overlapped`, so chrome that is not collapsing still marks itself as sitting
@@ -818,22 +956,45 @@ obstructing.
 
 ## `MlvPageContent`
 
-`MlvPageContent` lays out primary content and an optional complementary `<aside>`. It observes its own content-box width with `MlvResizeObserverService`, so stacking follows the space actually available after sidebars rather than the viewport width.
+`MlvPageContent` lays out primary content and an optional complementary column. It observes its own content-box width with `MlvResizeObserverService`, so stacking follows the space actually available after sidebars rather than the viewport width.
 
-| Input            | Type                    | Default             | Description                                                  |
-| ---------------- | ----------------------- | ------------------- | ------------------------------------------------------------ |
-| `asidePlacement` | `MlvPageAsidePlacement` | `'end'`             | Places the aside before or after primary content.            |
-| `asideWidth`     | `string`                | `'20rem'`           | Preferred inline aside width.                                |
-| `asideSticky`    | `boolean`               | `true`              | Keeps the inline aside visible while the page scrolls.       |
-| `gap`            | `MlvPageContentGap`     | `'m'`               | Gap between the primary and complementary columns.           |
-| `stackBelow`     | `number`                | `1024`              | Container width in CSS pixels below which the columns stack. |
-| `asideLabel`     | `string`                | `'Related content'` | Accessible name for the aside landmark.                      |
+| Input         | Type                | Default   | Description                                                  |
+| ------------- | ------------------- | --------- | ------------------------------------------------------------ |
+| `asideWidth`  | `string`            | `'20rem'` | Preferred inline aside width.                                |
+| `asideSticky` | `boolean`           | `true`    | Keeps the inline aside visible while the page scrolls.       |
+| `gap`         | `MlvPageContentGap` | `'m'`     | Gap between the primary and complementary columns.           |
+| `stackBelow`  | `number`            | `1024`    | Container width in CSS pixels below which the columns stack. |
+
+### The aside is the consumer's own landmark
+
+```html
+<mlv-page-content asideWidth="18rem">
+  <section><!-- primary content --></section>
+  <aside mlvPageAside aria-label="Project details"><!-- … --></aside>
+</mlv-page-content>
+```
+
+The component contributes the grid area and nothing else, so the landmark, its
+role and its accessible name are all expressible without an input each. In dev
+mode the region warns when its host is neither an `<aside>` nor
+`role="complementary"`, and when a landmark carries no `aria-label` /
+`aria-labelledby` — warned from the region rather than from the parent, which
+could not introspect a projected template to say either thing.
+
+**There is no `asidePlacement`.** The old `'start'` value moved the column
+before the main content _visually while leaving it after the main content in
+the DOM_ — a reading and focus order that disagreed with the rendered page,
+introduced by a layout convenience. Neither `order` nor `grid-template-areas`
+can fix that: assistive technology and sequential focus follow the DOM. A
+genuinely leading complementary column is a claim about reading order, and the
+honest way to make it is to write that content first — which a component
+wrapping the main column cannot express, and no longer pretends to.
 
 ### Aside track reservation
 
-- The complementary grid track exists **only while an `[mlvPageAside]` template is actually projected**. The component sets `mlv-page-content--has-aside` on the host from the same `contentChild(MlvPageAside)` query that renders the `<aside>`, and the SCSS keys the two-track definition (and the stacked two-row definition) on that class.
+- The complementary grid track exists **only while an `[mlvPageAside]` element is actually projected**. The component sets `mlv-page-content--has-aside` on the host from a `contentChild(MlvPageAside)` query, and the SCSS keys the two-track definition (and the stacked two-row definition) on that class.
 - Without an aside the host is a single `minmax(0, 1fr)` track / `'main'` area, so a consumer that projects no aside keeps the full inline size instead of losing `asideWidth` to an empty track. No opt-in input; no `:has()`; consumer-side overrides that collapsed the track are no longer needed.
-- Inline geometry is scoped `--has-aside:not(--stacked)` so the compound `--has-aside.--aside-start` selector cannot out-specify the stacked single-column rules.
+- Inline geometry is scoped `--has-aside:not(--stacked)`, so it cannot out-specify the stacked single-column rules.
 
 ## Usage
 
@@ -844,16 +1005,14 @@ obstructing.
 
   <main mlvPage maxWidth="90rem">
     <mlv-page-header>
-      <ng-template mlvPageBreadcrumb>
-        <nav mlvBreadcrumb [items]="breadcrumbs"></nav>
-      </ng-template>
+      <nav mlvBreadcrumb mlvPageContext [items]="breadcrumbs"></nav>
       <ng-template mlvPageTitle><h1>Project Atlas</h1></ng-template>
-      <ng-template mlvPageHeaderTabs><!-- mlv-tab-group --></ng-template>
+      <div mlvPageTabs><!-- mlv-tab-group --></div>
     </mlv-page-header>
 
-    <mlv-page-content asidePlacement="end" asideWidth="18rem">
+    <mlv-page-content asideWidth="18rem">
       <section><!-- cards and feature content --></section>
-      <ng-template mlvPageAside><!-- complementary content --></ng-template>
+      <aside mlvPageAside aria-label="Project details"><!-- … --></aside>
     </mlv-page-content>
   </main>
 </mlv-page-shell>
@@ -865,11 +1024,10 @@ Record-editor composition (compact header, summary strip, dock):
 <main mlvPage>
   <mlv-page-header size="s" tabsAlign="center" snapControls>
     <ng-template mlvPageTitle><h1>{{ name() }}</h1></ng-template>
-    <ng-template mlvPageHeaderStatus>
-      <mlv-badge tone="warning" muted>Draft</mlv-badge>
-    </ng-template>
-    <ng-template mlvPageHeaderActions><!-- draft/live toggle, menus --></ng-template>
-    <ng-template mlvPageHeaderTabs><!-- mlv-tab-group --></ng-template>
+    <mlv-badge mlvPageStatus tone="warning" muted>Draft</mlv-badge>
+    <div mlvPageActions><!-- draft/live toggle, menus --></div>
+    <p mlvPageDescription hideOn="narrow"><!-- supporting copy --></p>
+    <div mlvPageTabs><!-- mlv-tab-group, then any trailing control --></div>
   </mlv-page-header>
 
   <mlv-page-summary>

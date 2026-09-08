@@ -251,6 +251,20 @@ reset through `getPresentationState()` / `applyPresentationState()`. Neither
 example owns saved-view names, permissions, dirty state, or persistence; the
 composed experience remains at `/showcases/data-operations`.
 
+**The header title slot holds the title and nothing else.** `[mlvPageTitle]` is
+a template the header instantiates **twice**, once per type role, so anything
+with identity or state declared inside it exists twice: an `id` collides (and
+the header warns in dev), a `tabindex` gives `focusTitle()` two candidates one
+of which is `inert`, an `ng-template[mlvDialog]` opens two dialogs, and a
+control registers itself twice. The four showcases that used to put their
+sidebar trigger inline with the `<h1>` (`data-operations`, `data-at-scale`,
+`project-workspace`, `publishing-workspace`) now project it into
+`[mlvPageContext]`, which is an element region rendered once and is where a
+leading nav affordance belongs; `data-operations` additionally moved its two
+saved-view dialog templates out of the header entirely. Their
+`__title-row` styles are gone with them — `mlv-page-header` lays the context
+region out and resets projected headings itself.
+
 The Data Operations showcase deliberately keeps only account fixtures,
 URL-backed saved-view state, simulated persistence, and account-specific
 rendering/actions in the route. Its responsive navigation is one flat
@@ -482,18 +496,19 @@ on its own.
   node's — `wbSettingsButtonId()` / `wbAddButtonId()` give stable handles for
   the add/remove/Escape focus moves instead of a view query.
 - **Escape-to-top expands the chrome before it focuses.** The level-1 tab strip
-  is projected into `mlv-page-header`'s tabs row, which the page's snap
-  timeline scrubs to `visibility: hidden` once the header collapses — and
-  `focus()` on a hidden element is silently refused, so the handler used to be
-  a no-op for anyone past ~100px of scroll. `onEscapeToTop()` now calls
-  `MlvPageSnapController.expand()` first (reached with
-  `viewChild(MlvPage, { read: MlvPageSnapController })`, since the showcase
-  _hosts_ the page and cannot inject the controller), which reveals every snap
-  region synchronously, and only then focuses the tab. If no controller is
-  present or the strip is not rendered, focus falls back to the page `<h1>`
-  (`WB_PAGE_TITLE_ID` = `wb-page-title`), which sits in the header's
-  never-snapped title row. Both landings are visible; focus is never left on
-  `<body>`.
+  is projected into `mlv-page-header`'s **tabs region, which is deliberately
+  not on the snap timeline** — level-1 navigation stays reachable at every
+  scroll offset. Expanding first is still what makes the landing right:
+  `onEscapeToTop()` calls `MlvPage.snap.expand()` (reached with
+  `viewChild(MlvPage)`, since the showcase _hosts_ the page and cannot inject
+  the controller, which is not exported anyway), which reveals every collapsed
+  region synchronously **and** asks the page to return to the top, so focus
+  lands on chrome the reader can see rather than on a tab under a scrolled
+  canvas. If the strip is not rendered, focus falls back to
+  `MlvPageHeader.focusTitle()` — never a `getElementById`, because the header
+  renders `[mlvPageTitle]` **once per type role** and only it knows which copy
+  is live; the route's `<h1>` therefore carries no id and no `tabindex` of its
+  own. Both landings are visible; focus is never left on `<body>`.
 - **Discard confirms like Remove does.** Discard drops every unsaved edit
   across all six trees with no undo, so it routes through the same
   `MlvDialogService.confirm({ tone: 'danger' })` the subtree removal uses — an

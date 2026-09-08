@@ -160,19 +160,19 @@
     <!-- ── Page ───────────────────────────────────────────────────────────── -->
     <main mlvPage id="main-content" padding="m" surface="anchored" stickyHeader>
       <mlv-page-header size="s" sticky snapControls>
-        <ng-template mlvPageBreadcrumb>
+        <div mlvPageContext>
           <nav mlvBreadcrumb [items]="breadcrumbs()" mlvDensity="compact"></nav>
-        </ng-template>
+        </div>
 
         <ng-template mlvPageTitle>
           <h1 #sectionHeading tabindex="-1">{{ sectionTitle() }}</h1>
         </ng-template>
 
-        <ng-template mlvPageHeaderStatus>
+        <div mlvPageStatus>
           <mlv-badge [tone]="statusTone()" muted>{{ statusLabel() }}</mlv-badge>
-        </ng-template>
+        </div>
 
-        <ng-template mlvPageHeaderActions>
+        <div mlvPageActions>
           <button
             mlvButton
             variant="transparent"
@@ -215,14 +215,14 @@
               Keyboard shortcuts
             </mlv-list-item>
           </mlv-menu>
-        </ng-template>
+        </div>
 
-        <ng-template mlvPageHeaderDescription>
+        <div mlvPageDescription>
           <p>{{ sectionDescription() }}</p>
-        </ng-template>
+        </div>
 
         @if (hasTabs()) {
-          <ng-template mlvPageHeaderTabs>
+          <div mlvPageTabs>
             <mlv-tab-group
               class="settings-access-showcase__tabs"
               appearance="underline"
@@ -281,9 +281,7 @@
                 </mlv-tab>
               }
             </mlv-tab-group>
-          </ng-template>
 
-          <ng-template mlvPageHeaderTabsActions>
             @switch (activeSection() + '/' + activeTab()) {
               @case ('members/roster') {
                 <mlv-search-field
@@ -332,7 +330,7 @@
                 </button>
               }
             }
-          </ng-template>
+          </div>
         }
 
         <mlv-page-summary [summaryLabel]="summaryLabel()">
@@ -467,12 +465,10 @@
       </mlv-page-header>
 
       <mlv-page-content
-        asidePlacement="end"
         asideWidth="22rem"
         asideSticky
         gap="l"
         [stackBelow]="asideStackBelow()"
-        asideLabel="Change review"
       >
         <!-- ── Section body ─────────────────────────────────────────────── -->
         <div class="settings-access-showcase__column">
@@ -2208,7 +2204,11 @@
         </div>
 
         <!-- ── Change review aside ──────────────────────────────────────── -->
-        <div *mlvPageAside class="settings-access-showcase__aside">
+        <aside
+          mlvPageAside
+          class="settings-access-showcase__aside"
+          aria-label="Change review"
+        >
           <div class="settings-access-showcase__aside-head">
             <h2 mlvTitle level="6">Change review</h2>
             @if (stagedCount() > 0) {
@@ -2326,7 +2326,7 @@
             <svg lucideActivity mlvButtonIcon [size]="14" />
             View full audit log
           </button>
-        </div>
+        </aside>
       </mlv-page-content>
 
       <!-- ── Dock ──────────────────────────────────────────────────────── -->

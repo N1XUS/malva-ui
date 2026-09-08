@@ -1,4 +1,5 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../page/page-container' as container;
 @use '../../../../../cdk/floating-container/src/lib/floating-container.mixins'
   as floating;
 
@@ -104,6 +105,22 @@
       align-items: center;
       justify-content: flex-end;
       gap: var(--mlv-spacing-2);
+    }
+  }
+
+  // A three-column dock is a wide-canvas layout. The centre column is right
+  // for a genuinely centred cluster and wrong for a canvas that cannot hold
+  // three of them side by side, so the grid collapses to one column and the
+  // regions stack in reading order — the same container the header's own rows
+  // answer to, and the same single definition of "narrow".
+  @container #{container.$page-container} (width <= #{container.$page-narrow}) {
+    .mlv-page-dock {
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: stretch;
+    }
+
+    .mlv-page-dock__center {
+      justify-content: flex-start;
     }
   }
 }

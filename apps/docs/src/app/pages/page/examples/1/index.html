@@ -1,22 +1,28 @@
 <div class="page-preview">
   <main mlvPage maxWidth="72rem">
-    <mlv-page-header back="/page" backLabel="All projects">
-      <ng-template mlvPageHeaderIcon>
-        <svg lucideFolderKanban [size]="24" />
-      </ng-template>
+    <mlv-page-header>
+      <div mlvPageContext>
+        <a mlvLink variant="subtle" routerLink="/page">
+          <ng-template mlvLinkBefore>
+            <svg lucideChevronLeft [size]="16" aria-hidden="true" />
+          </ng-template>
+          All projects
+        </a>
+        <svg lucideFolderKanban [size]="20" aria-hidden="true" />
+      </div>
       <ng-template mlvPageTitle>
         <h1 mlvTitle>Project Atlas</h1>
       </ng-template>
-      <ng-template mlvPageHeaderActions>
+      <div mlvPageActions>
         <button mlvButton variant="outlined">Share</button>
         <button mlvButton>Create task</button>
-      </ng-template>
-      <ng-template mlvPageHeaderDescription>
-        <p>Coordinate the design-system rollout across product teams.</p>
-      </ng-template>
-      <ng-template mlvPageHeaderMeta>
+      </div>
+      <p mlvPageDescription>
+        Coordinate the design-system rollout across product teams.
+      </p>
+      <div mlvPageMeta>
         <span>Updated today</span><span>12 collaborators</span>
-      </ng-template>
+      </div>
     </mlv-page-header>
 
     <mlv-page-content [stackBelow]="720" asideWidth="18rem">
@@ -29,7 +35,7 @@
         </div>
       </section>
 
-      <ng-template mlvPageAside>
+      <aside mlvPageAside aria-label="Project details">
         <mlv-card>
           <h2 mlvTitle>Project details</h2>
           <dl class="page-preview__details">
@@ -47,7 +53,7 @@
             </div>
           </dl>
         </mlv-card>
-      </ng-template>
+      </aside>
     </mlv-page-content>
   </main>
 </div>

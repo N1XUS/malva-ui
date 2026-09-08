@@ -79,41 +79,42 @@
 
   <main mlvPage padding="l" id="main-content">
     <mlv-page-header>
-      <ng-template mlvPageBreadcrumb>
-        <nav mlvBreadcrumb [items]="breadcrumbs"></nav>
-      </ng-template>
-      <ng-template mlvPageTitle>
-        <div class="project-workspace-showcase__title-row">
-          <button
-            mlvButton
-            variant="transparent"
-            shape="square"
-            mlvSidebarTrigger
-            #projectNavTrigger="mlvSidebarTrigger"
-            [sidebar]="projectNav"
-            [attr.aria-label]="projectNavTrigger.label()"
-          >
-            @if (projectNavTrigger.isDrawerTrigger()) {
-              @if (projectNavTrigger.collapsed()) {
-                <svg lucideMenu [size]="20" />
-              } @else {
-                <svg lucideX [size]="20" />
-              }
-            } @else if (projectNavTrigger.collapsed()) {
-              <svg lucidePanelLeftOpen [size]="20" />
+      <div mlvPageContext>
+        <!-- The nav trigger is leading context, not title content: the title
+             template is instantiated once per type role, so a control declared
+             inside it would exist twice. -->
+        <button
+          mlvButton
+          variant="transparent"
+          shape="square"
+          mlvSidebarTrigger
+          #projectNavTrigger="mlvSidebarTrigger"
+          [sidebar]="projectNav"
+          [attr.aria-label]="projectNavTrigger.label()"
+        >
+          @if (projectNavTrigger.isDrawerTrigger()) {
+            @if (projectNavTrigger.collapsed()) {
+              <svg lucideMenu [size]="20" />
             } @else {
-              <svg lucidePanelLeftClose [size]="20" />
+              <svg lucideX [size]="20" />
             }
-          </button>
-          <h1>{{ projectMeta.name }}</h1>
-        </div>
+          } @else if (projectNavTrigger.collapsed()) {
+            <svg lucidePanelLeftOpen [size]="20" />
+          } @else {
+            <svg lucidePanelLeftClose [size]="20" />
+          }
+        </button>
+        <nav mlvBreadcrumb [items]="breadcrumbs"></nav>
+      </div>
+      <ng-template mlvPageTitle>
+        <h1>{{ projectMeta.name }}</h1>
       </ng-template>
-      <ng-template mlvPageHeaderStatus>
+      <div mlvPageStatus>
         <mlv-badge tone="success" muted>{{
           projectMeta.statusLabel
         }}</mlv-badge>
-      </ng-template>
-      <ng-template mlvPageHeaderActions>
+      </div>
+      <div mlvPageActions>
         <button
           mlvButton
           type="button"
@@ -126,7 +127,7 @@
           <svg lucidePlus mlvButtonIcon [size]="16" aria-hidden="true"></svg>
           New task
         </button>
-      </ng-template>
+      </div>
       <mlv-page-summary summaryLabel="Project key facts">
         <mlv-page-summary-item
           class="project-workspace-showcase__fact"

@@ -8,7 +8,7 @@
 
     display: grid;
     // One track by default. The complementary track is reserved only while an
-    // `[mlvPageAside]` template is actually projected (`--has-aside`), so a
+    // `[mlvPageAside]` element is actually projected (`--has-aside`), so a
     // consumer without an aside keeps the whole inline size for its main column
     // instead of silently losing `asideWidth` to an empty track.
     grid-template-columns: minmax(0, 1fr);
@@ -30,21 +30,13 @@
     }
 
     // Inline (side-by-side) geometry. Scoped away from the stacked modifier so
-    // the compound `--has-aside--aside-start` selector cannot out-specify the
-    // stacked single-column rules below.
+    // it cannot out-specify the stacked single-column rules below.
     &--has-aside:not(.#{$block}--stacked) {
       grid-template-columns: minmax(0, 1fr) minmax(
           0,
           var(--mlv-page-aside-width, 20rem)
         );
       grid-template-areas: 'main aside';
-
-      &.#{$block}--aside-start {
-        grid-template-columns:
-          minmax(0, var(--mlv-page-aside-width, 20rem))
-          minmax(0, 1fr);
-        grid-template-areas: 'aside main';
-      }
     }
 
     &__main {
@@ -85,12 +77,6 @@
         grid-template-areas:
           'main'
           'aside';
-
-        &.#{$block}--aside-start {
-          grid-template-areas:
-            'aside'
-            'main';
-        }
       }
 
       .#{$block}__aside {

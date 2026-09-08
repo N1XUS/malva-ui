@@ -84,6 +84,7 @@ export type MlvPageSurface = 'anchored' | 'flat';
   providers: [MlvPageSnapController, MlvPageGeometry],
   host: {
     class: 'mlv-page',
+    'data-slot': 'page',
     '[id]': 'id()',
     tabindex: '-1',
     '[class.mlv-page--scroll-auto]': 'scroll() === "auto"',
@@ -191,12 +192,21 @@ export class MlvPage {
       // `expand()` reveals collapsed chrome and then asks the page to return to
       // the top; the page is the only thing that knows which element scrolls.
       this._destroyRef.onDestroy(
-        this._snap.registerScroller(() =>
-          viewport.scrollTo({
-            top: 0,
-            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-          }),
-        ),
+        this._snap.registerScroller(() => {
+          // `scrollTo` with a behaviour is the enhancement; assigning
+          // `scrollTop` is the part every DOM implements. jsdom defines no
+          // `Element.prototype.scrollTo` at all, so calling it unguarded turns
+          // every consumer's `expand()` into a `TypeError` under test while
+          // being fine in a browser.
+          if (typeof viewport.scrollTo === 'function') {
+            viewport.scrollTo({
+              top: 0,
+              behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+            });
+            return;
+          }
+          viewport.scrollTop = 0;
+        }),
       );
       const onScroll = (): void => {
         const top = viewport.scrollTop;

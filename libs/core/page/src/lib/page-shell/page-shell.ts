@@ -54,6 +54,7 @@ export type MlvPageShellSizing = 'parent' | 'viewport' | 'content';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-page-shell',
+    'data-slot': 'page-shell',
     '[class.mlv-page-shell--sizing-parent]': 'sizing() === "parent"',
     '[class.mlv-page-shell--sizing-viewport]': 'sizing() === "viewport"',
     '[class.mlv-page-shell--sizing-content]': 'sizing() === "content"',

@@ -343,19 +343,29 @@ Rules:
 
 ---
 
-## Style Specs and Cascade Layers
+## Style Specs, Cascade Layers and Container Queries
 
-jsdom does not implement `@layer`: it fails with "Could not parse CSS stylesheet"
-and drops the **entire** stylesheet, so a `getComputedStyle` assertion against a
-layered component stylesheet silently reads `''` instead of failing loudly.
+jsdom implements neither `@layer` nor `@container`: it fails with "Could not
+parse CSS stylesheet" and drops the **entire** stylesheet, so a
+`getComputedStyle` assertion against a component stylesheet that uses either one
+silently reads `''` instead of failing loudly. One container query anywhere in a
+file is enough to disable every rule in it.
 
-The test environment therefore flattens layers away; the shipped CSS keeps them.
+The test environment therefore rewrites CSS on its way into a `<style>` element:
+layers are flattened, container queries are **dropped**. The shipped CSS keeps
+both.
 
-| Spec reads…                                | What to do                                                                                                                                                             |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Computed styles from an injected `<style>` | Nothing. `scripts/testing/setup-strip-css-layers.js` is a `setupFiles` entry in every `vite.config.mts` and strips layers from any CSS entering a `<style>` element.   |
-| Compiled CSS **text** or a PostCSS AST     | Wrap the `sass.compile(...).css` in `stripCssLayersFromText()` from `@malva-ui/internal-testing` — the wrapper's indentation is removed with it, so line anchors hold. |
-| The `.scss` **source** text                | Nothing — the source is read as written.                                                                                                                               |
+Dropping is the honest answer for a container query, not a shortcut: jsdom
+performs no layout, so no container has a size and no query inside one could
+ever match. Hoisting its rules would make them apply unconditionally, which is a
+different stylesheet.
+
+| Spec reads…                                | What to do                                                                                                                                                                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Computed styles from an injected `<style>` | Nothing. `scripts/testing/setup-strip-css-layers.js` is a `setupFiles` entry in every `vite.config.mts` and rewrites any CSS entering a `<style>` element.                                                                                                         |
+| A **container query's** effect             | Assert on the compiled text instead — jsdom cannot resolve one, so a `getComputedStyle` assertion could only ever be asserting the fallback. `page-header.spec.ts` § _responsive withholding_ is the reference.                                                    |
+| Compiled CSS **text** or a PostCSS AST     | Wrap the `sass.compile(...).css` in `stripCssLayersFromText()` from `@malva-ui/internal-testing` — the wrapper's indentation is removed with it, so line anchors hold. It leaves container queries alone, because the spec is asserting on the shipped stylesheet. |
+| The `.scss` **source** text                | Nothing — the source is read as written.                                                                                                                                                                                                                           |
 
 `@malva-ui/internal-testing` maps to `scripts/testing/strip-css-layers.js`, and
 `@malva-ui/internal-testing/axe` to `scripts/testing/axe.js` (see

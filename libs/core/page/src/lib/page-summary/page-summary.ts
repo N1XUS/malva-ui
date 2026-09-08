@@ -47,6 +47,7 @@ import { MlvPageSnapRegionBase } from '../page/page-snap-region-base';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-page-summary',
+    'data-slot': 'page-summary',
     '[class.mlv-page-summary--snapped]': '_elapsed()',
     '[class.mlv-page-summary--revealed]': '_revealed()',
     '[style.--mlv-snap-from]': 'snapFrom()',

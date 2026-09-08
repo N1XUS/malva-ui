@@ -10,31 +10,20 @@ import {
   contentChild,
   inject,
   input,
-  output,
+  isDevMode,
   signal,
   viewChild,
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { RouterLink } from '@angular/router';
-import { LucideChevronLeft, LucideChevronUp } from '@lucide/angular';
+import { LucideChevronUp } from '@lucide/angular';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import { MlvButton } from '@malva-ui/core/button';
-import { MlvLink, MlvLinkBefore } from '@malva-ui/core/link';
 import { MlvPageSnapController } from '../page/page-snap-controller';
 import { registerPageRegion } from '../page/page-geometry';
-import { MlvPageSnap } from '../page/page-snap.directive';
-import {
-  MlvPageBreadcrumb,
-  MlvPageHeaderActions,
-  MlvPageHeaderDescription,
-  MlvPageHeaderIcon,
-  MlvPageHeaderMeta,
-  MlvPageHeaderStatus,
-  MlvPageHeaderTabsActions,
-  MlvPageHeaderTabs,
-  MlvPageTitle,
-} from './page-header.directives';
+import { MLV_PAGE_HEADER_STATE } from './page-header-state';
+import type { MlvPageHeaderState } from './page-header-state';
+import { MlvPageTitle } from './page-header.directives';
 
 /** Visual scale of the page header. */
 export type MlvPageHeaderSize = 'm' | 's';
@@ -43,39 +32,47 @@ export type MlvPageHeaderSize = 'm' | 's';
 export type MlvPageHeaderTabsAlign = 'start' | 'center';
 
 /**
- * Structured page heading with optional breadcrumb, actions, status, metadata,
- * and tabs. `size="s"` renders the compact record-editor header.
+ * Structured page heading. Every region is a **projected element the consumer
+ * owns** — `[mlvPageContext]`, `[mlvPageStatus]`, `[mlvPageActions]`,
+ * `[mlvPageDescription]`, `[mlvPageMeta]`, `[mlvPageTabs]` — plus one
+ * template, `[mlvPageTitle]`, which is a template because the header renders
+ * it twice.
+ *
+ * Region *order* is still the header's: the projection sites are in this
+ * template, so a consumer cannot put actions before the title. What they gain
+ * is that the projected node is their own element, selectable and stylable
+ * without piercing encapsulation, never re-instantiated when a sibling region
+ * appears or disappears, and carrying its own defaults instead of another
+ * input on this component.
  *
  * Inside `main[mlvPage]` the header participates in the scroll-scrubbed snap
  * timeline (`--mlv-page-snap`). **The title block collapses; the navigation
  * does not** — the description and the meta row give up their height, the
- * title crossfades between two complete type roles, and the breadcrumb, the
- * tabs row and the actions stay exactly where they are. Both platforms make
- * that choice for the same reason: navigation is the thing a reader needs
- * *most* once scrolled.
+ * title crossfades between two complete type roles, and the context row, the
+ * tabs and the actions stay exactly where they are. Both platforms make that
+ * choice for the same reason: navigation is the thing a reader needs *most*
+ * once scrolled.
  *
- * With `snapControls`, a chevron appears in the title row once the chrome has
- * snapped; activating it reveals every collapsed region and scrolls the page
- * back to the top, which is what expands the chrome again.
+ * The collapse state is readable without wiring anything, either by injecting
+ * {@link MLV_PAGE_HEADER_STATE} from a projected region or off a template
+ * reference variable:
+ *
+ * ```html
+ * <mlv-page-header #header="mlvPageHeader">…</mlv-page-header>
+ * ```
  */
 @Component({
   selector: 'mlv-page-header',
-  imports: [
-    NgTemplateOutlet,
-    RouterLink,
-    LucideChevronLeft,
-    LucideChevronUp,
-    MlvButton,
-    MlvLink,
-    MlvLinkBefore,
-    MlvPageSnap,
-  ],
+  exportAs: 'mlvPageHeader',
+  imports: [NgTemplateOutlet, LucideChevronUp, MlvButton],
   templateUrl: './page-header.html',
   styleUrl: './page-header.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [{ provide: MLV_PAGE_HEADER_STATE, useExisting: MlvPageHeader }],
   host: {
     class: 'mlv-page-header',
+    'data-slot': 'page-header',
     '[class.mlv-page-header--sticky]': 'sticky()',
     '[class.mlv-page-header--size-s]': 'size() === "s"',
     '[class.mlv-page-header--tabs-center]': 'tabsAlign() === "center"',
@@ -84,13 +81,7 @@ export type MlvPageHeaderTabsAlign = 'start' | 'center';
     '[style.--mlv-page-header-title-collapsed-size]': '_titleCollapsedSize()',
   },
 })
-export class MlvPageHeader {
-  /** Optional router destination for the built-in back link. */
-  readonly back = input<string | string[] | null>(null);
-
-  /** Accessible and visible text for the built-in back link. */
-  readonly backLabel = input('Back');
-
+export class MlvPageHeader implements MlvPageHeaderState {
   /** Makes this header sticky independently of the containing page. */
   readonly sticky = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
@@ -116,35 +107,8 @@ export class MlvPageHeader {
   /** Accessible label for the chevron that expands the snapped chrome. */
   readonly expandLabel = input('Expand header');
 
-  /** Emits when the built-in back link is activated. */
-  readonly backClick = output<MouseEvent>();
-
-  /** @protected Breadcrumb template projected via `[mlvPageBreadcrumb]`. */
-  protected readonly _breadcrumbRef = contentChild(MlvPageBreadcrumb);
-
-  /** @protected Decorative leading icon projected via `[mlvPageHeaderIcon]`. */
-  protected readonly _iconRef = contentChild(MlvPageHeaderIcon);
-
   /** @protected Page title template projected via `[mlvPageTitle]`. */
   protected readonly _titleRef = contentChild(MlvPageTitle);
-
-  /** @protected Inline status content projected via `[mlvPageHeaderStatus]`. */
-  protected readonly _statusRef = contentChild(MlvPageHeaderStatus);
-
-  /** @protected Header actions projected via `[mlvPageHeaderActions]`. */
-  protected readonly _actionsRef = contentChild(MlvPageHeaderActions);
-
-  /** @protected Description projected via `[mlvPageHeaderDescription]`. */
-  protected readonly _descriptionRef = contentChild(MlvPageHeaderDescription);
-
-  /** @protected Metadata projected via `[mlvPageHeaderMeta]`. */
-  protected readonly _metaRef = contentChild(MlvPageHeaderMeta);
-
-  /** @protected Tabs projected via `[mlvPageHeaderTabs]`. */
-  protected readonly _tabsRef = contentChild(MlvPageHeaderTabs);
-
-  /** @protected Trailing tabs-row actions projected via `[mlvPageHeaderTabsActions]`. */
-  protected readonly _tabsActionsRef = contentChild(MlvPageHeaderTabsActions);
 
   /** @private Snap controller of the owning page, when rendered inside one. */
   private readonly _snap = inject(MlvPageSnapController, { optional: true });
@@ -162,6 +126,12 @@ export class MlvPageHeader {
 
   /** @protected Measured block size of the collapsed title node, in pixels. */
   protected readonly _titleCollapsedBlockSize = signal(0);
+
+  /** @private Whether the expanded title node overflows its inline size. */
+  private readonly _titleLargeClipped = signal(false);
+
+  /** @private Whether the collapsed title node overflows its inline size. */
+  private readonly _titleSmallClipped = signal(false);
 
   /** @protected Expanded title height as a CSS length; the scrub's upper end. */
   protected readonly _titleSize = computed(() => `${this._titleBlockSize()}px`);
@@ -181,8 +151,45 @@ export class MlvPageHeader {
     Math.max(0, this._titleBlockSize() - this._titleCollapsedBlockSize()),
   );
 
-  /** @protected True while the chrome is closer to snapped than expanded. */
-  protected readonly _snapped = computed(() => this._snap?.snapped() ?? false);
+  /** Collapse fraction of the owning page: 0 expanded .. 1 fully snapped. */
+  readonly progress = computed(() => this._snap?.progress() ?? 0);
+
+  /** True while the chrome is closer to snapped than expanded. */
+  readonly collapsed = computed(() => this._snap?.snapped() ?? false);
+
+  /**
+   * True while the title node currently on screen is wider than its box.
+   * Reported, never acted on: how a truncated title should degrade — a
+   * tooltip, a shorter string, a second line — is the consumer's decision.
+   */
+  readonly titleClipped = computed(() =>
+    this.collapsed() ? this._titleSmallClipped() : this._titleLargeClipped(),
+  );
+
+  /** @protected Alias of {@link collapsed} for this component's own template. */
+  protected readonly _snapped = this.collapsed;
+
+  /**
+   * Moves focus to the page title, whichever of the two type roles is the one
+   * on screen. Returns whether focus actually landed, so a caller with a
+   * fallback can tell — a header rendered without a `[mlvPageTitle]` has
+   * nothing to focus.
+   *
+   * This exists because the title template is instantiated **twice** and only
+   * one copy is live: a consumer that put `tabindex="-1"` on its own heading
+   * would be focusing whichever copy the DOM happened to return first, which
+   * is `inert` half the time and silently refuses focus. Route-level
+   * "back to the top" handlers call this instead.
+   */
+  focusTitle(): boolean {
+    const node = (this.collapsed() ? this._titleSmall() : this._titleLarge())
+      ?.nativeElement;
+    if (!node) {
+      return false;
+    }
+    node.focus();
+    return node.ownerDocument.activeElement === node;
+  }
 
   /**
    * @protected The controller behind the expand chevron, exposed only while
@@ -216,20 +223,30 @@ export class MlvPageHeader {
       // a crossfade instead of a font-size interpolation — so both can be
       // measured. Neither is clamped individually; only their shared grid cell
       // is, so `scrollHeight` is the natural height of each role.
-      for (const [ref, target] of [
-        [this._titleLarge(), this._titleBlockSize],
-        [this._titleSmall(), this._titleCollapsedBlockSize],
+      for (const [ref, blockSize, clipped] of [
+        [this._titleLarge(), this._titleBlockSize, this._titleLargeClipped],
+        [
+          this._titleSmall(),
+          this._titleCollapsedBlockSize,
+          this._titleSmallClipped,
+        ],
       ] as const) {
         const element = ref?.nativeElement;
         if (!element) {
           continue;
         }
-        target.set(element.scrollHeight);
-        const subscription = resizeObserver
-          .observe(element)
-          .subscribe(() => target.set(element.scrollHeight));
+        const measure = (): void => {
+          blockSize.set(element.scrollHeight);
+          // One device pixel of slack: a fractional layout size rounds
+          // `scrollWidth` up and would otherwise report every title clipped.
+          clipped.set(element.scrollWidth > element.clientWidth + 1);
+        };
+        measure();
+        const subscription = resizeObserver.observe(element).subscribe(measure);
         destroyRef.onDestroy(() => subscription.unsubscribe());
       }
+
+      this._warnOnDuplicatedTitleIds();
     });
 
     // The header is the page's block-start chrome. It registers rather than
@@ -243,5 +260,43 @@ export class MlvPageHeader {
       sticky: this.sticky,
       followsChromeDefault: true,
     });
+  }
+
+  /**
+   * @private Warns when the projected title carries an `id` of its own.
+   *
+   * The title template is rendered once per type role, so a static `id`
+   * written inside it lands in the document twice — `getElementById` then
+   * answers with whichever copy is first, which is the `inert` one whenever
+   * the header is collapsed. Generated ids differ per instance and are
+   * therefore silent; only an id that actually collides is reported.
+   */
+  private _warnOnDuplicatedTitleIds(): void {
+    if (!isDevMode()) {
+      return;
+    }
+    const large = this._titleLarge()?.nativeElement;
+    const small = this._titleSmall()?.nativeElement;
+    if (!large || !small) {
+      return;
+    }
+    const ids = new Set(
+      Array.from(large.querySelectorAll('[id]'), (el) => el.id),
+    );
+    const duplicated = Array.from(
+      small.querySelectorAll('[id]'),
+      (el) => el.id,
+    ).filter((id) => ids.has(id));
+    if (duplicated.length === 0) {
+      return;
+    }
+    console.warn(
+      `[mlv-page-header] The [mlvPageTitle] template carries id(s) ` +
+        `${duplicated.join(', ')}. It is rendered once per type role, so each ` +
+        `id is now in the document twice and getElementById answers with the ` +
+        `copy that is inert while the header is collapsed. Keep identity out ` +
+        `of the title template; use the header's focusTitle() to move focus ` +
+        `to the title.`,
+    );
   }
 }

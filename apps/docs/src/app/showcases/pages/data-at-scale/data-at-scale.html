@@ -25,37 +25,40 @@
 
   <main mlvPage padding="l" surface="flat" id="main-content">
     <mlv-page-header>
+      <div mlvPageContext>
+        <!-- The nav trigger is leading context, not title content: the title
+             template is instantiated once per type role, so a control declared
+             inside it would exist twice. -->
+        <button
+          mlvButton
+          variant="transparent"
+          shape="square"
+          mlvSidebarTrigger
+          #viewsSidebarTrigger="mlvSidebarTrigger"
+          [sidebar]="viewsSidebar"
+          [attr.aria-label]="viewsSidebarTrigger.label()"
+        >
+          @if (viewsSidebarTrigger.collapsed()) {
+            <svg lucideMenu [size]="20" />
+          } @else {
+            <svg lucideX [size]="20" />
+          }
+        </button>
+      </div>
       <ng-template mlvPageTitle>
-        <div class="data-at-scale-showcase__title-row">
-          <button
-            mlvButton
-            variant="transparent"
-            shape="square"
-            mlvSidebarTrigger
-            #viewsSidebarTrigger="mlvSidebarTrigger"
-            [sidebar]="viewsSidebar"
-            [attr.aria-label]="viewsSidebarTrigger.label()"
-          >
-            @if (viewsSidebarTrigger.collapsed()) {
-              <svg lucideMenu [size]="20" />
-            } @else {
-              <svg lucideX [size]="20" />
-            }
-          </button>
-          <h1>Data at scale</h1>
-        </div>
+        <h1>Data at scale</h1>
       </ng-template>
-      <ng-template mlvPageHeaderDescription>
+      <div mlvPageDescription>
         A Web Worker generates and owns the dataset, and runs every sort,
         filter, search and page inside itself. The main thread receives rows and
         renders them — nothing else. Every number below is measured live, in
         this browser, on this machine.
-      </ng-template>
-      <ng-template mlvPageHeaderActions>
+      </div>
+      <div mlvPageActions>
         <mlv-badge [tone]="onMainThread ? 'warning' : 'success'" muted>
           {{ onMainThread ? 'Main-thread fallback' : 'Web Worker backend' }}
         </mlv-badge>
-      </ng-template>
+      </div>
     </mlv-page-header>
 
     <mlv-page-content>

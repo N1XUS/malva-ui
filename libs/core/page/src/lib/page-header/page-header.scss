@@ -1,4 +1,5 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../page/page-container' as container;
 
 @layer mlv.components {
   $block: mlv-page-header;
@@ -49,7 +50,7 @@
       box-shadow: var(--mlv-shadow-floating);
     }
 
-    &__breadcrumb,
+    &__context,
     &__description,
     &__meta,
     &__tabs,
@@ -57,28 +58,22 @@
       min-width: 0;
     }
 
-    &__back {
-      align-self: flex-start;
+    // One leading region for the breadcrumb, the back link and the icon, which
+    // used to be three stacked affordances above the title.
+    &__context {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--mlv-spacing-2);
+      color: var(--mlv-text-secondary);
     }
 
-    &__title-row,
-    &__tabs-row {
+    &__title-row {
       display: flex;
       align-items: center;
       gap: var(--mlv-spacing-3);
       min-width: 0;
-    }
-
-    &__title-row {
       min-height: var(--mlv-height-l);
-    }
-
-    &__icon {
-      display: inline-flex;
-      flex: 0 0 auto;
-      align-items: center;
-      justify-content: center;
-      color: var(--mlv-text-secondary);
     }
 
     // Two title nodes at two complete type roles, stacked in one grid cell and
@@ -137,8 +132,7 @@
       flex: 1 1 auto;
     }
 
-    &__actions,
-    &__tabs-actions {
+    &__actions {
       display: flex;
       flex: 0 0 auto;
       align-items: center;
@@ -168,17 +162,19 @@
       line-height: var(--mlv-typography-body-s-line-height);
     }
 
-    &__tabs-row {
+    // One navigation region, not a strip plus a trailing slot: a projected tab
+    // group takes the free inline size and anything after it lands at the
+    // trailing edge.
+    &__tabs {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-3);
       margin-bottom: calc(0rem - var(--mlv-spacing-2));
     }
 
-    &__tabs {
-      flex: 1 1 auto;
-      overflow: hidden;
-    }
-
     &__tabs > .mlv-tab-group {
-      width: 100%;
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     &__status {
@@ -196,22 +192,12 @@
       flex: 0 0 auto;
     }
 
-    &--tabs-center &__tabs-row {
+    &--tabs-center &__tabs {
       justify-content: center;
     }
 
-    // The row spacer must not consume the free space justify-content centers
-    // within.
-    &--tabs-center &__tabs-row &__spacer {
-      flex: 0 0 0;
-    }
-
-    &--tabs-center &__tabs {
-      flex: 0 1 auto;
-    }
-
     &--tabs-center &__tabs > .mlv-tab-group {
-      width: auto;
+      flex: 0 1 auto;
     }
 
     // Compact record-editor header: single tight row, smaller title scale.
@@ -257,10 +243,9 @@
     }
   }
 
-  // Narrow canvas (container query against the page inner): the title row
-  // wraps and the actions drop onto their own full-width line instead of
-  // squeezing the title into a vertical sliver.
-  @container (max-width: 40rem) {
+  @container #{container.$page-container} (width <= #{container.$page-narrow}) {
+    // Narrow canvas: the title row wraps and the actions drop onto their own
+    // full-width line instead of squeezing the title into a vertical sliver.
     .mlv-page-header__title-row {
       flex-wrap: wrap;
       row-gap: var(--mlv-spacing-1);
