@@ -335,6 +335,10 @@ const ro: MlvLanguage = {
     decrement: 'Micșorează',
     increment: 'Mărește',
   },
+  page: {
+    pageSummary: 'Rezumatul paginii',
+    expandHeader: 'Extinde antetul',
+  },
   pagination: {
     navigationLabel: 'Paginare',
     previousPage: 'Pagina anterioară',

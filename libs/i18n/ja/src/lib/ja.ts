@@ -326,6 +326,10 @@ const ja: MlvLanguage = {
     decrement: '値を減らす',
     increment: '値を増やす',
   },
+  page: {
+    pageSummary: 'ページの概要',
+    expandHeader: 'ヘッダーを展開',
+  },
   pagination: {
     navigationLabel: 'ページネーション',
     previousPage: '前のページ',

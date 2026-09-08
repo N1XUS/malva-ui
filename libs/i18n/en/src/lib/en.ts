@@ -329,6 +329,10 @@ const en: MlvLanguage = {
     decrement: 'Decrement',
     increment: 'Increment',
   },
+  page: {
+    pageSummary: 'Page summary',
+    expandHeader: 'Expand header',
+  },
   pagination: {
     navigationLabel: 'Pagination',
     previousPage: 'Previous page',

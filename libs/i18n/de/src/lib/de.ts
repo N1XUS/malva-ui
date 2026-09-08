@@ -319,6 +319,10 @@ const de: MlvLanguage = {
   loader: { loading: 'Wird geladen' },
   notification: { dismiss: 'Schließen' },
   numberInput: { decrement: 'Verringern', increment: 'Erhöhen' },
+  page: {
+    pageSummary: 'Seitenübersicht',
+    expandHeader: 'Kopfbereich ausklappen',
+  },
   pagination: {
     navigationLabel: 'Seitennavigation',
     previousPage: 'Vorherige Seite',

@@ -31,6 +31,7 @@ import { MLV_FORM_UTILS_I18N } from './tokens/form-utils';
 import { MLV_LOADER_I18N } from './tokens/loader';
 import { MLV_NOTIFICATION_I18N } from './tokens/notification';
 import { MLV_NUMBER_INPUT_I18N } from './tokens/number-input';
+import { MLV_PAGE_I18N } from './tokens/page';
 import { MLV_PAGINATION_I18N } from './tokens/pagination';
 import { MLV_PIN_INPUT_I18N } from './tokens/pin-input';
 import { MLV_POPUP_I18N } from './tokens/popup';
@@ -176,6 +177,10 @@ export function provideMlvI18n(
     {
       provide: MLV_NUMBER_INPUT_I18N,
       useFactory: () => inject(MlvI18nService).select('numberInput'),
+    },
+    {
+      provide: MLV_PAGE_I18N,
+      useFactory: () => inject(MlvI18nService).select('page'),
     },
     {
       provide: MLV_PAGINATION_I18N,

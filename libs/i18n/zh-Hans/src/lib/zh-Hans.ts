@@ -325,6 +325,10 @@ const zhHans: MlvLanguage = {
     decrement: '减小',
     increment: '增大',
   },
+  page: {
+    pageSummary: '页面摘要',
+    expandHeader: '展开页眉',
+  },
   pagination: {
     navigationLabel: '分页导航',
     previousPage: '上一页',

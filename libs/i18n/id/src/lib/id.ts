@@ -329,6 +329,10 @@ const id: MlvLanguage = {
     decrement: 'Kurangi',
     increment: 'Tambah',
   },
+  page: {
+    pageSummary: 'Ringkasan halaman',
+    expandHeader: 'Perluas tajuk',
+  },
   pagination: {
     navigationLabel: 'Navigasi halaman',
     previousPage: 'Halaman sebelumnya',
