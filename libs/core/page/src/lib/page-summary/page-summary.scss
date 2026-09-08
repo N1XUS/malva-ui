@@ -20,10 +20,12 @@
     z-index: 9;
     display: block;
     min-width: 0;
-    // Height scrub against the measured natural row height; opacity leads so
-    // values fade before the strip squashes them.
-    max-height: calc(
-      var(--mlv-page-summary-size, 30rem) * (1 - var(--mlv-page-summary-snap))
+    // The height follows the *page* progress, not this strip's own window:
+    // every collapsing region gives up its block size over the same span, which
+    // is what lets the page compensate for the total in one exact expression.
+    // The stagger below is the strip's content fading ahead of that.
+    max-block-size: calc(
+      var(--mlv-page-summary-size, 30rem) * (1 - var(--mlv-page-snap, 0))
     );
     overflow: hidden;
     // Same glass chrome recipe as mlv-action-bar and the page header.
@@ -35,13 +37,16 @@
       var(--mlv-page-chrome-border, var(--mlv-border-subtle));
     backdrop-filter: blur(1.25rem);
     -webkit-backdrop-filter: blur(1.25rem);
-    opacity: calc(1 - var(--mlv-page-summary-snap) * 1.25);
+    // Reaches zero exactly at `snapTo`, which is also where the strip leaves
+    // the accessibility tree — no window where it is invisible and announced.
+    opacity: calc(1 - var(--mlv-page-summary-snap));
 
     // A strip holding focus steps off the timeline: a focused control has to
     // stay visible, and staying visible is what keeps it focusable at all.
     // See MlvPageSnapRegionBase.
     &--revealed {
       --mlv-page-summary-snap: 0;
+      --mlv-page-snap: 0;
     }
 
     &__items {

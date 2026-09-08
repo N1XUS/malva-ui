@@ -1,11 +1,5 @@
 @if (_breadcrumbRef()?.templateRef; as breadcrumbTpl) {
-  <div
-    class="mlv-page-header__breadcrumb"
-    mlvPageSnap="hide"
-    [snapFrom]="0"
-    [snapTo]="0.5"
-    snapSize="3rem"
-  >
+  <div class="mlv-page-header__breadcrumb">
     <ng-template [ngTemplateOutlet]="breadcrumbTpl" />
   </div>
 }
@@ -31,8 +25,28 @@
     </span>
   }
   @if (_titleRef()?.templateRef; as titleTpl) {
+    <!-- Two title nodes at two complete type roles, crossfaded — nothing
+         interpolates a font size, so each role keeps its own tracking and its
+         own weight. Exactly one of them is in the accessibility tree at any
+         moment: `inert` takes the other out of the tree *and* the tab order,
+         because an opacity-zero heading is still announced on the web. -->
     <div class="mlv-page-header__title">
-      <ng-template [ngTemplateOutlet]="titleTpl" />
+      <div
+        #titleLarge
+        class="mlv-page-header__title-node mlv-page-header__title-node--large"
+        [attr.aria-hidden]="_snapped() ? 'true' : null"
+        [attr.inert]="_snapped() ? '' : null"
+      >
+        <ng-template [ngTemplateOutlet]="titleTpl" />
+      </div>
+      <div
+        #titleSmall
+        class="mlv-page-header__title-node mlv-page-header__title-node--small"
+        [attr.aria-hidden]="_snapped() ? null : 'true'"
+        [attr.inert]="_snapped() ? null : ''"
+      >
+        <ng-template [ngTemplateOutlet]="titleTpl" />
+      </div>
     </div>
   }
   @if (_statusRef()?.templateRef; as statusTpl) {
@@ -61,24 +75,31 @@
   }
 </div>
 
+<!-- The title block collapses; the navigation does not. A snapped header that
+     kept a three-line description and threw away its tabs would have discarded
+     the thing the reader most needs while scrolled. -->
 @if (_descriptionRef()?.templateRef; as descriptionTpl) {
-  <div class="mlv-page-header__description">
+  <div
+    class="mlv-page-header__description"
+    mlvPageSnap="hide"
+    [snapFrom]="0"
+    [snapTo]="0.6"
+  >
     <ng-template [ngTemplateOutlet]="descriptionTpl" />
   </div>
 }
 @if (_metaRef()?.templateRef; as metaTpl) {
-  <div class="mlv-page-header__meta">
+  <div
+    class="mlv-page-header__meta"
+    mlvPageSnap="hide"
+    [snapFrom]="0.15"
+    [snapTo]="0.75"
+  >
     <ng-template [ngTemplateOutlet]="metaTpl" />
   </div>
 }
 @if (_tabsRef()?.templateRef || _tabsActionsRef()?.templateRef) {
-  <div
-    class="mlv-page-header__tabs-row"
-    mlvPageSnap="hide"
-    [snapFrom]="0.3"
-    [snapTo]="0.85"
-    snapSize="5rem"
-  >
+  <div class="mlv-page-header__tabs-row">
     @if (_tabsRef()?.templateRef; as tabsTpl) {
       <div class="mlv-page-header__tabs">
         <ng-template [ngTemplateOutlet]="tabsTpl" />

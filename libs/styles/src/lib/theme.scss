@@ -607,7 +607,9 @@ $mlv-palette-info-950: #082f49;
     --mlv-line-height-relaxed: 1.625;
     --mlv-line-height-loose: 2;
 
-    // Letter spacing
+    // Letter spacing. Every heading role declares one: the display roles are
+    // tracked in, the text-sized ones are not, and a role with no token is a
+    // role nothing can interpolate toward or step down to.
     --mlv-letter-spacing-tight: -0.025em;
     --mlv-letter-spacing-normal: 0em;
     --mlv-letter-spacing-wide: 0.025em;
@@ -628,18 +630,28 @@ $mlv-palette-info-950: #082f49;
     --mlv-typography-heading-h3-size: var(--mlv-font-size-3xl);
     --mlv-typography-heading-h3-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h3-line-height: var(--mlv-line-height-snug);
+    --mlv-typography-heading-h3-letter-spacing: var(--mlv-letter-spacing-tight);
 
     --mlv-typography-heading-h4-size: var(--mlv-font-size-2xl);
     --mlv-typography-heading-h4-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h4-line-height: var(--mlv-line-height-snug);
+    --mlv-typography-heading-h4-letter-spacing: var(
+      --mlv-letter-spacing-normal
+    );
 
     --mlv-typography-heading-h5-size: var(--mlv-font-size-xl);
     --mlv-typography-heading-h5-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h5-line-height: var(--mlv-line-height-normal);
+    --mlv-typography-heading-h5-letter-spacing: var(
+      --mlv-letter-spacing-normal
+    );
 
     --mlv-typography-heading-h6-size: var(--mlv-font-size-l);
     --mlv-typography-heading-h6-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h6-line-height: var(--mlv-line-height-normal);
+    --mlv-typography-heading-h6-letter-spacing: var(
+      --mlv-letter-spacing-normal
+    );
 
     // Semantic typography — body
     --mlv-typography-body-l-size: var(--mlv-font-size-l);

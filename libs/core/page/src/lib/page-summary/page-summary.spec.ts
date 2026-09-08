@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +40,10 @@ describe('MlvPageSummary', () => {
       providers: [MlvPageSnapController],
     });
     const controller = TestBed.inject(MlvPageSnapController);
+    // The timeline is exactly as long as the chrome measured itself giving up,
+    // and jsdom lays nothing out, so the spec supplies the measurement the
+    // strip would have contributed in a browser.
+    controller.registerCollapse(signal(96));
     const fixture = TestBed.createComponent(PageSummaryTestHost);
     return { fixture, controller };
   }
@@ -92,12 +96,12 @@ describe('MlvPageSummary', () => {
     ) as HTMLElement;
     expect(host.style.visibility).toBe('');
 
-    controller.updateFromScroll(96, 96);
+    controller.updateFromScroll(96);
     await fixture.whenStable();
     expect(host.style.visibility).toBe('hidden');
     expect(host.classList).toContain('mlv-page-summary--snapped');
 
-    controller.updateFromScroll(0, 96);
+    controller.updateFromScroll(0);
     await fixture.whenStable();
     expect(host.style.visibility).toBe('');
     expect(host.classList).not.toContain('mlv-page-summary--snapped');
@@ -120,7 +124,7 @@ describe('MlvPageSummary', () => {
       link.focus();
       expect(document.activeElement).toBe(link);
 
-      controller.updateFromScroll(96, 96);
+      controller.updateFromScroll(96);
       await fixture.whenStable();
 
       // A projected fact can be interactive; scrolling must not blur it.

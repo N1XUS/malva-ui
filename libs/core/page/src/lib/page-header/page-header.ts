@@ -1,7 +1,9 @@
 import { NgTemplateOutlet } from '@angular/common';
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   ViewEncapsulation,
   computed,
@@ -9,11 +11,14 @@ import {
   inject,
   input,
   output,
+  signal,
+  viewChild,
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { RouterLink } from '@angular/router';
 import { LucideChevronLeft, LucideChevronUp } from '@lucide/angular';
+import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvLink, MlvLinkBefore } from '@malva-ui/core/link';
 import { MlvPageSnapController } from '../page/page-snap-controller';
@@ -42,8 +47,13 @@ export type MlvPageHeaderTabsAlign = 'start' | 'center';
  * and tabs. `size="s"` renders the compact record-editor header.
  *
  * Inside `main[mlvPage]` the header participates in the scroll-scrubbed snap
- * timeline (`--mlv-page-snap`): the title interpolates down one type scale and
- * the breadcrumb and tabs rows collapse, each over its own stagger window.
+ * timeline (`--mlv-page-snap`). **The title block collapses; the navigation
+ * does not** — the description and the meta row give up their height, the
+ * title crossfades between two complete type roles, and the breadcrumb, the
+ * tabs row and the actions stay exactly where they are. Both platforms make
+ * that choice for the same reason: navigation is the thing a reader needs
+ * *most* once scrolled.
+ *
  * With `snapControls`, a chevron appears in the title row once the chrome has
  * snapped; activating it reveals every collapsed region and scrolls the page
  * back to the top, which is what expands the chrome again.
@@ -70,6 +80,8 @@ export type MlvPageHeaderTabsAlign = 'start' | 'center';
     '[class.mlv-page-header--size-s]': 'size() === "s"',
     '[class.mlv-page-header--tabs-center]': 'tabsAlign() === "center"',
     '[class.mlv-page-header--scrolled]': '_scrolled()',
+    '[style.--mlv-page-header-title-size]': '_titleSize()',
+    '[style.--mlv-page-header-title-collapsed-size]': '_titleCollapsedSize()',
   },
 })
 export class MlvPageHeader {
@@ -137,6 +149,38 @@ export class MlvPageHeader {
   /** @private Snap controller of the owning page, when rendered inside one. */
   private readonly _snap = inject(MlvPageSnapController, { optional: true });
 
+  /** @private The expanded title node, measured for the collapse distance. */
+  private readonly _titleLarge =
+    viewChild<ElementRef<HTMLElement>>('titleLarge');
+
+  /** @private The collapsed title node, measured for the collapse distance. */
+  private readonly _titleSmall =
+    viewChild<ElementRef<HTMLElement>>('titleSmall');
+
+  /** @protected Measured block size of the expanded title node, in pixels. */
+  protected readonly _titleBlockSize = signal(0);
+
+  /** @protected Measured block size of the collapsed title node, in pixels. */
+  protected readonly _titleCollapsedBlockSize = signal(0);
+
+  /** @protected Expanded title height as a CSS length; the scrub's upper end. */
+  protected readonly _titleSize = computed(() => `${this._titleBlockSize()}px`);
+
+  /** @protected Collapsed title height as a CSS length; the scrub's floor. */
+  protected readonly _titleCollapsedSize = computed(
+    () => `${this._titleCollapsedBlockSize()}px`,
+  );
+
+  /**
+   * @private What the title block gives up on the timeline: the difference
+   * between the two rendered type roles, measured rather than declared. This
+   * is the term that makes the collapse distance right for a header whose only
+   * collapsing chrome is its own title.
+   */
+  private readonly _titleCollapse = computed(() =>
+    Math.max(0, this._titleBlockSize() - this._titleCollapsedBlockSize()),
+  );
+
   /** @protected True while the chrome is closer to snapped than expanded. */
   protected readonly _snapped = computed(() => this._snap?.snapped() ?? false);
 
@@ -160,6 +204,34 @@ export class MlvPageHeader {
   );
 
   constructor() {
+    const resizeObserver = inject(MlvResizeObserverService);
+    const destroyRef = inject(DestroyRef);
+    const unregisterCollapse = this._snap?.registerCollapse(
+      this._titleCollapse,
+    );
+    destroyRef.onDestroy(() => unregisterCollapse?.());
+
+    afterNextRender(() => {
+      // Both title nodes are always rendered — that is what makes the collapse
+      // a crossfade instead of a font-size interpolation — so both can be
+      // measured. Neither is clamped individually; only their shared grid cell
+      // is, so `scrollHeight` is the natural height of each role.
+      for (const [ref, target] of [
+        [this._titleLarge(), this._titleBlockSize],
+        [this._titleSmall(), this._titleCollapsedBlockSize],
+      ] as const) {
+        const element = ref?.nativeElement;
+        if (!element) {
+          continue;
+        }
+        target.set(element.scrollHeight);
+        const subscription = resizeObserver
+          .observe(element)
+          .subscribe(() => target.set(element.scrollHeight));
+        destroyRef.onDestroy(() => subscription.unsubscribe());
+      }
+    });
+
     // The header is the page's block-start chrome. It registers rather than
     // being found by a selector, so a header rendered by an `@if` or wrapped
     // in a `<form>` publishes its geometry like any other. `followsChromeDefault`

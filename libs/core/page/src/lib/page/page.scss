@@ -3,6 +3,23 @@
 @layer mlv.components {
   $block: mlv-page;
 
+  // ── Scroll-driven snap timeline ───────────────────────────────────────────
+  // The progress the whole chrome interpolates from is animated by the
+  // scroller itself, not written per scroll event. A registered property is
+  // what makes a custom property animatable at all; `inherits: true` is what
+  // lets one declaration on the scrollport reach every chrome region below it.
+  @property --mlv-page-scroll-snap {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
+  }
+
+  @keyframes mlv-page-snap-scrub {
+    to {
+      --mlv-page-scroll-snap: 1;
+    }
+  }
+
   // The anchored canvas border. Shared with the inner-corner radius below, which
   // has to subtract exactly this to land on the padding-box curve.
   $surface-border-width: 0.0625rem;
@@ -91,6 +108,50 @@
       // progress until it runs away to 0 or 1. The snap spacer keeps geometry
       // stable instead.
       overflow-anchor: none;
+
+      // The progress every chrome region reads. Declared *here*, on the
+      // scroller, for two reasons: an anonymous scroll timeline resolves
+      // against the element's own scroll container, so the animation has to sit
+      // on the scrollport rather than on the page host above it — and a
+      // declaration on the scroller is what shadows the animated value for the
+      // whole subtree, which is the only way to override it at all. Animations
+      // outrank normal author declarations, and a *paused* animation still
+      // applies its value, so a plain write to the animated property could
+      // never win. `MlvPage` writes the override whenever it, and not the
+      // timeline, is the source of progress.
+      --mlv-page-snap: var(
+        --mlv-page-snap-override,
+        var(--mlv-page-scroll-snap, 0)
+      );
+    }
+
+    // Firefox has not shipped scroll-driven animations and Safari only did in
+    // 26, so this is a real branch: without it `--mlv-page-scroll-snap` keeps
+    // its registered initial value and `MlvPage` drives the override instead.
+    @supports (animation-timeline: scroll()) {
+      &__scrollbar > .mlv-scrollbar__viewport {
+        animation-name: mlv-page-snap-scrub;
+        // No `animation-duration`: `auto` is what maps a progress-based
+        // timeline onto the whole animation, and the shorthand is avoided
+        // entirely because it resets `animation-timeline`.
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: scroll(self block);
+        // Exactly as long as the chrome measured itself giving up. A zero
+        // range is a degenerate timeline, which is why `MlvPage` takes the
+        // override back over when the distance is zero.
+        animation-range: 0 var(--mlv-page-snap-range, 0px);
+      }
+
+      // The shared reduced-motion mixin shortens durations, and a scroll-driven
+      // collapse has none. What the criterion is actually about here is a title
+      // resizing under the reader on every wheel notch, so the timeline steps
+      // between its two ends instead of scrubbing.
+      @media (prefers-reduced-motion: reduce) {
+        &__scrollbar > .mlv-scrollbar__viewport {
+          animation-timing-function: steps(2, jump-none);
+        }
+      }
     }
 
     &__inner {
@@ -168,10 +229,10 @@
     // NOTE: unlike `mlv-page-dock` — which derives its own full-bleed margins
     // from the inherited --mlv-page-inset and therefore tolerates any wrapper —
     // the header and summary strip MUST stay **direct children** of the page.
-    // Their geometry is sibling-relative (the header's top bleed, the snap
-    // spacer handover below) and `MlvPage` measures the same direct children to
-    // compute --mlv-page-snap-offset. Wrapping either one in a <form>/<section>
-    // silently drops the full-bleed treatment and the snap compensation.
+    // Their geometry is sibling-relative (the header's negative top bleed, the
+    // first-child canvas radius), so wrapping either one in a <form>/<section>
+    // silently drops the full-bleed treatment. Measurement no longer depends on
+    // it: both register with `MlvPageGeometry` instead of being queried.
     &__inner > .mlv-page-header,
     &__inner > .mlv-page-summary {
       margin-inline: calc(-1 * var(--mlv-page-inset-inline, 0rem));
@@ -206,13 +267,22 @@
         var(--mlv-page-surface-radius, 0rem) 0 0;
     }
 
-    // The height the snapping chrome gives up is re-added after it so the
-    // document geometry stays stable mid-scrub (no content jumps, no scroll
-    // anchoring feedback). A projected summary strip lives inside the header,
-    // so the header carries the spacer; a legacy sibling strip takes it over.
-    &__inner > .mlv-page-summary,
-    &__inner > .mlv-page-header:not(:has(~ .mlv-page-summary)) {
-      margin-bottom: var(--mlv-page-snap-offset, 0rem);
+    // The height the snapping chrome gives up is re-added at the end of the
+    // canvas, so the scroll height stays constant while the chrome shrinks —
+    // no scroll-anchoring feedback, no clamping of `scrollTop` near the
+    // bottom. It is exactly `range x progress` because every collapsing region
+    // gives up its block size over the same 0..1 span (the stagger inputs move
+    // opacity, not height), so the total needs no per-region sum.
+    //
+    // A pseudo-element rather than a margin on the chrome itself: the spacer
+    // must not be shadowed by a region that has stepped off the timeline to
+    // keep a focused control visible, and `__inner` is that region's ancestor.
+    &__inner::after {
+      content: '';
+      display: block;
+      block-size: calc(
+        var(--mlv-page-snap-range, 0px) * var(--mlv-page-snap, 0)
+      );
     }
 
     &--sticky-header .mlv-page-header {
@@ -245,13 +315,16 @@
   }
 
   .mlv-page-snap--hide {
-    max-height: calc(
-      var(--mlv-snap-size, 3rem) * (1 - var(--mlv-snap-progress))
+    // The height follows the *page* progress; only the content staggers. That
+    // split is what keeps the page's compensation exact for any stagger.
+    max-block-size: calc(
+      var(--mlv-snap-size, 0px) * (1 - var(--mlv-page-snap, 0))
     );
     overflow: hidden;
-    // Content fades ahead of the height collapse and drifts up slightly, so it
-    // reads as sliding away under the chrome rather than being cut off.
-    opacity: calc(1 - var(--mlv-snap-progress) * 1.5);
+    // Reaches zero exactly at `snapTo`, which is also where the region leaves
+    // the accessibility tree — there is no window in which the content is
+    // invisible and still announced, or still a tab stop.
+    opacity: calc(1 - var(--mlv-snap-progress));
     transform: translateY(calc(-0.5rem * var(--mlv-snap-progress)));
   }
 
@@ -261,6 +334,7 @@
   // it wins the equal-specificity cascade against their own progress value.
   .mlv-page-snap--revealed {
     --mlv-snap-progress: 0;
+    --mlv-page-snap: 0;
   }
 
   @include mixins.reduced-motion($block);

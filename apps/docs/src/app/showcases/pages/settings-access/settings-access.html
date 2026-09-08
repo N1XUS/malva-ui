@@ -158,14 +158,7 @@
     </mlv-sidebar>
 
     <!-- ── Page ───────────────────────────────────────────────────────────── -->
-    <main
-      mlvPage
-      id="main-content"
-      padding="m"
-      surface="anchored"
-      stickyHeader
-      [snapRange]="120"
-    >
+    <main mlvPage id="main-content" padding="m" surface="anchored" stickyHeader>
       <mlv-page-header size="s" sticky snapControls>
         <ng-template mlvPageBreadcrumb>
           <nav mlvBreadcrumb [items]="breadcrumbs()" mlvDensity="compact"></nav>

@@ -20,9 +20,10 @@ import { MlvPageSnapRegionBase } from '../page/page-snap-region-base';
  * `mlv-page-summary-item` children in a wrapping row.
  *
  * Inside `main[mlvPage]` the strip participates in the scroll-scrubbed snap
- * timeline: its height and opacity are interpolated from the page-level
- * `--mlv-page-snap` progress over the `snapFrom`..`snapTo` stagger window.
- * Collapse/expand and pinning are controlled by the header's snap controls
+ * timeline: its height follows the page-level `--mlv-page-snap` progress
+ * directly, while its opacity follows its own `snapFrom`..`snapTo` window, so
+ * the values fade before the strip squashes them without the page losing the
+ * exact height compensation. Expanding is driven by the header's chevron
  * (`mlv-page-header[snapControls]`) through `MlvPageSnapController` — the
  * strip itself is purely presentational.
  *
@@ -81,6 +82,15 @@ export class MlvPageSummary extends MlvPageSnapRegionBase {
 
   /** @protected Natural height of the items row, driving the height scrub. */
   protected readonly _measuredHeight = signal<number | null>(null);
+
+  /**
+   * @protected What the strip gives up on the timeline: its whole measured
+   * height. The controller sums it into the page's collapse distance, so the
+   * timeline is exactly as long as the chrome it removes.
+   */
+  protected readonly _collapsibleBlockSize = computed(
+    () => this._measuredHeight() ?? 0,
+  );
 
   /**
    * @protected The same measurement as a CSS length. Every geometry property

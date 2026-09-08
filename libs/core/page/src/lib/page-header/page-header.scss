@@ -81,28 +81,56 @@
       color: var(--mlv-text-secondary);
     }
 
-    // The title scrubs down one type scale as the chrome snaps.
-    &__title h1 {
+    // Two title nodes at two complete type roles, stacked in one grid cell and
+    // crossfaded. Nothing interpolates a font size, so each role keeps its own
+    // tracking and weight instead of a collapsed title wearing display
+    // tracking at text size. Only the block the pair occupies is scrubbed, and
+    // between two heights the header measured off the nodes themselves.
+    &__title {
+      display: grid;
+      grid-template-areas: 'title';
+      align-items: center;
+      block-size: calc(
+        var(--mlv-page-header-title-size, auto) -
+          (
+            var(--mlv-page-header-title-size, 0px) - var(
+                --mlv-page-header-title-collapsed-size,
+                0px
+              )
+          ) *
+          var(--mlv-page-header-snap)
+      );
+      overflow: hidden;
+    }
+
+    &__title-node {
+      grid-area: title;
+      min-width: 0;
+    }
+
+    &__title-node h1,
+    &__title-node h2,
+    &__title-node h3 {
       margin: 0;
-      font-size: calc(
-        var(--mlv-typography-heading-h2-size) +
-          (
-            var(--mlv-typography-heading-h4-size) - var(
-                --mlv-typography-heading-h2-size
-              )
-          ) *
-          var(--mlv-page-header-snap)
-      );
-      line-height: calc(
-        var(--mlv-typography-heading-h2-line-height) +
-          (
-            var(--mlv-typography-heading-h4-line-height) - var(
-                --mlv-typography-heading-h2-line-height
-              )
-          ) *
-          var(--mlv-page-header-snap)
-      );
+    }
+
+    // The expanded role fades out linearly; the collapsed one fades in on a
+    // heavily back-loaded curve so it arrives at the end rather than ghosting
+    // through the middle, which is what both platforms do.
+    &__title-node--large {
+      opacity: calc(1 - var(--mlv-page-header-snap));
+      font-size: var(--mlv-typography-heading-h2-size);
+      font-weight: var(--mlv-typography-heading-h2-weight);
+      line-height: var(--mlv-typography-heading-h2-line-height);
       letter-spacing: var(--mlv-typography-heading-h2-letter-spacing);
+    }
+
+    &__title-node--small {
+      opacity: clamp(0, (var(--mlv-page-header-snap) - 0.6) * 2.5, 1);
+      font-size: var(--mlv-typography-heading-h4-size);
+      font-weight: var(--mlv-typography-heading-h4-weight);
+      line-height: var(--mlv-typography-heading-h4-line-height);
+      letter-spacing: var(--mlv-typography-heading-h4-letter-spacing);
     }
 
     &__spacer {
@@ -195,26 +223,18 @@
       min-height: var(--mlv-height-m);
     }
 
-    &--size-s &__title h1 {
-      font-size: calc(
-        var(--mlv-typography-heading-h4-size) +
-          (
-            var(--mlv-typography-heading-h6-size) - var(
-                --mlv-typography-heading-h4-size
-              )
-          ) *
-          var(--mlv-page-header-snap)
-      );
-      line-height: calc(
-        var(--mlv-typography-heading-h4-line-height) +
-          (
-            var(--mlv-typography-heading-h6-line-height) - var(
-                --mlv-typography-heading-h4-line-height
-              )
-          ) *
-          var(--mlv-page-header-snap)
-      );
-      letter-spacing: var(--mlv-letter-spacing-normal);
+    &--size-s &__title-node--large {
+      font-size: var(--mlv-typography-heading-h4-size);
+      font-weight: var(--mlv-typography-heading-h4-weight);
+      line-height: var(--mlv-typography-heading-h4-line-height);
+      letter-spacing: var(--mlv-typography-heading-h4-letter-spacing);
+    }
+
+    &--size-s &__title-node--small {
+      font-size: var(--mlv-typography-heading-h6-size);
+      font-weight: var(--mlv-typography-heading-h6-weight);
+      line-height: var(--mlv-typography-heading-h6-line-height);
+      letter-spacing: var(--mlv-typography-heading-h6-letter-spacing);
     }
 
     &--size-s &__description {

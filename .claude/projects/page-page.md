@@ -52,11 +52,12 @@ and slots; the example component owns every piece of domain state.
 - **Delayed publish** — Schedule button in `[mlvPageDockEnd]` opens an
   `mlv-popup` with `mlv-day-picker`; the chosen date shows as a dock badge.
 - **Scroll-scrubbed snap** — the preview constrains the page to a fixed
-  height; `[snapRange]="160"` maps 160px of scroll onto the snap timeline
-  (roughly the collapsible chrome height, so content and chrome move ~1:1).
-  Breadcrumb, tabs row, and summary strip collapse over staggered windows;
-  the title scrubs h4 → h6. Chevron/pin controls come from
-  `mlv-page-header[snapControls]`; pinning freezes the state mid-scroll.
+  height. The timeline's length is the chrome's own measured collapse
+  distance, so content and chrome move 1:1 with no declared range. The
+  description, the meta row and the summary strip give up their height over
+  staggered fade windows and the title crossfades h4 → h6; the breadcrumb and
+  the tabs row stay. The expand chevron comes from
+  `mlv-page-header[snapControls]`.
 - **Bottom toolbar** — the entire workflow row lives inside one white pill
   action bar (`nav[mlvActionBar] shape="pill" wrap`, no contrast): status
   text, the editing-mode `mlv-button-toggle` cluster, a vertical divider, and

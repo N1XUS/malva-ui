@@ -60,6 +60,16 @@ export abstract class MlvPageSnapRegionBase implements MlvPageSnapRegion {
   protected abstract readonly _elapsed: Signal<boolean>;
 
   /**
+   * @protected Block size this region gives up between fully expanded and
+   * fully collapsed, in pixels — its own measurement, never a declared
+   * constant. The controller sums these into the collapse distance, which is
+   * both the length of the scroll timeline and the height the page has to
+   * compensate for, so a region that measures itself keeps the timeline
+   * correct through a font load, a locale change or a responsive rewrap.
+   */
+  protected abstract readonly _collapsibleBlockSize: Signal<number>;
+
+  /**
    * @protected Holds the region at its expanded state while it has focus:
    * a focused control has to stay visible, and a region that stays visible
    * cannot have its focus dropped by the next scroll event.
@@ -79,8 +89,18 @@ export abstract class MlvPageSnapRegionBase implements MlvPageSnapRegion {
   );
 
   constructor() {
-    const unregister = this._snapController?.registerRegion(this);
-    inject(DestroyRef).onDestroy(() => unregister?.());
+    const unregisterRegion = this._snapController?.registerRegion(this);
+    // Deferred: `_collapsibleBlockSize` is a subclass field, so it is still
+    // `undefined` while this base constructor runs. The controller only ever
+    // reads the signal inside a `computed`, which first runs after the whole
+    // instance is constructed.
+    const unregisterCollapse = this._snapController?.registerCollapse(
+      computed(() => this._collapsibleBlockSize()),
+    );
+    inject(DestroyRef).onDestroy(() => {
+      unregisterRegion?.();
+      unregisterCollapse?.();
+    });
   }
 
   /**

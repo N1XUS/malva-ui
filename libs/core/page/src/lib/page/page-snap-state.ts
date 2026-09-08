@@ -1,6 +1,23 @@
 import type { Signal } from '@angular/core';
 
 /**
+ * How the page's collapsing top chrome answers scrolling. The three names are
+ * the platform triad — Material ships exactly these, and UIKit's scroll-edge
+ * appearances model the same choices.
+ *
+ * - `pinned` — the chrome never changes height. Only its separation from the
+ *   content changes, driven by `overlapped` rather than by collapse progress.
+ * - `enterAlways` — the collapsing rows leave on scroll down and come back on
+ *   **any** pull down, at any scroll offset.
+ * - `exitUntilCollapsed` — the collapsing rows leave on scroll down and only
+ *   come back as the scroller returns to the top. The default.
+ */
+export type MlvPageSnapBehavior =
+  | 'pinned'
+  | 'enterAlways'
+  | 'exitUntilCollapsed';
+
+/**
  * The capability a page exposes for revealing its collapsed chrome.
  *
  * This is the whole public shape: the controller behind it is an
@@ -24,6 +41,15 @@ export interface MlvPageSnapState {
    * separation signal. A pinned bar has a collapse fraction of zero forever.
    */
   readonly overlapped: Signal<boolean>;
+
+  /**
+   * Total block size the chrome gives up between fully expanded and the
+   * collapsed floor, in pixels. It is the **sum of what the collapsing
+   * regions measured of themselves**, never a declared constant: a page whose
+   * chrome has nothing to collapse reports 0 and never collapses, which is
+   * `pinned` arrived at from the geometry instead of from an input.
+   */
+  readonly collapseDistance: Signal<number>;
 
   /**
    * Reveals every collapsed chrome region **synchronously** and scrolls the
@@ -63,4 +89,12 @@ export interface MlvPageSnapCoordinator extends MlvPageSnapState {
 
   /** Registers a region; the returned callback unregisters it. */
   registerRegion(region: MlvPageSnapRegion): () => void;
+
+  /**
+   * Registers a measured block size this chrome gives up over the whole
+   * timeline, so {@link MlvPageSnapState.collapseDistance} is the sum of what
+   * the chrome actually measured rather than a hand-declared scroll distance.
+   * The returned callback unregisters it.
+   */
+  registerCollapse(blockSize: Signal<number>): () => void;
 }
