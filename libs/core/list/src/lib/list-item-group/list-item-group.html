@@ -1,20 +1,36 @@
-<button
-  class="mlv-list-item-group__toggler"
-  type="button"
-  [attr.aria-expanded]="!!open()"
-  [attr.aria-controls]="_contentId"
-  (click)="toggle()"
->
-  <svg class="mlv-list-item-group__arrow" size="16" lucideChevronRight></svg>
-  <span>{{ label() }}</span>
-</button>
+@if (_pinnedOpen()) {
+  <!--
+    The enclosing list's variant holds this group's content open, so there is
+    nothing to disclose. A `<button aria-expanded>` here would be a control
+    making a false claim about content it does not govern (WCAG 4.1.2) and a
+    tab stop that does nothing. The label is plain text instead, and it names
+    the content region the toggler would otherwise have named.
+  -->
+  <div class="mlv-list-item-group__label" [id]="_labelId">{{ label() }}</div>
+} @else {
+  <button
+    class="mlv-list-item-group__toggler"
+    type="button"
+    [attr.aria-expanded]="_expanded()"
+    [attr.aria-controls]="_contentId"
+    (click)="toggle()"
+  >
+    <svg class="mlv-list-item-group__arrow" size="16" lucideChevronRight></svg>
+    <span>{{ label() }}</span>
+  </button>
+}
 <!--
   role="list" so the mlv-list-item rows nested in this group keep the `list`
   context their `listitem` role requires: the group host is itself a `listitem`
   of the outer mlv-list (see its `host` block), and a `listitem` is not a valid
   parent for another one.
 -->
-<div class="mlv-list-item-group__content" role="list" [id]="_contentId">
+<div
+  class="mlv-list-item-group__content"
+  role="list"
+  [id]="_contentId"
+  [attr.aria-labelledby]="_pinnedOpen() ? _labelId : null"
+>
   <div>
     <div>
       <ng-content />
