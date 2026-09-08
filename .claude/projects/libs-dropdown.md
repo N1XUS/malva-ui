@@ -275,7 +275,7 @@ selected row is later in DOM order with an opaque `--mlv-list-item-bg` and would
 paint over the ring's near edge.
 
 `2` rather than a `--mlv-z-*` token, matching `list-item-group.scss`'s
-`.mlv-list--inset .mlv-list-item-group__toggler` — the identical
+`.mlv-list--inset .mlv-list-item-group__label` — the identical
 sticky-header-over-list-rows job, which has always cleared the row at this
 level. The `--mlv-z-*` ladder is for document chrome; both of these only ever
 compete with their own sibling rows.
