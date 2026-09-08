@@ -351,6 +351,38 @@ describe('MlvPageShell', () => {
     });
   });
 
+  describe('a rail scoped to its own theme', () => {
+    /**
+     * The chrome derivation reads `--mlv-page-shell-effective-*`, which is
+     * declared on the shell host and so substituted in the *document's* theme
+     * scope. A `[mlvTheme]` island on the rail is resolved long after and
+     * cannot reach it, so a dark-scoped rail inside a light-chrome shell was
+     * painted light-grey row fills on its own dark surface.
+     */
+    it('keeps the chrome colour derivation off it', () => {
+      const derived = declarationsFor(
+        '.mlv-page-shell__sidebar.mlv-sidebar:not([mlvTheme]){',
+      );
+
+      expect(derived).toContain('--mlv-sidebar-active-bg:color-mix(');
+      expect(derived).toContain('--mlv-sidebar-hover-bg:color-mix(');
+      expect(derived).toContain('--mlv-text-primary:var(');
+      expect(
+        declarationsFor('.mlv-page-shell__sidebar.mlv-sidebar{'),
+      ).not.toContain('--mlv-sidebar-active-bg');
+    });
+
+    it('still gets the structural reset, which is not a colour', () => {
+      const structural = declarationsFor(
+        '.mlv-page-shell__sidebar.mlv-sidebar{',
+      );
+
+      expect(structural).toContain('--mlv-sidebar-border-width:0rem');
+      expect(structural).toContain('height:100%');
+      expect(structural).toContain('background:transparent');
+    });
+  });
+
   it('cleans up observation and scheduled work on destroy', () => {
     const disconnect = vi.spyOn(MutationObserver.prototype, 'disconnect');
     const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame');

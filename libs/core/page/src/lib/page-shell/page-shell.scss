@@ -249,8 +249,31 @@
       overflow: visible;
     }
 
+    // Structural, and true of every rail the shell hosts — a themed one too.
     &__sidebar.mlv-sidebar {
       --mlv-sidebar-border-width: 0rem;
+
+      height: 100%;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    // Colour derivation, withdrawn from a rail the consumer has scoped to its
+    // own theme — that rail owns its colours, and this derivation cannot serve
+    // it. Every mix below reads `--mlv-page-shell-effective-*`, which is
+    // declared on the shell host and therefore substituted in the *document's*
+    // theme scope; a `[mlvTheme]` island further down is resolved long after
+    // and cannot reach it, so a dark-scoped rail inside a light-chrome shell
+    // got light-grey row fills painted onto its own dark surface. Re-declaring
+    // the effective pair on the rail is not the fix: `--mlv-text-on-chrome` is
+    // `var(--mlv-text-primary)` and this block remaps `--mlv-text-primary` on
+    // the same element, so the pair becomes a custom-property cycle and every
+    // mix collapses to the guaranteed-invalid value. Withdrawing instead lets
+    // `sidebar.scss`'s own declarations resolve inside the island, which is
+    // what a themed rail wants.
+    &__sidebar.mlv-sidebar:not([mlvTheme]) {
       --mlv-text-secondary: color-mix(
         in srgb,
         var(--mlv-page-shell-effective-foreground) 78%,
@@ -332,12 +355,6 @@
         var(--mlv-page-shell-effective-foreground) 8%,
         var(--mlv-page-shell-effective-background)
       );
-
-      height: 100%;
-      border: 0;
-      border-radius: 0;
-      box-shadow: none;
-      background: transparent;
     }
   }
 }

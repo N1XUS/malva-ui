@@ -14,8 +14,14 @@ import * as sass from 'sass';
 
 const SHELL_DIR = dirname(fileURLToPath(import.meta.url));
 
-/** The rule that carries the whole sidebar remap. */
-const SIDEBAR_RULE = '.mlv-page-shell__sidebar.mlv-sidebar{';
+/**
+ * The rule that carries the whole sidebar remap. `:not([mlvTheme])` — a rail
+ * the consumer has scoped to its own theme is withdrawn from the derivation,
+ * because every mix below reads `--mlv-page-shell-effective-*`, which is
+ * declared on the shell host and therefore already substituted in the
+ * document's theme scope by the time an island further down is resolved.
+ */
+const SIDEBAR_RULE = '.mlv-page-shell__sidebar.mlv-sidebar:not([mlvTheme]){';
 
 /**
  * Chrome-foreground tint, whitespace-stripped like the compiled output.
