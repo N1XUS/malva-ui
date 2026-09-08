@@ -127,6 +127,39 @@ describe('page shell sidebar chrome remap', () => {
 });
 
 /**
+ * Form controls projected into a chrome slot. Same withdrawal as the sidebar
+ * remap above and for the same reason: every mix reads
+ * `--mlv-page-shell-effective-*`, declared on the shell host and therefore
+ * already substituted in the document's theme scope, so on a slot the consumer
+ * has scoped to its own theme these paint the document's chrome mix over a
+ * field the island has already coloured. A 10% foreground tint reads visibly
+ * darker than the theme's own field fill.
+ */
+describe('page shell chrome form controls', () => {
+  const FIELD_RULE =
+    '.mlv-page-shell__topbar:not([mlvTheme]).mlv-form-control-wrapper,.mlv-page-shell__sidebar:not([mlvTheme]).mlv-form-control-wrapper{';
+
+  const css = sass
+    .compile(join(SHELL_DIR, 'page-shell.scss'), { style: 'expanded' })
+    .css.replace(/\s+/g, '');
+
+  it('withdraws the chrome field remap from a slot scoped to its own theme', () => {
+    expect(css, `rule \`${FIELD_RULE}\` not found`).toContain(FIELD_RULE);
+  });
+
+  // The unguarded selector is what shipped before, and is the thing that must
+  // not come back: it re-darkens a themed rail's search field.
+  it('never remaps a field on an unguarded chrome slot', () => {
+    expect(css).not.toContain(
+      '.mlv-page-shell__sidebar.mlv-form-control-wrapper{',
+    );
+    expect(css).not.toContain(
+      '.mlv-page-shell__topbar.mlv-form-control-wrapper{',
+    );
+  });
+});
+
+/**
  * The seam between two adjacent start sidebars (an icon rail followed by an
  * expanded navigation panel). It is a line drawn *on the chrome*, so like every
  * other chrome surface it has to be derived from the chrome's own computed

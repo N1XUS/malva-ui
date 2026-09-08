@@ -270,6 +270,46 @@ canvas are the same colour, which is what the chrome token change above fixes.
 No gap was added: the documented intent is one continuous canvas rounding
 into the frame, not a card floating inside it.
 
+### A chrome slot scoped to its own theme opts out of the whole derivation
+
+`mlv-page-shell` derives every colour it paints on a projected sidebar or
+topbar from `--mlv-page-shell-effective-foreground` / `-background`. Those are
+declared **on the shell host**, and a custom property's `var()`s are
+substituted on the element that declares it — so they are already resolved in
+the document's theme scope before any `[mlvTheme]` island further down is
+considered. On a slot the consumer has scoped to its own theme, the derivation
+therefore paints the _document's_ chrome mix over a surface the island has
+already coloured.
+
+Both halves of the derivation now carry `:not([mlvTheme])`: the sidebar remap
+(`.mlv-page-shell__sidebar.mlv-sidebar:not([mlvTheme])` — row states, the
+neutral interactive ramp, the selected pair, text and focus) and the projected
+form controls (`&__topbar:not([mlvTheme])` / `&__sidebar:not([mlvTheme])
+.mlv-form-control-wrapper`). Structural declarations are not withdrawn — height,
+zeroed border and radius, no shadow, transparent background stay on every rail
+the shell hosts, themed or not, and live in their own unguarded rule.
+
+Scoping a rail to a theme is now the supported way to say _"give this rail the
+library's standard colours, not the application frame's"_. `apps/docs` does
+exactly that, binding `mlvTheme` to `MlvThemeService.currentTheme()` so the rail
+still follows the theme switcher.
+
+Re-declaring the effective pair on the rail is **not** an alternative:
+`--mlv-text-on-chrome` is `var(--mlv-text-primary)` and the remap redefines
+`--mlv-text-primary` on the same element, so the pair becomes a custom-property
+cycle, resolves to the guaranteed-invalid value, and every dependent
+`color-mix()` collapses to empty.
+
+### `mlv-sidebar` rows sit on the control type size
+
+`mlv-sidebar-item`, its `__label` and `mlv-sidebar-group`'s header and `__label`
+moved `--mlv-font-size-l` (16px) → `--mlv-font-size-m` (14px), the size every
+other Malva control uses — button, input, search field — and the size the
+group flyout header in the same stylesheet was already using. Nothing else
+about the row changed: `--mlv-sidebar-row-height` is still 2.25rem, so a row
+gets more breathing room rather than a different rhythm. Consumers who want the
+old scale set `font-size` on `.mlv-sidebar-item` / `.mlv-sidebar-group__label`.
+
 ### A sticky element's inline inset stays physical
 
 Safari 26 mispositions a `position: sticky` element in RTL when its inline inset

@@ -358,11 +358,23 @@ same way — `border-inline-start: var(--mlv-stroke-width) solid` foreground
 `--mlv-border-subtle` resolves against the page surface and painted a near-white
 hairline across a dark or brand chrome.
 
-`&__topbar .mlv-form-control-wrapper` / `&__sidebar .mlv-form-control-wrapper`
-carry the matching remap for projected form controls (container background,
-border ramp, text and focus tokens) — same chrome-background mix, unchanged
-percentages (10 / 30 / 40 / 50 for the field fill/border ramp; 78 / 78 / 60 for
-the action/text-secondary/text-tertiary foregrounds).
+`&__topbar:not([mlvTheme]) .mlv-form-control-wrapper` /
+`&__sidebar:not([mlvTheme]) .mlv-form-control-wrapper` carry the matching remap
+for projected form controls (container background, border ramp, text and focus
+tokens) — same chrome-background mix, unchanged percentages (10 / 30 / 40 / 50
+for the field fill/border ramp; 78 / 78 / 60 for the
+action/text-secondary/text-tertiary foregrounds).
+
+`:not([mlvTheme])` for the same reason the sidebar remap above carries it, and
+it is the same bug: every mix reads `--mlv-page-shell-effective-*`, declared on
+the shell host, so on a slot the consumer has scoped to its own theme these
+paint the _document's_ chrome mix over a field the theme island has already
+coloured. A 10 % foreground tint is visibly darker than the theme's own field
+fill, so a themed rail's filter field read as a grey box in a white rail.
+Withdrawing hands the field back to the wrapper's own defaults, which the island
+resolves. Pinned by `page-shell-sidebar-tokens.spec.ts` §
+_page shell chrome form controls_, which also asserts the unguarded selector
+never comes back.
 
 ## `MlvPageEndPane`
 

@@ -192,8 +192,18 @@
     // chrome slots only: a field inside `main[mlvPage]` keeps the normal tokens.
     // `&__sidebar` covers the end sidebar too — it carries the same class plus a
     // `--end` modifier.
-    &__topbar .mlv-form-control-wrapper,
-    &__sidebar .mlv-form-control-wrapper {
+    //
+    // `:not([mlvTheme])` for the same reason the sidebar remap below carries it:
+    // a slot the consumer has scoped to its own theme is withdrawn from the whole
+    // derivation. Every mix here reads `--mlv-page-shell-effective-*`, which is
+    // declared on the shell host and therefore already substituted in the
+    // document's theme scope — so on a themed slot these paint the *document's*
+    // chrome mix over a field the theme island has already coloured, and a
+    // ten-percent foreground tint is visibly darker than the theme's own field
+    // fill. Withdrawing hands the field back to `--mlv-background-neutral-1`,
+    // which the island does resolve.
+    &__topbar:not([mlvTheme]) .mlv-form-control-wrapper,
+    &__sidebar:not([mlvTheme]) .mlv-form-control-wrapper {
       --container-background-color: color-mix(
         in srgb,
         var(--mlv-page-shell-effective-foreground) 10%,
