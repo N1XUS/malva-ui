@@ -8,6 +8,7 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 import { MlvDrawerSectionsService } from '../drawer-sections.service';
+import type { MlvPopupTriggerType } from '@malva-ui/core/popup';
 import {
   MlvPopup,
   MlvPopupContent,
@@ -41,6 +42,23 @@ export class MlvDrawerSections {
 
   /** @protected Two-way open state of the section-navigation popup. */
   protected readonly isOpen = signal(false);
+
+  /**
+   * @protected Gestures that open the section menu.
+   *
+   * `hover` alone made the menu unreachable by keyboard (WCAG 2.1.1, #223):
+   * `MlvPopupTrigger.onClick()` gates on `hasTrigger('click')` and
+   * `onFocus()` on `hasTrigger('focus')`, so for a hover-only trigger every
+   * keyboard path was a no-op. The trigger is a real `<button>`, so `click`
+   * is also its Enter/Space activation — adding it is what makes the menu
+   * openable without a pointer. `focus` is deliberately *not* in the list: it
+   * closes on `blur`, so it would shut the panel the moment focus moved
+   * toward the rows.
+   *
+   * Held in a field rather than written as an array literal in the template
+   * so the reference is stable across change detection.
+   */
+  protected readonly _triggerOn: MlvPopupTriggerType[] = ['hover', 'click'];
 
   /**
    * @protected Whether the navigator has anything to navigate between.

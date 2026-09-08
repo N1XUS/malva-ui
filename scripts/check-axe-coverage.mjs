@@ -223,7 +223,6 @@ export const ROLLOUT_PENDING = [
   'core-color-picker',
   'core-date-range-picker',
   'core-day-picker',
-  'core-drawer',
   'core-dropdown',
   'core-file-upload',
   'core-form',
