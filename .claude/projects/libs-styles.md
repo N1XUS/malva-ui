@@ -116,17 +116,17 @@ consumer paints it as a switch track (`libs/core/switch`), never behind text.
 
 ## Public API
 
-| File                                   | Kind             | Description                                                                                                                                                                                                         |
-| -------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `libs/styles/src/lib/index.scss`       | SCSS entry point | `@use`s `theme`, `muted` and `layers`, and applies a global `[class*="mlv"]` reset/default font+color rule wrapped in `@layer mlv.base`. Import this once globally.                                                 |
-| `libs/styles/src/lib/theme.scss`       | SCSS             | Core design tokens — all three theme modes (light, dark, high-contrast) in one file. Sections 1–10. Includes responsive typography overrides for 3xl–6xl font-size tokens. All rules emit into `@layer mlv.tokens`. |
-| `libs/styles/src/lib/muted.scss`       | SCSS             | Muted/semantic tint tokens — 3 emphasis levels × 8 color families. All rules emit into `@layer mlv.tokens`.                                                                                                         |
-| `libs/styles/src/lib/layers.scss`      | SCSS             | Single-line CSS cascade-layer order declaration (`@layer mlv.tokens, mlv.base, mlv.components;`). `@use`d first by every global emitter so the statement is written once, ahead of all layered rules.               |
-| `libs/styles/src/lib/overlay.scss`     | SCSS             | Dialog backdrop base look (`.mlv-dialog-backdrop`) — DOM the CDK overlay creates, so no component stylesheet owns it. Emits into `@layer mlv.components`.                                                           |
-| `libs/styles/src/lib/density.scss`     | SCSS mixin file  | Density system mixins (`density-tight()`, `density-compact()`, `density-comfortable()`, `density-spacious()`, `density-airy()`, `density-not-comfortable()`).                                                       |
+| File                                   | Kind             | Description                                                                                                                                                                                                                                  |
+| -------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `libs/styles/src/lib/index.scss`       | SCSS entry point | `@use`s `theme`, `muted` and `layers`, and applies a global `[class*="mlv"]` reset/default font+color rule wrapped in `@layer mlv.base`. Import this once globally.                                                                          |
+| `libs/styles/src/lib/theme.scss`       | SCSS             | Core design tokens — all three theme modes (light, dark, high-contrast) in one file. Sections 1–10. Includes responsive typography overrides for 3xl–6xl font-size tokens. All rules emit into `@layer mlv.tokens`.                          |
+| `libs/styles/src/lib/muted.scss`       | SCSS             | Muted/semantic tint tokens — 3 emphasis levels × 8 color families. All rules emit into `@layer mlv.tokens`.                                                                                                                                  |
+| `libs/styles/src/lib/layers.scss`      | SCSS             | Single-line CSS cascade-layer order declaration (`@layer mlv.tokens, mlv.base, mlv.components;`). `@use`d first by every global emitter so the statement is written once, ahead of all layered rules.                                        |
+| `libs/styles/src/lib/overlay.scss`     | SCSS             | Dialog backdrop base look (`.mlv-dialog-backdrop`) — DOM the CDK overlay creates, so no component stylesheet owns it. Emits into `@layer mlv.components`.                                                                                    |
+| `libs/styles/src/lib/density.scss`     | SCSS mixin file  | Density system mixins (`density-tight()`, `density-compact()`, `density-comfortable()`, `density-spacious()`, `density-airy()`, `density-not-comfortable()`).                                                                                |
 | `libs/styles/src/lib/mixins.scss`      | SCSS mixin file  | `base()`, direction-aware `rtl()` / `ltr()` scopes, logical `margin-inline()` / `padding-inline()`, `inline-distance()` / `translate-inline()` for mirrored transforms, motion-query helpers, staggered entry, and `reduced-motion($block)`. |
-| `libs/styles/src/lib/animations.scss`  | SCSS             | Keyframe animation definitions (dialog, popup, drawer, accordion) plus the `--enter` / `--leave` classes that play them. `@use`s `layers` and emits into `@layer mlv.components`.                                   |
-| `libs/styles/src/lib/breakpoints.scss` | SCSS mixin file  | Mobile-first breakpoint system — configurable thresholds, viewport mixins (`breakpoint-up`, `breakpoint-down`, `breakpoint-only`), and container query mixins (`container`, `container-up`, `container-down`).      |
+| `libs/styles/src/lib/animations.scss`  | SCSS             | Keyframe animation definitions (dialog, popup, drawer, accordion) plus the `--enter` / `--leave` classes that play them. `@use`s `layers` and emits into `@layer mlv.components`.                                                            |
+| `libs/styles/src/lib/breakpoints.scss` | SCSS mixin file  | Mobile-first breakpoint system — configurable thresholds, viewport mixins (`breakpoint-up`, `breakpoint-down`, `breakpoint-only`), and container query mixins (`container`, `container-up`, `container-down`).                               |
 
 ### Usage in component stylesheets
 
@@ -168,11 +168,11 @@ Declared once, in `layers.scss`:
 @layer mlv.tokens, mlv.base, mlv.components;
 ```
 
-| Layer            | Contents                                                                                                                                                  | Emitted by                 |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| `mlv.tokens`     | All design-token custom-property declarations (`:root`, `:host`, `[mlvTheme='light']`, `[mlvTheme='dark']`, `[data-theme='high-contrast']`, muted tints). | `theme.scss`, `muted.scss` |
-| `mlv.base`       | Global element reset/defaults — the `[class*="mlv"]` font/color/box-sizing rule.                                                                          | `index.scss`               |
-| `mlv.components` | All library component BEM styles plus `.mlv-dialog-backdrop`.                                                                                              | Component SCSS, `overlay.scss` |
+| Layer            | Contents                                                                                                                                                  | Emitted by                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `mlv.tokens`     | All design-token custom-property declarations (`:root`, `:host`, `[mlvTheme='light']`, `[mlvTheme='dark']`, `[data-theme='high-contrast']`, muted tints). | `theme.scss`, `muted.scss`     |
+| `mlv.base`       | Global element reset/defaults — the `[class*="mlv"]` font/color/box-sizing rule.                                                                          | `index.scss`                   |
+| `mlv.components` | All library component BEM styles plus `.mlv-dialog-backdrop`.                                                                                             | Component SCSS, `overlay.scss` |
 
 `layers.scss` is `@use`d first by `theme.scss`, `muted.scss` and `index.scss`.
 Because Sass emits a module's CSS only once, the `@layer …;` order statement is
@@ -282,7 +282,25 @@ Token pattern: `--mlv-palette-{family}-{stop}` e.g. `--mlv-palette-primary-500`
 | Success               | `--mlv-background-success-1`, `-hover`, `-active`, `-pale`, `-pale-hover`; alias `--mlv-background-success-pale`                     |
 | Warning               | `--mlv-background-warning-1`, `-hover`, `-active`, `-pale`, `-pale-hover`; alias `--mlv-background-warning-pale`                     |
 | Info                  | `--mlv-background-info-1`, `-hover`, `-active`, `-pale`, `-pale-hover`; alias `--mlv-background-info-pale`                           |
+| Application frame     | `--mlv-background-chrome` — the shell's topbar and sidebars; deliberately one step off `--mlv-background-base` in **every** theme    |
+| Chrome bars           | `--mlv-background-bar`, `-overlapped` — a sticky bar at rest, and the one rung it steps up while over scrolling content              |
 | Elevation (dark mode) | `--mlv-elevation-bg-1` … `--mlv-elevation-bg-5`                                                                                      |
+
+`--mlv-background-chrome` replaced a raw `--mlv-palette-neutral-900` literal in
+`page-shell.scss`, which followed no theme: near-maximum contrast in light, and
+**byte-identical to the canvas in dark**, where the frame disappeared. Light
+resolves `neutral-200` under a `neutral-50` canvas; dark resolves `neutral-950`
+under a `neutral-900` canvas; high contrast declares `#000000`.
+
+`--mlv-background-bar` / `-overlapped` are the whole separation model for
+`mlv-action-bar`, `mlv-page-header`, `mlv-page-summary` and `mlv-page-dock`:
+a hairline says where the bar ends, and the fill steps one rung when the bar is
+over content. They replaced a translucent `elevation-bg-3` fill behind
+`backdrop-filter: blur(1.25rem)` under a scroll-deepening shadow — four signals
+saying one thing, in four copies. Both are `var()` references, so **both are
+re-declared inside the `dark-tokens` mixin** rather than inherited: a `var()`
+value resolves in the scope it is declared in, and a scoped `[mlvTheme='dark']`
+island would otherwise paint the light theme's answers.
 
 All interactive states use `color-mix(in srgb, …)` derivations — no hardcoded hover colors.
 
@@ -316,6 +334,7 @@ All interactive states use `color-mix(in srgb, …)` derivations — no hardcode
 | `--mlv-text-caption`             | Captions, metadata                                                                                                     |
 | `--mlv-text-error`               | Inline validation errors                                                                                               |
 | `--mlv-text-placeholder`         | Input placeholders                                                                                                     |
+| `--mlv-text-on-chrome`           | Text on `--mlv-background-chrome` — the shell frame's default foreground                                               |
 
 `--mlv-text-action` is `primary-600` in light and `primary-300` softened 15%
 toward white in dark. Both stops are contrast-driven, not decorative.
@@ -474,9 +493,9 @@ by re-deriving the underlying spacing/radius token.
 
 ### Section 11 — Direction
 
-| Token                     | Value        | Description                        |
-| ------------------------- | ------------ | ---------------------------------- |
-| `--mlv-inline-direction`  | `1` / `-1`   | Sign of the inline axis            |
+| Token                    | Value      | Description             |
+| ------------------------ | ---------- | ----------------------- |
+| `--mlv-inline-direction` | `1` / `-1` | Sign of the inline axis |
 
 `1` on `:root` and `[dir='ltr']`, `-1` on `[dir='rtl']`. The `[dir]` rules sit
 outside the `:root` block so they apply at any depth — a mirrored subtree inside
@@ -589,14 +608,14 @@ emit the corresponding logical start/end declarations.
 For anything with a logical equivalent, write the logical property directly —
 the browser mirrors it and no mixin is involved:
 
-| Physical | Logical |
-| -------- | ------- |
-| `margin-left` / `margin-right` | `margin-inline-start` / `margin-inline-end` |
-| `padding-left` / `padding-right` | `padding-inline-start` / `padding-inline-end` |
-| `left` / `right` | `inset-inline-start` / `inset-inline-end` |
-| `border-left` / `border-right` | `border-inline-start` / `border-inline-end` |
+| Physical                                               | Logical                                                                 |
+| ------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `margin-left` / `margin-right`                         | `margin-inline-start` / `margin-inline-end`                             |
+| `padding-left` / `padding-right`                       | `padding-inline-start` / `padding-inline-end`                           |
+| `left` / `right`                                       | `inset-inline-start` / `inset-inline-end`                               |
+| `border-left` / `border-right`                         | `border-inline-start` / `border-inline-end`                             |
 | `border-top-left-radius` (and the other three corners) | `border-start-start-radius` (`-start-end-`, `-end-start-`, `-end-end-`) |
-| `text-align: left` / `right` | `text-align: start` / `end` |
+| `text-align: left` / `right`                           | `text-align: start` / `end`                                             |
 
 Two cases deliberately stay **physical**:
 

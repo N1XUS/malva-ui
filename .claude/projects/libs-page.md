@@ -14,60 +14,75 @@ Record-editor experiences (draft/live switches, version history, diff views, sug
 
 Exported from `libs/core/page/src/index.ts`:
 
-| Export                         | Kind             | Selector / values                                               |
-| ------------------------------ | ---------------- | --------------------------------------------------------------- |
-| `MlvPageShell`                 | Component        | `mlv-page-shell`                                                |
-| `MlvPageTopbar`                | Shell slot       | `[mlvPageTopbar]`                                               |
-| `MlvPageSidebar`               | Shell slot       | `[mlvPageSidebar]`                                              |
-| `MlvPageEndSidebar`            | Shell slot       | `[mlvPageEndSidebar]`                                           |
-| `MlvPageEndPane`               | Component        | `mlv-page-end-pane`                                             |
-| `MlvPageEndPaneContent`        | Template slot    | `ng-template[mlvPageEndPaneContent]`                            |
-| `MlvPageEndPaneTrigger`        | Button directive | `button[mlvPageEndPaneTrigger]`                                 |
-| `MlvPage`                      | Component        | `main[mlvPage]`                                                 |
-| `MlvPageHeader`                | Component        | `mlv-page-header`                                               |
-| `MlvPageContent`               | Component        | `mlv-page-content`                                              |
-| `MlvPageContext`               | Header region    | `[mlvPageContext]`                                              |
-| `MlvPageTitle`                 | Template slot    | `[mlvPageTitle]`                                                |
-| `MlvPageStatus`                | Header region    | `[mlvPageStatus]`                                               |
-| `MlvPageActions`               | Header region    | `[mlvPageActions]`                                              |
-| `MlvPageDescription`           | Header region    | `[mlvPageDescription]`                                          |
-| `MlvPageMeta`                  | Header region    | `[mlvPageMeta]`                                                 |
-| `MlvPageTabs`                  | Header region    | `[mlvPageTabs]`                                                 |
-| `MlvPageAside`                 | Content region   | `[mlvPageAside]`                                                |
-| `MlvPageSummary`               | Component        | `mlv-page-summary`                                              |
-| `MlvPageSummaryItem`           | Component        | `mlv-page-summary-item`                                         |
-| `MlvPageDock`                  | Component        | `mlv-page-dock`                                                 |
-| `MlvPageDockStart`             | Dock slot        | `[mlvPageDockStart]`                                            |
-| `MlvPageDockCenter`            | Dock slot        | `[mlvPageDockCenter]`                                           |
-| `MlvPageDockEnd`               | Dock slot        | `[mlvPageDockEnd]`                                              |
-| `MlvPageChromeRegion`          | Abstract base    | `hideOn` — every projected chrome region extends it             |
-| `MlvPageRegionHide`            | Type             | `'narrow' \| 'wide' \| null`                                    |
-| `MlvPageHeaderState`           | Interface        | `{ progress; collapsed; titleClipped }`                         |
-| `MLV_PAGE_HEADER_STATE`        | Token            | collapse state of the enclosing `mlv-page-header`               |
-| `MLV_PAGE_SNAP_WINDOW`         | Token            | a region's own default stagger window                           |
-| `MlvPageSnapWindow`            | Interface        | `{ from; to }`                                                  |
-| `MlvPageGeometry`              | Service          | provided by `MlvPage`                                           |
-| `MlvPageSnapState`             | Interface        | `{ progress; snapped; overlapped; collapseDistance; expand() }` |
-| `MlvPageSnapBehavior`          | Type             | `'pinned' \| 'enterAlways' \| 'exitUntilCollapsed'`             |
-| `MlvPageRegion`                | Interface        | `{ element; edge; sticky; followsChromeDefault? }`              |
-| `MlvPageStickyEdge`            | Type             | `'block-start' \| 'block-end'`                                  |
-| `registerPageRegion`           | Function         | registers a region with the enclosing page                      |
-| `publishViewportInsetBlockEnd` | Function         | document-scoped block-end registry                              |
-| `obstructsViewportBlockEnd`    | Function         | geometric viewport-obstruction test                             |
-| `MlvPageShellSizing`           | Type             | `'parent' \| 'viewport' \| 'content'`                           |
-| `MlvPageSnap`                  | Directive        | `[mlvPageSnap]`                                                 |
-| `MlvPageSnapRegionBase`        | Abstract base    | focus contract for snap regions                                 |
-| `MlvPageSnapRegion`            | Interface        | `{ reveal; syncHiddenState }`                                   |
-| `MlvPageSnapCoordinator`       | Interface        | `@internal` — what the region base consumes                     |
-| `MlvPageSnapMode`              | Type             | `'hide' \| 'fade' \| 'keep'`                                    |
-| `MlvPageDockAppearance`        | Type             | `'bar' \| 'floating'`                                           |
-| `MlvPageScroll`                | Type             | `'page' \| 'content' \| 'document'`                             |
-| `MlvPageScroller`              | Directive        | `[mlvPageScroller]`                                             |
-| `MlvPagePadding`               | Type             | `'none' \| 's' \| 'm' \| 'l'`                                   |
-| `MlvPageSurface`               | Type             | `'anchored' \| 'flat'`                                          |
-| `MlvPageHeaderSize`            | Type             | `'m' \| 's'`                                                    |
-| `MlvPageHeaderTabsAlign`       | Type             | `'start' \| 'center'`                                           |
-| `MlvPageContentGap`            | Type             | `'s' \| 'm' \| 'l'`                                             |
+| Export                            | Kind             | Selector / values                                               |
+| --------------------------------- | ---------------- | --------------------------------------------------------------- |
+| `MlvPageShell`                    | Component        | `mlv-page-shell`                                                |
+| `MlvPageTopbar`                   | Shell slot       | `[mlvPageTopbar]`                                               |
+| `MlvPageSidebar`                  | Shell slot       | `[mlvPageSidebar]`                                              |
+| `MlvPageEndSidebar`               | Shell slot       | `[mlvPageEndSidebar]`                                           |
+| `MlvPageEndPane`                  | Component        | `mlv-page-end-pane`                                             |
+| `MlvPageEndPaneContent`           | Template slot    | `ng-template[mlvPageEndPaneContent]`                            |
+| `MlvPageEndPaneTrigger`           | Button directive | `button[mlvPageEndPaneTrigger]`                                 |
+| `MlvPage`                         | Component        | `main[mlvPage]`                                                 |
+| `MlvPageHeader`                   | Component        | `mlv-page-header`                                               |
+| `MlvPageContent`                  | Component        | `mlv-page-content`                                              |
+| `MlvPageContext`                  | Header region    | `[mlvPageContext]`                                              |
+| `MlvPageTitle`                    | Template slot    | `[mlvPageTitle]`                                                |
+| `MlvPageStatus`                   | Header region    | `[mlvPageStatus]`                                               |
+| `MlvPageActions`                  | Header region    | `[mlvPageActions]`                                              |
+| `MlvPageDescription`              | Header region    | `[mlvPageDescription]`                                          |
+| `MlvPageMeta`                     | Header region    | `[mlvPageMeta]`                                                 |
+| `MlvPageTabs`                     | Header region    | `[mlvPageTabs]`                                                 |
+| `MlvPageAside`                    | Content region   | `[mlvPageAside]`                                                |
+| `MlvPageSummary`                  | Component        | `mlv-page-summary`                                              |
+| `MlvPageSummaryItem`              | Component        | `div[mlvPageSummaryItem]`                                       |
+| `MlvPageDock`                     | Component        | `mlv-page-dock`                                                 |
+| `MlvPageDockStart`                | Dock slot        | `[mlvPageDockStart]`                                            |
+| `MlvPageDockCenter`               | Dock slot        | `[mlvPageDockCenter]`                                           |
+| `MlvPageDockEnd`                  | Dock slot        | `[mlvPageDockEnd]`                                              |
+| `MlvPageChromeRegion`             | Abstract base    | `hideOn` — every projected chrome region extends it             |
+| `MlvPageRegionHide`               | Type             | `'narrow' \| 'wide' \| null`                                    |
+| `MlvPageHeaderState`              | Interface        | `{ progress; collapsed; titleClipped }`                         |
+| `MLV_PAGE_HEADER_STATE`           | Token            | collapse state of the enclosing `mlv-page-header`               |
+| `MLV_PAGE_SNAP_WINDOW`            | Token            | a region's own default stagger window                           |
+| `MlvPageSnapWindow`               | Interface        | `{ from; to }`                                                  |
+| `MlvPageGeometry`                 | Service          | provided by `MlvPage`                                           |
+| `MlvPageSnapState`                | Interface        | `{ progress; snapped; overlapped; collapseDistance; expand() }` |
+| `MlvPageSnapBehavior`             | Type             | `'pinned' \| 'enterAlways' \| 'exitUntilCollapsed'`             |
+| `MlvPageRegion`                   | Interface        | `{ element; edge; sticky; followsChromeDefault? }`              |
+| `MlvPageStickyEdge`               | Type             | `'block-start' \| 'block-end'`                                  |
+| `registerPageRegion`              | Function         | registers a region with the enclosing page                      |
+| `publishViewportInsetBlockEnd`    | Function         | document-scoped block-end registry                              |
+| `obstructsViewportBlockEnd`       | Function         | geometric viewport-obstruction test                             |
+| `MlvPageShellSizing`              | Type             | `'parent' \| 'viewport' \| 'content'`                           |
+| `MlvPageSnap`                     | Directive        | `[mlvPageSnap]`                                                 |
+| `MlvPageSnapRegionBase`           | Abstract base    | focus contract for snap regions                                 |
+| `MlvPageSnapRegion`               | Interface        | `{ reveal; syncHiddenState }`                                   |
+| `MlvPageSnapCoordinator`          | Interface        | `@internal` — what the region base consumes                     |
+| `MlvPageSnapMode`                 | Type             | `'hide' \| 'fade' \| 'keep'`                                    |
+| `MlvPageDockAppearance`           | Type             | `'bar' \| 'floating'`                                           |
+| `MlvPageScroll`                   | Type             | `'page' \| 'content' \| 'document'`                             |
+| `MlvPageScroller`                 | Directive        | `[mlvPageScroller]`                                             |
+| `MlvPagePadding`                  | Type             | `'none' \| 's' \| 'm' \| 'l'`                                   |
+| `MlvPageSurface`                  | Type             | `'anchored' \| 'flat'`                                          |
+| `MlvPageHeaderSize`               | Type             | `'m' \| 's'`                                                    |
+| `MlvPageHeaderTabsAlign`          | Type             | `'start' \| 'center'`                                           |
+| `MlvPageContentGap`               | Type             | `'s' \| 'm' \| 'l'`                                             |
+| `MlvPageRegistry`                 | Service          | root registry of mounted pages                                  |
+| `MlvPageEntry`                    | Interface        | `{ id; element; page }`                                         |
+| `MlvPageRouteFocusHandler`        | Service          | moves focus / announces on navigation                           |
+| `provideMlvPageRouteFocus`        | Function         | providers that activate the handler                             |
+| `MlvPageRouteFocusStrategy`       | Type             | `'focus' \| 'announce' \| 'both'`                               |
+| `MlvPageRouteFocusOptions`        | Interface        | `{ strategy; politeness; announce? }`                           |
+| `MLV_PAGE_ROUTE_FOCUS_OPTIONS`    | Token            | route-focus options                                             |
+| `MlvPageViewportScroller`         | Service          | `ViewportScroller` that scrolls the page, not the document      |
+| `provideMlvPageScrollRestoration` | Function         | swaps the router's scroller for the one above                   |
+| `MlvPageSkipLink`                 | Directive        | `a[mlvPageSkipLink]`                                            |
+| `MlvPageViewTransition`           | Service          | names the canvas / chrome for a view transition                 |
+| `mlvPageViewTransitionHook`       | Function         | `withViewTransitions({ onViewTransitionCreated })` hook         |
+| `MlvPageViewTransitionLike`       | Interface        | structural `ViewTransition` (the DOM lib type is not shipped)   |
+| `MlvPageViewTransitionInfoLike`   | Interface        | structural `ViewTransitionInfo`                                 |
+| `MlvPageEndPaneRenderer`          | Type             | `'inline' \| 'drawer'`                                          |
 
 ## Regions are projected elements
 
@@ -120,7 +135,7 @@ it: `page`, `page-shell`, `page-topbar`, `page-sidebar`, `page-end-sidebar`,
 `page-description`, `page-meta`, `page-tabs`, `page-header-expand`,
 `page-content`, `page-main`, `page-aside`, `page-summary`, `page-summary-item`,
 `page-end-pane`, `page-dock`, `page-dock-start`, `page-dock-center`,
-`page-dock-end`.
+`page-dock-end`, `page-skip-link`.
 
 A test, a screenshot diff and a consumer override all need a handle on a part,
 and a BEM class is the wrong one: it is simultaneously the styling surface, so
@@ -129,7 +144,7 @@ coupling the query to the visual API. `data-slot` is a name with no other job.
 
 ## `MlvPageShell`
 
-`MlvPageShell` is the application-page composition boundary. It supplies stable topbar/body/content tracks, continuous dark chrome, and the integration styling that turns a collapsed `mlv-sidebar` into a rail beside an attached Page canvas. Consumers project existing navigation components through marker directives; Page does not duplicate their interaction logic.
+`MlvPageShell` is the application-page composition boundary. It supplies stable topbar/body/content tracks, one continuous chrome frame, and the integration styling that turns a collapsed `mlv-sidebar` into a rail beside an attached Page canvas. Consumers project existing navigation components through marker directives; Page does not duplicate their interaction logic.
 
 - `[mlvPageTopbar]` spans the shell above every column.
 - `[mlvPageSidebar]` marks zero to two start sidebars. Repeated hosts project in their author DOM order.
@@ -269,6 +284,23 @@ So consumers can still override `--mlv-page-shell-chrome-background` and
 inputs take precedence while present; without them the existing custom-property
 cascade is unchanged.
 
+**The two defaults are theme-aware**, resolving `--mlv-background-chrome` and
+`--mlv-text-on-chrome`. They used to be the raw palette stops `neutral-900` /
+`neutral-50`, which followed no theme at all:
+
+| Theme         | Chrome, before | Chrome, now | Canvas    |
+| ------------- | -------------- | ----------- | --------- |
+| Light         | `#171717`      | `#e5e5e5`   | `#fafafa` |
+| Dark          | `#171717`      | `#0a0a0a`   | `#171717` |
+| High contrast | `#171717`      | `#000000`   | `#ffffff` |
+
+In light that was a near-maximum-contrast dark band around a near-white canvas;
+in dark it was **byte-identical to the canvas**, so the frame disappeared
+entirely. Both values are now one deliberate step off the canvas in their own
+theme, and the quiet frame is the default. A shell that wants the old dark band
+in light mode sets its own input — `<mlv-page-shell color="#171717">` — which
+still derives a readable foreground from contrast.
+
 ### Chrome token remap (`page-shell.scss`)
 
 Everything projected into `[mlvPageTopbar]` / `[mlvPageSidebar]` /
@@ -350,11 +382,11 @@ subscriptions, ids, or tab stops while the viewport crosses the breakpoint.
 | `closeOnEscape`        | `boolean`                | `true`    | Allows Escape dismissal in compact mode.                        |
 | `initialFocus`         | `MlvOverlayInitialFocus` | `'auto'`  | Compact Drawer initial-focus strategy.                          |
 
-| Output         | Description                                                                                              |
-| -------------- | -------------------------------------------------------------------------------------------------------- |
-| `openedChange` | Model output emitted when the logical `opened` state changes.                                            |
-| `afterOpened`  | Emits once for each logical false-to-true transition. Breakpoint migration does not emit.                |
-| `afterClosed`  | Emits once after a real close and after the active renderer is gone. Breakpoint migration does not emit. |
+| Output         | Description                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `openedChange` | Model output emitted when the logical `opened` state changes.                                                                   |
+| `afterOpened`  | Emits once for each logical false-to-true transition, **after the active renderer exists**. Breakpoint migration does not emit. |
+| `afterClosed`  | Emits once after a real close and after the active renderer is gone. Breakpoint migration does not emit.                        |
 
 Public methods `open()`, `close()`, and `toggle()` update the same logical
 model. `button[mlvPageEndPaneTrigger]` requires a pane instance, toggles it,
@@ -365,6 +397,27 @@ The pane captures the pre-open active element only on a logical false-to-true
 transition. Its internal Drawer disables its own focus restoration; the pane
 restores focus once after a real close. Moving an already-open pane across the
 breakpoint neither restores focus nor emits a false close event.
+
+### What survives the breakpoint, and what does not
+
+The inline `<aside>` and the modal Drawer are two outlets, so crossing
+`collapseBelow` **destroys one view and builds the other**. That is the point —
+one branch at a time is what stops duplicate forms, ids and tab stops — but it
+means the split is between _logical_ state, which the component owns and
+carries across, and _view_ state, which it does not:
+
+| Survives                                            | Does not survive                      |
+| --------------------------------------------------- | ------------------------------------- |
+| `opened`, the focus-restore target, the event order | a half-typed input, a scroll offset   |
+| `panelId` and the trigger relationship              | an open popup or menu inside the pane |
+
+The public `renderer` signal (`MlvPageEndPaneRenderer`, `'inline' | 'drawer'`)
+is the exact moment of the swap, for a consumer that wants to snapshot first.
+
+`afterOpened` fires **after the active renderer exists** — the inline aside has
+rendered, or the Drawer's overlay is attached and has taken initial focus. It
+used to fire one render earlier, so a handler focusing something inside the pane
+was focusing a surface that was not there yet.
 
 ## `MlvPage`
 
@@ -389,7 +442,7 @@ CLAUDE.md.
 | -------------- | --------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `id`           | `string`              | generated              | Unique landmark id; may be set explicitly for skip-link targeting.                                                            |
 | `scroll`       | `MlvPageScroll`       | `'page'`               | Which element scrolls this page. See "Scroll modes" below.                                                                    |
-| `maxWidth`     | `string \| null`      | `null`                 | Maximum width of the centered inner canvas.                                                                                   |
+| `maxWidth`     | `string \| null`      | `null`                 | Maximum width of the centered **reading column**. Chrome stays full-bleed — see "Reading measure" below.                      |
 | `padding`      | `MlvPagePadding`      | `'m'`                  | Responsive content inset.                                                                                                     |
 | `surface`      | `MlvPageSurface`      | `'anchored'`           | Rounded anchored canvas or flat surface.                                                                                      |
 | `stickyHeader` | `boolean`             | `true`                 | Makes a projected `mlv-page-header` sticky within the page scroll area. The page owns this; the header has no `sticky` input. |
@@ -407,16 +460,16 @@ anchored, `0rem` when flat). A **first-child** `mlv-page-header` /
 `mlv-page-summary` consumes it for its own top corners; full-bleed chrome
 further down the page stays square.
 
-That radius cannot be left to the host's `overflow: clip`. The header and the
-summary strip paint a glass surface with `backdrop-filter`, and a filtered
-backdrop is composited into a backdrop root that an ancestor's _rounded_
-overflow clip never reaches — verified in Chromium: forcing
-`backdrop-filter: none` on the header rounds the corners, restoring the blur
-squares them off again. Clipping on `.mlv-page__inner` is **not** the
-alternative: `overflow` there makes `__inner` the nearest scroll container for
-the sticky header, and `__inner` scrolls with the content, so the header would
-stop sticking — and every inline-rendered overlay would be cut off at the canvas
-edge.
+That radius cannot be left to the host's `overflow: clip`, for two reasons that
+survive the chrome losing its `backdrop-filter` (which used to be a third — a
+filtered backdrop composites into a backdrop root an ancestor's _rounded_
+overflow clip never reaches). **Only `scroll="page"` and `scroll="content"`
+clip at all**: a `scroll="document"` page keeps no definite block size and no
+`overflow`, so there is no clip to inherit the curve from. And clipping on
+`.mlv-page__inner` is **not** the alternative: `overflow` there makes `__inner`
+the nearest scroll container for the sticky header, and `__inner` scrolls with
+the content, so the header would stop sticking — and every inline-rendered
+overlay would be cut off at the canvas edge.
 
 ### Scroll modes (`scroll`)
 
@@ -501,13 +554,78 @@ timeline to protect: the rule is scoped to `mlv-page--snapping`, a host class
 that follows the measured `collapseDistance`. A page whose chrome collapses by
 nothing keeps the browser's own place-keeping.
 
-### Chrome surface (glass)
+### Chrome surface
 
-Header, summary strip, and dock share the `mlv-action-bar` glass recipe:
-translucent background (`color-mix(in srgb, var(--mlv-elevation-bg-3),
-transparent 50%)`, overridable via `--mlv-page-chrome-bg` /
-`--mlv-page-chrome-border`) with `backdrop-filter: blur(1.25rem)` doing the
-separation work over scrolled content.
+The header, the summary strip and the dock paint **one** surface, and the
+`mlv-action-bar` a shell projects into `[mlvPageTopbar]` paints the same one.
+Two signals, each saying one thing:
+
+| Signal               | Says                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| A hairline           | where the bar ends — `var(--mlv-page-chrome-border, var(--mlv-border-subtle))`       |
+| A one-rung fill step | the bar is over content — `--mlv-background-bar` → `--mlv-background-bar-overlapped` |
+
+Every bar resolves the same three-step chain, in this order and for these
+reasons: a consumer override wins over the page's state, the page's state wins
+over the rest value, and the rest value is what a bar rendered **outside** a
+page resolves.
+
+```scss
+background-color: var(--mlv-page-chrome-bg, var(--mlv-page-chrome-surface, var(--mlv-background-bar)));
+```
+
+**The state is declared once, on the page host** — `.mlv-page--overlapped`
+re-declares `--mlv-page-chrome-surface` — and no bar re-declares it. That is not
+a stylistic preference: an element's own declaration beats an inherited one, so
+a bar that declared the property itself could never be reached by a page-level
+state. The class follows `MlvPageSnapController.overlapped`, deliberately not
+`progress`: chrome pinned at full height has a collapse fraction of zero forever
+and still has to say it is sitting over content. `mlv-action-bar` takes the
+raised rung statically under `--sticky` / `--fixed`, because a pinned bar is
+over content by construction and that is why it is pinned.
+
+There used to be four signals per bar, in four copies of one recipe: a
+translucent `elevation-bg-3` fill, `backdrop-filter: blur(1.25rem)`, a hairline,
+and a shadow deepening `raised` → `floating` once scrolled. `mlv-page-shell` had
+to unset two of them by hand on its own topbar.
+
+**Losing the blur is not cosmetic.** A `backdrop-filter` establishes a
+containing block for `position: fixed` descendants, so a consumer's overlay
+rendered inside a bar was anchored to the bar rather than to the viewport.
+`mlv-action-bar[appearance="contrast"]` — a smoked-glass surface a consumer opts
+into — keeps its blur, and is the only rule in the family that has one.
+
+`--mlv-action-bar-shadow` is still **read** (`box-shadow: var(--mlv-action-bar-shadow, none)`)
+and is no longer **declared**, so an override still wins and the default is no
+shadow. `mlv-page-header--scrolled` is still emitted and still follows
+`overlapped`, but styles nothing — a consumer hook, not a surface.
+
+### Chrome rhythm
+
+The three page bars used to pick their own block padding — `0.5rem` (header),
+`0.75rem` (summary items), `0.375rem` (dock) — and every row inside the header
+picked its own gap. They read three properties declared once on `.mlv-page`:
+
+| Property                          | Default           | Read by                                                      |
+| --------------------------------- | ----------------- | ------------------------------------------------------------ |
+| `--mlv-page-chrome-block-padding` | `--mlv-spacing-3` | header, summary items, dock                                  |
+| `--mlv-page-chrome-row-gap`       | `--mlv-spacing-2` | the header's stacked rows                                    |
+| `--mlv-page-chrome-item-gap`      | `--mlv-spacing-2` | every row inside the header, the dock regions, the facts row |
+
+All three scale with **density**; the header's two title type roles do not. A
+compact data table wants a tighter bar, not a smaller page title — the type
+roles stay a `size` decision, and mixing the two would make `density` a
+typographic input by accident.
+
+The header also declares its own collapsed floor:
+`--mlv-page-header-row-height` (`--mlv-height-l`, or `--mlv-height-m` under
+`size="s"`) and `--mlv-page-header-floor`, which is that plus twice the chrome
+block padding. The title row's `min-height` reads the first, the header's
+`min-block-size` reads the second, so "expanded height minus collapsed height"
+has a real second term instead of an emergent one.
+
+`--mlv-page-measure` (`48rem`) is the reading measure the header's description
+and any other prose column caps itself at.
 
 ### Full-bleed top chrome and page inset
 
@@ -531,17 +649,44 @@ stays aligned with the page edge padding at any inset.
   properties inherit through any depth, so the dock keeps its full-bleed
   geometry inside a consumer wrapper — a `<form>`, a `<section>` — and collapses
   to zero outside a page, where the property is unset.
-- **`mlv-page-header` and `mlv-page-summary` must stay direct children of
-  `main[mlvPage]` for the full-bleed treatment.** Those rules are
-  `.mlv-page__inner > …` child selectors in `page.scss`, because the geometry
-  is sibling-relative (the header's top bleed, and the snap-spacer handover
-  from header to a legacy sibling summary strip via
-  `:not(:has(~ .mlv-page-summary))`). Wrapping either one silently drops the
-  full-bleed treatment.
-- **Measurement no longer depends on that.** Both register with
+- **`mlv-page-header` and `mlv-page-summary` derive theirs the same way now.**
+  They used to be `.mlv-page__inner > …` child selectors, so a `<form>` or a
+  `<section>` between the canvas and the chrome silently dropped the full-bleed
+  treatment; both read the inherited properties instead, and the canvas corner
+  radius is reached by a descendant selector. `:first-child` then reads as
+  "first child of whatever wraps it", which is the honest claim — the page
+  cannot know whether a wrapper adds a box of its own.
+- **Inheritance fixes _discovery_, not containment.** A wrapper that scrolls,
+  clips or pads still changes the geometry, and no amount of custom-property
+  inheritance rescues that.
+- **Measurement never depended on any of it.** Both register with
   `MlvPageGeometry` instead of being found by a one-shot `querySelectorAll`, so
   `--mlv-page-snap-offset` and the whole geometry contract below are correct
   for a header rendered later by an `@if` or wrapped in a `<form>`.
+
+### Reading measure (`maxWidth`)
+
+`maxWidth` caps the **reading column**, not the canvas. It used to set
+`max-width` plus `margin-inline: auto` on `.mlv-page__inner`, so the whole
+canvas narrowed and the sticky chrome narrowed with it — a header floating in
+the middle of a wide window, with the application's own frame visible on both
+sides of it.
+
+`.mlv-page__inner` publishes half the slack as
+`--mlv-page-measure-gutter: max(0rem, calc((100% - var(--mlv-page-max-width, 100%)) / 2))`,
+every non-chrome child is capped at the measure, and the chrome spans the full
+canvas and adds the gutter to its own inline padding. So a wide application gets
+full-bleed chrome and a narrow measure at once, and chrome content shares one
+start edge with body content.
+
+The percentage is **substituted, not resolved**, at the point it is declared:
+every consumer of the property resolves it against that same content box, which
+is exactly what makes the two edges line up.
+
+`--mlv-page-measure` (`48rem`) is a separate token — the measure prose columns
+inside the chrome cap themselves at (the header description). A consumer who
+wants the canvas and the prose on one measure writes
+`maxWidth="var(--mlv-page-measure)"`.
 
 ### Geometry contract (`MlvPageGeometry`)
 
@@ -851,6 +996,103 @@ same-task `focus()` lands) and `syncHiddenState()` re-applies it when the
 reveal window closes without a render in between. Both are controller
 plumbing; consumers call `expand()`, never these.
 
+## Application integration
+
+Five opt-in pieces, all reaching the live page through one root
+`MlvPageRegistry`. Each `main[mlvPage]` registers itself for its lifetime, and
+`registry.active()` is the most recently registered live page — the one
+arriving, while a route animation or a view transition holds two at once.
+
+**`active` is a documented heuristic, not a guarantee.** A secondary page inside
+a split view registers like any other, so an application with two live pages
+should pass an explicit target rather than let the heuristic pick.
+
+### Route focus (`provideMlvPageRouteFocus`)
+
+```ts
+provideMlvPageRouteFocus({ strategy: 'focus' });
+```
+
+| Strategy            | What happens                                                              |
+| ------------------- | ------------------------------------------------------------------------- |
+| `'focus'` (default) | Focus moves to the arriving `<main>` landmark                             |
+| `'announce'`        | Focus is left alone; the page's name is spoken through a live region      |
+| `'both'`            | Both — deliberately not the default, because it says the same thing twice |
+
+The landmark already carries `tabindex="-1"`, so focusing it announces the
+landmark, starts reading from its top, and makes the next Tab continue inside
+the new content instead of restarting at the top of the document. `'announce'`
+is the right one for a list-detail flow where the reader is still working the
+list.
+
+`announceWith` produces the string (default: the page's own visible `<h1>`,
+falling back to `document.title`; returning `null` announces nothing), and
+`includeSameRouteNavigations` defaults to `false` — an in-page anchor is not a
+new page, and stealing focus from it would undo the jump the reader asked for.
+
+### Skip link (`a[mlvPageSkipLink]`)
+
+```html
+<a mlvPageSkipLink>Skip to content</a>
+```
+
+WCAG 2.4.1 (Bypass Blocks, A) without a coordinated id: the link reads the id
+and the `tabindex="-1"` off whichever page is on screen. The `href` is real, so
+the destination shows in the status bar and the control degrades to a fragment
+jump without JavaScript; the click is still handled, because under a router a
+bare fragment `href` is a navigation and this needs to move focus rather than
+change the URL.
+
+**With no page mounted it emits no `href` at all** — an anchor without one is
+not a link and not a tab stop, so the control withdraws instead of becoming a
+focusable no-op. It is a component rather than a directive because the
+hidden-until-focused treatment needs a stylesheet.
+
+Pass `[mlvPageSkipLink]="someElement"` to target a specific landmark.
+
+### Scroll restoration (`provideMlvPageScrollRestoration`)
+
+`withInMemoryScrolling()` silently does nothing for a page that owns an inner
+scrollport: Angular's `ViewportScroller` scrolls the **document**, so
+restoration saves and restores a number that never moves, and anchor scrolling
+goes with it. Nothing throws and nothing is logged — the position simply never
+comes back.
+
+`MlvPageViewportScroller` scrolls the live page's registered scrollport instead,
+falling back to the document when there is none. Its anchor offset is
+**measured** by default: the page already publishes the clearance its sticky
+chrome owes as `stickyInsetBlockStart`, which is exactly what an anchor has to
+clear, and it changes as the chrome collapses. `setOffset()` still overrides it.
+
+### View transitions (`mlvPageViewTransitionHook`)
+
+```ts
+provideRouter(routes, withViewTransitions({ onViewTransitionCreated: mlvPageViewTransitionHook() }));
+```
+
+During a view transition the old side is a **still image** and the new side
+stays live, so a scroll-scrubbed collapse still running in that window animates
+one against the other — the old header frozen at whatever progress it had, the
+new one still moving, the crossfade blending two collapse states. While a
+transition is in flight the page pauses its scrub: the CSS timeline through a
+`[data-mlv-page-view-transition]` attribute on the document element, the
+JavaScript fallback through `MlvPageViewTransition.active`. Overlapping
+transitions are depth-counted, so the first to finish does not lift a freeze the
+second still needs.
+
+**No page component stamps a `view-transition-name` by default.** Those names
+must be unique across the document and a duplicate does not warn — the browser
+skips _every_ transition on the page — and two live page headers is exactly what
+a route transition is. Chrome a shell has only one of can be named, which is
+what the opt-in stylesheet does:
+
+```json
+"styles": ["node_modules/@malva-ui/core/styles/page-view-transitions.css"]
+```
+
+It names the shell's topbar and sidebars so they hold still while the canvas
+crossfades.
+
 ## `MlvPageHeader`
 
 The header renders a predictable hierarchy: leading context, one semantic page
@@ -879,12 +1121,12 @@ the consumer's own `<a mlvLink routerLink="…">` inside that region.
 slot: it is a flex row, so a projected tab group takes the free inline size and
 anything after it sits at the trailing edge.
 
-| Input          | Type                     | Default           | Description                                                                |
-| -------------- | ------------------------ | ----------------- | -------------------------------------------------------------------------- |
-| `size`         | `MlvPageHeaderSize`      | `'m'`             | `'s'` renders the compact record-editor header with a smaller title scale. |
-| `tabsAlign`    | `MlvPageHeaderTabsAlign` | `'start'`         | Centers the tabs row when `'center'`.                                      |
-| `snapControls` | `boolean`                | `false`           | Shows the expand chevron in the title row once the chrome is snapped.      |
-| `expandLabel`  | `string`                 | `'Expand header'` | Accessible label of the expand chevron.                                    |
+| Input          | Type                     | Default            | Description                                                                |
+| -------------- | ------------------------ | ------------------ | -------------------------------------------------------------------------- |
+| `size`         | `MlvPageHeaderSize`      | `'m'`              | `'s'` renders the compact record-editor header with a smaller title scale. |
+| `tabsAlign`    | `MlvPageHeaderTabsAlign` | `'start'`          | Centers the tabs row when `'center'`.                                      |
+| `snapControls` | `boolean`                | `false`            | Shows the expand chevron in the title row once the chrome is snapped.      |
+| `expandLabel`  | `string \| undefined`    | `undefined` → i18n | Accessible label of the expand chevron. Falls back to `page.expandHeader`. |
 
 | Method         | Returns   | Description                                                             |
 | -------------- | --------- | ----------------------------------------------------------------------- |
@@ -994,9 +1236,10 @@ needs neither its own background nor clearance from a neighbour.
 
 ## `MlvPageSummary`
 
-Key-facts strip rendered directly under the header. Projects
-`mlv-page-summary-item` children (`label` input + projected value content) in
-a wrapping row inside an accessible `role="group"`. **Purely presentational**:
+Key-facts strip rendered directly under the header. It is a **description
+list**: the strip renders a `<dl class="mlv-page-summary__facts">` and each
+projected `div[mlvPageSummaryItem]` renders `<dt>` (its `label`) and `<dd>`
+(the projected value). **Purely presentational**:
 the collapse is driven by the page's scroll through `MlvPageSnapController` —
 the strip measures its own natural row height with a `ResizeObserver`,
 registers it as its share of the page's `collapseDistance`, scrubs that height
@@ -1008,17 +1251,31 @@ change: the former `collapsed`/`pinned` models, `collapseOnScroll`, and the
 strip-owned controls were removed. As a `MlvPageSnapRegionBase` subclass it
 also carries the controller-facing `reveal()` / `syncHiddenState()` pair.
 
-| Input          | Type     | Default          | Description                              |
-| -------------- | -------- | ---------------- | ---------------------------------------- |
-| `summaryLabel` | `string` | `'Page summary'` | Accessible name of the facts region.     |
-| `snapFrom`     | `number` | `0.1`            | Progress at which collapsing starts.     |
-| `snapTo`       | `number` | `0.95`           | Progress at which it is fully collapsed. |
+| Input          | Type                  | Default            | Description                                                          |
+| -------------- | --------------------- | ------------------ | -------------------------------------------------------------------- |
+| `summaryLabel` | `string \| undefined` | `undefined` → i18n | Accessible name of the facts list. Falls back to `page.pageSummary`. |
+| `snapFrom`     | `number`              | `0.1`              | Progress at which collapsing starts.                                 |
+| `snapTo`       | `number`              | `0.95`             | Progress at which it is fully collapsed.                             |
+
+### Why the item is `div[mlvPageSummaryItem]`
+
+A `<dl>`'s content model admits only `<dt>`/`<dd>` groups, `<div>`, `<script>`
+and `<template>` between the list and its terms. A custom element there fails
+axe's own `definition-list` and `dlitem` rules — so the item is an attribute
+component on a real `<div>`, not an element component nested one level deeper
+inside one. `<mlv-page-summary-item>` matches nothing.
+
+The BEM names (`.mlv-page-summary-item`, `__label`, `__value`) and the
+`data-slot="page-summary-item"` handle are unchanged. What moved is the strip's
+own structure: `.mlv-page-summary__items` keeps the padding, and the `<dl>`
+inside it — `.mlv-page-summary__facts` — carries the gaps, the `overflow` clip
+and the accessible name.
 
 Project the strip **inside** `mlv-page-header` (the header renders a
 dedicated `mlv-page-summary` content slot as its bottom row) so the whole
-chrome is a single sticky glass surface. A legacy sibling strip after the
-header still works but renders its own surface. The items row carries bottom
-clearance for the chrome's floating snap controls riding its bottom edge.
+chrome is one sticky surface. A legacy sibling strip after the header still
+works but renders its own surface. The items row carries bottom clearance for
+the chrome's floating snap controls riding its bottom edge.
 
 ## `MlvPageDock`
 
@@ -1052,8 +1309,8 @@ A projected `nav[mlvActionBar]` needs its own `wrap` input to do the same.
 **Wrapper-tolerant geometry.** The full-bleed margins are derived from the
 inherited `--mlv-page-inset`, not from a `.mlv-page__inner > …` child selector,
 so a `<form>` or `<section>` between the page canvas and the dock does not
-break them. See "Full-bleed top chrome and page inset" above for the header /
-summary constraint, which is _not_ wrapper-tolerant.
+break them. `mlv-page-header` and `mlv-page-summary` derive theirs the same way
+— see "Full-bleed top chrome and page inset" above.
 
 **Two different published questions.** The dock measures its own border-box
 height (`MlvResizeObserverService` from `@malva-ui/cdk/utils`, started from
@@ -1088,12 +1345,12 @@ obstructing.
 
 `MlvPageContent` lays out primary content and an optional complementary column. It observes its own content-box width with `MlvResizeObserverService`, so stacking follows the space actually available after sidebars rather than the viewport width.
 
-| Input         | Type                | Default   | Description                                                  |
-| ------------- | ------------------- | --------- | ------------------------------------------------------------ |
-| `asideWidth`  | `string`            | `'20rem'` | Preferred inline aside width.                                |
-| `asideSticky` | `boolean`           | `true`    | Keeps the inline aside visible while the page scrolls.       |
-| `gap`         | `MlvPageContentGap` | `'m'`     | Gap between the primary and complementary columns.           |
-| `stackBelow`  | `number`            | `1024`    | Container width in CSS pixels below which the columns stack. |
+| Input         | Type                | Default   | Description                                                                                                                          |
+| ------------- | ------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `asideWidth`  | `string`            | `'20rem'` | Preferred inline aside width.                                                                                                        |
+| `asideSticky` | `boolean`           | `true`    | Keeps the inline aside visible while the page scrolls.                                                                               |
+| `gap`         | `MlvPageContentGap` | `'m'`     | Gap between the primary and complementary columns — and the content's own top padding, which used to be a fixed `0.5rem` regardless. |
+| `stackBelow`  | `number`            | `1024`    | Container width in CSS pixels below which the columns stack.                                                                         |
 
 ### The aside is the consumer's own landmark
 
@@ -1161,7 +1418,7 @@ Record-editor composition (compact header, summary strip, dock):
   </mlv-page-header>
 
   <mlv-page-summary>
-    <mlv-page-summary-item label="Price">329 USD</mlv-page-summary-item>
+    <div mlvPageSummaryItem label="Price">329 USD</div>
   </mlv-page-summary>
 
   <!-- tab-switched content; any element may opt into the snap timeline: -->
@@ -1192,6 +1449,9 @@ Record-editor composition (compact header, summary strip, dock):
 - `@malva-ui/core/expand` (summary collapse animation)
 - `@malva-ui/core/link`
 - `@malva-ui/core/scrollbar` (page scroll owner; `viewportElement` feeds the scroll context)
+- `@malva-ui/i18n` (`MLV_PAGE_I18N` — the summary strip's list name and the
+  header's expand-chevron label)
+- `@angular/cdk/a11y` (`LiveAnnouncer`, for the `announce` route-focus strategies)
 
 ## Testing
 
@@ -1199,3 +1459,17 @@ Record-editor composition (compact header, summary strip, dock):
 - `NX_PREFER_NODE_STRIP_TYPES=false yarn nx run core-page:typecheck`
 - `NX_PREFER_NODE_STRIP_TYPES=false yarn nx run core-page:lint`
 - `page-end-pane.spec.ts` covers inline/compact rendering, single-template migration, logical lifecycle outputs, focus restoration, Escape/backdrop dismissal, tab-order removal, axe, and destroy-while-open cleanup.
+- `page-chrome-surface.spec.ts` pins the whole chrome-surface contract: each of
+  the three page bars resolving the same three-step fill chain, none of them
+  painting a `backdrop-filter`, the over-content step declared once on the page
+  host and re-declared by no bar, the shell frame on semantic tokens with no
+  `neutral-900` literal left, both themes giving the tokens a **real step** off
+  the canvas (the defect it replaces was two identical values, so "the token
+  exists" proves nothing), and a DOM test that the host class follows
+  `overlapped` and not `progress`. `action-bar.spec.ts` carries the fourth bar's
+  half, because a cross-project stylesheet read here would fail in a project
+  `nx affected` never selects for that change.
+- `page-nested-scrollbar.spec.ts` guards the child-scoped scrollport rules.
+- `page-surface-radius.spec.ts` guards the published padding-box curve.
+- `page-routing.spec.ts` covers the registry, route focus (both strategies and
+  the same-route case), the skip link's absent-`href` state, and the scroller.
