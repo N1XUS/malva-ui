@@ -140,6 +140,18 @@ const LANG_MAP: Record<string, string> = {
     .example-container__code code {
       font-family: var(--mlv-typography-family-code);
     }
+
+    /* The preview sits inside the shell's own content inset, so on a phone the
+       two stack. A demo needs the width more than the breathing room. */
+    @media (max-width: 47.999rem) {
+      .example-container__preview {
+        padding: var(--mlv-spacing-4);
+      }
+
+      .example-container__code pre {
+        padding: var(--mlv-spacing-3);
+      }
+    }
   `,
 })
 export class ExampleContainerComponent {

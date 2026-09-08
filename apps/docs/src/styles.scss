@@ -71,12 +71,13 @@ body {
   padding-top: 4.75rem;
 }
 
+/* The reading column is a full-bleed band between the two rails, not a card:
+   hairlines on the inline edges only, no radius, no shadow. */
 .docs-shell .docs-shell__content {
   background: var(--mlv-background-raised);
   padding: 2rem;
-  border: 0.0625rem solid var(--mlv-border-subtle);
-  border-radius: var(--mlv-radius-l);
-  box-shadow: var(--mlv-shadow-2);
+  border: 0;
+  border-inline: 0.0625rem solid var(--mlv-border-subtle);
 }
 
 @media (max-width: 47.999rem) {
@@ -85,7 +86,10 @@ body {
     padding-top: 4.25rem;
   }
 
+  /* Every page inside pads again (an example container's preview box, the
+     Getting Started hero), so the shell's own inset is the one to keep small
+     here: at 375px the two stacked insets were taking 24% of the width. */
   .docs-shell .docs-shell__content {
-    padding: 1.25rem;
+    padding: 0.75rem;
   }
 }
