@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { MlvThemeService } from '@malva-ui/core/layout';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { vi } from 'vitest';
 import { ExampleContainerComponent } from './example-container.component';

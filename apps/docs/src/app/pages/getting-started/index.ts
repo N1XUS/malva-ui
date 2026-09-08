@@ -57,7 +57,7 @@ export class GettingStartedPageComponent {
 
   protected readonly providersConfiguration = `import type { ApplicationConfig } from '@angular/core';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
-import { provideDefaultTheme } from '@malva-ui/core/layout';
+import { provideDefaultTheme } from '@malva-ui/cdk/theme';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -68,19 +68,19 @@ export const appConfig: ApplicationConfig = {
 
   protected readonly componentExample = `import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { MlvButton } from '@malva-ui/core/button';
-import { MlvLayout } from '@malva-ui/core/layout';
+import { MlvPageShell } from '@malva-ui/core/page';
 
 @Component({
   selector: 'app-root',
-  imports: [MlvLayout, MlvButton],
+  imports: [MlvPageShell, MlvButton],
   templateUrl: './app.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {}`;
 
-  protected readonly templateExample = `<mlv-layout>
-  <main>
+  protected readonly templateExample = `<mlv-page-shell sizing="viewport">
+  <main mlvPage>
     <button mlvButton>Save changes</button>
   </main>
-</mlv-layout>`;
+</mlv-page-shell>`;
 }

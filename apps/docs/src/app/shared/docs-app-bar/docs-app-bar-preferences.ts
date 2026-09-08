@@ -18,7 +18,7 @@ import {
 } from '@malva-ui/cdk/density';
 import { MlvRtlService, type MlvDirection } from '@malva-ui/cdk/utils';
 import { MlvButton } from '@malva-ui/core/button';
-import { MlvThemeService, isMlvThemeMode } from '@malva-ui/core/layout';
+import { MlvThemeService, isMlvThemeMode } from '@malva-ui/cdk/theme';
 import {
   MlvPopup,
   MlvPopupContent,

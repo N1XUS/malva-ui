@@ -9,7 +9,6 @@ import {
   inject,
   input,
   NgZone,
-  signal,
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
@@ -20,9 +19,20 @@ import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { mlvNextId } from '@malva-ui/cdk/utils';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvPageSnapController } from './page-snap-controller';
+import type { MlvPageSnapState } from './page-snap-state';
 import { MlvPageGeometry } from './page-geometry';
-import { MLV_PAGE_SCROLL } from './page-scroll.token';
-import type { MlvPageScrollState } from './page-scroll.token';
+
+/**
+ * Whether the user asked for reduced motion. Read per call rather than cached:
+ * the preference can change while the page is open, and this is only consulted
+ * on an explicit `expand()`.
+ */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof matchMedia !== 'undefined' &&
+    matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
 
 /** Controls which element owns vertical page scrolling. */
 export type MlvPageScroll = 'auto' | 'none';
@@ -34,20 +44,14 @@ export type MlvPagePadding = 'none' | 's' | 'm' | 'l';
 export type MlvPageSurface = 'anchored' | 'flat';
 
 /**
- * Scroll offset in pixels below which the page reports itself as unscrolled.
- * The small hysteresis avoids flicker from sub-pixel scroll positions.
- */
-const SCROLLED_THRESHOLD = 4;
-
-/**
  * Main page surface and scroll owner. Apply it to the page's native `<main>`
  * landmark and compose headers, content grids, and feature components inside.
  *
- * Provides `MLV_PAGE_SCROLL` so descendants such as `mlv-page-header` and
- * `mlv-page-summary` can react to the page's scroll position, and
- * `MlvPageSnapController`, whose scroll-scrubbed progress it publishes as the
- * `--mlv-page-snap` custom property (0 expanded .. 1 snapped) for descendants
- * to interpolate their snap state from.
+ * Provides `MlvPageGeometry`, which publishes the measured chrome geometry as
+ * custom properties on this host, and `MlvPageSnapController`, whose
+ * scroll-scrubbed progress it publishes as the `--mlv-page-snap` custom
+ * property (0 expanded .. 1 snapped) for descendants to interpolate their
+ * snap state from.
  */
 @Component({
   // Attribute-selector component intentionally enhances the native main landmark.
@@ -62,11 +66,7 @@ const SCROLLED_THRESHOLD = 4;
   styleUrl: './page.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [
-    { provide: MLV_PAGE_SCROLL, useExisting: MlvPage },
-    MlvPageSnapController,
-    MlvPageGeometry,
-  ],
+  providers: [MlvPageSnapController, MlvPageGeometry],
   host: {
     class: 'mlv-page',
     '[id]': 'id()',
@@ -80,11 +80,10 @@ const SCROLLED_THRESHOLD = 4;
     '[class.mlv-page--surface-anchored]': 'surface() === "anchored"',
     '[class.mlv-page--surface-flat]': 'surface() === "flat"',
     '[class.mlv-page--sticky-header]': 'stickyHeader()',
-    '[class.mlv-page--scrolled]': 'scrolled()',
     '[style.--mlv-page-max-width]': 'maxWidth()',
   },
 })
-export class MlvPage implements MlvPageScrollState {
+export class MlvPage {
   /** Unique landmark id; set explicitly when targeting the page from a skip link. */
   readonly id = input(mlvNextId('mlv-page'));
 
@@ -111,23 +110,13 @@ export class MlvPage implements MlvPageScrollState {
    */
   readonly snapRange = input(96);
 
-  /** Current vertical scroll offset of the page scroll owner, in pixels. */
-  get scrollTop(): MlvPageScrollState['scrollTop'] {
-    return this._scrollTop.asReadonly();
-  }
-
-  /** True once the page has scrolled past a small hysteresis threshold. */
-  get scrolled(): MlvPageScrollState['scrolled'] {
-    return this._scrolled.asReadonly();
-  }
-
   /**
-   * Snap controller of this page's collapsing top chrome. Descendants inject
-   * `MlvPageSnapController` directly; a component that only *hosts* the page
-   * reaches it from outside through `viewChild(MlvPage).snap` — for instance
-   * to `expand()` the chrome before moving focus into it.
+   * Snap state of this page's collapsing top chrome. A component that *hosts*
+   * the page reaches it through `viewChild(MlvPage).snap` — for instance to
+   * `expand()` the chrome before moving focus into it, which reveals every
+   * collapsed region synchronously and then scrolls the page back to the top.
    */
-  get snap(): MlvPageSnapController {
+  get snap(): MlvPageSnapState {
     return this._snap;
   }
 
@@ -141,12 +130,6 @@ export class MlvPage implements MlvPageScrollState {
   get geometry(): MlvPageGeometry {
     return this._geometry;
   }
-
-  /** @private Writable source behind the public `scrollTop` signal. */
-  private readonly _scrollTop = signal(0);
-
-  /** @private Writable source behind the public `scrolled` signal. */
-  private readonly _scrolled = signal(false);
 
   /** @private The page-owned scrollbar whose viewport is observed. */
   private readonly _scrollbar = viewChild.required(MlvScrollbar);
@@ -176,10 +159,19 @@ export class MlvPage implements MlvPageScrollState {
       // The scrollport is the element that actually scrolls, never a viewport
       // unit: every ancestor's chrome has already been subtracted from it.
       this._geometry.registerScrollport(viewport);
+      // `expand()` reveals collapsed chrome and then asks the page to return to
+      // the top; the page is the only thing that knows which element scrolls.
+      this._destroyRef.onDestroy(
+        this._snap.registerScroller(() =>
+          viewport.scrollTo({
+            top: 0,
+            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+          }),
+        ),
+      );
       const onScroll = (): void => {
         const top = viewport.scrollTop;
-        this._scrollTop.set(top);
-        this._scrolled.set(top > SCROLLED_THRESHOLD);
+        this._geometry.updateScroll(top);
         this._snap.updateFromScroll(top, this.snapRange());
       };
       // Bound as an `rxjs` `fromEvent` stream, matching `mlv-scrollbar` and
@@ -206,8 +198,6 @@ export class MlvPage implements MlvPageScrollState {
     // then rebalance the chrome spacer against the freshly applied progress.
     afterRenderEffect(() => {
       const progress = this._snap.progress();
-      // Track the spacer scale too: the reclaim tween must republish.
-      this._snap.spacerScale();
       this._elementRef.nativeElement.style.setProperty(
         '--mlv-page-snap',
         String(Math.round(progress * 1000) / 1000),
@@ -225,9 +215,7 @@ export class MlvPage implements MlvPageScrollState {
    * the user is still scrolling — a feedback loop that reads as mid-scroll
    * jumping. The removed height is re-added as a spacer after the chrome
    * (`--mlv-page-snap-offset`), keeping the document geometry stable so
-   * content tracks the scroll 1:1. The controller's `spacerScale` scales the
-   * spacer away while the chrome is manually pinned collapsed — a frozen
-   * chrome never changes height mid-scroll, so the spacer is pure dead space.
+   * content tracks the scroll 1:1.
    *
    * The measured total comes from the geometry coordinator's registered top
    * chrome rather than a one-shot `querySelectorAll`, so a header rendered
@@ -241,8 +229,7 @@ export class MlvPage implements MlvPageScrollState {
     if (this._snap.progress() <= 0.001) {
       this._snapExpandedHeight = total;
     }
-    const offset =
-      Math.max(0, this._snapExpandedHeight - total) * this._snap.spacerScale();
+    const offset = Math.max(0, this._snapExpandedHeight - total);
     this._elementRef.nativeElement.style.setProperty(
       '--mlv-page-snap-offset',
       `${Math.round(offset * 100) / 100}px`,

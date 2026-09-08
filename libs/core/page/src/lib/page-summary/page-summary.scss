@@ -49,12 +49,10 @@
       flex-wrap: wrap;
       align-items: flex-start;
       gap: var(--mlv-spacing-2) var(--mlv-spacing-4);
-      // Inline padding follows the page inset (full-bleed alignment); the
-      // bottom clearance keeps the chrome's floating snap controls — riding
-      // this strip's bottom edge — off the values.
-      padding: var(--mlv-spacing-2)
-        max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3))
-        var(--mlv-spacing-4);
+      // Inline padding follows the page inset (full-bleed alignment); the block
+      // padding is the shared chrome rhythm.
+      padding: var(--mlv-page-chrome-block-padding)
+        max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3));
     }
   }
 }

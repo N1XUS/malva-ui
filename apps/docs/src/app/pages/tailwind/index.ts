@@ -5,7 +5,7 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 import { AsyncPipe } from '@angular/common';
-import { MlvThemeService } from '@malva-ui/core/layout';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 import { DocsTocSourceDirective } from '../../shared/toc';
 import { HighlightPipe } from '../../shared/highlight.pipe';
 

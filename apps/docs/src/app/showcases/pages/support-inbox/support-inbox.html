@@ -1,10 +1,10 @@
-<mlv-layout
-  plain
+<mlv-page-shell
+  sizing="viewport"
   class="support-inbox"
   [class.support-inbox--pane-list]="pane() === 'list'"
   [class.support-inbox--pane-thread]="pane() === 'thread'"
 >
-  <div mlvActionBar *mlvLayoutTop class="support-inbox__appbar">
+  <div mlvActionBar mlvPageTopbar class="support-inbox__appbar">
     <!-- Outside <mlv-sidebar> on purpose: a closed offcanvas sidebar projects
          nothing, so a trigger inside it could never reopen it. -->
     <button
@@ -100,7 +100,7 @@
   </div>
 
   <mlv-sidebar
-    *mlvLayoutSide
+    mlvPageSidebar
     mlvTheme="dark"
     class="support-inbox__rail"
     appearance="flat"
@@ -1417,4 +1417,4 @@
       </mlv-list-item>
     }
   </mlv-menu>
-</mlv-layout>
+</mlv-page-shell>

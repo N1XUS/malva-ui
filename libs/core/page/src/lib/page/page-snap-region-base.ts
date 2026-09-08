@@ -8,7 +8,10 @@ import {
 } from '@angular/core';
 import type { Signal } from '@angular/core';
 import { MlvPageSnapController } from './page-snap-controller';
-import type { MlvPageSnapRegion } from './page-snap-controller';
+import type {
+  MlvPageSnapCoordinator,
+  MlvPageSnapRegion,
+} from './page-snap-state';
 
 /**
  * Shared focus contract for page chrome that the scroll timeline collapses —
@@ -39,9 +42,10 @@ export abstract class MlvPageSnapRegionBase implements MlvPageSnapRegion {
    * @protected Snap state of the owning page, when rendered inside one.
    * Absent outside `main[mlvPage]`, where nothing collapses.
    */
-  protected readonly _snapController = inject(MlvPageSnapController, {
-    optional: true,
-  });
+  protected readonly _snapController: MlvPageSnapCoordinator | null = inject(
+    MlvPageSnapController,
+    { optional: true },
+  );
 
   /** @private Host element, for the eager reveal and the focus containment test. */
   private readonly _regionHost = inject<ElementRef<HTMLElement>>(ElementRef);

@@ -36,6 +36,9 @@ export * from '@malva-ui/core/dialog';
 export * from '@malva-ui/core/drawer';
 export * from '@malva-ui/core/accordion';
 export * from '@malva-ui/core/expand';
+// Deprecated shim entry point: `mlv-layout` is gone and the theme service
+// moved to `@malva-ui/cdk/theme`. Kept exporting through the root barrel for
+// one minor so existing `@malva-ui/core` imports keep resolving.
 export * from '@malva-ui/core/layout';
 export * from '@malva-ui/core/link';
 export * from '@malva-ui/core/list';

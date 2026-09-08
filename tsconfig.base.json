@@ -46,6 +46,7 @@
       ],
       "@malva-ui/cdk/overlay": ["libs/cdk/overlay/src/index.ts"],
       "@malva-ui/cdk/shrink-wrap": ["libs/cdk/shrink-wrap/src/index.ts"],
+      "@malva-ui/cdk/theme": ["libs/cdk/theme/src/index.ts"],
       "@malva-ui/cdk/utils": ["libs/cdk/utils/src/index.ts"],
       "@malva-ui/core": ["libs/core/src/index.ts"],
       "@malva-ui/core/alert": ["libs/core/alert/src/index.ts"],

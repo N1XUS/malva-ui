@@ -80,7 +80,6 @@ import {
   MlvPageSummary,
   MlvPageSummaryItem,
   MlvPageTitle,
-  MlvPageSnapController,
 } from '@malva-ui/core/page';
 import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
 import { MlvSelect } from '@malva-ui/core/select';
@@ -372,13 +371,11 @@ export class WebsiteBuilderShowcaseComponent {
   private readonly _destroyRef = inject(DestroyRef);
 
   /**
-   * @private Snap state of this page's own `main[mlvPage]`, read off that
-   * element's injector. Escape-to-top uses it to expand chrome the scroll
-   * collapsed before moving focus into it.
+   * @private This page's own `main[mlvPage]`. Escape-to-top reaches its `snap`
+   * capability to expand chrome the scroll collapsed before moving focus into
+   * it — the controller behind it is not public, and does not need to be.
    */
-  private readonly _pageSnap = viewChild(MlvPage, {
-    read: MlvPageSnapController,
-  });
+  private readonly _page = viewChild(MlvPage);
 
   /* ---- Template constants ----------------------------------------------- */
 
@@ -1057,7 +1054,7 @@ export class WebsiteBuilderShowcaseComponent {
   protected onEscapeToTop(): void {
     if (typeof document === 'undefined') return;
 
-    this._pageSnap()?.expand();
+    this._page()?.snap.expand();
 
     const tab = document.querySelector<HTMLElement>(
       '.website-builder__tabs .mlv-tab-item[aria-selected="true"]',

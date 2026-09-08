@@ -20,7 +20,7 @@ import {
   MlvTabDef,
   MlvTabContentDef,
 } from '@malva-ui/core/tabs';
-import { MlvThemeService } from '@malva-ui/core/layout';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 import { ShikiHighlightService } from '../shiki-highlight.service';
 
 export interface ExampleFile {

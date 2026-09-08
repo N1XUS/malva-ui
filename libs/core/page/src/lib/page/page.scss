@@ -19,6 +19,13 @@
     outline: none;
     isolation: isolate;
 
+    // ── Chrome rhythm ───────────────────────────────────────────────────────
+    // One block padding shared by the header, the summary strip and the dock,
+    // so the three chrome surfaces stack on a single vertical rhythm instead of
+    // each picking its own. Density-scaled: a compact page wants shorter chrome
+    // rows, which is a different question from the title's type role.
+    --mlv-page-chrome-block-padding: var(--mlv-spacing-3);
+
     // Radius of the page's *padding* box — the box the full-bleed top chrome
     // occupies. Zero unless the surface is anchored; see `--surface-anchored`.
     --mlv-page-surface-radius: 0rem;

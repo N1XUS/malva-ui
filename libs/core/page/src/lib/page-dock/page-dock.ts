@@ -16,11 +16,11 @@ import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import {
+  MlvPageGeometry,
   obstructsViewportBlockEnd,
   publishViewportInsetBlockEnd,
   registerPageRegion,
 } from '../page/page-geometry';
-import { MLV_PAGE_SCROLL } from '../page/page-scroll.token';
 
 /** Visual treatment of the dock surface. */
 export type MlvPageDockAppearance = 'bar' | 'floating';
@@ -99,10 +99,11 @@ export class MlvPageDock {
   private readonly _document = inject(DOCUMENT);
 
   /**
-   * @private Scroll state of the owning page, when there is one. Read only so
-   * the viewport-obstruction test re-runs as the dock moves under the fold.
+   * @private Geometry of the owning page, when there is one. Its scroll offset
+   * is read only so the viewport-obstruction test re-runs as the dock moves
+   * under the fold.
    */
-  private readonly _pageScroll = inject(MLV_PAGE_SCROLL, { optional: true });
+  private readonly _pageGeometry = inject(MlvPageGeometry, { optional: true });
 
   /**
    * @private Last value handed to the shared registry, so a scroll that does
@@ -148,7 +149,7 @@ export class MlvPageDock {
       // Re-run the geometric test as the page scrolls: a dock pinned to a
       // scrollport the document can scroll past only reaches the bottom of the
       // viewport some of the time.
-      this._pageScroll?.scrollTop();
+      this._pageGeometry?.scrollTop();
 
       // A `position: sticky` declaration is not evidence that the dock covers
       // the bottom of the screen; only its own rect is.

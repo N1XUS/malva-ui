@@ -57,6 +57,22 @@ describe('MlvThemeService', () => {
     expect(document.documentElement.getAttribute('mlvTheme')).toBe('dark');
   });
 
+  it('publishes the theme without anything injecting the service', async () => {
+    // The whole point of the environment initializer: an application that
+    // registers the providers and never injects `MlvThemeService` used to get
+    // no theme attribute at all, because nothing constructed the only thing
+    // that writes it. Ablate `provideEnvironmentInitializer` and this fails.
+    document.documentElement.removeAttribute('mlvTheme');
+    installColorScheme(false);
+    TestBed.configureTestingModule({
+      providers: [provideDefaultTheme('dark')],
+    });
+
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    expect(document.documentElement.getAttribute('mlvTheme')).toBe('dark');
+  });
+
   it('does not touch documentElement on the server', async () => {
     document.documentElement.removeAttribute('mlvTheme');
     const setAttribute = vi.spyOn(document.documentElement, 'setAttribute');

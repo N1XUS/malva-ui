@@ -179,6 +179,17 @@ export class MlvPageGeometry {
   readonly scrollportBlockSize = computed(() => this._scrollportBlockSize());
 
   /**
+   * Current vertical scroll offset of the page's scroll owner, in pixels.
+   *
+   * Lives here rather than behind its own injection token because its one
+   * consumer — the dock re-testing whether it still obstructs the viewport —
+   * is already asking this service a geometry question. Whether the chrome is
+   * *over content* is a different question, answered by the snap controller's
+   * `overlapped`, because chrome that never collapses still needs it.
+   */
+  readonly scrollTop = computed(() => this._scrollTop());
+
+  /**
    * Combined block size of the top chrome, whether or not it is sticky. This
    * is the "how tall is it" question, not the "how much must I clear" one.
    */
@@ -215,6 +226,9 @@ export class MlvPageGeometry {
 
   /** @private Writable source behind {@link scrollportBlockSize}. */
   private readonly _scrollportBlockSize = signal(0);
+
+  /** @private Writable source behind {@link scrollTop}. */
+  private readonly _scrollTop = signal(0);
 
   constructor() {
     afterRenderEffect(() => {
@@ -276,6 +290,17 @@ export class MlvPageGeometry {
     const release = (): void => subscription.unsubscribe();
     this._destroyRef.onDestroy(release);
     return release;
+  }
+
+  /**
+   * @internal Records the page viewport's scroll offset. Called by `MlvPage`
+   * from its own passive scroll listener; a signal write of an unchanged value
+   * notifies nothing, so a scroll that moves neither consumer costs nothing.
+   *
+   * @param scrollTop The viewport's current scroll offset, in pixels.
+   */
+  updateScroll(scrollTop: number): void {
+    this._scrollTop.set(scrollTop);
   }
 
   /**

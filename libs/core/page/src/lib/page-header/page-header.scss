@@ -161,36 +161,11 @@
       gap: var(--mlv-spacing-1);
     }
 
-    // Floating chevron/pin controls straddling the header's bottom edge — with
-    // a projected summary strip that edge is the bottom of the whole chrome.
-    // The sticky header keeps them visible at any scroll position.
-    &__snap-controls {
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      z-index: 1;
-      display: flex;
-      gap: var(--mlv-spacing-1);
-      transform: translate(-50%, 50%);
-    }
-
-    // Small, solid controls: they float over arbitrary content, so they need
-    // their own filled surface.
-    &__snap-toggle,
-    &__snap-pin {
-      background: var(--mlv-background-raised);
-      box-shadow: var(--mlv-shadow-raised);
-    }
-
-    // The chevron rotates with the scrubbed progress: up when expanded,
-    // down once snapped.
-    &__snap-toggle svg {
-      rotate: calc(180deg * var(--mlv-page-header-snap));
-    }
-
-    &__snap-pin--active {
-      color: var(--mlv-text-action);
-      border-color: var(--mlv-border-focus);
+    // Trailing control in the title row that expands snapped chrome. It sits in
+    // reading order and in the tab order, so it needs no clearance from any
+    // neighbour and paints no surface of its own.
+    &__expand {
+      flex: 0 0 auto;
     }
 
     &--tabs-center &__tabs-row {

@@ -54,7 +54,7 @@ import {
   MlvListItemMeta,
   MlvListItemTitle,
 } from '@malva-ui/core/list';
-import { MlvThemeService } from '@malva-ui/core/layout';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 import { MlvSelect } from '@malva-ui/core/select';
 import {
   MlvPageContent,

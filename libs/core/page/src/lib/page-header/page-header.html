@@ -46,6 +46,19 @@
       <ng-template [ngTemplateOutlet]="actionsTpl" />
     </div>
   }
+  @if (_expandControl(); as snap) {
+    <button
+      mlvButton
+      type="button"
+      variant="transparent"
+      shape="circle"
+      class="mlv-page-header__expand"
+      [attr.aria-label]="expandLabel()"
+      (click)="snap.expand()"
+    >
+      <svg lucideChevronUp [size]="16" aria-hidden="true" />
+    </button>
+  }
 </div>
 
 @if (_descriptionRef()?.templateRef; as descriptionTpl) {
@@ -83,39 +96,3 @@
 <!-- A projected summary strip renders as the chrome's bottom row, sharing
      this header's single glass surface. -->
 <ng-content select="mlv-page-summary" />
-
-@if (_controls(); as snap) {
-  <div class="mlv-page-header__snap-controls">
-    <button
-      mlvButton
-      type="button"
-      variant="outlined"
-      shape="circle"
-      mlvDensity="tight"
-      class="mlv-page-header__snap-toggle"
-      [attr.aria-label]="toggleLabel()"
-      [attr.aria-expanded]="!_snapped()"
-      (click)="snap.toggle()"
-    >
-      <svg lucideChevronUp [size]="12" aria-hidden="true" />
-    </button>
-    <button
-      mlvButton
-      type="button"
-      variant="outlined"
-      shape="circle"
-      mlvDensity="tight"
-      class="mlv-page-header__snap-pin"
-      [class.mlv-page-header__snap-pin--active]="_pinned()"
-      [attr.aria-label]="pinLabel()"
-      [attr.aria-pressed]="_pinned()"
-      (click)="snap.setPinned(!_pinned())"
-    >
-      @if (_pinned()) {
-        <svg lucidePinOff [size]="12" aria-hidden="true" />
-      } @else {
-        <svg lucidePin [size]="12" aria-hidden="true" />
-      }
-    </button>
-  </div>
-}

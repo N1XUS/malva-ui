@@ -91,7 +91,7 @@ import {
   LucideWrench,
 } from '@lucide/angular';
 import { MlvButton } from '@malva-ui/core/button';
-import { MlvLayout, MlvLayoutSide } from '@malva-ui/core/layout';
+import { MlvPageShell, MlvPageSidebar } from '@malva-ui/core/page';
 import {
   MlvSidebar,
   MlvSidebarGroup,
@@ -192,8 +192,8 @@ const NAV_ICONS: Readonly<Record<DocsIconName, LucideIconInput>> = {
     RouterModule,
     MlvButton,
     LucideDynamicIcon,
-    MlvLayout,
-    MlvLayoutSide,
+    MlvPageShell,
+    MlvPageSidebar,
     MlvDensityRootDirective,
     MlvSpacer,
     MlvSidebar,

@@ -101,6 +101,7 @@ export default {
         'overlay',
         'shrink-wrap',
         'testing-e2e',
+        'theme',
         'utils',
         // meta scopes
         'deps',

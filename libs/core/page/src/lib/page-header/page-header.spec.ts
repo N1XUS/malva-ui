@@ -1,11 +1,10 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as sass from 'sass';
 import { MlvPageSnapController } from '../page/page-snap-controller';
-import { MLV_PAGE_SCROLL } from '../page/page-scroll.token';
 import { MlvPageSummary } from '../page-summary/page-summary';
 import { MlvPageSummaryItem } from '../page-summary/page-summary-item';
 import {
@@ -144,7 +143,7 @@ describe('MlvPageHeader', () => {
     ).toContain('Draft');
   });
 
-  it('marks itself scrolled from the owning page scroll state', async () => {
+  it('marks itself scrolled once the chrome sits over content', async () => {
     @Component({
       template: `
         <mlv-page-header>
@@ -155,16 +154,12 @@ describe('MlvPageHeader', () => {
     })
     class ScrolledHeaderTestHost {}
 
-    const scrolled = signal(false);
-    const fixture = TestBed.configureTestingModule({
+    TestBed.configureTestingModule({
       imports: [ScrolledHeaderTestHost],
-      providers: [
-        {
-          provide: MLV_PAGE_SCROLL,
-          useValue: { scrollTop: signal(0), scrolled },
-        },
-      ],
-    }).createComponent(ScrolledHeaderTestHost);
+      providers: [MlvPageSnapController],
+    });
+    const controller = TestBed.inject(MlvPageSnapController);
+    const fixture = TestBed.createComponent(ScrolledHeaderTestHost);
     await fixture.whenStable();
 
     const header = fixture.nativeElement.querySelector(
@@ -172,12 +167,15 @@ describe('MlvPageHeader', () => {
     ) as HTMLElement;
     expect(header.classList).not.toContain('mlv-page-header--scrolled');
 
-    scrolled.set(true);
+    // Overlap, not collapse: a snap range wide enough that 64px of scroll is
+    // barely any progress still puts the header over content.
+    controller.updateFromScroll(64, 2000);
     await fixture.whenStable();
+    expect(controller.snapped()).toBe(false);
     expect(header.classList).toContain('mlv-page-header--scrolled');
   });
 
-  it('drives the snap controls: chevron toggles-and-pins, pin freezes', async () => {
+  it('shows the expand chevron only while snapped, and expanding returns to the top', async () => {
     @Component({
       template: `
         <mlv-page-header snapControls>
@@ -196,58 +194,23 @@ describe('MlvPageHeader', () => {
     const fixture = TestBed.createComponent(SnapControlsTestHost);
     await fixture.whenStable();
 
-    const toggle = fixture.nativeElement.querySelector(
-      '.mlv-page-header__snap-toggle',
-    ) as HTMLButtonElement;
-    const pin = fixture.nativeElement.querySelector(
-      '.mlv-page-header__snap-pin',
-    ) as HTMLButtonElement;
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(pin.getAttribute('aria-pressed')).toBe('false');
+    const chevron = (): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector('.mlv-page-header__expand');
 
-    // Chevron snaps closed and pins so scrolling cannot undo the choice.
-    toggle.click();
-    await vi.waitFor(() => expect(controller.progress()).toBe(1));
-    await fixture.whenStable();
-    expect(controller.pinned()).toBe(true);
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(pin.getAttribute('aria-pressed')).toBe('true');
-    expect(pin.classList).toContain('mlv-page-header__snap-pin--active');
+    // Expanded chrome has nothing to expand, so the control is not a tab stop.
+    expect(chevron()).toBeNull();
 
-    // A manual (chevron) pin survives scrolling to the top and reclaims the
-    // compensation spacer.
-    controller.updateFromScroll(0, 96);
-    expect(controller.progress()).toBe(1);
-    await vi.waitFor(() => expect(controller.spacerScale()).toBe(0));
-
-    // Unpinning resumes scroll-following and restores the spacer.
-    pin.click();
-    await vi.waitFor(() => expect(controller.pinned()).toBe(false));
-    await fixture.whenStable();
-    expect(controller.progress()).toBe(0);
-    expect(pin.getAttribute('aria-pressed')).toBe('false');
-    await vi.waitFor(() => expect(controller.spacerScale()).toBe(1));
-  });
-
-  it('releases a scroll-origin pin when the user returns to the top', async () => {
-    TestBed.configureTestingModule({ providers: [MlvPageSnapController] });
-    const controller = TestBed.inject(MlvPageSnapController);
-
-    // Scroll-collapsed, then pinned via the pin button: scroll-origin.
     controller.updateFromScroll(96, 96);
-    controller.setPinned(true);
-    expect(controller.pinned()).toBe(true);
-    // The spacer stays — mid-page the compensation is still needed.
-    expect(controller.spacerScale()).toBe(1);
+    await fixture.whenStable();
+    const button = chevron();
+    expect(button).toBeTruthy();
+    expect(button?.getAttribute('aria-label')).toBe('Expand header');
 
-    // Mid-page scrolling keeps the frozen state.
-    controller.updateFromScroll(48, 96);
-    expect(controller.progress()).toBe(1);
-
-    // Back at the top the frozen scroll artifact releases and expands.
-    controller.updateFromScroll(0, 96);
-    await vi.waitFor(() => expect(controller.pinned()).toBe(false));
-    expect(controller.progress()).toBe(0);
+    // Nothing registered a scroller, so the reveal closes on its own fallback
+    // rather than on a scroll that never arrives.
+    button?.click();
+    await fixture.whenStable();
+    expect(controller.revealing()).toBe(true);
   });
 
   it('projects a summary strip as the chrome bottom row inside the header', async () => {
@@ -301,7 +264,7 @@ describe('MlvPageHeader', () => {
     await fixture.whenStable();
 
     expect(
-      fixture.nativeElement.querySelector('.mlv-page-header__snap-controls'),
+      fixture.nativeElement.querySelector('.mlv-page-header__expand'),
     ).toBeNull();
   });
   describe('scrubbed tabs row and keyboard focus', () => {
@@ -448,25 +411,33 @@ describe('MlvPageHeader', () => {
 
       await fixture.whenStable();
       expect(tabsRow.style.visibility).toBe('');
+      // The page is what knows how to scroll; with a scroller registered the
+      // reveal closes when the scroll *arrives*, not on a timer of its own.
+      controller.registerScroller(() => controller.updateFromScroll(0, 96));
+      controller.expand();
       await vi.waitFor(() => expect(controller.progress()).toBe(0));
       await fixture.whenStable();
       expect(controller.revealing()).toBe(false);
       expect(tabsRow.style.visibility).toBe('');
     });
 
-    it('re-hides an unfocused row when a collapse interrupts the expand reveal', async () => {
+    it('re-hides an unfocused row when the expand scroll never arrives', async () => {
       const { controller, fixture, tabsRow } = await createSnapFocusHost();
       controller.updateFromScroll(FULLY_SNAPPED, 96);
       await fixture.whenStable();
 
-      // expand() then collapse() with nothing focused: the reveal bridge must
-      // not strand the row visible-but-scrubbed (an invisible tab stop).
+      // Nothing registers a scroller, so `expand()` asks for a scroll that
+      // never happens. The fallback must still close the reveal: a bridge left
+      // open strands the row visible-but-scrubbed — an invisible tab stop.
       controller.expand();
-      controller.collapse();
-      expect(controller.revealing()).toBe(false);
+      expect(controller.revealing()).toBe(true);
+      expect(tabsRow.style.visibility).toBe('');
 
-      await vi.waitFor(() => expect(controller.progress()).toBe(1));
+      await vi.waitFor(() => expect(controller.revealing()).toBe(false), {
+        timeout: 2000,
+      });
       await fixture.whenStable();
+      expect(controller.progress()).toBe(1);
       expect(tabsRow.style.visibility).toBe('hidden');
     });
   });

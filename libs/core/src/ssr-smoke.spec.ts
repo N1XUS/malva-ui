@@ -102,7 +102,6 @@ import {
 import { MlvIconToggle } from '@malva-ui/core/icon-toggle';
 import { MlvInput } from '@malva-ui/core/input';
 import { MlvKbd, type MlvKbdKey } from '@malva-ui/core/kbd';
-import { MlvLayout } from '@malva-ui/core/layout';
 import { MlvLink } from '@malva-ui/core/link';
 import {
   MlvList,
@@ -631,7 +630,6 @@ class SsrNavigationHost {
 @Component({
   selector: 'mlv-ssr-shell-host',
   imports: [
-    MlvLayout,
     MlvPageShell,
     MlvPage,
     MlvPageHeader,
@@ -653,54 +651,52 @@ class SsrNavigationHost {
     MlvButton,
   ],
   template: `
-    <mlv-layout>
-      <mlv-page-shell>
-        <mlv-sidebar ariaLabel="Primary navigation">
-          <mlv-sidebar-workspace
-            [workspaces]="workspaces"
-            [(workspace)]="workspace"
+    <mlv-page-shell>
+      <mlv-sidebar ariaLabel="Primary navigation">
+        <mlv-sidebar-workspace
+          [workspaces]="workspaces"
+          [(workspace)]="workspace"
+        />
+        <div mlvSidebarContent>
+          <mlv-sidebar-item
+            mlvSidebarTrigger
+            #collapseTrigger="mlvSidebarTrigger"
+            [label]="collapseTrigger.label()"
           />
-          <div mlvSidebarContent>
-            <mlv-sidebar-item
-              mlvSidebarTrigger
-              #collapseTrigger="mlvSidebarTrigger"
-              [label]="collapseTrigger.label()"
-            />
-            <mlv-sidebar-item label="Dashboard" [active]="true" />
-            <mlv-sidebar-group label="Projects">
-              <mlv-sidebar-item label="Inbox" />
-            </mlv-sidebar-group>
-          </div>
-          <mlv-sidebar-rail />
-        </mlv-sidebar>
+          <mlv-sidebar-item label="Dashboard" [active]="true" />
+          <mlv-sidebar-group label="Projects">
+            <mlv-sidebar-item label="Inbox" />
+          </mlv-sidebar-group>
+        </div>
+        <mlv-sidebar-rail />
+      </mlv-sidebar>
 
-        <main mlvPage maxWidth="72rem">
-          <mlv-page-header>
-            <ng-template mlvPageTitle
-              ><h1 mlvTitle>Project Atlas</h1></ng-template
-            >
-          </mlv-page-header>
+      <main mlvPage maxWidth="72rem">
+        <mlv-page-header>
+          <ng-template mlvPageTitle
+            ><h1 mlvTitle>Project Atlas</h1></ng-template
+          >
+        </mlv-page-header>
 
-          <mlv-page-summary>
-            <mlv-page-summary-item label="Owner"
-              >Design systems</mlv-page-summary-item
-            >
-          </mlv-page-summary>
+        <mlv-page-summary>
+          <mlv-page-summary-item label="Owner"
+            >Design systems</mlv-page-summary-item
+          >
+        </mlv-page-summary>
 
-          <mlv-page-content>
-            <section>Page body</section>
-          </mlv-page-content>
+        <mlv-page-content>
+          <section>Page body</section>
+        </mlv-page-content>
 
-          <mlv-page-dock>
-            <button mlvButton>Save</button>
-          </mlv-page-dock>
-        </main>
+        <mlv-page-dock>
+          <button mlvButton>Save</button>
+        </mlv-page-dock>
+      </main>
 
-        <mlv-page-end-pane ariaLabel="Project details">
-          <ng-template mlvPageEndPaneContent><p>Details</p></ng-template>
-        </mlv-page-end-pane>
-      </mlv-page-shell>
-    </mlv-layout>
+      <mlv-page-end-pane ariaLabel="Project details">
+        <ng-template mlvPageEndPaneContent><p>Details</p></ng-template>
+      </mlv-page-end-pane>
+    </mlv-page-shell>
   `,
 })
 class SsrShellHost {

@@ -1,7 +1,7 @@
 {
   "name": "@malva-ui/cdk",
   "version": "0.0.0-malva-ui-package-version",
-  "description": "Headless Angular primitives behind Malva UI — overlays, density, data sources, accessibility and observer utilities.",
+  "description": "Headless Angular primitives behind Malva UI — overlays, density, theming, data sources, accessibility and observer utilities.",
   "license": "MIT",
   "keywords": [
     "angular",
@@ -12,7 +12,8 @@
     "data-source",
     "density",
     "infinite-scroll",
-    "shrink-wrap"
+    "shrink-wrap",
+    "theme"
   ],
   "homepage": "https://github.com/N1XUS/malva-ui/tree/main/libs/cdk#readme",
   "bugs": {

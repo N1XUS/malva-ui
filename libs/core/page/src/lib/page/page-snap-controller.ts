@@ -1,124 +1,109 @@
 import {
-  computed,
   DestroyRef,
+  computed,
+  effect,
   inject,
   Injectable,
   signal,
+  untracked,
 } from '@angular/core';
-import type { WritableSignal, Signal } from '@angular/core';
-
-/** How the current pinned state came to be. */
-type MlvPageSnapPinOrigin = 'manual' | 'scroll';
+import type { Signal } from '@angular/core';
+import type {
+  MlvPageSnapCoordinator,
+  MlvPageSnapRegion,
+} from './page-snap-state';
 
 /**
- * A region of the page chrome that collapses on the snap timeline and can be
- * revealed ahead of it. Implemented by `MlvPageSnap`, which registers itself
- * with the controller so `expand()` can make collapsed chrome focusable.
+ * Milliseconds after which a reveal ends even though the scroll never reached
+ * the top. A smooth scroll can be interrupted by the user, cancelled by the
+ * browser, or refused outright when nothing registered a scroller — and a
+ * reveal that never closes leaves invisible tab stops behind, which is the
+ * exact defect the hidden state exists to prevent.
  */
-export interface MlvPageSnapRegion {
-  /**
-   * Reveals the region immediately, before any tween runs, so a `focus()`
-   * issued in the same task is not refused on hidden chrome.
-   */
-  reveal(): void;
+const REVEAL_FALLBACK_MS = 700;
 
-  /**
-   * Re-applies the region's own hidden state to the DOM. Called when the
-   * reveal window ends, because a reveal that never round-tripped through
-   * change detection leaves the host binding holding a stale value.
-   */
-  syncHiddenState(): void;
-}
+/**
+ * Scroll offset in pixels below which the chrome still counts as sitting at
+ * the head of the content rather than over it. Small enough that a single
+ * wheel notch crosses it, large enough that sub-pixel scroll noise does not.
+ */
+const OVERLAP_THRESHOLD = 4;
 
 /**
  * Owns the snap progress of a page's collapsing top chrome.
  *
- * Progress is **scroll-scrubbed**: `main[mlvPage]` maps its scroll offset onto
- * a 0..1 timeline (`snapRange` pixels of scroll = the full timeline), so
- * chrome motion is proportional to scrolling instead of a time-based
- * animation. The effective value is published as the `--mlv-page-snap` CSS
- * custom property on the page host; elements interpolate their own state from
- * it (see `MlvPageSnap`).
+ * Progress has exactly **one** source: `main[mlvPage]` maps its scroll offset
+ * onto a 0..1 timeline (`snapRange` pixels of scroll = the full timeline), so
+ * chrome motion is proportional to scrolling instead of played on a clock. The
+ * effective value is published as the `--mlv-page-snap` CSS custom property on
+ * the page host; elements interpolate their own state from it (see
+ * `MlvPageSnap`).
  *
- * Pinning distinguishes its origin:
- * - **Manual** (chevron toggle): an explicit choice — while manually pinned
- *   collapsed, the geometry-compensation spacer is reclaimed (`spacerScale`
- *   tweens to 0) so no dead space remains above the content, including at the
- *   top of the page.
- * - **Scroll** (pin button freezing a scroll-derived state): the frozen state
- *   is a scroll artifact — when the user returns to the top, the controller
- *   unpins automatically and the chrome expands.
- *
- * `expand()` / `collapse()` drive the same manual pin imperatively; `expand()`
- * additionally reveals every registered `MlvPageSnapRegion` on the spot, so
- * consumers can focus a control inside chrome the scroll had collapsed.
+ * {@link expand} is the one imperative affordance: it reveals every registered
+ * region up front — so a consumer can focus a control inside chrome the scroll
+ * had collapsed — and then scrolls the page to the top, which is what makes
+ * the chrome expand. There is no frozen state, because a frozen state is a
+ * second source of progress and every bug it produced was its own.
  *
  * Provided by `MlvPage`. Inject optionally from header/summary components and
  * snap directives — absence simply means "no scroll-linked behaviour".
+ *
+ * @internal Not exported from the package barrel; consumers reach the narrow
+ * {@link MlvPageSnapState} through `MlvPage.snap`.
  */
 @Injectable()
-export class MlvPageSnapController {
-  /** @private Raw scroll-derived progress, 0 (top) .. 1 (fully snapped). */
-  private readonly _scrollProgress = signal(0);
+export class MlvPageSnapController implements MlvPageSnapCoordinator {
+  /** @private Scroll-derived progress, 0 (top) .. 1 (fully snapped). */
+  private readonly _progress = signal(0);
 
-  /**
-   * @private Frozen progress while pinned or after a manual toggle;
-   * `null` means the progress follows the scroll position.
-   */
-  private readonly _frozen = signal<number | null>(null);
+  /** @private Raw scroll offset of the owning scroller, in pixels. */
+  private readonly _scrollTop = signal(0);
 
-  /** @private How the current frozen state was produced. */
-  private _pinOrigin: MlvPageSnapPinOrigin | null = null;
-
-  /**
-   * @private Scale applied by `MlvPage` to the geometry-compensation spacer;
-   * tweens to 0 while manually pinned collapsed (dead space reclaimed).
-   */
-  private readonly _spacerScale = signal(1);
-
-  /** @private Frame handles of the running tweens, per animated signal. */
-  private readonly _tweenFrames = new Map<WritableSignal<number>, number>();
-
-  /** @private Adapter so the frozen tween can share the signal tween helper. */
-  private readonly _frozenNumber = signal(0);
-
-  /** @private Cancels pending tweens when the owning page is destroyed. */
-  private readonly _destroyRef = inject(DestroyRef);
-
-  /** @private Snap regions that `expand()` reveals ahead of the tween. */
+  /** @private Snap regions that `expand()` reveals ahead of the scroll. */
   private readonly _regions = new Set<MlvPageSnapRegion>();
 
   /** @private Backs the `revealing` bridge flag. */
   private readonly _revealing = signal(false);
 
-  /** Effective snap progress: 0 fully expanded, 1 fully snapped. */
-  readonly progress = computed(() => this._frozen() ?? this._scrollProgress());
+  /** @private Scrolls the owning page's viewport back to the top. */
+  private _scrollToTop: (() => void) | null = null;
 
-  /** True while the chrome state is frozen and ignores scrolling. */
-  readonly pinned = computed(() => this._frozen() !== null);
+  /** @private Handle of the timer that closes an unfinished reveal. */
+  private _revealTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Effective snap progress: 0 fully expanded, 1 fully snapped. */
+  readonly progress: Signal<number> = this._progress.asReadonly();
 
   /** True once the chrome is closer to its snapped state than the open one. */
   readonly snapped = computed(() => this.progress() >= 0.5);
 
   /**
-   * @internal True while `expand()` bridges its own tween: snap regions stay
-   * visible — and therefore focusable — from the call itself until the
-   * progress has left their window. Read by `MlvPageSnap`.
+   * True once the scroller has moved off the top. Independent of
+   * {@link progress}: chrome that never collapses still needs to know it is
+   * over content, and chrome whose collapse range is zero would otherwise
+   * report itself expanded at every scroll offset.
    */
-  readonly revealing: Signal<boolean> = this._revealing;
+  readonly overlapped = computed(() => this._scrollTop() > OVERLAP_THRESHOLD);
 
   /**
-   * Multiplier for the geometry-compensation spacer, 1 (full compensation)
-   * .. 0 (reclaimed). Consumed by `MlvPage`.
+   * @internal True while `expand()` bridges its own scroll: snap regions stay
+   * visible — and therefore focusable — from the call itself until the page
+   * has actually returned to the top. Read by `MlvPageSnap`.
    */
-  readonly spacerScale: Signal<number> = this._spacerScale;
+  readonly revealing: Signal<boolean> = this._revealing.asReadonly();
 
   constructor() {
-    this._destroyRef.onDestroy(() => {
-      for (const frame of this._tweenFrames.values()) {
-        cancelAnimationFrame(frame);
+    inject(DestroyRef).onDestroy(() => this._clearRevealTimer());
+
+    // The reveal ends when the scroll it asked for arrives, not on a timer of
+    // its own — a smooth scroll has no fixed duration. The timer in `expand()`
+    // is only the fallback for a scroll that never lands.
+    effect(() => {
+      const atTop = this._progress() <= 0.001;
+      if (!atTop || !this._revealing()) {
+        return;
       }
-      this._tweenFrames.clear();
+      untracked(() => this._endReveal());
     });
   }
 
@@ -134,99 +119,62 @@ export class MlvPageSnapController {
   }
 
   /**
+   * @internal Registers how to scroll the owning page back to the top. Called
+   * by `MlvPage` once its viewport exists; the returned callback unregisters.
+   */
+  registerScroller(scrollToTop: () => void): () => void {
+    this._scrollToTop = scrollToTop;
+    return () => {
+      if (this._scrollToTop === scrollToTop) {
+        this._scrollToTop = null;
+      }
+    };
+  }
+
+  /**
    * @internal Called by `MlvPage` on every scroll event of its viewport.
-   * A pinned controller keeps reporting the frozen value; a scroll-origin
-   * pin releases itself once the user returns to the top, where the frozen
-   * scroll artifact would only leave dead space.
+   *
+   * @param scrollTop Current scroll offset of the page viewport, in pixels.
+   * @param snapRange Scroll distance mapped onto the full 0..1 timeline.
    */
   updateFromScroll(scrollTop: number, snapRange: number): void {
-    const progress =
-      snapRange > 0 ? Math.min(Math.max(scrollTop / snapRange, 0), 1) : 0;
-    this._scrollProgress.set(progress);
-    if (this.pinned() && this._pinOrigin === 'scroll' && scrollTop <= 1) {
-      this.setPinned(false);
-    }
+    this._scrollTop.set(scrollTop);
+    this._progress.set(
+      snapRange > 0 ? Math.min(Math.max(scrollTop / snapRange, 0), 1) : 0,
+    );
   }
 
   /**
-   * Pins the chrome at its current progress (`true`) or releases it back to
-   * scroll-following (`false`, animating to the scroll-derived value). A pin
-   * taken from a scroll-following state is a scroll-origin pin; pinning while
-   * already frozen by the chevron keeps the manual origin.
-   */
-  setPinned(pinned: boolean): void {
-    if (pinned === this.pinned()) {
-      return;
-    }
-    if (pinned) {
-      this._cancelTween(this._frozenNumber);
-      this._pinOrigin ??= 'scroll';
-      this._frozen.set(this.progress());
-      return;
-    }
-    this._pinOrigin = null;
-    // Releasing the pin cancels a running expand tween as well.
-    this._endReveal();
-    this._animateSignal(this._spacerScale, 1);
-    this._animateFrozenTo(this._scrollProgress(), () => this._frozen.set(null));
-  }
-
-  /**
-   * Snaps the chrome fully open or closed (the chevron control). The result
-   * is a manual pin — otherwise the very next scroll event would undo the
-   * choice. Collapsing manually also reclaims the compensation spacer so no
-   * dead space remains above the content.
-   */
-  toggle(): void {
-    if (this.snapped()) {
-      this.expand();
-    } else {
-      this.collapse();
-    }
-  }
-
-  /**
-   * Expands the chrome regardless of the scroll position and pins it there
-   * (a manual pin, like the chevron control). Every registered snap region is
-   * revealed **synchronously**, before the tween starts, so a consumer can
-   * move focus into collapsed chrome in the same task:
+   * Gives the user their title back without scrolling for it: every registered
+   * region is revealed **synchronously**, before anything moves, so a consumer
+   * can put focus into collapsed chrome in the same task —
    *
    * ```ts
-   * this.snap.expand();
+   * page.snap.expand();
    * headerTab.focus();
    * ```
+   *
+   * — and the page is then scrolled to the top, which is what actually expands
+   * the chrome. Outside a scrolling page the reveal still happens and closes
+   * itself on the fallback timer.
    */
   expand(): void {
     for (const region of this._regions) {
       region.reveal();
     }
     this._revealing.set(true);
-    this._pinOrigin = 'manual';
-    this._animateSignal(this._spacerScale, 1);
-    this._animateFrozenTo(0, () => this._endReveal());
+    this._armRevealFallback();
+    this._scrollToTop?.();
   }
 
   /**
-   * Collapses the chrome regardless of the scroll position and pins it there,
-   * reclaiming the compensation spacer so no dead space remains above the
-   * content.
-   */
-  collapse(): void {
-    // Collapsing cancels the expand tween, so the bridge that outlived it
-    // would strand every region visible-but-scrubbed — an invisible tab stop.
-    this._endReveal();
-    this._pinOrigin = 'manual';
-    this._animateSignal(this._spacerScale, 0);
-    this._animateFrozenTo(1);
-  }
-
-  /**
-   * @private Ends the reveal bridge and hands every region back its own
-   * hidden state. `reveal()` writes the DOM ahead of change detection, so a
-   * bridge that opens and closes without a render in between would otherwise
-   * leave the host binding's cached value disagreeing with the element.
+   * @private Ends the reveal bridge and hands every region back its own hidden
+   * state. `reveal()` writes the DOM ahead of change detection, so a bridge
+   * that opens and closes without a render in between would otherwise leave
+   * the host binding's cached value disagreeing with the element.
    */
   private _endReveal(): void {
+    this._clearRevealTimer();
     if (!this._revealing()) {
       return;
     }
@@ -236,63 +184,20 @@ export class MlvPageSnapController {
     }
   }
 
-  /** @private Tweens the frozen progress via the shared signal tween. */
-  private _animateFrozenTo(target: number, done?: () => void): void {
-    this._frozenNumber.set(this.progress());
-    this._frozen.set(this.progress());
-    this._animateSignal(this._frozenNumber, target, done, (value) =>
-      this._frozen.set(value),
-    );
-  }
-
-  /** @private rAF tween so manual state changes stay smooth. */
-  private _animateSignal(
-    target: WritableSignal<number>,
-    to: number,
-    done?: () => void,
-    mirror?: (value: number) => void,
-  ): void {
-    this._cancelTween(target);
-    const from = target();
-    const reducedMotion =
-      typeof matchMedia !== 'undefined' &&
-      matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (
-      reducedMotion ||
-      typeof requestAnimationFrame === 'undefined' ||
-      Math.abs(to - from) < 0.001
-    ) {
-      target.set(to);
-      mirror?.(to);
-      done?.();
+  /** @private Closes a reveal whose scroll never arrived. */
+  private _armRevealFallback(): void {
+    this._clearRevealTimer();
+    if (typeof setTimeout === 'undefined') {
       return;
     }
-
-    const durationMs = 200;
-    let startTime: number | null = null;
-    const step = (now: number): void => {
-      startTime ??= now;
-      const t = Math.min((now - startTime) / durationMs, 1);
-      const eased = 1 - (1 - t) ** 3;
-      const value = from + (to - from) * eased;
-      target.set(value);
-      mirror?.(value);
-      if (t < 1) {
-        this._tweenFrames.set(target, requestAnimationFrame(step));
-      } else {
-        this._tweenFrames.delete(target);
-        done?.();
-      }
-    };
-    this._tweenFrames.set(target, requestAnimationFrame(step));
+    this._revealTimer = setTimeout(() => this._endReveal(), REVEAL_FALLBACK_MS);
   }
 
-  /** @private Stops the running tween of one signal, if any. */
-  private _cancelTween(target: WritableSignal<number>): void {
-    const frame = this._tweenFrames.get(target);
-    if (frame !== undefined) {
-      cancelAnimationFrame(frame);
-      this._tweenFrames.delete(target);
+  /** @private Cancels the pending reveal fallback, if any. */
+  private _clearRevealTimer(): void {
+    if (this._revealTimer !== null) {
+      clearTimeout(this._revealTimer);
+      this._revealTimer = null;
     }
   }
 }

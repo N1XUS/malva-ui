@@ -42,10 +42,8 @@ Exported from `libs/core/page/src/index.ts`:
 | `MlvPageDockStart`             | Dock slot        | `[mlvPageDockStart]`                               |
 | `MlvPageDockCenter`            | Dock slot        | `[mlvPageDockCenter]`                              |
 | `MlvPageDockEnd`               | Dock slot        | `[mlvPageDockEnd]`                                 |
-| `MLV_PAGE_SCROLL`              | Token            | `MlvPageScrollState`                               |
-| `MlvPageScrollState`           | Interface        | `{ scrollTop; scrolled }`                          |
-| `MlvPageSnapController`        | Service          | provided by `MlvPage`                              |
 | `MlvPageGeometry`              | Service          | provided by `MlvPage`                              |
+| `MlvPageSnapState`             | Interface        | `{ progress; snapped; overlapped; expand() }`      |
 | `MlvPageRegion`                | Interface        | `{ element; edge; sticky; followsChromeDefault? }` |
 | `MlvPageStickyEdge`            | Type             | `'block-start' \| 'block-end'`                     |
 | `registerPageRegion`           | Function         | registers a region with the enclosing page         |
@@ -55,6 +53,7 @@ Exported from `libs/core/page/src/index.ts`:
 | `MlvPageSnap`                  | Directive        | `[mlvPageSnap]`                                    |
 | `MlvPageSnapRegionBase`        | Abstract base    | focus contract for snap regions                    |
 | `MlvPageSnapRegion`            | Interface        | `{ reveal; syncHiddenState }`                      |
+| `MlvPageSnapCoordinator`       | Interface        | `@internal` — what the region base consumes        |
 | `MlvPageSnapMode`              | Type             | `'hide' \| 'fade' \| 'keep'`                       |
 | `MlvPageDockAppearance`        | Type             | `'bar' \| 'floating'`                              |
 | `MlvPageScroll`                | Type             | `'auto' \| 'none'`                                 |
@@ -410,20 +409,29 @@ published during server rendering or before the first measurement lands.
 }
 ```
 
-### Page scroll context
+### Page scroll offset
 
-`MlvPage` provides itself as `MLV_PAGE_SCROLL` (`MlvPageScrollState`): readonly
-`scrollTop` and `scrolled` signals fed by a passive scroll listener on its
-scrollbar viewport, reached through the public `MlvScrollbar.viewportElement`
-getter. The listener is a `fromEvent(viewport, 'scroll', { passive: true })`
-stream released by `takeUntilDestroyed(this._destroyRef)` — the ref passed
-explicitly because it is bound from an `afterNextRender` callback, which is not
-an injection context. (It was a raw `addEventListener` until #76; the
-`runOutsideAngular` wrapper is kept for consumers still on zone-based change
-detection.) `scrolled()` flips past a 4px hysteresis
-threshold and also toggles a `mlv-page--scrolled` host class. Descendants
-(`mlv-page-header`, `mlv-page-summary`) inject the token **optionally**, so
-they keep working outside a page — just without scroll-linked behaviour.
+`MlvPageGeometry.scrollTop` is a readonly signal fed by a passive scroll
+listener on the page's scrollbar viewport, reached through the public
+`MlvScrollbar.viewportElement` getter. The listener is a
+`fromEvent(viewport, 'scroll', { passive: true })` stream released by
+`takeUntilDestroyed(this._destroyRef)` — the ref passed explicitly because it
+is bound from an `afterNextRender` callback, which is not an injection context.
+(It was a raw `addEventListener` until #76; the `runOutsideAngular` wrapper is
+kept for consumers still on zone-based change detection.)
+
+It lives on the geometry coordinator rather than behind its own token because
+its one consumer — the dock re-testing whether it still obstructs the viewport
+— is already asking that service a geometry question. **"Is the chrome over
+content?" is a different question**, and it is answered by
+`MlvPageSnapController.overlapped`, not by a scroll offset: chrome that never
+collapses still needs to paint its separation from content scrolling under it.
+
+There used to be an `MLV_PAGE_SCROLL` token with a `scrolled` signal and a
+`mlv-page--scrolled` host class beside it. The token had no application
+consumers, the class was styled by nothing, and the one library read of
+`scrolled` sat in a fallback branch that was unreachable because the page
+always provides the snap controller. All of it is deleted.
 
 ### Scroll-scrubbed snap timeline
 
@@ -436,23 +444,41 @@ interpolate with pure `calc()` from the custom property; the only time-based
 motion is a short rAF tween when the chevron/pin controls change the state
 manually (skipped under `prefers-reduced-motion`).
 
-Controller API: `progress`/`pinned`/`snapped`/`spacerScale` signals,
-`toggle()` (snap fully open/closed — a manual pin, otherwise the next scroll
-event would undo it; collapsing also tweens `spacerScale` to 0 so the
-compensation spacer is reclaimed), `expand()` / `collapse()` (the same manual
-pin, driven imperatively), `setPinned(boolean)` (freeze at the
-current progress / release back to scroll-following). Pin origin matters: a
-manual (chevron) pin survives everywhere with the spacer reclaimed; a
-scroll-origin (pin button) pin auto-releases at the top of the page.
+**Snap state (`MlvPage.snap`, typed `MlvPageSnapState`).** Three signals and
+one method — that is the whole capability:
 
-**`expand()` also reveals collapsed chrome for a programmatic focus.** A
-collapsed snap region is `visibility: hidden`, so a consumer's `focus()` on a
-control inside it is silently refused. `expand()` therefore reveals every
-registered region **synchronously**, before its own tween runs, so the naive
-sequence works:
+| Member       | Meaning                                                                |
+| ------------ | ---------------------------------------------------------------------- |
+| `progress`   | 0 fully expanded .. 1 fully snapped. Scroll is its **only** source.    |
+| `snapped`    | `progress() >= 0.5` — closer to snapped than open.                     |
+| `overlapped` | The scroller has moved off the top (> 4px). Independent of `progress`. |
+| `expand()`   | Reveal every collapsed region, then scroll the page back to the top.   |
+
+`overlapped` is the second signal Material and UIKit both keep separate from
+the collapse fraction, for the reason both give: a bar pinned at full height
+has a collapse fraction of zero forever and still has to know it is sitting
+over content. `mlv-page-header--scrolled` is driven by `overlapped`, not by
+progress.
+
+The controller class itself (`MlvPageSnapController`) is **not exported** —
+consumers reach the capability through `MlvPage.snap`, and library components
+inside the page inject the class from the package-internal module.
+
+**The pin is gone.** `pinned`, `setPinned()`, `toggle()`, `collapse()` and
+`spacerScale` are deleted, with no replacement. They carried two pin _origins_
+whose only observable difference was whether returning to the top released the
+freeze, and a spacer scale that existed purely to tween away the dead space
+that pinning-while-collapsed created — a feature that manufactured a bug and
+then shipped the fix. Arbitrary partial progress is not a useful user
+preference, and with the pin gone progress has exactly one source again.
+
+**`expand()` reveals collapsed chrome for a programmatic focus.** A collapsed
+snap region is `visibility: hidden`, so a consumer's `focus()` on a control
+inside it is silently refused. `expand()` therefore reveals every registered
+region **synchronously**, before anything scrolls, so the naive sequence works:
 
 ```ts
-// A component that hosts the page reaches the controller through the page.
+// A component that hosts the page reaches the capability through the page.
 private readonly page = viewChild.required(MlvPage);
 
 onEscapeToTop(): void {
@@ -461,9 +487,14 @@ onEscapeToTop(): void {
 }
 ```
 
-A component _inside_ `main[mlvPage]` injects `MlvPageSnapController` directly
-instead. `revealing` (`@internal`) is the bridge flag the regions read between
-the call and the tween leaving their window.
+The page registers _how_ to scroll (`registerScroller`), because it is the only
+thing that knows which element scrolls; the scroll is smooth unless
+`prefers-reduced-motion` is set. The reveal closes when the scroll **arrives**
+— a smooth scroll has no fixed duration — with a 700ms fallback for a scroll
+that is interrupted, refused, or never registered. A reveal that never closed
+would leave invisible tab stops behind, which is the exact defect the hidden
+state exists to prevent. `revealing` (`@internal`) is the bridge flag the
+regions read in between.
 
 ### `MlvPageSnap` (`[mlvPageSnap]`)
 
@@ -506,17 +537,16 @@ plumbing; consumers call `expand()`, never these.
 
 The header renders a predictable hierarchy for breadcrumb/back navigation, one semantic page title, inline status, actions, supporting description, metadata, and a tabs row. All content areas are optional structural template slots.
 
-| Input / output | Type                           | Default              | Description                                                                |
-| -------------- | ------------------------------ | -------------------- | -------------------------------------------------------------------------- |
-| `back`         | `string \| string[] \| null`   | `null`               | Optional Router destination for a built-in back link.                      |
-| `backLabel`    | `string`                       | `'Back'`             | Visible and accessible back-link text.                                     |
-| `sticky`       | `boolean`                      | `false`              | Makes this header sticky independently of `MlvPage`.                       |
-| `size`         | `MlvPageHeaderSize`            | `'m'`                | `'s'` renders the compact record-editor header with a smaller title scale. |
-| `tabsAlign`    | `MlvPageHeaderTabsAlign`       | `'start'`            | Centers the tabs row when `'center'`.                                      |
-| `snapControls` | `boolean`                      | `false`              | Floating chevron/pin controls on the header's bottom edge.                 |
-| `toggleLabel`  | `string`                       | `'Toggle header'`    | Accessible label of the chevron control.                                   |
-| `pinLabel`     | `string`                       | `'Pin header state'` | Accessible label of the pin control.                                       |
-| `backClick`    | `OutputEmitterRef<MouseEvent>` | —                    | Emits when the built-in back link is activated.                            |
+| Input / output | Type                           | Default           | Description                                                                |
+| -------------- | ------------------------------ | ----------------- | -------------------------------------------------------------------------- |
+| `back`         | `string \| string[] \| null`   | `null`            | Optional Router destination for a built-in back link.                      |
+| `backLabel`    | `string`                       | `'Back'`          | Visible and accessible back-link text.                                     |
+| `sticky`       | `boolean`                      | `false`           | Makes this header sticky independently of `MlvPage`.                       |
+| `size`         | `MlvPageHeaderSize`            | `'m'`             | `'s'` renders the compact record-editor header with a smaller title scale. |
+| `tabsAlign`    | `MlvPageHeaderTabsAlign`       | `'start'`         | Centers the tabs row when `'center'`.                                      |
+| `snapControls` | `boolean`                      | `false`           | Shows the expand chevron in the title row once the chrome is snapped.      |
+| `expandLabel`  | `string`                       | `'Expand header'` | Accessible label of the expand chevron.                                    |
+| `backClick`    | `OutputEmitterRef<MouseEvent>` | —                 | Emits when the built-in back link is activated.                            |
 
 Consumers should project exactly one semantic `<h1>` through `[mlvPageTitle]`.
 `[mlvPageHeaderStatus]` renders inline right after the title — intended for
@@ -526,8 +556,9 @@ draft/live badges or an unsaved indicator.
 from `--mlv-page-snap`: the title scrubs down one type scale (`m`: h2 → h4,
 `s`: h4 → h6), the breadcrumb row collapses over the 0–0.5 window, and the
 tabs row over 0.3–0.85 (both via `[mlvPageSnap]`). Meta, title, status, and
-actions stay visible. `mlv-page-header--scrolled` (raised shadow) applies past
-2% progress. Action regions force `white-space: nowrap` on buttons/links.
+actions stay visible. `mlv-page-header--scrolled` (raised shadow) follows the
+snap controller's `overlapped`, so chrome that is not collapsing still marks
+itself as sitting over content. Action regions force `white-space: nowrap` on buttons/links.
 
 **Projected summary row.** `<ng-content select="mlv-page-summary" />` renders
 a projected summary strip as the chrome's bottom row: one glass surface, one

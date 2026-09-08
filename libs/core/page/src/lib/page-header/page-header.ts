@@ -13,18 +13,12 @@ import {
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { RouterLink } from '@angular/router';
-import {
-  LucideChevronLeft,
-  LucideChevronUp,
-  LucidePin,
-  LucidePinOff,
-} from '@lucide/angular';
+import { LucideChevronLeft, LucideChevronUp } from '@lucide/angular';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvLink, MlvLinkBefore } from '@malva-ui/core/link';
 import { MlvPageSnapController } from '../page/page-snap-controller';
 import { registerPageRegion } from '../page/page-geometry';
 import { MlvPageSnap } from '../page/page-snap.directive';
-import { MLV_PAGE_SCROLL } from '../page/page-scroll.token';
 import {
   MlvPageBreadcrumb,
   MlvPageHeaderActions,
@@ -50,9 +44,9 @@ export type MlvPageHeaderTabsAlign = 'start' | 'center';
  * Inside `main[mlvPage]` the header participates in the scroll-scrubbed snap
  * timeline (`--mlv-page-snap`): the title interpolates down one type scale and
  * the breadcrumb and tabs rows collapse, each over its own stagger window.
- * With `snapControls`, chevron/pin controls float on the header's bottom edge
- * — always visible while the header is sticky. The chevron snaps the chrome
- * open/closed; the pin freezes the current state regardless of scrolling.
+ * With `snapControls`, a chevron appears in the title row once the chrome has
+ * snapped; activating it reveals every collapsed region and scrolls the page
+ * back to the top, which is what expands the chrome again.
  */
 @Component({
   selector: 'mlv-page-header',
@@ -61,8 +55,6 @@ export type MlvPageHeaderTabsAlign = 'start' | 'center';
     RouterLink,
     LucideChevronLeft,
     LucideChevronUp,
-    LucidePin,
-    LucidePinOff,
     MlvButton,
     MlvLink,
     MlvLinkBefore,
@@ -102,18 +94,15 @@ export class MlvPageHeader {
   readonly tabsAlign = input<MlvPageHeaderTabsAlign>('start');
 
   /**
-   * Shows the floating chevron/pin snap controls on the header's bottom edge.
-   * Requires the header to be inside `main[mlvPage]`.
+   * Shows the chevron that expands snapped chrome, as a trailing control in
+   * the title row. Requires the header to be inside `main[mlvPage]`.
    */
   readonly snapControls = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
   });
 
-  /** Accessible label for the chevron snap-toggle control. */
-  readonly toggleLabel = input('Toggle header');
-
-  /** Accessible label for the pin control. */
-  readonly pinLabel = input('Pin header state');
+  /** Accessible label for the chevron that expands the snapped chrome. */
+  readonly expandLabel = input('Expand header');
 
   /** Emits when the built-in back link is activated. */
   readonly backClick = output<MouseEvent>();
@@ -145,28 +134,29 @@ export class MlvPageHeader {
   /** @protected Trailing tabs-row actions projected via `[mlvPageHeaderTabsActions]`. */
   protected readonly _tabsActionsRef = contentChild(MlvPageHeaderTabsActions);
 
-  /** @private Scroll state of the owning page, when rendered inside one. */
-  private readonly _pageScroll = inject(MLV_PAGE_SCROLL, { optional: true });
-
   /** @private Snap controller of the owning page, when rendered inside one. */
   private readonly _snap = inject(MlvPageSnapController, { optional: true });
-
-  /** @protected Controller behind the floating controls, when enabled. */
-  protected readonly _controls = computed(() =>
-    this.snapControls() && this._snap ? this._snap : null,
-  );
 
   /** @protected True while the chrome is closer to snapped than expanded. */
   protected readonly _snapped = computed(() => this._snap?.snapped() ?? false);
 
-  /** @protected True while the snap state is frozen against scrolling. */
-  protected readonly _pinned = computed(() => this._snap?.pinned() ?? false);
+  /**
+   * @protected The controller behind the expand chevron, exposed only while
+   * the chrome is actually snapped: expanding an expanded header does nothing,
+   * so the control would be a dead tab stop the rest of the time.
+   */
+  protected readonly _expandControl = computed(() =>
+    this.snapControls() && this._snap && this._snapped() ? this._snap : null,
+  );
 
-  /** @protected True while the owning page is scrolled away from the top. */
-  protected readonly _scrolled = computed(() =>
-    this._snap
-      ? this._snap.progress() > 0.02
-      : (this._pageScroll?.scrolled() ?? false),
+  /**
+   * @protected True while the header sits over content rather than at the head
+   * of it. Deliberately the *overlap* signal, not the collapse fraction: chrome
+   * pinned at full height still has to paint its separation from the content
+   * scrolling underneath it.
+   */
+  protected readonly _scrolled = computed(
+    () => this._snap?.overlapped() ?? false,
   );
 
   constructor() {

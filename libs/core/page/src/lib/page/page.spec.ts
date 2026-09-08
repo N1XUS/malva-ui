@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { MLV_PAGE_SCROLL } from './page-scroll.token';
+import { MlvPageGeometry } from './page-geometry';
 import { MlvPage } from './page';
 
 @Component({
@@ -49,13 +49,13 @@ describe('MlvPage', () => {
     ).toBe(true);
   });
 
-  it('provides its scroll state to descendants via MLV_PAGE_SCROLL', async () => {
+  it('publishes its scroll offset through the geometry it provides', async () => {
     @Component({
       selector: 'mlv-test-scroll-consumer',
       template: '',
     })
     class ScrollConsumerComponent {
-      readonly pageScroll = inject(MLV_PAGE_SCROLL);
+      readonly pageScroll = inject(MlvPageGeometry);
     }
 
     @Component({
@@ -75,7 +75,6 @@ describe('MlvPage', () => {
     const pageScroll = (consumer.componentInstance as ScrollConsumerComponent)
       .pageScroll;
     expect(pageScroll.scrollTop()).toBe(0);
-    expect(pageScroll.scrolled()).toBe(false);
 
     const viewport = fixture.nativeElement.querySelector(
       '.mlv-scrollbar__viewport',
@@ -84,11 +83,10 @@ describe('MlvPage', () => {
     viewport.dispatchEvent(new Event('scroll'));
     await fixture.whenStable();
     expect(pageScroll.scrollTop()).toBe(100);
-    expect(pageScroll.scrolled()).toBe(true);
 
     viewport.scrollTop = 0;
     viewport.dispatchEvent(new Event('scroll'));
     await fixture.whenStable();
-    expect(pageScroll.scrolled()).toBe(false);
+    expect(pageScroll.scrollTop()).toBe(0);
   });
 });

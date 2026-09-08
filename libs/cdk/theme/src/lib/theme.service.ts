@@ -1,4 +1,4 @@
-import type { Provider } from '@angular/core';
+import type { EnvironmentProviders, Provider } from '@angular/core';
 import {
   DestroyRef,
   effect,
@@ -6,12 +6,18 @@ import {
   Injectable,
   InjectionToken,
   PLATFORM_ID,
+  provideEnvironmentInitializer,
   signal,
 } from '@angular/core';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { fromEvent } from 'rxjs';
 
+/**
+ * @private Reads a persisted value, preferring `localStorage` and falling back
+ * to `sessionStorage` when it is blocked. Returns `null` on the server and in
+ * every failure mode, so nothing here can throw during construction.
+ */
 function getFromStorage(key: string): unknown {
   if (
     typeof localStorage === 'undefined' &&
@@ -45,6 +51,7 @@ function getFromStorage(key: string): unknown {
   }
 }
 
+/** @private Persists the selected mode, silently dropping it when blocked. */
 function setToStorage(key: string, value: string): void {
   if (
     typeof localStorage === 'undefined' &&
@@ -63,23 +70,52 @@ function setToStorage(key: string, value: string): void {
   }
 }
 
+/** A resolved theme: exactly what the `mlvTheme` document attribute carries. */
 export type MlvTheme = 'light' | 'dark';
+
+/** A theme *preference*, which may defer to the operating system. */
 export type MlvThemeMode = MlvTheme | 'auto';
 
+/** Narrows an unknown (typically persisted) value to a theme mode. */
 export function isMlvThemeMode(value: unknown): value is MlvThemeMode {
   return value === 'auto' || value === 'light' || value === 'dark';
 }
 
+/** The theme an application starts in before the user has chosen one. */
 export const MLV_THEME = new InjectionToken<MlvThemeMode>('MLV_THEME');
+
+/** The storage key the chosen theme is persisted under. */
 export const MLV_THEME_KEY = new InjectionToken<string>('MLV_THEME_KEY');
 
+/** Storage key used when the application provides none. */
 export const defaultThemeKey = 'mlv-theme' as const;
+
+/** Theme used when the application provides none. */
 export const defaultTheme: MlvThemeMode = 'light' as const;
 
+/**
+ * Configures the theme and eagerly starts `MlvThemeService`.
+ *
+ * The eager start is not incidental. The service is what writes the `mlvTheme`
+ * attribute on the document element, and `theme.scss` keys its dark token map
+ * off that attribute — so an application that registers the providers and
+ * never happens to inject the service would get no theme at all. Supplying the
+ * configuration tokens without the initializer made bootstrapping look correct
+ * while leaving the outcome dependent on whether some component happened to
+ * ask for the service.
+ *
+ * The return type is `(Provider | EnvironmentProviders)[]` rather than
+ * `Provider[]` because of that initializer. Spreading the result into a
+ * `providers` array is unaffected; only code that annotated the result as
+ * `Provider[]` needs the wider type.
+ *
+ * @param theme Theme the application starts in; `'auto'` follows the OS.
+ * @param themeKey Storage key the user's choice is persisted under.
+ */
 export function provideDefaultTheme(
   theme: MlvThemeMode = defaultTheme,
   themeKey = defaultThemeKey,
-): Provider[] {
+): (Provider | EnvironmentProviders)[] {
   return [
     {
       provide: MLV_THEME,
@@ -89,9 +125,21 @@ export function provideDefaultTheme(
       provide: MLV_THEME_KEY,
       useValue: themeKey,
     },
+    provideEnvironmentInitializer(() => {
+      inject(MlvThemeService);
+    }),
   ];
 }
 
+/**
+ * Owns the application's theme: the persisted preference, the resolved
+ * light/dark value, and the `mlvTheme` attribute on the document element that
+ * every `--mlv-*` token map keys off.
+ *
+ * It is headless by design and lives in the CDK family for that reason — a
+ * contract with no component, like the date adapter. It renders nothing, has
+ * no host, and works in an application that mounts no Malva UI layout at all.
+ */
 @Injectable({
   providedIn: 'root',
 })
@@ -100,8 +148,8 @@ export class MlvThemeService {
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /**
-   * Lazily-resolved `prefers-color-scheme: dark` media query list. `null` on
-   * the server where `window` is undefined.
+   * @private Lazily-resolved `prefers-color-scheme: dark` media query list.
+   * `null` on the server where `window` is undefined.
    */
   private readonly _darkModeMedia: MediaQueryList | null = this._isBrowser
     ? window.matchMedia('(prefers-color-scheme: dark)')
@@ -112,7 +160,9 @@ export class MlvThemeService {
     this._darkModeMedia?.matches ?? false,
   );
 
+  /** The theme the application was configured to start in. */
   readonly defaultTheme = inject(MLV_THEME, { optional: true }) ?? defaultTheme;
+
   /** @private Storage key used to persist the selected theme. */
   private readonly _themeKey =
     inject(MLV_THEME_KEY, { optional: true }) ?? defaultThemeKey;
@@ -120,7 +170,10 @@ export class MlvThemeService {
   /** @private Platform document, used to publish the theme on the root element. */
   private readonly _document = inject(DOCUMENT);
 
+  /** The user's preference, which may be `'auto'`. */
   readonly themeMode = signal<MlvThemeMode>(this.defaultTheme);
+
+  /** The resolved theme actually in force, never `'auto'`. */
   readonly currentTheme = signal<MlvTheme>(
     this._resolveTheme(this.defaultTheme),
   );
@@ -146,12 +199,9 @@ export class MlvThemeService {
     // Publish the resolved theme on the document element. `theme.scss` keys its
     // dark token map off a plain `[mlvTheme='dark']` attribute selector, so
     // nothing changes colour until that attribute exists somewhere above the
-    // content. This used to be a side effect of rendering `mlv-layout`, which
-    // meant any application — or any single route — that renders no layout got
-    // a theme switcher that flipped a signal nobody read. Owning it here makes
-    // the switch work regardless of which components happen to be on screen;
-    // `mlv-layout` still carries its own `[attr.mlvTheme]` host binding, and a
-    // scoped `mlvTheme` attribute further down the tree still wins locally.
+    // content. Owning it here makes the switch work regardless of which
+    // components happen to be on screen, and a scoped `mlvTheme` attribute
+    // further down the tree still wins locally.
     if (this._isBrowser) {
       effect(() => {
         this._document.documentElement.setAttribute(
@@ -162,12 +212,14 @@ export class MlvThemeService {
     }
   }
 
+  /** Selects a theme mode, persists it, and republishes the resolved theme. */
   setTheme(mode: MlvThemeMode): void {
     setToStorage(this._themeKey, mode);
     this.themeMode.set(mode);
     this._syncResolvedTheme();
   }
 
+  /** @private Collapses `'auto'` onto the current system preference. */
   private _resolveTheme(mode: MlvThemeMode): MlvTheme {
     if (mode === 'auto') {
       return this._prefersDark() ? 'dark' : 'light';
@@ -175,6 +227,7 @@ export class MlvThemeService {
     return mode;
   }
 
+  /** @private Recomputes {@link currentTheme} from {@link themeMode}. */
   private _syncResolvedTheme(): void {
     this.currentTheme.set(this._resolveTheme(this.themeMode()));
   }
