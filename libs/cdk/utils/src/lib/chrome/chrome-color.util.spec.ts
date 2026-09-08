@@ -4,7 +4,7 @@ import {
   contrastRatio,
   parseComputedColor,
   toCssColor,
-} from './page-shell-color';
+} from './chrome-color.util';
 
 describe('parseComputedColor', () => {
   it('parses browser-computed rgb colors', () => {

@@ -3,6 +3,7 @@ import {
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   effect,
   ElementRef,
@@ -12,29 +13,16 @@ import {
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { fromEvent } from 'rxjs';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { ScrollDispatcher } from '@angular/cdk/scrolling';
-import type { ScrollDispatcherTarget } from '@angular/cdk/scrolling';
 import { mlvNextId } from '@malva-ui/cdk/utils';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvPageSnapController } from './page-snap-controller';
 import type { MlvPageSnapBehavior, MlvPageSnapState } from './page-snap-state';
 import { MlvPageGeometry } from './page-geometry';
-
-/**
- * Whether the user asked for reduced motion. Read per call rather than cached:
- * the preference can change while the page is open, and this is only consulted
- * on an explicit `expand()`.
- */
-function prefersReducedMotion(): boolean {
-  return (
-    typeof matchMedia !== 'undefined' &&
-    matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-}
+import { connectPageScrollport } from './page-scrollport';
 
 /**
  * Whether the engine can scrub a custom property from a scroll timeline.
@@ -49,8 +37,24 @@ function supportsScrollTimeline(): boolean {
   );
 }
 
-/** Controls which element owns vertical page scrolling. */
-export type MlvPageScroll = 'auto' | 'none';
+/**
+ * Which element scrolls a page — and therefore which one the geometry contract
+ * measures, the collapse timeline is scrubbed by, and `expand()` returns to.
+ *
+ * - `'page'` (default) gives the page its own bounded scrollport, rendered as
+ *   an `mlv-scrollbar`. The page is as tall as the box it is in and its content
+ *   scrolls inside it, under sticky chrome.
+ * - `'content'` gives the page the same bounded box and **no scrollport at
+ *   all**: chrome sits in auto tracks and everything else shares one
+ *   `minmax(0, 1fr)` body track, for a page whose body is a fixed-height table,
+ *   a split pane or a canvas that scrolls itself. Nothing is inferred — a pane
+ *   that wants to drive the collapse timeline says so with `[mlvPageScroller]`.
+ * - `'document'` leaves the page in natural document flow, as tall as its
+ *   content, and points the whole contract at the document scrollport: sticky
+ *   chrome sticks to the viewport, and the collapse timeline is scrubbed by
+ *   document scrolling.
+ */
+export type MlvPageScroll = 'page' | 'content' | 'document';
 
 /** Controls the inset around projected page content. */
 export type MlvPagePadding = 'none' | 's' | 'm' | 'l';
@@ -72,12 +76,23 @@ export type MlvPageSurface = 'anchored' | 'flat';
   // Attribute-selector component intentionally enhances the native main landmark.
   // eslint-disable-next-line @angular-eslint/component-selector
   selector: 'main[mlvPage]',
+  // One `<ng-content>`, reached through a template both branches instantiate:
+  // a second `<ng-content>` in the other branch would receive nothing, because
+  // projected nodes go to the first matching slot and only that one.
   template: `
-    <mlv-scrollbar class="mlv-page__scrollbar" [disabled]="scroll() === 'none'">
+    <ng-template #canvas>
       <div class="mlv-page__inner"><ng-content /></div>
-    </mlv-scrollbar>
+    </ng-template>
+
+    @if (scroll() === 'page') {
+      <mlv-scrollbar class="mlv-page__scrollbar">
+        <ng-container [ngTemplateOutlet]="canvas" />
+      </mlv-scrollbar>
+    } @else {
+      <ng-container [ngTemplateOutlet]="canvas" />
+    }
   `,
-  imports: [MlvScrollbar],
+  imports: [MlvScrollbar, NgTemplateOutlet],
   styleUrl: './page.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -87,8 +102,10 @@ export type MlvPageSurface = 'anchored' | 'flat';
     'data-slot': 'page',
     '[id]': 'id()',
     tabindex: '-1',
-    '[class.mlv-page--scroll-auto]': 'scroll() === "auto"',
-    '[class.mlv-page--scroll-none]': 'scroll() === "none"',
+    '[class.mlv-page--scroll-page]': 'scroll() === "page"',
+    '[class.mlv-page--scroll-content]': 'scroll() === "content"',
+    '[class.mlv-page--scroll-document]': 'scroll() === "document"',
+    '[class.mlv-page--snapping]': '_snapping()',
     '[class.mlv-page--padding-none]': 'padding() === "none"',
     '[class.mlv-page--padding-s]': 'padding() === "s"',
     '[class.mlv-page--padding-m]': 'padding() === "m"',
@@ -103,8 +120,8 @@ export class MlvPage {
   /** Unique landmark id; set explicitly when targeting the page from a skip link. */
   readonly id = input(mlvNextId('mlv-page'));
 
-  /** Selects whether the page or a consumer-owned region handles scrolling. */
-  readonly scroll = input<MlvPageScroll>('auto');
+  /** Which element scrolls this page. See {@link MlvPageScroll}. */
+  readonly scroll = input<MlvPageScroll>('page');
 
   /** Optional maximum width for the centred inner page canvas. */
   readonly maxWidth = input<string | null>(null);
@@ -115,7 +132,11 @@ export class MlvPage {
   /** Selects the anchored rounded canvas or a completely flat surface. */
   readonly surface = input<MlvPageSurface>('anchored');
 
-  /** Makes projected page headers sticky within this page's scroll container. */
+  /**
+   * Makes a projected `mlv-page-header` sticky within this page's scroll
+   * container. The page owns the flag because the page owns the scrollport the
+   * header would stick to; a header has no way to know whether there is one.
+   */
   readonly stickyHeader = input<boolean, BooleanInput>(true, {
     transform: coerceBooleanProperty,
   });
@@ -153,8 +174,20 @@ export class MlvPage {
     return this._geometry;
   }
 
-  /** @private The page-owned scrollbar whose viewport is observed. */
-  private readonly _scrollbar = viewChild.required(MlvScrollbar);
+  /**
+   * @protected Whether any chrome actually collapses on this page.
+   *
+   * Drives `mlv-page--snapping`, which is the only thing that turns scroll
+   * anchoring off. Anchoring is a browser feature that keeps a reader's place
+   * when content above them resizes, and suppressing it is compensation for the
+   * snap timeline resizing the chrome — not a policy every page should get.
+   */
+  protected readonly _snapping = computed(
+    () => this._snap.collapseDistance() > 0,
+  );
+
+  /** @private The page-owned scrollbar, rendered only in `scroll="page"`. */
+  private readonly _scrollbar = viewChild(MlvScrollbar);
 
   /** @private Zone reference; the scroll listener runs outside the zone. */
   private readonly _ngZone = inject(NgZone);
@@ -174,8 +207,8 @@ export class MlvPage {
   /** @private Host element carrying the published snap geometry. */
   private readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  /** @private The page's scroll viewport, once rendered. */
-  private _viewport: HTMLElement | null = null;
+  /** @private Owning document; the scrollport in `scroll="document"`. */
+  private readonly _document = inject(DOCUMENT);
 
   constructor() {
     // The page-level sticky default is what makes a projected header sticky
@@ -184,73 +217,50 @@ export class MlvPage {
     effect(() => this._snap.setBehavior(this.snapBehavior()));
 
     afterNextRender(() => {
-      const viewport = this._scrollbar().viewportElement;
-      this._viewport = viewport;
-      // The scrollport is the element that actually scrolls, never a viewport
-      // unit: every ancestor's chrome has already been subtracted from it.
-      this._geometry.registerScrollport(viewport);
-      // `expand()` reveals collapsed chrome and then asks the page to return to
-      // the top; the page is the only thing that knows which element scrolls.
-      this._destroyRef.onDestroy(
-        this._snap.registerScroller(() => {
-          // `scrollTo` with a behaviour is the enhancement; assigning
-          // `scrollTop` is the part every DOM implements. jsdom defines no
-          // `Element.prototype.scrollTo` at all, so calling it unguarded turns
-          // every consumer's `expand()` into a `TypeError` under test while
-          // being fine in a browser.
-          if (typeof viewport.scrollTo === 'function') {
-            viewport.scrollTo({
-              top: 0,
-              behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-            });
-            return;
-          }
-          viewport.scrollTop = 0;
-        }),
-      );
-      const onScroll = (): void => {
-        const top = viewport.scrollTop;
-        this._geometry.updateScroll(top);
-        this._snap.updateFromScroll(top);
+      const deps = {
+        geometry: this._geometry,
+        snap: this._snap,
+        scrollDispatcher: this._scrollDispatcher,
+        ngZone: this._ngZone,
+        destroyRef: this._destroyRef,
       };
-      // Bound as an `rxjs` `fromEvent` stream, matching `mlv-scrollbar` and
-      // `mlv-chat`. Signal writes propagate through the reactivity graph on
-      // their own, so a scroll that moves no signal costs nothing.
-      //
-      // `{ passive: true }` is forwarded to `addEventListener` — a non-passive
-      // scroll listener is its own performance bug, so it is not optional.
-      //
-      // `takeUntilDestroyed` takes the `DestroyRef` explicitly: this runs from
-      // an `afterNextRender` callback, which is not an injection context.
-      //
-      // `runOutsideAngular` is kept for consumers still on zone-based change
-      // detection, where the zone would schedule its own tick on top.
-      const scrolled$ = fromEvent(viewport, 'scroll', { passive: true }).pipe(
-        takeUntilDestroyed(this._destroyRef),
-      );
-      this._ngZone.runOutsideAngular(() => {
-        scrolled$.subscribe(onScroll);
-      });
 
-      // The page owns a scrollport that is not the document, so every CDK
-      // overlay anchored inside it — a menu, a tooltip, a select panel — has to
-      // be told this element scrolls. Without the registration `reposition` and
-      // `close` scroll strategies never fire for page scrolling and a panel
-      // stays behind while its trigger moves away.
-      //
-      // Registered as a bare `ScrollDispatcherTarget` rather than by
-      // instantiating `CdkScrollable`: the dispatcher's contract is those two
-      // methods, the directive's only other job is a scroll listener this
-      // component already owns, and the viewport belongs to `mlv-scrollbar`'s
-      // template, where no attribute of ours can reach.
-      const scrollTarget: ScrollDispatcherTarget = {
-        elementScrolled: () => scrolled$,
-        getElementRef: () => new ElementRef(viewport),
-      };
-      this._scrollDispatcher.register(scrollTarget);
-      this._destroyRef.onDestroy(() =>
-        this._scrollDispatcher.deregister(scrollTarget),
-      );
+      if (this.scroll() === 'page') {
+        const viewport = this._scrollbar()?.viewportElement;
+        if (viewport) {
+          connectPageScrollport(
+            {
+              scroller: viewport,
+              eventTarget: viewport,
+              registerWithScrollDispatcher: true,
+            },
+            deps,
+          );
+        }
+        return;
+      }
+
+      if (this.scroll() === 'document') {
+        const root = this._document.documentElement;
+        connectPageScrollport(
+          {
+            scroller: root,
+            // The document element's `scroll` event is delivered on the
+            // document, not on the element itself.
+            eventTarget: this._document,
+            // The CDK dispatcher already watches the window for exactly this
+            // scroller; registering it again would make every overlay in the
+            // document count one scroll twice.
+            registerWithScrollDispatcher: false,
+          },
+          deps,
+        );
+      }
+
+      // `scroll="content"` deliberately connects nothing. A page whose body
+      // scrolls itself has no scrollport the page can name, and inferring one
+      // from the first overflowing descendant is how a nested `mlv-chat` ends
+      // up driving the header collapse. `[mlvPageScroller]` is the opt-in.
     });
 
     // Two lengths, both written from measurements rather than per scroll event:
@@ -272,8 +282,16 @@ export class MlvPage {
    * it, because animations outrank normal author declarations and a paused
    * animation still applies its value. The page writes the override whenever it
    * — not the timeline — is the source of progress: no scroll-timeline support,
-   * a behaviour the timeline cannot express (`pinned`, `enterAlways`), or a
-   * degenerate zero-length range.
+   * a behaviour the timeline cannot express (`pinned`, `enterAlways`), a
+   * degenerate zero-length range, or a scroll mode with no CSS timeline to
+   * express at all (`content`, where the scroller is a consumer's own pane).
+   *
+   * Both go on **this host**, above every element that reads them. The chain
+   * `--mlv-page-snap: var(--mlv-page-snap-override, var(--mlv-page-scroll-snap))`
+   * is declared lower down — on the scrollport, or on the canvas when there
+   * isn't one — and resolves each `var()` there, inheriting the override from
+   * here. Writing it on the host rather than at each of those places is what
+   * keeps one write correct for all three scroll modes.
    */
   private _publishSnapGeometry(): void {
     const host = this._elementRef.nativeElement;
@@ -286,20 +304,14 @@ export class MlvPage {
     const progress = this._snap.progress();
     const timelineOwnsProgress =
       distance > 0 &&
+      this.scroll() !== 'content' &&
       this.snapBehavior() === 'exitUntilCollapsed' &&
       supportsScrollTimeline();
 
-    // The override belongs on the scroller, not on this host: the stylesheet
-    // reads it there, and a declaration on the scroller is what shadows the
-    // animated value for the whole subtree below it.
-    const viewport = this._viewport;
-    if (!viewport) {
-      return;
-    }
     if (timelineOwnsProgress) {
-      viewport.style.removeProperty('--mlv-page-snap-override');
+      host.style.removeProperty('--mlv-page-snap-override');
     } else {
-      viewport.style.setProperty(
+      host.style.setProperty(
         '--mlv-page-snap-override',
         String(Math.round(progress * 1000) / 1000),
       );

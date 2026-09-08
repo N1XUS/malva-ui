@@ -2,10 +2,10 @@ import {
   compositeColors,
   parseComputedColor,
   type MlvRgbaColor,
-} from './page-shell-color';
+} from './chrome-color.util';
 
-/** Stable opaque base matching the default page-shell chrome background. */
-const DEFAULT_SHELL_BACKGROUND: MlvRgbaColor = {
+/** Stable opaque base matching the default dark chrome background. */
+const DEFAULT_CHROME_BACKGROUND: MlvRgbaColor = {
   red: 23,
   green: 23,
   blue: 23,
@@ -97,7 +97,7 @@ export function resolveBackdropBackground(host: HTMLElement): MlvRgbaColor {
 
   const fallback =
     resolveCssColor(host, 'var(--mlv-palette-neutral-900)') ??
-    DEFAULT_SHELL_BACKGROUND;
+    DEFAULT_CHROME_BACKGROUND;
   return compositeColors(backdrop, fallback);
 }
 

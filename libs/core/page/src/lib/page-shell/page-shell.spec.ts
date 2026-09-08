@@ -196,31 +196,7 @@ describe('MlvPageShell', () => {
     ).toBeTruthy();
   });
 
-  it('resolves a literal background and selects its contrast foreground', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    fixture.componentInstance.color.set('#fafafa');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
-
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('rgb(250, 250, 250)');
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(0, 0, 0)');
-    expect(shell.getAttribute('style')).toContain('background');
-    expect(shell.style.backgroundColor).toBe('rgb(250, 250, 250)');
-    expect(shell.style.color).toBe('rgb(0, 0, 0)');
-  });
-
-  it('resolves a background supplied through a CSS custom property', async () => {
+  it('paints its chrome through MlvChromeColor and falls back without it', async () => {
     const fixture = TestBed.configureTestingModule({
       imports: [PageShellColorTestHost],
     }).createComponent(PageShellColorTestHost);
@@ -234,57 +210,17 @@ describe('MlvPageShell', () => {
       'mlv-page-shell',
     ) as HTMLElement;
 
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('rgb(23, 23, 23)');
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(255, 255, 255)');
-  });
-
-  it('recomputes contrast when a referenced custom property changes', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    fixture.componentInstance.brandColor.set('#171717');
-    fixture.componentInstance.color.set('var(--brand-shell)');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
-
-    fixture.componentInstance.brandColor.set('#fafafa');
-    fixture.detectChanges();
-    await fixture.whenStable();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
-
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('rgb(250, 250, 250)');
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(0, 0, 0)');
-  });
-
-  it('uses an explicit foreground instead of the automatic endpoint', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    fixture.componentInstance.color.set('#171717');
-    fixture.componentInstance.foreground.set('#00ff00');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
-
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(0, 255, 0)');
+    // The shell contributes the token remap, not the colour maths: `color` and
+    // `foreground` are the host directive's inputs under the names they always
+    // had, and what lands on the element is the directive's own contract.
+    // Resolution itself is covered in `cdk/utils` — see `chrome-color.spec.ts`.
+    expect(shell.style.getPropertyValue('--mlv-chrome-background')).toBe(
+      'rgb(23, 23, 23)',
+    );
+    expect(shell.style.getPropertyValue('--mlv-chrome-foreground')).toBe(
+      'rgb(255, 255, 255)',
+    );
+    expect(shell.style.backgroundColor).toBe('rgb(23, 23, 23)');
   });
 
   it('falls back without removing public custom-property overrides', async () => {
@@ -302,50 +238,30 @@ describe('MlvPageShell', () => {
     await waitForAnimationFrame();
     fixture.detectChanges();
 
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('');
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('');
+    // Unresolvable means *absent*, so the stylesheet's own fallback chain —
+    // and the consumer's override inside it — is what applies.
+    expect(shell.style.getPropertyValue('--mlv-chrome-background')).toBe('');
+    expect(shell.style.getPropertyValue('--mlv-chrome-foreground')).toBe('');
     expect(
       shell.style.getPropertyValue('--mlv-page-shell-chrome-background'),
     ).toBe('#123456');
   });
 
-  it('resolves a custom-property fallback value', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    fixture.componentInstance.color.set('var(--missing-shell-color, #fafafa)');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
+  it('reads the effective chrome tokens off the resolved pair', () => {
+    // The remap is the shell's actual contribution once the colour maths has
+    // moved out, so it is asserted on the compiled stylesheet rather than
+    // inferred from a computed style. `mixins.base()` emits its own
+    // `.mlv-page-shell` rule ahead of this one, so the whole sheet is read.
+    const css = sass
+      .compile(join(SHELL_DIR, 'page-shell.scss'), { style: 'expanded' })
+      .css.replace(/\s+/g, '');
 
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('rgb(250, 250, 250)');
-  });
-
-  it('measures translucent colors over the nearest ancestor background', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    (fixture.nativeElement as HTMLElement).style.backgroundColor = '#ffffff';
-    fixture.componentInstance.color.set('rgba(0, 0, 0, 0.1)');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
-
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(0, 0, 0)');
+    expect(css).toContain(
+      '--mlv-page-shell-effective-background:var(--mlv-chrome-background,var(--mlv-page-shell-chrome-background))',
+    );
+    expect(css).toContain(
+      '--mlv-page-shell-effective-foreground:var(--mlv-chrome-foreground,var(--mlv-page-shell-chrome-foreground))',
+    );
   });
 
   describe('sizing', () => {

@@ -61,7 +61,8 @@ Exported from `libs/core/page/src/index.ts`:
 | `MlvPageSnapCoordinator`       | Interface        | `@internal` — what the region base consumes                     |
 | `MlvPageSnapMode`              | Type             | `'hide' \| 'fade' \| 'keep'`                                    |
 | `MlvPageDockAppearance`        | Type             | `'bar' \| 'floating'`                                           |
-| `MlvPageScroll`                | Type             | `'auto' \| 'none'`                                              |
+| `MlvPageScroll`                | Type             | `'page' \| 'content' \| 'document'`                             |
+| `MlvPageScroller`              | Directive        | `[mlvPageScroller]`                                             |
 | `MlvPagePadding`               | Type             | `'none' \| 's' \| 'm' \| 'l'`                                   |
 | `MlvPageSurface`               | Type             | `'anchored' \| 'flat'`                                          |
 | `MlvPageHeaderSize`            | Type             | `'m' \| 's'`                                                    |
@@ -214,11 +215,34 @@ which drives it from its own measured width.
 | `foreground` | `string \| null`     | `null`     | Optional foreground override; otherwise black or white is selected from WCAG contrast.            |
 | `sizing`     | `MlvPageShellSizing` | `'parent'` | How the shell resolves its own block size. See "Sizing" above.                                    |
 
-When `color` is set, the browser resolves it in the shell's real CSS cascade.
-The component composites translucent colors over ancestor backgrounds, then
+### Chrome colour
+
+`color` and `foreground` are **not the shell's own inputs**. They belong to
+[`MlvChromeColor`](libs-utils.md#mlvchromecolor), which the shell composes
+through `hostDirectives` and aliases back to the names it always had:
+
+```ts
+hostDirectives: [
+  {
+    directive: MlvChromeColor,
+    inputs: ['mlvChromeColor: color', 'chromeForeground: foreground'],
+  },
+];
+```
+
+Nothing changes at a call site. What changes is that contrast-derived chrome is
+reachable **without adopting the whole shell** — a standalone `nav mlvActionBar`,
+a sidebar in a bespoke layout, a marketing header — which it was not while the
+colour resolution, the compositing and the ancestor `MutationObserver` lived
+inside `mlv-page-shell`.
+
+When `color` is set, the browser resolves it in the host's real CSS cascade. The
+directive composites translucent colours over what is actually behind them, then
 chooses the black or white endpoint with the higher WCAG contrast ratio. It
 recomputes when the input, a referenced custom property, or an ancestor theme
-attribute changes. Invalid or cyclic values leave the default chrome intact.
+attribute changes. Invalid or cyclic values write nothing at all — the
+properties stay **absent**, not empty, which is what lets the stylesheet's
+fallback apply.
 
 ```html
 <mlv-page-shell color="#7138d0">…</mlv-page-shell>
@@ -228,11 +252,22 @@ attribute changes. Invalid or cyclic values leave the default chrome intact.
 <mlv-page-shell color="var(--brand-shell)" foreground="var(--brand-on-shell)"> … </mlv-page-shell>
 ```
 
-Consumers can continue to override
-`--mlv-page-shell-chrome-background` and
+The resolved pair is readable as signals for a consumer painting a matching
+surface outside the shell: `shell.chrome.background()` /
+`shell.chrome.foreground()`, through the shell's public `chrome` property.
+
+The stylesheet reads the directive's two published properties with the default
+chrome as the fallback:
+
+```scss
+--mlv-page-shell-effective-background: var(--mlv-chrome-background, var(--mlv-page-shell-chrome-background));
+--mlv-page-shell-effective-foreground: var(--mlv-chrome-foreground, var(--mlv-page-shell-chrome-foreground));
+```
+
+So consumers can still override `--mlv-page-shell-chrome-background` and
 `--mlv-page-shell-chrome-foreground` directly. The `color` and `foreground`
-inputs take precedence while present; without inputs, the existing custom
-property cascade remains unchanged.
+inputs take precedence while present; without them the existing custom-property
+cascade is unchanged.
 
 ### Chrome token remap (`page-shell.scss`)
 
@@ -333,19 +368,32 @@ breakpoint neither restores focus nor emits a false close event.
 
 ## `MlvPage`
 
-`MlvPage` enhances a native `<main>` landmark and uses an internal `mlv-scrollbar` as the page scroll owner by default. It generates a unique id and sets `tabindex="-1"` so route focus management has a predictable target; set `id` explicitly when a skip link needs a stable application-level target. With `scroll="none"`, the scrollbar is disabled and **its own** viewport is clipped so a consumer-owned nested region can handle scrolling.
+`MlvPage` enhances a native `<main>` landmark. It generates a unique id and
+sets `tabindex="-1"` so route focus management has a predictable target; set
+`id` explicitly when a skip link needs a stable application-level target.
 
-Both rules the page aims at that viewport are child-scoped, and any new one must be — `.mlv-page__scrollbar > .mlv-scrollbar__viewport` (`overflow-x: hidden`, `scroll-padding-top`, `overflow-anchor: none`) and `.mlv-page--scroll-none .mlv-page__scrollbar > .mlv-scrollbar__viewport` (`overflow: clip`). Page content routinely brings its own `mlv-scrollbar` (`mlv-chat`, an external-scroller `mlv-textarea`, and the `scroll="none"` region itself), and a descendant combinator would clip those nested viewports and kill their horizontal axis for a page-level decision nobody made about them — breaking the exact composition `scroll="none"` exists for. Guarded by `libs/core/page/src/lib/page/page-nested-scrollbar.spec.ts`; `mlv-scrollbar`'s own rules were scoped the same way in issue #98, documented in that library's CLAUDE.md.
+Every rule the page aims at its own scrollport is child-scoped, and any new one
+must be — `.mlv-page__scrollbar > .mlv-scrollbar__viewport` carries
+`overflow-x: hidden`, the WCAG scroll padding and the snap progress chain, and
+`.mlv-page--snapping .mlv-page__scrollbar > .mlv-scrollbar__viewport` adds
+`overflow-anchor: none`. Page content routinely brings its own `mlv-scrollbar`
+(`mlv-chat`, an external-scroller `mlv-textarea`, and a `[mlvPageScroller]`
+pane above all), and a descendant combinator would kill those nested viewports'
+horizontal axis and take away their scroll anchoring for a page-level decision
+nobody made about them. Guarded by
+`libs/core/page/src/lib/page/page-nested-scrollbar.spec.ts`; `mlv-scrollbar`'s
+own rules were scoped the same way in issue #98, documented in that library's
+CLAUDE.md.
 
-| Input          | Type                  | Default                | Description                                                             |
-| -------------- | --------------------- | ---------------------- | ----------------------------------------------------------------------- |
-| `id`           | `string`              | generated              | Unique landmark id; may be set explicitly for skip-link targeting.      |
-| `scroll`       | `MlvPageScroll`       | `'auto'`               | Page-owned vertical scrolling or consumer-owned scrolling.              |
-| `maxWidth`     | `string \| null`      | `null`                 | Maximum width of the centered inner canvas.                             |
-| `padding`      | `MlvPagePadding`      | `'m'`                  | Responsive content inset.                                               |
-| `surface`      | `MlvPageSurface`      | `'anchored'`           | Rounded anchored canvas or flat surface.                                |
-| `stickyHeader` | `boolean`             | `true`                 | Makes a projected `mlv-page-header` sticky within the page scroll area. |
-| `snapBehavior` | `MlvPageSnapBehavior` | `'exitUntilCollapsed'` | How the collapsing top chrome answers scrolling.                        |
+| Input          | Type                  | Default                | Description                                                                                                                   |
+| -------------- | --------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `id`           | `string`              | generated              | Unique landmark id; may be set explicitly for skip-link targeting.                                                            |
+| `scroll`       | `MlvPageScroll`       | `'page'`               | Which element scrolls this page. See "Scroll modes" below.                                                                    |
+| `maxWidth`     | `string \| null`      | `null`                 | Maximum width of the centered inner canvas.                                                                                   |
+| `padding`      | `MlvPagePadding`      | `'m'`                  | Responsive content inset.                                                                                                     |
+| `surface`      | `MlvPageSurface`      | `'anchored'`           | Rounded anchored canvas or flat surface.                                                                                      |
+| `stickyHeader` | `boolean`             | `true`                 | Makes a projected `mlv-page-header` sticky within the page scroll area. The page owns this; the header has no `sticky` input. |
+| `snapBehavior` | `MlvPageSnapBehavior` | `'exitUntilCollapsed'` | How the collapsing top chrome answers scrolling.                                                                              |
 
 `MlvPage` also exposes its snap controller as a `snap` getter, so a component
 that only _hosts_ the page (and therefore cannot inject the controller) can
@@ -369,6 +417,89 @@ alternative: `overflow` there makes `__inner` the nearest scroll container for
 the sticky header, and `__inner` scrolls with the content, so the header would
 stop sticking — and every inline-rendered overlay would be cut off at the canvas
 edge.
+
+### Scroll modes (`scroll`)
+
+Which element scrolls decides which one the geometry contract measures, which
+one scrubs the collapse timeline, and which one `expand()` returns to. It is one
+input with three values, and the page never guesses.
+
+| `scroll`           | Page box                       | Scrollport                     | Collapse timeline                                  |
+| ------------------ | ------------------------------ | ------------------------------ | -------------------------------------------------- |
+| `'page'` (default) | bounded, `overflow: clip`      | its own `mlv-scrollbar`        | CSS `scroll(self block)` on that viewport          |
+| `'content'`        | bounded, `overflow: clip`      | **none** unless donated        | only from a `[mlvPageScroller]` pane, driven in JS |
+| `'document'`       | natural flow, as tall as it is | the document scrolling element | CSS `scroll(root block)`                           |
+
+**`'page'`** is the application-canvas case: chrome sticks inside the page's own
+scrollport, so a shell can put a topbar and two sidebars around it and the page
+still owns one bounded scroll area.
+
+**`'content'`** is the bounded-layout case — a full-height data table, a split
+pane, a canvas that scrolls itself. Chrome sits in auto flex tracks and
+everything else shares the remaining space, so the body gets a definite box to
+fill. There is **no page scrollbar component, no scroll listener and no
+scrollport registration**: the previous `scroll="none"` rendered an
+`mlv-scrollbar` and then disabled it, which left a live component with its full
+observer set, a listener that could never fire, and a permanently zero scroll
+offset feeding the geometry contract and the snap timeline.
+
+Nothing is inferred from the DOM. A composed page routinely contains several
+scrollers, so "the first overflowing descendant" would pick `mlv-chat` as often
+as the pane the author meant. A pane that wants to drive the timeline says so:
+
+```html
+<main mlvPage scroll="content">
+  <mlv-page-header>…</mlv-page-header>
+  <mlv-scrollbar mlvPageScroller>…</mlv-scrollbar>
+</main>
+```
+
+**`'document'`** is the marketing / long-form case: the page keeps no definite
+block size, so it is exactly as tall as its content and sticky chrome sticks to
+the viewport. The document element becomes the scrollport for every purpose —
+measurement, scroll offset, `expand()` — with two deliberate asymmetries. Its
+`scroll` event is delivered on the **document**, not on the element, which is
+why the scrollport binding carries an event target separately from its scroller;
+and it is **not** registered with the CDK `ScrollDispatcher`, which already
+watches the window for exactly this scroller, so registering it would make every
+overlay in the document count one scroll twice.
+
+One thing document mode does not do for you: `scroll-padding-block-start` on the
+root scroller (WCAG 2.2 SC 2.4.11) has to be declared on `html`, which is not
+the page's element to write. Add it in the consuming application if the page
+carries sticky chrome.
+
+### `MlvPageScroller` (`[mlvPageScroller]`)
+
+Donates a consumer-owned pane's scroll to the page it is inside. It takes no
+inputs — registering _is_ the API — and makes that pane the page's scrollport
+for every purpose at once: measured for `--mlv-page-available-block-size`, read
+into `MlvPageGeometry.scrollTop`, scrubbing the snap timeline, the element
+`expand()` scrolls back to the top, and registered with the CDK
+`ScrollDispatcher` so overlays anchored inside it reposition on its scroll. A
+scroller that did three of those five would be one that silently half-works,
+which is why they are one registration and not five.
+
+On an `mlv-scrollbar` it registers that component's **viewport**, not its host —
+the host is not the element that scrolls. On anything else the host is
+registered as-is; give it a definite block size and an `overflow` of its own.
+
+It requires `scroll="content"`. Inside a `'page'` or `'document'` page the
+scrollport is already taken, and two of them would fight over one
+`registerScrollport` slot and one `expand()` target, so the directive warns in
+dev and registers nothing rather than half-connecting. Only one pane per page
+should carry it.
+
+### Scroll anchoring
+
+`overflow-anchor: none` on the page scrollport is **not** a default page policy.
+It is compensation for the snap timeline resizing the top chrome, which would
+otherwise feed the adjusted `scrollTop` back into the progress until it ran away
+to 0 or 1. Anchoring is a real accessibility feature — it keeps a reader's place
+when content above them resizes — so the page spends it only while it has a
+timeline to protect: the rule is scoped to `mlv-page--snapping`, a host class
+that follows the measured `collapseDistance`. A page whose chrome collapses by
+nothing keeps the browser's own place-keeping.
 
 ### Chrome surface (glass)
 
@@ -750,7 +881,6 @@ anything after it sits at the trailing edge.
 
 | Input          | Type                     | Default           | Description                                                                |
 | -------------- | ------------------------ | ----------------- | -------------------------------------------------------------------------- |
-| `sticky`       | `boolean`                | `false`           | Makes this header sticky independently of `MlvPage`.                       |
 | `size`         | `MlvPageHeaderSize`      | `'m'`             | `'s'` renders the compact record-editor header with a smaller title scale. |
 | `tabsAlign`    | `MlvPageHeaderTabsAlign` | `'start'`         | Centers the tabs row when `'center'`.                                      |
 | `snapControls` | `boolean`                | `false`           | Shows the expand chevron in the title row once the chrome is snapped.      |

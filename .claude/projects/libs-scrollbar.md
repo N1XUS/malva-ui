@@ -294,7 +294,7 @@ of its parts. All of them were descendant-combined and all were scoped in issue
 
 | Rule                                      | Selector                                                                            | What a leak did                                                                                                                                                                                                                                                                            |
 | ----------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Disabled hides the track                  | `.mlv-scrollbar--disabled > .mlv-scrollbar__track`                                  | `main[mlvPage] scroll="none"` sets `[disabled]` on the page scrollbar, stripping the track off every nested one — and an `mlv-textarea` also suppresses its native bar, so its content scrolled with none.                                                                                 |
+| Disabled hides the track                  | `.mlv-scrollbar--disabled > .mlv-scrollbar__track`                                  | A consumer disables an outer scrollbar so a nested region can own the scrolling; a descendant combinator stripped the track off every nested one — and an `mlv-textarea` also suppresses its native bar, so its content scrolled with none.                                                |
 | Disabled restores the native bar          | `.mlv-scrollbar--disabled > .mlv-scrollbar__viewport` (+ its `::-webkit-scrollbar`) | Compounded with the row above: a nested scrollbar lost its themed track and got handed an unthemed OS bar in the same breath.                                                                                                                                                              |
 | External frees the viewport               | `.mlv-scrollbar--external > .mlv-scrollbar__viewport`                               | Turned a nested viewport into a non-scrolling, non-clipping box whose tracks never left `--hidden`. Latent — `mlv-textarea` is the only `[scroller]` consumer — but `[scroller]` is public API.                                                                                            |
 | Thumb ramp (hover / scrolling / dragging) | `… > .mlv-scrollbar__track > .mlv-scrollbar__thumb` — the thumb is a **grandchild** | Painted every nested thumb with the outer scrollbar's state. `:hover` outranks an inner `--scrolling` / `--dragging`, so it _overrode_ the nested scrollbar's own appearance; `--dragging` is the only rule that sets `--mlv-sb-thumb-bg` and `cursor: grabbing`, which nothing wins back. |
@@ -311,9 +311,9 @@ Two rules of this shape live outside this library and were scoped with them,
 both in `libs/core/page/src/lib/page/page.scss`:
 `.mlv-page__scrollbar > .mlv-scrollbar__viewport` (`overflow-x: hidden`, which
 otherwise killed the horizontal axis of every nested scrollbar on a page) and
-`.mlv-page--scroll-none .mlv-page__scrollbar > .mlv-scrollbar__viewport`
-(`overflow: clip`, which otherwise left the very region `scroll="none"` exists
-to empower unable to scroll).
+`.mlv-page--snapping .mlv-page__scrollbar > .mlv-scrollbar__viewport`
+(`overflow-anchor: none`, which otherwise took scroll anchoring away from every
+nested scroller for a fact about the page's own collapse timeline).
 
 The two thumb _axis_ rules (`.mlv-scrollbar__track--vertical .mlv-scrollbar__thumb`
 and its horizontal twin) keep their descendant combinators on purpose: projected

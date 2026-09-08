@@ -25,6 +25,13 @@ import { MLV_PAGE_HEADER_STATE } from './page-header-state';
 import type { MlvPageHeaderState } from './page-header-state';
 import { MlvPageTitle } from './page-header.directives';
 
+/**
+ * The header never pins itself: `followsChromeDefault` hands that decision to
+ * the page, which owns the scrollport. Module-level so every header shares one
+ * node instead of allocating a constant signal each.
+ */
+const NEVER_STICKY_ON_ITS_OWN = signal(false).asReadonly();
+
 /** Visual scale of the page header. */
 export type MlvPageHeaderSize = 'm' | 's';
 
@@ -73,7 +80,6 @@ export type MlvPageHeaderTabsAlign = 'start' | 'center';
   host: {
     class: 'mlv-page-header',
     'data-slot': 'page-header',
-    '[class.mlv-page-header--sticky]': 'sticky()',
     '[class.mlv-page-header--size-s]': 'size() === "s"',
     '[class.mlv-page-header--tabs-center]': 'tabsAlign() === "center"',
     '[class.mlv-page-header--scrolled]': '_scrolled()',
@@ -82,11 +88,6 @@ export type MlvPageHeaderTabsAlign = 'start' | 'center';
   },
 })
 export class MlvPageHeader implements MlvPageHeaderState {
-  /** Makes this header sticky independently of the containing page. */
-  readonly sticky = input<boolean, BooleanInput>(false, {
-    transform: coerceBooleanProperty,
-  });
-
   /**
    * Visual scale. `'m'` is the default hero header; `'s'` is the compact
    * single-row variant for record-editor pages, with a smaller title scale.
@@ -251,13 +252,19 @@ export class MlvPageHeader implements MlvPageHeaderState {
 
     // The header is the page's block-start chrome. It registers rather than
     // being found by a selector, so a header rendered by an `@if` or wrapped
-    // in a `<form>` publishes its geometry like any other. `followsChromeDefault`
-    // because `main[mlvPage][stickyHeader]` makes it sticky without its own
-    // `sticky` input being set.
+    // in a `<form>` publishes its geometry like any other.
+    //
+    // `sticky` is a constant `false` and `followsChromeDefault` is what
+    // actually decides: whether the header sticks is the *page's* call, because
+    // the page owns the scrollport it would stick to. The header used to carry
+    // a duplicate `sticky` input, which could disagree with
+    // `main[mlvPage] [stickyHeader]` in either direction — a header that
+    // painted itself sticky over a scrollport reserving no clearance for it, or
+    // the reverse.
     registerPageRegion({
       element: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
       edge: 'block-start',
-      sticky: this.sticky,
+      sticky: NEVER_STICKY_ON_ITS_OWN,
       followsChromeDefault: true,
     });
   }

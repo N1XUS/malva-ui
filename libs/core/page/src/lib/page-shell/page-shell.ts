@@ -1,6 +1,5 @@
 import {
   afterNextRender,
-  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -13,15 +12,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { fromEvent } from 'rxjs';
-import {
-  chooseContrastForeground,
-  compositeColors,
-  toCssColor,
-} from './page-shell-color';
-import {
-  resolveBackdropBackground,
-  resolveCssColor,
-} from './page-shell-css-color';
+import { MlvChromeColor } from '@malva-ui/cdk/utils';
 
 /**
  * How the shell resolves its own block size.
@@ -40,11 +31,21 @@ export type MlvPageShellSizing = 'parent' | 'viewport' | 'content';
  * Application-page shell that joins global top navigation, one or two sidebars,
  * and the Page canvas without taking ownership of their component behaviour.
  *
- * The shell owns the definite block size that everything sticky inside it
- * resolves against — the page's own scrollport, the sidebar rails, the header,
- * the dock, a sticky aside. Without one they all silently do nothing, so the
- * mode is an input rather than something each consumer re-derives with a
- * viewport unit and a hand-measured subtraction.
+ * The shell owns exactly two things, and deliberately not a third:
+ *
+ * 1. **A definite block size**, which is what everything sticky inside it
+ *    resolves against — the page's own scrollport, the sidebar rails, the
+ *    header, the dock, a sticky aside. Without one they all silently do
+ *    nothing, so the mode is an input rather than something each consumer
+ *    re-derives with a viewport unit and a hand-measured subtraction.
+ * 2. **The chrome token remap** in its stylesheet, keyed on the classes the
+ *    slot directives apply.
+ *
+ * The colour work is *not* the shell's. `color` and `foreground` are
+ * {@link MlvChromeColor}'s inputs, exposed here under the names they always
+ * had: contrast-derived chrome is useful on any dark surface — a standalone
+ * action bar, a sidebar in a bespoke layout, a marketing header — and welding
+ * it into this component made it reachable only by adopting the whole shell.
  */
 @Component({
   selector: 'mlv-page-shell',
@@ -52,6 +53,12 @@ export type MlvPageShellSizing = 'parent' | 'viewport' | 'content';
   styleUrl: './page-shell.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  hostDirectives: [
+    {
+      directive: MlvChromeColor,
+      inputs: ['mlvChromeColor: color', 'chromeForeground: foreground'],
+    },
+  ],
   host: {
     class: 'mlv-page-shell',
     'data-slot': 'page-shell',
@@ -59,10 +66,6 @@ export type MlvPageShellSizing = 'parent' | 'viewport' | 'content';
     '[class.mlv-page-shell--sizing-viewport]': 'sizing() === "viewport"',
     '[class.mlv-page-shell--sizing-content]': 'sizing() === "content"',
     '[style.--mlv-page-shell-viewport-inset-block-start]': '_viewportInset()',
-    '[style.--mlv-page-shell-resolved-background]': '_resolvedBackground()',
-    '[style.--mlv-page-shell-resolved-foreground]': '_resolvedForeground()',
-    '[style.background]': '_resolvedBackground()',
-    '[style.color]': '_resolvedForeground()',
   },
 })
 export class MlvPageShell {
@@ -70,22 +73,12 @@ export class MlvPageShell {
    * How the shell resolves its own block size. See {@link MlvPageShellSizing}.
    */
   readonly sizing = input<MlvPageShellSizing>('parent');
-  /**
-   * Optional CSS color for the shell chrome background.
-   * Browser-resolved values such as `var(--brand-color)` are supported.
-   */
-  readonly color = input<string | null>(null);
 
   /**
-   * Optional CSS color overriding the automatically selected chrome foreground.
+   * The resolved chrome colours, for a consumer that wants to paint a matching
+   * surface outside the shell. Both signals are `null` while no `color` is set.
    */
-  readonly foreground = input<string | null>(null);
-
-  /** @protected Browser-resolved background applied through the host style. */
-  protected readonly _resolvedBackground = signal<string | null>(null);
-
-  /** @protected Browser-resolved foreground applied through the host style. */
-  protected readonly _resolvedForeground = signal<string | null>(null);
+  readonly chrome = inject(MlvChromeColor);
 
   /**
    * @protected Distance in pixels from the top of the viewport to the shell's
@@ -104,26 +97,13 @@ export class MlvPageShell {
   /** @private Writable source behind {@link _viewportInset}. */
   private readonly _measuredViewportInset = signal(0);
 
-  /** @private Native shell host used as the CSS inheritance context. */
+  /** @private Native shell host, measured for the viewport inset. */
   private readonly _host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  /** @private Angular destruction hook for frame and observer cleanup. */
+  /** @private Angular destruction hook for the resize subscription. */
   private readonly _destroyRef = inject(DestroyRef);
 
-  /** @private Identifier of the pending color-resolution animation frame. */
-  private _resolutionFrameId: number | null = null;
-
-  /** @private Watches theme and custom-property changes in the shell cascade. */
-  private _mutationObserver: MutationObserver | null = null;
-
   constructor() {
-    afterRenderEffect(() => {
-      this.color();
-      this.foreground();
-      this._startColorObservation();
-      this._scheduleColorResolution();
-    });
-
     afterNextRender(() => {
       this._measureViewportInset();
       const view = this._host.nativeElement.ownerDocument.defaultView;
@@ -136,14 +116,6 @@ export class MlvPageShell {
       fromEvent(view, 'resize')
         .pipe(takeUntilDestroyed(this._destroyRef))
         .subscribe(() => this._measureViewportInset());
-    });
-
-    this._destroyRef.onDestroy(() => {
-      this._mutationObserver?.disconnect();
-      const view = this._host.nativeElement.ownerDocument.defaultView;
-      if (this._resolutionFrameId !== null && view) {
-        view.cancelAnimationFrame(this._resolutionFrameId);
-      }
     });
   }
 
@@ -169,86 +141,5 @@ export class MlvPageShell {
     }
     const top = host.getBoundingClientRect().top + view.scrollY;
     this._measuredViewportInset.set(Math.max(0, Math.round(top * 100) / 100));
-  }
-
-  /**
-   * @private Observes the shell and its ancestors for cascade-affecting
-   * attribute changes. One observer can watch every node in the chain.
-   */
-  private _startColorObservation(): void {
-    if (this._mutationObserver) {
-      return;
-    }
-
-    const host = this._host.nativeElement;
-    const view = host.ownerDocument.defaultView;
-    if (!view || typeof view.MutationObserver === 'undefined') {
-      return;
-    }
-
-    this._mutationObserver = new view.MutationObserver(() => {
-      this._scheduleColorResolution();
-    });
-
-    let current: HTMLElement | null = host;
-    while (current) {
-      this._mutationObserver.observe(current, {
-        attributes: true,
-        attributeFilter: [
-          'class',
-          'style',
-          'mlvtheme',
-          'mlvTheme',
-          'data-theme',
-        ],
-      });
-      current = current.parentElement;
-    }
-  }
-
-  /**
-   * @private Coalesces CSS reads and signal writes into the next render frame.
-   */
-  private _scheduleColorResolution(): void {
-    if (this._resolutionFrameId !== null) {
-      return;
-    }
-
-    const view = this._host.nativeElement.ownerDocument.defaultView;
-    if (!view) {
-      return;
-    }
-
-    this._resolutionFrameId = view.requestAnimationFrame(() => {
-      this._resolutionFrameId = null;
-      this._resolveColors();
-    });
-  }
-
-  /**
-   * @private Resolves the input colors and updates the internal host variables.
-   */
-  private _resolveColors(): void {
-    const host = this._host.nativeElement;
-    const background = resolveCssColor(host, this.color());
-    const explicitForeground = resolveCssColor(host, this.foreground());
-
-    this._resolvedBackground.set(background ? toCssColor(background) : null);
-
-    if (explicitForeground) {
-      this._resolvedForeground.set(toCssColor(explicitForeground));
-      return;
-    }
-
-    if (!background) {
-      this._resolvedForeground.set(null);
-      return;
-    }
-
-    const effectiveBackground =
-      background.alpha < 1
-        ? compositeColors(background, resolveBackdropBackground(host))
-        : background;
-    this._resolvedForeground.set(chooseContrastForeground(effectiveBackground));
   }
 }

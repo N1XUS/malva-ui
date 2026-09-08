@@ -38,12 +38,6 @@
     box-shadow: var(--mlv-shadow-raised);
     transition: box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
 
-    &--sticky {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
     // Sticky snap affordance: once the owning page scrolls, the floating chrome
     // detaches with a deeper shadow.
     &--scrolled {

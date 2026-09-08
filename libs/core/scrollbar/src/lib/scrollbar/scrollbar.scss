@@ -87,10 +87,10 @@
     // Disabled: hide custom tracks, restore native scrollbar on viewport.
     //
     // Child combinators throughout: `disabled` is a statement about *this*
-    // scrollbar, and `main[mlvPage] scroll="none"` sets it on the page
-    // scrollbar precisely so a nested region can own the scrolling instead.
-    // A descendant combinator would then strip the tracks off that region —
-    // and off every other nested scrollbar — for a state nobody set on them.
+    // scrollbar. A consumer disables an outer one precisely so that a region
+    // nested inside it owns the scrolling instead, and a descendant combinator
+    // would then strip the tracks off that region — and off every other nested
+    // scrollbar — for a state nobody set on them.
     &--disabled {
       > .#{$block}__track {
         display: none;

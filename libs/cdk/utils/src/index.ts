@@ -18,3 +18,4 @@ export * from './lib/navigation/nav-item';
 export * from './lib/normalize-for-match';
 export * from './lib/default-compare-with';
 export * from './lib/rtl/rtl.service';
+export * from './lib/chrome/chrome-color';

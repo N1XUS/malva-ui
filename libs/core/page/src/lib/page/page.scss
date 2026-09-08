@@ -87,8 +87,9 @@
     // The page's *own* scrollbar viewport, never a nested one: these are
     // page-level scroll decisions, and `overflow-x: hidden` on a projected
     // `mlv-chat` or `orientation="both"` scrollbar would silently kill its
-    // horizontal axis. Same shape as the `scroll="none"` clip below and as the
-    // child combinators in `mlv-scrollbar`'s own stylesheet (issue #98).
+    // horizontal axis — the exact composition `scroll="content"` exists for.
+    // Same shape as the child combinators in `mlv-scrollbar`'s own stylesheet
+    // (issue #98).
     &__scrollbar > .mlv-scrollbar__viewport {
       overflow-x: hidden;
       // WCAG 2.2 SC 2.4.11 (Focus Not Obscured, AA) names sticky headers
@@ -104,11 +105,6 @@
         var(--mlv-page-sticky-inset-block-start)
       );
       scroll-padding-block-end: var(--mlv-page-sticky-inset-block-end);
-      // Scroll anchoring would auto-adjust scrollTop while the snap timeline
-      // resizes the top chrome, feeding the scroll position back into the
-      // progress until it runs away to 0 or 1. The snap spacer keeps geometry
-      // stable instead.
-      overflow-anchor: none;
 
       // The progress every chrome region reads. Declared *here*, on the
       // scroller, for two reasons: an anonymous scroll timeline resolves
@@ -124,6 +120,20 @@
         --mlv-page-snap-override,
         var(--mlv-page-scroll-snap, 0)
       );
+    }
+
+    // Scroll anchoring auto-adjusts `scrollTop` when content above the reader
+    // resizes — which is exactly what the snap timeline does to the top
+    // chrome, feeding the scroll position back into the progress until it runs
+    // away to 0 or 1. So it is suppressed *while there is a timeline*, and not
+    // one moment longer: a page whose chrome collapses by nothing keeps the
+    // browser's own place-keeping, which is a real accessibility feature and
+    // never was the page's to spend. `--snapping` follows the measured
+    // `collapseDistance`, so it switches itself off on a page with no
+    // collapsing chrome at all.
+    &--snapping &__scrollbar > .mlv-scrollbar__viewport,
+    &--snapping.#{$block}--scroll-document > &__inner {
+      overflow-anchor: none;
     }
 
     // Firefox has not shipped scroll-driven animations and Safari only did in
@@ -150,6 +160,37 @@
       // between its two ends instead of scrubbing.
       @media (prefers-reduced-motion: reduce) {
         &__scrollbar > .mlv-scrollbar__viewport {
+          animation-timing-function: steps(2, jump-none);
+        }
+      }
+    }
+
+    // Without a scrollport of its own the page has no element between the host
+    // and the canvas to declare the progress chain on, so the canvas declares
+    // it. `document` reads the value the timeline below animates here;
+    // `content` has no CSS timeline at all and always reads the override.
+    &--scroll-content > &__inner,
+    &--scroll-document > &__inner {
+      --mlv-page-snap: var(
+        --mlv-page-snap-override,
+        var(--mlv-page-scroll-snap, 0)
+      );
+    }
+
+    // A document-scrolled page is scrubbed by the *root* scroller, which is
+    // what `scroll(root block)` names — `self` would resolve against the page's
+    // own scroll container, and a page in document flow has none.
+    @supports (animation-timeline: scroll()) {
+      &--scroll-document > &__inner {
+        animation-name: mlv-page-snap-scrub;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: scroll(root block);
+        animation-range: 0 var(--mlv-page-snap-range, 0px);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        &--scroll-document > &__inner {
           animation-timing-function: steps(2, jump-none);
         }
       }
@@ -192,21 +233,47 @@
       border-radius: 0;
     }
 
-    &--scroll-auto {
+    // ── Scroll modes ────────────────────────────────────────────────────────
+    // `page` and `content` are both bounded boxes; they differ in whether the
+    // page renders a scrollport inside that box. `document` is neither — it is
+    // the page declining to bound itself at all.
+    &--scroll-page,
+    &--scroll-content {
       overflow: clip;
     }
 
-    &--scroll-none {
-      overflow: clip;
+    // No scrollport of the page's own: the chrome sits in auto tracks and
+    // whatever else is projected shares the remaining space, which is what
+    // gives a fixed-height table or a split pane a definite box to fill. The
+    // `:not()` is how "the body" is identified without the page having to know
+    // what the consumer projected — chrome names itself, everything else is
+    // body. Two body children share the track; that is the consumer's layout.
+    &--scroll-content > &__inner {
+      display: flex;
+      flex-direction: column;
+      block-size: 100%;
+      min-block-size: 0;
     }
 
-    // The page's *own* scrollbar viewport, never a nested one. `scroll="none"`
-    // hands scrolling to a consumer-owned region inside the page, and that
-    // region routinely is (or contains) another `mlv-scrollbar` — clipping its
-    // viewport too would leave it unable to scroll at all. Same shape as the
-    // child combinators in `mlv-scrollbar`'s own stylesheet (issue #98).
-    &--scroll-none &__scrollbar > .mlv-scrollbar__viewport {
-      overflow: clip;
+    &--scroll-content > &__inner > * {
+      flex: 0 0 auto;
+      min-block-size: 0;
+    }
+
+    &--scroll-content
+      > &__inner
+      > :not(.mlv-page-header, .mlv-page-summary, .mlv-page-dock) {
+      flex: 1 1 auto;
+    }
+
+    // Natural document flow. The page keeps no definite block size of its own,
+    // so `min-height: 100%` on the canvas resolves against an indefinite parent
+    // and computes to `auto` — the page is exactly as tall as its content, and
+    // sticky chrome sticks to the viewport rather than to a scrollport.
+    &--scroll-document {
+      display: block;
+      flex: 0 0 auto;
+      overflow: visible;
     }
 
     // Each modifier sets only the scalar; `&__inner` above derives both axes

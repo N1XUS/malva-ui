@@ -450,10 +450,9 @@ describe('MlvScrollbar — a host state does not leak into a nested scrollbar', 
   });
 
   it("leaves a nested scrollbar's track alone while the outer one is disabled", () => {
-    // `main[mlvPage] scroll="none"` binds `[disabled]` on the page scrollbar
-    // *so that* a consumer-owned nested region can own the scrolling
-    // (`libs/core/page/CLAUDE.md`). Stripping that region's track is therefore
-    // the opposite of what the flag is for — and with `mlv-textarea` the field
+    // A consumer disables an outer scrollbar *so that* a region nested inside
+    // it can own the scrolling. Stripping that region's track is therefore the
+    // opposite of what the flag is for — and with `mlv-textarea` the field
     // suppresses its own native bar, so the content would scroll with no
     // visible scrollbar at all: issue #90 all over again.
     outerHostEl.classList.add('mlv-scrollbar--disabled');

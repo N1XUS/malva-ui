@@ -7,14 +7,18 @@
   .#{$block} {
     @include mixins.base();
 
+    // `--mlv-chrome-*` is written by `MlvChromeColor`, the host directive that
+    // resolves `color` in this element's own cascade and picks a readable
+    // foreground for it. Absent — not empty — while no colour is set, so these
+    // fallbacks are what the default chrome is.
     --mlv-page-shell-chrome-background: var(--mlv-palette-neutral-900);
     --mlv-page-shell-chrome-foreground: var(--mlv-palette-neutral-50);
     --mlv-page-shell-effective-background: var(
-      --mlv-page-shell-resolved-background,
+      --mlv-chrome-background,
       var(--mlv-page-shell-chrome-background)
     );
     --mlv-page-shell-effective-foreground: var(
-      --mlv-page-shell-resolved-foreground,
+      --mlv-chrome-foreground,
       var(--mlv-page-shell-chrome-foreground)
     );
 

@@ -110,7 +110,7 @@ describe('PageAppShellExampleComponent', () => {
       'mlv-page-shell',
     ) as HTMLElement;
 
-    expect(shell.color()).toBe('var(--mlv-demo-shell-color)');
+    expect(shell.chrome.mlvChromeColor()).toBe('var(--mlv-demo-shell-color)');
     expect(shellElement.style.getPropertyValue('--mlv-demo-shell-color')).toBe(
       '#7138d0',
     );
@@ -207,7 +207,7 @@ describe('PageAppShellExampleComponent', () => {
     const shellElement = fixture.nativeElement.querySelector(
       'mlv-page-shell',
     ) as HTMLElement;
-    expect(shell.color()).toBeNull();
+    expect(shell.chrome.mlvChromeColor()).toBeNull();
     expect(shellElement.style.getPropertyValue('--mlv-demo-shell-color')).toBe(
       '',
     );
@@ -225,7 +225,7 @@ describe('PageAppShellExampleComponent', () => {
     customButton.click();
     fixture.detectChanges();
 
-    expect(shell.color()).toBe('var(--mlv-demo-shell-color)');
+    expect(shell.chrome.mlvChromeColor()).toBe('var(--mlv-demo-shell-color)');
     expect(component.shellColor()).toBe('#2468ac');
   });
 
