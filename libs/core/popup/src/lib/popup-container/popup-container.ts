@@ -114,7 +114,7 @@ export class MlvPopupContainer implements OnDestroy, MlvPopupContainerRef {
     popup.animationState.set('idle');
 
     this._handle = this._popupService.open({
-      origin: this._triggerOrigin ?? this._elementRef,
+      origin: this._resolveOrigin(),
       template: popup.popupTemplate(),
       vcr: this._vcr,
       positions: popup.resolvedPositions(),
@@ -159,6 +159,30 @@ export class MlvPopupContainer implements OnDestroy, MlvPopupContainerRef {
     queueMicrotask(() => popup.beginEnterAnimation());
 
     popup.afterOpened.emit();
+  }
+
+  /**
+   * @private The element this open anchors to: the registered trigger when it
+   * is still in the document, otherwise the container host.
+   *
+   * `registerTrigger` has no unregister, so a stale origin outlives the trigger
+   * that registered it. A detached element does not throw when CDK measures it
+   * — `getBoundingClientRect()` answers all zeros — so
+   * `FlexibleConnectedPositionStrategy` resolves a position against 0,0 and
+   * puts the panel in the top-left corner of the viewport, silently (#225).
+   * Falling back keeps the panel on its container instead.
+   *
+   * The predicate is `isConnected` — still in the **document**, not still
+   * rendered. A trigger hidden with `display: none` on itself or an ancestor
+   * stays connected and still measures an all-zero rect, so the fallback does
+   * not fire for it. That is deliberate: widening the test to
+   * `getClientRects().length > 0` would silently relocate panels anchored to
+   * intentionally 0×0 elements, which is an established positioning pattern.
+   */
+  private _resolveOrigin(): ElementRef {
+    const trigger = this._triggerOrigin;
+    const el = trigger?.nativeElement as Element | undefined;
+    return trigger && el?.isConnected ? trigger : this._elementRef;
   }
 
   /** @private Marks the container as closing and triggers the popup's leave animation. */
