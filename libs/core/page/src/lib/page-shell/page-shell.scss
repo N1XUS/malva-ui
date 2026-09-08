@@ -94,12 +94,80 @@
     // unconditionally; that the shell had to patch them by hand is why the
     // over-content state is now something a bar *knows* rather than something
     // its host removes.
+    // Structural, and true of every topbar the shell hosts — a themed one too.
     &__topbar.mlv-action-bar {
+      min-height: 3.25rem;
+    }
+
+    // Colour derivation, withdrawn from a bar the consumer has scoped to its own
+    // theme for the reason the sidebar remap below carries the same guard: every
+    // value here reads `--mlv-page-shell-effective-*`, declared on the shell host
+    // and therefore already substituted in the document's theme scope.
+    //
+    // The `--mlv-action-bar-*` trio colours the bar's own surface. The tokens
+    // after it colour what the consumer projects *into* it, which the bar's own
+    // `color` cannot reach: a `<strong>`, an `mlv-badge`, an `mlv-avatar` and a
+    // `variant="transparent"` `mlvButton` each resolve their own theme token, so
+    // on an unremapped chrome topbar they rendered page-surface colours on the
+    // frame — measured `--mlv-text-primary: #171717` for the product name and
+    // `--mlv-text-secondary: rgb(82,82,82)` for the nav buttons, both near-black
+    // on a saturated brand purple. Consumers were papering over it by reaching
+    // for `mlv-action-bar[contrast]`, whose child re-tokenization made the text
+    // readable and whose glass shadow then smeared down over the rails.
+    //
+    // Same percentages as the sidebar remap, and for the same SF-R2/SL-R5
+    // reasons: state fills mix against the chrome's own background, never
+    // `transparent`, and stay under the field-fill/border mixes.
+    &__topbar.mlv-action-bar:not([mlvTheme]) {
       --mlv-action-bar-bg: var(--mlv-page-shell-effective-background);
       --mlv-action-bar-fg: var(--mlv-page-shell-effective-foreground);
       --mlv-action-bar-border: transparent;
 
-      min-height: 3.25rem;
+      --mlv-text-primary: var(--mlv-page-shell-effective-foreground);
+      --mlv-text-secondary: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 78%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-text-tertiary: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 60%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-text-action: var(--mlv-page-shell-effective-foreground);
+      --mlv-background-neutral-1: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-background-neutral-1-hover: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-background-neutral-1-active: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 12%,
+        var(--mlv-page-shell-effective-background)
+      );
+      // `--mlv-text-on-selected` is declared once per theme block as
+      // `var(--mlv-text-action)`, so it resolves at the document root and
+      // remapping `--mlv-text-action` here never reaches it — a selected tab or
+      // segmented item in the bar would keep the theme accent on a chrome-derived
+      // pill. Same finding as the sidebar's active row; it has to be remapped in
+      // its own right.
+      --mlv-text-on-selected: var(--mlv-page-shell-effective-foreground);
+      --mlv-background-selected: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 12%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-background-selected-hover: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-border-focus: var(--mlv-page-shell-effective-foreground);
     }
 
     &__body {

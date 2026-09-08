@@ -127,6 +127,95 @@ describe('page shell sidebar chrome remap', () => {
 });
 
 /**
+ * Chrome remap for a topbar projected into `mlv-page-shell`.
+ *
+ * The bar's own `color` cannot reach what the consumer projects into it: a
+ * `<strong>`, an `mlv-badge`, an `mlv-avatar` and a `variant="transparent"`
+ * `mlvButton` each resolve their own theme token, so on an unremapped chrome
+ * topbar they painted page-surface colours on the frame — measured
+ * `--mlv-text-primary: #171717` for the product name and
+ * `rgb(82, 82, 82)` for the nav buttons, both near-black on a brand purple.
+ */
+describe('page shell topbar chrome remap', () => {
+  const TOPBAR_RULE = '.mlv-page-shell__topbar.mlv-action-bar:not([mlvTheme]){';
+
+  const css = sass
+    .compile(join(SHELL_DIR, 'page-shell.scss'), { style: 'expanded' })
+    .css.replace(/\s+/g, '');
+
+  const index = css.indexOf(TOPBAR_RULE);
+  const declarations =
+    index === -1
+      ? ''
+      : css.slice(
+          index + TOPBAR_RULE.length,
+          css.indexOf('}', index + TOPBAR_RULE.length),
+        );
+
+  it('emits the topbar rule', () => {
+    expect(index, `rule \`${TOPBAR_RULE}\` not found`).toBeGreaterThan(-1);
+  });
+
+  it('remaps the foregrounds a projected child resolves for itself', () => {
+    expect(declarations).toContain(
+      '--mlv-text-primary:var(--mlv-page-shell-effective-foreground);',
+    );
+    expect(declarations).toContain(
+      '--mlv-text-action:var(--mlv-page-shell-effective-foreground);',
+    );
+    expect(declarations).toContain(`--mlv-text-secondary:${tint(78)};`);
+    expect(declarations).toContain(`--mlv-text-tertiary:${tint(60)};`);
+    expect(declarations).toContain(
+      '--mlv-border-focus:var(--mlv-page-shell-effective-foreground);',
+    );
+  });
+
+  // Same percentages as the sidebar's row states, and bound by the same
+  // SF-R2/SL-R5 rule — a chrome-projected `variant="transparent"` button
+  // otherwise keeps the theme's grey pill on the chrome colour.
+  it('remaps the neutral interactive ramp', () => {
+    expect(declarations).toContain(`--mlv-background-neutral-1:${tint(8)};`);
+    expect(declarations).toContain(
+      `--mlv-background-neutral-1-hover:${tint(8)};`,
+    );
+    expect(declarations).toContain(
+      `--mlv-background-neutral-1-active:${tint(12)};`,
+    );
+  });
+
+  /**
+   * `--mlv-text-on-selected` is declared once per theme block as
+   * `var(--mlv-text-action)`, so it resolves at the document root and remapping
+   * `--mlv-text-action` on the bar never reaches it. A selected tab or
+   * segmented item in the bar would keep the theme accent on a chrome-derived
+   * pill — the same finding as the sidebar's active row.
+   */
+  it('remaps the selected-state pair so an active tab stays readable', () => {
+    expect(declarations).toContain(
+      '--mlv-text-on-selected:var(--mlv-page-shell-effective-foreground);',
+    );
+    expect(declarations).toContain(`--mlv-background-selected:${tint(12)};`);
+    expect(declarations).toContain(
+      `--mlv-background-selected-hover:${tint(8)};`,
+    );
+  });
+
+  it('never reads the raw selected-state globals for the chrome remap', () => {
+    expect(declarations).not.toContain('var(--mlv-background-selected');
+    expect(declarations).not.toContain('var(--mlv-text-on-selected');
+  });
+
+  // Structural declarations are not withdrawn — they are true of a themed bar
+  // too, and live in their own unguarded rule.
+  it('keeps the row floor unconditional', () => {
+    expect(css).toContain(
+      '.mlv-page-shell__topbar.mlv-action-bar{min-height:3.25rem;}',
+    );
+    expect(declarations).not.toContain('min-height');
+  });
+});
+
+/**
  * Form controls projected into a chrome slot. Same withdrawal as the sidebar
  * remap above and for the same reason: every mix reads
  * `--mlv-page-shell-effective-*`, declared on the shell host and therefore

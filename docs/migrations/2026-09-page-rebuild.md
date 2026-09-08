@@ -270,6 +270,30 @@ canvas are the same colour, which is what the chrome token change above fixes.
 No gap was added: the documented intent is one continuous canvas rounding
 into the frame, not a card floating inside it.
 
+### A shell topbar paints what is projected into it
+
+`mlv-page-shell` set only `--mlv-action-bar-bg` / `-fg` / `-border` on its
+topbar slot, which colours the bar's own surface and nothing inside it. A
+`<strong>`, an `mlv-badge`, an `mlv-avatar` and a `variant="transparent"`
+`mlvButton` each resolve their own theme token, so on a chrome topbar they
+rendered page-surface colours on the frame: `--mlv-text-primary: #171717` for
+the product name and `rgb(82, 82, 82)` for the nav buttons, near-black on a
+saturated brand purple, at 1.6:1.
+
+`&__topbar.mlv-action-bar:not([mlvTheme])` now carries the same foreground and
+interactive remap the sidebar slot has always had — text primary / secondary /
+tertiary / action, the neutral interactive ramp, the selected pair (including
+`--mlv-text-on-selected`, which is declared at the document root and so is not
+reached by remapping `--mlv-text-action`), and the focus border. Measured on a
+`#7138d0` chrome: 6.6:1, 5.6:1, 4.7:1, 10.7:1 — all AA.
+
+This is additive. A shell topbar that already read correctly did so because its
+consumer reached for `mlv-action-bar[contrast]`, whose child re-tokenization
+made the text readable and whose glass shadow then smeared down over the rails
+below the bar. That workaround is no longer needed, and `contrast` on a
+`[mlvPageTopbar]` now contributes nothing but the shadow and a
+`backdrop-filter` — `apps/docs`' own shell example dropped it.
+
 ### A chrome slot scoped to its own theme opts out of the whole derivation
 
 `mlv-page-shell` derives every colour it paints on a projected sidebar or

@@ -358,6 +358,24 @@ same way — `border-inline-start: var(--mlv-stroke-width) solid` foreground
 `--mlv-border-subtle` resolves against the page surface and painted a near-white
 hairline across a dark or brand chrome.
 
+`&__topbar.mlv-action-bar:not([mlvTheme])` carries the same derivation for the
+topbar. The `--mlv-action-bar-*` trio colours the bar's own surface; the tokens
+beside it colour what the consumer projects _into_ it, which the bar's own
+`color` cannot reach. A `<strong>`, an `mlv-badge`, an `mlv-avatar` and a
+`variant="transparent"` `mlvButton` each resolve their own theme token, so an
+unremapped chrome topbar painted page-surface colours on the frame — measured
+`--mlv-text-primary: #171717` for the product name and `rgb(82, 82, 82)` for
+the nav buttons, both near-black on a saturated brand purple. Percentages match
+the sidebar remap (78 / 60 for text-secondary/tertiary, 8 / 8 / 12 for the
+neutral interactive ramp, 12 / 8 for the selected pair), and
+`--mlv-text-on-selected` is remapped in its own right for the same reason the
+sidebar's active row is. `min-height: 3.25rem` is structural and stays in its
+own unguarded rule.
+
+Measured on the `mlv-page-shell` colour example at `#7138d0`: product name
+6.6:1, badge 5.6:1, nav buttons 4.7:1, avatar initials 10.7:1 — all AA, against
+1.6:1 for the nav buttons before.
+
 `&__topbar:not([mlvTheme]) .mlv-form-control-wrapper` /
 `&__sidebar:not([mlvTheme]) .mlv-form-control-wrapper` carry the matching remap
 for projected form controls (container background, border ramp, text and focus
@@ -375,6 +393,29 @@ Withdrawing hands the field back to the wrapper's own defaults, which the island
 resolves. Pinned by `page-shell-sidebar-tokens.spec.ts` §
 _page shell chrome form controls_, which also asserts the unguarded selector
 never comes back.
+
+### A shell topbar does not take `contrast`
+
+`mlv-action-bar[contrast]` is the deliberate smoked-glass variant — a
+translucent `neutral-800` fill, a hairline, `backdrop-filter: saturate(1.4)
+blur(1.25rem)` and a drop shadow — kept out of the rebuild's de-glassing on
+purpose, for a bar floating over a photo or a hero. It is the wrong variant for
+`[mlvPageTopbar]`, and measurably contributes nothing there: the shell's own
+`&__topbar` remap already supplies the bar's surface _and_ the foregrounds its
+projected children resolve, so with and without `contrast` a shell topbar
+computes the same colours. What the modifier adds is only the two things the
+rebuild removed from every chrome bar — a `0 1rem 2.25rem` drop shadow, which
+smears down over the rails beneath it, and a `backdrop-filter`, which
+establishes a containing block so a consumer's `position: fixed` overlay
+rendered inside the bar anchors to the bar instead of the viewport.
+
+`contrast`'s child re-tokenization is what made it attractive on chrome in the
+first place, and that is the gap the topbar remap above closes: a shell topbar
+no longer needs a glass variant to keep its own product name legible.
+
+Nothing in the library forbids the combination — `contrast` is a general
+`MlvActionBar` modifier and a consumer may want glass chrome deliberately — but
+a bar that is already painted by the shell has no separation left to buy.
 
 ## `MlvPageEndPane`
 
