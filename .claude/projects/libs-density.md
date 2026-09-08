@@ -195,10 +195,10 @@ export class MlvButton {}
 
 ```html
 <!-- Place once on the layout root or <body> -->
-<mlv-layout mlvDensityRoot>
+<mlv-page-shell mlvDensityRoot>
   <!-- All density-aware descendants respond to service density via CSS cascade -->
   <mlv-button>Automatically compact when service is compact</mlv-button>
-</mlv-layout>
+</mlv-page-shell>
 ```
 
 **CSS cascade interaction:**

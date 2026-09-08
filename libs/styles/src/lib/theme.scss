@@ -884,7 +884,7 @@ $mlv-palette-info-950: #082f49;
   //
   // Declared on `:root` alone — never on the `[mlvTheme]` island selectors
   // above. An island re-declaring the sign would reset `<html dir="rtl">` back
-  // to LTR for its whole subtree (the docs `mlv-layout` is such an island),
+  // to LTR for its whole subtree (the docs `mlv-page-shell` is such an island),
   // silently un-mirroring every `inline-distance()` transform inside it.
   :root {
     --mlv-inline-direction: 1;

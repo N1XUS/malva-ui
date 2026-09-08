@@ -4,28 +4,18 @@ $block: support-inbox;
 
 .#{$block} {
   // ── Frame ───────────────────────────────────────────────────────────────
-  // The showcase shell already reserves the app bar, so the composition takes
-  // the rest of the viewport and scrolls internally like a real desktop app.
-  // `svh` on a phone: `dvh` re-runs the chat scroller's thumb math every time
-  // the mobile URL bar collapses. No floor at sm — a 34rem floor plus the
-  // shell's padding overflows a 568px phone and double-scrolls the page.
-  ::ng-deep .mlv-layout__container {
-    block-size: calc(100svh - 7.75rem);
-    overflow: hidden;
-
-    @include bp.breakpoint-up(md) {
-      block-size: clamp(34rem, calc(100dvh - 9.5rem), 60rem);
-    }
-  }
-
-  ::ng-deep .mlv-layout__side {
-    display: flex;
-
-    .mlv-sidebar {
-      min-block-size: 0;
-      min-inline-size: 0;
-      overflow: hidden;
-    }
+  // The composition takes the rest of the viewport and scrolls internally like
+  // a real desktop app. `sizing="viewport"` on the host is what bounds it: it
+  // subtracts the shell's own measured top inset, so the app bar no longer has
+  // to be guessed at as a length here, and it already clips the content track.
+  // Only the two md+ limits are still ours. The floor keeps a short, wide
+  // window from cramping the three panes; there is deliberately none at sm,
+  // where a 34rem floor plus the shell's padding overflows a 568px phone and
+  // double-scrolls the page. The ceiling stops a tall monitor from stretching
+  // the "desktop app window" to a height no such app would take.
+  @include bp.breakpoint-up(md) {
+    min-block-size: 34rem;
+    max-block-size: 60rem;
   }
 
   // ── App bar ─────────────────────────────────────────────────────────────

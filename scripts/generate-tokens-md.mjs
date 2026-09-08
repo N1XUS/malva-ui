@@ -556,7 +556,7 @@ lines.push(
   "| `[mlvTheme='dark']` | Dark |",
   "| `[data-theme='high-contrast']` | High contrast |",
   '',
-  '`MlvThemeService` (via `mlv-layout`) sets the `mlvTheme` attribute on',
+  '`MlvThemeService` (from `@malva-ui/cdk/theme`) sets the `mlvTheme` attribute on',
   '`documentElement`. Tokens with no dark or high-contrast value inherit the light',
   'value in every mode.',
   '',

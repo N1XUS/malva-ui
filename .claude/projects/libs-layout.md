@@ -51,6 +51,15 @@ Two differences worth naming:
   `mlv-page-shell` has no such mode; the page's own `padding` input owns the
   inset, and `sizing` decides whether the shell fills the viewport, its parent,
   or its content.
+- **`sizing` has no neutral value, so porting means choosing one.** `mlv-layout`
+  declared neither a block size nor an overflow: it was content-sized and the
+  document scrolled it. Only `sizing="content"` reproduces that. `viewport` (in
+  the snippet above, because a full application shell usually wants it) and the
+  `parent` default both bound the shell and make `.mlv-page-shell__content`
+  `overflow: hidden`, so a ported layout whose body owns no scroller of its own
+  is clipped at the fold with nothing able to scroll it — silently, since
+  nothing throws and the markup is unchanged. `apps/docs`' own shell shipped
+  that way for one commit.
 
 The shell's template was already a strict superset of the layout's, both
 remaining in-repo consumers wanted the shell, and the layout's default was
