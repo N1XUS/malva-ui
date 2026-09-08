@@ -286,7 +286,7 @@ nothing changed today; the guard stops the obvious form from landing later.
 
 | Token                             | Light                     | Dark                      | High contrast |
 | --------------------------------- | ------------------------- | ------------------------- | ------------- |
-| `--mlv-background-chrome`         | `neutral-100`             | `neutral-950`             | `#000000`     |
+| `--mlv-background-chrome`         | `background-raised`       | `neutral-950`             | `#000000`     |
 | `--mlv-text-on-chrome`            | `--mlv-text-primary`      | `--mlv-text-primary`      | `#ffffff`     |
 | `--mlv-background-bar`            | `--mlv-background-base`   | `--mlv-background-base`   | `#ffffff`     |
 | `--mlv-background-bar-overlapped` | `--mlv-background-raised` | `--mlv-background-raised` | `#f5f5f5`     |

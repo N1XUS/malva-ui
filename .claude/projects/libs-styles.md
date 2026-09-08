@@ -282,15 +282,17 @@ Token pattern: `--mlv-palette-{family}-{stop}` e.g. `--mlv-palette-primary-500`
 | Success               | `--mlv-background-success-1`, `-hover`, `-active`, `-pale`, `-pale-hover`; alias `--mlv-background-success-pale`                     |
 | Warning               | `--mlv-background-warning-1`, `-hover`, `-active`, `-pale`, `-pale-hover`; alias `--mlv-background-warning-pale`                     |
 | Info                  | `--mlv-background-info-1`, `-hover`, `-active`, `-pale`, `-pale-hover`; alias `--mlv-background-info-pale`                           |
-| Application frame     | `--mlv-background-chrome` — the shell's topbar and sidebars; deliberately one step off `--mlv-background-base` in **every** theme    |
+| Application frame     | `--mlv-background-chrome` — the shell's topbar and sidebars; the raised surface in light, one rung below the canvas in dark          |
 | Chrome bars           | `--mlv-background-bar`, `-overlapped` — a sticky bar at rest, and the one rung it steps up while over scrolling content              |
 | Elevation (dark mode) | `--mlv-elevation-bg-1` … `--mlv-elevation-bg-5`                                                                                      |
 
 `--mlv-background-chrome` replaced a raw `--mlv-palette-neutral-900` literal in
 `page-shell.scss`, which followed no theme: near-maximum contrast in light, and
 **byte-identical to the canvas in dark**, where the frame disappeared. Light
-resolves `neutral-100` under a `neutral-50` canvas; dark resolves `neutral-950`
-under a `neutral-900` canvas; high contrast declares `#000000`.
+resolves `--mlv-background-raised` (white), so only the hairlines separate the
+frame from the page it wraps; dark steps the other way, to `neutral-950` under
+a `neutral-900` canvas, because there a lighter frame would float; high
+contrast declares `#000000`.
 
 `--mlv-background-bar` / `-overlapped` are the whole separation model for
 `mlv-action-bar`, `mlv-page-header`, `mlv-page-summary` and `mlv-page-dock`:

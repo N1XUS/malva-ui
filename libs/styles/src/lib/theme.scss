@@ -260,17 +260,18 @@ $mlv-palette-info-950: #082f49;
     --mlv-background-sunken: var(--mlv-palette-neutral-100);
 
     // Chrome — the application frame a page canvas sits inside (the shell's
-    // topbar and sidebars). A *semantic* surface, deliberately one step off
-    // `--mlv-background-base` in every theme: it used to be a raw palette
+    // topbar and sidebars). A *semantic* surface: it used to be a raw palette
     // value, which meant the frame read as near-maximum contrast in light and
     // was byte-identical to the canvas in dark, where it disappeared.
     //
-    // One step means neutral-100 against a neutral-50 canvas, not neutral-200:
-    // a frame two rungs up reads as a grey slab beside white content, which is
-    // the same finding `--mlv-background-sunken` recorded a wave earlier at
-    // the same value. Sharing a value with `subtle` and `sunken` in light is
-    // fine — the three are different roles, and they separate again in dark.
-    --mlv-background-chrome: var(--mlv-palette-neutral-100);
+    // Light takes the raised surface, so the frame is the same white as the
+    // page it wraps and the hairlines alone say where each region ends. Any
+    // grey here reads as a slab around white content — neutral-200 obviously,
+    // and neutral-100 still, which is the finding `--mlv-background-sunken`
+    // recorded a wave earlier at that same value. Dark goes the other way and
+    // steps *down* to neutral-950, because there the canvas is already dark
+    // and a lighter frame would float.
+    --mlv-background-chrome: var(--mlv-background-raised);
 
     // Chrome bars — action bar, page header, summary strip, dock. Two states,
     // one mechanism: at rest a bar is the canvas and only its hairline says

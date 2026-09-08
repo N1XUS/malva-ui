@@ -138,7 +138,7 @@ describe('page chrome surface', () => {
       '--mlv-background-base: var(--mlv-palette-neutral-50);',
     );
     expect(theme).toContain(
-      '--mlv-background-chrome: var(--mlv-palette-neutral-100);',
+      '--mlv-background-chrome: var(--mlv-background-raised);',
     );
 
     // Dark: the canvas is `neutral-900`, the frame `neutral-950`.
