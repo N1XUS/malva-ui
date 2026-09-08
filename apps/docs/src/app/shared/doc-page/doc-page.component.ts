@@ -183,6 +183,7 @@ function canonicalPathForDocsHeader(header: string): string | null {
             <docs-example-container
               [component]="example | docsComponent | async"
               [content]="example | docsExample"
+              [heading]="header()"
               [fullExampleRoute]="$index === 0 ? showcaseRoute() : null"
             ></docs-example-container>
           </section>
