@@ -6,6 +6,11 @@ import {
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+  provideMlvDensityContext,
+} from '@malva-ui/cdk/density';
 
 /**
  * Vertical anchor of the action bar. `'bottom'` is the natural companion to
@@ -23,6 +28,26 @@ export type MlvActionBarPosition = 'top' | 'bottom';
  */
 export type MlvActionBarShape = 'default' | 'pill';
 
+/**
+ * Header / toolbar container applied to the consumer's own semantic element.
+ *
+ * The bar is also a density scope: `mlvDensity` (contributed by
+ * {@link MlvDensityDirective} as a host directive) stamps
+ * `mlv-action-bar--<density>`, which scales the bar's own padding, the gap
+ * between its controls and the logo type ramp, **and** is projected as
+ * `MLV_DENSITY_CONTEXT` so directive-bearing controls inside the bar — buttons,
+ * selects, chips — size themselves to match. One attribute therefore sizes the
+ * whole bar.
+ *
+ * @example
+ * ```html
+ * <header mlvActionBar mlvDensity="tight" aria-label="Application">
+ *   <a mlvActionBarLogo href="/">Malva</a>
+ *   <div mlvActionBarSpacer></div>
+ *   <button mlvButton>Save</button>
+ * </header>
+ * ```
+ */
 @Component({
   // Attribute-selector component — camelCase [mlvX] is the documented pattern
   // (see .claude/rules/angular-component.md); the rule only models kebab-case.
@@ -33,6 +58,11 @@ export type MlvActionBarShape = 'default' | 'pill';
   styleUrl: './action-bar.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
+  providers: [
+    { provide: MLV_DENSITY_ELEMENT, useValue: 'action-bar' },
+    provideMlvDensityContext(MlvDensityDirective),
+  ],
   host: {
     class: 'mlv-action-bar',
     '[class.mlv-action-bar--fixed]': 'fixed()',
@@ -42,6 +72,11 @@ export type MlvActionBarShape = 'default' | 'pill';
     '[class.mlv-action-bar--shape-pill]': 'shape() === "pill"',
     '[class.mlv-action-bar--wrap]': 'wrap()',
     '[class.mlv-action-bar--contrast]': 'contrast()',
+    // The `animate.enter` / `animate.leave` values below cannot be made
+    // conditional: a non-bracketed `host` key is a static attribute, which
+    // Angular's `parseHostBindings` stores as `literal(value)`. So the opt-out
+    // is a modifier that cancels the keyframes in CSS instead.
+    '[class.mlv-action-bar--no-animation]': '!animated()',
     'animate.enter': 'mlv-action-bar--enter',
     'animate.leave': 'mlv-action-bar--leave',
   },
@@ -86,6 +121,25 @@ export class MlvActionBar {
    * narrow canvas. On a wide viewport nothing wraps and the look is unchanged.
    */
   readonly wrap = input<boolean, BooleanInput>(false, {
+    transform: coerceBooleanProperty,
+  });
+
+  /**
+   * Whether the bar plays its enter / leave animation when it is inserted into
+   * or removed from the DOM. Defaults to `true`.
+   *
+   * The animation says "this bar just appeared" — right for a selection bar
+   * revealed by an `@if`, wrong for a bar that is permanent chrome inside a
+   * view the router rebuilds. A repeated view is not a new surface, and a page
+   * that renders many bars fades and slides all of them on every arrival, so
+   * pass `[animated]="false"` there.
+   *
+   * `prefers-reduced-motion` is honoured independently and is not what this
+   * input is for: that shortens the animation for a reader who asked for less
+   * motion, while this says the bar has no entrance to play in the first
+   * place.
+   */
+  readonly animated = input<boolean, BooleanInput>(true, {
     transform: coerceBooleanProperty,
   });
 

@@ -9,14 +9,11 @@ import {
   // (see .claude/rules/angular-component.md); the rule only models kebab-case.
   // eslint-disable-next-line @angular-eslint/component-selector
   selector: '[mlvActionBarSpacer]',
-  styles: [
-    `
-      .mlv-action-bar__spacer {
-        display: inline-flex;
-        flex-grow: 1;
-      }
-    `,
-  ],
+  // A stylesheet, not an inline `styles: []` array: `libs/styles`' layer guard
+  // walks `.css` / `.scss` files only, so an inline rule ships unlayered — and
+  // an unlayered library rule outranks every layered one, taking the override
+  // slot that belongs to the consumer.
+  styleUrl: './action-bar-spacer.scss',
   host: {
     class: 'mlv-action-bar__spacer',
   },

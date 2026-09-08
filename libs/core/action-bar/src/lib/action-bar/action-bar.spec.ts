@@ -49,6 +49,32 @@ describe('MlvActionBar', () => {
       expect(fixture.nativeElement.classList).toContain('mlv-action-bar--wrap');
     });
   });
+
+  describe('animated', () => {
+    it('animates its entrance by default', () => {
+      expect(component.animated()).toBe(true);
+      expect(fixture.nativeElement.classList).not.toContain(
+        'mlv-action-bar--no-animation',
+      );
+    });
+
+    it('opts the enter and leave keyframes out when disabled', async () => {
+      fixture.componentRef.setInput('animated', false);
+      await fixture.whenStable();
+
+      expect(component.animated()).toBe(false);
+      expect(fixture.nativeElement.classList).toContain(
+        'mlv-action-bar--no-animation',
+      );
+    });
+
+    it('coerces the string attribute form', async () => {
+      fixture.componentRef.setInput('animated', 'false');
+      await fixture.whenStable();
+
+      expect(component.animated()).toBe(false);
+    });
+  });
 });
 
 /**
