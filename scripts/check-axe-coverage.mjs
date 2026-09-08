@@ -219,7 +219,6 @@ export const EXEMPT = {
  */
 export const ROLLOUT_PENDING = [
   // libs/core
-  'core-autocomplete',
   'core-color-picker',
   'core-date-range-picker',
   'core-day-picker',
