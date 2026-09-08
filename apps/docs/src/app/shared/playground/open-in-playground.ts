@@ -46,11 +46,12 @@ import { submitPlaygroundProject } from './playground-submit';
       </button>
     }
   `,
-  styles: `
-    .open-in-playground {
-      margin: var(--mlv-spacing-2);
-    }
-  `,
+  // No margin of its own: the one call site now renders it inside an
+  // `mlv-toolbar`, which supplies the row's `gap`, inside a
+  // `.example-container__toolbar`, which supplies the band's padding. A margin
+  // here would push this button out of line with the **Open full example**
+  // link beside it and grow the band's height — the sibling link dropped the
+  // identical `margin: var(--mlv-spacing-2)` in the same move.
 })
 export class OpenInPlaygroundComponent {
   /**
