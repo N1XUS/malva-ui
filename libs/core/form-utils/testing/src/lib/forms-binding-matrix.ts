@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { assertBoolean, assertDeepEqual } from './binding-assertions';
 
 /**
  * One binding mode's view of the form side while running the bindings matrix.
@@ -56,6 +56,18 @@ export interface MlvFormsBindingMatrixOptions<T> {
  * disabled propagation — identical expectations for every binding mode. A
  * control's spec calls this once per mode; a migrated control (CVA →
  * FormValueControl) must keep all three runs green.
+ *
+ * **Runner-agnostic.** The returned promise rejects with an
+ * `AssertionError`-shaped error on the first failed expectation, which every
+ * test runner reports as a failing test — this helper imports no runner of its
+ * own, so it works under Vitest, Jest, Jasmine/Karma and Web Test Runner alike.
+ * Under Vitest the error carries `actual` / `expected` / `showDiff`, so the
+ * reporter prints the same expected/received diff a failed `expect` produced;
+ * every other runner reads both values off the message, which carries them too.
+ * See `./binding-assertions` for why it is written this way (#243).
+ *
+ * @param options The mode adapter, the sample value and the interactions that
+ *   drive one binding mode's run.
  */
 export async function verifyFormsBinding<T>(
   options: MlvFormsBindingMatrixOptions<T>,
@@ -65,28 +77,32 @@ export async function verifyFormsBinding<T>(
 
   // form → control → form round trip
   await adapter.setValue(options.sample);
-  expect(adapter.getValue(), `${label} form-side write round-trip`).toEqual(
+  assertDeepEqual(
+    adapter.getValue(),
     options.sample,
+    `${label} form-side write round-trip`,
   );
 
   // user interaction → form side
   await options.interact();
-  expect(adapter.getValue(), `${label} user interaction result`).toEqual(
+  assertDeepEqual(
+    adapter.getValue(),
     options.expectedAfterInteraction,
+    `${label} user interaction result`,
   );
 
   // blur → touched
   if (options.blur) {
-    expect(adapter.isTouched(), `${label} untouched before blur`).toBe(false);
+    assertBoolean(adapter.isTouched(), false, `${label} untouched before blur`);
     await options.blur();
-    expect(adapter.isTouched(), `${label} touched after blur`).toBe(true);
+    assertBoolean(adapter.isTouched(), true, `${label} touched after blur`);
   }
 
   // disabled propagation
   if (adapter.setDisabled && adapter.isDisabled) {
     await adapter.setDisabled(true);
-    expect(adapter.isDisabled(), `${label} disabled propagated`).toBe(true);
+    assertBoolean(adapter.isDisabled(), true, `${label} disabled propagated`);
     await adapter.setDisabled(false);
-    expect(adapter.isDisabled(), `${label} re-enabled`).toBe(false);
+    assertBoolean(adapter.isDisabled(), false, `${label} re-enabled`);
   }
 }

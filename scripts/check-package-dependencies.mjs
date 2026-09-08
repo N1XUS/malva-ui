@@ -139,26 +139,16 @@ const RESOLVED_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.d.ts'];
  * An entry that stops matching anything is a promise about code that no longer
  * exists; {@link scanWorkspace} reports unused ones and `main` fails on them,
  * so the list cannot rot.
+ *
+ * **Empty, and worth keeping empty.** It held exactly one entry, for
+ * `@malva-ui/core/form-utils/testing`'s `import { expect } from 'vitest'` — a
+ * real undeclared dependency of this class, deferred out of #242 and shipped in
+ * `@malva-ui/core@0.1.15`. #243 removed the import instead of declaring it, so
+ * the entry point now depends only on `fast-equals`, which core already
+ * declares. Adding an entry back is therefore a claim that *no* fix is
+ * available, not that none is convenient.
  */
-export const DECLARATION_EXCEPTIONS = [
-  {
-    package: '@malva-ui/core',
-    dependency: 'vitest',
-    files: /^libs\/core\/form-utils\/testing\//,
-    reason:
-      'DEFERRED, not clean — a real finding of exactly this class, left for its own change. ' +
-      '`@malva-ui/core/form-utils/testing` is a published entry point (it has an ' +
-      '`ng-package.json`, so ng-packagr builds it and `dist/libs/core/package.json` exports ' +
-      "it) whose FESM bundle opens with `import { expect } from 'vitest'`. Both candidate " +
-      'fixes are out of scope for #242 and neither is the one-line declaration this check ' +
-      'recommends: declaring `vitest` as a *required* peer would install a test runner into ' +
-      'every consumer app, and the honest alternatives — an optional peer (core declares no ' +
-      '`peerDependenciesMeta` at all today) or unpublishing the entry point (removing an ' +
-      'exported path is breaking per VERSIONING.md §3 and owes a deprecation window) — are ' +
-      "owner calls, tracked as #243. Its only importers today are this workspace's own " +
-      'binding-matrix specs.',
-  },
-];
+export const DECLARATION_EXCEPTIONS = [];
 
 /** Node's own modules, importable with or without the `node:` prefix. */
 const NODE_BUILTINS = new Set(builtinModules);

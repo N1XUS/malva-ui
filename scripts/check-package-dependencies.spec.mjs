@@ -472,35 +472,117 @@ test('checkPackage visits each source once however many times it is imported', (
 
 // ─── Exceptions ──────────────────────────────────────────────────────────────
 
-test('an exception is scoped to its package, dependency and files', () => {
-  const [exception] = DECLARATION_EXCEPTIONS;
-  assert.equal(exception.package, '@malva-ui/core');
-  assert.equal(exception.dependency, 'vitest');
-  assert.ok(exception.files.test('libs/core/form-utils/testing/src/x.ts'));
-  assert.ok(!exception.files.test('libs/core/drawer/src/lib/drawer.ts'));
+// #243 emptied DECLARATION_EXCEPTIONS, so every rule about an entry's shape now
+// has nothing to iterate and would pass having asserted nothing. The rules are
+// therefore stated once, as a function, and checked BOTH ways: against
+// synthetic entries, which is what keeps them alive while the list is empty,
+// and against the real list, which is what makes them bite when it is not.
+/**
+ * Every way one {@link DECLARATION_EXCEPTIONS} entry can be malformed, as a
+ * list of human-readable defects — empty for a well-formed entry.
+ */
+function exceptionDefects(entry) {
+  const defects = [];
+
+  if (!/DEFERRED|CLEAN/.test(entry.reason)) {
+    defects.push('must say whether it is DEFERRED or CLEAN');
+  }
+  if (entry.reason.length <= 120) {
+    defects.push('needs a reason, not a label');
+  }
+  // A deferred exception is a real finding someone has to come back to. Without
+  // a number the coming back is nobody's, and the entry outlives the intent —
+  // the same rot the unused-exception check exists to stop, one level up.
+  if (/DEFERRED/.test(entry.reason) && !/#\d+/.test(entry.reason)) {
+    defects.push('is deferred and must cite an issue');
+  }
+
+  return defects;
+}
+
+/** A well-formed entry, as the rules above read one. */
+const WELL_FORMED_EXCEPTION = {
+  package: '@fixture/pkg',
+  dependency: 'vitest',
+  files: /^libs\/fixture\//,
+  reason:
+    'DEFERRED, not clean — a real finding of exactly this class, left for its own change, ' +
+    'because the only two fixes available are owner calls rather than the one-line ' +
+    'declaration this check recommends. Tracked as #1.',
+};
+
+test('the exception shape rules accept a well-formed entry', () => {
+  assert.deepEqual(exceptionDefects(WELL_FORMED_EXCEPTION), []);
+});
+
+test('the exception shape rules reject every way an entry can rot', () => {
+  const reason = WELL_FORMED_EXCEPTION.reason;
+
+  assert.deepEqual(
+    exceptionDefects({
+      ...WELL_FORMED_EXCEPTION,
+      reason: reason.replace('DEFERRED', 'deferred-ish'),
+    }),
+    ['must say whether it is DEFERRED or CLEAN'],
+  );
+
+  assert.deepEqual(
+    exceptionDefects({ ...WELL_FORMED_EXCEPTION, reason: 'CLEAN' }),
+    ['needs a reason, not a label'],
+  );
+
+  assert.deepEqual(
+    exceptionDefects({
+      ...WELL_FORMED_EXCEPTION,
+      reason: reason.replace('#1', 'an issue'),
+    }),
+    ['is deferred and must cite an issue'],
+  );
 });
 
 test('every exception says whether it is clean or deferred, and why', () => {
   for (const exception of DECLARATION_EXCEPTIONS) {
-    assert.ok(
-      /DEFERRED|CLEAN/.test(exception.reason),
-      `${exception.package} → ${exception.dependency} must say which it is`,
+    assert.deepEqual(
+      exceptionDefects(exception),
+      [],
+      `${exception.package} → ${exception.dependency}`,
     );
-    assert.ok(exception.reason.length > 120, 'a reason, not a label');
   }
 });
 
-// A deferred exception is a real finding someone has to come back to. Without a
-// number the coming back is nobody's, and the entry outlives the intent — which
-// is the same rot the unused-exception check exists to stop, one level up.
-test('a deferred exception names the issue tracking its fix', () => {
-  for (const exception of DECLARATION_EXCEPTIONS) {
-    if (!/DEFERRED/.test(exception.reason)) continue;
-    assert.match(
-      exception.reason,
-      /#\d+/,
-      `${exception.package} → ${exception.dependency} is deferred and must cite an issue`,
+// The narrowing is the whole reason an exception is safe to have at all: it must
+// suppress the one import it names and stay out of the way of every other. The
+// list is empty, so this drives a synthetic entry through the real
+// `checkPackage` rather than asserting on a shipped one.
+test('an exception suppresses only the files it names, not the dependency', () => {
+  const root = fixturePackage(
+    { name: '@fixture/pkg' },
+    {
+      'ng-package.json': ENTRY_POINT,
+      'src/index.ts':
+        "export * from './testing/helper';\nexport * from './lib/widget';",
+      'src/testing/helper.ts': "import { expect } from 'vitest';",
+      'src/lib/widget.ts': "import { vi } from 'vitest';",
+    },
+  );
+
+  DECLARATION_EXCEPTIONS.push({
+    ...WELL_FORMED_EXCEPTION,
+    package: '@fixture/pkg',
+    files: /(^|\/)src\/testing\//,
+  });
+
+  try {
+    const result = checkPackage(root, 'fixture', root);
+    assert.deepEqual(
+      result.findings.map((finding) => finding.file),
+      ['src/lib/widget.ts'],
     );
+    assert.deepEqual(result.exercisedExceptions, [
+      exceptionKey(DECLARATION_EXCEPTIONS.at(-1)),
+    ]);
+  } finally {
+    DECLARATION_EXCEPTIONS.pop();
   }
 });
 
