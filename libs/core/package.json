@@ -36,6 +36,7 @@
     "@angular/common": "0.0.0-angular-common-package-version",
     "@angular/core": "0.0.0-angular-core-package-version",
     "@angular/forms": "0.0.0-angular-forms-package-version",
+    "@angular/router": "0.0.0-angular-router-package-version",
     "@lucide/angular": "0.0.0-lucide-angular-package-version",
     "@malva-ui/cdk": "0.0.0-malva-ui-package-version",
     "@malva-ui/i18n": "0.0.0-malva-ui-package-version",
@@ -44,6 +45,7 @@
   "sideEffects": false,
   "dependencies": {
     "fast-equals": "^6.0.0",
+    "lodash-es": "^4.17.23",
     "sortablejs": "^1.15.7"
   }
 }

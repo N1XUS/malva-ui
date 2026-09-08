@@ -46,6 +46,7 @@ const PLACEHOLDER_DEPENDENCY: Readonly<Record<string, string>> = {
   '0.0.0-angular-common-package-version': '@angular/common',
   '0.0.0-angular-core-package-version': '@angular/core',
   '0.0.0-angular-forms-package-version': '@angular/forms',
+  '0.0.0-angular-router-package-version': '@angular/router',
   '0.0.0-lucide-angular-package-version': '@lucide/angular',
   '0.0.0-rxjs-package-version': 'rxjs',
   '0.0.0-tiptap-package-version': '@tiptap/core',
@@ -60,9 +61,10 @@ const MALVA_VERSION_PLACEHOLDER = '0.0.0-malva-ui-package-version';
  * Used to catch a *new* placeholder that {@link PLACEHOLDER_DEPENDENCY} does not
  * map: without this, an unmapped one falls through to "the declared range is the
  * answer" and is written into the generated `package.json` verbatim, where npm
- * fails the install with `No matching version found`. The nine entries match
+ * fails the install with `No matching version found`. The entries match
  * `scripts/publish.mjs` exactly today, so this is a tripwire for the next one
- * added there and not here.
+ * added there and not here — the state #242 would have been caught in, had
+ * `0.0.0-angular-router-package-version` reached only one of the two tables.
  */
 const PUBLISH_PLACEHOLDER = /^0\.0\.0-.*-package-version$/;
 
@@ -92,10 +94,24 @@ function assertSubstituted(
 }
 
 /**
- * Packages the generated project needs that no published manifest declares as a
- * peer: the Angular toolchain that compiles it, the runtime pieces `main.ts`
- * imports directly, and `@angular/router` / `sortablejs`, which docs examples
- * import but no Malva package lists.
+ * Packages the generated project needs that the published peer graph does not
+ * reach on its own: the Angular toolchain that compiles it, the runtime pieces
+ * `main.ts` imports directly, and `sortablejs`, which
+ * `apps/docs/src/app/pages/scheduler/examples/6` imports itself while
+ * `@malva-ui/scheduler` carries it as a plain `dependencies` entry — npm
+ * installs those transitively, but {@link buildPlaygroundManifest} walks only
+ * `peerDependencies`, so nothing else here would give it a version.
+ *
+ * `@angular/router` stays for the same reason read from the other end. Since
+ * #242 it *is* a declared peer of `@malva-ui/core`, so the closure now supplies
+ * it to every project that pulls a core entry point — that peer declaration,
+ * not this list, is the fix for the missing-router bug. It is still listed
+ * because four docs examples import it themselves — `tabs/examples/5`,
+ * `segmented/examples/2`, `dialog/examples/6` and `drawer/examples/3`, the
+ * complete set — and an example's own imports have to resolve without
+ * depending on which Malva package it happens to pull in beside them. (The
+ * other router-importing files under `apps/docs/src/app/pages` are page shells
+ * and `*.routes.ts`, which the corpus never treats as examples.)
  */
 export const EXTRA_PLAYGROUND_PACKAGES: readonly string[] = [
   '@angular/build',
