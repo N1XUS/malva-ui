@@ -13,6 +13,8 @@ import {
   MlvPageSidebar,
   MlvPageTopbar,
 } from './page-shell.slots';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 @Component({
   template: `
@@ -109,6 +111,11 @@ function declarationsFor(selector: string): string {
 }
 
 describe('MlvPageShell', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   it('projects the responsive end pane after the page canvas', () => {
     const fixture = TestBed.configureTestingModule({
       imports: [EndPaneShellTestHost],
@@ -357,5 +364,14 @@ describe('MlvPageShell', () => {
 
     expect(disconnect).toHaveBeenCalled();
     expect(cancelFrame).toHaveBeenCalled();
+  });
+
+  it('has no axe violations across the whole composed shell', async () => {
+    const fixture = TestBed.configureTestingModule({
+      imports: [PageShellTestHost],
+    }).createComponent(PageShellTestHost);
+    await fixture.whenStable();
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });

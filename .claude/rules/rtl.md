@@ -83,15 +83,26 @@ Every `left` / `right` you write or touch is one of three kinds — **classify b
 
 ### Allowed physical CSS — each line carries `// physical: <reason>`
 
-| Case                             | Why it stays physical                                                                                                       | Example                                                            |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| JS-fed coordinate                | `offsetLeft` / `getBoundingClientRect()` are physical; CSS that consumes them must be too. The TS side re-measures on flip. | `left: var(--mlv-tab-indicator-left)` (tabs, segmented)            |
-| Centering pair                   | `left: 50%` + `translateX(-50%)` is direction-agnostic; converting one half breaks it                                       | popup / tooltip arrow, slider thumb, action-bar centre slot        |
-| Collision-resolved overlay arrow | CDK picks the actual physical side after flipping; the arrow follows that side, not the requested one                       | `.mlv-popup--arrow-left`, tooltip `--mlv-tooltip-transform-origin` |
-| 2D geometry                      | a canvas / plane where x is a colour or ratio, not reading order                                                            | colour-picker saturation plane, split-pane divider                 |
-| Decorative sweep                 | a shimmer that reads the same either way                                                                                    | skeleton / avatar `background-position` keyframes                  |
+| Case                             | Why it stays physical                                                                                                                                                        | Example                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| JS-fed coordinate                | `offsetLeft` / `getBoundingClientRect()` are physical; CSS that consumes them must be too. The TS side re-measures on flip.                                                  | `left: var(--mlv-tab-indicator-left)` (tabs, segmented)            |
+| Centering pair                   | `left: 50%` + `translateX(-50%)` is direction-agnostic; converting one half breaks it                                                                                        | popup / tooltip arrow, slider thumb, action-bar centre slot        |
+| Collision-resolved overlay arrow | CDK picks the actual physical side after flipping; the arrow follows that side, not the requested one                                                                        | `.mlv-popup--arrow-left`, tooltip `--mlv-tooltip-transform-origin` |
+| 2D geometry                      | a canvas / plane where x is a colour or ratio, not reading order                                                                                                             | colour-picker saturation plane, split-pane divider                 |
+| Decorative sweep                 | a shimmer that reads the same either way                                                                                                                                     | skeleton / avatar `background-position` keyframes                  |
+| **Sticky inline inset**          | Safari 26 mispositions a `position: sticky` element in RTL when the inline inset is logical; the physical property works. Chromium fixed the equivalent about a year earlier | a sticky rail or gutter pinned on the inline axis                  |
 
 Anything not in this table is semantic. Do not add a row without a spec or migration note explaining why.
+
+The sticky row is the one exception this rule fights with, so it is guarded
+rather than remembered: `libs/styles/src/lib/sticky-inline-inset.spec.mjs`
+(a `styles:test` entry) sweeps every stylesheet under `libs/` and fails on a
+rule that declares `position: sticky` **and** `inset-inline*`. It compares
+within one rule — two rules reaching the same element through different
+selectors are past what a static sweep can see, and today the library has no
+such pair. Write the physical property with the usual `// physical:` comment
+naming this bug. `inset-block-*` is unaffected, which is what every sticky
+inset in `mlv-page` actually uses.
 
 ### Do not
 

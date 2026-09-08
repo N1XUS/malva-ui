@@ -259,6 +259,23 @@ $mlv-palette-info-950: #082f49;
     // data-table fix in the same wave, which moved hover off this token).
     --mlv-background-sunken: var(--mlv-palette-neutral-100);
 
+    // Chrome — the application frame a page canvas sits inside (the shell's
+    // topbar and sidebars). A *semantic* surface, deliberately one step off
+    // `--mlv-background-base` in every theme: it used to be a raw palette
+    // value, which meant the frame read as near-maximum contrast in light and
+    // was byte-identical to the canvas in dark, where it disappeared.
+    --mlv-background-chrome: var(--mlv-palette-neutral-200);
+
+    // Chrome bars — action bar, page header, summary strip, dock. Two states,
+    // one mechanism: at rest a bar is the canvas and only its hairline says
+    // where it ends; over scrolling content it steps one rung up. That
+    // replaces the four separation signals these bars used to stack
+    // (translucent fill + backdrop blur + hairline + deepening shadow) —
+    // cheaper in both themes, and no `backdrop-filter`, whose containing block
+    // trapped consumers' `position: fixed` overlays.
+    --mlv-background-bar: var(--mlv-background-base);
+    --mlv-background-bar-overlapped: var(--mlv-background-raised);
+
     // Primary accent interactive — hover lightens, active darkens (press feel)
     --mlv-background-accent-1: var(--mlv-palette-primary-500);
     --mlv-background-accent-1-hover: color-mix(
@@ -448,6 +465,9 @@ $mlv-palette-info-950: #082f49;
     --mlv-text-on-info: #ffffff;
     // Selected — pairs with `--mlv-background-selected` (SF-R1).
     --mlv-text-on-selected: var(--mlv-text-action);
+    // Chrome — pairs with `--mlv-background-chrome`. The shell derives every
+    // other chrome foreground by mixing this against that background.
+    --mlv-text-on-chrome: var(--mlv-text-primary);
     --mlv-text-positive: var(--mlv-palette-success-800);
     --mlv-text-negative: var(--mlv-palette-danger-700);
     --mlv-text-warning: var(--mlv-palette-warning-800);
@@ -891,6 +911,17 @@ $mlv-palette-info-950: #082f49;
     --mlv-background-raised: #1e1e1e; /* neutral ~850 */
     --mlv-background-sunken: var(--mlv-palette-neutral-950);
 
+    // Chrome and chrome bars. Re-declared rather than inherited for the same
+    // reason as `--mlv-text-on-selected` below: their light values are
+    // `var()` references, which resolve in the scope they are *declared* in,
+    // so a scoped `[mlvTheme='dark']` island would otherwise paint the light
+    // theme's answers. The dark frame is a real step below the canvas —
+    // `#0a0a0a` under `#171717` — where it used to be the same `#171717` and
+    // vanished.
+    --mlv-background-chrome: var(--mlv-palette-neutral-950);
+    --mlv-background-bar: var(--mlv-background-base);
+    --mlv-background-bar-overlapped: var(--mlv-background-raised);
+
     --mlv-background-accent-1: var(--mlv-palette-primary-500);
     --mlv-background-accent-1-hover: color-mix(
       in srgb,
@@ -1107,6 +1138,7 @@ $mlv-palette-info-950: #082f49;
     // scoped-theme-island comment beside that token above for why this needs
     // its own redeclaration here rather than inheriting the light value.
     --mlv-text-on-selected: var(--mlv-text-action);
+    --mlv-text-on-chrome: var(--mlv-text-primary);
     --mlv-text-positive: var(--mlv-palette-success-400);
     --mlv-text-negative: var(--mlv-palette-danger-400);
     --mlv-text-warning: var(--mlv-palette-warning-400);
@@ -1169,6 +1201,13 @@ $mlv-palette-info-950: #082f49;
     --mlv-background-subtle: #f5f5f5;
     --mlv-background-raised: #ffffff;
     --mlv-background-sunken: #e8e8e8;
+
+    // The one theme that wants a maximum-contrast frame, and says so.
+    --mlv-background-chrome: #000000;
+    // The tonal step is small here on purpose: high contrast widens
+    // `--mlv-stroke-width`, so the bar's hairline is already doing the work.
+    --mlv-background-bar: #ffffff;
+    --mlv-background-bar-overlapped: #f5f5f5;
 
     --mlv-background-accent-1: #0000cc;
     --mlv-background-accent-1-hover: #000099;
@@ -1236,6 +1275,7 @@ $mlv-palette-info-950: #082f49;
     --mlv-text-on-success: #ffffff;
     --mlv-text-on-warning: #ffffff;
     --mlv-text-on-info: #ffffff;
+    --mlv-text-on-chrome: #ffffff;
     --mlv-text-positive: #006600;
     --mlv-text-negative: #cc0000;
     --mlv-text-warning: #804000;

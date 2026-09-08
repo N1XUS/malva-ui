@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MlvPageSnapController } from './page-snap-controller';
 import type { MlvPageSnapRegion } from './page-snap-state';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 /**
  * The three behaviours are the platform triad, and the whole point of naming
@@ -10,6 +11,11 @@ import type { MlvPageSnapRegion } from './page-snap-state';
  * forwards `snapBehavior` and a scroll offset into it.
  */
 describe('MlvPageSnapController — behaviours and derived distance', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   function setup(distance = 100) {
     TestBed.configureTestingModule({ providers: [MlvPageSnapController] });
     const controller = TestBed.inject(MlvPageSnapController);

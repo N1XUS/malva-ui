@@ -7,13 +7,10 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
-import {
-  MlvActionBar,
-  MlvActionBarLogo,
-  MlvActionBarSpacer,
-} from '@malva-ui/core/action-bar';
+import { MlvActionBar, MlvActionBarLogo } from '@malva-ui/core/action-bar';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvDensityDirective } from '@malva-ui/cdk/density';
+import { MlvSpacer } from '@malva-ui/cdk/utils';
 import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
 import { filter, map } from 'rxjs';
 import { DocsAppBarPreferencesComponent } from './docs-app-bar-preferences';
@@ -25,7 +22,7 @@ import { DocsAppBarPreferencesComponent } from './docs-app-bar-preferences';
     RouterLink,
     MlvActionBar,
     MlvActionBarLogo,
-    MlvActionBarSpacer,
+    MlvSpacer,
     MlvButton,
     MlvDensityDirective,
     MlvSegmented,

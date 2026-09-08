@@ -12,12 +12,15 @@ import {
   viewChild,
 } from '@angular/core';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
+import { MLV_PAGE_I18N } from '@malva-ui/i18n';
 import { registerPageRegion } from '../page/page-geometry';
 import { MlvPageSnapRegionBase } from '../page/page-snap-region-base';
 
 /**
- * Key-facts strip rendered under a page header. Projects
- * `mlv-page-summary-item` children in a wrapping row.
+ * Key-facts strip rendered under a page header — a description list of
+ * `[mlvPageSummaryItem]` terms and values in a wrapping row, separated by
+ * hairlines and sized to their content rather than stretched to a shared
+ * basis.
  *
  * Inside `main[mlvPage]` the strip participates in the scroll-scrubbed snap
  * timeline: its height follows the page-level `--mlv-page-snap` progress
@@ -34,13 +37,10 @@ import { MlvPageSnapRegionBase } from '../page/page-snap-region-base';
  */
 @Component({
   selector: 'mlv-page-summary',
-  template: `<div
-    #items
-    class="mlv-page-summary__items"
-    role="group"
-    [attr.aria-label]="summaryLabel()"
-  >
-    <ng-content />
+  template: `<div #items class="mlv-page-summary__items">
+    <dl class="mlv-page-summary__facts" [attr.aria-label]="_summaryLabel()">
+      <ng-content />
+    </dl>
   </div>`,
   styleUrl: './page-summary.scss',
   encapsulation: ViewEncapsulation.None,
@@ -59,8 +59,21 @@ import { MlvPageSnapRegionBase } from '../page/page-snap-region-base';
   },
 })
 export class MlvPageSummary extends MlvPageSnapRegionBase {
-  /** Accessible name for the facts region. */
-  readonly summaryLabel = input('Page summary');
+  /**
+   * Accessible name for the facts region. Falls back to the active i18n
+   * language pack — a group role with no name is a bare landmark, and the
+   * name it needs is the same on every page, so it belongs to the pack
+   * rather than to every consumer's template.
+   */
+  readonly summaryLabel = input<string | undefined>(undefined);
+
+  /** @private Active language pack. */
+  private readonly _i18n = inject(MLV_PAGE_I18N);
+
+  /** @protected Resolved accessible name: the override, else the pack. */
+  protected readonly _summaryLabel = computed(
+    () => this.summaryLabel() ?? this._i18n().pageSummary,
+  );
 
   /** Progress at which the strip starts collapsing (0..1). */
   readonly snapFrom = input(0.1);

@@ -11,6 +11,8 @@ import {
   MlvPageDockEnd,
   MlvPageDockStart,
 } from './page-dock.slots';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 /**
  * Angular does not attach component styles in the test environment, and jsdom
@@ -75,6 +77,11 @@ function publishedDockHeight(): string {
 }
 
 describe('MlvPageDock', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   afterEach(() => {
     document.documentElement.style.removeProperty('--mlv-page-dock-height');
   });
@@ -218,5 +225,17 @@ describe('MlvPageDock', () => {
 
       expect(publishedDockHeight()).toBe('');
     });
+  });
+
+  it('has no axe violations as a bar or floating', async () => {
+    const fixture = createHost();
+    await fixture.whenStable();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+
+    // The floating appearance drops the dock's own surface for a masked
+    // backdrop, which is a different painted stack over the same controls.
+    fixture.componentInstance.appearance.set('floating');
+    await fixture.whenStable();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });

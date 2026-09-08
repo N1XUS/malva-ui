@@ -11,11 +11,7 @@ import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 import type { MlvNavItem } from '@malva-ui/cdk/utils';
 import { MlvAccordion, MlvAccordionItem } from '@malva-ui/core/accordion';
-import {
-  MlvActionBar,
-  MlvActionBarLogo,
-  MlvActionBarSpacer,
-} from '@malva-ui/core/action-bar';
+import { MlvActionBar, MlvActionBarLogo } from '@malva-ui/core/action-bar';
 import { MlvAlert } from '@malva-ui/core/alert';
 import { MlvAvatar } from '@malva-ui/core/avatar';
 import {
@@ -131,6 +127,7 @@ import {
   MlvPageEndPaneContent,
   MlvPageHeader,
   MlvPageShell,
+  MlvPageSkipLink,
   MlvPageSummary,
   MlvPageSummaryItem,
   MlvPageTitle,
@@ -494,7 +491,6 @@ class SsrPickersHost {
   imports: [
     MlvActionBar,
     MlvActionBarLogo,
-    MlvActionBarSpacer,
     MlvBreadcrumb,
     MlvBreadcrumbItem,
     MlvBottomNav,
@@ -529,7 +525,6 @@ class SsrPickersHost {
   template: `
     <header mlvActionBar>
       <div mlvActionBarLogo>Malva</div>
-      <span mlvActionBarSpacer></span>
       <button mlvButton>Sign in</button>
     </header>
 
@@ -632,6 +627,7 @@ class SsrNavigationHost {
   imports: [
     MlvPageShell,
     MlvPage,
+    MlvPageSkipLink,
     MlvPageHeader,
     MlvPageTitle,
     MlvPageSummary,
@@ -652,6 +648,13 @@ class SsrNavigationHost {
   ],
   template: `
     <mlv-page-shell>
+      <!--
+        The skip link resolves its target from the page registry, so on the
+        server there is no active page and it must emit *no* href rather than a
+        dangling one — an anchor with no href is not a link and not a tab stop.
+      -->
+      <a mlvPageSkipLink>Skip to content</a>
+
       <mlv-sidebar ariaLabel="Primary navigation">
         <mlv-sidebar-workspace
           [workspaces]="workspaces"
@@ -679,9 +682,7 @@ class SsrNavigationHost {
         </mlv-page-header>
 
         <mlv-page-summary>
-          <mlv-page-summary-item label="Owner"
-            >Design systems</mlv-page-summary-item
-          >
+          <div mlvPageSummaryItem label="Owner">Design systems</div>
         </mlv-page-summary>
 
         <mlv-page-content>

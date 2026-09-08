@@ -21,6 +21,7 @@ import {
   MlvPageTitle,
 } from './page-header.directives';
 import { MlvPageHeader } from './page-header';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 const HEADER_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -65,6 +66,11 @@ const PAGE_CSS = sass.compile(join(HEADER_DIR, '../page/page.scss'), {
 class PageHeaderTestHost {}
 
 describe('MlvPageHeader', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   it('renders every projected region in a predictable hierarchy', async () => {
     const fixture = TestBed.configureTestingModule({
       imports: [PageHeaderTestHost],
@@ -226,6 +232,8 @@ describe('MlvPageHeader', () => {
     const button = chevron();
     expect(button).toBeTruthy();
     expect(button?.getAttribute('aria-label')).toBe('Expand header');
+    // The default is the language pack's, not an English literal in the
+    // component — so a localized application gets a localized control.
     expect(button?.getAttribute('data-slot')).toBe('page-header-expand');
 
     // Nothing registered a scroller, so the reveal closes on its own fallback
@@ -235,13 +243,41 @@ describe('MlvPageHeader', () => {
     expect(controller.revealing()).toBe(true);
   });
 
+  it('lets the consumer override the packaged chevron label', async () => {
+    @Component({
+      template: `
+        <mlv-page-header snapControls expandLabel="Show the full header">
+          <ng-template mlvPageTitle><h1>Record</h1></ng-template>
+        </mlv-page-header>
+      `,
+      imports: [MlvPageHeader, MlvPageTitle],
+    })
+    class LabelledSnapControlsTestHost {}
+
+    TestBed.configureTestingModule({
+      imports: [LabelledSnapControlsTestHost],
+      providers: [MlvPageSnapController],
+    });
+    const controller = TestBed.inject(MlvPageSnapController);
+    const fixture = TestBed.createComponent(LabelledSnapControlsTestHost);
+    controller.registerCollapse(signal(96));
+    controller.updateFromScroll(96);
+    await fixture.whenStable();
+
+    expect(
+      fixture.nativeElement
+        .querySelector('.mlv-page-header__expand')
+        ?.getAttribute('aria-label'),
+    ).toBe('Show the full header');
+  });
+
   it('projects a summary strip as the chrome bottom row inside the header', async () => {
     @Component({
       template: `
         <mlv-page-header>
           <ng-template mlvPageTitle><h1>Record</h1></ng-template>
           <mlv-page-summary summaryLabel="Facts">
-            <mlv-page-summary-item label="Price">329</mlv-page-summary-item>
+            <div mlvPageSummaryItem label="Price">329</div>
           </mlv-page-summary>
         </mlv-page-header>
       `,

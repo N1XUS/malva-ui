@@ -11,8 +11,15 @@
     // resolves `color` in this element's own cascade and picks a readable
     // foreground for it. Absent — not empty — while no colour is set, so these
     // fallbacks are what the default chrome is.
-    --mlv-page-shell-chrome-background: var(--mlv-palette-neutral-900);
-    --mlv-page-shell-chrome-foreground: var(--mlv-palette-neutral-50);
+    // Semantic, not raw palette. These used to be `neutral-900` / `neutral-50`
+    // literally, so the frame followed no theme: in light it was a
+    // near-maximum-contrast dark band around a `#fafafa` canvas, and in dark it
+    // resolved to exactly the canvas colour and disappeared. Both tokens now
+    // carry their own light and dark values, one deliberate step off the
+    // canvas in each. A consumer who wants the old dark frame in light mode
+    // sets `color="#171717"` on the shell, or overrides these two directly.
+    --mlv-page-shell-chrome-background: var(--mlv-background-chrome);
+    --mlv-page-shell-chrome-foreground: var(--mlv-text-on-chrome);
     --mlv-page-shell-effective-background: var(
       --mlv-chrome-background,
       var(--mlv-page-shell-chrome-background)
@@ -68,15 +75,19 @@
       flex: 0 0 auto;
     }
 
+    // A topbar inside the shell is part of the frame, not a bar floating over
+    // page content, so it takes the chrome surface and draws no separator of
+    // its own — the page canvas below it already has an edge. This used to
+    // also have to unset a `backdrop-filter` and a shadow the bar applied
+    // unconditionally; that the shell had to patch them by hand is why the
+    // over-content state is now something a bar *knows* rather than something
+    // its host removes.
     &__topbar.mlv-action-bar {
       --mlv-action-bar-bg: var(--mlv-page-shell-effective-background);
       --mlv-action-bar-fg: var(--mlv-page-shell-effective-foreground);
       --mlv-action-bar-border: transparent;
-      --mlv-action-bar-shadow: none;
 
       min-height: 3.25rem;
-      background: var(--mlv-page-shell-effective-background);
-      backdrop-filter: none;
     }
 
     &__body {

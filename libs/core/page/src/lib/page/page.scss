@@ -1,4 +1,5 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
 @use 'page-container' as container;
 
 @layer mlv.components {
@@ -38,11 +39,42 @@
     isolation: isolate;
 
     // ── Chrome rhythm ───────────────────────────────────────────────────────
-    // One block padding shared by the header, the summary strip and the dock,
-    // so the three chrome surfaces stack on a single vertical rhythm instead of
-    // each picking its own. Density-scaled: a compact page wants shorter chrome
-    // rows, which is a different question from the title's type role.
+    // Three numbers, declared once, read by the header, the summary strip and
+    // the dock. They used to be six: each surface picked its own block padding
+    // (0.5rem / 0.75rem / 0.375rem) and each row inside the header picked its
+    // own gap, so nothing lined up with anything and no single edit could
+    // change the rhythm.
+    //
+    // Density scales all three, because a compact page wants shorter chrome
+    // rows. It does **not** scale the title's type role — a compact data table
+    // wants a tighter bar, not a smaller page title — which is why the header's
+    // two type roles are a `size` decision and never a density one.
     --mlv-page-chrome-block-padding: var(--mlv-spacing-3);
+    --mlv-page-chrome-row-gap: var(--mlv-spacing-2);
+    --mlv-page-chrome-item-gap: var(--mlv-spacing-2);
+
+    // The reading measure. One token for the two places that were making the
+    // same decision separately: the header description's `max-width`, which was
+    // a bare `48rem` literal, and the page's own `maxWidth` input, which caps
+    // the reading column (see `--mlv-page-measure-gutter`). A consumer that
+    // wants both on one measure writes `maxWidth="var(--mlv-page-measure)"`.
+    --mlv-page-measure: 48rem;
+
+    // ── Chrome surface ──────────────────────────────────────────────────────
+    // One fill for all three chrome bars — header, summary strip, dock — with
+    // exactly two states. At rest a bar *is* the canvas and only its hairline
+    // says where it ends; over scrolling content it steps one rung up. That is
+    // the whole separation vocabulary, replacing the four signals the three
+    // bars each stacked (translucent fill, `blur(1.25rem)`, hairline,
+    // shadow deepening raised→floating).
+    //
+    // Declared here rather than on each bar, because a custom property an
+    // element declares itself beats the inherited one: a page-level state
+    // could never reach a bar that re-declared it. Each bar reads
+    // `var(--mlv-page-chrome-bg, var(--mlv-page-chrome-surface, …))`, so a
+    // consumer knob still wins over the state, and the innermost fallback is
+    // what a bar rendered outside a page resolves.
+    --mlv-page-chrome-surface: var(--mlv-background-bar);
 
     // Radius of the page's *padding* box — the box the full-bleed top chrome
     // occupies. Zero unless the surface is anchored; see `--surface-anchored`.
@@ -77,6 +109,30 @@
           ) - var(--mlv-page-sticky-inset-block-end)
       )
     );
+
+    @include density.density-tight {
+      --mlv-page-chrome-block-padding: var(--mlv-spacing-1);
+      --mlv-page-chrome-row-gap: var(--mlv-spacing-1);
+      --mlv-page-chrome-item-gap: var(--mlv-spacing-1);
+    }
+
+    @include density.density-compact {
+      --mlv-page-chrome-block-padding: var(--mlv-spacing-2);
+      --mlv-page-chrome-row-gap: var(--mlv-spacing-1);
+      --mlv-page-chrome-item-gap: var(--mlv-spacing-1-5);
+    }
+
+    @include density.density-spacious {
+      --mlv-page-chrome-block-padding: var(--mlv-spacing-4);
+      --mlv-page-chrome-row-gap: var(--mlv-spacing-3);
+      --mlv-page-chrome-item-gap: var(--mlv-spacing-3);
+    }
+
+    @include density.density-airy {
+      --mlv-page-chrome-block-padding: var(--mlv-spacing-6);
+      --mlv-page-chrome-row-gap: var(--mlv-spacing-4);
+      --mlv-page-chrome-item-gap: var(--mlv-spacing-4);
+    }
 
     &__scrollbar {
       width: 100%;
@@ -131,6 +187,11 @@
     // never was the page's to spend. `--snapping` follows the measured
     // `collapseDistance`, so it switches itself off on a page with no
     // collapsing chrome at all.
+    //
+    // This rule has been a **no-op in Safari**, which never implemented scroll
+    // anchoring — Safari 27 ships it, so that is the first engine where the
+    // suppression starts doing work and the first place the feedback loop it
+    // guards against can appear at all. Re-test the timeline on that beta.
     &--snapping &__scrollbar > .mlv-scrollbar__viewport,
     &--snapping.#{$block}--scroll-document > &__inner {
       overflow-anchor: none;
@@ -194,6 +255,19 @@
           animation-timing-function: steps(2, jump-none);
         }
       }
+
+      // A view transition freezes the outgoing page as a snapshot and leaves
+      // the incoming one live. A scrub that keeps running across that window
+      // crossfades two different collapse states, so both timelines hold at
+      // the progress they had. `MlvPageViewTransition` writes the attribute;
+      // without `mlvPageViewTransitionHook()` wired up it is never present and
+      // these two rules never match.
+      :root[data-mlv-page-view-transition] & {
+        &__scrollbar > .mlv-scrollbar__viewport,
+        &--scroll-document > .#{$block}__inner {
+          animation-play-state: paused;
+        }
+      }
     }
 
     &__inner {
@@ -204,6 +278,18 @@
       --mlv-page-inset-inline: var(--mlv-page-inset, 0rem);
       --mlv-page-inset-block: var(--mlv-page-inset, 0rem);
 
+      // Half the slack between the canvas and the capped reading measure.
+      // `maxWidth` caps the *reading column*, not the canvas: chrome spans the
+      // full width and pads by this instead, so a wide application gets
+      // full-bleed chrome and a narrow measure without capping either by hand.
+      // The percentage is substituted, not resolved, here — every consumer
+      // resolves it against this same content box, which is what makes chrome
+      // content and body content share one start edge.
+      --mlv-page-measure-gutter: max(
+        0rem,
+        calc((100% - var(--mlv-page-max-width, 100%)) / 2)
+      );
+
       // Named size container so page chrome (header rows, docks) can adapt to
       // the canvas width instead of the viewport. Named, so a nested container
       // a consumer establishes inside the page cannot answer a query the page
@@ -212,9 +298,15 @@
       container-name: container.$page-container;
       width: 100%;
       min-height: 100%;
-      max-width: var(--mlv-page-max-width, none);
-      margin-inline: auto;
       padding: var(--mlv-page-inset-block) var(--mlv-page-inset-inline);
+    }
+
+    // The scroller has moved off the top, so the chrome is over content. This
+    // is the snap controller's `overlapped`, which is deliberately *not* the
+    // collapse fraction: chrome pinned at full height collapses by nothing and
+    // still has to say it is sitting over content.
+    &--overlapped {
+      --mlv-page-chrome-surface: var(--mlv-background-bar-overlapped);
     }
 
     &--surface-anchored {
@@ -260,6 +352,14 @@
       min-block-size: 0;
     }
 
+    // Everything that is not chrome is the reading column, and the reading
+    // column is what `maxWidth` caps. Chrome names itself; a consumer's own
+    // wrapper is body content and is capped with it.
+    &__inner > :not(.mlv-page-header, .mlv-page-summary, .mlv-page-dock) {
+      max-inline-size: var(--mlv-page-max-width, none);
+      margin-inline: auto;
+    }
+
     &--scroll-content
       > &__inner
       > :not(.mlv-page-header, .mlv-page-summary, .mlv-page-dock) {
@@ -294,49 +394,33 @@
       --mlv-page-inset: var(--mlv-spacing-3);
     }
 
-    // Top chrome spans the full canvas width regardless of the page inset; its
-    // own inline padding (via --mlv-page-inset) re-aligns content.
+    // Top chrome spans the full canvas width regardless of the page inset, and
+    // it does so from **its own stylesheet**, reading the inherited
+    // `--mlv-page-inset-*` — the same mechanism `mlv-page-dock` already used,
+    // now shared by the header and the summary strip. A `<form>` or `<section>`
+    // between the canvas and the chrome therefore keeps the treatment, where a
+    // `.mlv-page__inner > …` child selector silently dropped it.
     //
-    // NOTE: unlike `mlv-page-dock` — which derives its own full-bleed margins
-    // from the inherited --mlv-page-inset and therefore tolerates any wrapper —
-    // the header and summary strip MUST stay **direct children** of the page.
-    // Their geometry is sibling-relative (the header's negative top bleed, the
-    // first-child canvas radius), so wrapping either one in a <form>/<section>
-    // silently drops the full-bleed treatment. Measurement no longer depends on
-    // it: both register with `MlvPageGeometry` instead of being queried.
-    &__inner > .mlv-page-header,
-    &__inner > .mlv-page-summary {
-      margin-inline: calc(-1 * var(--mlv-page-inset-inline, 0rem));
-    }
-
-    &__inner > .mlv-page-header {
-      margin-block-start: calc(-1 * var(--mlv-page-inset-block, 0rem));
-      // The header carries a standalone top radius of its own; full-bleed
-      // inside a page that would leave hairline gaps at the canvas edge. The
-      // first child takes the canvas curve back below.
-      border-radius: 0;
-    }
-
-    // The full-bleed top chrome's box *is* the page's padding box at the top
-    // edge, so it has to carry the page's own inner corner radius. The host's
-    // `overflow: clip` does not do it: the header and the summary strip paint a
-    // glass surface with `backdrop-filter`, and a filtered backdrop is composited
-    // into a backdrop root that an ancestor's rounded overflow clip never reaches
-    // (verified in Chromium — forcing `backdrop-filter: none` on the header
-    // rounds the corners, restoring the blur squares them off again).
+    // Inheritance fixes **discovery**, not containment: a wrapper that scrolls,
+    // clips or pads still changes the geometry, and nothing here can rescue
+    // that. Measurement was already independent of both — every region
+    // registers with `MlvPageGeometry` rather than being queried.
     //
-    // Clipping on `.mlv-page__inner` is NOT the alternative: `overflow` there
-    // makes `__inner` the nearest scroll container for the sticky header, and
-    // `__inner` scrolls with the content, so the header would stop sticking —
-    // and every inline-rendered overlay would be cut off at the canvas edge.
+    // The rounded top corner lives there too. The full-bleed chrome's box *is*
+    // the page's padding box at that edge, so it carries the page's own inner
+    // curve rather than leaning on the host's rounded `overflow: clip`. Two
+    // reasons it cannot lean on it: only `--scroll-page` and `--scroll-content`
+    // clip at all, so a `scroll="document"` page has no clip to inherit a curve
+    // from; and clipping on `.mlv-page__inner` — the box the chrome actually
+    // sits in — is not available either, because `overflow` there makes
+    // `__inner` the nearest scroll container for the sticky header, and
+    // `__inner` scrolls with the content, so the header would stop sticking,
+    // while every inline-rendered overlay would be cut off at the canvas edge.
     //
-    // `:first-child` because only the first child sits on the corner. Chrome
-    // further down the page is still full-bleed inline, but must stay square.
-    &__inner > .mlv-page-header:first-child,
-    &__inner > .mlv-page-summary:first-child {
-      border-radius: var(--mlv-page-surface-radius, 0rem)
-        var(--mlv-page-surface-radius, 0rem) 0 0;
-    }
+    // (Until the chrome surface was flattened this was also forced: a
+    // `backdrop-filter`ed box composites into a backdrop root that an
+    // ancestor's rounded overflow clip never reaches. The blur is gone; the
+    // two reasons above are not.)
 
     // The height the snapping chrome gives up is re-added at the end of the
     // canvas, so the scroll height stays constant while the chrome shrinks —

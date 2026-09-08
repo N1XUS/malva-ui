@@ -22,6 +22,7 @@ import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvPageSnapController } from './page-snap-controller';
 import type { MlvPageSnapBehavior, MlvPageSnapState } from './page-snap-state';
 import { MlvPageGeometry } from './page-geometry';
+import { MlvPageRegistry } from './page-registry';
 import { connectPageScrollport } from './page-scrollport';
 
 /**
@@ -106,6 +107,7 @@ export type MlvPageSurface = 'anchored' | 'flat';
     '[class.mlv-page--scroll-content]': 'scroll() === "content"',
     '[class.mlv-page--scroll-document]': 'scroll() === "document"',
     '[class.mlv-page--snapping]': '_snapping()',
+    '[class.mlv-page--overlapped]': '_overlapped()',
     '[class.mlv-page--padding-none]': 'padding() === "none"',
     '[class.mlv-page--padding-s]': 'padding() === "s"',
     '[class.mlv-page--padding-m]': 'padding() === "m"',
@@ -186,6 +188,17 @@ export class MlvPage {
     () => this._snap.collapseDistance() > 0,
   );
 
+  /**
+   * @protected Whether the chrome is currently sitting over scrolled content.
+   *
+   * Drives `mlv-page--overlapped`, which is where the chrome bars' one
+   * separation signal — a one-rung fill step — is declared, so the header, the
+   * summary strip and the dock cannot answer it differently. Deliberately the
+   * snap controller's `overlapped` and not its `progress`: chrome pinned at
+   * full height collapses by nothing and still has to say it is over content.
+   */
+  protected readonly _overlapped = computed(() => this._snap.overlapped());
+
   /** @private The page-owned scrollbar, rendered only in `scroll="page"`. */
   private readonly _scrollbar = viewChild(MlvScrollbar);
 
@@ -210,7 +223,22 @@ export class MlvPage {
   /** @private Owning document; the scrollport in `scroll="document"`. */
   private readonly _document = inject(DOCUMENT);
 
+  /**
+   * @private Application-wide registry of live pages. Route focus, the skip
+   * link and scroll restoration all run outside any page's injector, so the
+   * page publishes itself rather than being searched for by selector.
+   */
+  private readonly _registry = inject(MlvPageRegistry);
+
   constructor() {
+    this._destroyRef.onDestroy(
+      this._registry.register({
+        element: this._elementRef.nativeElement,
+        geometry: this._geometry,
+        snap: this._snap,
+      }),
+    );
+
     // The page-level sticky default is what makes a projected header sticky
     // without the header opting in, so the geometry contract has to see it.
     effect(() => this._geometry.chromeSticky.set(this.stickyHeader()));

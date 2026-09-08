@@ -3,20 +3,24 @@ import { dirname, join } from 'node:path';
 import * as sass from 'sass';
 
 /**
- * The anchored page canvas rounds its own top corners, and `overflow: clip` on
- * the host is expected to clip everything inside it to that curve. It does not
- * reach one thing: `mlv-page-header` (and `mlv-page-summary`) paint a glass
- * surface with `backdrop-filter`, whose filtered backdrop goes into a backdrop
- * root that an ancestor's *rounded* overflow clip does not apply to. Verified
- * in Chromium: with `backdrop-filter: none` forced on the header the corners
- * round correctly; with the blur restored the header squares them off.
+ * The anchored page canvas rounds its own top corners, and the full-bleed top
+ * chrome — `mlv-page-header`, `mlv-page-summary` — carries that curve itself
+ * rather than inheriting it from the host's `overflow: clip`.
  *
- * The full-bleed top chrome therefore has to carry the page's own inner corner
- * radius itself. It cannot be fixed by clipping on `.mlv-page__inner`:
- * `overflow` there would make `__inner` the nearest scroll container for the
- * sticky header, and `__inner` scrolls with the content, so the header would
- * stop sticking — and any inline-rendered overlay would be cut off at the
- * canvas edge.
+ * Two reasons it cannot inherit it. Only `--scroll-page` and `--scroll-content`
+ * clip at all, so a `scroll="document"` page has no clip to take a curve from.
+ * And clipping on `.mlv-page__inner` — the box the chrome actually sits in — is
+ * not the alternative: `overflow` there would make `__inner` the nearest scroll
+ * container for the sticky header, and `__inner` scrolls with the content, so
+ * the header would stop sticking, while any inline-rendered overlay would be
+ * cut off at the canvas edge.
+ *
+ * Until the chrome surface was flattened this was also *forced*: the bars
+ * painted a glass surface with `backdrop-filter`, whose filtered backdrop goes
+ * into a backdrop root that an ancestor's rounded overflow clip does not apply
+ * to (verified in Chromium — forcing `backdrop-filter: none` on the header
+ * rounded the corners, restoring the blur squared them off). The blur is gone;
+ * the two reasons above are not.
  *
  * Component styles are not injected into the DOM under the vitest/jsdom setup,
  * so the compiled stylesheet is the observable surface here.
@@ -79,31 +83,61 @@ describe('page surface radius', () => {
     );
   });
 
-  // Only a *first* child sits on the canvas corner. A header further down the
-  // page is still full-bleed inline, but rounding its top there would be wrong.
-  it.each(['.mlv-page-header', '.mlv-page-summary'])(
-    'rounds the top corners of a full-bleed first-child %s',
-    (chrome) => {
-      const selector = `.mlv-page__inner>${chrome}:first-child`;
+  // The chrome carries the curve in its own stylesheet, reached by a
+  // *descendant* selector so a `<form>` or `<section>` wrapper keeps it. Only a
+  // first child sits on the canvas corner; chrome further down the page is
+  // still full-bleed inline, and still square.
+  it.each([
+    ['page-header', '../page-header/page-header.scss'],
+    ['page-summary', '../page-summary/page-summary.scss'],
+  ])('%s rounds the canvas corner and nothing else', (block, stylesheet) => {
+    const chromeCss = sass
+      .compile(join(PAGE_DIR, stylesheet), { style: 'expanded' })
+      .css.replace(/\s+/g, '');
 
-      expect(
-        css.indexOf(selector),
-        `selector \`${selector}\` not found`,
-      ).toBeGreaterThan(-1);
-      expect(declarationsOf(css, selector)).toContain(
-        strip(
-          'border-radius: var(--mlv-page-surface-radius, 0rem) var(--mlv-page-surface-radius, 0rem) 0 0;',
-        ),
-      );
-    },
-  );
+    const square = `.mlv-page.mlv-${block}{`;
+    const corner = `.mlv-page.mlv-${block}:first-child{`;
 
-  // A header that is not the first child is still full-bleed inline, so its
-  // standalone top radius has to stay flattened — only the canvas corner earns
-  // a curve, and the `:first-child` rule out-specifies this one.
-  it('keeps flattening a full-bleed header that is not on the canvas corner', () => {
-    expect(declarationsOf(css, '.mlv-page__inner>.mlv-page-header{')).toContain(
-      'border-radius:0;',
+    expect(
+      chromeCss.indexOf(square),
+      `selector \`${square}\` not found`,
+    ).toBeGreaterThan(-1);
+    expect(declarationsOf(chromeCss, square)).toContain('border-radius:0;');
+
+    // `:first-child` out-specifies the rule above, so the corner wins where
+    // both match — and it reads the page's padding-box curve, not its own.
+    expect(declarationsOf(chromeCss, corner)).toContain(
+      strip(
+        'border-radius: var(--mlv-page-surface-radius, 0rem) var(--mlv-page-surface-radius, 0rem) 0 0;',
+      ),
     );
+  });
+
+  // The full-bleed geometry is inherited, never selected: `mlv-page-dock`
+  // already worked this way, and the other two now do too.
+  it.each([
+    ['page-header', '../page-header/page-header.scss'],
+    ['page-summary', '../page-summary/page-summary.scss'],
+    ['page-dock', '../page-dock/page-dock.scss'],
+  ])('%s bleeds from the inherited page inset', (block, stylesheet) => {
+    const chromeCss = sass
+      .compile(join(PAGE_DIR, stylesheet), { style: 'expanded' })
+      .css.replace(/\s+/g, '');
+
+    expect(chromeCss).toContain(
+      strip('margin-inline: calc(-1 * var(--mlv-page-inset-inline, 0rem));'),
+    );
+  });
+
+  // `maxWidth` caps the reading column, and chrome pads by the same gutter, so
+  // a wide application gets full-bleed chrome and a narrow measure at once.
+  it('caps the reading column rather than the canvas', () => {
+    expect(css).not.toContain(strip('max-width: var(--mlv-page-max-width'));
+    expect(
+      declarationsOf(
+        css,
+        '.mlv-page__inner>:not(.mlv-page-header,.mlv-page-summary,.mlv-page-dock){',
+      ),
+    ).toContain(strip('max-inline-size: var(--mlv-page-max-width, none);'));
   });
 });

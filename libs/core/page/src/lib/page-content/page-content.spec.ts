@@ -7,6 +7,8 @@ import { Subject } from 'rxjs';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import { MlvPageAside } from './page-aside';
 import { MlvPageContent } from './page-content';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 const CONTENT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -62,6 +64,11 @@ function areas(element: HTMLElement): string {
 }
 
 describe('MlvPageContent', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   const resized = new Subject<ResizeObserverEntry[]>();
   let styleEl: HTMLStyleElement;
 
@@ -264,5 +271,32 @@ describe('MlvPageContent', () => {
 
       expect(warn).not.toHaveBeenCalled();
     });
+  });
+
+  it('has no axe violations with an aside projected', async () => {
+    const fixture = createHost(PageContentTestHost);
+    await fixture.whenStable();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+
+  it('has no axe violations with no aside at all', async () => {
+    const fixture = createHost(PageContentNoAsideHost);
+    await fixture.whenStable();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+
+  it('has no axe violations once the columns have stacked', async () => {
+    const fixture = createHost(PageContentTestHost);
+    await fixture.whenStable();
+
+    // Stacking moves the aside below the main column; the landmark and its
+    // name have to survive the reflow, which is the state a narrow canvas is
+    // actually in.
+    resized.next([
+      { contentRect: { width: 600 } } as unknown as ResizeObserverEntry,
+    ]);
+    await fixture.whenStable();
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });

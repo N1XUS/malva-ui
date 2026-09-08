@@ -1,0 +1,42 @@
+// Opt-in: holds the application shell's chrome still across a router view
+// transition, so only the page canvas crossfades.
+//
+// Add it to the application's build styles *after* `malva-ui.css`:
+//
+//   node_modules/@malva-ui/core/styles/page-view-transitions.css
+//
+// and wire the router half:
+//
+//   withViewTransitions({ onViewTransitionCreated: mlvPageViewTransitionHook() })
+//
+// **It is opt-in because `view-transition-name` must be unique in the whole
+// document, and a duplicate does not warn — the browser skips every
+// transition on the page.** Only chrome a shell has exactly one of is named
+// here. `mlv-page-header`, `mlv-page-summary` and `mlv-page-dock` are
+// deliberately absent: during a transition there are two pages alive, so
+// naming per-page chrome from a library stylesheet would be a guaranteed
+// duplicate. An application that renders exactly one page at a time can name
+// those itself, on its own route host, where it can see that it is true.
+
+@use '../../styles/src/lib/layers';
+
+@layer mlv.components {
+  .mlv-page-shell__topbar {
+    view-transition-name: mlv-page-topbar;
+  }
+
+  // The shell accepts at most two start sidebars and one end sidebar, in DOM
+  // order, so positional names are stable and cannot collide.
+  .mlv-page-shell__body
+    > .mlv-page-shell__sidebar:not(.mlv-page-shell__sidebar--end) {
+    view-transition-name: mlv-page-sidebar;
+
+    & ~ .mlv-page-shell__sidebar:not(.mlv-page-shell__sidebar--end) {
+      view-transition-name: mlv-page-sidebar-2;
+    }
+  }
+
+  .mlv-page-shell__sidebar--end {
+    view-transition-name: mlv-page-end-sidebar;
+  }
+}

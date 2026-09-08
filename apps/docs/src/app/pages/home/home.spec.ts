@@ -115,7 +115,7 @@ describe('HomePageComponent', () => {
     expect(canvas?.querySelector('mlv-page-header')).toBeTruthy();
     expect(canvas?.querySelector('mlv-page-content')).toBeTruthy();
     expect(
-      canvas?.querySelectorAll('mlv-page-header mlv-page-summary-item'),
+      canvas?.querySelectorAll('mlv-page-header [mlvPageSummaryItem]'),
     ).toHaveLength(3);
   });
 

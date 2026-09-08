@@ -125,16 +125,12 @@
       </div>
 
       <mlv-page-summary summaryLabel="Layout summary">
-        <mlv-page-summary-item label="Containers">{{
-          counts().containers
-        }}</mlv-page-summary-item>
-        <mlv-page-summary-item label="Rows">{{
-          counts().rows
-        }}</mlv-page-summary-item>
-        <mlv-page-summary-item label="Blocks">{{
-          counts().blocks
-        }}</mlv-page-summary-item>
-        <mlv-page-summary-item label="Disabled">
+        <div mlvPageSummaryItem label="Containers">
+          {{ counts().containers }}
+        </div>
+        <div mlvPageSummaryItem label="Rows">{{ counts().rows }}</div>
+        <div mlvPageSummaryItem label="Blocks">{{ counts().blocks }}</div>
+        <div mlvPageSummaryItem label="Disabled">
           @if (counts().disabled > 0) {
             <mlv-badge tone="warning" muted mlvDensity="tight">{{
               counts().disabled
@@ -142,10 +138,8 @@
           } @else {
             0
           }
-        </mlv-page-summary-item>
-        <mlv-page-summary-item label="Grid">{{
-          gridSummary()
-        }}</mlv-page-summary-item>
+        </div>
+        <div mlvPageSummaryItem label="Grid">{{ gridSummary() }}</div>
       </mlv-page-summary>
     </mlv-page-header>
 

@@ -13,6 +13,7 @@ import { MlvPageSummary } from '../page-summary/page-summary';
 import { MlvPageSummaryItem } from '../page-summary/page-summary-item';
 import { MlvPageDock } from '../page-dock/page-dock';
 import { MlvPageDockEnd } from '../page-dock/page-dock.slots';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 /** This spec file's own directory; the compiled stylesheets resolve from it. */
 const SPEC_DIR = dirname(fileURLToPath(import.meta.url));
@@ -71,7 +72,7 @@ function readProperty(element: HTMLElement, property: string): string {
       }
       @if (showSummary()) {
         <mlv-page-summary>
-          <mlv-page-summary-item label="Owner">Dana R.</mlv-page-summary-item>
+          <div mlvPageSummaryItem label="Owner">Dana R.</div>
         </mlv-page-summary>
       }
       @if (showDock()) {
@@ -100,6 +101,11 @@ class GeometryTestHost {
 }
 
 describe('page geometry contract', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   afterEach(() => {
     document.documentElement.style.removeProperty(
       '--mlv-viewport-inset-block-end',
@@ -206,9 +212,7 @@ describe('page geometry contract', () => {
           <mlv-page-header>
             <ng-template mlvPageTitle><h1>Invoice 4821</h1></ng-template>
             <mlv-page-summary>
-              <mlv-page-summary-item label="Owner"
-                >Dana R.</mlv-page-summary-item
-              >
+              <div mlvPageSummaryItem label="Owner">Dana R.</div>
             </mlv-page-summary>
           </mlv-page-header>
         </main>

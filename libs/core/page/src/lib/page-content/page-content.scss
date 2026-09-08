@@ -15,18 +15,25 @@
     grid-template-areas: 'main';
     align-items: start;
     min-width: 0;
-    padding-top: var(--mlv-spacing-2);
+    // The clearance under the chrome is the same measure as the gap between
+    // the columns, not an unrelated 0.5rem: `gap` is the spacing this component
+    // exposes, so the one edge it also owns has to be on that scale or the
+    // input silently controls two thirds of the layout.
+    --mlv-page-content-gap: var(--mlv-spacing-4);
+
+    gap: var(--mlv-page-content-gap);
+    padding-block-start: var(--mlv-page-content-gap);
 
     &--gap-s {
-      gap: var(--mlv-spacing-2);
+      --mlv-page-content-gap: var(--mlv-spacing-2);
     }
 
     &--gap-m {
-      gap: var(--mlv-spacing-4);
+      --mlv-page-content-gap: var(--mlv-spacing-4);
     }
 
     &--gap-l {
-      gap: var(--mlv-spacing-6);
+      --mlv-page-content-gap: var(--mlv-spacing-6);
     }
 
     // Inline (side-by-side) geometry. Scoped away from the stacked modifier so
@@ -64,7 +71,8 @@
       inset-block-start: var(
         --mlv-page-aside-offset,
         calc(
-          var(--mlv-page-sticky-inset-block-start, 0px) + var(--mlv-spacing-4)
+          var(--mlv-page-sticky-inset-block-start, 0px) +
+            var(--mlv-page-content-gap)
         )
       );
     }

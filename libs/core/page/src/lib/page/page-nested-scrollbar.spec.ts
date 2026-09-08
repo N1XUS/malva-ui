@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 import * as sass from 'sass';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvPage } from './page';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 const PAGE_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -64,6 +65,11 @@ function scrollbarSelectorDeclaring(property: string, value: string): string {
 class NestedScrollbarPageHost {}
 
 describe('MlvPage — page scrollbar rules do not reach a nested scrollbar', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   let pageViewport: HTMLElement;
   let regionViewport: HTMLElement;
 

@@ -1,7 +1,7 @@
 @if (_compact()) {
   <mlv-drawer
     [opened]="opened()"
-    position="right"
+    [position]="_drawerPosition()"
     [size]="width()"
     [ariaLabel]="ariaLabel()"
     [closeOnBackdropClick]="closeOnBackdropClick()"
@@ -9,6 +9,7 @@
     [initialFocus]="initialFocus()"
     [restoreFocus]="false"
     (openedChange)="_onDrawerOpenedChange($event)"
+    (afterOpened)="_onDrawerOpened()"
     (afterClosed)="_onDrawerDisposed()"
   >
     <ng-template mlvDrawerContent>

@@ -179,6 +179,16 @@ export class MlvPageGeometry {
   readonly scrollportBlockSize = computed(() => this._scrollportBlockSize());
 
   /**
+   * The element that actually scrolls this page, once one has registered.
+   *
+   * `null` under `scroll="content"` until a `[mlvPageScroller]` pane donates
+   * one, and `null` on the server. Scroll restoration reads it to put a saved
+   * offset back on the element the page really scrolls, which is the whole
+   * reason Angular's document-scrolling `ViewportScroller` cannot do it.
+   */
+  readonly scrollport = computed(() => this._scrollport());
+
+  /**
    * Current vertical scroll offset of the page's scroll owner, in pixels.
    *
    * Lives here rather than behind its own injection token because its one
@@ -226,6 +236,9 @@ export class MlvPageGeometry {
 
   /** @private Writable source behind {@link scrollportBlockSize}. */
   private readonly _scrollportBlockSize = signal(0);
+
+  /** @private Writable source behind {@link scrollport}. */
+  private readonly _scrollport = signal<HTMLElement | null>(null);
 
   /** @private Writable source behind {@link scrollTop}. */
   private readonly _scrollTop = signal(0);
@@ -283,11 +296,17 @@ export class MlvPageGeometry {
    */
   registerScrollport(element: HTMLElement): () => void {
     this._scrollportBlockSize.set(element.clientHeight);
+    this._scrollport.set(element);
     const subscription = this._resizeObserver
       .observe(element)
       .subscribe(() => this._scrollportBlockSize.set(element.clientHeight));
 
-    const release = (): void => subscription.unsubscribe();
+    const release = (): void => {
+      subscription.unsubscribe();
+      this._scrollport.update((current) =>
+        current === element ? null : current,
+      );
+    };
     this._destroyRef.onDestroy(release);
     return release;
   }

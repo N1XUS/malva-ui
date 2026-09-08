@@ -129,7 +129,8 @@
         </button>
       </div>
       <mlv-page-summary summaryLabel="Project key facts">
-        <mlv-page-summary-item
+        <div
+          mlvPageSummaryItem
           class="project-workspace-showcase__fact"
           label="Overall progress"
         >
@@ -140,19 +141,21 @@
             showPercentage
             ariaLabel="Overall project progress"
           />
-        </mlv-page-summary-item>
-        <mlv-page-summary-item
+        </div>
+        <div
+          mlvPageSummaryItem
           class="project-workspace-showcase__fact"
           label="Open tasks"
         >
           {{ openTaskCount() }}
-        </mlv-page-summary-item>
-        <mlv-page-summary-item
+        </div>
+        <div
+          mlvPageSummaryItem
           class="project-workspace-showcase__fact"
           label="Due date"
         >
           {{ projectMeta.dueDate | date: 'MMM d, y' }}
-        </mlv-page-summary-item>
+        </div>
       </mlv-page-summary>
     </mlv-page-header>
 

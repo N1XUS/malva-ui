@@ -223,10 +223,15 @@
 
         @if (hasTabs()) {
           <div mlvPageTabs>
+            <!-- The strip is page chrome and the body is page content: two
+                 different places in the layout, so the panels cannot be this
+                 component's children. `panels="external"` renders the strip
+                 alone, and each section body below carries `[mlvTabPanel]`. -->
             <mlv-tab-group
               class="settings-access-showcase__tabs"
               appearance="underline"
               mlvDensity="compact"
+              panels="external"
               [activeTab]="activeTab()"
               (activeTabChange)="setActiveTab($event)"
             >
@@ -274,10 +279,6 @@
                       }
                     </span>
                   </ng-template>
-                  <!-- The strip lives in the sticky header chrome; the panel body is
-                 rendered by `mlv-page-content` below, so each tab supplies an
-                 empty panel purely so its `aria-controls` resolves. -->
-                  <ng-template mlvTabContent></ng-template>
                 </mlv-tab>
               }
             </mlv-tab-group>
@@ -336,129 +337,114 @@
         <mlv-page-summary [summaryLabel]="summaryLabel()">
           @switch (activeSection()) {
             @case ('profile') {
-              <mlv-page-summary-item label="Member since">{{
-                currentUser.joinedLabel
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Role">{{
-                isOwner() ? 'Owner' : 'Admin'
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Sign-in method">{{
-                currentUser.signInMethod
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Last sign-in">{{
-                currentUser.lastSignInLabel
-              }}</mlv-page-summary-item>
+              <div mlvPageSummaryItem label="Member since">
+                {{ currentUser.joinedLabel }}
+              </div>
+              <div mlvPageSummaryItem label="Role">
+                {{ isOwner() ? 'Owner' : 'Admin' }}
+              </div>
+              <div mlvPageSummaryItem label="Sign-in method">
+                {{ currentUser.signInMethod }}
+              </div>
+              <div mlvPageSummaryItem label="Last sign-in">
+                {{ currentUser.lastSignInLabel }}
+              </div>
             }
             @case ('preferences') {
-              <mlv-page-summary-item label="Language">{{
-                languageSet.labelOf(text('prefs.language'))
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Time zone">{{
-                timeZoneSet.labelOf(text('prefs.timezone'))
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Week starts">{{
-                weekStartSet.labelOf(text('prefs.weekStart'))
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Appearance">{{
-                themeSet.labelOf(text('prefs.theme'))
-              }}</mlv-page-summary-item>
+              <div mlvPageSummaryItem label="Language">
+                {{ languageSet.labelOf(text('prefs.language')) }}
+              </div>
+              <div mlvPageSummaryItem label="Time zone">
+                {{ timeZoneSet.labelOf(text('prefs.timezone')) }}
+              </div>
+              <div mlvPageSummaryItem label="Week starts">
+                {{ weekStartSet.labelOf(text('prefs.weekStart')) }}
+              </div>
+              <div mlvPageSummaryItem label="Appearance">
+                {{ themeSet.labelOf(text('prefs.theme')) }}
+              </div>
             }
             @case ('notifications') {
-              <mlv-page-summary-item label="Channels on">{{
-                channelsOnLabel()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Subscribed events">{{
-                subscribedEventsLabel()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Quiet hours">{{
-                quietHoursLabel()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Weekly digest">{{
-                digestLabel()
-              }}</mlv-page-summary-item>
+              <div mlvPageSummaryItem label="Channels on">
+                {{ channelsOnLabel() }}
+              </div>
+              <div mlvPageSummaryItem label="Subscribed events">
+                {{ subscribedEventsLabel() }}
+              </div>
+              <div mlvPageSummaryItem label="Quiet hours">
+                {{ quietHoursLabel() }}
+              </div>
+              <div mlvPageSummaryItem label="Weekly digest">
+                {{ digestLabel() }}
+              </div>
             }
             @case ('general') {
-              <mlv-page-summary-item label="Plan">{{
-                workspace.plan
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Members">{{
-                seatsLabel()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Address">{{
-                addressLabel()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Created">{{
-                workspace.createdLabel
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Billing contact">{{
-                text('ws.billingEmail')
-              }}</mlv-page-summary-item>
+              <div mlvPageSummaryItem label="Plan">{{ workspace.plan }}</div>
+              <div mlvPageSummaryItem label="Members">{{ seatsLabel() }}</div>
+              <div mlvPageSummaryItem label="Address">{{ addressLabel() }}</div>
+              <div mlvPageSummaryItem label="Created">
+                {{ workspace.createdLabel }}
+              </div>
+              <div mlvPageSummaryItem label="Billing contact">
+                {{ text('ws.billingEmail') }}
+              </div>
             }
             @case ('members') {
-              <mlv-page-summary-item label="Members">{{
-                memberCount()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Owners">{{
-                ownerCount()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Admins">{{
-                adminCount()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Invitations">{{
-                invitationsLabel()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Default role">{{
-                roleSet.labelOf(text('ws.defaultRole'))
-              }}</mlv-page-summary-item>
+              <div mlvPageSummaryItem label="Members">{{ memberCount() }}</div>
+              <div mlvPageSummaryItem label="Owners">{{ ownerCount() }}</div>
+              <div mlvPageSummaryItem label="Admins">{{ adminCount() }}</div>
+              <div mlvPageSummaryItem label="Invitations">
+                {{ invitationsLabel() }}
+              </div>
+              <div mlvPageSummaryItem label="Default role">
+                {{ roleSet.labelOf(text('ws.defaultRole')) }}
+              </div>
             }
             @case ('security') {
-              <mlv-page-summary-item label="Two-factor">{{
-                twoFactorLabel()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="SSO">{{
-                bool('sec.enforceSso') ? 'On' : 'Off'
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Session lifetime">{{
-                text('sec.sessionLifetime')
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Active sessions">{{
-                sessions().length
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Failed sign-ins (7d)">{{
-                failedSignInCount()
-              }}</mlv-page-summary-item>
+              <div mlvPageSummaryItem label="Two-factor">
+                {{ twoFactorLabel() }}
+              </div>
+              <div mlvPageSummaryItem label="SSO">
+                {{ bool('sec.enforceSso') ? 'On' : 'Off' }}
+              </div>
+              <div mlvPageSummaryItem label="Session lifetime">
+                {{ text('sec.sessionLifetime') }}
+              </div>
+              <div mlvPageSummaryItem label="Active sessions">
+                {{ sessions().length }}
+              </div>
+              <div mlvPageSummaryItem label="Failed sign-ins (7d)">
+                {{ failedSignInCount() }}
+              </div>
             }
             @case ('api') {
-              <mlv-page-summary-item label="Live keys">{{
-                apiKeys().length
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Overdue for rotation">{{
-                overdueKeyCount()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Webhooks">{{
-                webhookLabel()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Calls (7d)">{{
-                apiCallsLabel()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Failures (7d)">{{
-                workspace.apiFailures7d
-              }}</mlv-page-summary-item>
+              <div mlvPageSummaryItem label="Live keys">
+                {{ apiKeys().length }}
+              </div>
+              <div mlvPageSummaryItem label="Overdue for rotation">
+                {{ overdueKeyCount() }}
+              </div>
+              <div mlvPageSummaryItem label="Webhooks">
+                {{ webhookLabel() }}
+              </div>
+              <div mlvPageSummaryItem label="Calls (7d)">
+                {{ apiCallsLabel() }}
+              </div>
+              <div mlvPageSummaryItem label="Failures (7d)">
+                {{ workspace.apiFailures7d }}
+              </div>
             }
             @default {
-              <mlv-page-summary-item label="Members affected">{{
-                memberCount()
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Projects">{{
-                projects.length
-              }}</mlv-page-summary-item>
-              <mlv-page-summary-item label="Data retained"
-                >{{ workspace.dataRetentionDays }} days after
-                deletion</mlv-page-summary-item
-              >
-              <mlv-page-summary-item label="Owner">{{
-                ownerName()
-              }}</mlv-page-summary-item>
+              <div mlvPageSummaryItem label="Members affected">
+                {{ memberCount() }}
+              </div>
+              <div mlvPageSummaryItem label="Projects">
+                {{ projects.length }}
+              </div>
+              <div mlvPageSummaryItem label="Data retained">
+                {{ workspace.dataRetentionDays }} days after deletion
+              </div>
+              <div mlvPageSummaryItem label="Owner">{{ ownerName() }}</div>
             }
           }
         </mlv-page-summary>
@@ -789,7 +775,10 @@
             @case ('notifications') {
               @switch (activeTab()) {
                 @case ('delivery') {
-                  <mlv-card class="settings-access-showcase__form-card">
+                  <mlv-card
+                    class="settings-access-showcase__form-card"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <form mlvForm gap="l" (submit)="$event.preventDefault()">
                       <mlv-alert tone="info" outlined>
                         Install the Malva app and sign in to turn on push.
@@ -921,7 +910,10 @@
                   </mlv-card>
                 }
                 @default {
-                  <mlv-card class="settings-access-showcase__form-card">
+                  <mlv-card
+                    class="settings-access-showcase__form-card"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <form mlvForm gap="l" (submit)="$event.preventDefault()">
                       @for (event of notificationEvents; track event.id) {
                         <fieldset
@@ -1148,7 +1140,10 @@
             @case ('members') {
               @switch (activeTab()) {
                 @case ('roster') {
-                  <section class="settings-access-showcase__panel">
+                  <section
+                    class="settings-access-showcase__panel"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <h2 mlvTitle level="4">Members</h2>
 
                     <mlv-card class="settings-access-showcase__panel-card">
@@ -1367,7 +1362,10 @@
                   </section>
                 }
                 @case ('invitations') {
-                  <section class="settings-access-showcase__panel">
+                  <section
+                    class="settings-access-showcase__panel"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <h2 mlvTitle level="4">Invitations</h2>
 
                     <mlv-card class="settings-access-showcase__panel-card">
@@ -1477,7 +1475,10 @@
                   </section>
                 }
                 @default {
-                  <section class="settings-access-showcase__panel">
+                  <section
+                    class="settings-access-showcase__panel"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <h2 mlvTitle level="4">Roles</h2>
 
                     <div class="settings-access-showcase__role-grid">
@@ -1535,7 +1536,10 @@
             @case ('security') {
               @switch (activeTab()) {
                 @case ('sessions') {
-                  <section class="settings-access-showcase__panel">
+                  <section
+                    class="settings-access-showcase__panel"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <h2 mlvTitle level="4">Sessions</h2>
 
                     @if (sessionAlert(); as alert) {
@@ -1633,7 +1637,10 @@
                   </section>
                 }
                 @case ('signin-log') {
-                  <section class="settings-access-showcase__panel">
+                  <section
+                    class="settings-access-showcase__panel"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <h2 mlvTitle level="4">Sign-in log</h2>
 
                     <mlv-segmented
@@ -1682,7 +1689,10 @@
                   </section>
                 }
                 @default {
-                  <mlv-card class="settings-access-showcase__form-card">
+                  <mlv-card
+                    class="settings-access-showcase__form-card"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <form mlvForm gap="l" (submit)="$event.preventDefault()">
                       <fieldset
                         mlvFieldset
@@ -1843,7 +1853,10 @@
             @case ('api') {
               @switch (activeTab()) {
                 @case ('webhooks') {
-                  <section class="settings-access-showcase__panel">
+                  <section
+                    class="settings-access-showcase__panel"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <h2 mlvTitle level="4">Webhooks</h2>
 
                     <mlv-card class="settings-access-showcase__form-card">
@@ -1919,7 +1932,10 @@
                   </section>
                 }
                 @default {
-                  <section class="settings-access-showcase__panel">
+                  <section
+                    class="settings-access-showcase__panel"
+                    [mlvTabPanel]="sectionTabs()"
+                  >
                     <h2 mlvTitle level="4">Keys</h2>
 
                     @if (isCollectionLoading('api/keys')) {

@@ -28,15 +28,16 @@
       var(--mlv-page-summary-size, 30rem) * (1 - var(--mlv-page-snap, 0))
     );
     overflow: hidden;
-    // Same glass chrome recipe as mlv-action-bar and the page header.
+    // One chrome-bar surface, two states, resolved in three steps: the
+    // consumer knob first, then the page's own over-content state, then the
+    // rest value for a bar rendered outside a page. See
+    // `--mlv-page-chrome-surface` in `page.scss`.
     background-color: var(
       --mlv-page-chrome-bg,
-      color-mix(in srgb, var(--mlv-elevation-bg-3), transparent 50%)
+      var(--mlv-page-chrome-surface, var(--mlv-background-bar))
     );
     border-bottom: 0.0625rem solid
       var(--mlv-page-chrome-border, var(--mlv-border-subtle));
-    backdrop-filter: blur(1.25rem);
-    -webkit-backdrop-filter: blur(1.25rem);
     // Reaches zero exactly at `snapTo`, which is also where the strip leaves
     // the accessibility tree — no window where it is invisible and announced.
     opacity: calc(1 - var(--mlv-page-summary-snap));
@@ -49,15 +50,59 @@
       --mlv-page-snap: 0;
     }
 
+    // See the page header for why this is inherited rather than selected: the
+    // full-bleed treatment survives a consumer wrapper, and inheritance fixes
+    // discovery, not containment.
+    margin-inline: calc(-1 * var(--mlv-page-inset-inline, 0rem));
+
+    // Inside a page the chrome is full-bleed, so its own standalone radius
+    // would leave hairline gaps at the canvas edge: it is square everywhere
+    // except on the canvas corner, where it carries the page's *padding*-box
+    // curve itself rather than leaning on the host's rounded `overflow: clip`
+    // (see `page.scss` — the host only clips in the two bounded scroll modes,
+    // and clipping on `.mlv-page__inner` would stop the header sticking).
+    //
+    // Descendant selectors, not child combinators: a `<form>` or `<section>`
+    // wrapper must not silently drop the treatment. `:first-child` then reads
+    // as "first child of whatever wraps it", which is the honest claim — the
+    // page cannot know whether a wrapper adds a box of its own.
+    .mlv-page & {
+      border-radius: 0;
+    }
+
+    .mlv-page &:first-child {
+      border-radius: var(--mlv-page-surface-radius, 0rem)
+        var(--mlv-page-surface-radius, 0rem) 0 0;
+    }
+
     &__items {
+      // Inline padding is the page inset plus the measure gutter, so the surface
+      // spans the whole canvas while its content lines up with the reading
+      // column. See `--mlv-page-measure-gutter` in `page.scss`.
+      padding: var(--mlv-page-chrome-block-padding)
+        calc(
+          max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3)) +
+            var(--mlv-page-measure-gutter, 0rem)
+        );
+    }
+
+    &__facts {
+      // The gap is a declared property because each item draws its separator
+      // half a gap before itself; the two have to agree.
+      --mlv-page-summary-gap: calc(
+        2 * var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2))
+      );
+
       display: flex;
       flex-wrap: wrap;
       align-items: flex-start;
-      gap: var(--mlv-spacing-2) var(--mlv-spacing-4);
-      // Inline padding follows the page inset (full-bleed alignment); the block
-      // padding is the shared chrome rhythm.
-      padding: var(--mlv-page-chrome-block-padding)
-        max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3));
+      // No padding of its own, so the padding box is the border box and a
+      // separator sitting half a gap before a row-leading item is genuinely
+      // outside it — which is what makes the clip work.
+      margin: 0;
+      gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2))
+        var(--mlv-page-summary-gap);
+      overflow: hidden;
     }
   }
 }

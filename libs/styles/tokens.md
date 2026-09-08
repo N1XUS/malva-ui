@@ -3,7 +3,7 @@
 
 # Malva UI design tokens
 
-Every public `--mlv-*` custom property the design system declares — 440 tokens, generated from `libs/styles/src/lib/*.scss`.
+Every public `--mlv-*` custom property the design system declares — 449 tokens, generated from `libs/styles/src/lib/*.scss`.
 
 **If a token is not in this file, it does not exist.** `var()` silently falls back
 when a custom property is undefined, so a misspelled token never errors — it just
@@ -168,7 +168,10 @@ Surface and fill colors. `-pale` variants are tinted backgrounds for inline stat
 | `--mlv-background-accent-2-hover`       | `color-mix(in srgb, var(--mlv-palette-accent-500) 82%, white)`                           | `color-mix(in srgb, var(--mlv-palette-accent-500) 80%, white)`                           | `#aa2800`                              |              |
 | `--mlv-background-accent-2-pale`        | `color-mix(in srgb, var(--mlv-palette-accent-500) 12%, white)`                           | `color-mix(in srgb, var(--mlv-palette-accent-500) 15%, var(--mlv-palette-neutral-900))`  | `#ffe8e0`                              |              |
 | `--mlv-background-accent-2-pale-hover`  | `color-mix(in srgb, var(--mlv-palette-accent-500) 20%, white)`                           | `color-mix(in srgb, var(--mlv-palette-accent-500) 25%, var(--mlv-palette-neutral-900))`  | `#ffd0c0`                              |              |
+| `--mlv-background-bar`                  | `var(--mlv-background-base)`                                                             | `var(--mlv-background-base)`                                                             | `#ffffff`                              |              |
+| `--mlv-background-bar-overlapped`       | `var(--mlv-background-raised)`                                                           | `var(--mlv-background-raised)`                                                           | `#f5f5f5`                              |              |
 | `--mlv-background-base`                 | `var(--mlv-palette-neutral-50)`                                                          | `var(--mlv-palette-neutral-900)`                                                         | `#ffffff`                              |              |
+| `--mlv-background-chrome`               | `var(--mlv-palette-neutral-200)`                                                         | `var(--mlv-palette-neutral-950)`                                                         | `#000000`                              |              |
 | `--mlv-background-danger-1`             | `var(--mlv-palette-danger-600)`                                                          | `var(--mlv-palette-danger-600)`                                                          | `#cc0000`                              |              |
 | `--mlv-background-danger-1-active`      | `color-mix(in srgb, var(--mlv-palette-danger-600) 70%, black)`                           | `color-mix(in srgb, var(--mlv-palette-danger-600) 65%, white)`                           | `#660000`                              |              |
 | `--mlv-background-danger-1-hover`       | `color-mix(in srgb, var(--mlv-palette-danger-600) 85%, black)`                           | `color-mix(in srgb, var(--mlv-palette-danger-600) 80%, white)`                           | `#990000`                              |              |
@@ -233,6 +236,7 @@ Never use `--mlv-text-tertiary`, `--mlv-text-disabled` or `--mlv-text-placeholde
 | `--mlv-text-inverse`             | `#ffffff`                                                       | `var(--mlv-palette-neutral-900)`                                | `#ffffff`     |
 | `--mlv-text-label`               | `var(--mlv-palette-neutral-700)`                                | `var(--mlv-palette-neutral-200)`                                | `#111111`     |
 | `--mlv-text-negative`            | `var(--mlv-palette-danger-700)`                                 | `var(--mlv-palette-danger-400)`                                 | `#cc0000`     |
+| `--mlv-text-on-chrome`           | `var(--mlv-text-primary)`                                       | `var(--mlv-text-primary)`                                       | `#ffffff`     |
 | `--mlv-text-on-danger`           | `#ffffff`                                                       | `#ffffff`                                                       | `#ffffff`     |
 | `--mlv-text-on-info`             | `#ffffff`                                                       | `#ffffff`                                                       | `#ffffff`     |
 | `--mlv-text-on-selected`         | `var(--mlv-text-action)`                                        | `var(--mlv-text-action)`                                        | —             |
@@ -521,6 +525,14 @@ Semantic scales are split into `-size`, `-weight`, `-line-height` and (headings 
 | `--mlv-stroke-width`        | `0.0625rem`                                                    | `0.125rem`                                                    | 1px   |
 | `--mlv-stroke-width-medium` | `0.125rem`                                                     | `0.1875rem`                                                   | 2px   |
 | `--mlv-stroke-width-thick`  | `0.1875rem`                                                    | `0.25rem`                                                     | 3px   |
+
+### Direction
+
+The sign of the inline axis: `1` in LTR, `-1` in RTL, re-declared under every `[dir]` so a mirrored subtree re-signs it for its own descendants. `transform`, `transform-origin` and `box-shadow` have no logical form, so their inline component is multiplied by this — consume it through `mixins.inline-distance()` rather than inlining the `calc()`.
+
+| Token                    | Light |
+| ------------------------ | ----- |
+| `--mlv-inline-direction` | `1`   |
 
 ### Muted tints
 

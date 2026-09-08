@@ -79,18 +79,14 @@
       </div>
 
       <mlv-page-summary summaryLabel="Key product facts">
-        <mlv-page-summary-item label="Category">
-          Audio Equipment
-        </mlv-page-summary-item>
-        <mlv-page-summary-item label="Price">
-          {{ viewed().price }} USD
-        </mlv-page-summary-item>
-        <mlv-page-summary-item label="Availability">
+        <div mlvPageSummaryItem label="Category">Audio Equipment</div>
+        <div mlvPageSummaryItem label="Price">{{ viewed().price }} USD</div>
+        <div mlvPageSummaryItem label="Availability">
           {{ viewed().availability }}
-        </mlv-page-summary-item>
-        <mlv-page-summary-item label="Lead time">
+        </div>
+        <div mlvPageSummaryItem label="Lead time">
           {{ viewed().leadTime }} days
-        </mlv-page-summary-item>
+        </div>
       </mlv-page-summary>
     </mlv-page-header>
 

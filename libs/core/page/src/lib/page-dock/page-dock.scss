@@ -16,7 +16,7 @@
     // (e.g. a wrapping pill toolbar) instead of overflowing narrow canvases.
     grid-template-columns: 1fr minmax(0, auto) 1fr;
     align-items: center;
-    gap: var(--mlv-spacing-2);
+    gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2));
     min-width: 0;
     // Full-bleed against the page canvas. The inset is read from the inherited
     // --mlv-page-inset-inline / -block axis pair rather than matched by a
@@ -26,19 +26,24 @@
     // property is unset and both margins collapse to zero.
     margin-inline: calc(-1 * var(--mlv-page-inset-inline, 0rem));
     margin-bottom: calc(-1 * var(--mlv-page-inset-block, 0rem));
-    // Inline padding follows the page inset so full-bleed dock content still
-    // aligns with the page edge padding.
-    padding: var(--mlv-spacing-1-5)
-      max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3));
-    // Same glass chrome recipe as mlv-action-bar and the page header.
+    // Inline padding is the page inset plus the measure gutter, so the surface
+    // spans the whole canvas while its content lines up with the reading
+    // column. See `--mlv-page-measure-gutter` in `page.scss`.
+    padding: var(--mlv-page-chrome-block-padding, var(--mlv-spacing-3))
+      calc(
+        max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3)) +
+          var(--mlv-page-measure-gutter, 0rem)
+      );
+    // One chrome-bar surface, two states, resolved in three steps: the
+    // consumer knob first, then the page's own over-content state, then the
+    // rest value for a bar rendered outside a page. See
+    // `--mlv-page-chrome-surface` in `page.scss`.
     background-color: var(
       --mlv-page-chrome-bg,
-      color-mix(in srgb, var(--mlv-elevation-bg-3), transparent 50%)
+      var(--mlv-page-chrome-surface, var(--mlv-background-bar))
     );
     border-top: 0.0625rem solid
       var(--mlv-page-chrome-border, var(--mlv-border-subtle));
-    backdrop-filter: blur(1.25rem);
-    -webkit-backdrop-filter: blur(1.25rem);
 
     // Dock actions keep their own labels on a single line…
     button,
@@ -68,8 +73,6 @@
       isolation: isolate;
       background: transparent;
       border-top: none;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
     }
 
     // …while the regions themselves wrap, so a crowded dock reflows onto a
@@ -84,7 +87,7 @@
     &__start {
       display: flex;
       align-items: center;
-      gap: var(--mlv-spacing-2);
+      gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2));
       min-width: 0;
       color: var(--mlv-text-secondary);
       font-size: var(--mlv-typography-body-s-size);
@@ -95,7 +98,7 @@
       display: flex;
       grid-column: 2;
       align-items: center;
-      gap: var(--mlv-spacing-1);
+      gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2));
       min-width: 0;
     }
 
@@ -104,7 +107,7 @@
       grid-column: 3;
       align-items: center;
       justify-content: flex-end;
-      gap: var(--mlv-spacing-2);
+      gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2));
     }
   }
 

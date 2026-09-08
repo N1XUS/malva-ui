@@ -6,6 +6,8 @@ import * as sass from 'sass';
 import { MlvPageSnapController } from '../page/page-snap-controller';
 import { MlvPageSummary } from './page-summary';
 import { MlvPageSummaryItem } from './page-summary-item';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 const SUMMARY_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -21,19 +23,30 @@ const SUMMARY_CSS = sass.compile(join(SUMMARY_DIR, 'page-summary.scss'), {
 @Component({
   template: `
     <mlv-page-summary summaryLabel="Key product facts">
-      <mlv-page-summary-item label="Category">
-        Audio Equipment
-      </mlv-page-summary-item>
-      <mlv-page-summary-item label="Price">
+      <div mlvPageSummaryItem label="Category">Audio Equipment</div>
+      <div mlvPageSummaryItem label="Price">
         <a href="/pricing" class="test-fact-link">Pricing</a>
-      </mlv-page-summary-item>
+      </div>
     </mlv-page-summary>
   `,
   imports: [MlvPageSummary, MlvPageSummaryItem],
 })
 class PageSummaryTestHost {}
 
+@Component({
+  template: `<mlv-page-summary
+    ><div mlvPageSummaryItem label="Price">329 USD</div></mlv-page-summary
+  >`,
+  imports: [MlvPageSummary, MlvPageSummaryItem],
+})
+class UnnamedSummaryTestHost {}
+
 describe('MlvPageSummary', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   function setup() {
     TestBed.configureTestingModule({
       imports: [PageSummaryTestHost],
@@ -47,6 +60,54 @@ describe('MlvPageSummary', () => {
     const fixture = TestBed.createComponent(PageSummaryTestHost);
     return { fixture, controller };
   }
+
+  it('exposes the facts as a description list of terms and values', async () => {
+    const { fixture } = setup();
+    await fixture.whenStable();
+
+    const list = fixture.nativeElement.querySelector(
+      '.mlv-page-summary__facts',
+    ) as HTMLElement;
+    expect(list.tagName).toBe('DL');
+
+    // `<dl>` has a content model — only dt/dd groups, `<div>` wrappers,
+    // `<script>` and `<template>` may be direct children — so the item is an
+    // attribute component on a real `<div>`. A custom element here fails axe's
+    // own `definition-list` and `dlitem` rules.
+    expect([...list.children].map((child) => child.tagName)).toEqual([
+      'DIV',
+      'DIV',
+    ]);
+    expect(list.querySelectorAll('dt').length).toBe(2);
+    expect(list.querySelectorAll('dd').length).toBe(2);
+    expect(list.querySelector('dt')?.textContent).toBe('Category');
+  });
+
+  it('names the group from the language pack when nothing overrides it', async () => {
+    TestBed.configureTestingModule({ imports: [UnnamedSummaryTestHost] });
+    const fixture = TestBed.createComponent(UnnamedSummaryTestHost);
+    await fixture.whenStable();
+
+    // A `role="group"` with no accessible name is a bare landmark, and the
+    // name is the same on every page — so it belongs to the pack rather
+    // than to a literal every consumer has to remember to translate.
+    expect(
+      fixture.nativeElement
+        .querySelector('.mlv-page-summary__facts')
+        ?.getAttribute('aria-label'),
+    ).toBe('Page summary');
+  });
+
+  it('lets the consumer override the packaged name', async () => {
+    const { fixture } = setup();
+    await fixture.whenStable();
+
+    expect(
+      fixture.nativeElement
+        .querySelector('.mlv-page-summary__facts')
+        ?.getAttribute('aria-label'),
+    ).toBe('Key product facts');
+  });
 
   it('renders labelled summary items in an accessible group', async () => {
     const { fixture } = setup();
@@ -67,7 +128,7 @@ describe('MlvPageSummary', () => {
     ).toBe('Price');
     expect(
       fixture.nativeElement
-        .querySelector('.mlv-page-summary__items')
+        .querySelector('.mlv-page-summary__facts')
         ?.getAttribute('aria-label'),
     ).toBe('Key product facts');
   });
@@ -146,5 +207,18 @@ describe('MlvPageSummary', () => {
     } finally {
       styleEl.remove();
     }
+  });
+
+  it('has no axe violations expanded or fully snapped', async () => {
+    const { fixture, controller } = setup();
+    await fixture.whenStable();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+
+    // Fully snapped is the state the strip spends most of a scrolled page in,
+    // and the one where it leaves the accessibility tree — a default-state
+    // sweep says nothing about it.
+    controller.updateFromScroll(96);
+    await fixture.whenStable();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });

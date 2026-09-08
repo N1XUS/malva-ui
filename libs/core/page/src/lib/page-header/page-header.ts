@@ -19,6 +19,7 @@ import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { LucideChevronUp } from '@lucide/angular';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import { MlvButton } from '@malva-ui/core/button';
+import { MLV_PAGE_I18N } from '@malva-ui/i18n';
 import { MlvPageSnapController } from '../page/page-snap-controller';
 import { registerPageRegion } from '../page/page-geometry';
 import { MLV_PAGE_HEADER_STATE } from './page-header-state';
@@ -105,8 +106,19 @@ export class MlvPageHeader implements MlvPageHeaderState {
     transform: coerceBooleanProperty,
   });
 
-  /** Accessible label for the chevron that expands the snapped chrome. */
-  readonly expandLabel = input('Expand header');
+  /**
+   * Accessible label for the chevron that expands the snapped chrome.
+   * Falls back to the active i18n language pack.
+   */
+  readonly expandLabel = input<string | undefined>(undefined);
+
+  /** @private Active language pack. */
+  private readonly _i18n = inject(MLV_PAGE_I18N);
+
+  /** @protected Resolved chevron label: the override, else the pack. */
+  protected readonly _expandLabel = computed(
+    () => this.expandLabel() ?? this._i18n().expandHeader,
+  );
 
   /** @protected Page title template projected via `[mlvPageTitle]`. */
   protected readonly _titleRef = contentChild(MlvPageTitle);

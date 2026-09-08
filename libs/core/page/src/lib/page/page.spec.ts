@@ -6,6 +6,8 @@ import { MlvPageSnapController } from './page-snap-controller';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvPage } from './page';
 import { MlvPageScroller } from './page-scroller';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 @Component({
   template: `
@@ -26,6 +28,11 @@ import { MlvPageScroller } from './page-scroller';
 class PageTestHost {}
 
 describe('MlvPage', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   it('configures the native main landmark as the page surface', async () => {
     const fixture = TestBed.configureTestingModule({
       imports: [PageTestHost],
@@ -366,5 +373,14 @@ describe('MlvPage', () => {
 
       warn.mockRestore();
     });
+  });
+
+  it('has no axe violations as a landmark with chrome', async () => {
+    const fixture = TestBed.configureTestingModule({
+      imports: [PageTestHost],
+    }).createComponent(PageTestHost);
+    await fixture.whenStable();
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });

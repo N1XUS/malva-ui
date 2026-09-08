@@ -225,6 +225,74 @@ describe('MlvPageEndPane', () => {
     await expectNoAxeViolations(document.body);
   });
 
+  it('opens the compact drawer from the physical inline end', async () => {
+    breakpoint.setDown('lg', true);
+    host.open.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.querySelector('.mlv-drawer--right')).not.toBeNull();
+    expect(document.querySelector('.mlv-drawer--left')).toBeNull();
+  });
+
+  it('mirrors the compact drawer against its own [dir] scope', async () => {
+    // `MlvDrawerPosition` names a viewport edge, so the pane translates
+    // logical end into a physical one — resolved against the scope the pane
+    // itself sits in, with the document still LTR.
+    paneElement().setAttribute('dir', 'rtl');
+    breakpoint.setDown('lg', true);
+    host.open.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.querySelector('.mlv-drawer--left')).not.toBeNull();
+    expect(document.querySelector('.mlv-drawer--right')).toBeNull();
+  });
+
+  it('reports which surface it is rendering on', async () => {
+    const pane = fixture.debugElement
+      .query((node) => node.name === 'mlv-page-end-pane')
+      .injector.get(MlvPageEndPane);
+
+    expect(pane.renderer()).toBe('inline');
+    breakpoint.setDown('lg', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(pane.renderer()).toBe('drawer');
+  });
+
+  it('emits afterOpened only once the active renderer exists', async () => {
+    host.open.set(true);
+    // The logical model has flipped, but the `<aside>` has not rendered — the
+    // event used to fire here, one render before anything inside the pane was
+    // focusable.
+    expect(host.openedCount).toBe(0);
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.openedCount).toBe(1);
+    expect(
+      fixture.nativeElement.querySelector('[data-pane-content]'),
+    ).not.toBeNull();
+  });
+
+  it('does not emit afterOpened again when an open pane changes renderer', async () => {
+    host.open.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(host.openedCount).toBe(1);
+
+    breakpoint.setDown('lg', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // The Drawer's own `afterOpened` fires for the migration; a migration is
+    // not a logical open, and the pending flag is what tells them apart.
+    expect(host.openedCount).toBe(1);
+    expect(host.closedCount).toBe(0);
+  });
+
   it('removes the overlay pane when destroyed while open', () => {
     breakpoint.setDown('lg', true);
     host.open.set(true);
