@@ -42,7 +42,7 @@ import {
   MLV_DENSITY_ELEMENT,
   MlvDensityDirective,
 } from '@malva-ui/cdk/density';
-import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { MlvRtlService, mlvNextId } from '@malva-ui/cdk/utils';
 
 /**
  * Visual style of the tab header. Orthogonal to `orientation` — a boxed group can
@@ -54,6 +54,9 @@ import { MlvRtlService } from '@malva-ui/cdk/utils';
  *   and a white pill slides behind the active one (non-active tabs tint on hover).
  */
 export type MlvTabAppearance = 'underline' | 'boxed';
+
+/** Where a tab group renders its panels. See `MlvTabGroup.panels`. */
+export type MlvTabPanelPlacement = 'inline' | 'external';
 
 @Component({
   selector: 'mlv-tab-group',
@@ -167,6 +170,44 @@ export class MlvTabGroup implements MlvTabGroupAccessor, AfterViewInit {
   readonly appearance = input<MlvTabAppearance>('underline');
 
   /**
+   * Where the tab panels are rendered.
+   *
+   * `'inline'` (default) renders them below the strip, inside this component.
+   * `'external'` renders **no panel body at all** — the strip is the whole
+   * component, and one `[mlvTabPanel]` elsewhere in the document carries the
+   * content.
+   *
+   * The external mode exists because a tab strip is routinely part of a page's
+   * sticky chrome while its content belongs in the page body: the two are in
+   * different places in the layout and cannot be one element's children. The
+   * shape that arrangement used to take was one empty `mlvTabContent` per tab,
+   * which rendered a stub panel purely so `aria-controls` resolved to
+   * *something*. A reference that resolves to an empty element is not a panel
+   * relationship; it is a valid id pointing at nothing a reader can use.
+   */
+  readonly panels = input<MlvTabPanelPlacement>('inline');
+
+  /**
+   * DOM id of the tab element currently selected, or `null` when the selected
+   * tab is not rendered in the visible row (it is in the overflow menu, or
+   * nothing is selected).
+   *
+   * `[mlvTabPanel]` points its `aria-labelledby` at this, which is the half of
+   * the tabs relationship an external panel can still express: the panel names
+   * itself after its tab even though the tab cannot point back at a panel that
+   * is outside its own DI scope.
+   */
+  readonly activeTabId = computed<string | null>(() => {
+    const active = this.activeTab();
+    return this.visibleTabs().some((tab) => tab.value() === active)
+      ? this._tabDomId(active)
+      : null;
+  });
+
+  /** @private Stable id prefix for this group's tab elements. */
+  private readonly _idBase = mlvNextId('mlv-tab');
+
+  /**
    * @internal True when at least one registered tab carries a `[routerLink]`
    * (its `urlTree()` is non-null). In routed mode the active tab is derived from
    * the URL via `Router.isActive` rather than from click/keyboard selection, and
@@ -223,6 +264,17 @@ export class MlvTabGroup implements MlvTabGroupAccessor, AfterViewInit {
     const activeTabComp = tabs.find((t) => t.value() === value);
     return activeTabComp?.contentTemplate()?.templateRef ?? null;
   });
+
+  /**
+   * @internal DOM id for one tab element. Deterministic, so the strip and an
+   * external panel derive the same value without either querying the DOM.
+   * Non-id characters in a tab value are folded to `-`; two values that differ
+   * only in those characters would collide, which is why the prefix is unique
+   * per group rather than per document.
+   */
+  protected _tabDomId(value: string): string {
+    return `${this._idBase}-${value.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+  }
 
   constructor() {
     // Auto-select first tab if none is set. Suppressed in routed mode where the

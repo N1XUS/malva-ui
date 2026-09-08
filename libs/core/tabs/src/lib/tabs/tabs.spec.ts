@@ -12,8 +12,10 @@ import { MlvTab } from '../tab/tab';
 import { MlvTabsService } from '../tabs.service';
 import { MlvTabDef } from '../tab-def';
 import { MlvTabContentDef } from '../tab-content-def';
+import { MlvTabPanel } from '../tab-panel/tab-panel';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 @Component({
   imports: [MlvTabGroup, MlvTab, MlvTabDef, MlvTabContentDef],
@@ -1152,5 +1154,82 @@ describe('MlvTabGroup', () => {
       expect(items[1].getAttribute('aria-selected')).toBe('true');
       expect(items[0].getAttribute('aria-selected')).toBe('false');
     });
+  });
+});
+
+describe('MlvTabGroup — external panels', () => {
+  @Component({
+    imports: [MlvTabGroup, MlvTab, MlvTabDef, MlvTabPanel],
+    template: `
+      <mlv-tab-group #tabs panels="external" [(activeTab)]="activeTab">
+        @for (t of ['roster', 'invitations']; track t) {
+          <mlv-tab [value]="t">
+            <ng-template mlvTabDef>{{ t }}</ng-template>
+          </mlv-tab>
+        }
+      </mlv-tab-group>
+      <section [mlvTabPanel]="tabs">Body for {{ activeTab() }}</section>
+    `,
+  })
+  class ExternalHost {
+    readonly activeTab = signal('roster');
+  }
+
+  async function create(): Promise<ComponentFixture<ExternalHost>> {
+    const fixture = TestBed.configureTestingModule({
+      imports: [ExternalHost],
+      providers: [provideMlvI18nTesting()],
+    }).createComponent(ExternalHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it('renders no panel body and no stub panels inside the group', async () => {
+    const fixture = await create();
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('.mlv-tab-group__body')).toBeNull();
+    expect(root.querySelector('.mlv-tab-group__panel-stub')).toBeNull();
+
+    // The one `role="tabpanel"` in the document is the consumer's element.
+    const panels = root.querySelectorAll('[role="tabpanel"]');
+    expect(panels).toHaveLength(1);
+    expect(panels[0].tagName).toBe('SECTION');
+  });
+
+  it('names the external panel after the selected tab, and follows selection', async () => {
+    const fixture = await create();
+    const root = fixture.nativeElement as HTMLElement;
+    const panel = root.querySelector('section') as HTMLElement;
+    const tabs = root.querySelectorAll('[role="tab"]');
+
+    expect(panel.getAttribute('aria-labelledby')).toBe(tabs[0].id);
+    expect(tabs[0].id).toBeTruthy();
+
+    fixture.componentInstance.activeTab.set('invitations');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(panel.getAttribute('aria-labelledby')).toBe(tabs[1].id);
+  });
+
+  it('leaves aria-controls absent rather than pointing at an empty stub', async () => {
+    const fixture = await create();
+    const tabs = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      '[role="tab"]',
+    );
+
+    // The whole point of the mode: a reference that resolves to an empty
+    // element is not a panel relationship, so no reference is emitted.
+    for (const tab of Array.from(tabs)) {
+      expect(tab.hasAttribute('aria-controls')).toBe(false);
+    }
+  });
+
+  it('has no axe violations', async () => {
+    const fixture = await create();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });
