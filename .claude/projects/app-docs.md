@@ -895,15 +895,25 @@ app bar.
 ```
 <docs-app-bar>
   <button docsAppBarLeading class="docs-shell__mobile-menu">  ← navigation trigger, below md only
-<mlv-layout>
-  <mlv-sidebar>                     ← searchable grouped navigation
+<mlv-page-shell class="docs-shell" sizing="content">
+  <mlv-sidebar mlvPageSidebar>            ← searchable grouped navigation
     @for (group of navigationGroups())
       @for (item of group.items)
-  <div class="docs-main-area">       ← flex wrapper
-    <main class="docs-content">
+  <div class="docs-shell__main-area">     ← flex wrapper
+    <main class="docs-shell__content">
       <router-outlet />
     <docs-toc [entries]="tocEntries()" />  ← right sidebar ToC
 ```
+
+**`sizing="content"` is load-bearing, and pinned by a spec.** The documentation
+pages are scrolled by the _document_: `.docs-shell__main-area` declares no
+scroller of its own, `docs-toc` is `position: sticky; top: 5.5rem` against the
+viewport, and the shell's own `NavigationEnd` handler resets `window.scrollTo`.
+The default `sizing="parent"` and `sizing="viewport"` both bound the shell —
+viewport to `calc(100svh - inset)` — and make `.mlv-page-shell__content`
+`overflow: hidden`, so every page taller than the viewport is clipped with
+nothing able to scroll it. A showcase route that wants a bounded shell uses its
+own `ShowcaseShellComponent`, not this one.
 
 The shell consumes `docsNavigationGroups`, so navigation is data-driven and
 alphabetized within semantic groups. It includes a page filter, uses an icon

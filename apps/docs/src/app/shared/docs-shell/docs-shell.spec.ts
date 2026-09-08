@@ -71,6 +71,28 @@ describe('DocsShellComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('header')).toHaveLength(1);
   });
 
+  /**
+   * The documentation pages are scrolled by the *document*, not by a track
+   * inside the shell: `.docs-shell__main-area` declares no scroller of its own,
+   * `docs-toc` is `position: sticky` against the viewport, and the shell's own
+   * `NavigationEnd` handler resets `window.scrollTo`. `sizing="viewport"` makes
+   * the shell a bounded `calc(100svh - inset)` box whose content track is
+   * `overflow: hidden`, so every page taller than the viewport was silently
+   * clipped with nothing able to scroll it.
+   */
+  it('is content-sized, so the document scrolls the page', () => {
+    const shell = fixture.nativeElement.querySelector(
+      'mlv-page-shell',
+    ) as HTMLElement;
+
+    expect(shell.classList.contains('mlv-page-shell--sizing-content')).toBe(
+      true,
+    );
+    expect(shell.classList.contains('mlv-page-shell--sizing-viewport')).toBe(
+      false,
+    );
+  });
+
   describe('navigation trigger', () => {
     function trigger(): HTMLButtonElement {
       return fixture.nativeElement.querySelector('.docs-shell__mobile-menu');
