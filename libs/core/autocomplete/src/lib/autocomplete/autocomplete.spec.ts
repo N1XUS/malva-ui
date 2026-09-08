@@ -15,6 +15,9 @@ import {
 } from '@malva-ui/core/dropdown';
 import { MlvDataSource } from '@malva-ui/cdk/data-source';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
+import { MlvInput } from '@malva-ui/core/input';
+import { MlvFormField, MlvLabel } from '@malva-ui/core/form-utils';
 import { MlvAutocomplete } from './autocomplete';
 import type { MlvAutocompleteSearchFn } from './autocomplete';
 
@@ -1106,5 +1109,387 @@ describe('MlvAutocomplete — suggestion panel inline-axis fallback (#154)', () 
     expect(box?.style.left).toBe(`${LEFT_EDGE_RECT.left}px`);
     expect(box?.style.width).toBe(`${VIEWPORT_WIDTH - LEFT_EDGE_RECT.left}px`);
     expect(box?.style.alignItems).toBe('flex-end');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Accessible name of the suggestion listbox (#222)
+// ---------------------------------------------------------------------------
+
+/**
+ * The panel's inner `role="listbox"` is an ARIA input field, so it needs an
+ * accessible name (axe `aria-input-field-name`, WCAG 4.1.2). `mlv-select` and
+ * `mlv-combobox` name it from their own `label` / `ariaLabel` inputs; the
+ * directive attaches to a host input the consumer owns, so it mirrors that
+ * input's own accessible name instead — the same "the listbox shares the name
+ * of the field it belongs to" contract, resolved from the DOM.
+ */
+describe('MlvAutocomplete — suggestion listbox accessible name', () => {
+  @Component({
+    template: `
+      @if (labelText(); as text) {
+        <label [attr.for]="labelFor()">{{ text }}</label>
+      }
+      <span id="ac-external-label">{{ externalLabelText() }}</span>
+      <input
+        id="ac-input"
+        mlvAutocomplete
+        [mlvAutocomplete]="options"
+        [mlvAutocompleteSearch]="search()"
+        [mlvAutocompleteDebounce]="0"
+        [attr.aria-label]="ariaLabel()"
+        [attr.aria-labelledby]="ariaLabelledby()"
+      />
+    `,
+    imports: [MlvAutocomplete],
+  })
+  class NamedHostComponent {
+    readonly directive = viewChild.required(MlvAutocomplete<string>);
+    readonly options = ['Apple', 'Apricot', 'Banana'];
+    readonly labelText = signal<string | null>(null);
+    readonly labelFor = signal<string | null>(null);
+    readonly externalLabelText = signal('');
+    readonly ariaLabel = signal<string | null>(null);
+    readonly ariaLabelledby = signal<string | null>(null);
+    readonly search = signal<MlvAutocompleteSearchFn<string> | null>(null);
+  }
+
+  let fixture: ComponentFixture<NamedHostComponent>;
+  let host: NamedHostComponent;
+  let input: HTMLInputElement;
+  let overlayContainer: OverlayContainer;
+  let overlayEl: HTMLElement;
+  let rtlService: MlvRtlService;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [NamedHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(NamedHostComponent);
+    host = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    overlayContainer = TestBed.inject(OverlayContainer);
+    overlayEl = overlayContainer.getContainerElement();
+    rtlService = TestBed.inject(MlvRtlService);
+  });
+
+  afterEach(() => {
+    rtlService.setDirection('ltr');
+    overlayContainer.ngOnDestroy();
+  });
+
+  /** Opens the popup and renders the portalled panel (its own CD root). */
+  async function open(): Promise<HTMLElement> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    input.dispatchEvent(new FocusEvent('focus'));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+    return overlayEl.querySelector('[role="listbox"]') as HTMLElement;
+  }
+
+  it("names the listbox from the host input's aria-label", async () => {
+    host.ariaLabel.set('Fruit');
+
+    const listbox = await open();
+
+    expect(listbox).toBeTruthy();
+    expect(listbox.getAttribute('aria-label')).toBe('Fruit');
+  });
+
+  it('names the listbox from a native <label for> on the host input', async () => {
+    host.labelText.set('Fruit');
+    host.labelFor.set('ac-input');
+
+    const listbox = await open();
+
+    expect(listbox.getAttribute('aria-label')).toBe('Fruit');
+  });
+
+  it("names the listbox from the host input's aria-labelledby", async () => {
+    host.externalLabelText.set('Fruit');
+    host.ariaLabelledby.set('ac-external-label');
+
+    const listbox = await open();
+
+    expect(listbox.getAttribute('aria-label')).toBe('Fruit');
+  });
+
+  it('emits no aria-label at all when the host input is itself unnamed', async () => {
+    const listbox = await open();
+
+    // Never `aria-label=""` — an empty name is not a name, and it would launder
+    // the consumer's own unnamed `role="combobox"` input into something that
+    // reads as labelled in review.
+    expect(listbox.hasAttribute('aria-label')).toBe(false);
+  });
+
+  /**
+   * Why the sweep below cannot be the regression guard for the tests above, and
+   * must not be re-tightened into one.
+   *
+   * axe's `aria-input-field-name` selects `[role="listbox"]`, but its matcher
+   * (`no-naming-method-matches`) bails out via `isComboboxPopup` for a listbox
+   * that some `role="combobox"` element points at through `aria-controls` or
+   * `aria-owns` — the APG combobox contract, under which the popup takes its
+   * name from the combobox. That is exactly this wiring, so the rule reports
+   * `inapplicable` whether or not the panel is named. (Measured against
+   * axe-core 4.12: a detached `mlv-list[role="listbox"]` with the same markup
+   * *is* a violation; this one is not.) The name is still set, because the
+   * panel is shared with `mlv-select` / `mlv-combobox`, which both name it.
+   */
+  it('wires the input as the listbox’s combobox owner', async () => {
+    host.ariaLabel.set('Fruit');
+    const listbox = await open();
+
+    expect(input.getAttribute('role')).toBe('combobox');
+    expect(listbox.id).toBeTruthy();
+    expect(input.getAttribute('aria-controls')).toBe(listbox.id);
+  });
+
+  /**
+   * The `.set()` that snapshots the name sits *above* `_openPopup`'s
+   * `if (!this._overlayRef)` guard on purpose. `_openPopup()` is re-entered
+   * from `_runQuery()` on every debounced keystroke, while the overlay — and
+   * with it the panel component — is created once per session and disposed on
+   * close. Moving the `.set()` inside the guard reads like "resolve once per
+   * open" and matches no observable behaviour: it would pin the name for the
+   * whole session instead. This test is the tripwire for exactly that edit —
+   * it asserts the panel node is unchanged (so this is a re-resolve on the
+   * live panel, not a fresh open) *and* that the name followed the label.
+   */
+  it("re-resolves the field's name on each query, not once per overlay", async () => {
+    host.externalLabelText.set('Fruit');
+    host.ariaLabelledby.set('ac-external-label');
+
+    const listbox = await open();
+    expect(listbox.getAttribute('aria-label')).toBe('Fruit');
+
+    // The consumer's label changes while the popup is up.
+    host.externalLabelText.set('Vegetable');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // One keystroke: `_runQuery` re-enters `_openPopup`, which re-resolves.
+    input.value = 'A';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+
+    const after = overlayEl.querySelector('[role="listbox"]') as HTMLElement;
+    // Same node — the popup never closed, so the overlay was not rebuilt.
+    expect(after).toBe(listbox);
+    expect(after.getAttribute('aria-label')).toBe('Vegetable');
+  });
+
+  /**
+   * Every naming source is flattened, `aria-label` included: the
+   * accessible-name computation normalizes whitespace over whichever source it
+   * takes, so the input's own computed name here is `'Fruit basket'` and the
+   * panel has to read the same. Trimming the attribute without collapsing it
+   * would leave the two disagreeing.
+   */
+  it('collapses internal whitespace in the aria-label branch too', async () => {
+    host.ariaLabel.set('Fruit  \n  basket');
+
+    const listbox = await open();
+
+    expect(listbox.getAttribute('aria-label')).toBe('Fruit basket');
+  });
+
+  it('is axe-clean with the suggestion panel open', async () => {
+    host.ariaLabel.set('Fruit');
+    await open();
+
+    // Coverage for the whole rendered open state — the project's first sweep
+    // (#47 / #202), not the assertion behind #222; see the note above. The
+    // panel is portalled into the CDK overlay container, outside the fixture,
+    // so the sweep has to start at the document body.
+    await expectNoAxeViolations(document.body);
+  });
+
+  // `.claude/rules/accessibility.md` asks for one sweep per state that changes
+  // the markup. Beyond the populated panel above, the panel's own template
+  // branches on `loading()` (a `role="status"` row above the listbox, plus
+  // `aria-busy` on it), on an empty option list (the `@empty` branch), and the
+  // overlay pane is its own `[dir]` scope. Each gets its own sweep below.
+
+  it('is axe-clean while an async search is in flight (loading row)', async () => {
+    host.ariaLabel.set('Fruit');
+    // A search that never resolves: the panel stays in its loading state.
+    host.search.set(() => new Subject<string[]>().asObservable());
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await open();
+    input.value = 'ap';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+
+    expect(
+      overlayEl.querySelector('.mlv-dropdown-panel__loading'),
+    ).toBeTruthy();
+    await expectNoAxeViolations(document.body);
+  });
+
+  it('is axe-clean with an empty result list', async () => {
+    host.ariaLabel.set('Fruit');
+    await open();
+
+    input.value = 'zzzzz';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+
+    expect(overlayEl.querySelectorAll('[role="option"]').length).toBe(0);
+    await expectNoAxeViolations(document.body);
+  });
+
+  it('is axe-clean with the panel open in RTL', async () => {
+    host.ariaLabel.set('Fruit');
+    rtlService.setDirection('rtl');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const listbox = await open();
+
+    expect(listbox).toBeTruthy();
+    await expectNoAxeViolations(document.body);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The shape every real consumer writes: `<mlv-input>`, not a native `<input>` (#222)
+// ---------------------------------------------------------------------------
+
+/**
+ * All four `apps/docs` examples — and the pattern `best-practices.md` mandates
+ * for any text field — put the directive on `<mlv-input>`, never on a bare
+ * `<input>`. That resolves the name through a different branch of
+ * `_resolveHostAccessibleName`: the directive walks to the *inner* native
+ * input, whose `labels` collection holds `mlv-label`'s rendered `<label for>`.
+ *
+ * The tests above, which host a native `<input>`, cannot see that branch break.
+ * Concretely: dropping `[for]` from `mlv-input`'s internal `<mlv-label>` empties
+ * `el.labels`, and un-hiding `mlv-hint`'s `__source` span folds the hint text
+ * into the name — both would leave every native-`<input>` test green.
+ */
+describe('MlvAutocomplete — listbox name from an mlv-input host', () => {
+  @Component({
+    template: `
+      <mlv-input
+        label="Fruit"
+        [hint]="hint()"
+        [mlvAutocomplete]="options"
+        [mlvAutocompleteDebounce]="0"
+      />
+    `,
+    imports: [MlvAutocomplete, MlvInput],
+  })
+  class MlvInputHostComponent {
+    readonly options = ['Apple', 'Apricot', 'Banana'];
+    readonly hint = signal<string | undefined>(undefined);
+  }
+
+  @Component({
+    template: `
+      <mlv-form-field>
+        <mlv-label>Vegetable</mlv-label>
+        <mlv-input [mlvAutocomplete]="options" [mlvAutocompleteDebounce]="0" />
+      </mlv-form-field>
+    `,
+    imports: [MlvAutocomplete, MlvInput, MlvFormField, MlvLabel],
+  })
+  class FormFieldHostComponent {
+    readonly options = ['Carrot', 'Celery'];
+  }
+
+  let overlayContainer: OverlayContainer;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+    overlayContainer = TestBed.inject(OverlayContainer);
+  });
+
+  afterEach(() => {
+    overlayContainer.ngOnDestroy();
+  });
+
+  /** Mounts `type`, opens its suggestion popup and returns the panel listbox. */
+  async function openIn<C>(type: new (...args: never[]) => C): Promise<{
+    fixture: ComponentFixture<C>;
+    listbox: HTMLElement;
+  }> {
+    const fixture = TestBed.createComponent(type);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector(
+      'input',
+    ) as HTMLInputElement;
+    input.dispatchEvent(new FocusEvent('focus'));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+    const listbox = overlayContainer
+      .getContainerElement()
+      .querySelector('[role="listbox"]') as HTMLElement;
+    return { fixture, listbox };
+  }
+
+  it("names the listbox from mlv-input's own label input", async () => {
+    const { listbox } = await openIn(MlvInputHostComponent);
+
+    expect(listbox).toBeTruthy();
+    expect(listbox.getAttribute('aria-label')).toBe('Fruit');
+  });
+
+  it("keeps an mlv-hint's text out of the name", async () => {
+    const { fixture, listbox: before } = await openIn(MlvInputHostComponent);
+    expect(before.getAttribute('aria-label')).toBe('Fruit');
+
+    fixture.componentInstance.hint.set('pick one');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const input = fixture.nativeElement.querySelector(
+      'input',
+    ) as HTMLInputElement;
+    // Re-query the field so the name is resolved again with the hint present.
+    input.value = 'A';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+
+    const listbox = overlayContainer
+      .getContainerElement()
+      .querySelector('[role="listbox"]') as HTMLElement;
+    // `mlv-hint` renders its source text inside the `<label>` but marks it
+    // `aria-hidden` precisely so it stays out of the control's own accessible
+    // name. Not `'Fruit pick one'`.
+    expect(listbox.getAttribute('aria-label')).toBe('Fruit');
+  });
+
+  it('names the listbox from a projected mlv-label in an mlv-form-field', async () => {
+    const { listbox } = await openIn(FormFieldHostComponent);
+
+    expect(listbox.getAttribute('aria-label')).toBe('Vegetable');
   });
 });
