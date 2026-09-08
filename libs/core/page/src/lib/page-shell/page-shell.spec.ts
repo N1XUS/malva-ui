@@ -98,6 +98,13 @@ function waitForAnimationFrame(): Promise<void> {
 
 const SHELL_DIR = dirname(fileURLToPath(import.meta.url));
 
+/** The whole compiled stylesheet, whitespace-stripped. */
+function compiledCss(): string {
+  return sass
+    .compile(join(SHELL_DIR, 'page-shell.scss'), { style: 'expanded' })
+    .css.replace(/\s+/g, '');
+}
+
 /** Reads one compiled CSS rule, preserving the stylesheet as the public contract. */
 function declarationsFor(selector: string): string {
   const css = sass
@@ -330,6 +337,31 @@ describe('MlvPageShell', () => {
           '--mlv-page-shell-viewport-inset-block-start',
         ),
       ).toBe('');
+    });
+
+    /**
+     * `overflow: hidden` is what bounds the other two modes, but it also makes
+     * the element a scroll container, and a `position: sticky` descendant
+     * resolves against the nearest one. Under content sizing the document is
+     * the scrollport, so leaving the clip on pinned every sticky region inside
+     * the shell to a box that never scrolls — indistinguishable from sticky
+     * never having been applied.
+     */
+    it('does not clip, so a sticky descendant resolves against the document', () => {
+      const content = declarationsFor('.mlv-page-shell--sizing-content{');
+
+      expect(content).toContain('overflow:visible');
+      expect(
+        declarationsFor(
+          '.mlv-page-shell--sizing-content>.mlv-page-shell__body>.mlv-page-shell__content{',
+        ),
+      ).toContain('overflow:visible');
+      // The bounded modes still clip. Asserted as a whole compiled rule rather
+      // than through `declarationsFor`, whose selector search would match the
+      // tail of the override's own selector above.
+      expect(compiledCss()).toContain(
+        '.mlv-page-shell__content{display:flex;flex:11auto;min-width:0;min-height:0;overflow:hidden;}',
+      );
     });
 
     it('hands its definite size to a route host, not only to a direct page', () => {

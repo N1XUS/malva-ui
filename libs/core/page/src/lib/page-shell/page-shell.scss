@@ -67,8 +67,20 @@
       }
     }
 
+    // Content sizing means the *document* is the scrollport, so the shell must
+    // not clip. `overflow: hidden` on the host and on the content track is
+    // what bounds the other two modes, but either one is also a scroll
+    // container, and a `position: sticky` descendant resolves against the
+    // nearest one — so under content sizing every sticky region inside
+    // (a page header, a dock, an aside, a rail) stuck to a box that never
+    // scrolls, which looks exactly like sticky not being applied at all.
     &--sizing-content {
       block-size: auto;
+      overflow: visible;
+
+      > .mlv-page-shell__body > .mlv-page-shell__content {
+        overflow: visible;
+      }
     }
 
     &__topbar {
