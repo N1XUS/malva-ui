@@ -1,4 +1,5 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/breakpoints' as bp;
 
 @layer mlv.components {
   $block: mlv-page-shell;
@@ -25,6 +26,39 @@
     overflow: hidden;
     background: var(--mlv-page-shell-effective-background);
     color: var(--mlv-page-shell-effective-foreground);
+
+    // ── Sizing modes ────────────────────────────────────────────────────────
+    // Everything sticky inside the shell resolves against this block size. A
+    // shell with none is content-sized, and then the page's own scrollport,
+    // the sidebar rails, the header, the dock and a sticky aside all fail at
+    // once and silently.
+    //
+    // `parent` is the default because `100%` against an indefinite parent
+    // computes to `auto` — identical to having declared nothing — so it fixes
+    // the bounded case without changing the unbounded one.
+    &--sizing-parent {
+      block-size: 100%;
+    }
+
+    // `svh` below `md`: `dvh` would re-run the page scroller's thumb maths
+    // every time a mobile URL bar collapses. The inset is measured by the
+    // component, so a fixed application bar above the shell is subtracted
+    // without anyone writing its height down twice.
+    &--sizing-viewport {
+      block-size: calc(
+        100svh - var(--mlv-page-shell-viewport-inset-block-start, 0px)
+      );
+
+      @include bp.breakpoint-up(md) {
+        block-size: calc(
+          100dvh - var(--mlv-page-shell-viewport-inset-block-start, 0px)
+        );
+      }
+    }
+
+    &--sizing-content {
+      block-size: auto;
+    }
 
     &__topbar {
       flex: 0 0 auto;
@@ -88,7 +122,35 @@
       overflow: hidden;
     }
 
-    &__content > .mlv-page {
+    // ── Route-host contract ─────────────────────────────────────────────────
+    // Sizing the page is not enough. Angular inserts an activated route's
+    // component *beside* `<router-outlet>`, on its own host element, so under
+    // a router the shell's content child is the route host and the page is one
+    // level further down. Matching only `> .mlv-page` breaks the moment a
+    // route is involved — which is the normal case for an application shell.
+    //
+    // So every content child participates in the flex column and may shrink to
+    // nothing, which is what carries the definite size down to the page. The
+    // outlet element itself renders no content and must not claim a line box.
+    &__content > * {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    &__content > router-outlet {
+      display: none;
+    }
+
+    // A route host that is not itself a flex or grid container still has to
+    // hand its own definite size to the page inside it.
+    &__content > .mlv-page-host {
+      display: flex;
+      flex-direction: column;
+    }
+
+    &__content > .mlv-page,
+    &__content > .mlv-page-host > .mlv-page {
       height: 100%;
     }
 

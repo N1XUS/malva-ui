@@ -3,106 +3,107 @@
   as floating;
 
 @layer mlv.components {
-$block: mlv-page-dock;
+  $block: mlv-page-dock;
 
-.#{$block} {
-  @include mixins.base();
+  .#{$block} {
+    @include mixins.base();
 
-  // Containing block for the floating backdrop pseudo-element.
-  position: relative;
-  display: grid;
-  // minmax(0, auto) lets the center region shrink below its max-content
-  // (e.g. a wrapping pill toolbar) instead of overflowing narrow canvases.
-  grid-template-columns: 1fr minmax(0, auto) 1fr;
-  align-items: center;
-  gap: var(--mlv-spacing-2);
-  min-width: 0;
-  // Full-bleed against the page canvas. The inset is read from the inherited
-  // --mlv-page-inset rather than matched by a `.mlv-page__inner > …` child
-  // selector, so the geometry survives any consumer wrapper (a <form>, a
-  // <section>) between the page canvas and the dock. Outside a page the
-  // property is unset and both margins collapse to zero.
-  margin-inline: calc(-1 * var(--mlv-page-inset, 0rem));
-  margin-bottom: calc(-1 * var(--mlv-page-inset, 0rem));
-  // Inline padding follows the page inset so full-bleed dock content still
-  // aligns with the page edge padding.
-  padding: var(--mlv-spacing-1-5)
-    max(var(--mlv-page-inset, 0rem), var(--mlv-spacing-3));
-  // Same glass chrome recipe as mlv-action-bar and the page header.
-  background-color: var(
-    --mlv-page-chrome-bg,
-    color-mix(in srgb, var(--mlv-elevation-bg-3), transparent 50%)
-  );
-  border-top: 0.0625rem solid
-    var(--mlv-page-chrome-border, var(--mlv-border-subtle));
-  backdrop-filter: blur(1.25rem);
-  -webkit-backdrop-filter: blur(1.25rem);
-
-  // Dock actions keep their own labels on a single line…
-  button,
-  a {
-    white-space: nowrap;
-  }
-
-  &--sticky {
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
-  }
-
-  // Floating treatment: the dock drops its own solid surface — whatever floats
-  // inside it (e.g. a pill action bar) brings that — and replaces it with the
-  // `mlvFloatingContainer` recipe, so content scrolling underneath fades out
-  // instead of running straight into the actions.
-  &--floating {
-    @include floating.backdrop(
-      var(--mlv-page-dock-backdrop, var(--mlv-background-base)),
-      $inset: -2.5rem 0 0 0
+    // Containing block for the floating backdrop pseudo-element.
+    position: relative;
+    display: grid;
+    // minmax(0, auto) lets the center region shrink below its max-content
+    // (e.g. a wrapping pill toolbar) instead of overflowing narrow canvases.
+    grid-template-columns: 1fr minmax(0, auto) 1fr;
+    align-items: center;
+    gap: var(--mlv-spacing-2);
+    min-width: 0;
+    // Full-bleed against the page canvas. The inset is read from the inherited
+    // --mlv-page-inset-inline / -block axis pair rather than matched by a
+    // `.mlv-page__inner > …` child
+    // selector, so the geometry survives any consumer wrapper (a <form>, a
+    // <section>) between the page canvas and the dock. Outside a page the
+    // property is unset and both margins collapse to zero.
+    margin-inline: calc(-1 * var(--mlv-page-inset-inline, 0rem));
+    margin-bottom: calc(-1 * var(--mlv-page-inset-block, 0rem));
+    // Inline padding follows the page inset so full-bleed dock content still
+    // aligns with the page edge padding.
+    padding: var(--mlv-spacing-1-5)
+      max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3));
+    // Same glass chrome recipe as mlv-action-bar and the page header.
+    background-color: var(
+      --mlv-page-chrome-bg,
+      color-mix(in srgb, var(--mlv-elevation-bg-3), transparent 50%)
     );
-    @include floating.safe-area-block-end(var(--mlv-spacing-1-5));
+    border-top: 0.0625rem solid
+      var(--mlv-page-chrome-border, var(--mlv-border-subtle));
+    backdrop-filter: blur(1.25rem);
+    -webkit-backdrop-filter: blur(1.25rem);
 
-    // The backdrop sits at z-index -1; without a stacking context of its own a
-    // non-sticky dock would paint it behind the page canvas instead.
-    isolation: isolate;
-    background: transparent;
-    border-top: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
+    // Dock actions keep their own labels on a single line…
+    button,
+    a {
+      white-space: nowrap;
+    }
 
-  // …while the regions themselves wrap, so a crowded dock reflows onto a
-  // second row instead of overflowing its grid column on a narrow canvas.
-  // With room to spare nothing wraps and the single-line look is unchanged.
-  &__start,
-  &__center,
-  &__end {
-    flex-wrap: wrap;
-  }
+    &--sticky {
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+    }
 
-  &__start {
-    display: flex;
-    align-items: center;
-    gap: var(--mlv-spacing-2);
-    min-width: 0;
-    color: var(--mlv-text-secondary);
-    font-size: var(--mlv-typography-body-s-size);
-    line-height: var(--mlv-typography-body-s-line-height);
-  }
+    // Floating treatment: the dock drops its own solid surface — whatever floats
+    // inside it (e.g. a pill action bar) brings that — and replaces it with the
+    // `mlvFloatingContainer` recipe, so content scrolling underneath fades out
+    // instead of running straight into the actions.
+    &--floating {
+      @include floating.backdrop(
+        var(--mlv-page-dock-backdrop, var(--mlv-background-base)),
+        $inset: -2.5rem 0 0 0
+      );
+      @include floating.safe-area-block-end(var(--mlv-spacing-1-5));
 
-  &__center {
-    display: flex;
-    grid-column: 2;
-    align-items: center;
-    gap: var(--mlv-spacing-1);
-    min-width: 0;
-  }
+      // The backdrop sits at z-index -1; without a stacking context of its own a
+      // non-sticky dock would paint it behind the page canvas instead.
+      isolation: isolate;
+      background: transparent;
+      border-top: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
 
-  &__end {
-    display: flex;
-    grid-column: 3;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--mlv-spacing-2);
+    // …while the regions themselves wrap, so a crowded dock reflows onto a
+    // second row instead of overflowing its grid column on a narrow canvas.
+    // With room to spare nothing wraps and the single-line look is unchanged.
+    &__start,
+    &__center,
+    &__end {
+      flex-wrap: wrap;
+    }
+
+    &__start {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-2);
+      min-width: 0;
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+      line-height: var(--mlv-typography-body-s-line-height);
+    }
+
+    &__center {
+      display: flex;
+      grid-column: 2;
+      align-items: center;
+      gap: var(--mlv-spacing-1);
+      min-width: 0;
+    }
+
+    &__end {
+      display: flex;
+      grid-column: 3;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--mlv-spacing-2);
+    }
   }
-}
 }

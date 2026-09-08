@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  effect,
   ElementRef,
   inject,
   input,
@@ -19,6 +20,7 @@ import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { mlvNextId } from '@malva-ui/cdk/utils';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvPageSnapController } from './page-snap-controller';
+import { MlvPageGeometry } from './page-geometry';
 import { MLV_PAGE_SCROLL } from './page-scroll.token';
 import type { MlvPageScrollState } from './page-scroll.token';
 
@@ -63,6 +65,7 @@ const SCROLLED_THRESHOLD = 4;
   providers: [
     { provide: MLV_PAGE_SCROLL, useExisting: MlvPage },
     MlvPageSnapController,
+    MlvPageGeometry,
   ],
   host: {
     class: 'mlv-page',
@@ -128,6 +131,17 @@ export class MlvPage implements MlvPageScrollState {
     return this._snap;
   }
 
+  /**
+   * Geometry coordinator of this page. Chrome regions register themselves with
+   * it and it publishes the measured sizes as custom properties on this host,
+   * so a consumer sticks an aside at `--mlv-page-sticky-inset-block-start`
+   * instead of hand-measuring the header. A component that only *hosts* the
+   * page reaches it through `viewChild(MlvPage).geometry`.
+   */
+  get geometry(): MlvPageGeometry {
+    return this._geometry;
+  }
+
   /** @private Writable source behind the public `scrollTop` signal. */
   private readonly _scrollTop = signal(0);
 
@@ -146,12 +160,22 @@ export class MlvPage implements MlvPageScrollState {
   /** @private Snap state provided to descendants and scrubbed from scroll. */
   private readonly _snap = inject(MlvPageSnapController);
 
+  /** @private Geometry coordinator provided to descendant chrome regions. */
+  private readonly _geometry = inject(MlvPageGeometry);
+
   /** @private Host element carrying the published snap custom property. */
   private readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
   constructor() {
+    // The page-level sticky default is what makes a projected header sticky
+    // without the header opting in, so the geometry contract has to see it.
+    effect(() => this._geometry.chromeSticky.set(this.stickyHeader()));
+
     afterNextRender(() => {
       const viewport = this._scrollbar().viewportElement;
+      // The scrollport is the element that actually scrolls, never a viewport
+      // unit: every ancestor's chrome has already been subtracted from it.
+      this._geometry.registerScrollport(viewport);
       const onScroll = (): void => {
         const top = viewport.scrollTop;
         this._scrollTop.set(top);
@@ -190,26 +214,7 @@ export class MlvPage implements MlvPageScrollState {
       );
       this._measureSnapOffset();
     });
-
-    afterNextRender(() => {
-      const host = this._elementRef.nativeElement;
-      this._snapChrome = Array.from(
-        host.querySelectorAll<HTMLElement>(
-          '.mlv-page__inner > .mlv-page-header, .mlv-page__inner > .mlv-page-summary',
-        ),
-      );
-      this._measureSnapOffset();
-      // Re-measure when chrome content itself resizes (wrapping, data).
-      if (typeof ResizeObserver !== 'undefined') {
-        const observer = new ResizeObserver(() => this._measureSnapOffset());
-        this._snapChrome.forEach((element) => observer.observe(element));
-        this._destroyRef.onDestroy(() => observer.disconnect());
-      }
-    });
   }
-
-  /** @private Direct chrome children whose snapping height is compensated. */
-  private _snapChrome: HTMLElement[] = [];
 
   /** @private Expanded (progress 0) chrome height, the compensation baseline. */
   private _snapExpandedHeight = 0;
@@ -223,15 +228,16 @@ export class MlvPage implements MlvPageScrollState {
    * content tracks the scroll 1:1. The controller's `spacerScale` scales the
    * spacer away while the chrome is manually pinned collapsed — a frozen
    * chrome never changes height mid-scroll, so the spacer is pure dead space.
+   *
+   * The measured total comes from the geometry coordinator's registered top
+   * chrome rather than a one-shot `querySelectorAll`, so a header rendered
+   * later by an `@if` is compensated like any other.
    */
   private _measureSnapOffset(): void {
-    if (this._snapChrome.length === 0) {
+    const total = this._geometry.chromeBlockSize();
+    if (total <= 0) {
       return;
     }
-    const total = this._snapChrome.reduce(
-      (sum, element) => sum + element.offsetHeight,
-      0,
-    );
     if (this._snap.progress() <= 0.001) {
       this._snapExpandedHeight = total;
     }

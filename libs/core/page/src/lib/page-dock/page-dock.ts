@@ -10,60 +10,20 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
+import {
+  obstructsViewportBlockEnd,
+  publishViewportInsetBlockEnd,
+  registerPageRegion,
+} from '../page/page-geometry';
+import { MLV_PAGE_SCROLL } from '../page/page-scroll.token';
 
 /** Visual treatment of the dock surface. */
 export type MlvPageDockAppearance = 'bar' | 'floating';
-
-/**
- * Custom property published on `document.documentElement` while at least one
- * sticky dock is on screen. Viewport-anchored overlays — most importantly the
- * bottom toast positions — read it so they never render underneath the dock.
- */
-const DOCK_HEIGHT_PROPERTY = '--mlv-page-dock-height';
-
-/**
- * @internal Heights contributed by the sticky docks currently alive, keyed by
- * the owning component. Two pages can be mounted at once (a route transition,
- * a page inside a dialog), so the published value is the tallest contribution
- * rather than whichever dock rendered last.
- */
-const stickyDockHeights = new Map<object, number>();
-
-/**
- * @internal Republishes {@link DOCK_HEIGHT_PROPERTY} after a contribution
- * changed. Passing `null` withdraws the owner's contribution; the property is
- * removed entirely once the last sticky dock is gone, so a page without a dock
- * never leaves a stale offset behind.
- */
-function publishStickyDockHeight(owner: object, height: number | null): void {
-  // The teardown path also runs during server rendering, where there is no
-  // document to publish to.
-  if (typeof document === 'undefined') {
-    return;
-  }
-
-  if (height === null) {
-    stickyDockHeights.delete(owner);
-  } else {
-    stickyDockHeights.set(owner, height);
-  }
-
-  const root = document.documentElement;
-  if (stickyDockHeights.size === 0) {
-    root.style.removeProperty(DOCK_HEIGHT_PROPERTY);
-    return;
-  }
-
-  const tallest = Math.max(...stickyDockHeights.values());
-  root.style.setProperty(
-    DOCK_HEIGHT_PROPERTY,
-    `${Math.round(tallest * 100) / 100}px`,
-  );
-}
 
 /**
  * Bottom action bar for workflow pages. Projects content marked with
@@ -82,13 +42,24 @@ function publishStickyDockHeight(owner: object, height: number | null): void {
  * `--mlv-background-base`).
  *
  * The dock derives its full-bleed margins from the inherited
- * `--mlv-page-inset`, so the geometry survives a wrapper element (a `<form>`,
+ * `--mlv-page-inset-inline` / `--mlv-page-inset-block` pair, so the geometry
+ * survives a wrapper element (a `<form>`,
  * a `<section>`) between the page canvas and the dock, and collapses to zero
  * outside a page.
  *
- * While `sticky`, the dock publishes its measured height as
- * `--mlv-page-dock-height` on `document.documentElement`; bottom-anchored
- * toasts offset themselves by it so they are never covered by the dock.
+ * The dock answers two different geometry questions, and they are published
+ * separately:
+ *
+ * - **In-page reservation.** It registers as the page's block-end region, so
+ *   `main[mlvPage]` publishes `--mlv-page-dock-block-size` and — while sticky —
+ *   folds it into `--mlv-page-sticky-inset-block-end` and the derived
+ *   `--mlv-page-available-block-size`.
+ * - **Viewport clearance.** While it actually reaches the bottom edge of the
+ *   screen it publishes `--mlv-viewport-inset-block-end` (and, as a
+ *   compatibility bridge, the older `--mlv-page-dock-height`) on the document
+ *   element, so portalled overlays — bottom toasts above all — never render
+ *   underneath it. A dock pinned halfway down a document-scrolled page covers
+ *   nothing and publishes nothing.
  */
 @Component({
   selector: 'mlv-page-dock',
@@ -124,6 +95,21 @@ export class MlvPageDock {
   /** @private Withdraws this dock's height contribution on teardown. */
   private readonly _destroyRef = inject(DestroyRef);
 
+  /** @private Document the viewport inset is published on. */
+  private readonly _document = inject(DOCUMENT);
+
+  /**
+   * @private Scroll state of the owning page, when there is one. Read only so
+   * the viewport-obstruction test re-runs as the dock moves under the fold.
+   */
+  private readonly _pageScroll = inject(MLV_PAGE_SCROLL, { optional: true });
+
+  /**
+   * @private Last value handed to the shared registry, so a scroll that does
+   * not move the dock relative to the viewport writes no style at all.
+   */
+  private _publishedBlockSize: number | null = null;
+
   /**
    * @private Latest measured border-box height of the dock, in pixels. Only
    * written in a browser — during server rendering it stays at 0 and nothing
@@ -132,6 +118,18 @@ export class MlvPageDock {
   private readonly _measuredHeight = signal(0);
 
   constructor() {
+    // The dock is the page's block-end chrome. Registering publishes the
+    // in-page reservation (`--mlv-page-dock-block-size`) and, when sticky, the
+    // page's own `--mlv-page-sticky-inset-block-end`. That is a different
+    // question from the viewport clearance published below, and the two answers
+    // differ for a dock that is pinned inside a page the viewport can scroll
+    // past.
+    registerPageRegion({
+      element: this._host.nativeElement,
+      edge: 'block-end',
+      sticky: this.sticky,
+    });
+
     // `afterNextRender` / `afterRenderEffect` never run on the server, so the
     // document is only touched in a browser.
     afterNextRender(() => {
@@ -145,12 +143,27 @@ export class MlvPageDock {
     });
 
     afterRenderEffect(() => {
-      // A non-sticky dock scrolls away with the content, so it never covers a
-      // viewport-anchored overlay and must not reserve space for one.
-      const height = this.sticky() ? this._measuredHeight() : null;
-      publishStickyDockHeight(this, height);
+      const height = this._measuredHeight();
+      const sticky = this.sticky();
+      // Re-run the geometric test as the page scrolls: a dock pinned to a
+      // scrollport the document can scroll past only reaches the bottom of the
+      // viewport some of the time.
+      this._pageScroll?.scrollTop();
+
+      // A `position: sticky` declaration is not evidence that the dock covers
+      // the bottom of the screen; only its own rect is.
+      const obstructs =
+        sticky && obstructsViewportBlockEnd(this._host.nativeElement, sticky);
+      const published = obstructs ? height : null;
+      if (published === this._publishedBlockSize) {
+        return;
+      }
+      this._publishedBlockSize = published;
+      publishViewportInsetBlockEnd(this, published, this._document);
     });
 
-    this._destroyRef.onDestroy(() => publishStickyDockHeight(this, null));
+    this._destroyRef.onDestroy(() =>
+      publishViewportInsetBlockEnd(this, null, this._document),
+    );
   }
 }

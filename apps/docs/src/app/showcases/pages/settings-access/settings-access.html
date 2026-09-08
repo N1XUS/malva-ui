@@ -27,14 +27,14 @@
   <mlv-page-shell
     class="settings-access-showcase"
     color="var(--mlv-background-base)"
+    sizing="viewport"
   >
     <!-- ── Settings navigation ─────────────────────────────────────────────── -->
-    <!-- STYLING HAND-OFF: `fullHeight` asks the library for
-       `height: calc(100dvh - var(--mlv-sidebar-offset-top, 0px) - …)`, but that
-       declaration does not survive into the used value in this app, so the rail
-       collapses to its content height and the scrollable nav region measures 0.
-       `.settings-access-showcase__rail` must therefore set its own height in
-       `settings-access.scss`, minus the shell's 6.75rem reserved padding. -->
+    <!-- `sizing="viewport"` gives the shell a definite block size — the screen
+       minus its own distance from the top of the layout, which the shell
+       measures for itself — so `.mlv-page-shell__sidebar.mlv-sidebar { height:
+       100% }` resolves and the rail's scrollable nav region gets a real height.
+       Nothing here restates the docs app bar's height. -->
     <mlv-sidebar
       #rail
       mlvPageSidebar

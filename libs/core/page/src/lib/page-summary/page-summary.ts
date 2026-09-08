@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   ViewEncapsulation,
   computed,
   inject,
@@ -10,8 +11,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import type { ElementRef } from '@angular/core';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
+import { registerPageRegion } from '../page/page-geometry';
 import { MlvPageSnapRegionBase } from '../page/page-snap-region-base';
 
 /**
@@ -49,7 +50,7 @@ import { MlvPageSnapRegionBase } from '../page/page-snap-region-base';
     '[class.mlv-page-summary--revealed]': '_revealed()',
     '[style.--mlv-snap-from]': 'snapFrom()',
     '[style.--mlv-snap-scale]': '_scale()',
-    '[style.--mlv-page-summary-size]': '_measuredHeight()',
+    '[style.--mlv-page-summary-size]': '_measuredSize()',
     '[style.visibility]': '_hidden() ? "hidden" : null',
     '(focusin)': '_onRegionFocusIn()',
     '(focusout)': '_onRegionFocusOut($event)',
@@ -81,12 +82,32 @@ export class MlvPageSummary extends MlvPageSnapRegionBase {
   /** @protected Natural height of the items row, driving the height scrub. */
   protected readonly _measuredHeight = signal<number | null>(null);
 
+  /**
+   * @protected The same measurement as a CSS length. Every geometry property
+   * this package publishes is a pixel string: a bare number is not a length,
+   * so a consumer could not override it with one.
+   */
+  protected readonly _measuredSize = computed(() => {
+    const height = this._measuredHeight();
+    return height === null ? null : `${height}px`;
+  });
+
   /** @private The measured items row. */
   private readonly _items =
     viewChild.required<ElementRef<HTMLElement>>('items');
 
   constructor() {
     super();
+    // The strip is block-start chrome but is never `position: sticky` itself,
+    // so it adds to the chrome block size and reserves no clearance. When it
+    // is projected *inside* the header the coordinator drops it from the sum:
+    // the header's own box already contains it.
+    registerPageRegion({
+      element: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
+      edge: 'block-start',
+      sticky: signal(false),
+    });
+
     const resizeObserver = inject(MlvResizeObserverService);
     const destroyRef = inject(DestroyRef);
     afterNextRender(() => {

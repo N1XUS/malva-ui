@@ -14,49 +14,56 @@ Record-editor experiences (draft/live switches, version history, diff views, sug
 
 Exported from `libs/core/page/src/index.ts`:
 
-| Export                     | Kind             | Selector / values                    |
-| -------------------------- | ---------------- | ------------------------------------ |
-| `MlvPageShell`             | Component        | `mlv-page-shell`                     |
-| `MlvPageTopbar`            | Shell slot       | `[mlvPageTopbar]`                    |
-| `MlvPageSidebar`           | Shell slot       | `[mlvPageSidebar]`                   |
-| `MlvPageEndSidebar`        | Shell slot       | `[mlvPageEndSidebar]`                |
-| `MlvPageEndPane`           | Component        | `mlv-page-end-pane`                  |
-| `MlvPageEndPaneContent`    | Template slot    | `ng-template[mlvPageEndPaneContent]` |
-| `MlvPageEndPaneTrigger`    | Button directive | `button[mlvPageEndPaneTrigger]`      |
-| `MlvPage`                  | Component        | `main[mlvPage]`                      |
-| `MlvPageHeader`            | Component        | `mlv-page-header`                    |
-| `MlvPageContent`           | Component        | `mlv-page-content`                   |
-| `MlvPageBreadcrumb`        | Template slot    | `[mlvPageBreadcrumb]`                |
-| `MlvPageHeaderIcon`        | Template slot    | `[mlvPageHeaderIcon]`                |
-| `MlvPageTitle`             | Template slot    | `[mlvPageTitle]`                     |
-| `MlvPageHeaderStatus`      | Template slot    | `[mlvPageHeaderStatus]`              |
-| `MlvPageHeaderActions`     | Template slot    | `[mlvPageHeaderActions]`             |
-| `MlvPageHeaderDescription` | Template slot    | `[mlvPageHeaderDescription]`         |
-| `MlvPageHeaderMeta`        | Template slot    | `[mlvPageHeaderMeta]`                |
-| `MlvPageHeaderTabs`        | Template slot    | `[mlvPageHeaderTabs]`                |
-| `MlvPageHeaderTabsActions` | Template slot    | `[mlvPageHeaderTabsActions]`         |
-| `MlvPageAside`             | Template slot    | `[mlvPageAside]`                     |
-| `MlvPageSummary`           | Component        | `mlv-page-summary`                   |
-| `MlvPageSummaryItem`       | Component        | `mlv-page-summary-item`              |
-| `MlvPageDock`              | Component        | `mlv-page-dock`                      |
-| `MlvPageDockStart`         | Dock slot        | `[mlvPageDockStart]`                 |
-| `MlvPageDockCenter`        | Dock slot        | `[mlvPageDockCenter]`                |
-| `MlvPageDockEnd`           | Dock slot        | `[mlvPageDockEnd]`                   |
-| `MLV_PAGE_SCROLL`          | Token            | `MlvPageScrollState`                 |
-| `MlvPageScrollState`       | Interface        | `{ scrollTop; scrolled }`            |
-| `MlvPageSnapController`    | Service          | provided by `MlvPage`                |
-| `MlvPageSnap`              | Directive        | `[mlvPageSnap]`                      |
-| `MlvPageSnapRegionBase`    | Abstract base    | focus contract for snap regions      |
-| `MlvPageSnapRegion`        | Interface        | `{ reveal; syncHiddenState }`        |
-| `MlvPageSnapMode`          | Type             | `'hide' \| 'fade' \| 'keep'`         |
-| `MlvPageDockAppearance`    | Type             | `'bar' \| 'floating'`                |
-| `MlvPageScroll`            | Type             | `'auto' \| 'none'`                   |
-| `MlvPagePadding`           | Type             | `'none' \| 's' \| 'm' \| 'l'`        |
-| `MlvPageSurface`           | Type             | `'anchored' \| 'flat'`               |
-| `MlvPageHeaderSize`        | Type             | `'m' \| 's'`                         |
-| `MlvPageHeaderTabsAlign`   | Type             | `'start' \| 'center'`                |
-| `MlvPageAsidePlacement`    | Type             | `'start' \| 'end'`                   |
-| `MlvPageContentGap`        | Type             | `'s' \| 'm' \| 'l'`                  |
+| Export                         | Kind             | Selector / values                                  |
+| ------------------------------ | ---------------- | -------------------------------------------------- |
+| `MlvPageShell`                 | Component        | `mlv-page-shell`                                   |
+| `MlvPageTopbar`                | Shell slot       | `[mlvPageTopbar]`                                  |
+| `MlvPageSidebar`               | Shell slot       | `[mlvPageSidebar]`                                 |
+| `MlvPageEndSidebar`            | Shell slot       | `[mlvPageEndSidebar]`                              |
+| `MlvPageEndPane`               | Component        | `mlv-page-end-pane`                                |
+| `MlvPageEndPaneContent`        | Template slot    | `ng-template[mlvPageEndPaneContent]`               |
+| `MlvPageEndPaneTrigger`        | Button directive | `button[mlvPageEndPaneTrigger]`                    |
+| `MlvPage`                      | Component        | `main[mlvPage]`                                    |
+| `MlvPageHeader`                | Component        | `mlv-page-header`                                  |
+| `MlvPageContent`               | Component        | `mlv-page-content`                                 |
+| `MlvPageBreadcrumb`            | Template slot    | `[mlvPageBreadcrumb]`                              |
+| `MlvPageHeaderIcon`            | Template slot    | `[mlvPageHeaderIcon]`                              |
+| `MlvPageTitle`                 | Template slot    | `[mlvPageTitle]`                                   |
+| `MlvPageHeaderStatus`          | Template slot    | `[mlvPageHeaderStatus]`                            |
+| `MlvPageHeaderActions`         | Template slot    | `[mlvPageHeaderActions]`                           |
+| `MlvPageHeaderDescription`     | Template slot    | `[mlvPageHeaderDescription]`                       |
+| `MlvPageHeaderMeta`            | Template slot    | `[mlvPageHeaderMeta]`                              |
+| `MlvPageHeaderTabs`            | Template slot    | `[mlvPageHeaderTabs]`                              |
+| `MlvPageHeaderTabsActions`     | Template slot    | `[mlvPageHeaderTabsActions]`                       |
+| `MlvPageAside`                 | Template slot    | `[mlvPageAside]`                                   |
+| `MlvPageSummary`               | Component        | `mlv-page-summary`                                 |
+| `MlvPageSummaryItem`           | Component        | `mlv-page-summary-item`                            |
+| `MlvPageDock`                  | Component        | `mlv-page-dock`                                    |
+| `MlvPageDockStart`             | Dock slot        | `[mlvPageDockStart]`                               |
+| `MlvPageDockCenter`            | Dock slot        | `[mlvPageDockCenter]`                              |
+| `MlvPageDockEnd`               | Dock slot        | `[mlvPageDockEnd]`                                 |
+| `MLV_PAGE_SCROLL`              | Token            | `MlvPageScrollState`                               |
+| `MlvPageScrollState`           | Interface        | `{ scrollTop; scrolled }`                          |
+| `MlvPageSnapController`        | Service          | provided by `MlvPage`                              |
+| `MlvPageGeometry`              | Service          | provided by `MlvPage`                              |
+| `MlvPageRegion`                | Interface        | `{ element; edge; sticky; followsChromeDefault? }` |
+| `MlvPageStickyEdge`            | Type             | `'block-start' \| 'block-end'`                     |
+| `registerPageRegion`           | Function         | registers a region with the enclosing page         |
+| `publishViewportInsetBlockEnd` | Function         | document-scoped block-end registry                 |
+| `obstructsViewportBlockEnd`    | Function         | geometric viewport-obstruction test                |
+| `MlvPageShellSizing`           | Type             | `'parent' \| 'viewport' \| 'content'`              |
+| `MlvPageSnap`                  | Directive        | `[mlvPageSnap]`                                    |
+| `MlvPageSnapRegionBase`        | Abstract base    | focus contract for snap regions                    |
+| `MlvPageSnapRegion`            | Interface        | `{ reveal; syncHiddenState }`                      |
+| `MlvPageSnapMode`              | Type             | `'hide' \| 'fade' \| 'keep'`                       |
+| `MlvPageDockAppearance`        | Type             | `'bar' \| 'floating'`                              |
+| `MlvPageScroll`                | Type             | `'auto' \| 'none'`                                 |
+| `MlvPagePadding`               | Type             | `'none' \| 's' \| 'm' \| 'l'`                      |
+| `MlvPageSurface`               | Type             | `'anchored' \| 'flat'`                             |
+| `MlvPageHeaderSize`            | Type             | `'m' \| 's'`                                       |
+| `MlvPageHeaderTabsAlign`       | Type             | `'start' \| 'center'`                              |
+| `MlvPageAsidePlacement`        | Type             | `'start' \| 'end'`                                 |
+| `MlvPageContentGap`            | Type             | `'s' \| 'm' \| 'l'`                                |
 
 ## `MlvPageShell`
 
@@ -67,6 +74,54 @@ Exported from `libs/core/page/src/index.ts`:
 - `[mlvPageEndSidebar]` optionally adds one static shell-level end sidebar after the canvas.
 - `mlv-page-end-pane` adds a responsive trailing pane that becomes a modal Drawer below its configured breakpoint.
 - Unmarked content occupies the central canvas track and should normally be one `main[mlvPage]`.
+
+### Sizing (`sizing`)
+
+The shell owns the definite block size everything sticky inside it resolves
+against — the page's own scrollport, the sidebar rails, the header, the dock, a
+sticky aside. Without one they all fail at once and silently, which is why the
+mode is an input rather than something each consumer re-derives.
+
+| `sizing`             | Block size                                      | Use when                                                                          |
+| -------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| `'parent'` (default) | `100%`                                          | the shell is inside a box that already has a definite block size                  |
+| `'viewport'`         | `calc(100svh - inset)`, `100dvh` at `md` and up | the shell _is_ the application                                                    |
+| `'content'`          | `auto`                                          | the shell is embedded in a document-scrolled page and nothing inside it is sticky |
+
+`'parent'` is the default because `100%` against an indefinite parent computes
+to `auto` — identical to declaring nothing — so it fixes the bounded case
+without changing the unbounded one.
+
+In `'viewport'` mode the shell **measures its own distance from the top of the
+layout** (`getBoundingClientRect().top + scrollY`, so it is scroll-invariant and
+does not depend on the shell's own block size) and publishes it as
+`--mlv-page-shell-viewport-inset-block-start`. A fixed application bar above the
+shell, or the padding reserved for one, is therefore subtracted without anyone
+writing its height down a second time. The measurement assumes the document is
+the shell's scrolling ancestor; a shell nested in another scroller wants
+`'parent'`, where the parent already carries the size.
+
+`svh` below `md`, `dvh` above: `dvh` on a phone re-runs the page scroller's
+thumb maths every time the URL bar collapses.
+
+### Route-host contract
+
+Angular inserts an activated route's component _beside_ `<router-outlet>`, on
+its own host element, so under a router the shell's content child is the route
+host and the page is one level further down. The shell therefore gives **every**
+content child flex participation and a zero minimum on both axes, and hides the
+outlet element itself (it renders no content and must not claim a line box).
+
+A route host that is not itself a flex or grid container can opt into the
+`mlv-page-host` class, which makes it a flex column so the definite size reaches
+the `main[mlvPage]` inside it:
+
+```html
+<!-- route component host -->
+<div class="mlv-page-host">
+  <main mlvPage>…</main>
+</div>
+```
 
 ### Multi-sidebar projection contract
 
@@ -92,10 +147,11 @@ zeroes that slot. Switching `mode` between `'icon'` and `'offcanvas'` is
 therefore all a responsive shell needs to do; see the app-shell docs example,
 which drives it from its own measured width.
 
-| Input        | Type             | Default | Description                                                                                       |
-| ------------ | ---------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| `color`      | `string \| null` | `null`  | CSS chrome background color. Supports literals, named colors, and resolved `var(...)` references. |
-| `foreground` | `string \| null` | `null`  | Optional foreground override; otherwise black or white is selected from WCAG contrast.            |
+| Input        | Type                 | Default    | Description                                                                                       |
+| ------------ | -------------------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| `color`      | `string \| null`     | `null`     | CSS chrome background color. Supports literals, named colors, and resolved `var(...)` references. |
+| `foreground` | `string \| null`     | `null`     | Optional foreground override; otherwise black or white is selected from WCAG contrast.            |
+| `sizing`     | `MlvPageShellSizing` | `'parent'` | How the shell resolves its own block size. See "Sizing" above.                                    |
 
 When `color` is set, the browser resolves it in the shell's real CSS cascade.
 The component composites translucent colors over ancestor backgrounds, then
@@ -264,27 +320,95 @@ separation work over scrolled content.
 ### Full-bleed top chrome and page inset
 
 The padding modifiers publish the inset as `--mlv-page-inset` on
-`.mlv-page__inner`. `mlv-page-header`, `mlv-page-summary`, and `mlv-page-dock`
+`.mlv-page__inner`, which derives `--mlv-page-inset-inline` and
+`--mlv-page-inset-block` from it and feeds the padding shorthand from those two.
+`--mlv-page-inset` stays the knob a consumer sets; chrome geometry reads the
+axis names, so a full-bleed margin can never borrow the other axis.
+`mlv-page-header`, `mlv-page-summary`, and `mlv-page-dock`
 are pulled full-bleed with negative margins (the header also to the top edge,
 the dock to the bottom edge; the header's own radius is zeroed — the page host
 clips the rounded corners). Each of those components pads its content inline
-with `max(var(--mlv-page-inset), var(--mlv-spacing-3))`, so their content stays
-aligned with the page edge padding at any inset.
+with `max(var(--mlv-page-inset-inline), var(--mlv-spacing-3))`, so their content
+stays aligned with the page edge padding at any inset.
 
 **Where the negative margins come from differs, and it matters:**
 
 - `mlv-page-dock` applies its own `margin-inline` / `margin-bottom` in
-  `page-dock.scss`, computed from the **inherited** `--mlv-page-inset`. Custom
+  `page-dock.scss`, computed from the **inherited** `--mlv-page-inset-inline`
+  and `--mlv-page-inset-block`. Custom
   properties inherit through any depth, so the dock keeps its full-bleed
   geometry inside a consumer wrapper — a `<form>`, a `<section>` — and collapses
   to zero outside a page, where the property is unset.
 - **`mlv-page-header` and `mlv-page-summary` must stay direct children of
-  `main[mlvPage]`.** Their rules are `.mlv-page__inner > …` child selectors in
-  `page.scss`, because the geometry is sibling-relative (the header's top bleed,
-  and the snap-spacer handover from header to a legacy sibling summary strip
-  via `:not(:has(~ .mlv-page-summary))`), and `MlvPage` measures those same
-  direct children to compute `--mlv-page-snap-offset`. Wrapping either one
-  silently drops both the full-bleed treatment and the snap compensation.
+  `main[mlvPage]` for the full-bleed treatment.** Those rules are
+  `.mlv-page__inner > …` child selectors in `page.scss`, because the geometry
+  is sibling-relative (the header's top bleed, and the snap-spacer handover
+  from header to a legacy sibling summary strip via
+  `:not(:has(~ .mlv-page-summary))`). Wrapping either one silently drops the
+  full-bleed treatment.
+- **Measurement no longer depends on that.** Both register with
+  `MlvPageGeometry` instead of being found by a one-shot `querySelectorAll`, so
+  `--mlv-page-snap-offset` and the whole geometry contract below are correct
+  for a header rendered later by an `@if` or wrapped in a `<form>`.
+
+### Geometry contract (`MlvPageGeometry`)
+
+`MlvPage` provides `MlvPageGeometry`. Chrome regions register with it, it
+measures them through `MlvResizeObserverService`, and it publishes the results
+as **pixel lengths** on the page host. No consumer hand-measures a sticky
+offset.
+
+| Property                                            | Written by                                       | Answers                                   |
+| --------------------------------------------------- | ------------------------------------------------ | ----------------------------------------- |
+| `--mlv-page-scrollport-block-size`                  | coordinator, from the registered scroll viewport | the page's actual usable scrollport       |
+| `--mlv-page-chrome-block-size`                      | coordinator                                      | how tall the top chrome currently is      |
+| `--mlv-page-sticky-inset-block-start`               | coordinator                                      | clearance owed at the top edge            |
+| `--mlv-page-sticky-inset-block-end`                 | coordinator                                      | clearance owed at the bottom edge         |
+| `--mlv-page-dock-block-size`                        | coordinator                                      | the dock's in-page reservation            |
+| `--mlv-page-available-block-size`                   | **CSS**, derived from three of the above         | max block size for a sticky aside         |
+| `--mlv-viewport-inset-block-end`                    | `mlv-page-dock`, on the document element         | viewport clearance for portalled overlays |
+| `--mlv-page-dock-height`                            | same, compatibility bridge                       | what `mlv-toast` reads today              |
+| `--mlv-page-inset`, `-inline`, `-block`             | padding modifiers on `.mlv-page__inner`          | bleed and canvas padding                  |
+| `--mlv-page-max-width`, `--mlv-page-surface-radius` | `MlvPage`                                        | canvas width, chrome corners              |
+
+Five rules hold it together:
+
+1. **Size and clearance are different questions.** `--chrome-block-size` is how
+   tall the chrome is; `--sticky-inset-block-start` is what a scrollport must
+   reserve. They diverge whenever the header is not sticky, which is the
+   `stickyHeader="false"` case and Mantine's height-vs-offset split.
+2. **Every page declares fresh local defaults** (`0px`) in `page.scss`, so one
+   page's measurements never leak into another mounted beside it. The
+   coordinator _removes_ a property rather than publishing `0px`, so a
+   consumer's own declaration is never shadowed.
+3. **Registration is dynamic and page-scoped**, with teardown — not a one-shot
+   query. A region rendered by an `@if` registers like any other.
+4. **Nested chrome counts once.** A summary strip projected inside the header
+   is contained by the header's own measured box, so it is dropped from the sum
+   rather than reserved twice.
+5. **`--mlv-page-available-block-size` is derived in CSS**, clamped at `0px`
+   (`max(0px, …)`), so it stays live with its three terms and never publishes a
+   negative length — which would make every `calc()` reading it invalid at
+   computed-value time.
+
+Two names that were read and written by nothing survive as the **first term of
+a fallback chain**, so a consumer that set them keeps winning:
+
+- `scroll-padding-block-start: var(--mlv-page-header-offset, var(--mlv-page-sticky-inset-block-start))`
+  on the page's scroll viewport. This is the WCAG 2.2 SC 2.4.11 (Focus Not
+  Obscured, AA) technique; the value has to be the measured one, because the
+  header collapses as the page scrolls.
+- `inset-block-start: var(--mlv-page-aside-offset, calc(var(--mlv-page-sticky-inset-block-start, 0px) + var(--mlv-spacing-4)))`
+  on a sticky `mlv-page-content` aside.
+
+Consumers reading a published length should keep a `max()` floor: nothing is
+published during server rendering or before the first measurement lands.
+
+```scss
+.my-panel {
+  max-block-size: max(18rem, calc(var(--mlv-page-available-block-size) - var(--mlv-spacing-4)));
+}
+```
 
 ### Page scroll context
 
@@ -487,15 +611,34 @@ so a `<form>` or `<section>` between the page canvas and the dock does not
 break them. See "Full-bleed top chrome and page inset" above for the header /
 summary constraint, which is _not_ wrapper-tolerant.
 
-**Published height.** While `sticky`, the dock measures its own border-box
+**Two different published questions.** The dock measures its own border-box
 height (`MlvResizeObserverService` from `@malva-ui/cdk/utils`, started from
-`afterNextRender` so nothing runs during server rendering) and publishes it as
-`--mlv-page-dock-height` on `document.documentElement`. Viewport-anchored CDK
-overlays — most importantly bottom toast positions, see `libs-toast.md` — read
-it so they are never rendered underneath the dock. Contributions are tracked
-per dock instance and the tallest one wins, so two mounted pages during a route
-transition cannot clobber each other; the property is removed once the last
-sticky dock is destroyed or `sticky` goes false.
+`afterNextRender` so nothing runs during server rendering) and that one
+measurement answers two things that are not the same:
+
+- **In-page reservation.** It registers as the page's block-end region, so
+  `main[mlvPage]` publishes `--mlv-page-dock-block-size` and — while sticky —
+  folds it into `--mlv-page-sticky-inset-block-end` and the derived
+  `--mlv-page-available-block-size`. See "Geometry contract" above.
+- **Viewport clearance.** While the dock actually reaches the bottom edge of
+  the screen it publishes `--mlv-viewport-inset-block-end` on
+  `document.documentElement`, with `--mlv-page-dock-height` carrying the
+  identical value as a compatibility bridge until it is retired. Viewport-
+  anchored CDK overlays — most importantly bottom toast positions, see
+  `libs-toast.md` — read it so they are never rendered underneath the dock.
+
+**A `position: sticky` declaration is not evidence of viewport obstruction.** A
+dock pinned halfway down a document-scrolled page covers nothing a portalled
+overlay would use, so the second publication is gated on the dock's own rect
+reaching `innerHeight`, re-tested as the page scrolls. When the element has no
+layout at all (server rendering, a detached tree, jsdom) the geometry cannot
+answer and the dock's own `sticky` state is trusted, rather than silently
+withdrawing a real reservation.
+
+Contributions are tracked per dock instance and the tallest one wins, so two
+mounted pages during a route transition cannot clobber each other; both
+properties are removed once the last contributor is destroyed or stops
+obstructing.
 
 ## `MlvPageContent`
 

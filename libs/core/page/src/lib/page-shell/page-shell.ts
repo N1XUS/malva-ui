@@ -1,7 +1,9 @@
 import {
+  afterNextRender,
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   ElementRef,
   inject,
@@ -9,6 +11,8 @@ import {
   signal,
   ViewEncapsulation,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
 import {
   chooseContrastForeground,
   compositeColors,
@@ -20,8 +24,27 @@ import {
 } from './page-shell-css-color';
 
 /**
+ * How the shell resolves its own block size.
+ *
+ * - `'parent'` (default) fills a parent that has a definite block size, and
+ *   degrades to content sizing against an indefinite one — exactly what the
+ *   shell did before this input existed.
+ * - `'viewport'` fills the screen minus whatever sits above the shell, which
+ *   the shell measures for itself. Use it when the shell *is* the application.
+ * - `'content'` opts out entirely: the shell is as tall as its content and
+ *   nothing inside it can be sticky.
+ */
+export type MlvPageShellSizing = 'parent' | 'viewport' | 'content';
+
+/**
  * Application-page shell that joins global top navigation, one or two sidebars,
  * and the Page canvas without taking ownership of their component behaviour.
+ *
+ * The shell owns the definite block size that everything sticky inside it
+ * resolves against — the page's own scrollport, the sidebar rails, the header,
+ * the dock, a sticky aside. Without one they all silently do nothing, so the
+ * mode is an input rather than something each consumer re-derives with a
+ * viewport unit and a hand-measured subtraction.
  */
 @Component({
   selector: 'mlv-page-shell',
@@ -31,6 +54,10 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-page-shell',
+    '[class.mlv-page-shell--sizing-parent]': 'sizing() === "parent"',
+    '[class.mlv-page-shell--sizing-viewport]': 'sizing() === "viewport"',
+    '[class.mlv-page-shell--sizing-content]': 'sizing() === "content"',
+    '[style.--mlv-page-shell-viewport-inset-block-start]': '_viewportInset()',
     '[style.--mlv-page-shell-resolved-background]': '_resolvedBackground()',
     '[style.--mlv-page-shell-resolved-foreground]': '_resolvedForeground()',
     '[style.background]': '_resolvedBackground()',
@@ -38,6 +65,10 @@ import {
   },
 })
 export class MlvPageShell {
+  /**
+   * How the shell resolves its own block size. See {@link MlvPageShellSizing}.
+   */
+  readonly sizing = input<MlvPageShellSizing>('parent');
   /**
    * Optional CSS color for the shell chrome background.
    * Browser-resolved values such as `var(--brand-color)` are supported.
@@ -54,6 +85,23 @@ export class MlvPageShell {
 
   /** @protected Browser-resolved foreground applied through the host style. */
   protected readonly _resolvedForeground = signal<string | null>(null);
+
+  /**
+   * @protected Distance in pixels from the top of the viewport to the shell's
+   * own top edge, published as a length so `sizing="viewport"` can subtract it
+   * — a fixed application bar above the shell, or the padding reserved for
+   * one, is otherwise counted twice. `null` in every other sizing mode, so no
+   * property is written at all.
+   */
+  protected readonly _viewportInset = computed(() => {
+    if (this.sizing() !== 'viewport') {
+      return null;
+    }
+    return `${this._measuredViewportInset()}px`;
+  });
+
+  /** @private Writable source behind {@link _viewportInset}. */
+  private readonly _measuredViewportInset = signal(0);
 
   /** @private Native shell host used as the CSS inheritance context. */
   private readonly _host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -75,6 +123,20 @@ export class MlvPageShell {
       this._scheduleColorResolution();
     });
 
+    afterNextRender(() => {
+      this._measureViewportInset();
+      const view = this._host.nativeElement.ownerDocument.defaultView;
+      if (!view) {
+        return;
+      }
+      // Only a viewport resize can move the shell's own top edge without
+      // changing anything the shell renders; a scroll cannot, because the
+      // measurement below is deliberately scroll-invariant.
+      fromEvent(view, 'resize')
+        .pipe(takeUntilDestroyed(this._destroyRef))
+        .subscribe(() => this._measureViewportInset());
+    });
+
     this._destroyRef.onDestroy(() => {
       this._mutationObserver?.disconnect();
       const view = this._host.nativeElement.ownerDocument.defaultView;
@@ -82,6 +144,30 @@ export class MlvPageShell {
         view.cancelAnimationFrame(this._resolutionFrameId);
       }
     });
+  }
+
+  /**
+   * @private Measures how far the shell's top edge sits below the top of the
+   * initial containing block.
+   *
+   * `rect.top` alone is a scroll position; adding the document scroll offset
+   * makes it the shell's own place in the layout, which does not move when the
+   * user scrolls and — crucially — does not depend on the shell's own block
+   * size. That is what keeps `block-size: calc(100dvh - inset)` from feeding
+   * back into its own measurement.
+   *
+   * The measurement assumes the document is the shell's scrolling ancestor. A
+   * shell nested inside another scroller wants `sizing="parent"` anyway: there
+   * the parent already has the definite size, and no measurement is needed.
+   */
+  private _measureViewportInset(): void {
+    const host = this._host.nativeElement;
+    const view = host.ownerDocument.defaultView;
+    if (!view) {
+      return;
+    }
+    const top = host.getBoundingClientRect().top + view.scrollY;
+    this._measuredViewportInset.set(Math.max(0, Math.round(top * 100) / 100));
   }
 
   /**

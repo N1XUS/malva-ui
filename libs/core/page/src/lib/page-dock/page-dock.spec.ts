@@ -150,10 +150,10 @@ describe('MlvPageDock', () => {
       // Wrapper-tolerant geometry: no `.mlv-page__inner > …` child selector is
       // involved, so a <form>/<section> between page and dock cannot break it.
       expect(dockScss).toContain(
-        'margin-inline: calc(-1 * var(--mlv-page-inset, 0rem))',
+        'margin-inline: calc(-1 * var(--mlv-page-inset-inline, 0rem))',
       );
       expect(dockScss).toContain(
-        'margin-bottom: calc(-1 * var(--mlv-page-inset, 0rem))',
+        'margin-bottom: calc(-1 * var(--mlv-page-inset-block, 0rem))',
       );
       expect(dockScss).not.toContain('.mlv-page__inner');
     });

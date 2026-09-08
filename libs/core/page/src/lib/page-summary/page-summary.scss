@@ -1,60 +1,60 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-page-summary;
+  $block: mlv-page-summary;
 
-.#{$block} {
-  @include mixins.base();
+  .#{$block} {
+    @include mixins.base();
 
-  // Local scrubbed progress remapped into this strip's stagger window.
-  --mlv-page-summary-snap: clamp(
-    0,
-    (var(--mlv-page-snap, 0) - var(--mlv-snap-from, 0.1)) *
-      var(--mlv-snap-scale, 1.18),
-    1
-  );
+    // Local scrubbed progress remapped into this strip's stagger window.
+    --mlv-page-summary-snap: clamp(
+      0,
+      (var(--mlv-page-snap, 0) - var(--mlv-snap-from, 0.1)) *
+        var(--mlv-snap-scale, 1.18),
+      1
+    );
 
-  position: relative;
-  // Above page content (form controls carry small z-indexes of their own),
-  // below the sticky page header (z-index 10).
-  z-index: 9;
-  display: block;
-  min-width: 0;
-  // Height scrub against the measured natural row height; opacity leads so
-  // values fade before the strip squashes them.
-  max-height: calc(
-    var(--mlv-page-summary-size, 480) * 1px * (1 - var(--mlv-page-summary-snap))
-  );
-  overflow: hidden;
-  // Same glass chrome recipe as mlv-action-bar and the page header.
-  background-color: var(
-    --mlv-page-chrome-bg,
-    color-mix(in srgb, var(--mlv-elevation-bg-3), transparent 50%)
-  );
-  border-bottom: 0.0625rem solid
-    var(--mlv-page-chrome-border, var(--mlv-border-subtle));
-  backdrop-filter: blur(1.25rem);
-  -webkit-backdrop-filter: blur(1.25rem);
-  opacity: calc(1 - var(--mlv-page-summary-snap) * 1.25);
+    position: relative;
+    // Above page content (form controls carry small z-indexes of their own),
+    // below the sticky page header (z-index 10).
+    z-index: 9;
+    display: block;
+    min-width: 0;
+    // Height scrub against the measured natural row height; opacity leads so
+    // values fade before the strip squashes them.
+    max-height: calc(
+      var(--mlv-page-summary-size, 30rem) * (1 - var(--mlv-page-summary-snap))
+    );
+    overflow: hidden;
+    // Same glass chrome recipe as mlv-action-bar and the page header.
+    background-color: var(
+      --mlv-page-chrome-bg,
+      color-mix(in srgb, var(--mlv-elevation-bg-3), transparent 50%)
+    );
+    border-bottom: 0.0625rem solid
+      var(--mlv-page-chrome-border, var(--mlv-border-subtle));
+    backdrop-filter: blur(1.25rem);
+    -webkit-backdrop-filter: blur(1.25rem);
+    opacity: calc(1 - var(--mlv-page-summary-snap) * 1.25);
 
-  // A strip holding focus steps off the timeline: a focused control has to
-  // stay visible, and staying visible is what keeps it focusable at all.
-  // See MlvPageSnapRegionBase.
-  &--revealed {
-    --mlv-page-summary-snap: 0;
+    // A strip holding focus steps off the timeline: a focused control has to
+    // stay visible, and staying visible is what keeps it focusable at all.
+    // See MlvPageSnapRegionBase.
+    &--revealed {
+      --mlv-page-summary-snap: 0;
+    }
+
+    &__items {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: var(--mlv-spacing-2) var(--mlv-spacing-4);
+      // Inline padding follows the page inset (full-bleed alignment); the
+      // bottom clearance keeps the chrome's floating snap controls — riding
+      // this strip's bottom edge — off the values.
+      padding: var(--mlv-spacing-2)
+        max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3))
+        var(--mlv-spacing-4);
+    }
   }
-
-  &__items {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--mlv-spacing-2) var(--mlv-spacing-4);
-    // Inline padding follows the page inset (full-bleed alignment); the
-    // bottom clearance keeps the chrome's floating snap controls — riding
-    // this strip's bottom edge — off the values.
-    padding: var(--mlv-spacing-2)
-      max(var(--mlv-page-inset, 0rem), var(--mlv-spacing-3))
-      var(--mlv-spacing-4);
-  }
-}
 }

@@ -6,6 +6,7 @@ import * as sass from 'sass';
 import { MlvPage } from '../page/page';
 import { MlvPageEndPane } from '../page-end-pane/page-end-pane';
 import { MlvPageEndPaneContent } from '../page-end-pane/page-end-pane-content';
+import type { MlvPageShellSizing } from './page-shell';
 import { MlvPageShell } from './page-shell';
 import {
   MlvPageEndSidebar,
@@ -74,6 +75,18 @@ class PageShellColorTestHost {
   readonly color = signal<string | null>(null);
   readonly foreground = signal<string | null>(null);
   readonly brandColor = signal<string | null>(null);
+}
+
+@Component({
+  template: `
+    <mlv-page-shell [sizing]="sizing()">
+      <main mlvPage>Page content</main>
+    </mlv-page-shell>
+  `,
+  imports: [MlvPageShell, MlvPage],
+})
+class PageShellSizingTestHost {
+  readonly sizing = signal<MlvPageShellSizing>('parent');
 }
 
 /** Waits for the component's frame-coalesced color resolution. */
@@ -333,6 +346,86 @@ describe('MlvPageShell', () => {
     expect(
       shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
     ).toBe('rgb(0, 0, 0)');
+  });
+
+  describe('sizing', () => {
+    it('fills a definite parent by default', async () => {
+      const fixture = TestBed.configureTestingModule({
+        imports: [PageShellSizingTestHost],
+      }).createComponent(PageShellSizingTestHost);
+      await fixture.whenStable();
+
+      const shell = fixture.nativeElement.querySelector(
+        'mlv-page-shell',
+      ) as HTMLElement;
+      expect(shell.classList).toContain('mlv-page-shell--sizing-parent');
+      // `100%` against an indefinite parent computes to `auto`, so the default
+      // fixes the bounded case without changing the unbounded one.
+      expect(declarationsFor('.mlv-page-shell--sizing-parent{')).toContain(
+        'block-size:100%',
+      );
+    });
+
+    it('subtracts its own distance from the top of the layout in viewport mode', async () => {
+      const fixture = TestBed.configureTestingModule({
+        imports: [PageShellSizingTestHost],
+      }).createComponent(PageShellSizingTestHost);
+      fixture.componentInstance.sizing.set('viewport');
+      const shell = fixture.nativeElement.querySelector(
+        'mlv-page-shell',
+      ) as HTMLElement;
+      // A fixed application bar above the shell, or the padding reserved for
+      // one: 108px down the page, and scrolled by 40 to prove the measurement
+      // is scroll-invariant.
+      vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+        top: 68,
+      } as DOMRect);
+      vi.spyOn(window, 'scrollY', 'get').mockReturnValue(40);
+      await fixture.whenStable();
+
+      expect(shell.classList).toContain('mlv-page-shell--sizing-viewport');
+      expect(
+        shell.style.getPropertyValue(
+          '--mlv-page-shell-viewport-inset-block-start',
+        ),
+      ).toBe('108px');
+    });
+
+    it('writes no inset outside viewport mode', async () => {
+      const fixture = TestBed.configureTestingModule({
+        imports: [PageShellSizingTestHost],
+      }).createComponent(PageShellSizingTestHost);
+      fixture.componentInstance.sizing.set('content');
+      await fixture.whenStable();
+
+      const shell = fixture.nativeElement.querySelector(
+        'mlv-page-shell',
+      ) as HTMLElement;
+      expect(shell.classList).toContain('mlv-page-shell--sizing-content');
+      expect(
+        shell.style.getPropertyValue(
+          '--mlv-page-shell-viewport-inset-block-start',
+        ),
+      ).toBe('');
+    });
+
+    it('hands its definite size to a route host, not only to a direct page', () => {
+      // Angular inserts an activated route's component *beside* the outlet, on
+      // its own host element, so matching only `> .mlv-page` breaks under a
+      // router — the normal case for an application shell.
+      expect(declarationsFor('.mlv-page-shell__content>*{')).toContain(
+        'flex:1 1 auto'.replace(/\s+/g, ''),
+      );
+      expect(declarationsFor('.mlv-page-shell__content>*{')).toContain(
+        'min-height:0',
+      );
+      expect(
+        declarationsFor('.mlv-page-shell__content>router-outlet{'),
+      ).toContain('display:none');
+      expect(
+        declarationsFor('.mlv-page-shell__content>.mlv-page-host{'),
+      ).toContain('display:flex');
+    });
   });
 
   it('cleans up observation and scheduled work on destroy', () => {

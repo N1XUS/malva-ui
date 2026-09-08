@@ -19,43 +19,16 @@ $severities: (
 
 .#{$block} {
   // ── Frame ───────────────────────────────────────────────────────────────
-  // `mlv-page-shell` is `display: flex; overflow: hidden` with no intrinsic
-  // height, so left alone the whole composition is content-sized. Three things
-  // break at once when that happens, and one definite block-size fixes all of
-  // them:
+  // The shell's block size now comes from `sizing="viewport"` in the template,
+  // which subtracts the shell's own measured distance from the top of the
+  // layout — so the docs app bar's reserved padding is not written down a
+  // second time here. Everything sticky inside (the page scrollport, the rail,
+  // the header, the dock, the aside) resolves against it.
   //
-  //   1. `.mlv-page__scrollbar` is `height: 100%`. Against an indefinite parent
-  //      that resolves to `auto`, so the page never scrolls internally — the
-  //      document scrolls instead and `.mlv-page-shell`'s own `overflow: hidden`
-  //      becomes a scrollport that never moves, which is what every
-  //      `position: sticky` inside (header, dock, aside) resolves against. They
-  //      simply scroll away.
-  //   2. `.mlv-page-shell__sidebar.mlv-sidebar { height: 100% }` is two classes
-  //      and outranks `.mlv-sidebar--full-height`'s `calc(100dvh - …)`, which is
-  //      one. With an indefinite parent that `100%` also degrades to `auto`, so
-  //      the rail shrinks to header + footer and `.mlv-sidebar__content`
-  //      (`flex: 1 1 0`) measures 0 — the settings navigation disappears.
-  //   3. The dock can never pin, because there is nothing to pin it against.
-  //
-  // 6.75rem is the `padding-top` the showcase shell reserves for the fixed docs
-  // app bar. `svh` on a phone: `dvh` would re-run the page scroller's thumb math
-  // every time the mobile URL bar collapses.
-  &.mlv-page-shell {
-    block-size: calc(100svh - 6.75rem);
-
-    @include bp.breakpoint-up(md) {
-      block-size: calc(100dvh - 6.75rem);
-    }
-  }
-
-  // `mlv-page-content` sticks the aside at `--mlv-page-aside-offset`, which
-  // defaults to `--mlv-spacing-4` — not enough to clear the sticky page header.
-  // The size that matters is the *snapped* one, because the aside only pins
-  // once the page has scrolled and `snapControls` has already folded the
-  // summary strip and the tab strip away: 6.9375rem in every section (the
-  // title row plus the description), measured identically on Members & roles
-  // and API access. 7.5rem clears it with a hairline of breathing room.
-  --mlv-page-aside-offset: 7.5rem;
+  // The aside's sticky offset is not set here either: `mlv-page-content`
+  // clears whatever the page publishes as `--mlv-page-sticky-inset-block-start`,
+  // which is the *collapsed* header once the page has scrolled — exactly when
+  // the aside pins — instead of a height measured once by hand.
 
   // ── Settings rail ───────────────────────────────────────────────────────
   // The rail's height is not set here: `.mlv-page-shell__sidebar.mlv-sidebar`
@@ -526,21 +499,19 @@ $severities: (
     // can never be reached. Stacked below the form it is in normal flow again
     // and the cap has to come off, or the same content gets clipped instead.
     .mlv-page-content--aside-sticky:not(.mlv-page-content--stacked) & {
-      // 6.75rem is the shell offset again. `--mlv-page-dock-height` is the
-      // sticky dock's own published contract (`mlv-page-dock` writes it on the
-      // document element) — without it the panel's last rows sit behind the
-      // dock's glass bar. The `max()` floor keeps the panel usable on a short
-      // laptop screen, where it simply extends past the scrollport and the
-      // page scroll reaches the rest.
+      // `--mlv-page-available-block-size` is the page's own scrollport minus
+      // what its sticky chrome reserves at both edges — the header above and
+      // the dock below — so the panel's last rows never sit behind the dock's
+      // glass bar. One subtraction is left: the gap `mlv-page-content` puts
+      // between the header and the aside's own top edge.
+      //
+      // The `max()` floor keeps the panel usable on a short laptop screen,
+      // where it simply extends past the scrollport and the page scroll
+      // reaches the rest. It also covers the frame before the first
+      // measurement lands, and server rendering, where nothing is published.
       max-block-size: max(
         18rem,
-        calc(
-          100dvh -
-            6.75rem - var(--mlv-page-aside-offset) - var(
-              --mlv-page-dock-height,
-              0px
-            ) - var(--mlv-spacing-4)
-        )
+        calc(var(--mlv-page-available-block-size) - var(--mlv-spacing-4))
       );
       overflow-y: auto;
       overscroll-behavior: contain;

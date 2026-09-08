@@ -23,6 +23,36 @@
     // occupies. Zero unless the surface is anchored; see `--surface-anchored`.
     --mlv-page-surface-radius: 0rem;
 
+    // ── Geometry contract ───────────────────────────────────────────────────
+    // Every page establishes its own local defaults for the whole contract, so
+    // one page's measurements can never leak into another mounted beside it
+    // (a route transition, a page inside a dialog). `MlvPageGeometry`
+    // overwrites the measured ones as inline styles on this same element, and
+    // removes a property again rather than publishing a meaningless `0px`.
+    //
+    // Size and clearance are separate questions: `--chrome-block-size` is how
+    // tall the top chrome is, `--sticky-inset-block-start` is how much of it a
+    // scrollport must actually reserve. They diverge whenever the header is
+    // not sticky.
+    --mlv-page-scrollport-block-size: 0px;
+    --mlv-page-chrome-block-size: 0px;
+    --mlv-page-sticky-inset-block-start: 0px;
+    --mlv-page-sticky-inset-block-end: 0px;
+    --mlv-page-dock-block-size: 0px;
+
+    // Derived, never written by script, so it stays live with its three terms
+    // and needs no fourth measurement. Clamped at zero: a scrollport shorter
+    // than its own chrome must not publish a negative length, which would make
+    // every `calc()` reading it invalid at computed-value time.
+    --mlv-page-available-block-size: max(
+      0px,
+      calc(
+        var(--mlv-page-scrollport-block-size) - var(
+            --mlv-page-sticky-inset-block-start
+          ) - var(--mlv-page-sticky-inset-block-end)
+      )
+    );
+
     &__scrollbar {
       width: 100%;
       height: 100%;
@@ -36,7 +66,19 @@
     // child combinators in `mlv-scrollbar`'s own stylesheet (issue #98).
     &__scrollbar > .mlv-scrollbar__viewport {
       overflow-x: hidden;
-      scroll-padding-top: var(--mlv-page-header-offset, 6rem);
+      // WCAG 2.2 SC 2.4.11 (Focus Not Obscured, AA) names sticky headers
+      // explicitly, and scroll padding is the sufficient technique. The value
+      // has to be the *measured* one: this header collapses as you scroll, so
+      // a constant is wrong at every progress except the one it was picked at.
+      //
+      // `--mlv-page-header-offset` was read here with a 6rem guess and written
+      // by nothing. It survives as the first term of the chain so a consumer
+      // that set it keeps winning, and falls through to the published value.
+      scroll-padding-block-start: var(
+        --mlv-page-header-offset,
+        var(--mlv-page-sticky-inset-block-start)
+      );
+      scroll-padding-block-end: var(--mlv-page-sticky-inset-block-end);
       // Scroll anchoring would auto-adjust scrollTop while the snap timeline
       // resizes the top chrome, feeding the scroll position back into the
       // progress until it runs away to 0 or 1. The snap spacer keeps geometry
@@ -45,6 +87,13 @@
     }
 
     &__inner {
+      // The single `--mlv-page-inset` scalar stays the knob a consumer sets;
+      // the two axis names below are what chrome geometry reads, so a
+      // full-bleed margin can never accidentally borrow the other axis. Both
+      // derive from the scalar, so an existing override still reaches them.
+      --mlv-page-inset-inline: var(--mlv-page-inset, 0rem);
+      --mlv-page-inset-block: var(--mlv-page-inset, 0rem);
+
       // Size container so page chrome (header rows, docks) can adapt to the
       // canvas width instead of the viewport.
       container-type: inline-size;
@@ -52,6 +101,7 @@
       min-height: 100%;
       max-width: var(--mlv-page-max-width, none);
       margin-inline: auto;
+      padding: var(--mlv-page-inset-block) var(--mlv-page-inset-inline);
     }
 
     &--surface-anchored {
@@ -87,28 +137,22 @@
       overflow: clip;
     }
 
+    // Each modifier sets only the scalar; `&__inner` above derives both axes
+    // and the padding shorthand from it.
     &--padding-none &__inner {
       --mlv-page-inset: 0rem;
-
-      padding: 0;
     }
 
     &--padding-s &__inner {
       --mlv-page-inset: var(--mlv-spacing-1-5);
-
-      padding: var(--mlv-page-inset);
     }
 
     &--padding-m &__inner {
       --mlv-page-inset: var(--mlv-spacing-2);
-
-      padding: var(--mlv-page-inset);
     }
 
     &--padding-l &__inner {
       --mlv-page-inset: var(--mlv-spacing-3);
-
-      padding: var(--mlv-page-inset);
     }
 
     // Top chrome spans the full canvas width regardless of the page inset; its
@@ -123,11 +167,11 @@
     // silently drops the full-bleed treatment and the snap compensation.
     &__inner > .mlv-page-header,
     &__inner > .mlv-page-summary {
-      margin-inline: calc(-1 * var(--mlv-page-inset, 0rem));
+      margin-inline: calc(-1 * var(--mlv-page-inset-inline, 0rem));
     }
 
     &__inner > .mlv-page-header {
-      margin-top: calc(-1 * var(--mlv-page-inset, 0rem));
+      margin-block-start: calc(-1 * var(--mlv-page-inset-block, 0rem));
       // The header carries a standalone top radius of its own; full-bleed
       // inside a page that would leave hairline gaps at the canvas edge. The
       // first child takes the canvas curve back below.

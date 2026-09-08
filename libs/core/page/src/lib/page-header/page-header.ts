@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   ViewEncapsulation,
   computed,
   contentChild,
@@ -21,6 +22,7 @@ import {
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvLink, MlvLinkBefore } from '@malva-ui/core/link';
 import { MlvPageSnapController } from '../page/page-snap-controller';
+import { registerPageRegion } from '../page/page-geometry';
 import { MlvPageSnap } from '../page/page-snap.directive';
 import { MLV_PAGE_SCROLL } from '../page/page-scroll.token';
 import {
@@ -166,4 +168,18 @@ export class MlvPageHeader {
       ? this._snap.progress() > 0.02
       : (this._pageScroll?.scrolled() ?? false),
   );
+
+  constructor() {
+    // The header is the page's block-start chrome. It registers rather than
+    // being found by a selector, so a header rendered by an `@if` or wrapped
+    // in a `<form>` publishes its geometry like any other. `followsChromeDefault`
+    // because `main[mlvPage][stickyHeader]` makes it sticky without its own
+    // `sticky` input being set.
+    registerPageRegion({
+      element: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
+      edge: 'block-start',
+      sticky: this.sticky,
+      followsChromeDefault: true,
+    });
+  }
 }

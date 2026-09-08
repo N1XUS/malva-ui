@@ -1,4 +1,5 @@
 export * from './lib/page/page';
+export * from './lib/page/page-geometry';
 export * from './lib/page/page-scroll.token';
 export * from './lib/page/page-snap-controller';
 export * from './lib/page/page-snap-region-base';
