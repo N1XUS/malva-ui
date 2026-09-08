@@ -46,7 +46,7 @@
       border-radius: var(--mlv-radius-m);
       background: transparent;
       cursor: pointer;
-      font-size: var(--mlv-font-size-l);
+      font-size: var(--mlv-font-size-m);
       color: var(--mlv-text-secondary);
       text-align: start;
       transition-property: background-color, color;
@@ -92,7 +92,7 @@
     }
 
     &__label {
-      font-size: var(--mlv-font-size-l);
+      font-size: var(--mlv-font-size-m);
       flex: 1;
       min-width: 0;
       overflow: hidden;
