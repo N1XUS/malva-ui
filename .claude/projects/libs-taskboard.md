@@ -9,7 +9,7 @@ One component, `mlv-taskboard`, renders a typed card collection as columns, opti
 ## Package contract
 
 - Public import: `@malva-ui/taskboard` — the whole package barrel (`libs/taskboard/src/index.ts`). There are no subpaths.
-- Peer dependencies as declared by `libs/taskboard/package.json`: `@angular/cdk`, `@angular/common`, `@angular/core`, `@malva-ui/cdk`, `@malva-ui/core`, `@malva-ui/i18n`. The board injects `@malva-ui/cdk/density`, `@malva-ui/cdk/utils` (`MlvRtlService`) and `MLV_TASKBOARD_I18N`, so an application must call `provideMlvI18n()` (or provide the token itself) before constructing a board. The `@malva-ui/core` peer is `mlv-scrollbar` (R44) — imported through the narrow entry `@malva-ui/core/scrollbar`, never the root barrel; `eslint.config.mjs` lets `family:taskboard` reach `family:core` for exactly that.
+- Peer dependencies as declared by `libs/taskboard/package.json`: `@angular/cdk`, `@angular/common`, `@angular/core`, `@malva-ui/cdk`, `@malva-ui/core`, `@malva-ui/i18n`, `rxjs`. The board injects `@malva-ui/cdk/density`, `@malva-ui/cdk/utils` (`MlvRtlService`) and `MLV_TASKBOARD_I18N`, so an application must call `provideMlvI18n()` (or provide the token itself) before constructing a board. The `@malva-ui/core` peer is `mlv-scrollbar` (R44) — imported through the narrow entry `@malva-ui/core/scrollbar`, never the root barrel; `eslint.config.mjs` lets `family:taskboard` reach `family:core` for exactly that.
 - Runtime drag support is the package's own `sortablejs` dependency; consumers neither install nor import it.
 - CDK virtual scrolling (`@angular/cdk/scrolling`) is used only when `virtualItemSize` is set.
 - Nx: `yarn nx test taskboard`, `yarn nx lint taskboard`, `yarn nx run taskboard:build --configuration=production`.

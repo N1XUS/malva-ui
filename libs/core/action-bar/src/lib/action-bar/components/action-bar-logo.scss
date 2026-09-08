@@ -1,13 +1,35 @@
 @layer mlv.components {
-$block: mlv-action-bar;
+  $block: mlv-action-bar;
 
-.#{$block}__logo {
-  display: flex;
-  align-items: center;
-  gap: var(--mlv-spacing-2);
-  color: var(--mlv-text-primary);
-  font-size: var(--mlv-font-size-l);
-  font-weight: 500;
-  text-decoration: none;
-}
+  .#{$block}__logo {
+    display: flex;
+    align-items: center;
+    color: var(--mlv-text-primary);
+    font-weight: 500;
+    text-decoration: none;
+
+    // Density. The logo carries no density modifier of its own — the class
+    // lives on the enclosing `.mlv-action-bar` — so it cannot include the
+    // `density.density-*` mixins here: their ancestor branch is anchored on
+    // *any* density-modified ancestor, so all four branches match the logo at
+    // (0,3,0) and source order decides, which made a `tight` bar inside an
+    // `airy` region render an airy logo. The bar resolves its own step
+    // correctly and publishes the result as these two custom properties, which
+    // inherit down with no selector to collide with.
+    //
+    // The fallbacks are the comfortable defaults, so a logo used outside a bar
+    // still renders.
+    gap: var(--mlv-action-bar-logo-gap, var(--mlv-spacing-2));
+    font-size: var(--mlv-action-bar-logo-font-size, var(--mlv-font-size-l));
+
+    // WCAG 2.2 SC 2.5.8 — the same unconditional pair `mlv-icon-toggle` and
+    // `mlv-switch` hold. A logo on an `<a>` is a pointer target with no padding
+    // of its own, and `tight` takes its type to 0.75rem: measured in Chromium,
+    // a single-glyph logo in a tight bar is 10.7x24 without this and 24x24
+    // with it. Density-invariant on purpose — this is the floor density scaling
+    // may not cross — and it does not grow the bar, whose other content is
+    // already at least this tall at every step.
+    min-inline-size: 1.5rem;
+    min-block-size: 1.5rem;
+  }
 }

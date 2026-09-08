@@ -114,7 +114,9 @@ constructed during SSR. Both are covered by tests, not just intent.
 
 ## Peer dependencies
 
-`@angular/aria`, `@angular/cdk`, `@angular/common`, `@angular/core`, `@angular/forms`, `@lucide/angular`, `rxjs`, plus the companion packages `@malva-ui/cdk` and `@malva-ui/i18n` (both added by `ng add`).
+`@angular/aria`, `@angular/cdk`, `@angular/common`, `@angular/core`, `@angular/forms`, `@angular/router`, `@lucide/angular`, `rxjs`, plus the companion packages `@malva-ui/cdk` and `@malva-ui/i18n` (both added by `ng add`).
+
+All required. `@angular/router` is one every `ng new` application already has — `mlv-breadcrumb`, `mlv-list-item-link`, `mlv-sidebar-item`, `mlv-bottom-nav`, `mlv-page-header`, `a[mlvSegmentedItem]`, router-driven tabs and the routable dialog / drawer routes all reach for it, so it is not optional (npm neither installs nor warns about optional peers).
 
 ## Related packages
 

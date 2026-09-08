@@ -1,5 +1,6 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 @use '../../../../../styles/src/lib/breakpoints' as bp;
+@use '../../../../../styles/src/lib/density' as density;
 
 @layer mlv.components {
   $block: mlv-action-bar;
@@ -24,12 +25,22 @@
     --mlv-action-bar-bg: var(--mlv-background-bar);
     --mlv-action-bar-fg: var(--mlv-text-primary);
     --mlv-action-bar-border: var(--mlv-border-subtle);
+    // The logo's density-scaled type ramp, declared *here* rather than in
+    // `action-bar-logo.scss`. The logo carries no density modifier of its own,
+    // so a `density.density-*` include there matches through the mixin's
+    // ancestor branch — which reaches it from *any* density-modified ancestor,
+    // not from the bar, all four branches at (0,3,0) with source order picking
+    // the winner. The bar always carries its own stamped modifier and so
+    // resolves correctly; a custom property declared on the bar inherits down
+    // to the logo with no selector to collide with.
+    --mlv-action-bar-logo-gap: var(--mlv-spacing-2);
+    --mlv-action-bar-logo-font-size: var(--mlv-font-size-l);
 
     display: flex;
     align-items: center;
     gap: var(--mlv-spacing-1);
     width: 100%;
-    padding: 0.75rem;
+    padding: var(--mlv-spacing-3);
     background-color: var(--mlv-action-bar-bg);
     color: var(--mlv-action-bar-fg);
     // Unset by default — the surface no longer separates itself with a shadow.
@@ -43,6 +54,72 @@
       color var(--mlv-duration-fast) var(--mlv-ease-out),
       box-shadow var(--mlv-duration-fast) var(--mlv-ease-out),
       border-color var(--mlv-duration-fast) var(--mlv-ease-out);
+
+    // -----------------------------------------------------------------------
+    // Density
+    //
+    // Three things scale together, all declared on the bar itself:
+    //   · `padding` — the bar's own box. These are the **default shape's**
+    //     values; the pill overrides them further down with an asymmetric
+    //     scale of its own. Its rules land at the same specificity and later
+    //     in this file, and `padding-block` / `padding-inline` cascade against
+    //     the `padding` shorthand as one declaration per side, so all four
+    //     sides are replaced. Emission order is load-bearing — moving the pill
+    //     block above this one would flatten the pill — and
+    //     `action-bar-styles.spec.ts` pins it.
+    //     (These rules used to carry a `:not(.mlv-action-bar--shape-pill)`
+    //     justified as outranking the pill. It never did: the pill's rules are
+    //     (0,2,0) too, not (0,1,0), and they already won on order. Measured in
+    //     Chromium across all five steps and both shapes, removing it moved no
+    //     pixel — while it did cost the bar's padding a specificity step
+    //     against a consumer override, which with `ViewEncapsulation.None` is
+    //     the only handle a consumer has.)
+    //   · `gap` — the rhythm between controls. Shape-agnostic: how far apart
+    //     two adjacent controls sit is the same question for a full-width bar
+    //     and for a pill, so the pill inherits it. `compact` deliberately
+    //     shares comfortable's 0.25rem — already the floor at which
+    //     neighbouring controls stay visually separable — and distinguishes
+    //     itself through the box padding instead.
+    //   · `--mlv-action-bar-logo-*` — the logo ramp the bar publishes on the
+    //     logo's behalf, for the reason given where the defaults are declared
+    //     above.
+    //
+    // WCAG 2.2 SC 2.5.8 (24x24 target size) is held by the controls inside the
+    // bar, not by the bar: they carry their own tight-density floor and receive
+    // this bar's density through `MLV_DENSITY_CONTEXT`. The one bar-owned
+    // control is `[mlvActionBarLogo]`, which carries the floor itself — see
+    // `action-bar-logo.scss`.
+    // -----------------------------------------------------------------------
+    @include density.density-tight {
+      --mlv-action-bar-logo-gap: var(--mlv-spacing-1);
+      --mlv-action-bar-logo-font-size: var(--mlv-font-size-s);
+
+      gap: var(--mlv-spacing-0-5);
+      padding: var(--mlv-spacing-1);
+    }
+
+    @include density.density-compact {
+      --mlv-action-bar-logo-gap: var(--mlv-spacing-1-5);
+      --mlv-action-bar-logo-font-size: var(--mlv-font-size-m);
+
+      padding: var(--mlv-spacing-2);
+    }
+
+    @include density.density-spacious {
+      --mlv-action-bar-logo-gap: var(--mlv-spacing-2-5);
+      --mlv-action-bar-logo-font-size: var(--mlv-font-size-xl);
+
+      gap: var(--mlv-spacing-2);
+      padding: var(--mlv-spacing-4);
+    }
+
+    @include density.density-airy {
+      --mlv-action-bar-logo-gap: var(--mlv-spacing-3);
+      --mlv-action-bar-logo-font-size: var(--mlv-font-size-2xl);
+
+      gap: var(--mlv-spacing-3);
+      padding: var(--mlv-spacing-5);
+    }
 
     // Applied by [mlvActionBarActions] to desktop-only controls that collapse
     // at the medium breakpoint and below.
@@ -59,15 +136,13 @@
 
   .mlv-action-bar--pos-top {
     top: 0;
-    left: 0;
-    right: 0;
+    inset-inline: 0;
   }
 
   .mlv-action-bar--pos-bottom {
     top: auto;
     bottom: 0;
-    left: 0;
-    right: 0;
+    inset-inline: 0;
     border-top: 0.0625rem solid var(--mlv-action-bar-border);
     border-bottom: none;
   }
@@ -114,20 +189,50 @@
   .mlv-action-bar--shape-pill {
     width: auto;
     max-width: calc(100% - 2rem);
-    padding: 0.375rem 0.5rem 0.375rem 0.75rem;
-    gap: var(--mlv-spacing-1);
+    // The leading side holds the label and the trailing side a control, so the
+    // asymmetry is on the inline axis and has to mirror in RTL — logical, never
+    // the physical four-value `padding` shorthand this replaced.
+    padding-block: var(--mlv-spacing-1-5);
+    padding-inline: var(--mlv-spacing-3) var(--mlv-spacing-2);
+    // `gap` is inherited from the base block, which scales it per density.
     border: none;
     border-radius: var(--mlv-radius-full);
-    // A pill touches no edge, so it has no hairline to carry the separation and
-    // the shadow is its only signal — not a fourth one stacked on three others.
+    // A pill touches no edge, so it has no hairline to carry the separation
+    // and the shadow is its only signal — not a fourth one stacked on three
+    // others.
     box-shadow:
       0 1rem 2.25rem color-mix(in srgb, black 22%, transparent),
       0 0.125rem 0.5rem color-mix(in srgb, black 14%, transparent);
+
+    @include density.density-tight {
+      padding-block: var(--mlv-spacing-0-5);
+      padding-inline: var(--mlv-spacing-1-5) var(--mlv-spacing-1);
+    }
+
+    @include density.density-compact {
+      padding-block: var(--mlv-spacing-1);
+      padding-inline: var(--mlv-spacing-2) var(--mlv-spacing-1-5);
+    }
+
+    @include density.density-spacious {
+      padding-block: var(--mlv-spacing-2);
+      padding-inline: var(--mlv-spacing-4) var(--mlv-spacing-3);
+    }
+
+    @include density.density-airy {
+      padding-block: var(--mlv-spacing-3);
+      padding-inline: var(--mlv-spacing-5) var(--mlv-spacing-4);
+    }
   }
 
   /* Pill + fixed anchors to the viewport and centers horizontally. */
   .mlv-action-bar--shape-pill.mlv-action-bar--fixed {
     --mlv-action-bar-translate-x: -50%;
+    // physical: the `left: 50%` + `translateX(-50%)` centering pair is
+    // direction-agnostic — converting one half to a logical inset while the
+    // transform stays physical would offset the pill by half its width in RTL.
+    // `right: auto` releases the `inset-inline: 0` the position modifier sets,
+    // which would otherwise stretch the pill to full width.
     left: 50%;
     right: auto;
     transform: translateX(-50%);
@@ -274,9 +379,10 @@
    Enter / leave animations (Angular `animate.enter` / `animate.leave`)
 
    The bar always carries `animate.enter="mlv-action-bar--enter"` and
-   `animate.leave="mlv-action-bar--leave"` on its host — Angular only applies
-   them when the element actually enters or leaves the DOM (e.g. through an
-   `@if` guard), so a statically-rendered nav is unaffected.
+   `animate.leave="mlv-action-bar--leave"` on its host — Angular applies them
+   whenever the element enters or leaves the DOM, which includes the first
+   render of a view the router rebuilds, not only an `@if` toggle. A bar that
+   is permanent chrome opts out with `animated="false"` (see below).
 
    Keyframes use `var(--mlv-action-bar-translate-x)` so centered pill bars
    preserve their horizontal offset while the Y translation animates.
@@ -298,6 +404,33 @@
 
   .mlv-action-bar--pos-bottom.mlv-action-bar--leave {
     animation-name: mlv-action-bar-leave-bottom;
+  }
+
+  /* `animated="false"`. The enter / leave classes still arrive — a
+     non-bracketed `host` key is a static attribute, so the value Angular
+     applies is a literal and cannot be gated from TypeScript — and the
+     keyframes are cancelled here instead.
+
+     `transition: none` is not decoration. On the frame after it adds the class,
+     Angular asks the element how long to wait; with no running animation it
+     falls back to the *computed styles* — `animation-duration`, then
+     `transition-duration`. The bar declares a 0.1s colour transition, so
+     cancelling only the animation leaves a non-zero answer, and then the enter
+     class stays on the host indefinitely with its two listeners retained
+     (measured in Chromium: `.mlv-action-bar--enter` still present two frames
+     later), while a leaving bar sits in the DOM for `duration + 50ms` waiting
+     for a `transitionend` that never comes. With both at zero Angular finds
+     nothing to wait for, strips the class and releases the listeners on the
+     next frame. The real transition is back the moment the class is gone, and
+     it could not have been mid-flight anyway: the element had just entered.
+
+     Last of the four, deliberately: this pair and the `--pos-bottom` pair above
+     are both (0,2,0), and a bottom-anchored bar carries all three classes at
+     once, so source order is what settles it. */
+  .mlv-action-bar--no-animation.mlv-action-bar--enter,
+  .mlv-action-bar--no-animation.mlv-action-bar--leave {
+    animation: none;
+    transition: none;
   }
 
   @media (prefers-reduced-motion: reduce) {

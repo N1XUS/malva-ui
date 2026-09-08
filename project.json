@@ -23,11 +23,27 @@
         "cwd": "{workspaceRoot}"
       }
     },
+    "check-package-dependencies": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "//": "#242: npm installs a package's own `dependencies` and `peerDependencies` and nothing else, so a bare specifier a published entry point imports but does not declare is `Cannot find module` in the consumer's build, with no install-time signal — and invisible in-repo, because every workspace consumer resolves it from the root manifest instead. The globs mirror the script's own traversal rather than narrowing it: the walk starts at `release.projects` in nx.json, finds entry points by their `ng-package.json`, reads each package's `package.json` for what is declared, and follows relative imports through TypeScript sources — so all four are inputs, and the source glob is deliberately not narrowed to `libs/**/src/**`, because a relative import may leave the entry point directory. Over-inclusive on purpose: a spec or a vite config matching the glob costs one cache miss, while under-listing costs a silent pass on a tree this target would fail.",
+      "inputs": [
+        "{workspaceRoot}/scripts/check-package-dependencies.mjs",
+        "{workspaceRoot}/nx.json",
+        "{workspaceRoot}/libs/**/package.json",
+        "{workspaceRoot}/libs/**/ng-package.json",
+        "{workspaceRoot}/libs/**/*.{ts,mts,cts,tsx}"
+      ],
+      "options": {
+        "command": "node scripts/check-package-dependencies.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["check-deprecations"],
-      "//": "check-test-targets.mjs, assert-zoneless-config.spec.js and check-axe-coverage.mjs all answer a question about the shape of the whole workspace, so the inputs are workspace-wide globs: a project added anywhere — a spec that reaches for a zone-based test API, or a library that grows a component without an axe sweep — must re-run the guards rather than hit the cache. The libs source glob is in the set because check-axe-coverage derives 'renders DOM' from the non-spec library sources, so a new @Component changes its answer; its extension list covers every extension that script's SOURCE_PATTERN accepts. It needs no apps/ source glob: an application is only swept for raw axe imports, which reads specs, and those are already covered by the *.{spec,test}.* glob. widen-peer-range.spec.mjs is here rather than in a project of its own because scripts/ is not an nx project; it is a plain node:test unit over release machinery that has no other coverage.",
+      "dependsOn": ["check-deprecations", "check-package-dependencies"],
+      "//": "check-test-targets.mjs, assert-zoneless-config.spec.js and check-axe-coverage.mjs all answer a question about the shape of the whole workspace, so the inputs are workspace-wide globs: a project added anywhere — a spec that reaches for a zone-based test API, or a library that grows a component without an axe sweep — must re-run the guards rather than hit the cache. The libs source glob is in the set because check-axe-coverage derives 'renders DOM' from the non-spec library sources, so a new @Component changes its answer; its extension list covers every extension that script's SOURCE_PATTERN accepts. It needs no apps/ source glob: an application is only swept for raw axe imports, which reads specs, and those are already covered by the *.{spec,test}.* glob. widen-peer-range.spec.mjs and check-package-dependencies.spec.mjs are here rather than in projects of their own because scripts/ is not an nx project; both are plain node:test units over release machinery that has no other coverage. The check-package-dependencies suite runs here as well as behind the check-package-dependencies target because the two ask different questions: the target asks whether this tree is clean, while the suite asks whether the checker would still notice if it were not.",
       "inputs": [
         "{workspaceRoot}/scripts/testing/strip-css-layers.js",
         "{workspaceRoot}/scripts/testing/setup-strip-css-layers.js",
@@ -38,6 +54,8 @@
         "{workspaceRoot}/scripts/check-axe-coverage.mjs",
         "{workspaceRoot}/scripts/testing/axe.js",
         "{workspaceRoot}/scripts/check-deprecations.mjs",
+        "{workspaceRoot}/scripts/check-package-dependencies.mjs",
+        "{workspaceRoot}/scripts/check-package-dependencies.spec.mjs",
         "{workspaceRoot}/scripts/widen-peer-range.mjs",
         "{workspaceRoot}/scripts/widen-peer-range.spec.mjs",
         "{workspaceRoot}/nx.json",
@@ -50,7 +68,7 @@
       ],
       "options": {
         "commands": [
-          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js scripts/check-axe-coverage.spec.mjs scripts/check-deprecations.spec.mjs scripts/widen-peer-range.spec.mjs",
+          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js scripts/check-axe-coverage.spec.mjs scripts/check-deprecations.spec.mjs scripts/check-package-dependencies.spec.mjs scripts/widen-peer-range.spec.mjs",
           "node scripts/check-test-targets.mjs",
           "node scripts/check-axe-coverage.mjs"
         ],

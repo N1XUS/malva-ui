@@ -6,7 +6,7 @@ import {
   type EnvironmentProviders,
 } from '@angular/core';
 import { MlvI18nService } from './i18n.service';
-import type { MlvLanguage } from './types';
+import { resolveMlvLanguage, type MlvLanguageModule } from './language-module';
 
 import { MLV_ALERT_I18N } from './tokens/alert';
 import { MLV_AVATAR_GROUP_I18N } from './tokens/avatar-group';
@@ -60,6 +60,19 @@ const MLV_I18N_INITIALIZER = new InjectionToken<() => Promise<void>>(
  * Provides the Malva UI i18n system with a lazy-loaded language pack.
  * Must be called in the application's root providers.
  *
+ * The loader may resolve to either shape of {@link MlvLanguageModule} — a
+ * module with a `default` export, or one with a `<locale>Language` named
+ * export, which is what the published `@malva-ui/i18n/<locale>` entry points
+ * carry. Importing a locale entry point directly therefore works both against
+ * this workspace's sources and against the installed package (#227). `default`
+ * wins whenever it is there and is returned unread; with no `default`, two
+ * `<locale>Language` exports are refused rather than resolved by declaration
+ * order.
+ *
+ * @param loader Loads the language pack; it is awaited once, in an
+ * `APP_INITIALIZER`. App initialisation fails if the resolved module carries no
+ * language, or carries more than one.
+ *
  * @example
  * ```ts
  * export const appConfig = {
@@ -70,7 +83,7 @@ const MLV_I18N_INITIALIZER = new InjectionToken<() => Promise<void>>(
  * ```
  */
 export function provideMlvI18n(
-  loader: () => Promise<{ default: MlvLanguage }>,
+  loader: () => Promise<MlvLanguageModule>,
 ): EnvironmentProviders {
   return makeEnvironmentProviders([
     MlvI18nService,
@@ -78,7 +91,10 @@ export function provideMlvI18n(
       provide: MLV_I18N_INITIALIZER,
       useFactory: () => {
         const i18nService = inject(MlvI18nService);
-        return () => loader().then((m) => i18nService.setLanguage(m.default));
+        return () =>
+          loader().then((module) =>
+            i18nService.setLanguage(resolveMlvLanguage(module)),
+          );
       },
     },
     {

@@ -99,7 +99,15 @@ apps/docs/
           index.ts
         example-container/
           example-container.component.ts  # ExampleContainerComponent
+          example-controls.ts             # ExampleControlsComponent — the per-example switcher bar
+          example-scope.ts                # DocsExampleScopeDirective — scopes density / dir / theme
+          copy-source.ts                  # CopySourceComponent — the hover-revealed copy button
           index.ts
+        playground/
+          open-in-playground.ts    # OpenInPlaygroundComponent (docs-open-in-playground)
+          playground-project.ts    # createPlaygroundProject() — pure payload builder
+          playground-submit.ts     # StackBlitz POST /run form hand-off
+          index.ts                 # Barrel export
         toc/
           toc.component.ts       # DocsTableOfContentsComponent
           toc.component.html     # ToC template
@@ -126,7 +134,13 @@ apps/docs/
     extract-api.spec.ts          # Vitest spec for the extractor
     generated-output.ts          # In-place writer for src/generated/api (never removes the dir)
     generated-output.spec.ts     # Vitest spec for the writer
-  src/generated/                 # GIT-IGNORED — produced by docs:extract-api
+    playground-manifest.ts       # Resolves playground versions/peers from the ROOT package.json
+    generate-playground-versions.ts  # docs:generate-playground-versions CLI
+    playground-corpus.ts         # Reads docs examples off disk (shared: sweep + writer)
+    playground-corpus.spec.ts    # Sweeps all 474 examples through the payload builder
+    write-playground-project.ts  # docs:write-playground-project CLI (materialises one to disk)
+                                 #   --allow-unpublished for the networked CI legs
+  src/generated/                 # GIT-IGNORED — produced by docs:extract-api / :generate-playground-versions
     api/
       <name>.json                # One ApiEntry per documented library
       index.ts                   # Generated lazy-loader module map (apiEntryLoaders)
@@ -783,12 +797,182 @@ pages receive no route.
 
 **File:** `apps/docs/src/app/shared/example-container/example-container.component.ts`
 
-Renders a single example in a tabbed UI: Preview tab (live `NgComponentOutlet`) + source-file tabs. Source imports resolve up front so their tab labels can render, but Shiki highlighting is lazy: it runs only when a source tab becomes active, never while Preview is selected. When `fullExampleRoute` is non-null, it renders a normal Malva button-style `RouterLink` labeled **Open full example**; when the input is `null`, it renders no expansion control. Re-highlights the active source automatically on theme change.
+Four stacked bands, top to bottom. **The preview is never a tab** — it is always
+on screen, above everything else; only the source files are tabbed:
 
-Complex examples must open through this routed link; never add a browser-native
-fullscreen control or call the Fullscreen API in the docs application.
+| Band                        | What it holds                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `docs-example-controls`     | The per-example switchers — density, direction, theme, preview width. **Deferred** (`@defer (on viewport)`)        |
+| `.example-container__stage` | The scoped island (`DocsExampleScopeDirective`) wrapping `.example-container__preview` (live `NgComponentOutlet`)  |
+| `mlv-toolbar`               | **Show sources** disclosure → `mlv-toolbar-spacer` → `<docs-open-in-playground>` → the **Open full example** link  |
+| `mlv-expand`                | An `mlv-tab-group` with one `mlv-tab` per source file; the open pane is a `.example-container__source` (see below) |
+
+- **Disclosure over tabs, not instead of them.** One `<button class="example-container__sources-toggle">` carries `aria-expanded` and `aria-controls`, and swaps both its chevron (`lucideChevronDown` ↔ `lucideChevronUp`) and its label (**Show sources** ↔ **Hide sources**) with the state — `aria-expanded` on a fixed label would announce "Show sources, expanded". `aria-controls` points at the `mlv-expand` host, whose `id` is a per-instance `docs-example-sources-N`. Inside it, html / typescript / any additional file is an `mlv-tab` — the same `mlvTabDef` / `mlvTabContent` shape as before the redesign, **minus the Preview tab**, which is what the redesign removes.
+- **The control bar is deferred, and its placeholder holds the box open.** A docs page builds one container per example — 10 on `/button`, 23 on `/data-table` — and rebuilds all of them on every navigation, so eager bars were 38% of the page's elements (42 `mlv-segmented`s and 100 tooltip directives on `/button`) and the navigation waited for every one. `@defer (on viewport)` moves the off-screen ones off the critical path: measured in Chromium, median of 6 routed navigations, `/button` 107.4ms → 74.7ms and `/data-table` 214.7ms → 147.7ms, with the initial element count falling 1553 → 1147 and 6843 → 5683 (deleting the bars outright measured 63.7ms on `/button`, so the defer recovers most of what is there to recover). `@placeholder` renders `.example-container__controls-placeholder`, a `2.5625rem` box with the same hairline — the bar measures 41.5px, the extra half-pixel being the text-bearing LTR/RTL segment's line box, and the placeholder deliberately undershoots rather than overshoots. **Specs must render the block**: `TestBed` leaves defer blocks in their placeholder state (`DeferBlockBehavior.Manual`) and the real trigger needs an `IntersectionObserver` jsdom does not have, so `example-container.component.spec.ts` has a `renderControls()` helper (`fixture.getDeferBlocks()` → `render(DeferBlockState.Complete)`) used by every switcher spec and by the axe sweep.
+- **Four tab stops per example, kept deliberately.** Each `mlv-segmented` is a roving-tabindex radiogroup, so the bar is 4 stops, not 11 — measured against the first `/button` example's own 9 controls plus 2 toolbar stops. Collapsing them into one popup would buy 3 stops per example at the price of an overlay, focus management and a click between the reader and the feature the redesign exists to show; dropping one would remove a per-example scope the page-level bar cannot express. The viewport switcher already sheds itself at `md` and below (`mlvActionBarActions`), so a phone sees 3.
+- **The tab group is lazy content** (`<ng-template mlvExpandContent>`), not projected. `mlv-tab-group` decides its overflow split from its own `headerEl.clientWidth`, so a group built inside a collapsed panel measures a zero-width box; deferring construction to the first open also keeps every example on a page from building a tab group nobody asked for. It is additionally guarded on `renderedFiles().length > 0` — an empty group is not nothing, it still paints its separator and header band and its empty tablist is still a tab stop.
+- The open tab lives in `activeSource` on the **component**, not in the panel: `mlv-expand` re-instantiates its lazy content on every open, so a signal owned by the template would forget the reader's pick each time they collapsed it.
+- Each pane carries its own hover-revealed `<docs-copy-source>`, absolutely positioned against `.example-container__source` — the box that holds that pane's code.
+- **Highlighting stays lazy, and is now per open tab.** It runs when the panel opens, again on a tab switch, and again on a page theme change — never for a pane that is not in the DOM. `_activeFile()` mirrors `mlv-tab-group`'s own "fall back to the first tab" rule so the first open starts tokenizing immediately instead of waiting for the group to write `activeTab` back. Shiki output lives in a separate `_highlighted` record rather than inside `resolvedFiles`, so the effect can write a finished file without invalidating its own dependencies, and switching back to a tab already rendered costs nothing. Source imports still resolve up front, because the playground button needs them to decide whether the example is portable.
+- When `fullExampleRoute` is non-null it renders a Malva button-style `RouterLink` labeled **Open full example**; when `null`, no expansion control. Complex examples must open through this routed link; never add a browser-native fullscreen control or call the Fullscreen API in the docs application.
+- `<docs-open-in-playground>` keeps its place in the toolbar — still the single call site through which all 474 examples get their "Open in StackBlitz" button (see §5b). It carries **no margin of its own**, and neither does the **Open full example** link beside it: `mlv-toolbar` supplies the row's `gap` and `.example-container__toolbar` the band's padding, so a margin on either would push it out of line with the other and grow the band.
+- It sets **`ViewEncapsulation.None`**, one of a handful of docs components that do (`docs-toc`, `docs-inspector` and `docs-api-viewer` are the others). Its reason is Shiki: that markup is bound with `[innerHTML]`, so it carries no `_ngcontent` attribute and emulated encapsulation would never reach the `<pre>` / `<code>` it produces.
 
 Inputs: `component: Type<unknown> | null`, `content: any`, `files: ExampleFile[]`, `heading?: string`, `fullExampleRoute: string | null`.
+
+#### The switchers are per-example, never global
+
+`docs-app-bar-preferences` owns the **document** through `MlvThemeService`,
+`MlvDensityService` and `MlvRtlService`. An example container must never call
+those — flipping one example would flip the page. Each of the three settings is
+a `computed` over an override signal: `null` means "follow the page", so an
+untouched example keeps tracking the app bar and pins itself only once the
+reader picks something in its own bar. `ExampleControlsComponent` injects none
+of the three services, and a spec asserts that statically.
+
+`DocsExampleScopeDirective` (`[docsExampleScope]`) writes all three scoped mechanisms on
+the stage element:
+
+| Concern   | Mechanism                                                                                |
+| --------- | ---------------------------------------------------------------------------------------- |
+| Density   | the `mlv--{density}` cascade class **and** a provided `MLV_DENSITY_CONTEXT`              |
+| Direction | a `dir` attribute — `MlvRtlService.elementDirection()` resolves the nearest one          |
+| Theme     | an `mlvTheme` attribute — `libs/styles/src/lib/theme.scss` keys its token islands off it |
+
+Density needs **both** halves. The class alone loses: every density-aware
+component stamps its own `mlv-{block}--{density}` modifier from its density
+directive, and `density.scss` treats exactly that modifier as an override
+(`[class*='--x'] &:not(…)`), so a `mlv-button--comfortable` resolved from the
+_global_ service would beat the ancestor `mlv--tight`. The DI context makes
+those directives resolve the scoped value; the cascade class then covers
+everything with no density directive of its own.
+
+**Overlays opened from inside an example** are portaled to `<body>` and inherit
+none of the stage's DOM, but two of the three still reach them, by different
+routes — pinned by a spec in `example-scope.spec.ts`:
+
+- **Direction ✓** — `MlvPopupService` passes `direction: resolveDirection(config.origin)`, and the origin is inside the stage.
+- **Density ✓** — a `TemplatePortal` declared inside the stage keeps its declaration injector, so `MLV_DENSITY_CONTEXT` resolves. (Density expressed as plain CSS keyed off an _ancestor_ class does not follow; density-directive components do.)
+- **Theme ✗** — nothing writes `mlvTheme` on a pane, so a panel opened from an example flipped to dark on a light page renders light. Pre-existing, and not this component's to fix: it means teaching the overlay owners to carry the trigger's theme, which is a library change. Fixable, deferred: tracked in #240.
+
+#### `CopySourceComponent` (`docs-copy-source`)
+
+The corner copy button on each source tab's pane. It is **not** `mlv-copy-to-clipboard`:
+that component makes the projected text itself the control (`role="button"` on
+the host, a hover tint across the run of text, masks measured from the content),
+so wrapping a highlighted `<pre>` in it would turn the whole code block into one
+giant button. This is the opposite shape — a small button beside content it does
+not contain, writing through the CDK `Clipboard`.
+
+Hover-only visibility is a **pointer** affordance: the control is a real
+`<button>` in the tab order at all times, `:focus-within` on the panel brings it
+into view for keyboard users, and `@media (hover: none)` shows it unconditionally
+where there is no hover to reveal it with. A refused clipboard write leaves the
+button idle rather than claiming a copy that never happened.
+
+### `OpenInPlaygroundComponent` (`docs-open-in-playground`) — the zero-install playground
+
+**Files:** `apps/docs/src/app/shared/playground/open-in-playground.ts`,
+`playground-project.ts`, `playground-submit.ts`
+
+Turns the source `ExampleContainerComponent` already resolved for the source tabs
+into a self-contained Angular CLI project and POSTs it to StackBlitz. Rendered
+from `docs-example-container`, the one call site every example flows through, so
+no page under `pages/` is touched.
+
+| Piece                       | Responsibility                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createPlaygroundProject()` | Pure, Angular-free. Source files + version tables in, a `{ title, description, template, files, openFile }` payload out.                                                 |
+| `submitPlaygroundProject()` | Builds a hidden `<form method="post" target="_blank" rel="noopener noreferrer">` of `project[files][<path>]` fields against `https://stackblitz.com/run` and submits it. |
+| `OpenInPlaygroundComponent` | The button. Renders **nothing** when the payload builder returns `null`.                                                                                                 |
+
+**Files payload, not a repo URL.** StackBlitz can boot from a GitHub URL, but
+that needs a public repository (#22) and could not carry a per-build version
+table. The POSTed file set works today and keeps working after the flip. No
+`@stackblitz/sdk` dependency: the SDK builds this exact form, and going direct
+keeps the tested unit a plain payload object rather than a mocked SDK call.
+Swapping the SDK in is a one-file change in `playground-submit.ts`.
+
+**Versions come from the workspace root `package.json`, never a literal.**
+`docs:generate-playground-versions` writes `src/generated/playground-versions.ts`
+(`PLAYGROUND_VERSIONS` + `PLAYGROUND_PEERS`) using the same placeholder table
+`scripts/publish.mjs` resolves from, and `nx.json` → `release.version` already
+makes the root manifest the canonical version of every published project. When
+`0.2.0` ships, the next docs build emits `0.2.0` with no edit anywhere. The
+peer graph is read from each published `libs/*/package.json`, so
+`@malva-ui/editor`'s twelve Tiptap peers land in the generated project without a
+hand-written companion list.
+
+**The generated project is a real `ng add` install.** The three packages
+`ng add @malva-ui/core` adds, the published stylesheet at
+`node_modules/@malva-ui/core/styles/malva-ui.css`, and `provideDefaultTheme` /
+`provideMlvDensity` in `main.ts`. It bootstraps with
+`provideZonelessChangeDetection()` and ships **no `zone.js` and no `polyfills`
+entry** — a starter that contradicted the library's zoneless-only stance would
+mislead every evaluator who copied it. It carries no `@angular/animations`
+either: nothing under `libs/` imports it and it is deprecated in Angular 22.
+
+The example's own files keep their names (`src/example/index.ts` / `.html` /
+`.scss`), so `templateUrl: './index.html'` needs no rewriting and what the
+evaluator opens is byte-identical to what the docs page showed.
+
+**Twenty-one examples get no button**, for two unrelated reasons.
+
+_Five import docs-local code that is not published:_ `autocomplete/4`,
+`checkbox/1`, `combobox/10` reach outside their own directory; `select/8` and
+`tile/5` import a sibling file the `docsExample` pipe does not resolve. The check
+is derived from the source text, not a list, so an example that becomes
+non-portable loses its button on the same commit.
+
+_Sixteen import a package npm has never seen_ — all eight `scheduler/*` and all
+eight `taskboard/*`. Being in `nx.json` → `release.projects` means "will be
+published at the next release", not "is on npm now": both landed after `v0.1.15`
+and neither has shipped, so `npm install @malva-ui/scheduler@0.1.15` 404s. The
+networked workflow already skipped its own install for these; the button had no
+equivalent guard, so a visitor got a WebContainer that died during install.
+`UNPUBLISHED_PACKAGES` in `playground-project.ts` is that guard, and it is
+**temporary and pinned twice** so it cannot outlive its reason:
+`tools/playground-corpus.spec.ts` fails as soon as the root manifest moves off
+`UNPUBLISHED_VERIFIED_AT` (publication can only change at a release, and
+`scripts/publish.mjs` already ships `@malva-ui/scheduler`), and
+`.github/workflows/playground.yml` fails if `npm view` resolves any name in the
+list. Either failure means delete the entry.
+
+`tools/playground-corpus.spec.ts` asserts the blocked set is _exactly_ those
+twenty-one, each for the reason its own list exists for, so a twenty-second fails
+the suite instead of vanishing quietly.
+
+**The mounted tag is read from code, not from text.** `parseBootstrapSelector`
+scans a `maskNonCode()` copy of the example — comment bodies, string bodies and
+template-literal bodies blanked, every index preserved — before taking the last
+`@Component` above `export default class`. Without that, an example that
+_displays_ Angular source (as `getting-started` and `tailwind` already do) or
+that leaves a commented-out `selector:` above the live one mounts a tag no
+component declares: `ng build` succeeds, `bootstrapApplication` finds no host,
+and the page is blank with nothing to read. The corpus sweep re-reads every
+example's selector with the real TypeScript parser
+(`declaredBootstrapSelector()`, Node-only, never in the bundle) rather than the
+builder's own regex, so "the builder agrees with itself" is not what is being
+asserted.
+
+**Two checks, and they prove different things.** `tools/playground-corpus.spec.ts`
+runs in `docs:test` and sweeps all 474 examples offline: every one builds a
+project or is a named exception, every imported package is declared with a
+version, every declared `templateUrl` / `styleUrl` exists, and the version table
+is a fresh derivation of the root manifest rather than a copy. It proves nothing
+about npm. `.github/workflows/playground.yml` does the other half — a real
+`npm install` + `ng build` of a generated project against the published packages
+— on a schedule, on `workflow_dispatch`, and on pushes that touch the generator.
+Its preflight skips (loudly, naming the package) when a version the template
+declares is not on npm, which covers both a release window and a package that
+has never been published; a second step fails outright if a package in
+`UNPUBLISHED_PACKAGES` _has_ since been published. It writes its project with
+`--allow-unpublished`, because materialising a project and deciding whether npm
+can install it are separate jobs — that is what keeps the `scheduler` leg
+running and ready to start proving something the day the package ships.
+
+Every value its `run:` blocks read arrives through `env:`, never a `${{ }}`
+interpolation into shell.
 
 ### `ExamplePipe` (`docsExample`)
 
@@ -991,15 +1175,17 @@ Landing-page layout and visual styling are component-scoped in `pages/home/home.
 
 **File:** `apps/docs/project.json`
 
-| Target          | Executor                  | Notes                                                                                                                                                                     |
-| --------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `extract-api`   | `nx:run-commands`         | Runs `tools/extract-api.ts` (via `jiti`) to regenerate `src/generated/api/**`. `dependsOn` of both `build` and `serve`. Cacheable.                                        |
-| `check-doc-api` | `nx:run-commands`         | Runs `scripts/check-doc-api.mjs` — compares each library's `CLAUDE.md` API tables against the extracted JSON. `dependsOn: ['extract-api']`. Cacheable. See §9c.           |
-| `build`         | `@nx/angular:application` | Entry: `src/main.ts`. Plugins: `mdx-transform.ts`. `dependsOn: ['extract-api']`. Bundles `styles.scss`. Copies `public/**` and `pages/**/examples/**/*` as static assets. |
-| `serve`         | `@nx/angular:dev-server`  | Reads plugins from build target. `dependsOn: ['extract-api']`. Full HMR for MDX changes.                                                                                  |
-| `test`          | `@nx/vitest:test`         | Vitest via `vite.config.mts`. `dependsOn: ['extract-api']` — see below. Cacheable. Run it as `yarn nx test docs`.                                                         |
-| `lint`          | `@nx/eslint:lint`         |                                                                                                                                                                           |
-| `serve-static`  | `@nx/web:file-server`     | Serves `dist/apps/docs/browser` as SPA.                                                                                                                                   |
+| Target                         | Executor                  | Notes                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extract-api`                  | `nx:run-commands`         | Runs `tools/extract-api.ts` (via `jiti`) to regenerate `src/generated/api/**`. `dependsOn` of both `build` and `serve`. Cacheable.                                                                                                                                                                                                                  |
+| `generate-playground-versions` | `nx:run-commands`         | Runs `tools/generate-playground-versions.ts` to regenerate `src/generated/playground-versions.ts` from the workspace **root** `package.json`. `dependsOn` of `build`, `serve`, `test` and `typecheck`. Cacheable — its `inputs` are the root manifest, `nx.json` and `libs/*/package.json`, so a release bump invalidates it and nothing else does. |
+| `write-playground-project`     | `nx:run-commands`         | Materialises one example's playground project on disk (`--example <page>/examples/<n>`, `--out <dir>`, `--allow-unpublished`). Not cached; used by `.github/workflows/playground.yml`.                                                                                                                                                              |
+| `check-doc-api`                | `nx:run-commands`         | Runs `scripts/check-doc-api.mjs` — compares each library's `CLAUDE.md` API tables against the extracted JSON. `dependsOn: ['extract-api']`. Cacheable. See §9c.                                                                                                                                                                                     |
+| `build`                        | `@nx/angular:application` | Entry: `src/main.ts`. Plugins: `mdx-transform.ts`. `dependsOn: ['extract-api', 'generate-playground-versions']`. Bundles `styles.scss`. Copies `public/**` and `pages/**/examples/**/*` as static assets.                                                                                                                                           |
+| `serve`                        | `@nx/angular:dev-server`  | Reads plugins from build target. `dependsOn: ['extract-api', 'generate-playground-versions']`. Full HMR for MDX changes.                                                                                                                                                                                                                            |
+| `test`                         | `@nx/vitest:test`         | Vitest via `vite.config.mts`. `dependsOn: ['extract-api', 'generate-playground-versions']` — see below. Cacheable. Run it as `yarn nx test docs`.                                                                                                                                                                                                   |
+| `lint`                         | `@nx/eslint:lint`         |                                                                                                                                                                                                                                                                                                                                                     |
+| `serve-static`                 | `@nx/web:file-server`     | Serves `dist/apps/docs/browser` as SPA.                                                                                                                                                                                                                                                                                                             |
 
 **Important:** `pages/**/examples/**/*` are copied as static assets so `ExampleContainerComponent` can fetch source files by URL at runtime.
 
@@ -1079,16 +1265,21 @@ the client, mirroring the MDX transform.
 
 ### Files
 
-| File                                     | Role                                                                                                                                                         |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tools/extract-api.ts`                   | CLI entry run by the `docs:extract-api` target. Enumerates pages, writes JSON + the module map. Side-effecting.                                              |
-| `tools/api-extractor.ts`                 | Pure ts-morph extraction core (barrel resolution, classification, signal/base-class walking). Unit-tested.                                                   |
-| `tools/extract-api.spec.ts`              | Vitest spec asserting the extracted shape against real libraries.                                                                                            |
-| `tools/generated-output.ts`              | `syncGeneratedDir()` — writes the output directory in place: unchanged files untouched, changed files renamed into place, stale entries pruned. Unit-tested. |
-| `tools/generated-output.spec.ts`         | Vitest spec for the writer (untouched mtime/inode, replacement, pruning).                                                                                    |
-| `src/app/shared/api-viewer/api.types.ts` | The `ApiEntry` / `ApiSymbol` / `ApiMember` / `ApiMethod` contract shared with the viewer (Phase E).                                                          |
-| `src/generated/api/<name>.json`          | **Git-ignored.** One `ApiEntry` per documented library.                                                                                                      |
-| `src/generated/api/index.ts`             | **Git-ignored, generated.** `apiEntryLoaders` — lazy `() => import('./<name>.json')` map keyed by page.                                                      |
+| File                                     | Role                                                                                                                                                                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tools/extract-api.ts`                   | CLI entry run by the `docs:extract-api` target. Enumerates pages, writes JSON + the module map. Side-effecting.                                                                                                                            |
+| `tools/api-extractor.ts`                 | Pure ts-morph extraction core (barrel resolution, classification, signal/base-class walking). Unit-tested.                                                                                                                                 |
+| `tools/extract-api.spec.ts`              | Vitest spec asserting the extracted shape against real libraries.                                                                                                                                                                          |
+| `tools/generated-output.ts`              | `syncGeneratedDir()` — writes the output directory in place: unchanged files untouched, changed files renamed into place, stale entries pruned. Unit-tested.                                                                               |
+| `tools/generated-output.spec.ts`         | Vitest spec for the writer (untouched mtime/inode, replacement, pruning).                                                                                                                                                                  |
+| `tools/playground-manifest.ts`           | Resolves the playground's npm versions and peer graph from the workspace root `package.json`. Pure, unit-tested through the corpus spec.                                                                                                   |
+| `tools/generate-playground-versions.ts`  | CLI run by `docs:generate-playground-versions`. Writes `src/generated/playground-versions.ts`. Side-effecting.                                                                                                                             |
+| `tools/playground-corpus.ts`             | Reads docs examples off disk in the shape the runtime hands the payload builder. Shared by the sweep and the disk writer.                                                                                                                  |
+| `tools/playground-corpus.spec.ts`        | Sweeps all 474 examples through `createPlaygroundProject`; asserts the blocked set is exactly twenty-one, that each mounts the selector the TypeScript parser reads off its default export, and that the version table is freshly derived. |
+| `tools/write-playground-project.ts`      | CLI run by `docs:write-playground-project`. Materialises one example's project for the networked CI job. Side-effecting.                                                                                                                   |
+| `src/app/shared/api-viewer/api.types.ts` | The `ApiEntry` / `ApiSymbol` / `ApiMember` / `ApiMethod` contract shared with the viewer (Phase E).                                                                                                                                        |
+| `src/generated/api/<name>.json`          | **Git-ignored.** One `ApiEntry` per documented library.                                                                                                                                                                                    |
+| `src/generated/api/index.ts`             | **Git-ignored, generated.** `apiEntryLoaders` — lazy `() => import('./<name>.json')` map keyed by page.                                                                                                                                    |
 
 ### How it works
 

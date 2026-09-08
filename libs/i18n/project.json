@@ -26,6 +26,8 @@
     },
     "test": {
       "executor": "nx:run-commands",
+      "//": "`dependsOn: [\"build\"]` is what tests/published-package.spec.ts stands on: it type-checks a consumer-shaped `provideMlvI18n(() => import('@malva-ui/i18n/en'))` against dist/libs/i18n, which exists only once this project's own build has run (#227). It is an edge on `test` rather than a target of its own because CI selects strictly by target name (.github/workflows/ci.yml) and `build` is already in that selection — so the edge is a cache hit in CI and ~2s cold locally.",
+      "dependsOn": ["build"],
       "options": {
         "command": "yarn vitest run --config libs/i18n/vite.config.mts",
         "cwd": "{workspaceRoot}"

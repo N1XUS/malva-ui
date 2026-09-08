@@ -44,6 +44,7 @@ import type {
 import type { MlvPopupPositionName } from '../popup-positions';
 import { MlvPopupPositionResolver, POPUP_POSITIONS } from '../popup-positions';
 import { MlvButtonClose } from '@malva-ui/core/button';
+import { POPUP_CONTAINER } from '../popup-container/popup-container.token';
 
 /**
  * The edge of the popup panel the arrow is drawn on.
@@ -142,6 +143,30 @@ export type MlvPopupMobileMode = 'auto' | 'fullscreen' | 'off';
   styleUrl: './popup.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [
+    // The panel is not the container's trigger area, so nothing inside it may
+    // claim the container (#225).
+    //
+    // `<ng-template mlvPopupContent>` is declared lexically inside
+    // `<mlv-popup-container>`, and portaling the panel into the CDK overlay
+    // moves DOM, not the node injector: a directive in the panel still
+    // resolves `POPUP_CONTAINER` up the *declaration* tree and finds the
+    // container the panel belongs to. A `[mlvPopupTrigger]` in there — the
+    // `mlv-tab-group` overflow button inside `mlv-color-picker`, inside
+    // `mlv-color-picker-popup`, is the reported case — therefore switched into
+    // container mode: it drove `container.toggle()` instead of its own popup,
+    // and registered its host as the container's overlay origin. That element
+    // dies with the panel, so the next open anchored to a detached node whose
+    // `getBoundingClientRect()` is all zeros, and the panel rendered at the
+    // top-left corner of the viewport.
+    //
+    // `null` rather than omitting the provider: `inject(POPUP_CONTAINER,
+    // { optional: true })` has to stop *here* rather than keep walking to the
+    // container above. A trigger declared as a sibling of `<mlv-popup>` — the
+    // ordinary container-mode arrangement, `mlv-sidebar-group`'s flyout
+    // included — is outside this boundary and is unaffected.
+    { provide: POPUP_CONTAINER, useValue: null },
+  ],
 })
 export class MlvPopup {
   /** @private Active named-position map (overridable via `POPUP_POSITIONS` token). */
