@@ -5006,6 +5006,7 @@ __metadata:
   resolution: "@malva-ui/core@workspace:libs/core"
   dependencies:
     fast-equals: "npm:^6.0.0"
+    lodash-es: "npm:^4.17.23"
     sortablejs: "npm:^1.15.7"
   peerDependencies:
     "@angular/aria": 0.0.0-angular-aria-package-version
@@ -5013,6 +5014,7 @@ __metadata:
     "@angular/common": 0.0.0-angular-common-package-version
     "@angular/core": 0.0.0-angular-core-package-version
     "@angular/forms": 0.0.0-angular-forms-package-version
+    "@angular/router": 0.0.0-angular-router-package-version
     "@lucide/angular": 0.0.0-lucide-angular-package-version
     "@malva-ui/cdk": 0.0.0-malva-ui-package-version
     "@malva-ui/i18n": 0.0.0-malva-ui-package-version
@@ -5206,6 +5208,7 @@ __metadata:
     "@malva-ui/cdk": 0.0.0-malva-ui-package-version
     "@malva-ui/core": 0.0.0-malva-ui-package-version
     "@malva-ui/i18n": 0.0.0-malva-ui-package-version
+    rxjs: 0.0.0-rxjs-package-version
   languageName: unknown
   linkType: soft
 
