@@ -160,8 +160,8 @@ const NODE_BUILTINS = new Set(builtinModules);
  * The rot check keys on this rather than on package + dependency, so two entries
  * that share a package and a dependency but scope to different `files` cannot
  * mark each other used — which would let a dead one sit in the list forever.
- * With one entry today the two spellings agree; the key is what keeps them
- * agreeing after the second.
+ * With the list empty the distinction is latent; the key is what keeps the two
+ * spellings agreeing once a second entry ever lands.
  *
  * @param entry An exception from {@link DECLARATION_EXCEPTIONS}.
  */
