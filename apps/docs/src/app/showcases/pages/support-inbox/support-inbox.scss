@@ -87,26 +87,19 @@ $block: support-inbox;
     display: contents;
   }
 
-  // Only rendered below md, where the rail is an offcanvas drawer. The host is
-  // a block element, so it needs an intrinsic width to sit in the bar's flex row.
+  // Only rendered below md, where the rail is an offcanvas drawer.
   &__rail-trigger {
     flex: 0 0 auto;
-    inline-size: 2.75rem;
 
-    // The trigger sizes from `--mlv-sidebar-row-height` (36px at comfortable),
-    // which is under the 44px touch floor on the tier where it is the only
-    // route back to navigation. `::ng-deep` because the button lives in the
-    // trigger component's own template.
-    ::ng-deep .mlv-sidebar-trigger__btn {
-      min-inline-size: 2.75rem;
-      min-block-size: 2.75rem;
-    }
+    // `mlv-button` sizes from `--mlv-height-m` (36px at comfortable), under the
+    // 44px touch floor on the tier where this is the only route back to
+    // navigation.
+    min-inline-size: 2.75rem;
+    min-block-size: 2.75rem;
 
     @include bp.breakpoint-up(md) {
-      ::ng-deep .mlv-sidebar-trigger__btn {
-        min-inline-size: 0;
-        min-block-size: 0;
-      }
+      min-inline-size: 0;
+      min-block-size: 0;
     }
   }
 

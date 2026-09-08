@@ -23,21 +23,21 @@ with **no accessible name** — a real WCAG 4.1.2 defect, and the shape axe's
 `label` / `aria-input-field-name` rules report. It shipped that way in
 `apps/docs` (`pages/form-field/examples/1`, `…/3`, `pages/action-bar/examples/2`).
 
-| Before                                                                                                 | After                                                                                                                                             |
-| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<mlv-label>` always rendered `for=""` when the consumer gave no `for`                                 | No `for` **attribute at all** unless one resolves. An explicit `[for]` still wins and is never rewritten                                          |
-| A projected `<mlv-label>` named nothing                                                                | The field resolves the association, and the **control** chooses how, through `_externalLabelStrategy()`                                            |
-| Nothing warned when a field's label named nothing                                                      | Two dev-mode warnings, each once per control class: "names nothing", and "two labels"                                                             |
-| `mlv-title`'s editing `<textarea>` carried no `id`                                                     | It carries `` `${id()}-input` `` — **derived from** `id`, not equal to it (see §3)                                                                |
-| `mlv-time-picker` / `mlv-date-range-picker` / `mlv-radio-group` announced a generic string or `ariaLabel` while showing their own `label` | Each carries a public `labelId` and announces its own visible `label` through `aria-labelledby`                                                   |
+| Before                                                                                                                                    | After                                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `<mlv-label>` always rendered `for=""` when the consumer gave no `for`                                                                    | No `for` **attribute at all** unless one resolves. An explicit `[for]` still wins and is never rewritten |
+| A projected `<mlv-label>` named nothing                                                                                                   | The field resolves the association, and the **control** chooses how, through `_externalLabelStrategy()`  |
+| Nothing warned when a field's label named nothing                                                                                         | Two dev-mode warnings, each once per control class: "names nothing", and "two labels"                    |
+| `mlv-title`'s editing `<textarea>` carried no `id`                                                                                        | It carries `` `${id()}-input` `` — **derived from** `id`, not equal to it (see §3)                       |
+| `mlv-time-picker` / `mlv-date-range-picker` / `mlv-radio-group` announced a generic string or `ariaLabel` while showing their own `label` | Each carries a public `labelId` and announces its own visible `label` through `aria-labelledby`          |
 
 The three strategies:
 
-| Strategy   | Association                                        | Controls                                                                                                                                                                                       |
-| ---------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `'native'` | the field resolves the label's `for`               | `mlv-input` (unless `projectControl`), `mlv-textarea`, `mlv-number-input`, `mlv-combobox`, `mlv-tokenizer` (while enabled), `mlv-color-picker-popup` (`field`), `mlv-title` (while `editable`), `mlv-select` while its native `<select>` is live |
-| `'aria'`   | the control points `aria-labelledby` at the label  | `mlv-select`'s custom trigger, `mlv-day-picker`, `mlv-time-picker`, `mlv-date-range-picker`, `mlv-radio-group`                                                                                  |
-| `'none'`   | nothing is emitted, and the field warns in dev     | the base default: `mlv-checkbox`, `mlv-switch`, `mlv-slider`, `mlv-pin-input`, `mlv-file-upload`, `mlv-color-picker`, `mlv-segmented`, `mlv-rating`, `mlv-editor`                              |
+| Strategy   | Association                                       | Controls                                                                                                                                                                                                                                         |
+| ---------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `'native'` | the field resolves the label's `for`              | `mlv-input` (unless `projectControl`), `mlv-textarea`, `mlv-number-input`, `mlv-combobox`, `mlv-tokenizer` (while enabled), `mlv-color-picker-popup` (`field`), `mlv-title` (while `editable`), `mlv-select` while its native `<select>` is live |
+| `'aria'`   | the control points `aria-labelledby` at the label | `mlv-select`'s custom trigger, `mlv-day-picker`, `mlv-time-picker`, `mlv-date-range-picker`, `mlv-radio-group`                                                                                                                                   |
+| `'none'`   | nothing is emitted, and the field warns in dev    | the base default: `mlv-checkbox`, `mlv-switch`, `mlv-slider`, `mlv-pin-input`, `mlv-file-upload`, `mlv-color-picker`, `mlv-segmented`, `mlv-rating`, `mlv-editor`                                                                                |
 
 `<label for>` only names an HTML **labelable** element (`button`, `input`,
 `meter`, `output`, `progress`, `select`, `textarea`). It cannot name
@@ -77,7 +77,7 @@ An `ariaLabel` you added **because** the control had no name can go:
   same thing (the usual case) delete the `ariaLabel`. Where they deliberately
   differ, move the intended wording into the `<mlv-label>`, or drop the
   projected label and keep `ariaLabel`.
-- **You project an `<mlv-label>` *and* set the control's own `label` input.**
+- **You project an `<mlv-label>` _and_ set the control's own `label` input.**
   You now get a dev-mode warning and two visible labels. On a `'native'`
   control both `<label>` elements carry the same `for`, so the accessible name
   is their concatenation ("Start Meeting time"); on an `'aria'` control the

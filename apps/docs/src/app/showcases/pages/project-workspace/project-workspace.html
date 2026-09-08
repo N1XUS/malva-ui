@@ -84,7 +84,27 @@
       </ng-template>
       <ng-template mlvPageTitle>
         <div class="project-workspace-showcase__title-row">
-          <mlv-sidebar-trigger [sidebar]="projectNav" />
+          <button
+            mlvButton
+            variant="transparent"
+            shape="square"
+            mlvSidebarTrigger
+            #projectNavTrigger="mlvSidebarTrigger"
+            [sidebar]="projectNav"
+            [attr.aria-label]="projectNavTrigger.label()"
+          >
+            @if (projectNavTrigger.isDrawerTrigger()) {
+              @if (projectNavTrigger.collapsed()) {
+                <svg lucideMenu [size]="20" />
+              } @else {
+                <svg lucideX [size]="20" />
+              }
+            } @else if (projectNavTrigger.collapsed()) {
+              <svg lucidePanelLeftOpen [size]="20" />
+            } @else {
+              <svg lucidePanelLeftClose [size]="20" />
+            }
+          </button>
           <h1>{{ projectMeta.name }}</h1>
         </div>
       </ng-template>

@@ -6,7 +6,7 @@ import * as sass from 'sass';
  * Row-rhythm contract for the sidebar stylesheets.
  *
  * Every navigable row (item, group accordion header, collapsed group icon
- * button, collapse trigger) must resolve its height from the single
+ * button) must resolve its height from the single
  * `--mlv-sidebar-row-height` custom property declared by `mlv-sidebar`, and a
  * closed group accordion must not add stray vertical space. Component styles
  * are not injected into the DOM under the vitest/jsdom setup, so the compiled
@@ -43,7 +43,6 @@ describe('sidebar row height contract', () => {
   const sidebarCss = compile('sidebar/sidebar.scss');
   const itemCss = compile('sidebar-item/sidebar-item.scss');
   const groupCss = compile('sidebar-group/sidebar-group.scss');
-  const triggerCss = compile('sidebar-trigger/sidebar-trigger.scss');
 
   it('declares the shared row height on the sidebar block', () => {
     expect(block(sidebarCss, '.mlv-sidebar')).toContain(
@@ -68,7 +67,6 @@ describe('sidebar row height contract', () => {
       'group icon button',
       () => block(groupCss, '.mlv-sidebar-group__icon-btn'),
     ],
-    ['trigger button', () => block(triggerCss, '.mlv-sidebar-trigger__btn')],
   ])('sizes the %s row from --mlv-sidebar-row-height', (_name, read) => {
     const declarations = read();
     expect(declarations).toContain(

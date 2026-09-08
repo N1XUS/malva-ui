@@ -1,16 +1,14 @@
 <div class="sidebar-demo">
-  <mlv-sidebar [collapsed]="collapsed()" [(width)]="sidebarWidth">
+  <mlv-sidebar [(collapsed)]="collapsed" [(width)]="sidebarWidth">
     <div mlvSidebarHeader>
       <div class="workspace">
         <div class="workspace__logo">
           <svg lucideCommand size="20" />
         </div>
-        @if (!collapsed()) {
-          <div class="workspace__meta">
-            <span class="workspace__name">Acme Inc</span>
-            <span class="workspace__plan">Enterprise</span>
-          </div>
-        }
+        <div class="workspace__meta">
+          <span class="workspace__name">Acme Inc</span>
+          <span class="workspace__plan">Enterprise</span>
+        </div>
       </div>
     </div>
 

@@ -661,7 +661,11 @@ class SsrNavigationHost {
             [(workspace)]="workspace"
           />
           <div mlvSidebarContent>
-            <mlv-sidebar-trigger />
+            <mlv-sidebar-item
+              mlvSidebarTrigger
+              #collapseTrigger="mlvSidebarTrigger"
+              [label]="collapseTrigger.label()"
+            />
             <mlv-sidebar-item label="Dashboard" [active]="true" />
             <mlv-sidebar-group label="Projects">
               <mlv-sidebar-item label="Inbox" />

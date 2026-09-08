@@ -19,8 +19,11 @@ import {
   LucideCommand,
   LucideFolderKanban,
   LucideInbox,
-  LucideLayoutDashboard,
   LucideLayers3,
+  LucideLayoutDashboard,
+  LucideMenu,
+  LucidePanelLeftClose,
+  LucidePanelLeftOpen,
   LucidePlus,
   LucideRocket,
   LucideSearch,
@@ -28,6 +31,7 @@ import {
   LucideSparkles,
   LucideTrendingUp,
   LucideUsers,
+  LucideX,
 } from '@lucide/angular';
 import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import { MlvBadge } from '@malva-ui/core/badge';
@@ -166,6 +170,9 @@ const HERO_WORDS = ['finished.', 'accessible.', 'themeable.', 'alive.'];
     LucideInbox,
     LucideLayoutDashboard,
     LucideLayers3,
+    LucideMenu,
+    LucidePanelLeftClose,
+    LucidePanelLeftOpen,
     LucideRocket,
     LucidePlus,
     LucideSearch,
@@ -173,6 +180,7 @@ const HERO_WORDS = ['finished.', 'accessible.', 'themeable.', 'alive.'];
     LucideSparkles,
     LucideTrendingUp,
     LucideUsers,
+    LucideX,
     MlvColorFromTextPipe,
   ],
 })

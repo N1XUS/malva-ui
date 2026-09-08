@@ -7,11 +7,23 @@
   <div mlvActionBar *mlvLayoutTop class="support-inbox__appbar">
     <!-- Outside <mlv-sidebar> on purpose: a closed offcanvas sidebar projects
          nothing, so a trigger inside it could never reopen it. -->
-    <mlv-sidebar-trigger
+    <button
+      mlvButton
+      variant="transparent"
+      shape="square"
+      mlvSidebarTrigger
       *mlvBreakpointDown="'md'"
       class="support-inbox__rail-trigger"
+      #railTrigger="mlvSidebarTrigger"
       [sidebar]="rail()"
-    />
+      [attr.aria-label]="railTrigger.label()"
+    >
+      @if (railTrigger.collapsed()) {
+        <svg lucideMenu [size]="20" />
+      } @else {
+        <svg lucideX [size]="20" />
+      }
+    </button>
 
     <img
       class="support-inbox__logo"

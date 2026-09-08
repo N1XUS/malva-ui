@@ -360,11 +360,9 @@ describe('DataOperationsShowcaseComponent', () => {
   it('restores desktop Create focus to its visible opener instead of the hidden Sidebar trigger', async () => {
     const rendered = await renderAt();
     const hiddenTrigger = buttonNamed('Collapse sidebar', rendered.root);
-    expect(
-      hiddenTrigger
-        .closest('mlv-sidebar-trigger')
-        ?.classList.contains('mlv-sidebar-trigger--hidden'),
-    ).toBe(true);
+    // `[mlvSidebarTrigger]` hides its host inline in `fixed` mode — the host is
+    // the consumer's own button, so there is no wrapper class to read.
+    expect(hiddenTrigger.style.display).toBe('none');
     const hiddenTriggerFocus = vi.spyOn(hiddenTrigger, 'focus');
     const opener = buttonNamed('New view', rendered.root);
     opener.focus();
@@ -432,11 +430,7 @@ describe('DataOperationsShowcaseComponent', () => {
 
     expect(opener.isConnected).toBe(false);
     expect(buttonNamed('Open navigation menu', rendered.root)).toBe(trigger);
-    expect(
-      trigger
-        .closest('mlv-sidebar-trigger')
-        ?.classList.contains('mlv-sidebar-trigger--hidden'),
-    ).toBe(false);
+    expect(trigger.style.display).toBe('');
     document
       .querySelector<HTMLElement>('.mlv-dialog-backdrop')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -471,11 +465,7 @@ describe('DataOperationsShowcaseComponent', () => {
     await setViewport(rendered, 'desktop');
     expect(opener.isConnected).toBe(true);
     expect(buttonNamed('New view', rendered.root)).toBe(opener);
-    expect(
-      trigger
-        .closest('mlv-sidebar-trigger')
-        ?.classList.contains('mlv-sidebar-trigger--hidden'),
-    ).toBe(true);
+    expect(trigger.style.display).toBe('none');
     expect(triggerFocus).not.toHaveBeenCalled();
     await clickButton(rendered, 'Cancel');
     await finishClosing(rendered);

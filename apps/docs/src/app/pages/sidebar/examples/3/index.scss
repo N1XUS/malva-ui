@@ -7,15 +7,24 @@
 }
 
 .mail-header {
-  display: flex;
+  // Same two-track grid every sidebar row uses: a fixed icon column so the
+  // glyph lines up with the items below, then the text. The track list never
+  // changes between states — `grid-template-columns` does not transition, so
+  // narrowing it on collapse would clip the text away in a single frame.
+  display: grid;
+  grid-template-columns:
+    var(--mlv-sidebar-icon-column-width, 2.375rem)
+    minmax(0, 1fr);
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: 0;
+  padding: 0;
+  min-width: 0;
 
   &__icon {
     display: flex;
     align-items: center;
     justify-content: center;
+    justify-self: center;
     width: 1.75rem;
     height: 1.75rem;
     border-radius: var(--mlv-radius-s);
@@ -27,9 +36,15 @@
   &__meta {
     display: flex;
     flex-direction: column;
-    flex: 1;
     min-width: 0;
     line-height: var(--mlv-line-height-snug);
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+    transition:
+      opacity var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+      transform var(--mlv-duration-normal) var(--mlv-ease-in-out-strong),
+      visibility var(--mlv-duration-instant) linear;
   }
 
   &__name {
@@ -51,12 +66,13 @@
 }
 
 .mlv-sidebar--collapsed {
-  .mail-header {
-    padding: 0.4375rem;
-    justify-content: center;
-  }
-
+  // Fade, never `display: none` — the text has to leave on the same 200ms the
+  // rail takes to narrow, or it vanishes a frame before anything moves.
   .mail-header__meta {
-    display: none;
+    opacity: 0;
+    transform: translateX(-0.25rem);
+    visibility: hidden;
+    pointer-events: none;
+    transition-delay: 0s, 0s, var(--mlv-duration-normal);
   }
 }
