@@ -5,6 +5,7 @@ import { MlvDrawer } from './drawer';
 import { DrawerBodyDirective } from '../drawer-body';
 import { MlvDrawerContent } from '../drawer-content';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 describe('MlvDrawer', () => {
   let component: MlvDrawer;
@@ -139,6 +140,29 @@ describe('MlvDrawer — focus', () => {
     await fixture.whenStable();
 
     expect(document.activeElement).toBe(panel()?.querySelector('.inside'));
+  });
+
+  /**
+   * The open modal surface: `role="dialog"`, `aria-modal`, the scrim and the
+   * focus-trap anchors. Swept from `document.body` because the panel is
+   * portaled into the CDK overlay container, outside `fixture.nativeElement`.
+   *
+   * This host projects no `mlv-drawer-header`, so the name under test is the
+   * localized `aria-label` fallback rather than a header title — which is the
+   * state a dangling `aria-labelledby` would otherwise be hiding in.
+   */
+  it('has no axe violations while open', async () => {
+    host.open.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(panel()).not.toBeNull();
+    await expectNoAxeViolations(document.body);
+  });
+
+  it('has no axe violations while closed', async () => {
+    expect(panel()).toBeNull();
+    await expectNoAxeViolations(document.body);
   });
 });
 

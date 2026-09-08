@@ -4,7 +4,7 @@
     mlvButton
     [mlvPopupTrigger]="popup"
     [ariaHasPopup]="'menu'"
-    triggerOn="hover"
+    [triggerOn]="_triggerOn"
     mlvDensity="compact"
     variant="transparent"
   >
@@ -15,8 +15,12 @@
     <ng-template mlvPopupContent>
       <mlv-list style="min-width: 100px" [listRole]="'menu'" appearance="menu">
         @for (section of sectionsService.normalizedSections(); track section) {
+          <!-- Role written twice on purpose — `itemRole` and `MlvClick.hostRole`
+               are both host `[attr.role]` bindings here; see the `hostRole`
+               JSDoc in `@malva-ui/cdk/accessibility` (#223). -->
           <mlv-list-item
             itemRole="menuitem"
+            [hostRole]="'menuitem'"
             (mlvClick)="navigateToSection(section.elementRef)"
           >
             {{ section.label() }}

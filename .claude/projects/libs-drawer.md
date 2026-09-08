@@ -210,10 +210,31 @@ one `transitionend` listener accumulated per snap gesture.
 
 **Inputs:**
 
-| Name    | Type                       | Required | Default    | Description                                 |
-| ------- | -------------------------- | -------- | ---------- | ------------------------------------------- |
-| `label` | `input.required<string>()` | Yes      | —          | Section heading text                        |
-| `id`    | `input<string>()`          | No       | `uuidv4()` | Unique ID used by the intersection observer |
+| Name    | Type                       | Required                         | Default                           | Description                                                      |
+| ------- | -------------------------- | -------------------------------- | --------------------------------- | ---------------------------------------------------------------- |
+| `label` | `input.required<string>()` | Yes                              | —                                 | Section heading text                                             |
+| `id`    | `input<string>()`          | **Yes, in practice** — see below | `mlvNextId('mlv-drawer-section')` | Section key. Must be written as a **static `id="…"` attribute**. |
+
+**`id` must be a static attribute, not a binding.** `MlvDrawerSectionsService`
+keys `sections` by the **input** (`section.id()`) and `intersectedSections` by
+the **DOM attribute** (`entry.target.id`), and `currentScrolledSection()` looks
+one up in the other — so they only meet when the element actually carries a
+matching `id` attribute. A static `id="meta"` is simultaneously a DOM attribute
+and a static input binding, which is why it is the only shape that works and
+what all 11 in-repo consumers ship:
+
+```html
+<section mlvDrawerSection id="meta" label="Meta">…</section>
+```
+
+`[id]="'meta'"` binds the **input only** — a property binding is consumed by the
+directive input and writes no attribute — and omitting `id` leaves the default
+`mlvNextId(...)` in the input with an empty `entry.target.id` on the element.
+Either way the lookup misses, `currentScrolledSection()` stays `null`, and the
+`mlv-drawer-sections` trigger renders with no text — an unnamed button, a WCAG
+4.1.2 failure. Writing the attribute from the directive host instead
+(`host: { '[attr.id]': 'id()' }`) would change emitted DOM for every consumer
+and is deliberately not done here; it is the #223 follow-up.
 
 **Template (`drawer-section.html`):**
 
@@ -262,20 +283,57 @@ a dropdown whose only entry was the section already on screen.
   <ng-template mlvPopupContent>
     <mlv-list [listRole]="'menu'">
       @for (section of sectionsService.normalizedSections(); track section) {
-      <mlv-list-item itemRole="menuitem" (mlvClick)="navigateToSection(section.elementRef)">{{ section.label() }}</mlv-list-item>
+      <mlv-list-item itemRole="menuitem" [hostRole]="'menuitem'" (mlvClick)="navigateToSection(section.elementRef)">{{ section.label() }}</mlv-list-item>
       }
     </mlv-list>
   </ng-template>
 </mlv-popup>
 ```
 
-The section-navigation popover is a **menu**: the trigger button advertises `aria-haspopup="menu"` (via `MlvPopupTrigger`'s `ariaHasPopup` input), the wrapping `mlv-popup` stays roleless, and the semantic role lives on the projected content — `mlv-list` gets `[listRole]="'menu'"` and each `mlv-list-item` `itemRole="menuitem"`.
+The section-navigation popover is a **menu**: the trigger button advertises `aria-haspopup="menu"` (via `MlvPopupTrigger`'s `ariaHasPopup` input), the wrapping `mlv-popup` stays roleless, and the semantic role lives on the projected content — `mlv-list` gets `[listRole]="'menu'"` and each `mlv-list-item` its `menuitem` role.
+
+Each row writes that role **twice**, and both are load-bearing (#223).
+`MlvListItem.itemRole` and `MlvClick.hostRole` are both host `[attr.role]`
+bindings on the same element. Neither has a fixed precedence: each is
+dirty-checked against its own previous value and writes only on a pass where
+that value changed, and the directive's bindings run after the component's — so
+`MlvClick` wins a same-pass **tie**. First render is always a tie, so
+`itemRole="menuitem"` on its own resolved to `role="button"` and axe raised
+`aria-required-children` on the `role="menu"` list. `[hostRole]="null"` is
+**not** the fix — a `null` host binding removes the attribute rather than
+deferring to `itemRole`, leaving the row roleless and the violation standing.
+Writing `menuitem` through both is what makes the row correct regardless of
+which binding writes last, here and on any later pass. Pinned by
+`drawer-sections.spec.ts` (resolved `role`, `tabindex`, Enter activation and a
+full axe sweep of the open menu); the ordering contract itself is pinned by
+`click.spec.ts`, whose fourth row changes the component's role after first
+render and shows the component winning.
+
+The trigger opens on `['hover', 'click']`, not on hover alone.
+`MlvPopupTrigger.onClick()` gates on `hasTrigger('click')`, so a hover-only
+trigger was a no-op for every keyboard path and the menu could only be reached
+with a pointer (WCAG 2.1.1, level A). The trigger is a real `<button>`, so
+`click` is also its Enter/Space activation. `focus` is deliberately excluded:
+its `blur` half would close the panel the moment focus moved toward the rows.
+The rows are plain `tabindex="0"` tab stops rather than the roving-tabindex
+WAI-ARIA menu model — see the follow-up note under _Known gaps_ below.
 
 **Public methods:**
 
 - `navigateToSection(section: ElementRef): void` — Smooth-scrolls `.mlv-drawer__body` to the target element with an 80 px top offset.
 
 **Dependencies:** `@malva-ui/core/popup`, `@malva-ui/core/button`, `@malva-ui/core/list`, `@lucide/angular`, `@malva-ui/cdk/accessibility`.
+
+**Known gaps (follow-up owed, #223):** the panel claims `role="menu"` but does
+not implement the WAI-ARIA menu keyboard model. There is no roving tabindex, no
+arrow-key / `Home` / `End` navigation between rows, no `Escape` back to the
+trigger and no focus move into the panel on open — every row is an independent
+`tabindex="0"` tab stop, and the portaled panel sits at the end of `<body>`, so
+the tab order is wrong even though the menu is operable. `MlvMenuItem`
+(`@malva-ui/core/menu`) already implements the correct model; rebuilding on it
+adds a `core-drawer → core-menu` dependency and is out of scope for #223. axe
+cannot detect any of this, so the sweep below being clean is not evidence
+against it.
 
 ---
 
