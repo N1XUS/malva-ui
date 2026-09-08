@@ -289,7 +289,7 @@ Token pattern: `--mlv-palette-{family}-{stop}` e.g. `--mlv-palette-primary-500`
 `--mlv-background-chrome` replaced a raw `--mlv-palette-neutral-900` literal in
 `page-shell.scss`, which followed no theme: near-maximum contrast in light, and
 **byte-identical to the canvas in dark**, where the frame disappeared. Light
-resolves `neutral-200` under a `neutral-50` canvas; dark resolves `neutral-950`
+resolves `neutral-100` under a `neutral-50` canvas; dark resolves `neutral-950`
 under a `neutral-900` canvas; high contrast declares `#000000`.
 
 `--mlv-background-bar` / `-overlapped` are the whole separation model for

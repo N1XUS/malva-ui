@@ -264,7 +264,13 @@ $mlv-palette-info-950: #082f49;
     // `--mlv-background-base` in every theme: it used to be a raw palette
     // value, which meant the frame read as near-maximum contrast in light and
     // was byte-identical to the canvas in dark, where it disappeared.
-    --mlv-background-chrome: var(--mlv-palette-neutral-200);
+    //
+    // One step means neutral-100 against a neutral-50 canvas, not neutral-200:
+    // a frame two rungs up reads as a grey slab beside white content, which is
+    // the same finding `--mlv-background-sunken` recorded a wave earlier at
+    // the same value. Sharing a value with `subtle` and `sunken` in light is
+    // fine — the three are different roles, and they separate again in dark.
+    --mlv-background-chrome: var(--mlv-palette-neutral-100);
 
     // Chrome bars — action bar, page header, summary strip, dock. Two states,
     // one mechanism: at rest a bar is the canvas and only its hairline says
