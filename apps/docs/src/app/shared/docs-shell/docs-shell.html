@@ -17,6 +17,7 @@
 <mlv-page-shell class="docs-shell" sizing="content" mlvDensityRoot>
   <mlv-sidebar
     mlvPageSidebar
+    [attr.mlvTheme]="railTheme()"
     [mode]="sidebarMode()"
     [collapsed]="sidebarCollapsed()"
     (collapsedChange)="sidebarCollapsed.set($event)"

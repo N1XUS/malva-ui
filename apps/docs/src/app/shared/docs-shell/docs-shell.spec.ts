@@ -5,6 +5,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { NavigationEnd, provideRouter, Router } from '@angular/router';
 import type { Subject } from 'rxjs';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 // The service/provider contract is static; only locale data is split into lazy packs.
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import { provideMlvI18n } from '@malva-ui/i18n';
@@ -80,6 +81,24 @@ describe('DocsShellComponent', () => {
    * `overflow: hidden`, so every page taller than the viewport was silently
    * clipped with nothing able to scroll it.
    */
+  /**
+   * `mlv-page-shell` derives a rail's text, hover and active colours from its
+   * own chrome, which is right for an application frame in a brand colour and
+   * wrong for the documentation rail — it should look like every other
+   * `mlv-sidebar` the site documents. Scoping the rail to a theme is the
+   * shell's own opt-out, and binding the *resolved* theme rather than a
+   * literal keeps it following the theme switcher.
+   */
+  it('scopes the navigation rail to the resolved theme', () => {
+    const rail = fixture.nativeElement.querySelector(
+      'mlv-sidebar',
+    ) as HTMLElement;
+
+    expect(rail.getAttribute('mlvTheme')).toBe(
+      TestBed.inject(MlvThemeService).currentTheme(),
+    );
+  });
+
   it('is content-sized, so the document scrolls the page', () => {
     const shell = fixture.nativeElement.querySelector(
       'mlv-page-shell',

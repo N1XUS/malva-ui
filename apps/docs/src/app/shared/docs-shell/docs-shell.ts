@@ -101,6 +101,7 @@ import {
 } from '@malva-ui/core/sidebar';
 import type { MlvSidebarMode } from '@malva-ui/core/sidebar';
 import { MlvDensityRootDirective } from '@malva-ui/cdk/density';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 import { MlvSpacer } from '@malva-ui/cdk/utils';
 import { filter } from 'rxjs';
 import { docsNavigationGroups } from '../../app.routes';
@@ -212,6 +213,19 @@ const NAV_ICONS: Readonly<Record<DocsIconName, LucideIconInput>> = {
 export class DocsShellComponent {
   /** @private ToC service providing entries from the active page. */
   private readonly _tocService = inject(DocsTocService);
+
+  /**
+   * The resolved theme, stamped on the navigation rail as `mlvTheme`.
+   *
+   * `mlv-page-shell` derives the rail's text, hover and active colours from
+   * its own chrome, which is right for an application frame in a brand colour
+   * and wrong here — the documentation rail should look like every other
+   * `mlv-sidebar` the site documents. Scoping the rail to a theme is the
+   * shell's own opt-out (`&__sidebar.mlv-sidebar:not([mlvTheme])`), and
+   * binding the *resolved* theme rather than a literal keeps the rail
+   * following the theme switcher instead of pinning it to one.
+   */
+  protected readonly railTheme = inject(MlvThemeService).currentTheme;
 
   /** @private Router used to dismiss mobile navigation after navigation. */
   private readonly _router = inject(Router);

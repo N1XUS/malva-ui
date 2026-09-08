@@ -66,9 +66,28 @@ body {
   margin-bottom: 12px;
 }
 
-.docs-shell .mlv-page-shell__sidebar,
 .docs-shell .docs-shell__main-area {
   padding-top: 4.75rem;
+}
+
+/* The rail follows the reading column instead of scrolling away with it, and
+   takes its own scrollbar once the navigation outgrows the viewport — it is
+   1921px tall with every group open, against a 900px viewport.
+
+   The app bar is `position: fixed`, so the rail is offset by its height rather
+   than padded by it: with `padding-top` the padding scrolls away inside the
+   rail's own scroller and the top rows disappear under the bar. `docs-toc`
+   pins itself the same way on the other side. Only `inset-block-start` is set
+   — a sticky element with a logical *inline* inset is mispositioned in RTL by
+   Safari 26 (see .claude/rules/rtl.md), and this needs none. */
+.docs-shell .mlv-page-shell__sidebar {
+  position: sticky;
+  top: 4.75rem;
+  align-self: flex-start;
+  max-height: calc(100vh - 4.75rem);
+  max-height: calc(100svh - 4.75rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* The reading column is a full-bleed band between the two rails, not a card:
@@ -81,8 +100,17 @@ body {
 }
 
 @media (max-width: 47.999rem) {
-  .docs-shell .mlv-page-shell__sidebar,
   .docs-shell .docs-shell__main-area {
+    padding-top: 4.25rem;
+  }
+
+  /* Below md the rail is an off-canvas drawer, not a column beside the
+     content: it owns the whole viewport and pins nothing. */
+  .docs-shell .mlv-page-shell__sidebar {
+    position: static;
+    top: auto;
+    max-height: none;
+    overflow-y: visible;
     padding-top: 4.25rem;
   }
 
