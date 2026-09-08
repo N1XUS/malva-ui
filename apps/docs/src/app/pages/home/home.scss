@@ -740,10 +740,13 @@ $block: malva-home;
     height: auto;
   }
 
+  // `mlv-action-bar` supplies `display: flex`, `align-items: center` and
+  // `width: 100%`; only what differs from the bar's own defaults is declared
+  // here. These are unlayered app styles, so they beat the library's
+  // `@layer mlv.components` rules regardless of specificity — including the
+  // shell's `min-height: 3.25rem` chrome floor, which this mock sits above.
   &__application-toolbar {
     min-height: 4.25rem;
-    display: flex;
-    align-items: center;
     justify-content: space-between;
     gap: 1rem;
     padding: 0.625rem 1rem;
@@ -764,7 +767,11 @@ $block: malva-home;
       }
 
       small {
-        color: var(--mlv-text-tertiary);
+        // Not `--mlv-text-tertiary`: that is placeholder/disabled text and
+        // never carries meaning (`.claude/rules/accessibility.md`). As a
+        // chrome-projected child this now resolves the shell's chrome-derived
+        // secondary rather than the page-surface token.
+        color: var(--mlv-text-secondary);
         font-size: var(--mlv-font-size-xs);
       }
 
