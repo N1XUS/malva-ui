@@ -515,6 +515,27 @@ first. Consult it before any change that alters a published surface.
 - **Not public:** anything outside a published barrel, `@internal` members,
   `_`-prefixed members, `libs/styles` SCSS (mixins, maps, partials — only the
   compiled `malva-ui.css` ships), and DOM structure below the named BEM elements.
+- **Declare every package a published entry point imports.** npm installs a
+  package's own `dependencies` and `peerDependencies` and nothing else, so a
+  bare specifier imported but declared in neither is `Cannot find module` in the
+  consumer's build with no install-time signal — and invisible in-repo, because
+  every workspace consumer resolves it from the root manifest instead. Use
+  `peerDependencies` for a framework the consumer owns exactly one copy of
+  (`@angular/*`, `rxjs`, `@malva-ui/*`), `dependencies` for a runtime library the
+  package brings its own copy of (`fast-equals`, `lodash-es`, `sortablejs`), and
+  a `0.0.0-*-package-version` placeholder for anything the root manifest pins —
+  which needs its mapping in **both** `scripts/publish.mjs` and
+  `apps/docs/tools/playground-manifest.ts`. Enforced by
+  `scripts/check-package-dependencies.mjs` →
+  `yarn nx run @malva-ui/source:check-package-dependencies`, a `dependsOn` of
+  the root `test` target. It walks the graph `ng-packagr` compiles — each
+  `ng-package.json`'s `lib.entryFile` plus everything it reaches by relative
+  import — so a spec, a `vite.config.mts` or an unreachable helper is out of
+  scope by construction rather than by a filter. An exception goes in
+  `DECLARATION_EXCEPTIONS`, narrowed by package, dependency and file, and says
+  whether it is clean or deferred; an entry that matches nothing fails the
+  check. #242 is the worked example: `@malva-ui/core` imported `@angular/router`
+  in nine entry points and declared no peer for months.
 - **A rename is a removal.** Add the new name in a minor with a working
   `@deprecated` alias; delete the old one in the next major.
 - **Changing a default value or default behaviour is breaking** even when nothing

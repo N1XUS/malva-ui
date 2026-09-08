@@ -240,6 +240,39 @@ describe('the docs example corpus', () => {
     }
   });
 
+  // #242. `@malva-ui/core` imports `@angular/router` in nine entry points and
+  // declared no peer on it, so the closure never carried it and the generated
+  // project installed a `@malva-ui/core` whose `mlv-breadcrumb` could not
+  // resolve `RouterLink`. The test above cannot see this: it walks only what
+  // the *example* imports, and a router-free example is exactly the case that
+  // was broken. Pinned to a real example so it tracks the corpus rather than a
+  // fixture, and the premise — that the example imports no router itself — is
+  // asserted, so the regression cannot pass by the example gaining an import.
+  it('carries a peer the example never imports but the entry point does', () => {
+    const entry = portable.find(
+      ({ example }) => example.id === 'breadcrumb/examples/1',
+    );
+
+    expect(`breadcrumb/examples/1 is portable: ${entry !== undefined}`).toBe(
+      'breadcrumb/examples/1 is portable: true',
+    );
+
+    const imported = collectImportSpecifiers(entry!.example.source).map(
+      packageRootOf,
+    );
+    expect(imported).toContain('@malva-ui/core');
+    expect(imported).not.toContain('@angular/router');
+
+    const { dependencies } = JSON.parse(
+      entry!.project.files['package.json'],
+    ) as { dependencies: Record<string, string> };
+
+    expect(Object.keys(dependencies)).toContain('@angular/router');
+    expect(dependencies['@angular/router']).toBe(
+      PLAYGROUND_VERSIONS['@angular/router'],
+    );
+  });
+
   it('mounts the selector the exported component really declares', () => {
     for (const { example, project } of portable) {
       const tag = /<([a-z][a-z0-9-]*)><\/\1>/.exec(

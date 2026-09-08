@@ -95,7 +95,7 @@ The remaining five are not key tokens: `data-mlv-taskboard-column-locked` and `d
 
 ## Peer dependencies
 
-`@angular/cdk`, `@angular/common`, `@angular/core`, `@malva-ui/cdk`, `@malva-ui/core`, `@malva-ui/i18n`. `@malva-ui/core` is there for `mlv-scrollbar`: every scroll surface the board owns — the column strip and each cell's cards area — is a themed `@malva-ui/core/scrollbar`, so no native scrollbar shows anywhere inside the board. Pointer dragging uses the package's own `sortablejs` dependency — you neither install nor import it.
+`@angular/cdk`, `@angular/common`, `@angular/core`, `@malva-ui/cdk`, `@malva-ui/core`, `@malva-ui/i18n`, `rxjs`. `@malva-ui/core` is there for `mlv-scrollbar`: every scroll surface the board owns — the column strip and each cell's cards area — is a themed `@malva-ui/core/scrollbar`, so no native scrollbar shows anywhere inside the board. Pointer dragging uses the package's own `sortablejs` dependency — you neither install nor import it.
 
 ## Documentation
 

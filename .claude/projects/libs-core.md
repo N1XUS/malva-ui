@@ -157,27 +157,31 @@ The composite-widget migration replaces hand-rolled ARIA/selection plumbing with
 
 ### Angular / third-party peers
 
+All ten `peerDependencies` of `libs/core/package.json`, and nothing else — the
+list is meant to be diffed against the manifest, so it carries the `@malva-ui/*`
+peers too rather than only the third-party ones. All required; core declares no
+`peerDependenciesMeta` block, the twelve optional `@tiptap/*` peers having left
+with the editor (2026-08).
+
 - `@angular/aria`
 - `@angular/cdk`
 - `@angular/common`
 - `@angular/core`
 - `@angular/forms`
-- `@angular/router`
+- `@angular/router` — `RouterLink` / `Router` / `ActivatedRoute` in nine entry
+  points: `bottom-nav`, `breadcrumb`, `dialog` (routable dialogs), `drawer`
+  (routable drawers), `list` (`mlv-list-item-link`), `page` (`mlv-page-header`),
+  `segmented`, `sidebar` (`mlv-sidebar-item`) and `tabs`. Required, not
+  optional: npm does not install optional peers, so an optional declaration
+  would leave the import unresolvable and warn nobody (#242).
 - `@lucide/angular`
-- `@tiptap/core` (optional)
-- `@tiptap/extension-file-handler` (optional)
-- `@tiptap/extension-highlight` (optional)
-- `@tiptap/extension-image` (optional)
-- `@tiptap/extension-list` (optional)
-- `@tiptap/extension-table` (optional)
-- `@tiptap/extension-text-align` (optional)
-- `@tiptap/extension-text-style` (optional)
-- `@tiptap/extensions` (optional)
-- `@tiptap/markdown` (optional)
-- `@tiptap/pm` (optional)
-- `@tiptap/starter-kit` (optional)
-- `lodash-es`
+- `@malva-ui/cdk`
+- `@malva-ui/i18n`
 - `rxjs`
+
+Enforced from the other side by `scripts/check-package-dependencies.mjs`, which
+fails on a bare specifier a published entry point imports and the manifest
+declares in neither `dependencies` nor `peerDependencies`.
 
 ### Bundled runtime dependencies
 
@@ -189,6 +193,9 @@ rather than being required of consumers):
   comparison). Chosen over `fast-deep-equal` because it is ESM; a CommonJS
   dependency makes every consuming Angular build emit an
   "is not ESM / optimization bailouts" warning.
+- `lodash-es` — `cloneDeep` / `sortBy` in `MlvDrawerSectionsService`. Bundled
+  rather than a peer: it is an implementation choice of one service, not a
+  framework the consumer owns one copy of.
 - `sortablejs` — drag reordering.
 
 ### Internal package dependencies

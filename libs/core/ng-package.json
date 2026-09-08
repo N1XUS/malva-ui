@@ -16,5 +16,10 @@
   "lib": {
     "entryFile": "src/index.ts"
   },
-  "allowedNonPeerDependencies": ["^@malva-ui/", "fast-equals", "sortablejs"]
+  "allowedNonPeerDependencies": [
+    "^@malva-ui/",
+    "fast-equals",
+    "lodash-es",
+    "sortablejs"
+  ]
 }

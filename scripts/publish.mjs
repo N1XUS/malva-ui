@@ -25,6 +25,7 @@
  *   0.0.0-angular-common-package-version → .dependencies["@angular/common"]
  *   0.0.0-angular-core-package-version   → .dependencies["@angular/core"]
  *   0.0.0-angular-forms-package-version  → .dependencies["@angular/forms"]
+ *   0.0.0-angular-router-package-version → .dependencies["@angular/router"]
  *   0.0.0-lucide-angular-package-version → .dependencies["@lucide/angular"]
  *   0.0.0-rxjs-package-version           → .dependencies["rxjs"]
  *   0.0.0-tiptap-package-version          → .dependencies["@tiptap/core"]
@@ -128,6 +129,7 @@ const versionMap = {
   '0.0.0-angular-common-package-version': dep('@angular/common'),
   '0.0.0-angular-core-package-version': dep('@angular/core'),
   '0.0.0-angular-forms-package-version': dep('@angular/forms'),
+  '0.0.0-angular-router-package-version': dep('@angular/router'),
   '0.0.0-lucide-angular-package-version': dep('@lucide/angular'),
   '0.0.0-rxjs-package-version': dep('rxjs'),
   '0.0.0-tiptap-package-version': tiptapVersion,
@@ -162,6 +164,12 @@ const libraries = [
   { name: '@malva-ui/editor', distDir: 'dist/libs/editor' },
   // Also after core: peer-depends on it for the date adapter and toolbar parts.
   { name: '@malva-ui/scheduler', distDir: 'dist/libs/scheduler' },
+  // Also after core: peer-depends on it for `mlv-scrollbar`. This list and
+  // `nx.json`'s `release.projects` name the same packages, and nothing else
+  // rewrites a built manifest — a package versioned by the release but absent
+  // here ships its `0.0.0-*-package-version` placeholders verbatim, which npm
+  // rejects with `No matching version found`.
+  { name: '@malva-ui/taskboard', distDir: 'dist/libs/taskboard' },
 ];
 
 const dependencyFields = [
