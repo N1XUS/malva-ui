@@ -195,6 +195,30 @@ Wrapper for programmatic popup management. Required content child: `MlvPopup`.
 - `close()` — Close the popup
 - `toggle()` — Toggle state
 
+#### Overlay origin
+
+The overlay anchors to the element a child `MlvPopupTrigger` registered
+(`registerTrigger`), falling back to the container's own host when none did.
+Two rules keep that origin honest:
+
+- **The panel is out of scope.** `MlvPopup` provides `POPUP_CONTAINER` as `null`,
+  so nothing inside `<mlv-popup>` — panel chrome, projected
+  `[mlvPopupContent]`, or a component rendered inside it — resolves the
+  container. Portaling the panel into the CDK overlay moves DOM, not the node
+  injector: `<ng-template mlvPopupContent>` is declared lexically inside
+  `<mlv-popup-container>`, so without that provider a `[mlvPopupTrigger]` in the
+  panel switched into container mode, drove `container.toggle()` instead of its
+  own popup, and registered its host as the container's origin — an element that
+  dies with the panel (#225). A trigger declared as a _sibling_ of `<mlv-popup>`
+  is outside the boundary and is unaffected; that is the ordinary container-mode
+  arrangement (`mlv-sidebar-group`'s flyout).
+- **A detached origin is not used.** `registerTrigger` has no unregister, so a
+  registered element can outlive its own presence in the document (an `@if` that
+  stopped matching, a virtualised row). CDK measures a detached node without
+  complaint — `getBoundingClientRect()` answers all zeros — and would resolve a
+  position against 0,0, putting the panel in the top-left corner of the viewport
+  silently. Each attach falls back to the container host instead.
+
 ---
 
 ## Directives
@@ -203,6 +227,28 @@ Wrapper for programmatic popup management. Required content child: `MlvPopup`.
 
 **File:** `libs/core/popup/src/lib/popup-trigger/popup-trigger.ts`
 **Selector:** `[mlvPopupTrigger]`
+
+#### Mode
+
+- **Container mode** — an ancestor provides `POPUP_CONTAINER`. The trigger owns
+  no overlay: it registers its host as the container's origin and delegates
+  `open`/`close`/`toggle`. Written as a bare attribute — and a **bound**
+  `[mlvPopupTrigger]="somePopup"` inside a container is silently ignored and
+  drives the container instead, because the constructor branches on `_container`
+  before it ever creates the standalone effect
+  (`popup-trigger.ts:116-139`).
+- **Standalone mode** — no container in scope. The trigger manages its own CDK
+  overlay for the popup bound as `[mlvPopupTrigger]="somePopup"`.
+
+`MlvPopup` provides `POPUP_CONTAINER: null`, so a trigger **inside** a
+`<mlv-popup>`'s panel is always standalone even when the popup itself belongs to
+a container — see _Overlay origin_ above (#225).
+
+That provider guards the panel, not the container's whole subtree: a
+trigger-bearing component placed inside `<mlv-popup-container>` but **outside**
+`<mlv-popup>` still resolves the container, and `MlvPopup` is not on that
+injector chain. Zero occurrences today; the detached-origin fallback is what
+keeps such a case from reproducing #225's symptom.
 
 #### Inputs
 

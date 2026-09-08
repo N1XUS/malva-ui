@@ -1,6 +1,6 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import type { WritableSignal } from '@angular/core';
+import type { ElementRef, WritableSignal } from '@angular/core';
 import { Component, signal, viewChild } from '@angular/core';
 import { Overlay, OverlayContainer } from '@angular/cdk/overlay';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
@@ -504,5 +504,181 @@ describe('MlvPopupContainer — arrow direction', () => {
 
     expect(popup.arrowEdge()).toBe('left');
     expect(panelClasses()).toContain('mlv-popup--arrow-left');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A trigger rendered inside the popup's own panel (#225)
+//
+// `<ng-template mlvPopupContent>` is declared lexically inside
+// `<mlv-popup-container>`, and portaling the panel into the CDK overlay moves
+// DOM, not the node injector — so every directive in the panel still resolves
+// the container it was declared under. A `[mlvPopupTrigger]` in there (the
+// `mlv-tab-group` overflow button inside `mlv-color-picker`, inside
+// `mlv-color-picker-popup`, is the reported case) therefore claimed the outer
+// container and overwrote its trigger origin with an element that dies with the
+// panel. The next open anchored to that detached node, whose
+// `getBoundingClientRect()` is all zeros, so the panel rendered at the top-left
+// corner of the viewport.
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvPopupContainer, MlvPopup, MlvPopupContent, MlvPopupTrigger],
+  template: `
+    <mlv-popup-container>
+      <button #outerTrigger mlvPopupTrigger>open</button>
+      <mlv-popup position="bottom-start">
+        <ng-template mlvPopupContent>
+          <button class="nested-trigger" [mlvPopupTrigger]="nested">
+            more
+          </button>
+          <mlv-popup #nested position="bottom-start">
+            <ng-template mlvPopupContent><span>nested body</span></ng-template>
+          </mlv-popup>
+        </ng-template>
+      </mlv-popup>
+    </mlv-popup-container>
+  `,
+})
+class NestedTriggerHostComponent {
+  readonly container = viewChild.required(MlvPopupContainer);
+  readonly outerTrigger =
+    viewChild.required<ElementRef<HTMLButtonElement>>('outerTrigger');
+}
+
+describe('MlvPopupContainer — a trigger inside the panel (#225)', () => {
+  /** Rect the outer trigger reports, so a resolved position is legible in jsdom. */
+  const TRIGGER_RECT = {
+    top: 500,
+    bottom: 528,
+    left: 300,
+    right: 800,
+    width: 500,
+    height: 28,
+    x: 300,
+    y: 500,
+    toJSON: () => ({}),
+  } as DOMRect;
+
+  let overlayContainer: OverlayContainer;
+  let fixture: ComponentFixture<NestedTriggerHostComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [NestedTriggerHostComponent],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+    fixture = TestBed.createComponent(NestedTriggerHostComponent);
+    fixture.detectChanges();
+
+    // jsdom runs no layout, so every element measures 0×0 at 0,0 and a naive
+    // offset assertion would read the same in both states. Giving the real
+    // origin a rect is what makes "anchored to the trigger" and "anchored to a
+    // detached node" different numbers: the detached nested trigger keeps
+    // jsdom's zeros, so the bug shows up as `top: 0px; left: 0px`.
+    fixture.componentInstance.outerTrigger().nativeElement.getBoundingClientRect =
+      () => TRIGGER_RECT;
+  });
+
+  afterEach(() => {
+    overlayContainer.ngOnDestroy();
+  });
+
+  function panes(): NodeListOf<HTMLElement> {
+    return overlayContainer
+      .getContainerElement()
+      .querySelectorAll<HTMLElement>('.cdk-overlay-pane');
+  }
+
+  /** Inline offsets `FlexibleConnectedPositionStrategy` resolved onto the pane. */
+  function paneOffsets(index = 0): { top: string; left: string } {
+    const pane = panes()[index];
+    return { top: pane.style.top, left: pane.style.left };
+  }
+
+  async function open(): Promise<void> {
+    fixture.componentInstance.container().open();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  async function close(): Promise<void> {
+    fixture.componentInstance.container().close();
+    fixture.detectChanges();
+    await afterLeaveWindow();
+    fixture.detectChanges();
+  }
+
+  it('anchors every open to the trigger, not to the previous panel', async () => {
+    await open();
+    // `bottom-start` — the panel's top edge sits on the trigger's bottom edge,
+    // its inline start on the trigger's; the 8px gap rides a transform.
+    expect(paneOffsets()).toEqual({ top: '528px', left: '300px' });
+
+    await close();
+    expect(panes()).toHaveLength(0);
+
+    await open();
+    expect(paneOffsets()).toEqual({ top: '528px', left: '300px' });
+  });
+
+  it('measures the trigger when resolving the position of a later open', async () => {
+    await open();
+    await close();
+
+    // The offsets above are downstream of this: `_getOriginRect()` reads the
+    // origin it was handed, and a detached node answers with zeros rather than
+    // throwing. Counting the measurement says *which* element CDK asked.
+    const measured = vi.fn(() => TRIGGER_RECT);
+    fixture.componentInstance.outerTrigger().nativeElement.getBoundingClientRect =
+      measured;
+
+    await open();
+
+    expect(measured.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it('falls back to the container host when the registered trigger is gone', async () => {
+    // Not only the panel case: `registerTrigger` has no unregister, so any
+    // trigger removed from the DOM while the popup is closed — an `@if` that
+    // stopped matching, a row that was virtualised away — leaves the container
+    // holding a detached origin. CDK measures it without complaint and answers
+    // zeros, so the panel would silently land at 0,0.
+    const host = (fixture.nativeElement as HTMLElement).querySelector(
+      'mlv-popup-container',
+    ) as HTMLElement;
+    host.getBoundingClientRect = () => TRIGGER_RECT;
+
+    // Register, then remove — the order the bug takes. Dropping the rect stub
+    // with it restores jsdom's own answer for a detached element, which is the
+    // all-zero rect a real browser gives too.
+    await open();
+    await close();
+    const trigger = fixture.componentInstance.outerTrigger().nativeElement;
+    trigger.remove();
+    Reflect.deleteProperty(trigger, 'getBoundingClientRect');
+
+    await open();
+
+    expect(paneOffsets()).toEqual({ top: '528px', left: '300px' });
+  });
+
+  it('opens the nested popup instead of toggling the container', async () => {
+    await open();
+    expect(panes()).toHaveLength(1);
+
+    const nested = overlayContainer
+      .getContainerElement()
+      .querySelector<HTMLButtonElement>('.nested-trigger');
+    nested?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // In container mode the click would have run `container.toggle()` and
+    // closed the popup the button lives in.
+    expect(panes()).toHaveLength(2);
   });
 });
