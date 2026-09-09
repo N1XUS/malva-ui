@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  forwardRef,
   inject,
   input,
   model,
@@ -15,7 +16,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { fromEvent } from 'rxjs';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { MlvSignalFormControlBase } from '@malva-ui/core/form-utils';
+import {
+  MLV_FORM_CONTROL,
+  MlvSignalFormControlBase,
+} from '@malva-ui/core/form-utils';
 import { mlvNextId } from '@malva-ui/cdk/utils';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvLoader } from '@malva-ui/core/loader';
@@ -47,6 +51,15 @@ import type {
     LucideUpload,
     LucideRefreshCw,
     LucideTrash2,
+  ],
+  providers: [
+    // The connector every `MlvSignalFormUiControlBase` control publishes, so an
+    // enclosing `mlv-form-field` resolves the upload zone rather than skipping
+    // it and landing on whatever control sits beside it.
+    {
+      provide: MLV_FORM_CONTROL,
+      useExisting: forwardRef(() => MlvFileUpload),
+    },
   ],
   host: {
     class: 'mlv-file-upload',
