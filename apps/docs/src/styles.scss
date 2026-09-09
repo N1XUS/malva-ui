@@ -169,7 +169,11 @@ body {
    pins itself the same way on the other side. Only `inset-block-start` is set
    — a sticky element with a logical *inline* inset is mispositioned in RTL by
    Safari 26 (see .claude/rules/rtl.md), and this needs none. */
-.docs-shell .mlv-page-shell__sidebar {
+/* `>` all the way down, and not a descendant selector, because `.docs-shell`
+   is itself an `mlv-page-shell` and `/page` documents that component: the
+   examples render their own `mlv-page-shell` *inside* this one, and these two
+   rules are viewport-sized. See the floor below for what that cost. */
+.docs-shell > .mlv-page-shell__body > .mlv-page-shell__sidebar {
   position: sticky;
   top: 4.75rem;
   align-self: flex-start;
@@ -188,8 +192,15 @@ body {
    row the viewport as a floor makes the offset and the height fit exactly, so
    the rail lands in the same place on every page and holds still across a
    navigation between a long page and a short one. The floor is exactly the
-   viewport, so it introduces no scrollbar of its own. */
-.docs-shell .mlv-page-shell__body {
+   viewport, so it introduces no scrollbar of its own.
+
+   It is also why the selector is anchored: as a descendant selector it put the
+   same viewport floor on every `mlv-page-shell` rendered inside a `/page`
+   example, which are 38rem boxes with `overflow: hidden`. Measured at 390x844
+   and at 1440x900, the example shell's `__body` took the floor, the canvas
+   inside it resolved to the full 844/900px, and the bottom third of the
+   example was clipped with no scroller anywhere able to reach it. */
+.docs-shell > .mlv-page-shell__body {
   min-block-size: 100vh;
   min-block-size: 100svh;
 }
@@ -209,8 +220,12 @@ body {
   }
 
   /* Below md the rail is an off-canvas drawer, not a column beside the
-     content: it owns the whole viewport and pins nothing. */
-  .docs-shell .mlv-page-shell__sidebar {
+     content: it owns the whole viewport and pins nothing. Anchored for the
+     same reason as the rule it overrides — and it has to carry the *same*
+     anchor, not merely some anchor: a media query buys no specificity, so
+     `.docs-shell .mlv-page-shell__sidebar` (0,2,0) would now lose outright to
+     the sticky rule's (0,3,0) and the rail would stay pinned at every width. */
+  .docs-shell > .mlv-page-shell__body > .mlv-page-shell__sidebar {
     position: static;
     top: auto;
     height: auto;

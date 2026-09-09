@@ -303,9 +303,20 @@ describe('DocsShellComponent', () => {
   describe('sticky rail geometry', () => {
     const scss = (): string => readFileSync(GLOBAL_SCSS, 'utf8');
 
+    /**
+     * The stylesheet with its comments removed. The leak check below reads
+     * selectors, and the reason a selector is anchored is written directly
+     * above it — so a prose mention of the very shape being banned would fail
+     * the assertion, and the fix would be to stop explaining the rule.
+     */
+    const declarations = (): string =>
+      scss()
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+
     it('floors the shell row at the viewport so the sticky rail fits', () => {
       const rule = scss().match(
-        /\.docs-shell \.mlv-page-shell__body \{([^}]*)\}/,
+        /\.docs-shell > \.mlv-page-shell__body \{([^}]*)\}/,
       );
       expect(rule).not.toBeNull();
       expect(rule?.[1]).toMatch(/min-block-size:\s*100svh;/);
@@ -315,12 +326,39 @@ describe('DocsShellComponent', () => {
       // The floor only works while these agree: the offset plus the height is
       // exactly one viewport, so the rail fits with nothing to spare and adds
       // no scrollbar of its own.
-      const rule = scss().match(
-        /\.docs-shell \.mlv-page-shell__sidebar \{([^}]*)\}/,
-      );
-      expect(rule).not.toBeNull();
-      expect(rule?.[1]).toMatch(/top:\s*4\.75rem;/);
-      expect(rule?.[1]).toMatch(/height:\s*calc\(100svh - 4\.75rem\);/);
+      //
+      // Two rules carry this selector — this one and the narrow-viewport
+      // override that unpins the rail — and they have to, because a media
+      // query buys no specificity: an override written at a shorter anchor
+      // would simply lose. So the selector is collected rather than matched
+      // once, and the sticky half is picked by what it declares.
+      const bodies = [
+        ...declarations().matchAll(
+          /\.docs-shell > \.mlv-page-shell__body > \.mlv-page-shell__sidebar \{([^}]*)\}/g,
+        ),
+      ].map((match) => match[1]);
+      const sticky = bodies.filter((body) => /position:\s*sticky;/.test(body));
+
+      expect(bodies).toHaveLength(2);
+      expect(sticky).toHaveLength(1);
+      expect(sticky[0]).toMatch(/top:\s*4\.75rem;/);
+      expect(sticky[0]).toMatch(/height:\s*calc\(100svh - 4\.75rem\);/);
+    });
+
+    // The shell is itself an `mlv-page-shell`, and `/page` documents that
+    // component — so a descendant selector here also matched the shells inside
+    // those examples, which are 38rem boxes with `overflow: hidden`. Measured
+    // on /page at 390x844 and 1440x900 before the anchor: the example's
+    // `__body` took this viewport floor, its canvas resolved to the full
+    // 844/900px, and the bottom third was clipped with no scroller able to
+    // reach it. Every selector naming a library part is anchored with `>`;
+    // `.docs-shell__*` names are docs-only and cannot collide.
+    it('never reaches a page shell rendered inside a documentation example', () => {
+      const leaked = declarations()
+        .split('\n')
+        .filter((line) => /\.docs-shell\s+\.mlv-/.test(line));
+
+      expect(leaked).toEqual([]);
     });
   });
 });

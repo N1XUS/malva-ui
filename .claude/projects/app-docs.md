@@ -1238,6 +1238,32 @@ Imports `@malva-ui/styles` theme and animations. Notable global rules:
 - The docs shell imports only the required fourteen 4×3 `flag-icons` SVG assets;
   square assets are disabled to avoid duplicate Angular media output names.
 
+**Every `.docs-shell` selector naming a library part is anchored with `>`.**
+`.docs-shell` _is_ an `mlv-page-shell` and `/page` documents that component, so
+a descendant selector reaches the shells rendered **inside** the examples on
+that page. The sticky-rail rules are viewport-sized, and the examples are 38rem
+boxes with `overflow: hidden`: measured on `/page` at 390×844 and at 1440×900,
+the example's `__body` took the `100svh` floor, the canvas inside it resolved to
+the full 844/900px, and the bottom third of the example was clipped with no
+scroller anywhere able to reach it. The three anchored rules are
+`.docs-shell > .mlv-page-shell__body` (the floor),
+`… > .mlv-page-shell__sidebar` (the sticky rail) and the same sidebar selector
+again inside `@media (max-width: 47.999rem)`, which unpins the rail below md.
+
+That third one has to carry the **same** anchor, not merely some anchor: a media
+query buys no specificity, so the shorter `.docs-shell .mlv-page-shell__sidebar`
+(0,2,0) it was written as would now lose outright to the sticky rule's (0,3,0)
+and the rail would stay pinned at every width. Anchoring one rule of an
+override pair is worse than anchoring neither.
+
+`.docs-shell__*` names are docs-only and cannot collide, so those rules stay
+descendant selectors — including `.docs-shell .docs-shell__main-area`, which is
+default-slot content and therefore lives inside `.mlv-page-shell__content`, not
+under `__body`. Pinned by `docs-shell.spec.ts` § _sticky rail geometry_, whose
+leak check reads the stylesheet with its comments stripped: the reason each
+selector is anchored is written directly above it, so a scan of the raw source
+would fail on the prose explaining the very shape it bans.
+
 Landing-page layout and visual styling are component-scoped in `pages/home/home.scss`; the global stylesheet no longer needs a `:has(.landing-page)` override because the home route is structurally outside the docs shell.
 
 ---
