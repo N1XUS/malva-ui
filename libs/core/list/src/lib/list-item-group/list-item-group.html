@@ -24,12 +24,28 @@
   context their `listitem` role requires: the group host is itself a `listitem`
   of the outer mlv-list (see its `host` block), and a `listitem` is not a valid
   parent for another one.
+
+  `inert` while the content is off screen (#221). Collapsing is done in CSS with
+  `grid-template-rows: 0fr` + `overflow: hidden` + `opacity: 0`, none of which
+  removes anything from the accessibility tree: a zero-height clipped box still
+  computes `visibility: visible`, so AT kept reading the rows out and Tab kept
+  landing on their links with no focus ring anywhere on screen. `inert` removes
+  both — it is not a rendering property, so unlike `visibility` / `display` /
+  `hidden` it needs no timing against the collapse transition and no
+  reduced-motion path of its own; it simply flips with the state. It goes on
+  this element rather than an inner wrapper so that the region the toggler names
+  through `aria-controls` is exactly the region `aria-expanded="false"` is a
+  claim about.
+
+  The predicate is `_contentVisible()` — `_expanded() || _pinnedOpen()`. Read
+  its JSDoc before touching this: `!_expanded()` looks equivalent and is not.
 -->
 <div
   class="mlv-list-item-group__content"
   role="list"
   [id]="_contentId"
   [attr.aria-labelledby]="_pinnedOpen() ? _labelId : null"
+  [attr.inert]="_contentVisible() ? null : ''"
 >
   <div>
     <div>
