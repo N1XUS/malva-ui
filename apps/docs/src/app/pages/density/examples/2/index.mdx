@@ -1,2 +1,5 @@
-## Per-Component Density via hostDirectives
+---
+title: Per-Component Density via hostDirectives
+---
+
 Integrate density support into any component by adding `MlvDensityDirective` as a `hostDirective` and providing the `MLV_DENSITY_ELEMENT` injection token with your component's BEM block name. The directive applies `mlv-{element}--{density}` modifier classes to the host and exposes `effectiveDensity` for programmatic reads. Expose `mlvDensity` in `inputs` to let consumers override density per instance.

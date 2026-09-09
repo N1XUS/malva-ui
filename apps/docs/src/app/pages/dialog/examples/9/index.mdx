@@ -1,3 +1,5 @@
-## Stacked Dialogs
+---
+title: Stacked Dialogs
+---
 
 A form dialog guards its exits: `closeOnEscape: false` + `closeOnBackdrop: false` hand Escape and backdrop clicks to the content through `ref.keydownEvents()` / `ref.backdropClick()`, and a dirty form opens `MlvDialogService.confirm()` **on top** instead of closing. The CDK routes a keydown to the topmost overlay with keydown observers, so Escape closes only the confirmation, and — with the role select or team combobox open — only that dropdown. Focus returns to the form dialog when the confirmation closes. The dirty flag rides on each control's `(valueChange)`, so only a committed selection counts as an edit — typing in the team combobox without picking an option does not arm the guard.

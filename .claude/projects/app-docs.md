@@ -1265,12 +1265,23 @@ title: Example Title
 description: Optional description
 ---
 
-## Heading
-
 Markdown content here...
 ```
 
-Frontmatter is optional. Files without frontmatter are treated as plain Markdown (backward compatible).
+**The title lives in frontmatter, never in the body.** `DocPageComponent`
+renders `frontmatter.title` as the example's `<h2>` with a permalink beside it;
+a leading `## Title` in the body renders a second heading that the ToC then
+lists twice. All 474 example files were migrated to this shape in 2026-09 (434
+promoted from a leading `## `, 4 whose frontmatter and body both carried the
+title de-duplicated). A body `##` is still correct for a **section** below the
+title — the ToC lists those as well.
+
+`description` remains optional, and is plain text: it is rendered as `{{ }}`,
+not through `marked`, so Markdown in it shows as literal characters.
+
+Frontmatter itself remains structurally optional (`gray-matter` returns an
+empty `data` for a file without it) — a file with no `title` simply renders no
+heading.
 
 ### Table of Contents
 

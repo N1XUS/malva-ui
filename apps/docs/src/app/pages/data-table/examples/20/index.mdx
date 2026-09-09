@@ -1,3 +1,5 @@
-## Error state
+---
+title: Error state
+---
 
 `[error]` separates "the request failed" from "there is nothing to show". Pass `true` for the localized default message or a string for a server-supplied one. While it is set — and `[loading]` is falsy — an alert region replaces the table body, taking precedence over the rows and over `mlvDataTableNoData`. The default block is an `mlv-empty-state` with a danger icon and a Retry button that emits `(retry)`; project `<ng-template mlvDataTableError let-message let-retry="retry">` to replace it entirely.
