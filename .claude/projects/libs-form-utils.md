@@ -198,6 +198,86 @@ native `<input>`) and converts anyway, so the answer has one source rather than
 two that happen to agree. Its rendered attribute is unchanged;
 `combobox-own-label.spec.ts` pins the strategy that makes that true.
 
+#### The field resolves the outermost control, not a nested one (2026-09, #217)
+
+`contentChild` defaults to `descendants: true`, so
+`MlvFormField._control` matches the **first** node in the projected content
+that can supply `MLV_FORM_CONTROL` — at any depth. Three components did not
+supply it, and the query walked straight past each of them:
+
+| Component            | What the field resolved instead                                    |
+| -------------------- | ------------------------------------------------------------------ |
+| `mlv-checkbox-group` | the first projected `mlv-checkbox` (a **descendant** of the group) |
+| `mlv-switch-group`   | the first projected `mlv-switch` (likewise)                        |
+| `mlv-file-upload`    | whichever other control the field held (it has nothing nested)     |
+
+Two things went wrong, and only the second is a wrong `for` on the _projected_
+label:
+
+1. `labelableControlId()`, `_hasDoubleLabel()` and the dev warnings all
+   described a node the author never pointed at — a projected `<mlv-label>`
+   naming a control nested inside a group, or one sitting beside an upload zone.
+2. `MlvLabel._ownerControl` is what stops a control's **own** inner
+   `<mlv-label>` borrowing the field's target. The two groups render one from
+   their `label` input, and with nothing provided it resolved `null` — so in a
+   field that also held a labelable control, the group's own label emitted that
+   control's id as its `for`. Clicking "Toppings" focused the text input.
+
+All three now provide `MLV_FORM_CONTROL`, `useExisting` themselves.
+`mlv-file-upload` already extended `MlvSignalFormControlBase` and needed only
+the provider line — it was the workspace's single `MlvSignalFormUiControlBase`
+subclass without one, against twenty that had it.
+
+**The two groups are not `MlvSignalFormUiControlBase` subclasses.** They extend
+`MlvFocusableGroupBase`, which owns only the roving-tabindex concern, so they
+each implement `MlvFormControl` directly: `state` and `label` are their real
+inputs, and the nine wrapper-facing halves they do not own (`focused`,
+`disabled`, `readonly`, `loading`, `clearable`, `hasValue`, `prepend`,
+`append`, `inset`) are constant, non-input signals. Explicit members rather
+than a bare provider, because `ExistingProvider.useExisting` is typed `any`:
+without the `implements` clause nothing would have caught a missing member, and
+`mlv-form-control-wrapper` calls `focused()` / `disabled()` / `readonly()` /
+`loading()` / `state()` unguarded. Every wrapper in the library today sits
+inside a control that provides the token itself, so that path was unreachable
+in-repo — but `mlv-form-control-wrapper` is exported, so a consumer could reach
+it.
+
+Both groups also report a `labelTarget` of `{ id, labelable: false }` — the
+`'aria'` row of the strategy table, and the shape `mlv-radio-group` has shipped
+since #197. A `role="group"` is nameable from outside; `aria-labelledby` is how.
+Without it the two groups would have been the only `role="group"` controls in
+the library that take no name from a field label — a live WCAG 4.1.2 gap that no
+axe sweep can see, because `label` / `aria-input-field-name` do not apply to a
+`role="group"` at all. The id must land on the element that actually carries the
+role, and that is a **different node in each**: `mlv-switch-group`'s host, but
+`mlv-checkbox-group`'s inner `<div>`.
+
+They cannot override `_externalLabelStrategy()` to say so, because that hook
+lives on `MlvSignalFormUiControlBase` and neither group extends it; each
+declares the resulting `labelTarget` directly instead. It is a constant rather
+than a `computed`: a control whose strategy tracks its own state (`mlv-select`
+swaps between its native `<select>` and a `div[role="combobox"]`) needs one, but
+a group is a group in every state.
+
+The nine constant members are public on exported classes, which costs one thing
+worth stating: `group.disabled()` on a `viewChild(MlvCheckboxGroup)` used to be
+a compile error and now compiles and always answers `false`. `[disabled]="…"` on
+the element still fails AOT with NG8002 (none of the nine is an `input()`), so
+only the TypeScript read changed — from loud to silent. Making
+`MlvFormControl`'s own members optional would remove the cost here and create a
+worse one: every consumer calling `inject(MLV_FORM_CONTROL).focused()` would
+stop compiling under `strictNullChecks`.
+
+**It was latent, not live.** No shipped field in `libs/` or `apps/docs` holds
+a group or an upload zone, so nothing rendered wrongly before this change. The
+shape that breaks is a field holding one of the three **and** a second control;
+that is what `checkbox-group-field-label.spec.ts`,
+`switch-group-field-label.spec.ts` and `file-upload-field-label.spec.ts` pin,
+alongside the naming contract itself.
+
+`mlv-file-upload` keeps the base `'none'` strategy and is therefore still
+unnamed inside a field — see `.claude/projects/libs-file-upload.md`.
+
 The question a control's own label asks is the one `labelTarget` already
 answers, so both read one source of truth rather than each deciding again.
 Bind `[for]="_ownLabelFor()"`; a control whose `for` names something **other**

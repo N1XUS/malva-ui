@@ -281,6 +281,60 @@ interface MlvSwitchGroupAccessor {
 }
 ```
 
+### `MlvSwitchGroup` is the control an `mlv-form-field` resolves (2026-09, #217)
+
+The group also provides `MLV_FORM_CONTROL`, `useExisting` itself, and
+`implements MlvFormControl`. Without it the field's
+`contentChild(MLV_FORM_CONTROL)` — `descendants: true` by default — walked
+past the group and resolved the **first projected `mlv-switch`** instead, so a
+projected `<mlv-label>` could point its `for` at a nested control and the
+group's own `<mlv-label>` (rendered from `label`) could borrow the field's
+target from an unrelated sibling control. See
+`.claude/projects/libs-form-utils.md` § _The field resolves the outermost
+control_.
+
+The group is a labelled region, not an editable control, so the **nine**
+wrapper-facing halves of `MlvFormControl` it does not own — `focused`,
+`disabled`, `readonly`, `loading`, `clearable`, `hasValue`, `prepend`,
+`append`, `inset` — are constant, non-input signals. They exist so the
+`implements` clause type-checks the contract: an `ExistingProvider`'s
+`useExisting` is typed `any`, and `mlv-form-control-wrapper` calls several of
+them unguarded. `state` and `label` are the group's real inputs and answer for
+themselves.
+
+They are public members on an exported class, and that has one consumer-visible
+cost: `group.disabled()` on a `viewChild(MlvSwitchGroup)` **used to be a compile
+error** and now compiles and always answers `false`. None of the nine is an
+`input()`, so `[disabled]="…"` on the element still fails AOT with NG8002 — only
+the TypeScript read changed, and it changed from loud to silent. Read
+`computedDisabled()` on the individual `mlv-switch` children instead. Hiding
+them is not available: `implements` requires public members, and widening
+`MlvFormControl`'s own members to optional would break every consumer calling
+`inject(MLV_FORM_CONTROL).focused()` under `strictNullChecks`.
+
+### `MlvSwitchGroup` takes its accessible name from the field's label
+
+`labelTarget` reports `{ id, labelable: false }`, `id` being the **component
+host** — `mlv-switch-group` carries `role="group"` there, unlike
+`mlv-checkbox-group`, which uses an inner `<div>`. `labelable: false` is what
+makes `mlv-form-field` emit no `for`: a `<label for>` names only
+`button`/`input`/`meter`/`output`/`progress`/`select`/`textarea`. The group
+consumes the label through `aria-labelledby` instead, which is the association
+WAI-ARIA prescribes for a group and the same shape `mlv-radio-group` ships:
+
+```ts
+'[attr.aria-labelledby]': 'label() ? _labelId : _fieldLabelId()',
+```
+
+A label written on the group wins over one projected beside it, because it is
+the nearer, explicitly-authored name. The host `aria-label` binding is gone: it
+duplicated the rendered `<mlv-label>`, and `aria-labelledby` outranks it anyway.
+The host also gains an `id` attribute, which it did not carry before.
+
+Pinned by `switch-group-field-label.spec.ts`, whose
+`reports the element that carries role="group" as its label target` case fails
+when the id is emitted anywhere but the host.
+
 ---
 
 ## Usage Examples
