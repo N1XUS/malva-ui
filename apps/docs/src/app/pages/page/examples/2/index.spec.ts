@@ -5,6 +5,7 @@ import { Subject } from 'rxjs';
 import { MlvColorPickerPopup } from '@malva-ui/core/color-picker';
 import { MlvPageShell } from '@malva-ui/core/page';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
+import { MlvSidebar } from '@malva-ui/core/sidebar';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import PageAppShellExampleComponent from './index';
 
@@ -294,6 +295,52 @@ describe('PageAppShellExampleComponent', () => {
 
     expect(component.collapsed()).toBe(false);
     expect(menuButton()?.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it("takes the drawer's own close back into the topbar toggle", () => {
+    // `mlv-sidebar` writes `collapsed` itself whenever the offcanvas drawer
+    // closes — Escape, a backdrop click, `closeOnActivation` — through
+    // `_onDrawerOpenedChange`. A one-way `[collapsed]` binding drops that
+    // write, and then the sidebar is shut while the example still believes it
+    // is open: the topbar toggle reports `aria-expanded="true"`, is labelled
+    // "Collapse inspector", and its next click writes the value the sidebar
+    // already holds, so the drawer only reopens on the *second* press.
+    const { fixture, component, resize } = setup();
+    const inspector = (): MlvSidebar =>
+      fixture.debugElement
+        .queryAll(By.directive(MlvSidebar))
+        .map((d) => d.componentInstance as MlvSidebar)
+        .find((s) => s.ariaLabel() === 'Project inspector') as MlvSidebar;
+    const toggle = (): HTMLButtonElement =>
+      fixture.nativeElement.querySelector(
+        'button[aria-label="Open inspector"], button[aria-label="Collapse inspector"]',
+      );
+
+    // Narrow enough that the inspector is a drawer, then opened from the topbar.
+    resize.emitWidth(480);
+    fixture.detectChanges();
+    expect(component.inspectorMode()).toBe('offcanvas');
+    expect(component.inspectorCollapsed()).toBe(true);
+
+    toggle().click();
+    fixture.detectChanges();
+    expect(component.inspectorCollapsed()).toBe(false);
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+
+    // The drawer closes itself. This is the write `_onDrawerOpenedChange` makes;
+    // driving the real overlay would assert the same signal one layer down.
+    inspector().collapsed.set(true);
+    fixture.detectChanges();
+
+    expect(component.inspectorCollapsed()).toBe(true);
+    expect(toggle().getAttribute('aria-label')).toBe('Open inspector');
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+
+    // And one press reopens it, rather than spending the first press
+    // re-writing a value the sidebar already holds.
+    toggle().click();
+    fixture.detectChanges();
+    expect(component.inspectorCollapsed()).toBe(false);
   });
 
   it('activates custom mode when the popup emits a color', () => {

@@ -343,7 +343,7 @@
       ariaLabel="Project inspector"
       [mode]="inspectorMode()"
       drawerSide="end"
-      [collapsed]="inspectorCollapsed()"
+      [(collapsed)]="inspectorCollapsed"
       [attr.inert]="inspectorCollapsed() ? '' : null"
       [attr.aria-hidden]="inspectorCollapsed() ? 'true' : null"
       width="14rem"
