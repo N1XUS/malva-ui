@@ -15,6 +15,22 @@
   box-sizing: border-box;
 }
 
+// Anchor targets clear the fixed action bar.
+//
+// The documentation action bar is `position: fixed` and 72px tall, and the
+// document is the scrollport for every documentation page. Without this, the
+// `scrollIntoView` behind a table-of-contents click — and any `#slug` jump —
+// lands the heading at y ≈ 0, which is 71px *underneath* the bar: the one
+// heading the reader asked for is the one thing they cannot see. Shifting the
+// scrollport's own snap edge covers every entry point at once (the ToC, the
+// browser's find-and-scroll, focus scrolling) where a `scroll-margin-top` on
+// each heading would have to be repeated onto every element anything scrolls
+// to. 5.5rem is the bar plus the same breathing room `docs-toc` uses for its
+// own sticky top.
+html {
+  scroll-padding-top: 5.5rem;
+}
+
 // The document surface. `mlv-page-shell` paints `--mlv-background-base` /
 // `--mlv-text-primary` on itself, but routes that render no layout (the
 // showcase shell) inherited whatever `body` had — which used to be a

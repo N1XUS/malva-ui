@@ -30,6 +30,19 @@ import type { TocEntry } from './toc.types';
  * document order) becomes active. No manual scroll math, and it tracks whichever
  * panel is currently mounted because the elements are re-resolved whenever
  * `entries` changes.
+ *
+ * ### Why the column is never collapsed
+ *
+ * The host used to carry `docs-toc--hidden` (`display: none`) whenever
+ * `entries` was empty. `.docs-shell__main-area` is a flex row, so that took the
+ * 14rem column *and* the row's 1.5rem gap out of the flow — and the entry list
+ * is empty for the whole window between a navigation landing and the new
+ * panel's heading scan settling. The reading column therefore widened by 248px
+ * and snapped back on every navigation to an uncached route (measured: 932px →
+ * 1180px → 932px). The box is now unconditional above the 1200px tier and the
+ * `@if` inside the template is what empties it, so the gutter is shell
+ * geometry rather than page content. Below 1200px the media query still
+ * removes it outright, which is a static tier and never a transition.
  */
 @Component({
   selector: 'docs-toc',
@@ -39,7 +52,6 @@ import type { TocEntry } from './toc.types';
   styleUrl: './toc.component.scss',
   host: {
     class: 'docs-toc',
-    '[class.docs-toc--hidden]': 'entries().length === 0',
   },
 })
 export class DocsTableOfContentsComponent {
