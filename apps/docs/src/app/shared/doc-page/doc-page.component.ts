@@ -15,11 +15,10 @@ import { ExampleContainerComponent } from '../example-container';
 import { ExamplePipe } from '../example-pipe';
 import { ComponentPipe } from '../component-pipe';
 import { DocsDocumentationPipe } from '../documentation.pipe';
-import { DocsTocService, DocsTocSourceDirective } from '../toc';
+import { DocsTocService, DocsTocSourceDirective, slugify } from '../toc';
 import { ApiViewerComponent } from '../api-viewer';
 import { hasApiEntry } from '../../../generated/api';
 import { MlvDensityDirective } from '@malva-ui/cdk/density';
-import { LucideLink } from '@lucide/angular';
 import { showcaseRouteForComponent } from '../../showcases/showcase.registry';
 
 export interface DocPageMeta {
@@ -124,7 +123,6 @@ function canonicalPathForDocsHeader(header: string): string | null {
     ComponentPipe,
     DocsDocumentationPipe,
     MlvDensityDirective,
-    LucideLink,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -165,12 +163,25 @@ function canonicalPathForDocsHeader(header: string): string | null {
         <div [attr.id]="'example-' + $index">
           @if (example | docsDocumentation | async; as entry) {
             <div class="doc-page__example__documentation">
+              <!--
+                The docs-heading class opts this into the ToC scan, which then
+                owns the final id, href and label: the slug written here is a
+                best guess that collectTocEntries suffixes when two examples
+                share a title, and the href it writes is path-absolute, since
+                this app serves a base href of "/". The permalink is empty on
+                purpose — its glyph is a CSS mask, so that the MDX renderer can
+                emit the same markup through innerHTML, where Angular's
+                sanitizer drops an inline svg — which is why it carries its
+                accessible name here rather than waiting for the scan.
+              -->
               @if (entry.frontmatter.title; as title) {
-                <h2>
-                  {{ title }}
-                  <a [attr.href]="'#example-' + $index">
-                    <svg lucideLink [size]="16"></svg>
-                  </a>
+                <h2 class="docs-heading" [attr.id]="headingSlug(title)">
+                  {{ title
+                  }}<a
+                    class="docs-heading__anchor"
+                    [attr.href]="'#' + headingSlug(title)"
+                    [attr.aria-label]="'Link to ' + title"
+                  ></a>
                 </h2>
               }
               @if (entry.frontmatter.description; as description) {
@@ -212,6 +223,16 @@ function canonicalPathForDocsHeader(header: string): string | null {
   `,
 })
 export class DocPageComponent {
+  /**
+   * The id an example's title heading is authored with, so the heading and its
+   * permalink are addressable from the first frame. `DocsTocSourceDirective`
+   * confirms it on its scan, and is what resolves a collision between two
+   * examples that share a title — which this cannot see from inside one.
+   */
+  protected headingSlug(title: string): string {
+    return slugify(title);
+  }
+
   readonly type = input<string>();
   readonly header = input<string>();
   readonly meta = input.required<DocPageMeta>();

@@ -9,10 +9,22 @@ import { DocsTocService } from './toc.service';
 import type { TocEntry } from './toc.types';
 
 /**
- * @private Converts heading text into a URL-safe slug, matching the build-time
- * MDX plugin's `slugify` so an already-id'd MDX heading keeps its anchor.
+ * The class a heading must carry to be page structure. Only these are collected
+ * into the ToC, given an id and given a working permalink; anything else on the
+ * page is content that happens to be a heading.
  */
-function slugify(text: string): string {
+export const DOCS_HEADING_CLASS = 'docs-heading';
+
+/** The permalink rendered inside a {@link DOCS_HEADING_CLASS} heading. */
+export const DOCS_HEADING_ANCHOR_CLASS = 'docs-heading__anchor';
+
+/**
+ * Converts heading text into a URL-safe slug, matching the build-time MDX
+ * plugin's `slugify` so an already-id'd MDX heading keeps its anchor. Exported
+ * so a heading authored in a template can emit the same slug the scan will
+ * later confirm.
+ */
+export function slugify(text: string): string {
   return text
     .toLowerCase()
     .replace(/<[^>]*>/g, '')
@@ -23,37 +35,37 @@ function slugify(text: string): string {
 }
 
 /**
- * Collects the `h2`–`h4` headings under `host`, assigns each a **unique** id
- * (preferring an existing id, suffixing `-2`, `-3`, … on collision) and returns
- * the matching ToC entries in document order. Mutates the heading elements'
- * `id`s in place so `getElementById`, ToC anchors, and `@for track slug` all
- * agree even when two headings share a title. Headings with no text are skipped.
+ * Collects the `.docs-heading` elements under `host`, assigns each a **unique**
+ * id (preferring an existing id, suffixing `-2`, `-3`, … on collision) and
+ * returns the matching ToC entries in document order. Mutates the heading
+ * elements’ `id`s in place so `getElementById`, ToC anchors, and
+ * `@for track slug` all agree even when two headings share a title. Headings
+ * with no text are skipped.
  *
- * Headings inside an **editable region** (`[contenteditable]`, e.g. the Tiptap
- * document of an `mlv-editor` preview on the `/editor` page) are skipped
- * entirely: they are user document content rather than page structure, and the
- * id write would land in DOM the editor owns — ProseMirror reverts foreign
- * attribute mutations on its next flush, leaving a dead ToC anchor behind.
- * The attribute-presence selector also covers readonly editors, which render
- * `contenteditable="false"` but still manage their own DOM.
+ * **Opt-in by class, not by tag.** A docs page is full of `h2`–`h4` elements
+ * that are not page structure: the Tiptap document inside an `mlv-editor`
+ * preview on `/editor`, and `mlv-scheduler`’s range title, which would have
+ * published "31 Aug – 6 Sept 2026" once per example on `/scheduler`. Selecting
+ * by tag meant enumerating those exclusions and adding one for every future
+ * component that renders a heading of its own; selecting by class means a
+ * heading is listed because its author said it is a section, which no library
+ * component can accidentally satisfy. It also keeps the id write out of DOM
+ * ProseMirror owns, which it reverts on its next flush.
  *
- * Headings a **live preview renders itself** (`.example-container__preview`) are
- * skipped for the same reason: they belong to the demonstrated component, not to
- * the page. `mlv-scheduler` renders its range title as an `<h2>`, so without this
- * every example on `/scheduler` would publish "31 Aug – 6 Sept 2026" into "On
- * this page". MDX prose headings live outside the preview box and are kept.
+ * The permalink inside a heading is finished here too — see
+ * {@link syncHeadingAnchor}.
  *
  * Exported for unit testing; used by {@link DocsTocSourceDirective}.
  */
 export function collectTocEntries(host: HTMLElement): TocEntry[] {
-  const headings = Array.from(host.querySelectorAll<HTMLElement>('h2, h3, h4'));
+  const headings = Array.from(
+    host.querySelectorAll<HTMLElement>(`.${DOCS_HEADING_CLASS}`),
+  );
   const used = new Set<string>();
   const entries: TocEntry[] = [];
 
   for (const el of headings) {
-    if (el.closest('[contenteditable], .example-container__preview')) continue;
-
-    const text = (el.textContent ?? '').trim();
+    const text = headingText(el);
     if (!text) continue;
 
     const base = el.id || slugify(text);
@@ -64,11 +76,49 @@ export function collectTocEntries(host: HTMLElement): TocEntry[] {
     while (used.has(slug)) slug = `${base}-${n++}`;
     used.add(slug);
     el.id = slug;
+    syncHeadingAnchor(el, slug, text);
 
     entries.push({ level: Number(el.tagName[1]) || 2, text, slug });
   }
 
   return entries;
+}
+
+/**
+ * @private The heading’s own text, with the permalink’s contribution removed —
+ * the anchor is a child of the heading, so `textContent` would otherwise fold
+ * its accessible label into both the ToC entry and the slug.
+ */
+function headingText(el: HTMLElement): string {
+  const anchor = el.querySelector<HTMLElement>(`.${DOCS_HEADING_ANCHOR_CLASS}`);
+  const raw = el.textContent ?? '';
+  const label = anchor?.textContent ?? '';
+  return (label ? raw.replace(label, '') : raw).trim();
+}
+
+/**
+ * @private Points a heading’s permalink at the id that heading actually ended
+ * up with, and names it after the heading.
+ *
+ * Both halves belong here rather than where the markup is authored. The
+ * **href** has to be path-absolute: `apps/docs` serves a `<base href="/">`, and
+ * a bare `#slug` resolves against the base URL rather than the current one, so
+ * the link a reader copies off `/button` reads `/#variants` and lands on the
+ * home page. And a slug is only final after the collision pass above — the
+ * author of the markup cannot know theirs is the second "Basic usage" on the
+ * page. The **`aria-label`** is set from the resolved heading text, so the
+ * permalinks on a page are told apart by name instead of sharing one.
+ */
+function syncHeadingAnchor(el: HTMLElement, slug: string, text: string): void {
+  const anchor = el.querySelector<HTMLAnchorElement>(
+    `.${DOCS_HEADING_ANCHOR_CLASS}`,
+  );
+  if (!anchor) return;
+
+  const location = el.ownerDocument.defaultView?.location;
+  const base = location ? `${location.pathname}${location.search}` : '';
+  anchor.setAttribute('href', `${base}#${encodeURIComponent(slug)}`);
+  anchor.setAttribute('aria-label', `Link to ${text}`);
 }
 
 /**

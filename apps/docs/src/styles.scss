@@ -27,6 +27,70 @@
 // each heading would have to be repeated onto every element anything scrolls
 // to. 5.5rem is the bar plus the same breathing room `docs-toc` uses for its
 // own sticky top.
+// A section heading, wherever it is authored — the doc page's example title,
+// an MDX prose heading, a hand-written guide. The class is the ToC's opt-in
+// (`collectTocEntries` selects on it, so a heading a live preview renders is
+// never listed) and it carries the permalink's reveal.
+//
+// Global rather than component-scoped: MDX headings arrive through
+// `[innerHTML]` and so carry no `_ngcontent` attribute, which emulated
+// encapsulation would need.
+.docs-heading {
+  position: relative;
+
+  &__anchor {
+    // A permalink is a pointer affordance, but it stays a real link in the tab
+    // order at all times: `:focus-visible` reveals it for keyboard users, and
+    // where there is no hover to reveal it with it is simply always visible.
+    display: inline-block;
+    inline-size: 0.875em;
+    block-size: 0.875em;
+    margin-inline-start: 0.375em;
+    vertical-align: baseline;
+    opacity: 0;
+    background-color: var(--mlv-text-secondary);
+    transition:
+      opacity var(--mlv-duration-fast) var(--mlv-ease-default),
+      background-color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    // The Lucide `link` glyph. A mask rather than an inline `<svg>`: the MDX
+    // half of this HTML is bound with `[innerHTML]`, where Angular's sanitizer
+    // drops SVG, and a mask takes its colour from the rule above in both
+    // themes for free.
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E");
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+  }
+
+  &:hover &__anchor,
+  &__anchor:focus-visible {
+    opacity: 1;
+  }
+
+  &__anchor:hover,
+  &__anchor:focus-visible {
+    background-color: var(--mlv-text-action);
+  }
+
+  &__anchor:focus-visible {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+  }
+
+  @media (hover: none) {
+    &__anchor {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__anchor {
+      transition: none;
+    }
+  }
+}
+
 html {
   scroll-padding-top: 5.5rem;
 }

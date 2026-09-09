@@ -173,18 +173,27 @@ export class DocsTableOfContentsComponent {
   }
 
   /**
-   * @private Puts `#<slug>` on the address bar without navigating, so the
-   * heading is copyable and survives a reload. See the class doc for why this
-   * is `replaceState` and not the router.
+   * The URL a heading's slug is addressable at. Path-absolute on purpose:
+   * `apps/docs` serves a `<base href="/">`, and a relative `#slug` is resolved
+   * against the **base** URL rather than the current one — so a bare fragment
+   * reads `/#variants` in the address bar and on a copied link, and lands the
+   * reader on the home page.
+   */
+  fragmentHref(slug: string): string {
+    const location = this._document.defaultView?.location;
+    const base = location ? `${location.pathname}${location.search}` : '';
+    return `${base}#${encodeURIComponent(slug)}`;
+  }
+
+  /**
+   * @private Puts the heading's URL on the address bar without navigating, so
+   * it is copyable and survives a reload. See the class doc for why this is
+   * `replaceState` and not the router.
    */
   private _publishFragment(slug: string): void {
     this._consumedFragment = slug;
     const view = this._document.defaultView;
-    view?.history.replaceState(
-      view.history.state,
-      '',
-      `#${encodeURIComponent(slug)}`,
-    );
+    view?.history.replaceState(view.history.state, '', this.fragmentHref(slug));
   }
 
   /**

@@ -1011,6 +1011,15 @@ links as well as a ToC slug does; a fragment naming nothing stays unconsumed and
 a later publish still honours it, and a fragment already honoured is not
 re-applied on a tab switch.
 
+**Every fragment URL is path-absolute.** `apps/docs/src/index.html` declares
+`<base href="/">`, and a relative `#slug` — in `replaceState` and in an
+`<a href>` alike — resolves against the **document base URL**, not the current
+one, so a bare fragment read `/#variants` in the address bar and on a copied
+link and landed the reader on the home page. `fragmentHref(slug)` builds
+`location.pathname + location.search + '#' + encodeURIComponent(slug)`. It is
+public because the ToC's own links bind to it, and `DocsTocSourceDirective`
+builds the same shape for every heading permalink.
+
 Neither path does offset arithmetic — `html { scroll-padding-top: 5.5rem }` in
 `styles.scss` clears the 72px fixed bar for `scrollIntoView`, browser find, and
 focus scrolling alike. A **load-time** landing is followed by a bounded
@@ -1024,11 +1033,35 @@ descendant, leaving the wrapper's top at 11px, back under the bar.
 
 **File:** `apps/docs/src/app/shared/toc/toc-source.directive.ts`
 
-Applied to the **Examples** panel wrapper. Collects the panel's `h2`–`h4` headings, assigns each a **unique** id (preferring the MDX-provided id, suffixing `-2`, `-3`, … on collision so `getElementById` / ToC anchors / `@for track slug` never clash), and publishes the entries to `DocsTocService`. Because the examples are `[innerHTML]`-rendered MDX that resolves asynchronously, it scans on first render and re-scans on DOM mutations (debounced to a frame) until the content settles. The exported pure helper `collectTocEntries(host)` does the id-assignment and is unit-tested (`toc-source.directive.spec.ts`). The **API** panel does not use this directive — `docs-api-viewer` publishes its headings directly from the extracted data.
+Applied to the **Examples** panel wrapper. Collects the panel's `.docs-heading` elements in document order, assigns each a **unique** id (preferring an id the markup already carries, suffixing `-2`, `-3`, … on collision so `getElementById` / ToC anchors / `@for track slug` never clash), finishes each heading's permalink, and publishes the entries to `DocsTocService`. Because the examples are `[innerHTML]`-rendered MDX that resolves asynchronously, it scans on first render and re-scans on DOM mutations (debounced to a frame) until the content settles. The exported pure helper `collectTocEntries(host)` does all of that and is unit-tested (`toc-source.directive.spec.ts`); `DOCS_HEADING_CLASS`, `DOCS_HEADING_ANCHOR_CLASS` and `slugify` are exported beside it so the markup authors emit exactly the shape it expects. The **API** panel does not use this directive — `docs-api-viewer` publishes its headings directly from the extracted data.
 
-Headings inside an **editable region** (`[contenteditable]`) are skipped. The `/editor` page renders live `mlv-editor` previews whose Tiptap document carries its own `h2`s: those are user content, not page structure, and writing an `id` into ProseMirror-managed DOM only makes ProseMirror revert it on its next flush — leaving the ToC with an entry whose anchor no longer resolves. The attribute-presence selector also covers readonly editors, which render `contenteditable="false"` yet still own their DOM.
+**The scan is opt-in by class, not by tag.** Selecting `h2, h3, h4` needed a
+growing exclusion list — `[contenteditable]`, for the Tiptap document inside
+`/editor`'s live `mlv-editor` previews, and `.example-container__preview`, for
+`mlv-scheduler`'s `<h2>` range title, which published "31 Aug – 6 Sept 2026"
+once per example on `/scheduler` — and every future component that renders a
+heading of its own would have needed another. `.docs-heading` inverts it: a
+heading is listed because its author said so, which no library component can
+accidentally satisfy. Nothing without the class is even given an id, which
+matters beyond the ToC — an id written into ProseMirror-managed DOM is reverted
+on its next flush, leaving an entry whose anchor no longer resolves. Three
+authors emit the class: the MDX renderer (§9a), `DocPageComponent`'s example
+title, and the two hand-written guide pages (`getting-started`, `tailwind`).
+A guide page that stops emitting it empties its own ToC rather than falling
+back to tag matching.
 
-Headings a **live preview renders itself** (`.example-container__preview`) are skipped for the same reason: they belong to the demonstrated component, not to the page. `mlv-scheduler` renders its range title as an `<h2 class="mlv-scheduler__title">`, so without the skip "On this page" listed the same date range once per example on `/scheduler`; any library component with an internal `h2`–`h4` would do the same. MDX prose headings sit outside the preview box and are unaffected.
+**The directive owns each permalink's `href` and `aria-label`.** Both markup
+authors ship `<a class="docs-heading__anchor">` empty and pointing at a
+placeholder, because only the scan knows the final answer: the slug is
+collision-resolved here, so the author of the second "Basic usage" on a page
+cannot know theirs is `-2`, and the `href` has to be path-absolute for the
+`<base href="/">` reason above. The anchor's own text — it has none today, its
+glyph being a CSS mask — is subtracted from the heading before slugging, so a
+visually-hidden label added later cannot leak into the ToC entry or the id.
+`DocPageComponent` additionally binds `aria-label` in its own template, so its
+permalink is named from first paint and `@angular-eslint`'s `elements-content`
+has something to see on an element it reads as an empty `<a>`; the MDX anchor
+is named by the directive alone.
 
 ### `DocsTocService`
 
@@ -1192,6 +1225,16 @@ Imports `@malva-ui/styles` theme and animations. Notable global rules:
 - `.demo-row` — flexbox row with `gap: 12px`
 - `.docs-content` — white background, padding, border, shadow
 - `padding-top: 70px` on layout side/content to clear the fixed action bar
+- `html { scroll-padding-top: 5.5rem }` — clears the 72px fixed bar for
+  `scrollIntoView`, native fragment navigation, browser find and focus
+  scrolling in one declaration, so no code does offset arithmetic
+- `.docs-heading` / `.docs-heading__anchor` — the section heading and its
+  permalink. Global rather than component-scoped because MDX headings arrive
+  through `[innerHTML]` and so carry no `_ngcontent` attribute. The chain is a
+  Lucide `link` `mask-image` data URI coloured by `background-color`, so it
+  follows both themes; it is transparent at rest, revealed on heading hover and
+  on its own `:focus-visible` (with a Form A focus ring), and unconditionally
+  visible under `@media (hover: none)`
 - The docs shell imports only the required fourteen 4×3 `flag-icons` SVG assets;
   square assets are disabled to avoid duplicate Angular media output names.
 
@@ -1251,11 +1294,28 @@ Custom esbuild plugin registered via `@nx/angular:application`'s `plugins` optio
 
 - Extracts YAML frontmatter (title, description) via `gray-matter`
 - Parses Markdown to HTML via `marked`
-- Injects heading `id` attributes for anchor linking
+- Renders every heading as `<h{2,3,4} id="<slug>" class="docs-heading">` with a
+  trailing `<a class="docs-heading__anchor">`
 - Extracts h2-h4 headings for Table of Contents data
 - Returns a JS module: `export default { html, frontmatter, toc }`
 
+**The heading shape is what the ToC scan and the permalink both read.** The
+class opts the heading in (`DocsTocSourceDirective`, §6); the anchor ships
+**empty** and with a placeholder `href`, because this HTML reaches the DOM
+through `[innerHTML]` — Angular's sanitizer drops an inline `<svg>`, so the
+chain glyph is a CSS `mask-image` in the global stylesheet, and the directive
+writes the real `href` and the `aria-label` through the DOM API. The module's
+build-time `toc` export is kept because `MdxEntry.toc` is public to the app,
+but **nothing reads it at runtime** — the rendered ToC is scanned from the DOM,
+which is what lets two examples share a heading text.
+
 Runs during both `build` and `serve` with full HMR support — no pre-build step needed.
+
+**Editing the plugin itself needs a `serve` restart.** esbuild loads
+`mdx-transform.ts` once when the dev server starts, so a change to the renderer
+leaves every already-transformed `.mdx` exactly as it was — the page keeps
+serving the old HTML with no error and no rebuild. Editing an `.mdx` file HMRs
+normally.
 
 ### MDX File Format
 
