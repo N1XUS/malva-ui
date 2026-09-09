@@ -149,10 +149,27 @@
       min-width: 0;
     }
 
-    &__title-node h1,
-    &__title-node h2,
-    &__title-node h3 {
+    // The node declares the role; the projected heading has to adopt it. A
+    // bare `<h1>` — the shape every showcase and every example in `apps/docs`
+    // writes — carries the UA's `font-size: 2em`, so it renders whatever role
+    // the node resolved at **double** size: measured on `/page`'s record
+    // editor, `size="s"` asks for a 20px title and got 40px, wrapping to three
+    // lines and taking 165px of a 538px header on a 390px canvas. That defeats
+    // the `size` input outright, and it defeats the collapse with it — the
+    // crossfade's clipped cell is sized from these two nodes, so a title that
+    // wraps in both roles is cut mid-scrub instead of shrinking.
+    //
+    // Only the UA default is being neutralised. A heading that declares its
+    // own role wins on specificity and is left alone: `.mlv-title[data-level]`
+    // is 0,2,0 against this rule's 0,1,1. Such a title makes both nodes the
+    // same size, so it contributes nothing to the collapse distance — that is
+    // the consumer's call, and `titleClipped` still reports it.
+    &__title-node :is(h1, h2, h3, h4, h5, h6) {
       margin: 0;
+      font-size: inherit;
+      font-weight: inherit;
+      line-height: inherit;
+      letter-spacing: inherit;
     }
 
     // The expanded role fades out linearly; the collapsed one fades in on a

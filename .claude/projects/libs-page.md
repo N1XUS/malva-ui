@@ -1267,6 +1267,33 @@ template rather than by the header: see _The title template holds the title and
 nothing else_ above for what must not be declared inside it, and use
 `focusTitle()` rather than reaching for a node by id.
 
+**The node declares the type role; the projected heading adopts it.** The role
+lives on `.mlv-page-header__title-node`, and a projected heading inherits every
+part of it — `font-size`, `font-weight`, `line-height`, `letter-spacing` —
+through an explicit `inherit` on `&__title-node :is(h1, h2, h3, h4, h5, h6)`.
+Without that, the UA's own `h1 { font-size: 2em }` wins over the inherited
+value and the title renders at **double** whichever role the node resolved:
+measured on `/page`'s record editor, `size="s"` asked for a 20px title and got
+40px, wrapping to three lines and taking 165px of a 538px header on a 390px
+canvas. A bare `<h1>` is the shape every showcase and example writes, so that
+was the common case, not the edge one. It defeats the `size` input outright,
+and it defeats the collapse with it: the crossfade's clipped cell is sized from
+the two measured nodes, so a title that wraps in _both_ roles is cut mid-scrub
+instead of shrinking.
+
+Only the UA default is neutralised. **A heading that declares its own role is
+left alone** — `.mlv-title[data-level]` is 0,2,0 against the rule's 0,1,1, so an
+`<h1 mlvTitle>` keeps whatever level it asked for. That is the consumer's call
+and stays one, but it is worth knowing what it costs: pinning both nodes to the
+same size makes the measured delta zero, so such a title contributes **nothing**
+to the page's `collapseDistance` and the crossfade has nothing to cross. Two of
+the `/page` examples are written that way. `titleClipped` still reports on it.
+
+Pinned by `page-header.spec.ts` § _two titles, exactly one exposed_, which reads
+the compiled stylesheet rather than a computed style: jsdom resolves no `var()`,
+so every type role computes to `''` there and a `getComputedStyle` comparison
+between the node and its heading would pass whatever the rule said.
+
 `mlv-page-header--scrolled` (raised shadow) follows the snap controller's
 `overlapped`, so chrome that is not collapsing still marks itself as sitting
 over content. Action regions force `white-space: nowrap` on buttons/links.

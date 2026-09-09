@@ -37,6 +37,16 @@ const PAGE_CSS = sass.compile(join(HEADER_DIR, '../page/page.scss'), {
   style: 'expanded',
 }).css;
 
+/**
+ * The header's own stylesheet, for the one contract jsdom cannot answer: it
+ * resolves no `var()`, so every type role here computes to `''` and a
+ * `getComputedStyle` comparison between the node and its projected heading
+ * would pass whatever the rule said.
+ */
+const HEADER_CSS = sass.compile(join(HEADER_DIR, 'page-header.scss'), {
+  style: 'expanded',
+}).css;
+
 @Component({
   template: `
     <mlv-page-header>
@@ -753,6 +763,31 @@ describe('MlvPageHeader', () => {
       ) as NodeListOf<HTMLElement>;
       return { controller, fixture, nodes };
     }
+
+    // A bare `<h1>` is what every consumer in this repo projects — six
+    // showcases and the `/page` examples — and the UA gives it
+    // `font-size: 2em`, so it rendered the node's role at double size:
+    // measured on `/page`'s record editor, `size="s"` asks for a 20px title
+    // and got 40px, wrapping to three lines and taking 165px of a 538px header
+    // on a 390px canvas. That defeats `size`, and the collapse with it, since
+    // the crossfade's clipped cell is sized from these two nodes.
+    it('makes a projected heading adopt the node type role', async () => {
+      const { nodes } = await createTwoTitleHost();
+
+      expect(nodes[0].querySelector('h1')).not.toBeNull();
+      expect(HEADER_CSS).toMatch(
+        /\.mlv-page-header__title-node :is\(h1, h2, h3, h4, h5, h6\) \{[^}]*font-size: inherit;/,
+      );
+      // Weight, leading and tracking travel with the size — a role is all four
+      // or it is a size change wearing the UA's other three.
+      for (const property of [
+        'font-weight: inherit',
+        'line-height: inherit',
+        'letter-spacing: inherit',
+      ]) {
+        expect(HEADER_CSS).toContain(property);
+      }
+    });
 
     it('renders both type roles and exposes exactly one at a time', async () => {
       const { controller, fixture, nodes } = await createTwoTitleHost();
