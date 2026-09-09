@@ -532,11 +532,6 @@ export const pageRoutes = [
       ),
   },
   {
-    path: 'layout',
-    loadComponent: () =>
-      import('./pages/layout/index').then((m) => m.LayoutPageComponent),
-  },
-  {
     path: 'overlay',
     loadComponent: () =>
       import('./pages/overlay/index').then((m) => m.OverlayPageComponent),
@@ -747,7 +742,6 @@ const GROUP_DEFINITIONS = [
       'drawer',
       'expand',
       'form',
-      'layout',
       'page',
       'split-pane',
       'toolbar',
@@ -877,7 +871,6 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   input: 'text-cursor-input',
   internationalization: 'languages',
   kbd: 'keyboard',
-  layout: 'layout-dashboard',
   link: 'link',
   list: 'list',
   loader: 'loader',

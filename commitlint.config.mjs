@@ -51,7 +51,6 @@ export default {
         'icon-toggle',
         'input',
         'kbd',
-        'layout',
         'link',
         'list',
         'loader',

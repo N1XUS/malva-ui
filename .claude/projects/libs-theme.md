@@ -33,9 +33,9 @@ contract when it never was.
 | `defaultTheme`        | Const    | `'light'`                                         |
 | `defaultThemeKey`     | Const    | `'mlv-theme'`                                     |
 
-`@malva-ui/core/layout` re-exports every one of these unchanged for one minor
-(`@deprecated since 0.2.0 — removed in 1.0`). Identities are the same objects,
-so mixing the two import paths in one application is safe.
+`@malva-ui/core/layout` used to re-export every one of these; that shim is
+**deleted** — see `docs/migrations/2026-09-layout-removal.md`. This entry point
+is the only import path.
 
 ## `provideDefaultTheme` starts the service
 
@@ -77,7 +77,7 @@ constructor `effect`, browser-only.
    corrupt value degrades to the configured default instead of throwing.
 
 The key and the encoding are unchanged from the `@malva-ui/core/layout` era, so
-a consumer that moves import paths keeps every user's saved choice.
+a consumer moving import paths keeps every user's saved choice.
 
 ## System dark mode
 
