@@ -167,6 +167,8 @@ interactive surface of these three components and exist only while open. Each
 project sweeps closed, open-anchored and open-sheet (the time picker also
 sweeps 12h + seconds, which changes the column count and adds the AM/PM
 buttons). A closed-only sweep would have satisfied the guard while leaving all
-of that unswept, and the guard raises `stale-rollout` on a `ROLLOUT_PENDING`
-entry whose project has gained _any_ sweep — so it could never have asked for
-the rest afterwards.
+of that unswept, and — before #257 — the guard raised `stale-rollout` on a
+`ROLLOUT_PENDING` entry whose project had gained _any_ sweep, so it could never
+have asked for the rest afterwards. (Since #257 a partially-swept project keeps
+its entry as `{ project, owes: [...] }` instead; a bare entry is still the
+"nothing swept" shape and still goes stale on the first sweep.)
