@@ -405,6 +405,171 @@ describe('MlvPopupService — direction', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Inline offsets (#180)
+//
+// `ConnectedPosition.offsetX` is **physical**. `FlexibleConnectedPositionStrategy`
+// returns it verbatim from `_getOffset()` and applies it as `x += offsetX` when
+// scoring a candidate and as `translateX(${offsetX}px)` on the pane; there is no
+// `_isRtl()` anywhere on that path, unlike `originX` / `overlayX`, which the
+// strategy does mirror. So a `right-*` popup — mirrored to render physically
+// *left* of its trigger in RTL — kept being pushed 8px further right: the 8px
+// gap became an 8px overlap, a 16px error against intent.
+//
+// The service therefore mirrors the inline offset against the direction it
+// already resolves for the pane, and re-mirrors it whenever that direction
+// changes under an open overlay.
+//
+// **What these read.** The pane's own `transform`, which CDK composes from
+// `offsetX` alone — no measurement enters into it, so jsdom's missing layout
+// does not either. The all-zero rects do decide *which* candidate is chosen:
+// every position "fits" a 0×0 viewport, so `_getOverlayFit` accepts the first
+// entry and the loop returns, which is what makes `right-start` the resolved
+// position in every case below. The physical anchor property CDK picks
+// (`left` in LTR, `right` in RTL) is asserted alongside it, because it is the
+// half that already mirrored and is what makes the unmirrored offset wrong.
+// ---------------------------------------------------------------------------
+
+describe('MlvPopupService — inline offsets', () => {
+  let service: MlvPopupService;
+  let overlayContainer: OverlayContainer;
+  let rtlService: MlvRtlService;
+
+  beforeEach(() => {
+    document.documentElement.removeAttribute('dir');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ imports: [HostComponent] });
+    service = TestBed.inject(MlvPopupService);
+    overlayContainer = TestBed.inject(OverlayContainer);
+    rtlService = TestBed.inject(MlvRtlService);
+  });
+
+  afterEach(() => {
+    rtlService.setDirection('ltr');
+    overlayContainer.ngOnDestroy();
+    document.documentElement.removeAttribute('dir');
+  });
+
+  /** Opens a popup and flushes the `afterNextRender` in which CDK positions it. */
+  function openPositioned(
+    scopeDir: 'ltr' | 'rtl' | null,
+    names: Parameters<MlvPopupService['resolvePositions']>[0] = [
+      'right-start',
+      'left-start',
+    ],
+  ) {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    const host = fixture.componentInstance;
+    const originEl = host.origin().nativeElement as HTMLElement;
+    if (scopeDir) originEl.setAttribute('dir', scopeDir);
+
+    const handle = service.open({
+      origin: host.origin(),
+      template: host.tpl(),
+      vcr: host.vcr,
+      positions: service.resolvePositions(names),
+      hasBackdrop: false,
+      onClose: () => undefined,
+    });
+    TestBed.tick();
+    return handle;
+  }
+
+  /** The pane's inline `transform` — `''` until the strategy has applied. */
+  function transformOf(handle: {
+    overlayRef: { overlayElement: HTMLElement };
+  }) {
+    return handle.overlayRef.overlayElement.style.transform;
+  }
+
+  it('pushes a right-start popup away from the trigger in LTR', () => {
+    const handle = openPositioned(null);
+    const pane = handle.overlayRef.overlayElement;
+
+    // `overlayX: 'start'` resolves to the physical left anchor, so +8px is
+    // rightward — away from the trigger's right edge.
+    expect(pane.style.left).toBe('0px');
+    expect(transformOf(handle)).toBe('translateX(8px)');
+    handle.close();
+  });
+
+  it('mirrors the gap when the document direction is RTL', () => {
+    rtlService.setDirection('rtl');
+    const handle = openPositioned(null);
+    const pane = handle.overlayRef.overlayElement;
+
+    // Mirrored: the panel now hangs off the trigger's physical *left*, so the
+    // gap has to point left too. Unmirrored this was `translateX(8px)` — 8px
+    // back over the trigger.
+    expect(pane.style.right).toBe('0px');
+    expect(transformOf(handle)).toBe('translateX(-8px)');
+    handle.close();
+  });
+
+  it('mirrors it under a scoped [dir="rtl"] while the document stays LTR', () => {
+    const handle = openPositioned('rtl');
+
+    expect(rtlService.direction()).toBe('ltr');
+    expect(handle.overlayRef.getDirection()).toBe('rtl');
+    expect(transformOf(handle)).toBe('translateX(-8px)');
+    handle.close();
+  });
+
+  it('leaves it alone in an LTR island inside an RTL document', () => {
+    rtlService.setDirection('rtl');
+    const handle = openPositioned('ltr');
+
+    expect(rtlService.direction()).toBe('rtl');
+    expect(handle.overlayRef.getDirection()).toBe('ltr');
+    expect(transformOf(handle)).toBe('translateX(8px)');
+    handle.close();
+  });
+
+  it('leaves the block-axis gap untouched in both directions', () => {
+    const ltr = openPositioned(null, ['bottom-start']);
+    expect(transformOf(ltr)).toBe('translateY(8px)');
+    ltr.close();
+
+    const rtl = openPositioned('rtl', ['bottom-start']);
+    expect(rtl.overlayRef.getDirection()).toBe('rtl');
+    // `offsetY` is the block axis, which never mirrors.
+    expect(transformOf(rtl)).toBe('translateY(8px)');
+    rtl.close();
+  });
+
+  it('re-mirrors an open popup when the direction flips under it', () => {
+    const handle = openPositioned(null);
+    expect(transformOf(handle)).toBe('translateX(8px)');
+
+    // Nothing re-parents an open pane, so the same watch that re-sets the
+    // pane's `dir` has to re-apply the mirrored offset — `updatePosition()`
+    // alone would re-run the strategy over the stale, unmirrored list.
+    rtlService.setDirection('rtl');
+    TestBed.tick();
+
+    expect(handle.overlayRef.getDirection()).toBe('rtl');
+    expect(transformOf(handle)).toBe('translateX(-8px)');
+    handle.close();
+  });
+
+  it('mirrors a position list swapped in while the popup is open', () => {
+    const handle = openPositioned('rtl', ['bottom-start']);
+    expect(transformOf(handle)).toBe('translateY(8px)');
+
+    // `setPositionOrigin` is how a context menu re-anchors from an element to
+    // a cursor, dropping the element gap for a point-anchored list. A list
+    // that arrives this way is mirrored on the same terms as the opening one.
+    handle.setPositionOrigin(
+      { x: 10, y: 10 },
+      service.resolvePositions('right-start'),
+    );
+
+    expect(transformOf(handle)).toBe('translateX(-8px)');
+    handle.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Listener binding: phase, target document, and teardown
 //
 // The click-outside listener moved from a raw `addEventListener(…, true)` to

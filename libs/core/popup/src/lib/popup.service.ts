@@ -11,7 +11,7 @@ import type {
 } from '@angular/cdk/overlay';
 import { Overlay } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
-import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { MlvRtlService, mlvMirrorInlineOffsets } from '@malva-ui/cdk/utils';
 import type { MlvDirection } from '@malva-ui/cdk/utils';
 import type { MlvPopupPositionName } from './popup-positions';
 import { MlvPopupPositionResolver, POPUP_POSITIONS } from './popup-positions';
@@ -78,6 +78,17 @@ export interface MlvPopupOpenConfig {
    *
    * Use {@link MlvPopupService.resolvePositions} to build this list from named
    * positions when working programmatically.
+   *
+   * **Logical, including `offsetX`.** CDK mirrors `originX` / `overlayX`
+   * against the pane's direction but applies `offsetX` as raw physical pixels,
+   * so the service mirrors the inline offset itself before handing the list to
+   * the strategy, and again whenever the direction changes under an open
+   * overlay (#180). Write the offset as it should read in LTR — a positive
+   * value pushes toward inline-end — and it means the same thing in RTL. For a
+   * gap that must stay on one *physical* side regardless of direction, use
+   * `margin-left` / `margin-right` on the panel — **not** `margin-inline-*`,
+   * which is the logical form and mirrors with the direction like `offsetX`
+   * now does.
    */
   positions: ConnectedPosition[];
   /** Optional size constraints applied to the overlay panel. */
@@ -167,7 +178,10 @@ export interface MlvPopupHandle {
    * new cursor instead of stacking a second one. `positions` matters when the
    * anchor changes *kind* rather than just place: a context menu re-anchored
    * from its host element to a cursor must also drop the 8px element gap, which
-   * the strategy would otherwise keep applying to the new point.
+   * the strategy would otherwise keep applying to the new point. A list passed
+   * here is logical on the same terms as {@link MlvPopupOpenConfig.positions},
+   * and the direction is re-read from the origin on every call, so a re-anchor
+   * across a `[dir]` scope re-mirrors the inline offsets with it.
    *
    * No-op in `fullscreen` mode, which uses a global strategy with no origin.
    */
@@ -272,6 +286,20 @@ export class MlvPopupService {
     // withPush(true) for all other strategies: CDK keeps the overlay inside the
     // viewport until the strategy itself decides what to do (close, block, noop).
     const push = (config.scrollStrategy ?? 'reposition') !== 'reposition';
+
+    // The pane is portaled to the overlay container on <body>, outside any
+    // `[dir]` scope the origin sits in, so the origin's direction has to be
+    // resolved here and passed explicitly. It drives `start`/`end` mirroring in
+    // `FlexibleConnectedPositionStrategy` — and, below, the inline offsets the
+    // strategy would otherwise leave physical.
+    const direction = this._rtl.resolveDirection(config.origin);
+
+    // The logical list as the caller wrote it. `setPositionOrigin` may replace
+    // it while the popup is open, and both it and a direction flip re-derive
+    // the mirrored list from whatever is current — see `applyPositions`.
+    let basePositions = config.positions;
+    let appliedDirection = direction;
+
     const positionStrategy = fullscreen
       ? this._overlay.position().global()
       : this._overlay
@@ -280,7 +308,7 @@ export class MlvPopupService {
           // element in `origin` still owns direction and focus — see the field
           // docs on `MlvPopupOpenConfig`.
           .flexibleConnectedTo(config.positionOrigin ?? config.origin)
-          .withPositions(config.positions)
+          .withPositions(mlvMirrorInlineOffsets(basePositions, direction))
           .withPush(push)
           .withFlexibleDimensions(flexible)
           .withGrowAfterOpen(flexible);
@@ -291,11 +319,7 @@ export class MlvPopupService {
 
     const overlayRef = this._overlay.create({
       positionStrategy,
-      // The pane is portaled to the overlay container on <body>, outside any
-      // `[dir]` scope the origin sits in, so the origin's direction has to be
-      // passed explicitly. It also drives `start`/`end` position mirroring in
-      // `FlexibleConnectedPositionStrategy`.
-      direction: this._rtl.resolveDirection(config.origin),
+      direction,
       hasBackdrop,
       ...(hasBackdrop
         ? {
@@ -341,6 +365,32 @@ export class MlvPopupService {
       });
     }
 
+    /**
+     * Re-derives the mirrored position list and hands it to the strategy.
+     *
+     * `next` replaces the logical list itself — a re-anchor that changes the
+     * *kind* of origin, where the caller drops the element gap along with the
+     * element. Otherwise only the direction has moved.
+     *
+     * A no-op when neither has changed, so a repeated call hands CDK the same
+     * objects: `positionChanges` is deduplicated by the identity of the chosen
+     * `ConnectedPosition`, and `withPositions` clears `_lastPosition` when the
+     * previous choice is no longer in the list.
+     */
+    const applyPositions = (
+      nextDirection: MlvDirection,
+      next?: ConnectedPosition[],
+    ): void => {
+      // The global (full-screen) strategy takes no positions at all.
+      if (fullscreen) return;
+      if (!next && nextDirection === appliedDirection) return;
+      basePositions = next ?? basePositions;
+      appliedDirection = nextDirection;
+      (positionStrategy as FlexibleConnectedPositionStrategy).withPositions(
+        mlvMirrorInlineOffsets(basePositions, nextDirection),
+      );
+    };
+
     // Collect cleanup callbacks so they all run on close regardless of how it was triggered.
     const cleanups: (() => void)[] = [];
 
@@ -351,17 +401,27 @@ export class MlvPopupService {
     // `start`/`end` against the old direction, so the panel stays put while the
     // trigger moves to the other edge.
     cleanups.push(
-      this._rtl.watchDirection(config.origin, (direction) => {
-        overlayRef.setDirection(direction);
+      this._rtl.watchDirection(config.origin, (nextDirection) => {
+        overlayRef.setDirection(nextDirection);
+        // Re-mirror before repositioning: the strategy still holds the list as
+        // it was mirrored for the direction the popup opened with, and
+        // `updatePosition()` would faithfully re-apply that — moving the panel
+        // to the trigger's other side while keeping its old physical offset.
+        applyPositions(nextDirection);
         overlayRef.updatePosition();
         // `updatePosition()` re-runs the strategy, but CDK only re-emits
         // `positionChanges` when the *chosen* `ConnectedPosition` object
-        // changes — and mirroring usually re-resolves `start`/`end` within the
-        // same entry. So the emission above cannot be relied on to tell a
-        // consumer deriving physical geometry that the axis just flipped;
-        // re-deliver the freshest pair explicitly. Idempotent: if the strategy
-        // did emit, it has already refreshed `lastPositionChange` and set the
-        // same direction.
+        // changes (identity, not value: `_lastPosition` is compared with `!==`,
+        // and `withPositions` nulls it when the old entry is not in the new
+        // list). That splits by whether the list carries an inline offset:
+        // without one `applyPositions` returns the same array by reference and
+        // CDK stays silent, so this re-delivery is the *only* signal; with one
+        // it hands over fresh objects, CDK emits, and the call below is a
+        // second, identical one. Both are fine — every consumer feeds a signal
+        // — but do not "optimise" this away for the offset case without
+        // checking the offset-free one, where removing it loses the event
+        // entirely. Idempotent: if the strategy did emit, it has already
+        // refreshed `lastPositionChange` and set the same direction.
         //
         // `!fullscreen` is stated rather than left to the fact that a global
         // strategy never fills `lastPositionChange` — the guard on the
@@ -446,13 +506,15 @@ export class MlvPopupService {
       if (disposed || fullscreen || !overlayRef.hasAttached()) return;
       const strategy = positionStrategy as FlexibleConnectedPositionStrategy;
       strategy.setOrigin(origin);
-      if (positions) strategy.withPositions(positions);
       // `config.origin` is allowed to resolve lazily to another element — a
       // context menu re-anchored from one row to the next, possibly across a
       // `[dir]` scope — and `watchDirection` only reacts to `dir` attributes
       // changing, not to the origin changing, so the pane's direction is
-      // re-read here rather than only at open.
-      overlayRef.setDirection(this._rtl.resolveDirection(config.origin));
+      // re-read here rather than only at open. The list is re-mirrored against
+      // it whether or not a new one arrived, for the same reason.
+      const nextDirection = this._rtl.resolveDirection(config.origin);
+      overlayRef.setDirection(nextDirection);
+      applyPositions(nextDirection, positions);
       overlayRef.updatePosition();
     };
 
