@@ -1294,6 +1294,49 @@ the compiled stylesheet rather than a computed style: jsdom resolves no `var()`,
 so every type role computes to `''` there and a `getComputedStyle` comparison
 between the node and its heading would pass whatever the rule said.
 
+**A narrow canvas holds the title to one line.** Below `40rem` the title node is
+`white-space: nowrap` + `text-overflow: ellipsis`, and the cell above it gets
+`min-inline-size: 0` so the un-wrappable text ellipses instead of setting the
+flex row's width.
+
+This is not a typographic preference — it is what keeps the collapse from
+cutting the title. The cell is `overflow: hidden` and scrubs between the two
+roles' **measured** heights, while the large role holds full opacity until the
+small one starts fading in at 0.6 snap. So a title that wraps on a narrow canvas
+is not merely tall: through the first two thirds of the gesture the reader
+watches the only visible heading lose its second line and then get sliced
+through the middle of the first. Measured on `/page`'s record editor at a 375px
+canvas: `--mlv-page-header-title-size` was **50px** against a 23px collapsed
+size, so 27px of a visible heading was removed mid-gesture. With the rule it is
+25px against 23px — a worst-case 1.6px of descender slack, at a scrub position
+where the large role is down to 0.125 opacity.
+
+A wide canvas keeps wrapping, because there the second line is a real line of a
+real headline and the cell is measured to hold it. The narrow canvas makes the
+other trade: the tail of a long title is worth less than a collapse that reads.
+Nothing is removed from the accessibility tree — `text-overflow` truncates
+painted glyphs, not the text node — and `titleClipped` is exactly how a consumer
+learns it happened.
+
+**The node ellipses; a projected heading is inlined so it can.**
+`text-overflow` acts on the block box that directly contains the overflowing
+inline text, so a block-level `<h1>` child would clip and ellipse _itself_ and
+leave the node's own box exactly as wide as its content. `titleClipped` is
+`scrollWidth > clientWidth` **on the node**, so it would then report `false` for
+a title the reader can plainly see truncated — measured at 375px with the
+heading left block-level: node 287/287, the `<h1>` inside it 291/287. The narrow
+block therefore also sets `display: inline` on a projected heading, which keeps
+one element both painting the ellipsis and measuring it. That is a
+box-generation change, not a semantic one: the heading keeps its role and level.
+It is deliberately not `display: contents`, which has historically dropped
+heading semantics outright in some engines.
+
+Both halves are pinned in `page-header.spec.ts` § _responsive withholding_, again
+on the compiled stylesheet — jsdom resolves no container query, so a
+`getComputedStyle` assertion there could only ever read the wide-canvas
+fallback. The second test also asserts the ellipsis is **not** on the heading,
+which is the shape that silently breaks `titleClipped`.
+
 `mlv-page-header--scrolled` (raised shadow) follows the snap controller's
 `overlapped`, so chrome that is not collapsing still marks itself as sitting
 over content. Action regions force `white-space: nowrap` on buttons/links.

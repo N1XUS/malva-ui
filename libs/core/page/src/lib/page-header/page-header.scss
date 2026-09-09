@@ -327,6 +327,54 @@
       flex-wrap: wrap;
       justify-content: flex-start;
     }
+
+    // One line, and the tail is spent instead of the collapse.
+    //
+    // The crossfade's cell is `overflow: hidden` and scrubs between the two
+    // roles' *measured* heights, so a title that wraps is not merely tall — it
+    // is **cut**. The large role holds full opacity until the small one starts
+    // fading in at 0.6 snap, so through the first two thirds of the gesture the
+    // reader is watching the only visible heading lose its second line and then
+    // get guillotined through the middle of its first. Measured on `/page`'s
+    // record editor at a 375px canvas: a 50px two-line title against a 23px
+    // collapsed one, 27px of it removed mid-gesture.
+    //
+    // A wide canvas keeps wrapping, because there the second line is a real
+    // line of a real headline and the cell is measured to hold it. This is the
+    // narrow canvas making the other trade: the end of a long title is worth
+    // less than a collapse that reads, and the full string stays in the
+    // accessibility tree either way — `text-overflow` truncates the painted
+    // glyphs, not the text node.
+    //
+    .mlv-page-header__title {
+      // A flex item's `auto` minimum is its content, so without this the
+      // now-unwrappable title sets the row's width instead of ellipsing —
+      // `min-width: 0` on the node inside it cannot reach up here.
+      min-inline-size: 0;
+    }
+
+    // The **node** ellipses, and a projected heading goes inline so that it
+    // can. `text-overflow` acts on the block box that directly contains the
+    // overflowing inline text, so a block-level `<h1>` child would clip and
+    // ellipse *itself*, leaving the node's own box exactly as wide as its
+    // content — and `titleClipped`, which is `scrollWidth > clientWidth` on
+    // the node, would then report `false` for a title the reader can see
+    // truncated. Inlining the heading puts the text back in the node's own
+    // line box, so one element both paints the ellipsis and measures it.
+    //
+    // `display: inline` is a box-generation change, not a semantic one: the
+    // heading keeps its role and its level in the accessibility tree. That is
+    // the reason it is not `display: contents`, which has historically dropped
+    // heading semantics outright in some engines.
+    .mlv-page-header__title-node {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .mlv-page-header__title-node :is(h1, h2, h3, h4, h5, h6) {
+      display: inline;
+    }
   }
 
   @include mixins.reduced-motion('mlv-page-header');

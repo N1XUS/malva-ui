@@ -380,6 +380,60 @@ describe('MlvPageHeader', () => {
       expect(PAGE_CSS).toContain('[data-hide-on=narrow]');
       expect(PAGE_CSS).toContain('[data-hide-on=wide]');
     });
+
+    it('holds the title to one line on a narrow canvas', () => {
+      // The crossfade's cell is `overflow: hidden` and scrubs between the two
+      // roles' *measured* heights, so a title that wraps there is not merely
+      // tall — it is cut. The large role keeps full opacity until the small one
+      // begins fading in at 0.6 snap, so the reader watches the only visible
+      // heading lose a line and then get sliced through the middle of the one
+      // that is left. Measured on `/page`'s record editor at a 375px canvas
+      // before this rule: a 50px two-line title against a 23px collapsed one,
+      // 27px of it removed mid-gesture; after it, 25px against 23px.
+      //
+      // Asserted on the compiled stylesheet because jsdom resolves no
+      // container query — a `getComputedStyle` assertion here could only ever
+      // be reading the wide-canvas fallback.
+      const narrow = HEADER_CSS.slice(
+        HEADER_CSS.indexOf('@container mlv-page (width <= 40rem)'),
+      );
+      expect(narrow).not.toBe('');
+
+      expect(narrow).toMatch(
+        /\.mlv-page-header__title-node \{[^}]*white-space: nowrap;[^}]*text-overflow: ellipsis;/,
+      );
+      // Without this the un-wrappable title sets the flex row's width instead
+      // of ellipsing: a flex item's `auto` minimum is its content, and the
+      // node's own `min-width: 0` cannot reach up to the cell.
+      expect(narrow).toMatch(
+        /\.mlv-page-header__title \{[^}]*min-inline-size: 0;/,
+      );
+    });
+
+    it('ellipses on the node, not on a projected heading', () => {
+      // `text-overflow` acts on the block box that directly contains the
+      // overflowing inline text. A block-level `<h1>` child would therefore
+      // clip and ellipse *itself*, leaving the node's box exactly as wide as
+      // its content — and `titleClipped`, which is `scrollWidth >
+      // clientWidth` on the node, would report `false` for a title the reader
+      // can plainly see truncated. Inlining the heading keeps one element both
+      // painting the ellipsis and measuring it.
+      //
+      // Measured at a 375px canvas: with the heading left block-level, node
+      // 287/287 (reported unclipped) while the `<h1>` inside it was 291/287.
+      const narrow = HEADER_CSS.slice(
+        HEADER_CSS.indexOf('@container mlv-page (width <= 40rem)'),
+      );
+
+      expect(narrow).toMatch(
+        /\.mlv-page-header__title-node :is\(h1, h2, h3, h4, h5, h6\) \{[^}]*display: inline;/,
+      );
+      // The heading must not carry the ellipsis itself — that is the shape
+      // this test exists to keep out.
+      expect(narrow).not.toMatch(
+        /:is\(h1, h2, h3, h4, h5, h6\) \{[^}]*text-overflow: ellipsis;/,
+      );
+    });
   });
 
   describe('collapse state is readable without wiring', () => {
