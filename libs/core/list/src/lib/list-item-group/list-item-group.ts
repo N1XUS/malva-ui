@@ -89,20 +89,8 @@ export class MlvListItemGroup {
    * `open` attribute binding the empty string and reading falsy.
    *
    * **This is not the "is the content on screen?" predicate.** That is
-   * `_expanded() || _pinnedOpen()` — a pinned (inset) group renders its content
-   * expanded with `_expanded()` false, because the open-state CSS hangs off
-   * `--pinned` as well as off `--toggled`. Anything that gates the content
-   * region must read the pair. The queued case is #221 (keeping collapsed
-   * content out of the tab order): the obvious `[attr.inert]="!_expanded()"`
-   * would make the **visible** rows of every inset section inert and drop every
-   * control in them from the tab order.
-   *
-   * The `--toggled` class is not the predicate either, and it fails in the
-   * direction that hides the bug: `open` coerces now, so an inset group written
-   * `<mlv-list-item-group open>` carries `--toggled` *and* `--pinned`. A
-   * regression spec written against `apps/docs` list examples 5 and 8 (both
-   * bare `open`) would therefore pass while `list.spec.ts`'s
-   * `InsetListGroupsHost` (inset, no `open`) breaks. Cover both.
+   * {@link _contentVisible} — read it, and never this signal, when gating the
+   * content region.
    */
   protected readonly _expanded = linkedSignal(() => this.open());
 
@@ -121,6 +109,34 @@ export class MlvListItemGroup {
    */
   protected readonly _pinnedOpen = computed(
     () => this._list?.variant() === 'inset',
+  );
+
+  /**
+   * @protected Whether the content region is on screen — the **only** predicate
+   * anything gating that region may read.
+   *
+   * A group's content is visible for either of two independent reasons, and
+   * neither alone is the answer:
+   *
+   * - `_expanded()` — the user (or `open`) disclosed it, in a list that lets
+   *   the group collapse;
+   * - `_pinnedOpen()` — the enclosing list's `variant="inset"` holds it open,
+   *   which the stylesheet expresses on `--pinned`, entirely independently of
+   *   `--toggled`.
+   *
+   * So a pinned group renders its rows on screen with `_expanded()` false, and
+   * `!_expanded()` is **not** "collapsed". Using it to gate {@link _contentId}'s
+   * region — the shape #221 invites — would mark the visible rows of every
+   * inset section inert and drop every control in them out of the tab order.
+   * The `--toggled` class is no better, and fails in the direction that hides
+   * the mistake: since #220 `open` coerces, so an inset group written
+   * `<mlv-list-item-group open>` carries `--toggled` *and* `--pinned`. A
+   * regression spec written against `apps/docs` list examples 5 and 8 (both
+   * bare `open`) would pass while `list.spec.ts`'s `InsetListGroupsHost`
+   * (inset, no `open`) broke. `list-item-group.spec.ts` covers all four states.
+   */
+  protected readonly _contentVisible = computed(
+    () => this._expanded() || this._pinnedOpen(),
   );
 
   /** @protected Unique ID for the collapsible content region. */

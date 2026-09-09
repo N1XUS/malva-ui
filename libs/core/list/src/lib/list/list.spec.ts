@@ -216,6 +216,17 @@ describe('MlvList accessibility', () => {
       ).toHaveLength(1);
     }
 
+    // Neither group here writes `open`, so both are pinned with `_expanded()`
+    // false — the shape #221's inertness predicate must not mistake for
+    // "collapsed". Their rows are on screen; marking them `inert` would take
+    // every control in them out of the tab order. See `_contentVisible`'s
+    // JSDoc on `MlvListItemGroup`.
+    for (const content of list.querySelectorAll(
+      '.mlv-list-item-group__content',
+    )) {
+      expect(content.hasAttribute('inert')).toBe(false);
+    }
+
     await expectNoAxeViolations(root);
   });
 
