@@ -233,13 +233,60 @@ a panel with no matching `ngTab` as visible.)
 
 #### Overflow / resize behaviour
 
-`MlvTabGroup` uses a native `ResizeObserver` on the header element after
-view init. The recalculation is **damped** to eliminate the flickering
-("dizzy") repartition that a naive per-frame recalc produces:
+`MlvTabGroup` observes **every box the split reads** — the header (the width
+available) plus each rendered `mlv-tab-item` and the "More (N)" trigger (the
+width consumed). The target set is kept current by a tracked
+`afterRenderEffect()` on `tabItems()` / `_moreTriggerRef()` / `tabListRef()`, so
+a tab that renders later is still observed. The observer itself comes from
+`MlvResizeObserverFactory` (`@malva-ui/cdk/utils`), not the raw global: its
+`create()` answers `null` where the constructor is absent, so server rendering
+is the seam's own documented case, and a spec can hand the component a double
+without patching `globalThis`. `afterRenderEffect` rather than `effect` because
+the body constructs an observer and that primitive structurally cannot run on
+the server.
+
+Observations are added and removed incrementally (`_syncResizeTargets`,
+`_observedTargets`) rather than by `disconnect()`-and-re-observe.
+Per the spec a fresh `ResizeObservation` starts at `lastReportedSizes =
+[(-1,-1)]`, so `observe()` on a not-currently-observed target always delivers an
+initial notification — for a `0×0` and a `display: none` box too — while
+`observe()` on a live target is a no-op. `disconnect()` therefore re-arms every
+target, and a settled box that never moved is notified again on each
+repartition. (The trailing debounce absorbs those extra deliveries into the same
+number of recalculations, so the cost is deliveries and retained detached tab
+elements rather than extra work; the spec asserts the delivery count for exactly
+that reason.) That same initial notification is what makes observing the tabs
+work at all — it is how the split gets recomputed once the tabs finally have a
+laid-out box.
+
+A vertical group stays observed even though it never overflows —
+`_recalculateOverflow` owns that case and resets the split to "all visible"
+itself. The guarantee is narrower than "it recovers on switch": it is that a
+group which _started_ vertical still holds a live observer, so the first resize
+notification after a switch to horizontal repartitions it. (Before, the observer
+was created once from `ngAfterViewInit` behind a `vertical` early return, so
+such a group had no observer at all and its overflow was dead for the
+component's lifetime.) `orientation()` is a dependency of nothing that
+recalculates, so recovery rides on the relayout the orientation change itself
+produces, not on the input write.
+
+Observing only the header was the #232 defect: the split is a function of the
+_tabs'_ widths, but the only thing that re-ran it was a change in the _header's_
+size, and a header whose width comes from its parent never resizes when its
+children finally get theirs. A measuring pass landing before the tabs had a
+laid-out box read every `offsetWidth` as `0`, left `_tabWidths` empty and the
+total at `0` — which satisfies `total <= containerWidth` — and so committed "no
+overflow" for the lifetime of the component. The same held for widths that
+changed without moving the header: a webfont swap, a density change, a label
+retranslation.
+
+The recalculation is **damped** to eliminate the flickering ("dizzy")
+repartition that a naive per-frame recalc produces:
 
 1. **Debounce** — ResizeObserver callbacks are coalesced with a trailing
-   `setTimeout` (`_RESIZE_DEBOUNCE_MS = 64`), so a drag triggers one
-   recalculation after the width settles rather than one per frame.
+   `setTimeout` (`_RESIZE_DEBOUNCE_MS = 64`), so a drag — or the burst of
+   notifications one repartition produces across several observed boxes —
+   triggers one recalculation after the widths settle rather than one per frame.
 2. **Width caching (no measure→mutate loop)** — each tab's natural header width
    is cached by value (`_tabWidths`) the first time all tabs render. Subsequent
    recalculations compute the split purely from the cache and the container
@@ -252,6 +299,20 @@ currentMax)` is a pure function returning how many leading tabs fit (`-1` when
    `_HYSTERESIS_PX = 24` before it returns to the visible row, while a visible
    tab leaves as soon as it no longer fits. This asymmetric threshold makes the
    split a fixed point at boundary widths, so it cannot oscillate.
+
+Together those three make the observe → notify → recalculate → repartition →
+observe cycle terminate: a cold start settles in **two** recalculations and
+stays there (asserted, from a cold start with nothing hand-fired).
+
+**Settling delta, visible on first load.** Because the "More (N)" trigger is now
+observed, its first appearance delivers an initial notification of its own, and
+the recalculation 64 ms later runs against a _measured_ `_moreButtonWidth`
+instead of `_applyOverflowFit`'s `|| 100` fallback. Where the real trigger is
+narrower than 100 px and one more tab fits in the difference, a group can
+therefore show N tabs at ~70 ms and N+1 at ~140 ms — a single re-partition after
+load that did not happen before, when the fallback was never replaced. It is a
+correctness improvement (the second answer is the right one), but it is a
+behaviour change, and it settles rather than oscillating.
 
 `MlvTabsService.visibleTabs` / `overflowTabs` guard the `maxVisibleCount === 0` case
 (all tabs overflow): the active/forced tab becomes the sole visible tab instead of
