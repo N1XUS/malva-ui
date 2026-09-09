@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import { Component, signal } from '@angular/core';
+import { Component, Injectable, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import type { Routes } from '@angular/router';
 import { provideRouter, Router, RouterLink } from '@angular/router';
@@ -14,13 +14,14 @@ import { MlvTabDef } from '../tab-def';
 import { MlvTabContentDef } from '../tab-content-def';
 import { MlvTabPanel } from '../tab-panel/tab-panel';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
-import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { MlvResizeObserverFactory, MlvRtlService } from '@malva-ui/cdk/utils';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
+import type { MlvTabOrientation } from '../tab-group-token';
 
 @Component({
   imports: [MlvTabGroup, MlvTab, MlvTabDef, MlvTabContentDef],
   template: `
-    <mlv-tab-group [(activeTab)]="activeTab">
+    <mlv-tab-group [orientation]="orientation()" [(activeTab)]="activeTab">
       @for (t of tabs; track t) {
         <mlv-tab [value]="t">
           <ng-template mlvTabDef let-hidden>{{ t }}</ng-template>
@@ -35,6 +36,96 @@ import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 class OverflowTestHost {
   tabs = ['t1', 't2', 't3', 't4', 't5'];
   activeTab = signal('t1');
+  orientation = signal<MlvTabOrientation>('horizontal');
+}
+
+/**
+ * A `ResizeObserver` double matching the three observation behaviours the
+ * overflow sync depends on. Each is taken from the spec
+ * (https://drafts.csswg.org/resize-observer/), not from a guess, because jsdom
+ * ships no `ResizeObserver` at all to inherit them from:
+ *
+ * - `observe()` on a target this observer is **not** already watching creates a
+ *   `ResizeObservation` whose `lastReportedSizes` slot is `[(-1,-1)]`, so
+ *   `isActive()` — "currentSize is not equal to the first entry" — holds for
+ *   *any* current size, a `0x0` box and a `display: none` box included. The
+ *   initial notification that fires is precisely what makes "observe the tabs"
+ *   work in a browser.
+ * - `observe()` on a target already in `observationTargets` returns early: a
+ *   live target is never re-notified by re-observing it.
+ * - `disconnect()` clears `observationTargets`, so a following `observe()`
+ *   builds a fresh `ResizeObservation` and therefore *does* re-notify a box
+ *   that had long since settled. That is why the component diffs its target
+ *   set instead of disconnecting.
+ *
+ * One deliberate divergence: the platform delivers asynchronously and batched
+ * at the end of a frame; this delivers synchronously, one entry at a time. The
+ * component's callback reads none of its entries and only re-arms a single
+ * trailing timer, so batching cannot change an outcome here — and synchronous
+ * delivery is what lets a spec observe the cold start without a scheduler.
+ */
+class SpecFaithfulResizeObserver implements ResizeObserver {
+  /** Every instance handed out, in construction order. Reset per test. */
+  static instances: SpecFaithfulResizeObserver[] = [];
+
+  /** How many notifications each element has received, across all instances. */
+  static deliveries = new Map<Element, number>();
+
+  /** This observer's `observationTargets`. */
+  readonly targets = new Set<Element>();
+
+  constructor(private readonly _callback: ResizeObserverCallback) {
+    SpecFaithfulResizeObserver.instances.push(this);
+  }
+
+  observe(target: Element): void {
+    if (this.targets.has(target)) return;
+    this.targets.add(target);
+    this._deliver(target);
+  }
+
+  unobserve(target: Element): void {
+    this.targets.delete(target);
+  }
+
+  disconnect(): void {
+    this.targets.clear();
+  }
+
+  /**
+   * Delivers a resize notification for `target` to every observer watching it,
+   * and returns how many received it — so a spec can assert that the element it
+   * is driving is actually observed, rather than passing because nothing moved.
+   */
+  static notify(target: Element): number {
+    let delivered = 0;
+    for (const instance of SpecFaithfulResizeObserver.instances) {
+      if (instance.targets.has(target)) {
+        instance._deliver(target);
+        delivered++;
+      }
+    }
+    return delivered;
+  }
+
+  /** Notifications `target` has received since the counters were reset. */
+  static deliveryCount(target: Element): number {
+    return SpecFaithfulResizeObserver.deliveries.get(target) ?? 0;
+  }
+
+  private _deliver(target: Element): void {
+    const deliveries = SpecFaithfulResizeObserver.deliveries;
+    deliveries.set(target, (deliveries.get(target) ?? 0) + 1);
+    this._callback([{ target } as ResizeObserverEntry], this);
+  }
+}
+
+/** Hands {@link SpecFaithfulResizeObserver}s to the component's DI seam. */
+@Injectable()
+class SpecFaithfulResizeObserverFactory extends MlvResizeObserverFactory {
+  override create(callback: ResizeObserverCallback): ResizeObserver {
+    return new SpecFaithfulResizeObserver(callback);
+  }
 }
 
 @Component({
@@ -763,40 +854,39 @@ describe('MlvTabGroup', () => {
     it('debounces ResizeObserver-driven recalculation (trailing)', async () => {
       // Capture the ResizeObserver callback so we can fire it synchronously.
       let roCallback: (() => void) | null = null;
-      const originalRO = (globalThis as { ResizeObserver?: unknown })
-        .ResizeObserver;
-      class MockResizeObserver {
-        constructor(cb: () => void) {
-          roCallback = cb;
-        }
-        observe(): void {
-          /* no-op */
-        }
-        disconnect(): void {
-          /* no-op */
+      @Injectable()
+      class CapturingFactory extends MlvResizeObserverFactory {
+        override create(callback: ResizeObserverCallback): ResizeObserver {
+          roCallback = () => callback([], null as unknown as ResizeObserver);
+          return {
+            observe: () => undefined,
+            unobserve: () => undefined,
+            disconnect: () => undefined,
+          } as ResizeObserver;
         }
       }
-      (globalThis as { ResizeObserver?: unknown }).ResizeObserver =
-        MockResizeObserver;
+
+      await TestBed.configureTestingModule({
+        imports: [OverflowTestHost],
+        providers: [
+          provideMlvI18nTesting(),
+          { provide: MlvResizeObserverFactory, useClass: CapturingFactory },
+        ],
+      }).compileComponents();
+
+      const fixture = TestBed.createComponent(OverflowTestHost);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const comp = fixture.debugElement.query(By.directive(MlvTabGroup))
+        .componentInstance as MlvTabGroup;
+
+      const recalcSpy = vi.spyOn(
+        comp as unknown as { _recalculateOverflow: () => void },
+        '_recalculateOverflow',
+      );
 
       try {
-        await TestBed.configureTestingModule({
-          imports: [OverflowTestHost],
-          providers: [provideMlvI18nTesting()],
-        }).compileComponents();
-
-        const fixture = TestBed.createComponent(OverflowTestHost);
-        fixture.detectChanges();
-        await fixture.whenStable();
-
-        const comp = fixture.debugElement.query(By.directive(MlvTabGroup))
-          .componentInstance as MlvTabGroup;
-
-        const recalcSpy = vi.spyOn(
-          comp as unknown as { _recalculateOverflow: () => void },
-          '_recalculateOverflow',
-        );
-
         vi.useFakeTimers();
         // Burst of resize events within the debounce window.
         expect(roCallback).toBeTruthy();
@@ -814,9 +904,248 @@ describe('MlvTabGroup', () => {
         expect(recalcSpy).toHaveBeenCalledTimes(1);
       } finally {
         vi.useRealTimers();
-        (globalThis as { ResizeObserver?: unknown }).ResizeObserver =
-          originalRO as never;
       }
+    });
+
+    // ── #232: the split follows the *tabs'* boxes, not only the header's ──
+    //
+    // The first measurement pass can land before the tabs have a laid-out box
+    // (or before a webfont swap settles). Every `offsetWidth` reads 0, the
+    // width cache stays empty, the total comes out 0 and the fit calculation
+    // reports "everything fits". That answer is not wrong on its own — it is
+    // wrong *forever*, because the only thing that re-ran the calculation was a
+    // change in the **header's** size, and a header whose width comes from its
+    // parent never resizes when its children finally get theirs.
+    //
+    // Staged with `SpecFaithfulResizeObserver` (see its doc comment): a
+    // notification reaches only the observers that actually watch the element
+    // that changed, and `observe()` itself delivers the initial notification a
+    // real one does — so the cold start below hand-fires nothing at all.
+    describe('#232 — the split follows the tabs, not only the header', () => {
+      /** Header content width, held constant for every test in this block. */
+      const HEADER_PX = 230;
+      /** Natural width of one laid-out tab. */
+      const TAB_PX = 60;
+      /**
+       * `_applyOverflowFit`'s `this._moreButtonWidth || 100` fallback. jsdom
+       * lays nothing out, so the trigger measures 0 and this — not a measured
+       * width — is what every expected split below is computed against. Each
+       * test asserts `_moreButtonWidth` is still 0, so replacing the fallback
+       * (a known follow-up) fails loudly here instead of silently shifting the
+       * expectations.
+       */
+      const MORE_FALLBACK_PX = 100;
+
+      beforeEach(() => {
+        SpecFaithfulResizeObserver.instances = [];
+        SpecFaithfulResizeObserver.deliveries = new Map<Element, number>();
+      });
+
+      /** Configures the module with the faithful observer wired into the seam. */
+      const compile = () =>
+        TestBed.configureTestingModule({
+          imports: [OverflowTestHost],
+          providers: [
+            provideMlvI18nTesting(),
+            {
+              provide: MlvResizeObserverFactory,
+              useClass: SpecFaithfulResizeObserverFactory,
+            },
+          ],
+        }).compileComponents();
+
+      /** Pins the header's content width; it never changes during a test. */
+      const stubHeader = (fixture: ComponentFixture<OverflowTestHost>) => {
+        const headerEl = (
+          fixture.nativeElement as HTMLElement
+        ).querySelector<HTMLElement>('.mlv-tab-group__header');
+        expect(headerEl).not.toBeNull();
+        Object.defineProperty(headerEl as HTMLElement, 'clientWidth', {
+          configurable: true,
+          get: () => HEADER_PX,
+        });
+        return headerEl as HTMLElement;
+      };
+
+      /** Points every rendered tab's `offsetWidth` at `read()`. */
+      const stubTabs = (
+        fixture: ComponentFixture<OverflowTestHost>,
+        read: () => number,
+      ) => {
+        const tabEls = Array.from(
+          (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
+            '.mlv-tab-item',
+          ),
+        );
+        for (const el of tabEls) {
+          Object.defineProperty(el, 'offsetWidth', {
+            configurable: true,
+            get: read,
+          });
+        }
+        return tabEls;
+      };
+
+      /** Lets the 64ms trailing debounce and the cold-cache rAF both run. */
+      const settle = async (
+        fixture: ComponentFixture<OverflowTestHost>,
+      ): Promise<void> => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        fixture.detectChanges();
+        await fixture.whenStable();
+      };
+
+      const tabGroup = (fixture: ComponentFixture<OverflowTestHost>) =>
+        fixture.debugElement.query(By.directive(MlvTabGroup));
+
+      const overflowValues = (fixture: ComponentFixture<OverflowTestHost>) =>
+        tabGroup(fixture)
+          .injector.get(MlvTabsService)
+          .overflowTabs()
+          .map((t) => t.value());
+
+      const moreButtonWidth = (fixture: ComponentFixture<OverflowTestHost>) =>
+        (
+          tabGroup(fixture).componentInstance as unknown as {
+            _moreButtonWidth: number;
+          }
+        )._moreButtonWidth;
+
+      it('recomputes the split when tab widths arrive without the header resizing', async () => {
+        await compile();
+
+        const fixture = TestBed.createComponent(OverflowTestHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const root = fixture.nativeElement as HTMLElement;
+        stubHeader(fixture);
+
+        // 0 until the tabs are laid out; then TAB_PX each.
+        let tabWidth = 0;
+        const tabEls = stubTabs(fixture, () => tabWidth);
+        expect(tabEls.length).toBe(5);
+
+        // Cold start. Nothing is hand-fired: `observe()` has already delivered
+        // the initial notification for the header and all five tabs, exactly as
+        // a real ResizeObserver does for a not-yet-observed target.
+        await settle(fixture);
+
+        expect(root.querySelector('.mlv-tab-group__more-trigger')).toBeNull();
+        expect(overflowValues(fixture)).toEqual([]);
+
+        // The tabs' boxes arrive. The header does not move, so it emits
+        // nothing; the tab edge is the only signal available, and the guard
+        // below names that mechanism rather than leaving it implied.
+        tabWidth = TAB_PX;
+        expect(SpecFaithfulResizeObserver.notify(tabEls[0])).toBe(1);
+        await settle(fixture);
+
+        expect(
+          root.querySelector('.mlv-tab-group__more-trigger'),
+        ).not.toBeNull();
+        // 60 + 60 + 100 = 220 <= 230 fits; 60 + 60 + 60 + 100 = 280 > 230 does
+        // not — two visible, three overflowed, against the *fallback* width:
+        expect(moreButtonWidth(fixture)).toBe(0);
+        expect(2 * TAB_PX + MORE_FALLBACK_PX).toBeLessThanOrEqual(HEADER_PX);
+        expect(3 * TAB_PX + MORE_FALLBACK_PX).toBeGreaterThan(HEADER_PX);
+        expect(overflowValues(fixture)).toEqual(['t3', 't4', 't5']);
+      });
+
+      // Observing the tabs — and the "More" trigger, which a repartition
+      // *creates* — closes the loop the observer sits in: notify → recalculate
+      // → repartition → render → observe → notify. Nothing about the diffing
+      // makes that terminate on its own; the width cache and the hysteresis do.
+      // Asserted by counting recalculations from the cold start with nothing
+      // hand-fired, then showing the count stops growing.
+      it('settles the observe → repartition → observe cycle at a fixed point', async () => {
+        await compile();
+
+        const fixture = TestBed.createComponent(OverflowTestHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const headerEl = stubHeader(fixture);
+        stubTabs(fixture, () => TAB_PX);
+
+        const recalcSpy = vi.spyOn(
+          tabGroup(fixture).componentInstance as unknown as {
+            _recalculateOverflow: () => void;
+          },
+          '_recalculateOverflow',
+        );
+        // The cold-start notifications only armed the trailing timer, so the
+        // count genuinely starts at zero and every recalculation below is
+        // driven by `observe()`, not by the spec.
+        expect(recalcSpy).not.toHaveBeenCalled();
+
+        await settle(fixture);
+        await settle(fixture);
+
+        // Two, and only two: the first repartitions on the now-warm cache, the
+        // second is the one the freshly rendered "More" trigger's own initial
+        // notification buys. It re-measures the trigger and reaches the same
+        // split, so nothing renders and no third notification is produced.
+        const converged = recalcSpy.mock.calls.length;
+        expect(converged).toBe(2);
+        expect(overflowValues(fixture)).toEqual(['t3', 't4', 't5']);
+
+        for (let round = 0; round < 3; round++) {
+          await settle(fixture);
+        }
+
+        expect(recalcSpy.mock.calls.length).toBe(converged);
+        expect(overflowValues(fixture)).toEqual(['t3', 't4', 't5']);
+        // One observer for the whole group, not one per box.
+        expect(SpecFaithfulResizeObserver.instances.length).toBe(1);
+
+        // …and the header — which was observed at the cold start, never moved,
+        // and never left the target set — was notified exactly once in the
+        // component's whole life. This is the assertion that separates the
+        // incremental diff from `disconnect()`-and-re-observe: `disconnect()`
+        // clears `observationTargets`, so the next `observe()` builds a fresh
+        // `ResizeObservation` at `[(-1,-1)]` and a long-settled box delivers
+        // again. The trailing debounce coalesces those extra deliveries into
+        // the same recalculation count, so counting recalculations alone cannot
+        // see the difference — counting deliveries can.
+        expect(SpecFaithfulResizeObserver.deliveryCount(headerEl)).toBe(1);
+      });
+
+      // Before the fix the observer was created once from `ngAfterViewInit`
+      // behind a `vertical` early return, so a group that *started* vertical
+      // never got one and its overflow was dead for the component's lifetime.
+      // What the fix guarantees is narrower than "it recovers": the targets
+      // stay observed, so the first notification after the switch repartitions.
+      // jsdom performs no layout, so the relayout a real orientation change
+      // produces is staged here — and `notify` returning 1 is the assertion
+      // that the vertical group was observed at all.
+      it('keeps a group that started vertical observed, so the first resize after switching repartitions', async () => {
+        await compile();
+
+        const fixture = TestBed.createComponent(OverflowTestHost);
+        fixture.componentInstance.orientation.set('vertical');
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        stubHeader(fixture);
+        stubTabs(fixture, () => TAB_PX);
+
+        await settle(fixture);
+
+        // A vertical group never overflows, whatever the widths say.
+        expect(overflowValues(fixture)).toEqual([]);
+
+        fixture.componentInstance.orientation.set('horizontal');
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const tabEls = stubTabs(fixture, () => TAB_PX);
+        expect(SpecFaithfulResizeObserver.notify(tabEls[0])).toBe(1);
+        await settle(fixture);
+
+        expect(moreButtonWidth(fixture)).toBe(0);
+        expect(overflowValues(fixture)).toEqual(['t3', 't4', 't5']);
+      });
     });
 
     it('does not oscillate the split between two alternating boundary widths (hysteresis)', async () => {

@@ -39,6 +39,7 @@ Exported from `libs/cdk/utils/src/index.ts`:
 | `MlvArrowKey` | Type | Angular CDK arrow-key code union returned by `MlvRtlService` |
 | `MlvRtlService` | Service | Signal-based direction state, document/CDK `Directionality` synchronization, RTL-aware arrow-key normalization, and scoped direction resolution |
 | `MlvDirectionTarget` | Type | `Element \| ElementRef<Element> \| null \| undefined` accepted by the scoped direction helpers |
+| `mlvMirrorInlineOffsets` | Function | `mlvMirrorInlineOffsets(positions, direction)` — negates `ConnectedPosition.offsetX` in RTL, which CDK leaves physical |
 | `MlvChromeColor` | Directive | Paints an element as application chrome in an arbitrary colour and picks a readable foreground — `[mlvChromeColor]` |
 
 ---
@@ -329,15 +330,15 @@ constructor() {
 
 #### Consumers
 
-| Surface                                              | What it uses the direction for                                                                                          |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete`   | `direction` on the CDK overlay config, resolved from the trigger element                                                |
-| `MlvOverlayServiceBase` (drawer), `MlvDialogService` | `direction` resolved from the focused element at open time; overridable via the config's `direction` field              |
-| `MlvOverlayHostBase`                                 | `direction` resolved from the component host                                                                            |
-| `MlvAbstractToastService`                            | global `direction()` — toast stacks are document-level                                                                  |
-| `MlvTabGroup`, `MlvSegmented`                        | re-measure the sliding indicator / pill on a direction flip                                                             |
-| `MlvSlider`, `MlvRating`, `MlvSplitPane`             | mirror pointer-coordinate → value mapping                                                                               |
-| Every horizontal arrow handler                       | `normalizeArrowKey(event, this._direction())` — one cached `elementDirection()` per component, so keys and layout agree |
+| Surface                                              | What it uses the direction for                                                                                                                |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete`   | `direction` on the CDK overlay config, resolved from the trigger element — and, for the first two, the argument to `mlvMirrorInlineOffsets()` |
+| `MlvOverlayServiceBase` (drawer), `MlvDialogService` | `direction` resolved from the focused element at open time; overridable via the config's `direction` field                                    |
+| `MlvOverlayHostBase`                                 | `direction` resolved from the component host                                                                                                  |
+| `MlvAbstractToastService`                            | global `direction()` — toast stacks are document-level                                                                                        |
+| `MlvTabGroup`, `MlvSegmented`                        | re-measure the sliding indicator / pill on a direction flip                                                                                   |
+| `MlvSlider`, `MlvRating`, `MlvSplitPane`             | mirror pointer-coordinate → value mapping                                                                                                     |
+| Every horizontal arrow handler                       | `normalizeArrowKey(event, this._direction())` — one cached `elementDirection()` per component, so keys and layout agree                       |
 
 ---
 
@@ -374,6 +375,44 @@ Case- and diacritic-insensitive normalisation: NFD-folds `text`, strips combinin
 The 1:1 length guarantee on the fast path is what lets `matchSegments` slice the original label directly. `normalize-for-match.spec.ts` pins both branches against a verbatim copy of the pre-fast-path implementation (ASCII, ASCII punctuation, `^` and `` ` ``, precomposed and decomposed accents, emoji, Turkish dotted/dotless I, German ß, Greek final sigma, lone combining mark, the U+007F/U+0080 boundary).
 
 Moved down from `@malva-ui/core/dropdown`'s `option-matcher.ts` so CDK-only libraries (e.g. `@malva-ui/cdk/data-source`) can share it without importing `@malva-ui/core/*`; `@malva-ui/core/dropdown` re-exports it unchanged for existing consumers (`defaultOptionMatcher`, `rankPrefixMatchesFirst`, `matchSegments`, `smart-filter-bar`, `data-table`'s `MlvDataSource`).
+
+---
+
+### `mlvMirrorInlineOffsets(positions, direction)`
+
+**File:** `libs/cdk/utils/src/lib/rtl/mirror-inline-offsets.ts`
+
+Negates `ConnectedPosition.offsetX` on every entry of a CDK connected-position
+list when `direction` is `'rtl'`; `offsetY` and every alignment are passed
+through. Issue #180.
+
+**Why it has to exist.** `FlexibleConnectedPositionStrategy` mirrors `originX` /
+`overlayX` against the pane's direction but returns `offsetX` verbatim from
+`_getOffset()` and applies it as `x += offsetX` (scoring a candidate in
+`_getOverlayFit`) and `transform: translateX(${offsetX}px)` (on the pane). There
+is no `_isRtl()` anywhere on that path. So an entry meaning "8px of clearance
+between the panel and the trigger's inline-start edge" keeps pushing the panel
+the same way on screen after mirroring has moved it to the trigger's other side:
+the gap becomes an overlap of the same size, twice the intended error. Reached by
+every RTL consumer of `mlv-popup`, `mlv-menu` (submenus especially, which flip
+sides) and `[mlvTooltip]`.
+
+**Identity is part of the contract.** The list is returned **by reference**
+whenever mirroring would change nothing — always in LTR, and in RTL for a list
+whose gap is purely on the block axis (`MENU_POSITIONS`, `DROPDOWN_POSITIONS`).
+Entries with no `offsetX` keep their identity inside a mirrored list too. CDK
+deduplicates `positionChanges` by the identity of the chosen
+`ConnectedPosition`, so a copy that changes no geometry would still report a
+position change on every direction flip — and every caller passes a shared,
+module-level constant, so the function must not mutate either.
+
+**Call sites.** `MlvPopupService.open()` (re-applied from its `watchDirection`
+callback and from `setPositionOrigin`, since nothing re-parents an open pane) and
+`MlvTooltip._show()`. Both pass the same direction they hand to
+`Overlay.create({ direction })`, so the half CDK mirrors and the half it does not
+can never disagree. `.claude/rules/rtl.md` § Overlays, point 4 carries the rule
+and the rejected alternative (a logical `margin-inline-*`, which is invisible to
+`_getOverlayFit` and to `withPush`).
 
 ---
 

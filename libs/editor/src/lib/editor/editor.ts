@@ -644,6 +644,23 @@ export class MlvEditor
     }
   }
 
+  /**
+   * @protected Focuses the editable content when the control's own
+   * `<mlv-label>` is clicked.
+   *
+   * ProseMirror's contenteditable root is focusable but not HTML-labelable, so
+   * `<label for>` can never name it and the native click-to-focus a field
+   * label owes its control never ran — the visible label was inert (#216), the
+   * same gap the three date/time pickers close. `readonly` still focuses (a
+   * read-only `<textarea>` does), `disabled` returns early (the host is
+   * `inert` anyway), and Tiptap's `focus` command restores the stored
+   * selection rather than dropping the caret at the document start.
+   */
+  protected _onLabelClick(): void {
+    if (this.computedDisabled()) return;
+    this._editor()?.commands.focus();
+  }
+
   /** Clears the document through Tiptap when the shared form wrapper is clearable. */
   clearValue(): void {
     if (this.computedDisabled() || this.readonly()) return;

@@ -28,7 +28,7 @@ Exported from `libs/core/popup/src/index.ts`:
 | `MlvPopupHandle` | Interface | `{ overlayRef, close, setPositionOrigin }` |
 | `MlvPopupSizeConfig` | Interface | Size options |
 | `MlvPopupScrollStrategy` | Type | `'reposition' \| 'close' \| 'block' \| 'noop'` |
-| `MlvPopupPositionName` | Type | Union of 12 named positions (`'bottom-end'`, `'top'`, etc.). `left` / `right` and the inline `-start` / `-end` halves are **logical aliases** — they map to CDK's `'start'` / `'end'` and mirror in RTL, unlike `MlvPopupArrowEdge` / `MlvPopupArrowAlign` (see _Arrow geometry is physical_) |
+| `MlvPopupPositionName` | Type | Union of 12 named positions (`'bottom-end'`, `'top'`, etc.). `left` / `right` and the inline `-start` / `-end` halves are **logical aliases** — they map to CDK's `'start'` / `'end'` and mirror in RTL, unlike `MlvPopupArrowEdge` / `MlvPopupArrowAlign` (see _Arrow geometry is physical_). The `offsetX` on the `left-*` / `right-*` entries is logical too, but mirrored by `MlvPopupService` rather than by CDK — see _Inline offsets are logical_ |
 | `POPUP_POSITIONS` | Token | `InjectionToken<ReadonlyMap<MlvPopupPositionName, ConnectedPosition>>` |
 | `POPUP_POSITION_MAP` | Const | Default map of all 12 named positions |
 | `MlvPopupPositionResolver` | Class | Static helper — `resolve()`, `allPositions()` |
@@ -384,6 +384,52 @@ ends, in both directions. The conversion happens once, in
   computed follows the physical edge but has no visual effect. Pre-existing dead
   CSS, not something #163 introduced or fixed.
 
+### Inline offsets are logical, and only because the service makes them so
+
+Every `left-*` / `right-*` entry in `POPUP_POSITION_MAP` carries an `offsetX`
+(`-8` / `+8`) expressing the 8px gap between the panel and the trigger. CDK does
+**not** mirror it: `FlexibleConnectedPositionStrategy` returns `offsetX` verbatim
+from `_getOffset()` and applies it as `x += offsetX` inside `_getOverlayFit` and
+as `transform: translateX(${offsetX}px)` on the pane, with no `_isRtl()` anywhere
+on that path — unlike `originX` / `overlayX`, which it does mirror. So a
+`left-start` popup, mirrored to render physically **right** of its trigger in
+RTL, was still pushed 8px further left: the gap became an 8px overlap, a 16px
+error against intent (#180).
+
+`MlvPopupService.open()` therefore passes the list through
+`mlvMirrorInlineOffsets(positions, direction)` (`@malva-ui/cdk/utils`) using the
+same direction it hands to `Overlay.create()`, and re-applies it from both places
+that can change that direction under an open pane — the `watchDirection` callback
+and `setPositionOrigin`. `updatePosition()` alone is not enough: it re-runs the
+strategy over whatever list the strategy still holds, which is mirrored against
+the direction the popup opened with.
+
+Consequences worth knowing:
+
+- **The map is unchanged.** `POPUP_POSITION_MAP` still stores the LTR sign, which
+  is what a consumer overriding an entry through `providePopupPositions()` writes.
+  A consumer who takes the map and drives a `FlexibleConnectedPositionStrategy` of
+  their own gets CDK's raw semantics and has to mirror for themselves.
+- **`MlvPopupOpenConfig.positions` is logical throughout**, `offsetX` included —
+  a consumer's own list is mirrored on the same terms. A gap that must stay
+  physical belongs in a `margin-inline-*` on the panel, not in `offsetX`.
+- **The blast radius was every RTL popup consumer**, not just the arrow ones:
+  `offsetX` moves the panel itself. `mlv-menu`'s `SUBMENU_POSITIONS`
+  (`right-start` → `left-start`) is the worst case, because the side it resolves
+  to flips.
+- Mirroring was **not** done as a `margin-inline-*` on the panel class, the other
+  option `.claude/rules/rtl.md` names. `offsetX` participates in
+  `_getOverlayFit`'s candidate scoring and in `withPush`; a margin is invisible to
+  both, so a panel CDK judged as fitting would render that far outside the
+  viewport. On a popup the margin would also be a transparent strip of the pane,
+  which the service's click-outside listener counts as inside.
+
+Pinned by `popup.service.spec.ts` → _MlvPopupService — inline offsets_, which
+asserts the pane's own `transform` (composed from `offsetX` alone, so jsdom's
+absent layout does not enter into it) across a global flip, a scoped
+`[dir="rtl"]` with the document still LTR, an LTR island inside an RTL document,
+a flip under an open popup, and a list swapped in through `setPositionOrigin`.
+
 **Scope of the #163 defect.** `hasArrow` defaults to `false` and the only
 `hasArrow` binding anywhere in `libs/` is `avatar-group.html`, which sets it to
 `false`; every `[hasArrow]="true"` in the repo is an `apps/docs` example. So the
@@ -440,7 +486,8 @@ needs from it:
 `setPositionOrigin` re-anchors an **already-open** overlay and repositions it
 (`FlexibleConnectedPositionStrategy.setOrigin()` + `updatePosition()`), and
 **re-resolves the pane's direction from `config.origin`** first
-(`overlayRef.setDirection(resolveDirection(config.origin))`). That matters for
+(`overlayRef.setDirection(resolveDirection(config.origin))`), re-mirroring the
+inline offsets against it whether or not a new list arrived. That matters for
 an origin that resolves lazily to different elements over time — a context menu
 shared by many rows points its `ElementRef` at whichever row was right-clicked
 last — because `watchDirection` only reacts to a `dir` attribute changing, not to

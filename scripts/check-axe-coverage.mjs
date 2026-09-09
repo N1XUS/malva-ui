@@ -19,7 +19,11 @@
  *      a tab stop, so there is nothing for axe to judge.
  *   2. Is every entry in the two lists below still true? A stale exemption or a
  *      stale rollout entry is a hole nobody notices, so both are re-derived on
- *      every run and a mismatch fails.
+ *      every run and a mismatch fails. A `ROLLOUT_PENDING` entry says either
+ *      "nothing swept" or "these states still owed", and each is checked in the
+ *      direction that can catch it out (#257) — coverage is not a boolean, and
+ *      reading one from both this question and question 1 is what let a single
+ *      default-state sweep retire a project permanently.
  *   3. Does every spec go through the shared helper? A direct `axe-core` import
  *      is how the five call shapes came back. Playwright suites under a
  *      project's own top-level `e2e/` are exempt from THIS question only: they
@@ -52,10 +56,11 @@
  *
  * Exit code: 0 when clean, 1 when at least one finding is reported.
  *
- * Tested by `scripts/check-axe-coverage.spec.mjs`, which pins the three ways
- * this guard was made to pass with the defect present: a walk that saw no
- * files, a comment that merely mentions the helper, and a directory named
- * `e2e` below a project's root.
+ * Tested by `scripts/check-axe-coverage.spec.mjs`, which pins the ways this
+ * guard was made to pass with the defect present: a walk that saw no files, a
+ * comment that merely mentions the helper, a directory named `e2e` below a
+ * project's root, and — the inverse shape — a rollout entry that stops
+ * describing its project without anything failing (#257).
  */
 import { execFileSync } from 'node:child_process';
 import {
@@ -204,26 +209,76 @@ export const EXEMPT = {
 };
 
 /**
- * TEMPORARY. The projects that render DOM and had no axe assertion when #47
- * phase 1 landed. Phase 2 adds a sweep to each and deletes its line from here,
- * so this list only ever shrinks; the guard fails on an entry that has since
- * gained one, which is what keeps the deletion from being forgotten.
+ * TEMPORARY. The projects that render DOM and are not yet swept to the standard
+ * `.claude/rules/accessibility.md` asks for — "one sweep per state that changes
+ * the markup". Phase 2 finishes each and deletes its line, so this list only
+ * ever shrinks.
  *
  * It is a literal on purpose. A list computed at runtime from "which projects
  * currently lack coverage" can never fail, because it always describes exactly
  * the projects it is meant to be catching.
  *
- * Do not add to this list. A project appearing here that was not here before is
- * a regression — a covered project that lost its assertion, or a new project
- * shipped without one — and that is the case this guard exists to block.
+ * Two entry shapes, because coverage is not a boolean (#257):
+ *
+ * - `'core-input'` — **nothing swept**. The project must assert with axe
+ *   nowhere; a sweep appearing means the line no longer describes it.
+ * - `{ project: 'core-x', owes: ['open panel'] }` — **partially swept**. At
+ *   least one sweep exists and the named states do not have one. The project
+ *   must assert with axe somewhere; an entry over a project with no sweep at
+ *   all is a lie and is reported.
+ *
+ * The second shape exists because one `hasAxe` boolean drove both the
+ * `uncovered` and the `stale-rollout` rules, so the FIRST sweep — however
+ * partial — forced the line to be deleted, and this list only ever shrinks. A
+ * component whose interactive surface is portaled into a CDK overlay could
+ * therefore buy permanent retirement with one closed-state sweep of
+ * `fixture.nativeElement`, and the rest of its states became unaskable. It also
+ * ran the other way: `core-input`'s `input-native.spec.ts` says in prose that it
+ * declined to add a sweep at all rather than "commit the project to full-state
+ * coverage", so the coupling was suppressing partial coverage as well as
+ * over-crediting it.
+ *
+ * Be precise about what `owes` buys, because it is easy to over-read. The guard
+ * cannot see states, so it cannot check the claim: over a project with at least
+ * one sweep, ANY `owes` list is accepted verbatim and forever, and a list left
+ * behind after the states were swept silences that project permanently. The two
+ * directions only catch the shapes that need no state knowledge — a bare entry
+ * over a swept project, and an `owes` entry over a project with no sweep at all.
+ * What the annotation buys is therefore not verification: the project stays on
+ * the list instead of leaving it, the gap is named in the source of truth, and
+ * the retirement decision gets made later in front of the evidence rather than
+ * blind. A malformed entry is reported rather than quietly normalizing to
+ * nothing, so the tracker cannot lose a project to a typo.
+ *
+ * Do not add an UNSWEPT project to this list. A project appearing here with no
+ * sweep that was not here before is the regression this guard exists to block —
+ * a covered project that lost its assertion, or a new project shipped without
+ * one. Two moves are not that regression and are allowed:
+ *
+ * - converting an existing entry from the bare shape to the `owes` shape, which
+ *   is the same entry saying more; and
+ * - re-entering a project that already retired and is only PARTIALLY swept,
+ *   which must arrive with `owes` naming what is missing. `core-autocomplete`
+ *   is the worked example: #222 swept four panel states and deleted its line,
+ *   and `.claude/projects/libs-autocomplete.md` recorded a fifth it did not
+ *   reach. That is the same "one sweep is not full coverage" fact the `owes`
+ *   shape exists for, found one commit late; refusing it would only mean the
+ *   gap stays in a doc no guard reads.
+ *
+ * The boundary is the sweep count, not the history: a project with zero sweeps
+ * may never be added, in either shape.
+ *
+ * @type {ReadonlyArray<string | { project: string, owes: readonly string[] }>}
  */
 export const ROLLOUT_PENDING = [
   // libs/core
-  'core-autocomplete',
+  {
+    project: 'core-autocomplete',
+    owes: [
+      'the `loadingMore` next-page row (needs the paged data-source stub)',
+    ],
+  },
   'core-color-picker',
-  'core-date-range-picker',
-  'core-day-picker',
-  'core-drawer',
   'core-dropdown',
   'core-file-upload',
   'core-form',
@@ -239,15 +294,216 @@ export const ROLLOUT_PENDING = [
   'core-speed-dial',
   'core-split-pane',
   'core-textarea',
-  'core-time-picker',
   'core-toast',
   'core-tokenizer',
   'core-tooltip',
   'core-tree',
 ];
 
+/** Longest sweep root reported verbatim before it is elided. */
+const MAX_ROOT_LENGTH = 60;
+
 /** Workspace-relative path with forward slashes, whatever the platform uses. */
 const toPosix = (path) => path.split(sep).join('/');
+
+/**
+ * Normalizes one {@link ROLLOUT_PENDING} entry of either shape.
+ *
+ * A malformed entry is returned as a `malformed` reason rather than dropped.
+ * Dropping it would remove the project from the tracker AND from the
+ * `uncovered` question in a single step, which is the silent hole the whole
+ * guard exists to make impossible — and a typo in an object literal is a much
+ * easier mistake to make than a typo in a bare string.
+ *
+ * @param {ReadonlyArray<unknown>} entries
+ * @returns {Array<{ project: string, owes: string[] | null, malformed: string | null }>}
+ */
+export function normalizeRolloutPending(entries) {
+  const isName = (value) => typeof value === 'string' && value.trim() !== '';
+
+  return [...entries].map((entry, index) => {
+    if (isName(entry)) return { project: entry, owes: null, malformed: null };
+
+    const named = entry && typeof entry === 'object' && isName(entry.project);
+    const project = named ? entry.project : `(entry ${index})`;
+
+    if (!named) {
+      return {
+        project,
+        owes: null,
+        malformed:
+          'is neither a project name nor an object with a non-empty `project`',
+      };
+    }
+    if (!Array.isArray(entry.owes) || entry.owes.length === 0) {
+      return {
+        project,
+        owes: null,
+        malformed:
+          '`owes` must be a non-empty array naming the states still unswept',
+      };
+    }
+    if (!entry.owes.every(isName)) {
+      return {
+        project,
+        owes: null,
+        malformed: 'every `owes` item must be a non-empty state name',
+      };
+    }
+    return { project, owes: [...entry.owes], malformed: null };
+  });
+}
+
+/**
+ * Blanks out line and block comments, keeping every other index where it was.
+ *
+ * A commented-out call is not a call. Without this a spec that keeps its helper
+ * `import` and comments its only assertion out reads as covered — and, since
+ * #257, also PRINTS a root for an assertion that never runs, which points a
+ * reviewer at the one conclusion the evidence channel exists to prevent.
+ *
+ * Comment bodies become spaces rather than being removed so offsets stay
+ * aligned with the original text and newlines survive; the caller can therefore
+ * scan the stripped text and still reason about the file it came from.
+ *
+ * Quote-aware, so a `//` inside a string literal (a URL) is left alone. NOT
+ * regex-aware — see {@link readSweepRoot}, which shares the limitation.
+ *
+ * @param {string} text
+ * @returns {string} `text` with comment bodies replaced by spaces.
+ */
+export const stripComments = (text) => {
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (char === '/' && next === '/') {
+      const end = text.indexOf('\n', i);
+      const stop = end === -1 ? text.length : end;
+      out += ' '.repeat(stop - i);
+      i = stop;
+      continue;
+    }
+    if (char === '/' && next === '*') {
+      const end = text.indexOf('*/', i + 2);
+      const stop = end === -1 ? text.length : end + 2;
+      // Newlines are kept so the stripped text still has the file's line breaks.
+      out += text.slice(i, stop).replace(/[^\n]/g, ' ');
+      i = stop;
+      continue;
+    }
+    if (char === "'" || char === '"' || char === '`') {
+      out += char;
+      i += 1;
+      while (i < text.length) {
+        const inner = text[i];
+        out += inner;
+        i += 1;
+        if (inner === '\\' && i < text.length) {
+          out += text[i];
+          i += 1;
+          continue;
+        }
+        if (inner === char) break;
+        // `'` and `"` cannot span a raw newline in valid TypeScript, so a
+        // newline means the opening quote was not one — bail rather than
+        // swallowing the rest of the file.
+        if (inner === '\n' && char !== '`') break;
+      }
+      continue;
+    }
+    out += char;
+    i += 1;
+  }
+  return out;
+};
+
+/**
+ * The first argument of a helper call, as written in the spec.
+ *
+ * A balanced scan rather than a `[^,)]*` match: the roots worth telling a
+ * reviewer apart are exactly the ones that contain their own parens and commas
+ * (`document.querySelector('.cdk-overlay-container')`), and truncating those at
+ * the first delimiter would produce evidence that misleads.
+ *
+ * Known limitation, stated rather than papered over: the scan tracks quotes but
+ * not regex literals, so a `'` inside one (`el.matches(/it's/)`) opens quote
+ * mode and the reported root is wrong to the end of that line. It is
+ * reporting-only — no finding branches on a root, and the whole workspace has
+ * zero corrupted roots today — so the honest fix is a real lexer, and a
+ * heuristic that guessed regex-vs-division would trade a rare wrong string for
+ * a rare wrong string plus 40 lines. What IS bounded: an unterminated `'`/`"`
+ * stops at the newline instead of eating the rest of the file, and callers hand
+ * this stripped text ({@link stripComments}), which removes the far more
+ * ordinary version of the same trap — an apostrophe in a comment inside a
+ * multi-line call.
+ *
+ * @param {string} text Full file text, comments already stripped.
+ * @param {number} from Index just past the call's opening paren.
+ * @returns {string} The argument text, verbatim and unnormalized.
+ */
+const readSweepRoot = (text, from) => {
+  let depth = 0;
+  let quote = null;
+  for (let i = from; i < text.length; i += 1) {
+    const char = text[i];
+    if (quote) {
+      if (char === '\\') i += 1;
+      // `'` and `"` cannot span a raw newline in valid TypeScript, so a newline
+      // means the opening quote was not one. Bail instead of running to EOF:
+      // that bounds a misread (a regex literal, below) to one line.
+      else if (char === quote || (char === '\n' && quote !== '`')) quote = null;
+      continue;
+    }
+    if (char === "'" || char === '"' || char === '`') quote = char;
+    else if (char === '(' || char === '[' || char === '{') depth += 1;
+    else if (char === ')' || char === ']' || char === '}') {
+      if (depth === 0) return text.slice(from, i);
+      depth -= 1;
+    } else if (char === ',' && depth === 0) return text.slice(from, i);
+  }
+  return text.slice(from);
+};
+
+/**
+ * Every helper call in one spec, with the root it swept.
+ *
+ * Reporting only — nothing branches on a root. A rule of the form "a project
+ * that reaches an overlay must sweep something other than `fixture.nativeElement`"
+ * would be a heuristic over source text that both false-negatives (a component
+ * can portal content without naming `Overlay` in its own sources) and
+ * false-positives (a project can name it and portal nothing); the point here is
+ * to put the evidence in front of the human making the call.
+ *
+ * @param {string} file
+ * @param {string} text Spec text with comments already stripped.
+ * @returns {Array<{ spec: string, root: string }>} One entry per helper call.
+ */
+const collectSweeps = (file, text) => {
+  const pattern = new RegExp(HELPER_CALL.source, 'g');
+  const sweeps = [];
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    const raw = readSweepRoot(text, match.index + match[0].length)
+      .replace(/\s+/g, ' ')
+      .trim();
+    const root =
+      raw.length > MAX_ROOT_LENGTH
+        ? `${raw.slice(0, MAX_ROOT_LENGTH - 1)}…`
+        : raw || '(no argument)';
+    // Store a fresh flat COPY. `readSweepRoot` returns a slice of the whole
+    // spec, and `replace`, `trim` and `slice` all hand the receiver straight
+    // back when they have nothing to do — so a 20-character root would keep its
+    // entire source file alive for the life of the report (measured: 40 MB for
+    // eight sweeps of a 5 MB spec). A one-element `split`/`join` does not fix
+    // it either, because `join` over a single element returns that element and
+    // a bare `document.body` has no whitespace to split on. Spreading to
+    // characters and re-joining is the step that always allocates.
+    sweeps.push({ spec: file, root: [...root].join('') });
+  }
+  return sweeps;
+};
 
 /**
  * Recursively collect TypeScript files under `dir`, skipping nested projects.
@@ -309,7 +565,12 @@ const readProjects = () => {
  * without an `nx graph` round trip.
  *
  * @param {{ root: string, files: readonly string[], readFile: (file: string) => string }} project
- * @returns {{ rendersDom: boolean, hasAxe: boolean, rawAxeSpecs: string[] }}
+ * @returns {{
+ *   rendersDom: boolean,
+ *   hasAxe: boolean,
+ *   sweeps: Array<{ spec: string, root: string }>,
+ *   rawAxeSpecs: string[],
+ * }}
  */
 export function analyzeProject({ root, files, readFile }) {
   // A project's own top-level `e2e/`, not any directory that happens to be
@@ -321,6 +582,7 @@ export function analyzeProject({ root, files, readFile }) {
   let rendersDom = false;
   let usesHelper = false;
   const rawAxeSpecs = [];
+  const sweeps = [];
 
   for (const file of files) {
     const text = readFile(file);
@@ -334,13 +596,27 @@ export function analyzeProject({ root, files, readFile }) {
     // jsdom sweep, so it cannot stand in for one.
     if (toPosix(file).startsWith(e2ePrefix)) continue;
 
-    if (HELPER_IMPORT.test(text) && HELPER_CALL.test(text)) usesHelper = true;
+    // Each predicate reads whichever text errs toward REPORTING. Coverage is
+    // the claim that can hide a defect, so it is asked of the code that will
+    // actually run: a commented-out import or call buys nothing. `RENDERS_DOM`
+    // and `RAW_AXE_IMPORT` only ever add findings, so they stay on the raw text
+    // and a commented-out one is still surfaced for a human to dismiss.
+    const code = stripComments(text);
+
+    if (HELPER_IMPORT.test(code) && HELPER_CALL.test(code)) {
+      usesHelper = true;
+      // Gated on the import deliberately: evidence is collected under exactly
+      // the rule `hasAxe` has always used, so the two can never disagree about
+      // whether a file counts.
+      sweeps.push(...collectSweeps(file, code));
+    }
     if (RAW_AXE_IMPORT.test(text)) rawAxeSpecs.push(file);
   }
 
   return {
     rendersDom,
     hasAxe: usesHelper || rawAxeSpecs.length > 0,
+    sweeps,
     rawAxeSpecs,
   };
 }
@@ -354,13 +630,14 @@ export function analyzeProject({ root, files, readFile }) {
  *     root: string,
  *     rendersDom: boolean,
  *     hasAxe: boolean,
+ *     sweeps?: Array<{ spec: string, root: string }>,
  *     rawAxeSpecs: string[],
  *     fileCount: number,
  *     srcNonEmpty: boolean,
  *     walkErrors: string[],
  *   }>,
  *   exempt?: Record<string, { rendersDom: boolean, reason: string }>,
- *   rolloutPending?: readonly string[],
+ *   rolloutPending?: ReadonlyArray<string | { project: string, owes: readonly string[] }>,
  * }} input
  */
 export function buildFindings({
@@ -371,6 +648,13 @@ export function buildFindings({
   const findings = [];
   const libraries = [...facts].filter(([, fact]) => fact.scope === 'library');
   const renders = libraries.filter(([, fact]) => fact.rendersDom).length;
+  const rollout = normalizeRolloutPending(rolloutPending);
+  // A malformed entry protects nothing. Leaving it out of the suppression set
+  // is the safe direction: the project is reported `uncovered` as well, which
+  // is two true findings rather than one silent hole.
+  const tracked = new Set(
+    rollout.filter((e) => !e.malformed).map((e) => e.project),
+  );
 
   // 0. The floor. Everything below is derived from files read off disk, and a
   //    walk that saw nothing answers every one of those questions with
@@ -416,7 +700,7 @@ export function buildFindings({
   // 1. Uncovered projects that neither list accounts for.
   for (const [name, fact] of libraries) {
     if (!fact.rendersDom || fact.hasAxe) continue;
-    if (name in exempt || rolloutPending.includes(name)) continue;
+    if (name in exempt || tracked.has(name)) continue;
     findings.push({
       kind: 'uncovered',
       project: name,
@@ -427,12 +711,32 @@ export function buildFindings({
     });
   }
 
-  // 2. Stale ROLLOUT_PENDING entries.
-  for (const name of rolloutPending) {
+  // 2. Stale ROLLOUT_PENDING entries. Checked in both directions, because the
+  //    two shapes go wrong in opposite ways: a bare entry must stay unswept,
+  //    and an `owes` entry must have a sweep to be partial to. Neither check
+  //    reads the `owes` STRINGS, and neither can — the guard has no idea what
+  //    states a project has. So over a project with at least one sweep, `owes`
+  //    is accepted whatever it says and is a permanent silencer; the second
+  //    direction only catches the one case that needs no state knowledge. See
+  //    ROLLOUT_PENDING's own comment for what the annotation does buy.
+  for (const entry of rollout) {
+    const { project: name, owes, malformed } = entry;
+    if (malformed) {
+      findings.push({
+        kind: 'stale-rollout',
+        reason: 'malformed',
+        project: name,
+        message: `is not a usable ROLLOUT_PENDING entry: it ${malformed}`,
+        fix: "Write either a bare project name ('core-x') when nothing is swept, or { project: 'core-x', owes: ['open panel'] } when some states are swept and others are not.",
+      });
+      continue;
+    }
+
     const fact = facts.get(name);
     if (!fact || fact.scope !== 'library') {
       findings.push({
         kind: 'stale-rollout',
+        reason: 'unknown-project',
         project: name,
         message:
           'is listed in ROLLOUT_PENDING but is not a libs/ library project',
@@ -440,14 +744,44 @@ export function buildFindings({
       });
       continue;
     }
-    if (fact.hasAxe) {
+
+    const sweeps = fact.sweeps ?? [];
+    const roots = [...new Set(sweeps.map((s) => s.root))];
+
+    if (owes === null && fact.hasAxe) {
       findings.push({
         kind: 'stale-rollout',
+        reason: 'gained-sweep',
         project: name,
         root: fact.root,
+        sweepCount: sweeps.length,
+        sweepRoots: roots,
         message:
-          'now asserts with axe, so its ROLLOUT_PENDING line no longer describes it',
-        fix: 'Confirm the sweep is real — an import plus a call, in a spec `nx test` runs — then delete the line. That is how the rollout list shrinks (#47 phase 2).',
+          'now asserts with axe, so its bare ROLLOUT_PENDING line no longer describes it' +
+          (sweeps.length > 0
+            ? ` (${sweeps.length} sweep${sweeps.length === 1 ? '' : 's'}, against ${roots.join(', ')})`
+            : ''),
+        fix:
+          "If that covers every state that changes the markup, delete the line. If it does not — a panel, a dropdown, an expanded row, an overlay the fixture does not contain — replace the line with { project: '" +
+          name +
+          "', owes: ['<state>'] } so the rest stays tracked. One sweep is not a promise of full coverage (#257).",
+      });
+      // `sweeps`, not `hasAxe`: the entry claims some states ARE swept, and
+      // `hasAxe` is also true for a project whose only "coverage" is a banned
+      // `import axe from 'axe-core'`, which is not a sweep through the helper
+      // and cannot be the thing the annotation is describing. Belt-and-braces —
+      // the run still exits 1 on `raw-axe-import` — but this is the predicate
+      // `fact.sweeps` was introduced to let us write.
+    } else if (owes !== null && sweeps.length === 0) {
+      findings.push({
+        kind: 'stale-rollout',
+        reason: 'no-sweep',
+        project: name,
+        root: fact.root,
+        sweepCount: 0,
+        sweepRoots: [],
+        message: `is recorded as partially swept (owes ${owes.join(', ')}) but asserts with axe nowhere`,
+        fix: 'Either add the sweep the entry claims already exists, or reduce the entry to the bare project name, which is what "nothing swept yet" is written as.',
       });
     }
   }
@@ -573,6 +907,12 @@ const main = () => {
   const covered = libraries.filter((f) => f.hasAxe).length;
   const renders = libraries.filter((f) => f.rendersDom).length;
 
+  const rollout = normalizeRolloutPending(ROLLOUT_PENDING);
+  const partial = rollout.filter((e) => e.owes !== null).length;
+  const sweepCount = [...facts.values()]
+    .filter((f) => f.scope === 'library')
+    .reduce((n, f) => n + f.sweeps.length, 0);
+
   if (args.has('--json')) {
     console.log(
       JSON.stringify(
@@ -584,9 +924,20 @@ const main = () => {
             files: [...facts.values()].reduce((n, f) => n + f.fileCount, 0),
             rendersDom: renders,
             covered,
+            sweeps: sweepCount,
             exempt: Object.keys(EXEMPT).length,
             rolloutPending: ROLLOUT_PENDING.length,
+            rolloutPartial: partial,
           },
+          // Per-project sweep evidence (#257). Nothing branches on it — it is
+          // here so a reviewer can see "1 sweep, and it swept the fixture"
+          // without opening the specs, which is the fact a coverage boolean
+          // structurally cannot carry.
+          sweeps: Object.fromEntries(
+            [...facts]
+              .filter(([, f]) => f.scope === 'library' && f.sweeps.length > 0)
+              .map(([name, f]) => [name, f.sweeps]),
+          ),
           exempt: EXEMPT,
           rolloutPending: ROLLOUT_PENDING,
         },
@@ -607,8 +958,10 @@ const main = () => {
     );
   } else if (!args.has('--quiet')) {
     console.log(
-      `[check-axe-coverage] ${covered}/${renders} DOM-rendering library projects assert with axe; ` +
-        `${ROLLOUT_PENDING.length} pending rollout (#47), ${Object.keys(EXEMPT).length} exempt; ` +
+      `[check-axe-coverage] ${covered}/${renders} DOM-rendering library projects assert with axe ` +
+        `(${sweepCount} sweep(s); \`--json\` lists them per project); ` +
+        `${ROLLOUT_PENDING.length} pending rollout (#47), ${partial} of them partially swept, ` +
+        `${Object.keys(EXEMPT).length} exempt; ` +
         `${apps.length} application(s) swept for raw axe imports. OK`,
     );
   }

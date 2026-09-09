@@ -1,13 +1,18 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
+  inject,
   input,
-  model,
+  linkedSignal,
+  output,
   ViewEncapsulation,
 } from '@angular/core';
 import { LucideChevronRight } from '@lucide/angular';
 import type { BooleanInput } from '@angular/cdk/coercion';
+import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { mlvNextId } from '@malva-ui/cdk/utils';
+import { MLV_LIST } from '../list/list-token';
 
 @Component({
   selector: 'mlv-list-item-group',
@@ -40,18 +45,118 @@ import { mlvNextId } from '@malva-ui/cdk/utils';
     // shape today. Note `libs/core/src/ssr-smoke.spec.ts` renders the group
     // outside any list, so this role is not conditional on finding a parent.
     role: 'listitem',
-    '[class.mlv-list-item-group--toggled]': 'open()',
+    '[class.mlv-list-item-group--toggled]': '_expanded()',
+    '[class.mlv-list-item-group--pinned]': '_pinnedOpen()',
   },
 })
 export class MlvListItemGroup {
+  /** Visible section label — rendered on the toggler, or alone when pinned. */
   readonly label = input.required<string>();
 
-  readonly open = model<BooleanInput>(false);
+  /**
+   * Whether the group is expanded.
+   *
+   * A **live** binding, not merely an initial value: a user toggle wins until
+   * this input changes again, and any change re-seeds the resolved state. (A
+   * consumer re-publishing the value it already holds is not a change, so it
+   * does not clobber a toggle.) These are `model()`'s semantics, preserved by
+   * an internal `linkedSignal`.
+   *
+   * A coerced boolean, so both the attribute form (`<mlv-list-item-group open>`)
+   * and a binding (`[open]="expanded()"`) work. Pair it with `(openChange)` —
+   * or write `[(open)]` — to follow the user's own toggling. Being an `input()`
+   * it is read-only from a template reference: bind it from your own signal
+   * rather than reaching for `groupRef.open.set(…)`, which does not compile.
+   *
+   * Ignored while the enclosing list pins the group open (`variant="inset"`),
+   * where the content is always rendered expanded and no toggler exists.
+   */
+  readonly open = input<boolean, BooleanInput>(false, {
+    transform: coerceBooleanProperty,
+  });
+
+  /**
+   * Emits the new expanded state whenever the user activates the toggler, or
+   * {@link toggle} is called. Completes the two-way `[(open)]` pair.
+   */
+  readonly openChange = output<boolean>();
+
+  /**
+   * @protected Resolved expanded state. Seeded from `open` — and re-seeded
+   * whenever it changes — but writable, so a user toggle is not lost when the
+   * consumer binds `open` one-way. These are `model()`'s semantics; `model()`
+   * itself cannot carry a `transform`, which is what left the documented bare
+   * `open` attribute binding the empty string and reading falsy.
+   *
+   * **This is not the "is the content on screen?" predicate.** That is
+   * {@link _contentVisible} — read it, and never this signal, when gating the
+   * content region.
+   */
+  protected readonly _expanded = linkedSignal(() => this.open());
+
+  /**
+   * @private The enclosing `mlv-list`, when the group is declared inside one.
+   * Optional: `ssr-smoke.spec.ts` and any standalone use render it with no list.
+   */
+  private readonly _list = inject(MLV_LIST, { optional: true });
+
+  /**
+   * @protected Whether the enclosing list's variant pins this group's content
+   * open. `inset` renders sections as always-expanded cards — the stylesheet
+   * holds `__content` at `grid-template-rows: 1fr` — so a toggler there would
+   * be a `<button aria-expanded>` describing content it does not control
+   * (WCAG 4.1.2). None is rendered; a plain section label takes its place.
+   */
+  protected readonly _pinnedOpen = computed(
+    () => this._list?.variant() === 'inset',
+  );
+
+  /**
+   * @protected Whether the content region is on screen — the **only** predicate
+   * anything gating that region may read.
+   *
+   * A group's content is visible for either of two independent reasons, and
+   * neither alone is the answer:
+   *
+   * - `_expanded()` — the user (or `open`) disclosed it, in a list that lets
+   *   the group collapse;
+   * - `_pinnedOpen()` — the enclosing list's `variant="inset"` holds it open,
+   *   which the stylesheet expresses on `--pinned`, entirely independently of
+   *   `--toggled`.
+   *
+   * So a pinned group renders its rows on screen with `_expanded()` false, and
+   * `!_expanded()` is **not** "collapsed". Using it to gate {@link _contentId}'s
+   * region — the shape #221 invites — would mark the visible rows of every
+   * inset section inert and drop every control in them out of the tab order.
+   * The `--toggled` class is no better, and fails in the direction that hides
+   * the mistake: since #220 `open` coerces, so an inset group written
+   * `<mlv-list-item-group open>` carries `--toggled` *and* `--pinned`. A
+   * regression spec written against `apps/docs` list examples 5 and 8 (both
+   * bare `open`) would pass while `list.spec.ts`'s `InsetListGroupsHost`
+   * (inset, no `open`) broke. `list-item-group.spec.ts` covers all four states.
+   */
+  protected readonly _contentVisible = computed(
+    () => this._expanded() || this._pinnedOpen(),
+  );
 
   /** @protected Unique ID for the collapsible content region. */
   protected readonly _contentId = mlvNextId('mlv-list-group-content');
 
+  /**
+   * @protected Unique ID for the pinned section label, which names the content
+   * region in place of the toggler that would otherwise own it.
+   */
+  protected readonly _labelId = mlvNextId('mlv-list-group-label');
+
+  /**
+   * Flips the expanded state and emits `openChange`.
+   *
+   * Visually a no-op inside a list whose variant pins the group open — nothing
+   * renders a toggler there, and the content stays expanded either way.
+   */
   toggle(): void {
-    this.open.update((value) => !value);
+    const next = !this._expanded();
+    this._expanded.set(next);
+    this.openChange.emit(next);
   }
 }

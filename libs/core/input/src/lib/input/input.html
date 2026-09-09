@@ -1,4 +1,18 @@
-@if (bare()) {
+<!-- THE CONTROL IS AUTHORED EXACTLY ONCE, HERE.
+     `bare` and the wrapped shape both stamp this one template through
+     `ngTemplateOutlet`, and a second copy of the projection slot below can never
+     be added back: Angular buckets projectable content once per USAGE SITE in
+     `ɵɵprojectionDef` — it caches onto the host TNode, which lives in the
+     parent's TView and is shared by every instance stamped at that template
+     location, `@for` iterations included — and `matchingProjectionSlotIndex`
+     returns on the FIRST selector in the compiled list that matches. A second
+     `<ng-content select="input[mlvInputNative]" />` would therefore own a bucket
+     that stays `null` for that site's whole lifetime and render nothing —
+     which is exactly what the wrapped branch used to do (#256). Keeping the
+     internal `<input>` here too is the same invariant applied to the other
+     branch of the `@if`: one authored control, so the two shapes cannot drift
+     and no second slot has anywhere to appear. -->
+<ng-template #control>
   @if (projectControl()) {
     <!-- Consumer-projected native input (e.g. carrying @angular/aria's [ngCombobox]). -->
     <ng-content select="input[mlvInputNative]" />
@@ -41,10 +55,14 @@
     />
     <!-- eslint-enable @angular-eslint/template/no-autofocus -->
   }
+</ng-template>
+
+@if (bare()) {
+  <ng-container [ngTemplateOutlet]="control" />
 } @else {
   <mlv-form-control-wrapper (clear)="clearValue()">
     @if (label() || hint()) {
-      <mlv-label [for]="id()" [required]="required()">
+      <mlv-label [for]="_ownLabelFor()" [required]="required()">
         {{ label() }}
         @if (hint()) {
           <mlv-hint>{{ hint() }}</mlv-hint>
@@ -53,46 +71,7 @@
     }
 
     <ng-template mlvFormControlWrapperControl>
-      @if (projectControl()) {
-        <!-- Consumer-projected native input (e.g. carrying @angular/aria's [ngCombobox]). -->
-        <ng-content select="input[mlvInputNative]" />
-      } @else {
-        <!-- eslint-disable @angular-eslint/template/no-autofocus -->
-        <input
-          #native
-          class="mlv-input__native"
-          [id]="id()"
-          [type]="type()"
-          [placeholder]="placeholder()"
-          [disabled]="computedDisabled()"
-          [readOnly]="readonly()"
-          [value]="value() ?? ''"
-          [attr.name]="name()"
-          [attr.autocomplete]="autocomplete() || null"
-          [attr.autofocus]="autofocus() ? '' : null"
-          [attr.inputmode]="inputMode()"
-          [attr.maxlength]="maxLength()"
-          [attr.minlength]="minLength()"
-          [attr.pattern]="pattern()"
-          [attr.min]="min()"
-          [attr.max]="max()"
-          [attr.step]="step()"
-          [attr.role]="role()"
-          [attr.aria-expanded]="ariaExpanded()"
-          [attr.aria-haspopup]="ariaHasPopup()"
-          [attr.aria-autocomplete]="ariaAutocomplete()"
-          [attr.aria-controls]="ariaControls()"
-          [attr.aria-activedescendant]="ariaActiveDescendant()"
-          [attr.aria-label]="ariaLabel()"
-          [attr.aria-required]="required() || null"
-          [attr.aria-invalid]="resolvedState() === 'error'"
-          [attr.aria-describedby]="ariaDescribedBy() ?? _describedBy()"
-          (input)="onInput($event)"
-          (focus)="onFocus($event)"
-          (blur)="onBlur($event)"
-        />
-        <!-- eslint-enable @angular-eslint/template/no-autofocus -->
-      }
+      <ng-container [ngTemplateOutlet]="control" />
     </ng-template>
 
     @if (description()) {

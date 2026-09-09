@@ -37,9 +37,10 @@ Attaches to any element and unifies mouse click, Enter keydown, and Space keydow
 
 #### Inputs
 
-| Name       | Type                                  | Default | Description                                                                                                                                                                                         |
-| ---------- | ------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `disabled` | `BooleanInput` (coerced to `boolean`) | `false` | When `true`, sets `tabindex="-1"` so the element is removed from the tab order. The `mlvClick` output is not suppressed by this flag at the directive level — consumer should gate logic if needed. |
+| Name       | Type                                  | Default    | Description                                                                                                                                                                                                                             |
+| ---------- | ------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `disabled` | `BooleanInput` (coerced to `boolean`) | `false`    | When `true`, sets `tabindex="-1"` so the element is removed from the tab order. The `mlvClick` output is not suppressed by this flag at the directive level — consumer should gate logic if needed.                                     |
+| `hostRole` | `string \| null`                      | `'button'` | ARIA role written to the host. A non-`button` role goes **through this input**, never into a `role` attribute beside the directive. `null` emits no attribute — for a host whose semantics are already native (`<a href>`, `<button>`). |
 
 #### Outputs
 
@@ -52,10 +53,14 @@ Attaches to any element and unifies mouse click, Enter keydown, and Space keydow
 ```ts
 host: {
   '[attr.tabindex]': 'disabled() ? -1 : 0',
+  '[attr.role]': 'hostRole() || null',
 }
 ```
 
 - `tabindex` is dynamically set to `0` (focusable) when not disabled, or `-1` (removed from tab order) when disabled.
+- `role` comes from `hostRole` and **beats a static `role` attribute** written beside the directive.
+- Against a **component's own `[attr.role]`** on the same host there is no fixed precedence. Each host binding is dirty-checked against its own previous value and writes only on a pass where that value changed; the directive's bindings merely run after the component's, so `hostRole` wins a same-pass **tie**. First render is always such a tie — which is why the `'button'` default silently replaces the component's role, and why `[hostRole]="null"` _removes_ the attribute rather than handing the role back. On a later pass where only the component's expression changed, the component writes and the **component** wins (`MlvSidebarItem._hostRole` is a `computed()` that flips `null` / `'menuitem'` / `'button'` — exactly that shape).
+- So: co-hosting on a component that owns `[attr.role]` means writing the same role through **both** bindings, the only arrangement that is order- and timing-independent. `mlv-drawer-sections` needs `itemRole="menuitem" [hostRole]="'menuitem'"` on its `mlv-list-item` rows, because `itemRole` alone resolved to `role="button"` inside a `role="menu"` list (#223). Pinned by `click.spec.ts`, whose fourth row changes the component's role after first render.
 
 #### Implementation Notes
 

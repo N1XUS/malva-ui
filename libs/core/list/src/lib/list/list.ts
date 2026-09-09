@@ -1,9 +1,11 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  forwardRef,
   input,
   ViewEncapsulation,
 } from '@angular/core';
+import { MLV_LIST } from './list-token';
 
 /**
  * Visual variant of the list container.
@@ -37,6 +39,11 @@ export type MlvListAppearance = 'default' | 'menu';
   styleUrl: './list.css',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Published so descendants can adapt to the variant without importing the
+  // concrete class. `MlvListItemGroup` is the one consumer today: `inset`
+  // pins its content open, so it renders a plain section label instead of a
+  // disclosure toggler.
+  providers: [{ provide: MLV_LIST, useExisting: forwardRef(() => MlvList) }],
   host: {
     class: 'mlv-list',
     '[class]': '"mlv-list--" + variant()',

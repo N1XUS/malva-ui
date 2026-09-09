@@ -205,6 +205,39 @@ zone as usual.
 - External `value` model writes replace the internal file list; transient `ngModel` null initialization is normalized to an empty list.
 - `registerOnChange(fn)` — called with the full `MlvUploadedFile[]` array on every add/remove.
 - Form-bound disabled state drives the base `disabled` input and `computedDisabled()`.
+- Provides `MLV_FORM_CONTROL`, `useExisting` itself (2026-09, #217). It was the
+  only `MlvSignalFormUiControlBase` subclass in the workspace that did not, so an
+  enclosing `mlv-form-field` skipped it entirely: its
+  `contentChild(MLV_FORM_CONTROL)` resolved whichever **other** control the field
+  held, and a projected `<mlv-label>` then pointed its `for` at that unrelated
+  control. `_externalLabelStrategy()` is the base `'none'`, so the zone now
+  reports no label target and the field correctly emits nothing and warns. See
+  `.claude/projects/libs-form-utils.md` § _The field resolves the outermost
+  control_.
+
+### Known gap: the zone takes no name from `label` / `ariaLabel`
+
+`MlvFileUpload` inherits `label` and `ariaLabel` from
+`MlvSignalFormUiControlBase` and **renders neither**: there is no `<mlv-label>`
+in its template and no host `[attr.aria-label]`, and the native `<input>` is
+`aria-hidden`. The zone's only AT entry point is the browse `<button>`, whose
+accessible name is `actionLabel()`.
+
+That makes `mlv-form-field`'s dev-mode "names nothing" warning give advice the
+component cannot honour — it says _"Give the control its own [label] or
+[ariaLabel]"_, and both are inert here. The warning is not new (a `'none'`
+control always drew it) but since #217 it fires under this component's own name
+instead of an unrelated sibling's, so the dead advice is now legible.
+
+Not fixed here, deliberately: making the inputs work means choosing which
+element takes the name, and both candidates change shipped rendering —
+overriding the browse button's "Browse files" would be a regression, and naming
+the zone means giving a plain `<div>` a role it does not have today.
+`mlv-rating` has the same shape and is worse (its host `aria-label` is a
+hardcoded i18n string that silently overrides `[ariaLabel]`), so this is a class
+of at least two and belongs in its own issue. Until then, name a
+`mlv-file-upload` from the consuming markup — `aria-labelledby` on a heading you
+already render, or a `<label>` you own.
 
 ---
 

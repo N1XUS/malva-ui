@@ -19,13 +19,24 @@ import { Overlay } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { MlvRtlService, mlvNextId } from '@malva-ui/cdk/utils';
+import {
+  MlvRtlService,
+  mlvMirrorInlineOffsets,
+  mlvNextId,
+} from '@malva-ui/cdk/utils';
 import { MlvTooltipPanel } from './tooltip-panel';
 import type { MlvTooltipTone, MlvTooltipPlacement } from './tooltip.types';
 
 /**
  * Map of placement → CDK connected positions (preferred + opposite fallback).
  * Offset of 6px provides clearance for the arrow.
+ *
+ * Logical throughout: `originX` / `overlayX` are `'start'` / `'end'`, which CDK
+ * mirrors against the pane's direction. `offsetX` is **not** mirrored by CDK —
+ * it is applied as raw physical pixels — so `_show()` passes the list through
+ * `mlvMirrorInlineOffsets` first (#180), and the `-6` on `left` reads as "6px
+ * away from the trigger, toward inline-start" in both directions. `offsetY` is
+ * the block axis and needs nothing.
  */
 const TOOLTIP_POSITIONS: Record<MlvTooltipPlacement, ConnectedPosition[]> = {
   top: [
@@ -351,7 +362,16 @@ export class MlvTooltip {
     if (this._overlayRef) return;
 
     const placement = this.tooltipPlacement();
-    const positions = TOOLTIP_POSITIONS[placement];
+    // The pane is portaled to <body>, outside any `[dir]` scope the trigger
+    // sits in, so the direction is resolved here and used for both halves of
+    // the geometry: CDK mirrors `start`/`end` against the pane's direction, but
+    // leaves `offsetX` physical, so the arrow clearance has to be mirrored
+    // against the same value or the two disagree — see `mlvMirrorInlineOffsets`.
+    const direction = this._rtl.resolveDirection(this._elementRef);
+    const positions = mlvMirrorInlineOffsets(
+      TOOLTIP_POSITIONS[placement],
+      direction,
+    );
 
     const positionStrategy = this._overlay
       .position()
@@ -361,7 +381,7 @@ export class MlvTooltip {
 
     this._overlayRef = this._overlay.create({
       positionStrategy,
-      direction: this._rtl.resolveDirection(this._elementRef),
+      direction,
       scrollStrategy: this._overlay.scrollStrategies.reposition(),
       panelClass: 'mlv-tooltip-overlay',
     });

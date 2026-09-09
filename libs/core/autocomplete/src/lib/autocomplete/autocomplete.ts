@@ -361,6 +361,13 @@ export class MlvAutocomplete<T = unknown> {
   private readonly _panelRef = signal<ComponentRef<MlvDropdownPanel<T>> | null>(
     null,
   );
+  /**
+   * @private Accessible name handed to the panel's inner `role="listbox"`,
+   * re-read from the host input on **every** query while the popup is open —
+   * not once per overlay. See {@link _resolveHostAccessibleName} and the
+   * `.set()` call in {@link _openPopup}.
+   */
+  private readonly _panelAriaLabel = signal<string | null>(null);
 
   /** Whether the suggestion popup is currently open (read-only view of internal state). */
   readonly isOpen = this._open.asReadonly();
@@ -480,6 +487,11 @@ export class MlvAutocomplete<T = unknown> {
       ref.setInput('focusMode', 'activedescendant');
       ref.setInput('activeIndex', this._activeDescendant.index());
       ref.setInput('listboxId', this._listboxId);
+      // Name the listbox after the field it belongs to — the same contract
+      // `mlv-select` / `mlv-combobox` express with `label() || ariaLabel()`,
+      // resolved from the DOM here because the field is the consumer's.
+      // `null` emits no attribute (#222).
+      ref.setInput('ariaLabel', this._panelAriaLabel());
       ref.setInput('loading', this._panelLoading());
       ref.setInput('loadingText', this.loadingText());
       ref.setInput('hasMore', this._adapter.hasMore());
@@ -850,11 +862,114 @@ export class MlvAutocomplete<T = unknown> {
 
   // ─── Overlay ─────────────────────────────────────────────────────────────────
 
+  /**
+   * @private Resolves the accessible name of the host `<input>`, so the
+   * suggestion panel's inner `role="listbox"` can carry the same one.
+   *
+   * `mlv-select` and `mlv-combobox` name that listbox from their own `label` /
+   * `ariaLabel` inputs, so it always shares the accessible name of the field it
+   * belongs to. This directive owns no field — it attaches to an input the
+   * consumer wrote — so it reads the name off that input rather than inventing
+   * a generic one: there is no autocomplete i18n pack to translate a fallback
+   * string from, and an untranslated English literal is not shippable in a
+   * library.
+   *
+   * Follows the accessible-name computation's order for a labelable control:
+   * `aria-labelledby` (step 2B), then `aria-label` (2C), then the associated
+   * `<label>` elements (2D). `title` and `placeholder` are deliberately not
+   * consulted — both rank below these as last-resort sources, and a
+   * placeholder-derived name is a WCAG smell the library should not launder
+   * into a plausible-looking one.
+   *
+   * Returns `null` when the input carries no name of its own, so the panel
+   * emits **no** `aria-label` rather than an empty one: an unnamed
+   * `role="combobox"` input is the consumer's own WCAG 4.1.2 defect, and giving
+   * its popup a name would only make that harder to see.
+   *
+   * Note this is a consistency fix, not an axe fix. axe's
+   * `aria-input-field-name` exempts a listbox that any `role="combobox"`
+   * `aria-controls`/`aria-owns` points at (`isComboboxPopup` in
+   * `no-naming-method-matches`), which is exactly how the panel is wired, so
+   * the rule reports it `inapplicable` either way.
+   */
+  private _resolveHostAccessibleName(el: HTMLInputElement): string | null {
+    const labelledBy = el.getAttribute('aria-labelledby');
+    if (labelledBy) {
+      const referenced = labelledBy
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((id) => el.ownerDocument.getElementById(id))
+        .filter((node): node is HTMLElement => node !== null)
+        .map((node) => this._accessibleText(node))
+        .filter(Boolean)
+        .join(' ');
+      if (referenced) return referenced;
+    }
+
+    const ariaLabel = this._flatten(el.getAttribute('aria-label') ?? '');
+    if (ariaLabel) return ariaLabel;
+
+    const fromLabels = Array.from(el.labels ?? [])
+      .map((label) => this._accessibleText(label))
+      .filter(Boolean)
+      .join(' ');
+    return fromLabels || null;
+  }
+
+  /**
+   * @private Text of `node` as the accessible-name computation would read it:
+   * `aria-hidden` subtrees removed and whitespace collapsed.
+   *
+   * The `aria-hidden` filter is what keeps `mlv-hint`'s projected source text
+   * out — it is hidden precisely so it stays out of the labelled control's own
+   * name, and the panel has to match that name, not a longer one. `innerText`
+   * would do this natively but needs layout, which jsdom has none of, so the
+   * spec suite would silently read a different string from the browser.
+   */
+  private _accessibleText(node: HTMLElement): string {
+    if (node.getAttribute('aria-hidden') === 'true') return '';
+    const clone = node.cloneNode(true) as HTMLElement;
+    clone
+      .querySelectorAll('[aria-hidden="true"]')
+      .forEach((hidden) => hidden.remove());
+    return this._flatten(clone.textContent ?? '');
+  }
+
+  /**
+   * @private `text` as a *flat string*: every run of whitespace collapsed to a
+   * single space, then trimmed.
+   *
+   * Applied to **every** naming source, `aria-label` included. The
+   * accessible-name computation normalizes whitespace once, at the end, over
+   * whichever source it took — so `aria-label="Fruit    basket"` computes to
+   * `"Fruit basket"` on the input itself. Collapsing on the element-text branch
+   * only would make the panel disagree with the field it is named after for
+   * exactly the inputs where the raw attribute is not already flat.
+   */
+  private _flatten(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+  }
+
   /** @private Creates (if needed) and shows the suggestion overlay. */
   private _openPopup(): void {
     if (this._isInert()) return;
     const el = this._inputEl();
     if (!el) return;
+
+    // Re-resolve the field's accessible name for the panel on EVERY query, not
+    // only on the open that creates the overlay — this `.set()` sits above the
+    // `if (!this._overlayRef)` guard deliberately. `_openPopup()` is re-entered
+    // from `_runQuery()` on each debounced keystroke, while the overlay (and
+    // with it the panel component) is created on the first open of a session
+    // and disposed on close. So moving this inside the guard would pin the name
+    // for the whole session: a consumer label that changes while the popup is
+    // up — a locale switch, an `@if`-swapped `<label>` — would keep the old name
+    // until the popup closed. Per query bounds any staleness at the next
+    // keystroke instead; pinned by "re-resolves the field's name on each query,
+    // not once per overlay" in the spec. Closer than that would need a
+    // `MutationObserver` over DOM this directive does not own — deliberately
+    // not done.
+    this._panelAriaLabel.set(this._resolveHostAccessibleName(el));
 
     if (!this._overlayRef) {
       const positionStrategy = this._overlay

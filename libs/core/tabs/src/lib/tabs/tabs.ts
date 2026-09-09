@@ -1,5 +1,6 @@
-import type { AfterViewInit, TemplateRef } from '@angular/core';
+import type { TemplateRef } from '@angular/core';
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -42,7 +43,11 @@ import {
   MLV_DENSITY_ELEMENT,
   MlvDensityDirective,
 } from '@malva-ui/cdk/density';
-import { MlvRtlService, mlvNextId } from '@malva-ui/cdk/utils';
+import {
+  MlvResizeObserverFactory,
+  MlvRtlService,
+  mlvNextId,
+} from '@malva-ui/cdk/utils';
 
 /**
  * Visual style of the tab header. Orthogonal to `orientation` — a boxed group can
@@ -100,7 +105,7 @@ export type MlvTabPanelPlacement = 'inline' | 'external';
     '[class.mlv-tab-group--appearance-boxed]': "appearance() === 'boxed'",
   },
 })
-export class MlvTabGroup implements MlvTabGroupAccessor, AfterViewInit {
+export class MlvTabGroup implements MlvTabGroupAccessor {
   /** @private Scoped service tracking tab registration and visible/overflow split. */
   private readonly _tabsService = inject(MlvTabsService);
   private readonly _rtlService = inject(MlvRtlService);
@@ -124,8 +129,30 @@ export class MlvTabGroup implements MlvTabGroupAccessor, AfterViewInit {
 
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_TABS_I18N);
-  /** @private Native ResizeObserver watching the tab-list header for overflow recalculation. */
+  /**
+   * @private DI seam for the platform `ResizeObserver`. `create()` answers
+   * `null` where the constructor is absent — server rendering — which is the
+   * documented server case of the shared factory (see its `NullFactory` spec),
+   * and is what keeps the raw global out of this component so a spec can hand
+   * it a double without patching `globalThis`.
+   */
+  private readonly _resizeObserverFactory = inject(MlvResizeObserverFactory);
+
+  /**
+   * @private Native ResizeObserver watching every box the overflow split reads:
+   * the tab-list header, each rendered tab item and the "More" trigger.
+   */
   private _resizeObserver: ResizeObserver | null = null;
+
+  /**
+   * @private The elements {@link _resizeObserver} currently watches, kept in
+   * lockstep with the observer itself: every `add` here is paired with an
+   * `observe()` and every `delete` with an `unobserve()`, so the set is the
+   * observer's target list rather than a snapshot of it. That is what lets
+   * {@link _syncResizeTargets} add and remove observations incrementally
+   * instead of disconnecting, which would re-notify every settled box.
+   */
+  private readonly _observedTargets = new Set<Element>();
 
   /**
    * @private Trailing debounce timer for the ResizeObserver. Coalesces the burst
@@ -343,10 +370,25 @@ export class MlvTabGroup implements MlvTabGroupAccessor, AfterViewInit {
       this._direction();
       this._updateIndicator();
     });
-  }
 
-  ngAfterViewInit(): void {
-    this._setupResizeObserver();
+    // Keep the resize observer pointed at every box the split is derived from.
+    // The rendered tab set changes on every repartition, so this is a tracked
+    // effect rather than a one-shot `ngAfterViewInit` call: a tab (or the
+    // "More" trigger) that appears later still gets observed.
+    //
+    // `afterRenderEffect`, not `effect`: the body constructs a `ResizeObserver`,
+    // which must not happen during a server render, and this is the primitive
+    // that structurally cannot run there (`libs/core/src/ssr-smoke.spec.ts`
+    // asks for exactly this over a `typeof` guard the suite cannot see fail).
+    // It is still signal-tracked, so the query-driven re-observation above is
+    // unchanged; it simply runs after the render that produced the new boxes.
+    afterRenderEffect(() => {
+      const items = this.tabItems();
+      const moreTrigger = this._moreTriggerRef();
+      const header = this.tabListRef();
+      untracked(() => this._syncResizeTargets(header, items, moreTrigger));
+    });
+
     this._destroyRef.onDestroy(() => this._teardownResizeObserver());
   }
 
@@ -563,19 +605,18 @@ export class MlvTabGroup implements MlvTabGroupAccessor, AfterViewInit {
     });
   }
 
-  /** @private Attaches a ResizeObserver to the header to recalculate overflow on width changes. */
-  private _setupResizeObserver(): void {
-    if (this.orientation() === 'vertical') return;
-
-    const headerEl = this.tabListRef()?.nativeElement;
-    if (!headerEl) return;
-
-    if (typeof ResizeObserver === 'undefined') return;
+  /**
+   * @private Creates the debounced ResizeObserver on first use, or returns the
+   * existing one. `null` where the factory has no `ResizeObserver` to give —
+   * server rendering, so the overflow split simply never engages there.
+   */
+  private _ensureResizeObserver(): ResizeObserver | null {
+    if (this._resizeObserver) return this._resizeObserver;
 
     // Debounce (trailing): a drag fires the observer many times per second.
     // Coalescing them into one recalculation after the width settles is the
     // first line of defence against the flickering "dizzy" repartition.
-    this._resizeObserver = new ResizeObserver(() => {
+    this._resizeObserver = this._resizeObserverFactory.create(() => {
       if (this._resizeDebounceTimer !== null) {
         clearTimeout(this._resizeDebounceTimer);
       }
@@ -584,10 +625,81 @@ export class MlvTabGroup implements MlvTabGroupAccessor, AfterViewInit {
         this._recalculateOverflow();
       }, MlvTabGroup._RESIZE_DEBOUNCE_MS);
     });
-    this._resizeObserver.observe(headerEl);
+    return this._resizeObserver;
   }
 
-  /** @private Disconnects and clears the header ResizeObserver and its debounce timer. */
+  /**
+   * @private Points the ResizeObserver at every box the overflow split is
+   * derived from: the header (the width available) **and** each rendered tab
+   * plus the "More" trigger (the width consumed).
+   *
+   * Observing only the header was the defect behind #232. The split is a
+   * function of the tabs' widths, but the only thing that re-ran it was a
+   * change in the header's own size — and a header whose width comes from its
+   * parent never resizes when its children finally get theirs. So a measuring
+   * pass that landed before the tabs had a laid-out box (every `offsetWidth`
+   * reading `0`, leaving the width cache empty and the total at `0`, which
+   * satisfies `total <= containerWidth`) committed "no overflow" for the
+   * lifetime of the component. The same held for widths that changed without
+   * moving the header: a webfont swap, a density change, a label retranslation.
+   *
+   * Diffed rather than `disconnect()`-and-re-observe. Per the spec a fresh
+   * `ResizeObservation` starts at `lastReportedSizes = [(-1,-1)]`, so
+   * `observe()` on a not-currently-observed target always delivers an initial
+   * notification (a `0x0` and a `display: none` box included) while `observe()`
+   * on a live target is a no-op. Disconnecting therefore re-arms every target
+   * and re-notifies every already-settled box on each repartition. The trailing
+   * debounce absorbs those into the same *number* of recalculations, so the
+   * cost is the redundant deliveries themselves — and the detached tab elements
+   * a repartition destroys, which unobserving what left stops the observer from
+   * retaining. Measured, not assumed: `tabs.spec.ts` asserts the header — a box
+   * that never moves and never leaves the set — is notified exactly once.
+   *
+   * A vertical group is observed too, even though it never overflows:
+   * {@link _recalculateOverflow} owns that case and resets the split to "all
+   * visible" itself. That is deliberate but narrower than it looks — it
+   * guarantees only that a group which *started* vertical still holds a live
+   * observer, so the first resize notification arriving after a switch to
+   * horizontal repartitions it. (Before, the observer was created once from
+   * `ngAfterViewInit` behind a `vertical` early return, so such a group had no
+   * observer at all and overflow was dead for its lifetime.) `orientation()` is
+   * a dependency of nothing that recalculates, so recovery still rides on the
+   * notifications the orientation change's own relayout produces, not on the
+   * input write.
+   */
+  private _syncResizeTargets(
+    header: ElementRef<HTMLElement> | undefined,
+    items: readonly MlvTabItem[],
+    moreTrigger: ElementRef<HTMLButtonElement> | undefined,
+  ): void {
+    const observer = this._ensureResizeObserver();
+    if (!observer) return;
+
+    const targets = new Set<Element>();
+    if (header) targets.add(header.nativeElement);
+    for (const item of items) {
+      targets.add(item.elementRef.nativeElement);
+    }
+    if (moreTrigger) targets.add(moreTrigger.nativeElement);
+
+    // Deleting the element the `for…of` is standing on is well-defined for a
+    // Set, so both passes mutate `_observedTargets` in place, keeping it in
+    // lockstep with the observer rather than swapping in a fresh snapshot.
+    for (const el of this._observedTargets) {
+      if (!targets.has(el)) {
+        observer.unobserve(el);
+        this._observedTargets.delete(el);
+      }
+    }
+    for (const el of targets) {
+      if (!this._observedTargets.has(el)) {
+        observer.observe(el);
+        this._observedTargets.add(el);
+      }
+    }
+  }
+
+  /** @private Disconnects and clears the ResizeObserver and its debounce timer. */
   private _teardownResizeObserver(): void {
     if (this._resizeDebounceTimer !== null) {
       clearTimeout(this._resizeDebounceTimer);
@@ -595,6 +707,7 @@ export class MlvTabGroup implements MlvTabGroupAccessor, AfterViewInit {
     }
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
+    this._observedTargets.clear();
   }
 
   /**

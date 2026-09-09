@@ -93,10 +93,21 @@ When `opened()` is true the body is rendered with `animate.enter="mlv-expand__bo
 
 **Accessibility — collapsed content is not focusable:** when closed, the body is
 removed from the DOM by `@if (opened())`, so its focusable content leaves the tab
-order entirely. During the `animate.leave` collapse animation the element lingers
-in the DOM while already invisible; `[attr.inert]="opened() ? null : ''"` marks it
-`inert` the moment `opened()` becomes `false`, removing it from the tab order and
-the accessibility tree without affecting the `grid-template-rows` animation.
+order entirely.
+
+> **The `[attr.inert]` binding above is dead code — see [#263](https://github.com/N1XUS/malva-ui/issues/263).** This
+> paragraph used to claim that it marks the body `inert` the moment `opened()`
+> becomes `false`, covering the `animate.leave` window. It cannot: the binding
+> sits inside `@if (opened())`, so its ternary only ever evaluates with
+> `opened()` true and the attribute is never written. `animate.leave` does not
+> rescue it either — once the `@if` stops matching the embedded view is
+> destroyed and stops updating bindings, so the lingering node keeps its last
+> value, which was "no attribute". `expand.spec.ts:65` and `:102` assert
+> `hasAttribute('inert') === false` **while open**, which passes identically
+> with the binding deleted, so nothing gates it today. Whether the leave window
+> is reachable at all, and therefore whether the fix is to delete the binding or
+> to make the intent work, is #263. Do not cite this as `inert` precedent — the
+> real ones are `mlv-sidebar-item`, `mlv-sidebar-group` and `mlv-stepper`.
 
 ---
 

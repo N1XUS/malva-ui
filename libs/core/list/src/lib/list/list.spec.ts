@@ -73,11 +73,8 @@ class ListRowsHost {}
 @Component({
   imports: [MlvList, MlvListItem, MlvListItemGroup],
   template: `
-    <mlv-list variant="inset">
-      <!-- [open]="true", not a bare open attribute: the model is
-           model<BooleanInput>(false) with no coerceBooleanProperty transform,
-           so the attribute form binds the empty string and reads falsy. -->
-      <mlv-list-item-group label="Alerts" [open]="true">
+    <mlv-list>
+      <mlv-list-item-group label="Alerts" open>
         <mlv-list-item>Push notifications</mlv-list-item>
       </mlv-list-item-group>
       <mlv-list-item-group label="Privacy">
@@ -87,6 +84,21 @@ class ListRowsHost {}
   `,
 })
 class ListGroupsHost {}
+
+@Component({
+  imports: [MlvList, MlvListItem, MlvListItemGroup],
+  template: `
+    <mlv-list variant="inset">
+      <mlv-list-item-group label="Alerts">
+        <mlv-list-item>Push notifications</mlv-list-item>
+      </mlv-list-item-group>
+      <mlv-list-item-group label="Privacy">
+        <mlv-list-item>Read receipts</mlv-list-item>
+      </mlv-list-item-group>
+    </mlv-list>
+  `,
+})
+class InsetListGroupsHost {}
 
 @Component({
   imports: [MlvList, MlvListItem, MlvListItemLink],
@@ -169,6 +181,50 @@ describe('MlvList accessibility', () => {
     for (const toggler of togglers) {
       const controls = toggler.getAttribute('aria-controls') as string;
       expect(root.querySelectorAll(`#${controls}`)).toHaveLength(1);
+    }
+
+    await expectNoAxeViolations(root);
+  });
+
+  it('has no axe violations for pinned groups inside an inset role="list"', async () => {
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [InsetListGroupsHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(InsetListGroupsHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+
+    // State: the inset variant pins group content open, so the disclosure
+    // button is gone entirely — each group is a `listitem` holding an inert
+    // section label plus the `role="list"` that label names. This is the
+    // structure that changed in #220, so it gets its own sweep rather than
+    // riding on the collapsible one above.
+    const list = root.querySelector('mlv-list') as HTMLElement;
+    expect(list.getAttribute('role')).toBe('list');
+    expect(list.querySelectorAll('.mlv-list-item-group__toggler')).toHaveLength(
+      0,
+    );
+    const labels = [
+      ...list.querySelectorAll('.mlv-list-item-group__label'),
+    ] as HTMLElement[];
+    expect(labels).toHaveLength(2);
+    for (const label of labels) {
+      expect(
+        root.querySelectorAll(`[aria-labelledby="${label.id}"]`),
+      ).toHaveLength(1);
+    }
+
+    // Neither group here writes `open`, so both are pinned with `_expanded()`
+    // false — the shape #221's inertness predicate must not mistake for
+    // "collapsed". Their rows are on screen; marking them `inert` would take
+    // every control in them out of the tab order. See `_contentVisible`'s
+    // JSDoc on `MlvListItemGroup`.
+    for (const content of list.querySelectorAll(
+      '.mlv-list-item-group__content',
+    )) {
+      expect(content.hasAttribute('inert')).toBe(false);
     }
 
     await expectNoAxeViolations(root);

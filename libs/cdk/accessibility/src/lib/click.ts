@@ -38,6 +38,24 @@ export class MlvClick {
    * this is a host `[attr.role]` binding, so it wins over a static `role` and a
    * `null` here removes it. Pass `null` only when the host's semantics are
    * native — an `<a href>`, a `<button>` — and so cannot be written away.
+   *
+   * That includes a **component's** own `[attr.role]` on the same host, and
+   * the two do not resolve by a fixed precedence. Each host binding is
+   * dirty-checked against its own previous value and writes only on a pass
+   * where that value changed; the directive's bindings merely run after the
+   * component's, so this input wins a same-pass *tie*. First render is always
+   * such a tie, which is why the `'button'` default silently replaces a role
+   * the component wrote — and why `null` here **removes** the attribute rather
+   * than handing the role back. On a later pass where only the component's
+   * expression changed, though, the component is the one that writes and the
+   * component wins (`MlvSidebarItem._hostRole` is a `computed()` of exactly
+   * that shape).
+   *
+   * Co-hosting on a component that owns `[attr.role]` therefore means writing
+   * the same role through both — the one arrangement that is both order- and
+   * timing-independent. See `mlv-drawer-sections`, where `mlv-list-item`
+   * inside a `role="menu"` needs
+   * `itemRole="menuitem" [hostRole]="'menuitem'"` (#223).
    */
   readonly hostRole = input<string | null>('button');
 

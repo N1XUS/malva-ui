@@ -126,7 +126,7 @@
     // paint over the ring.
     //
     // `2` rather than a `--mlv-z-*` token, to match
-    // `list-item-group.scss`'s `.mlv-list--inset .mlv-list-item-group__toggler`
+    // `list-item-group.scss`'s `.mlv-list--inset .mlv-list-item-group__label`
     // — the same sticky-header-over-list-rows job, which has always cleared the
     // row at this level. The `--mlv-z-*` ladder is for document chrome; these
     // two only ever compete with their own sibling rows.

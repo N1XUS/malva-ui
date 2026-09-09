@@ -123,9 +123,11 @@ describe('mlv-dropdown-panel sticky group header stacking', () => {
   });
 
   it('lifts the header to the same level as the list’s own sticky group header', () => {
-    // `.mlv-list--inset .mlv-list-item-group__toggler` is the identical job —
+    // `.mlv-list--inset .mlv-list-item-group__label` is the identical job —
     // a sticky uppercase section label pinned over the rows it groups — and has
     // always cleared the row at this level. The two should not drift apart.
+    // (It was `__toggler` until #220 stopped rendering a disclosure button for
+    // a section the inset variant pins open; same element, same job.)
     const listGroupCss = compile(
       '../../../../list/src/lib/list-item-group/list-item-group.scss',
     );
@@ -134,7 +136,7 @@ describe('mlv-dropdown-panel sticky group header stacking', () => {
       resolveZIndex(
         declaredZIndex(
           listGroupCss,
-          '.mlv-list--inset .mlv-list-item-group__toggler',
+          '.mlv-list--inset .mlv-list-item-group__label',
         ),
         themeCss,
       ),

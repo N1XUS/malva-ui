@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvButton } from '@malva-ui/core/button';
 import { vi } from 'vitest';
 
@@ -204,6 +205,38 @@ describe('MlvDrawerHeader — element form', () => {
     expect(titleEl()?.tagName).toBe('H4');
     expect(titleEl()?.id).toBe(id);
     expect(panel()?.getAttribute('aria-labelledby')).toBe(id);
+  });
+
+  /**
+   * The header band as rendered: the title heading that names the dialog, the
+   * projected action, and the trailing close button. Swept from
+   * `document.body` — the panel is portaled into the CDK overlay container.
+   */
+  it('has no axe violations with a title, an action and a close button', async () => {
+    expect(titleEl()?.textContent?.trim()).toBe('Edit product');
+    expect(closeButton()).not.toBeNull();
+
+    await expectNoAxeViolations(document.body);
+  });
+
+  /**
+   * `closable="false"` removes the close button and an empty `title` renders
+   * no heading text, so the drawer falls back to its localized `aria-label`.
+   * The rendered markup differs, so it gets its own sweep — in particular the
+   * title element survives as an empty, still-`id`'d `<div>`, which is exactly
+   * the shape a dangling `aria-labelledby` would hide in.
+   */
+  it('has no axe violations without a title or a close button', async () => {
+    host.title.set(undefined);
+    host.closable.set(false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(titleEl()?.textContent?.trim()).toBe('');
+    expect(closeButton()).toBeNull();
+    expect(panel()?.getAttribute('aria-labelledby')).toBeNull();
+
+    await expectNoAxeViolations(document.body);
   });
 
   it('renders the library close button last, labelled from i18n', () => {

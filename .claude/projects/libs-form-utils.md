@@ -137,17 +137,18 @@ a third-party control resolves `null` instead of erroring. A control that
 renders its _own_ `<mlv-label>` from its `label` input does so in its **view**,
 which no content query of the field reaches, so the two never collide.
 
-| Member                     | On                           | Meaning                                                                          |
-| -------------------------- | ---------------------------- | -------------------------------------------------------------------------------- |
-| `labelId`                  | `MlvFormField`               | id of the projected `<mlv-label>`'s `<label>`, or `null`                         |
-| `labelableControlId`       | `MlvFormField`               | id for the label's `for`, or `null` when the control is not labelable            |
-| `labelId`                  | `MlvLabel`                   | generated id, always emitted on the inner `<label>`                              |
-| `labelTarget`              | `MlvSignalFormUiControlBase` | `{ id, labelable }` or `null` — what the field reads                             |
-| `label`                    | `MlvFormControl`             | the control's own label text; read **only** by the double-label warning below    |
-| `_externalLabelStrategy()` | `MlvSignalFormUiControlBase` | `'none'` by default; each control overrides                                      |
-| `_labelTargetId()`         | `MlvSignalFormUiControlBase` | which id `labelTarget` publishes; `id()` unless the focus target cannot carry it |
-| `_fieldLabelId()`          | `MlvSignalFormUiControlBase` | the field's `labelId` — only for `'aria'` controls                               |
-| `_externallyLabelled()`    | `MlvSignalFormUiControlBase` | whether the field's label names this control, under **either** strategy          |
+| Member                     | On                           | Meaning                                                                                         |
+| -------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| `labelId`                  | `MlvFormField`               | id of the projected `<mlv-label>`'s `<label>`, or `null`                                        |
+| `labelableControlId`       | `MlvFormField`               | id for the label's `for`, or `null` when the control is not labelable                           |
+| `labelId`                  | `MlvLabel`                   | generated id, always emitted on the inner `<label>`                                             |
+| `labelTarget`              | `MlvSignalFormUiControlBase` | `{ id, labelable }` or `null` — what the field reads                                            |
+| `label`                    | `MlvFormControl`             | the control's own label text; read **only** by the double-label warning below                   |
+| `_externalLabelStrategy()` | `MlvSignalFormUiControlBase` | `'none'` by default; each control overrides                                                     |
+| `_labelTargetId()`         | `MlvSignalFormUiControlBase` | which id `labelTarget` publishes; `id()` unless the focus target cannot carry it                |
+| `_fieldLabelId()`          | `MlvSignalFormUiControlBase` | the field's `labelId` — only for `'aria'` controls                                              |
+| `_externallyLabelled()`    | `MlvSignalFormUiControlBase` | whether the field's label names this control, under **either** strategy                         |
+| `_ownLabelFor()`           | `MlvSignalFormUiControlBase` | `for` for the control's **own** `<mlv-label>` — `labelTarget().id` while labelable, else `null` |
 
 An explicit `[for]` on the `<mlv-label>` always wins, and the field never
 rewrites the control's `id`.
@@ -174,6 +175,131 @@ bind `[attr.aria-labelledby]="label() ? labelId() : _fieldLabelId()"` — never
 suppress `aria-label` when either resolves. All five now carry a public
 `labelId` (`` `${id()}-label` ``) on their own `<mlv-label>` for the first
 branch.
+
+#### A control's own label uses the same test (2026-09, #216)
+
+`_ownLabelFor()` is the `for` a control renders on the `<mlv-label>` it draws
+**itself** from its `label` input: `labelTarget()`'s id while that target is
+labelable, `null` otherwise — and `null` emits no attribute at all.
+
+`MlvLabel._resolvedFor()` returns an explicit `[for]` first, so a control that
+hard-coded `[for]="id()"` short-circuited the whole #197 mechanism and kept
+emitting a `for` even where the id sits on a `div`. Seven did: `mlv-select`
+behind its custom trigger, `mlv-day-picker`, `mlv-time-picker`,
+`mlv-date-range-picker`, `mlv-input` with `projectControl`, `mlv-tokenizer`
+while disabled, and `mlv-editor` (whose id is on no element at all). The name
+was already correct — every one of them carries `aria-labelledby` — so what the
+attribute bought was a false association in review and a label that focused
+nothing on click.
+
+**Eight** templates bind `_ownLabelFor()`, not seven: `mlv-combobox` was
+already emitting a correct `for` (its `id` reaches the inner `mlv-input`'s
+native `<input>`) and converts anyway, so the answer has one source rather than
+two that happen to agree. Its rendered attribute is unchanged;
+`combobox-own-label.spec.ts` pins the strategy that makes that true.
+
+#### The field resolves the outermost control, not a nested one (2026-09, #217)
+
+`contentChild` defaults to `descendants: true`, so
+`MlvFormField._control` matches the **first** node in the projected content
+that can supply `MLV_FORM_CONTROL` — at any depth. Three components did not
+supply it, and the query walked straight past each of them:
+
+| Component            | What the field resolved instead                                    |
+| -------------------- | ------------------------------------------------------------------ |
+| `mlv-checkbox-group` | the first projected `mlv-checkbox` (a **descendant** of the group) |
+| `mlv-switch-group`   | the first projected `mlv-switch` (likewise)                        |
+| `mlv-file-upload`    | whichever other control the field held (it has nothing nested)     |
+
+Two things went wrong, and only the second is a wrong `for` on the _projected_
+label:
+
+1. `labelableControlId()`, `_hasDoubleLabel()` and the dev warnings all
+   described a node the author never pointed at — a projected `<mlv-label>`
+   naming a control nested inside a group, or one sitting beside an upload zone.
+2. `MlvLabel._ownerControl` is what stops a control's **own** inner
+   `<mlv-label>` borrowing the field's target. The two groups render one from
+   their `label` input, and with nothing provided it resolved `null` — so in a
+   field that also held a labelable control, the group's own label emitted that
+   control's id as its `for`. Clicking "Toppings" focused the text input.
+
+All three now provide `MLV_FORM_CONTROL`, `useExisting` themselves.
+`mlv-file-upload` already extended `MlvSignalFormControlBase` and needed only
+the provider line — it was the workspace's single `MlvSignalFormUiControlBase`
+subclass without one, against twenty that had it.
+
+**The two groups are not `MlvSignalFormUiControlBase` subclasses.** They extend
+`MlvFocusableGroupBase`, which owns only the roving-tabindex concern, so they
+each implement `MlvFormControl` directly: `state` and `label` are their real
+inputs, and the nine wrapper-facing halves they do not own (`focused`,
+`disabled`, `readonly`, `loading`, `clearable`, `hasValue`, `prepend`,
+`append`, `inset`) are constant, non-input signals. Explicit members rather
+than a bare provider, because `ExistingProvider.useExisting` is typed `any`:
+without the `implements` clause nothing would have caught a missing member, and
+`mlv-form-control-wrapper` calls `focused()` / `disabled()` / `readonly()` /
+`loading()` / `state()` unguarded. Every wrapper in the library today sits
+inside a control that provides the token itself, so that path was unreachable
+in-repo — but `mlv-form-control-wrapper` is exported, so a consumer could reach
+it.
+
+Both groups also report a `labelTarget` of `{ id, labelable: false }` — the
+`'aria'` row of the strategy table, and the shape `mlv-radio-group` has shipped
+since #197. A `role="group"` is nameable from outside; `aria-labelledby` is how.
+Without it the two groups would have been the only `role="group"` controls in
+the library that take no name from a field label — a live WCAG 4.1.2 gap that no
+axe sweep can see, because `label` / `aria-input-field-name` do not apply to a
+`role="group"` at all. The id must land on the element that actually carries the
+role, and that is a **different node in each**: `mlv-switch-group`'s host, but
+`mlv-checkbox-group`'s inner `<div>`.
+
+They cannot override `_externalLabelStrategy()` to say so, because that hook
+lives on `MlvSignalFormUiControlBase` and neither group extends it; each
+declares the resulting `labelTarget` directly instead. It is a constant rather
+than a `computed`: a control whose strategy tracks its own state (`mlv-select`
+swaps between its native `<select>` and a `div[role="combobox"]`) needs one, but
+a group is a group in every state.
+
+The nine constant members are public on exported classes, which costs one thing
+worth stating: `group.disabled()` on a `viewChild(MlvCheckboxGroup)` used to be
+a compile error and now compiles and always answers `false`. `[disabled]="…"` on
+the element still fails AOT with NG8002 (none of the nine is an `input()`), so
+only the TypeScript read changed — from loud to silent. Making
+`MlvFormControl`'s own members optional would remove the cost here and create a
+worse one: every consumer calling `inject(MLV_FORM_CONTROL).focused()` would
+stop compiling under `strictNullChecks`.
+
+**It was latent, not live.** No shipped field in `libs/` or `apps/docs` holds
+a group or an upload zone, so nothing rendered wrongly before this change. The
+shape that breaks is a field holding one of the three **and** a second control;
+that is what `checkbox-group-field-label.spec.ts`,
+`switch-group-field-label.spec.ts` and `file-upload-field-label.spec.ts` pin,
+alongside the naming contract itself.
+
+`mlv-file-upload` keeps the base `'none'` strategy and is therefore still
+unnamed inside a field — see `.claude/projects/libs-file-upload.md`.
+
+The question a control's own label asks is the one `labelTarget` already
+answers, so both read one source of truth rather than each deciding again.
+Bind `[for]="_ownLabelFor()"`; a control whose `for` names something **other**
+than its name target keeps its own binding (`mlv-pin-input` points at its first
+cell, which no external label may use).
+
+`mlv-select` is why this must be a signal and not a constant: it flips between
+`'native'` and `'aria'` as the native `<select>` takes over, and the `for` has
+to follow. `mlv-day-picker`, `mlv-time-picker`, `mlv-date-range-picker` and `mlv-editor`
+bind `(click)` on their own `<mlv-label>` to focus their real focus target,
+replacing the native click-to-focus a non-labelable element can never provide;
+`mlv-select`'s handler predates this and **opens** the dropdown instead.
+
+Covered inside this library by `form-control-base/own-label-for.spec.ts` (the
+three strategies plus a live flip, against a test double) and by the nullish
+`for` cases in `label/label.spec.ts`. Both were added in #216 review: every
+assertion protecting `_ownLabelFor` had lived in the downstream projects, so a
+refactor here passed this library's own suite. Note that the widened
+`MlvLabel.for` **write** type is a compile-time contract only — `_resolvedFor()`
+treats `null`, `undefined` and `''` alike at runtime, so a unit test cannot see
+the transform disappear. Reverting it fails `nx run core:build` with TS2322 at
+`input.html`, which is the gate that actually holds it.
 
 **A control's own inner label never borrows the field's target.**
 `mlv-radio-group`, `mlv-segmented` and `mlv-checkbox-group` render an
@@ -242,10 +368,10 @@ lives in already publishes `labelTarget` on its behalf.
 
 #### Inputs
 
-| Name       | Type                 | Default |
-| ---------- | -------------------- | ------- |
-| `for`      | `string`             | `''`    |
-| `required` | `boolean` (`coerce`) | `false` |
+| Name       | Type                                             | Default |
+| ---------- | ------------------------------------------------ | ------- |
+| `for`      | `string` (accepts `string \| null \| undefined`) | `''`    |
+| `required` | `boolean` (`coerce`)                             | `false` |
 
 Renders `<label [attr.id]="labelId" [attr.for]="_resolvedFor()">`. Supports nested
 `<mlv-hint>`, projected into `.mlv-label__hint` — which renders as an icon + tooltip,
@@ -256,6 +382,12 @@ _renders_ `for=""`. It means "resolve from the enclosing `mlv-form-field`", and 
 nothing resolves **no `for` attribute is emitted at all** — a dangling `for` reads as
 associated in review while focusing nothing. See _`MlvFormField` → Accessible name_
 above.
+
+`null` / `undefined` are accepted on the write side and normalized to `''` by a
+transform, so they mean the same thing: emit no `for`. That is what a control
+binding its own label's `[for]="_ownLabelFor()"` passes while its name target is
+not labelable (#216). The read type stays `string`, so nothing that consumed
+this input has to widen.
 
 `labelId` (public, non-input) is a generated `mlv-label-NN` always rendered on the
 inner `<label>`, so a control whose focus target `<label for>` cannot name can point
@@ -630,6 +762,10 @@ Run it with `node scripts/benchmarks/selection-membership.mjs` (no build needed)
 ## Testing entry: `@malva-ui/core/form-utils/testing`
 
 - `MlvFormsBindingAdapter<T>` / `MlvFormsBindingMatrixOptions<T>` / `verifyFormsBinding()` — shared assertion driver for the forms bindings matrix (reactive `[formControl]`, template-driven `ngModel`, signal forms `[formField]`): form-side write round-trip, user-interaction propagation, blur→touched, disabled propagation. Every control migrated per docs/plans/signal-forms-migration.md runs it once per mode (reference: `input-binding-matrix.spec.ts` in core-input — all 3 modes green on 22.0.7, incl. `[formField]` binding the CVA directly).
+- **Runner-agnostic, and must stay that way** (#243, `docs/migrations/2026-09-form-utils-testing-runner-agnostic.md`). This is a **published** entry point — its own `ng-package.json`, so ng-packagr builds it and `dist/libs/core/package.json` exports `./form-utils/testing` — so every bare specifier its sources import ships in the FESM bundle and must be something `@malva-ui/core` declares. It used to open `import { expect } from 'vitest'`, declared nowhere, which was `Cannot find module 'vitest'` for a consumer on Jest / Karma / Web Test Runner. Its only bare import now is `fast-equals` (already a core `dependency`, and an `allowedNonPeerDependencies` entry). **Never import a test runner here** — the assertion primitives live in `testing/src/lib/binding-assertions.ts`, deliberately outside the barrel.
+- Failure shape: `fast-equals` for values, `===` for booleans, and a throw of an `AssertionError`-shaped error carrying `name` / `actual` / `expected` / `operator` / `showDiff` — the shape Vitest's reporter special-cases, so a failed expectation still prints the same expected/received diff, while a runner with no diff support reads both rendered values off the message. `name` / `message` / `actual` / `expected` / `operator` are the documented shape; the error class is not exported, so catch and read the fields rather than `instanceof`.
+- Comparison is **not** `toEqual`, and the divergences do not all run one way — the measured table lives in `binding-assertions.ts`'s module comment and in the migration. Stricter: key sets (an own `undefined`-valued property is not absent), prototypes (a class instance ≠ a same-shaped plain object), realms (jsdom's `structuredClone` returns jsdom-realm objects, so a spec cannot use it to fake a control that clones on write). Looser: `-0` equals `+0`, because `fast-equals` compares numbers with SameValueZero. Two cases needed code: `fast-equals` maps no comparator to `[object File]` / `[object Blob]` and falls through to `false` — so the helper supplies one comparing `name` / `size` / `type` / `lastModified` and deliberately **not** contents (`File.text()` is async), without which `mlv-file-upload`'s matrix is permanently red the moment its control stops returning the identical object; and the plain `deepEqual` overflows the stack on a cyclic value, so the **circular** comparator is used (2.44x per comparison, 0.015 ms across all ~500 matrix assertions — measured, and the reason the ratio lost).
+- Guarded twice: `scripts/check-package-dependencies.mjs` fails workspace-wide on an undeclared bare import (its `DECLARATION_EXCEPTIONS` list is empty, and it fails on an unused entry, so it cannot grow one back quietly), and `src/lib/forms-binding-matrix.spec.ts` drives each of the four expectations to its failing side — an assertion helper that quietly stopped throwing would turn every `*-binding-matrix.spec.ts` in the workspace green having verified nothing — and sweeps every source under `testing/src` **recursively** (the barrel included) for an `import`, an `export … from` or a `require()` of a runner.
 - `UiFormControl` / `UI_FORM_CONTROL` deleted (dead — nothing consumed them; form-field uses `contentChild(NgControl)`).
 
 ## Signal forms Phase 1 (2026-07)

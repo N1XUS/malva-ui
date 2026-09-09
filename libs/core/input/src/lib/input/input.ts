@@ -11,6 +11,7 @@ import {
   ViewEncapsulation,
   computed,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import type {
@@ -56,6 +57,7 @@ export type MlvInputInputMode =
 @Component({
   selector: 'mlv-input',
   imports: [
+    NgTemplateOutlet,
     MlvLabel,
     MlvHint,
     MlvDescription,
@@ -222,7 +224,12 @@ export class MlvInput
    * owns its own value/keyboard wiring; `mlv-input` provides the surrounding
    * chrome, styling hook (`mlv-input__native`), and focus/select forwarding.
    *
-   * Ignored unless a matching `<input mlvInputNative>` is projected.
+   * Honoured unconditionally: the internal `<input>` is not rendered whether or
+   * not a matching `<input mlvInputNative>` is actually projected, so setting
+   * this without projecting one renders no control at all (an empty
+   * `.mlv-form-control-wrapper__control-row` in the wrapped shape, nothing in
+   * `bare`), and `focus()` / `select()` / `nativeElement` become no-ops. Project
+   * the input, or leave `projectControl` unset.
    */
   readonly projectControl = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
