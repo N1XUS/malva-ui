@@ -39,10 +39,12 @@ export type MlvListAppearance = 'default' | 'menu';
   styleUrl: './list.css',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // Published so descendants can adapt to the variant without importing the
-  // concrete class. `MlvListItemGroup` is the one consumer today: `inset`
-  // pins its content open, so it renders a plain section label instead of a
-  // disclosure toggler.
+  // Published so descendants can adapt to this list without importing the
+  // concrete class. `MlvListItemGroup` is the one consumer today, and reads
+  // both members: `variant="inset"` pins its content open, so it renders a
+  // plain section label instead of a disclosure toggler, and `listRole` tells
+  // it which ARIA roles it may claim — `listitem` around a nested `list` is
+  // only correct under the default `role="list"`.
   providers: [{ provide: MLV_LIST, useExisting: forwardRef(() => MlvList) }],
   host: {
     class: 'mlv-list',

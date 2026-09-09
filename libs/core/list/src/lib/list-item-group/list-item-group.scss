@@ -35,6 +35,29 @@
       }
     }
 
+    // The plain-text stand-in for `__toggler` wherever no toggler is rendered
+    // (`_alwaysOpen`). It takes the toggler's own box — same padding, same type
+    // ramp, same colour — so a section band keeps its height when the
+    // disclosure disappears.
+    //
+    // Its *text* does not sit where the toggler's text sat, and deliberately:
+    // the toggler is a flex row of a 1rem chevron plus a 0.25rem gap, so its
+    // label starts 1.25rem further in (measured, plain variant: toggler text at
+    // x=32, `__label` text at x=12). Reproducing that offset would indent inert
+    // text against an empty gutter, and the two never render side by side —
+    // `_alwaysOpen()` reads the enclosing list, so every group in one list
+    // renders the same element. Every declaration here is re-declared by the
+    // `.mlv-list--inset .mlv-list-item-group__label` block below, which both
+    // outranks this rule (0,2,0 against 0,1,0) and comes later, so the inset
+    // section label renders exactly as before.
+    &__label {
+      padding: var(--mlv-padding-s);
+      font-size: var(--mlv-font-size-l);
+      color: var(--mlv-list-color, var(--mlv-text-primary));
+      // Inert text, not a control: never take a pointer event from a row.
+      pointer-events: none;
+    }
+
     &__arrow {
       display: block;
       transform: var(--mlv-transform);
@@ -81,12 +104,23 @@
       }
     }
 
-    // The enclosing list's variant holds this group's content open — today only
-    // `variant="inset"`. Stamped on the host from the resolved `MLV_LIST`, not
-    // matched as a `.mlv-list--inset` descendant, so that the open rendering and
-    // the template's decision not to render a toggler come from one source and
-    // cannot disagree: a group merely *projected* into an inset list resolves no
-    // list, keeps its toggler, and must therefore stay genuinely collapsible.
+    // No toggler exists, so nothing can ever close this group — either the
+    // enclosing list's `variant="inset"` pins it, or the enclosing list's
+    // `listRole` is a container in which a `<button>` is not a valid owned
+    // child (#224; see `_alwaysOpen`). Stamped on the host from the resolved
+    // `MLV_LIST`, not matched as a `.mlv-list--inset` descendant, so that the
+    // open rendering and the template's decision not to render a toggler come
+    // from one source and cannot disagree: a group merely *projected* into an
+    // inset list resolves no list, keeps its toggler, and must therefore stay
+    // genuinely collapsible.
+    //
+    // The padding is the same pair `--toggled` writes, and has to be repeated
+    // here rather than inherited: the collapsed base rule zeroes the *block*
+    // half so only that half animates, and until #224 `--pinned` was reachable
+    // only inside an inset list, whose own `> div { padding: 0 }` supplied the
+    // missing declaration by accident. Outside that scope the rows rendered
+    // flush against the section label. The inset rule still wins where it
+    // applies — same specificity (0,2,1), later in the sheet.
     &--pinned {
       .#{$block}__content {
         grid-template-rows: 1fr;
@@ -94,6 +128,8 @@
         > div {
           opacity: 1;
           overflow: visible;
+          padding: var(--mlv-padding-s);
+          padding-inline-start: var(--mlv-spacing-6);
         }
       }
     }
