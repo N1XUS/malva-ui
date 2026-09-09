@@ -113,6 +113,23 @@ body {
   height: calc(100svh - 4.75rem);
 }
 
+/* …and the row it sticks inside needs to be tall enough to hold it. A sticky
+   box is clamped to its containing block, so on a page whose content is
+   shorter than the viewport — `/link` is the shortest — the flex row is only
+   as tall as that content, the rail's `4.75rem` offset plus its own
+   `100svh - 4.75rem` height does not fit, and the rail is pushed back up to
+   y = 0: behind the fixed action bar, taking the page filter with it.
+   Measured on `/link` at a 1100px viewport before this rule: row 1024px, rail
+   top 0 instead of 76, the filter's box at y = 14 under a 72px bar. Giving the
+   row the viewport as a floor makes the offset and the height fit exactly, so
+   the rail lands in the same place on every page and holds still across a
+   navigation between a long page and a short one. The floor is exactly the
+   viewport, so it introduces no scrollbar of its own. */
+.docs-shell .mlv-page-shell__body {
+  min-block-size: 100vh;
+  min-block-size: 100svh;
+}
+
 /* The reading column is a full-bleed band between the two rails, not a card:
    hairlines on the inline edges only, no radius, no shadow. */
 .docs-shell .docs-shell__content {

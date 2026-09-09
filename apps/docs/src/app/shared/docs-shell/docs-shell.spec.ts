@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ApplicationInitStatus } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
@@ -10,6 +13,13 @@ import { MlvThemeService } from '@malva-ui/cdk/theme';
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import { provideMlvI18n } from '@malva-ui/i18n';
 import { DocsShellComponent } from './docs-shell';
+
+// `@nx/vitest:test` runs with cwd = workspace root, so the stylesheet is
+// resolved from this file rather than from `process.cwd()`.
+const GLOBAL_SCSS = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../styles.scss',
+);
 
 /**
  * `Router.events` is a read-only getter over a private `Subject`. Pushing through
@@ -266,6 +276,37 @@ describe('DocsShellComponent', () => {
       await flushMacrotask();
 
       expect(document.activeElement).toBe(main);
+    });
+  });
+  // The rail is `position: sticky` inside `.mlv-page-shell__body`, and a sticky
+  // box is clamped to its containing block. Without a floor on that row, a page
+  // whose content is shorter than the viewport makes the row shorter than
+  // `4.75rem` + the rail's own `100svh - 4.75rem`, and the rail is pushed back
+  // to y = 0 — behind the 72px fixed action bar, taking the page filter with it.
+  // Measured on `/link` at a 1100px viewport before the fix: row 1024px, rail
+  // top 0 instead of 76. It also made the rail move between a long page and a
+  // short one, which is the navigation jump this pins.
+  describe('sticky rail geometry', () => {
+    const scss = (): string => readFileSync(GLOBAL_SCSS, 'utf8');
+
+    it('floors the shell row at the viewport so the sticky rail fits', () => {
+      const rule = scss().match(
+        /\.docs-shell \.mlv-page-shell__body \{([^}]*)\}/,
+      );
+      expect(rule).not.toBeNull();
+      expect(rule?.[1]).toMatch(/min-block-size:\s*100svh;/);
+    });
+
+    it('keeps the rail offset and its height summing to that floor', () => {
+      // The floor only works while these agree: the offset plus the height is
+      // exactly one viewport, so the rail fits with nothing to spare and adds
+      // no scrollbar of its own.
+      const rule = scss().match(
+        /\.docs-shell \.mlv-page-shell__sidebar \{([^}]*)\}/,
+      );
+      expect(rule).not.toBeNull();
+      expect(rule?.[1]).toMatch(/top:\s*4\.75rem;/);
+      expect(rule?.[1]).toMatch(/height:\s*calc\(100svh - 4\.75rem\);/);
     });
   });
 });
