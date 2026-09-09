@@ -36,7 +36,10 @@ import type { ConnectedPosition } from '@angular/cdk/overlay';
  * physical pixels and does not flip it in RTL, so an `end`-aligned entry would
  * need the opposite sign from its `start`-aligned twin. The gap between field
  * and panel is purely on the block axis, where `offsetY` means the same thing
- * in both directions.
+ * in both directions. (`mlvMirrorInlineOffsets` exists for the lists that
+ * cannot do that — a popup or tooltip anchored to the trigger's inline side —
+ * and applies at the overlay owner, not here: nothing in this list needs it,
+ * and the block-axis gap stays the simpler answer.)
  *
  * The same four placements back menu panels as `MENU_POSITIONS` in
  * `@malva-ui/core/popup`, resolved there out of the named popup map. They are

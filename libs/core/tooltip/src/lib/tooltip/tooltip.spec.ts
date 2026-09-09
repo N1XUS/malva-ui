@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -9,7 +9,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type * as Sass from 'sass';
 import { vi } from 'vitest';
+import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvTooltip } from './tooltip';
+import type { MlvTooltipPlacement } from './tooltip.types';
 
 const nodeRequire = createRequire(import.meta.url);
 const sass = nodeRequire('sass') as typeof Sass;
@@ -308,12 +310,129 @@ describe('MlvTooltip tone stylesheet', () => {
 
   it('names the theme-following base surface as surface', () => {
     expect(tooltipStyles).toContain('.mlv-tooltip--tone-surface');
-    expect(tooltipStyles).toContain(
-      '--mlv-tt-bg: var(--mlv-background-base)',
-    );
-    expect(tooltipStyles).toContain(
-      '--mlv-tt-color: var(--mlv-text-primary)',
-    );
+    expect(tooltipStyles).toContain('--mlv-tt-bg: var(--mlv-background-base)');
+    expect(tooltipStyles).toContain('--mlv-tt-color: var(--mlv-text-primary)');
     expect(tooltipStyles).not.toContain('.mlv-tooltip--tone-light');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Inline offsets (#180)
+//
+// `ConnectedPosition.offsetX` is **physical**. `FlexibleConnectedPositionStrategy`
+// returns it verbatim from `_getOffset()` and applies it as `x += offsetX` when
+// scoring a candidate and as `translateX(${offsetX}px)` on the pane, with no
+// `_isRtl()` on that path — unlike `originX` / `overlayX`, which it mirrors. So
+// a `left` tooltip, mirrored to render physically *right* of its trigger in
+// RTL, kept being pulled 6px further left: the arrow's clearance became a 6px
+// overlap.
+//
+// These read the pane's own `transform`, which CDK composes from `offsetX`
+// alone — no measurement, so jsdom's absent layout does not enter into it. The
+// all-zero rects do decide *which* candidate wins: every position "fits" a 0×0
+// viewport, so the preferred entry is applied and the fallback is never
+// reached.
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvTooltip],
+  template: `
+    <div [attr.dir]="scopeDir()">
+      <button
+        [mlvTooltip]="'Test'"
+        [tooltipPlacement]="placement()"
+        [tooltipDelay]="0"
+      >
+        Trigger
+      </button>
+    </div>
+  `,
+})
+class ScopedPlacementHostComponent {
+  readonly scopeDir = signal<'ltr' | 'rtl' | null>(null);
+  readonly placement = signal<MlvTooltipPlacement>('left');
+}
+
+describe('MlvTooltip — inline offsets', () => {
+  let overlayContainer: OverlayContainer;
+  let overlayContainerEl: HTMLElement;
+  let rtlService: MlvRtlService;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    document.documentElement.removeAttribute('dir');
+    await TestBed.configureTestingModule({
+      imports: [ScopedPlacementHostComponent],
+    }).compileComponents();
+    overlayContainer = TestBed.inject(OverlayContainer);
+    overlayContainerEl = overlayContainer.getContainerElement();
+    rtlService = TestBed.inject(MlvRtlService);
+  });
+
+  afterEach(() => {
+    rtlService.setDirection('ltr');
+    vi.useRealTimers();
+    overlayContainer.ngOnDestroy();
+    document.documentElement.removeAttribute('dir');
+  });
+
+  /** Shows the tooltip and flushes the render in which CDK positions the pane. */
+  async function show(
+    scopeDir: 'ltr' | 'rtl' | null,
+    placement: MlvTooltipPlacement = 'left',
+  ): Promise<HTMLElement> {
+    const fixture = TestBed.createComponent(ScopedPlacementHostComponent);
+    fixture.componentInstance.scopeDir.set(scopeDir);
+    fixture.componentInstance.placement.set(placement);
+    fixture.detectChanges();
+
+    const trigger = fixture.debugElement.query(By.css('button'))
+      .nativeElement as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.runAllTimers();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    return overlayContainerEl.querySelector('.cdk-overlay-pane') as HTMLElement;
+  }
+
+  it('pulls a left-placed tooltip away from the trigger in LTR', async () => {
+    const pane = await show(null);
+
+    // `overlayX: 'end'` resolves to the physical right anchor, so -6px is
+    // leftward — away from the trigger's left edge.
+    expect(pane.style.transform).toBe('translateX(-6px)');
+  });
+
+  it('mirrors the clearance when the document direction is RTL', async () => {
+    rtlService.setDirection('rtl');
+    const pane = await show(null);
+
+    expect(pane.style.transform).toBe('translateX(6px)');
+  });
+
+  it('mirrors it under a scoped [dir="rtl"] while the document stays LTR', async () => {
+    const pane = await show('rtl');
+
+    expect(rtlService.direction()).toBe('ltr');
+    expect(pane.style.transform).toBe('translateX(6px)');
+  });
+
+  it('leaves it alone in an LTR island inside an RTL document', async () => {
+    rtlService.setDirection('rtl');
+    const pane = await show('ltr');
+
+    expect(rtlService.direction()).toBe('rtl');
+    expect(pane.style.transform).toBe('translateX(-6px)');
+  });
+
+  it('leaves the block-axis clearance untouched in both directions', async () => {
+    expect((await show(null, 'bottom')).style.transform).toBe(
+      'translateY(6px)',
+    );
+    // `offsetY` is the block axis, which never mirrors.
+    expect((await show('rtl', 'bottom')).style.transform).toBe(
+      'translateY(6px)',
+    );
   });
 });

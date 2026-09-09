@@ -35,6 +35,18 @@ import type { ConnectedPosition } from '@angular/cdk/overlay';
  * alignment of a `left-*` / `right-*` position, which rides `originY`
  * (`-start` = top, `-end` = bottom, in both directions).
  *
+ * The `offsetX` column is logical **on the same terms**, but CDK is not what
+ * makes it so: `FlexibleConnectedPositionStrategy` returns `offsetX` verbatim
+ * from `_getOffset()` and applies it as raw physical pixels, with no `_isRtl()`
+ * on that path. `MlvPopupService` mirrors it through `mlvMirrorInlineOffsets`
+ * against the direction it creates the pane with (#180), so the `-8` on
+ * `left-*` reads as "8px away from the trigger, toward inline-start" and
+ * survives mirroring along with the alignment it belongs to. The map stores the
+ * LTR sign, which is what a consumer overriding an entry through
+ * {@link providePopupPositions} writes — and what a consumer feeding these
+ * entries to a `FlexibleConnectedPositionStrategy` of their own has to mirror
+ * for themselves.
+ *
  * Do not confuse this with `MlvPopupArrowAlign`, whose `'start'` /
  * `'end'` are **physical** ends of a physical edge: the conversion from this
  * logical vocabulary to that physical one happens once, in
