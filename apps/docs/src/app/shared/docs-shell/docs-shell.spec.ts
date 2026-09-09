@@ -218,6 +218,20 @@ describe('DocsShellComponent', () => {
       expect(scrollTo).toHaveBeenCalledWith({ left: 0, top: 0 });
     });
 
+    // A URL that names an anchor is asking to land on that anchor. The ToC
+    // scrolls there once the panel's headings mount, which is strictly after
+    // this callback runs — so a reset here is the last write and wins.
+    it('leaves the scroll position alone when the URL names an anchor', async () => {
+      document.body.focus();
+
+      emitNavigationEnd('/button#status-variants');
+      await flushMacrotask();
+
+      expect(scrollTo).not.toHaveBeenCalled();
+      // Focus management is unchanged: only the scroll reset is withheld.
+      expect(document.activeElement).toBe(main);
+    });
+
     it('leaves focus alone while a modal dialog is open, but still resets scroll', async () => {
       const dialog = document.createElement('div');
       dialog.setAttribute('role', 'dialog');

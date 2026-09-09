@@ -998,6 +998,28 @@ Async pipe that dynamically imports `.mdx` files. The esbuild MDX plugin transfo
 
 Sticky right sidebar displaying a page-level Table of Contents. Inputs: `entries: TocEntry[]`. Hidden below 1200px viewport width. **Scroll-spy uses an `IntersectionObserver`** over the heading elements (resolved by id from the mounted panel, `rootMargin` shifted for the 70px fixed action bar), rebuilt whenever the active panel republishes. This replaced a broken implementation that compared `el.offsetTop` (offset-parent-relative) against `window.scrollY` (document-absolute) — mismatched coordinate spaces, so the active heading was wrong. A ToC click sets the active slug immediately (before the observer catches up) and smooth-scrolls.
 
+**Headings are addressable, and this component owns both directions.** A click
+publishes `#<slug>` with `history.replaceState` — not a router navigation,
+which would emit `NavigationEnd` and hand the shell's own handler a reason to
+scroll back to the top, and not `pushState`, which would put one history entry
+behind every heading a reader visits. A URL that _arrives_ with a fragment is
+honoured from the same `effect` that rebuilds the observer, because a publish is
+the earliest moment the headings exist (the MDX resolves asynchronously, so
+`NavigationEnd` is far too early). The target is resolved by `getElementById`
+rather than against `entries`, so an example's own `#example-N` permalink deep
+links as well as a ToC slug does; a fragment naming nothing stays unconsumed and
+a later publish still honours it, and a fragment already honoured is not
+re-applied on a tab switch.
+
+Neither path does offset arithmetic — `html { scroll-padding-top: 5.5rem }` in
+`styles.scss` clears the 72px fixed bar for `scrollIntoView`, browser find, and
+focus scrolling alike. A **load-time** landing is followed by a bounded
+re-alignment window (1s, or three frames of a still offset, or the reader's
+first wheel / touch / key — whichever comes first), because the page is still
+growing underneath it: measured on `/button#example-4`, the scroll landed the
+wrapper at the correct 88px and Chromium's scroll anchoring then settled on a
+descendant, leaving the wrapper's top at 11px, back under the bar.
+
 ### `DocsTocSourceDirective` (`[docsTocSource]`)
 
 **File:** `apps/docs/src/app/shared/toc/toc-source.directive.ts`
@@ -1088,6 +1110,12 @@ app bar.
       <router-outlet />
     <docs-toc [entries]="tocEntries()" />  ← right sidebar ToC
 ```
+
+The shell resets `window.scrollTo` on `NavigationEnd` — **except when the URL
+carries a fragment**, which is a URL saying where it wants to land. The reset
+runs first (the ToC's scroll waits for the headings to mount), so without the
+exception it is the write that wins and a deep link always opens at the top.
+Focus management is unaffected either way.
 
 **`sizing="content"` is load-bearing, and pinned by a spec.** The documentation
 pages are scrolled by the _document_: `.docs-shell__main-area` declares no

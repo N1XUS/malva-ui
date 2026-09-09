@@ -299,8 +299,13 @@ export class DocsShellComponent {
         ),
         takeUntilDestroyed(),
       )
-      .subscribe(() => {
+      .subscribe((event) => {
         if (this.isMobile()) this.sidebarCollapsed.set(true);
+        // A URL carrying a fragment names where it wants to land, and the ToC
+        // scrolls there once the panel's headings exist. Resetting scroll here
+        // would undo that — and it lands first, because the headings arrive
+        // asynchronously behind the page's deferred content.
+        const hasFragment = event.urlAfterRedirects.includes('#');
         setTimeout(() => {
           const main = this._mainContent()?.nativeElement;
           const doc = main?.ownerDocument;
@@ -320,7 +325,7 @@ export class DocsShellComponent {
           // element inside <main>. Trade-off, accepted: a non-modal overlay in the
           // CDK container (the sidebar flyout) and a link inside surviving main
           // content keep their focus instead of jumping to <main>. The scroll reset
-          // always runs.
+          // runs for every URL that does not name an anchor.
           const overlay = doc?.querySelector('.cdk-overlay-container');
           const focusAlreadyPlaced =
             !!overlay?.querySelector('[role="dialog"], [role="alertdialog"]') ||
@@ -330,7 +335,7 @@ export class DocsShellComponent {
               active !== doc?.body &&
               !!main?.contains(active));
           if (!focusAlreadyPlaced) main?.focus({ preventScroll: true });
-          doc?.defaultView?.scrollTo({ left: 0, top: 0 });
+          if (!hasFragment) doc?.defaultView?.scrollTo({ left: 0, top: 0 });
         });
       });
   }
