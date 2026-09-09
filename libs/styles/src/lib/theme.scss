@@ -21,7 +21,7 @@
  *  11. Direction
  */
 
-@use './breakpoints' as bp;
+@use './mixins' as mixins;
 @use 'layers';
 
 // ─── 1. Color Palettes — SCSS Variables (source of truth) ──────────────────
@@ -598,28 +598,25 @@ $mlv-palette-info-950: #082f49;
     --mlv-font-size-l: 1rem; /* 16px */
     --mlv-font-size-xl: 1.125rem; /* 18px */
     --mlv-font-size-2xl: 1.25rem; /* 20px */
-    --mlv-font-size-3xl: 1.25rem; /* 20px — mobile base; 24px at lg (intentionally matches 2xl on sm) */
-    --mlv-font-size-4xl: 1.5rem; /* 24px — mobile base; 30px at lg */
-    --mlv-font-size-5xl: 1.75rem; /* 28px — mobile base; 36px at lg */
-    --mlv-font-size-6xl: 2.25rem; /* 36px — mobile base; 48px at lg */
-
-    // ── Responsive typography overrides ─────────────────────────────────────
-    // Heading sizes (3xl–6xl) scale up at md and lg breakpoints.
-    // Body/UI sizes (xs–2xl) stay fixed across all viewports.
-
-    @media (min-width: bp.$mlv-breakpoint-md) {
-      --mlv-font-size-3xl: 1.375rem; /* 22px */
-      --mlv-font-size-4xl: 1.625rem; /* 26px */
-      --mlv-font-size-5xl: 2rem; /* 32px */
-      --mlv-font-size-6xl: 2.5rem; /* 40px */
-    }
-
-    @media (min-width: bp.$mlv-breakpoint-lg) {
-      --mlv-font-size-3xl: 1.5rem; /* 24px — original value restored */
-      --mlv-font-size-4xl: 1.875rem; /* 30px — original value restored */
-      --mlv-font-size-5xl: 2.25rem; /* 36px — original value restored */
-      --mlv-font-size-6xl: 3rem; /* 48px — original value restored */
-    }
+    // ── Display sizes: fluid, not stepped ───────────────────────────────────
+    // These four used to jump at `md` and `lg`. The endpoints are unchanged — a
+    // phone still gets the old mobile value and a wide desktop the old `lg` one
+    // — but everything between them interpolates instead of snapping, so a
+    // heading no longer resizes under the reader as a window crosses 768px or
+    // 1200px, and a canvas between the two stops gets a size that fits it
+    // rather than the last step it passed.
+    //
+    // Body and UI sizes (xs–2xl) stay fixed, and deliberately: `--mlv-height-*`
+    // is fixed rem, so a fluid font inside a control clips instead of scaling.
+    // The three heading roles that used to resolve those fixed sizes take their
+    // own ramp further down instead of dragging the controls along.
+    //
+    // 3xl no longer coincides with 2xl at the narrow end, which it used to do on
+    // purpose; the h3 and h4 roles are separated at every width now.
+    --mlv-font-size-3xl: #{mixins.fluid(20px, 24px)}; /* fluid 20px at 320px → 24px at 1200px */
+    --mlv-font-size-4xl: #{mixins.fluid(24px, 30px)}; /* fluid 24px at 320px → 30px at 1200px */
+    --mlv-font-size-5xl: #{mixins.fluid(28px, 36px)}; /* fluid 28px at 320px → 36px at 1200px */
+    --mlv-font-size-6xl: #{mixins.fluid(36px, 48px)}; /* fluid 36px at 320px → 48px at 1200px */
 
     // Font weights
     --mlv-font-weight-normal: 400;
@@ -659,21 +656,28 @@ $mlv-palette-info-950: #082f49;
     --mlv-typography-heading-h3-line-height: var(--mlv-line-height-snug);
     --mlv-typography-heading-h3-letter-spacing: var(--mlv-letter-spacing-tight);
 
-    --mlv-typography-heading-h4-size: var(--mlv-font-size-2xl);
+    // h4–h6 no longer resolve `--mlv-font-size-{2xl,xl,l}`: those three are
+    // shared with the body and UI roles, which stay fixed for the control
+    // geometry above. The ramp is therefore declared on the heading role
+    // itself, topping out at exactly the size the shared token still holds — so
+    // a wide desktop is unchanged and only a narrow canvas gets a smaller
+    // heading. These are the two roles `mlv-page-header` collapses between at
+    // `size="s"`, and they stay separated across the whole band.
+    --mlv-typography-heading-h4-size: #{mixins.fluid(18px, 20px)}; /* fluid 18px → 20px, the value 2xl holds */
     --mlv-typography-heading-h4-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h4-line-height: var(--mlv-line-height-snug);
     --mlv-typography-heading-h4-letter-spacing: var(
       --mlv-letter-spacing-normal
     );
 
-    --mlv-typography-heading-h5-size: var(--mlv-font-size-xl);
+    --mlv-typography-heading-h5-size: #{mixins.fluid(16px, 18px)}; /* fluid 16px → 18px, the value xl holds */
     --mlv-typography-heading-h5-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h5-line-height: var(--mlv-line-height-normal);
     --mlv-typography-heading-h5-letter-spacing: var(
       --mlv-letter-spacing-normal
     );
 
-    --mlv-typography-heading-h6-size: var(--mlv-font-size-l);
+    --mlv-typography-heading-h6-size: #{mixins.fluid(15px, 16px)}; /* fluid 15px → 16px, the value l holds */
     --mlv-typography-heading-h6-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h6-line-height: var(--mlv-line-height-normal);
     --mlv-typography-heading-h6-letter-spacing: var(

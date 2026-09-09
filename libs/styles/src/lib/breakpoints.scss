@@ -16,6 +16,13 @@
 $mlv-breakpoint-md: 768px !default;
 $mlv-breakpoint-lg: 1200px !default;
 
+/// Lower anchor of the fluid type band — the width at and below which a fluid
+/// size sits at its minimum. Not a breakpoint: nothing queries it and it is
+/// absent from `$_breakpoints`, because it names the narrowest viewport the
+/// library designs for rather than a layout switch. `$mlv-breakpoint-lg` is the
+/// upper anchor, so an app that moves `lg` moves the top of the ramp with it.
+$mlv-viewport-min: 320px !default;
+
 /// Internal breakpoint map — used by the mixins below.
 $_breakpoints: (
   'sm': 0,

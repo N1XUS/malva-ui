@@ -32,14 +32,14 @@ invented name never errors — it renders the fallback and quietly stops followi
 the theme. Four downstream packages shipped `--mlv-color-surface`,
 `--mlv-radius-2`, `--mlv-border-1` and `--mlv-error-text-1` that way.
 
-| Target                                       | What it does                                                                                                                                                                                               |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `yarn nx run styles:generate-tokens`         | Regenerates `tokens.md` from `libs/styles/src/lib/*.scss`. Run after adding, renaming or removing any token.                                                                                               |
-| `yarn nx run styles:verify-tokens`           | Fails when `tokens.md` is stale. Safe to gate on.                                                                                                                                                          |
-| `yarn nx run styles:check-tokens`            | Scans every `.scss` / `.css` / `.html` under `libs/` and `apps/` and fails on `var(--mlv-…)` names that exist nowhere.                                                                                     |
-| `node scripts/check-mlv-tokens.mjs --strict` | Same, but also reports the pre-existing findings tracked in `token-check-baseline.json`.                                                                                                                   |
-| `yarn nx run styles:check-padding-tokens`    | Fails on any `var(--mlv-padding-*)` (or alias of one) that is not the whole `padding:` value. Runs as a `styles:lint` dependency, so CI's `run-many -t lint` gates on it. `--json` / `--quiet` flags.      |
-| `yarn nx run styles:test`                    | `node --test` over `scripts/check-padding-tokens.spec.mjs` **and** `src/lib/theme-contrast.spec.mjs` — the padding-pair checker plus the WCAG contrast guard below (picked up by CI's `run-many -t test`). |
+| Target                                       | What it does                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `yarn nx run styles:generate-tokens`         | Regenerates `tokens.md` from `libs/styles/src/lib/*.scss`. Run after adding, renaming or removing any token.                                                                                                                                                                                                                                                                         |
+| `yarn nx run styles:verify-tokens`           | Fails when `tokens.md` is stale. Safe to gate on.                                                                                                                                                                                                                                                                                                                                    |
+| `yarn nx run styles:check-tokens`            | Scans every `.scss` / `.css` / `.html` under `libs/` and `apps/` and fails on `var(--mlv-…)` names that exist nowhere.                                                                                                                                                                                                                                                               |
+| `node scripts/check-mlv-tokens.mjs --strict` | Same, but also reports the pre-existing findings tracked in `token-check-baseline.json`.                                                                                                                                                                                                                                                                                             |
+| `yarn nx run styles:check-padding-tokens`    | Fails on any `var(--mlv-padding-*)` (or alias of one) that is not the whole `padding:` value. Runs as a `styles:lint` dependency, so CI's `run-many -t lint` gates on it. `--json` / `--quiet` flags.                                                                                                                                                                                |
+| `yarn nx run styles:test`                    | `node --test` over five spec files — `scripts/check-padding-tokens.spec.mjs`, `src/lib/theme-contrast.spec.mjs`, `src/lib/mixins.spec.mjs`, `src/lib/fluid-type.spec.mjs`, `src/lib/layers.spec.mjs`, `src/lib/sticky-inline-inset.spec.mjs` (picked up by CI's `run-many -t test`). The target **enumerates its specs**, so a new one must be named in both `command` and `inputs`. |
 
 `tokens.md` is a **generated file** — never hand-edit it. Categories, blurbs and
 the mistaken-names table live in `scripts/generate-tokens-md.mjs`; a token that
@@ -116,17 +116,17 @@ consumer paints it as a switch track (`libs/core/switch`), never behind text.
 
 ## Public API
 
-| File                                   | Kind             | Description                                                                                                                                                                                                                                  |
-| -------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `libs/styles/src/lib/index.scss`       | SCSS entry point | `@use`s `theme`, `muted` and `layers`, and applies a global `[class*="mlv"]` reset/default font+color rule wrapped in `@layer mlv.base`. Import this once globally.                                                                          |
-| `libs/styles/src/lib/theme.scss`       | SCSS             | Core design tokens — all three theme modes (light, dark, high-contrast) in one file. Sections 1–10. Includes responsive typography overrides for 3xl–6xl font-size tokens. All rules emit into `@layer mlv.tokens`.                          |
-| `libs/styles/src/lib/muted.scss`       | SCSS             | Muted/semantic tint tokens — 3 emphasis levels × 8 color families. All rules emit into `@layer mlv.tokens`.                                                                                                                                  |
-| `libs/styles/src/lib/layers.scss`      | SCSS             | Single-line CSS cascade-layer order declaration (`@layer mlv.tokens, mlv.base, mlv.components;`). `@use`d first by every global emitter so the statement is written once, ahead of all layered rules.                                        |
-| `libs/styles/src/lib/overlay.scss`     | SCSS             | Dialog backdrop base look (`.mlv-dialog-backdrop`) — DOM the CDK overlay creates, so no component stylesheet owns it. Emits into `@layer mlv.components`.                                                                                    |
-| `libs/styles/src/lib/density.scss`     | SCSS mixin file  | Density system mixins (`density-tight()`, `density-compact()`, `density-comfortable()`, `density-spacious()`, `density-airy()`, `density-not-comfortable()`).                                                                                |
-| `libs/styles/src/lib/mixins.scss`      | SCSS mixin file  | `base()`, direction-aware `rtl()` / `ltr()` scopes, logical `margin-inline()` / `padding-inline()`, `inline-distance()` / `translate-inline()` for mirrored transforms, motion-query helpers, staggered entry, and `reduced-motion($block)`. |
-| `libs/styles/src/lib/animations.scss`  | SCSS             | Keyframe animation definitions (dialog, popup, drawer, accordion) plus the `--enter` / `--leave` classes that play them. `@use`s `layers` and emits into `@layer mlv.components`.                                                            |
-| `libs/styles/src/lib/breakpoints.scss` | SCSS mixin file  | Mobile-first breakpoint system — configurable thresholds, viewport mixins (`breakpoint-up`, `breakpoint-down`, `breakpoint-only`), and container query mixins (`container`, `container-up`, `container-down`).                               |
+| File                                   | Kind             | Description                                                                                                                                                                                                                                                                                        |
+| -------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `libs/styles/src/lib/index.scss`       | SCSS entry point | `@use`s `theme`, `muted` and `layers`, and applies a global `[class*="mlv"]` reset/default font+color rule wrapped in `@layer mlv.base`. Import this once globally.                                                                                                                                |
+| `libs/styles/src/lib/theme.scss`       | SCSS             | Core design tokens — all three theme modes (light, dark, high-contrast) in one file. Sections 1–11. The heading scale is fluid (`mixins.fluid()`), so the file emits **no `@media` block at all**. All rules emit into `@layer mlv.tokens`.                                                        |
+| `libs/styles/src/lib/muted.scss`       | SCSS             | Muted/semantic tint tokens — 3 emphasis levels × 8 color families. All rules emit into `@layer mlv.tokens`.                                                                                                                                                                                        |
+| `libs/styles/src/lib/layers.scss`      | SCSS             | Single-line CSS cascade-layer order declaration (`@layer mlv.tokens, mlv.base, mlv.components;`). `@use`d first by every global emitter so the statement is written once, ahead of all layered rules.                                                                                              |
+| `libs/styles/src/lib/overlay.scss`     | SCSS             | Dialog backdrop base look (`.mlv-dialog-backdrop`) — DOM the CDK overlay creates, so no component stylesheet owns it. Emits into `@layer mlv.components`.                                                                                                                                          |
+| `libs/styles/src/lib/density.scss`     | SCSS mixin file  | Density system mixins (`density-tight()`, `density-compact()`, `density-comfortable()`, `density-spacious()`, `density-airy()`, `density-not-comfortable()`).                                                                                                                                      |
+| `libs/styles/src/lib/mixins.scss`      | SCSS mixin file  | `base()`, the `fluid()` clamp builder behind the heading scale, direction-aware `rtl()` / `ltr()` scopes, logical `margin-inline()` / `padding-inline()`, `inline-distance()` / `translate-inline()` for mirrored transforms, motion-query helpers, staggered entry, and `reduced-motion($block)`. |
+| `libs/styles/src/lib/animations.scss`  | SCSS             | Keyframe animation definitions (dialog, popup, drawer, accordion) plus the `--enter` / `--leave` classes that play them. `@use`s `layers` and emits into `@layer mlv.components`.                                                                                                                  |
+| `libs/styles/src/lib/breakpoints.scss` | SCSS mixin file  | Mobile-first breakpoint system — configurable thresholds, viewport mixins (`breakpoint-up`, `breakpoint-down`, `breakpoint-only`), container query mixins (`container`, `container-up`, `container-down`), and `$mlv-viewport-min`, the fluid band's lower anchor (not a breakpoint).              |
 
 ### Usage in component stylesheets
 
@@ -582,6 +582,31 @@ Sets `box-sizing: border-box` on host and all descendants (`*`), resets margin/p
 }
 ```
 
+## `fluid($min, $max, $from, $to)` (`mixins.scss`)
+
+Builds the `clamp()` behind the heading scale. Endpoints are **px** — the ramp
+has to be computable — and the band defaults to
+`$mlv-viewport-min` → `$mlv-breakpoint-lg`:
+
+```scss
+--mlv-font-size-5xl: #{mixins.fluid(28px, 36px)};
+// clamp(1.75rem, 1.5682rem + 0.9091vw, 2.25rem)
+```
+
+- **The middle term always keeps a `rem` component.** A font-size in bare `vw`
+  ignores browser zoom and the root font size — WCAG 1.4.4 (Resize Text). The
+  `rem` half is the whole value at the bottom of the band and the bulk of it at
+  the top; `fluid-type.spec.mjs` asserts the `vw` term stays under 35% of the
+  value at 1200px.
+- **Both coefficients are rounded to four decimals**, which moves the value at
+  the anchors themselves by well under a hundredth of a pixel. Outside the band
+  the endpoints are exact regardless, because `clamp()` bounds the
+  interpolation there.
+- It `@error`s on non-px endpoints and on `$from >= $to` rather than emitting a
+  ramp that cannot be right.
+
+---
+
 ## Direction Mixins (`mixins.scss`)
 
 The direction helpers keep component styles and keyboard behavior aligned with
@@ -725,10 +750,17 @@ Mobile-first responsive breakpoint system. All mixins and variables are configur
 
 ### Configurable Variables
 
-| Variable             | Default  | Description                         |
-| -------------------- | -------- | ----------------------------------- |
-| `$mlv-breakpoint-md` | `768px`  | Min-width for the tablet (md) tier  |
-| `$mlv-breakpoint-lg` | `1200px` | Min-width for the desktop (lg) tier |
+| Variable             | Default  | Description                                                |
+| -------------------- | -------- | ---------------------------------------------------------- |
+| `$mlv-breakpoint-md` | `768px`  | Min-width for the tablet (md) tier                         |
+| `$mlv-breakpoint-lg` | `1200px` | Min-width for the desktop (lg) tier                        |
+| `$mlv-viewport-min`  | `320px`  | Lower anchor of the fluid type band — **not** a breakpoint |
+
+`$mlv-viewport-min` names the narrowest viewport the library designs for rather
+than a layout switch: nothing queries it, and it is absent from the internal
+`$_breakpoints` map, so `breakpoint-up(viewport-min)` is an error and not a
+tier. It is the `$from` default of `mixins.fluid()`, with `$mlv-breakpoint-lg`
+as `$to` — so an app that moves `lg` moves the top of every fluid ramp with it.
 
 Override at app level:
 
@@ -816,22 +848,46 @@ Applies styles when the container is narrower than `$width`.
 
 ---
 
-## Responsive Typography (`theme.scss`)
+## Fluid Typography (`theme.scss`)
 
-Font-size tokens are split into two groups:
+Every heading role interpolates across one band — `$mlv-viewport-min` (320px) to
+`$mlv-breakpoint-lg` (1200px) — instead of stepping at `md` / `lg`. `theme.scss`
+emits **no `@media` block**, and `fluid-type.spec.mjs` asserts that.
 
-**Fixed across all viewports** — `xs`, `s`, `m`, `l`, `xl`, `2xl`
+**Fluid** — the four display steps, plus the three heading roles that used to
+resolve fixed ones:
 
-**Responsive (scale up at md and lg)** — `3xl`, `4xl`, `5xl`, `6xl`
+| Token                              | 320px | 1200px | Read by                         |
+| ---------------------------------- | ----- | ------ | ------------------------------- |
+| `--mlv-font-size-3xl`              | 20px  | 24px   | h3, `mlv-card` title            |
+| `--mlv-font-size-4xl`              | 24px  | 30px   | h2, `mlv-card` title (`size=l`) |
+| `--mlv-font-size-5xl`              | 28px  | 36px   | h1                              |
+| `--mlv-font-size-6xl`              | 36px  | 48px   | display copy                    |
+| `--mlv-typography-heading-h4-size` | 18px  | 20px   | h4                              |
+| `--mlv-typography-heading-h5-size` | 16px  | 18px   | h5                              |
+| `--mlv-typography-heading-h6-size` | 15px  | 16px   | h6                              |
 
-| Token                 | sm (mobile base) | md (≥768px)       | lg (≥1200px)      |
-| --------------------- | ---------------- | ----------------- | ----------------- |
-| `--mlv-font-size-3xl` | `1.25rem` (20px) | `1.375rem` (22px) | `1.5rem` (24px)   |
-| `--mlv-font-size-4xl` | `1.5rem` (24px)  | `1.625rem` (26px) | `1.875rem` (30px) |
-| `--mlv-font-size-5xl` | `1.75rem` (28px) | `2rem` (32px)     | `2.25rem` (36px)  |
-| `--mlv-font-size-6xl` | `2.25rem` (36px) | `2.5rem` (40px)   | `3rem` (48px)     |
+**Fixed at every width** — `xs`, `s`, `m`, `l`, `xl`, `2xl`, and every body / UI
+role built on them.
 
-The `--mlv-typography-heading-h1/h2/h3` tokens reference `5xl`, `4xl`, and `3xl` respectively, so heading sizes automatically scale at the breakpoints above. Body and UI control sizes (`xs`–`2xl`) stay fixed.
+Four things this shape is deliberate about:
+
+- **The endpoints are the stepped scale's.** A phone still gets the old mobile
+  value and a wide desktop the old `lg` one; only the middle changed, from the
+  last step passed to a size that fits the canvas. The largest deviation from an
+  old **`md`** step is ~2px (`6xl`: 42.1 vs 40).
+- **h4/h5/h6 ramp on the semantic heading token, not on `--mlv-font-size-{2xl,xl,l}`.**
+  Those three steps are shared with the body and UI roles, and `--mlv-height-*`
+  is fixed rem — a fluid font inside a fixed-height control clips instead of
+  scaling. Each role tops out at exactly the value its old shared token holds, so
+  a wide desktop is unchanged and only a narrow canvas shrinks.
+- **h1/h2/h3 still read `--mlv-font-size-{5,4,3}xl`** and inherit the ramp, so a
+  consumer reading the raw step gets the same fluid value the role does.
+- **`3xl` no longer coincides with `2xl` at the narrow end**, which it used to do
+  on purpose. h3 and h4 are separated at every width now — and `mlv-page-header`
+  needs that: its crossfade scrubs one grid cell between two title roles, so the
+  **gap between the roles is the collapse distance**. The spec pins ≥6px for
+  `size="m"` (h2→h4) and ≥3px for `size="s"` (h4→h6) across the band.
 
 ---
 
@@ -872,15 +928,20 @@ libs/styles/
       index.scss      — entry point: @use 'theme'; @use 'muted';
       theme.scss      — core tokens: palettes, backgrounds, text, borders,
                         elevation, radius, typography, spacing, motion,
-                        stroke/focus — all 3 theme modes; @uses breakpoints
-                        for responsive 3xl–6xl font-size overrides
+                        stroke/focus, direction — all 3 theme modes; @uses
+                        mixins for the fluid heading scale (no @media at all)
       theme-contrast.mjs      — resolves theme.scss colours (var / color-mix /
                                 SCSS interpolation) and scores WCAG contrast
       theme-contrast.spec.mjs — WCAG AA guard over the action + neutral
                                 interactive pairings, both themes (styles:test)
       muted.scss      — muted tint triplets (bg/text/border × 3 levels × 8 families)
       density.scss    — density SCSS mixins (tight/compact/comfortable/spacious/airy)
-      mixins.scss     — base() reset/font mixin
+      mixins.scss     — base() reset/font mixin, fluid() clamp builder,
+                        direction and motion helpers
+      mixins.spec.mjs — direction + fluid() mixin output (styles:test)
+      fluid-type.spec.mjs — the heading scale's fluid contract, read off the
+                        compiled theme.scss (styles:test)
       animations.scss — overlay keyframe animations
-      breakpoints.scss — mobile-first breakpoint variables and viewport/container mixins
+      breakpoints.scss — mobile-first breakpoint variables, viewport/container
+                        mixins, and $mlv-viewport-min (the fluid band's floor)
 ```

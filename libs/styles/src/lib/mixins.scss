@@ -1,3 +1,67 @@
+@use 'sass:math';
+@use 'sass:string';
+@use 'breakpoints' as bp;
+
+// ── Fluid type ──────────────────────────────────────────────────────────────
+
+/// Rounds to $digits decimal places, keeping the unit.
+///
+/// @param {Number} $value — the value to round
+/// @param {Number} $digits [4] — decimal places to keep
+/// @return {Number} — the rounded value
+@function _round-to($value, $digits: 4) {
+  $factor: math.pow(10, $digits);
+  @return math.div(math.round($value * $factor), $factor);
+}
+
+/// One fluid type step: linear between $min and $max across the viewport band
+/// [$from, $to], clamped flat outside it.
+///
+/// The middle term keeps a `rem` component instead of being pure `vw`. A
+/// font-size expressed only in viewport units ignores the reader's browser zoom
+/// and root font size, which fails WCAG 1.4.4 (Resize Text). Here the `rem`
+/// half carries most of the value at every width — at the bottom of the band it
+/// is the whole of it — so the text still answers a user preference, and the
+/// `vw` half only tilts it across the band.
+///
+/// The two coefficients are rounded to four decimals, which moves the value at
+/// the anchors themselves by well under a hundredth of a pixel. Outside the
+/// band the endpoints are exact regardless, because `clamp()` bounds the
+/// interpolation there.
+///
+/// @param {Length} $min — px size at $from and below
+/// @param {Length} $max — px size at $to and above
+/// @param {Length} $from [bp.$mlv-viewport-min] — width where the ramp starts
+/// @param {Length} $to [bp.$mlv-breakpoint-lg] — width where it tops out
+/// @return {String} — a `clamp()` expression
+/// @example
+///   --mlv-font-size-5xl: #{mixins.fluid(28px, 36px)};
+@function fluid(
+  $min,
+  $max,
+  $from: bp.$mlv-viewport-min,
+  $to: bp.$mlv-breakpoint-lg
+) {
+  @if math.unit($min) != 'px' or math.unit($max) != 'px' {
+    @error "fluid() takes px endpoints so the ramp is computable; got #{$min} and #{$max}.";
+  }
+  @if $from >= $to {
+    @error "fluid() needs $from < $to; got #{$from} and #{$to}.";
+  }
+
+  $slope: math.div($max - $min, $to - $from);
+  $intercept: $min - $slope * $from;
+
+  $min-rem: _round-to(math.div($min, 16px) * 1rem);
+  $max-rem: _round-to(math.div($max, 16px) * 1rem);
+  $base-rem: _round-to(math.div($intercept, 16px) * 1rem);
+  $tilt-vw: _round-to($slope * 100) * 1vw;
+
+  @return string.unquote(
+    'clamp(#{$min-rem}, #{$base-rem} + #{$tilt-vw}, #{$max-rem})'
+  );
+}
+
 @mixin base(
   $font-family: var(--mlv-typography-family-text),
   $font-size: var(--mlv-font-size-m),
