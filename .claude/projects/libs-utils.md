@@ -40,6 +40,7 @@ Exported from `libs/cdk/utils/src/index.ts`:
 | `MlvRtlService` | Service | Signal-based direction state, document/CDK `Directionality` synchronization, RTL-aware arrow-key normalization, and scoped direction resolution |
 | `MlvDirectionTarget` | Type | `Element \| ElementRef<Element> \| null \| undefined` accepted by the scoped direction helpers |
 | `mlvMirrorInlineOffsets` | Function | `mlvMirrorInlineOffsets(positions, direction)` — negates `ConnectedPosition.offsetX` in RTL, which CDK leaves physical |
+| `MlvChromeColor` | Directive | Paints an element as application chrome in an arbitrary colour and picks a readable foreground — `[mlvChromeColor]` |
 
 ---
 
@@ -114,6 +115,68 @@ Delegates to `MlvTabbableElementService` from `@malva-ui/cdk/accessibility`.
 ```html
 <div mlvResizeObserver (resized)="onResize($event)">Observe me</div>
 ```
+
+---
+
+### `MlvChromeColor`
+
+**File:** `libs/cdk/utils/src/lib/chrome/chrome-color.ts`
+**Selector:** `[mlvChromeColor]`
+**Export as:** `mlvChromeColor`
+
+Paints an element as application chrome in an arbitrary colour and picks a
+foreground that stays readable on it.
+
+A brand-coloured surface is the case every design system gets wrong twice: once
+by asking the author to name the text colour as well, and once by deriving it
+from a token map that cannot see a `var()` the consumer wrote. The directive
+resolves the colour **in the host's own cascade** — so `var(--brand-500)`, a
+`color-mix()`, a `light-dark()` or a bare keyword all work — composites it over
+what is actually behind it when it is translucent, and chooses the foreground
+by contrast ratio.
+
+#### Inputs
+
+| Name               | Type             | Default | Description                                                                                                             |
+| ------------------ | ---------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `mlvChromeColor`   | `string \| null` | `null`  | The chrome background. Any CSS colour the host's own cascade can resolve, custom properties and `color-mix()` included. |
+| `chromeForeground` | `string \| null` | `null`  | Overrides the automatically chosen foreground. Set it only when the contrast pick is wrong for a specific brand colour. |
+
+#### Published
+
+| Property / signal         | Value                                        |
+| ------------------------- | -------------------------------------------- |
+| `--mlv-chrome-background` | The resolved background, as an opaque colour |
+| `--mlv-chrome-foreground` | The foreground chosen for it                 |
+| `background()`            | The same background, as a signal             |
+| `foreground()`            | The same foreground, as a signal             |
+
+It also paints the element itself (`background` / `color`), so it is useful
+standalone — a stylesheet reading the two properties is the extra, not the
+point.
+
+Both custom properties are **absent, not empty**, while no colour is set, so a
+stylesheet's `var(…, fallback)` is what applies and the element keeps whatever
+it had. `--mlv-page-shell-chrome-background` is exactly that fallback: see
+[libs-page.md](libs-page.md) → _`MlvPageShell` → Chrome colour_.
+
+```html
+<nav mlvActionBar [mlvChromeColor]="brand()">…</nav>
+<mlv-page-shell color="var(--brand-700)">…</mlv-page-shell>
+```
+
+The resolution re-runs when the colour inputs change **and** whenever anything
+in the host's ancestor chain changes `class`, `style`, `data-theme` or
+`mlvTheme`: a theme flip changes what a `var()` resolves to without changing a
+single binding, which no signal can see. One `MutationObserver` watches the
+whole chain, and the CSS reads are coalesced into one animation frame.
+
+It lives in `@malva-ui/cdk/utils` rather than inside `mlv-page-shell`, where it
+started, because contrast-derived chrome is useful on any dark surface — a
+standalone action bar, a sidebar in a bespoke layout, a marketing header — and
+welding it into the shell made it reachable only by adopting the whole shell.
+`MlvPageShell` now composes it through `hostDirectives`, aliasing the two
+inputs back to the `color` / `foreground` names it always had.
 
 ---
 

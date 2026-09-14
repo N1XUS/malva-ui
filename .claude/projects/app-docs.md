@@ -265,6 +265,20 @@ reset through `getPresentationState()` / `applyPresentationState()`. Neither
 example owns saved-view names, permissions, dirty state, or persistence; the
 composed experience remains at `/showcases/data-operations`.
 
+**The header title slot holds the title and nothing else.** `[mlvPageTitle]` is
+a template the header instantiates **twice**, once per type role, so anything
+with identity or state declared inside it exists twice: an `id` collides (and
+the header warns in dev), a `tabindex` gives `focusTitle()` two candidates one
+of which is `inert`, an `ng-template[mlvDialog]` opens two dialogs, and a
+control registers itself twice. The four showcases that used to put their
+sidebar trigger inline with the `<h1>` (`data-operations`, `data-at-scale`,
+`project-workspace`, `publishing-workspace`) now project it into
+`[mlvPageContext]`, which is an element region rendered once and is where a
+leading nav affordance belongs; `data-operations` additionally moved its two
+saved-view dialog templates out of the header entirely. Their
+`__title-row` styles are gone with them — `mlv-page-header` lays the context
+region out and resets projected headings itself.
+
 The Data Operations showcase deliberately keeps only account fixtures,
 URL-backed saved-view state, simulated persistence, and account-specific
 rendering/actions in the route. Its responsive navigation is one flat
@@ -496,18 +510,19 @@ on its own.
   node's — `wbSettingsButtonId()` / `wbAddButtonId()` give stable handles for
   the add/remove/Escape focus moves instead of a view query.
 - **Escape-to-top expands the chrome before it focuses.** The level-1 tab strip
-  is projected into `mlv-page-header`'s tabs row, which the page's snap
-  timeline scrubs to `visibility: hidden` once the header collapses — and
-  `focus()` on a hidden element is silently refused, so the handler used to be
-  a no-op for anyone past ~100px of scroll. `onEscapeToTop()` now calls
-  `MlvPageSnapController.expand()` first (reached with
-  `viewChild(MlvPage, { read: MlvPageSnapController })`, since the showcase
-  _hosts_ the page and cannot inject the controller), which reveals every snap
-  region synchronously, and only then focuses the tab. If no controller is
-  present or the strip is not rendered, focus falls back to the page `<h1>`
-  (`WB_PAGE_TITLE_ID` = `wb-page-title`), which sits in the header's
-  never-snapped title row. Both landings are visible; focus is never left on
-  `<body>`.
+  is projected into `mlv-page-header`'s **tabs region, which is deliberately
+  not on the snap timeline** — level-1 navigation stays reachable at every
+  scroll offset. Expanding first is still what makes the landing right:
+  `onEscapeToTop()` calls `MlvPage.snap.expand()` (reached with
+  `viewChild(MlvPage)`, since the showcase _hosts_ the page and cannot inject
+  the controller, which is not exported anyway), which reveals every collapsed
+  region synchronously **and** asks the page to return to the top, so focus
+  lands on chrome the reader can see rather than on a tab under a scrolled
+  canvas. If the strip is not rendered, focus falls back to
+  `MlvPageHeader.focusTitle()` — never a `getElementById`, because the header
+  renders `[mlvPageTitle]` **once per type role** and only it knows which copy
+  is live; the route's `<h1>` therefore carries no id and no `tabindex` of its
+  own. Both landings are visible; focus is never left on `<body>`.
 - **Discard confirms like Remove does.** Discard drops every unsaved edit
   across all six trees with no undo, so it routes through the same
   `MlvDialogService.confirm({ tone: 'danger' })` the subtree removal uses — an
@@ -983,15 +998,70 @@ Async pipe that dynamically imports `.mdx` files. The esbuild MDX plugin transfo
 
 Sticky right sidebar displaying a page-level Table of Contents. Inputs: `entries: TocEntry[]`. Hidden below 1200px viewport width. **Scroll-spy uses an `IntersectionObserver`** over the heading elements (resolved by id from the mounted panel, `rootMargin` shifted for the 70px fixed action bar), rebuilt whenever the active panel republishes. This replaced a broken implementation that compared `el.offsetTop` (offset-parent-relative) against `window.scrollY` (document-absolute) — mismatched coordinate spaces, so the active heading was wrong. A ToC click sets the active slug immediately (before the observer catches up) and smooth-scrolls.
 
+**Headings are addressable, and this component owns both directions.** A click
+publishes `#<slug>` with `history.replaceState` — not a router navigation,
+which would emit `NavigationEnd` and hand the shell's own handler a reason to
+scroll back to the top, and not `pushState`, which would put one history entry
+behind every heading a reader visits. A URL that _arrives_ with a fragment is
+honoured from the same `effect` that rebuilds the observer, because a publish is
+the earliest moment the headings exist (the MDX resolves asynchronously, so
+`NavigationEnd` is far too early). The target is resolved by `getElementById`
+rather than against `entries`, so an example's own `#example-N` permalink deep
+links as well as a ToC slug does; a fragment naming nothing stays unconsumed and
+a later publish still honours it, and a fragment already honoured is not
+re-applied on a tab switch.
+
+**Every fragment URL is path-absolute.** `apps/docs/src/index.html` declares
+`<base href="/">`, and a relative `#slug` — in `replaceState` and in an
+`<a href>` alike — resolves against the **document base URL**, not the current
+one, so a bare fragment read `/#variants` in the address bar and on a copied
+link and landed the reader on the home page. `fragmentHref(slug)` builds
+`location.pathname + location.search + '#' + encodeURIComponent(slug)`. It is
+public because the ToC's own links bind to it, and `DocsTocSourceDirective`
+builds the same shape for every heading permalink.
+
+Neither path does offset arithmetic — `html { scroll-padding-top: 5.5rem }` in
+`styles.scss` clears the 72px fixed bar for `scrollIntoView`, browser find, and
+focus scrolling alike. A **load-time** landing is followed by a bounded
+re-alignment window (1s, or three frames of a still offset, or the reader's
+first wheel / touch / key — whichever comes first), because the page is still
+growing underneath it: measured on `/button#example-4`, the scroll landed the
+wrapper at the correct 88px and Chromium's scroll anchoring then settled on a
+descendant, leaving the wrapper's top at 11px, back under the bar.
+
 ### `DocsTocSourceDirective` (`[docsTocSource]`)
 
 **File:** `apps/docs/src/app/shared/toc/toc-source.directive.ts`
 
-Applied to the **Examples** panel wrapper. Collects the panel's `h2`–`h4` headings, assigns each a **unique** id (preferring the MDX-provided id, suffixing `-2`, `-3`, … on collision so `getElementById` / ToC anchors / `@for track slug` never clash), and publishes the entries to `DocsTocService`. Because the examples are `[innerHTML]`-rendered MDX that resolves asynchronously, it scans on first render and re-scans on DOM mutations (debounced to a frame) until the content settles. The exported pure helper `collectTocEntries(host)` does the id-assignment and is unit-tested (`toc-source.directive.spec.ts`). The **API** panel does not use this directive — `docs-api-viewer` publishes its headings directly from the extracted data.
+Applied to the **Examples** panel wrapper. Collects the panel's `.docs-heading` elements in document order, assigns each a **unique** id (preferring an id the markup already carries, suffixing `-2`, `-3`, … on collision so `getElementById` / ToC anchors / `@for track slug` never clash), finishes each heading's permalink, and publishes the entries to `DocsTocService`. Because the examples are `[innerHTML]`-rendered MDX that resolves asynchronously, it scans on first render and re-scans on DOM mutations (debounced to a frame) until the content settles. The exported pure helper `collectTocEntries(host)` does all of that and is unit-tested (`toc-source.directive.spec.ts`); `DOCS_HEADING_CLASS`, `DOCS_HEADING_ANCHOR_CLASS` and `slugify` are exported beside it so the markup authors emit exactly the shape it expects. The **API** panel does not use this directive — `docs-api-viewer` publishes its headings directly from the extracted data.
 
-Headings inside an **editable region** (`[contenteditable]`) are skipped. The `/editor` page renders live `mlv-editor` previews whose Tiptap document carries its own `h2`s: those are user content, not page structure, and writing an `id` into ProseMirror-managed DOM only makes ProseMirror revert it on its next flush — leaving the ToC with an entry whose anchor no longer resolves. The attribute-presence selector also covers readonly editors, which render `contenteditable="false"` yet still own their DOM.
+**The scan is opt-in by class, not by tag.** Selecting `h2, h3, h4` needed a
+growing exclusion list — `[contenteditable]`, for the Tiptap document inside
+`/editor`'s live `mlv-editor` previews, and `.example-container__preview`, for
+`mlv-scheduler`'s `<h2>` range title, which published "31 Aug – 6 Sept 2026"
+once per example on `/scheduler` — and every future component that renders a
+heading of its own would have needed another. `.docs-heading` inverts it: a
+heading is listed because its author said so, which no library component can
+accidentally satisfy. Nothing without the class is even given an id, which
+matters beyond the ToC — an id written into ProseMirror-managed DOM is reverted
+on its next flush, leaving an entry whose anchor no longer resolves. Three
+authors emit the class: the MDX renderer (§9a), `DocPageComponent`'s example
+title, and the two hand-written guide pages (`getting-started`, `tailwind`).
+A guide page that stops emitting it empties its own ToC rather than falling
+back to tag matching.
 
-Headings a **live preview renders itself** (`.example-container__preview`) are skipped for the same reason: they belong to the demonstrated component, not to the page. `mlv-scheduler` renders its range title as an `<h2 class="mlv-scheduler__title">`, so without the skip "On this page" listed the same date range once per example on `/scheduler`; any library component with an internal `h2`–`h4` would do the same. MDX prose headings sit outside the preview box and are unaffected.
+**The directive owns each permalink's `href` and `aria-label`.** Both markup
+authors ship `<a class="docs-heading__anchor">` empty and pointing at a
+placeholder, because only the scan knows the final answer: the slug is
+collision-resolved here, so the author of the second "Basic usage" on a page
+cannot know theirs is `-2`, and the `href` has to be path-absolute for the
+`<base href="/">` reason above. The anchor's own text — it has none today, its
+glyph being a CSS mask — is subtracted from the heading before slugging, so a
+visually-hidden label added later cannot leak into the ToC entry or the id.
+`DocPageComponent` additionally binds `aria-label` in its own template, so its
+permalink is named from first paint and `@angular-eslint`'s `elements-content`
+has something to see on an element it reads as an empty `<a>`; the MDX anchor
+is named by the directive alone.
 
 ### `DocsTocService`
 
@@ -1064,15 +1134,31 @@ app bar.
 ```
 <docs-app-bar>
   <button docsAppBarLeading class="docs-shell__mobile-menu">  ← navigation trigger, below md only
-<mlv-layout>
-  <mlv-sidebar>                     ← searchable grouped navigation
+<mlv-page-shell class="docs-shell" sizing="content">
+  <mlv-sidebar mlvPageSidebar>            ← searchable grouped navigation
     @for (group of navigationGroups())
       @for (item of group.items)
-  <div class="docs-main-area">       ← flex wrapper
-    <main class="docs-content">
+  <div class="docs-shell__main-area">     ← flex wrapper
+    <main class="docs-shell__content">
       <router-outlet />
     <docs-toc [entries]="tocEntries()" />  ← right sidebar ToC
 ```
+
+The shell resets `window.scrollTo` on `NavigationEnd` — **except when the URL
+carries a fragment**, which is a URL saying where it wants to land. The reset
+runs first (the ToC's scroll waits for the headings to mount), so without the
+exception it is the write that wins and a deep link always opens at the top.
+Focus management is unaffected either way.
+
+**`sizing="content"` is load-bearing, and pinned by a spec.** The documentation
+pages are scrolled by the _document_: `.docs-shell__main-area` declares no
+scroller of its own, `docs-toc` is `position: sticky; top: 5.5rem` against the
+viewport, and the shell's own `NavigationEnd` handler resets `window.scrollTo`.
+The default `sizing="parent"` and `sizing="viewport"` both bound the shell —
+viewport to `calc(100svh - inset)` — and make `.mlv-page-shell__content`
+`overflow: hidden`, so every page taller than the viewport is clipped with
+nothing able to scroll it. A showcase route that wants a bounded shell uses its
+own `ShowcaseShellComponent`, not this one.
 
 The shell consumes `docsNavigationGroups`, so navigation is data-driven and
 alphabetized within semantic groups. It includes a page filter, uses an icon
@@ -1139,8 +1225,44 @@ Imports `@malva-ui/styles` theme and animations. Notable global rules:
 - `.demo-row` — flexbox row with `gap: 12px`
 - `.docs-content` — white background, padding, border, shadow
 - `padding-top: 70px` on layout side/content to clear the fixed action bar
+- `html { scroll-padding-top: 5.5rem }` — clears the 72px fixed bar for
+  `scrollIntoView`, native fragment navigation, browser find and focus
+  scrolling in one declaration, so no code does offset arithmetic
+- `.docs-heading` / `.docs-heading__anchor` — the section heading and its
+  permalink. Global rather than component-scoped because MDX headings arrive
+  through `[innerHTML]` and so carry no `_ngcontent` attribute. The chain is a
+  Lucide `link` `mask-image` data URI coloured by `background-color`, so it
+  follows both themes; it is transparent at rest, revealed on heading hover and
+  on its own `:focus-visible` (with a Form A focus ring), and unconditionally
+  visible under `@media (hover: none)`
 - The docs shell imports only the required fourteen 4×3 `flag-icons` SVG assets;
   square assets are disabled to avoid duplicate Angular media output names.
+
+**Every `.docs-shell` selector naming a library part is anchored with `>`.**
+`.docs-shell` _is_ an `mlv-page-shell` and `/page` documents that component, so
+a descendant selector reaches the shells rendered **inside** the examples on
+that page. The sticky-rail rules are viewport-sized, and the examples are 38rem
+boxes with `overflow: hidden`: measured on `/page` at 390×844 and at 1440×900,
+the example's `__body` took the `100svh` floor, the canvas inside it resolved to
+the full 844/900px, and the bottom third of the example was clipped with no
+scroller anywhere able to reach it. The three anchored rules are
+`.docs-shell > .mlv-page-shell__body` (the floor),
+`… > .mlv-page-shell__sidebar` (the sticky rail) and the same sidebar selector
+again inside `@media (max-width: 47.999rem)`, which unpins the rail below md.
+
+That third one has to carry the **same** anchor, not merely some anchor: a media
+query buys no specificity, so the shorter `.docs-shell .mlv-page-shell__sidebar`
+(0,2,0) it was written as would now lose outright to the sticky rule's (0,3,0)
+and the rail would stay pinned at every width. Anchoring one rule of an
+override pair is worse than anchoring neither.
+
+`.docs-shell__*` names are docs-only and cannot collide, so those rules stay
+descendant selectors — including `.docs-shell .docs-shell__main-area`, which is
+default-slot content and therefore lives inside `.mlv-page-shell__content`, not
+under `__body`. Pinned by `docs-shell.spec.ts` § _sticky rail geometry_, whose
+leak check reads the stylesheet with its comments stripped: the reason each
+selector is anchored is written directly above it, so a scan of the raw source
+would fail on the prose explaining the very shape it bans.
 
 Landing-page layout and visual styling are component-scoped in `pages/home/home.scss`; the global stylesheet no longer needs a `:has(.landing-page)` override because the home route is structurally outside the docs shell.
 
@@ -1198,11 +1320,28 @@ Custom esbuild plugin registered via `@nx/angular:application`'s `plugins` optio
 
 - Extracts YAML frontmatter (title, description) via `gray-matter`
 - Parses Markdown to HTML via `marked`
-- Injects heading `id` attributes for anchor linking
+- Renders every heading as `<h{2,3,4} id="<slug>" class="docs-heading">` with a
+  trailing `<a class="docs-heading__anchor">`
 - Extracts h2-h4 headings for Table of Contents data
 - Returns a JS module: `export default { html, frontmatter, toc }`
 
+**The heading shape is what the ToC scan and the permalink both read.** The
+class opts the heading in (`DocsTocSourceDirective`, §6); the anchor ships
+**empty** and with a placeholder `href`, because this HTML reaches the DOM
+through `[innerHTML]` — Angular's sanitizer drops an inline `<svg>`, so the
+chain glyph is a CSS `mask-image` in the global stylesheet, and the directive
+writes the real `href` and the `aria-label` through the DOM API. The module's
+build-time `toc` export is kept because `MdxEntry.toc` is public to the app,
+but **nothing reads it at runtime** — the rendered ToC is scanned from the DOM,
+which is what lets two examples share a heading text.
+
 Runs during both `build` and `serve` with full HMR support — no pre-build step needed.
+
+**Editing the plugin itself needs a `serve` restart.** esbuild loads
+`mdx-transform.ts` once when the dev server starts, so a change to the renderer
+leaves every already-transformed `.mdx` exactly as it was — the page keeps
+serving the old HTML with no error and no rebuild. Editing an `.mdx` file HMRs
+normally.
 
 ### MDX File Format
 
@@ -1212,12 +1351,23 @@ title: Example Title
 description: Optional description
 ---
 
-## Heading
-
 Markdown content here...
 ```
 
-Frontmatter is optional. Files without frontmatter are treated as plain Markdown (backward compatible).
+**The title lives in frontmatter, never in the body.** `DocPageComponent`
+renders `frontmatter.title` as the example's `<h2>` with a permalink beside it;
+a leading `## Title` in the body renders a second heading that the ToC then
+lists twice. All 474 example files were migrated to this shape in 2026-09 (434
+promoted from a leading `## `, 4 whose frontmatter and body both carried the
+title de-duplicated). A body `##` is still correct for a **section** below the
+title — the ToC lists those as well.
+
+`description` remains optional, and is plain text: it is rendered as `{{ }}`,
+not through `marked`, so Markdown in it shows as literal characters.
+
+Frontmatter itself remains structurally optional (`gray-matter` returns an
+empty `data` for a file without it) — a file with no `title` simply renders no
+heading.
 
 ### Table of Contents
 

@@ -91,7 +91,7 @@ export default class ButtonBasicExampleComponent {}
 const EXPECTED_MAIN = `import { provideZonelessChangeDetection } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
-import { provideDefaultTheme } from '@malva-ui/core/layout';
+import { provideDefaultTheme } from '@malva-ui/cdk/theme';
 import { provideMlvI18n } from '@malva-ui/i18n';
 
 import Example from './example/index';
@@ -115,7 +115,7 @@ const EXPECTED_MAIN_WITH_ROUTER = `import { provideZonelessChangeDetection } fro
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
-import { provideDefaultTheme } from '@malva-ui/core/layout';
+import { provideDefaultTheme } from '@malva-ui/cdk/theme';
 import { provideMlvI18n } from '@malva-ui/i18n';
 
 import Example from './example/index';
@@ -140,7 +140,7 @@ const EXPECTED_MAIN_WITH_HTTP = `import { provideHttpClient } from '@angular/com
 import { provideZonelessChangeDetection } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
-import { provideDefaultTheme } from '@malva-ui/core/layout';
+import { provideDefaultTheme } from '@malva-ui/cdk/theme';
 import { provideMlvI18n } from '@malva-ui/i18n';
 
 import Example from './example/index';

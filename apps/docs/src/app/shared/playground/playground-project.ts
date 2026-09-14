@@ -685,8 +685,8 @@ function renderMain(
       "import { provideMlvDensity } from '@malva-ui/cdk/density';",
     ],
     [
-      '@malva-ui/core/layout',
-      "import { provideDefaultTheme } from '@malva-ui/core/layout';",
+      '@malva-ui/cdk/theme',
+      "import { provideDefaultTheme } from '@malva-ui/cdk/theme';",
     ],
     ['@malva-ui/i18n', "import { provideMlvI18n } from '@malva-ui/i18n';"],
   ]);

@@ -1,5 +1,5 @@
 /**
- * Flattens CSS cascade layers so the vitest/jsdom environment can read them.
+ * Rewrites CSS into the subset the vitest/jsdom environment can actually parse.
  *
  * jsdom parses CSS with `rrweb-cssom`, which does not implement `@layer`. On
  * encountering it jsdom logs "Could not parse CSS stylesheet" and discards the
@@ -8,12 +8,22 @@
  * wrapped in `@layer mlv.components { … }`, that silently disabled the
  * library's whole styling test suite.
  *
- * Flattening is only applied to the test environment; the shipped CSS keeps its
- * layers. It does change cascade semantics — an unlayered rule outranks every
- * layered one — but the layers exist to lose to consumer/Tailwind styles that a
- * unit test never loads, and flattening preserves document order, so rules
- * within one stylesheet (and across stylesheets injected in layer order) keep
- * resolving exactly as they do in a browser.
+ * `@container` is the same failure with a different keyword: rrweb-cssom does
+ * not implement it either, so one container query anywhere in a stylesheet
+ * discards the whole thing. It cannot be flattened the way a layer can — jsdom
+ * performs no layout, so no container has a size and no query inside one could
+ * ever match — so those blocks are *dropped*, which is the outcome jsdom would
+ * have produced for them anyway. Assert a container query on the compiled text
+ * instead (`stripCssLayersFromText` leaves it in place); a `getComputedStyle`
+ * assertion could only ever have been asserting the fallback.
+ *
+ * Both rewrites are only applied to the test environment; the shipped CSS keeps
+ * its layers and its container queries. Flattening does change cascade
+ * semantics — an unlayered rule outranks every layered one — but the layers
+ * exist to lose to consumer/Tailwind styles that a unit test never loads, and
+ * flattening preserves document order, so rules within one stylesheet (and
+ * across stylesheets injected in layer order) keep resolving exactly as they do
+ * in a browser.
  */
 
 import postcss from 'postcss';
@@ -96,8 +106,33 @@ function dedent(nodes, width) {
   }
 }
 
+/**
+ * PostCSS plugin removing every `@container` block.
+ *
+ * Unlike a layer, a container query cannot be hoisted: its rules apply only
+ * when a named ancestor's size matches, and jsdom lays nothing out, so every
+ * such query is unmatched by construction. Hoisting the children would make
+ * them apply unconditionally, which is a different stylesheet; dropping them
+ * leaves the element with exactly the styles jsdom would have resolved if it
+ * could parse the query at all.
+ *
+ * @returns {import('postcss').Plugin}
+ */
+export function dropContainerQueries() {
+  return {
+    postcssPlugin: 'mlv-drop-container-queries',
+    AtRule: {
+      container: (atRule) => atRule.remove(),
+    },
+  };
+}
+dropContainerQueries.postcss = true;
+
 /** Matches `@layer` as an at-rule keyword rather than inside an identifier. */
 const LAYER_AT_RULE = /@layer\b/i;
+
+/** Matches `@container` as an at-rule keyword, not `container-name` etc. */
+const CONTAINER_AT_RULE = /@container\b/i;
 
 /**
  * Returns `css` with every cascade layer flattened away. Input without any
@@ -113,4 +148,31 @@ export function stripCssLayersFromText(css) {
   }
 
   return postcss([stripCssLayers()]).process(css, { from: undefined }).css;
+}
+
+/**
+ * Returns `css` in the form a jsdom document can parse: layers flattened and
+ * container queries dropped. This is what the `<style>` shim applies, and it is
+ * deliberately *not* what {@link stripCssLayersFromText} does — a spec reading
+ * compiled text is asserting on the shipped stylesheet and should still see its
+ * container queries.
+ *
+ * @param {string} css
+ * @returns {string}
+ */
+export function flattenCssForJsdom(css) {
+  const hasLayers = LAYER_AT_RULE.test(css);
+  const hasContainers = CONTAINER_AT_RULE.test(css);
+  if (!hasLayers && !hasContainers) {
+    return css;
+  }
+
+  const plugins = [];
+  if (hasLayers) {
+    plugins.push(stripCssLayers());
+  }
+  if (hasContainers) {
+    plugins.push(dropContainerQueries());
+  }
+  return postcss(plugins).process(css, { from: undefined }).css;
 }

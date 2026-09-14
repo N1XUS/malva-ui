@@ -15,7 +15,87 @@
   box-sizing: border-box;
 }
 
-// The document surface. `mlv-layout` paints `--mlv-background-base` /
+// Anchor targets clear the fixed action bar.
+//
+// The documentation action bar is `position: fixed` and 72px tall, and the
+// document is the scrollport for every documentation page. Without this, the
+// `scrollIntoView` behind a table-of-contents click — and any `#slug` jump —
+// lands the heading at y ≈ 0, which is 71px *underneath* the bar: the one
+// heading the reader asked for is the one thing they cannot see. Shifting the
+// scrollport's own snap edge covers every entry point at once (the ToC, the
+// browser's find-and-scroll, focus scrolling) where a `scroll-margin-top` on
+// each heading would have to be repeated onto every element anything scrolls
+// to. 5.5rem is the bar plus the same breathing room `docs-toc` uses for its
+// own sticky top.
+// A section heading, wherever it is authored — the doc page's example title,
+// an MDX prose heading, a hand-written guide. The class is the ToC's opt-in
+// (`collectTocEntries` selects on it, so a heading a live preview renders is
+// never listed) and it carries the permalink's reveal.
+//
+// Global rather than component-scoped: MDX headings arrive through
+// `[innerHTML]` and so carry no `_ngcontent` attribute, which emulated
+// encapsulation would need.
+.docs-heading {
+  position: relative;
+
+  &__anchor {
+    // A permalink is a pointer affordance, but it stays a real link in the tab
+    // order at all times: `:focus-visible` reveals it for keyboard users, and
+    // where there is no hover to reveal it with it is simply always visible.
+    display: inline-block;
+    inline-size: 0.875em;
+    block-size: 0.875em;
+    margin-inline-start: 0.375em;
+    vertical-align: baseline;
+    opacity: 0;
+    background-color: var(--mlv-text-secondary);
+    transition:
+      opacity var(--mlv-duration-fast) var(--mlv-ease-default),
+      background-color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    // The Lucide `link` glyph. A mask rather than an inline `<svg>`: the MDX
+    // half of this HTML is bound with `[innerHTML]`, where Angular's sanitizer
+    // drops SVG, and a mask takes its colour from the rule above in both
+    // themes for free.
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E");
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+  }
+
+  &:hover &__anchor,
+  &__anchor:focus-visible {
+    opacity: 1;
+  }
+
+  &__anchor:hover,
+  &__anchor:focus-visible {
+    background-color: var(--mlv-text-action);
+  }
+
+  &__anchor:focus-visible {
+    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+    outline-offset: var(--mlv-focus-ring-offset);
+  }
+
+  @media (hover: none) {
+    &__anchor {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__anchor {
+      transition: none;
+    }
+  }
+}
+
+html {
+  scroll-padding-top: 5.5rem;
+}
+
+// The document surface. `mlv-page-shell` paints `--mlv-background-base` /
 // `--mlv-text-primary` on itself, but routes that render no layout (the
 // showcase shell) inherited whatever `body` had — which used to be a
 // hardcoded `#333` plus a dark-only background special case. In dark mode
@@ -66,26 +146,96 @@ body {
   margin-bottom: 12px;
 }
 
-.docs-shell .mlv-layout__side,
 .docs-shell .docs-shell__main-area {
   padding-top: 4.75rem;
 }
 
+/* The rail follows the reading column instead of scrolling away with it, and
+   scrolls itself once the navigation outgrows the viewport — it is 1921px tall
+   with every group open, against a 900px viewport.
+
+   Only the height is set here. `mlv-sidebar` already wraps unslotted content
+   in `mlv-scrollbar`, whose viewport is `flex: 1 1 auto; min-height: 0` inside
+   a `height: 100%` container — so a *definite* height on the host is the whole
+   contract, and the component's own themed scrollbar does the scrolling.
+   `max-height` is not a substitute: the container's `height: 100%` resolves
+   against an indefinite box and collapses to `auto`, the flex chain never
+   bounds, and an `overflow` on the host would scroll a second, native scroller
+   outside the component's own.
+
+   The app bar is `position: fixed`, so the rail is offset by its height rather
+   than padded by it: with `padding-top` the padding scrolls away inside the
+   rail's own scroller and the top rows disappear under the bar. `docs-toc`
+   pins itself the same way on the other side. Only `inset-block-start` is set
+   — a sticky element with a logical *inline* inset is mispositioned in RTL by
+   Safari 26 (see .claude/rules/rtl.md), and this needs none. */
+/* `>` all the way down, and not a descendant selector, because `.docs-shell`
+   is itself an `mlv-page-shell` and `/page` documents that component: the
+   examples render their own `mlv-page-shell` *inside* this one, and these two
+   rules are viewport-sized. See the floor below for what that cost. */
+.docs-shell > .mlv-page-shell__body > .mlv-page-shell__sidebar {
+  position: sticky;
+  top: 4.75rem;
+  align-self: flex-start;
+  height: calc(100vh - 4.75rem);
+  height: calc(100svh - 4.75rem);
+}
+
+/* …and the row it sticks inside needs to be tall enough to hold it. A sticky
+   box is clamped to its containing block, so on a page whose content is
+   shorter than the viewport — `/link` is the shortest — the flex row is only
+   as tall as that content, the rail's `4.75rem` offset plus its own
+   `100svh - 4.75rem` height does not fit, and the rail is pushed back up to
+   y = 0: behind the fixed action bar, taking the page filter with it.
+   Measured on `/link` at a 1100px viewport before this rule: row 1024px, rail
+   top 0 instead of 76, the filter's box at y = 14 under a 72px bar. Giving the
+   row the viewport as a floor makes the offset and the height fit exactly, so
+   the rail lands in the same place on every page and holds still across a
+   navigation between a long page and a short one. The floor is exactly the
+   viewport, so it introduces no scrollbar of its own.
+
+   It is also why the selector is anchored: as a descendant selector it put the
+   same viewport floor on every `mlv-page-shell` rendered inside a `/page`
+   example, which are 38rem boxes with `overflow: hidden`. Measured at 390x844
+   and at 1440x900, the example shell's `__body` took the floor, the canvas
+   inside it resolved to the full 844/900px, and the bottom third of the
+   example was clipped with no scroller anywhere able to reach it. */
+.docs-shell > .mlv-page-shell__body {
+  min-block-size: 100vh;
+  min-block-size: 100svh;
+}
+
+/* The reading column is a full-bleed band between the two rails, not a card:
+   hairlines on the inline edges only, no radius, no shadow. */
 .docs-shell .docs-shell__content {
   background: var(--mlv-background-raised);
   padding: 2rem;
-  border: 0.0625rem solid var(--mlv-border-subtle);
-  border-radius: var(--mlv-radius-l);
-  box-shadow: var(--mlv-shadow-2);
+  border: 0;
+  border-inline: 0.0625rem solid var(--mlv-border-subtle);
 }
 
 @media (max-width: 47.999rem) {
-  .docs-shell .mlv-layout__side,
   .docs-shell .docs-shell__main-area {
     padding-top: 4.25rem;
   }
 
+  /* Below md the rail is an off-canvas drawer, not a column beside the
+     content: it owns the whole viewport and pins nothing. Anchored for the
+     same reason as the rule it overrides — and it has to carry the *same*
+     anchor, not merely some anchor: a media query buys no specificity, so
+     `.docs-shell .mlv-page-shell__sidebar` (0,2,0) would now lose outright to
+     the sticky rule's (0,3,0) and the rail would stay pinned at every width. */
+  .docs-shell > .mlv-page-shell__body > .mlv-page-shell__sidebar {
+    position: static;
+    top: auto;
+    height: auto;
+    padding-top: 4.25rem;
+  }
+
+  /* Every page inside pads again (an example container's preview box, the
+     Getting Started hero), so the shell's own inset is the one to keep small
+     here: at 375px the two stacked insets were taking 24% of the width. */
   .docs-shell .docs-shell__content {
-    padding: 1.25rem;
+    padding: 0.75rem;
   }
 }

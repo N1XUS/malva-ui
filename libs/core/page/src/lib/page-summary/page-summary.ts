@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   ViewEncapsulation,
   computed,
   inject,
@@ -10,18 +11,22 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import type { ElementRef } from '@angular/core';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
+import { MLV_PAGE_I18N } from '@malva-ui/i18n';
+import { registerPageRegion } from '../page/page-geometry';
 import { MlvPageSnapRegionBase } from '../page/page-snap-region-base';
 
 /**
- * Key-facts strip rendered under a page header. Projects
- * `mlv-page-summary-item` children in a wrapping row.
+ * Key-facts strip rendered under a page header — a description list of
+ * `[mlvPageSummaryItem]` terms and values in a wrapping row, separated by
+ * hairlines and sized to their content rather than stretched to a shared
+ * basis.
  *
  * Inside `main[mlvPage]` the strip participates in the scroll-scrubbed snap
- * timeline: its height and opacity are interpolated from the page-level
- * `--mlv-page-snap` progress over the `snapFrom`..`snapTo` stagger window.
- * Collapse/expand and pinning are controlled by the header's snap controls
+ * timeline: its height follows the page-level `--mlv-page-snap` progress
+ * directly, while its opacity follows its own `snapFrom`..`snapTo` window, so
+ * the values fade before the strip squashes them without the page losing the
+ * exact height compensation. Expanding is driven by the header's chevron
  * (`mlv-page-header[snapControls]`) through `MlvPageSnapController` — the
  * strip itself is purely presentational.
  *
@@ -32,32 +37,43 @@ import { MlvPageSnapRegionBase } from '../page/page-snap-region-base';
  */
 @Component({
   selector: 'mlv-page-summary',
-  template: `<div
-    #items
-    class="mlv-page-summary__items"
-    role="group"
-    [attr.aria-label]="summaryLabel()"
-  >
-    <ng-content />
+  template: `<div #items class="mlv-page-summary__items">
+    <dl class="mlv-page-summary__facts" [attr.aria-label]="_summaryLabel()">
+      <ng-content />
+    </dl>
   </div>`,
   styleUrl: './page-summary.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-page-summary',
+    'data-slot': 'page-summary',
     '[class.mlv-page-summary--snapped]': '_elapsed()',
     '[class.mlv-page-summary--revealed]': '_revealed()',
     '[style.--mlv-snap-from]': 'snapFrom()',
     '[style.--mlv-snap-scale]': '_scale()',
-    '[style.--mlv-page-summary-size]': '_measuredHeight()',
+    '[style.--mlv-page-summary-size]': '_measuredSize()',
     '[style.visibility]': '_hidden() ? "hidden" : null',
     '(focusin)': '_onRegionFocusIn()',
     '(focusout)': '_onRegionFocusOut($event)',
   },
 })
 export class MlvPageSummary extends MlvPageSnapRegionBase {
-  /** Accessible name for the facts region. */
-  readonly summaryLabel = input('Page summary');
+  /**
+   * Accessible name for the facts region. Falls back to the active i18n
+   * language pack — a group role with no name is a bare landmark, and the
+   * name it needs is the same on every page, so it belongs to the pack
+   * rather than to every consumer's template.
+   */
+  readonly summaryLabel = input<string | undefined>(undefined);
+
+  /** @private Active language pack. */
+  private readonly _i18n = inject(MLV_PAGE_I18N);
+
+  /** @protected Resolved accessible name: the override, else the pack. */
+  protected readonly _summaryLabel = computed(
+    () => this.summaryLabel() ?? this._i18n().pageSummary,
+  );
 
   /** Progress at which the strip starts collapsing (0..1). */
   readonly snapFrom = input(0.1);
@@ -81,12 +97,41 @@ export class MlvPageSummary extends MlvPageSnapRegionBase {
   /** @protected Natural height of the items row, driving the height scrub. */
   protected readonly _measuredHeight = signal<number | null>(null);
 
+  /**
+   * @protected What the strip gives up on the timeline: its whole measured
+   * height. The controller sums it into the page's collapse distance, so the
+   * timeline is exactly as long as the chrome it removes.
+   */
+  protected readonly _collapsibleBlockSize = computed(
+    () => this._measuredHeight() ?? 0,
+  );
+
+  /**
+   * @protected The same measurement as a CSS length. Every geometry property
+   * this package publishes is a pixel string: a bare number is not a length,
+   * so a consumer could not override it with one.
+   */
+  protected readonly _measuredSize = computed(() => {
+    const height = this._measuredHeight();
+    return height === null ? null : `${height}px`;
+  });
+
   /** @private The measured items row. */
   private readonly _items =
     viewChild.required<ElementRef<HTMLElement>>('items');
 
   constructor() {
     super();
+    // The strip is block-start chrome but is never `position: sticky` itself,
+    // so it adds to the chrome block size and reserves no clearance. When it
+    // is projected *inside* the header the coordinator drops it from the sum:
+    // the header's own box already contains it.
+    registerPageRegion({
+      element: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
+      edge: 'block-start',
+      sticky: signal(false),
+    });
+
     const resizeObserver = inject(MlvResizeObserverService);
     const destroyRef = inject(DestroyRef);
     afterNextRender(() => {

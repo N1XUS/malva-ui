@@ -33,7 +33,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
  * carries **no** density class of its own, so *every* ancestor branch matched
  * it, all at `(0,3,0)`, and source order picked the winner: airy > spacious >
  * compact > tight, whatever the bar had resolved. In the shipped docs app —
- * `<mlv-layout mlvDensityRoot>` around a `<header mlvActionBar mlvDensity="…">`
+ * `<mlv-page-shell mlvDensityRoot>` around a
+ * `<header mlvActionBar mlvDensity="…">`
  * — a global `spacious` gave an 18px logo and `airy` a 20px one inside a bar
  * the consumer had asked to be compact.
  *

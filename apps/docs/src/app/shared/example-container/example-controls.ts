@@ -10,13 +10,10 @@ import {
   LucideTablet,
 } from '@lucide/angular';
 import type { MlvDensity } from '@malva-ui/cdk/density';
+import type { MlvTheme } from '@malva-ui/cdk/theme';
 import type { MlvDirection } from '@malva-ui/cdk/utils';
-import {
-  MlvActionBar,
-  MlvActionBarActions,
-  MlvActionBarSpacer,
-} from '@malva-ui/core/action-bar';
-import type { MlvTheme } from '@malva-ui/core/layout';
+import { MlvSpacer } from '@malva-ui/cdk/utils';
+import { MlvActionBar, MlvActionBarActions } from '@malva-ui/core/action-bar';
 import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
 import { MlvTooltip } from '@malva-ui/core/tooltip';
 
@@ -50,7 +47,7 @@ export type DocsExampleViewport = 'mobile' | 'tablet' | 'desktop';
   imports: [
     MlvActionBar,
     MlvActionBarActions,
-    MlvActionBarSpacer,
+    MlvSpacer,
     MlvSegmented,
     MlvSegmentedItem,
     MlvTooltip,
@@ -142,7 +139,7 @@ export type DocsExampleViewport = 'mobile' | 'tablet' | 'desktop';
         </button>
       </mlv-segmented>
 
-      <span mlvActionBarSpacer></span>
+      <mlv-spacer />
 
       <!-- Pinning the stage to a phone width says nothing on a phone, so the
            control sheds itself at md and below like any other desktop-only

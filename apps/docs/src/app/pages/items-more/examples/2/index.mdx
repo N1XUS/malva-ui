@@ -1,0 +1,10 @@
+---
+title: Pinned Items
+---
+
+Some items must never leave the row. There are two ways to say so:
+
+- **No `mlvItemsMoreHidden` template.** An item that cannot say how it looks collapsed has nowhere to go, so it is pinned. The version switch here is one.
+- **`pinned` on the item.** For an item that _has_ a collapsed form but should still stay, like the primary Publish action.
+
+Pinned items keep their place in the row, and their widths are reserved before anything else is fitted. Collapsible items around them are withheld from the end, in declaration order, so Publish stays last in the row even after History and Share have moved into the panel.

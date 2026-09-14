@@ -162,6 +162,13 @@ const CATEGORIES = [
     prefixes: ['--mlv-stroke-', '--mlv-focus-'],
   },
   {
+    id: 'direction',
+    title: 'Direction',
+    blurb:
+      'The sign of the inline axis: `1` in LTR, `-1` in RTL, re-declared under every `[dir]` so a mirrored subtree re-signs it for its own descendants. `transform`, `transform-origin` and `box-shadow` have no logical form, so their inline component is multiplied by this — consume it through `mixins.inline-distance()` rather than inlining the `calc()`.',
+    exact: ['--mlv-inline-direction'],
+  },
+  {
     id: 'muted',
     title: 'Muted tints',
     blurb:
@@ -549,7 +556,7 @@ lines.push(
   "| `[mlvTheme='dark']` | Dark |",
   "| `[data-theme='high-contrast']` | High contrast |",
   '',
-  '`MlvThemeService` (via `mlv-layout`) sets the `mlvTheme` attribute on',
+  '`MlvThemeService` (from `@malva-ui/cdk/theme`) sets the `mlvTheme` attribute on',
   '`documentElement`. Tokens with no dark or high-contrast value inherit the light',
   'value in every mode.',
   '',

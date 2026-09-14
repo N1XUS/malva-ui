@@ -1,30 +1,53 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-page-summary-item;
+  $block: mlv-page-summary-item;
 
-.#{$block} {
-  @include mixins.base();
+  .#{$block} {
+    @include mixins.base();
 
-  display: flex;
-  flex: 1 1 10rem;
-  flex-direction: column;
-  gap: var(--mlv-spacing-0-5);
-  min-width: 0;
+    position: relative;
+    display: flex;
+    // Content-sized, never stretched: a two-character status must not claim the
+    // same width as a customer name. It may still shrink, and it may still wrap
+    // its value, but it grows only to what it holds.
+    flex: 0 1 auto;
+    flex-direction: column;
+    gap: var(--mlv-spacing-0-5);
+    // A fact reads as one column of text; past this the value wraps instead.
+    max-inline-size: 22rem;
+    min-width: 0;
 
-  &__label {
-    color: var(--mlv-text-secondary);
-    font-size: var(--mlv-typography-body-s-size);
-    line-height: var(--mlv-typography-body-s-line-height);
+    // Hairline separator, drawn inside the list's own gap rather than on the
+    // item's edge. The list clips its overflow with no padding of its own, so
+    // the rule leading a wrapped row falls outside the box and disappears —
+    // which no `:first-child` selector can express, because CSS cannot see
+    // where a flex row breaks.
+    &::before {
+      position: absolute;
+      inset-block: 0;
+      inset-inline-start: calc(var(--mlv-page-summary-gap, 1rem) / -2);
+      width: var(--mlv-stroke-width);
+      background-color: var(--mlv-border-subtle);
+      content: '';
+    }
+
+    &__label {
+      margin: 0;
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+      line-height: var(--mlv-typography-body-s-line-height);
+    }
+
+    &__value {
+      // Wrapping is the overflow affordance: an ellipsis on a single line hides
+      // the value with no way to recover it, and a key fact nobody can read is
+      // not a key fact.
+      margin: 0;
+      overflow-wrap: anywhere;
+      color: var(--mlv-text-primary);
+      font-size: var(--mlv-typography-body-m-size);
+      line-height: var(--mlv-typography-body-m-line-height);
+    }
   }
-
-  &__value {
-    overflow: hidden;
-    color: var(--mlv-text-primary);
-    font-size: var(--mlv-typography-body-m-size);
-    line-height: var(--mlv-typography-body-m-line-height);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
 }

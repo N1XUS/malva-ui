@@ -91,7 +91,7 @@ import {
   LucideWrench,
 } from '@lucide/angular';
 import { MlvButton } from '@malva-ui/core/button';
-import { MlvLayout, MlvLayoutSide } from '@malva-ui/core/layout';
+import { MlvPageShell, MlvPageSidebar } from '@malva-ui/core/page';
 import {
   MlvSidebar,
   MlvSidebarGroup,
@@ -101,6 +101,7 @@ import {
 } from '@malva-ui/core/sidebar';
 import type { MlvSidebarMode } from '@malva-ui/core/sidebar';
 import { MlvDensityRootDirective } from '@malva-ui/cdk/density';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 import { MlvSpacer } from '@malva-ui/cdk/utils';
 import { filter } from 'rxjs';
 import { docsNavigationGroups } from '../../app.routes';
@@ -192,8 +193,8 @@ const NAV_ICONS: Readonly<Record<DocsIconName, LucideIconInput>> = {
     RouterModule,
     MlvButton,
     LucideDynamicIcon,
-    MlvLayout,
-    MlvLayoutSide,
+    MlvPageShell,
+    MlvPageSidebar,
     MlvDensityRootDirective,
     MlvSpacer,
     MlvSidebar,
@@ -212,6 +213,19 @@ const NAV_ICONS: Readonly<Record<DocsIconName, LucideIconInput>> = {
 export class DocsShellComponent {
   /** @private ToC service providing entries from the active page. */
   private readonly _tocService = inject(DocsTocService);
+
+  /**
+   * The resolved theme, stamped on the navigation rail as `mlvTheme`.
+   *
+   * `mlv-page-shell` derives the rail's text, hover and active colours from
+   * its own chrome, which is right for an application frame in a brand colour
+   * and wrong here — the documentation rail should look like every other
+   * `mlv-sidebar` the site documents. Scoping the rail to a theme is the
+   * shell's own opt-out (`&__sidebar.mlv-sidebar:not([mlvTheme])`), and
+   * binding the *resolved* theme rather than a literal keeps the rail
+   * following the theme switcher instead of pinning it to one.
+   */
+  protected readonly railTheme = inject(MlvThemeService).currentTheme;
 
   /** @private Router used to dismiss mobile navigation after navigation. */
   private readonly _router = inject(Router);
@@ -285,8 +299,13 @@ export class DocsShellComponent {
         ),
         takeUntilDestroyed(),
       )
-      .subscribe(() => {
+      .subscribe((event) => {
         if (this.isMobile()) this.sidebarCollapsed.set(true);
+        // A URL carrying a fragment names where it wants to land, and the ToC
+        // scrolls there once the panel's headings exist. Resetting scroll here
+        // would undo that — and it lands first, because the headings arrive
+        // asynchronously behind the page's deferred content.
+        const hasFragment = event.urlAfterRedirects.includes('#');
         setTimeout(() => {
           const main = this._mainContent()?.nativeElement;
           const doc = main?.ownerDocument;
@@ -306,7 +325,7 @@ export class DocsShellComponent {
           // element inside <main>. Trade-off, accepted: a non-modal overlay in the
           // CDK container (the sidebar flyout) and a link inside surviving main
           // content keep their focus instead of jumping to <main>. The scroll reset
-          // always runs.
+          // runs for every URL that does not name an anchor.
           const overlay = doc?.querySelector('.cdk-overlay-container');
           const focusAlreadyPlaced =
             !!overlay?.querySelector('[role="dialog"], [role="alertdialog"]') ||
@@ -316,7 +335,7 @@ export class DocsShellComponent {
               active !== doc?.body &&
               !!main?.contains(active));
           if (!focusAlreadyPlaced) main?.focus({ preventScroll: true });
-          doc?.defaultView?.scrollTo({ left: 0, top: 0 });
+          if (!hasFragment) doc?.defaultView?.scrollTo({ left: 0, top: 0 });
         });
       });
   }

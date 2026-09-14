@@ -326,6 +326,10 @@ const tr: MlvLanguage = {
     decrement: 'Azalt',
     increment: 'Artır',
   },
+  page: {
+    pageSummary: 'Sayfa özeti',
+    expandHeader: 'Başlığı genişlet',
+  },
   pagination: {
     navigationLabel: 'Sayfalama',
     previousPage: 'Önceki sayfa',

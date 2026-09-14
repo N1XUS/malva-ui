@@ -1,4 +1,5 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/breakpoints' as bp;
 
 @layer mlv.components {
   $block: mlv-page-shell;
@@ -6,14 +7,25 @@
   .#{$block} {
     @include mixins.base();
 
-    --mlv-page-shell-chrome-background: var(--mlv-palette-neutral-900);
-    --mlv-page-shell-chrome-foreground: var(--mlv-palette-neutral-50);
+    // `--mlv-chrome-*` is written by `MlvChromeColor`, the host directive that
+    // resolves `color` in this element's own cascade and picks a readable
+    // foreground for it. Absent — not empty — while no colour is set, so these
+    // fallbacks are what the default chrome is.
+    // Semantic, not raw palette. These used to be `neutral-900` / `neutral-50`
+    // literally, so the frame followed no theme: in light it was a
+    // near-maximum-contrast dark band around a `#fafafa` canvas, and in dark it
+    // resolved to exactly the canvas colour and disappeared. Both tokens now
+    // carry their own light and dark values, one deliberate step off the
+    // canvas in each. A consumer who wants the old dark frame in light mode
+    // sets `color="#171717"` on the shell, or overrides these two directly.
+    --mlv-page-shell-chrome-background: var(--mlv-background-chrome);
+    --mlv-page-shell-chrome-foreground: var(--mlv-text-on-chrome);
     --mlv-page-shell-effective-background: var(
-      --mlv-page-shell-resolved-background,
+      --mlv-chrome-background,
       var(--mlv-page-shell-chrome-background)
     );
     --mlv-page-shell-effective-foreground: var(
-      --mlv-page-shell-resolved-foreground,
+      --mlv-chrome-foreground,
       var(--mlv-page-shell-chrome-foreground)
     );
 
@@ -26,19 +38,136 @@
     background: var(--mlv-page-shell-effective-background);
     color: var(--mlv-page-shell-effective-foreground);
 
+    // ── Sizing modes ────────────────────────────────────────────────────────
+    // Everything sticky inside the shell resolves against this block size. A
+    // shell with none is content-sized, and then the page's own scrollport,
+    // the sidebar rails, the header, the dock and a sticky aside all fail at
+    // once and silently.
+    //
+    // `parent` is the default because `100%` against an indefinite parent
+    // computes to `auto` — identical to having declared nothing — so it fixes
+    // the bounded case without changing the unbounded one.
+    &--sizing-parent {
+      block-size: 100%;
+    }
+
+    // `svh` below `md`: `dvh` would re-run the page scroller's thumb maths
+    // every time a mobile URL bar collapses. The inset is measured by the
+    // component, so a fixed application bar above the shell is subtracted
+    // without anyone writing its height down twice.
+    &--sizing-viewport {
+      block-size: calc(
+        100svh - var(--mlv-page-shell-viewport-inset-block-start, 0px)
+      );
+
+      @include bp.breakpoint-up(md) {
+        block-size: calc(
+          100dvh - var(--mlv-page-shell-viewport-inset-block-start, 0px)
+        );
+      }
+    }
+
+    // Content sizing means the *document* is the scrollport, so the shell must
+    // not clip. `overflow: hidden` on the host and on the content track is
+    // what bounds the other two modes, but either one is also a scroll
+    // container, and a `position: sticky` descendant resolves against the
+    // nearest one — so under content sizing every sticky region inside
+    // (a page header, a dock, an aside, a rail) stuck to a box that never
+    // scrolls, which looks exactly like sticky not being applied at all.
+    &--sizing-content {
+      block-size: auto;
+      overflow: visible;
+
+      > .mlv-page-shell__body > .mlv-page-shell__content {
+        overflow: visible;
+      }
+    }
+
     &__topbar {
       flex: 0 0 auto;
     }
 
+    // A topbar inside the shell is part of the frame, not a bar floating over
+    // page content, so it takes the chrome surface and draws no separator of
+    // its own — the page canvas below it already has an edge. This used to
+    // also have to unset a `backdrop-filter` and a shadow the bar applied
+    // unconditionally; that the shell had to patch them by hand is why the
+    // over-content state is now something a bar *knows* rather than something
+    // its host removes.
+    // Structural, and true of every topbar the shell hosts — a themed one too.
     &__topbar.mlv-action-bar {
+      min-height: 3.25rem;
+    }
+
+    // Colour derivation, withdrawn from a bar the consumer has scoped to its own
+    // theme for the reason the sidebar remap below carries the same guard: every
+    // value here reads `--mlv-page-shell-effective-*`, declared on the shell host
+    // and therefore already substituted in the document's theme scope.
+    //
+    // The `--mlv-action-bar-*` trio colours the bar's own surface. The tokens
+    // after it colour what the consumer projects *into* it, which the bar's own
+    // `color` cannot reach: a `<strong>`, an `mlv-badge`, an `mlv-avatar` and a
+    // `variant="transparent"` `mlvButton` each resolve their own theme token, so
+    // on an unremapped chrome topbar they rendered page-surface colours on the
+    // frame — measured `--mlv-text-primary: #171717` for the product name and
+    // `--mlv-text-secondary: rgb(82,82,82)` for the nav buttons, both near-black
+    // on a saturated brand purple. Consumers were papering over it by reaching
+    // for `mlv-action-bar[contrast]`, whose child re-tokenization made the text
+    // readable and whose glass shadow then smeared down over the rails.
+    //
+    // Same percentages as the sidebar remap, and for the same SF-R2/SL-R5
+    // reasons: state fills mix against the chrome's own background, never
+    // `transparent`, and stay under the field-fill/border mixes.
+    &__topbar.mlv-action-bar:not([mlvTheme]) {
       --mlv-action-bar-bg: var(--mlv-page-shell-effective-background);
       --mlv-action-bar-fg: var(--mlv-page-shell-effective-foreground);
       --mlv-action-bar-border: transparent;
-      --mlv-action-bar-shadow: none;
 
-      min-height: 3.25rem;
-      background: var(--mlv-page-shell-effective-background);
-      backdrop-filter: none;
+      --mlv-text-primary: var(--mlv-page-shell-effective-foreground);
+      --mlv-text-secondary: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 78%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-text-tertiary: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 60%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-text-action: var(--mlv-page-shell-effective-foreground);
+      --mlv-background-neutral-1: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-background-neutral-1-hover: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-background-neutral-1-active: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 12%,
+        var(--mlv-page-shell-effective-background)
+      );
+      // `--mlv-text-on-selected` is declared once per theme block as
+      // `var(--mlv-text-action)`, so it resolves at the document root and
+      // remapping `--mlv-text-action` here never reaches it — a selected tab or
+      // segmented item in the bar would keep the theme accent on a chrome-derived
+      // pill. Same finding as the sidebar's active row; it has to be remapped in
+      // its own right.
+      --mlv-text-on-selected: var(--mlv-page-shell-effective-foreground);
+      --mlv-background-selected: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 12%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-background-selected-hover: color-mix(
+        in srgb,
+        var(--mlv-page-shell-effective-foreground) 8%,
+        var(--mlv-page-shell-effective-background)
+      );
+      --mlv-border-focus: var(--mlv-page-shell-effective-foreground);
     }
 
     &__body {
@@ -88,7 +217,35 @@
       overflow: hidden;
     }
 
-    &__content > .mlv-page {
+    // ── Route-host contract ─────────────────────────────────────────────────
+    // Sizing the page is not enough. Angular inserts an activated route's
+    // component *beside* `<router-outlet>`, on its own host element, so under
+    // a router the shell's content child is the route host and the page is one
+    // level further down. Matching only `> .mlv-page` breaks the moment a
+    // route is involved — which is the normal case for an application shell.
+    //
+    // So every content child participates in the flex column and may shrink to
+    // nothing, which is what carries the definite size down to the page. The
+    // outlet element itself renders no content and must not claim a line box.
+    &__content > * {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    &__content > router-outlet {
+      display: none;
+    }
+
+    // A route host that is not itself a flex or grid container still has to
+    // hand its own definite size to the page inside it.
+    &__content > .mlv-page-host {
+      display: flex;
+      flex-direction: column;
+    }
+
+    &__content > .mlv-page,
+    &__content > .mlv-page-host > .mlv-page {
       height: 100%;
     }
 
@@ -103,8 +260,18 @@
     // chrome slots only: a field inside `main[mlvPage]` keeps the normal tokens.
     // `&__sidebar` covers the end sidebar too — it carries the same class plus a
     // `--end` modifier.
-    &__topbar .mlv-form-control-wrapper,
-    &__sidebar .mlv-form-control-wrapper {
+    //
+    // `:not([mlvTheme])` for the same reason the sidebar remap below carries it:
+    // a slot the consumer has scoped to its own theme is withdrawn from the whole
+    // derivation. Every mix here reads `--mlv-page-shell-effective-*`, which is
+    // declared on the shell host and therefore already substituted in the
+    // document's theme scope — so on a themed slot these paint the *document's*
+    // chrome mix over a field the theme island has already coloured, and a
+    // ten-percent foreground tint is visibly darker than the theme's own field
+    // fill. Withdrawing hands the field back to `--mlv-background-neutral-1`,
+    // which the island does resolve.
+    &__topbar:not([mlvTheme]) .mlv-form-control-wrapper,
+    &__sidebar:not([mlvTheme]) .mlv-form-control-wrapper {
       --container-background-color: color-mix(
         in srgb,
         var(--mlv-page-shell-effective-foreground) 10%,
@@ -172,8 +339,31 @@
       overflow: visible;
     }
 
+    // Structural, and true of every rail the shell hosts — a themed one too.
     &__sidebar.mlv-sidebar {
       --mlv-sidebar-border-width: 0rem;
+
+      height: 100%;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    // Colour derivation, withdrawn from a rail the consumer has scoped to its
+    // own theme — that rail owns its colours, and this derivation cannot serve
+    // it. Every mix below reads `--mlv-page-shell-effective-*`, which is
+    // declared on the shell host and therefore substituted in the *document's*
+    // theme scope; a `[mlvTheme]` island further down is resolved long after
+    // and cannot reach it, so a dark-scoped rail inside a light-chrome shell
+    // got light-grey row fills painted onto its own dark surface. Re-declaring
+    // the effective pair on the rail is not the fix: `--mlv-text-on-chrome` is
+    // `var(--mlv-text-primary)` and this block remaps `--mlv-text-primary` on
+    // the same element, so the pair becomes a custom-property cycle and every
+    // mix collapses to the guaranteed-invalid value. Withdrawing instead lets
+    // `sidebar.scss`'s own declarations resolve inside the island, which is
+    // what a themed rail wants.
+    &__sidebar.mlv-sidebar:not([mlvTheme]) {
       --mlv-text-secondary: color-mix(
         in srgb,
         var(--mlv-page-shell-effective-foreground) 78%,
@@ -255,12 +445,6 @@
         var(--mlv-page-shell-effective-foreground) 8%,
         var(--mlv-page-shell-effective-background)
       );
-
-      height: 100%;
-      border: 0;
-      border-radius: 0;
-      box-shadow: none;
-      background: transparent;
     }
   }
 }

@@ -8,11 +8,11 @@ import {
   MlvDensityService,
 } from '@malva-ui/cdk/density';
 import type { MlvDensity } from '@malva-ui/cdk/density';
+import { MlvSpacer } from '@malva-ui/cdk/utils';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvActionBar } from './action-bar';
 import { MlvActionBarActions } from './components/action-bar-actions';
 import { MlvActionBarLogo } from './components/action-bar-logo';
-import { MlvActionBarSpacer } from './components/action-bar-spacer';
 
 /**
  * Stand-in for any directive-bearing control a consumer projects into the bar
@@ -32,16 +32,11 @@ class TestDensityChild {
 }
 
 @Component({
-  imports: [
-    MlvActionBar,
-    MlvActionBarLogo,
-    MlvActionBarSpacer,
-    TestDensityChild,
-  ],
+  imports: [MlvActionBar, MlvActionBarLogo, MlvSpacer, TestDensityChild],
   template: `
     <header mlvActionBar [mlvDensity]="density()" aria-label="Application">
       <a mlvActionBarLogo href="/">Malva</a>
-      <div mlvActionBarSpacer></div>
+      <mlv-spacer />
       <button type="button" mlvTestDensityChild>Save</button>
     </header>
   `,
@@ -127,16 +122,11 @@ describe('MlvActionBar density', () => {
  */
 describe('MlvActionBar density accessibility', () => {
   @Component({
-    imports: [
-      MlvActionBar,
-      MlvActionBarLogo,
-      MlvActionBarSpacer,
-      MlvActionBarActions,
-    ],
+    imports: [MlvActionBar, MlvActionBarLogo, MlvSpacer, MlvActionBarActions],
     template: `
       <header mlvActionBar mlvDensity="tight" aria-label="Application">
         <a mlvActionBarLogo href="/">Malva</a>
-        <div mlvActionBarSpacer></div>
+        <mlv-spacer />
         <div mlvActionBarActions>
           <button type="button">Sign in</button>
         </div>
@@ -150,7 +140,7 @@ describe('MlvActionBar density accessibility', () => {
         aria-label="Bulk actions"
       >
         <span><strong>3</strong> assets selected</span>
-        <div mlvActionBarSpacer></div>
+        <mlv-spacer />
         <button type="button">Delete</button>
       </nav>
     `,

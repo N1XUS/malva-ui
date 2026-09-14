@@ -1,3 +1,5 @@
-## Programmatic Content
+---
+title: Programmatic Content
+---
 
 `MlvDialogService.open()` accepts a plain string, a `TemplateRef`, or a component type. Templates receive the `MlvDialogRef` as their implicit context (`let-dialog`) and the payload as `data`; components inject `MlvDialogRef`, `DIALOG_DATA` and `DIALOG_CONFIG`. Template and component content render their own `<mlv-dialog>`; a bare `<mlv-dialog-header />` falls back to `config.title`, which is also the accessible name. String content is wrapped for you. Keep the returned reference when the caller also needs to close the dialog — or call `closeAll()`.

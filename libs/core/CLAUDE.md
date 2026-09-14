@@ -33,7 +33,7 @@
 - `@malva-ui/core/form-utils`
 - `@malva-ui/core/icon-toggle`
 - `@malva-ui/core/input`
-- `@malva-ui/core/layout`
+- `@malva-ui/core/items-more`
 - `@malva-ui/core/link`
 - `@malva-ui/core/list`
 - `@malva-ui/core/loader`
@@ -89,7 +89,7 @@ Exported from `libs/core/src/index.ts`:
 - All exports from `@malva-ui/core/form-utils`
 - All exports from `@malva-ui/core/icon-toggle`
 - All exports from `@malva-ui/core/input`
-- All exports from `@malva-ui/core/layout`
+- All exports from `@malva-ui/core/items-more`
 - All exports from `@malva-ui/core/link`
 - All exports from `@malva-ui/core/list`
 - All exports from `@malva-ui/core/loader`
@@ -420,7 +420,7 @@ rather than being required of consumers):
 - `@malva-ui/core/form-utils`
 - `@malva-ui/core/icon-toggle`
 - `@malva-ui/core/input`
-- `@malva-ui/core/layout`
+- `@malva-ui/core/items-more`
 - `@malva-ui/core/link`
 - `@malva-ui/core/list`
 - `@malva-ui/core/loader`

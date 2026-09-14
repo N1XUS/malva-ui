@@ -65,22 +65,20 @@ import {
 import { MlvNumberInput } from '@malva-ui/core/number-input';
 import {
   MlvPage,
-  MlvPageBreadcrumb,
+  MlvPageContext,
   MlvPageContent,
   MlvPageDock,
   MlvPageDockEnd,
   MlvPageDockStart,
   MlvPageHeader,
-  MlvPageHeaderActions,
-  MlvPageHeaderDescription,
-  MlvPageHeaderStatus,
-  MlvPageHeaderTabs,
-  MlvPageHeaderTabsActions,
+  MlvPageActions,
+  MlvPageDescription,
+  MlvPageStatus,
+  MlvPageTabs,
   MlvPageShell,
   MlvPageSummary,
   MlvPageSummaryItem,
   MlvPageTitle,
-  MlvPageSnapController,
 } from '@malva-ui/core/page';
 import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
 import { MlvSelect } from '@malva-ui/core/select';
@@ -215,7 +213,6 @@ const WB_GRID_PREVIEW_MIN_WIDTH = 768;
  * one part of the sticky chrome the snap timeline never hides, so it is
  * focusable at any scroll position.
  */
-const WB_PAGE_TITLE_ID = 'wb-page-title';
 
 /** One editable or locked section rendered on the canvas. */
 interface WbSectionView {
@@ -320,17 +317,16 @@ const WB_TREE_KEYS: readonly WbTreeKey[] = [
     MlvMenuTrigger,
     MlvNumberInput,
     MlvPage,
-    MlvPageBreadcrumb,
+    MlvPageContext,
     MlvPageContent,
     MlvPageDock,
     MlvPageDockEnd,
     MlvPageDockStart,
     MlvPageHeader,
-    MlvPageHeaderActions,
-    MlvPageHeaderDescription,
-    MlvPageHeaderStatus,
-    MlvPageHeaderTabs,
-    MlvPageHeaderTabsActions,
+    MlvPageActions,
+    MlvPageDescription,
+    MlvPageStatus,
+    MlvPageTabs,
     MlvPageShell,
     MlvPageSummary,
     MlvPageSummaryItem,
@@ -372,13 +368,18 @@ export class WebsiteBuilderShowcaseComponent {
   private readonly _destroyRef = inject(DestroyRef);
 
   /**
-   * @private Snap state of this page's own `main[mlvPage]`, read off that
-   * element's injector. Escape-to-top uses it to expand chrome the scroll
-   * collapsed before moving focus into it.
+   * @private This page's own `main[mlvPage]`. Escape-to-top reaches its `snap`
+   * capability to expand chrome the scroll collapsed before moving focus into
+   * it — the controller behind it is not public, and does not need to be.
    */
-  private readonly _pageSnap = viewChild(MlvPage, {
-    read: MlvPageSnapController,
-  });
+  private readonly _page = viewChild(MlvPage);
+
+  /**
+   * @private This page's own header. Escape-to-top falls back to its title,
+   * which the header focuses itself: the title template is rendered once per
+   * type role, so only the header knows which copy is the live one.
+   */
+  private readonly _pageHeader = viewChild(MlvPageHeader);
 
   /* ---- Template constants ----------------------------------------------- */
 
@@ -1041,23 +1042,22 @@ export class WebsiteBuilderShowcaseComponent {
   /**
    * Moves focus to the level-1 tab strip when Escape reaches the top level.
    *
-   * The strip is projected into `mlv-page-header`'s tabs row, which the page's
-   * snap timeline scrubs to `visibility: hidden` once the header has collapsed
-   * — and `focus()` on a hidden element is silently refused, so this used to
-   * be a no-op for anyone more than ~100px down the canvas. Expanding the
-   * chrome first reveals every snap region synchronously, so the tab is
-   * focusable in this same task.
+   * The strip is projected into `mlv-page-header`'s tabs region, which is
+   * deliberately not on the snap timeline — level-1 navigation stays reachable
+   * at every scroll offset. Expanding first is still what makes the landing
+   * right: `expand()` reveals every collapsed region synchronously and asks
+   * the page to return to the top, so focus lands on chrome the reader can
+   * see rather than on a tab sitting under a scrolled canvas.
    *
-   * If there is no page chrome to expand, or the strip is not rendered at all,
-   * focus falls back to the page title: it lives in the header's title row,
-   * which never snaps away, and it is this route's own focus target. Both
-   * landings are visible — focus is never parked somewhere the user cannot
-   * see, and never left on `<body>`.
+   * If the strip is not rendered at all, focus falls back to the page title —
+   * `focusTitle()` rather than a query, because the header renders the title
+   * template once per type role and only it knows which copy is live. Both
+   * landings are visible; focus is never left on `<body>`.
    */
   protected onEscapeToTop(): void {
     if (typeof document === 'undefined') return;
 
-    this._pageSnap()?.expand();
+    this._page()?.snap.expand();
 
     const tab = document.querySelector<HTMLElement>(
       '.website-builder__tabs .mlv-tab-item[aria-selected="true"]',
@@ -1065,7 +1065,7 @@ export class WebsiteBuilderShowcaseComponent {
     tab?.focus();
     if (tab && document.activeElement === tab) return;
 
-    wbFocusById(WB_PAGE_TITLE_ID);
+    this._pageHeader()?.focusTitle();
   }
 
   /* ---- Dialog opening --------------------------------------------------- */

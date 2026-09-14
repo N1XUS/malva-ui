@@ -1,5 +1,4 @@
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type * as Sass from 'sass';
@@ -13,8 +12,6 @@ const sass = nodeRequire('sass') as typeof Sass;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ACTION_BAR_SCSS = resolve(HERE, './action-bar.scss');
 const LOGO_SCSS = resolve(HERE, './components/action-bar-logo.scss');
-const SPACER_SCSS = resolve(HERE, './components/action-bar-spacer.scss');
-const SPACER_TS = resolve(HERE, './components/action-bar-spacer.ts');
 
 /**
  * Returns the declaration block of the `nth` rule whose selector list contains
@@ -263,33 +260,5 @@ describe('action-bar-logo.scss', () => {
     // restate it, and the ramp above is only the bar's if no selector here
     // competes with it. One rule is the strongest form of both.
     expect([...css.matchAll(/^[^@{}\n][^{}]*\{/gm)]).toHaveLength(1);
-  });
-});
-
-describe('action-bar-spacer styles', () => {
-  it('lives in a stylesheet rather than an inline `styles:` array', () => {
-    // An inline `styles: []` array is invisible to `libs/styles`' layer guard,
-    // which walks `.css` / `.scss` files only — and an unlayered library rule
-    // outranks every layered one, so a consumer's own
-    // `@layer mlv.components { .mlv-action-bar__spacer { flex-grow: 0 } }`
-    // could never win.
-    const source = readFileSync(SPACER_TS, 'utf8');
-    // Anchored to a metadata property, so the prose above that names the
-    // rejected form does not satisfy its own assertion.
-    expect(source).not.toMatch(/^\s*styles:\s*\[/m);
-    expect(source).toMatch(/^\s*styleUrl:\s*'\.\/action-bar-spacer\.scss'/m);
-  });
-
-  it('emits its rule inside @layer mlv.components', () => {
-    const css = sass.compile(SPACER_SCSS).css;
-    expect(css).toMatch(/@layer\s+mlv\.components\s*\{/);
-    expect(stripCssLayersFromText(css)).toContain('.mlv-action-bar__spacer');
-  });
-
-  it('keeps the spacer flexing', () => {
-    const css = stripCssLayersFromText(sass.compile(SPACER_SCSS).css);
-    const rule = ruleFor(css, '.mlv-action-bar__spacer');
-    expect(rule).toContain('display: inline-flex');
-    expect(rule).toContain('flex-grow: 1');
   });
 });

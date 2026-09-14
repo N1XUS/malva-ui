@@ -518,6 +518,11 @@ export const pageRoutes = [
       ),
   },
   {
+    path: 'items-more',
+    loadComponent: () =>
+      import('./pages/items-more/index').then((m) => m.ItemsMorePageComponent),
+  },
+  {
     path: 'infinite-scroll',
     loadComponent: () =>
       import('./pages/infinite-scroll/index').then(
@@ -530,11 +535,6 @@ export const pageRoutes = [
       import('./pages/internationalization/index').then(
         (m) => m.InternationalizationPageComponent,
       ),
-  },
-  {
-    path: 'layout',
-    loadComponent: () =>
-      import('./pages/layout/index').then((m) => m.LayoutPageComponent),
   },
   {
     path: 'overlay',
@@ -747,7 +747,7 @@ const GROUP_DEFINITIONS = [
       'drawer',
       'expand',
       'form',
-      'layout',
+      'items-more',
       'page',
       'split-pane',
       'toolbar',
@@ -874,10 +874,10 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   'form-field': 'clipboard-list',
   'icon-toggle': 'toggle-left',
   'infinite-scroll': 'list-end',
+  'items-more': 'list-collapse',
   input: 'text-cursor-input',
   internationalization: 'languages',
   kbd: 'keyboard',
-  layout: 'layout-dashboard',
   link: 'link',
   list: 'list',
   loader: 'loader',

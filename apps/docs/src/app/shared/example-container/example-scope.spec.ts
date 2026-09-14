@@ -3,10 +3,10 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import { MlvDensityService } from '@malva-ui/cdk/density';
+import type { MlvTheme } from '@malva-ui/cdk/theme';
 import type { MlvDirection } from '@malva-ui/cdk/utils';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvButton } from '@malva-ui/core/button';
-import type { MlvTheme } from '@malva-ui/core/layout';
 import {
   MlvPopup,
   MlvPopupContent,

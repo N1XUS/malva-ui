@@ -14,9 +14,10 @@
   </button>
 </docs-app-bar>
 
-<mlv-layout class="docs-shell" mlvDensityRoot>
+<mlv-page-shell class="docs-shell" sizing="content" mlvDensityRoot>
   <mlv-sidebar
-    *mlvLayoutSide
+    mlvPageSidebar
+    [attr.mlvTheme]="railTheme()"
     [mode]="sidebarMode()"
     [collapsed]="sidebarCollapsed()"
     (collapsedChange)="sidebarCollapsed.set($event)"
@@ -84,4 +85,4 @@
     </main>
     <docs-toc [entries]="tocEntries()" />
   </div>
-</mlv-layout>
+</mlv-page-shell>

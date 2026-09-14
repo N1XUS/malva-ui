@@ -6,12 +6,15 @@ import * as sass from 'sass';
 import { MlvPage } from '../page/page';
 import { MlvPageEndPane } from '../page-end-pane/page-end-pane';
 import { MlvPageEndPaneContent } from '../page-end-pane/page-end-pane-content';
+import type { MlvPageShellSizing } from './page-shell';
 import { MlvPageShell } from './page-shell';
 import {
   MlvPageEndSidebar,
   MlvPageSidebar,
   MlvPageTopbar,
 } from './page-shell.slots';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 @Component({
   template: `
@@ -76,12 +79,31 @@ class PageShellColorTestHost {
   readonly brandColor = signal<string | null>(null);
 }
 
+@Component({
+  template: `
+    <mlv-page-shell [sizing]="sizing()">
+      <main mlvPage>Page content</main>
+    </mlv-page-shell>
+  `,
+  imports: [MlvPageShell, MlvPage],
+})
+class PageShellSizingTestHost {
+  readonly sizing = signal<MlvPageShellSizing>('parent');
+}
+
 /** Waits for the component's frame-coalesced color resolution. */
 function waitForAnimationFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 const SHELL_DIR = dirname(fileURLToPath(import.meta.url));
+
+/** The whole compiled stylesheet, whitespace-stripped. */
+function compiledCss(): string {
+  return sass
+    .compile(join(SHELL_DIR, 'page-shell.scss'), { style: 'expanded' })
+    .css.replace(/\s+/g, '');
+}
 
 /** Reads one compiled CSS rule, preserving the stylesheet as the public contract. */
 function declarationsFor(selector: string): string {
@@ -96,6 +118,11 @@ function declarationsFor(selector: string): string {
 }
 
 describe('MlvPageShell', () => {
+  // Page chrome reads its accessible names from the language pack, and
+  // every `MLV_*_I18N` token is a bare `InjectionToken` with no factory.
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideMlvI18nTesting()] });
+  });
   it('projects the responsive end pane after the page canvas', () => {
     const fixture = TestBed.configureTestingModule({
       imports: [EndPaneShellTestHost],
@@ -183,31 +210,7 @@ describe('MlvPageShell', () => {
     ).toBeTruthy();
   });
 
-  it('resolves a literal background and selects its contrast foreground', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    fixture.componentInstance.color.set('#fafafa');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
-
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('rgb(250, 250, 250)');
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(0, 0, 0)');
-    expect(shell.getAttribute('style')).toContain('background');
-    expect(shell.style.backgroundColor).toBe('rgb(250, 250, 250)');
-    expect(shell.style.color).toBe('rgb(0, 0, 0)');
-  });
-
-  it('resolves a background supplied through a CSS custom property', async () => {
+  it('paints its chrome through MlvChromeColor and falls back without it', async () => {
     const fixture = TestBed.configureTestingModule({
       imports: [PageShellColorTestHost],
     }).createComponent(PageShellColorTestHost);
@@ -221,57 +224,17 @@ describe('MlvPageShell', () => {
       'mlv-page-shell',
     ) as HTMLElement;
 
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('rgb(23, 23, 23)');
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(255, 255, 255)');
-  });
-
-  it('recomputes contrast when a referenced custom property changes', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    fixture.componentInstance.brandColor.set('#171717');
-    fixture.componentInstance.color.set('var(--brand-shell)');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
-
-    fixture.componentInstance.brandColor.set('#fafafa');
-    fixture.detectChanges();
-    await fixture.whenStable();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
-
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('rgb(250, 250, 250)');
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(0, 0, 0)');
-  });
-
-  it('uses an explicit foreground instead of the automatic endpoint', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    fixture.componentInstance.color.set('#171717');
-    fixture.componentInstance.foreground.set('#00ff00');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
-
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(0, 255, 0)');
+    // The shell contributes the token remap, not the colour maths: `color` and
+    // `foreground` are the host directive's inputs under the names they always
+    // had, and what lands on the element is the directive's own contract.
+    // Resolution itself is covered in `cdk/utils` — see `chrome-color.spec.ts`.
+    expect(shell.style.getPropertyValue('--mlv-chrome-background')).toBe(
+      'rgb(23, 23, 23)',
+    );
+    expect(shell.style.getPropertyValue('--mlv-chrome-foreground')).toBe(
+      'rgb(255, 255, 255)',
+    );
+    expect(shell.style.backgroundColor).toBe('rgb(23, 23, 23)');
   });
 
   it('falls back without removing public custom-property overrides', async () => {
@@ -289,50 +252,167 @@ describe('MlvPageShell', () => {
     await waitForAnimationFrame();
     fixture.detectChanges();
 
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('');
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('');
+    // Unresolvable means *absent*, so the stylesheet's own fallback chain —
+    // and the consumer's override inside it — is what applies.
+    expect(shell.style.getPropertyValue('--mlv-chrome-background')).toBe('');
+    expect(shell.style.getPropertyValue('--mlv-chrome-foreground')).toBe('');
     expect(
       shell.style.getPropertyValue('--mlv-page-shell-chrome-background'),
     ).toBe('#123456');
   });
 
-  it('resolves a custom-property fallback value', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    fixture.componentInstance.color.set('var(--missing-shell-color, #fafafa)');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
+  it('reads the effective chrome tokens off the resolved pair', () => {
+    // The remap is the shell's actual contribution once the colour maths has
+    // moved out, so it is asserted on the compiled stylesheet rather than
+    // inferred from a computed style. `mixins.base()` emits its own
+    // `.mlv-page-shell` rule ahead of this one, so the whole sheet is read.
+    const css = sass
+      .compile(join(SHELL_DIR, 'page-shell.scss'), { style: 'expanded' })
+      .css.replace(/\s+/g, '');
 
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-background'),
-    ).toBe('rgb(250, 250, 250)');
+    expect(css).toContain(
+      '--mlv-page-shell-effective-background:var(--mlv-chrome-background,var(--mlv-page-shell-chrome-background))',
+    );
+    expect(css).toContain(
+      '--mlv-page-shell-effective-foreground:var(--mlv-chrome-foreground,var(--mlv-page-shell-chrome-foreground))',
+    );
   });
 
-  it('measures translucent colors over the nearest ancestor background', async () => {
-    const fixture = TestBed.configureTestingModule({
-      imports: [PageShellColorTestHost],
-    }).createComponent(PageShellColorTestHost);
-    (fixture.nativeElement as HTMLElement).style.backgroundColor = '#ffffff';
-    fixture.componentInstance.color.set('rgba(0, 0, 0, 0.1)');
-    fixture.detectChanges();
-    await waitForAnimationFrame();
-    fixture.detectChanges();
+  describe('sizing', () => {
+    it('fills a definite parent by default', async () => {
+      const fixture = TestBed.configureTestingModule({
+        imports: [PageShellSizingTestHost],
+      }).createComponent(PageShellSizingTestHost);
+      await fixture.whenStable();
 
-    const shell = fixture.nativeElement.querySelector(
-      'mlv-page-shell',
-    ) as HTMLElement;
-    expect(
-      shell.style.getPropertyValue('--mlv-page-shell-resolved-foreground'),
-    ).toBe('rgb(0, 0, 0)');
+      const shell = fixture.nativeElement.querySelector(
+        'mlv-page-shell',
+      ) as HTMLElement;
+      expect(shell.classList).toContain('mlv-page-shell--sizing-parent');
+      // `100%` against an indefinite parent computes to `auto`, so the default
+      // fixes the bounded case without changing the unbounded one.
+      expect(declarationsFor('.mlv-page-shell--sizing-parent{')).toContain(
+        'block-size:100%',
+      );
+    });
+
+    it('subtracts its own distance from the top of the layout in viewport mode', async () => {
+      const fixture = TestBed.configureTestingModule({
+        imports: [PageShellSizingTestHost],
+      }).createComponent(PageShellSizingTestHost);
+      fixture.componentInstance.sizing.set('viewport');
+      const shell = fixture.nativeElement.querySelector(
+        'mlv-page-shell',
+      ) as HTMLElement;
+      // A fixed application bar above the shell, or the padding reserved for
+      // one: 108px down the page, and scrolled by 40 to prove the measurement
+      // is scroll-invariant.
+      vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+        top: 68,
+      } as DOMRect);
+      vi.spyOn(window, 'scrollY', 'get').mockReturnValue(40);
+      await fixture.whenStable();
+
+      expect(shell.classList).toContain('mlv-page-shell--sizing-viewport');
+      expect(
+        shell.style.getPropertyValue(
+          '--mlv-page-shell-viewport-inset-block-start',
+        ),
+      ).toBe('108px');
+    });
+
+    it('writes no inset outside viewport mode', async () => {
+      const fixture = TestBed.configureTestingModule({
+        imports: [PageShellSizingTestHost],
+      }).createComponent(PageShellSizingTestHost);
+      fixture.componentInstance.sizing.set('content');
+      await fixture.whenStable();
+
+      const shell = fixture.nativeElement.querySelector(
+        'mlv-page-shell',
+      ) as HTMLElement;
+      expect(shell.classList).toContain('mlv-page-shell--sizing-content');
+      expect(
+        shell.style.getPropertyValue(
+          '--mlv-page-shell-viewport-inset-block-start',
+        ),
+      ).toBe('');
+    });
+
+    /**
+     * `overflow: hidden` is what bounds the other two modes, but it also makes
+     * the element a scroll container, and a `position: sticky` descendant
+     * resolves against the nearest one. Under content sizing the document is
+     * the scrollport, so leaving the clip on pinned every sticky region inside
+     * the shell to a box that never scrolls — indistinguishable from sticky
+     * never having been applied.
+     */
+    it('does not clip, so a sticky descendant resolves against the document', () => {
+      const content = declarationsFor('.mlv-page-shell--sizing-content{');
+
+      expect(content).toContain('overflow:visible');
+      expect(
+        declarationsFor(
+          '.mlv-page-shell--sizing-content>.mlv-page-shell__body>.mlv-page-shell__content{',
+        ),
+      ).toContain('overflow:visible');
+      // The bounded modes still clip. Asserted as a whole compiled rule rather
+      // than through `declarationsFor`, whose selector search would match the
+      // tail of the override's own selector above.
+      expect(compiledCss()).toContain(
+        '.mlv-page-shell__content{display:flex;flex:11auto;min-width:0;min-height:0;overflow:hidden;}',
+      );
+    });
+
+    it('hands its definite size to a route host, not only to a direct page', () => {
+      // Angular inserts an activated route's component *beside* the outlet, on
+      // its own host element, so matching only `> .mlv-page` breaks under a
+      // router — the normal case for an application shell.
+      expect(declarationsFor('.mlv-page-shell__content>*{')).toContain(
+        'flex:1 1 auto'.replace(/\s+/g, ''),
+      );
+      expect(declarationsFor('.mlv-page-shell__content>*{')).toContain(
+        'min-height:0',
+      );
+      expect(
+        declarationsFor('.mlv-page-shell__content>router-outlet{'),
+      ).toContain('display:none');
+      expect(
+        declarationsFor('.mlv-page-shell__content>.mlv-page-host{'),
+      ).toContain('display:flex');
+    });
+  });
+
+  describe('a rail scoped to its own theme', () => {
+    /**
+     * The chrome derivation reads `--mlv-page-shell-effective-*`, which is
+     * declared on the shell host and so substituted in the *document's* theme
+     * scope. A `[mlvTheme]` island on the rail is resolved long after and
+     * cannot reach it, so a dark-scoped rail inside a light-chrome shell was
+     * painted light-grey row fills on its own dark surface.
+     */
+    it('keeps the chrome colour derivation off it', () => {
+      const derived = declarationsFor(
+        '.mlv-page-shell__sidebar.mlv-sidebar:not([mlvTheme]){',
+      );
+
+      expect(derived).toContain('--mlv-sidebar-active-bg:color-mix(');
+      expect(derived).toContain('--mlv-sidebar-hover-bg:color-mix(');
+      expect(derived).toContain('--mlv-text-primary:var(');
+      expect(
+        declarationsFor('.mlv-page-shell__sidebar.mlv-sidebar{'),
+      ).not.toContain('--mlv-sidebar-active-bg');
+    });
+
+    it('still gets the structural reset, which is not a colour', () => {
+      const structural = declarationsFor(
+        '.mlv-page-shell__sidebar.mlv-sidebar{',
+      );
+
+      expect(structural).toContain('--mlv-sidebar-border-width:0rem');
+      expect(structural).toContain('height:100%');
+      expect(structural).toContain('background:transparent');
+    });
   });
 
   it('cleans up observation and scheduled work on destroy', () => {
@@ -348,5 +428,14 @@ describe('MlvPageShell', () => {
 
     expect(disconnect).toHaveBeenCalled();
     expect(cancelFrame).toHaveBeenCalled();
+  });
+
+  it('has no axe violations across the whole composed shell', async () => {
+    const fixture = TestBed.configureTestingModule({
+      imports: [PageShellTestHost],
+    }).createComponent(PageShellTestHost);
+    await fixture.whenStable();
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });

@@ -1,16 +1,6 @@
 $block: data-at-scale-showcase;
 
 .#{$block} {
-  &__title-row {
-    display: flex;
-    align-items: center;
-    gap: var(--mlv-spacing-2);
-  }
-
-  &__title-row h1 {
-    margin: 0;
-  }
-
   // One repeated surface for the two control/benchmark blocks, so the page
   // reads as two panels above the table rather than four loose clusters.
   &__panel {

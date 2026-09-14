@@ -335,6 +335,10 @@ const uk: MlvLanguage = {
     decrement: 'Зменшити',
     increment: 'Збільшити',
   },
+  page: {
+    pageSummary: 'Зведення сторінки',
+    expandHeader: 'Розгорнути заголовок',
+  },
   pagination: {
     navigationLabel: 'Пагінація',
     previousPage: 'Попередня сторінка',

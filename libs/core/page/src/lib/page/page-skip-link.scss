@@ -1,0 +1,50 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-page-skip-link;
+
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-s-size)
+    );
+
+    // Off-screen rather than `display: none` / `visibility: hidden`, both of
+    // which take the link out of the accessibility tree and the tab order —
+    // which is the one thing a skip link must never leave.
+    position: fixed;
+    inset-block-start: var(--mlv-spacing-2);
+    inset-inline-start: var(--mlv-spacing-2);
+    z-index: 100;
+
+    display: inline-flex;
+    align-items: center;
+    block-size: var(--mlv-height-s);
+    padding: var(--mlv-padding-s);
+    border-radius: var(--mlv-radius-button);
+    background-color: var(--mlv-background-accent-1);
+    color: var(--mlv-text-primary-on-accent-1);
+    box-shadow: var(--mlv-shadow-floating);
+    text-decoration: none;
+    white-space: nowrap;
+
+    // Moves on the block axis only, so it reads identically in either
+    // direction and needs no `--mlv-inline-direction`.
+    transform: translateY(calc(-100% - var(--mlv-spacing-4)));
+    transition: transform var(--mlv-duration-fast) var(--mlv-ease-out);
+
+    // `:focus`, not `:focus-visible`: this control is only ever reached by
+    // keyboard, and `:focus-visible` heuristics are not something a bypass
+    // block should depend on.
+    &:focus {
+      transform: translateY(0);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}

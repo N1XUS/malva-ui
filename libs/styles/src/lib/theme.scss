@@ -21,7 +21,7 @@
  *  11. Direction
  */
 
-@use './breakpoints' as bp;
+@use './mixins' as mixins;
 @use 'layers';
 
 // ─── 1. Color Palettes — SCSS Variables (source of truth) ──────────────────
@@ -259,6 +259,30 @@ $mlv-palette-info-950: #082f49;
     // data-table fix in the same wave, which moved hover off this token).
     --mlv-background-sunken: var(--mlv-palette-neutral-100);
 
+    // Chrome — the application frame a page canvas sits inside (the shell's
+    // topbar and sidebars). A *semantic* surface: it used to be a raw palette
+    // value, which meant the frame read as near-maximum contrast in light and
+    // was byte-identical to the canvas in dark, where it disappeared.
+    //
+    // Light takes the raised surface, so the frame is the same white as the
+    // page it wraps and the hairlines alone say where each region ends. Any
+    // grey here reads as a slab around white content — neutral-200 obviously,
+    // and neutral-100 still, which is the finding `--mlv-background-sunken`
+    // recorded a wave earlier at that same value. Dark goes the other way and
+    // steps *down* to neutral-950, because there the canvas is already dark
+    // and a lighter frame would float.
+    --mlv-background-chrome: var(--mlv-background-raised);
+
+    // Chrome bars — action bar, page header, summary strip, dock. Two states,
+    // one mechanism: at rest a bar is the canvas and only its hairline says
+    // where it ends; over scrolling content it steps one rung up. That
+    // replaces the four separation signals these bars used to stack
+    // (translucent fill + backdrop blur + hairline + deepening shadow) —
+    // cheaper in both themes, and no `backdrop-filter`, whose containing block
+    // trapped consumers' `position: fixed` overlays.
+    --mlv-background-bar: var(--mlv-background-base);
+    --mlv-background-bar-overlapped: var(--mlv-background-raised);
+
     // Primary accent interactive — hover lightens, active darkens (press feel)
     --mlv-background-accent-1: var(--mlv-palette-primary-500);
     --mlv-background-accent-1-hover: color-mix(
@@ -448,6 +472,9 @@ $mlv-palette-info-950: #082f49;
     --mlv-text-on-info: #ffffff;
     // Selected — pairs with `--mlv-background-selected` (SF-R1).
     --mlv-text-on-selected: var(--mlv-text-action);
+    // Chrome — pairs with `--mlv-background-chrome`. The shell derives every
+    // other chrome foreground by mixing this against that background.
+    --mlv-text-on-chrome: var(--mlv-text-primary);
     --mlv-text-positive: var(--mlv-palette-success-800);
     --mlv-text-negative: var(--mlv-palette-danger-700);
     --mlv-text-warning: var(--mlv-palette-warning-800);
@@ -571,28 +598,25 @@ $mlv-palette-info-950: #082f49;
     --mlv-font-size-l: 1rem; /* 16px */
     --mlv-font-size-xl: 1.125rem; /* 18px */
     --mlv-font-size-2xl: 1.25rem; /* 20px */
-    --mlv-font-size-3xl: 1.25rem; /* 20px — mobile base; 24px at lg (intentionally matches 2xl on sm) */
-    --mlv-font-size-4xl: 1.5rem; /* 24px — mobile base; 30px at lg */
-    --mlv-font-size-5xl: 1.75rem; /* 28px — mobile base; 36px at lg */
-    --mlv-font-size-6xl: 2.25rem; /* 36px — mobile base; 48px at lg */
-
-    // ── Responsive typography overrides ─────────────────────────────────────
-    // Heading sizes (3xl–6xl) scale up at md and lg breakpoints.
-    // Body/UI sizes (xs–2xl) stay fixed across all viewports.
-
-    @media (min-width: bp.$mlv-breakpoint-md) {
-      --mlv-font-size-3xl: 1.375rem; /* 22px */
-      --mlv-font-size-4xl: 1.625rem; /* 26px */
-      --mlv-font-size-5xl: 2rem; /* 32px */
-      --mlv-font-size-6xl: 2.5rem; /* 40px */
-    }
-
-    @media (min-width: bp.$mlv-breakpoint-lg) {
-      --mlv-font-size-3xl: 1.5rem; /* 24px — original value restored */
-      --mlv-font-size-4xl: 1.875rem; /* 30px — original value restored */
-      --mlv-font-size-5xl: 2.25rem; /* 36px — original value restored */
-      --mlv-font-size-6xl: 3rem; /* 48px — original value restored */
-    }
+    // ── Display sizes: fluid, not stepped ───────────────────────────────────
+    // These four used to jump at `md` and `lg`. The endpoints are unchanged — a
+    // phone still gets the old mobile value and a wide desktop the old `lg` one
+    // — but everything between them interpolates instead of snapping, so a
+    // heading no longer resizes under the reader as a window crosses 768px or
+    // 1200px, and a canvas between the two stops gets a size that fits it
+    // rather than the last step it passed.
+    //
+    // Body and UI sizes (xs–2xl) stay fixed, and deliberately: `--mlv-height-*`
+    // is fixed rem, so a fluid font inside a control clips instead of scaling.
+    // The three heading roles that used to resolve those fixed sizes take their
+    // own ramp further down instead of dragging the controls along.
+    //
+    // 3xl no longer coincides with 2xl at the narrow end, which it used to do on
+    // purpose; the h3 and h4 roles are separated at every width now.
+    --mlv-font-size-3xl: #{mixins.fluid(20px, 24px)}; /* fluid 20px at 320px → 24px at 1200px */
+    --mlv-font-size-4xl: #{mixins.fluid(24px, 30px)}; /* fluid 24px at 320px → 30px at 1200px */
+    --mlv-font-size-5xl: #{mixins.fluid(28px, 36px)}; /* fluid 28px at 320px → 36px at 1200px */
+    --mlv-font-size-6xl: #{mixins.fluid(36px, 48px)}; /* fluid 36px at 320px → 48px at 1200px */
 
     // Font weights
     --mlv-font-weight-normal: 400;
@@ -607,7 +631,9 @@ $mlv-palette-info-950: #082f49;
     --mlv-line-height-relaxed: 1.625;
     --mlv-line-height-loose: 2;
 
-    // Letter spacing
+    // Letter spacing. Every heading role declares one: the display roles are
+    // tracked in, the text-sized ones are not, and a role with no token is a
+    // role nothing can interpolate toward or step down to.
     --mlv-letter-spacing-tight: -0.025em;
     --mlv-letter-spacing-normal: 0em;
     --mlv-letter-spacing-wide: 0.025em;
@@ -628,18 +654,35 @@ $mlv-palette-info-950: #082f49;
     --mlv-typography-heading-h3-size: var(--mlv-font-size-3xl);
     --mlv-typography-heading-h3-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h3-line-height: var(--mlv-line-height-snug);
+    --mlv-typography-heading-h3-letter-spacing: var(--mlv-letter-spacing-tight);
 
-    --mlv-typography-heading-h4-size: var(--mlv-font-size-2xl);
+    // h4–h6 no longer resolve `--mlv-font-size-{2xl,xl,l}`: those three are
+    // shared with the body and UI roles, which stay fixed for the control
+    // geometry above. The ramp is therefore declared on the heading role
+    // itself, topping out at exactly the size the shared token still holds — so
+    // a wide desktop is unchanged and only a narrow canvas gets a smaller
+    // heading. These are the two roles `mlv-page-header` collapses between at
+    // `size="s"`, and they stay separated across the whole band.
+    --mlv-typography-heading-h4-size: #{mixins.fluid(18px, 20px)}; /* fluid 18px → 20px, the value 2xl holds */
     --mlv-typography-heading-h4-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h4-line-height: var(--mlv-line-height-snug);
+    --mlv-typography-heading-h4-letter-spacing: var(
+      --mlv-letter-spacing-normal
+    );
 
-    --mlv-typography-heading-h5-size: var(--mlv-font-size-xl);
+    --mlv-typography-heading-h5-size: #{mixins.fluid(16px, 18px)}; /* fluid 16px → 18px, the value xl holds */
     --mlv-typography-heading-h5-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h5-line-height: var(--mlv-line-height-normal);
+    --mlv-typography-heading-h5-letter-spacing: var(
+      --mlv-letter-spacing-normal
+    );
 
-    --mlv-typography-heading-h6-size: var(--mlv-font-size-l);
+    --mlv-typography-heading-h6-size: #{mixins.fluid(15px, 16px)}; /* fluid 15px → 16px, the value l holds */
     --mlv-typography-heading-h6-weight: var(--mlv-font-weight-semibold);
     --mlv-typography-heading-h6-line-height: var(--mlv-line-height-normal);
+    --mlv-typography-heading-h6-letter-spacing: var(
+      --mlv-letter-spacing-normal
+    );
 
     // Semantic typography — body
     --mlv-typography-body-l-size: var(--mlv-font-size-l);
@@ -852,7 +895,7 @@ $mlv-palette-info-950: #082f49;
   //
   // Declared on `:root` alone — never on the `[mlvTheme]` island selectors
   // above. An island re-declaring the sign would reset `<html dir="rtl">` back
-  // to LTR for its whole subtree (the docs `mlv-layout` is such an island),
+  // to LTR for its whole subtree (the docs `mlv-page-shell` is such an island),
   // silently un-mirroring every `inline-distance()` transform inside it.
   :root {
     --mlv-inline-direction: 1;
@@ -878,6 +921,17 @@ $mlv-palette-info-950: #082f49;
     --mlv-background-subtle: var(--mlv-palette-neutral-800);
     --mlv-background-raised: #1e1e1e; /* neutral ~850 */
     --mlv-background-sunken: var(--mlv-palette-neutral-950);
+
+    // Chrome and chrome bars. Re-declared rather than inherited for the same
+    // reason as `--mlv-text-on-selected` below: their light values are
+    // `var()` references, which resolve in the scope they are *declared* in,
+    // so a scoped `[mlvTheme='dark']` island would otherwise paint the light
+    // theme's answers. The dark frame is a real step below the canvas —
+    // `#0a0a0a` under `#171717` — where it used to be the same `#171717` and
+    // vanished.
+    --mlv-background-chrome: var(--mlv-palette-neutral-950);
+    --mlv-background-bar: var(--mlv-background-base);
+    --mlv-background-bar-overlapped: var(--mlv-background-raised);
 
     --mlv-background-accent-1: var(--mlv-palette-primary-500);
     --mlv-background-accent-1-hover: color-mix(
@@ -1095,6 +1149,7 @@ $mlv-palette-info-950: #082f49;
     // scoped-theme-island comment beside that token above for why this needs
     // its own redeclaration here rather than inheriting the light value.
     --mlv-text-on-selected: var(--mlv-text-action);
+    --mlv-text-on-chrome: var(--mlv-text-primary);
     --mlv-text-positive: var(--mlv-palette-success-400);
     --mlv-text-negative: var(--mlv-palette-danger-400);
     --mlv-text-warning: var(--mlv-palette-warning-400);
@@ -1157,6 +1212,13 @@ $mlv-palette-info-950: #082f49;
     --mlv-background-subtle: #f5f5f5;
     --mlv-background-raised: #ffffff;
     --mlv-background-sunken: #e8e8e8;
+
+    // The one theme that wants a maximum-contrast frame, and says so.
+    --mlv-background-chrome: #000000;
+    // The tonal step is small here on purpose: high contrast widens
+    // `--mlv-stroke-width`, so the bar's hairline is already doing the work.
+    --mlv-background-bar: #ffffff;
+    --mlv-background-bar-overlapped: #f5f5f5;
 
     --mlv-background-accent-1: #0000cc;
     --mlv-background-accent-1-hover: #000099;
@@ -1224,6 +1286,7 @@ $mlv-palette-info-950: #082f49;
     --mlv-text-on-success: #ffffff;
     --mlv-text-on-warning: #ffffff;
     --mlv-text-on-info: #ffffff;
+    --mlv-text-on-chrome: #ffffff;
     --mlv-text-positive: #006600;
     --mlv-text-negative: #cc0000;
     --mlv-text-warning: #804000;

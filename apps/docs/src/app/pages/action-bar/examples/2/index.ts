@@ -5,7 +5,8 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MlvActionBar, MlvActionBarSpacer } from '@malva-ui/core/action-bar';
+import { MlvActionBar } from '@malva-ui/core/action-bar';
+import { MlvSpacer } from '@malva-ui/cdk/utils';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvCombobox } from '@malva-ui/core/combobox';
 import type { MlvDataTableColumn } from '@malva-ui/core/data-table';
@@ -77,7 +78,7 @@ const ASSETS: Asset[] = [
   imports: [
     FormsModule,
     MlvActionBar,
-    MlvActionBarSpacer,
+    MlvSpacer,
     MlvButton,
     MlvCombobox,
     MlvDataTable,

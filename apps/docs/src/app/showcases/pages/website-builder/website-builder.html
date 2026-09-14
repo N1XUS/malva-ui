@@ -1,4 +1,8 @@
-<mlv-page-shell class="website-builder" color="var(--mlv-background-base)">
+<mlv-page-shell
+  class="website-builder"
+  color="var(--mlv-background-base)"
+  sizing="viewport"
+>
   <main
     mlvPage
     id="main-content"
@@ -6,29 +10,30 @@
     padding="m"
     surface="anchored"
     stickyHeader
-    [snapRange]="120"
   >
     <!-- ── Header ───────────────────────────────────────────────────────── -->
-    <mlv-page-header size="s" sticky snapControls>
-      <ng-template mlvPageBreadcrumb>
+    <mlv-page-header size="s" snapControls>
+      <div mlvPageContext>
         <nav mlvBreadcrumb [items]="breadcrumbs" mlvDensity="compact"></nav>
-      </ng-template>
+      </div>
 
       <ng-template mlvPageTitle>
-        <!-- Stable across tabs: this is the route focus target, not a label
-             for the active layout. -->
-        <h1 id="wb-page-title" tabindex="-1">Page layouts</h1>
+        <!-- Stable across tabs: a label for the route, not for the active
+             layout. It carries no id and no tabindex — the header renders this
+             template once per type role, so both would exist twice; the focus
+             target is the header's own `focusTitle()`. -->
+        <h1>Page layouts</h1>
       </ng-template>
 
-      <ng-template mlvPageHeaderStatus>
+      <div mlvPageStatus>
         <mlv-badge [tone]="statusTone()" muted>{{ statusLabel() }}</mlv-badge>
-      </ng-template>
+      </div>
 
-      <ng-template mlvPageHeaderDescription>
+      <div mlvPageDescription>
         <p>{{ tabDescription() }}</p>
-      </ng-template>
+      </div>
 
-      <ng-template mlvPageHeaderActions>
+      <div mlvPageActions>
         <button
           mlvButton
           type="button"
@@ -65,9 +70,9 @@
             Keyboard shortcuts
           </mlv-list-item>
         </mlv-menu>
-      </ng-template>
+      </div>
 
-      <ng-template mlvPageHeaderTabs>
+      <div mlvPageTabs>
         <mlv-tab-group
           class="website-builder__tabs"
           appearance="boxed"
@@ -92,9 +97,7 @@
             </mlv-tab>
           }
         </mlv-tab-group>
-      </ng-template>
 
-      <ng-template mlvPageHeaderTabsActions>
         <!-- Read-only: it selects which breakpoint's columns and spans the
              canvas renders. Every per-breakpoint value is edited in the
              dialogs' own nested tabs. -->
@@ -119,19 +122,15 @@
             <span class="website-builder__viewer-label">Mobile</span>
           </button>
         </mlv-segmented>
-      </ng-template>
+      </div>
 
       <mlv-page-summary summaryLabel="Layout summary">
-        <mlv-page-summary-item label="Containers">{{
-          counts().containers
-        }}</mlv-page-summary-item>
-        <mlv-page-summary-item label="Rows">{{
-          counts().rows
-        }}</mlv-page-summary-item>
-        <mlv-page-summary-item label="Blocks">{{
-          counts().blocks
-        }}</mlv-page-summary-item>
-        <mlv-page-summary-item label="Disabled">
+        <div mlvPageSummaryItem label="Containers">
+          {{ counts().containers }}
+        </div>
+        <div mlvPageSummaryItem label="Rows">{{ counts().rows }}</div>
+        <div mlvPageSummaryItem label="Blocks">{{ counts().blocks }}</div>
+        <div mlvPageSummaryItem label="Disabled">
           @if (counts().disabled > 0) {
             <mlv-badge tone="warning" muted mlvDensity="tight">{{
               counts().disabled
@@ -139,10 +138,8 @@
           } @else {
             0
           }
-        </mlv-page-summary-item>
-        <mlv-page-summary-item label="Grid">{{
-          gridSummary()
-        }}</mlv-page-summary-item>
+        </div>
+        <div mlvPageSummaryItem label="Grid">{{ gridSummary() }}</div>
       </mlv-page-summary>
     </mlv-page-header>
 

@@ -77,7 +77,7 @@ function installMalvaUi(options) {
           ({ code, external }) =>
             code`${external(
               'provideDefaultTheme',
-              '@malva-ui/core/layout',
+              '@malva-ui/cdk/theme',
             )}(${JSON.stringify(normalizedOptions.theme)}, ${JSON.stringify(
               normalizedOptions.themeStorageKey,
             )})`,

@@ -26,6 +26,7 @@ export * from './lib/tokens/form-utils';
 export * from './lib/tokens/loader';
 export * from './lib/tokens/notification';
 export * from './lib/tokens/number-input';
+export * from './lib/tokens/page';
 export * from './lib/tokens/pagination';
 export * from './lib/tokens/pin-input';
 export * from './lib/tokens/popup';

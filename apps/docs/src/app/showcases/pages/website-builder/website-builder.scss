@@ -5,21 +5,11 @@ $block: website-builder;
 
 .#{$block} {
   // ── Frame ───────────────────────────────────────────────────────────────
-  // `mlv-page-shell` is `display: flex; overflow: hidden` with no intrinsic
-  // height. Left alone, `.mlv-page__scrollbar`'s `height: 100%` resolves
-  // against an indefinite parent, the page never becomes its own scroll
-  // container, the document scrolls instead, and every `position: sticky`
-  // inside — the header and the dock — resolves against a scrollport that
-  // never moves. 6.75rem is the padding the showcase shell reserves for the
-  // fixed docs app bar. `svh` on a phone, because `dvh` re-runs the page
-  // scroller's thumb math every time the mobile URL bar collapses.
-  &.mlv-page-shell {
-    block-size: calc(100svh - 6.75rem);
-
-    @include bp.breakpoint-up(md) {
-      block-size: calc(100dvh - 6.75rem);
-    }
-  }
+  // The shell's block size comes from `sizing="viewport"` in the template. It
+  // subtracts the shell's own measured distance from the top of the layout, so
+  // the docs app bar's reserved padding is not written down a second time
+  // here, and the page becomes its own scroll container — which is what the
+  // sticky header and dock resolve against.
 
   &__tab-label {
     display: inline-flex;

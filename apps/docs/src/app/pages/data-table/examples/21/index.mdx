@@ -1,3 +1,5 @@
-## Value labels & badge tones
+---
+title: Value labels & badge tones
+---
 
 Enum columns no longer need a full cell template just to look presentable. `valueLabels` maps raw values to display labels (a column that already declares `filterConfig.options` reuses those labels automatically — see **Environment**), and `tone` promotes the default cell to a muted `mlv-badge`. `tone` accepts a fixed `MlvTone` or a `(row) => MlvTone | null` resolver; returning `null` falls back to plain text for that row. A `mlvDataTableCell` template still takes precedence over both.

@@ -41,7 +41,7 @@ test('configures dependencies, styles, theme, and density', async () => {
   const appConfig = result.readContent('/src/app/app.config.ts');
   assert.match(
     appConfig,
-    /import \{ provideDefaultTheme \} from '@malva-ui\/core\/layout';/,
+    /import \{ provideDefaultTheme \} from '@malva-ui\/cdk\/theme';/,
   );
   assert.match(appConfig, /provideDefaultTheme\("dark", "acme-theme"\)/);
   assert.match(

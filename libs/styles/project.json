@@ -63,18 +63,21 @@
         "{projectRoot}/src/lib/theme.scss",
         "{projectRoot}/src/lib/theme-contrast.mjs",
         "{projectRoot}/src/lib/theme-contrast.spec.mjs",
+        "{projectRoot}/src/lib/breakpoints.scss",
         "{projectRoot}/src/lib/mixins.scss",
         "{projectRoot}/src/lib/mixins.spec.mjs",
+        "{projectRoot}/src/lib/fluid-type.spec.mjs",
         "{projectRoot}/src/lib/animations.scss",
         "{projectRoot}/src/lib/layers.scss",
         "{projectRoot}/src/lib/index.scss",
         "{projectRoot}/src/lib/layers.spec.mjs",
+        "{projectRoot}/src/lib/sticky-inline-inset.spec.mjs",
         "{workspaceRoot}/libs/core/styles/malva-ui.scss",
         "{workspaceRoot}/apps/docs/src/styles.scss",
         "{workspaceRoot}/libs/**/src/**/*.{css,scss}"
       ],
       "options": {
-        "command": "node --test scripts/check-padding-tokens.spec.mjs libs/styles/src/lib/theme-contrast.spec.mjs libs/styles/src/lib/mixins.spec.mjs libs/styles/src/lib/layers.spec.mjs",
+        "command": "node --test scripts/check-padding-tokens.spec.mjs libs/styles/src/lib/theme-contrast.spec.mjs libs/styles/src/lib/mixins.spec.mjs libs/styles/src/lib/fluid-type.spec.mjs libs/styles/src/lib/layers.spec.mjs libs/styles/src/lib/sticky-inline-inset.spec.mjs",
         "cwd": "{workspaceRoot}"
       }
     }

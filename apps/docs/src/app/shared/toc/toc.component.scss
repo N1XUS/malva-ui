@@ -6,12 +6,11 @@ $block: docs-toc;
   max-height: calc(100vh - 6rem);
   overflow-y: auto;
   padding: 0 1rem;
+  // Reserved unconditionally: `.docs-shell__main-area` is a flex row, so
+  // collapsing this column while the entry list is empty also drops the row's
+  // gap and moves the reading column 248px. See the component's class doc.
   width: 14rem;
   flex-shrink: 0;
-
-  &--hidden {
-    display: none;
-  }
 
   &__nav {
     border-left: 0.0625rem solid var(--mlv-border-subtle);

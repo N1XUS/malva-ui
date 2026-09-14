@@ -21,12 +21,12 @@ import {
 } from '@lucide/angular';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import { MlvDensityService } from '@malva-ui/cdk/density';
+import type { MlvTheme } from '@malva-ui/cdk/theme';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 import type { MlvDirection } from '@malva-ui/cdk/utils';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvButton, MlvButtonIcon } from '@malva-ui/core/button';
 import { MlvExpand, MlvExpandContent } from '@malva-ui/core/expand';
-import type { MlvTheme } from '@malva-ui/core/layout';
-import { MlvThemeService } from '@malva-ui/core/layout';
 import {
   MlvTab,
   MlvTabContentDef,
@@ -341,6 +341,18 @@ let nextExampleId = 0;
 
     .example-container__code code {
       font-family: var(--mlv-typography-family-code);
+    }
+
+    /* The preview sits inside the shell's own content inset, so on a phone the
+       two stack. A demo needs the width more than the breathing room. */
+    @media (max-width: 47.999rem) {
+      .example-container__preview {
+        padding: var(--mlv-spacing-4);
+      }
+
+      .example-container__code pre {
+        padding: var(--mlv-spacing-3);
+      }
     }
   `,
 })

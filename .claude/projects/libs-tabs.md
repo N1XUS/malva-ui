@@ -23,24 +23,88 @@ aria now owns `role="tab"/"tablist"/"tabpanel"`, `aria-selected`, `aria-disabled
 
 ---
 
+## External panels (`panels="external"` + `[mlvTabPanel]`)
+
+A tab strip is routinely part of a page's sticky chrome while its content
+belongs in the page body. Those are different places in the layout and cannot be
+one element's children, so `panels="external"` renders **no panel body at all**
+— the strip is the whole component — and one `[mlvTabPanel]` elsewhere carries
+the content.
+
+```html
+<mlv-page-header>
+  <div mlvPageTabs>
+    <mlv-tab-group #tabs panels="external" [(activeTab)]="section">
+      <mlv-tab value="overview" label="Overview" />
+      <mlv-tab value="activity" label="Activity" />
+    </mlv-tab-group>
+  </div>
+</mlv-page-header>
+
+<mlv-page-content>
+  <section [mlvTabPanel]="tabs">…the active section…</section>
+</mlv-page-content>
+```
+
+**What the arrangement replaces.** The shape it used to take was one empty
+`mlvTabContent` per tab, rendering a stub panel purely so `aria-controls`
+resolved to _something_. A reference that resolves to an empty element is not a
+panel relationship — it is a valid id pointing at nothing a reader can use.
+
+**What the panel claims, and what it does not.** It takes `role="tabpanel"`, a
+tab stop, and an `aria-labelledby` naming the selected tab, so a reader arriving
+in the panel is told which tab it belongs to and can Tab into it from the strip.
+It does **not** make the tabs point back: `aria-controls` is written by
+`@angular/aria` from a panel inside the group's own DI scope, and an element in
+a different part of the layout is not that. The APG lists `aria-controls` on a
+tab as _recommended_, not required — one honest half of the relationship beats
+two halves whose second resolves to an empty stub.
+
+Three details that follow from that:
+
+- **`MlvTabGroup.activeTabId`** is the public signal the panel points at: the
+  DOM id of the selected tab, or `null` when the selected tab is not in the
+  visible row (it is in the overflow menu, or nothing is selected). An
+  `aria-labelledby` pointing at a tab that is not rendered would name the panel
+  after nothing.
+- **The `group` input is optional**, not required. The group is routinely
+  reached with a `viewChild()`, and a template reference variable declared
+  inside an `@if` is not visible outside it — a strip in a page header usually
+  is inside one. That query is `undefined` on the first render, and a panel with
+  no name yet is still a panel; a required input would throw on the first pass
+  instead.
+- **One panel that changes**, not one panel per tab. The consumer swaps its
+  content on the group's `activeTab`, which is what makes the arrangement
+  expressible at all.
+
+Tab element ids are deterministic (`mlv-tab-N-<value>`, with non-id characters
+folded to `-`), so the strip and the external panel derive the same value
+without either querying the DOM. The prefix is unique per group rather than per
+document, which is what keeps two values differing only in folded characters
+from colliding across groups.
+
+---
+
 ## Public API
 
 Exported from `libs/core/tabs/src/index.ts`:
 
-| Export                | Kind            | Description                                                                                                                    |
-| --------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| `MlvTabGroup`         | Component       | Root container. Renders the tab header (list + indicator) and active content panel.                                            |
-| `MlvTab`              | Component       | Invisible definition node. Declares a single tab's value, disabled state, and its label/content templates.                     |
-| `MlvTabDef`           | Directive       | Structural directive applied to an `<ng-template>` inside `<mlv-tab>` to define the tab label.                                 |
-| `MlvTabDefContext`    | Type            | Template context for `mlvTabDef` — `{ $implicit: boolean }` where `$implicit` is `true` when the tab is in the overflow popup. |
-| `MlvTabContentDef`    | Directive       | Structural directive applied to an `<ng-template>` inside `<mlv-tab>` to define the panel content.                             |
-| `MlvTabItem`          | Component       | Low-level clickable tab button rendered inside the header. Receives `active`/`disabled` inputs and emits `activate`.           |
-| `MlvTabContent`       | Component       | Wrapper for the active panel; applies CSS entry/leave animation classes.                                                       |
-| `TAB_GROUP`           | Injection Token | `InjectionToken<MlvTabGroupAccessor>` — lets child components access the parent `MlvTabGroup` without a direct import.         |
-| `MlvTabGroupAccessor` | Interface       | Contract exposed via `TAB_GROUP`: `activeTab`, `orientation`, `selectTab()`, `isActive()`.                                     |
-| `MlvTabOrientation`   | Type            | `'horizontal'                                                                                                                  | 'vertical'` |
-| `MlvTabAppearance`    | Type            | `'underline' \| 'boxed'` — header visual style (Phase A). Orthogonal to `orientation`; composes with horizontal & vertical.    |
-| `MlvTabsService`      | Service         | Scoped service (provided by `MlvTabGroup`) that manages tab registration, visible/overflow split, and forced-visible logic.    |
+| Export                 | Kind            | Description                                                                                                                    |
+| ---------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| `MlvTabGroup`          | Component       | Root container. Renders the tab header (list + indicator) and active content panel.                                            |
+| `MlvTab`               | Component       | Invisible definition node. Declares a single tab's value, disabled state, and its label/content templates.                     |
+| `MlvTabDef`            | Directive       | Structural directive applied to an `<ng-template>` inside `<mlv-tab>` to define the tab label.                                 |
+| `MlvTabDefContext`     | Type            | Template context for `mlvTabDef` — `{ $implicit: boolean }` where `$implicit` is `true` when the tab is in the overflow popup. |
+| `MlvTabContentDef`     | Directive       | Structural directive applied to an `<ng-template>` inside `<mlv-tab>` to define the panel content.                             |
+| `MlvTabItem`           | Component       | Low-level clickable tab button rendered inside the header. Receives `active`/`disabled` inputs and emits `activate`.           |
+| `MlvTabContent`        | Component       | Wrapper for the active panel; applies CSS entry/leave animation classes.                                                       |
+| `TAB_GROUP`            | Injection Token | `InjectionToken<MlvTabGroupAccessor>` — lets child components access the parent `MlvTabGroup` without a direct import.         |
+| `MlvTabGroupAccessor`  | Interface       | Contract exposed via `TAB_GROUP`: `activeTab`, `orientation`, `selectTab()`, `isActive()`.                                     |
+| `MlvTabOrientation`    | Type            | `'horizontal'                                                                                                                  | 'vertical'` |
+| `MlvTabAppearance`     | Type            | `'underline' \| 'boxed'` — header visual style (Phase A). Orthogonal to `orientation`; composes with horizontal & vertical.    |
+| `MlvTabsService`       | Service         | Scoped service (provided by `MlvTabGroup`) that manages tab registration, visible/overflow split, and forced-visible logic.    |
+| `MlvTabPanel`          | Directive       | `[mlvTabPanel]` — marks an element elsewhere in the document as the panel of a `panels="external"` group.                      |
+| `MlvTabPanelPlacement` | Type            | `'inline' \| 'external'` — where the group renders its panels.                                                                 |
 
 ---
 
@@ -61,6 +125,7 @@ Exported from `libs/core/tabs/src/index.ts`:
 | `orientation` | `model<MlvTabOrientation>`                                     | `'horizontal'` | Layout direction. `'horizontal'` stacks tabs in a row; `'vertical'` stacks them in a column. Two-way bindable.                                                                                                                                                                                                                        |
 | `activeTab`   | `model<string>`                                                | `''`           | Value of the currently selected tab. Two-way bindable. Auto-selects the first tab if the value is empty or does not match any registered tab. **Suppressed in routed mode** — the URL owns the active tab.                                                                                                                            |
 | `appearance`  | `input<MlvTabAppearance>`                                      | `'underline'`  | Header visual style. `'underline'` shows the sliding indicator bar (non-active tabs get a grey hover line at the indicator position); `'boxed'` is a segmented control — grey content-width track with a white pill that slides behind the active tab. **Orthogonal to `orientation`** — a boxed group can be horizontal or vertical. |
+| `panels`      | `input<MlvTabPanelPlacement>`                                  | `'inline'`     | Where the panels render. `'external'` renders **no panel body at all** — see "External panels" above.                                                                                                                                                                                                                                 |
 | `mlvDensity`  | `input<MlvDensity>` (via `MlvDensityDirective` host directive) | inherited      | Content density for the group. Adds `mlv-tab-group--<density>` on the host; `tab-item.scss` scales padding/font-size per level (tight/compact/comfortable/spacious/airy). Inherits from the nearest density ancestor when unset.                                                                                                      |
 
 #### Internal signals / computed
@@ -71,6 +136,8 @@ Exported from `libs/core/tabs/src/index.ts`:
 | `visibleTabs`           | `computed` — tabs that fit in the header (delegates to `MlvTabsService.visibleTabs`).                                 |
 | `overflowTabs`          | `computed` — tabs hidden from the header (delegates to `MlvTabsService.overflowTabs`).                                |
 | `activeContentTemplate` | `computed<TemplateRef<unknown> \| null>` — the `mlvTabContent` template for the active tab.                           |
+
+`activeTabId` is **public**, not internal: `computed<string | null>` — the DOM id of the selected tab element, or `null` while the selected tab is in the overflow menu or nothing is selected. `[mlvTabPanel]` points its `aria-labelledby` at it.
 
 `_onSelectedTabChange(value)` bridges the aria `selectedTabChange` output back to `activeTab` (ignoring `undefined`).
 

@@ -1,0 +1,13 @@
+// A frame the reader can narrow by hand, so the split is visible without
+// resizing the whole window.
+.frame {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 8rem;
+  max-inline-size: 100%;
+  padding: var(--mlv-spacing-3);
+  border: var(--mlv-stroke-width) dashed var(--mlv-border-normal);
+  border-radius: var(--mlv-radius-l);
+  resize: horizontal;
+  overflow: hidden;
+}

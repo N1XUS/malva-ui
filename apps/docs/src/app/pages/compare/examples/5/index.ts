@@ -13,7 +13,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import { MlvCompare } from '@malva-ui/core/compare';
-import { MlvThemeService } from '@malva-ui/core/layout';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 
 const MONTHS = [
   'Jan',

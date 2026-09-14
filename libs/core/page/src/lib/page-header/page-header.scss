@@ -1,286 +1,381 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../page/page-container' as container;
 
 @layer mlv.components {
-$block: mlv-page-header;
+  $block: mlv-page-header;
 
-.#{$block} {
-  @include mixins.base();
+  .#{$block} {
+    @include mixins.base();
 
-  // Clamped page snap progress: 0 fully expanded .. 1 fully snapped.
-  --mlv-page-header-snap: clamp(0, var(--mlv-page-snap, 0), 1);
+    // Clamped page snap progress: 0 fully expanded .. 1 fully snapped.
+    --mlv-page-header-snap: clamp(0, var(--mlv-page-snap, 0), 1);
 
-  // Same glass chrome recipe as mlv-action-bar: translucent elevation surface
-  // with a heavy backdrop blur doing the separation work.
-  --mlv-page-chrome-bg: color-mix(
-    in srgb,
-    var(--mlv-elevation-bg-3),
-    transparent 50%
-  );
-  --mlv-page-chrome-border: var(--mlv-border-subtle);
-
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--mlv-spacing-2);
-  min-width: 0;
-  background-color: var(--mlv-page-chrome-bg);
-  border-bottom: 0.0625rem solid var(--mlv-page-chrome-border);
-  border-radius: var(--mlv-radius-l) var(--mlv-radius-l) 0 0;
-  backdrop-filter: blur(1.25rem);
-  -webkit-backdrop-filter: blur(1.25rem);
-  // Inside main[mlvPage] the inline padding matches the page inset so
-  // full-bleed header content still aligns with the page edge padding.
-  padding: var(--mlv-spacing-2)
-    max(var(--mlv-page-inset, 0rem), var(--mlv-spacing-3));
-  // The chrome always carries its border and a soft shadow; snapping deepens
-  // the shadow (see --scrolled).
-  box-shadow: var(--mlv-shadow-raised);
-  transition: box-shadow var(--mlv-duration-fast) var(--mlv-ease-default);
-
-  &--sticky {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-
-  // Sticky snap affordance: once the owning page scrolls, the floating chrome
-  // detaches with a deeper shadow.
-  &--scrolled {
-    box-shadow: var(--mlv-shadow-floating);
-  }
-
-  &__breadcrumb,
-  &__description,
-  &__meta,
-  &__tabs,
-  &__title {
-    min-width: 0;
-  }
-
-  &__back {
-    align-self: flex-start;
-  }
-
-  &__title-row,
-  &__tabs-row {
-    display: flex;
-    align-items: center;
-    gap: var(--mlv-spacing-3);
-    min-width: 0;
-  }
-
-  &__title-row {
-    min-height: var(--mlv-height-l);
-  }
-
-  &__icon {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    color: var(--mlv-text-secondary);
-  }
-
-  // The title scrubs down one type scale as the chrome snaps.
-  &__title h1 {
-    margin: 0;
-    font-size: calc(
-      var(--mlv-typography-heading-h2-size) +
-        (
-          var(--mlv-typography-heading-h4-size) - var(
-              --mlv-typography-heading-h2-size
-            )
-        ) *
-        var(--mlv-page-header-snap)
+    // ── The collapsed floor, declared ───────────────────────────────────────
+    // The title row's minimum used to be a bare `--mlv-height-l`, and the
+    // collapsed bar's height was therefore whatever that plus the padding
+    // happened to come to — a number nobody chose and nobody could audit. The
+    // collapse distance is derived as expanded minus collapsed, so that
+    // subtraction needs a real second term rather than an emergent one, and the
+    // rule that the floor is *a real bar* with its controls in the tab order at
+    // every fraction can only be checked against a number that is written down.
+    //
+    // It is the floor of a header carrying only its title row; a projected
+    // context or tabs row adds its own band, which is what those rows are for.
+    // The row height is a `size` decision and the padding a density one, so the
+    // floor follows both without a second ramp.
+    --mlv-page-header-row-height: var(--mlv-height-l);
+    --mlv-page-header-floor: calc(
+      var(--mlv-page-header-row-height) + 2 *
+        var(--mlv-page-chrome-block-padding, var(--mlv-spacing-3))
     );
-    line-height: calc(
-      var(--mlv-typography-heading-h2-line-height) +
-        (
-          var(--mlv-typography-heading-h4-line-height) - var(
-              --mlv-typography-heading-h2-line-height
-            )
-        ) *
-        var(--mlv-page-header-snap)
-    );
-    letter-spacing: var(--mlv-typography-heading-h2-letter-spacing);
-  }
 
-  &__spacer {
-    flex: 1 1 auto;
-  }
-
-  &__actions,
-  &__tabs-actions {
+    position: relative;
     display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: var(--mlv-spacing-2);
+    flex-direction: column;
+    gap: var(--mlv-page-chrome-row-gap, var(--mlv-spacing-2));
+    min-width: 0;
+    min-block-size: var(--mlv-page-header-floor);
+    // One chrome-bar surface, two states, resolved in three steps: the
+    // consumer knob first, then the page's own over-content state, then the
+    // rest value for a bar rendered outside a page. See
+    // `--mlv-page-chrome-surface` in `page.scss`.
+    background-color: var(
+      --mlv-page-chrome-bg,
+      var(--mlv-page-chrome-surface, var(--mlv-background-bar))
+    );
+    // The hairline is the constant: it says where the bar ends, at rest and
+    // over content alike. Only the fill answers "am I over content", and it is
+    // declared once on the page host, so the header, the summary strip and the
+    // dock cannot drift apart. `mlv-page-header--scrolled` still tracks the
+    // snap controller's `overlapped` and is still emitted as a consumer hook;
+    // it no longer carries a separation signal of its own.
+    border-bottom: 0.0625rem solid
+      var(--mlv-page-chrome-border, var(--mlv-border-subtle));
+    border-radius: var(--mlv-radius-l) var(--mlv-radius-l) 0 0;
+    transition: background-color var(--mlv-duration-fast)
+      var(--mlv-ease-default);
+    // Inline padding is the page inset plus the measure gutter, so the surface
+    // spans the whole canvas while its content lines up with the reading
+    // column. See `--mlv-page-measure-gutter` in `page.scss`.
+    padding: var(--mlv-page-chrome-block-padding, var(--mlv-spacing-3))
+      calc(
+        max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3)) +
+          var(--mlv-page-measure-gutter, 0rem)
+      );
 
-    // Action rows must never wrap button labels onto the icon.
-    button,
-    a {
-      white-space: nowrap;
+    // Full-bleed from the inherited page inset rather than from a
+    // `.mlv-page__inner > &` child selector, so a `<form>` or `<section>`
+    // between the canvas and the header keeps the treatment. Inheritance fixes
+    // *discovery*, not containment: a wrapper that scrolls, clips or pads still
+    // changes the geometry, and this cannot rescue that.
+    margin-inline: calc(-1 * var(--mlv-page-inset-inline, 0rem));
+
+    // Only a first child sits on the canvas's top edge. A header further down
+    // the page is still full-bleed inline, and still square.
+    &:first-child {
+      margin-block-start: calc(-1 * var(--mlv-page-inset-block, 0rem));
+    }
+
+    // Inside a page the chrome is full-bleed, so its own standalone radius
+    // would leave hairline gaps at the canvas edge: it is square everywhere
+    // except on the canvas corner, where it carries the page's *padding*-box
+    // curve itself rather than leaning on the host's rounded `overflow: clip`
+    // (see `page.scss` — the host only clips in the two bounded scroll modes,
+    // and clipping on `.mlv-page__inner` would stop the header sticking).
+    //
+    // Descendant selectors, not child combinators: a `<form>` or `<section>`
+    // wrapper must not silently drop the treatment. `:first-child` then reads
+    // as "first child of whatever wraps it", which is the honest claim — the
+    // page cannot know whether a wrapper adds a box of its own.
+    .mlv-page & {
+      border-radius: 0;
+    }
+
+    .mlv-page &:first-child {
+      border-radius: var(--mlv-page-surface-radius, 0rem)
+        var(--mlv-page-surface-radius, 0rem) 0 0;
+    }
+
+    &__context,
+    &__description,
+    &__meta,
+    &__tabs,
+    &__title {
+      min-width: 0;
+    }
+
+    // One leading region for the breadcrumb, the back link and the icon, which
+    // used to be three stacked affordances above the title.
+    &__context {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2));
+      color: var(--mlv-text-secondary);
+    }
+
+    &__title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2));
+      min-width: 0;
+      min-height: var(--mlv-page-header-row-height);
+    }
+
+    // Two title nodes at two complete type roles, stacked in one grid cell and
+    // crossfaded. Nothing interpolates a font size, so each role keeps its own
+    // tracking and weight instead of a collapsed title wearing display
+    // tracking at text size. Only the block the pair occupies is scrubbed, and
+    // between two heights the header measured off the nodes themselves.
+    &__title {
+      display: grid;
+      grid-template-areas: 'title';
+      align-items: center;
+      block-size: calc(
+        var(--mlv-page-header-title-size, auto) -
+          (
+            var(--mlv-page-header-title-size, 0px) - var(
+                --mlv-page-header-title-collapsed-size,
+                0px
+              )
+          ) *
+          var(--mlv-page-header-snap)
+      );
+      overflow: hidden;
+    }
+
+    &__title-node {
+      grid-area: title;
+      min-width: 0;
+    }
+
+    // The node declares the role; the projected heading has to adopt it. A
+    // bare `<h1>` — the shape every showcase and every example in `apps/docs`
+    // writes — carries the UA's `font-size: 2em`, so it renders whatever role
+    // the node resolved at **double** size: measured on `/page`'s record
+    // editor, `size="s"` asks for a 20px title and got 40px, wrapping to three
+    // lines and taking 165px of a 538px header on a 390px canvas. That defeats
+    // the `size` input outright, and it defeats the collapse with it — the
+    // crossfade's clipped cell is sized from these two nodes, so a title that
+    // wraps in both roles is cut mid-scrub instead of shrinking.
+    //
+    // Only the UA default is being neutralised. A heading that declares its
+    // own role wins on specificity and is left alone: `.mlv-title[data-level]`
+    // is 0,2,0 against this rule's 0,1,1. Such a title makes both nodes the
+    // same size, so it contributes nothing to the collapse distance — that is
+    // the consumer's call, and `titleClipped` still reports it.
+    &__title-node :is(h1, h2, h3, h4, h5, h6) {
+      margin: 0;
+      font-size: inherit;
+      font-weight: inherit;
+      line-height: inherit;
+      letter-spacing: inherit;
+    }
+
+    // The expanded role fades out linearly; the collapsed one fades in on a
+    // heavily back-loaded curve so it arrives at the end rather than ghosting
+    // through the middle, which is what both platforms do.
+    &__title-node--large {
+      opacity: calc(1 - var(--mlv-page-header-snap));
+      font-size: var(--mlv-typography-heading-h2-size);
+      font-weight: var(--mlv-typography-heading-h2-weight);
+      line-height: var(--mlv-typography-heading-h2-line-height);
+      letter-spacing: var(--mlv-typography-heading-h2-letter-spacing);
+    }
+
+    &__title-node--small {
+      opacity: clamp(0, (var(--mlv-page-header-snap) - 0.6) * 2.5, 1);
+      font-size: var(--mlv-typography-heading-h4-size);
+      font-weight: var(--mlv-typography-heading-h4-weight);
+      line-height: var(--mlv-typography-heading-h4-line-height);
+      letter-spacing: var(--mlv-typography-heading-h4-letter-spacing);
+    }
+
+    &__spacer {
+      flex: 1 1 auto;
+    }
+
+    &__actions {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2));
+
+      // Action rows must never wrap button labels onto the icon.
+      button,
+      a {
+        white-space: nowrap;
+      }
+    }
+
+    &__description {
+      // The page's own reading measure — see `--mlv-page-measure` in
+      // `page.scss`, which `maxWidth` can be pointed at too.
+      max-width: var(--mlv-page-measure, 48rem);
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-m-size);
+      line-height: var(--mlv-typography-body-m-line-height);
+    }
+
+    &__meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2));
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+      line-height: var(--mlv-typography-body-s-line-height);
+    }
+
+    // One navigation region, not a strip plus a trailing slot: a projected tab
+    // group takes the free inline size and anything after it lands at the
+    // trailing edge.
+    &__tabs {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-page-chrome-item-gap, var(--mlv-spacing-2));
+      // Pulls the navigation row down onto the chrome's own bottom padding, so
+      // the tab underline sits on the hairline rather than a row gap above it.
+      margin-bottom: calc(
+        0rem - var(--mlv-page-chrome-block-padding, var(--mlv-spacing-3))
+      );
+    }
+
+    &__tabs > .mlv-tab-group {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    &__status {
+      display: inline-flex;
+      flex: 0 0 auto;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--mlv-spacing-1);
+    }
+
+    // Trailing control in the title row that expands snapped chrome. It sits in
+    // reading order and in the tab order, so it needs no clearance from any
+    // neighbour and paints no surface of its own.
+    &__expand {
+      flex: 0 0 auto;
+    }
+
+    &--tabs-center &__tabs {
+      justify-content: center;
+    }
+
+    &--tabs-center &__tabs > .mlv-tab-group {
+      flex: 0 1 auto;
+    }
+
+    // Compact record-editor header: single tight row, smaller title scale.
+    // `size` moves the type roles and the row height; density moves the
+    // padding and the gaps. Neither reaches into the other's half.
+    &--size-s {
+      --mlv-page-header-row-height: var(--mlv-height-m);
+
+      gap: var(--mlv-spacing-1);
+    }
+
+    &--size-s &__title-node--large {
+      font-size: var(--mlv-typography-heading-h4-size);
+      font-weight: var(--mlv-typography-heading-h4-weight);
+      line-height: var(--mlv-typography-heading-h4-line-height);
+      letter-spacing: var(--mlv-typography-heading-h4-letter-spacing);
+    }
+
+    &--size-s &__title-node--small {
+      font-size: var(--mlv-typography-heading-h6-size);
+      font-weight: var(--mlv-typography-heading-h6-weight);
+      line-height: var(--mlv-typography-heading-h6-line-height);
+      letter-spacing: var(--mlv-typography-heading-h6-letter-spacing);
+    }
+
+    &--size-s &__description {
+      font-size: var(--mlv-typography-body-s-size);
+      line-height: var(--mlv-typography-body-s-line-height);
+    }
+
+    // A projected summary strip is an inner row of this header's single glass
+    // surface: no chrome of its own, full-bleed against the header padding.
+    > .mlv-page-summary {
+      position: static;
+      z-index: auto;
+      margin-inline: calc(
+        -1 * max(var(--mlv-page-inset-inline, 0rem), var(--mlv-spacing-3))
+      );
+      background: transparent;
+      border-bottom: none;
     }
   }
 
-  &__description {
-    max-width: 48rem;
-    color: var(--mlv-text-secondary);
-    font-size: var(--mlv-typography-body-m-size);
-    line-height: var(--mlv-typography-body-m-line-height);
+  @container #{container.$page-container} (width <= #{container.$page-narrow}) {
+    // Narrow canvas: the title row wraps and the actions drop onto their own
+    // full-width line instead of squeezing the title into a vertical sliver.
+    .mlv-page-header__title-row {
+      flex-wrap: wrap;
+      row-gap: var(--mlv-spacing-1);
+    }
+
+    .mlv-page-header__title-row .mlv-page-header__spacer {
+      display: none;
+    }
+
+    .mlv-page-header__actions {
+      flex: 1 1 100%;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    // One line, and the tail is spent instead of the collapse.
+    //
+    // The crossfade's cell is `overflow: hidden` and scrubs between the two
+    // roles' *measured* heights, so a title that wraps is not merely tall — it
+    // is **cut**. The large role holds full opacity until the small one starts
+    // fading in at 0.6 snap, so through the first two thirds of the gesture the
+    // reader is watching the only visible heading lose its second line and then
+    // get guillotined through the middle of its first. Measured on `/page`'s
+    // record editor at a 375px canvas: a 50px two-line title against a 23px
+    // collapsed one, 27px of it removed mid-gesture.
+    //
+    // A wide canvas keeps wrapping, because there the second line is a real
+    // line of a real headline and the cell is measured to hold it. This is the
+    // narrow canvas making the other trade: the end of a long title is worth
+    // less than a collapse that reads, and the full string stays in the
+    // accessibility tree either way — `text-overflow` truncates the painted
+    // glyphs, not the text node.
+    //
+    .mlv-page-header__title {
+      // A flex item's `auto` minimum is its content, so without this the
+      // now-unwrappable title sets the row's width instead of ellipsing —
+      // `min-width: 0` on the node inside it cannot reach up here.
+      min-inline-size: 0;
+    }
+
+    // The **node** ellipses, and a projected heading goes inline so that it
+    // can. `text-overflow` acts on the block box that directly contains the
+    // overflowing inline text, so a block-level `<h1>` child would clip and
+    // ellipse *itself*, leaving the node's own box exactly as wide as its
+    // content — and `titleClipped`, which is `scrollWidth > clientWidth` on
+    // the node, would then report `false` for a title the reader can see
+    // truncated. Inlining the heading puts the text back in the node's own
+    // line box, so one element both paints the ellipsis and measures it.
+    //
+    // `display: inline` is a box-generation change, not a semantic one: the
+    // heading keeps its role and its level in the accessibility tree. That is
+    // the reason it is not `display: contents`, which has historically dropped
+    // heading semantics outright in some engines.
+    .mlv-page-header__title-node {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .mlv-page-header__title-node :is(h1, h2, h3, h4, h5, h6) {
+      display: inline;
+    }
   }
 
-  &__meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--mlv-spacing-2);
-    color: var(--mlv-text-secondary);
-    font-size: var(--mlv-typography-body-s-size);
-    line-height: var(--mlv-typography-body-s-line-height);
-  }
-
-  &__tabs-row {
-    margin-bottom: calc(0rem - var(--mlv-spacing-2));
-  }
-
-  &__tabs {
-    flex: 1 1 auto;
-    overflow: hidden;
-  }
-
-  &__tabs > .mlv-tab-group {
-    width: 100%;
-  }
-
-  &__status {
-    display: inline-flex;
-    flex: 0 0 auto;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--mlv-spacing-1);
-  }
-
-  // Floating chevron/pin controls straddling the header's bottom edge — with
-  // a projected summary strip that edge is the bottom of the whole chrome.
-  // The sticky header keeps them visible at any scroll position.
-  &__snap-controls {
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    z-index: 1;
-    display: flex;
-    gap: var(--mlv-spacing-1);
-    transform: translate(-50%, 50%);
-  }
-
-  // Small, solid controls: they float over arbitrary content, so they need
-  // their own filled surface.
-  &__snap-toggle,
-  &__snap-pin {
-    background: var(--mlv-background-raised);
-    box-shadow: var(--mlv-shadow-raised);
-  }
-
-  // The chevron rotates with the scrubbed progress: up when expanded,
-  // down once snapped.
-  &__snap-toggle svg {
-    rotate: calc(180deg * var(--mlv-page-header-snap));
-  }
-
-  &__snap-pin--active {
-    color: var(--mlv-text-action);
-    border-color: var(--mlv-border-focus);
-  }
-
-  &--tabs-center &__tabs-row {
-    justify-content: center;
-  }
-
-  // The row spacer must not consume the free space justify-content centers
-  // within.
-  &--tabs-center &__tabs-row &__spacer {
-    flex: 0 0 0;
-  }
-
-  &--tabs-center &__tabs {
-    flex: 0 1 auto;
-  }
-
-  &--tabs-center &__tabs > .mlv-tab-group {
-    width: auto;
-  }
-
-  // Compact record-editor header: single tight row, smaller title scale.
-  &--size-s {
-    gap: var(--mlv-spacing-1);
-  }
-
-  &--size-s &__title-row {
-    min-height: var(--mlv-height-m);
-  }
-
-  &--size-s &__title h1 {
-    font-size: calc(
-      var(--mlv-typography-heading-h4-size) +
-        (
-          var(--mlv-typography-heading-h6-size) - var(
-              --mlv-typography-heading-h4-size
-            )
-        ) *
-        var(--mlv-page-header-snap)
-    );
-    line-height: calc(
-      var(--mlv-typography-heading-h4-line-height) +
-        (
-          var(--mlv-typography-heading-h6-line-height) - var(
-              --mlv-typography-heading-h4-line-height
-            )
-        ) *
-        var(--mlv-page-header-snap)
-    );
-    letter-spacing: var(--mlv-letter-spacing-normal);
-  }
-
-  &--size-s &__description {
-    font-size: var(--mlv-typography-body-s-size);
-    line-height: var(--mlv-typography-body-s-line-height);
-  }
-
-  // A projected summary strip is an inner row of this header's single glass
-  // surface: no chrome of its own, full-bleed against the header padding.
-  > .mlv-page-summary {
-    position: static;
-    z-index: auto;
-    margin-inline: calc(
-      -1 * max(var(--mlv-page-inset, 0rem), var(--mlv-spacing-3))
-    );
-    background: transparent;
-    border-bottom: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-}
-
-// Narrow canvas (container query against the page inner): the title row
-// wraps and the actions drop onto their own full-width line instead of
-// squeezing the title into a vertical sliver.
-@container (max-width: 40rem) {
-  .mlv-page-header__title-row {
-    flex-wrap: wrap;
-    row-gap: var(--mlv-spacing-1);
-  }
-
-  .mlv-page-header__title-row .mlv-page-header__spacer {
-    display: none;
-  }
-
-  .mlv-page-header__actions {
-    flex: 1 1 100%;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
-}
-
-@include mixins.reduced-motion('mlv-page-header');
+  @include mixins.reduced-motion('mlv-page-header');
 }

@@ -7,10 +7,12 @@ import {
   viewChild,
 } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import * as sass from 'sass';
 import { OverlayContainer } from '@angular/cdk/overlay';
+import { MlvDrawer } from '@malva-ui/core/drawer';
 import type { BreakpointState } from '@angular/cdk/layout';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { BehaviorSubject } from 'rxjs';
@@ -19,6 +21,7 @@ import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvSidebar } from './sidebar';
 import type { MlvSidebarAppearance } from '../sidebar-appearance';
 import type { MlvSidebarMode } from '../sidebar-mode';
+import type { MlvSidebarDrawerSide } from '../sidebar-drawer-side';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvSidebarGroup } from '../sidebar-group/sidebar-group';
@@ -794,6 +797,104 @@ describe('MlvSidebarItem accessibility roles', () => {
     fixture.componentInstance.active.set(false);
     fixture.detectChanges();
     expect(items[0].getAttribute('aria-current')).toBeNull();
+  });
+});
+
+/**
+ * The offcanvas drawer's edge.
+ *
+ * `MlvDrawerPosition` is physical — `_buildPositionStrategy()` calls
+ * `positionStrategy.left('0')` — so `drawerSide` has to be resolved against the
+ * direction in force at the sidebar's own host, and that resolution is what
+ * these assert. A trailing sidebar whose drawer slid in from the opposite edge
+ * would contradict the column it replaces.
+ */
+describe('MlvSidebar offcanvas drawer side', () => {
+  @Component({
+    template: `
+      <div [attr.dir]="dir()">
+        <mlv-sidebar mode="offcanvas" [drawerSide]="side()">
+          <div mlvSidebarContent>
+            <mlv-sidebar-item label="Dashboard" />
+          </div>
+        </mlv-sidebar>
+      </div>
+    `,
+    imports: [MlvSidebar, SidebarContentDirective, MlvSidebarItem],
+  })
+  class DrawerSideHost {
+    readonly side = signal<MlvSidebarDrawerSide>('start');
+    /** `null` leaves the subtree on the document direction. */
+    readonly dir = signal<string | null>(null);
+  }
+
+  let overlayContainer: OverlayContainer;
+  let rtl: MlvRtlService;
+
+  const drawerPosition = (fixture: ComponentFixture<DrawerSideHost>): string =>
+    (
+      fixture.debugElement.query(By.directive(MlvDrawer))
+        .componentInstance as MlvDrawer
+    ).position();
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [DrawerSideHost],
+      providers: [provideMlvI18nTesting()],
+    });
+    overlayContainer = TestBed.inject(OverlayContainer);
+    rtl = TestBed.inject(MlvRtlService);
+  });
+
+  afterEach(() => {
+    rtl.setDirection('ltr');
+    overlayContainer.ngOnDestroy();
+  });
+
+  it('defaults to the inline-start edge and follows `drawerSide`', async () => {
+    const fixture = TestBed.createComponent(DrawerSideHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Default: the primary navigation sidebar's own edge.
+    expect(drawerPosition(fixture)).toBe('left');
+
+    fixture.componentInstance.side.set('end');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(drawerPosition(fixture)).toBe('right');
+  });
+
+  it('mirrors both sides under a global flip', async () => {
+    const fixture = TestBed.createComponent(DrawerSideHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    rtl.setDirection('rtl');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(drawerPosition(fixture)).toBe('right');
+
+    fixture.componentInstance.side.set('end');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(drawerPosition(fixture)).toBe('left');
+  });
+
+  it('follows a scoped [dir] while the document stays LTR', async () => {
+    const fixture = TestBed.createComponent(DrawerSideHost);
+    fixture.componentInstance.side.set('end');
+    fixture.componentInstance.dir.set('rtl');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // The document is untouched, so a resolution that read it would answer
+    // `right` here and the whole subtree would disagree with its own layout.
+    expect(rtl.direction()).toBe('ltr');
+    expect(drawerPosition(fixture)).toBe('left');
   });
 });
 

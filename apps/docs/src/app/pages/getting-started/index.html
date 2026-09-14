@@ -30,7 +30,7 @@
   </header>
 
   <aside class="getting-started__note" aria-labelledby="before-you-start">
-    <h2 id="before-you-start">Before you start</h2>
+    <h2 class="docs-heading" id="before-you-start">Before you start</h2>
     <p>
       You need an existing Angular application and permission to update its
       dependencies and workspace configuration. Commit or stash local changes
@@ -39,7 +39,7 @@
   </aside>
 
   <section class="getting-started__section">
-    <h2>Install with the guided setup</h2>
+    <h2 class="docs-heading">Install with the guided setup</h2>
     <p>
       The Angular CLI runs the Malva UI installation schematic and uses your
       workspace package manager. The command is safe to run again: existing
@@ -50,7 +50,7 @@
       <li class="getting-started__step">
         <div class="getting-started__step-number" aria-hidden="true">1</div>
         <div class="getting-started__step-content">
-          <h3>Choose the application</h3>
+          <h3 class="docs-heading">Choose the application</h3>
           <p>
             A workspace with one Angular application is selected automatically.
             In a multi-application workspace, identify the target explicitly:
@@ -64,7 +64,7 @@
       <li class="getting-started__step">
         <div class="getting-started__step-number" aria-hidden="true">2</div>
         <div class="getting-started__step-content">
-          <h3>Answer the setup questions</h3>
+          <h3 class="docs-heading">Answer the setup questions</h3>
           <p>
             Press <kbd>Enter</kbd> to accept the recommended defaults, or choose
             values that match your product.
@@ -107,7 +107,7 @@
       <li class="getting-started__step">
         <div class="getting-started__step-number" aria-hidden="true">3</div>
         <div class="getting-started__step-content">
-          <h3>Review the generated changes</h3>
+          <h3 class="docs-heading">Review the generated changes</h3>
           <p>The installer makes three focused updates:</p>
           <ul class="getting-started__checklist">
             <li>
@@ -132,7 +132,7 @@
   </section>
 
   <section class="getting-started__section">
-    <h2>Automate installation</h2>
+    <h2 class="docs-heading">Automate installation</h2>
     <p>
       Supply every choice on the command line for CI, reproducible project
       templates, or other non-interactive environments.
@@ -212,13 +212,13 @@
   </section>
 
   <section class="getting-started__section">
-    <h2>Manual setup</h2>
+    <h2 class="docs-heading">Manual setup</h2>
     <p>
       Use this path only when a schematic cannot update your workspace or when
       your application owns a central configuration layer.
     </p>
 
-    <h3>1. Install the packages</h3>
+    <h3 class="docs-heading">1. Install the packages</h3>
     <div class="getting-started__code-block">
       <div class="getting-started__code-header">
         <span>npm</span>
@@ -239,7 +239,7 @@
       if your workspace uses pnpm or Yarn.
     </p>
 
-    <h3>2. Add the global stylesheet</h3>
+    <h3 class="docs-heading">2. Add the global stylesheet</h3>
     <p>
       Add the packaged stylesheet to the target application's build options in
       <code>angular.json</code>.
@@ -260,7 +260,7 @@
       ><code>{{ stylesConfiguration }}</code></pre>
     </div>
 
-    <h3>3. Configure theme and density</h3>
+    <h3 class="docs-heading">3. Configure theme and density</h3>
     <p>
       Register the defaults with the application's root providers. In a
       standalone application, this usually lives in <code>app.config.ts</code>.
@@ -287,7 +287,7 @@
   </section>
 
   <section class="getting-started__section">
-    <h2>Use your first component</h2>
+    <h2 class="docs-heading">Use your first component</h2>
     <p>
       Import components from their focused public entry points. Standalone
       imports keep dependencies explicit and allow unused components to be
@@ -339,7 +339,7 @@
   </section>
 
   <section class="getting-started__section">
-    <h2>Troubleshooting</h2>
+    <h2 class="docs-heading">Troubleshooting</h2>
     <mlv-accordion
       class="getting-started__troubleshooting"
       [multiExpandable]="true"
@@ -379,7 +379,7 @@
   </section>
 
   <section class="getting-started__section">
-    <h2>Versioning and support</h2>
+    <h2 class="docs-heading">Versioning and support</h2>
     <p>
       All six packages share one version and are released together. The
       versioning policy states which surfaces are public API — TypeScript
@@ -408,7 +408,7 @@
   </section>
 
   <section class="getting-started__section getting-started__section--last">
-    <h2>Next steps</h2>
+    <h2 class="docs-heading">Next steps</h2>
     <nav class="getting-started__next-links" aria-label="Getting started links">
       <a routerLink="/button">
         <strong>Explore Button</strong>

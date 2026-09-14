@@ -21,6 +21,7 @@ import type { MlvFormUtilsI18n } from './tokens/form-utils';
 import type { MlvLoaderI18n } from './tokens/loader';
 import type { MlvNotificationI18n } from './tokens/notification';
 import type { MlvNumberInputI18n } from './tokens/number-input';
+import type { MlvPageI18n } from './tokens/page';
 import type { MlvPaginationI18n } from './tokens/pagination';
 import type { MlvPinInputI18n } from './tokens/pin-input';
 import type { MlvPopupI18n } from './tokens/popup';
@@ -65,6 +66,7 @@ export interface MlvLanguage {
   loader: MlvLoaderI18n;
   notification: MlvNotificationI18n;
   numberInput: MlvNumberInputI18n;
+  page: MlvPageI18n;
   pagination: MlvPaginationI18n;
   pinInput: MlvPinInputI18n;
   popup: MlvPopupI18n;

@@ -1,0 +1,26 @@
+<div class="frame tags">
+  <mlv-items-more #row class="tags__row" ariaLabel="All tags">
+    @for (tag of tags; track tag) {
+      <mlv-items-more-item>
+        <ng-template mlvItemsMoreVisible>
+          <mlv-chip muted>{{ tag }}</mlv-chip>
+        </ng-template>
+        <ng-template mlvItemsMoreHidden>
+          <mlv-chip muted>{{ tag }}</mlv-chip>
+        </ng-template>
+      </mlv-items-more-item>
+    }
+  </mlv-items-more>
+
+  <!-- Outside the row, so it is bound to the row explicitly. -->
+  @if (row.hiddenCount(); as count) {
+    <button
+      mlvButton
+      variant="transparent"
+      class="tags__more"
+      [mlvItemsMoreTrigger]="row"
+    >
+      +{{ count }} more
+    </button>
+  }
+</div>

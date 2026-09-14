@@ -333,6 +333,10 @@ const it: MlvLanguage = {
     decrement: 'Diminuisci',
     increment: 'Aumenta',
   },
+  page: {
+    pageSummary: 'Riepilogo della pagina',
+    expandHeader: "Espandi l'intestazione",
+  },
   pagination: {
     navigationLabel: 'Paginazione',
     previousPage: 'Pagina precedente',

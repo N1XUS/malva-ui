@@ -1,22 +1,23 @@
 import { Directive } from '@angular/core';
+import { MlvPageChromeRegion } from '../page/page-region';
 
-/** Marks leading dock content, typically pending-change status text. */
+/** Leading dock content, typically pending-change status text. */
 @Directive({
   selector: '[mlvPageDockStart]',
-  host: { class: 'mlv-page-dock__start' },
+  host: { class: 'mlv-page-dock__start', 'data-slot': 'page-dock-start' },
 })
-export class MlvPageDockStart {}
+export class MlvPageDockStart extends MlvPageChromeRegion {}
 
-/** Marks the centered dock content, typically a floating tool cluster. */
+/** Centered dock content, typically a floating tool cluster. */
 @Directive({
   selector: '[mlvPageDockCenter]',
-  host: { class: 'mlv-page-dock__center' },
+  host: { class: 'mlv-page-dock__center', 'data-slot': 'page-dock-center' },
 })
-export class MlvPageDockCenter {}
+export class MlvPageDockCenter extends MlvPageChromeRegion {}
 
-/** Marks trailing dock content, typically the primary workflow actions. */
+/** Trailing dock content, typically the primary workflow actions. */
 @Directive({
   selector: '[mlvPageDockEnd]',
-  host: { class: 'mlv-page-dock__end' },
+  host: { class: 'mlv-page-dock__end', 'data-slot': 'page-dock-end' },
 })
-export class MlvPageDockEnd {}
+export class MlvPageDockEnd extends MlvPageChromeRegion {}

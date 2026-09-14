@@ -12,17 +12,19 @@
     // consumed by the enter/leave keyframes so the pill variant can keep its
     // horizontal centering transform throughout the animation.
     --mlv-action-bar-translate-x: 0;
-    --mlv-action-bar-bg: color-mix(
-      in srgb,
-      var(--mlv-elevation-bg-3),
-      transparent 50%
-    );
+    // One chrome-bar surface, shared with the page header, summary strip and
+    // dock. It used to be a translucent `elevation-bg-3` fill behind a
+    // `blur(1.25rem)`, under a hairline, under a shadow — four separation
+    // signals saying one thing. Two are left: the hairline says where the bar
+    // ends, and the fill steps one rung when the bar is over content (below).
+    //
+    // Dropping the blur is not only a simplification. `backdrop-filter`
+    // establishes a containing block for `position: fixed` descendants, so a
+    // consumer's overlay rendered inside a bar was anchored to the bar rather
+    // than to the viewport.
+    --mlv-action-bar-bg: var(--mlv-background-bar);
     --mlv-action-bar-fg: var(--mlv-text-primary);
     --mlv-action-bar-border: var(--mlv-border-subtle);
-    // SL-R3: components name the semantic alias, never a raw numbered step.
-    // `--mlv-shadow-raised` resolves to `--mlv-shadow-1` in both themes, so this
-    // is the same pixels under the name that carries the intent.
-    --mlv-action-bar-shadow: var(--mlv-shadow-raised);
     // The logo's density-scaled type ramp, declared *here* rather than in
     // `action-bar-logo.scss`. The logo carries no density modifier of its own,
     // so a `density.density-*` include there matches through the mixin's
@@ -41,10 +43,12 @@
     padding: var(--mlv-spacing-3);
     background-color: var(--mlv-action-bar-bg);
     color: var(--mlv-action-bar-fg);
-    box-shadow: var(--mlv-action-bar-shadow);
+    // Unset by default — the surface no longer separates itself with a shadow.
+    // Read with a fallback rather than declared on the block, so a consumer
+    // override still reaches it (an element's own declaration would beat an
+    // inherited one) and the pill and `--contrast` variants supply their own.
+    box-shadow: var(--mlv-action-bar-shadow, none);
     border-bottom: 0.0625rem solid var(--mlv-action-bar-border);
-    backdrop-filter: blur(1.25rem);
-    -webkit-backdrop-filter: blur(1.25rem);
     transition:
       background-color var(--mlv-duration-fast) var(--mlv-ease-out),
       color var(--mlv-duration-fast) var(--mlv-ease-out),
@@ -148,11 +152,15 @@
    =========================================================================== */
 
   .mlv-action-bar--fixed {
+    --mlv-action-bar-bg: var(--mlv-background-bar-overlapped);
+
     position: fixed;
     z-index: var(--mlv-z-sticky, 200);
   }
 
   .mlv-action-bar--sticky {
+    --mlv-action-bar-bg: var(--mlv-background-bar-overlapped);
+
     position: sticky;
   }
 
@@ -189,6 +197,9 @@
     // `gap` is inherited from the base block, which scales it per density.
     border: none;
     border-radius: var(--mlv-radius-full);
+    // A pill touches no edge, so it has no hairline to carry the separation
+    // and the shadow is its only signal — not a fourth one stacked on three
+    // others.
     box-shadow:
       0 1rem 2.25rem color-mix(in srgb, black 22%, transparent),
       0 0.125rem 0.5rem color-mix(in srgb, black 14%, transparent);

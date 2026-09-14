@@ -1,121 +1,70 @@
-@if (_breadcrumbRef()?.templateRef; as breadcrumbTpl) {
-  <div
-    class="mlv-page-header__breadcrumb"
-    mlvPageSnap="hide"
-    [snapFrom]="0"
-    [snapTo]="0.5"
-    snapSize="3rem"
-  >
-    <ng-template [ngTemplateOutlet]="breadcrumbTpl" />
-  </div>
-}
-@if (back(); as backTarget) {
-  <a
-    mlvLink
-    class="mlv-page-header__back"
-    variant="subtle"
-    [routerLink]="backTarget"
-    (click)="backClick.emit($event)"
-  >
-    <ng-template mlvLinkBefore>
-      <svg lucideChevronLeft [size]="16" aria-hidden="true" />
-    </ng-template>
-    {{ backLabel() }}
-  </a>
-}
+<!-- Leading context: breadcrumb, back link, icon — the author's own elements,
+     in one region rather than three stacked rows. -->
+<ng-content select="[mlvPageContext]" />
 
 <div class="mlv-page-header__title-row">
-  @if (_iconRef()?.templateRef; as iconTpl) {
-    <span class="mlv-page-header__icon" aria-hidden="true">
-      <ng-template [ngTemplateOutlet]="iconTpl" />
-    </span>
-  }
   @if (_titleRef()?.templateRef; as titleTpl) {
+    <!-- Two title nodes at two complete type roles, crossfaded — nothing
+         interpolates a font size, so each role keeps its own tracking and its
+         own weight. Exactly one of them is in the accessibility tree at any
+         moment: `inert` takes the other out of the tree *and* the tab order,
+         because an opacity-zero heading is still announced on the web.
+
+         Both are `tabindex="-1"`: programmatic focus targets for
+         `focusTitle()`, never tab stops. The consumer's own template must not
+         carry the focus target itself, because it is instantiated here twice —
+         a `tabindex`, an `id` or a control written inside it exists twice too,
+         and the copy `focusTitle()` would land on is the inert one half the
+         time. -->
     <div class="mlv-page-header__title">
-      <ng-template [ngTemplateOutlet]="titleTpl" />
+      <div
+        #titleLarge
+        tabindex="-1"
+        class="mlv-page-header__title-node mlv-page-header__title-node--large"
+        [attr.aria-hidden]="_snapped() ? 'true' : null"
+        [attr.inert]="_snapped() ? '' : null"
+      >
+        <ng-template [ngTemplateOutlet]="titleTpl" />
+      </div>
+      <div
+        #titleSmall
+        tabindex="-1"
+        class="mlv-page-header__title-node mlv-page-header__title-node--small"
+        [attr.aria-hidden]="_snapped() ? null : 'true'"
+        [attr.inert]="_snapped() ? null : ''"
+      >
+        <ng-template [ngTemplateOutlet]="titleTpl" />
+      </div>
     </div>
   }
-  @if (_statusRef()?.templateRef; as statusTpl) {
-    <div class="mlv-page-header__status">
-      <ng-template [ngTemplateOutlet]="statusTpl" />
-    </div>
-  }
+  <ng-content select="[mlvPageStatus]" />
   <span class="mlv-page-header__spacer" aria-hidden="true"></span>
-  @if (_actionsRef()?.templateRef; as actionsTpl) {
-    <div class="mlv-page-header__actions">
-      <ng-template [ngTemplateOutlet]="actionsTpl" />
-    </div>
+  <ng-content select="[mlvPageActions]" />
+  @if (_expandControl(); as snap) {
+    <button
+      mlvButton
+      type="button"
+      variant="transparent"
+      shape="circle"
+      class="mlv-page-header__expand"
+      data-slot="page-header-expand"
+      [attr.aria-label]="_expandLabel()"
+      (click)="snap.expand()"
+    >
+      <svg lucideChevronUp [size]="16" aria-hidden="true" />
+    </button>
   }
 </div>
 
-@if (_descriptionRef()?.templateRef; as descriptionTpl) {
-  <div class="mlv-page-header__description">
-    <ng-template [ngTemplateOutlet]="descriptionTpl" />
-  </div>
-}
-@if (_metaRef()?.templateRef; as metaTpl) {
-  <div class="mlv-page-header__meta">
-    <ng-template [ngTemplateOutlet]="metaTpl" />
-  </div>
-}
-@if (_tabsRef()?.templateRef || _tabsActionsRef()?.templateRef) {
-  <div
-    class="mlv-page-header__tabs-row"
-    mlvPageSnap="hide"
-    [snapFrom]="0.3"
-    [snapTo]="0.85"
-    snapSize="5rem"
-  >
-    @if (_tabsRef()?.templateRef; as tabsTpl) {
-      <div class="mlv-page-header__tabs">
-        <ng-template [ngTemplateOutlet]="tabsTpl" />
-      </div>
-    }
-    <span class="mlv-page-header__spacer" aria-hidden="true"></span>
-    @if (_tabsActionsRef()?.templateRef; as tabsActionsTpl) {
-      <div class="mlv-page-header__tabs-actions">
-        <ng-template [ngTemplateOutlet]="tabsActionsTpl" />
-      </div>
-    }
-  </div>
-}
+<!-- The title block collapses; the navigation does not. A snapped header that
+     kept a three-line description and threw away its tabs would have discarded
+     the thing the reader most needs while scrolled. Both collapsing regions
+     carry their own stagger window, declared by the region, not by this
+     template. -->
+<ng-content select="[mlvPageDescription]" />
+<ng-content select="[mlvPageMeta]" />
+<ng-content select="[mlvPageTabs]" />
 
 <!-- A projected summary strip renders as the chrome's bottom row, sharing
      this header's single glass surface. -->
 <ng-content select="mlv-page-summary" />
-
-@if (_controls(); as snap) {
-  <div class="mlv-page-header__snap-controls">
-    <button
-      mlvButton
-      type="button"
-      variant="outlined"
-      shape="circle"
-      mlvDensity="tight"
-      class="mlv-page-header__snap-toggle"
-      [attr.aria-label]="toggleLabel()"
-      [attr.aria-expanded]="!_snapped()"
-      (click)="snap.toggle()"
-    >
-      <svg lucideChevronUp [size]="12" aria-hidden="true" />
-    </button>
-    <button
-      mlvButton
-      type="button"
-      variant="outlined"
-      shape="circle"
-      mlvDensity="tight"
-      class="mlv-page-header__snap-pin"
-      [class.mlv-page-header__snap-pin--active]="_pinned()"
-      [attr.aria-label]="pinLabel()"
-      [attr.aria-pressed]="_pinned()"
-      (click)="snap.setPinned(!_pinned())"
-    >
-      @if (_pinned()) {
-        <svg lucidePinOff [size]="12" aria-hidden="true" />
-      } @else {
-        <svg lucidePin [size]="12" aria-hidden="true" />
-      }
-    </button>
-  </div>
-}

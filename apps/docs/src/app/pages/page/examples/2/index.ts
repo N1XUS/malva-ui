@@ -38,12 +38,12 @@ import { MlvButton } from '@malva-ui/core/button';
 import { MlvCard } from '@malva-ui/core/card';
 import { MlvColorPickerPopup } from '@malva-ui/core/color-picker';
 import {
-  MlvPageBreadcrumb,
+  MlvPageContext,
   MlvPage,
-  MlvPageHeaderActions,
+  MlvPageActions,
   MlvPageHeader,
-  MlvPageHeaderDescription,
-  MlvPageHeaderTabs,
+  MlvPageDescription,
+  MlvPageTabs,
   MlvPageEndSidebar,
   MlvPageShell,
   MlvPageSidebar,
@@ -84,10 +84,10 @@ type ShellColorMode = 'auto' | 'custom';
     MlvColorPickerPopup,
     MlvPage,
     MlvPageHeader,
-    MlvPageBreadcrumb,
-    MlvPageHeaderActions,
-    MlvPageHeaderDescription,
-    MlvPageHeaderTabs,
+    MlvPageContext,
+    MlvPageActions,
+    MlvPageDescription,
+    MlvPageTabs,
     MlvPageEndSidebar,
     MlvPageShell,
     MlvPageSidebar,
@@ -143,8 +143,31 @@ export default class PageAppShellExampleComponent {
    */
   private static readonly _SIDEBAR_OFFCANVAS_BELOW = 560;
 
+  /**
+   * @private Preview width in CSS pixels below which the navigation column
+   * closes to the rail.
+   *
+   * The four columns cost 3.5rem of rail, 13rem of navigation and 14rem of
+   * inspector, so below this the reading column is under 20rem with all of them
+   * open. Navigation gives way first because the rail beside it already reaches
+   * the same destinations, and the inspector is the only one describing the
+   * page the reader came for.
+   */
+  private static readonly _NAVIGATION_COLLAPSE_BELOW = 800;
+
+  /**
+   * @private Preview width in CSS pixels below which the end inspector closes.
+   *
+   * With navigation already folded into the rail this is the next column to go:
+   * the rail's 3.5rem and the inspector's 14rem together leave under 22rem of
+   * reading column below this width, which is narrow enough that the page title
+   * starts wrapping mid-word. Detail about the page gives way before the page
+   * itself does.
+   */
+  private static readonly _INSPECTOR_COLLAPSE_BELOW = 640;
+
   readonly shellColorMode = signal<ShellColorMode>('custom');
-  readonly shellColor = signal('#7138d0');
+  readonly shellColor = signal('#a83011');
   readonly shellColorInput = computed(() =>
     this.shellColorMode() === 'custom' ? 'var(--mlv-demo-shell-color)' : null,
   );
@@ -202,6 +225,35 @@ export default class PageAppShellExampleComponent {
     return offcanvas ? 'offcanvas' : 'icon';
   });
 
+  /**
+   * Mode of the end inspector, resolved from the same measured width.
+   *
+   * Below the width that affords a 14rem column the inspector does not
+   * disappear — it becomes a drawer over the page, opened from the topbar
+   * toggle that is already there. `drawerSide="end"` keeps it sliding in from
+   * the edge its column occupied.
+   */
+  readonly inspectorMode = computed<MlvSidebarMode>(() => {
+    const width = this._containerWidth();
+    const drawer =
+      width > 0 &&
+      width < PageAppShellExampleComponent._INSPECTOR_COLLAPSE_BELOW;
+
+    return drawer ? 'offcanvas' : 'icon';
+  });
+
+  /**
+   * Whether the shell still affords the chrome that surrounds the page.
+   *
+   * Derived from {@link sidebarMode} rather than from a threshold of its own,
+   * because it is the same event: once the navigation has become a drawer the
+   * shell has said it cannot spend width on chrome, and the icon rail, the
+   * global navigation links and the bar's secondary actions are chrome. The
+   * drawer carries the same destinations, so nothing here is unreachable — the
+   * `Create` button stays, as its square icon-only shape.
+   */
+  readonly showsChrome = computed(() => this.sidebarMode() !== 'offcanvas');
+
   constructor() {
     this._resizeObserver
       .observe(this._elementRef)
@@ -210,9 +262,27 @@ export default class PageAppShellExampleComponent {
         const width = entries[entries.length - 1]?.contentRect.width;
         if (width === undefined) return;
 
+        const previous = this._containerWidth();
         this._containerWidth.set(width);
-        if (width < PageAppShellExampleComponent._SIDEBAR_OFFCANVAS_BELOW) {
-          this.collapsed.set(true);
+
+        // Only a *crossing* writes the two panes, so a preview that is resized
+        // back out gets its navigation and inspector back — and a reader who
+        // opened either one by hand keeps it until the width says otherwise.
+        // Writing them on every emission would shut a hand-opened drawer on the
+        // next stray resize; writing them only downwards (the shape this had
+        // first) left both panes shut for good once the preview had been narrow.
+        const crossed = (threshold: number): boolean =>
+          previous === 0 || previous < threshold !== width < threshold;
+
+        if (crossed(PageAppShellExampleComponent._NAVIGATION_COLLAPSE_BELOW)) {
+          this.collapsed.set(
+            width < PageAppShellExampleComponent._NAVIGATION_COLLAPSE_BELOW,
+          );
+        }
+        if (crossed(PageAppShellExampleComponent._INSPECTOR_COLLAPSE_BELOW)) {
+          this.inspectorCollapsed.set(
+            width < PageAppShellExampleComponent._INSPECTOR_COLLAPSE_BELOW,
+          );
         }
       });
   }

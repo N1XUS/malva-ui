@@ -102,17 +102,16 @@ import {
 import {
   MlvPage,
   MlvPageAside,
-  MlvPageBreadcrumb,
+  MlvPageContext,
   MlvPageContent,
   MlvPageDock,
   MlvPageDockEnd,
   MlvPageDockStart,
   MlvPageHeader,
-  MlvPageHeaderActions,
-  MlvPageHeaderDescription,
-  MlvPageHeaderStatus,
-  MlvPageHeaderTabs,
-  MlvPageHeaderTabsActions,
+  MlvPageActions,
+  MlvPageDescription,
+  MlvPageStatus,
+  MlvPageTabs,
   MlvPageShell,
   MlvPageSidebar,
   MlvPageSummary,
@@ -144,9 +143,9 @@ import { MlvStatusIndicator } from '@malva-ui/core/status-indicator';
 import { MlvSwitch } from '@malva-ui/core/switch';
 import {
   MlvTab,
-  MlvTabContentDef,
   MlvTabDef,
   MlvTabGroup,
+  MlvTabPanel,
 } from '@malva-ui/core/tabs';
 import { MlvTextarea } from '@malva-ui/core/textarea';
 import { MlvTimePicker } from '@malva-ui/core/time-picker';
@@ -751,17 +750,16 @@ function hoursBetween(start: string, end: string): number {
     MlvMenuTrigger,
     MlvPage,
     MlvPageAside,
-    MlvPageBreadcrumb,
+    MlvPageContext,
     MlvPageContent,
     MlvPageDock,
     MlvPageDockEnd,
     MlvPageDockStart,
     MlvPageHeader,
-    MlvPageHeaderActions,
-    MlvPageHeaderDescription,
-    MlvPageHeaderStatus,
-    MlvPageHeaderTabs,
-    MlvPageHeaderTabsActions,
+    MlvPageActions,
+    MlvPageDescription,
+    MlvPageStatus,
+    MlvPageTabs,
     MlvPageShell,
     MlvPageSidebar,
     MlvPageSummary,
@@ -790,9 +788,9 @@ function hoursBetween(start: string, end: string): number {
     MlvStatusIndicator,
     MlvSwitch,
     MlvTab,
-    MlvTabContentDef,
     MlvTabDef,
     MlvTabGroup,
+    MlvTabPanel,
     MlvTextarea,
     MlvTimePicker,
     MlvTimeline,
@@ -860,6 +858,16 @@ export class SettingsAccessShowcaseComponent {
    * instead of through a template binding.
    */
   private readonly _navGroups = viewChildren(MlvSidebarGroup);
+
+  /**
+   * @private The section tab strip, when the active section has one.
+   *
+   * A `viewChild` rather than a template reference variable because the strip
+   * is declared inside `@if (hasTabs())`, and a reference declared inside an
+   * embedded view is not visible outside it — while the panels it names are in
+   * `mlv-page-content`, several levels away.
+   */
+  protected readonly sectionTabs = viewChild(MlvTabGroup);
 
   /** @private The section heading, focused after a successful save. */
   private readonly _headingRef =

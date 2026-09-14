@@ -12,6 +12,7 @@
   @for (tab of visibleTabs(); track tab.value(); let i = $index) {
     <mlv-tab-item
       ngTab
+      [id]="_tabDomId(tab.value())"
       [value]="tab.value()"
       [active]="isActive(tab.value())"
       [disabled]="tab.disabled()"
@@ -93,26 +94,28 @@
   <div class="mlv-tab-group__indicator" #indicatorRef></div>
 </div>
 
-<div class="mlv-tab-group__body">
-  @if (activeContentTemplate(); as tmpl) {
-    <mlv-tab-content ngTabPanel [value]="activeTab()">
-      <ng-template ngTabContent>
-        <ng-container [ngTemplateOutlet]="tmpl" />
-      </ng-template>
-    </mlv-tab-content>
-  }
-  <!--
+@if (panels() === 'inline') {
+  <div class="mlv-tab-group__body">
+    @if (activeContentTemplate(); as tmpl) {
+      <mlv-tab-content ngTabPanel [value]="activeTab()">
+        <ng-template ngTabContent>
+          <ng-container [ngTemplateOutlet]="tmpl" />
+        </ng-template>
+      </mlv-tab-content>
+    }
+    <!--
     Inert stub panels for the visible-but-inactive tabs. Every `ngTab` must
     resolve to a corresponding `ngTabPanel` (aria wires `aria-controls` and
     validates the pairing). The active tab renders the real `mlv-tab-content`
     above; the remaining visible tabs get an empty, `ngTabContent`-carrying
     panel so their `aria-controls` resolves without rendering duplicate content.
   -->
-  @for (tab of visibleTabs(); track tab.value()) {
-    @if (!isActive(tab.value())) {
-      <div class="mlv-tab-group__panel-stub" ngTabPanel [value]="tab.value()">
-        <ng-template ngTabContent></ng-template>
-      </div>
+    @for (tab of visibleTabs(); track tab.value()) {
+      @if (!isActive(tab.value())) {
+        <div class="mlv-tab-group__panel-stub" ngTabPanel [value]="tab.value()">
+          <ng-template ngTabContent></ng-template>
+        </div>
+      }
     }
-  }
-</div>
+  </div>
+}

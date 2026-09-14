@@ -1,34 +1,34 @@
 <div class="record-editor">
-  <main mlvPage padding="m" [snapRange]="160" class="record-editor__page">
+  <main mlvPage padding="m" class="record-editor__page">
     <mlv-page-header size="s" tabsAlign="center" snapControls>
-      <ng-template mlvPageBreadcrumb>
+      <div mlvPageContext>
         <nav mlvBreadcrumb [items]="breadcrumbs"></nav>
-      </ng-template>
+      </div>
 
-      <ng-template mlvPageHeaderIcon>
+      <span mlvPageContext aria-hidden="true">
         <svg lucideHeadphones [size]="20" />
-      </ng-template>
+      </span>
 
       <ng-template mlvPageTitle>
         <h1>{{ name() }}</h1>
       </ng-template>
 
-      <ng-template mlvPageHeaderStatus>
+      <div mlvPageStatus>
         <mlv-badge tone="warning" muted mlvDensity="compact">Draft</mlv-badge>
         @if (unsaved()) {
           <mlv-badge tone="danger" muted mlvDensity="compact"
             >Unsaved</mlv-badge
           >
         }
-      </ng-template>
+      </div>
 
-      <ng-template mlvPageHeaderMeta>
+      <div mlvPageMeta>
         <span>SKU-98765</span>
         <span aria-hidden="true">·</span>
         <span>Last edited by Mara Ellison · 4h ago</span>
-      </ng-template>
+      </div>
 
-      <ng-template mlvPageHeaderActions>
+      <div mlvPageActions>
         <mlv-segmented
           mlvDensity="compact"
           ariaLabel="Record version"
@@ -57,9 +57,9 @@
         >
           <svg lucideEllipsisVertical [size]="16" />
         </button>
-      </ng-template>
+      </div>
 
-      <ng-template mlvPageHeaderTabs>
+      <div mlvPageTabs>
         <mlv-segmented
           [(value)]="activeTab"
           mlvDensity="compact"
@@ -76,21 +76,17 @@
           </button>
           <button mlvSegmentedItem value="history">History</button>
         </mlv-segmented>
-      </ng-template>
+      </div>
 
       <mlv-page-summary summaryLabel="Key product facts">
-        <mlv-page-summary-item label="Category">
-          Audio Equipment
-        </mlv-page-summary-item>
-        <mlv-page-summary-item label="Price">
-          {{ viewed().price }} USD
-        </mlv-page-summary-item>
-        <mlv-page-summary-item label="Availability">
+        <div mlvPageSummaryItem label="Category">Audio Equipment</div>
+        <div mlvPageSummaryItem label="Price">{{ viewed().price }} USD</div>
+        <div mlvPageSummaryItem label="Availability">
           {{ viewed().availability }}
-        </mlv-page-summary-item>
-        <mlv-page-summary-item label="Lead time">
+        </div>
+        <div mlvPageSummaryItem label="Lead time">
           {{ viewed().leadTime }} days
-        </mlv-page-summary-item>
+        </div>
       </mlv-page-summary>
     </mlv-page-header>
 

@@ -8,6 +8,7 @@ dist
 tmp
 out-tsc
 libs/core/styles/malva-ui.css
+libs/core/styles/page-view-transitions.css
 libs/core/styles/tokens.md
 
 # build-time generated API reference (docs:extract-api target — always regenerated)

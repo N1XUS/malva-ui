@@ -1,7 +1,26 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../../styles/src/lib/density' as density;
+@use 'page-container' as container;
 
 @layer mlv.components {
   $block: mlv-page;
+
+  // ── Scroll-driven snap timeline ───────────────────────────────────────────
+  // The progress the whole chrome interpolates from is animated by the
+  // scroller itself, not written per scroll event. A registered property is
+  // what makes a custom property animatable at all; `inherits: true` is what
+  // lets one declaration on the scrollport reach every chrome region below it.
+  @property --mlv-page-scroll-snap {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
+  }
+
+  @keyframes mlv-page-snap-scrub {
+    to {
+      --mlv-page-scroll-snap: 1;
+    }
+  }
 
   // The anchored canvas border. Shared with the inner-corner radius below, which
   // has to subtract exactly this to land on the padding-box curve.
@@ -19,9 +38,101 @@
     outline: none;
     isolation: isolate;
 
+    // ── Chrome rhythm ───────────────────────────────────────────────────────
+    // Three numbers, declared once, read by the header, the summary strip and
+    // the dock. They used to be six: each surface picked its own block padding
+    // (0.5rem / 0.75rem / 0.375rem) and each row inside the header picked its
+    // own gap, so nothing lined up with anything and no single edit could
+    // change the rhythm.
+    //
+    // Density scales all three, because a compact page wants shorter chrome
+    // rows. It does **not** scale the title's type role — a compact data table
+    // wants a tighter bar, not a smaller page title — which is why the header's
+    // two type roles are a `size` decision and never a density one.
+    --mlv-page-chrome-block-padding: var(--mlv-spacing-3);
+    --mlv-page-chrome-row-gap: var(--mlv-spacing-2);
+    --mlv-page-chrome-item-gap: var(--mlv-spacing-2);
+
+    // The reading measure. One token for the two places that were making the
+    // same decision separately: the header description's `max-width`, which was
+    // a bare `48rem` literal, and the page's own `maxWidth` input, which caps
+    // the reading column (see `--mlv-page-measure-gutter`). A consumer that
+    // wants both on one measure writes `maxWidth="var(--mlv-page-measure)"`.
+    --mlv-page-measure: 48rem;
+
+    // ── Chrome surface ──────────────────────────────────────────────────────
+    // One fill for all three chrome bars — header, summary strip, dock — with
+    // exactly two states. At rest a bar *is* the canvas and only its hairline
+    // says where it ends; over scrolling content it steps one rung up. That is
+    // the whole separation vocabulary, replacing the four signals the three
+    // bars each stacked (translucent fill, `blur(1.25rem)`, hairline,
+    // shadow deepening raised→floating).
+    //
+    // Declared here rather than on each bar, because a custom property an
+    // element declares itself beats the inherited one: a page-level state
+    // could never reach a bar that re-declared it. Each bar reads
+    // `var(--mlv-page-chrome-bg, var(--mlv-page-chrome-surface, …))`, so a
+    // consumer knob still wins over the state, and the innermost fallback is
+    // what a bar rendered outside a page resolves.
+    --mlv-page-chrome-surface: var(--mlv-background-bar);
+
     // Radius of the page's *padding* box — the box the full-bleed top chrome
     // occupies. Zero unless the surface is anchored; see `--surface-anchored`.
     --mlv-page-surface-radius: 0rem;
+
+    // ── Geometry contract ───────────────────────────────────────────────────
+    // Every page establishes its own local defaults for the whole contract, so
+    // one page's measurements can never leak into another mounted beside it
+    // (a route transition, a page inside a dialog). `MlvPageGeometry`
+    // overwrites the measured ones as inline styles on this same element, and
+    // removes a property again rather than publishing a meaningless `0px`.
+    //
+    // Size and clearance are separate questions: `--chrome-block-size` is how
+    // tall the top chrome is, `--sticky-inset-block-start` is how much of it a
+    // scrollport must actually reserve. They diverge whenever the header is
+    // not sticky.
+    --mlv-page-scrollport-block-size: 0px;
+    --mlv-page-chrome-block-size: 0px;
+    --mlv-page-sticky-inset-block-start: 0px;
+    --mlv-page-sticky-inset-block-end: 0px;
+    --mlv-page-dock-block-size: 0px;
+
+    // Derived, never written by script, so it stays live with its three terms
+    // and needs no fourth measurement. Clamped at zero: a scrollport shorter
+    // than its own chrome must not publish a negative length, which would make
+    // every `calc()` reading it invalid at computed-value time.
+    --mlv-page-available-block-size: max(
+      0px,
+      calc(
+        var(--mlv-page-scrollport-block-size) - var(
+            --mlv-page-sticky-inset-block-start
+          ) - var(--mlv-page-sticky-inset-block-end)
+      )
+    );
+
+    @include density.density-tight {
+      --mlv-page-chrome-block-padding: var(--mlv-spacing-1);
+      --mlv-page-chrome-row-gap: var(--mlv-spacing-1);
+      --mlv-page-chrome-item-gap: var(--mlv-spacing-1);
+    }
+
+    @include density.density-compact {
+      --mlv-page-chrome-block-padding: var(--mlv-spacing-2);
+      --mlv-page-chrome-row-gap: var(--mlv-spacing-1);
+      --mlv-page-chrome-item-gap: var(--mlv-spacing-1-5);
+    }
+
+    @include density.density-spacious {
+      --mlv-page-chrome-block-padding: var(--mlv-spacing-4);
+      --mlv-page-chrome-row-gap: var(--mlv-spacing-3);
+      --mlv-page-chrome-item-gap: var(--mlv-spacing-3);
+    }
+
+    @include density.density-airy {
+      --mlv-page-chrome-block-padding: var(--mlv-spacing-6);
+      --mlv-page-chrome-row-gap: var(--mlv-spacing-4);
+      --mlv-page-chrome-item-gap: var(--mlv-spacing-4);
+    }
 
     &__scrollbar {
       width: 100%;
@@ -32,26 +143,170 @@
     // The page's *own* scrollbar viewport, never a nested one: these are
     // page-level scroll decisions, and `overflow-x: hidden` on a projected
     // `mlv-chat` or `orientation="both"` scrollbar would silently kill its
-    // horizontal axis. Same shape as the `scroll="none"` clip below and as the
-    // child combinators in `mlv-scrollbar`'s own stylesheet (issue #98).
+    // horizontal axis — the exact composition `scroll="content"` exists for.
+    // Same shape as the child combinators in `mlv-scrollbar`'s own stylesheet
+    // (issue #98).
     &__scrollbar > .mlv-scrollbar__viewport {
       overflow-x: hidden;
-      scroll-padding-top: var(--mlv-page-header-offset, 6rem);
-      // Scroll anchoring would auto-adjust scrollTop while the snap timeline
-      // resizes the top chrome, feeding the scroll position back into the
-      // progress until it runs away to 0 or 1. The snap spacer keeps geometry
-      // stable instead.
+      // WCAG 2.2 SC 2.4.11 (Focus Not Obscured, AA) names sticky headers
+      // explicitly, and scroll padding is the sufficient technique. The value
+      // has to be the *measured* one: this header collapses as you scroll, so
+      // a constant is wrong at every progress except the one it was picked at.
+      //
+      // `--mlv-page-header-offset` was read here with a 6rem guess and written
+      // by nothing. It survives as the first term of the chain so a consumer
+      // that set it keeps winning, and falls through to the published value.
+      scroll-padding-block-start: var(
+        --mlv-page-header-offset,
+        var(--mlv-page-sticky-inset-block-start)
+      );
+      scroll-padding-block-end: var(--mlv-page-sticky-inset-block-end);
+
+      // The progress every chrome region reads. Declared *here*, on the
+      // scroller, for two reasons: an anonymous scroll timeline resolves
+      // against the element's own scroll container, so the animation has to sit
+      // on the scrollport rather than on the page host above it — and a
+      // declaration on the scroller is what shadows the animated value for the
+      // whole subtree, which is the only way to override it at all. Animations
+      // outrank normal author declarations, and a *paused* animation still
+      // applies its value, so a plain write to the animated property could
+      // never win. `MlvPage` writes the override whenever it, and not the
+      // timeline, is the source of progress.
+      --mlv-page-snap: var(
+        --mlv-page-snap-override,
+        var(--mlv-page-scroll-snap, 0)
+      );
+    }
+
+    // Scroll anchoring auto-adjusts `scrollTop` when content above the reader
+    // resizes — which is exactly what the snap timeline does to the top
+    // chrome, feeding the scroll position back into the progress until it runs
+    // away to 0 or 1. So it is suppressed *while there is a timeline*, and not
+    // one moment longer: a page whose chrome collapses by nothing keeps the
+    // browser's own place-keeping, which is a real accessibility feature and
+    // never was the page's to spend. `--snapping` follows the measured
+    // `collapseDistance`, so it switches itself off on a page with no
+    // collapsing chrome at all.
+    //
+    // This rule has been a **no-op in Safari**, which never implemented scroll
+    // anchoring — Safari 27 ships it, so that is the first engine where the
+    // suppression starts doing work and the first place the feedback loop it
+    // guards against can appear at all. Re-test the timeline on that beta.
+    &--snapping &__scrollbar > .mlv-scrollbar__viewport,
+    &--snapping.#{$block}--scroll-document > &__inner {
       overflow-anchor: none;
     }
 
+    // Firefox has not shipped scroll-driven animations and Safari only did in
+    // 26, so this is a real branch: without it `--mlv-page-scroll-snap` keeps
+    // its registered initial value and `MlvPage` drives the override instead.
+    @supports (animation-timeline: scroll()) {
+      &__scrollbar > .mlv-scrollbar__viewport {
+        animation-name: mlv-page-snap-scrub;
+        // No `animation-duration`: `auto` is what maps a progress-based
+        // timeline onto the whole animation, and the shorthand is avoided
+        // entirely because it resets `animation-timeline`.
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: scroll(self block);
+        // Exactly as long as the chrome measured itself giving up. A zero
+        // range is a degenerate timeline, which is why `MlvPage` takes the
+        // override back over when the distance is zero.
+        animation-range: 0 var(--mlv-page-snap-range, 0px);
+      }
+
+      // The shared reduced-motion mixin shortens durations, and a scroll-driven
+      // collapse has none. What the criterion is actually about here is a title
+      // resizing under the reader on every wheel notch, so the timeline steps
+      // between its two ends instead of scrubbing.
+      @media (prefers-reduced-motion: reduce) {
+        &__scrollbar > .mlv-scrollbar__viewport {
+          animation-timing-function: steps(2, jump-none);
+        }
+      }
+    }
+
+    // Without a scrollport of its own the page has no element between the host
+    // and the canvas to declare the progress chain on, so the canvas declares
+    // it. `document` reads the value the timeline below animates here;
+    // `content` has no CSS timeline at all and always reads the override.
+    &--scroll-content > &__inner,
+    &--scroll-document > &__inner {
+      --mlv-page-snap: var(
+        --mlv-page-snap-override,
+        var(--mlv-page-scroll-snap, 0)
+      );
+    }
+
+    // A document-scrolled page is scrubbed by the *root* scroller, which is
+    // what `scroll(root block)` names — `self` would resolve against the page's
+    // own scroll container, and a page in document flow has none.
+    @supports (animation-timeline: scroll()) {
+      &--scroll-document > &__inner {
+        animation-name: mlv-page-snap-scrub;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: scroll(root block);
+        animation-range: 0 var(--mlv-page-snap-range, 0px);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        &--scroll-document > &__inner {
+          animation-timing-function: steps(2, jump-none);
+        }
+      }
+
+      // A view transition freezes the outgoing page as a snapshot and leaves
+      // the incoming one live. A scrub that keeps running across that window
+      // crossfades two different collapse states, so both timelines hold at
+      // the progress they had. `MlvPageViewTransition` writes the attribute;
+      // without `mlvPageViewTransitionHook()` wired up it is never present and
+      // these two rules never match.
+      :root[data-mlv-page-view-transition] & {
+        &__scrollbar > .mlv-scrollbar__viewport,
+        &--scroll-document > .#{$block}__inner {
+          animation-play-state: paused;
+        }
+      }
+    }
+
     &__inner {
-      // Size container so page chrome (header rows, docks) can adapt to the
-      // canvas width instead of the viewport.
+      // The single `--mlv-page-inset` scalar stays the knob a consumer sets;
+      // the two axis names below are what chrome geometry reads, so a
+      // full-bleed margin can never accidentally borrow the other axis. Both
+      // derive from the scalar, so an existing override still reaches them.
+      --mlv-page-inset-inline: var(--mlv-page-inset, 0rem);
+      --mlv-page-inset-block: var(--mlv-page-inset, 0rem);
+
+      // Half the slack between the canvas and the capped reading measure.
+      // `maxWidth` caps the *reading column*, not the canvas: chrome spans the
+      // full width and pads by this instead, so a wide application gets
+      // full-bleed chrome and a narrow measure without capping either by hand.
+      // The percentage is substituted, not resolved, here — every consumer
+      // resolves it against this same content box, which is what makes chrome
+      // content and body content share one start edge.
+      --mlv-page-measure-gutter: max(
+        0rem,
+        calc((100% - var(--mlv-page-max-width, 100%)) / 2)
+      );
+
+      // Named size container so page chrome (header rows, docks) can adapt to
+      // the canvas width instead of the viewport. Named, so a nested container
+      // a consumer establishes inside the page cannot answer a query the page
+      // chrome asked of the canvas.
       container-type: inline-size;
+      container-name: container.$page-container;
       width: 100%;
       min-height: 100%;
-      max-width: var(--mlv-page-max-width, none);
-      margin-inline: auto;
+      padding: var(--mlv-page-inset-block) var(--mlv-page-inset-inline);
+    }
+
+    // The scroller has moved off the top, so the chrome is over content. This
+    // is the snap controller's `overlapped`, which is deliberately *not* the
+    // collapse fraction: chrome pinned at full height collapses by nothing and
+    // still has to say it is sitting over content.
+    &--overlapped {
+      --mlv-page-chrome-surface: var(--mlv-background-bar-overlapped);
     }
 
     &--surface-anchored {
@@ -70,98 +325,119 @@
       border-radius: 0;
     }
 
-    &--scroll-auto {
+    // ── Scroll modes ────────────────────────────────────────────────────────
+    // `page` and `content` are both bounded boxes; they differ in whether the
+    // page renders a scrollport inside that box. `document` is neither — it is
+    // the page declining to bound itself at all.
+    &--scroll-page,
+    &--scroll-content {
       overflow: clip;
     }
 
-    &--scroll-none {
-      overflow: clip;
+    // No scrollport of the page's own: the chrome sits in auto tracks and
+    // whatever else is projected shares the remaining space, which is what
+    // gives a fixed-height table or a split pane a definite box to fill. The
+    // `:not()` is how "the body" is identified without the page having to know
+    // what the consumer projected — chrome names itself, everything else is
+    // body. Two body children share the track; that is the consumer's layout.
+    &--scroll-content > &__inner {
+      display: flex;
+      flex-direction: column;
+      block-size: 100%;
+      min-block-size: 0;
     }
 
-    // The page's *own* scrollbar viewport, never a nested one. `scroll="none"`
-    // hands scrolling to a consumer-owned region inside the page, and that
-    // region routinely is (or contains) another `mlv-scrollbar` — clipping its
-    // viewport too would leave it unable to scroll at all. Same shape as the
-    // child combinators in `mlv-scrollbar`'s own stylesheet (issue #98).
-    &--scroll-none &__scrollbar > .mlv-scrollbar__viewport {
-      overflow: clip;
+    &--scroll-content > &__inner > * {
+      flex: 0 0 auto;
+      min-block-size: 0;
     }
 
+    // Everything that is not chrome is the reading column, and the reading
+    // column is what `maxWidth` caps. Chrome names itself; a consumer's own
+    // wrapper is body content and is capped with it.
+    &__inner > :not(.mlv-page-header, .mlv-page-summary, .mlv-page-dock) {
+      max-inline-size: var(--mlv-page-max-width, none);
+      margin-inline: auto;
+    }
+
+    &--scroll-content
+      > &__inner
+      > :not(.mlv-page-header, .mlv-page-summary, .mlv-page-dock) {
+      flex: 1 1 auto;
+    }
+
+    // Natural document flow. The page keeps no definite block size of its own,
+    // so `min-height: 100%` on the canvas resolves against an indefinite parent
+    // and computes to `auto` — the page is exactly as tall as its content, and
+    // sticky chrome sticks to the viewport rather than to a scrollport.
+    &--scroll-document {
+      display: block;
+      flex: 0 0 auto;
+      overflow: visible;
+    }
+
+    // Each modifier sets only the scalar; `&__inner` above derives both axes
+    // and the padding shorthand from it.
     &--padding-none &__inner {
       --mlv-page-inset: 0rem;
-
-      padding: 0;
     }
 
     &--padding-s &__inner {
       --mlv-page-inset: var(--mlv-spacing-1-5);
-
-      padding: var(--mlv-page-inset);
     }
 
     &--padding-m &__inner {
       --mlv-page-inset: var(--mlv-spacing-2);
-
-      padding: var(--mlv-page-inset);
     }
 
     &--padding-l &__inner {
       --mlv-page-inset: var(--mlv-spacing-3);
-
-      padding: var(--mlv-page-inset);
     }
 
-    // Top chrome spans the full canvas width regardless of the page inset; its
-    // own inline padding (via --mlv-page-inset) re-aligns content.
+    // Top chrome spans the full canvas width regardless of the page inset, and
+    // it does so from **its own stylesheet**, reading the inherited
+    // `--mlv-page-inset-*` — the same mechanism `mlv-page-dock` already used,
+    // now shared by the header and the summary strip. A `<form>` or `<section>`
+    // between the canvas and the chrome therefore keeps the treatment, where a
+    // `.mlv-page__inner > …` child selector silently dropped it.
     //
-    // NOTE: unlike `mlv-page-dock` — which derives its own full-bleed margins
-    // from the inherited --mlv-page-inset and therefore tolerates any wrapper —
-    // the header and summary strip MUST stay **direct children** of the page.
-    // Their geometry is sibling-relative (the header's top bleed, the snap
-    // spacer handover below) and `MlvPage` measures the same direct children to
-    // compute --mlv-page-snap-offset. Wrapping either one in a <form>/<section>
-    // silently drops the full-bleed treatment and the snap compensation.
-    &__inner > .mlv-page-header,
-    &__inner > .mlv-page-summary {
-      margin-inline: calc(-1 * var(--mlv-page-inset, 0rem));
-    }
-
-    &__inner > .mlv-page-header {
-      margin-top: calc(-1 * var(--mlv-page-inset, 0rem));
-      // The header carries a standalone top radius of its own; full-bleed
-      // inside a page that would leave hairline gaps at the canvas edge. The
-      // first child takes the canvas curve back below.
-      border-radius: 0;
-    }
-
-    // The full-bleed top chrome's box *is* the page's padding box at the top
-    // edge, so it has to carry the page's own inner corner radius. The host's
-    // `overflow: clip` does not do it: the header and the summary strip paint a
-    // glass surface with `backdrop-filter`, and a filtered backdrop is composited
-    // into a backdrop root that an ancestor's rounded overflow clip never reaches
-    // (verified in Chromium — forcing `backdrop-filter: none` on the header
-    // rounds the corners, restoring the blur squares them off again).
+    // Inheritance fixes **discovery**, not containment: a wrapper that scrolls,
+    // clips or pads still changes the geometry, and nothing here can rescue
+    // that. Measurement was already independent of both — every region
+    // registers with `MlvPageGeometry` rather than being queried.
     //
-    // Clipping on `.mlv-page__inner` is NOT the alternative: `overflow` there
-    // makes `__inner` the nearest scroll container for the sticky header, and
-    // `__inner` scrolls with the content, so the header would stop sticking —
-    // and every inline-rendered overlay would be cut off at the canvas edge.
+    // The rounded top corner lives there too. The full-bleed chrome's box *is*
+    // the page's padding box at that edge, so it carries the page's own inner
+    // curve rather than leaning on the host's rounded `overflow: clip`. Two
+    // reasons it cannot lean on it: only `--scroll-page` and `--scroll-content`
+    // clip at all, so a `scroll="document"` page has no clip to inherit a curve
+    // from; and clipping on `.mlv-page__inner` — the box the chrome actually
+    // sits in — is not available either, because `overflow` there makes
+    // `__inner` the nearest scroll container for the sticky header, and
+    // `__inner` scrolls with the content, so the header would stop sticking,
+    // while every inline-rendered overlay would be cut off at the canvas edge.
     //
-    // `:first-child` because only the first child sits on the corner. Chrome
-    // further down the page is still full-bleed inline, but must stay square.
-    &__inner > .mlv-page-header:first-child,
-    &__inner > .mlv-page-summary:first-child {
-      border-radius: var(--mlv-page-surface-radius, 0rem)
-        var(--mlv-page-surface-radius, 0rem) 0 0;
-    }
+    // (Until the chrome surface was flattened this was also forced: a
+    // `backdrop-filter`ed box composites into a backdrop root that an
+    // ancestor's rounded overflow clip never reaches. The blur is gone; the
+    // two reasons above are not.)
 
-    // The height the snapping chrome gives up is re-added after it so the
-    // document geometry stays stable mid-scrub (no content jumps, no scroll
-    // anchoring feedback). A projected summary strip lives inside the header,
-    // so the header carries the spacer; a legacy sibling strip takes it over.
-    &__inner > .mlv-page-summary,
-    &__inner > .mlv-page-header:not(:has(~ .mlv-page-summary)) {
-      margin-bottom: var(--mlv-page-snap-offset, 0rem);
+    // The height the snapping chrome gives up is re-added at the end of the
+    // canvas, so the scroll height stays constant while the chrome shrinks —
+    // no scroll-anchoring feedback, no clamping of `scrollTop` near the
+    // bottom. It is exactly `range x progress` because every collapsing region
+    // gives up its block size over the same 0..1 span (the stagger inputs move
+    // opacity, not height), so the total needs no per-region sum.
+    //
+    // A pseudo-element rather than a margin on the chrome itself: the spacer
+    // must not be shadowed by a region that has stepped off the timeline to
+    // keep a focused control visible, and `__inner` is that region's ancestor.
+    &__inner::after {
+      content: '';
+      display: block;
+      block-size: calc(
+        var(--mlv-page-snap-range, 0px) * var(--mlv-page-snap, 0)
+      );
     }
 
     &--sticky-header .mlv-page-header {
@@ -194,13 +470,16 @@
   }
 
   .mlv-page-snap--hide {
-    max-height: calc(
-      var(--mlv-snap-size, 3rem) * (1 - var(--mlv-snap-progress))
+    // The height follows the *page* progress; only the content staggers. That
+    // split is what keeps the page's compensation exact for any stagger.
+    max-block-size: calc(
+      var(--mlv-snap-size, 0px) * (1 - var(--mlv-page-snap, 0))
     );
     overflow: hidden;
-    // Content fades ahead of the height collapse and drifts up slightly, so it
-    // reads as sliding away under the chrome rather than being cut off.
-    opacity: calc(1 - var(--mlv-snap-progress) * 1.5);
+    // Reaches zero exactly at `snapTo`, which is also where the region leaves
+    // the accessibility tree — there is no window in which the content is
+    // invisible and still announced, or still a tab stop.
+    opacity: calc(1 - var(--mlv-snap-progress));
     transform: translateY(calc(-0.5rem * var(--mlv-snap-progress)));
   }
 
@@ -210,7 +489,26 @@
   // it wins the equal-specificity cascade against their own progress value.
   .mlv-page-snap--revealed {
     --mlv-snap-progress: 0;
+    --mlv-page-snap: 0;
   }
 
   @include mixins.reduced-motion($block);
+
+  // Responsive withholding of page-chrome regions, resolved here and nowhere
+  // else. A region says *when* it is withheld (`[hideOn]` → `data-hide-on`);
+  // this is the only place that knows what "narrow" means, so the definition
+  // cannot drift between a breakpoint hook, a stylesheet and a doc the way
+  // Primer's did. Scoped to `.mlv-page` because the width being asked about is
+  // the page canvas: outside a page there is no canvas to be narrow.
+  @container #{container.$page-container} (width <= #{container.$page-narrow}) {
+    .mlv-page [data-hide-on='narrow'] {
+      display: none;
+    }
+  }
+
+  @container #{container.$page-container} (width > #{container.$page-narrow}) {
+    .mlv-page [data-hide-on='wide'] {
+      display: none;
+    }
+  }
 }

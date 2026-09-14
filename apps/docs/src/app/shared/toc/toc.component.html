@@ -11,7 +11,7 @@
         >
           <a
             class="docs-toc__link"
-            [href]="'#' + entry.slug"
+            [href]="fragmentHref(entry.slug)"
             (click)="scrollTo(entry.slug, $event)"
           >
             {{ entry.text }}

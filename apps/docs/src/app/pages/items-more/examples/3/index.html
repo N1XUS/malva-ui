@@ -1,0 +1,63 @@
+<ng-template #icon let-id>
+  @switch (id) {
+    @case ('edit') {
+      <svg lucidePencil [size]="16" />
+    }
+    @case ('duplicate') {
+      <svg lucideCopy [size]="16" />
+    }
+    @case ('share') {
+      <svg lucideShare2 [size]="16" />
+    }
+    @case ('export') {
+      <svg lucideDownload [size]="16" />
+    }
+    @case ('archive') {
+      <svg lucideArchive [size]="16" />
+    }
+    @case ('delete') {
+      <svg lucideTrash2 [size]="16" />
+    }
+  }
+</ng-template>
+
+<div class="frame">
+  <mlv-items-more ariaLabel="More document actions">
+    @for (action of actions; track action.id) {
+      <mlv-items-more-item>
+        <!-- In the row: a compact, glyph-only button. -->
+        <ng-template mlvItemsMoreVisible>
+          <button
+            mlvButton
+            variant="outlined"
+            shape="square"
+            [attr.aria-label]="action.label"
+          >
+            <ng-container
+              [ngTemplateOutlet]="icon"
+              [ngTemplateOutletContext]="{ $implicit: action.id }"
+            />
+          </button>
+        </ng-template>
+
+        <!-- In the panel: room to spell out what it does. -->
+        <ng-template mlvItemsMoreHidden>
+          <button mlvButton variant="transparent">
+            <ng-container
+              [ngTemplateOutlet]="icon"
+              [ngTemplateOutletContext]="{ $implicit: action.id }"
+            />
+            {{ action.label }}
+          </button>
+        </ng-template>
+      </mlv-items-more-item>
+    }
+
+    <ng-template mlvItemsMoreTriggerDef let-count>
+      <button mlvButton variant="outlined" mlvItemsMoreTrigger>
+        More ({{ count }})
+        <svg lucideChevronDown [size]="16" />
+      </button>
+    </ng-template>
+  </mlv-items-more>
+</div>

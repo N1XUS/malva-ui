@@ -1,4 +1,6 @@
-## Density and RTL
+---
+title: Density and RTL
+---
 
 The board carries `MlvDensityDirective` as a host directive, so `[mlvDensity]` is an input on `<mlv-taskboard>` itself. With no explicit value it resolves the usual way — the nearest ancestor density context, then the global `MlvDensityService` — so a board inside a `[mlvDensityRoot]` shell follows the application without a binding.
 

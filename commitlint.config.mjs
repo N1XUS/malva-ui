@@ -50,8 +50,8 @@ export default {
         'form-utils',
         'icon-toggle',
         'input',
+        'items-more',
         'kbd',
-        'layout',
         'link',
         'list',
         'loader',
@@ -101,6 +101,7 @@ export default {
         'overlay',
         'shrink-wrap',
         'testing-e2e',
+        'theme',
         'utils',
         // meta scopes
         'deps',

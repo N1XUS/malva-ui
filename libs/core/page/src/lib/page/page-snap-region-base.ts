@@ -8,7 +8,10 @@ import {
 } from '@angular/core';
 import type { Signal } from '@angular/core';
 import { MlvPageSnapController } from './page-snap-controller';
-import type { MlvPageSnapRegion } from './page-snap-controller';
+import type {
+  MlvPageSnapCoordinator,
+  MlvPageSnapRegion,
+} from './page-snap-state';
 
 /**
  * Shared focus contract for page chrome that the scroll timeline collapses —
@@ -39,9 +42,10 @@ export abstract class MlvPageSnapRegionBase implements MlvPageSnapRegion {
    * @protected Snap state of the owning page, when rendered inside one.
    * Absent outside `main[mlvPage]`, where nothing collapses.
    */
-  protected readonly _snapController = inject(MlvPageSnapController, {
-    optional: true,
-  });
+  protected readonly _snapController: MlvPageSnapCoordinator | null = inject(
+    MlvPageSnapController,
+    { optional: true },
+  );
 
   /** @private Host element, for the eager reveal and the focus containment test. */
   private readonly _regionHost = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -54,6 +58,16 @@ export abstract class MlvPageSnapRegionBase implements MlvPageSnapRegion {
    * window — the collapse the exceptions above opt out of.
    */
   protected abstract readonly _elapsed: Signal<boolean>;
+
+  /**
+   * @protected Block size this region gives up between fully expanded and
+   * fully collapsed, in pixels — its own measurement, never a declared
+   * constant. The controller sums these into the collapse distance, which is
+   * both the length of the scroll timeline and the height the page has to
+   * compensate for, so a region that measures itself keeps the timeline
+   * correct through a font load, a locale change or a responsive rewrap.
+   */
+  protected abstract readonly _collapsibleBlockSize: Signal<number>;
 
   /**
    * @protected Holds the region at its expanded state while it has focus:
@@ -75,8 +89,18 @@ export abstract class MlvPageSnapRegionBase implements MlvPageSnapRegion {
   );
 
   constructor() {
-    const unregister = this._snapController?.registerRegion(this);
-    inject(DestroyRef).onDestroy(() => unregister?.());
+    const unregisterRegion = this._snapController?.registerRegion(this);
+    // Deferred: `_collapsibleBlockSize` is a subclass field, so it is still
+    // `undefined` while this base constructor runs. The controller only ever
+    // reads the signal inside a `computed`, which first runs after the whole
+    // instance is constructed.
+    const unregisterCollapse = this._snapController?.registerCollapse(
+      computed(() => this._collapsibleBlockSize()),
+    );
+    inject(DestroyRef).onDestroy(() => {
+      unregisterRegion?.();
+      unregisterCollapse?.();
+    });
   }
 
   /**

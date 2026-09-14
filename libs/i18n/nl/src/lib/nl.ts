@@ -330,6 +330,10 @@ const nl: MlvLanguage = {
     decrement: 'Waarde verlagen',
     increment: 'Waarde verhogen',
   },
+  page: {
+    pageSummary: 'Paginasamenvatting',
+    expandHeader: 'Koptekst uitklappen',
+  },
   pagination: {
     navigationLabel: 'Paginering',
     previousPage: 'Vorige pagina',

@@ -7,16 +7,6 @@ $block: data-operations-showcase;
     min-inline-size: 0;
   }
 
-  &__title-row {
-    display: flex;
-    align-items: center;
-    gap: var(--mlv-spacing-2);
-  }
-
-  &__title-row h1 {
-    margin: 0;
-  }
-
   &__announcement {
     min-block-size: var(--mlv-spacing-5);
     color: var(--mlv-text-secondary);

@@ -1453,12 +1453,21 @@ describe('website builder showcase', () => {
   /* ---------------------------------------------------------------------- */
 
   describe('escape to the top level', () => {
-    /** The page header's snapping tabs row. */
+    /** The page header's tabs region, which never joins the snap timeline. */
     function tabsRow(rendered: Rendered): HTMLElement {
       const row = rendered.root.querySelector<HTMLElement>(
-        '.mlv-page-header__tabs-row',
+        '.mlv-page-header__tabs',
       );
-      if (!row) throw new Error('No page-header tabs row');
+      if (!row) throw new Error('No page-header tabs region');
+      return row;
+    }
+
+    /** A header region that *does* collapse, for the reveal assertions. */
+    function descriptionRow(rendered: Rendered): HTMLElement {
+      const row = rendered.root.querySelector<HTMLElement>(
+        '.mlv-page-header__description',
+      );
+      if (!row) throw new Error('No page-header description region');
       return row;
     }
 
@@ -1470,46 +1479,86 @@ describe('website builder showcase', () => {
       return tab;
     }
 
+    /** The page's own scrollport, whose offset drives the snap timeline. */
+    function viewport(rendered: Rendered): HTMLElement {
+      const el = rendered.root.querySelector<HTMLElement>(
+        '.mlv-page__scrollbar .mlv-scrollbar__viewport',
+      );
+      if (!el) throw new Error('No page scroll viewport');
+      return el;
+    }
+
+    /** Drives the snap timeline the way scrolling does. */
+    async function scrollTo(rendered: Rendered, top: number): Promise<void> {
+      const el = viewport(rendered);
+      el.scrollTop = top;
+      el.dispatchEvent(new Event('scroll'));
+      await settle(rendered);
+    }
+
     it('lands on the active level-1 tab while the chrome is expanded', async () => {
       const rendered = await render();
       rendered.component['onEscapeToTop']();
       expect(document.activeElement).toBe(activeTab(rendered));
     });
 
-    it('reveals chrome the scroll collapsed instead of no-opping on it', async () => {
+    it('takes the page back to the top before it moves focus', async () => {
       const rendered = await render();
-      const snap = rendered.component['_pageSnap']();
-      expect(snap, 'page snap controller').toBeTruthy();
+      const snap = rendered.component['_page']()?.snap;
+      expect(snap, 'page snap state').toBeTruthy();
 
-      // Same end state the scroll timeline reaches past the header's window:
-      // the tabs row goes `visibility: hidden`, and `focus()` on a hidden
-      // element is silently refused.
-      snap?.collapse();
-      await settle(rendered);
-      expect(tabsRow(rendered).style.visibility).toBe('hidden');
+      // The description joins the snap timeline and ends `visibility: hidden`
+      // once its window has elapsed; the level-1 tab strip deliberately does
+      // not, so navigation stays reachable at every scroll offset. That is the
+      // structural half of the fix, and it is assertable here — how far the
+      // timeline has actually run is not, because every region measures itself
+      // as 0px under jsdom, which is a collapse distance of 0.
+      expect(
+        descriptionRow(rendered).classList.contains('mlv-page-snap--hide'),
+      ).toBe(true);
+      expect(tabsRow(rendered).classList.contains('mlv-page-snap--hide')).toBe(
+        false,
+      );
+
+      await scrollTo(rendered, 400);
+      expect(snap?.overlapped()).toBe(true);
 
       rendered.component['onEscapeToTop']();
-      await settle(rendered);
 
-      expect(tabsRow(rendered).style.visibility).toBe('');
-      expect(snap?.snapped()).toBe(false);
+      // `expand()` reveals every region synchronously and asks the page — the
+      // only thing that knows which element scrolls — to return to the top,
+      // which is what actually re-expands the chrome. The reveal itself is
+      // pinned in `page-snap-behavior.spec.ts`, where the measurements can be
+      // faked; here the observable contract is that focus lands on the tab and
+      // the scroller went home.
+      expect(viewport(rendered).scrollTop).toBe(0);
       expect(document.activeElement).toBe(activeTab(rendered));
     });
 
     it('falls back to the always-visible page title when the strip is gone', async () => {
       const rendered = await render();
-      const title = byId('wb-page-title');
-      expect(title.tagName).toBe('H1');
-      expect(title.getAttribute('tabindex')).toBe('-1');
 
-      // The title row never joins the snap timeline, so it is the one landing
-      // that is guaranteed visible.
-      expect(title.closest('.mlv-page-snap--hide')).toBeNull();
+      // The header renders the title template once per type role, so the route
+      // must not own the focus target itself — it asks the header, which
+      // focuses whichever copy is live. Neither copy carries an id or a
+      // tabindex of the route's own.
+      const titles = all(rendered.root, '.mlv-page-header__title-node h1');
+      expect(titles).toHaveLength(2);
+      for (const title of titles) {
+        expect(title.id).toBe('');
+        expect(title.getAttribute('tabindex')).toBeNull();
+        // The title row never joins the snap timeline, so it is the one
+        // landing that is guaranteed visible.
+        expect(title.closest('.mlv-page-snap--hide')).toBeNull();
+      }
 
       tabsRow(rendered).remove();
       rendered.component['onEscapeToTop']();
 
-      expect(document.activeElement).toBe(title);
+      const live = rendered.root.querySelector(
+        '.mlv-page-header__title-node--large',
+      );
+      expect(document.activeElement).toBe(live);
     });
   });
 

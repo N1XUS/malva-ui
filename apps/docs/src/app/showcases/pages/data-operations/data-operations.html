@@ -29,109 +29,30 @@
 
   <main mlvPage padding="l" surface="flat" id="main-content">
     <mlv-page-header>
+      <div mlvPageContext>
+        <!-- The nav trigger is leading context, not title content: the title
+             template is instantiated once per type role, so a control declared
+             inside it would exist twice. -->
+        <button
+          mlvButton
+          variant="transparent"
+          shape="square"
+          mlvSidebarTrigger
+          #viewsSidebarTrigger="mlvSidebarTrigger"
+          [sidebar]="viewsSidebar"
+          [attr.aria-label]="viewsSidebarTrigger.label()"
+        >
+          @if (viewsSidebarTrigger.collapsed()) {
+            <svg lucideMenu [size]="20" />
+          } @else {
+            <svg lucideX [size]="20" />
+          }
+        </button>
+      </div>
       <ng-template mlvPageTitle>
-        <div class="data-operations-showcase__title-row">
-          <button
-            mlvButton
-            variant="transparent"
-            shape="square"
-            mlvSidebarTrigger
-            #viewsSidebarTrigger="mlvSidebarTrigger"
-            [sidebar]="viewsSidebar"
-            [attr.aria-label]="viewsSidebarTrigger.label()"
-          >
-            @if (viewsSidebarTrigger.collapsed()) {
-              <svg lucideMenu [size]="20" />
-            } @else {
-              <svg lucideX [size]="20" />
-            }
-          </button>
-          <h1>{{ activeVariant()?.name ?? 'Accounts' }}</h1>
-        </div>
-
-        <ng-template
-          [(mlvDialog)]="confirmDiscard"
-          [mlvDialogOptions]="{
-            size: 's',
-            role: 'alertdialog',
-            restoreFocus: viewsSidebarTrigger.restoreFocusResolver,
-          }"
-          (mlvDialogClosed)="cancelDiscardChanges()"
-        >
-          <mlv-dialog>
-            <mlv-dialog-header title="Save view changes?" />
-            <mlv-dialog-body>
-              Save these changes as a new personal view, discard them, or keep
-              editing.
-            </mlv-dialog-body>
-            <mlv-dialog-footer>
-              <button
-                mlvButton
-                type="button"
-                variant="secondary"
-                mlvDialogClose
-                (click)="cancelDiscardChanges()"
-              >
-                Cancel
-              </button>
-              <button
-                mlvButton
-                type="button"
-                variant="secondary"
-                mlvDialogClose
-                (click)="confirmDiscardChanges()"
-              >
-                Discard changes
-              </button>
-              <button
-                mlvButton
-                type="button"
-                mlvDialogClose
-                (click)="savePendingAsNewView()"
-              >
-                Save as new view
-              </button>
-            </mlv-dialog-footer>
-          </mlv-dialog>
-        </ng-template>
-
-        <ng-template
-          [(mlvDialog)]="createDialogOpen"
-          [mlvDialogOptions]="{
-            size: 's',
-            restoreFocus: viewsSidebarTrigger.restoreFocusResolver,
-          }"
-          (mlvDialogClosed)="cancelCreateView()"
-        >
-          <mlv-dialog>
-            <mlv-dialog-header title="Create view?" />
-            <mlv-dialog-body>
-              Save the current search, filters, columns, sort, and page size as
-              a new view.
-            </mlv-dialog-body>
-            <mlv-dialog-footer>
-              <button
-                mlvButton
-                type="button"
-                variant="secondary"
-                mlvDialogClose
-                (click)="cancelCreateView()"
-              >
-                Cancel
-              </button>
-              <button
-                mlvButton
-                type="button"
-                mlvDialogClose
-                (click)="confirmCreateView()"
-              >
-                Save view
-              </button>
-            </mlv-dialog-footer>
-          </mlv-dialog>
-        </ng-template>
+        <h1>{{ activeVariant()?.name ?? 'Accounts' }}</h1>
       </ng-template>
-      <ng-template mlvPageHeaderActions>
+      <div mlvPageActions>
         <mlv-button-split>
           <button mlvButton type="button" (click)="createAccount()">
             <svg lucidePlus mlvButtonIcon [size]="16" aria-hidden="true"></svg>
@@ -160,8 +81,93 @@
             Add from template
           </mlv-list-item>
         </mlv-menu>
-      </ng-template>
+      </div>
     </mlv-page-header>
+
+    <!-- Declared beside the header rather than inside it: a dialog is not
+         page chrome, and the title template is instantiated once per type
+         role, which would open two of each. -->
+    <ng-template
+      [(mlvDialog)]="confirmDiscard"
+      [mlvDialogOptions]="{
+        size: 's',
+        role: 'alertdialog',
+        restoreFocus: viewsSidebarTrigger.restoreFocusResolver,
+      }"
+      (mlvDialogClosed)="cancelDiscardChanges()"
+    >
+      <mlv-dialog>
+        <mlv-dialog-header title="Save view changes?" />
+        <mlv-dialog-body>
+          Save these changes as a new personal view, discard them, or keep
+          editing.
+        </mlv-dialog-body>
+        <mlv-dialog-footer>
+          <button
+            mlvButton
+            type="button"
+            variant="secondary"
+            mlvDialogClose
+            (click)="cancelDiscardChanges()"
+          >
+            Cancel
+          </button>
+          <button
+            mlvButton
+            type="button"
+            variant="secondary"
+            mlvDialogClose
+            (click)="confirmDiscardChanges()"
+          >
+            Discard changes
+          </button>
+          <button
+            mlvButton
+            type="button"
+            mlvDialogClose
+            (click)="savePendingAsNewView()"
+          >
+            Save as new view
+          </button>
+        </mlv-dialog-footer>
+      </mlv-dialog>
+    </ng-template>
+
+    <ng-template
+      [(mlvDialog)]="createDialogOpen"
+      [mlvDialogOptions]="{
+        size: 's',
+        restoreFocus: viewsSidebarTrigger.restoreFocusResolver,
+      }"
+      (mlvDialogClosed)="cancelCreateView()"
+    >
+      <mlv-dialog>
+        <mlv-dialog-header title="Create view?" />
+        <mlv-dialog-body>
+          Save the current search, filters, columns, sort, and page size as a
+          new view.
+        </mlv-dialog-body>
+        <mlv-dialog-footer>
+          <button
+            mlvButton
+            type="button"
+            variant="secondary"
+            mlvDialogClose
+            (click)="cancelCreateView()"
+          >
+            Cancel
+          </button>
+          <button
+            mlvButton
+            type="button"
+            mlvDialogClose
+            (click)="confirmCreateView()"
+          >
+            Save view
+          </button>
+        </mlv-dialog-footer>
+      </mlv-dialog>
+    </ng-template>
 
     <section
       class="data-operations-showcase__content"

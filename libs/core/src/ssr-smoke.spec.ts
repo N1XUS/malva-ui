@@ -11,11 +11,7 @@ import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 import type { MlvNavItem } from '@malva-ui/cdk/utils';
 import { MlvAccordion, MlvAccordionItem } from '@malva-ui/core/accordion';
-import {
-  MlvActionBar,
-  MlvActionBarLogo,
-  MlvActionBarSpacer,
-} from '@malva-ui/core/action-bar';
+import { MlvActionBar, MlvActionBarLogo } from '@malva-ui/core/action-bar';
 import { MlvAlert } from '@malva-ui/core/alert';
 import { MlvAvatar } from '@malva-ui/core/avatar';
 import {
@@ -101,8 +97,15 @@ import {
 } from '@malva-ui/core/form-utils';
 import { MlvIconToggle } from '@malva-ui/core/icon-toggle';
 import { MlvInput } from '@malva-ui/core/input';
+import {
+  MlvItemsMore,
+  MlvItemsMoreHiddenDef,
+  MlvItemsMoreItem,
+  MlvItemsMoreTrigger,
+  MlvItemsMoreTriggerDef,
+  MlvItemsMoreVisibleDef,
+} from '@malva-ui/core/items-more';
 import { MlvKbd, type MlvKbdKey } from '@malva-ui/core/kbd';
-import { MlvLayout } from '@malva-ui/core/layout';
 import { MlvLink } from '@malva-ui/core/link';
 import {
   MlvList,
@@ -132,6 +135,7 @@ import {
   MlvPageEndPaneContent,
   MlvPageHeader,
   MlvPageShell,
+  MlvPageSkipLink,
   MlvPageSummary,
   MlvPageSummaryItem,
   MlvPageTitle,
@@ -495,12 +499,17 @@ class SsrPickersHost {
   imports: [
     MlvActionBar,
     MlvActionBarLogo,
-    MlvActionBarSpacer,
     MlvBreadcrumb,
     MlvBreadcrumbItem,
     MlvBottomNav,
     MlvToolbar,
     MlvToolbarSpacer,
+    MlvItemsMore,
+    MlvItemsMoreItem,
+    MlvItemsMoreVisibleDef,
+    MlvItemsMoreHiddenDef,
+    MlvItemsMoreTriggerDef,
+    MlvItemsMoreTrigger,
     MlvTabGroup,
     MlvTab,
     MlvTabDef,
@@ -530,7 +539,6 @@ class SsrPickersHost {
   template: `
     <header mlvActionBar>
       <div mlvActionBarLogo>Malva</div>
-      <span mlvActionBarSpacer></span>
       <button mlvButton>Sign in</button>
     </header>
 
@@ -545,6 +553,31 @@ class SsrPickersHost {
       <mlv-toolbar-spacer />
       <button mlvButton>Two</button>
     </mlv-toolbar>
+
+    <!--
+      No viewport on the server, so nothing is withheld: every item renders in
+      the row and the trigger is present only as the inert measuring probe.
+    -->
+    <mlv-items-more ariaLabel="More actions">
+      <mlv-items-more-item>
+        <ng-template mlvItemsMoreVisible>
+          <button mlvButton>Share</button>
+        </ng-template>
+        <ng-template mlvItemsMoreHidden>
+          <button mlvButton variant="transparent">Share</button>
+        </ng-template>
+      </mlv-items-more-item>
+      <mlv-items-more-item>
+        <ng-template mlvItemsMoreVisible>
+          <button mlvButton>Export</button>
+        </ng-template>
+      </mlv-items-more-item>
+      <ng-template mlvItemsMoreTriggerDef let-count>
+        <button mlvButton mlvItemsMoreTrigger aria-label="More actions">
+          +{{ count }}
+        </button>
+      </ng-template>
+    </mlv-items-more>
 
     <mlv-tab-group [(activeTab)]="tab">
       <mlv-tab value="one">
@@ -631,9 +664,9 @@ class SsrNavigationHost {
 @Component({
   selector: 'mlv-ssr-shell-host',
   imports: [
-    MlvLayout,
     MlvPageShell,
     MlvPage,
+    MlvPageSkipLink,
     MlvPageHeader,
     MlvPageTitle,
     MlvPageSummary,
@@ -653,54 +686,57 @@ class SsrNavigationHost {
     MlvButton,
   ],
   template: `
-    <mlv-layout>
-      <mlv-page-shell>
-        <mlv-sidebar ariaLabel="Primary navigation">
-          <mlv-sidebar-workspace
-            [workspaces]="workspaces"
-            [(workspace)]="workspace"
+    <mlv-page-shell>
+      <!--
+        The skip link resolves its target from the page registry, so on the
+        server there is no active page and it must emit *no* href rather than a
+        dangling one — an anchor with no href is not a link and not a tab stop.
+      -->
+      <a mlvPageSkipLink>Skip to content</a>
+
+      <mlv-sidebar ariaLabel="Primary navigation">
+        <mlv-sidebar-workspace
+          [workspaces]="workspaces"
+          [(workspace)]="workspace"
+        />
+        <div mlvSidebarContent>
+          <mlv-sidebar-item
+            mlvSidebarTrigger
+            #collapseTrigger="mlvSidebarTrigger"
+            [label]="collapseTrigger.label()"
           />
-          <div mlvSidebarContent>
-            <mlv-sidebar-item
-              mlvSidebarTrigger
-              #collapseTrigger="mlvSidebarTrigger"
-              [label]="collapseTrigger.label()"
-            />
-            <mlv-sidebar-item label="Dashboard" [active]="true" />
-            <mlv-sidebar-group label="Projects">
-              <mlv-sidebar-item label="Inbox" />
-            </mlv-sidebar-group>
-          </div>
-          <mlv-sidebar-rail />
-        </mlv-sidebar>
+          <mlv-sidebar-item label="Dashboard" [active]="true" />
+          <mlv-sidebar-group label="Projects">
+            <mlv-sidebar-item label="Inbox" />
+          </mlv-sidebar-group>
+        </div>
+        <mlv-sidebar-rail />
+      </mlv-sidebar>
 
-        <main mlvPage maxWidth="72rem">
-          <mlv-page-header>
-            <ng-template mlvPageTitle
-              ><h1 mlvTitle>Project Atlas</h1></ng-template
-            >
-          </mlv-page-header>
+      <main mlvPage maxWidth="72rem">
+        <mlv-page-header>
+          <ng-template mlvPageTitle
+            ><h1 mlvTitle>Project Atlas</h1></ng-template
+          >
+        </mlv-page-header>
 
-          <mlv-page-summary>
-            <mlv-page-summary-item label="Owner"
-              >Design systems</mlv-page-summary-item
-            >
-          </mlv-page-summary>
+        <mlv-page-summary>
+          <div mlvPageSummaryItem label="Owner">Design systems</div>
+        </mlv-page-summary>
 
-          <mlv-page-content>
-            <section>Page body</section>
-          </mlv-page-content>
+        <mlv-page-content>
+          <section>Page body</section>
+        </mlv-page-content>
 
-          <mlv-page-dock>
-            <button mlvButton>Save</button>
-          </mlv-page-dock>
-        </main>
+        <mlv-page-dock>
+          <button mlvButton>Save</button>
+        </mlv-page-dock>
+      </main>
 
-        <mlv-page-end-pane ariaLabel="Project details">
-          <ng-template mlvPageEndPaneContent><p>Details</p></ng-template>
-        </mlv-page-end-pane>
-      </mlv-page-shell>
-    </mlv-layout>
+      <mlv-page-end-pane ariaLabel="Project details">
+        <ng-template mlvPageEndPaneContent><p>Details</p></ng-template>
+      </mlv-page-end-pane>
+    </mlv-page-shell>
   `,
 })
 class SsrShellHost {

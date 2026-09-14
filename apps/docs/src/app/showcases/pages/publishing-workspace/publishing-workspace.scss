@@ -1,13 +1,6 @@
 $block: publishing-workspace-showcase;
 
 .#{$block} {
-  &__title-row {
-    display: flex;
-    align-items: center;
-    gap: var(--mlv-spacing-2);
-    min-inline-size: 0;
-  }
-
   &__title {
     flex: 1 1 auto;
     min-inline-size: 0;

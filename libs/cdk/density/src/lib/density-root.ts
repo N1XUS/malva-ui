@@ -10,7 +10,7 @@ import { MlvDensityService } from './density.service';
  * automatically to all density-aware descendants.
  *
  * Place this directive on a layout root or container element (e.g.,
- * `<mlv-layout>`, `<main>`, or `<body>`) once per application. All
+ * `<mlv-page-shell>`, `<main>`, or `<body>`) once per application. All
  * descendant components that use the `@include density-compact / density-spacious`
  * SCSS mixins will respond automatically to the current service density — no
  * per-component `[mlvDensity]` input needed.
@@ -21,9 +21,9 @@ import { MlvDensityService } from './density.service';
  *
  * @example Place on layout root
  * ```html
- * <mlv-layout mlvDensityRoot>
+ * <mlv-page-shell mlvDensityRoot>
  *   <mlv-button>Automatically compact when service says compact</mlv-button>
- * </mlv-layout>
+ * </mlv-page-shell>
  * ```
  *
  * @example Programmatic control

@@ -398,7 +398,7 @@ $block: getting-started;
 @media (max-width: 48rem) {
   .#{$block} {
     &__hero {
-      padding: var(--mlv-spacing-6);
+      padding: var(--mlv-spacing-4);
     }
 
     &__note,

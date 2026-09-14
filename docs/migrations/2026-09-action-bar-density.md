@@ -1,7 +1,7 @@
 # `mlv-action-bar` becomes a density scope
 
 **Package:** `@malva-ui/core/action-bar`
-**Symbols:** `MlvActionBar`, `MlvActionBarLogo`, `MlvActionBarSpacer`
+**Symbols:** `MlvActionBar`, `MlvActionBarLogo`
 
 **No exported symbol, selector, `exportAs`, input, output, injection token, BEM
 class or i18n key was renamed or removed.** Nothing to edit for the compiler.
@@ -117,10 +117,13 @@ this is stable regardless of what the app does around it.
 - **`[mlvActionBarLogo]`** gained a density-invariant `min-block-size` /
   `min-inline-size` of `1.5rem`, holding WCAG 2.2 SC 2.5.8 for a text-only logo
   at `tight`. It does not change the bar's height.
-- **`[mlvActionBarSpacer]`** moved its rule from an inline `styles: []` array to
-  `action-bar-spacer.scss`, so it now ships inside `@layer mlv.components` like
-  every other rule the library emits. A consumer override written in that layer
-  previously lost to it and now wins.
+- **`[mlvActionBarSpacer]` is gone** — deleted with no alias by
+  [the `mlv-page` rebuild](2026-09-page-rebuild.md), which lands in the same
+  major. `<mlv-spacer />` (`@malva-ui/cdk/utils`) is the one spacer, and it
+  already ships its rule inside `@layer mlv.components`, so the layering fix
+  this migration originally described for the action-bar spacer reaches the
+  replacement instead of the deleted directive. `.mlv-action-bar__spacer`
+  becomes `.mlv-spacer`.
 - `.mlv-action-bar--pos-top` / `--pos-bottom` express their symmetric insets as
   `inset-inline: 0` instead of `left: 0; right: 0`. No rendered difference in
   either direction.

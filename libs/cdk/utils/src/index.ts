@@ -19,3 +19,4 @@ export * from './lib/normalize-for-match';
 export * from './lib/default-compare-with';
 export * from './lib/rtl/rtl.service';
 export * from './lib/rtl/mirror-inline-offsets';
+export * from './lib/chrome/chrome-color';

@@ -1,8 +1,58 @@
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import type * as Sass from 'sass';
+import { stripCssLayersFromText } from '@malva-ui/internal-testing';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 import { MlvSpacer } from './spacer';
+
+// `sass` is a Node-only dependency; loading it through `createRequire` keeps it
+// out of the browser-ish module graph vitest builds for this project.
+const nodeRequire = createRequire(import.meta.url);
+const sass = nodeRequire('sass') as typeof Sass;
+
+// The `@nx/vitest:test` executor runs with cwd = workspace root, so the paths
+// are resolved from this file rather than from `process.cwd()`.
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SPACER_TS = resolve(HERE, './spacer.ts');
+const SPACER_SCSS = resolve(HERE, './spacer.scss');
+
+/**
+ * `<mlv-spacer>` is the library's one spacer — `MlvActionBarSpacer` was deleted
+ * in favour of it (`docs/migrations/2026-09-page-rebuild.md`), so the two
+ * guarantees that spacer's own style spec carried live here now.
+ */
+describe('MlvSpacer styles', () => {
+  it('lives in a stylesheet rather than an inline `styles:` array', () => {
+    // An inline `styles: []` array is invisible to `libs/styles`' layer guard,
+    // which walks `.css` / `.scss` files only — and an unlayered library rule
+    // outranks every layered one, so a consumer's own
+    // `@layer mlv.components { .mlv-spacer { flex: 0 0 auto } }` could never
+    // win.
+    const source = readFileSync(SPACER_TS, 'utf8');
+    // Anchored to a metadata property, so the prose above that names the
+    // rejected form does not satisfy its own assertion.
+    expect(source).not.toMatch(/^\s*styles:\s*\[/m);
+    expect(source).toMatch(/^\s*styleUrl: '\.\/spacer\.scss',$/m);
+  });
+
+  it('emits its rule inside @layer mlv.components', () => {
+    const css = sass.compile(SPACER_SCSS).css;
+    expect(css).toMatch(/@layer\s+mlv\.components\s*\{/);
+    expect(stripCssLayersFromText(css)).toContain('.mlv-spacer');
+  });
+
+  it('keeps the spacer flexing', () => {
+    // The whole point of the element: it takes the free space in a flex row so
+    // whatever follows it is pushed to the trailing edge.
+    const css = stripCssLayersFromText(sass.compile(SPACER_SCSS).css);
+    expect(css).toContain('flex: 1 1 auto');
+  });
+});
 
 @Component({
   selector: 'mlv-spacer-test-host',

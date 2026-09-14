@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ApplicationInitStatus } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
@@ -5,10 +8,18 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { NavigationEnd, provideRouter, Router } from '@angular/router';
 import type { Subject } from 'rxjs';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 // The service/provider contract is static; only locale data is split into lazy packs.
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import { provideMlvI18n } from '@malva-ui/i18n';
 import { DocsShellComponent } from './docs-shell';
+
+// `@nx/vitest:test` runs with cwd = workspace root, so the stylesheet is
+// resolved from this file rather than from `process.cwd()`.
+const GLOBAL_SCSS = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../styles.scss',
+);
 
 /**
  * `Router.events` is a read-only getter over a private `Subject`. Pushing through
@@ -69,6 +80,46 @@ describe('DocsShellComponent', () => {
   it('delegates global chrome to the shared app bar', () => {
     expect(fixture.nativeElement.querySelector('docs-app-bar')).toBeTruthy();
     expect(fixture.nativeElement.querySelectorAll('header')).toHaveLength(1);
+  });
+
+  /**
+   * The documentation pages are scrolled by the *document*, not by a track
+   * inside the shell: `.docs-shell__main-area` declares no scroller of its own,
+   * `docs-toc` is `position: sticky` against the viewport, and the shell's own
+   * `NavigationEnd` handler resets `window.scrollTo`. `sizing="viewport"` makes
+   * the shell a bounded `calc(100svh - inset)` box whose content track is
+   * `overflow: hidden`, so every page taller than the viewport was silently
+   * clipped with nothing able to scroll it.
+   */
+  /**
+   * `mlv-page-shell` derives a rail's text, hover and active colours from its
+   * own chrome, which is right for an application frame in a brand colour and
+   * wrong for the documentation rail — it should look like every other
+   * `mlv-sidebar` the site documents. Scoping the rail to a theme is the
+   * shell's own opt-out, and binding the *resolved* theme rather than a
+   * literal keeps it following the theme switcher.
+   */
+  it('scopes the navigation rail to the resolved theme', () => {
+    const rail = fixture.nativeElement.querySelector(
+      'mlv-sidebar',
+    ) as HTMLElement;
+
+    expect(rail.getAttribute('mlvTheme')).toBe(
+      TestBed.inject(MlvThemeService).currentTheme(),
+    );
+  });
+
+  it('is content-sized, so the document scrolls the page', () => {
+    const shell = fixture.nativeElement.querySelector(
+      'mlv-page-shell',
+    ) as HTMLElement;
+
+    expect(shell.classList.contains('mlv-page-shell--sizing-content')).toBe(
+      true,
+    );
+    expect(shell.classList.contains('mlv-page-shell--sizing-viewport')).toBe(
+      false,
+    );
   });
 
   describe('navigation trigger', () => {
@@ -167,6 +218,20 @@ describe('DocsShellComponent', () => {
       expect(scrollTo).toHaveBeenCalledWith({ left: 0, top: 0 });
     });
 
+    // A URL that names an anchor is asking to land on that anchor. The ToC
+    // scrolls there once the panel's headings mount, which is strictly after
+    // this callback runs — so a reset here is the last write and wins.
+    it('leaves the scroll position alone when the URL names an anchor', async () => {
+      document.body.focus();
+
+      emitNavigationEnd('/button#status-variants');
+      await flushMacrotask();
+
+      expect(scrollTo).not.toHaveBeenCalled();
+      // Focus management is unchanged: only the scroll reset is withheld.
+      expect(document.activeElement).toBe(main);
+    });
+
     it('leaves focus alone while a modal dialog is open, but still resets scroll', async () => {
       const dialog = document.createElement('div');
       dialog.setAttribute('role', 'dialog');
@@ -225,6 +290,75 @@ describe('DocsShellComponent', () => {
       await flushMacrotask();
 
       expect(document.activeElement).toBe(main);
+    });
+  });
+  // The rail is `position: sticky` inside `.mlv-page-shell__body`, and a sticky
+  // box is clamped to its containing block. Without a floor on that row, a page
+  // whose content is shorter than the viewport makes the row shorter than
+  // `4.75rem` + the rail's own `100svh - 4.75rem`, and the rail is pushed back
+  // to y = 0 — behind the 72px fixed action bar, taking the page filter with it.
+  // Measured on `/link` at a 1100px viewport before the fix: row 1024px, rail
+  // top 0 instead of 76. It also made the rail move between a long page and a
+  // short one, which is the navigation jump this pins.
+  describe('sticky rail geometry', () => {
+    const scss = (): string => readFileSync(GLOBAL_SCSS, 'utf8');
+
+    /**
+     * The stylesheet with its comments removed. The leak check below reads
+     * selectors, and the reason a selector is anchored is written directly
+     * above it — so a prose mention of the very shape being banned would fail
+     * the assertion, and the fix would be to stop explaining the rule.
+     */
+    const declarations = (): string =>
+      scss()
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+
+    it('floors the shell row at the viewport so the sticky rail fits', () => {
+      const rule = scss().match(
+        /\.docs-shell > \.mlv-page-shell__body \{([^}]*)\}/,
+      );
+      expect(rule).not.toBeNull();
+      expect(rule?.[1]).toMatch(/min-block-size:\s*100svh;/);
+    });
+
+    it('keeps the rail offset and its height summing to that floor', () => {
+      // The floor only works while these agree: the offset plus the height is
+      // exactly one viewport, so the rail fits with nothing to spare and adds
+      // no scrollbar of its own.
+      //
+      // Two rules carry this selector — this one and the narrow-viewport
+      // override that unpins the rail — and they have to, because a media
+      // query buys no specificity: an override written at a shorter anchor
+      // would simply lose. So the selector is collected rather than matched
+      // once, and the sticky half is picked by what it declares.
+      const bodies = [
+        ...declarations().matchAll(
+          /\.docs-shell > \.mlv-page-shell__body > \.mlv-page-shell__sidebar \{([^}]*)\}/g,
+        ),
+      ].map((match) => match[1]);
+      const sticky = bodies.filter((body) => /position:\s*sticky;/.test(body));
+
+      expect(bodies).toHaveLength(2);
+      expect(sticky).toHaveLength(1);
+      expect(sticky[0]).toMatch(/top:\s*4\.75rem;/);
+      expect(sticky[0]).toMatch(/height:\s*calc\(100svh - 4\.75rem\);/);
+    });
+
+    // The shell is itself an `mlv-page-shell`, and `/page` documents that
+    // component — so a descendant selector here also matched the shells inside
+    // those examples, which are 38rem boxes with `overflow: hidden`. Measured
+    // on /page at 390x844 and 1440x900 before the anchor: the example's
+    // `__body` took this viewport floor, its canvas resolved to the full
+    // 844/900px, and the bottom third was clipped with no scroller able to
+    // reach it. Every selector naming a library part is anchored with `>`;
+    // `.docs-shell__*` names are docs-only and cannot collide.
+    it('never reaches a page shell rendered inside a documentation example', () => {
+      const leaked = declarations()
+        .split('\n')
+        .filter((line) => /\.docs-shell\s+\.mlv-/.test(line));
+
+      expect(leaked).toEqual([]);
     });
   });
 });

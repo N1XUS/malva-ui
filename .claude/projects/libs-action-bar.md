@@ -22,7 +22,6 @@ Exported from `libs/core/action-bar/src/index.ts`:
 | `MlvActionBarShape` | Type alias | `'default' \| 'pill'` — visual shape variant |
 | `MlvActionBarActions` | Directive | Responsive desktop-actions marker — `[mlvActionBarActions]` |
 | `MlvActionBarLogo` | Component | Logo/branding slot — `[mlvActionBarLogo]` |
-| `MlvActionBarSpacer` | Component | Flex spacer — `[mlvActionBarSpacer]` |
 
 ---
 
@@ -185,8 +184,23 @@ ambient density entirely. It no longer does. See
 
 - Flexbox layout, center aligned, full width by default; `padding: var(--mlv-spacing-3)` and `gap: var(--mlv-spacing-1)` at comfortable, both density-scaled (see _Density_ above)
 - Component-scoped CSS variables for theming: `--mlv-action-bar-bg`, `--mlv-action-bar-fg`, `--mlv-action-bar-border`, `--mlv-action-bar-shadow`, plus `--mlv-action-bar-translate-x` which composes X centering through the enter/leave keyframes
+- **One flat surface, two signals.** `--mlv-action-bar-bg` resolves
+  `--mlv-background-bar` at rest and `--mlv-background-bar-overlapped` under
+  `--fixed` / `--sticky`, where the bar is over content by construction — that
+  is why it is pinned. A hairline says where the bar ends. The same pair backs
+  `mlv-page-header` / `mlv-page-summary` / `mlv-page-dock`, so a shell's topbar
+  and the page chrome below it cannot drift apart
+- **No `backdrop-filter` outside `--contrast`.** The default shape used to be a
+  translucent `elevation-bg-3` fill behind `blur(1.25rem)`, under a hairline,
+  under a shadow — four separation signals for one statement, which
+  `mlv-page-shell` then had to unset two of by hand on its own topbar. Losing
+  the blur is not cosmetic: `backdrop-filter` establishes a containing block for
+  `position: fixed` descendants, so a consumer's overlay rendered inside a bar
+  was anchored to the bar rather than to the viewport
+- **`--mlv-action-bar-shadow` is read, not declared.**
+  `box-shadow: var(--mlv-action-bar-shadow, none)` — an override still wins, and
+  the default is no shadow. The pill shape and `--contrast` supply their own
 - `--mlv-action-bar-logo-gap` / `--mlv-action-bar-logo-font-size`: the logo type ramp, declared on the bar per density and read by `.mlv-action-bar__logo` — see _Density_ above for why the logo cannot resolve it itself. Overridable per bar
-- `backdrop-filter: blur(1.25rem)` on the default shape for a glassy translucent surface
 - `--mlv-action-bar--pos-top`: anchors to top (`top: 0`, `inset-inline: 0`), keeps `border-bottom`
 - `--mlv-action-bar--pos-bottom`: anchors to bottom (`bottom: 0`, `inset-inline: 0`), swaps to `border-top`
 - `--mlv-action-bar--fixed`: `position: fixed` with `z-index: var(--mlv-z-sticky, 200)`
@@ -194,8 +208,8 @@ ambient density entirely. It no longer does. See
 - `--mlv-action-bar--wrap`: `flex-wrap: wrap` — the base `gap` already supplies the row spacing
 - `--mlv-action-bar--shape-pill`: content-width, `max-width: calc(100% - 2rem)`, `padding-block: var(--mlv-spacing-1-5)` + `padding-inline: var(--mlv-spacing-3) var(--mlv-spacing-2)` (**logical** — the leading side holds the label and the trailing side a control, so the asymmetry mirrors in RTL; this replaced a physical four-value shorthand that did not), `border-radius: var(--mlv-radius-full)`, strong two-layer drop shadow, no backdrop filter. Inherits the bar's shape-agnostic `gap`
 - `.mlv-action-bar--shape-pill.mlv-action-bar--fixed`: sets `--mlv-action-bar-translate-x: -50%` and uses `left: 50%; right: auto; transform: translateX(-50%)` for automatic horizontal centering — the one **physical** pair in the stylesheet, because a `left: 50%` + `translateX(-50%)` pair is already direction-agnostic and converting one half would offset the pill by half its width in RTL (`right: auto` releases the position modifier's `inset-inline: 0`); `pos-top` anchors to `top: var(--mlv-spacing-3)` and `pos-bottom` to `bottom: var(--mlv-spacing-4)`
-- `--mlv-action-bar--contrast`: overrides the CSS variables to render a near-black surface on the light theme (`--mlv-palette-neutral-800` at 62%) and a slightly lighter elevated surface on the dark theme (`--mlv-palette-neutral-700` at 68% under `[mlvTheme='dark']`). Button tokens are re-targeted inside a contrast bar so transparent buttons stay readable and primary buttons flip to an inverse color pair
 - `--mlv-action-bar--no-animation`: `animation: none` **and `transition: none`** on the enter and leave classes, the `animated="false"` opt-out. Both are load-bearing — Angular falls back to the computed `transition-duration` when no animation runs, so cancelling only the keyframes would leave the enter class and its listeners on the host for good (see _Animation_ above). Emitted **after** the `--pos-bottom` animation rules, because the two pairs are both (0,2,0) and a bottom-anchored bar carries all three classes at once
+- `--mlv-action-bar--contrast`: the one deliberate glass surface — it keeps its `backdrop-filter` and its shadow, because a smoked-glass floating toolbar is what a consumer opts into here. Overrides the CSS variables to render a near-black surface on the light theme (`--mlv-palette-neutral-800` at 62%) and a slightly lighter elevated surface on the dark theme (`--mlv-palette-neutral-700` at 68% under `[mlvTheme='dark']`). Button tokens are re-targeted inside a contrast bar so transparent buttons stay readable and primary buttons flip to an inverse color pair
 - Enter/leave keyframes: `mlv-action-bar-enter-top` / `-leave-top` for top-anchored bars slide from `translateY(-0.75rem)`; `mlv-action-bar-enter-bottom` / `-leave-bottom` for bottom-anchored bars slide from `translateY(1.25rem)` with a subtle `scale(0.96)` pop. All keyframes use `translate(var(--mlv-action-bar-translate-x), Yrem)` so pill+fixed bars preserve their horizontal centering throughout the animation
 - `@media (prefers-reduced-motion: reduce)` collapses the animation duration to 1ms
 
@@ -249,28 +263,29 @@ Form controls are re-tokenized the same way buttons are: `.mlv-action-bar--contr
 
 ---
 
-### `MlvActionBarSpacer`
+### The spacer is `<mlv-spacer />`
 
-**File:** `libs/core/action-bar/src/lib/action-bar/components/action-bar-spacer.ts`
+There is no `MlvActionBarSpacer`. It was `display: inline-flex; flex-grow: 1` on
+an attribute host, which is what `MlvSpacer` (`mlv-spacer`, `@malva-ui/cdk/utils`)
+already is — `flex: 1 1 auto`, and the one every other bar-like surface in the
+library reaches for. Two names for one declaration meant a consumer had to know
+which surface they were inside before they could push a control to the trailing
+edge.
 
-- **Selector:** `[mlvActionBarSpacer]` (attribute)
-- **Change Detection:** `OnPush`
-- **Encapsulation:** `None`
-- **Template:** Inline — `<ng-content />`
+Its only extra capability was content projection, and no call site ever used it:
+every occurrence in `apps/docs` and in the specs was an empty
+`<div mlvActionBarSpacer></div>`.
 
-#### Host Bindings
-
-```ts
-host: { 'class': 'mlv-action-bar__spacer' }
+```html
+<header mlvActionBar>
+  <a mlvActionBarLogo href="/">Malva</a>
+  <mlv-spacer />
+  <button mlvButton>Sign in</button>
+</header>
 ```
 
-#### Styles
-
-**File:** `libs/core/action-bar/src/lib/action-bar/components/action-bar-spacer.scss`
-
-- `display: inline-flex; flex-grow: 1` — fills all available horizontal space, pushing sibling elements to the right
-- Nothing to scale per density: the spacer paints no box of its own, and the separation it produces is the bar's `gap`, which is density-scaled on the bar
-- Deliberately a `styleUrl`, not an inline `styles: []` array. `libs/styles/src/lib/layers.spec.mjs` walks `.css` / `.scss` files only, so an inline rule is structurally invisible to the layer guard and ships **unlayered** — and an unlayered library rule outranks every layered one, so a consumer's own `@layer mlv.components { .mlv-action-bar__spacer { flex-grow: 0 } }` could never win
+`MlvToolbarSpacer` (`mlv-toolbar-spacer`) is the same shape and is **not**
+removed — `mlv-toolbar` owns spacing rules that select it by class.
 
 ---
 
@@ -308,7 +323,7 @@ None.
 @if (selected().size > 0) {
 <nav mlvActionBar fixed position="bottom" shape="pill" contrast>
   <span>{{ selected().size }} selected</span>
-  <div mlvActionBarSpacer></div>
+  <mlv-spacer />
   <button mlvButton variant="transparent" size="small">Export</button>
   <button mlvButton variant="transparent" size="small">Delete</button>
   <button mlvButton variant="primary" size="small" (click)="clear()" aria-label="Clear">
@@ -323,7 +338,7 @@ None.
 ```html
 <header mlvActionBar mlvDensity="tight" aria-label="Example controls">
   <span mlvActionBarLogo>Preview</span>
-  <div mlvActionBarSpacer></div>
+  <mlv-spacer />
   <!-- No per-control attribute: the buttons resolve MLV_DENSITY_CONTEXT from the bar. -->
   <button mlvButton variant="transparent">Code</button>
   <button mlvButton variant="transparent">Copy</button>

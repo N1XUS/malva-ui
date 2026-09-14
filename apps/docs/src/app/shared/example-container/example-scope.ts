@@ -1,8 +1,8 @@
 import { Directive, inject, input } from '@angular/core';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import { MLV_DENSITY_CONTEXT } from '@malva-ui/cdk/density';
+import type { MlvTheme } from '@malva-ui/cdk/theme';
 import type { MlvDirection } from '@malva-ui/cdk/utils';
-import type { MlvTheme } from '@malva-ui/core/layout';
 
 /**
  * Scopes density, direction and theme to one docs example preview.

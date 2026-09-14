@@ -43,7 +43,7 @@ export type MlvActionBarShape = 'default' | 'pill';
  * ```html
  * <header mlvActionBar mlvDensity="tight" aria-label="Application">
  *   <a mlvActionBarLogo href="/">Malva</a>
- *   <div mlvActionBarSpacer></div>
+ *   <mlv-spacer />
  *   <button mlvButton>Save</button>
  * </header>
  * ```

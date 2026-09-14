@@ -3,7 +3,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { MlvBreakpointService } from '@malva-ui/cdk/utils';
-import { MlvThemeService } from '@malva-ui/core/layout';
+import { MlvThemeService } from '@malva-ui/cdk/theme';
 // The service/provider contract is static; only locale data is split into lazy packs.
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import { provideMlvI18n } from '@malva-ui/i18n';
@@ -115,7 +115,7 @@ describe('HomePageComponent', () => {
     expect(canvas?.querySelector('mlv-page-header')).toBeTruthy();
     expect(canvas?.querySelector('mlv-page-content')).toBeTruthy();
     expect(
-      canvas?.querySelectorAll('mlv-page-header mlv-page-summary-item'),
+      canvas?.querySelectorAll('mlv-page-header [mlvPageSummaryItem]'),
     ).toHaveLength(3);
   });
 

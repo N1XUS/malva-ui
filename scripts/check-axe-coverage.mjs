@@ -293,7 +293,6 @@ export const ROLLOUT_PENDING = [
   'core-slider',
   'core-speed-dial',
   'core-split-pane',
-  'core-tabs',
   'core-textarea',
   'core-toast',
   'core-tokenizer',

@@ -6,6 +6,7 @@ export * from './lib/sidebar-item-host';
 export * from './lib/sidebar-context';
 export * from './lib/sidebar-appearance';
 export * from './lib/sidebar-mode';
+export * from './lib/sidebar-drawer-side';
 export * from './lib/sidebar-header';
 export * from './lib/sidebar-footer';
 export * from './lib/sidebar-content';

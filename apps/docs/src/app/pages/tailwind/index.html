@@ -19,7 +19,7 @@
   </header>
 
   <aside class="tailwind-page__note" aria-labelledby="tailwind-scope">
-    <h2 id="tailwind-scope">What this adds</h2>
+    <h2 class="docs-heading" id="tailwind-scope">What this adds</h2>
     <p>
       <code>&#64;malva-ui/tailwind</code> is an optional application styling
       layer. It does not replace the Malva component stylesheet, and it emits no
@@ -29,7 +29,7 @@
   </aside>
 
   <section class="tailwind-page__section">
-    <h2>Install with the Angular schematic</h2>
+    <h2 class="docs-heading">Install with the Angular schematic</h2>
     <p>
       Run this from the Angular workspace root. The installer adds Tailwind v4,
       the PostCSS adapter, and the runtime styles required by the token bridge.
@@ -94,7 +94,7 @@
   </section>
 
   <section class="tailwind-page__section">
-    <h2>Manual setup</h2>
+    <h2 class="docs-heading">Manual setup</h2>
     <p>
       Use the manual path when your workspace owns its build configuration or
       when you want to place the stylesheet somewhere else.
@@ -102,7 +102,7 @@
 
     <div class="tailwind-page__code-grid">
       <div class="tailwind-page__code-block">
-        <h3>1. Install the runtime packages</h3>
+        <h3 class="docs-heading">1. Install the runtime packages</h3>
         @if (
           manualInstallCommand | highlight: 'bash' : codeTheme() | async;
           as highlighted
@@ -117,7 +117,7 @@
         }
       </div>
       <div class="tailwind-page__code-block">
-        <h3>2. Install the Tailwind tooling</h3>
+        <h3 class="docs-heading">2. Install the Tailwind tooling</h3>
         @if (
           toolingInstallCommand | highlight: 'bash' : codeTheme() | async;
           as highlighted
@@ -135,7 +135,7 @@
 
     <div class="tailwind-page__code-grid">
       <div class="tailwind-page__code-block">
-        <h3>3. Add the PostCSS adapter</h3>
+        <h3 class="docs-heading">3. Add the PostCSS adapter</h3>
         @if (
           postcssExample | highlight: 'json' : codeTheme() | async;
           as highlighted
@@ -150,7 +150,7 @@
         }
       </div>
       <div class="tailwind-page__code-block">
-        <h3>4. Import the theme</h3>
+        <h3 class="docs-heading">4. Import the theme</h3>
         @if (
           stylesheetExample | highlight: 'css' : codeTheme() | async;
           as highlighted
@@ -174,7 +174,7 @@
   </section>
 
   <section class="tailwind-page__section">
-    <h2>Available variables and class names</h2>
+    <h2 class="docs-heading">Available variables and class names</h2>
     <p>
       The adapter exposes namespaced Tailwind theme variables. The class prefix
       tells you which CSS utility family consumes each variable.
@@ -264,7 +264,7 @@
       monospace font.
     </p>
 
-    <h3>Colors</h3>
+    <h3 class="docs-heading">Colors</h3>
     <p>
       Palette families are available at stops <code>50</code> through
       <code>950</code>: <code>primary</code>, <code>secondary</code>,
@@ -276,7 +276,7 @@
       <code>border-mlv-focus</code>.
     </p>
 
-    <h3>Spacing</h3>
+    <h3 class="docs-heading">Spacing</h3>
     <p>
       The spacing scale contains <code>0</code>, <code>px</code>, half steps
       through <code>3.5</code>, and the larger steps <code>4</code>,
@@ -288,7 +288,7 @@
   </section>
 
   <section class="tailwind-page__section">
-    <h2>Live utility example</h2>
+    <h2 class="docs-heading">Live utility example</h2>
     <p>
       These utilities resolve through the adapter in this documentation app.
       Resize the page or switch the documentation theme to see Tailwind and
@@ -304,7 +304,9 @@
             class="font-mlv-medium text-mlv-content-action text-mlv-ui-s uppercase tracking-[0.12em]"
             >Account settings</span
           >
-          <h3 class="font-mlv-display text-mlv-heading-h2 text-mlv-content">
+          <h3
+            class="docs-heading font-mlv-display text-mlv-heading-h2 text-mlv-content"
+          >
             A token-backed card
           </h3>
           <p
@@ -341,7 +343,7 @@
   </section>
 
   <section class="tailwind-page__section tailwind-page__section--last">
-    <h2>Safe updates and troubleshooting</h2>
+    <h2 class="docs-heading">Safe updates and troubleshooting</h2>
     <p>
       The schematic manages only the region between these comment boundaries. It
       can update the generated imports on a later run while preserving your

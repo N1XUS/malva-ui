@@ -82,7 +82,6 @@ import { MlvDivider } from '@malva-ui/core/divider';
 import { MlvEmptyState } from '@malva-ui/core/empty-state';
 import { MlvFormControlAppend } from '@malva-ui/core/form-utils';
 import { MlvIconToggle } from '@malva-ui/core/icon-toggle';
-import { MlvLayout, MlvLayoutSide, MlvLayoutTop } from '@malva-ui/core/layout';
 import {
   MlvList,
   MlvListItem,
@@ -103,6 +102,9 @@ import {
   MlvPageEndPane,
   MlvPageEndPaneContent,
   MlvPageEndPaneTrigger,
+  MlvPageShell,
+  MlvPageSidebar,
+  MlvPageTopbar,
 } from '@malva-ui/core/page';
 import type {
   MlvSidebarMode,
@@ -235,9 +237,6 @@ const CHANNEL_LABEL: Record<SupportChannel, string> = {
     MlvEmptyState,
     MlvFormControlAppend,
     MlvIconToggle,
-    MlvLayout,
-    MlvLayoutSide,
-    MlvLayoutTop,
     MlvList,
     MlvListItem,
     MlvListItemActions,
@@ -268,6 +267,9 @@ const CHANNEL_LABEL: Record<SupportChannel, string> = {
     MlvPageEndPane,
     MlvPageEndPaneContent,
     MlvPageEndPaneTrigger,
+    MlvPageShell,
+    MlvPageSidebar,
+    MlvPageTopbar,
     MlvSidebarTrigger,
     MlvBreakpointUp,
     MlvBreakpointDown,

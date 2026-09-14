@@ -1,4 +1,3 @@
-import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,24 +16,19 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
 import { MlvPageAside } from './page-aside';
 
-/** Placement of the complementary page column. */
-export type MlvPageAsidePlacement = 'start' | 'end';
-
 /** Spacing between the main page column and its complementary aside. */
 export type MlvPageContentGap = 's' | 'm' | 'l';
 
 /** Responsive main-content and complementary-aside grid. */
 @Component({
   selector: 'mlv-page-content',
-  imports: [NgTemplateOutlet],
   templateUrl: './page-content.html',
   styleUrl: './page-content.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-page-content',
-    '[class.mlv-page-content--aside-start]': 'asidePlacement() === "start"',
-    '[class.mlv-page-content--aside-end]': 'asidePlacement() === "end"',
+    'data-slot': 'page-content',
     '[class.mlv-page-content--aside-sticky]': 'asideSticky()',
     '[class.mlv-page-content--gap-s]': 'gap() === "s"',
     '[class.mlv-page-content--gap-m]': 'gap() === "m"',
@@ -45,9 +39,6 @@ export type MlvPageContentGap = 's' | 'm' | 'l';
   },
 })
 export class MlvPageContent {
-  /** Places the complementary column before or after the main content. */
-  readonly asidePlacement = input<MlvPageAsidePlacement>('end');
-
   /** Preferred width of the complementary column while rendered inline. */
   readonly asideWidth = input('20rem');
 
@@ -62,22 +53,18 @@ export class MlvPageContent {
   /** Container width in CSS pixels below which the columns stack. */
   readonly stackBelow = input(1024);
 
-  /** Accessible name for the complementary `<aside>` landmark. */
-  readonly asideLabel = input('Related content');
-
-  /** @protected Optional complementary content projected via `[mlvPageAside]`. */
-  protected readonly _asideRef = contentChild(MlvPageAside);
+  /** @private The projected complementary column, if the consumer wrote one. */
+  private readonly _asideRef = contentChild(MlvPageAside);
 
   /**
    * @protected Whether complementary content is actually projected.
    *
-   * The grid only reserves the aside track while this is `true`, so a consumer
-   * that projects no `[mlvPageAside]` keeps the full inline size for its main
-   * column instead of silently losing `asideWidth` to an empty track.
+   * A real content query, not a `:has()` and not an opt-in input: the grid
+   * reserves the aside track only while this is `true`, so a consumer without
+   * an aside keeps the whole inline size for its main column instead of
+   * silently losing `asideWidth` to an empty track.
    */
-  protected readonly _hasAside = computed(
-    () => !!this._asideRef()?.templateRef,
-  );
+  protected readonly _hasAside = computed(() => !!this._asideRef());
 
   /** @private Host element observed so responsiveness follows available content width. */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
