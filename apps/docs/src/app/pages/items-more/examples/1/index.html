@@ -1,0 +1,106 @@
+<!-- Drag the handle in the bottom corner to narrow the frame. -->
+<div class="frame">
+  <mlv-items-more ariaLabel="More document actions">
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton variant="transparent">
+          <svg lucidePencil [size]="16" />
+          Edit
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton variant="transparent">
+          <svg lucidePencil [size]="16" />
+          Edit
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton variant="transparent">
+          <svg lucideCopy [size]="16" />
+          Duplicate
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton variant="transparent">
+          <svg lucideCopy [size]="16" />
+          Duplicate
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton variant="transparent">
+          <svg lucideShare2 [size]="16" />
+          Share
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton variant="transparent">
+          <svg lucideShare2 [size]="16" />
+          Share
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton variant="transparent">
+          <svg lucideDownload [size]="16" />
+          Export
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton variant="transparent">
+          <svg lucideDownload [size]="16" />
+          Export
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton variant="transparent">
+          <svg lucideArchive [size]="16" />
+          Archive
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton variant="transparent">
+          <svg lucideArchive [size]="16" />
+          Archive
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton variant="transparent">
+          <svg lucideTrash2 [size]="16" />
+          Delete
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton variant="transparent">
+          <svg lucideTrash2 [size]="16" />
+          Delete
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <ng-template mlvItemsMoreTriggerDef>
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvItemsMoreTrigger
+        aria-label="More document actions"
+      >
+        <svg lucideEllipsis [size]="16" />
+      </button>
+    </ng-template>
+  </mlv-items-more>
+</div>

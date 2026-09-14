@@ -1,0 +1,9 @@
+---
+title: Collapsed Form and Custom Trigger
+---
+
+The two item templates don't have to match. Here each action is a glyph-only button in the row, where space is tight, and a labelled button in the panel, where there is room to say what it does.
+
+`mlvItemsMoreTriggerDef` exposes the number of withheld items as its implicit context (`let-count`), so the trigger can say how much it is hiding. The template owns the wording and the chrome; the component only supplies the number. Its width is measured as rendered, so a wide `More (3)` reserves more room than a `⋯` would. That can mean one extra item is withheld compared with the icon trigger — never an item that would have fit.
+
+Items can come from `@for` like any other content. They are kept in declaration order, whatever order they are created in.

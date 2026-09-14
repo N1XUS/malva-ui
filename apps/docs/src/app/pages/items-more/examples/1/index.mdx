@@ -1,0 +1,14 @@
+---
+title: Basic Usage
+---
+
+`mlv-items-more` lays its items out on one line and withholds, from the end, whatever does not fit. Drag the frame's corner handle to watch the split follow the width.
+
+Each `<mlv-items-more-item>` carries two templates:
+
+- `mlvItemsMoreVisible` — how the item looks **in the row**. Required.
+- `mlvItemsMoreHidden` — how it looks **in the overflow panel**.
+
+The "show more" control is split the same way. `mlvItemsMoreTriggerDef` describes how it looks, and `[mlvItemsMoreTrigger]` on the button inside it adds the behaviour: the click, `aria-expanded` and `aria-controls`. The trigger renders only while something is withheld, and its measured width is reserved when deciding what fits.
+
+An item is only withheld when it really does not fit: the split is computed from measured widths, and nothing moves until every width is known. While you resize, hiding happens straight away and revealing waits for a short pause, so the row never spills into its surroundings. `ariaLabel` names the panel.

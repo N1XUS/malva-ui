@@ -1,0 +1,86 @@
+<div class="frame">
+  <mlv-items-more ariaLabel="More record actions">
+    <!-- No hidden template: the switch has nowhere to go, so it is pinned. -->
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <mlv-segmented [(value)]="version" ariaLabel="Record version">
+          <button mlvSegmentedItem value="draft">Draft</button>
+          <button mlvSegmentedItem value="live">Live</button>
+        </mlv-segmented>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton variant="transparent">
+          <svg lucideEye [size]="16" />
+          Preview
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton variant="transparent">
+          <svg lucideEye [size]="16" />
+          Preview
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton variant="transparent">
+          <svg lucideShare2 [size]="16" />
+          Share
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton variant="transparent">
+          <svg lucideShare2 [size]="16" />
+          Share
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <mlv-items-more-item>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton variant="transparent">
+          <svg lucideHistory [size]="16" />
+          History
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton variant="transparent">
+          <svg lucideHistory [size]="16" />
+          History
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <!-- Has a collapsed form, but is the one action that must stay. -->
+    <mlv-items-more-item pinned>
+      <ng-template mlvItemsMoreVisible>
+        <button mlvButton>
+          <svg lucideSend [size]="16" />
+          Publish
+        </button>
+      </ng-template>
+      <ng-template mlvItemsMoreHidden>
+        <button mlvButton>
+          <svg lucideSend [size]="16" />
+          Publish
+        </button>
+      </ng-template>
+    </mlv-items-more-item>
+
+    <ng-template mlvItemsMoreTriggerDef>
+      <button
+        mlvButton
+        variant="transparent"
+        shape="square"
+        mlvItemsMoreTrigger
+        aria-label="More record actions"
+      >
+        <svg lucideEllipsis [size]="16" />
+      </button>
+    </ng-template>
+  </mlv-items-more>
+</div>

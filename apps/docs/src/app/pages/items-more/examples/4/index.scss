@@ -1,0 +1,28 @@
+.frame {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 8rem;
+  max-inline-size: 100%;
+  padding: var(--mlv-spacing-3);
+  border: var(--mlv-stroke-width) dashed var(--mlv-border-normal);
+  border-radius: var(--mlv-radius-l);
+  resize: horizontal;
+  overflow: hidden;
+}
+
+.tags {
+  display: flex;
+  align-items: center;
+  gap: var(--mlv-spacing-2);
+}
+
+// The row takes the free space and gives it back when the trigger appears.
+// `min-inline-size: 0` is on the component already; it still needs to be
+// allowed to grow.
+.tags__row {
+  flex: 1 1 auto;
+}
+
+.tags__more {
+  flex: 0 0 auto;
+}

@@ -518,6 +518,11 @@ export const pageRoutes = [
       ),
   },
   {
+    path: 'items-more',
+    loadComponent: () =>
+      import('./pages/items-more/index').then((m) => m.ItemsMorePageComponent),
+  },
+  {
     path: 'infinite-scroll',
     loadComponent: () =>
       import('./pages/infinite-scroll/index').then(
@@ -742,6 +747,7 @@ const GROUP_DEFINITIONS = [
       'drawer',
       'expand',
       'form',
+      'items-more',
       'page',
       'split-pane',
       'toolbar',
@@ -868,6 +874,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   'form-field': 'clipboard-list',
   'icon-toggle': 'toggle-left',
   'infinite-scroll': 'list-end',
+  'items-more': 'list-collapse',
   input: 'text-cursor-input',
   internationalization: 'languages',
   kbd: 'keyboard',

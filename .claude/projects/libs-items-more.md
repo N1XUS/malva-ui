@@ -14,6 +14,7 @@ control, in an overlay panel.
 - **Leaf project (Nx):** `core-items-more` at `libs/core/items-more`
 - **Secondary entry point:** `@malva-ui/core/items-more` (also re-exported from the grouped `@malva-ui/core` barrel)
 - **Package tags:** `scope:ui`, `family:core`, `type:ui`
+- **Docs page:** `/items-more` (Layout group, icon `list-collapse`) — 4 examples: basic, pinned items, collapsed form + counting trigger, external `+N more` trigger. Each example frame is `resize: horizontal`.
 
 ```html
 <mlv-items-more ariaLabel="More actions">

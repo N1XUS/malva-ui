@@ -1,0 +1,9 @@
+---
+title: External Trigger
+---
+
+The trigger doesn't have to live in the row. Leave out `mlvItemsMoreTriggerDef`, take a template reference to the component, and bind it into `[mlvItemsMoreTrigger]` on a button anywhere else — here a `+N more` link placed after the tags.
+
+`hiddenCount()` is a signal, so the button can render itself only while something is withheld. Without a trigger template nothing is reserved in the row for it: the row simply gets narrower when the button appears beside it, and withholds whatever that costs.
+
+A bound trigger behaves exactly like one inside the row: it opens the panel anchored on itself, reports `aria-expanded`, points `aria-controls` at the panel while it is open, and gets focus back when the panel closes.
