@@ -1,0 +1,113 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-items-more;
+
+  // Room for a Form A focus ring on every side of every item. The row clips
+  // (see `__row`), and an outline is painted outside its element's box, so a
+  // row exactly as tall as its items would cut the top and bottom of every
+  // ring and the outer edge of the first and last.
+  $ring-gutter: calc(
+    var(--mlv-stroke-width-medium) + var(--mlv-focus-ring-offset)
+  );
+
+  .#{$block} {
+    // The row measures itself against its own content box, so it has to be
+    // able to *be* narrower than its content. A flex or grid item defaults to
+    // `min-inline-size: auto`, whose content-based minimum here is the whole
+    // un-collapsed row: without this the component placed in a flex or grid
+    // parent simply widens that parent, its width never drops, and nothing is
+    // ever withheld. `overflow: hidden` below suppresses a flex item's
+    // *automatic minimum size*, not the min-content contribution the parent
+    // track sizes against, so it is not a substitute for this line.
+    display: block;
+    min-inline-size: 0;
+
+    // Containing block for `__probe`, which is taken out of flow so that
+    // measuring the trigger cannot disturb the row it is measured for.
+    position: relative;
+  }
+
+  // `mlv-popup-container` renders `<ng-content />` and nothing else, so it is
+  // a box in the way: an unstyled inline element between the component and
+  // its row. `display: contents` removes the box and keeps the content.
+  .#{$block} > mlv-popup-container {
+    display: contents;
+  }
+
+  // Where the projected `<mlv-items-more-item>` definition nodes live. They
+  // are `display: none` themselves; this hides anything else a consumer
+  // writes between them, which would otherwise appear above the row.
+  .#{$block}__defs {
+    display: none;
+  }
+
+  .#{$block}__row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--#{$block}-gap, var(--mlv-spacing-2));
+    min-inline-size: 0;
+
+    // The split is applied a render after the box changes, so a fast drag
+    // can leave the row momentarily wider than its container. Clipping is the
+    // honest failure there: the alternative — letting it overflow — pushes
+    // whatever sits beside the row out of place, which is a visibly broken
+    // layout rather than a briefly truncated one.
+    overflow: hidden;
+
+    // The focus-ring gutter, given back with a negative margin so the row
+    // still lines up with its surroundings. The padding is subtracted from
+    // the available width before any fit is computed, so it costs the items
+    // nothing.
+    padding: $ring-gutter;
+    margin: calc(#{$ring-gutter} * -1);
+  }
+
+  .#{$block}__slot,
+  .#{$block}__trigger {
+    display: inline-flex;
+    align-items: center;
+
+    // Items are measured at their natural width and the split is computed
+    // from those numbers. A slot that shrank would invalidate its own cached
+    // width and hand the arithmetic a figure the DOM no longer agrees with.
+    flex: 0 0 auto;
+  }
+
+  // The off-flow copy of the trigger, rendered while nothing is withheld. A
+  // zero-sized clipping box, so the copy adds no scrollable overflow to any
+  // ancestor however wide it is.
+  .#{$block}__probe {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    inline-size: 0;
+    block-size: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+
+    // Its natural width, not a width squeezed into the zero-sized box.
+    > .#{$block}__trigger {
+      inline-size: max-content;
+    }
+  }
+
+  .#{$block}__panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mlv-spacing-1);
+    padding: var(--mlv-padding-xs);
+    min-inline-size: var(--#{$block}-panel-min-inline-size, 10rem);
+  }
+
+  .#{$block}__panel-item {
+    display: flex;
+    flex-direction: column;
+
+    // A collapsed item is a full-width row in a stacked panel, whatever it
+    // was in the row.
+    align-items: stretch;
+  }
+}

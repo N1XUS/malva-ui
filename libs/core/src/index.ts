@@ -15,6 +15,7 @@ export * from '@malva-ui/core/filter';
 export * from '@malva-ui/core/form';
 export * from '@malva-ui/core/form-utils';
 export * from '@malva-ui/core/input';
+export * from '@malva-ui/core/items-more';
 export * from '@malva-ui/core/number-input';
 export * from '@malva-ui/core/radio';
 export * from '@malva-ui/core/select';

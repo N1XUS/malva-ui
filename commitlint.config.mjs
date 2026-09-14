@@ -50,6 +50,7 @@ export default {
         'form-utils',
         'icon-toggle',
         'input',
+        'items-more',
         'kbd',
         'link',
         'list',

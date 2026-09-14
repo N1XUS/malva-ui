@@ -86,6 +86,7 @@
       ],
       "@malva-ui/core/form": ["libs/core/form/src/index.ts"],
       "@malva-ui/core/input": ["libs/core/input/src/index.ts"],
+      "@malva-ui/core/items-more": ["libs/core/items-more/src/index.ts"],
       "@malva-ui/core/number-input": ["libs/core/number-input/src/index.ts"],
       "@malva-ui/core/link": ["libs/core/link/src/index.ts"],
       "@malva-ui/core/list": ["libs/core/list/src/index.ts"],

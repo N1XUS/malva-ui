@@ -1,0 +1,78 @@
+<!--
+  The item definition nodes and the trigger template are projected into a
+  hidden slot rather than left unprojected. Unprojected content is still
+  instantiated — that is how `mlv-tab` works — but it is never attached to
+  the document, and a detached node has no position: `compareDocumentPosition`
+  answers DISCONNECTED, and the registry could not order items by where they
+  were written. Projecting them costs one `display: none` element per item and
+  buys an order that is stable no matter which item initializes first.
+-->
+<div class="mlv-items-more__defs"><ng-content /></div>
+
+<mlv-popup-container>
+  <div class="mlv-items-more__row" #rowRef>
+    @for (item of visibleItems(); track item) {
+      <div class="mlv-items-more__slot" [mlvItemsMoreSlot]="item">
+        <ng-container [ngTemplateOutlet]="item.visibleTemplate().templateRef" />
+      </div>
+    }
+
+    @if (hiddenCount() > 0) {
+      @if (_triggerDef(); as triggerDef) {
+        <div class="mlv-items-more__trigger" #triggerRef>
+          <ng-container
+            [ngTemplateOutlet]="triggerDef.templateRef"
+            [ngTemplateOutletContext]="{ $implicit: hiddenCount() }"
+          />
+        </div>
+      }
+    }
+  </div>
+
+  <!--
+    The trigger's width has to be known *before* the first item is withheld,
+    or the first split has to guess it — and a guess that runs high withholds
+    an item that fits. But the trigger only renders in the row once something
+    is withheld, so there is no box to measure yet. This renders one, off the
+    flow and out of the accessibility tree, for as long as nothing is withheld.
+
+    The outer box is zero-sized and clips, so the copy cannot add scrollable
+    overflow to an ancestor; the inner box is `max-content`, so it measures the
+    trigger's natural width rather than one squeezed into zero. It is
+    `visibility: hidden`, not `display: none`, because a `display: none` box
+    has no geometry to read, and `inert` because it holds a copy of the
+    consumer's own trigger markup, which is a real button.
+  -->
+  @if (_needsTriggerProbe()) {
+    @if (_triggerDef(); as triggerDef) {
+      <div class="mlv-items-more__probe" inert>
+        <div class="mlv-items-more__trigger" #triggerProbeRef>
+          <ng-container
+            [ngTemplateOutlet]="triggerDef.templateRef"
+            [ngTemplateOutletContext]="{ $implicit: 1 }"
+          />
+        </div>
+      </div>
+    }
+  }
+
+  <mlv-popup>
+    <ng-template mlvPopupContent>
+      <div
+        class="mlv-items-more__panel"
+        [id]="panelId"
+        [attr.role]="ariaLabel() ? 'group' : null"
+        [attr.aria-label]="ariaLabel() ?? null"
+        mlvAutofocus
+      >
+        @for (item of hiddenItems(); track item) {
+          @if (item.hiddenTemplate(); as def) {
+            <div class="mlv-items-more__panel-item">
+              <ng-container [ngTemplateOutlet]="def.templateRef" />
+            </div>
+          }
+        }
+      </div>
+    </ng-template>
+  </mlv-popup>
+</mlv-popup-container>

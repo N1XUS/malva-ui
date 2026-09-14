@@ -97,6 +97,14 @@ import {
 } from '@malva-ui/core/form-utils';
 import { MlvIconToggle } from '@malva-ui/core/icon-toggle';
 import { MlvInput } from '@malva-ui/core/input';
+import {
+  MlvItemsMore,
+  MlvItemsMoreHiddenDef,
+  MlvItemsMoreItem,
+  MlvItemsMoreTrigger,
+  MlvItemsMoreTriggerDef,
+  MlvItemsMoreVisibleDef,
+} from '@malva-ui/core/items-more';
 import { MlvKbd, type MlvKbdKey } from '@malva-ui/core/kbd';
 import { MlvLink } from '@malva-ui/core/link';
 import {
@@ -496,6 +504,12 @@ class SsrPickersHost {
     MlvBottomNav,
     MlvToolbar,
     MlvToolbarSpacer,
+    MlvItemsMore,
+    MlvItemsMoreItem,
+    MlvItemsMoreVisibleDef,
+    MlvItemsMoreHiddenDef,
+    MlvItemsMoreTriggerDef,
+    MlvItemsMoreTrigger,
     MlvTabGroup,
     MlvTab,
     MlvTabDef,
@@ -539,6 +553,31 @@ class SsrPickersHost {
       <mlv-toolbar-spacer />
       <button mlvButton>Two</button>
     </mlv-toolbar>
+
+    <!--
+      No viewport on the server, so nothing is withheld: every item renders in
+      the row and the trigger is present only as the inert measuring probe.
+    -->
+    <mlv-items-more ariaLabel="More actions">
+      <mlv-items-more-item>
+        <ng-template mlvItemsMoreVisible>
+          <button mlvButton>Share</button>
+        </ng-template>
+        <ng-template mlvItemsMoreHidden>
+          <button mlvButton variant="transparent">Share</button>
+        </ng-template>
+      </mlv-items-more-item>
+      <mlv-items-more-item>
+        <ng-template mlvItemsMoreVisible>
+          <button mlvButton>Export</button>
+        </ng-template>
+      </mlv-items-more-item>
+      <ng-template mlvItemsMoreTriggerDef let-count>
+        <button mlvButton mlvItemsMoreTrigger aria-label="More actions">
+          +{{ count }}
+        </button>
+      </ng-template>
+    </mlv-items-more>
 
     <mlv-tab-group [(activeTab)]="tab">
       <mlv-tab value="one">
