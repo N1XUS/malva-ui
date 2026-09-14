@@ -29,7 +29,7 @@
     "
     [class.mlv-popup--enter]="animationState() === 'enter'"
     [class.mlv-popup--leave]="animationState() === 'leave'"
-    (animationend)="onAnimationEnd()"
+    (animationend)="_onPanelAnimationEnd($event)"
     [attr.role]="panelRole()"
     [attr.aria-modal]="modal() ? 'true' : null"
     [attr.aria-label]="ariaLabel() || null"

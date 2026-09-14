@@ -1,5 +1,6 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+import { OverlayContainer } from '@angular/cdk/overlay';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvSearchField } from './search-field';
@@ -719,6 +720,65 @@ describe('MlvSearchField', () => {
 
       expect(component.opened()).toBe(false);
       expect(overlayPanel()).toBeNull();
+    });
+
+    describe('animationend target', () => {
+      /**
+       * A bubbling `animationend`, the way a finished CSS animation dispatches
+       * one. A plain `Event`: jsdom implements neither `AnimationEvent` nor CSS
+       * animations, and the handler under test reads only `target` /
+       * `currentTarget`.
+       */
+      function animationEnd(): Event {
+        return new Event('animationend', { bubbles: true });
+      }
+
+      /** Overlay surfaces attached to the live CDK overlay container right now. */
+      function attachedOverlays(): NodeListOf<HTMLElement> {
+        return TestBed.inject(OverlayContainer)
+          .getContainerElement()
+          .querySelectorAll<HTMLElement>('.mlv-search-field__overlay');
+      }
+
+      async function openThenClose(): Promise<void> {
+        await open({ overlay: true });
+        component.open();
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(attachedOverlays()).toHaveLength(1);
+
+        component.close();
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(component.animationState()).toBe('leave');
+      }
+
+      it('keeps the overlay attached for an animationend bubbling out of its content', async () => {
+        await openThenClose();
+
+        // The overlay body is arbitrary: a consumer's `[mlvSearchOverlayContent]`
+        // results list fading rows in is ordinary, and it runs inside the leave
+        // window. Only the surface's own leave keyframes may dispose.
+        const child = attachedOverlays()[0].querySelector<HTMLElement>('input');
+        expect(child).not.toBeNull();
+        child?.dispatchEvent(animationEnd());
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(attachedOverlays()).toHaveLength(1);
+        expect(component.animationState()).toBe('leave');
+      });
+
+      it('disposes the overlay for an animationend raised by the surface itself', async () => {
+        await openThenClose();
+
+        attachedOverlays()[0].dispatchEvent(animationEnd());
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(attachedOverlays()).toHaveLength(0);
+        expect(component.animationState()).toBe('idle');
+      });
     });
 
     it('clears from the inline trigger without opening the overlay', async () => {

@@ -148,16 +148,25 @@ export abstract class MlvOverlayServiceBase<
 
       // Trigger enter animation.
       panelEl.classList.add(this._enterAnimationClass);
-      // Kept raw (issue #76 triage): `once: true` detaches on the first event,
-      // and `panelEl` is disposed with the overlay either way. The listener's
-      // lifetime is the overlay's, not the service's — this service is
-      // `providedIn: 'root'`, so `takeUntilDestroyed` here would bind every
-      // overlay ever opened to the application's lifetime instead.
-      panelEl.addEventListener(
-        'animationend',
-        () => panelEl.classList.remove(this._enterAnimationClass),
-        { once: true },
-      );
+      // Target-guarded: `animationend` bubbles, so consumer content finishing
+      // its own finite animation during the enter would otherwise strip the
+      // class and cut the pane's enter short. Only the pane's own keyframes
+      // may clear it.
+      const onEnterAnimationEnd = (event: Event) => {
+        if (event.target !== panelEl) {
+          return;
+        }
+        panelEl.classList.remove(this._enterAnimationClass);
+        panelEl.removeEventListener('animationend', onEnterAnimationEnd);
+      };
+      // Kept raw (issue #76 triage): the listener's lifetime is the enter
+      // animation's, not the service's — this service is `providedIn: 'root'`,
+      // so `takeUntilDestroyed` here would bind every overlay ever opened to
+      // the application's lifetime instead — and `panelEl` is disposed with the
+      // overlay either way. Not `once: true`: an ignored descendant event would
+      // spend it and latch the enter class for the life of the pane. The
+      // handler removes itself on the pane's own event instead.
+      panelEl.addEventListener('animationend', onEnterAnimationEnd);
     }
 
     if (config.closeOnBackdrop !== false) {

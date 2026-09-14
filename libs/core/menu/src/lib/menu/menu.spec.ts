@@ -534,8 +534,10 @@ describe('MlvMenuTrigger', () => {
     await fixture.whenStable();
 
     // JSDOM does not fire real CSS animationend events.  The popup's (animationend)
-    // binding calls onAnimationEnd() which emits leaveAnimationDone$ and disposes
-    // the overlay.  Dispatch a synthetic event to simulate the animation completing.
+    // binding calls _onPanelAnimationEnd($event), which forwards to onAnimationEnd()
+    // only when the event targets the panel itself; that emits leaveAnimationDone$
+    // and disposes the overlay.  Dispatch a synthetic event on the panel to
+    // simulate its leave animation completing.
     const leavingPanel = overlayContainerEl.querySelector('.mlv-popup--leave');
     leavingPanel?.dispatchEvent(new Event('animationend', { bubbles: true }));
     fixture.detectChanges();

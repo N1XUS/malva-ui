@@ -34,6 +34,18 @@ function afterLeaveWindow(): Promise<void> {
   );
 }
 
+/**
+ * A bubbling `animationend`, the way a finished CSS animation dispatches one.
+ *
+ * A plain `Event`, not an `AnimationEvent`: jsdom implements neither the
+ * interface nor CSS animations, so nothing here would ever synthesise one. The
+ * handler under test reads only `target` / `currentTarget`, and those are
+ * dispatch mechanics `Event` models exactly.
+ */
+function animationEnd(): Event {
+  return new Event('animationend', { bubbles: true });
+}
+
 describe('MlvPopupContainer — overlay lifecycle', () => {
   let overlayContainer: OverlayContainer;
   let fixture: ComponentFixture<HostComponent>;
@@ -123,6 +135,61 @@ describe('MlvPopupContainer — overlay lifecycle', () => {
 
     expect(panels()).toHaveLength(0);
     expect(popup.opened()).toBe(false);
+  });
+
+  it('ignores an animationend bubbling out of the panel content during a leave', async () => {
+    const container = fixture.componentInstance.container();
+    const popup = fixture.componentInstance.popup();
+
+    container.open();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(panels()).toHaveLength(1);
+
+    container.close();
+    fixture.detectChanges();
+    expect(popup.animationState()).toBe('leave');
+
+    // A projected consumer component finishing its own finite CSS animation
+    // inside the ~100ms leave window (a row fade-in, a one-shot highlight).
+    // `animationend` bubbles, so it reaches the panel's listener; only the
+    // panel's own leave keyframes may complete the detach (#231).
+    const child = panels()[0].querySelector(
+      '.mlv-popup__inner span',
+    ) as HTMLElement | null;
+    expect(child).not.toBeNull();
+    child?.dispatchEvent(animationEnd());
+    fixture.detectChanges();
+
+    // Still on screen, still leaving — the leave was not truncated.
+    expect(panels()).toHaveLength(1);
+    expect(popup.animationState()).toBe('leave');
+
+    // …and the leave still completes on its own, so the guard strands nothing.
+    await afterLeaveWindow();
+    expect(panels()).toHaveLength(0);
+  });
+
+  it('detaches when the animationend target is the panel itself', async () => {
+    const container = fixture.componentInstance.container();
+    const popup = fixture.componentInstance.popup();
+
+    container.open();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(panels()).toHaveLength(1);
+
+    container.close();
+    fixture.detectChanges();
+    expect(popup.animationState()).toBe('leave');
+
+    panels()[0].dispatchEvent(animationEnd());
+    fixture.detectChanges();
+
+    // Detached synchronously off `leaveAnimationDone$`, with no wait at all —
+    // so neither the popup's 250ms fallback nor the container's 350ms watchdog
+    // can be what removed it. A guard that broke this path would show up here.
+    expect(panels()).toHaveLength(0);
   });
 });
 

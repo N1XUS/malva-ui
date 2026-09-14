@@ -13,7 +13,7 @@ import type {
   OverlayRef,
   PositionStrategy,
 } from '@angular/cdk/overlay';
-import { OverlayModule } from '@angular/cdk/overlay';
+import { OverlayContainer, OverlayModule } from '@angular/cdk/overlay';
 import { A11yModule } from '@angular/cdk/a11y';
 import { firstValueFrom } from 'rxjs';
 import { expectNoAxeViolations, runAxe } from '@malva-ui/internal-testing/axe';
@@ -22,6 +22,18 @@ import type { MlvBaseOverlayConfig } from './overlay-config';
 import { MlvOverlayRef } from './overlay-ref';
 import { MlvOverlayHostBase } from './overlay-host-base';
 import { MlvOverlayServiceBase } from './overlay-service-base';
+
+/**
+ * A bubbling `animationend`, the way a finished CSS animation dispatches one.
+ *
+ * A plain `Event`, not an `AnimationEvent`: jsdom implements neither the
+ * interface nor CSS animations, so nothing here would ever synthesise one. The
+ * handlers under test read only `target` / `currentTarget`, and those are
+ * dispatch mechanics `Event` models exactly.
+ */
+function animationEnd(): Event {
+  return new Event('animationend', { bubbles: true });
+}
 
 // ---------------------------------------------------------------------------
 // MlvOverlayRef
@@ -90,6 +102,41 @@ describe('MlvOverlayRef', () => {
     expect(dispose).toHaveBeenCalledTimes(1);
   });
 
+  it("disposes on the panel's own animationend immediately after ignoring a descendant one", () => {
+    const { ref, overlayElement, dispose } = createFakeOverlayRef();
+    const child = overlayElement.appendChild(document.createElement('div'));
+    const overlayRef = new TestOverlayRef<string>(ref);
+    let result: string | undefined;
+    overlayRef.afterClosed().subscribe((value) => (result = value));
+
+    overlayRef.close('done');
+    // Consumer content finishing its own finite animation inside the leave
+    // window: ignored (#231)…
+    child.dispatchEvent(animationEnd());
+    expect(dispose).not.toHaveBeenCalled();
+
+    // …and the listener must still be there for the pane's own leave. A
+    // `once: true` listener would have been spent by the ignored event above,
+    // stranding the leave on the fallback timer. Everything here is synchronous,
+    // so that 20ms timer cannot be what disposes.
+    overlayElement.dispatchEvent(animationEnd());
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(result).toBe('done');
+  });
+
+  it('releases the panel animationend listener once disposed', () => {
+    const { ref, overlayElement } = createFakeOverlayRef();
+    const removeSpy = vi.spyOn(overlayElement, 'removeEventListener');
+    const overlayRef = new TestOverlayRef(ref);
+
+    overlayRef.close();
+    overlayElement.dispatchEvent(animationEnd());
+
+    expect(
+      removeSpy.mock.calls.filter(([type]) => type === 'animationend'),
+    ).toHaveLength(1);
+  });
+
   it('falls back to the timeout when animationend never fires', async () => {
     const { ref, dispose } = createFakeOverlayRef();
     const overlayRef = new TestOverlayRef(ref);
@@ -131,12 +178,14 @@ describe('MlvOverlayRef', () => {
            MlvOverlayHostBase emits no ARIA of its own, and MlvDrawer names its
            own role="dialog" surface (through mlv-drawer-header's
            aria-labelledby registration). Without it the sweep below would be
-           judging a subclass nobody ships. -->
+           judging a subclass nobody ships. The (animationend) binding mirrors
+           MlvDrawer / MlvSearchField too: the guarded handler, never the raw
+           onAnimationEnd(), or this suite exercises the path they don't ship. -->
       <div
         class="test-panel"
         role="dialog"
         aria-label="Test overlay"
-        (animationend)="onAnimationEnd()"
+        (animationend)="_onPanelAnimationEnd($event)"
       >
         <button class="mlv-button--close">Close</button>
         <button class="inside">Inside</button>
@@ -361,6 +410,75 @@ describe('MlvOverlayHostBase', () => {
     expect(host.animationState()).toBe('idle');
     expect(panel()).toBeNull();
   });
+
+  describe('animationend target', () => {
+    /** Panels attached to the live CDK overlay container right now. */
+    function attachedPanels(): NodeListOf<Element> {
+      return TestBed.inject(OverlayContainer)
+        .getContainerElement()
+        .querySelectorAll('.test-panel');
+    }
+
+    /** Opens, then starts the leave; resolves with a live `afterClosed` flag. */
+    async function openThenClose(): Promise<{ closed: () => boolean }> {
+      host.opened.set(true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(attachedPanels()).toHaveLength(1);
+
+      let closed = false;
+      host.afterClosed.subscribe(() => (closed = true));
+
+      host.opened.set(false);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.animationState()).toBe('leave');
+      return { closed: () => closed };
+    }
+
+    it('keeps the overlay attached for an animationend bubbling out of the panel content', async () => {
+      const { closed } = await openThenClose();
+
+      // A consumer component inside the panel finishing its own finite CSS
+      // animation inside the leave window (a row fade-in, a one-shot
+      // highlight). Only the panel's own leave keyframes may dispose (#231).
+      const child = panel()?.querySelector('.inside') as HTMLElement | null;
+      expect(child).not.toBeNull();
+      child?.dispatchEvent(animationEnd());
+      fixture.detectChanges();
+
+      expect(attachedPanels()).toHaveLength(1);
+      expect(host.animationState()).toBe('leave');
+      expect(closed()).toBe(false);
+    });
+
+    it('disposes the overlay for an animationend raised by the panel itself', async () => {
+      const { closed } = await openThenClose();
+
+      panel()?.dispatchEvent(animationEnd());
+      fixture.detectChanges();
+
+      expect(attachedPanels()).toHaveLength(0);
+      expect(host.animationState()).toBe('idle');
+      expect(closed()).toBe(true);
+    });
+
+    it('still force-completes through the fallback timer after ignoring a content animationend', async () => {
+      const { closed } = await openThenClose();
+
+      panel()?.querySelector('.inside')?.dispatchEvent(animationEnd());
+      fixture.detectChanges();
+      expect(attachedPanels()).toHaveLength(1);
+
+      // The fallback calls `onAnimationEnd()` with no event at all; the guard
+      // must not sit on that path (_leaveFallbackMs is 20ms here).
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      fixture.detectChanges();
+
+      expect(attachedPanels()).toHaveLength(0);
+      expect(closed()).toBe(true);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -438,6 +556,58 @@ describe('MlvOverlayServiceBase', () => {
 
     panel?.dispatchEvent(new Event('animationend'));
     expect(panel?.classList.contains('test-svc--enter')).toBe(false);
+  });
+
+  describe('animationend target', () => {
+    /** Panes attached to the live CDK overlay container right now. */
+    function attachedPanes(): NodeListOf<Element> {
+      return TestBed.inject(OverlayContainer)
+        .getContainerElement()
+        .querySelectorAll('.test-svc-panel');
+    }
+
+    it('keeps the enter class through an animationend bubbling out of the content', () => {
+      service.open(TestContentComponent);
+      const pane = attachedPanes()[0] as HTMLElement;
+      expect(pane.classList.contains('test-svc--enter')).toBe(true);
+
+      document.querySelector('.svc-inside')?.dispatchEvent(animationEnd());
+      expect(pane.classList.contains('test-svc--enter')).toBe(true);
+
+      // The pane's own enter keyframes still clear it — a guard that consumed
+      // its one-shot listener on the ignored event would latch the class.
+      pane.dispatchEvent(animationEnd());
+      expect(pane.classList.contains('test-svc--enter')).toBe(false);
+    });
+
+    it('keeps the pane attached for an animationend bubbling out of the content during the leave', () => {
+      const ref = service.open(TestContentComponent);
+      expect(attachedPanes()).toHaveLength(1);
+      let closed = false;
+      ref.afterClosed().subscribe(() => (closed = true));
+
+      ref.close();
+      // Synchronous from here on: TestOverlayRef's 20ms fallback cannot fire.
+      const child = document.querySelector('.svc-inside');
+      expect(child).not.toBeNull();
+      child?.dispatchEvent(animationEnd());
+
+      expect(attachedPanes()).toHaveLength(1);
+      expect(closed).toBe(false);
+    });
+
+    it('disposes the pane for an animationend raised by the pane itself during the leave', () => {
+      const ref = service.open(TestContentComponent);
+      const pane = attachedPanes()[0] as HTMLElement;
+      let closed = false;
+      ref.afterClosed().subscribe(() => (closed = true));
+
+      ref.close();
+      pane.dispatchEvent(animationEnd());
+
+      expect(attachedPanes()).toHaveLength(0);
+      expect(closed).toBe(true);
+    });
   });
 
   it('closes and tears down the overlay when the backdrop is clicked', async () => {

@@ -154,10 +154,52 @@ export abstract class MlvOverlayHostBase implements OnDestroy {
     this.opened.set(false);
   }
 
-  /** Disposes the overlay once the leave animation completes. Bound to the panel's `(animationend)`. */
+  /**
+   * Completes a pending leave — disposes the overlay, restores focus and emits
+   * {@link afterClosed}. A no-op in every other state, and once disposed.
+   *
+   * Two callers, deliberately asymmetric: the panel's own `animationend`
+   * arrives through {@link _onPanelAnimationEnd}, which filters out animations
+   * that merely bubbled up from the content, while the leave fallback timer
+   * armed by {@link _startLeaveAnimation} calls this **unfiltered** to
+   * force-complete a leave whose `animationend` never came (reduced motion, a
+   * throttled background tab). Keep it free of any event-shaped guard so that
+   * force path stays available.
+   *
+   * Subclass templates should bind `(animationend)="_onPanelAnimationEnd($event)"`
+   * rather than calling this directly: bound raw, it disposes on **any**
+   * `animationend` that reaches the panel, a descendant's included.
+   */
   onAnimationEnd(): void {
     if (this.animationState() === 'leave' && this._overlayRef) {
       this._destroyOverlay();
+    }
+  }
+
+  /**
+   * @protected The panel's `animationend` listener. Subclass templates bind it
+   * on the element that plays the enter/leave keyframes:
+   * `(animationend)="_onPanelAnimationEnd($event)"`.
+   *
+   * **The guard is load-bearing — do not delete it as redundant.**
+   * `animationend` bubbles, so any *descendant* finishing a finite CSS
+   * animation inside the leave window (a consumer's row fade-in, a one-shot
+   * highlight in a drawer body or a search-overlay results list) also reaches
+   * this listener; unguarded it disposed the overlay mid-animation, restored
+   * focus early and emitted `afterClosed` before the leave had played.
+   * Nothing else on this path filters the event.
+   *
+   * `currentTarget` is the element the listener is bound to, so the
+   * comparison admits exactly that element's own keyframes and follows the
+   * binding if the panel element is ever moved. It is read synchronously,
+   * inside the dispatch, where it is still set. Same shape as
+   * `MlvPopup._onPanelAnimationEnd` (#231) and `MlvDialog._onAnimationEnd`.
+   *
+   * @param event - The `animationend` event as dispatched to the panel.
+   */
+  protected _onPanelAnimationEnd(event: Event): void {
+    if (event.target === event.currentTarget) {
+      this.onAnimationEnd();
     }
   }
 
@@ -265,7 +307,9 @@ export abstract class MlvOverlayHostBase implements OnDestroy {
 
     // Guarantee disposal even if `animationend` never arrives (reduced motion,
     // throttled background tab). `onAnimationEnd()` re-checks the state and the
-    // overlay ref, so a late timer after a real animationend is a no-op.
+    // overlay ref, so a late timer after a real animationend is a no-op. It is
+    // called with no event, which is why the target guard lives in
+    // `_onPanelAnimationEnd()` and not in `onAnimationEnd()`.
     if (this._leaveFallbackTimer !== null) {
       clearTimeout(this._leaveFallbackTimer);
     }

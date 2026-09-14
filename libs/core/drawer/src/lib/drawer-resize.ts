@@ -254,7 +254,20 @@ export class MlvDrawerResize {
     // fallback timer — the same guard `MlvOverlayRef` uses for its leave
     // animation. `take(1)` releases the listener on whichever arrives first;
     // `takeUntilDestroyed` releases it if the drawer dies mid-snap.
-    race(fromEvent(panel, 'transitionend'), timer(SNAP_TRANSITION_FALLBACK_MS))
+    //
+    // The target filter is load-bearing: `transitionend` bubbles, and the
+    // panel holds transitioning descendants — this handle's own
+    // `__handle-pill` fades `background-color` on hover/focus in
+    // `--mlv-duration-fast`, shorter than the snap's default
+    // `--mlv-duration-slow`, and consumer content brings more. Unfiltered, any
+    // of them finishing mid-snap won the race and cut the snap short. It sits
+    // inside the `race` so an ignored event does not settle it.
+    race(
+      fromEvent(panel, 'transitionend').pipe(
+        filter((event) => event.target === panel),
+      ),
+      timer(SNAP_TRANSITION_FALLBACK_MS),
+    )
       .pipe(take(1), takeUntilDestroyed(this._destroyRef))
       .subscribe(() => panel.classList.remove('mlv-drawer--snapping'));
   }

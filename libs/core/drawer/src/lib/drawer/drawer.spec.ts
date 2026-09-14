@@ -1,6 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
+import { OverlayContainer } from '@angular/cdk/overlay';
 import { MlvDrawer } from './drawer';
 import { DrawerBodyDirective } from '../drawer-body';
 import { MlvDrawerContent } from '../drawer-content';
@@ -275,5 +276,98 @@ describe('MlvDrawer — size clamping', () => {
 
     expect(panel.style.minHeight).toBe('min(12rem, 100dvh)');
     expect(panel.style.minWidth).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Leave disposal is driven by the panel's own animationend
+// ---------------------------------------------------------------------------
+
+/**
+ * A bubbling `animationend`, the way a finished CSS animation dispatches one.
+ *
+ * A plain `Event`, not an `AnimationEvent`: jsdom implements neither the
+ * interface nor CSS animations, so nothing here would ever synthesise one. The
+ * handler under test reads only `target` / `currentTarget`, and those are
+ * dispatch mechanics `Event` models exactly.
+ */
+function animationEnd(): Event {
+  return new Event('animationend', { bubbles: true });
+}
+
+describe('MlvDrawer — animationend target', () => {
+  let fixture: ComponentFixture<DrawerHostComponent>;
+  let host: DrawerHostComponent;
+  let overlayContainer: OverlayContainer;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [DrawerHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+    fixture = TestBed.createComponent(DrawerHostComponent);
+    host = fixture.componentInstance;
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    fixture.nativeElement.remove();
+    overlayContainer.ngOnDestroy();
+  });
+
+  /** Drawer panels attached to the live CDK overlay container right now. */
+  function attachedPanels(): NodeListOf<HTMLElement> {
+    return overlayContainer
+      .getContainerElement()
+      .querySelectorAll<HTMLElement>('.mlv-drawer');
+  }
+
+  function drawerInstance(): MlvDrawer {
+    return fixture.debugElement.children.find(
+      (d) => d.componentInstance instanceof MlvDrawer,
+    )?.componentInstance as MlvDrawer;
+  }
+
+  async function openThenClose(): Promise<void> {
+    host.open.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(attachedPanels()).toHaveLength(1);
+
+    host.open.set(false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(drawerInstance().animationState()).toBe('leave');
+  }
+
+  it('keeps the drawer attached for an animationend bubbling out of its content', async () => {
+    await openThenClose();
+
+    // Consumer content finishing a finite CSS animation (a row fade-in, a
+    // one-shot highlight) inside the leave window. `animationend` bubbles to
+    // the panel's listener; only the panel's own leave keyframes may dispose.
+    const child = attachedPanels()[0].querySelector<HTMLElement>('.inside');
+    expect(child).not.toBeNull();
+    child?.dispatchEvent(animationEnd());
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(attachedPanels()).toHaveLength(1);
+    expect(drawerInstance().animationState()).toBe('leave');
+  });
+
+  it('disposes the drawer for an animationend raised by the panel itself', async () => {
+    await openThenClose();
+
+    attachedPanels()[0].dispatchEvent(animationEnd());
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(attachedPanels()).toHaveLength(0);
+    expect(drawerInstance().animationState()).toBe('idle');
   });
 });
