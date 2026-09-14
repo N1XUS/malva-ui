@@ -29,6 +29,11 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** One animation frame — CDK reveals a freshly attached backdrop from a `rAF`. */
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
 /** jsdom has no `PointerEvent`; a plain event with `pointerType` is enough for the handlers. */
 function firePointer(
   el: Element,
@@ -383,6 +388,28 @@ describe('MlvSpeedDial', () => {
       expect(host.selected).toHaveLength(1);
       expect(host.selected[0].item.label).toBe('Add');
       expect(host.selected[0].index).toBe(0);
+      expect(host.opened()).toBe(false);
+    });
+
+    it('ignores a repeated activation while the closed actions are still leaving', async () => {
+      await openViaClick();
+      const [add] = menuItems();
+      add.click(); // activates and closes — the actions start their exit transition
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(host.opened()).toBe(false);
+      // Still rendered for the settle window, so still clickable and focusable.
+      expect(menuItems()[0]).toBe(add);
+
+      // The second click of a mouse double-click, then a keyboard Enter on the
+      // action that kept focus (a native keyboard click has `detail === 0`).
+      add.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 2 }));
+      add.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(host.commands).toEqual(['add']);
+      expect(host.selected).toHaveLength(1);
       expect(host.opened()).toBe(false);
     });
 
@@ -1235,6 +1262,176 @@ describe('MlvSpeedDial', () => {
       expect(host.opened()).toBe(false);
     });
   });
+
+  // CDK removes `cdk-overlay-backdrop-showing` — the class the fade hangs off —
+  // only from `BackdropRef.detach()`, reached via `OverlayRef.detach()` and
+  // `OverlayRef.detachBackdrop()`. This component calls neither and disposes
+  // directly, so the mask used to sit at full opacity for
+  // the whole exit transition and then blink out of the DOM. The component now
+  // toggles the class itself.
+  describe('mask fade', () => {
+    const backdrop = (): HTMLElement | null =>
+      overlayContainerEl.querySelector('.mlv-speed-dial__backdrop');
+    const showing = (el: HTMLElement | null): boolean =>
+      !!el?.classList.contains('cdk-overlay-backdrop-showing');
+
+    /**
+     * Opens with `mask` and returns the live backdrop once CDK has revealed it.
+     * Every close assertion below starts from this verified state, so a
+     * "class is gone" check cannot pass merely because it was never added.
+     */
+    async function openMasked(): Promise<HTMLElement | null> {
+      host.mask.set(true);
+      fixture.detectChanges();
+      await openViaClick();
+      // CDK adds the showing class from a `requestAnimationFrame` so the
+      // freshly inserted element has a resolved `opacity: 0` to fade from.
+      await nextFrame();
+      const mask = backdrop();
+      expect(showing(mask)).toBe(true);
+      expect(mask?.style.pointerEvents).toBe('');
+      return mask;
+    }
+
+    it("reveals the backdrop on open through CDK's own class, clickable", async () => {
+      const mask = await openMasked();
+
+      expect(mask).not.toBeNull();
+      expect(mask?.isConnected).toBe(true);
+      expect(showing(mask)).toBe(true);
+      expect(mask?.style.pointerEvents).toBe('');
+    });
+
+    it('starts the fade out as the close starts, with the backdrop still attached', async () => {
+      const mask = await openMasked();
+
+      await openViaClick(); // close — the exit transition is running
+
+      // Still in the DOM (the actions are still staggering out) but no longer
+      // held at full opacity: this is the fade the dispose used to cut.
+      expect(backdrop()).toBe(mask);
+      expect(mask?.isConnected).toBe(true);
+      expect(showing(mask)).toBe(false);
+      // A mask that is fading to nothing must stop swallowing clicks, exactly
+      // as CDK's own `BackdropRef.detach()` does.
+      expect(mask?.style.pointerEvents).toBe('none');
+
+      await wait(320);
+      fixture.detectChanges();
+      expect(backdrop()).toBeNull();
+    });
+
+    it('brings the mask back when the dial reopens during the fade', async () => {
+      const mask = await openMasked();
+
+      await openViaClick(); // close — fade running, overlay still attached
+      expect(showing(mask)).toBe(false);
+
+      await openViaClick(); // reopen before the scheduled disposal fires
+
+      // The overlay is reused, so the backdrop must be the same element and
+      // must be visible again — and must stay attached, which is what calling
+      // `detachBackdrop()` for the leave would break (see below).
+      expect(backdrop()).toBe(mask);
+      expect(mask?.isConnected).toBe(true);
+      expect(showing(mask)).toBe(true);
+      expect(mask?.style.pointerEvents).toBe('');
+
+      // `detachBackdrop()` would not remove the element yet: `BackdropRef.detach()`
+      // removes it on the next `transitionend` or after a 500 ms fallback, and a
+      // later class change cancels neither. Drive both paths before asserting, or
+      // the trap passes this test.
+      mask?.dispatchEvent(new Event('transitionend'));
+      await wait(520);
+      fixture.detectChanges();
+      expect(backdrop()).toBe(mask);
+      expect(mask?.isConnected).toBe(true);
+      expect(showing(mask)).toBe(true);
+      expect(host.opened()).toBe(true);
+    });
+
+    it('keeps the mask hidden when the dial closes before CDK reveals it', async () => {
+      host.mask.set(true);
+      host.opened.set(true);
+      fixture.detectChanges(); // attaches — CDK queues the reveal for the next frame
+      const mask = backdrop();
+      expect(mask).not.toBeNull();
+      expect(showing(mask)).toBe(false);
+
+      host.opened.set(false);
+      fixture.detectChanges(); // closes inside the same frame
+      expect(host.opened()).toBe(false);
+
+      // CDK's uncancellable reveal runs now. Without a second removal it would
+      // drive a closed dial's mask to full opacity, and dispose would cut it.
+      await nextFrame();
+      expect(mask?.isConnected).toBe(true);
+      expect(showing(mask)).toBe(false);
+      expect(mask?.style.pointerEvents).toBe('none');
+
+      await wait(320);
+      fixture.detectChanges();
+      expect(backdrop()).toBeNull();
+    });
+
+    it('still reveals the mask when the dial reopens in the frame it closed in', async () => {
+      host.mask.set(true);
+      host.opened.set(true);
+      fixture.detectChanges();
+      const mask = backdrop();
+      host.opened.set(false);
+      fixture.detectChanges(); // queues the second removal for the next frame
+      host.opened.set(true);
+      fixture.detectChanges(); // reuses the overlay before that frame arrives
+
+      await nextFrame();
+      // The queued removal must see the dial open again and leave the mask be.
+      expect(backdrop()).toBe(mask);
+      expect(showing(mask)).toBe(true);
+      expect(mask?.style.pointerEvents).toBe('');
+      expect(host.opened()).toBe(true);
+    });
+
+    it('cuts nothing under prefers-reduced-motion, where the settle is zero', async () => {
+      const mask = await openMasked();
+
+      const original = window.matchMedia;
+      window.matchMedia = ((query: string) =>
+        ({
+          matches: query.includes('prefers-reduced-motion'),
+          media: query,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        }) as unknown as MediaQueryList) as typeof window.matchMedia;
+
+      try {
+        await openViaClick(); // close — `_prefersReducedMotion()` drops the settle to 0 ms
+
+        // The class comes off before the disposal is scheduled, so the order is
+        // right whatever the settle is; the stylesheet zeroes the duration under
+        // the same media query, so there is no fade left to cut.
+        expect(showing(mask)).toBe(false);
+
+        await wait(20);
+        fixture.detectChanges();
+        expect(backdrop()).toBeNull();
+      } finally {
+        window.matchMedia = original;
+      }
+    });
+
+    it('closes without a mask without touching a backdrop that is not there', async () => {
+      await openViaClick(); // `mask` is off by default — `backdropElement` is null
+      expect(backdrop()).toBeNull();
+
+      await openViaClick(); // close must not throw on the missing backdrop
+
+      expect(host.opened()).toBe(false);
+      await wait(320);
+      fixture.detectChanges();
+      expect(menu()).toBeNull();
+    });
+  });
 });
 
 describe('MlvSpeedDial stylesheet', () => {
@@ -1382,6 +1579,65 @@ describe('MlvSpeedDial stylesheet', () => {
     );
     expect(backdrop?.style.getPropertyValue('background-color')).toBe(
       'var(--mlv-background-overlay)',
+    );
+  });
+
+  it("leaves the mask's fade to CDK so a consumer override still reaches it", () => {
+    // Winning over CDK's fade from `mlv.components` takes an `!important` both
+    // when CDK's rule is layered after `mlv.*` (the runtime style loader) and
+    // when it ships unlayered (`overlay-prebuilt.css`, the `cdk.overlay()`
+    // mixin); only an app that names `cdk-overlay` before `mlv.*` lets a normal
+    // declaration win. A layered `!important` also beats a consumer's unlayered
+    // rule. The 400 ms ease-out
+    // is at most ~4% opacity from done when the overlay is disposed, so that
+    // trade is not taken. A delay is worse still: the dispose would cut the fade
+    // outright. See the `__backdrop` comment.
+    const all = (list: CSSRule[]): CSSRule[] =>
+      list.flatMap((rule) => [
+        rule,
+        ...('cssRules' in rule
+          ? all([...(rule as CSSGroupingRule).cssRules])
+          : []),
+      ]);
+    const backdropRules = styleRules(all(rules)).filter(({ selectorText }) =>
+      selectorText.includes('__backdrop'),
+    );
+    // The token rule itself — so an empty match can never pass vacuously.
+    expect(backdropRules.length).toBeGreaterThan(0);
+    const declared = backdropRules.flatMap((rule) =>
+      [
+        'transition',
+        'transition-duration',
+        'transition-delay',
+        'transition-property',
+      ]
+        .filter((property) => rule.style.getPropertyValue(property) !== '')
+        .map((property) => `${rule.selectorText} { ${property} }`),
+    );
+    expect(declared).toEqual([]);
+  });
+
+  it('zeroes the mask fade under prefers-reduced-motion', () => {
+    // The backdrop element carries `cdk-overlay-backdrop mlv-speed-dial__backdrop`,
+    // so of the shared mixin's selectors only the ` __`-infix one reaches it.
+    const reducedMotionRules = rules
+      .filter(
+        (rule): rule is CSSMediaRule =>
+          rule instanceof CSSMediaRule &&
+          rule.media.mediaText.includes('prefers-reduced-motion'),
+      )
+      .flatMap((media) => [...media.cssRules]);
+    // Sass drops the quotes around the value and the CSSOM may add them back —
+    // compare quote-insensitively, as the RTL case above does.
+    const shared = styleRules(reducedMotionRules).find(({ selectorText }) =>
+      selectorText.replace(/["']/g, '').includes('[class*= mlv-speed-dial__]'),
+    );
+    expect(shared).toBeDefined();
+    expect(shared?.style.getPropertyValue('transition-duration')).toBe(
+      'var(--mlv-duration-instant)',
+    );
+    expect(shared?.style.getPropertyPriority('transition-duration')).toBe(
+      'important',
     );
   });
 });
