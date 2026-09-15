@@ -1,10 +1,20 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import { Component, Injectable, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injectable,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { InteractivityChecker } from '@angular/cdk/a11y';
 import { OverlayContainer } from '@angular/cdk/overlay';
+import { By } from '@angular/platform-browser';
 import { MlvResizeObserverFactory } from '@malva-ui/cdk/utils';
-import { POPUP_DETACH_WATCHDOG_MS } from '@malva-ui/core/popup';
+import {
+  MlvPopupContainer,
+  POPUP_DETACH_WATCHDOG_MS,
+} from '@malva-ui/core/popup';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvItemsMoreItem } from '../item/item';
@@ -623,6 +633,83 @@ describe('MlvItemsMore', () => {
       expect(
         (document.activeElement as HTMLElement | null)?.dataset['id'],
       ).toBe('c');
+    });
+
+    // The panel's container keeps a stack of registered anchors (#230). The
+    // row registers the opener on every open, and its in-row trigger is
+    // re-created each time items are withheld again, so a row that never
+    // withdrew a registration would pin every trigger it ever rendered.
+    describe('anchor registration', () => {
+      function container(): MlvPopupContainer {
+        return fixture.debugElement.query(By.directive(MlvPopupContainer))
+          .componentInstance as MlvPopupContainer;
+      }
+
+      /**
+       * Whether the container holds `el` anywhere in its own state — arrays,
+       * plain objects and `ElementRef`s, a few levels deep. It does not know
+       * the field a registration lives in, so it reads the same before and
+       * after #230. Class instances other than `ElementRef` are not entered:
+       * `ViewContainerRef` and the services reach the whole view tree.
+       */
+      function holds(value: unknown, el: Element, depth: number): boolean {
+        if (value === el) return true;
+        if (depth === 0 || value === null || typeof value !== 'object') {
+          return false;
+        }
+        if (value instanceof ElementRef) return value.nativeElement === el;
+        if (Array.isArray(value)) {
+          return value.some((entry) => holds(entry, el, depth - 1));
+        }
+        const proto: unknown = Object.getPrototypeOf(value);
+        if (proto !== Object.prototype && proto !== null) return false;
+        return Object.values(value).some((entry) =>
+          holds(entry, el, depth - 1),
+        );
+      }
+
+      function retains(el: Element): boolean {
+        return Object.values(container()).some((value) => holds(value, el, 3));
+      }
+
+      async function closeAndSettle(): Promise<void> {
+        host.more().closePanel();
+        await settle();
+        await wait(POPUP_DETACH_WATCHDOG_MS + 50);
+        await settle();
+      }
+
+      it('releases the opener once the panel has closed', async () => {
+        rowWidth = () => 250;
+        await create();
+        const trigger = await openFromTrigger();
+        // Precondition: the probe sees the registration the open made.
+        expect(retains(trigger)).toBe(true);
+
+        await closeAndSettle();
+
+        expect(host.more().panelOpened()).toBe(false);
+        expect(retains(trigger)).toBe(false);
+      });
+
+      it('keeps a single registration when a second opener takes over an open panel', async () => {
+        rowWidth = () => 250;
+        await create((h) => h.externalTrigger.set(true));
+        const inRow = await openFromTrigger();
+        const external = root().querySelector<HTMLElement>('.external-trigger');
+        if (!external) throw new Error('external trigger not rendered');
+
+        host.more().openPanel(new ElementRef(external));
+        await settle();
+
+        expect(host.more().panelOpened()).toBe(true);
+        expect(retains(external)).toBe(true);
+        expect(retains(inRow)).toBe(false);
+
+        await closeAndSettle();
+
+        expect(retains(external)).toBe(false);
+      });
     });
   });
 

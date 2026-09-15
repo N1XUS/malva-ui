@@ -1,6 +1,7 @@
 import type { OnDestroy } from '@angular/core';
 import {
   computed,
+  DestroyRef,
   Directive,
   ElementRef,
   NgZone,
@@ -121,6 +122,13 @@ export class MlvPopupTrigger implements OnDestroy {
       const container = this._container;
       effect(() => {
         container.registerTrigger(this._elementRef, !this.hasTrigger('hover'));
+      });
+      // Withdraw it again when this trigger goes, so a trigger inside an `@if`
+      // stops governing the container's later opens — its element and, for a
+      // hover trigger, its `hasBackdrop: false` (#230). The container outlives
+      // the trigger in that arrangement, so nothing else would release either.
+      inject(DestroyRef).onDestroy(() => {
+        container.unregisterTrigger?.(this._elementRef);
       });
     } else {
       // ── Standalone mode ─────────────────────────────────────────────────

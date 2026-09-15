@@ -154,6 +154,7 @@ External trigger shape:
 - Restores **only when focus was lost**: `activeElement` null, `<body>`, or inside `#panelId`. Focus the user moved elsewhere stays put.
 - Target: opener if `isConnected`; else last visible slot's tabbable element (`MlvTabbableElementService.getTabbableElement(slot, true)`) — the case where the last item returned to the row and the in-row trigger vanished.
 - `hiddenCount()` → `0` while open closes the panel. The popup container falls back to its own host as anchor when the registered origin left the document.
+- Anchor registration (#230): `openPanel(origin)` withdraws the previous opener (`unregisterTrigger`) before `registerTrigger(origin, false)`; the open→closed edge withdraws it too. The container keeps registrations as a stack until withdrawn, and the in-row trigger is re-created every time items are withheld again — without this every one of them stays pinned. At most one registration from the row at any time. Usually none while closed, but not always: a click during the close animation runs `openPanel`, which registers, while `container.open()` returns early (the overlay handle is still set) — no open→closed edge follows, so that one registration stays until the next open replaces it.
 
 ## Styling
 

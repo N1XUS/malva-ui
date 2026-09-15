@@ -1,13 +1,16 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import type { ElementRef, WritableSignal } from '@angular/core';
-import { Component, signal, viewChild } from '@angular/core';
+import type { WritableSignal } from '@angular/core';
+import { Component, ElementRef, signal, viewChild } from '@angular/core';
 import { Overlay, OverlayContainer } from '@angular/cdk/overlay';
+import type { MockInstance } from 'vitest';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
 import { MlvBreakpointService, MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvPopup, POPUP_DETACH_WATCHDOG_MS } from '../popup/popup';
 import { MlvPopupContent } from '../popup-content';
+import type { MlvPopupTriggerType } from '../popup-trigger/popup-trigger';
 import { MlvPopupTrigger } from '../popup-trigger/popup-trigger';
+import { MlvPopupService } from '../popup.service';
 import type { MlvPopupPositionName } from '../popup-positions';
 import { MlvPopupContainer } from './popup-container';
 
@@ -708,11 +711,11 @@ describe('MlvPopupContainer — a trigger inside the panel (#225)', () => {
   });
 
   it('falls back to the container host when the registered trigger is gone', async () => {
-    // Not only the panel case: `registerTrigger` has no unregister, so any
-    // trigger removed from the DOM while the popup is closed — an `@if` that
-    // stopped matching, a row that was virtualised away — leaves the container
-    // holding a detached origin. CDK measures it without complaint and answers
-    // zeros, so the panel would silently land at 0,0.
+    // Not only the panel case: a destroyed trigger unregisters itself (#230),
+    // but an element taken out of the document *without* destroying the view
+    // that registered it — as here, or by a caller that never unregisters —
+    // leaves the container holding a detached origin. CDK measures it without
+    // complaint and answers zeros, so the panel would silently land at 0,0.
     const host = (fixture.nativeElement as HTMLElement).querySelector(
       'mlv-popup-container',
     ) as HTMLElement;
@@ -747,5 +750,344 @@ describe('MlvPopupContainer — a trigger inside the panel (#225)', () => {
     // In container mode the click would have run `container.toggle()` and
     // closed the popup the button lives in.
     expect(panes()).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Trigger registration lifetime (#230)
+//
+// `registerTrigger` used to be a pair of plain fields with no unregister: a
+// container-mode trigger that was destroyed kept governing every later open.
+// Its element stayed referenced, and its backdrop preference stayed latched —
+// a hover trigger registers `hasBackdrop: false`, so a container whose hover
+// trigger left an `@if` opened backdrop-less forever. Two triggers overwrote
+// each other with no way back to the earlier one.
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvPopupContainer, MlvPopup, MlvPopupContent, MlvPopupTrigger],
+  template: `
+    <mlv-popup-container>
+      @if (showFirst()) {
+        <button #first mlvPopupTrigger [triggerOn]="firstTriggerOn()">
+          first
+        </button>
+      }
+      @if (showSecond()) {
+        <button #second mlvPopupTrigger [triggerOn]="secondTriggerOn()">
+          second
+        </button>
+      }
+      <mlv-popup>
+        <ng-template mlvPopupContent><span>panel body</span></ng-template>
+      </mlv-popup>
+    </mlv-popup-container>
+  `,
+})
+class RegistrationHostComponent {
+  readonly showFirst = signal(true);
+  readonly showSecond = signal(false);
+  readonly firstTriggerOn = signal<MlvPopupTriggerType | MlvPopupTriggerType[]>(
+    'click',
+  );
+  readonly secondTriggerOn = signal<
+    MlvPopupTriggerType | MlvPopupTriggerType[]
+  >('hover');
+  readonly container = viewChild.required(MlvPopupContainer);
+  readonly containerHost = viewChild.required(MlvPopupContainer, {
+    read: ElementRef,
+  });
+  readonly first = viewChild<ElementRef<HTMLButtonElement>>('first');
+  readonly second = viewChild<ElementRef<HTMLButtonElement>>('second');
+}
+
+/**
+ * Whether `value` holds `el`, looking through arrays, maps, plain objects and
+ * `ElementRef`s a few levels deep.
+ *
+ * Deliberately blind to the container's implementation: it does not know the
+ * name or the shape of the field a registration lives in, so the same probe
+ * reads the pre-#230 `_triggerOrigin` field and whatever replaced it. Class
+ * instances other than `ElementRef` are not entered — `ViewContainerRef` and
+ * the injected services reach the whole view tree, trigger included, and are
+ * not registration state.
+ */
+function holdsElement(value: unknown, el: Element, depth: number): boolean {
+  if (value === el) return true;
+  if (depth === 0 || value === null || typeof value !== 'object') return false;
+  if (value instanceof ElementRef) return value.nativeElement === el;
+  if (Array.isArray(value)) {
+    return value.some((entry) => holdsElement(entry, el, depth - 1));
+  }
+  if (value instanceof Map) {
+    return [...value.entries()].some(
+      ([key, entry]) =>
+        holdsElement(key, el, depth - 1) || holdsElement(entry, el, depth - 1),
+    );
+  }
+  const proto: unknown = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return false;
+  return Object.values(value).some((entry) =>
+    holdsElement(entry, el, depth - 1),
+  );
+}
+
+describe('MlvPopupContainer — trigger registration lifetime (#230)', () => {
+  let overlayContainer: OverlayContainer;
+  let fixture: ComponentFixture<RegistrationHostComponent>;
+  let host: RegistrationHostComponent;
+  let openSpy: MockInstance<MlvPopupService['open']>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [RegistrationHostComponent],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+    // Calls through: the spy only records the config each attach was built
+    // from, which is where the resolved origin and backdrop are legible.
+    openSpy = vi.spyOn(TestBed.inject(MlvPopupService), 'open');
+    fixture = TestBed.createComponent(RegistrationHostComponent);
+    host = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    overlayContainer.ngOnDestroy();
+    vi.restoreAllMocks();
+  });
+
+  async function render(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  async function open(): Promise<void> {
+    host.container().open();
+    await render();
+  }
+
+  async function close(): Promise<void> {
+    host.container().close();
+    fixture.detectChanges();
+    await afterLeaveWindow();
+    fixture.detectChanges();
+  }
+
+  /** Where the most recent attach anchored, as a name rather than a node. */
+  function lastOrigin(): 'first' | 'second' | 'host' | 'other' {
+    const origin = openSpy.mock.lastCall?.[0].origin;
+    const el: unknown =
+      origin instanceof ElementRef ? origin.nativeElement : origin;
+    if (el === host.containerHost().nativeElement) return 'host';
+    if (el instanceof HTMLElement && el.textContent?.trim() === 'first') {
+      return 'first';
+    }
+    if (el instanceof HTMLElement && el.textContent?.trim() === 'second') {
+      return 'second';
+    }
+    return 'other';
+  }
+
+  /** The backdrop preference the most recent attach was built with. */
+  function lastBackdrop(): boolean | undefined {
+    return openSpy.mock.lastCall?.[0].hasBackdrop;
+  }
+
+  function backdrops(): number {
+    return overlayContainer
+      .getContainerElement()
+      .querySelectorAll('.cdk-overlay-backdrop').length;
+  }
+
+  /**
+   * Whether the container holds `el`. Pass the instance explicitly once the
+   * fixture is destroyed, when the host's view query is no longer a safe read.
+   */
+  function retains(
+    el: Element,
+    container: MlvPopupContainer = host.container(),
+  ): boolean {
+    return Object.values(container).some((value) => holdsElement(value, el, 3));
+  }
+
+  it('restores the backdrop once the hover trigger that suppressed it is destroyed', async () => {
+    host.firstTriggerOn.set('hover');
+    await render();
+
+    // Precondition, so the assertion below cannot pass against a container
+    // that never honoured the registration in the first place.
+    await open();
+    expect(lastBackdrop()).toBe(false);
+    expect(backdrops()).toBe(0);
+    await close();
+
+    host.showFirst.set(false);
+    await render();
+
+    await open();
+    expect(lastBackdrop()).toBe(true);
+    expect(backdrops()).toBe(1);
+  });
+
+  it('holds no reference to a destroyed trigger and anchors on the host', async () => {
+    const first = host.first()?.nativeElement;
+    if (!first) throw new Error('first trigger not rendered');
+    // Precondition: the probe can see a live registration at all.
+    expect(retains(first)).toBe(true);
+
+    host.showFirst.set(false);
+    await render();
+
+    expect(retains(first)).toBe(false);
+    await open();
+    expect(lastOrigin()).toBe('host');
+  });
+
+  it('lets the later of two triggers win, and pops back to the earlier one when it goes', async () => {
+    host.showSecond.set(true);
+    await render();
+
+    await open();
+    expect(lastOrigin()).toBe('second');
+    expect(lastBackdrop()).toBe(false);
+    await close();
+
+    host.showSecond.set(false);
+    await render();
+
+    await open();
+    expect(lastOrigin()).toBe('first');
+    expect(lastBackdrop()).toBe(true);
+  });
+
+  it('drops an earlier registration destroyed out of order without disturbing the later one', async () => {
+    host.showSecond.set(true);
+    await render();
+    const first = host.first()?.nativeElement;
+    const second = host.second()?.nativeElement;
+    if (!first || !second) throw new Error('triggers not rendered');
+
+    host.showFirst.set(false);
+    await render();
+
+    expect(retains(first)).toBe(false);
+    await open();
+    expect(lastOrigin()).toBe('second');
+    expect(lastBackdrop()).toBe(false);
+    await close();
+
+    host.showSecond.set(false);
+    await render();
+
+    expect(retains(second)).toBe(false);
+    await open();
+    expect(lastOrigin()).toBe('host');
+    expect(lastBackdrop()).toBe(true);
+  });
+
+  it('moves a re-registering trigger to the top, and pops it back off cleanly', async () => {
+    host.showSecond.set(true);
+    await render();
+
+    // `triggerOn` is tracked by the registering effect, so the earlier trigger
+    // registers again — and, as the latest writer, wins, exactly as it did
+    // before #230. Updating its entry where it sat would leave `second` on top.
+    host.firstTriggerOn.set(['click', 'focus']);
+    await render();
+
+    await open();
+    expect(lastOrigin()).toBe('first');
+    expect(lastBackdrop()).toBe(true);
+    await close();
+
+    // Destroying it withdraws every trace of it, so control returns to
+    // `second` rather than to a leftover `first` entry or to the host.
+    host.showFirst.set(false);
+    await render();
+
+    await open();
+    expect(lastOrigin()).toBe('second');
+    expect(lastBackdrop()).toBe(false);
+  });
+
+  it('keys a registration by element, not by the ElementRef instance', async () => {
+    host.showFirst.set(false);
+    await render();
+
+    const el = document.createElement('button');
+    document.body.appendChild(el);
+    try {
+      host.container().registerTrigger(new ElementRef(el), false);
+      // A query can hand out a fresh `ElementRef` for the same node, so a
+      // caller unregistering with a different wrapper must still match.
+      host.container().unregisterTrigger(new ElementRef(el));
+
+      expect(retains(el)).toBe(false);
+      await open();
+      expect(lastOrigin()).toBe('host');
+      expect(lastBackdrop()).toBe(true);
+    } finally {
+      el.remove();
+    }
+  });
+
+  it('ignores an unregister for an element that never registered', async () => {
+    host
+      .container()
+      .unregisterTrigger(new ElementRef(document.createElement('button')));
+
+    await open();
+    expect(lastOrigin()).toBe('first');
+  });
+
+  it('consults only the latest registration, not an earlier one, when it has left the document', async () => {
+    // A live, connected registration underneath — the entry a skip-past rule
+    // would fall through to. It registered with a backdrop.
+    expect(host.first()?.nativeElement.isConnected).toBe(true);
+
+    const detached = document.createElement('button');
+    document.body.appendChild(detached);
+    host.container().registerTrigger(new ElementRef(detached), false);
+    // Removed from the document without being unregistered.
+    detached.remove();
+
+    await open();
+
+    // Origin and backdrop both come from the top entry: its origin is
+    // unusable, so the host stands in, but its backdrop still applies.
+    expect(lastBackdrop()).toBe(false);
+    expect(lastOrigin()).toBe('host');
+  });
+
+  it('releases registrations nobody withdrew when the container is destroyed', async () => {
+    const container = host.container();
+    const el = document.createElement('button');
+    container.registerTrigger(new ElementRef(el), false);
+    // Precondition: registered and never unregistered.
+    expect(retains(el, container)).toBe(true);
+
+    fixture.destroy();
+
+    // The instance itself can outlive its view — held here, as a consumer's
+    // template reference or `viewChild` result could be — and must not keep
+    // the element alive with it.
+    expect(retains(el, container)).toBe(false);
+  });
+
+  it('does not re-anchor an open overlay when its trigger is destroyed', async () => {
+    await open();
+    expect(lastOrigin()).toBe('first');
+
+    host.showFirst.set(false);
+    await render();
+
+    // The origin is resolved once per attach; unregistering mid-open changes
+    // the next open, not this one. The open overlay keeps its now-detached
+    // origin, which CDK re-measures as 0,0 on the next reposition (#283).
+    expect(host.container().isOpen()).toBe(true);
+    expect(openSpy.mock.calls.length).toBe(1);
   });
 });
