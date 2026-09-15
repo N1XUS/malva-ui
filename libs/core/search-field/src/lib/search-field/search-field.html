@@ -125,7 +125,7 @@
     [attr.aria-label]="_resolvedAriaLabel()"
     cdkTrapFocus
     [cdkTrapFocusAutoCapture]="true"
-    (animationend)="onAnimationEnd()"
+    (animationend)="_onPanelAnimationEnd($event)"
   >
     <div class="mlv-search-field__overlay-panel">
       @if (_overlayContentDef(); as contentDef) {

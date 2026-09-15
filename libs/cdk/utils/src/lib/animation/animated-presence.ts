@@ -122,16 +122,23 @@ export class MlvAnimatedPresence {
       if (!animName || animName === 'none') {
         this._renderer.removeClass(el, enterClass);
       } else {
+        // Target-guarded (#231): `animationend` bubbles, so projected content
+        // finishing its own finite animation mid-enter would otherwise strip
+        // the enter class and cut the root's enter short. Only the root's own
+        // keyframes may clear it.
+        const onEnterEnd = (event: Event) => {
+          if (event.target !== el) return;
+          el.removeEventListener('animationend', onEnterEnd);
+          this._renderer.removeClass(el, enterClass);
+        };
         // Kept raw (issue #76 triage): one listener per enter animation, so
         // the lifetime is the animation's, not the directive's —
         // `takeUntilDestroyed` fires only at destroy and would retain every
-        // earlier generation. `once: true` releases it on the first event, and
-        // the element is dropped with the embedded view regardless.
-        el.addEventListener(
-          'animationend',
-          () => this._renderer.removeClass(el, enterClass),
-          { once: true },
-        );
+        // earlier generation. Not `once: true`: an ignored descendant event
+        // would spend it and latch the enter class. The handler removes itself
+        // on the root's own event instead, and the element is dropped with the
+        // embedded view regardless.
+        el.addEventListener('animationend', onEnterEnd);
       }
     });
   }
@@ -164,14 +171,27 @@ export class MlvAnimatedPresence {
         // No animation running (reduced-motion or class has no @keyframes).
         destroy();
       } else {
-        const onEnd = () => {
+        // Target-guarded (#231): a descendant's finite animation ending inside
+        // the leave window would otherwise destroy the view mid-leave. The
+        // listener is removed on the root's own event whether or not the leave
+        // is still pending, so a generation orphaned by a double rAF drains
+        // there too.
+        const onEnd = (event: Event) => {
+          if (event.target !== el) return;
+          el.removeEventListener('animationend', onEnd);
           if (this._leavePending) destroy();
         };
         // Kept raw (issue #76 triage): same per-animation lifetime as the
         // enter listener above, plus this one must be revocable at a specific
         // moment — `_cancelLeaveCleanup` detaches it when an enter interrupts
-        // the leave mid-flight, which is what balances the `once: true`.
-        el.addEventListener('animationend', onEnd, { once: true });
+        // the leave mid-flight or the directive is destroyed. Not `once: true`,
+        // for the same reason as the enter listener: an ignored descendant
+        // event would spend it and strand the leave.
+        //
+        // There is no fallback timer: a leave whose own `animationend` never
+        // arrives (a throttled background tab, an ancestor's `display: none`
+        // cancelling the animation) keeps the view mounted — tracked in #278.
+        el.addEventListener('animationend', onEnd);
         this._cancelLeaveCleanup = () => {
           el.removeEventListener('animationend', onEnd);
           this._renderer.removeClass(el, leaveClass);

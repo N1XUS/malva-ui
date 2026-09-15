@@ -35,7 +35,7 @@ Exported from `libs/cdk/overlay/src/index.ts`:
 | `MlvOverlayHostBase`                      | Abstract `@Directive()` class | Base for template-based overlay host **components** (drawer). Owns the `opened` model, `hasBackdrop`/`closeOnBackdropClick`/`closeOnEscape`/`restoreFocus` inputs, `afterOpened`/`afterClosed` outputs, `animationState` signal, the open/close `effect()`, optional focus restoration, and overlay create/destroy lifecycle. |
 | `MlvOverlayServiceBase<TConfig, TRef>`    | Abstract class                | Base for imperative overlay **services** (drawer). Owns the component-portal `open()` flow: overlay creation, child injector, modal semantics, focus trap/restore, enter animation, and backdrop/Escape close wiring.                                                                                                         |
 | `MlvOverlayRef<R>`                        | Abstract class                | Base for imperative overlay **references** (drawer). Owns idempotent `close()`/`afterClosed()`/`beforeClose()`, leave animation, and `animationend`-with-fallback disposal.                                                                                                                                                   |
-| `MlvBaseOverlayConfig`                    | Interface                     | Shared config fields (`data`, `closeOnBackdrop`, `closeOnEscape`, `injector`, `initialFocus`, `direction`), extended by `MlvDrawerConfig`.                                                                                                                                                                                                 |
+| `MlvBaseOverlayConfig`                    | Interface                     | Shared config fields (`data`, `closeOnBackdrop`, `closeOnEscape`, `injector`, `initialFocus`, `direction`), extended by `MlvDrawerConfig`.                                                                                                                                                                                    |
 | `MlvOverlayAnimationState`                | Type alias                    | `'enter' \| 'leave' \| 'idle'` — the `animationState` signal's value type.                                                                                                                                                                                                                                                    |
 | `MlvOverlayInitialFocus`                  | Type alias                    | `'auto' \| 'container' \| 'first-tabbable' \| HTMLElement \| string` (any other string is a CSS selector).                                                                                                                                                                                                                    |
 | `MlvOverlayInitialFocusResolver`          | Service (`providedIn: root`)  | Resolves and applies an overlay's initial focus target. Shared by the drawer host, the imperative services, and the dialog's CDK container.                                                                                                                                                                                   |
@@ -71,22 +71,7 @@ Both hosts apply focus from `afterNextRender`, because `attach()` only creates
 the view: `@if`-guarded content does not exist in the DOM until change
 detection has run.
 
-## Abstract members subclasses implement
-
-### `MlvOverlayHostBase`
-
-| Member                       | Kind                               | Purpose                                                                                                                                                                                                                                                                                                      |
-| ---------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `_backdropClass`             | abstract readonly `string`         | Backdrop base class; `{class}--leaving` is added on close.                                                                                                                                                                                                                                                   |
-| `_getOverlayTemplate()`      | abstract                           | Returns the `TemplateRef` to attach (usually a `viewChild` template).                                                                                                                                                                                                                                        |
-| `_buildPositionStrategy()`   | abstract                           | Builds the CDK `PositionStrategy`.                                                                                                                                                                                                                                                                           |
-| `_buildExtraOverlayConfig()` | overridable (default `{}`)         | Extra `OverlayConfig` merged in (size, panel class — e.g. `mlv-search-field`'s full-viewport pane).                                                                                                                                                                                                          |
-| `_leaveFallbackMs`           | overridable `number` (default 350) | Fallback delay after which a pending leave is force-completed when the panel's `animationend` never fires (`prefers-reduced-motion` strips the animation; hidden tabs throttle it). Armed by `_startLeaveAnimation()`, cleared on disposal. Mirrors `MlvOverlayRef._leaveFallbackMs` on the imperative path. |
-
-| `_getFocusContainer()` | overridable | The element initial focus is resolved against. Defaults to the pane's `[role="dialog"]` descendant, falling back to the pane itself. |
-
-Provided by the base (inherited public API): `opened` (`model`), `hasBackdrop`,
-### Direction on the portaled pane
+## Direction on the portaled pane
 
 Every overlay created by these bases passes `direction` on the CDK overlay
 config, resolved through `MlvRtlService.resolveDirection()`:
@@ -99,12 +84,74 @@ This is required, not cosmetic: the pane is portaled to the overlay container on
 `<body>`, so it never inherits a `[dir]` scope its trigger sits in. The config
 value also drives `start`/`end` mirroring inside the position strategy.
 
+## Abstract members subclasses implement
+
+### `MlvOverlayHostBase`
+
+| Member                       | Kind                               | Purpose                                                                                                                                                                                                                                                                                                      |
+| ---------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `_backdropClass`             | abstract readonly `string`         | Backdrop base class; `{class}--leaving` is added on close.                                                                                                                                                                                                                                                   |
+| `_getOverlayTemplate()`      | abstract                           | Returns the `TemplateRef` to attach (usually a `viewChild` template).                                                                                                                                                                                                                                        |
+| `_buildPositionStrategy()`   | abstract                           | Builds the CDK `PositionStrategy`.                                                                                                                                                                                                                                                                           |
+| `_buildExtraOverlayConfig()` | overridable (default `{}`)         | Extra `OverlayConfig` merged in (size, panel class — e.g. `mlv-search-field`'s full-viewport pane).                                                                                                                                                                                                          |
+| `_leaveFallbackMs`           | overridable `number` (default 350) | Fallback delay after which a pending leave is force-completed when the panel's `animationend` never fires (`prefers-reduced-motion` strips the animation; hidden tabs throttle it). Armed by `_startLeaveAnimation()`, cleared on disposal. Mirrors `MlvOverlayRef._leaveFallbackMs` on the imperative path. |
+| `_getFocusContainer()`       | overridable                        | The element initial focus is resolved against. Defaults to the pane's `[role="dialog"]` descendant, falling back to the pane itself.                                                                                                                                                                         |
+
+Provided by the base (inherited public API): `opened` (`model`), `hasBackdrop`,
 `closeOnBackdropClick`, `closeOnEscape`, `restoreFocus` (coerced boolean,
 default `true`), `initialFocus` (inputs), `afterOpened`, `afterClosed` (outputs),
 `animationState` (signal), `open()`, `close()`,
 `onAnimationEnd()`, `ngOnDestroy()`, and the protected `_overlay`, `_vcr`,
 `_injector`, `_initialFocusResolver`, `_overlayRef`, `_triggerElement` members
-plus `_createOverlay()`/`_startLeaveAnimation()`/`_destroyOverlay()`.
+plus `_createOverlay()`/`_startLeaveAnimation()`/`_destroyOverlay()` and the
+template-facing `_onPanelAnimationEnd(event)`.
+
+#### The panel's `animationend` is target-guarded
+
+A subclass template binds `(animationend)="_onPanelAnimationEnd($event)"` on the
+element that plays its enter/leave keyframes — **not** `onAnimationEnd()`.
+`animationend` bubbles, so a descendant finishing a finite CSS animation inside
+the leave window reaches the panel's listener too; bound raw, `onAnimationEnd()`
+called `_destroyOverlay()` on it — disposing the overlay mid-animation, restoring
+focus early and emitting `afterClosed` before the leave had played. Same defect
+#231 fixed in `mlv-popup`, one layer down. Reachable with Malva's own
+components, not only consumer content: `mlv-message` (rendered by `mlv-input`,
+`mlv-select`, `mlv-combobox`) plays a finite `mlv-slide-down` over
+`--mlv-duration-normal` via `animate.enter`, `mlv-expand` a finite
+`--mlv-duration-slow` expand/collapse, and a drawer body or search overlay holds
+arbitrary consumer content besides. Only the `infinite` animations
+(`mlv-loader`, `mlv-skeleton`, `mlv-status-indicator`) never fire
+`animationend`.
+
+- `_onPanelAnimationEnd` admits the event only when `event.target ===
+event.currentTarget` — exactly the bound element's own keyframes. It reads
+  `currentTarget` synchronously inside the dispatch, where it is still set.
+- **Do not delete the guard as redundant, and do not move it into
+  `onAnimationEnd()`.** `onAnimationEnd()` has a second, event-less caller: the
+  leave fallback timer `_startLeaveAnimation()` arms, which force-completes a
+  leave whose `animationend` never came (reduced motion, a throttled background
+  tab). Filtering inside it would silently disable that path. Hence two
+  methods, one filtered and one not — the same split as `MlvPopup` (see
+  `.claude/projects/libs-popup.md` § _The panel's `animationend` is
+  target-guarded_) and the same comparison as `MlvDialog._onAnimationEnd`.
+- The guard only works if the keyframes run **on the bound element**. Both
+  in-repo subclasses satisfy that: `mlv-drawer--leave` is on `.mlv-drawer`,
+  `mlv-search-field__overlay--leaving` on `.mlv-search-field__overlay`. A
+  subclass whose leave animation plays on a _child_ of the bound element would
+  fall through to the fallback timer — bind the listener on the animated
+  element instead.
+- **Consumer subclasses see no change until they opt in.** `onAnimationEnd()`
+  keeps its name, signature and behaviour, so a subclass template binding it raw
+  keeps the unguarded behaviour; rebinding to `_onPanelAnimationEnd($event)` is
+  the fix. `_onPanelAnimationEnd` is `_`-prefixed, so `VERSIONING.md` §2 does not
+  count it as public — the same standing as the `_backdropClass` /
+  `_getOverlayTemplate()` / `_buildPositionStrategy()` members every subclass
+  already has to implement. A subclass declaring its own member of that name now
+  collides with it. `VERSIONING.md` contradicts itself on the standing of
+  `_`-prefixed abstract members — tracked in #279.
+- Pinned in `overlay.spec.ts` (`MlvOverlayHostBase › animationend target`),
+  whose test host binds the guarded handler too — on the raw handler the base's
+  own suite would exercise a path no shipped subclass takes.
 
 `restoreFocus=true` preserves the default declarative-overlay behavior: after
 leave disposal, focus returns to the connected element active before open.
@@ -116,7 +163,7 @@ cancels the fallback and leave state so the attached overlay remains rendered.
 
 | Member                            | Kind                       | Purpose                                                                                                                 |
 | --------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `_enterAnimationClass`            | abstract readonly `string` | Panel enter class; added then removed on `animationend`.                                                                |
+| `_enterAnimationClass`            | abstract readonly `string` | Panel enter class; added then removed on the pane's **own** `animationend` (target-guarded, see below).                 |
 | `_buildPositionStrategy(config)`  | abstract                   | Builds the CDK `PositionStrategy`.                                                                                      |
 | `_buildOverlayConfig(config)`     | abstract                   | Surface `OverlayConfig` (backdrop class, panel class, size).                                                            |
 | `_createRef(overlayRef, config)`  | abstract                   | Constructs the concrete `TRef`.                                                                                         |
@@ -134,6 +181,14 @@ auto-capture is deliberately unused), destroys the trap after close, and
 restores focus to that captured element. Concrete services remain responsible
 for any additional accessible naming applied in `_decoratePanel()`.
 
+The enter-class listener is **target-guarded** for the same reason as the
+host's (see _The panel's `animationend` is target-guarded_): consumer content
+finishing its own animation during the enter would otherwise strip the class
+and cut the pane's enter short. It is **not** `once: true` any more — an
+ignored descendant event would spend a one-shot listener and latch the enter
+class for the life of the pane — so the handler removes itself on the pane's own
+event. `overlay.spec.ts` pins both halves.
+
 ### `MlvOverlayRef<R>`
 
 | Member                  | Kind                       | Purpose                                                 |
@@ -146,6 +201,13 @@ Inherited public API: `close(result?)`, `afterClosed()`, `beforeClose()`.
 `close()` is idempotent: the first request owns the before-close event, leave
 listener/fallback timer, disposal, and result emission; later requests are
 ignored.
+
+The leave listener on the pane is **target-guarded**: only the pane's own
+`animationend` disposes, so a drawer body's finite animation finishing inside the
+leave window no longer disposes the overlay early and emits `afterClosed` before
+the leave played. Like the enter listener it is not `once: true` (an ignored
+event would spend it and strand the leave on the fallback timer); `dispose()`
+removes it explicitly, whichever of the two paths wins.
 
 ## Concrete subclasses (in `@malva-ui/core`)
 
@@ -179,12 +241,19 @@ No new external peer dependencies — all are already peers of `@malva-ui/cdk`.
 
 `libs/cdk/overlay/src/lib/overlay.spec.ts` covers all three non-trivial source
 files with concrete test doubles: `MlvOverlayRef` (close lifecycle, duplicate
-close/result protection, animationend vs fallback disposal, no-panel path),
+close/result protection, animationend vs fallback disposal, a descendant
+`animationend` ignored while the listener stays armed for the pane's own — the
+`once: true` regression pin — its removal on disposal, no-panel path),
 `MlvOverlayHostBase` (open/afterOpened, leave animation, focus restore,
-afterClosed via a real CDK overlay, and the `initialFocus` default/keyword/
-selector paths), and `MlvOverlayServiceBase` (dialog semantics, enter-animation
-class lifecycle, backdrop-click teardown, service-path focus restore, and
-`config.initialFocus`). `overlay-initial-focus.spec.ts` covers the resolver
+afterClosed via a real CDK overlay, the `initialFocus` default/keyword/
+selector paths, and the `animationend` target guard — a descendant's event
+ignored, the panel's own disposing, the fallback still force-completing after an
+ignored one), and `MlvOverlayServiceBase` (dialog semantics, enter-animation
+class lifecycle, backdrop-click teardown, service-path focus restore,
+`config.initialFocus`, and the enter/leave target guards against the live
+`OverlayContainer`). The `animationend` events are plain bubbling `Event`s —
+jsdom implements no `AnimationEvent` — which is exact for handlers that read only
+`target` / `currentTarget`. `overlay-initial-focus.spec.ts` covers the resolver
 itself against the DOM shape a service dialog actually produces. `overlay-config.ts`
 is a plain interface (no test).
 

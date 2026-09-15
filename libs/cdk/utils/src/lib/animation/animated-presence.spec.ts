@@ -29,11 +29,37 @@ class CustomClassHostComponent {
   show = signal(false);
 }
 
+/** A presence root holding its own animated content, as a real card or panel does. */
+@Component({
+  imports: [MlvAnimatedPresence],
+  template: `
+    <div *mlvAnimatedPresence="show()" class="target">
+      <span class="child">content</span>
+    </div>
+  `,
+})
+class NestedContentHostComponent {
+  show = signal(false);
+}
+
+/**
+ * A bubbling `animationend`, the way a finished CSS animation dispatches one.
+ * A plain `Event`: jsdom implements neither `AnimationEvent` nor CSS
+ * animations, and the listeners under test read only `target`.
+ */
+function animationEnd(): Event {
+  return new Event('animationend', { bubbles: true });
+}
+
 describe('MlvAnimatedPresence', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     await TestBed.configureTestingModule({
-      imports: [TestHostComponent, CustomClassHostComponent],
+      imports: [
+        TestHostComponent,
+        CustomClassHostComponent,
+        NestedContentHostComponent,
+      ],
     }).compileComponents();
   });
 
@@ -157,5 +183,76 @@ describe('MlvAnimatedPresence', () => {
     vi.runAllTimers();
 
     expect(fixture.nativeElement.querySelector('.target')).toBeNull();
+  });
+
+  describe('animationend target', () => {
+    beforeEach(() => {
+      // jsdom runs no CSS animations, so `animationName` reads '' and both
+      // paths would skip their listener entirely. Report a running animation
+      // on the presence root — the state a real stylesheet produces — and
+      // leave every other element to the real implementation.
+      const realGetComputedStyle = globalThis.getComputedStyle.bind(
+        globalThis,
+      ) as typeof getComputedStyle;
+      vi.spyOn(globalThis, 'getComputedStyle').mockImplementation(((
+        ...args: Parameters<typeof getComputedStyle>
+      ) => {
+        const declaration = realGetComputedStyle(...args);
+        if (!args[0].classList.contains('target')) return declaration;
+        return new Proxy(declaration, {
+          get: (target, prop) =>
+            prop === 'animationName'
+              ? 'mlv-presence-running'
+              : Reflect.get(target, prop),
+        });
+      }) as typeof getComputedStyle);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    /** Mounts the root and runs the enter rAF, which arms the enter listener. */
+    function mount() {
+      const fixture = TestBed.createComponent(NestedContentHostComponent);
+      fixture.componentInstance.show.set(true);
+      fixture.detectChanges();
+      vi.runAllTimers();
+      const root = fixture.nativeElement.querySelector(
+        '.target',
+      ) as HTMLElement;
+      const child = root.querySelector('.child') as HTMLElement;
+      return { fixture, root, child };
+    }
+
+    it("keeps the enter class through a descendant animationend, then clears it on the root's own", () => {
+      const { root, child } = mount();
+      expect(root.classList.contains('mlv-presence--enter')).toBe(true);
+
+      // Projected content finishing its own finite animation mid-enter (#231).
+      child.dispatchEvent(animationEnd());
+      expect(root.classList.contains('mlv-presence--enter')).toBe(true);
+
+      // A `once: true` listener would have been spent above and latch the
+      // class; the root's own keyframes must still clear it.
+      root.dispatchEvent(animationEnd());
+      expect(root.classList.contains('mlv-presence--enter')).toBe(false);
+    });
+
+    it("keeps the view mounted through a descendant animationend during the leave, then destroys it on the root's own", () => {
+      const { fixture, root, child } = mount();
+      root.dispatchEvent(animationEnd()); // finish the enter
+
+      fixture.componentInstance.show.set(false);
+      fixture.detectChanges();
+      vi.runAllTimers(); // the leave rAF arms the leave listener
+      expect(root.classList.contains('mlv-presence--leave')).toBe(true);
+
+      child.dispatchEvent(animationEnd());
+      expect(fixture.nativeElement.querySelector('.target')).not.toBeNull();
+
+      root.dispatchEvent(animationEnd());
+      expect(fixture.nativeElement.querySelector('.target')).toBeNull();
+    });
   });
 });

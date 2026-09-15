@@ -90,7 +90,7 @@ absent from the public barrel. Drawer-section DOM lookup is scoped to the owning
 
 - `open(): void` — Sets `opened` to `true`.
 - `close(): void` — Sets `opened` to `false` and triggers the leave animation.
-- `onAnimationEnd(): void` — Called by the template's `animationend` event to destroy the overlay after leave animation.
+- `onAnimationEnd(): void` — Completes a pending leave: destroys the overlay after the leave animation. Unfiltered — the template does **not** bind it directly (see _Leave disposal waits for the panel's own `animationend`_ below).
 
 **Internal signals:**
 
@@ -107,13 +107,26 @@ absent from the public barrel. Drawer-section DOM lookup is scoped to the owning
        [style.width] [style.height]
        [style.max-width] [style.max-height]
        [style.--mlv-drawer-hidden-transform]
-       (animationend)="onAnimationEnd()">
+       (animationend)="_onPanelAnimationEnd($event)">
     @if (contentRef()) {
       <ng-template [ngTemplateOutlet]="contentRef()!.templateRef" />
     }
   </div>
 </ng-template>
 ```
+
+**Leave disposal waits for the panel's own `animationend`:** the panel binds the
+base's target-guarded `_onPanelAnimationEnd($event)`, not `onAnimationEnd()`.
+`animationend` bubbles, and a drawer body is arbitrary consumer content — a
+one-shot row fade-in or highlight finishing inside the leave window used to
+dispose the overlay mid-slide, restore focus early and emit `afterClosed` before
+the leave had played. Only `.mlv-drawer`'s own `drawer-leave` keyframes (declared
+in `libs/styles/src/lib/animations.scss`, on the bound element itself) complete
+the leave now; the 350 ms fallback still force-completes one that never fires.
+Contract and rationale: `.claude/projects/libs-overlay.md` § _The panel's
+`animationend` is target-guarded_. The service path (`MlvDrawerService` /
+`MlvDrawerRef`) is guarded the same way inside `MlvOverlayRef` — see
+`MlvDrawerRef` below.
 
 The focus trap keeps Tab inside the panel but **does not auto-capture**: taking
 the first tabbable node landed on the leftmost `mlv-button-close`, popping its
@@ -193,6 +206,15 @@ event against a 1s fallback timer (`race(fromEvent(panel, 'transitionend'),
 timer(…)).pipe(take(1), takeUntilDestroyed(…))`) instead of waiting on it. Before
 that (fixed in #76) the class latched on the panel permanently in both cases and
 one `transitionend` listener accumulated per snap gesture.
+
+The `transitionend` stream is **target-filtered** (`filter((e) => e.target ===
+panel)`, inside the `race`). `transitionend` bubbles, and the panel holds
+transitioning descendants — the handle's own `__handle-pill` fades
+`background-color` on hover/focus in `--mlv-duration-fast`, shorter than the
+snap, and consumer content brings more. Unfiltered, the first of them to finish
+won the race and stripped `--snapping` mid-snap, which cancels the panel's
+`width`/`height` transition and jumps it to the target. Same defect class as the
+overlay bases' `animationend` guard; pinned in `drawer-resize.spec.ts`.
 
 **Styling tokens used (`drawer.scss`):**
 
@@ -559,19 +581,19 @@ open<T>(component: Type<T>, config?: MlvDrawerConfig): MlvDrawerRef
 
 **`MlvDrawerConfig` interface:**
 
-| Property            | Type                     | Default   | Description                                                                       |
-| ------------------- | ------------------------ | --------- | --------------------------------------------------------------------------------- |
-| `position`          | `MlvDrawerPosition`      | `'right'` | Edge the drawer slides from                                                       |
-| `size`              | `string`                 | —         | CSS width or height of the panel                                                  |
-| `maxSize`           | `string`                 | —         | Max-size ceiling for the sizing axis; always additionally clamped to the viewport |
-| `initialFocus`      | `MlvOverlayInitialFocus` | `'auto'`  | Inherited from `MlvBaseOverlayConfig`                                             |
-| `data`              | `unknown`                | —         | Arbitrary data injected as `DRAWER_DATA`                                          |
-| `closeOnBackdrop`   | `boolean`                | `true`    | Clicking backdrop closes the drawer                                               |
-| `closeOnEscape`     | `boolean`                | `true`    | Pressing Escape closes the drawer                                                 |
-| `animationDuration` | `number`                 | `300`     | Animation duration in milliseconds                                                |
-| `resizable`         | `boolean`                | `false`   | Renders a drag handle for resize / swipe-to-dismiss                               |
-| `snapPoints`        | `number[]`               | `[]`      | Viewport-percentage snap points (0–100)                                           |
-| `defaultSnap`       | `number`                 | `100`     | Initial open snap point percentage                                                |
+| Property            | Type                     | Default   | Description                                                                                                                                                                            |
+| ------------------- | ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `position`          | `MlvDrawerPosition`      | `'right'` | Edge the drawer slides from                                                                                                                                                            |
+| `size`              | `string`                 | —         | CSS width or height of the panel                                                                                                                                                       |
+| `maxSize`           | `string`                 | —         | Max-size ceiling for the sizing axis; always additionally clamped to the viewport                                                                                                      |
+| `initialFocus`      | `MlvOverlayInitialFocus` | `'auto'`  | Inherited from `MlvBaseOverlayConfig`                                                                                                                                                  |
+| `data`              | `unknown`                | —         | Arbitrary data injected as `DRAWER_DATA`                                                                                                                                               |
+| `closeOnBackdrop`   | `boolean`                | `true`    | Clicking backdrop closes the drawer                                                                                                                                                    |
+| `closeOnEscape`     | `boolean`                | `true`    | Pressing Escape closes the drawer                                                                                                                                                      |
+| `animationDuration` | `number`                 | `300`     | **Inert** (#277) — stored, read by nothing. Leave length is CSS `--mlv-drawer-leave-duration`; disposal waits for the pane's own `animationend` or the fixed 350 ms `_leaveFallbackMs` |
+| `resizable`         | `boolean`                | `false`   | Renders a drag handle for resize / swipe-to-dismiss                                                                                                                                    |
+| `snapPoints`        | `number[]`               | `[]`      | Viewport-percentage snap points (0–100)                                                                                                                                                |
+| `defaultSnap`       | `number`                 | `100`     | Initial open snap point percentage                                                                                                                                                     |
 
 **Injection token:** `DRAWER_DATA` — an `InjectionToken<unknown>`. Inject with `inject(DRAWER_DATA)` in the opened component to receive `config.data`.
 
@@ -591,7 +613,7 @@ open<T>(component: Type<T>, config?: MlvDrawerConfig): MlvDrawerRef
 close(result?: R): void
 ```
 
-Starts the leave animation on both the backdrop and the panel element, then disposes the overlay after `animationDuration` ms and emits the result.
+Starts the leave animation on both the backdrop and the pane, then disposes the overlay and emits the result when the **pane's own** `animationend` fires — an `animationend` bubbling out of the drawer content is ignored — or after the `350 ms` fallback, whichever comes first. The `animationDuration` constructor argument (and `position`) is stored but read by nothing; it does not time the close (#277).
 
 ```ts
 afterClosed(): Observable<R | undefined>

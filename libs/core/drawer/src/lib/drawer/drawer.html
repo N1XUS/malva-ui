@@ -13,7 +13,7 @@
     [style.max-width]="drawerDimensions['maxWidth']"
     [style.max-height]="drawerDimensions['maxHeight']"
     [style.--mlv-drawer-hidden-transform]="hiddenTransform()"
-    (animationend)="onAnimationEnd()"
+    (animationend)="_onPanelAnimationEnd($event)"
     role="dialog"
     aria-modal="true"
     [attr.aria-label]="_resolvedAriaLabel()"

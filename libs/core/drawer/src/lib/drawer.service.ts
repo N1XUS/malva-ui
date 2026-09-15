@@ -25,7 +25,15 @@ export interface MlvDrawerConfig extends MlvBaseOverlayConfig {
    * clamped to the viewport so a fixed `size` can never exceed the screen.
    */
   maxSize?: string;
-  /** Animation duration in milliseconds. Defaults to `300`. */
+  /**
+   * Intended close-animation duration in milliseconds. Defaults to `300`.
+   *
+   * **Currently inert** (#277): the value is handed to `MlvDrawerRef` and
+   * stored, but nothing reads it. The leave animation's length comes from the
+   * CSS `--mlv-drawer-leave-duration` custom property, and disposal waits for
+   * the pane's own `animationend` or `MlvDrawerRef`'s fixed 350 ms
+   * `_leaveFallbackMs`, whichever comes first.
+   */
   animationDuration?: number;
   /**
    * When true, renders a drag handle on the inward-facing edge.

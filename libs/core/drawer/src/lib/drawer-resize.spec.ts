@@ -133,6 +133,43 @@ describe('MlvDrawerResize', () => {
 
       expect(panel.classList.contains('mlv-drawer--snapping')).toBe(false);
     });
+
+    it('keeps the snapping class through a transitionend bubbling out of the panel content', () => {
+      snapGesture();
+      expect(panel.classList.contains('mlv-drawer--snapping')).toBe(true);
+
+      // `transitionend` bubbles. The handle is itself a descendant of the
+      // panel, and its `__handle-pill` fades `background-color` on
+      // hover/focus-visible in `--mlv-duration-fast` — shorter than the snap —
+      // so the handle's own chrome can end the snap early, and so can any
+      // consumer content with a hover transition. Only the panel's own
+      // width/height transition may clear the class.
+      handle.dispatchEvent(new Event('transitionend', { bubbles: true }));
+      expect(panel.classList.contains('mlv-drawer--snapping')).toBe(true);
+
+      panel.dispatchEvent(new Event('transitionend', { bubbles: true }));
+      expect(panel.classList.contains('mlv-drawer--snapping')).toBe(false);
+    });
+
+    it('still clears the snapping class through the fallback after ignoring a descendant transitionend', () => {
+      vi.useFakeTimers();
+
+      snapGesture();
+      expect(panel.classList.contains('mlv-drawer--snapping')).toBe(true);
+
+      // The descendant event must not settle the `race`. Were the target
+      // filter applied after it (`race(…).pipe(filter(…), take(1))`), this
+      // event would win, be dropped by the filter, and leave the timer arm
+      // already unsubscribed — so the class would latch for good (#76 again).
+      handle.dispatchEvent(new Event('transitionend', { bubbles: true }));
+      expect(panel.classList.contains('mlv-drawer--snapping')).toBe(true);
+
+      // The panel's own transition never ends (reduced motion, or a snap to
+      // the current size); only the fallback timer is left.
+      vi.advanceTimersByTime(2000);
+
+      expect(panel.classList.contains('mlv-drawer--snapping')).toBe(false);
+    });
   });
 });
 

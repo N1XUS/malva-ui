@@ -60,22 +60,33 @@ export abstract class MlvOverlayRef<R = unknown> {
     const panelEl = this._overlayRef.overlayElement;
     if (panelEl) {
       let disposed = false;
+      // Target-guarded, and the guard is load-bearing: `animationend` bubbles,
+      // so a descendant finishing a finite CSS animation inside the leave
+      // window (consumer content in the pane) would otherwise dispose the
+      // overlay mid-animation. Only the pane's own leave keyframes may.
+      const onAnimationEnd = (event: Event) => {
+        if (event.target === panelEl) {
+          dispose();
+        }
+      };
       const dispose = () => {
         if (disposed) return;
         disposed = true;
         clearTimeout(timer);
+        panelEl.removeEventListener('animationend', onAnimationEnd);
         this._overlayRef.dispose();
         this._closedSubject.next(result);
         this._closedSubject.complete();
       };
 
       panelEl.classList.add(this._panelLeaveClass);
-      // Kept raw (issue #76 triage): `once: true` detaches the listener on the
-      // first event, and whichever of the two paths wins calls `dispose()`,
-      // which removes `panelEl` from the DOM along with anything still bound to
-      // it. There is also no destroy scope to hand `takeUntilDestroyed` — refs
-      // are constructed with `new`, outside any injection context.
-      panelEl.addEventListener('animationend', dispose, { once: true });
+      // Kept raw (issue #76 triage): no destroy scope to hand
+      // `takeUntilDestroyed` — refs are constructed with `new`, outside any
+      // injection context — and the listener's lifetime is one leave, not the
+      // ref's. Not `once: true`: an ignored descendant event would spend it and
+      // strand the leave on the fallback timer. `dispose()`, whichever of the
+      // two paths wins, removes it explicitly instead.
+      panelEl.addEventListener('animationend', onAnimationEnd);
       const timer = setTimeout(dispose, this._leaveFallbackMs);
     } else {
       this._overlayRef.dispose();

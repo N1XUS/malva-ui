@@ -46,7 +46,11 @@ export class MlvDrawerRef<R = unknown> extends MlvOverlayRef<R> {
     overlayRef: OverlayRef,
     /** @private The edge the drawer slides from. */
     private readonly _position = 'right',
-    /** @private Configured close-animation duration in milliseconds. */
+    /**
+     * @private Configured close-animation duration in milliseconds. Stored but
+     * read by nothing — the close is timed by the pane's `animationend` or
+     * `_leaveFallbackMs` (#277).
+     */
     private readonly _animationDuration = 300,
   ) {
     super(overlayRef);

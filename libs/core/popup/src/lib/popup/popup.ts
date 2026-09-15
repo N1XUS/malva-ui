@@ -674,9 +674,49 @@ export class MlvPopup {
     return size;
   }
 
+  /**
+   * Completes a pending leave — emits {@link leaveAnimationDone$} so the overlay
+   * owner disposes the overlay. A no-op in every other state.
+   *
+   * Two callers, deliberately asymmetric: the panel's own `animationend`
+   * arrives through {@link _onPanelAnimationEnd}, which filters out animations
+   * that merely bubbled up from the content, while the leave fallback timer
+   * calls this **unfiltered** to force-complete a leave whose `animationend`
+   * never came (reduced motion, a throttled background tab). Keep it free of
+   * any event-shaped guard so that force path stays available.
+   */
   onAnimationEnd(): void {
     if (this.animationState() === 'leave') {
       this.leaveAnimationDone$.next();
+    }
+  }
+
+  /**
+   * @protected The panel's `animationend` listener, bound in `popup.html`.
+   *
+   * **The guard is load-bearing — do not delete it as redundant.**
+   * `animationend` bubbles, so any *descendant* finishing a finite CSS
+   * animation inside the leave window also reaches this listener; unguarded it
+   * completed the leave and detached the overlay mid-animation (#231). Nothing
+   * else on this path filters the event. The case is reachable with Malva's own
+   * components, not only consumer content: `mlv-message` (rendered by
+   * `mlv-input`, `mlv-select` and `mlv-combobox`) plays a finite
+   * `mlv-slide-down` over `--mlv-duration-normal` through `animate.enter`, and
+   * `mlv-expand` a finite `--mlv-duration-slow` expand/collapse — and the
+   * editor's link popup and `mlv-filter`'s popup both host `mlv-input`. Only
+   * the `infinite` animations (`mlv-loader`, `mlv-skeleton`,
+   * `mlv-status-indicator`) never fire `animationend`.
+   *
+   * `currentTarget` is the element the listener is bound to (`.mlv-popup`), so
+   * the comparison admits exactly the panel's own `popup-enter` / `popup-leave`
+   * keyframes and follows the binding if the panel element is ever moved. It is
+   * read synchronously, inside the dispatch, where it is still set. Mirrors
+   * `MlvDialog._onAnimationEnd`, which compares against its host element for
+   * the same reason.
+   */
+  protected _onPanelAnimationEnd(event: Event): void {
+    if (event.target === event.currentTarget) {
+      this.onAnimationEnd();
     }
   }
 

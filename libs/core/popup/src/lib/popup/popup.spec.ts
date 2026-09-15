@@ -20,6 +20,18 @@ import { MlvPopupHeaderActions } from '../popup-header-actions';
 import { MlvPopupHeaderContent } from '../popup-header-content';
 import { MlvPopupPinnedContent } from '../popup-pinned-content';
 
+/**
+ * A bubbling `animationend`, the way a finished CSS animation dispatches one.
+ *
+ * A plain `Event`, not an `AnimationEvent`: jsdom implements neither the
+ * interface nor CSS animations, so nothing here would ever synthesise one. The
+ * handler under test reads only `target` / `currentTarget`, and those are
+ * dispatch mechanics `Event` models exactly.
+ */
+function animationEnd(): Event {
+  return new Event('animationend', { bubbles: true });
+}
+
 describe('MlvPopup', () => {
   it('should create', async () => {
     await TestBed.configureTestingModule({
@@ -257,6 +269,74 @@ describe('MlvPopup', () => {
       fixture.detectChanges();
 
       await new Promise((resolve) => setTimeout(resolve, 350));
+      expect(emissions).toBe(1);
+    });
+  });
+
+  describe('animationend target', () => {
+    @Component({
+      imports: [MlvPopup, MlvPopupContent],
+      template: `
+        <mlv-popup>
+          <ng-template mlvPopupContent><button>content</button></ng-template>
+        </mlv-popup>
+        <ng-container #host />
+      `,
+    })
+    class PanelHostComponent {
+      readonly popup = viewChild.required(MlvPopup);
+      readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+      stamp(): void {
+        this.host().createEmbeddedView(this.popup().popupTemplate());
+      }
+    }
+
+    function renderPanel(): {
+      fixture: ComponentFixture<PanelHostComponent>;
+      popup: MlvPopup;
+      panel: HTMLElement;
+    } {
+      const fixture = TestBed.createComponent(PanelHostComponent);
+      fixture.detectChanges();
+      fixture.componentInstance.stamp();
+      fixture.detectChanges();
+      return {
+        fixture,
+        popup: fixture.componentInstance.popup(),
+        panel: fixture.nativeElement.querySelector('.mlv-popup') as HTMLElement,
+      };
+    }
+
+    it('does not complete the leave for an animationend raised by a descendant', () => {
+      const { fixture, popup, panel } = renderPanel();
+
+      let emissions = 0;
+      popup.leaveAnimationDone$.subscribe(() => emissions++);
+
+      popup.animationState.set('leave');
+      fixture.detectChanges();
+
+      const child = panel.querySelector(
+        '.mlv-popup__inner button',
+      ) as HTMLElement | null;
+      expect(child).not.toBeNull();
+      child?.dispatchEvent(animationEnd());
+
+      expect(emissions).toBe(0);
+    });
+
+    it('completes the leave for an animationend raised by the panel itself', () => {
+      const { fixture, popup, panel } = renderPanel();
+
+      let emissions = 0;
+      popup.leaveAnimationDone$.subscribe(() => emissions++);
+
+      popup.animationState.set('leave');
+      fixture.detectChanges();
+
+      panel.dispatchEvent(animationEnd());
+
       expect(emissions).toBe(1);
     });
   });

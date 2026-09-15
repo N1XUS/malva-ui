@@ -166,9 +166,52 @@ position change — see _Arrow geometry is physical_.
 
 - `isFullscreen: computed<boolean>` — **public**; whether the popup is rendering as a full-screen mobile sheet. Latched for the lifetime of one open via `lockFullscreenForOpen()` / `releaseFullscreenLock()` (see _Mode is resolved once per open_)
 
+#### The panel's `animationend` is target-guarded
+
+The template binds `(animationend)="_onPanelAnimationEnd($event)"`, **not**
+`onAnimationEnd()` directly. `animationend` bubbles, so a descendant finishing a
+finite CSS animation inside the ~100 ms leave window (`--mlv-duration-fast`)
+reaches the panel's listener too; unguarded it completed the leave and detached
+the overlay mid-animation (#231). `_onPanelAnimationEnd` admits the event only
+when `event.target === event.currentTarget`, i.e. only the panel's own
+`popup-enter` / `popup-leave` keyframes.
+
+- **Do not delete the guard as redundant.** The defect is reachable with Malva's
+  own components, not only consumer content:
+  - `mlv-message` — rendered by `mlv-input`, `mlv-select`, `mlv-combobox` — plays
+    a finite `mlv-slide-down` over `--mlv-duration-normal` via `animate.enter`
+    (`message.ts` / `message.scss`).
+  - `mlv-expand` runs a finite `--mlv-duration-slow` expand/collapse.
+  - The editor's link popup (`editor-link.html`) and `mlv-filter`'s popup both
+    host `mlv-input`.
+  - Only the `infinite` animations — `mlv-loader`, `mlv-skeleton`,
+    `mlv-status-indicator` — never fire `animationend`.
+- The `enter` path was never affected: `onAnimationEnd()` acts only while
+  `animationState() === 'leave'`. Nothing moves the state out of `enter` when
+  the enter keyframes end — the overlay owners (`MlvPopupContainer`,
+  `MlvPopupTrigger`, `MlvMenuOverlayController`) write `idle` before attach and
+  again once a close completes, and `leave` on close — so an `animationend`
+  during the enter is a no-op either way. The guard is justified by the leave
+  case alone.
+- `onAnimationEnd()` itself stays **unfiltered** — it is the force-completion
+  entry point the leave fallback timer below calls with no event. Adding an
+  event-shaped guard there would break that path.
+- Same shape as `MlvDialog._onAnimationEnd`, which compares `event.target`
+  against its host element for the same reason. The popup's panel lives in an
+  `ng-template` and is not the component host, so `currentTarget` (the element
+  the listener is bound to) is the analogue.
+- The same defect sat one layer down in `MlvOverlayHostBase.onAnimationEnd()`,
+  bound raw by `mlv-drawer` and `mlv-search-field`, where it called
+  `_destroyOverlay()` directly (and where a drawer body or search overlay adds
+  arbitrary consumer content to the in-repo cases above). Fixed in the same change with the
+  same two-method split — `MlvOverlayHostBase._onPanelAnimationEnd` — plus the
+  imperative `MlvOverlayRef` leave listener and `MlvOverlayServiceBase` enter
+  listener. See `.claude/projects/libs-overlay.md` § _The panel's
+  `animationend` is target-guarded_.
+
 #### Leave-animation fallback
 
-Overlay disposal is driven by the panel's `(animationend)` → `leaveAnimationDone$`. Because `prefers-reduced-motion` strips the `.mlv-popup--leave` animation entirely (it is gated in `animations.scss`) and hidden/background tabs throttle CSS animations indefinitely, `animationend` may never fire. `MlvPopup` therefore arms a fallback timer (`POPUP_LEAVE_FALLBACK_MS`, 250 ms — matches the dialog's module-level `LEAVE_FALLBACK_MS` in `dialog-ref.ts`) whenever `animationState` becomes `'leave'`; if the real `animationend` hasn't completed the leave by then, the timer invokes `onAnimationEnd()` so the overlay always disposes. The timer is disarmed on any state change and on destroy. Without it, every popup-based overlay (menu, menubar, select, combobox, pickers) would hang open for reduced-motion users.
+Overlay disposal is driven by the panel's **own** `(animationend)` (see above) → `leaveAnimationDone$`. Because `prefers-reduced-motion` strips the `.mlv-popup--leave` animation entirely (it is gated in `animations.scss`) and hidden/background tabs throttle CSS animations indefinitely, `animationend` may never fire. `MlvPopup` therefore arms a fallback timer (`POPUP_LEAVE_FALLBACK_MS`, 250 ms — matches the dialog's module-level `LEAVE_FALLBACK_MS` in `dialog-ref.ts`) whenever `animationState` becomes `'leave'`; if the real `animationend` hasn't completed the leave by then, the timer invokes `onAnimationEnd()` so the overlay always disposes. The timer is disarmed on any state change and on destroy. Without it, every popup-based overlay (menu, menubar, select, combobox, pickers) would hang open for reduced-motion users.
 
 #### Enter promotion — `beginEnterAnimation()`
 

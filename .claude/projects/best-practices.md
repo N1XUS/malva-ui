@@ -92,7 +92,9 @@ catches it. Run one of those, not just `test` and `lint`, after touching a liste
 - **Carry `capture` / `passive` / `once` over verbatim** — `fromEvent`'s third argument. A
   dropped `passive: true` is a scroll-performance regression; a dropped `capture` changes
   event ordering. When the handler calls `preventDefault()`, pass `{ passive: false }`
-  **explicitly** and say why, rather than resting on `fromEvent`'s default.
+  **explicitly** and say why, rather than resting on `fromEvent`'s default. **One
+  exception:** `once: true` on a target-guarded end-event listener is a bug and is dropped,
+  not carried — see the bubbling end-event bullet below.
 - **Bind document-level listeners to the injected `DOCUMENT`**, never the ambient `document`
   global (`inject(DOCUMENT)`; the token is declared in `@angular/core` and re-exported
   unchanged by `@angular/common`, so either import resolves to the same token — 19 of the 21
@@ -106,7 +108,33 @@ catches it. Run one of those, not just `test` and `lint`, after touching a liste
   `race(fromEvent(el, 'transitionend'), timer(MS)).pipe(take(1), …)`. A `transition` or
   `animation` declared under `@media (prefers-reduced-motion: no-preference)` never fires
   its end event under reduced motion, so a handler that self-removes inside the event both
-  latches its class and stacks one listener per gesture.
+  latches its class and stacks one listener per gesture. The end event also needs the target
+  guard below, applied inside the `race`'s event arm.
+- **A bubbling end event is "_this_ element finished" only behind a target guard.**
+  `animationend` / `transitionend` bubble, so every listener for one that completes, disposes
+  or un-latches something — raw, `fromEvent`, **or a template / host `(animationend)`
+  binding** — admits only the bound element's own event (#231). A descendant's finite
+  animation is ordinary, in-repo too: `mlv-message`'s `animate.enter` inside a popup field,
+  `mlv-expand`, consumer content in a drawer body.
+  - Raw / `fromEvent`: `event.target === el`. Template binding: pass `$event` to a method
+    comparing `event.target === event.currentTarget` (`MlvPopup._onPanelAnimationEnd`,
+    `MlvOverlayHostBase._onPanelAnimationEnd`, `MlvDialog._onAnimationEnd`).
+  - **Never `once: true`** on a guarded listener — the ignored descendant event spends it
+    and strands the real one on a fallback timer, or latches it for good. Remove it by hand
+    on the matching event and on every cancellation path (`overlay-ref.ts`,
+    `overlay-service-base.ts`, `animated-presence.ts`).
+  - Inside `race`, the filter goes **inside the event arm**:
+    `race(fromEvent(el, 'transitionend').pipe(filter((e) => e.target === el)), timer(MS))`.
+    Placed after the `race`, a descendant event wins it, is dropped, and the timer arm is
+    already unsubscribed — the class latches (`drawer-resize.ts`).
+  - Keep the guard off the fallback path: a filtered listener method forwards to an
+    unfiltered completion method, and the fallback timer calls the **unfiltered** one.
+    `target === currentTarget` also admits a never-dispatched `Event` (both `null`), so never
+    synthesize an event to reach the filtered method.
+  - Blind spot (measured, Chromium): an animation on the bound element's own `::before` /
+    `::after` arrives with `target === element` and passes the guard;
+    `AnimationEvent.pseudoElement` tells them apart. No bound element in `libs/` animates a
+    pseudo-element today — check before adding one.
 
 **The capture phase is not a reason to stay raw.** `fromEvent`'s third argument reaches the
 identical `addEventListener` call, so the phase and the ordering among capture listeners are
@@ -121,9 +149,11 @@ is irrelevant).
 
 Legitimately **keep raw** — with a one-line reason in the code naming which of these it is:
 
-- `once: true` on an element the same code path removes or disposes, where the listener's
-  lifetime is one animation rather than the component's. The four remaining sites in
-  `libs/cdk` are all this shape (`animated-presence`, `overlay-ref`, `overlay-service-base`).
+- A per-animation listener on an element the same code path removes or disposes, where the
+  listener's lifetime is one animation rather than the component's. The four sites in
+  `libs/cdk` are this shape — `animated-presence` (two), `overlay-ref`, `overlay-service-base`
+  — all target-guarded and removed by hand, none `once: true` (see the bubbling end-event
+  bullet above). `animated-presence`'s leave still has no fallback timer (#278).
 - No injection context to take a `DestroyRef` from, and a teardown boundary that is not the
   component's — a ProseMirror plugin view constructed by Tiptap
   (`editor-block-handle.ts`, eight listeners unbound in the plugin's own `destroy()`).
