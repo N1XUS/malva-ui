@@ -1,4 +1,5 @@
 import {
+  afterNextRender,
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
@@ -8,15 +9,17 @@ import {
   ElementRef,
   forwardRef,
   inject,
+  Injector,
   input,
   model,
+  PLATFORM_ID,
   signal,
   untracked,
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
 import type { Signal } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { isPlatformServer, NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import type { ConnectedPosition } from '@angular/cdk/overlay';
@@ -201,6 +204,14 @@ export class MlvSelect<T>
    * keeps the custom dropdown, and `'auto'` uses the native control below the
    * `md` breakpoint. A bare `native` attribute is equivalent to
    * `native="true"`.
+   *
+   * Under server rendering `'auto'` cannot know the viewport, so the server
+   * renders the native control, and a client **hydrating** that markup renders
+   * it too for its first render, claiming the server's `<select>`; an
+   * at-or-above-`md` client then switches to the custom trigger inside the same
+   * application tick (#218). A select that is not being hydrated — a client-only
+   * app, a dialog, an `@if` that turns on later — follows the viewport from its
+   * first render.
    */
   readonly native = input<MlvSelectNativeMode, MlvSelectNativeInput>(false, {
     transform: coerceNativeMode,
@@ -338,6 +349,9 @@ export class MlvSelect<T>
   /** @private Shared responsive breakpoint state used by native `'auto'` mode. */
   private readonly _breakpoint = inject(MlvBreakpointService);
 
+  /** @private Injector for the after-render focus hand-off in {@link _endHydratingRender}. */
+  private readonly _injector = inject(Injector);
+
   protected readonly _formI18n = inject(MLV_FORM_UTILS_I18N);
 
   /** @protected Resolved placeholder: explicit input takes precedence over i18n default. */
@@ -465,16 +479,109 @@ export class MlvSelect<T>
   );
 
   /**
+   * @private Whether this select renders on the server, where `native="auto"`
+   * is always the native `<select>` (#218). A server has no viewport: CDK's
+   * `MediaMatcher` falls back to a `matchMedia` stub, so `MlvBreakpointService`
+   * reports `'sm'` anyway — this makes the answer independent of that, so a
+   * server given a viewport hint still renders what a hydrating client's first
+   * render renders.
+   */
+  private readonly _isServer = isPlatformServer(inject(PLATFORM_ID));
+
+  /** @private The `<mlv-select>` host element. */
+  private readonly _host =
+    inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+
+  /**
+   * @private `true` while this select is **being hydrated**, until its first
+   * browser render has claimed the server's nodes (cleared by
+   * {@link _endHydratingRender}). For that render `native="auto"` renders the
+   * native `<select>` the server rendered, whatever the viewport (#218). A
+   * hydrating desktop client used to resolve the trigger on its first render
+   * instead, and hydration does not report that as NG0500: it silently
+   * discarded the server's `<select>` at application stability, with a dead
+   * `<select>` and the live trigger carrying the same id until then.
+   *
+   * `false` from the start on the server and on every browser render that is
+   * not hydration — a client-only app, a dialog, an `@if` that turns on after
+   * hydration, a subtree under `ngSkipHydration`, a bootstrap without
+   * `provideClientHydration()` — so `'auto'` follows the viewport from its
+   * first render there, as it always did.
+   *
+   * **Relies on Angular internals** (verified against Angular 22.0.7). Angular
+   * exposes no public "this component is being hydrated" signal. The server
+   * stamps an `ngh` attribute on every component host it serialises for
+   * hydration; the client reads and removes it in `renderComponent` →
+   * `retrieveHydrationInfo`, which runs **after** the host's directives — this
+   * component included — are constructed. So the attribute is on the host in
+   * this field initializer exactly when the host node came from the server and
+   * is being claimed, and it is already gone by the first after-render hook: it
+   * must be read here, not later. The
+   * "tripwire" spec in `select-ssr.spec.ts` fails if Angular stops stamping it
+   * or starts stripping it before construction.
+   */
+  private readonly _hydrating = signal(
+    !this._isServer && this._host.hasAttribute('ngh'),
+  );
+
+  /**
+   * @private Set from the end of a hydrating render that switches to the
+   * trigger — or, when `native` turns `false` during that render, from just
+   * before the render that removes the `<select>` — until the removal has run,
+   * so the `blur` Chromium fires on that removal is not taken for the user
+   * leaving the field — see {@link _endHydratingRender}. The window lies inside
+   * one synchronous application tick, so no user event can land in it.
+   */
+  private _handingOffFocus = false;
+
+  /**
+   * @private Whether the `<select>` held focus at any point of the
+   * {@link _handingOffFocus} window — already at its start, or focused by an
+   * after-render hook that ran after this select's own. Read and cleared by the
+   * hand-off.
+   */
+  private _focusedDuringHandOff = false;
+
+  /**
+   * @private An open requested through `openDropdown()` / `toggleDropdown()`
+   * while a hydrating render that will switch to the trigger still renders the
+   * `<select>` — e.g. from a parent's `ngAfterViewInit`. Applied once the switch
+   * has run, so those calls keep their documented outcome (#218). Until then a
+   * `toggleDropdown()` treats it as an open dropdown.
+   */
+  private _openAfterHydratingRender = false;
+
+  /**
    * @protected Whether the native select is the active interaction surface.
    * `'auto'` follows the shared `md` breakpoint and updates when the viewport
-   * changes.
+   * changes — except on the server and while {@link _hydrating}, when it is
+   * the native select (#218).
    */
   protected readonly _nativeActive = computed(() => {
     const mode = this.native();
     return (
-      mode === true || (mode === 'auto' && this._breakpoint.isDown('md')())
+      mode === true ||
+      (mode === 'auto' &&
+        (this._isServer ||
+          this._hydrating() ||
+          this._breakpoint.isDown('md')()))
     );
   });
+
+  /**
+   * @private Whether this select is in a hydrating render that renders the
+   * native `<select>` only because it is hydrating: `native="auto"` at or above
+   * `md`, which the end of that render switches to the trigger (#218). An
+   * explicit `native="true"` and a phone render the same branch hydrating or
+   * not, so they are never deferred.
+   */
+  private _switchesAfterHydratingRender(): boolean {
+    return (
+      this._hydrating() &&
+      this.native() === 'auto' &&
+      !this._breakpoint.isDown('md')()
+    );
+  }
 
   /**
    * @protected Normalized native option groups. Each option receives an
@@ -728,10 +835,31 @@ export class MlvSelect<T>
     });
     effect(() => {
       if (this._nativeActive()) {
-        untracked(() => {
-          this.isOpen.set(false);
-          this._adapter.ensureLoaded();
-        });
+        untracked(() => this.isOpen.set(false));
+      } else if (untracked(this._hydrating) && untracked(this._nativeSelect)) {
+        // `native` turned `false` during a hydrating render (#218) — any
+        // hydrating select, `native="true"` and phones included — so this
+        // render removes the claimed `<select>`, and the focus hand-off window
+        // opens here. `refreshView` runs a view's template update *before* its
+        // effects, so this only runs ahead of the removal because the
+        // `<select>`'s `@if` lives in the `mlvFormControlWrapperControl`
+        // template `mlv-form-control-wrapper` stamps through
+        // `ngTemplateOutlet`, a view refreshed after this component's
+        // effects. Moving that `@if` into this component's own template
+        // would open the window after the removal (reasoned, not measured):
+        // the `openDropdown()` + `native` false specs would go red.
+        untracked(() => this._openHandOffWindow());
+      }
+    });
+    effect(() => {
+      // A hydrating desktop renders the native branch for its first render
+      // only (#218) and leaves it in the same tick, so its lazy `searchFn`
+      // first runs on the first open, as on a client-rendered desktop. The
+      // condition is read tracked: `native` turning `true`, or the viewport
+      // answer dropping below `md`, during that render keeps the `<select>`
+      // without changing `_nativeActive()`, and the load must still run.
+      if (this._nativeActive() && !this._switchesAfterHydratingRender()) {
+        untracked(() => this._adapter.ensureLoaded());
       }
     });
     effect(() => {
@@ -767,6 +895,103 @@ export class MlvSelect<T>
       });
     });
     this._syncNativeSelection();
+    if (this._hydrating()) this._endHydratingRender();
+  }
+
+  /**
+   * @private Ends the first render of a hydrating select (#218): after it,
+   * `native="auto"` follows the viewport, so an at-or-above-`md` client
+   * re-renders the trigger in the same application tick.
+   *
+   * **Focus.** The `<select>` can hold focus when the switch removes it: the
+   * user focused the server-rendered control before any JavaScript ran (no
+   * `focus` listener saw it), or an after-render hook registered after this
+   * select's own focused it in this same pass — a `cdkTrapFocusAutoCapture`
+   * region, a sibling directive. What an engine does on that removal differs:
+   * Chromium fires `blur` synchronously, with `activeElement` already `<body>`
+   * (measured: Chrome 152); jsdom follows the HTML focus-fixup rule and fires
+   * nothing. So this does not wait for a `blur`. Whenever the switch will
+   * remove the `<select>` it opens the {@link _handingOffFocus} window, noting
+   * whether the `<select>` holds focus now and — through
+   * {@link _onNativeFocus} — whether anything focuses it later in the window;
+   * a `native` turning `false` during the hydrating render — on any hydrating
+   * select, `native="true"` and phones included — removes the `<select>`
+   * before any after-render hook runs, so the effect
+   * watching `_nativeActive()` opens the window instead, while the `<select>`
+   * is still connected (see the comment there for why the effect runs first).
+   * A `blur` inside the window that names
+   * another element withdraws the claim ({@link _onNativeBlur}), so of two
+   * hydrating selects the one focused last keeps focus. Once the re-render has
+   * run, a `<select>` that held focus hands it to the trigger if focus fell to
+   * `<body>`; if something else took focus, only the field's focused state is
+   * cleared (jsdom never blurred it). The field is not marked touched — the
+   * user did not leave it — which is also why {@link _onNativeBlur} ignores the
+   * Chromium `blur` in the window.
+   *
+   * The hand-off waits for the re-render because the trigger is still
+   * `aria-hidden` and out of the tab order in this pass, and moving focus
+   * while the `<select>` is still in the DOM fires a real `blur` on it.
+   *
+   * **Opening.** An `openDropdown()` / `toggleDropdown()` made during the
+   * hydrating render ({@link _openAfterHydratingRender}) opens the dropdown in
+   * the nested hook, after the switch — unless the field is inert by then, or
+   * the `<select>` stayed. The request stays pending until that hook reads it,
+   * so a `toggleDropdown()` in between — from an after-render hook that runs
+   * after this select's first one — cancels it, as it would an open dropdown. An
+   * `isOpen.set(false)` written after such a call is not seen: the request
+   * still opens.
+   */
+  private _endHydratingRender(): void {
+    afterNextRender(() => {
+      this._hydrating.set(false);
+      if (
+        this._nativeActive() ||
+        (!this._nativeSelect() && !this._handingOffFocus)
+      ) {
+        // Nothing leaves: the `<select>` stays (a phone, `native` turned
+        // `true`), or there never was one (`native="false"`).
+        this._openAfterHydratingRender = false;
+        this._handingOffFocus = false;
+        this._focusedDuringHandOff = false;
+        return;
+      }
+      this._openHandOffWindow();
+      afterNextRender(
+        () => {
+          this._handingOffFocus = false;
+          const focused = this._focusedDuringHandOff;
+          this._focusedDuringHandOff = false;
+          if (focused) {
+            const doc = this._host.ownerDocument;
+            const active = doc.activeElement;
+            if (!active || active === doc.body) {
+              this.setInitialFocus();
+            } else if (!this._host.contains(active)) {
+              this.setFocused(false);
+            }
+          }
+          const openRequested = this._openAfterHydratingRender;
+          this._openAfterHydratingRender = false;
+          if (openRequested && !this._isInert()) this.isOpen.set(true);
+        },
+        { injector: this._injector },
+      );
+    });
+  }
+
+  /**
+   * @private Opens the {@link _handingOffFocus} window, noting whether the
+   * claimed `<select>` holds focus as it opens. With the `<select>` already
+   * gone — removed by the render the effect opened the window for — what the
+   * window recorded so far stands.
+   */
+  private _openHandOffWindow(): void {
+    const nativeSelect = this._nativeSelect()?.nativeElement;
+    if (nativeSelect) {
+      this._focusedDuringHandOff =
+        nativeSelect.ownerDocument.activeElement === nativeSelect;
+    }
+    this._handingOffFocus = true;
   }
 
   /**
@@ -841,14 +1066,35 @@ export class MlvSelect<T>
    * Toggles the dropdown. Closing is always allowed — a panel opened before the
    * control turned inert (a late `[loading]`, a value written under an open
    * list) must stay dismissable from its own trigger; only opening is gated.
+   *
+   * Called during the first render of a hydrating at-or-above-`md`
+   * `native="auto"` select — a parent's `ngAfterViewInit`, say — the toggle
+   * applies once that render has switched to the trigger, later in the same
+   * application tick (#218).
    */
   toggleDropdown(): void {
+    if (this._switchesAfterHydratingRender()) {
+      // Toggled while a hydrating render still shows the `<select>` it is
+      // about to replace (#218): an open lands after the switch. A dropdown
+      // already open through `isOpen` closes now.
+      if (this.isOpen()) {
+        this.isOpen.set(false);
+        this._openAfterHydratingRender = false;
+      } else {
+        this._openAfterHydratingRender = !this._openAfterHydratingRender;
+      }
+      return;
+    }
     if (this._nativeActive()) {
       this._nativeSelect()?.nativeElement.focus();
       return;
     }
-    if (this.isOpen()) {
+    // An open still pending from a hydrating render (#218) counts as open: that
+    // render's `native` has since turned `false`, or the render has ended and
+    // the hook that applies the open has not run yet.
+    if (this.isOpen() || this._openAfterHydratingRender) {
       this.isOpen.set(false);
+      this._openAfterHydratingRender = false;
       return;
     }
     if (this._isInert()) return;
@@ -866,9 +1112,22 @@ export class MlvSelect<T>
    * suppressed. A **disabled** field is the exception: it takes neither the
    * caret nor the open (the trigger's `tabindex="-1"` would still accept
    * programmatic focus).
+   *
+   * Called during the first render of a hydrating at-or-above-`md`
+   * `native="auto"` select, it focuses the server-rendered `<select>` still on
+   * screen, and focus and the open land on the trigger once that render has
+   * switched to it, later in the same application tick (#218).
    */
   openDropdown(): void {
     if (this.computedDisabled()) return;
+    if (this._switchesAfterHydratingRender()) {
+      // Called while a hydrating render still shows the `<select>` it is about
+      // to replace (#218): focus goes to that `<select>` — the hand-off carries
+      // it to the trigger — and the open lands after the switch.
+      this._openAfterHydratingRender = true;
+      this._nativeSelect()?.nativeElement.focus();
+      return;
+    }
     if (this._nativeActive()) {
       this._nativeSelect()?.nativeElement.focus();
       return;
@@ -1073,14 +1332,34 @@ export class MlvSelect<T>
     this.openDropdown();
   }
 
-  /** @protected Marks the native select as focused for the form wrapper. */
+  /**
+   * @protected Marks the native select as focused for the form wrapper — and,
+   * inside the {@link _handingOffFocus} window, records the focus so the
+   * hand-off carries it to the trigger once the switch removes the `<select>`.
+   */
   protected _onNativeFocus(): void {
     this.setFocused(true);
+    if (this._handingOffFocus) this._focusedDuringHandOff = true;
   }
 
-  /** @protected Marks the native select blur as the end of field interaction. */
-  protected _onNativeBlur(): void {
+  /**
+   * @protected Marks the native select blur as the end of field interaction —
+   * except during a hydrating render that removes the `<select>` (#218, see
+   * {@link _endHydratingRender}), where no user can have left the field: the
+   * `blur` Chromium fires on that removal, or a hook moving focus elsewhere
+   * inside that one tick. There a blur that names where focus went
+   * (`relatedTarget`) also withdraws the `<select>`'s claim to the hand-off, so
+   * a focus that moved on to another field stays there; the removal `blur`
+   * names nothing (measured: Chrome 152). A removal after that render — a
+   * viewport crossing `md`, `native` turning `false` — still marks the field
+   * touched.
+   */
+  protected _onNativeBlur(event: FocusEvent): void {
     this.setFocused(false);
+    if (this._handingOffFocus || this._switchesAfterHydratingRender()) {
+      if (event.relatedTarget !== null) this._focusedDuringHandOff = false;
+      return;
+    }
     this._markTouched();
   }
 

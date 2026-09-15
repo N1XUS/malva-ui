@@ -350,6 +350,20 @@ import {
           [options]="options"
           [(value)]="option"
         />
+        <!-- The viewport-driven mode (#218). A server has no viewport, so the
+             select renders auto natively there whatever its breakpoint service
+             answers, named by the field label's for. A hydrating client's
+             first render matches it; a hydrating desktop client switches to
+             the custom trigger only after that render, and a client-rendered
+             one follows its viewport from the start. Keep it inside a field
+             and after the native instance above, so the selection assertion
+             keeps reading that one, and after the Region field, so the label
+             association test keeps finding Region's trigger first. (No
+             backticks in a host template, as above.) -->
+        <mlv-form-field>
+          <mlv-label>Zone</mlv-label>
+          <mlv-select native="auto" [options]="options" [(value)]="option" />
+        </mlv-form-field>
         <mlv-combobox label="City" [options]="options" [(value)]="option" />
         <mlv-number-input label="Quantity" [(value)]="quantity" />
         <mlv-search-field [(value)]="query" />
@@ -1620,6 +1634,62 @@ describe('@malva-ui/core SSR safety', () => {
       new RegExp(`<label[^>]*\\sid="${labelledBy}"`).test(ariaField ?? ''),
       `aria-labelledby="${labelledBy}" names no <label> in the same field`,
     ).toBe(true);
+  });
+
+  it('server-renders native="auto" as the native <select>, named by the field label', async () => {
+    const { html } = await renderAllHosts();
+
+    // #218. `native="auto"` chooses between two DOM trees from the viewport,
+    // and the label association follows the choice. The server cannot know the
+    // viewport, so it renders the native control — a working picker before any
+    // JavaScript runs — and a hydrating client's *first* render produces the
+    // same branch; only after that render does a hydrating desktop client
+    // switch to the trigger. `mlv-form-field` does not nest, so a non-greedy
+    // match per field is exact.
+    const autoField = (
+      html.match(/<mlv-form-field[\s\S]*?<\/mlv-form-field>/g) ?? []
+    ).find((field) => /<mlv-select[^>]*\snative="auto"/.test(field));
+    expect(
+      autoField,
+      'no native="auto" select inside a form field in the server markup — ' +
+        'the Zone field in SsrFormControlsHost did not render',
+    ).toBeTruthy();
+    const field = autoField as string;
+
+    const host = /<mlv-select[^>]*>/.exec(field)?.[0] ?? '';
+    expect(
+      host,
+      `native="auto" did not render its native branch on the server: ${field}`,
+    ).toContain('mlv-select--native');
+    const selectId = /<select[^>]*\sid="([^"]+)"/.exec(field)?.[1];
+    expect(
+      selectId,
+      `no native <select> with an id for native="auto" on the server: ${field}`,
+    ).toBeTruthy();
+
+    const label = /<label[^>]*>/.exec(field)?.[0] ?? '';
+    expect(
+      label,
+      `the field label does not name the native <select> on the server: ${label}`,
+    ).toContain(`for="${selectId}"`);
+
+    const trigger = /<div[^>]*class="mlv-select__trigger[^"]*"[^>]*>/.exec(
+      field,
+    )?.[0];
+    expect(
+      trigger,
+      `no hidden trigger in the server markup: ${field}`,
+    ).toBeTruthy();
+    expect(
+      /\saria-labelledby="/.test(trigger as string),
+      `the hidden trigger is labelled on the server: ${trigger}`,
+    ).toBe(false);
+    // The id belongs to the <select> alone — not duplicated onto the hidden
+    // trigger, and not the string "null" a property write of `null` leaves.
+    expect(
+      /\sid="/.test(trigger as string),
+      `the hidden trigger carries an id on the server: ${trigger}`,
+    ).toBe(false);
   });
 
   it('server-renders each host into markup', async () => {
