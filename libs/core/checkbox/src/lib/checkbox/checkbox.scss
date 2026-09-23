@@ -103,6 +103,24 @@
       --check-transform: scale(1);
     }
 
+    // Validation state (#320). Declared on the swatch itself, so it outranks
+    // the host's hover and checked values of the same custom property — an
+    // invalid box stays red under the pointer and after it is ticked. Only
+    // `error` paints anything: success, warning and info carry their meaning
+    // in `mlv-message`, not in the control's outline (SF-R6).
+    &__visual--error {
+      --check-border-color: var(--mlv-border-error);
+    }
+
+    // Help text and validation message sit under the label text, past the
+    // 1.5rem swatch and the label's gap, and outside the <label> so neither
+    // joins the accessible name.
+    &__description,
+    &__message {
+      margin-block-start: var(--mlv-spacing-1);
+      padding-inline-start: calc(1.5rem + var(--mlv-spacing-1));
+    }
+
     // Projected content always wins over the `label` input fallback. `display:
     // none` (rather than visibility/clip) also removes the duplicate from the
     // accessible name computed from the wrapping <label>.

@@ -67,6 +67,20 @@ export interface MlvFormFieldAccessor {
    * that names nothing is the defect this exists to remove (#197).
    */
   readonly labelableControlId: Signal<string | null>;
+
+  /**
+   * Id of the auto error `<mlv-message>` this field is **currently
+   * rendering** — `null` whenever it renders none, so a control that
+   * references it never emits a dangling IDREF. Every control built on
+   * `MlvSignalFormUiControlBase` appends it to its `aria-describedby`, which
+   * is what keeps the reason attached to the control after the message's
+   * one-time `role="alert"` announcement (#320).
+   *
+   * Optional so an externally-authored accessor stays valid: adding a
+   * required member to the value an exported token carries is its own major.
+   * `mlv-form-field` always provides it.
+   */
+  readonly errorMessageId?: Signal<string | null>;
 }
 
 export const MLV_FORM_FIELD = new InjectionToken<MlvFormFieldAccessor>(

@@ -17,6 +17,8 @@ import {
 } from '@angular/core';
 import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
 import {
+  MlvDescription,
+  MlvMessage,
   MlvSignalCheckboxControlBase,
   MLV_FORM_CONTROL,
 } from '@malva-ui/core/form-utils';
@@ -54,6 +56,7 @@ export type MlvSwitchState = MlvFormState;
     '[class.mlv-switch--disabled]': 'computedDisabled()',
     '[class.mlv-switch--checked]': 'checked()',
   },
+  imports: [MlvDescription, MlvMessage],
 })
 export class MlvSwitch
   extends MlvSignalCheckboxControlBase

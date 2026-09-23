@@ -13,13 +13,18 @@
     [attr.aria-readonly]="readonly() || null"
     [attr.aria-label]="_resolvedAriaLabel()"
     [attr.aria-labelledby]="_resolvedAriaLabelledBy()"
+    [attr.aria-invalid]="_ariaInvalid()"
+    [attr.aria-describedby]="_describedBy()"
     (click)="_onNativeClick($event)"
     (change)="onInputChange($event)"
     (focus)="onFocus()"
     (blur)="onBlur()"
     (keydown.enter)="onEnter($event)"
   />
-  <span class="mlv-switch__track" [class]="'mlv-switch__track--' + state()">
+  <span
+    class="mlv-switch__track"
+    [class]="'mlv-switch__track--' + resolvedState()"
+  >
     <span class="mlv-switch__thumb"></span>
   </span>
   <span class="mlv-switch__text">
@@ -32,3 +37,18 @@
     }
   </span>
 </label>
+<!-- Outside the <label>, so neither text joins the accessible name; the native
+     input reaches both through `aria-describedby`. -->
+@if (description()) {
+  <mlv-description class="mlv-switch__description" [id]="_descriptionId()">{{
+    description()
+  }}</mlv-description>
+}
+@if (message()) {
+  <mlv-message
+    class="mlv-switch__message"
+    [id]="_messageId()"
+    [state]="resolvedState()"
+    >{{ message() }}</mlv-message
+  >
+}

@@ -234,6 +234,11 @@ interface MlvRadioGroupAccessor {
 
 ---
 
+## Validation state (2026-09, #320)
+
+- **`aria-invalid="true"`** on the `role="radiogroup"` host while `resolvedState()` is `error`; no attribute otherwise. The group already rendered its description and message and bound `_describedBy()`, which now also carries the enclosing `mlv-form-field`'s error id — see `libs-form-utils.md` § _Field error association and `aria-invalid`_.
+- Spec: `radio-group-validation.spec.ts`.
+
 ## Dependencies
 
 - `@angular/forms/signals` — `FormValueControl` contract

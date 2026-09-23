@@ -63,7 +63,7 @@ Exported from `libs/forms/switch/src/index.ts`:
 | ---------------- | --------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `mlvDensity`     | `MlvDensity`          | inherited / `'comfortable'` | Density override for this switch (via the `MlvDensityDirective` host directive). All five levels scale track size, thumb size, thumb travel, label gap and label typography. Falls back to the nearest ancestor `MLV_DENSITY_CONTEXT` (e.g. an enclosing `mlv-switch-group` or `form[mlvForm]`), then to `MlvDensityService` |
 | `disabled`       | `boolean`             | `false`                     | Component-level disabled                                                                                                                                                                                                                                                                                                     |
-| `state`          | `MlvSwitchState`      | `'default'`                 | Semantic state for track color                                                                                                                                                                                                                                                                                               |
+| `state`          | `MlvSwitchState`      | `'default'`                 | Validation state. Only `error` paints (an inset ring on the track) and sets `aria-invalid`; an explicit non-default value wins over the bound field's. Not a status colour — see _Validation state (#320)_                                                                                                                   |
 | `label`          | `string`              | `''`                        | **Visible** label text, rendered inside the `<label>` when nothing is projected into `<mlv-switch>`. Projected content always wins (CSS `display: none`-s the fallback), so the accessible name never duplicates. Inherited from the signal base                                                                             |
 | `required`       | `boolean` (coerced)   | `false`                     | Sets `aria-required` on the native input; also a signal-forms field binding. Inherited from the signal base                                                                                                                                                                                                                  |
 | `ariaLabel`      | `string \| null`      | `null`                      | Accessible name applied to the inner native input; wins over a captured static host `aria-label`. Inherited from the signal base since 2026-08 (was a switch-local input)                                                                                                                                                    |
@@ -71,19 +71,19 @@ Exported from `libs/forms/switch/src/index.ts`:
 
 #### Inputs (inherited from `MlvSignalFormUiControlBase`)
 
-| Name          | Type                                               | Default                    | Description                                                                      |
-| ------------- | -------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------- |
-| `readonly`    | `boolean`                                          | `false`                    | Read-only control; also a signal-forms field binding.                            |
-| `loading`     | `boolean`                                          | `false`                    | Shows the loading affordance.                                                    |
-| `clearable`   | `boolean`                                          | `false`                    | Renders the clear affordance while the control has a value (On counts as one).   |
-| `pill`        | `boolean`                                          | `false`                    | Fully rounded (stadium) control container.                                       |
-| `errors`      | `readonly ValidationError.WithOptionalFieldTree[]` | `[]`                       | Signal-forms field binding: current validation errors.                           |
-| `touched`     | `boolean`                                          | `false`                    | Signal-forms field binding: whether the bound field is touched.                  |
-| `dirty`       | `boolean`                                          | `false`                    | Signal-forms field binding: whether the bound field is dirty.                    |
-| `id`          | `string`                                           | `mlvNextId('mlv-control')` | HTML id applied to the control's focus target.                                   |
-| `hint`        | `string`                                           | `''`                       | Hint text rendered inside the label.                                             |
-| `description` | `string`                                           | `''`                       | Persistent help text rendered below the control (`<mlv-description>` slot wins). |
-| `message`     | `string`                                           | `''`                       | Validation/status message rendered below the control.                            |
+| Name          | Type                                               | Default                    | Description                                                                                                                                                                                                         |
+| ------------- | -------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `readonly`    | `boolean`                                          | `false`                    | Read-only control; also a signal-forms field binding.                                                                                                                                                               |
+| `loading`     | `boolean`                                          | `false`                    | Shows the loading affordance.                                                                                                                                                                                       |
+| `clearable`   | `boolean`                                          | `false`                    | Renders the clear affordance while the control has a value (On counts as one).                                                                                                                                      |
+| `pill`        | `boolean`                                          | `false`                    | Fully rounded (stadium) control container.                                                                                                                                                                          |
+| `errors`      | `readonly ValidationError.WithOptionalFieldTree[]` | `[]`                       | Signal-forms field binding: current validation errors.                                                                                                                                                              |
+| `touched`     | `boolean`                                          | `false`                    | Signal-forms field binding: whether the bound field is touched.                                                                                                                                                     |
+| `dirty`       | `boolean`                                          | `false`                    | Signal-forms field binding: whether the bound field is dirty.                                                                                                                                                       |
+| `id`          | `string`                                           | `mlvNextId('mlv-control')` | HTML id applied to the control's focus target.                                                                                                                                                                      |
+| `hint`        | `string`                                           | `''`                       | Inherited but **not rendered** by the switch (follow-up to #320).                                                                                                                                                   |
+| `description` | `string`                                           | `''`                       | Help text rendered under the label text as `.mlv-switch__description`, outside the `<label>`, and referenced from the native input’s `aria-describedby` (#320; before, not rendered).                               |
+| `message`     | `string`                                           | `''`                       | Validation / status message rendered after the description as `.mlv-switch__message` (state follows `resolvedState()`), outside the `<label>`, and referenced from `aria-describedby` (#320; before, not rendered). |
 
 #### Outputs
 
@@ -145,9 +145,11 @@ The control is a signal-forms field, not a `ControlValueAccessor` — there is n
 
 `<label>` wrapping:
 
-- Visually-hidden (clip-path) `<input #nativeInput type="checkbox" role="switch" [attr.tabindex]="tabIndex()" [attr.aria-checked] [attr.aria-required] [attr.aria-readonly] (click)="_onNativeClick($event)">`
-- `.mlv-switch__track.mlv-switch__track--{state}` (visual track + thumb)
+- Visually-hidden (clip-path) `<input #nativeInput type="checkbox" role="switch" [attr.tabindex]="tabIndex()" [attr.aria-checked] [attr.aria-required] [attr.aria-readonly] [attr.aria-invalid] [attr.aria-describedby] (click)="_onNativeClick($event)">`
+- `.mlv-switch__track.mlv-switch__track--{resolvedState}` (visual track + thumb)
 - `.mlv-switch__text`, holding `.mlv-switch__content` (`<ng-content>`) followed by the `.mlv-switch__label-text` fallback rendered from the `label` input
+
+After the `<label>`: `<mlv-description class="mlv-switch__description">` and `<mlv-message class="mlv-switch__message">` when their inputs are set (#320).
 
 A dev-mode `console.warn` fires once per instance when a switch has no projected text, no `label`, and no `ariaLabel`/`ariaLabelledBy` — i.e. no accessible name at all.
 
@@ -340,14 +342,26 @@ when the id is emitted anywhere but the host.
 
 ---
 
+## Validation state (2026-09, #320)
+
+- **The track follows `resolvedState()`**, not `state()` — `.mlv-switch__track--<state>`. Before, a touched invalid `[formField]` showed nothing.
+- **Only `error` paints**: `.mlv-switch__track--error` draws `box-shadow: inset 0 0 0 var(--mlv-stroke-width-medium) var(--mlv-border-error)`. A ring, not a fill, so on / off stays readable; inset, so it coexists with the `:focus-visible` outline. `success` / `warning` / `info` emit a class and no rule (SF-R6).
+- **`state` is validation, not status.** `[state]="on ? 'success' : 'error'"` — the old usage example — now rings an "off" switch red and announces it as invalid. Show status in the label text or a `mlv-status-indicator` instead.
+- **`aria-invalid="true"`** on the native `role="switch"` input while `resolvedState()` is `error`; no attribute otherwise.
+- **`description` and `message` render**, after the `<label>` (outside the accessible name), indented past the track + label gap (both density-scaled, logical, mirrors in RTL).
+- **`aria-describedby`** = `_describedBy()`: own description, own message, then the enclosing `mlv-form-field`'s error message id — see `libs-form-utils.md` § _Field error association and `aria-invalid`_.
+- Spec: `switch-validation.spec.ts` (mirrors the checkbox one). `MlvSwitchGroup`'s `state` still paints nothing (follow-up).
+
+---
+
 ## Usage Examples
 
 ```html
 <!-- Standalone -->
 <mlv-switch [(checked)]="darkMode">Dark Mode</mlv-switch>
 
-<!-- State-based styling -->
-<mlv-switch [(checked)]="isOnline" [state]="isOnline() ? 'success' : 'error'">Status</mlv-switch>
+<!-- Validation: a touched invalid field rings the track and sets aria-invalid -->
+<mlv-switch [formField]="signup.terms" description="Required to create an account">Accept the terms</mlv-switch>
 
 <!-- Group with keyboard navigation -->
 <mlv-switch-group label="Permissions">
@@ -380,5 +394,5 @@ when the id is emitted anywhere but the host.
 - `@angular/cdk/a11y` — `FocusKeyManager`, `FocusableOption`
 - `@malva-ui/cdk/accessibility` — `MlvClick`
 - `@malva-ui/cdk/density` — `MlvDensityDirective`, `MLV_DENSITY_ELEMENT`, `provideMlvDensityContext`
-- `@malva-ui/core/form-utils` — `MlvLabel`
+- `@malva-ui/core/form-utils` — `MlvSignalCheckboxControlBase`, `MlvDescription`, `MlvMessage`
 - `@malva-ui/styles` — design tokens, `_mixins.scss`, `_density.scss`

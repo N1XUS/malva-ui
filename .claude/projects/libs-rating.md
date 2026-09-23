@@ -105,6 +105,13 @@ Inputs: max, step, readonly, disabled
 
 Strings resolve through `MLV_RATING_I18N` (`@malva-ui/i18n`): `rating` (the `role="group"` host label) and `rateValue` — an ICU string (`"Rate {value} out of {max}"`) resolved per star via `MlvI18nResolverService`. Provide `provideMlvI18nTesting()` in specs.
 
+## Validation state (2026-09, #320)
+
+- **`aria-invalid="true"`** on the `role="group"` host while `resolvedState()` is `error`; no attribute otherwise. The stars are toggle buttons (`aria-pressed`), and `button` supports no `aria-invalid`, so the group is the one element that can carry it — as ARIA 1.3's deprecated-global form (1.3 limits `aria-invalid` to a list of roles that `group` is not on), so how it is announced depends on the screen reader.
+- **`aria-describedby`** on the host = `_fieldErrorId()`: the enclosing `mlv-form-field`'s error message id while it renders, no attribute otherwise. Not `_describedBy()`: the rating still renders no description / message of its own (follow-up), so pointing at their ids would dangle.
+- No visual change: the existing `mlv-rating--state-*` host class is untouched (FC-18, the success / warning / info tints, is its own ticket).
+- Spec: `rating-validation.spec.ts`.
+
 ## Dependencies
 
 - @angular/core

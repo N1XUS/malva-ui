@@ -12,6 +12,8 @@
     [attr.aria-readonly]="readonly() || null"
     [attr.aria-label]="_resolvedAriaLabel()"
     [attr.aria-labelledby]="_resolvedAriaLabelledBy()"
+    [attr.aria-invalid]="_ariaInvalid()"
+    [attr.aria-describedby]="_describedBy()"
     (click)="_onNativeClick($event)"
     (change)="onInputChange($event)"
     (focus)="onFocus()"
@@ -20,7 +22,7 @@
   />
   <span
     class="mlv-checkbox__visual"
-    [class]="'mlv-checkbox__visual--' + state()"
+    [class]="'mlv-checkbox__visual--' + resolvedState()"
     aria-hidden="true"
   >
     @if (!indeterminate()) {
@@ -39,3 +41,18 @@
     }
   </span>
 </label>
+<!-- Outside the <label>, so neither text joins the accessible name; the native
+     input reaches both through `aria-describedby`. -->
+@if (description()) {
+  <mlv-description class="mlv-checkbox__description" [id]="_descriptionId()">{{
+    description()
+  }}</mlv-description>
+}
+@if (message()) {
+  <mlv-message
+    class="mlv-checkbox__message"
+    [id]="_messageId()"
+    [state]="resolvedState()"
+    >{{ message() }}</mlv-message
+  >
+}

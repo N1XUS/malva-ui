@@ -26,6 +26,8 @@ import {
 import type { MlvFormControl } from '@malva-ui/core/form-utils';
 import {
   MLV_FORM_CONTROL,
+  MlvDescription,
+  MlvMessage,
   MlvSignalFormControlBase,
 } from '@malva-ui/core/form-utils';
 import {
@@ -47,7 +49,7 @@ export type MlvSliderValue = number | [number, number];
 
 @Component({
   selector: 'mlv-slider',
-  imports: [NgTemplateOutlet],
+  imports: [NgTemplateOutlet, MlvDescription, MlvMessage],
   templateUrl: './slider.html',
   styleUrl: './slider.scss',
   encapsulation: ViewEncapsulation.None,
@@ -70,9 +72,11 @@ export type MlvSliderValue = number | [number, number];
   ],
   host: {
     class: 'mlv-slider',
+    '[class]': '"mlv-slider--state-" + resolvedState()',
     '[class.mlv-slider--disabled]': 'computedDisabled()',
     '[class.mlv-slider--range]': 'range()',
     '[class.mlv-slider--has-ticks]': 'showTicks()',
+    '[class.mlv-slider--has-text]': '_hasText()',
     '[class.mlv-slider--vertical]': '_isVertical()',
     '[class.mlv-slider--dragging]': '_activeDragThumb() !== null',
     '[style.--mlv-slider-fill-start]': '_fillStart()',
@@ -136,6 +140,18 @@ export class MlvSlider
   /** @private True when orientation is vertical. */
   protected readonly _isVertical = computed(
     () => this.orientation() === 'vertical',
+  );
+
+  /**
+   * @protected True while the description or the validation message renders
+   * under the track (#320) — the same two conditions as the template's `@if`s.
+   * Bound as `mlv-slider--has-text`, which gives the track's grid row its
+   * thumb-sized minimum: only text below needs the thumb held clear of it, and
+   * applying the minimum with no text would grow a slider whose
+   * `--mlv-slider-thumb-size` is larger than the space its padding leaves.
+   */
+  protected readonly _hasText = computed(
+    () => !!this.description() || !!this.message(),
   );
 
   /** @private Low (or sole) thumb value derived directly from the forms model. */
@@ -342,9 +358,19 @@ export class MlvSlider
    * @protected Handles pointerdown events on the track area to begin thumb
    * dragging. While the slider may not be written it neither jumps a thumb nor
    * starts a drag — no window listeners, no captured pointer, no drag class.
+   *
+   * The listener sits on the host, which also renders the description and
+   * validation message under the track (#320); a press on either is a text
+   * selection, not a request to move a thumb, so it is ignored.
    */
   protected _onTrackPointerDown(event: PointerEvent): void {
     if (!this._canWrite()) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest('.mlv-slider__description, .mlv-slider__message')
+    ) {
+      return;
+    }
 
     // Cache the track rect once per drag so the per-move percent math (track
     // click and every pointermove) avoids a repeated getBoundingClientRect
