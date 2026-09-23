@@ -18,7 +18,7 @@
       <div
         class="mlv-select__trigger"
         [class.mlv-select__trigger--with-clear]="_showClear()"
-        [id]="_nativeActive() ? null : id()"
+        [attr.id]="_nativeActive() ? null : id()"
         [hostRole]="
           _nativeActive() ? null : _outerIsCombobox() ? 'combobox' : 'button'
         "
@@ -121,7 +121,7 @@
           [attr.aria-describedby]="_describedBy()"
           [attr.aria-busy]="_awaitingValueLabel() || null"
           (focus)="_onNativeFocus()"
-          (blur)="_onNativeBlur()"
+          (blur)="_onNativeBlur($event)"
           (change)="_onNativeChange($event)"
         >
           @if (!multiple()) {
