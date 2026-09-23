@@ -554,6 +554,7 @@ class SsrPickersHost {
     <header mlvActionBar>
       <div mlvActionBarLogo>Malva</div>
       <button mlvButton>Sign in</button>
+      <a mlvButton href="/billing" disabled>Billing</a>
     </header>
 
     <nav mlvBreadcrumb [items]="crumbs">
@@ -1689,6 +1690,29 @@ describe('@malva-ui/core SSR safety', () => {
     expect(
       /\sid="/.test(trigger as string),
       `the hidden trigger carries an id on the server: ${trigger}`,
+    ).toBe(false);
+  });
+
+  it('server-renders a disabled anchor button out of the tab order, with no disabled attribute', async () => {
+    const { html } = await renderAllHosts();
+
+    // #460. An anchor has no disabled state, so an inert `a[mlvButton]`
+    // leaves the tab order through `tabindex="-1"`, which `MlvButton` writes
+    // from an `effect()` rather than a host binding. It has to be an effect
+    // that runs on the server, not an `afterRenderEffect`, or the
+    // pre-hydration document hands a keyboard user a live tab stop onto a
+    // link that goes nowhere once JavaScript arrives.
+    const anchor = /<a\b[^>]*\shref="\/billing"[^>]*>/.exec(html)?.[0];
+    expect(
+      anchor,
+      'no disabled a[mlvButton] in the server markup — the Billing anchor in ' +
+        'SsrNavigationHost did not render',
+    ).toBeTruthy();
+    expect(anchor).toContain('tabindex="-1"');
+    expect(anchor).toContain('aria-disabled="true"');
+    expect(
+      /\sdisabled(=|\s|>)/.test(anchor as string),
+      `the server-rendered anchor carries the invalid disabled attribute: ${anchor}`,
     ).toBe(false);
   });
 

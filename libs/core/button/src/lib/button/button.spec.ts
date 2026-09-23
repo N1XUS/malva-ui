@@ -1,7 +1,19 @@
 import { fileURLToPath } from 'node:url';
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  createComponent,
+  EnvironmentInjector,
+  signal,
+} from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+import {
+  NavigationStart,
+  provideRouter,
+  Router,
+  RouterLink,
+} from '@angular/router';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { compile } from 'sass';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
@@ -65,6 +77,380 @@ describe('MlvButton', () => {
     expect(button.hasAttribute('aria-disabled')).toBe(false);
     expect(button.hasAttribute('aria-busy')).toBe(false);
     expect(button.querySelector('mlv-loader')).toBeNull();
+  });
+});
+
+@Component({ template: '' })
+class BlankPage {}
+
+/**
+ * Anchor buttons beside every listener that must not see a disabled click: the
+ * router's own and a consumer's `(click)` on the same element — both coalesced
+ * by Angular into one native listener together with the button's — and one on
+ * an ancestor, added in `beforeEach`. A plain `href` anchor covers the native
+ * navigation half, and a native `<button>` host shows what stays as it was.
+ * The last three carry a consumer `tabindex` the component must leave alone.
+ */
+@Component({
+  imports: [MlvButton, RouterLink],
+  template: `
+    <div class="ancestor">
+      <a
+        mlvButton
+        routerLink="/target"
+        [disabled]="disabled()"
+        [loading]="loading()"
+        (click)="onOwnClick()"
+        id="router"
+        >Billing</a
+      >
+      <a
+        mlvButton
+        href="#plain"
+        [disabled]="disabled()"
+        [loading]="loading()"
+        id="plain"
+        >Plain</a
+      >
+      <button
+        mlvButton
+        type="button"
+        [disabled]="disabled()"
+        [loading]="loading()"
+        id="native"
+      >
+        Save
+      </button>
+      <a
+        mlvButton
+        href="#focusable"
+        tabindex="0"
+        [disabled]="disabled()"
+        id="focusable"
+        >Focusable</a
+      >
+      <button mlvButton type="button" tabindex="-1" id="roving-static">
+        Static
+      </button>
+      <button
+        mlvButton
+        type="button"
+        [attr.tabindex]="rovingTabIndex()"
+        id="roving-bound"
+      >
+        Bound
+      </button>
+    </div>
+  `,
+})
+class DisabledAnchorButtonHost {
+  readonly disabled = signal(true);
+  readonly loading = signal(false);
+  readonly rovingTabIndex = signal(0);
+  readonly ownClicks = signal(0);
+
+  onOwnClick(): void {
+    this.ownClicks.update((n) => n + 1);
+  }
+}
+
+/**
+ * #460 — the `a[mlvLink]` defect (#309) on `a[mlvButton]`. The host `(click)`
+ * guard called `preventDefault()` + `stopImmediatePropagation()`, which stops
+ * neither `RouterLink.onClick` (it never reads `defaultPrevented`) nor anything
+ * else in Angular's coalesced listener chain; and `[attr.disabled]` means
+ * nothing on an anchor, so it kept its tab stop.
+ */
+describe('MlvButton disabled anchor activation', () => {
+  let fixture: ComponentFixture<DisabledAnchorButtonHost>;
+  let host: DisabledAnchorButtonHost;
+  let router: Router;
+  let ancestorClicks: number;
+
+  const el = <T extends HTMLElement = HTMLAnchorElement>(id: string): T =>
+    fixture.nativeElement.querySelector(`#${id}`);
+  const textOf = (button: HTMLElement): HTMLElement =>
+    button.querySelector('.mlv-button__text') as HTMLElement;
+  const click = (target: Element): MouseEvent => {
+    const event = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+    target.dispatchEvent(event);
+    return event;
+  };
+  /**
+   * A script-dispatched keydown activates nothing, so replay what a browser
+   * does for Enter on an `<a href>`: dispatch the click unless the keydown was
+   * cancelled (`click.spec.ts`'s `press()`).
+   */
+  const pressEnter = (target: Element): KeyboardEvent => {
+    const keydown = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+    });
+    target.dispatchEvent(keydown);
+    if (!keydown.defaultPrevented) click(target);
+    return keydown;
+  };
+  const settle = async (): Promise<void> => {
+    fixture.detectChanges();
+    await fixture.whenStable();
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [DisabledAnchorButtonHost],
+      providers: [
+        provideMlvI18nTesting(),
+        provideRouter([
+          { path: '', component: BlankPage },
+          { path: 'target', component: BlankPage },
+        ]),
+      ],
+    }).compileComponents();
+    router = TestBed.inject(Router);
+    fixture = TestBed.createComponent(DisabledAnchorButtonHost);
+    host = fixture.componentInstance;
+    fixture.detectChanges();
+    await router.navigateByUrl('/');
+    await fixture.whenStable();
+    ancestorClicks = 0;
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('.ancestor')
+      ?.addEventListener('click', () => ancestorClicks++);
+  });
+
+  it('keeps router.url when a disabled routerLink anchor button is activated', async () => {
+    const started: string[] = [];
+    const sub = router.events.subscribe((event) => {
+      if (event instanceof NavigationStart) started.push(event.url);
+    });
+    // `HTMLElement.click()` is what screen-reader activation and script
+    // produce; the second click lands on the label span inside the anchor.
+    el('router').click();
+    click(textOf(el('router')));
+    await fixture.whenStable();
+    sub.unsubscribe();
+
+    expect(started).toEqual([]);
+    expect(router.url).toBe('/');
+  });
+
+  it('keeps router.url when Enter is pressed on a disabled routerLink anchor button', async () => {
+    pressEnter(el('router'));
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/');
+  });
+
+  it('blocks a loading anchor button the same way as a disabled one', async () => {
+    host.disabled.set(false);
+    host.loading.set(true);
+    await settle();
+
+    el('router').click();
+    pressEnter(el('router'));
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/');
+    expect(host.ownClicks()).toBe(0);
+    expect(click(el('plain')).defaultPrevented).toBe(true);
+    expect(ancestorClicks).toBe(0);
+  });
+
+  it('cancels the native navigation of a disabled plain href, from the anchor and from its label', () => {
+    expect(click(el('plain')).defaultPrevented).toBe(true);
+    expect(click(textOf(el('plain'))).defaultPrevented).toBe(true);
+  });
+
+  it('stops the click before the listeners on the same element and on an ancestor', async () => {
+    const raw = vi.fn();
+    el('router').addEventListener('click', raw);
+    el('router').click();
+    click(textOf(el('plain')));
+    await fixture.whenStable();
+
+    expect(raw).not.toHaveBeenCalled();
+    expect(host.ownClicks()).toBe(0);
+    expect(ancestorClicks).toBe(0);
+    expect(router.url).toBe('/');
+  });
+
+  it('runs before a same-element listener registered before the button existed — capture, not registration order', () => {
+    // Every listener in the host above is registered after the component's
+    // constructor, so a bubble-phase guard would beat them by order alone.
+    // Here the consumer's listener is on the anchor first.
+    const early = document.createElement('a');
+    early.href = '#early';
+    document.body.appendChild(early);
+    const earlyListener = vi.fn();
+    early.addEventListener('click', earlyListener);
+    const ref = createComponent(MlvButton, {
+      environmentInjector: TestBed.inject(EnvironmentInjector),
+      hostElement: early,
+    });
+    try {
+      ref.setInput('disabled', true);
+      ref.changeDetectorRef.detectChanges();
+      const event = click(early);
+
+      expect(earlyListener).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(true);
+    } finally {
+      ref.destroy();
+      early.remove();
+    }
+  });
+
+  it('lets the same anchor navigate once re-enabled — the guard reads disabled and loading per click', async () => {
+    host.disabled.set(false);
+    await settle();
+
+    click(el('router'));
+    await fixture.whenStable();
+    expect(router.url).toBe('/target');
+    expect(host.ownClicks()).toBe(1);
+    expect(ancestorClicks).toBe(1);
+    // An enabled plain anchor's click must stay uncancelled, or the browser
+    // does not follow `href`: Angular `preventDefault()`s any listener whose
+    // expression evaluates to `false` (#309's `disabled() && …` trap).
+    expect(click(el('plain')).defaultPrevented).toBe(false);
+    expect(ancestorClicks).toBe(2);
+  });
+
+  it('follows an enabled anchor button on Enter — the keydown is left for the browser to turn into a click', async () => {
+    host.disabled.set(false);
+    await settle();
+
+    const keydown = pressEnter(el('router'));
+    await fixture.whenStable();
+
+    expect(keydown.defaultPrevented).toBe(false);
+    expect(router.url).toBe('/target');
+  });
+
+  it('takes a disabled or loading anchor out of the tab order without writing the invalid disabled attribute', async () => {
+    const anchors = ['router', 'plain'] as const;
+    const native = el<HTMLButtonElement>('native');
+
+    for (const id of anchors) {
+      expect(el(id).getAttribute('tabindex')).toBe('-1');
+      expect(el(id).hasAttribute('disabled')).toBe(false);
+      expect(el(id).getAttribute('aria-disabled')).toBe('true');
+    }
+    // A native button keeps `disabled`, which already removes its tab stop;
+    // it gets no `tabindex` of the component's own.
+    expect(native.hasAttribute('disabled')).toBe(true);
+    expect(native.hasAttribute('tabindex')).toBe(false);
+
+    host.disabled.set(false);
+    await settle();
+    for (const id of anchors) {
+      expect(el(id).hasAttribute('tabindex')).toBe(false);
+      expect(el(id).hasAttribute('aria-disabled')).toBe(false);
+    }
+    expect(native.hasAttribute('disabled')).toBe(false);
+
+    host.loading.set(true);
+    await settle();
+    for (const id of anchors) {
+      expect(el(id).getAttribute('tabindex')).toBe('-1');
+      expect(el(id).hasAttribute('disabled')).toBe(false);
+      expect(el(id).getAttribute('aria-busy')).toBe('true');
+    }
+    expect(native.hasAttribute('disabled')).toBe(true);
+    expect(native.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it("restores an anchor's own tabindex on re-enable and never writes one on a button host", async () => {
+    // A host `[attr.tabindex]` binding would evaluate to `null` on every
+    // button host and remove these — speed-dial actions and the calendar's
+    // roving cells are `<button mlvButton>` with a tabindex of their own.
+    expect(el('focusable').getAttribute('tabindex')).toBe('-1');
+    expect(el('roving-static').getAttribute('tabindex')).toBe('-1');
+    expect(el('roving-bound').getAttribute('tabindex')).toBe('0');
+
+    host.disabled.set(false);
+    await settle();
+    expect(el('focusable').getAttribute('tabindex')).toBe('0');
+
+    host.disabled.set(true);
+    host.rovingTabIndex.set(-1);
+    await settle();
+    expect(el('focusable').getAttribute('tabindex')).toBe('-1');
+    expect(el('roving-static').getAttribute('tabindex')).toBe('-1');
+    expect(el('roving-bound').getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('restores the tabindex a root host came with — createComponent with hostElement has no template to read it from', () => {
+    // Angular Elements and dynamic hosting create the button on an existing
+    // element. `HostAttributeToken` reads template attributes and is always
+    // `null` for such a root host, so the tabindex it already carried is read
+    // from the host itself. What happens across hydration, where the node's
+    // `tabindex` may be the server's own `-1`, is `button-ssr.spec.ts`.
+    const hosts = ['0', '-1'].map((tabIndex) => {
+      const anchor = document.createElement('a');
+      anchor.href = `#root-host-${tabIndex}`;
+      anchor.setAttribute('tabindex', tabIndex);
+      document.body.appendChild(anchor);
+      const ref = createComponent(MlvButton, {
+        environmentInjector: TestBed.inject(EnvironmentInjector),
+        hostElement: anchor,
+      });
+      return { anchor, ref, tabIndex };
+    });
+    try {
+      for (const { anchor, ref } of hosts) {
+        ref.setInput('disabled', true);
+        ref.changeDetectorRef.detectChanges();
+        expect(anchor.getAttribute('tabindex')).toBe('-1');
+      }
+      for (const { anchor, ref, tabIndex } of hosts) {
+        ref.setInput('disabled', false);
+        ref.changeDetectorRef.detectChanges();
+        expect(anchor.getAttribute('tabindex')).toBe(tabIndex);
+      }
+    } finally {
+      for (const { anchor, ref } of hosts) {
+        ref.destroy();
+        anchor.remove();
+      }
+    }
+  });
+
+  it('removes the capture-phase guard on destroy', () => {
+    const link = el('router');
+    const plain = el('plain');
+    const remove = vi.spyOn(link, 'removeEventListener');
+    fixture.destroy();
+    expect(remove).toHaveBeenCalledWith('click', expect.any(Function), {
+      capture: true,
+    });
+    // `disabled` is still `true`, so a surviving guard would stop these before
+    // this listener, or cancel them. It cancels the `/target` one itself once
+    // read, because jsdom implements no navigation beyond hash changes.
+    const seen: boolean[] = [];
+    link.addEventListener('click', (event) => {
+      seen.push(event.defaultPrevented);
+      event.preventDefault();
+    });
+    click(link);
+    expect(seen).toEqual([false]);
+    expect(click(plain).defaultPrevented).toBe(false);
+  });
+
+  it('has no axe violations with disabled anchor buttons', async () => {
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+
+  it('has no axe violations with loading anchor buttons', async () => {
+    host.disabled.set(false);
+    host.loading.set(true);
+    await settle();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
 });
 

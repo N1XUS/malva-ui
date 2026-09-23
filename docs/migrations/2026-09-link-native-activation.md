@@ -155,4 +155,5 @@ Four shapes. Only (a) reached code in `apps/` (§4).
   Its suite passes unchanged.
 - Not fixed here: `a[mlvButton][routerLink][disabled]` has the same
   disabled-`routerLink` defect (its host `(click)` cannot stop `RouterLink`)
-  and stays in the tab order.
+  and stays in the tab order. Fixed by #460 —
+  [2026-09-button-anchor-disabled-activation.md](2026-09-button-anchor-disabled-activation.md).
