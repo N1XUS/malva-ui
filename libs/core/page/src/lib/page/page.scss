@@ -472,8 +472,26 @@
   .mlv-page-snap--hide {
     // The height follows the *page* progress; only the content staggers. That
     // split is what keeps the page's compensation exact for any stagger.
+    //
+    // The second term lifts the clamp at rest. It is a step: 100000px at
+    // progress 0, and 0 from progress 0.00001 on — finer than any real scroll
+    // produces (the page's own override writes three decimals; the scroll
+    // timeline would need a 0.01px offset on a 1000px range). There is
+    // nothing to scrub at rest, and a clamp there would pin the box at the
+    // size measured last: content that grows (new text, a font swap, a
+    // density or header-size change) would leave the box unchanged, so
+    // MlvPageSnap's ResizeObserver would report nothing and the row would
+    // stay cut off, or invisible if it first rendered empty. Unclamped, the
+    // box is the content, and the observer sees it. Visually the step is a
+    // no-op: at rest the measured size and the content's own size are the
+    // same number. The exception is a `max-block-size` (or `all`) transition
+    // on the region: it would start from the 100000px sentinel, hold the box
+    // still for most of its duration and then snap, so snap regions must not
+    // transition this property. A region revealed for focus (below) reads
+    // progress 0 and is unclamped the same way.
     max-block-size: calc(
-      var(--mlv-snap-size, 0px) * (1 - var(--mlv-page-snap, 0))
+      var(--mlv-snap-size, 0px) * (1 - var(--mlv-page-snap, 0)) + 100000px *
+        max(0, 1 - 100000 * var(--mlv-page-snap, 0))
     );
     overflow: hidden;
     // Reaches zero exactly at `snapTo`, which is also where the region leaves

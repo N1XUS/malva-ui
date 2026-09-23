@@ -851,7 +851,7 @@ expanded height minus collapsed height, with no distance knob at all — and for
 the same reason: a hand-declared constant stands in for a measurement and is
 wrong the moment a font loads, a locale changes or a row rewraps.
 
-Three consequences worth stating:
+Four consequences worth stating:
 
 - A page whose chrome has nothing to collapse reports `0` and never collapses.
   That is `pinned` arrived at from the geometry rather than from an input, and
@@ -859,6 +859,36 @@ Three consequences worth stating:
 - `MlvPageSnap` regions measure their own `scrollHeight`, not `offsetHeight`:
   the host's `max-block-size` is what the scrub animates, so the clamped border
   box shrinks to nothing while the content box keeps reporting the open height.
+- **A clamped box cannot report its content growing** — the box stays where the
+  clamp holds it, so a `ResizeObserver` on it has nothing to deliver (#317:
+  description text lengthened by a tab switch stayed cut off at rest, and a
+  region that rendered empty stayed invisible at every progress). A directive
+  has no template, so there is no inner wrapper to observe the way
+  `MlvPageSummary` observes its `__items` row. Two triggers close it instead:
+  - **At rest the clamp lifts.** `.mlv-page-snap--hide` adds a step term to its
+    `max-block-size` that is `100000px` at progress 0 and `0` from `0.00001`
+    on (finer than any real scroll produces), so at the top the box _is_ the
+    content and the host observer sees every change to it — text, a font swap,
+    a density or header-`size` change, an image. Visually a no-op — at rest the
+    measurement and the content are the same number (to the sub-pixel
+    `scrollHeight` rounds away) — **unless something transitions
+    `max-block-size`**. The rest value is an unbounded sentinel, so a
+    transition starts from `100000px`: measured with a 200ms linear
+    `max-block-size` transition, the first scroll step holds the box still for
+    about 170ms and then snaps. Never put a `max-block-size` (or `all`) transition on a snap region;
+    the scrub is already continuous. A region revealed for focus reads progress
+    0 and is unclamped the same way.
+  - **While scrubbing, the content is watched.** A `MutationObserver`
+    (`childList` + `characterData`, subtree) and `document.fonts`
+    `loadingdone` re-measure directly, so the timeline length follows a tab
+    switch made with the chrome collapsed. A style-only change mid-scrub (no
+    DOM mutation, no font load) is picked up on the next scrub step, which
+    moves the clamp and therefore the box. Both triggers act on `hide` regions
+    only: a `fade` or `keep` region is never clamped, so the box observer
+    already sees every change to it and keeps the measurement current for a
+    later switch to `hide`; reading it there would force a layout per mutation
+    batch for a value nothing reads. The mode is read per change, since
+    `mlvPageSnap` is an input.
 - **In a spec, jsdom lays nothing out**, so every measurement is `0` and the
   timeline never runs. Register the measurement the browser would have
   contributed: `controller.registerCollapse(signal(96))`.
@@ -1010,8 +1040,12 @@ behaviour — `hide` (height + opacity collapse, default), `fade`, or `keep`.
 | `snapFrom` / `snapTo` | `0` / `1` | Stagger window for the **content fade**.               |
 
 There is no size input. A `hide` region measures its own open height
-(`scrollHeight`, re-measured through `MlvResizeObserverService`), publishes it
-as `--mlv-snap-size`, and contributes it to the page's `collapseDistance`.
+(`scrollHeight`, re-measured through `MlvResizeObserverService`, a
+`MutationObserver` over its content and `document.fonts` `loadingdone`),
+publishes it as `--mlv-snap-size`, and contributes it to the page's
+`collapseDistance`. At rest its clamp lifts, so the region is never cut off at
+a stale size, and a `max-block-size` transition on it freezes then snaps — see
+§ _The distance is derived, never declared_.
 
 **Which progress drives what is a deliberate split.** Block size follows the
 **page** progress, so the collapsing chrome always gives up exactly
