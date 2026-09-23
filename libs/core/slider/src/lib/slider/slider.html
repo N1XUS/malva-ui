@@ -28,6 +28,8 @@
   "
   [attr.aria-disabled]="computedDisabled() || null"
   [attr.aria-readonly]="readonly() || null"
+  [attr.aria-invalid]="_ariaInvalid()"
+  [attr.aria-describedby]="_describedBy()"
   [attr.aria-orientation]="orientation()"
   [style.inset-inline-start]="!_isVertical() ? _lowPercent() + '%' : null"
   [style.bottom]="_isVertical() ? _lowPercent() + '%' : null"
@@ -66,6 +68,8 @@
     [attr.aria-label]="_i18n().maxValue"
     [attr.aria-disabled]="computedDisabled() || null"
     [attr.aria-readonly]="readonly() || null"
+    [attr.aria-invalid]="_ariaInvalid()"
+    [attr.aria-describedby]="_describedBy()"
     [attr.aria-orientation]="orientation()"
     [style.inset-inline-start]="!_isVertical() ? _highPercent() + '%' : null"
     [style.bottom]="_isVertical() ? _highPercent() + '%' : null"
@@ -91,4 +95,21 @@
       }
     </span>
   }
+}
+
+<!-- Under the track, in the host's second grid row; every thumb reaches both
+     through `aria-describedby`. A press on either is ignored by the host's
+     pointerdown handler, so selecting the text never moves a thumb. -->
+@if (description()) {
+  <mlv-description class="mlv-slider__description" [id]="_descriptionId()">{{
+    description()
+  }}</mlv-description>
+}
+@if (message()) {
+  <mlv-message
+    class="mlv-slider__message"
+    [id]="_messageId()"
+    [state]="resolvedState()"
+    >{{ message() }}</mlv-message
+  >
 }

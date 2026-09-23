@@ -29,6 +29,7 @@ import { MLV_FORM_CONTROL } from '../models/form-control-connector';
 import type { MlvFormFieldAccessor } from '../models/form-field-connector';
 import { MLV_FORM_FIELD } from '../models/form-field-connector';
 import { MLV_FORM_UTILS_I18N } from '@malva-ui/i18n';
+import { mlvNextId } from '@malva-ui/cdk/utils';
 
 const DEFAULT_ERROR_MESSAGES: Record<string, (err: unknown) => string> = {
   required: () => 'This field is required',
@@ -80,7 +81,9 @@ const WARNED_DOUBLE_LABELS = new Set<string>();
       </div>
       <ng-content select="mlv-message" />
       @if (autoErrorMessage()) {
-        <mlv-message state="error">{{ autoErrorMessage() }}</mlv-message>
+        <mlv-message state="error" [id]="_errorMessageId">{{
+          autoErrorMessage()
+        }}</mlv-message>
       }
     </div>
   `,
@@ -395,6 +398,22 @@ export class MlvFormField implements MlvFormFieldAccessor {
     if (!this._label()) return false;
     return !!this._control()?.label?.();
   });
+
+  /**
+   * @protected Id stamped on the auto error `<mlv-message>`. Generated once per
+   * field, so every field on a page names its own message.
+   */
+  protected readonly _errorMessageId = `${mlvNextId('mlv-form-field')}-error`;
+
+  /**
+   * Id of the auto error message while it is rendered, `null` otherwise — see
+   * {@link MlvFormFieldAccessor.errorMessageId}. The projected control appends
+   * it to its `aria-describedby`, so the reason stays attached to the control
+   * after the message's one-time `role="alert"` announcement (#320).
+   */
+  readonly errorMessageId = computed<string | null>(() =>
+    this.autoErrorMessage() ? this._errorMessageId : null,
+  );
 
   /** The effective visual state: `'error'` when an auto error message is shown, otherwise {@link state}. */
   readonly resolvedState = computed<MlvFormState>(() => {

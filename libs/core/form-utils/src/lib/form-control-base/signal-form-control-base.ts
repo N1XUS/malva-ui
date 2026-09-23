@@ -284,16 +284,48 @@ export abstract class MlvSignalFormUiControlBase implements MlvFormControl {
   protected readonly _messageId = computed(() => `${this.id()}-message`);
 
   /**
+   * @protected Id of the auto error message the enclosing `mlv-form-field` is
+   * rendering right now — `null` outside a field, and whenever the field shows
+   * no error, so no dangling IDREF is emitted.
+   *
+   * Folded into {@link _describedBy}, which is where a control reads it. It is
+   * exposed on its own for a control that renders no description / message of
+   * its own and so cannot bind `_describedBy()` without pointing at elements
+   * that do not exist (`mlv-rating`).
+   */
+  protected readonly _fieldErrorId = computed<string | null>(
+    () => this._formField?.errorMessageId?.() ?? null,
+  );
+
+  /**
    * @protected Space-separated `aria-describedby` value covering the rendered
-   * description and message elements — `null` when neither is rendered, so no
-   * dangling IDREF is emitted.
+   * description and message elements, followed by the enclosing field's auto
+   * error message ({@link _fieldErrorId}) — `null` when none of them is
+   * rendered, so no dangling IDREF is emitted.
+   *
+   * Every control that binds this therefore keeps the field's error reason
+   * attached after the message's one-time `role="alert"` announcement: without
+   * it a screen reader returning to the control heard "invalid entry" and no
+   * reason (#320).
    */
   protected readonly _describedBy = computed(() => {
     const ids: string[] = [];
     if (this.description()) ids.push(this._descriptionId());
     if (this.message()) ids.push(this._messageId());
+    const fieldErrorId = this._fieldErrorId();
+    if (fieldErrorId) ids.push(fieldErrorId);
     return ids.length > 0 ? ids.join(' ') : null;
   });
+
+  /**
+   * @protected `aria-invalid` value for the control's focus target: `true`
+   * while {@link resolvedState} is `'error'`, `null` (no attribute) otherwise.
+   * Only an error claims invalidity — `success`, `warning` and `info` are
+   * status, not validity.
+   */
+  protected readonly _ariaInvalid = computed<true | null>(() =>
+    this.resolvedState() === 'error' ? true : null,
+  );
 
   /** Projected prefix slot. */
   readonly prepend = contentChild(MlvFormControlPrepend);

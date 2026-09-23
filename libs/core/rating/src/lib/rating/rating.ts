@@ -80,6 +80,8 @@ import { MLV_RATING_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
     '[attr.role]': '"group"',
     '[attr.aria-label]': '_i18n().rating',
     '[attr.aria-disabled]': 'computedDisabled() || null',
+    '[attr.aria-invalid]': '_ariaInvalid()',
+    '[attr.aria-describedby]': '_fieldErrorId()',
     '(mouseleave)': '_onHostMouseLeave()',
     '(keydown)': '_onHostKeydown($event)',
     '[attr.tabindex]': 'readonly() || computedDisabled() ? null : -1',

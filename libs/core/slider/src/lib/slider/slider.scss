@@ -14,8 +14,21 @@
     --mlv-slider-tooltip-color: var(--mlv-text-primary-on-accent-1);
 
     position: relative;
-    display: flex;
+    // One column: the track owns row 1 and the description and validation
+    // message (#320) stack under it. The thumbs and tooltips are absolutely
+    // positioned *with* an explicit grid area, which makes that area — not the
+    // host's padding box — their containing block, so `top: 50%` and the
+    // inline percentages still resolve against the track's row whether or not
+    // text renders below it. `align-content: center` keeps the old flex
+    // centring when the host is taller than its content. With no text the
+    // row is as tall as the track, as the flex line was, so the host keeps
+    // its old size at any `--mlv-slider-thumb-size` (see `--has-text`).
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    row-gap: var(--mlv-spacing-1);
     align-items: center;
+    align-content: center;
     width: 100%;
     min-height: 2.75rem; // Comfortable touch target
     padding-block: 0.75rem;
@@ -34,6 +47,7 @@
 
     // Track
     &__track {
+      grid-area: 1 / 1 / 2 / 2;
       position: relative;
       width: 100%;
       height: var(--mlv-slider-track-height);
@@ -97,6 +111,9 @@
 
     // Thumb
     &__thumb {
+      // All four lines: an absolutely positioned grid child resolves an `auto`
+      // end line to the padding edge, not to the next grid line.
+      grid-area: 1 / 1 / 2 / 2;
       position: absolute;
       top: 50%;
       transform: translate(mixins.inline-distance(-50%), -50%);
@@ -151,6 +168,7 @@
     // Current-value tooltip. It is a sibling of the thumb rather than a child,
     // so thumb hover/press transforms never distort the tooltip content.
     &__tooltip {
+      grid-area: 1 / 1 / 2 / 2; // see `__thumb`
       position: absolute;
       top: 50%;
       display: inline-flex;
@@ -225,6 +243,37 @@
         visibility var(--mlv-duration-instant) linear;
     }
 
+    // Validation state (#320): the unfilled rail takes the error border token,
+    // the fill and thumbs keep the accent so the value stays readable. Only
+    // `error` paints anything — success, warning and info carry their meaning
+    // in `mlv-message`, not in the control (SF-R6).
+    &--state-error &__track {
+      background-color: var(--mlv-border-error);
+    }
+
+    // Help text and validation message, under the track. The host is the
+    // pointer target for the whole control, so it sets a pointer cursor and
+    // suppresses selection; both are handed back here so the text reads and
+    // selects like text (the host's pointerdown handler ignores it too).
+    // `touch-action` cannot be handed back: the effective value intersects
+    // down the tree, so the host's `none` still covers these rows and a touch
+    // pan that starts on them does not scroll the page (documented limitation).
+    &__description,
+    &__message {
+      grid-column: 1;
+      cursor: auto;
+      user-select: text;
+    }
+
+    // With text under the track, row 1 is held at least one thumb tall so the
+    // centred thumb never overlaps the first text row. Scoped to the modifier:
+    // unscoped, the minimum grew a text-less slider whose
+    // `--mlv-slider-thumb-size` override exceeds the space its padding leaves
+    // (2rem: 44 → 56px). Vertical sliders size row 1 from their explicit height.
+    &--has-text:not(&--vertical) {
+      grid-template-rows: minmax(var(--mlv-slider-thumb-size), auto);
+    }
+
     // Disabled state
     &--disabled {
       opacity: var(--mlv-disabled-opacity, 0.56);
@@ -248,7 +297,8 @@
     // Thumbs are positioned with `bottom` instead of `inset-inline-start`.
 
     &--vertical {
-      flex-direction: column;
+      // Row 1 takes the host's whole explicit height, less any text rows.
+      grid-template-rows: minmax(0, 1fr);
       width: auto;
       min-width: 2.75rem;
       height: 100%;
@@ -262,8 +312,21 @@
       }
 
       .#{$block}__track {
+        justify-self: center;
         width: var(--mlv-slider-track-height);
         height: 100%;
+      }
+
+      // Text under a vertical rail: a thumb at the minimum overhangs the
+      // rail's bottom end by half its size, so the first text row — the
+      // description, or the message when there is none — starts that much
+      // lower, keeping the horizontal layout's `--mlv-spacing-1` clearance.
+      &.#{$block}--has-text > .#{$block}__description,
+      &.#{$block}--has-text
+        > .#{$block}__message:not(
+          .#{$block}__description + .#{$block}__message
+        ) {
+        margin-block-start: calc(var(--mlv-slider-thumb-size) / 2);
       }
 
       // Fill grows upward: bottom = fill-start, height = fill-end - fill-start.

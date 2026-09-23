@@ -44,15 +44,20 @@ Extends `MlvSignalFormControlBase<MlvSliderValue>` from `@malva-ui/core/form-uti
 | `disabled`    | `BooleanInput`               | `false`        | _(inherited)_ Disables interaction                                                    |
 | `readonly`    | `BooleanInput`               | `false`        | _(inherited)_ Value locked, thumbs still focusable; also a signal-forms field binding |
 | `label`       | `string`                     | `''`           | _(inherited)_ `aria-label` for single-thumb mode                                      |
+| `state`       | `MlvFormState`               | `'default'`    | _(inherited)_ Validation state; only `error` paints (see _Validation state_, #320)    |
+| `description` | `string`                     | `''`           | _(inherited)_ Help text under the track, in every thumb's `aria-describedby` (#320)   |
+| `message`     | `string`                     | `''`           | _(inherited)_ Validation message under the track, in `aria-describedby` (#320)        |
 
 #### Host Bindings
 
 ```ts
 host: {
   class: 'mlv-slider',
+  '[class]': '"mlv-slider--state-" + resolvedState()',
   '[class.mlv-slider--range]': 'range()',
   '[class.mlv-slider--disabled]': 'computedDisabled()',
   '[class.mlv-slider--has-ticks]': 'showTicks()',
+  '[class.mlv-slider--has-text]': '_hasText()',
   '[class.mlv-slider--vertical]': '_isVertical()',
   '[class.mlv-slider--dragging]': '_activeDragThumb() !== null',
   '[style.--mlv-slider-fill-start]': '_fillStart()',
@@ -105,12 +110,15 @@ Horizontal arrows are **logical** — in RTL `ArrowLeft` increases and `ArrowRig
 - `aria-orientation` reflects the `orientation` input
 - `aria-disabled` when disabled
 - `aria-readonly="true"` on each thumb while readonly (the slider role supports it); no attribute otherwise
+- `aria-invalid="true"` on **each** thumb while `resolvedState()` is `error`; no attribute otherwise (#320)
+- `aria-describedby` on each thumb = `_describedBy()`: own description, own message, the enclosing `mlv-form-field`'s error id (#320)
 - `aria-label` describes each thumb (`"Value"`, `"Minimum value"`, `"Maximum value"`)
 - Tooltip bubbles are visual-only (`aria-hidden="true"`) because `aria-valuenow` already exposes the live value without duplicate announcements
 
 #### Pointer interaction (internal)
 
 - The `.mlv-slider__track` element carries a `#track` template ref and is resolved with a signal `viewChild` (`_trackRef = viewChild<ElementRef<HTMLElement>>('track')`) — no `querySelector` on the host (it is the component's own static template element).
+- The host `pointerdown` handler returns early when the press lands inside `.mlv-slider__description` / `.mlv-slider__message` (#320): the host renders them, and selecting their text must not jump a thumb.
 - On `pointerdown` the track's `DOMRect` is measured once and cached in `_dragTrackRect`; the window `pointermove` handler reuses that cached rect for its percent math instead of forcing a `getBoundingClientRect` layout read per move. The cache is cleared on `pointerup` or `pointercancel` (`_pointerToPercent` falls back to a fresh `_trackRef()` measurement outside a drag). The move stream stays in-zone: sub-step thumb tracking (`_lowDragPercent`/`_highDragPercent`) needs change detection each move for smooth dragging.
 
 ### `MlvSliderTooltipDef`
@@ -187,14 +195,14 @@ Thumb `aria-label`s resolve through `MLV_SLIDER_I18N` (`@malva-ui/i18n`):
 
 ## Dependencies
 
-| Package                     | Role                                                      |
-| --------------------------- | --------------------------------------------------------- |
-| `@angular/common`           | `NgTemplateOutlet` for custom tooltip rendering           |
-| `@angular/core`             | Signals, DI, component                                    |
-| `@angular/forms/signals`    | `FormValueControl` binding through the shared signal base |
-| `@angular/cdk/coercion`     | Boolean coercion                                          |
-| `@malva-ui/core/form-utils` | `MlvSignalFormControlBase`, `MLV_FORM_CONTROL`            |
-| `@malva-ui/cdk/density`     | `MlvCompactComfortableDensity`, `MLV_DENSITY_ELEMENT`     |
+| Package                     | Role                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| `@angular/common`           | `NgTemplateOutlet` for custom tooltip rendering                                |
+| `@angular/core`             | Signals, DI, component                                                         |
+| `@angular/forms/signals`    | `FormValueControl` binding through the shared signal base                      |
+| `@angular/cdk/coercion`     | Boolean coercion                                                               |
+| `@malva-ui/core/form-utils` | `MlvSignalFormControlBase`, `MLV_FORM_CONTROL`, `MlvDescription`, `MlvMessage` |
+| `@malva-ui/cdk/density`     | `MlvCompactComfortableDensity`, `MLV_DENSITY_ELEMENT`                          |
 
 ---
 
@@ -213,9 +221,20 @@ libs/core/slider/src/
       slider-styles.spec.ts        — compiled-CSS checks (#308 RTL centring, transitions)
       slider-binding-matrix.spec.ts — forms integration matrix
       slider-readonly.spec.ts      — #298 write permission + axe sweeps
+      slider-validation.spec.ts    — #320 error class, aria-invalid, description/message, --has-text, field error, compiled grid rules, axe
 ```
 
 ---
+
+## Validation state (2026-09, #320)
+
+- **Host class `mlv-slider--state-<resolvedState>`.** Only `--state-error` has a rule: `.mlv-slider--state-error .mlv-slider__track` takes `background-color: var(--mlv-border-error)` — the unfilled rail turns red, the fill and thumbs keep the accent so the value stays readable. `success` / `warning` / `info` emit the class and no rule (SF-R6).
+- **`aria-invalid` and `aria-describedby` on every thumb** (both in range mode) — see _ARIA_.
+- **`description` and `message` render under the track.** Before, both type-checked and rendered nothing.
+- **Layout: the host is a one-column grid, no longer a flex row.** The track owns row 1 (`grid-area: 1 / 1 / 2 / 2`), the text stacks in auto rows below with a `--mlv-spacing-1` gap. The thumbs and tooltips are absolutely positioned **with** that grid area, so their containing block is row 1, not the host's padding box — `top: 50%` and the inline / `bottom` percentages still resolve against the track whether or not text renders. All four lines are written and pinned by `slider-validation.spec.ts`: an absolutely positioned grid child resolves an `auto` end line to the padding edge, so the two-line `grid-area: 1 / 1` puts the thumb off the track — measured 10px with no text, 17px with one text row, 28px with two. `align-content: center` keeps the old centring in a host taller than its content; vertical mode swaps the row to `minmax(0, 1fr)` and centres the track with `justify-self`.
+- **`mlv-slider--has-text`** (`_hasText()`: the same `description() || message()` the template's `@if`s test). Row 1 is `auto` — as tall as the track, like the old flex line — and only under this modifier does a horizontal slider hold it at `minmax(var(--mlv-slider-thumb-size), auto)`, so the centred thumb clears the first text row. Unscoped, the minimum grew a text-less slider whose `--mlv-slider-thumb-size` exceeds the space its padding leaves (2rem: 44 → 56px). A vertical slider sizes row 1 from its explicit height; under the modifier its first text row (the description, else the message) takes `margin-block-start: calc(var(--mlv-slider-thumb-size) / 2)`, because a thumb at the minimum overhangs the rail's bottom end by half its size.
+- Measured in Chromium and WebKit (Playwright, LTR + RTL, comfortable + compact, horizontal + vertical, default / `2rem` / `1.75rem` thumb): with no text the host size, track size, thumb cross-axis offset (0) and thumb position are identical to `main` in every case but one — **vertical compact**, whose thumbs now sit on the rail (at value 40: `main` 39.1% of the rail, now 40%). There the density's `padding-block: 0.5rem` wins over the vertical `padding-block: 0`, and on `main` the thumbs resolved `bottom` against the host's padding box, 8px beyond each rail end, while the pointer maths reads the rail — so a press and the thumb it moved disagreed by up to 8px. With text the thumb stays centred on the track at the same fraction and clears the text at 0 / 40 / 100; a vertical slider's track shrinks by the text rows (the pointer maths follows the track rect).
+- The description / message take back `cursor: auto` and `user-select: text` from the host, and the host `pointerdown` handler ignores presses on them. **Not** `touch-action`: the effective value intersects down the tree, so the host's `none` still covers the text rows and a touch pan that starts on them does not scroll the page. Moving `none` onto the track and thumbs would make a drag that starts beside the 0.25rem rail — anywhere else in the 2.75rem host — pan instead; fixing it needs a dedicated hit layer (follow-up).
 
 ## Field surface (2026-08)
 

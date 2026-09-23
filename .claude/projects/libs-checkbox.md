@@ -64,23 +64,23 @@ Exported from `libs/core/checkbox/src/index.ts`:
 | `required`       | `boolean` (coerced)   | `false`     | Sets `aria-required` on the native input. Also a signal-forms field binding. Inherited from the signal base.                                                                                                                                                                                                                             |
 | `ariaLabel`      | `string \| null`      | `null`      | Accessible name applied to the inner native input. Use for dynamic labels; wins over a captured static host `aria-label` (see the naming note above). Inherited from the signal base since 2026-08 (was a checkbox-local input).                                                                                                         |
 | `ariaLabelledBy` | `string \| undefined` | `undefined` | Id reference(s) naming the inner native input. Same rationale/precedence as `ariaLabel`.                                                                                                                                                                                                                                                 |
-| `state`          | `MlvCheckboxState`    | `'default'` | Visual state                                                                                                                                                                                                                                                                                                                             |
+| `state`          | `MlvCheckboxState`    | `'default'` | Validation state. Only `error` paints (error border on the swatch) and sets `aria-invalid`; an explicit non-default value wins over the bound field's — see _Validation state (#320)_                                                                                                                                                    |
 
 #### Inputs (inherited from `MlvSignalFormUiControlBase`)
 
-| Name          | Type                                               | Default                    | Description                                                                      |
-| ------------- | -------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------- |
-| `readonly`    | `boolean`                                          | `false`                    | Read-only control; also a signal-forms field binding.                            |
-| `loading`     | `boolean`                                          | `false`                    | Shows the loading affordance.                                                    |
-| `clearable`   | `boolean`                                          | `false`                    | Renders the clear (X) affordance while the control has a value.                  |
-| `pill`        | `boolean`                                          | `false`                    | Fully rounded (stadium) control container.                                       |
-| `errors`      | `readonly ValidationError.WithOptionalFieldTree[]` | `[]`                       | Signal-forms field binding: current validation errors.                           |
-| `touched`     | `boolean`                                          | `false`                    | Signal-forms field binding: whether the bound field is touched.                  |
-| `dirty`       | `boolean`                                          | `false`                    | Signal-forms field binding: whether the bound field is dirty.                    |
-| `id`          | `string`                                           | `mlvNextId('mlv-control')` | HTML id applied to the control's focus target.                                   |
-| `hint`        | `string`                                           | `''`                       | Hint text rendered inside the label.                                             |
-| `description` | `string`                                           | `''`                       | Persistent help text rendered below the control (`<mlv-description>` slot wins). |
-| `message`     | `string`                                           | `''`                       | Validation/status message rendered below the control.                            |
+| Name          | Type                                               | Default                    | Description                                                                                                                                                                                                           |
+| ------------- | -------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `readonly`    | `boolean`                                          | `false`                    | Read-only control; also a signal-forms field binding.                                                                                                                                                                 |
+| `loading`     | `boolean`                                          | `false`                    | Shows the loading affordance.                                                                                                                                                                                         |
+| `clearable`   | `boolean`                                          | `false`                    | Renders the clear (X) affordance while the control has a value.                                                                                                                                                       |
+| `pill`        | `boolean`                                          | `false`                    | Fully rounded (stadium) control container.                                                                                                                                                                            |
+| `errors`      | `readonly ValidationError.WithOptionalFieldTree[]` | `[]`                       | Signal-forms field binding: current validation errors.                                                                                                                                                                |
+| `touched`     | `boolean`                                          | `false`                    | Signal-forms field binding: whether the bound field is touched.                                                                                                                                                       |
+| `dirty`       | `boolean`                                          | `false`                    | Signal-forms field binding: whether the bound field is dirty.                                                                                                                                                         |
+| `id`          | `string`                                           | `mlvNextId('mlv-control')` | HTML id applied to the control's focus target.                                                                                                                                                                        |
+| `hint`        | `string`                                           | `''`                       | Inherited but **not rendered** by the checkbox (follow-up to #320).                                                                                                                                                   |
+| `description` | `string`                                           | `''`                       | Help text rendered under the label text as `.mlv-checkbox__description`, outside the `<label>`, and referenced from the native input’s `aria-describedby` (#320; before, not rendered).                               |
+| `message`     | `string`                                           | `''`                       | Validation / status message rendered after the description as `.mlv-checkbox__message` (state follows `resolvedState()`), outside the `<label>`, and referenced from `aria-describedby` (#320; before, not rendered). |
 
 #### Model (two-way binding)
 
@@ -135,7 +135,7 @@ signal-forms field, not a `ControlValueAccessor` (see the 2026-07 cutover note).
 
 #### Template Summary
 
-Label wrapping the visually-hidden native checkbox (`#nativeInput`, `[attr.tabindex]="_resolvedTabIndex()"`) + visual element with dynamic icon (check or minus for indeterminate) + `.mlv-checkbox__text`, which holds `.mlv-checkbox__content` (`ng-content`) followed by the `.mlv-checkbox__label-text` fallback rendered from the `label` input. ARIA attributes on the native input: `aria-checked`, `aria-required`, `aria-readonly` (while readonly), plus `aria-label` / `aria-labelledby` forwarded from the host (see the forwarding note above).
+Label wrapping the visually-hidden native checkbox (`#nativeInput`, `[attr.tabindex]="_resolvedTabIndex()"`) + visual element with dynamic icon (check or minus for indeterminate) + `.mlv-checkbox__text`, which holds `.mlv-checkbox__content` (`ng-content`) followed by the `.mlv-checkbox__label-text` fallback rendered from the `label` input. ARIA attributes on the native input: `aria-checked`, `aria-required`, `aria-readonly` (while readonly), `aria-invalid` (while `resolvedState()` is `error`) and `aria-describedby` (`_describedBy()`: own description, own message, enclosing field's error), plus `aria-label` / `aria-labelledby` forwarded from the host (see the forwarding note above). After the `<label>`: `<mlv-description>` and `<mlv-message>` when their inputs are set.
 
 A dev-mode `console.warn` fires once per instance when a checkbox has no projected text, no `label`, and no `ariaLabel`/`ariaLabelledBy` — i.e. no accessible name at all.
 
@@ -280,6 +280,7 @@ when the id is emitted on the host instead of the `<div>`.
 ## Testing
 
 - Unit tests run through `libs/core/checkbox/vite.config.mts` with the shared Analog/Vitest Angular test setup in `src/test-setup.ts`.
+- `checkbox-validation.spec.ts` (#320) — error visual + `aria-invalid` after a touched `required()` field, cleared once checked; explicit `state` (`error` only claims invalidity); description / message outside the label and in `aria-describedby`; the enclosing field's error id; axe sweep of the error state; compiled SCSS pins the error token and no success / warning / info tint.
 - `checkbox-readonly.spec.ts` (#298) — click, label click, Enter and a stray `change` refused while readonly and while disabled; cancelled click, `indeterminate` kept, `aria-readonly`, focusability, a signal-forms `readonly()` rule; axe sweeps of readonly unchecked / checked.
 
 ---
@@ -289,7 +290,16 @@ when the id is emitted on the host instead of the `<div>`.
 - `@angular/core`, `@angular/forms` — CVA, form integration
 - `@angular/cdk/a11y` — `FocusableOption`, `FocusKeyManager`
 - `@lucide/angular` — `LucideCheck`, `LucideMinus` icons
-- `@malva-ui/core/form-utils` — `MlvLabel`
+- `@malva-ui/core/form-utils` — `MlvSignalCheckboxControlBase`, `MlvDescription`, `MlvMessage`
+
+## Validation state (2026-09, #320)
+
+- **The swatch follows `resolvedState()`**, not `state()` — `.mlv-checkbox__visual--<state>`. Before, it read the raw input, so a touched invalid `[formField]` never showed anything; an explicit non-default `state` still wins, as everywhere.
+- **Only `error` paints**: `.mlv-checkbox__visual--error` sets `--check-border-color: var(--mlv-border-error)`. Declared on the swatch, so it outranks the host's hover and checked values of the same property — the box stays red under the pointer and after it is ticked. `success` / `warning` / `info` emit a class and no rule (SF-R6); their meaning lives in `mlv-message`.
+- **`aria-invalid="true"`** on the native input while `resolvedState()` is `error`; no attribute otherwise (never `"false"`).
+- **`description` and `message` render** — the inherited-table rows always said they did, and the template never had them. They sit after the `<label>`, so neither joins the accessible name, indented past the 1.5rem swatch + label gap (`padding-inline-start`, logical, mirrors in RTL).
+- **`aria-describedby`** = `_describedBy()`: own description, own message, then the enclosing `mlv-form-field`'s error message id — see `libs-form-utils.md` § _Field error association and `aria-invalid`_.
+- `MlvCheckboxGroup` is unchanged: its `state` input still paints nothing (follow-up).
 
 ## Label type scale (2026-08-26)
 

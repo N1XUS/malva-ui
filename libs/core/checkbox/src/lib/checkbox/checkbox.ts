@@ -20,6 +20,8 @@ import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import type { MlvFormState, MlvFormControl } from '@malva-ui/core/form-utils';
 import {
+  MlvDescription,
+  MlvMessage,
   MlvSignalCheckboxControlBase,
   MLV_FORM_CONTROL,
 } from '@malva-ui/core/form-utils';
@@ -50,7 +52,7 @@ export type MlvCheckboxState = MlvFormState;
     '[class.mlv-checkbox--checked]': 'checked()',
     '[class.mlv-checkbox--indeterminate]': 'indeterminate()',
   },
-  imports: [LucideCheck, LucideMinus],
+  imports: [LucideCheck, LucideMinus, MlvDescription, MlvMessage],
 })
 export class MlvCheckbox
   extends MlvSignalCheckboxControlBase

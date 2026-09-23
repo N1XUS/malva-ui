@@ -34,7 +34,7 @@ Exported from `libs/forms/form-utils/src/index.ts`:
 | `MlvClearMlvButton` | Component | Shared clear-X button (`mlv-clear-button`) used by the wrapper and inlined by select/combobox |
 | `MlvFocusableGroupItem` | Interface | Per-item contract for the base: `FocusableOption` + `tabIndex: WritableSignal<number>` |
 | `MLV_FORM_FIELD` | Token | `InjectionToken<MlvFormFieldAccessor>` — `mlv-form-field` provides itself; `mlv-label` and every control pull the label↔control association from it |
-| `MlvFormFieldAccessor` | Interface | `labelId: Signal<string \| null>` + `labelableControlId: Signal<string \| null>` |
+| `MlvFormFieldAccessor` | Interface | `labelId: Signal<string \| null>` + `labelableControlId: Signal<string \| null>` + optional `errorMessageId?: Signal<string \| null>` (#320) |
 | `MlvFormControlLabelStrategy` | Type | `'native' \| 'aria' \| 'none'` — how a label rendered outside a control may name it |
 | `MlvFormControlLabelTarget` | Interface | `{ id: string; labelable: boolean }` — what a control publishes as `labelTarget` |
 
@@ -363,6 +363,58 @@ worse than silence.
 visual shell inside a control, not a composition point, and the control it
 lives in already publishes `labelTarget` on its behalf.
 
+#### Field error association and `aria-invalid` (2026-09, #320)
+
+Until #320 the field's auto error `<mlv-message>` had **no id**, and nothing
+pointed at it: a screen-reader user heard the `role="alert"` once, when it
+appeared, and never again on returning to the control (WCAG 1.3.1 / 3.3.1).
+The field now owns the id and publishes it; every control pulls it the same way
+it pulls `labelId`.
+
+| Member            | On                           | Meaning                                                                                                                                   |
+| ----------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `errorMessageId`  | `MlvFormField`               | `Signal<string \| null>` — `` `${mlv-form-field-N}-error` `` while the auto error message renders, `null` otherwise (never a dangling id) |
+| `errorMessageId?` | `MlvFormFieldAccessor`       | same signal on the token. **Optional**: a required member on an exported token's value is a major, and a foreign accessor stays valid     |
+| `_fieldErrorId()` | `MlvSignalFormUiControlBase` | the enclosing field's `errorMessageId()`, `null` outside a field                                                                          |
+| `_describedBy()`  | `MlvSignalFormUiControlBase` | now `description id` → `message id` → **field error id**, in that order, space-separated; `null` when none renders                        |
+| `_ariaInvalid()`  | `MlvSignalFormUiControlBase` | `true` while `resolvedState() === 'error'`, else `null` (no attribute — never `aria-invalid="false"`)                                     |
+
+- **Order is fixed**: the control's own description and message first, the
+  field's error last — the nearer, more specific text is read first.
+- **Every control binding `_describedBy()` picks it up with no template
+  change**: `mlv-input`, `mlv-textarea` (before its counter id),
+  `mlv-number-input`, `mlv-select`, `mlv-combobox`, `mlv-tokenizer`,
+  `mlv-pin-input`, `mlv-day-picker`, `mlv-time-picker`,
+  `mlv-date-range-picker`, `mlv-segmented`, `mlv-color-picker-popup`,
+  `mlv-radio-group`, and now `mlv-checkbox`, `mlv-switch`, `mlv-slider`.
+  `mlv-rating` renders no description / message, so it binds
+  `_fieldErrorId()` alone.
+- **`mlv-input`'s explicit `ariaDescribedBy` still replaces the whole value**
+  (`ariaDescribedBy() ?? _describedBy()`), field error included — a consumer
+  who writes the attribute owns it. The composites that forward their own
+  `_describedBy()` into an inner `mlv-input` (`mlv-combobox`,
+  `mlv-tokenizer`, `mlv-pin-input`) therefore carry the field error once, from
+  the outer control.
+- **No identity check**: any base subclass whose node injector reaches the
+  field takes the id, as with `labelId`. So the individual checkboxes of a
+  `mlv-checkbox-group` in a field each reference the field error, and so do
+  inner `mlv-input`s a composite renders without forwarding
+  `ariaDescribedBy` (`mlv-color-picker`'s HEX / RGB fields, `mlv-select`'s
+  search field). Accepted: the error is true of the field those controls sit in.
+- **`_ariaInvalid()` follows the control's own `resolvedState()`, not the
+  field's.** It is bound by `mlv-checkbox`, `mlv-switch` (native input),
+  `mlv-slider` (each `role="slider"` thumb), `mlv-radio-group` and `mlv-rating`
+  (the group host). `mlv-input`, `mlv-textarea`, `mlv-number-input` and
+  `mlv-color-picker-popup` already emitted `aria-invalid` from their own
+  bindings and are unchanged; `mlv-select`, `mlv-segmented` and the three
+  date / time pickers still emit none (follow-up, outside the toggle scope).
+- Only a field that renders the message **itself** is associated. A consumer
+  `<mlv-message>` projected into the field, or one rendered outside it, is not.
+- Specs: `form-field-error-association.spec.ts` (signal + reactive paths,
+  order, unique ids per field, axe) and `input-field-error.spec.ts` (a real
+  control, returning to the pre-error value once valid).
+- Migration: `docs/migrations/2026-09-toggle-validation-state.md` (breaking, VERSIONING row 112).
+
 ---
 
 ### `MlvLabel`
@@ -501,6 +553,10 @@ Controls extending the signal base render it from their `description` input and 
 | `state` | `MlvFormState` | `'default'` |
 
 Animated enter/leave (fade + slide). Sets `aria-live` / `role` based on state.
+
+The one `mlv-form-field` renders for its auto error carries the field's
+`errorMessageId` as its `id`, so controls in the field can reference it from
+`aria-describedby` (#320).
 
 ---
 
@@ -793,7 +849,9 @@ Run it with `node scripts/benchmarks/selection-membership.mjs` (no build needed)
 - Protected helpers on the base: `_descriptionId()` / `_messageId()` (`<id>-description` / `<id>-message`)
   and `_describedBy()` — the space-separated `aria-describedby` value, `null` when neither element is
   rendered so no dangling IDREF is emitted. Controls render `<mlv-description [id]="_descriptionId()">`
-  and `<mlv-message [id]="_messageId()">` to match.
+  and `<mlv-message [id]="_messageId()">` to match. Since #320 it also appends the enclosing field's
+  error message id (`_fieldErrorId()`), and `_ariaInvalid()` sits beside it — see
+  _`MlvFormField` → Field error association and `aria-invalid`_.
 - `MlvFormControlWrapper` gained two below-control projection slots next to `mlv-message`:
   `mlv-description` and `[mlvFormControlWrapperAside]` (control-owned auxiliary readout, e.g. the
   `mlv-textarea` character counter, which previously matched no slot and never reached the DOM).

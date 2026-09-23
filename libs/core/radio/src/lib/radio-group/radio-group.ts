@@ -92,6 +92,7 @@ type RadioFocusItem = MlvRadio & FocusableOption;
     '[attr.aria-label]': 'label() || _fieldLabelId() ? null : ariaLabel()',
     '[attr.aria-required]': 'required() || null',
     '[attr.aria-describedby]': '_describedBy()',
+    '[attr.aria-invalid]': '_ariaInvalid()',
     '[attr.aria-disabled]': 'computedDisabled() || null',
     '[attr.aria-readonly]': 'readonly() || null',
     '(keydown)': '_onKeydown($event)',
