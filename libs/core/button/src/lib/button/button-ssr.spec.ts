@@ -20,16 +20,21 @@ import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvButton } from './button';
 
 /**
- * #460 review F1. An inert `a[mlvButton]` leaves the tab order through a
+ * #460 review F1. A disabled `a[mlvButton]` leaves the tab order through a
  * `tabindex="-1"` the component writes itself, and the server writes it too.
- * When the server renders an anchor inert and the hydrating client does not —
- * `[disabled]="!isBrowser"`, a login state only the browser knows, `[loading]`
- * over data fetched on the client — the client claims the server's node,
- * `tabindex="-1"` included, and nothing but the component knows the attribute
- * is its own. These specs drive a real round trip (`renderApplication` with
- * `provideClientHydration()`, then `bootstrapApplication` over that markup in
- * jsdom), because the defect lives exactly between the two halves and a
- * `TestBed` fixture has no server half to disagree with.
+ * When the server renders an anchor disabled and the hydrating client does not
+ * — `[disabled]="!isBrowser"`, a login state only the browser knows — the
+ * client claims the server's node, `tabindex="-1"` included, and nothing but
+ * the component knows the attribute is its own. These specs drive a real round
+ * trip (`renderApplication` with `provideClientHydration()`, then
+ * `bootstrapApplication` over that markup in jsdom), because the defect lives
+ * exactly between the two halves and a `TestBed` fixture has no server half to
+ * disagree with.
+ *
+ * `loading` alone writes no `-1` since #324 — a loading anchor keeps its tab
+ * stop — but it still writes the `aria-disabled="true"` the client reads as
+ * the server's mark, which the `loading-bound` and `loading-both-bound`
+ * residuals below pin.
  */
 
 @Component({
@@ -60,6 +65,33 @@ import { MlvButton } from './button';
       [disabled]="serverOnly"
       >G</a
     >
+    <a
+      id="disabled-loading"
+      mlvButton
+      href="/h"
+      [disabled]="serverOnly"
+      [loading]="serverOnly"
+      >H</a
+    >
+    <a
+      id="loading-bound"
+      mlvButton
+      href="/i"
+      [attr.tabindex]="-1"
+      [loading]="serverOnly"
+      >I</a
+    >
+    <a id="loading-both" mlvButton href="/j" [loading]="loadingOnBothSides()"
+      >J</a
+    >
+    <a
+      id="loading-both-bound"
+      mlvButton
+      href="/k"
+      [attr.tabindex]="-1"
+      [loading]="loadingOnBothSides()"
+      >K</a
+    >
   `,
 })
 class ButtonSsrHost {
@@ -68,6 +100,9 @@ class ButtonSsrHost {
 
   /** Inert on the server and on the client's first render. */
   readonly inertOnBothSides = signal(true);
+
+  /** Loading on the server and on the client's first render. */
+  readonly loadingOnBothSides = signal(true);
 }
 
 /**
@@ -150,6 +185,10 @@ const ANCHOR_IDS = [
   'bound',
   'static-aria',
   'static-aria-server',
+  'disabled-loading',
+  'loading-bound',
+  'loading-both',
+  'loading-both-bound',
 ];
 
 const hydrateOnClient = async (serverHtml: string): Promise<HydratedClient> => {
@@ -206,20 +245,27 @@ describe('MlvButton anchor tabindex across hydration', () => {
     document.body.innerHTML = '';
   });
 
-  it('server-renders every inert anchor out of the tab order', async () => {
+  it('server-renders every disabled anchor out of the tab order and a loading one in it', async () => {
     const { html, problems } = await renderOnServer();
     const parsed = new DOMParser().parseFromString(html, 'text/html');
 
     expect(problems).toEqual([]);
     expect(snapshot(parsed)).toEqual([
       'disabled: tabindex=-1 aria-disabled=true',
-      'loading: tabindex=-1 aria-disabled=true',
+      // #324: loading alone is announced, not taken out of the tab order.
+      'loading: tabindex=null aria-disabled=true',
       'authored: tabindex=-1 aria-disabled=true',
       'both: tabindex=-1 aria-disabled=true',
       'bound: tabindex=-1 aria-disabled=null',
       // The host binding removes a static `aria-disabled` while not inert.
       'static-aria: tabindex=-1 aria-disabled=null',
       'static-aria-server: tabindex=-1 aria-disabled=true',
+      'disabled-loading: tabindex=-1 aria-disabled=true',
+      // The `-1` is the consumer's binding; the component wrote none.
+      'loading-bound: tabindex=-1 aria-disabled=true',
+      'loading-both: tabindex=null aria-disabled=true',
+      // The consumer's binding again.
+      'loading-both-bound: tabindex=-1 aria-disabled=true',
     ]);
   });
 
@@ -255,6 +301,37 @@ describe('MlvButton anchor tabindex across hydration', () => {
       // `tabindex=null`; this line goes red on purpose once the seed can tell
       // a bound `-1` from the server's (migration § 2, "not taken back").
       'static-aria-server: tabindex=-1 aria-disabled=null',
+      // Disabled and loading on the server: the `-1` is the component's and is
+      // taken back like `disabled` above.
+      'disabled-loading: tabindex=null aria-disabled=null',
+      // DOCUMENTED RESIDUAL (#324), pinned so it cannot change unnoticed:
+      // loading on the server only, beside a consumer-bound `-1`. `loading`
+      // writes `aria-disabled="true"` and no `-1`, so the claimed node carries
+      // the same mark as `disabled-loading` above and the client takes the
+      // consumer's `-1` away. The right answer is `tabindex=-1`; the two
+      // nodes differ in nothing hydration leaves on them, and leaving a server
+      // `-1` on an enabled link Tab never reaches is the worse error.
+      // Unchanged by #324: the server wrote `-1` for loading too, and the
+      // client removed it the same way on its first render that was neither
+      // disabled nor loading (#460's bound-`tabindex` residual).
+      'loading-bound: tabindex=null aria-disabled=null',
+      // Loading on both sides: announced, and in the tab order after
+      // hydration as before it — the component never wrote a `-1`.
+      'loading-both: tabindex=null aria-disabled=true',
+      // DOCUMENTED RESIDUAL, and new with #324, pinned so it cannot change
+      // unnoticed: loading on both sides, beside a consumer-bound `-1`. The
+      // same mark as `loading-bound`, taken back the same way, although the
+      // client is still loading. Before #324 the client wrote its own `-1`
+      // while loading, which coincided with the consumer's, and the
+      // consumer's went only when loading ended (the restore is to the
+      // template's `tabindex`, and a binding leaves none) — measured by probe
+      // on the pre-#324 source. Now it goes at hydration. The right answer is
+      // `tabindex=-1`. Keeping a marked `-1` while the client is loading would
+      // restore the old timing, but would also keep a disabled + loading
+      // server render's `-1` on an anchor the client renders loading only —
+      // the defect #324 fixes. Migration 2026-09-button-loading-keeps-focus
+      // § 2.
+      'loading-both-bound: tabindex=null aria-disabled=true',
     ]);
   });
 

@@ -1700,8 +1700,9 @@ describe('@malva-ui/core SSR safety', () => {
   it('server-renders a disabled anchor button out of the tab order, with no disabled attribute', async () => {
     const { html } = await renderAllHosts();
 
-    // #460. An anchor has no disabled state, so an inert `a[mlvButton]`
-    // leaves the tab order through `tabindex="-1"`, which `MlvButton` writes
+    // #460. An anchor has no disabled state, so a disabled `a[mlvButton]`
+    // (not a merely loading one, #324) leaves the tab order through
+    // `tabindex="-1"`, which `MlvButton` writes
     // from an `effect()` rather than a host binding. It has to be an effect
     // that runs on the server, not an `afterRenderEffect`, or the
     // pre-hydration document hands a keyboard user a live tab stop onto a

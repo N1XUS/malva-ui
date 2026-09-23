@@ -312,8 +312,12 @@ describe('MlvSearchField', () => {
     const submit = host.querySelector(
       'button[aria-label="Submit search"]',
     ) as HTMLButtonElement;
-    expect(submit.disabled).toBe(true);
+    // #324: announced unavailable and busy, but not natively disabled — so it
+    // keeps focus — and its click is still blocked.
+    expect(submit.disabled).toBe(false);
+    expect(submit.getAttribute('aria-disabled')).toBe('true');
     expect(submit.getAttribute('aria-busy')).toBe('true');
+    submit.click();
     nativeInput().dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
     );
@@ -325,6 +329,41 @@ describe('MlvSearchField', () => {
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
     );
     expect(searches).toHaveBeenLastCalledWith('editable query');
+  });
+
+  it('keeps focus on the submit button while the search it started is loading (#324)', async () => {
+    fixture.componentRef.setInput('trigger', 'submit');
+    fixture.detectChanges();
+    const searches = vi.fn();
+    component.search.subscribe(searches);
+    type('orders');
+    const submit = host.querySelector(
+      'button[aria-label="Submit search"]',
+    ) as HTMLButtonElement;
+
+    submit.focus();
+    submit.click();
+    expect(searches).toHaveBeenCalledTimes(1);
+
+    // The consumer answers the search by setting `loading`.
+    fixture.componentRef.setInput('loading', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.activeElement === submit).toBe(true);
+    // Focusable while loading: a natively disabled button refuses focus().
+    // (Focus moves to the field first: jsdom ignores `blur()` on an element
+    // it deems unfocusable.)
+    nativeInput().focus();
+    expect(document.activeElement === submit).toBe(false);
+    submit.focus();
+    expect(document.activeElement === submit).toBe(true);
+    submit.click();
+    expect(searches).toHaveBeenCalledTimes(1);
+
+    fixture.componentRef.setInput('loading', false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.activeElement === submit).toBe(true);
   });
 
   it('can drop the submit button and move the glyph to the leading edge', () => {

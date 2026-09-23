@@ -73,7 +73,9 @@
       @if (_showSubmitAction()) {
         <!--
       `[loading]="loading()"` stays bound to mlvButton so its own host
-      bindings keep driving native `disabled`/`aria-busy` — an external
+      bindings keep driving `aria-disabled`/`aria-busy` and its click guard
+      (loading no longer writes native `disabled`, so a submit button
+      focused when the search starts keeps focus, #324) — an external
       `[attr.aria-busy]` binding on this same host element loses to
       mlvButton's own host binding of the same attribute every change-
       detection cycle (a component's own host bindings are applied after a

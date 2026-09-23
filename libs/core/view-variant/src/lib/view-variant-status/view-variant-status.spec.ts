@@ -104,9 +104,15 @@ describe('MlvViewVariantStatus', () => {
     const updated = vi.fn();
     fixture.componentInstance.updateRequest.subscribe(updated);
     const buttons = [...host.querySelectorAll<HTMLButtonElement>('button')];
+    // A loading mlvButton is announced inert but stays focusable (#324): no
+    // native `disabled`, so a button focused when its action starts keeps
+    // focus. `aria-disabled` is what isolates the busy one.
+    expect(
+      buttons.map((button) => button.getAttribute('aria-disabled')),
+    ).toEqual([null, 'true', null]);
     expect(buttons.map((button) => button.disabled)).toEqual([
       false,
-      true,
+      false,
       false,
     ]);
     expect(
