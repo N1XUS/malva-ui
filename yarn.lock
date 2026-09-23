@@ -5006,7 +5006,6 @@ __metadata:
   resolution: "@malva-ui/core@workspace:libs/core"
   dependencies:
     fast-equals: "npm:^6.0.0"
-    lodash-es: "npm:^4.17.23"
     sortablejs: "npm:^1.15.7"
   peerDependencies:
     "@angular/aria": 0.0.0-angular-aria-package-version

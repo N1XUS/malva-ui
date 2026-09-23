@@ -51,12 +51,6 @@ export default [
             // The import lives in the `core-filter` leaf project, so this
             // wrapper's own file scan cannot see it.
             'fast-equals',
-            // Same story again: bundled (non-peer) `dependencies` entry for the
-            // `drawer` secondary entry point's `MlvDrawerSectionsService`
-            // (`cloneDeep` / `sortBy`), whose import lives in the `core-drawer`
-            // leaf project. Declared as of #242 — it was imported and declared
-            // nowhere, so npm never installed it for a consumer.
-            'lodash-es',
           ],
         },
       ],

@@ -408,10 +408,14 @@ rather than being required of consumers):
   comparison). Chosen over `fast-deep-equal` because it is ESM; a CommonJS
   dependency makes every consuming Angular build emit an
   "is not ESM / optimization bailouts" warning.
-- `lodash-es` — `cloneDeep` / `sortBy` in `MlvDrawerSectionsService`. Bundled
-  rather than a peer: it is an implementation choice of one service, not a
-  framework the consumer owns one copy of.
 - `sortablejs` — drag reordering.
+
+`lodash-es` was a third entry until #295: `MlvDrawerSectionsService` used it
+for one `cloneDeep` and one `sortBy`, which added 28.8 KB min / 11.1 KB gz to
+the drawer entry (reached by every drawer, page and sidebar consumer) and put
+its `_.template` advisory in every consumer audit. Both are native now (a shallow spread and a single
+`>=` pass); `check-package-dependencies` fails if it is imported again
+without being re-declared.
 
 ### Internal package dependencies
 
