@@ -36,6 +36,20 @@ import { MlvRtlService, mlvNextId } from '@malva-ui/cdk/utils';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 
 /**
+ * @internal One slot of the rendered data-driven trail: a crumb, or the
+ * ellipsis standing in for the collapsed run.
+ */
+type BreadcrumbTrailSlot = MlvBreadcrumbEntry & { _isEllipsis?: boolean };
+
+/** @internal The data-driven trail split by `maxItems`. */
+interface BreadcrumbTrailSplit {
+  /** Slots rendered in the `<ol>`, the ellipsis included, in trail order. */
+  readonly visible: readonly BreadcrumbTrailSlot[];
+  /** Crumbs collapsed behind the ellipsis, in trail order. */
+  readonly hidden: readonly MlvBreadcrumbEntry[];
+}
+
+/**
  * Navigation breadcrumb component.
  *
  * Use with `nav[mlvBreadcrumb]` selector applied to a `<nav>` element.
@@ -161,10 +175,15 @@ export class MlvBreadcrumb {
   readonly mlvDensity = input<MlvDensity | undefined>(undefined);
 
   /**
-   * Maximum number of items to display before truncating.
+   * Maximum number of items to display before truncating, the ellipsis
+   * counting as one.
    * When the total count exceeds this value, the middle items are collapsed
-   * into an ellipsis (`…`) button. Clicking the button opens a popover
-   * listing all hidden items. Always shows the first and last items.
+   * into an ellipsis (`…`) button placed right after the first item; the
+   * remaining slots show the items nearest the current page, so the trail
+   * keeps its order (`Home › … › Frontend › Components`). Clicking the button
+   * opens a popover listing all hidden items, in trail order. Always shows the
+   * first and last items. A fractional value never shows more items than it
+   * allows, and `NaN` disables truncation.
    * Set to `0` to disable truncation (show all items). Defaults to `0`.
    */
   readonly maxItems = input<number>(0);
@@ -207,88 +226,63 @@ export class MlvBreadcrumb {
   protected readonly _overflowListId = mlvNextId('mlv-breadcrumb-overflow');
 
   /**
-   * @protected The computed visible items for data-driven mode, with overflow applied.
-   * Returns the full list when `maxItems` is 0 or not set.
+   * @private The data-driven trail split by `maxItems` into the slots rendered
+   * in the `<ol>` and the crumbs collapsed behind the ellipsis. One
+   * computation, so the two halves cannot disagree about where the cut falls —
+   * two parallel copies of this arithmetic did, and put the ellipsis before
+   * crumbs that come earlier in the path than the ones it hid (#316).
+   *
+   * The cut keeps document order: the ellipsis stands in for one contiguous
+   * run straight after the first crumb, and every slot left over once the
+   * first crumb, the ellipsis and the current page are placed goes to the
+   * crumbs just before the current page — the nearest ancestors, the likeliest
+   * "up" targets. Putting `hidden` back where the ellipsis sits yields `items`
+   * unchanged.
    */
-  protected readonly _visibleItems = computed<
-    Array<MlvBreadcrumbEntry & { _isEllipsis?: boolean }>
-  >(() => {
+  private readonly _split = computed<BreadcrumbTrailSplit>(() => {
     const allItems = this.items();
     const max = this.maxItems();
+    // The first and the last crumb always show, so the budget never drops
+    // below two slots.
+    const budget = Math.max(max, 2);
 
-    if (!allItems.length || max <= 0 || allItems.length <= max) {
-      return allItems;
+    // `!(max > 0)` rather than `max <= 0`, so a `NaN` budget (a computed
+    // binding such as `width() / 120` can yield one) truncates nothing.
+    if (!(max > 0) || allItems.length <= budget) {
+      return { visible: allItems, hidden: [] };
     }
 
-    // Always show at least first and last item
-    const effectiveMax = Math.max(max, 2);
-    const totalCount = allItems.length;
+    // One slot each for the first crumb, the ellipsis and the current page.
+    // A budget of 2 cannot hold all three and still renders them: collapsing
+    // stops at `first › … › last`. Slots are whole, so a fractional budget
+    // rounds down — `slice()` would otherwise round the tail up and render
+    // more crumbs than `maxItems` allows.
+    const tailSlots = Math.max(Math.floor(budget) - 3, 0);
+    const tailStart = allItems.length - 1 - tailSlots;
 
-    if (effectiveMax >= totalCount) {
-      return allItems;
-    }
-
-    // effectiveMax includes the ellipsis as one slot.
-    // Available visible item slots after reserving first, ellipsis, and last:
-    const firstCount = 1;
-    const lastCount = 1;
-    const ellipsisCount = 1;
-    const middleSlots = effectiveMax - firstCount - ellipsisCount - lastCount;
-
-    if (middleSlots <= 0) {
-      // Only show first, ellipsis, last
-      return [
+    return {
+      visible: [
         allItems[0],
         { label: '…', _isEllipsis: true },
-        allItems[totalCount - 1],
-      ];
-    }
-
-    const lastStart = totalCount - lastCount;
-    const visibleMiddle = allItems.slice(firstCount, firstCount + middleSlots);
-
-    return [
-      ...allItems.slice(0, firstCount),
-      { label: '…', _isEllipsis: true },
-      ...visibleMiddle,
-      ...allItems.slice(lastStart),
-    ];
+        ...allItems.slice(tailStart),
+      ],
+      hidden: allItems.slice(1, tailStart),
+    };
   });
 
   /**
-   * @protected The hidden items that are collapsed behind the ellipsis.
-   * These are shown in the popover when the ellipsis button is clicked.
+   * @protected The slots rendered in the trail for data-driven mode, in trail
+   * order: the full list when nothing collapses, otherwise the first crumb,
+   * the ellipsis, then the crumbs nearest the current page.
    */
-  protected readonly _hiddenItems = computed<MlvBreadcrumbEntry[]>(() => {
-    const allItems = this.items();
-    const max = this.maxItems();
+  protected readonly _visibleItems = computed(() => this._split().visible);
 
-    if (!allItems.length || max <= 0 || allItems.length <= max) {
-      return [];
-    }
-
-    const effectiveMax = Math.max(max, 2);
-    const totalCount = allItems.length;
-
-    if (effectiveMax >= totalCount) {
-      return [];
-    }
-
-    const firstCount = 1;
-    const lastCount = 1;
-    const ellipsisCount = 1;
-    const middleSlots = effectiveMax - firstCount - ellipsisCount - lastCount;
-
-    if (middleSlots <= 0) {
-      // All middle items are hidden (exclude first and last)
-      return allItems.slice(firstCount, totalCount - lastCount);
-    }
-
-    // The items shown in the ellipsis are those NOT shown in _visibleItems
-    // visible middle is: allItems[firstCount .. firstCount + middleSlots - 1]
-    // so hidden middle is: allItems[firstCount + middleSlots .. totalCount - lastCount - 1]
-    return allItems.slice(firstCount + middleSlots, totalCount - lastCount);
-  });
+  /**
+   * @protected The crumbs collapsed behind the ellipsis, in trail order — the
+   * run between the first crumb and the first crumb shown after the ellipsis.
+   * Listed in the popover when the ellipsis button is clicked.
+   */
+  protected readonly _hiddenItems = computed(() => this._split().hidden);
 
   /**
    * @protected Whether the component is used in data-driven mode (items provided via input).
