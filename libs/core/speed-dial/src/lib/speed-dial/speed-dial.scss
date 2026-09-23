@@ -194,7 +194,36 @@
       box-shadow: var(--mlv-shadow-raised);
     }
 
-    // CDK backdrop (`backdropClass`) — the CDK fades it in/out itself.
+    // CDK backdrop (`backdropClass`). CDK fades it *in* on its own, but only
+    // ever fades it *out* from `BackdropRef.detach()` (via `OverlayRef.detach()`
+    // or `detachBackdrop()`), neither of which this component calls — its close
+    // ends in `dispose()` — so the component removes and re-adds
+    // `cdk-overlay-backdrop-showing` itself (`_setBackdropShowing`). The fade
+    // that runs is CDK's own
+    // `.cdk-overlay-backdrop` transition: `opacity 400ms
+    // cubic-bezier(0.25, 0.8, 0.25, 1)`.
+    //
+    // No `transition-duration` here, deliberately. 400 ms outlasts the shortest
+    // settle (`transitionDelay × (n − 1) + 250 ms`), but the curve eases out
+    // hard: measured in the docs app, 0.028–0.036 opacity is left at 250 ms
+    // (under 0.8% black over the page at the token's 0.22 alpha), ~0.018 at
+    // 280 ms and ~0.003 at 340 ms (four actions, default `transitionDelay`).
+    // Shortening it from here is not free, and how it would lose depends on how
+    // CDK's styles reach the page. CDK's runtime style loader puts the rule in
+    // `@layer cdk-overlay`, named after the global `mlv.*` layer statement, so it
+    // outranks `mlv.components` (the docs app: a normal declaration here left
+    // the computed duration at 400 ms). `overlay-prebuilt.css` and the
+    // `cdk.overlay()` mixin emit it unlayered, which beats every layered rule.
+    // An app that names `cdk-overlay` before `mlv.*` would let a normal
+    // declaration win, but nothing here can count on that. In the first two
+    // setups only `!important` wins — and a layered `!important` also beats a
+    // consumer's unlayered override, removing the one override slot a consumer
+    // has. Unlike `__pane` above, nothing breaks without it.
+    //
+    // Reduced motion needs no branch either — `mixins.reduced-motion($block)`
+    // below emits `[class*=' #{$block}__']`, which matches the backdrop
+    // (`class="cdk-overlay-backdrop mlv-speed-dial__backdrop"`) and zeroes the
+    // duration, and the component drops the settle to 0 under the same query.
     &__backdrop {
       background-color: var(--mlv-background-overlay);
     }

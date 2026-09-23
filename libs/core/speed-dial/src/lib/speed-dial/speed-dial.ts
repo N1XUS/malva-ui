@@ -55,6 +55,23 @@ import type {
 const CLOSE_SETTLE_MS = 250;
 
 /**
+ * CDK's own class holding a backdrop at full opacity; the fade is the CSS
+ * transition that runs when it goes away.
+ *
+ * CDK adds it in `_attachBackdrop()` (one animation frame after inserting the
+ * element) and removes it only in `BackdropRef.detach()`, which is reached
+ * through `OverlayRef.detach()` and the public `OverlayRef.detachBackdrop()`.
+ * This component (like every other overlay owner in the library, #276) goes
+ * straight to `dispose()`, which calls `BackdropRef.dispose()` — a bare
+ * `element.remove()` with no class change and no wait — so the mask was cut at
+ * full opacity while the actions were still staggering out. The component
+ * therefore removes and re-adds the class itself; see
+ * {@link MlvSpeedDial._setBackdropShowing}.
+ * @private
+ */
+const BACKDROP_SHOWING_CLASS = 'cdk-overlay-backdrop-showing';
+
+/**
  * Grace period between the pointer leaving the trigger (or the actions) and a
  * hover-opened dial closing — long enough to cross the gap between the trigger
  * and the nearest action, short enough that the dial does not linger.
@@ -847,9 +864,18 @@ export class MlvSpeedDial {
    * @protected Runs the action's `command`, emits `itemSelect`, then closes.
    * A keyboard activation returns focus to the trigger so it is not lost when
    * the actions leave the DOM.
+   *
+   * Inert once the dial is closing: the actions stay rendered — clickable, and
+   * possibly still focused — for the whole settle window, so without the
+   * `_panelOpen()` check the second click of a double-click, or Enter on the
+   * action that kept focus, would run `command` and emit `itemSelect` again.
+   * This is a TypeScript check rather than `pointer-events: none` on the
+   * leaving actions: CSS does not stop a keyboard activation, and it would hand
+   * that second click to whatever page content sits under a still-visible
+   * action instead of absorbing it.
    */
   protected _onItemClick(entry: MlvSpeedDialEntry, event: MouseEvent): void {
-    if (entry.disabled) return;
+    if (entry.disabled || !this._panelOpen()) return;
     const payload: MlvSpeedDialItemEvent = {
       item: entry.item,
       index: entry.index,
@@ -957,8 +983,21 @@ export class MlvSpeedDial {
       );
 
       // Flush the freshly attached panel's closed styles before flipping to the
-      // open modifier, so the enter transition actually runs.
+      // open modifier, so the enter transition actually runs. CDK adds the
+      // backdrop's showing class itself on a fresh attach (on the next frame,
+      // for the same reason), so nothing to do for the mask here.
       void overlayRef.overlayElement.offsetWidth;
+    } else {
+      // Reusing an overlay whose mask is mid-fade: put the class back so the
+      // backdrop fades in from wherever it got to instead of popping. This is
+      // also why the leave must not call `OverlayRef.detachBackdrop()`: with
+      // animations on it runs `BackdropRef.detach()`, which schedules the
+      // element's removal on its next `transitionend` or a 500 ms fallback —
+      // neither cancelled by putting the class back — and a new backdrop is only
+      // ever created by the private `_attachBackdrop()`, which runs from
+      // `attach()`, never on this reuse path. The reopened dial would lose its
+      // mask moments later.
+      this._setBackdropShowing(true);
     }
 
     this._panelOpen.set(true);
@@ -978,12 +1017,54 @@ export class MlvSpeedDial {
     this._pendingFocus = null;
     if (!this._overlayRef) return;
     this._panelOpen.set(false);
+    this._setBackdropShowing(false);
     this._cancelScheduledDispose();
     const count = this.items().length;
     const settle = this._prefersReducedMotion()
       ? 0
       : this.transitionDelay() * Math.max(count - 1, 0) + CLOSE_SETTLE_MS;
     this._closeTimer = setTimeout(() => this._disposeOverlay(), settle);
+  }
+
+  /**
+   * @private Fades the `mask` backdrop in (`true`) or out (`false`) by toggling
+   * CDK's own {@link BACKDROP_SHOWING_CLASS} on the live backdrop element. A
+   * no-op when `mask` is off, since there is no backdrop to fade.
+   *
+   * The class only drives `opacity`; the transition that animates it belongs to
+   * CDK's `.cdk-overlay-backdrop` rule (400 ms, ease-out), which can outlast the
+   * shortest settle window by design — at 250 ms under 4% of the mask's opacity
+   * remains. Why the duration is not overridden is recorded on the `__backdrop`
+   * rule in `speed-dial.scss`.
+   *
+   * The inline `pointer-events` mirrors what `BackdropRef.detach()` does on
+   * CDK's own teardown path and is required by the fade rather than incidental
+   * to it: a mask that is now transparent for the length of the exit transition
+   * must not keep swallowing clicks. The trigger is unaffected either way — the
+   * `--masked` modifier lifts the host above the overlay container.
+   *
+   * Hiding removes the class twice. CDK reveals a freshly attached backdrop
+   * from a bare `requestAnimationFrame` in `_attachBackdrop()`
+   * (`_overlay-module-chunk.mjs:972-977` in `@angular/cdk` 22.0.5) that nothing
+   * can cancel, so a close in the same frame as the open — a programmatic
+   * `opened` / `disabled` flip, a double-tap on a busy main thread — would have
+   * its removal undone and the closed dial's mask driven to full opacity, only
+   * to be cut at dispose. Frame callbacks run in registration order, so the one
+   * registered here always runs after CDK's; it re-removes the class only if
+   * the dial is still closing and the backdrop is still this overlay's.
+   */
+  private _setBackdropShowing(showing: boolean): void {
+    const backdrop = this._overlayRef?.backdropElement;
+    if (!backdrop) return;
+    backdrop.classList.toggle(BACKDROP_SHOWING_CLASS, showing);
+    backdrop.style.pointerEvents = showing ? '' : 'none';
+    if (showing) return;
+    this._document.defaultView?.requestAnimationFrame(() => {
+      if (this._panelOpen() || this._overlayRef?.backdropElement !== backdrop) {
+        return;
+      }
+      backdrop.classList.remove(BACKDROP_SHOWING_CLASS);
+    });
   }
 
   /** @private Clears a pending overlay disposal. */
