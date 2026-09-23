@@ -39,11 +39,53 @@
         "cwd": "{workspaceRoot}"
       }
     },
+    "check-dist-assets": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "//": "#310: a built package is checked for what a consumer who installs it would get — every `exports` target exists, and every asset it owes (each file a `build` prerequisite like core:build-styles generates inside the package, and each `@malva-ui/<pkg>/<path>` asset the docs name) ships, is packed, resolves as a bare specifier through `exports` by Node's own resolver, and, for a stylesheet, is not dropped as side-effect free. `page-view-transitions.css` was compiled, documented and never copied into dist, and `@import '@malva-ui/core/styles/malva-ui.css'` never resolved, and no source-tree check could see either. The `dependsOn` builds exactly nx.json release.projects — the script fails when the two lists drift, because a project this target does not build is checked against whatever dist/ a concurrent build left behind. Cost: CI persists no nx cache, and the root project is affected by every changed file, so this target runs on every PR. When release libraries are affected, its builds are the same tasks `-t build` runs in that invocation and are deduplicated; a docs-, .claude- or scripts-only PR now pays about seven package builds it did not before (~22s cold). Accepted: a check against a stale or unbuilt dist/ would prove nothing. Inputs mirror the scan exactly: its own sources; nx.json and this project.json (the build edges); libs/** and apps/** at exactly the extensions it reads, minus the spec and test files it skips; the *.md files directly in .claude/projects/ and the root, minus CHANGELOG.md — the scan reads those two directories one level deep, which is what keeps .claude/projects/memory/ (agent history) out; and the dist trees through `dependentTasksOutputFiles`. The one residual over-inclusion is symlinks the scan skips (the per-library CLAUDE.md links, whose targets are inputs anyway); it costs a cache miss, never a silent pass. Keep FLAT_DOCUMENTATION_ROOTS, DOCUMENTATION_ROOTS, SCANNED_EXTENSIONS and TEST_FILE in scripts/check-dist-assets.mjs in step with these globs.",
+      "dependsOn": [
+        {
+          "target": "build",
+          "projects": [
+            "cdk",
+            "core",
+            "i18n",
+            "editor",
+            "scheduler",
+            "tailwind",
+            "taskboard"
+          ]
+        }
+      ],
+      "inputs": [
+        "{workspaceRoot}/scripts/check-dist-assets.mjs",
+        "{workspaceRoot}/scripts/dist-exports.mjs",
+        "{workspaceRoot}/scripts/check-package-dependencies.mjs",
+        "{workspaceRoot}/nx.json",
+        "{workspaceRoot}/project.json",
+        "{workspaceRoot}/libs/**/*.{ts,mts,cts,js,mjs,cjs,scss,css,md,html,json}",
+        "{workspaceRoot}/apps/**/*.{ts,mts,cts,js,mjs,cjs,scss,css,md,html,json}",
+        "!{workspaceRoot}/libs/**/*.{spec,test}.*",
+        "!{workspaceRoot}/apps/**/*.{spec,test}.*",
+        "{workspaceRoot}/.claude/projects/*.md",
+        "{workspaceRoot}/*.md",
+        "!{workspaceRoot}/CHANGELOG.md",
+        { "dependentTasksOutputFiles": "**/*" }
+      ],
+      "options": {
+        "command": "node scripts/check-dist-assets.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["check-deprecations", "check-package-dependencies"],
-      "//": "check-test-targets.mjs, assert-zoneless-config.spec.js and check-axe-coverage.mjs all answer a question about the shape of the whole workspace, so the inputs are workspace-wide globs: a project added anywhere — a spec that reaches for a zone-based test API, or a library that grows a component without an axe sweep — must re-run the guards rather than hit the cache. The libs source glob is in the set because check-axe-coverage derives 'renders DOM' from the non-spec library sources, so a new @Component changes its answer; its extension list covers every extension that script's SOURCE_PATTERN accepts. It needs no apps/ source glob: an application is only swept for raw axe imports, which reads specs, and those are already covered by the *.{spec,test}.* glob. widen-peer-range.spec.mjs and check-package-dependencies.spec.mjs are here rather than in projects of their own because scripts/ is not an nx project; both are plain node:test units over release machinery that has no other coverage. The check-package-dependencies suite runs here as well as behind the check-package-dependencies target because the two ask different questions: the target asks whether this tree is clean, while the suite asks whether the checker would still notice if it were not.",
+      "dependsOn": [
+        "check-deprecations",
+        "check-package-dependencies",
+        "check-dist-assets"
+      ],
+      "//": "check-test-targets.mjs, assert-zoneless-config.spec.js and check-axe-coverage.mjs all answer a question about the shape of the whole workspace, so the inputs are workspace-wide globs: a project added anywhere — a spec that reaches for a zone-based test API, or a library that grows a component without an axe sweep — must re-run the guards rather than hit the cache. The libs source glob is in the set because check-axe-coverage derives 'renders DOM' from the non-spec library sources, so a new @Component changes its answer; its extension list covers every extension that script's SOURCE_PATTERN accepts. check-axe-coverage needs no apps/ source glob — an application is only swept for raw axe imports, which reads specs, and those are already covered by the *.{spec,test}.* glob — but check-dist-assets.spec.mjs does: its real-workspace cases run the same scan check-dist-assets.mjs does (libs/ and apps/ recursively at its extensions, the *.md files directly in .claude/projects/ and the root), so those globs are here too; this target keeps the spec and test files the scan skips, because other guards here read them. widen-peer-range.spec.mjs, check-package-dependencies.spec.mjs and check-dist-assets.spec.mjs are here rather than in projects of their own because scripts/ is not an nx project; all three are plain node:test units over release machinery that has no other coverage. The check-package-dependencies and check-dist-assets suites run here as well as behind their targets because the two ask different questions: the target asks whether this tree is clean, while the suite asks whether the checker would still notice if it were not. check-dist-assets is a dependsOn rather than a command because it needs every release package built first (#310).",
       "inputs": [
         "{workspaceRoot}/scripts/testing/strip-css-layers.js",
         "{workspaceRoot}/scripts/testing/setup-strip-css-layers.js",
@@ -58,17 +100,24 @@
         "{workspaceRoot}/scripts/check-package-dependencies.spec.mjs",
         "{workspaceRoot}/scripts/widen-peer-range.mjs",
         "{workspaceRoot}/scripts/widen-peer-range.spec.mjs",
+        "{workspaceRoot}/scripts/check-dist-assets.mjs",
+        "{workspaceRoot}/scripts/check-dist-assets.spec.mjs",
+        "{workspaceRoot}/scripts/dist-exports.mjs",
         "{workspaceRoot}/nx.json",
         "{workspaceRoot}/**/project.json",
         "{workspaceRoot}/**/package.json",
         "{workspaceRoot}/**/vite.config.mts",
         "{workspaceRoot}/**/test-setup.ts",
         "{workspaceRoot}/**/*.{spec,test}.*",
-        "{workspaceRoot}/libs/**/*.{ts,mts,cts,tsx}"
+        "{workspaceRoot}/libs/**/*.{ts,mts,cts,tsx}",
+        "{workspaceRoot}/libs/**/*.{js,mjs,cjs,scss,css,md,html,json}",
+        "{workspaceRoot}/apps/**/*.{ts,mts,cts,js,mjs,cjs,scss,css,md,html,json}",
+        "{workspaceRoot}/.claude/projects/*.md",
+        "{workspaceRoot}/*.md"
       ],
       "options": {
         "commands": [
-          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js scripts/check-axe-coverage.spec.mjs scripts/check-deprecations.spec.mjs scripts/check-package-dependencies.spec.mjs scripts/widen-peer-range.spec.mjs",
+          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js scripts/check-axe-coverage.spec.mjs scripts/check-deprecations.spec.mjs scripts/check-package-dependencies.spec.mjs scripts/widen-peer-range.spec.mjs scripts/check-dist-assets.spec.mjs",
           "node scripts/check-test-targets.mjs",
           "node scripts/check-axe-coverage.mjs"
         ],

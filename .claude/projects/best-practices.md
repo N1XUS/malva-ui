@@ -576,6 +576,20 @@ first. Consult it before any change that alters a published surface.
   whether it is clean or deferred; an entry that matches nothing fails the
   check. #242 is the worked example: `@malva-ui/core` imported `@angular/router`
   in nine entry points and declared no peer for months.
+- **Ship and export every asset a consumer is told to import.** ng-packagr
+  copies only what `ng-package.json`'s `assets` glob names, generates `exports`
+  for TypeScript entry points only, and writes `sideEffects: false` unless the
+  source manifest says otherwise — so a stylesheet can be compiled, documented
+  and still absent, unresolvable as a bare specifier, or dropped by webpack.
+  A new asset owes three edits: the generating target's `outputs`, the `assets`
+  glob, and an `exports` pattern (plus a `sideEffects` entry for a stylesheet).
+  Enforced by `scripts/check-dist-assets.mjs` →
+  `yarn nx run @malva-ui/source:check-dist-assets`, a `dependsOn` of the root
+  `test` target that builds every `release.projects` package and checks each
+  generated or documented `@malva-ui/<pkg>/<path>` asset against the **built**
+  dist through Node's own resolver; `scripts/publish.mjs` repeats it. #310 is
+  the worked example: `page-view-transitions.css` never shipped and
+  `@import '@malva-ui/core/styles/malva-ui.css'` never resolved.
 - **A rename is a removal.** Add the new name in a minor with a working
   `@deprecated` alias; delete the old one in the next major.
 - **Changing a default value or default behaviour is breaking** even when nothing
