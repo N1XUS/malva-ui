@@ -45,13 +45,13 @@ Exported from `libs/core/button/src/index.ts`:
 
 #### Inputs
 
-| Name       | Type                            | Default     | Description                                                                                                                                              |
-| ---------- | ------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `variant`  | `MlvButtonVariant \| undefined` | `undefined` | Local variant; inherits from a button container, then falls back to `secondary` for the icon-only `square`/`circle` shapes and `primary` for the rest    |
-| `shape`    | `MlvButtonShape`                | `'default'` | Shape variant; `pill` keeps content width with a fully rounded stadium radius (`--mlv-radius-full`), matching the pill action bar and pill form controls |
-| `disabled` | `BooleanInput`                  | `false`     | Disables the button; coerced to boolean                                                                                                                  |
-| `loading`  | `BooleanInput`                  | `false`     | Shows a spinner, exposes busy state, and prevents duplicate activation                                                                                   |
-| `selected` | `BooleanInput`                  | `false`     | Paints the pressed surface with no ARIA of its own — for a menu button reflecting an active state (see **Pressed state** below)                          |
+| Name       | Type                            | Default     | Description                                                                                                                                                     |
+| ---------- | ------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `variant`  | `MlvButtonVariant \| undefined` | `undefined` | Local variant; inherits from a button container, then falls back to `secondary` for the icon-only `square`/`circle` shapes and `primary` for the rest           |
+| `shape`    | `MlvButtonShape`                | `'default'` | Shape variant; `pill` keeps content width with a fully rounded stadium radius (`--mlv-radius-full`), matching the pill action bar and pill form controls        |
+| `disabled` | `BooleanInput`                  | `false`     | Disables the button; coerced to boolean. Blocks every activation (see **Disabled activation guard**); native `disabled` on `<button>`, `tabindex="-1"` on `<a>` |
+| `loading`  | `BooleanInput`                  | `false`     | Shows a spinner, exposes busy state, and blocks activation exactly as `disabled` does                                                                           |
+| `selected` | `BooleanInput`                  | `false`     | Paints the pressed surface with no ARIA of its own — for a menu button reflecting an active state (see **Pressed state** below)                                 |
 
 #### Content Children (protected)
 
@@ -70,12 +70,112 @@ host: {
   '[class.mlv-button--loading]': 'loading()',
   '[class.mlv-button--selected]': 'selected()',
   '[class.mlv-button--icon-only]': '_iconOnly()',
-  '[attr.disabled]': '(disabled() || loading()) || null',
-  '[attr.aria-disabled]': '(disabled() || loading()) || null',
+  '[attr.disabled]': '(!_isAnchor && _inert()) || null', // <button> hosts only
+  '[attr.aria-disabled]': '_inert() || null',
   '[attr.aria-busy]': 'loading() || null',
-  '(click)': '_handleClick($event)',
 }
 ```
+
+`_inert()` is `disabled() || loading()`; `_isAnchor` is `host.tagName === 'A'`,
+resolved once. **No `(click)` host listener and no `tabindex` host binding** —
+both deliberately (#460).
+
+#### Disabled activation guard (#460)
+
+Same mechanism as `a[mlvLink]` (#309) and the `mlv-segmented` link item.
+Migration: [docs/migrations/2026-09-button-anchor-disabled-activation.md](../../docs/migrations/2026-09-button-anchor-disabled-activation.md).
+
+- **Guard:** one `fromEvent(host, 'click', { capture: true })` stream, released by
+  `takeUntilDestroyed()`; while `_inert()` (read per click) it calls
+  `preventDefault()` + `stopImmediatePropagation()`. Installed on every host.
+- **Why capture:** `RouterLink.onClick` never reads `defaultPrevented`, and a host
+  `(click)` cannot stop it — Angular coalesces every host and template `(click)`
+  on one element into one native listener and walks the chain
+  (`__ngNextListenerFn__`). At `AT_TARGET` the capture pass runs before the bubble
+  pass whatever the registration order, so the guard beats `RouterLink`, the
+  consumer's `(click)`, the click listener of a **co-hosted directive**
+  (`mlvMenuTrigger`, `mlvPopupTrigger` — they no longer open from a scripted or
+  screen-reader click on an inert button), a listener attached before the
+  component existed, and ancestor bubble listeners. Ancestor **capture**
+  listeners (CDK click-outside) still run. Pinned by a `createComponent(MlvButton, { hostElement })` spec whose
+  consumer listener is on the anchor first.
+- **No keydown handler:** Enter on an `<a href>` arrives as the click the guard
+  sees. The guard returns nothing, so no listener evaluates to `false` and Angular
+  never `preventDefault()`s an enabled click (#309's `cond && …` trap — the old
+  `_handleClick` returned `undefined`, so enabled activation was never affected).
+- **`<button>` hosts:** keep the native `disabled` attribute (which already stops
+  real clicks); the guard only keeps a scripted `dispatchEvent(click)` cancelled,
+  as the old host listener did — and now also stops the consumer's own `(click)`
+  on it.
+- **`<a>` hosts:** no `disabled` attribute (anchors have no disabled state; a
+  consumer-authored static `disabled` is removed by the binding's first `null`).
+  `aria-disabled="true"`, `href` kept (element stays `role="link"`), and
+  `tabindex="-1"` while inert, written by an `effect()` through `Renderer2`:
+  - **Not a host binding:** `[attr.tabindex]` would evaluate to `null` on every
+    `<button>` host and remove the consumer's own — speed-dial actions
+    (`tabindex="-1"`) and the calendar's roving cells (`[attr.tabindex]`). The
+    ablation turns the "never writes one on a button host" spec red.
+  - **Nothing written until the anchor first becomes inert**, so an anchor that
+    never is keeps whatever the consumer bound — one exception, hydration, below.
+  - **Restore:** on leaving inert, the consumer's own `tabindex`, or none. Read
+    once at construction, from one of two sources:
+    - **Not hydrating:** the host's attribute. Static template attributes are
+      written before directives are constructed and no binding has run, so it
+      is the template's value; a root host from
+      `createComponent(…, { hostElement })` (Angular Elements, dynamic hosting)
+      has no template and keeps the attribute it came with.
+      `HostAttributeToken` is always `null` there — ablation turns the root-host
+      spec red.
+    - **Hydrating** (`ngh` on the host at construction, read like
+      `MlvSelect._hydrating`): the claimed node is the server's and its
+      `tabindex` may be the component's own `-1`, so the template's
+      (`HostAttributeToken('tabindex')`). Ablation (DOM instead) leaves
+      hydrated anchors at `-1`.
+  - **Hydration reconciliation:** a server that rendered the anchor inert wrote
+    `tabindex="-1"`; a client whose first render is not inert
+    (`[disabled]="!isBrowser"`, a browser-only login state, `[loading]` on
+    client-fetched data) claims that node. So the client **owns the `-1` from
+    construction** when the claimed node carries `aria-disabled="true"` and
+    `tabindex="-1"` and the template has no static `aria-disabled`
+    (`HostAttributeToken('aria-disabled') === null`), and takes it back on its
+    first render. `aria-disabled` is a **heuristic mark, not proof**: the host
+    binding writes it when the server rendered the anchor inert and removes a
+    static one when it did not. Without it (seed on `tabindex` alone) a
+    consumer-bound `[attr.tabindex]="-1"` on a never-inert anchor is stripped —
+    measured, ablation red. The static check exists because hydration's
+    `elementStart` re-applies static attributes to the claimed node before
+    construction, so a static `aria-disabled="true"` reads as the mark on a
+    never-inert anchor (#460 review R2-1 (A); the `static-aria` anchor in
+    `button-ssr.spec.ts`, red without the check). `button-ssr.spec.ts` runs the
+    real `renderApplication` → `provideClientHydration` round trip; without the
+    seed the anchor stays at `-1` (Tab never reaches an enabled link). Not a
+    class-based mark: hydration rewrites `class` wholesale before construction.
+    - **Residual — mistaken for the mark** (probe-measured, not pinned): an
+      `aria-disabled="true"` bound by a co-hosted directive, or by a consumer
+      `[attr.aria-disabled]` whose value changes after the server's first pass,
+      beside a bound `[attr.tabindex]="-1"` on a never-inert anchor — that
+      `-1` is removed on hydration. None in `libs/` or `apps/`.
+    - **Residual — not taken back** (pinned: `static-aria-server` in
+      `button-ssr.spec.ts`, which goes red on purpose once the seed can tell a
+      bound `-1` from the server's): a static `aria-disabled` (no effect on the
+      rendered `aria-disabled` — the host binding overwrites it), no static
+      `tabindex`, inert on the server only → keeps the server's `-1`. With a
+      static `tabindex` hydration re-applies it, so that case is fine.
+  - **Residual — a `tabindex` bound with `[attr.tabindex]` on an anchor host:**
+    both halves. While inert, the binding overwrites the `-1` whenever its value
+    changes (the component effect runs after the parent's bindings, so the
+    first render still shows `-1`), putting a disabled anchor back in the tab
+    order. On re-enable it is removed, until its value next changes. Write the
+    tabindex statically. None in `libs/` or `apps/`.
+  - **Residual — focus and the context menu**, as `a[mlvLink]`: `tabindex="-1"`
+    does not blur, so an anchor focused before it turned inert (an async action
+    setting `loading`) keeps focus, and the Menu key or Shift+F10 opens its
+    context menu, whose "Open in new tab" reads `href` and dispatches no
+    `click`. So do screen-reader context-menu commands on any inert anchor. By
+    pointer, `pointer-events: none` on `--disabled` / `--loading` stops the menu
+    and middle-click.
+  - **`effect()`, not `afterRenderEffect()`:** the attribute is in the
+    server-rendered markup (`ssr-smoke.spec.ts` pins it; the ablation goes red).
 
 > **Outlined vs. transparent label colour (AB-R1)** — `outlined` keeps the
 > accent label (`--mlv-btn-text-color: var(--mlv-text-action)`): a bordered
@@ -106,8 +206,9 @@ host: {
 
 The loading state keeps the projected text visible, replaces optional before/after
 content with an indeterminate `MlvLoader`, disables native button activation, and blocks
-anchor activation through the component click guard. Consumers remain responsible
-for changing the action label when a more specific in-progress label is useful.
+anchor activation through the capture-phase click guard (see **Disabled activation
+guard**), taking an anchor out of the tab order while it lasts. Consumers remain
+responsible for changing the action label when a more specific in-progress label is useful.
 
 #### Styles Summary (`button.scss`)
 
@@ -345,6 +446,10 @@ None.
 
 <!-- Link button -->
 <a mlvButton href="/page" variant="transparent">Go to page</a>
+
+<!-- Disabled link button: aria-disabled, tabindex="-1", every click blocked;
+     href / routerLink kept, no disabled attribute -->
+<a mlvButton routerLink="/billing" [disabled]="!canBill()">Billing</a>
 
 <!-- One shared variant for a connected group -->
 <mlv-button-group variant="secondary" aria-label="Text alignment">

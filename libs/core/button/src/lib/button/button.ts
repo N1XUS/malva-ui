@@ -4,21 +4,27 @@ import {
   Component,
   computed,
   contentChild,
+  effect,
+  ElementRef,
+  HostAttributeToken,
   inject,
   input,
+  PLATFORM_ID,
+  Renderer2,
   signal,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
-import type { ElementRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { filter, fromEvent } from 'rxjs';
 import {
   MlvButtonAfter,
   MlvButtonBefore,
   MlvButtonIcon,
 } from '../button.directives';
-import { NgTemplateOutlet } from '@angular/common';
+import { isPlatformServer, NgTemplateOutlet } from '@angular/common';
 import {
   MLV_DENSITY_ELEMENT,
   MlvDensityDirective,
@@ -57,6 +63,14 @@ const ICON_ONLY_SHAPES: readonly MlvButtonShape[] = ['circle', 'square'];
       useValue: 'button',
     },
   ],
+  // No `(click)` host listener, deliberately (#460, as #309 for `mlv-link`).
+  // The disabled / loading guard is the capture-phase stream in the
+  // constructor: a host listener cannot stop `RouterLink`. `disabled` is
+  // written on `<button>` hosts only — anchors have no disabled state, so an
+  // inert anchor leaves the tab order through the `tabindex` effect instead.
+  // `tabindex` is deliberately not a host binding: it would evaluate to `null`
+  // on every `<button>` host and remove the consumer's own (speed-dial
+  // actions, roving calendar cells).
   host: {
     class: 'mlv-button',
     '[class]':
@@ -65,10 +79,9 @@ const ICON_ONLY_SHAPES: readonly MlvButtonShape[] = ['circle', 'square'];
     '[class.mlv-button--loading]': 'loading()',
     '[class.mlv-button--selected]': 'selected()',
     '[class.mlv-button--icon-only]': '_iconOnly()',
-    '[attr.disabled]': '(disabled() || loading()) || null',
-    '[attr.aria-disabled]': '(disabled() || loading()) || null',
+    '[attr.disabled]': '(!_isAnchor && _inert()) || null',
+    '[attr.aria-disabled]': '_inert() || null',
     '[attr.aria-busy]': 'loading() || null',
-    '(click)': '_handleClick($event)',
   },
 })
 export class MlvButton {
@@ -83,12 +96,31 @@ export class MlvButton {
   /** Shape of the button. Circle and square are intended for icon-only actions. */
   readonly shape = input<MlvButtonShape>('default');
 
-  /** Whether the native button is disabled. */
+  /**
+   * Whether the button is disabled. A disabled button announces itself
+   * (`aria-disabled="true"`), leaves the tab order and does not activate: a
+   * click — including the one Enter and screen-reader activation produce —
+   * reaches neither the native action (`href`, form submission) nor
+   * `routerLink`, nor any bubble-phase click listener on the host or its
+   * ancestors. A `<button>` host also gets the native `disabled` attribute;
+   * an `<a>` host, which has no disabled state, gets `tabindex="-1"` instead
+   * and keeps its `href`, and gets back its own `tabindex` (or none) once
+   * re-enabled. Capture-phase listeners on an ancestor still see the click (CDK
+   * click-outside dismissal among them).
+   *
+   * Write an anchor's own `tabindex` statically. One bound with
+   * `[attr.tabindex]` overwrites the `-1` whenever its value changes while the
+   * anchor is disabled, putting it back in the tab order, and is removed on
+   * re-enable until its value next changes.
+   */
   readonly disabled = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
   });
 
-  /** Whether the button is waiting for an asynchronous action to complete. */
+  /**
+   * Whether the button is waiting for an asynchronous action to complete.
+   * Exposes `aria-busy` and blocks activation exactly as `disabled` does.
+   */
   readonly loading = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
   });
@@ -162,7 +194,132 @@ export class MlvButton {
    */
   private readonly _hasProjectedText = signal(true);
 
+  /** @private Host element: the target of the click guard and, on an anchor, of `tabindex`. */
+  private readonly _host: HTMLElement =
+    inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+
+  /** @private Writes the anchor's `tabindex` outside a host binding (see the `host` comment). */
+  private readonly _renderer = inject(Renderer2);
+
+  /**
+   * @protected Whether the host is an `<a>`. Anchors have no disabled state, so
+   * they get `tabindex="-1"` instead of the (invalid) `disabled` attribute.
+   * Resolved once: the selector fixes the element for the component's life.
+   */
+  protected readonly _isAnchor = this._host.tagName === 'A';
+
+  /** @protected Whether activation is blocked — the button is disabled or loading. */
+  protected readonly _inert = computed(() => this.disabled() || this.loading());
+
   constructor() {
+    // An inert button needs a capture-phase guard to stay put (`mlv-link` and
+    // the `mlv-segmented` link item carry the same one). `preventDefault()`
+    // alone cancels the native action but not `RouterLink.onClick`, which
+    // calls `Router.navigateByUrl()` without reading `defaultPrevented`. Nor
+    // can a host `(click)` listener stop it: Angular coalesces every host and
+    // template listener for one event on one element into a single native
+    // listener and walks that chain unconditionally (`__ngNextListenerFn__`).
+    // A capture listener on the host runs before every bubble listener on it —
+    // at `AT_TARGET` the capture pass precedes the bubble pass, whatever the
+    // registration order — and, for a click on the label span inside, before
+    // the event reaches the target at all.
+    //
+    // It is installed on `<button>` hosts too, where the native `disabled`
+    // attribute already stops real clicks: it keeps a scripted
+    // `dispatchEvent(click)` cancelled, as the host listener it replaces did.
+    //
+    // `{ capture: true }` is the whole mechanism and goes through `fromEvent`'s
+    // options argument, never the boolean form. `Subscriber.next` is
+    // synchronous, so `stopImmediatePropagation()` still runs inside the
+    // native listener invocation. The guard returns nothing, so no listener
+    // expression evaluates to `false` and an enabled click is never cancelled.
+    fromEvent<MouseEvent>(this._host, 'click', { capture: true })
+      .pipe(
+        filter(() => this._inert()),
+        takeUntilDestroyed(),
+      )
+      .subscribe((event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      });
+
+    // An anchor has no disabled state, so an inert one would keep its tab stop
+    // and Enter would still produce the (now cancelled) click. It leaves the
+    // tab order through `tabindex="-1"` while inert and gets the consumer's own
+    // `tabindex` — or none — back afterwards. Nothing is written until the
+    // anchor first becomes inert, so an anchor that never is keeps whatever
+    // the consumer bound — the one exception is a `-1` the server wrote,
+    // below. `effect()` rather than `afterRenderEffect()` so the attribute is
+    // in the server-rendered markup too.
+    if (this._isAnchor) {
+      // Whether this host is a server-rendered node hydration is claiming.
+      // Angular exposes no public signal for it; the server stamps `ngh` on
+      // every component host it serialises and the client strips it in
+      // `renderComponent`, after the host's directives are constructed — so it
+      // is on the host here exactly when the node came from the server
+      // (`MlvSelect._hydrating` reads it the same way, and its tripwire spec
+      // guards the Angular internal). `button-ssr.spec.ts` goes red if it
+      // stops holding.
+      const hydrating =
+        !isPlatformServer(inject(PLATFORM_ID)) &&
+        this._host.hasAttribute('ngh');
+
+      // What the anchor returns to when it stops being inert: the consumer's
+      // own `tabindex`. Outside hydration that is the attribute on the host
+      // now — static template attributes are written before directives are
+      // constructed and no binding has run yet, and a root host created with
+      // `createComponent(…, { hostElement })` has no template to read, only
+      // the attribute it came with. A hydrated node is the server's, so its
+      // `tabindex` may be the `-1` this component wrote there: read the
+      // template's through `HostAttributeToken` instead.
+      const restoreTo = hydrating
+        ? inject(new HostAttributeToken('tabindex'), { optional: true })
+        : this._host.getAttribute('tabindex');
+
+      // Whether the `-1` on a claimed node is this component's own, written by
+      // the server for an anchor it rendered inert. Then the client owns it
+      // from the start, and takes it back on its first render if it is not
+      // inert — `[disabled]="!isBrowser"`, a login state only the browser
+      // knows, `[loading]` over client-fetched data — instead of leaving an
+      // enabled link Tab never reaches. The mark is `aria-disabled="true"`
+      // beside the `-1`: the host binding writes it when the server rendered
+      // the anchor inert, and removes one the template wrote statically when
+      // it did not. It is a heuristic, not proof, and it errs toward leaving
+      // a `-1` alone:
+      // - A static `aria-disabled` in the template voids the mark. Hydration
+      //   re-applies static attributes to the claimed node before this
+      //   constructor runs, so the value read here is the template's, not the
+      //   server's, and an anchor never inert would otherwise lose a
+      //   consumer-bound `-1`. The cost: an anchor carrying one (the host
+      //   binding overwrites it anyway, so it has no effect on the rendered
+      //   `aria-disabled`) and rendered inert by the server only keeps the
+      //   server's `-1` — pinned in `button-ssr.spec.ts` (`static-aria-server`).
+      // - Still mistaken for the mark: an `aria-disabled="true"` a directive on
+      //   the same host binds, or one a consumer binding moves to after the
+      //   server's first pass. Beside a bound `-1` on an anchor never inert,
+      //   either takes that `-1` away.
+      let overridden =
+        hydrating &&
+        inject(new HostAttributeToken('aria-disabled'), { optional: true }) ===
+          null &&
+        this._host.getAttribute('aria-disabled') === 'true' &&
+        this._host.getAttribute('tabindex') === '-1';
+
+      effect(() => {
+        if (this._inert()) {
+          this._renderer.setAttribute(this._host, 'tabindex', '-1');
+          overridden = true;
+        } else if (overridden) {
+          if (restoreTo === null) {
+            this._renderer.removeAttribute(this._host, 'tabindex');
+          } else {
+            this._renderer.setAttribute(this._host, 'tabindex', restoreTo);
+          }
+          overridden = false;
+        }
+      });
+    }
+
     // `mlvButtonIcon` is optional in practice: icon buttons are overwhelmingly
     // written as `<button mlvButton shape="circle"><svg lucideX /></button>`,
     // and without the directive nothing marked them icon-only, so the icon kept
@@ -180,13 +337,5 @@ export class MlvButton {
       const text = this._textRef().nativeElement.textContent ?? '';
       this._hasProjectedText.set(text.trim().length > 0);
     });
-  }
-
-  /** @protected Prevents activation while the button is disabled or loading. */
-  protected _handleClick(event: Event): void {
-    if (this.disabled() || this.loading()) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    }
   }
 }
