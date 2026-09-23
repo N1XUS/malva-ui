@@ -161,17 +161,22 @@ inset by `--mlv-switch-thumb-inset` (`0.125rem`, constant). Colors:
 thumb `--mlv-elevation-bg-5` + `--mlv-shadow-1`, focus ring `--mlv-border-focus`
 promoted from the hidden input onto `.mlv-switch__track`.
 
-**2026-08-26:** in dark theme `--mlv-elevation-bg-5` follows the general
-elevation ladder (lightened grey, `color-mix` toward white off
-`--mlv-palette-neutral-700`, ≈`#707070`) — muddy against the off-track
-(≈`#262626`) and near-unreadable (≈1.07:1) against the accent-1 on-track
-(`#5770cb`). `switch.scss` shadows the token locally under
-`[mlvTheme='dark'] .mlv-switch` to `--mlv-palette-neutral-50` (≈`#fafafa`,
-same invariant near-white in every theme) so the thumb reads as a crisp knob
-in both states (14.5:1 off-track, 4.45:1 on-track). Light is untouched — it
-already resolved `--mlv-elevation-bg-5` → `--mlv-background-raised` →
-`#ffffff`. No other `--mlv-elevation-bg-5` consumer exists, so the shadowed
-override is switch-local by construction.
+The thumb is a near-white knob in every theme: `--mlv-elevation-bg-5` is
+`#ffffff` in light and high contrast (`--mlv-background-raised`) and
+`--mlv-palette-neutral-50` (`#fafafa`) in dark. **2026-08-26:** the general
+dark elevation ladder had put rung 5 at a lightened grey (`color-mix` toward
+white off `--mlv-palette-neutral-700`, ≈`#707070`) — muddy against the
+off-track (≈`#262626`) and ≈1.07:1 against the accent-1 on-track — so
+`switch.scss` shadowed the token under `[mlvTheme='dark'] .mlv-switch`.
+**#454** moved that value into the dark theme scope in `theme.scss` and
+deleted the switch rule (the switch is rung 5's only consumer, so no other
+surface moves): a descendant rule reached light islands inside a dark page
+(`#fafafa` where `#ffffff` belongs), kept the dark value under high contrast
+on a dark `<html>`, and missed a switch that carries `mlvTheme` itself. Pure
+light and dark resolve exactly as before. `switch.scss` declares no theme
+selector and no `--mlv-elevation-bg-5`; every arrangement is pinned in
+`libs/styles/src/lib/theme-scopes.spec.mjs`, and
+`theme-attribute-selectors.spec.mjs` fails on any theme-attribute rule.
 
 ##### Density geometry ladder
 

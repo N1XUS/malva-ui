@@ -421,22 +421,22 @@ describe('MlvSwitch stylesheet', () => {
     expect(airy?.[1]).toBe('var(--mlv-font-size-xl)');
   });
 
-  // The thumb paints `--mlv-elevation-bg-5`. In dark theme that token
-  // resolves to the general elevation ladder's lightened grey
-  // (color-mix toward white off neutral-700, ~#707070) — muddy against the
-  // ~#262626 off-track and near-indistinguishable (~1.07:1) against the
-  // accent-1 (#5770cb) on-track. Locks the local `[mlvTheme='dark']`
-  // override that repaints it as a crisp near-white knob
-  // (--mlv-palette-neutral-50) without touching the shared theme.scss
-  // token (its only other declared role: light stays --mlv-background-raised
-  // / #ffffff, unchanged) or any other --mlv-elevation-bg-5 consumer.
-  it('repaints the thumb as a light knob in dark theme', () => {
+  // The thumb paints `--mlv-elevation-bg-5`, whose one consumer it is. The
+  // crisp near-white dark knob (--mlv-palette-neutral-50) used to be a local
+  // `[mlvTheme='dark'] .mlv-switch` redeclaration of that token, which
+  // reached into light islands, survived high contrast on a dark `<html>` and
+  // missed a switch that is its own island; the dark theme scope now declares
+  // it (#454). What the thumb paints per theme scope is measured in
+  // `libs/styles/src/lib/theme-scopes.spec.mjs`.
+  it('paints the thumb with the elevation token and never keys a rule on the theme attribute', () => {
     expect(scss).toContain('background-color: var(--mlv-elevation-bg-5);');
 
-    const darkOverride = scss.match(
-      /\[mlvTheme='dark'\]\s*\.#\{\$block\}\s*{[^}]*--mlv-elevation-bg-5:\s*([^;]+);/,
-    );
-    expect(darkOverride?.[1]).toBe('var(--mlv-palette-neutral-50)');
+    const rules = scss
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    expect(rules).not.toMatch(/\[\s*(mlvTheme|data-theme)\s*[~|^$*]?=/i);
+    // The token is the theme's to vary, never a component's to shadow.
+    expect(rules).not.toMatch(/--mlv-elevation-bg-5\s*:/);
   });
 });
 

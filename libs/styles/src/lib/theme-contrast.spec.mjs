@@ -124,7 +124,7 @@ test('light action + neutral interaction tokens resolve to their intended values
  * Every surface `--mlv-text-action` legitimately lands on, in dark.
  *
  * `--mlv-elevation-bg-5` is deliberately absent: its only consumer paints it as
- * a switch track (`libs/core/switch`), never behind text.
+ * the switch thumb (`libs/core/switch`), never behind text.
  */
 const DARK_ACTION_SURFACES = [
   '--mlv-background-base',

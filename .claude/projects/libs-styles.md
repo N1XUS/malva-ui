@@ -32,14 +32,14 @@ invented name never errors — it renders the fallback and quietly stops followi
 the theme. Four downstream packages shipped `--mlv-color-surface`,
 `--mlv-radius-2`, `--mlv-border-1` and `--mlv-error-text-1` that way.
 
-| Target                                       | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `yarn nx run styles:generate-tokens`         | Regenerates `tokens.md` from `libs/styles/src/lib/*.scss`. Run after adding, renaming or removing any token.                                                                                                                                                                                                                                                                                                                                             |
-| `yarn nx run styles:verify-tokens`           | Fails when `tokens.md` is stale. Safe to gate on.                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `yarn nx run styles:check-tokens`            | Scans every `.scss` / `.css` / `.html` under `libs/` and `apps/` and fails on `var(--mlv-…)` names that exist nowhere.                                                                                                                                                                                                                                                                                                                                   |
-| `node scripts/check-mlv-tokens.mjs --strict` | Same, but also reports the pre-existing findings tracked in `token-check-baseline.json`.                                                                                                                                                                                                                                                                                                                                                                 |
-| `yarn nx run styles:check-padding-tokens`    | Fails on any `var(--mlv-padding-*)` (or alias of one) that is not the whole `padding:` value. Runs as a `styles:lint` dependency, so CI's `run-many -t lint` gates on it. `--json` / `--quiet` flags.                                                                                                                                                                                                                                                    |
-| `yarn nx run styles:test`                    | `node --test` over eight spec files — `scripts/check-padding-tokens.spec.mjs`, `src/lib/theme-contrast.spec.mjs`, `src/lib/tone-contrast.spec.mjs`, `src/lib/theme-scopes.spec.mjs`, `src/lib/mixins.spec.mjs`, `src/lib/fluid-type.spec.mjs`, `src/lib/layers.spec.mjs`, `src/lib/sticky-inline-inset.spec.mjs` (picked up by CI's `run-many -t test`). The target **enumerates its specs**, so a new one must be named in both `command` and `inputs`. |
+| Target                                       | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `yarn nx run styles:generate-tokens`         | Regenerates `tokens.md` from `libs/styles/src/lib/*.scss`. Run after adding, renaming or removing any token.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `yarn nx run styles:verify-tokens`           | Fails when `tokens.md` is stale. Safe to gate on.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `yarn nx run styles:check-tokens`            | Scans every `.scss` / `.css` / `.html` under `libs/` and `apps/` and fails on `var(--mlv-…)` names that exist nowhere.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `node scripts/check-mlv-tokens.mjs --strict` | Same, but also reports the pre-existing findings tracked in `token-check-baseline.json`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `yarn nx run styles:check-padding-tokens`    | Fails on any `var(--mlv-padding-*)` (or alias of one) that is not the whole `padding:` value. Runs as a `styles:lint` dependency, so CI's `run-many -t lint` gates on it. `--json` / `--quiet` flags.                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `yarn nx run styles:test`                    | `node --test` over nine spec files — `scripts/check-padding-tokens.spec.mjs`, `src/lib/theme-contrast.spec.mjs`, `src/lib/tone-contrast.spec.mjs`, `src/lib/theme-scopes.spec.mjs`, `src/lib/mixins.spec.mjs`, `src/lib/fluid-type.spec.mjs`, `src/lib/layers.spec.mjs`, `src/lib/sticky-inline-inset.spec.mjs`, `src/lib/theme-attribute-selectors.spec.mjs` (picked up by CI's `run-many -t test`). Its stylesheet input is `libs/**/*.{css,scss}`, matching the two suites that walk all of `libs/`. The target **enumerates its specs**, so a new one must be named in both `command` and `inputs`. |
 
 `tokens.md` is a **generated file** — never hand-edit it. Categories, blurbs and
 the mistaken-names table live in `scripts/generate-tokens-md.mjs`; a token that
@@ -110,7 +110,7 @@ Two rules the guard encodes, both learned from real failures:
   (≈1.2x hover, ≈1.45x active).
 
 `--mlv-elevation-bg-5` is deliberately outside the audited surface set: its only
-consumer paints it as a switch track (`libs/core/switch`), never behind text.
+consumer paints it as the switch thumb (`libs/core/switch`), never behind text.
 
 ### Solid tone fills (#302)
 
@@ -152,6 +152,12 @@ consumer paints it as a switch track (`libs/core/switch`), never behind text.
   exemption → one score per tone × theme covers every density.
 - Themes scored: light, dark, HC, and **HC over dark** (`highContrastDark`) —
   the shape `MlvThemeService` + `data-theme="high-contrast"` actually produces.
+- Segmented (all six tones) and boxed-tabs **selected label on its pill** ≥
+  4.5:1 in all four themes, pill + label semantic-only (#454). The score merges
+  any `[mlvTheme=…] <selector>` / `[data-theme=…] <selector>` rule for that
+  theme's ancestors after the plain rule, so a theme-attribute repaint cannot
+  hide behind a clean plain rule: the old `[mlvTheme='dark']` neutral-700 pill
+  scored 2.03:1 under HC over dark.
 - Loader / progress tracks paint **`--mlv-background-subtle`** (bar
   `background`, circle `stroke`; on the loader, both behind its
   `--mlv-l-track-color` / `trackColor` hook — the bar ignored it before #303);
@@ -245,6 +251,47 @@ consumer paints it as a switch track (`libs/core/switch`), never behind text.
   `:host` alone equals pure light except `--mlv-inline-direction`. Pairs
   suffice: an island that recomputes every theme-varying token is independent
   of its ancestors, so deeper nesting follows by induction.
+- **Component scopes** (#454): a component sheet under `libs/` (outside
+  `libs/styles` / `libs/core/styles`) whose source names `mlv.tokens` is loaded
+  after the global sheet, so its bare scope rules join every assertion above,
+  HC name parity included. Today that is `action-bar.scss` alone (the
+  contrast glass), pinned by a floor test.
+- **Component surfaces** (#454): the five surfaces that used to repaint under
+  `[mlvTheme='dark']` — segmented neutral pill + track, boxed-tabs pill, switch
+  thumb, action-bar contrast glass — computed with the component's own rules
+  added to the chain. Each pure theme is pinned to its palette value (pure
+  light and dark are the pre-#454 values exactly), and every arrangement must
+  equal it: an island of that theme on each other page, the **component as its
+  own island** on each other page, and (HC) the `light + HC` / `dark + HC`
+  pages. Component rules go through a small spec-local selector model —
+  classes, tags, attribute selectors, `:not()`, descendant / child, and
+  sibling combinators on an element that lists its preceding siblings;
+  specificity then source order inside `mlv.components`, above every token
+  scope; interaction pseudo-classes and pseudo-elements never match (measured
+  at rest). Anything else throws when an element reaches it. Rules under
+  `@media` / `@supports` / `@container` are skipped (no measured colour
+  depends on one).
+
+### What `theme-attribute-selectors.spec.mjs` guards
+
+- #454: no stylesheet under `libs/` may test a theme attribute's **value**
+  (`[mlvTheme=…]`, `[data-theme=…]`, any operator) except in a **bare scope
+  rule** — every selector is `:root`, `:host`, `[mlvTheme=x]` or
+  `[data-theme=x]` — inside `@layer mlv.tokens`, outside `@media` / `@supports`
+  / `@container`, declaring custom properties only: the shape `theme.scss`,
+  `muted.scss` and `action-bar.scss` use, and exactly what `loadTokenRules`
+  models.
+- Why: `[mlvTheme='dark'] .mlv-x` matches a light island inside a dark page,
+  still matches under HC (the `<html>` keeps `mlvTheme="dark"`), and never
+  matches a component that carries `mlvTheme` itself. Express the value as a
+  token (an existing one, or a component-private bare scope block) instead.
+- Allowed: a presence test, `:not([mlvTheme])` (`mlv-page-shell` withdrawing
+  its chrome remap from a consumer-scoped slot) — it asks whether an element
+  opens a scope, not which theme is active.
+- Reads compiled output of every `.scss` / `.css` under `libs/` (Sass
+  variables, mixins, `@at-root` included); floors: > 100 sheets, ≥ 6 scope
+  rules seen. Blind spot: inline `styles:` in component decorators (none
+  carries a theme selector today).
 
 ---
 
@@ -499,7 +546,7 @@ focus ring while the label lightens.
 ### Section 5 — Elevation & Shadows
 
 5 shadow levels: `--mlv-shadow-0` … `--mlv-shadow-5`
-Dark mode uses higher-opacity shadows. Each `--mlv-elevation-bg-{1..5}` rung has a declared role, not a uniform light/dark split: in light, rung 1 (`flush` — canvas-level, border only) resolves `--mlv-background-base`, while rungs 2–5 (card/dialog/drawer, popup/toast/form-control, drawers/side-overlays, switch-thumb-only) all stay at the `--mlv-background-raised` ceiling and express depth via the shadow alias instead; in dark, each rung is its own stepped grey. High contrast redeclares the light set (shadows through the shared `$mlv-shadow-1..5` SCSS variables, rungs as the light aliases) — otherwise HC over dark painted dark rungs under HC's black text (tokenizer caption 1.38:1, #303). `--mlv-elevation-bg-5` is deliberately outside the WCAG-audited surface set — its only consumer paints it as a switch track, never behind text.
+Dark mode uses higher-opacity shadows. Each `--mlv-elevation-bg-{1..5}` rung has a declared role, not a uniform light/dark split: in light, rung 1 (`flush` — canvas-level, border only) resolves `--mlv-background-base`, while rungs 2–5 (card/dialog/drawer, popup/toast/form-control, drawers/side-overlays + the segmented / boxed-tabs selected pill, switch-thumb-only) all stay at the `--mlv-background-raised` ceiling and express depth via the shadow alias instead; in dark, rungs 1–4 are stepped greys (rung 4 = neutral-700, one step above the `--mlv-background-neutral-1` pill track) and rung 5 is `--mlv-palette-neutral-50`, the crisp switch knob — declared in the dark scope since #454, where it had been a `[mlvTheme='dark'] .mlv-switch` redeclaration. High contrast redeclares the light set (shadows through the shared `$mlv-shadow-1..5` SCSS variables, rungs as the light aliases) — otherwise HC over dark painted dark rungs under HC's black text (tokenizer caption 1.38:1, #303). `--mlv-elevation-bg-5` is deliberately outside the WCAG-audited surface set — its only consumer paints it as the switch thumb, never behind text.
 
 ---
 
@@ -1071,7 +1118,12 @@ libs/styles/
       theme-scopes.mjs        — cascade model over the compiled stylesheet:
                                 var() substituted where it is declared
       theme-scopes.spec.mjs   — every theme island computes its own theme,
-                                whatever it is nested in (styles:test)
+                                whatever it is nested in, and so do the
+                                component surfaces that used to key on the
+                                theme attribute (styles:test)
+      theme-attribute-selectors.spec.mjs — no stylesheet under libs/ tests a
+                                theme attribute outside a bare mlv.tokens
+                                scope rule (styles:test)
       muted.scss      — muted tint triplets (bg/text/border × 3 levels × 8 families)
       density.scss    — density SCSS mixins (tight/compact/comfortable/spacious/airy)
       mixins.scss     — base() reset/font mixin, fluid() clamp builder,

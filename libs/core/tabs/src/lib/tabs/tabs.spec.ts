@@ -1325,31 +1325,36 @@ describe('MlvTabGroup', () => {
     });
   });
 
-  // ── Boxed appearance: dark-theme indicator ──
+  // ── Boxed appearance: the selected pill in every theme ──
   // Asserted against the SCSS *source* for the same reason as the min-width
-  // guards above — component stylesheets are not injected under jsdom.
-  describe('Boxed appearance — dark theme indicator', () => {
+  // guards above — component stylesheets are not injected under jsdom. What
+  // the pill paints per theme and theme scope is measured in `libs/styles`
+  // (`theme-scopes.spec.mjs` § component surfaces, `tone-contrast.spec.mjs`).
+  describe('Boxed appearance — selected pill', () => {
     const stylesheet = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), 'tabs.scss'),
       'utf8',
     );
+    /** The source with its comments removed, so prose cannot satisfy a match. */
+    const rules = stylesheet
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
 
-    it('lifts the boxed pill one step above the dark track', () => {
-      // `--mlv-background-raised` (#1e1e1e) is darker than the boxed
-      // track's `--mlv-background-neutral-1` (#262626) in the dark theme,
-      // so the pill would sink below the track instead of lifting off it.
-      // Mirrors the same light/dark inversion `mlv-segmented` applies to its
-      // raised pill (segmented.scss) — same `--mlv-palette-neutral-700`
-      // token, descendant-combinator selector off `[mlvTheme='dark']`.
-      // Selector fragments are checked independently (not as one adjacent
-      // string) because prettier is free to wrap the multi-line selector
-      // across lines.
-      expect(stylesheet).toMatch(
-        /\[mlvTheme='dark'\]\s*\.#\{\$block\}--appearance-boxed\s*>\s*\.#\{\$block\}__header\s*>\s*\.#\{\$block\}__indicator/,
+    it('paints the pill with the elevation token that lifts it above the track in every theme', () => {
+      // `--mlv-background-raised` (#1e1e1e) is darker than the boxed track's
+      // `--mlv-background-neutral-1` (#262626) in dark, so the pill would sink
+      // below the track. `--mlv-elevation-bg-4` is the raised surface in light
+      // and high contrast and neutral-700 in dark — the value the old
+      // `[mlvTheme='dark']` repaint wrote, now resolved by every theme scope.
+      expect(rules).toMatch(
+        /& > \.#\{\$block\}__header > \.#\{\$block\}__indicator \{\s*background: var\(--mlv-elevation-bg-4\);/,
       );
-      expect(stylesheet).toContain(
-        'background: var(--mlv-palette-neutral-700)',
-      );
+    });
+
+    it('never keys a rule on the theme attribute (#454)', () => {
+      // `[mlvTheme='dark'] …` reached into light islands, survived high
+      // contrast on a dark `<html>` and missed a group that is its own island.
+      expect(rules).not.toMatch(/\[\s*(mlvTheme|data-theme)\s*[~|^$*]?=/i);
     });
 
     it('does not leave a dead @at-root dark override on the light-mode indicator rule', () => {
