@@ -1,5 +1,6 @@
 @for (i of _indices(); track i) {
   <button
+    #star
     type="button"
     class="mlv-rating__star"
     [attr.aria-label]="_rateLabel(i + 1)"
@@ -7,7 +8,6 @@
     [disabled]="computedDisabled() || readonly() || null"
     [tabindex]="_starTabIndex(i)"
     (click)="_onStarClick(i + 1, $event)"
-    (focus)="_onStarFocus(i + 1)"
     (blur)="_onStarBlur()"
   >
     <!-- Empty star (always rendered, forms the "outline") -->

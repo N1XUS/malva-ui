@@ -752,7 +752,11 @@ describe('MlvRating direction', () => {
 
       const stars = getStars(fixture);
       stubHalfGeometry(stars[2], 22);
-      stars[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      // `detail: 1` — a pointer click carries its click count. `0` is keyboard
+      // activation, which has no position to hit-test (#314).
+      stars[2].dispatchEvent(
+        new MouseEvent('click', { bubbles: true, detail: 1 }),
+      );
       fixture.detectChanges();
       await fixture.whenStable();
 
@@ -784,8 +788,10 @@ describe('MlvRating direction', () => {
       expect(filledIcon(stars[2]).style.clipPath).toBe('inset(0 0 0 50%)');
       expect(filledIcon(stars[3]).style.clipPath).toBe('inset(0 0 0 100%)');
 
-      // `_onStarClick`.
-      stars[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      // `_onStarClick`, as a pointer click (`detail: 1`).
+      stars[2].dispatchEvent(
+        new MouseEvent('click', { bubbles: true, detail: 1 }),
+      );
       fixture.detectChanges();
       await fixture.whenStable();
       expect(fixture.componentInstance.ctrl.value).toBe(2.5);
