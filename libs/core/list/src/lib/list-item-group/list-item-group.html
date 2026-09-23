@@ -1,10 +1,12 @@
-@if (_pinnedOpen()) {
+@if (_alwaysOpen()) {
   <!--
-    The enclosing list's variant holds this group's content open, so there is
-    nothing to disclose. A `<button aria-expanded>` here would be a control
-    making a false claim about content it does not govern (WCAG 4.1.2) and a
-    tab stop that does nothing. The label is plain text instead, and it names
-    the content region the toggler would otherwise have named.
+    Nothing here can disclose the content: either the enclosing list's variant
+    holds it open, or the enclosing list claims a container role in which a
+    `<button>` is not a valid owned child (see `_alwaysOpen`). A
+    `<button aria-expanded>` would be a control making a false claim about
+    content it does not govern (WCAG 4.1.2) and a tab stop that does nothing.
+    The label is plain text instead, and — when the content region has a role
+    to name — it names it.
   -->
   <div class="mlv-list-item-group__label" [id]="_labelId">{{ label() }}</div>
 } @else {
@@ -20,10 +22,13 @@
   </button>
 }
 <!--
-  role="list" so the mlv-list-item rows nested in this group keep the `list`
-  context their `listitem` role requires: the group host is itself a `listitem`
-  of the outer mlv-list (see its `host` block), and a `listitem` is not a valid
-  parent for another one.
+  The role is derived from the enclosing list's `listRole` (#224) — `list`
+  under the default `role="list"` and outside any list, `group` under the four
+  container roles that own one, and *nothing* under a container that owns
+  neither. Read `_contentRole`'s table before changing it: this region exists to
+  give the projected rows the container context their own roles require, and a
+  hardcoded `role="list"` was both wrong under `role="menu"` (which owns no
+  `listitem`) and unnecessary under it (`group` is what a menu section is).
 
   `inert` while the content is off screen (#221). Collapsing is done in CSS with
   `grid-template-rows: 0fr` + `overflow: hidden` + `opacity: 0`, none of which
@@ -37,14 +42,14 @@
   through `aria-controls` is exactly the region `aria-expanded="false"` is a
   claim about.
 
-  The predicate is `_contentVisible()` — `_expanded() || _pinnedOpen()`. Read
+  The predicate is `_contentVisible()` — `_expanded() || _alwaysOpen()`. Read
   its JSDoc before touching this: `!_expanded()` looks equivalent and is not.
 -->
 <div
   class="mlv-list-item-group__content"
-  role="list"
+  [attr.role]="_contentRole()"
   [id]="_contentId"
-  [attr.aria-labelledby]="_pinnedOpen() ? _labelId : null"
+  [attr.aria-labelledby]="_contentLabelledBy()"
   [attr.inert]="_contentVisible() ? null : ''"
 >
   <div>
