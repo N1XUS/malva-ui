@@ -37,8 +37,8 @@ and template-driven examples; all three binding modes remain supported.
 | Language            | TypeScript 6.0.3                                            |
 | Build executor      | `@nx/angular:application` (esbuild-based, with MDX plugin)  |
 | Dev server          | `@nx/angular:dev-server`                                    |
-| Testing             | Vitest 4.1.10 via `@analogjs/vitest-angular` 2.6.3          |
-| Monorepo tooling    | Nx 23.1.0                                                   |
+| Testing             | Vitest 4.1.11 via `@analogjs/vitest-angular` 2.7.2          |
+| Monorepo tooling    | Nx 23.2.1                                                   |
 | Syntax highlighting | Shiki ^4.0.2                                                |
 | Markdown parsing    | marked ^17.0.5 (build-time only via esbuild plugin)         |
 | Frontmatter         | gray-matter ^4.0.3 (build-time only)                        |
