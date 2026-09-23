@@ -2,7 +2,6 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { PLATFORM_ID } from '@angular/core';
 import { MlvTextarea } from './textarea';
-import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 describe('MlvTextarea', () => {
@@ -12,7 +11,7 @@ describe('MlvTextarea', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MlvTextarea],
-      providers: [provideMlvI18nTesting(), provideAnimations()],
+      providers: [provideMlvI18nTesting()],
     }).compileComponents();
 
     fixture = TestBed.createComponent(MlvTextarea);
@@ -391,7 +390,7 @@ describe('MlvTextarea auto-resize', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MlvTextarea],
-      providers: [provideMlvI18nTesting(), provideAnimations()],
+      providers: [provideMlvI18nTesting()],
     }).compileComponents();
   });
 
@@ -958,7 +957,6 @@ describe('MlvTextarea auto-resize server guard', () => {
       imports: [MlvTextarea],
       providers: [
         provideMlvI18nTesting(),
-        provideAnimations(),
         { provide: PLATFORM_ID, useValue: platformId },
       ],
     }).compileComponents();

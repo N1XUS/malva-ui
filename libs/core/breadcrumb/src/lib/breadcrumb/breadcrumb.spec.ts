@@ -3,7 +3,6 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -129,11 +128,7 @@ describe('MlvBreadcrumb — data-driven mode', () => {
         CustomSeparatorHostComponent,
         DisabledItemHostComponent,
       ],
-      providers: [
-        provideMlvI18nTesting(),
-        provideRouter([]),
-        provideAnimationsAsync(),
-      ],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DataDrivenHostComponent);
@@ -245,11 +240,7 @@ describe('MlvBreadcrumb — overflow/truncation', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [OverflowHostComponent],
-      providers: [
-        provideMlvI18nTesting(),
-        provideRouter([]),
-        provideAnimationsAsync(),
-      ],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
     }).compileComponents();
 
     overlayContainer = TestBed.inject(OverlayContainer);
@@ -348,11 +339,7 @@ describe('MlvBreadcrumb — projected items mode', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ProjectedHostComponent],
-      providers: [
-        provideMlvI18nTesting(),
-        provideRouter([]),
-        provideAnimationsAsync(),
-      ],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ProjectedHostComponent);
@@ -378,11 +365,7 @@ describe('MlvBreadcrumb — router integration', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [RouterLinkHostComponent],
-      providers: [
-        provideMlvI18nTesting(),
-        provideRouter([]),
-        provideAnimationsAsync(),
-      ],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(RouterLinkHostComponent);
@@ -427,11 +410,7 @@ describe('MlvBreadcrumbItem', () => {
         ItemCurrentHostComponent,
         ItemDisabledHostComponent,
       ],
-      providers: [
-        provideMlvI18nTesting(),
-        provideRouter([]),
-        provideAnimationsAsync(),
-      ],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
     }).compileComponents();
   });
 
@@ -503,11 +482,7 @@ describe('MlvBreadcrumb — non-interactive crumb states', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PlainAncestorHostComponent, DisabledItemHostComponent],
-      providers: [
-        provideMlvI18nTesting(),
-        provideRouter([]),
-        provideAnimationsAsync(),
-      ],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
     }).compileComponents();
   });
 
@@ -788,11 +763,7 @@ describe('MlvBreadcrumb — scoped direction', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ScopedDirOverflowHostComponent],
-      providers: [
-        provideMlvI18nTesting(),
-        provideRouter([]),
-        provideAnimationsAsync(),
-      ],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
     }).compileComponents();
 
     overlayContainer = TestBed.inject(OverlayContainer);
@@ -865,11 +836,7 @@ describe('MlvBreadcrumb accessibility', () => {
   async function mount<T>(type: new (...args: never[]) => T) {
     await TestBed.configureTestingModule({
       imports: [type],
-      providers: [
-        provideMlvI18nTesting(),
-        provideRouter([]),
-        provideAnimationsAsync(),
-      ],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
     }).compileComponents();
     const fixture = TestBed.createComponent(type);
     fixture.detectChanges();

@@ -4,7 +4,6 @@ import {
   provideZonelessChangeDetection,
 } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 // The @malva-ui/i18n main entry is imported statically by design: only the language
 // packs (@malva-ui/i18n/<lang>) are lazy-loaded, via the dynamic import below.
 // eslint-disable-next-line @nx/enforce-module-boundaries
@@ -19,7 +18,6 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideBrowserGlobalErrorListeners(),
     provideRouter(appRoutes),
-    provideAnimationsAsync(),
     provideMlvDensity('comfortable'),
     provideMlvI18n(() => import('@malva-ui/i18n/en')),
   ],

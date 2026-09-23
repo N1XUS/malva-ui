@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, RouterOutlet } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { By } from '@angular/platform-browser';
@@ -90,7 +89,6 @@ async function renderAt(
 
   await TestBed.configureTestingModule({
     providers: [
-      provideAnimationsAsync('noop'),
       provideMlvDensity('comfortable'),
       provideMlvI18n(() => import('@malva-ui/i18n/en')),
       provideMlvI18nTesting(),

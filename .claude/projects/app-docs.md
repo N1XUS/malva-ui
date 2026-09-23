@@ -44,8 +44,8 @@ and template-driven examples; all three binding modes remain supported.
 | Frontmatter         | gray-matter ^4.0.3 (build-time only)                        |
 | Icons               | `@lucide/angular` ^1.25.0                                   |
 | Country flags       | `flag-icons` ^7.5.0, scoped to the fourteen shipped locales |
-| Utilities           | lodash-es ^4.17.23, uuid ^13.0.0                            |
-| Animations          | Angular async animations (`provideAnimationsAsync`)         |
+| Utilities           | lodash-es ^4.17.23 (`kebabCase` in the doc/example pipes)   |
+| Animations          | CSS only (`animate.enter` / `animate.leave`, no provider)   |
 | State               | Angular signals                                             |
 | Change detection    | `ChangeDetectionStrategy.OnPush` throughout                 |
 
@@ -910,7 +910,8 @@ hand-written companion list.
 `provideZonelessChangeDetection()` and ships **no `zone.js` and no `polyfills`
 entry** — a starter that contradicted the library's zoneless-only stance would
 mislead every evaluator who copied it. It carries no `@angular/animations`
-either: nothing under `libs/` imports it and it is deprecated in Angular 22.
+either: nothing in the workspace imports it (the docs app itself dropped it in
+#296) and it is deprecated in Angular 22.
 
 The example's own files keep their names (`src/example/index.ts` / `.html` /
 `.scss`), so `templateUrl: './index.html'` needs no rewriting and what the
@@ -1207,9 +1208,13 @@ showcase reel reuses the same registry assets.
 
 **File:** `apps/docs/src/app/app.config.ts`
 
-Providers: `provideBrowserGlobalErrorListeners()`, `provideRouter(appRoutes)`,
-`provideAnimationsAsync()`, the comfortable global density default, and the
-lazy English i18n pack.
+Providers: `provideZonelessChangeDetection()`,
+`provideBrowserGlobalErrorListeners()`, `provideRouter(appRoutes)`, the
+comfortable global density default, and the lazy English i18n pack. No
+animations provider (#296): nothing uses `@angular/animations` triggers, so
+`provideAnimationsAsync()` left with the package. The specs dropped
+`provideAnimationsAsync('noop')` too, so CDK overlay backdrops there now fade
+out instead of being disposed at once — what the running app always did.
 
 ---
 

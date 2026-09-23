@@ -576,6 +576,30 @@ first. Consult it before any change that alters a published surface.
   whether it is clean or deferred; an entry that matches nothing fails the
   check. #242 is the worked example: `@malva-ui/core` imported `@angular/router`
   in nine entry points and declared no peer for months.
+- **Every root dependency has a consumer or a reason.** The root `package.json`
+  is never published, so nothing downstream flags a dead entry. Enforced by
+  `scripts/check-root-dependencies.mjs` →
+  `yarn nx run @malva-ui/source:check-root-dependencies`, a `dependsOn` of the
+  root `test` target. Consumers it sees: a literal module specifier in an
+  `import` / `export … from` / `import()` / `require()`, read by
+  `ts.preProcessFile` — so a string that merely spells a package name does not
+  count, and a specifier built at run time is not seen — plus a stylesheet
+  `@use`/`@import`, an Nx executor or `nx.json` plugin, a CLI binary (matched
+  by token against installed `bin` names) in a root script / `project.json`
+  command / `.husky` hook / workflow `run:` / `lint-staged` config, a
+  `node_modules/<pkg>` path in those or anywhere in a `project.json`, a
+  `postcss.config.json` plugin, a tsconfig `types` entry or
+  `"importHelpers": true` (`tslib`), `@types/x` when `x` has one, a
+  workspace package's dependency or peer, and a **required** peer of any of
+  those. Optional peers do not count — that is how `zone.js`,
+  `@angular/animations` and `@angular/ssr` survived (#296). Anything loaded
+  invisibly goes in `IMPLICIT_CONSUMERS` as `clean` (names the consumer) or
+  `deferred` (names the pending decision); an entry the scan already covers,
+  one another clean entry pulls in as a required peer, or one naming an
+  undeclared package fails. Also fails: a package in both dependency fields,
+  an `@types/*` under `dependencies`. Blind spot: a plugin registered in
+  `nx.json` counts as used even when it infers nothing (`@nx/docker` with no
+  Dockerfile).
 - **Ship and export every asset a consumer is told to import.** ng-packagr
   copies only what `ng-package.json`'s `assets` glob names, generates `exports`
   for TypeScript entry points only, and writes `sideEffects: false` unless the

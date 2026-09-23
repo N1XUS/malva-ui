@@ -1,7 +1,6 @@
 import { ApplicationInitStatus, ApplicationRef } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
 // The service/provider contract is static; only locale data is split into lazy packs.
@@ -41,7 +40,6 @@ async function render(): Promise<Rendered> {
   await TestBed.configureTestingModule({
     imports: [SupportInboxShowcaseComponent],
     providers: [
-      provideAnimationsAsync('noop'),
       provideMlvDensity('comfortable'),
       provideMlvI18n(() => import('@malva-ui/i18n/en')),
     ],

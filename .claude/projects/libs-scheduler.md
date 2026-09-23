@@ -15,7 +15,7 @@ Month / week / day calendar views (`mlv-scheduler`) for timed, all-day and multi
 - **Nx project:** `scheduler` (tags `scope:ui`, `family:scheduler`, `type:ui`)
 - **Packaging:** ng-packagr package root, entry `src/index.ts`
 - **Peers:** `@malva-ui/core` (date adapter, popup, menu, segmented, button, scrollbar), `@malva-ui/cdk`, `@malva-ui/i18n`, `@angular/cdk`, `@angular/common`, `@angular/core`, `@lucide/angular`, `rxjs` (the chip's `fromEvent` focus listeners; the `0.0.0-rxjs-package-version` placeholder resolves at publish like the other packages')
-- **Dependencies:** `sortablejs ^1.15.7`, declared by `libs/scheduler/package.json` itself (`libs/core/package.json` declares its own copy; the workspace root carries `sortablejs` + `@types/sortablejs` as **devDependencies**, because `apps/docs`' external-drop example imports SortableJS directly) and allow-listed in `ng-package.json` `allowedNonPeerDependencies`
+- **Dependencies:** `sortablejs ^1.15.7`, declared by `libs/scheduler/package.json` itself (`libs/core/package.json` declares its own copy; the workspace root carries `sortablejs` in `dependencies` and `@types/sortablejs` in `devDependencies`, because `apps/docs`' external-drop example imports SortableJS directly) and allow-listed in `ng-package.json` `allowedNonPeerDependencies`
 - **Docs page:** `/scheduler` in `apps/docs` (eight examples), API family `scheduler`
 
 ## Public API

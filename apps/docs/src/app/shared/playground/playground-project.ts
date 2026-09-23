@@ -133,10 +133,10 @@ const GLOBAL_STYLESHEET = 'node_modules/@malva-ui/core/styles/malva-ui.css';
  * imports: the three `ng add` installs, the Angular runtime `main.ts` needs, and
  * `tslib` (the workspace compiles with `importHelpers`).
  *
- * No `@angular/animations`: it is deprecated in Angular 22, and nothing under
- * `libs/` imports it — Malva UI animates in CSS through the `--mlv-duration-*`
- * tokens. The docs app provides it for its own reasons; a starter template that
- * copied that would install a deprecated package and print a warning on every
+ * No `@angular/animations`: it is deprecated in Angular 22, and nothing in the
+ * workspace imports it — Malva UI animates in CSS through the `--mlv-duration-*`
+ * tokens, and the docs app dropped its own provider in #296. A starter template
+ * that installed it would pull a deprecated package and print a warning on every
  * consumer's first `npm install`.
  */
 const BASE_DEPENDENCIES: readonly string[] = [

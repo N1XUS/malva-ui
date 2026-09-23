@@ -8,7 +8,6 @@ import {
 } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, RouterOutlet } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
@@ -89,7 +88,6 @@ async function renderAt(
           ],
         },
       ]),
-      provideAnimationsAsync('noop'),
       provideMlvDensity('comfortable'),
       provideMlvI18n(() => import('@malva-ui/i18n/en')),
       {
