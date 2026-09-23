@@ -1,6 +1,11 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import type { StaticProvider, TemplateRef } from '@angular/core';
+import type {
+  Injector,
+  StaticProvider,
+  TemplateRef,
+  Type,
+} from '@angular/core';
 import {
   ApplicationRef,
   Component,
@@ -15,6 +20,7 @@ import type {
 } from '@angular/cdk/overlay';
 import { OverlayContainer, OverlayModule } from '@angular/cdk/overlay';
 import { A11yModule } from '@angular/cdk/a11y';
+import { ComponentPortal } from '@angular/cdk/portal';
 import { firstValueFrom } from 'rxjs';
 import { expectNoAxeViolations, runAxe } from '@malva-ui/internal-testing/axe';
 
@@ -668,6 +674,162 @@ describe('MlvOverlayServiceBase', () => {
 
     expect(document.activeElement).toBe(trigger);
     trigger.remove();
+  });
+});
+
+/**
+ * A subclass that renders the opened component inside a surface of its own
+ * instead of straight into the pane — the shape `MlvDrawerService` takes to
+ * render through the drawer's component shell. A bare `<div>` stands in for
+ * that shell: the base only cares which element the hook hands back.
+ */
+@Injectable()
+class SurfaceOverlayService extends TestOverlayService {
+  protected override _attachContent<T>(
+    overlayRef: OverlayRef,
+    component: Type<T>,
+    injector: Injector,
+  ): HTMLElement {
+    const surface = document.createElement('div');
+    surface.className = 'test-svc-surface';
+    overlayRef.overlayElement.appendChild(surface);
+    const componentRef = overlayRef.attach(
+      new ComponentPortal(component, null, injector),
+    );
+    surface.appendChild(componentRef.location.nativeElement);
+    return surface;
+  }
+}
+
+describe('MlvOverlayServiceBase — content surface', () => {
+  function pane(): HTMLElement | null {
+    return document.querySelector('.cdk-overlay-pane');
+  }
+
+  function surface(): HTMLElement | null {
+    return document.querySelector('.test-svc-surface');
+  }
+
+  afterEach(() => {
+    document
+      .querySelectorAll('.cdk-overlay-container')
+      .forEach((el) => el.remove());
+  });
+
+  it('treats the pane as the surface when the hook is not overridden', () => {
+    TestBed.configureTestingModule({ providers: [TestOverlayService] });
+    const ref = TestBed.inject(TestOverlayService).open(TestContentComponent);
+
+    const host = document.querySelector('test-overlay-content') as HTMLElement;
+    expect(host.parentElement).toBe(pane());
+    expect(host.style.display).toBe('flex');
+    expect(host.style.minHeight).toBe('0');
+    expect(pane()?.classList.contains('test-svc-panel')).toBe(true);
+    expect(pane()?.getAttribute('role')).toBe('dialog');
+    expect(pane()?.getAttribute('tabindex')).toBe('-1');
+
+    ref.close();
+    expect(pane()?.classList.contains('test-panel--leave')).toBe(true);
+    pane()?.dispatchEvent(animationEnd());
+    expect(pane()).toBeNull();
+  });
+
+  it('puts the dialog semantics, decoration and enter class on the surface the hook returns', () => {
+    TestBed.configureTestingModule({ providers: [SurfaceOverlayService] });
+    TestBed.inject(SurfaceOverlayService).open(TestContentComponent);
+
+    expect(surface()).not.toBeNull();
+    expect(surface()?.getAttribute('role')).toBe('dialog');
+    expect(surface()?.getAttribute('aria-modal')).toBe('true');
+    expect(surface()?.getAttribute('tabindex')).toBe('-1');
+    expect(surface()?.classList.contains('test-svc-panel')).toBe(true);
+    expect(surface()?.classList.contains('test-svc--enter')).toBe(true);
+    expect(pane()?.hasAttribute('role')).toBe(false);
+    expect(pane()?.classList.contains('test-svc-panel')).toBe(false);
+    expect(pane()?.classList.contains('test-svc--enter')).toBe(false);
+
+    // Only the surface's own keyframes clear the enter class.
+    pane()?.dispatchEvent(animationEnd());
+    expect(surface()?.classList.contains('test-svc--enter')).toBe(true);
+    surface()?.dispatchEvent(animationEnd());
+    expect(surface()?.classList.contains('test-svc--enter')).toBe(false);
+  });
+
+  it('plays the leave on the surface and disposes on its own animationend only', () => {
+    TestBed.configureTestingModule({ providers: [SurfaceOverlayService] });
+    const ref = TestBed.inject(SurfaceOverlayService).open(
+      TestContentComponent,
+    );
+    let closed = false;
+    ref.afterClosed().subscribe(() => (closed = true));
+
+    ref.close();
+    expect(surface()?.classList.contains('test-panel--leave')).toBe(true);
+    expect(pane()?.classList.contains('test-panel--leave')).toBe(false);
+
+    // Synchronous from here on: TestOverlayRef's 20ms fallback cannot fire.
+    // The pane is an ancestor of the surface, so its event is not the
+    // surface's own; neither is the content's, bubbling up through it.
+    document.querySelector('.svc-inside')?.dispatchEvent(animationEnd());
+    pane()?.dispatchEvent(animationEnd());
+    expect(closed).toBe(false);
+
+    surface()?.dispatchEvent(animationEnd());
+    expect(closed).toBe(true);
+    expect(pane()).toBeNull();
+  });
+
+  it('resolves initial focus against the surface', async () => {
+    TestBed.configureTestingModule({ providers: [SurfaceOverlayService] });
+    const ref = TestBed.inject(SurfaceOverlayService).open(
+      TestContentComponent,
+      { initialFocus: 'container' },
+    );
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    expect(document.activeElement).toBe(surface());
+
+    ref.close();
+    surface()?.dispatchEvent(animationEnd());
+  });
+
+  it('drops the surface once the ref has disposed the overlay', () => {
+    TestBed.configureTestingModule({ providers: [SurfaceOverlayService] });
+    const ref = TestBed.inject(SurfaceOverlayService).open(
+      TestContentComponent,
+    );
+    const surfaceEl = surface();
+    expect(surfaceEl).not.toBeNull();
+    expect(ref._surfaceElement === surfaceEl).toBe(true);
+
+    ref.close();
+    surfaceEl?.dispatchEvent(animationEnd());
+
+    // A ref kept in a component field must not keep the detached surface's
+    // DOM alive with it.
+    expect(pane()).toBeNull();
+    expect(ref._surfaceElement === null).toBe(true);
+    expect(ref['_panelElement'] === null).toBe(true);
+  });
+
+  it('completes a close() at once after the overlay was disposed outside the ref', () => {
+    TestBed.configureTestingModule({ providers: [SurfaceOverlayService] });
+    const ref = TestBed.inject(SurfaceOverlayService).open(
+      TestContentComponent,
+    );
+    let closed = false;
+    ref.afterClosed().subscribe(() => (closed = true));
+
+    // Disposed by something other than the ref's own `close()`: the surface
+    // leaves the document with the pane and can never fire `animationend`.
+    ref['_overlayRef'].dispose();
+    expect(pane()).toBeNull();
+    expect(ref['_panelElement'] === null).toBe(true);
+
+    // Synchronous: no wait on TestOverlayRef's 20ms fallback timer.
+    ref.close();
+    expect(closed).toBe(true);
+    expect(ref._surfaceElement === null).toBe(true);
   });
 });
 

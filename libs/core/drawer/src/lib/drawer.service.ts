@@ -1,4 +1,4 @@
-import type { StaticProvider } from '@angular/core';
+import type { Injector, StaticProvider, Type } from '@angular/core';
 import { inject, Injectable, InjectionToken } from '@angular/core';
 import { MLV_DRAWER_I18N } from '@malva-ui/i18n';
 import type {
@@ -6,16 +6,28 @@ import type {
   OverlayRef,
   PositionStrategy,
 } from '@angular/cdk/overlay';
+import { ComponentPortal } from '@angular/cdk/portal';
 import type { MlvBaseOverlayConfig } from '@malva-ui/cdk/overlay';
 import { MlvOverlayServiceBase } from '@malva-ui/cdk/overlay';
 import { MlvDrawerRef } from './drawer-ref';
+import { MlvDrawerPanel } from './drawer/drawer-panel';
 
 export type MlvDrawerPosition = 'left' | 'right' | 'top' | 'bottom';
 
+/**
+ * Configuration for `MlvDrawerService.open()` and
+ * `mlvGenerateRoutableDrawerRoute()`. The drawer renders through the same
+ * panel `<mlv-drawer>` does, so each field below means what the input of the
+ * same name means there.
+ */
 export interface MlvDrawerConfig extends MlvBaseOverlayConfig {
   /** Edge the drawer slides from. Defaults to `'right'`. */
   position?: MlvDrawerPosition;
-  /** CSS width (left/right) or height (top/bottom) of the panel. */
+  /**
+   * CSS width (left/right) or height (top/bottom) of the panel. Defaults to
+   * `'300px'`. Ignored while `resizable` is true: a resizable drawer opens at
+   * `defaultSnap`, as `<mlv-drawer>` does.
+   */
   size?: string;
   /**
    * CSS max-size ceiling for the panel's sizing axis (width for `left`/`right`,
@@ -31,13 +43,15 @@ export interface MlvDrawerConfig extends MlvBaseOverlayConfig {
    * **Currently inert** (#277): the value is handed to `MlvDrawerRef` and
    * stored, but nothing reads it. The leave animation's length comes from the
    * CSS `--mlv-drawer-leave-duration` custom property, and disposal waits for
-   * the pane's own `animationend` or `MlvDrawerRef`'s fixed 350 ms
+   * the panel's own `animationend` or `MlvDrawerRef`'s fixed 350 ms
    * `_leaveFallbackMs`, whichever comes first.
    */
   animationDuration?: number;
   /**
-   * When true, renders a drag handle on the inward-facing edge.
-   * Enables drag-to-resize and swipe-to-dismiss.
+   * When true, renders a drag handle on the inward-facing edge and opens the
+   * panel at `defaultSnap` instead of `size`. Enables drag-to-resize,
+   * keyboard resizing and swipe-to-dismiss; a dismiss closes the drawer
+   * through its `MlvDrawerRef`.
    */
   resizable?: boolean;
   /**
@@ -55,13 +69,6 @@ export interface MlvDrawerConfig extends MlvBaseOverlayConfig {
 
 export const DRAWER_DATA = new InjectionToken<unknown>('DRAWER_DATA');
 
-const HIDDEN_TRANSFORMS: Record<MlvDrawerPosition, string> = {
-  left: 'translateX(-100%)',
-  right: 'translateX(100%)',
-  top: 'translateY(-100%)',
-  bottom: 'translateY(100%)',
-};
-
 @Injectable({ providedIn: 'root' })
 export class MlvDrawerService extends MlvOverlayServiceBase<
   MlvDrawerConfig,
@@ -70,7 +77,7 @@ export class MlvDrawerService extends MlvOverlayServiceBase<
   /** @protected Panel enter-animation class for drawers. */
   protected override readonly _enterAnimationClass = 'mlv-drawer--enter';
 
-  /** @private i18n strings — `drawer` is the pane's accessible-name fallback. */
+  /** @private i18n strings — `drawer` is the panel's accessible-name fallback. */
   private readonly _i18n = inject(MLV_DRAWER_I18N);
 
   /** @protected Anchors the drawer to the configured viewport edge. */
@@ -115,56 +122,65 @@ export class MlvDrawerService extends MlvOverlayServiceBase<
   }
 
   /**
-   * @protected Applies drawer shell classes, hidden-transform var, panel sizing
-   * and the accessible-name fallback to the overlay pane.
+   * @protected Renders the drawer panel — the component `<mlv-drawer>`
+   * renders — in the CDK pane, and `component` inside it.
    *
-   * The base service sets `role="dialog"` but no name. The i18n `drawer`
-   * string goes on as `aria-label` so the pane is never nameless; a rendered
-   * `mlv-drawer-header` title replaces it with `aria-labelledby` through
-   * `MlvDrawerRef._labelBy` and hands it back when the title withdraws.
+   * The panel brings what only a constructed component can: `drawer.scss`,
+   * the resize handle, the viewport-clamped geometry and
+   * `MlvDrawerSectionsService` for `[mlvDrawerSection]` content. Its first
+   * render runs here, synchronously, so the geometry and the handle exist when
+   * `open()` returns, before the opened component is created at the panel's
+   * content anchor. A handle dismiss closes the drawer through `ref`, which
+   * runs the same leave as `close()`.
+   *
+   * @returns The panel element, which the base makes the dialog surface.
    */
-  protected override _decoratePanel(
-    panelEl: HTMLElement,
+  protected override _attachContent<T>(
+    overlayRef: OverlayRef,
+    component: Type<T>,
+    injector: Injector,
+    ref: MlvDrawerRef,
     config: MlvDrawerConfig,
-  ): void {
-    const position = config.position ?? 'right';
-    const size = config.size ?? '300px';
-    const isHorizontal = position === 'left' || position === 'right';
-
-    panelEl.classList.add('mlv-drawer', `mlv-drawer--${position}`);
-    panelEl.setAttribute('aria-label', this._i18n().drawer);
-    panelEl.style.setProperty(
-      '--mlv-drawer-hidden-transform',
-      HIDDEN_TRANSFORMS[position],
+  ): HTMLElement {
+    const panelRef = overlayRef.attach(
+      new ComponentPortal(MlvDrawerPanel, null, injector),
     );
-
-    if (isHorizontal) {
-      panelEl.style.width = size;
-      panelEl.style.height = '100dvh';
-      panelEl.style.maxWidth = this._resolveMaxSize(config.maxSize, '100dvw');
-      panelEl.style.maxHeight = '100dvh';
-    } else {
-      panelEl.style.height = size;
-      panelEl.style.width = '100dvw';
-      panelEl.style.maxHeight = this._resolveMaxSize(config.maxSize, '100dvh');
-      panelEl.style.maxWidth = '100dvw';
+    panelRef.setInput('position', config.position ?? 'right');
+    // Unset fields keep the panel's defaults, which are `<mlv-drawer>`'s.
+    if (config.size !== undefined) panelRef.setInput('size', config.size);
+    if (config.maxSize !== undefined) {
+      panelRef.setInput('maxSize', config.maxSize);
     }
+    if (config.resizable !== undefined) {
+      panelRef.setInput('resizable', config.resizable);
+    }
+    if (config.snapPoints !== undefined) {
+      panelRef.setInput('snapPoints', config.snapPoints);
+    }
+    if (config.defaultSnap !== undefined) {
+      panelRef.setInput('defaultSnap', config.defaultSnap);
+    }
+    panelRef.changeDetectorRef.detectChanges();
+
+    const contentRef = panelRef.instance._attachContent(component);
+    this._applyContentLayout(contentRef.location.nativeElement as HTMLElement);
+
+    // Completed with the panel, which the overlay destroys on dispose.
+    panelRef.instance.dismissed.subscribe(() => ref.close());
+
+    return panelRef.location.nativeElement as HTMLElement;
   }
 
   /**
-   * @private Combines a configured `maxSize` with the viewport ceiling for the
-   * sizing axis.
+   * @protected Writes the accessible-name fallback onto the drawer panel.
    *
-   * `drawer.scss` cannot help here — Angular injects a component's styles when
-   * that component is first instantiated, and `MlvDrawer` is never constructed
-   * on the service path — so the clamp has to be written onto the pane.
+   * The panel carries `role="dialog"` but no name. The i18n `drawer` string
+   * goes on as `aria-label` so the dialog is never nameless; a rendered
+   * `mlv-drawer-header` title replaces it with `aria-labelledby` through
+   * `MlvDrawerRef._labelBy` and hands it back when the title withdraws.
+   * Classes, geometry and the hidden transform are the panel's own bindings.
    */
-  private _resolveMaxSize(
-    maxSize: string | undefined,
-    viewportCeiling: string,
-  ): string {
-    return !maxSize || maxSize === '100%'
-      ? viewportCeiling
-      : `min(${maxSize}, ${viewportCeiling})`;
+  protected override _decoratePanel(panelEl: HTMLElement): void {
+    panelEl.setAttribute('aria-label', this._i18n().drawer);
   }
 }

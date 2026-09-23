@@ -20,21 +20,20 @@ import { MlvOverlayHostBase } from '@malva-ui/cdk/overlay';
 import { MLV_DRAWER_I18N } from '@malva-ui/i18n';
 import { MlvDrawerSectionsService } from '../drawer-sections.service';
 import { MlvDrawerContent } from '../drawer-content';
-import { MlvDrawerResize } from '../drawer-resize';
 import type { MlvDrawerPosition } from '../drawer.service';
+import {
+  DRAWER_HIDDEN_TRANSFORMS,
+  resolveDrawerPanelDimensions,
+} from './drawer-geometry';
+import { MlvDrawerPanel } from './drawer-panel';
 
-const HIDDEN_TRANSFORMS: Record<MlvDrawerPosition, string> = {
-  left: 'translateX(-100%)',
-  right: 'translateX(100%)',
-  top: 'translateY(-100%)',
-  bottom: 'translateY(100%)',
-};
-
+// No `styleUrl`: `drawer.scss` belongs to `MlvDrawerPanel`, the panel every
+// open path renders, so the rules arrive with an open drawer whichever way it
+// was opened rather than with this host.
 @Component({
   selector: 'mlv-drawer',
-  imports: [OverlayModule, A11yModule, NgTemplateOutlet, MlvDrawerResize],
+  imports: [OverlayModule, A11yModule, NgTemplateOutlet, MlvDrawerPanel],
   templateUrl: './drawer.html',
-  styleUrl: './drawer.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [MlvDrawerSectionsService],
@@ -169,7 +168,15 @@ export class MlvDrawer extends MlvOverlayHostBase {
    */
   readonly maxSize = input('100%');
 
-  readonly hiddenTransform = computed(() => HIDDEN_TRANSFORMS[this.position()]);
+  /**
+   * Transform that parks the panel beyond its edge, which the shared
+   * `drawer-enter` / `drawer-leave` keyframes read through
+   * `--mlv-drawer-hidden-transform`. The panel binds its own copy; this one is
+   * kept for callers that read it.
+   */
+  readonly hiddenTransform = computed(
+    () => DRAWER_HIDDEN_TRANSFORMS[this.position()],
+  );
 
   /** @protected Projected drawer content directive, rendered into the overlay panel. */
   protected readonly contentRef = contentChild(MlvDrawerContent);
@@ -179,76 +186,21 @@ export class MlvDrawer extends MlvOverlayHostBase {
     viewChild<TemplateRef<unknown>>('drawerTemplate');
 
   /**
-   * @protected Computes the initial panel size string.
-   * When resizable, uses `defaultSnap` as a dvh/dvw percentage;
-   * otherwise falls back to the `size` input.
-   */
-  protected readonly _initialPanelSize = computed(() => {
-    if (!this.resizable()) return this.size();
-    const snap = this.defaultSnap();
-    const pos = this.position();
-    const isVertical = pos === 'bottom' || pos === 'top';
-    return isVertical ? `${snap}dvh` : `${snap}dvw`;
-  });
-
-  /**
-   * @private Combines the configured `maxSize` with the viewport ceiling for
-   * the sizing axis.
-   *
-   * The viewport ceiling is unconditional: without it a fixed `size` larger
-   * than the screen (`size="36rem"` on a 375 px phone) renders a panel that
-   * hangs off the edge. `maxSize` is folded in through CSS `min()` so it is
-   * honoured on the non-resizable path too. The `'100%'` default is dropped
-   * rather than nested — it resolves against the overlay pane, which is itself
-   * sized by this panel, so it would add nothing but an indirection.
-   */
-  private _resolveMaxSize(viewportCeiling: string): string {
-    const maxSize = this.maxSize();
-    return !maxSize || maxSize === '100%'
-      ? viewportCeiling
-      : `min(${maxSize}, ${viewportCeiling})`;
-  }
-
-  /**
-   * @private Combines `minSize` with the viewport ceiling for the sizing axis.
-   *
-   * `min-width` / `min-height` beat `max-*`, so an unclamped floor would undo
-   * the viewport clamp above. The `'0px'` default is passed through bare.
-   */
-  private _resolveMinSize(viewportCeiling: string): string {
-    const minSize = this.minSize();
-    return !minSize || minSize === '0px'
-      ? '0px'
-      : `min(${minSize}, ${viewportCeiling})`;
-  }
-
-  /**
-   * Resolved inline geometry for the panel element: the sizing-axis `size`, the
-   * cross-axis viewport fill, the `minSize` floor on the sizing axis, and the
-   * max ceilings on both axes.
+   * Resolved inline geometry of the panel: the sizing-axis `size` (or the
+   * `defaultSnap` size of a `resizable` drawer), the cross-axis viewport fill,
+   * the `minSize` floor on the sizing axis, and the max ceilings on both axes,
+   * each clamped to the viewport. The panel binds the same geometry from the
+   * same inputs; this getter is kept for callers that read it.
    */
   get drawerDimensions(): Record<string, string> {
-    const pos = this.position();
-    const size = this.resizable()
-      ? `var(--mlv-drawer-current-size, ${this._initialPanelSize()})`
-      : this._initialPanelSize();
-
-    if (pos === 'left' || pos === 'right') {
-      return {
-        width: size,
-        height: '100dvh',
-        minWidth: this._resolveMinSize('100dvw'),
-        maxWidth: this._resolveMaxSize('100dvw'),
-        maxHeight: '100dvh',
-      };
-    }
-    return {
-      height: size,
-      width: '100dvw',
-      minHeight: this._resolveMinSize('100dvh'),
-      maxHeight: this._resolveMaxSize('100dvh'),
-      maxWidth: '100dvw',
-    };
+    return resolveDrawerPanelDimensions({
+      position: this.position(),
+      size: this.size(),
+      resizable: this.resizable(),
+      defaultSnap: this.defaultSnap(),
+      minSize: this.minSize(),
+      maxSize: this.maxSize(),
+    });
   }
 
   /** @protected Returns the drawer surface template to attach to the overlay. */

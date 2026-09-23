@@ -14,6 +14,8 @@ form-safe.
 2. **Imperative / service-based** (`MlvDrawerService`): Programmatically open any Angular component inside a drawer overlay by calling `MlvDrawerService.open()`. Useful for lazy, dynamic content.
 3. **Route-driven** — use `mlvGenerateRoutableDrawerRoute()` to create a route that opens a component in a drawer when activated; when the drawer closes, the router navigates back to the parent route.
 
+All three render through **one panel component**, `MlvDrawerPanel` (`div[mlvDrawerPanel]`, internal): the `role="dialog"` `.mlv-drawer` element, its geometry, its resize handle, `drawer.scss` and a `MlvDrawerSectionsService`. Same markup, same styles, same sizing on every path (#305). `mlv-drawer-header` carries its own `drawer-header.scss`, so a header is styled with or without an open drawer — see _`MlvDrawerPanel`_ below for the measured differences that remain.
+
 Additionally, the library ships `MlvDrawerSection` and `MlvDrawerSections` for dividing a drawer body into labeled scroll-tracked sections with a navigation pop-up.
 
 ---
@@ -41,9 +43,10 @@ Exported from `libs/core/drawer/src/index.ts`:
 | `MlvDrawerSections`              | Component                 | Navigation pop-up listing all registered sections                                                                        |
 | `mlvGenerateRoutableDrawerRoute` | Function                  | Creates a `Route` that opens a component inside a drawer when activated; accepts eager class or lazy `() => import(...)` |
 
-`MlvDrawerResize` remains an implementation detail and is intentionally
-absent from the public barrel. Drawer-section DOM lookup is scoped to the owning
-`.mlv-drawer` instance so multiple drawers cannot select one another's body.
+`MlvDrawerResize`, `MlvDrawerPanel` and `drawer-geometry.ts` remain
+implementation details and are intentionally absent from the public barrel.
+Drawer-section DOM lookup is scoped to the owning `.mlv-drawer` instance so
+multiple drawers cannot select one another's body.
 
 ---
 
@@ -95,25 +98,36 @@ absent from the public barrel. Drawer-section DOM lookup is scoped to the owning
 **Internal signals:**
 
 - `animationState: Signal<'enter' | 'leave' | 'idle'>` — Drives CSS animation classes on the drawer panel.
-- `hiddenTransform: Signal<string>` — Computed CSS transform string applied as a CSS variable for the slide-out keyframe.
+- `hiddenTransform: Signal<string>` — Computed CSS transform string for the slide-out keyframe. Kept public; the panel binds its own copy (`DRAWER_HIDDEN_TRANSFORMS`).
 
 **Template structure (`drawer.html`):**
 
 ```
 <ng-template #drawerTemplate>
-  <div class="mlv-drawer mlv-drawer--{position}" role="dialog" aria-modal="true"
-       cdkTrapFocus [cdkTrapFocusAutoCapture]="false"
+  <div class="mlv-drawer__backdrop"></div>
+  <div mlvDrawerPanel [position] [size] [resizable] [snapPoints] [defaultSnap]
+       [minSize] [maxSize]
        [class.mlv-drawer--enter] [class.mlv-drawer--leave]
-       [style.width] [style.height]
-       [style.max-width] [style.max-height]
-       [style.--mlv-drawer-hidden-transform]
-       (animationend)="_onPanelAnimationEnd($event)">
-    @if (contentRef()) {
-      <ng-template [ngTemplateOutlet]="contentRef()!.templateRef" />
+       (animationend)="_onPanelAnimationEnd($event)" (dismissed)="close()"
+       [attr.aria-label] [attr.aria-labelledby]
+       cdkTrapFocus [cdkTrapFocusAutoCapture]="false">
+    @if (contentRef(); as contentTpl) {
+      <ng-template [ngTemplateOutlet]="contentTpl.templateRef" />
     }
   </div>
 </ng-template>
 ```
+
+`MlvDrawer` owns the open state, the enter / leave classes, the guarded
+`animationend`, the accessible name and the focus trap; the panel owns the
+element, its classes, geometry and handle. `MlvDrawer` has **no `styleUrl`**
+— `drawer.scss` belongs to the panel, so the rules arrive with an open drawer
+of any kind and leave with the last one. `[mlvDrawerBody]` / `[mlvDrawerFooter]`
+rendered outside any open drawer are therefore no longer styled merely because
+some closed `<mlv-drawer>` exists on the page. The header is the exception: its
+row rules live in `drawer-header.scss`, `MlvDrawerHeader`'s own `styleUrl`, so
+a header renders styled on its own (the documented standalone row) and inside
+every drawer alike.
 
 **Leave disposal waits for the panel's own `animationend`:** the panel binds the
 base's target-guarded `_onPanelAnimationEnd($event)`, not `onAnimationEnd()`.
@@ -136,12 +150,19 @@ to the connected pre-open target on close. Set `restoreFocus=false` when a
 composed parent owns the logical focus lifecycle; disposal then leaves focus
 untouched. Reopening during leave cancels disposal and keeps the Drawer rendered.
 
-**Viewport clamping:** `drawerDimensions` emits `maxWidth`/`maxHeight` alongside
-`width`/`height`. The sizing axis resolves to `min(<maxSize>, 100dvw|100dvh)`
-(the `'100%'` default collapses to the bare viewport ceiling), and the cross axis
-fills the viewport. Without this a fixed `size="36rem"` rendered 576 px wide on a
-375 px phone. `.mlv-drawer` also carries `max-inline-size: 100dvw` /
-`max-block-size: 100dvh` as the declarative-path floor.
+**Viewport clamping:** the panel's geometry (`resolveDrawerPanelDimensions()`
+in `drawer/drawer-geometry.ts`, one function for every open path;
+`MlvDrawer.drawerDimensions` returns the same record) emits
+`maxWidth`/`maxHeight` alongside `width`/`height` and the `minSize` floor.
+The sizing axis resolves to `min(<maxSize>, 100dvw|100dvh)` (the `'100%'`
+default collapses to the bare viewport ceiling), and the cross axis fills the
+viewport. Without this a fixed `size="36rem"` rendered 576 px wide on a 375 px
+phone. A `resizable` panel ignores `size` and opens at
+`var(--mlv-drawer-current-size, <defaultSnap>dvh|dvw)`. `.mlv-drawer` also
+carries `max-inline-size: 100dvw` / `max-block-size: 100dvh` as the floor if
+the inline binding is overridden. jsdom's CSSOM drops `height: var(…)` and
+`dvh` / `dvw` widths, so specs read the resolved size off the panel's
+`_dimensions` binding (`boundPanelHeight()` in `drawer.service.spec.ts`).
 
 **Accessible name (the `role="dialog"` is never nameless):** the panel resolves its
 name in this precedence order, mirroring how a dialog labels itself from the
@@ -162,10 +183,11 @@ title id `mlv-dialog-header` publishes (`<dialogId>-title-<n>`):
 `_resolvedAriaLabelledBy` resolves steps 1–3 and `_resolvedAriaLabel` is null
 whenever it resolves, so the two naming methods never conflict. Service-opened
 drawers get step 3 through `MlvDrawerRef._labelBy` / `_unlabelBy`, which write
-`aria-labelledby` onto the overlay pane, and step 4 through `MlvDrawerService`,
-which writes the i18n `drawer` string as `aria-label` on the pane at open. The
-ref parks that `aria-label` while a title is registered and puts it back when
-the last title withdraws, so the pane is never nameless and the two attributes
+`aria-labelledby` onto the drawer panel (the `role="dialog"` element inside
+the pane, never the pane itself), and step 4 through `MlvDrawerService`, which
+writes the i18n `drawer` string as `aria-label` on the panel at open. The ref
+parks that `aria-label` while a title is registered and puts it back when the
+last title withdraws, so the dialog is never nameless and the two attributes
 never coexist. (`MlvDrawerConfig` has no `ariaLabel`; the header title is the
 way to name a service-opened drawer.)
 
@@ -173,7 +195,10 @@ The `<ng-template>` is projected into a CDK `TemplatePortal` when opened.
 
 **Host bindings:** None on the host element itself — the panel is rendered into an overlay container via CDK.
 
-**Providers:** `MlvDrawerSectionsService` (component-scoped).
+**Providers:** `MlvDrawerSectionsService` (component-scoped) — the instance
+declarative `mlvDrawerContent` resolves, by its declaration site. The panel
+provides its own for service-opened content; for declarative content it is
+never instantiated.
 
 **CSS variables:**
 
@@ -216,11 +241,78 @@ won the race and stripped `--snapping` mid-snap, which cancels the panel's
 `width`/`height` transition and jumps it to the target. Same defect class as the
 overlay bases' `animationend` guard; pinned in `drawer-resize.spec.ts`.
 
-**Styling tokens used (`drawer.scss`):**
+**Styling tokens used (`drawer.scss`, plus `drawer-header.scss` for the header row):**
 
-- `--mlv-background-elevation-1`, `--mlv-shadow-medium`, `--mlv-text-primary`, `--mlv-padding-l`, `--mlv-border-normal`
+- `--mlv-elevation-bg-2`, `--mlv-shadow-overlay`, `--mlv-text-primary`, `--mlv-padding-l`, `--mlv-border-normal`, `--mlv-background-overlay` (backdrop)
 
 ---
+
+### `MlvDrawerPanel` (internal — not exported)
+
+**Selector:** `div[mlvDrawerPanel]` (attribute selector, so a dynamically
+created host is a `<div>` too)
+
+**File:** `libs/core/drawer/src/lib/drawer/drawer-panel.ts`
+
+**Purpose:** The one `role="dialog"` surface every drawer renders in (#305).
+`<mlv-drawer>` renders it in its overlay template; `MlvDrawerService` — and so
+every routable drawer — attaches it to the CDK pane and creates the opened
+component inside it. Three things exist only because a component is
+constructed, which is why a service-opened drawer used to get none of them:
+`drawer.scss` (`styleUrl`), the resize handle, and
+`MlvDrawerSectionsService` (`providers`).
+
+**Host:** `class="mlv-drawer mlv-drawer--{position}"`, `mlv-drawer--resizable`,
+`role="dialog"`, `aria-modal="true"`, inline
+`width`/`height`/`min-*`/`max-*` and `--mlv-drawer-hidden-transform`.
+
+**Inputs:** `position` (`'right'`), `size` (`'300px'`), `resizable`
+(coerced, `false`), `snapPoints` (`[]`), `defaultSnap` (`100`), `minSize`
+(`'0px'`), `maxSize` (`'100%'`) — `MlvDrawer`'s defaults. **Output:**
+`dismissed` (the handle's swipe / key dismiss).
+
+**Template:** `@if (resizable()) { <div class="mlv-drawer__handle" mlvDrawerResize> }`,
+then `<ng-content />` (declarative content), then `<ng-container #content />`
+— the anchor `_attachContent(component)` creates service content at. That
+host gets `mlv-drawer__content` and `MlvOverlayServiceBase._applyContentLayout`'s
+flex pass-through, and is the one element between the panel and a header on
+the service path, which the merged bottom-sheet band accounts for.
+
+**Content injector (service path):** panel providers
+(`MlvDrawerSectionsService`) → the portal injector (`MlvDrawerRef`,
+`DRAWER_DATA`) → `config.injector`. `[mlvDrawerSection]` /
+`mlv-drawer-sections` in a service-opened or routable drawer threw `NG0201`
+before; they resolve the panel's instance now.
+
+**What still differs between the three paths** (measured, a three-path probe
+over the same bottom / resizable / `[30, 60]` / `defaultSnap: 60` config):
+
+| Behaviour                                                   | `<mlv-drawer>`            | Service / routable                            |
+| ----------------------------------------------------------- | ------------------------- | --------------------------------------------- |
+| `tabindex="-1"` on the panel                                | absent                    | present (written by `MlvOverlayServiceBase`)  |
+| Element between panel and header                            | none                      | the opened component (`.mlv-drawer__content`) |
+| Stray `<div class="mlv-drawer__backdrop">` beside the panel | present (unstyled, empty) | absent                                        |
+
+Identical on all three: the panel element and its classes, dialog semantics,
+accessible name from the header title, compact header density, pane `dir`,
+backdrop class, resize handle, geometry (incl. `min-height: 0px` and the
+clamped `max-height`), initial focus (the handle, when `resizable`),
+sections support.
+
+**Specs:** `drawer.service.spec.ts` § _renders through the drawer component
+shell_ (the panel is the `div[mlvDrawerPanel]` host inside the pane; semantics,
+enter / leave, handle, `defaultSnap`, keyboard resize and dismiss, the header's
+place, an axe sweep of the open sheet, sections), `routable-drawer.spec.ts`
+(the same through `mlvGenerateRoutableDrawerRoute()`, errors raised in the
+route shell's RxJS pipeline captured through `config.onUnhandledError`), and
+`drawer-styles.spec.ts` (the panel owns `drawer.scss` and the header owns
+`drawer-header.scss`, read from each `@Component` decorator's syntax tree, so a
+comment spelling `styleUrl` does not count; the service-path band rules match
+the declarative ones; no header-sheet selector needs a drawer above it).
+Component stylesheets never reach the document in this test environment
+(measured: `ɵcmp.styles` is empty and no `<style>` carries a drawer rule while a
+standalone header renders or a service drawer is open), so ownership is pinned
+statically plus the runtime host-selector check.
 
 ### `MlvDrawerSection`
 
@@ -436,14 +528,16 @@ the close button — rendered as one 36px control row. Use it as an element
   action buttons go. Without a spacer the close still sits at the inline end
   (`.mlv-drawer__close { margin-inline-start: auto }`).
 - **Outside a drawer** (no `MlvDrawer` and no `MlvDrawerRef` resolvable) the
-  header is a plain styled row: no close button, no label registration.
+  header is a plain styled row: no close button, no label registration. It is
+  styled because the header ships its own stylesheet (`drawer-header.scss`);
+  `drawer.scss` arrives only with an open drawer's panel.
 
 **Host bindings:** `class: 'mlv-drawer__header'`, `[attr.title]: null` (strips
 the native `title` attribute the element form leaves behind). Host directive
 `MlvDensityDirective` with the `mlvDensity` input; the header itself carries no
 density modifier class.
 
-**Styles (`drawer.scss`):** `.mlv-drawer__header` is a `gap: var(--mlv-spacing-2)`
+**Styles (`drawer-header.scss`, the header's own `styleUrl`):** `.mlv-drawer__header` is a `gap: var(--mlv-spacing-2)`
 flex row with `--mlv-padding-l` and a block-end hairline (61px with 36px
 controls). `.mlv-drawer__title` truncates with an ellipsis.
 
@@ -456,7 +550,9 @@ full-height 48px gutter at the inward edge: the handle is `position: absolute`
 its own and pushed the header below the panel.)
 
 **Merged bottom-sheet band.** In `.mlv-drawer--bottom.mlv-drawer--resizable:has(> .mlv-drawer__header)`
-the 48px drag handle is `position: absolute` across the top of the panel
+— and its service-path twin `…:has(> .mlv-drawer__content > .mlv-drawer__header)`,
+where the opened component's host sits between panel and header; both shapes
+share one selector list — the 48px drag handle is `position: absolute` across the top of the panel
 (`.mlv-drawer` is `position: relative`), its pill at `--mlv-spacing-2` from
 the edge, and the header lifts its content with
 `padding-block-start: var(--mlv-spacing-5)` — one 69px band instead of a 48px
@@ -465,7 +561,9 @@ strip stacked on a 69px header. The header is `pointer-events: none` with
 space falls through to the handle while controls keep their hit areas. A sheet
 without a header keeps the in-flow handle. `:has()` is Baseline 2023; where it
 is unsupported (Firefox < 121) the four merged-band rules drop and the sheet
-degrades to the stacked 48px strip above the header.
+degrades to the stacked 48px strip above the header. `drawer-styles.spec.ts`
+pins that each service-path rule carries exactly the declarative one's
+declarations.
 
 ---
 
@@ -516,7 +614,7 @@ descendant can do the same.
 
 **File:** `libs/core/drawer/src/lib/drawer-resize.ts`
 
-**Purpose:** Internal directive applied by `MlvDrawer` to `div.mlv-drawer__handle` when `resizable=true`. Handles pointer-capture drag, velocity measurement, snap-point selection, spring animation, and keyboard resize. Not intended for direct external use.
+**Purpose:** Internal directive applied by `MlvDrawerPanel` to `div.mlv-drawer__handle` when `resizable=true` — on every open path, so a service-opened or routable drawer gets the same handle (#305); a dismiss closes it through `MlvDrawerRef`. Handles pointer-capture drag, velocity measurement, snap-point selection, spring animation, and keyboard resize. Not intended for direct external use.
 
 **Inputs:**
 
@@ -564,7 +662,7 @@ layout) leaves the value alone.
 
 **Purpose:** Programmatically opens any Angular component inside a drawer overlay without needing a host template.
 
-**Extends:** `MlvOverlayServiceBase<MlvDrawerConfig, MlvDrawerRef>` from `@malva-ui/cdk/overlay` — the shared `open()` flow (overlay creation, child injector, component-portal attach, `role="dialog"`/`aria-modal`, focus trap, enter animation, backdrop/Escape close) is inherited. `MlvDrawerService` supplies the edge position strategy, backdrop class, `MlvDrawerRef` construction, `MlvDrawerRef`/`DRAWER_DATA` providers, and panel decoration (shell classes, hidden-transform var, width/height).
+**Extends:** `MlvOverlayServiceBase<MlvDrawerConfig, MlvDrawerRef>` from `@malva-ui/cdk/overlay` — the shared `open()` flow (overlay creation, child injector, `role="dialog"`/`aria-modal`/`tabindex`, focus trap, enter animation, backdrop/Escape close) is inherited. `MlvDrawerService` supplies the edge position strategy, backdrop class, `MlvDrawerRef` construction, `MlvDrawerRef`/`DRAWER_DATA` providers, the `aria-label` fallback (`_decoratePanel`), and overrides `_attachContent`: it attaches `MlvDrawerPanel` to the pane, sets its inputs from the config (unset fields keep the panel's defaults), runs its first render synchronously, creates the opened component inside it and returns the panel — which the base then makes the dialog surface, so the enter / leave classes, the guarded `animationend` and the focus trap all sit on the panel, not the pane.
 
 **Methods:**
 
@@ -574,26 +672,30 @@ open<T>(component: Type<T>, config?: MlvDrawerConfig): MlvDrawerRef
 
 - Creates a CDK `OverlayRef` positioned at the specified edge.
 - Creates a child `Injector` providing `MlvDrawerRef` and `DRAWER_DATA`.
-- Attaches the component via `ComponentPortal`.
+- Attaches `MlvDrawerPanel` via `ComponentPortal` and creates the component inside it (host class `mlv-drawer__content`).
 - Animates the backdrop on open.
 - Wires up backdrop-click and Escape key to `drawerRef.close()` (unless disabled by config).
 - Returns the `MlvDrawerRef` to the caller.
 
 **`MlvDrawerConfig` interface:**
 
-| Property            | Type                     | Default   | Description                                                                                                                                                                            |
-| ------------------- | ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `position`          | `MlvDrawerPosition`      | `'right'` | Edge the drawer slides from                                                                                                                                                            |
-| `size`              | `string`                 | —         | CSS width or height of the panel                                                                                                                                                       |
-| `maxSize`           | `string`                 | —         | Max-size ceiling for the sizing axis; always additionally clamped to the viewport                                                                                                      |
-| `initialFocus`      | `MlvOverlayInitialFocus` | `'auto'`  | Inherited from `MlvBaseOverlayConfig`                                                                                                                                                  |
-| `data`              | `unknown`                | —         | Arbitrary data injected as `DRAWER_DATA`                                                                                                                                               |
-| `closeOnBackdrop`   | `boolean`                | `true`    | Clicking backdrop closes the drawer                                                                                                                                                    |
-| `closeOnEscape`     | `boolean`                | `true`    | Pressing Escape closes the drawer                                                                                                                                                      |
-| `animationDuration` | `number`                 | `300`     | **Inert** (#277) — stored, read by nothing. Leave length is CSS `--mlv-drawer-leave-duration`; disposal waits for the pane's own `animationend` or the fixed 350 ms `_leaveFallbackMs` |
-| `resizable`         | `boolean`                | `false`   | Renders a drag handle for resize / swipe-to-dismiss                                                                                                                                    |
-| `snapPoints`        | `number[]`               | `[]`      | Viewport-percentage snap points (0–100)                                                                                                                                                |
-| `defaultSnap`       | `number`                 | `100`     | Initial open snap point percentage                                                                                                                                                     |
+| Property            | Type                     | Default   | Description                                                                                                                                                                             |
+| ------------------- | ------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `position`          | `MlvDrawerPosition`      | `'right'` | Edge the drawer slides from                                                                                                                                                             |
+| `size`              | `string`                 | `'300px'` | CSS width or height of the panel. Ignored while `resizable` — a resizable drawer opens at `defaultSnap`, as `<mlv-drawer>` does                                                         |
+| `maxSize`           | `string`                 | —         | Max-size ceiling for the sizing axis; always additionally clamped to the viewport                                                                                                       |
+| `initialFocus`      | `MlvOverlayInitialFocus` | `'auto'`  | Inherited from `MlvBaseOverlayConfig`                                                                                                                                                   |
+| `data`              | `unknown`                | —         | Arbitrary data injected as `DRAWER_DATA`                                                                                                                                                |
+| `closeOnBackdrop`   | `boolean`                | `true`    | Clicking backdrop closes the drawer                                                                                                                                                     |
+| `closeOnEscape`     | `boolean`                | `true`    | Pressing Escape closes the drawer                                                                                                                                                       |
+| `animationDuration` | `number`                 | `300`     | **Inert** (#277) — stored, read by nothing. Leave length is CSS `--mlv-drawer-leave-duration`; disposal waits for the panel's own `animationend` or the fixed 350 ms `_leaveFallbackMs` |
+| `resizable`         | `boolean`                | `false`   | Renders a drag handle for resize / keyboard resize / swipe-to-dismiss and opens at `defaultSnap`. Inert before #305 — no handle, `size` used                                            |
+| `snapPoints`        | `number[]`               | `[]`      | Viewport-percentage snap points (0–100), handed to the handle                                                                                                                           |
+| `defaultSnap`       | `number`                 | `100`     | Initial open snap point percentage of a `resizable` drawer                                                                                                                              |
+
+Not in the config (follow-up): `minSize`, `hasBackdrop`, `restoreFocus`,
+`ariaLabel` / `ariaLabelledBy` — `<mlv-drawer>` inputs with no service
+equivalent.
 
 **Injection token:** `DRAWER_DATA` — an `InjectionToken<unknown>`. Inject with `inject(DRAWER_DATA)` in the opened component to receive `config.data`.
 
@@ -613,7 +715,7 @@ open<T>(component: Type<T>, config?: MlvDrawerConfig): MlvDrawerRef
 close(result?: R): void
 ```
 
-Starts the leave animation on both the backdrop and the pane, then disposes the overlay and emits the result when the **pane's own** `animationend` fires — an `animationend` bubbling out of the drawer content is ignored — or after the `350 ms` fallback, whichever comes first. The `animationDuration` constructor argument (and `position`) is stored but read by nothing; it does not time the close (#277).
+Starts the leave animation on both the backdrop and the drawer panel (`MlvOverlayRef._panelElement` — the surface the service rendered, not the pane), then disposes the overlay and emits the result when the **panel's own** `animationend` fires — an `animationend` bubbling out of the drawer content is ignored — or after the `350 ms` fallback, whichever comes first. The `animationDuration` constructor argument (and `position`) is stored but read by nothing; it does not time the close (#277).
 
 ```ts
 afterClosed(): Observable<R | undefined>

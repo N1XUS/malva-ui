@@ -75,6 +75,10 @@ interface DrawerHeaderTarget {
  * `mlv-button-close` is one density step below `mlvButton` at every level,
  * so the two only align when they are not on the same setting. Override the
  * projected density with `mlvDensity` on the header.
+ *
+ * The header carries its own stylesheet (`drawer-header.scss`) rather than
+ * relying on `drawer.scss`, which arrives only with an open drawer's panel:
+ * a header rendered outside any drawer is still the styled row.
  */
 @Component({
   // Attribute form intentionally enhances the consumer's own header container.
@@ -122,6 +126,7 @@ interface DrawerHeaderTarget {
       />
     }
   `,
+  styleUrl: './drawer-header.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
@@ -218,7 +223,9 @@ export class MlvDrawerHeader {
 
   /**
    * @private The drawer this header labels and closes. Null when the header is
-   * rendered on its own, in which case it is a plain styled row.
+   * rendered on its own, in which case it is a plain styled row (its styles
+   * ship with the header itself, `drawer-header.scss`): no close button, no
+   * label registration.
    *
    * Both kinds can be in scope at once: a service-opened drawer whose
    * `config.injector` sits inside a declarative `<mlv-drawer>` (a routable
@@ -226,9 +233,9 @@ export class MlvDrawerHeader {
    * and a declarative drawer nested in a service-opened component also
    * resolves its `MlvDrawerRef`. Injector distance cannot tell the two apart,
    * so the DOM does: the ref owns the header only while its pane contains it.
-   * Resolved lazily — the portal appends the host element to the pane after
-   * construction — and cached so `_unlabelBy` reaches the same target as
-   * `_labelBy` did.
+   * Resolved lazily — the host element is inserted into the drawer panel,
+   * inside the pane, after construction — and cached so `_unlabelBy` reaches
+   * the same target as `_labelBy` did.
    */
   private get _owner(): DrawerHeaderTarget | null {
     if (this._resolvedOwner) {

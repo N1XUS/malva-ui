@@ -13,7 +13,9 @@ It contains **no components with selectors** — only abstract base classes that
 concrete surfaces extend. `MlvDrawer`, `MlvDrawerService`, and `MlvDrawerRef`
 build on these bases. The shared service base deliberately attaches component
 portals only; surface-level services may normalize richer public content APIs
-first.
+first, and may render the opened component inside a surface component of their
+own through the `_attachContent` hook (`MlvDrawerService` renders the same
+panel component `<mlv-drawer>` does, #305).
 
 **The dialog no longer extends these bases.** `@malva-ui/core/dialog` was
 rebuilt on `@angular/cdk/dialog` (see
@@ -161,21 +163,35 @@ cancels the fallback and leave state so the attached overlay remains rendered.
 
 ### `MlvOverlayServiceBase<TConfig, TRef>`
 
-| Member                            | Kind                       | Purpose                                                                                                                 |
-| --------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `_enterAnimationClass`            | abstract readonly `string` | Panel enter class; added then removed on the pane's **own** `animationend` (target-guarded, see below).                 |
-| `_buildPositionStrategy(config)`  | abstract                   | Builds the CDK `PositionStrategy`.                                                                                      |
-| `_buildOverlayConfig(config)`     | abstract                   | Surface `OverlayConfig` (backdrop class, panel class, size).                                                            |
-| `_createRef(overlayRef, config)`  | abstract                   | Constructs the concrete `TRef`.                                                                                         |
-| `_createProviders(ref, config)`   | abstract                   | Surface-specific static providers for the opened component's child injector (for example ref, data, and config tokens). |
-| `_decoratePanel(panelEl, config)` | abstract                   | Applies surface classes/styles to the overlay pane.                                                                     |
+| Member                                                         | Kind                       | Purpose                                                                                                                                                    |
+| -------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_enterAnimationClass`                                         | abstract readonly `string` | Panel enter class; added then removed on the surface's **own** `animationend` (target-guarded, see below).                                                 |
+| `_buildPositionStrategy(config)`                               | abstract                   | Builds the CDK `PositionStrategy`.                                                                                                                         |
+| `_buildOverlayConfig(config)`                                  | abstract                   | Surface `OverlayConfig` (backdrop class, panel class, size).                                                                                               |
+| `_createRef(overlayRef, config)`                               | abstract                   | Constructs the concrete `TRef`.                                                                                                                            |
+| `_createProviders(ref, config)`                                | abstract                   | Surface-specific static providers for the opened component's child injector (for example ref, data, and config tokens).                                    |
+| `_decoratePanel(panelEl, config)`                              | abstract                   | Applies surface classes/styles to the dialog surface (`panelEl` is what `_attachContent` returned).                                                        |
+| `_attachContent(overlayRef, component, injector, ref, config)` | overridable                | Attaches the content and returns the **dialog surface**. Default: `ComponentPortal` straight into the pane, `_applyContentLayout(host)`, returns the pane. |
+| `_applyContentLayout(hostEl)`                                  | protected helper           | Makes the opened component's host a flex pass-through (`display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0`).                            |
+
+**The dialog surface.** `open()` applies `role="dialog"`, `aria-modal`,
+`tabindex="-1"`, `_decoratePanel()`, the focus trap, the initial focus and
+the enter class to whatever `_attachContent` returns, and records it on the ref
+as `_surfaceElement` (`null` when it is the pane) so `MlvOverlayRef` plays the
+leave and waits for `animationend` on the **same** element. Override the hook
+to render content inside a component of your own; the returned element must stay
+inside the pane for the life of the overlay, and the hook runs synchronously
+inside `open()`. Overridable rather than abstract, so no subclassing contract
+grew a required member. Before #305 the pane was always the surface, which is
+why a service-opened drawer rendered without the drawer component's stylesheet,
+handle or sections provider.
 
 `open<T>(component, config?)` is inherited and shared. It accepts an Angular
 component type and defaults `config` to `{}`. Content polymorphism is a concrete
 surface concern rather than part of this modal-lifecycle abstraction.
 
 The service captures the focused element before creating the overlay, traps
-focus in the modal pane, resolves the initial focus target through
+focus in the dialog surface, resolves the initial focus target through
 `MlvOverlayInitialFocusResolver` from `afterNextRender` (the trap's own
 auto-capture is deliberately unused), destroys the trap after close, and
 restores focus to that captured element. Concrete services remain responsible
@@ -184,30 +200,43 @@ for any additional accessible naming applied in `_decoratePanel()`.
 The enter-class listener is **target-guarded** for the same reason as the
 host's (see _The panel's `animationend` is target-guarded_): consumer content
 finishing its own animation during the enter would otherwise strip the class
-and cut the pane's enter short. It is **not** `once: true` any more — an
+and cut the surface's enter short. It is **not** `once: true` any more — an
 ignored descendant event would spend a one-shot listener and latch the enter
-class for the life of the pane — so the handler removes itself on the pane's own
-event. `overlay.spec.ts` pins both halves.
+class for the life of the surface — so the handler removes itself on the
+surface's own event. With a surface of its own the pane is an **ancestor**, so a
+pane `animationend` never reaches the listener at all. `overlay.spec.ts` pins
+both halves, for the default hook and for a surface override.
 
 ### `MlvOverlayRef<R>`
 
-| Member                  | Kind                       | Purpose                                                 |
-| ----------------------- | -------------------------- | ------------------------------------------------------- |
-| `_backdropLeavingClass` | abstract readonly `string` | Class added to the backdrop on close.                   |
-| `_panelLeaveClass`      | abstract readonly `string` | Class added to the panel on close.                      |
-| `_leaveFallbackMs`      | abstract readonly `number` | Fallback dispose delay when `animationend` never fires. |
+| Member                  | Kind                       | Purpose                                                                                                                                                           |
+| ----------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_backdropLeavingClass` | abstract readonly `string` | Class added to the backdrop on close.                                                                                                                             |
+| `_panelLeaveClass`      | abstract readonly `string` | Class added to the panel on close.                                                                                                                                |
+| `_leaveFallbackMs`      | abstract readonly `number` | Fallback dispose delay when `animationend` never fires.                                                                                                           |
+| `_surfaceElement`       | `@internal` field          | The dialog surface when it is not the pane; written once by `MlvOverlayServiceBase.open()`, cleared when the ref disposes the overlay.                            |
+| `_panelElement`         | protected getter           | `null` once the pane is gone, else `_surfaceElement ?? overlayRef.overlayElement` — where the leave plays. `MlvDrawerRef` also writes its `aria-labelledby` here. |
 
 Inherited public API: `close(result?)`, `afterClosed()`, `beforeClose()`.
 `close()` is idempotent: the first request owns the before-close event, leave
 listener/fallback timer, disposal, and result emission; later requests are
 ignored.
 
-The leave listener on the pane is **target-guarded**: only the pane's own
-`animationend` disposes, so a drawer body's finite animation finishing inside the
+The leave listener on the panel (`_panelElement`) is **target-guarded**: only
+the panel's own `animationend` disposes — neither the content's nor, with a
+surface of its own, the pane's — so a drawer body's finite animation finishing inside the
 leave window no longer disposes the overlay early and emits `afterClosed` before
 the leave played. Like the enter listener it is not `once: true` (an ignored
 event would spend it and strand the leave on the fallback timer); `dispose()`
 removes it explicitly, whichever of the two paths wins.
+
+`_panelElement` is gated on the **pane**, not on `_surfaceElement` alone. The
+CDK overlay can be disposed by something other than the ref (a direct
+`OverlayRef.dispose()`), and a surface that outlived its pane is detached and
+can never fire `animationend`: a late `close()` would wait out the whole
+fallback instead of completing at once. Both of the ref's own disposal paths
+also clear `_surfaceElement`, so a ref kept in a component field does not keep
+the detached surface's DOM alive. `overlay.spec.ts` pins both.
 
 ## Concrete subclasses (in `@malva-ui/core`)
 
@@ -251,7 +280,10 @@ ignored, the panel's own disposing, the fallback still force-completing after an
 ignored one), and `MlvOverlayServiceBase` (dialog semantics, enter-animation
 class lifecycle, backdrop-click teardown, service-path focus restore,
 `config.initialFocus`, and the enter/leave target guards against the live
-`OverlayContainer`). The `animationend` events are plain bubbling `Event`s —
+`OverlayContainer`), plus _content surface_: the default hook's pane-as-surface
+layout, and a `_attachContent` override whose surface — not the pane — gets the
+dialog semantics, the enter and leave classes, the disposing `animationend` and
+`initialFocus: 'container'`. The `animationend` events are plain bubbling `Event`s —
 jsdom implements no `AnimationEvent` — which is exact for handlers that read only
 `target` / `currentTarget`. `overlay-initial-focus.spec.ts` covers the resolver
 itself against the DOM shape a service dialog actually produces. `overlay-config.ts`
