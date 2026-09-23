@@ -65,6 +65,10 @@ test('ranges the root already expresses pass through untouched', () => {
   assert.equal(widenPeerRange('rxjs', '~7.8.0'), '~7.8.0');
   assert.equal(widenPeerRange('intl-messageformat', '>=10.0.0'), '>=10.0.0');
   assert.equal(widenPeerRange('tailwindcss', '^4.0.0'), '^4.0.0');
+  // `@malva-ui/editor`'s hand-written security floors (#291): a patch-level
+  // floor is the whole point, so it must reach the published manifest as is.
+  assert.equal(widenPeerRange('prosemirror-view', '^1.42.5'), '^1.42.5');
+  assert.equal(widenPeerRange('prosemirror-model', '^1.25.12'), '^1.25.12');
   assert.equal(
     widenPeerRange('@angular/core', '^22.0.0 || ^23.0.0'),
     '^22.0.0 || ^23.0.0',
@@ -75,6 +79,9 @@ test('ranges the root already expresses pass through untouched', () => {
 test('prerelease and non-numeric pins are not treated as exact', () => {
   // `22.0.0-next.3` is not `\\d+.\\d+.\\d+`, so it passes through rather than
   // widening to a range that would also admit the stable line.
-  assert.equal(widenPeerRange('@angular/core', '22.0.0-next.3'), '22.0.0-next.3');
+  assert.equal(
+    widenPeerRange('@angular/core', '22.0.0-next.3'),
+    '22.0.0-next.3',
+  );
   assert.equal(widenPeerRange('@tiptap/core', 'next'), 'next');
 });

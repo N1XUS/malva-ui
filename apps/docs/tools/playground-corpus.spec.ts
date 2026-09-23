@@ -426,6 +426,26 @@ describe('the generated version table', () => {
       expect(PLAYGROUND_PEERS['@malva-ui/editor']).toContain(name);
     }
   });
+
+  it('installs the editor ProseMirror floor peers at their declared ranges', () => {
+    // #291: hand-written ranges with no placeholder and no root pin, so the
+    // playground installs exactly the floor the published manifest carries.
+    const declared = (
+      JSON.parse(
+        fs.readFileSync(
+          path.join(repoRoot, 'libs', 'editor', 'package.json'),
+          'utf8',
+        ),
+      ) as { peerDependencies: Record<string, string> }
+    ).peerDependencies;
+
+    for (const name of ['prosemirror-model', 'prosemirror-view']) {
+      expect(PLAYGROUND_PEERS['@malva-ui/editor']).toContain(name);
+      expect(`${name}: ${PLAYGROUND_VERSIONS[name]}`).toBe(
+        `${name}: ${declared[name]}`,
+      );
+    }
+  });
 });
 
 describe('resolveVersion', () => {

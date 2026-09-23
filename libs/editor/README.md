@@ -10,11 +10,19 @@ Ships as its own package so applications that never render an editor never pull 
 npm install @malva-ui/editor
 ```
 
-Tiptap is a peer dependency set, so install it alongside:
+Tiptap and two ProseMirror packages are peer dependencies, so install them alongside. Tiptap must be **3.31 or later**, all twelve packages on one version:
 
 ```bash
-npm install @tiptap/core @tiptap/pm @tiptap/starter-kit @tiptap/extensions @tiptap/markdown @tiptap/extension-file-handler @tiptap/extension-highlight @tiptap/extension-image @tiptap/extension-list @tiptap/extension-table @tiptap/extension-text-align @tiptap/extension-text-style
+npm install @tiptap/core@^3.31 @tiptap/pm@^3.31 @tiptap/starter-kit@^3.31 @tiptap/extensions@^3.31 @tiptap/markdown@^3.31 @tiptap/extension-file-handler@^3.31 @tiptap/extension-highlight@^3.31 @tiptap/extension-image@^3.31 @tiptap/extension-list@^3.31 @tiptap/extension-table@^3.31 @tiptap/extension-text-align@^3.31 @tiptap/extension-text-style@^3.31 prosemirror-view@^1.42.5 prosemirror-model@^1.25.12
 ```
+
+`prosemirror-view` ≥ 1.42.5 and `prosemirror-model` ≥ 1.25.12 are security floors (a paste XSS fix); 1.42.5 is the first view release that pairs with model ≥ 1.25.12. The install must resolve **exactly one copy of each**: a second, older `prosemirror-model` silently turns the fix off. Check with:
+
+```bash
+npm ls prosemirror-view prosemirror-model
+```
+
+Upgrading from Tiptap 3.29 or 3.30: see the [Tiptap 3.31 migration](https://github.com/N1XUS/malva-ui/blob/main/docs/migrations/2026-09-editor-tiptap-3-31.md).
 
 ## Quick start
 
@@ -67,7 +75,7 @@ You supply the model call; the package owns the editing UX around it.
 
 ## Peer dependencies
 
-`@angular/cdk`, `@angular/common`, `@angular/core`, `@angular/forms`, `@lucide/angular`, `rxjs`, `@malva-ui/core`, `@malva-ui/cdk`, `@malva-ui/i18n`, and the twelve `@tiptap/*` packages listed above.
+`@angular/cdk`, `@angular/common`, `@angular/core`, `@angular/forms`, `@lucide/angular`, `rxjs`, `@malva-ui/core`, `@malva-ui/cdk`, `@malva-ui/i18n`, the twelve `@tiptap/*` packages listed above (`^3.31.0`), `prosemirror-view` (`^1.42.5`) and `prosemirror-model` (`^1.25.12`).
 
 ## Related packages
 

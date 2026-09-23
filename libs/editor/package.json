@@ -46,6 +46,8 @@
     "@tiptap/markdown": "0.0.0-tiptap-package-version",
     "@tiptap/pm": "0.0.0-tiptap-package-version",
     "@tiptap/starter-kit": "0.0.0-tiptap-package-version",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-view": "^1.42.5",
     "rxjs": "0.0.0-rxjs-package-version"
   },
   "sideEffects": false
