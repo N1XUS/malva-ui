@@ -20,11 +20,27 @@ export interface MlvPopupContainerRef {
   /**
    * Called by a child `MlvPopupTrigger` to register its host element as the
    * visual anchor for the overlay and to indicate whether a backdrop should be used.
+   * The latest registration wins — with two live triggers, the one that
+   * registered last, not the one the user activated (#282). Re-registering an
+   * element moves it to the top.
+   * `MlvPopupContainer` keeps every distinct element until it is unregistered
+   * or the container is destroyed.
    *
    * @param origin     — The trigger element used as the CDK overlay origin.
    * @param hasBackdrop — `false` for hover triggers (no transparent backdrop needed).
    */
   registerTrigger(origin: ElementRef, hasBackdrop: boolean): void;
+  /**
+   * Withdraws a registration made by `registerTrigger`, so the next open falls
+   * back to the registration before it, or to the container's defaults.
+   * `MlvPopupTrigger` calls it when it is destroyed.
+   *
+   * Optional so an existing implementation of this interface keeps compiling;
+   * one that omits it keeps a destroyed trigger's registration in force.
+   *
+   * @param origin — The registered element, matched by `nativeElement`.
+   */
+  unregisterTrigger?(origin: ElementRef): void;
 }
 
 /**

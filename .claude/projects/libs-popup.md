@@ -237,11 +237,53 @@ Wrapper for programmatic popup management. Required content child: `MlvPopup`.
 - `open()` — Open the popup
 - `close()` — Close the popup
 - `toggle()` — Toggle state
+- `isOpen()` — Whether the popup is open
+- `registerTrigger(origin, hasBackdrop)` — Registers `origin` as the overlay anchor and `hasBackdrop` as the backdrop used while `MlvPopup.hasBackdrop` is unset. Latest registration wins (#282)
+- `unregisterTrigger(origin)` — Withdraws that registration; the next open falls back to the one before it
+
+#### Trigger registrations
+
+`registerTrigger` pushes onto a **stack**; the top entry supplies both the origin
+and the backdrop fallback for the next attach (#230).
+
+- **Latest wins.** Two triggers in one container: the later registration governs
+  — the one that registered last, not the one the user activated (#282). An
+  element that registers again (`MlvPopupTrigger` re-registers when `triggerOn`
+  changes) **moves to the top** with its new `hasBackdrop` — never a second entry.
+- **Nothing is pruned.** Every distinct element stays referenced — detached or
+  not — until it is unregistered or the container is destroyed. Pruning
+  disconnected entries would strip a live-but-detached view (inactive tab panel,
+  CDK virtual-scroll view cache) that registered once and never registers again.
+- **Teardown pops back.** `unregisterTrigger` removes the element's entry
+  wherever it sits. Removing the top hands the next open to the registration
+  below it — its origin _and_ its backdrop; removing an earlier one leaves the
+  top in charge; with nothing left the container anchors on its host with a
+  backdrop (`true`, the click-trigger default). Unknown elements: no-op.
+- **Keyed by `nativeElement`**, not `ElementRef` identity — a view query can hand
+  out a fresh wrapper for the same node.
+- **Resolved per attach.** Neither call re-anchors an overlay that is already
+  open. An open overlay whose origin element is destroyed keeps that origin; CDK
+  re-measures the detached node on the next reposition (scroll, resize), gets an
+  all-zero rect and moves the panel to the viewport's top-left corner. Predates
+  #230; tracked in #283.
+- **Who unregisters.** Any caller that registers elements which can be destroyed
+  or re-created while the container lives **must** call `unregisterTrigger` —
+  the container never drops an entry on its own, so a caller registering a fresh
+  element per open grows the stack by one per open (the single slot before #230
+  held only the latest). In the library: `MlvPopupTrigger` in container mode,
+  from its `DestroyRef` — a trigger inside an `@if` no longer governs later opens
+  after it is gone (a hover trigger's `hasBackdrop: false` used to stay latched
+  for good); `mlv-items-more`, which withdraws its opener on close and before
+  registering a different one. `mlv-sidebar-group` does **not** need to: its
+  tooltip container shares the button's `@if`, so both die together.
+- `MlvPopupContainerRef.unregisterTrigger` is **optional** on the token interface,
+  so a consumer's own `POPUP_CONTAINER` implementation keeps compiling; one that
+  omits it keeps a destroyed trigger's registration in force.
 
 #### Overlay origin
 
-The overlay anchors to the element a child `MlvPopupTrigger` registered
-(`registerTrigger`), falling back to the container's own host when none did.
+The overlay anchors to the top registration's element (see _Trigger
+registrations_), falling back to the container's own host when there is none.
 Two rules keep that origin honest:
 
 - **The panel is out of scope.** `MlvPopup` provides `POPUP_CONTAINER` as `null`,
@@ -255,12 +297,14 @@ Two rules keep that origin honest:
   dies with the panel (#225). A trigger declared as a _sibling_ of `<mlv-popup>`
   is outside the boundary and is unaffected; that is the ordinary container-mode
   arrangement (`mlv-sidebar-group`'s flyout).
-- **A detached origin is not used.** `registerTrigger` has no unregister, so a
-  registered element can outlive its own presence in the document (an `@if` that
-  stopped matching, a virtualised row). CDK measures a detached node without
-  complaint — `getBoundingClientRect()` answers all zeros — and would resolve a
-  position against 0,0, putting the panel in the top-left corner of the viewport
-  silently. Each attach falls back to the container host instead.
+- **A detached origin is not used.** A registration can outlive its element's
+  presence in the document — an element removed without destroying the view that
+  registered it, or a caller that never unregisters. CDK measures a detached node
+  without complaint — `getBoundingClientRect()` answers all zeros — and would
+  resolve a position against 0,0, putting the panel in the top-left corner of the
+  viewport silently. Each attach falls back to the container host instead. Only
+  the top entry is consulted: a detached top falls back to the **host**, not to an
+  earlier registration, and its backdrop still applies.
 
 ---
 
@@ -274,8 +318,9 @@ Two rules keep that origin honest:
 #### Mode
 
 - **Container mode** — an ancestor provides `POPUP_CONTAINER`. The trigger owns
-  no overlay: it registers its host as the container's origin and delegates
-  `open`/`close`/`toggle`. Written as a bare attribute — and a **bound**
+  no overlay: it registers its host as the container's origin, withdraws that
+  registration when it is destroyed (#230 — see _Trigger registrations_), and
+  delegates `open`/`close`/`toggle`. Written as a bare attribute — and a **bound**
   `[mlvPopupTrigger]="somePopup"` inside a container is silently ignored and
   drives the container instead, because the constructor branches on `_container`
   before it ever creates the standalone effect

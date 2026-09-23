@@ -241,6 +241,15 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
   /** @private The element to return focus to when the panel closes. */
   private _focusReturn: HTMLElement | null = null;
 
+  /**
+   * @private The origin this row registered with the panel's container, held
+   * so it can be withdrawn — on the next open from a different opener, and on
+   * close. The container reads a registration only while attaching, so nothing
+   * needs it once the panel is shut, and holding it would keep a destroyed
+   * in-row trigger's element alive until the next open.
+   */
+  private _panelOrigin: ElementRef<HTMLElement> | null = null;
+
   /** @private Previous `opened()` reading, so the close edge can be detected. */
   private _wasOpen = false;
 
@@ -348,6 +357,7 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
       const open = this.panelOpened();
       untracked(() => {
         if (this._wasOpen && !open) {
+          this._releasePanelOrigin();
           // After the render that detaches the panel, so the check for where
           // focus went reads the settled document rather than a panel that is
           // about to leave it.
@@ -372,11 +382,15 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
     const container = this._panelContainer();
     if (!container) return;
     this._focusReturn = origin.nativeElement;
-    // The container anchors the overlay on the registered origin and falls
-    // back to its own host when that origin has left the document — which is
-    // exactly what happens to the in-row trigger when the last item returns
-    // to the row while the panel is open.
+    // The container anchors the overlay on the latest registered origin, and
+    // falls back to its own host when that origin has left the document. It
+    // keeps every registration until it is withdrawn (#230), so the previous
+    // opener is withdrawn first: the in-row trigger is re-created each time
+    // items are withheld again, and a registration per open would pin every
+    // one of them.
+    if (this._panelOrigin) container.unregisterTrigger(this._panelOrigin);
     container.registerTrigger(origin, false);
+    this._panelOrigin = origin;
     container.open();
   }
 
@@ -656,6 +670,18 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
     this._resizeObserver = null;
     this._observedTargets.clear();
     this._focusReturn = null;
+    this._panelOrigin = null;
+  }
+
+  /**
+   * @private Withdraws the opener this row registered with the panel's
+   * container, if any. Called on the close edge; see {@link _panelOrigin}.
+   */
+  private _releasePanelOrigin(): void {
+    const origin = this._panelOrigin;
+    if (!origin) return;
+    this._panelOrigin = null;
+    this._panelContainer()?.unregisterTrigger(origin);
   }
 
   /** @private Cancels a pending reveal, if one is scheduled. */
