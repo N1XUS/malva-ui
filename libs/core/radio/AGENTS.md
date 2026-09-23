@@ -97,7 +97,7 @@ Hidden native `<input type="radio">` with `aria-checked` + visual circle indicat
 
 #### Tab Management
 
-Only the checked radio (or first radio if none checked) has `tabIndex=0`. All others are `-1`.
+Exactly one radio has `tabIndex=0`: the checked radio while it is enabled, otherwise the first enabled radio (none while every radio is disabled). All others are `-1`. See `libs-radio.md` § _Tab Management_ (#307).
 
 #### Template Summary
 

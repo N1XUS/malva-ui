@@ -102,7 +102,7 @@ host: {
 
 #### Keyboard Navigation
 
-`FocusKeyManager` — arrow up/down navigates between switches. First switch is `tabIndex=0`, rest are `-1`.
+`FocusKeyManager` — arrow up/down navigates between switches. The focused switch — else the first enabled one — is `tabIndex=0`, rest are `-1`; a disabled switch is never the tab stop. See `libs-switch.md` § _Keyboard Navigation_ (#307).
 
 #### Template Summary
 
