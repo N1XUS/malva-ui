@@ -211,13 +211,13 @@ Surface and fill colors. `-pale` variants are tinted backgrounds for inline stat
 
 Stepped surface colors. Identical in light mode; in dark mode each step is lighter than the last.
 
-| Token                  | Light                          | Dark                                                            | High contrast                  | Notes                                 |
-| ---------------------- | ------------------------------ | --------------------------------------------------------------- | ------------------------------ | ------------------------------------- |
-| `--mlv-elevation-bg-1` | `var(--mlv-background-base)`   | `#1e1e1e`                                                       | `var(--mlv-background-base)`   | flush — canvas-level, border only     |
-| `--mlv-elevation-bg-2` | `var(--mlv-background-raised)` | `var(--mlv-palette-neutral-800)`                                | `var(--mlv-background-raised)` | raised — card, dialog, drawer         |
-| `--mlv-elevation-bg-3` | `var(--mlv-background-raised)` | `#333333`                                                       | `var(--mlv-background-raised)` | floating — popup, toast, form-control |
-| `--mlv-elevation-bg-4` | `var(--mlv-background-raised)` | `var(--mlv-palette-neutral-700)`                                | `var(--mlv-background-raised)` | overlay — drawers, side overlays      |
-| `--mlv-elevation-bg-5` | `var(--mlv-background-raised)` | `color-mix(in srgb, var(--mlv-palette-neutral-700) 75%, white)` | `var(--mlv-background-raised)` | switch-thumb only — never behind text |
+| Token                  | Light                          | Dark                             | High contrast                  | Notes                                           |
+| ---------------------- | ------------------------------ | -------------------------------- | ------------------------------ | ----------------------------------------------- |
+| `--mlv-elevation-bg-1` | `var(--mlv-background-base)`   | `#1e1e1e`                        | `var(--mlv-background-base)`   | flush — canvas-level, border only               |
+| `--mlv-elevation-bg-2` | `var(--mlv-background-raised)` | `var(--mlv-palette-neutral-800)` | `var(--mlv-background-raised)` | raised — card, dialog, drawer                   |
+| `--mlv-elevation-bg-3` | `var(--mlv-background-raised)` | `#333333`                        | `var(--mlv-background-raised)` | floating — popup, toast, form-control           |
+| `--mlv-elevation-bg-4` | `var(--mlv-background-raised)` | `var(--mlv-palette-neutral-700)` | `var(--mlv-background-raised)` | overlay — drawers, side overlays, selected pill |
+| `--mlv-elevation-bg-5` | `var(--mlv-background-raised)` | `var(--mlv-palette-neutral-50)`  | `var(--mlv-background-raised)` | switch-thumb only — never behind text           |
 
 ### Text colors
 

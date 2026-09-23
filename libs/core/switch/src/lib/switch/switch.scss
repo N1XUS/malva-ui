@@ -225,18 +225,5 @@
     }
   }
 
-  // Dark theme: `--mlv-elevation-bg-5`'s general elevation ladder resolves to a
-  // lightened grey (color-mix toward white off neutral-700, ≈#707070) — a
-  // muddy blob against the dark off-track (≈#262626, 1.07:1 vs the accent-1
-  // on-track) and low-contrast against it. theme.scss documents this token as
-  // the switch thumb's *only* consumer, so shadowing it locally to a crisp
-  // near-white knob (matching the light-mode #ffffff resolution's intent)
-  // fixes readability here without touching the shared token or any other
-  // consumer. Light is untouched — this selector only matches under
-  // `[mlvTheme='dark']`.
-  [mlvTheme='dark'] .#{$block} {
-    --mlv-elevation-bg-5: var(--mlv-palette-neutral-50);
-  }
-
   @include mixins.reduced-motion($block);
 }

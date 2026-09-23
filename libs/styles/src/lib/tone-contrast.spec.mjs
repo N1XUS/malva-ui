@@ -736,6 +736,136 @@ for (const [block, colourVar] of [
   }
 }
 
+// ─── segmented + boxed tabs: the selected label on its pill (#454) ───────────
+
+{
+  /**
+   * The theme attributes each scored theme puts on an ancestor. A rule keyed
+   * on one — `[mlvTheme=dark] .mlv-x` — is exactly what `decls` cannot see
+   * by its own selector, and it matches under high contrast too, because
+   * `MlvThemeService` leaves `mlvTheme="dark"` on `<html>`. Merging those
+   * rules in keeps a score from passing on the plain rule while the painted
+   * value is another; `theme-attribute-selectors.spec.mjs` refuses the shape
+   * outright.
+   */
+  const THEME_ANCESTORS = {
+    light: ['[mlvTheme=light]'],
+    dark: ['[mlvTheme=dark]'],
+    highContrast: ['[data-theme=high-contrast]'],
+    highContrastDark: ['[mlvTheme=dark]', '[data-theme=high-contrast]'],
+  };
+
+  /** `decls`, then every rule reaching `selector` from a theme ancestor. */
+  const themedDecls = (root, theme, selector) => {
+    const out = decls(root, selector);
+    for (const ancestor of THEME_ANCESTORS[theme])
+      for (const [prop, value] of decls(root, `${ancestor} ${selector}`))
+        out.set(prop, value);
+    return out;
+  };
+
+  /** `scopeOf` over `themedDecls`, in the same cascade order. */
+  const themedScopeOf = (root, theme, ...selectors) => {
+    const out = new Map();
+    for (const selector of selectors)
+      for (const [prop, value] of themedDecls(root, theme, selector))
+        if (prop.startsWith('--')) out.set(prop, value);
+    return out;
+  };
+
+  const segmented = load(
+    'libs/core/segmented/src/lib/segmented/segmented.scss',
+  );
+  const segmentedLabel = decls(
+    load('libs/core/segmented/src/lib/segmented-item/segmented-item.scss'),
+    '.mlv-segmented-item--active',
+  ).get('color');
+  const segmentedPill = decls(segmented, '.mlv-segmented__indicator').get(
+    'background',
+  );
+  const SEGMENTED_TONES = [
+    'neutral',
+    'accent',
+    'info',
+    'success',
+    'warning',
+    'danger',
+  ];
+
+  const tabs = load('libs/core/tabs/src/lib/tabs/tabs.scss');
+  const BOXED = '.mlv-tab-group--appearance-boxed > .mlv-tab-group__header';
+  const boxedLabel = decls(
+    tabs,
+    `${BOXED} > .mlv-tab-item.mlv-tab-item--active`,
+  ).get('color');
+
+  test('segmented and boxed tabs read the pill and label from semantic tokens only', () => {
+    assert.equal(segmentedPill, 'var(--mlv-segmented-pill-bg)');
+    assert.equal(boxedLabel, 'var(--mlv-text-primary)');
+    const scopes = [];
+    for (const theme of TEXT_THEMES) {
+      for (const tone of SEGMENTED_TONES)
+        scopes.push([
+          `${theme} .mlv-segmented--tone-${tone}`,
+          themedScopeOf(
+            segmented,
+            theme,
+            '.mlv-segmented',
+            `.mlv-segmented--tone-${tone}`,
+          ),
+        ]);
+      scopes.push([
+        `${theme} boxed indicator`,
+        themedDecls(tabs, theme, `${BOXED} > .mlv-tab-group__indicator`),
+      ]);
+    }
+    expectSemanticOnly(scopes);
+  });
+
+  for (const theme of TEXT_THEMES) {
+    test(`${theme}: every segmented tone's selected label clears AA on its pill`, () => {
+      expectAll(
+        SEGMENTED_TONES.map((tone) => {
+          const scope = themedScopeOf(
+            segmented,
+            theme,
+            '.mlv-segmented',
+            `.mlv-segmented--tone-${tone}`,
+          );
+          return [
+            tone,
+            score(
+              colour(segmentedLabel, scope, theme),
+              colour(segmentedPill, scope, theme),
+            ),
+          ];
+        }),
+        AA_TEXT,
+      );
+    });
+
+    test(`${theme}: the boxed-tabs selected label clears AA on its pill`, () => {
+      const pill = themedDecls(
+        tabs,
+        theme,
+        `${BOXED} > .mlv-tab-group__indicator`,
+      ).get('background');
+      expectAll(
+        [
+          [
+            'boxed',
+            score(
+              colour(boxedLabel, new Map(), theme),
+              colour(pill, new Map(), theme),
+            ),
+          ],
+        ],
+        AA_TEXT,
+      );
+    });
+  }
+}
+
 // ─── no raw-colour fallbacks ─────────────────────────────────────────────────
 
 test('no library stylesheet falls back to a raw hex colour inside var()', () => {

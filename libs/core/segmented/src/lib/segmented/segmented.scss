@@ -2,172 +2,169 @@
 @use 'sass:map';
 
 @layer mlv.components {
-$block: mlv-segmented;
+  $block: mlv-segmented;
 
-// Active pill background + active text per tone. `neutral` is the boxed-tabs
-// look: a raised white pill on the sunken track, not the accent `selected`
-// token pair. Owner override 2026-08-25: AB-R8/worklist 4.20 had converged
-// `neutral` on `--mlv-background-selected` / `--mlv-text-on-selected` (same
-// pair as every other persistent-selection surface); the owner reviewed the
-// landed result and asked for the previous raised-pill treatment back. Every
-// other tone still uses the PALE background (never the solid fill).
-$tones: (
-  'neutral': (
-    'pill': var(--mlv-background-raised),
-    'text': var(--mlv-text-primary),
-  ),
-  'accent': (
-    'pill': var(--mlv-background-accent-1-pale),
-    'text': var(--mlv-text-action),
-  ),
-  'info': (
-    'pill': var(--mlv-background-info-1-pale),
-    'text': var(--mlv-text-info),
-  ),
-  'success': (
-    'pill': var(--mlv-background-success-1-pale),
-    'text': var(--mlv-text-positive),
-  ),
-  'warning': (
-    'pill': var(--mlv-background-warning-1-pale),
-    'text': var(--mlv-text-warning),
-  ),
-  'danger': (
-    'pill': var(--mlv-background-danger-1-pale),
-    'text': var(--mlv-text-negative),
-  ),
-);
-
-.#{$block} {
-  @include mixins.base(
-    var(--mlv-typography-family-text),
-    var(--mlv-typography-body-m-size),
-    0,
-    0
+  // Active pill background + active text per tone. `neutral` is the boxed-tabs
+  // look: a raised white pill on the grey track, not the accent `selected`
+  // token pair. Owner override 2026-08-25: AB-R8/worklist 4.20 had converged
+  // `neutral` on `--mlv-background-selected` / `--mlv-text-on-selected` (same
+  // pair as every other persistent-selection surface); the owner reviewed the
+  // landed result and asked for the previous raised-pill treatment back. Every
+  // other tone still uses the PALE background (never the solid fill).
+  //
+  // The neutral pill is `--mlv-elevation-bg-4`: the raised surface in light and
+  // high contrast, and one step lighter than the track in dark, where
+  // `--mlv-background-raised` (#1e1e1e) would sink below the
+  // `--mlv-background-neutral-1` track (#262626). It used to be a
+  // `[mlvTheme='dark']` repaint, which reached into light islands, kept the dark
+  // pill under high contrast on a dark `<html>` (2.03:1 under black text) and
+  // missed a segmented that is its own island; a token follows every scope
+  // (#454). The boxed `mlv-tab-group` pill reads the same token.
+  $tones: (
+    'neutral': (
+      'pill': var(--mlv-elevation-bg-4),
+      'text': var(--mlv-text-primary),
+    ),
+    'accent': (
+      'pill': var(--mlv-background-accent-1-pale),
+      'text': var(--mlv-text-action),
+    ),
+    'info': (
+      'pill': var(--mlv-background-info-1-pale),
+      'text': var(--mlv-text-info),
+    ),
+    'success': (
+      'pill': var(--mlv-background-success-1-pale),
+      'text': var(--mlv-text-positive),
+    ),
+    'warning': (
+      'pill': var(--mlv-background-warning-1-pale),
+      'text': var(--mlv-text-warning),
+    ),
+    'danger': (
+      'pill': var(--mlv-background-danger-1-pale),
+      'text': var(--mlv-text-negative),
+    ),
   );
 
-  // Consumer-overridable knobs (e.g. `style="--mlv-segmented-radius: var(--mlv-radius-full)"`).
-  --mlv-segmented-radius: var(--mlv-radius-button);
-  --mlv-segmented-track-padding: 0.1875rem;
-  --mlv-segmented-track-bg: var(--mlv-background-sunken);
-  --mlv-segmented-separator-color: var(--mlv-border-normal);
-  --mlv-segmented-indicator-duration: var(--mlv-duration-normal);
-  // Neutral pill defaults on the block itself, so the pill never falls back to
-  // transparent if a consumer replaces the host `[class]` (and with it the
-  // `--tone-*` modifier). The `&--tone-*` rules below are emitted after this
-  // block at equal specificity, so a tone still wins.
-  --mlv-segmented-pill-bg: var(--mlv-background-raised);
-  --mlv-segmented-active-color: var(--mlv-text-primary);
-  // Concentric radius shared by the pill and the items (never negative).
-  --mlv-segmented-inner-radius: max(
-    0rem,
-    calc(var(--mlv-segmented-radius) - var(--mlv-segmented-track-padding))
-  );
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-m-size),
+      0,
+      0
+    );
 
-  display: inline-flex;
-  flex-direction: column;
-  gap: var(--mlv-spacing-1);
-  max-width: 100%;
-  min-width: 0;
+    // Consumer-overridable knobs (e.g. `style="--mlv-segmented-radius: var(--mlv-radius-full)"`).
+    --mlv-segmented-radius: var(--mlv-radius-button);
+    --mlv-segmented-track-padding: 0.1875rem;
+    // The track is the boxed-tabs track: `--mlv-background-neutral-1` in every
+    // theme. In light and high contrast it equals `--mlv-background-sunken`; in
+    // dark it lifts off the page where `sunken` would sink below it.
+    --mlv-segmented-track-bg: var(--mlv-background-neutral-1);
+    --mlv-segmented-separator-color: var(--mlv-border-normal);
+    --mlv-segmented-indicator-duration: var(--mlv-duration-normal);
+    // Neutral pill defaults on the block itself, so the pill never falls back to
+    // transparent if a consumer replaces the host `[class]` (and with it the
+    // `--tone-*` modifier). The `&--tone-*` rules below are emitted after this
+    // block at equal specificity, so a tone still wins.
+    --mlv-segmented-pill-bg: var(--mlv-elevation-bg-4);
+    --mlv-segmented-active-color: var(--mlv-text-primary);
+    // Concentric radius shared by the pill and the items (never negative).
+    --mlv-segmented-inner-radius: max(
+      0rem,
+      calc(var(--mlv-segmented-radius) - var(--mlv-segmented-track-padding))
+    );
 
-  @each $name, $props in $tones {
-    &--tone-#{$name} {
-      --mlv-segmented-pill-bg: #{map.get($props, 'pill')};
-      --mlv-segmented-active-color: #{map.get($props, 'text')};
-    }
-  }
-
-  // The grey track: content-width, rounded, with a small inset padding.
-  &__track {
-    position: relative;
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    gap: 0.125rem;
-    width: fit-content;
-    max-width: 100%;
-    padding: var(--mlv-segmented-track-padding);
-    overflow: hidden;
-    background: var(--mlv-segmented-track-bg);
-    border-radius: var(--mlv-segmented-radius);
-  }
-
-  &--vertical > &__track {
+    display: inline-flex;
     flex-direction: column;
-    height: fit-content;
-  }
+    gap: var(--mlv-spacing-1);
+    max-width: 100%;
+    min-width: 0;
 
-  // The pill sliding behind the active item, positioned from the measured
-  // custom properties (px, written by the component).
-  &__indicator {
-    position: absolute;
-    z-index: 0;
-    left: var(--mlv-segmented-indicator-left, 0);
-    top: var(--mlv-segmented-indicator-top, 0);
-    width: var(--mlv-segmented-indicator-width, 0);
-    height: var(--mlv-segmented-indicator-height, 0);
-    border-radius: var(--mlv-segmented-inner-radius);
-    background: var(--mlv-segmented-pill-bg);
-    box-shadow: var(--mlv-shadow-raised);
-    opacity: 1;
-    pointer-events: none;
-  }
+    @each $name, $props in $tones {
+      &--tone-#{$name} {
+        --mlv-segmented-pill-bg: #{map.get($props, 'pill')};
+        --mlv-segmented-active-color: #{map.get($props, 'text')};
+      }
+    }
 
-  // No slide-in on first paint: transitions only once the pill was measured.
-  &--measured > &__track > &__indicator {
-    transition:
-      left var(--mlv-segmented-indicator-duration) var(--mlv-ease-in-out-strong),
-      top var(--mlv-segmented-indicator-duration) var(--mlv-ease-in-out-strong),
-      width var(--mlv-segmented-indicator-duration)
-        var(--mlv-ease-in-out-strong),
-      height var(--mlv-segmented-indicator-duration)
-        var(--mlv-ease-in-out-strong),
-      background-color var(--mlv-duration-normal) var(--mlv-ease-default);
-  }
+    // The grey track: content-width, rounded, with a small inset padding.
+    &__track {
+      position: relative;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      gap: 0.125rem;
+      width: fit-content;
+      max-width: 100%;
+      padding: var(--mlv-segmented-track-padding);
+      overflow: hidden;
+      background: var(--mlv-segmented-track-bg);
+      border-radius: var(--mlv-segmented-radius);
+    }
 
-  // Equal-width: the group fills its container and every item shares the space.
-  &--equal-width {
-    display: flex;
-    width: 100%;
+    &--vertical > &__track {
+      flex-direction: column;
+      height: fit-content;
+    }
 
-    > .#{$block}__track {
+    // The pill sliding behind the active item, positioned from the measured
+    // custom properties (px, written by the component).
+    &__indicator {
+      position: absolute;
+      z-index: 0;
+      left: var(--mlv-segmented-indicator-left, 0);
+      top: var(--mlv-segmented-indicator-top, 0);
+      width: var(--mlv-segmented-indicator-width, 0);
+      height: var(--mlv-segmented-indicator-height, 0);
+      border-radius: var(--mlv-segmented-inner-radius);
+      background: var(--mlv-segmented-pill-bg);
+      box-shadow: var(--mlv-shadow-raised);
+      opacity: 1;
+      pointer-events: none;
+    }
+
+    // No slide-in on first paint: transitions only once the pill was measured.
+    &--measured > &__track > &__indicator {
+      transition:
+        left var(--mlv-segmented-indicator-duration)
+          var(--mlv-ease-in-out-strong),
+        top var(--mlv-segmented-indicator-duration)
+          var(--mlv-ease-in-out-strong),
+        width var(--mlv-segmented-indicator-duration)
+          var(--mlv-ease-in-out-strong),
+        height var(--mlv-segmented-indicator-duration)
+          var(--mlv-ease-in-out-strong),
+        background-color var(--mlv-duration-normal) var(--mlv-ease-default);
+    }
+
+    // Equal-width: the group fills its container and every item shares the space.
+    &--equal-width {
+      display: flex;
       width: 100%;
+
+      > .#{$block}__track {
+        width: 100%;
+      }
+
+      > .#{$block}__track > .mlv-segmented-item {
+        flex: 1 1 0;
+        justify-content: center;
+      }
     }
 
-    > .#{$block}__track > .mlv-segmented-item {
-      flex: 1 1 0;
-      justify-content: center;
+    &--disabled > &__track {
+      opacity: var(--mlv-disabled-opacity);
+    }
+
+    // Validation state (SF-R6): only `error` gets a tinted inset stroke on the
+    // track. `warning`/`success` deliberately declare nothing — meaning lives
+    // in the adjacent message text, not in a second full-perimeter ring.
+    &--state-error > &__track {
+      box-shadow: inset 0 0 0 var(--mlv-stroke-width) var(--mlv-border-error);
     }
   }
 
-  &--disabled > &__track {
-    opacity: var(--mlv-disabled-opacity);
-  }
-
-  // Validation state (SF-R6): only `error` gets a tinted inset stroke on the
-  // track. `warning`/`success` deliberately declare nothing — meaning lives
-  // in the adjacent message text, not in a second full-perimeter ring.
-  &--state-error > &__track {
-    box-shadow: inset 0 0 0 var(--mlv-stroke-width) var(--mlv-border-error);
-  }
-}
-
-// Dark theme: the light theme's sunken track / raised pill pair inverts against
-// a dark page (the track would sink below the page and the pill barely lift).
-// Invert the pair instead — a lifted neutral track with the pill one step
-// lighter. Consumer `style` overrides still win (inline > selector).
-// Owner override 2026-08-25: the neutral pill briefly converged on
-// `--mlv-background-selected` (AB-R8, SF-R1), which needed no dark override
-// of its own — this override was dropped then. Restoring the raised-pill
-// treatment brings the override back too: `--mlv-background-raised` resolves
-// to `#1e1e1e` in dark, darker than the `--mlv-background-neutral-1` track
-// (`#262626`), which would sink the pill instead of lifting it.
-[mlvTheme='dark'] .#{$block} {
-  --mlv-segmented-track-bg: var(--mlv-background-neutral-1);
-}
-[mlvTheme='dark'] .#{$block}--tone-neutral {
-  --mlv-segmented-pill-bg: var(--mlv-palette-neutral-700);
-}
-
-@include mixins.reduced-motion('mlv-segmented');
+  @include mixins.reduced-motion('mlv-segmented');
 }

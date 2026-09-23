@@ -146,6 +146,43 @@ describe('MlvActionBar — chrome surface', () => {
       '--mlv-action-bar-shadow:var(--mlv-shadow-raised)',
     );
   });
+
+  it('takes the contrast glass from theme scopes, never from a rule keyed on the theme (#454)', () => {
+    // A `[mlvTheme='dark'] .mlv-action-bar--contrast` repaint reached into
+    // light islands, kept the dark glass under high contrast on a dark
+    // `<html>` and missed a bar that is its own island. The glass is declared
+    // per scope in `mlv.tokens` instead — high contrast after dark, so it wins
+    // on the `<html>` carrying both — and the modifier only reads it. What
+    // each scope paints is measured in `libs/styles/src/lib/theme-scopes.spec.mjs`.
+    const scopes = [
+      ...css.matchAll(
+        /(:root,:host,\[mlvTheme=light\]|\[mlvTheme=dark\]|\[data-theme=high-contrast\])\{--mlv-action-bar-contrast-bg:/g,
+      ),
+    ].map((match) => match[1]);
+    expect(scopes).toEqual([
+      ':root,:host,[mlvTheme=light]',
+      '[mlvTheme=dark]',
+      '[data-theme=high-contrast]',
+    ]);
+    // The layer order is declared before this sheet opens `mlv.tokens`, so a
+    // bar rendered before the global stylesheet loads cannot reorder layers.
+    const order = css.indexOf('@layermlv.tokens,mlv.base,mlv.components;');
+    expect(order).toBeGreaterThan(-1);
+    expect(order).toBeLessThan(css.indexOf('@layermlv.tokens{'));
+
+    const open = css.indexOf('.mlv-action-bar--contrast{');
+    const contrast = css.slice(open, css.indexOf('}', open));
+    expect(contrast).toContain(
+      '--mlv-action-bar-bg:var(--mlv-action-bar-contrast-bg);',
+    );
+    expect(contrast).toContain(
+      '--mlv-action-bar-border:var(--mlv-action-bar-contrast-border);',
+    );
+    expect(contrast).toContain(
+      '--mlv-action-bar-shadow:var(--mlv-action-bar-contrast-shadow);',
+    );
+    expect(css).not.toMatch(/\[mlvTheme=[\w-]+\][^{},]*\.mlv-action-bar/);
+  });
 });
 
 /**

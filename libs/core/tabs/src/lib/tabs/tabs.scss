@@ -182,9 +182,15 @@
     }
 
     // Indicator → the white pill sliding behind the active tab, inset inside the
-    // track padding, sitting BEHIND the tab labels.
+    // track padding, sitting BEHIND the tab labels. `--mlv-elevation-bg-4` is
+    // the raised surface in light and high contrast and one step lighter than
+    // the track in dark, where `--mlv-background-raised` (#1e1e1e) would sink
+    // below `--mlv-background-neutral-1` (#262626) — the same pill
+    // `mlv-segmented` paints. A token, not a `[mlvTheme='dark']` rule, so it
+    // follows every theme scope: an island, and high contrast on a dark
+    // `<html>` (#454).
     & > .#{$block}__header > .#{$block}__indicator {
-      background: var(--mlv-background-raised);
+      background: var(--mlv-elevation-bg-4);
       border-radius: calc(var(--mlv-radius-xl) - var(--mlv-radius-xs));
       box-shadow: var(--mlv-shadow-raised);
       z-index: 0;
@@ -201,7 +207,7 @@
     }
 
     // Direct tab items — label above the pill; a non-active hover tints darker
-    // than the track (neutral-1 itself matches the sunken track, so the -hover
+    // than the track (neutral-1 itself is the track colour, so the -hover
     // step is the first visible shade); the active item just changes colour (the
     // sliding pill provides its surface).
     & > .#{$block}__header > .mlv-tab-item {
@@ -229,21 +235,6 @@
         background: var(--mlv-background-neutral-1-hover);
       }
     }
-  }
-
-  // Dark theme: `--mlv-background-raised` (#1e1e1e) sinks below the boxed
-  // track's `--mlv-background-neutral-1` (#262626) instead of lifting off it —
-  // the same light/dark inversion `mlv-segmented` handles for its raised pill
-  // (see segmented.scss). Lift the pill one step lighter than the track
-  // instead, mirroring segmented's `--mlv-palette-neutral-700` treatment.
-  // Descendant combinator from `[mlvTheme='dark']` (set on a page-level
-  // ancestor, not a direct parent) into the block; child combinators (`>`)
-  // resume inside it so a boxed group still never restyles a nested group.
-  [mlvTheme='dark']
-    .#{$block}--appearance-boxed
-    > .#{$block}__header
-    > .#{$block}__indicator {
-    background: var(--mlv-palette-neutral-700);
   }
 
   @include mixins.reduced-motion($block);

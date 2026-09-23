@@ -557,7 +557,7 @@ $mlv-shadow-5: 0 25px 50px rgba(0, 0, 0, 0.25);
     ); /* floating — popup, toast, form-control */
     --mlv-elevation-bg-4: var(
       --mlv-background-raised
-    ); /* overlay — drawers, side overlays */
+    ); /* overlay — drawers, side overlays, selected pill */
     --mlv-elevation-bg-5: var(
       --mlv-background-raised
     ); /* switch-thumb only — never behind text */
@@ -1228,12 +1228,16 @@ $mlv-shadow-5: 0 25px 50px rgba(0, 0, 0, 0.25);
     --mlv-elevation-bg-1: #1e1e1e; /* neutral ~850 */
     --mlv-elevation-bg-2: var(--mlv-palette-neutral-800);
     --mlv-elevation-bg-3: #333333; /* neutral ~750 */
+    // Rung 4 is also the segmented / boxed-tabs selected pill: one step above
+    // their `--mlv-background-neutral-1` track (#262626).
     --mlv-elevation-bg-4: var(--mlv-palette-neutral-700);
-    --mlv-elevation-bg-5: color-mix(
-      in srgb,
-      var(--mlv-palette-neutral-700) 75%,
-      white
-    );
+    // Rung 5's one consumer is the switch thumb, which reads as a crisp
+    // near-white knob on the dark track rather than the ladder's lightened
+    // grey (`color-mix()` of neutral-700 toward white, ≈#707070).
+    // It used to be a `[mlvTheme='dark'] .mlv-switch` redeclaration of this
+    // token, which reached into light islands and survived high contrast on a
+    // dark `<html>`; the theme scope is the only place it can vary (#454).
+    --mlv-elevation-bg-5: var(--mlv-palette-neutral-50);
 
     // ── Aliases and the tokens only high contrast changes ──
     // A theme is a scope, so every island has to recompute every token that

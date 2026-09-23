@@ -1,6 +1,76 @@
+// `layers` first: this sheet opens `mlv.tokens` as well as `mlv.components`,
+// and a layer's priority is fixed the first time it is named.
+@use '../../../../../styles/src/lib/layers';
 @use '../../../../../styles/src/lib/mixins' as mixins;
 @use '../../../../../styles/src/lib/breakpoints' as bp;
 @use '../../../../../styles/src/lib/density' as density;
+
+/* ===========================================================================
+   Contrast glass, per theme scope
+
+   The contrast bar's smoky fill, rim and shadow differ between light and dark
+   and no public token carries them, so they are declared the way `theme.scss`
+   declares every token: bare theme-scope rules in `mlv.tokens`, recomputed by
+   each scope. They used to be a `[mlvTheme='dark'] .mlv-action-bar--contrast`
+   repaint, which reached into a light island on a dark page, kept the dark
+   glass under high contrast on a dark `<html>`, and never matched a bar that
+   is its own `mlvTheme="dark"` island (#454). High contrast has no glass of
+   its own and takes the light one, declared after dark so it wins on the
+   `<html>` that carries both attributes.
+
+   Internal, not override points: retheme a bar through `--mlv-action-bar-bg`
+   / `-border` / `-shadow` on the bar itself.
+   =========================================================================== */
+
+@mixin contrast-glass($theme) {
+  @if $theme == dark {
+    // A smoky translucent neutral-700 reads as a slightly elevated surface
+    // against the darker page; shadows scale up to compensate.
+    --mlv-action-bar-contrast-bg: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-700) 68%,
+      transparent
+    );
+    --mlv-action-bar-contrast-border: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-50) 20%,
+      transparent
+    );
+    --mlv-action-bar-contrast-shadow:
+      0 1rem 2.25rem color-mix(in srgb, black 45%, transparent),
+      0 0.125rem 0.5rem color-mix(in srgb, black 30%, transparent);
+  } @else {
+    --mlv-action-bar-contrast-bg: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-800) 62%,
+      transparent
+    );
+    --mlv-action-bar-contrast-border: color-mix(
+      in srgb,
+      var(--mlv-palette-neutral-50) 18%,
+      transparent
+    );
+    --mlv-action-bar-contrast-shadow:
+      0 1rem 2.25rem color-mix(in srgb, black 22%, transparent),
+      0 0.125rem 0.5rem color-mix(in srgb, black 12%, transparent);
+  }
+}
+
+@layer mlv.tokens {
+  :root,
+  :host,
+  [mlvTheme='light'] {
+    @include contrast-glass(light);
+  }
+
+  [mlvTheme='dark'] {
+    @include contrast-glass(dark);
+  }
+
+  [data-theme='high-contrast'] {
+    @include contrast-glass(light);
+  }
+}
 
 @layer mlv.components {
   $block: mlv-action-bar;
@@ -259,20 +329,11 @@
    =========================================================================== */
 
   .mlv-action-bar--contrast {
-    --mlv-action-bar-bg: color-mix(
-      in srgb,
-      var(--mlv-palette-neutral-800) 62%,
-      transparent
-    );
+    // Per-theme glass from the scopes at the top of this file.
+    --mlv-action-bar-bg: var(--mlv-action-bar-contrast-bg);
     --mlv-action-bar-fg: var(--mlv-palette-neutral-50);
-    --mlv-action-bar-border: color-mix(
-      in srgb,
-      var(--mlv-palette-neutral-50) 18%,
-      transparent
-    );
-    --mlv-action-bar-shadow:
-      0 1rem 2.25rem color-mix(in srgb, black 22%, transparent),
-      0 0.125rem 0.5rem color-mix(in srgb, black 12%, transparent);
+    --mlv-action-bar-border: var(--mlv-action-bar-contrast-border);
+    --mlv-action-bar-shadow: var(--mlv-action-bar-contrast-shadow);
 
     background-color: var(--mlv-action-bar-bg);
     color: var(--mlv-action-bar-fg);
@@ -353,26 +414,6 @@
     &::placeholder {
       color: color-mix(in srgb, var(--mlv-action-bar-fg) 55%, transparent);
     }
-  }
-
-  /* In dark mode a smoky translucent neutral-700 reads as a slightly elevated
-   surface against the darker app background, and the blur carries most of
-   the separation. Shadows scale up to compensate. */
-  [mlvTheme='dark'] .mlv-action-bar--contrast {
-    --mlv-action-bar-bg: color-mix(
-      in srgb,
-      var(--mlv-palette-neutral-700) 68%,
-      transparent
-    );
-    --mlv-action-bar-fg: var(--mlv-palette-neutral-50);
-    --mlv-action-bar-border: color-mix(
-      in srgb,
-      var(--mlv-palette-neutral-50) 20%,
-      transparent
-    );
-    --mlv-action-bar-shadow:
-      0 1rem 2.25rem color-mix(in srgb, black 45%, transparent),
-      0 0.125rem 0.5rem color-mix(in srgb, black 30%, transparent);
   }
 
   /* ===========================================================================

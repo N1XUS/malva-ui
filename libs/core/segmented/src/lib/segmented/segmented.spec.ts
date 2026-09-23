@@ -662,8 +662,10 @@ describe('MlvSegmented stylesheet', () => {
   it('declares the consumer-facing custom properties with their defaults', () => {
     expect(group).toContain('--mlv-segmented-radius: var(--mlv-radius-button)');
     expect(group).toContain('--mlv-segmented-track-padding: 0.1875rem');
+    // The boxed-tabs track in every theme: equal to `--mlv-background-sunken`
+    // in light and high contrast, lifted off the page in dark (#454).
     expect(group).toContain(
-      '--mlv-segmented-track-bg: var(--mlv-background-sunken)',
+      '--mlv-segmented-track-bg: var(--mlv-background-neutral-1)',
     );
     expect(group).toContain(
       '--mlv-segmented-separator-color: var(--mlv-border-normal)',
@@ -675,9 +677,10 @@ describe('MlvSegmented stylesheet', () => {
     // host `[class]` (and with it the `--tone-*` modifier) never gets a
     // transparent pill. Owner override 2026-08-25: the raised, non-accent
     // pill (boxed-tabs look), not the `selected` token pair AB-R8 briefly
-    // converged it on.
+    // converged it on — read through `--mlv-elevation-bg-4`, which lifts it
+    // above the track in dark as well.
     expect(group).toContain(
-      '--mlv-segmented-pill-bg: var(--mlv-background-raised)',
+      '--mlv-segmented-pill-bg: var(--mlv-elevation-bg-4)',
     );
     expect(group).toContain(
       '--mlv-segmented-active-color: var(--mlv-text-primary)',
@@ -699,24 +702,26 @@ describe('MlvSegmented stylesheet', () => {
     expect(group).toContain("mixins.reduced-motion('mlv-segmented')");
   });
 
-  it('lifts the track in the dark theme', () => {
-    expect(group).toContain("[mlvTheme='dark'] .#{$block}");
-    expect(group).toContain(
-      '--mlv-segmented-track-bg: var(--mlv-background-neutral-1)',
+  it('lifts the neutral pill above the track through a token, in every theme (owner override 2026-08-25)', () => {
+    // AB-R8/SF-R1 briefly converged the neutral pill on
+    // `--mlv-background-selected`; the owner asked for the previous raised
+    // pill back. `--mlv-background-raised` (#1e1e1e) is darker than the dark
+    // track (#262626), so the pill reads `--mlv-elevation-bg-4`: raised in
+    // light and high contrast, neutral-700 in dark. What it paints in each
+    // theme scope is measured in `libs/styles/src/lib/theme-scopes.spec.mjs`.
+    expect(group).toMatch(
+      /'neutral': \(\s*'pill': var\(--mlv-elevation-bg-4\),/,
     );
   });
 
-  it('lifts the neutral pill one step above the dark track (owner override 2026-08-25)', () => {
-    // AB-R8/SF-R1 briefly converged the neutral pill on
-    // `--mlv-background-selected`, which needed no per-component dark
-    // override. The owner asked for the previous raised-pill treatment back;
-    // `--mlv-background-raised` (#1e1e1e) is darker than the dark track
-    // (`--mlv-background-neutral-1` = #262626), so the neutral-700 override
-    // is restored to keep the pill lifted rather than sunken.
-    expect(group).toContain("[mlvTheme='dark'] .#{$block}--tone-neutral");
-    expect(group).toContain(
-      '--mlv-segmented-pill-bg: var(--mlv-palette-neutral-700)',
-    );
+  it('never keys a rule on the theme attribute (#454)', () => {
+    // `[mlvTheme='dark'] …` reached into light islands, survived high
+    // contrast on a dark `<html>` and missed a segmented that is its own
+    // island. Comments are stripped so prose cannot satisfy the match.
+    const rules = group
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    expect(rules).not.toMatch(/\[\s*(mlvTheme|data-theme)\s*[~|^$*]?=/i);
   });
 
   it('never uses a --mlv-padding-* pair as a single length', () => {
