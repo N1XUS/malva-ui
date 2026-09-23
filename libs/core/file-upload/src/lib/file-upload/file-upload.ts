@@ -96,7 +96,14 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
    */
   readonly maxSize = input<number>(0);
 
-  /** Whether to allow selecting multiple files. */
+  /**
+   * Whether to allow selecting multiple files.
+   *
+   * When `false`, a picked or dropped file that passes validation **replaces**
+   * the current one (revoking its preview URL); a rejected file leaves it in
+   * place. A drop of several files keeps the first accepted file and reports
+   * the rest with a single `count` error.
+   */
   readonly multiple = input<boolean, BooleanInput>(true, {
     transform: coerceBooleanProperty,
   });
@@ -136,7 +143,7 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
    */
   readonly previewMode = input<MlvFileUploadPreviewMode>('list');
 
-  /** Emits the current file list whenever files are added or removed. */
+  /** Emits the current file list whenever files are added, removed or replaced. */
   readonly filesChange = output<MlvUploadedFile[]>();
 
   /** @private List of selected/uploaded files managed by the component. */
@@ -300,7 +307,9 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
   }
 
   /**
-   * @private Validates a FileList against accept/maxSize constraints and appends valid files.
+   * @private Validates a FileList against the count/accept/maxSize constraints,
+   * then appends the valid files (`multiple`) or replaces the current file
+   * with the one accepted file (single-file mode).
    */
   private _validateAndAdd(fileList: FileList): void {
     const newErrors: MlvFileValidationError[] = [];
@@ -308,12 +317,17 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
     const acceptedTypes = this._parseAccept();
 
     Array.from(fileList).forEach((file) => {
-      // Count check
-      if (!this.multiple() && this._files().length + newFiles.length >= 1) {
-        newErrors.push({
-          code: 'count',
-          message: this._i18n().errorSingleFile,
-        });
+      // Count check. Single-file mode counts only this batch: the file already
+      // selected is not a reason to refuse one, it is the file an accepted one
+      // replaces below. A multi-file drop keeps its first accepted file and
+      // reports the rest with one `count` error, not one per extra file.
+      if (!this.multiple() && newFiles.length > 0) {
+        if (!newErrors.some((error) => error.code === 'count')) {
+          newErrors.push({
+            code: 'count',
+            message: this._i18n().errorSingleFile,
+          });
+        }
         return;
       }
 
@@ -362,7 +376,8 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
       if (this.multiple()) {
         this.value.update((previous) => [...(previous ?? []), ...newFiles]);
       } else {
-        // Replace previous file when multiple is false
+        // Single-file mode replaces the current file, revoking its preview.
+        // Reached only with an accepted file: a rejected batch keeps it.
         const previous = this._files();
         previous.forEach((f) => {
           if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);

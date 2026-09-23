@@ -61,9 +61,9 @@ the input then scrolls the `overflow: hidden` body to it).
 
 #### Outputs
 
-| Name          | Type                                  | Description                                                     |
-| ------------- | ------------------------------------- | --------------------------------------------------------------- |
-| `filesChange` | `OutputEmitterRef<MlvUploadedFile[]>` | Emits the current file list whenever files are added or removed |
+| Name          | Type                                  | Description                                                               |
+| ------------- | ------------------------------------- | ------------------------------------------------------------------------- |
+| `filesChange` | `OutputEmitterRef<MlvUploadedFile[]>` | Emits the current file list whenever files are added, removed or replaced |
 
 #### Host Bindings
 
@@ -105,7 +105,14 @@ the browser never dispatches `drop` at all.
 
 - **Type check:** Parsed from `accept` input. Supports MIME prefix globs (`image/*`), exact MIME types (`application/pdf`), and file extensions (`.pdf`).
 - **Size check:** Files exceeding `maxSize` bytes are rejected. Skipped when `maxSize === 0`.
-- **Count check:** When `multiple === false`, only one file is accepted. A second drop produces a `code: 'count'` error.
+- **Count check / single-file replace:** when `multiple === false` the value holds at most one file, and a new file **replaces** it.
+  - Counted per batch (one pick or one drop), never against the file already selected.
+  - Browse, drop and the cover **Replace** action all take this path: an accepted file replaces the current one, `URL.revokeObjectURL(previous.previewUrl)`, `filesChange` / `value` emit `[replacement]`, and the error list is replaced by this batch's errors (empty when the batch is one accepted file).
+  - A rejected file (type / size) leaves the current file and its preview untouched; the error names the real reason.
+  - A multi-file drop keeps its **first accepted** file and reports the rest with **one** `code: 'count'` error (`errorSingleFile`), not one per extra file.
+  - Order per file: count → type → size, so `[bad.pdf, b.png]` under `accept="image/*"` keeps `b.png` with a type error for `bad.pdf`.
+  - Programmatic writes (`value.set`, `setValue`, `ngModel`) are not validated — a two-file array written from outside is held as given.
+  - Fixed 2026-09 (#313): the check read `_files().length + newFiles.length >= 1`, true whenever a file was present, so every second file was refused with "Only one file is allowed." and the replace branch plus its revoke never ran. Patch, not breaking — it restores what `apps/docs` examples 1 and 7, the `errorSingleFile` i18n JSDoc ("more than one file is dropped") and the `replaceFile` key already documented.
 - Validation errors stored in `_errors` signal and rendered in `[role=alert]` list with `aria-live="assertive"`.
 - **Rejection messages are translated** (2026-08). Each `MlvFileValidationError.message` is resolved from `MLV_FILE_UPLOAD_I18N` through `MlvI18nResolverService`, not hard-coded English: `errorSingleFile` (count), `errorFileType` (`{name}`), `errorFileSize` (`{name}`, `{size}` in MB, one decimal). Consumers reading `error.message` get the active language pack's string.
 - Still English-by-default and **not** i18n-routed: the `title`, `subtitle` and `actionLabel` inputs, whose defaults are public API. Override them per application (or set them from your own i18n) until they gain pack-backed defaults.
@@ -177,8 +184,8 @@ The zone gets `position: relative`, `overflow: hidden`, `padding: 0`,
 `flex: 1 1 auto` and `min-block-size: var(--mlv-file-upload-cover-min-height)`
 (default `12rem`) — so it honours an explicit height set on the host and
 otherwise keeps a sensible floor. The whole zone remains the drag-and-drop
-target; dropping a new file replaces the current one under existing
-single-file semantics.
+target; dropping a new file, or picking one from **Replace**, replaces the
+current one (see **Count check / single-file replace** above).
 
 **Visibility.** The toolbar is always in the DOM. It is hidden with
 `opacity: 0; pointer-events: none` and revealed on `.mlv-file-upload__zone`
@@ -203,7 +210,7 @@ zone as usual.
 #### Forms behaviour
 
 - External `value` model writes replace the internal file list; transient `ngModel` null initialization is normalized to an empty list.
-- `registerOnChange(fn)` — called with the full `MlvUploadedFile[]` array on every add/remove.
+- `registerOnChange(fn)` — called with the full `MlvUploadedFile[]` array on every add, remove or replace.
 - Form-bound disabled state drives the base `disabled` input and `computedDisabled()`.
 - Provides `MLV_FORM_CONTROL`, `useExisting` itself (2026-09, #217). It was the
   only `MlvSignalFormUiControlBase` subclass in the workspace that did not, so an
