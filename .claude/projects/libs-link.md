@@ -5,7 +5,7 @@
 
 ## Overview
 
-`@malva-ui/core/link` provides a styled hyperlink component applied as an attribute selector on native `<a>` elements. It supports three visual variants (`default`, `subtle`, `emphasized`), a disabled state with full accessibility (ARIA attributes, tab-order removal, click prevention), and uses `ViewEncapsulation.None` with BEM classes for styling.
+`@malva-ui/core/link` provides a styled hyperlink component applied as an attribute selector on native `<a>` elements. It supports three visual variants (`default`, `subtle`, `emphasized`), a disabled state with full accessibility (ARIA attributes, tab-order removal, a capture-phase activation guard that also stops `routerLink`), and uses `ViewEncapsulation.None` with BEM classes for styling.
 
 ## Public API
 
@@ -29,10 +29,10 @@
 
 #### Inputs
 
-| Name       | Type             | Default     | Description                                                                                                             |
-| ---------- | ---------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `variant`  | `MlvLinkVariant` | `'default'` | Visual style variant: `'default'` (action color), `'subtle'` (secondary text color), `'emphasized'` (bold + underline). |
-| `disabled` | `boolean`        | `false`     | When `true`, prevents navigation, sets `aria-disabled="true"`, removes from tab order, and applies disabled opacity.    |
+| Name       | Type             | Default     | Description                                                                                                                                                          |
+| ---------- | ---------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `variant`  | `MlvLinkVariant` | `'default'` | Visual style variant: `'default'` (action color), `'subtle'` (secondary text color), `'emphasized'` (bold + underline).                                              |
+| `disabled` | `boolean`        | `false`     | When `true`, blocks activation (see _Disabled activation guard_), sets `aria-disabled="true"`, removes from tab order, and applies disabled opacity. `href` is kept. |
 
 #### Outputs
 
@@ -40,14 +40,29 @@ None.
 
 #### Host Bindings
 
-| Binding                      | Expression                              | Description                                                             |
-| ---------------------------- | --------------------------------------- | ----------------------------------------------------------------------- |
-| `class`                      | `'mlv-link'`                            | Static base BEM block class always applied.                             |
-| `[class]`                    | `'"mlv-link--" + variant()`             | Applies the variant modifier, e.g. `mlv-link--default`.                 |
-| `[class.mlv-link--disabled]` | `disabled()`                            | Adds disabled modifier when `disabled` is `true`.                       |
-| `[attr.aria-disabled]`       | `disabled() \|\| null`                  | Sets `aria-disabled="true"` when disabled; removes attribute otherwise. |
-| `[attr.tabindex]`            | `disabled() ? -1 : null`                | Removes element from tab order when disabled.                           |
-| `(click)`                    | `disabled() && $event.preventDefault()` | Prevents browser navigation when disabled.                              |
+| Binding                      | Expression                  | Description                                                             |
+| ---------------------------- | --------------------------- | ----------------------------------------------------------------------- |
+| `class`                      | `'mlv-link'`                | Static base BEM block class always applied.                             |
+| `[class]`                    | `'"mlv-link--" + variant()` | Applies the variant modifier, e.g. `mlv-link--default`.                 |
+| `[class.mlv-link--disabled]` | `disabled()`                | Adds disabled modifier when `disabled` is `true`.                       |
+| `[attr.aria-disabled]`       | `disabled() \|\| null`      | Sets `aria-disabled="true"` when disabled; removes attribute otherwise. |
+| `[attr.tabindex]`            | `disabled() ? -1 : null`    | Removes element from tab order when disabled.                           |
+
+No host listeners — deliberately (#309):
+
+- No `(click)`: a host listener cannot stop `RouterLink` (Angular coalesces every host/template listener for one event on one element into one native listener and walks the chain unconditionally), and an expression evaluating to `false` makes Angular `preventDefault()` the event. The old `disabled() && $event.preventDefault()` did both: it let a disabled `routerLink` navigate, and — evaluating to `false` while enabled — `preventDefault()`ed every click, Enter and Space keydown on an **enabled** link, so a plain `href` never followed on click and Enter activated no link at all, `routerLink` included.
+- No `(keydown.enter)` / `(keydown.space)`: the host is a native `<a>`. With an `href` the browser turns Enter into the `click` the guard sees; without one Enter activates nothing. Space is not link activation (it scrolls, disabled or not). See `.claude/rules/angular-directive.md` (#299).
+- Shipped as breaking behaviour (`fix(link)!`): an enabled link now follows its `href` on click and Enter, so an `href="#"` pseudo-button navigates to `#`. Consumer shapes and the **Do:** for each: [docs/migrations/2026-09-link-native-activation.md](../../docs/migrations/2026-09-link-native-activation.md). Use `button[mlvButton]` for an action.
+
+#### Disabled activation guard
+
+A `fromEvent(host, 'click', { capture: true })` stream, subscribed in the constructor, released by `takeUntilDestroyed()`. While `disabled()` (read per click) it calls `preventDefault()` + `stopImmediatePropagation()`.
+
+- Capture at `AT_TARGET` runs before every bubble listener on the anchor whatever the registration order, and before the target for a click on the inner text span. Same pattern as the `mlv-segmented` link item.
+- Blocks: native `href` navigation (plain, `target="_blank"`, Ctrl/Shift/Meta + click or Enter), `RouterLink.onClick` (which never reads `defaultPrevented`), the consumer's own `(click)`, a co-hosted `[mlvClick]`'s **click** emission, and bubble-phase click listeners on ancestors. Ancestor **capture** listeners (CDK/popup click-outside) run before it and are unaffected.
+- Does not block: keydown listeners (a co-hosted `[mlvClick]` still emits on Enter / Space for an `href`-less link — gate in the handler, as `mlv-filter`'s clear link does), and the browser **context menu** — "Open in new tab" / "Copy link address" read `href` and dispatch no `click`. By pointer the menu and middle-click (`auxclick`) are stopped by `pointer-events: none`. But a link focused **before** it became disabled keeps focus (`tabindex="-1"` does not blur), and the Menu key or Shift+F10 opens its context menu; so do screen-reader context-menu commands, on any disabled link. Closing that needs `href` gone — see the last bullet.
+- Pointer clicks never reach the anchor anyway (`.mlv-link--disabled` sets `pointer-events: none`); the guard is for screen-reader activation, `el.click()`, and Enter on a link that holds focus (focused before it was disabled, or programmatically).
+- **`href` is kept while disabled**, measured (#309). The deciding reason is `RouterLink`'s own `[attr.href]` host binding: host bindings on one element have no fixed precedence — the last **changed** value wins — so an `[attr.href]` removal from `MlvLink` won the first render, then `RouterLink` rewrote the attribute on the next URL change (measured with a relative `queryParamsHandling="preserve"` link), leaving a disabled link holding an `href` the component believed removed. That is also why `role="link"` on an `href`-less disabled anchor was considered and **rejected**: it is correct only while the removal holds, and `RouterLink` undoes it. Dropping `href` would not stop the router either (`RouterLink.onClick` navigates without one), and one behaviour for every disabled link beats a split keyed on whether `routerLink` is co-hosted. axe does not decide it: axe-core 4.12.1 raises 0 violations with or without `href` (it treats `aria-disabled` as global).
 
 #### Content Children / View Children
 
@@ -180,7 +195,8 @@ export class MyComponent {
 
 ## Dependencies
 
-| Dependency         | Source          | Usage                                                                |
-| ------------------ | --------------- | -------------------------------------------------------------------- |
-| `@angular/core`    | External (peer) | `Component`, `ChangeDetectionStrategy`, `ViewEncapsulation`, `input` |
-| `@malva-ui/styles` | Workspace lib   | SCSS mixins (`mixins.base()`) and design tokens                      |
+| Dependency         | Source          | Usage                                                                                                                                                |
+| ------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@angular/core`    | External (peer) | `Component`, `ChangeDetectionStrategy`, `ViewEncapsulation`, `input`, `inject`, `ElementRef`; `takeUntilDestroyed` from `@angular/core/rxjs-interop` |
+| `rxjs`             | External (peer) | `fromEvent` + `filter` for the disabled activation guard                                                                                             |
+| `@malva-ui/styles` | Workspace lib   | SCSS mixins (`mixins.base()`) and design tokens                                                                                                      |

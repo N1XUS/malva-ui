@@ -1,4 +1,5 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { MlvLink, MlvLinkAfter, MlvLinkBefore } from '@malva-ui/core/link';
 import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import { MlvBadge } from '@malva-ui/core/badge';
@@ -7,6 +8,7 @@ import { MlvBadge } from '@malva-ui/core/badge';
   selector: 'docs-link-side-variants-example',
   imports: [
     MlvLink,
+    RouterLink,
     LucideChevronLeft,
     MlvLinkBefore,
     MlvLinkAfter,
