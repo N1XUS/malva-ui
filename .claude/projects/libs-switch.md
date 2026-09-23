@@ -231,14 +231,16 @@ at the 12px `body-s` used by `tight` and `compact`.
 
 #### Methods (inherited from `MlvFocusableGroupBase`)
 
-| Method                            | Description                                                                        |
-| --------------------------------- | ---------------------------------------------------------------------------------- |
-| `onChildFocus(child)`             | Marks the focused child active in the `FocusKeyManager` (roving tabindex).         |
-| `onKeydown(event: KeyboardEvent)` | Forwards arrow/Home/End keys to the `FocusKeyManager`, skipping disabled children. |
+| Method                            | Description                                                                      |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| `onChildFocus(child)`             | Marks the focused child active in the `FocusKeyManager` (roving tabindex).       |
+| `onKeydown(event: KeyboardEvent)` | Forwards ArrowUp/ArrowDown to the `FocusKeyManager`, skipping disabled children. |
 
 #### Keyboard Navigation
 
-`FocusKeyManager` (from `MlvFocusableGroupBase`) — arrow up/down navigates between switches, skips disabled via `computedDisabled()`. Initial tab stop on the first switch; the base's `change`-sub then keeps the roving `tabindex=0` on the **focused** switch. Bug fix: this sync was previously missing, so Tab-out/Tab-in returned focus to the wrong switch — now ported from checkbox-group and covered by `switch-group.spec.ts`.
+`FocusKeyManager` (from `MlvFocusableGroupBase`) — arrow up/down navigates between switches, skips disabled via `computedDisabled()`. Initial tab stop on the first **enabled** switch; the base then keeps the roving `tabindex=0` on the **focused** switch. Bug fix: this sync was previously missing, so Tab-out/Tab-in returned focus to the wrong switch — now ported from checkbox-group and covered by `switch-group.spec.ts`.
+
+- **Tab stop (#307):** never a disabled switch, which cannot take focus (a disabled first switch used to leave the group with no tab stop at all). The focused switch turning disabled hands the stop to the next enabled one after it (wrapping), not the first; adding/removing a switch keeps the user's stop and arrow position. Contract: `libs-form-utils.md` § _Focusable group base_. Covered by `switch-group.spec.ts` § _roving tab stop with disabled switches (#307)_, incl. the next-after-focused handoff and an axe sweep of the disabled-first state.
 
 #### Density projection
 

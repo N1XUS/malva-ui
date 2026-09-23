@@ -119,7 +119,13 @@ export class MlvRadioGroup
    */
   readonly labelId = computed(() => `${this.id()}-label`);
 
-  /** Two-way bindable selected value of the group. */
+  /**
+   * Two-way bindable selected value of the group. A radio is checked while its
+   * own `value` is identical (`===`) to this one, re-evaluated whenever either
+   * changes — so options whose objects are re-created on refresh must keep
+   * their identity, or this must be pointed at the new object, for the
+   * selection to stay visible.
+   */
   readonly value = model<unknown>();
 
   /** Shared `name` applied to the native radio inputs in the group. */
@@ -130,8 +136,14 @@ export class MlvRadioGroup
 
   readonly radios = contentChildren(MlvRadio);
 
-  /** @private FocusKeyManager driving roving focus + arrow-key navigation across the radios. */
-  private _keyManager!: FocusKeyManager<MlvRadio>;
+  /**
+   * @private FocusKeyManager driving roving focus + arrow-key navigation across
+   * the radios. `undefined` while the group has no radio — before the first
+   * radio renders, and again once every radio is removed — so an arrow key
+   * reaching the host then moves nothing, instead of throwing or driving a
+   * stale manager over detached radios.
+   */
+  private _keyManager: FocusKeyManager<MlvRadio> | undefined;
 
   /** @private Normalizes horizontal radio navigation for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
@@ -159,30 +171,61 @@ export class MlvRadioGroup
     effect(() => {
       const items = [...this.radios()];
       const groupName = this.name();
-      if (items.length === 0) return;
 
-      this._keyManager?.destroy();
-      this._keyManager = new FocusKeyManager<MlvRadio>(
-        items as RadioFocusItem[],
-      )
-        .skipPredicate((radio) => radio.disabled())
-        .withVerticalOrientation()
-        .withWrap();
+      // Untracked: the previous manager's `activeItem` is signal-backed in CDK
+      // 22, and reading it tracked would rebuild the manager on every focus
+      // move.
+      untracked(() => {
+        // Carry the active radio over when it survives, so a radio added or
+        // removed while the user is in the group does not send the next arrow
+        // key back to the first radio.
+        const previous = this._keyManager?.activeItem ?? null;
+        this._keyManager?.destroy();
+        this._keyManager = undefined;
+        // No radio, no manager: one kept over the removed radios would let a
+        // later arrow key select a detached radio's value.
+        if (items.length === 0) return;
+
+        const keyManager = new FocusKeyManager<MlvRadio>(
+          items as RadioFocusItem[],
+        )
+          .skipPredicate((radio) => radio.disabled())
+          .withVerticalOrientation()
+          .withWrap();
+        if (previous !== null && items.includes(previous)) {
+          keyManager.updateActiveItem(previous);
+        }
+        this._keyManager = keyManager;
+      });
 
       items.forEach((radio) => radio.name.set(groupName));
-      untracked(() => this._updateSelection());
     });
 
+    // Checked state mirrors `radio.value() === value` — for the group value and
+    // for each radio's own `value`, whenever either changes. Each radio's
+    // `value` is read tracked on purpose: a radio projected through `@for` has
+    // its inputs bound after this view's effects run, so an untracked read
+    // matched every radio against `undefined` (with no group value, every radio
+    // claimed `checked`), and a later `[value]` change left `checked` stale.
+    // The comparison is identity: an option object re-created on refresh no
+    // longer equals the group value, so no radio is checked until `value` is
+    // pointed at the new object.
     effect(() => {
-      this.value();
-      untracked(() => this._updateSelection());
+      const value = this.value();
+      this.radios().forEach((radio) =>
+        radio.checked.set(radio.value() === value),
+      );
     });
+
+    // Roving tab stop. Tracked, so it follows the checked radio and each
+    // radio's `disabled` flag as they change, not only the selection.
+    effect(() => this._updateTabIndices());
   }
 
   onChildFocus(radio: MlvRadio): void {
     const index = this.radios().indexOf(radio);
     if (index >= 0) {
-      this._keyManager.setActiveItem(index);
+      this._keyManager?.setActiveItem(index);
     }
   }
 
@@ -196,6 +239,11 @@ export class MlvRadioGroup
     const isNext = key === DOWN_ARROW || key === RIGHT_ARROW;
     if (!isPrev && !isNext) return;
 
+    // A group with no radio has nothing to move and no native navigation to
+    // suppress, so the key is left alone.
+    const keyManager = this._keyManager;
+    if (!keyManager) return;
+
     // Handle all four arrows for WAI-ARIA radiogroup semantics and suppress the
     // native radio-group navigation so focus + selection stay in sync with the
     // FocusKeyManager (which skips disabled radios and wraps).
@@ -208,15 +256,15 @@ export class MlvRadioGroup
     // focuses whatever it activates — and `selectRadio` refuses the selection.
     if (this.computedDisabled()) return;
 
-    if (!this._keyManager.activeItem) {
-      this._keyManager.setFirstItemActive();
+    if (!keyManager.activeItem) {
+      keyManager.setFirstItemActive();
     } else if (isPrev) {
-      this._keyManager.setPreviousItemActive();
+      keyManager.setPreviousItemActive();
     } else {
-      this._keyManager.setNextItemActive();
+      keyManager.setNextItemActive();
     }
 
-    const active = this._keyManager.activeItem;
+    const active = keyManager.activeItem;
     if (active) {
       this.selectRadio(active);
     }
@@ -257,22 +305,26 @@ export class MlvRadioGroup
   /** Whether the control holds a clearable value — A radio value is selected. */
   readonly hasValue = computed(() => this.value() != null);
 
-  /** @private Syncs each radio's checked state to the current group value and refreshes tab indices. */
-  private _updateSelection(): void {
-    this.radios().forEach((radio) => {
-      radio.checked.set(radio.value() === this.value());
-    });
-    this._updateTabIndices();
-  }
-
-  /** @private Applies the roving tabindex: only the checked radio (or first when none checked) is tabbable. */
+  /**
+   * @private Applies the roving tabindex: exactly one radio is tabbable — the
+   * checked one while it is enabled, otherwise the first enabled radio. None
+   * is while every radio is disabled.
+   *
+   * A disabled native radio cannot take focus, so a tab stop left on one
+   * leaves the group with no tab stop at all. The checked-but-disabled case
+   * follows the browsers' own radio groups: natively, Chromium and Firefox then
+   * Tab to the first enabled radio. WebKit reaches no radio of such a group —
+   * natively, or with the `tabindex="0"` on the checked radio or on an enabled
+   * one — so nothing here can give it a stop. A disabled *group* disables
+   * every native radio, so it has no tab stop either way.
+   */
   private _updateTabIndices(): void {
     const radios = this.radios();
-    const hasChecked = radios.some((r) => r.checked());
-    radios.forEach((radio, i) => {
-      radio.tabIndex.set(
-        hasChecked ? (radio.checked() ? 0 : -1) : i === 0 ? 0 : -1,
-      );
-    });
+    const checked = radios.find((radio) => radio.checked());
+    const stop =
+      checked && !checked.disabled()
+        ? checked
+        : radios.find((radio) => !radio.disabled());
+    radios.forEach((radio) => radio.tabIndex.set(radio === stop ? 0 : -1));
   }
 }

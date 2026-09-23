@@ -184,14 +184,17 @@ the one part of the native input a template property binding cannot carry.
 
 #### Methods (inherited from `MlvFocusableGroupBase`)
 
-| Method                            | Description                                                                        |
-| --------------------------------- | ---------------------------------------------------------------------------------- |
-| `onChildFocus(child)`             | Marks the focused child active in the `FocusKeyManager` (roving tabindex).         |
-| `onKeydown(event: KeyboardEvent)` | Forwards arrow/Home/End keys to the `FocusKeyManager`, skipping disabled children. |
+| Method                            | Description                                                                      |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| `onChildFocus(child)`             | Marks the focused child active in the `FocusKeyManager` (roving tabindex).       |
+| `onKeydown(event: KeyboardEvent)` | Forwards ArrowUp/ArrowDown to the `FocusKeyManager`, skipping disabled children. |
 
 #### Keyboard Navigation
 
-`FocusKeyManager` (from `MlvFocusableGroupBase`) — arrow up/down navigates between child checkboxes, skips disabled via `computedDisabled()`, and the base's `change`-sub keeps the roving `tabindex=0` on the focused checkbox.
+`FocusKeyManager` (from `MlvFocusableGroupBase`) — arrow up/down navigates between child checkboxes, skips disabled via `computedDisabled()`, and the base keeps the roving `tabindex=0` on the focused checkbox.
+
+- **Tab stop (#307):** the focused checkbox, else the first **enabled** one — never a disabled checkbox, which cannot take focus (a disabled first checkbox used to leave the group with no tab stop at all). The focused checkbox turning disabled hands the stop to the next enabled one after it (wrapping), not the first; adding/removing a checkbox keeps the user's stop and arrow position. Contract: `libs-form-utils.md` § _Focusable group base_.
+- Covered by `checkbox-group.spec.ts` — a `@for` "Notification channels" host with a disabled first option: initial stop, the focused checkbox's stop handed on when it is disabled, the next enabled checkbox after the focused one (not the first, wrapping at the end) taking it, all-disabled → none → re-enabled, stop + arrow position kept across an added checkbox, axe sweep of the disabled-first state.
 
 #### Internal Token
 

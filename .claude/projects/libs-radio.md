@@ -121,6 +121,8 @@ Visually-hidden (clip-path) native `<input #nativeInput type="radio" [attr.tabin
 | ------- | --------- |
 | `value` | `unknown` |
 
+A radio is checked while its own `value` is identical (`===`) to the group's, re-evaluated when either changes — see _Tab Management_ for re-created option objects.
+
 #### Inputs
 
 | Name       | Type                                    | Default            | Description                                                                                                        |
@@ -144,7 +146,7 @@ Visually-hidden (clip-path) native `<input #nativeInput type="radio" [attr.tabin
 
 - `selectRadio(radio)` writes through `_write()`; a refusal puts **every** native input back to the group value via `_restoreNativeChecked()`. Before #298 the refusal left the DOM alone, but a native click had already checked the new radio and the `[checked]` bindings held an unchanged value, so Angular never re-wrote it — the page and the accessibility tree showed B while `aria-checked` and the value said A.
 - Clicks are cancelled up front by each radio's `_onNativeClick` (via the internal `canSelect()`), so in a browser the DOM never moves; the restore is the backstop for a `change` that arrives anyway.
-- `_onKeydown` still `preventDefault()`s every arrow (so native radio navigation cannot move the checked state).
+- `_onKeydown` still `preventDefault()`s every arrow while the group has a radio (so native radio navigation cannot move the checked state). With no radio there is no key manager and nothing to navigate, so the key is left alone.
   - **Readonly: arrows move focus, not selection.** ARIA 1.2 `aria-readonly`: authors SHOULD NOT restrict navigation. The key manager moves and focuses the next radio; `selectRadio` refuses the write, restores the natives and leaves focus where the manager put it.
   - **Disabled: returns before the key manager moves** (gated on `computedDisabled()`, not `_canWrite()`). The radios are natively disabled and cannot take focus, so moving the manager would drift its active item from the focused element.
 - Readonly keeps the radios enabled and focusable; disabled disables every native radio (see `MlvRadio._nativeDisabled`).
@@ -153,7 +155,23 @@ Visually-hidden (clip-path) native `<input #nativeInput type="radio" [attr.tabin
 
 #### Tab Management
 
-Only the checked radio (or first radio if none checked) has `tabIndex=0`. All others are `-1`.
+Exactly one radio has `tabIndex=0`, all others `-1` (`_updateTabIndices()`, run from a tracked `effect` and synchronously from `selectRadio`):
+
+- the checked radio **while it is enabled**;
+- otherwise the first **enabled** radio — no radio checked, or the checked one disabled;
+- none while every radio is disabled. A disabled **group** disables every native radio (#298), so it has no reachable stop whichever radio carries the `0`.
+
+Why (#307): a disabled native radio cannot take focus, so the old "checked, else first radio" rule gave a group whose first radio is disabled **zero** tab stops — Tab skipped it (WCAG 2.1.1). Measured with native inputs in Chromium 145, Firefox 146 and WebKit 26: disabled radio with `tabindex="0"` beside `-1` siblings → 0 stops; the `0` on an enabled sibling → 1.
+
+- **Checked-but-disabled** follows the browsers' own radio groups: natively, Chromium and Firefox Tab to the first enabled radio (also measured), so the group does too. **WebKit reaches no radio of such a group at all** — measured with no `tabindex`, with the `0` on the checked radio and with it on an enabled sibling — so there is no stop to give there; not fixable through `tabindex`.
+- The effect tracks each radio's `checked()` and `disabled()`, so a radio turning disabled re-resolves the stop.
+- Rebuilding the key manager on a `radios()` emission carries the active radio over (`updateActiveItem`, read `untracked` — CDK 22's `activeItem` is signal-backed, so a tracked read would rebuild on every focus move). Before, a radio added or removed while the user sat on B sent the next arrow key to the first radio instead of C.
+- **Checked state mirrors `radio.value() === value()` (adjacent fix, #307)** — re-evaluated whenever the group value **or any radio's own `value`** changes. Selection used to read each radio's `value` `untracked`, which broke two ways:
+  - **`@for` first binding.** A `@for` row's inputs are bound when the row view refreshes, **after** the declaring view's effects run (`runEffectsInView` precedes `detectChangesInEmbeddedViews` in Angular 22's `refreshView`), so every radio was matched against `undefined` and nothing re-ran: with no group value **every** radio claimed `checked` (three tab stops, `aria-checked="true"` on inputs the browser had unchecked — axe `aria-conditional-attr` — and the last radio drawn selected); with a value, none was checked. A static radio's **first** value was already right (its inputs are bound in the declaring template's own update pass, before the effects).
+  - **Any later `[value]` change** — static radios included — left `checked` stale: a radio whose value changed to the group value stayed unchecked, and one whose value changed away stayed checked with no radio's value equal to `value()`.
+  - **Behaviour to know — identity comparison.** The match is `===`. Object-valued radios whose objects are **re-created** on refresh (`opts.map((o) => ({ ...o }))`, a refetch) no longer equal the group value, so **no radio is drawn checked** and the tab stop falls to the first enabled radio, while `value()` still holds the old object. Before, the stale check kept the old radio drawn checked — showing a selection no radio's value matched. Keep option identity across refreshes, or point `value` at the new object. There is no `compareWith` yet (`mlv-select` has one) — follow-up.
+- **No radio, no key manager (adjacent fix, #307):** the manager is destroyed when `radios()` empties and rebuilt when radios return, and `_onKeydown` / `onChildFocus` optional-chain it. Before, a group that started empty had no manager behind a non-null assertion, so an arrow key reaching its host threw a `TypeError`; and a group whose radios were all removed kept a manager over the detached radios, so a later arrow key selected one's value.
+- Covered by `radio-group.spec.ts` § _roving tab stop with disabled radios (#307)_ (disabled first, checked-but-disabled, enabled checked, checked radio turning disabled, arrow position across an added radio, axe sweep), § _with radios projected through @for_, § _checked state follows each radio's value_ (a static radio's `[value]` changing to and away from the group value; the re-created option object and its remedy) and § _with no radio_.
 
 > **Does not use `MlvFocusableGroupBase`** (deliberate). That base is _focus-driven_ roving, whereas radio's tab stop is _selection-driven_ and its arrows couple selection, radio names, and the forms value in the same effect. Adopting the focus-only base would change behavior, so radio keeps its own manager.
 
@@ -166,7 +184,7 @@ Only the checked radio (or first radio if none checked) has `tabIndex=0`. All ot
 - `role="radiogroup"` on container
 - `aria-readonly="true"` on the container while readonly
 - `[attr.aria-checked]` on native inputs
-- Only active radio is tabbable (`tabIndex=0`)
+- Exactly one radio is tabbable (`tabIndex=0`) — see _Tab Management_
 
 ---
 
