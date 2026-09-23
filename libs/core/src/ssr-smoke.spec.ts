@@ -1020,6 +1020,7 @@ class SsrDataHost {
     <mlv-kbd [keys]="shortcut" />
     <mlv-loader variant="circle" [value]="40" />
     <mlv-progress [value]="60" ariaLabel="Upload progress" />
+    <mlv-progress [value]="30">{{ progressLabel }}</mlv-progress>
     <mlv-skeleton variant="text" width="8rem" />
     <mlv-status-indicator tone="success" ariaLabel="Online" />
     <h2 mlvTitle>Section heading</h2>
@@ -1036,6 +1037,9 @@ class SsrDisplayHost {
     { name: 'Grace Hopper' },
   ];
   readonly shortcut: MlvKbdKey[] = ['cmd', 'k'];
+  // Interpolated rather than static, so the text only arrives in the host's
+  // update pass — after `mlv-progress` has created its view.
+  readonly progressLabel = 'Uploading files';
   // `displayTime: 0` keeps `ngOnInit` from starting an auto-dismiss timer.
   readonly toast: MlvInternalToast = {
     id: 't1',
@@ -1714,6 +1718,42 @@ describe('@malva-ui/core SSR safety', () => {
       /\sdisabled(=|\s|>)/.test(anchor as string),
       `the server-rendered anchor carries the invalid disabled attribute: ${anchor}`,
     ).toBe(false);
+  });
+
+  it('server-renders a projected progress label as the progressbar name', async () => {
+    const { html } = await renderAllHosts();
+
+    // #258. The projected label names the progressbar through
+    // `aria-labelledby`, decided by reading the label wrapper's text. That read
+    // runs in `ngAfterViewChecked`, which the server executes too — an
+    // `afterEveryRender`-only read would ship the i18n "Progress" in the
+    // pre-hydration document. `mlv-progress` does not nest, so a non-greedy
+    // match per element is exact.
+    const progress = (
+      html.match(/<mlv-progress[\s\S]*?<\/mlv-progress>/g) ?? []
+    ).find((markup) => markup.includes('Uploading files'));
+    expect(
+      progress,
+      'no projected progress label in the server markup — the labelled ' +
+        'mlv-progress in SsrDisplayHost did not render its content',
+    ).toBeTruthy();
+    const markup = progress as string;
+    const open = /<mlv-progress[^>]*>/.exec(markup)?.[0] ?? '';
+    const labelledBy = /\saria-labelledby="([^"]+)"/.exec(open)?.[1];
+    expect(
+      labelledBy,
+      `the server-rendered progressbar is not labelled by its label: ${open}`,
+    ).toBeTruthy();
+    expect(
+      /\saria-label="/.test(open),
+      `the server-rendered progressbar also carries aria-label: ${open}`,
+    ).toBe(false);
+    expect(
+      new RegExp(
+        `<div[^>]*\\sid="${labelledBy}"[^>]*>\\s*Uploading files\\s*</div>`,
+      ).test(markup),
+      `aria-labelledby="${labelledBy}" does not name the visible label: ${markup}`,
+    ).toBe(true);
   });
 
   it('server-renders each host into markup', async () => {

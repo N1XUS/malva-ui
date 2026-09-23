@@ -2,4 +2,4 @@
 title: Bar — Percentage Label
 ---
 
-Add `showPercentage` to display the current value as a right-aligned percentage above the track. The label slot (`ng-content`) renders below the track and can hold a short description of the operation. Both are hidden from screen readers (`aria-hidden`) since the accessible value is already exposed through ARIA attributes.
+Add `showPercentage` to display the current value as a right-aligned percentage above the track. The label slot (`ng-content`) renders below the track and can hold a short description of the operation. With no `ariaLabel`, that label is also the progressbar's accessible name (`aria-labelledby`), so screen readers announce what they see. The percentage stays hidden from them (`aria-hidden`), since the value is already exposed through `aria-valuenow`.

@@ -14,15 +14,15 @@ type: project
 
 ## Examples
 
-| #   | File          | Title                               | What it demonstrates                            |
-| --- | ------------- | ----------------------------------- | ----------------------------------------------- |
-| 1   | `examples/1/` | Bar — basic                         | Minimal bar with label slot and `value` binding |
-| 2   | `examples/2/` | Bar — size variants                 | Small, medium, large bars side by side          |
-| 3   | `examples/3/` | Bar — tone variants                 | All 5 semantic tones with fixed value           |
-| 4   | `examples/4/` | Bar — show percentage               | `[showPercentage]="true"` on bar                |
-| 5   | `examples/5/` | Circle — basic                      | Minimal SVG circle with animated dashoffset     |
-| 6   | `examples/6/` | Circle — size variants + percentage | Small/medium/large with centered percentage     |
-| 7   | `examples/7/` | Circle — tone variants              | All 5 semantic tones as circles                 |
+| #   | File          | Title                               | What it demonstrates                                                               |
+| --- | ------------- | ----------------------------------- | ---------------------------------------------------------------------------------- |
+| 1   | `examples/1/` | Bar — basic                         | Minimal bar with `value` binding and an explicit `ariaLabel`                       |
+| 2   | `examples/2/` | Bar — size variants                 | Small, medium, large bars side by side                                             |
+| 3   | `examples/3/` | Bar — tone variants                 | All 5 semantic tones with fixed value                                              |
+| 4   | `examples/4/` | Bar — show percentage               | `showPercentage` on bar, plus a projected label that names it (no `ariaLabel`)     |
+| 5   | `examples/5/` | Circle — basic                      | Minimal SVG circle with animated dashoffset                                        |
+| 6   | `examples/6/` | Circle — size variants + percentage | Small/medium/large with centered percentage; `ariaLabel` extends the visible label |
+| 7   | `examples/7/` | Circle — tone variants              | All 5 semantic tones as circles                                                    |
 
 ## Wiring
 

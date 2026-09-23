@@ -11,9 +11,6 @@
       [style.width.%]="_clampedValue()"
     ></div>
   </div>
-  <div class="mlv-progress__label" aria-hidden="true">
-    <ng-content />
-  </div>
 } @else {
   <div class="mlv-progress__svg-wrapper">
     <svg
@@ -47,7 +44,20 @@
       }}</span>
     }
   </div>
-  <div class="mlv-progress__label" aria-hidden="true">
-    <ng-content />
-  </div>
 }
+<!-- THE LABEL SLOT IS AUTHORED EXACTLY ONCE, HERE, OUTSIDE THE @if (#258).
+     Both shapes end with it, so it needs no branch — and a second bare
+     `<ng-content />` can never come back inside one: the compiler emits one
+     `'*'` projection slot per `<ng-content>`, and `matchingProjectionSlotIndex`
+     hands every node no named slot claims to the LAST `'*'` in that list, so
+     each earlier copy owns a bucket that stays empty for the instance's whole
+     life. That is how the default `bar` dropped its label while `circle`
+     rendered it. Outside the `@if`, a `shape` flip never destroys the slot
+     either, so the projected nodes stay put.
+     `aria-hidden` on purpose, and still the host's name: `aria-labelledby`
+     reads a hidden referenced node's text (accname step 2A), so the label names
+     the progressbar without also being exposed as a separate text node under
+     it — Chrome does expose a visible one, so the text would be read twice. -->
+<div #label class="mlv-progress__label" [id]="_labelId" aria-hidden="true">
+  <ng-content />
+</div>
