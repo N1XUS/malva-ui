@@ -291,7 +291,17 @@ export const ROLLOUT_PENDING = [
       'an un-narrowed `field` sweep (`aria-allowed-attr` on the text input, #426)',
     ],
   },
-  'core-dropdown',
+  {
+    // #318 swept a truncated flat list, a truncated grouped list and an
+    // activedescendant row rendered past the window (`scrollMode="self"`).
+    project: 'core-dropdown',
+    owes: [
+      'the `loading` row and the `loadingMore` next-page row',
+      'a `multiple` list with checked rows',
+      '`highlightQuery` match marks and an `itemTemplate` row',
+      '`scrollMode="parent"` inside `mlv-popup`',
+    ],
+  },
   'core-file-upload',
   'core-form',
   {

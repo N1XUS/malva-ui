@@ -85,7 +85,7 @@
         }
       }
     } @else {
-      @for (option of options(); track option.value; let i = $index) {
+      @for (option of _windowOptions(); track option.value; let i = $index) {
         <ng-container
           *ngTemplateOutlet="optionRow; context: { option: option, index: i }"
         />
@@ -110,6 +110,8 @@
         [label]="option.label"
         [disabled]="option.disabled ?? false"
         [optionId]="optionId(index)"
+        [attr.aria-setsize]="_setPositions()?.setSize(index) ?? null"
+        [attr.aria-posinset]="_setPositions()?.posInSet(index) ?? null"
       >
         @if (itemTemplate()) {
           <ng-container
@@ -158,16 +160,19 @@
 
   <!-- Paging sentinel. The directive listens on the real scroll owner via
        [scrollContainer]; it stays disabled until that element is resolved so
-       its initial measurement never runs against the non-scrolling panel host. -->
+       its initial measurement never runs against the non-scrolling panel host.
+       It also grows the option window (#318): while rows are withheld,
+       _onSentinel renders a page more of them, and only a complete window
+       emits loadMore - so a source still pages at the point it always did. -->
   <div
     class="mlv-dropdown-panel__sentinel"
     aria-hidden="true"
     mlvInfiniteScroll
     [scrollContainer]="_scrollContainer()"
-    [disabled]="!hasMore() || !_scrollContainer()"
-    [hasMore]="hasMore()"
-    [loading]="loading() || loadingMore()"
+    [disabled]="!_sentinelArmed() || !_scrollContainer()"
+    [hasMore]="_sentinelArmed()"
+    [loading]="!_windowTruncated() && (loading() || loadingMore())"
     [threshold]="infiniteScrollThreshold()"
-    (loadMore)="loadMore.emit()"
+    (loadMore)="_onSentinel()"
   ></div>
 </ng-template>
