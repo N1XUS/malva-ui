@@ -22,12 +22,12 @@ export class MlvDrawerRef<R = unknown> extends MlvOverlayRef<R> {
 
   /**
    * @private Ids of the `mlv-drawer-header` titles currently registered as
-   * the pane's label, in registration order.
+   * the drawer's label, in registration order.
    */
   private readonly _labelIds: string[] = [];
 
   /**
-   * @private The pane's `aria-label` before a header title replaced it — the
+   * @private The panel's `aria-label` before a header title replaced it — the
    * i18n fallback `MlvDrawerService` writes at open. Restored when the last
    * title withdraws, so the `role="dialog"` is never left nameless.
    */
@@ -48,7 +48,7 @@ export class MlvDrawerRef<R = unknown> extends MlvOverlayRef<R> {
     private readonly _position = 'right',
     /**
      * @private Configured close-animation duration in milliseconds. Stored but
-     * read by nothing — the close is timed by the pane's `animationend` or
+     * read by nothing — the close is timed by the panel's `animationend` or
      * `_leaveFallbackMs` (#277).
      */
     private readonly _animationDuration = 300,
@@ -57,7 +57,7 @@ export class MlvDrawerRef<R = unknown> extends MlvOverlayRef<R> {
   }
 
   /**
-   * @internal Registers a header title `id` in the pane's `aria-labelledby`.
+   * @internal Registers a header title `id` in the panel's `aria-labelledby`.
    * Used by `mlv-drawer-header` so a service-opened drawer is named by its
    * visible title.
    */
@@ -79,12 +79,13 @@ export class MlvDrawerRef<R = unknown> extends MlvOverlayRef<R> {
   }
 
   /**
-   * @private Writes the registered ids onto the overlay pane as
-   * `aria-labelledby`, parking the pane's `aria-label` meanwhile (the two must
-   * never coexist), and swaps them back when the last id withdraws.
+   * @private Writes the registered ids onto the drawer panel — the
+   * `role="dialog"` element inside the pane — as `aria-labelledby`, parking
+   * its `aria-label` meanwhile (the two must never coexist), and swaps them
+   * back when the last id withdraws.
    */
   private _applyLabel(): void {
-    const panelEl = this._overlayRef.overlayElement;
+    const panelEl = this._panelElement;
     if (!panelEl) {
       return;
     }

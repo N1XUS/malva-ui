@@ -1,0 +1,76 @@
+@layer mlv.components {
+  $block: mlv-drawer;
+
+  // The header's own stylesheet, so `mlv-drawer-header` is styled wherever it
+  // renders — inside any drawer, or on its own outside one. `drawer.scss`
+  // arrives only with an open drawer's panel (`MlvDrawerPanel`); the rules
+  // below cannot depend on it. Every selector here is a flat
+  // `.mlv-drawer__*` element class — nothing is scoped under the panel, so
+  // nothing needs a `.mlv-drawer` ancestor to match. The panel-scoped
+  // merged bottom-sheet band, which also reaches the header, stays in
+  // `drawer.scss` and wins on specificity whichever sheet loads first.
+  .#{$block} {
+    // ─── Header ───────────────────────────────────────────────────────────────
+    // One 36px control row: `mlv-drawer-header` projects `compact` density to
+    // its content and pins the close at its default, so a projected `mlvButton`,
+    // the section navigator and the close all resolve `--mlv-height-s`. With
+    // `--mlv-padding-l` (12px block) and the 1px border that is a 61px header.
+
+    &__header {
+      display: flex;
+      align-items: center;
+      gap: var(--mlv-spacing-2);
+      padding: var(--mlv-padding-l);
+      border-block-end: 0.0625rem solid var(--mlv-border-normal);
+    }
+
+    &__title {
+      flex: 0 1 auto;
+      min-inline-size: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: var(--mlv-typography-ui-l-size);
+      font-weight: var(--mlv-typography-ui-l-weight);
+      line-height: var(--mlv-typography-ui-l-line-height);
+      color: var(--mlv-text-primary);
+
+      // A projected heading takes the row's type: consumers pick its level for
+      // the document outline, not for its size.
+      > :is(h1, h2, h3, h4, h5, h6) {
+        margin: 0;
+        font: inherit;
+        color: inherit;
+      }
+
+      // The projection wrapper renders even when nothing is projected into it;
+      // hidden, it adds no phantom `gap` before the projected content.
+      &:empty {
+        display: none;
+      }
+    }
+
+    &__close {
+      flex: none;
+      // Endcap: sits at the inline end even when nothing projected pushes it
+      // there; a projected `mlv-spacer` simply absorbs the same space.
+      margin-inline-start: auto;
+
+      // Optical alignment. The header and the body share one inline padding, so
+      // the close *button box* ends exactly where a full-width field ends — but
+      // the button is a transparent circle and all the eye sees is the X, which
+      // stops well inside the box: (height − glyph) / 2 to the SVG box, plus the
+      // 5/24 of the glyph that Lucide's `x` path leaves blank inside it (the
+      // strokes run 6→18 in a 24 grid, 2 wide). Hang the box out by that much
+      // so the strokes sit on the field edge; the hover halo overshoots into the
+      // padding instead, which has room for it. Declared on the inner button,
+      // the element that owns both tokens, so density / ratio changes follow.
+      > .mlv-button {
+        margin-inline-end: calc(
+          (var(--mlv-icon-font-size) - var(--mlv-btn-height)) /
+            2 - var(--mlv-icon-font-size) * 5 / 24
+        );
+      }
+    }
+  }
+}

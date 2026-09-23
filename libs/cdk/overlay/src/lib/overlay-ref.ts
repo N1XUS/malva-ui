@@ -8,8 +8,13 @@ import { Subject } from 'rxjs';
  *
  * Handles the shared close lifecycle: emitting `beforeClose()` synchronously,
  * playing the leave animation on the backdrop and panel, disposing the CDK
- * overlay once `animationend` fires (with a fallback timeout for
- * `prefers-reduced-motion`), then emitting the close result on `afterClosed()`.
+ * overlay once the panel's own `animationend` fires (with a fallback timeout
+ * for `prefers-reduced-motion`), then emitting the close result on
+ * `afterClosed()`.
+ *
+ * The panel is the element `MlvOverlayServiceBase.open()` made the dialog
+ * surface: the CDK pane, unless the service rendered its content inside a
+ * surface of its own (`MlvDrawerService` renders the drawer panel component).
  *
  * Subclasses supply the CSS class names and fallback duration for their surface.
  * Extend this class and add the concrete class name — do not add an `@Injectable`
@@ -32,10 +37,40 @@ export abstract class MlvOverlayRef<R = unknown> {
   /** @protected Fallback timeout (ms) used when `animationend` never fires (e.g. reduced motion). */
   protected abstract readonly _leaveFallbackMs: number;
 
+  /**
+   * @internal The dialog surface `MlvOverlayServiceBase.open()` resolved from
+   * its `_attachContent` hook, when that is not the CDK pane. Written once,
+   * by the service, right after the content is attached; `null` means the
+   * pane is the surface. Cleared whenever this ref disposes the overlay, so
+   * a ref the consumer keeps (a component field) does not keep the detached
+   * surface's DOM alive with it.
+   */
+  _surfaceElement: HTMLElement | null = null;
+
   constructor(
     /** @protected The CDK overlay reference this handle controls. */
     protected readonly _overlayRef: OverlayRef,
   ) {}
+
+  /**
+   * @protected The element that plays the leave animation and whose own
+   * `animationend` disposes the overlay: the surface the service rendered, or
+   * the CDK pane when it rendered none. `null` once the pane is gone.
+   *
+   * Gated on the pane, not on {@link _surfaceElement} alone: the CDK overlay
+   * can be disposed by something other than this ref (a direct
+   * `OverlayRef.dispose()`), which leaves the field set. A surface that
+   * outlived its pane is detached and can never fire `animationend`, so a
+   * late `close()` would otherwise wait out the whole fallback timeout
+   * instead of completing at once.
+   */
+  protected get _panelElement(): HTMLElement | null {
+    const pane = this._overlayRef.overlayElement;
+    if (!pane) {
+      return null;
+    }
+    return this._surfaceElement ?? pane;
+  }
 
   /**
    * Closes the overlay, playing the leave animation before disposing the CDK
@@ -57,13 +92,13 @@ export abstract class MlvOverlayRef<R = unknown> {
       backdropEl.classList.add(this._backdropLeavingClass);
     }
 
-    const panelEl = this._overlayRef.overlayElement;
+    const panelEl = this._panelElement;
     if (panelEl) {
       let disposed = false;
       // Target-guarded, and the guard is load-bearing: `animationend` bubbles,
       // so a descendant finishing a finite CSS animation inside the leave
-      // window (consumer content in the pane) would otherwise dispose the
-      // overlay mid-animation. Only the pane's own leave keyframes may.
+      // window (consumer content in the panel) would otherwise dispose the
+      // overlay mid-animation. Only the panel's own leave keyframes may.
       const onAnimationEnd = (event: Event) => {
         if (event.target === panelEl) {
           dispose();
@@ -74,7 +109,7 @@ export abstract class MlvOverlayRef<R = unknown> {
         disposed = true;
         clearTimeout(timer);
         panelEl.removeEventListener('animationend', onAnimationEnd);
-        this._overlayRef.dispose();
+        this._disposeOverlay();
         this._closedSubject.next(result);
         this._closedSubject.complete();
       };
@@ -89,10 +124,23 @@ export abstract class MlvOverlayRef<R = unknown> {
       panelEl.addEventListener('animationend', onAnimationEnd);
       const timer = setTimeout(dispose, this._leaveFallbackMs);
     } else {
-      this._overlayRef.dispose();
+      this._disposeOverlay();
       this._closedSubject.next(result);
       this._closedSubject.complete();
     }
+  }
+
+  /**
+   * @private Disposes the CDK overlay and drops the reference to the surface
+   * it rendered. Both of this ref's disposal paths go through here, so
+   * neither leaves the detached surface pinned to a retained ref. The
+   * reference is dropped after `dispose()`, not before: CDK destroys the
+   * attached content before it nulls the pane, and a destroy hook that
+   * resolves the surface in between must still get the surface, not the pane.
+   */
+  private _disposeOverlay(): void {
+    this._overlayRef.dispose();
+    this._surfaceElement = null;
   }
 
   /** Observable that emits once with the close result after disposal, then completes. */

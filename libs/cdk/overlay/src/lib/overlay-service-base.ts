@@ -18,13 +18,17 @@ import { MlvOverlayInitialFocusResolver } from './overlay-initial-focus';
  * `MlvDialogService` runs on `@angular/cdk/dialog` instead).
  *
  * Owns the shared `open()` flow: creating the CDK overlay, building a child
- * injector that provides the ref and data tokens, attaching the component
- * portal, making the component host a flex pass-through, applying the shared
- * `role="dialog"`/`aria-modal` semantics, trapping focus, playing the enter
- * animation, and wiring backdrop-click / Escape to close.
+ * injector that provides the ref and data tokens, attaching the content
+ * through {@link _attachContent}, applying the shared `role="dialog"` /
+ * `aria-modal` semantics to the surface that hook returns, trapping focus,
+ * playing the enter animation, and wiring backdrop-click / Escape to close.
  *
  * Subclasses implement the surface-specific hooks (position strategy, overlay
- * config, ref construction, DI providers, panel decoration, enter class).
+ * config, ref construction, DI providers, panel decoration, enter class), and
+ * may override {@link _attachContent} to render the opened component inside a
+ * surface component of their own rather than directly in the CDK pane —
+ * which is how `MlvDrawerService` renders the same panel `<mlv-drawer>`
+ * does.
  *
  * Not injectable directly — extend it and add `@Injectable`. `inject()` runs in
  * the subclass's injection context.
@@ -77,6 +81,58 @@ export abstract class MlvOverlayServiceBase<
   ): void;
 
   /**
+   * @protected Attaches `component` to the overlay and returns the element that
+   * becomes the dialog surface: the one that receives `role="dialog"`,
+   * `aria-modal`, `tabindex="-1"`, {@link _decoratePanel}, the focus trap,
+   * the enter class, and — through `MlvOverlayRef` — the leave class and the
+   * guarded `animationend` that disposes the overlay.
+   *
+   * The default attaches a `ComponentPortal` straight to the CDK pane, makes
+   * the component host a flex pass-through ({@link _applyContentLayout}) and
+   * returns the pane. Override it to render the component inside a surface
+   * component of your own; the returned element must stay inside the pane for
+   * the life of the overlay. Runs synchronously inside `open()`, before any
+   * of the above is applied.
+   *
+   * @param overlayRef - The freshly created CDK overlay.
+   * @param component - The component `open()` was called with.
+   * @param injector - Injector providing the ref and data tokens; parent of
+   * whatever the hook creates.
+   * @param _ref - The overlay reference `open()` will return.
+   * @param _config - The configuration `open()` was called with.
+   * @returns The dialog surface element.
+   */
+  protected _attachContent<T>(
+    overlayRef: OverlayRef,
+    component: Type<T>,
+    injector: Injector,
+    _ref: TRef,
+    _config: TConfig,
+  ): HTMLElement {
+    const componentRef = overlayRef.attach(
+      new ComponentPortal(component, null, injector),
+    );
+    this._applyContentLayout(
+      componentRef.location.nativeElement as HTMLElement,
+    );
+    return overlayRef.overlayElement;
+  }
+
+  /**
+   * @protected Makes the opened component's host a flex pass-through. The host
+   * sits between the surface and the header / body / footer it renders, so
+   * without this the body could neither fill nor scroll.
+   *
+   * @param hostEl - The opened component's host element.
+   */
+  protected _applyContentLayout(hostEl: HTMLElement): void {
+    hostEl.style.display = 'flex';
+    hostEl.style.flexDirection = 'column';
+    hostEl.style.flex = '1 1 auto';
+    hostEl.style.minHeight = '0';
+  }
+
+  /**
    * Opens `component` inside a CDK overlay.
    *
    * @param component - The component class to instantiate inside the overlay.
@@ -105,18 +161,17 @@ export abstract class MlvOverlayServiceBase<
       providers: this._createProviders(ref, config),
     });
 
-    const portal = new ComponentPortal(component, null, injector);
-    const componentRef = overlayRef.attach(portal);
+    const panelEl = this._attachContent(
+      overlayRef,
+      component,
+      injector,
+      ref,
+      config,
+    );
+    // The ref plays the leave on the same element the enter runs on below.
+    ref._surfaceElement =
+      panelEl && panelEl !== overlayRef.overlayElement ? panelEl : null;
 
-    // The component host element sits between the overlay pane and the
-    // header/body/footer children — make it a flex pass-through.
-    const hostEl = componentRef.location.nativeElement as HTMLElement;
-    hostEl.style.display = 'flex';
-    hostEl.style.flexDirection = 'column';
-    hostEl.style.flex = '1 1 auto';
-    hostEl.style.minHeight = '0';
-
-    const panelEl = overlayRef.overlayElement;
     if (panelEl) {
       panelEl.setAttribute('role', 'dialog');
       panelEl.setAttribute('aria-modal', 'true');
@@ -150,8 +205,9 @@ export abstract class MlvOverlayServiceBase<
       panelEl.classList.add(this._enterAnimationClass);
       // Target-guarded: `animationend` bubbles, so consumer content finishing
       // its own finite animation during the enter would otherwise strip the
-      // class and cut the pane's enter short. Only the pane's own keyframes
-      // may clear it.
+      // class and cut the panel's enter short. Only the panel's own keyframes
+      // may clear it. (With a surface of its own, the pane is an ancestor and
+      // its events never reach this listener at all.)
       const onEnterAnimationEnd = (event: Event) => {
         if (event.target !== panelEl) {
           return;
@@ -164,8 +220,8 @@ export abstract class MlvOverlayServiceBase<
       // so `takeUntilDestroyed` here would bind every overlay ever opened to
       // the application's lifetime instead — and `panelEl` is disposed with the
       // overlay either way. Not `once: true`: an ignored descendant event would
-      // spend it and latch the enter class for the life of the pane. The
-      // handler removes itself on the pane's own event instead.
+      // spend it and latch the enter class for the life of the panel. The
+      // handler removes itself on the panel's own event instead.
       panelEl.addEventListener('animationend', onEnterAnimationEnd);
     }
 
