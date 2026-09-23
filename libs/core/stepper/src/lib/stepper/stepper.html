@@ -30,11 +30,11 @@
       [attr.aria-orientation]="orientation()"
       (keydown)="_onHeaderKeydown($event)"
     >
-      @for (step of _stepList(); track step._index; let last = $last) {
+      @for (step of _stepList(); track step; let last = $last) {
         <div
           class="mlv-stepper__indicator-col"
           role="presentation"
-          [style.grid-row]="step._index + 1"
+          [style.grid-row]="$index + 1"
         >
           <!-- Indicator circle (trigger) -->
           <div
@@ -61,11 +61,10 @@
             [attr.aria-label]="step.label()"
             [attr.aria-selected]="_stateFor(step) === 'active'"
             [attr.aria-disabled]="!_isClickable(step) || null"
-            (click)="_isClickable(step) && selectStep(step._index)"
-            (keydown.enter)="_isClickable(step) && selectStep(step._index)"
+            (click)="_isClickable(step) && selectStep($index)"
+            (keydown.enter)="_isClickable(step) && selectStep($index)"
             (keydown.space)="
-              _isClickable(step) && selectStep(step._index);
-              $event.preventDefault()
+              _isClickable(step) && selectStep($index); $event.preventDefault()
             "
           >
             <div class="mlv-stepper__indicator" aria-hidden="true">
@@ -98,7 +97,7 @@
                   <circle cx="8" cy="11" r="0.75" fill="currentColor" />
                 </svg>
               } @else {
-                <span>{{ step._index + 1 }}</span>
+                <span>{{ $index + 1 }}</span>
               }
               @if (step.deviative()) {
                 <span class="mlv-stepper__deviative-badge" aria-hidden="true">
@@ -133,11 +132,11 @@
 
     <!-- Body column: labels + inline content panels (outside the tablist) -->
     <div class="mlv-stepper__bodies" role="presentation">
-      @for (step of _stepList(); track step._index) {
+      @for (step of _stepList(); track step) {
         <div
           class="mlv-stepper__body-col"
           role="presentation"
-          [style.grid-row]="step._index + 1"
+          [style.grid-row]="$index + 1"
         >
           <!-- Label group -->
           <div class="mlv-stepper__label-group">
@@ -192,7 +191,7 @@
     [attr.aria-orientation]="orientation()"
     (keydown)="_onHeaderKeydown($event)"
   >
-    @for (step of _stepList(); track step._index; let last = $last) {
+    @for (step of _stepList(); track step; let last = $last) {
       <div
         class="mlv-stepper__header-item"
         [class.mlv-stepper__header-item--deviative]="step.deviative()"
@@ -220,11 +219,10 @@
           [attr.aria-label]="step.label()"
           [attr.aria-selected]="_stateFor(step) === 'active'"
           [attr.aria-disabled]="!_isClickable(step) || null"
-          (click)="_isClickable(step) && selectStep(step._index)"
-          (keydown.enter)="_isClickable(step) && selectStep(step._index)"
+          (click)="_isClickable(step) && selectStep($index)"
+          (keydown.enter)="_isClickable(step) && selectStep($index)"
           (keydown.space)="
-            _isClickable(step) && selectStep(step._index);
-            $event.preventDefault()
+            _isClickable(step) && selectStep($index); $event.preventDefault()
           "
         >
           <!-- Indicator circle -->
@@ -258,7 +256,7 @@
                 <circle cx="8" cy="11" r="0.75" fill="currentColor" />
               </svg>
             } @else {
-              <span>{{ step._index + 1 }}</span>
+              <span>{{ $index + 1 }}</span>
             }
             @if (step.deviative()) {
               <span class="mlv-stepper__deviative-badge" aria-hidden="true">
@@ -315,7 +313,7 @@
   </div>
 
   <!-- Shared content area below the header row -->
-  @for (step of _stepList(); track step._index) {
+  @for (step of _stepList(); track step) {
     @if (_stateFor(step) === 'active') {
       <div
         class="mlv-stepper__content-panel mlv-stepper__content-panel--active"

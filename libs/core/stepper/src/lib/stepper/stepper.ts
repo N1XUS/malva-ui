@@ -9,8 +9,8 @@ import {
   ElementRef,
   inject,
   input,
+  linkedSignal,
   output,
-  signal,
   untracked,
   viewChildren,
   ViewEncapsulation,
@@ -25,6 +25,38 @@ import { MLV_STEPPER } from './stepper-token';
 import type { MlvStepState, MlvStepperOrientation } from './stepper.types';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MLV_STEPPER_I18N } from '@malva-ui/i18n';
+
+/**
+ * Where the active step sits once the projected steps have changed.
+ *
+ * - The step that was active is still projected: its new position, so an
+ *   insertion or removal elsewhere never swaps the step on screen.
+ * - It was removed: the step now in its slot — the one after its nearest
+ *   surviving predecessor (its replacement, or the step that followed it) —
+ *   clamped to the last step. Nothing that followed it is skipped.
+ * - No step was active (the first read, or an index past the old list): that
+ *   index, clamped to the new list.
+ */
+function resolveActiveIndex(
+  steps: readonly MlvStep[],
+  previous: { source: readonly MlvStep[]; value: number } | undefined,
+): number {
+  if (!previous) return 0;
+  const { source: before, value: index } = previous;
+  const active = before[index];
+  if (!active) return Math.max(0, Math.min(index, steps.length - 1));
+
+  const kept = steps.indexOf(active);
+  if (kept !== -1) return kept;
+
+  for (let i = index - 1; i >= 0; i--) {
+    const predecessor = steps.indexOf(before[i]);
+    if (predecessor !== -1) {
+      return Math.min(predecessor + 1, steps.length - 1);
+    }
+  }
+  return 0;
+}
 
 /**
  * `mlv-stepper` — a multi-step workflow container.
@@ -75,7 +107,9 @@ export class MlvStepper implements AfterContentInit {
   });
 
   /**
-   * Zero-based index of the initially active step.
+   * Zero-based index of the initially active step. Applied once, at content
+   * init. An index past the steps projected by then is kept, so steps that
+   * arrive later (a `@for` over async data) open on it, clamped to the last.
    */
   readonly initialIndex = input(0);
 
@@ -89,11 +123,41 @@ export class MlvStepper implements AfterContentInit {
    */
   readonly activeIndexChange = output<number>();
 
-  /** @private Zero-based index of the currently active step (internal signal). */
-  readonly activeIndex = signal(0);
+  /**
+   * Zero-based index of the currently active step.
+   *
+   * Follows the active step's live position once the steps have rendered.
+   * When projected steps are inserted or removed after init (an `@if` /
+   * `@for` step), the same step stays active and this moves with it; when the
+   * active step itself is removed, the step that took its slot becomes active,
+   * clamped to the last step.
+   *
+   * Such a re-index is not navigation and emits no `activeIndexChange`, so
+   * derive the index from this signal (a template reference, or a `computed()`
+   * over a `viewChild`) instead of copying the output into state of your own.
+   * The step query refreshes during change detection: a read in the same
+   * handler that changes the steps still returns the old position.
+   *
+   * An out-of-range value, from `set()` or `initialIndex`, is kept as it is,
+   * with no step active, until the steps next change; it is then clamped to
+   * the last step.
+   */
+  readonly activeIndex = linkedSignal<readonly MlvStep[], number>({
+    source: () => this._steps(),
+    computation: resolveActiveIndex,
+  });
 
   /** @private Projected step definition components. */
   private readonly _steps = contentChildren(MlvStep);
+
+  /**
+   * @private Live position of every projected step. Derived from the query
+   * rather than stamped on each step once, so a step projected after init is
+   * numbered, selected and navigated by where it actually sits.
+   */
+  private readonly _positions = computed(
+    () => new Map(this._steps().map((step, index) => [step, index] as const)),
+  );
 
   /** @protected Iterable step array for the template. */
   protected readonly _stepList = computed(() => this._steps());
@@ -165,7 +229,6 @@ export class MlvStepper implements AfterContentInit {
 
   ngAfterContentInit(): void {
     this.activeIndex.set(this.initialIndex());
-    this._assignIndices();
   }
 
   /**
@@ -235,15 +298,21 @@ export class MlvStepper implements AfterContentInit {
   protected _stateFor(step: MlvStep): MlvStepState {
     if (step.state()) return step.state() as MlvStepState;
     const active = this.activeIndex();
-    if (step._index === active) return 'active';
-    if (step._index < active) return 'completed';
+    const index = this._positionOf(step);
+    if (index === active) return 'active';
+    if (index < active) return 'completed';
     return 'pending';
   }
 
   /** @protected Returns `true` if a step header is clickable. */
   protected _isClickable(step: MlvStep): boolean {
     if (!this.linear()) return true;
-    return step._index <= this.activeIndex();
+    return this._positionOf(step) <= this.activeIndex();
+  }
+
+  /** @private Live zero-based position of `step` among the projected steps. */
+  private _positionOf(step: MlvStep): number {
+    return this._positions().get(step) ?? -1;
   }
 
   /** @private Emit and update the active index. */
@@ -254,13 +323,6 @@ export class MlvStepper implements AfterContentInit {
     // triggering element already holds focus after a click/keyboard activate).
     this._keyManager?.updateActiveItem(index);
     this._syncTabIndices();
-  }
-
-  /** @private Assign sequential indices to child step components. */
-  private _assignIndices(): void {
-    this._steps().forEach((step, i) => {
-      step._index = i;
-    });
   }
 
   /**

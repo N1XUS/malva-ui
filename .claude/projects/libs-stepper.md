@@ -16,6 +16,7 @@ Key features:
 - Deviation resolved: reverts connector to normal style when deviation is addressed
 - Mobile-responsive: at ≤640px the horizontal header row is hidden and replaced by a compact `Step N of M: <label>` counter
 - Parent→child communication via `MLV_STEPPER` injection token (`MlvStepperAccessor` interface)
+- Dynamic steps: a step projected or removed after init (`@if` / `@for`) is renumbered, selected and navigated by its live position; the active step is followed by identity (see _Dynamic steps_)
 
 ---
 
@@ -47,18 +48,18 @@ Imports:           NgTemplateOutlet
 
 #### Inputs
 
-| Input          | Type                                  | Default        | Description                                                                                                                                                    |
-| -------------- | ------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `orientation`  | `MlvStepperOrientation`               | `'horizontal'` | `'horizontal'` renders step headers side-by-side with a connector line. `'vertical'` stacks each step header and its content in a column.                      |
-| `linear`       | `BooleanInput` (coerced to `boolean`) | `false`        | When `true`, users must complete steps in order. Only completed steps and the next pending step are clickable. Allows attribute usage: `<mlv-stepper linear>`. |
-| `initialIndex` | `number`                              | `0`            | Zero-based index of the initially active step. Applied once in `ngAfterContentInit`.                                                                           |
-| `ariaLabel`    | `string \| undefined`                 | `undefined`    | Accessible label for the stepper container, announced by screen readers via `aria-label` on the host.                                                          |
+| Input          | Type                                  | Default        | Description                                                                                                                                                                                                               |
+| -------------- | ------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `orientation`  | `MlvStepperOrientation`               | `'horizontal'` | `'horizontal'` renders step headers side-by-side with a connector line. `'vertical'` stacks each step header and its content in a column.                                                                                 |
+| `linear`       | `BooleanInput` (coerced to `boolean`) | `false`        | When `true`, users must complete steps in order. Only completed steps and the next pending step are clickable. Allows attribute usage: `<mlv-stepper linear>`.                                                            |
+| `initialIndex` | `number`                              | `0`            | Zero-based index of the initially active step. Applied once in `ngAfterContentInit`. An index past the steps projected by then is kept, so steps that arrive later open on it, clamped to the last — see _Dynamic steps_. |
+| `ariaLabel`    | `string \| undefined`                 | `undefined`    | Accessible label for the stepper container, announced by screen readers via `aria-label` on the host.                                                                                                                     |
 
 #### Outputs
 
-| Output              | Type                       | Description                                                                                             |
-| ------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `activeIndexChange` | `OutputEmitterRef<number>` | Emits the new zero-based active step index after any navigation (next, previous, or direct selectStep). |
+| Output              | Type                       | Description                                                                                                                                                                                                                           |
+| ------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `activeIndexChange` | `OutputEmitterRef<number>` | Emits the new zero-based active step index after any navigation (next, previous, or direct selectStep). A re-index caused by the consumer changing the projected steps is **not** navigation and emits nothing — see _Dynamic steps_. |
 
 #### Host Bindings
 
@@ -76,11 +77,12 @@ Imports:           NgTemplateOutlet
 
 #### Computed / Derived State
 
-| Member         | Description                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------ |
-| `activeIndex`  | `signal(0)` — current zero-based active step index (internal, but readable on the component instance). |
-| `_stepList`    | `computed(() => this._steps())` — iterable array for the template `@for` loop.                         |
-| `_hostClasses` | `computed(...)` — builds orientation modifier class string.                                            |
+| Member         | Description                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `activeIndex`  | `linkedSignal` over `_steps` — the active step's zero-based position once the steps have rendered (public and writable, but derive from it rather than set it, and never mirror it from `activeIndexChange`). Seeded from `initialIndex` in `ngAfterContentInit`; re-resolved by identity whenever the projected steps change. An out-of-range value is kept, with no step active, until the steps next change (see _Dynamic steps_). |
+| `_positions`   | `computed(...)` — `Map<MlvStep, number>` of every projected step's live position; `_stateFor` / `_isClickable` read it.                                                                                                                                                                                                                                                                                                               |
+| `_stepList`    | `computed(() => this._steps())` — iterable array for the template `@for` loops, which `track step` by identity and read `$index` for numbering, `grid-row` and `selectStep`.                                                                                                                                                                                                                                                          |
+| `_hostClasses` | `computed(...)` — builds orientation modifier class string.                                                                                                                                                                                                                                                                                                                                                                           |
 
 #### Public Methods
 
@@ -119,7 +121,7 @@ permitted tablist child — see the axe note under _Accessibility_).
     bodies container is a sibling of the tablist (not a descendant), the
     tabpanels are **not** owned by the tablist.
   - Each indicator column and its matching body column are pinned to the same
-    grid row via `[style.grid-row]="step._index + 1"`, so the connector stays
+    grid row via `[style.grid-row]="$index + 1"`, so the connector stays
     aligned with the label and the active (expanded) panel pushes the following
     step down — preserving the interleaved appearance. Inactive panels use
     `[attr.inert]` (not bare `aria-hidden`) so their still-rendered focusable
@@ -186,9 +188,10 @@ None.
 
 #### Internal API
 
+A step carries no index of its own: `MlvStepper` derives every step's position from its live `contentChildren` query (`_positions`, `$index`). The former `_index` field, stamped once at content init, is gone (#311).
+
 | Member       | Type                                                     | Description                                                                                                                                                       |
 | ------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `_index`     | `number`                                                 | Zero-based index assigned by `MlvStepper.ngAfterContentInit`. Do not set this from outside the stepper.                                                           |
 | `contentTpl` | `viewChild.required<TemplateRef<unknown>>('contentTpl')` | Template reference holding the step's projected content. Accessed by `MlvStepper` via `step.contentTpl()` to render into content panels using `NgTemplateOutlet`. |
 
 ---
@@ -354,6 +357,84 @@ export class WizardComponent {
 }
 ```
 
+### Conditional steps
+
+Derive the index from the stepper; do not copy `(activeIndexChange)` into a
+signal of your own. Toggling `needsShipping()` moves Payment from 1 to 2
+without emitting, so a copied `step()` would stay at `1`.
+
+```ts
+@Component({
+  imports: [MlvStepper, MlvStep],
+  template: `
+    <mlv-stepper #wizard>
+      <mlv-step label="Cart">...</mlv-step>
+      @if (needsShipping()) {
+        <mlv-step label="Shipping">...</mlv-step>
+      }
+      <mlv-step label="Payment">...</mlv-step>
+    </mlv-stepper>
+    <p>Step {{ wizard.activeIndex() + 1 }}</p>
+  `,
+})
+export class CheckoutComponent {
+  readonly needsShipping = signal(false);
+  private readonly _wizard = viewChild(MlvStepper);
+  /** Derived, so a re-index is never missed. */
+  readonly onFirstStep = computed(() => (this._wizard()?.activeIndex() ?? 0) === 0);
+}
+```
+
+---
+
+## Dynamic steps
+
+Steps may be projected or removed after init through `@if` / `@for`. Every
+position is derived from the live `contentChildren` query, never stamped once,
+so numbering, `aria-selected`, the rendered / non-`inert` panel, the roving
+tabindex, the vertical `grid-row`, the mobile `Step N of M` counter and
+`next()` / `previous()` / `selectStep()` all follow the rendered list.
+Before #311 a step inserted after init kept index `0`: two steps were active at
+once and the `@for` track keys collided (NG0955).
+
+`activeIndex` follows the **active step by identity** (a `linkedSignal` over the
+query):
+
+| Content change                                  | Active step afterwards                                                                               |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Step inserted / removed / reordered elsewhere   | The same step; `activeIndex` moves with it                                                           |
+| Active step removed                             | The step now in its slot (the one after its nearest surviving predecessor), clamped to the last step |
+| Active step replaced in place (`@if` / `@else`) | The replacement                                                                                      |
+| Active step and every step before it removed    | The new first step — the survivor that followed it is not skipped                                    |
+
+- **Not navigation.** The consumer changed the steps, so no `activeIndexChange`
+  is emitted even when the number changes (the `model()` convention: a
+  `…Change` output reports what the component did, not what its parent did).
+- **Derive the index, don't mirror it.** Read `activeIndex()` through a
+  template reference (`<mlv-stepper #wizard>` → `{{ wizard.activeIndex() }}`)
+  or a `computed()` over `viewChild(MlvStepper)` — see _Conditional steps_. A
+  copy kept from `(activeIndexChange)` goes stale on the first re-index. So
+  does a read in the same handler that changes the steps: the step query
+  refreshes during change detection, and until then `activeIndex()` still
+  returns the old position.
+- **Navigate after the new steps render.** `next()`, `previous()`,
+  `selectStep()` and `activeIndex.set()` called in the same tick as a step
+  change act on the old list, and the re-index that follows moves the index
+  again without emitting: `labels.set(['A', 'X', 'B', 'C'])` then
+  `selectStep(1)` emits `1` but ends on B, not X. Defer the call —
+  `afterNextRender(() => stepper.selectStep(1), { injector })`.
+- **Derived states.** Steps before the active one derive `completed`, so a
+  step inserted **before** the active one shows the checkmark without having
+  been visited. In `linear` mode it is therefore clickable — the user can step
+  back into it — while steps after the active one stay locked. Pinned by
+  `stepper.spec.ts` → _projected steps change after init (#311)_.
+- **`initialIndex`** is still applied once, at content init. An index past the
+  steps projected by then is kept (no step is active) and applied when steps
+  arrive, clamped to the last — a `@for` over data that loads later opens on
+  it. An out-of-range `activeIndex.set()` behaves the same way. A list emptied
+  and refilled starts on its first step, because the active step was removed
+  with no step before it.
+
 ---
 
 ## Accessibility
@@ -366,10 +447,10 @@ export class WizardComponent {
 - Each step header trigger has `role="tab"`, `[attr.aria-selected]`, `[attr.aria-disabled]`, and a **roving** `[attr.tabindex]` (see below). `aria-current` is intentionally **not** set — the tablist model uses `aria-selected` as the single source of active-step truth.
 - **Roving tabindex + arrow-key navigation** (implements the WAI-ARIA tablist pattern):
   - Each `.mlv-stepper__step-header` carries the `[mlvStepHeader]` directive (`MlvStepHeader`, `exportAs: 'mlvStepHeader'`), which implements CDK `FocusableOption` (exposes `focus()`, a `disabled` getter from the `isDisabled` input, and a `tabIndex` signal). The template binds `[attr.tabindex]="sh.tabIndex()"`.
-  - `MlvStepper` queries the headers via `viewChildren(MlvStepHeader)` and drives a `FocusKeyManager` (`.withWrap()`, `.withHomeAndEnd()`, `.skipPredicate(h => h.disabled)`, plus `withHorizontalOrientation('ltr')` or `withVerticalOrientation()` depending on `orientation()`). The manager is rebuilt in an `effect()` when the headers or orientation change and torn down via `DestroyRef`.
+  - `MlvStepper` queries the headers via `viewChildren(MlvStepHeader)` and drives a `FocusKeyManager` (`.withWrap()`, `.withHomeAndEnd()`, `.skipPredicate(h => h.disabled)`, plus `withHorizontalOrientation(direction)` — the scoped `elementDirection(host)` — or `withVerticalOrientation()` depending on `orientation()`). The manager is rebuilt in an `effect()` when the headers, the orientation or the direction change and torn down via `DestroyRef`.
   - Only the focused/active header has `tabindex="0"`; all others are `-1`. Arrow keys (Left/Right when horizontal, Up/Down when vertical) move focus and the roving tabindex; `Home`/`End` jump to first/last; navigation **wraps**; non-clickable steps (future steps in linear mode) are skipped.
   - Navigation uses **manual activation**: arrows move focus only. `Enter`/`Space` on a focused header call `selectStep()` (`Space` also `preventDefault()`s page scroll). Selecting a step moves the roving tabindex to it via `_keyManager.updateActiveItem()`.
-- Content panels have `role="tabpanel"` with `[attr.aria-label]` (horizontal) or `[attr.aria-hidden]` (vertical).
+- Content panels have `role="tabpanel"` and `[attr.aria-label]`; inactive vertical panels stay rendered and carry `[attr.inert]`.
 - Step indicator circles and grip visuals are `aria-hidden="true"` — decorative.
 - `:focus-visible` ring uses `--mlv-border-focus` with `outline-offset: 0.125rem`.
 - Mobile counter (`div.mlv-stepper__mobile-counter`) is `aria-hidden="true"` since the actual header content is still in the DOM (just hidden via CSS at narrow viewports).

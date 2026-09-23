@@ -1,6 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import { Component, signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
+import { afterNextRender, Component, signal } from '@angular/core';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvStepper } from './stepper';
 import { MlvStep } from './step';
@@ -384,7 +385,7 @@ describe('MlvStepper — scoped [dir] keyboard mirroring', () => {
 
   function headers(): HTMLElement[] {
     return Array.from(
-      fixture.nativeElement.querySelectorAll<HTMLElement>(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
         '.mlv-stepper__step-header',
       ),
     );
@@ -461,5 +462,509 @@ describe('MlvStepper — scoped [dir] keyboard mirroring', () => {
     dispatchKey(els[1], 'Home', KEY.Home);
     fixture.detectChanges();
     expect(document.activeElement).toBe(els[0]);
+  });
+});
+
+// ─── Projected steps changing after content init (#311) ─────────────────────
+//
+// Each step's position is derived from the live `contentChildren` query, not
+// stamped once at content init, and the active step is followed by identity
+// when steps are inserted or removed around it.
+
+@Component({
+  template: `
+    <div [attr.dir]="scopeDir()">
+      <mlv-stepper [orientation]="orientation()">
+        <mlv-step label="A">Content A</mlv-step>
+        @if (showB()) {
+          <mlv-step label="B">Content B</mlv-step>
+        }
+        <mlv-step label="C">Content C</mlv-step>
+      </mlv-stepper>
+    </div>
+  `,
+  imports: [MlvStepper, MlvStep],
+})
+class ConditionalStepHostComponent {
+  readonly orientation = signal<MlvStepperOrientation>('horizontal');
+  readonly showB = signal(false);
+  readonly scopeDir = signal<'ltr' | 'rtl' | null>(null);
+}
+
+/**
+ * Reads the stepper's index through a template reference, placed **before**
+ * the stepper so the read runs ahead of the step query refreshing — the
+ * derive-don't-mirror pattern `libs-stepper.md` recommends, at its worst case.
+ */
+@Component({
+  template: `
+    <p class="derived">{{ wizard.activeIndex() }}</p>
+    <mlv-stepper #wizard [initialIndex]="1">
+      @for (label of labels(); track label) {
+        <mlv-step [label]="label">Content {{ label }}</mlv-step>
+      }
+    </mlv-stepper>
+  `,
+  imports: [MlvStepper, MlvStep],
+})
+class DerivedIndexHostComponent {
+  readonly labels = signal(['A', 'C', 'D']);
+}
+
+@Component({
+  template: `
+    <mlv-stepper
+      [orientation]="orientation()"
+      [initialIndex]="initialIndex()"
+      [linear]="linear()"
+      (activeIndexChange)="emitted.push($event)"
+    >
+      @for (label of labels(); track label) {
+        <mlv-step [label]="label">Content {{ label }}</mlv-step>
+      }
+    </mlv-stepper>
+  `,
+  imports: [MlvStepper, MlvStep],
+})
+class DynamicStepsHostComponent {
+  readonly orientation = signal<MlvStepperOrientation>('horizontal');
+  readonly labels = signal<string[]>([]);
+  readonly initialIndex = signal(0);
+  readonly linear = signal(false);
+  readonly emitted: number[] = [];
+}
+
+describe('MlvStepper — projected steps change after init (#311)', () => {
+  const ORIENTATIONS: MlvStepperOrientation[] = ['horizontal', 'vertical'];
+
+  let warn: ReturnType<typeof vi.spyOn>;
+  let error: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    warn = vi.spyOn(console, 'warn');
+    error = vi.spyOn(console, 'error');
+    await TestBed.configureTestingModule({
+      imports: [
+        ConditionalStepHostComponent,
+        DynamicStepsHostComponent,
+        DerivedIndexHostComponent,
+      ],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+    error.mockRestore();
+  });
+
+  /** Every console warning/error logged so far, flattened to one string. */
+  function logged(): string {
+    return [...warn.mock.calls, ...error.mock.calls]
+      .map((args) => args.map((arg: unknown) => String(arg)).join(' '))
+      .join('\n');
+  }
+
+  function tabs(host: HTMLElement): HTMLElement[] {
+    return Array.from(host.querySelectorAll<HTMLElement>('[role="tab"]'));
+  }
+
+  /**
+   * What each indicator shows: its number, or `done` for the checkmark a
+   * completed step renders instead of a number.
+   */
+  function indicators(host: HTMLElement): string[] {
+    return tabs(host).map(
+      (tab) =>
+        tab
+          .querySelector(
+            '.mlv-stepper__indicator > span:not(.mlv-stepper__deviative-badge)',
+          )
+          ?.textContent?.trim() ?? 'done',
+    );
+  }
+
+  function selected(host: HTMLElement): (string | null)[] {
+    return tabs(host).map((tab) => tab.getAttribute('aria-selected'));
+  }
+
+  function tabIndexes(host: HTMLElement): (string | null)[] {
+    return tabs(host).map((tab) => tab.getAttribute('tabindex'));
+  }
+
+  /** Text of every panel a user can reach: rendered and not `inert`. */
+  function openPanels(host: HTMLElement): string[] {
+    return Array.from(host.querySelectorAll<HTMLElement>('[role="tabpanel"]'))
+      .filter((panel) => !panel.hasAttribute('inert'))
+      .map((panel) => panel.textContent?.trim() ?? '');
+  }
+
+  /** Expected indicators when the step at `active` is active and none carry `state`. */
+  function derivedIndicators(count: number, active: number): string[] {
+    return Array.from({ length: count }, (_, i) =>
+      i < active ? 'done' : String(i + 1),
+    );
+  }
+
+  async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it.each(ORIENTATIONS)(
+    '%s: renumbers a step inserted through @if with one selection and no NG0955',
+    async (orientation) => {
+      const fixture = TestBed.createComponent(ConditionalStepHostComponent);
+      fixture.componentInstance.orientation.set(orientation);
+      await settle(fixture);
+      const host = fixture.nativeElement.querySelector(
+        'mlv-stepper',
+      ) as HTMLElement;
+
+      fixture.componentInstance.showB.set(true);
+      await settle(fixture);
+
+      expect(logged()).not.toContain('NG0955');
+      expect(tabs(host).map((tab) => tab.getAttribute('aria-label'))).toEqual([
+        'A',
+        'B',
+        'C',
+      ]);
+      expect(indicators(host)).toEqual(['1', '2', '3']);
+      expect(selected(host)).toEqual(['true', 'false', 'false']);
+      expect(openPanels(host)).toEqual(['Content A']);
+    },
+  );
+
+  it('vertical: pins each step row to its live position', async () => {
+    const fixture = TestBed.createComponent(ConditionalStepHostComponent);
+    fixture.componentInstance.orientation.set('vertical');
+    await settle(fixture);
+    const host = fixture.nativeElement.querySelector(
+      'mlv-stepper',
+    ) as HTMLElement;
+
+    fixture.componentInstance.showB.set(true);
+    await settle(fixture);
+
+    const rows = (selector: string): string[] =>
+      Array.from(host.querySelectorAll<HTMLElement>(selector)).map(
+        (el) => el.style.gridRow,
+      );
+    expect(rows('.mlv-stepper__indicator-col')).toEqual(['1', '2', '3']);
+    expect(rows('.mlv-stepper__body-col')).toEqual(['1', '2', '3']);
+  });
+
+  interface ReindexCase {
+    readonly name: string;
+    readonly before: string[];
+    readonly initialIndex: number;
+    readonly after: string[];
+    readonly activeLabel: string;
+  }
+
+  const CASES: ReindexCase[] = [
+    {
+      name: 'a step inserted before the active one keeps the same step active',
+      before: ['A', 'C', 'D'],
+      initialIndex: 1,
+      after: ['A', 'B', 'C', 'D'],
+      activeLabel: 'C',
+    },
+    {
+      name: 'a step inserted after the active one leaves it where it is',
+      before: ['A', 'C', 'D'],
+      initialIndex: 1,
+      after: ['A', 'C', 'X', 'D'],
+      activeLabel: 'C',
+    },
+    {
+      name: 'reordering the steps keeps the same step active',
+      before: ['A', 'B', 'C'],
+      initialIndex: 1,
+      after: ['C', 'A', 'B'],
+      activeLabel: 'B',
+    },
+    {
+      name: 'a step removed before the active one keeps the same step active',
+      before: ['A', 'B', 'C', 'D'],
+      initialIndex: 2,
+      after: ['A', 'C', 'D'],
+      activeLabel: 'C',
+    },
+    {
+      name: 'removing the active step activates the step that took its place',
+      before: ['A', 'B', 'C', 'D'],
+      initialIndex: 1,
+      after: ['A', 'C', 'D'],
+      activeLabel: 'C',
+    },
+    {
+      name: 'removing the active last step clamps to the new last step',
+      before: ['A', 'B', 'C'],
+      initialIndex: 2,
+      after: ['A', 'B'],
+      activeLabel: 'B',
+    },
+    {
+      name: 'replacing the active step in place activates its replacement',
+      before: ['A', 'B', 'C'],
+      initialIndex: 1,
+      after: ['A', 'X', 'C'],
+      activeLabel: 'X',
+    },
+    {
+      name: 'removing the active step and its predecessor skips no survivor',
+      before: ['A', 'B', 'C', 'D'],
+      initialIndex: 1,
+      after: ['C', 'D'],
+      activeLabel: 'C',
+    },
+  ];
+
+  describe.each(ORIENTATIONS)('%s', (orientation) => {
+    it.each(CASES)('$name', async (testCase) => {
+      const fixture = TestBed.createComponent(DynamicStepsHostComponent);
+      const component = fixture.componentInstance;
+      component.orientation.set(orientation);
+      component.labels.set(testCase.before);
+      component.initialIndex.set(testCase.initialIndex);
+      await settle(fixture);
+      const host = fixture.nativeElement.querySelector(
+        'mlv-stepper',
+      ) as HTMLElement;
+      const stepper = fixture.debugElement.query(By.directive(MlvStepper))
+        .componentInstance as MlvStepper;
+
+      component.labels.set(testCase.after);
+      await settle(fixture);
+
+      const active = testCase.after.indexOf(testCase.activeLabel);
+      const onlyActive = testCase.after.map((_, i) =>
+        i === active ? 'true' : 'false',
+      );
+      const rovingOnActive = testCase.after.map((_, i) =>
+        i === active ? '0' : '-1',
+      );
+
+      expect(stepper.activeIndex()).toBe(active);
+      expect(selected(host)).toEqual(onlyActive);
+      expect(indicators(host)).toEqual(
+        derivedIndicators(testCase.after.length, active),
+      );
+      expect(openPanels(host)).toEqual([`Content ${testCase.activeLabel}`]);
+      expect(tabIndexes(host)).toEqual(rovingOnActive);
+      // A content change is not navigation: the consumer changed the steps.
+      expect(component.emitted).toEqual([]);
+      expect(logged()).not.toContain('NG0955');
+    });
+  });
+
+  it('keeps navigation relative to the live positions after a re-index', async () => {
+    const fixture = TestBed.createComponent(DynamicStepsHostComponent);
+    const component = fixture.componentInstance;
+    component.labels.set(['A', 'B', 'C', 'D']);
+    component.initialIndex.set(2);
+    await settle(fixture);
+    const host = fixture.nativeElement.querySelector(
+      'mlv-stepper',
+    ) as HTMLElement;
+    const stepper = fixture.debugElement.query(By.directive(MlvStepper))
+      .componentInstance as MlvStepper;
+
+    component.labels.set(['A', 'C', 'D']);
+    await settle(fixture);
+    stepper.next();
+    await settle(fixture);
+
+    expect(component.emitted).toEqual([2]);
+    expect(selected(host)).toEqual(['false', 'false', 'true']);
+    expect(openPanels(host)).toEqual(['Content D']);
+  });
+
+  it('shows the live position in the mobile counter', async () => {
+    const fixture = TestBed.createComponent(DynamicStepsHostComponent);
+    const component = fixture.componentInstance;
+    component.labels.set(['A', 'C', 'D']);
+    component.initialIndex.set(1);
+    await settle(fixture);
+    const host = fixture.nativeElement.querySelector(
+      'mlv-stepper',
+    ) as HTMLElement;
+
+    component.labels.set(['A', 'B', 'C', 'D']);
+    await settle(fixture);
+
+    const counter = host
+      .querySelector('.mlv-stepper__mobile-label')
+      ?.textContent?.replace(/\s+/g, ' ')
+      .trim();
+    expect(counter).toBe('Step 3 of 4: C');
+  });
+
+  it('linear: a step inserted before the active one is reachable backwards, later steps stay locked', async () => {
+    const fixture = TestBed.createComponent(DynamicStepsHostComponent);
+    const component = fixture.componentInstance;
+    component.labels.set(['A', 'C', 'D']);
+    component.initialIndex.set(1);
+    component.linear.set(true);
+    await settle(fixture);
+    const host = fixture.nativeElement.querySelector(
+      'mlv-stepper',
+    ) as HTMLElement;
+    const stepper = fixture.debugElement.query(By.directive(MlvStepper))
+      .componentInstance as MlvStepper;
+
+    component.labels.set(['A', 'B', 'C', 'D']);
+    await settle(fixture);
+
+    expect(tabs(host).map((tab) => tab.getAttribute('aria-disabled'))).toEqual([
+      null,
+      null,
+      null,
+      'true',
+    ]);
+
+    stepper.selectStep(3);
+    await settle(fixture);
+    expect(stepper.activeIndex()).toBe(2);
+
+    stepper.previous();
+    await settle(fixture);
+    expect(selected(host)).toEqual(['false', 'true', 'false', 'false']);
+    expect(openPanels(host)).toEqual(['Content B']);
+  });
+
+  /** Dispatches a keydown carrying a `keyCode` (CDK's FocusKeyManager reads it). */
+  function pressKey(
+    element: HTMLElement,
+    key: 'ArrowRight' | 'ArrowLeft',
+  ): void {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true });
+    const keyCode = key === 'ArrowRight' ? 39 : 37;
+    Object.defineProperty(event, 'keyCode', { get: () => keyCode });
+    element.dispatchEvent(event);
+  }
+
+  it.each([
+    { scope: 'no [dir] scope', dir: null, key: 'ArrowRight' },
+    { scope: 'a scoped [dir="rtl"]', dir: 'rtl', key: 'ArrowLeft' },
+  ] as const)(
+    'arrow keys reach a step inserted after init under $scope ($key = next)',
+    async ({ dir, key }) => {
+      const fixture = TestBed.createComponent(ConditionalStepHostComponent);
+      fixture.componentInstance.scopeDir.set(dir);
+      await settle(fixture);
+      const host = fixture.nativeElement.querySelector(
+        'mlv-stepper',
+      ) as HTMLElement;
+
+      fixture.componentInstance.showB.set(true);
+      await settle(fixture);
+
+      // Only the stepper's own subtree is scoped; the document stays LTR.
+      expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+      const [first] = tabs(host);
+      first.focus();
+      pressKey(first, key);
+      fixture.detectChanges();
+
+      expect(document.activeElement?.getAttribute('aria-label')).toBe('B');
+      expect(tabIndexes(host)).toEqual(['-1', '0', '-1']);
+      expect(logged()).not.toContain('NG0955');
+    },
+  );
+
+  it('honours initialIndex for steps that arrive after init, and starts over on a refill', async () => {
+    const fixture = TestBed.createComponent(DynamicStepsHostComponent);
+    const component = fixture.componentInstance;
+    component.initialIndex.set(2);
+    await settle(fixture);
+    const host = fixture.nativeElement.querySelector(
+      'mlv-stepper',
+    ) as HTMLElement;
+    const stepper = fixture.debugElement.query(By.directive(MlvStepper))
+      .componentInstance as MlvStepper;
+    expect(tabs(host).length).toBe(0);
+
+    // A `@for` over data that loads after content init.
+    component.labels.set(['A', 'B', 'C', 'D']);
+    await settle(fixture);
+
+    expect(stepper.activeIndex()).toBe(2);
+    expect(selected(host)).toEqual(['false', 'false', 'true', 'false']);
+    expect(tabIndexes(host)).toEqual(['-1', '-1', '0', '-1']);
+    expect(openPanels(host)).toEqual(['Content C']);
+
+    // Emptying removes the active step with no step left before it, so the
+    // next list starts on its first step.
+    component.labels.set([]);
+    await settle(fixture);
+    component.labels.set(['A', 'B']);
+    await settle(fixture);
+
+    expect(stepper.activeIndex()).toBe(0);
+    expect(selected(host)).toEqual(['true', 'false']);
+    expect(tabIndexes(host)).toEqual(['0', '-1']);
+    expect(component.emitted).toEqual([]);
+    expect(logged()).toBe('');
+  });
+
+  it('a template reference reading activeIndex() follows a re-index, with nothing logged', async () => {
+    const fixture = TestBed.createComponent(DerivedIndexHostComponent);
+    await settle(fixture);
+    const derived = (): string | undefined =>
+      fixture.nativeElement.querySelector('.derived')?.textContent?.trim();
+    expect(derived()).toBe('1');
+
+    fixture.componentInstance.labels.set(['A', 'B', 'C', 'D']);
+    await settle(fixture);
+
+    // C moved from 1 to 2. The read sits before the stepper in the template,
+    // so it runs before the step query refreshes and is re-run after it — no
+    // NG0100, no stale copy.
+    expect(derived()).toBe('2');
+    expect(logged()).toBe('');
+  });
+
+  it.each([
+    {
+      name: 'in the same tick as the step change reads the old list',
+      defer: false,
+      activeLabel: 'B',
+    },
+    {
+      name: 'deferred with afterNextRender reads the new list',
+      defer: true,
+      activeLabel: 'X',
+    },
+  ])('selectStep() $name', async ({ defer, activeLabel }) => {
+    const fixture = TestBed.createComponent(DynamicStepsHostComponent);
+    const component = fixture.componentInstance;
+    component.labels.set(['A', 'B', 'C']);
+    await settle(fixture);
+    const host = fixture.nativeElement.querySelector(
+      'mlv-stepper',
+    ) as HTMLElement;
+    const stepper = fixture.debugElement.query(By.directive(MlvStepper))
+      .componentInstance as MlvStepper;
+
+    // "Go to the step just inserted at 1."
+    component.labels.set(['A', 'X', 'B', 'C']);
+    if (defer) {
+      afterNextRender(() => stepper.selectStep(1), {
+        injector: fixture.componentRef.injector,
+      });
+    } else {
+      stepper.selectStep(1);
+    }
+    await settle(fixture);
+
+    const active = ['A', 'X', 'B', 'C'].indexOf(activeLabel);
+    expect(stepper.activeIndex()).toBe(active);
+    expect(openPanels(host)).toEqual([`Content ${activeLabel}`]);
+    // Both emit the index they were given; only the deferred call meant X.
+    expect(component.emitted).toEqual([1]);
   });
 });
