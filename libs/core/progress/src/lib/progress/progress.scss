@@ -85,7 +85,14 @@
         width: 100%;
         height: var(--mlv-p-bar-height);
         border-radius: var(--mlv-radius-full);
-        background: var(--mlv-border-subtle);
+        // A track is a fill, not a hairline. `--mlv-background-subtle` is the
+        // colour `--mlv-border-subtle` has in light and dark (neutral-100 /
+        // neutral-800), but high contrast keeps it light where the border
+        // darkens to #999 and put the success / warning / danger fills under
+        // 3:1 (#303). Not `--mlv-background-neutral-1`: `mlv-page-shell`
+        // remaps that one inside its chrome slots, where the track would
+        // follow the chrome instead of the fills.
+        background: var(--mlv-background-subtle);
         overflow: hidden;
       }
 
@@ -138,7 +145,8 @@
 
       .#{$block}__circle-track {
         fill: transparent;
-        stroke: var(--mlv-border-subtle);
+        // Same token as the bar track; see there.
+        stroke: var(--mlv-background-subtle);
         stroke-linecap: round;
       }
 

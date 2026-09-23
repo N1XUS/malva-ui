@@ -44,6 +44,7 @@ Exported from `libs/core/loader/src/index.ts`:
 | `ariaLabel`     | `string`              | `'Loading'` | Accessible label                                                                                        |
 | `showHint`      | `boolean`             | `false`     | Show percentage hint (bar: above track; circle: centred inside ring). Only visible in determinate mode. |
 | `color`         | `string \| undefined` | `undefined` | Custom color override for `--mlv-l-color`; takes precedence over `tone`.                                |
+| `trackColor`    | `string \| undefined` | `undefined` | Track color override for `--mlv-l-track-color`, both variants (bar `background`, circle `stroke`).      |
 
 #### Host Bindings
 
@@ -86,7 +87,9 @@ host: {
 | `danger`  | `--mlv-background-danger-1`  |
 
 - Semantic fills only, never `--mlv-palette-*` (#302: `success` / `info` read the raw 500 steps, 2.09 / 2.54:1 on the light track).
-- Each clears 3:1 against the `--mlv-border-subtle` track in light and dark — `styles:test` → `tone-contrast.spec.mjs`. High-contrast track (#999) is a pre-existing gap owned by #303.
+- Track: `var(--mlv-l-track-color, var(--mlv-background-subtle))` on both variants (bar `background`, circle `stroke`). `trackColor` writes `--mlv-l-track-color`; before #303 the bar ignored it. A bar paints it as a background (a colour or gradient), a circle as a stroke (a colour or `url('#paintServerId')`) — the same split `color` already has.
+- Each tone clears 3:1 against the default track in light, dark, high contrast and high contrast over dark — `styles:test` → `tone-contrast.spec.mjs`. The track used to be `--mlv-border-subtle`: same colour in light / dark, but `#999` in high contrast, which put `success` / `warning` / `danger` at 2.54 / 2.78 / 2.07:1 (#303).
+- Not `--mlv-background-neutral-1`: `mlv-page-shell` remaps that in its chrome slots, where a track would follow the chrome (1.08:1 on a brand chrome). The spec fails if any component stylesheet redeclares a token the fill-vs-track score reads.
 
 #### Bar Animations
 

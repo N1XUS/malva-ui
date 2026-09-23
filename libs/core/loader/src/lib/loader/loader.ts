@@ -97,9 +97,11 @@ export class MlvLoader {
   readonly color = input<string | undefined>(undefined);
 
   /**
-   * Custom fill color override applied directly to `--mlv-l-track-color`.
-   * Accepts any valid CSS color value or a `linear-gradient()` / `url('#paintServerId')` string.
-   * When set, takes precedence over the `tone` color.
+   * Custom track color override applied directly to `--mlv-l-track-color`, for
+   * both variants. The bar paints it as a `background` (any CSS color or a
+   * `linear-gradient()`), the circle as an SVG `stroke` (any CSS color or a
+   * `url('#paintServerId')`). When unset the track is `--mlv-background-subtle`;
+   * `tone` never changes it.
    */
   readonly trackColor = input<string | undefined>(undefined);
 

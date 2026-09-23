@@ -130,6 +130,23 @@ $mlv-palette-info-800: #075985;
 $mlv-palette-info-900: #0c4a6e;
 $mlv-palette-info-950: #082f49;
 
+// Elevation shadows for a light surface — the light theme's, and the
+// high-contrast theme's, which is a light-surface theme too. One source, so the
+// two cannot drift; the dark theme declares its own deeper set.
+$mlv-shadow-1:
+  0 1px 3px rgba(0, 0, 0, 0.08),
+  0 1px 2px rgba(0, 0, 0, 0.05);
+$mlv-shadow-2:
+  0 4px 6px rgba(0, 0, 0, 0.07),
+  0 2px 4px rgba(0, 0, 0, 0.06);
+$mlv-shadow-3:
+  0 10px 15px rgba(0, 0, 0, 0.1),
+  0 4px 6px rgba(0, 0, 0, 0.05);
+$mlv-shadow-4:
+  0 20px 25px rgba(0, 0, 0, 0.1),
+  0 8px 10px rgba(0, 0, 0, 0.04);
+$mlv-shadow-5: 0 25px 50px rgba(0, 0, 0, 0.25);
+
 // ─── Light Theme (:root) ────────────────────────────────────────────────────
 // All token custom-property declarations live in the `mlv.tokens` cascade
 // layer so unlayered consumer overrides win without specificity battles.
@@ -512,15 +529,11 @@ $mlv-palette-info-950: #082f49;
     // ── Section 5 · Elevation & Shadows ──────────────────────────────────────
 
     --mlv-shadow-0: none;
-    --mlv-shadow-1:
-      0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05);
-    --mlv-shadow-2:
-      0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
-    --mlv-shadow-3:
-      0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
-    --mlv-shadow-4:
-      0 20px 25px rgba(0, 0, 0, 0.1), 0 8px 10px rgba(0, 0, 0, 0.04);
-    --mlv-shadow-5: 0 25px 50px rgba(0, 0, 0, 0.25);
+    --mlv-shadow-1: #{$mlv-shadow-1};
+    --mlv-shadow-2: #{$mlv-shadow-2};
+    --mlv-shadow-3: #{$mlv-shadow-3};
+    --mlv-shadow-4: #{$mlv-shadow-4};
+    --mlv-shadow-5: #{$mlv-shadow-5};
 
     // Semantic elevation shadow aliases
     --mlv-shadow-flat: var(--mlv-shadow-0); /* same surface, no depth   */
@@ -1221,6 +1234,23 @@ $mlv-palette-info-950: #082f49;
       var(--mlv-palette-neutral-700) 75%,
       white
     );
+
+    // ── Aliases and the tokens only high contrast changes ──
+    // A theme is a scope, so every island has to recompute every token that
+    // varies between themes; `theme-scopes.spec.mjs` checks each arrangement.
+    // An alias whose `var()` reads a dark token is redeclared for the reason
+    // `--mlv-background-selected` gives above. The stroke widths and the focus
+    // ring carry the light values: high contrast thickens them, and without a
+    // declaration here a dark island inside a high-contrast page inherited
+    // HC's thick widths and its `--mlv-focus-ring`, already resolved to a 4px
+    // black shadow — 1.17:1 on the `#171717` canvas. A light island already
+    // resets them, because the light block declares them.
+    --mlv-popover-item-bg-hover: var(--mlv-background-neutral-1);
+    --mlv-stroke-width: 0.0625rem;
+    --mlv-stroke-width-medium: 0.125rem;
+    --mlv-stroke-width-thick: 0.1875rem;
+    --mlv-focus-ring: 0 0 0 var(--mlv-stroke-width-medium)
+      var(--mlv-border-focus);
   }
 
   [mlvTheme='dark'] {
@@ -1339,5 +1369,42 @@ $mlv-palette-info-950: #082f49;
 
     --mlv-focus-ring: 0 0 0 var(--mlv-stroke-width-thick)
       var(--mlv-border-focus);
+
+    // ── Aliases and the light-surface elevation set ──
+    // High contrast is applied beside the theme attribute, not instead of it:
+    // `MlvThemeService` always writes `mlvTheme` on `<html>`, so the real shape
+    // is `<html mlvTheme="dark" data-theme="high-contrast">`. This block
+    // follows the dark one and both selectors weigh the same, so it wins only
+    // for what it declares — anything it leaves out falls through to the dark
+    // value. Hence every token the dark theme declares is declared here too.
+    // `theme-scopes.spec.mjs` checks that name for name, and separately fails
+    // when any arrangement computes a token differently from its theme at the
+    // root — a value comparison, which alone would pass a missing declaration
+    // whose dark value happens to equal this one (`--mlv-shadow-flat`). The
+    // aliases are redeclared for the island reason `--mlv-background-selected`
+    // gives in the dark block; the shadows and elevation fills are the light
+    // theme's, since high contrast paints light surfaces.
+    --mlv-background-selected: var(--mlv-background-accent-1-pale);
+    --mlv-background-selected-hover: var(--mlv-background-accent-1-pale-hover);
+    --mlv-text-on-selected: var(--mlv-text-action);
+
+    --mlv-shadow-1: #{$mlv-shadow-1};
+    --mlv-shadow-2: #{$mlv-shadow-2};
+    --mlv-shadow-3: #{$mlv-shadow-3};
+    --mlv-shadow-4: #{$mlv-shadow-4};
+    --mlv-shadow-5: #{$mlv-shadow-5};
+    --mlv-shadow-flat: var(--mlv-shadow-0);
+    --mlv-shadow-raised: var(--mlv-shadow-1);
+    --mlv-shadow-floating: var(--mlv-shadow-3);
+    --mlv-shadow-overlay: var(--mlv-shadow-4);
+    --mlv-shadow-modal: var(--mlv-shadow-5);
+
+    --mlv-elevation-bg-1: var(--mlv-background-base);
+    --mlv-elevation-bg-2: var(--mlv-background-raised);
+    --mlv-elevation-bg-3: var(--mlv-background-raised);
+    --mlv-elevation-bg-4: var(--mlv-background-raised);
+    --mlv-elevation-bg-5: var(--mlv-background-raised);
+
+    --mlv-popover-item-bg-hover: var(--mlv-background-neutral-1);
   }
 } // @layer mlv.tokens

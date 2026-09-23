@@ -74,7 +74,7 @@ Block: `mlv-progress`
 | `--s/m/l`                               | Size variants                                    |
 | `--default/success/warning/danger/info` | Tone color variants                              |
 
-Tone colors map to the semantic solid fills `--mlv-background-{success,warning,danger,info}-1` (`default` → `--mlv-background-accent-1`) — never a `--mlv-palette-*` step, so the high-contrast theme reaches them. Each clears 3:1 against the `--mlv-border-subtle` track in light and dark (`styles:test` → `tone-contrast.spec.mjs`, #302); the high-contrast track (#999) is a pre-existing gap owned by #303.
+Tone colors map to the semantic solid fills `--mlv-background-{success,warning,danger,info}-1` (`default` → `--mlv-background-accent-1`) — never a `--mlv-palette-*` step, so the high-contrast theme reaches them. The bar track and the circle track paint `--mlv-background-subtle`, and each tone clears 3:1 against it in light, dark, high contrast and high contrast over dark (`styles:test` → `tone-contrast.spec.mjs`, #302 / #303). The track used to be `--mlv-border-subtle`: same colour in light / dark, but `#999` in high contrast, which put `success` / `warning` / `danger` at 2.54 / 2.78 / 2.07:1. It is not `--mlv-background-neutral-1`, which `mlv-page-shell` remaps inside its chrome slots (1.08:1 fill vs track on a brand chrome); the spec fails if any component stylesheet redeclares a token the fill-vs-track score reads.
 
 ## Dependencies
 

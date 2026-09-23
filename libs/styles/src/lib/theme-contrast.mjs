@@ -91,11 +91,30 @@ export const parseHex = (input) => {
 };
 
 /**
+ * The regions each theme reads a token from, first match winning.
+ *
+ * `highContrastDark` is `data-theme="high-contrast"` on an element that already
+ * carries `mlvTheme="dark"` — the usual shape, since `MlvThemeService` always
+ * marks `<html>`. All three rules then match one element; they share a
+ * specificity, so source order decides and high contrast (last) wins wherever
+ * it declares a token, dark wherever only dark does. Because every rule lands on
+ * the same element, the stack is also exact for aliases. A *nested* scope is a
+ * different question — `theme-scopes.mjs` answers that one.
+ */
+const THEME_STACKS = {
+  light: ['light'],
+  dark: ['dark', 'light'],
+  highContrast: ['highContrast', 'light'],
+  highContrastDark: ['highContrast', 'dark', 'light'],
+};
+
+/**
  * Resolves a token value to `[r, g, b]`.
  *
  * @param value    The raw declaration value, e.g. `color-mix(in srgb, var(--x) 85%, white)`.
- * @param theme    `'light' | 'dark' | 'highContrast'` — dark and high-contrast fall back to light,
- *                 mirroring how `[mlvTheme='dark']` inherits every token it does not override.
+ * @param theme    `'light' | 'dark' | 'highContrast' | 'highContrastDark'` — every theme falls
+ *                 back to light, mirroring how `[mlvTheme='dark']` inherits every token it does
+ *                 not override; see `THEME_STACKS`.
  * @param ctx      `{ regions, scssVars }` from `loadRegions` / `loadScssVariables`.
  */
 export const resolveColor = (value, theme, ctx, seen = new Set()) => {
@@ -119,8 +138,13 @@ export const resolveColor = (value, theme, ctx, seen = new Set()) => {
     const args = splitTop(v.slice(4, -1));
     const name = args[0].trim();
     if (seen.has(name)) throw new Error(`circular token reference at ${name}`);
-    const lookup =
-      (theme !== 'light' ? ctx.regions[theme].get(name) : undefined) ?? ctx.regions.light.get(name);
+    const stack = THEME_STACKS[theme];
+    if (!stack) throw new Error(`unknown theme "${theme}"`);
+    let lookup;
+    for (const region of stack) {
+      lookup = ctx.regions[region].get(name);
+      if (lookup !== undefined) break;
+    }
     if (lookup === undefined) {
       if (args[1]) return resolveColor(args[1], theme, ctx, seen);
       throw new Error(`token ${name} is not declared for theme "${theme}"`);

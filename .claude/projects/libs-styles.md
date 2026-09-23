@@ -32,14 +32,14 @@ invented name never errors — it renders the fallback and quietly stops followi
 the theme. Four downstream packages shipped `--mlv-color-surface`,
 `--mlv-radius-2`, `--mlv-border-1` and `--mlv-error-text-1` that way.
 
-| Target                                       | What it does                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `yarn nx run styles:generate-tokens`         | Regenerates `tokens.md` from `libs/styles/src/lib/*.scss`. Run after adding, renaming or removing any token.                                                                                                                                                                                                                                                                                                            |
-| `yarn nx run styles:verify-tokens`           | Fails when `tokens.md` is stale. Safe to gate on.                                                                                                                                                                                                                                                                                                                                                                       |
-| `yarn nx run styles:check-tokens`            | Scans every `.scss` / `.css` / `.html` under `libs/` and `apps/` and fails on `var(--mlv-…)` names that exist nowhere.                                                                                                                                                                                                                                                                                                  |
-| `node scripts/check-mlv-tokens.mjs --strict` | Same, but also reports the pre-existing findings tracked in `token-check-baseline.json`.                                                                                                                                                                                                                                                                                                                                |
-| `yarn nx run styles:check-padding-tokens`    | Fails on any `var(--mlv-padding-*)` (or alias of one) that is not the whole `padding:` value. Runs as a `styles:lint` dependency, so CI's `run-many -t lint` gates on it. `--json` / `--quiet` flags.                                                                                                                                                                                                                   |
-| `yarn nx run styles:test`                    | `node --test` over seven spec files — `scripts/check-padding-tokens.spec.mjs`, `src/lib/theme-contrast.spec.mjs`, `src/lib/tone-contrast.spec.mjs`, `src/lib/mixins.spec.mjs`, `src/lib/fluid-type.spec.mjs`, `src/lib/layers.spec.mjs`, `src/lib/sticky-inline-inset.spec.mjs` (picked up by CI's `run-many -t test`). The target **enumerates its specs**, so a new one must be named in both `command` and `inputs`. |
+| Target                                       | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `yarn nx run styles:generate-tokens`         | Regenerates `tokens.md` from `libs/styles/src/lib/*.scss`. Run after adding, renaming or removing any token.                                                                                                                                                                                                                                                                                                                                             |
+| `yarn nx run styles:verify-tokens`           | Fails when `tokens.md` is stale. Safe to gate on.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `yarn nx run styles:check-tokens`            | Scans every `.scss` / `.css` / `.html` under `libs/` and `apps/` and fails on `var(--mlv-…)` names that exist nowhere.                                                                                                                                                                                                                                                                                                                                   |
+| `node scripts/check-mlv-tokens.mjs --strict` | Same, but also reports the pre-existing findings tracked in `token-check-baseline.json`.                                                                                                                                                                                                                                                                                                                                                                 |
+| `yarn nx run styles:check-padding-tokens`    | Fails on any `var(--mlv-padding-*)` (or alias of one) that is not the whole `padding:` value. Runs as a `styles:lint` dependency, so CI's `run-many -t lint` gates on it. `--json` / `--quiet` flags.                                                                                                                                                                                                                                                    |
+| `yarn nx run styles:test`                    | `node --test` over eight spec files — `scripts/check-padding-tokens.spec.mjs`, `src/lib/theme-contrast.spec.mjs`, `src/lib/tone-contrast.spec.mjs`, `src/lib/theme-scopes.spec.mjs`, `src/lib/mixins.spec.mjs`, `src/lib/fluid-type.spec.mjs`, `src/lib/layers.spec.mjs`, `src/lib/sticky-inline-inset.spec.mjs` (picked up by CI's `run-many -t test`). The target **enumerates its specs**, so a new one must be named in both `command` and `inputs`. |
 
 `tokens.md` is a **generated file** — never hand-edit it. Categories, blurbs and
 the mistaken-names table live in `scripts/generate-tokens-md.mjs`; a token that
@@ -116,10 +116,10 @@ consumer paints it as a switch track (`libs/core/switch`), never behind text.
 
 - Scope: the six labelled fills `--mlv-background-{success,warning,info,danger}-1`
   / `--mlv-background-accent-{1,2}`, each with `-hover` / `-active`.
-- `theme-contrast.spec.mjs` asserts (light, dark, HC): every state ≥ 4.5:1 under
-  its `--mlv-text-on-*` / `--mlv-text-primary-on-accent-*` label; every rest fill
-  ≥ 3:1 on base / subtle / raised and the `--mlv-border-subtle` track (light +
-  dark); `accent-1-hover` ≥ 3:1 on the page surfaces.
+- `theme-contrast.spec.mjs` asserts (light, dark, HC, HC over dark): every state
+  ≥ 4.5:1 under its `--mlv-text-on-*` / `--mlv-text-primary-on-accent-*` label;
+  every rest fill ≥ 3:1 on base / subtle / raised (subtle is also the loader /
+  progress track); `accent-1-hover` ≥ 3:1 on the page surfaces.
 - **Light:** white labels. `success` / `warning` / `info` sit on their **700**
   step, `accent-2` on `accent-700` (the 600 / coral-500 steps put white at
   2.65–4.10:1); `danger` stays on 600. Hover and press **darken** (85% / 70–75%
@@ -150,7 +150,101 @@ consumer paints it as a switch track (`libs/core/switch`), never behind text.
 - Workspace walk: no `var(--x, #hex)` literal fallback anywhere in `libs/**/src/**`.
 - Colour never varies with density here and no pair uses the large-text
   exemption → one score per tone × theme covers every density.
+- Themes scored: light, dark, HC, and **HC over dark** (`highContrastDark`) —
+  the shape `MlvThemeService` + `data-theme="high-contrast"` actually produces.
+- Loader / progress tracks paint **`--mlv-background-subtle`** (bar
+  `background`, circle `stroke`; on the loader, both behind its
+  `--mlv-l-track-color` / `trackColor` hook — the bar ignored it before #303);
+  the spec pins that. A track is a fill, not a hairline: HC's
+  `--mlv-border-subtle` (`#999`) put the HC success / warning / danger fills at
+  2.54 / 2.78 / 2.07:1 against it (#303); on HC's `#f5f5f5` the tone fills sit
+  at 5.40–10.29:1.
+- Light / dark: the same colour the old `--mlv-border-subtle` track had
+  (`neutral-100` / `neutral-800`) wherever the library renders a track, since
+  no component stylesheet redeclares either token. A consumer's own override
+  of `--mlv-border-subtle` no longer reaches the tracks; one of
+  `--mlv-background-subtle` now does.
+- Not `--mlv-background-neutral-1`, although it is the same colour at the root:
+  `mlv-page-shell`'s topbar / sidebar slots remap it to a mix of the chrome's
+  own colours (fill vs track 1.08:1 on a brand chrome, 1.64:1 on an HC chrome,
+  measured in Chromium). Every score is taken at the root, so the spec compiles
+  every `libs/**/src` stylesheet, collects the theme tokens any of them
+  redeclares, and fails when a token a fill-vs-track score reads is one of them
+  (floor: the scan must see page-shell's `--mlv-background-neutral-1`).
+- Only fill-vs-track is scored (#302 precedent). The HC track on its white page
+  is 1.09:1 (`#999` was 2.85:1, under 3:1 too), the trade the light track
+  already makes (1.04:1) — no single track colour clears 3:1 both ways.
 - Inputs: the target's `libs/**/src/**/*.{css,scss}` glob covers every sheet it reads.
+
+### Theme scopes (#303)
+
+- A custom property's `var()` is substituted **where it is declared**;
+  descendants inherit the computed value. An alias declared only by an
+  ancestor scope therefore carries that scope's answer into every nested
+  `[mlvTheme]` island.
+- The four scope selectors weigh the same, so source order decides:
+  `[data-theme='high-contrast']` follows `[mlvTheme='dark']` and wins **only for
+  what it declares**. `MlvThemeService` always writes `mlvTheme` on `<html>`, so
+  HC in practice is `<html mlvTheme="dark" data-theme="high-contrast">`.
+- Invariant: **an island computes exactly its own theme, whatever it is nested
+  in.** Kept by three rules:
+  - HC declares every token dark declares — selected pair, `text-on-selected`,
+    `--mlv-shadow-1..5` + semantic shadows (the light set, shared through
+    `$mlv-shadow-1..5` SCSS variables), `--mlv-elevation-bg-1..5` (light
+    aliases), `--mlv-popover-item-bg-hover`.
+  - Dark declares every token HC declares that light owns — stroke widths,
+    `--mlv-focus-ring` (light values; a dark island in an HC page inherited
+    HC's thick widths and its already-resolved 4px black `--mlv-focus-ring`,
+    1.17:1 on the dark canvas).
+  - `muted.scss` light block uses the same `:root, :host, [mlvTheme='light']`
+    list as `theme.scss` (was `:root` only: light islands kept the page's
+    tints, `:host` got none).
+- Deliberately `:root`-only: `--mlv-inline-direction` (a host or island must not
+  reset an RTL sign).
+- Behaviour note: a dark island now resets the stroke widths and
+  `--mlv-focus-ring`, as a light island already did. A consumer override of
+  `--mlv-stroke-width*` / `--mlv-focus-ring` written on `:root` alone no longer
+  reaches `[mlvTheme='dark']` islands, and a dark island inside an HC page
+  keeps normal-weight strokes. Global overrides of these tokens must target the
+  island selectors too (`:root, [mlvTheme]`).
+
+### What `theme-scopes.spec.mjs` guards
+
+- `src/lib/theme-scopes.mjs` models the cascade over the compiled
+  `malva-ui.scss`: `loadTokenRules(css)` collects every custom property in each
+  scope rule, `computeChain(rules, chain)` computes an element chain with
+  `var()` substituted at the declaring element, `differingTokens()` diffs two
+  maps.
+- It refuses what it cannot model — an unknown selector inside
+  `@layer mlv.tokens`, a scope selector outside it or inside `@media` /
+  `@supports` / `@container`, `!important` on a token, an `@property`-registered
+  token — so a new construct cannot silently fall out of the check.
+- CSS invalidity: every member of a reference cycle and a `var()` of an unset
+  name with no fallback compute to the guaranteed-invalid value (`undefined`),
+  which readers skip for their fallback. Cycles are found lazily, as Chrome 153
+  does, not as CSS Variables Level 1 words it: declaration order, a fallback's
+  `var()` followed only when the fallback is taken, substitution continuing past
+  a failed `var()`. A cycle member is invalid whatever its fallback; a reader
+  outside it (`--c: var(--b, blue)`) takes its fallback only when resolved after
+  the cycle has closed — declared first, it is still being substituted when a
+  member's later `var()` reaches it, and is caught. So declaration order decides
+  membership, through continued substitution. A name a later rule redeclares
+  keeps its first position. Checked against Chrome 153: 39 declarations / 15
+  arrangements, plus 15 values / 5 two-rule arrangements for cross-rule order,
+  all agree. No cycle occurs in the published sheet.
+- Not modelled: `:host` is an element flag, not a shadow tree (no
+  outer-context precedence, no consumer rules); values compare as normalised
+  text, which errs towards a spurious failure.
+- Asserts: HC declares every name dark declares (a value comparison alone
+  passes a missing declaration whose dark value happens to match, e.g.
+  `--mlv-shadow-flat`); no token computes invalid in a pure theme; `light + HC`
+  and `dark + HC` pages equal pure HC; 12 page × island pairs (pages light /
+  dark / HC / light+HC / dark+HC × islands light / dark / HC, minus the three
+  same-theme pairs, which are trivially equal) each equal the pure island
+  theme; a three-deep `dark > HC > light` chain equals pure light; a
+  `:host` alone equals pure light except `--mlv-inline-direction`. Pairs
+  suffice: an island that recomputes every theme-varying token is independent
+  of its ancestors, so deeper nesting follows by induction.
 
 ---
 
@@ -286,7 +380,7 @@ shipped CSS keeps its layers — see `.claude/projects/best-practices.md`.
 | `[mlvTheme='dark']`                    | Dark            |
 | `[data-theme="high-contrast"]`         | High-contrast   |
 
-Dark mode is opt-in through `[mlvTheme='dark']`; `theme.scss` does not currently expose an automatic `prefers-color-scheme` selector. High-contrast mode overrides a smaller subset of the same token names.
+Dark mode is opt-in through `[mlvTheme='dark']`; `theme.scss` does not currently expose an automatic `prefers-color-scheme` selector. High-contrast mode overrides a smaller subset of the same token names — but **every token the dark theme declares**, because it is applied beside `mlvTheme` and falls through to the dark value for anything it omits. Each selector also works as a nested island; see _Theme scopes (#303)_ above.
 
 ---
 
@@ -405,7 +499,7 @@ focus ring while the label lightens.
 ### Section 5 — Elevation & Shadows
 
 5 shadow levels: `--mlv-shadow-0` … `--mlv-shadow-5`
-Dark mode uses higher-opacity shadows. Each `--mlv-elevation-bg-{1..5}` rung has a declared role, not a uniform light/dark split: in light, rung 1 (`flush` — canvas-level, border only) resolves `--mlv-background-base`, while rungs 2–5 (card/dialog/drawer, popup/toast/form-control, drawers/side-overlays, switch-thumb-only) all stay at the `--mlv-background-raised` ceiling and express depth via the shadow alias instead; in dark, each rung is its own stepped grey. `--mlv-elevation-bg-5` is deliberately outside the WCAG-audited surface set — its only consumer paints it as a switch track, never behind text.
+Dark mode uses higher-opacity shadows. Each `--mlv-elevation-bg-{1..5}` rung has a declared role, not a uniform light/dark split: in light, rung 1 (`flush` — canvas-level, border only) resolves `--mlv-background-base`, while rungs 2–5 (card/dialog/drawer, popup/toast/form-control, drawers/side-overlays, switch-thumb-only) all stay at the `--mlv-background-raised` ceiling and express depth via the shadow alias instead; in dark, each rung is its own stepped grey. High contrast redeclares the light set (shadows through the shared `$mlv-shadow-1..5` SCSS variables, rungs as the light aliases) — otherwise HC over dark painted dark rungs under HC's black text (tokenizer caption 1.38:1, #303). `--mlv-elevation-bg-5` is deliberately outside the WCAG-audited surface set — its only consumer paints it as a switch track, never behind text.
 
 ---
 
@@ -529,7 +623,7 @@ by re-deriving the underlying spacing/radius token.
 | `--mlv-active-overlay`      | `0.12`                 | Active scrim alpha          |
 | `--mlv-focus-overlay`       | `0.08`                 | Focus scrim alpha           |
 
-> High-contrast mode overrides `--mlv-stroke-width` to `0.125rem`, `-medium` to `0.1875rem`, and `-thick` to `0.25rem` for wider, more visible lines.
+> High-contrast mode overrides `--mlv-stroke-width` to `0.125rem`, `-medium` to `0.1875rem`, and `-thick` to `0.25rem` for wider, more visible lines, and `--mlv-focus-ring` to the thick width. The dark theme redeclares the light values of all four, so a dark island inside an HC page gets the normal ring rather than HC's black 4px one.
 
 ---
 
@@ -551,7 +645,7 @@ Exists because `transform` has no logical form. Consume it through
 
 ## Muted Tints (`muted.scss`)
 
-3 emphasis levels × 8 color families, each providing a `bg / text / border` triplet. Backgrounds are derived with `color-mix()`.
+3 emphasis levels × 8 color families, each providing a `bg / text / border` triplet. Backgrounds are derived with `color-mix()`. Light tints are declared on `:root, :host, [mlvTheme='light']` — the same list as `theme.scss` — so a light island restores them (#303).
 
 **Token pattern:** `--mlv-muted-{family}-{bg|text|border}-{1|2|3}`
 
@@ -974,6 +1068,10 @@ libs/styles/
                                 SCSS interpolation) and scores WCAG contrast
       theme-contrast.spec.mjs — WCAG AA guard over the action + neutral
                                 interactive pairings, both themes (styles:test)
+      theme-scopes.mjs        — cascade model over the compiled stylesheet:
+                                var() substituted where it is declared
+      theme-scopes.spec.mjs   — every theme island computes its own theme,
+                                whatever it is nested in (styles:test)
       muted.scss      — muted tint triplets (bg/text/border × 3 levels × 8 families)
       density.scss    — density SCSS mixins (tight/compact/comfortable/spacious/airy)
       mixins.scss     — base() reset/font mixin, fluid() clamp builder,
