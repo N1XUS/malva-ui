@@ -522,9 +522,9 @@ default state.
 
 #### Outputs
 
-| Name    | Type           | Description                                                 |
-| ------- | -------------- | ----------------------------------------------------------- |
-| `clear` | `output<void>` | Emitted when the user activates the wrapper's clear button. |
+| Name    | Type           | Description                                                                                                                                                                                                                          |
+| ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `clear` | `output<void>` | Emitted when the user activates the wrapper's clear button. The button renders only while the control is writable (see _Clearable value-gating_), but a bound handler still writes through the control's `_write` — the enforcement. |
 
 #### Host Bindings
 
@@ -744,8 +744,9 @@ Run it with `node scripts/benchmarks/selection-membership.mjs` (no build needed)
 ## Clearable value-gating (2026-07)
 
 - `MlvFormControl` connector: new required `hasValue: Signal<boolean>` + optional `ownsClearButton?: Signal<boolean>`.
-- `FormControlBase` declares `hasValue` **abstract** — every control derives it from its own store (text length, selection count, nullable value, token/file count; always-valued controls like slider/color-picker/time-picker return `true`).
-- Wrapper clear condition: `clearable() && hasValue() && !ownsClearButton?.()` — no dangling X on empty controls; controls flagging `ownsClearButton` (select, combobox) render `mlv-clear-button` inline before their chevron instead.
+- `FormControlBase` declares `hasValue` **abstract** — every control derives it from its own store (text length, selection count, nullable value, token/file count; always-valued controls like the slider and the inline color picker return `true`). `mlv-time-picker` no longer does (#301): it answers from its model, because its drum shows the current time on an empty value and `true` rendered an X on an empty picker.
+- Wrapper clear condition (`_showClear`, #301): `clearable() && hasValue() && !ownsClearButton?.() && !readonly() && !disabled()` — no dangling X on empty controls, and none on a control the user may not write. The last two terms restate `_canWrite` over the connector (the wrapper cannot see the protected member; for every signal-base control the connector's `disabled()` is `computedDisabled()`); a term added to `_canWrite` must be added there too. **Hidden, not rendered `disabled`** — matches the empty case and the own X of select / combobox / search-field; the wrapper's `--disabled` modifier is only `pointer-events: none`, so a rendered X stayed keyboard-reachable. Controls flagging `ownsClearButton` (select, combobox) render `mlv-clear-button` inline before their chevron instead, and owe the same write gate on it.
+- Every wrapper consumer that is `clearable` binds `(clear)` to a gated handler (#301): `mlv-input` / `mlv-textarea` / `mlv-number-input` / `mlv-day-picker` / `mlv-time-picker` / `mlv-date-range-picker` → protected `_onClear()` writing through `_write` (touch only when the write landed); `mlv-tokenizer` → `_onClear()` gated on `_canWrite()` up front (it writes `tokens` and `value`); `mlv-color-picker-popup` → `_clearValue()` (already gated); `mlv-editor` → `clearValue()` (already gated). The four pickers/tokenizer had **no** binding before — their X did nothing. Public `clearValue()` on input / textarea / number-input stays an **ungated application API** (like `value.set`); `mlv-tokenizer` relies on that when it empties its inner `mlv-input` after committing a token.
 - `MlvClearMlvButton` (`mlv-clear-button`): compact transparent circular X, i18n `clear` aria-label, `(clear)` output.
 
 ## Pill controls (2026-08)
@@ -808,5 +809,5 @@ Run it with `node scripts/benchmarks/selection-membership.mjs` (no build needed)
 - **Principle: readonly locks out the user, not the application.** Gate user paths (Enter/Space/click/drag/wheel/paste/typing). A documented **application** API stays gated on disabled alone when that is what its JSDoc promises — `MlvSwitch.toggle()` (owner ruling, #298). A method that is really a user-event handler (`MlvCheckbox.toggle(event)`, bound to `(keydown.enter)`) is gated, and its JSDoc says it is the Enter handler.
 - **Never gated:** the form→control direction (`[value]`, `[(value)]`, `[formField]`, `FormControl.setValue`), app code writing the model directly, and a control's own normalisation of a form-supplied value (`mlv-number-input`'s min/max clamp effect). Those keep writing `value.set` directly, on purpose.
 - **Refused ≠ unhandled.** A key a readonly control recognises but refuses keeps its `preventDefault()` when the default would do something wrong (a slider thumb has no caret, so an arrow would scroll the page), and loses it when the default is useful (a number field's caret keys, page scroll on wheel). Navigation is never restricted by readonly (ARIA 1.2) — readonly radio arrows still move focus.
-- Both members are `_`-prefixed `protected`, so not public API (VERSIONING.md). A subclass that adds a new user write path must route it through `_write`, and an element that only exists to write (a stepper, a clear button) binds its `disabled` to `!_canWrite()`. #301 (the wrapper clear button) reuses the same primitive.
+- Both members are `_`-prefixed `protected`, so not public API (VERSIONING.md). A subclass that adds a new user write path must route it through `_write`, and an element that only exists to write (a stepper, a clear button) binds its `disabled` to `!_canWrite()` — or is not rendered at all while `!_canWrite()`, which is what the wrapper clear button does (#301, see _Clearable value-gating_). Its handlers write through `_write`, so a click landing on a button rendered before the state flipped is still refused.
 - Contract spec: `signal-form-control-base-write.spec.ts` — the truth table, refusal for both bases, the form direction ungated, and all three permission sources (input, signal-forms rule, reactive `disable()`).

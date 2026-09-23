@@ -55,7 +55,45 @@ export class MlvFormControlWrapper {
   protected readonly _i18n = inject(MLV_FORM_UTILS_I18N);
 
   /**
-   * Clear event emitter. Emits when user clicks on clear button
+   * @protected Whether the trailing clear button renders: the control is
+   * `clearable`, holds a value, does not draw its own clear button, **and a
+   * user may write it right now**.
+   *
+   * The last term is the control's `_canWrite` rule — `!readonly() &&
+   * !computedDisabled()` — read through the connector, the only surface the
+   * wrapper sees (#301). For every `MlvSignalFormUiControlBase` subclass the
+   * connector's `disabled()` *is* `computedDisabled()`, so the two agree, and
+   * a spec pins that they do; a term added to `_canWrite` must be added here
+   * too. It is restated rather than exposed as a connector member because a
+   * public member on the base would land on a documented subclassing
+   * contract, where a subclass's own `canWrite` would stop compiling.
+   *
+   * Hidden rather than rendered `disabled`: the wrapper already hides the X on
+   * an empty control, `mlv-select`, `mlv-combobox` and `mlv-search-field` hide
+   * theirs the same way, and an X that cannot act in the current state is
+   * noise to assistive tech even out of the tab order. Enforcement is not this
+   * computed's job — each control's `(clear)` handler still writes through
+   * `_write`, which refuses independently.
+   */
+  protected readonly _showClear = computed(() => {
+    const control = this.formControl;
+    if (!control) return false;
+    return (
+      control.clearable() &&
+      control.hasValue() &&
+      !control.ownsClearButton?.() &&
+      !control.readonly() &&
+      !control.disabled()
+    );
+  });
+
+  /**
+   * Emits when the user activates the clear button. The button renders only
+   * while the control is clearable, holds a value and is neither readonly nor
+   * disabled, so a bound handler is reached only from a writable control — it
+   * should still write through the control's `_write`, which is the
+   * enforcement (a click can land on a stale button in the same task that
+   * flipped the control readonly).
    */
   readonly clear = output<void>();
 

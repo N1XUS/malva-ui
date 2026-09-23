@@ -36,14 +36,21 @@ export interface MlvFormControl {
   readonly pill?: Signal<boolean>;
   /**
    * Whether the control currently holds a clearable (non-empty) value. The
-   * wrapper renders the clear button only while `clearable() && hasValue()` —
-   * an empty control never shows a dangling X.
+   * wrapper renders the clear button only while `clearable() && hasValue()`
+   * and the control is neither `readonly()` nor `disabled()` — an empty
+   * control never shows a dangling X, and neither does one the user may not
+   * write (#301).
    */
   readonly hasValue: Signal<boolean>;
   /**
    * When `true`, the control renders its own clear button inside its template
    * (e.g. select/combobox place it before the chevron) and the wrapper must
    * NOT render its default one. Optional — absent means wrapper-rendered.
+   *
+   * Not a readonly switch: the wrapper already withholds its X while the
+   * control is `readonly()` or `disabled()` (#301), so a control needs no
+   * `ownsClearButton` to hide it in those states. A control that does draw its
+   * own X owes the same write-permission gate on it.
    */
   readonly ownsClearButton?: Signal<boolean>;
   readonly prepend: Signal<MlvFormControlPrepend | undefined>;

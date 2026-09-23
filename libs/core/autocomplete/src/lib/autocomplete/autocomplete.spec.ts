@@ -310,6 +310,133 @@ describe('MlvAutocomplete', () => {
     expect(optionEls().length).toBe(0);
   });
 
+  /**
+   * #301 sibling sweep: the second Escape cleared the field through
+   * `_clearInput()`, which writes `el.value` and dispatches `input` — with only
+   * the directive's own `disabled` checked. A readonly host input keeps focus
+   * and keydown, so one Escape emptied it (and an `mlv-input` host's model with
+   * it), and a suggestion committed from the popup wrote into it the same way.
+   */
+  it('neither clears nor suggests into a readonly host input', async () => {
+    input.value = 'Apple';
+    input.readOnly = true;
+
+    input.dispatchEvent(new FocusEvent('focus'));
+    await settle();
+    expect(host.directive().isOpen()).toBe(false);
+
+    key('Escape');
+    await settle();
+    expect(input.value).toBe('Apple');
+
+    key('ArrowDown');
+    await settle();
+    expect(host.directive().isOpen()).toBe(false);
+  });
+
+  /**
+   * #301 review F4: the readonly gate above stops the popup from opening, but a
+   * popup that was already open when the host turned readonly (or the
+   * directive turned disabled) still committed a pointer pick through
+   * `selectFromPanel`, writing `el.value`, dispatching `input` and emitting
+   * `optionSelected`.
+   */
+  it.each(['readonly', 'disabled'] as const)(
+    'refuses a panel pick that lands after the host turned %s',
+    async (state) => {
+      input.dispatchEvent(new FocusEvent('focus'));
+      await settle();
+      expect(host.directive().isOpen()).toBe(true);
+
+      if (state === 'readonly') {
+        input.readOnly = true;
+      } else {
+        host.disabled.set(true);
+        fixture.detectChanges();
+      }
+      host.directive().selectFromPanel(['Banana']);
+      await settle();
+
+      expect(input.value).toBe('');
+      expect(host.picked).toBeNull();
+      expect(host.directive().isOpen()).toBe(false);
+    },
+  );
+
+  /**
+   * #301 review R2-1: the keydown handler returned on `_isInert()` before its
+   * switch, so a popup that was already open when the host turned readonly (or
+   * the directive turned disabled) could not be closed from the keyboard —
+   * `aria-expanded` stayed `"true"` over a stale active option. For readonly
+   * that regressed #301's own gate: Escape used to close it. Closing writes
+   * nothing, so it stays allowed; clearing and stripping a completion do not.
+   */
+  it.each(['readonly', 'disabled'] as const)(
+    'closes an open popup on Escape after the host turned %s, writing nothing',
+    async (state) => {
+      input.dispatchEvent(new FocusEvent('focus'));
+      await settle();
+      type('ap');
+      await settle();
+      expect(host.directive().isOpen()).toBe(true);
+      const before = input.value;
+
+      if (state === 'readonly') {
+        input.readOnly = true;
+      } else {
+        host.disabled.set(true);
+        fixture.detectChanges();
+      }
+      let inputEvents = 0;
+      input.addEventListener('input', () => inputEvents++);
+      key('Escape');
+      await settle();
+
+      expect(host.directive().isOpen()).toBe(false);
+      expect(input.getAttribute('aria-expanded')).toBe('false');
+      expect(input.hasAttribute('aria-activedescendant')).toBe(false);
+      expect(input.value).toBe(before);
+      expect(inputEvents).toBe(0);
+    },
+  );
+
+  /**
+   * #301 review R2-2: an inline completion armed by typing was applied when the
+   * remote results landed, with no inert check — it wrote `el.value` and
+   * dispatched `input`, so a readonly (or disabled) host's bound model changed
+   * with no user action after the host locked.
+   */
+  it.each(['readonly', 'disabled'] as const)(
+    'does not inline-complete when remote results land after the host turned %s',
+    async (state) => {
+      const subject = new Subject<string[]>();
+      host.search.set(() => subject.asObservable());
+      host.minLength.set(1);
+      fixture.detectChanges();
+
+      input.dispatchEvent(new FocusEvent('focus'));
+      await settle();
+      type('Ar');
+      await settle();
+      expect(input.value).toBe('Ar');
+
+      if (state === 'readonly') {
+        input.readOnly = true;
+      } else {
+        host.disabled.set(true);
+        fixture.detectChanges();
+      }
+      let inputEvents = 0;
+      input.addEventListener('input', () => inputEvents++);
+      subject.next(['Argentina', 'Armenia']);
+      subject.complete();
+      await settle();
+
+      expect(input.value).toBe('Ar');
+      expect(inputEvents).toBe(0);
+    },
+  );
+
   it('does not open on focus when openOnFocus is false', async () => {
     host.openOnFocus.set(false);
     fixture.detectChanges();

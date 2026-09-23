@@ -557,9 +557,27 @@ export class MlvTextarea
   /** Whether the control holds a clearable value — Non-empty text present. */
   readonly hasValue = computed(() => (this.value() ?? '').length > 0);
 
-  /** Clears the textarea value and marks the field touched. */
+  /**
+   * Clears the textarea value from application code and marks the field
+   * touched.
+   *
+   * An application API, not a user path: like `value.set('')` it is **not**
+   * gated by `readonly` or `disabled` — readonly locks out the user, not the
+   * application. The wrapper's clear button does not call it; it calls
+   * {@link _onClear}, which is gated (#301).
+   */
   clearValue(): void {
     this.value.set('');
     this._markTouched();
+  }
+
+  /**
+   * @protected The wrapper's clear-button handler: clears the text through
+   * `_write` and marks the field touched only when the write landed, so a
+   * readonly or disabled textarea neither changes nor reports a touch — even
+   * when a click reaches a button rendered before that state flipped.
+   */
+  protected _onClear(): void {
+    if (this._write('')) this._markTouched();
   }
 }

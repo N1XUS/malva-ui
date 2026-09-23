@@ -196,3 +196,10 @@ portaled into the CDK overlay container, so a sweep of `fixture.nativeElement`
 in the default state covers none of it. The suite stubs `MlvBreakpointService`:
 jsdom's `matchMedia` never matches a `min-width` query, so the real service is
 pinned to `'sm'` and every open would be the sheet.
+
+## Clear button (2026-09, #301)
+
+- `clearable` renders the wrapper's X while a date is set **and** the picker is neither readonly nor disabled (the wrapper's `_showClear`). Before #301 nothing was bound to the wrapper's `(clear)`, so the X rendered and did nothing.
+- Handler: protected `_onClear()` → `_write(null)`, then `touch` only when the write landed. The sheet's `_pendingValue` is re-seeded from `value` on every open, so nothing else needs resetting.
+- Scope: the clear button only. Readonly on the trigger and popup is #402.
+- Spec: `day-picker-clear.spec.ts` (writable clear + sweep with the X, no X on an empty picker, no X while readonly / disabled + sweep, a stale click refused).

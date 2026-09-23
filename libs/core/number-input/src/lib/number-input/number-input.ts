@@ -295,10 +295,26 @@ export class MlvNumberInput
   // ---------------------------------------------------------------------------
 
   /**
-   * Clears the current value. Called by the MlvFormControlWrapper clear button.
+   * Clears the current value from application code.
+   *
+   * An application API, not a user path: like `value.set(null)` it is **not**
+   * gated by `readonly` or `disabled` — readonly locks out the user, not the
+   * application. The wrapper's clear button does not call it; it calls
+   * {@link _onClear}, which is gated (#301).
    */
   clearValue(): void {
     this.value.set(null);
+    this._internalStringValue.set('');
+  }
+
+  /**
+   * @protected The wrapper's clear-button handler: clears through `_write`
+   * and resets the draft text only when the write landed, so a readonly or
+   * disabled field keeps both its value and what it displays — even when a
+   * click reaches a button rendered before that state flipped.
+   */
+  protected _onClear(): void {
+    if (!this._write(null)) return;
     this._internalStringValue.set('');
   }
 

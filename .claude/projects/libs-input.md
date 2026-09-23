@@ -82,6 +82,7 @@ host: {
 - `onBlur(event: FocusEvent)` — Clears focus flag, emits the signal-form `touch` output, and emits `inputBlur`
 - `focus()` — Imperatively focuses the underlying native `<input>`
 - `select()` — Imperatively selects the current text inside the native `<input>`
+- `clearValue()` — Application API: sets `value` to `''`. Not gated by readonly/disabled (like `value.set('')`; `mlv-tokenizer` uses it to empty its inner input). The wrapper's clear button calls the gated protected `_onClear()` instead, and is withheld while readonly or disabled (#301).
 - `setFocused(focused)` — Inherited from the signal base; updates the focus signal driving the wrapper state.
 
 `computedDisabled` is a computed **property**, not a method — the effective

@@ -308,3 +308,11 @@ returns early while `computedDisabled()`.
 container, outside `fixture.nativeElement`. The suite stubs
 `MlvBreakpointService`: jsdom's `matchMedia` never matches a `min-width` query,
 so the real service is pinned to `'sm'` and every open would be the sheet.
+
+## Clear button (2026-09, #301)
+
+- `clearable` renders the wrapper's X while a committed range is set and the picker is neither readonly nor disabled. Before #301 nothing was bound to the wrapper's `(clear)`, so the X did nothing.
+- Handler: protected `_onClear()` → `_write(null)`, then drops `_pendingRange` and emits `touch` — both only when the write landed.
+- `hasClearableValue` (public computed, "whether the clear button should be shown") now reads `clearable() && _canWrite() && (start || end)`; it checked `!computedDisabled()` alone and answered `true` for a readonly picker.
+- `clearSelection()` (public) is unchanged and ungated: it is the popup footer's `Clear` handler and an application API. Readonly on the popup — footer `Clear` / `Apply` included — is #402.
+- Spec: `date-range-picker-clear.spec.ts`.

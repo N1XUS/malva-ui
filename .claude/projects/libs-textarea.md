@@ -73,7 +73,7 @@ The component wraps the native `<textarea>` inside `mlv-form-control-wrapper`, g
 | `readonly`    | `boolean`                    | `false`                | Makes the textarea read-only. Also a signal-forms field binding (`[formField]` sets it).                                                                         |
 | `disabled`    | `boolean`                    | `false`                | Disables the control. Signal-forms field binding — the bound field's disabled state drives it.                                                                   |
 | `loading`     | `BooleanInput → boolean`     | `false`                | Shows a loading indicator (handled by form wrapper).                                                                                                             |
-| `clearable`   | `BooleanInput → boolean`     | `false`                | Shows a clear (×) button that calls `clearValue()`.                                                                                                              |
+| `clearable`   | `BooleanInput → boolean`     | `false`                | Shows a clear (×) button while the textarea holds text and is neither readonly nor disabled; it calls the gated `_onClear()` (#301), not `clearValue()`.         |
 | `errors`      | `readonly ValidationError[]` | `[]`                   | Signal-forms field binding — current validation errors of the bound field.                                                                                       |
 | `touched`     | `boolean`                    | `false`                | Signal-forms field binding — whether the bound field is touched.                                                                                                 |
 | `dirty`       | `boolean`                    | `false`                | Signal-forms field binding — whether the bound field is dirty.                                                                                                   |
@@ -125,12 +125,12 @@ The component wraps the native `<textarea>` inside `mlv-form-control-wrapper`, g
 
 #### Public Methods
 
-| Method       | Signature                  | Description                                                                                |
-| ------------ | -------------------------- | ------------------------------------------------------------------------------------------ |
-| `onInput`    | `(event: Event): void`     | Handles the native `input` event; sets the `value` model (propagates to the bound field).  |
-| `onBlur`     | `(): void`                 | Clears focused state and emits `touch` (via `_markTouched`).                               |
-| `clearValue` | `(): void`                 | Resets the `value` model to `''` and marks the field touched (`_markTouched`).             |
-| `setFocused` | `(focused: boolean): void` | Inherited from the base; updates the focus signal that drives the wrapper's focused state. |
+| Method       | Signature                  | Description                                                                                                           |
+| ------------ | -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `onInput`    | `(event: Event): void`     | Handles the native `input` event; sets the `value` model (propagates to the bound field).                             |
+| `onBlur`     | `(): void`                 | Clears focused state and emits `touch` (via `_markTouched`).                                                          |
+| `clearValue` | `(): void`                 | Application API: resets the `value` model to `''` and marks the field touched. Not gated by readonly/disabled (#301). |
+| `setFocused` | `(focused: boolean): void` | Inherited from the base; updates the focus signal that drives the wrapper's focused state.                            |
 
 #### Template Summary
 

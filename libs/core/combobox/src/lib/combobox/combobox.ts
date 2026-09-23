@@ -899,12 +899,19 @@ export class MlvCombobox<T>
     }
   }
 
-  /** First press (open) closes + reverts; second press (already closed) clears. */
+  /**
+   * First press (open) closes + reverts; second press (already closed) clears
+   * — but only while a user may write the control. Escape-to-clear is a user
+   * path to the same write as the clear button, which renders only while the
+   * combobox is neither readonly nor disabled, so it takes the same
+   * `_canWrite()` gate (#301); before, Escape on a readonly combobox emptied
+   * its selection.
+   */
   onEscape(event: Event): void {
     event.preventDefault();
     if (this.isOpen()) {
       this._revertAndClose();
-    } else {
+    } else if (this._canWrite()) {
       this.onClear();
     }
   }
@@ -1037,7 +1044,14 @@ export class MlvCombobox<T>
     this._input()?.focus();
   }
 
-  /** Clears the whole selection and search text, emits, and refocuses the input. */
+  /**
+   * Clears the whole selection and search text, emits, and refocuses the input.
+   *
+   * Not gated by `readonly` or `disabled` itself — callable from application
+   * code like a model write. Its two user paths are gated before they reach
+   * it: the inline clear button renders only while the combobox is writable,
+   * and {@link onEscape} checks `_canWrite()` (#301).
+   */
   onClear(): void {
     this.selectionService.clear();
     this.searchQuery.set('');

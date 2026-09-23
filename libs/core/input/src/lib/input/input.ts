@@ -373,8 +373,24 @@ export class MlvInput
   /** Whether the control holds a clearable value — Non-empty text present. */
   readonly hasValue = computed(() => (this.value() ?? '').length > 0);
 
-  /** Clears the text value (wired to the wrapper's clear button). */
+  /**
+   * Clears the text value from application code.
+   *
+   * An application API, not a user path: like `value.set('')` it is **not**
+   * gated by `readonly` or `disabled` — readonly locks out the user, not the
+   * application. The wrapper's clear button does not call it; it calls
+   * {@link _onClear}, which is gated (#301).
+   */
   clearValue(): void {
     this.value.set('');
+  }
+
+  /**
+   * @protected The wrapper's clear-button handler: clears the text through
+   * `_write`, so it is refused while the input is readonly or disabled even
+   * when a click reaches a button rendered before that state flipped.
+   */
+  protected _onClear(): void {
+    this._write('');
   }
 }

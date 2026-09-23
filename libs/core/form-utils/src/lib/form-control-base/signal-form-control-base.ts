@@ -328,6 +328,11 @@ export abstract class MlvSignalFormUiControlBase implements MlvFormControl {
    * pending string, a cell array, a drag position), then write through
    * `_write()`. Programmatic writes to the model from the form or the consumer
    * are never gated: readonly locks the user out, not the application.
+   *
+   * `mlv-form-control-wrapper` restates this rule over the
+   * `MLV_FORM_CONTROL` connector (`!readonly() && !disabled()`) to decide
+   * whether its clear button renders (#301) — it sees only the connector, not
+   * this protected member. A term added here must be added there too.
    */
   protected readonly _canWrite = computed(
     () => !this.readonly() && !this.computedDisabled(),

@@ -348,3 +348,11 @@ activedescendant mode and exist only while open, portaled into the CDK overlay
 container. The suite stubs `MlvBreakpointService`: jsdom's `matchMedia` never
 matches a `min-width` query, so the real service is pinned to `'sm'` and every
 open would be the sheet.
+
+## Clear button (2026-09, #301)
+
+- `hasValue` reads the **model** — `(value() ?? '').length > 0` — instead of returning `true`. The drum always shows a time (the current one on an empty value), so `true` made the wrapper render an X on an empty picker.
+- `clearable` renders the wrapper's X while a time is set and the picker is neither readonly nor disabled. Before #301 nothing was bound to the wrapper's `(clear)`, so the X did nothing.
+- Handler: protected `_onClear()` → `_write('')`, then `touch` only when the write landed. After a clear the trigger shows the current time again — the same display an initially empty picker has — while `value` is `''`.
+- Scope: the clear button only. Readonly on the drum and popup is #402.
+- Spec: `time-picker-clear.spec.ts`.
