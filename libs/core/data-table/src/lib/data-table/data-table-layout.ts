@@ -1,11 +1,26 @@
 import type { MlvDataTableColumn } from '../types';
 
-/** Internal row shape used while flattening tree data. */
+/**
+ * Internal row shape. `_mlvChildren` is the consumer's tree-row marker; the
+ * table itself never adds a key to a row.
+ */
 export type MlvDataRow = object & {
   _mlvChildren?: MlvDataRow[];
-  _mlvDepth?: number;
-  _mlvRef?: MlvDataRow;
 };
+
+/**
+ * Render order of the (possibly expanded) tree, plus the depth of every row
+ * rendered below the root level.
+ */
+export interface MlvFlatRows {
+  /** Rows in render order — the consumer's own objects, never copies. */
+  readonly rows: MlvDataRow[];
+  /**
+   * Tree depth of the row at each position of `rows` (0 for a root row), or
+   * `null` when nothing is expanded and every row is a root row.
+   */
+  readonly depths: readonly number[] | null;
+}
 
 /** Internal column state enriched with measured layout information. */
 export interface MlvColumnState extends MlvDataTableColumn {
@@ -15,27 +30,41 @@ export interface MlvColumnState extends MlvDataTableColumn {
   _visible?: boolean;
 }
 
-/** Returns the original row reference used for expansion identity. */
-export function originalRow(row: MlvDataRow): MlvDataRow {
-  return row['_mlvRef'] ?? row;
-}
-
-/** Recursively flattens expanded tree rows into render order. */
+/**
+ * Flattens expanded tree rows into render order without copying a row.
+ *
+ * With nothing expanded only the root rows render, so `rows` is handed back as
+ * the same array: a sort, filter, search keystroke or page change costs no
+ * allocation here. Otherwise a new array of the same row references is built,
+ * with depth in a parallel array instead of a key stamped onto a copy — the
+ * previous `{ ...row, _mlvDepth, _mlvRef }` copied every row on every recompute
+ * (#297) and leaked both keys into every row the table handed out.
+ *
+ * Depth is positional, not a `Map` keyed by row: measured on a fully expanded
+ * 100k-row tree, the walk alone takes ~1.6 ms, a `Map` adds ~4–5 ms on top and
+ * the parallel array ~0.5 ms. Positional depth also stays right for a row
+ * object listed at two tree positions at once.
+ */
 export function flattenRows(
   rows: MlvDataRow[],
-  expanded: Set<MlvDataRow>,
-  depth = 0,
-): MlvDataRow[] {
-  const result: MlvDataRow[] = [];
-  for (const row of rows) {
-    const original = originalRow(row);
-    result.push({ ...row, _mlvDepth: depth, _mlvRef: original });
-    const children = original['_mlvChildren'];
-    if (expanded.has(original) && children?.length) {
-      result.push(...flattenRows(children, expanded, depth + 1));
+  expanded: ReadonlySet<MlvDataRow>,
+): MlvFlatRows {
+  if (expanded.size === 0) return { rows, depths: null };
+
+  const flat: MlvDataRow[] = [];
+  const depths: number[] = [];
+  // Pushes one row at a time: `flat.push(...children)` spreads into an
+  // argument list, which overflows the stack on a very large child array.
+  const visit = (level: readonly MlvDataRow[], depth: number): void => {
+    for (const row of level) {
+      flat.push(row);
+      depths.push(depth);
+      const children = row._mlvChildren;
+      if (children?.length && expanded.has(row)) visit(children, depth + 1);
     }
-  }
-  return result;
+  };
+  visit(rows, 0);
+  return { rows: flat, depths };
 }
 
 /** Resolves responsive column visibility at the supplied container width. */

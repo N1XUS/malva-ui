@@ -153,22 +153,73 @@ export interface MlvDataTableColumnGroup {
 
 export type MlvEditMode = 'row' | 'cell';
 
+/** Payload of `rowEditStart` and `rowEditCancel`. */
 export interface MlvEditEvent<T = Record<string, unknown>> {
+  /**
+   * The row's working copy — a shallow clone of `sourceRow` taken when editing
+   * started (same prototype), which the `mlvDataTableEditCell` templates write
+   * to. Only its top-level properties are its own: a nested object is shared
+   * with `sourceRow`, so replace it (`row.meta = { ...row.meta, tag }`) rather
+   * than mutate it. On cancel it carries the edits being discarded.
+   */
   row: T;
+  /**
+   * View index of the row when the event fired: its position among the rows
+   * currently rendered, after sort, filter, paging and tree expansion. It is
+   * not a position in the consumer's data — use `sourceRow` for that.
+   */
   index: number;
+  /**
+   * The consumer's own row object, as supplied through `data` — the row's
+   * identity key. Stable across sort, filter, paging and tree expansion, so
+   * this, not `index`, is what to find the row in your data by. The table
+   * never assigns its properties; a template mutating a nested object of `row`
+   * in place still writes through to it. Always set by `mlv-data-table`;
+   * optional only so code constructing the event type keeps compiling.
+   */
+  sourceRow?: T;
 }
 
+/** Payload of `rowEditSave`. */
 export interface MlvEditSaveEvent<T = Record<string, unknown>> {
+  /**
+   * The edited row — the working copy the `mlvDataTableEditCell` templates
+   * wrote to. A new object (same prototype as `sourceRow`): write it back in
+   * place of `sourceRow`, or copy it onto `sourceRow`. Until you do, the row
+   * renders `sourceRow`'s pre-edit values. Nested objects are shared with
+   * `sourceRow` and `originalRow` (see {@link MlvEditEvent.row}).
+   */
   row: T;
+  /**
+   * View index of the row when it was saved (see {@link MlvEditEvent.index}).
+   * Not a position in the consumer's data.
+   */
   index: number;
+  /**
+   * Shallow clone of the row taken when editing started. Its top-level values
+   * are the pre-edit ones; a nested object is the same one `row` and
+   * `sourceRow` hold, so an in-place nested mutation shows here too.
+   */
   originalRow: T;
+  /**
+   * The consumer's own row object, as supplied through `data` — the row's
+   * identity key and the entry to replace with `row`. Stable across sort,
+   * filter, paging and tree expansion. The table never assigns its
+   * properties. Always set by `mlv-data-table`; optional only so code
+   * constructing the event type keeps compiling.
+   */
+  sourceRow?: T;
 }
 
 // ---- Row click ----------------------------------------------------------------
 
+/** Payload of `rowClick`. */
 export interface MlvRowClickEvent<T = Record<string, unknown>> {
+  /** The clicked row — the consumer's own object, as supplied through `data`. */
   row: T;
+  /** View index of the clicked row among the rows currently rendered. */
   index: number;
+  /** The originating pointer event. */
   event: MouseEvent;
 }
 

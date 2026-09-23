@@ -116,12 +116,14 @@ export default class DataTableEditableExampleComponent {
   ];
 
   onSave(event: MlvEditSaveEvent): void {
-    const rows = [...this.team()];
-    rows[event.index] = event.row as unknown as TeamMember;
-    this.team.set(rows);
-    this.lastAction.set(
-      `Saved row ${event.index + 1}: ${(event.row as unknown as TeamMember).name}`,
+    // Write back by identity: `sourceRow` is the object this table was given,
+    // while `index` is a position in the current (sorted) view, not in `team`.
+    const saved = event.row as unknown as TeamMember;
+    const source = event.sourceRow as unknown as TeamMember;
+    this.team.update((rows) =>
+      rows.map((row) => (row === source ? saved : row)),
     );
+    this.lastAction.set(`Saved ${saved.name}`);
   }
 
   onAddRow(): void {
