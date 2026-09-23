@@ -1061,7 +1061,7 @@ describe('MlvSelect — native="auto" under hydration (#218)', () => {
 
   it('tripwire (Angular internals): a select host carries `ngh` at construction exactly when hydration reuses a server node', async () => {
     // `MlvSelect` decides "am I being hydrated" from the `ngh` attribute on its
-    // host in a field initializer — Angular 22.0.7 strips it in
+    // host in a field initializer — Angular 22.1.7 strips it in
     // `renderComponent`, after the host's directives are constructed. If
     // Angular stops stamping it, or starts stripping it earlier, this fails
     // before any user sees a hydrated desktop select drop its server <select>.
