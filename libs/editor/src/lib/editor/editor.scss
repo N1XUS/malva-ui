@@ -1,6 +1,38 @@
 @use '../../../../styles/src/lib/mixins' as mixins;
-@use '../../../../cdk/floating-container/src/lib/floating-container.mixins' as
-  floating;
+
+// Built-in toolbar groups, laid out in a row. Included under the editor and
+// under the selection bubble, whose pane is portaled to `<body>` and so is
+// outside every `.mlv-editor` descendant selector.
+@mixin toolbar-contents {
+  .mlv-editor-toolbar__separator {
+    flex: 0 0 auto;
+    min-height: var(--mlv-height-s);
+    margin-inline: var(--mlv-spacing-1);
+  }
+
+  .mlv-editor-toolbar__overflow,
+  .mlv-editor-undo-redo,
+  .mlv-editor-inline-marks,
+  .mlv-editor-block-insert {
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+  }
+
+  mlv-editor-zoom,
+  mlv-editor-heading,
+  mlv-editor-list,
+  mlv-editor-text-color,
+  mlv-editor-highlight,
+  mlv-editor-alignment,
+  mlv-editor-link,
+  mlv-editor-table,
+  mlv-editor-image-upload {
+    flex: 0 0 auto;
+  }
+}
 
 @layer mlv.components {
   $block: mlv-editor;
@@ -12,15 +44,6 @@
     // the earlier-emitted block.
     --mlv-editor-gutter: var(--mlv-spacing-6);
     --mlv-editor-measure: 45rem;
-    // Block size of the floating toolbar pill. The built-in row's floor is the
-    // separator's `--mlv-height-s` (taller than the `tight` 28px buttons every
-    // built-in control pins), plus the root's block padding (the block half of
-    // `--mlv-padding-xs`). Density does not move it, because the built-in
-    // controls are density-invariant. Override it on the editor when projected
-    // controls are taller.
-    --mlv-editor-toolbar-block-size: calc(
-      var(--mlv-height-s) + 2 * var(--mlv-spacing-1)
-    );
     @include mixins.base();
     display: block;
     color: var(--mlv-text-primary);
@@ -68,9 +91,10 @@
       background: var(--mlv-elevation-bg-3);
     }
 
-    // Wrapper the toolbar root is stamped into, before or after the viewport.
-    // It carries every placement concern (sticky, the floating overlap and the
-    // backdrop), so the root keeps one set of rules in every configuration.
+    // Wrapper the toolbar root is stamped into: before or after the viewport
+    // for the docked bar, or inside the selection bubble. It carries the
+    // placement concerns (sticky), so the root keeps one set of rules in every
+    // configuration.
     &__toolbar-band {
       display: flex;
       flex: 0 0 auto;
@@ -99,34 +123,7 @@
       }
     }
 
-    .mlv-editor-toolbar__separator {
-      flex: 0 0 auto;
-      min-height: var(--mlv-height-s);
-      margin-inline: var(--mlv-spacing-1);
-    }
-
-    .mlv-editor-toolbar__overflow,
-    .mlv-editor-undo-redo,
-    .mlv-editor-inline-marks,
-    .mlv-editor-block-insert {
-      display: inline-flex;
-      flex: 0 0 auto;
-      flex-direction: row;
-      align-items: center;
-      gap: var(--mlv-spacing-1);
-    }
-
-    mlv-editor-zoom,
-    mlv-editor-heading,
-    mlv-editor-list,
-    mlv-editor-text-color,
-    mlv-editor-highlight,
-    mlv-editor-alignment,
-    mlv-editor-link,
-    mlv-editor-table,
-    mlv-editor-image-upload {
-      flex: 0 0 auto;
-    }
+    @include toolbar-contents;
 
     // Auto mode (no `height` / `maxHeight`): not a scroll container and no
     // `overscroll-behavior`, so a wheel, touch or key scroll over the editor
@@ -816,64 +813,14 @@
     }
   }
 
-  // Floating toolbar (#416). The band is the full-width layer that overlaps the
-  // viewport's edge and paints the fade; the root inside it is the pill. The
-  // viewport pads by the same overlap, so the first (top) or last (bottom) line
-  // is clear at scroll 0 and later lines scroll beneath the pill.
+  // Sticky docked bar (#416). The editor only stamps `--toolbar-sticky` on an
+  // uncapped bar (#483): a capped bar sits outside its scrolling viewport, and
+  // the floating bubble is an overlay.
   .#{$block} {
-    &--toolbar-floating {
-      --mlv-editor-toolbar-overlap: calc(
-        var(--mlv-editor-toolbar-block-size) + var(--mlv-spacing-2)
-      );
-    }
-
-    &--toolbar-floating &__toolbar-band {
-      position: relative;
-      z-index: var(--mlv-z-raised);
-      isolation: isolate;
-      padding-inline: var(--mlv-spacing-2);
-      // The band spans the surface; only the pill takes pointer input, so the
-      // fade never swallows a click on the content beneath it.
-      pointer-events: none;
-    }
-
-    &--toolbar-floating &__toolbar {
-      inline-size: max-content;
-      max-inline-size: 100%;
-      min-block-size: var(--mlv-editor-toolbar-block-size);
-      margin-inline: auto;
-      border: 0;
-      border-radius: var(--mlv-radius-panel);
-      background: var(--mlv-elevation-bg-4);
-      box-shadow: var(--mlv-shadow-floating);
-      pointer-events: auto;
-    }
-
-    &--toolbar-floating#{&}--toolbar-top &__toolbar-band {
-      padding-block-start: var(--mlv-spacing-2);
-      margin-block-end: calc(-1 * var(--mlv-editor-toolbar-overlap));
-      @include floating.backdrop(var(--mlv-elevation-bg-3), $direction: 0deg);
-    }
-
-    &--toolbar-floating#{&}--toolbar-top &__viewport {
-      padding-block-start: var(--mlv-editor-toolbar-overlap);
-    }
-
-    &--toolbar-floating#{&}--toolbar-bottom &__toolbar-band {
-      padding-block-end: var(--mlv-spacing-2);
-      margin-block-start: calc(-1 * var(--mlv-editor-toolbar-overlap));
-      @include floating.backdrop(var(--mlv-elevation-bg-3));
-    }
-
-    &--toolbar-floating#{&}--toolbar-bottom &__viewport {
-      padding-block-end: var(--mlv-editor-toolbar-overlap);
-    }
-
-    // Sticky (#416): pinned against the nearest scroll container. The control
-    // container is `overflow: clip`, so for an uncapped editor that is the page.
-    // `position: sticky` is only in these two three-class rules so it outranks
-    // the floating band's `position: relative`. The offset is read with a
-    // fallback, never declared, so an app can set it once on an ancestor.
+    // Pinned against the nearest scroll container. The control container is
+    // `overflow: clip`, so that is the page unless a consumer scroll container
+    // sits between. The offset is read with a fallback, never declared, so an
+    // app can set it once on an ancestor.
     &--toolbar-sticky#{&}--toolbar-top &__toolbar-band {
       position: sticky;
       inset-block-start: var(--mlv-editor-toolbar-sticky-offset, 0);
@@ -884,6 +831,51 @@
       position: sticky;
       inset-block-end: var(--mlv-editor-toolbar-sticky-offset, 0);
       z-index: var(--mlv-z-raised);
+    }
+  }
+
+  // Selection bubble (#483): `toolbarAppearance="floating"`. The class sits on
+  // the CDK overlay pane, which is portaled to `<body>`, so nothing here may
+  // rely on a `.mlv-editor` ancestor. The pane stays attached while hidden, so
+  // the toolbar keeps its state; `--hidden` takes it off screen and out of the
+  // accessibility tree without `[hidden]`, which the roving registry reads as
+  // "every control disabled".
+  .#{$block}-bubble {
+    @include mixins.base();
+    @include toolbar-contents;
+    max-inline-size: calc(100vw - 2 * var(--mlv-spacing-2));
+    border-radius: var(--mlv-radius-panel);
+    background: var(--mlv-elevation-bg-4);
+    box-shadow: var(--mlv-shadow-floating);
+    color: var(--mlv-text-primary);
+    // Opacity only: CDK positions the pane from its getBoundingClientRect(),
+    // which a transform (scale, translate) would shrink or shift mid-animation,
+    // leaving the bubble off-centre until the next reposition.
+    animation: mlv-editor-bubble-enter var(--mlv-duration-fast)
+      var(--mlv-ease-out);
+
+    &--hidden {
+      visibility: hidden;
+      animation: none;
+    }
+
+    // Shrinks with the pane, capped at the window, so the controls scroll
+    // behind the fade instead of overflowing it.
+    .#{$block}__toolbar-band {
+      flex: 1 1 auto;
+      min-inline-size: 0;
+    }
+
+    .#{$block}__toolbar {
+      border: 0;
+      border-radius: inherit;
+      background: transparent;
+    }
+  }
+
+  @keyframes mlv-editor-bubble-enter {
+    from {
+      opacity: 0;
     }
   }
 
@@ -951,11 +943,6 @@
         padding-block: 0;
       }
 
-      &--toolbar-floating#{&}--toolbar-top &__viewport,
-      &--toolbar-floating#{&}--toolbar-bottom &__viewport {
-        padding-block: 0;
-      }
-
       &--capped &__surface {
         block-size: auto;
         max-block-size: none;
@@ -983,6 +970,12 @@
     }
   }
 
+  @media print {
+    .#{$block}-bubble {
+      display: none;
+    }
+  }
+
   // A pointer-only affordance is meaningless without hover; on touch surfaces the
   // Alt+Shift+Arrow keymap remains the reordering path.
   @media (hover: none) {
@@ -1007,6 +1000,10 @@
       &__ai-caret::after {
         animation: none;
       }
+    }
+
+    .#{$block}-bubble {
+      animation: none;
     }
   }
 

@@ -99,10 +99,11 @@ export class MlvEditorToolbarRoot {
   });
   /**
    * @internal Element whose width decides narrow mode, instead of this root's
-   * own. `MlvEditor` passes its `.mlv-editor__surface`. A floating toolbar
-   * hugs its controls, so measuring itself would be circular: hiding groups
-   * shrinks the pill, which un-narrows it. `undefined` observes this root,
-   * which the standalone `MlvEditorToolbar` shell keeps doing.
+   * own. `MlvEditor` passes its `.mlv-editor__surface`, for the docked bar
+   * and the selection bubble alike. The bubble hugs its controls, so measuring
+   * itself would be circular: hiding groups shrinks the bubble, which
+   * un-narrows it. `undefined` observes this root, which the standalone
+   * `MlvEditorToolbar` shell keeps doing.
    */
   readonly measureTarget = input<HTMLElement | undefined>(undefined);
   /** @internal Editor-scoped focus registry. */

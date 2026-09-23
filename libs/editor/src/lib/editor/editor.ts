@@ -88,6 +88,7 @@ import type {
   MlvEditorToolbarPosition,
   MlvEditorTransactionEvent,
 } from '../editor.types';
+import { MlvEditorBubble } from './editor-bubble';
 import {
   createMlvEditorLiveScrollSides,
   mlvEditorCssLength,
@@ -170,6 +171,7 @@ type MlvEditorPreparedContent =
     MlvEditorTableControls,
     MlvEditorAlignment,
     MlvEditorBlockInsert,
+    MlvEditorBubble,
     MlvSpacer,
   ],
   templateUrl: './editor.html',
@@ -256,7 +258,7 @@ type MlvEditorPreparedContent =
     '[class.mlv-editor--toolbar-bar]': 'toolbarAppearance() === "bar"',
     '[class.mlv-editor--toolbar-floating]':
       'toolbarAppearance() === "floating"',
-    '[class.mlv-editor--toolbar-sticky]': 'toolbarSticky()',
+    '[class.mlv-editor--toolbar-sticky]': '_stickyToolbar()',
     '[attr.aria-disabled]': 'computedDisabled() || null',
     '[attr.inert]': 'computedDisabled() ? "" : null',
     '[style.--mlv-editor-zoom]': 'zoom() / 100',
@@ -316,25 +318,40 @@ export class MlvEditor
   readonly maxHeight = input<number | string | undefined>(undefined);
 
   /**
-   * Toolbar placement. The DOM order follows it, so the Tab order matches the
-   * visual order (WCAG 2.4.3). Changing it re-creates the toolbar view, which
-   * closes any open toolbar popup.
+   * Docked-bar placement. The DOM order follows it, so the Tab order matches
+   * the visual order (WCAG 2.4.3). Changing it re-creates the toolbar view,
+   * which closes any open toolbar popup. It does not move the floating
+   * selection bubble, which always prefers above the selection.
    */
   readonly toolbarPosition = input<MlvEditorToolbarPosition>('top');
 
   /**
    * Toolbar drawing: `'bar'` is the docked row with a hairline; `'floating'` is
-   * a centred pill overlapping the content edge by
-   * `--mlv-editor-toolbar-block-size` plus a gap.
+   * a selection bubble. The bubble is a CDK overlay (`.mlv-editor-bubble`)
+   * shown only while focus is in the editor, the selection is non-empty and
+   * the editor is neither disabled nor `readonly`; it prefers above the
+   * selection and flips below at the window's or a capped viewport's edge.
+   * Alt+F10 in the content summons it at the caret and focuses its first
+   * control (the content carries `aria-keyshortcuts="Alt+F10"` while floating
+   * and editable); Escape dismisses it and returns focus to the content with
+   * the selection intact. A plugin that claims Escape itself (a consumer's
+   * `@tiptap/suggestion` list, an AI stream) gets it first, and the Escape
+   * that dismisses the bubble goes no further, so a dialog or drawer around
+   * the editor closes only on the next one. Turning `readonly` on while the
+   * bubble is shown hides it and closes its popups.
    */
   readonly toolbarAppearance = input<MlvEditorToolbarAppearance>('bar');
 
   /**
-   * Keeps the toolbar `position: sticky` against the nearest scroll container
-   * while the surface is on screen, offset by
-   * `--mlv-editor-toolbar-sticky-offset` (default `0`). When capped, the
-   * toolbar already sits outside the scrolling viewport, so this only affects
-   * page scroll, within the surface's box.
+   * Keeps the docked bar `position: sticky` against the page (or the nearest
+   * consumer scroll container) while the surface is on screen, offset by
+   * `--mlv-editor-toolbar-sticky-offset` (default `0`).
+   *
+   * It applies only to an **uncapped** **bar**. A capped editor
+   * (`height` / `maxHeight`) scrolls inside its own viewport, and the bar
+   * sits outside that scroller, so there is nothing for it to stick against;
+   * the floating bubble follows the selection instead. In either case the
+   * input is ignored and `.mlv-editor--toolbar-sticky` is not stamped.
    */
   readonly toolbarSticky = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
@@ -403,6 +420,18 @@ export class MlvEditor
    */
   protected readonly _capped = computed(
     () => this._heightStyle() !== null || this._maxHeightStyle() !== null,
+  );
+
+  /**
+   * @protected Whether the docked bar is actually sticky: `toolbarSticky` on an
+   * uncapped `'bar'`. Drives `.mlv-editor--toolbar-sticky` and the caret
+   * scroll margin.
+   */
+  protected readonly _stickyToolbar = computed(
+    () =>
+      this.toolbarSticky() &&
+      this.toolbarAppearance() === 'bar' &&
+      !this._capped(),
   );
 
   /** Whether the mounted editor currently accepts document mutations. */
@@ -1137,39 +1166,34 @@ export class MlvEditor
   /**
    * @private Block extent the toolbar hides on its own side, in px.
    *
-   * - A sticky band hides its height plus its offset, at the page scroller.
-   * - A floating band in a capped editor hides its height, at the viewport.
-   * - Anything else hides nothing: a docked bar sits outside the content, and
-   *   an uncapped floating band scrolls away with the page.
+   * Only a sticky bar hides anything: its height plus its offset, at its
+   * nearest scroll container. A docked bar sits outside the content, and the
+   * floating bubble is an overlay that follows the selection, clear of it by
+   * construction.
+   * Sticky applies only to an uncapped bar (`_stickyToolbar`), so the margin
+   * never lands on a capped viewport's own edge.
    *
    * Read by ProseMirror at scroll time, never for layout. ProseMirror applies
-   * one margin at every scroll ancestor, so a capped editor with a sticky
-   * toolbar keeps the caret clear of the page-stuck band at the viewport too,
-   * and a capped floating one keeps a band-height margin at the page scroller,
-   * where nothing covers the caret. Both are accepted: they err toward
-   * visibility.
+   * one margin at every scroll ancestor. For an uncapped editor the page is
+   * usually the only one. With a consumer scroll container in between, the
+   * band sticks to that container, where the margin is right; the page, one
+   * scroll ancestor further out, also keeps the caret that far from its edge
+   * although no band is there, which errs toward visibility.
    */
   private _obscuredToolbarExtent(): number {
-    const sticky = this.toolbarSticky();
-    const floatingCapped =
-      this.toolbarAppearance() === 'floating' && this._capped();
-    if (!sticky && !floatingCapped) return 0;
+    if (!this._stickyToolbar()) return 0;
     const band = this._toolbarBand()?.nativeElement;
     if (!band) return 0;
-    let extent = band.getBoundingClientRect().height;
-    if (sticky) {
-      const side =
-        this.toolbarPosition() === 'top'
-          ? 'inset-block-start'
-          : 'inset-block-end';
-      const view = band.ownerDocument.defaultView;
-      extent += view
-        ? Number.parseFloat(
-            view.getComputedStyle(band).getPropertyValue(side),
-          ) || 0
-        : 0;
-    }
-    return extent;
+    const side =
+      this.toolbarPosition() === 'top'
+        ? 'inset-block-start'
+        : 'inset-block-end';
+    const view = band.ownerDocument.defaultView;
+    const offset = view
+      ? Number.parseFloat(view.getComputedStyle(band).getPropertyValue(side)) ||
+        0
+      : 0;
+    return band.getBoundingClientRect().height + offset;
   }
 
   /** @private Builds the exact accessible attributes assigned to Tiptap's contenteditable root. */
@@ -1209,6 +1233,17 @@ export class MlvEditor
 
     if (this.readonly()) {
       attributes['aria-readonly'] = 'true';
+    }
+
+    // The selection bubble stays hidden until a selection exists, so the key
+    // that reaches it is the only hint assistive technology gets. Disabled or
+    // `readonly`, the bubble never shows and the key does nothing.
+    if (
+      this.toolbarAppearance() === 'floating' &&
+      !this.computedDisabled() &&
+      !this.readonly()
+    ) {
+      attributes['aria-keyshortcuts'] = 'Alt+F10';
     }
 
     return attributes;
@@ -1334,6 +1369,7 @@ export class MlvEditor
       'aria-readonly',
       'tabindex',
       'aria-invalid',
+      'aria-keyshortcuts',
     ];
     for (const name of managedAttributes) {
       const value = attributes[name];

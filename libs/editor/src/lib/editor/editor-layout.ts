@@ -88,3 +88,50 @@ export function createMlvEditorLiveScrollSides(
     },
   };
 }
+
+/** @internal A client-space box, in px; the shape `coordsAtPos` returns. */
+export interface MlvEditorRect {
+  readonly top: number;
+  readonly bottom: number;
+  readonly left: number;
+  readonly right: number;
+}
+
+/**
+ * @internal The part of `rect` inside `boundary`, or `null` once none of it
+ * is. Edges count as inside, so a zero-size caret lying on the boundary is
+ * still visible.
+ *
+ * The selection bubble anchors on this: while a capped viewport scrolls, it
+ * follows the visible part of the selection, and when the selection has left
+ * the viewport (or the window) it hides instead of floating over content the
+ * selection is no longer in.
+ */
+export function mlvEditorVisibleRect(
+  rect: MlvEditorRect,
+  boundary: MlvEditorRect,
+): MlvEditorRect | null {
+  const top = Math.max(rect.top, boundary.top);
+  const bottom = Math.min(rect.bottom, boundary.bottom);
+  const left = Math.max(rect.left, boundary.left);
+  const right = Math.min(rect.right, boundary.right);
+  return top <= bottom && left <= right ? { top, bottom, left, right } : null;
+}
+
+/**
+ * @internal Which side of `anchor` the selection bubble opens on: above,
+ * unless a bubble `height` px tall, `gap` px from the anchor, would cross the
+ * boundary's top edge (the window, or a capped scroller's edge).
+ *
+ * CDK's own fallback flips only on the window's edges; a capped viewport's top
+ * edge is not one it knows about, so the preference is decided here and CDK
+ * keeps the other side as its fallback.
+ */
+export function mlvEditorBubblePlacement(
+  anchor: MlvEditorRect,
+  boundary: MlvEditorRect,
+  height: number,
+  gap: number,
+): 'above' | 'below' {
+  return anchor.top - gap - height >= boundary.top ? 'above' : 'below';
+}

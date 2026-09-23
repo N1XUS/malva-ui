@@ -75,30 +75,98 @@ async function wheelOver(mlv: MlvE2ePage, target: Locator, deltaY: number) {
   await mlv.page.mouse.wheel(0, deltaY);
 }
 
-/** Pill, band and first/last block geometry, plus the resolved overlap token. */
-async function pillGeometry(editor: Locator) {
-  return editor.evaluate((host) => {
-    const pill = host.querySelector('.mlv-editor__toolbar') as HTMLElement;
-    const band = host.querySelector('.mlv-editor__toolbar-band') as HTMLElement;
-    const blocks = host.querySelectorAll('.ProseMirror > *');
-    const probe = document.createElement('div');
-    probe.style.blockSize = 'var(--mlv-editor-toolbar-block-size)';
-    host.append(probe);
-    const token = probe.getBoundingClientRect().height;
-    probe.remove();
-    const pillRect = pill.getBoundingClientRect();
-    const bandRect = band.getBoundingClientRect();
+/** The selection bubble's CDK overlay pane, portaled to `<body>`. */
+function bubblePane(mlv: MlvE2ePage): Locator {
+  return mlv.page.locator('.cdk-overlay-pane.mlv-editor-bubble');
+}
+
+/**
+ * Focuses the content and selects all text of paragraph `index` through the
+ * DOM selection, which ProseMirror reads on `selectionchange`. With
+ * `offsetFromViewportTop`, the capped viewport is first scrolled so the
+ * paragraph's top sits that many px below the viewport's top edge; without
+ * it, the page is scrolled to centre the paragraph, because the deferred
+ * examples above can still shift the page after `gotoExample` and the bubble
+ * hides for a selection outside the window.
+ */
+async function selectParagraph(
+  editor: Locator,
+  index: number,
+  offsetFromViewportTop: number | null = null,
+) {
+  await editor.evaluate(
+    (host, [paragraphIndex, offset]) => {
+      const content = host.querySelector('.ProseMirror') as HTMLElement;
+      content.focus({ preventScroll: true });
+      const paragraph =
+        content.querySelectorAll<HTMLElement>(':scope > p')[paragraphIndex];
+      if (offset !== null) {
+        const viewport = host.querySelector(
+          '.mlv-editor__viewport',
+        ) as HTMLElement;
+        viewport.scrollTop +=
+          paragraph.getBoundingClientRect().top -
+          (viewport.getBoundingClientRect().top + offset);
+      } else {
+        paragraph.scrollIntoView({ block: 'center', behavior: 'instant' });
+      }
+      const range = document.createRange();
+      range.selectNodeContents(paragraph);
+      const selection = getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    },
+    [index, offsetFromViewportTop] as const,
+  );
+}
+
+/**
+ * The bubble pane's rect against the DOM selection's, once the enter
+ * animation (an opacity fade, which moves nothing) has finished, plus where
+ * focus is.
+ */
+async function bubbleGeometry(mlv: MlvE2ePage) {
+  return mlv.page.evaluate(async () => {
+    const pane = document.querySelector(
+      '.cdk-overlay-pane.mlv-editor-bubble',
+    ) as HTMLElement;
+    await Promise.all(
+      pane
+        .getAnimations()
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+    const paneRect = pane.getBoundingClientRect();
+    const selection = getSelection();
+    const selectionRect =
+      selection && selection.rangeCount > 0
+        ? selection.getRangeAt(0).getBoundingClientRect()
+        : null;
     return {
-      token,
-      pillHeight: pillRect.height,
-      pillTop: pillRect.top,
-      pillBottom: pillRect.bottom,
-      pillCenter: pillRect.left + pillRect.width / 2,
-      bandCenter: bandRect.left + bandRect.width / 2,
-      firstBlockTop: blocks[0]?.getBoundingClientRect().top ?? Number.NaN,
-      lastBlockBottom:
-        blocks[blocks.length - 1]?.getBoundingClientRect().bottom ?? Number.NaN,
+      paneTop: paneRect.top,
+      paneBottom: paneRect.bottom,
+      paneLeft: paneRect.left,
+      paneRight: paneRect.right,
+      paneCenter: paneRect.left + paneRect.width / 2,
+      below: pane.classList.contains('mlv-editor-bubble--below'),
+      selectionTop: selectionRect?.top ?? Number.NaN,
+      selectionBottom: selectionRect?.bottom ?? Number.NaN,
+      selectionCenter: selectionRect
+        ? selectionRect.left + selectionRect.width / 2
+        : Number.NaN,
+      windowWidth: window.innerWidth,
+      focusInContent: !!document.activeElement?.closest('.ProseMirror'),
     };
+  });
+}
+
+/** ProseMirror's own selection, read off the Tiptap instance on the view DOM. */
+async function editorSelection(editor: Locator) {
+  return editor.evaluate((host) => {
+    const content = host.querySelector('.ProseMirror') as HTMLElement & {
+      editor?: { state: { selection: { from: number; to: number } } };
+    };
+    const selection = content.editor?.state.selection;
+    return { from: selection?.from ?? -1, to: selection?.to ?? -1 };
   });
 }
 
@@ -126,7 +194,7 @@ async function setSticky(scope: Locator, on: boolean) {
  * Scrolls `scroller` so a middle one-line paragraph sits just inside the band
  * on the toolbar's side, puts the caret at its end, presses Enter
  * (`splitBlock` dispatches `scrollIntoView()`), and returns the new block's
- * rect next to the pill's.
+ * rect next to the band's.
  */
 async function enterUnderToolbar(
   mlv: MlvE2ePage,
@@ -187,17 +255,12 @@ async function enterUnderToolbar(
     const element =
       anchor instanceof Element ? anchor : (anchor?.parentElement ?? null);
     const block = element?.closest('.ProseMirror > *')?.getBoundingClientRect();
-    const pill = (
-      host.querySelector('.mlv-editor__toolbar') as HTMLElement
-    ).getBoundingClientRect();
     const band = (
       host.querySelector('.mlv-editor__toolbar-band') as HTMLElement
     ).getBoundingClientRect();
     return {
       blockTop: block?.top ?? Number.NaN,
       blockBottom: block?.bottom ?? Number.NaN,
-      pillTop: pill.top,
-      pillBottom: pill.bottom,
       bandTop: band.top,
       bandBottom: band.bottom,
     };
@@ -435,18 +498,16 @@ test.describe('Editor layout [/editor]', () => {
     const editor = scope.locator('mlv-editor');
     await expect(editor).toHaveClass(/mlv-editor--capped/);
 
+    // Bar only: the floating bubble is an overlay, not part of the surface.
     const cases = [
-      { position: 'Top', appearance: 'Bar', cap: '120px', floor: null },
-      { position: 'Top', appearance: 'Floating', cap: '120px', floor: null },
-      { position: 'Bottom', appearance: 'Bar', cap: '120px', floor: null },
-      { position: 'Bottom', appearance: 'Floating', cap: '120px', floor: null },
+      { position: 'Top', cap: '120px', floor: null },
+      { position: 'Bottom', cap: '120px', floor: null },
       // An explicit minHeight above the cap: the cap still wins.
-      { position: 'Top', appearance: 'Bar', cap: '150px', floor: '300px' },
+      { position: 'Top', cap: '150px', floor: '300px' },
     ];
-    for (const { position, appearance, cap, floor } of cases) {
-      const label = `${position} ${appearance}, max ${cap}, min ${floor ?? 'default'}`;
+    for (const { position, cap, floor } of cases) {
+      const label = `${position} bar, max ${cap}, min ${floor ?? 'default'}`;
       await pick(scope, 'Toolbar position', position);
-      await pick(scope, 'Toolbar appearance', appearance);
       await editor.evaluate(
         (host, [maxHeight, minHeight]) => {
           host.style.setProperty('--mlv-editor-max-height', maxHeight);
@@ -528,106 +589,21 @@ test.describe('Editor layout [/editor]', () => {
       .toBeGreaterThanOrEqual(floor - 0.5);
   });
 
-  test('the floating pill is the token tall and never covers the first line at scroll 0, at every density', async ({
-    mlv,
-  }) => {
-    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
-    await pick(scope, 'Toolbar appearance', 'Floating');
-    const editor = scope.locator('mlv-editor');
-    for (const cap of ['Auto', '240 px']) {
-      await pick(scope, 'Maximum height', cap);
-      for (const density of [
-        'Compact density',
-        'Comfortable density',
-        'Spacious density',
-      ]) {
-        await scope.getByRole('radio', { name: density }).click();
-        const geometry = await pillGeometry(editor);
-        expect(geometry.pillHeight).toBeCloseTo(geometry.token, 0);
-        expect(geometry.firstBlockTop).toBeGreaterThanOrEqual(
-          geometry.pillBottom - 0.5,
-        );
-      }
-    }
-  });
-
-  test('content scrolls beneath the floating pill, which stays on top', async ({
-    mlv,
-  }) => {
-    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
-    await pick(scope, 'Toolbar appearance', 'Floating');
-    await pick(scope, 'Maximum height', '240 px');
-    const editor = scope.locator('mlv-editor');
-    // `elementFromPoint` answers `null` off screen, and the deferred examples
-    // above can push this one below the fold after `gotoExample` scrolled.
-    await editor.scrollIntoViewIfNeeded();
-    await editor
-      .locator('.mlv-editor__viewport')
-      .evaluate((element) => (element.scrollTop = 120));
-    const geometry = await pillGeometry(editor);
-    expect(geometry.firstBlockTop).toBeLessThan(geometry.pillBottom);
-    const pillOnTop = await editor.evaluate((host) => {
-      const pill = host.querySelector('.mlv-editor__toolbar') as HTMLElement;
-      const rect = pill.getBoundingClientRect();
-      const hit = document.elementFromPoint(
-        rect.left + rect.width / 2,
-        rect.top + rect.height / 2,
-      );
-      return hit !== null && pill.contains(hit);
-    });
-    expect(pillOnTop).toBe(true);
-  });
-
-  test('a bottom floating pill mirrors: the last line is clear at the end of the scroll', async ({
-    mlv,
-  }) => {
-    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
-    await pick(scope, 'Toolbar position', 'Bottom');
-    await pick(scope, 'Toolbar appearance', 'Floating');
-    await pick(scope, 'Maximum height', '240 px');
-    const editor = scope.locator('mlv-editor');
-    await editor
-      .locator('.mlv-editor__viewport')
-      .evaluate((element) => (element.scrollTop = element.scrollHeight));
-    const geometry = await pillGeometry(editor);
-    expect(geometry.lastBlockBottom).toBeLessThanOrEqual(
-      geometry.pillTop + 0.5,
-    );
-  });
-
-  test('the pill centres itself in both directions', async ({ mlv }) => {
-    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
-    await pick(scope, 'Toolbar appearance', 'Floating');
-    const editor = scope.locator('mlv-editor');
-    for (const direction of ['LTR', 'RTL']) {
-      await scope
-        .locator('[data-switcher="direction"]')
-        .getByRole('radio', { name: direction })
-        .click();
-      await expect
-        .poll(() => editor.evaluate((host) => getComputedStyle(host).direction))
-        .toBe(direction.toLowerCase());
-      const geometry = await pillGeometry(editor);
-      expect(
-        Math.abs(geometry.pillCenter - geometry.bandCenter),
-      ).toBeLessThanOrEqual(1);
-    }
-  });
-
   test('a floating toolbar follows the surface width, not its own: it narrows, holds, and widens again', async ({
     mlv,
   }) => {
     const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
     await pick(scope, 'Toolbar appearance', 'Floating');
-    const toolbar = scope
-      .locator('mlv-editor')
-      .getByRole('toolbar', { name: 'Editor toolbar' });
+    // The bubble's toolbar is portaled and hidden until a selection exists,
+    // but its view stays attached, so its class is readable throughout.
+    const toolbar = mlv.page.locator('.mlv-editor-bubble .mlv-editor__toolbar');
     await scope.getByRole('radio', { name: 'Mobile width' }).click();
     await expect(toolbar).toHaveClass(/mlv-editor-toolbar--narrow/);
     await mlv.page.waitForTimeout(500);
     await expect(toolbar).toHaveClass(/mlv-editor-toolbar--narrow/);
-    // The circular case: a narrow pill hugs its fewer controls, so a pill that
-    // measured itself would stay below the threshold after the surface grows.
+    // The circular case: a narrow bubble hugs its fewer controls, so a bubble
+    // that measured itself would stay below the threshold after the surface
+    // grows.
     await scope.getByRole('radio', { name: 'Full width' }).click();
     await expect(toolbar).not.toHaveClass(/mlv-editor-toolbar--narrow/);
   });
@@ -682,12 +658,11 @@ test.describe('Editor layout [/editor]', () => {
     );
   });
 
-  test('a sticky bottom floating toolbar pins to the page bottom and releases at the surface start', async ({
+  test('a sticky bottom bar pins to the page bottom and releases at the surface start', async ({
     mlv,
   }) => {
     const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
     await pick(scope, 'Toolbar position', 'Bottom');
-    await pick(scope, 'Toolbar appearance', 'Floating');
     await setSticky(scope, true);
     // The example's surface is about 900px tall, so a 1000px viewport can
     // never hold its start on screen with its end 100px below the fold.
@@ -714,27 +689,29 @@ test.describe('Editor layout [/editor]', () => {
     expect(Math.abs(pinned.bandBottom - viewportHeight)).toBeLessThanOrEqual(1);
   });
 
-  for (const side of ['top', 'bottom'] as const) {
-    test(`the caret never ends under a ${side} floating pill in a capped editor`, async ({
-      mlv,
-    }) => {
-      const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
-      if (side === 'bottom') await pick(scope, 'Toolbar position', 'Bottom');
-      await pick(scope, 'Toolbar appearance', 'Floating');
-      await pick(scope, 'Maximum height', '240 px');
-      const result = await enterUnderToolbar(
-        mlv,
-        scope.locator('mlv-editor'),
-        side,
-        'viewport',
-      );
-      if (side === 'top') {
-        expect(result.blockTop).toBeGreaterThanOrEqual(result.pillBottom - 0.5);
-      } else {
-        expect(result.blockBottom).toBeLessThanOrEqual(result.pillTop + 0.5);
-      }
-    });
-  }
+  test('the example disables Sticky where it has no effect', async ({
+    mlv,
+  }) => {
+    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
+    // The reason is the switch's own `description`, so it reaches assistive
+    // technology through `aria-describedby`, not only the eye.
+    const toggle = scope.getByRole('switch', { name: 'Sticky toolbar' });
+    await expect(toggle).toBeEnabled();
+    await expect(toggle).toHaveAccessibleDescription('');
+
+    await pick(scope, 'Maximum height', '240 px');
+    await expect(toggle).toBeDisabled();
+    await expect(toggle).toHaveAccessibleDescription(
+      'No effect under a height cap.',
+    );
+
+    await pick(scope, 'Maximum height', 'Auto');
+    await pick(scope, 'Toolbar appearance', 'Floating');
+    await expect(toggle).toBeDisabled();
+    await expect(toggle).toHaveAccessibleDescription(
+      'The floating bubble follows the selection instead.',
+    );
+  });
 
   test('the caret never ends under a page-sticky toolbar', async ({ mlv }) => {
     const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
@@ -746,5 +723,234 @@ test.describe('Editor layout [/editor]', () => {
       'page',
     );
     expect(result.blockTop).toBeGreaterThanOrEqual(result.bandBottom - 0.5);
+  });
+});
+
+test.describe('Editor selection bubble [/editor]', () => {
+  test('shows above a non-empty selection without taking focus, and hides on a bare caret', async ({
+    mlv,
+  }) => {
+    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
+    await pick(scope, 'Toolbar appearance', 'Floating');
+    const editor = scope.locator('mlv-editor');
+    const pane = bubblePane(mlv);
+    await expect(editor.locator('.mlv-editor__toolbar-band')).toHaveCount(0);
+
+    await editor.locator('.ProseMirror > p').nth(3).click();
+    await expect(pane).toHaveClass(/mlv-editor-bubble--hidden/);
+
+    await selectParagraph(editor, 3);
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--hidden/);
+    await expect(
+      pane.getByRole('toolbar', { name: 'Editor toolbar' }),
+    ).toBeVisible();
+    const geometry = await bubbleGeometry(mlv);
+    expect(geometry.below).toBe(false);
+    const gap = geometry.selectionTop - geometry.paneBottom;
+    expect(gap).toBeGreaterThanOrEqual(7);
+    expect(gap).toBeLessThanOrEqual(9);
+    // Centred on the selection unless the window's margin pushed it.
+    if (
+      geometry.paneLeft > 8.5 &&
+      geometry.paneRight < geometry.windowWidth - 8.5
+    ) {
+      expect(
+        Math.abs(geometry.paneCenter - geometry.selectionCenter),
+      ).toBeLessThanOrEqual(1);
+    }
+    expect(geometry.focusInContent).toBe(true);
+
+    await mlv.page.keyboard.press('ArrowRight');
+    await expect(pane).toHaveClass(/mlv-editor-bubble--hidden/);
+  });
+
+  test("flips below at a capped scroller's top edge, tracks its scroll, and hides once the selection leaves it", async ({
+    mlv,
+  }) => {
+    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
+    await pick(scope, 'Toolbar appearance', 'Floating');
+    await pick(scope, 'Maximum height', '240 px');
+    const editor = scope.locator('mlv-editor');
+    await expect(editor).toHaveClass(/mlv-editor--capped/);
+    // Leave room above the editor in the window, so only the capped
+    // viewport's own top edge can force the flip.
+    await editor.evaluate((host) => {
+      (document.scrollingElement ?? document.documentElement).scrollBy({
+        top: host.getBoundingClientRect().top - 400,
+        behavior: 'instant',
+      });
+    });
+    expect(
+      await editor.evaluate((host) => host.getBoundingClientRect().top),
+    ).toBeGreaterThan(200);
+
+    const pane = bubblePane(mlv);
+    const viewport = editor.locator('.mlv-editor__viewport');
+    await selectParagraph(editor, 8, 4);
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--hidden/);
+    await expect(pane).toHaveClass(/mlv-editor-bubble--below/);
+    const flipped = await bubbleGeometry(mlv);
+    expect(flipped.paneTop - flipped.selectionBottom).toBeGreaterThanOrEqual(7);
+    expect(flipped.paneTop - flipped.selectionBottom).toBeLessThanOrEqual(9);
+
+    // Scrolling the viewport moves the selection 30px down; still no room
+    // above, so the bubble stays below and moves with it.
+    await viewport.evaluate((element) => (element.scrollTop -= 30));
+    await expect(async () => {
+      const tracked = await bubbleGeometry(mlv);
+      expect(tracked.selectionBottom).toBeCloseTo(
+        flipped.selectionBottom + 30,
+        0,
+      );
+      expect(tracked.below).toBe(true);
+      expect(tracked.paneTop - tracked.selectionBottom).toBeGreaterThanOrEqual(
+        7,
+      );
+      expect(tracked.paneTop - tracked.selectionBottom).toBeLessThanOrEqual(9);
+    }).toPass();
+
+    // Far enough down that the bubble fits above again: it flips back.
+    await viewport.evaluate((element) => (element.scrollTop -= 120));
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--below/);
+    const above = await bubbleGeometry(mlv);
+    expect(above.selectionTop - above.paneBottom).toBeGreaterThanOrEqual(7);
+    expect(above.selectionTop - above.paneBottom).toBeLessThanOrEqual(9);
+
+    // Scrolled out of the capped viewport: nothing to point at.
+    await viewport.evaluate((element) => (element.scrollTop += 400));
+    await expect(pane).toHaveClass(/mlv-editor-bubble--hidden/);
+    await viewport.evaluate((element) => (element.scrollTop -= 400));
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--hidden/);
+  });
+
+  test('Alt+F10 moves focus into the bubble, even at a bare caret; Escape returns it with the selection intact', async ({
+    mlv,
+  }) => {
+    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
+    await pick(scope, 'Toolbar appearance', 'Floating');
+    const editor = scope.locator('mlv-editor');
+    const pane = bubblePane(mlv);
+    const toolbar = pane.getByRole('toolbar', { name: 'Editor toolbar' });
+    const focusInToolbar = () =>
+      toolbar.evaluate((element) => element.contains(document.activeElement));
+    const focusInContent = () =>
+      editor.evaluate((host) =>
+        host.querySelector('.ProseMirror')?.contains(document.activeElement),
+      );
+
+    await selectParagraph(editor, 5);
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--hidden/);
+    const selected = await editorSelection(editor);
+    expect(selected.to).toBeGreaterThan(selected.from);
+    await mlv.page.keyboard.press('Alt+F10');
+    await expect.poll(focusInToolbar).toBe(true);
+    await mlv.page.keyboard.press('Escape');
+    await expect.poll(focusInContent).toBe(true);
+    expect(await editorSelection(editor)).toEqual(selected);
+    await expect(pane).toHaveClass(/mlv-editor-bubble--hidden/);
+
+    await editor.locator('.ProseMirror > p').nth(3).click();
+    await expect(pane).toHaveClass(/mlv-editor-bubble--hidden/);
+    const caret = await editorSelection(editor);
+    await mlv.page.keyboard.press('Alt+F10');
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--hidden/);
+    await expect.poll(focusInToolbar).toBe(true);
+    await mlv.page.keyboard.press('Escape');
+    await expect.poll(focusInContent).toBe(true);
+    expect(await editorSelection(editor)).toEqual(caret);
+    await expect(pane).toHaveClass(/mlv-editor-bubble--hidden/);
+  });
+
+  test('Escape in the content hides the bubble and goes no further; focus and the selection stay', async ({
+    mlv,
+  }) => {
+    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
+    await pick(scope, 'Toolbar appearance', 'Floating');
+    const editor = scope.locator('mlv-editor');
+    const content = editor.locator('.ProseMirror');
+    const pane = bubblePane(mlv);
+    await expect(content).toHaveAttribute('aria-keyshortcuts', 'Alt+F10');
+    // Counts the Escapes that reach the document, where a CDK dialog's
+    // keyboard dispatcher listens. ProseMirror cancels every Escape it
+    // handles, so this is the real browser path a DOM listener missed.
+    await mlv.page.evaluate(() => {
+      const record = window as unknown as { mlvEscapes: number };
+      record.mlvEscapes = 0;
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') record.mlvEscapes += 1;
+      });
+    });
+    const escapesAtDocument = () =>
+      mlv.page.evaluate(
+        () => (window as unknown as { mlvEscapes: number }).mlvEscapes,
+      );
+
+    await selectParagraph(editor, 5);
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--hidden/);
+    const selected = await editorSelection(editor);
+    expect(selected.to).toBeGreaterThan(selected.from);
+
+    await mlv.page.keyboard.press('Escape');
+    await expect(pane).toHaveClass(/mlv-editor-bubble--hidden/);
+    expect(
+      await content.evaluate((element) =>
+        element.contains(document.activeElement),
+      ),
+    ).toBe(true);
+    expect(await editorSelection(editor)).toEqual(selected);
+    expect(await escapesAtDocument()).toBe(0);
+
+    // Hidden, the bubble claims nothing: the next Escape reaches the page.
+    await mlv.page.keyboard.press('Escape');
+    expect(await escapesAtDocument()).toBe(1);
+    await expect(pane).toHaveClass(/mlv-editor-bubble--hidden/);
+  });
+
+  test('Bold in the bubble applies to a mouse selection, which stays, with the bubble still shown', async ({
+    mlv,
+  }) => {
+    const scope = await gotoExample(mlv, LAYOUT_EXAMPLE);
+    await pick(scope, 'Toolbar appearance', 'Floating');
+    const editor = scope.locator('mlv-editor');
+    const paragraph = editor.locator('.ProseMirror > p').nth(6);
+    const pane = bubblePane(mlv);
+    const bold = pane.getByRole('button', { name: 'Bold' });
+
+    // Measured right after centring the line, because the deferred examples
+    // above can still shift the page.
+    const line = await paragraph.evaluate((element) => {
+      element.scrollIntoView({ block: 'center', behavior: 'instant' });
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const rect = range.getClientRects()[0];
+      return {
+        start: rect.left + 2,
+        end: rect.right - 2,
+        middle: rect.top + rect.height / 2,
+      };
+    });
+    await mlv.page.mouse.move(line.start, line.middle);
+    await mlv.page.mouse.down();
+    await mlv.page.mouse.move(line.end, line.middle, { steps: 8 });
+    await mlv.page.mouse.up();
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--hidden/);
+    const selected = await editorSelection(editor);
+    expect(selected.to).toBeGreaterThan(selected.from);
+
+    // A press on the bubble between its controls leaves focus in the content.
+    await pane.locator('.mlv-editor-toolbar__separator').first().click();
+    expect(
+      await editor.evaluate((host) =>
+        host.querySelector('.ProseMirror')?.contains(document.activeElement),
+      ),
+    ).toBe(true);
+    expect(await editorSelection(editor)).toEqual(selected);
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--hidden/);
+
+    await bold.click();
+    await expect(paragraph.locator('strong')).toHaveCount(1);
+    await expect(bold).toHaveAttribute('aria-pressed', 'true');
+    expect(await editorSelection(editor)).toEqual(selected);
+    await expect(pane).not.toHaveClass(/mlv-editor-bubble--hidden/);
   });
 });

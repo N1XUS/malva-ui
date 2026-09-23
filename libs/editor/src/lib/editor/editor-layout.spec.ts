@@ -86,6 +86,8 @@ interface EditorSheet {
   mediaRules(query: string, selector: string): CSSStyleRule[];
   /** Every selector list inside `@media <query>`. */
   mediaSelectors(query: string): string[];
+  /** Every top-level selector list. */
+  selectors(): string[];
 }
 
 /**
@@ -123,6 +125,10 @@ function withEditorSheet(assertions: (sheet: EditorSheet) => void): void {
       mediaRules: (query, selector) =>
         media(query).filter((rule) => matches(rule, selector)),
       mediaSelectors: (query) => media(query).map((rule) => rule.selectorText),
+      selectors: () =>
+        all
+          .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
+          .map((rule) => rule.selectorText),
     });
   } finally {
     liveStyle.remove();
@@ -229,7 +235,18 @@ describe('MlvEditor layout inputs', () => {
     expect(host.classList).not.toContain('mlv-editor--toolbar-top');
     expect(host.classList).toContain('mlv-editor--toolbar-floating');
     expect(host.classList).not.toContain('mlv-editor--toolbar-bar');
+    // The bubble is an overlay: sticky does not apply to it (#483).
+    expect(host.classList).not.toContain('mlv-editor--toolbar-sticky');
+
+    fixture.componentInstance.appearance.set('bar');
+    await settle(fixture);
     expect(host.classList).toContain('mlv-editor--toolbar-sticky');
+
+    // A capped bar sits outside its own scroller: nothing to stick against.
+    fixture.componentInstance.maxHeight.set(240);
+    await settle(fixture);
+    expect(host.classList).not.toContain('mlv-editor--toolbar-sticky');
+    expect(fixture.componentInstance.editor().toolbarSticky()).toBe(true);
   });
 });
 
@@ -349,96 +366,61 @@ describe('MlvEditor layout stylesheet', () => {
     });
   });
 
-  it('floats a centred pill that overlaps the viewport by the token plus a gap', () => {
+  it('styles the selection bubble on the portaled pane, not under the editor', () => {
     withEditorSheet((sheet) => {
-      expect(
-        declared(sheet.rules('.mlv-editor'), '--mlv-editor-toolbar-block-size'),
-      ).toEqual(['calc(var(--mlv-height-s) + 2 * var(--mlv-spacing-1))']);
-      expect(
-        declared(
-          sheet.rules('.mlv-editor--toolbar-floating'),
-          '--mlv-editor-toolbar-overlap',
-        ),
-      ).toEqual([
-        'calc(var(--mlv-editor-toolbar-block-size) + var(--mlv-spacing-2))',
-      ]);
-
-      const pill = sheet.rules(
-        '.mlv-editor--toolbar-floating .mlv-editor__toolbar',
-      );
-      expect(declared(pill, 'inline-size')).toEqual(['max-content']);
-      expect(declared(pill, 'max-inline-size')).toEqual(['100%']);
-      expect(declared(pill, 'min-block-size')).toEqual([
-        'var(--mlv-editor-toolbar-block-size)',
-      ]);
-      expect(declared(pill, 'margin-inline')).toEqual(['auto']);
-      expect(declared(pill, 'border')).toEqual(['0']);
-      expect(declared(pill, 'border-radius')).toEqual([
+      const bubble = sheet.rules('.mlv-editor-bubble');
+      expect(declared(bubble, 'border-radius')).toEqual([
         'var(--mlv-radius-panel)',
       ]);
-      expect(declared(pill, 'box-shadow')).toEqual([
+      expect(declared(bubble, 'box-shadow')).toEqual([
         'var(--mlv-shadow-floating)',
       ]);
-      expect(declared(pill, 'background')).toEqual([
+      expect(declared(bubble, 'background')).toEqual([
         'var(--mlv-elevation-bg-4)',
       ]);
-      expect(declared(pill, 'pointer-events')).toEqual(['auto']);
+      expect(declared(bubble, 'max-inline-size')).toEqual([
+        'calc(100vw - 2 * var(--mlv-spacing-2))',
+      ]);
+      // CDK measures the pane with getBoundingClientRect(): no transform.
+      expect(declared(bubble, 'transform')).toEqual([]);
+      expect(declared(bubble, 'scale')).toEqual([]);
+      expect(declared(bubble, 'translate')).toEqual([]);
 
-      const band = sheet.rules(
-        '.mlv-editor--toolbar-floating .mlv-editor__toolbar-band',
-      );
-      expect(declared(band, 'pointer-events')).toEqual(['none']);
-      expect(declared(band, 'z-index')).toEqual(['var(--mlv-z-raised)']);
+      // Hidden by class, never `[hidden]`: the roving registry reads a
+      // `[hidden]` ancestor as "every control disabled".
+      const hidden = sheet.rules('.mlv-editor-bubble--hidden');
+      expect(declared(hidden, 'visibility')).toEqual(['hidden']);
 
-      const top = '.mlv-editor--toolbar-floating.mlv-editor--toolbar-top';
+      // The pane is portaled to <body>, so the row layout must not depend on
+      // a `.mlv-editor` ancestor.
       expect(
         declared(
-          sheet.rules(`${top} .mlv-editor__toolbar-band`),
-          'margin-block-end',
+          sheet.rules('.mlv-editor-bubble .mlv-editor-inline-marks'),
+          'display',
         ),
-      ).toEqual(['calc(-1 * var(--mlv-editor-toolbar-overlap))']);
-      expect(
-        declared(
-          sheet.rules(`${top} .mlv-editor__viewport`),
-          'padding-block-start',
-        ),
-      ).toEqual(['var(--mlv-editor-toolbar-overlap)']);
-      expect(
-        declared(
-          sheet.rules(`${top} .mlv-editor__toolbar-band::before`),
-          'mask-image',
-        ),
-      ).toEqual(['linear-gradient(0deg, transparent, black 2.5rem)']);
+      ).toEqual(['inline-flex']);
+      const root = sheet.rules('.mlv-editor-bubble .mlv-editor__toolbar');
+      expect(declared(root, 'border')).toEqual(['0']);
+      expect(declared(root, 'background')).toEqual(['transparent']);
 
-      const bottom = '.mlv-editor--toolbar-floating.mlv-editor--toolbar-bottom';
+      // The pill is gone with its token and overlap rules.
       expect(
-        declared(
-          sheet.rules(`${bottom} .mlv-editor__toolbar-band`),
-          'margin-block-start',
-        ),
-      ).toEqual(['calc(-1 * var(--mlv-editor-toolbar-overlap))']);
+        declared(sheet.rules('.mlv-editor'), '--mlv-editor-toolbar-block-size'),
+      ).toEqual([]);
       expect(
-        declared(
-          sheet.rules(`${bottom} .mlv-editor__viewport`),
-          'padding-block-end',
-        ),
-      ).toEqual(['var(--mlv-editor-toolbar-overlap)']);
-      expect(
-        declared(
-          sheet.rules(`${bottom} .mlv-editor__toolbar-band::before`),
-          'mask-image',
-        ),
-      ).toEqual(['linear-gradient(180deg, transparent, black 2.5rem)']);
+        sheet
+          .selectors()
+          .filter((selector) => selector.includes('--toolbar-floating')),
+      ).toEqual([]);
 
       expect(
-        declared(
-          sheet.mediaRules(
-            'print',
-            '.mlv-editor--capped .mlv-editor__viewport',
-          ),
-          'padding-block',
-        ),
-      ).toEqual(['0']);
+        declared(sheet.mediaRules('print', '.mlv-editor-bubble'), 'display'),
+      ).toEqual(['none']);
+      expect(
+        sheet
+          .mediaSelectors('(prefers-reduced-motion: reduce)')
+          .some((selector) => selector.includes('.mlv-editor-bubble')),
+      ).toBe(true);
     });
   });
 
@@ -505,8 +487,8 @@ describe('MlvEditor toolbar position', () => {
     ({ surface, band, viewport, status } = parts(fixture));
     expect(surface.querySelectorAll('.mlv-editor__toolbar')).toHaveLength(1);
     // Content → toolbar, so Tab order matches the visual order (WCAG 2.4.3);
-    // the band follows the viewport directly so its overlap margin lands on
-    // it, and the upload status comes after.
+    // the band follows the viewport directly and the upload status comes
+    // after.
     expect(viewport.nextElementSibling).toBe(band);
     expect(band?.nextElementSibling).toBe(status);
   });
@@ -577,10 +559,10 @@ describe('MlvEditor narrow measure target', () => {
     const surface = fixture.nativeElement.querySelector(
       '.mlv-editor__surface',
     ) as HTMLElement;
+    // The bubble's root is portaled into the overlay container, so look in
+    // the whole document; only one toolbar root exists at a time.
     const root = () =>
-      fixture.nativeElement.querySelector(
-        '.mlv-editor__toolbar',
-      ) as HTMLElement;
+      document.querySelector('.mlv-editor__toolbar') as HTMLElement;
     const emit = (width: number) => {
       observed
         .get(surface)
@@ -595,16 +577,20 @@ describe('MlvEditor narrow measure target', () => {
     emit(900);
     expect(root().classList).not.toContain('mlv-editor-toolbar--narrow');
 
-    // A content-hugging pill would un-narrow itself if it measured itself.
+    // A content-hugging bubble would un-narrow itself if it measured itself.
     fixture.componentInstance.appearance.set('floating');
     await settle(fixture);
+    expect(root().closest('.mlv-editor-bubble')).not.toBeNull();
     emit(500);
     expect(root().classList).toContain('mlv-editor-toolbar--narrow');
     expect(observed.has(root())).toBe(false);
 
-    // A position change re-creates the root; the new one measures the surface too.
+    // A position change re-creates the bar's root; the new one measures the
+    // surface too.
+    fixture.componentInstance.appearance.set('bar');
     fixture.componentInstance.position.set('bottom');
     await settle(fixture);
+    expect(root().closest('.mlv-editor-bubble')).toBeNull();
     emit(900);
     expect(root().classList).not.toContain('mlv-editor-toolbar--narrow');
     expect(observed.has(root())).toBe(false);
@@ -713,33 +699,20 @@ describe('MlvEditor scroll props (WCAG 2.2 SC 2.4.11)', () => {
     expect(stored?.scrollMargin?.top).toBe(5);
     expect(stored?.scrollThreshold?.top).toBe(0);
 
-    // Floating in a capped editor: the band overlaps the scrolling viewport.
+    // The floating bubble is an overlay that follows the selection: it never
+    // covers the caret, capped or not, sticky or not (#483).
     host.appearance.set('floating');
+    host.sticky.set(true);
     host.maxHeight.set(240);
     await settle(fixture);
-    stubBand(60);
-    expect(sides('scrollMargin')).toEqual({
-      top: 65,
-      right: 5,
-      bottom: 5,
-      left: 5,
-    });
-    expect(sides('scrollThreshold')).toEqual({
-      top: 60,
-      right: 0,
-      bottom: 0,
-      left: 0,
-    });
-
-    // Floating, uncapped, not sticky: the editor never scrolls internally and
-    // the band scrolls away with the page, so nothing is obscured.
+    expect(sides('scrollMargin').top).toBe(5);
+    expect(sides('scrollThreshold').top).toBe(0);
     host.maxHeight.set(undefined);
     await settle(fixture);
     expect(sides('scrollMargin').top).toBe(5);
 
-    // Sticky bar: the band plus its offset, at every scroll ancestor.
+    // Sticky bar: the band plus its offset, at its nearest scroll container.
     host.appearance.set('bar');
-    host.sticky.set(true);
     await settle(fixture);
     stubBand(45, ['inset-block-start', '12px']);
     expect(sides('scrollMargin')).toEqual({
@@ -750,21 +723,19 @@ describe('MlvEditor scroll props (WCAG 2.2 SC 2.4.11)', () => {
     });
     expect(sides('scrollThreshold').top).toBe(57);
 
-    // Capped + sticky, the accepted limitation (#416 OQ11): ProseMirror applies
-    // one margin at every scroll ancestor, so the capped viewport also keeps
-    // the caret band + offset from its edge, not 5, even while the band is not
-    // stuck over it. It errs toward visibility.
+    // Capped + sticky: sticky applies only to an uncapped bar, so the capped
+    // viewport keeps ProseMirror's defaults instead of a band-high margin at
+    // its own edge (#416's accepted limitation, retired by #483).
     host.maxHeight.set(240);
     await settle(fixture);
     stubBand(45, ['inset-block-start', '12px']);
-    expect(sides('scrollMargin').top).toBe(62);
-    expect(sides('scrollThreshold').top).toBe(57);
+    expect(sides('scrollMargin').top).toBe(5);
+    expect(sides('scrollThreshold').top).toBe(0);
     host.maxHeight.set(undefined);
     await settle(fixture);
 
-    // Bottom floating sticky: the band is re-created, the other side takes it.
+    // Bottom sticky bar: the band is re-created, the other side takes it.
     host.position.set('bottom');
-    host.appearance.set('floating');
     await settle(fixture);
     stubBand(60, ['inset-block-end', '7px']);
     expect(sides('scrollMargin')).toEqual({

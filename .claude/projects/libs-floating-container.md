@@ -43,16 +43,10 @@ floating container pull the recipe in from
 single definition of it. `floating-container.scss` itself is one of the
 consumers, so the mixins can never drift from the component.
 
-| Mixin                                              | Signature                                          | Emits                                                                                                                    |
-| -------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `backdrop($background, $inset, $fade, $direction)` | `$inset: 0`, `$fade: 2.5rem`, `$direction: 180deg` | `&::before` at `z-index: -1` with the given fill and `mask-image: linear-gradient($direction, transparent, black $fade)` |
-| `safe-area-block-end($min)`                        | —                                                  | `padding-block-end: max($min, env(safe-area-inset-bottom))`                                                              |
-
-`$direction` is the gradient angle, so `180deg` (the default) fades toward the
-block end: transparent at the top, opaque from `$fade` down. `0deg` mirrors it
-for a band pinned to the top, as the editor's floating top toolbar does
-(#416). Adding it left the two consumers that predate it (the floating
-container and the page dock) compiling byte-identical CSS.
+| Mixin                                  | Signature                    | Emits                                                                                                                |
+| -------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `backdrop($background, $inset, $fade)` | `$inset: 0`, `$fade: 2.5rem` | `&::before` at `z-index: -1` with the given fill and `mask-image: linear-gradient(180deg, transparent, black $fade)` |
+| `safe-area-block-end($min)`            | —                            | `padding-block-end: max($min, env(safe-area-inset-bottom))`                                                          |
 
 The host **must** establish a stacking context (`position: sticky` with a
 `z-index`, or `isolation: isolate`), or the `z-index: -1` backdrop paints
@@ -65,9 +59,6 @@ on this package is created):
 - `libs/cdk/floating-container/src/lib/floating-container.scss`
 - `libs/core/page/src/lib/page-dock/page-dock.scss`
   (`mlv-page-dock[appearance="floating"]`)
-- `libs/editor/src/lib/editor/editor.scss` (the floating toolbar band,
-  `mlv-editor[toolbarAppearance="floating"]`: `0deg` at the top, the default
-  at the bottom)
 
 ## Testing
 

@@ -158,6 +158,80 @@ describe('MlvEditorToolbarContext', () => {
     one.remove();
     two.remove();
   });
+
+  describe('closeOthers', () => {
+    /** Registers three overlay roots, each holding a child node, in order a, b, c. */
+    async function registerThree(closeA: () => void = vi.fn()) {
+      const { fixture } = await createHost();
+      const overlays = fixture.debugElement
+        .query(By.directive(MlvEditor))
+        .injector.get(MLV_EDITOR_OVERLAY_REGISTRY) as MlvEditorOverlayRegistry;
+      const roots = ['a', 'b', 'c'].map(() => {
+        const root = document.createElement('div');
+        root.append(document.createElement('button'));
+        document.body.append(root);
+        return root;
+      });
+      const [a, b, c] = roots;
+      const closes = { a: closeA, b: vi.fn(), c: vi.fn() };
+      overlays.register(a, closes.a);
+      overlays.register(b, closes.b);
+      overlays.register(c, closes.c);
+      const cleanup = () => roots.forEach((root) => root.remove());
+      return { overlays, roots, a, b, c, closes, cleanup };
+    }
+
+    it('closes every overlay but the kept one and keeps every entry registered', async () => {
+      const { overlays, roots, b, closes, cleanup } = await registerThree();
+
+      overlays.closeOthers(b);
+
+      expect(closes.a).toHaveBeenCalledTimes(1);
+      expect(closes.b).not.toHaveBeenCalled();
+      expect(closes.c).toHaveBeenCalledTimes(1);
+      // Unlike closeAll(), no entry is removed: each owner releases its own
+      // entry when its overlay actually goes, and one with nothing to close
+      // (the AI review bar) keeps its focus boundary.
+      expect(
+        roots.map(
+          (root) =>
+            `${overlays.contains(root)}/${overlays.contains(root.firstChild)}`,
+        ),
+      ).toEqual(['true/true', 'true/true', 'true/true']);
+
+      // Still registered, so a second call asks the same overlays again.
+      overlays.closeOthers(b);
+      expect(closes.a).toHaveBeenCalledTimes(2);
+      expect(closes.b).not.toHaveBeenCalled();
+      expect(closes.c).toHaveBeenCalledTimes(2);
+      cleanup();
+    });
+
+    it('closes the rest when one close throws, and swallows the error', async () => {
+      const failure = new Error('third-party close failed');
+      const throwingClose = vi.fn(() => {
+        throw failure;
+      });
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const { overlays, a, b, closes, cleanup } =
+        await registerThree(throwingClose);
+
+      // `a` is registered first, so it throws before `c` is reached.
+      expect(() => overlays.closeOthers(b)).not.toThrow();
+
+      expect(throwingClose).toHaveBeenCalledTimes(1);
+      expect(closes.b).not.toHaveBeenCalled();
+      expect(closes.c).toHaveBeenCalledTimes(1);
+      // Swallowed outright: not rethrown, not logged, and the failing overlay
+      // stays registered for its owner to release.
+      expect(consoleError).not.toHaveBeenCalled();
+      expect(overlays.contains(a)).toBe(true);
+      consoleError.mockRestore();
+      cleanup();
+    });
+  });
 });
 
 /**

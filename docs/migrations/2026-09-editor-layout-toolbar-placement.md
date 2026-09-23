@@ -1,6 +1,8 @@
 # `mlv-editor`: an uncapped editor grows without scrolling; layout inputs
 
-Date: 2026-09-23. Issue: [#416](https://github.com/N1XUS/malva-ui/issues/416).
+Date: 2026-09-23. Issues: [#416](https://github.com/N1XUS/malva-ui/issues/416),
+and [#483](https://github.com/N1XUS/malva-ui/issues/483), which replaced the
+unreleased floating pill with a selection bubble before this shipped.
 
 Applies to **`@malva-ui/editor`** only: `MlvEditor` (`mlv-editor`) and its
 stylesheet. **No exported symbol was renamed or removed.** Six inputs and two
@@ -32,18 +34,42 @@ unions are added (`MlvEditorToolbarPosition`, `MlvEditorToolbarAppearance`).
   verbatim once trimmed, `undefined` writes nothing), `toolbarPosition`
   (`'top' | 'bottom'`, default `'top'`), `toolbarAppearance`
   (`'bar' | 'floating'`, default `'bar'`) and `toolbarSticky` (boolean, default
-  `false`).
-- **BEM classes:** `.mlv-editor__toolbar-band` (the wrapper that carries every
-  placement concern), `.mlv-editor--capped`, and
-  `.mlv-editor--toolbar-{top,bottom,bar,floating,sticky}`.
+  `false`). `toolbarPosition` places the docked bar only. `toolbarSticky`
+  applies to an **uncapped bar** only: a capped bar sits outside its own
+  scrolling viewport, and the floating bubble follows the selection, so in
+  both cases the input is ignored.
+- **`toolbarAppearance="floating"` is a selection bubble** (#483). The toolbar
+  renders into a CDK overlay pane portaled to `<body>`, shown only while
+  focus is in the editor and the selection is non-empty. It is hidden on a
+  bare caret, on blur, during a block drag, during IME composition and while
+  the editor is disabled or `readonly` (owner ruling: a readonly editor
+  renders no toolbar — the bubble hides here, and the docked bar follows in
+  [#498](https://github.com/N1XUS/malva-ui/issues/498); turning `readonly` on
+  closes the bubble's popups and returns focus from them to the content), and
+  it never takes focus when it appears. It sits above the selection and
+  flips below only when the window's edge, or a capped viewport's top edge,
+  leaves no room. It follows the selection while the page or a capped
+  viewport scrolls, and hides once the selection scrolls out of view. The
+  keyboard path is **Alt+F10**: in the content it summons the bubble at the
+  caret, even with no selection, and moves focus to its first control.
+  **Escape** dismisses the bubble and returns focus to the content with the
+  selection intact. A plugin that claims Escape itself (a consumer's
+  `@tiptap/suggestion` list, an AI stream) still gets it first, and the
+  Escape that dismisses the bubble goes no further, so a dialog or drawer
+  around the editor closes only on the next one. While floating, enabled and
+  not `readonly`, the content carries `aria-keyshortcuts="Alt+F10"`, because
+  the bubble stays hidden until a selection exists; while `readonly` neither
+  key is claimed.
+- **BEM classes:** `.mlv-editor__toolbar-band` (the wrapper the toolbar root is
+  stamped into), `.mlv-editor--capped`,
+  `.mlv-editor--toolbar-{top,bottom,bar,floating,sticky}`
+  (`--toolbar-sticky` is stamped only on an uncapped bar), and the bubble's
+  overlay pane: `.mlv-editor-bubble`, `.mlv-editor-bubble--below` (flipped)
+  and `.mlv-editor-bubble--hidden` (attached but not shown).
 - **Custom properties.** The inputs write `--mlv-editor-height`,
   `--mlv-editor-min-height` and `--mlv-editor-max-height` on the host.
   `--mlv-editor-toolbar-sticky-offset` is read with a fallback of `0` and never
   declared, so an app sets it once on any ancestor.
-  `--mlv-editor-toolbar-block-size` is declared on `.mlv-editor` as
-  `calc(var(--mlv-height-s) + 2 * var(--mlv-spacing-1))` (2.75rem). It is
-  the same at every density, because every built-in toolbar control pins the
-  `tight` size.
 - **Cap versus floor.** Under a cap the cap wins. The capped viewport has no
   floor (`min-block-size: 0`), so a `height` / `maxHeight` below the toolbar
   plus the floor (about 181px by default) shrinks the viewport instead of
@@ -84,9 +110,6 @@ unions are added (`MlvEditorToolbarPosition`, `MlvEditorToolbarAppearance`).
 - Print output: the print rules reset zoom and remove the cap, as they reset
   the transform before.
 - Wide tables (`.tableWrapper`) keep their own horizontal scroll.
-- `floating.backdrop()` in `@malva-ui/cdk/floating-container` gains a
-  `$direction` parameter. Its default, `180deg`, compiles byte-identical CSS
-  for both existing consumers. The mixin is SCSS source, which does not ship.
 
 ## What consumers change
 
@@ -98,9 +121,9 @@ unions are added (`MlvEditorToolbarPosition`, `MlvEditorToolbarAppearance`).
   `.mlv-editor__toolbar`.
 - If zoom must magnify with scrollbars (the old look), cap the editor with
   `height` / `maxHeight`.
-- Custom toolbar controls taller than 36px in a floating toolbar: override
-  `--mlv-editor-toolbar-block-size` on the editor.
-- A sticky toolbar under a fixed app header: set
+- Style the floating bubble through `.mlv-editor-bubble`. Its pane is
+  portaled to `<body>`, so a selector under `.mlv-editor` does not reach it.
+- A sticky bar under a fixed app header: set
   `--mlv-editor-toolbar-sticky-offset` on any ancestor, for example `:root`.
   Also check that no ancestor between the editor and the scroller is
   `overflow: hidden` or `auto`. Use `clip` instead: `hidden` is a scroll
@@ -113,12 +136,14 @@ unions are added (`MlvEditorToolbarPosition`, `MlvEditorToolbarAppearance`).
 
 - **Caret margin at every scroll ancestor.** The Focus Not Obscured margin
   (WCAG 2.2 SC 2.4.11) is one ProseMirror `scrollMargin`, and ProseMirror
-  applies it at every scroll ancestor. A capped editor with a sticky toolbar
-  keeps the caret `offset + band` px from its own viewport edge. A capped
-  editor with a floating toolbar keeps it about one band height (44–52px) from
-  the page edge on the toolbar's side whenever the page has to scroll to
-  reveal it, although the band covers only the viewport. Both err toward
-  visibility, and nothing is hidden.
+  applies it at every scroll ancestor. Only a sticky bar sets a margin, and
+  sticky applies only to an uncapped bar, whose one scroll ancestor is
+  normally the page. With a consumer scroll container between the editor and
+  the page, the band sticks to that container, where the margin is right. The
+  page, one scroll ancestor further out, also keeps the caret `offset + band`
+  px from its edge, although no band is there. This errs toward visibility,
+  and nothing is hidden. The floating bubble sets no margin, because it
+  follows the selection instead of covering a fixed edge.
 - **Corner clipping needs Safari 16.** Older Safari drops `overflow: clip` and
   computes `visible`, so content is not clipped to the control container's
   rounded corners. There is deliberately no `overflow: hidden` fallback: it
