@@ -233,10 +233,10 @@
             "
             class="mlv-data-table__row mlv-data-table__row--data"
             [class.mlv-data-table__row--expanded]="isRowExpanded(row)"
-            [class.mlv-data-table__row--editing]="isEditing(i)"
+            [class.mlv-data-table__row--editing]="_isRowEditing(row)"
             [class.mlv-data-table__row--selected]="isRowSelected(row)"
             [style.height.px]="rowHeight()"
-            [attr.aria-level]="getDepth(row) > 0 ? getDepth(row) + 1 : null"
+            [attr.aria-level]="_depthAt(i) > 0 ? _depthAt(i) + 1 : null"
             [attr.aria-selected]="selectable() ? isRowSelected(row) : null"
             [attr.tabindex]="_rowTabIndex(i)"
             [attr.data-row-index]="i"
@@ -326,9 +326,9 @@
               ngGridRow
               class="mlv-data-table__row mlv-data-table__row--data"
               [class.mlv-data-table__row--expanded]="isRowExpanded(row)"
-              [class.mlv-data-table__row--editing]="isEditing(i)"
+              [class.mlv-data-table__row--editing]="_isRowEditing(row)"
               [class.mlv-data-table__row--selected]="isRowSelected(row)"
-              [attr.aria-level]="getDepth(row) > 0 ? getDepth(row) + 1 : null"
+              [attr.aria-level]="_depthAt(i) > 0 ? _depthAt(i) + 1 : null"
               [attr.aria-selected]="selectable() ? isRowSelected(row) : null"
               [attr.data-row-index]="i"
               (click)="onRowClick(row, i, $event)"
@@ -363,7 +363,9 @@
                   [style]="getCellStyle(col)"
                 >
                   @if (
-                    editable() && isEditing(i) && getEditTemplate(col.key);
+                    editable() &&
+                      _isRowEditing(row) &&
+                      getEditTemplate(col.key);
                     as editTpl
                   ) {
                     <div
@@ -377,10 +379,13 @@
                       />
                     </div>
                   } @else {
+                    <!-- The row's cell context carries the edit draft while
+                         the row is edited, as #rowCellsTpl does in the other
+                         two modes. -->
                     <ng-container
                       [ngTemplateOutlet]="cellContentTpl"
                       [ngTemplateOutletContext]="{
-                        $implicit: row,
+                        $implicit: getCellContext(row, i).row,
                         index: i,
                         col: col,
                         ci: ci,
@@ -470,9 +475,9 @@
             <tr
               class="mlv-data-table__row mlv-data-table__row--data"
               [class.mlv-data-table__row--expanded]="isRowExpanded(row)"
-              [class.mlv-data-table__row--editing]="isEditing(i)"
+              [class.mlv-data-table__row--editing]="_isRowEditing(row)"
               [class.mlv-data-table__row--selected]="isRowSelected(row)"
-              [attr.aria-level]="getDepth(row) > 0 ? getDepth(row) + 1 : null"
+              [attr.aria-level]="_depthAt(i) > 0 ? _depthAt(i) + 1 : null"
               [attr.aria-selected]="selectable() ? isRowSelected(row) : null"
               [attr.tabindex]="_rowTabIndex(i)"
               [attr.data-row-index]="i"
@@ -946,7 +951,9 @@
   Per-row data cells. Emits the selection cell, the data cells, and the actions cell.
   The owning <tr> stays at the consumer site (either inside `@for` for the standard mode
   or `*cdkVirtualFor` inside the CDK viewport in virtual mode), so each rendering path can
-  control its own row-level host bindings.
+  control its own row-level host bindings. Its context is `getCellContext(row, i)`, so
+  `row` here is the consumer's row object — or, while that row is edited, its draft; the
+  row methods called below resolve a draft back to its row.
 -->
 <ng-template #rowCellsTpl let-row let-i="index">
   @if (selectable()) {
@@ -1011,7 +1018,7 @@
   Shared edit/save/cancel action buttons for the actions column. Context: { $implicit: row, index: i }.
 -->
 <ng-template #actionsButtonsTpl let-row let-i="index">
-  @if (isEditing(i)) {
+  @if (_isRowEditing(row)) {
     <button
       mlvButton
       variant="transparent"
@@ -1058,10 +1065,10 @@
 -->
 <ng-template #cellContentTpl let-row let-i="index" let-col="col" let-ci="ci">
   <div class="mlv-data-table__cell-content">
-    @if (ci === 0 && getDepth(row) > 0) {
+    @if (ci === 0 && _depthAt(i) > 0) {
       <span
         class="mlv-data-table__indent"
-        [style.padding-left.rem]="getDepth(row) * 1.25"
+        [style.padding-inline-start.rem]="_depthAt(i) * 1.25"
         aria-hidden="true"
       ></span>
     }
@@ -1087,7 +1094,10 @@
         />
       </button>
     }
-    @if (editable() && isEditing(i) && getEditTemplate(col.key); as editTpl) {
+    @if (
+      editable() && _isRowEditing(row) && getEditTemplate(col.key);
+      as editTpl
+    ) {
       <ng-container
         [ngTemplateOutlet]="editTpl"
         [ngTemplateOutletContext]="getCellContext(row, i)"

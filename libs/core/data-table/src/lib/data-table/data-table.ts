@@ -116,13 +116,16 @@ import {
   MlvPopupContent,
   MlvPopupTrigger,
 } from '@malva-ui/core/popup';
-import type { MlvColumnState, MlvDataRow } from './data-table-layout';
+import type {
+  MlvColumnState,
+  MlvDataRow,
+  MlvFlatRows,
+} from './data-table-layout';
 import {
   columnCellStyles,
   columnWidthStyles,
   flattenRows,
   isColumnVisible,
-  originalRow,
   parsePixelWidth,
 } from './data-table-layout';
 
@@ -635,7 +638,7 @@ export class MlvDataTable {
     });
   }
 
-  /** @private Set of currently expanded tree rows (by original row reference). */
+  /** @private Set of currently expanded tree rows (by the consumer's row object). */
   private readonly _expanded = signal<Set<MlvDataRow>>(new Set());
   /** @private User-resized column widths keyed by column key (px). Committed once per completed pointer drag. */
   private readonly _columnWidths = signal<Map<string, number>>(new Map());
@@ -704,14 +707,21 @@ export class MlvDataTable {
   });
 
   /**
-   * @private Per-row cache of the cell-template `ngTemplateOutletContext`, keyed by the
-   * flattened row object identity (see {@link getCellContext}). A `WeakMap` so entries
-   * for rows dropped by a `flatRows()` recompute are reclaimed automatically.
+   * @private Cell-template `ngTemplateOutletContext`s by view index (see
+   * {@link getCellContext}). Keyed by position, not by row: rows are the
+   * consumer's own objects and keep their identity across a sort, so a
+   * row-keyed entry would keep reporting the index it was created at — and a
+   * row object the consumer lists twice would thrash one entry between its two
+   * positions. Discarded whenever {@link flatRows} produces a new array, so it
+   * never holds rows that are no longer rendered.
    */
-  private readonly _cellContextCache = new WeakMap<
-    MlvDataRow,
+  private _cellContexts = new Map<
+    number,
     MlvDataTableCellContext<MlvDataRow>
   >();
+
+  /** @private The {@link flatRows} array {@link _cellContexts} was built against. */
+  private _cellContextRows: readonly MlvDataRow[] | null = null;
 
   /** @private Stable one-column arrays used by repeated header filter editors. */
   private readonly _columnFilterLists = new Map<string, MlvDataTableColumn[]>();
@@ -741,11 +751,46 @@ export class MlvDataTable {
     return ds.connect()();
   });
 
-  readonly flatRows = computed<MlvDataRow[]>(() => {
-    const rows = this.displayRows();
-    const expanded = this._expanded();
-    return flattenRows(rows, expanded);
+  /**
+   * @private The consumer's rows as last emitted: the `data` array itself, or
+   * for an `MlvDataSource` the rows it currently connects (the table sees no
+   * more of a data source than that). A sort, filter, search or page change of
+   * an array input is deliberately not an emission — only new data is. For a
+   * data source each of them is one, because each changes the connected page.
+   * Drives {@link _carrySavedRows}.
+   */
+  private readonly _dataEmission = computed<readonly MlvDataRow[]>(() => {
+    const data = this.data();
+    if (data instanceof MlvDataSource) return this.displayRows();
+    return Array.isArray(data) ? data : [];
   });
+
+  /**
+   * @private Saved draft → the consumer row it was cloned from, for every save
+   * since the last data emission. Selection and tree expansion are keyed by row
+   * object, so the documented write-back — replacing `sourceRow` with the saved
+   * `row` — would otherwise drop the saved row from both. Consumed and cleared
+   * by the next emission, whatever it holds (see {@link _carrySavedRows}), so it
+   * never outlives the save it records.
+   */
+  private readonly _savedRows = new Map<MlvDataRow, MlvDataRow>();
+
+  /**
+   * @private Render order plus per-row tree depth. Holds the consumer's row
+   * objects themselves; with nothing expanded, `rows` is the
+   * {@link displayRows} array unchanged.
+   */
+  private readonly _flat = computed<MlvFlatRows>(() =>
+    flattenRows(this.displayRows(), this._expanded()),
+  );
+
+  /**
+   * Rows in render order: {@link displayRows} with the children of every
+   * expanded tree row inserted below it. Every element is the consumer's own
+   * row object — never a copy — and with nothing expanded the array is
+   * {@link displayRows} itself.
+   */
+  readonly flatRows = computed<MlvDataRow[]>(() => this._flat().rows);
 
   /**
    * @protected Rows the virtual-scroll repeater iterates.
@@ -1093,18 +1138,21 @@ export class MlvDataTable {
   /** All columns (for column visibility popup). */
   readonly allColumns = computed(() => this.columns());
 
+  // `flatRows()` holds the consumer's row objects, which are the selection keys
+  // themselves, so the scans below need no `_ref()` resolution per row.
+
   /** Whether all visible rows are selected. */
   readonly allRowsSelected = computed(() => {
     const rows = this.flatRows();
     const selected = this.selectedRows();
-    return rows.length > 0 && rows.every((r) => selected.has(this._ref(r)));
+    return rows.length > 0 && rows.every((r) => selected.has(r));
   });
 
   /** Whether some (but not all) rows are selected. */
   readonly someRowsSelected = computed(() => {
     const rows = this.flatRows();
     const selected = this.selectedRows();
-    const count = rows.filter((r) => selected.has(this._ref(r))).length;
+    const count = rows.filter((r) => selected.has(r)).length;
     return count > 0 && count < rows.length;
   });
 
@@ -1162,6 +1210,10 @@ export class MlvDataTable {
     // component's document listeners can't keep firing.
     this._destroyRef.onDestroy(() => this._cleanupResize());
 
+    effect(() => {
+      const rows = this._dataEmission();
+      untracked(() => this._carrySavedRows(rows));
+    });
     effect(() => {
       const ds = this.effectiveDataSource();
       ds.setSort(this.currentSort());
@@ -1386,21 +1438,31 @@ export class MlvDataTable {
   }
 
   /**
-   * `ngTemplateOutletContext` for a data cell's custom/edit template. Returns a
-   * *stable* per-row object so the outlet's context does not churn (fresh object +
-   * `NgTemplateOutlet.ngOnChanges`) every change-detection cycle. `flatRows()` rebuilds
-   * its row objects on every data / sort / filter / expand change, so a cached entry's
-   * `index` always matches that row's current position and stale entries (whose row
-   * objects are no longer referenced) are garbage-collected.
+   * `ngTemplateOutletContext` for the row at view `index`, used by the row's
+   * cell and edit templates. Its `row` is the consumer's own row object — or,
+   * while that row is being edited, the edit draft, so every template of the
+   * row (display and edit alike) sees the same in-progress values and the
+   * consumer's object stays untouched until they write the saved row back.
+   *
+   * Returns a *stable* object per position so the outlet's context does not
+   * churn (fresh object + `NgTemplateOutlet.ngOnChanges`) every change-detection
+   * cycle; a new one is made only when the row at that position changes, when
+   * the row enters or leaves edit mode, or when {@link flatRows} is rebuilt.
    */
   getCellContext(
     row: MlvDataRow,
     index: number,
   ): MlvDataTableCellContext<MlvDataRow> {
-    let ctx = this._cellContextCache.get(row);
-    if (!ctx) {
-      ctx = { $implicit: row, row, index };
-      this._cellContextCache.set(row, ctx);
+    const rows = this.flatRows();
+    if (rows !== this._cellContextRows) {
+      this._cellContextRows = rows;
+      this._cellContexts = new Map();
+    }
+    const target = this._editing.session(row)?.draft ?? row;
+    let ctx = this._cellContexts.get(index);
+    if (!ctx || ctx.row !== target) {
+      ctx = { $implicit: target, row: target, index };
+      this._cellContexts.set(index, ctx);
     }
     return ctx;
   }
@@ -1453,27 +1515,80 @@ export class MlvDataTable {
     return this._editCellTemplateMap().get(key) ?? null;
   }
 
-  /** Whether a given row index is currently being edited. */
+  /**
+   * Whether the row currently rendered at view `index` is being edited. Edit
+   * state belongs to the row, not the position: after a sort, filter, page
+   * change or tree expansion this answers for whichever row now sits there.
+   */
   isEditing(index: number): boolean {
-    return this._editing.isEditing(index);
+    const row = this.flatRows()[index];
+    return row !== undefined && this._editing.isEditing(row);
   }
 
-  /** Enter edit mode for a row. Clones the row for rollback. */
+  /**
+   * @protected Whether `row` — a rendered row, or the edit draft a template
+   * received for it — is being edited. What the templates bind to, so edit
+   * mode follows the row object rather than the `@for` index.
+   */
+  protected _isRowEditing(row: MlvDataRow): boolean {
+    return this._editing.isEditing(row);
+  }
+
+  /**
+   * Enter edit mode for a row. Clones a draft for the row's templates to write
+   * to — shallow, so the table never assigns a property of the consumer's row,
+   * though a nested object stays shared with it — and emits
+   * `rowEditStart` with the draft as `row` and the consumer's object as
+   * `sourceRow`. `index` is reported as given: the row's view index.
+   */
   startEdit(row: MlvDataRow, index: number): void {
-    this._editing.start(row, index);
-    this.rowEditStart.emit({ row, index });
+    const sourceRow = this._ref(row);
+    const { draft } = this._editing.start(sourceRow);
+    this.rowEditStart.emit({ row: draft, index, sourceRow });
   }
 
-  /** Confirm edits for a row. Emits save event with original and modified row. */
+  /**
+   * Confirm edits for a row (the rendered row or its draft). Ends the edit and
+   * emits `rowEditSave` with the edited draft as `row`, the pre-edit clone as
+   * `originalRow` and the consumer's object as `sourceRow` — the entry to
+   * replace with `row`. The table does not write the edit back itself: until
+   * the consumer does, the row renders `sourceRow`'s values again.
+   *
+   * If the next data emission holds the saved `row` object in place of
+   * `sourceRow`, the row keeps its selection and tree expansion — see
+   * {@link _carrySavedRows}. For an `MlvDataSource` that emission is the
+   * connected page: a sort, filter, search or page change before the
+   * write-back, or a write-back that moves the row to another page, carries
+   * nothing, and the consumer carries the selection itself.
+   */
   saveEdit(row: MlvDataRow, index: number): void {
-    const originalRow = this._editing.save(row, index);
-    this.rowEditSave.emit({ row, index, originalRow });
+    const sourceRow = this._ref(row);
+    const session = this._editing.save(sourceRow);
+    // Recorded before emitting: a handler that writes back synchronously
+    // triggers the emission the carry-over waits for.
+    if (session) this._savedRows.set(session.draft, sourceRow);
+    this.rowEditSave.emit({
+      row: session?.draft ?? sourceRow,
+      index,
+      originalRow: session?.snapshot ?? sourceRow,
+      sourceRow,
+    });
   }
 
-  /** Cancel editing. Emits cancel event. */
+  /**
+   * Cancel editing a row (the rendered row or its draft). Discards the draft,
+   * so the row renders its untouched values again, and emits `rowEditCancel`
+   * with the discarded draft as `row` and the consumer's object as
+   * `sourceRow`.
+   */
   cancelEdit(row: MlvDataRow, index: number): void {
-    this._editing.cancel(index);
-    this.rowEditCancel.emit({ row, index });
+    const sourceRow = this._ref(row);
+    const session = this._editing.cancel(sourceRow);
+    this.rowEditCancel.emit({
+      row: session?.draft ?? sourceRow,
+      index,
+      sourceRow,
+    });
   }
 
   /** Emit add-row event. Consumer is responsible for appending the new row. */
@@ -1647,8 +1762,9 @@ export class MlvDataTable {
     const next = new Set<MlvDataRow>();
 
     if (!allSelected) {
+      // `flatRows()` holds the consumer's row objects — the selection keys.
       for (const row of rows) {
-        next.add(this._ref(row));
+        next.add(row);
       }
     }
 
@@ -1799,9 +1915,42 @@ export class MlvDataTable {
     );
   }
 
+  /**
+   * Tree depth of a rendered row (0 for a root row); accepts the row or its
+   * edit draft. A row object the consumer lists at two tree positions at once
+   * reports the depth of its last nested position in render order; the table's
+   * own bindings read depth by position instead, so each rendered copy shows
+   * its own.
+   */
   getDepth(row: MlvDataRow): number {
-    return (row['_mlvDepth'] as number | undefined) ?? 0;
+    return this._depthByRow().get(this._ref(row)) ?? 0;
   }
+
+  /**
+   * @protected Tree depth of the row rendered at view `index` (0 for a root
+   * row). What the templates bind to: a positional read, with no per-row map
+   * to build.
+   */
+  protected _depthAt(index: number): number {
+    return this._flat().depths?.[index] ?? 0;
+  }
+
+  /**
+   * @private Row → depth for {@link getDepth}. A computed, so it is built only
+   * when something asks by row — never by the table's own bindings, which use
+   * {@link _depthAt} — and at most once per {@link flatRows} change.
+   */
+  private readonly _depthByRow = computed<ReadonlyMap<MlvDataRow, number>>(
+    () => {
+      const { rows, depths } = this._flat();
+      const byRow = new Map<MlvDataRow, number>();
+      if (!depths) return byRow;
+      for (let index = 0; index < rows.length; index++) {
+        if (depths[index] > 0) byRow.set(rows[index], depths[index]);
+      }
+      return byRow;
+    },
+  );
 
   toggleExpand(row: MlvDataRow, event: Event): void {
     event.stopPropagation();
@@ -1896,13 +2045,13 @@ export class MlvDataTable {
   }
 
   /**
-   * trackBy used by `*cdkVirtualFor` in virtual scroll mode. Falls back to the row index
-   * for plain row references and to `_mlvRef` identity for tree rows so expanded children
-   * are reconciled correctly when the user scrolls.
+   * trackBy used by `*cdkVirtualFor` in virtual scroll mode: tracks each rendered row by
+   * the consumer's row object, so a sort or a tree expansion moves row views instead of
+   * re-binding them in place, and expanded children reconcile correctly while scrolling.
+   * (Every row used to carry an `_mlvRef` back-pointer, so this was already the effective
+   * key; the index fallback it once had was never reached.)
    */
-  trackByRow = (index: number, row: MlvDataRow): unknown => {
-    return row['_mlvRef'] ?? index;
-  };
+  trackByRow = (_index: number, row: MlvDataRow): unknown => row;
 
   /**
    * Inline `[style]` object (width / min-width, plus sticky offsets for pinned columns)
@@ -2625,8 +2774,103 @@ export class MlvDataTable {
 
   // ---- Private helpers --------------------------------------------------------
 
-  /** Returns the original (pre-spread) row reference for expand tracking. */
+  /**
+   * @private Resolves a row passed into a public row method to the consumer's
+   * row object that keys selection, expansion, depth and edit state. Rendered
+   * rows already are that object; the one other thing a template can hold is
+   * the edit draft of a row being edited, which maps back to its row.
+   */
   private _ref(row: MlvDataRow): MlvDataRow {
-    return originalRow(row);
+    return this._editing.source(row);
+  }
+
+  /**
+   * @private Carries selection and tree expansion from a saved row to the
+   * saved `row` object that replaced it, so the documented write-back —
+   * `rows.map((r) => (r === sourceRow ? row : r))` — keeps the row selected and
+   * a saved parent expanded, as it did when every row carried an internal
+   * back-pointer (#297).
+   *
+   * Runs once per data emission ({@link _dataEmission}) and consumes every save
+   * recorded since the previous one. A save carries over only when that
+   * emission contains the saved draft **and no longer contains** its source:
+   * - written back in place (`Object.assign(sourceRow, row)`) — nothing to
+   *   carry, the row kept its object;
+   * - not written back yet (an async save) — the pending entry is dropped with
+   *   this emission; the row is still the source object and keeps its state;
+   * - replaced by some other object (a server echo) — that object is a new row,
+   *   and carrying state to it is the consumer's call.
+   *
+   * For an `MlvDataSource` the emission is the connected page, so every sort,
+   * filter, search or page change is one and drops a pending entry, and the
+   * decision is taken on that page alone: a write-back that moves the saved row
+   * to another page carries nothing (the page holds neither object), and a
+   * save-as-copy that pushes the still-present source off the page reads as a
+   * replacement. Documented as a limitation rather than fixed by keeping the
+   * entry longer — an entry kept until the saved row appears on some page could
+   * be held forever.
+   *
+   * The selection update also emits `selectionChange`, so a consumer mirroring
+   * the selection outside `[(selectedRows)]` swaps the stale object too.
+   */
+  private _carrySavedRows(rows: readonly MlvDataRow[]): void {
+    if (this._savedRows.size === 0) return;
+    const saved = [...this._savedRows];
+    this._savedRows.clear();
+
+    const wanted = new Set<MlvDataRow>();
+    for (const [draft, source] of saved) {
+      wanted.add(draft);
+      wanted.add(source);
+    }
+    const present = this._findRows(rows, wanted);
+
+    const renamed = new Map<MlvDataRow, MlvDataRow>();
+    for (const [draft, source] of saved) {
+      if (present.has(draft) && !present.has(source)) {
+        renamed.set(source, draft);
+      }
+    }
+    if (renamed.size === 0) return;
+    const rename = (row: MlvDataRow): MlvDataRow => renamed.get(row) ?? row;
+
+    const expanded = this._expanded();
+    if ([...renamed.keys()].some((source) => expanded.has(source))) {
+      this._expanded.set(new Set([...expanded].map(rename)));
+    }
+
+    const selected = this.selectedRows();
+    if ([...renamed.keys()].some((source) => selected.has(source))) {
+      // Rebuilt in place order, so the swapped row keeps its position.
+      const next = new Set([...selected].map(rename));
+      this.selectedRows.set(next);
+      this.selectionChange.emit({ selectedRows: next });
+    }
+  }
+
+  /**
+   * @private Which of `wanted` occur anywhere in `rows`, tree children
+   * included (collapsed ones too: a saved child can sit under a collapsed
+   * parent). Each parent's children are walked once, so a cyclic
+   * `_mlvChildren` graph cannot recurse forever.
+   */
+  private _findRows(
+    rows: readonly MlvDataRow[],
+    wanted: ReadonlySet<MlvDataRow>,
+  ): Set<MlvDataRow> {
+    const found = new Set<MlvDataRow>();
+    const walked = new Set<MlvDataRow>();
+    const visit = (level: readonly MlvDataRow[]): void => {
+      for (const row of level) {
+        if (wanted.has(row)) found.add(row);
+        const children = row._mlvChildren;
+        if (children?.length && !walked.has(row)) {
+          walked.add(row);
+          visit(children);
+        }
+      }
+    };
+    visit(rows);
+    return found;
   }
 }

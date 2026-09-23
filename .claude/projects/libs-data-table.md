@@ -36,9 +36,9 @@ Feature-rich data table component for Angular. Accepts a plain `T[]` array or a 
 | `MlvSortState`                  | Interface      | Active sort state (`{ key, direction }`)                                                                                      |
 | `MlvSortDirection`              | Type           | `'asc' \| 'desc'`                                                                                                             |
 | `MlvEditMode`                   | Type           | `'row' \| 'cell'`                                                                                                             |
-| `MlvEditEvent<T>`               | Interface      | Row edit start/cancel event (`{ row, index }`)                                                                                |
-| `MlvEditSaveEvent<T>`           | Interface      | Row edit save event (`{ row, index, originalRow }`)                                                                           |
-| `MlvRowClickEvent<T>`           | Interface      | Row click event (`{ row, index, event }`)                                                                                     |
+| `MlvEditEvent<T>`               | Interface      | Row edit start/cancel event (`{ row, index, sourceRow? }`) — `row` = draft, `index` = view index, `sourceRow` = consumer row  |
+| `MlvEditSaveEvent<T>`           | Interface      | Row edit save event (`{ row, index, originalRow, sourceRow? }`) — see [Row identity](#row-identity)                           |
+| `MlvRowClickEvent<T>`           | Interface      | Row click event (`{ row, index, event }`) — `row` is the consumer's own object                                                |
 | `MlvSelectableMode`             | Type           | `'single' \| 'multi' \| false`                                                                                                |
 | `MlvSelectionChangeEvent<T>`    | Interface      | Selection change event (`{ selectedRows, row? }`)                                                                             |
 | `MlvPaginationMode`             | Type           | `'paged' \| 'infinite'` — pagination strategy                                                                                 |
@@ -102,18 +102,18 @@ Feature-rich data table component for Angular. Accepts a plain `T[]` array or a 
 
 #### Outputs
 
-| Output                    | Type                            | Description                                                                                                                        |
-| ------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `rowEditStart`            | `MlvEditEvent`                  | Emits when a row enters edit mode                                                                                                  |
-| `rowEditSave`             | `MlvEditSaveEvent`              | Emits when the user confirms edits on a row                                                                                        |
-| `rowEditCancel`           | `MlvEditEvent`                  | Emits when the user cancels editing a row                                                                                          |
-| `rowAdd`                  | `void`                          | Emits when the user clicks "Add row"                                                                                               |
-| `rowClick`                | `MlvRowClickEvent`              | Emits when the user clicks any data row (not including selection checkbox clicks)                                                  |
-| `selectionChange`         | `MlvSelectionChangeEvent`       | Emits whenever the row selection changes                                                                                           |
-| `retry`                   | `void`                          | Emits when the error block's retry control is activated. The consumer refetches and clears `error`                                 |
-| `columnResize`            | `MlvColumnResizeEvent`          | Emits committed pointer/keyboard widths and resets so consumers can persist column state                                           |
-| `presentationStateChange` | `MlvDataTablePresentationState` | Emits one normalized durable-presentation snapshot after a user sort, visibility, pin, committed resize/reset, or page-size action |
-| `loadMore`                | `MlvLoadMoreEvent`              | Emits in infinite mode when the user scrolls within `infiniteScrollThreshold` of the bottom (`{ page, perPage, distance }`)        |
+| Output                    | Type                            | Description                                                                                                                                      |
+| ------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `rowEditStart`            | `MlvEditEvent`                  | Emits when a row enters edit mode                                                                                                                |
+| `rowEditSave`             | `MlvEditSaveEvent`              | Emits when the user confirms edits on a row                                                                                                      |
+| `rowEditCancel`           | `MlvEditEvent`                  | Emits when the user cancels editing a row                                                                                                        |
+| `rowAdd`                  | `void`                          | Emits when the user clicks "Add row"                                                                                                             |
+| `rowClick`                | `MlvRowClickEvent`              | Emits when the user clicks any data row (not including selection checkbox clicks)                                                                |
+| `selectionChange`         | `MlvSelectionChangeEvent`       | Emits whenever the row selection changes — including once when a saved row's written-back object replaces it (see [Row identity](#row-identity)) |
+| `retry`                   | `void`                          | Emits when the error block's retry control is activated. The consumer refetches and clears `error`                                               |
+| `columnResize`            | `MlvColumnResizeEvent`          | Emits committed pointer/keyboard widths and resets so consumers can persist column state                                                         |
+| `presentationStateChange` | `MlvDataTablePresentationState` | Emits one normalized durable-presentation snapshot after a user sort, visibility, pin, committed resize/reset, or page-size action               |
+| `loadMore`                | `MlvLoadMoreEvent`              | Emits in infinite mode when the user scrolls within `infiniteScrollThreshold` of the bottom (`{ page, perPage, distance }`)                      |
 
 `selectedRows`, `searchQuery`, and `activeFilters` are `model()`s, so they also
 emit `selectedRowsChange`, `searchQueryChange`, and `activeFiltersChange`.
@@ -135,8 +135,8 @@ Density-aware CSS custom properties set on the host cascade through the entire t
 
 #### Content children (structural directives)
 
-- `mlvDataTableCell="key"` — custom cell template; context: `{ $implicit: row, row, index }`
-- `mlvDataTableEditCell="key"` — custom edit-mode cell template; context: `{ $implicit: row, row, index }`
+- `mlvDataTableCell="key"` — custom cell template; context: `{ $implicit: row, row, index }` — `row` is the consumer's own object (the edit draft while that row is edited), `index` the view index. A display template that writes to `row` (a `[(ngModel)]` checkbox) mutates consumer data — copy first if that is not wanted
+- `mlvDataTableEditCell="key"` — custom edit-mode cell template; context: `{ $implicit: row, row, index }` — `row` is the edit draft; assign its **top-level** properties freely. Nested objects are shared with the consumer's row — replace (`row.meta = { ...row.meta, tag }`), never mutate in place
 - `mlvDataTableNoData` — custom empty-state template shown when filtered data is empty
 - `mlvDataTableError` — custom failed-request template; context: `{ $implicit: message, retry: () => void }`
 - `mlvDataTableFooter` — custom footer summary row template rendered inside `<tfoot>`; context: `{ $implicit: visibleColumns }`
@@ -270,10 +270,44 @@ Enable editing with `[editable]="true"`. An actions column is appended with edit
 
 ### Edit flow
 
-1. User clicks pencil icon → `startEdit(row, index)` clones the row and emits `rowEditStart`
-2. Edit templates replace display templates for columns that have a `mlvDataTableEditCell` defined
-3. User clicks check → `saveEdit(row, index)` emits `rowEditSave` with both modified and original row
-4. User clicks X → `cancelEdit(row, index)` emits `rowEditCancel`
+1. User clicks pencil icon → `startEdit(row, index)` clones the row into a **draft** (plus a pre-edit snapshot) and emits `rowEditStart` (`{ row: draft, index, sourceRow }`)
+2. Edit templates replace display templates for columns that have a `mlvDataTableEditCell` defined. Every template of that row — edit and display — receives the draft, so edits show live across the row; the table never assigns a property of the consumer's object (a template mutating a nested object in place still writes through — the draft is shallow)
+3. User clicks check → `saveEdit(row, index)` ends the edit and emits `rowEditSave` (`{ row: draft, index, originalRow: snapshot, sourceRow }`). The table does not write back — replace `sourceRow` with `row` in your data (or `Object.assign(sourceRow, row)`). **Until you do, the row renders its pre-edit values**: an async / pessimistic save flashes the old value — write back optimistically in the handler and roll back on failure
+4. User clicks X → `cancelEdit(row, index)` drops the draft (the row renders its untouched top-level values again) and emits `rowEditCancel` (`{ row: discarded draft, index, sourceRow }`)
+
+`startEdit` / `saveEdit` / `cancelEdit` accept the rendered row or the draft (an edit template may pass its own `row` back). Starting a row that is already being edited keeps the in-progress draft.
+
+### Row identity
+
+Edit state is keyed by the consumer's **row object**, never by view position (#297). Before, it was keyed by the `@for` index: sorting, filtering, searching, paging or expanding a tree node moved a different row into that position, which then rendered in edit mode, and saving paired it with the wrong `originalRow`. Breaking, behaviour only — consumer shapes and actions in [docs/migrations/2026-09-data-table-row-identity.md](../../docs/migrations/2026-09-data-table-row-identity.md). Now:
+
+- An edit follows its row through sort / filter / search / page / tree expansion, survives the row leaving the view, and ends only on save or cancel. A row replaced by a **new object** (a refetch that rebuilds rows) is no longer the edited row and does not render in edit mode — silently, with no `rowEditCancel` (the orphaned session is not pruned; #419). Same for the replace write-back of an earlier async save landing while the row is being edited again: the new edit ends and its typed values are lost.
+- A row object listed at **two positions** is one row: editing either puts both into edit mode, sharing one draft.
+- `index` keeps its meaning (decision D36): the row's **view index** when the event fires — not a position in your data. `isEditing(index)` answers for whichever row is rendered at that index now.
+- `sourceRow` (new, optional on the type so code constructing the event keeps compiling; always set by the table) is the object you passed in `data` — the key to write back by.
+- Rows the table hands out — `rowClick.row`, the `row` of a non-edited row's cell templates, the argument of a `tone` function, `flatRows()` — are the consumer's own objects (`===`), not copies. Writing to one writes your data; copy it yourself where you relied on a copy. With nothing expanded `flatRows()` **is** the `displayRows()` array — never sort / splice it in place. They carry no `_mlvDepth` / `_mlvRef` keys any more, and the internal `MlvDataRow` type no longer declares them (a typed read fails TS2339); those were internal and never public API.
+- Draft and `originalRow` are **shallow** clones that keep the row's prototype, so a class-instance row keeps its getters and methods while edited and `rowEditSave.row instanceof YourClass`. They read what `{ ...row }` reads (own enumerable string + symbol keys, values through `[[Get]]`) and **define** each key on `Object.create(proto)` as plain writable data — not `Object.assign`, whose `[[Set]]` threw on an own property shadowing a getter-only prototype accessor and handed a value to a prototype setter instead of creating the own property. A frozen row (NgRx dev freeze) still yields a writable draft, and an own getter is read into a data value (copying descriptors would keep the freeze and the live getter). Caveats: nested objects are shared (not deep-cloned — that would break class instances); ECMAScript `#private` fields and built-in internal slots are not copied, so a member reading a `#private` field throws on the draft, and so does an inherited method of a `Date` / `Map` / `Set` subclass row.
+
+Write back by identity, either way:
+
+```ts
+onSave(event: MlvEditSaveEvent<Employee>): void {
+  // Replace the object …
+  this.employees.update((rows) => rows.map((row) => (row === event.sourceRow ? event.row : row)));
+  // … or copy onto it and publish a new array: the row keeps its object.
+  // Object.assign(event.sourceRow!, event.row);
+  // this.employees.update((rows) => [...rows]);
+}
+```
+
+Selection and tree expansion are keyed by row object too, so replacing the object would drop the saved row from both. The table carries them over:
+
+- A save records `draft → sourceRow`. If the **next data emission** contains the saved `row` (at any depth — tree children included) and no longer contains `sourceRow`, `selectedRows` (order kept, `selectionChange` emitted) and the expanded set swap `sourceRow` for `row`.
+- The data emission: array `data` → the array itself; a sort / filter / search / page change is **not** an emission. `MlvDataSource` → the connected page, so each sort / filter / search / page change **is** one.
+- The record is dropped at that emission whatever it holds — write back in the save handler or in the first emission after it. Deliberately not retained longer (a record kept until the row turns up could live forever).
+- Not carried: an emission that lacks the saved object (an async save whose first emission is unrelated); a server echo that is a new object (carry state to it yourself). Tree child written back immutably with its parent rebuilt: the child's selection **carries**; the rebuilt parent is a new object and renders collapsed (pre-existing).
+- `MlvDataSource` limitations (the table sees only the page): a sort / filter / search / page change between save and a late write-back drops the record; a write-back that moves the saved row **to another page** (rename under a name sort, status change under a status filter) leaves it unselected there with `selectedRows` holding the stale pre-edit object — was kept selected via `_mlvRef` before; a save-as-copy that pushes the source off the page moves the selection from source to copy. Consumer carries selection itself in the save handler. Migration doc § "With an `MlvDataSource`, only the connected page is seen".
+- Virtual mode: a replaced object re-creates its row view (`trackBy` is the row). `Object.assign(sourceRow, row)` keeps the object and needs none of this.
 
 ### Add row
 
@@ -287,6 +321,8 @@ Set `[addRow]="true"` to show an "Add row" button in the toolbar. The `rowAdd` o
   <mlv-input *mlvDataTableEditCell="'email'; let row from employees" [ngModel]="row.email" (ngModelChange)="row.email = $event" />
 </mlv-data-table>
 ```
+
+The `(ngModelChange)="row.name = $event"` writes go to the draft, not to `employees`.
 
 ---
 
@@ -339,7 +375,7 @@ readonly total = computed(() => {
 <mlv-data-table [data]="users" [columns]="columns" selectable="multi" [(selectedRows)]="selected" (selectionChange)="onChange($event)" />
 ```
 
-Selection survives pagination because the underlying row reference is the identity key (`_mlvRef` for tree rows).
+Selection survives pagination because the consumer's row object is the identity key — for tree rows too; rendered rows are never copies.
 
 > **Checkbox labelling** — header/row selection checkboxes are labelled via the
 > `mlv-checkbox` `[ariaLabel]` input (never `[attr.aria-label]` on the host),
@@ -353,7 +389,7 @@ Selection survives pagination because the underlying row reference is the identi
 
 ## Row Click
 
-Subscribe to `(rowClick)` to react to users clicking a data row. The event contains `{ row, index, event }`. Clicks on selection checkboxes are stopped from bubbling so they do not trigger `rowClick`.
+Subscribe to `(rowClick)` to react to users clicking a data row. The event contains `{ row, index, event }` — `row` is the consumer's own object (not a copy), so bind a detail form to `{ ...$event.row }` unless it should write the table's data live. Clicks on selection checkboxes are stopped from bubbling so they do not trigger `rowClick`.
 
 ```html
 <mlv-data-table [data]="rows" [columns]="columns" (rowClick)="openDetails($event.row)" />
@@ -798,6 +834,8 @@ type MyRow = {
 };
 ```
 
+Flattening (`flattenRows` in `data-table-layout.ts`) never copies a row (#297). With nothing expanded it returns the `displayRows()` array itself (`depths: null`), so a sort / filter / search keystroke / page change allocates nothing; with nodes expanded it builds one array of the same references plus a **parallel depth array**, which the template reads by position through `_depthAt(i)` (`aria-level`, indent). The public `getDepth(row)` resolves a row (or its edit draft) through a row→depth `Map` built lazily from those two arrays, only when something calls it; a row object listed at two tree positions reports the depth of its last nested position there, while the rendered rows each show their own. The previous `{ ...row, _mlvDepth, _mlvRef }` copied every row on every recompute and handed those copies to every event and template. Measured at 100k rows (`node` 24, median): nothing expanded 13.4–14.4 ms / 16.9 MB retained → ~0 ms / 40 B once the spread call site is megamorphic (any app with several row types), 2.5–4.6 ms → ~0 ms monomorphic; every node expanded 15.4–16.0 ms → 3.0 ms and 17.0 MB → 1.75 MB megamorphic, 3.8–4.0 ms → 2.3 ms monomorphic. Positional depth rather than a row-keyed `Map`: the `Map` alone added ~4–5 ms to a fully expanded 100k walk, the array ~0.5 ms. Selection, expansion and edits are keyed by row identity. A node's children are pushed one by one, so a node with more children than the engine's argument limit (stack-dependent: ~120k in plain `node`, more in a vitest worker; the spec uses 1M) no longer throws `RangeError`.
+
 ---
 
 ## Filter Dropdown (`MlvFilterDropdown`)
@@ -895,7 +933,7 @@ The header pin-side chooser (`.mlv-data-table__pin-popup`, `role="menu"` with `m
 Per-cell template helpers are memoized so they no longer allocate a fresh object (or scan a list) on every change-detection cycle:
 
 - **Cell styles** — `getCellStyle(col)` reads a memoized `_columnStyles` computed (`Map<columnKey, styleObject>`) built from `_columnStates()` + `columnOffsets()`. `_columnStates()` is **every declared column** enriched with the table's own state (pin overrides, committed or in-flight resize width, responsive visibility); `visibleColumns()` is that list with hidden columns dropped and the rest ordered by pin side. Header and body cells of a column share one **stable** style-object reference across CD cycles, so the `[style]` binding skips re-diffing until widths / pins / visibility / live-resize actually change. The memo is keyed on the declared set rather than the visible one so a hidden column is memoized too: `getCellStyle` is public, and off `visibleColumns()` its answer depended on whether the column happened to be rendered — a stable, state-derived object while visible and a freshly built, raw-input-derived one while hidden. The on-the-fly fallback is now reachable only for a column absent from `columns()`, which has no memoized state to return — deliberately without a dev warning, since that is legal input the fallback serves correctly (unlike the skipped-input cases the repo does warn on). **Scope:** this makes a hidden column's _width_ and _pin state_ state-derived; its _sticky offset stays `0px`_, because `columnOffsets()` sums over the **visible** pinned run and an unrendered column occupies no space in it. That is right for rendering, so the caveat is documented on `getCellStyle` instead of being papered over by offsetting columns that are not laid out. `columnCellStyles(col, offsets)` in `data-table-layout.ts` is the shared builder. `getColStyle`/`getColWidth` are unchanged.
-- **Cell contexts** — `getCellContext(row, index)` returns a **stable** per-row `ngTemplateOutletContext` cached in a `WeakMap<row, MlvDataTableCellContext>` (`_cellContextCache`), instead of a new `{ $implicit, row, index }` per cell per CD. `flatRows()` rebuilds its row objects on every data/sort/filter/expand change, so the WeakMap self-scopes (stale rows are GC'd) and a cached entry's `index` always matches the row's current position. The row-level `rowCellsTpl` outlets in both the standard and virtual `<tr>` branches now pass `getCellContext(row, i)` too (previously an inline literal). NB: in Angular 22 `NgTemplateOutlet` forwards context reads through a Proxy to the latest `ngTemplateOutletContext` (no view teardown on context change) — stabilizing the reference removes the per-CD allocation and `NgTemplateOutlet.ngOnChanges` churn rather than a teardown.
+- **Cell contexts** — `getCellContext(row, index)` returns a **stable** per-position `ngTemplateOutletContext`, cached in `_cellContexts` (`Map<viewIndex, MlvDataTableCellContext>`), instead of a new `{ $implicit, row, index }` per cell per CD. Keyed by **position**, not row (#297): rows are now the consumer's own objects and keep their identity across a sort, so a row-keyed entry would keep its stale `index`, and a row listed twice would thrash one entry between positions (an NG0100 in dev). An entry is replaced when the row at its index changes or enters/leaves edit mode (its `row` is then the edit draft), and the whole cache is dropped whenever `flatRows()` returns a new array. The row-level `rowCellsTpl` outlets in both the standard and virtual `<tr>` branches pass `getCellContext(row, i)` too, which is how an edited row's whole cell set sees the draft; the cell-navigation branch passes `getCellContext(row, i).row` into `cellContentTpl` for the same reason. NB: in Angular 22 `NgTemplateOutlet` forwards context reads through a Proxy to the latest `ngTemplateOutletContext` (no view teardown on context change) — stabilizing the reference removes the per-CD allocation and `NgTemplateOutlet.ngOnChanges` churn rather than a teardown.
 - **Cell templates** — `getTemplate(key)` / `getEditTemplate(key)` read `_cellTemplateMap` / `_editCellTemplateMap` computeds (`Map<columnKey, TemplateRef>`, rebuilt only when the projected `cellTemplates()` / `editCellTemplates()` sets change), replacing an `Array.find()` per cell per CD. First registration wins for duplicate keys (preserves the old first-match `find()` semantics).
 - `getCellValue(row, key)` is left as-is — it is plain property access with nothing to memoize.
 
