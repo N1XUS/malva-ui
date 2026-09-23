@@ -1798,7 +1798,7 @@ describe('MlvEditorBlockHandle host capabilities', () => {
     const view = root.querySelector('.mlv-editor__view');
     const handle = root.querySelector<HTMLElement>('.mlv-editor__block-handle');
 
-    // `mount()` must return the zoom-transformed layer itself: mounting into
+    // `mount()` must return the zoomed view layer itself: mounting into
     // the viewport or the content element would place the handle in the wrong
     // coordinate space, and nothing else in the suite would notice.
     expect(view).not.toBeNull();

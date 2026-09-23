@@ -23,7 +23,6 @@ import {
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { TemplateRef } from '@angular/core';
 import type { Editor } from '@tiptap/core';
 import type { Signal, WritableSignal } from '@angular/core';
@@ -98,6 +97,14 @@ export class MlvEditorToolbarRoot {
   readonly wrap = input<boolean, BooleanInput>(true, {
     transform: coerceBooleanProperty,
   });
+  /**
+   * @internal Element whose width decides narrow mode, instead of this root's
+   * own. `MlvEditor` passes its `.mlv-editor__surface`. A floating toolbar
+   * hugs its controls, so measuring itself would be circular: hiding groups
+   * shrinks the pill, which un-narrows it. `undefined` observes this root,
+   * which the standalone `MlvEditorToolbar` shell keeps doing.
+   */
+  readonly measureTarget = input<HTMLElement | undefined>(undefined);
   /** @internal Editor-scoped focus registry. */
   private readonly _registry = inject(MLV_EDITOR_TOOLBAR_ROVING);
   /** @internal Transaction state that re-evaluates disabled toolbar widgets. */
@@ -137,14 +144,21 @@ export class MlvEditorToolbarRoot {
       this._destroyRef.onDestroy(
         this._registry.connect(this._element.nativeElement),
       );
-      this._resizeObserver
-        .observe(this._element)
-        .pipe(takeUntilDestroyed(this._destroyRef))
+    }
+    effect((onCleanup) => {
+      if (!this._isBrowser) return;
+      const target = this.measureTarget() ?? this._element.nativeElement;
+      // Re-created whenever the target changes, so it is released by this
+      // effect's cleanup; `takeUntilDestroyed` would fire only at destroy and
+      // leak every earlier generation (best-practices, "DOM Listeners").
+      const subscription = this._resizeObserver
+        .observe(target)
         .subscribe((entries) => {
           const width = entries[entries.length - 1]?.contentRect.width;
           if (width !== undefined && width > 0) this.narrow.set(width < 640);
         });
-    }
+      onCleanup(() => subscription.unsubscribe());
+    });
   }
 
   /** @internal Resolves the user or localized toolbar label. */

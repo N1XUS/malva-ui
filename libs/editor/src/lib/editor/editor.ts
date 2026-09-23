@@ -1,4 +1,6 @@
 import { LiveAnnouncer } from '@angular/cdk/a11y';
+import type { BooleanInput } from '@angular/cdk/coercion';
+import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -16,6 +18,7 @@ import {
   output,
   PLATFORM_ID,
   signal,
+  untracked,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
@@ -81,8 +84,14 @@ import type {
   MlvEditorImageUploadSuccess,
   MlvEditorImageUploader,
   MlvEditorSelectionChange,
+  MlvEditorToolbarAppearance,
+  MlvEditorToolbarPosition,
   MlvEditorTransactionEvent,
 } from '../editor.types';
+import {
+  createMlvEditorLiveScrollSides,
+  mlvEditorCssLength,
+} from './editor-layout';
 import type { MlvEditorBlockMove } from '../extensions/editor-block-handle';
 import { mlvEditorDefaultExtensions } from '../extensions/editor-extensions';
 import {
@@ -241,9 +250,19 @@ type MlvEditorPreparedContent =
     '[class.mlv-editor--disabled]': 'computedDisabled()',
     '[class.mlv-editor--readonly]': 'readonly()',
     '[class.mlv-editor--focused]': 'focused()',
+    '[class.mlv-editor--capped]': '_capped()',
+    '[class.mlv-editor--toolbar-top]': 'toolbarPosition() === "top"',
+    '[class.mlv-editor--toolbar-bottom]': 'toolbarPosition() === "bottom"',
+    '[class.mlv-editor--toolbar-bar]': 'toolbarAppearance() === "bar"',
+    '[class.mlv-editor--toolbar-floating]':
+      'toolbarAppearance() === "floating"',
+    '[class.mlv-editor--toolbar-sticky]': 'toolbarSticky()',
     '[attr.aria-disabled]': 'computedDisabled() || null',
     '[attr.inert]': 'computedDisabled() ? "" : null',
     '[style.--mlv-editor-zoom]': 'zoom() / 100',
+    '[style.--mlv-editor-height]': '_heightStyle()',
+    '[style.--mlv-editor-min-height]': '_minHeightStyle()',
+    '[style.--mlv-editor-max-height]': '_maxHeightStyle()',
   },
 })
 export class MlvEditor
@@ -261,6 +280,65 @@ export class MlvEditor
 
   /** Width of the centred content column; a gutter is reserved at every value. */
   readonly contentWidth = input<MlvEditorContentWidth>('default');
+
+  /**
+   * Fixed block size of the editor surface (toolbar plus content viewport).
+   * A number is px; a string is any CSS length, passed through verbatim.
+   *
+   * Setting it **caps** the editor: `.mlv-editor__viewport` becomes the only
+   * scroll container. With neither `height` nor `maxHeight`, the editor grows
+   * with its content, never shows a scrollbar, and never stops a scroll meant
+   * for the page. Writing `--mlv-editor-height` in CSS alone does not cap.
+   */
+  readonly height = input<number | string | undefined>(undefined);
+
+  /**
+   * Minimum block size of the editable content area; the viewport adds its
+   * 1rem padding around it. A number is px; a string is any CSS length. `undefined` keeps the `8rem` floor. Setting only this input
+   * leaves the editor in auto mode. `--mlv-editor-min-height` may also be set
+   * in CSS.
+   *
+   * Under a cap (`height` / `maxHeight`) the cap wins, even over a larger
+   * `minHeight`: the viewport shrinks to fit the surface, and the floor moves
+   * to the content inside the scroller, at every zoom level. A `minHeight`
+   * above what the cap leaves the content (the cap minus the toolbar band and
+   * the viewport padding) scrolls an empty document; for a fixed size set
+   * `height` rather than `minHeight` equal to `maxHeight`.
+   */
+  readonly minHeight = input<number | string | undefined>(undefined);
+
+  /**
+   * Largest block size of the editor surface. The surface grows with its
+   * content up to this cap, and then the viewport scrolls. A number is px; a
+   * string is any CSS length. Like `height`, this caps the editor; writing
+   * `--mlv-editor-max-height` in CSS alone does not.
+   */
+  readonly maxHeight = input<number | string | undefined>(undefined);
+
+  /**
+   * Toolbar placement. The DOM order follows it, so the Tab order matches the
+   * visual order (WCAG 2.4.3). Changing it re-creates the toolbar view, which
+   * closes any open toolbar popup.
+   */
+  readonly toolbarPosition = input<MlvEditorToolbarPosition>('top');
+
+  /**
+   * Toolbar drawing: `'bar'` is the docked row with a hairline; `'floating'` is
+   * a centred pill overlapping the content edge by
+   * `--mlv-editor-toolbar-block-size` plus a gap.
+   */
+  readonly toolbarAppearance = input<MlvEditorToolbarAppearance>('bar');
+
+  /**
+   * Keeps the toolbar `position: sticky` against the nearest scroll container
+   * while the surface is on screen, offset by
+   * `--mlv-editor-toolbar-sticky-offset` (default `0`). When capped, the
+   * toolbar already sits outside the scrolling viewport, so this only affects
+   * page scroll, within the surface's box.
+   */
+  readonly toolbarSticky = input<boolean, BooleanInput>(false, {
+    transform: coerceBooleanProperty,
+  });
 
   /** Complete Tiptap extension replacement; omit it for Malva's fresh preset. */
   readonly extensions = input<Extensions | undefined>(undefined);
@@ -302,6 +380,30 @@ export class MlvEditor
 
   /** View-only zoom percentage shared with the nearest toolbar. */
   readonly zoom = signal(100);
+
+  /** @protected Resolved `height`, written into `--mlv-editor-height`; `null` writes nothing. */
+  protected readonly _heightStyle = computed(() =>
+    mlvEditorCssLength(this.height()),
+  );
+
+  /** @protected Resolved `minHeight`, written into `--mlv-editor-min-height`; `null` writes nothing. */
+  protected readonly _minHeightStyle = computed(() =>
+    mlvEditorCssLength(this.minHeight()),
+  );
+
+  /** @protected Resolved `maxHeight`, written into `--mlv-editor-max-height`; `null` writes nothing. */
+  protected readonly _maxHeightStyle = computed(() =>
+    mlvEditorCssLength(this.maxHeight()),
+  );
+
+  /**
+   * @protected Whether the editor is capped. Only `height` or `maxHeight`
+   * switches it on; `minHeight` alone stays in auto mode. It is the one input
+   * that turns `.mlv-editor__viewport` into a scroll container.
+   */
+  protected readonly _capped = computed(
+    () => this._heightStyle() !== null || this._maxHeightStyle() !== null,
+  );
 
   /** Whether the mounted editor currently accepts document mutations. */
   readonly editable = computed(
@@ -348,7 +450,7 @@ export class MlvEditor
     viewChild.required<ElementRef<HTMLDivElement>>('content');
 
   /**
-   * @private Zoom-transformed layer the floating block handle is mounted into.
+   * @private Zoomed layer (CSS `zoom`) the floating block handle is mounted into.
    *
    * Deliberately optional rather than `viewChild.required`: the block-handle
    * `mount` capability is typed `() => HTMLElement | null`, and the extension
@@ -357,6 +459,13 @@ export class MlvEditor
    * uncaught error rather than the absent mount the contract already allows.
    */
   private readonly _view = viewChild<ElementRef<HTMLDivElement>>('view');
+
+  /**
+   * @private Toolbar band currently stamped before or after the viewport.
+   * Queried by declaration, so it follows the band across position changes.
+   */
+  private readonly _toolbarBand =
+    viewChild<ElementRef<HTMLElement>>('toolbarBand');
 
   /** @protected Complete projected toolbar replacement, if the consumer provides one. */
   protected readonly _toolbarDefs = contentChildren(MlvEditorToolbarDef);
@@ -397,6 +506,26 @@ export class MlvEditor
 
   /** @private Physical host used to determine the composite focus boundary. */
   private readonly _host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /**
+   * @private Live ProseMirror `scrollMargin` (WCAG 2.2 SC 2.4.11). One stable
+   * object passed on every `editorProps` write; its sides re-measure per read.
+   * Read untracked: ProseMirror scrolls synchronously inside `updateState`,
+   * which can run within `_synchronizeEditor`'s effect, and that effect must
+   * not start depending on the toolbar inputs.
+   */
+  private readonly _scrollMargin = createMlvEditorLiveScrollSides(
+    'margin',
+    () => untracked(this.toolbarPosition),
+    () => untracked(() => this._obscuredToolbarExtent()),
+  );
+
+  /** @private Live ProseMirror `scrollThreshold`, paired with `_scrollMargin`. */
+  private readonly _scrollThreshold = createMlvEditorLiveScrollSides(
+    'threshold',
+    () => untracked(this.toolbarPosition),
+    () => untracked(() => this._obscuredToolbarExtent()),
+  );
 
   /** @private Optional translated accessible defaults. */
   private readonly _i18n = inject(MLV_EDITOR_I18N, { optional: true });
@@ -601,7 +730,11 @@ export class MlvEditor
         extensions: selectedExtensions,
         editable: !this.computedDisabled() && !this.readonly(),
         enableContentCheck: true,
-        editorProps: { attributes: this._editorAttributes() },
+        editorProps: {
+          attributes: this._editorAttributes(),
+          scrollMargin: this._scrollMargin,
+          scrollThreshold: this._scrollThreshold,
+        },
         onTransaction: ({ editor: changedEditor, transaction }) => {
           if (this._destroyed) return;
           this.transaction.emit({ editor: changedEditor, transaction });
@@ -742,7 +875,15 @@ export class MlvEditor
 
     const requestedFormat = this.format();
     editor.setOptions({
-      editorProps: { attributes: this._editorAttributes() },
+      // `setOptions` replaces Tiptap's stored `editorProps` wholesale. The
+      // live view keeps its props (ProseMirror's `setProps` merges), but a
+      // later `mount()` rebuilds the view from the stored copy, so the scroll
+      // props travel with every call.
+      editorProps: {
+        attributes: this._editorAttributes(),
+        scrollMargin: this._scrollMargin,
+        scrollThreshold: this._scrollThreshold,
+      },
     });
     this._synchronizeContentSurfaceState(editor);
     const rawIncoming = this.value();
@@ -991,6 +1132,44 @@ export class MlvEditor
         'Markdown requires the configured extensions to include Tiptap Markdown.',
       recoverable: true,
     });
+  }
+
+  /**
+   * @private Block extent the toolbar hides on its own side, in px.
+   *
+   * - A sticky band hides its height plus its offset, at the page scroller.
+   * - A floating band in a capped editor hides its height, at the viewport.
+   * - Anything else hides nothing: a docked bar sits outside the content, and
+   *   an uncapped floating band scrolls away with the page.
+   *
+   * Read by ProseMirror at scroll time, never for layout. ProseMirror applies
+   * one margin at every scroll ancestor, so a capped editor with a sticky
+   * toolbar keeps the caret clear of the page-stuck band at the viewport too,
+   * and a capped floating one keeps a band-height margin at the page scroller,
+   * where nothing covers the caret. Both are accepted: they err toward
+   * visibility.
+   */
+  private _obscuredToolbarExtent(): number {
+    const sticky = this.toolbarSticky();
+    const floatingCapped =
+      this.toolbarAppearance() === 'floating' && this._capped();
+    if (!sticky && !floatingCapped) return 0;
+    const band = this._toolbarBand()?.nativeElement;
+    if (!band) return 0;
+    let extent = band.getBoundingClientRect().height;
+    if (sticky) {
+      const side =
+        this.toolbarPosition() === 'top'
+          ? 'inset-block-start'
+          : 'inset-block-end';
+      const view = band.ownerDocument.defaultView;
+      extent += view
+        ? Number.parseFloat(
+            view.getComputedStyle(band).getPropertyValue(side),
+          ) || 0
+        : 0;
+    }
+    return extent;
   }
 
   /** @private Builds the exact accessible attributes assigned to Tiptap's contenteditable root. */

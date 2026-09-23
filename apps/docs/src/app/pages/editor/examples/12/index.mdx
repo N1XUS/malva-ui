@@ -1,0 +1,29 @@
+---
+title: Layout — height and toolbar placement
+---
+
+By default the editor **grows with its content**. It never shows a scrollbar
+of its own, and a wheel, touch or keyboard scroll over it always reaches the
+page. Wide tables and code blocks keep their own horizontal scroll, which
+never captures a vertical wheel.
+
+`height` fixes the surface (toolbar plus content), and `maxHeight` lets it
+grow up to a cap. Either one turns the content viewport into a scroll
+container. A number is px, and a string is any CSS length. `minHeight`
+replaces the `8rem` floor without capping. Under a cap the cap wins, and the
+floor then applies to the content inside the scroller, so a compact capped
+editor also sets a smaller `minHeight`. Only these inputs cap:
+`--mlv-editor-height` / `--mlv-editor-max-height` written in CSS alone have no
+effect.
+
+`toolbarPosition` puts the toolbar above or below the content, and the Tab
+order follows. `toolbarAppearance="floating"` draws a centred pill that
+overlaps the content edge by `--mlv-editor-toolbar-block-size` plus a gap and
+fades the content scrolling beneath it. `toolbarSticky` pins the toolbar while
+the editor is on screen. `--mlv-editor-toolbar-sticky-offset` clears a fixed
+app header, and this page sets it to the docs' `5.5rem`. When the caret moves
+toward a floating or sticky toolbar, the editor scrolls it clear of the
+toolbar.
+
+Zoom reflows an uncapped editor, like browser zoom, and magnifies a capped one
+inside its own scroller.

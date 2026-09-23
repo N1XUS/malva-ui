@@ -27,7 +27,7 @@ export interface MlvEditorBlockMove {
 export interface MlvEditorBlockHandleOptions {
   /**
    * Container the floating handle is appended to. Must be the layer carrying the
-   * editor zoom transform so the handle shares its coordinate space.
+   * editor zoom (CSS `zoom`) so the handle shares its coordinate space.
    */
   readonly mount: () => HTMLElement | null;
 
@@ -468,9 +468,9 @@ function gapOffset(slots: readonly MlvEditorBlockSlot[], gap: number): number {
  * an ancestor class chain that would have to track whichever selectors happen
  * to exist. Adapted from `@tiptap/extension-drag-handle`'s `cloneElement`.
  *
- * Note what this cannot carry: computed styles are used values, and an
- * ancestor `transform: scale()` never reaches them. The editor's zoom is
- * applied to the wrapper instead — see `createGhostElement`.
+ * Note what this cannot carry: computed styles are the element's own values
+ * and never carry an ancestor's `zoom`. The editor's zoom is applied to the
+ * wrapper instead — see `createGhostElement`.
  */
 function cloneWithComputedStyles(source: HTMLElement): HTMLElement {
   const clone = source.cloneNode(true) as HTMLElement;
@@ -507,7 +507,8 @@ function cloneWithComputedStyles(source: HTMLElement): HTMLElement {
  * requires — without ever being seen. `zoom` rather than `transform` carries
  * the editor's scale because it affects layout, so the wrapper's own box
  * reflects it before the browser rasterizes; a `transform` is honoured
- * inconsistently across engines for drag images.
+ * inconsistently across engines for drag images, and the source's computed
+ * styles carry no ancestor `zoom`.
  */
 function createGhostElement(source: HTMLElement, scale: number): HTMLElement {
   const wrapper = document.createElement('div');
@@ -729,9 +730,9 @@ export const MlvEditorBlockHandle =
               const hit = blockAtPoint(view, event.clientY);
               if (!hit) return hide();
 
-              // `getBoundingClientRect()` reports scaled screen pixels, but a
-              // CSS `top` on a child of the scaled layer is applied in the
-              // layer's own unscaled space. Convert once, off one rect read of
+              // `getBoundingClientRect()` reports zoomed screen pixels, but a
+              // CSS `top` on a child of the zoomed layer is applied in the
+              // layer's own unzoomed space. Convert once, off one rect read of
               // the mount.
               const { top: mountTop, scale } = mountFrame(mount);
               const top = `${(hit.top - mountTop) / scale}px`;

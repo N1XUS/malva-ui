@@ -1,0 +1,28 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <div class="demo-row" style="flex-wrap: wrap; gap: 1rem">
+    <mlv-segmented [(value)]="position" ariaLabel="Toolbar position">
+      <button mlvSegmentedItem value="top">Top</button>
+      <button mlvSegmentedItem value="bottom">Bottom</button>
+    </mlv-segmented>
+    <mlv-segmented [(value)]="appearance" ariaLabel="Toolbar appearance">
+      <button mlvSegmentedItem value="bar">Bar</button>
+      <button mlvSegmentedItem value="floating">Floating</button>
+    </mlv-segmented>
+    <mlv-segmented [(value)]="maxHeightChoice" ariaLabel="Maximum height">
+      <button mlvSegmentedItem value="auto">Auto</button>
+      <button mlvSegmentedItem value="240">240 px</button>
+      <button mlvSegmentedItem value="24rem">24 rem</button>
+    </mlv-segmented>
+    <mlv-switch [(checked)]="sticky">Sticky toolbar</mlv-switch>
+  </div>
+
+  <mlv-editor
+    label="Layout"
+    [(value)]="value"
+    [toolbarPosition]="position()"
+    [toolbarAppearance]="appearance()"
+    [toolbarSticky]="sticky()"
+    [maxHeight]="maxHeight()"
+    [style.--mlv-editor-toolbar-sticky-offset]="stickyOffset()"
+  />
+</div>
