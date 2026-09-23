@@ -59,8 +59,9 @@ export interface MlvInfiniteScrollTrigger {
 })
 export class MlvInfiniteScroll {
   /**
-   * Distance in pixels from the bottom (or right) of the scroll container at
-   * which the `loadMore` event should be emitted. Defaults to `150`.
+   * Distance in pixels from the bottom (or, horizontally, the inline end — the
+   * left edge in RTL) of the scroll container at which the `loadMore` event
+   * should be emitted. Defaults to `150`.
    */
   readonly threshold = input<number>(150);
 
@@ -209,9 +210,13 @@ export class MlvInfiniteScroll {
     if (!target) return;
 
     const orientation = this.orientation();
+    // `scrollLeft` is physical: per CSSOM View it is `0` at the inline start in
+    // both directions and runs **negative** toward the end of an RTL scroller,
+    // so its magnitude is the inline distance travelled. Direction-agnostic, so
+    // a scoped `[dir]` needs no resolving; identical in LTR.
     const distance =
       orientation === 'horizontal'
-        ? target.scrollWidth - target.scrollLeft - target.clientWidth
+        ? target.scrollWidth - Math.abs(target.scrollLeft) - target.clientWidth
         : target.scrollHeight - target.scrollTop - target.clientHeight;
 
     if (distance <= this.threshold()) {

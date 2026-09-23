@@ -854,6 +854,7 @@ Column filter triggers restore focus to the matching header button after their e
 ## Accessibility
 
 - **Direction (RTL): scoped, not per-document.** The column-resize handler passes a cached `elementDirection(host)` signal to `MlvRtlService.normalizeArrowKey(event, direction)`, so a table inside a `[dir="rtl"]` subtree mirrors while the document stays LTR. `_onRowKeydown` deliberately omits the direction: its switch matches only the vertical pair, `Home` / `End` and `Space` / `Enter`, where mirroring is a no-op either way — the call site says so in a comment. Regressions in `data-table.spec.ts`.
+- **Pointer column resize follows the same direction (#308).** The separator rides the column's inline-end edge — its left edge in RTL — so outward is toward smaller `clientX` there. `onResizeStart` records `inlineSign` (`1` LTR, `-1` RTL) on the resize state from the same cached `_direction()` signal, and `_onResizeMove` multiplies the physical `clientX` delta by it once. Before #308 an RTL outward drag shrank the column. Pinned in `data-table.spec.ts` for LTR, a global `setDirection('rtl')` and a scoped `[dir="rtl"]` ancestor.
 
 ### Row-level grid keyboard navigation
 

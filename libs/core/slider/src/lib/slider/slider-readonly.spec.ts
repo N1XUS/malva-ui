@@ -226,7 +226,7 @@ describe('MlvSlider — write permission (#298)', () => {
       window.dispatchEvent(pointerEvent('pointermove', 60, 4));
       await settle(fixture);
       expect(fixture.componentInstance.value()).toBe(60);
-      expect(thumb.style.left).toBe('60%');
+      expect(thumb.style.getPropertyValue('inset-inline-start')).toBe('60%');
 
       fixture.componentInstance.ro.set(true);
       await settle(fixture);
@@ -234,11 +234,11 @@ describe('MlvSlider — write permission (#298)', () => {
       await settle(fixture);
 
       expect(fixture.componentInstance.value()).toBe(60);
-      expect(thumb.style.left).toBe('60%');
+      expect(thumb.style.getPropertyValue('inset-inline-start')).toBe('60%');
 
       window.dispatchEvent(pointerEvent('pointerup', 90, 4));
       await settle(fixture);
-      expect(thumb.style.left).toBe('60%');
+      expect(thumb.style.getPropertyValue('inset-inline-start')).toBe('60%');
     });
 
     it('keeps the thumbs in the tab order, so the value stays readable', async () => {

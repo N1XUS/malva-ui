@@ -41,6 +41,11 @@ function domRect({
   } as DOMRect;
 }
 
+/** The element's bound inline `inset-inline-start`, or `''` when unset. */
+function inlineStart(element: HTMLElement): string {
+  return element.style.getPropertyValue('inset-inline-start');
+}
+
 describe('Slider', () => {
   let component: MlvSlider;
   let fixture: ComponentFixture<MlvSlider>;
@@ -123,7 +128,7 @@ describe('Slider', () => {
     const horizontalTooltip = fixture.nativeElement.querySelector(
       '.mlv-slider__tooltip',
     ) as HTMLElement;
-    expect(horizontalTooltip.style.left).toBe('25%');
+    expect(inlineStart(horizontalTooltip)).toBe('25%');
     expect(horizontalTooltip.style.bottom).toBe('');
 
     fixture.componentRef.setInput('orientation', 'vertical');
@@ -132,8 +137,95 @@ describe('Slider', () => {
     const verticalTooltip = fixture.nativeElement.querySelector(
       '.mlv-slider__tooltip',
     ) as HTMLElement;
+    expect(inlineStart(verticalTooltip)).toBe('');
     expect(verticalTooltip.style.left).toBe('');
     expect(verticalTooltip.style.bottom).toBe('25%');
+  });
+
+  describe('horizontal geometry is logical, like the fill (#308)', () => {
+    /**
+     * The fill is laid out by `inset-inline-start: var(--mlv-slider-fill-start)`
+     * (pinned in `slider-styles.spec.ts`), so it starts from the right edge in RTL.
+     * Every other horizontal position must hang off that same edge — a
+     * physical `left` put the thumb on the opposite side of the fill it ends
+     * (measured in Chrome: RTL fill 320..400, thumb centre 80 on a 400px track).
+     * jsdom does no layout, so the edge is pinned on the bound property;
+     * `slider-styles.spec.ts` pins the centring transforms and transitions
+     * that go with it.
+     */
+    type Scope = 'ltr' | 'global-rtl' | 'scoped-rtl';
+
+    async function render(scope: Scope): Promise<void> {
+      if (scope === 'global-rtl') {
+        TestBed.inject(MlvRtlService).setDirection('rtl');
+      }
+      if (scope === 'scoped-rtl') {
+        (fixture.nativeElement.parentElement as HTMLElement).setAttribute(
+          'dir',
+          'rtl',
+        );
+      }
+      fixture.componentRef.setInput('tooltip', true);
+      fixture.componentRef.setInput('showTicks', true);
+      fixture.componentRef.setInput('step', 20);
+      fixture.componentRef.setInput('range', true);
+      fixture.componentRef.setInput('value', [20, 60]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+    }
+
+    afterEach(() => {
+      (fixture.nativeElement.parentElement as HTMLElement).removeAttribute(
+        'dir',
+      );
+    });
+
+    it.each<Scope>(['ltr', 'global-rtl', 'scoped-rtl'])(
+      'binds thumbs, tooltips and ticks to inset-inline-start (%s)',
+      async (scope) => {
+        await render(scope);
+        const host = fixture.nativeElement as HTMLElement;
+        if (scope === 'scoped-rtl') {
+          // Only the subtree is flipped; the document stays LTR.
+          expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+        }
+
+        const positions = (selector: string): string[] =>
+          Array.from(
+            host.querySelectorAll<HTMLElement>(selector),
+            (element) => `${inlineStart(element)}|${element.style.left}`,
+          );
+
+        // `inset-inline-start|left` — the physical property stays unset.
+        expect(positions('.mlv-slider__thumb')).toEqual(['20%|', '60%|']);
+        expect(positions('.mlv-slider__tooltip')).toEqual(['20%|', '60%|']);
+        expect(positions('.mlv-slider__tick')).toEqual([
+          '0%|',
+          '20%|',
+          '40%|',
+          '60%|',
+          '80%|',
+          '100%|',
+        ]);
+        // The fill's start variable is the same edge-relative percentage.
+        expect(host.style.getPropertyValue('--mlv-slider-fill-start')).toBe(
+          '20%',
+        );
+      },
+    );
+
+    it('leaves the vertical orientation on `bottom`', async () => {
+      await render('scoped-rtl');
+      fixture.componentRef.setInput('orientation', 'vertical');
+      fixture.detectChanges();
+
+      const thumb = fixture.nativeElement.querySelector(
+        '.mlv-slider__thumb--low',
+      ) as HTMLElement;
+      expect(thumb.style.bottom).toBe('20%');
+      expect(inlineStart(thumb)).toBe('');
+      expect(thumb.style.left).toBe('');
+    });
   });
 
   it('maps a track click from the inline-start edge in RTL', () => {
@@ -260,7 +352,7 @@ describe('Slider', () => {
       '.mlv-slider__tooltip',
     ) as HTMLElement;
     expect(tooltip.textContent?.trim()).toBe('60');
-    expect(tooltip.style.left).toBe('64%');
+    expect(inlineStart(tooltip)).toBe('64%');
 
     window.dispatchEvent(pointerEvent('pointercancel', 64, 7));
     fixture.detectChanges();
@@ -269,7 +361,7 @@ describe('Slider', () => {
     expect(
       fixture.nativeElement.classList.contains('mlv-slider--dragging'),
     ).toBe(false);
-    expect(tooltip.style.left).toBe('60%');
+    expect(inlineStart(tooltip)).toBe('60%');
   });
 });
 

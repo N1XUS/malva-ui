@@ -5,6 +5,7 @@ import {
   ElementRef,
   NgZone,
   ViewEncapsulation,
+  afterNextRender,
   inject,
   input,
   signal,
@@ -85,7 +86,15 @@ export class MlvSidebarRail {
   /** @protected Whether a drag is in progress. */
   protected readonly _isDragging = signal(false);
 
-  /** @protected Current sidebar width in pixels (for ARIA). */
+  /**
+   * @protected Current sidebar width in pixels — the `aria-valuenow` and the
+   * base every keyboard step starts from. Seeded from the sidebar's rendered
+   * width after the first render and re-read before each keyboard step, so a
+   * `<mlv-sidebar width="320px">` reports 320, not a constant. `260` (the
+   * sidebar's default `width`) is only the fallback while nothing is laid out:
+   * during a server render, while the sidebar starts collapsed, or when the
+   * rail is not inside a `.mlv-sidebar`.
+   */
   protected readonly _currentWidthPx = signal(260);
 
   /** @private Sidebar container element reference, resolved on first drag. */
@@ -116,6 +125,17 @@ export class MlvSidebarRail {
   private _expandWidth = 0;
 
   constructor() {
+    // Browser-only by construction, so a server render keeps the fallback.
+    // `mixedReadWrite`, not `read`: the measurement writes the sidebar's inline
+    // `transition` around the rect read, and the result lands in a signal.
+    afterNextRender({
+      mixedReadWrite: () => {
+        if (this._context.collapsed()) return;
+        const width = this._measureSidebarWidth();
+        if (width !== null) this._currentWidthPx.set(width);
+      },
+    });
+
     this._destroyRef.onDestroy(() => {
       this._cleanup();
     });
@@ -225,11 +245,17 @@ export class MlvSidebarRail {
 
     this._rafId = requestAnimationFrame(() => {
       const sidebarRect = sidebarEl.getBoundingClientRect();
-      const newWidth = event.clientX - sidebarRect.left;
+      // `clientX` and the rect are physical. The rail rides the sidebar's
+      // inline-end edge — its physical left edge in RTL — so the width is the
+      // distance from the inline-start edge, converted once here.
+      const newWidth =
+        this._direction() === 'rtl'
+          ? sidebarRect.right - event.clientX
+          : event.clientX - sidebarRect.left;
       const isCollapsed = this._context.collapsed();
 
       if (isCollapsed) {
-        // Dragging right from collapsed — mark for expansion on pointerup
+        // Dragging outward from collapsed — mark for expansion on pointerup
         if (newWidth >= this.snapThreshold()) {
           this._shouldExpand = true;
           this._expandWidth = clamp(newWidth, this.minWidth(), this.maxWidth());
@@ -237,7 +263,7 @@ export class MlvSidebarRail {
           this._shouldExpand = false;
         }
       } else if (newWidth < this.snapThreshold()) {
-        // Dragging left below threshold — mark for collapse on pointerup
+        // Dragging inward below threshold — mark for collapse on pointerup
         this._shouldSnap = true;
       } else {
         this._shouldSnap = false;
@@ -286,11 +312,44 @@ export class MlvSidebarRail {
     }
   }
 
-  /** @private Adjust width by a delta, clamping to min/max. */
+  /**
+   * @private Adjust width by a delta, clamping to min/max. Steps from the
+   * sidebar's rendered width, so a width set from outside since the last
+   * interaction (the consumer's `width` binding) is not stepped over.
+   */
   private _adjustWidth(delta: number): void {
-    const current = this._currentWidthPx();
+    const current = this._measureSidebarWidth() ?? this._currentWidthPx();
     const next = clamp(current + delta, this.minWidth(), this.maxWidth());
     this._context.setWidth(next);
     this._currentWidthPx.set(next);
+  }
+
+  /**
+   * @private The enclosing sidebar's rendered width in px, or `null` while it
+   * is not laid out (no `.mlv-sidebar` ancestor, `display: none`, a server
+   * render). The width transition is suppressed for the read — the same thing
+   * a drag does at pointerdown — so a read taken while the sidebar is still
+   * animating open reports the width it is settling on, not a frame of the
+   * animation (a mid-expand frame is under `minWidth`, and stepping from it
+   * would clamp the sidebar down to the minimum). Measured in Chromium on a
+   * 400ms replica of the transition (the sidebar's own runs
+   * `--mlv-duration-normal`): 100ms into a 56→260px expand a plain read gives
+   * 76, this one 260. The cost is that a running transition is cancelled and
+   * lands on its end value — reachable by an arrow key pressed mid-animation
+   * (which sets a new width in the same handler anyway) or by the rail's first
+   * render landing inside one. Rounded to whole pixels, so a percentage width
+   * (`22.5%` of a 1517px shell is 341.325px) does not surface a fractional
+   * `aria-valuenow` at rest.
+   */
+  private _measureSidebarWidth(): number | null {
+    const sidebarEl = this._elementRef.nativeElement.closest(
+      '.mlv-sidebar',
+    ) as HTMLElement | null;
+    if (!sidebarEl) return null;
+    const savedTransition = sidebarEl.style.transition;
+    sidebarEl.style.transition = 'none';
+    const width = Math.round(sidebarEl.getBoundingClientRect().width);
+    sidebarEl.style.transition = savedTransition;
+    return width > 0 ? width : null;
   }
 }
