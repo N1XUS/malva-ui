@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import {
   afterNextRender,
   computed,
@@ -9,7 +10,9 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
+import { fromEvent } from 'rxjs';
 import { MlvPageSnapRegionBase } from './page-snap-region-base';
 
 /** How an element behaves while the page chrome snaps. */
@@ -124,6 +127,15 @@ export class MlvPageSnap extends MlvPageSnapRegionBase {
    * own `max-block-size` is what the scrub animates: the clamped border box
    * shrinks to nothing while the content box it overflows keeps reporting the
    * height the row would take if it were open.
+   *
+   * Measuring the box it clamps is also why a `ResizeObserver` on the host
+   * cannot be the only trigger: while the clamp holds, content that grows
+   * leaves the host's box exactly where it was, so the observer has nothing
+   * to report and the row stays cut off at the size it measured last — or
+   * invisible, when it first rendered empty. The clamp therefore lifts at
+   * rest (see `.mlv-page-snap--hide` in `page.scss`), and while the timeline
+   * is scrubbing the content itself is watched: DOM changes inside the host
+   * and web-font swaps re-measure it directly.
    */
   protected readonly _measuredBlockSize = signal(0);
 
@@ -145,18 +157,57 @@ export class MlvPageSnap extends MlvPageSnapRegionBase {
     super();
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
     const resizeObserver = inject(MlvResizeObserverService);
+    // Typed as possibly absent: jsdom and older engines have no `FontFaceSet`.
+    const fonts = inject(DOCUMENT).fonts as FontFaceSet | undefined;
     const destroyRef = inject(DestroyRef);
 
     afterNextRender(() => {
       const measure = (): void => {
-        // Read inside the observer callback, which the browser runs after
-        // layout — so this is a cheap read of a value that is already current
-        // rather than a forced synchronous reflow.
         this._measuredBlockSize.set(host.scrollHeight);
       };
       measure();
-      const subscription = resizeObserver.observe(host).subscribe(measure);
-      destroyRef.onDestroy(() => subscription.unsubscribe());
+
+      // Box changes: a rewrap at a new inline size, every scrub step (the
+      // clamp moves) and — because the clamp lifts at rest — any change to
+      // the content's size while the page sits at the top. Read inside the
+      // observer callback, which the browser runs after layout, so this is a
+      // cheap read of a value that is already current.
+      resizeObserver
+        .observe(host)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe(measure);
+
+      // The two triggers below exist only because the `hide` clamp hides
+      // content growth from the box observer. A `fade` or `keep` region is
+      // never clamped, so that observer already sees every change to it and
+      // keeps the measurement current — a later switch to `hide` starts from
+      // the right number. Skipping them there saves a forced layout per batch
+      // for a value nothing reads. The mode is read per call, not captured,
+      // because `mlvPageSnap` is an input and can change.
+      const measureClamped = (): void => {
+        if (this._mode() === 'hide') measure();
+      };
+
+      // Content changes the clamp hides from that observer while the timeline
+      // is scrubbing: text, an `@if`, a list growing. This read does force a
+      // layout, but only once per batch of content changes, never per scroll
+      // frame. `afterNextRender` only runs in a browser, where
+      // `MutationObserver` always exists.
+      const contentObserver = new MutationObserver(measureClamped);
+      contentObserver.observe(host, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+      destroyRef.onDestroy(() => contentObserver.disconnect());
+
+      // A web font arriving rewraps the same text with nothing in the DOM
+      // changing to say so.
+      if (fonts) {
+        fromEvent(fonts, 'loadingdone')
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe(measureClamped);
+      }
     });
   }
 }
