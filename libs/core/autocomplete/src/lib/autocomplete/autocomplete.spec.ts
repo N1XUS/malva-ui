@@ -1493,3 +1493,220 @@ describe('MlvAutocomplete — listbox name from an mlv-input host', () => {
     expect(listbox.getAttribute('aria-label')).toBe('Vegetable');
   });
 });
+
+/**
+ * #300 — an option whose `value` is `false` / `0` / `''` / `null`, or whose
+ * `label` is `''`, used to fail `isSelectOption` (`!!label && !!value`), so the
+ * default `toOption` wrapped the whole object: the suggestion read
+ * "[object Object]", typing its label found nothing, and committing it wrote
+ * "[object Object]" into the field and emitted the object as the value.
+ */
+describe('MlvAutocomplete — options whose label or value is falsy (#300)', () => {
+  const FALSY_OPTIONS: MlvSelectOption<unknown>[] = [
+    { label: 'No', value: false },
+    { label: 'Yes', value: true },
+    { label: 'Zero', value: 0 },
+    { label: 'Empty', value: '' },
+    { label: 'None', value: null },
+    { label: '', value: 'blank' },
+  ];
+
+  @Component({
+    template: `<input
+      aria-label="Answer"
+      [mlvAutocomplete]="options"
+      [mlvAutocompleteDebounce]="0"
+      [mlvAutocompleteInline]="false"
+      [(mlvAutocompleteValue)]="value"
+      (optionSelected)="picked = $event"
+    />`,
+    imports: [MlvAutocomplete],
+  })
+  class FalsyHostComponent {
+    readonly options = FALSY_OPTIONS;
+    readonly value = signal<unknown>('untouched');
+    picked: MlvSelectOption<unknown> | null = null;
+  }
+
+  let fixture: ComponentFixture<FalsyHostComponent>;
+  let input: HTMLInputElement;
+  let overlayContainer: OverlayContainer;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [FalsyHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(FalsyHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    overlayContainer = TestBed.inject(OverlayContainer);
+  });
+  afterEach(() => overlayContainer.ngOnDestroy());
+
+  /** Same flush as the main suite: debounce, effects, then the portal's own CD root. */
+  async function settle(ms = 5): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+  }
+
+  const rows = () =>
+    Array.from(
+      overlayContainer
+        .getContainerElement()
+        .querySelectorAll<HTMLElement>('[role="option"]'),
+    );
+
+  function key(k: string): void {
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: k, bubbles: true }),
+    );
+    fixture.detectChanges();
+  }
+
+  it('suggests every option by its own label, never "[object Object]"', async () => {
+    input.dispatchEvent(new FocusEvent('focus'));
+    await settle();
+    expect(rows().map((row) => row.textContent?.trim())).toEqual([
+      'No',
+      'Yes',
+      'Zero',
+      'Empty',
+      'None',
+      '',
+    ]);
+  });
+
+  it('finds a falsy-valued option by typing its label', async () => {
+    input.dispatchEvent(new FocusEvent('focus'));
+    await settle();
+    input.value = 'zer';
+    input.setSelectionRange(3, 3);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+    expect(rows().map((row) => row.textContent?.trim())).toEqual(['Zero']);
+  });
+
+  it.each<[string, number, unknown]>([
+    ['No', 0, false],
+    ['Zero', 2, 0],
+    ['Empty', 3, ''],
+    ['None', 4, null],
+    ['', 5, 'blank'],
+  ])(
+    'commits "%s" with its label in the field and its value, not the option object',
+    async (label, index, expected) => {
+      input.dispatchEvent(new FocusEvent('focus'));
+      await settle();
+      for (let step = 0; step <= index; step++) key('ArrowDown');
+      await settle();
+      key('Enter');
+      await settle();
+
+      const host = fixture.componentInstance;
+      expect(input.value).toBe(label);
+      expect(host.picked?.label).toBe(label);
+      expect(host.picked?.value).toBe(expected);
+      expect(host.value()).toBe(expected);
+    },
+  );
+
+  it('commits a falsy value picked with the pointer', async () => {
+    input.dispatchEvent(new FocusEvent('focus'));
+    await settle();
+    rows()[0].click();
+    await settle();
+    expect(input.value).toBe('No');
+    expect(fixture.componentInstance.value()).toBe(false);
+  });
+});
+
+/**
+ * #300 adjacent — once `isSelectOption` stopped rejecting a `NaN`-valued
+ * option, a pointer pick on it went from committing the wrapped object to doing
+ * nothing: `selectFromPanel` looked the emitted value up with `===`, and
+ * `NaN === NaN` is false. The lookup uses `Object.is`, which also keeps a
+ * `-0` option distinct from a `+0` one — the emitted value is always one of the
+ * options' own values, so identity is the exact question.
+ */
+describe('MlvAutocomplete — a NaN-valued option picked with the pointer (#300)', () => {
+  @Component({
+    template: `<input
+      aria-label="Reading"
+      [mlvAutocomplete]="options"
+      [mlvAutocompleteDebounce]="0"
+      [mlvAutocompleteInline]="false"
+      [(mlvAutocompleteValue)]="value"
+    />`,
+    imports: [MlvAutocomplete],
+  })
+  class NaNHostComponent {
+    readonly options: MlvSelectOption<number>[] = [
+      { label: 'Zero', value: 0 },
+      { label: 'Not a number', value: Number.NaN },
+    ];
+    readonly value = signal<unknown>('untouched');
+  }
+
+  let fixture: ComponentFixture<NaNHostComponent>;
+  let input: HTMLInputElement;
+  let overlayContainer: OverlayContainer;
+  let warn: typeof console.warn;
+
+  beforeEach(async () => {
+    // `ngListbox.validate()` finds duplicates with `indexOf`, which never
+    // matches NaN, so a listbox holding one NaN option always warns about a
+    // duplicate and then logs the element with a `%o` Node cannot walk in
+    // jsdom. Both are upstream; only those two lines are dropped here.
+    warn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      const first = args[0];
+      if (
+        typeof first === 'string' &&
+        (first.startsWith('Violations found on element:') ||
+          first.startsWith('Duplicate option value'))
+      ) {
+        return;
+      }
+      (warn as (...rest: unknown[]) => void)(...args);
+    };
+    await TestBed.configureTestingModule({
+      imports: [NaNHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(NaNHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    overlayContainer = TestBed.inject(OverlayContainer);
+  });
+  afterEach(() => {
+    console.warn = warn;
+    overlayContainer.ngOnDestroy();
+  });
+
+  async function settle(ms = 5): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+  }
+
+  it('commits the NaN option instead of ignoring the pick', async () => {
+    input.dispatchEvent(new FocusEvent('focus'));
+    await settle();
+    const row = Array.from(
+      overlayContainer
+        .getContainerElement()
+        .querySelectorAll<HTMLElement>('[role="option"]'),
+    )[1];
+    expect(row.textContent?.trim()).toBe('Not a number');
+    row.click();
+    await settle();
+    expect(input.value).toBe('Not a number');
+    expect(fixture.componentInstance.value()).toBe(Number.NaN);
+  });
+});

@@ -825,11 +825,16 @@ export class MlvAutocomplete<T = unknown> {
    * (`selectedValues` is always `[]`), so any non-empty emit is a genuine pick —
    * no aria reconciliation guard is needed. Public so the overlay subscription
    * (and unit tests) can invoke it.
+   *
+   * The picked value is always one of the rendered options' own values, so it
+   * is looked up by identity with `Object.is`, not `===`: a `NaN`-valued option
+   * is otherwise never found and its pick silently does nothing (#300), and a
+   * `-0` option stays distinct from a `+0` one.
    */
   selectFromPanel(values: readonly T[]): void {
     if (!values.length) return;
     const picked = values[values.length - 1];
-    const option = this._results().find((o) => o.value === picked);
+    const option = this._results().find((o) => Object.is(o.value, picked));
     if (option) this._commit(option);
   }
 

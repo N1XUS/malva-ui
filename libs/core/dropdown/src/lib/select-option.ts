@@ -35,10 +35,29 @@ export function defaultOptionTransform<T>(item: T): MlvSelectOption<T> {
   return isSelectOption<T>(item) ? item : { label: String(item), value: item };
 }
 
+/**
+ * Whether `value` is already a {@link MlvSelectOption} — an object carrying a
+ * non-nullish `label` and a `value` key — rather than a raw item that
+ * {@link defaultOptionTransform} must wrap.
+ *
+ * Only the **presence** of the two keys is tested, never their truthiness:
+ * `{ label: 'No', value: false }`, `{ label: 'Zero', value: 0 }`,
+ * `{ label: 'None', value: null }` and `{ label: '', value: 'blank' }` are all
+ * options. A truthiness test here rejected them, so the default transform
+ * wrapped the whole object — a row reading "[object Object]" whose committed
+ * value was the option object itself (#300).
+ *
+ * - `label` must not be `null` / `undefined`; its type is not checked, so an
+ *   untyped payload such as `{ label: 2024, value: 2024 }` keeps rendering as it
+ *   did while its label was truthy.
+ * - `value` may be anything, `undefined` included, as long as the key exists —
+ *   own or inherited (`in` walks the prototype chain, as the old property read
+ *   did).
+ */
 export function isSelectOption<T>(value: unknown): value is MlvSelectOption<T> {
-  if (!value || typeof value !== 'object') return false;
+  if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<MlvSelectOption<T>>;
-  return !!candidate.label && !!candidate.value;
+  return candidate.label != null && 'value' in candidate;
 }
 
 /**

@@ -3493,3 +3493,134 @@ describe('MlvSelect — dropdown inline-axis fallback (#154)', () => {
     expect(box?.style.alignItems).toBe('flex-start');
   });
 });
+
+/**
+ * #300 — an option whose `value` is `false` / `0` / `''` / `null`, or whose
+ * `label` is `''`, used to fail `isSelectOption` (`!!label && !!value`), so the
+ * default `toOption` wrapped the whole object: the row read "[object Object]",
+ * a pick committed the object instead of the value, and a bound falsy value
+ * never matched its row.
+ *
+ * The trigger's own text is deliberately not asserted here: `displayValue`
+ * maps the committed *value* through `toOption` rather than the matched
+ * option, so it reads the raw value for every `{ label, value }` option,
+ * truthy or not. That is #290, a separate defect.
+ */
+describe('MlvSelect — options whose label or value is falsy (#300)', () => {
+  const FALSY_OPTIONS: MlvSelectOption<unknown>[] = [
+    { label: 'No', value: false },
+    { label: 'Yes', value: true },
+    { label: 'Zero', value: 0 },
+    { label: 'Empty', value: '' },
+    { label: 'None', value: null },
+    { label: '', value: 'blank' },
+  ];
+
+  @Component({
+    imports: [MlvSelect],
+    template: `<mlv-select
+      id="falsy"
+      label="Answer"
+      [options]="options"
+      [multiple]="multiple()"
+      [(value)]="value"
+    />`,
+  })
+  class HostComponent {
+    readonly select = viewChild.required(MlvSelect<unknown>);
+    readonly options = FALSY_OPTIONS;
+    readonly multiple = signal(false);
+    readonly value = signal<unknown>(null);
+  }
+
+  let fixture: ComponentFixture<HostComponent>;
+  let overlayContainer: OverlayContainer;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    overlayContainer = TestBed.inject(OverlayContainer);
+  });
+  afterEach(() => overlayContainer.ngOnDestroy());
+
+  const rows = () =>
+    Array.from(
+      overlayContainer
+        .getContainerElement()
+        .querySelectorAll<HTMLElement>('[role="option"]'),
+    );
+
+  async function settle(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  async function open(): Promise<void> {
+    fixture.componentInstance.select().openDropdown();
+    await settle();
+  }
+
+  it('renders every option by its own label, never "[object Object]"', async () => {
+    await open();
+    expect(rows().map((row) => row.textContent?.trim())).toEqual([
+      'No',
+      'Yes',
+      'Zero',
+      'Empty',
+      'None',
+      '',
+    ]);
+  });
+
+  it.each<[string, number, unknown]>([
+    ['No', 0, false],
+    ['Zero', 2, 0],
+    ['Empty', 3, ''],
+    ['the empty-label row', 5, 'blank'],
+  ])(
+    'commits the value of %s, not the option object',
+    async (_, index, expected) => {
+      await open();
+      rows()[index].click();
+      await settle();
+      expect(fixture.componentInstance.value()).toBe(expected);
+    },
+  );
+
+  // Single-select `null` is deliberately not asserted: picking the `null`
+  // option while the value is already `null` leaves the trigger reading
+  // "null" with the row ticked, while the same pick from any other value
+  // clears to the placeholder. Filed as a follow-up, not fixed here.
+  it('commits a null option value in multi-select', async () => {
+    fixture.componentInstance.multiple.set(true);
+    fixture.componentInstance.value.set([]);
+    await open();
+    rows()[4].click();
+    await settle();
+    expect(fixture.componentInstance.value()).toEqual([null]);
+  });
+
+  it.each<[unknown, string]>([
+    [false, 'No'],
+    [0, 'Zero'],
+    ['', 'Empty'],
+    ['blank', ''],
+  ])('matches a bound value of %j to its row', async (value, label) => {
+    fixture.componentInstance.value.set(value);
+    await open();
+    const selected = rows().filter(
+      (row) => row.getAttribute('aria-selected') === 'true',
+    );
+    expect(selected.map((row) => row.textContent?.trim())).toEqual([label]);
+    expect(
+      overlayContainer
+        .getContainerElement()
+        .querySelectorAll('.mlv-dropdown-panel__item-check').length,
+    ).toBe(1);
+  });
+});
