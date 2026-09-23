@@ -371,6 +371,96 @@ describe('MlvFileUpload — cover toolbar', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  describe('replacing the covered image', () => {
+    /** Builds a picked image `File`. */
+    function png(name: string): File {
+      return new File([new Blob(['x'], { type: 'image/png' })], name, {
+        type: 'image/png',
+      });
+    }
+
+    /** A `FileList`-shaped object; jsdom does not construct one. */
+    function fileList(files: File[]): FileList {
+      const list: Record<string | number, unknown> = {
+        length: files.length,
+        item: (index: number) => files[index] ?? null,
+        [Symbol.iterator]: files[Symbol.iterator].bind(files),
+      };
+      files.forEach((file, index) => (list[index] = file));
+      return list as unknown as FileList;
+    }
+
+    /** Simulates choosing `files` in the native picker the Replace action opens. */
+    function pick(files: File[]): void {
+      Object.defineProperty(fileInput(), 'files', {
+        value: fileList(files),
+        configurable: true,
+      });
+      fileInput().dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    }
+
+    /** Dispatches a real `drop` event on the covered zone. */
+    function drop(files: File[]): void {
+      const event = new Event('drop', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'dataTransfer', {
+        value: { files: fileList(files) },
+      });
+      hostEl.querySelector('.mlv-file-upload__zone')?.dispatchEvent(event);
+      fixture.detectChanges();
+    }
+
+    /** The `src` the cover image currently renders, or `null` without a cover. */
+    function coverSource(): string | null {
+      const image = hostEl.querySelector<HTMLImageElement>(
+        '.mlv-file-upload__cover-image',
+      );
+      return image?.getAttribute('src') ?? null;
+    }
+
+    /** Every URL handed to `URL.revokeObjectURL`, in call order. */
+    function revokedUrls(): string[] {
+      return vi
+        .mocked(URL.revokeObjectURL)
+        .mock.calls.map(([url]) => String(url));
+    }
+
+    beforeEach(() => {
+      let created = 0;
+      vi.spyOn(URL, 'createObjectURL').mockImplementation(
+        () => `blob:fake/${++created}`,
+      );
+      // The picker itself cannot open under jsdom; `pick()` stands in for it.
+      vi.spyOn(fileInput(), 'click').mockImplementation(() => undefined);
+      host.files.set([]);
+      fixture.detectChanges();
+    });
+
+    it('should replace the covered image with the file picked from Replace', () => {
+      pick([png('a.png')]);
+      expect(coverSource()).toBe('blob:fake/1');
+
+      replaceButton().click();
+      pick([png('b.png')]);
+
+      expect(host.files().map((file) => file.name)).toEqual(['b.png']);
+      expect(hostEl.querySelector('.mlv-file-upload__errors')).toBeNull();
+      expect(revokedUrls()).toEqual(['blob:fake/1']);
+      expect(coverSource()).toBe('blob:fake/2');
+    });
+
+    it('should replace the covered image with a file dropped on the zone', () => {
+      pick([png('a.png')]);
+
+      drop([png('b.png')]);
+
+      expect(host.files().map((file) => file.name)).toEqual(['b.png']);
+      expect(hostEl.querySelector('.mlv-file-upload__errors')).toBeNull();
+      expect(revokedUrls()).toEqual(['blob:fake/1']);
+      expect(coverSource()).toBe('blob:fake/2');
+    });
+  });
+
   it('should clear the value from the remove button', () => {
     removeButton().click();
     fixture.detectChanges();

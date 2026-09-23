@@ -39,6 +39,22 @@ function dispatchDrop(component: MlvFileUpload, files: File[]): void {
   component['_onDrop'](fakeEvent);
 }
 
+/**
+ * Simulates choosing `files` in the native picker: jsdom cannot populate an
+ * `<input type="file">`, so `files` is defined on the element and the real
+ * `change` event is dispatched through the template binding.
+ */
+function pickFiles(host: HTMLElement, files: File[]): void {
+  const input = host.querySelector(
+    '.mlv-file-upload__input',
+  ) as HTMLInputElement;
+  Object.defineProperty(input, 'files', {
+    value: buildFileList(files),
+    configurable: true,
+  });
+  input.dispatchEvent(new Event('change'));
+}
+
 function dispatchDragOver(component: MlvFileUpload): void {
   const fakeEvent = { preventDefault: vi.fn() } as unknown as DragEvent;
   component['_onDragOver'](fakeEvent);
@@ -478,29 +494,170 @@ describe('MlvFileUpload', () => {
       fixture.detectChanges();
     });
 
-    it('should reject a second file when one is already present', () => {
+    /** Names of the files the value holds, in order. */
+    function valueNames(): string[] {
+      return component.value().map((file) => file.name);
+    }
+
+    /** Text of every rendered validation error, in order. */
+    function errorTexts(): string[] {
+      return Array.from(
+        hostEl.querySelectorAll('.mlv-file-upload__error-item'),
+      ).map((item) => item.textContent?.trim() ?? '');
+    }
+
+    it('should replace the current file with a second dropped file', () => {
       dispatchDrop(component, [makeFile('first.txt')]);
       fixture.detectChanges();
 
-      // Second drop should produce a count error, not add a second item
       dispatchDrop(component, [makeFile('second.txt')]);
       fixture.detectChanges();
 
-      // The list should have only one entry
+      expect(valueNames()).toEqual(['second.txt']);
       const items = hostEl.querySelectorAll('.mlv-file-upload__list li');
       expect(items.length).toBe(1);
+      expect(items[0].textContent).toContain('second.txt');
+      expect(hostEl.querySelector('.mlv-file-upload__errors')).toBeNull();
     });
 
-    it('should show a count error when second file is dropped', () => {
+    it('should replace the current file with a second file picked from the browser dialog', () => {
+      pickFiles(hostEl, [makeFile('first.txt')]);
+      fixture.detectChanges();
+
+      pickFiles(hostEl, [makeFile('second.txt')]);
+      fixture.detectChanges();
+
+      expect(valueNames()).toEqual(['second.txt']);
+      expect(errorTexts()).toEqual([]);
+    });
+
+    it('should replace with the first accepted file of a multi-file drop and report the rest once', () => {
       dispatchDrop(component, [makeFile('a.txt')]);
       fixture.detectChanges();
 
-      dispatchDrop(component, [makeFile('b.txt')]);
+      dispatchDrop(component, [
+        makeFile('b.txt'),
+        makeFile('c.txt'),
+        makeFile('d.txt'),
+      ]);
       fixture.detectChanges();
 
-      const errors = hostEl.querySelector('.mlv-file-upload__errors');
-      expect(errors).toBeTruthy();
-      expect(errors?.textContent?.trim()).toBe('Only one file is allowed.');
+      expect(valueNames()).toEqual(['b.txt']);
+      expect(errorTexts()).toEqual(['Only one file is allowed.']);
+    });
+
+    it('should report the extra files of a multi-file drop once when nothing is selected yet', () => {
+      dispatchDrop(component, [
+        makeFile('a.txt'),
+        makeFile('b.txt'),
+        makeFile('c.txt'),
+      ]);
+      fixture.detectChanges();
+
+      expect(valueNames()).toEqual(['a.txt']);
+      expect(errorTexts()).toEqual(['Only one file is allowed.']);
+    });
+
+    it('should keep the current file when the replacement fails validation', () => {
+      fixture.componentRef.setInput('accept', '.txt');
+      fixture.detectChanges();
+      dispatchDrop(component, [makeFile('a.txt')]);
+      fixture.detectChanges();
+
+      dispatchDrop(component, [makeFile('b.pdf', 'application/pdf')]);
+      fixture.detectChanges();
+
+      expect(valueNames()).toEqual(['a.txt']);
+      expect(errorTexts()).toEqual(['File type not accepted: b.pdf']);
+    });
+
+    it('should clear the previous rejection once a replacement is accepted', () => {
+      fixture.componentRef.setInput('accept', '.txt');
+      fixture.detectChanges();
+      dispatchDrop(component, [makeFile('a.txt')]);
+      dispatchDrop(component, [makeFile('b.pdf', 'application/pdf')]);
+      fixture.detectChanges();
+      expect(errorTexts().length).toBe(1);
+
+      dispatchDrop(component, [makeFile('c.txt')]);
+      fixture.detectChanges();
+
+      expect(valueNames()).toEqual(['c.txt']);
+      expect(hostEl.querySelector('.mlv-file-upload__errors')).toBeNull();
+    });
+
+    it('should emit filesChange with only the replacement', () => {
+      const emitted: string[][] = [];
+      component.filesChange.subscribe((files) =>
+        emitted.push(files.map((file) => file.name)),
+      );
+
+      dispatchDrop(component, [makeFile('a.txt')]);
+      dispatchDrop(component, [makeFile('b.txt')]);
+
+      expect(emitted).toEqual([['a.txt'], ['b.txt']]);
+    });
+
+    describe('image previews', () => {
+      let revoked: string[];
+
+      beforeEach(() => {
+        let created = 0;
+        vi.spyOn(URL, 'createObjectURL').mockImplementation(
+          () => `blob:fake/${++created}`,
+        );
+        revoked = [];
+        vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url) => {
+          revoked.push(url);
+        });
+      });
+
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      it("should revoke the replaced file's preview URL and keep the replacement's", () => {
+        dispatchDrop(component, [makeFile('a.png', 'image/png')]);
+        dispatchDrop(component, [makeFile('b.png', 'image/png')]);
+        fixture.detectChanges();
+
+        expect(valueNames()).toEqual(['b.png']);
+        expect(component.value()[0].previewUrl).toBe('blob:fake/2');
+        expect(revoked).toEqual(['blob:fake/1']);
+      });
+
+      it('should revoke nothing when the replacement is rejected', () => {
+        fixture.componentRef.setInput('accept', 'image/png');
+        fixture.detectChanges();
+        dispatchDrop(component, [makeFile('a.png', 'image/png')]);
+        dispatchDrop(component, [makeFile('b.gif', 'image/gif')]);
+        fixture.detectChanges();
+
+        expect(valueNames()).toEqual(['a.png']);
+        expect(component.value()[0].previewUrl).toBe('blob:fake/1');
+        expect(revoked).toEqual([]);
+      });
+
+      // Pins "the first ACCEPTED file wins", not "the first file wins": a
+      // rejected file ahead of an accepted one in the same drop must not use
+      // up the batch's single slot. Counting by raw position in the batch
+      // would report `b.png` as a count error and keep `a.png`.
+      it('should replace with the first accepted file when a rejected file comes first in the drop', () => {
+        fixture.componentRef.setInput('accept', 'image/*');
+        fixture.detectChanges();
+        dispatchDrop(component, [makeFile('a.png', 'image/png')]);
+        fixture.detectChanges();
+
+        dispatchDrop(component, [
+          makeFile('bad.pdf', 'application/pdf'),
+          makeFile('b.png', 'image/png'),
+        ]);
+        fixture.detectChanges();
+
+        expect(valueNames()).toEqual(['b.png']);
+        expect(errorTexts()).toEqual(['File type not accepted: bad.pdf']);
+        expect(revoked).toEqual(['blob:fake/1']);
+      });
     });
 
     it('should accept a new file after removing the existing one', () => {
@@ -740,6 +897,25 @@ describe('MlvFileUpload — ReactiveFormsModule', () => {
       'mlv-file-upload',
     ) as HTMLElement;
     expect(mlvEl.classList).toContain('mlv-file-upload--disabled');
+  });
+
+  it('should write only the replacement into the FormControl in single-file mode', () => {
+    hostComp.multiple.set(false);
+    hostFixture.detectChanges();
+    const upload = hostFixture.debugElement.query(By.directive(MlvFileUpload))
+      .componentInstance as MlvFileUpload;
+
+    dispatchDrop(upload, [makeFile('a.txt')]);
+    hostFixture.detectChanges();
+    // Reset so the `dirty` assertion below can only pass through the replace.
+    hostComp.ctrl.markAsPristine();
+    dispatchDrop(upload, [makeFile('b.txt')]);
+    hostFixture.detectChanges();
+
+    expect((hostComp.ctrl.value ?? []).map((file) => file.name)).toEqual([
+      'b.txt',
+    ]);
+    expect(hostComp.ctrl.dirty).toBe(true);
   });
 
   it('should re-enable the component when FormControl is re-enabled', () => {
