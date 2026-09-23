@@ -66,12 +66,6 @@ export class MlvStep {
     transform: coerceBooleanProperty,
   });
 
-  /**
-   * 0-based index assigned by the parent `MlvStepper` after content init.
-   * @internal
-   */
-  _index = 0;
-
   /** @internal Template reference holding this step's projected content. */
   readonly contentTpl = viewChild.required<TemplateRef<unknown>>('contentTpl');
 }
