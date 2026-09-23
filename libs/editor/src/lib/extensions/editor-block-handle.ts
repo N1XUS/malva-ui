@@ -1,8 +1,14 @@
 import { Extension } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import type { EditorState } from '@tiptap/pm/state';
-import { NodeSelection, Plugin, TextSelection } from '@tiptap/pm/state';
+import {
+  NodeSelection,
+  Plugin,
+  PluginKey,
+  TextSelection,
+} from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 /** A completed block move, reported so the host can announce it. */
 export interface MlvEditorBlockMove {
@@ -67,14 +73,62 @@ const MLV_EDITOR_DROP_INDICATOR_CLASS = 'mlv-editor__drop-indicator';
 const MLV_EDITOR_DRAG_GHOST_CLASS = 'mlv-editor__drag-ghost';
 
 /**
- * @internal Marks the editor DOM while a block drag is in flight, so the
- * stylesheet — not this file — owns the partition's transition and its
- * reduced-motion fallback. JavaScript writes only the `transform` itself.
+ * @internal Marks the block currently on the cursor, dimmed in place. Applied
+ * as a node decoration, never written onto the element — see
+ * `MLV_EDITOR_DRAG_SOURCE_KEY`.
  */
-const MLV_EDITOR_DRAGGING_CLASS = 'ProseMirror--block-dragging';
-
-/** @internal Marks the block currently on the cursor, dimmed in place. */
 const MLV_EDITOR_DRAG_SOURCE_CLASS = 'mlv-editor__block--dragging';
+
+/**
+ * @internal Plugin state holding the dimmed source's node decoration: empty
+ * while no block drag is in flight, one `Decoration.node` while one is.
+ *
+ * The dim has to travel through ProseMirror's own render path because nothing
+ * written directly onto a block's element survives a drag. ProseMirror's
+ * `DOMObserver` treats an attribute mutation on any node it rendered — a class,
+ * an inline style — as an external DOM change, marks that node dirty and
+ * redraws it, **replacing** the element. Measured in Chromium, 22 of 25
+ * top-level elements were replaced by the first `dragover`: the dim class and
+ * the old partition's transforms all ended up on detached nodes, so none of it
+ * was ever visible. A decoration is part of the view description instead, so a
+ * redraw re-applies it rather than discarding it.
+ */
+const MLV_EDITOR_DRAG_SOURCE_KEY = new PluginKey<DecorationSet>(
+  'mlvEditorBlockDragSource',
+);
+
+/**
+ * @internal Clears a source dim a freshly built plugin view inherited rather
+ * than published.
+ *
+ * Plugin state outlives the plugin view. `EditorState.reconfigure` — what
+ * Tiptap's `registerPlugin` / `unregisterPlugin` call, e.g. when an AI stream
+ * or suggestion session settles — keeps every state field but destroys and
+ * rebuilds every plugin view. A reconfigure mid-drag therefore takes the view
+ * that owned the drag, and its `dragend` listener, while the dim stays in
+ * state; the replacing view never saw the drag, so without this the block
+ * would stay dimmed until the next document change.
+ *
+ * Deferred to a microtask because this runs from the view factory, inside
+ * ProseMirror's `updatePluginViews`, where a dispatch would re-enter
+ * `updateState` while the views are still being built. The old view's
+ * `destroy` cannot clear it either: it runs inside that same update, or inside
+ * `EditorView.destroy()` before `isDestroyed` turns true. Every other teardown
+ * discards the state (a destroyed editor) or the field (the plugin removed)
+ * along with the dim. The clear only drops the exact set inherited, so it can
+ * never undo a newer drag's dim.
+ */
+function clearInheritedDragSource(view: EditorView): void {
+  const inherited = MLV_EDITOR_DRAG_SOURCE_KEY.getState(view.state);
+  if (inherited === undefined || inherited === DecorationSet.empty) return;
+  queueMicrotask(() => {
+    if (view.isDestroyed) return;
+    if (MLV_EDITOR_DRAG_SOURCE_KEY.getState(view.state) !== inherited) return;
+    view.dispatch(
+      view.state.tr.setMeta(MLV_EDITOR_DRAG_SOURCE_KEY, DecorationSet.empty),
+    );
+  });
+}
 
 /** @internal Duration of the post-drop settle, matching `--mlv-duration-normal`. */
 const MLV_EDITOR_SETTLE_DURATION = 200;
@@ -356,52 +410,38 @@ function dropTargetIndex(
 }
 
 /**
- * @internal One top-level block measured into the drag snapshot: its box in the
- * mount's own unscaled space, paired with the element that rendered it.
- *
- * Carrying the element is what keeps everything after `dragstart` off
- * `topLevelIndexOfDom`. The partition has to decide, for every rendered child,
- * whether it sits at or after the insertion point; resolving that through the
- * index mapping per child would reintroduce the same quadratic walk the scan
- * pays, on every target change. Mapped once here, the rest is array work.
- */
-interface MlvEditorBlockSlot extends MlvEditorBlockHit {
-  /** The element ProseMirror rendered for this top-level child. */
-  readonly element: HTMLElement;
-}
-
-/**
  * @internal Measures every top-level block once, in the mount's unscaled space.
  *
- * Taken at `dragstart` and read by everything downstream, which is a
- * correctness requirement rather than an optimisation. The partition applies
- * `transform` to blocks, and a transform *is* reflected in
- * `getBoundingClientRect()`. Resolving the target from live rects after moving
- * them would feed this plugin's own output back into its input: the gap opens,
- * the pointer is now over a different block, the target changes, the gap moves.
- * A snapshot taken before any transform breaks that loop.
+ * Taken at `dragstart` and read by everything downstream — target resolution,
+ * the indicator's `top` and the settle's "before" — so no pointer event during
+ * the drag reads a block's rect. Mount-relative rather than viewport-relative
+ * so drag-autoscroll cannot invalidate it: only the mount's own rect is re-read
+ * per event, one layout read instead of one per block. Unscaled for the same
+ * reason the handle's `top` is: a CSS length on a child of the zoom layer
+ * applies in that layer's space, while `getBoundingClientRect()` reports scaled
+ * screen pixels.
  *
- * Mount-relative rather than viewport-relative so drag-autoscroll cannot
- * invalidate it — only the mount's own rect is re-read per event, one layout
- * read instead of one per block. Unscaled for the same reason the handle's
- * `top` is: a CSS length on a child of the zoom layer applies in that layer's
- * space, while `getBoundingClientRect()` reports scaled screen pixels.
+ * Boxes only, deliberately **no element**. ProseMirror replaces top-level
+ * elements during a drag (see `MLV_EDITOR_DRAG_SOURCE_KEY`), so an element
+ * captured here is detached by the first `dragover`, and anything written to it
+ * afterwards is written to nothing. Everything after `dragstart` that needs a
+ * live element resolves it from a document position instead.
  */
 function snapshotBlocks(
   view: EditorView,
   mount: HTMLElement,
-): MlvEditorBlockSlot[] {
+): MlvEditorBlockHit[] {
   const { top: mountTop, scale } = mountFrame(mount);
-  const slots: MlvEditorBlockSlot[] = [];
+  const slots: MlvEditorBlockHit[] = [];
   const children = view.dom.children;
 
   for (let i = 0; i < children.length; i += 1) {
     const element = children[i];
     // Same category check the hover path uses: a widget decoration owns no
-    // top-level node and must not occupy a slot, or the partition would shift
-    // it as though it were a block. Mapping every child once here is what the
+    // top-level node and must not occupy a slot, or its sliver of a box would
+    // decide a neighbour's drop side. Mapping every child once here is what the
     // drag pays instead of the hover path's deferred single mapping — the
-    // partition and the settle need a slot per block regardless.
+    // settle needs a box per block regardless.
     const index = topLevelIndexOfDom(view, element);
     if (index === null) continue;
     const rect = element.getBoundingClientRect();
@@ -409,7 +449,6 @@ function snapshotBlocks(
       index,
       top: (rect.top - mountTop) / scale,
       bottom: (rect.bottom - mountTop) / scale,
-      element: element as HTMLElement,
     });
   }
   return slots;
@@ -426,9 +465,9 @@ function snapshotBlocks(
  * needs no widget walk-back and reads no rect at all.
  */
 function slotAt(
-  slots: readonly MlvEditorBlockSlot[],
+  slots: readonly MlvEditorBlockHit[],
   y: number,
-): MlvEditorBlockSlot | null {
+): MlvEditorBlockHit | null {
   if (slots.length === 0) return null;
   if (y < slots[0].top) return slots[0];
 
@@ -449,11 +488,14 @@ function slotAt(
  * @internal Mount-space y of the boundary the given gap sits on, where `gap`
  * counts the `slots.length + 1` positions a block can be inserted at.
  *
- * Deliberately the *pre-partition* boundary: the indicator is offset into the
- * opened space by half the gap in CSS, so the gap's size stays a single token
- * and this never has to resolve a rem into pixels.
+ * An interior gap is the middle of the **natural** space between two blocks —
+ * the midpoint of the previous block's bottom and the next block's top — since
+ * nothing parts the blocks to preview a drop. The outer two sit on the first
+ * block's top and the last block's bottom. The stylesheet centres the line on
+ * this y (`translateY(-50%)`), so its own thickness never has to be resolved
+ * here.
  */
-function gapOffset(slots: readonly MlvEditorBlockSlot[], gap: number): number {
+function gapOffset(slots: readonly MlvEditorBlockHit[], gap: number): number {
   if (gap <= 0) return slots[0].top;
   if (gap >= slots.length) return slots[slots.length - 1].bottom;
   return (slots[gap - 1].bottom + slots[gap].top) / 2;
@@ -678,8 +720,29 @@ export const MlvEditorBlockHandle =
       const editor = this.editor;
 
       return [
-        new Plugin({
+        new Plugin<DecorationSet>({
+          key: MLV_EDITOR_DRAG_SOURCE_KEY,
+          state: {
+            init: () => DecorationSet.empty,
+            // Set and cleared only through a meta, from the plugin view (and
+            // `clearInheritedDragSource`). A document change also ends the
+            // drag (see `update` below), so the decoration is dropped in that
+            // same transaction rather than mapped onto a block that may no
+            // longer be the one on the pointer. That transaction therefore
+            // never renders a set built against the previous document, and
+            // `update`'s `endDrag` finds nothing left to dispatch.
+            apply: (tr, decorations) =>
+              tr.getMeta(MLV_EDITOR_DRAG_SOURCE_KEY) ??
+              (tr.docChanged ? DecorationSet.empty : decorations),
+          },
+          props: {
+            decorations: (state) => MLV_EDITOR_DRAG_SOURCE_KEY.getState(state),
+          },
           view: (view) => {
+            // First, before the mount check: a rebuilt view with no mount
+            // still inherits whatever dim its predecessor left in state.
+            clearInheritedDragSource(view);
+
             const mount = options.mount();
             if (!mount) return { destroy: () => undefined };
 
@@ -758,16 +821,13 @@ export const MlvEditorBlockHandle =
             /** Top-level index being dragged, or null when no drag is active. */
             let source: number | null = null;
 
-            /** The dimmed element the drag started from. */
-            let sourceElement: HTMLElement | null = null;
-
             /** Geometry measured once at `dragstart`; empty while no drag runs. */
-            let slots: MlvEditorBlockSlot[] = [];
+            let slots: MlvEditorBlockHit[] = [];
 
             /** The off-screen element handed to `setDragImage`. */
             let ghost: HTMLElement | null = null;
 
-            /** Gap the partition is currently opened at, or null when closed. */
+            /** Gap the indicator currently marks, or null while it is retracted. */
             let gap: number | null = null;
 
             /**
@@ -783,48 +843,67 @@ export const MlvEditorBlockHandle =
              * Gap a resolved target index sits on. `dropTargetIndex` folds the
              * `slots.length + 1` gaps onto `moveBlock`'s pre-move convention,
              * where `to` names the block the moved one ends up after when
-             * moving down; this is that fold inverted, so the previewed space
+             * moving down; this is that fold inverted, so the previewed line
              * and the committed move come from one resolved index.
              */
             const gapForTarget = (to: number, from: number): number =>
               to <= from ? to : to + 1;
 
-            /** Opens the partition at `next`, or closes it when null. */
+            /**
+             * Moves the indicator to `next`, or retracts it when null. Only
+             * the mount-owned line is written: nothing parts the blocks, so no
+             * element ProseMirror rendered is touched during a drag.
+             */
             const setGap = (next: number | null) => {
               if (gap === next) return;
               gap = next;
-
-              for (const slot of slots) {
-                // The gap is a token rather than a number here, so the size
-                // stays owned by the stylesheet.
-                slot.element.style.transform =
-                  next !== null && slot.index >= next
-                    ? 'translateY(var(--mlv-editor-drop-gap))'
-                    : '';
-              }
 
               if (next === null) {
                 indicator.setAttribute('data-visible', 'false');
                 return;
               }
-              // The *pre-partition* boundary: the stylesheet offsets the line
-              // into the opened space by half the gap, so this never has to
-              // resolve the token into pixels.
               indicator.style.top = `${gapOffset(slots, next)}px`;
               indicator.setAttribute('data-visible', 'true');
             };
 
+            /**
+             * Publishes the source's dim, or clears it with `null`, through
+             * plugin state. Skipped when nothing would change, so the several
+             * paths that end one drag (`drop`, then `dragend`) dispatch once.
+             */
+            const setSourceDecoration = (from: number | null) => {
+              const current = MLV_EDITOR_DRAG_SOURCE_KEY.getState(view.state);
+              if (from === null && current === DecorationSet.empty) return;
+              const node = from === null ? null : view.state.doc.nodeAt(from);
+              const next =
+                from === null || node === null
+                  ? DecorationSet.empty
+                  : DecorationSet.create(view.state.doc, [
+                      Decoration.node(from, from + node.nodeSize, {
+                        class: MLV_EDITOR_DRAG_SOURCE_CLASS,
+                      }),
+                    ]);
+              // A meta-only transaction: no step, so nothing for history to
+              // record (prosemirror-history returns its state unchanged for a
+              // step-less transaction, so no `addToHistory` flag is needed)
+              // and no model emission. `update` below compares documents by
+              // identity, so this does not read as a document change and end
+              // the drag.
+              view.dispatch(
+                view.state.tr.setMeta(MLV_EDITOR_DRAG_SOURCE_KEY, next),
+              );
+            };
+
             const endDrag = () => {
-              for (const slot of slots) slot.element.style.transform = '';
               indicator.setAttribute('data-visible', 'false');
-              view.dom.classList.remove(MLV_EDITOR_DRAGGING_CLASS);
-              sourceElement?.classList.remove(MLV_EDITOR_DRAG_SOURCE_CLASS);
               ghost?.remove();
               slots = [];
               gap = null;
               source = null;
-              sourceElement = null;
               ghost = null;
+              // Last, once the closure no longer records a drag: the dispatch
+              // re-enters `update`, which must not see one still in flight.
+              setSourceDecoration(null);
             };
 
             /** Target index for the pointer, or null when the drop is a no-op. */
@@ -850,11 +929,15 @@ export const MlvEditorBlockHandle =
              *
              * Only the span between the two indices moved, so the walk is
              * bounded by the distance dragged rather than by document length.
+             * Each element is resolved live through `nodeDOM` after the move,
+             * never taken from the snapshot: ProseMirror has replaced most of
+             * the elements measured at `dragstart` by now.
              *
-             * Uses the Web Animations API rather than a transition: nothing has
-             * to force a reflow between setting and clearing the offset, the
-             * animation cleans itself up, and it never collides with the inline
-             * `transform` the partition writes.
+             * Uses the Web Animations API rather than a transition or an inline
+             * `transform`: nothing has to force a reflow between setting and
+             * clearing the offset, the animation cleans itself up, and it
+             * writes no attribute — an inline style is a DOM mutation
+             * ProseMirror would answer by redrawing the block mid-animation.
              */
             const settle = (
               tops: readonly number[],
@@ -908,13 +991,21 @@ export const MlvEditorBlockHandle =
               }
 
               const measured = snapshotBlocks(view, mount);
-              const slot = measured.find(
-                (candidate) => candidate.index === index,
-              );
+              const from =
+                index < view.state.doc.childCount
+                  ? childStart(view.state.doc, index)
+                  : null;
+              // Resolved now, from the document position, and used only in
+              // this handler — see `snapshotBlocks` for why no element is kept.
+              const element = from === null ? null : view.nodeDOM(from);
               // The hovered index outliving its block means the snapshot and
               // `data-index` disagree; refusing is the same answer as a drag
               // that never hovered.
-              if (!slot) {
+              if (
+                from === null ||
+                !(element instanceof HTMLElement) ||
+                !measured.some((candidate) => candidate.index === index)
+              ) {
                 event.preventDefault();
                 return;
               }
@@ -937,18 +1028,22 @@ export const MlvEditorBlockHandle =
               // Cloned *before* the source is dimmed: the clone carries
               // resolved computed styles, so dimming first would bake the
               // reduced opacity into the drag image.
-              ghost = createGhostElement(slot.element, mountFrame(mount).scale);
+              ghost = createGhostElement(element, mountFrame(mount).scale);
+              // The pointer rides the image's inline-start edge: its right
+              // edge in RTL. The offset is in CSS pixels against the image as
+              // painted, and the wrapper carries the editor zoom as CSS
+              // `zoom`, which `offsetWidth` leaves out (measured 475 against
+              // 594 at 125%): only the rendered width puts the pointer on
+              // that edge.
               event.dataTransfer?.setDragImage(
                 ghost,
                 getComputedStyle(view.dom).direction === 'rtl'
-                  ? ghost.offsetWidth
+                  ? Math.round(ghost.getBoundingClientRect().width)
                   : 0,
                 0,
               );
 
-              sourceElement = slot.element;
-              sourceElement.classList.add(MLV_EDITOR_DRAG_SOURCE_CLASS);
-              view.dom.classList.add(MLV_EDITOR_DRAGGING_CLASS);
+              setSourceDecoration(from);
             };
 
             const onDragOver = (event: DragEvent) => {
@@ -989,8 +1084,8 @@ export const MlvEditorBlockHandle =
             };
 
             const onDragLeave = (event: DragEvent) => {
-              // Only the preview goes — the partition closes and the line
-              // retracts. The drag itself is still in flight, and re-entering
+              // Only the line retracts; the source stays dimmed. The drag
+              // itself is still in flight, and re-entering
               // the editor must resolve a target again rather than leave the
               // user dragging something that can no longer be dropped.
               if (source !== null && leavesMount(event)) setGap(null);
@@ -1005,10 +1100,9 @@ export const MlvEditorBlockHandle =
               // Resolved from the drop's own coordinates rather than the last
               // `dragover`, so the release position always wins.
               const to = targetAt(event.clientY);
-              // Captured before `endDrag` discards the snapshot. These are the
-              // pre-partition tops, which is exactly the FLIP's "before": the
-              // partition's transforms are cleared by `endDrag` in the same
-              // turn, so nothing the user saw shifted is measured as movement.
+              // Captured before `endDrag` discards the snapshot. Nothing moves
+              // a block during the drag, so the `dragstart` tops are exactly
+              // the FLIP's "before".
               const tops = slots.map((slot) => slot.top);
 
               endDrag();
@@ -1079,6 +1173,8 @@ export const MlvEditorBlockHandle =
                 // selection-only transaction carries the same reference — so
                 // this is exactly `docChanged` at O(1), where a structural
                 // compare would walk the whole document on every keystroke.
+                // The same change has already emptied the source decoration in
+                // plugin state (`apply`), so this `endDrag` dispatches nothing.
                 if (previous.doc !== updated.state.doc && source !== null) {
                   endDrag();
                 }
@@ -1089,7 +1185,9 @@ export const MlvEditorBlockHandle =
                 // releasing the button after the revocation cannot reorder
                 // anything. Previously the line went through `decorations`,
                 // which read `enabled()` itself; a mount-owned element has to
-                // be told.
+                // be told. Clearing the dim dispatches from inside `update`;
+                // that re-entry finds no drag recorded and returns, so it runs
+                // once.
                 if (source !== null) endDrag();
               },
               destroy: () => {
@@ -1106,6 +1204,8 @@ export const MlvEditorBlockHandle =
                 // A drag interrupted by teardown leaves its drag image on
                 // `document.body`, outside everything else this removes.
                 ghost?.remove();
+                // The dim stays in plugin state, where this cannot dispatch;
+                // see `clearInheritedDragSource`.
               },
             };
           },

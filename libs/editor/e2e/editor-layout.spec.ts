@@ -317,11 +317,9 @@ test.describe('Editor layout [/editor]', () => {
     await scope.getByRole('button', { name: '125%' }).click();
     const editor = scope.locator('mlv-editor');
     const first = editor.locator('.ProseMirror > *').first();
-    // The source's on-screen height, read before the drag. The drag's own
-    // `mlv-editor__block--dragging` class cannot be the handle for it: in a
-    // real browser ProseMirror re-renders the block on that class mutation
-    // (see the follow-up in the #416 report), so the element carrying it is
-    // detached before the first `dragover`.
+    // The source's on-screen height, read before the drag: ProseMirror
+    // replaces top-level elements while a block is dragged, so a locator
+    // resolved now may name a detached element by the first `dragover`.
     const sourceHeight = (await first.boundingBox())?.height ?? 0;
     expect(sourceHeight).toBeGreaterThan(0);
     // Records one measurement at the first `dragover`, while the ghost exists;
@@ -394,10 +392,10 @@ test.describe('Editor layout [/editor]', () => {
         ).__mlvDragProbe,
     );
     expect(probe).toBeTruthy();
-    // The ghost wrapper is `scale: 0.85` (editor.scss drag-ghost), so a clone
-    // at the source's on-screen size reads 0.85. About 1.06 (1.25 × 0.85)
-    // would mean the clone carried the ancestor zoom twice.
-    expect((probe?.cloneHeight ?? 0) / sourceHeight).toBeCloseTo(0.85, 1);
+    // The ghost is drawn at the block's own size (editor.scss drag-ghost has
+    // no scale), so a clone at the source's on-screen size reads 1. About
+    // 1.25 would mean the clone carried the ancestor zoom twice.
+    expect((probe?.cloneHeight ?? 0) / sourceHeight).toBeCloseTo(1, 1);
     expect(probe?.barriers).toEqual([]);
   });
 

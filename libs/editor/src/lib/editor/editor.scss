@@ -12,11 +12,6 @@
     // the earlier-emitted block.
     --mlv-editor-gutter: var(--mlv-spacing-6);
     --mlv-editor-measure: 45rem;
-    // Space the blocks part by to preview a drop. Fixed rather than derived from
-    // the dragged block, so a thirty-row table opens the same gap a one-line
-    // paragraph does and the page never lurches by a screen height. The plugin
-    // writes this token into a `translateY` and never resolves it to pixels.
-    --mlv-editor-drop-gap: 1.5rem;
     // Block size of the floating toolbar pill. The built-in row's floor is the
     // separator's `--mlv-height-s` (taller than the `tight` 28px buttons every
     // built-in control pins), plus the root's block padding (the block half of
@@ -247,9 +242,9 @@
     // outside `view.dom` also puts it further out of reach of every serializer
     // than a decoration ever was.
     //
-    // The plugin sets `top` to the *pre-partition* boundary between two blocks;
-    // the translate below drops it into the middle of the space the partition
-    // opens, so the gap's size stays owned by the token alone.
+    // The plugin sets `top` to the middle of the natural space between two
+    // blocks — nothing parts them to preview a drop — and the translate below
+    // centres the rule on that y, so its thickness is never resolved in script.
     &__drop-indicator {
       position: absolute;
       inset-inline: calc(
@@ -265,11 +260,7 @@
       background-color: var(--mlv-border-focus);
       opacity: 0;
       pointer-events: none;
-      transform: translateY(
-        calc(
-          var(--mlv-editor-drop-gap) / 2 - var(--mlv-stroke-width-medium) / 2
-        )
-      );
+      transform: translateY(-50%);
       transition:
         top var(--mlv-duration-normal) var(--mlv-ease-out),
         opacity var(--mlv-duration-fast) var(--mlv-ease-default);
@@ -280,16 +271,10 @@
     }
 
     // The block on the cursor stays in place, dimmed, so its origin is never in
-    // doubt. Its own space is kept — the partition opens a separate gap.
+    // doubt. Applied as a ProseMirror node decoration, which survives the
+    // redraws a drag triggers; nothing reflows around it.
     .#{$block}__block--dragging {
       opacity: var(--mlv-disabled-opacity);
-    }
-
-    // Only present while a block drag is in flight, so the transition cannot
-    // catch ordinary editing: every layout change during typing would otherwise
-    // animate.
-    .ProseMirror--block-dragging > * {
-      transition: transform var(--mlv-duration-normal) var(--mlv-ease-out);
     }
 
     &__status {
@@ -1011,7 +996,6 @@
       .mlv-form-control-wrapper__control-container,
       &__block-handle,
       &__drop-indicator,
-      .ProseMirror--block-dragging > *,
       .ProseMirror a {
         transition-duration: var(--mlv-duration-instant);
       }
@@ -1034,20 +1018,20 @@
   // computed styles are the source's own, unzoomed values, and engines honour a
   // `transform` on a drag image inconsistently, so the scale rides on the
   // wrapper as `zoom`.
+  //
+  // A translucent, accent-tinted copy of the block — no card, no shadow — drawn
+  // at its own size. No `transform` or `scale` either: the plugin anchors the
+  // pointer to the wrapper's inline-start edge through `setDragImage`, and a
+  // scale about any fixed origin would pull one of the two edges off it.
   .#{$block}__drag-ghost {
     max-block-size: 12rem;
     padding: var(--mlv-spacing-2);
     overflow: hidden;
     border-radius: var(--mlv-radius-m);
-    background-color: var(--mlv-background-raised);
-    box-shadow: var(--mlv-shadow-floating);
+    background-color: var(--mlv-background-accent-1-pale);
     opacity: 0.9;
     // A tall block is cut rather than allowed to produce a drag image larger than
     // the viewport; the fade says the cut is a cut.
     mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-    scale: 0.85;
-    // The scale must not move the image away from the cursor, which the browser
-    // anchors to the element's own top-left.
-    transform-origin: top left;
   }
 }

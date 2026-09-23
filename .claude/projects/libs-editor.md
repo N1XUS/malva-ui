@@ -156,9 +156,11 @@ height: 8 }` defaults and erases them. Every drag then computes
   `tabindex`, and is never a document node, so it cannot reach any serialized
   representation and the content region stays the single `role="textbox"` tab
   stop. Dragging that handle reorders the block through the same `moveBlock`
-  command, previewed by a lifted copy of the block on the cursor, a
-  `.mlv-editor__drop-indicator` line, and the neighbouring blocks parting to
-  open the space it would land in — none of them document nodes. `destroy()`
+  command, previewed by an accent-tinted translucent copy of the block on the
+  cursor, the source block dimmed in place (a node decoration), and a
+  `.mlv-editor__drop-indicator` line in the natural space between the two
+  blocks it would land between — no block moves until the drop, and none of
+  these is a document node. `destroy()`
   removes both mount elements, the drag image, both pointer listeners, the
   mount drag listeners, and the `document` keydown listener.
 - `mlvEditorMarkdownExtensions()` creates the official beta Markdown
@@ -1238,7 +1240,25 @@ drop silently reordered a block they never grabbed — one undo step, no error.
 Both are dropped rather than mapped, because a source block that was itself
 deleted has no mapped index.
 
-The plugin carries no ProseMirror state at all. The drop indicator is a second
+The plugin's only ProseMirror state is the dimmed source: a `DecorationSet`
+under `MLV_EDITOR_DRAG_SOURCE_KEY`, empty while no drag runs and one
+`Decoration.node` (class `mlv-editor__block--dragging`) while one does. The
+plugin view sets and clears it through meta-only transactions — no step, so
+nothing for history to record and no model emission, though `MlvEditor`'s
+`transaction` output does see them — and `apply` drops it on any document
+change, which ends the drag anyway, in that same transaction (so `update`'s
+`endDrag` has nothing left to dispatch). It is state rather than a class on
+the element because **nothing the plugin writes onto an element ProseMirror
+rendered survives a drag**: `DOMObserver` reads an attribute mutation on such
+an element (a class, an inline style) as an external DOM change, marks the node
+dirty and redraws it, replacing the element. Measured in Chromium (#482), 22 of
+25 top-level elements were replaced by the first `dragover`, so the old direct
+dim class and the old partition's transforms all sat on detached nodes and none
+of it was visible. A decoration is part of the view description, so a redraw
+re-applies it. The same rule forbids every other write to a block during a
+drag: the settle animates through `Element.animate`, which writes no attribute.
+
+The drop indicator is a second
 mount-owned element beside the handle, not a `Decoration.widget`: a widget at a
 new position is a _different_ decoration, so ProseMirror destroys and rebuilds
 its DOM on every move, and an element in normal flow has no `top` to
@@ -1250,32 +1270,33 @@ fires.
 
 ### Drag snapshot
 
-`dragstart` measures every top-level block once into `{ index, top, bottom,
-element }`, mount-relative and in the layer's unscaled space. Target
-resolution, the indicator's `top`, the partition, and the settle's "before"
-all read that array; none reads a live rect during the drag.
+`dragstart` measures every top-level block once into `{ index, top, bottom }`,
+mount-relative and in the layer's unscaled space. Target resolution, the
+indicator's `top` and the settle's "before" all read that array; none reads a
+live rect during the drag. The boxes stay valid because nothing moves a block
+while one is dragged, the drag survives autoscroll because only the mount's own
+rect is re-read per event, and target resolution reads no block rect at all.
+`slotAt` is the same "last block starting at or above the pointer" search the
+hover path runs, minus the widget walk-back the snapshot has already resolved
+away.
 
-This is a correctness requirement, not an optimisation. The partition applies
-`transform` to blocks, and a transform is reflected in
-`getBoundingClientRect()`. Resolving the target from live rects after moving
-them feeds the plugin's own output back into its input: the gap opens, the
-pointer is now over a different block, the target changes, the gap moves —
-oscillation on every pointer move. Two things follow for free: the drag
-survives autoscroll, because only the mount's own rect is re-read per event;
-and target resolution reads no rect at all, since the snapshot already holds
-every box. `slotAt` is the same "last block starting at or above the pointer"
-search the hover path runs, minus the widget walk-back the snapshot has already
-resolved away.
+The snapshot holds **no element**, deliberately: ProseMirror replaces top-level
+elements during a drag (see the plugin-state paragraph above), so an element
+captured at `dragstart` is detached by the first `dragover`. Everything after
+`dragstart` that needs a live element resolves it from a document position
+through `view.nodeDOM` — the ghost's source inside the `dragstart` handler
+itself, and each settled block after the move.
 
-Carrying the element is what keeps the partition off `topLevelIndexOfDom`;
-deciding per child whether it sits at or after the insertion point through the
-index mapping would reintroduce the same quadratic walk on every target change.
-
-### Ghost, partition, and settle
+### Ghost, dim, and settle
 
 The drag image is a deep clone of the source element with every computed style
 written into `style.cssText`, wrapped at `position: absolute; top: -10000px`
-on `document.body` and handed to `setDragImage(wrapper, ltr ? 0 : width, 0)`.
+on `document.body` and handed to `setDragImage(wrapper, ltr ? 0 : width, 0)`,
+where `width` is the wrapper's **rendered** width
+(`getBoundingClientRect().width`): the offset is resolved against the image as
+painted, and `offsetWidth` leaves out the wrapper's own CSS `zoom` (475 against
+594 at 125%), which put the RTL anchor a fifth of the image's width
+(1 − 1/1.25) inside it.
 Inlining the styles is what lets it render correctly where no `.mlv-editor`
 ancestor exists; the technique is adapted from
 `@tiptap/extension-drag-handle`'s `cloneElement`/`dragHandler`. That package is
@@ -1292,13 +1313,25 @@ clone is taken **before** the source is dimmed, or the reduced opacity would be
 baked into the image. A `dragstart` arriving while a wrapper is already
 recorded removes it first; nothing else on `document.body` reaches it.
 
-The partition writes `translateY(var(--mlv-editor-drop-gap))` inline on every
-snapshot slot at or after the insertion point — the token, never a resolved
-pixel value, so the stylesheet alone owns the distance. The transition lives on
-`.ProseMirror--block-dragging > *`, a class present only while a drag is in
-flight, because otherwise every layout change during ordinary typing would
-animate. Inline styles are cleared on drop, `dragend`, Escape, and the
-`enabled()` revocation.
+`.mlv-editor__drag-ghost` follows Tiptap's Notion-like drag (owner ruling,
+#482): a translucent copy of the block on `--mlv-background-accent-1-pale` at
+`opacity: 0.9`, `--mlv-radius-m`, capped at `12rem` with a bottom fade — no
+card surface and no shadow. It is drawn at the block's own size, with no
+`scale` or `transform`: the pointer is anchored to the wrapper's inline-start
+edge through `setDragImage`, and a scale about a fixed physical origin pulls
+one of the two edges off it (the old `scale: 0.85` about `top left` put the
+RTL anchor 91px inside the image). The ghost is styled by the document's theme,
+not by an editor-scoped theme island, since it is rasterized from
+`document.body`.
+
+The source stays in place at `--mlv-disabled-opacity` through the node
+decoration; nothing parts the blocks, so the page never reflows under the
+pointer. The decoration is cleared on drop, `dragend`, Escape, a document
+change, and the `enabled()` revocation — the last dispatches from inside the
+plugin view's `update`, and that re-entry finds no drag recorded and returns.
+A plugin reconfigure mid-drag (`registerPlugin` / `unregisterPlugin`) keeps the
+state but rebuilds the view, so the new view clears a dim it inherited, on a
+microtask guarded by `!view.isDestroyed` (`clearInheritedDragSource`).
 
 The settle is a FLIP run once per drop through `Element.animate`, so nothing
 forces a reflow between setting and clearing the offset and the animation
@@ -1313,9 +1346,12 @@ being a preview rather than motion.
 `.mlv-editor__drop-indicator` is `--mlv-stroke-width-medium` thick in
 `--mlv-border-focus` and absolutely positioned in the mount, so it contributes
 no layout and the document below cannot jitter during a drag. The plugin sets
-its `top` to the _pre-partition_ boundary between two blocks and the stylesheet
-translates it half a gap down, so `--mlv-editor-drop-gap` never has to be
-resolved into pixels in JavaScript. It hides under `@media print`, and its
+its `top` to the middle of the natural space between two blocks (the outer two
+gaps sit on the first block's top and the last block's bottom), and the
+stylesheet's `translateY(-50%)` centres the rule's own thickness on it. The
+former `--mlv-editor-drop-gap` token went with the partition in #482; it was
+never documented as an override point, so its removal is not breaking under
+VERSIONING §2. It hides under `@media print`, and its
 `top` and opacity transitions collapse to `--mlv-duration-instant` under
 `prefers-reduced-motion`.
 
@@ -1535,23 +1571,49 @@ The ghost and the motion are covered from the same stubbed boxes: the drag
 image's off-screen wrapper, its `setDragImage` offsets, the inlined computed
 styles on the clone, the clone being taken before the source is dimmed, removal
 on `dragend` and on teardown, and no wrapper stranded by a second `dragstart`.
-The oscillation guard is asserted by re-stubbing every block lower between two
-`dragover` events at one pointer position and requiring the resolved gap not to
-move — live rects would resolve a different one. The partition is asserted by
-which children carry a transform and that every abort path clears them, and the
-settle by the keyframes handed to a stubbed `Element.animate`, including that
+The dim is asserted on the view's **live** children: it survives a real
+ProseMirror redraw (an attribute written onto the source and
+`domObserver.flush()`, with the element asserted replaced first — reverting to
+a class written on the element turns that case red), it clears on `dragend`,
+drop, Escape, a document change and revocation, a document change clears it in
+its own dispatch (a spy on `view.dispatch` counts one), a `registerPlugin`
+reconfigure mid-drag leaves no dim once the rebuilt view's microtask has run,
+and an aborted drag leaves the document identical and nothing to undo. Snapshot resolution is asserted by
+re-stubbing every block lower between two `dragover` events at one pointer
+position and requiring the resolved gap not to move — live rects would resolve
+a different one. Previewing a gap is asserted to leave every block without an
+inline style, and the settle by the keyframes handed to a stubbed
+`Element.animate` on connected elements, including that
 `prefers-reduced-motion` produces none while the reorder still happens. That
 last pair stubs `getBoundingClientRect` on `Element.prototype` rather than per
 element, because `moveBlock` deletes and reinserts the dragged node and a spy
 attached to the old element would never be asked.
 
+`libs/editor/e2e/editor-block-drag.spec.ts` drags a block with the real mouse
+in Chromium, LTR and under a scoped `dir="rtl"` (docs `/editor` example 12),
+and asserts mid-drag on the live DOM: the source carries the dim class and a
+dimmed computed opacity, every top-level block keeps the host-relative box it
+had before the button went down (the "no reflow" guard, whatever the mechanism —
+a padding added through the dim class turns it red), the indicator's vertical
+centre lies inside the natural gap between the two target blocks, the ghost is
+tinted with no shadow, and the `setDragImage` anchor sits on the image's
+inline-start edge; then, after the drop, the order and that no drag class,
+ghost or visible indicator remains. A second case per direction drags at 125%
+zoom (example 8) and requires the anchor on the image's **rendered**
+inline-start edge, with the rendered width asserted wider than `offsetWidth` so
+the case cannot pass where the two agree. The first case was red on the
+pre-#482 code for the dim, the gap and the ghost; the zoom case was red in RTL
+while the offset was still `offsetWidth` (anchor 180px inside the image's right
+edge).
+
 A separate describe compiles `editor.scss` through Sass and pins the handle's
 `inset-inline-start` expression, then checks its arithmetic against an
 independent model of the centred column at all three `contentWidth` values, so
 the handle cannot drift away from the text again. It also pins the drop
-indicator's out-of-flow positioning and half-gap offset, the gap token, the
-drag-in-flight scope of the partition transition, its reduced-motion entries,
-the drag image's cap and top-left transform origin, and the print hide list.
+indicator's out-of-flow positioning and `translateY(-50%)` centring, the
+absence of any partition rule or gap token, the indicator's reduced-motion
+entry, the dim's opacity, the drag image's cap, tint and lack of shadow or
+scale, and the print hide list.
 
 `editor-toolbar.spec.ts` covers group order, labels, roving focus, active toggle
 semantics, template replacement and extension points, plus readonly/disabled
