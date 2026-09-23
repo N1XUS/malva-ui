@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, viewChildren } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
@@ -127,5 +127,102 @@ describe('MlvAvatar accessibility', () => {
     expect(anonymous.getAttribute('aria-label')).toBeNull();
 
     await expectNoAxeViolations(host);
+  });
+});
+
+/**
+ * #302: the default avatar used to paint `--mlv-text-secondary` inline under
+ * 0.8-opacity `--mlv-palette-neutral-800` initials (1.72:1 in light). With no
+ * `color`, nothing is bound inline and `avatar.scss`'s theme pair
+ * (`--mlv-background-neutral-1` / `--mlv-text-primary`) applies — measured by
+ * `libs/styles/src/lib/tone-contrast.spec.mjs`. A `color` tint is theme-
+ * independent, so it carries a theme-independent foreground, measured over the
+ * pipe's whole palette in `color-from-text.pipe.spec.ts`.
+ *
+ * The bound values are read off the component rather than off
+ * `element.style`: jsdom's `cssstyle` drops any `var()` value on
+ * `background-color` / `color` (so an inline `var(--mlv-text-secondary)` reads
+ * back as `''` and the old defect would pass a DOM assertion) and mis-parses
+ * `hsl()`. The values are strings, never the instance, inside `expect`.
+ *
+ * The raw `style` attribute is no way round that: cssstyle serialises the
+ * attribute from the same parsed declarations, so a tinted `__visual` reads
+ * `background-color: rgb(173, 173, 173);` with no `color` at all. What reaches
+ * the DOM is therefore recorded at the `CSSStyleDeclaration` `color` setter —
+ * Angular writes a dash-free style binding through `el.style.color = value` —
+ * so dropping the template's `[style.color]` binding goes red even though the
+ * component signal still holds the value.
+ */
+describe('MlvAvatar colour pair', () => {
+  @Component({
+    imports: [MlvAvatar],
+    template: `
+      <mlv-avatar name="Ann Lee" />
+      <mlv-avatar name="Ann Lee" color="hsl(253, 60%, 80%)" />
+    `,
+  })
+  class AvatarColourHost {
+    readonly avatars = viewChildren(MlvAvatar);
+  }
+
+  /** The inline background and foreground an avatar binds, as strings. */
+  const boundPair = (avatar: MlvAvatar): string =>
+    `${String(avatar['_backgroundColor']())} / ${String(avatar['_foregroundColor']())}`;
+
+  let avatars: readonly MlvAvatar[];
+
+  /** Every inline `color` written, keyed by the declaration it was written to. */
+  let colourWrites: Map<CSSStyleDeclaration, string[]>;
+
+  /** Each avatar's `.mlv-avatar__visual`, in template order. */
+  let visuals: HTMLElement[];
+
+  beforeEach(async () => {
+    colourWrites = new Map();
+    const native = Object.getOwnPropertyDescriptor(
+      CSSStyleDeclaration.prototype,
+      'color',
+    );
+    vi.spyOn(CSSStyleDeclaration.prototype, 'color', 'set').mockImplementation(
+      function (this: CSSStyleDeclaration, value: string) {
+        colourWrites.set(this, [...(colourWrites.get(this) ?? []), value]);
+        native?.set?.call(this, value);
+      },
+    );
+    await TestBed.configureTestingModule({
+      imports: [AvatarColourHost],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(AvatarColourHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    avatars = fixture.componentInstance.avatars();
+    visuals = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
+        '.mlv-avatar__visual',
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** The inline `color` values written to one `__visual`, joined. */
+  const writtenColour = (visual: HTMLElement): string =>
+    (colourWrites.get(visual.style) ?? []).join(' | ');
+
+  it('binds no inline colours on an un-tinted avatar', () => {
+    expect(boundPair(avatars[0])).toBe('null / null');
+    expect(writtenColour(visuals[0])).toBe('');
+  });
+
+  it('binds the tint and a fixed dark foreground on a tinted avatar', () => {
+    expect(boundPair(avatars[1])).toBe(
+      'hsl(253, 60%, 80%) / var(--mlv-palette-neutral-800)',
+    );
+  });
+
+  it('writes the fixed dark foreground onto the tinted avatar’s visual', () => {
+    expect(writtenColour(visuals[1])).toContain('neutral-800');
   });
 });

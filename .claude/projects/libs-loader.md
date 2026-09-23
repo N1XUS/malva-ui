@@ -77,13 +77,16 @@ host: {
 
 #### Tone Colors (via CSS custom property `--mlv-l-color`)
 
-| Tone      | Color token                 |
-| --------- | --------------------------- |
-| `default` | `--mlv-background-accent-1` |
-| `success` | `--mlv-status-positive`     |
-| `info`    | `--mlv-status-info`         |
-| `warning` | `--mlv-status-warning`      |
-| `danger`  | `--mlv-status-negative`     |
+| Tone      | Color token                  |
+| --------- | ---------------------------- |
+| `default` | `--mlv-background-accent-1`  |
+| `success` | `--mlv-background-success-1` |
+| `info`    | `--mlv-background-info-1`    |
+| `warning` | `--mlv-background-warning-1` |
+| `danger`  | `--mlv-background-danger-1`  |
+
+- Semantic fills only, never `--mlv-palette-*` (#302: `success` / `info` read the raw 500 steps, 2.09 / 2.54:1 on the light track).
+- Each clears 3:1 against the `--mlv-border-subtle` track in light and dark — `styles:test` → `tone-contrast.spec.mjs`. High-contrast track (#999) is a pre-existing gap owned by #303.
 
 #### Bar Animations
 

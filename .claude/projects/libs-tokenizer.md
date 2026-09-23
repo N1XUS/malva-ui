@@ -340,3 +340,9 @@ enabled / disabled split as the projected case. Enabled, nothing changes.
 **Disabled** the inner `mlv-input` is not rendered, so the `for` is now absent
 rather than pointing at an id no element carries; a disabled control is not a
 tab stop and no name is due.
+
+## Overflow caption colour (2026-09, #302)
+
+- `.mlv-tokenizer__overflow` ("+N more") paints `--mlv-text-secondary`.
+- Was the literal `#666` — frozen to light: 5.5:1 there, 2.9–3.1:1 on the dark field and page. Now ≥ 7.5:1 light, ≥ 8.5:1 dark (`tone-contrast.spec.mjs`).
+- The placeholder dropped its `#999` fallback behind `--mlv-text-tertiary` (the token is always declared).

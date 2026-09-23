@@ -1,4 +1,8 @@
-<div class="mlv-avatar__visual" [style.background-color]="_backgroundColor()">
+<div
+  class="mlv-avatar__visual"
+  [style.background-color]="_backgroundColor()"
+  [style.color]="_foregroundColor()"
+>
   @if (_showSkeleton()) {
     <div class="mlv-avatar__skeleton" aria-hidden="true"></div>
   }

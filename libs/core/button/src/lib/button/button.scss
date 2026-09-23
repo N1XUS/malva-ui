@@ -26,7 +26,9 @@ $filled-variants: (
     'bg-hover': var(--mlv-background-accent-2-hover),
     'bg-active': var(--mlv-background-accent-2-active),
     'color': var(--mlv-text-primary-on-accent-2),
-    'focus-outline': var(--mlv-background-accent-2-hover),
+    // The shared focus colour (Form A). The accent-2 hover fill it used to
+    // borrow read 2.28:1 on the light page — under the 3:1 ring floor (#302).
+    'focus-outline': var(--mlv-border-focus),
   ),
   'error': (
     'bg': var(--mlv-background-danger-1),
@@ -38,15 +40,15 @@ $filled-variants: (
   ),
   'warning': (
     'bg': var(--mlv-background-warning-1),
-    'bg-hover': color-mix(in srgb, var(--mlv-background-warning-1) 85%, black),
-    'bg-active': color-mix(in srgb, var(--mlv-background-warning-1) 70%, black),
+    'bg-hover': var(--mlv-background-warning-1-hover),
+    'bg-active': var(--mlv-background-warning-1-active),
     'color': var(--mlv-text-on-warning),
     'focus-outline': var(--mlv-border-focus),
   ),
   'info': (
-    'bg': var(--mlv-palette-info-500),
-    'bg-hover': color-mix(in srgb, var(--mlv-palette-info-500) 85%, black),
-    'bg-active': color-mix(in srgb, var(--mlv-palette-info-500) 70%, black),
+    'bg': var(--mlv-background-info-1),
+    'bg-hover': var(--mlv-background-info-1-hover),
+    'bg-active': var(--mlv-background-info-1-active),
     'color': var(--mlv-text-on-info),
     'focus-outline': var(--mlv-border-focus),
   ),

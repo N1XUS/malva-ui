@@ -113,7 +113,8 @@ for changing the action label when a more specific in-progress label is useful.
 
 - Base: `display: inline-flex; align-items: center; gap: 0.25rem`
 - `appearance: none; cursor: pointer; transition: 0.2s`
-- Focus: Form A — `outline: var(--mlv-stroke-width-medium) solid transparent;` at rest, coloured `var(--mlv-border-focus)` (or a variant's own `focus-outline`) on `:focus-visible`, offset `var(--mlv-focus-ring-offset)` (SF-R3)
+- Focus: Form A — `outline: var(--mlv-stroke-width-medium) solid transparent;` at rest, coloured `var(--mlv-border-focus)` (or a variant's own `focus-outline`) on `:focus-visible`, offset `var(--mlv-focus-ring-offset)` (SF-R3). Every filled variant now uses `--mlv-border-focus`; `accent` borrowed `--mlv-background-accent-2-hover` until #302 (2.28:1 on the light page).
+- Filled fills (`primary`, `accent`, `error`, `warning`, `info`): rest / hover / active read the semantic `--mlv-background-*-1` / `-accent-*` triple and its paired label — no `--mlv-palette-*`, no component-derived `color-mix()` (#302: `info` read raw `info-500`, 2.77:1; `warning` mixed its own hover/press, bypassing high contrast). Each state ≥ 4.5:1 in light, dark and HC (`tone-contrast.spec.mjs`). In dark, `accent` / `error` / `warning` / `info` carry a near-black label on the 500 fill.
 - Size presets (padding, height, font scale):
   - `xs`: xs padding, xs height, body-xs font
   - `s`: s padding, s height, body-s font

@@ -2,161 +2,183 @@
 @use 'sass:map';
 
 @layer mlv.components {
-$block: mlv-timeline-item;
+  $block: mlv-timeline-item;
 
-$tones: (
-  'default': var(--mlv-border-normal),
-  'success': var(--mlv-background-success-1),
-  'warning': var(--mlv-background-warning-1),
-  'danger': var(--mlv-background-danger-1),
-  'info': var(--mlv-background-info-1),
-);
-
-.#{$block} {
-  @include mixins.base(
-    var(--mlv-typography-family-text),
-    var(--mlv-font-size-m),
-    0,
-    0
+  // Each node fill carries its own foreground, so a projected icon keeps 3:1 on
+  // it in every theme. A single `--mlv-text-primary-on-accent-1` (white) for
+  // every tone read 1.26:1 on the grey default node (#302).
+  $tones: (
+    'default': (
+      'bg': var(--mlv-border-normal),
+      'color': var(--mlv-text-primary),
+    ),
+    'success': (
+      'bg': var(--mlv-background-success-1),
+      'color': var(--mlv-text-on-success),
+    ),
+    'warning': (
+      'bg': var(--mlv-background-warning-1),
+      'color': var(--mlv-text-on-warning),
+    ),
+    'danger': (
+      'bg': var(--mlv-background-danger-1),
+      'color': var(--mlv-text-on-danger),
+    ),
+    'info': (
+      'bg': var(--mlv-background-info-1),
+      'color': var(--mlv-text-on-info),
+    ),
   );
 
-  --mlv-tli-node-bg: var(--mlv-border-normal);
-  --mlv-tli-node-size: 2.5rem;
-  --mlv-tli-connector-width: 0.125rem;
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-font-size-m),
+      0,
+      0
+    );
 
-  // 3-column grid: [content-left] [center-spine] [content-right]
-  display: grid;
-  grid-template-columns: 1fr var(--mlv-tli-node-size) 1fr;
-  gap: 0 1.5rem;
-  position: relative;
+    --mlv-tli-node-bg: var(--mlv-border-normal);
+    // Internal, not an override point: carries the tone map's foreground to
+    // `__node-circle`. Not public API (VERSIONING §2) — may change in a patch.
+    --mlv-tli-node-color: var(--mlv-text-primary);
+    --mlv-tli-node-size: 2.5rem;
+    --mlv-tli-connector-width: 0.125rem;
 
-  // ── Columns ───────────────────────────────────────────────────────────────
+    // 3-column grid: [content-left] [center-spine] [content-right]
+    display: grid;
+    grid-template-columns: 1fr var(--mlv-tli-node-size) 1fr;
+    gap: 0 1.5rem;
+    position: relative;
 
-  // Both children are pinned to an explicit track. The single content column
-  // moves between tracks with `direction`, so DOM order is not monotonic in
-  // column index and sparse auto-placement would otherwise push the spine onto
-  // a second row — hence the explicit `grid-row: 1` on both.
-  &__col {
-    grid-row: 1;
-    min-width: 0;
+    // ── Columns ───────────────────────────────────────────────────────────────
 
-    &--left {
-      grid-column: 1;
-      text-align: end;
+    // Both children are pinned to an explicit track. The single content column
+    // moves between tracks with `direction`, so DOM order is not monotonic in
+    // column index and sparse auto-placement would otherwise push the spine onto
+    // a second row — hence the explicit `grid-row: 1` on both.
+    &__col {
+      grid-row: 1;
+      min-width: 0;
+
+      &--left {
+        grid-column: 1;
+        text-align: end;
+      }
+
+      &--right {
+        grid-column: 3;
+        text-align: start;
+      }
     }
 
-    &--right {
-      grid-column: 3;
-      text-align: start;
+    // ── Center spine (column 2 of the default 3-column grid) ──────────────────
+
+    &__spine {
+      grid-row: 1;
+      grid-column: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    &__node-circle {
+      width: var(--mlv-tli-node-size);
+      height: var(--mlv-tli-node-size);
+      border-radius: var(--mlv-radius-full);
+      background-color: var(--mlv-tli-node-bg);
+      border: var(--mlv-stroke-width) solid var(--mlv-tli-node-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--mlv-tli-node-color);
+      flex-shrink: 0;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    &__node-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    &__connector {
+      flex: 1;
+      width: var(--mlv-tli-connector-width);
+      background-color: var(--mlv-border-subtle);
+      min-height: var(--mlv-spacing-8);
+    }
+
+    // Hide connector on last item
+    &:last-child &__connector {
+      display: none;
+    }
+
+    // ── Content ───────────────────────────────────────────────────────────────
+
+    &__content {
+      padding-bottom: var(--mlv-spacing-8);
+      min-width: 0;
+
+      &--left {
+        text-align: end;
+      }
+    }
+
+    // Hide bottom padding on last item
+    &:last-child &__content {
+      padding-bottom: 0;
+    }
+
+    &__header {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.375rem;
+    }
+
+    // For left-direction items, reverse the header so timestamp appears before title
+    &--direction-left &__header {
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+    }
+
+    &__title {
+      font-weight: var(--mlv-font-weight-semibold);
+      color: var(--mlv-text-primary);
+      font-size: var(--mlv-font-size-m);
+      line-height: var(--mlv-line-height-normal);
+    }
+
+    &__timestamp {
+      font-size: var(--mlv-typography-ui-s-size);
+      color: var(--mlv-text-secondary);
+      white-space: nowrap;
+    }
+
+    &__meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    &__description {
+      font-size: var(--mlv-font-size-m);
+      color: var(--mlv-text-secondary);
+      line-height: var(--mlv-line-height-normal);
+    }
+
+    // ── Tone modifiers ───────────────────────────────────────────────────────
+    @each $name, $props in $tones {
+      &--#{$name} {
+        --mlv-tli-node-bg: #{map.get($props, 'bg')};
+        --mlv-tli-node-color: #{map.get($props, 'color')};
+      }
     }
   }
-
-  // ── Center spine (column 2 of the default 3-column grid) ──────────────────
-
-  &__spine {
-    grid-row: 1;
-    grid-column: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  &__node-circle {
-    width: var(--mlv-tli-node-size);
-    height: var(--mlv-tli-node-size);
-    border-radius: var(--mlv-radius-full);
-    background-color: var(--mlv-tli-node-bg);
-    border: var(--mlv-stroke-width) solid var(--mlv-tli-node-bg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--mlv-text-primary-on-accent-1);
-    flex-shrink: 0;
-    z-index: 1;
-    overflow: hidden;
-  }
-
-  &__node-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-  }
-
-  &__connector {
-    flex: 1;
-    width: var(--mlv-tli-connector-width);
-    background-color: var(--mlv-border-subtle);
-    min-height: var(--mlv-spacing-8);
-  }
-
-  // Hide connector on last item
-  &:last-child &__connector {
-    display: none;
-  }
-
-  // ── Content ───────────────────────────────────────────────────────────────
-
-  &__content {
-    padding-bottom: var(--mlv-spacing-8);
-    min-width: 0;
-
-    &--left {
-      text-align: end;
-    }
-  }
-
-  // Hide bottom padding on last item
-  &:last-child &__content {
-    padding-bottom: 0;
-  }
-
-  &__header {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 0.375rem;
-  }
-
-  // For left-direction items, reverse the header so timestamp appears before title
-  &--direction-left &__header {
-    flex-direction: row-reverse;
-    justify-content: flex-end;
-  }
-
-  &__title {
-    font-weight: var(--mlv-font-weight-semibold);
-    color: var(--mlv-text-primary);
-    font-size: var(--mlv-font-size-m);
-    line-height: var(--mlv-line-height-normal);
-  }
-
-  &__timestamp {
-    font-size: var(--mlv-typography-ui-s-size);
-    color: var(--mlv-text-secondary);
-    white-space: nowrap;
-  }
-
-  &__meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  &__description {
-    font-size: var(--mlv-font-size-m);
-    color: var(--mlv-text-secondary);
-    line-height: var(--mlv-line-height-normal);
-  }
-
-  // ── Tone modifiers ───────────────────────────────────────────────────────
-  @each $name, $color in $tones {
-    &--#{$name} {
-      --mlv-tli-node-bg: #{$color};
-    }
-  }
-}
 }

@@ -1,91 +1,9 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-tree;
+  $block: mlv-tree;
 
-.#{$block} {
-  @include mixins.base(
-    var(--mlv-typography-family-text),
-    var(--mlv-font-size-m),
-    0,
-    0
-  );
-
-  display: block;
-  width: 100%;
-  outline: none;
-
-  &__list {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  // The aria `[ngTree]` container (role="tree"). Transparent so items lay out
-  // directly under the host; aria puts the roving tabindex here.
-  &__root {
-    display: contents;
-  }
-
-  // Recursive subtree wrapper — transparent so aria treeitems/groups keep their
-  // structural relationship to the tree/group without an intervening box.
-  &__subtree {
-    display: contents;
-  }
-
-  &__group {
-    display: block;
-  }
-
-  &__item__content {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-height: var(--mlv-height-m);
-    padding-block: 0.375rem;
-    padding-inline-start: 0.5rem;
-    padding-inline-end: 0.75rem;
-    border-radius: var(--mlv-radius-m);
-    cursor: pointer;
-    color: var(--mlv-text-primary);
-    transition:
-      background-color var(--mlv-duration-normal) var(--mlv-ease-out),
-      color var(--mlv-duration-normal) var(--mlv-ease-out);
-    user-select: none;
-    position: relative;
-
-    &:hover:not(&--disabled) {
-      background-color: var(--mlv-background-neutral-1-hover);
-    }
-
-    &:focus-visible {
-      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
-    }
-
-    &--selected:not(&--disabled) {
-      background-color: var(--mlv-background-accent-2);
-      color: var(--mlv-text-action);
-
-      &:hover {
-        background-color: var(--mlv-background-accent-2-hover);
-      }
-    }
-
-    &--disabled {
-      opacity: var(--mlv-disabled-opacity);
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-
-    &__content {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-  }
-
-  &__toggle {
+  .#{$block} {
     @include mixins.base(
       var(--mlv-typography-family-text),
       var(--mlv-font-size-m),
@@ -93,170 +11,256 @@ $block: mlv-tree;
       0
     );
 
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 1.5rem;
-    height: 1.5rem;
-    border: none;
-    background: none;
-    border-radius: var(--mlv-radius-s);
-    cursor: pointer;
-    color: var(--mlv-text-action);
-    transition:
-      color var(--mlv-duration-normal) var(--mlv-ease-out),
-      background-color var(--mlv-duration-normal) var(--mlv-ease-out);
+    display: block;
+    width: 100%;
+    outline: none;
 
-    &:hover {
-      background-color: var(--mlv-background-neutral-1-hover);
+    &__list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    // The aria `[ngTree]` container (role="tree"). Transparent so items lay out
+    // directly under the host; aria puts the roving tabindex here.
+    &__root {
+      display: contents;
+    }
+
+    // Recursive subtree wrapper — transparent so aria treeitems/groups keep their
+    // structural relationship to the tree/group without an intervening box.
+    &__subtree {
+      display: contents;
+    }
+
+    &__group {
+      display: block;
+    }
+
+    &__item__content {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: var(--mlv-height-m);
+      padding-block: 0.375rem;
+      padding-inline-start: 0.5rem;
+      padding-inline-end: 0.75rem;
+      border-radius: var(--mlv-radius-m);
+      cursor: pointer;
       color: var(--mlv-text-primary);
+      transition:
+        background-color var(--mlv-duration-normal) var(--mlv-ease-out),
+        color var(--mlv-duration-normal) var(--mlv-ease-out);
+      user-select: none;
+      position: relative;
+
+      &:hover:not(&--disabled) {
+        background-color: var(--mlv-background-neutral-1-hover);
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      }
+
+      // Persistent selection reads the selected-state pair (SF-R1), never an
+      // accent fill: `text-action` on accent-2 is 1.33:1 (1.02:1 hovered) in
+      // light. NOTE: the template stamps `--selected` on `.mlv-tree__item`, not
+      // on this element, so this rule matches nothing yet — #304 retargets it.
+      &--selected:not(&--disabled) {
+        background-color: var(--mlv-background-selected);
+        color: var(--mlv-text-on-selected);
+
+        &:hover {
+          background-color: var(--mlv-background-selected-hover);
+        }
+      }
+
+      &--disabled {
+        opacity: var(--mlv-disabled-opacity);
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+
+      &__content {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
     }
 
-    &--expanded {
+    &__toggle {
+      @include mixins.base(
+        var(--mlv-typography-family-text),
+        var(--mlv-font-size-m),
+        0,
+        0
+      );
+
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 1.5rem;
+      height: 1.5rem;
+      border: none;
+      background: none;
+      border-radius: var(--mlv-radius-s);
+      cursor: pointer;
       color: var(--mlv-text-action);
+      transition:
+        color var(--mlv-duration-normal) var(--mlv-ease-out),
+        background-color var(--mlv-duration-normal) var(--mlv-ease-out);
+
+      &:hover {
+        background-color: var(--mlv-background-neutral-1-hover);
+        color: var(--mlv-text-primary);
+      }
+
+      &--expanded {
+        color: var(--mlv-text-action);
+      }
+
+      &--invisible {
+        visibility: hidden;
+        pointer-events: none;
+      }
     }
 
-    &--invisible {
-      visibility: hidden;
+    &__spinner {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    &__checkbox {
+      flex-shrink: 0;
+
+      // Presentational only — it reflects the aria selection state. Pointer
+      // events pass through to the row so aria owns the click-to-toggle.
       pointer-events: none;
-    }
-  }
 
-  &__spinner {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-
-  &__checkbox {
-    flex-shrink: 0;
-
-    // Presentational only — it reflects the aria selection state. Pointer
-    // events pass through to the row so aria owns the click-to-toggle.
-    pointer-events: none;
-
-    // Remove extra margin that mlv-checkbox adds by default
-    &.mlv-checkbox {
-      margin: 0;
-    }
-  }
-
-  &__content {
-    display: flex;
-    align-items: center;
-    flex: 1;
-    min-width: 0;
-    gap: 0.5rem;
-    line-height: 1.4;
-  }
-
-  &__label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &__icon {
-    flex-shrink: 0;
-    color: var(--mlv-text-secondary);
-
-    .#{$block}__item--selected & {
-      color: var(--mlv-text-action);
-    }
-  }
-
-  // Faster, subtler expand animation for tree children
-  .mlv-expand {
-    --mlv-duration-slow: var(--mlv-duration-normal);
-
-    .mlv-expand__body {
-      // Suppress the translateY shift — children should expand in place
-      &--enter {
-        animation-name: mlv-tree--enter;
+      // Remove extra margin that mlv-checkbox adds by default
+      &.mlv-checkbox {
+        margin: 0;
       }
+    }
 
-      &--leave {
-        animation-name: mlv-tree--leave;
+    &__content {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      gap: 0.5rem;
+      line-height: 1.4;
+    }
+
+    &__label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__icon {
+      flex-shrink: 0;
+      color: var(--mlv-text-secondary);
+
+      .#{$block}__item--selected & {
+        color: var(--mlv-text-action);
       }
+    }
 
-      // Respect reduced-motion: expand/collapse child rows without animation.
-      @media (prefers-reduced-motion: reduce) {
-        &--enter,
+    // Faster, subtler expand animation for tree children
+    .mlv-expand {
+      --mlv-duration-slow: var(--mlv-duration-normal);
+
+      .mlv-expand__body {
+        // Suppress the translateY shift — children should expand in place
+        &--enter {
+          animation-name: mlv-tree--enter;
+        }
+
         &--leave {
-          animation: none;
+          animation-name: mlv-tree--leave;
+        }
+
+        // Respect reduced-motion: expand/collapse child rows without animation.
+        @media (prefers-reduced-motion: reduce) {
+          &--enter,
+          &--leave {
+            animation: none;
+          }
         }
       }
     }
-  }
 
-  // Connector lines — opt-in via .mlv-tree--connectors. Scoped to nested
-  // groups so root-level items (which are not inside a .mlv-tree__group) render
-  // without connectors.
-  &--connectors {
-    .#{$block}__group {
-      position: relative;
-
-      // Vertical connector line from parent to last child
-      &::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        inset-inline-start: var(--mlv-tree-connector-offset, 0.75rem);
-        bottom: 0;
-        width: var(--mlv-stroke-width);
-        background-color: var(--mlv-border-subtle);
-      }
-
-      // Horizontal connector from the vertical line to each nested node
-      .#{$block}__item {
+    // Connector lines — opt-in via .mlv-tree--connectors. Scoped to nested
+    // groups so root-level items (which are not inside a .mlv-tree__group) render
+    // without connectors.
+    &--connectors {
+      .#{$block}__group {
         position: relative;
 
+        // Vertical connector line from parent to last child
         &::before {
           content: '';
           position: absolute;
-          top: 50%;
-          inset-inline-start: calc(
-            var(--mlv-tree-connector-offset, 0.75rem) - 0.5rem
-          );
-          width: 0.75rem;
-          height: var(--mlv-stroke-width);
+          top: 0;
+          inset-inline-start: var(--mlv-tree-connector-offset, 0.75rem);
+          bottom: 0;
+          width: var(--mlv-stroke-width);
           background-color: var(--mlv-border-subtle);
+        }
+
+        // Horizontal connector from the vertical line to each nested node
+        .#{$block}__item {
+          position: relative;
+
+          &::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            inset-inline-start: calc(
+              var(--mlv-tree-connector-offset, 0.75rem) - 0.5rem
+            );
+            width: 0.75rem;
+            height: var(--mlv-stroke-width);
+            background-color: var(--mlv-border-subtle);
+          }
         }
       }
     }
   }
-}
 
-// Tree-specific expand/collapse — no translateY, just grid-rows + opacity
-@keyframes mlv-tree--enter {
-  0% {
-    grid-template-rows: 0fr;
-    opacity: 0;
+  // Tree-specific expand/collapse — no translateY, just grid-rows + opacity
+  @keyframes mlv-tree--enter {
+    0% {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+    60% {
+      grid-template-rows: 1fr;
+    }
+    100% {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
   }
-  60% {
-    grid-template-rows: 1fr;
-  }
-  100% {
-    grid-template-rows: 1fr;
-    opacity: 1;
-  }
-}
 
-@keyframes mlv-tree--leave {
-  0% {
-    grid-template-rows: 1fr;
-    opacity: 1;
+  @keyframes mlv-tree--leave {
+    0% {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+    40% {
+      opacity: 0;
+    }
+    100% {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
   }
-  40% {
-    opacity: 0;
-  }
-  100% {
-    grid-template-rows: 0fr;
-    opacity: 0;
-  }
-}
 }

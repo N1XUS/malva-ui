@@ -63,6 +63,7 @@
         "{projectRoot}/src/lib/theme.scss",
         "{projectRoot}/src/lib/theme-contrast.mjs",
         "{projectRoot}/src/lib/theme-contrast.spec.mjs",
+        "{projectRoot}/src/lib/tone-contrast.spec.mjs",
         "{projectRoot}/src/lib/breakpoints.scss",
         "{projectRoot}/src/lib/mixins.scss",
         "{projectRoot}/src/lib/mixins.spec.mjs",
@@ -77,7 +78,7 @@
         "{workspaceRoot}/libs/**/src/**/*.{css,scss}"
       ],
       "options": {
-        "command": "node --test scripts/check-padding-tokens.spec.mjs libs/styles/src/lib/theme-contrast.spec.mjs libs/styles/src/lib/mixins.spec.mjs libs/styles/src/lib/fluid-type.spec.mjs libs/styles/src/lib/layers.spec.mjs libs/styles/src/lib/sticky-inline-inset.spec.mjs",
+        "command": "node --test scripts/check-padding-tokens.spec.mjs libs/styles/src/lib/theme-contrast.spec.mjs libs/styles/src/lib/tone-contrast.spec.mjs libs/styles/src/lib/mixins.spec.mjs libs/styles/src/lib/fluid-type.spec.mjs libs/styles/src/lib/layers.spec.mjs libs/styles/src/lib/sticky-inline-inset.spec.mjs",
         "cwd": "{workspaceRoot}"
       }
     }
