@@ -564,6 +564,24 @@ export class MlvTokenizer<T = string>
   /** Whether the control holds a clearable value — At least one token present. */
   readonly hasValue = computed(() => this.tokens().length > 0);
 
+  /**
+   * @protected The wrapper's clear-button handler: removes every token from
+   * both model surfaces, disarms any armed token and marks the field touched.
+   *
+   * Gated on `_canWrite()` up front rather than through `_write`, because a
+   * clear writes `tokens` as well as `value` (`_setTokens`) and the armed
+   * selection is local draft state that must not move either. Before #301
+   * nothing was bound to the wrapper's `(clear)`, so a `clearable` tokenizer
+   * rendered an X that did nothing. The draft text in the input is not the
+   * value and is left alone.
+   */
+  protected _onClear(): void {
+    if (!this._canWrite()) return;
+    this._disarm();
+    this._setTokens([]);
+    this._markTouched();
+  }
+
   /** @private Commits one token collection to both public model surfaces. */
   private _setTokens(value: MlvSelectOption<T>[]): void {
     this.tokens.set(value);

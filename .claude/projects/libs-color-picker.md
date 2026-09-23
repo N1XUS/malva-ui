@@ -146,20 +146,20 @@ stacking context, so the panel remains above the backdrop.
 
 #### Inputs
 
-| Name               | Type                            | Default                 | Description                                                                        |
-| ------------------ | ------------------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
-| `disabled`         | `BooleanInput`                  | `false`                 | _(inherited)_ Disables input, swatch, and picker; also settable via forms          |
-| `readonly`         | `BooleanInput`                  | `false`                 | _(inherited)_ Prevents editing, clearing, and popup opening                        |
-| `clearable`        | `BooleanInput`                  | `false`                 | _(inherited)_ Shows the shared clear button while the committed value is non-empty |
-| `presentation`     | `'field' \| 'swatch' \| 'icon'` | `'field'`               | Chooses the input-like field, color swatch, or projected-icon Malva trigger        |
-| `ariaLabel`        | `string \| undefined`           | `undefined`             | Explicit accessible name for compact trigger and detached dialog                   |
-| `opened`           | `boolean`                       | `false`                 | Two-way model controlling the connected popup                                      |
-| `showOpacity`      | `BooleanInput`                  | `true`                  | Passed to inner picker                                                             |
-| `defaultMode`      | `MlvColorInputMode`             | `'hex'`                 | Passed to inner picker                                                             |
-| `supportedFormats` | `readonly MlvColorInputMode[]`  | `['hex', 'rgb', 'hsl']` | Passed to the inner picker; one format hides tabs                                  |
-| `live`             | `BooleanInput`                  | `false`                 | Publishes every valid draft immediately instead of on blur/close                   |
-| `state`            | `MlvFormState`                  | `'default'`             | _(inherited)_ Validation state rendered by `MlvFormControlWrapper`                 |
-| `id`               | `string`                        | auto (`mlvNextId`)      | _(inherited)_ Bound to the native input                                            |
+| Name               | Type                            | Default                 | Description                                                                                                                               |
+| ------------------ | ------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `disabled`         | `BooleanInput`                  | `false`                 | _(inherited)_ Disables input, swatch, and picker; also settable via forms                                                                 |
+| `readonly`         | `BooleanInput`                  | `false`                 | _(inherited)_ Prevents editing, clearing, and popup opening                                                                               |
+| `clearable`        | `BooleanInput`                  | `false`                 | _(inherited)_ Shows the shared clear button while the committed value is non-empty and the picker is neither readonly nor disabled (#301) |
+| `presentation`     | `'field' \| 'swatch' \| 'icon'` | `'field'`               | Chooses the input-like field, color swatch, or projected-icon Malva trigger                                                               |
+| `ariaLabel`        | `string \| undefined`           | `undefined`             | Explicit accessible name for compact trigger and detached dialog                                                                          |
+| `opened`           | `boolean`                       | `false`                 | Two-way model controlling the connected popup                                                                                             |
+| `showOpacity`      | `BooleanInput`                  | `true`                  | Passed to inner picker                                                                                                                    |
+| `defaultMode`      | `MlvColorInputMode`             | `'hex'`                 | Passed to inner picker                                                                                                                    |
+| `supportedFormats` | `readonly MlvColorInputMode[]`  | `['hex', 'rgb', 'hsl']` | Passed to the inner picker; one format hides tabs                                                                                         |
+| `live`             | `BooleanInput`                  | `false`                 | Publishes every valid draft immediately instead of on blur/close                                                                          |
+| `state`            | `MlvFormState`                  | `'default'`             | _(inherited)_ Validation state rendered by `MlvFormControlWrapper`                                                                        |
+| `id`               | `string`                        | auto (`mlvNextId`)      | _(inherited)_ Bound to the native input                                                                                                   |
 
 #### Outputs
 

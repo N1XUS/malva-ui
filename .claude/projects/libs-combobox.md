@@ -107,11 +107,11 @@ host: {
 - `onInputFocus()` / `onInputBlur()` — Open on focus / close-revert-and-mark-touched on blur (wired to `mlv-input`'s new `inputFocus` / `inputBlur` outputs)
 - `onArrowDown` / `onArrowUp` / `onHome` / `onEnd` — Move the active option (activedescendant model, DOM focus stays in the input)
 - `onEnterKey(event?)` — Select the active option, else an exact text match, else create (allowCreate)
-- `onEscape(event)` — First press closes + reverts text; second press (already closed) clears the selection
+- `onEscape(event)` — First press closes + reverts text; second press (already closed) clears the selection — only while `_canWrite()` (not readonly, not disabled; #301)
+- `onClear()` — Clear the selection + query, emit `null`, re-search `''` for a remote source, refocus the input. Not gated itself (callable from app code); both user paths are gated before it — the inline X renders only while writable, `onEscape` checks `_canWrite()` (#301). Also bound to the wrapper's `(clear)`, which never fires: `ownsClearButton` is always `true`, so the wrapper renders no X of its own
 - `onChevronMousedown(event)` — Chevron toggle (uses `mousedown` + `preventDefault` so the input keeps focus)
 - `selectValues(values)` — Panel (pointer) selection path. Guards against aria **reconciliation emits** (see below) so a filter change never mutates the committed selection or runs commit side-effects
 - `removeSelected(value)` — Deselect one value (multi-select chip close / keyboard remove)
-- `onClear()` — Clear the selection + query, emit `null`, refocus the input (wired to the wrapper's `(clear)`)
 - `setInitialFocus()` — Focuses the inner `mlv-input` (**not** the trigger `<div>`)
 - `updateTriggerWidth(entries)` — Sync popup width to trigger via `MlvResizeObserver`
 
@@ -157,7 +157,7 @@ The dropdown chevron is a real `<button type="button" tabindex="-1">` with an i1
 - `_isInert()` returns `true`, so focus, click, typing and the arrow/Enter keys never open the list or select anything,
 - `_chipOptions()` hides multi-select chips whose option has not resolved (no `[object Object]`-style placeholder labels).
 
-**The clear affordance is the deliberate escape hatch.** `onClear()` and `onEscape()` are _not_ gated on `_isInert()`, so the inline X (and Escape while the list is closed) still discards the value even while its label is resolving. That is intentional: a value whose source never answers would otherwise be unremovable. Everything else — opening, typing, navigating, committing — is blocked.
+**The clear affordance is the deliberate escape hatch.** `onClear()` and `onEscape()` are _not_ gated on `_isInert()`, so the inline X (and Escape while the list is closed) still discards the value even while its label is resolving. That is intentional: a value whose source never answers would otherwise be unremovable. Everything else — opening, typing, navigating, committing — is blocked. Both clear paths are still gated on **write permission** (#301): the X is withheld and Escape does not clear while readonly or disabled — `_canWrite()`, which does not include `_awaitingValueLabel()`.
 
 The variant clears as soon as the source is `ready()` **or** every committed value matches an option — the `_applyPendingValues` effect tracks `resolvedOptions()`, so late-arriving options re-normalise the selection onto the real option instances and the committed label appears. Arrays are `ready()` immediately, so a synchronous `options` binding never shows the variant.
 
@@ -279,7 +279,7 @@ Provides `templateRef` for custom selected-value rendering (`{ $implicit: MlvSel
 
 - Exactly **one** `role="combobox"` — on the native `<input>` (forwarded via the `mlv-input` `role` input as a property binding, so no duplicate role leaks onto the `mlv-input` host). Alongside it: `aria-autocomplete="list"`, `aria-haspopup="listbox"`, `aria-expanded`, `aria-controls` (the rendered listbox id), and `aria-activedescendant` (the active option id). While the full-screen sheet is open the combobox ARIA moves from the outer trigger input to the in-sheet input (`_outerIsCombobox = !(isFullscreen && isOpen)`), so still exactly one combobox is exposed — see _Mobile fullscreen_ above.
 - The dropdown chevron is a real labelled `<button type="button" tabindex="-1">` (kept out of the tab order), not a decorative `aria-hidden` span.
-- **Activedescendant keyboard model:** DOM focus stays in the input; ArrowUp/ArrowDown/Home/End move the active option and update `aria-activedescendant`; typing keeps working mid-navigation (focus never leaves the input); Enter selects the active option; Escape closes (reverting text) then, when already closed, clears.
+- **Activedescendant keyboard model:** DOM focus stays in the input; ArrowUp/ArrowDown/Home/End move the active option and update `aria-activedescendant`; typing keeps working mid-navigation (focus never leaves the input); Enter selects the active option; Escape closes (reverting text) then, when already closed, clears (writable only, #301).
 - Tab from the open list closes the popup (via blur) and lets focus proceed naturally — no focus trap.
 - A polite `aria-live` status region (`.mlv-combobox__sr-status`) announces the filtered result count / "No results" — both resolved from `MLV_COMBOBOX_I18N` (`resultsAvailable` is an ICU plural).
 - The loading variant sets `aria-busy` on the trigger row and gives the `mlv-loader` an `ariaLabel` from `MLV_COMBOBOX_I18N.loading`; the field is `readonly` (not `disabled`) so it stays reachable and readable to AT while its value resolves.

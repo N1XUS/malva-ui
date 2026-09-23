@@ -252,4 +252,17 @@ export class MlvDayPicker<D = Date>
 
   /** Whether the control holds a clearable value — A date is set. */
   readonly hasValue = computed(() => this.value() != null);
+
+  /**
+   * @protected The wrapper's clear-button handler: clears the date through
+   * `_write` and marks the field touched only when the write landed.
+   *
+   * Before #301 nothing was bound to the wrapper's `(clear)`, so a
+   * `clearable` day picker rendered an X that did nothing. The wrapper
+   * withholds the X while the picker is readonly or disabled; `_write`
+   * refuses independently, for a click that reaches a stale button.
+   */
+  protected _onClear(): void {
+    if (this._write(null)) this._markTouched();
+  }
 }

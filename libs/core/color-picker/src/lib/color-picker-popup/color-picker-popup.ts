@@ -144,8 +144,14 @@ export class MlvColorPickerPopup extends MlvSignalFormControlBase<string> {
   readonly hasValue = computed(() => this.value().length > 0);
 
   /**
-   * Suppresses the wrapper-owned clear affordance while readonly. Disabled
-   * wrappers already suppress pointer interaction through their shared state.
+   * `true` while readonly, which suppresses the wrapper-owned clear button.
+   *
+   * Redundant since #301: the wrapper itself withholds its clear button while
+   * the control is readonly **or disabled** (this workaround covered readonly
+   * only, so a disabled picker kept a focusable X that did nothing). Kept
+   * because it is a public member of an exported class; its value is
+   * unchanged. The picker draws no clear button of its own in `field`
+   * presentation.
    */
   readonly ownsClearButton = computed(() => this.readonly());
 

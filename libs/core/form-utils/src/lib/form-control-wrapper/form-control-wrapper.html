@@ -16,11 +16,7 @@
 
     <ng-template [ngTemplateOutlet]="renderer().templateRef"></ng-template>
 
-    @if (
-      formControl?.clearable() &&
-      formControl?.hasValue() &&
-      !formControl?.ownsClearButton?.()
-    ) {
+    @if (_showClear()) {
       <div class="mlv-form-control-wrapper__clear">
         <mlv-button-close
           (click)="_onClearClick()"

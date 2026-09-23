@@ -196,7 +196,11 @@ export class MlvAutocomplete<T = unknown> {
     transform: coerceBooleanProperty,
   });
 
-  /** Disables the behaviour entirely (no popup, no aria wiring changes). */
+  /**
+   * Disables the behaviour entirely (no popup, no aria wiring changes). A popup
+   * already open when this turns `true` is not closed by it: Escape or blur
+   * closes it, and nothing in it can be committed or completed meanwhile.
+   */
   readonly disabled = input<boolean, BooleanInput>(false, {
     alias: 'mlvAutocompleteDisabled',
     transform: coerceBooleanProperty,
@@ -637,9 +641,23 @@ export class MlvAutocomplete<T = unknown> {
 
   // ─── Keyboard ──────────────────────────────────────────────────────────────
 
-  /** @private Activedescendant keyboard model — DOM focus stays in the input. */
+  /**
+   * @private Activedescendant keyboard model — DOM focus stays in the input.
+   *
+   * While inert (`disabled`, or a readonly host input; #301) every key is
+   * ignored except Escape on a popup that was already open when the host
+   * locked: closing writes nothing, and without it `aria-expanded` would stay
+   * `"true"` over a stale active option. Escape does not strip an inline
+   * completion or clear the field there — both write `el.value`.
+   */
   private _onKeydown(event: KeyboardEvent): void {
-    if (this._isInert()) return;
+    if (this._isInert()) {
+      if (event.key === 'Escape' && this._open()) {
+        event.preventDefault();
+        this._closePopup();
+      }
+      return;
+    }
     switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
       case DOWN_ARROW:
         event.preventDefault();
@@ -757,9 +775,13 @@ export class MlvAutocomplete<T = unknown> {
    * `ngModel` / a form control observe it, and the top item (index 0) becomes the
    * activedescendant-active row. No-op unless armed for an inline insertion with
    * an open panel; non-prefix (fuzzy) top matches are skipped silently.
+   *
+   * Also a no-op while inert (#301): a remote result can land after the host
+   * turned readonly or the directive turned disabled, and applying the
+   * completion then would write into a field the user may no longer edit.
    */
   private _applyCompletion(): void {
-    if (!this.inline() || !this._open()) return;
+    if (!this.inline() || !this._open() || this._isInert()) return;
     const el = this._inputEl();
     if (!el) return;
     const typed = el.value;
@@ -830,8 +852,18 @@ export class MlvAutocomplete<T = unknown> {
    * is looked up by identity with `Object.is`, not `===`: a `NaN`-valued option
    * is otherwise never found and its pick silently does nothing (#300), and a
    * `-0` option stays distinct from a `+0` one.
+   *
+   * Refused while the directive is inert — `disabled`, or a readonly host
+   * input (#301). The inert gate stops the popup from *opening*, but a popup
+   * already open when the state flipped still delivers the pick here; a
+   * refused pick only closes the popup, as a commit would have, and writes
+   * nothing.
    */
   selectFromPanel(values: readonly T[]): void {
+    if (this._isInert()) {
+      this._closePopup();
+      return;
+    }
     if (!values.length) return;
     const picked = values[values.length - 1];
     const option = this._results().find((o) => Object.is(o.value, picked));
@@ -1087,8 +1119,20 @@ export class MlvAutocomplete<T = unknown> {
     return `max(${measured}px, ${authored})`;
   }
 
-  /** @private Whether all interaction paths are suppressed. */
+  /**
+   * @private Whether all interaction paths are suppressed: the directive's own
+   * `disabled` input, or a host `<input>` the user may not edit.
+   *
+   * The host's `readOnly` is read live from the element rather than from an
+   * input, because the directive sits on a native `<input>` or an `mlv-input`
+   * and either one owns it (`mlv-input` forwards its `readonly` to the inner
+   * element). Before #301 a readonly host still opened suggestions and Escape
+   * still ran `_clearInput()`, writing `''` into a field the user may not edit
+   * — the one clear path in `libs/core` that ignored readonly. A disabled
+   * native element fires no key or focus events, so `disabled` needs no such
+   * read.
+   */
   private _isInert(): boolean {
-    return this.disabled();
+    return this.disabled() || (this._inputEl()?.readOnly ?? false);
   }
 }

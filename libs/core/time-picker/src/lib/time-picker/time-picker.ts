@@ -320,8 +320,27 @@ export class MlvTimePicker
     }
   }
 
-  /** Whether the control holds a clearable value — The drum always shows a time, so there is always a value. */
-  readonly hasValue = computed(() => true);
+  /**
+   * Whether the control holds a clearable value — a non-empty time string.
+   *
+   * Reads the model, not the drum: the drum always shows a time (the current
+   * one when the value is empty), so answering from it made the wrapper render
+   * a clear button on an empty picker (#301).
+   */
+  readonly hasValue = computed(() => (this.value() ?? '').length > 0);
+
+  /**
+   * @protected The wrapper's clear-button handler: clears the time through
+   * `_write` and marks the field touched only when the write landed.
+   *
+   * Before #301 nothing was bound to the wrapper's `(clear)`, so a
+   * `clearable` time picker rendered an X that did nothing. The wrapper
+   * withholds the X while the picker is readonly or disabled; `_write`
+   * refuses independently, for a click that reaches a stale button.
+   */
+  protected _onClear(): void {
+    if (this._write('')) this._markTouched();
+  }
 
   /** @private Synchronizes drum columns from an external model value. */
   private _applyValue(value: string): void {

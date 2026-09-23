@@ -1,4 +1,4 @@
-<mlv-form-control-wrapper (clear)="clearValue()">
+<mlv-form-control-wrapper (clear)="_onClear()">
   @if (label() || hint()) {
     <mlv-label [for]="id()" [required]="required()">
       {{ label() }}

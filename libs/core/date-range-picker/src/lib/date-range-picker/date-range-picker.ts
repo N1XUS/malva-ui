@@ -310,12 +310,15 @@ export class MlvDateRangePicker<D = Date>
   );
 
   /**
-   * Whether the clear button should be shown.
+   * Whether the clear button should be shown: `clearable`, a committed range
+   * with at least one end, and a user allowed to write — neither readonly nor
+   * disabled (#301; it used to check `disabled` alone, so it answered `true`
+   * for a readonly picker).
    */
   readonly hasClearableValue = computed(
     () =>
       this.clearable() &&
-      !this.computedDisabled() &&
+      this._canWrite() &&
       (!!this.rangeValue()?.start || !!this.rangeValue()?.end),
   );
 
@@ -476,6 +479,10 @@ export class MlvDateRangePicker<D = Date>
 
   /**
    * Clears the selected range and resets the picker.
+   *
+   * Also the popup footer's `Clear` handler; not gated by `readonly` here —
+   * readonly on the picker's own popup is #402. The wrapper's clear button
+   * does not call it; it calls {@link _onClear}, which is gated (#301).
    */
   clearSelection(): void {
     this.rangeValue.set(null);
@@ -484,6 +491,22 @@ export class MlvDateRangePicker<D = Date>
 
   /** Whether the control holds a clearable value — A committed range is set. */
   readonly hasValue = computed(() => this.rangeValue() != null);
+
+  /**
+   * @protected The wrapper's clear-button handler: clears the committed range
+   * through `_write`, then drops the pending range and marks the field touched
+   * — both only when the write landed.
+   *
+   * Before #301 nothing was bound to the wrapper's `(clear)`, so a
+   * `clearable` range picker rendered an X that did nothing. The wrapper
+   * withholds the X while the picker is readonly or disabled; `_write`
+   * refuses independently, for a click that reaches a stale button.
+   */
+  protected _onClear(): void {
+    if (!this._write(null)) return;
+    this._pendingRange.set(null);
+    this._markTouched();
+  }
 
   /**
    * @private Formats a single date for display.

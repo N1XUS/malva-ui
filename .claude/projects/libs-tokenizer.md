@@ -346,3 +346,11 @@ tab stop and no name is due.
 - `.mlv-tokenizer__overflow` ("+N more") paints `--mlv-text-secondary`.
 - Was the literal `#666` — frozen to light: 5.5:1 there, 2.9–3.1:1 on the dark field and page. Now ≥ 7.5:1 light, ≥ 8.5:1 dark (`tone-contrast.spec.mjs`).
 - The placeholder dropped its `#999` fallback behind `--mlv-text-tertiary` (the token is always declared).
+
+## Clear button (2026-09, #301)
+
+- `clearable` renders the wrapper's X while at least one token exists and the tokenizer is neither readonly nor disabled. Before #301 nothing was bound to the wrapper's `(clear)`, so the X did nothing.
+- Handler: protected `_onClear()`, gated on `_canWrite()` **up front** rather than through `_write` — a clear writes both models (`_setTokens([])` sets `tokens` then `value`) and must not touch the armed selection either. It disarms, empties both models and emits `touch`. Draft text in the input is not the value and is left alone.
+- The inner `mlv-input`'s public `clearValue()` (called after a token is committed) stays an ungated application API — which is why `mlv-input`'s own clear button got a separate gated handler rather than a gate inside `clearValue()`.
+- Scope: the clear button only. Readonly on typing / Backspace / token removal is #402.
+- Spec: `tokenizer-clear.spec.ts`.

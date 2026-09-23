@@ -60,7 +60,7 @@
 @if (bare()) {
   <ng-container [ngTemplateOutlet]="control" />
 } @else {
-  <mlv-form-control-wrapper (clear)="clearValue()">
+  <mlv-form-control-wrapper (clear)="_onClear()">
     @if (label() || hint()) {
       <mlv-label [for]="_ownLabelFor()" [required]="required()">
         {{ label() }}

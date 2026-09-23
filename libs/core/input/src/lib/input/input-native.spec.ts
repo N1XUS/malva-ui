@@ -242,12 +242,10 @@ describe('MlvInputNative / projectControl — the single projection slot', () =>
  * Deliberately asserted with plain DOM reads rather than a narrowed axe sweep.
  * Axe raises `label` for (2) but had no rule at all for (1), so a sweep could
  * only ever pin half of this, and would pin that half by DISABLING the rule
- * that sees it — i.e. by asserting nothing. (A sweep would also cost
- * `core-input`'s `ROLLOUT_PENDING` line in `scripts/check-axe-coverage.mjs`,
- * which one `hasAxe` boolean ties to both the `uncovered` and `stale-rollout`
- * rules; that list only ever shrinks, so the first sweep commits the project to
- * full-state coverage — a bigger promise than a projection-slot fix should be
- * making.)
+ * that sees it — i.e. by asserting nothing. `core-input` now carries sweeps
+ * elsewhere (#301's `input-clear.spec.ts`), and the `projectControl` state is
+ * listed in its `owes` entry in `scripts/check-axe-coverage.mjs` until #259
+ * gives it a name a sweep can assert.
  *
  * EXPECTED TO GO RED when #259 lands: the last two expectations become a
  * resolved name. Update it there, do not delete it.

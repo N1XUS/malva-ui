@@ -278,19 +278,41 @@ export const ROLLOUT_PENDING = [
       'the `loadingMore` next-page row (needs the paged data-source stub)',
     ],
   },
-  'core-color-picker',
+  {
+    // #301 swept `mlv-color-picker-popup` in `field` presentation: writable
+    // with its clear button, readonly and disabled — each NARROWED on
+    // `aria-allowed-attr` (`aria-expanded` on the field's text input).
+    project: 'core-color-picker',
+    owes: [
+      '`mlv-color-picker` itself: the saturation plane, hue / opacity sliders and mode tabs',
+      'the open popup panel',
+      '`presentation="icon"` and the swatch trigger',
+      'error + `description` + `message`',
+      'an un-narrowed `field` sweep (`aria-allowed-attr` on the text input, #426)',
+    ],
+  },
   'core-dropdown',
   'core-file-upload',
   'core-form',
-  'core-input',
+  {
+    // #301 swept default with a value and its clear button, readonly, disabled.
+    project: 'core-input',
+    owes: [
+      'prefix / suffix slots and `projectControl`',
+      '`bare`',
+      'a `hint` inside the label',
+      'error + `description` + `message`',
+      'the `loading` state',
+    ],
+  },
   'core-notification',
   {
-    // #298 swept default, readonly, disabled and error + description + message.
+    // #298 swept default, readonly, disabled and error + description + message;
+    // #301 the `clearable` clear button while it holds a value.
     project: 'core-number-input',
     owes: [
       '`stack="vertical"` steppers, both `controlAlignment`s',
       'a `hint` inside the label',
-      'the `clearable` clear button while it holds a value',
       'the `loading` state',
     ],
   },
@@ -310,9 +332,29 @@ export const ROLLOUT_PENDING = [
   },
   'core-speed-dial',
   'core-split-pane',
-  'core-textarea',
+  {
+    // #301 swept default with a value and its clear button, readonly, disabled.
+    project: 'core-textarea',
+    owes: [
+      'the `maxLength` character counter',
+      'a `hint` inside the label',
+      'error + `description` + `message`',
+      'auto-resize with the custom scrollbar overflowing',
+    ],
+  },
   'core-toast',
-  'core-tokenizer',
+  {
+    // #301 swept two tokens with the clear button, readonly, disabled.
+    project: 'core-tokenizer',
+    owes: [
+      'an armed (Backspace-selected) token and its live region',
+      '`showOverflow` with the `+N` counter',
+      'a `tokenTemplate`',
+      'a `hint` inside the label',
+      'an empty tokenizer',
+      'error + `description` + `message`',
+    ],
+  },
   'core-tooltip',
   'core-tree',
 ];
