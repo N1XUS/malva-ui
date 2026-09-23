@@ -1,4 +1,10 @@
-import { Component } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  type ElementRef,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -333,10 +339,11 @@ describe('MlvProgress', () => {
       expect(fill.style.width).toBe('100%');
     });
 
-    it('label wrapper should be present and aria-hidden', () => {
-      const label = fixture.debugElement.query(By.css('.mlv-progress__label'));
-      expect(label).toBeTruthy();
-      expect(label.nativeElement.getAttribute('aria-hidden')).toBe('true');
+    it('renders exactly one label wrapper, aria-hidden, with an id', () => {
+      const labels = hostEl.querySelectorAll('.mlv-progress__label');
+      expect(labels).toHaveLength(1);
+      expect(labels[0].getAttribute('aria-hidden')).toBe('true');
+      expect(labels[0].id).toMatch(/^mlv-progress-label-\d+$/);
     });
   });
 
@@ -435,10 +442,11 @@ describe('MlvProgress', () => {
       expect(dashOffset).toBeCloseTo(dashArray / 2, 1);
     });
 
-    it('label wrapper should be present and aria-hidden', () => {
-      const label = fixture.debugElement.query(By.css('.mlv-progress__label'));
-      expect(label).toBeTruthy();
-      expect(label.nativeElement.getAttribute('aria-hidden')).toBe('true');
+    it('renders exactly one label wrapper, aria-hidden, with an id', () => {
+      const labels = hostEl.querySelectorAll('.mlv-progress__label');
+      expect(labels).toHaveLength(1);
+      expect(labels[0].getAttribute('aria-hidden')).toBe('true');
+      expect(labels[0].id).toMatch(/^mlv-progress-label-\d+$/);
     });
   });
 
@@ -672,16 +680,333 @@ describe('MlvProgress', () => {
 });
 
 /**
+ * The accessible name as a screen reader resolves it for this markup:
+ * `aria-labelledby` first (each IDREF's text content, space-joined), then
+ * `aria-label`. `null` when neither is present. Hand-rolled because no
+ * accessible-name library is a workspace dependency; the axe sweep below adds
+ * `aria-progressbar-name`, which fails on an empty result.
+ */
+function accessibleName(element: Element): string | null {
+  const labelledBy = element.getAttribute('aria-labelledby');
+  if (labelledBy) {
+    return labelledBy
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((id) => element.ownerDocument.getElementById(id)?.textContent ?? '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  return element.getAttribute('aria-label');
+}
+
+/**
+ * Projected label (#258).
+ *
+ * The template used to declare a bare `<ng-content />` in each `shape` branch.
+ * A wildcard slot resolves to the LAST one declared, so the default `bar`
+ * rendered nothing a consumer projected — and a full axe sweep cannot see
+ * content that is not there. These specs therefore assert DOM containment and
+ * node counts on an element the host keeps a reference to, which exists whether
+ * or not it was projected: `isConnected` is what tells the two worlds apart,
+ * where a `toBeTruthy()` on a query would be null in both.
+ *
+ * The same text is also the progressbar's accessible name (WCAG 2.5.3, label in
+ * name) unless the consumer names it explicitly through `ariaLabel`.
+ */
+describe('MlvProgress projected label', () => {
+  @Component({
+    selector: 'mlv-test-progress-status',
+    template: '{{ status() }}',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+  })
+  class ProgressStatusText {
+    readonly status = signal('');
+  }
+
+  @Component({
+    imports: [MlvProgress],
+    template: `
+      <mlv-progress
+        id="subject"
+        [value]="40"
+        [shape]="shape()"
+        [ariaLabel]="ariaLabel()"
+      >
+        <span #probe class="probe">{{ text() }}</span>
+      </mlv-progress>
+    `,
+  })
+  class ProjectedLabelHost {
+    readonly shape = signal<MlvProgressShape>('bar');
+    readonly text = signal('Uploading');
+    readonly ariaLabel = signal<string | undefined>(undefined);
+    readonly probe = viewChild.required<ElementRef<HTMLElement>>('probe');
+  }
+
+  @Component({
+    imports: [MlvProgress],
+    template: `
+      <mlv-progress
+        id="subject"
+        [value]="40"
+        [shape]="shape()"
+        [ariaLabel]="ariaLabel()"
+      />
+    `,
+  })
+  class NoLabelHost {
+    readonly shape = signal<MlvProgressShape>('bar');
+    readonly ariaLabel = signal<string | undefined>(undefined);
+  }
+
+  @Component({
+    imports: [MlvProgress],
+    template: `
+      <mlv-progress id="subject" [value]="40" [shape]="shape()">
+        <span aria-hidden="true">{{ text() }}</span>
+      </mlv-progress>
+    `,
+  })
+  class HiddenTextHost {
+    readonly shape = signal<MlvProgressShape>('bar');
+    readonly text = signal('40%');
+  }
+
+  @Component({
+    imports: [MlvProgress, ProgressStatusText],
+    template: `
+      <mlv-progress id="subject" [value]="40">
+        <mlv-test-progress-status />
+      </mlv-progress>
+    `,
+  })
+  class ChildTextHost {
+    readonly statusText = viewChild.required(ProgressStatusText);
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+  });
+
+  /** Creates `type`, lets it render, and returns the fixture plus the progressbar host. */
+  async function mount<T>(
+    type: new () => T,
+  ): Promise<{ fixture: ComponentFixture<T>; subject: HTMLElement }> {
+    const fixture = TestBed.createComponent(type);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const subject = (fixture.nativeElement as HTMLElement).querySelector(
+      '#subject',
+    ) as HTMLElement;
+    return { fixture, subject };
+  }
+
+  /** Re-renders after a signal write. */
+  async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  /**
+   * Asserts the one projected node is attached exactly once, inside the single
+   * label wrapper of `subject`, and carries `text`.
+   */
+  function expectProjectedOnce(
+    fixture: ComponentFixture<ProjectedLabelHost>,
+    subject: HTMLElement,
+    probe: HTMLElement,
+    text: string,
+  ): void {
+    const root = fixture.nativeElement as HTMLElement;
+    const labels = subject.querySelectorAll('.mlv-progress__label');
+    expect(labels.length).toBe(1);
+    expect(probe.isConnected).toBe(true);
+    expect(labels[0].contains(probe)).toBe(true);
+    expect(root.querySelectorAll('.probe').length).toBe(1);
+    expect(root.querySelector('.probe') === probe).toBe(true);
+    expect(labels[0].textContent?.trim()).toBe(text);
+  }
+
+  describe.each<MlvProgressShape>(['bar', 'circle'])('shape="%s"', (shape) => {
+    it('renders the projected node exactly once, inside the one label wrapper', async () => {
+      const { fixture, subject } = await mount(ProjectedLabelHost);
+      fixture.componentInstance.shape.set(shape);
+      await settle(fixture);
+
+      const probe = fixture.componentInstance.probe().nativeElement;
+      expectProjectedOnce(fixture, subject, probe, 'Uploading');
+    });
+
+    it('is named by the projected text through aria-labelledby, not aria-label', async () => {
+      const { fixture, subject } = await mount(ProjectedLabelHost);
+      fixture.componentInstance.shape.set(shape);
+      await settle(fixture);
+
+      expect(accessibleName(subject)).toBe('Uploading');
+      expect(subject.hasAttribute('aria-label')).toBe(false);
+
+      // The reference resolves to this progressbar's own label wrapper, which
+      // stays `aria-hidden` on purpose: a labelledby reference reads a hidden
+      // node's text all the same, and hiding it keeps the text from also being
+      // exposed as a separate node under the progressbar.
+      const ids = (subject.getAttribute('aria-labelledby') ?? '').split(/\s+/);
+      expect(ids).toHaveLength(1);
+      const label = subject.ownerDocument.getElementById(ids[0]);
+      expect(label?.classList.contains('mlv-progress__label')).toBe(true);
+      expect(label !== null && subject.contains(label)).toBe(true);
+      expect(label?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('is named by projected text that is itself aria-hidden, not left unnamed', async () => {
+      const { fixture, subject } = await mount(HiddenTextHost);
+      fixture.componentInstance.shape.set(shape);
+      await settle(fixture);
+
+      // A hidden, directly referenced node contributes its hidden descendants'
+      // text too, so `40%` names the host instead of an empty name.
+      expect(subject.getAttribute('aria-labelledby')).toMatch(
+        /^mlv-progress-label-\d+$/,
+      );
+      expect(subject.hasAttribute('aria-label')).toBe(false);
+      expect(accessibleName(subject)).toBe('40%');
+    });
+
+    it('keeps the i18n default name when nothing is projected', async () => {
+      const { fixture, subject } = await mount(NoLabelHost);
+      fixture.componentInstance.shape.set(shape);
+      await settle(fixture);
+
+      expect(subject.getAttribute('aria-label')).toBe('Progress');
+      expect(subject.hasAttribute('aria-labelledby')).toBe(false);
+      // No child node at all — not even whitespace or a comment — so the
+      // stylesheet's `:empty { display: none }` still collapses the wrapper.
+      expect(
+        subject.querySelector('.mlv-progress__label')?.childNodes.length,
+      ).toBe(0);
+    });
+
+    it("keeps the consumer's ariaLabel when nothing is projected", async () => {
+      const { fixture, subject } = await mount(NoLabelHost);
+      fixture.componentInstance.shape.set(shape);
+      fixture.componentInstance.ariaLabel.set('Import progress');
+      await settle(fixture);
+
+      expect(subject.getAttribute('aria-label')).toBe('Import progress');
+      expect(subject.hasAttribute('aria-labelledby')).toBe(false);
+    });
+
+    it('lets an explicit ariaLabel win over projected content, emitting one naming attribute', async () => {
+      const { fixture, subject } = await mount(ProjectedLabelHost);
+      fixture.componentInstance.shape.set(shape);
+      fixture.componentInstance.ariaLabel.set('Uploading files, step 2 of 3');
+      await settle(fixture);
+
+      expect(accessibleName(subject)).toBe('Uploading files, step 2 of 3');
+      expect(subject.hasAttribute('aria-labelledby')).toBe(false);
+      // Still rendered — only the naming source changes.
+      const probe = fixture.componentInstance.probe().nativeElement;
+      expectProjectedOnce(fixture, subject, probe, 'Uploading');
+
+      // Clearing the override hands the name back to the projected label.
+      fixture.componentInstance.ariaLabel.set(undefined);
+      await settle(fixture);
+      expect(accessibleName(subject)).toBe('Uploading');
+      expect(subject.hasAttribute('aria-label')).toBe(false);
+    });
+
+    it('treats whitespace-only projected text as no label', async () => {
+      const { fixture, subject } = await mount(ProjectedLabelHost);
+      fixture.componentInstance.shape.set(shape);
+      fixture.componentInstance.text.set('  \n\t ');
+      await settle(fixture);
+
+      expect(subject.getAttribute('aria-label')).toBe('Progress');
+      expect(subject.hasAttribute('aria-labelledby')).toBe(false);
+    });
+
+    it('follows projected text that appears and disappears later', async () => {
+      const { fixture, subject } = await mount(ProjectedLabelHost);
+      fixture.componentInstance.shape.set(shape);
+      fixture.componentInstance.text.set('');
+      await settle(fixture);
+      expect(subject.getAttribute('aria-label')).toBe('Progress');
+      expect(subject.hasAttribute('aria-labelledby')).toBe(false);
+
+      fixture.componentInstance.text.set('Verifying');
+      await settle(fixture);
+      expect(accessibleName(subject)).toBe('Verifying');
+      expect(subject.hasAttribute('aria-label')).toBe(false);
+
+      fixture.componentInstance.text.set('');
+      await settle(fixture);
+      expect(subject.getAttribute('aria-label')).toBe('Progress');
+      expect(subject.hasAttribute('aria-labelledby')).toBe(false);
+    });
+  });
+
+  it.each<[MlvProgressShape, MlvProgressShape]>([
+    ['bar', 'circle'],
+    ['circle', 'bar'],
+  ])(
+    'keeps the one projected node through a %s → %s → back flip',
+    async (from, to) => {
+      const { fixture, subject } = await mount(ProjectedLabelHost);
+      fixture.componentInstance.shape.set(from);
+      await settle(fixture);
+      const probe = fixture.componentInstance.probe().nativeElement;
+      expectProjectedOnce(fixture, subject, probe, 'Uploading');
+
+      fixture.componentInstance.shape.set(to);
+      await settle(fixture);
+      expect(subject.classList.contains(`mlv-progress--${to}`)).toBe(true);
+      expectProjectedOnce(fixture, subject, probe, 'Uploading');
+      expect(accessibleName(subject)).toBe('Uploading');
+
+      fixture.componentInstance.shape.set(from);
+      await settle(fixture);
+      expect(subject.classList.contains(`mlv-progress--${from}`)).toBe(true);
+      expectProjectedOnce(fixture, subject, probe, 'Uploading');
+      expect(accessibleName(subject)).toBe('Uploading');
+    },
+  );
+
+  it('follows a projected component whose own signal changes the text', async () => {
+    // The text node belongs to a projected OnPush child, so a change to it
+    // refreshes that child's view alone — the consumer view that declares the
+    // progressbar is only traversed, not refreshed.
+    const { fixture, subject } = await mount(ChildTextHost);
+    expect(subject.getAttribute('aria-label')).toBe('Progress');
+    expect(subject.hasAttribute('aria-labelledby')).toBe(false);
+
+    fixture.componentInstance.statusText().status.set('Uploading');
+    await fixture.whenStable();
+    expect(accessibleName(subject)).toBe('Uploading');
+    expect(subject.hasAttribute('aria-label')).toBe(false);
+
+    fixture.componentInstance.statusText().status.set('');
+    await fixture.whenStable();
+    expect(subject.getAttribute('aria-label')).toBe('Progress');
+    expect(subject.hasAttribute('aria-labelledby')).toBe(false);
+  });
+});
+
+/**
  * Accessibility sweep.
  *
  * `mlv-progress` is always determinate — the indeterminate spinner is
- * `mlv-loader`, a different component — so the axis that changes its markup is
- * `shape`, plus the two pieces of visible text it can render: the
- * `showPercentage` readout and the projected `<ng-content>` label. Both are
- * `aria-hidden`, because the value and the name are already on the host as
- * `aria-valuenow` / `aria-label`; that is exactly the arrangement that would
- * leave a progressbar nameless if the fallback label ever went missing, so the
- * sweep pins the boundary values (0 and 100) alongside the default.
+ * `mlv-loader`, a different component — so the axes that change its markup are
+ * `shape` and the two pieces of visible text it can render. The
+ * `showPercentage` readout is `aria-hidden`: the value is already on the host
+ * as `aria-valuenow`. The projected label wrapper is `aria-hidden` too, and
+ * still names the host (#258): with text and no `ariaLabel` the host points
+ * `aria-labelledby` at it — a hidden referenced node still contributes its
+ * text, and axe's `aria-progressbar-name` accepts it — otherwise the host
+ * carries `aria-label`. Each shape is swept with and without a projected
+ * label, and with a label beside an explicit `ariaLabel`, alongside the
+ * boundary values (0 and 100).
  */
 describe('MlvProgress accessibility', () => {
   @Component({
@@ -689,17 +1014,38 @@ describe('MlvProgress accessibility', () => {
     template: `
       <mlv-progress [value]="0" />
       <mlv-progress [value]="42" tone="success" size="s" />
-      <mlv-progress [value]="100" tone="danger" size="xl" />
-      <mlv-progress [value]="60" showPercentage id="bar-percentage" />
-      <mlv-progress [value]="60">Uploading files</mlv-progress>
+      <mlv-progress [value]="100" tone="danger" size="l" />
+      <mlv-progress [value]="60" showPercentage />
+      <mlv-progress [value]="60" id="bar-label">Uploading files</mlv-progress>
+      <mlv-progress
+        [value]="60"
+        showPercentage
+        ariaLabel="Uploading files, step 2 of 3"
+        id="bar-label-named"
+        >Uploading files</mlv-progress
+      >
       <mlv-progress shape="circle" [value]="35" />
       <mlv-progress shape="circle" [value]="35" showPercentage />
+      <mlv-progress shape="circle" [value]="35" id="circle-label"
+        >Storage</mlv-progress
+      >
+      <mlv-progress
+        shape="circle"
+        [value]="35"
+        showPercentage
+        ariaLabel="Storage usage"
+        id="circle-label-named"
+        >Storage</mlv-progress
+      >
       <mlv-progress [value]="20" ariaLabel="Import progress" id="named" />
+      <mlv-progress [value]="40" id="hidden-text"
+        ><span aria-hidden="true">40%</span></mlv-progress
+      >
     `,
   })
   class ProgressA11yHost {}
 
-  it('has no axe violations across shapes, tones and both text affordances', async () => {
+  it('has no axe violations across shapes, tones, labels and the percentage readout', async () => {
     await TestBed.configureTestingModule({
       imports: [ProgressA11yHost],
       providers: [provideMlvI18nTesting()],
@@ -710,29 +1056,56 @@ describe('MlvProgress accessibility', () => {
     await fixture.whenStable();
     const host = fixture.nativeElement as HTMLElement;
 
-    // State: eight progressbars, every one named and carrying the full value
-    // triple, including the 0 and 100 ends.
+    // State: twelve progressbars, every one named exactly once and carrying the
+    // full value triple, including the 0 and 100 ends.
     const bars = [...host.querySelectorAll('[role="progressbar"]')];
-    expect(bars).toHaveLength(8);
+    expect(bars).toHaveLength(12);
     expect(
-      bars.every(
-        (el) =>
-          (el.getAttribute('aria-label') ?? '').length > 0 &&
-          el.getAttribute('aria-valuemin') === '0' &&
-          el.getAttribute('aria-valuemax') === '100' &&
-          el.getAttribute('aria-valuenow') !== null,
-      ),
-    ).toBe(true);
+      bars
+        .filter(
+          (el) =>
+            !(accessibleName(el) ?? '').length ||
+            (el.hasAttribute('aria-label') &&
+              el.hasAttribute('aria-labelledby')) ||
+            el.getAttribute('aria-valuemin') !== '0' ||
+            el.getAttribute('aria-valuemax') !== '100' ||
+            el.getAttribute('aria-valuenow') === null,
+        )
+        .map((el) => el.outerHTML),
+    ).toEqual([]);
     expect(bars[0].getAttribute('aria-valuenow')).toBe('0');
     expect(bars[2].getAttribute('aria-valuenow')).toBe('100');
-    expect(host.querySelector('#named')?.getAttribute('aria-label')).toBe(
-      'Import progress',
-    );
 
-    // Both visible-text affordances are hidden, so neither is announced on top
-    // of the value the role already exposes.
+    const nameOf = (id: string): string | null => {
+      const el = host.querySelector(`#${id}`);
+      return el ? accessibleName(el) : null;
+    };
+    expect(nameOf('bar-label')).toBe('Uploading files');
+    expect(nameOf('circle-label')).toBe('Storage');
+    expect(nameOf('bar-label-named')).toBe('Uploading files, step 2 of 3');
+    expect(nameOf('circle-label-named')).toBe('Storage usage');
+    expect(nameOf('named')).toBe('Import progress');
+    expect(nameOf('hidden-text')).toBe('40%');
+    expect(bars[0].getAttribute('aria-label')).toBe('Progress');
+
+    // Five projected labels render, one per host, each hidden so its text is
+    // exposed only as the name, never again as a separate node; the percentage
+    // readouts stay hidden, so the value is not announced twice.
+    const labels = [...host.querySelectorAll('.mlv-progress__label')].filter(
+      (el) => (el.textContent ?? '').trim().length > 0,
+    );
+    expect(labels.map((el) => el.textContent?.trim())).toEqual([
+      'Uploading files',
+      'Uploading files',
+      'Storage',
+      'Storage',
+      '40%',
+    ]);
+    expect(
+      labels.every((el) => el.getAttribute('aria-hidden') === 'true'),
+    ).toBe(true);
     const percentages = [...host.querySelectorAll('.mlv-progress__percentage')];
-    expect(percentages).toHaveLength(2);
+    expect(percentages).toHaveLength(4);
     expect(
       percentages.every((el) => el.getAttribute('aria-hidden') === 'true'),
     ).toBe(true);
