@@ -6,7 +6,7 @@
       @for (tick of _ticks(); track tick) {
         <span
           class="mlv-slider__tick"
-          [style.left]="!_isVertical() ? tick + '%' : null"
+          [style.inset-inline-start]="!_isVertical() ? tick + '%' : null"
           [style.bottom]="_isVertical() ? tick + '%' : null"
         ></span>
       }
@@ -29,7 +29,7 @@
   [attr.aria-disabled]="computedDisabled() || null"
   [attr.aria-readonly]="readonly() || null"
   [attr.aria-orientation]="orientation()"
-  [style.left]="!_isVertical() ? _lowPercent() + '%' : null"
+  [style.inset-inline-start]="!_isVertical() ? _lowPercent() + '%' : null"
   [style.bottom]="_isVertical() ? _lowPercent() + '%' : null"
   (keydown)="_onLowThumbKeydown($event)"
   (focus)="setFocused(true)"
@@ -40,7 +40,7 @@
   <span
     class="mlv-slider__tooltip mlv-slider__tooltip--low"
     aria-hidden="true"
-    [style.left]="!_isVertical() ? _lowPercent() + '%' : null"
+    [style.inset-inline-start]="!_isVertical() ? _lowPercent() + '%' : null"
     [style.bottom]="_isVertical() ? _lowPercent() + '%' : null"
   >
     @if (_tooltipDef(); as tooltipDef) {
@@ -67,7 +67,7 @@
     [attr.aria-disabled]="computedDisabled() || null"
     [attr.aria-readonly]="readonly() || null"
     [attr.aria-orientation]="orientation()"
-    [style.left]="!_isVertical() ? _highPercent() + '%' : null"
+    [style.inset-inline-start]="!_isVertical() ? _highPercent() + '%' : null"
     [style.bottom]="_isVertical() ? _highPercent() + '%' : null"
     (keydown)="_onHighThumbKeydown($event)"
     (focus)="setFocused(true)"
@@ -78,7 +78,7 @@
     <span
       class="mlv-slider__tooltip mlv-slider__tooltip--high"
       aria-hidden="true"
-      [style.left]="!_isVertical() ? _highPercent() + '%' : null"
+      [style.inset-inline-start]="!_isVertical() ? _highPercent() + '%' : null"
       [style.bottom]="_isVertical() ? _highPercent() + '%' : null"
     >
       @if (_tooltipDef(); as tooltipDef) {

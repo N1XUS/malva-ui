@@ -1077,6 +1077,70 @@ describe('MlvDataTable — column resize', () => {
     expect(idColumn()._currentWidth).toBe(120);
   });
 
+  // #308 — the separator rides the column's inline-end edge, the physical LEFT
+  // edge in RTL, so an outward drag moves the pointer toward smaller `clientX`.
+  // The raw `clientX` delta shrank the column instead (120 → 80, its minimum)
+  // while the keyboard path, already direction-aware, grew it.
+  it.each(['ltr', 'global-rtl', 'scoped-rtl'] as const)(
+    'grows the column when its separator is dragged 40px outward (%s)',
+    async (scope) => {
+      if (scope === 'global-rtl') {
+        TestBed.inject(MlvRtlService).setDirection('rtl');
+      }
+      if (scope === 'scoped-rtl') {
+        (fixture.nativeElement.parentElement as HTMLElement).setAttribute(
+          'dir',
+          'rtl',
+        );
+      }
+      fixture.detectChanges();
+      await fixture.whenStable();
+      if (scope === 'scoped-rtl') {
+        expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+      }
+
+      const events: unknown[] = [];
+      table().columnResize.subscribe((event) => events.push(event));
+      const handle = resizeHandle();
+      const outward = scope === 'ltr' ? 40 : -40;
+
+      handle.dispatchEvent(pointerEvent('pointerdown', 100));
+      handle.dispatchEvent(pointerEvent('pointermove', 100 + outward));
+      handle.dispatchEvent(pointerEvent('pointerup', 100 + outward));
+      fixture.detectChanges();
+
+      expect(idColumn()._currentWidth).toBe(160);
+      expect(events).toEqual([{ key: 'id', width: 160, source: 'pointer' }]);
+    },
+  );
+
+  it.each(['ltr', 'global-rtl', 'scoped-rtl'] as const)(
+    'shrinks the column when its separator is dragged 25px inward (%s)',
+    async (scope) => {
+      if (scope === 'global-rtl') {
+        TestBed.inject(MlvRtlService).setDirection('rtl');
+      }
+      if (scope === 'scoped-rtl') {
+        (fixture.nativeElement.parentElement as HTMLElement).setAttribute(
+          'dir',
+          'rtl',
+        );
+      }
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const handle = resizeHandle();
+      const inward = scope === 'ltr' ? -25 : 25;
+
+      handle.dispatchEvent(pointerEvent('pointerdown', 100));
+      handle.dispatchEvent(pointerEvent('pointermove', 100 + inward));
+      handle.dispatchEvent(pointerEvent('pointerup', 100 + inward));
+      fixture.detectChanges();
+
+      expect(idColumn()._currentWidth).toBe(95);
+    },
+  );
+
   it('exposes complete localized separator ARIA markup', () => {
     const handle = resizeHandle();
     expect(handle.getAttribute('role')).toBe('separator');

@@ -56,6 +56,7 @@ Attribute directive that emits a `loadMore` event when the user scrolls within a
 - A `_pendingFire` guard prevents duplicate emissions during a single scroll crossing. Consumers should flip `loading` synchronously in the `loadMore` handler to suppress further emissions until the fetch resolves.
 - On first render (`afterNextRender`), the directive checks whether the container is already within threshold and fires immediately — useful when the initial page does not fill the viewport.
 - Rebinding is handled via `effect()`: changes to `scrollContainer`, `disabled`, or `orientation` re-attach the listener to the correct element.
+- **Horizontal RTL (#308):** the distance to the inline end is `scrollWidth - Math.abs(scrollLeft) - clientWidth`. Per CSSOM View `scrollLeft` is `0` at the inline start in both directions and runs **negative** toward the end of an RTL scroller, so its magnitude is the distance travelled — direction-agnostic, no `[dir]` lookup, identical in LTR. Before #308 an RTL strip read `scrollWidth + |scrollLeft| - clientWidth` at its end and never fired `loadMore`. Pinned by `infinite-scroll.spec.ts` (LTR, global RTL, scoped RTL).
 - All cleanup is registered via `DestroyRef.onDestroy`.
 
 ---

@@ -154,6 +154,12 @@ interface ActiveColumnResize extends ColumnResizeBounds {
   pointerId: number;
   target: HTMLElement;
   startX: number;
+  /**
+   * Sign that turns a physical `clientX` delta into growth: `1` in LTR, `-1`
+   * in RTL, where the inline-end separator is the column's left edge. Resolved
+   * once at pointerdown from the table's scoped direction.
+   */
+  inlineSign: 1 | -1;
   startWidth: number;
   latestWidth: number;
   moved: boolean;
@@ -2139,6 +2145,8 @@ export class MlvDataTable {
       pointerId: event.pointerId,
       target,
       startX: event.clientX,
+      // Same scoped direction the keyboard path resolves its arrows against.
+      inlineSign: this._direction() === 'rtl' ? -1 : 1,
       startWidth,
       latestWidth: startWidth,
       moved: false,
@@ -2352,7 +2360,9 @@ export class MlvDataTable {
   private _onResizeMove(event: PointerEvent): void {
     const state = this._resizeState;
     if (!state || event.pointerId !== state.pointerId) return;
-    const delta = event.clientX - state.startX;
+    // `clientX` is physical; the separator rides the column's inline-end edge,
+    // so outward is toward smaller `clientX` in RTL. Converted once here.
+    const delta = (event.clientX - state.startX) * state.inlineSign;
     if (delta !== 0) state.moved = true;
     state.latestWidth = this._clampColumnWidth(state.startWidth + delta, state);
     if (!state.moved) return;

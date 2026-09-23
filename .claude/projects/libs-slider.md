@@ -80,6 +80,18 @@ CSS density classes applied: `mlv-slider--compact`, `mlv-slider--comfortable`.
 
 Horizontal arrows are **logical** — in RTL `ArrowLeft` increases and `ArrowRight` decreases. Direction is resolved from the slider's own host (`normalizeArrowKey(event, this._direction())`), the same cached `_direction` signal that feeds the pointer maths, so a slider inside a scoped `dir="rtl"` subtree (or an overlay pane, which CDK stamps with its own `dir`) mirrors both halves together while the document stays LTR. Vertical arrows, `PageUp`/`PageDown` and `Home`/`End` never mirror.
 
+#### Direction (RTL) geometry (#308)
+
+- Horizontal positions are **logical**: thumbs, tooltips and ticks bind `[style.inset-inline-start]` (was `[style.left]`), like the fill's `inset-inline-start: var(--mlv-slider-fill-start)`. Before #308 the fill mirrored and the thumbs did not — `value=20` in RTL drew the fill at 320–400px of a 400px track and the thumb at 80.
+- Centring shift is direction-signed: `translate(mixins.inline-distance(-50%), …)` on the thumb (incl. `:hover` / `:active`), the tooltip (hidden and visible) and `translateX(mixins.inline-distance(-50%))` on a tick — `inset-inline-start` anchors the box's right edge in RTL.
+- Snap-back transitions name `inset-inline-start` (fill, thumb, tooltip); a `left` transition never saw the RTL start move.
+- `.mlv-slider__ticks` spans the track with `inset-inline-start: 0` + `width: 100%` — symmetric, so written logically.
+- Physical, with `// physical:` comments: the tooltip arrow's `left: 50%` centring pair, and the whole vertical cross axis (ticks, thumb, tooltip `left`, tooltip `transform-origin`). Open decision, not settled here: keep the vertical cross axis physical or mirror it — together with the vertical tooltip arrow, which points away from its thumb in RTL (`inset-inline-end: 100%` + `border-inline-end` resolve to the tooltip's far side).
+- Vertical rules reset the logical inset their horizontal base sets before going physical — in RTL the base resolves to `right` and over-constrains the box, so a bare `left` is ignored:
+  - fill: `inset-inline-start: 0` (was a physical `left: 0`, which offset a vertical range fill by the low value's percentage);
+  - ticks row: `inset-inline-start: auto` **ahead of** `left: 50%` in the same rule (without it, ticks sit 2px off the track centre in RTL).
+- Pinned by `slider.spec.ts` § _horizontal geometry is logical_ (bound styles, LTR / global RTL / scoped RTL) and `slider-styles.spec.ts` (compiled CSS: fill and ticks placement, centring, transitions, vertical resets). Verified in Chromium: scoped and global RTL `value=20` → thumb centre 320, fill 320–400; LTR and vertical LTR byte-identical to before.
+
 **Readonly / disabled** (#298): no key moves a thumb, no track click jumps, no drag starts. `_setLowValue` / `_setHighValue` / `_emitChange` write through `_write()`. Before #298 every path checked only `computedDisabled()`, so a readonly slider moved on all of them. Readonly thumbs keep `tabindex="0"`, so the value stays reachable and announced.
 
 - **Thumb keys:** disabled returns first (thumb out of tab order; key untouched, as before). Readonly: a recognised slider key (arrows, Page, Home, End) is still `preventDefault()`ed, then refused — a thumb has no caret, so its only remaining default is scrolling the page. Unrecognised keys (Tab, …) pass through.
@@ -198,6 +210,7 @@ libs/core/slider/src/
       slider.scss                  — BEM styles
       slider-tooltip-def.ts — custom tooltip renderer definition
       slider.spec.ts               — unit tests
+      slider-styles.spec.ts        — compiled-CSS checks (#308 RTL centring, transitions)
       slider-binding-matrix.spec.ts — forms integration matrix
       slider-readonly.spec.ts      — #298 write permission + axe sweeps
 ```

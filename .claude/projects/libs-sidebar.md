@@ -476,23 +476,29 @@ host: {
 
 #### Protected handlers (template-facing, not public API)
 
-| Method           | Signature                      | Description                                                                                                                               |
-| ---------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `_onDoubleClick` | `(): void`                     | Toggles the sidebar collapsed state.                                                                                                      |
-| `_onKeydown`     | `(event: KeyboardEvent): void` | `ArrowLeft`/`ArrowRight` adjust width by ±10px. `Home` collapses (no-op if already collapsed). `End` expands (no-op if already expanded). |
-| `_onPointerDown` | `(event: PointerEvent): void`  | Starts the drag: captures pointer, disables container transition, attaches `pointermove`/`pointerup` listeners outside Angular zone.      |
+| Method           | Signature                      | Description                                                                                                                                                                                                                |
+| ---------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_onDoubleClick` | `(): void`                     | Toggles the sidebar collapsed state.                                                                                                                                                                                       |
+| `_onKeydown`     | `(event: KeyboardEvent): void` | `ArrowLeft`/`ArrowRight` adjust width by ±10px (logical: `ArrowLeft` widens in RTL), stepping from the sidebar's rendered width. `Home` collapses (no-op if already collapsed). `End` expands (no-op if already expanded). |
+| `_onPointerDown` | `(event: PointerEvent): void`  | Starts the drag: captures pointer, disables container transition, attaches `pointermove`/`pointerup` listeners outside Angular zone.                                                                                       |
 
 #### Drag Behavior
 
 - Runs `pointermove` handler outside Angular zone with `requestAnimationFrame` throttle for smooth 60fps resizing.
-- On drag, computes `newWidth = event.clientX - sidebarRect.left`. If `newWidth < snapThreshold` and sidebar is not already collapsed, sets a snap flag. Otherwise clamps to `[minWidth, maxWidth]` and calls `setWidth()`.
+- On drag, computes the width as the pointer's distance from the sidebar's **inline-start** edge: `event.clientX - sidebarRect.left` in LTR, `sidebarRect.right - event.clientX` in RTL (the rail rides the inline-end edge, the physical left in RTL). Direction comes from the rail's cached scoped `elementDirection(host)`, the signal the arrow keys already used (#308). If `newWidth < snapThreshold` and sidebar is not already collapsed, sets a snap flag. Otherwise clamps to `[minWidth, maxWidth]` and calls `setWidth()`.
+- **Width base (#308):** `aria-valuenow` / `aria-valuetext` and every keyboard step start from the sidebar's rendered width, not a constant.
+  - Seeded in `afterNextRender` (`mixedReadWrite` — the read writes the inline `transition`; skipped while collapsed) and re-read before each step: `<mlv-sidebar width="320px">` reports 320 and steps to 330; a `width` changed from outside is not stepped over.
+  - The read suppresses the sidebar's width transition, so mid-animation it returns the settling width — and cancels that transition. Rounded to whole px (`22.5%` of 1517px reports 341, not 341.325).
+  - `260` is only the fallback: server render, a sidebar that starts collapsed (its 56px icon rail is not the width the rail controls), no `.mlv-sidebar` ancestor.
+  - Residual: `aria-valuenow` does not follow an external `width` change until the next rail interaction.
+  - Residual: the seed publishes the rendered width **unclamped**, while `aria-valuemin` / `aria-valuemax` and every step clamp to the rail's own `minWidth` / `maxWidth` (200 / 480), not the sidebar's. A sidebar outside that band reports an out-of-range value at rest, and the first step jumps to the band edge in the wrong direction: `<mlv-sidebar width="150px" [minWidth]="100">` → `aria-valuenow` 150 under `aria-valuemin` 200, ArrowLeft **widens** it to 200; `width="520px" [maxWidth]="600"` → 520 over `aria-valuemax` 480, ArrowRight **narrows** it to 480. Pre-existing (the old 260 base jumped further); the fix is the deferred rail `minWidth` / `maxWidth` deprecation in favour of the sidebar's.
 - On pointer release, restores the container's CSS transition. If snap flag is set, calls `toggle()` to collapse.
 - Cleans up document listeners and resets `user-select`/`cursor` overrides on destroy. `_cleanup()` is the single exit for both `pointerup` and `DestroyRef.onDestroy`, so a rail destroyed mid-drag leaves nothing bound (asserted in `sidebar-rail.spec.ts`).
 - The listeners go on the **injected `DOCUMENT`**, not the ambient global: under server rendering the two are different objects and the global is defined, so an ambient binding would attach a per-render component to a process-wide object no teardown reaches, without throwing. Changed in #76.
 
 #### Inline Style Summary
 
-- **Block `.mlv-sidebar-rail`:** `position: absolute`, `right: -1px`, `width: 2px`, transparent background, `cursor: col-resize`, `z-index: 1`. `::before` pseudo-element provides a wider hit area (±4px).
+- **Block `.mlv-sidebar-rail`:** `position: absolute`, `inset-inline-end: -0.0625rem` (the sidebar's inline-end edge, its left edge in RTL), `width: 2px`, transparent background, `cursor: col-resize`, `z-index: 1`. `::before` pseudo-element provides a wider hit area (±4px).
 - **`:hover`:** expands to `width: 4px`, shows `--mlv-background-accent-1`.
 - **`:focus-visible`:** standard focus ring (`--mlv-border-focus`).
 - **Modifier `--dragging`:** same visual as hover (4px accent bar).

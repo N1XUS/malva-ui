@@ -497,7 +497,9 @@ export class MlvSlider
 
   /**
    * @private Converts a pointer event position to a clamped percentage (0–100).
-   * Horizontal: left → 0%, right → 100%.
+   * Horizontal: inline-start → 0%, inline-end → 100% (the track's right edge
+   * is 0% in RTL), matching the logical `inset-inline-start` the thumb,
+   * tooltip, ticks and fill are placed with.
    * Vertical: bottom → 0%, top → 100% (inverted Y axis).
    * Does not snap — use this for free drag tracking.
    */

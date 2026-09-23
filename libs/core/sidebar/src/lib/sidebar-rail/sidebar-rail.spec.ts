@@ -50,13 +50,30 @@ function trackListeners(target: EventTarget): Map<string, number> {
 }
 
 const setWidth = vi.fn();
+const toggle = vi.fn();
+const collapsed = signal(false);
 
 const context: MlvSidebarContextValue = {
-  collapsed: signal(false),
+  collapsed,
   mode: signal<MlvSidebarMode>('inline'),
-  toggle: vi.fn(),
+  toggle,
   setWidth,
 };
+
+/** A laid-out box `width` wide whose left edge is at `left`. */
+function rect(left: number, width: number): DOMRect {
+  return {
+    x: left,
+    y: 0,
+    top: 0,
+    left,
+    right: left + width,
+    bottom: 800,
+    width,
+    height: 800,
+    toJSON: () => ({}),
+  } as DOMRect;
+}
 
 @Component({
   template: `<div class="mlv-sidebar"><mlv-sidebar-rail /></div>`,
@@ -210,6 +227,227 @@ describe('MlvSidebarRail', () => {
 
     expect(document.body.style.cursor).toBe('');
     expect(document.body.style.userSelect).toBe('');
+  });
+
+  // #308 — the rail rides the sidebar's inline-end edge, which is its physical
+  // LEFT edge in RTL. `clientX - rect.left` measured the width from the wrong
+  // side: ≈ 0 at the rail and negative when dragging outward, so every RTL drag
+  // fell under `snapThreshold` and collapsed the sidebar on release.
+  describe('pointer width follows the inline axis', () => {
+    type Scope = 'ltr' | 'global-rtl' | 'scoped-rtl';
+
+    /**
+     * Lays the sidebar out on the side the direction puts it: at the start of
+     * a 1000px viewport in LTR (0..260), at its end in RTL (740..1000). The rail
+     * sits on the inline-end edge, so a drag starts at 260 / 740 respectively.
+     * Returns that start point and the sign of "outward" on the physical x axis.
+     */
+    function layOut(scope: Scope): { railX: number; outward: number } {
+      const rtl = scope !== 'ltr';
+      if (scope === 'global-rtl') {
+        TestBed.inject(MlvRtlService).setDirection('rtl');
+      }
+      if (scope === 'scoped-rtl') {
+        (fixture.nativeElement as HTMLElement).setAttribute('dir', 'rtl');
+      }
+      const sidebar = fixture.nativeElement.querySelector(
+        '.mlv-sidebar',
+      ) as HTMLElement;
+      vi.spyOn(sidebar, 'getBoundingClientRect').mockReturnValue(
+        rect(rtl ? 740 : 0, 260),
+      );
+      // Run the rAF-throttled move synchronously.
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        cb(0);
+        return 1;
+      });
+      return { railX: rtl ? 740 : 260, outward: rtl ? -1 : 1 };
+    }
+
+    beforeEach(() => {
+      toggle.mockClear();
+    });
+
+    afterEach(() => {
+      (fixture.nativeElement as HTMLElement).removeAttribute('dir');
+      collapsed.set(false);
+    });
+
+    it.each<Scope>(['ltr', 'global-rtl', 'scoped-rtl'])(
+      'widens the sidebar when dragged 40px outward (%s)',
+      (scope) => {
+        const { railX, outward } = layOut(scope);
+        if (scope === 'scoped-rtl') {
+          // Only the subtree is flipped; the document stays LTR.
+          expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+        }
+
+        rail.dispatchEvent(pointerEvent('pointerdown', railX));
+        document.dispatchEvent(
+          pointerEvent('pointermove', railX + 40 * outward),
+        );
+        document.dispatchEvent(pointerEvent('pointerup', railX + 40 * outward));
+        fixture.detectChanges();
+
+        expect(setWidth.mock.calls).toEqual([[300]]);
+        expect(toggle).not.toHaveBeenCalled();
+        expect(rail.getAttribute('aria-valuenow')).toBe('300');
+      },
+    );
+
+    it.each<Scope>(['ltr', 'global-rtl', 'scoped-rtl'])(
+      'still snaps to collapsed when dragged inward past the threshold (%s)',
+      (scope) => {
+        const { railX, outward } = layOut(scope);
+
+        // 200px inward leaves 60px, under the 100px snap threshold.
+        rail.dispatchEvent(pointerEvent('pointerdown', railX));
+        document.dispatchEvent(
+          pointerEvent('pointermove', railX - 200 * outward),
+        );
+        document.dispatchEvent(
+          pointerEvent('pointerup', railX - 200 * outward),
+        );
+
+        expect(setWidth).not.toHaveBeenCalled();
+        expect(toggle).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it.each<Scope>(['ltr', 'global-rtl', 'scoped-rtl'])(
+      'expands a collapsed sidebar dragged outward past the threshold (%s)',
+      (scope) => {
+        collapsed.set(true);
+        const { railX, outward } = layOut(scope);
+
+        rail.dispatchEvent(pointerEvent('pointerdown', railX));
+        document.dispatchEvent(
+          pointerEvent('pointermove', railX + 60 * outward),
+        );
+        document.dispatchEvent(pointerEvent('pointerup', railX + 60 * outward));
+
+        // 260 + 60 = 320 from the sidebar's inline-start edge.
+        expect(toggle).toHaveBeenCalledTimes(1);
+        expect(setWidth.mock.calls).toEqual([[320]]);
+      },
+    );
+  });
+});
+
+// #308 — the rail's width base was a hard-coded 260: `aria-valuenow` said 260
+// on a 320px sidebar and the first keyboard step jumped it to 270. It now comes
+// from the sidebar's rendered width, the same measurement a drag starts from.
+// Own TestBed: the sidebar has to be laid out before the first render.
+describe('MlvSidebarRail width base', () => {
+  type Scope = 'ltr' | 'global-rtl' | 'scoped-rtl';
+
+  let fixture: ComponentFixture<HostComponent>;
+  let rail: HTMLElement;
+  let sidebarWidth: number;
+
+  beforeEach(async () => {
+    setWidth.mockClear();
+    collapsed.set(false);
+    sidebarWidth = 320;
+    const realRect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        return this.classList.contains('mlv-sidebar')
+          ? rect(0, sidebarWidth)
+          : realRect.call(this);
+      },
+    );
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [{ provide: SIDEBAR_CONTEXT, useValue: context }],
+    }).compileComponents();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    collapsed.set(false);
+    (fixture.nativeElement as HTMLElement).removeAttribute('dir');
+    TestBed.inject(MlvRtlService).setDirection('ltr');
+    document.documentElement.removeAttribute('dir');
+  });
+
+  /**
+   * Renders the rail once the sidebar geometry and collapsed state are set —
+   * the seed reads both on its first render, so a test that needs a different
+   * start sets them before calling this.
+   */
+  async function mount(): Promise<void> {
+    fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    rail = fixture.nativeElement.querySelector(
+      'mlv-sidebar-rail',
+    ) as HTMLElement;
+  }
+
+  /** Dispatches a bubbling keydown on the rail. */
+  function keydown(key: string): void {
+    rail.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    fixture.detectChanges();
+  }
+
+  it('reports the rendered sidebar width before any interaction', async () => {
+    await mount();
+
+    expect(rail.getAttribute('aria-valuenow')).toBe('320');
+    expect(rail.getAttribute('aria-valuetext')).toBe('320px');
+  });
+
+  it('reports a fractional rendered width in whole pixels', async () => {
+    // `width="22.5%"` in a 1517px shell.
+    sidebarWidth = 341.325;
+    await mount();
+
+    expect(rail.getAttribute('aria-valuenow')).toBe('341');
+    expect(rail.getAttribute('aria-valuetext')).toBe('341px');
+  });
+
+  it('keeps the fallback when the sidebar starts collapsed', async () => {
+    // A collapsed `icon` sidebar renders its 56px rail. That is not the width
+    // the rail controls: seeding it would report `aria-valuenow="56"` under
+    // `aria-valuemin="200"` and step the next expand from 56.
+    collapsed.set(true);
+    sidebarWidth = 56;
+    await mount();
+
+    expect(rail.getAttribute('aria-valuenow')).toBe('260');
+    expect(rail.getAttribute('aria-valuetext')).toBe('260px');
+  });
+
+  it.each<Scope>(['ltr', 'global-rtl', 'scoped-rtl'])(
+    'steps from the rendered width, not from 260 (%s)',
+    async (scope) => {
+      await mount();
+      if (scope === 'global-rtl') {
+        TestBed.inject(MlvRtlService).setDirection('rtl');
+      }
+      if (scope === 'scoped-rtl') {
+        (fixture.nativeElement as HTMLElement).setAttribute('dir', 'rtl');
+      }
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // "Wider" is ArrowRight in LTR and ArrowLeft once the axis is mirrored.
+      keydown(scope === 'ltr' ? 'ArrowRight' : 'ArrowLeft');
+
+      expect(setWidth.mock.calls).toEqual([[330]]);
+      expect(rail.getAttribute('aria-valuenow')).toBe('330');
+    },
+  );
+
+  it('re-reads the width when the sidebar was resized from outside', async () => {
+    await mount();
+    // e.g. the consumer's `[width]` binding changed after the first render.
+    sidebarWidth = 400;
+    keydown('ArrowLeft');
+
+    expect(setWidth.mock.calls).toEqual([[390]]);
+    expect(rail.getAttribute('aria-valuenow')).toBe('390');
   });
 });
 
