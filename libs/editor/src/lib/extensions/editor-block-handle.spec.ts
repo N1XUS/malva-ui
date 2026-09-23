@@ -6,6 +6,7 @@ import {
   provideMlvI18nTesting,
 } from '@malva-ui/i18n/testing';
 import { Editor } from '@tiptap/core';
+import { Plugin } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import { fileURLToPath } from 'node:url';
 import { compile } from 'sass';
@@ -1095,10 +1096,10 @@ describe('MlvEditorBlockHandle view', () => {
   /**
    * The `top` the indicator takes for each of the four gaps `THREE_BLOCKS`
    * offers, given `stubBlockBoxes`' 30–50, 60–80, 90–110 boxes and a mount at
-   * y 0. Interior gaps sit midway between two boxes; the outer two sit on the
-   * first block's top and the last block's bottom. These are *pre-partition*
-   * boundaries — the stylesheet, not the plugin, drops the line into the middle
-   * of the space that opens.
+   * y 0. Interior gaps sit midway through the natural space between two boxes;
+   * the outer two sit on the first block's top and the last block's bottom.
+   * Nothing parts the blocks, so this is where the line is drawn: the
+   * stylesheet only centres the rule's own thickness on it.
    */
   const GAP_TOPS = ['30px', '55px', '85px', '110px'] as const;
 
@@ -1121,11 +1122,35 @@ describe('MlvEditorBlockHandle view', () => {
         )
       : -1;
 
-  /** Top-level children the partition has shifted to open the gap. */
-  const partitioned = (editor: Editor): number[] =>
+  /**
+   * Live top-level children carrying the source's dim. Read from the view's
+   * current children on every call, never from a reference kept across a
+   * redraw — which is exactly the mistake the dim itself used to make.
+   */
+  const dimmed = (editor: Editor): number[] =>
     [...editor.view.dom.children].flatMap((child, index) =>
-      (child as HTMLElement).style.transform ? [index] : [],
+      child.classList.contains('mlv-editor__block--dragging') ? [index] : [],
     );
+
+  /**
+   * Top-level children carrying any inline style. The plugin writes none: an
+   * attribute written onto an element ProseMirror rendered is a DOM mutation
+   * its observer answers by redrawing, and so replacing, that element.
+   */
+  const styled = (editor: Editor): number[] =>
+    [...editor.view.dom.children].flatMap((child, index) =>
+      child.hasAttribute('style') ? [index] : [],
+    );
+
+  /**
+   * Makes ProseMirror's `DOMObserver` process pending mutations now rather than
+   * on its microtask. `domObserver` is internal to `EditorView`, hence the
+   * cast; `flush()` is what its own `MutationObserver` callback calls.
+   */
+  const flushDomObserver = (editor: Editor): void =>
+    (
+      editor.view as unknown as { domObserver: { flush(): void } }
+    ).domObserver.flush();
 
   /**
    * Grabs the handle over the block whose box contains `clientY`.
@@ -1549,11 +1574,7 @@ describe('MlvEditorBlockHandle view', () => {
     const { editor } = harness;
     try {
       grab(harness, 35);
-      const source = editor.view.dom.firstElementChild as HTMLElement;
-      expect(source.classList).toContain('mlv-editor__block--dragging');
-      expect(editor.view.dom.classList).toContain(
-        'ProseMirror--block-dragging',
-      );
+      expect(dimmed(editor)).toEqual([0]);
       // Computed styles are resolved values, so dimming first would bake the
       // reduced opacity into the drag image the user drags.
       expect(
@@ -1561,10 +1582,139 @@ describe('MlvEditorBlockHandle view', () => {
       ).not.toContain('mlv-editor__block--dragging');
 
       fire(harness.handle(), 'dragend');
-      expect(source.classList).not.toContain('mlv-editor__block--dragging');
-      expect(editor.view.dom.classList).not.toContain(
-        'ProseMirror--block-dragging',
-      );
+      expect(dimmed(editor)).toEqual([]);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('keeps the dim on the live block when ProseMirror redraws it', () => {
+    const harness = createMountedHarness();
+    const { editor } = harness;
+    try {
+      grab(harness, 35);
+      const before = editor.view.dom.firstElementChild;
+
+      // What a real browser does to a block mid-drag: an attribute mutation on
+      // an element ProseMirror rendered reads as an external DOM change, so the
+      // observer marks the node dirty and redraws it. A class written straight
+      // onto the element was lost to exactly this — in Chromium 22 of 25
+      // blocks were replaced by the first `dragover`, and the dim sat on a
+      // detached node. A node decoration is re-applied by the redraw instead.
+      before?.setAttribute('data-probe', '');
+      flushDomObserver(editor);
+
+      // The redraw really happened, so the assertion below is about the new
+      // element rather than the one the plugin saw at `dragstart`.
+      expect(editor.view.dom.firstElementChild).not.toBe(before);
+      expect(dimmed(editor)).toEqual([0]);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it.each([
+    [
+      'the drag ends',
+      (h: ReturnType<typeof createMountedHarness>) =>
+        fire(h.handle(), 'dragend'),
+    ],
+    [
+      'the block is dropped',
+      (h: ReturnType<typeof createMountedHarness>) =>
+        fire(h.editor.view.dom, 'drop', 105),
+    ],
+    [
+      'Escape cancels the drag',
+      () =>
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })),
+    ],
+    [
+      'the document changes underneath it',
+      (h: ReturnType<typeof createMountedHarness>) =>
+        h.editor.commands.insertContentAt(0, '<p>Z</p>'),
+    ],
+    [
+      'the host revokes permission',
+      (h: ReturnType<typeof createMountedHarness>) => {
+        h.setEnabled(false);
+        h.editor.setEditable(false);
+      },
+    ],
+  ] as const)('clears the dim when %s', (_label, finish) => {
+    const harness = createMountedHarness();
+    const { editor } = harness;
+    try {
+      grab(harness, 35);
+      fire(editor.view.dom, 'dragover', 105);
+      expect(dimmed(editor)).toEqual([0]);
+
+      finish(harness);
+      expect(dimmed(editor)).toEqual([]);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('clears a dim the plugin view inherited when a reconfigure rebuilds it mid-drag', async () => {
+    const harness = createMountedHarness();
+    const { editor } = harness;
+    try {
+      grab(harness, 35);
+      expect(dimmed(editor)).toEqual([0]);
+
+      // `registerPlugin` / `unregisterPlugin` reconfigure the state: every
+      // plugin state field survives, but every plugin view is destroyed and
+      // rebuilt. The view that owned the drag leaves with its `dragend`
+      // listener, and the one replacing it never saw the drag, so nothing
+      // would clear the dim until the next document change.
+      editor.registerPlugin(new Plugin({}));
+      // The clear is deferred out of the view factory, which runs inside
+      // ProseMirror's `updatePluginViews`.
+      await Promise.resolve();
+
+      expect(dimmed(editor)).toEqual([]);
+      expect(ghost()).toBeNull();
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('drops the dim with the document change that ends a drag, in that one dispatch', () => {
+    const harness = createMountedHarness();
+    const { editor } = harness;
+    try {
+      grab(harness, 35);
+      const dispatch = vi.spyOn(editor.view, 'dispatch');
+
+      editor.commands.insertContentAt(0, '<p>Z</p>');
+
+      // The edit's own transaction empties the decoration in plugin state, so
+      // `update` ending the drag finds nothing left to clear. Without that,
+      // the edit would render once with a decoration set built against the
+      // previous document, and `update` would then dispatch a second,
+      // re-entrant transaction from inside ProseMirror's `updatePluginViews`.
+      // Counted rather than matched: a failing matcher would print both
+      // transactions, documents and all.
+      expect(dispatch.mock.calls.length).toBe(1);
+      expect(dimmed(editor)).toEqual([]);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('dims and undims without recording an undo step or touching the document', () => {
+    const harness = createMountedHarness();
+    const { editor } = harness;
+    try {
+      const doc = editor.state.doc;
+      grab(harness, 35);
+      fire(harness.handle(), 'dragend');
+
+      // Both transactions are meta-only: no step, so history has nothing to
+      // record and an aborted drag leaves nothing for Undo to walk back through.
+      expect(editor.state.doc).toBe(doc);
+      expect(editor.can().undo()).toBe(false);
     } finally {
       editor.destroy();
     }
@@ -1615,7 +1765,7 @@ describe('MlvEditorBlockHandle view', () => {
     }
   });
 
-  it('resolves the target from the snapshot, so the partition cannot chase itself', () => {
+  it('resolves the target from the dragstart snapshot, never from live rects', () => {
     const harness = createMountedHarness();
     const { editor } = harness;
     try {
@@ -1623,11 +1773,10 @@ describe('MlvEditorBlockHandle view', () => {
       fire(editor.view.dom, 'dragover', 105);
       expect(indicatorGap(harness)).toBe(3);
 
-      // What the partition does in a real browser: the blocks it shifted now
-      // report boxes lower down. Resolving from live rects would move the gap
-      // out from under a pointer that never moved — and moving the gap moves
-      // the blocks again, which is the oscillation the snapshot exists to
-      // prevent. Live rects here would resolve gap 2.
+      // Every `dragover` reads the mount's rect and nothing else: the boxes
+      // measured at `dragstart` stay valid because nothing moves a block while
+      // one is dragged, and the elements that were measured are ones
+      // ProseMirror has replaced by now. Live rects here would resolve gap 2.
       [...editor.view.dom.children].forEach((child, index) =>
         stubBox(child, 54 + index * 30, 20),
       );
@@ -1638,27 +1787,25 @@ describe('MlvEditorBlockHandle view', () => {
     }
   });
 
-  it('parts only the blocks at or after the insertion point, and closes on abort', () => {
+  it('previews a gap without writing to any block ProseMirror rendered', () => {
     const harness = createMountedHarness();
     const { editor } = harness;
     try {
       grab(harness, 95); // block 2
       fire(editor.view.dom, 'dragover', 65); // block 1's leading edge, gap 1
       expect(indicatorGap(harness)).toBe(1);
-      expect(partitioned(editor)).toEqual([1, 2]);
-      // The size stays a token, so the stylesheet alone decides how far apart
-      // the blocks travel.
-      expect((editor.view.dom.children[1] as HTMLElement).style.transform).toBe(
-        'translateY(var(--mlv-editor-drop-gap))',
-      );
+      // No partition: the blocks stay where they are and the line is drawn in
+      // the space already between them. A `transform` written here would land
+      // on an element the next redraw discards.
+      expect(styled(editor)).toEqual([]);
 
       fire(editor.view.dom, 'dragover', 35); // above every block, gap 0
-      expect(partitioned(editor)).toEqual([0, 1, 2]);
+      expect(indicatorGap(harness)).toBe(0);
+      expect(styled(editor)).toEqual([]);
 
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-      // Inline styles written onto DOM ProseMirror owns must not outlive the
-      // drag that wrote them.
-      expect(partitioned(editor)).toEqual([]);
+      expect(indicatorShown(harness)).toBe(false);
+      expect(styled(editor)).toEqual([]);
     } finally {
       editor.destroy();
     }
@@ -1695,6 +1842,13 @@ describe('MlvEditorBlockHandle view', () => {
           'translateY(0)',
         );
       }
+      // Animated on the elements on screen now, resolved after the move, not
+      // on the ones measured at `dragstart`.
+      expect(
+        animate.mock.contexts.map(
+          (element) => (element as Element).isConnected,
+        ),
+      ).toEqual([true, true, true]);
     } finally {
       delete prototype.animate;
       editor.destroy();
@@ -1910,50 +2064,54 @@ describe('MlvEditorBlockHandle gutter placement', () => {
     ).toBeUndefined();
   });
 
-  it('centres the drop indicator in the space the partition opens', () => {
-    // The plugin sets `top` to the pre-partition boundary and never resolves
-    // the gap token, so this transform is the only thing that knows the gap's
-    // size. Half the gap down, less half the rule's own thickness.
+  it('centres the drop indicator on the gap midpoint the plugin writes', () => {
+    // The plugin's `top` is already the middle of the natural space between
+    // two blocks; the stylesheet only centres the rule's own thickness on it.
     expect(declaration('.mlv-editor__drop-indicator', 'transform')).toBe(
-      'translateY(calc(var(--mlv-editor-drop-gap) / 2 - ' +
-        'var(--mlv-stroke-width-medium) / 2))',
+      'translateY(-50%)',
     );
-    expect(declaration('.mlv-editor', '--mlv-editor-drop-gap')).toBe('1.5rem');
   });
 
-  it('transitions the partition only while a block drag is in flight', () => {
-    // Scoped to the dragging class rather than to `.ProseMirror > *`: every
-    // layout change during ordinary typing would otherwise animate. Matched
-    // here rather than through `declarations`, whose selector interpolation
-    // would read this one's `*` as a regex quantifier.
-    const partition =
-      /\.mlv-editor \.ProseMirror--block-dragging > \* \{([^}]*)\}/.exec(
-        css,
-      )?.[1] ?? '';
-    expect(partition).toContain('transition: transform');
+  it('parts no blocks to preview a drop', () => {
+    // The partition is gone with its token and its transition: the blocks
+    // never move during a drag, so nothing can reflow under the pointer.
+    // Undocumented as an override point, so its removal is not breaking
+    // (VERSIONING §2).
+    expect(css).not.toContain('--mlv-editor-drop-gap');
+    expect(css).not.toContain('ProseMirror--block-dragging');
+    // The line's own motion still collapses under reduced motion.
     const reduced =
       /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(
         css,
       )?.[1] ?? '';
-    expect(reduced).toContain('.ProseMirror--block-dragging > *');
     expect(reduced).toContain('.mlv-editor__drop-indicator');
   });
 
-  it('caps and lifts the drag ghost outside the editor scope', () => {
+  it('dims the source through a class the decoration applies', () => {
+    expect(declaration('.mlv-editor__block--dragging', 'opacity')).toBe(
+      'var(--mlv-disabled-opacity)',
+    );
+  });
+
+  it('tints the drag ghost instead of lifting it, outside the editor scope', () => {
     // Rasterized from `document.body`, so it cannot be nested under
     // `.mlv-editor` and still be styled.
     expect(declaration('.mlv-editor__drag-ghost', 'max-block-size')).toBe(
       '12rem',
     );
     expect(declaration('.mlv-editor__drag-ghost', 'overflow')).toBe('hidden');
-    expect(declaration('.mlv-editor__drag-ghost', 'box-shadow')).toBe(
-      'var(--mlv-shadow-floating)',
+    // A translucent accent-tinted copy of the block, not a raised card.
+    expect(declaration('.mlv-editor__drag-ghost', 'background-color')).toBe(
+      'var(--mlv-background-accent-1-pale)',
     );
-    // The browser anchors the drag image by its own top-left corner, so a
-    // scale about any other origin would slide it away from the cursor.
-    expect(declaration('.mlv-editor__drag-ghost', 'transform-origin')).toBe(
-      'top left',
-    );
+    expect(
+      declaration('.mlv-editor__drag-ghost', 'box-shadow'),
+    ).toBeUndefined();
+    // Drawn at the block's own size. The plugin anchors the pointer to the
+    // wrapper's inline-start edge, and a scale about any fixed origin would
+    // pull one of the two edges off it — the right one, in RTL.
+    expect(declaration('.mlv-editor__drag-ghost', 'scale')).toBeUndefined();
+    expect(declaration('.mlv-editor__drag-ghost', 'transform')).toBeUndefined();
   });
 
   it('sizes the handle icon from tokens rather than intrinsic attributes', () => {
