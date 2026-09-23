@@ -111,6 +111,9 @@ const queryFilterControlKeys = [
 function flattenMessages(value: object, prefix = ''): Record<string, string> {
   const messages: Record<string, string> = {};
   for (const [key, child] of Object.entries(value)) {
+    // A pack's top-level `locale` is its BCP 47 tag (#306), not a message:
+    // it is never translated and never compiled as ICU.
+    if (!prefix && key === 'locale') continue;
     const path = prefix ? `${prefix}.${key}` : key;
     if (typeof child === 'string') {
       messages[path] = child;
@@ -504,6 +507,44 @@ it('covers every locale entry point the library ships', () => {
 
   expect(Object.keys(packs).sort()).toEqual(shipped.sort());
 });
+
+// #306: `MLV_LOCALE` reports the active pack's `locale`, and plurals and
+// dates format in it. A pack without one would silently format in the host
+// app's `LOCALE_ID` instead — the exact defect #306 fixes — so every shipped
+// pack must declare its tag. `pt` is Portuguese (Portugal) — "ficheiro", not
+// Brazilian "arquivo" — and the region matters to formatting: CLDR puts 0 in
+// `one` for `pt` and in `other` for `pt-PT`.
+const packLocales: Record<keyof typeof packs, string> = {
+  en: 'en',
+  de: 'de',
+  fr: 'fr',
+  it: 'it',
+  es: 'es',
+  pt: 'pt-PT',
+  uk: 'uk',
+  ro: 'ro',
+  ja: 'ja',
+  nl: 'nl',
+  pl: 'pl',
+  tr: 'tr',
+  'zh-Hans': 'zh-Hans',
+  id: 'id',
+};
+
+it.each(Object.entries(packs))(
+  '%s declares its own canonical BCP 47 locale',
+  (dir, pack) => {
+    const expected = packLocales[dir as keyof typeof packs];
+    expect(pack.locale).toBe(expected);
+    expect(Intl.getCanonicalLocales(expected)).toEqual([expected]);
+    // The runtime carries plural and date data for the exact tag, so the pack
+    // formats in its own locale rather than a negotiated fallback.
+    expect(Intl.PluralRules.supportedLocalesOf(expected)).toEqual([expected]);
+    expect(Intl.DateTimeFormat.supportedLocalesOf(expected)).toEqual([
+      expected,
+    ]);
+  },
+);
 
 it.each(Object.entries(packs))(
   'keeps %s free of a top-level key ending in "Language"',

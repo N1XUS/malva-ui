@@ -18,7 +18,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NgTemplateOutlet, formatDate } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { fromEvent } from 'rxjs';
@@ -27,7 +27,7 @@ import {
   MLV_DENSITY_ELEMENT,
   MlvDensityDirective,
 } from '@malva-ui/cdk/density';
-import { MLV_CHAT_I18N, MlvTranslatePipe } from '@malva-ui/i18n';
+import { MLV_CHAT_I18N, MLV_LOCALE, MlvTranslatePipe } from '@malva-ui/i18n';
 import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import { MlvLoader } from '@malva-ui/core/loader';
 import { MlvSkeleton } from '@malva-ui/core/skeleton';
@@ -38,6 +38,10 @@ import type {
   MlvChatUser,
 } from '../chat.types';
 import { buildChatRenderList, toChatDate } from '../chat-render-list';
+import {
+  formatChatTime,
+  injectChatTimezoneOffset,
+} from '../chat-locale-format';
 import { MLV_CHAT_MESSAGE_DEFS, MLV_CHAT_USERS } from '../chat-tokens';
 import { MlvChatMessage } from '../chat-message/chat-message';
 import { MlvChatDate } from '../chat-date/chat-date';
@@ -165,6 +169,15 @@ export class MlvChat {
   /** @internal Chat i18n strings. */
   protected readonly _i18n = inject(MLV_CHAT_I18N);
 
+  /** @private Locale message times are formatted in; see `MLV_LOCALE`. */
+  private readonly _locale = inject(MLV_LOCALE);
+
+  /**
+   * @private UTC offset message times are formatted in — the zone the app configured for
+   * `DatePipe`, or `null` for the runtime's; see `injectChatTimezoneOffset`.
+   */
+  private readonly _timezoneOffset = injectChatTimezoneOffset();
+
   /** @internal Author slot template, when a consumer provides one. */
   protected readonly authorDef = contentChild(MlvChatAuthorDef);
 
@@ -206,6 +219,37 @@ export class MlvChat {
       this.dateSeparators(),
     ),
   );
+
+  /**
+   * @internal Accessible name of each rendered message article, keyed by message
+   * id: author, time, and — on own messages — delivery status.
+   *
+   * The time goes through the same formatter, locale (`MLV_LOCALE`) and time
+   * zone as the bubble's visible `<time>`, so a screen reader announces what
+   * is on screen.
+   * A `computed` rather than a template method, so an unrelated refresh (a
+   * typing indicator, a scroll) re-formats nothing.
+   */
+  protected readonly _messageLabels = computed(() => {
+    const users = this._usersMap();
+    const selfId = this.selfId();
+    const locale = this._locale();
+    const labels = new Map<string, string>();
+    for (const message of this._windowed()) {
+      // `own` is the render list's own test (`buildChatRenderList`).
+      const own = message.authorId === selfId;
+      const author = users.get(message.authorId)?.name ?? '';
+      const time = formatChatTime(
+        toChatDate(message.timestamp),
+        locale,
+        this._timezoneOffset,
+      );
+      const status =
+        own && message.status ? this._statusLabel(message.status) : '';
+      labels.set(message.id, [author, time, status].filter(Boolean).join(', '));
+    }
+    return labels;
+  });
 
   /** @internal Whether the author slot renders above other-authored groups. */
   protected readonly _authorsVisible = computed(() => {
@@ -449,21 +493,6 @@ export class MlvChat {
   private _stickToBottom(): void {
     const viewport = this._viewport()?.viewportElement;
     if (viewport) viewport.scrollTop = viewport.scrollHeight;
-  }
-
-  /** @internal Composes the accessible label of one message article. */
-  protected _messageLabel(message: MlvChatMessageData, own: boolean): string {
-    const author = own
-      ? (this._usersMap().get(this.selfId())?.name ?? '')
-      : (this._usersMap().get(message.authorId)?.name ?? '');
-    const time = formatDate(
-      toChatDate(message.timestamp),
-      'shortTime',
-      'en-US',
-    );
-    const status =
-      own && message.status ? this._statusLabel(message.status) : '';
-    return [author, time, status].filter(Boolean).join(', ');
   }
 
   /** @private Maps a delivery status to its translated label. */

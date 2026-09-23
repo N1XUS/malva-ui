@@ -1,6 +1,7 @@
 import type { MlvLanguage } from '@malva-ui/i18n';
 
 const pt: MlvLanguage = {
+  locale: 'pt-PT',
   alert: {
     dismiss: 'Fechar alerta',
   },

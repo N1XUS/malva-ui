@@ -1,6 +1,7 @@
 import type { MlvLanguage } from '@malva-ui/i18n';
 
 const es: MlvLanguage = {
+  locale: 'es',
   alert: {
     dismiss: 'Cerrar alerta',
   },

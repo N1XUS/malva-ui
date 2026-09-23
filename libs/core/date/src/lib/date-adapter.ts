@@ -1,5 +1,6 @@
 import type { Provider, Type, WritableSignal } from '@angular/core';
 import { InjectionToken, signal } from '@angular/core';
+import { mlvDateLocaleDefault } from './date-locale-default';
 
 /**
  * Formatting options accepted by Malva UI date adapters.
@@ -13,17 +14,23 @@ export type MlvDateFormatOptions = Intl.DateTimeFormatOptions;
 /**
  * Application-level locale token consumed by Malva UI date adapters.
  *
- * Defaults to `navigator.language` when available and falls back to `en-US`.
+ * Defaults to `MLV_LOCALE` from `@malva-ui/i18n` — the active language pack's
+ * locale, falling back to Angular's `LOCALE_ID` — read once, when the token is
+ * first injected. It never reads `navigator.language`, so a server render and
+ * the browser that hydrates it format dates alike (#306).
+ *
+ * A string, not a signal, so it cannot follow a runtime language switch
+ * itself; `MlvNativeDateAdapter` follows `MLV_LOCALE` directly while it is not
+ * pinned. Providing this token (or passing `locale` to
+ * {@link provideMlvDateAdapter}) **pins** the native adapter to that value —
+ * even one equal to the current pack's locale — and it keeps it across every
+ * language switch until `setLocale()` is called with the app locale. Provide
+ * it where the adapter is provided (normally the application root). Read
+ * `MLV_LOCALE` for the live value.
  */
 export const MLV_DATE_LOCALE = new InjectionToken<string>('MLV_DATE_LOCALE', {
   providedIn: 'root',
-  factory: () => {
-    if (typeof navigator !== 'undefined' && navigator.language) {
-      return navigator.language;
-    }
-
-    return 'en-US';
-  },
+  factory: mlvDateLocaleDefault,
 });
 
 /**

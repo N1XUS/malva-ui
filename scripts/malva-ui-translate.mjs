@@ -33,12 +33,16 @@ const dryRun = args.includes('--dry-run');
 const model = getFlag('model') ?? 'claude-sonnet-4-5-20241022';
 
 if (targetLocales.length === 0) {
-  console.error('Usage: malva-ui-translate --target <locale[,locale2]> [--provider claude] [--api-key <key>]');
+  console.error(
+    'Usage: malva-ui-translate --target <locale[,locale2]> [--provider claude] [--api-key <key>]',
+  );
   process.exit(1);
 }
 
 if (!apiKey && !dryRun) {
-  console.error('Error: --api-key or ANTHROPIC_API_KEY env var required (unless --dry-run).');
+  console.error(
+    'Error: --api-key or ANTHROPIC_API_KEY env var required (unless --dry-run).',
+  );
   process.exit(1);
 }
 
@@ -59,13 +63,18 @@ const enModule = {};
 new Function('module', enCode)(enModule);
 const enPack = enModule.exports;
 
-console.log(`  Loaded English pack: ${Object.keys(enPack).length} component sections\n`);
+console.log(
+  `  Loaded English pack: ${Object.keys(enPack).length} component sections\n`,
+);
 
 // --- Build translation requests ---
 
 function flattenPack(pack) {
   const result = [];
   for (const [section, values] of Object.entries(pack)) {
+    // The top-level `locale` is the pack's BCP 47 tag, not a message slice:
+    // it is never translated, and the generated pack writes its own below.
+    if (typeof values !== 'object' || values === null) continue;
     for (const [key, value] of Object.entries(values)) {
       result.push({
         key: `${section}.${key}`,
@@ -84,7 +93,9 @@ console.log(`  Total keys to translate: ${allKeys.length}\n`);
 // --- Translate ---
 
 async function translateWithClaude(keys, targetLocale) {
-  const prompt = keys.map((k) => `Key: ${k.key}\nEnglish: "${k.sourceText}"`).join('\n\n');
+  const prompt = keys
+    .map((k) => `Key: ${k.key}\nEnglish: "${k.sourceText}"`)
+    .join('\n\n');
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -128,7 +139,9 @@ for (const locale of targetLocales) {
   console.log(`  Translating to: ${locale}`);
 
   if (dryRun) {
-    console.log(`  [dry-run] Would translate ${allKeys.length} keys to ${locale}`);
+    console.log(
+      `  [dry-run] Would translate ${allKeys.length} keys to ${locale}`,
+    );
     continue;
   }
 
@@ -142,8 +155,9 @@ for (const locale of targetLocales) {
 
   console.log(`  Received ${translations.length} translations`);
 
-  // Build the language pack object
-  const pack = {};
+  // Build the language pack object. `locale` comes first: `MLV_LOCALE` reports
+  // it, so plurals and dates format in the pack's language (#306).
+  const pack = { locale };
   for (const t of translations) {
     const [section, key] = t.key.split('.');
     if (!pack[section]) pack[section] = {};
@@ -180,13 +194,26 @@ export default ${locale};
 
   // Write entry point files if they don't exist
   const entryDir = resolve(workspaceRoot, 'libs/i18n', locale, 'src');
-  const ngPkgPath = resolve(workspaceRoot, 'libs/i18n', locale, 'ng-package.json');
+  const ngPkgPath = resolve(
+    workspaceRoot,
+    'libs/i18n',
+    locale,
+    'ng-package.json',
+  );
 
   if (!existsSync(resolve(entryDir, 'index.ts'))) {
-    writeFileSync(resolve(entryDir, 'index.ts'), `export { default } from './lib/${locale}';\n`, 'utf8');
+    writeFileSync(
+      resolve(entryDir, 'index.ts'),
+      `export { default } from './lib/${locale}';\n`,
+      'utf8',
+    );
   }
   if (!existsSync(ngPkgPath)) {
-    writeFileSync(ngPkgPath, JSON.stringify({ lib: { entryFile: 'src/index.ts' } }, null, 2) + '\n', 'utf8');
+    writeFileSync(
+      ngPkgPath,
+      JSON.stringify({ lib: { entryFile: 'src/index.ts' } }, null, 2) + '\n',
+      'utf8',
+    );
   }
 
   // Add tsconfig path if not present
@@ -194,8 +221,14 @@ export default ${locale};
   const tsconfig = JSON.parse(readFileSync(tsconfigPath, 'utf8'));
   const pathKey = `@malva-ui/i18n/${locale}`;
   if (!tsconfig.compilerOptions.paths[pathKey]) {
-    tsconfig.compilerOptions.paths[pathKey] = [`libs/i18n/${locale}/src/index.ts`];
-    writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2) + '\n', 'utf8');
+    tsconfig.compilerOptions.paths[pathKey] = [
+      `libs/i18n/${locale}/src/index.ts`,
+    ];
+    writeFileSync(
+      tsconfigPath,
+      JSON.stringify(tsconfig, null, 2) + '\n',
+      'utf8',
+    );
     console.log(`  Added ${pathKey} to tsconfig.base.json`);
   }
 }

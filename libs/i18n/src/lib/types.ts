@@ -43,6 +43,16 @@ import type { MlvTokenizerI18n } from './tokens/tokenizer';
 
 /** Aggregate of all component i18n interfaces, keyed by component name. */
 export interface MlvLanguage {
+  /**
+   * BCP 47 tag of the language this pack is written in (`'uk'`, `'pt-PT'`,
+   * `'zh-Hans'`). It is what `MLV_LOCALE` reports while the pack is active, so
+   * ICU plural categories, `#` number formatting and date formatting follow the
+   * pack instead of the host runtime.
+   *
+   * Optional so a hand-written or older pack still type-checks: a pack without
+   * it formats in Angular's `LOCALE_ID`. Every shipped pack declares it.
+   */
+  locale?: string;
   alert: MlvAlertI18n;
   avatarGroup: MlvAvatarGroupI18n;
   bottomNav: MlvBottomNavI18n;

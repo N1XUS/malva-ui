@@ -1,6 +1,7 @@
 import type { MlvLanguage } from '@malva-ui/i18n';
 
 const tr: MlvLanguage = {
+  locale: 'tr',
   alert: {
     dismiss: 'Uyarıyı kapat',
   },

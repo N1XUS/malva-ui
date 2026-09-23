@@ -1,9 +1,11 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, linkedSignal, untracked } from '@angular/core';
+import { MLV_LOCALE } from '@malva-ui/i18n';
 import {
   MLV_DATE_LOCALE,
   MlvDateAdapter,
   type MlvDateFormatOptions,
 } from './date-adapter';
+import { MLV_DATE_LOCALE_DEFAULT_RECORD } from './date-locale-default';
 
 /**
  * Default Malva UI date adapter backed by native `Date` and `Intl.DateTimeFormat`.
@@ -11,19 +13,69 @@ import {
  * This implementation keeps the adapter contract lightweight while still
  * providing localized labels, month names, weekday names, parsing, and
  * calendar arithmetic for apps that do not need a third-party date library.
+ *
+ * Its `locale` is either **following** or **pinned**, and which one is state,
+ * never inferred from the values:
+ *
+ * - **Following** — `MLV_DATE_LOCALE` was not provided. The adapter reports
+ *   `MLV_LOCALE` (the active language pack's locale, falling back to
+ *   `LOCALE_ID`) and takes over every runtime language switch, even when the
+ *   default was read before the pack loaded.
+ * - **Pinned** — `MLV_DATE_LOCALE` was provided (any value, including one
+ *   equal to the current pack's locale), or `setLocale()` was called with a
+ *   value that differs from `MLV_LOCALE`. The adapter keeps that locale across
+ *   every switch, including one that passes through it.
+ *
+ * `setLocale()` with the current `MLV_LOCALE` value returns the adapter to
+ * following.
  */
 @Injectable({
   providedIn: 'root',
 })
 export class MlvNativeDateAdapter extends MlvDateAdapter<Date> {
-  /** @private Locale injected at construction and applied via `setLocale`. */
+  /** @private Locale this adapter was configured with through `MLV_DATE_LOCALE`. */
   private readonly _initialLocale = inject(MLV_DATE_LOCALE);
+
+  /**
+   * @private Whether the adapter keeps its own locale instead of following
+   * `MLV_LOCALE`. Starts `true` when `MLV_DATE_LOCALE` was provided: its default
+   * factory records what it resolved, and a provided token never runs it (see
+   * `MLV_DATE_LOCALE_DEFAULT_RECORD` for the one residual). Rewritten only by
+   * `setLocale()`.
+   *
+   * State rather than a value comparison (review #306 F1): comparing the
+   * adapter's value with the app locale released a pin whenever a switch passed
+   * through it, and only if something read `locale()` in between.
+   */
+  private _pinned =
+    inject(MLV_DATE_LOCALE_DEFAULT_RECORD).resolved !== this._initialLocale;
+
+  /** @private The app locale this adapter follows while not pinned. */
+  private readonly _appLocale = inject(MLV_LOCALE);
+
+  /**
+   * Reactive locale used by formatting and label methods. Follows `MLV_LOCALE`
+   * while not pinned; `setLocale()` writes it directly.
+   */
+  override readonly locale = linkedSignal<string, string>({
+    source: this._appLocale,
+    computation: (app, previous) => {
+      if (!this._pinned) return app;
+      return previous ? previous.value : this._initialLocale;
+    },
+  });
+
   /** @private Cache of `Intl.DateTimeFormat` instances keyed by locale + format options. */
   private readonly _intlCache = new Map<string, Intl.DateTimeFormat>();
 
-  constructor() {
-    super();
-    this.setLocale(this._initialLocale);
+  /**
+   * Sets the adapter's locale. A value that differs from `MLV_LOCALE` pins it
+   * there across every later language switch; the current `MLV_LOCALE` value
+   * returns the adapter to following the language pack.
+   */
+  override setLocale(locale: string): void {
+    this._pinned = locale !== untracked(this._appLocale);
+    this.locale.set(locale);
   }
 
   /** Returns today's date normalized to local midnight. */

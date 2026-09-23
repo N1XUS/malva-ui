@@ -1,6 +1,7 @@
 import type { MlvLanguage } from '@malva-ui/i18n';
 
 const uk: MlvLanguage = {
+  locale: 'uk',
   alert: {
     dismiss: 'Закрити сповіщення',
   },

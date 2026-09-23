@@ -46,6 +46,9 @@ export * from './lib/tokens/time-picker';
 export * from './lib/tokens/toast';
 export * from './lib/tokens/tokenizer';
 
+// Locale
+export * from './lib/locale';
+
 // Services
 export * from './lib/i18n.service';
 export * from './lib/i18n-resolver.service';
