@@ -51,9 +51,11 @@ const AA_NON_TEXT = 3;
 /**
  * Themes every text pair is scored in. High contrast is included because the
  * whole point of routing tones through the semantic tokens is that the
- * high-contrast theme's own fills then reach the component.
+ * high-contrast theme's own fills then reach the component. `highContrastDark`
+ * is high contrast on the `<html>` that `MlvThemeService` has already marked
+ * `mlvTheme="dark"` — the shape a dark-OS user actually gets (#303).
  */
-const TEXT_THEMES = ['light', 'dark', 'highContrast'];
+const TEXT_THEMES = ['light', 'dark', 'highContrast', 'highContrastDark'];
 
 // ─── stylesheet access ───────────────────────────────────────────────────────
 
@@ -352,10 +354,91 @@ for (const [block, file] of [
 // ─── loader + progress ───────────────────────────────────────────────────────
 
 /*
- * Scored in light and dark only. The high-contrast track (`--mlv-border-subtle`
- * #999999) is a pre-existing gap owned by the theme-scope batch (#303): even the
- * high-contrast theme's own fills (#006600, #804000, #cc0000) sit under 3:1 on it.
+ * The track is `--mlv-background-subtle`. It used to be `--mlv-border-subtle`:
+ * the two are one colour in light and dark (neutral-100 / neutral-800), but
+ * high contrast darkens the border to #999999, where its own dark fills
+ * (#006600, #804000, #cc0000) sat at 2.07–2.78:1 (#303). No single track colour
+ * can clear 3:1 against those fills *and* against the white page — the light
+ * track (#f5f5f5 on #fafafa, 1.04:1) already makes the same trade — so the
+ * fill-against-track pair is the one scored.
+ *
+ * Every score here is taken at the root, so a token a component redeclares
+ * further down is scored at a value it does not have there. That is why the
+ * track is not `--mlv-background-neutral-1`, although it is the same colour in
+ * light and dark too: `mlv-page-shell`'s topbar and sidebar slots remap it to a
+ * mix of the chrome's own colours, and a fill on a brand chrome sat at 1.08:1
+ * against it. The remap test below keeps every token these scores read out of
+ * that set.
  */
+
+/** @private Workspace-relative path with `/` separators. */
+const workspacePath = (path) => relative(WORKSPACE, path).split(sep).join('/');
+
+/**
+ * Theme tokens a component stylesheet redeclares, each with the stylesheets
+ * that do. Compiles every non-partial stylesheet under a `src` directory in
+ * `libs/`, except the theme itself and the two files that re-emit it (the
+ * global `libs/core/styles` entry point and the Tailwind `@theme` adapter).
+ */
+const remappedThemeTokens = () => {
+  const themeTokens = new Set(
+    Object.values(ctx.regions).flatMap((region) => [...region.keys()]),
+  );
+  const out = new Map();
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === 'node_modules') continue;
+      const path = join(dir, entry.name);
+      const rel = workspacePath(path);
+      if (entry.isDirectory()) {
+        if (rel !== 'libs/styles' && rel !== 'libs/core/styles') walk(path);
+        continue;
+      }
+      if (
+        !/\.s?css$/.test(entry.name) ||
+        entry.name.startsWith('_') ||
+        !rel.split('/').includes('src') ||
+        rel === 'libs/tailwind/theme.css'
+      )
+        continue;
+      load(rel).walkDecls((d) => {
+        if (!themeTokens.has(d.prop)) return;
+        if (!out.has(d.prop)) out.set(d.prop, new Set());
+        out.get(d.prop).add(rel);
+      });
+    }
+  };
+  walk(join(WORKSPACE, 'libs'));
+  return out;
+};
+
+const REMAPPED = remappedThemeTokens();
+
+test('the remap scan sees the page-shell chrome remap', () => {
+  // Floor: a scan that found nothing would clear the remap tests vacuously.
+  assert.ok(
+    REMAPPED.get('--mlv-background-neutral-1')?.has(
+      'libs/core/page/src/lib/page-shell/page-shell.scss',
+    ),
+    [...REMAPPED.keys()].join(', ') || 'no remapped theme token found',
+  );
+});
+
+/**
+ * Every custom property `value` reads, following theme tokens through every
+ * theme's declaration of them.
+ */
+const tokensRead = (value, into = new Set()) => {
+  for (const [, name] of value.matchAll(/var\(\s*(--[\w-]+)/g)) {
+    if (into.has(name)) continue;
+    into.add(name);
+    for (const region of Object.values(ctx.regions)) {
+      const declared = region.get(name);
+      if (declared !== undefined) tokensRead(declared, into);
+    }
+  }
+  return into;
+};
 for (const [block, colourVar] of [
   ['mlv-loader', '--mlv-l-color'],
   ['mlv-progress', '--mlv-p-color'],
@@ -377,7 +460,45 @@ for (const [block, colourVar] of [
     );
   });
 
-  for (const theme of ['light', 'dark']) {
+  test(`${block}: the bar and circle tracks paint the subtle surface token`, () => {
+    const circle = [];
+    root.walkDecls('stroke', (d) => {
+      if (/__(circle-)?track\b|-track$/.test(d.parent.selector))
+        circle.push(d.value);
+    });
+    assert.ok(circle.length > 0, 'no circle track stroke found');
+    // The loader's `trackColor` input writes `--mlv-l-track-color`, and both
+    // of its tracks read it — the bar used to ignore it. Only the default
+    // behind it is the theme token.
+    const expected =
+      block === 'mlv-loader'
+        ? 'var(--mlv-l-track-color, var(--mlv-background-subtle))'
+        : 'var(--mlv-background-subtle)';
+    assert.equal(track, expected);
+    for (const value of circle) assert.equal(value, expected);
+  });
+
+  test(`${block}: no token a fill-on-track score reads is remapped by a component`, () => {
+    const read = tokensRead(substitute(track, scopeOf(root, `.${block}`)));
+    for (const tone of tones)
+      tokensRead(
+        substitute(
+          `var(${colourVar})`,
+          scopeOf(root, `.${block}`, `.${block}--${tone}`),
+        ),
+        read,
+      );
+    assert.ok(read.has('--mlv-background-success-1'), [...read].join(', '));
+    assert.deepEqual(
+      [...read]
+        .filter((name) => REMAPPED.has(name))
+        .map((name) => `${name} (${[...REMAPPED.get(name)].join(', ')})`),
+      [],
+      'these scores read the root value; a component remap is not scored',
+    );
+  });
+
+  for (const theme of TEXT_THEMES) {
     test(`${theme}: every ${block} tone fill clears 3:1 against its track`, () => {
       expectAll(
         tones.map((tone) => {

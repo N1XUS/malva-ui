@@ -12,9 +12,15 @@
 
 // ─── Light Theme ─────────────────────────────────────────────────────────────
 // Emitted into the `mlv.tokens` cascade layer (see layers.scss).
+//
+// Same selector list as the light block in theme.scss. `:root` alone left a
+// `[mlvTheme='light']` island inside a dark or high-contrast page with that
+// page's tints — a dark-mode badge on a light card — and a `:host` with none.
 
 @layer mlv.tokens {
-  :root {
+  :root,
+  :host,
+  [mlvTheme='light'] {
     // ── Default ──
     --mlv-muted-default-bg-1: color-mix(
       in srgb,

@@ -245,6 +245,28 @@ describe('Loader', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // trackColor input — the bar and circle tracks both read
+  // `--mlv-l-track-color`; `styles:test` (`tone-contrast.spec.mjs`) pins the
+  // stylesheet half, since jsdom resolves no `var()`.
+  // ---------------------------------------------------------------------------
+
+  describe('trackColor input', () => {
+    it('should not set --mlv-l-track-color when trackColor is undefined', () => {
+      fixture.detectChanges();
+      expect(hostEl.style.getPropertyValue('--mlv-l-track-color')).toBe('');
+    });
+
+    it('should set --mlv-l-track-color on a bar loader', () => {
+      fixture.componentRef.setInput('variant', 'bar');
+      fixture.componentRef.setInput('trackColor', '#00ff00');
+      fixture.detectChanges();
+      expect(hostEl.style.getPropertyValue('--mlv-l-track-color')).toBe(
+        '#00ff00',
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Circle variant — template
   // ---------------------------------------------------------------------------
 

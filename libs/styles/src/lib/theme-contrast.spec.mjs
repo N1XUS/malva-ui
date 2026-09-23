@@ -76,6 +76,13 @@ test('dark tokens fall back to the light declaration when not overridden', () =>
   assert.equal(hex('--mlv-palette-neutral-800', 'dark'), '#262626');
 });
 
+test('high contrast + dark reads high contrast, then dark, then light', () => {
+  // All three rules match the one `<html mlvTheme="dark" data-theme="high-contrast">`.
+  assert.equal(hex('--mlv-text-primary', 'highContrastDark'), '#000000');
+  assert.equal(hex('--mlv-palette-neutral-800', 'highContrastDark'), '#262626');
+  assert.throws(() => hex('--mlv-text-primary', 'dim'), /unknown theme "dim"/);
+});
+
 // ─── resolved values the ratios below depend on ──────────────────────────────
 
 test('dark action + neutral interaction tokens resolve to their intended values', () => {
@@ -212,6 +219,69 @@ for (const theme of ['light', 'dark']) {
   });
 }
 
+// ─── high contrast over dark (#303) ──────────────────────────────────────────
+
+/**
+ * `MlvThemeService` always writes `mlvTheme` on `<html>`, so a dark-OS user who
+ * turns on the application's high-contrast option gets
+ * `<html mlvTheme="dark" data-theme="high-contrast">`. Any colour token the
+ * dark block declares and high contrast does not then keeps its dark value
+ * under high contrast's black text — the whole dark elevation ladder did, and
+ * every form field, card, dialog, drawer, popup and toast rendered #333 under
+ * #000 (1.66:1).
+ */
+const COLOUR_TOKEN = /^--mlv-(background|text|border|elevation-bg)-/;
+
+test('high contrast + dark resolves every colour token to its high-contrast value', () => {
+  const differing = [];
+  for (const name of ctx.regions.light.keys()) {
+    // The scrim is a translucent rgba() no theme redeclares.
+    if (!COLOUR_TOKEN.test(name) || name === '--mlv-background-overlay') {
+      continue;
+    }
+    const want = hex(name, 'highContrast');
+    const got = hex(name, 'highContrastDark');
+    if (got !== want) differing.push(`${name}: ${got}, want ${want}`);
+  }
+  assert.deepEqual(differing, []);
+});
+
+/** Every text colour a high-contrast page paints outside a pressed control. */
+const HC_TEXT = [
+  '--mlv-text-primary',
+  '--mlv-text-secondary',
+  '--mlv-text-action',
+  '--mlv-text-label',
+  '--mlv-text-hint',
+  '--mlv-text-caption',
+  '--mlv-text-positive',
+  '--mlv-text-negative',
+  '--mlv-text-warning',
+  '--mlv-text-info',
+  '--mlv-text-error',
+];
+/** The page surfaces and the elevation ladder every raised component paints. */
+const HC_SURFACES = [
+  ...MESSAGE_SURFACES,
+  '--mlv-elevation-bg-1',
+  '--mlv-elevation-bg-2',
+  '--mlv-elevation-bg-3',
+  '--mlv-elevation-bg-4',
+];
+
+for (const theme of ['highContrast', 'highContrastDark']) {
+  test(`${theme}: every text colour clears AA on every page and elevation surface`, () => {
+    const failing = [];
+    for (const fg of HC_TEXT) {
+      for (const bg of HC_SURFACES) {
+        const r = ratioOf(fg, bg, theme, ctx);
+        if (r < AA_TEXT) failing.push(`${fg} on ${bg} = ${r}`);
+      }
+    }
+    assert.deepEqual(failing, [], failing.join('; '));
+  });
+}
+
 // ─── solid tone fills (#302) ─────────────────────────────────────────────────
 
 /**
@@ -234,7 +304,7 @@ const SOLID_PAIRS = [
   ['--mlv-text-primary-on-accent-2', '--mlv-background-accent-2'],
 ];
 
-for (const theme of ['light', 'dark', 'highContrast']) {
+for (const theme of ['light', 'dark', 'highContrast', 'highContrastDark']) {
   test(`${theme}: every solid-fill label clears AA at rest, hover and active`, () => {
     const failing = [];
     for (const [fg, bg] of SOLID_PAIRS) {
@@ -249,17 +319,26 @@ for (const theme of ['light', 'dark', 'highContrast']) {
 
 /**
  * The same rest fills are painted with no label at all: status-indicator dots on
- * the page, loader and progress fills on their `--mlv-border-subtle` track. A
- * non-text mark owes 3:1 against what it sits on (WCAG 1.4.11).
+ * the page, loader and progress fills on their track, which is the
+ * `--mlv-background-subtle` page surface. A non-text mark owes 3:1 against what
+ * it sits on (WCAG 1.4.11).
  *
- * Light and dark only: the high-contrast track (#999999) is a pre-existing gap
- * owned by the theme-scope batch (#303).
+ * The track used to be `--mlv-border-subtle`, the same colour in light
+ * (neutral-100) and dark (neutral-800) — but high contrast darkens that border
+ * to #999999, where its success / warning / danger fills sat at
+ * 2.54 / 2.78 / 2.07:1 and accent-2 at 1.82:1 (#303).
+ * `tone-contrast.spec.mjs` pins that both components paint this token, and
+ * that no component stylesheet remaps it.
  */
-for (const theme of ['light', 'dark']) {
+for (const theme of ['light', 'dark', 'highContrast', 'highContrastDark']) {
   test(`${theme}: every solid fill clears 3:1 as a dot on the page or a fill on its track`, () => {
     const failing = [];
     for (const [, fill] of SOLID_PAIRS) {
-      for (const bg of ['--mlv-background-base', '--mlv-background-subtle', '--mlv-background-raised', '--mlv-border-subtle']) {
+      for (const bg of [
+        '--mlv-background-base',
+        '--mlv-background-subtle',
+        '--mlv-background-raised',
+      ]) {
         const r = ratioOf(fill, bg, theme, ctx);
         if (r < AA_NON_TEXT) failing.push(`${fill} on ${bg} = ${r}`);
       }
