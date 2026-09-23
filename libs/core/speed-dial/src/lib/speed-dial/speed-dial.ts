@@ -1045,7 +1045,7 @@ export class MlvSpeedDial {
    *
    * Hiding removes the class twice. CDK reveals a freshly attached backdrop
    * from a bare `requestAnimationFrame` in `_attachBackdrop()`
-   * (`_overlay-module-chunk.mjs:972-977` in `@angular/cdk` 22.0.5) that nothing
+   * (`_overlay-module-chunk.mjs:979-984` in `@angular/cdk` 22.1.8) that nothing
    * can cancel, so a close in the same frame as the open — a programmatic
    * `opened` / `disabled` flip, a double-tap on a busy main thread — would have
    * its removal undone and the closed dial's mask driven to full opacity, only

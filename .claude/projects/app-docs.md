@@ -33,7 +33,7 @@ and template-driven examples; all three binding modes remain supported.
 
 | Concern             | Technology / Version                                        |
 | ------------------- | ----------------------------------------------------------- |
-| Framework           | Angular 22.0.7                                              |
+| Framework           | Angular 22.1.7                                              |
 | Language            | TypeScript 6.0.3                                            |
 | Build executor      | `@nx/angular:application` (esbuild-based, with MDX plugin)  |
 | Dev server          | `@nx/angular:dev-server`                                    |
@@ -59,7 +59,8 @@ apps/docs/
     main.ts                      # Application bootstrap
     styles.scss                  # Global styles (imports theme + animations)
     app/
-      app.config.ts              # ApplicationConfig (router, animations providers)
+      app.config.ts              # ApplicationConfig (router, density, i18n providers)
+      app.config.spec.ts         # Guard: CSS-variable namespacing stays off (D32)
       app.routes.ts              # All top-level routes (lazy-loaded)
       app.ts                     # Minimal root component containing the top-level router-outlet
       pages/                     # One sub-directory per route/component page
@@ -1219,6 +1220,14 @@ animations provider (#296): nothing uses `@angular/animations` triggers, so
 `provideAnimationsAsync()` left with the package. The specs dropped
 `provideAnimationsAsync('noop')` too, so CDK overlay backdrops there now fade
 out instead of being disposed at once — what the running app always did.
+
+Never add `provideCssVarNamespacing()` (Angular 22.1+, D32 / #293). It
+rewrites every custom property in component styles and `[style.--x]` bindings
+to `--<ns>_*` but not the global token sheet or `style.setProperty()` writes,
+so Malva renders unstyled (measured on the docs build: primary button
+transparent, 20px tall, square; tabs indicator 0px wide).
+`app.config.spec.ts` boots these providers and fails if a namespace resolves
+or a component's styles / style bindings stop using the bare `--mlv-*` names.
 
 ---
 

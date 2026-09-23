@@ -508,7 +508,7 @@ export class MlvSelect<T>
    * `provideClientHydration()` — so `'auto'` follows the viewport from its
    * first render there, as it always did.
    *
-   * **Relies on Angular internals** (verified against Angular 22.0.7). Angular
+   * **Relies on Angular internals** (verified against Angular 22.1.7). Angular
    * exposes no public "this component is being hydrated" signal. The server
    * stamps an `ngh` attribute on every component host it serialises for
    * hydration; the client reads and removes it in `renderComponent` →

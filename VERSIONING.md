@@ -400,7 +400,7 @@ delivery mechanism — treat it as unsupported.
 ## 9. Angular and peer dependencies
 
 The workspace pins Angular exactly for reproducible builds
-(`package.json` → `@angular/core: 22.0.7`). `scripts/widen-peer-range.mjs`
+(`package.json` → `@angular/core: 22.1.7`). `scripts/widen-peer-range.mjs`
 widens each exact pin before publish, at one of **two widths**:
 
 | Peer                                                         | Published range               | Example              |
@@ -485,6 +485,30 @@ Other rules that hold regardless:
 `scripts/widen-peer-range.spec.mjs` pins all of this, including that moving the
 workspace's Angular minor leaves the published range unchanged. It runs as part
 of `nx run @malva-ui/source:test`.
+
+### Opt-in Angular features that are unsupported
+
+A range admitting an Angular minor promises that Malva runs on it with that
+minor's **defaults**, not with every opt-in it adds. Where an opt-in cannot work
+with the library, it is named here, and making it work later is a feature,
+never a fix owed under the range: a minor when it needs no peer-floor raise,
+otherwise the next major.
+
+- **CSS-variable namespacing** — `provideCssVarNamespacing()`, Angular 22.1+
+  (decision D32, #293). From 22.1 the compiler and the linker rewrite every
+  custom property in component styles and `[style.--x]` bindings to a `%NS%`
+  placeholder, which the renderer fills with `''` by default and with
+  `<namespace>_` once the provider is present. Global stylesheets
+  (`malva-ui.css`, a consumer's `:root` overrides) and `style.setProperty()`
+  strings are not rewritten, so with the provider every component reads names
+  nothing declares. Measured on the docs build: the primary button renders
+  transparent, 20px tall and square, and the tabs indicator collapses to 0px.
+  Supporting it would mean reading tokens through Angular's `--global--`
+  escape, which a 22.0 compiler leaves literal — a `^22.1.0` floor, which the
+  rule above forbids inside a major, so support can only land on the next
+  major. The default path is unaffected: the published FESM `styles` are
+  byte-identical between a 22.0 and a 22.1 build.
+  `apps/docs/src/app/app.config.spec.ts` fails if the docs app enables it.
 
 ---
 
@@ -574,7 +598,7 @@ requires is a **bug**, not a new baseline.
   behaviour is the intended one — gets the migration document it should have
   shipped with (§4).
 
-One case is **not** a regression, because this document already declares it: an
-`ERESOLVE` after a minor that raised the Angular peer floor. §9 says a minor may
-do that, and says what to do instead. Everything else on the eight surfaces in
-§2 is in scope.
+An `ERESOLVE` on an Angular peer after a Malva minor or patch is in scope too.
+§9 never raises the Angular peer floor inside a major, so a release that refuses
+to install on an Angular version its major supports is a regression like any
+other. Everything on the eight surfaces in §2 is in scope.

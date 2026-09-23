@@ -158,7 +158,7 @@ Nx calculates the version from conventional commits, builds `cdk`, `i18n`,
 and tags the release, generates the AI documentation, resolves the built package manifests,
 and publishes them in dependency order. Resolving a manifest also widens the
 exact Angular/Tiptap pins the root uses for reproducible builds into the caret
-peer ranges consumers need — a published `"@angular/core": "22.0.7"` would make
+peer ranges consumers need — a published `"@angular/core": "22.1.7"` would make
 every consumer on any other patch of Angular 22 fail to install. A small custom Nx version action reads the current version
 from the root manifest when no matching Git tag exists, so source package
 placeholders never become the version authority.

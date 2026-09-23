@@ -97,6 +97,8 @@ Components read `--mlv-*` custom properties, so a theme is a stylesheet override
 
 Light and dark ship out of the box via `provideDefaultTheme()`; density (`tight` → `airy`) is switched per-tree with `mlvDensity` or globally with `provideMlvDensity()`.
 
+**CSS-variable namespacing is not supported.** Do not enable Angular's `provideCssVarNamespacing()` (22.1+) in an application that uses Malva UI. It renames every custom property inside component styles (`var(--mlv-x)` → `var(--<ns>_mlv-x)`) but not the global token sheet, your `:root` overrides, or the custom-property names components set with `style.setProperty()`, so every component reads names nothing declares and renders unstyled.
+
 ## Zoneless and SSR
 
 Every component is `OnPush` and signal-based, so the library runs under
