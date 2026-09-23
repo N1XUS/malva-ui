@@ -639,12 +639,37 @@ Emits and completes synchronously when `close()` is called, before the animation
 
 **Signals:**
 
-| Signal                   | Type                                                   | Description                                            |
-| ------------------------ | ------------------------------------------------------ | ------------------------------------------------------ |
-| `sections`               | `Signal<Map<string, MlvDrawerSectionState>>`           | All registered sections keyed by id                    |
-| `intersectedSections`    | `Signal<Record<string, MlvDrawerSectionIntersection>>` | Latest intersection data per section id                |
-| `currentScrolledSection` | `Signal<MlvDrawerSectionState \| null>`                | Computed — section with the highest intersection ratio |
-| `normalizedSections`     | `Signal<MlvDrawerSectionState[]>`                      | Computed array of all sections                         |
+| Signal                   | Type                                                           | Description                                            |
+| ------------------------ | -------------------------------------------------------------- | ------------------------------------------------------ |
+| `sections`               | `Signal<Map<string, MlvDrawerSectionState>>`                   | All registered sections keyed by id                    |
+| `intersectedSections`    | `WritableSignal<Record<string, MlvDrawerSectionIntersection>>` | Latest intersection data per section id                |
+| `currentScrolledSection` | `Signal<MlvDrawerSectionState \| null>`                        | Computed — section with the highest intersection ratio |
+| `normalizedSections`     | `Signal<MlvDrawerSectionState[]>`                              | Computed array of all sections                         |
+
+`currentScrolledSection` rules, pinned in `drawer-sections.service.spec.ts`:
+
+- Highest `threshold` (the entry's `intersectionRatio`) wins.
+- A tie at the highest ratio goes to the entry that comes **last** in
+  `Object.values(intersectedSections())` — insertion order, except that
+  integer-like ids enumerate first.
+- A `NaN` ratio never wins. `IntersectionObserver` never reports one, so only a
+  hand-written `intersectedSections.set()` can reach this.
+- A winning id with no registered section resolves to no section.
+
+Native code since #295: one `>=` pass and a shallow spread of the record in the
+observer callback. They replace lodash's `sortBy(…).reverse()[0]` and
+`cloneDeep` with the same tie-break. They differ only on a threshold that is
+not a number, which lodash sorted after every number and therefore picked:
+`NaN` now never wins, and outside strict TypeScript an `undefined` or missing
+threshold never wins either while `null` compares as `0`. The record's entries
+are replaced whole and never written in place, so a shallow copy keeps a held
+snapshot intact.
+
+Known limitation, not addressed by #295: "highest ratio" is a poor proxy for
+the section being read. A section taller than the visible scroll area can never
+reach ratio 1, so it loses to a short section that has just scrolled fully into
+view. Changing the rule changes documented behaviour (a major under
+VERSIONING.md §3) and is tracked in #412.
 
 **Methods:**
 
@@ -855,5 +880,4 @@ export default class UserDetailsComponent {
 | `@malva-ui/core/scrollbar`    | `MlvScrollbar` used by `[mlvDrawerBody]` for themed drawer-body scrolling                                                                                                                                                                       |
 | `@malva-ui/cdk/accessibility` | `MlvClick` used by `MlvDrawerSections`                                                                                                                                                                                                          |
 | `@lucide/angular`             | Chevron icon in `MlvDrawerSections`                                                                                                                                                                                                             |
-| `lodash-es`                   | `cloneDeep`, `sortBy` in `MlvDrawerSectionsService`                                                                                                                                                                                             |
 | `uuid`                        | Auto-generated section IDs in `MlvDrawerSection`                                                                                                                                                                                                |

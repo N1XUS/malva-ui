@@ -1,6 +1,5 @@
 import type { ElementRef, OnDestroy, Signal } from '@angular/core';
 import { afterRenderEffect, computed, Injectable, signal } from '@angular/core';
-import { cloneDeep, sortBy } from 'lodash-es';
 
 export interface MlvDrawerSectionState {
   id: Signal<string>;
@@ -28,10 +27,27 @@ export class MlvDrawerSectionsService implements OnDestroy {
     Record<string, MlvDrawerSectionIntersection>
   >({});
 
+  /**
+   * The registered section with the highest intersection ratio in
+   * `intersectedSections`.
+   *
+   * - The highest `threshold` wins.
+   * - A tie at the highest ratio goes to the entry recorded last — the last
+   *   one in `Object.values(intersectedSections())` order.
+   * - A `NaN` ratio never wins.
+   *
+   * Resolves to no section when nothing has intersected yet, or when the
+   * winning id belongs to no registered section.
+   */
   readonly currentScrolledSection = computed(() => {
-    const bestFit = sortBy(Object.values(this.intersectedSections()), [
-      'threshold',
-    ]).reverse()[0];
+    let bestFit: MlvDrawerSectionIntersection | undefined;
+    for (const candidate of Object.values(this.intersectedSections())) {
+      // `>=` hands a tie to the later entry; the `-Infinity` seed lets a first
+      // entry of any real ratio in while a `NaN` fails every comparison.
+      if (candidate.threshold >= (bestFit?.threshold ?? -Infinity)) {
+        bestFit = candidate;
+      }
+    }
 
     return bestFit ? this.sections().get(bestFit.id) : null;
   });
@@ -95,9 +111,11 @@ export class MlvDrawerSectionsService implements OnDestroy {
 
     this._observer = new IntersectionObserver(
       (entries) => {
-        const shallowIntersectedSections = cloneDeep(
-          this.intersectedSections() || {},
-        );
+        // A shallow copy is enough: every entry below is replaced wholesale,
+        // never written in place, so the snapshot a reader already holds keeps
+        // its values. What the copy must provide is a **new** record, because
+        // the signal compares with `Object.is`.
+        const shallowIntersectedSections = { ...this.intersectedSections() };
 
         entries.forEach((entry) => {
           shallowIntersectedSections[entry.target.id] = {

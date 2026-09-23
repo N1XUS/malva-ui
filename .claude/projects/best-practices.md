@@ -562,7 +562,7 @@ first. Consult it before any change that alters a published surface.
   every workspace consumer resolves it from the root manifest instead. Use
   `peerDependencies` for a framework the consumer owns exactly one copy of
   (`@angular/*`, `rxjs`, `@malva-ui/*`), `dependencies` for a runtime library the
-  package brings its own copy of (`fast-equals`, `lodash-es`, `sortablejs`), and
+  package brings its own copy of (`fast-equals`, `sortablejs`), and
   a `0.0.0-*-package-version` placeholder for anything the root manifest pins —
   which needs its mapping in **both** `scripts/publish.mjs` and
   `apps/docs/tools/playground-manifest.ts`. Enforced by
