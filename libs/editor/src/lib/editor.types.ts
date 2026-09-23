@@ -23,6 +23,25 @@ export type MlvEditorFormat = 'html' | 'markdown' | 'json';
  */
 export type MlvEditorContentWidth = 'default' | 'wide' | 'full';
 
+/**
+ * Where `mlv-editor` places its toolbar relative to the content viewport.
+ *
+ * The DOM order follows the value, so the Tab order always matches the visual
+ * order: `'top'` renders toolbar → content and `'bottom'` renders content →
+ * toolbar. Both are block-axis positions and do not change in RTL.
+ */
+export type MlvEditorToolbarPosition = 'top' | 'bottom';
+
+/**
+ * How `mlv-editor` draws its toolbar.
+ *
+ * `'bar'` is the docked full-width row with a hairline toward the content.
+ * `'floating'` is a centred pill hugging its controls. It overlaps the content
+ * viewport's edge by `--mlv-editor-toolbar-block-size` plus a gap, and fades
+ * the content that scrolls beneath it.
+ */
+export type MlvEditorToolbarAppearance = 'bar' | 'floating';
+
 /** Origin of an image file supplied to the editor. */
 export type MlvEditorImageUploadSource = 'button' | 'paste' | 'drop';
 

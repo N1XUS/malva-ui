@@ -697,13 +697,16 @@ containing two pages: **Editor** (`/editor`) and **AI Kit** (`/editor-ai`,
 label override `AI Kit`, icon `sparkles`). The editor page is no longer in the
 Forms group.
 
-The `/editor` page provides eleven live examples from the grouped
+The `/editor` page provides twelve live examples from the grouped
 `@malva-ui/editor` entry point. It covers nullable direct HTML and
 Markdown values, reactive/template-driven/Signal Forms, deterministic local
 image uploads, readonly/disabled state and events, literal Tiptap extension and
 toolbar replacement, tables, view-only zoom, the structured `json` format,
-in-place switching between all three formats, and the page measure with block
-reordering. Its upload demo never contacts a
+in-place switching between all three formats, the page measure with block
+reordering, and layout (example 12, #416: toolbar position, bar or floating
+appearance, an Auto / 240 px / 24 rem maximum height and a sticky switch whose
+offset clears the docs app bar, driven by `libs/editor/e2e/editor-layout.spec.ts`).
+Its upload demo never contacts a
 backend and tears down every timer and abort listener. The JSON example parses
 the model string in the host and renders a structural outline rather than
 injecting HTML; the format-switch example counts `editorReady` emissions to
@@ -817,6 +820,7 @@ on screen, above everything else; only the source files are tabbed:
 - When `fullExampleRoute` is non-null it renders a Malva button-style `RouterLink` labeled **Open full example**; when `null`, no expansion control. Complex examples must open through this routed link; never add a browser-native fullscreen control or call the Fullscreen API in the docs application.
 - `<docs-open-in-playground>` keeps its place in the toolbar — still the single call site through which all 474 examples get their "Open in StackBlitz" button (see §5b). It carries **no margin of its own**, and neither does the **Open full example** link beside it: `mlv-toolbar` supplies the row's `gap` and `.example-container__toolbar` the band's padding, so a margin on either would push it out of line with the other and grow the band.
 - It sets **`ViewEncapsulation.None`**, one of a handful of docs components that do (`docs-toc`, `docs-inspector` and `docs-api-viewer` are the others). Its reason is Shiki: that markup is bound with `[innerHTML]`, so it carries no `_ngcontent` attribute and emulated encapsulation would never reach the `<pre>` / `<code>` it produces.
+- **`overflow: clip`, never `hidden`, on `.example-container`.** Both round the corners, but `hidden` is a scroll container: every `position: sticky` example pinned to a box that never scrolls. The editor's Layout example (`/editor` example 12, #416) is the one that needs it. Checked when switching: a sweep of all 94 docs routes found no sticky element whose nearest scroll container was `.example-container`.
 
 Inputs: `component: Type<unknown> | null`, `content: any`, `files: ExampleFile[]`, `heading?: string`, `fullExampleRoute: string | null`.
 

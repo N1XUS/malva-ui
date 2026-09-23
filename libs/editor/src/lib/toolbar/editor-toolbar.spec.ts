@@ -1,12 +1,19 @@
-import { Component, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import type { WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
+import { Subject } from 'rxjs';
 import { vi } from 'vitest';
-import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { MlvResizeObserverService, MlvRtlService } from '@malva-ui/cdk/utils';
 import { MLV_EDITOR_I18N } from '@malva-ui/i18n';
 import type { MlvEditorI18n } from '@malva-ui/i18n';
 import {
@@ -1369,5 +1376,36 @@ describe('MlvEditor toolbar', () => {
         .querySelector('button[aria-label="Strong"]')
         ?.getAttribute('aria-label'),
     ).toBe('Strong');
+  });
+});
+
+describe('MlvEditorToolbar measure target', () => {
+  it('keeps observing its own root', async () => {
+    const observed: Element[] = [];
+    await TestBed.configureTestingModule({
+      imports: [StandaloneRuntimeToolbarHost],
+      providers: [
+        provideMlvI18nTesting(),
+        {
+          provide: MlvResizeObserverService,
+          useValue: {
+            observe: (target: Element | ElementRef<Element>) => {
+              observed.push(
+                target instanceof ElementRef ? target.nativeElement : target,
+              );
+              return new Subject<ResizeObserverEntry[]>().asObservable();
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(StandaloneRuntimeToolbarHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const root = fixture.nativeElement.querySelector(
+      'mlv-editor-toolbar [mlvEditorToolbarRoot], mlv-editor-toolbar .mlv-editor-toolbar',
+    ) as HTMLElement;
+    expect(root).not.toBeNull();
+    expect(observed).toContain(root);
   });
 });

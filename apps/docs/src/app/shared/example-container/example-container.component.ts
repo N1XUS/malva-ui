@@ -240,7 +240,10 @@ let nextExampleId = 0;
     .example-container {
       position: relative;
       margin: var(--mlv-spacing-4) 0;
-      overflow: hidden;
+      /* clip, not hidden: rounds the corners identically without being a
+         scroll container, so a position: sticky example (the editor's Layout
+         example) resolves against the page (#416). */
+      overflow: clip;
       border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
       border-radius: var(--mlv-radius-l);
       background: var(--mlv-background-raised);

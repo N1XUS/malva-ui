@@ -14,5 +14,5 @@ export class EditorPageComponent {
       'A nullable HTML, Markdown, or JSON rich-text form control powered by Tiptap, with Malva toolbars, tables, image uploads, accessible status, and literal extension replacement.',
   };
 
-  readonly examples = new Array(11).fill(0).map((_, index) => index + 1);
+  readonly examples = new Array(12).fill(0).map((_, index) => index + 1);
 }

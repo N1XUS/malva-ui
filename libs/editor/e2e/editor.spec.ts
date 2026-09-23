@@ -102,7 +102,10 @@ defineComponentSpec(editorManifest, () => {
   test('exposes a named narrow toolbar with roving focus and fixed More menu', async ({
     mlv,
   }) => {
-    await gotoEditor(mlv, 720);
+    // Narrow mode is decided by the editor surface's width (< 640px, #416).
+    // At 720px the docs stage leaves example 1 a 658px surface, so the width
+    // has to sit clearly below the cut-over rather than on its edge.
+    await gotoEditor(mlv, 680);
     const toolbar = mlv
       .example(1)
       .locator('mlv-editor')

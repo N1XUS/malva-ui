@@ -46,6 +46,12 @@ Import `MlvEditor` from `@malva-ui/editor` and render it as
 | Model  | `value`                | `ModelSignal<string \| null>` / `null`                                    |
 | Input  | `format`               | `'html' \| 'markdown' \| 'json'` / `'html'`                               |
 | Input  | `contentWidth`         | `MlvEditorContentWidth` / `'default'`                                     |
+| Input  | `height`               | `number \| string \| undefined`; caps the surface (number = px)           |
+| Input  | `minHeight`            | `number \| string \| undefined` / `8rem` floor; a cap wins over it        |
+| Input  | `maxHeight`            | `number \| string \| undefined`; grow up to a cap, then scroll            |
+| Input  | `toolbarPosition`      | `MlvEditorToolbarPosition` / `'top'`                                      |
+| Input  | `toolbarAppearance`    | `MlvEditorToolbarAppearance` / `'bar'`                                    |
+| Input  | `toolbarSticky`        | `boolean` (`BooleanInput`) / `false`                                      |
 | Input  | `extensions`           | `Extensions \| undefined`; a complete replacement                         |
 | Input  | `placeholder`          | `string` / `'Write something…'`                                           |
 | Input  | `characterLimit`       | `number \| null` / `null`                                                 |
@@ -189,7 +195,7 @@ Dragging reorders top-level blocks only, without reparenting into lists or
 table cells. Keyboard users press `Alt+Shift+ArrowUp` and `Alt+Shift+ArrowDown`,
 which run the same `moveBlock` command and announce the result through the CDK
 `LiveAnnouncer` at `polite`. Both paths produce exactly one undo step. The
-handle mounts inside the zoom-transformed layer, so it stays aligned at every
+handle mounts inside the zoomed view layer, so it stays aligned at every
 zoom level.
 
 The shell constructs Tiptap against an empty document and applies all initial
@@ -250,8 +256,12 @@ synchronously. A disabled editor marks every option `aria-disabled`. Optional Fi
 observes through `MlvResizeObserverService`, measures the complete inner view
 layer (including layout/padding overflow), uses the actual viewport client
 extent, and selects the largest safe integral scale. Zoom changes only the
-editor-scoped `--mlv-editor-zoom` transform on the inner view layer; they never
-dispatch a Tiptap transaction or change serialization, selection, or history.
+editor-scoped `--mlv-editor-zoom` CSS `zoom` on the inner view layer, which
+reflows an uncapped editor and magnifies a capped one (see _Layout: height and
+toolbar placement_); they never dispatch a Tiptap transaction or change
+serialization, selection, or history. In an uncapped editor Fit keeps the
+current level for reflowable content, because only non-wrapping content has a
+width to fit.
 Readonly editors retain zoom, while disabled editors block closed and
 already-open zoom controls.
 
@@ -800,6 +810,90 @@ transaction or an explicit format conversion.
 These helpers and their result types are intentionally excluded from the public
 barrel.
 
+## Layout: height and toolbar placement
+
+- **Auto mode (default: no `height`, no `maxHeight`).** The editor grows with its
+  content. `.mlv-editor__viewport` has no `overflow` and no `overscroll-behavior`,
+  so it never shows a scrollbar and never stops a scroll meant for the page.
+  This holds while zoomed and during a block drag. `minHeight` alone stays in
+  auto mode. Wide tables (`.tableWrapper`) keep their own horizontal scroll.
+- **Capped mode.** `height` fixes the surface (toolbar plus viewport), and
+  `maxHeight` lets it grow up to a cap. Either sets `.mlv-editor--capped`, the
+  only switch that makes the viewport `overflow: auto;
+overscroll-behavior: contain`. A number is px, a string passes through
+  verbatim once trimmed, and `undefined` writes nothing. The inputs write
+  `--mlv-editor-height` / `--mlv-editor-min-height` / `--mlv-editor-max-height`
+  on the host. **Setting `--mlv-editor-height` or `--mlv-editor-max-height` in
+  CSS alone does nothing**, because only the inputs set `--capped`;
+  `--mlv-editor-min-height` may be set in CSS. None of the three is declared on
+  `.mlv-editor`, so an ancestor's value reaches them.
+- **Cap versus floor.** The cap wins, even over a larger `minHeight`. The
+  capped viewport is `min-block-size: 0`, so a cap below band + floor (~181px
+  by default) shrinks it instead of pushing it, or a bottom band, out through
+  the control container's clip. `.mlv-editor--capped .mlv-editor__content`
+  keeps the floor inside the scroller as `calc(min-height / zoom)`: the view is
+  zoomed, and dividing keeps a short capped editor the same size at every zoom.
+  A `minHeight` above what the cap leaves the content (`maxHeight` minus the
+  band and the 1rem viewport padding, ~69px under the cap for a top bar)
+  scrolls an empty document, so `minHeight` equal to `maxHeight` always
+  scrolls; a fixed-size editor sets `height`. A compact editor (`maxHeight` 120) needs a smaller `minHeight` for the same reason. Print resets both floors. e2e: a 120px cap in all four
+  position × appearance cases, `minHeight` 300 under `maxHeight` 150, and 50%
+  zoom on an empty capped editor.
+- **Zoom** is CSS `zoom` on `.mlv-editor__view`. Uncapped, it reflows
+  (`min-inline-size: 100%`): the text rewraps and the editor grows. Capped, it
+  magnifies (`inline-size: calc(100% * zoom)`) inside the scroller. The mount
+  layer's scale is still `rect.width / offsetWidth`, so the block handle, drop
+  indicator, table grips and drag ghost keep their math (e2e at 125%:
+  click-to-caret and the drag image). There is no zoom transition. The zoom
+  control's Fit option stays, but in an uncapped editor it keeps the current
+  level for reflowable content.
+- **Toolbar position.** The toolbar is declared once, in an `<ng-template>`
+  whose root is `.mlv-editor__toolbar-band`, and stamped before (`'top'`) or
+  after (`'bottom'`) the viewport. The DOM order is the visual order, with no
+  CSS `order`, so Tab order matches. A position change re-creates the toolbar
+  view, which closes an open toolbar popup. Projected `[mlvEditorToolbar*]`
+  content is re-attached. The bottom band sits directly after the viewport and
+  before the upload status. A bottom bar draws its hairline with
+  `border-block-start`.
+- **Floating** (`toolbarAppearance="floating"`). The root becomes a centred pill
+  (`inline-size: max-content`, `max-inline-size: 100%`, `margin-inline: auto`,
+  `--mlv-radius-panel`, `--mlv-shadow-floating`, `--mlv-elevation-bg-4`). The
+  band overlaps the viewport by
+  `--mlv-editor-toolbar-overlap = --mlv-editor-toolbar-block-size + --mlv-spacing-2`
+  through a negative block margin, and the viewport pads by the same amount, so
+  the first (top) or last (bottom) line is clear at scroll 0.
+  `--mlv-editor-toolbar-block-size` is `calc(var(--mlv-height-s) + 2 *
+var(--mlv-spacing-1))` (2.75rem). **It is the same at every density**
+  (e2e-measured at each): every built-in control pins `tight`, and the
+  separator floor is `--mlv-height-s`. Override it on the editor when projected
+  controls are taller. The band paints `floating.backdrop()` (`0deg` at the
+  top, the default `180deg` at the bottom) and passes pointer input through
+  everywhere except the pill.
+- **Sticky** (`toolbarSticky`). The band is `position: sticky` at
+  `inset-block-start` / `inset-block-end:
+var(--mlv-editor-toolbar-sticky-offset, 0)` with `z-index: var(--mlv-z-raised)`.
+  The offset is read with a fallback and never declared, so it can be set once
+  on any ancestor. It works because the control container is `overflow: clip`.
+  Any consumer ancestor that is `overflow: hidden` / `auto` becomes the sticky
+  container instead of the page. When capped, sticky affects only page scroll,
+  within the surface's box.
+- **Narrow mode** measures `.mlv-editor__surface` (the internal
+  `MlvEditorToolbarRoot.measureTarget`), not the root, so a pill that hides
+  groups cannot un-narrow itself. The threshold is still 640px, but the
+  surface is 16px wider than the root's content box (the root's inline
+  padding), so the cut-over moved by that much: a 640–655px surface keeps the
+  wide toolbar. The standalone `MlvEditorToolbar` shell still measures its own
+  root.
+- **Focus Not Obscured (WCAG 2.2 SC 2.4.11).** Live ProseMirror `scrollMargin` /
+  `scrollThreshold` objects clear the obscured extent on the toolbar's side:
+  band height plus offset when sticky, band height when floating and capped,
+  0 otherwise. ProseMirror reads `value[side]` on every scroll, so one stable
+  object follows density, configuration and CSS offsets. Both `editorProps`
+  sites pass them: the live view would keep them through `setOptions`
+  (ProseMirror's `setProps` merges), but Tiptap replaces its stored
+  `editorProps`, which a later `mount()` rebuilds the view from. They are not
+  CSS `scroll-padding`.
+
 ## Status, accessibility, SSR, and theming
 
 - **Direction (RTL): scoped, not per-document.** The table menu's `_onKeydown` (`editor-table.ts`) passes a cached `elementDirection(host)` signal to `MlvRtlService.normalizeArrowKey(event, direction)` — that host is the popup's origin, so host and pane agree by construction — and an editor inside a `[dir="rtl"]` subtree mirrors its column-navigation arrows while the document stays LTR. Text-caret movement inside the document is the browser's and never goes through the helper. Regressions in `editor-table.spec.ts`.
@@ -956,7 +1050,7 @@ from `editor.state`, which is still the pre-move state when it fires.
 Styling is rooted at `.mlv-editor` and `.ProseMirror`, uses Malva design tokens,
 and covers focus, error, readonly, disabled, headings, lists/task lists,
 blockquote, code, links, horizontal rules, images, tables, selections, upload
-placeholders, and counts. `--mlv-editor-zoom` is an internal view transform
+placeholders, and counts. `--mlv-editor-zoom` is an internal view zoom
 hook; themes should override Malva tokens rather than document-node colors
 directly. Narrow, print, and `prefers-reduced-motion` rules are included.
 
@@ -1078,9 +1172,9 @@ resize, which is more machinery than one read off a clean layout tree costs.
 
 The vertical offset is converted out of the zoom scale exactly once, deriving
 the scale from `rect.width / offsetWidth` on the mount rather than reading
-`--mlv-editor-zoom`, because `getBoundingClientRect()` reports scaled screen
-pixels while a CSS `top` on a child of the scaled layer applies in that
-layer's unscaled space.
+`--mlv-editor-zoom`, because `getBoundingClientRect()` reports zoomed screen
+pixels while a CSS `top` on a child of the zoomed layer applies in that
+layer's own unzoomed space.
 
 The plugin view also implements `update()`, which hides the handle whenever
 `enabled()` is false. The pointer handler's own check is not sufficient:
@@ -1191,7 +1285,7 @@ behaviour this library excludes by design, and taking it would discard the
 i18n, the `aria-hidden`/tab-order guarantees, and the zoom-scale conversion.
 
 The editor's zoom rides on the wrapper as `zoom`, not `transform`: computed
-styles are used values and never carry an ancestor's scale, and engines
+styles are the element's own values and never carry an ancestor's `zoom`, and engines
 rasterize a transformed drag image inconsistently, while `zoom` affects layout
 so the wrapper's own box already reflects it when the browser measures. The
 clone is taken **before** the source is dimmed, or the reduced opacity would be
@@ -1312,6 +1406,7 @@ NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-upstream-
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-toolbar.spec.ts
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-formatting-popovers.spec.ts
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-zoom.spec.ts
+NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-layout.spec.ts
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-table.spec.ts
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-image-upload.spec.ts
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-status.spec.ts
@@ -1504,6 +1599,21 @@ its two intended tab stops — the content textbox and the roving toolbar widget
 
 ## Tested limitations
 
+- CSS `zoom` geometry (click-to-caret, drag image, grips) is e2e-proven in
+  Chromium only. Firefox (≥ 126) and Safari are unverified.
+- ProseMirror applies one `scrollMargin` at every scroll ancestor. A capped
+  editor with a sticky toolbar therefore keeps the caret `offset + band` px from
+  its own viewport edge, not 5px, even while the band is not stuck over it
+  (pinned in `editor-layout.spec.ts`). A capped editor with a floating toolbar
+  keeps it a band height (44–52px) from the page edge on the toolbar's side
+  whenever the page has to scroll, although the band covers only the viewport.
+  Both accepted because they err toward visibility; nothing is hidden.
+- Sticky needs every ancestor up to the scroller to be `overflow: visible` or
+  `clip`. The docs' `.example-container` needed `clip` for this reason.
+- `overflow: clip` on the control container needs Safari 16. Older Safari
+  computes `visible`, so content is not clipped to the rounded corners. No
+  `overflow: hidden` fallback, deliberately: it would be a scroll container
+  again and capture sticky.
 - Tiptap Markdown is still an upstream beta. Malva preserves nullable
   round-trips and the supported default schema, but does not promise
   byte-for-byte Markdown formatting or syntax outside that schema. Use

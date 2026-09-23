@@ -13,108 +13,123 @@
   }
 
   <ng-template mlvFormControlWrapperControl>
-    <div class="mlv-editor__surface">
-      <div
-        mlvEditorToolbarRoot
-        #toolbarRoot="mlvEditorToolbarRoot"
-        class="mlv-editor__toolbar"
-        [ariaLabel]="_toolbarAriaLabel()"
-        [disabled]="computedDisabled()"
-      >
-        @if (_hasToolbarDef()) {
-          <ng-content select="[mlvEditorToolbar]" />
-          @for (definition of _toolbarDefs(); track definition) {
-            @if (definition.templateRef; as toolbarTemplate) {
-              <ng-container
-                [ngTemplateOutlet]="toolbarTemplate"
-                [ngTemplateOutletContext]="{ $implicit: _toolbarContext }"
-              />
+    <div #surface class="mlv-editor__surface">
+      <!--
+        Declared once and stamped by one outlet before or after the viewport
+        (#416), so the DOM order is always the visual order, with no CSS
+        `order`. Re-stamping on a position change re-creates the view, which
+        closes an open toolbar popup; projected slot content is re-attached.
+      -->
+      <ng-template #toolbarTemplate>
+        <div #toolbarBand class="mlv-editor__toolbar-band">
+          <div
+            mlvEditorToolbarRoot
+            #toolbarRoot="mlvEditorToolbarRoot"
+            class="mlv-editor__toolbar"
+            [ariaLabel]="_toolbarAriaLabel()"
+            [disabled]="computedDisabled()"
+            [measureTarget]="surface"
+          >
+            @if (_hasToolbarDef()) {
+              <ng-content select="[mlvEditorToolbar]" />
+              @for (definition of _toolbarDefs(); track definition) {
+                @if (definition.templateRef; as toolbarTemplate) {
+                  <ng-container
+                    [ngTemplateOutlet]="toolbarTemplate"
+                    [ngTemplateOutletContext]="{ $implicit: _toolbarContext }"
+                  />
+                }
+              }
+            } @else {
+              <ng-content select="[mlvEditorToolbarStart]" />
+              @for (definition of _toolbarStartDefs(); track definition) {
+                @if (definition.templateRef; as startTemplate) {
+                  <ng-container
+                    [ngTemplateOutlet]="startTemplate"
+                    [ngTemplateOutletContext]="{ $implicit: _toolbarContext }"
+                  />
+                }
+              }
+              <div mlvFade class="mlv-editor__toolbar-scroll">
+                <mlv-toolbar>
+                  <mlv-editor-undo-redo />
+                  <mlv-divider
+                    class="mlv-editor-toolbar__separator"
+                    orientation="vertical"
+                    muted
+                  />
+                  <mlv-editor-zoom />
+                  <mlv-divider
+                    class="mlv-editor-toolbar__separator"
+                    orientation="vertical"
+                    muted
+                  />
+                  <mlv-editor-heading />
+                  <mlv-editor-list />
+                  <mlv-divider
+                    class="mlv-editor-toolbar__separator"
+                    orientation="vertical"
+                    muted
+                    [hidden]="toolbarRoot.narrow()"
+                  />
+                  <mlv-editor-inline-marks [hidden]="toolbarRoot.narrow()" />
+                  <mlv-divider
+                    class="mlv-editor-toolbar__separator"
+                    orientation="vertical"
+                    muted
+                    [hidden]="toolbarRoot.narrow()"
+                  />
+                  <mlv-editor-text-color />
+                  <mlv-editor-highlight />
+                  <mlv-divider
+                    class="mlv-editor-toolbar__separator"
+                    orientation="vertical"
+                    muted
+                    [hidden]="toolbarRoot.narrow()"
+                  />
+                  <mlv-editor-alignment [hidden]="toolbarRoot.narrow()" />
+                  <mlv-divider
+                    class="mlv-editor-toolbar__separator"
+                    orientation="vertical"
+                    muted
+                    [hidden]="toolbarRoot.narrow()"
+                  />
+                  <mlv-editor-link />
+                  <mlv-editor-table />
+                  <mlv-divider
+                    class="mlv-editor-toolbar__separator"
+                    orientation="vertical"
+                    muted
+                    [hidden]="toolbarRoot.narrow()"
+                  />
+                  <mlv-editor-block-insert [hidden]="toolbarRoot.narrow()" />
+                  <mlv-divider
+                    class="mlv-editor-toolbar__separator"
+                    orientation="vertical"
+                    muted
+                    [hidden]="toolbarRoot.narrow()"
+                  />
+                  <mlv-editor-image-upload />
+                </mlv-toolbar>
+              </div>
+              <mlv-editor-toolbar-overflow />
+              @for (definition of _toolbarEndDefs(); track definition) {
+                @if (definition.templateRef; as endTemplate) {
+                  <ng-container
+                    [ngTemplateOutlet]="endTemplate"
+                    [ngTemplateOutletContext]="{ $implicit: _toolbarContext }"
+                  />
+                }
+              }
+              <ng-content select="[mlvEditorToolbarEnd]" />
             }
-          }
-        } @else {
-          <ng-content select="[mlvEditorToolbarStart]" />
-          @for (definition of _toolbarStartDefs(); track definition) {
-            @if (definition.templateRef; as startTemplate) {
-              <ng-container
-                [ngTemplateOutlet]="startTemplate"
-                [ngTemplateOutletContext]="{ $implicit: _toolbarContext }"
-              />
-            }
-          }
-          <div mlvFade class="mlv-editor__toolbar-scroll">
-            <mlv-toolbar>
-              <mlv-editor-undo-redo />
-              <mlv-divider
-                class="mlv-editor-toolbar__separator"
-                orientation="vertical"
-                muted
-              />
-              <mlv-editor-zoom />
-              <mlv-divider
-                class="mlv-editor-toolbar__separator"
-                orientation="vertical"
-                muted
-              />
-              <mlv-editor-heading />
-              <mlv-editor-list />
-              <mlv-divider
-                class="mlv-editor-toolbar__separator"
-                orientation="vertical"
-                muted
-                [hidden]="toolbarRoot.narrow()"
-              />
-              <mlv-editor-inline-marks [hidden]="toolbarRoot.narrow()" />
-              <mlv-divider
-                class="mlv-editor-toolbar__separator"
-                orientation="vertical"
-                muted
-                [hidden]="toolbarRoot.narrow()"
-              />
-              <mlv-editor-text-color />
-              <mlv-editor-highlight />
-              <mlv-divider
-                class="mlv-editor-toolbar__separator"
-                orientation="vertical"
-                muted
-                [hidden]="toolbarRoot.narrow()"
-              />
-              <mlv-editor-alignment [hidden]="toolbarRoot.narrow()" />
-              <mlv-divider
-                class="mlv-editor-toolbar__separator"
-                orientation="vertical"
-                muted
-                [hidden]="toolbarRoot.narrow()"
-              />
-              <mlv-editor-link />
-              <mlv-editor-table />
-              <mlv-divider
-                class="mlv-editor-toolbar__separator"
-                orientation="vertical"
-                muted
-                [hidden]="toolbarRoot.narrow()"
-              />
-              <mlv-editor-block-insert [hidden]="toolbarRoot.narrow()" />
-              <mlv-divider
-                class="mlv-editor-toolbar__separator"
-                orientation="vertical"
-                muted
-                [hidden]="toolbarRoot.narrow()"
-              />
-              <mlv-editor-image-upload />
-            </mlv-toolbar>
           </div>
-          <mlv-editor-toolbar-overflow />
-          @for (definition of _toolbarEndDefs(); track definition) {
-            @if (definition.templateRef; as endTemplate) {
-              <ng-container
-                [ngTemplateOutlet]="endTemplate"
-                [ngTemplateOutletContext]="{ $implicit: _toolbarContext }"
-              />
-            }
-          }
-          <ng-content select="[mlvEditorToolbarEnd]" />
-        }
-      </div>
+        </div>
+      </ng-template>
+
+      @if (toolbarPosition() === 'top') {
+        <ng-container [ngTemplateOutlet]="toolbarTemplate" />
+      }
 
       <div class="mlv-editor__viewport">
         <div #view class="mlv-editor__view">
@@ -122,6 +137,9 @@
           <mlv-editor-table-controls [layer]="view" />
         </div>
       </div>
+      @if (toolbarPosition() === 'bottom') {
+        <ng-container [ngTemplateOutlet]="toolbarTemplate" />
+      }
       <mlv-editor-image-upload-status />
     </div>
   </ng-template>
