@@ -27,6 +27,9 @@
     "directory": "libs/core"
   },
   "schematics": "./schematics/collection.json",
+  "exports": {
+    "./styles/*": "./styles/*"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -42,7 +45,9 @@
     "@malva-ui/i18n": "0.0.0-malva-ui-package-version",
     "rxjs": "0.0.0-rxjs-package-version"
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "./styles/*.css"
+  ],
   "dependencies": {
     "fast-equals": "^6.0.0",
     "lodash-es": "^4.17.23",

@@ -21,14 +21,15 @@ All published packages share one version and are released together
 (`nx.json` → `release.projectsRelationship: "fixed"`). A package therefore takes
 every bump, including a major, even when nothing inside it changed.
 
-| Package               | Contains                                                                  |
-| --------------------- | ------------------------------------------------------------------------- |
-| `@malva-ui/cdk`       | Headless primitives — overlay, density, data-source, accessibility, utils |
-| `@malva-ui/core`      | Every component, plus `styles/malva-ui.css` and `styles/tokens.md`        |
-| `@malva-ui/i18n`      | i18n service, tokens and the 14 language packs                            |
-| `@malva-ui/editor`    | Tiptap editor shell                                                       |
-| `@malva-ui/scheduler` | Month / week / day calendar                                               |
-| `@malva-ui/tailwind`  | Tailwind v4 `theme.css` adapter                                           |
+| Package               | Contains                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `@malva-ui/cdk`       | Headless primitives — overlay, density, data-source, accessibility, utils                              |
+| `@malva-ui/core`      | Every component, plus `styles/malva-ui.css`, `styles/page-view-transitions.css` and `styles/tokens.md` |
+| `@malva-ui/i18n`      | i18n service, tokens and the 14 language packs                                                         |
+| `@malva-ui/editor`    | Tiptap editor shell                                                                                    |
+| `@malva-ui/scheduler` | Month / week / day calendar                                                                            |
+| `@malva-ui/tailwind`  | Tailwind v4 `theme.css` adapter                                                                        |
+| `@malva-ui/taskboard` | Kanban board (`mlv-taskboard`)                                                                         |
 
 Not published, and therefore carrying no compatibility guarantee of its own:
 
@@ -506,14 +507,15 @@ starts to apply.
 
 ## 11. How the machinery enforces this
 
-| Clause                                                                                                       | Mechanism                                                                                                                   | Runs                    |
-| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| Commit type → bump                                                                                           | `nx.json` → `release.conventionalCommits.types`; the format is enforced on the `commit-msg` hook by `commitlint.config.mjs` | every commit            |
-| A breaking change is declared                                                                                | `!` on the type, or a `BREAKING CHANGE:` footer. Both route the commit into the `⚠️ Breaking Changes` changelog section     | every commit            |
-| `@deprecated` names both versions, is still ahead of the released line, and is spelled so TypeScript sees it | `scripts/check-deprecations.mjs` → `@malva-ui/source:check-deprecations`, a `dependsOn` of the root `test` target           | CI, every PR and push   |
-| Every published `exports` target resolves                                                                    | `scripts/dist-exports.mjs`, preflighted by `scripts/publish.mjs` before any tarball is pushed                               | every publish           |
-| Releases are deliberate                                                                                      | `release.yml` is `workflow_dispatch` only, defaults to `dryRun: true`. A push to `main` never publishes                     | every release           |
-| Documented API matches the code                                                                              | `scripts/check-doc-api.mjs` → `yarn nx run docs:check-doc-api`                                                              | **by hand — see below** |
+| Clause                                                                                                                                                                                                           | Mechanism                                                                                                                                                                                                                           | Runs                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Commit type → bump                                                                                                                                                                                               | `nx.json` → `release.conventionalCommits.types`; the format is enforced on the `commit-msg` hook by `commitlint.config.mjs`                                                                                                         | every commit                         |
+| A breaking change is declared                                                                                                                                                                                    | `!` on the type, or a `BREAKING CHANGE:` footer. Both route the commit into the `⚠️ Breaking Changes` changelog section                                                                                                             | every commit                         |
+| `@deprecated` names both versions, is still ahead of the released line, and is spelled so TypeScript sees it                                                                                                     | `scripts/check-deprecations.mjs` → `@malva-ui/source:check-deprecations`, a `dependsOn` of the root `test` target                                                                                                                   | CI, every PR and push                |
+| Every published `exports` target resolves                                                                                                                                                                        | `scripts/dist-exports.mjs`, run over every built release package by `check-dist-assets` (next row) and preflighted by `scripts/publish.mjs` before any tarball is pushed                                                            | CI, every PR and push; every publish |
+| Every asset a package generates or the docs name (`@malva-ui/core/styles/*.css`, `tokens.md`) ships, is packed, resolves as a bare specifier through `exports`, and — for a stylesheet — is not side-effect free | `scripts/check-dist-assets.mjs` → `@malva-ui/source:check-dist-assets`, a `dependsOn` of the root `test` target that builds every `release.projects` package first; repeated by `scripts/publish.mjs` against the resolved manifest | CI, every PR and push; every publish |
+| Releases are deliberate                                                                                                                                                                                          | `release.yml` is `workflow_dispatch` only, defaults to `dryRun: true`. A push to `main` never publishes                                                                                                                             | every release                        |
+| Documented API matches the code                                                                                                                                                                                  | `scripts/check-doc-api.mjs` → `yarn nx run docs:check-doc-api`                                                                                                                                                                      | **by hand — see below**              |
 
 **Types that never bump the version on their own** — `chore`, `test`, `ci`,
 `style` and `docs`. Of those, only the first four are also hidden from the

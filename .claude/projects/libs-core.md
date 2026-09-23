@@ -112,9 +112,29 @@ Each secondary entry point in `libs/core/<entry>/src/index.ts` re-exports exactl
 - `libs/core/tsconfig.lib.json` intentionally excludes secondary-entry e2e files and Playwright configs from production typecheck/build so testing helpers such as `@malva-ui/cdk/testing-e2e` do not leak into the published package compilation.
 - The public package declares `schematics/collection.json`, which exposes the
   hidden `ng-add`/`install` schematic used by `ng add @malva-ui/core`.
-- The `core:build` target depends on `core:build-styles`, which compiles
-  `libs/core/styles/malva-ui.scss` before ng-packagr copies the generated
-  `styles/malva-ui.css` global asset into the published package.
+- The `core:build` target depends on `core:build-styles`, which writes three
+  git-ignored files into `libs/core/styles/` — `malva-ui.css` (global
+  stylesheet), `page-view-transitions.css` (opt-in shell chrome for router view
+  transitions) and `tokens.md` (copy of `libs/styles/tokens.md`) — and
+  `ng-package.json`'s `assets` glob copies all three into `dist/libs/core/styles/`.
+  ng-packagr copies **only** what that glob names: `page-view-transitions.css`
+  was compiled and documented but never shipped until #310.
+- Asset delivery (#310):
+  - `"exports": { "./styles/*": "./styles/*" }` in `libs/core/package.json` —
+    ng-packagr keeps a source `exports` map and merges its generated entry-point
+    subpaths after it. Without it every bare-specifier form —
+    `@import '@malva-ui/core/styles/malva-ui.css'`, Sass `@use`, a JS
+    side-effect import — fails `ERR_PACKAGE_PATH_NOT_EXPORTED`; only the
+    `node_modules/…` file path in `angular.json` `styles` worked.
+  - `"sideEffects": ["./styles/*.css"]` — ng-packagr copies the field as-is
+    and defaults it to `false`, under which webpack 5 production drops
+    `import '@malva-ui/core/styles/malva-ui.css'` silently (measured; esbuild
+    0.28 and Vite 8 keep it either way). JS bundles stay side-effect free.
+  - Guarded by `scripts/check-dist-assets.mjs` (root `test` → `check-dist-assets`,
+    and `scripts/publish.mjs`): every file a `build` prerequisite generates in
+    the package and every `@malva-ui/<pkg>/<path>` asset the docs name must
+    ship, be packed, resolve through `exports` and survive `sideEffects`.
+    A new asset: add it to the `build-styles` outputs **and** the `assets` glob.
 - The editor is **not** part of this package. It ships separately as
   `@malva-ui/editor`, which peer-depends on `@malva-ui/core`, and every
   `@tiptap/*` peer moved with it. Core therefore declares no Tiptap peers at

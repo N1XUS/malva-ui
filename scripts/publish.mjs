@@ -35,6 +35,11 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import {
+  checkPackageAssets,
+  collectDocumentedAssets,
+  readProject,
+} from './check-dist-assets.mjs';
 import { collectBrokenExports } from './dist-exports.mjs';
 import { widenPeerRange } from './widen-peer-range.mjs';
 
@@ -88,7 +93,6 @@ if (rootPkg.version === '0.0.0') {
 
 const dep = (name) =>
   rootPkg.dependencies?.[name] ?? rootPkg.devDependencies?.[name];
-
 
 const tiptapPackages = [
   '@tiptap/core',
@@ -179,6 +183,10 @@ const dependencyFields = [
   'peerDependencies',
 ];
 
+// Every `@malva-ui/<pkg>/<file>` path the docs and sources tell a consumer to
+// import, scanned once — each package's share is checked below (#310).
+const { references: documentedAssets } = collectDocumentedAssets(workspaceRoot);
+
 // ─── Process each library ────────────────────────────────────────────────────
 
 for (const lib of libraries) {
@@ -248,7 +256,9 @@ for (const lib of libraries) {
   );
 
   // Exact root pins must not become exact peer ranges — see widenPeerRange.
-  for (const [name, version] of Object.entries(resolved.peerDependencies ?? {})) {
+  for (const [name, version] of Object.entries(
+    resolved.peerDependencies ?? {},
+  )) {
     const widened = widenPeerRange(name, version);
     if (widened !== version) {
       resolved.peerDependencies[name] = widened;
@@ -265,6 +275,30 @@ for (const lib of libraries) {
     );
     for (const entry of brokenExports) console.error(`     ${entry}`);
     process.exit(1);
+  }
+
+  // Preflight: every generated or documented asset (stylesheets, tokens.md)
+  // ships, resolves through `exports` and survives `sideEffects` — the check
+  // the `check-dist-assets` CI gate runs. `files` and `sideEffects` are read
+  // from the resolved manifest about to be packed; Node's resolver reads the
+  // `exports` map from disk, which placeholder resolution does not touch.
+  const assetCheck = checkPackageAssets(
+    workspaceRoot,
+    readProject(workspaceRoot, lib.distDir.split('/').pop()),
+    documentedAssets.get(lib.name),
+    resolved,
+  );
+  if (assetCheck.problems.length) {
+    console.error(`\n❌  Unusable assets in ${lib.name}:`);
+    for (const { message } of assetCheck.problems) {
+      console.error(`     ${message}`);
+    }
+    process.exit(1);
+  }
+  if (assetCheck.assets.length) {
+    console.log(
+      `   ✅  ${assetCheck.assets.length} asset(s) ship and resolve through exports`,
+    );
   }
 
   if (!dryRun) {

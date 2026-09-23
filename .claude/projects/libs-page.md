@@ -1144,7 +1144,11 @@ what the opt-in stylesheet does:
 ```
 
 It names the shell's topbar and sidebars so they hold still while the canvas
-crossfades.
+crossfades. List it **after** `malva-ui.css`, or write
+`@import '@malva-ui/core/styles/page-view-transitions.css';` in a global
+stylesheet, which resolves through core's `./styles/*` export. The stylesheet
+first ships in the release that introduces `mlvPageViewTransitionHook` (#275,
+after `0.1.15`); no earlier release has either.
 
 ## `MlvPageHeader`
 
