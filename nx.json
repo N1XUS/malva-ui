@@ -144,13 +144,6 @@
       }
     },
     {
-      "plugin": "@nx/docker",
-      "options": {
-        "buildTarget": "docker:build",
-        "runTarget": "docker:run"
-      }
-    },
-    {
       "plugin": "@nx/vite/plugin",
       "options": {
         "buildTargetName": "build",

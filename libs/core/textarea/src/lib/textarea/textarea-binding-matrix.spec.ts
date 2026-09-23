@@ -7,7 +7,6 @@ import { By } from '@angular/platform-browser';
 import { NgControl } from '@angular/forms';
 import { verifyFormsBinding } from '@malva-ui/core/form-utils/testing';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
-import { provideAnimations } from '@angular/platform-browser/animations';
 import { MlvTextarea } from './textarea';
 
 /**
@@ -50,7 +49,7 @@ describe('MlvTextarea — forms bindings matrix', () => {
 
     await TestBed.configureTestingModule({
       imports: [ReactiveHostComponent],
-      providers: [provideMlvI18nTesting(), provideAnimations()],
+      providers: [provideMlvI18nTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(ReactiveHostComponent);
     fixture.detectChanges();
@@ -90,7 +89,7 @@ describe('MlvTextarea — forms bindings matrix', () => {
 
     await TestBed.configureTestingModule({
       imports: [NgModelHostComponent],
-      providers: [provideMlvI18nTesting(), provideAnimations()],
+      providers: [provideMlvI18nTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(NgModelHostComponent);
     fixture.detectChanges();
@@ -134,7 +133,7 @@ describe('MlvTextarea — forms bindings matrix', () => {
 
     await TestBed.configureTestingModule({
       imports: [SignalFormsHostComponent],
-      providers: [provideMlvI18nTesting(), provideAnimations()],
+      providers: [provideMlvI18nTesting()],
     }).compileComponents();
     const fixture = TestBed.createComponent(SignalFormsHostComponent);
     fixture.detectChanges();

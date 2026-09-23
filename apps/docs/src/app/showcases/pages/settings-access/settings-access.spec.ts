@@ -1,7 +1,6 @@
 import { ApplicationInitStatus, ApplicationRef } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import {
   expectNoAxeViolations,
   formatAxeViolations,
@@ -108,7 +107,6 @@ async function render(): Promise<Rendered> {
   await TestBed.configureTestingModule({
     imports: [SettingsAccessShowcaseComponent],
     providers: [
-      provideAnimationsAsync('noop'),
       provideMlvDensity('comfortable'),
       provideMlvI18n(() => import('@malva-ui/i18n/en')),
     ],

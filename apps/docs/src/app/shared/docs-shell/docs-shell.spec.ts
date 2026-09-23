@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { ApplicationInitStatus } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { NavigationEnd, provideRouter, Router } from '@angular/router';
 import type { Subject } from 'rxjs';
 import { provideMlvDensity } from '@malva-ui/cdk/density';
@@ -64,7 +63,6 @@ describe('DocsShellComponent', () => {
       imports: [DocsShellComponent],
       providers: [
         provideRouter([]),
-        provideAnimationsAsync('noop'),
         provideMlvDensity('comfortable'),
         provideMlvI18n(() => import('@malva-ui/i18n/en')),
       ],
