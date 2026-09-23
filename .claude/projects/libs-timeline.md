@@ -220,13 +220,17 @@ type MlvTimelineItemTone = MlvTone | 'default'; // 'info' | 'success' | 'warning
 
 Controls the node circle accent colour via BEM modifier and CSS custom property override.
 
-| Value       | Node colour token            |
-| ----------- | ---------------------------- |
-| `'default'` | `--mlv-border-normal`        |
-| `'success'` | `--mlv-background-success-1` |
-| `'warning'` | `--mlv-background-warning-1` |
-| `'danger'`  | `--mlv-background-danger-1`  |
-| `'info'`    | `--mlv-background-info-1`    |
+| Value       | Node colour token            | Icon colour token       |
+| ----------- | ---------------------------- | ----------------------- |
+| `'default'` | `--mlv-border-normal`        | `--mlv-text-primary`    |
+| `'success'` | `--mlv-background-success-1` | `--mlv-text-on-success` |
+| `'warning'` | `--mlv-background-warning-1` | `--mlv-text-on-warning` |
+| `'danger'`  | `--mlv-background-danger-1`  | `--mlv-text-on-danger`  |
+| `'info'`    | `--mlv-background-info-1`    | `--mlv-text-on-info`    |
+
+- Each fill carries its own foreground, so an `[mlvTimelineItemIcon]` glyph keeps 3:1 on its node in every theme (`tone-contrast.spec.mjs`).
+- #302: every tone used to paint `--mlv-text-primary-on-accent-1` (white) — 1.26:1 on the grey default node.
+- The foreground travels in `--mlv-tli-node-color` — **internal, not an override point** (absent from the table above on purpose; may change in a patch). Retheme through the `--mlv-text-on-*` tokens.
 
 ### `MlvTimelineItemDirection`
 

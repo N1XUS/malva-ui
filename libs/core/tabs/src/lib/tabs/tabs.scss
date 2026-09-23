@@ -1,248 +1,250 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-tab-group;
+  $block: mlv-tab-group;
 
-.#{$block} {
-  display: flex;
-  flex-direction: column;
-
-  // The overflow logic only engages when the header can actually be narrower
-  // than its tab row: `_applyOverflowFit()` compares the cached tab widths
-  // against `headerEl.clientWidth`. A flex or grid item defaults to
-  // `min-width: auto`, whose content-based minimum here is the full width of
-  // the tab row — `overflow: hidden` on the header suppresses the *automatic
-  // minimum size* of a flex item, not the min-content contribution a parent
-  // grid/flex track sizes against. Without this the group refuses to shrink,
-  // clientWidth never drops, "More (N)" never appears, and the header simply
-  // clips its trailing tabs.
-  min-width: 0;
-
-  &--vertical {
-    flex-direction: row;
-  }
-}
-
-.#{$block}__header {
-  display: flex;
-  position: relative;
-  overflow: hidden;
-  // Same reason as the block above: the tab row must never set a floor on how
-  // narrow the group can be.
-  min-width: 0;
-
-  .#{$block}--horizontal & {
-    flex-direction: row;
-    align-items: stretch;
-    box-shadow: inset 0 -0.0625rem 0 var(--mlv-border-subtle);
-  }
-
-  .#{$block}--vertical & {
+  .#{$block} {
+    display: flex;
     flex-direction: column;
-    align-items: stretch;
-    box-shadow: inset -0.0625rem 0 0 var(--mlv-border-subtle);
-  }
-}
 
-.#{$block}__indicator {
-  position: absolute;
-  background: var(--mlv-background-accent-1);
-  transition:
-    left var(--mlv-tab-indicator-duration, var(--mlv-duration-normal))
-      var(--mlv-ease-in-out-strong),
-    top var(--mlv-tab-indicator-duration, var(--mlv-duration-normal))
-      var(--mlv-ease-in-out-strong),
-    width var(--mlv-tab-indicator-duration, var(--mlv-duration-normal))
-      var(--mlv-ease-in-out-strong),
-    height var(--mlv-tab-indicator-duration, var(--mlv-duration-normal))
-      var(--mlv-ease-in-out-strong);
+    // The overflow logic only engages when the header can actually be narrower
+    // than its tab row: `_applyOverflowFit()` compares the cached tab widths
+    // against `headerEl.clientWidth`. A flex or grid item defaults to
+    // `min-width: auto`, whose content-based minimum here is the full width of
+    // the tab row — `overflow: hidden` on the header suppresses the *automatic
+    // minimum size* of a flex item, not the min-content contribution a parent
+    // grid/flex track sizes against. Without this the group refuses to shrink,
+    // clientWidth never drops, "More (N)" never appears, and the header simply
+    // clips its trailing tabs.
+    min-width: 0;
 
-  .#{$block}--horizontal & {
-    bottom: 0;
-    height: 0.125rem;
-    left: var(--mlv-tab-indicator-left, 0);
-    width: var(--mlv-tab-indicator-width, 0);
+    &--vertical {
+      flex-direction: row;
+    }
   }
 
-  .#{$block}--vertical & {
-    inset-inline-end: 0;
-    width: 0.125rem;
-    --mlv-tab-indicator-left: auto;
-    top: var(--mlv-tab-indicator-top, 0);
-    height: var(--mlv-tab-indicator-height, 0);
+  .#{$block}__header {
+    display: flex;
+    position: relative;
+    overflow: hidden;
+    // Same reason as the block above: the tab row must never set a floor on how
+    // narrow the group can be.
+    min-width: 0;
+
+    .#{$block}--horizontal & {
+      flex-direction: row;
+      align-items: stretch;
+      box-shadow: inset 0 -0.0625rem 0 var(--mlv-border-subtle);
+    }
+
+    .#{$block}--vertical & {
+      flex-direction: column;
+      align-items: stretch;
+      box-shadow: inset -0.0625rem 0 0 var(--mlv-border-subtle);
+    }
   }
-}
 
-.#{$block}__more-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  border: none;
-  background: none;
-  color: var(--mlv-palette-neutral-400);
-  white-space: nowrap;
-  // Anchors the shared hover ::after line (see the underline-appearance block
-  // below). No text-colour shift on hover, matching .mlv-tab-item.
-  position: relative;
-  transition: color var(--mlv-duration-normal);
-
-  &:focus-visible {
-    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-    outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
-    border-radius: var(--mlv-radius-s);
-  }
-}
-
-.#{$block}__body {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-}
-
-// Inert placeholder panels rendered so every visible tab's `aria-controls`
-// resolves to an `ngTabPanel`. They never hold content and are never visible.
-.#{$block}__panel-stub {
-  display: none;
-}
-
-// ─── Boxed appearance ───────────────────────────────────────────────────────
-// Orthogonal to orientation: composes with both `--horizontal` and `--vertical`.
-// The active tab becomes a filled, rounded surface instead of gaining the
-// sliding indicator bar; the header separator border is dropped. Rules are
-// appended after the base header/indicator rules so the equal-specificity
-// overrides (e.g. header box-shadow) win by source order.
-// Underline (non-boxed) appearance — a non-active tab (and the overflow "More"
-// trigger) shows a faint line where the active indicator sits (bottom for
-// horizontal, inline-end for vertical) on hover, as an affordance. Scoped away
-// from boxed via :not().
-.#{$block}:not(.#{$block}--appearance-boxed) {
-  &
-    > .#{$block}__header
-    > .mlv-tab-item:hover:not(.mlv-tab-item--active):not(
-      .mlv-tab-item--disabled
-    )::after,
-  & > .#{$block}__header > .#{$block}__more-trigger:hover::after {
-    content: '';
+  .#{$block}__indicator {
     position: absolute;
-    background: var(--mlv-border-normal);
-  }
-  &.#{$block}--horizontal
-    > .#{$block}__header
-    > .mlv-tab-item:hover:not(.mlv-tab-item--active):not(
-      .mlv-tab-item--disabled
-    )::after,
-  &.#{$block}--horizontal
-    > .#{$block}__header
-    > .#{$block}__more-trigger:hover::after {
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 0.125rem;
-  }
-  &.#{$block}--vertical
-    > .#{$block}__header
-    > .mlv-tab-item:hover:not(.mlv-tab-item--active):not(
-      .mlv-tab-item--disabled
-    )::after,
-  &.#{$block}--vertical
-    > .#{$block}__header
-    > .#{$block}__more-trigger:hover::after {
-    top: 0;
-    bottom: 0;
-    right: 0;
-    width: 0.125rem;
-  }
-}
+    background: var(--mlv-background-accent-1);
+    transition:
+      left var(--mlv-tab-indicator-duration, var(--mlv-duration-normal))
+        var(--mlv-ease-in-out-strong),
+      top var(--mlv-tab-indicator-duration, var(--mlv-duration-normal))
+        var(--mlv-ease-in-out-strong),
+      width var(--mlv-tab-indicator-duration, var(--mlv-duration-normal))
+        var(--mlv-ease-in-out-strong),
+      height var(--mlv-tab-indicator-duration, var(--mlv-duration-normal))
+        var(--mlv-ease-in-out-strong);
 
-// Boxed appearance — a segmented control: the header is a grey, content-width
-// "track" holding the tabs, and the __indicator is repurposed as a WHITE pill
-// that SLIDES behind the active tab (reusing the left/width | top/height
-// animation). Every selector uses the CHILD combinator (`>`) so a boxed group
-// NEVER restyles a tab-group NESTED inside its panels (e.g. the demo tab-groups
-// inside a boxed docs Examples panel).
-.#{$block}--appearance-boxed {
-  // The header is the grey track: only as wide as its tabs (not full width, so
-  // it can be aligned horizontally), rounded, with a small inset padding. The
-  // pill/item radius is concentric: track radius minus the track padding.
-  & > .#{$block}__header {
-    box-shadow: none;
-    width: fit-content;
-    max-width: 100%;
-    background: var(--mlv-background-neutral-1);
-    border-radius: var(--mlv-radius-xl);
-    padding: 0.1875rem;
-    gap: 0.125rem;
-  }
-  &.#{$block}--vertical > .#{$block}__header {
-    height: fit-content;
+    .#{$block}--horizontal & {
+      bottom: 0;
+      height: 0.125rem;
+      left: var(--mlv-tab-indicator-left, 0);
+      width: var(--mlv-tab-indicator-width, 0);
+    }
+
+    .#{$block}--vertical & {
+      inset-inline-end: 0;
+      width: 0.125rem;
+      --mlv-tab-indicator-left: auto;
+      top: var(--mlv-tab-indicator-top, 0);
+      height: var(--mlv-tab-indicator-height, 0);
+    }
   }
 
-  // Indicator → the white pill sliding behind the active tab, inset inside the
-  // track padding, sitting BEHIND the tab labels.
-  & > .#{$block}__header > .#{$block}__indicator {
-    background: var(--mlv-background-raised);
-    border-radius: calc(var(--mlv-radius-xl) - var(--mlv-radius-xs));
-    box-shadow: var(--mlv-shadow-raised);
-    z-index: 0;
-  }
-  &.#{$block}--horizontal > .#{$block}__header > .#{$block}__indicator {
-    top: 0.1875rem;
-    bottom: 0.1875rem;
-    height: auto;
-  }
-  &.#{$block}--vertical > .#{$block}__header > .#{$block}__indicator {
-    left: 0.1875rem;
-    right: 0.1875rem;
-    width: auto;
-  }
-
-  // Direct tab items — label above the pill; a non-active hover tints darker
-  // than the track (neutral-1 itself matches the sunken track, so the -hover
-  // step is the first visible shade); the active item just changes colour (the
-  // sliding pill provides its surface).
-  & > .#{$block}__header > .mlv-tab-item {
+  .#{$block}__more-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border: none;
+    background: none;
+    // A theme token, like `.mlv-tab-item`: the raw `--mlv-palette-neutral-400`
+    // step read 2.42:1 on the light page and did not follow the theme (#302).
+    color: var(--mlv-text-secondary);
+    white-space: nowrap;
+    // Anchors the shared hover ::after line (see the underline-appearance block
+    // below). No text-colour shift on hover, matching .mlv-tab-item.
     position: relative;
-    z-index: 1;
-    border-radius: calc(var(--mlv-radius-xl) - var(--mlv-radius-xs));
+    transition: color var(--mlv-duration-normal);
 
-    &:hover:not(.mlv-tab-item--active):not(.mlv-tab-item--disabled) {
-      background: var(--mlv-background-neutral-1-hover);
-    }
-
-    &.mlv-tab-item--active {
-      color: var(--mlv-text-primary);
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      border-radius: var(--mlv-radius-s);
     }
   }
 
-  // The overflow "More" trigger inside the track mirrors the non-active tab
-  // hover treatment (it never carries the pill).
-  & > .#{$block}__header > .#{$block}__more-trigger {
-    position: relative;
-    z-index: 1;
-    border-radius: calc(var(--mlv-radius-xl) - var(--mlv-radius-xs));
+  .#{$block}__body {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
 
-    &:hover {
-      background: var(--mlv-background-neutral-1-hover);
+  // Inert placeholder panels rendered so every visible tab's `aria-controls`
+  // resolves to an `ngTabPanel`. They never hold content and are never visible.
+  .#{$block}__panel-stub {
+    display: none;
+  }
+
+  // ─── Boxed appearance ───────────────────────────────────────────────────────
+  // Orthogonal to orientation: composes with both `--horizontal` and `--vertical`.
+  // The active tab becomes a filled, rounded surface instead of gaining the
+  // sliding indicator bar; the header separator border is dropped. Rules are
+  // appended after the base header/indicator rules so the equal-specificity
+  // overrides (e.g. header box-shadow) win by source order.
+  // Underline (non-boxed) appearance — a non-active tab (and the overflow "More"
+  // trigger) shows a faint line where the active indicator sits (bottom for
+  // horizontal, inline-end for vertical) on hover, as an affordance. Scoped away
+  // from boxed via :not().
+  .#{$block}:not(.#{$block}--appearance-boxed) {
+    &
+      > .#{$block}__header
+      > .mlv-tab-item:hover:not(.mlv-tab-item--active):not(
+        .mlv-tab-item--disabled
+      )::after,
+    & > .#{$block}__header > .#{$block}__more-trigger:hover::after {
+      content: '';
+      position: absolute;
+      background: var(--mlv-border-normal);
+    }
+    &.#{$block}--horizontal
+      > .#{$block}__header
+      > .mlv-tab-item:hover:not(.mlv-tab-item--active):not(
+        .mlv-tab-item--disabled
+      )::after,
+    &.#{$block}--horizontal
+      > .#{$block}__header
+      > .#{$block}__more-trigger:hover::after {
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 0.125rem;
+    }
+    &.#{$block}--vertical
+      > .#{$block}__header
+      > .mlv-tab-item:hover:not(.mlv-tab-item--active):not(
+        .mlv-tab-item--disabled
+      )::after,
+    &.#{$block}--vertical
+      > .#{$block}__header
+      > .#{$block}__more-trigger:hover::after {
+      top: 0;
+      bottom: 0;
+      right: 0;
+      width: 0.125rem;
     }
   }
-}
 
-// Dark theme: `--mlv-background-raised` (#1e1e1e) sinks below the boxed
-// track's `--mlv-background-neutral-1` (#262626) instead of lifting off it —
-// the same light/dark inversion `mlv-segmented` handles for its raised pill
-// (see segmented.scss). Lift the pill one step lighter than the track
-// instead, mirroring segmented's `--mlv-palette-neutral-700` treatment.
-// Descendant combinator from `[mlvTheme='dark']` (set on a page-level
-// ancestor, not a direct parent) into the block; child combinators (`>`)
-// resume inside it so a boxed group still never restyles a nested group.
-[mlvTheme='dark']
-  .#{$block}--appearance-boxed
-  > .#{$block}__header
-  > .#{$block}__indicator {
-  background: var(--mlv-palette-neutral-700);
-}
+  // Boxed appearance — a segmented control: the header is a grey, content-width
+  // "track" holding the tabs, and the __indicator is repurposed as a WHITE pill
+  // that SLIDES behind the active tab (reusing the left/width | top/height
+  // animation). Every selector uses the CHILD combinator (`>`) so a boxed group
+  // NEVER restyles a tab-group NESTED inside its panels (e.g. the demo tab-groups
+  // inside a boxed docs Examples panel).
+  .#{$block}--appearance-boxed {
+    // The header is the grey track: only as wide as its tabs (not full width, so
+    // it can be aligned horizontally), rounded, with a small inset padding. The
+    // pill/item radius is concentric: track radius minus the track padding.
+    & > .#{$block}__header {
+      box-shadow: none;
+      width: fit-content;
+      max-width: 100%;
+      background: var(--mlv-background-neutral-1);
+      border-radius: var(--mlv-radius-xl);
+      padding: 0.1875rem;
+      gap: 0.125rem;
+    }
+    &.#{$block}--vertical > .#{$block}__header {
+      height: fit-content;
+    }
 
-@include mixins.reduced-motion($block);
+    // Indicator → the white pill sliding behind the active tab, inset inside the
+    // track padding, sitting BEHIND the tab labels.
+    & > .#{$block}__header > .#{$block}__indicator {
+      background: var(--mlv-background-raised);
+      border-radius: calc(var(--mlv-radius-xl) - var(--mlv-radius-xs));
+      box-shadow: var(--mlv-shadow-raised);
+      z-index: 0;
+    }
+    &.#{$block}--horizontal > .#{$block}__header > .#{$block}__indicator {
+      top: 0.1875rem;
+      bottom: 0.1875rem;
+      height: auto;
+    }
+    &.#{$block}--vertical > .#{$block}__header > .#{$block}__indicator {
+      left: 0.1875rem;
+      right: 0.1875rem;
+      width: auto;
+    }
+
+    // Direct tab items — label above the pill; a non-active hover tints darker
+    // than the track (neutral-1 itself matches the sunken track, so the -hover
+    // step is the first visible shade); the active item just changes colour (the
+    // sliding pill provides its surface).
+    & > .#{$block}__header > .mlv-tab-item {
+      position: relative;
+      z-index: 1;
+      border-radius: calc(var(--mlv-radius-xl) - var(--mlv-radius-xs));
+
+      &:hover:not(.mlv-tab-item--active):not(.mlv-tab-item--disabled) {
+        background: var(--mlv-background-neutral-1-hover);
+      }
+
+      &.mlv-tab-item--active {
+        color: var(--mlv-text-primary);
+      }
+    }
+
+    // The overflow "More" trigger inside the track mirrors the non-active tab
+    // hover treatment (it never carries the pill).
+    & > .#{$block}__header > .#{$block}__more-trigger {
+      position: relative;
+      z-index: 1;
+      border-radius: calc(var(--mlv-radius-xl) - var(--mlv-radius-xs));
+
+      &:hover {
+        background: var(--mlv-background-neutral-1-hover);
+      }
+    }
+  }
+
+  // Dark theme: `--mlv-background-raised` (#1e1e1e) sinks below the boxed
+  // track's `--mlv-background-neutral-1` (#262626) instead of lifting off it —
+  // the same light/dark inversion `mlv-segmented` handles for its raised pill
+  // (see segmented.scss). Lift the pill one step lighter than the track
+  // instead, mirroring segmented's `--mlv-palette-neutral-700` treatment.
+  // Descendant combinator from `[mlvTheme='dark']` (set on a page-level
+  // ancestor, not a direct parent) into the block; child combinators (`>`)
+  // resume inside it so a boxed group still never restyles a nested group.
+  [mlvTheme='dark']
+    .#{$block}--appearance-boxed
+    > .#{$block}__header
+    > .#{$block}__indicator {
+    background: var(--mlv-palette-neutral-700);
+  }
+
+  @include mixins.reduced-motion($block);
 }

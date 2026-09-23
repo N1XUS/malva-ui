@@ -150,6 +150,13 @@ Block: `mlv-tree`
 | `.mlv-tree__toggle--expanded`  | Toggle shows chevron-down icon                                       |
 | `.mlv-tree__toggle--invisible` | Toggle is hidden (leaf node)                                         |
 
+### Selected-row colours (2026-09, #302)
+
+- `tree.scss`'s `&__item__content--selected` rule reads the selected-state pair (SF-R1): `--mlv-background-selected` / `-selected-hover` + `--mlv-text-on-selected` — 5.48 / 4.94 light, 7.68 / 6.78 dark, 7.28 / 5.89 HC (rest / hover). Pinned by `libs/styles/src/lib/tone-contrast.spec.mjs`.
+- Was `--mlv-text-action` on `--mlv-background-accent-2`: 2.40:1 light, 1.33:1 (1.02:1 hovered) once #302 darkened accent-2.
+- **Dead selector, both modifiers.** The template stamps `--selected` / `--disabled` on `.mlv-tree__item`; nothing stamps `.mlv-tree__item__content--selected` / `--disabled`. Measured by rendering a tree with one selected and one disabled node: 0 matches each. So a selected row paints `--mlv-text-primary` with no fill (only the `__icon` turns `--mlv-text-action`), and a disabled row keeps full opacity, the pointer cursor and the hover fill. Retargeting is #304.
+- When #304 retargets the selector, update the two selector strings in `tone-contrast.spec.mjs` with it — `colour()` throws on a missing declaration, so the spec goes red rather than silently passing.
+
 ## Dependencies
 
 - `@angular/aria` — headless `Tree`, `TreeItem`, `TreeItemGroup` directives (roles, keyboard, selection, typeahead, expansion)

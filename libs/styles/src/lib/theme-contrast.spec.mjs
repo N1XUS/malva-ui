@@ -211,3 +211,101 @@ for (const theme of ['light', 'dark']) {
     assert.deepEqual(failing, [], failing.join('; '));
   });
 }
+
+// ─── solid tone fills (#302) ─────────────────────────────────────────────────
+
+/**
+ * Every solid fill a component paints a label on, with the foreground it pairs
+ * with. Buttons, swipe actions, tooltips, badges, chips and calendar selections
+ * all paint these, and `-hover` / `-active` carry the same label while the
+ * pointer is on or down, so each state owes the same 4.5:1 (WCAG 1.4.3).
+ *
+ * The white-label fills move *away* from white on hover and press, in both
+ * themes. The dark theme's status and accent-2 fills are instead light fills
+ * carrying a near-black label, so they keep the dark theme's "hover lightens"
+ * rule — lightening only raises that label's contrast.
+ */
+const SOLID_PAIRS = [
+  ['--mlv-text-on-success', '--mlv-background-success-1'],
+  ['--mlv-text-on-warning', '--mlv-background-warning-1'],
+  ['--mlv-text-on-info', '--mlv-background-info-1'],
+  ['--mlv-text-on-danger', '--mlv-background-danger-1'],
+  ['--mlv-text-primary-on-accent-1', '--mlv-background-accent-1'],
+  ['--mlv-text-primary-on-accent-2', '--mlv-background-accent-2'],
+];
+
+for (const theme of ['light', 'dark', 'highContrast']) {
+  test(`${theme}: every solid-fill label clears AA at rest, hover and active`, () => {
+    const failing = [];
+    for (const [fg, bg] of SOLID_PAIRS) {
+      for (const state of ['', '-hover', '-active']) {
+        const r = ratioOf(fg, bg + state, theme, ctx);
+        if (r < AA_TEXT) failing.push(`${fg} on ${bg}${state} = ${r}`);
+      }
+    }
+    assert.deepEqual(failing, [], failing.join('; '));
+  });
+}
+
+/**
+ * The same rest fills are painted with no label at all: status-indicator dots on
+ * the page, loader and progress fills on their `--mlv-border-subtle` track. A
+ * non-text mark owes 3:1 against what it sits on (WCAG 1.4.11).
+ *
+ * Light and dark only: the high-contrast track (#999999) is a pre-existing gap
+ * owned by the theme-scope batch (#303).
+ */
+for (const theme of ['light', 'dark']) {
+  test(`${theme}: every solid fill clears 3:1 as a dot on the page or a fill on its track`, () => {
+    const failing = [];
+    for (const [, fill] of SOLID_PAIRS) {
+      for (const bg of ['--mlv-background-base', '--mlv-background-subtle', '--mlv-background-raised', '--mlv-border-subtle']) {
+        const r = ratioOf(fill, bg, theme, ctx);
+        if (r < AA_NON_TEXT) failing.push(`${fill} on ${bg} = ${r}`);
+      }
+    }
+    assert.deepEqual(failing, [], failing.join('; '));
+  });
+}
+
+/**
+ * The accent-1 hover fill is also a non-text state mark: the checked radio dot
+ * and switch track on hover, and the stepper indicator ring. With a white
+ * label, dark accent-1 has almost no room — the hover must stay dark enough
+ * for 4.5:1 under white (above) and light enough for 3:1 on the dark surfaces
+ * (here). Deepening toward black fails the second (2.55:1 on subtle).
+ */
+for (const theme of ['light', 'dark']) {
+  test(`${theme}: the accent-1 hover fill clears 3:1 on the page surfaces`, () => {
+    const failing = [];
+    for (const bg of ['--mlv-background-base', '--mlv-background-subtle', '--mlv-background-raised']) {
+      const r = ratioOf('--mlv-background-accent-1-hover', bg, theme, ctx);
+      if (r < AA_NON_TEXT) failing.push(`--mlv-background-accent-1-hover on ${bg} = ${r}`);
+    }
+    assert.deepEqual(failing, [], failing.join('; '));
+  });
+}
+
+test('the solid fills resolve to the values their contrast depends on', () => {
+  // Light: one step darker than before (700 where it was 600, 700 where the
+  // coral accent-2 was 500), so white clears AA. Danger (600) and accent-1
+  // (primary-500) already did at rest.
+  assert.equal(hex('--mlv-background-success-1', 'light'), '#15803d');
+  assert.equal(hex('--mlv-background-warning-1', 'light'), '#b45309');
+  assert.equal(hex('--mlv-background-info-1', 'light'), '#0369a1');
+  assert.equal(hex('--mlv-background-accent-2', 'light'), '#d03e16');
+  assert.equal(hex('--mlv-text-on-success', 'light'), '#ffffff');
+  // Dark: the 500 steps under a near-black label. A white-label fill would
+  // have to sit in the luminance window 0.158–0.183 to clear both 4.5:1 for
+  // its label and 3:1 against the #262626 progress track; info has no step in
+  // it (700 is 2.55:1 on the track, 600 is 4.10:1 under white).
+  assert.equal(hex('--mlv-background-success-1', 'dark'), '#22c55e');
+  assert.equal(hex('--mlv-background-info-1', 'dark'), '#0ea5e9');
+  assert.equal(hex('--mlv-background-accent-2', 'dark'), '#fd774d');
+  assert.equal(hex('--mlv-text-on-info', 'dark'), '#0a0a0a');
+  assert.equal(hex('--mlv-text-primary-on-accent-2', 'dark'), '#0a0a0a');
+  // accent-1 keeps white in both themes — `--mlv-text-primary-on-accent-1` is
+  // also the "light in every theme" foreground of the neutral tooltip — so its
+  // hover and press darken instead of lightening (toward primary-700 in dark).
+  assert.equal(hex('--mlv-text-primary-on-accent-1', 'dark'), '#ffffff');
+});

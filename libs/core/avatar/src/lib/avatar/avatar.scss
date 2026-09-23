@@ -1,148 +1,150 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-avatar;
+  $block: mlv-avatar;
 
-.#{$block} {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--mlv-spacing-2, 0.5rem);
-
-  // Size modifiers — define --mlv-avatar-size and --mlv-avatar-font
-  &--xs {
-    --mlv-avatar-size: 1.5rem;
-    --mlv-avatar-font: 0.625rem;
-  }
-
-  &--s {
-    --mlv-avatar-size: 2rem;
-    --mlv-avatar-font: 0.75rem;
-  }
-
-  &--m {
-    --mlv-avatar-size: 2.5rem;
-    --mlv-avatar-font: 0.875rem;
-  }
-
-  &--l {
-    --mlv-avatar-size: 3.5rem;
-    --mlv-avatar-font: 1rem;
-  }
-
-  &--xl {
-    --mlv-avatar-size: 5rem;
-    --mlv-avatar-font: 1.25rem;
-  }
-
-  &--xxl {
-    --mlv-avatar-size: 6rem;
-    --mlv-avatar-font: 1.5rem;
-  }
-
-  &__visual {
-    position: relative;
-    display: flex;
+  .#{$block} {
+    display: inline-flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    width: var(--mlv-avatar-size, 2.5rem);
-    height: var(--mlv-avatar-size, 2.5rem);
-    flex-shrink: 0;
-    overflow: hidden;
-    background-color: var(--mlv-background-neutral-1);
-    color: var(--mlv-text-primary);
-    user-select: none;
-  }
+    gap: var(--mlv-spacing-2, 0.5rem);
 
-  // Circle shape
-  &--circle &__visual {
-    border-radius: var(--mlv-radius-full);
-  }
+    // Size modifiers — define --mlv-avatar-size and --mlv-avatar-font
+    &--xs {
+      --mlv-avatar-size: 1.5rem;
+      --mlv-avatar-font: 0.625rem;
+    }
 
-  // Square shape
-  &--square &__visual {
-    border-radius: var(--mlv-radius-m);
-  }
+    &--s {
+      --mlv-avatar-size: 2rem;
+      --mlv-avatar-font: 0.75rem;
+    }
 
-  &__image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    opacity: 0;
-    transition: opacity var(--mlv-duration-normal, 200ms)
-      var(--mlv-ease-default, ease);
+    &--m {
+      --mlv-avatar-size: 2.5rem;
+      --mlv-avatar-font: 0.875rem;
+    }
 
-    &--loaded {
-      opacity: 1;
+    &--l {
+      --mlv-avatar-size: 3.5rem;
+      --mlv-avatar-font: 1rem;
+    }
+
+    &--xl {
+      --mlv-avatar-size: 5rem;
+      --mlv-avatar-font: 1.25rem;
+    }
+
+    &--xxl {
+      --mlv-avatar-size: 6rem;
+      --mlv-avatar-font: 1.5rem;
+    }
+
+    &__visual {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--mlv-avatar-size, 2.5rem);
+      height: var(--mlv-avatar-size, 2.5rem);
+      flex-shrink: 0;
+      overflow: hidden;
+      background-color: var(--mlv-background-neutral-1);
+      color: var(--mlv-text-primary);
+      user-select: none;
+    }
+
+    // Circle shape
+    &--circle &__visual {
+      border-radius: var(--mlv-radius-full);
+    }
+
+    // Square shape
+    &--square &__visual {
+      border-radius: var(--mlv-radius-m);
+    }
+
+    &__image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: 0;
+      transition: opacity var(--mlv-duration-normal, 200ms)
+        var(--mlv-ease-default, ease);
+
+      &--loaded {
+        opacity: 1;
+      }
+    }
+
+    &__initials {
+      font-size: var(--mlv-avatar-font, 0.875rem);
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: var(--mlv-letter-spacing-wide, 0.025em);
+      // The visual's own pair: `--mlv-text-primary` on the theme surface, or the
+      // fixed dark neutral `MlvAvatar` binds under a `color` tint. Opaque — the
+      // old 0.8 opacity cost the palest tints half a point of contrast (#302).
+      color: inherit;
+      text-transform: uppercase;
+    }
+
+    &__content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      color: inherit;
+    }
+
+    &__skeleton {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        var(--mlv-background-sunken) 25%,
+        var(--mlv-background-base) 50%,
+        var(--mlv-background-sunken) 75%
+      );
+      background-size: 200% 100%;
+      animation: mlv-avatar-shimmer 1.4s ease-in-out infinite;
+      border-radius: inherit;
+    }
+
+    &__label {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 0.125rem;
+      max-width: var(--mlv-avatar-size);
+      width: 100%;
+      overflow: hidden;
+    }
+
+    &__label-word {
+      display: block;
+      font-size: var(--mlv-font-size-s);
+      font-weight: 500;
+      color: var(--mlv-text-primary);
+      white-space: nowrap;
+      flex-shrink: 1;
+      min-width: 0;
+      max-width: 100%;
     }
   }
 
-  &__initials {
-    font-size: var(--mlv-avatar-font, 0.875rem);
-    font-weight: 600;
-    line-height: 1;
-    letter-spacing: var(--mlv-letter-spacing-wide, 0.025em);
-    color: var(--mlv-palette-neutral-800);
-    opacity: 0.8;
-    text-transform: uppercase;
-  }
+  @include mixins.reduced-motion($block);
 
-  &__content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    color: inherit;
-  }
+  @keyframes mlv-avatar-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
 
-  &__skeleton {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      90deg,
-      var(--mlv-background-sunken) 25%,
-      var(--mlv-background-base) 50%,
-      var(--mlv-background-sunken) 75%
-    );
-    background-size: 200% 100%;
-    animation: mlv-avatar-shimmer 1.4s ease-in-out infinite;
-    border-radius: inherit;
+    100% {
+      background-position: -200% 0;
+    }
   }
-
-  &__label {
-    display: flex;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.125rem;
-    max-width: var(--mlv-avatar-size);
-    width: 100%;
-    overflow: hidden;
-  }
-
-  &__label-word {
-    display: block;
-    font-size: var(--mlv-font-size-s);
-    font-weight: 500;
-    color: var(--mlv-text-primary);
-    white-space: nowrap;
-    flex-shrink: 1;
-    min-width: 0;
-    max-width: 100%;
-  }
-}
-
-@include mixins.reduced-motion($block);
-
-@keyframes mlv-avatar-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
 }

@@ -47,7 +47,7 @@ export function deriveInitials(name: string): string {
  * ```html
  * <mlv-avatar name="John Doe" [color]="'John Doe' | mlvColorFromText" />
  * <mlv-avatar src="https://example.com/avatar.jpg" label="John Doe" />
- * <mlv-avatar size="xl" shape="square" initials="JD" color="#5770cb" />
+ * <mlv-avatar size="xl" shape="square" initials="JD" color="hsl(228, 60%, 82%)" />
  * ```
  */
 @Component({
@@ -104,9 +104,15 @@ export class MlvAvatar {
   readonly initials = input<string>('');
 
   /**
-   * CSS color value for the avatar background.
+   * CSS color value for the avatar background — an identity tint.
    * Accepts any valid CSS color: hex, rgb, hsl, CSS custom property reference.
-   * Defaults to `var(--mlv-text-secondary)`.
+   *
+   * A tint is theme-independent, so its initials and projected content are
+   * painted in the equally theme-independent `--mlv-palette-neutral-800`.
+   * Pass a **pale** tint (the `mlvColorFromText` band, lightness ~80%): that
+   * foreground clears WCAG AA on it, and would not on a mid or dark fill.
+   * When empty (the default) the avatar renders the theme's neutral pair,
+   * `--mlv-background-neutral-1` under `--mlv-text-primary`.
    */
   readonly color = input<string>('');
 
@@ -127,13 +133,22 @@ export class MlvAvatar {
   protected readonly _imageError = signal(false);
 
   /**
-   * @internal Computed background color style value.
-   * Returns the `color` input if set, otherwise the default CSS variable.
+   * @internal Inline background of the visual: the `color` tint, or `null`
+   * so the stylesheet's theme pair applies. The old default bound
+   * `var(--mlv-text-secondary)` here, a mid grey under 0.8-opacity dark
+   * initials (1.72:1 in light, #302).
    */
-  protected readonly _backgroundColor = computed(() => {
-    const c = this.color();
-    return c ? c : 'var(--mlv-text-secondary)';
-  });
+  protected readonly _backgroundColor = computed(() => this.color() || null);
+
+  /**
+   * @internal Inline foreground of the visual, paired with `_backgroundColor`:
+   * a fixed dark neutral while a tint is set (the tint does not follow the
+   * theme, so neither may its text), otherwise `null` so the theme's
+   * `--mlv-text-primary` applies. Initials and projected content inherit it.
+   */
+  protected readonly _foregroundColor = computed(() =>
+    this.color() ? 'var(--mlv-palette-neutral-800)' : null,
+  );
 
   /**
    * @internal Resolved initials to display.

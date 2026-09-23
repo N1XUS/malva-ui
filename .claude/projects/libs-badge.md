@@ -33,7 +33,7 @@ Exported from `libs/core/badge/src/index.ts`:
 
 | Name                               | Type                      | Default     | Description                                                                                                                                                                                                                     |
 | ---------------------------------- | ------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tone`                             | `MlvBadgeTone`            | `'default'` | Semantic tone. Maps to `--mlv-color-{tone}` (solid) or `--mlv-color-{tone}-muted-2-surface` (muted) for background.                                                                                                             |
+| `tone`                             | `MlvBadgeTone`            | `'default'` | Semantic tone. Solid: the semantic fill + paired label (see _Tone Token Mapping_). Muted: `--mlv-muted-{tone}-bg-2` / `-text-2`.                                                                                                |
 | `muted`                            | `BooleanInput`            | `false`     | When true, uses muted tint tokens instead of solid fill. Supports attribute syntax: `<mlv-badge muted>`.                                                                                                                        |
 | `rounded`                          | `BooleanInput`            | `false`     | **Deprecated since 0.1.10, removed in 1.0.** No-op with no replacement input: badges are always pill-shaped (`--mlv-radius-full`); kept only so `[rounded]` bindings compile. Override `border-radius` on `.mlv-badge` instead. |
 | `mlvDensity` _(via hostDirective)_ | `MlvDensity \| undefined` | —           | Explicit density override; falls back to `MlvDensityService`.                                                                                                                                                                   |
@@ -135,23 +135,30 @@ Sizing is `width: var(--mlv-badge-icon-size); height: var(--mlv-badge-icon-size)
 
 ## CSS Custom Properties
 
-| Property                | Default                       | Description                                                                                            |
-| ----------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `--mlv-badge-bg`        | `var(--mlv-color-default)`    | Badge background; overridden by tone modifier                                                          |
-| `--mlv-badge-color`     | `var(--mlv-color-on-default)` | Badge text color; overridden by tone modifier                                                          |
-| `--mlv-badge-gap`       | `0.25rem`                     | Gap between the icon slot and the label; scaled per density, applied only under `mlv-badge--with-icon` |
-| `--mlv-badge-icon-size` | `1em`                         | Icon slot width/height; `em` so it tracks the density-driven font size                                 |
+| Property                | Default                           | Description                                                                                            |
+| ----------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `--mlv-badge-bg`        | `var(--mlv-background-neutral-1)` | Badge background; overridden by tone modifier                                                          |
+| `--mlv-badge-color`     | `var(--mlv-text-primary)`         | Badge text color; overridden by tone modifier                                                          |
+| `--mlv-badge-gap`       | `0.25rem`                         | Gap between the icon slot and the label; scaled per density, applied only under `mlv-badge--with-icon` |
+| `--mlv-badge-icon-size` | `1em`                             | Icon slot width/height; `em` so it tracks the density-driven font size                                 |
 
 ---
 
 ## Tone Token Mapping
 
-| `tone` value                   | Solid background      | Solid text               | Muted background                      | Muted text                         |
-| ------------------------------ | --------------------- | ------------------------ | ------------------------------------- | ---------------------------------- |
-| `default`                      | `--mlv-color-default` | `--mlv-color-on-default` | `--mlv-color-default-muted-2-surface` | `--mlv-color-default-muted-2-text` |
-| `primary`                      | `--mlv-color-primary` | `--mlv-color-on-primary` | `--mlv-color-primary-muted-2-surface` | `--mlv-color-primary-muted-2-text` |
-| `success`                      | `--mlv-color-success` | `--mlv-color-on-success` | `--mlv-color-success-muted-2-surface` | `--mlv-color-success-muted-2-text` |
-| _(others follow same pattern)_ |                       |                          |                                       |                                    |
+| `tone`      | Solid background             | Solid text                       | Muted background           | Muted text                   |
+| ----------- | ---------------------------- | -------------------------------- | -------------------------- | ---------------------------- |
+| `default`   | `--mlv-background-neutral-1` | `--mlv-text-primary`             | `--mlv-muted-default-bg-2` | `--mlv-muted-default-text-2` |
+| `primary`   | `--mlv-background-accent-1`  | `--mlv-text-primary-on-accent-1` | `--mlv-muted-primary-bg-2` | `--mlv-muted-primary-text-2` |
+| `secondary` | `--mlv-background-neutral-1` | `--mlv-text-action`              | `--mlv-muted-{tone}-bg-2`  | `--mlv-muted-{tone}-text-2`  |
+| `accent`    | `--mlv-background-accent-2`  | `--mlv-text-primary-on-accent-2` | ″                          | ″                            |
+| `success`   | `--mlv-background-success-1` | `--mlv-text-on-success`          | ″                          | ″                            |
+| `info`      | `--mlv-background-info-1`    | `--mlv-text-on-info`             | ″                          | ″                            |
+| `warning`   | `--mlv-background-warning-1` | `--mlv-text-on-warning`          | ″                          | ″                            |
+| `danger`    | `--mlv-background-danger-1`  | `--mlv-text-on-danger`           | ″                          | ″                            |
+
+- Solid tones read the semantic fill + its paired label only — never `--mlv-palette-*` (#302: `success` / `info` read the raw 500 steps under `--mlv-text-inverse`, 2.28 / 2.77:1 in light, and never reached the high-contrast fills).
+- Every solid label ≥ 4.5:1 in light, dark and high contrast — `styles:test` → `tone-contrast.spec.mjs`. Density changes size only, never colour.
 
 ---
 

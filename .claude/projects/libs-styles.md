@@ -32,14 +32,14 @@ invented name never errors — it renders the fallback and quietly stops followi
 the theme. Four downstream packages shipped `--mlv-color-surface`,
 `--mlv-radius-2`, `--mlv-border-1` and `--mlv-error-text-1` that way.
 
-| Target                                       | What it does                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `yarn nx run styles:generate-tokens`         | Regenerates `tokens.md` from `libs/styles/src/lib/*.scss`. Run after adding, renaming or removing any token.                                                                                                                                                                                                                                                                         |
-| `yarn nx run styles:verify-tokens`           | Fails when `tokens.md` is stale. Safe to gate on.                                                                                                                                                                                                                                                                                                                                    |
-| `yarn nx run styles:check-tokens`            | Scans every `.scss` / `.css` / `.html` under `libs/` and `apps/` and fails on `var(--mlv-…)` names that exist nowhere.                                                                                                                                                                                                                                                               |
-| `node scripts/check-mlv-tokens.mjs --strict` | Same, but also reports the pre-existing findings tracked in `token-check-baseline.json`.                                                                                                                                                                                                                                                                                             |
-| `yarn nx run styles:check-padding-tokens`    | Fails on any `var(--mlv-padding-*)` (or alias of one) that is not the whole `padding:` value. Runs as a `styles:lint` dependency, so CI's `run-many -t lint` gates on it. `--json` / `--quiet` flags.                                                                                                                                                                                |
-| `yarn nx run styles:test`                    | `node --test` over five spec files — `scripts/check-padding-tokens.spec.mjs`, `src/lib/theme-contrast.spec.mjs`, `src/lib/mixins.spec.mjs`, `src/lib/fluid-type.spec.mjs`, `src/lib/layers.spec.mjs`, `src/lib/sticky-inline-inset.spec.mjs` (picked up by CI's `run-many -t test`). The target **enumerates its specs**, so a new one must be named in both `command` and `inputs`. |
+| Target                                       | What it does                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `yarn nx run styles:generate-tokens`         | Regenerates `tokens.md` from `libs/styles/src/lib/*.scss`. Run after adding, renaming or removing any token.                                                                                                                                                                                                                                                                                                            |
+| `yarn nx run styles:verify-tokens`           | Fails when `tokens.md` is stale. Safe to gate on.                                                                                                                                                                                                                                                                                                                                                                       |
+| `yarn nx run styles:check-tokens`            | Scans every `.scss` / `.css` / `.html` under `libs/` and `apps/` and fails on `var(--mlv-…)` names that exist nowhere.                                                                                                                                                                                                                                                                                                  |
+| `node scripts/check-mlv-tokens.mjs --strict` | Same, but also reports the pre-existing findings tracked in `token-check-baseline.json`.                                                                                                                                                                                                                                                                                                                                |
+| `yarn nx run styles:check-padding-tokens`    | Fails on any `var(--mlv-padding-*)` (or alias of one) that is not the whole `padding:` value. Runs as a `styles:lint` dependency, so CI's `run-many -t lint` gates on it. `--json` / `--quiet` flags.                                                                                                                                                                                                                   |
+| `yarn nx run styles:test`                    | `node --test` over seven spec files — `scripts/check-padding-tokens.spec.mjs`, `src/lib/theme-contrast.spec.mjs`, `src/lib/tone-contrast.spec.mjs`, `src/lib/mixins.spec.mjs`, `src/lib/fluid-type.spec.mjs`, `src/lib/layers.spec.mjs`, `src/lib/sticky-inline-inset.spec.mjs` (picked up by CI's `run-many -t test`). The target **enumerates its specs**, so a new one must be named in both `command` and `inputs`. |
 
 `tokens.md` is a **generated file** — never hand-edit it. Categories, blurbs and
 the mistaken-names table live in `scripts/generate-tokens-md.mjs`; a token that
@@ -111,6 +111,46 @@ Two rules the guard encodes, both learned from real failures:
 
 `--mlv-elevation-bg-5` is deliberately outside the audited surface set: its only
 consumer paints it as a switch track (`libs/core/switch`), never behind text.
+
+### Solid tone fills (#302)
+
+- Scope: the six labelled fills `--mlv-background-{success,warning,info,danger}-1`
+  / `--mlv-background-accent-{1,2}`, each with `-hover` / `-active`.
+- `theme-contrast.spec.mjs` asserts (light, dark, HC): every state ≥ 4.5:1 under
+  its `--mlv-text-on-*` / `--mlv-text-primary-on-accent-*` label; every rest fill
+  ≥ 3:1 on base / subtle / raised and the `--mlv-border-subtle` track (light +
+  dark); `accent-1-hover` ≥ 3:1 on the page surfaces.
+- **Light:** white labels. `success` / `warning` / `info` sit on their **700**
+  step, `accent-2` on `accent-700` (the 600 / coral-500 steps put white at
+  2.65–4.10:1); `danger` stays on 600. Hover and press **darken** (85% / 70–75%
+  black) — a lightening hover took the primary button to 3.32:1.
+- **Dark:** `success` / `warning` / `info` / `danger` / `accent-2` sit on their
+  **500** step under a **near-black** label (`--mlv-palette-neutral-950`) and
+  keep the dark "hover lightens" rule, which only raises that label's contrast.
+  No white-label step works here: a white-label fill would have to sit in the
+  luminance window 0.158–0.183 (4.5:1 for white _and_ 3:1 on the `#262626`
+  track), and info has no step in it.
+- **accent-1 keeps white in both themes** — `--mlv-text-primary-on-accent-1` is
+  also the neutral tooltip's light-in-every-theme foreground. Dark hover/press
+  therefore deepen toward **primary-700**, not black: black at 85% fails the
+  radio dot / switch track / stepper ring on `--mlv-background-subtle` (2.55:1).
+- Pale tints (`-pale`, `-pale-hover`) stay on the 500 steps in both themes.
+
+### What `tone-contrast.spec.mjs` guards
+
+- Token pairs only help if components paint them. The spec compiles the badge,
+  chip, button, loader, progress, status-indicator, timeline, avatar, tokenizer
+  and tabs stylesheets (PostCSS AST), resolves what each tone modifier paints,
+  and scores it against `theme.scss`: 4.5:1 text, 3:1 marks and focus rings.
+- Tone maps must read **semantic tokens only** — no `--mlv-palette-*` step, no
+  component-level `color-mix()` hover. A palette read is frozen to one theme and
+  bypasses the high-contrast fills: how badge/chip `success`/`info`,
+  `button--variant-info` and the loader/progress fills fell under AA while every
+  token pair looked fine.
+- Workspace walk: no `var(--x, #hex)` literal fallback anywhere in `libs/**/src/**`.
+- Colour never varies with density here and no pair uses the large-text
+  exemption → one score per tone × theme covers every density.
+- Inputs: the target's `libs/**/src/**/*.{css,scss}` glob covers every sheet it reads.
 
 ---
 
@@ -319,12 +359,12 @@ All interactive states use `color-mix(in srgb, …)` derivations — no hardcode
 | `--mlv-text-inverse`             | Text on dark/accent surfaces                                                                                           |
 | `--mlv-text-action`              | Links, interactive text                                                                                                |
 | `--mlv-text-action-hover`        | Link hover                                                                                                             |
-| `--mlv-text-primary-on-accent-1` | Text on primary button                                                                                                 |
-| `--mlv-text-primary-on-accent-2` | Text on accent-2 button                                                                                                |
-| `--mlv-text-on-danger`           | Text on danger solid background                                                                                        |
-| `--mlv-text-on-success`          | Text on success solid background                                                                                       |
-| `--mlv-text-on-warning`          | Text on warning solid background                                                                                       |
-| `--mlv-text-on-info`             | Text on info solid background                                                                                          |
+| `--mlv-text-primary-on-accent-1` | Text on primary button — white in every theme                                                                          |
+| `--mlv-text-primary-on-accent-2` | Text on accent-2 button — white in light, near-black (`neutral-950`) in dark (#302)                                    |
+| `--mlv-text-on-danger`           | Text on danger solid background — white in light, near-black in dark (#302)                                            |
+| `--mlv-text-on-success`          | Text on success solid background — white in light, near-black in dark (#302)                                           |
+| `--mlv-text-on-warning`          | Text on warning solid background — white in light, near-black in dark (#302)                                           |
+| `--mlv-text-on-info`             | Text on info solid background — white in light, near-black in dark (#302)                                              |
 | `--mlv-text-on-selected`         | Text on a persistently-selected surface — pairs with `--mlv-background-selected` (SF-R1); resolves `--mlv-text-action` |
 | `--mlv-text-positive`            | Success message text                                                                                                   |
 | `--mlv-text-negative`            | Error message text                                                                                                     |

@@ -283,12 +283,19 @@ $mlv-palette-info-950: #082f49;
     --mlv-background-bar: var(--mlv-background-base);
     --mlv-background-bar-overlapped: var(--mlv-background-raised);
 
-    // Primary accent interactive — hover lightens, active darkens (press feel)
+    // Solid fills (accent-1/-2, danger, success, warning, info) carry a white
+    // label (`--mlv-text-primary-on-accent-*` / `--mlv-text-on-*`), so every
+    // state has to clear 4.5:1 under white, and hover and press step *away*
+    // from white: hover darkens, active darkens further. A hover that
+    // lightened took the primary button to 3.32:1 and the coral accent to
+    // 2.24:1, and success / warning / info sit on their 700 step because the
+    // 600 step put white at 3.30 / 3.19 / 4.10:1 (#302; `styles:test` scores
+    // every state in every theme).
     --mlv-background-accent-1: var(--mlv-palette-primary-500);
     --mlv-background-accent-1-hover: color-mix(
       in srgb,
-      var(--mlv-palette-primary-500) 82%,
-      white
+      var(--mlv-palette-primary-500) 85%,
+      black
     );
     --mlv-background-accent-1-active: color-mix(
       in srgb,
@@ -306,16 +313,19 @@ $mlv-palette-info-950: #082f49;
       white
     );
 
-    // Accent-2 interactive (coral #fd774d) — same pattern as accent-1
-    --mlv-background-accent-2: var(--mlv-palette-accent-500);
+    // Accent-2 interactive — same pattern as accent-1. The coral step
+    // (accent-500, #fd774d) put white at 2.65:1 and failed 3:1 as a status
+    // dot on the page; accent-700 (#d03e16) is the first step that clears
+    // both. The pale tints stay on the coral.
+    --mlv-background-accent-2: var(--mlv-palette-accent-700);
     --mlv-background-accent-2-hover: color-mix(
       in srgb,
-      var(--mlv-palette-accent-500) 82%,
-      white
+      var(--mlv-palette-accent-700) 85%,
+      black
     );
     --mlv-background-accent-2-active: color-mix(
       in srgb,
-      var(--mlv-palette-accent-500) 75%,
+      var(--mlv-palette-accent-700) 75%,
       black
     );
     --mlv-background-accent-2-pale: color-mix(
@@ -370,15 +380,15 @@ $mlv-palette-info-950: #082f49;
     );
 
     // Success interactive
-    --mlv-background-success-1: var(--mlv-palette-success-600);
+    --mlv-background-success-1: var(--mlv-palette-success-700);
     --mlv-background-success-1-hover: color-mix(
       in srgb,
-      var(--mlv-palette-success-600) 85%,
+      var(--mlv-palette-success-700) 85%,
       black
     );
     --mlv-background-success-1-active: color-mix(
       in srgb,
-      var(--mlv-palette-success-600) 70%,
+      var(--mlv-palette-success-700) 70%,
       black
     );
     --mlv-background-success-1-pale: color-mix(
@@ -396,15 +406,15 @@ $mlv-palette-info-950: #082f49;
     ); /* alias */
 
     // Warning interactive
-    --mlv-background-warning-1: var(--mlv-palette-warning-600);
+    --mlv-background-warning-1: var(--mlv-palette-warning-700);
     --mlv-background-warning-1-hover: color-mix(
       in srgb,
-      var(--mlv-palette-warning-600) 85%,
+      var(--mlv-palette-warning-700) 85%,
       black
     );
     --mlv-background-warning-1-active: color-mix(
       in srgb,
-      var(--mlv-palette-warning-600) 70%,
+      var(--mlv-palette-warning-700) 70%,
       black
     );
     --mlv-background-warning-1-pale: color-mix(
@@ -422,15 +432,15 @@ $mlv-palette-info-950: #082f49;
     ); /* alias */
 
     // Info interactive
-    --mlv-background-info-1: var(--mlv-palette-info-600);
+    --mlv-background-info-1: var(--mlv-palette-info-700);
     --mlv-background-info-1-hover: color-mix(
       in srgb,
-      var(--mlv-palette-info-600) 85%,
+      var(--mlv-palette-info-700) 85%,
       black
     );
     --mlv-background-info-1-active: color-mix(
       in srgb,
-      var(--mlv-palette-info-600) 70%,
+      var(--mlv-palette-info-700) 70%,
       black
     );
     --mlv-background-info-1-pale: color-mix(
@@ -933,16 +943,23 @@ $mlv-palette-info-950: #082f49;
     --mlv-background-bar: var(--mlv-background-base);
     --mlv-background-bar-overlapped: var(--mlv-background-raised);
 
+    // accent-1 keeps its white label in dark (see the text block below), and
+    // that leaves a narrow luminance window: white needs the fill dark
+    // (primary-500 carries it at 4.58:1, so the old lightening hover fell to
+    // 3.2:1), while the radio dot, switch track and stepper ring that paint
+    // this fill need it light enough for 3:1 on the dark surfaces. Deepening
+    // toward primary-700 rather than black holds both: hover 5.04:1 under
+    // white and 3.01:1 or more on base / subtle / raised (#302).
     --mlv-background-accent-1: var(--mlv-palette-primary-500);
     --mlv-background-accent-1-hover: color-mix(
       in srgb,
-      var(--mlv-palette-primary-500) 80%,
-      white
+      var(--mlv-palette-primary-500) 85%,
+      var(--mlv-palette-primary-700)
     );
     --mlv-background-accent-1-active: color-mix(
       in srgb,
-      var(--mlv-palette-primary-500) 65%,
-      white
+      var(--mlv-palette-primary-500) 75%,
+      var(--mlv-palette-primary-700)
     );
     --mlv-background-accent-1-pale: color-mix(
       in srgb,
@@ -1015,15 +1032,15 @@ $mlv-palette-info-950: #082f49;
       var(--mlv-palette-neutral-900)
     );
 
-    --mlv-background-danger-1: var(--mlv-palette-danger-600);
+    --mlv-background-danger-1: var(--mlv-palette-danger-500);
     --mlv-background-danger-1-hover: color-mix(
       in srgb,
-      var(--mlv-palette-danger-600) 80%,
+      var(--mlv-palette-danger-500) 80%,
       white
     );
     --mlv-background-danger-1-active: color-mix(
       in srgb,
-      var(--mlv-palette-danger-600) 65%,
+      var(--mlv-palette-danger-500) 65%,
       white
     );
     --mlv-background-danger-1-pale: color-mix(
@@ -1038,15 +1055,15 @@ $mlv-palette-info-950: #082f49;
     );
 
     // Success interactive
-    --mlv-background-success-1: var(--mlv-palette-success-600);
+    --mlv-background-success-1: var(--mlv-palette-success-500);
     --mlv-background-success-1-hover: color-mix(
       in srgb,
-      var(--mlv-palette-success-600) 80%,
+      var(--mlv-palette-success-500) 80%,
       white
     );
     --mlv-background-success-1-active: color-mix(
       in srgb,
-      var(--mlv-palette-success-600) 65%,
+      var(--mlv-palette-success-500) 65%,
       white
     );
     --mlv-background-success-1-pale: color-mix(
@@ -1064,15 +1081,15 @@ $mlv-palette-info-950: #082f49;
     ); /* alias */
 
     // Warning interactive
-    --mlv-background-warning-1: var(--mlv-palette-warning-600);
+    --mlv-background-warning-1: var(--mlv-palette-warning-500);
     --mlv-background-warning-1-hover: color-mix(
       in srgb,
-      var(--mlv-palette-warning-600) 80%,
+      var(--mlv-palette-warning-500) 80%,
       white
     );
     --mlv-background-warning-1-active: color-mix(
       in srgb,
-      var(--mlv-palette-warning-600) 65%,
+      var(--mlv-palette-warning-500) 65%,
       white
     );
     --mlv-background-warning-1-pale: color-mix(
@@ -1090,15 +1107,15 @@ $mlv-palette-info-950: #082f49;
     ); /* alias */
 
     // Info interactive
-    --mlv-background-info-1: var(--mlv-palette-info-600);
+    --mlv-background-info-1: var(--mlv-palette-info-500);
     --mlv-background-info-1-hover: color-mix(
       in srgb,
-      var(--mlv-palette-info-600) 80%,
+      var(--mlv-palette-info-500) 80%,
       white
     );
     --mlv-background-info-1-active: color-mix(
       in srgb,
-      var(--mlv-palette-info-600) 65%,
+      var(--mlv-palette-info-500) 65%,
       white
     );
     --mlv-background-info-1-pale: color-mix(
@@ -1139,12 +1156,18 @@ $mlv-palette-info-950: #082f49;
       var(--mlv-palette-primary-300) 65%,
       white
     );
+    // accent-1 keeps white: `--mlv-text-primary-on-accent-1` is also the
+    // neutral tooltip/inverse foreground, and primary-500 carries white at
+    // 4.58:1 (its hover/press darken above). The other five solid fills sit
+    // on their 500 step in dark — the 600 step under white fell to 2.5:1 on
+    // hover, and info-600 could not clear 3:1 against the #262626 loader
+    // track at any white-safe step — so their labels go near-black (#302).
     --mlv-text-primary-on-accent-1: #ffffff;
-    --mlv-text-primary-on-accent-2: #ffffff;
-    --mlv-text-on-danger: #ffffff;
-    --mlv-text-on-success: #ffffff;
-    --mlv-text-on-warning: #ffffff;
-    --mlv-text-on-info: #ffffff;
+    --mlv-text-primary-on-accent-2: var(--mlv-palette-neutral-950);
+    --mlv-text-on-danger: var(--mlv-palette-neutral-950);
+    --mlv-text-on-success: var(--mlv-palette-neutral-950);
+    --mlv-text-on-warning: var(--mlv-palette-neutral-950);
+    --mlv-text-on-info: var(--mlv-palette-neutral-950);
     // Selected — pairs with `--mlv-background-selected` (SF-R1). See the
     // scoped-theme-island comment beside that token above for why this needs
     // its own redeclaration here rather than inheriting the light value.

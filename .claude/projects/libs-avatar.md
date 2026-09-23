@@ -41,15 +41,15 @@ Exported from `libs/core/avatar/src/index.ts`:
 
 #### Inputs
 
-| Name       | Type             | Default    | Description                                                          |
-| ---------- | ---------------- | ---------- | -------------------------------------------------------------------- |
-| `size`     | `MlvAvatarSize`  | `'m'`      | Size variant (maps to fixed width/height/font-size)                  |
-| `shape`    | `MlvAvatarShape` | `'circle'` | Shape — `circle` (50% radius) or `square` (8px radius)               |
-| `src`      | `string \| null` | `null`     | Image URL; shows shimmer skeleton while loading; falls back on error |
-| `name`     | `string`         | `''`       | Display name; first letter of each word (max 2) used as initials     |
-| `initials` | `string`         | `''`       | Explicit initials; overrides `name`-derived initials                 |
-| `color`    | `string`         | `''`       | CSS color for background; defaults to `var(--mlv-text-secondary)`    |
-| `label`    | `string`         | `''`       | Optional text label displayed below the avatar visual                |
+| Name       | Type             | Default    | Description                                                                                   |
+| ---------- | ---------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| `size`     | `MlvAvatarSize`  | `'m'`      | Size variant (maps to fixed width/height/font-size)                                           |
+| `shape`    | `MlvAvatarShape` | `'circle'` | Shape — `circle` (50% radius) or `square` (8px radius)                                        |
+| `src`      | `string \| null` | `null`     | Image URL; shows shimmer skeleton while loading; falls back on error                          |
+| `name`     | `string`         | `''`       | Display name; first letter of each word (max 2) used as initials                              |
+| `initials` | `string`         | `''`       | Explicit initials; overrides `name`-derived initials                                          |
+| `color`    | `string`         | `''`       | Identity tint for the background; pass a **pale** one (see _Colour pair_). Empty → theme pair |
+| `label`    | `string`         | `''`       | Optional text label displayed below the avatar visual                                         |
 
 #### Host Bindings
 
@@ -72,6 +72,31 @@ host: {
 > relies on — it passes `[name]` and no longer sets a redundant `aria-label`).
 > When absent (icon-only / initials-only avatar), the role is omitted so axe
 > does not flag a nameless `role="img"`.
+
+#### Colour pair (#302)
+
+- `.mlv-avatar__visual` always carries a background **and** a foreground; initials
+  (`color: inherit`, opaque) and projected content inherit the foreground.
+- **No `color`** → nothing bound inline; `avatar.scss` paints the theme pair
+  `--mlv-background-neutral-1` / `--mlv-text-primary` (16.4 / 15.1 / 17.1:1 light
+  / dark / HC).
+- **`color` set** → `_backgroundColor()` binds the tint, `_foregroundColor()`
+  binds `var(--mlv-palette-neutral-800)`. A tint does not follow the theme, so
+  its foreground cannot either. Worst case over all 3,241 `mlvColorFromText`
+  colours: 6.2:1.
+- Contract: pass a pale tint (lightness ~75–85%). A mid or dark `color`
+  (e.g. `#5770cb`, 3.3:1) fails AA under the fixed foreground — nothing detects it.
+- Before #302: the default bound `var(--mlv-text-secondary)` inline under 0.8-opacity
+  `neutral-800` initials — 1.72:1 in light; the worst pipe tint read 4.29:1.
+- A tinted avatar sets an inline `color` on `__visual`, which beats any stylesheet
+  rule there — a consumer retargets the foreground on `.mlv-avatar__initials` /
+  `.mlv-avatar__content` instead.
+- jsdom's `cssstyle` drops `var()` on `color` / `background-color`, so neither
+  `element.style` nor the serialised `style` attribute can see the pair.
+  `avatar.spec.ts` asserts the bound strings on the component **and** records
+  writes through the `CSSStyleDeclaration` `color` setter per `__visual` (a
+  `neutral-800` write for a tinted avatar), so deleting the `[style.color]`
+  binding goes red.
 
 #### Size Reference
 
@@ -108,7 +133,13 @@ host: {
 
 Converts a string to a deterministic `hsl(...)` CSS color by hashing the characters into a hue value (0–360). Saturation ~60% and lightness ~80% are fixed for pleasant, accessible results.
 
-Hue is the only thing the name controls; the pale-tint band is deliberate (AB-R6 of the 2026-08 visual language spec) because `avatar.scss` renders the initials in the dark `--mlv-palette-neutral-800`. Empty / `null` / `undefined` input returns `'hsl(210,60%,80%)'` — inside the same band, so a nameless avatar keeps AA-legible initials.
+Hue is the only thing the name controls; the pale-tint band is deliberate (AB-R6 of the 2026-08 visual language spec) because `mlv-avatar` paints a tinted avatar's foreground in the dark `--mlv-palette-neutral-800`. Empty / `null` / `undefined` input returns `'hsl(210,60%,80%)'` — inside the same band, so a nameless avatar keeps AA-legible initials.
+
+- Band: `hash % 5` is signed → `(s, l) = (60 + k, 80 + k)`, `k ∈ [-4, 4]`, every hue.
+- `color-from-text.pipe.spec.ts` sweeps all 3,240 hashed colours plus the
+  fallback against `#262626`, composited at the `.mlv-avatar__initials`
+  opacity it compiles out of `avatar.scss`: every one ≥ 4.5:1, worst 6.2:1.
+  Putting the old `opacity: 0.8` back fails it (44 tints < 4.5, worst 4.29).
 
 ```html
 <mlv-avatar [name]="user.name" [color]="user.name | mlvColorFromText" />

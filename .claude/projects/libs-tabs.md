@@ -237,7 +237,7 @@ CSS variables used:
 - `--mlv-border-subtle` — header bottom/right separator box-shadow.
 - `--mlv-border-normal` — non-active hover line (underline appearance).
 - `--mlv-background-accent-1` — indicator bar fill.
-- `--mlv-palette-neutral-400` — more-trigger colour (no hover colour shift — see Hover policy under Appearance).
+- `--mlv-text-secondary` — more-trigger colour, same as `.mlv-tab-item` (no hover colour shift — see Hover policy under Appearance). Was the raw `--mlv-palette-neutral-400` until #302: 2.42:1 on the light page, frozen to one theme.
 - `--mlv-border-focus` / `--mlv-radius-s` — more-trigger focus ring.
 - `--mlv-duration-normal` — more-trigger colour transition.
 - `--mlv-ease-in-out-strong` — indicator slide easing.

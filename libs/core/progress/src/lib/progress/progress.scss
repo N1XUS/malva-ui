@@ -5,182 +5,182 @@
 // ---------------------------------------------------------------------------
 
 @layer mlv.components {
-$tones: (
-  default: var(--mlv-background-accent-1),
-  success: var(--mlv-palette-success-500),
-  warning: var(--mlv-background-warning-1),
-  danger: var(--mlv-background-danger-1),
-  info: var(--mlv-palette-info-500),
-);
-
-// ---------------------------------------------------------------------------
-// Block
-// ---------------------------------------------------------------------------
-
-$block: mlv-progress;
-
-.#{$block} {
-  @include mixins.base(
-    var(--mlv-typography-family-text),
-    var(--mlv-font-size-s),
-    0,
-    0
+  $tones: (
+    default: var(--mlv-background-accent-1),
+    success: var(--mlv-background-success-1),
+    warning: var(--mlv-background-warning-1),
+    danger: var(--mlv-background-danger-1),
+    info: var(--mlv-background-info-1),
   );
 
-  display: block;
+  // ---------------------------------------------------------------------------
+  // Block
+  // ---------------------------------------------------------------------------
 
-  // Component adapter variables (mutated by size/tone modifiers)
-  --mlv-p-color: var(--mlv-background-accent-1);
-  --mlv-p-bar-height: 0.375rem;
-  --mlv-p-diameter: 3rem;
-  --mlv-p-font-size: var(--mlv-font-size-s);
+  $block: mlv-progress;
 
-  // Tone modifiers
-  @each $name, $color in $tones {
-    &--#{$name} {
-      --mlv-p-color: #{$color};
-    }
-  }
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-font-size-s),
+      0,
+      0
+    );
 
-  // Size modifiers
-  &--s {
-    --mlv-p-bar-height: 0.25rem;
-    --mlv-p-diameter: 2rem;
-    --mlv-p-font-size: var(--mlv-font-size-xs);
-  }
+    display: block;
 
-  &--m {
+    // Component adapter variables (mutated by size/tone modifiers)
+    --mlv-p-color: var(--mlv-background-accent-1);
     --mlv-p-bar-height: 0.375rem;
     --mlv-p-diameter: 3rem;
     --mlv-p-font-size: var(--mlv-font-size-s);
-  }
 
-  &--l {
-    --mlv-p-bar-height: 0.5rem;
-    --mlv-p-diameter: 4rem;
-    --mlv-p-font-size: var(--mlv-font-size-m);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Bar variant
-  // ---------------------------------------------------------------------------
-
-  &--bar {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-
-    .#{$block}__percentage {
-      display: block;
-      align-self: flex-end;
-      font-size: var(--mlv-p-font-size);
-      font-weight: var(--mlv-font-weight-medium);
-      color: var(--mlv-text-secondary);
-      margin-bottom: 0.25rem;
-      line-height: 1;
-    }
-
-    .#{$block}__track {
-      position: relative;
-      width: 100%;
-      height: var(--mlv-p-bar-height);
-      border-radius: var(--mlv-radius-full);
-      background: var(--mlv-border-subtle);
-      overflow: hidden;
-    }
-
-    .#{$block}__fill {
-      position: absolute;
-      inset-block: 0;
-      inset-inline-start: 0;
-      border-radius: inherit;
-      background: var(--mlv-p-color);
-
-      &--animated {
-        transition: width var(--mlv-duration-normal) var(--mlv-ease-default);
+    // Tone modifiers
+    @each $name, $color in $tones {
+      &--#{$name} {
+        --mlv-p-color: #{$color};
       }
     }
 
-    .#{$block}__label {
-      display: block;
-      margin-top: 0.25rem;
-      font-size: var(--mlv-font-size-xs);
-      color: var(--mlv-text-secondary);
-
-      &:empty {
-        display: none;
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Circle variant
-  // ---------------------------------------------------------------------------
-
-  &--circle {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-
-    .#{$block}__svg-wrapper {
-      position: relative;
-      inline-size: var(--mlv-p-diameter);
-      block-size: var(--mlv-p-diameter);
-      flex-shrink: 0;
+    // Size modifiers
+    &--s {
+      --mlv-p-bar-height: 0.25rem;
+      --mlv-p-diameter: 2rem;
+      --mlv-p-font-size: var(--mlv-font-size-xs);
     }
 
-    .#{$block}__svg {
-      display: block;
-      overflow: visible;
-      shape-rendering: geometricPrecision;
+    &--m {
+      --mlv-p-bar-height: 0.375rem;
+      --mlv-p-diameter: 3rem;
+      --mlv-p-font-size: var(--mlv-font-size-s);
     }
 
-    .#{$block}__circle-track {
-      fill: transparent;
-      stroke: var(--mlv-border-subtle);
-      stroke-linecap: round;
+    &--l {
+      --mlv-p-bar-height: 0.5rem;
+      --mlv-p-diameter: 4rem;
+      --mlv-p-font-size: var(--mlv-font-size-m);
     }
 
-    .#{$block}__circle-fill {
-      fill: transparent;
-      stroke: var(--mlv-p-color);
-      stroke-linecap: round;
-      transform-box: fill-box;
-      transform-origin: center;
-      transform: rotate(-90deg);
+    // ---------------------------------------------------------------------------
+    // Bar variant
+    // ---------------------------------------------------------------------------
 
-      &--animated {
-        transition:
-          stroke-dashoffset var(--mlv-duration-normal) var(--mlv-ease-default),
-          stroke var(--mlv-duration-normal) var(--mlv-ease-default);
-      }
-    }
-
-    .#{$block}__percentage {
-      position: absolute;
-      inset: 0;
+    &--bar {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: var(--mlv-p-font-size);
-      font-weight: var(--mlv-font-weight-medium);
-      color: var(--mlv-text-secondary);
-      line-height: 1;
-      pointer-events: none;
+      flex-direction: column;
+      width: 100%;
+
+      .#{$block}__percentage {
+        display: block;
+        align-self: flex-end;
+        font-size: var(--mlv-p-font-size);
+        font-weight: var(--mlv-font-weight-medium);
+        color: var(--mlv-text-secondary);
+        margin-bottom: 0.25rem;
+        line-height: 1;
+      }
+
+      .#{$block}__track {
+        position: relative;
+        width: 100%;
+        height: var(--mlv-p-bar-height);
+        border-radius: var(--mlv-radius-full);
+        background: var(--mlv-border-subtle);
+        overflow: hidden;
+      }
+
+      .#{$block}__fill {
+        position: absolute;
+        inset-block: 0;
+        inset-inline-start: 0;
+        border-radius: inherit;
+        background: var(--mlv-p-color);
+
+        &--animated {
+          transition: width var(--mlv-duration-normal) var(--mlv-ease-default);
+        }
+      }
+
+      .#{$block}__label {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: var(--mlv-font-size-xs);
+        color: var(--mlv-text-secondary);
+
+        &:empty {
+          display: none;
+        }
+      }
     }
 
-    .#{$block}__label {
-      font-size: var(--mlv-font-size-xs);
-      color: var(--mlv-text-secondary);
-      text-align: center;
+    // ---------------------------------------------------------------------------
+    // Circle variant
+    // ---------------------------------------------------------------------------
 
-      &:empty {
-        display: none;
+    &--circle {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+
+      .#{$block}__svg-wrapper {
+        position: relative;
+        inline-size: var(--mlv-p-diameter);
+        block-size: var(--mlv-p-diameter);
+        flex-shrink: 0;
+      }
+
+      .#{$block}__svg {
+        display: block;
+        overflow: visible;
+        shape-rendering: geometricPrecision;
+      }
+
+      .#{$block}__circle-track {
+        fill: transparent;
+        stroke: var(--mlv-border-subtle);
+        stroke-linecap: round;
+      }
+
+      .#{$block}__circle-fill {
+        fill: transparent;
+        stroke: var(--mlv-p-color);
+        stroke-linecap: round;
+        transform-box: fill-box;
+        transform-origin: center;
+        transform: rotate(-90deg);
+
+        &--animated {
+          transition:
+            stroke-dashoffset var(--mlv-duration-normal) var(--mlv-ease-default),
+            stroke var(--mlv-duration-normal) var(--mlv-ease-default);
+        }
+      }
+
+      .#{$block}__percentage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: var(--mlv-p-font-size);
+        font-weight: var(--mlv-font-weight-medium);
+        color: var(--mlv-text-secondary);
+        line-height: 1;
+        pointer-events: none;
+      }
+
+      .#{$block}__label {
+        font-size: var(--mlv-font-size-xs);
+        color: var(--mlv-text-secondary);
+        text-align: center;
+
+        &:empty {
+          display: none;
+        }
       }
     }
   }
-}
 
-@include mixins.reduced-motion($block);
+  @include mixins.reduced-motion($block);
 }

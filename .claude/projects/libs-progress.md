@@ -74,7 +74,7 @@ Block: `mlv-progress`
 | `--s/m/l`                               | Size variants                                    |
 | `--default/success/warning/danger/info` | Tone color variants                              |
 
-Tone colors map to `--mlv-palette-success-500`, `--mlv-background-danger-1`, `--mlv-background-warning-1`, `--mlv-palette-info-500` tokens.
+Tone colors map to the semantic solid fills `--mlv-background-{success,warning,danger,info}-1` (`default` → `--mlv-background-accent-1`) — never a `--mlv-palette-*` step, so the high-contrast theme reaches them. Each clears 3:1 against the `--mlv-border-subtle` track in light and dark (`styles:test` → `tone-contrast.spec.mjs`, #302); the high-contrast track (#999) is a pre-existing gap owned by #303.
 
 ## Dependencies
 
