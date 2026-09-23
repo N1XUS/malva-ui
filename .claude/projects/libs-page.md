@@ -324,9 +324,9 @@ On `&__sidebar.mlv-sidebar`:
 | `--mlv-text-action`                 | effective foreground | Link/action foreground inside the rail.                                               |
 | `--mlv-background-neutral-1`        | foreground 8 %       | Neutral interactive fill.                                                             |
 | `--mlv-background-neutral-1-hover`  | foreground 8 %       | Transparent-variant `mlvButton`s and other projected chrome resolve this pair direct. |
-| `--mlv-background-neutral-1-active` | foreground 12 %      | Same — e.g. the workspace switcher's open state.                                      |
+| `--mlv-background-neutral-1-active` | foreground 12 %      | Same — the pressed (pointer-down) fill of that projected chrome.                      |
 | `--mlv-sidebar-hover-bg`            | foreground 8 %       | Row hover / focus-visible fill (see `libs-sidebar.md` → **State surfaces**).          |
-| `--mlv-sidebar-active-bg`           | foreground 12 %      | Active row pill.                                                                      |
+| `--mlv-sidebar-active-bg`           | foreground 12 %      | Active row pill; the workspace switcher's open trigger.                               |
 | `--mlv-sidebar-rail-color`          | foreground 24 %      | Expanded group tree line.                                                             |
 | `--mlv-text-on-selected`            | effective foreground | Active row label — see below.                                                         |
 | `--mlv-background-selected`         | foreground 12 %      | Selected fill for anything resolving it directly (workspace switcher row).            |

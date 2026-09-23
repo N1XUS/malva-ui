@@ -9,6 +9,7 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import type { MlvTone } from '@malva-ui/cdk/utils';
 import { MlvListItemLink } from '../list-item-link/list-item-link';
 import { MlvListItemActions } from '../list-item-actions';
 import { MlvListItemByline } from '../list-item-byline';
@@ -20,15 +21,17 @@ import { MlvListItemTitle } from '../list-item-title';
 
 /**
  * Semantic accent key used to tint the leading accent bar of a list item.
- * Any other string is treated as a raw CSS color value.
+ * Accepts the list's own keys and the library-wide {@link MlvTone} vocabulary:
+ * `success` / `danger` resolve exactly like `positive` / `negative`, and
+ * `info` / `warning` are shared by both. Any other string is treated as a raw
+ * CSS color value.
  */
 export type MlvListItemAccent =
   | 'neutral'
   | 'primary'
   | 'positive'
   | 'negative'
-  | 'warning'
-  | 'info'
+  | MlvTone
   | (string & {});
 
 @Component({
@@ -67,8 +70,9 @@ export class MlvListItem {
 
   /**
    * Optional accent color for the leading bar. Accepts semantic keys
-   * (`primary`, `positive`, `negative`, `warning`, `info`, `neutral`) or any
-   * raw CSS color value. When set, the accent bar is always rendered.
+   * (`primary`, `positive`, `negative`, `warning`, `info`, `neutral`), the
+   * `MlvTone` values (`success`, `danger`, `info`, `warning`) or any raw CSS
+   * color value. When set, the accent bar is always rendered.
    */
   readonly accent = input<MlvListItemAccent | undefined>(undefined);
 
@@ -138,15 +142,20 @@ export class MlvListItem {
       case 'primary':
         return 'var(--mlv-background-accent-1)';
       case 'positive':
+      case 'success':
         return 'var(--mlv-background-success-1)';
       case 'negative':
+      case 'danger':
         return 'var(--mlv-background-danger-1)';
       case 'warning':
         return 'var(--mlv-background-warning-1)';
       case 'info':
         return 'var(--mlv-background-info-1)';
       case 'neutral':
-        return 'var(--mlv-background-neutral-1-active)';
+        // A persistent accent resolves a resting token, never the pressed
+        // `-active` fill (SF-R1). Same value as that fill in light and dark;
+        // high contrast darkens it (#b8b8b8 → #666666).
+        return 'var(--mlv-border-normal)';
       default:
         return accent;
     }

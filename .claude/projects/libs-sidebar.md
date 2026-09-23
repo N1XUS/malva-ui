@@ -212,6 +212,7 @@ The trigger uses the shared `button[mlvButton]` and `mlv-menu` primitives. The m
 - Reuses `--mlv-sidebar-icon-column-width` so its logo aligns with sidebar items/groups.
 - Stable three-track grid (`logo`, text, trailing affordance) prevents mounted content from reflowing during collapse.
 - Popup options reuse the same structural templates and have a `14rem` minimum width.
+- While the switcher is open (`.mlv-sidebar-workspace--open`) the trigger reads `--mlv-sidebar-active-bg` (→ `--mlv-background-selected`) and keeps it under hover / focus — a persistent state, so never the pressed `--mlv-background-neutral-1-active` it used before #304 (SF-R1). Through the seam, `mlv-page-shell`'s chrome remap reaches it.
 - Motion is limited to short transform/opacity/color transitions and becomes instant under `prefers-reduced-motion: reduce`.
 
 ---
@@ -778,11 +779,11 @@ Three component-scoped variables declared on `.mlv-sidebar` (`sidebar.scss`)
 carry every state fill in the sidebar. They are the **only** supported seam for
 a host that paints the sidebar on its own chrome.
 
-| Variable                   | Default                           | Consumed by                                                                                                                                                                              |
-| -------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--mlv-sidebar-hover-bg`   | `var(--mlv-background-neutral-1)` | `mlv-sidebar-item:hover/:focus-visible`, `.mlv-sidebar-group__header:hover/:focus-visible`, `.mlv-sidebar-group__icon-btn:hover/:focus-visible`, `.mlv-sidebar-workspace__trigger:hover` |
-| `--mlv-sidebar-active-bg`  | `var(--mlv-background-selected)`  | `.mlv-sidebar-item--active` and `.mlv-sidebar-group__icon-btn--active` (both including their `:hover`/`:focus-visible` states)                                                           |
-| `--mlv-sidebar-rail-color` | `var(--mlv-border-normal)`        | `.mlv-sidebar-group__content.mlv-expand--open` tree line                                                                                                                                 |
+| Variable                   | Default                           | Consumed by                                                                                                                                                                                   |
+| -------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mlv-sidebar-hover-bg`   | `var(--mlv-background-neutral-1)` | `mlv-sidebar-item:hover/:focus-visible`, `.mlv-sidebar-group__header:hover/:focus-visible`, `.mlv-sidebar-group__icon-btn:hover/:focus-visible`, `.mlv-sidebar-workspace__trigger:hover`      |
+| `--mlv-sidebar-active-bg`  | `var(--mlv-background-selected)`  | `.mlv-sidebar-item--active`, `.mlv-sidebar-group__icon-btn--active` and `.mlv-sidebar-workspace--open .mlv-sidebar-workspace__trigger` (all including their `:hover`/`:focus-visible` states) |
+| `--mlv-sidebar-rail-color` | `var(--mlv-border-normal)`        | `.mlv-sidebar-group__content.mlv-expand--open` tree line                                                                                                                                      |
 
 **Why they exist.** The three globals resolve against the _page_ surface. A host
 that renders the sidebar on an arbitrary background — `mlv-page-shell` puts the

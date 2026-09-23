@@ -582,38 +582,76 @@ for (const [block, colourVar] of [
   }
 }
 
-// ─── tree ────────────────────────────────────────────────────────────────────
+// ─── tree + data-table selected rows ─────────────────────────────────────────
 
 /*
  * `mlv-tree`'s selected-row rule painted `--mlv-text-action` on
- * `--mlv-background-accent-2`, and this change darkens light accent-2 (2.40 →
- * 1.33:1 at rest, 1.02:1 on hover). It must read the selected-state pair
- * (SF-R1) instead. The rule matches no element today — the template stamps
- * `--selected` on `.mlv-tree__item`, never on `.mlv-tree__item__content` — so
- * this pins the colours the rule will paint once #304 points it at the row the
- * template marks. That change renames the selector, which makes `colour()`
- * throw here: update the two selectors below with it.
+ * `--mlv-background-accent-2` (2.40:1 light, 1.33:1 once #302 darkened
+ * accent-2); `mlv-data-table` mixed its own 8% accent tint. Both read the
+ * selected-state pair (SF-R1) now. These scores pin the colours only: that the
+ * rules reach a rendered row is asserted by rendering one, in
+ * `tree-row-states.spec.ts` and `data-table-selection-style.spec.ts` — a
+ * colour score passes on a selector that matches nothing, which is how the
+ * tree's rule stayed dead from the root commit to #304. A renamed selector
+ * makes `colour()` throw here: keep the strings below in step.
  */
 {
-  const root = load('libs/core/tree/src/lib/tree/tree.scss');
-  const selected =
-    '.mlv-tree__item__content--selected:not(.mlv-tree__item__content--disabled)';
-  const rest = decls(root, selected);
-  const hover = decls(root, `${selected}:hover`);
+  const tree = load('libs/core/tree/src/lib/tree/tree.scss');
+  const treeRow =
+    '.mlv-tree__item--selected:not(.mlv-tree__item--disabled) > .mlv-tree__item__content';
+  const treeRest = decls(tree, treeRow);
+  const treeHover = decls(tree, `${treeRow}:hover`);
+  const treeIcon = decls(tree, `${treeRow} .mlv-tree__icon`);
+
+  const table = load('libs/core/data-table/src/lib/data-table/data-table.scss');
+  const tableRow = '.mlv-data-table__row--selected';
+  const tableRest = decls(table, tableRow);
+  const tableHover = decls(table, `${tableRow}:hover`);
+  // A selected table row keeps the table's own ink (a row hosts consumer
+  // links, and `--mlv-text-on-selected` is `mlv-link`'s resting colour), so
+  // the text scored on its fill is that ink plus the secondary tier cells use.
+  const tableInk = decls(table, '.mlv-data-table__table');
+
   for (const theme of TEXT_THEMES) {
-    test(`${theme}: the tree's selected row label clears AA at rest and on hover`, () => {
+    test(`${theme}: the tree's selected row label and icon clear AA at rest and on hover`, () => {
       const scope = new Map();
-      const fg = colour(rest.get('color'), scope, theme);
+      const fg = colour(treeRest.get('color'), scope, theme);
+      const icon = colour(treeIcon.get('color'), scope, theme);
+      const rest = colour(treeRest.get('background-color'), scope, theme);
+      const hover = colour(treeHover.get('background-color'), scope, theme);
       expectAll(
         [
-          [
-            'rest',
-            score(fg, colour(rest.get('background-color'), scope, theme)),
-          ],
-          [
-            'hover',
-            score(fg, colour(hover.get('background-color'), scope, theme)),
-          ],
+          ['label rest', score(fg, rest)],
+          ['label hover', score(fg, hover)],
+        ],
+        AA_TEXT,
+      );
+      expectAll(
+        [
+          ['icon rest', score(icon, rest)],
+          ['icon hover', score(icon, hover)],
+        ],
+        AA_NON_TEXT,
+      );
+    });
+
+    test(`${theme}: the data table's selected row text clears AA at rest and on hover`, () => {
+      assert.equal(
+        tableRest.get('color'),
+        undefined,
+        'a selected table row must not recolour its text',
+      );
+      const scope = new Map();
+      const rest = colour(tableRest.get('background'), scope, theme);
+      const hover = colour(tableHover.get('background'), scope, theme);
+      const primary = colour(tableInk.get('color'), scope, theme);
+      const secondary = token('--mlv-text-secondary', theme);
+      expectAll(
+        [
+          ['primary rest', score(primary, rest)],
+          ['primary hover', score(primary, hover)],
+          ['secondary rest', score(secondary, rest)],
+          ['secondary hover', score(secondary, hover)],
         ],
         AA_TEXT,
       );

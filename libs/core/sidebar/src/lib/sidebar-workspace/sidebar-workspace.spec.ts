@@ -1,6 +1,8 @@
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { fileURLToPath } from 'node:url';
+import { compile } from 'sass';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvSidebar } from '../sidebar/sidebar';
@@ -177,6 +179,67 @@ describe('MlvSidebarWorkspace', () => {
         .querySelector('.mlv-sidebar-workspace__trigger')
         ?.getAttribute('aria-label'),
     ).toContain('Acme Inc');
+  });
+
+  it('paints the open trigger with the selection seam, never a pressed `-active` fill', async () => {
+    // SF-R1: `-active` means "the pointer is down right now"; the trigger of
+    // an open switcher is a persistent state. It reads the sidebar's selection
+    // seam, so `mlv-page-shell`'s chrome remap reaches it like every other row.
+    const style = document.createElement('style');
+    style.textContent = compile(
+      fileURLToPath(
+        new URL(['.', 'sidebar-workspace.scss'].join('/'), import.meta.url),
+      ),
+    ).css;
+    document.head.appendChild(style);
+
+    try {
+      const fixture = TestBed.createComponent(WorkspaceHost);
+      fixture.detectChanges();
+      const trigger = fixture.nativeElement.querySelector(
+        '.mlv-sidebar-workspace__trigger',
+      ) as HTMLButtonElement;
+      trigger.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(
+        (
+          fixture.nativeElement.querySelector(
+            'mlv-sidebar-workspace',
+          ) as HTMLElement
+        ).classList,
+      ).toContain('mlv-sidebar-workspace--open');
+
+      const rules = [...(style.sheet?.cssRules ?? [])].filter(
+        (rule): rule is CSSStyleRule =>
+          rule instanceof CSSStyleRule && !rule.selectorText.includes('::'),
+      );
+      const open = rules.filter(
+        (rule) =>
+          rule.selectorText.includes('--open') &&
+          trigger.matches(rule.selectorText),
+      );
+      expect(
+        open.map((rule) =>
+          rule.style.getPropertyValue('background-color').trim(),
+        ),
+      ).toEqual([
+        'var(--mlv-sidebar-active-bg, var(--mlv-background-selected))',
+      ]);
+
+      // Nothing that paints the trigger outside `:active` resolves a pressed token.
+      const pressed = rules.filter(
+        (rule) =>
+          !rule.selectorText.includes(':active') &&
+          trigger.matches(
+            rule.selectorText.replace(/:hover|:focus-visible/g, ''),
+          ) &&
+          /-active\)/.test(rule.style.cssText),
+      );
+      expect(pressed.map((rule) => rule.selectorText)).toEqual([]);
+    } finally {
+      style.remove();
+    }
   });
 
   it('has no detectable accessibility violations in its closed state', async () => {

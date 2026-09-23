@@ -204,7 +204,10 @@
       font-size: var(--mlv-dt-font-size);
       color: var(--mlv-text-primary);
 
-      &--striped .#{$block}__row--data:nth-child(even) {
+      // Steps aside for a selected row (see `__row--selected`), which it would
+      // otherwise outrank.
+      &--striped
+        .#{$block}__row--data:nth-child(even):not(.#{$block}__row--selected) {
         background: var(--mlv-background-sunken);
 
         .#{$block}__cell--pinned {
@@ -537,8 +540,9 @@
       // never `--mlv-background-sunken` (a static "recessed tray" surface
       // token). Both currently happen to share the same darkness in some
       // themes, which is what made this look like "row hover" instead of
-      // "row pressed" — see docs/audits owner feedback 2026-08-25.
-      &--data:hover {
+      // "row pressed" — see docs/audits owner feedback 2026-08-25. A selected
+      // row takes `-selected-hover` instead (see `__row--selected`).
+      &--data:not(&--selected):hover {
         background: var(--mlv-background-neutral-1-hover);
 
         .#{$block}__cell--pinned {
@@ -677,19 +681,30 @@
       width: 5rem;
     }
 
+    // Persistent selection reads the selected-state fill (SF-R1) — the same
+    // fill and hover as `mlv-list-item` and `mlv-tree` — never a table-local
+    // tint. The even-row stripe and the neutral row hover both exclude
+    // `--selected`, so neither can paint over it; the editing and expanded
+    // surfaces still yield to it by source order, as before.
+    //
+    // The row keeps the table's own ink. `--mlv-text-on-selected` is
+    // `mlv-link`'s resting colour, and a row hosts consumer cells — links,
+    // badges, secondary text — so tinting the row's text would leave a link in
+    // a selected row indistinguishable from the text around it (WCAG 1.4.1).
+    // `mlv-tree` does use the ink, because its default row renders no link.
     &__row--selected {
-      background: color-mix(
-        in srgb,
-        var(--mlv-background-accent-1) 8%,
-        var(--mlv-background-base)
-      );
+      background: var(--mlv-background-selected);
 
       .#{$block}__cell--pinned {
-        background: color-mix(
-          in srgb,
-          var(--mlv-background-accent-1) 8%,
-          var(--mlv-background-base)
-        );
+        background: var(--mlv-background-selected);
+      }
+
+      &:hover {
+        background: var(--mlv-background-selected-hover);
+
+        .#{$block}__cell--pinned {
+          background: var(--mlv-background-selected-hover);
+        }
       }
     }
 

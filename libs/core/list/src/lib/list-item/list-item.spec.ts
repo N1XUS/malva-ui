@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { MlvList } from '../list/list';
 import { MlvListItem } from './list-item';
+import type { MlvListItemAccent } from './list-item';
 import { MlvListItemActions } from '../list-item-actions';
 import { MlvListItemByline } from '../list-item-byline';
 import { MlvListItemMedia } from '../list-item-media';
@@ -107,5 +108,61 @@ describe('MlvListItem', () => {
     expect(
       prefixFixture.nativeElement.querySelector('[data-prefix]'),
     ).toBeTruthy();
+  });
+});
+
+@Component({
+  imports: [MlvListItem],
+  template: `<mlv-list-item [accent]="accent()">Row</mlv-list-item>`,
+})
+class AccentListItemHostComponent {
+  readonly accent = signal<MlvListItemAccent | undefined>(undefined);
+}
+
+describe('MlvListItem accent', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [AccentListItemHostComponent],
+    }).compileComponents();
+  });
+
+  function accentFor(accent: MlvListItemAccent): string {
+    const fixture = TestBed.createComponent(AccentListItemHostComponent);
+    fixture.componentInstance.accent.set(accent);
+    fixture.detectChanges();
+    const item = fixture.nativeElement.querySelector(
+      'mlv-list-item',
+    ) as HTMLElement;
+    return item.style.getPropertyValue('--mlv-list-item-accent').trim();
+  }
+
+  it('paints a neutral accent with a resting token, never a pressed `-active` one', () => {
+    // SF-R1: `-active` means "the pointer is down right now"; an accent bar is
+    // persistent.
+    expect(accentFor('neutral')).toBe('var(--mlv-border-normal)');
+  });
+
+  it.each([
+    ['success', 'var(--mlv-background-success-1)'],
+    ['danger', 'var(--mlv-background-danger-1)'],
+    ['info', 'var(--mlv-background-info-1)'],
+    ['warning', 'var(--mlv-background-warning-1)'],
+  ] as const)(
+    'resolves the MlvTone value %s to its semantic fill',
+    (accent, expected) => {
+      expect(accentFor(accent)).toBe(expected);
+    },
+  );
+
+  it.each([
+    ['primary', 'var(--mlv-background-accent-1)'],
+    ['positive', 'var(--mlv-background-success-1)'],
+    ['negative', 'var(--mlv-background-danger-1)'],
+  ] as const)('keeps resolving the list key %s', (accent, expected) => {
+    expect(accentFor(accent)).toBe(expected);
+  });
+
+  it('passes any other string through as a raw colour', () => {
+    expect(accentFor('#ff00aa')).toBe('#ff00aa');
   });
 });
