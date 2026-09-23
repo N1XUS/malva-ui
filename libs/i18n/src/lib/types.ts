@@ -87,13 +87,27 @@ export interface MlvLanguage {
   tokenizer: MlvTokenizerI18n;
 }
 
-/** AI translation provider interface — consumers implement this for their backend. */
+/**
+ * AI translation provider interface for `MlvAiTranslationService`.
+ *
+ * @deprecated since 0.2.0 — removed in 1.0, with the rest of the runtime AI
+ * translation API it exists for. There is no replacement: nothing in the
+ * library calls `MlvAiTranslationService`. Ship translated strings in a
+ * language pack (`provideMlvI18n()`); if your implementation calls a server
+ * you control, call that server directly.
+ */
 export interface MlvTranslationProvider {
   /** Batch-translate multiple keys in a single API call. */
   translate(requests: MlvTranslationRequest[]): Promise<MlvTranslationResult[]>;
 }
 
-/** A single translation request sent to the provider. */
+/**
+ * A single translation request sent to an `MlvTranslationProvider`.
+ *
+ * @deprecated since 0.2.0 — removed in 1.0, with the rest of the runtime AI
+ * translation API it exists for. There is no replacement. `MlvTranslationContext`,
+ * which it carries, is not deprecated.
+ */
 export interface MlvTranslationRequest {
   /** Dot-path key, e.g. 'pagination.previousPage'. */
   key: string;
@@ -105,7 +119,12 @@ export interface MlvTranslationRequest {
   context: MlvTranslationContext;
 }
 
-/** Result from the translation provider. */
+/**
+ * Result from an `MlvTranslationProvider`.
+ *
+ * @deprecated since 0.2.0 — removed in 1.0, with the rest of the runtime AI
+ * translation API it exists for. There is no replacement.
+ */
 export interface MlvTranslationResult {
   /** The dot-path key that was translated. */
   key: string;
@@ -136,14 +155,27 @@ export interface MlvTranslationContext {
   pluralCategories?: string[];
 }
 
-/** Configuration for the runtime AI translation service. */
+/**
+ * Configuration for the runtime AI translation service.
+ *
+ * @deprecated since 0.2.0 — removed in 1.0, with the rest of the runtime AI
+ * translation API. There is no replacement. Nothing in the library calls
+ * `MlvAiTranslationService`, `enabled`, `cache` and `targetLocale` are never
+ * read, and the one shipped provider, `claudeProvider()`, sends a secret API
+ * key from whatever runtime calls it. Ship translated strings in a language
+ * pack (`provideMlvI18n()`); if your own `MlvTranslationProvider` calls a
+ * server you control, call that server directly.
+ */
 export interface MlvAiTranslationConfig {
   /** The translation provider implementation. */
   provider: MlvTranslationProvider;
-  /** Target locale for AI translations. */
+  /**
+   * Target locale for AI translations. Not read: each request carries its own
+   * `targetLocale`.
+   */
   targetLocale: string;
-  /** Cache strategy for translated strings. */
+  /** Cache strategy for translated strings. Not read: the cache is in-memory. */
   cache: 'memory' | 'localstorage' | 'indexeddb' | 'none';
-  /** Whether AI translation is enabled globally (default: false). */
+  /** Whether AI translation is enabled globally. Not read. */
   enabled: boolean;
 }

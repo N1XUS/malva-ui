@@ -14,7 +14,7 @@ categories.
 
 ## Overview
 
-The i18n library (`@malva-ui/i18n`) provides a signal-based, per-component internationalization system for the Malva UI component library. It uses ICU MessageFormat for pluralization and parameterization, lazy-loaded language packs via secondary entry points, and an optional AI-powered translation pipeline.
+The i18n library (`@malva-ui/i18n`) provides a signal-based, per-component internationalization system for the Malva UI component library. It uses ICU MessageFormat for pluralization and parameterization, and lazy-loaded language packs via secondary entry points. The shipped packs are drafted with an unpublished maintainer script (`scripts/malva-ui-translate.mjs`). The runtime AI translation API is deprecated — see [AI Translation](#ai-translation).
 
 **Published package:** `@malva-ui/i18n`
 **Secondary entry points:** `@malva-ui/i18n/en`, `/de`, `/fr`, `/it`, `/es`,
@@ -34,29 +34,33 @@ The i18n library (`@malva-ui/i18n`) provides a signal-based, per-component inter
 
 Exported from `libs/i18n/src/index.ts`:
 
-| Export                       | Kind           | Description                                                   |
-| ---------------------------- | -------------- | ------------------------------------------------------------- |
-| `MlvLanguage`                | Interface      | Aggregate of all 42 component i18n interfaces                 |
-| `MlvLanguageModule`          | Type           | A loaded pack module: `{ default }` or `{ <locale>Language }` |
-| `resolveMlvLanguage`         | Function       | Unwraps the `MlvLanguage` out of either module shape          |
-| `MlvTranslationProvider`     | Interface      | AI provider contract for batch translation                    |
-| `MlvTranslationRequest`      | Interface      | Single translation request                                    |
-| `MlvTranslationResult`       | Interface      | Single translation result                                     |
-| `MlvTranslationContext`      | Interface      | Context metadata for AI translators                           |
-| `MlvAiTranslationConfig`     | Interface      | Runtime AI translation configuration                          |
-| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (42 total)                          |
-| `Mlv*I18n`                   | Interface      | Per-component string interfaces (42 total)                    |
-| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (42 total)         |
-| `MlvI18nService`             | Service        | Central language state management                             |
-| `MlvI18nResolverService`     | Service        | ICU MessageFormat resolution with caching                     |
-| `MlvTranslatePipe`           | Pipe           | Template pipe for ICU string resolution                       |
-| `provideMlvI18n`             | Function       | Root provider factory with lazy loading                       |
-| `MLV_AI_TRANSLATION_CONFIG`  | InjectionToken | AI translation configuration token                            |
-| `MLV_AI_TRANSLATION_ENABLED` | InjectionToken | Per-subtree AI toggle                                         |
-| `MlvAiTranslationService`    | Service        | Runtime AI translation with caching                           |
-| `provideMlvAiTranslation`    | Function       | AI translation provider factory                               |
-| `claudeProvider`             | Function       | Claude adapter factory                                        |
-| `MlvClaudeProviderConfig`    | Interface      | Claude adapter configuration                                  |
+| Export                       | Kind           | Description                                                                |
+| ---------------------------- | -------------- | -------------------------------------------------------------------------- |
+| `MlvLanguage`                | Interface      | Aggregate of all 42 component i18n interfaces                              |
+| `MlvLanguageModule`          | Type           | A loaded pack module: `{ default }` or `{ <locale>Language }`              |
+| `resolveMlvLanguage`         | Function       | Unwraps the `MlvLanguage` out of either module shape                       |
+| `MlvTranslationProvider`     | Interface      | **Deprecated** — AI provider contract for batch translation                |
+| `MlvTranslationRequest`      | Interface      | **Deprecated** — single translation request                                |
+| `MlvTranslationResult`       | Interface      | **Deprecated** — single translation result                                 |
+| `MlvTranslationContext`      | Interface      | Context metadata typing every `MLV_*_I18N_CONTEXT` record (not deprecated) |
+| `MlvAiTranslationConfig`     | Interface      | **Deprecated** — runtime AI translation configuration                      |
+| `MLV_*_I18N`                 | InjectionToken | Per-component i18n tokens (42 total)                                       |
+| `Mlv*I18n`                   | Interface      | Per-component string interfaces (42 total)                                 |
+| `MLV_*_I18N_CONTEXT`         | Record         | Per-component translation context metadata (42 total)                      |
+| `MlvI18nService`             | Service        | Central language state management                                          |
+| `MlvI18nResolverService`     | Service        | ICU MessageFormat resolution with caching                                  |
+| `MlvTranslatePipe`           | Pipe           | Template pipe for ICU string resolution                                    |
+| `provideMlvI18n`             | Function       | Root provider factory with lazy loading                                    |
+| `MLV_AI_TRANSLATION_CONFIG`  | InjectionToken | **Deprecated** — AI translation configuration token                        |
+| `MLV_AI_TRANSLATION_ENABLED` | InjectionToken | **Deprecated** — per-subtree AI toggle; nothing reads it                   |
+| `MlvAiTranslationService`    | Service        | **Deprecated** — runtime AI translation with caching                       |
+| `provideMlvAiTranslation`    | Function       | **Deprecated** — AI translation provider factory                           |
+| `claudeProvider`             | Function       | **Deprecated** — Claude adapter factory; never pass it a real key          |
+| `MlvClaudeProviderConfig`    | Interface      | **Deprecated** — Claude adapter configuration                              |
+
+Every **Deprecated** row is the runtime AI translation API: `@deprecated since
+0.2.0 — removed in 1.0`, no replacement. See [AI Translation](#ai-translation)
+for why.
 
 ---
 
@@ -88,7 +92,10 @@ Central service managing the active language pack. Not `providedIn: 'root'` — 
 
 **File:** `libs/i18n/src/lib/ai/ai-translation.service.ts`
 
-`providedIn: 'root'`. Runtime AI translation for missing keys. In-memory cache.
+- **Deprecated since 0.2.0 — removed in 1.0**, no replacement — see [AI Translation](#ai-translation).
+- `providedIn: 'root'`; runtime AI translation for missing keys; in-memory cache.
+- Nothing in the library calls it.
+- `translate()` never rejects: `null` when no provider is configured, when the provider returns no text, and when it throws.
 
 ---
 
@@ -300,10 +307,13 @@ build.
 
 ### Adding a new language
 
-Use the AI translation CLI:
+Maintainers can draft a pack with the repo's translation script
+(`scripts/malva-ui-translate.mjs` — unpublished, see
+[AI Translation](#ai-translation)). It reads the key from `ANTHROPIC_API_KEY`;
+set that from your secret store, never type the key on the command line:
 
 ```bash
-node scripts/malva-ui-translate.mjs --target uk --provider claude --api-key <key>
+node scripts/malva-ui-translate.mjs --target uk
 ```
 
 Or create manually under `libs/i18n/<locale>/src/lib/<locale>.ts` following the
@@ -364,10 +374,22 @@ protected readonly _resolvedRange = computed(() =>
 
 ## AI Translation
 
-### Build-time CLI
+### Maintainer script (unpublished)
 
-`scripts/malva-ui-translate.mjs` — batch-translates English pack to target locales using the Anthropic API. Supports `--dry-run`, multiple `--target` locales, and custom `--model`.
+- `scripts/malva-ui-translate.mjs` — batch-translates the English pack to target locales using the Anthropic API. Supports `--dry-run`, multiple `--target` locales and custom `--model`; reads the key from `ANTHROPIC_API_KEY`.
+- **Repo tooling, not part of `@malva-ui/i18n`:** `scripts/` is not published and the package has no `bin`, so it is not a consumer replacement for the runtime API below. It runs in Node on a maintainer's machine; its key never reaches a browser.
 
-### Runtime service
+### Runtime API — deprecated (#292)
 
-`MlvAiTranslationService` with `provideMlvAiTranslation()` — opt-in per-subtree runtime translation for missing keys. Uses `MlvTranslationProvider` interface for provider-agnostic backends. Ships with `claudeProvider()` adapter.
+- **`@deprecated since 0.2.0 — removed in 1.0`** on all ten symbols: `MlvAiTranslationService`, `provideMlvAiTranslation`, `MLV_AI_TRANSLATION_CONFIG`, `MLV_AI_TRANSLATION_ENABLED`, `claudeProvider`, `MlvClaudeProviderConfig`, `MlvAiTranslationConfig`, `MlvTranslationProvider`, `MlvTranslationRequest`, `MlvTranslationResult`. Behaviour unchanged while deprecated (VERSIONING.md §3, minor).
+- **Why (the whole API):** nothing in the library calls `MlvAiTranslationService`; the config's `enabled` / `cache` / `targetLocale` are never read; and the one shipped provider is unsafe in the browser (next bullet). Decision D26: deprecate, do not repair.
+- **The key risk is `claudeProvider()`'s alone.** It sends `apiKey` with every request from whatever runtime calls it. Registered in an application config that reaches the browser, the key ships to every visitor and is readable by any of them; no option on the function can protect it. **Never pass it a real key there.** The two former JSDoc examples that did are gone. A consumer-written `MlvTranslationProvider` that calls the consumer's own server holds no key.
+- **No replacement.** Ship translated strings in a language pack (`provideMlvI18n()`) or a per-component `MLV_*_I18N` override. If your own provider calls a server you control, call that server directly. Machine translation belongs in your own build or behind that server — not the maintainer script above, which is not published.
+- **Not deprecated:** `MlvTranslationContext` — it types every `MLV_*_I18N_CONTEXT` record.
+- Known state, not fixed (deprecated, not repaired): nothing calls the service; `MLV_AI_TRANSLATION_ENABLED` and the config's `enabled` / `cache` / `targetLocale` are never read; `claudeProvider()`'s default `model` (`claude-sonnet-4-5-20241022`) is not a published Anthropic model id, so every request made without an explicit `model` fails (its JSDoc says so); `response.ok` is never checked; failures resolve to `null`.
+- Pinned by `src/lib/ai/ai-translation.deprecation.spec.ts`:
+  - every export declared under `lib/ai/` (derived from the barrel) plus the four contract types carries a complete tag; `MlvTranslationContext` carries none;
+  - no comment anywhere in the `lib/ai/` files or the four contract interfaces matches `/\bapiKey\b\s*[:,}=]/` (property, shorthand `{ apiKey }`, assignment) — JSDoc body, `@example`, member JSDoc and plain comments alike, not only top-level `@example` tags;
+  - a self-test pins that the scan sees a fenced body example, a member `@example` and a shorthand key, and skips code and prose naming the member.
+  - Tag grammar: `scripts/check-deprecations.mjs`.
+- Removal at 1.0 is VERSIONING.md §3 row "removed exported symbol" (major) and owes a `docs/migrations/` entry then.

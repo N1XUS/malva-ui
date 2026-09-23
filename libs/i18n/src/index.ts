@@ -56,7 +56,9 @@ export * from './lib/translate.pipe';
 // Provider
 export * from './lib/provide-i18n';
 
-// AI translation
+// Runtime AI translation — deprecated since 0.2.0, removed in 1.0 (#292). The
+// contract types it uses (`MlvTranslationProvider`, `…Request`, `…Result`,
+// `MlvAiTranslationConfig`) are exported from `./lib/types` above.
 export * from './lib/ai/ai-translation.config';
 export * from './lib/ai/ai-translation.service';
 export * from './lib/ai/claude.provider';

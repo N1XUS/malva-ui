@@ -8,8 +8,16 @@ import type { MlvAiTranslationConfig, MlvTranslationRequest } from '../types';
 import { MLV_AI_TRANSLATION_CONFIG } from './ai-translation.config';
 
 /**
- * Runtime AI translation service for missing keys.
- * Opt-in per component subtree via MLV_AI_TRANSLATION_ENABLED.
+ * Runtime AI translation service for missing keys. Nothing in the library
+ * calls it.
+ *
+ * @deprecated since 0.2.0 — removed in 1.0, with the rest of the runtime AI
+ * translation API. There is no replacement. Nothing in the library calls this
+ * service, its configuration's `enabled`, `cache` and `targetLocale` are never
+ * read, and the one shipped provider, `claudeProvider()`, sends a secret API key
+ * from whatever runtime calls it. Ship translated strings in a language pack
+ * (`provideMlvI18n()`); if your own `MlvTranslationProvider` calls a server you
+ * control, call that server directly.
  */
 @Injectable({ providedIn: 'root' })
 export class MlvAiTranslationService {
@@ -23,7 +31,8 @@ export class MlvAiTranslationService {
 
   /**
    * Translates a missing key using the configured AI provider.
-   * Returns null if AI translation is not configured or disabled.
+   * Resolves to `null` when no provider is configured, when the provider
+   * returns no text, and when it throws — a failure never rejects.
    */
   async translate(request: MlvTranslationRequest): Promise<string | null> {
     if (!this._config?.provider) return null;
@@ -48,19 +57,16 @@ export class MlvAiTranslationService {
 }
 
 /**
- * Provides runtime AI translation support.
+ * Provides the configuration `MlvAiTranslationService` reads.
  *
- * @example
- * ```ts
- * providers: [
- *   provideMlvAiTranslation({
- *     provider: claudeProvider({ apiKey: '...' }),
- *     targetLocale: 'de',
- *     cache: 'indexeddb',
- *     enabled: false,
- *   }),
- * ]
- * ```
+ * @deprecated since 0.2.0 — removed in 1.0, with the rest of the runtime AI
+ * translation API. There is no replacement. Nothing in the library calls
+ * `MlvAiTranslationService`, the configuration's `enabled`, `cache` and
+ * `targetLocale` are never read, and the one shipped provider,
+ * `claudeProvider()`, sends a secret API key from whatever runtime calls it.
+ * Ship translated strings in a language pack (`provideMlvI18n()`); if your own
+ * `MlvTranslationProvider` calls a server you control, call that server
+ * directly.
  */
 export function provideMlvAiTranslation(
   config: MlvAiTranslationConfig,
