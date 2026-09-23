@@ -393,6 +393,22 @@ describe('MlvEditor', () => {
     expect(host.changes).toEqual([]);
   });
 
+  it('accepts a Markdown value with an unclosed inline HTML tag instead of reporting a parse error', async () => {
+    // Tiptap 3.30.0 keeps only the inline content of inline HTML. Under 3.29
+    // `<b>` without its closing tag built an invalid document, so the strict
+    // load threw and the shell reverted the value and emitted `parse` (#291).
+    const fixture = await createHost();
+    const host = fixture.componentInstance;
+    host.format.set('markdown');
+    host.value.set('Hello <b>world');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.errors.map(({ code }) => code)).toEqual([]);
+    expect(host.value()).toBe('Hello <b>world');
+    expect(host.editor().editor()?.getText()).toBe('Hello world');
+  });
+
   it('parses initial Markdown with rich HTML fallbacks into semantic editor content', async () => {
     @Component({
       imports: [MlvEditor],

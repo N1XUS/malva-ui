@@ -475,6 +475,11 @@ Other rules that hold regardless:
   uses.
 - `@malva-ui/tailwind` declares `tailwindcss: ^4.0.0` by hand; raising that
   major is a Malva major.
+- `@malva-ui/editor` declares `prosemirror-view: ^1.42.5` and
+  `prosemirror-model: ^1.25.12` by hand: security floors for GHSA-c8x8 (#291),
+  which the widened `@tiptap/*` range cannot express. The view floor is 1.42.5,
+  not the advisory’s 1.42.3, because it is the first view release that pairs
+  with model ≥ 1.25.12. Raising either is a Malva major.
 
 `scripts/widen-peer-range.spec.mjs` pins all of this, including that moving the
 workspace's Angular minor leaves the published range unchanged. It runs as part

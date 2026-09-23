@@ -7,9 +7,14 @@ directly when no Angular form owns the field. Clearing a semantically empty
 document, an empty string, or whitespace-only content emits `null`; meaningful
 HTML remains a plain string.
 
-Install `@malva-ui/core` and keep the free, MIT-licensed Tiptap packages listed
-as editor peer dependencies in your application. Tiptap and ProseMirror remain
-consumer-owned peers so only one editor runtime is loaded.
+Install `@malva-ui/editor` with its peer dependencies: the twelve free,
+MIT-licensed `@tiptap/*` packages at **3.31 or later** (all on one version),
+plus `prosemirror-view` ≥ 1.42.5 and `prosemirror-model` ≥ 1.25.12. Tiptap and
+ProseMirror remain consumer-owned peers so only one editor runtime is loaded.
+The two ProseMirror floors carry a paste XSS fix, so the install must resolve
+exactly one copy of each; check with `npm ls prosemirror-view prosemirror-model`.
+Upgrading from Tiptap 3.29 or 3.30 is covered by the
+[Tiptap 3.31 migration](https://github.com/N1XUS/malva-ui/blob/main/docs/migrations/2026-09-editor-tiptap-3-31.md).
 
 The default toolbar order is undo/redo, view-only zoom, heading, list,
 inline marks, text color, highlight, alignment, link, table, block inserts, and

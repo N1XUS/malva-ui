@@ -151,8 +151,11 @@ defineComponentSpec(editorManifest, () => {
     await expect(textColor.locator('svg')).toHaveCount(1);
     await expect(highlight.locator('svg')).toHaveCount(1);
     await textColor.click();
+    // `aria-controls` is bound only while the popup reports itself open
+    // (`opened() ? _panelId : null`), which can land after `click()` resolves;
+    // `getAttribute()` does not retry.
+    await expect(textColor).toHaveAttribute('aria-controls', /\S/);
     const textPanelId = await textColor.getAttribute('aria-controls');
-    expect(textPanelId).toBeTruthy();
     const textDialog = mlv.page.getByRole('dialog', { name: 'Text color' });
     await expect(textDialog).toBeVisible();
     await mlv.page.keyboard.press('Escape');
@@ -160,8 +163,8 @@ defineComponentSpec(editorManifest, () => {
     await expect(textColor).toBeFocused();
 
     await highlight.click();
+    await expect(highlight).toHaveAttribute('aria-controls', /\S/);
     const highlightPanelId = await highlight.getAttribute('aria-controls');
-    expect(highlightPanelId).toBeTruthy();
     expect(highlightPanelId).not.toBe(textPanelId);
     const highlightDialog = mlv.page.getByRole('dialog', {
       name: 'Highlight color',

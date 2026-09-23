@@ -1227,12 +1227,10 @@ resolved into pixels in JavaScript. It hides under `@media print`, and its
 
 ## Tiptap peer dependencies
 
-The published `@malva-ui/core` package declares these consumer-owned peer
-dependencies and marks every one optional in `peerDependenciesMeta`, so
-non-editor consumers do not receive irrelevant warnings. Applications using
-the editor install the complete matching set. The root workspace pins every
-package to `3.29.2`; the publish script rejects mismatched Tiptap versions
-before replacing the shared placeholder.
+`@malva-ui/editor` — not `@malva-ui/core`, which declares no Tiptap peer since
+the [editor-package split](../../docs/migrations/2026-08-editor-package.md) —
+declares all twelve as **required** peers (no `peerDependenciesMeta`).
+Applications using the editor install the complete matching set:
 
 - `@tiptap/core`
 - `@tiptap/pm`
@@ -1247,6 +1245,60 @@ before replacing the shared placeholder.
 - `@tiptap/extension-file-handler`
 - `@tiptap/extensions`
 
+It also declares two **ProseMirror floor peers by hand**:
+`prosemirror-view: ^1.42.5` and `prosemirror-model: ^1.25.12` (#291).
+
+- **Version:** root pins `3.31.3` exactly. `libs/editor/package.json` carries the
+  `0.0.0-tiptap-package-version` placeholder. `scripts/publish.mjs` rejects a
+  mismatched pin, then replaces the placeholder with the `@tiptap/core` pin.
+  `scripts/widen-peer-range.mjs` publishes that as **`^3.31.0`** (a minor floor,
+  VERSIONING §9).
+- **Raising the Tiptap floor is breaking.** It narrows a published peer range,
+  so it needs a `fix(editor)!:` commit and a `docs/migrations/` entry. The last
+  raise was 3.29 → 3.31, for three security advisories:
+  [2026-09-editor-tiptap-3-31.md](../../docs/migrations/2026-09-editor-tiptap-3-31.md) (#291).
+- **Keep all twelve on one version.** Since 3.30.0 `@tiptap/starter-kit` depends
+  on its own exact `@tiptap/core` and extensions, so a mismatch installs two
+  cores.
+- **The ProseMirror floor peers are security floors, not derived pins.**
+  - Why they exist: the GHSA-c8x8 paste XSS fix is in `prosemirror-view`
+    ≥ 1.42.3, and `^3.31.0` also admits `@tiptap/pm` 3.31.0 and 3.31.1, which
+    ask only `^1.41.9`. View 1.42.5 relies on `NodeType.create` validation
+    that exists only in `prosemirror-model` ≥ 1.25.12, while every pm 3.31.x
+    asks only `^1.25.11`.
+  - **Why the view floor is 1.42.5, not the advisory's 1.42.3:** 1.42.5 is
+    the first `prosemirror-view` release that pairs with `prosemirror-model` ≥ 1.25.12. Views 1.42.3 and 1.42.4 call `type.create()` outside their paste
+    `try` and rely on `checkAttrs`, which model 1.25.12 turned into a no-op
+    (validation moved into `create()`). With model ≥ 1.25.12 an invalid pasted
+    context attribute therefore throws a `RangeError` out of the paste handler,
+    and the browser pastes natively, instead of the wrapper being dropped. Do
+    not lower it back to 1.42.3.
+  - They are literal ranges: no placeholder and no root pin. `publish.mjs`
+    passes them verbatim (`widenPeerRange` leaves an existing range alone), and
+    the playground installs the declared range. Pinned in
+    `scripts/widen-peer-range.spec.mjs` and `apps/docs/tools/playground-corpus.spec.ts`.
+  - **Raising either floor later is a Malva major** (a narrowed peer range,
+    VERSIONING §3), with its own `docs/migrations/` entry. Lowering or dropping
+    one reopens GHSA-c8x8.
+  - A peer does not dedupe a lockfile. A Yarn Berry or pnpm lock can still hold
+    an older nested model beside the floor copy, and a second model copy
+    disables the fix.
+- **Confirm the resolution after any Tiptap or ProseMirror bump:**
+  - `yarn why prosemirror-view` and `yarn why prosemirror-model` each show one
+    version, at or above the floor.
+  - `yarn dedupe --check prosemirror-view prosemirror-model` exits 0.
+  - Yarn's `node-modules` linker does not dedupe on install. #291 needed
+    `yarn dedupe prosemirror-view prosemirror-model`; lockfile only, no
+    `resolutions`.
+  - Tiptap ≥ 3.30 logs a `[tiptap warn]` saying "prosemirror-model is loaded
+    more than once" when it finds a duplicate. The editor suite prints none.
+- **Upstream behaviour the editor inherits** is pinned in
+  `src/lib/extensions/editor-upstream-behaviour.spec.ts`. That covers Markdown
+  parse and serialize, list, blockquote and table keymaps and commands, the
+  resizable image, the task checkbox name, and the three advisories. Read it
+  before a Tiptap bump. A red case there is a behaviour change to document, not
+  a test to delete.
+
 ## Development
 
 Run from the workspace root:
@@ -1256,6 +1308,7 @@ NX_PREFER_NODE_STRIP_TYPES=false yarn nx lint editor
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-serialization.spec.ts
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-extensions.spec.ts
+NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-upstream-behaviour.spec.ts
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-toolbar.spec.ts
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-formatting-popovers.spec.ts
 NX_PREFER_NODE_STRIP_TYPES=false yarn nx test editor --testFile=editor-zoom.spec.ts
@@ -1289,6 +1342,30 @@ that preserves the document on one editor instance.
 factory, the resolved default schema and marks, inactive/active file-handler
 semantics, unique extension composition, finite temporary-upload progress, and
 placeholder exclusion from every serialized representation.
+
+`editor-upstream-behaviour.spec.ts` pins upstream behaviour the editor
+inherits rather than implements. It runs headless `Editor` instances over
+`mlvEditorDefaultExtensions()`.
+
+- **Security (#291):** the GHSA-cp6q `mergeAttributes` prototype guard; the
+  GHSA-c8x8 validation of pasted `data-pm-slice` context attributes, via a
+  probe node with a `validate`d attribute; and a GHSA-j95f guard asserting the
+  preset registers exactly five Markdown tokenizers (`orderedList`,
+  `underline`, `taskList`, `table`, `highlight`), none built by the
+  vulnerable helpers. A payload could not prove that: a helper-built tokenizer
+  matches only its own node name. A new tokenizer-bearing extension fails the
+  guard until it is checked against the advisory.
+- **Editing:** `unsetColor` inside a blockquote, list or cell; Tab sinking a
+  paragraph that follows a bullet, ordered or task list, plus the fall-through
+  guard; the list and
+  blockquote Backspace joins; table `deleteRow` / `deleteColumn` selection;
+  a broken resizable image revealed; the task checkbox name.
+- **Markdown:** 3-space indentation under ordered items; whitespace-only
+  marks; unclosed inline HTML; `$$` ending an ordered item.
+
+Every case except the three guards (the tokenizer allowlist in two formats,
+and Tab falling through) failed on Tiptap 3.29.2. See
+[2026-09-editor-tiptap-3-31.md](../../docs/migrations/2026-09-editor-tiptap-3-31.md).
 
 `editor-block-handle.spec.ts` covers pre-move index semantics, single-undo-step
 moves, selection retention inside the moved block (including atom nodes),
@@ -1431,6 +1508,19 @@ its two intended tab stops — the content textbox and the roving toolbar widget
   round-trips and the supported default schema, but does not promise
   byte-for-byte Markdown formatting or syntax outside that schema. Use
   `format="json"` when the stored representation must be lossless.
+- Markdown parsing inherits `marked` 17.0.6, a dependency of
+  `@tiptap/markdown`, not bundled (nested under it only in this workspace; a typical consumer tree hoists it to `node_modules/marked`). It lexes long `__` runs quadratically: about 0.5 s for 41 KB, and
+  about 4x per doubling. This is not GHSA-j95f, which the preset does not reach
+  (#291). Bound untrusted Markdown size at the host until upstream fixes it.
+- Tab at the start of a paragraph directly after a bullet, ordered or task
+  list is consumed by Tiptap's `ListKeymap` (it sinks the paragraph into the
+  last item, 3.30+). Like Tab inside a list item that can be sunk (any but the
+  first), it therefore does not move focus out of the editor at that position.
+  In a list's first item and everywhere else, Tab still falls through. Accepted
+  as inherited (#291); the editor does not remove the binding.
+- The task item checkbox name is English only ("Task item checkbox for …"):
+  the preset sets no `a11y.checkboxLabel`, and since Tiptap 3.30 the same text
+  also renders as visually hidden label text.
 - JSON is validated against the active schema on every load. A stored document
   whose node types are no longer registered fails as a recoverable `parse`
   error and leaves the model untouched; it is never silently truncated. Keep
