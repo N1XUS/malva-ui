@@ -8,6 +8,7 @@ import {
   input,
   model,
   signal,
+  viewChildren,
   ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -38,6 +39,8 @@ import { MLV_RATING_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
  * - Hover preview highlights stars up to the cursor.
  * - Half-star precision via clip-path technique when `step="0.5"`.
  * - Keyboard: ArrowRight/ArrowLeft step up/down, Home for min, End for max.
+ *   Focus and fill follow the value: the star covering it takes focus and the
+ *   single tab stop.
  * - Integrates with signal, reactive, and template-driven Angular forms.
  *
  * @example Basic
@@ -180,7 +183,17 @@ export class MlvRating
    */
   readonly value = model(0);
 
-  /** Tracks the hover preview value (0 = not hovering). */
+  /**
+   * Tracks the pointer's hover preview value (0 = not hovering).
+   *
+   * Pointer-only. Focus used to write it too, pinning the preview to the
+   * focused star, and because it outranks `value()` in {@link _displayValue}
+   * the fill then ignored every arrow key (#314). With a roving tab stop the
+   * focused star is derived from the value anyway, so a focus preview could
+   * only ever repeat the value or contradict it — a half value showed as the
+   * whole star above it, and an unrated control showed one star. A keyboard
+   * change clears it, so the newer input is the one on screen.
+   */
   protected readonly _hoverValue = signal<number>(0);
 
   /** The value visually displayed — hover preview takes precedence. */
@@ -204,6 +217,22 @@ export class MlvRating
     if (value <= 0) return 0;
     return Math.min(this.max() - 1, Math.ceil(value) - 1);
   });
+
+  /**
+   * @private The star `<button>`s in order, for moving focus onto the one
+   * holding the roving tab stop after a keyboard change.
+   */
+  private readonly _stars = viewChildren<ElementRef<HTMLButtonElement>>('star');
+
+  /**
+   * @private `true` only for the duration of the `focus()` call in
+   * {@link _focusActiveStar}. The star losing focus to it is not the user
+   * leaving the control, so its `blur` must not mark the field touched — the
+   * arrow keys never moved focus before #314, and touched still waits for
+   * focus to leave the rating. `focus()` dispatches `blur` synchronously, so
+   * the flag cannot outlive the move it describes.
+   */
+  private _movingFocusBetweenStars = false;
 
   /** Whether the control holds a clearable value — A non-zero rating is set. */
   readonly hasValue = computed(() => this.value() > 0);
@@ -300,12 +329,22 @@ export class MlvRating
     return Array.prototype.indexOf.call(siblings, star) + 1;
   }
 
-  /** @internal */
+  /**
+   * @internal Commits the clicked star, or its leading half under half-star
+   * precision.
+   *
+   * The half test needs a pointer position, and only a pointer click has one:
+   * `detail` is the click count, so `0` means Enter / Space on the focused
+   * star or a script `click()`. Chrome sends those with `offsetX` 0, which
+   * `_isLeadingHalf` reads as the leading half in LTR and the trailing half in
+   * RTL — so Enter on "Rate 3 out of 5" committed 2.5 in LTR only. With no
+   * pointer, the whole star its label names is committed.
+   */
   protected _onStarClick(starIndex: number, event: MouseEvent): void {
     if (this.readonly() || this.computedDisabled()) return;
     const el = event.currentTarget as HTMLElement;
     const newValue =
-      this.step() === 0.5 && this._isLeadingHalf(event, el)
+      this.step() === 0.5 && event.detail > 0 && this._isLeadingHalf(event, el)
         ? starIndex - 0.5
         : starIndex;
     this.value.set(newValue);
@@ -348,17 +387,43 @@ export class MlvRating
     if (next !== null) {
       event.preventDefault();
       this.value.set(next);
+      this._hoverValue.set(0);
+      this._focusActiveStar();
     }
   }
 
-  /** @internal */
-  protected _onStarFocus(starIndex: number): void {
-    this._hoverValue.set(starIndex);
+  /**
+   * @private Moves focus onto the star holding the roving tab stop, so focus
+   * follows the stop the arrow keys just moved instead of staying on a star
+   * that is now `tabindex="-1"` (#314).
+   *
+   * Only when focus is already inside this rating — on a star, or on the
+   * `tabindex="-1"` host a click between two stars focuses. A keydown reaching
+   * the host while focus is elsewhere (a script-dispatched event) changes the
+   * value and leaves focus where it is. The focused element is read from the
+   * host's own root, so a rating inside a shadow root sees the star and not
+   * the shadow host.
+   */
+  private _focusActiveStar(): void {
+    const host = this._elementRef.nativeElement;
+    const focused = (host.getRootNode() as Partial<DocumentOrShadowRoot>)
+      .activeElement;
+    if (!focused || !host.contains(focused)) return;
+
+    const star = this._stars()[this._activeIndex()]?.nativeElement;
+    if (!star || star === focused) return;
+
+    this._movingFocusBetweenStars = true;
+    try {
+      star.focus();
+    } finally {
+      this._movingFocusBetweenStars = false;
+    }
   }
 
   /** @internal */
   protected _onStarBlur(): void {
     this._hoverValue.set(0);
-    this._markTouched();
+    if (!this._movingFocusBetweenStars) this._markTouched();
   }
 }

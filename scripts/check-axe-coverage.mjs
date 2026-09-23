@@ -318,7 +318,6 @@ export const ROLLOUT_PENDING = [
   },
   'core-pin-input',
   'core-popup',
-  'core-rating',
   'core-scrollbar',
   'core-scrubber',
   {

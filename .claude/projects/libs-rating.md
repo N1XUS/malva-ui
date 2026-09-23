@@ -38,19 +38,30 @@ The inherited `resolvedState` computed signal keeps visual validation consistent
 
 ### Keyboard Navigation
 
-| Key                   | Action            |
-| --------------------- | ----------------- |
-| ArrowRight / ArrowUp  | Increment by step |
-| ArrowLeft / ArrowDown | Decrement by step |
-| Home                  | Set to 0          |
-| End                   | Set to max        |
+| Key                   | Action                                                               |
+| --------------------- | -------------------------------------------------------------------- |
+| ArrowRight / ArrowUp  | Increment by step                                                    |
+| ArrowLeft / ArrowDown | Decrement by step                                                    |
+| Home                  | Set to 0                                                             |
+| End                   | Set to max                                                           |
+| Enter / Space         | Commit the focused star's whole value (native `<button>` activation) |
 
 The horizontal pair is **logical and scoped to the host** (#147). `_onHostKeydown` switches on `MlvRtlService.normalizeArrowKey(event, this._direction())`, the same cached signal the paint reads — so ArrowLeft increments under `<html dir="rtl">`, under a `[dir="rtl"]` ancestor with the document still LTR, and inside an overlay pane (CDK stamps `dir` on every one). Paint, hit test and keyboard can no longer disagree. The vertical pair, Home and End never mirror.
 
+**Focus and fill follow the value (#314).** A handled key commits `value`, clears `_hoverValue` and calls `_focusActiveStar()`, which focuses the star at `_activeIndex()` — the one now holding `tabindex="0"`:
+
+- Whole stars: 2 → ArrowRight ×2 → 4, star 4 focused, four stars filled. Half stars (`step="0.5"`): each press moves 0.5; 2.5 focuses **star 3** (the star the value sits in, `Math.ceil(value) - 1`) and paints it half; 2.5 → 3 keeps focus on star 3. Value 0 (Home, or a decrement to 0) puts focus and the stop on **star 1** with every star empty — the rating is cleared, not "one star".
+- Only moves focus that is **already inside** the rating — on a star, or on the `tabindex="-1"` host a click between stars focuses. A keydown dispatched on the host while focus is elsewhere changes the value and leaves focus alone. The focused element is read from `host.getRootNode()`, so a rating inside a shadow root works — there `document.activeElement` is the shadow host, outside the rating, and focus would stay behind (pinned by `rating-keyboard.spec.ts` § _inside a shadow root_).
+- **Touched is unchanged:** the arrow keys never moved focus before, and touched still waits for focus to leave the rating. The star losing focus to `_focusActiveStar()` would otherwise mark it through `_onStarBlur`, so `_movingFocusBetweenStars` is set for the synchronous `focus()` call only. Dirty follows the value write exactly as before. Pointer paths (clicking another star, Tab away) are untouched.
+- **Enter / Space commit the whole star** the focused button's label names (#314, adjacent). They reach `_onStarClick` as the browser's own `click`, with `detail === 0` and — measured in Chrome — `offsetX` 0, which `_isLeadingHalf` read as the leading half in LTR and the trailing half in RTL: under `step="0.5"`, Enter on "Rate 3 out of 5" at 3 committed **2.5** in LTR and 3 in RTL. The half test now runs only when `event.detail > 0` (a pointer click carries its click count); keyboard activation and script `click()` commit `starIndex`. A spec dispatching a synthetic pointer click that should hit-test a half must pass `detail: 1` — `new MouseEvent('click')` defaults to `0`.
+- `readonly` / `disabled`: the handler returns before anything happens; the stars are natively `disabled` and the host has no `tabindex`, so nothing can hold focus to begin with.
+- Before #314 focus stayed on the old star (now `-1`, so Tab from it reached the new stop — two stops inside one control) and the fill did not move at all, because focus pinned the hover preview; see _Hover preview_. The host-dispatched keyboard suites in `rating.spec.ts` never focused a star, which is why nothing caught it; `rating-keyboard.spec.ts` focuses the tab stop first, as a user does, and covers every key (Enter / Space included), half steps, 0, global and scoped RTL, a shadow root, readonly/disabled, hover interplay and touched/dirty. A spec stubbing `MouseEvent.prototype.offsetX` restores jsdom's own getter afterwards rather than deleting it — Vitest shares one jsdom window across the files a worker runs. Verified in Chrome on the docs page with trusted key presses: focus, `tabindex`, fill and `aria-pressed` move together, a single Tab leaves the rating, and `ng-touched` appears only then.
+
 ### Focus / tab order
 
-- **Single tab stop (roving tabindex):** only the star covering the current value is tabbable (`tabindex="0"`); all other stars are `-1` (and all `-1` when read-only or disabled). Arrow keys change the value; the host (`role="group"`) handles the key events. Previously every star was `tabindex="0"`, producing up to `max` tab stops.
-- Star buttons keep toggle-button semantics (`aria-pressed`) rather than `role="radio"`, because half-star precision (`step="0.5"`) does not map cleanly onto a discrete radio group.
+- **Single tab stop (roving tabindex):** only the star covering the current value is tabbable (`tabindex="0"`); all other stars are `-1` (and all `-1` when read-only or disabled). Arrow keys change the value and move focus onto the new stop (above); the host (`role="group"`) handles the key events. Previously every star was `tabindex="0"`, producing up to `max` tab stops.
+- Focusing a star changes nothing on screen — the fill shows `value()`. There is no focus preview (removed in #314).
+- Star buttons keep toggle-button semantics (`aria-pressed`) rather than `role="radio"`, because half-star precision (`step="0.5"`) does not map cleanly onto a discrete radio group. `aria-pressed` is `value() >= star`, so at 2.5 the focused star 3 reads "not pressed".
 
 ### Hover preview
 
@@ -60,6 +71,7 @@ The horizontal pair is **logical and scoped to the host** (#147). `_onHostKeydow
 - The geometry read is on the half-star path only: `step() === 0.5` short-circuits before `_isLeadingHalf`, so a whole-star rating performs no layout read during a hover sweep.
 - Covered by the `MlvRating hover preview` suite in `rating.spec.ts`; the delegated shape itself (one host listener, none per star, flat as `max` grows) is pinned by `MlvRating pointer-listener delegation`, since hover behaviour is identical either way and every behavioural test passes against the per-star form.
 - Host `(mouseleave)` still clears the preview and remains a host binding — it fires once per sweep.
+- **`_hoverValue` is pointer-only (#314).** Star focus used to write it too, pinning the preview to the focused star; since it outranks `value()` in `_displayValue`, the fill then ignored every arrow key. With a roving stop the focused star is derived from the value, so a focus preview could only repeat the value or contradict it (2.5 painted as 3, an unrated control as 1). A keyboard change clears the preview so the newer input is the one on screen; the next `mousemove` previews again and `mouseleave` restores the committed value. Star `blur` still clears it.
 
 ### Direction (RTL)
 
@@ -72,6 +84,10 @@ The horizontal pair is **logical and scoped to the host** (#147). `_onHostKeydow
 - **Why not the CSS-token approach `mlv-compare` uses.** Compare clips its own inline axis entirely in SCSS, with `--mlv-inline-direction` zeroing one `inset()` side (`libs-compare.md` → _Clipping_), which mirrors on a scoped `[dir]` at any depth with no TypeScript. Rating cannot borrow it: `_isLeadingHalf` has to read the direction in TypeScript regardless, because `offsetX` is physical — so a CSS-side sign would give the paint a **second, independent** direction source, which is precisely the two-sources split #127 was. Both sides reading one `_direction()` is the invariant the fix buys. Compare has no pointer half-test, so one source is all it needs. That is why the two components clip the same axis by different mechanisms; it is deliberate, not drift.
 - The star glyph itself must **not** mirror — a star is near-symmetric, and `transform: scaleX(var(--mlv-inline-direction))` on the icon box would fix the fill indirectly and mislead the next reader.
 - Covered by the `MlvRating direction` suite in `rating.spec.ts`: global flip, a repaint driven only by the direction signal (no `detectChanges()`), a scoped `[dir=rtl]` ancestor with the document still LTR, pointer hit-test/paint agreement under **both** a global and a scoped flip, the keyboard axes, the scoped-`[dir]` keyboard mirror (#147) and a `dir="ltr"` island under an RTL document.
+
+### Axe coverage
+
+`rating-a11y.spec.ts` sweeps every state that changes the markup (#314): unrated, a value committed with the keyboard (focus on the new stop), a half value reached with the keyboard, readonly with a half value, disabled, `state="error"`, and a scoped `[dir="rtl"]`. All clean with no narrowing, so `core-rating` left `ROLLOUT_PENDING` in `scripts/check-axe-coverage.mjs`.
 
 ---
 
