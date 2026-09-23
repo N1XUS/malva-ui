@@ -86,4 +86,41 @@ describe('MlvNotificationItem', () => {
 
     expect(pauseSpy).toHaveBeenCalled();
   });
+
+  /**
+   * An action button is a native `<button>`, so a real browser answers Enter
+   * and Space with a `click` of its own (#299). jsdom synthesises none, so the
+   * keydown → click → keyup sequence Chrome dispatches for one trusted press is
+   * replayed by hand. "Undo" used to run twice: once for the keydown, once for
+   * the click the browser made from it.
+   */
+  describe('action keyboard activation', () => {
+    for (const key of ['Enter', ' ']) {
+      it(`runs the action once per ${JSON.stringify(key)} press`, () => {
+        const action = vi.fn();
+        render(makeNotification({ actions: [{ label: 'Undo', action }] }));
+        const button = hostEl.querySelector(
+          '.mlv-notification-item__actions button',
+        ) as HTMLButtonElement;
+        expect(button.textContent?.trim()).toBe('Undo');
+
+        const keydown = new KeyboardEvent('keydown', {
+          key,
+          bubbles: true,
+          cancelable: true,
+        });
+        button.dispatchEvent(keydown);
+        if (!keydown.defaultPrevented) {
+          button.dispatchEvent(
+            new MouseEvent('click', { bubbles: true, cancelable: true }),
+          );
+        }
+        button.dispatchEvent(
+          new KeyboardEvent('keyup', { key, bubbles: true, cancelable: true }),
+        );
+
+        expect(action).toHaveBeenCalledTimes(1);
+      });
+    }
+  });
 });

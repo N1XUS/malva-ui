@@ -1,13 +1,12 @@
 import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MlvSlider } from '@malva-ui/core/slider';
-import { MlvClick } from '@malva-ui/cdk';
 import { MlvButton } from '@malva-ui/core/button';
 
 @Component({
   selector: 'docs-slider-forms-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvSlider, ReactiveFormsModule, MlvClick, MlvButton],
+  imports: [MlvSlider, ReactiveFormsModule, MlvButton],
   templateUrl: './index.html',
 })
 export default class SliderFormsExampleComponent {

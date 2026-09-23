@@ -93,7 +93,7 @@ Template/component content replaces the standard title. `description`, tone icon
 
 All close sources delegate to `MlvAbstractToastService.close()`. The shared container removes the item, the service completes the matching `MlvNotificationRef`, and an empty position overlay is disposed after the shared `200ms` leave interval. Calling `MlvNotificationRef.close()` repeatedly is safe.
 
-Action callbacks run first and then automatically request close.
+Action callbacks run first and then automatically request close. Action buttons are native `<button mlvButton>` bound with `(click)`, so one Enter / Space press runs the callback once — the former `(mlvClick)` binding ran it twice per key press (#299).
 
 #### Announcement
 
@@ -270,17 +270,16 @@ export class ReleaseContentComponent {
 
 ## Dependencies
 
-| Package                       | Usage                                                                                    |
-| ----------------------------- | ---------------------------------------------------------------------------------------- |
-| `@malva-ui/core/toast`        | Abstract service/item, shared container, `MlvToastRef`, config and positioning contracts |
-| `@malva-ui/core/button`       | Dismiss and action buttons                                                               |
-| `@malva-ui/core/chip`         | Tone icon badge                                                                          |
-| `@malva-ui/cdk/accessibility` | Accessible click handling                                                                |
-| `@malva-ui/cdk/utils`         | Shared tone type                                                                         |
-| `@malva-ui/i18n`              | Dismiss label                                                                            |
-| `@angular/core`               | Component, signals, templates, tokens, and injectors                                     |
-| `@angular/common`             | `NgTemplateOutlet`, `NgComponentOutlet`                                                  |
-| `@lucide/angular`             | Tone and dismiss icons                                                                   |
+| Package                 | Usage                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| `@malva-ui/core/toast`  | Abstract service/item, shared container, `MlvToastRef`, config and positioning contracts |
+| `@malva-ui/core/button` | Dismiss and action buttons                                                               |
+| `@malva-ui/core/chip`   | Tone icon badge                                                                          |
+| `@malva-ui/cdk/utils`   | Shared tone type                                                                         |
+| `@malva-ui/i18n`        | Dismiss label                                                                            |
+| `@angular/core`         | Component, signals, templates, tokens, and injectors                                     |
+| `@angular/common`       | `NgTemplateOutlet`, `NgComponentOutlet`                                                  |
+| `@lucide/angular`       | Tone and dismiss icons                                                                   |
 
 ## Testing
 

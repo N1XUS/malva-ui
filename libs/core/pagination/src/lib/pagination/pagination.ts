@@ -21,7 +21,6 @@ import { NgTemplateOutlet } from '@angular/common';
 import { MlvButton } from '@malva-ui/core/button';
 import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import { MlvInput } from '@malva-ui/core/input';
-import { MlvClick } from '@malva-ui/cdk/accessibility';
 import { mlvNextId } from '@malva-ui/cdk/utils';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import {
@@ -95,7 +94,6 @@ const DEFAULT_ITEMS_PER_PAGE_OPTIONS = [10, 30, 60, 100, Infinity];
     LucideChevronLeft,
     LucideChevronRight,
     MlvInput,
-    MlvClick,
     MlvPopup,
     MlvDropdownPanel,
     MlvPopupTrigger,

@@ -2,12 +2,11 @@ import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { MlvButton } from '@malva-ui/core/button';
 import type { MlvToastPosition } from '@malva-ui/core/toast';
 import { MlvToastService } from '@malva-ui/core/toast';
-import { MlvClick } from '@malva-ui/cdk/accessibility';
 
 @Component({
   selector: 'docs-toast-positioning-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvButton, MlvClick],
+  imports: [MlvButton],
   templateUrl: './index.html',
 })
 export default class ToastPositioningExampleComponent {
