@@ -153,7 +153,7 @@ Focus targets are read from the live pane (`[role="menuitem"]:not(:disabled)`), 
 ## Accessibility
 
 - Trigger: native `<button type="button">` with `aria-haspopup="menu"`, `aria-expanded`, `aria-controls` (only while open), `aria-label` / `aria-labelledby` from the inputs. **Consumers must supply an accessible name.**
-- Menu: `ul[role="menu"][tabindex="-1"]` labelled by the trigger (`aria-labelledby`); `li[role="none"]`; actions are `button[role="menuitem"][tabindex="-1"]` with `aria-label` = `label`, native `disabled` + `aria-disabled` (from `MlvButton`), and an `[mlvTooltip]` carrying the same label (`aria-describedby` while visible).
+- Menu: `ul[role="menu"][tabindex="-1"]` labelled by the trigger (`aria-labelledby`); `li[role="none"]`; actions are `button[role="menuitem"][tabindex="-1"]` with `aria-label` = `label`, native `disabled` + `aria-disabled` (from `MlvButton`), and an `[mlvTooltip]` carrying the same label (visual only: its text equals the `aria-label`, so it adds no `aria-describedby` — #321).
 - Icons: the default trigger glyph, the close glyph (and its wrapper) and every action icon are `aria-hidden="true"`.
 - Reduced motion: `mixins.reduced-motion` on the block (its `[class*=' mlv-speed-dial__']` selector also reaches the mask backdrop) plus an explicit `transition-delay: 0ms !important` on `.mlv-speed-dial__item`; the JS side skips the settle wait.
 

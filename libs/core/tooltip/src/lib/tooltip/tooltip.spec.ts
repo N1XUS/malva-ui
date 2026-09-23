@@ -1,4 +1,10 @@
-import { ApplicationRef, Component, signal } from '@angular/core';
+import {
+  ApplicationRef,
+  Component,
+  Directive,
+  input,
+  signal,
+} from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -18,6 +24,7 @@ import {
   MlvDialogService,
 } from '@malva-ui/core/dialog';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvTooltip } from './tooltip';
 import type { MlvTooltipPlacement } from './tooltip.types';
 
@@ -175,21 +182,29 @@ describe('MlvTooltip', () => {
     expect(overlayContainerEl.querySelector('[role="tooltip"]')).toBeNull();
   });
 
-  it('should set aria-describedby on host when tooltip is shown', async () => {
+  // #321 (D12): these two asserted the old contract — the panel's own
+  // `mlv-tooltip-*` id written on show, the attribute removed on hide. The host
+  // is now described from init through `AriaDescriber`'s hidden element, which
+  // is not the (aria-hidden) panel and outlives it.
+  it('describes the host with its text while shown, through an element that is not the panel', async () => {
     triggerEl.nativeElement.dispatchEvent(new MouseEvent('mouseenter'));
     vi.runAllTimers();
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(
-      triggerEl.nativeElement.getAttribute('aria-describedby'),
-    ).toBeTruthy();
-    expect(triggerEl.nativeElement.getAttribute('aria-describedby')).toMatch(
-      /^mlv-tooltip-/,
-    );
+    const ids = (
+      triggerEl.nativeElement.getAttribute('aria-describedby') ?? ''
+    ).split(/\s+/);
+    expect(ids).toHaveLength(1);
+    const description = document.getElementById(ids[0]);
+    expect(description?.textContent).toBe('Test tooltip');
+    expect(overlayContainerEl.contains(description)).toBe(false);
   });
 
-  it('should remove aria-describedby when tooltip is hidden', async () => {
+  it('keeps the description after the tooltip is hidden', async () => {
+    const before = triggerEl.nativeElement.getAttribute('aria-describedby');
+    expect(before).toBeTruthy();
+
     triggerEl.nativeElement.dispatchEvent(new MouseEvent('mouseenter'));
     vi.runAllTimers();
     fixture.detectChanges();
@@ -200,7 +215,10 @@ describe('MlvTooltip', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(triggerEl.nativeElement.getAttribute('aria-describedby')).toBeNull();
+    expect(overlayContainerEl.querySelector('[role="tooltip"]')).toBeNull();
+    expect(triggerEl.nativeElement.getAttribute('aria-describedby')).toBe(
+      before,
+    );
   });
 
   it('should keep the tooltip open while the pointer is over the panel (hoverable)', async () => {
@@ -794,5 +812,437 @@ describe('MlvTooltip — Escape inside an MlvDialogService dialog', () => {
     await stabilize();
 
     expect(ref.animationState()).toBe('leave');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Description (#321, D12)
+//
+// The directive used to write `aria-describedby="<panel id>"` over whatever the
+// host carried when the panel attached — `tooltipDelay` ms after hover or
+// focus — and remove the attribute outright on hide. So a host's own
+// description was replaced while the tooltip showed and gone for good after,
+// a screen reader landing on the host by focus spoke it before the description
+// existed, and empty content still showed a bubble and described the host with
+// it. The description is now registered at init, alongside the host's own ids,
+// and removed on destroy; empty content shows and describes nothing.
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvTooltip],
+  template: `
+    <span id="rules">At least 12 characters</span>
+    @if (present()) {
+      <button
+        id="described"
+        aria-describedby="rules"
+        [mlvTooltip]="text()"
+        [tooltipDelay]="delay()"
+        [tooltipDisabled]="disabled()"
+        [tooltipArrow]="arrow()"
+      >
+        Password
+      </button>
+    }
+  `,
+})
+class DescribedHostComponent {
+  readonly present = signal(true);
+  readonly text = signal('Use a passphrase');
+  readonly disabled = signal(false);
+  readonly arrow = signal(true);
+  readonly delay = signal(300);
+}
+
+@Component({
+  imports: [MlvTooltip],
+  template: `
+    <button id="bare" [mlvTooltip]="text()" [tooltipDelay]="0">Bare</button>
+  `,
+})
+class BareHostComponent {
+  readonly text = signal('Use a passphrase');
+}
+
+@Component({
+  imports: [MlvTooltip],
+  template: `
+    <button
+      id="named"
+      aria-label="Delete item"
+      [mlvTooltip]="'Delete item'"
+      [tooltipDelay]="0"
+    >
+      <span aria-hidden="true">×</span>
+    </button>
+  `,
+})
+class NamedHostComponent {}
+
+@Component({
+  imports: [MlvTooltip],
+  template: `
+    @if (first()) {
+      <button id="first" [mlvTooltip]="'Shared hint'">First</button>
+    }
+    <button id="second" [mlvTooltip]="'Shared hint'">Second</button>
+  `,
+})
+class SharedHostComponent {
+  readonly first = signal(true);
+}
+
+/**
+ * Writes `aria-describedby` through a host binding, as a directive co-hosted
+ * with `[mlvTooltip]` would. Angular writes an element's host bindings after
+ * the effects of the view the element sits in, so a tooltip registering from
+ * a plain `effect` would be overwritten by this on the first render.
+ */
+@Directive({
+  selector: '[mlvTestOwnDescription]',
+  host: { '[attr.aria-describedby]': 'mlvTestOwnDescription()' },
+})
+class OwnDescriptionDirective {
+  readonly mlvTestOwnDescription = input<string | null>(null);
+}
+
+/**
+ * A component whose own host binding writes `aria-describedby` — the shape of
+ * `mlv-radio-group` and `fieldset[mlvFieldset]` with a message showing at init.
+ */
+@Component({
+  selector: 'mlv-test-self-described',
+  host: { '[attr.aria-describedby]': '"rules"' },
+  template: 'Self described',
+})
+class SelfDescribedComponent {}
+
+@Component({
+  imports: [MlvTooltip, OwnDescriptionDirective, SelfDescribedComponent],
+  template: `
+    <span id="rules">At least 12 characters</span>
+    <button
+      id="cohosted"
+      [mlvTestOwnDescription]="'rules'"
+      [mlvTooltip]="'Use a passphrase'"
+    >
+      Password
+    </button>
+    <mlv-test-self-described id="self" [mlvTooltip]="'Use a passphrase'" />
+  `,
+})
+class HostBoundDescriptionComponent {}
+
+/** The host's `aria-describedby` split into its ids. */
+function describedByIds(element: Element): string[] {
+  return (element.getAttribute('aria-describedby') ?? '')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * What each `aria-describedby` id resolves to in the document, joined —
+ * `<missing id>` for an id that names nothing, which is the dangling reference
+ * axe reports as `aria-valid-attr-value`.
+ */
+function describedByText(element: Element): string {
+  return describedByIds(element)
+    .map(
+      (id) =>
+        document.getElementById(id)?.textContent?.trim() ?? `<missing ${id}>`,
+    )
+    .join(' | ');
+}
+
+describe('MlvTooltip — description', () => {
+  let overlayContainer: OverlayContainer;
+
+  /** Number of tooltip panes currently attached. */
+  const tooltips = () =>
+    overlayContainer.getContainerElement().querySelectorAll('.mlv-tooltip')
+      .length;
+
+  async function flush(fixture: ComponentFixture<unknown>): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    await TestBed.configureTestingModule({
+      imports: [
+        DescribedHostComponent,
+        BareHostComponent,
+        NamedHostComponent,
+        SharedHostComponent,
+        HostBoundDescriptionComponent,
+      ],
+    }).compileComponents();
+    overlayContainer = TestBed.inject(OverlayContainer);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    overlayContainer.ngOnDestroy();
+  });
+
+  async function createDescribed(): Promise<{
+    fixture: ComponentFixture<DescribedHostComponent>;
+    host: () => HTMLButtonElement;
+  }> {
+    const fixture = TestBed.createComponent(DescribedHostComponent);
+    await flush(fixture);
+    const root = fixture.nativeElement as HTMLElement;
+    return {
+      fixture,
+      host: () => root.querySelector('#described') as HTMLButtonElement,
+    };
+  }
+
+  it('adds its description beside the host’s own at init, before any hover or focus', async () => {
+    const { host } = await createDescribed();
+
+    expect(describedByIds(host())[0]).toBe('rules');
+    expect(describedByText(host())).toBe(
+      'At least 12 characters | Use a passphrase',
+    );
+    expect(tooltips()).toBe(0);
+  });
+
+  it('describes the host the moment it takes focus, not after tooltipDelay (D12)', async () => {
+    const { fixture, host } = await createDescribed();
+
+    host().focus();
+    host().dispatchEvent(new FocusEvent('focusin'));
+    await flush(fixture);
+
+    // The show is still pending; the description is already there.
+    expect(tooltips()).toBe(0);
+    expect(describedByText(host())).toBe(
+      'At least 12 characters | Use a passphrase',
+    );
+  });
+
+  it('keeps the host’s own description while shown and after hide', async () => {
+    const { fixture, host } = await createDescribed();
+
+    host().dispatchEvent(new FocusEvent('focusin'));
+    vi.runAllTimers();
+    await flush(fixture);
+    expect(tooltips()).toBe(1);
+    expect(describedByText(host())).toBe(
+      'At least 12 characters | Use a passphrase',
+    );
+
+    host().dispatchEvent(new FocusEvent('focusout'));
+    await flush(fixture);
+    expect(tooltips()).toBe(0);
+    expect(describedByText(host())).toBe(
+      'At least 12 characters | Use a passphrase',
+    );
+  });
+
+  it('gives the host back exactly its own aria-describedby when destroyed', async () => {
+    const { fixture, host } = await createDescribed();
+    const detached = host();
+    const token = describedByIds(detached)[1];
+
+    fixture.componentInstance.present.set(false);
+    await flush(fixture);
+
+    expect(detached.getAttribute('aria-describedby')).toBe('rules');
+    // Nothing else referenced that text, so its element is gone too.
+    expect(document.getElementById(token)).toBeNull();
+  });
+
+  it('removes the attribute entirely on destroy when the host had none of its own', async () => {
+    const fixture = TestBed.createComponent(BareHostComponent);
+    await flush(fixture);
+    const bare = (fixture.nativeElement as HTMLElement).querySelector(
+      '#bare',
+    ) as HTMLButtonElement;
+    expect(describedByText(bare)).toBe('Use a passphrase');
+
+    fixture.destroy();
+
+    expect(bare.hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  // Pins the client half of `afterRenderEffect`: a host binding on the same
+  // element is written after the view's effects, so under a plain `effect` the
+  // tooltip's id would be appended first and then overwritten (and its hidden
+  // element leaked). A template `[attr.aria-describedby]` would not show it —
+  // the template is written before the view's effects either way.
+  it.each([
+    ['a co-hosted directive', '#cohosted'],
+    ['the host component itself', '#self'],
+  ])(
+    'lands beside an aria-describedby that %s writes through a host binding at init',
+    async (_label, selector) => {
+      const fixture = TestBed.createComponent(HostBoundDescriptionComponent);
+      await flush(fixture);
+      const element = (fixture.nativeElement as HTMLElement).querySelector(
+        selector,
+      ) as HTMLElement;
+
+      expect(describedByIds(element)[0]).toBe('rules');
+      expect(describedByText(element)).toBe(
+        'At least 12 characters | Use a passphrase',
+      );
+    },
+  );
+
+  it('follows the text when it changes while hidden, leaving no stale description behind', async () => {
+    const { fixture, host } = await createDescribed();
+    const staleToken = describedByIds(host())[1];
+
+    fixture.componentInstance.text.set('Unstar');
+    await flush(fixture);
+
+    expect(describedByText(host())).toBe('At least 12 characters | Unstar');
+    expect(document.getElementById(staleToken)).toBeNull();
+  });
+
+  it('drops the description while tooltipDisabled and restores it after', async () => {
+    const { fixture, host } = await createDescribed();
+
+    fixture.componentInstance.disabled.set(true);
+    await flush(fixture);
+    expect(host().getAttribute('aria-describedby')).toBe('rules');
+
+    fixture.componentInstance.disabled.set(false);
+    await flush(fixture);
+    expect(describedByText(host())).toBe(
+      'At least 12 characters | Use a passphrase',
+    );
+  });
+
+  it.each([
+    ['empty', ''],
+    ['whitespace-only', '   '],
+  ])(
+    'shows no bubble and describes nothing for %s content',
+    async (_label, text) => {
+      const fixture = TestBed.createComponent(BareHostComponent);
+      fixture.componentInstance.text.set(text);
+      await flush(fixture);
+      const bare = (fixture.nativeElement as HTMLElement).querySelector(
+        '#bare',
+      ) as HTMLButtonElement;
+
+      bare.dispatchEvent(new MouseEvent('mouseenter'));
+      bare.dispatchEvent(new FocusEvent('focusin'));
+      vi.runAllTimers();
+      await flush(fixture);
+
+      expect(tooltips()).toBe(0);
+      expect(bare.hasAttribute('aria-describedby')).toBe(false);
+    },
+  );
+
+  it('adds no description that would only repeat the host’s aria-label', async () => {
+    const fixture = TestBed.createComponent(NamedHostComponent);
+    await flush(fixture);
+    const named = (fixture.nativeElement as HTMLElement).querySelector(
+      '#named',
+    ) as HTMLButtonElement;
+    expect(named.hasAttribute('aria-describedby')).toBe(false);
+
+    named.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.runAllTimers();
+    await flush(fixture);
+
+    // The bubble still shows for sighted users; the name already says it.
+    expect(tooltips()).toBe(1);
+    expect(named.hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('shares one description between hosts with the same text and keeps it while one remains', async () => {
+    const fixture = TestBed.createComponent(SharedHostComponent);
+    await flush(fixture);
+    const root = fixture.nativeElement as HTMLElement;
+    const first = root.querySelector('#first') as HTMLButtonElement;
+    const second = root.querySelector('#second') as HTMLButtonElement;
+
+    expect(describedByIds(first)).toEqual(describedByIds(second));
+    expect(describedByText(second)).toBe('Shared hint');
+
+    fixture.componentInstance.first.set(false);
+    await flush(fixture);
+
+    expect(first.hasAttribute('aria-describedby')).toBe(false);
+    expect(describedByText(second)).toBe('Shared hint');
+  });
+
+  it('hides the visible bubble from assistive tech, which reads the description instead', async () => {
+    const { fixture, host } = await createDescribed();
+
+    host().dispatchEvent(new MouseEvent('mouseenter'));
+    vi.runAllTimers();
+    await flush(fixture);
+
+    const panel = overlayContainer
+      .getContainerElement()
+      .querySelector('mlv-tooltip-panel');
+    expect(panel?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  describe('axe', () => {
+    // Real timers: axe schedules its own work, and a faked clock stalls it
+    // once the overlay pane is in the document.
+    beforeEach(() => vi.useRealTimers());
+
+    it('has no axe violations while idle, the host described from init', async () => {
+      const { host } = await createDescribed();
+      expect(describedByIds(host())).toHaveLength(2);
+
+      await expectNoAxeViolations(document.body);
+    });
+
+    it.each([
+      ['with its arrow', true],
+      ['without its arrow', false],
+    ])('has no axe violations while shown %s', async (_label, arrow) => {
+      const { fixture, host } = await createDescribed();
+      fixture.componentInstance.arrow.set(arrow);
+      fixture.componentInstance.delay.set(0);
+      await flush(fixture);
+
+      host().dispatchEvent(new MouseEvent('mouseenter'));
+      // `tooltipDelay` is 0: one macrotask runs the show timer.
+      await new Promise((resolve) => setTimeout(resolve));
+      await flush(fixture);
+      expect(tooltips()).toBe(1);
+      expect(
+        overlayContainer
+          .getContainerElement()
+          .querySelectorAll('.mlv-tooltip__arrow').length,
+      ).toBe(arrow ? 1 : 0);
+
+      // The pane is portaled out of the fixture, and the description lives in
+      // CDK's container on <body>: sweep the whole document.
+      await expectNoAxeViolations(document.body);
+    });
+
+    it('has no axe violations while disabled', async () => {
+      const { fixture, host } = await createDescribed();
+      fixture.componentInstance.disabled.set(true);
+      await flush(fixture);
+      expect(host().getAttribute('aria-describedby')).toBe('rules');
+
+      await expectNoAxeViolations(document.body);
+    });
+
+    it('has no axe violations with empty content', async () => {
+      const fixture = TestBed.createComponent(BareHostComponent);
+      fixture.componentInstance.text.set('');
+      await flush(fixture);
+      const bare = (fixture.nativeElement as HTMLElement).querySelector(
+        '#bare',
+      ) as HTMLButtonElement;
+      expect(bare.hasAttribute('aria-describedby')).toBe(false);
+
+      await expectNoAxeViolations(document.body);
+    });
   });
 });
