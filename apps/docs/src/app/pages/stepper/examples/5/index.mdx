@@ -2,4 +2,4 @@
 title: Semantic States
 ---
 
-Each `mlv-step` accepts a `state` — `completed`, `error`, or the default active/pending — to colour its indicator and connector. This order-status example marks step 1 completed, step 2 as an error, and opens on the in-progress step via `[initialIndex]="2"`.
+Each `mlv-step` accepts a `state` — `completed`, `error`, or the default active/pending — to colour its indicator and connector. This order-status example marks step 1 completed, step 2 as an error, and opens on the in-progress step via `[initialIndex]="2"`. `state` is decoration only: selecting Payment opens its panel and keeps the error indicator, because the open step is always the one at `activeIndex`, never a step's `state`.

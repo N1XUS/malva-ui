@@ -294,14 +294,34 @@ export class MlvStepper implements AfterContentInit {
     this._navigate(index);
   }
 
-  /** @protected Resolve the effective state for a given step. */
+  /**
+   * @protected Indicator state of `step`: its explicit `state` when set, else
+   * derived from its position against `activeIndex` — `completed` before it,
+   * `active` at it, `pending` after it.
+   *
+   * Decoration only. It styles the indicator, the label and the connector and
+   * never decides which step is selected: that is `_isSelected`, so a
+   * `state="error"` on the step the user is on keeps its panel open, and a
+   * `state="active"` on another step opens nothing.
+   */
   protected _stateFor(step: MlvStep): MlvStepState {
-    if (step.state()) return step.state() as MlvStepState;
+    const explicit = step.state();
+    if (explicit) return explicit;
     const active = this.activeIndex();
     const index = this._positionOf(step);
     if (index === active) return 'active';
     if (index < active) return 'completed';
     return 'pending';
+  }
+
+  /**
+   * @protected Whether `step` is the selected step — the one at `activeIndex`.
+   * The single source of `aria-selected`, the rendered horizontal panel and
+   * the open (`--active`, non-`inert`) vertical panel. A step's `state` is
+   * never consulted (#312).
+   */
+  protected _isSelected(step: MlvStep): boolean {
+    return this._positionOf(step) === this.activeIndex();
   }
 
   /** @protected Returns `true` if a step header is clickable. */

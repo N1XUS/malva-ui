@@ -34,8 +34,14 @@ export class MlvStep {
   readonly description = input<string | undefined>(undefined);
 
   /**
-   * Explicit state override. When provided, takes precedence over the derived
-   * state from the stepper's `activeIndex`.
+   * Explicit indicator state. When provided, it replaces the state the stepper
+   * derives from `activeIndex` for this step's indicator, label and connector.
+   *
+   * Decoration only: it never selects. The selected step — `aria-selected`,
+   * the open panel — is always the one at the stepper's `activeIndex`, so a
+   * step marked `'error'` or `'completed'` still opens when navigated to, and
+   * `'active'` on any other step styles its indicator and opens nothing.
+   * Choose the open step with `initialIndex` / `activeIndex`, not `state`.
    */
   readonly state = input<MlvStepState | undefined>(undefined);
 

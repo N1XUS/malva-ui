@@ -59,7 +59,7 @@
             [class.mlv-stepper__step-header--clickable]="_isClickable(step)"
             role="tab"
             [attr.aria-label]="step.label()"
-            [attr.aria-selected]="_stateFor(step) === 'active'"
+            [attr.aria-selected]="_isSelected(step)"
             [attr.aria-disabled]="!_isClickable(step) || null"
             (click)="_isClickable(step) && selectStep($index)"
             (keydown.enter)="_isClickable(step) && selectStep($index)"
@@ -165,12 +165,10 @@
           <!-- Content panel inline under labels — animated expand/collapse -->
           <div
             class="mlv-stepper__content-panel"
-            [class.mlv-stepper__content-panel--active]="
-              _stateFor(step) === 'active'
-            "
+            [class.mlv-stepper__content-panel--active]="_isSelected(step)"
             role="tabpanel"
             [attr.aria-label]="step.label()"
-            [attr.inert]="_stateFor(step) !== 'active' ? '' : null"
+            [attr.inert]="_isSelected(step) ? null : ''"
           >
             <div class="mlv-stepper__content-panel-inner">
               <div class="mlv-stepper__vertical-content">
@@ -217,7 +215,7 @@
           [class.mlv-stepper__step-header--clickable]="_isClickable(step)"
           role="tab"
           [attr.aria-label]="step.label()"
-          [attr.aria-selected]="_stateFor(step) === 'active'"
+          [attr.aria-selected]="_isSelected(step)"
           [attr.aria-disabled]="!_isClickable(step) || null"
           (click)="_isClickable(step) && selectStep($index)"
           (keydown.enter)="_isClickable(step) && selectStep($index)"
@@ -312,9 +310,9 @@
     </span>
   </div>
 
-  <!-- Shared content area below the header row -->
+  <!-- Shared content area below the header row: the selected step only -->
   @for (step of _stepList(); track step) {
-    @if (_stateFor(step) === 'active') {
+    @if (_isSelected(step)) {
       <div
         class="mlv-stepper__content-panel mlv-stepper__content-panel--active"
         role="tabpanel"

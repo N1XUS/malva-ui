@@ -11,7 +11,7 @@ Key features:
 - Horizontal layout: step headers in a row with connector lines; shared content panel below
 - Vertical layout: each step renders its own content inline below the header using a smooth `grid-template-rows` expand/collapse animation
 - Linear mode: forward navigation is blocked until steps are completed in order
-- Step states: `pending`, `active`, `completed`, `error` (auto-derived or explicitly overridden)
+- Step states: `pending`, `active`, `completed`, `error` — derived from `activeIndex`, or set per step as indicator decoration; selection always follows `activeIndex` alone (see _Explicit `state` is decoration_)
 - Deviative steps: warning-colored label/connector/badge overlay for alternate-path tracking
 - Deviation resolved: reverts connector to normal style when deviation is addressed
 - Mobile-responsive: at ≤640px the horizontal header row is hidden and replaced by a compact `Step N of M: <label>` counter
@@ -80,7 +80,9 @@ Imports:           NgTemplateOutlet
 | Member         | Description                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `activeIndex`  | `linkedSignal` over `_steps` — the active step's zero-based position once the steps have rendered (public and writable, but derive from it rather than set it, and never mirror it from `activeIndexChange`). Seeded from `initialIndex` in `ngAfterContentInit`; re-resolved by identity whenever the projected steps change. An out-of-range value is kept, with no step active, until the steps next change (see _Dynamic steps_). |
-| `_positions`   | `computed(...)` — `Map<MlvStep, number>` of every projected step's live position; `_stateFor` / `_isClickable` read it.                                                                                                                                                                                                                                                                                                               |
+| `_positions`   | `computed(...)` — `Map<MlvStep, number>` of every projected step's live position; `_stateFor` / `_isSelected` / `_isClickable` read it.                                                                                                                                                                                                                                                                                               |
+| `_isSelected`  | `(step) => boolean` — position `=== activeIndex()`. The **only** source of `aria-selected`, the rendered horizontal panel and the open (`--active`, non-`inert`) vertical panel. Never reads `step.state()` (#312).                                                                                                                                                                                                                   |
+| `_stateFor`    | `(step) => MlvStepState` — the step's explicit `state`, else derived (`completed` before `activeIndex`, `active` at it, `pending` after). Feeds the indicator, the step-header / vertical-label modifiers and the connector `--completed` — decoration only, never selection.                                                                                                                                                         |
 | `_stepList`    | `computed(() => this._steps())` — iterable array for the template `@for` loops, which `track step` by identity and read `$index` for numbering, `grid-row` and `selectStep`.                                                                                                                                                                                                                                                          |
 | `_hostClasses` | `computed(...)` — builds orientation modifier class string.                                                                                                                                                                                                                                                                                                                                                                           |
 
@@ -123,7 +125,8 @@ permitted tablist child — see the axe note under _Accessibility_).
   - Each indicator column and its matching body column are pinned to the same
     grid row via `[style.grid-row]="$index + 1"`, so the connector stays
     aligned with the label and the active (expanded) panel pushes the following
-    step down — preserving the interleaved appearance. Inactive panels use
+    step down — preserving the interleaved appearance. Every panel but the
+    selected step's (`_isSelected`) uses
     `[attr.inert]` (not bare `aria-hidden`) so their still-rendered focusable
     content is removed from both the a11y tree and the tab order (axe
     `aria-hidden-focus`).
@@ -135,7 +138,7 @@ permitted tablist child — see the axe note under _Accessibility_).
   **mobile counter** (`div.mlv-stepper__mobile-counter`, `aria-hidden="true"`,
   `Step N of M: <label>`, visible only at ≤40rem via CSS) and the **shared
   content panel** are siblings _below_ the tablist: an `@for` loop renders only
-  the active step's `ngTemplateOutlet` inside
+  the selected step's (`_isSelected`) `ngTemplateOutlet` inside
   `div.mlv-stepper__content-panel.mlv-stepper__content-panel--active`
   (`role="tabpanel"`, `[attr.aria-label]="step.label()"`).
 
@@ -148,6 +151,13 @@ permitted tablist child — see the axe note under _Accessibility_).
 | `error`     | `--error`                               | Negative-pale background + error-icon SVG + negative-colored label |
 | `pending`   | `--pending`                             | Neutral border + step number + secondary-colored label             |
 | deviative   | `--deviative`                           | Warning-colored label + warning-triangle badge overlay             |
+
+The matrix is the **indicator**, not the selection. The four state modifiers
+follow `_stateFor`, so an explicit `state` moves them: the selected step can
+carry `--error`, `--completed` or `--pending`, and a step with
+`state="active"` carries `--active` without being selected. Selection is
+`aria-selected` on the tab plus the rendered / `--active` content panel, all
+from `_isSelected` — no step-header modifier means "selected".
 
 ##### Connector state classes
 
@@ -173,14 +183,14 @@ Each `mlv-step` wraps its projected content inside an `<ng-template>`. The paren
 
 #### Inputs
 
-| Input               | Type                        | Default      | Description                                                                                                                                                                                                                  |
-| ------------------- | --------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `label`             | `string`                    | **required** | Step label displayed in the step header.                                                                                                                                                                                     |
-| `description`       | `string \| undefined`       | `undefined`  | Optional sub-label shown below the main label.                                                                                                                                                                               |
-| `state`             | `MlvStepState \| undefined` | `undefined`  | Explicit state override. When provided, takes precedence over the derived state from the stepper's `activeIndex`.                                                                                                            |
-| `optional`          | `BooleanInput` (coerced)    | `false`      | When `true`, shows an "Optional" tag below the label. In linear mode, optional steps can be skipped. Allows attribute usage: `<mlv-step optional>`.                                                                          |
-| `deviative`         | `BooleanInput` (coerced)    | `false`      | When `true`, marks this step as a deviative/alternate path. Renders a warning-colored triangle badge on the indicator and a dashed warning connector after the step. Allows attribute usage: `<mlv-step deviative>`.         |
-| `deviationResolved` | `BooleanInput` (coerced)    | `false`      | When `true` (and `deviative` is also true), the connector after this step reverts to its normal (solid, neutral) style, indicating the deviation has been addressed. Allows attribute usage: `<mlv-step deviationResolved>`. |
+| Input               | Type                        | Default      | Description                                                                                                                                                                                                                      |
+| ------------------- | --------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `label`             | `string`                    | **required** | Step label displayed in the step header.                                                                                                                                                                                         |
+| `description`       | `string \| undefined`       | `undefined`  | Optional sub-label shown below the main label.                                                                                                                                                                                   |
+| `state`             | `MlvStepState \| undefined` | `undefined`  | Explicit **indicator** state: replaces the derived one for this step's indicator, label and connector. Decoration only — never selects; the open step is always the one at `activeIndex` (see _Explicit `state` is decoration_). |
+| `optional`          | `BooleanInput` (coerced)    | `false`      | When `true`, shows an "Optional" tag below the label. In linear mode, optional steps can be skipped. Allows attribute usage: `<mlv-step optional>`.                                                                              |
+| `deviative`         | `BooleanInput` (coerced)    | `false`      | When `true`, marks this step as a deviative/alternate path. Renders a warning-colored triangle badge on the indicator and a dashed warning connector after the step. Allows attribute usage: `<mlv-step deviative>`.             |
+| `deviationResolved` | `BooleanInput` (coerced)    | `false`      | When `true` (and `deviative` is also true), the connector after this step reverts to its normal (solid, neutral) style, indicating the deviation has been addressed. Allows attribute usage: `<mlv-step deviationResolved>`.     |
 
 #### Outputs
 
@@ -232,12 +242,16 @@ interface MlvStepperAccessor {
 type MlvStepState = 'pending' | 'active' | 'completed' | 'error';
 ```
 
-| Value         | Meaning                                                                                             |
-| ------------- | --------------------------------------------------------------------------------------------------- |
-| `'pending'`   | Step not yet reached. Neutral styling.                                                              |
-| `'active'`    | Currently selected step. Accent-filled indicator, bold label.                                       |
-| `'completed'` | Step before the active index (auto-derived), or explicitly overridden. Checkmark icon in indicator. |
-| `'error'`     | Explicitly set to indicate a step with an error. Error-colored indicator and label.                 |
+| Value         | Meaning                                                                     |
+| ------------- | --------------------------------------------------------------------------- |
+| `'pending'`   | Derived for steps after `activeIndex`. Neutral styling.                     |
+| `'active'`    | Derived for the step at `activeIndex`. Accent-filled indicator, bold label. |
+| `'completed'` | Derived for steps before `activeIndex`. Checkmark icon in indicator.        |
+| `'error'`     | Never derived — only set explicitly. Error-colored indicator and label.     |
+
+Any value can also be set explicitly through `MlvStep.state`, and then only
+changes how that step looks. The type describes an indicator, never a
+selection — see _Explicit `state` is decoration_.
 
 ### `MlvStepperOrientation`
 
@@ -291,11 +305,12 @@ type MlvStepperOrientation = 'horizontal' | 'vertical';
 ### Vertical stepper
 
 ```html
-<mlv-stepper orientation="vertical" aria-label="Order processing steps">
-  <mlv-step label="Order placed" state="completed">
+<!-- initialIndex opens "Processing"; the steps before it derive `completed`. -->
+<mlv-stepper orientation="vertical" ariaLabel="Order processing steps" [initialIndex]="1">
+  <mlv-step label="Order placed">
     <p>Your order was received on Jan 10.</p>
   </mlv-step>
-  <mlv-step label="Processing" state="active">
+  <mlv-step label="Processing">
     <p>We are preparing your shipment.</p>
   </mlv-step>
   <mlv-step label="Shipped">
@@ -437,6 +452,43 @@ query):
 
 ---
 
+## Explicit `state` is decoration
+
+`MlvStep.state` changes how one step **looks**; it never selects (owner
+ruling D9, #312). Selection — `aria-selected`, the rendered horizontal panel,
+the open (`--active`, non-`inert`) vertical panel — is `_isSelected(step)`:
+the step's live position `=== activeIndex()`. The indicator, the step-header
+and vertical-label state modifiers and the connector `--completed` come from
+`_stateFor(step)`: the explicit `state` if set, else the derived one.
+
+| Arrangement                                                  | Selected / open                           | Indicator                                               |
+| ------------------------------------------------------------ | ----------------------------------------- | ------------------------------------------------------- |
+| Step at `activeIndex` with `state="error"`                   | that step                                 | `error`                                                 |
+| Step at `activeIndex` with `state="completed"` / `"pending"` | that step                                 | `completed` / `pending` — no bold `--active` label      |
+| `state="active"` on a step **not** at `activeIndex`          | the step at `activeIndex`                 | both show `active`                                      |
+| `state` set on the step the user is on (a failed validation) | unchanged; no `activeIndexChange` emitted | the new state                                           |
+| No `state` anywhere                                          | the step at `activeIndex`                 | derived — `completed` / `active` / `pending`, unchanged |
+
+- **Choose the open step with `initialIndex` / `activeIndex`**, never with
+  `state="active"`. Initially: `[initialIndex]`. Later: `selectStep(i)` (emits,
+  moves the roving tab stop, refuses forward moves in `linear` mode) or
+  `activeIndex.set(i)` (ignores `linear`, emits nothing, and the roving tab
+  stop does not follow it — #459).
+- **Selection has no header look of its own.** The step header's appearance is
+  `_stateFor` alone, so a selected step carrying an explicit non-`active`
+  state is told apart in the header row only by `aria-selected`: vertically
+  its panel opens under its own label; a horizontal stepper at ≤40rem names it
+  in the counter; at desktop width a horizontal row shows no selection cue on
+  that step. Adding one is left open as #480, not part of #312.
+- **Before #312** one string drove both: `_stateFor(step) === 'active'`
+  decided `aria-selected`, the panel and `inert`. An explicit state on the
+  step at `activeIndex` therefore left no tab selected and a blank content
+  area (docs examples 3 and 5), and `state="active"` on another step opened a
+  second panel. Migration: `docs/migrations/2026-09-stepper-state-decoration.md`.
+  Pinned by `stepper.spec.ts` → _explicit step state is decoration (#312)_.
+
+---
+
 ## Accessibility
 
 - **Direction (RTL): scoped, not per-document.** A horizontal stepper's `FocusKeyManager` takes `withHorizontalOrientation(this._direction())`, where `_direction` is `elementDirection(host)` — not the global `direction()` — and the manager is rebuilt when it flips. So step headers inside a `[dir="rtl"]` subtree step with `ArrowLeft` = next while the document stays LTR, and an LTR island under an RTL document does not mirror. A vertical stepper takes `withVerticalOrientation()` and is unaffected. `Home` / `End` mean first / last in both directions. Regressions in `stepper.spec.ts` → _scoped [dir] keyboard mirroring_.
@@ -444,13 +496,13 @@ query):
   - _Horizontal_: the tabpanel is a sibling rendered below the tablist, so it was never inside it.
   - _Vertical_: the tabpanels are rendered in the sibling `div.mlv-stepper__bodies` container (not a descendant of the tablist). The tablist itself uses `display: contents` and directly contains only the per-step indicator columns (bridged with `role="presentation"`) that wrap the tabs. Note plain role-less wrapper divs already "descend transparently" in axe's algorithm — the previous violation was caused solely by the tabpanels being owned by the tablist, which this structure fixes. See the vertical spec (`stepper.spec.ts`) for the axe `aria-required-children` assertion and the structural checks (only tabs owned; no tabpanel inside the tablist; presentation bridges).
 - The header container has `role="tablist"`, `tabindex="-1"`, and `[attr.aria-orientation]="orientation()"`. It carries the `(keydown)` handler (`_onHeaderKeydown`) that drives arrow navigation.
-- Each step header trigger has `role="tab"`, `[attr.aria-selected]`, `[attr.aria-disabled]`, and a **roving** `[attr.tabindex]` (see below). `aria-current` is intentionally **not** set — the tablist model uses `aria-selected` as the single source of active-step truth.
+- Each step header trigger has `role="tab"`, `[attr.aria-selected]`, `[attr.aria-disabled]`, and a **roving** `[attr.tabindex]` (see below). `aria-current` is intentionally **not** set — the tablist model uses `aria-selected` as the single source of active-step truth. `aria-selected` follows `activeIndex` only (`_isSelected`), never a step's explicit `state`.
 - **Roving tabindex + arrow-key navigation** (implements the WAI-ARIA tablist pattern):
   - Each `.mlv-stepper__step-header` carries the `[mlvStepHeader]` directive (`MlvStepHeader`, `exportAs: 'mlvStepHeader'`), which implements CDK `FocusableOption` (exposes `focus()`, a `disabled` getter from the `isDisabled` input, and a `tabIndex` signal). The template binds `[attr.tabindex]="sh.tabIndex()"`.
   - `MlvStepper` queries the headers via `viewChildren(MlvStepHeader)` and drives a `FocusKeyManager` (`.withWrap()`, `.withHomeAndEnd()`, `.skipPredicate(h => h.disabled)`, plus `withHorizontalOrientation(direction)` — the scoped `elementDirection(host)` — or `withVerticalOrientation()` depending on `orientation()`). The manager is rebuilt in an `effect()` when the headers, the orientation or the direction change and torn down via `DestroyRef`.
   - Only the focused/active header has `tabindex="0"`; all others are `-1`. Arrow keys (Left/Right when horizontal, Up/Down when vertical) move focus and the roving tabindex; `Home`/`End` jump to first/last; navigation **wraps**; non-clickable steps (future steps in linear mode) are skipped.
   - Navigation uses **manual activation**: arrows move focus only. `Enter`/`Space` on a focused header call `selectStep()` (`Space` also `preventDefault()`s page scroll). Selecting a step moves the roving tabindex to it via `_keyManager.updateActiveItem()`.
-- Content panels have `role="tabpanel"` and `[attr.aria-label]`; inactive vertical panels stay rendered and carry `[attr.inert]`.
+- Content panels have `role="tabpanel"` and `[attr.aria-label]`; every vertical panel but the selected step's stays rendered and carries `[attr.inert]`.
 - Step indicator circles and grip visuals are `aria-hidden="true"` — decorative.
 - `:focus-visible` ring uses `--mlv-border-focus` with `outline-offset: 0.125rem`.
 - Mobile counter (`div.mlv-stepper__mobile-counter`) is `aria-hidden="true"` since the actual header content is still in the DOM (just hidden via CSS at narrow viewports).

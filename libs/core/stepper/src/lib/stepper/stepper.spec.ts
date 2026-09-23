@@ -5,7 +5,7 @@ import { afterNextRender, Component, signal } from '@angular/core';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvStepper } from './stepper';
 import { MlvStep } from './step';
-import type { MlvStepperOrientation } from './stepper.types';
+import type { MlvStepperOrientation, MlvStepState } from './stepper.types';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 
@@ -534,9 +534,36 @@ class DynamicStepsHostComponent {
   readonly emitted: number[] = [];
 }
 
-describe('MlvStepper — projected steps change after init (#311)', () => {
-  const ORIENTATIONS: MlvStepperOrientation[] = ['horizontal', 'vertical'];
+// ─── Shared DOM readers for the #311 / #312 suites ──────────────────────────
 
+const ORIENTATIONS: MlvStepperOrientation[] = ['horizontal', 'vertical'];
+
+function tabs(host: HTMLElement): HTMLElement[] {
+  return Array.from(host.querySelectorAll<HTMLElement>('[role="tab"]'));
+}
+
+function selected(host: HTMLElement): (string | null)[] {
+  return tabs(host).map((tab) => tab.getAttribute('aria-selected'));
+}
+
+function tabIndexes(host: HTMLElement): (string | null)[] {
+  return tabs(host).map((tab) => tab.getAttribute('tabindex'));
+}
+
+/** Text of every panel a user can reach: rendered and not `inert`. */
+function openPanels(host: HTMLElement): string[] {
+  return Array.from(host.querySelectorAll<HTMLElement>('[role="tabpanel"]'))
+    .filter((panel) => !panel.hasAttribute('inert'))
+    .map((panel) => panel.textContent?.trim() ?? '');
+}
+
+async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+}
+
+describe('MlvStepper — projected steps change after init (#311)', () => {
   let warn: ReturnType<typeof vi.spyOn>;
   let error: ReturnType<typeof vi.spyOn>;
 
@@ -565,10 +592,6 @@ describe('MlvStepper — projected steps change after init (#311)', () => {
       .join('\n');
   }
 
-  function tabs(host: HTMLElement): HTMLElement[] {
-    return Array.from(host.querySelectorAll<HTMLElement>('[role="tab"]'));
-  }
-
   /**
    * What each indicator shows: its number, or `done` for the checkmark a
    * completed step renders instead of a number.
@@ -584,32 +607,11 @@ describe('MlvStepper — projected steps change after init (#311)', () => {
     );
   }
 
-  function selected(host: HTMLElement): (string | null)[] {
-    return tabs(host).map((tab) => tab.getAttribute('aria-selected'));
-  }
-
-  function tabIndexes(host: HTMLElement): (string | null)[] {
-    return tabs(host).map((tab) => tab.getAttribute('tabindex'));
-  }
-
-  /** Text of every panel a user can reach: rendered and not `inert`. */
-  function openPanels(host: HTMLElement): string[] {
-    return Array.from(host.querySelectorAll<HTMLElement>('[role="tabpanel"]'))
-      .filter((panel) => !panel.hasAttribute('inert'))
-      .map((panel) => panel.textContent?.trim() ?? '');
-  }
-
   /** Expected indicators when the step at `active` is active and none carry `state`. */
   function derivedIndicators(count: number, active: number): string[] {
     return Array.from({ length: count }, (_, i) =>
       i < active ? 'done' : String(i + 1),
     );
-  }
-
-  async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
   }
 
   it.each(ORIENTATIONS)(
@@ -966,5 +968,211 @@ describe('MlvStepper — projected steps change after init (#311)', () => {
     expect(openPanels(host)).toEqual([`Content ${activeLabel}`]);
     // Both emit the index they were given; only the deferred call meant X.
     expect(component.emitted).toEqual([1]);
+  });
+});
+
+// ─── An explicit step `state` decorates; `activeIndex` alone selects (#312) ──
+//
+// `state` colours the indicator, label and connector. Which step is selected —
+// `aria-selected`, the rendered horizontal panel, the open (non-`inert`)
+// vertical panel and the roving tab stop — follows `activeIndex` and nothing
+// else, whatever `state` any step carries.
+
+@Component({
+  template: `
+    <mlv-stepper
+      [orientation]="orientation()"
+      [initialIndex]="initialIndex()"
+      (activeIndexChange)="emitted.push($event)"
+    >
+      <mlv-step label="A" [state]="states()[0]">Content A</mlv-step>
+      <mlv-step label="B" [state]="states()[1]">Content B</mlv-step>
+      <mlv-step label="C" [state]="states()[2]">Content C</mlv-step>
+    </mlv-stepper>
+  `,
+  imports: [MlvStepper, MlvStep],
+})
+class ExplicitStateHostComponent {
+  readonly orientation = signal<MlvStepperOrientation>('horizontal');
+  readonly initialIndex = signal(0);
+  readonly states = signal<readonly (MlvStepState | undefined)[]>([]);
+  readonly emitted: number[] = [];
+}
+
+describe('MlvStepper — explicit step state is decoration (#312)', () => {
+  const STATES: readonly MlvStepState[] = [
+    'pending',
+    'active',
+    'completed',
+    'error',
+  ];
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ExplicitStateHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+  });
+
+  async function render(
+    orientation: MlvStepperOrientation,
+    initialIndex: number,
+    states: readonly (MlvStepState | undefined)[],
+  ): Promise<{
+    fixture: ComponentFixture<ExplicitStateHostComponent>;
+    host: HTMLElement;
+  }> {
+    const fixture = TestBed.createComponent(ExplicitStateHostComponent);
+    const component = fixture.componentInstance;
+    component.orientation.set(orientation);
+    component.initialIndex.set(initialIndex);
+    component.states.set(states);
+    await settle(fixture);
+    const host = fixture.nativeElement.querySelector(
+      'mlv-stepper',
+    ) as HTMLElement;
+    return { fixture, host };
+  }
+
+  /** The indicator state modifier each step header carries. */
+  function indicatorStates(host: HTMLElement): string[] {
+    return tabs(host).map((tab) =>
+      STATES.filter((state) =>
+        tab.classList.contains(`mlv-stepper__step-header--${state}`),
+      ).join(' '),
+    );
+  }
+
+  /** Text of every panel carrying the visible `--active` modifier. */
+  function shownPanels(host: HTMLElement): string[] {
+    return Array.from(
+      host.querySelectorAll<HTMLElement>(
+        '[role="tabpanel"].mlv-stepper__content-panel--active',
+      ),
+    ).map((panel) => panel.textContent?.trim() ?? '');
+  }
+
+  /** Every selection surface at once, so one assertion reads the whole story. */
+  function selection(host: HTMLElement): {
+    selected: (string | null)[];
+    tabIndexes: (string | null)[];
+    open: string[];
+    shown: string[];
+  } {
+    return {
+      selected: selected(host),
+      tabIndexes: tabIndexes(host),
+      open: openPanels(host),
+      shown: shownPanels(host),
+    };
+  }
+
+  const ON_B = {
+    selected: ['false', 'true', 'false'],
+    tabIndexes: ['-1', '0', '-1'],
+    open: ['Content B'],
+    shown: ['Content B'],
+  };
+
+  const ON_A = {
+    selected: ['true', 'false', 'false'],
+    tabIndexes: ['0', '-1', '-1'],
+    open: ['Content A'],
+    shown: ['Content A'],
+  };
+
+  describe.each(ORIENTATIONS)('%s', (orientation) => {
+    it.each(['error', 'completed', 'pending'] as const)(
+      'the active step with state="%s" is selected and shows its panel, keeping its indicator',
+      async (state) => {
+        const { host } = await render(orientation, 1, [
+          undefined,
+          state,
+          undefined,
+        ]);
+
+        expect(selection(host)).toEqual(ON_B);
+        expect(indicatorStates(host)).toEqual(['completed', state, 'pending']);
+        if (orientation === 'horizontal') {
+          expect(host.querySelectorAll('[role="tabpanel"]').length).toBe(1);
+        }
+      },
+    );
+
+    it('state="active" on another step styles its indicator and selects nothing', async () => {
+      const { host } = await render(orientation, 0, [
+        undefined,
+        undefined,
+        'active',
+      ]);
+
+      expect(selection(host)).toEqual(ON_A);
+      expect(indicatorStates(host)).toEqual(['active', 'pending', 'active']);
+      if (orientation === 'horizontal') {
+        expect(host.querySelectorAll('[role="tabpanel"]').length).toBe(1);
+      }
+    });
+
+    it('state="completed" + state="active" no longer open the second step (old docs pattern)', async () => {
+      const { host } = await render(orientation, 0, ['completed', 'active']);
+
+      expect(selection(host)).toEqual(ON_A);
+      expect(indicatorStates(host)).toEqual(['completed', 'active', 'pending']);
+    });
+
+    it('marking the step the user is on as an error keeps it selected and open', async () => {
+      const { fixture, host } = await render(orientation, 1, []);
+      expect(selection(host)).toEqual(ON_B);
+
+      // A validation failure on the current step.
+      fixture.componentInstance.states.set([undefined, 'error', undefined]);
+      await settle(fixture);
+
+      expect(selection(host)).toEqual(ON_B);
+      expect(indicatorStates(host)).toEqual(['completed', 'error', 'pending']);
+      expect(fixture.componentInstance.emitted).toEqual([]);
+    });
+
+    it('clicking a step marked as an error selects it (docs example 5)', async () => {
+      const { fixture, host } = await render(orientation, 2, [
+        'completed',
+        'error',
+        undefined,
+      ]);
+
+      tabs(host)[1].click();
+      await settle(fixture);
+
+      expect(fixture.componentInstance.emitted).toEqual([1]);
+      expect(selection(host)).toEqual(ON_B);
+      expect(indicatorStates(host)).toEqual(['completed', 'error', 'pending']);
+    });
+
+    it('previous() onto a step marked completed opens it (docs example 3)', async () => {
+      const { fixture, host } = await render(orientation, 1, ['completed']);
+      const stepper = fixture.debugElement.query(By.directive(MlvStepper))
+        .componentInstance as MlvStepper;
+
+      stepper.previous();
+      await settle(fixture);
+
+      expect(fixture.componentInstance.emitted).toEqual([0]);
+      expect(selection(host)).toEqual(ON_A);
+      expect(indicatorStates(host)).toEqual([
+        'completed',
+        'pending',
+        'pending',
+      ]);
+    });
+
+    it('has no axe violations with explicit states on the selected and another step', async () => {
+      const { host } = await render(orientation, 1, [
+        undefined,
+        'error',
+        'active',
+      ]);
+
+      await expectNoAxeViolations(host);
+    });
   });
 });
