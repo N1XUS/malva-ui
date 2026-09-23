@@ -79,7 +79,14 @@ host: {
 
 #### Forms value
 
-- External writes to the `value` model accept any CSS color string and are parsed via `parseCssColor()`.
+- External writes to the `value` model accept any CSS color string and are parsed via `tryParseCssColor()`, falling back to `parseCssColor()` for a string it cannot read.
+- Internal HSLA is the source of truth; the emitted string is derived from it (#315).
+  - Own emission returning through `value` (two-way binding, reactive forms, `[formField]`) is recognized and **not** re-parsed — no CSS parse, no repaint per pointermove.
+  - Same color, other spelling (upper-case hex, `rgb()` for a hex emission): the write is parsed and compared field-for-field with the parse of the picker's own spelling of its state in the write's format. Equal → state kept exactly, nothing re-derived from 8-bit channels. Compared at the write's own precision, so a finer write is applied (rgba alpha `0.125` vs emitted `0.13`, hsl hue `225.04` vs emitted `225`).
+  - Achromatic hex/rgb write (black, grey, white — `s = 0`, no hue of its own) keeps the current hue; so do achromatic values typed into the HEX or RGB fields. Saturation is taken from the value, not kept.
+  - `hsl()` / `hsla()` writes carry their own hue and apply it as written; so does a hue typed into the HSL field.
+  - Unparseable string → opaque black (`parseCssColor` fallback), hue kept.
+  - Consequence: after an achromatic hex/rgb write the hue slider and HSL `H` field show the previous hue, the next HSL-mode emission spells it (`hsl(225, 0%, 100%)`), and a plane drag off the grey axis returns to it — `setValue('#ffffff')` on a picker at hue 225, then a drag to the top-right corner, emits `#0040ff` (hue 225), not `#ff0000` (hue 0).
 - Emits HEX/HEXA, RGB/RGBA, or HSL/HSLA according to the active format.
 - Duplicate `supportedFormats` entries are removed. An empty array falls back
   to all formats, and an unavailable `defaultMode` falls back to the first
@@ -180,6 +187,9 @@ stacking context, so the panel remains above the backdrop.
 #### Forms value
 
 Implements the same signal-control value contract as `MlvColorPicker`.
+The inner picker keeps its hue across achromatic values while the panel is
+open (#315); a freshly opened panel has no prior hue, so an achromatic
+committed value opens at hue 0.
 The committed value may be empty or a CSS variable reference. CSS variables
 are displayed directly by the swatch and resolved through computed style only
 to initialize the visual picker; opening never rewrites the public string.
@@ -279,11 +289,19 @@ libs/core/color-picker/src/
       color-picker.html                       — Template
       color-picker.scss                       — BEM styles
       color-picker.spec.ts                    — Unit tests
+      color-picker-binding-matrix.spec.ts     — Forms binding matrix
+      color-picker-hue.spec.ts                — Hue kept across achromatic values, write precision, echo/respell/forms hosts (#315)
+      color-picker-echo.spec.ts               — Parse/sync/repaint counts per interaction (#315)
     color-picker-popup/
       color-picker-popup.ts                   — MlvColorPickerPopup
       color-picker-popup.html                 — Template
       color-picker-popup.scss                 — BEM styles
+      color-picker-popup.spec.ts              — Unit tests
+      color-picker-popup-binding-matrix.spec.ts — Forms binding matrix
+      color-picker-popup-clear.spec.ts        — Clear action (#301)
       color-picker-popup-composition.spec.ts  — Public field/swatch composition and lifecycle tests
+      color-picker-popup-field-label.spec.ts  — Projected `<mlv-label>` naming (#197)
+      color-picker-popup-hue.spec.ts          — Hue kept in the open panel (#315)
 ```
 
 ---

@@ -12,6 +12,7 @@ import {
   model,
   output,
   signal,
+  untracked,
   ViewEncapsulation,
   viewChild,
 } from '@angular/core';
@@ -43,7 +44,24 @@ import {
   parseCssColor,
   rgbToHsl,
   round,
+  tryParseCssColor,
 } from '../color-utils/color-utils';
+
+/**
+ * The format a concrete CSS color string is written in — `'hex'`, `'rgb'` or
+ * `'hsl'`, the three `tryParseCssColor` accepts. Only meaningful for a string
+ * that parsed.
+ */
+function colorFormatOf(css: string): MlvColorInputMode {
+  const str = css.trim().toLowerCase();
+  if (str.startsWith('#')) return 'hex';
+  return str.startsWith('hsl') ? 'hsl' : 'rgb';
+}
+
+/** Whether two parsed colors are field-for-field identical. */
+function sameHsla(a: MlvHsla, b: MlvHsla): boolean {
+  return a.h === b.h && a.s === b.s && a.l === b.l && a.a === b.a;
+}
 
 /**
  * The MlvColorPicker provides an HSL/HEX/RGB color picker with:
@@ -197,6 +215,20 @@ export class MlvColorPicker
    */
   private _dragRect: DOMRect | null = null;
 
+  /**
+   * @private The `value` string {@link _hsla} currently stands for: the last
+   * string this picker emitted, or the last external write it applied.
+   *
+   * `_hsla` is the source of truth, not the string. Every interaction emits
+   * through the `value` model, and that write comes straight back into the
+   * value effect — on its own, or through a two-way binding or a form. Parsing
+   * it again would replace the exact state with one re-derived from the
+   * emitted 8-bit hex / rgb, and on black, a grey or white, whose hex and rgb
+   * spellings carry no hue, reset the hue to 0 (#315). The effect therefore
+   * ignores a write equal to this string.
+   */
+  private _syncedValue: string | null = null;
+
   constructor() {
     super();
     // The saturation/lightness plane is painted through the 2D canvas context,
@@ -211,7 +243,14 @@ export class MlvColorPicker
     // server render fires. A new non-handler call site is not covered by
     // either — schedule it through `afterNextRender` too.
     afterNextRender(() => this._drawCanvas());
-    effect(() => this._applyValue(this.value()));
+    // Tracks `value` only. `_applyValue` reads `_hsla`, and tracking it made
+    // every interaction re-run this effect and re-parse the unchanged string —
+    // the hue slider on white snapped back to 0 because the emitted `#ffffff`
+    // equalled the value it replaced (#315).
+    effect(() => {
+      const value = this.value();
+      untracked(() => this._applyValue(value));
+    });
     effect(() => {
       const formats = this._supportedFormats();
       if (!formats.includes(this._inputMode())) {
@@ -239,17 +278,56 @@ export class MlvColorPicker
   /** Whether the control holds a clearable value — The picker always holds a colour, so a clearable X (if enabled) is always actionable. */
   readonly hasValue = computed(() => true);
 
-  /** @private Synchronizes the color editor from an external value. */
+  /**
+   * @private Synchronizes the color editor from a `value` write that did not
+   * come from this picker.
+   *
+   * - A write equal to {@link _syncedValue} — the picker's own emission coming
+   *   back — changes nothing.
+   * - A write that parses to the same value as the picker's own spelling of
+   *   its state in the written string's format — `#3366FF` or
+   *   `rgb(51, 102, 255)` for a picker holding `#3366ff` — keeps the exact
+   *   state rather than re-deriving it. The write is compared at its own
+   *   precision, so one that says more than that spelling (an alpha of
+   *   `0.125` where the picker spells `0.13`, a hue of `225.04` where it
+   *   spells `225`) is applied.
+   * - A hex / rgb write of black, a grey or white keeps the current hue
+   *   ({@link _keepHue}); an `hsl()` write carries its own and is taken as is.
+   */
   private _applyValue(value: string | null | undefined): void {
+    if (value === this._syncedValue) return;
+    this._syncedValue = value ?? null;
     if (!value) return;
-    const parsed = parseCssColor(value);
-    this._hsla.set(parsed);
+
+    const parsed = tryParseCssColor(value);
+    if (parsed) {
+      const format = colorFormatOf(value);
+      const own = tryParseCssColor(hslaToModeString(this._hsla(), format));
+      if (own && sameHsla(own, parsed)) return;
+      this._hsla.set(format === 'hsl' ? parsed : this._keepHue(parsed));
+    } else {
+      // Unparseable: the opaque-black fallback `parseCssColor` always applied.
+      this._hsla.set(this._keepHue(parseCssColor(value)));
+    }
     this._syncFromHsla();
     // Draw once change detection has settled. `afterNextRender` is both the
     // scheduling primitive and the SSR guard — the old `setTimeout(0)` fired
     // on the server too, after the render had finished, where it threw
     // uncatchably from `getContext`.
     afterNextRender(() => this._drawCanvas(), { injector: this._injector });
+  }
+
+  /**
+   * @private A color with no chroma — black, a grey or white — has no hue of
+   * its own, and one parsed from hex / rgb reports 0 (`rgbToHsl`). It keeps
+   * the hue the picker holds instead, so the hue slider stays put, the plane
+   * keeps its gradient, and moving off the grey axis returns to that hue.
+   * Saturation, lightness and alpha are taken as parsed: at black and white
+   * the plane zeroes saturation itself (`_updateColorFromCanvas`), and the
+   * next plane drag sets it from the pointer.
+   */
+  private _keepHue(next: MlvHsla): MlvHsla {
+    return next.s === 0 ? { ...next, h: this._hsla().h } : next;
   }
 
   // ---------------------------------------------------------------------------
@@ -436,7 +514,7 @@ export class MlvColorPicker
     const hex = raw.startsWith('#') ? raw : '#' + raw;
     const parsed = parseCssColor(hex);
     if (hex.replace('#', '').length >= 6) {
-      this._hsla.set({ ...parsed, a: this._hsla().a });
+      this._hsla.set(this._keepHue({ ...parsed, a: this._hsla().a }));
       this._syncFromHsla('rgb', 'hsl');
       this._drawCanvas();
       this._emitChange();
@@ -482,7 +560,7 @@ export class MlvColorPicker
     const a = clamp(parseFloat(this._rgbAInput()), 0, 1);
     if (!isNaN(r) && !isNaN(g) && !isNaN(b) && !isNaN(a)) {
       const { h, s, l } = rgbToHsl(r, g, b);
-      this._hsla.set({ h, s, l, a });
+      this._hsla.set(this._keepHue({ h, s, l, a }));
       this._syncFromHsla('hex', 'hsl');
       this._drawCanvas();
       this._emitChange();
@@ -576,6 +654,8 @@ export class MlvColorPicker
    */
   private _emitChange(): void {
     const cssColor = hslaToModeString(this._hsla(), this._inputMode());
+    // Recorded before the write, so the value effect recognizes the echo.
+    this._syncedValue = cssColor;
     this.value.set(cssColor);
     this.colorChange.emit(cssColor);
   }
