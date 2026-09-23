@@ -4,25 +4,43 @@ import type {
   MlvTranslationResult,
 } from '../types';
 
+/**
+ * Configuration for `claudeProvider()`.
+ *
+ * @deprecated since 0.2.0 — removed in 1.0, with `claudeProvider()` and the
+ * rest of the runtime AI translation API. There is no replacement.
+ */
 export interface MlvClaudeProviderConfig {
-  /** Anthropic API key. */
+  /**
+   * Anthropic API key, sent with every request from whatever runtime calls the
+   * provider. Registered in an application configuration that reaches the
+   * browser, the key ships to every visitor and is readable by any of them —
+   * never pass a real key there.
+   */
   apiKey: string;
-  /** Model to use (default: claude-sonnet-4-5-20241022). */
+  /**
+   * Model to use (default: `claude-sonnet-4-5-20241022`). That default is not a
+   * published Anthropic model id, so every request made without an explicit
+   * `model` fails.
+   */
   model?: string;
 }
 
 /**
- * Creates a Claude-backed translation provider.
+ * Creates a Claude-backed translation provider that calls the Anthropic API
+ * directly with `config.apiKey`.
  *
- * @example
- * ```ts
- * provideMlvAiTranslation({
- *   provider: claudeProvider({ apiKey: env.CLAUDE_API_KEY }),
- *   targetLocale: 'de',
- *   cache: 'indexeddb',
- *   enabled: false,
- * })
- * ```
+ * The provider sends the key from whatever runtime calls it. Registered with
+ * `provideMlvAiTranslation()` in an application configuration that reaches the
+ * browser, the key ships to every visitor and is readable by any of them, and
+ * no option on this function can protect a key once it is there.
+ *
+ * @deprecated since 0.2.0 — removed in 1.0, with the rest of the runtime AI
+ * translation API. There is no replacement. Nothing in the library calls
+ * `MlvAiTranslationService`, and this provider sends a secret API key from
+ * whatever runtime calls it. Ship translated strings in a language pack
+ * (`provideMlvI18n()`), or call the Anthropic API (or any translation API)
+ * from a server you control.
  */
 export function claudeProvider(
   config: MlvClaudeProviderConfig,

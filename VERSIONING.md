@@ -220,8 +220,8 @@ Every `@deprecated` tag in `libs/**` names both versions:
 - `since <version>` — where the deprecation shipped. `major.minor` is the
   granularity the guarantee above is written in, so it is the granularity the
   tag needs. **In a `0.x` line, name the patch too**: every release the library
-  has ever cut is `0.1.x`, so a bare `since 0.1` identifies nothing. The two
-  tags in the tree say `0.1.10` and `0.1.12` for that reason.
+  has ever cut is `0.1.x`, so a bare `since 0.1` identifies nothing. Every tag
+  in the tree names the patch for that reason — `0.1.10`, `0.1.12`, `0.2.0`.
 - `removed in <version>` — the major that deletes it. Must be a major boundary
   (`1.0`, `2.0`, `2.0.0`); removal in a minor or patch is not permitted by §3.
   It must also still be **ahead of the released line** — a tag reading
@@ -251,15 +251,26 @@ migration document as the only notice. The document must say so.
 
 ### When there is no successor
 
-A symbol may be deprecated with **nothing to move to**: it does not do anything,
-and the replacement is to stop passing it. `MlvBadge.rounded` is the one in the
-tree — a no-op input kept only so existing `[rounded]` bindings keep compiling.
+A symbol may be deprecated with **nothing to move to**. Two shapes are in the
+tree:
+
+- **A no-op.** It does not do anything, and the replacement is to stop passing
+  it. `MlvBadge.rounded` was the first — an input kept only so existing
+  `[rounded]` bindings keep compiling.
+- **A withdrawn capability.** The feature itself is leaving the library, and
+  the replacement is the consumer's own code. The runtime AI translation API in
+  `@malva-ui/i18n` (#292) is the example: ten symbols deprecated together,
+  because nothing in the library calls the service, its configuration flags are
+  never read, and the one shipped provider sends a secret API key from whatever
+  runtime calls it.
 
 The window above applies unchanged; only the advice differs. The tag says there
 is no replacement and what to do instead (for `rounded`, override
-`border-radius` on `.mlv-badge`), and the migration document at the removing
-major says the same. Deleting a no-op is still a §3 major: the binding stops
-compiling, which is a break whether or not the input ever did anything.
+`border-radius` on `.mlv-badge`; for the AI translation API, ship strings in a
+language pack or call your own server directly), and the migration document at
+the removing major says the same. Deleting a no-op is still a §3 major: the
+binding stops compiling, which is a break whether or not the input ever did
+anything.
 
 ---
 
@@ -294,7 +305,7 @@ because it is the gap this policy closes, not because it is defensible.
 | Breaking changes shipped in **patch** releases                                                         | `CHANGELOG.md:1,27,29` (0.1.15), `:389,410` (0.1.5)                               |
 | The `0.1.0` release alone carried four breaking changes                                                | `CHANGELOG.md:690-693,742`                                                        |
 | No deprecation alias was kept across a rename                                                          | `.claude/projects/libs-expand.md:10` — "No deprecated alias is kept"              |
-| Only two `@deprecated` tags exist in the whole library                                                 | `libs/core/badge/src/lib/badge/badge.ts`, `libs/core/data-table/src/lib/types.ts` |
+| As of `0.1.15`, only two `@deprecated` tags existed in the whole library                               | `libs/core/badge/src/lib/badge/badge.ts`, `libs/core/data-table/src/lib/types.ts` |
 | Breaks reached consumers as more than renamed symbols — through types, defaults, behaviour and CSS too | table below                                                                       |
 
 **How a breaking change reached a patch release.** Not through the commit
