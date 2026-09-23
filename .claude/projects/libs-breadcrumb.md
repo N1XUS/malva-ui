@@ -28,13 +28,42 @@ Selector: `nav[mlvBreadcrumb]` — enhances the native `<nav>` element for prope
 | Name                             | Type                      | Default     | Description                                                                                                                                                                                                                  |
 | -------------------------------- | ------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `items`                          | `MlvBreadcrumbEntry[]`    | `[]`        | Data-driven list of breadcrumb items. Last item is automatically marked as current.                                                                                                                                          |
-| `maxItems`                       | `number`                  | `0`         | Max items to display before truncating. `0` = no truncation. Middle items collapse to `…`.                                                                                                                                   |
+| `maxItems`                       | `number`                  | `0`         | Max items to display before truncating, the ellipsis counting as one. `0` = no truncation. Middle items collapse to `…` in trail order — see _Truncation_. Data-driven mode only.                                            |
 | `mlvDensity`                     | `MlvDensity \| undefined` | `undefined` | Density for the overflow popover's item list. Forwarded to the overflow `mlv-popup`, which stamps `mlv--{density}` on the detached overlay panel (outside the page's density cascade). Omitted → global `MlvDensityService`. |
 | `hideSeparatorFromScreenReaders` | `BooleanInput`            | `true`      | When true, adds `aria-hidden="true"` to separators.                                                                                                                                                                          |
 
 There is **no `separator` input**. The separator is a projected template:
 `<ng-template mlvSeparator>` (`MlvBreadcrumbSeparator`) replaces the default
 `LucideChevronRight` icon for every gap.
+
+#### Truncation
+
+Collapses when `maxItems > 0` and `items.length > max(maxItems, 2)`. One private
+`_split` computed yields both halves (`_visibleItems` / `_hiddenItems` read it),
+so the trail and the menu cannot disagree about the cut.
+
+- Trail: first item → `…` → the `maxItems - 3` items just before the current
+  page → current page. Nearest ancestors stay visible (likeliest "up" target).
+- Menu: the contiguous run between the first item and the first crumb after
+  `…`, in trail order. Putting it back where `…` sits restores `items`.
+- Floor: first + last always show, so `maxItems` 1–3 all collapse to
+  `first › … › last`; `maxItems="1"` with two items shows both.
+- Non-integer budgets: slots are whole, so a fractional `maxItems` never shows
+  more than it allows (`4.5` → 4 slots); `NaN` truncates nothing.
+- Docs example 3 (6 items), `maxItems="4"`: `Home › … › Frontend › Components`,
+  menu Organization, Projects, Web Platform. `maxItems="3"`:
+  `Home › … › Components`, menu holds the other four.
+- Changed in #316 (patch). Two parallel copies of the arithmetic took the
+  visible middle from the head and emitted it **after** `…`, so from
+  `maxItems="4"` up the trail read out of order:
+  `Home › … › Organization › Components`, menu Projects, Web Platform, Frontend.
+  Consumer-visible for `maxItems ≥ 4`: the same input now shows different
+  crumbs and a different menu (visible middle was the items right after the
+  first; now the items right before the current page), and the menu's first
+  entry, which takes focus on open, changes with it (Projects → Organization
+  in the 6-item example). `maxItems` ≤ 3 is unchanged. Pinned by `breadcrumb.spec.ts` § _collapsed trail order_, over
+  `maxItems` −1…8 (plus 3.5, 4.5, 5.5, `NaN`) × length 1…7.
+- `maxItems` has no effect in projected mode.
 
 #### Host
 

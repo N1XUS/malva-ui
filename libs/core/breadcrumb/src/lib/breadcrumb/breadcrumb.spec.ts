@@ -333,6 +333,205 @@ describe('MlvBreadcrumb — overflow/truncation', () => {
   });
 });
 
+// ─── Collapsed trail order (#316) ────────────────────────────────────────────
+//
+// The trail is an `<ol>`: adjacent crumbs claim a parent → child step, and the
+// ellipsis stands in for exactly the crumbs between its neighbours. So putting
+// the menu's crumbs back where the ellipsis sits has to give the `items` array
+// back, unchanged — for every `maxItems`, not only the `maxItems ≤ 3` shape
+// where the ellipsis is the whole middle.
+
+/** The docs' overflow example (`breadcrumb/examples/3`), six crumbs deep. */
+const LONG_TRAIL: MlvBreadcrumbEntry[] = [
+  { label: 'Home', href: '/' },
+  { label: 'Organization', href: '/org' },
+  { label: 'Projects', href: '/org/projects' },
+  { label: 'Web Platform', href: '/org/projects/web' },
+  { label: 'Frontend', href: '/org/projects/web/frontend' },
+  { label: 'Components' },
+];
+
+@Component({
+  imports: [MlvBreadcrumb],
+  template: `<nav mlvBreadcrumb [items]="items" [maxItems]="maxItems"></nav>`,
+})
+class TrailOrderHostComponent {
+  items: MlvBreadcrumbEntry[] = LONG_TRAIL;
+  maxItems = 4;
+}
+
+describe('MlvBreadcrumb — collapsed trail order', () => {
+  let overlayContainer: OverlayContainer;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [TrailOrderHostComponent],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+  });
+
+  afterEach(() => {
+    overlayContainer.ngOnDestroy();
+  });
+
+  function render(
+    items: MlvBreadcrumbEntry[],
+    maxItems: number,
+  ): ComponentFixture<TrailOrderHostComponent> {
+    const fixture = TestBed.createComponent(TrailOrderHostComponent);
+    fixture.componentInstance.items = items;
+    fixture.componentInstance.maxItems = maxItems;
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  /** The rendered trail, one label per `<li>`, `'…'` for the ellipsis. */
+  function trail(fixture: ComponentFixture<TrailOrderHostComponent>): string[] {
+    const listItems = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      'li.mlv-breadcrumb__item',
+    );
+    return Array.from(listItems, (li) =>
+      li.querySelector('.mlv-breadcrumb__ellipsis')
+        ? '…'
+        : (li.querySelector('.mlv-breadcrumb__link')?.textContent?.trim() ??
+          ''),
+    );
+  }
+
+  /** Opens the ellipsis menu and returns its crumbs, in DOM order. */
+  async function openMenu(
+    fixture: ComponentFixture<TrailOrderHostComponent>,
+  ): Promise<string[]> {
+    (
+      (fixture.nativeElement as HTMLElement).querySelector(
+        '.mlv-breadcrumb__ellipsis',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const menuItems = overlayContainer
+      .getContainerElement()
+      .querySelectorAll('.mlv-breadcrumb__overflow-list [role="menuitem"]');
+    return Array.from(menuItems, (el) => el.textContent?.trim() ?? '');
+  }
+
+  it('collapses the crumbs after the root and keeps the nearest ancestors visible (docs example 3)', async () => {
+    const fixture = render(LONG_TRAIL, 4);
+
+    expect(trail(fixture)).toEqual(['Home', '…', 'Frontend', 'Components']);
+    expect(await openMenu(fixture)).toEqual([
+      'Organization',
+      'Projects',
+      'Web Platform',
+    ]);
+  });
+
+  it('fills every extra slot from the tail, next to the current page', async () => {
+    const fixture = render(LONG_TRAIL, 5);
+
+    expect(trail(fixture)).toEqual([
+      'Home',
+      '…',
+      'Web Platform',
+      'Frontend',
+      'Components',
+    ]);
+    expect(await openMenu(fixture)).toEqual(['Organization', 'Projects']);
+  });
+
+  it('opens the menu on the first collapsed crumb and counts exactly the menu', async () => {
+    const fixture = render(LONG_TRAIL, 4);
+    const ellipsis = (fixture.nativeElement as HTMLElement).querySelector(
+      '.mlv-breadcrumb__ellipsis',
+    ) as HTMLButtonElement;
+
+    expect(ellipsis.getAttribute('aria-label')).toBe(
+      'Show 3 more breadcrumb items',
+    );
+    await openMenu(fixture);
+    expect(document.activeElement?.textContent?.trim()).toBe('Organization');
+  });
+
+  it('keeps aria-current on the last crumb alone', () => {
+    const fixture = render(LONG_TRAIL, 4);
+    const current = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      '[aria-current="page"]',
+    );
+
+    expect(Array.from(current, (el) => el.textContent?.trim())).toEqual([
+      'Components',
+    ]);
+  });
+
+  it('reads in document order for every maxItems and trail length', async () => {
+    const failures: string[] = [];
+    // Whole values, plus the fractional and NaN values a computed binding
+    // (`[maxItems]="width() / 120"`) can produce.
+    const budgets = [-1, 0, 1, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6, 7, 8, NaN];
+
+    for (let total = 1; total <= 7; total++) {
+      const labels = Array.from({ length: total }, (_, i) => `Crumb ${i + 1}`);
+      const items = labels.map<MlvBreadcrumbEntry>((label, i) =>
+        i === total - 1 ? { label } : { label, href: `/${i + 1}` },
+      );
+
+      for (const maxItems of budgets) {
+        const fixture = render(items, maxItems);
+        const shown = trail(fixture);
+        const ellipsisAt = shown.indexOf('…');
+        const hidden = ellipsisAt === -1 ? [] : await openMenu(fixture);
+        const combo = `total=${total} maxItems=${maxItems}`;
+
+        // Putting the menu back where the ellipsis sits restores `items`.
+        const restored =
+          ellipsisAt === -1
+            ? shown
+            : [
+                ...shown.slice(0, ellipsisAt),
+                ...hidden,
+                ...shown.slice(ellipsisAt + 1),
+              ];
+        if (restored.join(' › ') !== labels.join(' › ')) {
+          failures.push(`${combo}: ${shown.join(' › ')} + [${hidden}]`);
+        }
+
+        // Truncation only when the trail outgrows the budget — the first and
+        // the last crumb always fit, so `maxItems` below 2 still keeps two.
+        // `NaN > 0` is false: a NaN budget truncates nothing.
+        const collapses = maxItems > 0 && total > Math.max(maxItems, 2);
+        if (collapses !== (ellipsisAt !== -1)) {
+          failures.push(
+            `${combo}: ellipsis ${collapses ? 'missing' : 'unexpected'}`,
+          );
+        }
+
+        if (collapses) {
+          // The ellipsis sits right after the root; the slots left over after
+          // the root, the ellipsis and the current page go to the tail. Slots
+          // are whole: the most that fit under `maxItems`, never fewer than
+          // the three a collapse needs.
+          if (ellipsisAt !== 1) {
+            failures.push(`${combo}: ellipsis at ${ellipsisAt}`);
+          }
+          if (shown.length !== Math.max(Math.floor(maxItems), 3)) {
+            failures.push(`${combo}: ${shown.length} slots`);
+          }
+          if (hidden.length === 0) {
+            failures.push(`${combo}: empty menu`);
+          }
+        }
+
+        fixture.destroy();
+      }
+    }
+
+    expect(failures).toEqual([]);
+  });
+});
+
 describe('MlvBreadcrumb — projected items mode', () => {
   let fixture: ComponentFixture<ProjectedHostComponent>;
 
