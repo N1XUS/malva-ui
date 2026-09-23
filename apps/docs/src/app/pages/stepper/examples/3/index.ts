@@ -12,7 +12,7 @@ import { MlvButton } from '@malva-ui/core/button';
       ariaLabel="Process with alternative path"
       [initialIndex]="1"
     >
-      <mlv-step label="Started" state="completed">
+      <mlv-step label="Started">
         <div style="padding: 1rem 0;">Step completed normally.</div>
       </mlv-step>
       <mlv-step label="Detour taken" [deviative]="true">
