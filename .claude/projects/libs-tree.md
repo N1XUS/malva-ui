@@ -128,34 +128,38 @@ interface MlvTreeNode<T = unknown> {
 
 Block: `mlv-tree`
 
-| Class                          | Description                                                          |
-| ------------------------------ | -------------------------------------------------------------------- |
-| `.mlv-tree`                    | Host element (plain wrapper)                                         |
-| `.mlv-tree--connectors`        | Host modifier enabling file-explorer connector lines                 |
-| `.mlv-tree__root`              | The aria `[ngTree]` container (`role="tree"`); `display: contents`   |
-| `.mlv-tree__subtree`           | Recursive `mlv-tree-subtree` host; `display: contents` (transparent) |
-| `.mlv-tree__group`             | The `<div role="group">` wrapping a node's children                  |
-| `.mlv-tree__item`              | A single tree node row (`[ngTreeItem]`, `role="treeitem"`)           |
-| `.mlv-tree__content`           | Inner content wrapper (icon + label or custom template)              |
-| `.mlv-tree__icon`              | Default-template icon rendered from `MlvTreeNode.icon`               |
-| `.mlv-tree__toggle`            | Expand/collapse chevron button                                       |
-| `.mlv-tree__checkbox`          | `mlv-checkbox` in multi-select mode                                  |
-| `.mlv-tree__label`             | Node label text                                                      |
-| `.mlv-tree__spinner`           | Spinner wrapper during lazy load                                     |
-| `.mlv-tree__item--expanded`    | Node is expanded                                                     |
-| `.mlv-tree__item--selected`    | Node is selected                                                     |
-| `.mlv-tree__item--disabled`    | Node is disabled                                                     |
-| `.mlv-tree__item--leaf`        | Node has no children (toggle hidden)                                 |
-| `.mlv-tree__item--loading`     | Node is loading children                                             |
-| `.mlv-tree__toggle--expanded`  | Toggle shows chevron-down icon                                       |
-| `.mlv-tree__toggle--invisible` | Toggle is hidden (leaf node)                                         |
+| Class                          | Description                                                                                                                               |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `.mlv-tree`                    | Host element (plain wrapper)                                                                                                              |
+| `.mlv-tree--connectors`        | Host modifier enabling file-explorer connector lines                                                                                      |
+| `.mlv-tree__root`              | The aria `[ngTree]` container (`role="tree"`); `display: contents`                                                                        |
+| `.mlv-tree__subtree`           | Recursive `mlv-tree-subtree` host; `display: contents` (transparent)                                                                      |
+| `.mlv-tree__group`             | The `<div role="group">` wrapping a node's children                                                                                       |
+| `.mlv-tree__item`              | A single tree node row (`[ngTreeItem]`, `role="treeitem"`)                                                                                |
+| `.mlv-tree__item__content`     | The row box inside the item (the item also wraps its child group). Legacy nested BEM name, kept for compatibility — do not copy the shape |
+| `.mlv-tree__content`           | Inner content wrapper (icon + label or custom template)                                                                                   |
+| `.mlv-tree__icon`              | Default-template icon rendered from `MlvTreeNode.icon`                                                                                    |
+| `.mlv-tree__toggle`            | Expand/collapse chevron button                                                                                                            |
+| `.mlv-tree__checkbox`          | `mlv-checkbox` in multi-select mode                                                                                                       |
+| `.mlv-tree__label`             | Node label text                                                                                                                           |
+| `.mlv-tree__spinner`           | Spinner wrapper during lazy load                                                                                                          |
+| `.mlv-tree__item--expanded`    | Node is expanded                                                                                                                          |
+| `.mlv-tree__item--selected`    | Node is selected                                                                                                                          |
+| `.mlv-tree__item--disabled`    | Node is disabled                                                                                                                          |
+| `.mlv-tree__item--leaf`        | Node has no children (toggle hidden)                                                                                                      |
+| `.mlv-tree__item--loading`     | Node is loading children                                                                                                                  |
+| `.mlv-tree__toggle--expanded`  | Toggle shows chevron-down icon                                                                                                            |
+| `.mlv-tree__toggle--invisible` | Toggle is hidden (leaf node)                                                                                                              |
 
-### Selected-row colours (2026-09, #302)
+### Row states (2026-09, #302 / #304)
 
-- `tree.scss`'s `&__item__content--selected` rule reads the selected-state pair (SF-R1): `--mlv-background-selected` / `-selected-hover` + `--mlv-text-on-selected` — 5.48 / 4.94 light, 7.68 / 6.78 dark, 7.28 / 5.89 HC (rest / hover). Pinned by `libs/styles/src/lib/tone-contrast.spec.mjs`.
-- Was `--mlv-text-action` on `--mlv-background-accent-2`: 2.40:1 light, 1.33:1 (1.02:1 hovered) once #302 darkened accent-2.
-- **Dead selector, both modifiers.** The template stamps `--selected` / `--disabled` on `.mlv-tree__item`; nothing stamps `.mlv-tree__item__content--selected` / `--disabled`. Measured by rendering a tree with one selected and one disabled node: 0 matches each. So a selected row paints `--mlv-text-primary` with no fill (only the `__icon` turns `--mlv-text-action`), and a disabled row keeps full opacity, the pointer cursor and the hover fill. Retargeting is #304.
-- When #304 retargets the selector, update the two selector strings in `tone-contrast.spec.mjs` with it — `colour()` throws on a missing declaration, so the spec goes red rather than silently passing.
+- **State lives on the treeitem, paint on its row box.** `MlvTreeSubtree` stamps `--selected` / `--disabled` on `.mlv-tree__item`, which also wraps the row's nested `.mlv-tree__group`. Every state rule is `.mlv-tree__item--<state> > .mlv-tree__item__content` — child combinator, so a state never fills the indent gutter or a descendant row.
+- **Selected** — the selected-state pair (SF-R1): `--mlv-background-selected` / `-selected-hover` + `--mlv-text-on-selected`, icon `--mlv-text-on-selected` — label 5.48 / 4.94 light, 7.68 / 6.78 dark, 7.28 / 5.89 HC (rest / hover). The chevron's hover fill is `-selected-hover` there (as on a plain row, where both are `neutral-1-hover`), so it never paints a grey chip on the tint. Was `--mlv-text-action` on `--mlv-background-accent-2` (2.40:1 light), on a selector nothing matched.
+  - Caveat: `--mlv-text-on-selected` is `mlv-link`'s resting colour, so a custom `[mlvTreeNodeDef]` template that renders a link hits, on a selected row, the same colour collision that made `mlv-data-table` keep its own ink (WCAG 1.4.1). The default row renders no link, so the tree keeps the ink.
+- **Disabled** — beats selected (as on `mlvButton`). SF-R4 transparent-surface treatment: `--mlv-text-disabled` ink, `cursor: not-allowed`, no hover fill, no fill at rest; icon and chevron inherit the ink, the chevron drops its own hover fill and pointer cursor (`_onToggle` ignores a disabled node). No `opacity` multiply and no `pointer-events: none` — the latter would hide the cursor and let the chevron's click reach the aria tree.
+- **Hover** — `--mlv-background-neutral-1-hover` on rows neither selected nor disabled. The three row fills exclude one another, so exactly one can match a row in any state.
+- Before #304 both `.mlv-tree__item__content--selected` / `--disabled` rules matched **no element** (dead since the root commit): selected rows showed no fill, disabled rows kept full ink, the pointer cursor and the hover fill. The old icon rule was a descendant match, so a selected parent recoloured every icon beneath it; it is now scoped to the row's own content.
+- Pinned twice: `tree-row-states.spec.ts` renders a selected, a disabled, a selected-and-disabled and two child rows and asserts which rows each rule's selector matches (a colour check alone passes on a dead rule); `libs/styles/src/lib/tone-contrast.spec.mjs` scores the colours and throws on a renamed selector — keep its selector strings in step.
 
 ## Dependencies
 

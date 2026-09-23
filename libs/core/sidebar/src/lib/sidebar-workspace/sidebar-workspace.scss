@@ -77,8 +77,17 @@
       }
     }
 
-    &--open &__trigger {
-      background-color: var(--mlv-background-neutral-1-active);
+    // An open switcher is a persistent state, so it reads the sidebar's
+    // selection seam (SF-R1) — never the pressed `-active` fill — and keeps it
+    // under the pointer, as an active `mlv-sidebar-item` does: the
+    // pseudo-class halves outrank `button…__trigger:hover` above.
+    &--open &__trigger,
+    &--open &__trigger:hover,
+    &--open &__trigger:focus-visible {
+      background-color: var(
+        --mlv-sidebar-active-bg,
+        var(--mlv-background-selected)
+      );
     }
 
     &__logo {

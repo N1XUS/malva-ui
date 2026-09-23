@@ -382,8 +382,9 @@
       );
       // Anything projected into the rail that resolves the neutral interactive
       // ramp directly — a transparent-variant `mlvButton` used as a custom
-      // trigger, the workspace switcher's open state — otherwise keeps the
-      // theme's grey pill on the chrome colour.
+      // trigger, its pressed state — otherwise keeps the theme's grey pill on
+      // the chrome colour. (The workspace switcher's open state reads
+      // `--mlv-sidebar-active-bg` below, not this ramp.)
       --mlv-background-neutral-1-hover: color-mix(
         in srgb,
         var(--mlv-page-shell-effective-foreground) 8%,

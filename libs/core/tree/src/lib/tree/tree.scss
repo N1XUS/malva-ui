@@ -54,38 +54,68 @@
       user-select: none;
       position: relative;
 
-      &:hover:not(&--disabled) {
-        background-color: var(--mlv-background-neutral-1-hover);
-      }
-
       &:focus-visible {
         outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
         outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
       }
+    }
 
-      // Persistent selection reads the selected-state pair (SF-R1), never an
-      // accent fill: `text-action` on accent-2 is 1.33:1 (1.02:1 hovered) in
-      // light. NOTE: the template stamps `--selected` on `.mlv-tree__item`, not
-      // on this element, so this rule matches nothing yet — #304 retargets it.
-      &--selected:not(&--disabled) {
-        background-color: var(--mlv-background-selected);
+    // ---- Row states ------------------------------------------------------
+    // `MlvTreeSubtree` stamps `--selected` / `--disabled` on the treeitem
+    // (`.mlv-tree__item`), and the treeitem also wraps the row's nested group.
+    // So a state paints the item's own row box — its direct `__item__content`
+    // child — never the item (which would fill the indent gutter and every
+    // descendant row) and never a descendant's row.
+    //
+    // The three row fills exclude one another rather than rely on specificity,
+    // so exactly one of them can match a row in any state.
+
+    &__item:not(&__item--disabled, &__item--selected) > &__item__content:hover {
+      background-color: var(--mlv-background-neutral-1-hover);
+    }
+
+    // Persistent selection reads the selected-state pair (SF-R1), never an
+    // accent or pressed fill.
+    &__item--selected:not(&__item--disabled) > &__item__content {
+      background-color: var(--mlv-background-selected);
+      color: var(--mlv-text-on-selected);
+
+      &:hover {
+        background-color: var(--mlv-background-selected-hover);
+      }
+
+      .#{$block}__icon {
         color: var(--mlv-text-on-selected);
-
-        &:hover {
-          background-color: var(--mlv-background-selected-hover);
-        }
       }
 
-      &--disabled {
-        opacity: var(--mlv-disabled-opacity);
-        cursor: not-allowed;
-        pointer-events: none;
+      // The chevron's hover fill matches the hovered row's, as on a plain row
+      // (where both are `neutral-1-hover`), so it never paints a grey chip on
+      // the tint; the glyph's own hover ink stays the toggle's feedback.
+      .#{$block}__toggle:hover {
+        background-color: var(--mlv-background-selected-hover);
+      }
+    }
+
+    // Disabled beats selected, as on `mlvButton`. A row has no resting fill,
+    // so — like a transparent button (SF-R4) — only the ink changes: no
+    // opacity multiply, no hover fill (excluded above), and no
+    // `pointer-events: none`, which would hide the cursor and hand the
+    // chevron's click to the aria tree.
+    &__item--disabled > &__item__content {
+      color: var(--mlv-text-disabled);
+      cursor: not-allowed;
+
+      .#{$block}__icon {
+        color: inherit;
       }
 
-      &__content {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+      // `_onToggle` ignores a disabled node, so its chevron drops the
+      // affordances too. Two state classes above the toggle outrank
+      // `.mlv-tree__toggle:hover` without a `:hover` of their own.
+      .#{$block}__toggle {
+        color: inherit;
+        cursor: inherit;
+        background-color: transparent;
       }
     }
 
@@ -167,10 +197,6 @@
     &__icon {
       flex-shrink: 0;
       color: var(--mlv-text-secondary);
-
-      .#{$block}__item--selected & {
-        color: var(--mlv-text-action);
-      }
     }
 
     // Faster, subtler expand animation for tree children
