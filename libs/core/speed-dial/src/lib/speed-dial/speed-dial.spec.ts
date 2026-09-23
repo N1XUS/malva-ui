@@ -366,6 +366,33 @@ describe('MlvSpeedDial', () => {
       expect(document.activeElement).toBe(trigger());
     });
 
+    it('lets a visible action label take the first Escape and closes on the second', async () => {
+      await openViaClick();
+      menuItems()[0].focus();
+      // The label is an `mlvTooltip` shown on focus after its 300ms delay;
+      // a visible tooltip is the topmost Escape handler (D13).
+      await wait(350);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const labels = () =>
+        overlayContainerEl.querySelectorAll('[role="tooltip"]').length;
+      expect(labels()).toBe(1);
+
+      fireKey(menuItems()[0], 'Escape');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(labels()).toBe(0);
+      expect(host.opened()).toBe(true);
+
+      fireKey(menuItems()[0], 'Escape');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(host.opened()).toBe(false);
+      expect(document.activeElement).toBe(trigger());
+    });
+
     it('closes when disabled flips true while open', async () => {
       await openViaClick();
       host.disabled.set(true);

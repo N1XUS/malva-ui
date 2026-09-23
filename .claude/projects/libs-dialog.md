@@ -413,28 +413,28 @@ public contract.
 The single configuration object, used by `MlvDialogService.open()`,
 `mlvDialogOptions`, and `mlvGenerateRoutableDialogRoute()`.
 
-| Field               | Type                     | Default       | Description                                                                                    |
-| ------------------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------- |
-| `size`              | `MlvDialogSize`          | `'m'`         | Preset name or explicit dimensions.                                                            |
-| `appearance`        | `MlvDialogAppearance`    | `'default'`   | `'confirm'` drops the header/footer borders and hides the close button.                        |
-| `title`             | `string`                 | `undefined`   | Plain-text title: string content, the `mlv-dialog-header` fallback, and the accessible name.   |
-| `closable`          | `boolean`                | `true`        | Default for `mlv-dialog-header`'s close button.                                                |
-| `panelClass`        | `string \| string[]`     | `undefined`   | Extra class(es) on the overlay pane (`.mlv-dialog-pane`).                                      |
-| `backdropClass`     | `string \| string[]`     | `undefined`   | Extra class(es) on the backdrop (`.mlv-dialog-backdrop`).                                      |
-| `hasBackdrop`       | `boolean`                | `true`        | Whether a backdrop is rendered.                                                                |
-| `closeOnBackdrop`   | `boolean`                | `true`        | Whether a backdrop click closes the dialog.                                                    |
-| `closeOnEscape`     | `boolean`                | `true`        | Whether Escape closes the dialog.                                                              |
-| `closeOnNavigation` | `boolean`                | `true`        | Whether browser history navigation closes the dialog.                                          |
+| Field               | Type                     | Default       | Description                                                                                                                                                                                                                  |
+| ------------------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `size`              | `MlvDialogSize`          | `'m'`         | Preset name or explicit dimensions.                                                                                                                                                                                          |
+| `appearance`        | `MlvDialogAppearance`    | `'default'`   | `'confirm'` drops the header/footer borders and hides the close button.                                                                                                                                                      |
+| `title`             | `string`                 | `undefined`   | Plain-text title: string content, the `mlv-dialog-header` fallback, and the accessible name.                                                                                                                                 |
+| `closable`          | `boolean`                | `true`        | Default for `mlv-dialog-header`'s close button.                                                                                                                                                                              |
+| `panelClass`        | `string \| string[]`     | `undefined`   | Extra class(es) on the overlay pane (`.mlv-dialog-pane`).                                                                                                                                                                    |
+| `backdropClass`     | `string \| string[]`     | `undefined`   | Extra class(es) on the backdrop (`.mlv-dialog-backdrop`).                                                                                                                                                                    |
+| `hasBackdrop`       | `boolean`                | `true`        | Whether a backdrop is rendered.                                                                                                                                                                                              |
+| `closeOnBackdrop`   | `boolean`                | `true`        | Whether a backdrop click closes the dialog.                                                                                                                                                                                  |
+| `closeOnEscape`     | `boolean`                | `true`        | Whether Escape closes the dialog.                                                                                                                                                                                            |
+| `closeOnNavigation` | `boolean`                | `true`        | Whether browser history navigation closes the dialog.                                                                                                                                                                        |
 | `direction`         | `MlvDirection`           | resolved      | Text direction for the pane. The pane is portaled to `<body>`, so it never inherits a `[dir]` scope the opener sits in; defaults to the direction resolved from the focused element at open time, then the global direction. |
-| `initialFocus`      | `MlvOverlayInitialFocus` | `'auto'`      | Where focus lands once open — see [libs-overlay.md](libs-overlay.md).                          |
-| `restoreFocus`      | `MlvDialogRestoreFocus`  | `true`        | Captured opener, disabled, selector, explicit element, or a late resolver sampled at disposal. |
-| `role`              | `MlvDialogRole`          | `'dialog'`    | ARIA role of the container.                                                                    |
-| `ariaLabel`         | `string`                 | `undefined`   | Accessible name when no visible title labels the dialog.                                       |
-| `ariaLabelledBy`    | `string`                 | `undefined`   | Id of a labelling element. Wins over `ariaLabel` and the header title.                         |
-| `ariaDescribedBy`   | `string`                 | `undefined`   | Id of a describing element.                                                                    |
-| `data`              | `D`                      | `undefined`   | Payload for `MlvDialogRef.data`, `DIALOG_DATA`, and the template context's `data`.             |
-| `injector`          | `Injector`               | root injector | Parent injector for the content.                                                               |
-| `id`                | `string`                 | CDK-generated | Id of the dialog container.                                                                    |
+| `initialFocus`      | `MlvOverlayInitialFocus` | `'auto'`      | Where focus lands once open — see [libs-overlay.md](libs-overlay.md).                                                                                                                                                        |
+| `restoreFocus`      | `MlvDialogRestoreFocus`  | `true`        | Captured opener, disabled, selector, explicit element, or a late resolver sampled at disposal.                                                                                                                               |
+| `role`              | `MlvDialogRole`          | `'dialog'`    | ARIA role of the container.                                                                                                                                                                                                  |
+| `ariaLabel`         | `string`                 | `undefined`   | Accessible name when no visible title labels the dialog.                                                                                                                                                                     |
+| `ariaLabelledBy`    | `string`                 | `undefined`   | Id of a labelling element. Wins over `ariaLabel` and the header title.                                                                                                                                                       |
+| `ariaDescribedBy`   | `string`                 | `undefined`   | Id of a describing element.                                                                                                                                                                                                  |
+| `data`              | `D`                      | `undefined`   | Payload for `MlvDialogRef.data`, `DIALOG_DATA`, and the template context's `data`.                                                                                                                                           |
+| `injector`          | `Injector`               | root injector | Parent injector for the content.                                                                                                                                                                                             |
+| `id`                | `string`                 | CDK-generated | Id of the dialog container.                                                                                                                                                                                                  |
 
 ### `MlvDialogTemplateContext<R, D>`
 
@@ -788,8 +788,14 @@ below it stays open. The same rule covers popups — a `mlv-select`,
 `mlv-combobox` or `mlv-menu` panel opened from inside a dialog is an overlay
 above it, so Escape dismisses the popup and leaves the dialog open. The
 "keydown observers" half of the rule matters just as much: an overlay without
-keydown observers (e.g. the tooltip, which handles Escape on its trigger's host
-instead) is transparent to Escape — the dialog below still receives it.
+keydown observers is transparent to Escape — the dialog below still receives
+it. A visible `[mlvTooltip]` is **not** transparent: its overlay observes
+keydowns, and an `eventPredicate` admits only an unmodified Escape, so a
+tooltip shown inside a dialog takes the first Escape and the dialog closes on
+the second (D13, the APG tooltip pattern), while every other key — Enter,
+Ctrl+Enter, Shift+Escape — passes the tooltip by and still reaches the
+dialog's `keydownEvents()`. See
+[docs/migrations/2026-09-tooltip-escape-dismissal.md](../../docs/migrations/2026-09-tooltip-escape-dismissal.md).
 
 Because the topmost layer wins, `openDialogs` unwinds from its end: Escape,
 then Escape again, closes newest-first — the same order `closeAll()` uses.
