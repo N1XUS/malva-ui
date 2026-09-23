@@ -119,8 +119,8 @@ managed by `MlvCheckboxGroup` and updated as focus moves) gated by the
 #### Key Methods
 
 - `focus()` — Focuses the native input (not the host); adapts to CDK `FocusKeyManager`.
-- `toggle(event)` — Toggle checked state (bound to the input's Enter keydown)
-- `onInputChange(event)` — Reflects native `change` (Space / click)
+- `toggle(event)` — The input's `(keydown.enter)` handler, not an application API: a user write through `_write()`, refused while readonly or disabled; always `preventDefault()`s. Set the state from code by writing `checked` (readonly does not lock out the application). Contrast `MlvSwitch.toggle()`, which is the app API and stays disabled-only (#298 owner ruling).
+- `onInputChange(event)` — Reflects native `change` (Space / click); a refused write puts `input.checked` back to `checked()`
 - `setFocused(focused)` — Inherited from the signal base; updates the focus signal driving the wrapper state.
 
 There is no `writeValue`/`setDisabledState` pair any more: the control is a
@@ -130,11 +130,12 @@ signal-forms field, not a `ControlValueAccessor` (see the 2026-07 cutover note).
 
 - **Single tab stop:** the native input carries the roving tabindex; the host is not tabbable (no more double tab stop).
 - **Space** toggles natively (fires `change`); **Enter** toggles via the input's `(keydown.enter)`.
+- **Readonly** (#298): a native checkbox ignores the `readonly` attribute, so the component enforces it. The native input's `(click)` is `preventDefault()`ed while `!_canWrite()` — the browser then restores `checked` and fires no `change`, which covers a click on the box, a click on the label and Space (Space activates through a synthetic click). `toggle()` / `onInputChange()` write through `_write()`; a `change` that arrives anyway is rolled back in the DOM. The input stays focusable (no `disabled`, tabindex unchanged) and `indeterminate` is kept. `aria-readonly="true"` on the native input while readonly (the checkbox role supports it); no attribute otherwise.
 - **`:focus-visible`** ring is promoted from the hidden input onto `.mlv-checkbox__visual` using `--mlv-border-focus`.
 
 #### Template Summary
 
-Label wrapping the visually-hidden native checkbox (`#nativeInput`, `[attr.tabindex]="_resolvedTabIndex()"`) + visual element with dynamic icon (check or minus for indeterminate) + `.mlv-checkbox__text`, which holds `.mlv-checkbox__content` (`ng-content`) followed by the `.mlv-checkbox__label-text` fallback rendered from the `label` input. ARIA attributes on the native input: `aria-checked`, `aria-required`, plus `aria-label` / `aria-labelledby` forwarded from the host (see the forwarding note above).
+Label wrapping the visually-hidden native checkbox (`#nativeInput`, `[attr.tabindex]="_resolvedTabIndex()"`) + visual element with dynamic icon (check or minus for indeterminate) + `.mlv-checkbox__text`, which holds `.mlv-checkbox__content` (`ng-content`) followed by the `.mlv-checkbox__label-text` fallback rendered from the `label` input. ARIA attributes on the native input: `aria-checked`, `aria-required`, `aria-readonly` (while readonly), plus `aria-label` / `aria-labelledby` forwarded from the host (see the forwarding note above).
 
 A dev-mode `console.warn` fires once per instance when a checkbox has no projected text, no `label`, and no `ariaLabel`/`ariaLabelledBy` — i.e. no accessible name at all.
 
@@ -276,6 +277,7 @@ when the id is emitted on the host instead of the `<div>`.
 ## Testing
 
 - Unit tests run through `libs/core/checkbox/vite.config.mts` with the shared Analog/Vitest Angular test setup in `src/test-setup.ts`.
+- `checkbox-readonly.spec.ts` (#298) — click, label click, Enter and a stray `change` refused while readonly and while disabled; cancelled click, `indeterminate` kept, `aria-readonly`, focusability, a signal-forms `readonly()` rule; axe sweeps of readonly unchecked / checked.
 
 ---
 

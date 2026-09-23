@@ -32,17 +32,18 @@ Extends `MlvSignalFormControlBase<MlvSliderValue>` from `@malva-ui/core/form-uti
 
 #### Inputs
 
-| Name          | Type                         | Default        | Description                                                                    |
-| ------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------ |
-| `min`         | `number`                     | `0`            | Minimum value                                                                  |
-| `max`         | `number`                     | `100`          | Maximum value                                                                  |
-| `step`        | `number`                     | `1`            | Step increment                                                                 |
-| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Track direction; vertical runs bottom-to-top and requires a height on the host |
-| `showTicks`   | `BooleanInput`               | `false`        | Render tick marks at each step                                                 |
-| `range`       | `BooleanInput`               | `false`        | Dual-thumb range mode; value becomes `[number, number]`                        |
-| `tooltip`     | `BooleanInput`               | `false`        | Show live thumb values on hover, drag, and keyboard focus                      |
-| `disabled`    | `BooleanInput`               | `false`        | _(inherited)_ Disables interaction                                             |
-| `label`       | `string`                     | `''`           | _(inherited)_ `aria-label` for single-thumb mode                               |
+| Name          | Type                         | Default        | Description                                                                           |
+| ------------- | ---------------------------- | -------------- | ------------------------------------------------------------------------------------- |
+| `min`         | `number`                     | `0`            | Minimum value                                                                         |
+| `max`         | `number`                     | `100`          | Maximum value                                                                         |
+| `step`        | `number`                     | `1`            | Step increment                                                                        |
+| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Track direction; vertical runs bottom-to-top and requires a height on the host        |
+| `showTicks`   | `BooleanInput`               | `false`        | Render tick marks at each step                                                        |
+| `range`       | `BooleanInput`               | `false`        | Dual-thumb range mode; value becomes `[number, number]`                               |
+| `tooltip`     | `BooleanInput`               | `false`        | Show live thumb values on hover, drag, and keyboard focus                             |
+| `disabled`    | `BooleanInput`               | `false`        | _(inherited)_ Disables interaction                                                    |
+| `readonly`    | `BooleanInput`               | `false`        | _(inherited)_ Value locked, thumbs still focusable; also a signal-forms field binding |
+| `label`       | `string`                     | `''`           | _(inherited)_ `aria-label` for single-thumb mode                                      |
 
 #### Host Bindings
 
@@ -79,12 +80,19 @@ CSS density classes applied: `mlv-slider--compact`, `mlv-slider--comfortable`.
 
 Horizontal arrows are **logical** — in RTL `ArrowLeft` increases and `ArrowRight` decreases. Direction is resolved from the slider's own host (`normalizeArrowKey(event, this._direction())`), the same cached `_direction` signal that feeds the pointer maths, so a slider inside a scoped `dir="rtl"` subtree (or an overlay pane, which CDK stamps with its own `dir`) mirrors both halves together while the document stays LTR. Vertical arrows, `PageUp`/`PageDown` and `Home`/`End` never mirror.
 
+**Readonly / disabled** (#298): no key moves a thumb, no track click jumps, no drag starts. `_setLowValue` / `_setHighValue` / `_emitChange` write through `_write()`. Before #298 every path checked only `computedDisabled()`, so a readonly slider moved on all of them. Readonly thumbs keep `tabindex="0"`, so the value stays reachable and announced.
+
+- **Thumb keys:** disabled returns first (thumb out of tab order; key untouched, as before). Readonly: a recognised slider key (arrows, Page, Home, End) is still `preventDefault()`ed, then refused — a thumb has no caret, so its only remaining default is scrolling the page. Unrecognised keys (Tab, …) pass through.
+- **Track `pointerdown`:** returns while `!_canWrite()` — no window listeners, no captured pointer, no `mlv-slider--dragging`.
+- **Drag that outlives permission** (`readonly`/`disabled` flips on mid-drag): `onMove` returns while `!_canWrite()`, so the thumb stops following the pointer (not only the value) and rests at the last permitted position; release settles it on the value.
+
 #### ARIA
 
 - `role="slider"` on each thumb
 - `aria-valuenow`, `aria-valuemin`, `aria-valuemax` bound reactively
 - `aria-orientation` reflects the `orientation` input
 - `aria-disabled` when disabled
+- `aria-readonly="true"` on each thumb while readonly (the slider role supports it); no attribute otherwise
 - `aria-label` describes each thumb (`"Value"`, `"Minimum value"`, `"Maximum value"`)
 - Tooltip bubbles are visual-only (`aria-hidden="true"`) because `aria-valuenow` already exposes the live value without duplicate announcements
 
@@ -191,6 +199,7 @@ libs/core/slider/src/
       slider-tooltip-def.ts — custom tooltip renderer definition
       slider.spec.ts               — unit tests
       slider-binding-matrix.spec.ts — forms integration matrix
+      slider-readonly.spec.ts      — #298 write permission + axe sweeps
 ```
 
 ---

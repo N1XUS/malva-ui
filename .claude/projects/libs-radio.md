@@ -89,6 +89,9 @@ roving tabindex (`tabIndex` signal) managed by `MlvRadioGroup`.
 
 - `onFocus()` — Notifies parent group
 - `onSelect()` — Native selection (click, Space, arrow keys); calls `group.selectRadio(this)` if not disabled
+- `_onNativeClick(event)` (`protected`) — cancels the native click while `group.canSelect()` is `false` (readonly or disabled group). A cancelled click on a radio makes the browser restore the previously checked radio and fire no `change` (HTML legacy-canceled-activation steps; verified in headless Chrome 153 for a pointer click, a label click and Space).
+- `_restoreNativeChecked()` (`@internal`) — writes `checked()` back onto the native input; the group calls it on every radio when it refuses a selection.
+- `_nativeDisabled` (`protected` computed) — `disabled() || group.computedDisabled()`, bound to the native `[disabled]`. A disabled group therefore takes every radio out of the tab order and makes Space inert; before #298 only CSS (`pointer-events: none`) blocked the mouse, and Tab / Space still reached and flipped the radios. The host `mlv-radio--disabled` class still follows the radio's own `disabled()` only, so the group's dimming is not compounded.
 
 #### Keyboard & Focus
 
@@ -137,6 +140,17 @@ Visually-hidden (clip-path) native `<input #nativeInput type="radio" [attr.tabin
 
 `_onKeydown` answers **all four** arrows for WAI-ARIA radiogroup semantics (`ArrowUp`/`ArrowLeft` → previous, `ArrowDown`/`ArrowRight` → next), so the group **is** horizontal-sensitive despite the vertical key manager. The horizontal pair resolves its direction from the group's own host — a cached `elementDirection(host)` signal passed to `normalizeArrowKey(event, direction)` (#147) — so it mirrors inside a `[dir="rtl"]` subtree while the document stays LTR, and inside an overlay pane (CDK stamps `dir` on every one), not only on a document-wide flip. The vertical pair never mirrors.
 
+#### Readonly / disabled (#298)
+
+- `selectRadio(radio)` writes through `_write()`; a refusal puts **every** native input back to the group value via `_restoreNativeChecked()`. Before #298 the refusal left the DOM alone, but a native click had already checked the new radio and the `[checked]` bindings held an unchanged value, so Angular never re-wrote it — the page and the accessibility tree showed B while `aria-checked` and the value said A.
+- Clicks are cancelled up front by each radio's `_onNativeClick` (via the internal `canSelect()`), so in a browser the DOM never moves; the restore is the backstop for a `change` that arrives anyway.
+- `_onKeydown` still `preventDefault()`s every arrow (so native radio navigation cannot move the checked state).
+  - **Readonly: arrows move focus, not selection.** ARIA 1.2 `aria-readonly`: authors SHOULD NOT restrict navigation. The key manager moves and focuses the next radio; `selectRadio` refuses the write, restores the natives and leaves focus where the manager put it.
+  - **Disabled: returns before the key manager moves** (gated on `computedDisabled()`, not `_canWrite()`). The radios are natively disabled and cannot take focus, so moving the manager would drift its active item from the focused element.
+- Readonly keeps the radios enabled and focusable; disabled disables every native radio (see `MlvRadio._nativeDisabled`).
+- `aria-readonly="true"` on the `role="radiogroup"` host while readonly (the radiogroup role supports it; `radio` does not, so nothing goes on the inputs).
+- Covered by `radio-group-readonly.spec.ts` — incl. readonly arrows moving focus (two steps, selection pinned on A, no key-manager drift) and disabled arrows moving neither. One jsdom gap is recorded there: jsdom's cancelled-click steps revert only the clicked radio and do not re-check the previous one, so the readonly click tests assert the value, `aria-checked`, `defaultPrevented` and the clicked radio, and the full DOM snapshot is asserted where no activation runs (disabled, stray `change`).
+
 #### Tab Management
 
 Only the checked radio (or first radio if none checked) has `tabIndex=0`. All others are `-1`.
@@ -150,6 +164,7 @@ Only the checked radio (or first radio if none checked) has `tabIndex=0`. All ot
 #### ARIA
 
 - `role="radiogroup"` on container
+- `aria-readonly="true"` on the container while readonly
 - `[attr.aria-checked]` on native inputs
 - Only active radio is tabbable (`tabIndex=0`)
 
@@ -163,6 +178,8 @@ export const RADIO_GROUP = new InjectionToken<MlvRadioGroupAccessor>('RADIO_GROU
 interface MlvRadioGroupAccessor {
   selectRadio(radio: MlvRadio): void;
   onChildFocus(radio: MlvRadio): void;
+  readonly computedDisabled: Signal<boolean>; // #298 — radios disable their native input with it
+  canSelect(): boolean; // #298 — false while readonly or disabled; radios cancel their click
 }
 ```
 

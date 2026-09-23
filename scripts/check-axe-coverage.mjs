@@ -284,13 +284,30 @@ export const ROLLOUT_PENDING = [
   'core-form',
   'core-input',
   'core-notification',
-  'core-number-input',
+  {
+    // #298 swept default, readonly, disabled and error + description + message.
+    project: 'core-number-input',
+    owes: [
+      '`stack="vertical"` steppers, both `controlAlignment`s',
+      'a `hint` inside the label',
+      'the `clearable` clear button while it holds a value',
+      'the `loading` state',
+    ],
+  },
   'core-pin-input',
   'core-popup',
   'core-rating',
   'core-scrollbar',
   'core-scrubber',
-  'core-slider',
+  {
+    // #298 swept default, readonly, disabled and a readonly range.
+    project: 'core-slider',
+    owes: [
+      '`showTicks`',
+      'the `tooltip` bubble, default and `*mlvSliderTooltipDef` template',
+      '`orientation="vertical"`',
+    ],
+  },
   'core-speed-dial',
   'core-split-pane',
   'core-textarea',

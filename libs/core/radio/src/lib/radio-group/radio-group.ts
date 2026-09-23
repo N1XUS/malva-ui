@@ -93,6 +93,7 @@ type RadioFocusItem = MlvRadio & FocusableOption;
     '[attr.aria-required]': 'required() || null',
     '[attr.aria-describedby]': '_describedBy()',
     '[attr.aria-disabled]': 'computedDisabled() || null',
+    '[attr.aria-readonly]': 'readonly() || null',
     '(keydown)': '_onKeydown($event)',
   },
 })
@@ -200,6 +201,13 @@ export class MlvRadioGroup
     // FocusKeyManager (which skips disabled radios and wraps).
     event.preventDefault();
 
+    // A disabled group's radios are natively disabled and cannot take focus,
+    // so stop before the key manager moves, or its active item drifts from the
+    // focused element. A readonly group is different: `aria-readonly` must not
+    // restrict navigation, so its arrows still move focus — the key manager
+    // focuses whatever it activates — and `selectRadio` refuses the selection.
+    if (this.computedDisabled()) return;
+
     if (!this._keyManager.activeItem) {
       this._keyManager.setFirstItemActive();
     } else if (isPrev) {
@@ -214,14 +222,36 @@ export class MlvRadioGroup
     }
   }
 
+  /**
+   * Selects `radio` as a user interaction would: writes the group value,
+   * focuses the radio and moves the roving tab stop to it.
+   *
+   * Refused while the group is readonly or disabled. A refusal also puts every
+   * native input back to the group's value — a selection that reached here
+   * through `(change)` has already been checked by the browser — and leaves
+   * focus alone: in a readonly group the arrow keys still move it.
+   *
+   * @param radio The radio to select; must belong to this group.
+   */
   selectRadio(radio: MlvRadio): void {
-    if (this.computedDisabled() || this.readonly()) return;
-    this.value.set(radio.value());
+    if (!this._write(radio.value())) {
+      this.radios().forEach((r) => r._restoreNativeChecked());
+      return;
+    }
     radio.focus();
     const radioValue = radio.value();
     this.radios().forEach((r) => r.checked.set(r.value() === radioValue));
     this._updateTabIndices();
     this._markTouched();
+  }
+
+  /**
+   * @internal Whether a user interaction may change the selection — the
+   * group's {@link _canWrite}, exposed to its radios through `RADIO_GROUP` so
+   * each can cancel its native click before the browser checks it.
+   */
+  canSelect(): boolean {
+    return this._canWrite();
   }
 
   /** Whether the control holds a clearable value — A radio value is selected. */

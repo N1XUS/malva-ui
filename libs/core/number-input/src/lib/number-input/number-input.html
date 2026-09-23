@@ -13,7 +13,7 @@
       <button
         type="button"
         class="mlv-number-input__stepper mlv-number-input__decrement"
-        [disabled]="computedDisabled() || isAtMin()"
+        [disabled]="!_canWrite() || isAtMin()"
         [attr.aria-label]="_i18n().decrement"
         tabindex="-1"
         (pointerdown)="$event.preventDefault(); _onStepperPointerDown(-1)"
@@ -29,7 +29,7 @@
       <button
         type="button"
         class="mlv-number-input__stepper mlv-number-input__increment"
-        [disabled]="computedDisabled() || isAtMax()"
+        [disabled]="!_canWrite() || isAtMax()"
         [attr.aria-label]="_i18n().increment"
         tabindex="-1"
         (pointerdown)="$event.preventDefault(); _onStepperPointerDown(1)"

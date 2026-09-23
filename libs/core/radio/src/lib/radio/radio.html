@@ -5,11 +5,12 @@
     class="mlv-radio__native"
     [name]="name()"
     [checked]="checked()"
-    [disabled]="disabled()"
+    [disabled]="_nativeDisabled()"
     [attr.tabindex]="tabIndex()"
     [attr.aria-checked]="checked()"
     [attr.aria-label]="_resolvedAriaLabel()"
     [attr.aria-labelledby]="_resolvedAriaLabelledBy()"
+    (click)="_onNativeClick($event)"
     (change)="onSelect()"
     (focus)="onFocus()"
   />

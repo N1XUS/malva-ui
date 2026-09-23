@@ -73,9 +73,11 @@ Setting `label` renders a `<mlv-label>` whose `for` attribute points at the firs
 
 `ArrowLeft` / `ArrowRight` are logical: they mirror in RTL and resolve their direction from the pin input's **own host**, via a cached `elementDirection(host)` signal passed to `normalizeArrowKey(event, direction)` (#147). A `[dir="rtl"]` ancestor mirrors cell movement while the document stays LTR, as does the `dir` CDK stamps on an overlay pane the field is rendered in. `Backspace`, `Delete`, `Home` and `End` never mirror.
 
+**Readonly / disabled** (#298): the cells carry native `readonly` / `disabled`, which stop typing but not what the component handles itself — before #298 `Backspace`, `Delete` and paste still erased or overwrote a readonly value. Now all three are refused while `!_canWrite()` (both keys and paste stay `preventDefault()`ed, so the native cell does not change either), an `input` event reaching `_onCellChange` writes nothing **and restores the cell** — both the cell's `value` model and its native field (`MlvInput.nativeElement`), because neither `[value]` binding changes value and so Angular would never re-write the DOM — and `_emit` writes through `_write()` (its refusal branch, unreachable today, resyncs `_values` from `value()`). Navigation keeps working: arrows, `Home` / `End`, and `Backspace` on an empty cell still move focus.
+
 #### Paste Behaviour
 
-Pasting any string distributes characters across cells starting from the **first cell** (index 0), regardless of which cell has focus. Whitespace is stripped before distribution.
+Pasting any string distributes characters across cells starting from the **first cell** (index 0), regardless of which cell has focus. Whitespace is stripped before distribution. Refused, with no `completed` emission, while readonly or disabled.
 
 #### Separators
 

@@ -241,6 +241,8 @@ export class MlvNumberInput
     // only on a `value` write (exactly like `writeValue` ran only on a form
     // write); the out-of-range set-back re-triggers the effect once and then
     // converges (next run: clamped === value → no further write, no loop).
+    // The set-back is a direct `value.set`, not `_write`: it normalises a
+    // form-side write, and readonly locks out the user, not the form.
     effect(() => {
       const next = this.value();
       untracked(() => {
@@ -334,10 +336,13 @@ export class MlvNumberInput
   }
 
   /**
-   * @protected Handles keyboard navigation on the native input.
+   * @protected Handles keyboard navigation on the native input. Does nothing
+   * — not even `preventDefault()` — while the control may not be written, so a
+   * readonly field keeps the native caret behaviour of the arrows, Home and
+   * End.
    */
   protected _onKeydown(event: KeyboardEvent): void {
-    if (this.computedDisabled()) return;
+    if (!this._canWrite()) return;
 
     switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
       case UP_ARROW:
@@ -367,13 +372,15 @@ export class MlvNumberInput
 
   /**
    * @protected Handles scroll-wheel input. Steps the value only when
-   * `scrollable` is set, the input has focus, and the control is not disabled
-   * — all three are guard branches, and all three are covered.
+   * `scrollable` is set, the input has focus, and the control may be written
+   * (neither readonly nor disabled) — all three are guard branches, and all
+   * three are covered. A refused gesture is not `preventDefault()`ed, so the
+   * page keeps scrolling.
    * The wheel listener is attached via fromEvent with { passive: false } so
    * preventDefault() actually suppresses page scroll.
    */
   protected _onWheel(event: WheelEvent): void {
-    if (!this.scrollable() || !this._isFocused() || this.computedDisabled()) {
+    if (!this.scrollable() || !this._isFocused() || !this._canWrite()) {
       return;
     }
     event.preventDefault();
@@ -388,7 +395,9 @@ export class MlvNumberInput
    * @protected Starts a long-press sequence for increment (positive delta) or decrement.
    */
   protected _onStepperPointerDown(delta: 1 | -1): void {
-    if (this.computedDisabled()) return;
+    // The steppers are also natively `disabled` while unwritable; this guard
+    // covers a press that reaches the handler anyway.
+    if (!this._canWrite()) return;
     this._longPressStartTime = Date.now();
     const step = delta > 0 ? this.step() : -this.step();
     this._step(step);
@@ -396,6 +405,12 @@ export class MlvNumberInput
 
     this._longPressDelayTimer = setTimeout(() => {
       this._longPressIntervalTimer = setInterval(() => {
+        // Write permission can be lost mid-press, and a stepper that turns
+        // `disabled` under the pointer may never see its `pointerup`.
+        if (!this._canWrite()) {
+          this._clearLongPress();
+          return;
+        }
         const elapsed = Date.now() - this._longPressStartTime;
         const useStep =
           elapsed >= LONG_PRESS_LARGE_STEP_THRESHOLD
@@ -423,12 +438,21 @@ export class MlvNumberInput
 
   /**
    * @private Parses the typed string, clamps, rounds, and commits to `value`.
+   * While the control may not be written, the draft is discarded and the
+   * display reverts to the committed value — native `readOnly` stops new
+   * typing, but a draft typed before `readonly` flipped on would otherwise be
+   * committed on blur.
    */
   private _commitTypedValue(): void {
+    if (!this._canWrite()) {
+      const last = this.value();
+      this._internalStringValue.set(last !== null ? this._format(last) : '');
+      return;
+    }
     const raw = this._internalStringValue().trim();
     if (raw === '') {
       if (this.clearable()) {
-        this.value.set(null);
+        this._write(null);
         this._internalStringValue.set('');
       } else {
         const last = this.value();
@@ -455,13 +479,14 @@ export class MlvNumberInput
 
   /**
    * @private Sets the numeric value: clamp → round → commit to the `value`
-   * model (which propagates to the bound field).
+   * model (which propagates to the bound field) through `_write`, so a step
+   * that outlives write permission — a long-press interval still running when
+   * `readonly` flips on — writes nothing and leaves the display alone.
    */
   private _setValue(raw: number): void {
-    const clamped = this._clamp(raw);
-    const rounded = this._round(clamped);
+    const rounded = this._round(this._clamp(raw));
+    if (!this._write(rounded)) return;
     this._internalStringValue.set(this._format(rounded));
-    this.value.set(rounded);
   }
 
   /**

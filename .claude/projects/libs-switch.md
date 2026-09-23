@@ -121,8 +121,8 @@ Its `tabindex` is the roving tabindex managed by
 #### Key Methods
 
 - `focus()` — CDK `FocusableOption`; focuses the native input (not the host)
-- `toggle()` — Flip checked state (no-op if disabled)
-- `onInputChange(event)` — Reflects the native `change` event onto the `checked` model
+- `toggle()` — Application API: flips the checked state; no-op while disabled. **Not** gated by `readonly` — readonly locks out the user, not the application's own code (owner ruling, #298), same as writing `checked`. The keyboard path is `onEnter`, which is gated.
+- `onInputChange(event)` — Reflects the native `change` event onto the `checked` model; a refused write puts `input.checked` back to `checked()`
 - `setFocused(focused)` — Inherited from the signal base; updates the focus signal driving the wrapper state.
 
 The control is a signal-forms field, not a `ControlValueAccessor` — there is no
@@ -130,7 +130,7 @@ The control is a signal-forms field, not a `ControlValueAccessor` — there is n
 
 #### Internal methods (`@internal`, template-facing)
 
-- `onEnter(event)` — Enter-key toggle (Space is handled natively by the input)
+- `onEnter(event)` — Enter-key toggle (Space is handled natively by the input). A user write: goes through `_write()`, refused while readonly or disabled; always `preventDefault()`s.
 - `onFocus()` — Notify parent group via `SWITCH_GROUP` token
 - `onBlur()` — Emits the signal-forms `touch` output when focus leaves the input
 
@@ -138,13 +138,14 @@ The control is a signal-forms field, not a `ControlValueAccessor` — there is n
 
 - **Single tab stop:** the native input carries the roving tabindex; the host is not tabbable.
 - **Space** toggles natively (fires `change`); **Enter** toggles via `onEnter`.
+- **Readonly** (#298): a native checkbox ignores the `readonly` attribute, so the component enforces it. The native input's `(click)` is `preventDefault()`ed while `!_canWrite()` — the browser then restores `checked` and fires no `change`, covering a click on the track, a click on the label and Space (a synthetic click). `onEnter()` / `onInputChange()` write through `_write()`; a stray `change` is rolled back in the DOM. `toggle()` is the app API and stays disabled-only. Pinned by `switch-readonly.spec.ts` (Enter refused; programmatic `toggle()` still flips while readonly; `toggle()` no-op while disabled). The input stays focusable. `aria-readonly="true"` on the `role="switch"` input while readonly (the switch role inherits it from checkbox); no attribute otherwise.
 - **`:focus-visible`** ring is promoted from the hidden input onto `.mlv-switch__track` using `--mlv-border-focus`.
 
 #### Template Summary
 
 `<label>` wrapping:
 
-- Visually-hidden (clip-path) `<input #nativeInput type="checkbox" role="switch" [attr.tabindex]="tabIndex()" [attr.aria-checked] [attr.aria-required]>`
+- Visually-hidden (clip-path) `<input #nativeInput type="checkbox" role="switch" [attr.tabindex]="tabIndex()" [attr.aria-checked] [attr.aria-required] [attr.aria-readonly] (click)="_onNativeClick($event)">`
 - `.mlv-switch__track.mlv-switch__track--{state}` (visual track + thumb)
 - `.mlv-switch__text`, holding `.mlv-switch__content` (`<ng-content>`) followed by the `.mlv-switch__label-text` fallback rendered from the `label` input
 
