@@ -6,18 +6,10 @@ import {
   MlvTabContentDef,
 } from '@malva-ui/core/tabs';
 import { MlvButton } from '@malva-ui/core/button';
-import { MlvClick } from '@malva-ui/cdk/accessibility';
 
 @Component({
   selector: 'docs-tabs-overflow-example',
-  imports: [
-    MlvTabGroup,
-    MlvTab,
-    MlvTabDef,
-    MlvTabContentDef,
-    MlvButton,
-    MlvClick,
-  ],
+  imports: [MlvTabGroup, MlvTab, MlvTabDef, MlvTabContentDef, MlvButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './index.html',
 })

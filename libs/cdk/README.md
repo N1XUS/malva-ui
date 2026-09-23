@@ -36,7 +36,7 @@ import { MlvAutofocus } from '@malva-ui/cdk/utils';
 
 ```html
 <!-- Enter and Space activate it, and it joins the tab order -->
-<div [mlvClick]="select()">Selectable row</div>
+<div mlvClick (mlvClick)="select()">Selectable row</div>
 ```
 
 A data source drives paging, sorting and search for `mlv-data-table` and the option controls:

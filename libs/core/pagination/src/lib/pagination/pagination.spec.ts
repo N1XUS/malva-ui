@@ -339,3 +339,102 @@ describe('MlvPagination accessibility', () => {
     await expectNoAxeViolations(container);
   });
 });
+
+@Component({
+  template: `<mlv-pagination [totalItems]="100" [(currentPage)]="page" />`,
+  imports: [MlvPagination],
+})
+class KeyboardHostComponent {
+  readonly page = signal(4);
+}
+
+/**
+ * Keyboard activation of the page controls (#299).
+ *
+ * Every page control is a native `<button>`, so a real browser answers Enter
+ * (and Space, on keyup) with a `click` of its own. jsdom synthesises none, so
+ * `press()` replays exactly what Chrome dispatches for one trusted key press on
+ * a `<button>`: keydown, then the click — unless the keydown was cancelled —
+ * then keyup. The controls must count that as **one** activation; they used to
+ * count the keydown and the click separately and move two pages.
+ */
+describe('MlvPagination keyboard activation', () => {
+  let fixture: ComponentFixture<KeyboardHostComponent>;
+
+  const navButtons = (): HTMLButtonElement[] =>
+    Array.from(
+      fixture.nativeElement.querySelectorAll('.mlv-pagination__items > button'),
+    );
+  const previous = (): HTMLButtonElement => navButtons()[0];
+  const next = (): HTMLButtonElement => navButtons()[1];
+
+  function press(button: HTMLButtonElement, key: 'Enter' | ' '): void {
+    const keydown = new KeyboardEvent('keydown', {
+      key,
+      bubbles: true,
+      cancelable: true,
+    });
+    button.dispatchEvent(keydown);
+    if (!keydown.defaultPrevented) {
+      button.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    }
+    button.dispatchEvent(
+      new KeyboardEvent('keyup', { key, bubbles: true, cancelable: true }),
+    );
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [KeyboardHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(KeyboardHostComponent);
+    await fixture.whenStable();
+  });
+
+  it('moves one page forward per Enter on Next', async () => {
+    expect(next().getAttribute('aria-label')).toBe('Next page');
+
+    press(next(), 'Enter');
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.page()).toBe(5);
+  });
+
+  it('moves one page back per Space on Previous', async () => {
+    expect(previous().getAttribute('aria-label')).toBe('Previous page');
+
+    press(previous(), ' ');
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.page()).toBe(3);
+  });
+
+  it('never leaves the range from the second-to-last page', async () => {
+    fixture.componentInstance.page.set(9);
+    await fixture.whenStable();
+
+    press(next(), 'Enter');
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.page()).toBe(10);
+    expect(next().disabled).toBe(true);
+  });
+
+  it('moves to the pressed page number exactly', async () => {
+    const pageSix = Array.from(
+      fixture.nativeElement.querySelectorAll(
+        '.mlv-pagination__items__container button',
+      ) as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.trim() === '6');
+    expect(pageSix).toBeDefined();
+
+    press(pageSix as HTMLButtonElement, 'Enter');
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.page()).toBe(6);
+  });
+});

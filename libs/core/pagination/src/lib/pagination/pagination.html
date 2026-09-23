@@ -69,7 +69,7 @@
         variant="transparent"
         mlvButton
         [disabled]="currentPage() === 1"
-        (mlvClick)="goToPage(currentPage() - 1)"
+        (click)="goToPage(currentPage() - 1)"
         [attr.aria-label]="_i18n().previousPage"
       >
         <svg lucideChevronLeft size="20" />
@@ -93,7 +93,7 @@
               [variant]="page === currentPage() ? 'primary' : 'transparent'"
               shape="square"
               mlvButton
-              (mlvClick)="goToPage(page)"
+              (click)="goToPage(page)"
               [attr.aria-current]="page === currentPage() ? 'page' : null"
               [attr.aria-label]="_pageAriaLabel(page)"
             >
@@ -111,7 +111,7 @@
         shape="square"
         mlvButton
         [disabled]="currentPage() === _service.totalPages()"
-        (mlvClick)="goToPage(currentPage() + 1)"
+        (click)="goToPage(currentPage() + 1)"
         [attr.aria-label]="_i18n().nextPage"
       >
         <svg lucideChevronRight size="20" />

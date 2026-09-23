@@ -38,16 +38,17 @@ Always use the `host` object inside `@Directive`. **Never** use `@HostBinding` o
 
 ```ts
 @Directive({
-  selector: '[mlvClick]',
+  selector: '[mlvDisclosure]',
   host: {
-    '[attr.tabindex]': 'disabled() ? -1 : 0',
-    '[attr.role]': '"button"',
-    '(keydown.enter)': 'onKey($event)',
-    '(keydown.space)': 'onKey($event); $event.preventDefault()',
-    '(click)': 'handleClick($event)',
+    '[attr.aria-expanded]': 'expanded()',
+    '[attr.aria-controls]': 'panelId()',
+    '[class.mlv-disclosure--open]': 'expanded()',
+    '(keydown.escape)': 'collapse()',
   },
 })
 ```
+
+Keyboard **activation** (Enter / Space runs the action) on a **non-native** host — a `<div>`, a custom element — is `[mlvClick]` from `@malva-ui/cdk/accessibility`, or the `(click)` + `(keydown.enter)` + `(keydown.space)` trio with Space `preventDefault()`ed that `.claude/rules/angular-component.md` shows. A native `<button>` / `<a href>` host binds `(click)` **alone**: never add `(keydown.enter)` / `(keydown.space)` beside it, because the browser already turns those keys into a `click` there (Enter and Space on a button, Enter on a link), so both fire and every press runs the action twice (#299).
 
 Arrow-key handlers never compare `event.key` to `'ArrowLeft'` / `'ArrowRight'` — switch on `MlvRtlService.normalizeArrowKey(event, this._direction())` (`@malva-ui/cdk/utils`) so the inline axis mirrors in RTL. `_direction` is one cached `elementDirection(host)` signal per directive — the second argument is a resolved `MlvDirection`, not an element. Pass it whenever the handler branches on the horizontal pair; without it the helper reads the document direction and ignores any scoped `[dir]` above the host. See `.claude/rules/rtl.md`.
 
@@ -220,7 +221,9 @@ export class MlvClick {
   });
 
   /**
-   * Emits on native click, Enter keydown, or Space keydown.
+   * Emits once per activation: a pointer click, or Enter / Space on the host.
+   * Where the browser turns the key into a `click` itself (a `<button>`), that
+   * click is the emission.
    */
   readonly mlvClick = output<MouseEvent | KeyboardEvent>();
 
@@ -243,41 +246,40 @@ All public inputs and outputs must have JSDoc. Protected members: `_` prefix + J
 ## Complete Minimal Example
 
 ```ts
-import { Directive, ElementRef, inject, input, output, DestroyRef } from '@angular/core';
-import { fromEvent, merge } from 'rxjs';
+import { Directive, ElementRef, inject, input, output } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { BooleanInput, coerceBooleanProperty } from '@angular/cdk/coercion';
+import type { BooleanInput } from '@angular/cdk/coercion';
+import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { hasModifierKey } from '@angular/cdk/keycodes';
+import { filter, fromEvent } from 'rxjs';
 
+/**
+ * Emits when Escape is pressed while focus is inside the host — e.g. to close
+ * an inline editor. Not a pattern for keyboard activation: Enter / Space
+ * running an action on a non-native host is `MlvClick`
+ * (`@malva-ui/cdk/accessibility`).
+ */
 @Directive({
-  selector: '[mlvClick]',
-  host: {
-    '[attr.tabindex]': 'disabled() ? -1 : 0',
-  },
+  selector: '[mlvEscapeKey]',
 })
-export class MlvClick {
-  /** Removes element from tab order and disables keyboard activation when true. */
-  readonly disabled = input<BooleanInput, boolean | string>(false, {
+export class MlvEscapeKey {
+  /** Stops the output from emitting while `true`. */
+  readonly disabled = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
   });
 
-  /** Emits on click, Enter, or Space. */
-  readonly mlvClick = output<MouseEvent | KeyboardEvent>();
+  /** Emits the Escape keydown that reached the host, with no modifier held. */
+  readonly mlvEscapeKey = output<KeyboardEvent>();
 
   constructor() {
-    const el = inject(ElementRef<HTMLElement>).nativeElement;
-    const destroyRef = inject(DestroyRef);
+    const host: HTMLElement = inject(ElementRef<HTMLElement>).nativeElement;
 
-    const enter$ = fromEvent<KeyboardEvent>(el, 'keydown').pipe(
-      filter((e) => e.key === 'Enter'),
-      takeUntilDestroyed(destroyRef),
-    );
-    const space$ = fromEvent<KeyboardEvent>(el, 'keydown').pipe(
-      filter((e) => e.key === ' '),
-      takeUntilDestroyed(destroyRef),
-    );
-    const click$ = fromEvent<MouseEvent>(el, 'click').pipe(takeUntilDestroyed(destroyRef));
-
-    merge(click$, enter$, space$).subscribe((e) => this.mlvClick.emit(e));
+    fromEvent<KeyboardEvent>(host, 'keydown')
+      .pipe(
+        filter((event) => event.key === 'Escape' && !hasModifierKey(event) && !this.disabled()),
+        takeUntilDestroyed(),
+      )
+      .subscribe((event) => this.mlvEscapeKey.emit(event));
   }
 }
 ```

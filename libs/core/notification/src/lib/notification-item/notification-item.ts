@@ -21,7 +21,6 @@ import type {
   MlvNotificationAction,
 } from '../notification.types';
 import { MlvButton, MlvButtonClose } from '@malva-ui/core/button';
-import { MlvClick } from '@malva-ui/cdk/accessibility';
 import { MlvChip } from '@malva-ui/core/chip';
 import { MLV_NOTIFICATION_I18N } from '@malva-ui/i18n';
 
@@ -30,7 +29,6 @@ import { MLV_NOTIFICATION_I18N } from '@malva-ui/i18n';
   imports: [
     LucideDynamicIcon,
     MlvButton,
-    MlvClick,
     MlvChip,
     NgComponentOutlet,
     NgTemplateOutlet,

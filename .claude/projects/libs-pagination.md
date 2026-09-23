@@ -203,6 +203,7 @@ Convert route params before binding.
 
 - The page-navigation section (`.mlv-pagination__items-wrapper`) is a `role="navigation"` landmark, labelled via `[attr.aria-label]="_i18n().navigationLabel"` (English: "Pagination").
 - Prev/next arrow buttons use `[attr.aria-label]` from `_i18n().previousPage` / `_i18n().nextPage`.
+- Prev, next and page-number controls are native `<button mlvButton>` bound with `(click)`: Enter and Space activation is the browser's own click, so one key press moves exactly one page. They used to bind `(mlvClick)`, which also emitted for the keydown — Next skipped a page and could push `currentPage` to `totalPages + 1` (Prev to `0`) (#299). Pinned by `pagination.spec.ts` › _keyboard activation_.
 - Page number buttons set `[attr.aria-current]="'page'"` on the current page and take their `aria-label` from the ICU `page` key (English: "Page {page}") via `_pageAriaLabel()`, not from a hardcoded string.
 - The ellipsis "jump to page" field is a `mlv-input` (`type="number"`) with `[ariaLabel]="_i18n().goToPage"` (English: "Go to page") so it has an accessible name despite only showing a `...` placeholder.
 - i18n keys consumed: `navigationLabel`, `previousPage`, `nextPage`, `page`, `goToPage`, plus the ICU display keys `itemRange`, `itemCount`, `itemsPerPage` and `allItems` — see `MLV_PAGINATION_I18N`. (`items` is declared on `MlvPaginationI18n` but this component does not read it.)
@@ -232,7 +233,6 @@ Component-scoped (provided by `MlvPagination`, **not** `providedIn: 'root'`). De
 
 - `@angular/core` ^22.0.0
 - `@angular/cdk/coercion` — `BooleanInput`, `coerceBooleanProperty`
-- `@malva-ui/cdk/accessibility` — `MlvClick`
 - `@malva-ui/cdk/density` — `MlvDensity` type
 - `@malva-ui/cdk/utils` — `mlvNextId`, `range`, `MlvStructural`
 - `@malva-ui/core/button`, `/input`, `/popup`, `/dropdown`, `/form-utils` (`MlvSelectionService`)
