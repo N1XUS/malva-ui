@@ -27,6 +27,7 @@
     range() ? _i18n().minValue : ariaLabel() || label() || _i18n().value
   "
   [attr.aria-disabled]="computedDisabled() || null"
+  [attr.aria-readonly]="readonly() || null"
   [attr.aria-orientation]="orientation()"
   [style.left]="!_isVertical() ? _lowPercent() + '%' : null"
   [style.bottom]="_isVertical() ? _lowPercent() + '%' : null"
@@ -64,6 +65,7 @@
     [attr.aria-valuemax]="max()"
     [attr.aria-label]="_i18n().maxValue"
     [attr.aria-disabled]="computedDisabled() || null"
+    [attr.aria-readonly]="readonly() || null"
     [attr.aria-orientation]="orientation()"
     [style.left]="!_isVertical() ? _highPercent() + '%' : null"
     [style.bottom]="_isVertical() ? _highPercent() + '%' : null"

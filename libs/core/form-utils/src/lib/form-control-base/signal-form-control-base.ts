@@ -310,6 +310,29 @@ export abstract class MlvSignalFormUiControlBase implements MlvFormControl {
    */
   readonly computedDisabled = computed(() => this.disabled());
 
+  /**
+   * @protected Whether a **user interaction** may write the control's value
+   * right now: `false` while the control is {@link readonly} or
+   * {@link computedDisabled}, whichever forms transport set them (a consumer
+   * `[readonly]` / `[disabled]`, a signal-forms `readonly()` / `disabled()`
+   * rule, or a reactive `FormControl.disable()`).
+   *
+   * The one write-permission question every control asks, so none of them
+   * re-derives it per handler and forgets a term (#298: the number-input,
+   * checkbox, switch, slider and pin-input handlers all checked
+   * `computedDisabled()` alone). Neither forms layer enforces it for a custom
+   * control — signal forms wires the model back unconditionally and the
+   * reactive interop has no readonly concept — so the control must.
+   *
+   * Gate a handler on it **before** it touches any local draft state (a
+   * pending string, a cell array, a drag position), then write through
+   * `_write()`. Programmatic writes to the model from the form or the consumer
+   * are never gated: readonly locks the user out, not the application.
+   */
+  protected readonly _canWrite = computed(
+    () => !this.readonly() && !this.computedDisabled(),
+  );
+
   /** @protected Notifies the field that the user left the control. */
   protected _markTouched(): void {
     this.touch.emit();
@@ -329,6 +352,22 @@ export abstract class MlvSignalFormControlBase<T>
 {
   /** The control's value — kept in sync with the bound field by `[formField]`. */
   abstract readonly value: ModelSignal<T>;
+
+  /**
+   * @protected Writes a value produced by a user interaction — a key, a
+   * pointer gesture, a paste, a clear — into {@link value}, but only while
+   * {@link _canWrite} allows it.
+   *
+   * @param value The value the interaction produced.
+   * @returns `true` when the model was written, `false` when the write was
+   * refused. A caller that already mutated the DOM or a local draft (a native
+   * input's `checked`, a typed string) uses `false` to roll that back.
+   */
+  protected _write(value: T): boolean {
+    if (!this._canWrite()) return false;
+    this.value.set(value);
+    return true;
+  }
 }
 
 /**
@@ -343,4 +382,21 @@ export abstract class MlvSignalCheckboxControlBase
 {
   /** The control's checked state — kept in sync with the bound field by `[formField]`. */
   abstract readonly checked: ModelSignal<boolean>;
+
+  /**
+   * @protected Writes a checked state produced by a user interaction (click,
+   * Space, Enter, clear) into {@link checked}, but only while
+   * {@link _canWrite} allows it — the `checked` counterpart of
+   * `MlvSignalFormControlBase._write`.
+   *
+   * @param checked The state the interaction produced.
+   * @returns `true` when the model was written, `false` when the write was
+   * refused — the caller then restores the native input's `checked`, which a
+   * browser flips before `(change)` runs.
+   */
+  protected _write(checked: boolean): boolean {
+    if (!this._canWrite()) return false;
+    this.checked.set(checked);
+    return true;
+  }
 }

@@ -164,4 +164,35 @@ export class MlvRadio {
     if (this.disabled()) return;
     this._group?.selectRadio(this);
   }
+
+  /**
+   * @protected Native `disabled` for the inner input: this radio's own
+   * {@link disabled}, or its group's. Kept off the host's
+   * `mlv-radio--disabled` class on purpose — a disabled group already dims its
+   * whole content, and dimming each radio again would compound the opacity.
+   */
+  protected readonly _nativeDisabled = computed(
+    () => this.disabled() || (this._group?.computedDisabled() ?? false),
+  );
+
+  /**
+   * @protected Cancels a click (a pointer click, a click on the label, or the
+   * click Space synthesises) while the group may not change its selection. A
+   * native radio honours a cancelled click — the browser puts the previously
+   * checked radio back and fires no `change` — so a readonly group's DOM can
+   * never show a selection its value does not hold.
+   */
+  protected _onNativeClick(event: MouseEvent): void {
+    if (this._group && !this._group.canSelect()) event.preventDefault();
+  }
+
+  /**
+   * @internal Re-asserts the native `checked` from {@link checked}. Called by
+   * the group when it refuses a selection that reached `(change)` anyway: the
+   * browser has already flipped the DOM by then, and because the `[checked]`
+   * binding's value did not change, Angular would never write it back.
+   */
+  _restoreNativeChecked(): void {
+    this._nativeInput().nativeElement.checked = this.checked();
+  }
 }

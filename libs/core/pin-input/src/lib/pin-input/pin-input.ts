@@ -262,13 +262,17 @@ export class MlvPinInput
         this._internalModelWrite = null;
         return;
       }
-      const chars = value.split('').slice(0, len);
-      const padded = Array.from(
-        { length: len },
-        (_, index) => chars[index] ?? '',
-      );
-      this._values.set(padded);
+      this._values.set(this._cellsFor(value, len));
     });
+  }
+
+  /**
+   * @private Splits a joined value into exactly `length` positional cells,
+   * padding with `''` and dropping characters past the last cell.
+   */
+  private _cellsFor(value: string, length: number): string[] {
+    const chars = value.split('').slice(0, length);
+    return Array.from({ length }, (_, index) => chars[index] ?? '');
   }
 
   // ── Forms value ────────────────────────────────────────────────────────────
@@ -286,6 +290,24 @@ export class MlvPinInput
    * multi-char string across subsequent cells when triggered by IME / fast typing.
    */
   protected _onCellChange(index: number, raw: string): void {
+    // Native `readOnly` / `disabled` on the cells already stop typing; this
+    // covers an input that reaches the handler anyway, before `_values` moves.
+    // The cell has already taken the character into its own `value` model and
+    // its native field shows it. Neither binding puts it back on its own: our
+    // `[value]` is unchanged, and the cell's inner `[value]` ends on the same
+    // string it last rendered, so Angular writes nothing to the DOM. Restore
+    // both — the model so the cell agrees with us, the field so it stops
+    // showing the refused character. The re-entrant `valueChange` from the
+    // model write lands here again and stops: the model already holds the
+    // restored value, so the second write emits nothing.
+    if (!this._canWrite()) {
+      const cell = this._cellAt(index);
+      const restored = this._values()[index] ?? '';
+      cell?.value.set(restored);
+      const field = cell?.nativeElement;
+      if (field) field.value = restored;
+      return;
+    }
     // When a cell already holds a character and the user types again, the
     // native input accumulates (e.g. cell was '3', user types '4' → '34').
     // Strip the previous value prefix so we treat only the new keystroke.
@@ -322,12 +344,16 @@ export class MlvPinInput
 
   /**
    * @protected Handles cell keyboard input — Backspace, Delete, arrows, Home/End.
+   * Backspace and Delete erase only while the field may be written; the native
+   * `readOnly` on a cell does not stop them, because they are handled here.
+   * Navigation (arrows, Home / End, Backspace on an empty cell) always works.
    */
   protected _onCellKeydown(index: number, event: KeyboardEvent): void {
     switch (event.key) {
       case 'Backspace':
         event.preventDefault();
         if (this._values()[index]) {
+          if (!this._canWrite()) break;
           this._setCell(index, '');
           this._emit();
         } else {
@@ -337,6 +363,7 @@ export class MlvPinInput
 
       case 'Delete':
         event.preventDefault();
+        if (!this._canWrite()) break;
         this._setCell(index, '');
         this._emit();
         break;
@@ -366,10 +393,13 @@ export class MlvPinInput
 
   /**
    * @protected Pastes a string of characters across cells starting from the
-   * first cell. Whitespace is stripped before distribution.
+   * first cell. Whitespace is stripped before distribution. The event is
+   * always cancelled, so a refused paste (readonly or disabled) leaves the
+   * native cell untouched as well as the value.
    */
   protected _onCellPaste(_index: number, event: ClipboardEvent): void {
     event.preventDefault();
+    if (!this._canWrite()) return;
     const text = event.clipboardData?.getData('text/plain') ?? '';
     this._distributeChars(text, 0);
   }
@@ -450,7 +480,14 @@ export class MlvPinInput
     const full = values.join('');
     if (this.value() !== full) {
       this._internalModelWrite = full;
-      this.value.set(full);
+      // Every caller is gated on `_canWrite()` before it touches `_values`, so
+      // this refusal is a backstop, not a path. Should a caller that is not be
+      // added, the cells go back to the model instead of staying diverged.
+      if (!this._write(full)) {
+        this._internalModelWrite = null;
+        this._values.set(this._cellsFor(this.value() ?? '', this.length()));
+        return;
+      }
     }
 
     if (values.length === this.length() && values.every((v) => v !== '')) {

@@ -300,33 +300,38 @@ export class MlvSlider
   // -------------------------------------------------------------------------
 
   /**
-   * @protected Handles keydown events on the low thumb.
+   * @protected Handles keydown events on the low thumb. Writes nothing while
+   * the slider may not be written (readonly or disabled). A readonly thumb
+   * stays focusable so its value can still be read, and a slider key it
+   * refuses is still cancelled: a thumb has no caret, so the only default an
+   * arrow, Page, Home or End key has left is scrolling the page.
    */
   protected _onLowThumbKeydown(event: KeyboardEvent): void {
     if (this.computedDisabled()) return;
     const newValue = this._computeKeyValue(event, this._lowValue());
-    if (newValue !== null) {
-      event.preventDefault();
-      const clamped = this.range()
-        ? Math.min(newValue, this._highValue())
-        : newValue;
-      this._setLowValue(clamped);
-      this._emitChange();
-    }
+    if (newValue === null) return;
+    event.preventDefault();
+    if (!this._canWrite()) return;
+    const clamped = this.range()
+      ? Math.min(newValue, this._highValue())
+      : newValue;
+    this._setLowValue(clamped);
+    this._emitChange();
   }
 
   /**
    * @protected Handles keydown events on the high thumb (range mode only).
+   * Refuses and cancels a key exactly like the low thumb.
    */
   protected _onHighThumbKeydown(event: KeyboardEvent): void {
     if (this.computedDisabled() || !this.range()) return;
     const newValue = this._computeKeyValue(event, this._highValue());
-    if (newValue !== null) {
-      event.preventDefault();
-      const clamped = Math.max(newValue, this._lowValue());
-      this._setHighValue(clamped);
-      this._emitChange();
-    }
+    if (newValue === null) return;
+    event.preventDefault();
+    if (!this._canWrite()) return;
+    const clamped = Math.max(newValue, this._lowValue());
+    this._setHighValue(clamped);
+    this._emitChange();
   }
 
   // -------------------------------------------------------------------------
@@ -334,10 +339,12 @@ export class MlvSlider
   // -------------------------------------------------------------------------
 
   /**
-   * @protected Handles pointerdown events on the track area to begin thumb dragging.
+   * @protected Handles pointerdown events on the track area to begin thumb
+   * dragging. While the slider may not be written it neither jumps a thumb nor
+   * starts a drag — no window listeners, no captured pointer, no drag class.
    */
   protected _onTrackPointerDown(event: PointerEvent): void {
-    if (this.computedDisabled()) return;
+    if (!this._canWrite()) return;
 
     // Cache the track rect once per drag so the per-move percent math (track
     // click and every pointermove) avoids a repeated getBoundingClientRect
@@ -391,6 +398,10 @@ export class MlvSlider
 
     const onMove = (e: PointerEvent) => {
       if (e.pointerId !== pointerId) return;
+      // Permission lost mid-drag (`readonly` or `disabled` flipping on): the
+      // thumb stops following the pointer, not only the value. It rests where
+      // the last permitted move left it and settles on the value at release.
+      if (!this._canWrite()) return;
       const rawPercent = this._pointerToPercent(e);
       const rawValue =
         this.min() + (rawPercent / 100) * (this.max() - this.min());
@@ -548,18 +559,23 @@ export class MlvSlider
     return this._clamp(snapped);
   }
 
-  /** @private Writes the low/sole thumb while preserving the range shape. */
+  /**
+   * @private Writes the low/sole thumb while preserving the range shape.
+   * Every slider write goes through `_write`, so none lands while the slider is
+   * readonly or disabled. A drag that outlives permission also stops moving
+   * the thumb itself — see the guard at the top of the drag's `onMove`.
+   */
   private _setLowValue(value: number): void {
     if (this.range()) {
-      this.value.set([value, this._highValue()]);
+      this._write([value, this._highValue()]);
     } else {
-      this.value.set(value);
+      this._write(value);
     }
   }
 
   /** @private Writes the high thumb while preserving the current low value. */
   private _setHighValue(value: number): void {
-    this.value.set([this._lowValue(), value]);
+    this._write([this._lowValue(), value]);
   }
 
   /**
@@ -567,9 +583,9 @@ export class MlvSlider
    */
   private _emitChange(): void {
     if (this.range()) {
-      this.value.set([this._lowValue(), this._highValue()]);
+      this._write([this._lowValue(), this._highValue()]);
     } else {
-      this.value.set(this._lowValue());
+      this._write(this._lowValue());
     }
   }
 

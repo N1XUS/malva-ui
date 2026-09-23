@@ -238,17 +238,41 @@ export class MlvCheckbox
    * Reflects the native `change` event (Space / click): the `checked` model
    * emits, propagating to the bound field. Touched is reported on blur (see
    * {@link onBlur}), matching the signal-forms `touch` contract.
+   *
+   * A browser flips the native `checked` before `change` runs, so a refused
+   * write (readonly or disabled) puts the DOM back rather than leaving it
+   * showing a state the model does not hold.
    */
   onInputChange(event: Event): void {
     const target = event.target as HTMLInputElement;
-    this.checked.set(target.checked);
+    if (!this._write(target.checked)) target.checked = this.checked();
   }
 
-  /** Toggles the checked state from an Enter keypress on the native input. */
+  /**
+   * The native input's `(keydown.enter)` handler: toggles the checked state as
+   * the user's Enter keypress, and cancels the event.
+   *
+   * A **user interaction**, not an application API — it writes through
+   * `_write`, so it does nothing while the checkbox is readonly or disabled.
+   * To set the state from code (which readonly does not lock out), write the
+   * {@link checked} model instead.
+   *
+   * @param event The Enter `keydown`; its default is prevented.
+   */
   toggle(event: Event): void {
     event.preventDefault();
-    if (this.computedDisabled()) return;
-    this.checked.set(!this.checked());
+    this._write(!this.checked());
+  }
+
+  /**
+   * @protected Cancels a click (a pointer click, a click on the label, or the
+   * click Space synthesises) while the checkbox may not be written. A native
+   * checkbox ignores the `readonly` attribute, but it honours a cancelled
+   * click: the browser restores `checked` and `indeterminate` and fires no
+   * `change`, so the DOM never drifts from the model.
+   */
+  protected _onNativeClick(event: MouseEvent): void {
+    if (!this._canWrite()) event.preventDefault();
   }
 
   /**

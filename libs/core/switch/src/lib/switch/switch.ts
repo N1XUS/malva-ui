@@ -189,13 +189,23 @@ export class MlvSwitch
 
   /**
    * @internal Toggles the checked state from an Enter keypress. Space is handled
-   * natively by the checkbox input (which emits `change`).
+   * natively by the checkbox input (which emits `change`). A user interaction,
+   * so it writes through `_write` and does nothing while the switch is
+   * readonly or disabled.
    */
   onEnter(event: Event): void {
     event.preventDefault();
-    this.toggle();
+    this._write(!this.checked());
   }
 
+  /**
+   * Flips the on/off state from application code. No-op while disabled.
+   *
+   * Not gated by {@link readonly}: readonly locks the user out, not the
+   * application, so code that calls this on a readonly switch still flips it —
+   * the same as writing {@link checked}. The keyboard path is `onEnter`, which
+   * is gated.
+   */
   toggle(): void {
     if (this.computedDisabled()) return;
     this.checked.set(!this.checked());
@@ -205,10 +215,25 @@ export class MlvSwitch
    * Reflects the native `change` event (Space toggles natively): the `checked`
    * model emits, propagating to the bound field. Touched is reported on blur
    * (see {@link onBlur}), matching the signal-forms `touch` contract.
+   *
+   * A browser flips the native `checked` before `change` runs, so a refused
+   * write (readonly or disabled) puts the DOM back rather than leaving it
+   * showing a state the model does not hold.
    */
   onInputChange(event: Event): void {
     const target = event.target as HTMLInputElement;
-    this.checked.set(target.checked);
+    if (!this._write(target.checked)) target.checked = this.checked();
+  }
+
+  /**
+   * @protected Cancels a click (a pointer click, a click on the label, or the
+   * click Space synthesises) while the switch may not be written. A native
+   * checkbox ignores the `readonly` attribute, but it honours a cancelled
+   * click: the browser restores `checked` and fires no `change`, so the DOM
+   * never drifts from the model.
+   */
+  protected _onNativeClick(event: MouseEvent): void {
+    if (!this._canWrite()) event.preventDefault();
   }
 
   /**
