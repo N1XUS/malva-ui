@@ -19,6 +19,7 @@ import { Overlay } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { hasModifierKey } from '@angular/cdk/keycodes';
 import {
   MlvRtlService,
   mlvMirrorInlineOffsets,
@@ -26,6 +27,16 @@ import {
 } from '@malva-ui/cdk/utils';
 import { MlvTooltipPanel } from './tooltip-panel';
 import type { MlvTooltipTone, MlvTooltipPlacement } from './tooltip.types';
+
+/**
+ * Whether a keyboard event is the one Escape a tooltip dismisses on: the
+ * Escape key with no modifier held (`hasModifierKey` covers Shift, Alt,
+ * Control and Meta), the same key Angular's `(keydown.escape)` matches.
+ */
+function isDismissEscape(event: Event): boolean {
+  const key = event as KeyboardEvent;
+  return key.key === 'Escape' && !hasModifierKey(key);
+}
 
 /**
  * Map of placement → CDK connected positions (preferred + opposite fallback).
@@ -122,8 +133,17 @@ function resolvePlacementFromPosition(
  * Tooltip directive — attach to any element to show a tooltip on hover and focus.
  *
  * The tooltip content is passed as the directive binding value (`mlvTooltip`).
- * The tooltip appears after `tooltipDelay` ms and disappears immediately on
- * mouseleave, focusout, or Escape key.
+ * The tooltip appears after `tooltipDelay` ms and disappears on mouseleave
+ * (after a short grace period), on focusout, or on Escape.
+ *
+ * Escape dismisses a visible tooltip wherever focus is — a hover-shown tooltip
+ * included (WCAG 1.4.13) — and dismisses **only** the tooltip: the keystroke is
+ * consumed, so a dialog, drawer or popup the host sits in stays open until the
+ * next Escape. It arrives through the overlay's `keydownEvents()`, so CDK's
+ * keyboard dispatcher hands it to the topmost overlay: an overlay opened above
+ * the tooltip takes Escape first. With focus on the host, that same Escape
+ * also hides the tooltip. Every other key — Escape with a modifier held
+ * included — passes the tooltip by and reaches the overlay below it.
  *
  * @example Basic usage
  * ```html
@@ -250,15 +270,24 @@ export class MlvTooltip {
   private _hideTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
+   * @private Timer handle for the fallback `_onEscape()` arms when Escape is
+   * pressed on the host while the tooltip is visible. Cleared by `_hide()`,
+   * so it only ever fires for a tooltip the keystroke left on screen.
+   */
+  private _escapeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
    * @private Grace period (ms) before hiding on mouseleave, allowing the pointer
    * to reach the hoverable tooltip panel without it disappearing.
    */
   private readonly _hideDelay = 150;
 
   /**
-   * @private Cleanup functions for the panel hover listeners, invoked on hide.
+   * @private Cleanup functions for everything wired to the current overlay —
+   * the panel hover listeners and the Escape subscription. Their lifetime is
+   * one show, not the directive's, so `_hide()` runs and clears them.
    */
-  private _panelListeners: (() => void)[] = [];
+  private _overlayTeardowns: (() => void)[] = [];
 
   /**
    * @private Stable unique ID for this tooltip instance, used by `aria-describedby`.
@@ -304,10 +333,33 @@ export class MlvTooltip {
     this._hide();
   }
 
-  /** @protected Cancels pending show and hides tooltip on Escape key. */
+  /**
+   * @protected Handles Escape pressed on the host: cancels a pending show and,
+   * when the tooltip is visible, arms a fallback that hides it once the
+   * keystroke has finished dispatching.
+   *
+   * It deliberately does **not** hide synchronously. Dismissing a visible
+   * tooltip is `_onOverlayEscape()`'s job, reached through CDK's keyboard
+   * dispatcher on `<body>`; hiding here would dispose the overlay before the
+   * keystroke bubbles there, and the dispatcher would then hand it to the
+   * overlay below — closing the dialog the host sits in on the same press.
+   *
+   * The fallback covers the two ways that keystroke can leave the tooltip up:
+   * an overlay opened above it took the key (a popup opened from the host,
+   * with focus left on the host), or an ancestor stopped its propagation
+   * before it reached `<body>`. Both hid the tooltip before the dispatcher
+   * route existed, and still do. A zero-delay task runs after the whole
+   * dispatch, which is synchronous; a microtask would not, since microtasks
+   * run between the listeners of a trusted event.
+   */
   protected _onEscape(): void {
     this._clearShowTimer();
-    this._hide();
+    if (!this._overlayRef) return;
+    this._clearEscapeFallback();
+    this._escapeFallbackTimer = setTimeout(() => {
+      this._escapeFallbackTimer = null;
+      this._ngZone.run(() => this._hide());
+    }, 0);
   }
 
   // ─── Private implementation ───────────────────────────────────────────────
@@ -330,6 +382,16 @@ export class MlvTooltip {
     if (this._showTimer !== null) {
       clearTimeout(this._showTimer);
       this._showTimer = null;
+    }
+  }
+
+  /**
+   * @private Clears the pending Escape fallback if one is armed.
+   */
+  private _clearEscapeFallback(): void {
+    if (this._escapeFallbackTimer !== null) {
+      clearTimeout(this._escapeFallbackTimer);
+      this._escapeFallbackTimer = null;
     }
   }
 
@@ -384,6 +446,14 @@ export class MlvTooltip {
       direction,
       scrollStrategy: this._overlay.scrollStrategies.reposition(),
       panelClass: 'mlv-tooltip-overlay',
+      // CDK's keyboard dispatcher hands a keydown to the topmost overlay that
+      // has any `keydownEvents()` observer and stops there, before a filter
+      // in that stream could look at the key. Without this predicate the
+      // tooltip would swallow every key while visible — Enter, Ctrl+S or
+      // Shift+Escape meant for a dialog, drawer or popup below it. Non-keydown
+      // events pass untouched; the tooltip observes no outside pointer events.
+      eventPredicate: (event) =>
+        event.type !== 'keydown' || isDismissEscape(event),
     });
 
     // Attach the component via a ComponentPortal with the environment injector
@@ -412,7 +482,7 @@ export class MlvTooltip {
     // (after the grace period) once the pointer leaves the panel. This makes the
     // hover content hoverable per WCAG 1.4.13.
     const overlayEl = this._overlayRef.overlayElement;
-    this._panelListeners.push(
+    this._overlayTeardowns.push(
       this._renderer.listen(overlayEl, 'mouseenter', () =>
         this._clearHideTimer(),
       ),
@@ -420,6 +490,16 @@ export class MlvTooltip {
         this._scheduleHide(),
       ),
     );
+
+    // Escape dismisses the tooltip wherever focus is (WCAG 1.4.13). Having an
+    // observer on `keydownEvents()` is what makes CDK's keyboard dispatcher
+    // stop at this overlay instead of skipping to the one below it; the
+    // `eventPredicate` above admits only an unmodified Escape, so that is all
+    // this stream ever carries.
+    const escape = this._overlayRef
+      .keydownEvents()
+      .subscribe((event) => this._onOverlayEscape(event));
+    this._overlayTeardowns.push(() => escape.unsubscribe());
 
     // Wire aria-describedby for accessibility
     this._renderer.setAttribute(
@@ -430,13 +510,31 @@ export class MlvTooltip {
   }
 
   /**
+   * @private Dismisses the visible tooltip on an Escape the keyboard dispatcher
+   * routed to its overlay, and consumes the keystroke: `preventDefault()`
+   * marks it handled, `stopPropagation()` keeps it from listeners above
+   * `<body>`, and the dispatcher itself delivers it to no overlay below. So
+   * the first Escape closes only the tooltip, never its container (D13, the
+   * APG tooltip pattern). The pending show is cleared too, or a hover that
+   * re-entered the trigger while the tooltip was up would bring it straight
+   * back.
+   */
+  private _onOverlayEscape(event: KeyboardEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this._clearShowTimer();
+    this._hide();
+  }
+
+  /**
    * @private Disposes the CDK overlay, destroys the component reference, and
    * removes `aria-describedby` from the host element.
    */
   private _hide(): void {
     this._clearHideTimer();
-    this._panelListeners.forEach((unlisten) => unlisten());
-    this._panelListeners = [];
+    this._clearEscapeFallback();
+    this._overlayTeardowns.forEach((teardown) => teardown());
+    this._overlayTeardowns = [];
     if (this._overlayRef) {
       this._overlayRef.dispose();
       this._overlayRef = null;

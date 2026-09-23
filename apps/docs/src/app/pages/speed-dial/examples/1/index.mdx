@@ -4,6 +4,6 @@ title: Linear layout
 
 `mlv-speed-dial` renders a circular trigger button that unfolds its `items` into a line. `direction` picks the side the actions grow toward. Each item carries a Lucide `icon` name, a `label` (its accessible name and tooltip) and an optional `command` callback; `itemSelect` also emits for every activation.
 
-The actions render in a CDK overlay centred on the trigger, so an `overflow: hidden` ancestor never clips them. Click outside, Escape or Tab closes the dial; arrow keys move between actions, Home/End jump to the ends.
+The actions render in a CDK overlay centred on the trigger, so an `overflow: hidden` ancestor never clips them. Click outside, Escape or Tab closes the dial; arrow keys move between actions, Home/End jump to the ends. While an action's label is showing, the first Escape dismisses the label and the next one closes the dial.
 
 Icons resolve at runtime through the Lucide registry — call `provideLucideIcons(...)` with every icon your items reference, exactly as for `mlv-bottom-nav`.
