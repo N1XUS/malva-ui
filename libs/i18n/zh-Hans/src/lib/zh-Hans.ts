@@ -1,6 +1,7 @@
 import type { MlvLanguage } from '@malva-ui/i18n';
 
 const zhHans: MlvLanguage = {
+  locale: 'zh-Hans',
   alert: {
     dismiss: '关闭提醒',
   },

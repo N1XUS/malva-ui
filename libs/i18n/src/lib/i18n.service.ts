@@ -14,6 +14,14 @@ export class MlvI18nService {
   /** @private Monotonic identifier used to ignore stale async pack loads. */
   private _switchRequestId = 0;
 
+  /**
+   * @internal The active pack's own `locale`, or `null` while no pack is set or
+   * the pack declares none. Read through `MLV_LOCALE`, which supplies the
+   * `LOCALE_ID` fallback; kept inject-free here so the service stays
+   * constructible with `new` outside an injection context.
+   */
+  readonly _locale = computed(() => this._language()?.locale ?? null);
+
   /** Sets the active language pack. Called by the APP_INITIALIZER. */
   setLanguage(lang: MlvLanguage): void {
     this._language.set(lang);

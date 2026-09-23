@@ -69,7 +69,7 @@
       class="mlv-chat-message__time"
       [attr.datetime]="_date().toISOString()"
     >
-      {{ _date() | date: 'shortTime' }}
+      {{ _time() }}
     </time>
     @if (own() && message().status; as status) {
       @switch (status) {

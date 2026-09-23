@@ -188,8 +188,21 @@ Only live-appended messages animate in — ids are recorded in `_liveIds` when t
 
 - Viewport: `role="log"` (polite by default), i18n `aria-label`, `tabindex="0"`.
 - Each message is an `<article>` labelled `"{author}, {time}, {status}"`; status icons are `aria-hidden`.
+  - Labels are one `computed` Map (`_messageLabels`) over the render window, users, `selfId`, locale and i18n — not a template method, so a typing-indicator or scroll refresh re-formats nothing (`chat-locale.spec.ts` guards it).
+  - `{time}` is the **same string** as the visible `<time>`: both go through `formatChatTime` (`chat-locale-format.ts`, not exported) in `MLV_LOCALE` and `DatePipe`'s time zone. Before #306 the label was hard-coded `'en-US'` and runtime-local while the bubble used `LOCALE_ID` and the configured zone — a `de` app announced "3:35 PM" under a visible "15:35".
 - Retry and media cells are real buttons with accessible names; images always carry `alt` (i18n fallback).
 - Covered by `chat-a11y.spec.ts` (targeted `axe-core` rules plus structural assertions).
+
+### Locale and time zone (#306)
+
+- Visible time, article label and default date separator format in `MLV_LOCALE` (`@malva-ui/i18n`: active pack's `locale` → `LOCALE_ID`) and follow `switchLanguage()`.
+- `Intl.DateTimeFormat` (`timeStyle: 'short'`, `dateStyle: 'medium'`), not `DatePipe` / `formatDate`: Angular throws NG0701 for a locale whose CLDR data the app never registered (`uk` pack in an `en-US` app); `Intl` carries them all. Formatters cached per kind + locale + zone.
+- **Time zone = `DatePipe`'s** (review #306 F2): `injectChatTimezoneOffset()` reads `DATE_PIPE_DEFAULT_OPTIONS.timezone` → deprecated `DATE_PIPE_DEFAULT_TIMEZONE` (DatePipe's order), once per component (both static).
+  - Parsed like Angular's `timezoneToOffset`: `Date.parse('Jan 01, 1970 00:00:00 ' + tz.replace(/:/g, ''))` → `'+0530'`, `'+05:30'`, `'UTC'`, `'GMT'`, `'EST'`. Unparseable (IANA names included) → runtime zone, as DatePipe.
+  - `Intl`'s `timeZone` rejects offsets, so the instant is shifted by the offset and formatted with `timeZone: 'UTC'` — same time as Angular's shift-into-local except in the runtime zone's spring-forward hour, where Angular is an hour ahead and the chat is correct (NY runtime, `'+0530'`, 2026-03-07T20:30Z: DatePipe 03:00, chat 02:00). Dates and fall-back match.
+  - Specs compare against Angular's own `formatDate(…, zone)`; precedence and the unparseable fallback are pinned too.
+- Day grouping (`isSameChatDay`) and Today / Yesterday stay **runtime-local**, as before.
+- A custom `[mlvChatDateDef]` receives the raw `date` and formats it itself — unaffected.
 
 ---
 

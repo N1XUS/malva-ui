@@ -1,6 +1,7 @@
 import type { MlvLanguage } from '@malva-ui/i18n';
 
 const nl: MlvLanguage = {
+  locale: 'nl',
   alert: {
     dismiss: 'Waarschuwing sluiten',
   },

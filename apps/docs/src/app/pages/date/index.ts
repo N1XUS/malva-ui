@@ -60,7 +60,14 @@ import { DocPageComponent } from '../../shared/doc-page';
               <h3><code>MLV_DATE_LOCALE</code></h3>
               <p>
                 The application locale read by every formatting method. Defaults
-                to <code>navigator.language</code>, then <code>en-US</code>.
+                to <code>MLV_LOCALE</code> from <code>@malva-ui/i18n</code> — the
+                active language pack's locale, then Angular's
+                <code>LOCALE_ID</code> — and never to the browser language, so
+                server and client render the same dates. Left unprovided, the
+                native adapter follows every runtime language switch. Providing
+                this token pins dates to its value — even one equal to the
+                pack's locale today — across every switch, so provide it only
+                when dates should not follow the language pack.
               </p>
             </article>
             <article>

@@ -7,7 +7,7 @@ import {
   input,
   output,
 } from '@angular/core';
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import {
@@ -18,7 +18,7 @@ import {
   LucideCornerUpLeft,
   LucideMusic,
 } from '@lucide/angular';
-import { MLV_CHAT_I18N } from '@malva-ui/i18n';
+import { MLV_CHAT_I18N, MLV_LOCALE } from '@malva-ui/i18n';
 import type {
   MlvChatAttachment,
   MlvChatGroupPosition,
@@ -26,6 +26,10 @@ import type {
 } from '../chat.types';
 import { toChatDate } from '../chat-render-list';
 import { formatChatDuration } from '../chat-format';
+import {
+  formatChatTime,
+  injectChatTimezoneOffset,
+} from '../chat-locale-format';
 import { MLV_CHAT_MESSAGE_DEFS, MLV_CHAT_USERS } from '../chat-tokens';
 import { MlvChatMediaGrid } from '../chat-media-grid/chat-media-grid';
 import { MlvChatAudio } from '../chat-audio/chat-audio';
@@ -42,7 +46,6 @@ import { MlvChatAudio } from '../chat-audio/chat-audio';
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    DatePipe,
     NgTemplateOutlet,
     LucideCheck,
     LucideCheckCheck,
@@ -97,9 +100,26 @@ export class MlvChatMessage {
   /** @internal Custom message-type templates provided by the surrounding `mlv-chat`. */
   protected readonly _defs = inject(MLV_CHAT_MESSAGE_DEFS, { optional: true });
 
-  /** @internal Normalized timestamp for the DatePipe. */
+  /** @private Locale the visible time is formatted in; see `MLV_LOCALE`. */
+  private readonly _locale = inject(MLV_LOCALE);
+
+  /**
+   * @private UTC offset the visible time is formatted in — the zone the app configured for
+   * `DatePipe`, or `null` for the runtime's; see `injectChatTimezoneOffset`.
+   */
+  private readonly _timezoneOffset = injectChatTimezoneOffset();
+
+  /** @internal Normalized timestamp, for the `<time datetime>` attribute. */
   protected readonly _date = computed(() =>
     toChatDate(this.message().timestamp),
+  );
+
+  /**
+   * @internal Visible short time, in `MLV_LOCALE`. `mlv-chat` names the
+   * enclosing article with the same formatter, so both read alike.
+   */
+  protected readonly _time = computed(() =>
+    formatChatTime(this._date(), this._locale(), this._timezoneOffset),
   );
 
   /** @internal Image/gif/video attachments, rendered by the media grid. */

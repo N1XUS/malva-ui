@@ -27,6 +27,14 @@ The i18n library (`@malva-ui/i18n`) provides a signal-based, per-component inter
 - **Signal-based** — language switching updates all component strings automatically via Angular signals.
 - **APP_INITIALIZER** — `provideMlvI18n()` blocks rendering until the lazy-loaded language pack resolves, eliminating fallback/flash-of-untranslated-content issues.
 - **ICU MessageFormat** — strings support pluralization (`{count, plural, one {# item} other {# items}}`), parameter interpolation (`{start}–{end} of {total}`), and select rules via the `intl-messageformat` package.
+- **One formatting locale — `MLV_LOCALE`** (#306, owner ruling D3). `InjectionToken<Signal<string>>`, `providedIn: 'root'`.
+  - Value: active pack's `locale` → `LOCALE_ID` (no pack loaded yet / pack declares none / no `provideMlvI18n()`). Never `navigator.language` — SSR and hydration agree.
+  - Canonical (review #306 F3): `Intl.getCanonicalLocales` after folding `_` → `-` (Angular accepts `de_AT` as `LOCALE_ID`). Malformed pack locale → `LOCALE_ID`; malformed `LOCALE_ID` → `en-US`. Reason: `new IntlMessageFormat(t, 'de_AT' | 'not a locale' | '')` and `Intl.DateTimeFormat` throw `RangeError` at construction. No dev warning — `libs/i18n` has no warning precedent. A provided `MLV_LOCALE` is used as given.
+  - `MlvI18nResolverService` now injects it → `new MlvI18nResolverService()` outside an injection context throws NG0203; obtain via `inject()` / `TestBed.inject()`.
+  - Signal: `switchLanguage()` moves it; resolver, pipe, date adapter and chat re-format.
+  - Readers: `MlvI18nResolverService`, `mlvTranslate`, `MLV_DATE_LOCALE`'s default + `MlvNativeDateAdapter` (`@malva-ui/core/date`), `mlv-chat` time/date text.
+  - Before #306 the resolver compiled with no locale → `intl-messageformat`'s runtime default (browser language): a `uk` pack on an `en-US` browser rendered "3 учасника" (`en` rules put 3 in `other`, so the `few` branch never ran), an `en` pack on a `uk` browser rendered "21 member" (`uk` rules put 21 in `one`).
+  - Override only at environment level (`{ provide: MLV_LOCALE, useValue: signal('de-CH').asReadonly() }` in app providers): root-provided resolver / adapter resolve it there; a component-level provider reaches neither.
 
 ---
 
@@ -36,7 +44,8 @@ Exported from `libs/i18n/src/index.ts`:
 
 | Export                       | Kind           | Description                                                                |
 | ---------------------------- | -------------- | -------------------------------------------------------------------------- |
-| `MlvLanguage`                | Interface      | Aggregate of all 42 component i18n interfaces                              |
+| `MlvLanguage`                | Interface      | Aggregate of all 42 component i18n interfaces, plus optional `locale` tag  |
+| `MLV_LOCALE`                 | InjectionToken | `Signal<string>`: active pack's `locale` → `LOCALE_ID`; formatting locale  |
 | `MlvLanguageModule`          | Type           | A loaded pack module: `{ default }` or `{ <locale>Language }`              |
 | `resolveMlvLanguage`         | Function       | Unwraps the `MlvLanguage` out of either module shape                       |
 | `MlvTranslationProvider`     | Interface      | **Deprecated** — AI provider contract for batch translation                |
@@ -84,6 +93,10 @@ Central service managing the active language pack. Not `providedIn: 'root'` — 
 
 `providedIn: 'root'`. Resolves ICU MessageFormat strings with parameters. Caches compiled IntlMessageFormat instances.
 
+- Compiles in `MLV_LOCALE()` → plural categories + `#` number format follow the pack, not the runtime.
+- Cache key `${locale}\u0000${template}` — same text under another locale is a separate entry.
+- Reads the signal only when it formats (placeholders + params); a `computed()` / template calling `resolve()` re-resolves on a pack switch. Plain strings return untouched, no signal read.
+
 | Method                        | Description                                     |
 | ----------------------------- | ----------------------------------------------- |
 | `resolve(i18n, key, params?)` | Resolves an ICU string with optional parameters |
@@ -110,6 +123,9 @@ Resolves ICU MessageFormat strings in templates:
 ```html
 {{ _i18n().allItems | mlvTranslate: { total: totalItems() } }}
 ```
+
+- **`pure: false`** since #306, with its own memo (template, params identity, locale). A pure pipe skips `transform` while its arguments are unchanged — a template's `{ count: n() }` literal keeps its identity while `n()` holds — so a pack switch left the old plural category on screen.
+- Reads `MLV_LOCALE` every run: that read is also what keeps the view subscribed to it. Unchanged inputs return the memoised string; no re-parse.
 
 ---
 
@@ -264,9 +280,17 @@ Every shipped pack is a typed secondary entry point:
 | `zh-Hans` | Simplified Chinese    | `@malva-ui/i18n/zh-Hans` | `libs/i18n/zh-Hans/src/lib/zh-Hans.ts` |
 | `id`      | Indonesian            | `@malva-ui/i18n/id`      | `libs/i18n/id/src/lib/id.ts`           |
 
+Every pack's first key is `locale` — its BCP 47 tag, what `MLV_LOCALE` reports
+while it is active (#306). Tag = directory code except `pt` → **`pt-PT`**: the
+pack is European Portuguese ("ficheiro"), and CLDR `pt` puts 0 in `one` while
+`pt-PT` puts it in `other`. `locale` is not a message: never translated, skipped
+by the contract's key flattening and by `scripts/malva-ui-translate.mjs`, which
+writes it into every pack it generates.
+
 `libs/i18n/tests/locale-contract.spec.ts` validates exact key parity, ICU named
 arguments, select branches, required plural branches, compilation, and
-representative formatting across all fourteen packs. It also asserts that
+representative formatting across all fourteen packs, and that each pack declares
+its expected canonical tag with plural + date data in the runtime. It also asserts that
 `packs` covers every locale directory on disk, and that no pack has a top-level
 key ending in `Language` — which keeps the resolver's module scan from ever
 meeting a pack slice.
@@ -317,7 +341,7 @@ node scripts/malva-ui-translate.mjs --target uk
 ```
 
 Or create manually under `libs/i18n/<locale>/src/lib/<locale>.ts` following the
-English pack structure, with `ng-package.json` and entry `src/index.ts`. Adding
+English pack structure — `locale: '<tag>'` first — with `ng-package.json` and entry `src/index.ts`. Adding
 another shipped locale also requires extending the all-locale contract, the
 strict update list above, `MlvLanguageExportName` in
 `src/lib/language-module.ts`, and `DOCS_LOCALE_CODES` / `DOCS_LOCALE_METADATA`

@@ -88,6 +88,44 @@ Messages are ICU MessageFormat, so plurals and selects work as expected:
 {count, plural, =0 {No results} one {# result} other {# results}}
 ```
 
+## Formatting locale
+
+Plural categories, `#` number formatting and Malva UI's dates format in one
+locale, `MLV_LOCALE` — a `Signal<string>` holding the active pack's `locale`,
+falling back to Angular's `LOCALE_ID` while no pack is loaded or when the pack
+declares none. It moves with `MlvI18nService.switchLanguage()`, and it never
+reads the browser language, so a server render and its hydration agree.
+
+Every shipped pack declares its locale (`pt` declares `pt-PT`). A pack you write
+yourself declares it in the optional `locale` field — a BCP 47 tag; without one,
+the pack formats in `LOCALE_ID`:
+
+```ts
+import type { MlvLanguage } from '@malva-ui/i18n';
+
+export default {
+  locale: 'de-CH',
+  // …every component slice
+} satisfies MlvLanguage;
+```
+
+`MLV_LOCALE` always reports a canonical tag: a malformed pack locale falls back
+to `LOCALE_ID` instead of making `Intl` throw. Read it to format your own values
+in the same locale:
+
+```ts
+import { MLV_LOCALE } from '@malva-ui/i18n';
+
+private readonly _locale = inject(MLV_LOCALE);
+protected readonly _price = computed(() =>
+  new Intl.NumberFormat(this._locale(), { style: 'currency', currency: 'EUR' })
+    .format(this.amount()),
+);
+```
+
+Provide it yourself only to decouple formatting from the pack, and do it in the
+application providers — `{ provide: MLV_LOCALE, useValue: signal('de-CH').asReadonly() }`.
+
 ## Testing
 
 `@malva-ui/i18n/testing` provides helpers for unit tests that render Malva UI components without booting a real language pack.
