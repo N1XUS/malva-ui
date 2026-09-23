@@ -8,6 +8,12 @@ describe('MlvHighlightMatchPipe', () => {
     expect(pipe.transform(undefined, 'x')).toEqual([]);
   });
 
+  it('treats an empty-string label as a label, not as a missing one (#300)', () => {
+    // Only nullish is "no label". An option labelled '' still gets its one
+    // (empty) unmatched segment, exactly as `matchSegments` answers for it.
+    expect(pipe.transform('', 'x')).toEqual([{ text: '', matched: false }]);
+  });
+
   it('segments the label around the matched query', () => {
     expect(pipe.transform('Apple', 'pp')).toEqual([
       { text: 'A', matched: false },

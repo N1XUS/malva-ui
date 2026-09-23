@@ -20,7 +20,9 @@ import { matchSegments } from './option-matcher';
 @Pipe({ name: 'mlvHighlightMatch' })
 export class MlvHighlightMatchPipe implements PipeTransform {
   /**
-   * @param label - The label to segment. Nullish input yields an empty result.
+   * @param label - The label to segment. Nullish input yields an empty result;
+   *   the empty string is a label like any other and yields its one (empty)
+   *   unmatched segment (#300).
    * @param query - The query to highlight; empty query returns one unmatched
    *   segment containing the whole label.
    */
@@ -28,7 +30,7 @@ export class MlvHighlightMatchPipe implements PipeTransform {
     label: string | null | undefined,
     query: string,
   ): MlvMatchSegment[] {
-    if (!label) return [];
+    if (label == null) return [];
     return matchSegments(label, query ?? '');
   }
 }
