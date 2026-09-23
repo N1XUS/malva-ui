@@ -2,4 +2,4 @@
 title: Loading State
 ---
 
-Bind the `loading` input while an asynchronous action is in progress. The button adds a spinner, exposes `aria-busy`, and prevents duplicate activation until loading finishes. The switch makes both states easy to inspect, while a stable minimum width prevents the surrounding layout from shifting when the label changes.
+Bind the `loading` input while an asynchronous action is in progress. The button adds a spinner, exposes `aria-busy`, and prevents duplicate activation until loading finishes — while staying focusable, so a keyboard or screen-reader user who pressed it keeps their place. Bind `disabled` as well only when the button must leave the tab order. The switch makes both states easy to inspect, while a stable minimum width prevents the surrounding layout from shifting when the label changes.

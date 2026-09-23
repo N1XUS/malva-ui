@@ -1,6 +1,6 @@
 // libs/core/button/e2e/button.spec.ts
 import { defineComponentSpec, expect, test } from '@malva-ui/cdk/testing-e2e';
-import type { Locator } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { buttonManifest } from './button.manifest';
 
 async function resolvedTokenColor(
@@ -68,6 +68,83 @@ defineComponentSpec(buttonManifest, () => {
         return;
       }
       await expect(disabled).toHaveAttribute('tabindex', '-1');
+    });
+  });
+
+  // #324: `loading` used to write native `disabled`, and Chrome moves focus
+  // off a button that becomes disabled on the next frame(s) and never gives it
+  // back. jsdom performs no focus fixup, so this half lives here. Example 8's
+  // switch drives `loading`; `HTMLInputElement.click()` flips it without
+  // moving focus, as an async action setting `loading` would not.
+  test.describe('loading — focus and tab order (#324)', () => {
+    /** Two animation frames: the window Chrome's focus fixup runs in. */
+    const twoFrames = (page: Page) =>
+      page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+
+    test('a focused button keeps focus while loading and after it ends', async ({
+      mlv,
+      page,
+    }) => {
+      await mlv.goto(buttonManifest.route);
+      const example = mlv.example(8);
+      const button = example.locator('button.mlv-button').first();
+      const toggle = example.locator('mlv-switch input[type="checkbox"]');
+      await expect(button).toHaveText(/Save changes/);
+
+      await button.focus();
+      await expect(button).toBeFocused();
+      await toggle.evaluate((input: HTMLInputElement) => input.click());
+      await expect(button).toHaveClass(/\bmlv-button--loading\b/);
+      await twoFrames(page);
+
+      await expect(button).toBeFocused();
+      await expect(button).not.toHaveAttribute('disabled');
+      await expect(button).toHaveAttribute('aria-disabled', 'true');
+      await expect(button).toHaveAttribute('aria-busy', 'true');
+      await expect(button).toHaveAccessibleName(/Saving…/);
+
+      await toggle.evaluate((input: HTMLInputElement) => input.click());
+      await expect(button).not.toHaveClass(/\bmlv-button--loading\b/);
+      await twoFrames(page);
+      await expect(button).toBeFocused();
+    });
+
+    test('a loading button stays in the tab order and Enter on it activates nothing', async ({
+      mlv,
+      page,
+    }) => {
+      await mlv.goto(buttonManifest.route);
+      const example = mlv.example(8);
+      const button = example.locator('button.mlv-button').first();
+      const toggle = example.locator('mlv-switch input[type="checkbox"]');
+
+      await toggle.focus();
+      await page.keyboard.press(' ');
+      await expect(button).toHaveClass(/\bmlv-button--loading\b/);
+      await page.keyboard.press('Tab');
+      await expect(button).toBeFocused();
+
+      // Enter and Space on a focused button make the browser dispatch a
+      // click; the capture-phase guard stops it at the button, so nothing
+      // bubbles out, and focus stays put.
+      await page.evaluate(() => {
+        const counter = window as unknown as { mlvClicks: number };
+        counter.mlvClicks = 0;
+        document.addEventListener('click', () => counter.mlvClicks++);
+      });
+      await page.keyboard.press('Enter');
+      await page.keyboard.press(' ');
+      expect(
+        await page.evaluate(
+          () => (window as unknown as { mlvClicks: number }).mlvClicks,
+        ),
+      ).toBe(0);
+      await expect(button).toBeFocused();
     });
   });
 

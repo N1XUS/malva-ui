@@ -5,6 +5,13 @@ Applies to `@malva-ui/core/button` (`MlvButton`, `button[mlvButton]` /
 ([2026-09-link-native-activation.md](2026-09-link-native-activation.md)) on
 the button's anchor selector.
 
+> **Loading half superseded by #324**
+> ([2026-09-button-loading-keeps-focus.md](2026-09-button-loading-keeps-focus.md)):
+> `loading` alone no longer writes native `disabled` or an anchor's
+> `tabindex="-1"` — a loading button keeps focus and its tab stop, and is
+> blocked by the guard below. Everything this page says about `disabled`
+> stands.
+
 **Breaking, behaviour only.** No exported symbol was renamed or removed;
 nothing was retyped; no barrel changes; the selector, every input (`variant`,
 `shape`, `disabled`, `loading`, `selected`), the slots, the BEM classes and the

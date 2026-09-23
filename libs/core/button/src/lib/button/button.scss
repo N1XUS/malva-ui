@@ -219,7 +219,14 @@ $filled-variants: (
       --mlv-btn-bg: var(--mlv-btn-bg-hover);
     }
 
-    &:active {
+    // Every `:active` rule below skips a loading button (#324). A loading
+    // button is no longer natively `disabled` — it keeps focus — and Chromium
+    // matches `:active` on a focused button while Space is held even under
+    // `pointer-events: none`, so without the guard a blocked press would still
+    // paint the pointer-down fill, shrink and border. `:where()` keeps the
+    // guard at zero specificity, so every contest the emission-order comment
+    // above describes is unchanged.
+    &:not(:where(.#{$block}--loading)):active {
       --mlv-btn-bg: var(--mlv-btn-bg-active);
       transform: scale(0.97);
     }
@@ -258,7 +265,7 @@ $filled-variants: (
         }
 
         @if $box-shadow-active {
-          &:active {
+          &:not(:where(.#{$block}--loading)):active {
             --mlv-btn-box-shadow: #{$box-shadow-active};
           }
         }
@@ -296,7 +303,7 @@ $filled-variants: (
         border-color: var(--mlv-border-strong);
       }
 
-      &:active {
+      &:not(:where(.#{$block}--loading)):active {
         border-color: var(--mlv-border-focus);
       }
     }

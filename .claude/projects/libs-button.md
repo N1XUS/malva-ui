@@ -45,13 +45,13 @@ Exported from `libs/core/button/src/index.ts`:
 
 #### Inputs
 
-| Name       | Type                            | Default     | Description                                                                                                                                                     |
-| ---------- | ------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `variant`  | `MlvButtonVariant \| undefined` | `undefined` | Local variant; inherits from a button container, then falls back to `secondary` for the icon-only `square`/`circle` shapes and `primary` for the rest           |
-| `shape`    | `MlvButtonShape`                | `'default'` | Shape variant; `pill` keeps content width with a fully rounded stadium radius (`--mlv-radius-full`), matching the pill action bar and pill form controls        |
-| `disabled` | `BooleanInput`                  | `false`     | Disables the button; coerced to boolean. Blocks every activation (see **Disabled activation guard**); native `disabled` on `<button>`, `tabindex="-1"` on `<a>` |
-| `loading`  | `BooleanInput`                  | `false`     | Shows a spinner, exposes busy state, and blocks activation exactly as `disabled` does                                                                           |
-| `selected` | `BooleanInput`                  | `false`     | Paints the pressed surface with no ARIA of its own — for a menu button reflecting an active state (see **Pressed state** below)                                 |
+| Name       | Type                            | Default     | Description                                                                                                                                                                                                                   |
+| ---------- | ------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `variant`  | `MlvButtonVariant \| undefined` | `undefined` | Local variant; inherits from a button container, then falls back to `secondary` for the icon-only `square`/`circle` shapes and `primary` for the rest                                                                         |
+| `shape`    | `MlvButtonShape`                | `'default'` | Shape variant; `pill` keeps content width with a fully rounded stadium radius (`--mlv-radius-full`), matching the pill action bar and pill form controls                                                                      |
+| `disabled` | `BooleanInput`                  | `false`     | Disables the button; coerced to boolean. Blocks every activation (see **Disabled activation guard**); native `disabled` on `<button>`, `tabindex="-1"` on `<a>`                                                               |
+| `loading`  | `BooleanInput`                  | `false`     | Shows a spinner, exposes `aria-busy` + `aria-disabled`, blocks click activation as `disabled` does, but stays focusable and in the tab order — a co-hosted keydown / focus directive still runs (see **Loading keeps focus**) |
+| `selected` | `BooleanInput`                  | `false`     | Paints the pressed surface with no ARIA of its own — for a menu button reflecting an active state (see **Pressed state** below)                                                                                               |
 
 #### Content Children (protected)
 
@@ -70,15 +70,74 @@ host: {
   '[class.mlv-button--loading]': 'loading()',
   '[class.mlv-button--selected]': 'selected()',
   '[class.mlv-button--icon-only]': '_iconOnly()',
-  '[attr.disabled]': '(!_isAnchor && _inert()) || null', // <button> hosts only
+  '[attr.disabled]': '(!_isAnchor && disabled()) || null', // <button> hosts only, never for loading (#324)
   '[attr.aria-disabled]': '_inert() || null',
   '[attr.aria-busy]': 'loading() || null',
 }
 ```
 
-`_inert()` is `disabled() || loading()`; `_isAnchor` is `host.tagName === 'A'`,
-resolved once. **No `(click)` host listener and no `tabindex` host binding** —
-both deliberately (#460).
+`_inert()` is `disabled() || loading()` and drives `aria-disabled` and the click
+guard only; leaving the tab order (native `disabled`, an anchor's
+`tabindex="-1"`) follows `disabled()` alone (#324). `_isAnchor` is
+`host.tagName === 'A'`, resolved once. **No `(click)` host listener and no
+`tabindex` host binding** — both deliberately (#460).
+
+#### Loading keeps focus (#324)
+
+Owner ruling D20. Migration: [docs/migrations/2026-09-button-loading-keeps-focus.md](../../docs/migrations/2026-09-button-loading-keeps-focus.md).
+
+- **Rule:** `loading` alone → `aria-disabled="true"` + `aria-busy="true"` + the
+  capture guard; **no** native `disabled`, **no** anchor `tabindex="-1"`. The
+  button keeps focus when loading starts and ends, and stays a tab stop. An
+  explicit `disabled` (alone or beside `loading`) keeps native semantics:
+  `disabled` on `<button>`, `-1` on `<a>`. One rule for both hosts.
+- **Why:** browsers move focus off a button that becomes `disabled` and never
+  return it (measured Chromium / Firefox / WebKit: `activeElement` → `<body>`,
+  one `blur`, still `<body>` after re-enable) — a keyboard or screen-reader user
+  who pressed Save lost their place.
+- **Activation while loading** (measured in all three engines): pointer click,
+  `el.click()`, Enter, Space, screen-reader activation and implicit submission
+  (Enter in a text field fires the browser's synthetic click at the default
+  button) all reach the host and stop at the guard — `preventDefault()` cancels
+  the submission, `stopImmediatePropagation()` stops the consumer's `(click)`, a
+  co-hosted `[mlvClick]` / `mlvMenuTrigger` / `mlvPopupTrigger` click listener,
+  `RouterLink` and ancestor bubble listeners. `form.requestSubmit()` (with or
+  without a submitter) bypasses buttons and submits, exactly as it did under
+  native `disabled`.
+- **Look:** unchanged. The one visible delta would have been `:active` —
+  Chromium matches it on a focused button while Space is held, even under
+  `pointer-events: none` — so every `:active` rule in `button.scss` is written
+  `&:not(:where(.mlv-button--loading)):active` (zero specificity, emission
+  order untouched). A focused loading button shows its `:focus-visible` ring,
+  which it could not before because it could not be focused.
+- **Residual — keydown / focus handlers of co-hosted directives:** the guard
+  stops the click only. In this library: `mlvMenuTrigger` opens on Enter /
+  Space / ArrowDown / ArrowUp keydown, gated only by `menuTriggerDisabled`;
+  `[mlvContextMenuTrigger]` (targeted) opens on the ContextMenu key or
+  Shift+F10 keydown, gated only by `contextMenuDisabled`; `mlvPopupTrigger`
+  with `triggerOn="focus"` opens on focus (no disabled input); `[mlvClick]` on
+  an anchor host emits on Space, or on any activation key without `href`. On a
+  focused loading button each now runs. Bind the directive's own disabled
+  input, or `disabled`. No host in `libs/` or `apps/` combines one with
+  `loading` alone (`mlv-filter`'s trigger co-hosts `mlvPopupTrigger` with
+  `loading` but also binds `disabled`). Shared inert-host contract: #506.
+- **Residual — hydration:** a loading-only anchor server-renders
+  `aria-disabled="true"` with no `-1`, so a consumer-bound
+  `[attr.tabindex]="-1"` beside it reads as the server's mark and is removed at
+  hydration — pinned at `null` in `button-ssr.spec.ts`:
+  - `loading-bound` (loading on the server only): unchanged — before #324 the
+    server wrote `-1` for loading too and the client removed it the same way.
+  - `loading-both-bound` (loading on both sides): **new** — before, the
+    client's own loading `-1` coincided with the consumer's, which went only
+    when loading ended; now it goes at hydration (probe-measured on both
+    sources).
+  - Not fixable from the claimed node: a disabled + loading render carries the
+    same `aria-disabled` + `aria-busy`, and hydration rewrites `class`. Keeping
+    a marked `-1` while the client loads would keep a disabled + loading
+    render's `-1` on an anchor the client renders loading only.
+  - Client-rendered, the binding now survives loading's end (was removed then,
+    #460's bound-`tabindex` residual) — `button.spec.ts`. None in `libs/` or
+    `apps/`.
 
 #### Disabled activation guard (#460)
 
@@ -103,21 +162,23 @@ Migration: [docs/migrations/2026-09-button-anchor-disabled-activation.md](../../
   sees. The guard returns nothing, so no listener evaluates to `false` and Angular
   never `preventDefault()`s an enabled click (#309's `cond && …` trap — the old
   `_handleClick` returned `undefined`, so enabled activation was never affected).
-- **`<button>` hosts:** keep the native `disabled` attribute (which already stops
-  real clicks); the guard only keeps a scripted `dispatchEvent(click)` cancelled,
-  as the old host listener did — and now also stops the consumer's own `(click)`
-  on it.
+- **`<button>` hosts:** keep the native `disabled` attribute while `disabled`
+  (which already stops real clicks); there the guard only keeps a scripted
+  `dispatchEvent(click)` cancelled, as the old host listener did — and now also
+  stops the consumer's own `(click)` on it. While `loading` alone there is no
+  native `disabled` and the guard is the whole block (**Loading keeps focus**).
 - **`<a>` hosts:** no `disabled` attribute (anchors have no disabled state; a
   consumer-authored static `disabled` is removed by the binding's first `null`).
-  `aria-disabled="true"`, `href` kept (element stays `role="link"`), and
-  `tabindex="-1"` while inert, written by an `effect()` through `Renderer2`:
+  `aria-disabled="true"` while inert, `href` kept (element stays `role="link"`),
+  and `tabindex="-1"` while **disabled** (not while only loading, #324),
+  written by an `effect()` through `Renderer2`:
   - **Not a host binding:** `[attr.tabindex]` would evaluate to `null` on every
     `<button>` host and remove the consumer's own — speed-dial actions
     (`tabindex="-1"`) and the calendar's roving cells (`[attr.tabindex]`). The
     ablation turns the "never writes one on a button host" spec red.
-  - **Nothing written until the anchor first becomes inert**, so an anchor that
+  - **Nothing written until the anchor is first disabled**, so an anchor that
     never is keeps whatever the consumer bound — one exception, hydration, below.
-  - **Restore:** on leaving inert, the consumer's own `tabindex`, or none. Read
+  - **Restore:** on re-enable, the consumer's own `tabindex`, or none. Read
     once at construction, from one of two sources:
     - **Not hydrating:** the host's attribute. Static template attributes are
       written before directives are constructed and no binding has run, so it
@@ -131,17 +192,18 @@ Migration: [docs/migrations/2026-09-button-anchor-disabled-activation.md](../../
       `tabindex` may be the component's own `-1`, so the template's
       (`HostAttributeToken('tabindex')`). Ablation (DOM instead) leaves
       hydrated anchors at `-1`.
-  - **Hydration reconciliation:** a server that rendered the anchor inert wrote
-    `tabindex="-1"`; a client whose first render is not inert
-    (`[disabled]="!isBrowser"`, a browser-only login state, `[loading]` on
+  - **Hydration reconciliation:** a server that rendered the anchor disabled
+    wrote `tabindex="-1"`; a client whose first render is not disabled
+    (`[disabled]="!isBrowser"`, a browser-only login state, `[disabled]` on
     client-fetched data) claims that node. So the client **owns the `-1` from
     construction** when the claimed node carries `aria-disabled="true"` and
     `tabindex="-1"` and the template has no static `aria-disabled`
     (`HostAttributeToken('aria-disabled') === null`), and takes it back on its
     first render. `aria-disabled` is a **heuristic mark, not proof**: the host
-    binding writes it when the server rendered the anchor inert and removes a
-    static one when it did not. Without it (seed on `tabindex` alone) a
-    consumer-bound `[attr.tabindex]="-1"` on a never-inert anchor is stripped —
+    binding writes it when the server rendered the anchor inert (disabled or
+    loading) and removes a static one when it did not. Without it (seed on
+    `tabindex` alone) a consumer-bound `[attr.tabindex]="-1"` on a
+    never-inert anchor is stripped —
     measured, ablation red. The static check exists because hydration's
     `elementStart` re-applies static attributes to the claimed node before
     construction, so a static `aria-disabled="true"` reads as the mark on a
@@ -155,23 +217,32 @@ Migration: [docs/migrations/2026-09-button-anchor-disabled-activation.md](../../
       `[attr.aria-disabled]` whose value changes after the server's first pass,
       beside a bound `[attr.tabindex]="-1"` on a never-inert anchor — that
       `-1` is removed on hydration. None in `libs/` or `apps/`.
+    - **Residual — a loading anchor reads as the mark** (#324, pinned:
+      `loading-bound` and `loading-both-bound` in `button-ssr.spec.ts`):
+      loading writes `aria-disabled="true"` but no `-1`, so a server-loading
+      anchor with a bound `[attr.tabindex]="-1"` loses that `-1` at hydration,
+      whether or not the client is still loading (new for the latter; see
+      _Loading keeps focus_). Not separable: `aria-busy` is also on a
+      disabled + loading anchor, and `class` is rewritten. None in `libs/` or
+      `apps/`.
     - **Residual — not taken back** (pinned: `static-aria-server` in
       `button-ssr.spec.ts`, which goes red on purpose once the seed can tell a
       bound `-1` from the server's): a static `aria-disabled` (no effect on the
       rendered `aria-disabled` — the host binding overwrites it), no static
-      `tabindex`, inert on the server only → keeps the server's `-1`. With a
+      `tabindex`, disabled on the server only → keeps the server's `-1`. With a
       static `tabindex` hydration re-applies it, so that case is fine.
   - **Residual — a `tabindex` bound with `[attr.tabindex]` on an anchor host:**
-    both halves. While inert, the binding overwrites the `-1` whenever its value
+    both halves. While disabled, the binding overwrites the `-1` whenever its value
     changes (the component effect runs after the parent's bindings, so the
     first render still shows `-1`), putting a disabled anchor back in the tab
     order. On re-enable it is removed, until its value next changes. Write the
     tabindex statically. None in `libs/` or `apps/`.
   - **Residual — focus and the context menu**, as `a[mlvLink]`: `tabindex="-1"`
-    does not blur, so an anchor focused before it turned inert (an async action
-    setting `loading`) keeps focus, and the Menu key or Shift+F10 opens its
-    context menu, whose "Open in new tab" reads `href` and dispatches no
-    `click`. So do screen-reader context-menu commands on any inert anchor. By
+    does not blur, so an anchor focused before it was disabled keeps focus —
+    and a loading anchor keeps focus and its tab stop by design (#324) — and
+    the Menu key or Shift+F10 opens its context menu, whose "Open in new tab"
+    reads `href` and dispatches no `click`. So do screen-reader context-menu
+    commands on any inert anchor. By
     pointer, `pointer-events: none` on `--disabled` / `--loading` stops the menu
     and middle-click.
   - **`effect()`, not `afterRenderEffect()`:** the attribute is in the
@@ -205,10 +276,12 @@ Migration: [docs/migrations/2026-09-button-anchor-disabled-activation.md](../../
 ```
 
 The loading state keeps the projected text visible, replaces optional before/after
-content with an indeterminate `MlvLoader`, disables native button activation, and blocks
-anchor activation through the capture-phase click guard (see **Disabled activation
-guard**), taking an anchor out of the tab order while it lasts. Consumers remain
-responsible for changing the action label when a more specific in-progress label is useful.
+content with an indeterminate `MlvLoader`, and blocks every activation through the
+capture-phase click guard (see **Disabled activation guard**) while leaving the
+button focusable and in the tab order (see **Loading keeps focus**). The accessible
+name stays the projected text: the loader is a sibling `role="progressbar"` with its
+own label, not part of the button's name. Consumers remain responsible for changing
+the action label when a more specific in-progress label is useful.
 
 #### Styles Summary (`button.scss`)
 
@@ -233,7 +306,7 @@ responsible for changing the action label when a more specific in-progress label
   - `square`: `padding: 0.25rem; width = height`
   - `circle`: `border-radius: var(--mlv-radius-full)`
 - Disabled (SF-R4): a declared surface, not an opacity multiply — `--mlv-background-disabled` fill (transparent for `transparent`/`outlined`) + `--mlv-text-disabled` label; `cursor: not-allowed`, `pointer-events: none`
-- Loading: current-colour `MlvLoader`, wait cursor, blocked pointer interaction, and inherited reduced-motion support
+- Loading: current-colour `MlvLoader`, wait cursor, blocked pointer interaction, and inherited reduced-motion support. Every `:active` rule is `&:not(:where(.mlv-button--loading)):active` (#324) — a loading button is focusable, and Chromium matches keyboard `:active` (Space held) even under `pointer-events: none`
 - Pressed (SF-R1): `[aria-pressed='true']` fills with `--mlv-background-selected` / `-hover` + `--mlv-text-on-selected` label, plus a `--mlv-stroke-width` inset `--mlv-border-normal` ring — never the pressed/`-active` fill, which means "the pointer is down right now"
 
 **Canonical emission order (AB-R3).** The filled-variant loop and
@@ -441,7 +514,9 @@ None.
 <!-- Disabled -->
 <button mlvButton [disabled]="true">Disabled</button>
 
-<!-- Loading -->
+<!-- Loading: aria-busy + aria-disabled, every activation blocked, but still
+     focusable — a focused Save keeps focus while it runs (#324). Add
+     [disabled] too only if it must leave the tab order. -->
 <button mlvButton [loading]="saving()">{{ saving() ? 'Saving…' : 'Save changes' }}</button>
 
 <!-- Link button -->

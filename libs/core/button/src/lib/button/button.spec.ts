@@ -25,6 +25,7 @@ import {
   MlvButtonIcon,
 } from '../button.directives';
 import { MlvButtonGroup } from '../button-group/button-group';
+import { MlvClick } from '@malva-ui/cdk/accessibility';
 import type { MlvButtonShape } from '../button.types';
 
 describe('MlvButton', () => {
@@ -46,14 +47,15 @@ describe('MlvButton', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should expose a busy, non-interactive loading state', () => {
+  it('should expose a busy, non-activating loading state that keeps native disabled off', () => {
     fixture.componentRef.setInput('loading', true);
     fixture.detectChanges();
 
     const button = fixture.nativeElement as HTMLButtonElement;
     expect(component.loading()).toBe(true);
     expect(button.classList.contains('mlv-button--loading')).toBe(true);
-    expect(button.hasAttribute('disabled')).toBe(true);
+    // #324: native `disabled` would make Chrome move focus to `<body>`.
+    expect(button.hasAttribute('disabled')).toBe(false);
     expect(button.getAttribute('aria-disabled')).toBe('true');
     expect(button.getAttribute('aria-busy')).toBe('true');
     const loader = button.querySelector('mlv-loader');
@@ -332,7 +334,7 @@ describe('MlvButton disabled anchor activation', () => {
     expect(router.url).toBe('/target');
   });
 
-  it('takes a disabled or loading anchor out of the tab order without writing the invalid disabled attribute', async () => {
+  it('takes a disabled anchor out of the tab order without writing the invalid disabled attribute, and leaves a loading one in it', async () => {
     const anchors = ['router', 'plain'] as const;
     const native = el<HTMLButtonElement>('native');
 
@@ -354,11 +356,26 @@ describe('MlvButton disabled anchor activation', () => {
     }
     expect(native.hasAttribute('disabled')).toBe(false);
 
+    // #324: `loading` alone is busy, not unavailable. It blocks activation
+    // (the suites above) but keeps the tab stop on both hosts: no `-1` on an
+    // anchor, no native `disabled` on a button.
     host.loading.set(true);
     await settle();
     for (const id of anchors) {
-      expect(el(id).getAttribute('tabindex')).toBe('-1');
+      expect(el(id).hasAttribute('tabindex')).toBe(false);
       expect(el(id).hasAttribute('disabled')).toBe(false);
+      expect(el(id).getAttribute('aria-disabled')).toBe('true');
+      expect(el(id).getAttribute('aria-busy')).toBe('true');
+    }
+    expect(native.hasAttribute('disabled')).toBe(false);
+    expect(native.getAttribute('aria-disabled')).toBe('true');
+    expect(native.hasAttribute('tabindex')).toBe(false);
+
+    // An explicit `disabled` beside it keeps the disabled semantics.
+    host.disabled.set(true);
+    await settle();
+    for (const id of anchors) {
+      expect(el(id).getAttribute('tabindex')).toBe('-1');
       expect(el(id).getAttribute('aria-busy')).toBe('true');
     }
     expect(native.hasAttribute('disabled')).toBe(true);
@@ -454,6 +471,277 @@ describe('MlvButton disabled anchor activation', () => {
   });
 });
 
+/**
+ * A submit button in a form (with the consumer's own `(click)` on it and a
+ * bubble listener on the form), a second button co-hosting `[mlvClick]`, and
+ * an anchor with an authored tab stop — all loading together.
+ */
+@Component({
+  imports: [MlvButton, MlvClick, RouterLink],
+  template: `
+    <form class="form" (submit)="onSubmit($event)">
+      <button
+        mlvButton
+        type="submit"
+        id="submit"
+        [loading]="loading()"
+        [disabled]="disabled()"
+        (click)="onOwnClick()"
+      >
+        Save
+      </button>
+    </form>
+    <button
+      mlvButton
+      type="button"
+      id="clicker"
+      mlvClick
+      [hostRole]="null"
+      [loading]="loading()"
+      (mlvClick)="onMlvClick()"
+    >
+      Refresh
+    </button>
+    <a
+      mlvButton
+      routerLink="/target"
+      tabindex="0"
+      id="anchor"
+      [loading]="loading()"
+      >Report</a
+    >
+    <a
+      mlvButton
+      href="#export"
+      id="anchor-bound"
+      [attr.tabindex]="-1"
+      [loading]="loading()"
+      >Export</a
+    >
+  `,
+})
+class LoadingButtonHost {
+  readonly loading = signal(false);
+  readonly disabled = signal(false);
+  readonly submits = signal(0);
+  readonly ownClicks = signal(0);
+  readonly mlvClicks = signal(0);
+
+  onSubmit(event: Event): void {
+    // jsdom implements no navigation for a form submission.
+    event.preventDefault();
+    this.submits.update((n) => n + 1);
+  }
+
+  onOwnClick(): void {
+    this.ownClicks.update((n) => n + 1);
+  }
+
+  onMlvClick(): void {
+    this.mlvClicks.update((n) => n + 1);
+  }
+}
+
+/**
+ * #324 (owner decision D20) — `loading` alone must not write native
+ * `disabled`: Chrome moves focus off a `<button>` that becomes disabled and
+ * never gives it back, so a keyboard user who pressed Enter on "Save" (or the
+ * `mlv-search-field` submit button) landed on `<body>`. The button stays
+ * focusable and in the tab order, announces `aria-disabled` + `aria-busy`, and
+ * the capture-phase click guard (#460) is what blocks activation — form
+ * submission included, which native `disabled` used to block for free.
+ *
+ * jsdom performs no focus fixup, so the blur itself is measured in a browser
+ * (`e2e/button.spec.ts`); here, a disabled button refuses `focus()`, which is
+ * the jsdom-observable half. Implicit submission (Enter in a text field) fires
+ * a synthetic `click` at the default button, i.e. exactly `button.click()`;
+ * jsdom implements no implicit submission, so that is replayed as the click.
+ */
+describe('MlvButton loading keeps focus and its tab stop', () => {
+  let fixture: ComponentFixture<LoadingButtonHost>;
+  let host: LoadingButtonHost;
+  let router: Router;
+  let formClicks: number;
+
+  const el = <T extends HTMLElement = HTMLButtonElement>(id: string): T =>
+    fixture.nativeElement.querySelector(`#${id}`);
+  const settle = async (): Promise<void> => {
+    fixture.detectChanges();
+    await fixture.whenStable();
+  };
+  /**
+   * Replays a browser key press on a native button: the keydown, then the
+   * click the browser turns Enter / Space into unless the keydown was
+   * cancelled (`click.spec.ts`'s `press()`).
+   */
+  const press = (target: HTMLElement, key: 'Enter' | ' '): void => {
+    const keydown = new KeyboardEvent('keydown', {
+      key,
+      bubbles: true,
+      cancelable: true,
+    });
+    target.dispatchEvent(keydown);
+    if (!keydown.defaultPrevented) {
+      target.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    }
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [LoadingButtonHost],
+      providers: [
+        provideMlvI18nTesting(),
+        provideRouter([
+          { path: '', component: BlankPage },
+          { path: 'target', component: BlankPage },
+        ]),
+      ],
+    }).compileComponents();
+    router = TestBed.inject(Router);
+    fixture = TestBed.createComponent(LoadingButtonHost);
+    host = fixture.componentInstance;
+    fixture.detectChanges();
+    await router.navigateByUrl('/');
+    await fixture.whenStable();
+    formClicks = 0;
+    el('submit')
+      .closest('form')
+      ?.addEventListener('click', () => formClicks++);
+  });
+
+  it('writes aria-disabled and aria-busy but not native disabled', async () => {
+    host.loading.set(true);
+    await settle();
+    const submit = el('submit');
+
+    expect(submit.hasAttribute('disabled')).toBe(false);
+    expect(submit.disabled).toBe(false);
+    expect(submit.getAttribute('aria-disabled')).toBe('true');
+    expect(submit.getAttribute('aria-busy')).toBe('true');
+  });
+
+  it('keeps a focused button focused, and focusable, while loading', async () => {
+    const submit = el('submit');
+    expect(submit.isConnected).toBe(true);
+    submit.focus();
+    expect(document.activeElement === submit).toBe(true);
+    host.loading.set(true);
+    await settle();
+    expect(document.activeElement === submit).toBe(true);
+
+    // A disabled button refuses focus; a loading one takes it — Tab and a
+    // programmatic focus restore both land on it. (Focus moves to the anchor
+    // first: `blur()` on an element jsdom deems unfocusable is a no-op.)
+    el('anchor').focus();
+    expect(document.activeElement === submit).toBe(false);
+    submit.focus();
+    expect(document.activeElement === submit).toBe(true);
+
+    host.loading.set(false);
+    await settle();
+    expect(document.activeElement === submit).toBe(true);
+  });
+
+  it('neither submits the form nor runs click listeners while loading', async () => {
+    host.loading.set(true);
+    await settle();
+    const submit = el('submit');
+
+    // Screen-reader activation, script, and implicit submission's synthetic
+    // click on the default button all arrive as this click.
+    submit.click();
+    press(submit, 'Enter');
+    press(submit, ' ');
+    await fixture.whenStable();
+
+    expect(host.submits()).toBe(0);
+    expect(host.ownClicks()).toBe(0);
+    expect(formClicks).toBe(0);
+
+    host.loading.set(false);
+    await settle();
+    submit.click();
+    await fixture.whenStable();
+
+    expect(host.submits()).toBe(1);
+    expect(host.ownClicks()).toBe(1);
+    expect(formClicks).toBe(1);
+  });
+
+  it('emits nothing from a co-hosted [mlvClick] while loading', async () => {
+    host.loading.set(true);
+    await settle();
+    const clicker = el('clicker');
+
+    clicker.click();
+    press(clicker, 'Enter');
+    press(clicker, ' ');
+    expect(host.mlvClicks()).toBe(0);
+
+    host.loading.set(false);
+    await settle();
+    press(clicker, 'Enter');
+    expect(host.mlvClicks()).toBe(1);
+  });
+
+  it('keeps a loading anchor in the tab order and still blocks its navigation', async () => {
+    host.loading.set(true);
+    await settle();
+    const anchor = el<HTMLAnchorElement>('anchor');
+
+    expect(anchor.getAttribute('tabindex')).toBe('0');
+    expect(anchor.getAttribute('aria-disabled')).toBe('true');
+    expect(anchor.getAttribute('aria-busy')).toBe('true');
+
+    anchor.click();
+    press(anchor, 'Enter');
+    await fixture.whenStable();
+    expect(router.url).toBe('/');
+  });
+
+  it('leaves a tabindex bound on an anchor alone while it loads and after', async () => {
+    // Before #324 a loading anchor wrote its own `-1` and, when loading ended,
+    // restored the `tabindex` it was constructed with — none, for a bound one
+    // — so a consumer's `[attr.tabindex]="-1"` was removed (#460's
+    // bound-`tabindex` residual). `loading` no longer touches `tabindex`.
+    const anchor = el<HTMLAnchorElement>('anchor-bound');
+    expect(anchor.getAttribute('tabindex')).toBe('-1');
+
+    host.loading.set(true);
+    await settle();
+    expect(anchor.getAttribute('tabindex')).toBe('-1');
+
+    host.loading.set(false);
+    await settle();
+    expect(anchor.getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('keeps native disabled semantics when disabled is bound beside loading', async () => {
+    host.loading.set(true);
+    host.disabled.set(true);
+    await settle();
+    const submit = el('submit');
+
+    expect(submit.hasAttribute('disabled')).toBe(true);
+    expect(submit.getAttribute('aria-disabled')).toBe('true');
+    expect(submit.getAttribute('aria-busy')).toBe('true');
+
+    host.disabled.set(false);
+    await settle();
+    expect(submit.hasAttribute('disabled')).toBe(false);
+    expect(submit.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('has no axe violations while loading and focused', async () => {
+    host.loading.set(true);
+    await settle();
+    el('submit').focus();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+});
+
 describe('MlvButton pressed styling', () => {
   let style: HTMLStyleElement;
 
@@ -512,6 +800,21 @@ describe('MlvButton pressed styling', () => {
         .replace(/\s+/g, ' ')
         .trim(),
     ).toBe('inset 0 0 0 var(--mlv-stroke-width) var(--mlv-border-normal)');
+  });
+
+  it('never paints the pointer-down treatment on a loading button (#324)', () => {
+    // A loading button keeps focus now, and holding Space on a focused button
+    // makes Chromium match `:active` on it (measured: `true`, where a natively
+    // disabled one reads `false`). Every `:active` rule therefore excludes
+    // `--loading`, inside `:where()` so its specificity is unchanged.
+    const active = rules().filter(({ selectorText }) =>
+      selectorText.includes(':active'),
+    );
+
+    expect(active.length).toBeGreaterThanOrEqual(3);
+    for (const { selectorText } of active) {
+      expect(selectorText).toContain(':not(:where(.mlv-button--loading))');
+    }
   });
 
   it('keeps the pressed treatment while the pressed button is hovered', () => {
@@ -836,7 +1139,7 @@ class ButtonA11yHost {
  *
  * The states here are the ones that change what the host exposes, not just how
  * it looks: `loading` swaps the projected content for a `role="progressbar"`
- * and adds `disabled` + `aria-busy`; `disabled` removes the tab stop;
+ * and adds `aria-disabled` + `aria-busy`; `disabled` removes the tab stop;
  * `shape="circle"` with no text is the icon-only inference, where the whole
  * accessible name is an `aria-label` beside an `aria-hidden` glyph; the
  * before/after slots put two more glyphs inside the name computation; and the
@@ -884,13 +1187,16 @@ describe('MlvButton accessibility', () => {
     const host = a11yFixture.nativeElement as HTMLElement;
 
     // State: a `role="progressbar"` now lives inside the button, which is
-    // itself disabled and busy — the loader must carry its own name for that
-    // role, and the button must still resolve one from its text.
+    // itself busy and `aria-disabled` — a focusable, announced-unavailable
+    // button (no native `disabled`, #324), so `aria-allowed-attr` judges both
+    // attributes on a live `button`. The loader must carry its own name for
+    // that role, and the button must still resolve one from its text.
     const loading = host.querySelector(
       '.mlv-button--loading',
     ) as HTMLButtonElement;
     expect(loading.getAttribute('aria-busy')).toBe('true');
-    expect(loading.hasAttribute('disabled')).toBe(true);
+    expect(loading.getAttribute('aria-disabled')).toBe('true');
+    expect(loading.hasAttribute('disabled')).toBe(false);
     const loader = loading.querySelector('[role="progressbar"]') as HTMLElement;
     expect(loader.getAttribute('aria-label')).toBeTruthy();
 
