@@ -16,9 +16,17 @@ import type { MlvTooltipTone, MlvTooltipPlacement } from './tooltip.types';
  *
  * Renders the floating tooltip panel with optional directional arrow.
  * Placement and tone variant are controlled via inputs set by the directive.
+ *
+ * The panel is the **visual** copy of the text and is `aria-hidden`: the
+ * directive describes its host through CDK's `AriaDescriber`, whose element
+ * exists from the first render whether or not the panel is shown. Exposing the
+ * panel as well would put the text in the accessibility tree twice.
  */
 @Component({
   selector: 'mlv-tooltip-panel',
+  host: {
+    'aria-hidden': 'true',
+  },
   template: `
     <div
       class="mlv-tooltip"
@@ -56,6 +64,9 @@ export class MlvTooltipPanel {
   /** The preferred placement of the tooltip relative to the trigger. */
   readonly placement = input<MlvTooltipPlacement>('top');
 
-  /** Unique ID for the tooltip panel, used by `aria-describedby` on the trigger. */
+  /**
+   * Unique ID stamped on the panel element. Nothing references it — the
+   * trigger is described by `AriaDescriber`'s hidden element, not by the panel.
+   */
   readonly tooltipId = input.required<string>();
 }

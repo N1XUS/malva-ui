@@ -137,7 +137,9 @@ describe('MlvHint', () => {
 
       const panel = document.querySelector('.mlv-tooltip');
       expect(panel?.textContent).toContain('Sent to your phone');
-      expect(trigger.getAttribute('aria-describedby')).not.toBeNull();
+      // The text is already the trigger's accessible name (`aria-label`), so
+      // the tooltip adds no description that would only repeat it (#321).
+      expect(trigger.hasAttribute('aria-describedby')).toBe(false);
 
       trigger.dispatchEvent(new MouseEvent('mouseleave'));
       fixture.detectChanges();

@@ -364,7 +364,6 @@ export const ROLLOUT_PENDING = [
       'error + `description` + `message`',
     ],
   },
-  'core-tooltip',
   'core-tree',
 ];
 

@@ -284,6 +284,32 @@ describe('MlvEditorAiReviewBar', () => {
     expect(fixture.componentInstance.errors).toEqual([]);
   });
 
+  it('names the stop button by its visible label alone, with no tooltip repeating it (#321)', async () => {
+    const source = createRecordingProvider(['Never lands']);
+    source.gate();
+    fixture.componentInstance.provider.set(source.provider);
+    await settle();
+    requireEditor().commands.setTextSelection({ from: 1, to: 6 });
+    const run = aiContext().runTransform('improve');
+    await settle();
+
+    // The label is always visible, and `AriaDescriber` compares a tooltip's
+    // text against `aria-label` only — a tooltip here would describe the
+    // button by its own name from the first render.
+    const stop = textButton('Stop generating');
+    expect(stop.hasAttribute('aria-describedby')).toBe(false);
+    stop.dispatchEvent(new MouseEvent('mouseenter'));
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await settle();
+    expect(document.querySelector('.mlv-tooltip')).toBeNull();
+
+    stop.click();
+    await settle();
+    source.release();
+    await run;
+    await settle();
+  });
+
   it('appears while reviewing with the pending count and named controls', async () => {
     await startReview();
 
@@ -369,6 +395,31 @@ describe('MlvEditorAiReviewBar', () => {
     expect(description.textContent).toBe(
       'Suggestion 2 of 2: inserts " friend"',
     );
+  });
+
+  it('keeps that description through the button’s tooltip showing and hiding (#321)', async () => {
+    await startReview();
+    const accept = labelledButton('Accept suggestion');
+    const descriptionId = accept.getAttribute('aria-describedby');
+    expect(descriptionId).toBeTruthy();
+
+    // `[mlvTooltip]` used to overwrite the attribute with its panel id on show
+    // and remove it on hide, so one hover cost the button its description.
+    accept.dispatchEvent(new MouseEvent('mouseenter'));
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await settle();
+    expect(document.querySelector('.mlv-tooltip')?.textContent).toContain(
+      'Accept suggestion',
+    );
+    expect(accept.getAttribute('aria-describedby')).toBe(descriptionId);
+
+    accept.dispatchEvent(new MouseEvent('mouseleave'));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await settle();
+    expect(document.querySelector('.mlv-tooltip')).toBeNull();
+    // The tooltip text equals the button's `aria-label`, so it adds no
+    // description of its own either: the attribute is exactly the bar's.
+    expect(accept.getAttribute('aria-describedby')).toBe(descriptionId);
   });
 
   it('accepting the current suggestion delegates its id and advances the cursor', async () => {

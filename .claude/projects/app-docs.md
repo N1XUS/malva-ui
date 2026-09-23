@@ -440,8 +440,8 @@ overflow: hidden` with no height of its own, and `.mlv-page-shell__sidebar`
   `:has(.mlv-message)` rule on the `mlv-list-item` row. A table cell cannot
   take a line of its own, so the roster now keeps `mlv-select`'s
   `[state]="warning"` as the visible signal and hangs the sentence off the
-  adjacent info button's `mlvTooltip` (which wires `aria-describedby` on
-  hover/focus). Rows stay a uniform 48px. Invitations and sessions are still
+  adjacent info button's `mlvTooltip` (which describes the button from its
+  first render, #321). Rows stay a uniform 48px. Invitations and sessions are still
   `mlv-list` rows and keep the inline-message rule.
 - **Measured widths** (roster table, change-review aside in flow): 1234px at a
   1920px viewport — all six columns, no scroll; 754px at 1440 and 594px at 1280

@@ -703,7 +703,9 @@ string | null` resolves 'Suggestion {index} of {count}' plus the
   rule and leave a zero-size flex item in the status row. While `'running'`
   it shows one
   stop button (`aiStopGeneration`, `LucideCircleStop`) that calls
-  `cancel()`. While `'reviewing'` it shows the visible pending count
+  `cancel()` — its label is always visible, so it carries no tooltip: one
+  repeating it would describe the button by its own name, since
+  `AriaDescriber` compares only `aria-label` (#321). While `'reviewing'` it shows the visible pending count
   (`aiReviewCount`, ICU `count` — deliberately **not** `aria-live`: the
   context's LiveAnnouncer messages own that channel, a live count would
   double-announce), previous/next icon buttons cycling an internal cursor

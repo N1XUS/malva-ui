@@ -1,5 +1,7 @@
 import type { ComponentRef } from '@angular/core';
 import {
+  afterRenderEffect,
+  computed,
   DestroyRef,
   Directive,
   ElementRef,
@@ -10,6 +12,7 @@ import {
   Renderer2,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AriaDescriber } from '@angular/cdk/a11y';
 import type {
   ConnectedPosition,
   FlexibleConnectedPositionStrategy,
@@ -145,6 +148,17 @@ function resolvePlacementFromPosition(
  * also hides the tooltip. Every other key — Escape with a modifier held
  * included — passes the tooltip by and reaches the overlay below it.
  *
+ * The text also describes the host from the first render, not from the moment
+ * the bubble appears: CDK's `AriaDescriber` appends one id to whatever
+ * `aria-describedby` the host already carries and removes only that id on
+ * destroy, so a screen reader reaching the host by focus hears it at once and
+ * the host's own description is never replaced. The id names a visually
+ * hidden element in a container on `<body>`, shared by every host with the
+ * same text; the visible bubble is `aria-hidden`, so the text is read once.
+ * Empty (or whitespace-only) content shows no bubble and describes nothing,
+ * and neither does a disabled tooltip. A host whose `aria-label` already
+ * equals the text gets no description, since it would only repeat the name.
+ *
  * @example Basic usage
  * ```html
  * <button [mlvTooltip]="'Save changes'">Save</button>
@@ -200,7 +214,7 @@ export class MlvTooltip {
   /** @private Environment injector, required for ComponentPortal creation. */
   private readonly _injector = inject(EnvironmentInjector);
 
-  /** @private Renderer for DOM attribute manipulation. */
+  /** @private Renderer for the panel's pointer listeners. */
   private readonly _renderer = inject(Renderer2);
 
   /** @private Zone for running timer callbacks inside change detection. */
@@ -209,11 +223,20 @@ export class MlvTooltip {
   /** @private DestroyRef for cleanup on directive destruction. */
   private readonly _destroyRef = inject(DestroyRef);
 
+  /**
+   * @private Registers the text as the host's description. Root-provided and
+   * shared: it keeps one visually hidden element per distinct text in a
+   * container on `<body>`, reference-counted across hosts, and adds or removes
+   * only its own id in the host's `aria-describedby`.
+   */
+  private readonly _ariaDescriber = inject(AriaDescriber);
+
   // ─── Inputs ───────────────────────────────────────────────────────────────
 
   /**
    * The tooltip text content.
    * This is also the directive selector binding: `[mlvTooltip]="'my text'"`.
+   * Empty or whitespace-only text shows no tooltip and adds no description.
    */
   readonly mlvTooltip = input.required<string>();
 
@@ -290,15 +313,51 @@ export class MlvTooltip {
   private _overlayTeardowns: (() => void)[] = [];
 
   /**
-   * @private Stable unique ID for this tooltip instance, used by `aria-describedby`.
+   * @private Stable unique ID for this tooltip instance, stamped on the panel.
+   * Nothing references it: the host is described by `AriaDescriber`'s element.
    */
   private readonly _tooltipId = mlvNextId('mlv-tooltip');
+
+  /**
+   * @private The tooltip text without surrounding whitespace. Empty means
+   * there is nothing to say: `_show()` returns early and the host gets no
+   * description. The `?? ''` is for templates compiled without strict input
+   * checks, where a `null` can still reach a `string` input — it used to
+   * render an empty bubble and must not throw here instead.
+   */
+  private readonly _message = computed(() => (this.mlvTooltip() ?? '').trim());
 
   constructor() {
     this._destroyRef.onDestroy(() => {
       this._clearShowTimer();
       this._clearHideTimer();
       this._hide();
+    });
+
+    // Describe the host from its first render (D12), not from the moment the
+    // panel attaches. `afterRenderEffect`, not `effect`, for two reasons:
+    //  - It runs after the whole render, so a host binding on the same element
+    //    — a co-hosted directive's, or the host component's own
+    //    (`mlv-radio-group`, `fieldset[mlvFieldset]`) — has been written first.
+    //    Angular writes an element's host bindings after the effects of the
+    //    view it sits in, so from a plain `effect` the token would be appended
+    //    and then overwritten by that binding (a template binding is written
+    //    before the view's effects either way). The same holds for the
+    //    `aria-label` `AriaDescriber` compares the text against.
+    //  - It never runs on the server. `AriaDescriber` ids carry a per-process
+    //    counter and its container is replaced on the client, so an id written
+    //    into server markup would dangle on the claimed node after hydration.
+    // Re-runs when the text or `tooltipDisabled` changes; the cleanup removes
+    // the previous text's id first, and runs once more on destroy. It first
+    // runs when the host's view is first refreshed: a view detached before its
+    // first change detection never describes its host, and inside
+    // `@defer (hydrate on …)` the description arrives when the block hydrates.
+    afterRenderEffect((onCleanup) => {
+      const message = this.tooltipDisabled() ? '' : this._message();
+      if (!message) return;
+      const host = this._elementRef.nativeElement;
+      this._ariaDescriber.describe(host, message);
+      onCleanup(() => this._ariaDescriber.removeDescription(host, message));
     });
   }
 
@@ -416,12 +475,14 @@ export class MlvTooltip {
   }
 
   /**
-   * @private Creates the CDK overlay, attaches `MlvTooltipPanel`, and wires
-   * `aria-describedby` on the host element. If the tooltip is already visible
-   * this method is a no-op.
+   * @private Creates the CDK overlay and attaches `MlvTooltipPanel`. A no-op
+   * while the tooltip is already visible, and when the text is empty or
+   * whitespace-only — there is nothing to show. The host's description is not
+   * touched here: the constructor's `afterRenderEffect` registers it from the
+   * first render, whether or not the bubble is ever shown.
    */
   private _show(): void {
-    if (this._overlayRef) return;
+    if (this._overlayRef || !this._message()) return;
 
     const placement = this.tooltipPlacement();
     // The pane is portaled to <body>, outside any `[dir]` scope the trigger
@@ -500,13 +561,6 @@ export class MlvTooltip {
       .keydownEvents()
       .subscribe((event) => this._onOverlayEscape(event));
     this._overlayTeardowns.push(() => escape.unsubscribe());
-
-    // Wire aria-describedby for accessibility
-    this._renderer.setAttribute(
-      this._elementRef.nativeElement,
-      'aria-describedby',
-      this._tooltipId,
-    );
   }
 
   /**
@@ -527,8 +581,9 @@ export class MlvTooltip {
   }
 
   /**
-   * @private Disposes the CDK overlay, destroys the component reference, and
-   * removes `aria-describedby` from the host element.
+   * @private Disposes the CDK overlay and drops the component reference. The
+   * host's description outlives the bubble: it stays registered until the
+   * text empties, the tooltip is disabled, or the directive is destroyed.
    */
   private _hide(): void {
     this._clearHideTimer();
@@ -540,9 +595,5 @@ export class MlvTooltip {
       this._overlayRef = null;
     }
     this._componentRef = null;
-    this._renderer.removeAttribute(
-      this._elementRef.nativeElement,
-      'aria-describedby',
-    );
   }
 }

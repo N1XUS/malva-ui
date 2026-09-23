@@ -44,7 +44,7 @@ The primary consumer API. Attach to any element — button, icon, input, etc.
 
 #### Behavior
 
-- **Show:** `mouseenter` or `focusin` → schedule after `tooltipDelay` ms
+- **Show:** `mouseenter` or `focusin` → schedule after `tooltipDelay` ms. Never for empty or whitespace-only text (`_show()` returns early on the trimmed `_message()`; `null` from a non-strict template reads as empty) — #321.
 - **Hide:** `focusout` or `Escape` → immediate — except on the host-fallback path (an overlay above took the key, or an ancestor stopped it; see _Escape_), where the hide lands one task later. `mouseleave` → hides after a ~150 ms grace period so the pointer can travel onto the tooltip panel.
 - **Hoverable (WCAG 1.4.13):** while visible, `mouseenter` on the tooltip panel cancels the pending hide and `mouseleave` on the panel re-schedules it, so the tooltip stays open while the pointer is over it. Panel hover listeners are attached with `Renderer2.listen` in `_show()` and torn down in `_hide()`.
 - **Escape — dismissible, and only the tooltip (WCAG 1.4.13, D13, #319):** see _Escape_ below.
@@ -61,8 +61,21 @@ The primary consumer API. Attach to any element — button, icon, input, etc.
 - **Limit (focus elsewhere only):** an ancestor of the focused element that stops Escape propagation below `<body>` keeps the key from the dispatcher, so a hover-shown tooltip stays — the limit every CDK overlay's Escape has. Before #319 such a tooltip could not be dismissed from the keyboard at all, so no regression; with focus on the host the fallback covers it. No in-repo ancestor stops Escape propagation around a tooltip host.
 - **Specs:** `tooltip.spec.ts` → _MlvTooltip — Escape_ (another element / body, consumption, four modifiers, re-entered hover, pending-show cancel, a stacked overlay with focus elsewhere and on the host, an armed fallback dropped when `focusout` hides first (timer count), an ancestor stopping propagation, every other key reaching an overlay below) and _… inside an MlvDialogService dialog_ (real timers: the zoneless scheduler behind `ApplicationRef.whenStable()` races `setTimeout` against `requestAnimationFrame`, so a faked clock never stabilises a service-opened dialog). Each part was ablated and turns exactly its specs red: the predicate (the four modifier specs + the overlay-below spec), the host fallback (the two host-focused specs), the host hide (dialog + consumption), `stopPropagation` (consumption), the pending-show clears, `_hide()`'s fallback clear (the timer-count spec). `speed-dial.spec.ts` pins the two-press dial.
 - **Breaking, behaviour only:** [docs/migrations/2026-09-tooltip-escape-dismissal.md](../../docs/migrations/2026-09-tooltip-escape-dismissal.md).
-- **Accessibility:** sets `aria-describedby` on the host pointing to the tooltip panel `id` while visible; removes it on hide
 - **CDK overlay:** `flexibleConnectedTo` strategy with `reposition` scroll strategy
+
+#### Description (#321, D12)
+
+- **From init, not from show:** a constructor `afterRenderEffect` registers the trimmed text with CDK's root `AriaDescriber` (`@angular/cdk/a11y`). The host is described from its first client render — focus reaches a described host with no `tooltipDelay` wait, and the description survives hide.
+- **Appends, never replaces:** `AriaDescriber` adds one `cdk-describedby-message-<APP_ID>-<n>` id to whatever `aria-describedby` the host carries and removes only that id; with nothing left the attribute is removed. It also stamps `cdk-describedby-host` on the host. Before, `_show()` overwrote the attribute with the panel id and `_hide()` deleted it — one hover cost `mlv-editor-ai-review-bar`'s accept/reject buttons their suggestion description for good.
+- **Where the text lives:** one visually hidden `<div>` per distinct text in `.cdk-describedby-message-container` on `<body>`, reference-counted across hosts (two hosts with the same text share it; it goes when the last one does). The panel (`mlv-tooltip-panel`) is `aria-hidden="true"`: the visual copy, so the text is in the tree once. It keeps `role="tooltip"` and its `mlv-tooltip-*` id, which nothing references.
+- **When there is none:** empty / whitespace-only text, `tooltipDisabled`, or an `aria-label` that already equals the text (`mlv-editor-command-button`, the editor zoom / link / table / image / more-formatting / AI-menu buttons, the AI review bar's previous / next / accept / reject icon buttons, the speed-dial actions, `mlv-hint`'s trigger and the colour-picker popup's swatch) → no id is added.
+- **`aria-label` comparison — attribute only, snapshot:** `AriaDescriber` compares the text with the `aria-label` **attribute** only — not `aria-labelledby`, text content or `title` — so a host named another way whose tooltip repeats its name is described by its own name (drop the tooltip; the review bar's _Stop generating_ lost its for that reason). The comparison runs when `describe()` does, and the effect re-runs only on the text / `tooltipDisabled`: a label equal to the text at registration that later changes leaves the host **never** described; one that later becomes equal keeps a repeating description.
+- **Registration waits for the view's first refresh:** a view detached (`ChangeDetectorRef.detach()`) before its first change detection never describes its host (the bubble still shows); inside `@defer (hydrate on …)` the description arrives when the block hydrates.
+- **Reactive:** the effect re-runs on the text and on `tooltipDisabled`; its cleanup removes the previous text's id first, and runs on destroy. #346 (forwarding content / tone / arrow to a **visible** panel) must not call `describe` / `removeDescription` itself — the description already follows.
+- **Why `afterRenderEffect`:** it runs after a host binding on the same element — a co-hosted directive's, or the host component's own (`mlv-radio-group`, `fieldset[mlvFieldset]`). Angular writes an element's host bindings after the effects of the view the element sits in, so from a plain `effect()` the token was appended first and then overwritten by that binding on the first render (a template `[attr.aria-describedby]` is written before the view's effects either way; the same order holds for the `aria-label` comparison). And it is a no-op on the server. Measured with a plain `effect()`: `AriaDescriber` ids carry a per-process counter and the client deletes the server's `[platform="server"]` container, so a host with **no** own `aria-describedby` hydrated as `cdk-describedby-message-ng-1-3 cdk-describedby-message-ng-5-7`, the first dangling (`aria-valid-attr-value`). A static own attribute hid it, because hydration re-applies it.
+- **Limit — an `aria-describedby` rewritten after the first render** (template or host binding) replaces the whole attribute and drops the tooltip's id until the text or `tooltipDisabled` changes (Angular writes the bound value verbatim), and the dropped text's hidden element **leaks**: its reference is never released, so it stays in the container after the host is destroyed. A constant binding is fine (written before the effect); a consumer writes the attribute statically or binds a constant. Two library hosts rewrite it themselves, so that advice cannot be followed there: `mlv-radio-group` (its `description` / `message` ids — measured: `Pick one plan` → `message="Required"` → `Required` only; element leaked after destroy) and `fieldset[mlvFieldset]` (its `description` id). Use their own `description` for help text. No in-repo template puts a tooltip on either. Angular Material's `MatTooltip` registers through the same `AriaDescriber` and shares the limit; the fix (merging with the host's own references, which means observing the attribute) is #529.
+- **Specs:** `tooltip.spec.ts` → _MlvTooltip — description_ (init, focus with no wait, own description kept while shown / after hide, exact restore on destroy, attribute removed when it was the only id, text change while hidden, `tooltipDisabled` round trip, empty / whitespace, `aria-label` equality, shared text across hosts, `aria-hidden` panel, an `aria-describedby` written by a co-hosted directive's or the host component's own host binding — the client pin for `afterRenderEffect`, both red under `effect`) and its `axe` block (idle, shown with / without arrow, disabled, empty); `tooltip-ssr.spec.ts` (real `renderApplication` → `provideClientHydration` round trip: no `cdk-describedby` in server markup, every id resolving after hydration on a host with and without its own attribute — ablating `afterRenderEffect` to `effect` turns both red). `editor-ai-review-bar.spec.ts` pins the live clobber and the _Stop generating_ button carrying no tooltip.
+- **Breaking:** [docs/migrations/2026-09-tooltip-description-from-init.md](../../docs/migrations/2026-09-tooltip-description-from-init.md).
 
 #### Direction
 
@@ -106,17 +119,18 @@ Created programmatically by `MlvTooltip`. Not intended for direct consumer use.
 
 #### Inputs
 
-| Name        | Type                  | Description                        |
-| ----------- | --------------------- | ---------------------------------- |
-| `content`   | `string` (required)   | Tooltip text                       |
-| `tone`      | `MlvTooltipTone`      | Tone variant (default `'neutral'`) |
-| `showArrow` | `boolean`             | Whether the arrow is visible       |
-| `placement` | `MlvTooltipPlacement` | Drives arrow direction CSS class   |
-| `tooltipId` | `string` (required)   | Unique `id` for `aria-describedby` |
+| Name        | Type                  | Description                                                    |
+| ----------- | --------------------- | -------------------------------------------------------------- |
+| `content`   | `string` (required)   | Tooltip text                                                   |
+| `tone`      | `MlvTooltipTone`      | Tone variant (default `'neutral'`)                             |
+| `showArrow` | `boolean`             | Whether the arrow is visible                                   |
+| `placement` | `MlvTooltipPlacement` | Drives arrow direction CSS class                               |
+| `tooltipId` | `string` (required)   | Unique `id` stamped on the panel; nothing references it (#321) |
 
 #### Accessibility
 
-- Host `div` has `role="tooltip"` and a unique `id`
+- Host `mlv-tooltip-panel` is `aria-hidden="true"` — the visual copy of the text; the trigger is described by `AriaDescriber`'s hidden element (#321)
+- Inner `div` keeps `role="tooltip"` and a unique `id` (DOM / spec hook only)
 - Arrow `span` has `aria-hidden="true"`
 - Tooltip is not focusable (no interactive elements)
 
@@ -194,6 +208,8 @@ Created programmatically by `MlvTooltip`. Not intended for direct consumer use.
 | `@angular/cdk/overlay`  | `^22.0.0` | CDK overlay positioning                                |
 | `@angular/cdk/portal`   | `^22.0.0` | `ComponentPortal`                                      |
 | `@angular/cdk/coercion` | `^22.0.0` | `BooleanInput`, `coerceBooleanProperty`                |
+| `@angular/cdk/a11y`     | `^22.0.0` | `AriaDescriber` — the host's description (#321)        |
+| `@angular/cdk/keycodes` | `^22.0.0` | `hasModifierKey` — the Escape predicate                |
 | `@malva-ui/cdk/utils`   | workspace | `MlvRtlService`, `mlvMirrorInlineOffsets`, `mlvNextId` |
 
 ---
@@ -209,5 +225,6 @@ libs/core/tooltip/src/
       tooltip-panel.ts             — MlvTooltipPanel (mlv-tooltip-panel)
       tooltip-panel.scss           — BEM styles, tone variants, arrow
       tooltip.types.ts                 — MlvTooltipTone, MlvTooltipPlacement
-      tooltip.spec.ts        — unit tests
+      tooltip.spec.ts        — unit tests (+ axe sweeps)
+      tooltip-ssr.spec.ts    — server render → hydration round trip of the description
 ```
