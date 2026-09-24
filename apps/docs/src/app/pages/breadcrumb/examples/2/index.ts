@@ -18,7 +18,11 @@ import { LucideSlash } from '@lucide/angular';
         >
           Default separator (LucideChevronRight icon):
         </p>
-        <nav mlvBreadcrumb [items]="items"></nav>
+        <nav
+          mlvBreadcrumb
+          ariaLabel="Report trail, default separator"
+          [items]="items"
+        ></nav>
       </div>
       <div>
         <p
@@ -26,7 +30,11 @@ import { LucideSlash } from '@lucide/angular';
         >
           Custom text separator via <code>ng-template mlvSeparator</code>:
         </p>
-        <nav mlvBreadcrumb [items]="items">
+        <nav
+          mlvBreadcrumb
+          ariaLabel="Report trail, text separator"
+          [items]="items"
+        >
           <ng-template mlvSeparator>›</ng-template>
         </nav>
       </div>
@@ -36,7 +44,11 @@ import { LucideSlash } from '@lucide/angular';
         >
           Custom icon separator:
         </p>
-        <nav mlvBreadcrumb [items]="items">
+        <nav
+          mlvBreadcrumb
+          ariaLabel="Report trail, icon separator"
+          [items]="items"
+        >
           <ng-template mlvSeparator>
             <svg
               lucideSlash

@@ -13,13 +13,23 @@ import { MlvBreadcrumb } from '@malva-ui/core/breadcrumb';
       >
         maxItems="4" — middle items collapse to ellipsis:
       </p>
-      <nav mlvBreadcrumb [items]="longItems" [maxItems]="4"></nav>
+      <nav
+        mlvBreadcrumb
+        ariaLabel="Project trail, four items"
+        [items]="longItems"
+        [maxItems]="4"
+      ></nav>
       <p
         style="color: var(--mlv-text-secondary); font-size: var(--mlv-typography-body-s-size);"
       >
         maxItems="3":
       </p>
-      <nav mlvBreadcrumb [items]="longItems" [maxItems]="3"></nav>
+      <nav
+        mlvBreadcrumb
+        ariaLabel="Project trail, three items"
+        [items]="longItems"
+        [maxItems]="3"
+      ></nav>
     </div>
   `,
 })

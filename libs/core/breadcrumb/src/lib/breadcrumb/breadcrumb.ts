@@ -6,6 +6,7 @@ import {
   contentChildren,
   ElementRef,
   forwardRef,
+  HostAttributeToken,
   inject,
   input,
   viewChild,
@@ -129,12 +130,43 @@ interface BreadcrumbTrailSplit {
   host: {
     class: 'mlv-breadcrumb',
     role: 'navigation',
-    '[attr.aria-label]': '_i18n().label',
+    '[attr.aria-label]': '_landmarkLabel()',
   },
 })
 export class MlvBreadcrumb implements MlvBreadcrumbAccessor {
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_BREADCRUMB_I18N);
+
+  /**
+   * @private The `aria-label` a consumer wrote directly on the `<nav>`,
+   * captured before the host binding runs. The binding owns the attribute, so
+   * without this capture it would overwrite the consumer's name on the first
+   * change detection. `null` for a `createComponent(…, { hostElement })` root
+   * host, whose attributes the token never sees.
+   */
+  private readonly _hostAriaLabel = inject(
+    new HostAttributeToken('aria-label'),
+    { optional: true },
+  );
+
+  /**
+   * Accessible name of the `navigation` landmark.
+   *
+   * Set it whenever a page renders more than one breadcrumb (or another
+   * `navigation` landmark), so assistive technology can tell them apart. When
+   * unset or empty, a static `aria-label` written on the `<nav>` is used, then
+   * the localized `MLV_BREADCRUMB_I18N.label` ("Breadcrumb"). Bind this input
+   * rather than `[attr.aria-label]`, which races the host binding.
+   */
+  readonly ariaLabel = input<string | undefined>(undefined);
+
+  /**
+   * @protected The landmark's `aria-label`: {@link ariaLabel}, else the static
+   * host attribute, else the localized default.
+   */
+  protected readonly _landmarkLabel = computed(
+    () => this.ariaLabel() || this._hostAriaLabel || this._i18n().label,
+  );
 
   /** @private Resolver for ICU parameterized i18n strings. */
   private readonly _resolver = inject(MlvI18nResolverService);

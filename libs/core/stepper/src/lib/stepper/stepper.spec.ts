@@ -1176,3 +1176,242 @@ describe('MlvStepper — explicit step state is decoration (#312)', () => {
     });
   });
 });
+
+// ─── Accessible name lands on the tablist (#326) ─────────────────────────────
+
+@Component({
+  template: `
+    <mlv-stepper [orientation]="orientation()" [ariaLabel]="label()">
+      <mlv-step label="A">Content A</mlv-step>
+      <mlv-step label="B">Content B</mlv-step>
+    </mlv-stepper>
+  `,
+  imports: [MlvStepper, MlvStep],
+})
+class StepperLabelHostComponent {
+  readonly orientation = signal<MlvStepperOrientation>('horizontal');
+  readonly label = signal<string | undefined>('Account setup');
+}
+
+@Component({
+  template: `
+    <mlv-stepper
+      aria-label="Checkout"
+      [orientation]="orientation()"
+      [ariaLabel]="label()"
+    >
+      <mlv-step label="A">Content A</mlv-step>
+      <mlv-step label="B">Content B</mlv-step>
+    </mlv-stepper>
+  `,
+  imports: [MlvStepper, MlvStep],
+})
+class StepperStaticLabelHostComponent {
+  readonly orientation = signal<MlvStepperOrientation>('horizontal');
+  readonly label = signal<string | undefined>(undefined);
+}
+
+@Component({
+  template: `
+    <h2 id="checkout-heading">Checkout</h2>
+    @if (bothStatic()) {
+      <mlv-stepper
+        aria-labelledby="checkout-heading"
+        aria-label="Ignored"
+        [orientation]="orientation()"
+        [ariaLabel]="label()"
+      >
+        <mlv-step label="A">Content A</mlv-step>
+        <mlv-step label="B">Content B</mlv-step>
+      </mlv-stepper>
+    } @else {
+      <mlv-stepper
+        aria-labelledby="checkout-heading"
+        [orientation]="orientation()"
+        [ariaLabel]="label()"
+      >
+        <mlv-step label="A">Content A</mlv-step>
+        <mlv-step label="B">Content B</mlv-step>
+      </mlv-stepper>
+    }
+  `,
+  imports: [MlvStepper, MlvStep],
+})
+class StepperStaticLabelledByHostComponent {
+  readonly orientation = signal<MlvStepperOrientation>('horizontal');
+  readonly label = signal<string | undefined>(undefined);
+  readonly bothStatic = signal(false);
+}
+
+/**
+ * `mlv-stepper`'s host is a roleless custom element, so ARIA prohibits an
+ * `aria-label` on it (axe `aria-prohibited-attr`, which axe only reports as
+ * `incomplete` — the reason every sweep above stayed green). The widget that
+ * takes a name is the `role="tablist"` inside. `ariaLabel` used to be bound on
+ * the host, where no screen reader announced it, and the same binding wiped a
+ * consumer's static `aria-label` with `null`.
+ */
+describe('MlvStepper — accessible name lands on the tablist (#326)', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        StepperLabelHostComponent,
+        StepperStaticLabelHostComponent,
+        StepperStaticLabelledByHostComponent,
+      ],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+  });
+
+  async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  function stepperHost(fixture: ComponentFixture<unknown>): HTMLElement {
+    return fixture.nativeElement.querySelector('mlv-stepper') as HTMLElement;
+  }
+
+  /** The `aria-label` of every rendered tablist, in DOM order. */
+  function tablistLabels(
+    fixture: ComponentFixture<unknown>,
+  ): (string | null)[] {
+    return Array.from(
+      stepperHost(fixture).querySelectorAll('[role="tablist"]'),
+    ).map((tablist) => tablist.getAttribute('aria-label'));
+  }
+
+  /** The `aria-labelledby` of every rendered tablist, in DOM order. */
+  function tablistLabelledBy(
+    fixture: ComponentFixture<unknown>,
+  ): (string | null)[] {
+    return Array.from(
+      stepperHost(fixture).querySelectorAll('[role="tablist"]'),
+    ).map((tablist) => tablist.getAttribute('aria-labelledby'));
+  }
+
+  describe.each(ORIENTATIONS)('%s', (orientation) => {
+    it('puts ariaLabel on the tablist and nothing on the roleless host', async () => {
+      const fixture = TestBed.createComponent(StepperLabelHostComponent);
+      fixture.componentInstance.orientation.set(orientation);
+      await settle(fixture);
+
+      expect(tablistLabels(fixture)).toEqual(['Account setup']);
+      expect(stepperHost(fixture).hasAttribute('aria-label')).toBe(false);
+    });
+
+    it('follows a changed ariaLabel and drops the attribute when it is cleared', async () => {
+      const fixture = TestBed.createComponent(StepperLabelHostComponent);
+      fixture.componentInstance.orientation.set(orientation);
+      await settle(fixture);
+
+      fixture.componentInstance.label.set('Payment flow');
+      await settle(fixture);
+      expect(tablistLabels(fixture)).toEqual(['Payment flow']);
+
+      fixture.componentInstance.label.set(undefined);
+      await settle(fixture);
+      expect(tablistLabels(fixture)).toEqual([null]);
+      expect(stepperHost(fixture).hasAttribute('aria-label')).toBe(false);
+    });
+
+    it('moves a static host aria-label onto the tablist', async () => {
+      const fixture = TestBed.createComponent(StepperStaticLabelHostComponent);
+      fixture.componentInstance.orientation.set(orientation);
+      await settle(fixture);
+
+      expect(tablistLabels(fixture)).toEqual(['Checkout']);
+      expect(stepperHost(fixture).hasAttribute('aria-label')).toBe(false);
+    });
+
+    it('lets ariaLabel win over a static host aria-label, and falls back to it', async () => {
+      const fixture = TestBed.createComponent(StepperStaticLabelHostComponent);
+      fixture.componentInstance.orientation.set(orientation);
+      fixture.componentInstance.label.set('Shipping');
+      await settle(fixture);
+      expect(tablistLabels(fixture)).toEqual(['Shipping']);
+
+      fixture.componentInstance.label.set(undefined);
+      await settle(fixture);
+      expect(tablistLabels(fixture)).toEqual(['Checkout']);
+      expect(stepperHost(fixture).hasAttribute('aria-label')).toBe(false);
+    });
+
+    it('counts an empty ariaLabel as unset, falling back to the static host label', async () => {
+      const fixture = TestBed.createComponent(StepperStaticLabelHostComponent);
+      fixture.componentInstance.orientation.set(orientation);
+      fixture.componentInstance.label.set('');
+      await settle(fixture);
+
+      expect(tablistLabels(fixture)).toEqual(['Checkout']);
+    });
+
+    it('moves a static host aria-labelledby onto the tablist', async () => {
+      const fixture = TestBed.createComponent(
+        StepperStaticLabelledByHostComponent,
+      );
+      fixture.componentInstance.orientation.set(orientation);
+      await settle(fixture);
+
+      expect(tablistLabelledBy(fixture)).toEqual(['checkout-heading']);
+      expect(tablistLabels(fixture)).toEqual([null]);
+      expect(stepperHost(fixture).hasAttribute('aria-labelledby')).toBe(false);
+      // State: a tablist named by a visible heading elsewhere in the page.
+      await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+    });
+
+    it('lets ariaLabel win over a static host aria-labelledby, one attribute at a time', async () => {
+      const fixture = TestBed.createComponent(
+        StepperStaticLabelledByHostComponent,
+      );
+      fixture.componentInstance.orientation.set(orientation);
+      fixture.componentInstance.label.set('Shipping');
+      await settle(fixture);
+      expect(tablistLabels(fixture)).toEqual(['Shipping']);
+      expect(tablistLabelledBy(fixture)).toEqual([null]);
+
+      fixture.componentInstance.label.set(undefined);
+      await settle(fixture);
+      expect(tablistLabels(fixture)).toEqual([null]);
+      expect(tablistLabelledBy(fixture)).toEqual(['checkout-heading']);
+    });
+
+    it('prefers a static aria-labelledby over a static aria-label, stripping both', async () => {
+      const fixture = TestBed.createComponent(
+        StepperStaticLabelledByHostComponent,
+      );
+      fixture.componentInstance.orientation.set(orientation);
+      fixture.componentInstance.bothStatic.set(true);
+      await settle(fixture);
+
+      expect(tablistLabelledBy(fixture)).toEqual(['checkout-heading']);
+      expect(tablistLabels(fixture)).toEqual([null]);
+      expect(stepperHost(fixture).hasAttribute('aria-labelledby')).toBe(false);
+      expect(stepperHost(fixture).hasAttribute('aria-label')).toBe(false);
+    });
+
+    it('has no axe violations with a label', async () => {
+      const fixture = TestBed.createComponent(StepperLabelHostComponent);
+      fixture.componentInstance.orientation.set(orientation);
+      await settle(fixture);
+
+      // State: a named tablist — markup the unnamed sweeps above never saw.
+      expect(tablistLabels(fixture)).toEqual(['Account setup']);
+      await expectNoAxeViolations(stepperHost(fixture));
+    });
+  });
+
+  it('keeps the label when the orientation flips and the tablist is re-created', async () => {
+    const fixture = TestBed.createComponent(StepperLabelHostComponent);
+    await settle(fixture);
+    expect(tablistLabels(fixture)).toEqual(['Account setup']);
+
+    fixture.componentInstance.orientation.set('vertical');
+    await settle(fixture);
+    expect(tablistLabels(fixture)).toEqual(['Account setup']);
+
+    fixture.componentInstance.orientation.set('horizontal');
+    await settle(fixture);
+    expect(tablistLabels(fixture)).toEqual(['Account setup']);
+  });
+});

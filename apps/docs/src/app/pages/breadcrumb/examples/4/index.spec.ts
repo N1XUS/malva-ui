@@ -47,14 +47,24 @@ describe('BreadcrumbProjectedExampleComponent', () => {
     ).toEqual([1, 1, 1]);
   });
 
+  it('names each trail its own navigation landmark', async () => {
+    const host = await render();
+
+    expect(
+      Array.from(host.querySelectorAll('nav')).map((nav) =>
+        nav.getAttribute('aria-label'),
+      ),
+    ).toEqual([
+      'Documentation trail',
+      'Restricted section trail',
+      'Components trail',
+    ]);
+  });
+
   it('has no axe violations', async () => {
-    await expectNoAxeViolations(await render(), {
-      // NARROWED, not clean: `landmark-unique` fires on the first `nav` — all
-      // three trails are `navigation` landmarks named "Breadcrumb", because
-      // the host binding overwrites a consumer `aria-label` and there is no
-      // `ariaLabel` input to tell them apart. Fixable, deferred: tracked in
-      // #326.
-      rules: { 'landmark-unique': { enabled: false } },
-    });
+    // Unnarrowed: three trails on one page are three `navigation` landmarks,
+    // and `landmark-unique` passes only because each carries its own
+    // `ariaLabel` (#326).
+    await expectNoAxeViolations(await render());
   });
 });

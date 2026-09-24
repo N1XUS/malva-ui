@@ -631,6 +631,10 @@ class SsrPickersHost {
       <mlv-step label="Account">Account details</mlv-step>
       <mlv-step label="Profile">Profile details</mlv-step>
     </mlv-stepper>
+    <mlv-stepper aria-label="Checkout">
+      <mlv-step label="Cart">Cart contents</mlv-step>
+      <mlv-step label="Payment">Payment details</mlv-step>
+    </mlv-stepper>
 
     <mlv-pagination [totalItems]="120" [(currentPage)]="page" />
 
@@ -1822,6 +1826,80 @@ describe('@malva-ui/core SSR safety', () => {
       ).test(markup),
       `aria-labelledby="${labelledBy}" does not name the visible label: ${markup}`,
     ).toBe(true);
+  });
+
+  it('server-renders a copy-to-clipboard named by ids that resolve in the payload', async () => {
+    const { html } = await renderAllHosts();
+
+    // #326. With no `value`, the host's `aria-labelledby` names the host
+    // itself — whose `aria-label` is the prefix — then the projected content.
+    // Both ids are generated in a field initializer, so the pre-hydration
+    // document must carry the host's own id and the content node — a dangling
+    // id names nothing. The copy does not nest, so a non-greedy match per
+    // element is exact.
+    const copy = (
+      html.match(/<mlv-copy-to-clipboard[\s\S]*?<\/mlv-copy-to-clipboard>/g) ??
+      []
+    ).find((markup) => markup.includes('sk_live_abc123xyz'));
+    expect(
+      copy,
+      'no mlv-copy-to-clipboard in the server markup — SsrDisplayHost did ' +
+        'not render it',
+    ).toBeTruthy();
+    const markup = copy as string;
+    const open = /<mlv-copy-to-clipboard[^>]*>/.exec(markup)?.[0] ?? '';
+    const ids = (/\saria-labelledby="([^"]+)"/.exec(open)?.[1] ?? '')
+      .split(/\s+/)
+      .filter(Boolean);
+    expect(ids.length, `aria-labelledby on ${open}`).toBe(2);
+    const [hostId, contentId] = ids;
+    expect(
+      new RegExp(`\\sid="${hostId}"`).test(open),
+      `aria-labelledby does not start with the host's own id: ${open}`,
+    ).toBe(true);
+    expect(
+      /\saria-label="[^"]+:"/.test(open),
+      `the server-rendered copy host carries no prefix aria-label: ${open}`,
+    ).toBe(true);
+    expect(
+      new RegExp(
+        `<span[^>]*\\sid="${contentId}"[^>]*>\\s*sk_live_abc123xyz\\s*</span>`,
+      ).test(markup),
+      `id="${contentId}" does not wrap the projected text: ${markup}`,
+    ).toBe(true);
+    expect(
+      markup
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<[^>]*>/g, '')
+        .trim(),
+      'the prefix reached the host text, and every ancestor textContent',
+    ).toBe('sk_live_abc123xyz');
+  });
+
+  it('server-renders the stepper name on the tablist, not the roleless host', async () => {
+    const { html } = await renderAllHosts();
+
+    // #326. The `ariaLabel` input binds on the `role="tablist"` element, and a
+    // static host `aria-label` is stripped in the constructor — which runs on
+    // the server too — and moved to the tablist. A strip moved into a hook the
+    // server never runs would ship a prohibited host attribute.
+    const steppers = html.match(/<mlv-stepper[\s\S]*?<\/mlv-stepper>/g) ?? [];
+    for (const name of ['Account setup', 'Checkout']) {
+      const markup = steppers.find((stepper) =>
+        new RegExp(
+          `<div(?=[^>]*\\srole="tablist")(?=[^>]*\\saria-label="${name}")[^>]*>`,
+        ).test(stepper),
+      );
+      expect(
+        markup,
+        `no server-rendered tablist named "${name}" in: ${steppers.join('\n')}`,
+      ).toBeTruthy();
+      const open = /<mlv-stepper[^>]*>/.exec(markup as string)?.[0] ?? '';
+      expect(
+        /\saria-label="/.test(open),
+        `the server-rendered stepper host carries aria-label: ${open}`,
+      ).toBe(false);
+    }
   });
 
   it('server-renders each host into markup', async () => {

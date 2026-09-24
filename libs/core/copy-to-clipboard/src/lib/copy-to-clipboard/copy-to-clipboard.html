@@ -1,4 +1,11 @@
-<span class="mlv-copy-to-clipboard__content">
+<!--
+  With no `value`, the host's `aria-labelledby` names the host itself, then
+  this wrapper, so the name is its own `aria-label` ("Copy to clipboard:")
+  followed by the visible text (#326). No prefix node lives in the template:
+  a text node would leak into the `textContent` of the host and every
+  ancestor, and Firefox ignores the `aria-label` of a hidden referenced node.
+-->
+<span #content class="mlv-copy-to-clipboard__content" [id]="_contentId">
   <ng-content />
 </span>
 <span

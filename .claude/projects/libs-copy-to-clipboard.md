@@ -28,13 +28,14 @@ Exported from `libs/core/copy-to-clipboard/src/index.ts`:
 
 #### Inputs
 
-| Name              | Type                     | Default                 | Description                                                                                                               |
-| ----------------- | ------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `value`           | `string \| undefined`    | `undefined`             | Explicit text to copy. When omitted, the component falls back to the trimmed `textContent` of the projected default slot. |
-| `copiedDuration`  | `number`                 | `2000`                  | Milliseconds the copied state remains active after a successful write.                                                    |
-| `ariaLabel`       | `string`                 | `'Copy to clipboard'`   | Base accessible label for the host. When a resolved value is available it is appended for richer screen-reader context.   |
-| `copiedAriaLabel` | `string`                 | `'Copied to clipboard'` | Announced via the visually hidden `aria-live="polite"` region after a successful copy.                                    |
-| `disabled`        | `BooleanInput` (coerced) | `false`                 | Disables the copy action, sets `aria-disabled`, and removes the host from the tab order.                                  |
+| Name              | Type                     | Default                                                    | Description                                                                                                                                                                                                                            |
+| ----------------- | ------------------------ | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `value`           | `string \| undefined`    | `undefined`                                                | Explicit text to copy. When omitted, the component falls back to the trimmed `textContent` of the projected default slot.                                                                                                              |
+| `copiedDuration`  | `number`                 | `2000`                                                     | Milliseconds the copied state remains active after a successful write.                                                                                                                                                                 |
+| `ariaLabel`       | `string \| undefined`    | `undefined` → i18n `copyToClipboard` ("Copy to clipboard") | Base of the accessible name; the copied text is always appended after a colon — see _Accessible name_. Not a replacement name. An empty string counts as unset. A static host `aria-label` is not honoured (overwritten) — use this.   |
+| `copiedAriaLabel` | `string`                 | `'Copied to clipboard'`                                    | Announced via the visually hidden `aria-live="polite"` region after a successful copy.                                                                                                                                                 |
+| `disabled`        | `BooleanInput` (coerced) | `false`                                                    | Disables the copy action, sets `aria-disabled`, and removes the host from the tab order.                                                                                                                                               |
+| `id`              | `string \| undefined`    | `undefined` → generated `mlv-copy-to-clipboard-N`          | Host id; the self-referencing `aria-labelledby` follows it. Set by a static `id="…"`, a bound `[id]` (per-row in `@for` too) or `id="{{…}}"`. Empty counts as unset. `[attr.id]` bypasses it and races the host binding — bind `[id]`. |
 
 #### Outputs
 
@@ -62,8 +63,10 @@ host: {
   '[class.mlv-copy-to-clipboard--copied]': 'isCopied()',
   '[class.mlv-copy-to-clipboard--disabled]': 'disabled()',
   'role': 'button',
+  '[attr.id]': '_hostId()',                          // `id` input, else generated (#326)
   '[attr.tabindex]': 'disabled() ? -1 : 0',
-  '[attr.aria-label]': '_computedAriaLabel()',
+  '[attr.aria-label]': '_computedAriaLabel()',       // always; "<base>:" while `value` is unset
+  '[attr.aria-labelledby]': '_ariaLabelledBy()',     // "<host id> <id>-content" while `value` is unset (#326)
   '[attr.aria-disabled]': 'disabled() || null',
   '(click)': 'copy()',
   '(keydown.enter)': 'copy(); $event.preventDefault()',
@@ -71,12 +74,35 @@ host: {
 }
 ```
 
+### Accessible name
+
+Both resolved from `ariaLabel` (default i18n "Copy to clipboard"):
+
+| `value`          | Host carries                                                               | Name                                       |
+| ---------------- | -------------------------------------------------------------------------- | ------------------------------------------ |
+| unset / `null`   | `aria-label="<base>:"` + `aria-labelledby="<host id> <id>-content"` + `id` | "Copy to clipboard: " + projected text     |
+| non-empty string | `aria-label` + `id` (names nothing here)                                   | "Copy to clipboard: " + `value`            |
+| `''`             | `aria-label` + `id` (names nothing here)                                   | "Copy to clipboard" (base only, unchanged) |
+
+- Unset path (#326, D24): the host references **itself**, then `.mlv-copy-to-clipboard__content`. An element met while traversing `aria-labelledby` is not traversed again, so the self-reference contributes the host's own `aria-label` (accname 2B → 2C) and the content its text; the name follows the projected text live, with no attribute rewrite, and never picks up the icon, tooltip or live region.
+- The one host in the library with **both** naming attributes, deliberately: the `aria-label` is read through `aria-labelledby`, not competing with it.
+- The prefix is an attribute, never a node: a text prefix leaked into the `textContent` of the host and every ancestor (read by `provideMlvPageRouteFocus`, `mlvTitle`, menu typeahead) — review round 1; a hidden textless span carrying the `aria-label` named the button "0042" in Firefox 146, which ignores the `aria-label` of a hidden referenced node — review round 2. Pinned by the _keeps the prefix out of textContent_ spec; the spec helper takes a hidden referenced node's text only, so a hidden prefix goes red.
+- Host id: `_hostId` = `computed(() => id() || generated)`, `mlvNextId('mlv-copy-to-clipboard')`; never `null`, which would remove the attribute. A static `id`, a bound `[id]` and `id="{{…}}"` all feed the `id` input, so a per-row `@for` id lands and a changing one moves the self-reference with it (review round 3: before the input, a bound `[id]` lost the race to the host binding). A bound `[id]` is now type-checked: a number or `string | null` expression fails `strictTemplates` (TS2322), where the old DOM binding compiled. Residuals: `[attr.id]` bypasses the input and races the host binding, last change wins (measured) — first render drops the consumer's id, a later change of it leaves the self-reference dangling (name = projected text only) — bind `[id]`; a `createComponent(…, { hostElement })` root host's pre-set `id` feeds no input and is overwritten — `setInput('id', …)`.
+- Native names, rendered markup of `<h1>Order <mlv-copy-to-clipboard><code>0042</code></…></h1>`: Chromium 145 (CDP AX tree) and Firefox 146 (Marionette `GetComputedLabel`) both → button "Copy to clipboard: 0042" (generated or static id, idle or copied; "Copy the order number: 0042" with that `ariaLabel`); h1 `textContent` "Order 0042". h1 accessible name differs by engine: Chromium "Order Copy to clipboard: 0042", Firefox "Order Copy to clipboard:". WebKit unmeasured (native WebKit needs `safaridriver --enable`).
+- `ariaLabel` uses `||`: an empty string falls back to the i18n base, as on `mlv-stepper` / `mlv-breadcrumb` (before, `ariaLabel=""` emitted `aria-label=""` or `": <value>"`).
+- Migration: `docs/migrations/2026-09-accessible-name-sources.md`.
+- Before #326 the unset path wrote `aria-label="Copy to clipboard"`, which replaces subtree text — the projected text was never in the name (WCAG 2.5.3 Label in Name; a speech-input user saying the visible text could not activate it).
+- `value` path: the name is unchanged by #326 and carries `value`, not the visible text; the host still gains its `id`, because the `[attr.id]` binding is unconditional — every copy host carries one, and generated-id snapshots of `value` copies shift too. Keeping the visible text inside it (in `value` or in `ariaLabel`) is the consumer's call — docs example 2 says so.
+- `ariaLabel` stays a **base**, not an override, unlike `mlv-progress` (explicit `ariaLabel` wins there): this API documents it as the prefix, and dropping the text would fail 2.5.3.
+- `copy()` with no `value` reads `.mlv-copy-to-clipboard__content`'s trimmed `textContent`, not the host's — the host also holds the live region, so a copy during the copied window used to write `"<text> Copied to clipboard"` (fixed with #326; pinned by the rapid-repeat spec).
+- Pinned by `copy-to-clipboard.spec.ts` § _accessible name_ and the a11y sweeps.
+
 ---
 
 ## Template Structure
 
 ```html
-<span class="mlv-copy-to-clipboard__content">
+<span #content class="mlv-copy-to-clipboard__content" [id]="_contentId">
   <ng-content />
 </span>
 <span class="mlv-copy-to-clipboard__indicator" [mlvTooltip]="isCopied() ? 'Copied' : 'Copy'" tooltipPlacement="top" aria-hidden="true">
@@ -121,7 +147,7 @@ The component follows Emil Kowalski's motion principles:
 
 ## Accessibility
 
-- Host has `role="button"`, `tabindex="0"` (or `-1` when disabled), and a computed `aria-label` that combines the base label with the resolved value when one is available.
+- Host has `role="button"`, `tabindex="0"` (or `-1` when disabled) and an accessible name that always ends in the copied text — see _Accessible name_.
 - Activation is supported via mouse click, `Enter`, and `Space`. `Space` calls `preventDefault()` to suppress page scroll.
 - The two absolutely-positioned icons are wrapped in a single `aria-hidden="true"` container, so screen readers do not see the "Copy/Check" SVGs as extra content.
 - A visually hidden `aria-live="polite"` region exposes the `copiedAriaLabel()` text for the duration of the copied state, giving screen-reader users an unambiguous confirmation.

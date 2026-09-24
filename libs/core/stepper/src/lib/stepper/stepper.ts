@@ -7,10 +7,12 @@ import {
   DestroyRef,
   effect,
   ElementRef,
+  HostAttributeToken,
   inject,
   input,
   linkedSignal,
   output,
+  Renderer2,
   untracked,
   viewChildren,
   ViewEncapsulation,
@@ -80,7 +82,6 @@ function resolveActiveIndex(
   host: {
     class: 'mlv-stepper',
     '[class]': '_hostClasses()',
-    '[attr.aria-label]': 'ariaLabel() || null',
   },
   imports: [NgTemplateOutlet, MlvStepHeader],
 })
@@ -114,7 +115,19 @@ export class MlvStepper implements AfterContentInit {
   readonly initialIndex = input(0);
 
   /**
-   * Accessible label for the stepper container announced by screen readers.
+   * Accessible name of the step list, announced when focus enters a step.
+   *
+   * Lands on the `role="tablist"` element — the widget that takes a name —
+   * never on the host, a roleless custom element where ARIA prohibits
+   * `aria-label` and no screen reader announces it. A static `aria-label` or
+   * `aria-labelledby` written on `<mlv-stepper>` is moved to the tablist the
+   * same way; this input wins over both, and the tablist carries one naming
+   * attribute. An empty string counts as unset.
+   *
+   * A static host attribute is read through `HostAttributeToken`, which is
+   * `null` for a `createComponent(…, { hostElement })` root host: there a
+   * pre-set `aria-label` / `aria-labelledby` stays on the host, names nothing
+   * and is not moved — pass the name through `setInput('ariaLabel', …)`.
    */
   readonly ariaLabel = input<string | undefined>(undefined);
 
@@ -177,6 +190,12 @@ export class MlvStepper implements AfterContentInit {
   private readonly _rtlService = inject(MlvRtlService);
 
   /**
+   * @private Host element: the scope the direction resolves against, and the
+   * element a static `aria-label` / `aria-labelledby` is stripped from.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
+  /**
    * @private Direction applying to this stepper, following any `[dir]` scope
    * above it rather than the document. `FocusKeyManager` reads raw key codes,
    * so a horizontal stepper is handed this direction and rebuilt whenever it
@@ -185,10 +204,70 @@ export class MlvStepper implements AfterContentInit {
    * stepped left-to-right.
    */
   private readonly _direction = this._rtlService.elementDirection(
-    inject(ElementRef<HTMLElement>),
+    this._elementRef,
+  );
+
+  /**
+   * @private The `aria-label` a consumer wrote directly on the `<mlv-stepper>`
+   * host, captured before the constructor strips it. The host is roleless, so
+   * ARIA prohibits the attribute there (axe `aria-prohibited-attr`, reported
+   * only as `incomplete`); it names the tablist instead. `null` for a
+   * `createComponent(…, { hostElement })` root host, whose attributes the
+   * token never sees.
+   */
+  private readonly _hostAriaLabel = inject(
+    new HostAttributeToken('aria-label'),
+    { optional: true },
+  );
+
+  /**
+   * @private The `aria-labelledby` a consumer wrote directly on the
+   * `<mlv-stepper>` host, captured before the constructor strips it — prohibited
+   * on the roleless host exactly like {@link _hostAriaLabel}, and `null` for a
+   * root host the same way.
+   */
+  private readonly _hostAriaLabelledBy = inject(
+    new HostAttributeToken('aria-labelledby'),
+    { optional: true },
+  );
+
+  /**
+   * @protected The `aria-labelledby` both tablists carry — a static host
+   * `aria-labelledby`, unless the `ariaLabel` input is set. `null` emits no
+   * attribute.
+   */
+  protected readonly _tablistLabelledBy = computed(() =>
+    this.ariaLabel() ? null : this._hostAriaLabelledBy || null,
+  );
+
+  /**
+   * @protected The `aria-label` both tablists carry — the `ariaLabel` input,
+   * else a static host `aria-label` while no static `aria-labelledby` names
+   * the tablist (it would outrank the label, so only one is emitted). `null`
+   * emits no attribute, so an empty string never names the tablist `""`.
+   */
+  protected readonly _tablistLabel = computed(
+    () =>
+      this.ariaLabel() ||
+      (this._tablistLabelledBy() ? null : this._hostAriaLabel || null),
   );
 
   constructor() {
+    // A static host `aria-label` / `aria-labelledby` sits on a roleless custom
+    // element, where it names nothing. It was moved to the tablist through
+    // `_tablistLabel` / `_tablistLabelledBy`, so take it off the host — one
+    // name, on the one element that can carry it.
+    const renderer = inject(Renderer2);
+    if (this._hostAriaLabel !== null) {
+      renderer.removeAttribute(this._elementRef.nativeElement, 'aria-label');
+    }
+    if (this._hostAriaLabelledBy !== null) {
+      renderer.removeAttribute(
+        this._elementRef.nativeElement,
+        'aria-labelledby',
+      );
+    }
+
     // (Re)build the FocusKeyManager whenever the rendered headers or the
     // orientation change. Vertical steppers navigate with Up/Down, horizontal
     // with Left/Right; both wrap and support Home/End, skipping disabled steps.

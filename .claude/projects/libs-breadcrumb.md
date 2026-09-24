@@ -25,12 +25,13 @@ Selector: `nav[mlvBreadcrumb]` — enhances the native `<nav>` element for prope
 
 #### Inputs
 
-| Name                             | Type                      | Default     | Description                                                                                                                                                                                                                  |
-| -------------------------------- | ------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `items`                          | `MlvBreadcrumbEntry[]`    | `[]`        | Data-driven list of breadcrumb items. Last item is automatically marked as current.                                                                                                                                          |
-| `maxItems`                       | `number`                  | `0`         | Max items to display before truncating, the ellipsis counting as one. `0` = no truncation. Middle items collapse to `…` in trail order — see _Truncation_. Data-driven mode only.                                            |
-| `mlvDensity`                     | `MlvDensity \| undefined` | `undefined` | Density for the overflow popover's item list. Forwarded to the overflow `mlv-popup`, which stamps `mlv--{density}` on the detached overlay panel (outside the page's density cascade). Omitted → global `MlvDensityService`. |
-| `hideSeparatorFromScreenReaders` | `BooleanInput`            | `true`      | When true, adds `aria-hidden="true"` to separators.                                                                                                                                                                          |
+| Name                             | Type                      | Default     | Description                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------- | ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `items`                          | `MlvBreadcrumbEntry[]`    | `[]`        | Data-driven list of breadcrumb items. Last item is automatically marked as current.                                                                                                                                                                                                                                                                |
+| `maxItems`                       | `number`                  | `0`         | Max items to display before truncating, the ellipsis counting as one. `0` = no truncation. Middle items collapse to `…` in trail order — see _Truncation_. Data-driven mode only.                                                                                                                                                                  |
+| `mlvDensity`                     | `MlvDensity \| undefined` | `undefined` | Density for the overflow popover's item list. Forwarded to the overflow `mlv-popup`, which stamps `mlv--{density}` on the detached overlay panel (outside the page's density cascade). Omitted → global `MlvDensityService`.                                                                                                                       |
+| `hideSeparatorFromScreenReaders` | `BooleanInput`            | `true`      | When true, adds `aria-hidden="true"` to separators.                                                                                                                                                                                                                                                                                                |
+| `ariaLabel`                      | `string \| undefined`     | `undefined` | Name of the `<nav>` landmark. Unset / empty → a static `aria-label` written on the host → i18n `label` ("Breadcrumb"). Give each trail its own when a page renders several (axe `landmark-unique`). Bind this, not `[attr.aria-label]`, which the host binding overwrites (#326). Migration: `docs/migrations/2026-09-accessible-name-sources.md`. |
 
 There is **no `separator` input**. The separator is a projected template:
 `<ng-template mlvSeparator>` (`MlvBreadcrumbSeparator`) replaces the default
@@ -67,10 +68,18 @@ so the trail and the menu cannot disagree about the cut.
 
 #### Host
 
-| Attribute    | Value            |
-| ------------ | ---------------- |
-| `class`      | `mlv-breadcrumb` |
-| `aria-label` | `'Breadcrumb'`   |
+| Attribute    | Value                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------- |
+| `class`      | `mlv-breadcrumb`                                                                      |
+| `aria-label` | `_landmarkLabel()` — `ariaLabel() \|\| static host aria-label \|\| i18n label` (#326) |
+
+- Static `aria-label` read once through `HostAttributeToken`; before #326 the
+  host binding overwrote it with "Breadcrumb", so every trail on a page shared
+  one name. Empty `ariaLabel` counts as unset (`||`), never an empty name.
+- Residual: the token is `null` for a `createComponent(…, { hostElement })`
+  root host, so a pre-set `aria-label` there is overwritten with `ariaLabel` or
+  the i18n label, as before #326. No DOM-read fallback (it would re-capture a
+  server-written bound value on hydration); pass `setInput('ariaLabel', …)`.
 
 ---
 
@@ -258,7 +267,7 @@ as a `var()` fallback.
 ## Accessibility
 
 - `<nav>` host uses native landmark semantics
-- `aria-label="Breadcrumb"` on the host nav element
+- Landmark name on the host nav: `ariaLabel` → static host `aria-label` → i18n "Breadcrumb"; several trails on one page each need their own (`landmark-unique`), pinned by `breadcrumb.spec.ts` § _landmark name (#326)_ and docs example 4 (sweeps unnarrowed)
 - Last/current item has `aria-current="page"`
 - Separators are `aria-hidden="true"` by default, in both modes
 - Disabled items are non-interactive `<span>` elements
@@ -330,7 +339,7 @@ as a `var()` fallback.
 
 ## Internationalization (i18n)
 
-Strings resolve through `MLV_BREADCRUMB_I18N` (`@malva-ui/i18n`): `label` (the `<nav>` landmark `aria-label`), `hiddenItems` (overflow list `aria-label`), and `showMore` — an ICU plural (`"{count, plural, one {Show # more breadcrumb item} other {Show # more breadcrumb items}}"`) resolved via `MlvI18nResolverService` and exposed as the `_showMoreLabel` computed. Provide `provideMlvI18nTesting()` in specs.
+Strings resolve through `MLV_BREADCRUMB_I18N` (`@malva-ui/i18n`): `label` (the `<nav>` landmark name when neither `ariaLabel` nor a static host `aria-label` is set), `hiddenItems` (overflow list `aria-label`), and `showMore` — an ICU plural (`"{count, plural, one {Show # more breadcrumb item} other {Show # more breadcrumb items}}"`) resolved via `MlvI18nResolverService` and exposed as the `_showMoreLabel` computed. Provide `provideMlvI18nTesting()` in specs.
 
 ## Dependencies
 
@@ -365,5 +374,5 @@ libs/core/breadcrumb/src/
 
 ## Accessibility notes (updated)
 
-- Host now sets an explicit `role="navigation"` (in addition to `aria-label="Breadcrumb"`).
+- Host now sets an explicit `role="navigation"` (in addition to the landmark `aria-label`, see _Host_).
 - The overflow ellipsis trigger sets `[ariaHasPopup]="'menu'"` so `aria-haspopup` matches the `role="menu"` overflow list (the popup panel itself is roleless).

@@ -1419,3 +1419,99 @@ describe('MlvBreadcrumb accessibility', () => {
     }
   });
 });
+
+// ─── Landmark name (#326) ────────────────────────────────────────────────────
+
+@Component({
+  imports: [MlvBreadcrumb, MlvBreadcrumbItem],
+  template: `
+    <nav mlvBreadcrumb [items]="items" [ariaLabel]="label()"></nav>
+    <nav mlvBreadcrumb aria-label="Section path" [items]="items"></nav>
+    <nav
+      mlvBreadcrumb
+      aria-label="Static name"
+      [ariaLabel]="override()"
+      [items]="items"
+    ></nav>
+    <nav mlvBreadcrumb ariaLabel="Projected trail">
+      <mlv-breadcrumb-item href="/">Home</mlv-breadcrumb-item>
+      <mlv-breadcrumb-item current>Settings</mlv-breadcrumb-item>
+    </nav>
+  `,
+})
+class LandmarkNameHostComponent {
+  readonly items: MlvBreadcrumbEntry[] = [
+    { label: 'Home', href: '/' },
+    { label: 'Widget Pro' },
+  ];
+  readonly label = signal<string | undefined>('Project path');
+  readonly override = signal<string | undefined>('Bound name');
+}
+
+/**
+ * The host binding used to write the i18n "Breadcrumb" unconditionally: no
+ * input existed, and a consumer's own `aria-label` was overwritten on the
+ * first change detection. Every trail on a page was therefore the same
+ * `navigation` landmark — `landmark-unique` — with no way to tell them apart.
+ */
+describe('MlvBreadcrumb — landmark name (#326)', () => {
+  let fixture: ComponentFixture<LandmarkNameHostComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [LandmarkNameHostComponent],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(LandmarkNameHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  /** The `aria-label` of every rendered breadcrumb landmark, in DOM order. */
+  function landmarkNames(): (string | null)[] {
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('nav'),
+    ).map((nav) => nav.getAttribute('aria-label'));
+  }
+
+  it('names each landmark from ariaLabel, else the static aria-label', () => {
+    expect(landmarkNames()).toEqual([
+      'Project path',
+      'Section path',
+      'Bound name',
+      'Projected trail',
+    ]);
+  });
+
+  it('falls back to the static aria-label, then the localized default', async () => {
+    fixture.componentInstance.override.set(undefined);
+    fixture.componentInstance.label.set(undefined);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(landmarkNames()).toEqual([
+      'Breadcrumb',
+      'Section path',
+      'Static name',
+      'Projected trail',
+    ]);
+  });
+
+  it('treats an empty ariaLabel as unset', async () => {
+    fixture.componentInstance.label.set('');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(landmarkNames()[0]).toBe('Breadcrumb');
+  });
+
+  it('has no axe violations with several named trails on one page', async () => {
+    // State: four `navigation` landmarks, each with its own name. Swept with
+    // `landmark-unique` on — the rule that fired while every trail was
+    // "Breadcrumb".
+    expect(new Set(landmarkNames()).size).toBe(4);
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+});

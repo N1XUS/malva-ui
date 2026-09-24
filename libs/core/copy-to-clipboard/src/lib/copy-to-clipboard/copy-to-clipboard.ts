@@ -11,6 +11,7 @@ import {
   output,
   PLATFORM_ID,
   signal,
+  viewChild,
   ViewEncapsulation,
   type Signal,
 } from '@angular/core';
@@ -22,7 +23,7 @@ import {
 import { Clipboard } from '@angular/cdk/clipboard';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LucideCheck, LucideCopy } from '@lucide/angular';
-import { MlvResizeObserverService } from '@malva-ui/cdk/utils';
+import { MlvResizeObserverService, mlvNextId } from '@malva-ui/cdk/utils';
 import { MlvTooltip } from '@malva-ui/core/tooltip';
 import { MLV_COPY_TO_CLIPBOARD_I18N } from '@malva-ui/i18n';
 
@@ -39,6 +40,11 @@ import { MLV_COPY_TO_CLIPBOARD_I18N } from '@malva-ui/i18n';
  * The copied text is derived from:
  * 1. An explicit `value` input if provided, otherwise
  * 2. The projected content's `textContent`.
+ *
+ * The accessible name carries what is shown: the base label (`ariaLabel`, or
+ * the localized "Copy to clipboard") followed by the projected text, so a
+ * speech-input user can activate it by the words on screen (WCAG 2.5.3). With
+ * an explicit `value`, the name is the base label followed by that value.
  *
  * @example Basic inline usage
  * ```html
@@ -73,8 +79,10 @@ import { MLV_COPY_TO_CLIPBOARD_I18N } from '@malva-ui/i18n';
     '[class.mlv-copy-to-clipboard--copied]': 'isCopied()',
     '[class.mlv-copy-to-clipboard--disabled]': 'disabled()',
     role: 'button',
+    '[attr.id]': '_hostId()',
     '[attr.tabindex]': 'disabled() ? -1 : 0',
     '[attr.aria-label]': '_computedAriaLabel()',
+    '[attr.aria-labelledby]': '_ariaLabelledBy()',
     '[attr.aria-disabled]': 'disabled() || null',
     '[style.--mlv-copy-to-clipboard-mask-leading-width]': '_maskLeadingWidth()',
     '[style.--mlv-copy-to-clipboard-mask-trailing-width]':
@@ -103,9 +111,12 @@ export class MlvCopyToClipboard {
   readonly copiedDuration = input<number>(2000);
 
   /**
-   * Custom aria-label override. Falls back to the i18n-provided label.
-   * When a resolved value is available (either `value()` or projected text
-   * content), it is appended to this base for richer screen-reader context.
+   * Base of the accessible name. Falls back to the i18n-provided label
+   * ("Copy to clipboard"). The copied text is appended to it after a colon:
+   * the explicit `value` when one is set (`aria-label`), otherwise the
+   * projected content, referenced live through `aria-labelledby` so the name
+   * follows text that changes. A base that already repeats the visible text
+   * reads it twice. An empty string counts as unset.
    */
   readonly ariaLabel = input<string | undefined>(undefined);
 
@@ -127,6 +138,19 @@ export class MlvCopyToClipboard {
   });
 
   /**
+   * Id of the host element. Unset (or empty), the host takes a generated
+   * `mlv-copy-to-clipboard-<n>`, because with no `value` it names itself by
+   * referencing its own id from its `aria-labelledby`. A static `id="…"`, a
+   * bound `[id]` and an interpolated `id="{{…}}"` all set this input, so the
+   * host wears that id and the self-reference follows it when it changes.
+   * `[attr.id]` bypasses the input and races the host's own `id` binding —
+   * bind `[id]` instead. A `createComponent(…, { hostElement })` root host
+   * passes it through `setInput('id', …)`: an `id` already on that element is
+   * overwritten.
+   */
+  readonly id = input<string | undefined>(undefined);
+
+  /**
    * Emits the exact string that was successfully written to the clipboard.
    * Fires after the `navigator.clipboard.writeText` promise resolves.
    */
@@ -143,18 +167,84 @@ export class MlvCopyToClipboard {
   protected readonly _i18n = inject(MLV_COPY_TO_CLIPBOARD_I18N);
 
   /**
-   * @protected Computed accessible label. Combines the base `ariaLabel` (or
-   * i18n fallback) with the current resolved value when one is available, so
-   * screen readers get a descriptive name like `"Copy to clipboard: sk_live_abc123"`.
+   * @private Generated id: the host's own when {@link id} is unset or empty,
+   * and the prefix of the `__content` wrapper's in every case.
+   */
+  private readonly _id = mlvNextId('mlv-copy-to-clipboard');
+
+  /**
+   * @protected The host's id, bound so the host can name itself in its own
+   * `aria-labelledby` (see {@link _ariaLabelledBy}): the {@link id} input —
+   * which a static `id` attribute sets too — else the generated one. Always a
+   * string, never `null`, because a `null` host binding would remove the
+   * attribute. A consumer `[attr.id]` bypasses the input and races this
+   * binding, the last value to change winning: the first render drops the
+   * consumer's, and a later change of it leaves the self-reference dangling,
+   * so the name loses its base label.
+   */
+  protected readonly _hostId = computed(() => this.id() || this._id);
+
+  /** @protected Id of the `__content` wrapper around the projected content. */
+  protected readonly _contentId = `${this._id}-content`;
+
+  /**
+   * @private The base label: `ariaLabel`, else the localized default. An empty
+   * string counts as unset, as on `mlv-stepper` and `mlv-breadcrumb`.
+   */
+  private readonly _baseLabel = computed(
+    () => this.ariaLabel() || this._i18n().copyToClipboard,
+  );
+
+  /**
+   * @private Whether an explicit `value` is set — an empty string included,
+   * matching {@link _resolveValue}. Decides whether {@link _ariaLabelledBy}
+   * adds the projected text.
+   */
+  private readonly _hasExplicitValue = computed(() => this.value() != null);
+
+  /**
+   * @protected The host `aria-label`. With an explicit `value` it is the
+   * whole name: the base label, followed by that value when it is not empty,
+   * e.g. `"Copy to clipboard: ORDER-0042-7F9X2"`. Without one it is the base
+   * label and a colon, e.g. `"Copy to clipboard:"`, and never the name on its
+   * own: {@link _ariaLabelledBy} reads it back and adds the projected text.
    */
   protected readonly _computedAriaLabel = computed<string>(() => {
-    const base = this.ariaLabel() ?? this._i18n().copyToClipboard;
+    const base = this._baseLabel();
+    if (!this._hasExplicitValue()) return `${base}:`;
     const explicit = this.value();
-    if (explicit && explicit.length > 0) {
-      return `${base}: ${explicit}`;
-    }
-    return base;
+    return explicit ? `${base}: ${explicit}` : base;
   });
+
+  /**
+   * @protected The host `aria-labelledby` while no `value` is set: the host
+   * itself, then the projected content. Referencing itself, the host
+   * contributes its own `aria-label` (accname 2B: an element met while
+   * traversing `aria-labelledby` is not traversed again, so step 2C reads its
+   * `aria-label`), so the name resolves to e.g.
+   * `"Copy to clipboard: sk_live_abc123"` and follows the projected text as it
+   * changes, with no observer and no attribute rewrite.
+   *
+   * This is the one place a host carries both naming attributes: the
+   * `aria-label` does not compete with the `aria-labelledby` here, it is read
+   * through it. The prefix stays an attribute, not text, so it never reaches
+   * the `textContent` of the host or any ancestor — read by
+   * `provideMlvPageRouteFocus`, `mlvTitle` and menu typeahead, among others.
+   * A hidden prefix node would not do: Firefox ignores the `aria-label` of a
+   * hidden node an `aria-labelledby` references. `null` while an explicit
+   * `value` names the host through {@link _computedAriaLabel} alone.
+   */
+  protected readonly _ariaLabelledBy = computed<string | null>(() =>
+    this._hasExplicitValue() ? null : `${this._hostId()} ${this._contentId}`,
+  );
+
+  /**
+   * @private The `__content` wrapper. The copied text is read from it rather
+   * than the host, whose `textContent` also holds, while the copied state
+   * lasts, the live region's confirmation.
+   */
+  private readonly _contentRef =
+    viewChild.required<ElementRef<HTMLElement>>('content');
 
   /** @private Backing signal for `isCopied`. */
   private readonly _isCopied = signal(false);
@@ -165,10 +255,7 @@ export class MlvCopyToClipboard {
   /** @private Trailing mask layer width, synchronized with the copy container. */
   protected readonly _maskTrailingWidth = signal('50%');
 
-  /**
-   * @private Host element reference, used to read `textContent` when no
-   * explicit `value` input is provided.
-   */
+  /** @private Host element reference, measured for the mask widths. */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
   /** @private Shared observer used to keep mask dimensions aligned to the host width. */
@@ -232,15 +319,16 @@ export class MlvCopyToClipboard {
 
   /**
    * @private Resolves the text to copy. Prefers the explicit `value` input;
-   * falls back to the trimmed `textContent` of the host element.
+   * falls back to the trimmed `textContent` of the projected content — not
+   * the host's, which on a copy repeated while the confirmation shows would
+   * also copy "Copied to clipboard".
    */
   private _resolveValue(): string {
     const explicit = this.value();
     if (explicit !== undefined && explicit !== null) {
       return explicit;
     }
-    const host = this._elementRef.nativeElement;
-    return host.textContent?.trim() ?? '';
+    return this._contentRef().nativeElement.textContent?.trim() ?? '';
   }
 
   /**

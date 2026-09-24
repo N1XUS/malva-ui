@@ -28,6 +28,8 @@
       role="tablist"
       tabindex="-1"
       [attr.aria-orientation]="orientation()"
+      [attr.aria-label]="_tablistLabel()"
+      [attr.aria-labelledby]="_tablistLabelledBy()"
       (keydown)="_onHeaderKeydown($event)"
     >
       @for (step of _stepList(); track step; let last = $last) {
@@ -187,6 +189,8 @@
     role="tablist"
     tabindex="-1"
     [attr.aria-orientation]="orientation()"
+    [attr.aria-label]="_tablistLabel()"
+    [attr.aria-labelledby]="_tablistLabelledBy()"
     (keydown)="_onHeaderKeydown($event)"
   >
     @for (step of _stepList(); track step; let last = $last) {
