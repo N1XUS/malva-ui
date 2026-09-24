@@ -249,6 +249,19 @@ describe('MlvAvatarGroup', () => {
       );
     });
 
+    it('should hide the counter avatar, so only the button names the overflow', async () => {
+      // #334: an initials-only `mlv-avatar` is now `role="img"` named by its
+      // initials. Inside the already-named counter that would add an image
+      // "+4" under the button "+4 more members" (Chromium CDP and Firefox
+      // both expose it), so the counter hides its avatar.
+      const { fixture, host } = await setupBasicFixture();
+      host.members.set(MEMBERS_7);
+      fixture.detectChanges();
+      simulateWidth(136, fixture);
+      const counterAvatar = getOverflow(fixture)?.querySelector('mlv-avatar');
+      expect(counterAvatar?.getAttribute('aria-hidden')).toBe('true');
+    });
+
     it('should render the overflow counter as a native button', async () => {
       const { fixture, host } = await setupBasicFixture();
       host.members.set(MEMBERS_7);

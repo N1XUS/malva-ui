@@ -35,9 +35,32 @@ Exported from `libs/core/avatar/src/index.ts`:
 
 #### Content Priority
 
-1. `src` image (with skeleton + fade-in; falls back to initials on error)
+1. `src` image (with skeleton + fade-in; falls back to initials on error, and a new `src` is tried again)
 2. `initials` / `name` derived initials
 3. Projected `ng-content` (icons, custom elements)
+
+#### Image state per `src` (#334)
+
+- `_imageLoaded` / `_imageError` are `linkedSignal`s over `src`: a new URL
+  starts unloaded and un-errored — skeleton back, `<img>` re-rendered, fade-in
+  again.
+- Before #334 both were plain signals, latched by the first `load` / `error`:
+  one failed URL disabled images on the avatar for good (a recycled list row,
+  a re-upload after a 404 kept showing initials); one successful load left the
+  next URL with no skeleton and already `--loaded`.
+- Same `src` again (no change) keeps the fallback; `src` → `null` → the same
+  URL re-renders the `<img>` (whether the browser re-requests is its cache's
+  call).
+- Re-upload to the URL that returned 404: `src` unchanged → stays on initials.
+  Change `src` with a cache-buster (`/users/42/avatar.jpg?v=2`).
+- `src` change after a load: skeleton, then the `--mlv-duration-normal` fade.
+  Before #334, measured: Chromium 145 blanked at once and showed the new image
+  at full opacity, no fade; Firefox 146 kept painting the previous image until
+  the new one loaded (a recycled row showed the previous person).
+- The handlers read no URL off the event: they credit whichever `src` is
+  current when the event runs.
+- Pinned by _MlvAvatar image state per src_ (jsdom fetches nothing; the specs
+  dispatch `load` / `error` by hand).
 
 #### Inputs
 
@@ -45,9 +68,9 @@ Exported from `libs/core/avatar/src/index.ts`:
 | ---------- | ---------------- | ---------- | --------------------------------------------------------------------------------------------- |
 | `size`     | `MlvAvatarSize`  | `'m'`      | Size variant (maps to fixed width/height/font-size)                                           |
 | `shape`    | `MlvAvatarShape` | `'circle'` | Shape — `circle` (50% radius) or `square` (8px radius)                                        |
-| `src`      | `string \| null` | `null`     | Image URL; shows shimmer skeleton while loading; falls back on error                          |
+| `src`      | `string \| null` | `null`     | Image URL; shows shimmer skeleton while loading; falls back on error until `src` changes      |
 | `name`     | `string`         | `''`       | Display name; first letter of each word (max 2) used as initials                              |
-| `initials` | `string`         | `''`       | Explicit initials; overrides `name`-derived initials                                          |
+| `initials` | `string`         | `''`       | Explicit initials; overrides `name`-derived initials; last-resort accessible name (#334)      |
 | `color`    | `string`         | `''`       | Identity tint for the background; pass a **pale** one (see _Colour pair_). Empty → theme pair |
 | `label`    | `string`         | `''`       | Optional text label displayed below the avatar visual                                         |
 
@@ -59,19 +82,49 @@ host: {
   '[class]': '"mlv-avatar--" + size()',
   '[class.mlv-avatar--circle]': 'shape() === "circle"',
   '[class.mlv-avatar--square]': 'shape() === "square"',
-  // Present the avatar as one labelled image to assistive tech when it names
-  // an entity; omit the role when there is no name so no nameless role=img.
+  // Present the avatar as one labelled image whenever there is something to
+  // name it by (name, label, or its aria-hidden initials); omit the role
+  // otherwise so there is no nameless role=img.
   '[attr.role]': '_accessibleName() ? "img" : null',
   '[attr.aria-label]': '_accessibleName()',
 }
 ```
 
-> **Accessible name (`_accessibleName`)** — computed as `name() || label() || null`.
+> **Accessible name (`_accessibleName`)** — computed as
+> `name() || label() || _resolvedInitials() || null`, each trimmed; the
+> initials also upper-cased (`toUpperCase()`, as `deriveInitials`) to match
+> `.mlv-avatar__initials { text-transform: uppercase }` — `initials="me"` is
+> named "ME"; derived and explicit initials agree. CSS uppercasing follows the
+> inherited `lang`, `toUpperCase()` does not: on tr/az/el/lt pages lowercase
+> initials can paint differently from the spoken name (tr/az `i` → painted
+> `İ`, spoken `I`) — pass initials already upper-cased in the page's language.
+> Not `toLocaleUpperCase(lang)`: V8 and SpiderMonkey disagree on `el`.
+> `name` / `label` stay as authored.
 > When present, the host gains `role="img"` with that name so an `aria-label`
 > is valid on the otherwise role-less host (this is what mlv-avatar-group
 > relies on — it passes `[name]` and no longer sets a redundant `aria-label`).
-> When absent (icon-only / initials-only avatar), the role is omitted so axe
-> does not flag a nameless `role="img"`.
+> When absent (icon-only avatar: no name, label or initials), the role is
+> omitted so axe does not flag a nameless `role="img"`; projected content is
+> not `aria-hidden` and speaks for itself.
+
+#### Initials as the last-resort name (#334)
+
+- The `.mlv-avatar__initials` span is `aria-hidden`, so before #334 an
+  initials-only avatar (`<mlv-avatar initials="JD" />`) had no role, no name,
+  and nothing in the accessibility tree. Now: `role="img"`, `aria-label="JD"`.
+- The initials name the avatar whether an image covers them or not
+  (`src` + `initials`, no `name`), so the name never flips on load / error.
+- Measured, Chromium 145 CDP `getFullAXTree` + Firefox 146 BiDi
+  `locateNodes`: before, nothing; after, `image "JD"`.
+- **Beside visible text that already names the person**, the avatar is now
+  redundant, inside a control or not:
+  - Inside a control, the initials join its name from content — a button with
+    an avatar before "Alice Johnson" reads "AJ Alice Johnson" (both engines).
+  - Outside one (list row, chat bubble, card, timeline entry), an extra
+    `image "JD"` reading stop before "John Doe" (both engines).
+  - Hide a decorative avatar there: `aria-hidden="true"` on `<mlv-avatar>`
+    (docs `/button` example 7, the avatar-group `+N` counter). Migration:
+    [docs/migrations/2026-09-avatar-initials-accessible-name.md](../../docs/migrations/2026-09-avatar-initials-accessible-name.md).
 
 #### Colour pair (#302)
 
@@ -156,7 +209,7 @@ Takes the first character of each space-separated word (up to 2 characters), upp
 ```ts
 deriveInitials('John Doe'); // 'JD'
 deriveInitials('Alice'); // 'A'
-deriveInitials('John Michael Doe'); // 'JD'
+deriveInitials('John Michael Doe'); // 'JM' (the first two words)
 deriveInitials(''); // ''
 ```
 
