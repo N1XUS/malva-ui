@@ -178,7 +178,7 @@ Dropdown popup chrome removes the default popup padding, and the shared dropdown
 
 #### Mobile fullscreen (in-sheet search input)
 
-`mlv-combobox` opts its dropdown `mlv-popup` into `mobileMode="auto"` (overridable via the `mobileMode` / `mobileTitle` inputs). Below the `md` breakpoint (&lt; 768px) the dropdown opens as a full-screen sheet with a header bar, scroll-locked page, and slide-up animation; above it the dropdown stays trigger-anchored (byte-identical to before). See `libs-popup.md` → _Mobile fullscreen inputs_.
+`mlv-combobox` opts its dropdown `mlv-popup` into `mobileMode="auto"` (overridable via the `mobileMode` / `mobileTitle` inputs). Below the `md` breakpoint (&lt; 768px) the dropdown opens as a full-screen sheet with a header bar, scroll-locked page, and slide-up animation; above it the dropdown stays trigger-anchored (byte-identical to before). See `libs-popup.md` → _Mobile fullscreen inputs_. The sheet is a modal dialog (`role="dialog"`, `aria-modal="true"`) named by `_resolvedMobileTitle` through `aria-labelledby` — popup defaults, the combobox sets none of it (#322, [docs/migrations/2026-09-popup-fullscreen-dialog-semantics.md](../../docs/migrations/2026-09-popup-fullscreen-dialog-semantics.md)).
 
 **The occlusion/focus-trap problem — and how it is solved.** `mlv-popup`'s full-screen sheet renders a **solid backdrop** (`.mlv-popup-fullscreen-backdrop`) and a **focus trap** (`[cdkTrapFocus]="modal() || isFullscreen()"`). The combobox's outer search field is a `mlv-input` in the **trigger row** (`.mlv-combobox__trigger`), in normal document flow **outside** the overlay panel — so in full-screen mode the backdrop would hide it and the trap would block `Tab` back to it, making type-to-filter impossible.
 

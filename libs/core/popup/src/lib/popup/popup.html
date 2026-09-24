@@ -30,16 +30,17 @@
     [class.mlv-popup--enter]="animationState() === 'enter'"
     [class.mlv-popup--leave]="animationState() === 'leave'"
     (animationend)="_onPanelAnimationEnd($event)"
-    [attr.role]="panelRole()"
-    [attr.aria-modal]="modal() ? 'true' : null"
-    [attr.aria-label]="ariaLabel() || null"
+    [attr.role]="_role()"
+    [attr.aria-modal]="_ariaModal()"
+    [attr.aria-labelledby]="_labelledBy()"
+    [attr.aria-label]="_ariaLabelAttr()"
     [cdkTrapFocus]="modal() || isFullscreen()"
   >
     @if (isFullscreen()) {
       <div class="mlv-popup__header">
         <div class="mlv-popup__header-row">
           @if (mobileTitle(); as title) {
-            <span class="mlv-popup__title">{{ title }}</span>
+            <span class="mlv-popup__title" [id]="_titleId()">{{ title }}</span>
           }
           @if (headerActionsRef(); as actionsTpl) {
             <div class="mlv-popup__header-actions">

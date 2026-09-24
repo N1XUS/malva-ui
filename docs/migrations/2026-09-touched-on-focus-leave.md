@@ -134,7 +134,7 @@ end of a pointer gesture.
 These controls still touch while focus stays inside them, or on an action rather than on leaving. Each needs its own change:
 
 - **Clear buttons and slot content of single-input controls.** `mlv-input`, `mlv-textarea`, `mlv-number-input`, and `clearable` `mlv-select` / `mlv-combobox` / `mlv-tokenizer` / the pickers: a move from the input to the control's own clear button (or a focusable prepend / append) touches, and clearing touches at once. Fix: adopt `_reportTouchOnFocusLeave` through `mlv-form-control-wrapper`'s consumers, and decide whether a clear is a leave.
-- **`mlv-select` / `mlv-combobox` — every mode.** `_commitSelection` / `_emitValue` touch on every selection. On top of that, a searchable select hands focus to its in-panel search field on open, and a full-screen combobox moves it from trigger to in-sheet input, and both hand-offs touch. Fix: drop the selection-time touch and pass the popup as a container.
+- **`mlv-select` / `mlv-combobox` — every mode.** `_commitSelection` / `_emitValue` touch on every selection. On top of that, a full-screen combobox moves focus from trigger to in-sheet input on open, and that hand-off touches. A searchable select's hand-off to its in-panel search field no longer touches: the trigger's blur into the select's own panel is skipped (#322, [2026-09-popup-fullscreen-dialog-semantics.md](2026-09-popup-fullscreen-dialog-semantics.md) § 4). Fix: drop the selection-time touch and pass the popup as a container.
 - **`mlv-day-picker` / `mlv-time-picker` / `mlv-date-range-picker`**
   - The trigger's blur into its own popup touches on open.
   - `_onPopupClosed` touches while focus is returning to the trigger.

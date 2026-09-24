@@ -491,7 +491,8 @@ describe('MlvSelect — mobile fullscreen', () => {
       <mlv-select
         id="fruit"
         [label]="label()"
-        [options]="['Apple', 'Banana']"
+        [options]="options()"
+        [searchable]="searchable()"
         [mobileMode]="mobileMode()"
         [mobileTitle]="mobileTitle()"
         [mlvDensity]="density()"
@@ -500,6 +501,11 @@ describe('MlvSelect — mobile fullscreen', () => {
   })
   class HostComponent {
     readonly label = signal('Fruit');
+    readonly options = signal<readonly (string | MlvSelectOption<string>)[]>([
+      'Apple',
+      'Banana',
+    ]);
+    readonly searchable = signal(false);
     readonly mobileMode = signal<MlvPopupMobileMode>('auto');
     readonly mobileTitle = signal<string | undefined>(undefined);
     readonly density = signal<MlvDensity | undefined>(undefined);
@@ -608,6 +614,9 @@ describe('MlvSelect — mobile fullscreen', () => {
     fixture.detectChanges();
 
     const panel = overlayEl.querySelector('.mlv-popup') as HTMLElement;
+    // #322: the sheet took focus on open, so the restore below is a real move
+    // back out of the sheet rather than focus that never left.
+    expect(panel.contains(document.activeElement)).toBe(true);
     const closeBtn = panel.querySelector(
       '.mlv-popup__close',
     ) as HTMLButtonElement;
@@ -621,6 +630,243 @@ describe('MlvSelect — mobile fullscreen', () => {
 
     expect(select.isOpen()).toBe(false);
     expect(document.activeElement).toBe(trigger());
+  });
+
+  // #322: the sheet traps focus behind a solid scrim, so it is a modal dialog
+  // and has to say so — the select sets no `panelRole` / `modal` / `ariaLabel`
+  // on its popup, so all three come from the popup's full-screen defaults.
+  it('opens the sheet as a modal dialog named by its visible title', async () => {
+    const { fixture, host, select } = make();
+    host.mobileMode.set('fullscreen');
+    fixture.detectChanges();
+    select.openDropdown();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const panel = overlayEl.querySelector('.mlv-popup') as HTMLElement;
+    const title = panel.querySelector('.mlv-popup__title') as HTMLElement;
+    expect(panel.getAttribute('role')).toBe('dialog');
+    expect(panel.getAttribute('aria-modal')).toBe('true');
+    expect(title.id).not.toBe('');
+    expect(panel.getAttribute('aria-labelledby')).toBe(title.id);
+    expect(title.textContent?.trim()).toBe('Fruit');
+    expect(panel.hasAttribute('aria-label')).toBe(false);
+  });
+
+  it('has no axe violations with the full-screen sheet open', async () => {
+    const { fixture, host, select } = make();
+    host.mobileMode.set('fullscreen');
+    fixture.detectChanges();
+    select.openDropdown();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // The pane is portaled into the CDK overlay container, outside the fixture.
+    await expectNoAxeViolations(document.body);
+  });
+
+  it('keeps the anchored dropdown role-less and non-modal', async () => {
+    const { fixture, host, select } = make();
+    host.mobileMode.set('off');
+    fixture.detectChanges();
+    select.openDropdown();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const panel = overlayEl.querySelector('.mlv-popup') as HTMLElement;
+    expect(panel.hasAttribute('role')).toBe(false);
+    expect(panel.hasAttribute('aria-modal')).toBe(false);
+    expect(panel.hasAttribute('aria-labelledby')).toBe(false);
+  });
+
+  /**
+   * Opens the select from its focused trigger the way a user would: a pointer
+   * click, or Enter / ArrowDown on the trigger.
+   */
+  async function openFromTrigger(
+    fixture: ComponentFixture<HostComponent>,
+    trigger: HTMLElement,
+    how: 'click' | 'Enter' | 'ArrowDown',
+  ): Promise<void> {
+    trigger.focus();
+    if (how === 'click') {
+      trigger.click();
+    } else {
+      trigger.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: how,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    }
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  // #322: an `aria-modal` sheet behind a solid scrim with focus left on the
+  // trigger underneath is the defect — a screen reader is told everything
+  // outside the dialog is inert while the caret sits outside it. The
+  // selection service's `requestFocusFirst()` from `_openFromKey` is lost
+  // (sent before the panel exists), so every open path has to go through
+  // `_onPopupOpened`.
+  it.each(['click', 'Enter', 'ArrowDown'] as const)(
+    'moves focus onto the first option when the full-screen sheet opens by %s',
+    async (how) => {
+      const { fixture, host, select, trigger } = make();
+      host.mobileMode.set('fullscreen');
+      fixture.detectChanges();
+      await openFromTrigger(fixture, trigger(), how);
+
+      expect(select.isOpen()).toBe(true);
+      const panel = overlayEl.querySelector('.mlv-popup') as HTMLElement;
+      const active = document.activeElement as HTMLElement;
+      expect(panel.contains(active)).toBe(true);
+      expect(active.getAttribute('role')).toBe('option');
+      expect(active.textContent?.trim()).toBe('Apple');
+    },
+  );
+
+  it('moves focus onto the selected option when the full-screen sheet opens', async () => {
+    const { fixture, host, select, trigger } = make();
+    host.mobileMode.set('fullscreen');
+    select.value.set('Banana');
+    fixture.detectChanges();
+    await openFromTrigger(fixture, trigger(), 'click');
+
+    const active = document.activeElement as HTMLElement;
+    expect(active.getAttribute('role')).toBe('option');
+    expect(active.getAttribute('aria-selected')).toBe('true');
+    expect(active.textContent?.trim()).toBe('Banana');
+  });
+
+  // The deferral in `_focusSheetTabStop` is what makes this land on aria's own
+  // tab stop: at `afterOpened` every row still reads `tabindex="-1"`, so a
+  // synchronous focus would pick "Banana" by the first-enabled fallback and
+  // leave it out of the roving order (Tab out and back would land elsewhere).
+  it('focuses the tab stop aria promoted when the first option is disabled', async () => {
+    const { fixture, host, trigger } = make();
+    host.mobileMode.set('fullscreen');
+    host.options.set([
+      { label: 'Apple', value: 'Apple', disabled: true },
+      { label: 'Banana', value: 'Banana' },
+    ]);
+    fixture.detectChanges();
+    await openFromTrigger(fixture, trigger(), 'click');
+
+    const active = document.activeElement as HTMLElement;
+    expect(active.getAttribute('role')).toBe('option');
+    expect(active.textContent?.trim()).toBe('Banana');
+    expect(active.getAttribute('tabindex')).toBe('0');
+  });
+
+  // The `isOpen()` guard in `_focusSheetTabStop`: a close inside the one-render
+  // gap must not pull focus into the leaving panel, where it would sit until
+  // the leave ends and `_onPopupClosed` moves it back.
+  it('leaves focus on the trigger when the sheet closes from afterOpened', async () => {
+    const { fixture, host, select, popup, trigger } = make();
+    host.mobileMode.set('fullscreen');
+    fixture.detectChanges();
+    const subscription = popup.afterOpened.subscribe(() =>
+      select.isOpen.set(false),
+    );
+    await openFromTrigger(fixture, trigger(), 'click');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    subscription.unsubscribe();
+
+    expect(select.isOpen()).toBe(false);
+    expect(document.activeElement).toBe(trigger());
+  });
+
+  // Anchored: unchanged by #322 — the non-modal dropdown leaves focus on the
+  // trigger. The click and Enter rows are that behaviour. The ArrowDown row
+  // pins FU4, a defect: `_openFromKey`'s `requestFocusFirst()` is a plain
+  // `Subject` emission sent before the panel exists, so it is lost. When FU4
+  // is fixed, focus moves onto the first option and that row should flip.
+  it.each(['click', 'Enter', 'ArrowDown'] as const)(
+    'leaves focus on the trigger when the anchored dropdown opens by %s',
+    async (how) => {
+      const { fixture, host, select, trigger } = make();
+      host.mobileMode.set('off');
+      fixture.detectChanges();
+      await openFromTrigger(fixture, trigger(), how);
+
+      expect(select.isOpen()).toBe(true);
+      expect(document.activeElement).toBe(trigger());
+    },
+  );
+
+  // Owner ruling D22 (#347): `touch` arrives when focus leaves the control, not
+  // when it moves between the control's own parts. The sheet (#322) and the
+  // search field are parts of the select, so an open that moves focus into
+  // them is not a touch and keeps the focused state.
+  it.each([
+    ['full-screen', false],
+    ['full-screen', true],
+    ['anchored', false],
+    ['anchored', true],
+  ] as const)(
+    'does not mark the field touched when the %s dropdown opens (searchable: %s)',
+    async (mode, searchable) => {
+      const { fixture, host, select, trigger } = make();
+      host.mobileMode.set(mode === 'full-screen' ? 'fullscreen' : 'off');
+      host.searchable.set(searchable);
+      fixture.detectChanges();
+      let touches = 0;
+      const subscription = select.touch.subscribe(() => touches++);
+      await openFromTrigger(fixture, trigger(), 'click');
+      subscription.unsubscribe();
+
+      expect(select.isOpen()).toBe(true);
+      const panel = overlayEl.querySelector('.mlv-popup') as HTMLElement;
+      const active = document.activeElement as HTMLElement;
+      // Where the open put focus: into the panel for a sheet or a search
+      // field, on the trigger for a plain anchored dropdown.
+      expect(
+        mode === 'full-screen' || searchable
+          ? panel.contains(active)
+          : active === trigger(),
+      ).toBe(true);
+      expect(touches).toBe(0);
+      // `focused()` also reads `isOpen()`, so the backing signal is the one
+      // the blur would have cleared.
+      expect(select['_focused']()).toBe(true);
+    },
+  );
+
+  it('marks the field touched when focus leaves the trigger after the sheet closes', async () => {
+    const { fixture, host, select, trigger } = make();
+    host.mobileMode.set('fullscreen');
+    fixture.detectChanges();
+    let touches = 0;
+    const subscription = select.touch.subscribe(() => touches++);
+    await openFromTrigger(fixture, trigger(), 'click');
+
+    const panel = overlayEl.querySelector('.mlv-popup') as HTMLElement;
+    (panel.querySelector('.mlv-popup__close') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    panel.dispatchEvent(new Event('animationend'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(trigger());
+    expect(touches).toBe(0);
+
+    // Tab away: focus leaves the control from its trigger.
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    try {
+      outside.focus();
+      expect(touches).toBe(1);
+      expect(select.focused()).toBe(false);
+    } finally {
+      subscription.unsubscribe();
+      outside.remove();
+    }
   });
 });
 

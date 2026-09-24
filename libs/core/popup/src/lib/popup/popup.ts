@@ -8,6 +8,7 @@ import {
   effect,
   inject,
   input,
+  isDevMode,
   model,
   output,
   signal,
@@ -28,7 +29,7 @@ import { OverlayModule } from '@angular/cdk/overlay';
 import { A11yModule } from '@angular/cdk/a11y';
 import { PortalModule } from '@angular/cdk/portal';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
-import { MlvBreakpointService } from '@malva-ui/cdk/utils';
+import { MlvBreakpointService, mlvNextId } from '@malva-ui/cdk/utils';
 import type { MlvBreakpoint, MlvDirection } from '@malva-ui/cdk/utils';
 import { MLV_DENSITY_CONTEXT, MlvDensityService } from '@malva-ui/cdk/density';
 import type { MlvDensity } from '@malva-ui/cdk/density';
@@ -327,14 +328,21 @@ export class MlvPopup {
   /**
    * ARIA role applied to the popup panel element.
    *
-   * Defaults to `null` — the panel is a neutral positioning/chrome container and
-   * the semantic role is expected to come from the projected content
-   * (e.g. a `role="menu"` list, a `role="listbox"`, or a `role="tooltip"`).
+   * Defaults to `null` — while trigger-anchored the panel is a neutral
+   * positioning/chrome container and the semantic role is expected to come
+   * from the projected content (e.g. a `role="menu"` list, a `role="listbox"`,
+   * or a `role="tooltip"`).
    *
    * Set to `'dialog'` (together with {@link modal}`= true`) for genuine modal
    * dialog surfaces such as a date-picker calendar. When `panelRole === 'dialog'`
-   * and {@link modal} is `true`, an accessible name via {@link ariaLabel} (or a
-   * projected labelling element) is required.
+   * and {@link modal} is `true`, an accessible name via {@link ariaLabel} is
+   * required.
+   *
+   * **A full-screen sheet is a dialog without it.** While {@link isFullscreen}
+   * the panel traps focus behind a solid scrim, so an unset `panelRole`
+   * resolves to `'dialog'` there (and the panel gets `aria-modal="true"` and
+   * is named by its {@link mobileTitle}); an explicit value still wins. See
+   * `docs/migrations/2026-09-popup-fullscreen-dialog-semantics.md`.
    */
   readonly panelRole = input<string | null>(null);
 
@@ -346,14 +354,24 @@ export class MlvPopup {
    * `aria-modal` is emitted and focus is free to leave the panel — the correct
    * behaviour for menus, listboxes, and tooltips whose focus is managed by their
    * own trigger / roving-tabindex logic.
+   *
+   * A full-screen sheet is modal whatever this says: it always traps focus,
+   * and it carries `aria-modal="true"` whenever its resolved role is `dialog`
+   * or `alertdialog` (see {@link panelRole}).
    */
   readonly modal = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
   });
 
   /**
-   * Optional accessible name for the popup panel.
-   * Applied as `aria-label` on the popup element.
+   * Optional accessible name for the popup panel, applied as `aria-label`.
+   *
+   * On a full-screen sheet with a non-blank {@link mobileTitle} the visible
+   * title names the panel instead (through `aria-labelledby`) and no
+   * `aria-label` is emitted: this input is mode-agnostic — consumers write it
+   * for the anchored popover, which has no visible heading — while
+   * `mobileTitle` is written for the sheet and is on screen there. It remains
+   * the sheet's name when there is no title.
    */
   readonly ariaLabel = input<string | undefined>(undefined);
 
@@ -403,6 +421,10 @@ export class MlvPopup {
   /**
    * Optional visible title rendered in the full-screen header bar. When omitted,
    * the header shows only the close button.
+   *
+   * A non-blank title is also the sheet's accessible name: the panel points
+   * `aria-labelledby` at it, taking precedence over {@link ariaLabel}. A sheet
+   * with neither is an unnamed dialog, which warns in dev mode when it opens.
    */
   readonly mobileTitle = input<string | undefined>(undefined);
 
@@ -478,6 +500,9 @@ export class MlvPopup {
   lockFullscreenForOpen(): boolean {
     const resolved = untracked(this._liveFullscreen);
     this._lockedFullscreen.set(resolved);
+    if (resolved && isDevMode()) {
+      untracked(() => this._warnIfUnnamedSheet());
+    }
     return resolved;
   }
 
@@ -495,6 +520,103 @@ export class MlvPopup {
   protected readonly _closeLabel = computed(
     () => this.mobileCloseLabel() ?? this._i18n?.().close ?? 'Close',
   );
+
+  // ─── Panel semantics ─────────────────────────────────────────────────────
+
+  /**
+   * @private Backing field for {@link _titleId}: `null` until a full-screen
+   * title first needs an id.
+   */
+  private _titleIdValue: string | null = null;
+
+  /**
+   * @protected Id stamped on the full-screen header's `.mlv-popup__title`, so
+   * the sheet can be named by it through {@link _labelledBy}. One per instance:
+   * a popup attaches one overlay at a time, so the template is never stamped
+   * twice at once.
+   *
+   * Allocated on first read, which happens only once a titled sheet renders —
+   * {@link _labelledBy} reads it behind `isFullscreen() && _hasTitle()` and
+   * the template only inside the full-screen header's title `@if`. `mlvNextId`
+   * is one counter across every prefix, so an eager field would shift every
+   * later id on the page by one per popup, anchored-only menus, sidebar
+   * flyouts and table filters included. Nothing needs it eagerly: the sheet
+   * exists only in the overlay, which hydration never claims.
+   */
+  protected _titleId(): string {
+    return (this._titleIdValue ??= mlvNextId('mlv-popup-title'));
+  }
+
+  /**
+   * @private Whether the sheet has a title that can name it. Blank titles do
+   * not count: {@link _ariaLabelAttr} is withheld while `aria-labelledby` is
+   * emitted, so pointing it at a whitespace-only title would drop the
+   * {@link ariaLabel} fallback and leave the dialog unnamed.
+   */
+  private readonly _hasTitle = computed(() => !!this.mobileTitle()?.trim());
+
+  /**
+   * @protected The panel's resolved `role`. An explicit {@link panelRole} always
+   * wins. Otherwise a full-screen sheet is a `dialog` — it traps focus behind a
+   * forced solid scrim and carries a close button, so a role-less region would
+   * leave AT with no announcement of any of it (#322) — and an anchored panel
+   * has no role, its semantics coming from the projected content.
+   */
+  protected readonly _role = computed<string | null>(
+    () => this.panelRole() ?? (this.isFullscreen() ? 'dialog' : null),
+  );
+
+  /**
+   * @protected `aria-modal` value. An explicit {@link modal} emits it as before;
+   * a full-screen sheet emits it whenever its resolved role is `dialog` or
+   * `alertdialog` — the only roles that support the attribute, so a consumer's
+   * explicit non-dialog {@link panelRole} on a sheet gets none rather than an
+   * `aria-allowed-attr` violation.
+   */
+  protected readonly _ariaModal = computed<'true' | null>(() => {
+    if (this.modal()) return 'true';
+    if (!this.isFullscreen()) return null;
+    const role = this._role();
+    return role === 'dialog' || role === 'alertdialog' ? 'true' : null;
+  });
+
+  /**
+   * @protected `aria-labelledby` value: the visible title's id while the sheet
+   * renders one, else `null`. The title is written for the sheet and is on
+   * screen there, whereas {@link ariaLabel} is mode-agnostic (consumers write it
+   * for the anchored popover), so the title wins.
+   *
+   * The first read of {@link _titleId} here allocates the id inside this
+   * `computed`. That is deliberate: it keeps the id lazy, and it happens once
+   * per instance, so every later read returns the same id.
+   */
+  protected readonly _labelledBy = computed<string | null>(() =>
+    this.isFullscreen() && this._hasTitle() ? this._titleId() : null,
+  );
+
+  /**
+   * @protected `aria-label` value — {@link ariaLabel}, withheld while
+   * {@link _labelledBy} names the panel, so exactly one naming attribute is
+   * ever emitted.
+   */
+  protected readonly _ariaLabelAttr = computed<string | null>(() =>
+    this._labelledBy() ? null : this.ariaLabel() || null,
+  );
+
+  /**
+   * @private Dev-mode warning for a sheet that opens as an unnamed dialog.
+   * Called from {@link lockFullscreenForOpen} — once per open, at the moment
+   * the popup commits to being a sheet — rather than from an effect, which
+   * would fire on every viewport crossing while the popup is closed.
+   */
+  private _warnIfUnnamedSheet(): void {
+    if (this._hasTitle() || this.ariaLabel()) return;
+    console.warn(
+      '[MlvPopup] A full-screen sheet opened with no accessible name. It is a ' +
+        'modal dialog, named by its visible `mobileTitle` or, when it has no ' +
+        'visible heading, by `ariaLabel`; set one of them.',
+    );
+  }
 
   /** Two-way binding for the open/closed state. */
   readonly opened = model(false);

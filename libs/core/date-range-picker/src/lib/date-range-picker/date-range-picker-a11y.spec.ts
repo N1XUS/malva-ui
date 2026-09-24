@@ -92,6 +92,22 @@ describe('MlvDateRangePicker accessibility', () => {
     await expectNoAxeViolations(body);
   });
 
+  it('keeps the inner panel as the one dialog while anchored', async () => {
+    const { body, open } = await render();
+    breakpoint.down.set(false);
+    await open();
+
+    // Anchored, the popup panel is a role-less positioning shell and the inner
+    // `__panel` is the dialog.
+    const inner = body.querySelector(
+      '.mlv-date-range-picker__panel',
+    ) as HTMLElement;
+    expect(inner.getAttribute('role')).toBe('dialog');
+    expect(inner.getAttribute('aria-modal')).toBe('true');
+    expect(inner.getAttribute('aria-label')).toBe('Select date range');
+    expect(body.querySelectorAll('[role="dialog"]').length).toBe(1);
+  });
+
   it('has no axe violations with the full-screen sheet open', async () => {
     const { body, open } = await render();
     breakpoint.down.set(true);
@@ -99,5 +115,32 @@ describe('MlvDateRangePicker accessibility', () => {
 
     expect(body.querySelectorAll('mlv-calendar-sheet').length).toBe(1);
     await expectNoAxeViolations(body);
+  });
+
+  it('opens the full-screen sheet as the one modal dialog, named by its title', async () => {
+    const { body, open } = await render();
+    breakpoint.down.set(true);
+    await open();
+
+    // #322: the sheet is a modal dialog named by its visible title.
+    const sheet = body.querySelector('.mlv-popup--fullscreen') as HTMLElement;
+    const title = sheet.querySelector('.mlv-popup__title') as HTMLElement;
+    expect(sheet.getAttribute('role')).toBe('dialog');
+    expect(sheet.getAttribute('aria-modal')).toBe('true');
+    expect(title.id).not.toBe('');
+    expect(sheet.getAttribute('aria-labelledby')).toBe(title.id);
+    expect(title.textContent?.trim()).toBe('Stay dates');
+    expect(sheet.hasAttribute('aria-label')).toBe(false);
+    // The sheet is the one dialog. The inner `__panel` steps down while it is
+    // full-screen — the same way it drops its own focus trap there — so AT
+    // does not meet a modal dialog nested in a modal dialog, whose inner
+    // `aria-modal` would also wall off the sheet's title, close and Done.
+    const inner = sheet.querySelector(
+      '.mlv-date-range-picker__panel',
+    ) as HTMLElement;
+    expect(inner.hasAttribute('role')).toBe(false);
+    expect(inner.hasAttribute('aria-modal')).toBe(false);
+    expect(inner.hasAttribute('aria-label')).toBe(false);
+    expect(body.querySelectorAll('[role="dialog"]').length).toBe(1);
   });
 });

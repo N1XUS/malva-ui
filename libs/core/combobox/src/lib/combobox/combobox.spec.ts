@@ -1333,6 +1333,40 @@ describe('MlvCombobox — mobile fullscreen sheet', () => {
     expect(chips.length).toBe(1);
     expect(chips[0].textContent).toContain('Apple');
   });
+
+  // #322: the sheet traps focus behind a solid scrim, so it is a modal dialog
+  // and has to say so — the combobox sets no `panelRole` / `modal` /
+  // `ariaLabel` on its popup, so all three come from the popup's full-screen
+  // defaults.
+  it('opens the sheet as a modal dialog named by its visible title', async () => {
+    fixture.componentInstance.mobileTitle.set('Pick a fruit');
+    fixture.detectChanges();
+    await open();
+    const title = panel().querySelector('.mlv-popup__title') as HTMLElement;
+    expect(panel().getAttribute('role')).toBe('dialog');
+    expect(panel().getAttribute('aria-modal')).toBe('true');
+    expect(title.id).not.toBe('');
+    expect(panel().getAttribute('aria-labelledby')).toBe(title.id);
+    expect(title.textContent?.trim()).toBe('Pick a fruit');
+    expect(panel().hasAttribute('aria-label')).toBe(false);
+  });
+
+  it('has no axe violations with the full-screen sheet open', async () => {
+    await open();
+    // The pane is portaled into the CDK overlay container, outside the fixture.
+    await expectNoAxeViolations(document.body);
+  });
+
+  it('has no axe violations with multi-select chips in the sheet', async () => {
+    fixture.componentInstance.multiple.set(true);
+    fixture.detectChanges();
+    const combobox = await open();
+    combobox.selectValues(['Apple']);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await expectNoAxeViolations(document.body);
+  });
 });
 
 // ---------------------------------------------------------------------------
