@@ -377,6 +377,13 @@ defineComponentSpec(editorManifest, () => {
         hasText: 'Success: browser-smoke.png',
       }),
     ).toBeVisible({ timeout: 5_000 });
+    // The dialog announced completion and closed; the editor-level live
+    // region keeps no progress for the finished upload.
+    await expect(dialog).toBeHidden();
+    await expect(
+      editor.locator('.mlv-editor-image-upload-status__live'),
+    ).toHaveText('');
+    // The typed alt wins over the adapter's `alt: file.name`.
     await expect(
       editor.locator('[role="textbox"] img[alt="Browser upload smoke"]'),
     ).toBeVisible();

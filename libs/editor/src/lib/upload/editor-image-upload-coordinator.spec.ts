@@ -185,10 +185,8 @@ describe('MlvEditorImageUploadCoordinator', () => {
     host.uploader.set(uploader);
     fixture.detectChanges();
 
-    const [id] = coordinator.start([imageFile()], 'button', {
-      alt: 'Draft alt',
-      title: 'Draft title',
-    });
+    // No author metadata: the adapter's alt and title fill the image.
+    const [id] = coordinator.start([imageFile()], 'button');
     expect(id).toBeTruthy();
     expect(
       host.editor().editor()?.storage.mlvEditorUploadPlaceholder.placeholders,
@@ -225,6 +223,87 @@ describe('MlvEditorImageUploadCoordinator', () => {
     });
     expect(host.successes).toHaveLength(1);
   });
+
+  it.each<{
+    name: string;
+    metadata: { alt?: string; title?: string };
+    adapterTitle?: string;
+    expected: { alt: string; title?: string };
+  }>([
+    {
+      name: 'typed alt and title win over the adapter',
+      metadata: { alt: 'Typed alt', title: 'Typed title' },
+      adapterTitle: 'Adapter title',
+      expected: { alt: 'Typed alt', title: 'Typed title' },
+    },
+    {
+      // WCAG H67: an image assistive technology should ignore needs an
+      // empty alt and no title, or it is exposed as an unnamed image.
+      name: 'a decorative empty alt stays empty and takes no adapter title',
+      metadata: { alt: '' },
+      adapterTitle: 'Adapter title',
+      expected: { alt: '' },
+    },
+    {
+      name: 'a decorative empty alt drops an author title too',
+      metadata: { alt: '', title: 'Typed title' },
+      adapterTitle: 'Adapter title',
+      expected: { alt: '' },
+    },
+    {
+      name: "an empty author title lets the adapter's title apply",
+      metadata: { alt: 'Typed alt', title: '' },
+      adapterTitle: 'Adapter title',
+      expected: { alt: 'Typed alt', title: 'Adapter title' },
+    },
+    {
+      name: 'an empty author title with no adapter title means no title',
+      metadata: { alt: 'Typed alt', title: '' },
+      expected: { alt: 'Typed alt' },
+    },
+    {
+      name: 'the adapter fills what the author left out',
+      metadata: {},
+      adapterTitle: 'Adapter title',
+      expected: { alt: 'adapter.png', title: 'Adapter title' },
+    },
+  ])(
+    'resolves alt and title with author precedence: $name',
+    async ({ metadata, adapterTitle, expected }) => {
+      const uploader = {
+        upload: vi.fn().mockResolvedValue({
+          src: 'https://cdn.test/final.png',
+          alt: 'adapter.png',
+          ...(adapterTitle === undefined ? {} : { title: adapterTitle }),
+        }),
+      };
+      const { fixture, host, coordinator } = await createHost();
+      host.uploader.set(uploader);
+      fixture.detectChanges();
+
+      coordinator.start([imageFile('adapter.png')], 'button', metadata);
+      await settle(fixture);
+
+      // The image node defaults an absent title to `null`.
+      const attrs = host.editor().editor()?.getJSON().content?.[0]?.attrs;
+      expect({
+        alt: attrs?.['alt'] ?? undefined,
+        title: attrs?.['title'] ?? undefined,
+      }).toEqual({ alt: expected.alt, title: expected.title });
+      const [success] = host.successes as Array<{
+        result: { alt?: string; title?: string };
+      }>;
+      expect({
+        alt: success?.result.alt,
+        title: success?.result.title,
+        hasTitle: success !== undefined && 'title' in success.result,
+      }).toEqual({
+        alt: expected.alt,
+        title: expected.title,
+        hasTitle: expected.title !== undefined,
+      });
+    },
+  );
 
   it('keeps transport and unsafe-result failures retryable with stable error codes', async () => {
     const uploader = {

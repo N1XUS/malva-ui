@@ -51,14 +51,14 @@
         [label]="_copy().imageTitle"
         [ariaLabel]="_copy().imageTitle"
         [value]="_title()"
-        [disabled]="_disabled() || !!_activeId()"
+        [disabled]="_disabled() || !!_activeId() || _decorative()"
         (valueChange)="_title.set($event)"
       />
       <mlv-switch
         [ariaLabel]="_copy().decorative"
         [checked]="_decorative()"
         [disabled]="_disabled() || !!_activeId()"
-        (checkedChange)="_decorative.set($event)"
+        (checkedChange)="_onDecorativeChange($event)"
       >
         {{ _copy().decorative }}
       </mlv-switch>

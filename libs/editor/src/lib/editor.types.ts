@@ -128,10 +128,25 @@ export interface MlvEditorImageUploadResult {
   /** URL used in the inserted image node. */
   readonly src: string;
 
-  /** Optional alternative text for the image. */
+  /**
+   * Optional alternative text for the image.
+   *
+   * Returned by an uploader, it is a **fallback**: alternative text the
+   * author supplied — typed in the upload dialog, or the empty alt of an
+   * image marked decorative — wins, because the author states what the image
+   * means and a file name rarely describes it (WCAG 1.1.1). Pasted and
+   * dropped images carry no author alt, so this value applies to them.
+   */
   readonly alt?: string;
 
-  /** Optional image title. */
+  /**
+   * Optional image title. Returned by an uploader, it is a fallback: a
+   * non-empty title the author typed in the upload dialog wins. An image the
+   * author marked decorative gets no title at all — an `alt=""` image with a
+   * title is exposed as an unnamed image described by it (WCAG H67). An
+   * uploader's own `alt: ''` is inserted as returned, title included — return
+   * no `title` for an image you mean to be decorative (WCAG H67).
+   */
   readonly title?: string;
 
   /** Optional rendered image width. */
@@ -220,7 +235,15 @@ export abstract class MlvEditorImageUploadControl {
   /** Active and retryable uploads owned by this editor. */
   abstract readonly pending: Signal<readonly MlvEditorPendingUpload[]>;
 
-  /** Starts validated uploads in the owning editor. */
+  /**
+   * Starts validated uploads in the owning editor.
+   *
+   * `metadata.alt` and `metadata.title` are the author's and win over the
+   * uploader's result. Omit `alt` when the author supplied none — `''` marks
+   * the image decorative, keeps it empty and drops every title, the
+   * author's and the uploader's; otherwise an empty `title` lets the
+   * uploader's apply.
+   */
   abstract start(
     files: readonly File[],
     source: MlvEditorImageUploadSource,
@@ -249,7 +272,10 @@ export interface MlvEditorImageUploadSuccess {
   /** Origin of the image file. */
   readonly source: MlvEditorImageUploadSource;
 
-  /** Metadata returned by the image uploader. */
+  /**
+   * Metadata inserted into the document: the uploader's validated result
+   * with the author's alt and title applied over the uploader's.
+   */
   readonly result: MlvEditorImageUploadResult;
 }
 

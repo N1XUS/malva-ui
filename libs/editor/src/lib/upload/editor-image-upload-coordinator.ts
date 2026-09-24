@@ -103,7 +103,12 @@ interface ValidatedUploadOptions {
 
 interface UploadMetadata {
   readonly position?: number;
+  /**
+   * Author alt; wins over the adapter's, and `''` marks a decorative image,
+   * which keeps no title at all.
+   */
   readonly alt?: string;
+  /** Author title; a non-empty one wins over the adapter's. */
   readonly title?: string;
 }
 
@@ -592,9 +597,18 @@ class EditorImageUploadCoordinator
       return undefined;
     }
 
-    const alt = typeof value['alt'] === 'string' ? value['alt'] : state.alt;
-    const title =
-      typeof value['title'] === 'string' ? value['title'] : state.title;
+    // The author's metadata states intent and wins; the adapter's only fills
+    // what the author left out. An author `alt: ''` marks the image
+    // decorative: the alt stays empty (WCAG 1.1.1) and no title is kept,
+    // the author's or the adapter's, because an `alt=""` image with a title
+    // is exposed as an unnamed image described by it (WCAG H67). Otherwise
+    // an empty author title means no title, so the adapter's may fill it.
+    const adapterAlt =
+      typeof value['alt'] === 'string' ? value['alt'] : undefined;
+    const adapterTitle =
+      typeof value['title'] === 'string' ? value['title'] : undefined;
+    const alt = state.alt ?? adapterAlt;
+    const title = state.alt === '' ? undefined : state.title || adapterTitle;
     return {
       src,
       ...(alt === undefined ? {} : { alt }),

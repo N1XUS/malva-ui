@@ -224,6 +224,8 @@ export class MlvEditorImageUploadDialog {
           this._dialogRef.close();
           return;
         }
+        // A removed failure: its "failed" text must not outlive it.
+        this._announcement.set('');
         this._reset();
       },
     );
@@ -302,6 +304,16 @@ export class MlvEditorImageUploadDialog {
     if (!id) return;
     this._progressBucket = -1;
     this._coordinator.retry(id);
+  }
+
+  /**
+   * @protected Toggles Decorative. Turning it on clears the title draft: a
+   * decorative image carries an empty alt and no title (WCAG H67), and the
+   * title field stays disabled until it is turned off.
+   */
+  protected _onDecorativeChange(decorative: boolean): void {
+    this._decorative.set(decorative);
+    if (decorative) this._title.set('');
   }
 
   /** @protected Removes the failed item and clears the draft. */

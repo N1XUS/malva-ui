@@ -489,6 +489,47 @@ describe('MlvEditor image upload UI', () => {
     });
   });
 
+  it('clears and disables a title typed before Decorative is turned on', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:decorative-title');
+    const uploader = {
+      upload: vi.fn().mockResolvedValue({
+        src: 'https://cdn.test/final.png',
+        title: 'Adapter title',
+      }),
+    };
+    const fixture = await createHost(uploader);
+    button('Upload image')?.click();
+    await stabilize(fixture);
+    selectFile(imageFile());
+    await stabilize(fixture);
+    setInput('Image title', 'Typed title');
+    await stabilize(fixture);
+    document
+      .querySelector<HTMLInputElement>('mlv-switch input[role="switch"]')
+      ?.click();
+    await stabilize(fixture);
+
+    const titleInput = Array.from(
+      document.querySelectorAll<HTMLInputElement>('.mlv-input__native'),
+    ).find((input) => input.getAttribute('aria-label') === 'Image title');
+    expect({
+      disabled: titleInput?.disabled,
+      value: titleInput?.value,
+    }).toEqual({ disabled: true, value: '' });
+
+    dialogButton('Upload image')?.click();
+    await stabilize(fixture);
+
+    // WCAG H67: a decorative image carries an empty alt and no title,
+    // neither the author's nor the uploader's.
+    const attrs = fixture.componentInstance.editor().editor()?.getJSON()
+      .content?.[0]?.attrs;
+    expect({ alt: attrs?.['alt'], title: attrs?.['title'] ?? null }).toEqual({
+      alt: '',
+      title: null,
+    });
+  });
+
   it('renders progress outside serialized content and supports cancel', async () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:cancel');
     const request = deferred<{ src: string }>();
@@ -627,6 +668,47 @@ describe('MlvEditor image upload UI', () => {
     expect(statusAnnouncement(fixture)).toBe('Upload complete');
   });
 
+  it('clears the stale progress when a dialog-owned upload succeeds', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:dialog-success');
+    const request = deferred<{ src: string }>();
+    let reportProgress: ((progress: number) => void) | undefined;
+    const fixture = await createHost({
+      upload: vi.fn((_, context) => {
+        reportProgress = context.reportProgress;
+        return request.promise;
+      }),
+    });
+    button('Upload image')?.click();
+    await stabilize(fixture);
+    selectFile(imageFile());
+    await stabilize(fixture);
+    setInput('Alternative text', 'Alt');
+    dialogButton('Upload image')?.click();
+    reportProgress?.(75);
+    await stabilize(fixture);
+    expect(statusAnnouncement(fixture)).toBe('Uploading image: 70%');
+
+    // The docs adapter's last tick: 100% and the resolution in one task.
+    // Zoneless, the scheduler ticks in a later macrotask while the upload's
+    // promise chain settles in microtasks, so success lands before the 100
+    // bucket renders and the status still reads 70% — the order Chromium
+    // shows. Waiting for stability without a synchronous `detectChanges()`
+    // keeps that order; the stale 70% must not outlive the success.
+    reportProgress?.(100);
+    request.resolve({ src: 'https://cdn.test/dialog.png' });
+    await TestBed.inject(ApplicationRef).whenStable();
+    await stabilize(fixture);
+    finishDialogClose();
+    await stabilize(fixture);
+
+    expect(document.querySelector('mlv-editor-image-upload-dialog')).toBeNull();
+    expect(fixture.componentInstance.editor().editor()?.getHTML()).toContain(
+      'dialog.png',
+    );
+    // The dialog announced completion; the status owns nothing any more.
+    expect(statusAnnouncement(fixture)).toBe('');
+  });
+
   it('does not announce completion when a failed pasted image is removed', async () => {
     const fixture = await createHost({
       upload: vi.fn().mockRejectedValue(new Error('network')),
@@ -643,7 +725,37 @@ describe('MlvEditor image upload UI', () => {
       ?.click();
     await stabilize(fixture);
 
-    expect(statusAnnouncement(fixture)).not.toBe('Upload complete');
+    expect(statusAnnouncement(fixture)).toBe('');
+  });
+
+  it('keeps announcing an active upload when a different failed upload is removed', async () => {
+    const active = deferred<{ src: string }>();
+    let reportProgress: ((progress: number) => void) | undefined;
+    const fixture = await createHost({
+      upload: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('network'))
+        .mockImplementationOnce((_, context) => {
+          reportProgress = context.reportProgress;
+          return active.promise;
+        }),
+    });
+
+    pasteFiles(fixture, [imageFile('failed.png')]);
+    await stabilize(fixture);
+    pasteFiles(fixture, [imageFile('active.png')]);
+    reportProgress?.(47);
+    await stabilize(fixture);
+    expect(statusAnnouncement(fixture)).toBe('Uploading image: 40%');
+
+    fixture.nativeElement
+      .querySelector<HTMLButtonElement>(
+        '.mlv-editor-image-upload-status [aria-label="Remove failed.png"]',
+      )
+      ?.click();
+    await stabilize(fixture);
+
+    expect(statusAnnouncement(fixture)).toBe('Uploading image: 40%');
   });
 
   it.each(['disabled', 'readonly'] as const)(
@@ -660,11 +772,12 @@ describe('MlvEditor image upload UI', () => {
 
       pasteFiles(fixture, [imageFile()]);
       await stabilize(fixture);
+      expect(statusAnnouncement(fixture)).toBe('Uploading image: 0%');
       fixture.componentInstance[state].set(true);
       await stabilize(fixture);
 
       expect(signal?.aborted).toBe(true);
-      expect(statusAnnouncement(fixture)).not.toBe('Upload complete');
+      expect(statusAnnouncement(fixture)).toBe('');
     },
   );
 
@@ -702,6 +815,37 @@ describe('MlvEditor image upload UI', () => {
     expect(fixture.componentInstance.editor().editor()?.getHTML()).toContain(
       'retry.png',
     );
+  });
+
+  it('clears both live regions when a failed dialog upload is removed', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:removed');
+    const fixture = await createHost({
+      upload: vi.fn().mockRejectedValue(new Error('network')),
+    });
+    button('Upload image')?.click();
+    await stabilize(fixture);
+    selectFile(imageFile());
+    await stabilize(fixture);
+    setInput('Alternative text', 'Alt');
+    dialogButton('Upload image')?.click();
+    await stabilize(fixture);
+    expect(dialogAnnouncement()).toBe('Image upload failed.');
+    expect(statusAnnouncement(fixture)).toBe('Image upload failed.');
+
+    // The footer action removes the coordinator item; the file list's own
+    // remove button carries the same label and only clears the draft file.
+    const remove = document.querySelector<HTMLButtonElement>(
+      'mlv-dialog-footer button[aria-label="Remove photo.png"]',
+    );
+    expect(remove).not.toBeNull();
+    remove?.click();
+    await stabilize(fixture);
+
+    // The dialog stays open on a fresh draft; nothing failed any more.
+    expect(dialogButton('Retry upload')).toBeNull();
+    expect(dialogButton('Upload image')).not.toBeNull();
+    expect(dialogAnnouncement()).toBe('');
+    expect(statusAnnouncement(fixture)).toBe('');
   });
 
   it('announces a dismissed failed button upload when status retry succeeds', async () => {
