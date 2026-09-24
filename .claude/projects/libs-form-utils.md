@@ -326,14 +326,21 @@ already warn when unnamed): `mlv-checkbox`, `mlv-switch`, `mlv-slider`,
 `mlv-pin-input`, `mlv-file-upload`, `mlv-color-picker`, `mlv-segmented`,
 `mlv-rating`, `mlv-editor`.
 
-Three of those reach `'none'` by a different route: `mlv-file-upload`,
-`mlv-checkbox-group` and `mlv-switch-group` extend the base but never
-**provide** `MLV_FORM_CONTROL`, so `contentChild(MLV_FORM_CONTROL)` does not
-resolve them at all. The outcome for a consumer is the same — no association,
-and the warning fires — except that the group cases resolve the field's query
-to the first nested `<mlv-checkbox>` / `<mlv-switch>` instead (`contentChild`
-defaults to `descendants: true`), so the warning names the child. Latent while
-no field holds a group beside a second control; tracked separately.
+`mlv-file-upload`, `mlv-checkbox-group` and `mlv-switch-group` all **provide**
+`MLV_FORM_CONTROL` since #266, so the field's `contentChild(MLV_FORM_CONTROL)`
+resolves the component itself — for a group, never its first nested
+`<mlv-checkbox>` / `<mlv-switch>`. `mlv-file-upload` is an ordinary `'none'` control (its `label` /
+`ariaLabel` stay inert). The two groups report `labelTarget → { id, labelable:
+false }` — a `<label for>` cannot name a `role="group"` element — so a projected
+`<mlv-label>` gets no `for` and names the group through the group's own
+`aria-labelledby` instead. See
+`docs/migrations/2026-09-group-form-control-connector.md`.
+
+The manual route the "names nothing" warning names — `[for]` on the
+`<mlv-label>` plus a matching `[id]` on the control — works for `mlv-checkbox`
+and `mlv-switch` since #323: their `id` now reaches the native input (it was
+frozen to the generated default by a field initializer, and a static one stayed
+on the non-labelable host).
 
 **Two dev-mode warnings**, each de-duplicated per control class through its own
 module-scoped set (same shape as `WARNED_UNMAPPED_KEYS`; separate sets, so

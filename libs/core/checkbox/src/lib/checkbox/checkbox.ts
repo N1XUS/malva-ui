@@ -34,6 +34,18 @@ import { CHECKBOX_GROUP } from '../checkbox-group-token';
  */
 export type MlvCheckboxState = MlvFormState;
 
+/**
+ * Whether a `<label>` other than the checkbox's own wrapping one names
+ * `input` with some text — an external `<label for>` pointing at the consumer
+ * `id`, which reaches the native input since #323.
+ */
+function hasExternalLabel(input: HTMLInputElement): boolean {
+  return Array.from(input.labels ?? []).some(
+    (label) =>
+      !label.contains(input) && (label.textContent ?? '').trim().length > 0,
+  );
+}
+
 @Component({
   selector: 'mlv-checkbox',
   templateUrl: './checkbox.html',
@@ -91,6 +103,22 @@ export class MlvCheckbox
   );
 
   /**
+   * @private A static `id` attribute the consumer wrote on the
+   * `<mlv-checkbox>` host. Angular feeds it to the `id` input **and** leaves
+   * it on the host element, so once the native input carries {@link id} the
+   * same value would name two elements. The constructor strips it from the
+   * host: the id belongs to the focus target, which `getElementById`, an
+   * external `<label for>`, `aria-controls` and `aria-errormessage` then reach
+   * (#323). A bound `[id]` feeds only the input and never lands on the host.
+   *
+   * `null` for a `createComponent(…, { hostElement })` root host, whose own
+   * attributes never reach the input — so an id there is left alone.
+   */
+  private readonly _hostId = inject(new HostAttributeToken('id'), {
+    optional: true,
+  });
+
+  /**
    * Id reference(s) naming the inner native input (`aria-labelledby`). Use this
    * input (not a host `[attr.aria-labelledby]` binding) when the reference is
    * dynamic — the role-less host must not carry ARIA naming attributes
@@ -144,6 +172,11 @@ export class MlvCheckbox
     if (this._hostAriaLabelledBy !== null) {
       this._ariaLabelledBy.set(this._hostAriaLabelledBy);
       this._renderer.removeAttribute(host, 'aria-labelledby');
+    }
+    // The static host `id` already reached the `id` input, which the native
+    // input carries; leaving it on the host would duplicate it.
+    if (this._hostId !== null) {
+      this._renderer.removeAttribute(host, 'id');
     }
 
     afterNextRender(() => this._warnWhenUnlabelled());
@@ -202,7 +235,17 @@ export class MlvCheckbox
     transform: coerceBooleanProperty,
   });
 
-  readonly inputId = this.id();
+  /**
+   * Id of the native checkbox input — always the current {@link id}.
+   *
+   * A getter rather than a field: a field initializer runs before Angular
+   * sets inputs, so `readonly inputId = this.id()` froze the generated
+   * default and a consumer `id` never reached the input (#323). Read inside a
+   * reactive context it tracks {@link id}.
+   */
+  get inputId(): string {
+    return this.id();
+  }
 
   /**
    * Roving tabindex applied to the native checkbox input — the single focus
@@ -297,8 +340,13 @@ export class MlvCheckbox
 
   /**
    * @private Dev-mode diagnostic: a checkbox with no projected text, no
-   * `label` and no ARIA naming has no accessible name at all. CSS decides which
-   * of the two visible sources renders, so this only reports the empty case.
+   * `label`, no ARIA naming and no external `<label for>` naming its native
+   * input has no accessible name at all. CSS decides which of the two visible
+   * sources renders, so this only reports the empty case.
+   *
+   * One-shot, at first render (`afterNextRender`): a name that arrives later
+   * — an external `<label for>` inside an `@if` that turns true afterwards,
+   * say — is not seen, and the warning still logs.
    */
   private _warnWhenUnlabelled(): void {
     if (!isDevMode()) return;
@@ -308,7 +356,8 @@ export class MlvCheckbox
       hasProjectedText ||
       this.label() ||
       this._resolvedAriaLabel() ||
-      this._resolvedAriaLabelledBy()
+      this._resolvedAriaLabelledBy() ||
+      hasExternalLabel(this._nativeInput().nativeElement)
     ) {
       return;
     }

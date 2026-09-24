@@ -1,10 +1,14 @@
-<label class="mlv-switch__label" [for]="inputId">
+<!-- No `for`: the label names the input it wraps by containment. A `for`
+     carrying the consumer's `id` would hand the association to whichever
+     element that id resolves to first — another instance with the same id, an
+     earlier element — and leave this input nameless (#323). -->
+<label class="mlv-switch__label">
   <input
     #nativeInput
     type="checkbox"
     role="switch"
     class="mlv-switch__native"
-    [id]="inputId"
+    [id]="id()"
     [checked]="checked()"
     [disabled]="computedDisabled()"
     [attr.tabindex]="tabIndex()"
