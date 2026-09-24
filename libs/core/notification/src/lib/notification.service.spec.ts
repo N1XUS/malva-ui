@@ -4,6 +4,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { MlvToastService } from '@malva-ui/core/toast';
 import { vi } from 'vitest';
 import { MlvNotificationRef } from './notification-ref';
 import { MlvNotificationService } from './notification.service';
@@ -95,6 +96,48 @@ describe('MlvNotificationService', () => {
       await stabilize();
 
       expect(announce).toHaveBeenCalledWith('Deploy failed', 'assertive');
+    });
+  });
+
+  describe('announcements pending together (#336)', () => {
+    /** The single CDK live region every notification and toast announces through. */
+    function liveRegion(): HTMLElement {
+      const region = document.querySelector<HTMLElement>(
+        '.cdk-live-announcer-element',
+      );
+      if (!region) {
+        throw new Error('LiveAnnouncer has not created its live region');
+      }
+      return region;
+    }
+
+    /** Waits past `LiveAnnouncer`'s 100 ms write delay. */
+    function afterWrite(): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, 150));
+    }
+
+    it('announces two notifications shown in the same tick, the assertive one first', async () => {
+      const region = liveRegion();
+
+      service.success('Build 4821 is live', { displayTime: 0 });
+      service.error('Deploy failed', { displayTime: 0 });
+      await afterWrite();
+
+      expect(region.textContent).toBe('Deploy failed. Build 4821 is live');
+      expect(region.getAttribute('aria-live')).toBe('assertive');
+    });
+
+    it('shares one announcement with a toast shown in the same tick', async () => {
+      const region = liveRegion();
+
+      TestBed.inject(MlvToastService).success('Two files saved', {
+        displayTime: 0,
+      });
+      service.error('Deploy failed', { displayTime: 0 });
+      await afterWrite();
+
+      expect(region.textContent).toBe('Deploy failed. Two files saved');
+      expect(region.getAttribute('aria-live')).toBe('assertive');
     });
   });
 

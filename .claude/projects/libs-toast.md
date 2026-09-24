@@ -143,14 +143,15 @@ export interface MlvToastTemplateContext<TData = unknown> {
 
 ### `MlvBaseToastConfig<TData = unknown>`
 
-| Field          | Type               | Default              | Description                                                   |
-| -------------- | ------------------ | -------------------- | ------------------------------------------------------------- |
-| `position`     | `MlvToastPosition` | `'top-right'`        | Viewport anchor                                               |
-| `data`         | `TData`            | `undefined`          | Data exposed by the ref and dynamic-content context/token     |
-| `injector`     | `Injector`         | environment injector | Parent injector for dynamic template/component content        |
-| `displayTime`  | `number`           | surface-specific     | Auto-dismiss delay in milliseconds; `0` disables auto-dismiss |
-| `pauseOnHover` | `boolean`          | `true`               | Pauses on pointer hover and keyboard focus                    |
-| `closable`     | `boolean`          | `true`               | Shows the built-in dismiss button                             |
+| Field          | Type                 | Default                        | Description                                                                                                            |
+| -------------- | -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `position`     | `MlvToastPosition`   | `'top-right'`                  | Viewport anchor                                                                                                        |
+| `data`         | `TData`              | `undefined`                    | Data exposed by the ref and dynamic-content context/token                                                              |
+| `injector`     | `Injector`           | environment injector           | Parent injector for dynamic template/component content                                                                 |
+| `displayTime`  | `number`             | surface-specific               | Auto-dismiss delay in milliseconds; `0` disables auto-dismiss                                                          |
+| `pauseOnHover` | `boolean`            | `true`                         | Pauses on pointer hover and keyboard focus                                                                             |
+| `closable`     | `boolean`            | `true`                         | Shows the built-in dismiss button                                                                                      |
+| `politeness`   | `MlvToastPoliteness` | `resolveToastPoliteness(tone)` | Announcement politeness; raised to assertive inside a batch holding an assertive item (see Screen-reader announcement) |
 
 ### `MlvToastConfig<TData = unknown>`
 
@@ -293,7 +294,7 @@ Starts the auto-dismiss timer in `ngOnInit`, clears it in `ngOnDestroy`, pauses 
 
 ### `MlvAbstractToastService<TConfig, TItem, TItemComponent, TRef>`
 
-Owns per-position overlays and containers, active refs, item ids, service destruction, the shared `show()`/`close()` path, and delayed final-container disposal. Subclasses supply the container type, item type, `buildItem()`, and optionally `_createRef()`.
+Owns per-position overlays and containers, active refs, item ids, service destruction, the shared `show()`/`close()` path, delayed final-container disposal, and announcing each item through the shared batch (see Screen-reader announcement). Subclasses supply the container type, item type, `buildItem()`, `resolveAnnouncement()`, and optionally `_createRef()`.
 
 ### `MlvAbstractToastContainerComponent<T>`
 
@@ -395,7 +396,7 @@ export class SyncToastContentComponent {
 
 ## Testing
 
-Component tests cover creation, live-region role selection, and timer pause/resume for pointer-independent keyboard focus. Service tests cover all content branches, data token/context, ref closure, duplicate-close safety, caller/service/item close routing, and delayed empty-overlay disposal.
+Component tests cover creation, live-region role selection, and timer pause/resume for pointer-independent keyboard focus. Service tests cover all content branches, data token/context, ref closure, duplicate-close safety, caller/service/item close routing, delayed empty-overlay disposal, and announcements pending together (the real `LiveAnnouncer` region's settled text and politeness after items shown in one tick or within its 100 ms delay, and a fresh announcement once the previous one is written).
 
 ---
 
@@ -421,6 +422,53 @@ Concrete services implement `resolveAnnouncement(config)` and build their messag
 `joinAnnouncementParts()`, which drops absent fragments and normalises trailing sentence
 punctuation so an omitted description cannot announce a stray separator or a doubled
 full stop.
+
+### Items shown together (#336)
+
+`LiveAnnouncer` writes a message 100 ms after `announce()` and keeps **one** pending
+message — a second call inside that window cancels the first. Before #336 every `show()`
+called it directly, so an `error()` and a `success()` from one handler announced only the
+success. The base now announces through an internal root `MlvToastAnnouncer`
+(`toast-announcer.ts`, not in the barrel):
+
+- Every item whose announcement is still waiting joins one batch; each new item
+  re-announces the whole batch, which `LiveAnnouncer` writes once.
+- Order: assertive items first, in the order shown, then polite ones.
+- Politeness: assertive when any item in the batch is (it interrupts anyway), else
+  polite — so a polite item shown beside an assertive one is read inside that one
+  assertive announcement.
+- Text: a batch of one is announced verbatim; a larger one is joined with
+  `joinAnnouncementParts()` — `"Upload failed. Two files saved"`.
+- The batch closes when `LiveAnnouncer` writes it (its promise resolves in the write
+  task); an item shown after that is announced on its own.
+- Root-provided: toast, notification and any other `MlvAbstractToastService` subclass
+  share one batch, since they share the root `LiveAnnouncer`. Announcements always go to
+  the **root** `LiveAnnouncer`'s region, even where a scoped `LiveAnnouncer` is provided
+  beside a component-provided service; that service's destroy-time `clear()` still goes
+  through its own `_liveAnnouncer`.
+- Not covered: another `LiveAnnouncer` caller (editor, page route focus) landing in the
+  same window still replaces the batch, or is replaced by it — `LiveAnnouncer`'s own
+  contract. A subclass calling `_liveAnnouncer.announce()` directly is such a caller: it
+  bypasses the batch.
+
+Observable edges — each follows from the batch; none is a new setting:
+
+- A `LiveAnnouncer.announce` spy sees the **joined** text after two items shown together
+  (`('Upload failed. Two files saved', 'assertive')`), not one call per item.
+- Order is not always call order: an assertive item shown second is read first.
+- A polite item shown together with an assertive one is read **assertively**, inside
+  that announcement.
+- An item closed before the write is still announced, as part of the batch — the batch
+  is not withdrawn on close (`info('Saving')` closed, then `success('Saved')` →
+  `"Saving. Saved"`). Before #336 the later item replaced it anyway.
+- Behind a test double whose `announce()` returns `undefined`, `show()` still returns its
+  ref and the batch closes on the next microtask.
+- Rejected: chaining each `announce()` on the previous promise. That promise resolves
+  inside the task that writes the text, and the next `announce()` clears the region
+  synchronously, so the first text never reaches a rendering opportunity (measured in
+  jsdom: present to a `MutationObserver` in that task, `""` in the next). A spec that only
+  records writes passes on that broken shape; `toast.service.spec.ts` § _announcements
+  pending together_ asserts the region's settled text instead.
 
 ### Required stylesheet
 

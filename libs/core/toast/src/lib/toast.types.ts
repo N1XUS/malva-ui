@@ -86,6 +86,12 @@ export interface MlvBaseToastConfig<D = unknown> {
    * `LiveAnnouncer`, not from the rendered item. The item itself carries no
    * `role`/`aria-live`, so nothing is announced twice and a stack of items does
    * not create a stack of live regions.
+   *
+   * Items shown before `LiveAnnouncer` writes (it waits 100 ms) — a toast and a
+   * notification included — are read as one announcement, assertive items
+   * first, so none replaces another. That announcement is assertive when any
+   * item in it is: a polite item shown beside an assertive one is read inside
+   * the assertive announcement.
    */
   politeness?: MlvToastPoliteness;
 }

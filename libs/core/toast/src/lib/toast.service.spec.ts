@@ -41,6 +41,41 @@ class ToastTemplateHost {
     );
 }
 
+/** The single CDK live region every toast announces through. */
+function liveRegion(): HTMLElement {
+  const region = document.querySelector<HTMLElement>(
+    '.cdk-live-announcer-element',
+  );
+  if (!region) {
+    throw new Error('LiveAnnouncer has not created its live region');
+  }
+  return region;
+}
+
+/**
+ * Records every text written into the live region, in order — including one
+ * replaced again before its task ends, which no screen reader could ever read.
+ * A recorder alone therefore cannot prove an announcement; the specs pair it
+ * with the region's settled `textContent`.
+ */
+function recordLiveRegionWrites(region: HTMLElement): {
+  writes: string[];
+  stop(): void;
+} {
+  const writes: string[] = [];
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of Array.from(record.addedNodes)) {
+        if (node.textContent) {
+          writes.push(node.textContent);
+        }
+      }
+    }
+  });
+  observer.observe(region, { childList: true, subtree: true });
+  return { writes, stop: () => observer.disconnect() };
+}
+
 describe('MlvToastService', () => {
   let service: MlvToastService;
 
@@ -140,6 +175,129 @@ describe('MlvToastService', () => {
       await stabilize();
 
       expect(announce).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('announcements pending together (#336)', () => {
+    /** Waits past `LiveAnnouncer`'s 100 ms write delay. */
+    function afterWrite(): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, 150));
+    }
+
+    it('announces an error and a success shown in the same tick, the assertive one first', async () => {
+      const region = liveRegion();
+      const recorder = recordLiveRegionWrites(region);
+
+      service.error('Upload failed', { displayTime: 0 });
+      service.success('Two files saved', { displayTime: 0 });
+      await afterWrite();
+      recorder.stop();
+
+      expect(region.textContent).toBe('Upload failed. Two files saved');
+      expect(region.getAttribute('aria-live')).toBe('assertive');
+      expect(recorder.writes).toEqual(['Upload failed. Two files saved']);
+    });
+
+    it('leads with the assertive message when it was shown second', async () => {
+      const region = liveRegion();
+
+      service.success('Two files saved', { displayTime: 0 });
+      service.error('Upload failed', { displayTime: 0 });
+      await afterWrite();
+
+      expect(region.textContent).toBe('Upload failed. Two files saved');
+      expect(region.getAttribute('aria-live')).toBe('assertive');
+    });
+
+    it('keeps a batch of polite messages polite, in the order shown', async () => {
+      const region = liveRegion();
+
+      service.info('Sync started', { displayTime: 0 });
+      service.success('Two files saved', { displayTime: 0 });
+      await afterWrite();
+
+      expect(region.textContent).toBe('Sync started. Two files saved');
+      expect(region.getAttribute('aria-live')).toBe('polite');
+    });
+
+    it('joins a message shown before the previous one was written', async () => {
+      const region = liveRegion();
+
+      service.error('Upload failed', { displayTime: 0 });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      service.success('Two files saved', { displayTime: 0 });
+      await afterWrite();
+
+      expect(region.textContent).toBe('Upload failed. Two files saved');
+      expect(region.getAttribute('aria-live')).toBe('assertive');
+    });
+
+    it('announces a message shown after the previous one was written on its own', async () => {
+      const region = liveRegion();
+      const recorder = recordLiveRegionWrites(region);
+
+      service.error('Upload failed', { displayTime: 0 });
+      await afterWrite();
+      expect(region.textContent).toBe('Upload failed');
+
+      service.success('Two files saved', { displayTime: 0 });
+      await afterWrite();
+      recorder.stop();
+
+      expect(region.textContent).toBe('Two files saved');
+      expect(region.getAttribute('aria-live')).toBe('polite');
+      expect(recorder.writes).toEqual(['Upload failed', 'Two files saved']);
+    });
+
+    it('leaves template content, which announces nothing, out of the batch', async () => {
+      const fixture: ComponentFixture<ToastTemplateHost> =
+        TestBed.createComponent(ToastTemplateHost);
+      fixture.detectChanges();
+      const region = liveRegion();
+
+      service.success('Two files saved', { displayTime: 0 });
+      service.open(fixture.componentInstance.content(), {
+        data: { label: 'sync' },
+        displayTime: 0,
+      });
+      await afterWrite();
+
+      expect(region.textContent).toBe('Two files saved');
+      expect(region.getAttribute('aria-live')).toBe('polite');
+    });
+
+    it('still announces an item closed before the write, as part of the batch', async () => {
+      const region = liveRegion();
+
+      // Documented edge: closing never withdraws an announcement — a lone
+      // item closed before the write was announced before #336 as well.
+      const saving = service.info('Saving', { displayTime: 0 });
+      saving.close();
+      service.success('Saved', { displayTime: 0 });
+      await afterWrite();
+
+      expect(region.textContent).toBe('Saving. Saved');
+      expect(region.getAttribute('aria-live')).toBe('polite');
+    });
+
+    it('closes the batch when another LiveAnnouncer caller writes first', async () => {
+      // Tripwire for a CDK upgrade: the batch closes on the promise
+      // `announce()` returns, which CDK 22 shares across every call in the
+      // 100 ms window and resolves on whichever write lands. Were it to hand
+      // out per-message promises left pending on cancel, the batch below
+      // would never close and the next toast would repeat "Upload failed".
+      const region = liveRegion();
+
+      service.error('Upload failed', { displayTime: 0 });
+      void TestBed.inject(LiveAnnouncer).announce('Route changed');
+      await afterWrite();
+      expect(region.textContent).toBe('Route changed');
+
+      service.success('Two files saved', { displayTime: 0 });
+      await afterWrite();
+
+      expect(region.textContent).toBe('Two files saved');
+      expect(region.getAttribute('aria-live')).toBe('polite');
     });
   });
 
@@ -320,5 +478,56 @@ describe('MlvToastService', () => {
         container().style.getPropertyValue('--mlv-toast-panel-inset-block-end'),
       ).toBe('');
     });
+  });
+});
+
+describe('MlvToastService behind a LiveAnnouncer test double (#336)', () => {
+  /** A consumer-style double: `announce()` returns `undefined`, not a promise. */
+  const announce = vi.fn();
+  let service: MlvToastService;
+
+  beforeEach(() => {
+    announce.mockReset();
+    TestBed.configureTestingModule({
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: LiveAnnouncer, useValue: { announce, clear: vi.fn() } },
+      ],
+    });
+    service = TestBed.inject(MlvToastService);
+  });
+
+  afterEach(() => {
+    document
+      .querySelectorAll('.cdk-overlay-container')
+      .forEach((element) => element.remove());
+  });
+
+  it('still returns every ref and coalesces items shown in the same tick', () => {
+    const ids: string[] = [];
+    let thrown: string | null = null;
+    try {
+      ids.push(service.error('Upload failed', { displayTime: 0 }).id);
+      ids.push(service.success('Two files saved', { displayTime: 0 }).id);
+    } catch (error) {
+      thrown = String(error);
+    }
+
+    expect(thrown).toBeNull();
+    expect(ids).toEqual(['toast-1', 'toast-2']);
+    expect(announce).toHaveBeenLastCalledWith(
+      'Upload failed. Two files saved',
+      'assertive',
+    );
+  });
+
+  it('closes the batch on the next microtask', async () => {
+    service.error('Upload failed', { displayTime: 0 });
+    // The batch's close reaction was queued inside `show()`, so it runs before
+    // this continuation does.
+    await Promise.resolve();
+    service.success('Two files saved', { displayTime: 0 });
+
+    expect(announce).toHaveBeenLastCalledWith('Two files saved', 'polite');
   });
 });

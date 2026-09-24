@@ -17,6 +17,7 @@ import type {
 } from './toast.types';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvToastRef } from './toast-ref';
+import { MlvToastAnnouncer } from './toast-announcer';
 
 const TOAST_LEAVE_DURATION_MS = 200;
 
@@ -45,14 +46,26 @@ export abstract class MlvAbstractToastService<
   /** @protected Environment injector used when attaching container portals. */
   protected readonly _environmentInjector = inject(EnvironmentInjector);
   /**
-   * @protected Owns the single persistent ARIA live region used to announce
-   * items. Announcing from here rather than from a `role` on each rendered item
-   * means the region exists in the DOM before any message is inserted (screen
-   * readers miss content added together with its live region), one stacked item
-   * does not add one live region, and an assertive tone cannot silently
-   * override the caller's politeness choice.
+   * @protected The CDK service owning the single persistent ARIA live region.
+   * Kept for the destroy-time `clear()` and for subclass access; `show()`
+   * announces through `_announcer`, not through this field.
+   *
+   * A subclass calling `_liveAnnouncer.announce()` directly bypasses the batch:
+   * its message replaces, or is replaced by, any item still waiting to be
+   * written — the pre-#336 last-one-wins loss.
    */
   protected readonly _liveAnnouncer = inject(LiveAnnouncer);
+  /**
+   * @private Announces every item through `LiveAnnouncer`'s one live region —
+   * rather than a `role` on each rendered item, so the region exists before any
+   * message is inserted (screen readers miss content added together with its
+   * live region), a stack of items is not a stack of live regions, and an
+   * implicit `role="alert"` cannot override the caller's politeness — in one
+   * application-wide batch, so items shown before it writes (in the same tick,
+   * or within its 100 ms delay) are all announced instead of the last one
+   * replacing the rest. Shared by every toast and notification service.
+   */
+  private readonly _announcer = inject(MlvToastAnnouncer);
   /** @private Cleans up overlays, refs, and deferred disposal timers with the service. */
   private readonly _destroyRef = inject(DestroyRef);
 
@@ -126,7 +139,7 @@ export abstract class MlvAbstractToastService<
 
     const announcement = this.resolveAnnouncement(config);
     if (announcement) {
-      this._liveAnnouncer.announce(
+      this._announcer.announce(
         announcement.message,
         config.politeness ?? announcement.politeness,
       );
