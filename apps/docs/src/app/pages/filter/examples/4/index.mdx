@@ -19,4 +19,7 @@ keyed `<ng-template mlvFilterValueEditor="renewalDate">` projected into
 untargeted (key-less) template would instead fall back to every free-form
 field with no editor of its own. The template still receives and writes ISO
 `yyyy-MM-dd` strings — conditions stay backend-neutral — and switches to a
-paired day-picker range when the condition operator is `between`.
+paired day-picker range when the condition operator is `between`. It names the
+pickers with the context's localized `ariaLabel` and `rangeAriaLabels`
+("Renewal date, condition 1 value", "… from", "… to"), the same names the
+built-in inputs carry, so each picker is told apart from the operator select.

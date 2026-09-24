@@ -97,7 +97,7 @@
               [options]="_strategies"
               [toOption]="_strategyTransform"
               [value]="_strategy()"
-              [ariaLabel]="label()"
+              [ariaLabel]="_strategyName()"
               [disabled]="_editorDisabled()"
               mobileMode="off"
               (valueChange)="_setStrategy($any($event))"
@@ -108,13 +108,14 @@
             track condition.id || $index;
             let index = $index
           ) {
+            @let names = _conditionNames()[index];
             <div class="mlv-filter__condition">
               <mlv-select
                 class="mlv-filter__operator"
                 [options]="operators()"
                 [toOption]="_operatorTransform"
                 [value]="condition.operator"
-                [ariaLabel]="label() + ' ' + (index + 1)"
+                [ariaLabel]="names.operator"
                 [disabled]="_editorDisabled()"
                 mobileMode="off"
                 (valueChange)="_setOperator(index, $any($event))"
@@ -142,7 +143,7 @@
                           "
                           [value]="$any(_conditionRangeValue(condition, 0))"
                           [placeholder]="_resolvedPlaceholder()"
-                          [ariaLabel]="label() + ' ' + (index + 1) + ' 1'"
+                          [ariaLabel]="names.rangeFrom"
                           [disabled]="_editorDisabled()"
                           (valueChange)="
                             _setConditionRangeValue(index, 0, $event)
@@ -163,7 +164,7 @@
                           "
                           [value]="$any(_conditionRangeValue(condition, 1))"
                           [placeholder]="_resolvedPlaceholder()"
-                          [ariaLabel]="label() + ' ' + (index + 1) + ' 2'"
+                          [ariaLabel]="names.rangeTo"
                           [disabled]="_editorDisabled()"
                           (valueChange)="
                             _setConditionRangeValue(index, 1, $event)
@@ -181,7 +182,7 @@
                         "
                         [value]="$any(condition.value)"
                         [placeholder]="_resolvedPlaceholder()"
-                        [ariaLabel]="label() + ' ' + (index + 1)"
+                        [ariaLabel]="names.value"
                         [disabled]="_editorDisabled()"
                         (valueChange)="_setConditionValue(index, $event)"
                         (keydown.enter)="applyMode() === 'explicit' && _apply()"
@@ -198,7 +199,7 @@
                   variant="transparent"
                   class="mlv-filter__remove-condition"
                   [disabled]="_editorDisabled()"
-                  [attr.aria-label]="_i18n().removeCondition"
+                  [attr.aria-label]="names.remove"
                   (click)="_removeCondition(index)"
                 >
                   <svg

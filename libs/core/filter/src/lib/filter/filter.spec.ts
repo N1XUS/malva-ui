@@ -5,6 +5,10 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MlvDropdownPanel } from '@malva-ui/core/dropdown';
 import { MlvSelect } from '@malva-ui/core/select';
+import type { MlvFilterI18n } from '@malva-ui/i18n';
+import { MLV_FILTER_I18N } from '@malva-ui/i18n';
+import { deLanguage } from '@malva-ui/i18n/de';
+import { enLanguage } from '@malva-ui/i18n/en';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import type { MlvFilterCondition, MlvFilterOperator } from '../filter.types';
@@ -891,5 +895,259 @@ describe('MlvFilter', () => {
       expect(overlay.querySelector('.custom-editor')).toBeNull();
       expect(overlay.querySelector('.mlv-filter__value-cell')).toBeNull();
     });
+  });
+});
+
+@Component({
+  imports: [MlvFilter, MlvFilterValueEditorDef],
+  template: `
+    <mlv-filter
+      label="Renewal"
+      editor="text"
+      allowMultipleConditions
+      [operators]="operators"
+      [(conditions)]="conditions"
+    >
+      <ng-template
+        mlvFilterValueEditor
+        let-operator="operator"
+        let-name="ariaLabel"
+        let-range="rangeAriaLabels"
+      >
+        @if (operator === 'between') {
+          <input
+            class="custom-from"
+            [attr.aria-label]="range ? range[0] : null"
+          />
+          <input
+            class="custom-to"
+            [attr.aria-label]="range ? range[1] : null"
+          />
+        } @else {
+          <input class="custom-editor" [attr.aria-label]="name" />
+        }
+      </ng-template>
+    </mlv-filter>
+  `,
+})
+class NamedSlotHost {
+  readonly operators: readonly MlvFilterOperator[] = ['equals', 'between'];
+  readonly conditions = signal<readonly MlvFilterCondition[]>([
+    { operator: 'equals', value: '2026-10-01' },
+    { operator: 'between', value: ['2026-01-01', '2026-03-31'] },
+  ]);
+}
+
+/**
+ * Keys `MlvFilterI18n` declares optional (#330). A hand-written or older
+ * language pack may omit them, and `mlv-filter` then falls back to English.
+ */
+const OPTIONAL_CONDITION_KEYS: readonly string[] = [
+  'conditionStrategy',
+  'conditionOperator',
+  'conditionValue',
+  'rangeFrom',
+  'rangeTo',
+];
+
+describe('MlvFilter condition control names', () => {
+  let overlay: HTMLElement;
+
+  afterEach(() => overlay?.replaceChildren());
+
+  /**
+   * Accessible name the way the controls in this panel are named: an
+   * `aria-labelledby` reference, else `aria-label`, else the text content.
+   */
+  function accessibleName(element: Element): string {
+    const labelledBy = element.getAttribute('aria-labelledby');
+    if (labelledBy) {
+      return labelledBy
+        .split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent?.trim() ?? '')
+        .join(' ')
+        .trim();
+    }
+    const label = element.getAttribute('aria-label');
+    if (label !== null) return label.trim();
+    return (element.textContent ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  /** Every operable control in the open editor, in DOM (tab) order. */
+  function panelControlNames(): string[] {
+    const panel = overlay.querySelector('.mlv-filter__panel');
+    return [
+      ...(panel?.querySelectorAll<HTMLElement>(
+        'button, a, input, [role="combobox"]',
+      ) ?? []),
+    ]
+      .filter((control) => !control.closest('[aria-hidden="true"]'))
+      .map(accessibleName);
+  }
+
+  async function setup(
+    filterI18n?: MlvFilterI18n,
+  ): Promise<ComponentFixture<MlvFilter>> {
+    await TestBed.configureTestingModule({
+      imports: [MlvFilter],
+      providers: [
+        provideMlvI18nTesting(),
+        ...(filterI18n
+          ? [{ provide: MLV_FILTER_I18N, useValue: signal(filterI18n) }]
+          : []),
+      ],
+    }).compileComponents();
+    overlay = TestBed.inject(OverlayContainer).getContainerElement();
+
+    const fixture = TestBed.createComponent(MlvFilter);
+    fixture.componentRef.setInput('label', 'Status');
+    fixture.componentRef.setInput('editor', 'text');
+    fixture.componentRef.setInput('allowMultipleConditions', true);
+    fixture.componentRef.setInput('operators', ['contains', 'between']);
+    fixture.componentRef.setInput('conditions', [
+      { operator: 'contains', value: 'draft' },
+      { operator: 'between', value: ['a', 'm'] },
+    ]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    (
+      fixture.nativeElement.querySelector(
+        '.mlv-filter__trigger',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it('gives every control of a multi-condition editor a distinct, role-worded name', async () => {
+    await setup();
+    const names = panelControlNames();
+
+    expect(names).toEqual([
+      'Status, combine conditions',
+      'Status, condition 1 operator',
+      'Status, condition 1 value',
+      'Remove Status condition 1',
+      'Status, condition 2 operator',
+      'Status, condition 2 from',
+      'Status, condition 2 to',
+      'Remove Status condition 2',
+      'Add condition',
+      'Clear',
+    ]);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('resolves the names through the active language pack', async () => {
+    await setup(deLanguage.filter);
+    const names = panelControlNames();
+
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'Status, Bedingungen verknüpfen',
+        'Status, Bedingung 1: Operator',
+        'Status, Bedingung 1: Wert',
+        'Status: Bedingung 1 entfernen',
+        'Status, Bedingung 2: von',
+        'Status, Bedingung 2: bis',
+      ]),
+    );
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('falls back to English for a hand-written pack without the optional keys', async () => {
+    const handWritten = Object.fromEntries(
+      Object.entries(enLanguage.filter).filter(
+        ([key]) => !OPTIONAL_CONDITION_KEYS.includes(key),
+      ),
+    ) as unknown as MlvFilterI18n;
+    // A pack written before the keys existed carries the old plain string.
+    handWritten.removeCondition = 'Remove condition';
+    expect(Object.keys(handWritten)).not.toContain('conditionOperator');
+
+    await setup(handWritten);
+
+    expect(panelControlNames()).toEqual([
+      'Status, combine conditions',
+      'Status, condition 1 operator',
+      'Status, condition 1 value',
+      'Remove condition',
+      'Status, condition 2 operator',
+      'Status, condition 2 from',
+      'Status, condition 2 to',
+      'Remove condition',
+      'Add condition',
+      'Clear',
+    ]);
+  });
+
+  it('hands the resolved value names to a custom value editor', async () => {
+    await TestBed.configureTestingModule({
+      imports: [NamedSlotHost],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    overlay = TestBed.inject(OverlayContainer).getContainerElement();
+    const fixture = TestBed.createComponent(NamedSlotHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    (
+      fixture.nativeElement.querySelector(
+        '.mlv-filter__trigger',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const labelOf = (selector: string): string | null =>
+      overlay.querySelector(selector)?.getAttribute('aria-label') ?? null;
+    expect([
+      labelOf('.custom-editor'),
+      labelOf('.custom-from'),
+      labelOf('.custom-to'),
+    ]).toEqual([
+      'Renewal, condition 1 value',
+      'Renewal, condition 2 from',
+      'Renewal, condition 2 to',
+    ]);
+  });
+
+  it('is axe-clean with a multi-condition range editor open', async () => {
+    await setup();
+    await expectNoAxeViolations(document.body);
+  });
+
+  it('is axe-clean with an explicit-mode condition editor open', async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvFilter],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    overlay = TestBed.inject(OverlayContainer).getContainerElement();
+    const fixture = TestBed.createComponent(MlvFilter);
+    fixture.componentRef.setInput('label', 'Owner');
+    fixture.componentRef.setInput('editor', 'text');
+    fixture.componentRef.setInput('applyMode', 'explicit');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    (
+      fixture.nativeElement.querySelector(
+        '.mlv-filter__trigger',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(panelControlNames()).toEqual([
+      'Owner, condition 1 operator',
+      'Owner, condition 1 value',
+      'Clear',
+      'Cancel',
+      'Apply',
+    ]);
+    await expectNoAxeViolations(document.body);
   });
 });
