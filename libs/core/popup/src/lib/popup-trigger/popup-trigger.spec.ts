@@ -238,3 +238,88 @@ describe('MlvPopupTrigger — arrow direction', () => {
     expect(popup.arrowEdge()).toBe('right');
   });
 });
+
+@Component({
+  imports: [MlvPopup, MlvPopupContent, MlvPopupTrigger],
+  template: `
+    <button #triggerEl [mlvPopupTrigger]="excludePopup" triggerOn="focus">
+      open
+    </button>
+    <div #excludedEl><span class="excluded-child">inside</span></div>
+    <span class="outside">outside</span>
+    <mlv-popup
+      #excludePopup
+      [hasBackdrop]="false"
+      [dismissExcludeElements]="[triggerEl, excludedEl]"
+    >
+      <ng-template mlvPopupContent><span>panel body</span></ng-template>
+    </mlv-popup>
+  `,
+})
+class DismissExcludeHostComponent {
+  readonly popup = viewChild.required(MlvPopup);
+}
+
+describe('MlvPopupTrigger — standalone mode, dismissExcludeElements', () => {
+  let overlayContainer: OverlayContainer;
+  let fixture: ComponentFixture<DismissExcludeHostComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [DismissExcludeHostComponent],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+    fixture = TestBed.createComponent(DismissExcludeHostComponent);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    overlayContainer.ngOnDestroy();
+  });
+
+  /** Waits for the deferred (`setTimeout(0)`) document click listener. */
+  const nextMacrotask = (): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, 5));
+
+  async function open(): Promise<MlvPopup> {
+    const popup = fixture.componentInstance.popup();
+    popup.opened.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await nextMacrotask();
+    return popup;
+  }
+
+  const click = (selector: string): void => {
+    (fixture.nativeElement as HTMLElement)
+      .querySelector(selector)
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+  };
+
+  // The container forwarded the input; the standalone trigger did not, so
+  // the documented exclusion was inert on this path and a click on the
+  // trigger — or on anything else the consumer listed — dismissed the
+  // backdrop-less popup (#328 needs it for the avatar group's +N counter).
+  it('keeps the popup open for a click inside an excluded element', async () => {
+    const popup = await open();
+
+    click('.excluded-child');
+    click('button');
+
+    expect(popup.opened()).toBe(true);
+    expect(
+      overlayContainer.getContainerElement().querySelector('.mlv-popup'),
+    ).not.toBeNull();
+  });
+
+  it('still dismisses on a click outside the panel and the exclusions', async () => {
+    const popup = await open();
+
+    click('.outside');
+
+    expect(popup.opened()).toBe(false);
+  });
+});

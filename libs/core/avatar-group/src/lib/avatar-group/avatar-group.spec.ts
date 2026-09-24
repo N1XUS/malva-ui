@@ -62,13 +62,17 @@ class BasicTestHost {
 
   lastGroupClick: MlvAvatarGroupMember[] | null = null;
   lastOverflowClick: MlvAvatarGroupMember[] | null = null;
+  groupClickCount = 0;
+  overflowClickCount = 0;
 
   onGroupClick(members: MlvAvatarGroupMember[]): void {
     this.lastGroupClick = members;
+    this.groupClickCount++;
   }
 
   onOverflowClick(members: MlvAvatarGroupMember[]): void {
     this.lastOverflowClick = members;
+    this.overflowClickCount++;
   }
 }
 
@@ -103,10 +107,32 @@ function getOverflowInitials(
   return el?.textContent?.trim() ?? null;
 }
 
-function dispatchKeydown(el: HTMLElement, key: string): void {
-  el.dispatchEvent(
-    new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
-  );
+function getAction(fixture: ComponentFixture<unknown>): HTMLElement | null {
+  return fixture.nativeElement.querySelector('.mlv-avatar-group__action');
+}
+
+function dispatchKeydown(el: HTMLElement, key: string): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', {
+    key,
+    bubbles: true,
+    cancelable: true,
+  });
+  el.dispatchEvent(event);
+  return event;
+}
+
+/**
+ * What a browser does for Enter / Space on a native `<button>`: the keydown
+ * reaches every listener, and — unless one cancels it — the button then
+ * fires a `click` of its own. jsdom synthesises no click for a scripted key,
+ * so the spec dispatches it by hand, which is also what makes a handler that
+ * acts on the keydown **and** the click visible as a double emission (#299).
+ */
+function press(el: HTMLElement, key: 'Enter' | ' '): void {
+  const keydown = dispatchKeydown(el, key);
+  if (!keydown.defaultPrevented) {
+    el.click();
+  }
 }
 
 async function setupBasicFixture(): Promise<{
@@ -223,12 +249,18 @@ describe('MlvAvatarGroup', () => {
       );
     });
 
-    it('should have role="button" on the overflow wrapper', async () => {
+    it('should render the overflow counter as a native button', async () => {
       const { fixture, host } = await setupBasicFixture();
       host.members.set(MEMBERS_7);
       fixture.detectChanges();
       simulateWidth(136, fixture);
-      expect(getOverflow(fixture)?.getAttribute('role')).toBe('button');
+      const overflow = getOverflow(fixture) as HTMLElement;
+      expect(overflow.tagName).toBe('BUTTON');
+      expect(overflow.getAttribute('type')).toBe('button');
+      // A native button is a tab stop and a button of its own; the old
+      // `div` carried both by hand.
+      expect(overflow.hasAttribute('role')).toBe(false);
+      expect(overflow.hasAttribute('tabindex')).toBe(false);
     });
 
     it('should update overflow count when container width changes', async () => {
@@ -306,13 +338,61 @@ describe('MlvAvatarGroup', () => {
       expect(getHost(fixture).getAttribute('role')).toBe('group');
     });
 
-    it('should expose an interactive group as a tabbable button', async () => {
+    it('should keep role="group" on an interactive host and act through an inner button', async () => {
       const { fixture, host } = await setupBasicFixture();
       host.interactive.set(true);
       fixture.detectChanges();
+      simulateWidth(9999, fixture);
 
-      expect(getHost(fixture).getAttribute('role')).toBe('button');
-      expect(getHost(fixture).getAttribute('tabindex')).toBe('0');
+      const el = getHost(fixture);
+      expect(el.getAttribute('role')).toBe('group');
+      expect(el.getAttribute('aria-label')).toBe('3 members');
+      expect(el.hasAttribute('tabindex')).toBe(false);
+
+      const action = getAction(fixture) as HTMLElement;
+      expect(action.tagName).toBe('BUTTON');
+      expect(action.getAttribute('type')).toBe('button');
+      expect(action.getAttribute('aria-label')).toBe('3 members');
+      expect(action.querySelectorAll('.mlv-avatar-group__item')).toHaveLength(
+        3,
+      );
+    });
+
+    it('should render the group action and the overflow counter as sibling buttons', async () => {
+      const { fixture, host } = await setupBasicFixture();
+      host.interactive.set(true);
+      host.members.set(MEMBERS_7);
+      fixture.detectChanges();
+      simulateWidth(136, fixture);
+
+      const el = getHost(fixture);
+      const action = getAction(fixture) as HTMLElement;
+      const overflow = getOverflow(fixture) as HTMLElement;
+
+      // The host names the group and is no control itself.
+      expect(el.getAttribute('role')).toBe('group');
+      expect(el.getAttribute('aria-label')).toBe('7 members, 3 shown');
+      expect(el.hasAttribute('tabindex')).toBe(false);
+
+      // Two buttons, neither inside the other (#328): `button` has
+      // presentational children, so a nested one is flattened away for AT.
+      expect(action.tagName).toBe('BUTTON');
+      expect(overflow.tagName).toBe('BUTTON');
+      expect(action.contains(overflow)).toBe(false);
+      expect(overflow.contains(action)).toBe(false);
+      expect(action.getAttribute('aria-label')).toBe('7 members, 3 shown');
+      expect(overflow.getAttribute('aria-label')).toBe('+4 more members');
+      expect(action.querySelectorAll('.mlv-avatar-group__item')).toHaveLength(
+        3,
+      );
+    });
+
+    it('should render no action button for a group that is not interactive', async () => {
+      const { fixture } = await setupBasicFixture();
+      simulateWidth(9999, fixture);
+
+      expect(getAction(fixture)).toBeNull();
+      expect(getAvatarItems(fixture)).toHaveLength(3);
     });
 
     it('should keep an empty interactive group out of the tab order', async () => {
@@ -321,7 +401,11 @@ describe('MlvAvatarGroup', () => {
       host.members.set([]);
       fixture.detectChanges();
 
+      // An action with nothing to act on would be a named tab stop that does
+      // nothing, since `groupClick` is suppressed for an empty group.
       expect(getHost(fixture).hasAttribute('tabindex')).toBe(false);
+      expect(getAction(fixture)).toBeNull();
+      expect(getHost(fixture).querySelector('button')).toBeNull();
     });
 
     it('should compute aria-label with total count (no overflow)', async () => {
@@ -424,21 +508,76 @@ describe('MlvAvatarGroup', () => {
       overflow.click();
       expect(host.lastGroupClick).toBeNull();
     });
+
+    it('should emit groupClick once when the interactive action button is clicked', async () => {
+      const { fixture, host } = await setupBasicFixture();
+      host.interactive.set(true);
+      host.members.set(MEMBERS_7);
+      fixture.detectChanges();
+      simulateWidth(136, fixture);
+
+      (getAction(fixture) as HTMLElement).click();
+
+      expect(host.groupClickCount).toBe(1);
+      expect(host.lastGroupClick).toEqual(MEMBERS_7);
+      expect(host.overflowClickCount).toBe(0);
+    });
+
+    it('should still emit groupClick for a click elsewhere on an interactive host', async () => {
+      const { fixture, host } = await setupBasicFixture();
+      host.interactive.set(true);
+      fixture.detectChanges();
+      simulateWidth(9999, fixture);
+
+      getHost(fixture).click();
+
+      expect(host.groupClickCount).toBe(1);
+      expect(host.lastGroupClick).toEqual(MEMBERS_3);
+    });
+
+    it('should emit only overflowClick for the counter of an interactive group', async () => {
+      const { fixture, host } = await setupBasicFixture();
+      host.interactive.set(true);
+      host.members.set(MEMBERS_7);
+      fixture.detectChanges();
+      simulateWidth(136, fixture);
+
+      (getOverflow(fixture) as HTMLElement).click();
+
+      expect(host.overflowClickCount).toBe(1);
+      expect(host.lastOverflowClick).toEqual(MEMBERS_7.slice(3));
+      expect(host.groupClickCount).toBe(0);
+    });
   });
 
   describe('Keyboard interaction', () => {
-    it.each(['Enter', ' '])(
-      'should emit groupClick on %s when interactive',
+    it.each(['Enter', ' '] as const)(
+      'should emit groupClick once on %s on the interactive action button',
       async (key) => {
         const { fixture, host } = await setupBasicFixture();
         host.interactive.set(true);
         fixture.detectChanges();
+        simulateWidth(9999, fixture);
 
-        dispatchKeydown(getHost(fixture), key);
+        press(getAction(fixture) as HTMLElement, key);
 
+        expect(host.groupClickCount).toBe(1);
         expect(host.lastGroupClick).toEqual(MEMBERS_3);
       },
     );
+
+    it('should not act on an activation keydown on the host itself', async () => {
+      const { fixture, host } = await setupBasicFixture();
+      host.interactive.set(true);
+      fixture.detectChanges();
+
+      // The host is a group, not a control: only the inner button's own
+      // click — which the browser fires for Enter / Space — emits.
+      dispatchKeydown(getHost(fixture), 'Enter');
+      dispatchKeydown(getAction(fixture) as HTMLElement, ' ');
+
+      expect(host.groupClickCount).toBe(0);
+    });
 
     it('should ignore activation keys when not interactive', async () => {
       const { fixture, host } = await setupBasicFixture();
@@ -448,39 +587,34 @@ describe('MlvAvatarGroup', () => {
       expect(host.lastGroupClick).toBeNull();
     });
 
-    it('should emit overflowClick on Enter on overflow element', async () => {
-      const { fixture, host } = await setupBasicFixture();
-      host.members.set(MEMBERS_7);
-      fixture.detectChanges();
-      simulateWidth(136, fixture);
-      const overflow = getOverflow(fixture) as HTMLElement;
-      dispatchKeydown(overflow, 'Enter');
-      expect(host.lastOverflowClick).toEqual(MEMBERS_7.slice(3));
-    });
+    it.each(['Enter', ' '] as const)(
+      'should emit overflowClick once on %s on the overflow button',
+      async (key) => {
+        const { fixture, host } = await setupBasicFixture();
+        host.members.set(MEMBERS_7);
+        fixture.detectChanges();
+        simulateWidth(136, fixture);
 
-    it('should emit overflowClick on Space on overflow element', async () => {
-      const { fixture, host } = await setupBasicFixture();
-      host.members.set(MEMBERS_7);
-      fixture.detectChanges();
-      simulateWidth(136, fixture);
-      const overflow = getOverflow(fixture) as HTMLElement;
-      dispatchKeydown(overflow, ' ');
-      expect(host.lastOverflowClick).toEqual(MEMBERS_7.slice(3));
-    });
+        press(getOverflow(fixture) as HTMLElement, key);
 
-    it('should prevent default on Space keydown (avoid page scroll)', async () => {
+        expect(host.overflowClickCount).toBe(1);
+        expect(host.lastOverflowClick).toEqual(MEMBERS_7.slice(3));
+        expect(host.groupClickCount).toBe(0);
+      },
+    );
+
+    it('should leave the overflow keydown to the native button', async () => {
       const { fixture, host } = await setupBasicFixture();
       host.members.set(MEMBERS_7);
       fixture.detectChanges();
       simulateWidth(136, fixture);
-      const overflow = getOverflow(fixture) as HTMLElement;
-      const spaceEvent = new KeyboardEvent('keydown', {
-        key: ' ',
-        bubbles: true,
-        cancelable: true,
-      });
-      overflow.dispatchEvent(spaceEvent);
-      expect(spaceEvent.defaultPrevented).toBe(true);
+
+      // No keydown handler: the button's own click is the one emission, and
+      // a native button scrolls nothing on Space, so nothing is cancelled.
+      const space = dispatchKeydown(getOverflow(fixture) as HTMLElement, ' ');
+
+      expect(space.defaultPrevented).toBe(false);
+      expect(host.overflowClickCount).toBe(0);
     });
   });
 
@@ -539,14 +673,101 @@ describe('MlvAvatarGroup', () => {
 });
 
 /**
+ * The member popup opens on hover and focus of the `+N` counter and has no
+ * backdrop, so it is dismissed by a document-level click listener. The
+ * counter is a native `<button>`: Enter / Space on it fire a `click`, and a
+ * click on the counter would count as "outside" the panel unless the popup
+ * lists the counter in `dismissExcludeElements` — activating the focused
+ * counter would then collapse the preview it just announced as expanded, and
+ * a second press would never bring it back (#328 review F1).
+ */
+describe('MlvAvatarGroup member popup — activation keeps it open', () => {
+  let overlayContainer: OverlayContainer;
+
+  afterEach(() => overlayContainer?.ngOnDestroy());
+
+  /** Waits for the deferred (`setTimeout(0)`) document click listener. */
+  const nextMacrotask = (): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, 5));
+
+  async function setupOverflowing(): Promise<{
+    fixture: ComponentFixture<BasicTestHost>;
+    host: BasicTestHost;
+    counter: HTMLElement;
+  }> {
+    const { fixture, host } = await setupBasicFixture();
+    overlayContainer = TestBed.inject(OverlayContainer);
+    host.members.set(MEMBERS_7);
+    fixture.detectChanges();
+    simulateWidth(136, fixture);
+    await fixture.whenStable();
+    return { fixture, host, counter: getOverflow(fixture) as HTMLElement };
+  }
+
+  async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await nextMacrotask();
+  }
+
+  it.each(['Enter', ' '] as const)(
+    'keeps the popup expanded when %s activates the focused counter',
+    async (key) => {
+      const { fixture, host, counter } = await setupOverflowing();
+
+      counter.focus();
+      await settle(fixture);
+      expect(counter.getAttribute('aria-expanded')).toBe('true');
+
+      press(counter, key);
+      fixture.detectChanges();
+      press(counter, key);
+      fixture.detectChanges();
+
+      expect(counter.getAttribute('aria-expanded')).toBe('true');
+      expect(host.overflowClickCount).toBe(2);
+    },
+  );
+
+  it('keeps the hover-opened popup expanded on a pointer click on the counter', async () => {
+    const { fixture, host, counter } = await setupOverflowing();
+
+    counter.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+    await settle(fixture);
+    expect(counter.getAttribute('aria-expanded')).toBe('true');
+
+    counter.click();
+    fixture.detectChanges();
+
+    expect(counter.getAttribute('aria-expanded')).toBe('true');
+    expect(host.overflowClickCount).toBe(1);
+  });
+
+  it('still closes the popup on a click outside the counter and the panel', async () => {
+    const { fixture, counter } = await setupOverflowing();
+
+    counter.focus();
+    await settle(fixture);
+    expect(counter.getAttribute('aria-expanded')).toBe('true');
+
+    document.body.click();
+    fixture.detectChanges();
+
+    expect(counter.getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
+/**
  * Accessibility sweep.
  *
- * The group's markup is not one shape but four, and three of them only exist
- * in an overflowing group: the host swaps `role="group"` for `role="button"`
- * (plus a tab stop) under `interactive`, the `+N` counter is a second,
- * separately-named `role="button"` tab stop, and the member popup — a
+ * The group's markup is not one shape but several, and most of them only
+ * exist in some state: under `interactive` the visible avatars move into an
+ * inner action `<button>` inside the `role="group"` host, an overflowing
+ * group adds the `+N` counter as a second, separately-named `<button>` —
+ * beside the action button, never inside it (#328) — and the member popup, a
  * `role="list"` portaled into the CDK overlay container, outside
- * `fixture.nativeElement` entirely — only exists while open. A sweep of the
+ * `fixture.nativeElement` entirely, only exists while open. A sweep of the
  * default render sees none of that, so each is swept in the state that
  * produces it.
  */
@@ -578,12 +799,40 @@ describe('MlvAvatarGroup accessibility', () => {
     simulateWidth(9999, fixture);
     await fixture.whenStable();
 
-    // State: the host is now a named, tabbable `role="button"` — the shape
-    // `aria-allowed-attr` / `aria-required-attr` judge differently from a group.
+    // State: the host stays a named group and the avatars sit inside a named
+    // action button — the one tab stop.
     const el = getHost(fixture);
-    expect(el.getAttribute('role')).toBe('button');
-    expect(el.getAttribute('tabindex')).toBe('0');
+    expect(el.getAttribute('role')).toBe('group');
+    expect(el.hasAttribute('tabindex')).toBe(false);
     expect(el.getAttribute('aria-label')).toBe('3 members');
+    expect(getAction(fixture)?.tagName).toBe('BUTTON');
+    expect(getAction(fixture)?.getAttribute('aria-label')).toBe('3 members');
+
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+  });
+
+  it('has no axe violations for an interactive group with the +N counter', async () => {
+    const { fixture, host } = await setupBasicFixture();
+    overlayContainer = TestBed.inject(OverlayContainer);
+    host.interactive.set(true);
+    host.members.set(MEMBERS_7);
+    fixture.detectChanges();
+    simulateWidth(136, fixture);
+    await fixture.whenStable();
+
+    // State (#328): the shape docs example 4 documents. Before, the counter
+    // was a `role="button"` inside a `role="button"` host, which raised
+    // `nested-interactive`; now the two are sibling buttons in a group.
+    const action = getAction(fixture) as HTMLElement;
+    const overflow = getOverflow(fixture) as HTMLElement;
+    expect(getHost(fixture).getAttribute('role')).toBe('group');
+    expect(getHost(fixture).getAttribute('aria-label')).toBe(
+      '7 members, 3 shown',
+    );
+    expect(action.tagName).toBe('BUTTON');
+    expect(overflow.tagName).toBe('BUTTON');
+    expect(action.contains(overflow)).toBe(false);
+    expect(getOverflowInitials(fixture)).toBe('+4');
 
     await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
   });
@@ -622,13 +871,12 @@ describe('MlvAvatarGroup accessibility', () => {
     simulateWidth(136, fixture);
     await fixture.whenStable();
 
-    // State: three visible avatars plus a named `role="button"` counter that
-    // is a tab stop of its own inside the group.
+    // State: three visible avatars plus a named counter `<button>` that is a
+    // tab stop of its own inside the group.
     const overflow = getOverflow(fixture) as HTMLElement;
     expect(getAvatarItems(fixture)).toHaveLength(3);
     expect(getOverflowInitials(fixture)).toBe('+4');
-    expect(overflow.getAttribute('role')).toBe('button');
-    expect(overflow.getAttribute('tabindex')).toBe('0');
+    expect(overflow.tagName).toBe('BUTTON');
     expect(overflow.getAttribute('aria-label')).toBeTruthy();
 
     await expectNoAxeViolations(fixture.nativeElement as HTMLElement);

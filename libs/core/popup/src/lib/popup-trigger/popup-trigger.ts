@@ -255,6 +255,10 @@ export class MlvPopupTrigger implements OnDestroy {
       fullscreen: popup.lockFullscreenForOpen(),
       hasBackdrop: popup.hasBackdrop() ?? !isHover,
       scrollStrategy: popup.scrollStrategy(),
+      // Forwarded as `MlvPopupContainer` does: without it the documented
+      // input was inert in standalone mode, and a backdrop-less popup took a
+      // click on its own trigger for a click outside.
+      dismissExcludeElements: popup.dismissExcludeElements(),
       onPositionChange: (change, direction) =>
         popup.updateArrowFromPosition(change.connectionPair, direction),
       onClose: () => {

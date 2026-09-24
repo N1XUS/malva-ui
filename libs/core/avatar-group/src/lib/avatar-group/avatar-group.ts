@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import type { MlvAvatarSize, MlvAvatarShape } from '@malva-ui/core/avatar';
@@ -66,8 +67,13 @@ const AVATAR_OVERLAP_PX: Record<MlvAvatarSize, number> = {
  * The visible count is calculated automatically based on the component's container width —
  * no manual `max` input is needed. When members overflow, an avatar-styled `+N` counter
  * is appended. Hovering or focusing the counter opens a popup listing every member.
- * Clicking anywhere on the host emits `groupClick`; clicking the `+N` counter also
- * emits `overflowClick`.
+ * Clicking anywhere on the host emits `groupClick`; clicking the `+N` counter
+ * emits `overflowClick` instead.
+ *
+ * The host is always a named `role="group"`. Under `interactive` the visible
+ * avatars sit inside an inner `<button>` (`.mlv-avatar-group__action`) that is
+ * the keyboard and assistive-technology route to `groupClick`, and the `+N`
+ * counter is a separate `<button>` beside it — never nested inside it (#328).
  *
  * The component fills its parent (uses `width: 100%` flex layout). Set a width or
  * `max-width` on the host to constrain the visible count.
@@ -89,6 +95,7 @@ const AVATAR_OVERLAP_PX: Record<MlvAvatarSize, number> = {
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    NgTemplateOutlet,
     MlvAvatar,
     MlvColorFromTextPipe,
     MlvPopup,
@@ -99,11 +106,9 @@ const AVATAR_OVERLAP_PX: Record<MlvAvatarSize, number> = {
     class: 'mlv-avatar-group',
     '[class]': '"mlv-avatar-group--size-" + size()',
     '[class.mlv-avatar-group--interactive]': 'interactive()',
-    '[attr.role]': 'interactive() ? "button" : "group"',
-    '[attr.tabindex]': 'interactive() && members().length > 0 ? 0 : null',
+    role: 'group',
     '[attr.aria-label]': '_hostAriaLabel()',
     '(click)': '_onHostClick()',
-    '(keydown)': '_onHostKeydown($event)',
   },
 })
 export class MlvAvatarGroup {
@@ -127,20 +132,29 @@ export class MlvAvatarGroup {
   readonly shape = input<MlvAvatarShape>('circle');
 
   /**
-   * When `true`, the group is exposed as a keyboard-operable button.
+   * When `true`, the visible avatars render inside an inner action
+   * `<button>` (`.mlv-avatar-group__action`, named like the group) — a tab stop
+   * that emits `groupClick` on Enter, Space and assistive-technology
+   * activation — and the host shows a pointer cursor. The host itself stays a
+   * `role="group"` and takes no tab stop, so the `+N` counter is a sibling
+   * button rather than one nested inside a button. An empty group renders no
+   * action button.
    */
   readonly interactive = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
   });
 
   /**
-   * Emits the full member array when the user clicks anywhere on the group host.
+   * Emits the full member array when the user clicks anywhere on the group
+   * host, or — under `interactive` — activates its inner action button. Not
+   * emitted for an empty group, nor for a click on the `+N` counter.
    */
   readonly groupClick = output<MlvAvatarGroupMember[]>();
 
   /**
-   * Emits the hidden (overflow) members when the user clicks the `+N` counter avatar.
-   * Event propagation is stopped before the host `groupClick` fires separately.
+   * Emits the hidden (overflow) members when the user activates the `+N`
+   * counter button — a click, Enter or Space. Propagation is stopped, so the
+   * host does not also emit `groupClick`.
    */
   readonly overflowClick = output<MlvAvatarGroupMember[]>();
 
@@ -202,6 +216,16 @@ export class MlvAvatarGroup {
   /** Whether the overflow counter avatar should render. */
   protected readonly _hasOverflow = computed(() => this._overflowCount() > 0);
 
+  /**
+   * Whether the visible avatars render inside the inner action button: an
+   * interactive group with at least one member. An empty group gets none,
+   * because `groupClick` is suppressed there and the button would be a named
+   * tab stop that does nothing.
+   */
+  protected readonly _actionable = computed(
+    () => this.interactive() && this.members().length > 0,
+  );
+
   /** Label shown inside the overflow counter avatar, e.g. `"+5"`. */
   protected readonly _overflowLabel = computed(
     () => `+${this._overflowCount()}`,
@@ -244,38 +268,27 @@ export class MlvAvatarGroup {
 
   // ── Event handlers ─────────────────────────────────────────────────────────
 
-  /** Handles click on the overflow counter avatar. */
+  /**
+   * Handles a click on the `+N` counter button — a pointer click, or the click
+   * the browser fires for Enter / Space on it, so no keydown handler is bound
+   * beside it (#299). Stops propagation so the host does not also emit
+   * `groupClick`.
+   */
   protected _onOverflowClick(event: MouseEvent): void {
     event.stopPropagation();
     this.overflowClick.emit(this._hiddenMembers());
   }
 
-  /** Handles keydown on the overflow counter avatar. */
-  protected _onOverflowKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    event.stopPropagation();
-    this.overflowClick.emit(this._hiddenMembers());
-  }
-
-  /** Handles click on the group host. */
+  /**
+   * Handles a click anywhere on the host. Under `interactive` this is also
+   * where the inner action button's click lands — the pointer's, or the one
+   * the browser fires for Enter / Space / assistive-technology activation —
+   * so the button binds no listener of its own and each activation emits
+   * once.
+   */
   protected _onHostClick(): void {
     if (this.members().length > 0) {
       this.groupClick.emit(this.members());
     }
-  }
-
-  /** Activates an interactive group with the standard button keys. */
-  protected _onHostKeydown(event: KeyboardEvent): void {
-    if (
-      !this.interactive() ||
-      this.members().length === 0 ||
-      (event.key !== 'Enter' && event.key !== ' ')
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    this.groupClick.emit(this.members());
   }
 }
