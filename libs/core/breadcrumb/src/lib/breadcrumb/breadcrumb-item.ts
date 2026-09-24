@@ -1,6 +1,8 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
+  inject,
   input,
   ViewEncapsulation,
 } from '@angular/core';
@@ -8,6 +10,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { MLV_BREADCRUMB } from './breadcrumb-token';
 
 /**
  * Individual breadcrumb item component.
@@ -21,6 +24,23 @@ import { coerceBooleanProperty } from '@angular/cdk/coercion';
  *   ancestor step that simply has nowhere to navigate to.
  *
  * The last item in the breadcrumb list should have `current` set to `true`.
+ *
+ * Declared directly in the content of `nav[mlvBreadcrumb]` — in the same
+ * template as the `<nav>`, `@for` / `@if` / `<ng-container>` included — every
+ * item but the last renders the breadcrumb's separator after its link: the
+ * consumer's `[mlvSeparator]` template, or the default chevron. A projected
+ * trail then reads exactly like a data-driven one. Anywhere else the item has
+ * no separator, because it finds the breadcrumb through DI and a content
+ * query, both of which follow the template it is declared in:
+ *
+ * - **Unsupported:** a wrapper component that renders the `<nav>` and
+ *   re-projects items passed to it through its own `<ng-content>` — the items
+ *   belong to the wrapper's parent template, so none gets a separator. Give
+ *   such a wrapper an `[items]` input and pass it on to the data-driven mode,
+ *   or keep the `<nav mlvBreadcrumb>` in the template that declares the items.
+ * - Do not mix shapes in one trail: separators are placed between
+ *   `<mlv-breadcrumb-item>`s only, so a trailing `<li mlvBreadcrumbItem>`
+ *   after them is not separated from the last one. Use one shape per trail.
  *
  * @example Basic usage
  * ```html
@@ -65,6 +85,9 @@ import { coerceBooleanProperty } from '@angular/cdk/coercion';
       <span class="mlv-breadcrumb__link mlv-breadcrumb__link--plain">
         <ng-container [ngTemplateOutlet]="content" />
       </span>
+    }
+    @if (_trailingSeparator(); as separator) {
+      <ng-container [ngTemplateOutlet]="separator" />
     }
     <ng-template #content><ng-content /></ng-template>
   `,
@@ -113,5 +136,25 @@ export class MlvBreadcrumbItem {
    */
   readonly disabled = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
+  });
+
+  /**
+   * @private The enclosing `nav[mlvBreadcrumb]`, resolved lexically; `null`
+   * for an item rendered outside one, which then renders no separator.
+   */
+  private readonly _breadcrumb = inject(MLV_BREADCRUMB, { optional: true });
+
+  /**
+   * @protected The breadcrumb's separator template when this item is followed
+   * by another crumb, otherwise `null`. The breadcrumb owns the template (one
+   * copy for both modes, honouring `[mlvSeparator]` and
+   * `hideSeparatorFromScreenReaders`); the item only decides whether a gap
+   * follows it, which is the one thing the data-driven `@for` knows from
+   * `$last` and a projected crumb has to ask for.
+   */
+  protected readonly _trailingSeparator = computed(() => {
+    const breadcrumb = this._breadcrumb;
+    if (!breadcrumb || breadcrumb._lastProjectedItem() === this) return null;
+    return breadcrumb._separatorTemplate() ?? null;
   });
 }

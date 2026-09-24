@@ -5,12 +5,14 @@ import {
   contentChild,
   contentChildren,
   ElementRef,
+  forwardRef,
   inject,
   input,
   viewChild,
   viewChildren,
   ViewEncapsulation,
 } from '@angular/core';
+import type { TemplateRef } from '@angular/core';
 import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import type { BooleanInput } from '@angular/cdk/coercion';
@@ -24,6 +26,8 @@ import {
 import { MlvList, MlvListItem, MlvListItemLink } from '@malva-ui/core/list';
 import { MlvBreadcrumbItem } from './breadcrumb-item';
 import { MlvBreadcrumbSeparator } from './breadcrumb-separator';
+import { MLV_BREADCRUMB } from './breadcrumb-token';
+import type { MlvBreadcrumbAccessor } from './breadcrumb-token';
 import type { MlvBreadcrumbEntry } from './breadcrumb.types';
 import { MLV_BREADCRUMB_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
 import {
@@ -59,11 +63,18 @@ interface BreadcrumbTrailSplit {
  *
  * Supports two usage modes:
  * 1. **Data-driven** — pass an array of `MlvBreadcrumbEntry` objects via `[items]`.
- * 2. **Projected** — nest `<mlv-breadcrumb-item>` elements directly.
+ * 2. **Projected** — nest `<mlv-breadcrumb-item>` elements directly (or native
+ *    `<li mlvBreadcrumbItem>`s — never inside an `<ol>` of your own; this
+ *    component renders the list). Use **one shape per trail**: separators are
+ *    placed between `<mlv-breadcrumb-item>`s only, so an `<li mlvBreadcrumbItem>`
+ *    after them is not separated from the last one. Declare the items in the
+ *    same template as the `<nav>`; a wrapper component re-projecting them
+ *    through its own `<ng-content>` is not supported (see `MlvBreadcrumbItem`).
  *
  * The separator can be customised by placing `<ng-template mlvSeparator>` inside
  * the `<nav>`. When no separator directive is present, a `LucideChevronRight` icon
- * is used as the default.
+ * is used as the default. Both modes render it after every crumb but the last:
+ * data-driven `<li>`s and projected `<mlv-breadcrumb-item>`s alike.
  *
  * @example Data-driven
  * ```html
@@ -109,13 +120,19 @@ interface BreadcrumbTrailSplit {
   styleUrl: './breadcrumb.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Published for projected `<mlv-breadcrumb-item>`s, which render the gap
+  // after themselves from this breadcrumb's separator template (#325). The
+  // token is internal and not exported from the barrel.
+  providers: [
+    { provide: MLV_BREADCRUMB, useExisting: forwardRef(() => MlvBreadcrumb) },
+  ],
   host: {
     class: 'mlv-breadcrumb',
     role: 'navigation',
     '[attr.aria-label]': '_i18n().label',
   },
 })
-export class MlvBreadcrumb {
+export class MlvBreadcrumb implements MlvBreadcrumbAccessor {
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_BREADCRUMB_I18N);
 
@@ -203,10 +220,28 @@ export class MlvBreadcrumb {
   protected readonly _separatorDef = contentChild(MlvBreadcrumbSeparator);
 
   /**
-   * @protected Projected `mlv-breadcrumb-item` elements from content.
-   * Used when the component is operated in projected mode instead of data-driven.
+   * @protected Projected `mlv-breadcrumb-item` elements from content, in
+   * document order — `@for` / `@if` blocks and `<ng-container>` wrappers
+   * included. Used when the component is operated in projected mode instead
+   * of data-driven, to tell which crumb is last.
    */
   protected readonly _projectedItems = contentChildren(MlvBreadcrumbItem);
+
+  /**
+   * @internal The separator template both modes stamp — declared once in
+   * `breadcrumb.html` as `#separator`. Read by projected crumbs through
+   * `MLV_BREADCRUMB`; see {@link MlvBreadcrumbAccessor._separatorTemplate}.
+   */
+  readonly _separatorTemplate = viewChild<TemplateRef<unknown>>('separator');
+
+  /**
+   * @internal The last projected crumb, the one with no separator after it.
+   * See {@link MlvBreadcrumbAccessor._lastProjectedItem}.
+   */
+  readonly _lastProjectedItem = computed<MlvBreadcrumbItem | undefined>(() => {
+    const items = this._projectedItems();
+    return items[items.length - 1];
+  });
 
   /** @protected Ellipsis trigger used to restore focus after keyboard close. */
   protected readonly _overflowTriggerRef =

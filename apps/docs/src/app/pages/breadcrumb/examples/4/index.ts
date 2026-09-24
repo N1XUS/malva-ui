@@ -44,30 +44,25 @@ import {
           style="color: var(--mlv-text-secondary); font-size: var(--mlv-typography-body-s-size); margin-bottom: 0.5rem;"
         >
           Using <code>[mlvBreadcrumbItem]</code> attribute directive on a native
-          <code>&lt;li&gt;</code>:
+          <code>&lt;li&gt;</code> — no <code>&lt;ol&gt;</code> of your own; the
+          breadcrumb renders the list:
         </p>
         <nav mlvBreadcrumb>
-          <ol class="mlv-breadcrumb__list">
-            <li mlvBreadcrumbItem>
-              <a class="mlv-breadcrumb__link" href="/">Home</a>
-              <span class="mlv-breadcrumb__separator" aria-hidden="true"
-                >›</span
-              >
-            </li>
-            <li mlvBreadcrumbItem>
-              <a class="mlv-breadcrumb__link" href="/components">Components</a>
-              <span class="mlv-breadcrumb__separator" aria-hidden="true"
-                >›</span
-              >
-            </li>
-            <li mlvBreadcrumbItem>
-              <span
-                class="mlv-breadcrumb__link mlv-breadcrumb__link--current"
-                aria-current="page"
-                >Breadcrumb</span
-              >
-            </li>
-          </ol>
+          <li mlvBreadcrumbItem>
+            <a class="mlv-breadcrumb__link" href="/">Home</a>
+            <span class="mlv-breadcrumb__separator" aria-hidden="true">›</span>
+          </li>
+          <li mlvBreadcrumbItem>
+            <a class="mlv-breadcrumb__link" href="/components">Components</a>
+            <span class="mlv-breadcrumb__separator" aria-hidden="true">›</span>
+          </li>
+          <li mlvBreadcrumbItem>
+            <span
+              class="mlv-breadcrumb__link mlv-breadcrumb__link--current"
+              aria-current="page"
+              >Breadcrumb</span
+            >
+          </li>
         </nav>
       </div>
     </div>
