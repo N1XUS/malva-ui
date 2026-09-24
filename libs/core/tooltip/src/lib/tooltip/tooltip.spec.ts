@@ -9,8 +9,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import type { OverlayRef } from '@angular/cdk/overlay';
-import { Overlay, OverlayContainer } from '@angular/cdk/overlay';
+import { Overlay, OverlayContainer, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -26,7 +25,7 @@ import {
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvTooltip } from './tooltip';
-import type { MlvTooltipPlacement } from './tooltip.types';
+import type { MlvTooltipPlacement, MlvTooltipTone } from './tooltip.types';
 
 const nodeRequire = createRequire(import.meta.url);
 const sass = nodeRequire('sass') as typeof Sass;
@@ -1244,5 +1243,323 @@ describe('MlvTooltip — description', () => {
 
       await expectNoAxeViolations(document.body);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Inputs that change while the bubble is up (#346)
+//
+// `_show()` handed the panel its content, tone and arrow once, and nothing
+// forwarded a later value, so a tooltip bound to changing state ("Star" →
+// "Unstar") kept its old text for as long as the pointer stayed on the host —
+// for a mouse user, exactly when the change happens. `tooltipDisabled` and
+// empty text were read only when a show started, so turning either on left a
+// visible bubble up.
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvTooltip],
+  template: `
+    <button
+      id="live"
+      [mlvTooltip]="text()"
+      [tooltipTone]="tone()"
+      [tooltipArrow]="arrow()"
+      [tooltipDisabled]="disabled()"
+      [tooltipDelay]="delay()"
+    >
+      Star
+    </button>
+  `,
+})
+class LiveInputsHostComponent {
+  readonly text = signal('Star');
+  readonly tone = signal<MlvTooltipTone>('neutral');
+  readonly arrow = signal(true);
+  readonly disabled = signal(false);
+  readonly delay = signal(0);
+}
+
+describe('MlvTooltip — inputs that change while shown', () => {
+  let overlayContainer: OverlayContainer;
+  let fixture: ComponentFixture<LiveInputsHostComponent>;
+  let trigger: HTMLButtonElement;
+
+  const container = () => overlayContainer.getContainerElement();
+  /** Number of tooltip panes currently attached. */
+  const tooltips = () => container().querySelectorAll('.mlv-tooltip').length;
+  const bubble = () =>
+    container().querySelector('.mlv-tooltip') as HTMLElement | null;
+
+  async function flush(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  async function showOnHover(): Promise<void> {
+    trigger.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.runAllTimers();
+    await flush();
+  }
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    await TestBed.configureTestingModule({
+      imports: [LiveInputsHostComponent],
+    }).compileComponents();
+    overlayContainer = TestBed.inject(OverlayContainer);
+    fixture = TestBed.createComponent(LiveInputsHostComponent);
+    await flush();
+    trigger = (fixture.nativeElement as HTMLElement).querySelector(
+      '#live',
+    ) as HTMLButtonElement;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    fixture.destroy();
+    overlayContainer.ngOnDestroy();
+  });
+
+  it('updates the visible text in place when the content changes, matching the description', async () => {
+    await showOnHover();
+    const pane = container().querySelector('.cdk-overlay-pane');
+    expect(bubble()?.textContent?.trim()).toBe('Star');
+
+    fixture.componentInstance.text.set('Unstar');
+    await flush();
+
+    expect(bubble()?.textContent?.trim()).toBe('Unstar');
+    // Updated, not rebuilt: the same pane, and only one.
+    expect(container().querySelector('.cdk-overlay-pane')).toBe(pane);
+    expect(tooltips()).toBe(1);
+    // The bubble and the description (#321) say the same thing.
+    expect(describedByText(trigger)).toBe('Unstar');
+  });
+
+  // The side a pane sits on was chosen for its old size; a taller text can
+  // stop fitting there (measured in Chromium: it covered its own host until
+  // re-fitted). CDK measures the pane, so the re-fit has to come after the
+  // panel has rendered the new text — recording what the pane held at each
+  // `updatePosition()` pins both halves.
+  it('re-fits the pane once the new text has rendered', async () => {
+    await showOnHover();
+    const measured: string[] = [];
+    const updatePosition = OverlayRef.prototype.updatePosition;
+    const spy = vi
+      .spyOn(OverlayRef.prototype, 'updatePosition')
+      .mockImplementation(function (this: OverlayRef) {
+        measured.push(this.overlayElement.textContent?.trim() ?? '');
+        updatePosition.call(this);
+      });
+    try {
+      fixture.componentInstance.text.set('Unstar');
+      await flush();
+
+      expect(measured).toEqual(['Unstar']);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('repaints the tone while shown', async () => {
+    await showOnHover();
+    expect(bubble()?.classList).toContain('mlv-tooltip--tone-neutral');
+
+    fixture.componentInstance.tone.set('danger');
+    await flush();
+
+    expect(bubble()?.classList).toContain('mlv-tooltip--tone-danger');
+    expect(bubble()?.classList).not.toContain('mlv-tooltip--tone-neutral');
+  });
+
+  it('drops and restores the arrow while shown', async () => {
+    await showOnHover();
+    expect(container().querySelectorAll('.mlv-tooltip__arrow')).toHaveLength(1);
+
+    fixture.componentInstance.arrow.set(false);
+    await flush();
+    expect(container().querySelectorAll('.mlv-tooltip__arrow')).toHaveLength(0);
+    expect(bubble()?.classList).toContain('mlv-tooltip--no-arrow');
+
+    fixture.componentInstance.arrow.set(true);
+    await flush();
+    expect(container().querySelectorAll('.mlv-tooltip__arrow')).toHaveLength(1);
+    expect(bubble()?.classList).not.toContain('mlv-tooltip--no-arrow');
+  });
+
+  it('hides the bubble when tooltipDisabled turns true while shown', async () => {
+    await showOnHover();
+    expect(tooltips()).toBe(1);
+
+    fixture.componentInstance.disabled.set(true);
+    await flush();
+
+    expect(container().querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+
+    // Nothing is left half torn down: re-enabled, the next hover shows again.
+    fixture.componentInstance.disabled.set(false);
+    await flush();
+    expect(tooltips()).toBe(0);
+    await showOnHover();
+    expect(tooltips()).toBe(1);
+  });
+
+  it.each([
+    ['empty', ''],
+    ['whitespace-only', '   '],
+  ])(
+    'hides the bubble when the content turns %s while shown',
+    async (_label, text) => {
+      await showOnHover();
+      expect(tooltips()).toBe(1);
+
+      fixture.componentInstance.text.set(text);
+      await flush();
+
+      expect(container().querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+    },
+  );
+
+  it('does not show when tooltipDisabled turns true while a show is pending', async () => {
+    fixture.componentInstance.delay.set(300);
+    await flush();
+
+    trigger.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.componentInstance.disabled.set(true);
+    await flush();
+    vi.runAllTimers();
+    await flush();
+
+    expect(container().querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+  });
+
+  // Turning the tooltip off drops a pending show outright, rather than leaving
+  // it to be checked when the delay elapses: switched back on inside the delay,
+  // it must not pop up on its own, just as a bubble hidden the same way stays
+  // hidden until the next hover.
+  it.each([
+    [
+      'tooltipDisabled turns true',
+      (host: LiveInputsHostComponent) => host.disabled.set(true),
+      (host: LiveInputsHostComponent) => host.disabled.set(false),
+    ],
+    [
+      'the content turns empty',
+      (host: LiveInputsHostComponent) => host.text.set(''),
+      (host: LiveInputsHostComponent) => host.text.set('Star'),
+    ],
+  ])(
+    'drops a pending show when %s, even if it is undone inside the delay',
+    async (_label, turnOff, turnOn) => {
+      fixture.componentInstance.delay.set(300);
+      await flush();
+
+      trigger.dispatchEvent(new MouseEvent('mouseenter'));
+      turnOff(fixture.componentInstance);
+      await flush();
+      turnOn(fixture.componentInstance);
+      await flush();
+      vi.runAllTimers();
+      await flush();
+
+      expect(container().querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+    },
+  );
+
+  // The same path with the bubble up: the pointer returning from the panel to
+  // the host re-arms the show timer, so a bubble disabled and re-enabled inside
+  // the delay came straight back.
+  it('does not bring back a bubble disabled and re-enabled inside the delay of a re-armed show', async () => {
+    fixture.componentInstance.delay.set(300);
+    await flush();
+    await showOnHover();
+    expect(tooltips()).toBe(1);
+
+    trigger.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.componentInstance.disabled.set(true);
+    await flush();
+    expect(tooltips()).toBe(0);
+    fixture.componentInstance.disabled.set(false);
+    await flush();
+    vi.runAllTimers();
+    await flush();
+
+    expect(container().querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+  });
+
+  // A show armed while the text is empty is still dropped by disabling: the
+  // tooltip was already saying nothing, so what turns it off here is
+  // `tooltipDisabled` itself, not the text. Re-enabled inside the delay —
+  // before or after the text arrives — it must not pop up on its own.
+  it.each([
+    [
+      'the text arrives, then it is re-enabled',
+      async (host: LiveInputsHostComponent) => {
+        host.text.set('Star');
+        await flush();
+        host.disabled.set(false);
+        await flush();
+      },
+    ],
+    [
+      'it is re-enabled, then the text arrives',
+      async (host: LiveInputsHostComponent) => {
+        host.disabled.set(false);
+        await flush();
+        host.text.set('Star');
+        await flush();
+      },
+    ],
+  ])(
+    'drops a show armed while empty when disabled inside the delay, even if %s',
+    async (_label, undo) => {
+      fixture.componentInstance.text.set('');
+      fixture.componentInstance.delay.set(300);
+      await flush();
+
+      trigger.dispatchEvent(new MouseEvent('mouseenter'));
+      fixture.componentInstance.disabled.set(true);
+      await flush();
+      await undo(fixture.componentInstance);
+      vi.runAllTimers();
+      await flush();
+
+      expect(container().querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+    },
+  );
+
+  // Disabling drops the pending show; `_show()` refusing a disabled tooltip
+  // on its own is a second line behind that, pinned end to end here with the
+  // text arriving while the tooltip is still disabled.
+  it('does not show text that arrives while disabled during a pending show', async () => {
+    fixture.componentInstance.text.set('');
+    fixture.componentInstance.delay.set(300);
+    await flush();
+
+    trigger.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.componentInstance.disabled.set(true);
+    await flush();
+    fixture.componentInstance.text.set('Star');
+    await flush();
+    vi.runAllTimers();
+    await flush();
+
+    expect(container().querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+  });
+
+  it('still shows text that arrives inside the delay of a show armed while empty', async () => {
+    fixture.componentInstance.text.set('');
+    fixture.componentInstance.delay.set(300);
+    await flush();
+
+    trigger.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.componentInstance.text.set('Star');
+    await flush();
+    vi.runAllTimers();
+    await flush();
+
+    expect(tooltips()).toBe(1);
+    expect(bubble()?.textContent?.trim()).toBe('Star');
   });
 });

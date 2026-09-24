@@ -4,12 +4,14 @@ import {
   computed,
   DestroyRef,
   Directive,
+  effect,
   ElementRef,
   EnvironmentInjector,
   inject,
   input,
   NgZone,
   Renderer2,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AriaDescriber } from '@angular/cdk/a11y';
@@ -159,6 +161,12 @@ function resolvePlacementFromPosition(
  * and neither does a disabled tooltip. A host whose `aria-label` already
  * equals the text gets no description, since it would only repeat the name.
  *
+ * A visible bubble follows its inputs: new text, tone or arrow is applied in
+ * place (the pane re-fitted to the new text), and disabling the tooltip or
+ * emptying its text takes the bubble down — and drops a pending show, so
+ * undoing either inside the delay does not bring the bubble up on its own.
+ * `tooltipPlacement` and `tooltipDelay` are read when a show starts.
+ *
  * @example Basic usage
  * ```html
  * <button [mlvTooltip]="'Save changes'">Save</button>
@@ -237,6 +245,8 @@ export class MlvTooltip {
    * The tooltip text content.
    * This is also the directive selector binding: `[mlvTooltip]="'my text'"`.
    * Empty or whitespace-only text shows no tooltip and adds no description.
+   * A change while the tooltip is visible updates it in place; a change to
+   * empty hides it and drops a pending show.
    */
   readonly mlvTooltip = input.required<string>();
 
@@ -253,7 +263,8 @@ export class MlvTooltip {
   readonly tooltipDelay = input<number>(300);
 
   /**
-   * When `true`, suppresses the tooltip entirely.
+   * When `true`, suppresses the tooltip entirely — a visible one hides, and a
+   * pending show is dropped.
    * Supports attribute syntax: `<element tooltipDisabled>`.
    */
   readonly tooltipDisabled = input<BooleanInput, boolean | string>(false, {
@@ -327,6 +338,17 @@ export class MlvTooltip {
    */
   private readonly _message = computed(() => (this.mlvTooltip() ?? '').trim());
 
+  /**
+   * @private What the tooltip has to say right now: the trimmed text, or empty
+   * while `tooltipDisabled`. Empty means no bubble and no description, so
+   * `_show()` refuses to open on it and the description effect removes its
+   * id. The turning-off effect does not read it: disabling while the text is
+   * already empty leaves it at '', which does not notify.
+   */
+  private readonly _activeMessage = computed(() =>
+    this.tooltipDisabled() ? '' : this._message(),
+  );
+
   constructor() {
     this._destroyRef.onDestroy(() => {
       this._clearShowTimer();
@@ -353,11 +375,76 @@ export class MlvTooltip {
     // first change detection never describes its host, and inside
     // `@defer (hydrate on …)` the description arrives when the block hydrates.
     afterRenderEffect((onCleanup) => {
-      const message = this.tooltipDisabled() ? '' : this._message();
+      const message = this._activeMessage();
       if (!message) return;
       const host = this._elementRef.nativeElement;
       this._ariaDescriber.describe(host, message);
       onCleanup(() => this._ariaDescriber.removeDescription(host, message));
+    });
+
+    // Turn the tooltip off when it is disabled or its text empties (#346) —
+    // the same two conditions `_show()` refuses to open on. A bubble on screen
+    // comes down, and a pending show is dropped, not left to be checked when
+    // the delay elapses: switched back on inside the delay, the tooltip would
+    // otherwise pop up on its own, although a bubble taken down the same way
+    // stays down until the next hover. The two sources are read apart, not
+    // through `_activeMessage()`: disabling a tooltip whose text is still
+    // empty leaves that at '' and would not re-run this, so a show armed
+    // before the text loaded would survive the disable. While enabled it
+    // re-runs only when the trimmed text changes (`_message()` is a
+    // `computed`, so '' → '   ' is no change): a show armed while there was
+    // nothing to say stays armed, and text that loads inside the delay still
+    // shows. While disabled every re-run clears, which is the drop. The
+    // description is not touched: the effect above already follows the text
+    // and `tooltipDisabled`.
+    effect(() => {
+      const disabled = this.tooltipDisabled();
+      const message = this._message();
+      if (!disabled && message) return;
+      untracked(() => {
+        this._clearShowTimer();
+        this._hide();
+      });
+    });
+
+    // Keep a bubble already on screen in step with its inputs (#346). `_show()`
+    // hands the panel its content, tone and arrow when it attaches; this
+    // forwards every later value to that panel. Without it a tooltip bound to
+    // changing state ("Star" → "Unstar") kept its old text for as long as the
+    // pointer stayed on the host, which for a mouse user is exactly when it
+    // changes. A plain `effect` is enough: the panel is a root view of its
+    // own, attached to the application, and one marked dirty during a tick is
+    // refreshed again before that tick's render hooks run. `setInput()` skips
+    // an unchanged value, so what `_show()` just set is not written twice. On
+    // the server nothing is ever attached, so both effects are no-ops there.
+    effect(() => {
+      const content = this.mlvTooltip();
+      const tone = this.tooltipTone();
+      const showArrow = this.tooltipArrow();
+      untracked(() => {
+        const panel = this._componentRef;
+        if (!panel) return;
+        panel.setInput('content', content);
+        panel.setInput('tone', tone);
+        panel.setInput('showArrow', showArrow);
+      });
+    });
+
+    // Re-fit a visible bubble once its new text has rendered (#346). The pane
+    // sits in CDK's flex bounding box, so a new width or height keeps its
+    // anchor by itself, but the side it sits on was chosen for the old size
+    // and only `updatePosition()` chooses again. Measured in Chromium on a
+    // `top` tooltip over a host at y 215–243: text grown to 308px tall stayed
+    // on top and covered its own host (bubble y −6–302); re-fitted, it
+    // flipped below (249–557). `afterRenderEffect`, because CDK measures the
+    // pane and the pane must already hold the new text: it runs after the
+    // whole tick, the panel's own refresh included. Only the text is read —
+    // tone and arrow never change the pane's size (the arrow is absolutely
+    // positioned). `updatePosition()` re-applies the list the strategy
+    // already holds, mirrored in `_show()`, so the #180 clearance stands.
+    afterRenderEffect(() => {
+      this.mlvTooltip();
+      untracked(() => this._overlayRef?.updatePosition());
     });
   }
 
@@ -476,13 +563,16 @@ export class MlvTooltip {
 
   /**
    * @private Creates the CDK overlay and attaches `MlvTooltipPanel`. A no-op
-   * while the tooltip is already visible, and when the text is empty or
-   * whitespace-only — there is nothing to show. The host's description is not
-   * touched here: the constructor's `afterRenderEffect` registers it from the
-   * first render, whether or not the bubble is ever shown.
+   * while the tooltip is already visible, when the text is empty or
+   * whitespace-only — there is nothing to show — and while `tooltipDisabled`.
+   * Disabling or emptying drops a pending show before it gets here, so the
+   * check is defensive: a timer that somehow outlived a disable still opens
+   * nothing. The host's description is not touched here: the constructor's
+   * `afterRenderEffect` registers it from the first render, whether or not the
+   * bubble is ever shown.
    */
   private _show(): void {
-    if (this._overlayRef || !this._message()) return;
+    if (this._overlayRef || !this._activeMessage()) return;
 
     const placement = this.tooltipPlacement();
     // The pane is portaled to <body>, outside any `[dir]` scope the trigger
