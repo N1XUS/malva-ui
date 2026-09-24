@@ -179,6 +179,9 @@ export class MlvSegmented
 
   constructor() {
     super();
+    // Touched when focus leaves the whole control — not when a segment is
+    // chosen while focus stays on the track (#347, D22).
+    this._reportTouchOnFocusLeave({ enabled: () => !this._isLinkMode() });
 
     this._destroyRef.onDestroy(() => this._keyManager?.destroy());
 
@@ -264,12 +267,16 @@ export class MlvSegmented
     });
   }
 
-  /** Selects `item` (radio mode). Ignored while the group is disabled or readonly. */
+  /**
+   * Selects `item` (radio mode). Ignored while the group is disabled or
+   * readonly. Does **not** mark the control touched: that happens when focus
+   * leaves the control (#347), so choosing a segment never shows a validation
+   * error before the user has moved on.
+   */
   selectItem(item: MlvSegmentedItem): void {
     if (this.computedDisabled() || this.readonly() || item.isDisabled()) return;
     this.value.set(item.value());
     item.focus();
-    this._markTouched();
   }
 
   /** Keeps the key manager's active item in sync with the item that received DOM focus. */

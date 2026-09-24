@@ -236,6 +236,14 @@ libs/core/slider/src/
 - Measured in Chromium and WebKit (Playwright, LTR + RTL, comfortable + compact, horizontal + vertical, default / `2rem` / `1.75rem` thumb): with no text the host size, track size, thumb cross-axis offset (0) and thumb position are identical to `main` in every case but one — **vertical compact**, whose thumbs now sit on the rail (at value 40: `main` 39.1% of the rail, now 40%). There the density's `padding-block: 0.5rem` wins over the vertical `padding-block: 0`, and on `main` the thumbs resolved `bottom` against the host's padding box, 8px beyond each rail end, while the pointer maths reads the rail — so a press and the thumb it moved disagreed by up to 8px. With text the thumb stays centred on the track at the same fraction and clears the text at 0 / 40 / 100; a vertical slider's track shrinks by the text rows (the pointer maths follows the track rect).
 - The description / message take back `cursor: auto` and `user-select: text` from the host, and the host `pointerdown` handler ignores presses on them. **Not** `touch-action`: the effective value intersects down the tree, so the host's `none` still covers the text rows and a touch pan that starts on them does not scroll the page. Moving `none` onto the track and thumbs would make a drag that starts beside the 0.25rem rail — anywhere else in the 2.75rem host — pan instead; fixing it needs a dedicated hit layer (follow-up).
 
+## Touched (2026-09, #347)
+
+- Keyboard / focus: `touch` fires when focus leaves the slider, through the base's `_reportTouchOnFocusLeave()` (`libs-form-utils.md` § _Touched when focus leaves the control_). A move from one range thumb to the other does nothing. Before, each thumb's `(blur)` → `_onThumbBlur()` touched, so Tab from the start thumb to the end thumb touched mid-range. `_onThumbBlur` and both template bindings are gone.
+- Pointer: the drag end touches only if `_focusIsInsideControl()` is `false` at release.
+  - Thumb press → the thumb takes focus (Chromium, Firefox and WebKit measured) → no touch at release; touched waits for focus to leave, as for a keyboard user. Before, every drag end touched, so a thumb drag under a failing validator painted the rail `error` and set `aria-invalid` while the thumb still had focus.
+  - Track press → focus goes to a focusable ancestor or nowhere, never into the slider → touches at release. The focus-leave report never sees that gesture, so its end is the only "done" signal a mouse user gives.
+- Spec: `slider-touched.spec.ts` (thumb → thumb, leaving, thumb drag, track press).
+
 ## Field surface (2026-08)
 
 - The single-thumb slider's accessible name is now `ariaLabel() || label() || i18n.value` — the inherited `ariaLabel` input takes precedence over `label`. Range mode is unchanged: the two thumbs keep the i18n `minValue` / `maxValue` names, which stay unambiguous.

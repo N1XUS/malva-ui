@@ -76,7 +76,6 @@ import type {
     '[class.mlv-file-upload--compact]': 'compact()',
     '(dragleave)': '_onDragLeave($event)',
     '(drop)': '_onDrop($event)',
-    '(focusout)': '_markTouched()',
   },
 })
 export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
@@ -164,6 +163,9 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
 
   constructor() {
     super();
+    // Touched only when focus leaves the whole control, not on a move
+    // between its own parts (#347, D22).
+    this._reportTouchOnFocusLeave();
 
     // `dragover` is bound here rather than as a `(dragover)` host binding.
     // It is the one high-frequency event of the three: the browser fires it

@@ -255,6 +255,9 @@ export class MlvPinInput
 
   constructor() {
     super();
+    // Touched and unfocused only when focus leaves the whole row — never on
+    // the cell-to-cell move every typed digit makes (#347, D22).
+    this._reportTouchOnFocusLeave();
     effect(() => {
       const value = this.value() ?? '';
       const len = this.length();
@@ -407,18 +410,17 @@ export class MlvPinInput
   /**
    * @protected Selects the contents of a cell when it receives focus so the
    * next keystroke replaces the current character.
+   *
+   * A cell losing focus reports nothing on its own: the focus-leave report
+   * set up in the constructor (`_reportTouchOnFocusLeave`) clears
+   * `focused()` and emits `touch` only once focus leaves the row. Before
+   * #347 every cell blur did both, so the auto-advance after the first digit
+   * marked the field touched and painted a validated code red while the user
+   * was still typing it.
    */
   protected _onCellFocus(index: number): void {
     this.setFocused(true);
     this._cellAt(index)?.select();
-  }
-
-  /**
-   * @protected Emits the signal-forms touch output when a cell loses focus.
-   */
-  protected _onCellBlur(): void {
-    this.setFocused(false);
-    this._markTouched();
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

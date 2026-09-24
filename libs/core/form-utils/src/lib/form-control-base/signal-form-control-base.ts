@@ -2,12 +2,18 @@ import type { ModelSignal, Signal } from '@angular/core';
 import {
   computed,
   contentChild,
+  DestroyRef,
   Directive,
+  ElementRef,
   inject,
   input,
   output,
   signal,
 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import type { Subscription } from 'rxjs';
+import { filter, fromEvent, race, switchMap, take, timer } from 'rxjs';
 import type {
   FormCheckboxControl,
   FormValueControl,
@@ -134,9 +140,16 @@ export abstract class MlvSignalFormUiControlBase implements MlvFormControl {
   });
 
   /**
-   * Emits when the user finishes interacting with the field (blur) — the
-   * signal-forms replacement for the CVA `onTouched` callback; `[formField]`
-   * subscribes and marks the bound field touched.
+   * Emits when the user finishes interacting with the field — when focus
+   * leaves the control — the signal-forms replacement for the CVA `onTouched`
+   * callback; `[formField]` subscribes and marks the bound field touched.
+   *
+   * A control with several focusable parts that reports through
+   * {@link _reportTouchOnFocusLeave} (a pin input's cells, a radio group's
+   * radios, a range slider's thumbs) emits it when focus leaves the
+   * **control**, never on a move from one of its parts to another (#347).
+   * Controls that have not adopted it yet keep their own timing; see
+   * `docs/migrations/2026-09-touched-on-focus-leave.md` § 4.
    */
   readonly touch = output<void>();
 
@@ -374,6 +387,279 @@ export abstract class MlvSignalFormUiControlBase implements MlvFormControl {
   protected _markTouched(): void {
     this.touch.emit();
   }
+
+  /**
+   * @private Host element of the concrete control: the boundary
+   * {@link _focusLeavesControl} measures a focus move against.
+   */
+  private readonly _controlHost: HTMLElement = inject(ElementRef<HTMLElement>)
+    .nativeElement;
+
+  /**
+   * @protected Whether `event`, a `focusout` from an element of this control,
+   * takes focus out of the control altogether rather than to another of its
+   * own parts.
+   *
+   * The contract behind {@link touch} (owner decision D22, #347): a control
+   * reports touched when focus leaves the control or group, never on a move
+   * between its own parts. A pin input used to touch on every auto-advance,
+   * so a validated code turned red after its first digit.
+   *
+   * Read it synchronously, inside the listener. `relatedTarget` is the element
+   * receiving focus, already retargeted by the browser to this control's tree:
+   * focus entering a shadow root nested inside the control names that root's
+   * host, which is contained, and focus entering a shadow root elsewhere names
+   * an outside host. No `composedPath()` walk is needed, and the value is not
+   * reliable once dispatch ends.
+   *
+   * A `relatedTarget` that names no element counts as **leaving**. The browser
+   * sends that for a click on non-focusable space, `el.blur()`, a focused
+   * element removed from the document (Chromium) and a window or tab switch.
+   * Singling out the window switch would mean trusting
+   * `document.activeElement` during `focusout`, which reads `body` for every
+   * real focus move in Chromium, Firefox and WebKit (measured) and could not be
+   * measured for a window switch at all, so nothing relies on it. Counting the
+   * switch as leaving also keeps parity with every control that touches on a
+   * native `blur`, which a window switch fires, and with Angular's own value
+   * accessors. The one exception is a pointer press
+   * inside the control, which {@link _reportTouchOnFocusLeave} defers until
+   * the press has ended.
+   *
+   * @param event The `focusout` (or `blur`) event. Only its `relatedTarget`
+   * is read.
+   * @param containers Elements that belong to this control but sit outside
+   * its host, such as an overlay pane portaled to `<body>`. The host always
+   * counts.
+   * @returns `true` when focus moved to no element, or to one outside the
+   * host and every container.
+   */
+  protected _focusLeavesControl(
+    event: FocusEvent,
+    ...containers: readonly (Element | null | undefined)[]
+  ): boolean {
+    const next = event.relatedTarget;
+    if (!isFocusTargetNode(next)) return true;
+    if (this._controlHost.contains(next)) return false;
+    return !containers.some((container) => container?.contains(next));
+  }
+
+  /**
+   * @protected Whether focus is inside this control right now: the focused
+   * element of the host's own root (the document, or the shadow root the
+   * control renders in) is the host, one of its descendants, or inside one
+   * of `containers`.
+   *
+   * For a verdict taken **after** a focus move rather than during one — the
+   * end of a pointer gesture, when the question is whether the gesture left
+   * focus inside the control (a pressed slider thumb) or not (a press on its
+   * track). During a `focusout`, read {@link _focusLeavesControl} instead:
+   * the focused element is not reliable there.
+   *
+   * @param containers Elements that belong to this control but sit outside
+   * its host, such as an overlay pane portaled to `<body>`.
+   */
+  protected _focusIsInsideControl(
+    ...containers: readonly (Element | null | undefined)[]
+  ): boolean {
+    const host = this._controlHost;
+    const active =
+      (host.getRootNode() as Partial<DocumentOrShadowRoot>).activeElement ??
+      null;
+    if (!active) return false;
+    return (
+      host.contains(active) ||
+      containers.some((container) => container?.contains(active))
+    );
+  }
+
+  /**
+   * @protected Makes a control with several focusable parts report touched —
+   * and clear {@link focused} — once focus leaves the control, and never on a
+   * move between its own parts ({@link _focusLeavesControl}). Call it once,
+   * from the constructor: it injects, and it owns its listeners' lifetime.
+   *
+   * Listens for `focusout` on the host, where it bubbles from every part and
+   * fires for the host itself when the host is focusable. With
+   * `options.containers` it also listens on the document, for a `focusout`
+   * and a press whose target is inside a container: a container sits outside
+   * the host, so neither event reaches the host from there.
+   *
+   * **A pointer press inside the control defers the verdict.** `mousedown`
+   * on a part that is not focusable moves focus to the press target's nearest
+   * focusable ancestor — outside the host, that is an ancestor of the host
+   * (a `main[mlvPage]`, which is `tabindex="-1"`) or, with none, no element
+   * at all (Chromium, Firefox and WebKit measured). A click on an
+   * `mlv-radio`'s label blurs the focused radio that way at `mousedown` and
+   * focuses the chosen one at `click`, so reading that `focusout` alone
+   * touched a required group — and showed its error — while the user was still
+   * choosing. So a `focusout` to no element or to an ancestor of the host (or
+   * of a container), while a press that began inside the control is in
+   * progress, waits for the press to end (the `click`, a `pointercancel`, or
+   * {@link PRESS_END_FALLBACK_MS} after the `pointerup` for a press no click
+   * follows) and then one task more — the label's own focus move — and reports
+   * leaving only if focus is not back inside. Every other `focusout` is
+   * decided on the spot. The ancestor test does not cross a shadow boundary:
+   * inside a shadow root, an ancestor beyond it counts as leaving.
+   *
+   * @param options.enabled While it returns `false`, focus leaving reports
+   * nothing — for a mode in which the control is not a form control.
+   * @param options.containers Elements that belong to the control but sit
+   * outside its host, such as a portaled overlay pane. Read on every event.
+   * Focus moving between the host and a container stays inside the control;
+   * focus leaving a container for anywhere else leaves it. A container inside
+   * a shadow root is not seen from the document, which reads the shadow
+   * root's host as the target.
+   */
+  protected _reportTouchOnFocusLeave(
+    options: {
+      readonly enabled?: () => boolean;
+      readonly containers?: () => readonly (Element | null | undefined)[];
+    } = {},
+  ): void {
+    const enabled = options.enabled ?? (() => true);
+    const containers = options.containers ?? (() => []);
+    const host = this._controlHost;
+    const document = inject(DOCUMENT);
+    const destroyRef = inject(DestroyRef);
+
+    /** The press in progress, from `pointerdown` inside the control to its end. */
+    let press: Subscription | null = null;
+    /**
+     * A `focusout` to no element or to an ancestor of the host or a container
+     * arrived during {@link press}, and waits for the press to end.
+     */
+    let verdictPending = false;
+
+    const leave = (): void => {
+      if (!enabled()) return;
+      this.setFocused(false);
+      this._markTouched();
+    };
+
+    const onPressEnd = (): void => {
+      press = null;
+      if (!verdictPending) return;
+      verdictPending = false;
+      // One task after the `click`: its default action (a label focusing its
+      // control) has run by then.
+      timer(0)
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe(() => {
+          if (!this._focusIsInsideControl(...containers())) leave();
+        });
+    };
+
+    const onPressStart = (): void => {
+      press?.unsubscribe();
+      const capture = { capture: true, passive: true };
+      press = race(
+        fromEvent(document, 'click', capture),
+        fromEvent(document, 'pointercancel', capture),
+        fromEvent(document, 'pointerup', capture).pipe(
+          switchMap(() => timer(PRESS_END_FALLBACK_MS)),
+        ),
+      )
+        .pipe(take(1), takeUntilDestroyed(destroyRef))
+        .subscribe(onPressEnd);
+    };
+
+    const onFocusOut = (event: FocusEvent): void => {
+      const within = containers();
+      if (!this._focusLeavesControl(event, ...within)) return;
+      if (
+        press !== null &&
+        isPressFocusFixup(event.relatedTarget, [host, ...within])
+      ) {
+        verdictPending = true;
+        return;
+      }
+      leave();
+    };
+
+    // Passive: nothing here cancels the press.
+    const pressOptions = { capture: true, passive: true };
+
+    fromEvent(host, 'pointerdown', pressOptions)
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe(onPressStart);
+
+    fromEvent<FocusEvent>(host, 'focusout')
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe(onFocusOut);
+
+    if (options.containers === undefined) return;
+
+    // A container sits outside the host, so a press or a focus move inside it
+    // never reaches the host. Events inside the host are left to the two
+    // listeners above, so none is handled twice.
+    const inContainer = (event: Event): boolean => {
+      const target = event.target;
+      return (
+        isFocusTargetNode(target) &&
+        !host.contains(target) &&
+        containers().some((container) => container?.contains(target))
+      );
+    };
+
+    fromEvent(document, 'pointerdown', pressOptions)
+      .pipe(
+        filter((event) => inContainer(event)),
+        takeUntilDestroyed(destroyRef),
+      )
+      .subscribe(onPressStart);
+
+    fromEvent<FocusEvent>(document, 'focusout')
+      .pipe(
+        filter((event) => inContainer(event)),
+        takeUntilDestroyed(destroyRef),
+      )
+      .subscribe(onFocusOut);
+  }
+}
+
+/**
+ * How long after a `pointerup` a press inside a control stays in progress
+ * when no `click` follows it — a touch whose compatibility `click` is still
+ * to come, or a press released outside any common ancestor. Only delays the
+ * verdict of a deferred `focusout` (see
+ * `MlvSignalFormUiControlBase._reportTouchOnFocusLeave`); it never decides it.
+ */
+const PRESS_END_FALLBACK_MS = 500;
+
+/**
+ * Whether a focus event's `relatedTarget` is a node `Node.contains()` accepts.
+ * A duck check rather than `instanceof Node`, which fails for a node from
+ * another realm.
+ */
+function isFocusTargetNode(target: EventTarget | null): target is Node {
+  return (
+    target !== null && typeof (target as Partial<Node>).nodeType === 'number'
+  );
+}
+
+/**
+ * Whether a focus event's `relatedTarget` names no element: `null`, which is
+ * what browsers send, or the document itself, which jsdom sends for
+ * `el.blur()`. `9` is `Node.DOCUMENT_NODE`, spelled out so the check needs no
+ * `Node` global.
+ */
+function namesNoElement(target: EventTarget | null): boolean {
+  return !isFocusTargetNode(target) || target.nodeType === 9;
+}
+
+/**
+ * Whether a `focusout` from inside a control, during a pointer press that
+ * began inside it, is the browser's `mousedown` focus move to the press
+ * target's nearest focusable ancestor rather than a move elsewhere: focus went
+ * to no element, or to an ancestor of the control's host or of one of its
+ * containers (`roots`).
+ */
+function isPressFocusFixup(
+  target: EventTarget | null,
+  roots: readonly (Element | null | undefined)[],
+): boolean {
+  if (namesNoElement(target)) return true;
+  return roots.some((root) => !!root && (target as Node).contains(root));
 }
 
 /**

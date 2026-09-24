@@ -29,8 +29,17 @@ describe('MlvSlider — forms bindings matrix', () => {
     fixture.detectChanges();
   }
 
+  /**
+   * The user leaving the control: focus moves from the thumb to an element
+   * outside the slider. A thumb's own `blur` no longer reports touched — the
+   * host's `focusout` does, once focus has left the slider (#347).
+   */
   function blur(fixture: ComponentFixture<unknown>): void {
-    thumb(fixture).dispatchEvent(new FocusEvent('blur'));
+    thumb(fixture).focus();
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    outside.remove();
     fixture.detectChanges();
   }
 

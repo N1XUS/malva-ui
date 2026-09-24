@@ -25,6 +25,24 @@ function clickSecondItem(fixture: ComponentFixture<unknown>): void {
   fixture.detectChanges();
 }
 
+/**
+ * The user leaving the control: focus moves from a segment to an element
+ * outside it. That — not the click before it — is what reports touched
+ * (#347), so the matrix's "untouched before blur" step also pins that a click
+ * alone leaves the field untouched.
+ */
+function leaveControl(fixture: ComponentFixture<unknown>): void {
+  const item = (fixture.nativeElement as HTMLElement).querySelector(
+    'button[mlvSegmentedItem]',
+  ) as HTMLButtonElement;
+  item.focus();
+  const outside = document.createElement('button');
+  document.body.append(outside);
+  outside.focus();
+  outside.remove();
+  fixture.detectChanges();
+}
+
 describe('MlvSegmented — forms bindings matrix', () => {
   it('reactive: [formControl]', async () => {
     @Component({
@@ -68,8 +86,8 @@ describe('MlvSegmented — forms bindings matrix', () => {
       sample: 'a',
       interact: () => clickSecondItem(fixture),
       expectedAfterInteraction: 'b',
+      blur: () => leaveControl(fixture),
     });
-    expect(host.control.touched).toBe(true);
   });
 
   it('template-driven: ngModel', async () => {
@@ -113,8 +131,8 @@ describe('MlvSegmented — forms bindings matrix', () => {
       sample: 'a',
       interact: () => clickSecondItem(fixture),
       expectedAfterInteraction: 'b',
+      blur: () => leaveControl(fixture),
     });
-    expect(ngControl.touched).toBe(true);
   });
 
   it('signal forms: [formField]', async () => {
@@ -164,7 +182,7 @@ describe('MlvSegmented — forms bindings matrix', () => {
       sample: 'a',
       interact: () => clickSecondItem(fixture),
       expectedAfterInteraction: 'b',
+      blur: () => leaveControl(fixture),
     });
-    expect(host.fields.choice().touched()).toBe(true);
   });
 });

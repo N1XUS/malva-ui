@@ -94,7 +94,6 @@ function sameHsla(a: MlvHsla, b: MlvHsla): boolean {
   host: {
     class: 'mlv-color-picker',
     '[class.mlv-color-picker--disabled]': 'computedDisabled()',
-    '(focusout)': '_markTouched()',
   },
 })
 export class MlvColorPicker
@@ -231,6 +230,9 @@ export class MlvColorPicker
 
   constructor() {
     super();
+    // Touched only when focus leaves the whole control, not on a move
+    // between its own parts (#347, D22).
+    this._reportTouchOnFocusLeave();
     // The saturation/lightness plane is painted through the 2D canvas context,
     // which no server DOM implements — Angular's bundled domino throws
     // `NotYetImplemented` from `getContext`.
@@ -417,7 +419,14 @@ export class MlvColorPicker
       .subscribe(() => {
         this._canvasDragging.set(false);
         this._dragRect = null;
-        this._markTouched();
+        // The `preventDefault()` above cancels the press's compatibility
+        // `mousedown`, so a canvas drag moves no focus: whatever held focus
+        // before still holds it (Chromium, Firefox and WebKit measured). If
+        // that is one of the picker's own inputs, touched waits for focus to
+        // leave the picker (#347, D22); if focus is elsewhere, the
+        // focus-leave report never hears of this gesture and its end is the
+        // only "done" signal a mouse user gives.
+        if (!this._focusIsInsideControl()) this._markTouched();
       });
   }
 

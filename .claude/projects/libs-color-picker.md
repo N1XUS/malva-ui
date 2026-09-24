@@ -306,6 +306,14 @@ libs/core/color-picker/src/
 
 ---
 
+## Touched (2026-09, #347)
+
+- `mlv-color-picker` emits `touch` when focus leaves the panel, via the base's `_reportTouchOnFocusLeave()` (`libs-form-utils.md` § _Touched when focus leaves the control_). It used to be a host `(focusout)` → `_markTouched()`, which touched on every internal move: canvas → hue strip → mode tabs → HEX field.
+- Canvas drag: its `pointerdown` is `preventDefault()`ed, so the press moves no focus — whatever held focus keeps it (Chromium, Firefox and WebKit measured). The `pointerup` therefore touches only if `_focusIsInsideControl()` is `false`: focus elsewhere → touches at release (nothing else reports the gesture); focus on one of the picker's own inputs → touched waits for focus to leave. Before, every canvas `pointerup` touched.
+- Known gap: the mode tab group's overflow popup is portaled, so focus moving into it counts as leaving. Follow-up.
+- `mlv-color-picker-popup` is unchanged: its input → panel move and its Escape touch while focus stays inside. Follow-up.
+- Spec: `color-picker-touched.spec.ts`.
+
 ## Field surface (2026-08)
 
 - `ariaLabel` moved to `MlvSignalFormUiControlBase`; `MlvColorPickerPopup` no longer declares its own (same behaviour for the swatch/icon trigger). In `presentation="field"` mode it now also names the text input when no visible `label` is set, falling back to the i18n `colorPicker` string.

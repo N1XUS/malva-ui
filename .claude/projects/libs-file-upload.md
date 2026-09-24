@@ -80,9 +80,14 @@ host: {
   '[class.mlv-file-upload--compact]': 'compact()',
   '(dragleave)': '_onDragLeave($event)',
   '(drop)': '_onDrop($event)',
-  '(focusout)': '_markTouched()',
 }
 ```
+
+`touch` is emitted when focus leaves the control — the constructor calls the
+base's `_reportTouchOnFocusLeave()` (#347, `libs-form-utils.md` § _Touched when
+focus leaves the control_). It used to be a host `(focusout)` → `_markTouched()`,
+which touched on every move inside the zone too — browse button → a file's
+remove button. Spec: `file-upload-touched.spec.ts`.
 
 `dragover` is **not** a host binding. The browser fires it continuously while a
 drag hovers the zone, and an Angular listener binding notifies the

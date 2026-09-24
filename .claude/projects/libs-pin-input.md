@@ -105,7 +105,7 @@ Out-of-range values (≤0 or ≥`length`) are ignored. A single separator positi
 #### Forms Integration
 
 - `value: ModelSignal<string>` — splits external writes into positional cell state and emits the joined value after edits
-- `touch` — emitted from cell blur via `_markTouched()`
+- `touch` — emitted once focus leaves the **control**, by the base's `_reportTouchOnFocusLeave()` (#347, `libs-form-utils.md` § _Touched when focus leaves the control_). A move between cells, auto-advance included, neither touches nor clears `focused()`. Before #347 every cell `(inputBlur)` touched, so a validated code turned `error` after its first digit. `_onCellBlur` and the template's `(inputBlur)` binding are gone. Spec: `pin-input-touched.spec.ts`.
 - `disabled` — the field-bound signal is propagated directly to every nested `mlv-input`
 - Binding-matrix coverage verifies `[formControl]`, `ngModel`, and `[formField]` value/touched/disabled round trips
 
