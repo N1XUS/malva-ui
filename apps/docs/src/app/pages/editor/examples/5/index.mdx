@@ -14,6 +14,11 @@ inline SVG data URL through a demo-only URL policy. It never contacts a
 backend, uses random timing, or creates an object URL. All intervals and abort
 listeners are released on success, failure, cancellation, and teardown.
 
+The demo adapter returns `alt: file.name`. That is only a fallback: alternative
+text typed in the upload dialog wins, and an image marked decorative keeps an
+empty alt. Pasted and dropped images carry no typed alt, so they take the
+adapter's.
+
 Production applications should keep the default HTTP(S) URL policy or supply a
 strict host policy. `imageUploadSuccess`, `imageUploadFailure`, and
 `imageUploadCancelled` expose the terminal result; `editorError` also reports

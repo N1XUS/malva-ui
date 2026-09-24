@@ -257,6 +257,12 @@ export class MlvEditorImageUploadStatus {
   /** @private Last announced progress bucket for each active item. */
   private readonly _buckets = new Map<string, number>();
 
+  /**
+   * @private Upload whose progress or failure the live region currently
+   * reads, or `null` when it reads a terminal announcement (or nothing).
+   */
+  private _announcedId: string | null = null;
+
   /** @protected Whether status actions are inert. */
   protected readonly _disabled = computed(
     () => this._context.disabled() || this._context.readonly(),
@@ -279,23 +285,28 @@ export class MlvEditorImageUploadStatus {
 
       for (const item of pending) {
         if (item.status === 'failed') {
-          this._announcement.set(this._copy().failed);
+          this._announce(this._copy().failed, item.id);
           this._buckets.delete(item.id);
           continue;
         }
         const bucket = Math.floor(item.progress / 10) * 10;
         if (this._buckets.get(item.id) === bucket) continue;
         this._buckets.set(item.id, bucket);
-        this._announcement.set(this._progressLabel(bucket));
+        this._announce(this._progressLabel(bucket), item.id);
       }
     });
     const stopTerminalEvents = this._coordinator.onTerminal(
       ({ id, reason }) => {
         this._buckets.delete(id);
         if (reason === 'success' && !this._coordinator.hasDialogOwner(id)) {
-          this._announcement.set(this._fileI18n().uploadComplete);
+          this._announce(this._fileI18n().uploadComplete, null);
         } else if (reason === 'cancelled') {
-          this._announcement.set(this._copy().cancel);
+          this._announce(this._copy().cancel, null);
+        } else if (this._announcedId === id) {
+          // A dialog-owned success (the dialog announces it), a lifecycle
+          // abort or a removed failure: the ended upload's progress or
+          // failure text must not outlive it. Another upload's text stays.
+          this._announce('', null);
         }
       },
     );
@@ -308,6 +319,12 @@ export class MlvEditorImageUploadStatus {
       '{progress}',
       String(Math.floor(progress / 10) * 10),
     );
+  }
+
+  /** @private Writes the live region and records which upload it describes. */
+  private _announce(text: string, id: string | null): void {
+    this._announcement.set(text);
+    this._announcedId = id;
   }
 
   /** @protected Labels a remove action without exposing a bare icon. */

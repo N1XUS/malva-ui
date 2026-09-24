@@ -451,6 +451,27 @@ only a valid `MlvEditorImageUploadResult`; the default URL policy accepts
 absolute HTTP(S) URLs with a hostname and no credentials, whitespace, or
 control characters. A host can provide a stricter or alternate `urlPolicy`.
 
+**Alt and title precedence** (#448):
+
+- Author wins, uploader falls back. Alt typed in the dialog beats the result's
+  `alt`; so does the empty alt of an image marked decorative, which stays
+  `''` (WCAG 1.1.1 — the author states meaning, a file name rarely does).
+- A decorative image (author alt `''`) keeps **no title** — neither the
+  author's nor the result's. Chrome exposes `<img alt="" title="X">` as an
+  unnamed image described by "X"; WCAG H67 needs an empty alt and no title.
+  The dialog disables "Image title" while Decorative is on and clears the
+  draft when Decorative turns on.
+- Otherwise a non-empty typed title beats the result's `title`; an empty one
+  lets it apply (none inserted when the result has none).
+- Paste and drop carry no author metadata, so the result's `alt` / `title`
+  apply there unchanged. An uploader's own `alt: ''` is inserted as returned,
+  title included — return no `title` for an image meant to be decorative
+  (WCAG H67).
+- Direct `start(files, source, { alt, title })` callers: omit `alt` when the
+  author supplied none — `''` means decorative and drops `title`.
+- `imageUploadSuccess`'s `result` is the inserted metadata, author values
+  applied.
+
 The Malva dialog is opened through `MlvDialogService.open()` with `config.title`
 (the localized `uploadImage` string); the dialog component renders the
 `<mlv-dialog>` surface with `<mlv-dialog-header />` (title and `aria-labelledby`
@@ -458,6 +479,26 @@ from that config title, close button on), `<mlv-dialog-body>` and
 `<mlv-dialog-footer>`. It uses `MlvFileUpload`, requires alternative text unless the
 image is marked decorative, supports optional title text, reports progress,
 and restores focus on close. Pending UI supports cancel, retry, and removal.
+
+**Live regions.** The dialog and the editor-level
+`mlv-editor-image-upload-status` each keep a visually hidden polite region
+reading coarse 10% progress buckets. Terminal announcements:
+
+- Success: "Upload complete" in the status region for an upload with no live
+  dialog owner; a dialog-owned success is announced by the dialog, and the
+  status region **clears** instead.
+- Cancellation: "Cancel upload" in the status region for **every** upload,
+  dialog-owned included — the dialog announces it in its own region too.
+- A lifecycle abort or a removed failure clears the status region while it
+  still reads that upload's progress or failure text (another upload's text is
+  left alone); a failure removed from the dialog clears the dialog's region,
+  which stays open on a fresh draft.
+
+Before #448 the status region kept its last bucket after a dialog-owned
+success ("Uploading image: 70%" under the docs adapter: its 100% tick and
+resolution land in one task, and the zoneless render tick runs a macrotask
+after the upload's promise chain settles, so the 100 bucket never rendered).
+
 Explicit cancellation emits `imageUploadCancelled`; lifecycle aborts are
 silent. Success and failure emit their typed upload outputs, while failures
 also reach `editorError`. The stable error codes are `configuration`, `parse`,
@@ -1745,7 +1786,13 @@ isolation, including the unscaling of a zoomed layer.
 `editor-image-upload-coordinator.spec.ts` and
 `editor-image-upload.spec.ts` cover adapter precedence, all three sources,
 validation, safe result URLs, progress, placeholders, cancellation, retry,
-dialog focus and alternative-text rules, and replacement-extension omission.
+dialog focus and alternative-text rules, author-over-uploader alt / title
+precedence (a decorative empty alt with no title, the dialog clearing and
+disabling its title field, an empty title letting the uploader's apply), live
+regions clearing when their
+upload ends, and replacement-extension omission. The editor e2e "uploads one
+image through the docs adapter…" pins the typed alt and the cleared status
+region in Chromium.
 `editor-status.spec.ts` covers count updates, limits, custom-extension
 omission, and reusable status output. `editor-a11y.spec.ts`,
 `editor-focus.spec.ts`, `editor-ssr.spec.ts`, and the binding matrix cover the
