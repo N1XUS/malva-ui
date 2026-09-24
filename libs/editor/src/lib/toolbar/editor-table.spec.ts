@@ -598,6 +598,47 @@ describe('MlvEditorTable', () => {
     }
   });
 
+  it('disables the table trigger and blocks an open insertion for a readonly standalone context', async () => {
+    const toolbarFixture = TestBed.createComponent(StandaloneTableToolbarHost);
+    const instance = new Editor({
+      extensions: mlvEditorDefaultExtensions(),
+      content: '<p>Tables</p>',
+    });
+    toolbarFixture.componentInstance.editor.set(instance);
+    document.body.appendChild(toolbarFixture.nativeElement);
+    const settleToolbar = async (): Promise<void> => {
+      toolbarFixture.detectChanges();
+      await toolbarFixture.whenStable();
+      toolbarFixture.detectChanges();
+    };
+    try {
+      await settleToolbar();
+      const trigger = (
+        toolbarFixture.nativeElement as HTMLElement
+      ).querySelector<HTMLButtonElement>(
+        'mlv-editor-table button[aria-label="Table"]',
+      );
+      if (!trigger) throw new Error('Expected the standalone table trigger.');
+      trigger.click();
+      await settleToolbar();
+      const cell = tablePanel().querySelector(
+        'button[aria-label="Insert table: 3 × 3"]',
+      ) as HTMLButtonElement;
+      const before = instance.getJSON();
+
+      toolbarFixture.componentInstance.readonly.set(true);
+      await settleToolbar();
+      key(cell, 'Enter');
+      await settleToolbar();
+      expect(instance.getJSON()).toEqual(before);
+      expect(trigger.disabled).toBe(true);
+    } finally {
+      toolbarFixture.destroy();
+      (toolbarFixture.nativeElement as HTMLElement).remove();
+      instance.destroy();
+    }
+  });
+
   it('closes and blocks already-open insertion and contextual paths for readonly and disabled state', async () => {
     const trigger = tableTrigger();
     trigger.click();
@@ -614,7 +655,14 @@ describe('MlvEditorTable', () => {
     await settle();
     expect(editor().getJSON()).toEqual(beforeInsertion);
     await completeClose();
-    expect(trigger.disabled).toBe(true);
+    expect(
+      overlayContainer
+        .getContainerElement()
+        .querySelector('.mlv-editor-table__panel'),
+    ).toBeNull();
+    // A readonly editor renders no toolbar (#498): the trigger went with the
+    // band. Its own readonly gating is pinned through the standalone shell.
+    expect(trigger.isConnected).toBe(false);
 
     fixture.componentInstance.readonly.set(false);
     await settle();

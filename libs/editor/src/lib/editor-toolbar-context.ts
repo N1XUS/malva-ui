@@ -297,6 +297,20 @@ export const MLV_EDITOR_TOOLBAR_ROVING =
     'MLV_EDITOR_TOOLBAR_ROVING',
   );
 
+/**
+ * @internal Focuses the editor content with its selection. `view.focus()`
+ * alone moves no DOM focus while the view is not editable (`readonly`), so the
+ * contenteditable root is focused first; ProseMirror then writes the selection
+ * back to the DOM.
+ */
+export function mlvEditorFocusContent(editor: Editor): void {
+  if (editor.isDestroyed) return;
+  if (!editor.view.editable) {
+    (editor.view.dom as HTMLElement).focus({ preventScroll: true });
+  }
+  editor.view.focus();
+}
+
 interface MlvEditorOverlayEntry {
   readonly root: HTMLElement;
   close: () => void;
@@ -393,6 +407,35 @@ export class MlvEditorOverlayRegistry {
         // A third-party overlay must not keep the others open.
       }
     }
+  }
+
+  /**
+   * @internal A toolbar surface is going away because the editor turned
+   * `readonly` (#498): the docked band, which the next render removes, or the
+   * selection bubble's pane, which it hides. Asks every owned overlay except
+   * `surface` to close, like `closeOthers()`, and keeps focus in the editor:
+   * focus in `surface`, or in a popup (a registered root portaled into an
+   * overlay pane that `content` does not share; inside a dialog it does), moves
+   * to the content through `focusContent` first, while both still exist, so a
+   * closing popup finds focus outside its pane and hands nothing back to a
+   * trigger in `surface`. Focus anywhere else (the content, the status row,
+   * the AI review bar) stays where it is.
+   */
+  closeForReadonly(
+    surface: HTMLElement,
+    content: Element,
+    focusContent: () => void,
+  ): void {
+    const active = surface.ownerDocument.activeElement;
+    if (
+      active &&
+      (surface.contains(active) ||
+        (this.contains(active) &&
+          !(active.closest('.cdk-overlay-pane')?.contains(content) ?? true)))
+    ) {
+      focusContent();
+    }
+    this.closeOthers(surface);
   }
 
   /** @internal Removes listener resources without invoking overlay close callbacks. */

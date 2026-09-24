@@ -631,9 +631,11 @@ describe('MlvEditor formatting popovers', () => {
     await settle();
     await completeClose();
     expect(overlayPanel('.mlv-color-picker-popup__panel')).toBeNull();
-    expect(toolbarButton('Text color')?.disabled).toBe(true);
-    expect(toolbarButton('Highlight color')?.disabled).toBe(true);
-    expect(toolbarButton('Link')?.disabled).toBe(true);
+    // A readonly editor renders no toolbar (#498); the controls' own readonly
+    // gating is pinned through the standalone shell below.
+    expect(toolbarButton('Text color')).toBeNull();
+    expect(toolbarButton('Highlight color')).toBeNull();
+    expect(toolbarButton('Link')).toBeNull();
     expect(editor().getJSON()).toEqual(before);
 
     fixture.componentInstance.readonly.set(false);
@@ -643,6 +645,52 @@ describe('MlvEditor formatting popovers', () => {
     expect(toolbarButton('Highlight color')?.disabled).toBe(true);
     expect(toolbarButton('Link')?.disabled).toBe(true);
     expect(editor().getJSON()).toEqual(before);
+  });
+
+  it('disables the formatting controls and closes an open picker for a readonly standalone context', async () => {
+    const toolbarFixture = TestBed.createComponent(
+      StandaloneFormattingToolbarHost,
+    );
+    const instance = new Editor({
+      extensions: mlvEditorDefaultExtensions(),
+      content: '<p>standalone toolbar</p>',
+    });
+    toolbarFixture.componentInstance.editor.set(instance);
+    document.body.appendChild(toolbarFixture.nativeElement);
+    const settleToolbar = async (): Promise<void> => {
+      toolbarFixture.detectChanges();
+      await toolbarFixture.whenStable();
+      toolbarFixture.detectChanges();
+    };
+    const localButton = (label: string): HTMLButtonElement | null =>
+      (toolbarFixture.nativeElement as HTMLElement).querySelector(
+        `button[aria-label="${label}"]`,
+      );
+    try {
+      await settleToolbar();
+      const before = instance.getJSON();
+      instance.commands.setTextSelection({ from: 2, to: 11 });
+      localButton('Text color')?.click();
+      await settleToolbar();
+      expect(overlayPanel('.mlv-color-picker-popup__panel')).not.toBeNull();
+
+      toolbarFixture.componentInstance.readonly.set(true);
+      await settleToolbar();
+      overlayContainer
+        .getContainerElement()
+        .querySelector('.mlv-popup--leave')
+        ?.dispatchEvent(new Event('animationend', { bubbles: true }));
+      await settleToolbar();
+      expect(overlayPanel('.mlv-color-picker-popup__panel')).toBeNull();
+      expect(localButton('Text color')?.disabled).toBe(true);
+      expect(localButton('Highlight color')?.disabled).toBe(true);
+      expect(localButton('Link')?.disabled).toBe(true);
+      expect(instance.getJSON()).toEqual(before);
+    } finally {
+      toolbarFixture.destroy();
+      (toolbarFixture.nativeElement as HTMLElement).remove();
+      instance.destroy();
+    }
   });
 
   it('runs all three formatting controls from the standalone public toolbar context', async () => {

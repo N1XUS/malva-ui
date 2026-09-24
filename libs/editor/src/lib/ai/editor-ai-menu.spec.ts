@@ -299,7 +299,7 @@ describe('MlvEditorAiMenu', () => {
     expect(run).toHaveBeenCalledTimes(TRANSFORM_ITEMS.length);
   });
 
-  it('disables items while a transform is running and while readonly or disabled', async () => {
+  it('disables items while a transform is running, closes with the toolbar while readonly, and disables while disabled', async () => {
     const source = await withProvider(['Never lands']);
     source.gate();
     await openMenu();
@@ -328,23 +328,25 @@ describe('MlvEditorAiMenu', () => {
       ),
     ).toBe(true);
 
+    // A readonly editor renders no toolbar (#498), a projected consumer
+    // control included: the open menu goes with its trigger.
     fixture.componentInstance.readonly.set(true);
     await settle();
+    await completeClose();
+    expect(menuItems()).toEqual([]);
     expect(
-      menuItems().every(
-        (item) => item.getAttribute('aria-disabled') === 'true',
+      (fixture.nativeElement as HTMLElement).querySelector(
+        'mlv-editor-ai-menu',
       ),
-    ).toBe(true);
-    expect(trigger('AI assist').disabled).toBe(true);
+    ).toBeNull();
 
     fixture.componentInstance.readonly.set(false);
+    await settle();
+    expect(trigger('AI assist').disabled).toBe(false);
+
     fixture.componentInstance.disabled.set(true);
     await settle();
     expect(trigger('AI assist').disabled).toBe(true);
-
-    fixture.componentInstance.disabled.set(false);
-    await settle();
-    await closeMenu();
   });
 
   it('opens the custom prompt, focuses the instruction, and applies the drafted transform', async () => {
@@ -788,17 +790,16 @@ describe('MlvEditorAiMenu', () => {
       await new Promise((resolve) => setTimeout(resolve));
       await settle();
 
+      // Readonly takes the menu away with the toolbar (#498); an item grabbed
+      // before the flip runs nothing.
+      const ownItem = menuItem('Own behaviour');
       fixture.componentInstance.readonly.set(true);
       await settle();
-      expect(
-        menuItems().every(
-          (item) => item.getAttribute('aria-disabled') === 'true',
-        ),
-      ).toBe(true);
-      expect(trigger('AI assist').disabled).toBe(true);
-      menuItem('Own behaviour').click();
+      ownItem.click();
       await settle();
       expect(runs).toEqual([]);
+      await completeClose();
+      expect(menuItems()).toEqual([]);
 
       fixture.componentInstance.readonly.set(false);
       fixture.componentInstance.disabled.set(true);
@@ -807,6 +808,7 @@ describe('MlvEditorAiMenu', () => {
 
       fixture.componentInstance.disabled.set(false);
       await settle();
+      await openMenu();
       menuItem('Own behaviour').click();
       await settle();
       expect(runs).toEqual(['own']);

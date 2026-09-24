@@ -62,6 +62,8 @@ import type {
  * resolves no provider (presence), and its actions disable — without hiding —
  * while the editor is readonly or disabled or a transform is already running
  * (executability), matching the toolbar's presence-vs-executability rule.
+ * Projected into `mlv-editor`'s toolbar it is not rendered at all while the
+ * editor is `readonly`, which renders no toolbar (#498).
  */
 @Component({
   selector: 'mlv-editor-ai-menu',

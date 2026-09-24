@@ -264,9 +264,11 @@ toolbar placement_); they never dispatch a Tiptap transaction or change
 serialization, selection, or history. In an uncapped editor Fit keeps the
 current level for reflowable content, because only non-wrapping content has a
 width to fit.
-Readonly editors retain zoom in the docked bar (a floating editor shows no
-bubble while readonly), while disabled editors block closed and already-open
-zoom controls.
+A readonly `mlv-editor` renders no toolbar at all, so no zoom control either
+(#498): the level stays, and the host sets it through the public
+`MlvEditor.zoom` signal. `MlvEditorZoom` itself stays enabled for a readonly
+context (the standalone `MlvEditorToolbar` shell), while disabled editors block
+closed and already-open zoom controls.
 
 ## Toolbar modules
 
@@ -344,7 +346,8 @@ active Link extension policy; only a successful preflight builds the mutating
 chain, whose final command remains the real `setLink`. Policy rejection is
 therefore atomic and retains both the editor document and popup drafts. Escape,
 apply, remove, readonly, and disabled teardown restore the connected trigger
-without emitting a false editor blur.
+without emitting a false editor blur; inside `mlv-editor`, `readonly` takes the
+trigger away with the toolbar (#498), and focus returns to the content instead.
 
 `MlvEditorTable` is exported and occupies the documented slot between link and
 block insertion in both the built-in editor and standalone public toolbar. It
@@ -705,7 +708,10 @@ string | null` resolves 'Suggestion {index} of {count}' plus the
   menu blocked) so cancellation never destroys the focused element. Hides via
   `[hidden]` when no provider resolves; trigger and items disable — without
   hiding — while readonly/disabled or a transform is running
-  (presence-vs-executability rule). Menu and prompt panels register with the
+  (presence-vs-executability rule). Projected into `mlv-editor`'s toolbar
+  slot it is not rendered at all while `readonly`, like every consumer toolbar
+  control (#498, an assumption pending the owner); its open menu closes with
+  it. Menu and prompt panels register with the
   editor composite-overlay registry, so neither emits a false editor blur.
   The action list is host-ownable — the menu is a thin layer over
   `runTransform`, and the built-in kinds are only the default:
@@ -902,6 +908,58 @@ overscroll-behavior: contain`. A number is px, a string passes through
   content is re-attached. The bottom band sits directly after the viewport and
   before the upload status. A bottom bar draws its hairline with
   `border-block-start`.
+- **Readonly renders no toolbar** (#498 owner ruling, 2026-09-23; migration
+  `2026-09-editor-readonly-no-toolbar.md`). One switch, `_toolbarRendered()`
+  (`!readonly()`), gates both stamps: the bar's `@if (_barRendered() && …)`
+  (`_barRendered` = `'bar'` && `_toolbarRendered()`) and the bubble's
+  `@if (_toolbarRendered())` inside `ng-template[mlvEditorBubble]`. So while
+  `readonly` there is no `.mlv-editor__toolbar-band` and no `role="toolbar"`
+  anywhere, in either appearance or position, capped or not: the viewport
+  opens the surface, `.mlv-editor--toolbar-sticky` is not stamped
+  (`_stickyToolbar` reads `_barRendered()`), and the scroll margins fall back
+  to ProseMirror's defaults (5 / 0), because `_obscuredToolbarExtent()` reads
+  the sticky band. Consumer toolbars go with it — `[mlvEditorToolbar]`, the
+  start / end slots, `mlv-editor-ai-menu` — an **assumption** pending an owner
+  answer on #498; reversing it for consumer toolbars is local:
+  `_toolbarRendered` becomes `!readonly() || _hasToolbarDef()` (plus the
+  slot queries), the bubble's `_wanted()` / `_ownsContentKey()` and
+  `_editorAttributes()`' `aria-keyshortcuts` drop their own `readonly` gate,
+  the default groups inside the band then need their own readonly hiding, and
+  `_closeBarForReadonly()`'s `_barRendered()` early return must then key on
+  the removed region, not the band (else focus on a removed default control
+  drops to `<body>`). Cost of the assumption: a consumer overlay (`mlv-menu`,
+  `mlvPopupTrigger`, anything outside the registry) opened from a directly
+  projected slot control stays open with its trigger detached
+  (`aria-expanded="true"`, Escape → `<body>`); the migration's **Do:** is to
+  close it in the handler that flips `readonly`, or keep the trigger outside
+  the editor. Turning `readonly` on over a bar runs `_closeBarForReadonly()`
+  from the editor's constructor `effect` — registered on the parent view, so
+  it runs before this component's template (and the wrapper-stamped band
+  `@if`) refreshes — which calls the registry's internal
+  `closeForReadonly(band, content, focusContent)`: focus in the band, or in a
+  popup portaled into a pane the content does not share, moves to the content
+  first (internal `mlvEditorFocusContent()`: `dom.focus()` on a non-editable
+  view, then `view.focus()`, so the selection survives and no `blur` / `touch`
+  fires), then every other registered overlay is asked to close through
+  `closeOthers()`, which leaves each entry for its owner to release. The
+  bubble's `_closeForReadonly()` makes the same call with its pane. A disabled
+  editor is left to the disabled branch and takes no focus, even from a
+  projected consumer control (the editor does not disable it, so it can hold
+  focus in a disabled editor's band). Turning `readonly` off stamps the
+  toolbar again in its position; projected content re-attaches and the roving
+  tab stop is re-created. The standalone `MlvEditorToolbar` shell does not
+  read `readonly` and still renders for a readonly context, whose controls
+  disable (zoom stays enabled). The AI review bar is in the status row and
+  stays. Tests: `editor-readonly-toolbar.spec.ts` (no band across appearance ×
+  position × cap, both flips with projected-node identity and the tab stop,
+  sticky modifier and scroll sides with a stubbed 45px band, focus from the bar
+  and from the zoom popup to the content, a registered non-band popup closed
+  and kept registered, a simultaneous disabled flip, an already-disabled
+  editor taking no focus from a projected control, a consumer toolbar hidden,
+  axe while readonly per appearance × position); `editor-ssr.spec.ts` (a
+  readonly bar server-renders as nothing); e2e `editor-layout.spec.ts` (docs
+  example 6 in Chromium: band and its space gone, focus from a bar control to
+  the content, band back after).
 - **Floating: the selection bubble** (`toolbarAppearance="floating"`, #483).
   The internal `MlvEditorBubble` directive (`ng-template[mlvEditorBubble]`,
   `editor-bubble.ts`, not exported) renders the toolbar template into a CDK
@@ -917,16 +975,19 @@ overscroll-behavior: contain`. A number is px, a string passes through
     while the pointer is still selecting, during a block drag
     (`dragstart` → `dragend` / `drop`) and during IME composition, and while
     disabled or **`readonly`** (#498 ruling: a readonly editor renders no
-    toolbar; the docked bar's half is #498's own change). Turning `readonly`
+    toolbar; see _Readonly renders no toolbar_ above). Turning `readonly`
     on while shown (`_closeForReadonly()`, an `effect` that runs before the
-    render effect hides the pane) asks every other registered overlay to
-    close through the registry's internal `closeOthers(pane)` — unlike
-    `closeAll()` it leaves each entry for its owner to release, so the AI
-    review bar keeps its focus listeners — and moves focus from the bubble,
-    or from a popup portaled into an overlay pane the content does not share,
-    to the content first; `_focusContent()` calls `dom.focus()` itself on a
-    non-editable view, where `view.focus()` moves no DOM focus. Turning it
-    off over a selection shows the bubble again. The pane stays attached
+    render effect hides the pane) calls the registry's internal
+    `closeForReadonly(pane, content, focusContent)`: focus in the bubble, or
+    in a popup portaled into an overlay pane the content does not share,
+    moves to the content first, then `closeOthers(pane)` asks every other
+    registered overlay to close — unlike `closeAll()` it leaves each entry for
+    its owner to release, so the AI review bar keeps its focus listeners;
+    `_focusContent()` goes through `mlvEditorFocusContent()`, which calls
+    `dom.focus()` itself on a non-editable view, where `view.focus()` moves no
+    DOM focus. The pane stamps no toolbar while `readonly`, so its controls
+    are destroyed then and re-created on the way back. Turning it off over a
+    selection shows the bubble again. Otherwise the pane stays attached
     while hidden, so control state survives; hidden is the
     `.mlv-editor-bubble--hidden` class (`visibility: hidden`), never
     `[hidden]`, which the roving registry reads as "every control disabled".
@@ -1008,7 +1069,8 @@ overscroll-behavior: contain`. A number is px, a string passes through
     no `aria-keyshortcuts`.
 - **Sticky** (`toolbarSticky`). Applies to an **uncapped `'bar'`** only: the
   host stamps `.mlv-editor--toolbar-sticky` from `_stickyToolbar` =
-  `toolbarSticky && appearance === 'bar' && !capped`. A capped bar sits outside
+  `toolbarSticky && _barRendered() && !capped`, so not while `readonly`, when
+  no bar renders (#498). A capped bar sits outside
   its own scrolling viewport, so there is nothing to stick against, and the
   bubble follows the selection instead. The band is then `position: sticky`
   at `inset-block-start` / `inset-block-end:
@@ -1026,7 +1088,8 @@ var(--mlv-editor-toolbar-sticky-offset, 0)` with `z-index: var(--mlv-z-raised)`.
 - **Focus Not Obscured (WCAG 2.2 SC 2.4.11).** Live ProseMirror `scrollMargin` /
   `scrollThreshold` objects clear the obscured extent on the toolbar's side:
   band height plus offset for a sticky bar, 0 otherwise (a docked bar sits
-  outside the content, and the bubble follows the selection). ProseMirror
+  outside the content, the bubble follows the selection, and a `readonly`
+  editor has no band to clear). ProseMirror
   reads `value[side]` on every scroll, so one stable object follows density,
   configuration and CSS offsets. Both `editorProps` sites pass them: the live
   view would keep them through `setOptions` (ProseMirror's `setProps`
@@ -1753,8 +1816,10 @@ entry, the dim's opacity, the drag image's cap, tint and lack of shadow or
 scale, and the print hide list.
 
 `editor-toolbar.spec.ts` covers group order, labels, roving focus, active toggle
-semantics, template replacement and extension points, plus readonly/disabled
-mutation safety. `editor-zoom.spec.ts` covers the literal model API,
+semantics, template replacement and extension points, plus disabled mutation
+safety and readonly-context gating through the standalone shell (a readonly
+`mlv-editor` renders no toolbar, #498; `editor-readonly-toolbar.spec.ts`).
+`editor-zoom.spec.ts` covers the literal model API,
 explicit-default and bidirectional clamped synchronization, strictly positive
 custom presets, accessible popup keyboard/focus behavior, full-view safe-fit
 geometry, serialization/selection/history invariants, localized responsive

@@ -471,8 +471,8 @@ describe('MlvEditor selection bubble (toolbarAppearance="floating")', () => {
     content.focus();
     await select(1, 6);
     expect(shown()).toBe(true);
-    // The zoom popup stays usable while readonly, so only the bubble can
-    // close it here.
+    // Zoom stayed usable while readonly before #498, so nothing but the
+    // readonly flip closes its popup here.
     const trigger = bubble()?.querySelector<HTMLButtonElement>(
       '.mlv-editor-zoom button[aria-haspopup="dialog"]',
     );
@@ -480,14 +480,19 @@ describe('MlvEditor selection bubble (toolbarAppearance="floating")', () => {
     trigger.focus();
     trigger.click();
     await settle();
-    const popup = document.activeElement?.closest('.mlv-popup');
+    const popupFocus = document.activeElement;
+    const popup = popupFocus?.closest('.mlv-popup');
     expect(popup).not.toBeNull();
     expect(bubble()?.contains(popup ?? null)).toBe(false);
 
     host.readonly.set(true);
     await settle();
     expect(shown()).toBe(false);
-    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    // The pane stamps no toolbar while readonly (#498): the trigger and the
+    // popup go with it.
+    expect(trigger.isConnected).toBe(false);
+    expect(popupFocus?.isConnected).toBe(false);
+    expect(bubble()?.querySelector('.mlv-editor__toolbar-band')).toBeNull();
     expect(document.activeElement).toBe(content);
   });
 

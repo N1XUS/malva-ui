@@ -40,6 +40,7 @@ import {
   MLV_EDITOR_TOOLBAR_CONTEXT,
   MLV_EDITOR_TOOLBAR_REVISION,
   MLV_EDITOR_TOOLBAR_ROVING,
+  mlvEditorFocusContent,
 } from '../editor-toolbar-context';
 import {
   mlvEditorBubblePlacement,
@@ -104,7 +105,10 @@ const MLV_EDITOR_BUBBLE_FOCUSABLE =
  * different set of controls later; `MlvEditor` stamps its toolbar template.
  * The overlay is created once and kept attached, hidden by a pane modifier,
  * so the controls keep their state and their narrow-mode measurement between
- * appearances instead of being re-created per selection.
+ * appearances instead of being re-created per selection. The one exception is
+ * a `readonly` flip: `MlvEditor` stamps no toolbar into the template while
+ * `readonly` (#498), so the pane is empty then and the controls are
+ * re-created on the way back.
  *
  * Shown only while all of these hold: focus is in the editor composite, the
  * selection is non-empty (or Alt+F10 summoned it at the caret), no pointer is
@@ -688,37 +692,24 @@ export class MlvEditorBubble {
    * @private `readonly` just turned on. While the bubble is shown, every popup
    * the editor owns closes (their controls no longer apply, and the ones the
    * bubble opened would float beside a hidden pane), and focus in the bubble
-   * or in such a popup returns to the content before either goes away.
+   * or in such a popup returns to the content before either goes away. The
+   * docked bar goes through the same registry call (#498).
    */
   private _closeForReadonly(): void {
     const ref = this._overlayRef;
     const editor = this._context.editor();
     if (!ref || !this._shown || !editor || editor.isDestroyed) return;
-    const pane = ref.overlayElement;
-    const active = this._document.activeElement;
-    // A popup is a registered root portaled into an overlay pane of its own,
-    // which the content does not share (it does inside a dialog).
-    const inPopup =
-      active instanceof Element &&
-      !pane.contains(active) &&
-      this._overlays.contains(active) &&
-      !(active.closest('.cdk-overlay-pane')?.contains(editor.view.dom) ?? true);
-    if (inPopup) this._focusContent();
-    this._overlays.closeOthers(pane);
+    this._overlays.closeForReadonly(ref.overlayElement, editor.view.dom, () =>
+      this._focusContent(),
+    );
     this._sync();
   }
 
-  /**
-   * @private Focuses the content with its selection. `view.focus()` alone
-   * moves no DOM focus while the view is not editable (`readonly`).
-   */
+  /** @private Focuses the content with its selection, unless disabled. */
   private _focusContent(): void {
     const editor = this._context.editor();
     if (!editor || editor.isDestroyed || this._context.disabled()) return;
-    if (!editor.view.editable) {
-      (editor.view.dom as HTMLElement).focus({ preventScroll: true });
-    }
-    editor.view.focus();
+    mlvEditorFocusContent(editor);
   }
 
   /** @private The selection's client rect; a caret is zero-width. */
