@@ -53,6 +53,7 @@ import {
   MlvEditorToolbarRevision,
   MlvEditorToolbarRovingRegistry,
   MlvEditorUploadAbortRegistry,
+  mlvEditorFocusContent,
   type MlvEditorToolbarContext,
 } from '../editor-toolbar-context';
 import {
@@ -321,7 +322,8 @@ export class MlvEditor
    * Docked-bar placement. The DOM order follows it, so the Tab order matches
    * the visual order (WCAG 2.4.3). Changing it re-creates the toolbar view,
    * which closes any open toolbar popup. It does not move the floating
-   * selection bubble, which always prefers above the selection.
+   * selection bubble, which always prefers above the selection. While
+   * `readonly` no bar renders in either position (see `toolbarAppearance`).
    */
   readonly toolbarPosition = input<MlvEditorToolbarPosition>('top');
 
@@ -339,6 +341,14 @@ export class MlvEditor
    * that dismisses the bubble goes no further, so a dialog or drawer around
    * the editor closes only on the next one. Turning `readonly` on while the
    * bubble is shown hides it and closes its popups.
+   *
+   * A `readonly` editor renders **no toolbar in either appearance** (#498):
+   * no `.mlv-editor__toolbar-band`, and no space kept for one. Turning
+   * `readonly` on tears the bar down, closes every popup the editor owns and
+   * returns focus from the bar or such a popup to the content, with the
+   * selection intact; turning it off stamps the bar again in its position.
+   * A consumer toolbar (`[mlvEditorToolbar]`, `[mlvEditorToolbarStart]`,
+   * `[mlvEditorToolbarEnd]`) is stamped in the same band and goes with it.
    */
   readonly toolbarAppearance = input<MlvEditorToolbarAppearance>('bar');
 
@@ -350,8 +360,9 @@ export class MlvEditor
    * It applies only to an **uncapped** **bar**. A capped editor
    * (`height` / `maxHeight`) scrolls inside its own viewport, and the bar
    * sits outside that scroller, so there is nothing for it to stick against;
-   * the floating bubble follows the selection instead. In either case the
-   * input is ignored and `.mlv-editor--toolbar-sticky` is not stamped.
+   * the floating bubble follows the selection instead; and a `readonly`
+   * editor renders no bar at all (#498). In each case the input is ignored
+   * and `.mlv-editor--toolbar-sticky` is not stamped.
    */
   readonly toolbarSticky = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
@@ -423,15 +434,42 @@ export class MlvEditor
   );
 
   /**
+   * @protected Whether the editor stamps its toolbar at all, in either
+   * appearance: never while `readonly` (#498 owner ruling, "a readonly editor
+   * renders no toolbar"). The docked bar is torn down and the selection
+   * bubble's pane stays empty; both come back when `readonly` turns off.
+   *
+   * This is the one switch, and it covers a consumer toolbar too: a complete
+   * `[mlvEditorToolbar]` replacement and the `[mlvEditorToolbarStart]` /
+   * `[mlvEditorToolbarEnd]` slots are stamped inside the same band. That is
+   * an assumption the owner may reverse. Keeping a complete replacement while
+   * `readonly` is `!this.readonly() || this._hasToolbarDef()` here for the
+   * bar, and the default groups inside the band then need their own readonly
+   * hiding; `_closeBarForReadonly()`'s `_barRendered()` early return must
+   * then key on the removed region, not the band, or focus on a removed
+   * default control drops to `<body>`. The bubble also gates itself on
+   * `readonly` in `MlvEditorBubble._wanted()` / `_ownsContentKey()`, and
+   * `_editorAttributes()` drops `aria-keyshortcuts`.
+   */
+  protected readonly _toolbarRendered = computed(() => !this.readonly());
+
+  /**
+   * @protected Whether the docked bar is stamped before or after the
+   * viewport: the `'bar'` appearance while `_toolbarRendered()`. With it
+   * false no band exists, so nothing reserves space for one and no sticky
+   * extent is measured.
+   */
+  protected readonly _barRendered = computed(
+    () => this.toolbarAppearance() === 'bar' && this._toolbarRendered(),
+  );
+
+  /**
    * @protected Whether the docked bar is actually sticky: `toolbarSticky` on an
-   * uncapped `'bar'`. Drives `.mlv-editor--toolbar-sticky` and the caret
-   * scroll margin.
+   * uncapped bar that renders (not while `readonly`). Drives
+   * `.mlv-editor--toolbar-sticky` and the caret scroll margin.
    */
   protected readonly _stickyToolbar = computed(
-    () =>
-      this.toolbarSticky() &&
-      this.toolbarAppearance() === 'bar' &&
-      !this._capped(),
+    () => this.toolbarSticky() && this._barRendered() && !this._capped(),
   );
 
   /** Whether the mounted editor currently accepts document mutations. */
@@ -649,6 +687,10 @@ export class MlvEditor
       this._wasDisabled = disabled;
       if (readonly && !this._wasReadonly) {
         this._abortInFlightUploads();
+        // Constructor effect: registered on the parent view, so it runs
+        // before this component's template (and the wrapper-stamped band
+        // `@if`) refreshes; focus in the band or its popups can still move.
+        untracked(() => this._closeBarForReadonly());
       }
       this._wasReadonly = readonly;
 
@@ -1379,6 +1421,29 @@ export class MlvEditor
         element.setAttribute(name, value);
       }
     }
+  }
+
+  /**
+   * @private `readonly` just turned on over a docked bar, which this render
+   * tears down (#498). Every popup the editor owns closes, and focus in the
+   * band or in such a popup returns to the content first, through the same
+   * registry call the selection bubble makes. Called from the constructor
+   * effect, which is registered on the parent view, so it runs before this
+   * component's template (and the wrapper-stamped band `@if`) refreshes: the
+   * band and its focus are still there. A disabled editor is left alone, like
+   * the bubble's own focus return: it takes no focus, even from a projected
+   * consumer control, which the editor does not disable and which can hold
+   * focus in the band of a disabled editor.
+   */
+  private _closeBarForReadonly(): void {
+    if (this.toolbarAppearance() !== 'bar' || this._barRendered()) return;
+    if (this.computedDisabled()) return;
+    const band = this._toolbarBand()?.nativeElement;
+    const editor = this._editor();
+    if (!band || !editor || editor.isDestroyed) return;
+    this._overlayRegistry.closeForReadonly(band, editor.view.dom, () =>
+      mlvEditorFocusContent(editor),
+    );
   }
 
   /** @private Aborts registered upload work while preserving the document/editor instance. */

@@ -27,11 +27,13 @@ outside, so the switch is disabled while a height cap is selected.
 `toolbarAppearance="floating"` turns the toolbar into a **selection bubble**.
 It appears above a non-empty selection (below, when the window's or a capped
 scroller's edge leaves no room), follows it while the content scrolls, and
-hides on a bare caret, on blur, while dragging a block, during IME composition
-and while the editor is `readonly`. Press **Alt+F10** in the content to summon
-it at the caret and
+hides on a bare caret, on blur, while dragging a block and during IME
+composition. Press **Alt+F10** in the content to summon it at the caret and
 move focus into it, and **Escape** to dismiss it with the selection intact.
 `toolbarPosition` and `toolbarSticky` do not apply to it.
+
+A `readonly` editor renders no toolbar in either appearance: no bar, no
+bubble, and no space kept for either.
 
 Zoom reflows an uncapped editor, like browser zoom, and magnifies a capped one
 inside its own scroller.

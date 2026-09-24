@@ -20,6 +20,8 @@
         order, with no CSS `order`; into the selection bubble's overlay for
         the floating appearance (#483). Re-stamping re-creates the view, which
         closes an open toolbar popup; projected slot content is re-attached.
+        Neither stamps anything while `readonly` (#498): no band, no reserved
+        space; `_toolbarRendered()` is the one switch.
       -->
       <ng-template #toolbarTemplate>
         <div #toolbarBand class="mlv-editor__toolbar-band">
@@ -128,7 +130,7 @@
         </div>
       </ng-template>
 
-      @if (toolbarAppearance() === 'bar' && toolbarPosition() === 'top') {
+      @if (_barRendered() && toolbarPosition() === 'top') {
         <ng-container [ngTemplateOutlet]="toolbarTemplate" />
       }
 
@@ -138,12 +140,14 @@
           <mlv-editor-table-controls [layer]="view" />
         </div>
       </div>
-      @if (toolbarAppearance() === 'bar' && toolbarPosition() === 'bottom') {
+      @if (_barRendered() && toolbarPosition() === 'bottom') {
         <ng-container [ngTemplateOutlet]="toolbarTemplate" />
       }
       @if (toolbarAppearance() === 'floating') {
         <ng-template mlvEditorBubble [viewport]="viewport" [capped]="_capped()">
-          <ng-container [ngTemplateOutlet]="toolbarTemplate" />
+          @if (_toolbarRendered()) {
+            <ng-container [ngTemplateOutlet]="toolbarTemplate" />
+          }
         </ng-template>
       }
       <mlv-editor-image-upload-status />

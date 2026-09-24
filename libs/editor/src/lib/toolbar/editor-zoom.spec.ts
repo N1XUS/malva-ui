@@ -554,12 +554,33 @@ describe('MlvEditorZoom', () => {
     expect(proseMirror.style.transform).toBe('');
   });
 
-  it('keeps zoom available in readonly mode and disables it with the editor composite', async () => {
+  it('renders no zoom control while readonly but keeps the level, and disables it with the editor composite', async () => {
     const fixture = await createZoomHost();
     const host = fixture.componentInstance;
+    const editorHost = fixture.nativeElement.querySelector(
+      'mlv-editor',
+    ) as HTMLElement;
+    const zoomLevel = () =>
+      editorHost.style.getPropertyValue('--mlv-editor-zoom').trim();
+    host.zoom.set(140);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(zoomLevel()).toBe('1.4');
+
+    // A readonly editor renders no toolbar (#498): the control goes with it,
+    // the level it set stays.
     host.readonly.set(true);
     fixture.detectChanges();
+    await fixture.whenStable();
+    expect(zoomButtons(fixture)).toHaveLength(0);
+    expect(zoomLevel()).toBe('1.4');
+
+    host.readonly.set(false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(zoomButtons(fixture).length).toBeGreaterThan(0);
     expect(zoomButtons(fixture).every((button) => !button.disabled)).toBe(true);
+    expect(zoomLevel()).toBe('1.4');
 
     host.disabled.set(true);
     fixture.detectChanges();

@@ -1120,8 +1120,11 @@ describe('MlvEditor toolbar', () => {
     replacement.destroy();
   });
 
-  it('disables mutation controls for readonly and disabled editors', async () => {
-    const fixture = await createHost();
+  it('disables mutation controls for a readonly context and keeps view-only zoom', async () => {
+    // A readonly `mlv-editor` renders no toolbar (#498), so the controls meet
+    // a readonly context only through the standalone shell.
+    const editor = new Editor({ extensions: [StarterKit] });
+    const fixture = await createStandaloneToolbar(editor);
     fixture.componentInstance.readonly.set(true);
     fixture.detectChanges();
     expect(
@@ -1149,8 +1152,12 @@ describe('MlvEditor toolbar', () => {
         )
         .every((button) => !button.disabled),
     ).toBe(true);
+    fixture.destroy();
+    editor.destroy();
+  });
 
-    fixture.componentInstance.readonly.set(false);
+  it('disables mutation controls for a disabled editor', async () => {
+    const fixture = await createHost();
     fixture.componentInstance.disabled.set(true);
     fixture.detectChanges();
     expect(

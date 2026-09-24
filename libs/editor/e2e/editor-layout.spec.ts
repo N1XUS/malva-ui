@@ -6,6 +6,8 @@ import { editorManifest } from './editor.manifest';
 const LAYOUT_EXAMPLE = 12;
 /** `/editor` "Tables and independent view zoom" example (80 / 100 / 125 %). */
 const TABLE_ZOOM_EXAMPLE = 8;
+/** `/editor` "State and event boundary" example (readonly / disabled toggles). */
+const READONLY_EXAMPLE = 6;
 
 async function gotoExample(
   mlv: MlvE2ePage,
@@ -723,6 +725,51 @@ test.describe('Editor layout [/editor]', () => {
       'page',
     );
     expect(result.blockTop).toBeGreaterThanOrEqual(result.bandBottom - 0.5);
+  });
+
+  test('readonly removes the bar and its space, moves focus from it to the content, and restores it after', async ({
+    mlv,
+  }) => {
+    // #498: a readonly editor renders no toolbar.
+    const scope = await gotoExample(mlv, READONLY_EXAMPLE);
+    const editor = scope.locator('mlv-editor');
+    const band = editor.locator('.mlv-editor__toolbar-band');
+    const content = editor.locator('.ProseMirror');
+    // `element.click()` activates the toggle without moving focus, so focus is
+    // still on the toolbar control when the band goes away.
+    const toggleReadonly = () =>
+      scope
+        .getByRole('button', { name: /^Readonly:/ })
+        .evaluate((button: HTMLElement) => button.click());
+    const viewportOffset = () =>
+      editor.evaluate((host) => {
+        const surface = host.querySelector('.mlv-editor__surface') as Element;
+        const viewport = host.querySelector('.mlv-editor__viewport') as Element;
+        return (
+          viewport.getBoundingClientRect().top -
+          surface.getBoundingClientRect().top
+        );
+      });
+
+    await expect(band).toHaveCount(1);
+    const editableOffset = await viewportOffset();
+    expect(editableOffset).toBeGreaterThan(30);
+    // Undo / redo are natively disabled on a fresh document and take no focus.
+    const control = band.locator('button:enabled').first();
+    await control.focus();
+    await expect(control).toBeFocused();
+
+    await toggleReadonly();
+    await expect(band).toHaveCount(0);
+    await expect(editor.getByRole('toolbar')).toHaveCount(0);
+    await expect(content).toBeFocused();
+    // Only the surface's own border sits above the viewport now.
+    expect(await viewportOffset()).toBeLessThan(4);
+
+    await toggleReadonly();
+    await expect(band).toHaveCount(1);
+    await expect(editor.getByRole('toolbar')).toHaveCount(1);
+    expect(await viewportOffset()).toBeCloseTo(editableOffset, 0);
   });
 });
 
