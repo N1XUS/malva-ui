@@ -821,6 +821,11 @@ export class MlvSelect<T>
     viewChild<ElementRef<HTMLSelectElement>>('nativeSelect');
   /** @private Reference to the rendered dropdown panel component. */
   private readonly _dropdownPanel = viewChild(MlvDropdownPanel);
+  /**
+   * @private The dropdown popup — read by `_onPopupOpened` to know whether the
+   * open panel is a full-screen sheet, which has to take focus in.
+   */
+  private readonly _popupRef = viewChild(MlvPopup);
 
   /** @private Raw values last written through a forms binding, pre-normalisation. */
   private _pendingValues: T[] = [];
@@ -1147,6 +1152,11 @@ export class MlvSelect<T>
    * The focus request is roving-mode only: a searchable dropdown hands focus to
    * its search input instead (`_onPopupOpened`), and pulling it onto an option
    * would break the activedescendant model.
+   *
+   * Known gap: opening from closed, the request is a plain `Subject` emission
+   * sent before the dropdown panel exists to subscribe, so it is lost and the
+   * anchored dropdown leaves focus on the trigger. A full-screen sheet does not
+   * depend on it — `_onPopupOpened` moves focus in (#322).
    */
   protected _openFromKey(event: Event, focusFirst: boolean): void {
     event.preventDefault();
@@ -1394,10 +1404,58 @@ export class MlvSelect<T>
    * reachable through this component's view queries — locate it by its
    * deterministic id, the same pattern `mlv-combobox` / `mlv-day-picker` use.
    * The lazy first load is triggered by the `isOpen` effect, not here.
+   *
+   * A non-searchable dropdown leaves focus where it is while anchored (the
+   * trigger keeps it; unchanged), but a full-screen sheet is a modal dialog
+   * behind a solid scrim (#322), so focus has to move into it — see
+   * {@link _focusSheetTabStop}.
    */
   protected _onPopupOpened(): void {
-    if (!this.searchable()) return;
-    document.getElementById(this._searchInputId())?.focus();
+    if (this.searchable()) {
+      document.getElementById(this._searchInputId())?.focus();
+      return;
+    }
+    if (this._popupRef()?.isFullscreen()) this._focusSheetTabStop();
+  }
+
+  /**
+   * @private Moves focus onto the listbox's tab stop inside an open
+   * full-screen sheet: the first selected option it can focus, else the first
+   * option it can focus — `@angular/aria`'s default tab stop, which the panel
+   * already pins.
+   *
+   * Deferred one render: `afterOpened` fires once the panel and its rows
+   * exist, but aria writes its default `tabindex="0"` from an
+   * `afterRenderEffect`, so at that point every row still reads `-1`. The
+   * selected-then-first fallbacks cover a render where aria has not written it
+   * yet. Nothing happens if the sheet closed or stopped being full-screen in
+   * between.
+   *
+   * `_openFromKey`'s `requestFocusFirst()` cannot do this: it is a plain
+   * `Subject` emission sent before the panel exists to subscribe, so it is
+   * lost, and it would pick the first option over the selected one.
+   */
+  private _focusSheetTabStop(): void {
+    afterNextRender(
+      () => {
+        if (!this.isOpen() || !this._popupRef()?.isFullscreen()) return;
+        const listbox = this._host.ownerDocument.getElementById(
+          this.listboxId(),
+        );
+        if (!listbox) return;
+        const target =
+          listbox.querySelector<HTMLElement>('[role="option"][tabindex="0"]') ??
+          listbox.querySelector<HTMLElement>(
+            '[role="option"][aria-selected="true"]:not([aria-disabled="true"])',
+          ) ??
+          listbox.querySelector<HTMLElement>(
+            '[role="option"]:not([aria-disabled="true"])',
+          ) ??
+          listbox;
+        target.focus();
+      },
+      { injector: this._injector },
+    );
   }
 
   /**
@@ -1420,10 +1478,40 @@ export class MlvSelect<T>
     this._focused.set(isFocused);
   }
 
-  /** @protected Marks the select touched when its trigger loses focus. */
-  protected _onTriggerBlur(): void {
+  /**
+   * @protected Marks the select touched when focus leaves it from the trigger.
+   *
+   * A blur whose `relatedTarget` sits inside this select's own open dropdown
+   * panel is focus moving between the control's own parts, not leaving it
+   * (owner ruling D22, #347): a full-screen sheet taking focus on open (#322),
+   * or the search field taking it on a searchable open. That blur neither
+   * marks the field touched nor clears the focused state; focus comes back to
+   * the trigger when the panel closes (`_onPopupClosed`), and the trigger's
+   * next blur is the one that counts.
+   */
+  protected _onTriggerBlur(event?: FocusEvent): void {
+    if (this._isInOwnPanel(event?.relatedTarget ?? null)) return;
     this.setFocused(false);
     this._markTouched();
+  }
+
+  /**
+   * @private Whether `target` lies inside this select's own dropdown panel —
+   * the `.mlv-popup` surface holding its listbox, which also holds the search
+   * field and a full-screen sheet's close button. Resolved through the
+   * listbox's deterministic id, since the panel is portaled into the overlay
+   * container outside this component's view. `false` while the panel is not
+   * rendered.
+   *
+   * Not the base `_focusLeavesControl` (#347): it always counts the host as
+   * inside, so trigger → clear button would stop touching (follow-up #554).
+   */
+  private _isInOwnPanel(target: EventTarget | null): boolean {
+    if (!target || !('nodeType' in target)) return false;
+    const panel = this._host.ownerDocument
+      .getElementById(this.listboxId())
+      ?.closest('.mlv-popup');
+    return !!panel && panel.contains(target as Node);
   }
 
   /**

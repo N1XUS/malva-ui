@@ -896,7 +896,7 @@ Owner decision D22: a control reports touched — emits `touch` — when focus l
 - **Matching without adopting:** `mlv-checkbox`, `mlv-switch`, editable `mlv-title` — one focusable element, native `(blur)` → `_markTouched()`. `mlv-checkbox-group` and `mlv-switch-group` are not form controls; each child touches on its own blur.
 - **Not adopted, each a follow-up.** They touch while focus stays inside, or on an action:
   - `mlv-input`, `mlv-textarea`, `mlv-number-input`: native input `blur`, so with `clearable` a move to the wrapper's clear button (inside the host) touches — measured on `mlv-input`, `aria-invalid` flips — as would focusable prepend / append content; clearing touches.
-  - `mlv-select`, `mlv-combobox`: touch on every selection in every mode (`_commitSelection`, `_emitValue`), on the searchable select's hand-off to its search field and the full-screen combobox's to its in-sheet input, and on clear.
+  - `mlv-select`, `mlv-combobox`: touch on every selection in every mode (`_commitSelection`, `_emitValue`), on the full-screen combobox's hand-off to its in-sheet input, and on clear. The searchable select's hand-off to its search field no longer touches (#322, `2026-09-popup-fullscreen-dialog-semantics.md` § 4).
   - `mlv-day-picker`, `mlv-time-picker`, `mlv-date-range-picker`: trigger blur into their own portaled popup, `_onPopupClosed`.
   - `mlv-color-picker-popup` (input → panel, Escape); `mlv-color-picker`'s portaled tab-overflow popup (counts as leaving).
   - `mlv-editor`, which has its own null policy.

@@ -327,7 +327,17 @@ export const ROLLOUT_PENDING = [
     ],
   },
   'core-pin-input',
-  'core-popup',
+  {
+    // #322 swept the full-screen sheet (named by its title, and by `ariaLabel`
+    // alone), the anchored role-less panel and the anchored modal dialog —
+    // each stamped from `popupTemplate`, not through a CDK overlay.
+    project: 'core-popup',
+    owes: [
+      '`hasArrow` on the anchored panel',
+      'the full-screen header slots (`[mlvPopupHeaderContent]`, `[mlvPopupHeaderActions]`) and `[mlvPopupPinnedContent]`',
+      '`[mlvPopupTrigger]` and `mlv-popup-container` trigger hosts, closed and open through the overlay',
+    ],
+  },
   'core-scrollbar',
   'core-scrubber',
   {

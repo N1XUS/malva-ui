@@ -121,7 +121,7 @@ Keyboard: Enter/Space opens, Escape closes.
 
 ## Mobile fullscreen
 
-The calendar `mlv-popup` opts into `mobileMode="auto"` (`[mobileTitle]="label() || _i18n().selectDay"`), so below the `md` breakpoint (< 768px) the picker opens as a full-screen sheet with a header bar + close button, scroll-locked page, and slide-up animation; on larger viewports it stays anchored to the trigger (unchanged). The existing `panelRole="dialog"` + `[modal]="true"` focus trap composes with the full-screen sheet, and `_onPopupOpened()` / `_onPopupClosed()` (focus-into-calendar / focus-restore) keep working. See `libs-popup.md` → _Mobile fullscreen inputs_.
+The calendar `mlv-popup` opts into `mobileMode="auto"` (`[mobileTitle]="label() || _i18n().selectDay"`), so below the `md` breakpoint (< 768px) the picker opens as a full-screen sheet with a header bar + close button, scroll-locked page, and slide-up animation; on larger viewports it stays anchored to the trigger (unchanged). The existing `panelRole="dialog"` + `[modal]="true"` focus trap composes with the full-screen sheet, which is named by its visible title (`label` → `selectDay`) through `aria-labelledby` rather than by the popup's `ariaLabel` (`label` → placeholder, still the anchored calendar's name; #322), and `_onPopupOpened()` / `_onPopupClosed()` (focus-into-calendar / focus-restore) keep working. See `libs-popup.md` → _Mobile fullscreen inputs_.
 
 ### The sheet renders `mlv-calendar-sheet` (#130)
 

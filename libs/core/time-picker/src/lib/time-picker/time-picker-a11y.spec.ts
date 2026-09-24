@@ -119,4 +119,20 @@ describe('MlvTimePicker accessibility', () => {
     expect(body.querySelectorAll('[role="listbox"]').length).toBe(2);
     await expectNoAxeViolations(body);
   });
+
+  it('opens the full-screen sheet as a modal dialog named by its title', async () => {
+    const { body, open } = await render();
+    breakpoint.down.set(true);
+    await open();
+
+    // #322: the sheet is a modal dialog named by its visible title.
+    const sheet = body.querySelector('.mlv-popup--fullscreen') as HTMLElement;
+    const title = sheet.querySelector('.mlv-popup__title') as HTMLElement;
+    expect(sheet.getAttribute('role')).toBe('dialog');
+    expect(sheet.getAttribute('aria-modal')).toBe('true');
+    expect(title.id).not.toBe('');
+    expect(sheet.getAttribute('aria-labelledby')).toBe(title.id);
+    expect(title.textContent?.trim()).toBe('Meeting time');
+    expect(sheet.hasAttribute('aria-label')).toBe(false);
+  });
 });

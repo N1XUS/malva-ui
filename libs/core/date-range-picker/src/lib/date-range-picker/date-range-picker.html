@@ -99,6 +99,14 @@
           </button>
         </ng-template>
 
+        <!--
+          Anchored, the popup panel is a role-less positioning shell, so this
+          wrapper is the dialog. Full-screen, the popup's own panel is the
+          modal dialog (named by the visible title, #322) and owns the focus
+          trap, so the wrapper steps down on all four: a dialog nested in a
+          dialog would announce twice, and its inner `aria-modal` would hide
+          the sheet's title, close button and Done from AT.
+        -->
         <ng-template mlvPopupContent>
           <div
             class="mlv-date-range-picker__panel"
@@ -106,11 +114,13 @@
               rangePopup.isFullscreen()
             "
             [id]="panelId()"
-            role="dialog"
-            aria-modal="true"
+            [attr.role]="rangePopup.isFullscreen() ? null : 'dialog'"
+            [attr.aria-modal]="rangePopup.isFullscreen() ? null : 'true'"
             [cdkTrapFocus]="!rangePopup.isFullscreen()"
             tabindex="-1"
-            [attr.aria-label]="_i18n().selectDateRange"
+            [attr.aria-label]="
+              rangePopup.isFullscreen() ? null : _i18n().selectDateRange
+            "
             (keydown.escape)="closeDropdown()"
           >
             @if (rangePopup.isFullscreen()) {

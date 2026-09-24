@@ -12,7 +12,11 @@ page scroll behind it, respects safe-area insets, and adds a header bar. Provide
 visible heading with `mobileTitle` and an accessible close-button label via the
 `popup.close` i18n key (override per-instance with `mobileCloseLabel`). Focus is
 trapped inside the sheet and the panel slides up from the bottom (a fade under
-`prefers-reduced-motion`). Escape, the backdrop, and the close button all dismiss
+`prefers-reduced-motion`).
+
+The sheet is announced as a modal dialog: it gets `role="dialog"` (unless you set
+`panelRole`) and `aria-modal="true"`, and `mobileTitle` is its accessible name.
+Set `ariaLabel` as well for the anchored panel and for a sheet without a title. Escape, the backdrop, and the close button all dismiss
 it and restore focus to the trigger.
 
 The three date/time pickers (`mlv-day-picker`, `mlv-date-range-picker`,

@@ -59,7 +59,7 @@
         (keydown.end)="_openFromKey($event, false)"
         (keydown.escape)="isOpen.set(false)"
         (focus)="setFocused(true)"
-        (blur)="_onTriggerBlur()"
+        (blur)="_onTriggerBlur($event)"
       >
         <!-- While a committed value's label is still resolving the trigger shows
              the i18n loading text instead of a raw (often unreadable) value. -->
