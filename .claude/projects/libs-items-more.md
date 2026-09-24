@@ -156,6 +156,18 @@ External trigger shape:
 - `hiddenCount()` → `0` while open closes the panel. The popup container falls back to its own host as anchor when the registered origin left the document.
 - Anchor registration (#230): `openPanel(origin)` withdraws the previous opener (`unregisterTrigger`) before `registerTrigger(origin, false)`; the open→closed edge withdraws it too. The container keeps registrations as a stack until withdrawn, and the in-row trigger is re-created every time items are withheld again — without this every one of them stays pinned. At most one registration from the row at any time. Usually none while closed, but not always: a click during the close animation runs `openPanel`, which registers, while `container.open()` returns early (the overlay handle is still set) — no open→closed edge follows, so that one registration stays until the next open replaces it.
 
+### Focus across a split (#327)
+
+A split that removes the focused **row** box destroys it; the browser drops focus to `<body>` (nothing announced, nothing focused, next Tab browser-dependent — WCAG 2.4.3). The row hands it on:
+
+- **Detect** in `_commit()`, before `service.commit()`: `activeElement` inside the row **and** inside a box the next render removes — a slot whose item `hidden` holds, or the in-row trigger when `hidden` is empty. Read against rendered boxes, not the previous split.
+- **Hand off** in `afterNextRender` (after the removing render), same policy as `_restoreFocus()`: **only when focus is on `<body>`/null**. A box that survived (reveal landed first) keeps it; focus placed elsewhere since stays. One queued hand-off per render; a later loss replaces the recorded one.
+- **Target — item withheld →** in-row trigger's first tabbable: the control that now holds the item, at the end of the row, announcing its label (a count only where the trigger template renders one). No in-row trigger (consumer-placed or none) → nearest item still in the row: last tabbable of the closest item **before**, else first tabbable of the closest **after** (before wins: next Tab reaches what it would have from the withheld item). External trigger is unknown to the row.
+- **Target — trigger left with the last item →** last item's last tabbable (the one that came back, where the trigger stood); same target as `_restoreFocus()`'s fallback.
+- **Still drops to `<body>`** (follow-ups, not handled here): a reveal while the panel is open that returns the focused **panel** item — the panel stays open; no in-row trigger and nothing tabbable left in the row; a consumer-placed trigger under `@if (hiddenCount())` (docs example 4, the `MlvItemsMoreTrigger` JSDoc example) removed by a full reveal — the consumer's `@if` destroys it and the row cannot see it.
+- **Consumer-visible (patch):** after a split that removed the focused box, `focus` / `focusin` now fire on the trigger or on a row item, where nothing was focused before. Modality carries over (Chrome, docs example 1): after a keyboard Tab onto the item the target matches `:focus-visible`; after a mouse click on it the target does not (no ring), and Enter on the trigger then opens the panel where it did nothing on `<body>`.
+- **Rejected: pin the focused item for the split.** At a width where it cannot fit beside the trigger it overflows the clipping row — focused and invisible (2.4.11); where it can, the row reshuffles when focus moves on (Tab to the trigger withholds the item just left and returns another) — layout change caused by focus alone.
+
 ## Styling
 
 Block `.mlv-items-more`, all rules in `@layer mlv.components`.
@@ -183,13 +195,13 @@ Gap feeds the arithmetic through computed `columnGap`, so overriding it is safe.
 
 ## Testing
 
-`yarn nx test core-items-more` — 53 specs.
+`yarn nx test core-items-more` — 64 specs.
 
 - `overflow-fit.spec.ts` (13) — pure arithmetic: epsilon, exact 256/255 boundary, trigger reserve, pinned reserve, suffix-only, purity.
 - `items-more.service.spec.ts` (6) — DOM-order registry, detached append, partition order, equivalent-commit identity, unregister.
 - `items-more-trigger.spec.ts` (4) — no-owner ARIA, bound input, DI fallback, axe.
-- `items-more/items-more.spec.ts` (30) — stubbed `getBoundingClientRect` (row `rowWidth()`, others nearest `[data-w]`), `columnGap: 8px`, synchronous `FakeResizeObserver` with `notify()`; fit, measurement gating, resize timing, oscillation guard, panel/ARIA, focus return, external trigger, observer lifecycle, three axe sweeps (all-fit, withheld, open panel on `document.body`).
-- Ablation-checked: removing the guard, box check, gap, recapture, hide immediacy, reveal debounce, focus-lost check, fallback focus or close-when-empty each fails ≥1 spec.
+- `items-more/items-more.spec.ts` (41) — stubbed `getBoundingClientRect` (row `rowWidth()`, others nearest `[data-w]`), `columnGap: 8px`, synchronous `FakeResizeObserver` with `notify()`; fit, measurement gating, resize timing, oscillation guard, focus across a split (9: resize / existing trigger / structure change → trigger, no-trigger before-wins, no-trigger after fallback, kept item, outside focus, focus moved before the render, reveal removing the focused trigger), panel/ARIA, focus return, anchor registration, external trigger, observer lifecycle, three axe sweeps (all-fit, withheld, open panel on `document.body`).
+- Ablation-checked: removing the guard, box check, gap, recapture, hide immediacy, reveal debounce, focus-lost check, fallback focus or close-when-empty each fails ≥1 spec. Focus across a split: the hand-off's `<body>` check, trigger preference, before-wins, after fallback, trigger-removal detection and the `afterNextRender` deferral each turn exactly their specs red.
 
 ## Dependencies
 
