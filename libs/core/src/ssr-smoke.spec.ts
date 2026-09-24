@@ -374,11 +374,14 @@ import {
 
       <fieldset mlvFieldset legend="Preferences">
         <mlv-switch-group label="Alerts">
-          <mlv-switch label="Email" [(checked)]="toggled" />
+          <!-- A static consumer id: it must reach the native input and leave
+               the host in the server payload, not only after hydration
+               (issue #323). -->
+          <mlv-switch id="ssr-email" label="Email" [(checked)]="toggled" />
         </mlv-switch-group>
 
         <mlv-checkbox-group label="Permissions">
-          <mlv-checkbox label="Read" [(checked)]="toggled" />
+          <mlv-checkbox id="ssr-read" label="Read" [(checked)]="toggled" />
           <!-- The tri-state "select all" shape. The indeterminate state is a
                DOM property with no HTML attribute, so it is the one part of
                this input domino cannot satisfy — issue #124. Keep this
@@ -1570,6 +1573,33 @@ describe('@malva-ui/core SSR safety', () => {
       'no aria-checked="mixed" in the server markup — the indeterminate ' +
         'checkbox in SsrFormControlsHost did not render its mixed state',
     ).toBe(true);
+  });
+
+  it('server-renders a consumer id on the checkbox and switch input, not the host', async () => {
+    const { html } = await renderAllHosts();
+
+    // #323. The static host `id` is stripped in the constructor, which runs on
+    // the server too, and the native input binds `id()` — so the pre-hydration
+    // payload names exactly one element per id, and it is the `<input>` the
+    // own label wraps. The own label carries no `for`: it names its input by
+    // containment, so a duplicate consumer id cannot cross-wire it.
+    for (const id of ['ssr-read', 'ssr-email']) {
+      const carriers = Array.from(
+        html.matchAll(
+          new RegExp(`<([a-z-]+)(?=[^>]*\\sid="${id}")[^>]*>`, 'g'),
+        ),
+        (match) => match[1],
+      );
+      expect(carriers, `elements carrying id="${id}"`).toEqual(['input']);
+      expect(
+        new RegExp(`<label[^>]*>\\s*<input(?=[^>]*\\sid="${id}")`).test(html),
+        `the input with id="${id}" is not the own label's first child`,
+      ).toBe(true);
+      expect(
+        html.includes(`for="${id}"`),
+        `the own label carries for="${id}" in the server markup`,
+      ).toBe(false);
+    }
   });
 
   it('server-renders the native select selection into the markup', async () => {
