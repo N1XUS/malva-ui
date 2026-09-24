@@ -13,7 +13,13 @@
       <button mlvSegmentedItem value="240">240 px</button>
       <button mlvSegmentedItem value="24rem">24 rem</button>
     </mlv-segmented>
-    <mlv-switch [(checked)]="sticky">Sticky toolbar</mlv-switch>
+    <mlv-switch
+      [(checked)]="sticky"
+      [disabled]="stickyHint() !== null"
+      [description]="stickyHint() ?? ''"
+    >
+      Sticky toolbar
+    </mlv-switch>
   </div>
 
   <mlv-editor

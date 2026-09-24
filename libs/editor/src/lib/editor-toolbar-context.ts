@@ -379,6 +379,22 @@ export class MlvEditorOverlayRegistry {
     }
   }
 
+  /**
+   * @internal Asks every owned overlay except `keep` to close and leaves each
+   * entry for its owner to release, unlike `closeAll()`: an entry with nothing
+   * to close (the AI review bar) keeps its focus listeners.
+   */
+  closeOthers(keep: HTMLElement): void {
+    for (const entry of [...this._entries.values()]) {
+      if (entry.root === keep) continue;
+      try {
+        entry.close();
+      } catch {
+        // A third-party overlay must not keep the others open.
+      }
+    }
+  }
+
   /** @internal Removes listener resources without invoking overlay close callbacks. */
   destroy(): void {
     for (const entry of [...this._entries.values()]) this._remove(entry.root);

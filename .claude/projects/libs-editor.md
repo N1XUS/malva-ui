@@ -49,9 +49,9 @@ Import `MlvEditor` from `@malva-ui/editor` and render it as
 | Input  | `height`               | `number \| string \| undefined`; caps the surface (number = px)           |
 | Input  | `minHeight`            | `number \| string \| undefined` / `8rem` floor; a cap wins over it        |
 | Input  | `maxHeight`            | `number \| string \| undefined`; grow up to a cap, then scroll            |
-| Input  | `toolbarPosition`      | `MlvEditorToolbarPosition` / `'top'`                                      |
-| Input  | `toolbarAppearance`    | `MlvEditorToolbarAppearance` / `'bar'`                                    |
-| Input  | `toolbarSticky`        | `boolean` (`BooleanInput`) / `false`                                      |
+| Input  | `toolbarPosition`      | `MlvEditorToolbarPosition` / `'top'`; docked bar only                     |
+| Input  | `toolbarAppearance`    | `MlvEditorToolbarAppearance` / `'bar'`; `'floating'` = selection bubble   |
+| Input  | `toolbarSticky`        | `boolean` (`BooleanInput`) / `false`; uncapped `'bar'` only               |
 | Input  | `extensions`           | `Extensions \| undefined`; a complete replacement                         |
 | Input  | `placeholder`          | `string` / `'Write something…'`                                           |
 | Input  | `characterLimit`       | `number \| null` / `null`                                                 |
@@ -264,8 +264,9 @@ toolbar placement_); they never dispatch a Tiptap transaction or change
 serialization, selection, or history. In an uncapped editor Fit keeps the
 current level for reflowable content, because only non-wrapping content has a
 width to fit.
-Readonly editors retain zoom, while disabled editors block closed and
-already-open zoom controls.
+Readonly editors retain zoom in the docked bar (a floating editor shows no
+bubble while readonly), while disabled editors block closed and already-open
+zoom controls.
 
 ## Toolbar modules
 
@@ -840,8 +841,8 @@ overscroll-behavior: contain`. A number is px, a string passes through
   A `minHeight` above what the cap leaves the content (`maxHeight` minus the
   band and the 1rem viewport padding, ~69px under the cap for a top bar)
   scrolls an empty document, so `minHeight` equal to `maxHeight` always
-  scrolls; a fixed-size editor sets `height`. A compact editor (`maxHeight` 120) needs a smaller `minHeight` for the same reason. Print resets both floors. e2e: a 120px cap in all four
-  position × appearance cases, `minHeight` 300 under `maxHeight` 150, and 50%
+  scrolls; a fixed-size editor sets `height`. A compact editor (`maxHeight` 120) needs a smaller `minHeight` for the same reason. Print resets both floors. e2e: a 120px cap on a top and a
+  bottom bar, `minHeight` 300 under `maxHeight` 150, and 50%
   zoom on an empty capped editor.
 - **Zoom** is CSS `zoom` on `.mlv-editor__view`. Uncapped, it reflows
   (`min-inline-size: 100%`): the text rewraps and the editor grows. Capped, it
@@ -852,51 +853,144 @@ overscroll-behavior: contain`. A number is px, a string passes through
   control's Fit option stays, but in an uncapped editor it keeps the current
   level for reflowable content.
 - **Toolbar position.** The toolbar is declared once, in an `<ng-template>`
-  whose root is `.mlv-editor__toolbar-band`, and stamped before (`'top'`) or
-  after (`'bottom'`) the viewport. The DOM order is the visual order, with no
+  whose root is `.mlv-editor__toolbar-band`. The docked bar stamps it before
+  (`'top'`) or after (`'bottom'`) the viewport; the floating bubble stamps it
+  into its overlay pane instead and ignores `toolbarPosition`. The DOM order is the visual order, with no
   CSS `order`, so Tab order matches. A position change re-creates the toolbar
   view, which closes an open toolbar popup. Projected `[mlvEditorToolbar*]`
   content is re-attached. The bottom band sits directly after the viewport and
   before the upload status. A bottom bar draws its hairline with
   `border-block-start`.
-- **Floating** (`toolbarAppearance="floating"`). The root becomes a centred pill
-  (`inline-size: max-content`, `max-inline-size: 100%`, `margin-inline: auto`,
-  `--mlv-radius-panel`, `--mlv-shadow-floating`, `--mlv-elevation-bg-4`). The
-  band overlaps the viewport by
-  `--mlv-editor-toolbar-overlap = --mlv-editor-toolbar-block-size + --mlv-spacing-2`
-  through a negative block margin, and the viewport pads by the same amount, so
-  the first (top) or last (bottom) line is clear at scroll 0.
-  `--mlv-editor-toolbar-block-size` is `calc(var(--mlv-height-s) + 2 *
-var(--mlv-spacing-1))` (2.75rem). **It is the same at every density**
-  (e2e-measured at each): every built-in control pins `tight`, and the
-  separator floor is `--mlv-height-s`. Override it on the editor when projected
-  controls are taller. The band paints `floating.backdrop()` (`0deg` at the
-  top, the default `180deg` at the bottom) and passes pointer input through
-  everywhere except the pill.
-- **Sticky** (`toolbarSticky`). The band is `position: sticky` at
-  `inset-block-start` / `inset-block-end:
+- **Floating: the selection bubble** (`toolbarAppearance="floating"`, #483).
+  The internal `MlvEditorBubble` directive (`ng-template[mlvEditorBubble]`,
+  `editor-bubble.ts`, not exported) renders the toolbar template into a CDK
+  overlay pane classed `.mlv-editor-bubble` (`--radius-panel`,
+  `--shadow-floating`, `--elevation-bg-4`, `max-inline-size` = window minus
+  2 × `--mlv-spacing-2`). The pane is portaled to `<body>`, so the built-in
+  group layout is a `toolbar-contents` SCSS mixin included under both
+  `.mlv-editor` and `.mlv-editor-bubble`. The embedded view keeps the
+  editor's injector, so the toolbar context, roving focus and
+  `_toolbarBand` query all resolve as for the bar.
+  - **Visibility.** Shown only while focus is in the editor (content or
+    bubble) and the selection is non-empty; hidden on a bare caret, on blur,
+    while the pointer is still selecting, during a block drag
+    (`dragstart` → `dragend` / `drop`) and during IME composition, and while
+    disabled or **`readonly`** (#498 ruling: a readonly editor renders no
+    toolbar; the docked bar's half is #498's own change). Turning `readonly`
+    on while shown (`_closeForReadonly()`, an `effect` that runs before the
+    render effect hides the pane) asks every other registered overlay to
+    close through the registry's internal `closeOthers(pane)` — unlike
+    `closeAll()` it leaves each entry for its owner to release, so the AI
+    review bar keeps its focus listeners — and moves focus from the bubble,
+    or from a popup portaled into an overlay pane the content does not share,
+    to the content first; `_focusContent()` calls `dom.focus()` itself on a
+    non-editable view, where `view.focus()` moves no DOM focus. Turning it
+    off over a selection shows the bubble again. The pane stays attached
+    while hidden, so control state survives; hidden is the
+    `.mlv-editor-bubble--hidden` class (`visibility: hidden`), never
+    `[hidden]`, which the roving registry reads as "every control disabled".
+    It never takes focus on appear.
+  - **Placement.** Above the selection with an 8px gap, flipping below
+    (`.mlv-editor-bubble--below`) only when above would cross the boundary's
+    top edge: the window, intersected with the viewport when capped. The
+    anchor is the visible part of `posToDOMRect(from, to)`, so it follows
+    the selection while the page or a capped viewport scrolls, and the bubble
+    hides once the selection leaves the boundary (pinned open only while
+    summoned or while focus is inside it). `direction` comes from the
+    viewport and is re-applied through `watchDirection`; positions go
+    through `mlvMirrorInlineOffsets`. The enter animation is opacity only,
+    because CDK positions from `getBoundingClientRect()`, which a transform
+    would shrink mid-animation; reduced motion and print turn it off / hide
+    the pane.
+  - **Keyboard.** Alt+F10 in the content summons the bubble at the caret
+    (even with no selection) and focuses its first enabled control through
+    the roving focus. Escape (in the content while shown, or in the bubble)
+    dismisses it and returns focus to the content with the selection intact;
+    it stays dismissed until the selection changes. Tab in the bubble returns
+    focus to the content. The pane joins the composite overlay registry
+    while shown, so focus moving into it is not an editor blur and disabling
+    the editor closes it. While floating, enabled and not `readonly`, the
+    content carries `aria-keyshortcuts="Alt+F10"` (`_editorAttributes()`,
+    managed through `_synchronizeContentSurfaceState`), the only hint that a
+    hidden toolbar exists. While `readonly` or disabled the bubble claims
+    neither key: Escape and Alt+F10 reach the page uncancelled.
+  - **Content keys go through a ProseMirror plugin**
+    (`mlvEditorBubbleKeys`, registered per editor instance from an `effect`
+    and unregistered with the directive), not a DOM listener. ProseMirror
+    `preventDefault()`s every Escape it sees (`captureKeyDown`, keyCode 27),
+    so a bubble-phase listener finds each one already cancelled, and a
+    capture listener would take Escape from a content popup. It is appended
+    like any plugin; what makes it the lowest-priority handler is a loop, not
+    its position: plugins before it run first anyway, and it offers Escape /
+    Alt+F10 to every plugin after it (the AI stream session registers its
+    Escape claim later) before acting. Once it has offered the key it acts
+    through the unchecked `_act()` and returns `true`, even if a declining
+    later handler hid the bubble meanwhile, so ProseMirror never runs those
+    handlers a second time. Left registered after the bubble is gone (a flip
+    to `'bar'`) it would swallow every Escape and Alt+F10, so its `effect`
+    unregisters it on cleanup. A dismissing Escape calls `stopPropagation()`,
+    so CDK's `OverlayKeyboardDispatcher` never hands it to a dialog or drawer
+    around the editor; the next Escape closes that. A viewport `keydown`
+    listener stays as the fallback for ProseMirror's composition window: it
+    runs no key handler while it still counts as composing, and in Safari
+    for 500ms after `compositionend`, by when the bubble may be back. The
+    fallback acts only on an uncancelled event (a read-only view skips key
+    handlers too, but the bubble claims no key there). The pane's own `keydown` does the
+    same for Escape inside the bubble. A `mousedown` on the pane's own
+    padding is `preventDefault()`ed, so the caret stays; one on a focusable
+    control (`button`, `[tabindex]`, …) is not, and the control takes focus
+    inside the composite.
+  - **Scroll / resize.** A document scroll listener (capture, passive) and a
+    window resize listener schedule a sync only while the bubble is shown or
+    could show (summoned, or a non-empty selection that may scroll back into
+    view); a focused bare caret, and a disabled or `readonly` editor, schedule
+    no render.
+  - **Tests.** `editor-bubble.spec.ts` (visibility, Alt+F10 / Escape / Tab,
+    composition, drag, capped flip and scroll tracking with stubbed rects, an
+    axe sweep of the open pane, scoped `[dir]`; keys carry real `keyCode`s,
+    because ProseMirror and CDK read them and jsdom's is 0; content Escape
+    stops at the content, a later plugin claiming Escape wins, a declining
+    later plugin is offered Escape once, the composition-window fallback
+    (ProseMirror's `input.composing` set directly, since jsdom is not
+    Safari), the key plugin removed on a flip to `'bar'` while shown and
+    exactly one after round trips, `readonly` hiding it and claiming no key,
+    both `readonly` flips with focus returning to the content, a zoom popup
+    closed by `readonly`, the mousedown guard, `aria-keyshortcuts`, no render
+    at a bare caret, and a CDK `Dialog` host where the first Escape closes
+    only the bubble, from the content or from the bubble); the real-layout half (above
+    the selection, flip at a capped scroller's top edge, inner-scroll
+    tracking, Alt+F10 at a caret, Escape in the content reaching no document
+    listener, a press between the bubble's controls keeping focus in the
+    content, Bold from the bubble keeping a mouse selection) is the "Editor
+    selection bubble" describe in `e2e/editor-layout.spec.ts`.
+    `editor-ssr.spec.ts` server-renders a floating editor: no band, no pane,
+    no `aria-keyshortcuts`.
+- **Sticky** (`toolbarSticky`). Applies to an **uncapped `'bar'`** only: the
+  host stamps `.mlv-editor--toolbar-sticky` from `_stickyToolbar` =
+  `toolbarSticky && appearance === 'bar' && !capped`. A capped bar sits outside
+  its own scrolling viewport, so there is nothing to stick against, and the
+  bubble follows the selection instead. The band is then `position: sticky`
+  at `inset-block-start` / `inset-block-end:
 var(--mlv-editor-toolbar-sticky-offset, 0)` with `z-index: var(--mlv-z-raised)`.
   The offset is read with a fallback and never declared, so it can be set once
   on any ancestor. It works because the control container is `overflow: clip`.
   Any consumer ancestor that is `overflow: hidden` / `auto` becomes the sticky
-  container instead of the page. When capped, sticky affects only page scroll,
-  within the surface's box.
+  container instead of the page.
 - **Narrow mode** measures `.mlv-editor__surface` (the internal
-  `MlvEditorToolbarRoot.measureTarget`), not the root, so a pill that hides
-  groups cannot un-narrow itself. The threshold is still 640px, but the
-  surface is 16px wider than the root's content box (the root's inline
-  padding), so the cut-over moved by that much: a 640–655px surface keeps the
-  wide toolbar. The standalone `MlvEditorToolbar` shell still measures its own
-  root.
+  `MlvEditorToolbarRoot.measureTarget`), not the root, so a content-hugging
+  bubble that hides groups cannot un-narrow itself. The threshold is still
+  640px, but the surface is 16px wider than the root's content box (the root's
+  inline padding), so a 640–655px surface keeps the wide toolbar. The
+  standalone `MlvEditorToolbar` shell still measures its own root.
 - **Focus Not Obscured (WCAG 2.2 SC 2.4.11).** Live ProseMirror `scrollMargin` /
   `scrollThreshold` objects clear the obscured extent on the toolbar's side:
-  band height plus offset when sticky, band height when floating and capped,
-  0 otherwise. ProseMirror reads `value[side]` on every scroll, so one stable
-  object follows density, configuration and CSS offsets. Both `editorProps`
-  sites pass them: the live view would keep them through `setOptions`
-  (ProseMirror's `setProps` merges), but Tiptap replaces its stored
-  `editorProps`, which a later `mount()` rebuilds the view from. They are not
-  CSS `scroll-padding`.
+  band height plus offset for a sticky bar, 0 otherwise (a docked bar sits
+  outside the content, and the bubble follows the selection). ProseMirror
+  reads `value[side]` on every scroll, so one stable object follows density,
+  configuration and CSS offsets. Both `editorProps` sites pass them: the live
+  view would keep them through `setOptions` (ProseMirror's `setProps`
+  merges), but Tiptap replaces its stored `editorProps`, which a later
+  `mount()` rebuilds the view from. They are not CSS `scroll-padding`.
 
 ## Status, accessibility, SSR, and theming
 
@@ -1665,13 +1759,13 @@ its two intended tab stops — the content textbox and the roving toolbar widget
 
 - CSS `zoom` geometry (click-to-caret, drag image, grips) is e2e-proven in
   Chromium only. Firefox (≥ 126) and Safari are unverified.
-- ProseMirror applies one `scrollMargin` at every scroll ancestor. A capped
-  editor with a sticky toolbar therefore keeps the caret `offset + band` px from
-  its own viewport edge, not 5px, even while the band is not stuck over it
-  (pinned in `editor-layout.spec.ts`). A capped editor with a floating toolbar
-  keeps it a band height (44–52px) from the page edge on the toolbar's side
-  whenever the page has to scroll, although the band covers only the viewport.
-  Both accepted because they err toward visibility; nothing is hidden.
+- ProseMirror applies one `scrollMargin` at every scroll ancestor. Sticky
+  applies only to an uncapped bar, whose only scroll ancestor is normally the
+  page, so the margin lands where the band is. With a consumer scroll
+  container between the editor and the page, the band sticks to that
+  container, where the margin is right; the page, one scroll ancestor further
+  out, also keeps the caret `offset + band` px from its edge although no band
+  is there. Accepted because it errs toward visibility; nothing is hidden.
 - Sticky needs every ancestor up to the scroller to be `overflow: visible` or
   `clip`. The docs' `.example-container` needed `clip` for this reason.
 - `overflow: clip` on the control container needs Safari 16. Older Safari

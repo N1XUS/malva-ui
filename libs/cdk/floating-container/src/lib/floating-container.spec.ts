@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { compileString } from 'sass';
 import { MlvFloatingContainer } from './floating-container';
 
 /**
@@ -77,28 +76,5 @@ describe('MlvFloatingContainer', () => {
       'var(--mlv-floating-container-background, var(--mlv-background-raised))',
     );
     expect(containerScss).toContain('@include floating.safe-area-block-end(');
-  });
-
-  it('fades the backdrop toward the block end by default and takes a direction', () => {
-    const entry = pathToFileURL(
-      fileURLToPath(import.meta.url).replace(
-        /floating-container\.spec\.ts$/,
-        'entry.scss',
-      ),
-    );
-    const css = compileString(
-      `@use './floating-container.mixins' as floating;
-       .dock { @include floating.backdrop(red); }
-       .top { @include floating.backdrop(red, $direction: 0deg); }`,
-      { url: entry },
-    ).css;
-    // Default unchanged, so `mlv-page-dock` and `[mlvFloatingContainer]`
-    // compile byte-identically.
-    expect(css).toContain(
-      'mask-image: linear-gradient(180deg, transparent, black 2.5rem)',
-    );
-    expect(css).toContain(
-      'mask-image: linear-gradient(0deg, transparent, black 2.5rem)',
-    );
   });
 });

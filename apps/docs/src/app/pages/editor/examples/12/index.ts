@@ -51,6 +51,22 @@ export default class EditorLayoutExample {
   });
 
   /**
+   * Why the Sticky switch has no effect right now, or `null` when it applies.
+   * `toolbarSticky` only pins an uncapped bar: a capped editor scrolls inside
+   * its own viewport, which the bar sits outside, and the floating bubble
+   * follows the selection instead.
+   */
+  readonly stickyHint = computed<string | null>(() => {
+    if (this.appearance() === 'floating') {
+      return 'The floating bubble follows the selection instead.';
+    }
+    if (this.maxHeight() !== undefined) {
+      return 'No effect under a height cap.';
+    }
+    return null;
+  });
+
+  /**
    * Clears the docs' fixed app bar, the same 5.5rem the docs' own
    * `scroll-padding-top` reserves. A bottom toolbar pins flush to the page's
    * bottom edge.

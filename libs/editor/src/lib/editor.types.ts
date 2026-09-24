@@ -36,9 +36,11 @@ export type MlvEditorToolbarPosition = 'top' | 'bottom';
  * How `mlv-editor` draws its toolbar.
  *
  * `'bar'` is the docked full-width row with a hairline toward the content.
- * `'floating'` is a centred pill hugging its controls. It overlaps the content
- * viewport's edge by `--mlv-editor-toolbar-block-size` plus a gap, and fades
- * the content that scrolls beneath it.
+ * `'floating'` is a selection bubble: an overlay hugging its controls, shown
+ * only while focus is in the editor, the selection is non-empty (Alt+F10
+ * summons it at the caret) and the editor is neither disabled nor `readonly`.
+ * It prefers above the selection and flips below at the window's or a capped
+ * viewport's edge. `toolbarPosition` and `toolbarSticky` do not apply to it.
  */
 export type MlvEditorToolbarAppearance = 'bar' | 'floating';
 

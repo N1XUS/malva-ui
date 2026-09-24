@@ -16,14 +16,22 @@ editor also sets a smaller `minHeight`. Only these inputs cap:
 `--mlv-editor-height` / `--mlv-editor-max-height` written in CSS alone have no
 effect.
 
-`toolbarPosition` puts the toolbar above or below the content, and the Tab
-order follows. `toolbarAppearance="floating"` draws a centred pill that
-overlaps the content edge by `--mlv-editor-toolbar-block-size` plus a gap and
-fades the content scrolling beneath it. `toolbarSticky` pins the toolbar while
-the editor is on screen. `--mlv-editor-toolbar-sticky-offset` clears a fixed
-app header, and this page sets it to the docs' `5.5rem`. When the caret moves
-toward a floating or sticky toolbar, the editor scrolls it clear of the
-toolbar.
+`toolbarPosition` puts the docked toolbar above or below the content, and the
+Tab order follows. `toolbarSticky` pins that bar while the editor is on
+screen, and `--mlv-editor-toolbar-sticky-offset` clears a fixed app header
+(this page sets it to the docs' `5.5rem`). When the caret moves toward a
+sticky bar, the editor scrolls it clear. Sticky applies to an **uncapped bar**
+only: a capped editor scrolls inside its own viewport, which the bar sits
+outside, so the switch is disabled while a height cap is selected.
+
+`toolbarAppearance="floating"` turns the toolbar into a **selection bubble**.
+It appears above a non-empty selection (below, when the window's or a capped
+scroller's edge leaves no room), follows it while the content scrolls, and
+hides on a bare caret, on blur, while dragging a block, during IME composition
+and while the editor is `readonly`. Press **Alt+F10** in the content to summon
+it at the caret and
+move focus into it, and **Escape** to dismiss it with the selection intact.
+`toolbarPosition` and `toolbarSticky` do not apply to it.
 
 Zoom reflows an uncapped editor, like browser zoom, and magnifies a capped one
 inside its own scroller.

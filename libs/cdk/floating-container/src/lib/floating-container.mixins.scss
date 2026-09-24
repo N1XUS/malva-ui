@@ -19,19 +19,14 @@
 ///   values bleed it past the host so the fade starts before its edge.
 /// @param {String} $fade - Distance over which the mask ramps from fully
 ///   transparent to fully opaque.
-/// @param {Angle} $direction - First argument of the mask's
-///   `linear-gradient`. The default `180deg` is transparent at the host's block
-///   start and opaque toward its block end — a bar docked at the bottom of a
-///   scroller. A bar docked at the top passes `0deg`. Block-axis only, so it
-///   does not mirror in RTL.
-@mixin backdrop($background, $inset: 0, $fade: 2.5rem, $direction: 180deg) {
+@mixin backdrop($background, $inset: 0, $fade: 2.5rem) {
   &::before {
     content: '';
     position: absolute;
     inset: $inset;
     z-index: -1;
     background: $background;
-    mask-image: linear-gradient($direction, transparent, black $fade);
+    mask-image: linear-gradient(180deg, transparent, black $fade);
     pointer-events: none;
   }
 }

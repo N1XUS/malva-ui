@@ -15,9 +15,10 @@
   <ng-template mlvFormControlWrapperControl>
     <div #surface class="mlv-editor__surface">
       <!--
-        Declared once and stamped by one outlet before or after the viewport
-        (#416), so the DOM order is always the visual order, with no CSS
-        `order`. Re-stamping on a position change re-creates the view, which
+        Declared once and stamped by one outlet: before or after the viewport
+        for the docked bar (#416), so the DOM order is always the visual
+        order, with no CSS `order`; into the selection bubble's overlay for
+        the floating appearance (#483). Re-stamping re-creates the view, which
         closes an open toolbar popup; projected slot content is re-attached.
       -->
       <ng-template #toolbarTemplate>
@@ -127,18 +128,23 @@
         </div>
       </ng-template>
 
-      @if (toolbarPosition() === 'top') {
+      @if (toolbarAppearance() === 'bar' && toolbarPosition() === 'top') {
         <ng-container [ngTemplateOutlet]="toolbarTemplate" />
       }
 
-      <div class="mlv-editor__viewport">
+      <div #viewport class="mlv-editor__viewport">
         <div #view class="mlv-editor__view">
           <div #content class="mlv-editor__content"></div>
           <mlv-editor-table-controls [layer]="view" />
         </div>
       </div>
-      @if (toolbarPosition() === 'bottom') {
+      @if (toolbarAppearance() === 'bar' && toolbarPosition() === 'bottom') {
         <ng-container [ngTemplateOutlet]="toolbarTemplate" />
+      }
+      @if (toolbarAppearance() === 'floating') {
+        <ng-template mlvEditorBubble [viewport]="viewport" [capped]="_capped()">
+          <ng-container [ngTemplateOutlet]="toolbarTemplate" />
+        </ng-template>
       }
       <mlv-editor-image-upload-status />
     </div>
