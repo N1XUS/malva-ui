@@ -46,6 +46,7 @@ import {
 } from '@malva-ui/core/popup';
 import type { MlvSelectOptionTransform } from '@malva-ui/core/select';
 import { MlvSelect } from '@malva-ui/core/select';
+import type { MlvFilterI18n } from '@malva-ui/i18n';
 import { MLV_FILTER_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
 import type {
   MlvFilterApplyMode,
@@ -91,6 +92,51 @@ const FOCUSABLE_EDITOR_SELECTOR = [
  * viewport-derived default. `MlvDropdownPanel.maxHeight` is px-only.
  */
 const OPTIONS_MAX_HEIGHT = 320;
+
+/** `MlvFilterI18n` keys a hand-written or older language pack may omit. */
+type MlvFilterOptionalMessageKey = {
+  [K in keyof MlvFilterI18n]-?: undefined extends MlvFilterI18n[K] ? K : never;
+}[keyof MlvFilterI18n];
+
+/**
+ * English fallbacks for the optional condition-control names, used when the
+ * active pack omits a key. Keyed by every optional key of the interface, so a
+ * new optional key does not compile without one. The strings are the English
+ * pack's: the "hand-written pack" spec asserts the same names the English-pack
+ * spec does, so the two cannot drift apart unnoticed.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvFilterOptionalMessageKey, string>
+> = {
+  conditionStrategy: '{label}, combine conditions',
+  conditionOperator: '{label}, condition {index} operator',
+  conditionValue: '{label}, condition {index} value',
+  rangeFrom: '{label}, condition {index} from',
+  rangeTo: '{label}, condition {index} to',
+};
+
+/** Parameterized `MlvFilterI18n` keys resolved through `_resolveMessage`. */
+type MlvFilterMessageKey =
+  | 'clearFilter'
+  | 'moreValues'
+  | 'openFilter'
+  | 'removeCondition'
+  | 'removeFilter'
+  | MlvFilterOptionalMessageKey;
+
+/** Localized accessible names of the controls of one draft condition. */
+interface MlvFilterConditionNames {
+  /** Operator select. */
+  readonly operator: string;
+  /** Single value input, or a custom value editor. */
+  readonly value: string;
+  /** Lower-bound input of a `between` range. */
+  readonly rangeFrom: string;
+  /** Upper-bound input of a `between` range. */
+  readonly rangeTo: string;
+  /** Remove-condition button. */
+  readonly remove: string;
+}
 
 /** Returns whether an operator requires no operand. */
 function isValuelessOperator(operator: MlvFilterOperator): boolean {
@@ -369,6 +415,40 @@ export class MlvFilter {
   /** @protected Resolved value placeholder with an i18n fallback. */
   protected readonly _resolvedPlaceholder = computed(
     () => this.placeholder() ?? this._i18n().valuePlaceholder,
+  );
+
+  /**
+   * @private Number of draft conditions. The per-row names depend on the count
+   * alone, so they are not rebuilt on every keystroke into a value.
+   */
+  private readonly _draftCount = computed(() => this._draftConditions().length);
+
+  /**
+   * @protected Localized accessible names of each draft condition's controls,
+   * indexed like the draft. Every name carries the filter label, the 1-based
+   * condition number and the control's role, so the operator, value, range
+   * bounds and remove button of one condition are told apart, and from those
+   * of another condition.
+   */
+  protected readonly _conditionNames = computed<MlvFilterConditionNames[]>(
+    () => {
+      const label = this.label();
+      return Array.from({ length: this._draftCount() }, (_, index) => {
+        const params = { label, index: index + 1 };
+        return {
+          operator: this._resolveMessage('conditionOperator', params),
+          value: this._resolveMessage('conditionValue', params),
+          rangeFrom: this._resolveMessage('rangeFrom', params),
+          rangeTo: this._resolveMessage('rangeTo', params),
+          remove: this._resolveMessage('removeCondition', params),
+        };
+      });
+    },
+  );
+
+  /** @protected Localized accessible name of the AND / OR strategy select. */
+  protected readonly _strategyName = computed(() =>
+    this._resolveMessage('conditionStrategy', { label: this.label() }),
   );
 
   /** @protected Operator-to-select-option adapter. */
@@ -659,6 +739,7 @@ export class MlvFilter {
     condition: MlvFilterCondition,
     index: number,
   ): MlvFilterValueEditorContext {
+    const names = this._conditionNames()[index];
     return {
       $implicit: condition.value,
       condition,
@@ -666,6 +747,8 @@ export class MlvFilter {
       operator: condition.operator,
       disabled: this._editorDisabled(),
       placeholder: this._resolvedPlaceholder(),
+      ariaLabel: names.value,
+      rangeAriaLabels: [names.rangeFrom, names.rangeTo],
       setValue: (value) => this._setConditionValue(index, value),
       commit: () => {
         if (this.applyMode() === 'explicit') this._apply();
@@ -876,15 +959,17 @@ export class MlvFilter {
     }
   }
 
-  /** @private Resolves one ICU message from the filter translation slice. */
+  /**
+   * @private Resolves one ICU message from the filter translation slice. An
+   * optional key the active pack omits resolves its English fallback instead.
+   */
   private _resolveMessage(
-    key: 'clearFilter' | 'moreValues' | 'openFilter' | 'removeFilter',
+    key: MlvFilterMessageKey,
     params: Record<string, string | number>,
   ): string {
-    return this._resolver.resolve(
-      this._i18n() as unknown as Record<string, string>,
-      key,
-      params,
-    );
+    const template =
+      this._i18n()[key] ??
+      OPTIONAL_MESSAGE_FALLBACKS[key as MlvFilterOptionalMessageKey];
+    return this._resolver.resolve({ [key]: template }, key, params);
   }
 }

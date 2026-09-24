@@ -212,6 +212,16 @@ the mock map place it alphabetically. `tests/locale-contract.spec.ts` pins each
 pack's key **order** against `en`, so that placement is identical in all 14
 packs and a pack that is reordered alone fails the suite.
 
+A message key added to an **existing** interface is declared optional (`key?:
+string`) with an English fallback in the consuming component, so a
+hand-written `MlvLanguage` keeps compiling — `VERSIONING.md` §3's "new optional
+i18n key with a shipped default" (minor); a new required key is a major. Every
+shipped pack still declares it: `locale-contract.spec.ts` compares each pack's
+key set with `en`'s. `MlvFilterI18n`'s five condition-control names are the
+first (#330); `mlv-filter` keeps the fallbacks in `OPTIONAL_MESSAGE_FALLBACKS`,
+typed as a record over the interface's optional keys so the next one cannot
+ship without a fallback.
+
 | Token                        | Interface                | Component                         | Keys                                                                                                                                                                                                                                                                          |
 | ---------------------------- | ------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MLV_ALERT_I18N`             | `MlvAlertI18n`           | mlv-alert                         | dismiss                                                                                                                                                                                                                                                                       |
@@ -232,7 +242,7 @@ packs and a pack that is reordered alone fails the suite.
 | `MLV_DRAWER_I18N`            | `MlvDrawerI18n`          | mlv-drawer                        | drawer, closeDrawer                                                                                                                                                                                                                                                           |
 | `MLV_EDITOR_I18N`            | `MlvEditorI18n`          | mlv-editor                        | 101 keys: labels, formatting, links, tables, uploads, counts, block drag/move, and AI transforms/review-bar/announcements                                                                                                                                                     |
 | `MLV_FILE_UPLOAD_I18N`       | `MlvFileUploadI18n`      | mlv-file-upload                   | 8 keys (incl. replaceFile, errorSingleFile, errorFileType `{name}`, errorFileSize `{name}` `{size}`)                                                                                                                                                                          |
-| `MLV_FILTER_I18N`            | `MlvFilterI18n`          | mlv-filter                        | Filter actions, summaries, visibility, conditions, and operator labels                                                                                                                                                                                                        |
+| `MLV_FILTER_I18N`            | `MlvFilterI18n`          | mlv-filter                        | Filter actions, summaries, visibility, conditions, operator labels; condition-control names (`removeCondition` ICU `{label}` `{index}`, optional `conditionStrategy` `{label}`, `conditionOperator` / `conditionValue` / `rangeFrom` / `rangeTo` `{label}` `{index}`)         |
 | `MLV_FORM_UTILS_I18N`        | `MlvFormUtilsI18n`       | form-control-wrapper              | clear, required, invalidValue                                                                                                                                                                                                                                                 |
 | `MLV_LOADER_I18N`            | `MlvLoaderI18n`          | mlv-loader                        | loading                                                                                                                                                                                                                                                                       |
 | `MLV_NOTIFICATION_I18N`      | `MlvNotificationI18n`    | mlv-notification-item             | dismiss                                                                                                                                                                                                                                                                       |

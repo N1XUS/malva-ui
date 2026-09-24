@@ -15,6 +15,18 @@ export interface MlvFilterValueEditorContext {
   disabled: boolean;
   /** Resolved value placeholder. */
   placeholder: string;
+  /**
+   * Localized accessible name for this condition's value control — the name
+   * the built-in input carries ("Status, condition 1 value"). Bind it to the
+   * custom control so the operator select and the value are told apart.
+   */
+  ariaLabel: string;
+  /**
+   * Localized accessible names for the lower and upper control of a
+   * `between` range ("Status, condition 1 from" / "… to"), in that order.
+   * Supplied for every operator, so a template can bind it before switching.
+   */
+  rangeAriaLabels: readonly [from: string, to: string];
   /** Writes the draft value; commits immediately in live apply mode. */
   setValue: (value: unknown) => void;
   /** Applies the draft in explicit mode (Enter-equivalent). No-op in live mode. */

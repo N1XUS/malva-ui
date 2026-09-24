@@ -27,7 +27,50 @@ export interface MlvFilterI18n {
   reset: string;
   cancel: string;
   addCondition: string;
+  /**
+   * Accessible name of one condition's remove button. ICU `{label}` (the
+   * filter's label) and `{index}` (1-based condition number), so the buttons
+   * of a multi-condition editor are told apart. A plain string still works,
+   * but then every row's button carries the same name.
+   */
   removeCondition: string;
+  /**
+   * Accessible name of the AND / OR select shown once a filter holds two or
+   * more conditions. ICU `{label}`.
+   *
+   * Optional so a hand-written or older pack still type-checks; `mlv-filter`
+   * falls back to English when it is missing. Every shipped pack declares it.
+   */
+  conditionStrategy?: string;
+  /**
+   * Accessible name of one condition's operator select. ICU `{label}` and
+   * `{index}` (1-based condition number).
+   *
+   * Optional, with an English fallback in `mlv-filter`.
+   */
+  conditionOperator?: string;
+  /**
+   * Accessible name of one condition's value input, and of a custom value
+   * editor through its template context's `ariaLabel`. ICU `{label}` and
+   * `{index}`.
+   *
+   * Optional, with an English fallback in `mlv-filter`.
+   */
+  conditionValue?: string;
+  /**
+   * Accessible name of the lower-bound input of a `between` condition. ICU
+   * `{label}` and `{index}`.
+   *
+   * Optional, with an English fallback in `mlv-filter`.
+   */
+  rangeFrom?: string;
+  /**
+   * Accessible name of the upper-bound input of a `between` condition. ICU
+   * `{label}` and `{index}`.
+   *
+   * Optional, with an English fallback in `mlv-filter`.
+   */
+  rangeTo?: string;
   valuePlaceholder: string;
   selectValue: string;
   contains: string;
@@ -107,7 +150,36 @@ export const MLV_FILTER_I18N_CONTEXT: Record<
   reset: context('button-text', 'Reset filter visibility and values'),
   cancel: context('button-text', 'Cancel pending filter changes'),
   addCondition: context('button-text', 'Add another condition to a field'),
-  removeCondition: context('aria-label', 'Remove a field condition'),
+  removeCondition: context(
+    'aria-label',
+    'Remove one numbered condition of a field filter',
+    ['label', 'index'],
+  ),
+  conditionStrategy: context(
+    'aria-label',
+    'Select combining the conditions of a field filter with AND or OR',
+    ['label'],
+  ),
+  conditionOperator: context(
+    'aria-label',
+    'Operator select of one numbered condition of a field filter',
+    ['label', 'index'],
+  ),
+  conditionValue: context(
+    'aria-label',
+    'Value input of one numbered condition of a field filter',
+    ['label', 'index'],
+  ),
+  rangeFrom: context(
+    'aria-label',
+    'Lower-bound input of a numbered between condition',
+    ['label', 'index'],
+  ),
+  rangeTo: context(
+    'aria-label',
+    'Upper-bound input of a numbered between condition',
+    ['label', 'index'],
+  ),
   valuePlaceholder: context('placeholder', 'Filter condition value'),
   selectValue: context('placeholder', 'Select a filter value'),
   contains: context('label', 'Contains filter operator'),

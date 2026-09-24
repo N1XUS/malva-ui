@@ -53,19 +53,21 @@
       let-operator="operator"
       let-disabled="disabled"
       let-set="setValue"
+      let-name="ariaLabel"
+      let-rangeNames="rangeAriaLabels"
     >
       @if (operator === 'between') {
         <div class="query-filter-demo__range">
           <mlv-day-picker
             [value]="toDate(rangeAt(value, 0))"
             [disabled]="disabled"
-            [ariaLabel]="'Renewal date from'"
+            [ariaLabel]="rangeNames[0]"
             (valueChange)="setRangeAt(value, 0, toIso($event), set)"
           />
           <mlv-day-picker
             [value]="toDate(rangeAt(value, 1))"
             [disabled]="disabled"
-            [ariaLabel]="'Renewal date to'"
+            [ariaLabel]="rangeNames[1]"
             (valueChange)="setRangeAt(value, 1, toIso($event), set)"
           />
         </div>
@@ -73,7 +75,7 @@
         <mlv-day-picker
           [value]="toDate(value)"
           [disabled]="disabled"
-          [ariaLabel]="'Renewal date'"
+          [ariaLabel]="name"
           (valueChange)="set(toIso($event))"
         />
       }
