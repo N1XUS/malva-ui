@@ -3,3 +3,5 @@ title: Projected Items
 ---
 
 Project `<mlv-breadcrumb-item>` elements directly for template-driven usage. Each item but the last renders the breadcrumb's separator after itself — the default chevron, or your `<ng-template mlvSeparator>`. With `[mlvBreadcrumbItem]` on native `<li>`s, project the `<li>`s straight into the `<nav>`: the breadcrumb already renders the `<ol>`, and the markup inside each `<li>`, separator included, is yours.
+
+Every trail is a `navigation` landmark named "Breadcrumb" by default. When a page shows more than one, give each its own `ariaLabel` so assistive technology can tell them apart, as the three trails here do.

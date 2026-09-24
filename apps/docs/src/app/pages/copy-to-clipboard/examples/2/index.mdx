@@ -13,3 +13,8 @@ full string.
 
 When `value` is omitted, the component falls back to the trimmed
 `textContent` of the projected default slot.
+
+With `value` set, the accessible name is "Copy to clipboard: " followed by the
+value — "Copy to clipboard: ORDER-0042-7F9X2" here — not the visible text. Keep
+the visible text inside it, as a part of the value or in your `ariaLabel`, so
+it is still the phrase that activates the control.

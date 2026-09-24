@@ -17,7 +17,7 @@ import {
         >
           Template-driven using <code>&lt;mlv-breadcrumb-item&gt;</code>:
         </p>
-        <nav mlvBreadcrumb>
+        <nav mlvBreadcrumb ariaLabel="Documentation trail">
           <mlv-breadcrumb-item href="/">Home</mlv-breadcrumb-item>
           <mlv-breadcrumb-item href="/docs">Documentation</mlv-breadcrumb-item>
           <mlv-breadcrumb-item [current]="true">Breadcrumb</mlv-breadcrumb-item>
@@ -29,7 +29,7 @@ import {
         >
           With a disabled item:
         </p>
-        <nav mlvBreadcrumb>
+        <nav mlvBreadcrumb ariaLabel="Restricted section trail">
           <mlv-breadcrumb-item href="/">Home</mlv-breadcrumb-item>
           <mlv-breadcrumb-item [disabled]="true"
             >Restricted Section</mlv-breadcrumb-item
@@ -47,7 +47,7 @@ import {
           <code>&lt;li&gt;</code> — no <code>&lt;ol&gt;</code> of your own; the
           breadcrumb renders the list:
         </p>
-        <nav mlvBreadcrumb>
+        <nav mlvBreadcrumb ariaLabel="Components trail">
           <li mlvBreadcrumbItem>
             <a class="mlv-breadcrumb__link" href="/">Home</a>
             <span class="mlv-breadcrumb__separator" aria-hidden="true">›</span>

@@ -8,9 +8,17 @@ import { MlvBreadcrumb } from '@malva-ui/core/breadcrumb';
   imports: [MlvBreadcrumb],
   template: `
     <div style="display: flex; flex-direction: column; gap: 1rem;">
-      <nav mlvBreadcrumb [items]="simpleItems"></nav>
-      <nav mlvBreadcrumb [items]="deepItems"></nav>
-      <nav mlvBreadcrumb [items]="groupedItems"></nav>
+      <nav mlvBreadcrumb ariaLabel="Product trail" [items]="simpleItems"></nav>
+      <nav
+        mlvBreadcrumb
+        ariaLabel="Security settings trail"
+        [items]="deepItems"
+      ></nav>
+      <nav
+        mlvBreadcrumb
+        ariaLabel="Profile settings trail"
+        [items]="groupedItems"
+      ></nav>
     </div>
   `,
 })

@@ -32,6 +32,108 @@ class TestHostComponent {
   }
 }
 
+/**
+ * Test host whose projected text, `ariaLabel` and `value` are all signals, so
+ * one fixture walks every naming branch (#326).
+ */
+@Component({
+  selector: 'mlv-test-name-host',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MlvCopyToClipboard],
+  template: `
+    <mlv-copy-to-clipboard [ariaLabel]="label()" [value]="value()">
+      <code>{{ text() }}</code>
+    </mlv-copy-to-clipboard>
+  `,
+})
+class NameHostComponent {
+  readonly text = signal('ng add @malva-ui/core');
+  readonly label = signal<string | undefined>(undefined);
+  readonly value = signal<string | undefined>(undefined);
+}
+
+/**
+ * Test host giving the component a static `id` inside a heading, the shape
+ * route focus reads by `textContent` (#326).
+ */
+@Component({
+  selector: 'mlv-test-static-id-host',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MlvCopyToClipboard],
+  template: `
+    <h1>
+      Order
+      <mlv-copy-to-clipboard id="order-copy"
+        ><code>0042</code></mlv-copy-to-clipboard
+      >
+    </h1>
+  `,
+})
+class StaticIdHostComponent {}
+
+/**
+ * Test host binding a per-row `[id]` inside `@for` — an id with no static
+ * form — and a single bound `[id]` that changes, so both reach the `id`
+ * input rather than racing the host's own `id` binding (#326).
+ */
+@Component({
+  selector: 'mlv-test-bound-id-host',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MlvCopyToClipboard],
+  template: `
+    @for (row of rows; track row) {
+      <mlv-copy-to-clipboard [id]="'copy-' + row"
+        ><code>{{ row }}</code></mlv-copy-to-clipboard
+      >
+    }
+    <mlv-copy-to-clipboard class="changing" [id]="changingId()"
+      ><code>key</code></mlv-copy-to-clipboard
+    >
+  `,
+})
+class BoundIdHostComponent {
+  readonly rows = [7, 8];
+  readonly changingId = signal<string | undefined>('consumer-a');
+}
+
+/**
+ * The accessible name for this markup, following Chromium and Firefox as
+ * measured natively (#326): `aria-labelledby` first — each IDREF's
+ * contribution, space-joined — then `aria-label`. `null` when neither is
+ * present. A reference to the element itself contributes its own
+ * `aria-label` and never its subtree (accname 2B, then 2C). Any other
+ * referenced node contributes its non-empty `aria-label`, else its text.
+ * Where the two engines disagree — a hidden referenced node, whose
+ * `aria-label` Chromium reads and Firefox ignores — the helper takes
+ * Firefox's answer (text only), the stricter one.
+ * Hand-rolled because no accessible-name library is a workspace dependency
+ * (the same helper as `progress.spec.ts`); the axe sweeps below add
+ * `aria-command-name`, which fails on an empty result.
+ */
+function accessibleName(element: Element): string | null {
+  const labelledBy = element.getAttribute('aria-labelledby');
+  if (labelledBy) {
+    return labelledBy
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((id) => {
+        const node = element.ownerDocument.getElementById(id);
+        if (!node) return '';
+        if (node === element) {
+          return element.getAttribute('aria-label')?.trim() ?? '';
+        }
+        const label = node.hasAttribute('hidden')
+          ? ''
+          : node.getAttribute('aria-label')?.trim();
+        return label || (node.textContent ?? '');
+      })
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  return element.getAttribute('aria-label');
+}
+
 describe('MlvCopyToClipboard', () => {
   // The implementation uses CDK Clipboard.copy() (returns boolean). The
   // spy mirrors that contract and is provided to TestBed via the Clipboard
@@ -122,8 +224,14 @@ describe('MlvCopyToClipboard', () => {
       expect(hostEl.getAttribute('aria-disabled')).toBeNull();
     });
 
-    it('uses the default aria-label when no value is set', () => {
-      expect(hostEl.getAttribute('aria-label')).toBe('Copy to clipboard');
+    it('names itself through its own aria-label, read back by aria-labelledby, when no value is set', () => {
+      // Nothing projected here, so the name is the localized prefix alone.
+      expect(hostEl.id).toMatch(/^mlv-copy-to-clipboard-\d+$/);
+      expect(hostEl.getAttribute('aria-label')).toBe('Copy to clipboard:');
+      expect(hostEl.getAttribute('aria-labelledby')?.split(/\s+/)[0]).toBe(
+        hostEl.id,
+      );
+      expect(accessibleName(hostEl)).toBe('Copy to clipboard:');
     });
 
     it('renders an aria-live="polite" live region', () => {
@@ -178,6 +286,8 @@ describe('MlvCopyToClipboard', () => {
         expect(hostEl.getAttribute('aria-label')).toBe(
           'Copy to clipboard: sk_live_explicit_value',
         );
+        // The `aria-label` is the whole name here: nothing reads it back.
+        expect(hostEl.hasAttribute('aria-labelledby')).toBe(false);
       });
     });
 
@@ -350,6 +460,237 @@ describe('MlvCopyToClipboard', () => {
       fixture.detectChanges();
       expect(host.copiedEvents).toEqual(['projected-value']);
     });
+
+    it('copies only the projected text while the copied confirmation shows', async () => {
+      componentEl.click();
+      await Promise.resolve();
+      fixture.detectChanges();
+      // The polite region inside the host now holds "Copied to clipboard".
+      expect(componentEl.textContent).toContain('Copied to clipboard');
+
+      componentEl.click();
+      await Promise.resolve();
+
+      expect(writeTextSpy.mock.calls.map(([text]) => text)).toEqual([
+        'projected-value',
+        'projected-value',
+      ]);
+    });
+
+    it('is named by the localized prefix and the projected text', () => {
+      expect(componentEl.getAttribute('aria-label')).toBe('Copy to clipboard:');
+      expect(accessibleName(componentEl)).toBe(
+        'Copy to clipboard: projected-value',
+      );
+    });
+  });
+
+  // ── Accessible name (#326) ─────────────────────────────────────────────────
+
+  describe('accessible name', () => {
+    let fixture: ComponentFixture<NameHostComponent>;
+    let componentEl: HTMLElement;
+
+    beforeEach(async () => {
+      await TestBed.configureTestingModule({
+        imports: [NameHostComponent],
+        providers: [
+          provideMlvI18nTesting(),
+          { provide: Clipboard, useValue: clipboardStub },
+          { provide: MlvResizeObserverService, useValue: resizeObserverStub },
+        ],
+      }).compileComponents();
+
+      fixture = TestBed.createComponent(NameHostComponent);
+      fixture.detectChanges();
+      componentEl = fixture.debugElement.query(By.css('mlv-copy-to-clipboard'))
+        .nativeElement as HTMLElement;
+    });
+
+    it('contains the visible projected text (WCAG 2.5.3)', () => {
+      expect(accessibleName(componentEl)).toBe(
+        'Copy to clipboard: ng add @malva-ui/core',
+      );
+    });
+
+    it('follows projected text that changes, with no attribute rewrite', () => {
+      const labelledBy = componentEl.getAttribute('aria-labelledby');
+
+      fixture.componentInstance.text.set('ng add @malva-ui/editor');
+      fixture.detectChanges();
+
+      expect(componentEl.getAttribute('aria-labelledby')).toBe(labelledBy);
+      expect(accessibleName(componentEl)).toBe(
+        'Copy to clipboard: ng add @malva-ui/editor',
+      );
+    });
+
+    it('prefixes the projected text with a custom ariaLabel', () => {
+      fixture.componentInstance.label.set('Copy the install command');
+      fixture.detectChanges();
+
+      expect(accessibleName(componentEl)).toBe(
+        'Copy the install command: ng add @malva-ui/core',
+      );
+    });
+
+    it('names itself by aria-label alone with an explicit value, and by both without one', () => {
+      fixture.componentInstance.value.set('npm i @malva-ui/core');
+      fixture.detectChanges();
+
+      expect(componentEl.hasAttribute('aria-labelledby')).toBe(false);
+      expect(componentEl.getAttribute('aria-label')).toBe(
+        'Copy to clipboard: npm i @malva-ui/core',
+      );
+
+      fixture.componentInstance.value.set(undefined);
+      fixture.detectChanges();
+
+      expect(componentEl.getAttribute('aria-label')).toBe('Copy to clipboard:');
+      expect(componentEl.hasAttribute('aria-labelledby')).toBe(true);
+      expect(accessibleName(componentEl)).toBe(
+        'Copy to clipboard: ng add @malva-ui/core',
+      );
+    });
+
+    it('references itself, then its own content wrapper', () => {
+      const ids = (componentEl.getAttribute('aria-labelledby') ?? '').split(
+        /\s+/,
+      );
+      const referenced = ids.map((id) => document.getElementById(id));
+
+      expect(ids).toHaveLength(2);
+      expect(referenced[0]).toBe(componentEl);
+      expect(componentEl.contains(referenced[1] ?? null)).toBe(true);
+      expect(
+        referenced[1]?.classList.contains('mlv-copy-to-clipboard__content'),
+      ).toBe(true);
+    });
+
+    it('keeps the prefix out of textContent, the name unchanged', () => {
+      // The prefix lives only in the host's own `aria-label`: no node inside
+      // carries it, so neither the host nor any ancestor reads
+      // "Copy to clipboard:" as text.
+      expect(componentEl.querySelectorAll('[aria-label]')).toHaveLength(0);
+      expect(componentEl.querySelectorAll('[hidden]')).toHaveLength(0);
+      expect(componentEl.textContent?.trim()).toBe('ng add @malva-ui/core');
+      expect((fixture.nativeElement as HTMLElement).textContent?.trim()).toBe(
+        'ng add @malva-ui/core',
+      );
+      expect(accessibleName(componentEl)).toBe(
+        'Copy to clipboard: ng add @malva-ui/core',
+      );
+    });
+
+    it('treats an empty ariaLabel as unset, on both naming paths', () => {
+      fixture.componentInstance.label.set('');
+      fixture.detectChanges();
+
+      expect(accessibleName(componentEl)).toBe(
+        'Copy to clipboard: ng add @malva-ui/core',
+      );
+
+      fixture.componentInstance.value.set('npm i @malva-ui/core');
+      fixture.detectChanges();
+
+      expect(componentEl.getAttribute('aria-label')).toBe(
+        'Copy to clipboard: npm i @malva-ui/core',
+      );
+    });
+  });
+
+  describe('static id', () => {
+    let fixture: ComponentFixture<StaticIdHostComponent>;
+    let componentEl: HTMLElement;
+
+    beforeEach(async () => {
+      await TestBed.configureTestingModule({
+        imports: [StaticIdHostComponent],
+        providers: [
+          provideMlvI18nTesting(),
+          { provide: Clipboard, useValue: clipboardStub },
+          { provide: MlvResizeObserverService, useValue: resizeObserverStub },
+        ],
+      }).compileComponents();
+
+      fixture = TestBed.createComponent(StaticIdHostComponent);
+      fixture.detectChanges();
+      componentEl = fixture.debugElement.query(By.css('mlv-copy-to-clipboard'))
+        .nativeElement as HTMLElement;
+    });
+
+    it('keeps a static id and references itself by it', () => {
+      expect(componentEl.id).toBe('order-copy');
+      expect(document.querySelectorAll('#order-copy')).toHaveLength(1);
+      expect(componentEl.getAttribute('aria-labelledby')?.split(/\s+/)[0]).toBe(
+        'order-copy',
+      );
+      expect(accessibleName(componentEl)).toBe('Copy to clipboard: 0042');
+    });
+
+    it('adds nothing to the heading text', () => {
+      expect(
+        (fixture.nativeElement as HTMLElement)
+          .querySelector('h1')
+          ?.textContent?.replace(/\s+/g, ' ')
+          .trim(),
+      ).toBe('Order 0042');
+    });
+  });
+
+  describe('bound id', () => {
+    let fixture: ComponentFixture<BoundIdHostComponent>;
+    let root: HTMLElement;
+
+    beforeEach(async () => {
+      await TestBed.configureTestingModule({
+        imports: [BoundIdHostComponent],
+        providers: [
+          provideMlvI18nTesting(),
+          { provide: Clipboard, useValue: clipboardStub },
+          { provide: MlvResizeObserverService, useValue: resizeObserverStub },
+        ],
+      }).compileComponents();
+
+      fixture = TestBed.createComponent(BoundIdHostComponent);
+      fixture.detectChanges();
+      root = fixture.nativeElement as HTMLElement;
+    });
+
+    it('puts a per-row id bound inside @for on each host, which references itself by it', () => {
+      for (const row of [7, 8]) {
+        const host = document.getElementById(`copy-${row}`);
+        expect(host?.tagName).toBe('MLV-COPY-TO-CLIPBOARD');
+        expect(host?.getAttribute('aria-labelledby')?.split(/\s+/)[0]).toBe(
+          `copy-${row}`,
+        );
+        expect(host ? accessibleName(host) : null).toBe(
+          `Copy to clipboard: ${row}`,
+        );
+      }
+    });
+
+    it('moves the self-reference with a bound id that changes, and falls back to a generated one', () => {
+      const host = root.querySelector('mlv-copy-to-clipboard.changing');
+      if (!(host instanceof HTMLElement)) throw new Error('no changing host');
+      const selfRef = () =>
+        host.getAttribute('aria-labelledby')?.split(/\s+/)[0];
+
+      expect(host.id).toBe('consumer-a');
+      expect(selfRef()).toBe('consumer-a');
+
+      fixture.componentInstance.changingId.set('consumer-b');
+      fixture.detectChanges();
+      expect(host.id).toBe('consumer-b');
+      expect(selfRef()).toBe('consumer-b');
+      expect(accessibleName(host)).toBe('Copy to clipboard: key');
+
+      fixture.componentInstance.changingId.set(undefined);
+      fixture.detectChanges();
+      expect(host.id).toMatch(/^mlv-copy-to-clipboard-\d+$/);
+      expect(selfRef()).toBe(host.id);
+      expect(accessibleName(host)).toBe('Copy to clipboard: key');
+    });
   });
 });
 
@@ -371,7 +712,9 @@ class CopyA11yHost {
  * Accessibility sweeps — `mlv-copy-to-clipboard`.
  *
  * The component synthesises a widget on a non-interactive element: `role`,
- * `tabindex`, `aria-label` and `aria-disabled` all live on the host, and the
+ * `tabindex`, the naming attributes (`aria-label`, read back through a
+ * self-referencing `aria-labelledby` unless a `value` is set) and
+ * `aria-disabled` all live on the host, and the
  * only visible affordance — the copy/check glyph pair — is deliberately
  * `aria-hidden`, with a polite live region carrying the confirmation instead.
  * So the sweep is rooted at the fixture root and parameterised over the three
@@ -415,7 +758,7 @@ describe('MlvCopyToClipboard accessibility', () => {
     const el = widget();
     expect(el.getAttribute('role')).toBe('button');
     expect(el.getAttribute('tabindex')).toBe('0');
-    expect(el.getAttribute('aria-label')).toBeTruthy();
+    expect(accessibleName(el)).toBe('Copy to clipboard: npm i @malva-ui/core');
     expect(
       el
         .querySelector('.mlv-copy-to-clipboard__indicator')
@@ -440,6 +783,8 @@ describe('MlvCopyToClipboard accessibility', () => {
     expect(
       el.querySelector('.mlv-copy-to-clipboard__live')?.textContent?.trim(),
     ).toBeTruthy();
+    // The confirmation lives inside the host but stays out of its name.
+    expect(accessibleName(el)).toBe('Copy to clipboard: npm i @malva-ui/core');
 
     await expectNoAxeViolations(root);
   });
