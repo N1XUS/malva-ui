@@ -44,7 +44,7 @@ export type MlvKbdKey =
 export interface MlvResolvedKey {
   /** Display label rendered inside the `<kbd>` element. */
   label: string;
-  /** Original key name, for aria labelling. */
+  /** Original key name; resolves the name assistive technology speaks. */
   key: string;
 }
 
@@ -110,11 +110,87 @@ const WIN_LABELS: Record<string, string> = {
   pagedown: 'PgDn',
 };
 
-/** Resolves a raw key string to a display label for the given OS. */
+/**
+ * Whether `key` is one of the table's own entries. A plain index would also
+ * find `Object.prototype` members, so `'constructor'` rendered
+ * `function Object() { [native code] }`. `Object.hasOwn` is ES2022 and the
+ * workspace compiles against the ES2020 lib, hence the `call` form.
+ */
+function hasOwnKey(map: Record<string, string>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(map, key);
+}
+
+/**
+ * Resolves a raw key string to a display label for the given OS. Only the
+ * table's own keys count (see `hasOwnKey`).
+ */
 function resolveKeyLabel(key: string, isMac: boolean): string {
   const normalized = key.toLowerCase();
   const map = isMac ? MAC_LABELS : WIN_LABELS;
-  return map[normalized] ?? key.toUpperCase();
+  return hasOwnKey(map, normalized) ? map[normalized] : key.toUpperCase();
+}
+
+/** Spoken names of the arrow and paging keys, the same on every OS. */
+const NAVIGATION_SPOKEN: Record<string, string> = {
+  up: 'Up Arrow',
+  down: 'Down Arrow',
+  left: 'Left Arrow',
+  right: 'Right Arrow',
+  pageup: 'Page Up',
+  pagedown: 'Page Down',
+};
+
+/**
+ * Spoken names for the macOS key caps. Each glyph gets the name the key
+ * carries on a Mac keyboard: `⌫` is "Delete", `⌦` "Forward Delete" and `↵`
+ * "Return".
+ */
+const MAC_SPOKEN: Record<string, string> = {
+  cmd: 'Command',
+  command: 'Command',
+  meta: 'Command',
+  ctrl: 'Control',
+  control: 'Control',
+  shift: 'Shift',
+  alt: 'Option',
+  option: 'Option',
+  enter: 'Return',
+  return: 'Return',
+  backspace: 'Delete',
+  delete: 'Forward Delete',
+  escape: 'Escape',
+  esc: 'Escape',
+  tab: 'Tab',
+  space: 'Space',
+  ...NAVIGATION_SPOKEN,
+};
+
+/**
+ * Spoken names for the Windows / Linux key caps that are abbreviated or drawn
+ * as a glyph. A key missing here is spoken as its label (`Shift`, `Enter`).
+ */
+const WIN_SPOKEN: Record<string, string> = {
+  cmd: 'Control',
+  command: 'Control',
+  ctrl: 'Control',
+  control: 'Control',
+  meta: 'Windows',
+  delete: 'Delete',
+  escape: 'Escape',
+  esc: 'Escape',
+  ...NAVIGATION_SPOKEN,
+};
+
+/**
+ * Resolves a raw key string to the name a screen reader should speak for it
+ * on the given OS. Falls back to the display label, so a key outside the
+ * tables (`'k'`, `'f5'`) is spoken exactly as it is shown. Own keys only (see
+ * `hasOwnKey`).
+ */
+function resolveSpokenName(key: string, label: string, isMac: boolean): string {
+  const normalized = key.toLowerCase();
+  const map = isMac ? MAC_SPOKEN : WIN_SPOKEN;
+  return hasOwnKey(map, normalized) ? map[normalized] : label;
 }
 
 /**
@@ -123,6 +199,11 @@ function resolveKeyLabel(key: string, isMac: boolean): string {
  *
  * OS detection swaps modifier labels: Mac shows `⌘`, `⌃`, `⇧`, `⌥`;
  * Windows/Linux shows `Ctrl`, `Shift`, `Alt`, etc.
+ *
+ * Assistive technology reads the shortcut once, spelled with key names
+ * ("Command + K", "Control + K"), from a visually hidden text node; the key
+ * caps and separators are `aria-hidden`. The host carries no role and no
+ * `aria-label` — ARIA 1.2 prohibits naming a generic element.
  *
  * @example
  * ```html
@@ -142,8 +223,6 @@ function resolveKeyLabel(key: string, isMac: boolean): string {
   imports: [],
   host: {
     class: 'mlv-kbd',
-    'aria-label': '',
-    '[attr.aria-label]': '_ariaLabel()',
   },
 })
 export class MlvKbd {
@@ -173,10 +252,16 @@ export class MlvKbd {
     })),
   );
 
-  /** @private Accessible label joining all resolved key names. */
-  protected readonly _ariaLabel = computed(() =>
+  /**
+   * @protected The shortcut as a screen reader should speak it: each key's
+   * spoken name, joined by the separator (`'Command + K'`). Rendered once in a
+   * visually hidden node beside the `aria-hidden` key caps, instead of as a
+   * host `aria-label`, which ARIA 1.2 prohibits on a role-less element and
+   * which would only have repeated the glyphs.
+   */
+  protected readonly _spokenText = computed(() =>
     this._resolvedKeys()
-      .map((rk) => rk.label)
+      .map((rk) => resolveSpokenName(rk.key, rk.label, this._isMac))
       .join(' ' + this.separator() + ' '),
   );
 }

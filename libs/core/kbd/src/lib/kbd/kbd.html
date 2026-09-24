@@ -1,6 +1,12 @@
+<!--
+  The shortcut is read once, spelled with key names, from this visually hidden
+  node; the key caps and separators below are aria-hidden so the glyphs are
+  never read. Not a host aria-label: that is prohibited on a role-less element.
+-->
+<span class="cdk-visually-hidden">{{ _spokenText() }}</span>
 @for (rk of _resolvedKeys(); track rk.key + $index) {
   @if ($index > 0) {
     <span class="mlv-kbd__separator" aria-hidden="true">{{ separator() }}</span>
   }
-  <kbd class="mlv-kbd__key">{{ rk.label }}</kbd>
+  <kbd class="mlv-kbd__key" aria-hidden="true">{{ rk.label }}</kbd>
 }
