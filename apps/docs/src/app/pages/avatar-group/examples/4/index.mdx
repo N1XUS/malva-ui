@@ -2,6 +2,6 @@
 title: Click outputs
 ---
 
-`(groupClick)` emits the full `MlvAvatarGroupMember[]` when the user clicks anywhere on the group. `(overflowClick)` emits only the hidden members when the user clicks the `+N` chip — propagation is stopped so the host click does not also fire.
+`(groupClick)` emits the full `MlvAvatarGroupMember[]` when the user clicks anywhere on the group. `(overflowClick)` emits only the hidden members when the user clicks the `+N` chip — propagation is stopped so the host click does not also fire. The `max-width` here keeps the group narrow enough for the chip to appear.
 
-Add `interactive` (or `[interactive]="true"`) to show a pointer cursor on the host, signalling the group is clickable.
+Add `interactive` (or `[interactive]="true"`) to make the group operable from the keyboard: the visible avatars render inside an inner button, so Tab reaches it and Enter or Space emits `(groupClick)`, and the host shows a pointer cursor. The host stays a named group, and the `+N` chip is a second button beside the first — never inside it, so a screen reader can reach both.

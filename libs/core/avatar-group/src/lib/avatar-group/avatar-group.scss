@@ -1,168 +1,213 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
+// Strips the UA chrome from the group's two native `<button>`s — the inner
+// action button and the `+N` counter — whose visual is the avatars alone.
+// Include it first: the `margin` shorthand would otherwise reset a
+// `margin-inline-start` written before it.
+@mixin button-reset {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
 @layer mlv.components {
-$block: mlv-avatar-group;
+  $block: mlv-avatar-group;
 
-.#{$block} {
-  @include mixins.base(
-    var(--mlv-typography-family-text),
-    var(--mlv-font-size-m),
-    0,
-    0
-  );
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-font-size-m),
+      0,
+      0
+    );
 
-  display: flex;
-  align-items: center;
-  min-width: 0;
-
-  // ── List ──────────────────────────────────────────────────────────────────
-  &__list {
     display: flex;
     align-items: center;
     min-width: 0;
-  }
 
-  // ── Individual avatar wrapper ─────────────────────────────────────────────
-  &__item {
-    display: inline-flex;
-    align-items: center;
-    margin-inline-start: var(--mlv-ag-overlap, -0.5rem);
-    position: relative;
-
-    &:first-child {
-      margin-inline-start: 0;
+    // ── List ──────────────────────────────────────────────────────────────────
+    &__list {
+      display: flex;
+      align-items: center;
+      min-width: 0;
     }
 
-    // Stacking: first item on top, later items underneath.
-    @for $i from 1 through 20 {
-      &:nth-child(#{$i}) {
-        z-index: #{21 - $i};
+    // ── Interactive action button ─────────────────────────────────────────────
+    // Wraps the visible avatars of an `interactive` group; the `+N` counter is
+    // its sibling, not its child (#328). At rest it carries no position or
+    // z-index, so it opens no stacking context and the items' z-index still
+    // stacks against the counter's (the counter paints over the last item).
+    &__action {
+      @include button-reset;
+
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      cursor: pointer;
+      border-radius: var(--mlv-radius-full);
+
+      // While focused the button is lifted above the counter (z-index 21),
+      // so the counter's overlap cannot hide the inline-end end of the ring.
+      // The lift takes the avatars with it: until focus moves on, the last
+      // avatar paints over the counter's overlapping edge instead, and takes
+      // the pointer there too — a click on that strip emits `groupClick`, and
+      // hovering it does not open the member popup.
+      &:focus-visible {
+        position: relative;
+        z-index: 22;
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+
+      // The ring follows the avatar shape, like the counter's below.
+      &:has(mlv-avatar.mlv-avatar--square) {
+        border-radius: var(--mlv-radius-m);
       }
     }
 
-    // Ring drawn as outline so it doesn't affect layout dimensions.
-    mlv-avatar {
-      outline: var(--mlv-ag-ring-width, 0.125rem) solid
-        var(--mlv-ag-ring-color, var(--mlv-background-base));
-      border-radius: var(--mlv-radius-full);
-    }
-  }
+    // ── Individual avatar wrapper ─────────────────────────────────────────────
+    &__item {
+      display: inline-flex;
+      align-items: center;
+      margin-inline-start: var(--mlv-ag-overlap, -0.5rem);
+      position: relative;
 
-  // ── Overflow counter wrapper ──────────────────────────────────────────────
-  // Uses the same stacking slot as a regular avatar item, floating above all
-  // avatar items (z-index: 21) so it remains reachable by pointer and keyboard.
-  &__overflow {
-    display: inline-flex;
-    align-items: center;
-    margin-inline-start: var(--mlv-ag-overlap, -0.5rem);
-    position: relative;
-    z-index: 21;
-    cursor: pointer;
-    outline: none;
+      &:first-child {
+        margin-inline-start: 0;
+      }
 
-    // Overflow counter rendered as an avatar — apply the same ring styling.
-    mlv-avatar {
-      outline: var(--mlv-ag-ring-width, 0.125rem) solid
-        var(--mlv-ag-ring-color, var(--mlv-background-base));
-      border-radius: var(--mlv-radius-full);
-      pointer-events: none; // clicks handled by the wrapper
+      // Stacking: first item on top, later items underneath.
+      @for $i from 1 through 20 {
+        &:nth-child(#{$i}) {
+          z-index: #{21 - $i};
+        }
+      }
+
+      // Ring drawn as outline so it doesn't affect layout dimensions.
+      mlv-avatar {
+        outline: var(--mlv-ag-ring-width, 0.125rem) solid
+          var(--mlv-ag-ring-color, var(--mlv-background-base));
+        border-radius: var(--mlv-radius-full);
+      }
     }
 
-    // Scale the "+N" initials text down slightly so longer strings ("+12") fit
-    // comfortably inside the circular avatar visual at all sizes.
-    .mlv-avatar__initials {
-      font-size: calc(var(--mlv-avatar-font, 0.875rem) * 0.75);
-      letter-spacing: -0.01em;
-      opacity: 1;
-      color: var(--mlv-text-secondary);
+    // ── Overflow counter wrapper ──────────────────────────────────────────────
+    // Uses the same stacking slot as a regular avatar item, floating above all
+    // avatar items (z-index: 21) so it remains reachable by pointer and keyboard.
+    &__overflow {
+      @include button-reset;
+
+      display: inline-flex;
+      align-items: center;
+      margin-inline-start: var(--mlv-ag-overlap, -0.5rem);
+      position: relative;
+      z-index: 21;
+      cursor: pointer;
+      outline: none;
+
+      // Overflow counter rendered as an avatar — apply the same ring styling.
+      mlv-avatar {
+        outline: var(--mlv-ag-ring-width, 0.125rem) solid
+          var(--mlv-ag-ring-color, var(--mlv-background-base));
+        border-radius: var(--mlv-radius-full);
+        pointer-events: none; // clicks handled by the wrapper
+      }
+
+      // Scale the "+N" initials text down slightly so longer strings ("+12") fit
+      // comfortably inside the circular avatar visual at all sizes.
+      .mlv-avatar__initials {
+        font-size: calc(var(--mlv-avatar-font, 0.875rem) * 0.75);
+        letter-spacing: -0.01em;
+        opacity: 1;
+        color: var(--mlv-text-secondary);
+      }
+
+      // Focus ring using the same design token as other interactive elements.
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+        border-radius: var(--mlv-radius-full);
+      }
     }
 
-    // Focus ring using the same design token as other interactive elements.
-    &:focus-visible {
-      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: var(--mlv-focus-ring-offset);
-      border-radius: var(--mlv-radius-full);
+    // ── Popup member list ─────────────────────────────────────────────────────
+    &__popup-list {
+      display: flex;
+      flex-direction: column;
+      min-width: 10rem;
+      max-height: 20rem;
+      overflow-y: auto;
     }
-  }
 
-  // ── Popup member list ─────────────────────────────────────────────────────
-  &__popup-list {
-    display: flex;
-    flex-direction: column;
-    min-width: 10rem;
-    max-height: 20rem;
-    overflow-y: auto;
-  }
+    &__popup-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: var(--mlv-padding-s);
+      min-height: var(--mlv-height-s);
+      transition: background-color var(--mlv-duration-fast) var(--mlv-ease-out);
 
-  &__popup-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: var(--mlv-padding-s);
-    min-height: var(--mlv-height-s);
-    transition: background-color var(--mlv-duration-fast) var(--mlv-ease-out);
-
-    &:hover {
-      background-color: var(--mlv-background-neutral-1);
+      &:hover {
+        background-color: var(--mlv-background-neutral-1);
+      }
     }
-  }
 
-  &__popup-name {
-    font-family: var(--mlv-typography-family-text);
-    font-size: var(--mlv-font-size-s);
-    color: var(--mlv-text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+    &__popup-name {
+      font-family: var(--mlv-typography-family-text);
+      font-size: var(--mlv-font-size-s);
+      color: var(--mlv-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-  // ── Size modifiers — control overlap and ring color inheritance ───────────
-  &--size-xs {
-    --mlv-ag-overlap: -0.25rem;
-  }
+    // ── Size modifiers — control overlap and ring color inheritance ───────────
+    &--size-xs {
+      --mlv-ag-overlap: -0.25rem;
+    }
 
-  &--size-s {
-    --mlv-ag-overlap: -0.375rem;
-  }
+    &--size-s {
+      --mlv-ag-overlap: -0.375rem;
+    }
 
-  &--size-m {
-    --mlv-ag-overlap: -0.5rem;
-  }
+    &--size-m {
+      --mlv-ag-overlap: -0.5rem;
+    }
 
-  &--size-l {
-    --mlv-ag-overlap: -0.625rem;
-  }
+    &--size-l {
+      --mlv-ag-overlap: -0.625rem;
+    }
 
-  &--size-xl {
-    --mlv-ag-overlap: -0.75rem;
-  }
+    &--size-xl {
+      --mlv-ag-overlap: -0.75rem;
+    }
 
-  &--size-xxl {
-    --mlv-ag-overlap: -0.875rem;
-  }
+    &--size-xxl {
+      --mlv-ag-overlap: -0.875rem;
+    }
 
-  // ── Shape: square avatars use matching border-radius for the ring ─────────
-  &__item mlv-avatar.mlv-avatar--square,
-  &__overflow mlv-avatar.mlv-avatar--square {
-    border-radius: var(--mlv-radius-m);
-  }
-
-  // Focus ring follows the shape for square avatars.
-  &__overflow:has(mlv-avatar.mlv-avatar--square):focus-visible {
-    border-radius: var(--mlv-radius-m);
-  }
-
-  // ── Interactive state ─────────────────────────────────────────────────────
-  &--interactive {
-    cursor: pointer;
-
-    &:focus-visible {
-      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: var(--mlv-focus-ring-offset);
+    // ── Shape: square avatars use matching border-radius for the ring ─────────
+    &__item mlv-avatar.mlv-avatar--square,
+    &__overflow mlv-avatar.mlv-avatar--square {
       border-radius: var(--mlv-radius-m);
     }
-  }
-}
 
-@include mixins.reduced-motion($block);
+    // Focus ring follows the shape for square avatars.
+    &__overflow:has(mlv-avatar.mlv-avatar--square):focus-visible {
+      border-radius: var(--mlv-radius-m);
+    }
+
+    // ── Interactive state ─────────────────────────────────────────────────────
+    // A click anywhere on the host still emits `groupClick`. The host is never
+    // focused — the focus ring lives on `__action`.
+    &--interactive {
+      cursor: pointer;
+    }
+  }
+
+  @include mixins.reduced-motion($block);
 }

@@ -1,27 +1,37 @@
 <div class="mlv-avatar-group__list">
-  @for (member of _visibleMembers(); track member.name; let i = $index) {
-    <div class="mlv-avatar-group__item">
-      <mlv-avatar
-        [size]="size()"
-        [shape]="shape()"
-        [name]="member.name"
-        [src]="member.src ?? null"
-        [initials]="member.initials ?? ''"
-        [color]="member.color ?? (member.name | mlvColorFromText)"
-      />
-    </div>
+  <!--
+    An interactive group acts through this inner button rather than through
+    its host, so the +N counter below can be a button beside it: `button` has
+    presentational children, and a button nested in another is flattened away
+    for assistive technology (#328). The host stays a named `role="group"`.
+  -->
+  @if (_actionable()) {
+    <button
+      type="button"
+      class="mlv-avatar-group__action"
+      [attr.aria-label]="_hostAriaLabel()"
+    >
+      <ng-container [ngTemplateOutlet]="visibleItems" />
+    </button>
+  } @else {
+    <ng-container [ngTemplateOutlet]="visibleItems" />
   }
   @if (_hasOverflow()) {
-    <div
+    <!--
+      The counter is excluded from the popup's click-outside dismissal: as a
+      native button, Enter / Space fire a click on it, and without the
+      exclusion activating the focused counter would collapse the preview
+      that focus opened, with no second press to bring it back.
+    -->
+    <button
+      #overflowButton
+      type="button"
       class="mlv-avatar-group__overflow"
       [mlvPopupTrigger]="memberPopup"
       [triggerOn]="['hover', 'focus']"
       [ariaHasPopup]="null"
-      tabindex="0"
-      role="button"
       [attr.aria-label]="_overflowAriaLabel()"
       (click)="_onOverflowClick($event)"
-      (keydown)="_onOverflowKeydown($any($event))"
     >
       <mlv-avatar
         class="mlv-avatar-group__overflow-avatar"
@@ -30,13 +40,14 @@
         [initials]="_overflowLabel()"
         color="var(--mlv-background-neutral-2)"
       />
-    </div>
+    </button>
 
     <mlv-popup
       #memberPopup
       position="bottom-start"
       [hasArrow]="false"
       [hasShadow]="true"
+      [dismissExcludeElements]="[overflowButton]"
     >
       <ng-template mlvPopupContent>
         <div
@@ -64,3 +75,24 @@
     </mlv-popup>
   }
 </div>
+
+<!--
+  The visible avatars, stamped either straight into the list or inside the
+  action button. The wrapper is a `span` so the markup this template writes
+  inside a button stays phrasing content; `mlv-avatar`'s own internals are
+  still `div`s, so the button as a whole is not strictly phrasing.
+-->
+<ng-template #visibleItems>
+  @for (member of _visibleMembers(); track member.name) {
+    <span class="mlv-avatar-group__item">
+      <mlv-avatar
+        [size]="size()"
+        [shape]="shape()"
+        [name]="member.name"
+        [src]="member.src ?? null"
+        [initials]="member.initials ?? ''"
+        [color]="member.color ?? (member.name | mlvColorFromText)"
+      />
+    </span>
+  }
+</ng-template>
