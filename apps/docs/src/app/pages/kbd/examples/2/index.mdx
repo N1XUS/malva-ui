@@ -4,16 +4,21 @@ title: Supported Keys
 
 The `keys` input accepts any of the canonical key names below. Unknown strings are uppercased and displayed verbatim.
 
-| Key name | Mac label | Win/Linux label |
-|---|---|---|
-| `cmd`, `command`, `meta` | `⌘` | `Ctrl` |
-| `ctrl`, `control` | `⌃` | `Ctrl` |
-| `shift` | `⇧` | `Shift` |
-| `alt`, `option` | `⌥` | `Alt` |
-| `enter`, `return` | `↵` | `Enter` |
-| `backspace` | `⌫` | `Backspace` |
-| `delete` | `⌦` | `Del` |
-| `escape`, `esc` | `⎋` | `Esc` |
-| `tab` | `⇥` | `Tab` |
-| `space` | `␣` | `Space` |
-| `up` / `down` / `left` / `right` | `↑` / `↓` / `←` / `→` | `↑` / `↓` / `←` / `→` |
+| Key name                         | Mac label             | Win/Linux label       | Screen reader (Mac)    | Screen reader (Win/Linux) |
+| -------------------------------- | --------------------- | --------------------- | ---------------------- | ------------------------- |
+| `cmd`, `command`                 | `⌘`                   | `Ctrl`                | Command                | Control                   |
+| `meta`                           | `⌘`                   | `Win`                 | Command                | Windows                   |
+| `ctrl`, `control`                | `⌃`                   | `Ctrl`                | Control                | Control                   |
+| `shift`                          | `⇧`                   | `Shift`               | Shift                  | Shift                     |
+| `alt`, `option`                  | `⌥`                   | `Alt`                 | Option                 | Alt                       |
+| `enter`, `return`                | `↵`                   | `Enter`               | Return                 | Enter                     |
+| `backspace`                      | `⌫`                   | `Backspace`           | Delete                 | Backspace                 |
+| `delete`                         | `⌦`                   | `Del`                 | Forward Delete         | Delete                    |
+| `escape`, `esc`                  | `⎋`                   | `Esc`                 | Escape                 | Escape                    |
+| `tab`                            | `⇥`                   | `Tab`                 | Tab                    | Tab                       |
+| `space`                          | `␣`                   | `Space`               | Space                  | Space                     |
+| `up` / `down` / `left` / `right` | `↑` / `↓` / `←` / `→` | `↑` / `↓` / `←` / `→` | Up Arrow … Right Arrow | Up Arrow … Right Arrow    |
+| `home` / `end`                   | `Home` / `End`        | `Home` / `End`        | Home / End             | Home / End                |
+| `pageup` / `pagedown`            | `PgUp` / `PgDn`       | `PgUp` / `PgDn`       | Page Up / Page Down    | Page Up / Page Down       |
+
+Screen readers never read the key caps. The whole shortcut is read once from visually hidden text, spelled with the names in the last two columns and joined by the separator — "Command + K" on a Mac, "Control + K" elsewhere. An unknown key is read as its label.
