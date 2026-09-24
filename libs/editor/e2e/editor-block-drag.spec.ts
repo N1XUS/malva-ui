@@ -234,7 +234,13 @@ for (const direction of ['ltr', 'rtl'] as const) {
         element.scrollIntoView({ block: 'center' }),
       );
 
-      await source.hover();
+      // `scroll: 'none'` keeps the centring above. When the first hover attempt
+      // finds the block "not stable" (the route's last 1px settle), Playwright
+      // retries with a forced `scrollIntoView({ block: 'end' })`, which pins
+      // `Change 2` to the viewport's bottom edge and pushes the drop target
+      // below it — measured on Playwright 1.63 / Chromium 153 in about one run
+      // in four. The stability wait still runs; only the scroll is skipped.
+      await source.hover({ scroll: 'none' });
       const handle = editor.locator(
         '.mlv-editor__block-handle[data-visible="true"]',
       );

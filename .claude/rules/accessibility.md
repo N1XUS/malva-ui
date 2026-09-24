@@ -111,7 +111,7 @@ Keep the narrowing no wider than its reason. A sweep parameterised over several 
 
 ### "Full sweep" means every rule that can run here
 
-`axe.getRules()` lists **105** rules in axe-core 4.12.1, of which **96** are enabled by default (9 are deprecated or experimental and ship off). This workspace turns 2 of those 96 off, so **94** are asked of every sweep. Of the 94, however many do not match the markup come back `inapplicable` — `color-contrast` always does, under jsdom. So read a green sweep as "every rule axe would apply to this markup in a default run", not as "all 105 rules pass".
+`axe.getRules()` lists **105** rules in axe-core 4.13.0 (the same 105 ids as 4.12.1), of which **96** are enabled by default (9 are deprecated or experimental and ship off). This workspace turns 2 of those 96 off, so **94** are asked of every sweep. Of the 94, however many do not match the markup come back `inapplicable` — `color-contrast` always does, under jsdom. So read a green sweep as "every rule axe would apply to this markup in a default run", not as "all 105 rules pass".
 
 ---
 
