@@ -239,6 +239,14 @@ interface MlvRadioGroupAccessor {
 - **`aria-invalid="true"`** on the `role="radiogroup"` host while `resolvedState()` is `error`; no attribute otherwise. The group already rendered its description and message and bound `_describedBy()`, which now also carries the enclosing `mlv-form-field`'s error id — see `libs-form-utils.md` § _Field error association and `aria-invalid`_.
 - Spec: `radio-group-validation.spec.ts`.
 
+## Touched on leaving the group (2026-09, #347)
+
+- `touch` is emitted when focus leaves the group, by the base's `_reportTouchOnFocusLeave()` (`libs-form-utils.md` § _Touched when focus leaves the control_). Moving between radios with the arrows or by click emits nothing. `selectRadio` no longer touches.
+- Before, `selectRadio` was the only touch: touched arrived with a selection, together with valid, so a required group never showed its error from interaction — tabbing through without choosing touched nothing and the error waited for submit (FC-15).
+- Focus in, then out, with no value → touched. That is the path by which a required group now shows its error.
+- A label click is a press on a non-focusable part: at `mousedown` it moves focus to `main[mlvPage]` or to no element, and only at `click` to the chosen radio. The base holds that verdict until the press ends, so it does not touch.
+- Spec: `radio-group-touched.spec.ts`.
+
 ## Dependencies
 
 - `@angular/forms/signals` — `FormValueControl` contract

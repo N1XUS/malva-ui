@@ -35,7 +35,6 @@
   [style.bottom]="_isVertical() ? _lowPercent() + '%' : null"
   (keydown)="_onLowThumbKeydown($event)"
   (focus)="setFocused(true)"
-  (blur)="_onThumbBlur()"
 ></div>
 
 @if (tooltip()) {
@@ -75,7 +74,6 @@
     [style.bottom]="_isVertical() ? _highPercent() + '%' : null"
     (keydown)="_onHighThumbKeydown($event)"
     (focus)="setFocused(true)"
-    (blur)="_onThumbBlur()"
   ></div>
 
   @if (tooltip()) {

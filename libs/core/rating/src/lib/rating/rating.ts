@@ -127,6 +127,11 @@ export class MlvRating
 
   constructor() {
     super();
+    // Touched only when focus leaves the rating — the stars and this
+    // `tabindex="-1"` host are one control, so a move between them (an arrow
+    // key, a pointer press on another star, a press between two stars) is not
+    // the user leaving it (#347, D22).
+    this._reportTouchOnFocusLeave();
 
     // `mousemove` is bound here rather than as a `(mousemove)` binding on each
     // star. A template listener is wrapped in
@@ -225,16 +230,6 @@ export class MlvRating
    * holding the roving tab stop after a keyboard change.
    */
   private readonly _stars = viewChildren<ElementRef<HTMLButtonElement>>('star');
-
-  /**
-   * @private `true` only for the duration of the `focus()` call in
-   * {@link _focusActiveStar}. The star losing focus to it is not the user
-   * leaving the control, so its `blur` must not mark the field touched — the
-   * arrow keys never moved focus before #314, and touched still waits for
-   * focus to leave the rating. `focus()` dispatches `blur` synchronously, so
-   * the flag cannot outlive the move it describes.
-   */
-  private _movingFocusBetweenStars = false;
 
   /** Whether the control holds a clearable value — A non-zero rating is set. */
   readonly hasValue = computed(() => this.value() > 0);
@@ -415,17 +410,18 @@ export class MlvRating
     const star = this._stars()[this._activeIndex()]?.nativeElement;
     if (!star || star === focused) return;
 
-    this._movingFocusBetweenStars = true;
-    try {
-      star.focus();
-    } finally {
-      this._movingFocusBetweenStars = false;
-    }
+    // The star losing focus here is not the user leaving the control: the
+    // host `focusout` sees the next star as `relatedTarget` and reports
+    // nothing (#314, #347).
+    star.focus();
   }
 
-  /** @internal */
+  /**
+   * @internal A star losing focus drops the hover preview. Touched is not
+   * reported here — the host `focusout` reports it once focus has left the
+   * whole rating (#347).
+   */
   protected _onStarBlur(): void {
     this._hoverValue.set(0);
-    if (!this._movingFocusBetweenStars) this._markTouched();
   }
 }

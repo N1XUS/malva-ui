@@ -30,8 +30,18 @@ describe('MlvRating — forms bindings matrix', () => {
     fixture.detectChanges();
   }
 
+  /**
+   * The user leaving the control: focus moves from the fourth star to an
+   * element outside the rating. A star's own `blur` no longer reports
+   * touched — the host's `focusout` does, once focus has left the rating
+   * (#347).
+   */
   function blurFourthStar(fixture: ComponentFixture<unknown>): void {
-    stars(fixture)[3].dispatchEvent(new FocusEvent('blur'));
+    stars(fixture)[3].focus();
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    outside.remove();
     fixture.detectChanges();
   }
 

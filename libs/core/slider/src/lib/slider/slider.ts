@@ -279,6 +279,9 @@ export class MlvSlider
 
   constructor() {
     super();
+    // Touched and unfocused only when focus leaves the slider — never on Tab
+    // from the low thumb to the high one (#347, D22).
+    this._reportTouchOnFocusLeave();
     this._renderer = inject(Renderer2);
     this._destroyRef = inject(DestroyRef);
   }
@@ -459,7 +462,12 @@ export class MlvSlider
       this._activeDragThumb.set(null);
       // Drop the cached track geometry so the next drag re-measures.
       this._dragTrackRect = null;
-      this._markTouched();
+      // A press on a thumb focuses it, so focus is still inside: touched waits
+      // for focus to leave, as it does for a keyboard user (#347, D22). A
+      // press on the track focuses nothing in the slider, so the focus-leave
+      // report never hears of that gesture and its end is the only "done"
+      // signal a mouse user gives.
+      if (!this._focusIsInsideControl()) this._markTouched();
       release?.();
       release = null;
     };
@@ -615,11 +623,5 @@ export class MlvSlider
     } else {
       this._write(this._lowValue());
     }
-  }
-
-  /** @protected Marks the control touched when either thumb loses focus. */
-  protected _onThumbBlur(): void {
-    this.setFocused(false);
-    this._markTouched();
   }
 }

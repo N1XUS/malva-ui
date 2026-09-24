@@ -25,11 +25,21 @@ function removeSample(
   fixture.detectChanges();
 }
 
-function blur(
-  fixture: ComponentFixture<unknown>,
-  tokenizer: MlvTokenizer<string>,
-): void {
-  tokenizer.onInputBlur();
+/**
+ * The user leaving the control: focus moves from the text input to an element
+ * outside the tokenizer. Calling `onInputBlur()` used to stand in for this and
+ * hid that the handler never ran in a browser (#347).
+ */
+function blur(fixture: ComponentFixture<unknown>): void {
+  (
+    fixture.nativeElement.querySelector(
+      '.mlv-tokenizer__input .mlv-input__native',
+    ) as HTMLInputElement
+  ).focus();
+  const outside = document.createElement('button');
+  document.body.append(outside);
+  outside.focus();
+  outside.remove();
   fixture.detectChanges();
 }
 
@@ -72,7 +82,7 @@ describe('MlvTokenizer — forms bindings matrix', () => {
       sample,
       interact: () => removeSample(fixture, host.tokenizer()),
       expectedAfterInteraction: [],
-      blur: () => blur(fixture, host.tokenizer()),
+      blur: () => blur(fixture),
     });
   });
 
@@ -113,7 +123,7 @@ describe('MlvTokenizer — forms bindings matrix', () => {
       sample,
       interact: () => removeSample(fixture, host.tokenizer()),
       expectedAfterInteraction: [],
-      blur: () => blur(fixture, host.tokenizer()),
+      blur: () => blur(fixture),
     });
   });
 
@@ -160,7 +170,7 @@ describe('MlvTokenizer — forms bindings matrix', () => {
       sample,
       interact: () => removeSample(fixture, host.tokenizer()),
       expectedAfterInteraction: [],
-      blur: () => blur(fixture, host.tokenizer()),
+      blur: () => blur(fixture),
     });
   });
 });

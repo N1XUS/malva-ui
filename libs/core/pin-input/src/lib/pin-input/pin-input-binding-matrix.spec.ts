@@ -27,8 +27,17 @@ describe('MlvPinInput — forms bindings matrix', () => {
     fixture.detectChanges();
   }
 
+  /**
+   * The user leaving the control: focus moves from a cell to an element
+   * outside the pin input. A cell's own `blur` no longer reports touched —
+   * the host's `focusout` does, once focus has left the row (#347).
+   */
   function blur(fixture: ComponentFixture<unknown>): void {
-    firstCell(fixture).dispatchEvent(new FocusEvent('blur'));
+    firstCell(fixture).focus();
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    outside.remove();
     fixture.detectChanges();
   }
 

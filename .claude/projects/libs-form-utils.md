@@ -868,6 +868,43 @@ Run it with `node scripts/benchmarks/selection-membership.mjs` (no build needed)
 
 - `MlvFormField` dual source: `contentChild(FormField)` (signal path — reads `FieldState.errors()/touched()/dirty()` reactively, prefers rule-supplied `message`, maps `kind.toLowerCase()` onto the legacy error keys) with the `NgControl`+events path kept for reactive/template-driven. The legacy effect early-returns for `[formField]` children (the signals interop exposes a shim NgControl without `.events`). `submit` strategy proxies to touched under the signal path.
 
+## Touched when focus leaves the control (2026-09, #347)
+
+Owner decision D22: a control reports touched — emits `touch` — when focus leaves the **control** or group, never on a move between its own parts and never on a selection. Holds for the eight adopters below; other controls keep their own timing, and some still touch while focus stays inside (see _Not adopted_). Breaking (VERSIONING row 112). See `docs/migrations/2026-09-touched-on-focus-leave.md`.
+
+- **`_focusLeavesControl(event, ...containers)`** (`protected`): is this `focusout` a move out of the control? Read it synchronously in the listener.
+  - `relatedTarget` inside the host, or inside a container → `false`.
+  - A shadow root nested in the control is covered for free: the browser retargets `relatedTarget` to its host. No `composedPath()` walk.
+  - `relatedTarget` names no element → leaving. That covers `null` from a browser and the `Document` that jsdom sends for `el.blur()`. Cases: a click on non-focusable space, `el.blur()`, a focused element removed (Chromium), a window or tab switch. Parity with controls that touch on a native `blur`, which fires on all of these, and with Angular's value accessors.
+  - `containers`: elements owned by the control but outside its host, such as a portaled pane. Nothing passes one yet; they are for the overlay follow-ups.
+- **`_focusIsInsideControl(...containers)`** (`protected`): is focus inside the control right now? Root-aware `activeElement` (the host's document or shadow root) contained by the host or a container. For a verdict after a focus move, such as a pointer gesture's end; not for use during a `focusout`, where `activeElement` reads `body`.
+- **`_reportTouchOnFocusLeave({ enabled?, containers? })`** (`protected`): call it once, from the constructor. It injects and owns its listeners.
+  - Listens with `fromEvent(host, 'focusout')` and `takeUntilDestroyed`.
+  - With `containers`, also listens on the injected `DOCUMENT` for a `focusout` and a capture `pointerdown` whose target is inside a container and not inside the host. A container sits outside the host, so neither event reaches the host from there; focus leaving a pane for anywhere else counts as leaving. A container inside a shadow root is not seen from the document.
+  - On leaving it calls `setFocused(false)` and then `_markTouched()`, so `focused()` also clears only on leaving.
+  - `enabled`: returns `false` while leaving should report nothing — `mlv-segmented`'s link mode, a disabled `mlv-tokenizer`.
+- **Pointer press deferral.**
+  - Why: `mousedown` on a non-focusable part sends focus to the press target's nearest focusable ancestor. On the docs app that is `main[mlvPage]` (`tabindex="-1"`); with no such ancestor it goes to no element. Measured in Chromium, Firefox and WebKit.
+  - So a click on an `mlv-radio`'s label blurs the focused radio at `mousedown` and focuses the chosen one only at `click`. Decided on the spot, a required group turned red mid-choice.
+  - Mechanism: a capture `pointerdown` inside the control opens a press. The press ends at the first of `click`, `pointercancel`, or `PRESS_END_FALLBACK_MS` (500) after `pointerup`, all listened on the injected `DOCUMENT` in capture phase, and released at the press's end or on destroy.
+  - A `focusout` to no element or to an ancestor of the host or of a container, during a press, is held. When the press ends, the verdict waits one `timer(0)` task, then asks `_focusIsInsideControl()` and reports leaving only if focus is not back inside.
+  - Every other `focusout` is decided on the spot, including one to a named outside element during a press.
+  - Limit: the ancestor test does not cross a shadow boundary; an ancestor beyond one counts as leaving.
+- **Adopters:** `mlv-pin-input`, `mlv-radio-group`, `mlv-segmented`, `mlv-rating`, `mlv-slider`, `mlv-color-picker`, `mlv-file-upload`, `mlv-tokenizer`.
+  - Deliberate extra reports: the slider's drag end and the colour picker's canvas `pointerup` touch when `_focusIsInsideControl()` is `false` at release (a track press, or a canvas drag with focus elsewhere — nothing else reports those gestures); the tokenizer's clear button touches on clear, like every `clearable` control's.
+  - The tokenizer also clears `focused()` and touches when disabled with its input focused: the input is removed, and Firefox / WebKit fire no `focusout` for it.
+- **Matching without adopting:** `mlv-checkbox`, `mlv-switch`, editable `mlv-title` — one focusable element, native `(blur)` → `_markTouched()`. `mlv-checkbox-group` and `mlv-switch-group` are not form controls; each child touches on its own blur.
+- **Not adopted, each a follow-up.** They touch while focus stays inside, or on an action:
+  - `mlv-input`, `mlv-textarea`, `mlv-number-input`: native input `blur`, so with `clearable` a move to the wrapper's clear button (inside the host) touches — measured on `mlv-input`, `aria-invalid` flips — as would focusable prepend / append content; clearing touches.
+  - `mlv-select`, `mlv-combobox`: touch on every selection in every mode (`_commitSelection`, `_emitValue`), on the searchable select's hand-off to its search field and the full-screen combobox's to its in-sheet input, and on clear.
+  - `mlv-day-picker`, `mlv-time-picker`, `mlv-date-range-picker`: trigger blur into their own portaled popup, `_onPopupClosed`.
+  - `mlv-color-picker-popup` (input → panel, Escape); `mlv-color-picker`'s portaled tab-overflow popup (counts as leaving).
+  - `mlv-editor`, which has its own null policy.
+- Specs:
+  - `focus-leaves-control.spec.ts`: part↔part, leaving, null, `blur()`, nested shadow root, the four press paths, fallback, `pointercancel`, containers through the helper and through real `focusout`s into, within and out of a pane (and a press inside it), and the injected `DOCUMENT` (an isolated `createHTMLDocument()` gets the press and container listeners, the global none, released on destroy). Ablating the `timer(0)`, the deferral, the ancestor clause, the `DOCUMENT` injection or any container listener turns it red.
+  - One `*-touched.spec.ts` per adopter.
+  - The binding matrices' `blur` step now moves focus to a real outside element instead of dispatching a synthetic event or calling a handler.
+
 ## Write permission — `_canWrite` / `_write` (2026-09, #298)
 
 - **Neither forms layer blocks a write from a custom control.** Signal forms' `listenToCustomControlModel` forwards every `value` / `checked` model change unconditionally, and the reactive `FormValueControl` interop has no readonly concept at all. `readonly` / `disabled` are read-only _inputs_ to the control; honouring them is the control's job, and five controls (`mlv-number-input`, `mlv-checkbox`, `mlv-switch`, `mlv-slider`, `mlv-pin-input`) plus `mlv-radio-group`'s DOM did not.

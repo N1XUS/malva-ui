@@ -21,6 +21,24 @@ function selectB(
   fixture.detectChanges();
 }
 
+/**
+ * The user leaving the group: focus moves from a radio to an element outside
+ * it. That — not the selection before it — is what reports touched (#347), so
+ * the matrix's "untouched before blur" step also pins that `selectB` alone
+ * leaves the field untouched.
+ */
+function leaveGroup(fixture: ComponentFixture<unknown>): void {
+  const radio = (fixture.nativeElement as HTMLElement).querySelector(
+    'input[type="radio"]',
+  ) as HTMLInputElement;
+  radio.focus();
+  const outside = document.createElement('button');
+  document.body.append(outside);
+  outside.focus();
+  outside.remove();
+  fixture.detectChanges();
+}
+
 describe('MlvRadioGroup — forms bindings matrix', () => {
   it('reactive: [formControl]', async () => {
     @Component({
@@ -64,8 +82,8 @@ describe('MlvRadioGroup — forms bindings matrix', () => {
       sample: 'a',
       interact: () => selectB(fixture, host.group()),
       expectedAfterInteraction: 'b',
+      blur: () => leaveGroup(fixture),
     });
-    expect(host.control.touched).toBe(true);
   });
 
   it('template-driven: ngModel', async () => {
@@ -109,8 +127,8 @@ describe('MlvRadioGroup — forms bindings matrix', () => {
       sample: 'a',
       interact: () => selectB(fixture, host.group()),
       expectedAfterInteraction: 'b',
+      blur: () => leaveGroup(fixture),
     });
-    expect(ngControl.touched).toBe(true);
   });
 
   it('signal forms: [formField]', async () => {
@@ -160,7 +178,7 @@ describe('MlvRadioGroup — forms bindings matrix', () => {
       sample: 'a',
       interact: () => selectB(fixture, host.group()),
       expectedAfterInteraction: 'b',
+      blur: () => leaveGroup(fixture),
     });
-    expect(host.fields.choice().touched()).toBe(true);
   });
 });

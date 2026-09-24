@@ -267,6 +267,26 @@ export class MlvTokenizer<T = string>
 
   constructor() {
     super();
+    // Touched and unfocused only when focus leaves the tokenizer — the text
+    // input and the tokens' roving tab stop are one control (#347, D22).
+    // Silent while disabled: the effect below reports the leave that disabling
+    // causes, and the `focusout` Chromium fires for the removed input must not
+    // report it a second time, whichever of the two runs first.
+    this._reportTouchOnFocusLeave({ enabled: () => !this.computedDisabled() });
+
+    // Disabling removes the text input (`@if (!computedDisabled())`). Removing
+    // a focused element moves focus to no element, and Firefox and WebKit fire
+    // no `focusout` for it, so the focus-leave report never hears of it and
+    // `focused()` would keep the focus ring on a disabled control. Focus has
+    // left, so report it here (#347).
+    effect(() => {
+      if (!this.computedDisabled()) return;
+      untracked(() => {
+        if (!this.focused()) return;
+        this.setFocused(false);
+        this._markTouched();
+      });
+    });
 
     const destroyRef = inject(DestroyRef);
     destroyRef.onDestroy(() => {
@@ -503,15 +523,23 @@ export class MlvTokenizer<T = string>
     this._deleteArmedAndRearm();
   }
 
+  /**
+   * Handles the text input gaining focus (`mlv-input`'s `inputFocus`): the
+   * control reports {@link focused}, which draws the field's focus ring.
+   */
   onInputFocus(): void {
     this.setFocused(true);
   }
 
+  /**
+   * Handles the text input losing focus (`mlv-input`'s `inputBlur`): disarms
+   * the armed token (Gmail-style token UX). Touched and `focused()` are not
+   * reported here — focus moving from the input to a token is not the user
+   * leaving the control; the focus-leave report set up in the constructor
+   * reports both once focus has left the tokenizer (#347).
+   */
   onInputBlur(): void {
-    // Focus leaving the field disarms the selection (Gmail-style token UX).
     this._disarm();
-    this.setFocused(false);
-    this._markTouched();
   }
 
   /**

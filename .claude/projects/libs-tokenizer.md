@@ -87,6 +87,17 @@ host: {
 }
 ```
 
+Focus and touched (#347):
+
+- The template binds the inner `mlv-input`'s `(inputFocus)` / `(inputBlur)` outputs to `onInputFocus()` / `onInputBlur()`.
+- They used to be `(focus)` / `(blur)` on the `<mlv-input>` element. Those events do not bubble, so neither ever fired in a browser (measured): `focused()` was never `true`, the `--focused` ring never showed, and focus leaving never touched.
+- `onInputFocus()` sets `focused()`. `onInputBlur()` only disarms — now reachable in a browser, so a token armed by Backspace disarms when the input loses focus.
+- `touch` and clearing `focused()` belong to the base's `_reportTouchOnFocusLeave({ enabled: () => !computedDisabled() })`. So input ↔ token moves do nothing, and leaving the tokenizer touches once.
+- Disabled while the input has focus: `@if (!computedDisabled())` removes the input, and Firefox / WebKit fire no `focusout` for a removed element, so a constructor effect clears `focused()` and touches once when `computedDisabled()` turns `true` with `focused()` set. The `enabled` gate drops the `focusout` Chromium does fire for the removal, so every engine reports once.
+- The clear button (`_onClear`) still touches on clear, like every `clearable` control's (#301); follow-up.
+- Gap: a token focused from outside, never through the input, does not set `focused()`.
+- Spec: `tokenizer-touched.spec.ts` (focus ring, input ↔ token, leaving, disable with focus inside, Chromium's extra `focusout`).
+
 #### Content Children
 
 - `tokenTemplate: contentChild(MlvTokenTemplate)` — optional custom token rendering

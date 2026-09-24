@@ -167,6 +167,9 @@ export class MlvRadioGroup
 
   constructor() {
     super();
+    // Touched when focus leaves the group, chosen or not — never from a
+    // selection while focus stays inside (#347, D22).
+    this._reportTouchOnFocusLeave();
     inject(DestroyRef).onDestroy(() => this._keyManager?.destroy());
 
     effect(() => {
@@ -275,6 +278,11 @@ export class MlvRadioGroup
    * Selects `radio` as a user interaction would: writes the group value,
    * focuses the radio and moves the roving tab stop to it.
    *
+   * Does **not** mark the field touched. The group reports touched when focus
+   * leaves it (the host `focusout`, #347): before, it touched here and only
+   * here, so a required group the user tabbed through without choosing never
+   * showed its error, and touched and valid arrived together.
+   *
    * Refused while the group is readonly or disabled. A refusal also puts every
    * native input back to the group's value — a selection that reached here
    * through `(change)` has already been checked by the browser — and leaves
@@ -291,7 +299,6 @@ export class MlvRadioGroup
     const radioValue = radio.value();
     this.radios().forEach((r) => r.checked.set(r.value() === radioValue));
     this._updateTabIndices();
-    this._markTouched();
   }
 
   /**

@@ -78,18 +78,18 @@ Exported from `libs/core/segmented/src/index.ts`:
 
 #### Outputs
 
-| Name          | Payload   | Description                                                                                                  |
-| ------------- | --------- | ------------------------------------------------------------------------------------------------------------ |
-| `valueChange` | `unknown` | Model output of `value` — emits on click selection and on arrow/Home/End selection.                          |
-| `touch`       | `void`    | _(inherited)_ Emitted from `selectItem()`; `[formField]` subscribes to it and marks the bound field touched. |
+| Name          | Payload   | Description                                                                                                                                                                |
+| ------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `valueChange` | `unknown` | Model output of `value` — emits on click selection and on arrow/Home/End selection.                                                                                        |
+| `touch`       | `void`    | _(inherited)_ Emitted when focus leaves the track, never on a selection (#347). Link mode emits nothing. `[formField]` subscribes to it and marks the bound field touched. |
 
 #### Methods
 
-| Method                                | Description                                                                                                                          |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `selectItem(item: MlvSegmentedItem)`  | Selects `item` and focuses it. No-op when the group is `disabled` or `readonly`, or when the item itself is disabled. Emits `touch`. |
-| `onItemFocus(item: MlvSegmentedItem)` | Called from each item's `(focus)` host binding; keeps the `FocusKeyManager`'s active index in sync with real DOM focus.              |
-| `setFocused(value: boolean)`          | _(inherited)_ Sets the base's `focused()` signal. Not wired by segmented — the track is not a focus target.                          |
+| Method                                | Description                                                                                                                                         |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `selectItem(item: MlvSegmentedItem)`  | Selects `item` and focuses it. No-op when the group is `disabled` or `readonly`, or when the item itself is disabled. Does not emit `touch` (#347). |
+| `onItemFocus(item: MlvSegmentedItem)` | Called from each item's `(focus)` host binding; keeps the `FocusKeyManager`'s active index in sync with real DOM focus.                             |
+| `setFocused(value: boolean)`          | _(inherited)_ Sets the base's `focused()` signal. Not wired by segmented — the track is not a focus target.                                         |
 
 #### Public members
 
@@ -338,7 +338,7 @@ import { MlvSegmented, MlvSegmentedItem } from '@malva-ui/core/segmented';
 - **link mode** — the same axe run with an active link and a disabled link; no radiogroup semantics, `aria-current="page"`, subset vs. `linkActiveOptions.exact` matching, host `routerLinkActive`, disabled link (out of the tab order, click prevented, router does not navigate), enabled link still navigates, arrows inert.
 - **mixed hosts** — a group holding both `<a>` and `<button>` items warns once; a pure-button group stays silent.
 - **stylesheet** — guards on the declared custom-property defaults (incl. the neutral `--mlv-segmented-pill-bg` / `-active-color` pair on the block), the pale tone map, the neutral pill on `--mlv-elevation-bg-4` and no rule keyed on a theme attribute (#454), the `--measured` transition gate + reduced-motion path, `--mlv-padding-*` pair misuse, the separator rules, and the idle hover / pressed feedback.
-- **forms bindings matrix** (`segmented-binding-matrix.spec.ts`) — `verifyFormsBinding()` from `@malva-ui/core/form-utils/testing` run once per binding mode (`[formControl]`, `[(ngModel)]`, `[formField]`): form→control write round-trip, a real click on the second segment propagating back to the form side, `touched` after that click, and disabled propagation into `computedDisabled()` (reactive + signal forms).
+- **forms bindings matrix** (`segmented-binding-matrix.spec.ts`) — `verifyFormsBinding()` from `@malva-ui/core/form-utils/testing` run once per binding mode (`[formControl]`, `[(ngModel)]`, `[formField]`): form→control write round-trip, a real click on the second segment propagating back to the form side, `touched` once focus then leaves the track (#347 — a click alone no longer touches), and disabled propagation into `computedDisabled()` (reactive + signal forms).
 
 Lint: `yarn nx lint core-segmented`. Style-token gate: `yarn nx run styles:check-padding-tokens`.
 
