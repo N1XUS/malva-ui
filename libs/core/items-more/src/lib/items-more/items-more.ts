@@ -59,6 +59,14 @@ interface MlvItemsMoreReveal {
 }
 
 /**
+ * @private The box a split took out from under keyboard focus: a withheld
+ * item's slot, or the in-row trigger that left with the last withheld item.
+ */
+type MlvItemsMoreFocusLoss =
+  | { readonly removed: 'item'; readonly item: MlvItemsMoreItem }
+  | { readonly removed: 'trigger' };
+
+/**
  * A row that withholds what does not fit and offers it behind a "show more"
  * control.
  *
@@ -92,6 +100,16 @@ interface MlvItemsMoreReveal {
  * rather than lets spill into its neighbours; a row that is late to reveal
  * has some room to spare at the end, which is indistinguishable from a row
  * that is simply not full.
+ *
+ * **A split hands keyboard focus on.** A split that removes the focused box
+ * of the row — a withheld item, or the in-row trigger leaving with the last
+ * withheld item — destroys the element the reader is standing on, and the
+ * browser drops focus to `<body>`. The row puts it on the trigger or on an
+ * item still in the row instead — see {@link _handOffFocus}. Three cases
+ * still drop it: a reveal while the panel is open that returns the focused
+ * panel item (the panel stays open); a row with no trigger of its own and
+ * nothing focusable left in it; and a consumer-placed trigger that the
+ * consumer's own `@if` removes on a full reveal, which the row cannot see.
  *
  * **It measures cheaply.** Widths are cached per item and refreshed from the
  * row's own boxes on each resize notification, so a steady-state resize is a
@@ -252,6 +270,13 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
 
   /** @private Previous `opened()` reading, so the close edge can be detected. */
   private _wasOpen = false;
+
+  /**
+   * @private What the last committed split took out from under focus, while
+   * the render that removes it — and the hand-off after that render — is
+   * still pending. `null` otherwise.
+   */
+  private _focusLoss: MlvItemsMoreFocusLoss | null = null;
 
   /** @private The most recent reveal, while it may still undo itself. */
   private _lastReveal: MlvItemsMoreReveal | null = null;
@@ -581,7 +606,11 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
       this._lastReveal = null;
     }
 
+    // Read before committing: afterwards the split no longer says which boxes
+    // the coming render removes.
+    const loss = this._focusLossIn(hidden);
     this._service.commit(hidden);
+    if (loss) this._scheduleFocusHandOff(loss);
   }
 
   /**
@@ -618,6 +647,140 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
       this._captureWidths();
       this._commit(this._computeSplit());
     }, MlvItemsMore._REVEAL_DEBOUNCE_MS);
+  }
+
+  // ─── Focus across a split ────────────────────────────────────────────────
+
+  /**
+   * @private The box the render after committing `hidden` removes from under
+   * focus, or `null` when focus is not inside one — outside the row, on an
+   * item the split keeps, or already on `<body>`.
+   *
+   * Two kinds of box leave the row: the slot of every item `hidden` holds
+   * (the row renders only the rest), and the in-row trigger, which renders
+   * only while something is withheld and so goes with the last item to
+   * return. Read against the rendered boxes, not against the previous split,
+   * so focus placed on a box an earlier commit already doomed still counts.
+   */
+  private _focusLossIn(
+    hidden: ReadonlySet<MlvItemsMoreItem>,
+  ): MlvItemsMoreFocusLoss | null {
+    const active = this._document.activeElement;
+    const row = this._rowRef()?.nativeElement;
+    if (!active || !row?.contains(active)) return null;
+
+    if (hidden.size === 0) {
+      return this._triggerRef()?.nativeElement.contains(active)
+        ? { removed: 'trigger' }
+        : null;
+    }
+
+    for (const slot of this._slots()) {
+      const item = slot.item();
+      if (hidden.has(item) && slot.elementRef.nativeElement.contains(active)) {
+        return { removed: 'item', item };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * @private Queues {@link _handOffFocus} for after the render that removes
+   * the box. One queued hand-off per render; a later loss found before that
+   * render replaces the recorded one, since it reflects where focus is now.
+   */
+  private _scheduleFocusHandOff(loss: MlvItemsMoreFocusLoss): void {
+    const queued = this._focusLoss !== null;
+    this._focusLoss = loss;
+    if (queued) return;
+    afterNextRender(
+      () => {
+        const pending = this._focusLoss;
+        this._focusLoss = null;
+        if (pending) this._handOffFocus(pending);
+      },
+      { injector: this._injector },
+    );
+  }
+
+  /**
+   * @private Puts focus back after a split removed the focused box — but only
+   * when the browser dropped it.
+   *
+   * Nothing here moves focus the reader still has. It runs after the render
+   * that destroyed the box, and returns unless focus is on `<body>`: a box
+   * that survived after all (a reveal landed first) still holds it, and focus
+   * placed anywhere since stays where it was placed. What it replaces is not
+   * "focus where the reader left it" but "focus nowhere" — nothing is
+   * announced, nothing in the row is focused, and where the next Tab lands is
+   * left to whether the browser keeps a navigation starting point (WCAG
+   * 2.4.3).
+   *
+   * Where it lands:
+   *
+   * - **An item was withheld → the trigger.** It is the control that now
+   *   holds the item, at the end of the row, announcing its label (a count
+   *   only where the trigger template renders one). With no trigger in the
+   *   row (a consumer-placed one, or none), the nearest item still in the
+   *   row — the one before it, else the one after; with none left, focus
+   *   stays on `<body>`.
+   * - **The trigger left with the last item → the last item in the row**, the
+   *   one that just came back and now stands where the trigger was. The same
+   *   target {@link _restoreFocus} picks when the panel closes for that reason.
+   *
+   * The alternative — keeping the focused item in the row, as if pinned,
+   * until focus leaves it — was rejected. At a width where it cannot fit
+   * beside the trigger it would overflow the clipping row, a focused control
+   * nobody can see (WCAG 2.4.11); and where it can, the row would reshuffle
+   * the moment focus moved on — Tab onto the trigger would withhold the item
+   * just left and hand its place to another — a layout change caused by
+   * nothing but moving focus.
+   */
+  private _handOffFocus(loss: MlvItemsMoreFocusLoss): void {
+    const active = this._document.activeElement;
+    if (active && active !== this._document.body) return;
+
+    const target =
+      loss.removed === 'trigger'
+        ? this._lastItemTabbable()
+        : (this._triggerTabbable() ?? this._tabbableBeside(loss.item));
+    target?.focus();
+  }
+
+  /** @private The in-row trigger's focusable control, while one renders. */
+  private _triggerTabbable(): HTMLElement | null {
+    const trigger = this._triggerRef()?.nativeElement;
+    return trigger ? this._tabbable.getTabbableElement(trigger) : null;
+  }
+
+  /**
+   * @private The focusable control nearest to where `item` stood in the row:
+   * the last one in the closest item before it, else the first one in the
+   * closest item after it. Before wins because the next Tab from there reaches
+   * exactly what the next Tab from the withheld item would have. `n` is one
+   * row of controls, so the scan is not worth an index.
+   */
+  private _tabbableBeside(item: MlvItemsMoreItem): HTMLElement | null {
+    const order = this._service.items();
+    const at = order.indexOf(item);
+    let before: HTMLElement | null = null;
+    let after: HTMLElement | null = null;
+    for (const slot of this._slots()) {
+      const element = slot.elementRef.nativeElement;
+      if (order.indexOf(slot.item()) < at) {
+        before = this._tabbable.getTabbableElement(element, true) ?? before;
+      } else {
+        after ??= this._tabbable.getTabbableElement(element);
+      }
+    }
+    return before ?? after;
+  }
+
+  /** @private The last focusable control of the last item in the row. */
+  private _lastItemTabbable(): HTMLElement | null {
+    const slots = this._slots();
+    const lastSlot = slots[slots.length - 1]?.elementRef.nativeElement;
+    return lastSlot ? this._tabbable.getTabbableElement(lastSlot, true) : null;
   }
 
   // ─── Observation ─────────────────────────────────────────────────────────
@@ -663,13 +826,14 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
     }
   }
 
-  /** @private Releases the observer, the timer and the focus reference. */
+  /** @private Releases the observer, the timer and the focus references. */
   private _teardown(): void {
     this._clearRevealTimer();
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
     this._observedTargets.clear();
     this._focusReturn = null;
+    this._focusLoss = null;
     this._panelOrigin = null;
   }
 
@@ -724,8 +888,6 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
       return;
     }
 
-    const slots = this._slots();
-    const lastSlot = slots[slots.length - 1]?.elementRef.nativeElement;
-    if (lastSlot) this._tabbable.getTabbableElement(lastSlot, true)?.focus();
+    this._lastItemTabbable()?.focus();
   }
 }

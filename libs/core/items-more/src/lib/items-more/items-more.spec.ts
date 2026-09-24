@@ -540,6 +540,163 @@ describe('MlvItemsMore', () => {
     });
   });
 
+  // A split that removes the focused box from the row destroys the element the
+  // keyboard user is standing on, and the browser drops focus to `<body>`. The
+  // row puts it back — only when it was dropped, and onto whatever took the
+  // removed box's place in the tab order.
+  describe('focus across a split', () => {
+    function rowButton(id: string): HTMLElement {
+      const element = row().querySelector<HTMLElement>(
+        `.row-button[data-id="${id}"]`,
+      );
+      if (!element) throw new Error(`row button ${id} not rendered`);
+      return element;
+    }
+
+    /** What `document.activeElement` is, as a string a failure can print. */
+    function focused(): string {
+      const active = document.activeElement as HTMLElement | null;
+      if (!active || active === document.body) return 'body';
+      if (active.classList.contains('more-button')) {
+        return `trigger:${active.textContent?.trim() ?? ''}`;
+      }
+      return active.dataset['id'] ?? active.className;
+    }
+
+    it('moves focus to the trigger when a resize withholds the focused item', async () => {
+      await create();
+      rowButton('c').focus();
+
+      await resizeRow(250);
+
+      expect(rowIds()).toEqual(['a']);
+      expect(focused()).toBe('trigger:+2');
+      expect(document.activeElement).toBe(inRowTrigger());
+    });
+
+    it('moves focus to a trigger that was already in the row', async () => {
+      // Budget 300 − (40 + 8): `a` and `b` fit, `c` does not.
+      rowWidth = () => 300;
+      await create();
+      expect(rowIds()).toEqual(['a', 'b']);
+      rowButton('b').focus();
+
+      await resizeRow(250);
+
+      expect(rowIds()).toEqual(['a']);
+      expect(focused()).toBe('trigger:+2');
+    });
+
+    it('moves focus to the trigger when a structure change withholds the focused item', async () => {
+      // Three items fit exactly; a fourth written before `c` pushes `b` and
+      // `c` out in the render that adds it, with no resize notification.
+      rowWidth = () => 316;
+      await create();
+      rowButton('c').focus();
+
+      host.items.set([
+        { id: 'a', width: 100 },
+        { id: 'late', width: 100 },
+        { id: 'b', width: 100 },
+        { id: 'c', width: 100 },
+      ]);
+      await settle();
+
+      expect(rowIds()).toEqual(['a', 'late']);
+      expect(focused()).toBe('trigger:+2');
+    });
+
+    it('lands on the item before it when the row has no trigger of its own', async () => {
+      await create((h) => {
+        h.inRowTrigger.set(false);
+        h.externalTrigger.set(true);
+        h.items.set([
+          { id: 'a', width: 100 },
+          { id: 'b', width: 100 },
+          { id: 'c', width: 100, pinned: true },
+        ]);
+      });
+      rowButton('b').focus();
+
+      // `c` is pinned, so `b` is the one out; `a` before it and `c` after it
+      // both stay, and the one before wins.
+      await resizeRow(208);
+
+      expect(rowIds()).toEqual(['a', 'c']);
+      expect(focused()).toBe('a');
+    });
+
+    it('lands on the item after it when nothing before it stays', async () => {
+      await create((h) => {
+        h.inRowTrigger.set(false);
+        h.externalTrigger.set(true);
+        h.items.set([
+          { id: 'a', width: 100 },
+          { id: 'b', width: 100, pinned: true },
+        ]);
+      });
+      rowButton('a').focus();
+
+      // `b` is pinned and reserved first, so `a` is the one out and nothing
+      // stays before it: the closest item after it is the only target.
+      await resizeRow(150);
+
+      expect(rowIds()).toEqual(['b']);
+      expect(focused()).toBe('b');
+    });
+
+    it('leaves focus on an item the split keeps', async () => {
+      await create();
+      rowButton('a').focus();
+
+      await resizeRow(250);
+
+      expect(rowIds()).toEqual(['a']);
+      expect(focused()).toBe('a');
+    });
+
+    it('leaves focus outside the row where it is', async () => {
+      await create();
+      const outside = root().querySelector<HTMLInputElement>('.outside');
+      outside?.focus();
+
+      await resizeRow(250);
+
+      expect(rowIds()).toEqual(['a']);
+      expect(document.activeElement).toBe(outside);
+    });
+
+    it('leaves focus that moved elsewhere before the withheld item left', async () => {
+      await create();
+      rowButton('c').focus();
+
+      // The split commits in the notification; the row re-renders later.
+      rowWidth = () => 250;
+      FakeResizeObserver.notify(row());
+      const outside = root().querySelector<HTMLInputElement>('.outside');
+      outside?.focus();
+      await settle();
+
+      expect(rowIds()).toEqual(['a']);
+      expect(document.activeElement).toBe(outside);
+    });
+
+    it('lands on the last returned item when a reveal removes the focused trigger', async () => {
+      rowWidth = () => 250;
+      await create();
+      inRowTrigger()?.focus();
+      expect(focused()).toBe('trigger:+2');
+
+      await resizeRow(1000);
+      await wait(90);
+      await settle();
+
+      expect(rowIds()).toEqual(['a', 'b', 'c']);
+      expect(inRowTrigger()).toBeNull();
+      expect(focused()).toBe('c');
+    });
+  });
+
   describe('panel', () => {
     function panel(): HTMLElement | null {
       return document.body.querySelector<HTMLElement>('.mlv-items-more__panel');
