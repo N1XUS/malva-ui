@@ -1,6 +1,9 @@
 <button mlvButton variant="primary" style="max-width: 200px">
+  <!-- Decorative beside the visible name: hidden, or its initials would join
+       the button's accessible name ("AJ Alice Johnson"). -->
   <mlv-avatar
     *mlvButtonBefore
+    aria-hidden="true"
     initials="AJ"
     src="https://i.pravatar.cc/150?img=1"
     size="xs"

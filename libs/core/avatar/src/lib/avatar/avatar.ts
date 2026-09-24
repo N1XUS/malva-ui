@@ -3,7 +3,7 @@ import {
   Component,
   computed,
   input,
-  signal,
+  linkedSignal,
   ViewEncapsulation,
 } from '@angular/core';
 import { MlvFade } from '@malva-ui/cdk/utils';
@@ -21,7 +21,7 @@ export type MlvAvatarShape = 'circle' | 'square';
  * @example
  * deriveInitials('John Doe')         // 'JD'
  * deriveInitials('Alice')            // 'A'
- * deriveInitials('John Michael Doe') // 'JD'
+ * deriveInitials('John Michael Doe') // 'JM' (the first two words)
  * deriveInitials('')                 // ''
  */
 export function deriveInitials(name: string): string {
@@ -62,10 +62,11 @@ export function deriveInitials(name: string): string {
     '[class]': '"mlv-avatar--" + size()',
     '[class.mlv-avatar--circle]': 'shape() === "circle"',
     '[class.mlv-avatar--square]': 'shape() === "square"',
-    // Expose the avatar as a single labelled image to assistive tech when it
-    // represents a named entity. Without a name there is nothing to label, so
-    // the role is omitted (the visible initials/content speak for themselves)
-    // rather than emitting a nameless `role="img"`.
+    // Expose the avatar as a single labelled image to assistive tech whenever
+    // there is something to name it by — `name`, `label`, or the initials it
+    // shows (which are themselves `aria-hidden`). With none of them the role
+    // is omitted rather than emitting a nameless `role="img"`, and projected
+    // content, which is not hidden, speaks for itself.
     '[attr.role]': '_accessibleName() ? "img" : null',
     '[attr.aria-label]': '_accessibleName()',
   },
@@ -86,14 +87,15 @@ export class MlvAvatar {
   /**
    * Optional image URL. When provided, the avatar displays an image.
    * A loading skeleton is shown while the image loads.
-   * On error, falls back to initials or projected content.
+   * On error, falls back to initials or projected content until `src`
+   * changes: every new URL is loaded afresh, skeleton included.
    */
   readonly src = input<string | null>(null);
 
   /**
    * A name string from which initials are automatically derived.
    * Takes the first character of each space-separated word, up to 2 characters.
-   * E.g. "John Doe" → "JD", "Alice" → "A", "John Michael Doe" → "JD".
+   * E.g. "John Doe" → "JD", "Alice" → "A", "John Michael Doe" → "JM".
    * Ignored when `initials` is explicitly set.
    */
   readonly name = input<string>('');
@@ -123,14 +125,25 @@ export class MlvAvatar {
   readonly label = input<string>('');
 
   /**
-   * @internal Whether the image has successfully loaded.
+   * @internal Whether the image at the current `src` has loaded. Linked to
+   * `src` so a new URL starts unloaded again — the skeleton returns and the
+   * image fades in once more — instead of inheriting the previous URL's load.
    */
-  protected readonly _imageLoaded = signal(false);
+  protected readonly _imageLoaded = linkedSignal({
+    source: this.src,
+    computation: () => false,
+  });
 
   /**
-   * @internal Whether the image encountered a load error.
+   * @internal Whether the image at the current `src` failed to load. Linked to
+   * `src` so a new URL is tried again: before #334 one error disabled images
+   * on the avatar for good, so a recycled row or a re-upload after a 404 kept
+   * showing initials.
    */
-  protected readonly _imageError = signal(false);
+  protected readonly _imageError = linkedSignal({
+    source: this.src,
+    computation: () => false,
+  });
 
   /**
    * @internal Inline background of the visual: the `color` tint, or `null`
@@ -164,11 +177,29 @@ export class MlvAvatar {
 
   /**
    * @internal Accessible name for the avatar as a whole.
-   * Prefers the display `name`, falling back to the `label`. Returns `null`
-   * when neither is set so the host stays role-less (see host bindings).
+   * Prefers the display `name`, then the `label`, then the resolved initials
+   * (#334: an initials-only avatar used to expose no role and no name, its
+   * initials being `aria-hidden`). Returns `null` when none is set so the host
+   * stays role-less (see host bindings). The initials name the avatar whether
+   * or not an image covers them, so the name does not flip when an image
+   * loads or fails. The initials are upper-cased to match what
+   * `.mlv-avatar__initials { text-transform: uppercase }` paints
+   * (`initials="me"` shows "ME" and is named "ME"), with the same
+   * locale-independent `toUpperCase()` `deriveInitials` uses, so derived and
+   * explicit initials agree; `name` and `label` stay as authored. CSS
+   * uppercasing follows the inherited `lang` and `toUpperCase()` does not, so
+   * on a Turkish, Azerbaijani, Greek or Lithuanian page lowercase initials can
+   * paint differently from the spoken name (tr/az `i` paints `İ`, spoken `I`;
+   * el drops the tonos; lt drops the dot above) — pass initials already
+   * upper-cased in the page's language. Not `toLocaleUpperCase(lang)`: V8 and
+   * SpiderMonkey disagree on `el`.
    */
   protected readonly _accessibleName = computed(
-    () => this.name().trim() || this.label().trim() || null,
+    () =>
+      this.name().trim() ||
+      this.label().trim() ||
+      this._resolvedInitials().trim().toUpperCase() ||
+      null,
   );
 
   /**

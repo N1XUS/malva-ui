@@ -23,6 +23,147 @@ describe('MlvAvatar', () => {
   });
 });
 
+/**
+ * #334: `_imageError` and `_imageLoaded` latched on the first `error` / `load`
+ * event and were never tied to `src`, so one failed URL disabled images on
+ * that avatar for good (a recycled list row, or a new upload after a 404, kept
+ * showing initials), and one successful load left the next `src` without a
+ * skeleton and already marked `--loaded`. Both now reset whenever `src`
+ * changes. jsdom fetches no images, so the events are dispatched by hand.
+ */
+describe('MlvAvatar image state per src', () => {
+  let fixture: ComponentFixture<MlvAvatar>;
+  let host: HTMLElement;
+
+  /** The rendered `<img>`, or `null`. */
+  const image = (): HTMLImageElement | null =>
+    host.querySelector<HTMLImageElement>('img.mlv-avatar__image');
+
+  /** Which of the visual's parts are rendered, as one comparable string. */
+  const parts = (): string =>
+    [
+      host.querySelector('.mlv-avatar__skeleton') ? 'skeleton' : null,
+      image() ? `img(${image()?.getAttribute('src')})` : null,
+      image()?.classList.contains('mlv-avatar__image--loaded')
+        ? 'loaded'
+        : null,
+      host.querySelector('.mlv-avatar__initials')?.textContent?.trim() || null,
+    ]
+      .filter(Boolean)
+      .join(' + ');
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvAvatar],
+    }).compileComponents();
+    fixture = TestBed.createComponent(MlvAvatar);
+    host = fixture.nativeElement as HTMLElement;
+    fixture.componentRef.setInput('name', 'Ada Lovelace');
+    fixture.componentRef.setInput('src', 'a.jpg');
+    await fixture.whenStable();
+  });
+
+  it('renders the image again when src changes after a load error', async () => {
+    expect(parts()).toBe('skeleton + img(a.jpg)');
+
+    image()?.dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+    expect(parts()).toBe('AL');
+
+    fixture.componentRef.setInput('src', 'b.jpg');
+    await fixture.whenStable();
+    expect(parts()).toBe('skeleton + img(b.jpg)');
+  });
+
+  it('shows the skeleton again for a new src after a successful load', async () => {
+    image()?.dispatchEvent(new Event('load'));
+    await fixture.whenStable();
+    expect(parts()).toBe('img(a.jpg) + loaded');
+
+    fixture.componentRef.setInput('src', 'b.jpg');
+    await fixture.whenStable();
+    expect(parts()).toBe('skeleton + img(b.jpg)');
+  });
+
+  it('retries the same URL once src has moved away from it and back', async () => {
+    image()?.dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+    fixture.componentRef.setInput('src', null);
+    await fixture.whenStable();
+    expect(parts()).toBe('AL');
+
+    fixture.componentRef.setInput('src', 'a.jpg');
+    await fixture.whenStable();
+    expect(parts()).toBe('skeleton + img(a.jpg)');
+  });
+});
+
+/**
+ * #334: an avatar showing only initials (no `name`, no `label`) exposed no
+ * role and no name — its initials are `aria-hidden`, so it was absent from
+ * the accessibility tree. The initials are now the fallback name, after
+ * `name` and `label`.
+ */
+describe('MlvAvatar accessible name fallback', () => {
+  /** Mounts one avatar with the given inputs and reads its host ARIA. */
+  const hostAria = async (inputs: Record<string, string>): Promise<string> => {
+    await TestBed.configureTestingModule({
+      imports: [MlvAvatar],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(MlvAvatar);
+    for (const [key, value] of Object.entries(inputs)) {
+      fixture.componentRef.setInput(key, value);
+    }
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    return `role=${el.getAttribute('role')} name=${el.getAttribute('aria-label')}`;
+  };
+
+  it('names an initials-only avatar by its initials', async () => {
+    expect(await hostAria({ initials: 'JD' })).toBe('role=img name=JD');
+  });
+
+  it('names an image avatar with explicit initials by those initials', async () => {
+    expect(await hostAria({ initials: 'AJ', src: 'a.jpg' })).toBe(
+      'role=img name=AJ',
+    );
+  });
+
+  it('trims the initials it names the avatar with', async () => {
+    expect(await hostAria({ initials: '  QA ' })).toBe('role=img name=QA');
+  });
+
+  it('upper-cases the initials, as the initials span paints them', async () => {
+    // `.mlv-avatar__initials` is `text-transform: uppercase`, so `initials="me"`
+    // shows "ME"; the name must say what is shown (review round 1, F4).
+    expect(await hostAria({ initials: 'me' })).toBe('role=img name=ME');
+  });
+
+  it('keeps the name as authored', async () => {
+    expect(await hostAria({ name: 'jane doe' })).toBe('role=img name=jane doe');
+  });
+
+  it('keeps the label as authored', async () => {
+    expect(await hostAria({ label: 'profile' })).toBe('role=img name=profile');
+  });
+
+  it('keeps name ahead of the initials', async () => {
+    expect(await hostAria({ initials: 'JD', name: 'Jane Doe' })).toBe(
+      'role=img name=Jane Doe',
+    );
+  });
+
+  it('keeps label ahead of the initials', async () => {
+    expect(await hostAria({ initials: 'JD', label: 'Janet' })).toBe(
+      'role=img name=Janet',
+    );
+  });
+
+  it('stays role-less with whitespace-only initials and nothing else', async () => {
+    expect(await hostAria({ initials: '   ' })).toBe('role=null name=null');
+  });
+});
+
 describe('deriveInitials', () => {
   it('should derive initials from two-part name', () => {
     expect(deriveInitials('John Doe')).toBe('JD');
@@ -57,15 +198,16 @@ describe('deriveInitials', () => {
  * Accessibility sweep.
  *
  * The avatar's whole a11y contract is the host `role="img"` + `aria-label`
- * pair, which is conditional: `_accessibleName()` is `name || label || null`,
- * and a `null` name must drop the role rather than emit a nameless
- * `role="img"`. Everything inside the visual is `aria-hidden` (skeleton,
- * `<img alt="">`, initials), so each content mode changes what axe sees.
- * The four modes swept below are the four the docs page promotes
- * (`apps/docs/src/app/pages/avatar/examples/1..4`): name-derived initials with
- * a label, an image, projected icon content, and explicit initials — plus the
- * icon-only avatar with neither `name` nor `label`, which is the only render
- * that is deliberately role-less.
+ * pair, which is conditional: `_accessibleName()` is
+ * `name || label || initials || null`, and a `null` name must drop the role
+ * rather than emit a nameless `role="img"`. Everything inside the visual is
+ * `aria-hidden` (skeleton, `<img alt="">`, initials), so each content mode
+ * changes what axe sees. The four modes swept below are the four the docs page
+ * promotes (`apps/docs/src/app/pages/avatar/examples/1..4`): name-derived
+ * initials with a label, an image, projected icon content, and explicit
+ * initials — plus explicit initials alone (#334), and the icon-only avatar
+ * with neither `name`, `label` nor `initials`, which is the only render that
+ * is deliberately role-less.
  */
 describe('MlvAvatar accessibility', () => {
   @Component({
@@ -93,7 +235,11 @@ describe('MlvAvatar accessibility', () => {
       <!-- examples/4: explicit initials. -->
       <mlv-avatar size="l" initials="QA" label="Quinn Ash" />
 
-      <!-- Not promoted, but the only role-less render: no name, no label. -->
+      <!-- #334: initials alone, no name and no label — named by the initials. -->
+      <mlv-avatar size="s" initials="JD" />
+
+      <!-- Not promoted, but the only role-less render: no name, no label, no
+           initials. -->
       <mlv-avatar size="m" id="anonymous">
         <svg data-testid="anon-icon" aria-hidden="true"></svg>
       </mlv-avatar>
@@ -111,16 +257,17 @@ describe('MlvAvatar accessibility', () => {
     await fixture.whenStable();
     const host = fixture.nativeElement as HTMLElement;
 
-    // State: five named avatars expose `role="img"`; the nameless one does not,
+    // State: six named avatars expose `role="img"`; the nameless one does not,
     // so there is no nameless `role="img"` for `aria-allowed-attr` to catch.
     const named = host.querySelectorAll('mlv-avatar[role="img"]');
-    expect(named).toHaveLength(5);
+    expect(named).toHaveLength(6);
     expect([...named].map((el) => el.getAttribute('aria-label'))).toEqual([
       'John Doe',
       'Jane Smith',
       'Ada Lovelace',
       'Profile',
       'Quinn Ash',
+      'JD',
     ]);
     const anonymous = host.querySelector('#anonymous') as HTMLElement;
     expect(anonymous.getAttribute('role')).toBeNull();

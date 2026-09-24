@@ -33,8 +33,14 @@
       [attr.aria-label]="_overflowAriaLabel()"
       (click)="_onOverflowClick($event)"
     >
+      <!--
+        Hidden: the button's own label names the overflow. An initials-only
+        avatar is a `role="img"` named by its initials (#334), which would
+        otherwise add an image "+N" beneath the button.
+      -->
       <mlv-avatar
         class="mlv-avatar-group__overflow-avatar"
+        aria-hidden="true"
         [size]="size()"
         [shape]="shape()"
         [initials]="_overflowLabel()"
