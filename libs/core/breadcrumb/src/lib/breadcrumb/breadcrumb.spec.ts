@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvBreadcrumb } from './breadcrumb';
 import { MlvBreadcrumbItem } from './breadcrumb-item';
+import { MlvBreadcrumbItemHost } from './breadcrumb-item-host';
 import { MlvBreadcrumbSeparator } from './breadcrumb-separator';
 import type { MlvBreadcrumbEntry } from './breadcrumb.types';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -81,6 +82,66 @@ class PlainAncestorHostComponent {
   `,
 })
 class ProjectedHostComponent {}
+
+/**
+ * Projected mode with every input that shapes a separator live: the crumbs are
+ * a `@for` plus a trailing `@if`, so the last crumb can change under the
+ * breadcrumb; the `[mlvSeparator]` template comes and goes; and
+ * `hideSeparatorFromScreenReaders` toggles.
+ */
+@Component({
+  imports: [MlvBreadcrumb, MlvBreadcrumbItem, MlvBreadcrumbSeparator],
+  template: `
+    <nav mlvBreadcrumb [hideSeparatorFromScreenReaders]="hideSeparators()">
+      @if (customSeparator()) {
+        <ng-template mlvSeparator>›</ng-template>
+      }
+      @for (crumb of crumbs(); track crumb) {
+        <mlv-breadcrumb-item [href]="'/' + crumb">{{
+          crumb
+        }}</mlv-breadcrumb-item>
+      }
+      @if (showLeaf()) {
+        <mlv-breadcrumb-item current>Leaf</mlv-breadcrumb-item>
+      }
+    </nav>
+  `,
+})
+class ProjectedDynamicHostComponent {
+  readonly crumbs = signal(['Home', 'Products']);
+  readonly showLeaf = signal(true);
+  readonly hideSeparators = signal(true);
+  readonly customSeparator = signal(false);
+}
+
+/**
+ * The `[mlvBreadcrumbItem]` pattern: native `<li>`s projected straight into
+ * the breadcrumb's own `<ol>`. No `<ol>` of the consumer's own — the component
+ * already renders one, and a second nests `ol > ol` (axe `list`, serious).
+ */
+@Component({
+  imports: [MlvBreadcrumb, MlvBreadcrumbItemHost],
+  template: `
+    <nav mlvBreadcrumb>
+      <li mlvBreadcrumbItem>
+        <a class="mlv-breadcrumb__link" href="/">Home</a>
+        <span class="mlv-breadcrumb__separator" aria-hidden="true">›</span>
+      </li>
+      <li mlvBreadcrumbItem>
+        <a class="mlv-breadcrumb__link" href="/components">Components</a>
+        <span class="mlv-breadcrumb__separator" aria-hidden="true">›</span>
+      </li>
+      <li mlvBreadcrumbItem>
+        <span
+          class="mlv-breadcrumb__link mlv-breadcrumb__link--current"
+          aria-current="page"
+          >Breadcrumb</span
+        >
+      </li>
+    </nav>
+  `,
+})
+class DirectivePatternHostComponent {}
 
 @Component({
   imports: [MlvBreadcrumb],
@@ -558,6 +619,181 @@ describe('MlvBreadcrumb — projected items mode', () => {
   });
 });
 
+// ─── Projected separators (#325) ─────────────────────────────────────────────
+//
+// Projected mode used to render a bare `<ng-content />` inside the `<ol>`, and
+// `<mlv-breadcrumb-item>` had no separator of its own — so the trail rendered
+// as one run-on word ("HomeDocumentationBreadcrumb"). Each crumb but the last
+// now renders the breadcrumb's separator after its link, inside its own
+// `listitem`, exactly where the data-driven `<li>` puts it.
+
+describe('MlvBreadcrumb — projected separators', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ProjectedHostComponent, ProjectedDynamicHostComponent],
+      providers: [provideMlvI18nTesting(), provideRouter([])],
+    }).compileComponents();
+  });
+
+  /**
+   * Per crumb, in trail order: its label and whether it carries a separator.
+   * A string array, never a node, so a failure prints the trail.
+   */
+  function trail(root: HTMLElement): string[] {
+    return Array.from(
+      root.querySelectorAll<HTMLElement>('mlv-breadcrumb-item'),
+    ).map((item) => {
+      const label =
+        item.querySelector('.mlv-breadcrumb__link')?.textContent?.trim() ?? '';
+      const count = item.querySelectorAll('.mlv-breadcrumb__separator').length;
+      return count ? `${label} ${'›'.repeat(count)}` : label;
+    });
+  }
+
+  async function mountDynamic() {
+    const fixture = TestBed.createComponent(ProjectedDynamicHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    return {
+      fixture,
+      host: fixture.componentInstance,
+      root: fixture.nativeElement as HTMLElement,
+      settle: async () => {
+        fixture.detectChanges();
+        await fixture.whenStable();
+      },
+    };
+  }
+
+  it('renders a separator after every projected crumb but the last', () => {
+    const fixture = TestBed.createComponent(ProjectedHostComponent);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelectorAll('.mlv-breadcrumb__separator')).toHaveLength(2);
+    expect(trail(root)).toEqual(['Home ›', 'Products ›', 'Widget Pro']);
+  });
+
+  it('places the separator inside the crumb, after its link', () => {
+    const fixture = TestBed.createComponent(ProjectedHostComponent);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    const placement = Array.from(
+      root.querySelectorAll<HTMLElement>('.mlv-breadcrumb__separator'),
+    ).map((separator) => {
+      const item = separator.closest('mlv-breadcrumb-item');
+      const link = item?.querySelector('.mlv-breadcrumb__link');
+      return {
+        inListItem: item?.getAttribute('role') === 'listitem',
+        afterLink:
+          !!link &&
+          !!(
+            link.compareDocumentPosition(separator) &
+            Node.DOCUMENT_POSITION_FOLLOWING
+          ),
+        last: item?.lastElementChild === separator,
+      };
+    });
+
+    expect(placement).toEqual([
+      { inListItem: true, afterLink: true, last: true },
+      { inListItem: true, afterLink: true, last: true },
+    ]);
+  });
+
+  it('renders the default chevron, hidden from assistive technology', async () => {
+    const { root } = await mountDynamic();
+
+    const separators = Array.from(
+      root.querySelectorAll<HTMLElement>('.mlv-breadcrumb__separator'),
+    );
+    expect(separators.map((s) => s.getAttribute('aria-hidden'))).toEqual([
+      'true',
+      'true',
+    ]);
+    expect(separators.map((s) => s.querySelectorAll('svg').length)).toEqual([
+      1, 1,
+    ]);
+  });
+
+  it('stamps a custom [mlvSeparator] template, and drops it again', async () => {
+    const { host, root, settle } = await mountDynamic();
+
+    host.customSeparator.set(true);
+    await settle();
+    const separators = () =>
+      Array.from(
+        root.querySelectorAll<HTMLElement>('.mlv-breadcrumb__separator'),
+      );
+    expect(separators().map((s) => s.textContent?.trim())).toEqual(['›', '›']);
+    expect(separators().map((s) => s.querySelectorAll('svg').length)).toEqual([
+      0, 0,
+    ]);
+
+    host.customSeparator.set(false);
+    await settle();
+    expect(separators().map((s) => s.querySelectorAll('svg').length)).toEqual([
+      1, 1,
+    ]);
+  });
+
+  it('follows hideSeparatorFromScreenReaders', async () => {
+    const { host, root, settle } = await mountDynamic();
+    const ariaHidden = () =>
+      Array.from(
+        root.querySelectorAll<HTMLElement>('.mlv-breadcrumb__separator'),
+      ).map((s) => s.getAttribute('aria-hidden'));
+
+    host.hideSeparators.set(false);
+    await settle();
+    expect(ariaHidden()).toEqual([null, null]);
+
+    host.hideSeparators.set(true);
+    await settle();
+    expect(ariaHidden()).toEqual(['true', 'true']);
+  });
+
+  it('moves the trailing gap when the last crumb leaves or joins the trail', async () => {
+    const { host, root, settle } = await mountDynamic();
+    expect(trail(root)).toEqual(['Home ›', 'Products ›', 'Leaf']);
+
+    host.showLeaf.set(false);
+    await settle();
+    expect(trail(root)).toEqual(['Home ›', 'Products']);
+
+    host.crumbs.set(['Home', 'Products', 'Widgets']);
+    await settle();
+    expect(trail(root)).toEqual(['Home ›', 'Products ›', 'Widgets']);
+
+    host.showLeaf.set(true);
+    await settle();
+    expect(trail(root)).toEqual(['Home ›', 'Products ›', 'Widgets ›', 'Leaf']);
+
+    host.crumbs.set(['Products', 'Home']);
+    await settle();
+    expect(trail(root)).toEqual(['Products ›', 'Home ›', 'Leaf']);
+  });
+
+  it('picks the last crumb by page order, not creation order, when the trail reorders', async () => {
+    const { host, root, settle } = await mountDynamic();
+    host.showLeaf.set(false);
+    await settle();
+    expect(trail(root)).toEqual(['Home ›', 'Products']);
+    const home = root.querySelector('mlv-breadcrumb-item');
+
+    // `track crumb` moves the existing views rather than re-creating them, so
+    // Home — created first — becomes the last crumb on the page while Products,
+    // created after it, leads. A pick by creation order would leave Products
+    // bare and give Home the trailing gap.
+    host.crumbs.set(['Products', 'Home']);
+    await settle();
+    const items = root.querySelectorAll('mlv-breadcrumb-item');
+    expect(items[items.length - 1] === home).toBe(true);
+    expect(trail(root)).toEqual(['Products ›', 'Home']);
+  });
+});
+
 describe('MlvBreadcrumb — router integration', () => {
   let fixture: ComponentFixture<RouterLinkHostComponent>;
 
@@ -651,6 +887,14 @@ describe('MlvBreadcrumbItem', () => {
     const span = fixture.nativeElement.querySelector('[aria-current="page"]');
     expect(span).not.toBeNull();
     expect(span.tagName.toLowerCase()).toBe('span');
+  });
+
+  it('renders no separator outside a breadcrumb', () => {
+    const fixture = TestBed.createComponent(ItemDefaultHostComponent);
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelectorAll('.mlv-breadcrumb__separator'),
+    ).toHaveLength(0);
   });
 
   it('should render as span with disabled class when disabled=true', () => {
@@ -1074,12 +1318,77 @@ describe('MlvBreadcrumb accessibility', () => {
     const { host } = await mount(ProjectedHostComponent);
 
     // State: three `<mlv-breadcrumb-item>` elements projected straight into the
-    // component's own `<ol>` — the shape `list` / `listitem` judges.
+    // component's own `<ol>` — the shape `list` / `listitem` judges — each but
+    // the last carrying its separator (#325).
     expect(host.querySelectorAll('mlv-breadcrumb-item')).toHaveLength(3);
     expect(host.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+    expect(host.querySelectorAll('.mlv-breadcrumb__separator')).toHaveLength(2);
 
     await expectNoAxeViolations(host);
   });
+
+  it('has no axe violations with announced projected separators', async () => {
+    const { fixture, host } = await mount(ProjectedDynamicHostComponent);
+    fixture.componentInstance.hideSeparators.set(false);
+    fixture.componentInstance.customSeparator.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // State: the separators are exposed to AT, so each `listitem` now holds a
+    // text node beside its link — the markup `hideSeparatorFromScreenReaders`
+    // opts into.
+    const separators = Array.from(
+      host.querySelectorAll<HTMLElement>('.mlv-breadcrumb__separator'),
+    );
+    expect(separators.map((s) => s.getAttribute('aria-hidden'))).toEqual([
+      null,
+      null,
+    ]);
+    expect(separators.map((s) => s.textContent?.trim())).toEqual(['›', '›']);
+
+    await expectNoAxeViolations(host);
+  });
+
+  it('has no axe violations in the [mlvBreadcrumbItem] pattern', async () => {
+    const { host } = await mount(DirectivePatternHostComponent);
+
+    // State: native `<li mlvBreadcrumbItem>`s are the `<ol>`'s own children —
+    // one list, no `ol > ol` (#325).
+    const list = host.querySelector('ol.mlv-breadcrumb__list') as HTMLElement;
+    expect(
+      Array.from(list.children).map((child) => child.tagName.toLowerCase()),
+    ).toEqual(['li', 'li', 'li']);
+    expect(host.querySelectorAll('ol')).toHaveLength(1);
+
+    await expectNoAxeViolations(host);
+  });
+
+  /**
+   * The inline axis mirrors, and nothing about a separator's role or name may
+   * change with it. Axe sees no geometry, so this is the markup half of RTL:
+   * both modes, swept under a scoped `[dir="rtl"]` while the document stays
+   * LTR.
+   */
+  it.each([
+    ['data-driven', DataDrivenHostComponent],
+    ['projected', ProjectedHostComponent],
+    ['[mlvBreadcrumbItem]', DirectivePatternHostComponent],
+  ] as const)(
+    'has no axe violations in %s mode inside a [dir="rtl"] subtree',
+    async (_mode, type) => {
+      const { fixture, host } = await mount<unknown>(type);
+      host.setAttribute('dir', 'rtl');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(host.querySelectorAll('.mlv-breadcrumb__separator')).toHaveLength(
+        2,
+      );
+      expect(document.documentElement.getAttribute('dir')).not.toBe('rtl');
+
+      await expectNoAxeViolations(host);
+    },
+  );
 
   it('has no axe violations with the overflow menu open', async () => {
     const { fixture, host } = await mount(OverflowHostComponent);

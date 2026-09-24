@@ -42,25 +42,36 @@
           }}</span>
         }
         @if (!last) {
-          <span
-            class="mlv-breadcrumb__separator"
-            [attr.aria-hidden]="
-              hideSeparatorFromScreenReaders() ? 'true' : null
-            "
-          >
-            @if (_separatorDef(); as sep) {
-              <ng-container [ngTemplateOutlet]="sep.templateRef" />
-            } @else {
-              <svg lucideChevronRight [size]="14" />
-            }
-          </span>
+          <ng-container [ngTemplateOutlet]="separator" />
         }
       </li>
     }
   } @else {
+    <!--
+      Projected crumbs render their own separator: each <mlv-breadcrumb-item>
+      but the last stamps #separator after its link, through MLV_BREADCRUMB.
+    -->
     <ng-content />
   }
 </ol>
+
+<!--
+  The one separator both modes stamp: the data-driven <li> above, and every
+  projected <mlv-breadcrumb-item> but the last. Declared once so the two
+  cannot drift.
+-->
+<ng-template #separator>
+  <span
+    class="mlv-breadcrumb__separator"
+    [attr.aria-hidden]="hideSeparatorFromScreenReaders() ? 'true' : null"
+  >
+    @if (_separatorDef(); as sep) {
+      <ng-container [ngTemplateOutlet]="sep.templateRef" />
+    } @else {
+      <svg lucideChevronRight [size]="14" />
+    }
+  </span>
+</ng-template>
 
 <!-- Overflow popup using mlv-popup -->
 <mlv-popup

@@ -11,7 +11,7 @@ Selector: `nav[mlvBreadcrumb]` — enhances the native `<nav>` element for prope
 
 **Two usage modes:**
 1. **Data-driven** — pass `MlvBreadcrumbEntry[]` via `[items]` input
-2. **Projected** — nest `<mlv-breadcrumb-item>` elements directly inside the `<nav>`
+2. **Projected** — nest `<mlv-breadcrumb-item>` elements (or native `<li mlvBreadcrumbItem>`s) directly inside the `<nav>`; never wrap them in an `<ol>` of your own
 
 ---
 
@@ -103,6 +103,73 @@ that `<ol>`, so its DOM parent is always the list, and without the role the
 `list`, serious, WCAG 1.3.1). `[mlvBreadcrumbItem]` (`MlvBreadcrumbItemHost`)
 sets **no** role — it also goes on the `<a>` inside an `<li>`.
 
+#### Separator (#325)
+
+Inside `nav[mlvBreadcrumb]`, every item but the last renders the breadcrumb's
+separator after its link, inside its own `listitem` — the same place the
+data-driven `<li>` puts it. Before #325 projected mode rendered **none** and
+the trail read as one run-on word (`HomeDocumentationBreadcrumb`).
+
+- One template, both modes: `breadcrumb.html` declares `#separator` once
+  (`<span class="mlv-breadcrumb__separator">` around the `[mlvSeparator]`
+  template or the default chevron, honouring `hideSeparatorFromScreenReaders`);
+  the data-driven `@for` and each projected item stamp it.
+- Reached through the **internal** `MLV_BREADCRUMB` token
+  (`breadcrumb-token.ts`, not exported): `_separatorTemplate` (the
+  `viewChild`) and `_lastProjectedItem` (last entry of
+  `contentChildren(MlvBreadcrumbItem)`). The item renders the template unless
+  it is that last entry.
+- Last-ness follows `@for` / `@if` / `<ng-container>` changes: the trailing
+  gap moves when the last crumb does.
+- Last-ness is **page order**, not creation order: a `track`ed `@for` that
+  moves existing crumbs moves the gap with them.
+- Lexical: only items **declared directly in the nav's content** — in the same
+  template as `<nav mlvBreadcrumb>` — get a separator. Anything else resolves
+  no token and is invisible to the content query, so it renders none:
+  - an item rendered outside a breadcrumb;
+  - one declared elsewhere and stamped in through `ngTemplateOutlet`;
+  - **unsupported:** a consumer wrapper component whose template holds the
+    `<nav>` and re-projects items through its own `<ng-content>` — those items
+    belong to the wrapper's parent template, so the trail renders **zero**
+    separators (measured). Give the wrapper an `[items]` input and forward it
+    to the data-driven mode, or keep the `<nav mlvBreadcrumb>` in the template
+    that declares the items.
+- **One shape per trail.** Separators go between `<mlv-breadcrumb-item>`s only
+  (the query sees no `<li mlvBreadcrumbItem>`), so an `<li>` after them is not
+  separated from the last one (measured: `Home ›`, `Products`, `Leaf`).
+- Pinned by `breadcrumb.spec.ts` § _projected separators_.
+
+---
+
+### `MlvBreadcrumbItemHost`
+
+**File:** `libs/core/breadcrumb/src/lib/breadcrumb/breadcrumb-item-host.ts`
+**Selector:** `[mlvBreadcrumbItem]`
+
+Stamps `mlv-breadcrumb__item` on a native element; renders nothing, sets no
+role. For crumbs whose markup must stay the consumer's own.
+
+- Put it on `<li>`s projected **straight into** `nav[mlvBreadcrumb]`. The
+  component renders the `<ol>`; a consumer `<ol>` nests `ol > ol` (axe
+  `list`, serious). The old JSDoc and docs example 4 taught that nesting —
+  both fixed in #325.
+- No automatic separator: the `<li>`'s content is the consumer's, so it
+  writes its own `aria-hidden` `.mlv-breadcrumb__separator`.
+- One shape per trail — do not follow `<mlv-breadcrumb-item>`s with an `<li>`
+  (see § Separator).
+
+```html
+<nav mlvBreadcrumb>
+  <li mlvBreadcrumbItem>
+    <a class="mlv-breadcrumb__link" href="/">Home</a>
+    <span class="mlv-breadcrumb__separator" aria-hidden="true">›</span>
+  </li>
+  <li mlvBreadcrumbItem>
+    <span class="mlv-breadcrumb__link mlv-breadcrumb__link--current" aria-current="page">Products</span>
+  </li>
+</nav>
+```
+
 ---
 
 ### `MlvBreadcrumbEntry` (interface)
@@ -131,12 +198,12 @@ crumb. See _Non-interactive crumb states_.
 | --------------------------------- | -------------------------------------------------- |
 | `.mlv-breadcrumb`                 | Root block on `<nav>`                              |
 | `.mlv-breadcrumb__list`           | The `<ol>` ordered list wrapper                    |
-| `.mlv-breadcrumb__item`           | Each `<li>` breadcrumb item                        |
+| `.mlv-breadcrumb__item`           | Each crumb: `<li>` / `<mlv-breadcrumb-item>`       |
 | `.mlv-breadcrumb__link`           | Link or span inside each item                      |
 | `.mlv-breadcrumb__link--current`  | Applied to the current/last item (non-interactive) |
 | `.mlv-breadcrumb__link--plain`    | Applied to a link-less, non-current ancestor crumb |
 | `.mlv-breadcrumb__link--disabled` | Applied to disabled items                          |
-| `.mlv-breadcrumb__separator`      | Separator between items                            |
+| `.mlv-breadcrumb__separator`      | Separator after every crumb but the last           |
 | `.mlv-breadcrumb__ellipsis`       | Ellipsis shown during overflow truncation          |
 
 ---
@@ -193,12 +260,12 @@ as a `var()` fallback.
 - `<nav>` host uses native landmark semantics
 - `aria-label="Breadcrumb"` on the host nav element
 - Last/current item has `aria-current="page"`
-- Separators are `aria-hidden="true"` by default
+- Separators are `aria-hidden="true"` by default, in both modes
 - Disabled items are non-interactive `<span>` elements
 - Link-less ancestor crumbs render as plain `<span>` elements with no link affordance — see _Non-interactive crumb states_
 - Every crumb part clears WCAG 2.1 AA in both themes — see _Styling contract_
 - All interactive links have `:focus-visible` outline using `--mlv-border-focus`
-- Uses semantic `<ol>` + `<li>` list structure in **data-driven** mode
+- One `<ol>` in both modes: data-driven stamps `<li>`s; projected `<mlv-breadcrumb-item>`s are `role="listitem"`; `<li mlvBreadcrumbItem>`s go straight into it, never inside a consumer `<ol>` (#325)
 - Overflow popover focuses the first hidden link when opened
 - Overflow popover supports Arrow Up/Down/Left/Right, Home, End, and Escape keyboard navigation
 - The popover's horizontal arrows mirror in RTL and resolve their direction from the **breadcrumb's own host** — a cached `elementDirection(host)` signal passed to `normalizeArrowKey(event, direction)` (#147) — which matters twice: the menu renders in a CDK overlay pane portaled to `<body>` and stamped with its own `dir`, and the breadcrumb itself can sit in a `[dir="rtl"]` subtree while the document stays LTR. Arrow Up/Down, Home, End and Escape never mirror
@@ -231,8 +298,10 @@ as a `var()` fallback.
 <!-- Data-driven -->
 <nav mlvBreadcrumb [items]="breadcrumbs"></nav>
 
-<!-- Custom separator -->
-<nav mlvBreadcrumb [items]="breadcrumbs" separator="›"></nav>
+<!-- Custom separator (both modes) -->
+<nav mlvBreadcrumb [items]="breadcrumbs">
+  <ng-template mlvSeparator>›</ng-template>
+</nav>
 
 <!-- With truncation -->
 <nav mlvBreadcrumb [items]="longBreadcrumbs" [maxItems]="4"></nav>
@@ -248,8 +317,9 @@ as a `var()` fallback.
      do NOT use `disabled` -->
 <nav mlvBreadcrumb [items]="[{ label: 'Settings' }, { label: 'Personal' }, { label: 'Profile' }]"></nav>
 
-<!-- Projected items with href -->
-<nav mlvBreadcrumb separator="→">
+<!-- Projected items with href and a custom separator -->
+<nav mlvBreadcrumb>
+  <ng-template mlvSeparator>→</ng-template>
   <mlv-breadcrumb-item href="/">Home</mlv-breadcrumb-item>
   <mlv-breadcrumb-item href="/docs">Docs</mlv-breadcrumb-item>
   <mlv-breadcrumb-item [current]="true">Getting Started</mlv-breadcrumb-item>
@@ -284,7 +354,10 @@ libs/core/breadcrumb/src/
       breadcrumb.html             — template
       breadcrumb.scss             — BEM styles
       breadcrumb-item.ts          — MlvBreadcrumbItem (mlv-breadcrumb-item)
-      breadcrumb.types.ts                   — MlvBreadcrumbEntry interface
+      breadcrumb-item-host.ts     — MlvBreadcrumbItemHost ([mlvBreadcrumbItem])
+      breadcrumb-separator.ts     — MlvBreadcrumbSeparator ([mlvSeparator])
+      breadcrumb-token.ts         — MLV_BREADCRUMB (internal, not exported)
+      breadcrumb.types.ts         — MlvBreadcrumbEntry interface
       breadcrumb.spec.ts          — unit tests
 ```
 
