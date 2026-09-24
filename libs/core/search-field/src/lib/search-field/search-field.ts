@@ -11,11 +11,14 @@ import {
   forwardRef,
   DestroyRef,
   effect,
+  ElementRef,
+  HostAttributeToken,
   inject,
   input,
   model,
   numberAttribute,
   output,
+  Renderer2,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
@@ -170,6 +173,33 @@ const CONSUMED_DIRECTIONS = new Set<MlvSearchFieldNavigateDirection>([
 })
 export class MlvSearchField extends MlvOverlayHostBase {
   private readonly _rtlService = inject(MlvRtlService);
+
+  /**
+   * @private A static `role` attribute the consumer wrote on the
+   * `<mlv-search-field>` host — the README's `role="combobox"`, or
+   * `role="searchbox"`. Angular feeds it to the {@link role} input **and**
+   * leaves it on the host element, so the host became a second, unnamed
+   * combobox (or searchbox) with none of the attributes the role requires,
+   * wrapped around the `<input>` that really carries it (axe
+   * `aria-required-attr` / `aria-input-field-name`, #329). The constructor
+   * strips it from the host; the input already has the value.
+   *
+   * Read through `HostAttributeToken`, which sees only the template's static
+   * attributes: a bound `[role]` never reaches the host, and a consumer's own
+   * `[attr.role]` binding is applied after construction, so neither is touched.
+   * `null` for a `createComponent(…, { hostElement })` root host, whose own
+   * attributes never reach an input — so a role there is left alone.
+   */
+  private readonly _hostRole = inject(new HostAttributeToken('role'), {
+    optional: true,
+  });
+
+  /** @private Host element, the target of the static `role` strip. */
+  private readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /** @private Renderer used to remove the static host `role` attribute. */
+  private readonly _renderer = inject(Renderer2);
+
   /** Current query. Supports two-way binding with `[(value)]`. */
   readonly value = model<string>('');
 
@@ -273,6 +303,12 @@ export class MlvSearchField extends MlvOverlayHostBase {
    * a dialog-trigger button, which has no input to carry the role. Likewise
    * mutually exclusive with {@link overlay}, whose inline trigger is a
    * read-only dialog opener rather than a text entry.
+   *
+   * The role never lands on the `<mlv-search-field>` host, written statically
+   * (`role="combobox"`) or bound (`[role]`). A static attribute is also written
+   * to the host by Angular, so the constructor removes it there (#329). A
+   * separate host `[attr.role]` binding — a `search` landmark, say — is the
+   * consumer's own and is left alone.
    * @default 'searchbox'
    */
   readonly role = input<MlvSearchFieldRole>('searchbox');
@@ -480,9 +516,20 @@ export class MlvSearchField extends MlvOverlayHostBase {
     };
   }
 
-  /** Reconciles controlled values and registers timer cleanup. */
+  /**
+   * Strips a static host `role`, reconciles controlled values and registers
+   * timer cleanup.
+   */
   constructor() {
     super();
+
+    // The static host `role` already reached the `role` input, which the
+    // native `<input>` carries; leaving it on the host nests a second,
+    // unnamed combobox around it. Runs on the server too, so the
+    // pre-hydration markup carries the role once.
+    if (this._hostRole !== null) {
+      this._renderer.removeAttribute(this._elementRef.nativeElement, 'role');
+    }
 
     effect(() => {
       const value = this.value();

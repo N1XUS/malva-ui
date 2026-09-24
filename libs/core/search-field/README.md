@@ -18,9 +18,11 @@ strategies while keeping one two-way bindable query model:
 ```
 
 Set `role="combobox"` to drive a consumer-owned suggestion listbox. The field
-then stamps `role="combobox"` on its `<input>`, forwards `ariaControls` /
-`ariaExpanded` / `ariaAutocomplete` / `ariaActiveDescendant` onto the same
-element, and reports the option-navigation keys through `(navigate)`.
+then stamps `role="combobox"` on its `<input>` — never on the
+`<mlv-search-field>` host, written statically or bound — forwards
+`ariaControls` / `ariaExpanded` / `ariaAutocomplete` / `ariaActiveDescendant`
+onto the same element, and reports the option-navigation keys through
+`(navigate)`.
 `(commit)` fires on Enter and the submit action; calling `preventDefault()` on
 the event it carries takes the commit over, so Enter resolves the highlighted
 option instead of emitting `search`.

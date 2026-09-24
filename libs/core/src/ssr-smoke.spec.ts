@@ -367,6 +367,17 @@ import {
         <mlv-combobox label="City" [options]="options" [(value)]="option" />
         <mlv-number-input label="Quantity" [(value)]="quantity" />
         <mlv-search-field [(value)]="query" />
+        <!-- A static role: it must reach the native input and leave the host
+             in the server payload, not only after hydration (issue #329). -->
+        <mlv-search-field
+          class="ssr-command-search"
+          role="combobox"
+          ariaAutocomplete="list"
+          ariaLabel="Search commands"
+          ariaControls="ssr-command-listbox"
+          [ariaExpanded]="false"
+          [(value)]="query"
+        />
         <mlv-pin-input label="One-time code" [length]="4" [(value)]="pin" />
         <mlv-rating [(value)]="stars" />
         <mlv-slider [min]="0" [max]="10" [(value)]="level" />
@@ -1600,6 +1611,32 @@ describe('@malva-ui/core SSR safety', () => {
         `the own label carries for="${id}" in the server markup`,
       ).toBe(false);
     }
+  });
+
+  it('server-renders a static search-field role on the native input, not the host', async () => {
+    const { html } = await renderAllHosts();
+
+    // #329. A static role="combobox" is fed to the role input and written to
+    // the host by Angular; the constructor strips the host copy, and runs on
+    // the server too. So the pre-hydration payload carries one combobox, the
+    // input, not an unnamed one wrapped around it. The overlay is closed, so
+    // no nested mlv-search-field renders and the non-greedy match is exact.
+    const field =
+      /<mlv-search-field(?=[^>]*\bssr-command-search\b)[\s\S]*?<\/mlv-search-field>/.exec(
+        html,
+      )?.[0];
+    expect(
+      field,
+      'no static-role mlv-search-field in the server markup — the command ' +
+        'search in SsrFormControlsHost did not render',
+    ).toBeTruthy();
+    const hostTag = /^<mlv-search-field[^>]*>/.exec(field as string)?.[0];
+    expect(hostTag, 'the search-field host tag').not.toMatch(/\srole="/);
+    const carriers = Array.from(
+      (field as string).matchAll(/<([a-z-]+)(?=[^>]*\srole="combobox")[^>]*>/g),
+      (match) => match[1],
+    );
+    expect(carriers, 'elements carrying role="combobox"').toEqual(['input']);
   });
 
   it('server-renders the native select selection into the markup', async () => {
