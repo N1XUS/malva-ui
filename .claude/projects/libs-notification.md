@@ -103,6 +103,15 @@ exists at all. Politeness follows `config.politeness`, defaulting to
 `resolveToastPoliteness(tone)`. Template and component content is not announced; it owns
 its own text.
 
+Notifications and toasts shown before `LiveAnnouncer` writes (same tick, or within its
+100 ms delay) join **one** announcement instead of the last replacing the rest (#336):
+assertive items first, assertive when any item is, joined with `joinAnnouncementParts()`
+— `error('Deploy failed')` + a toast `success('Two files saved')` in one handler announce
+`"Deploy failed. Two files saved"`. The batch is shared through the base service; its
+observable edges (joined spy calls, assertive-first reordering, a polite item read
+assertively, an item closed before the write still announced) are listed in
+`libs-toast.md` → Screen-reader announcement → Items shown together.
+
 `LiveAnnouncer` requires the `.cdk-visually-hidden` rules shipped in
 `styles/malva-ui.css` — without that stylesheet the announcement renders visibly.
 
@@ -283,4 +292,4 @@ export class ReleaseContentComponent {
 
 ## Testing
 
-Component tests cover creation, the absence of live-region roles on the card, and focus-safe timer pausing. Service tests cover string/template/component content, data context/token, typed refs, duplicate-close safety, and shared overlay cleanup.
+Component tests cover creation, the absence of live-region roles on the card, and focus-safe timer pausing. Service tests cover string/template/component content, data context/token, typed refs, duplicate-close safety, shared overlay cleanup, and announcements pending together (two notifications, and a notification beside a toast, read as one announcement from the real `LiveAnnouncer` region).
