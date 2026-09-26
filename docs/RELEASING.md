@@ -65,35 +65,45 @@ expression silently evaluates to an empty string instead of failing.
 
 ### 1.2 Workflow permissions
 
-**Settings → Actions → General → Workflow permissions** → **Read and write permissions**.
+The workflow's built-in `GITHUB_TOKEN` has `contents: read` and `id-token: write`.
+Git writes and GitHub Release creation use a separate, short-lived installation
+token from the **Malva UI Release** GitHub App. `contents: write` alone does not
+bypass the `main` ruleset's pull-request requirement.
 
-The workflow declares `permissions: { contents: write, id-token: write }`, but a
-job's `permissions` block can only *narrow* what the repository setting grants. If
-the repo is left on "Read repository contents permission", `contents: write` is
-denied and the release commit/tag push fails.
+**Settings → Actions → General → Actions permissions** must allow
+`actions/checkout`, `actions/setup-node`, `actions/cache`, and
+`actions/create-github-app-token`.
 
-**Settings → Actions → General → Actions permissions** must also allow actions to
-run at all ("Allow all actions and reusable workflows", or at minimum allow
-`actions/checkout` and `actions/setup-node`).
+### 1.3 Dedicated release App
 
-### 1.3 Let the bot push to `main`
+1. In **Settings → Developer settings → GitHub Apps**, create a private App
+   named **Malva UI Release**, installable only on the `N1XUS` account. Set the
+   homepage to this repository, disable webhooks, and grant only repository
+   **Contents: Read and write** (Metadata read is automatic).
+2. Install it on **only `N1XUS/malva-ui`** and generate a private key.
+3. In **Settings → Environments → release**, set:
+   - Environment variable `RELEASE_APP_CLIENT_ID`: the App's client ID.
+   - Environment secret `RELEASE_APP_PRIVATE_KEY`: the complete PEM private key.
+4. In **Settings → Rules → Rulesets → Protect main → Bypass list**, add that
+   installed App with **Always allow**. **For pull requests only** cannot permit
+   Nx Release's direct push. Keep the pull-request rule enabled for everyone else.
+   If a tag ruleset is added for `v*`, grant the release App the necessary bypass
+   there too.
+5. Restrict the `release` environment's deployment branches to `main` so other
+   branches cannot access its key. The workflow also runs its release job only
+   on `refs/heads/main`.
 
-The release commit and tag go straight to `main` as `github-actions[bot]`. If
-`main` is protected, that push is rejected.
+The workflow checks these settings before installing dependencies, mints a
+repository-scoped token, uses it for checkout/push and the GitHub Release API,
+and attributes the release commit to the App's bot. Dry runs request read-only
+Contents access but still require the App setup. Tokens expire after one hour
+and the token action revokes them when the job finishes; rerun the workflow if
+it expires before Nx pushes.
 
-**Settings → Rules → Rulesets** → the ruleset covering `main` → **Bypass list →
-Add bypass → Repository role / Integration** → add **GitHub Actions**.
-
-Prefer rulesets over classic branch protection: classic protection's "allow
-specified actors to bypass" list cannot hold `github-actions[bot]`, so under
-classic rules the only way through is a PAT (see below).
-
-If you also have a **tag** ruleset, allow the bypass actor to create `v*`.
-
-**Fallback if you cannot grant bypass:** create a fine-grained PAT with
-`Contents: read and write` on this repo (from an account that *is* on the bypass
-list), store it as `RELEASE_TOKEN`, and change the checkout step to
-`token: ${{ secrets.RELEASE_TOKEN }}`.
+The App needs no Administration permission. Its bypass is granted to its App
+identity, not to the Git commit author or the workflow's built-in token. Do not
+reuse this App or its private key for general Claude/Codex PR work; use the
+[separate development bot](GITHUB-BOTS.md).
 
 ### 1.4 Optional — require an approval click
 
@@ -159,7 +169,7 @@ cannot be turned on yet, for two independent reasons:
 - `NPM_PROVENANCE` is forced on under `trusted`.
 
 Trusted Publishing does **not** replace §1.2 and §1.3 — those govern the git push
-and the GitHub Release, which are a different credential (`GITHUB_TOKEN`) entirely.
+and the GitHub Release, which use the release App installation token instead of npm credentials.
 
 ---
 

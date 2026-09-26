@@ -128,7 +128,7 @@ Run workflow (`gh workflow run release.yml -f dryRun=false`). A push to `main`
 never publishes. The workflow verifies, versions, changelogs, tags, pushes, cuts
 the GitHub Release and publishes to npm. See
 [docs/RELEASING.md](docs/RELEASING.md) for the required GitHub configuration
-(npm credentials, workflow permissions, `main` bypass for `github-actions[bot]`,
+(npm credentials, workflow permissions, `main` bypass for the dedicated release App,
 the optional approval environment) and for the pre-1.0 version-bump rules. The
 workflow's `auth` input selects between a stored npm token and OIDC **Trusted
 Publishing**; Trusted Publishing is the target once the repository is public.
