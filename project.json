@@ -126,6 +126,7 @@
         "{workspaceRoot}/scripts/check-root-dependencies.spec.mjs",
         "{workspaceRoot}/yarn.lock",
         "{workspaceRoot}/scripts/widen-peer-range.mjs",
+        "{workspaceRoot}/scripts/github-dev-bot.mjs",
         "{workspaceRoot}/scripts/widen-peer-range.spec.mjs",
         "{workspaceRoot}/scripts/check-dist-assets.mjs",
         "{workspaceRoot}/scripts/check-dist-assets.spec.mjs",
@@ -144,7 +145,7 @@
       ],
       "options": {
         "commands": [
-          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js scripts/check-axe-coverage.spec.mjs scripts/check-deprecations.spec.mjs scripts/check-package-dependencies.spec.mjs scripts/check-root-dependencies.spec.mjs scripts/widen-peer-range.spec.mjs scripts/check-dist-assets.spec.mjs",
+          "node --test scripts/testing/strip-css-layers.spec.js scripts/testing/assert-zoneless-config.spec.js scripts/check-axe-coverage.spec.mjs scripts/check-deprecations.spec.mjs scripts/check-package-dependencies.spec.mjs scripts/check-root-dependencies.spec.mjs scripts/widen-peer-range.spec.mjs scripts/check-dist-assets.spec.mjs scripts/github-dev-bot.spec.mjs",
           "node scripts/check-test-targets.mjs",
           "node scripts/check-axe-coverage.mjs"
         ],

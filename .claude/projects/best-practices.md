@@ -250,6 +250,27 @@ Every other text/numeric/email/tel/url field — including search boxes inside `
 
 ---
 
+## GitHub bot identities
+
+- Claude and Codex share the **Malva UI Dev** GitHub App for branch pushes and PR
+  creation/updates. Run these through `node scripts/github-dev-bot.mjs git …`
+  or `node scripts/github-dev-bot.mjs gh …`; see `docs/GITHUB-BOTS.md` for setup.
+- If bot configuration is missing, report it instead of silently creating the
+  PR as the user's personal account. Read-only GitHub inspection can use the
+  existing connector or personal CLI session.
+- A change to `.github/workflows/` needs GitHub's separate Workflows write
+  permission. The development App does not have it; the repository owner must
+  push that branch, then the bot can open its PR.
+- Keep bot credentials outside the repository and out of prompts/logs. The
+  wrapper supplies a short-lived token only to its child command and revokes it
+  afterward; do not use `gh auth login` to persist that token.
+- The development App has **no ruleset bypass**. The separate **Malva UI Release**
+  App is reserved for the manual release workflow and its protected environment.
+- Repository rules still govern merges. A bot identity is not authorization to
+  publish comments, merge PRs, or release packages beyond the user's request.
+
+---
+
 ## Nx Workspace Conventions
 
 - **Navigating/exploring**: invoke the `nx-workspace` skill first

@@ -100,3 +100,4 @@ playwright/.cache
 # without ever reading this line.
 /docs/*
 !/docs/migrations/
+!/docs/GITHUB-BOTS.md
