@@ -1,3 +1,4 @@
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -78,12 +79,55 @@ describe('MlvAlert', () => {
   // ── Accessibility ─────────────────────────────────────────────────────────────
 
   describe('accessibility', () => {
-    it('should have role="alert" on host', () => {
-      expect(hostEl.getAttribute('role')).toBe('alert');
+    // #333, owner ruling D25: an info banner rendered with the page must not
+    // interrupt, so the live role follows the tone. The role carries the
+    // politeness itself (`alert` → assertive, `status` → polite); the old
+    // explicit `aria-live="polite"` beside `role="alert"` made Chromium expose
+    // every tone as polite while JAWS / NVDA key on the alert role.
+    it.each([
+      ['info', 'status'],
+      ['success', 'status'],
+      ['warning', 'alert'],
+      ['danger', 'alert'],
+    ] as const)('tone %s renders role="%s"', async (tone, role) => {
+      fixture.componentRef.setInput('tone', tone);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(hostEl.getAttribute('role')).toBe(role);
     });
 
-    it('should have aria-live="polite" on host', () => {
-      expect(hostEl.getAttribute('aria-live')).toBe('polite');
+    it('carries no explicit aria-live that could contradict the role', async () => {
+      for (const tone of ['info', 'success', 'warning', 'danger'] as const) {
+        fixture.componentRef.setInput('tone', tone);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(hostEl.hasAttribute('aria-live')).toBe(false);
+      }
+    });
+
+    it('follows a tone change on a rendered alert', async () => {
+      expect(hostEl.getAttribute('role')).toBe('status');
+
+      fixture.componentRef.setInput('tone', 'danger');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(hostEl.getAttribute('role')).toBe('alert');
+
+      fixture.componentRef.setInput('tone', 'success');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(hostEl.getAttribute('role')).toBe('status');
+    });
+
+    it('has no axe violations in any tone', async () => {
+      for (const tone of ['info', 'success', 'warning', 'danger'] as const) {
+        fixture.componentRef.setInput('tone', tone);
+        fixture.componentRef.setInput('dismissible', true);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        await expectNoAxeViolations(hostEl);
+      }
     });
 
     it('icon area should be aria-hidden', () => {
@@ -242,5 +286,45 @@ describe('MlvAlert', () => {
 
       expect(component.dismissible()).toBe(true);
     });
+  });
+});
+
+@Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MlvAlert],
+  template: `
+    <mlv-alert id="note" role="note" [tone]="tone()">Static note.</mlv-alert>
+    <mlv-alert id="derived" [tone]="tone()">Derived.</mlv-alert>
+  `,
+})
+class AuthorRoleHost {
+  readonly tone = signal<'info' | 'danger'>('danger');
+}
+
+describe('MlvAlert — author role', () => {
+  // The host role used to be a static host attribute, which a static `role`
+  // written on `<mlv-alert>` overrode. Deriving it from the tone must not
+  // start overwriting that choice (#333).
+  it('keeps a static role written on the element, whatever the tone', async () => {
+    TestBed.configureTestingModule({
+      imports: [AuthorRoleHost],
+      providers: [provideMlvI18nTesting()],
+    });
+    const fixture = TestBed.createComponent(AuthorRoleHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    const note = root.querySelector('#note') as HTMLElement;
+    const derived = root.querySelector('#derived') as HTMLElement;
+
+    expect(note.getAttribute('role')).toBe('note');
+    expect(derived.getAttribute('role')).toBe('alert');
+
+    fixture.componentInstance.tone.set('info');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(note.getAttribute('role')).toBe('note');
+    expect(derived.getAttribute('role')).toBe('status');
   });
 });
