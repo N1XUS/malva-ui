@@ -1,5 +1,6 @@
 import { Directive, inject } from '@angular/core';
 import { Toolbar, ToolbarWidget } from '@angular/aria/toolbar';
+import { provideMlvScopedDirectionality } from '@malva-ui/cdk/utils';
 
 /**
  * Opt-in roving-focus behaviour for a `mlv-toolbar`, backed by
@@ -34,6 +35,10 @@ import { Toolbar, ToolbarWidget } from '@angular/aria/toolbar';
  * - `disabled` — disable the whole toolbar.
  * - `value` / `valueChange` — selection model for toggle/radio-style toolbars
  *   (an array of the selected widget values; see {@link MlvToolbarWidget}).
+ *
+ * Horizontal arrow keys follow the nearest `[dir]` above the toolbar, not only
+ * the document's, so a roving toolbar inside a `dir="rtl"` subtree moves to
+ * the widget on screen in the direction pressed.
  */
 @Directive({
   // eslint-disable-next-line @angular-eslint/directive-selector
@@ -46,6 +51,14 @@ import { Toolbar, ToolbarWidget } from '@angular/aria/toolbar';
       outputs: ['valueChange'],
     },
   ],
+  // `@angular/aria`'s `Toolbar` (the host directive above) injects the CDK
+  // `Directionality` to decide which horizontal arrow means *next*. A host
+  // directive resolves against the node's `providers` only (`viewProviders`
+  // are invisible to directives on the host node itself), so the scoped
+  // provider goes here. The projected widgets see it too: it reports the
+  // toolbar's direction, so a projected descendant under its own `dir` island
+  // needs its own provider or CDK `Dir`.
+  providers: [provideMlvScopedDirectionality()],
 })
 export class MlvToolbarRoving<V> {
   /** @protected The host `ngToolbar` pattern instance. */

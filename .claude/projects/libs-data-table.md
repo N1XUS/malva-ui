@@ -911,6 +911,7 @@ Set `[cellNavigation]="true"` to swap the default **row-level** roving navigatio
 - Each data `<tr>` carries `ngGridRow` (`role="row"`); each `<td>` carries `ngGridCell` (`role="gridcell"`). Only **body** cells are registered — header cells stay outside grid navigation.
 - Interactive cells expose an `ngGridCellWidget`: edit-mode cells wrap their edit template in `widgetType="editable"` and the actions column wraps its buttons in `widgetType="complex"`, so Enter pauses grid navigation to interact and Escape resumes.
 - The grid `<tr>`/`<td>` markup is a parallel template branch (aria directives can't be toggled on an element at runtime); the presentational cell body is shared via the internal `#cellContentTpl` / `#actionsButtonsTpl` templates, so display logic is not duplicated.
+- **Direction (#339).** aria's `Grid` and `GridCell` inject the CDK `Directionality` to swap `ArrowLeft` / `ArrowRight` in RTL. The root instance follows only the document, so a table inside a `dir="rtl"` subtree mirrored its columns while `ArrowLeft` still moved to the previous column. `MlvDataTable` now has `viewProviders: [provideMlvScopedDirectionality()]` (`@malva-ui/cdk/utils`, `@internal`), so the grid follows the table's nearest `[dir]`, as the column-resize keys already did; `viewProviders` because the grid is in the view, so consumer cell templates keep their own. Pinned by `data-table-scoped-direction.spec.ts` (scoped RTL, LTR island). List of record: `.claude/rules/rtl.md` § _Sanctioned `Directionality` providers_.
 
 **Prototype limitations (honest, documented)**
 

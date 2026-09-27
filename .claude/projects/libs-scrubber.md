@@ -183,31 +183,21 @@ one is on the inline axis and must, so the two halves are split:
 Direction comes from `MlvRtlService.elementDirection(host)`, so a `[dir]` scope
 on any ancestor is honoured, not only the document's.
 
-### The one place the CDK `Directionality` token is touched
+### Scoped `Directionality` for `Listbox`
 
 `@angular/aria`'s `Listbox` injects the CDK `Directionality` to decide which
 horizontal arrow key means _next_, and the root-provided one only ever reports
 the **document** direction. A strip inside a `[dir="rtl"]` wrapper on an
 otherwise-LTR page would therefore take its arrow keys from one direction and
-its scroll maths from another. `MlvScrubber` provides a scope-aware
-`Directionality` on the component (`scopedDirectionality()`), backed by the same
-`elementDirection(host)` signal, so the two agree. Nothing else in the subtree
-injects the token. `MlvRtlService` still owns the document `dir` and the global
-CDK sync — this reads from it rather than around it.
-`.claude/rules/rtl.md` § _The one sanctioned `Directionality` provider_ records
-the exception and the conditions for adding another.
-
-**Why not CDK's `Dir` directive**, which already provides `Directionality` for a
-`[dir]` subtree: `Dir` is `[dir]`-selected and standalone, so it exists only
-where a _consumer's_ component both writes `dir` and imports it — a `dir="rtl"`
-on a plain wrapper, or one set by the host page outside Angular, provides
-nothing. It also reads only its own `dir` **input**, so it does not follow an
-ancestor attribute changing, which is what lets the strip re-mirror on a live
-flip. Summoning it by writing `dir` on the strip's own host would mean the
-component knowing its direction and re-emitting it — a `direction` input, which
-`.claude/rules/rtl.md` forbids. A consumer who has imported `Dir` on a wrapper
-ends up with two providers that agree; the nearer one (this) wins, so the extra
-is inert.
+its scroll maths from another. `MlvScrubber` provides
+`provideMlvScopedDirectionality()` (`@malva-ui/cdk/utils`, `@internal`) in its
+`providers`, backed by the same `elementDirection(host)` signal, so the two
+agree. Nothing is projected, so `providers` and `viewProviders` reach the same
+nodes here. The scrubber was the first such host and carried its own factory;
+#339 moved it into the shared helper, used by five more `@angular/aria` hosts.
+`.claude/rules/rtl.md` § _Sanctioned `Directionality` providers_ lists every
+host, why CDK's `Dir` directive is not an alternative, and the conditions for
+adding another.
 
 **The one spec that pins it** is `mirrors the horizontal pair under a scoped
 [dir="rtl"] ancestor`. The global-RTL case is _not_ evidence:
@@ -252,13 +242,12 @@ four together.
 
 ### Internal
 
-- `@malva-ui/cdk/utils` — `clamp`, `MlvRtlService`
+- `@malva-ui/cdk/utils` — `clamp`, `MlvRtlService`, `provideMlvScopedDirectionality`
 
 ### Angular
 
 - `@angular/aria/listbox` — `Listbox`, `Option`
 - `@angular/cdk/coercion` — `coerceBooleanProperty`
-- `@angular/cdk/bidi` — `Directionality` (provided, not injected; see above)
 - `rxjs` — `fromEvent`
 
 ### Styles

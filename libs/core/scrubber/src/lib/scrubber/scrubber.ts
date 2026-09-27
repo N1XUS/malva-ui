@@ -6,13 +6,10 @@ import {
   DestroyRef,
   effect,
   ElementRef,
-  EventEmitter,
   inject,
-  Injector,
   input,
   NgZone,
   output,
-  signal,
   untracked,
   viewChild,
   viewChildren,
@@ -23,82 +20,18 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { fromEvent } from 'rxjs';
-import { Directionality, type Direction } from '@angular/cdk/bidi';
 import { Listbox, Option } from '@angular/aria/listbox';
-import { clamp, MlvRtlService } from '@malva-ui/cdk/utils';
+import {
+  clamp,
+  MlvRtlService,
+  provideMlvScopedDirectionality,
+} from '@malva-ui/cdk/utils';
 
 /** The axis a {@link MlvScrubber} scrolls along. */
 export type MlvScrubberOrientation = 'vertical' | 'horizontal';
 
 /** @private Monotonic counter backing per-instance option element ids. */
 let nextScrubberId = 0;
-
-/**
- * @private A `Directionality` that reports the direction applying to **this**
- * element rather than the document's.
- *
- * `@angular/aria`'s `Listbox` injects the CDK `Directionality` to decide which
- * horizontal arrow key means *next*. The root-provided one only ever reports
- * the document direction, so a strip inside a `[dir="rtl"]` wrapper on an
- * otherwise-LTR page would take its arrow keys from one direction and its
- * scroll maths from another. Providing a scope-aware instance on the component
- * keeps the two in agreement; nothing else in the subtree injects it.
- *
- * This is the one place the CDK token is touched directly — `MlvRtlService`
- * still owns the document `dir` and the global sync, and is what this reads.
- * `.claude/rules/rtl.md` § *The one sanctioned `Directionality` provider*
- * records the exception.
- *
- * ### Why not CDK's `Dir` directive
- *
- * `@angular/cdk/bidi` already ships `Dir`, which provides `Directionality` for
- * a `[dir]` subtree, so "just import `Dir`" looks like the smaller move. It is
- * not available here:
- *
- * - `Dir` is selector-driven (`[dir]`) and standalone, so it only exists where
- *   a **consumer's** component both writes `dir` and imports it. A `dir="rtl"`
- *   attribute written on a plain wrapper — or by the host page, outside Angular
- *   entirely — creates no `Dir` and provides nothing. The `dir` attribute is
- *   this library's direction API (`.claude/rules/rtl.md` → *Public API*), so it
- *   has to work without the consumer opting into a CDK directive.
- * - `Dir` reads only its own `dir` **input**; it does not observe an ancestor's
- *   attribute changing. `MlvRtlService.elementDirection()` does, which is what
- *   lets the strip re-mirror on a live flip.
- * - Putting `dir` on the strip's own host to summon `Dir` would mean the
- *   component knowing its direction and re-emitting it — i.e. a `direction`
- *   input, which the same rule forbids.
- *
- * A consumer who *has* imported `Dir` on a wrapper simply ends up with two
- * providers in the chain. They agree (both resolve the same nearest `dir`), and
- * the nearer one — this — wins, so the extra provider is inert.
- */
-function scopedDirectionality(): Directionality {
-  const injector = inject(Injector);
-  const direction = inject(MlvRtlService).elementDirection(
-    inject(ElementRef<HTMLElement>),
-  );
-  const valueSignal = signal<Direction>(untracked(direction));
-  const change = new EventEmitter<Direction>();
-
-  effect(
-    () => {
-      const next = direction();
-      if (untracked(valueSignal) === next) return;
-      valueSignal.set(next);
-      change.emit(next);
-    },
-    { injector },
-  );
-
-  return {
-    get value(): Direction {
-      return valueSignal();
-    },
-    valueSignal,
-    change,
-    ngOnDestroy: () => change.complete(),
-  };
-}
 
 /**
  * A one-dimensional scroll-snap selector — the "drum roll" primitive.
@@ -125,7 +58,12 @@ function scopedDirectionality(): Directionality {
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Listbox, Option],
-  providers: [{ provide: Directionality, useFactory: scopedDirectionality }],
+  // `@angular/aria`'s `Listbox` (`<ul ngListbox>` in this template) injects the
+  // CDK `Directionality` to pick which horizontal arrow means *next*; the
+  // scoped provider keeps it in step with the strip's own scroll maths inside a
+  // `[dir]` subtree. Nothing is projected, so `providers` and `viewProviders`
+  // reach the same nodes here.
+  providers: [provideMlvScopedDirectionality()],
   host: {
     class: 'mlv-scrubber',
     '[class]': '"mlv-scrubber--" + orientation()',

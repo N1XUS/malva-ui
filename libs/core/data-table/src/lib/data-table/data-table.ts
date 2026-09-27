@@ -61,7 +61,11 @@ import { MlvCheckbox } from '@malva-ui/core/checkbox';
 import { MlvPagination } from '@malva-ui/core/pagination';
 import type { MlvSearchFieldTrigger } from '@malva-ui/core/search-field';
 import { MlvSearchField } from '@malva-ui/core/search-field';
-import { MlvResizeObserverService, MlvRtlService } from '@malva-ui/cdk/utils';
+import {
+  MlvResizeObserverService,
+  MlvRtlService,
+  provideMlvScopedDirectionality,
+} from '@malva-ui/cdk/utils';
 import type { MlvInfiniteScrollTrigger } from '@malva-ui/cdk/infinite-scroll';
 import { MlvInfiniteScroll } from '@malva-ui/cdk/infinite-scroll';
 import { MlvButton, MlvButtonIcon } from '@malva-ui/core/button';
@@ -218,6 +222,13 @@ interface ActiveColumnResize extends ColumnResizeBounds {
     MlvDataTableColumnVisibilityService,
     MlvDataTablePinningService,
   ],
+  // `@angular/aria`'s `Grid` and `GridCell` (`ngGrid` / `ngGridCell` in the
+  // `cellNavigation` branch of this template) inject the CDK `Directionality`
+  // to decide which horizontal arrow means the next column. The scoped
+  // provider makes that follow the nearest `[dir]` above the table, as its
+  // logical CSS already does. `viewProviders`: the grid lives in the view, so
+  // consumer cell templates keep their own.
+  viewProviders: [provideMlvScopedDirectionality()],
   hostDirectives: [
     {
       directive: MlvDensityDirective,

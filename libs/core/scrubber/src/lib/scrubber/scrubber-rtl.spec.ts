@@ -362,7 +362,7 @@ describe('MlvScrubber — horizontal arrow keys', () => {
     // direction, so without a scope-aware one the strip's keyboard and its
     // scroll maths disagree the moment a `[dir]` wrapper is the only thing that
     // is RTL. **This is the one spec that pins the provider**: ablate
-    // `{ provide: Directionality, useFactory: scopedDirectionality }` and this
+    // `providers: [provideMlvScopedDirectionality()]` and this
     // fails alone (`expected 2 to be 4` — ArrowLeft moved to the previous item
     // because aria still thought the page was LTR), while every other spec in
     // this file, the global-RTL case above included, stays green.

@@ -47,6 +47,7 @@ import {
   MlvResizeObserverFactory,
   MlvRtlService,
   mlvNextId,
+  provideMlvScopedDirectionality,
 } from '@malva-ui/cdk/utils';
 
 /**
@@ -98,6 +99,12 @@ export type MlvTabPanelPlacement = 'inline' | 'external';
       useExisting: MlvTabGroup,
     },
   ],
+  // `@angular/aria`'s `TabList` (`ngTabList` in this template) injects the CDK
+  // `Directionality` to decide which horizontal arrow means *next*. The scoped
+  // provider makes it follow the nearest `[dir]` above the group, as the
+  // group's logical CSS and indicator geometry already do. `viewProviders`,
+  // because `TabList` is in the view: projected tab content keeps its own.
+  viewProviders: [provideMlvScopedDirectionality()],
   host: {
     class: 'mlv-tab-group',
     '[class.mlv-tab-group--horizontal]': 'orientation() === "horizontal"',

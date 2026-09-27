@@ -91,6 +91,8 @@ Owned by `@angular/aria` (listeners on `.mlv-tree__root`):
 | `Space`        | Select (single) / toggle (multi) the focused node                                |
 | _type a label_ | **Typeahead** — jump to the next node whose `label` matches the typed text       |
 
+**RTL:** `ArrowRight` / `ArrowLeft` swap — `ArrowLeft` expands, `ArrowRight` collapses — following the tree's nearest `[dir]`, not only the document's. aria's `Tree` injects the CDK `Directionality` for this; before #339 it read the root, document-level instance, so a tree inside a `dir="rtl"` subtree indented and mirrored its chevrons while expanding on `ArrowRight`. `MlvTree` now has `viewProviders: [provideMlvScopedDirectionality()]` (`@malva-ui/cdk/utils`, `@internal`) — `viewProviders` because `ngTree` is in the view, so consumer node templates keep their own. Pinned by `tree-scoped-direction.spec.ts` (scoped RTL, LTR island). List of record: `.claude/rules/rtl.md` § _Sanctioned `Directionality` providers_.
+
 > **Behavior changes from the pre-aria tree:** (1) `Enter` now **selects/toggles** the focused row (previously it expanded/collapsed branch nodes — use `ArrowRight`/`ArrowLeft` or the chevron for that). (2) In multi mode, clicking a row now **toggles** its selection (the checkbox is presentational and reflects state). (3) Text typeahead is new. (4) The single-select "click the selected row again to deselect" affordance is preserved by a component-level interceptor (aria's `selectOne` alone never deselects).
 
 ## Directive: `MlvTreeNodeDef` (`[mlvTreeNodeDef]`)
@@ -169,6 +171,7 @@ Block: `mlv-tree`
 - `@malva-ui/core/checkbox` — `mlv-checkbox` used in multi-select mode (presentational)
 - `@lucide/angular` — `LucideChevronRight`, `LucideChevronDown`, `LucideDynamicIcon` for icons
 - `@angular/cdk/coercion` — `coerceBooleanProperty` for boolean inputs
+- `@malva-ui/cdk/utils` — `provideMlvScopedDirectionality` (`@internal`), so aria's RTL key swap follows a scoped `[dir]`
 - `@malva-ui/styles` — all `--mlv-*` CSS custom properties
 
 ## Accessibility

@@ -20,6 +20,7 @@ import { MLV_TREE } from './tree-context';
 import type { MlvTreeAccessor } from './tree-context';
 import { MlvTreeSubtree } from './tree-subtree';
 import type { TreeItem } from '@angular/aria/tree';
+import { provideMlvScopedDirectionality } from '@malva-ui/cdk/utils';
 
 // Re-export for convenience
 export { MLV_TREE };
@@ -97,6 +98,13 @@ export type MlvTreeCurrentType =
       useExisting: forwardRef(() => MlvTree),
     },
   ],
+  // `@angular/aria`'s `Tree` (`ngTree` in this template) injects the CDK
+  // `Directionality`: in RTL it swaps ArrowRight / ArrowLeft for expand /
+  // collapse (and for next / previous in a horizontal tree). The scoped
+  // provider makes that follow the nearest `[dir]` above the tree, as the
+  // indent and the mirrored chevrons already do. `viewProviders`: the pattern
+  // lives in the view, so consumer node templates keep their own.
+  viewProviders: [provideMlvScopedDirectionality()],
   host: {
     class: 'mlv-tree',
     '[class.mlv-tree--connectors]': 'showConnectors()',

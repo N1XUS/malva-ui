@@ -13,8 +13,9 @@ Source of truth — codify, never reinvent:
 | `rtl()`, `ltr()`, `margin-inline()`, `padding-inline()`, `inline-distance()`, `translate-inline()` | `libs/styles/src/lib/mixins.scss` (tested by `mixins.spec.mjs`)                                 |
 | Overlay `direction` plumbing                                                                       | `@malva-ui/cdk/overlay`, `MlvPopupService`, `MlvTooltip`, `MlvAutocomplete`, `MlvDialogService` |
 | `mlvMirrorInlineOffsets()` — overlay `offsetX`                                                     | `@malva-ui/cdk/utils` (`libs/cdk/utils/src/lib/rtl/mirror-inline-offsets.ts`)                   |
+| `provideMlvScopedDirectionality()` — `@internal`, for `@angular/aria` hosts                        | `@malva-ui/cdk/utils` (`libs/cdk/utils/src/lib/rtl/scoped-directionality.ts`)                   |
 
-Inject `MlvRtlService`. **Never inject CDK `Directionality` directly** — the service owns the document `dir`, the CDK `Directionality` sync and the scoped `[dir]` observer. There is exactly one sanctioned exception, for _providing_ the token to a third-party pattern: see _The one sanctioned `Directionality` provider_ below.
+Inject `MlvRtlService`. **Never inject CDK `Directionality` directly** — the service owns the document `dir`, the CDK `Directionality` sync and the scoped `[dir]` observer. The one sanctioned exception is _providing_ the token to a third-party pattern, always through `provideMlvScopedDirectionality()`: see _Sanctioned `Directionality` providers_ below.
 
 ---
 
@@ -224,26 +225,58 @@ Hoist the host `ElementRef` into a named field, derive **one** `elementDirection
 | React to flips from imperative code (open overlay)      | `watchDirection(target, onChange)` — returns a teardown                |
 | A **document-level** surface with no host (toast stack) | `direction()` / `rtl()`                                                |
 
-### The one sanctioned `Directionality` provider
+### Sanctioned `Directionality` providers
 
 The ban above is on **injecting** the CDK token. A component that hosts a
-third-party pattern which injects `Directionality` itself may **provide** a
+third-party pattern which injects `Directionality` itself **provides** a
 scope-aware one, because the root-provided instance reports only the document
-direction — so the pattern's keyboard model and the component's own scroll or
-pointer maths would disagree inside a `[dir]` subtree.
+direction — so inside a `[dir]` subtree the component's logical CSS, measured
+geometry or scroll maths mirror while the pattern's arrow keys do not (#339, the
+#127 / #147 class reached through a third party).
 
-Today that is `mlv-scrubber` and `@angular/aria`'s `Listbox`
-(`libs/core/scrubber/src/lib/scrubber/scrubber.ts`, `scopedDirectionality()`).
+The provider is always `provideMlvScopedDirectionality()` from
+`@malva-ui/cdk/utils` (`@internal` — exported so core leaves can reach it, not
+consumer API). Never hand-roll another factory. It reads **through** to
+`elementDirection(host)` (`valueSignal` is a `linkedSignal` over it, not a
+signal an effect writes), so a key pressed straight after a flip already sees
+the new direction; `change` emits per flip and completes on destroy. It reads
+**nothing at construction**: a host inside an `@if` / `@for` / template view
+is constructed before its nodes are inserted, and a read then resolves the
+detached node to the document direction and caches it under a static `[dir]`
+that never changes. `elementDirection()`'s JSDoc carries the same caveat for
+every caller.
+
+Every `@angular/aria` pattern the library uses, checked against
+`@angular/aria` 22.1.8 (`fesm2022/*.mjs`, `textDirection = inject(Directionality).valueSignal`):
+
+| Host                                | Pattern that injects the token           | Placement       | Scoped spec                                                                         |
+| ----------------------------------- | ---------------------------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| `mlv-scrubber`                      | `Listbox` (template)                     | `providers`     | `scrubber-rtl.spec.ts` (scoped case)                                                |
+| `mlv-tab-group`                     | `TabList` (template)                     | `viewProviders` | `tabs-scoped-direction.spec.ts`                                                     |
+| `mlv-toolbar[mlvToolbarRoving]`     | `Toolbar` (host directive)               | `providers`     | `toolbar-widget-scoped-direction.spec.ts`                                           |
+| `mlv-tree`                          | `Tree` (template; expand / collapse too) | `viewProviders` | `tree-scoped-direction.spec.ts`                                                     |
+| `mlv-list[selectable]`              | `Listbox` (host directive)               | `providers`     | `list-selectable-scoped-direction.spec.ts`                                          |
+| `mlv-data-table` (`cellNavigation`) | `Grid`, `GridCell` (template)            | `viewProviders` | `data-table-scoped-direction.spec.ts`                                               |
+| `mlv-accordion` — **not needed**    | `AccordionGroup` injects it              | —               | aria pins the group `vertical`; `textDirection` is only read for a horizontal group |
+
+`@angular/aria`'s `Menu` and `Combobox` are unused (`mlv-menu` has its own keyboard
+model); `Combobox` does not inject the token. Re-check this table when adding an
+`@angular/aria` pattern or upgrading the package.
+
 The rules for adding another:
 
-- **Back it with `elementDirection(host)`**, not with a second source of truth.
-  `MlvRtlService` still owns the document `dir` and the global CDK sync; the
-  provider reads from it.
+- **Only when something in the subtree actually injects the token**, and say in
+  a comment at the provider which pattern that is.
+- **Placement.** `viewProviders` when the pattern sits in the component's own
+  template, so projected consumer content keeps what it resolved before. A
+  pattern applied as a **host directive** resolves against the node's
+  `providers` only — `viewProviders` are invisible to directives on the host
+  node itself — so there it must be `providers`.
 - **Provide, never inject.** The component's own code keeps using
   `MlvRtlService`; the provider exists solely for the third party in its
-  subtree.
-- **Only when something in the subtree actually injects the token**, and say in
-  the JSDoc what that is. Nothing else in `mlv-scrubber`'s subtree does.
+  subtree. `MlvRtlService` still owns the document `dir` and the global CDK
+  sync, and the provider reads from it rather than being a second source of
+  truth.
 - **Not CDK's `Dir` directive instead.** `Dir` is `[dir]`-selected and
   standalone, so it exists only where a _consumer_ writes `dir` **and** imports
   it, and it reads only its own input — a `dir` attribute on a plain wrapper, or
@@ -251,10 +284,21 @@ The rules for adding another:
   The `dir` attribute is this library's direction API, so it has to work without
   the consumer opting into a CDK directive. Where a consumer has imported `Dir`
   anyway, the two providers agree and the nearer one wins.
-- **Pin it with a scoped-`[dir]` spec.** A global-flip spec is not evidence:
-  `MlvRtlService.setDirection()` writes the root CDK `Directionality` too, so
-  the global case passes with the provider removed. Ablate the provider and
-  check that exactly the scoped spec goes red.
+- **Pin it with a scoped-`[dir]` spec** — a `dir="rtl"` ancestor with the
+  document LTR, plus the LTR-island mirror image. A global-flip spec is not
+  evidence: `MlvRtlService.setDirection()` writes the root CDK `Directionality`
+  too, so the global case passes with the provider removed. Ablate the provider
+  and check that exactly the scoped spec goes red.
+- **A static scope around an embedded view pins the construction timing.**
+  Every spec that flips `[dir]` after the host exists hides a direction read at
+  construction, because the flip invalidates the cache.
+  `scoped-directionality.spec.ts` pins the mechanism once: it renders the
+  provider inside an `@if` under a static `dir="rtl"` and goes red with an
+  eager read restored (`tabs-scoped-direction.spec.ts` repeats it end to end).
+  A host adds its own static-`@if` spec only when its subtree contains another
+  `Directionality` reader — CDK scrolling, drag-drop, an overlay — that could
+  read `.value` at construction. `core:test` (`ssr-smoke.spec.ts`) is the
+  server half — run it after touching the helper or `resolveDirection`.
 
 ---
 
@@ -353,7 +397,7 @@ Manual check: docs app → preferences popup → **Direction: RTL**, then walk t
 - [ ] `transform` / `transform-origin` / `box-shadow` inline components go through `inline-distance()` / `--mlv-inline-direction`; no `[dir='rtl']` duplicate rules.
 - [ ] Arrow handlers switch on `normalizeArrowKey(event, this._direction())` whenever the handler branches on the horizontal pair — one cached `elementDirection()` signal per component, resolved from the element the handler is _bound to_, which is the component's host unless its surface is portaled into an overlay pane (then `resolveDirection(event.currentTarget)` per event, because no static target exists), never `event.target`; horizontal `FocusKeyManager`s get `withHorizontalOrientation()` from the same signal (never the global `direction()`) and rebuild on change; vertical, caret and `aria-keyshortcuts` untouched.
 - [ ] Pointer maths converts `clientX` to inline progress once; measured indicators depend on `elementDirection(host)`.
-- [ ] CDK `Directionality` is not injected; if it is _provided_, it is backed by `elementDirection(host)`, justified in JSDoc, and pinned by a scoped-`[dir]` spec that fails when the provider is ablated.
+- [ ] CDK `Directionality` is not injected; a host whose subtree runs an `@angular/aria` pattern that injects it provides `provideMlvScopedDirectionality()` (`viewProviders` for a template pattern, `providers` for a host directive), names the pattern in a comment, is listed under _Sanctioned `Directionality` providers_, and is pinned by a scoped-`[dir]` spec that fails when the provider is ablated.
 - [ ] Overlays: `start` / `end` positions, `direction` on the config, `watchDirection` for long-lived panes, `offsetX` through `mlvMirrorInlineOffsets()` against the resolved direction (re-applied on every flip, never `offsetY`).
 - [ ] New positional API uses `start` / `end`; existing `left` / `right` JSDoc states logical-alias vs physical-edge.
 - [ ] Directional glyphs mirror via `scaleX(var(--mlv-inline-direction))`; time / media / alignment glyphs do not.

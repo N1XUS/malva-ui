@@ -40,6 +40,8 @@ Host-applies `@angular/aria`'s `Toolbar` (`ngToolbar`). Re-exposes its knobs so 
 | `disabled`              | `false`        | Disable the whole toolbar.                                                                           |
 | `value` / `valueChange` | `[]`           | Selection model (array of selected widget values) for toggle/radio-style toolbars. Two-way bindable. |
 
+**Scoped direction (#339).** `providers: [provideMlvScopedDirectionality()]` (`@malva-ui/cdk/utils`). aria's `Toolbar` injects the CDK `Directionality` to pick which horizontal arrow means _next_; the root instance follows only the document, so inside a `dir="rtl"` subtree the row mirrored but ArrowLeft still moved back. The provider follows the toolbar's nearest `[dir]`. `providers`, not `viewProviders`: `Toolbar` is a host directive, which cannot see `viewProviders` on its own node. Pinned by `toolbar-widget-scoped-direction.spec.ts` (scoped `[dir="rtl"]` and the LTR island); ablating the provider turns both red. A projected descendant under its own `dir` island sees the toolbar's direction and needs its own provider or CDK `Dir`. List of record: `.claude/rules/rtl.md` § _Sanctioned `Directionality` providers_.
+
 ### `MlvToolbarWidget` — `[mlvToolbarWidget]`
 
 Host-applies `@angular/aria`'s `ToolbarWidget` (`ngToolbarWidget`) to each interactive child.
@@ -163,3 +165,4 @@ Grows to fill all available horizontal space, pushing adjacent items to the righ
 - `@angular/core`
 - `@angular/cdk/coercion` — `coerceBooleanProperty` for `equalSize`
 - `@angular/aria/toolbar` — `Toolbar` / `ToolbarWidget` (`ngToolbar` / `ngToolbarWidget`) behind the opt-in `mlvToolbarRoving` / `mlvToolbarWidget` directives
+- `@malva-ui/cdk/utils` — `provideMlvScopedDirectionality` (`@internal`) on `mlvToolbarRoving`
