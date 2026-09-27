@@ -25,6 +25,32 @@ class RtlHost {
 }
 
 /**
+ * The sheet under a `dir="rtl"` present from the first render and inside an
+ * `@if` — the shape of the pickers' popup pane and of any consumer `@if`: an
+ * embedded view is constructed before its nodes are inserted, so a direction
+ * read at construction would resolve against a detached host and cache the
+ * document's — which a flip-after-creation spec cannot see.
+ */
+@Component({
+  imports: [MlvCalendarSheet],
+  template: `
+    <div dir="rtl">
+      @if (shown()) {
+        <mlv-calendar-sheet
+          [(value)]="value"
+          [windowMonths]="1"
+          [yearRange]="2"
+        />
+      }
+    </div>
+  `,
+})
+class StaticRtlHost {
+  readonly shown = signal(true);
+  readonly value = signal<Date | null>(new Date(2026, 0, 15));
+}
+
+/**
  * Narrows a query result, failing with the selector rather than a bare
  * `TypeError` when the element is not there. Kept in place of a `!` assertion,
  * which the workspace's lint config forbids.
@@ -175,5 +201,95 @@ describe('MlvCalendarSheet RTL', () => {
 
     // On the inline axis, ArrowRight means *previous* under RTL.
     expect(stripYear()).toBe(2025);
+  });
+
+  // The sheet renders inside the pickers' full-screen popup pane, which CDK
+  // stamps with its trigger's `dir`, or wherever a consumer places it — either
+  // way it can sit in a scoped direction. The wrapper stands in for that
+  // scope: a global flip passes with the direction argument missing, so only a
+  // scoped one can pin it.
+  it('mirrors the day-grid arrows under a scoped [dir] while the document stays LTR', async () => {
+    host.scopedDir.set('rtl');
+    await fixture.whenStable();
+    expect(rtlService.direction()).toBe('ltr');
+
+    press('ArrowLeft'); // "next" on the inline axis under RTL
+    expect(activeDate()).toBe('2026-01-16');
+
+    press('ArrowRight');
+    expect(activeDate()).toBe('2026-01-15');
+
+    press('ArrowUp'); // the block axis never mirrors
+    expect(activeDate()).toBe('2026-01-08');
+
+    press('ArrowDown');
+    expect(activeDate()).toBe('2026-01-15');
+  });
+
+  it('keeps the day-grid arrows unmirrored in an LTR island inside an RTL document', async () => {
+    rtlService.setDirection('rtl');
+    host.scopedDir.set('ltr');
+    await fixture.whenStable();
+
+    press('ArrowLeft');
+    expect(activeDate()).toBe('2026-01-14');
+
+    press('ArrowRight');
+    expect(activeDate()).toBe('2026-01-15');
+
+    press('ArrowUp');
+    expect(activeDate()).toBe('2026-01-08');
+  });
+});
+
+describe('MlvCalendarSheet under a static [dir] ancestor', () => {
+  let fixture: ComponentFixture<StaticRtlHost>;
+  let root: HTMLElement;
+  let rtlService: MlvRtlService;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [StaticRtlHost],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: ComponentFixtureAutoDetect, useValue: true },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(StaticRtlHost);
+    root = fixture.nativeElement as HTMLElement;
+    rtlService = TestBed.inject(MlvRtlService);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    rtlService.setDirection('ltr');
+    fixture.destroy();
+  });
+
+  function press(key: string): void {
+    must(
+      root.querySelector('.mlv-calendar-sheet__months'),
+      'the month list',
+    ).dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    fixture.detectChanges();
+  }
+
+  function activeDate(): string | null {
+    const active = root.querySelector<HTMLElement>(
+      '.mlv-calendar-sheet__day[tabindex="0"]',
+    );
+    return active?.closest('[data-date]')?.getAttribute('data-date') ?? null;
+  }
+
+  it('mirrors the day-grid arrows, keeping the block axis', () => {
+    expect(rtlService.direction()).toBe('ltr');
+
+    press('ArrowLeft');
+    expect(activeDate()).toBe('2026-01-16');
+
+    press('ArrowUp');
+    expect(activeDate()).toBe('2026-01-09');
   });
 });

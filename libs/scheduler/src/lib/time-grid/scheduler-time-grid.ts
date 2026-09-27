@@ -156,11 +156,20 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
   protected readonly _ctx = inject(
     MLV_SCHEDULER_CONTEXT,
   ) as MlvSchedulerContext<D, TData>;
-  /** @private Host element for focus queries. */
+  /** @private Host element for focus queries, and the scope arrow keys resolve their direction against. */
   private readonly _host: HTMLElement = inject(ElementRef<HTMLElement>)
     .nativeElement;
   /** @private Mirrors horizontal arrows in RTL. */
   private readonly _rtl = inject(MlvRtlService);
+  /**
+   * @private Direction applying to this grid, following any `[dir]` scope above
+   * the scheduler even while the document stays LTR. Resolved once and cached
+   * behind the shared `dir` observer rather than re-walked on every keypress.
+   * Read it only from the keydown handler: the root's `@switch` constructs this
+   * view before inserting its host, and a read at construction would cache the
+   * document's direction.
+   */
+  private readonly _direction = this._rtl.elementDirection(this._host);
   /** @private Drag engine of the owning scheduler. */
   private readonly _drag = inject(MlvSchedulerDragService<D, TData>);
   /** @private Scroll container. */
@@ -825,7 +834,7 @@ export class MlvSchedulerTimeGrid<D = Date, TData = unknown> {
       this._emitKeyboardContextMenu(this._positionOf(target), target, event);
       return;
     }
-    const arrow = this._rtl.normalizeArrowKey(event);
+    const arrow = this._rtl.normalizeArrowKey(event, this._direction());
     if (event.shiftKey && arrow !== null && this._ctx.selectable()) {
       event.preventDefault();
       this._extendSelection(arrow);

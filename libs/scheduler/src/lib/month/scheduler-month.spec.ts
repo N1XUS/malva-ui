@@ -284,6 +284,49 @@ describe('MlvSchedulerMonth', () => {
     expect(document.activeElement).toBe(cell(0));
   });
 
+  it('mirrors horizontal arrows under a scoped [dir] while the document stays LTR', async () => {
+    (fixture.nativeElement as HTMLElement).setAttribute('dir', 'rtl');
+    await fixture.whenStable();
+    expect(rtl.direction()).toBe('ltr');
+    cell(6).focus();
+    key(cell(6), 'ArrowLeft'); // "next" on the inline axis under RTL
+    expect(focused().dataset['dayIndex']).toBe('7');
+    key(cell(7), 'ArrowRight');
+    expect(focused().dataset['dayIndex']).toBe('6');
+    key(cell(6), 'ArrowDown'); // the block axis never mirrors
+    expect(focused().dataset['dayIndex']).toBe('13');
+  });
+
+  it('keeps horizontal arrows unmirrored in an LTR island inside an RTL document', async () => {
+    rtl.setDirection('rtl');
+    (fixture.nativeElement as HTMLElement).setAttribute('dir', 'ltr');
+    await fixture.whenStable();
+    cell(13).focus();
+    key(cell(13), 'ArrowLeft');
+    expect(focused().dataset['dayIndex']).toBe('12');
+    key(cell(12), 'ArrowUp');
+    expect(focused().dataset['dayIndex']).toBe('5');
+  });
+
+  it('moves a chip of the "+N more" popover by the direction its pane carries', async () => {
+    (fixture.nativeElement as HTMLElement).setAttribute('dir', 'rtl');
+    await fixture.whenStable();
+    moreButton(8).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const panel = popover();
+    // Portaled to <body>, outside the scoped subtree: the pane is its own
+    // `[dir]` scope, resolved from the trigger, while the document stays LTR.
+    expect(panel.closest('[dir]')?.getAttribute('dir')).toBe('rtl');
+    expect(rtl.direction()).toBe('ltr');
+
+    key(chip(panel, 't2'), 'ArrowLeft', { altKey: true }); // "next" day under RTL
+    await fixture.whenStable();
+    expect(host.events().find((event) => event.id === 't2')?.start).toEqual(
+      m(5, 11),
+    );
+  });
+
   it('navigates when an arrow leaves the visible range and focuses the target date', async () => {
     cell(0).focus();
     key(cell(0), 'ArrowLeft'); // Sun 23 Feb → February 2031

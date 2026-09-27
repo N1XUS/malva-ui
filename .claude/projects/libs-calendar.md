@@ -297,8 +297,18 @@ to the ends of the current month, and `Enter` / `Space` select — all **continu
 across month boundaries**: the window grows to cover wherever the caret lands and
 only `min` / `max` stop it — the `maxMonths` ceiling bounds scrolling, not the
 caret, which must always have a cell to focus. Horizontal arrows go through
-`MlvRtlService.normalizeArrowKey()`, so they mirror in RTL while the vertical
-pair, `Home` and `End` do not.
+`MlvRtlService.normalizeArrowKey(event, this._direction())`, so they mirror in RTL
+while the vertical pair, `Home` and `End` do not.
+
+- `_direction` is one cached `elementDirection(this._elementRef)` signal — the sheet's
+  **own host**, which renders inside the pickers' full-screen popup pane (CDK stamps it
+  with the trigger's `dir`) or wherever a consumer places it. So a sheet under a scoped
+  `dir="rtl"` — opened from one, or placed in one — mirrors its keys while `<html>` stays
+  LTR (and an LTR island in an RTL document does not). Before #340 the call took no
+  direction and read the document.
+- Read **only** from the keydown handler: the pickers stamp the sheet into their pane as
+  an embedded view (as does any consumer `@if` / `@for`), constructed before its host is
+  inserted, and a construction-time read would cache the document direction.
 
 #### Range highlighting
 
@@ -402,7 +412,10 @@ instead — see `libs-day-picker.md` / `libs-date-range-picker.md`.
   and `scrollTo()` calls are recorded rather than dropped
 - `calendar-sheet-rtl.spec.ts` — mirrored horizontal arrows, unchanged vertical /
   `Home` / `End`, unchanged logical DOM order, and a scoped `[dir]` on an
-  ancestor with the document still LTR
+  ancestor with the document still LTR; the day-grid keys under a scoped
+  `dir="rtl"`, in an LTR island inside an RTL document, and under a **static**
+  `dir="rtl"` ancestor present at creation (the case a construction-time read of
+  the cached direction would get wrong) (#340)
 - `calendar-sheet-styles.spec.ts` — compiled-CSS assertions that jsdom cannot
   make from a rendered sheet (scroll anchoring, the flex column, reduced
   motion), plus two parity checks against `calendar.scss`, which it compiles

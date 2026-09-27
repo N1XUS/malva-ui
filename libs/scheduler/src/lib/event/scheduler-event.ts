@@ -114,8 +114,19 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
   private readonly _endHandle = viewChild<ElementRef<HTMLElement>>('endHandle');
   /** @private Pointer listeners run outside change detection. */
   private readonly _zone = inject(NgZone);
-  /** @private Direction of the chip; lane resize maps pointer travel to days through it. */
+  /** @private Mirrors the chip's horizontal arrow keys and lane-resize pointer travel in RTL. */
   private readonly _rtl = inject(MlvRtlService);
+  /**
+   * @private Direction applying to this chip, resolved from its own host: a
+   * chip in the month `+N more` popover sits in that CDK pane, which is its
+   * own `[dir]` scope, and every other chip follows any `[dir]` above the
+   * scheduler. One cached signal feeds both Alt+Arrow and lane-resize pointer
+   * travel, so the keyboard and pointer halves cannot disagree. Read it only
+   * from those handlers: chips are stamped by `@for`, constructed before their
+   * host is inserted, and a read at construction would cache the document's
+   * direction.
+   */
+  private readonly _direction = this._rtl.elementDirection(this._host);
   /** @private Pointer events exist only in the browser. */
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   /** @private Files the focus hand-off of a chip removed while focused. */
@@ -319,7 +330,7 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
       return;
     }
     if (!event.altKey) return;
-    const arrow = this._rtl.normalizeArrowKey(event);
+    const arrow = this._rtl.normalizeArrowKey(event, this._direction());
     if (arrow === null) return;
     // Shift takes precedence, so Ctrl+Alt+Shift+Arrow stays an end-edge resize.
     const edge: MlvSchedulerResizeEdge | null = event.shiftKey
@@ -762,10 +773,7 @@ export class MlvSchedulerEventChip<D = Date, TData = unknown> {
   ): { dayIndex: number; minutes: null } | null {
     if (!cellWidth) return null;
     // physical → logical once: travel toward inline-end is positive
-    const travel =
-      this._rtl.resolveDirection(this._host) === 'rtl'
-        ? originX - x
-        : x - originX;
+    const travel = this._direction() === 'rtl' ? originX - x : x - originX;
     const steps = Math.round(travel / cellWidth);
     if (edge === 'end') {
       const span = Math.max(1, baseSpan + steps);
