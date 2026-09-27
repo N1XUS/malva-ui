@@ -11,6 +11,13 @@ form-safe.
 
 Fixed bottom navigation bar for mobile contexts. Renders up to 5 navigation items as icon + label links. When more than 5 items are provided, the first 4 are shown and the fifth slot becomes a "More" button that opens a menu with the overflow items. Supports two activation modes: router-based (default, uses `routerLink`/`routerLinkActive`) and managed (via `activeIndex` input + `itemClick` output). Items can be individually disabled. Typically paired with `*mlvBreakpointDown="'md'"` to show only on small viewports.
 
+**Overflow parity (#343).** An item moved into the "More" menu keeps the bar's contract:
+
+- `disabled` → the row is a disabled `mlvMenuItem` (`aria-disabled="true"`, skipped by the key manager); no navigation, no `itemClick`.
+- `route` → resolved like a bar `routerLink`: `createUrlTree([route], { relativeTo: ActivatedRoute })`, so a relative route resolves under the host's route, `''` is the host's own route, a leading `/` stays absolute, and a `?` / `#` in the string is encoded as a path character, as on a bar link. A failed navigation goes to `ErrorHandler`, as `RouterLink`'s does. `ActivatedRoute` is injected **optionally**: only `provideRouter()` / `RouterModule.forRoot()` provide it (`Router` is root-provided), and managed mode must render with no router providers; `null` resolves from the root.
+- current destination → router mode: enabled item whose tree `isActive()` under the bar's own match options (`_activeMatchOptions` — paths + query exact, fragment + matrix ignored), only after the first successful navigation; managed mode: global index `=== activeIndex()`. Then the row carries `aria-current="page"` and the "More" trigger gets `.mlv-bottom-nav__item--active` + `aria-current="true"` (not `"page"` — More is not the page).
+- Remaining divergence: rows are `menuitem`s, not links — no `href`, no Ctrl/middle-click new tab (needs an anchor form of `mlvMenuItem`; follow-up).
+
 ---
 
 ## Public API
@@ -49,25 +56,28 @@ Fixed bottom navigation bar for mobile contexts. Renders up to 5 navigation item
 
 #### Outputs
 
-| Name        | Type                | Description                                                                          |
-| ----------- | ------------------- | ------------------------------------------------------------------------------------ |
-| `itemClick` | `OutputRef<number>` | Emits the index of the clicked item in managed mode. Not emitted for disabled items. |
+| Name        | Type                | Description                                                                                                                                                           |
+| ----------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `itemClick` | `OutputRef<number>` | Managed mode only: emits the clicked item's index in `items` — a "More" row emits its global index. Not emitted for disabled items, in the bar or in the "More" menu. |
 
 #### Protected Properties
 
-| Property         | Type                           | Description                                                          |
-| ---------------- | ------------------------------ | -------------------------------------------------------------------- |
-| `_isManaged`     | `computed(() => boolean)`      | Whether the component is in managed (non-router) mode.               |
-| `_displayItems`  | `computed(() => MlvNavItem[])` | Items rendered as direct nav links. All if ≤ 5, first 4 if overflow. |
-| `_overflowItems` | `computed(() => MlvNavItem[])` | Items shown in the "More" menu. Empty if ≤ 5, items 5+ if overflow.  |
-| `_hasOverflow`   | `computed(() => boolean)`      | Whether there are overflow items requiring the "More" button.        |
+| Property              | Type                                 | Description                                                                                                                                                                                                                      |
+| --------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_isManaged`          | `computed(() => boolean)`            | Whether the component is in managed (non-router) mode.                                                                                                                                                                           |
+| `_displayItems`       | `computed(() => MlvNavItem[])`       | Items rendered as direct nav links. All if ≤ 5, first 4 if overflow.                                                                                                                                                             |
+| `_overflowItems`      | `computed(() => MlvNavItem[])`       | Items shown in the "More" menu. Empty if ≤ 5, items 5+ if overflow.                                                                                                                                                              |
+| `_hasOverflow`        | `computed(() => boolean)`            | Whether there are overflow items requiring the "More" button.                                                                                                                                                                    |
+| `_activeMatchOptions` | `IsActiveMatchOptions`               | `{ paths: 'exact', queryParams: 'exact', fragment: 'ignored', matrixParams: 'ignored' }` — what `{ exact: true }` resolves to; read by the bar's `routerLinkActiveOptions` and by `_overflowActive`, so the two cannot disagree. |
+| `_overflowActive`     | `computed(() => readonly boolean[])` | Per overflow item, whether it is the current destination (router: enabled + `isActive()`, after the first successful navigation, trees rebuilt per navigation; managed: global index `=== activeIndex()`).                       |
+| `_moreActive`         | `computed(() => boolean)`            | `_overflowActive()` contains `true` — drives More's `--active` + `aria-current="true"`.                                                                                                                                          |
 
 #### Protected Methods
 
-| Method                                        | Description                                                                      |
-| --------------------------------------------- | -------------------------------------------------------------------------------- |
-| `_onItemClick(index: number)`                 | Emits the clicked item's index on `itemClick` (managed mode).                    |
-| `_onOverflowItemClick(overflowIndex: number)` | Handles overflow menu item click — emits on `itemClick` or navigates via router. |
+| Method                                        | Description                                                                                                                                                                                                                                        |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_onItemClick(index: number)`                 | Emits the clicked item's index on `itemClick` (managed mode).                                                                                                                                                                                      |
+| `_onOverflowItemClick(overflowIndex: number)` | Overflow row activation. Disabled item → nothing. Managed → emits the global index on `itemClick`. Router → `navigateByUrl` of the tree a bar `routerLink` builds (relative to the injected `ActivatedRoute`); a rejection goes to `ErrorHandler`. |
 
 #### Host Bindings
 
@@ -87,68 +97,82 @@ Fixed bottom navigation bar for mobile contexts. Renders up to 5 navigation item
 <!-- Inner container is a plain <div>: the host already provides the
      role="navigation" landmark, so a nested <nav> would duplicate it. -->
 <div class="mlv-bottom-nav__bar">
-  @for (item of _displayItems(); track item.label) {
-    <a class="mlv-bottom-nav__item" [routerLink]="item.route"
-       routerLinkActive="mlv-bottom-nav__item--active"
-       ariaCurrentWhenActive="page" ...>
-      <svg class="mlv-bottom-nav__icon" [lucideIcon]="item.icon" ... />
-      <span class="mlv-bottom-nav__label">{{ item.label }}</span>
-    </a>
+  @for (item of _displayItems(); track item.label; let i = $index) {
+    @if (!_isManaged() && !item.disabled) {
+      <a class="mlv-bottom-nav__item" [routerLink]="item.route"
+         routerLinkActive="mlv-bottom-nav__item--active"
+         ariaCurrentWhenActive="page"
+         [routerLinkActiveOptions]="_activeMatchOptions">
+        <svg class="mlv-bottom-nav__icon" [lucideIcon]="item.icon" ... />
+        <span class="mlv-bottom-nav__label">{{ item.label }}</span>
+      </a>
+    } @else {
+      <button type="button" class="mlv-bottom-nav__item"
+              [class.mlv-bottom-nav__item--active]="_isManaged() && i === activeIndex()"
+              [class.mlv-bottom-nav__item--disabled]="!!item.disabled"
+              [disabled]="item.disabled || null" ...
+              (click)="_onItemClick(i)"> … </button>
+    }
   }
 
   @if (_hasOverflow()) {
-    <button class="mlv-bottom-nav__item mlv-bottom-nav__more"
-            [mlvMenuTrigger]="overflowMenu" ...>
+    <button type="button" class="mlv-bottom-nav__item mlv-bottom-nav__more"
+            [class.mlv-bottom-nav__item--active]="_moreActive()"
+            [attr.aria-current]="_moreActive() ? 'true' : null"
+            [mlvMenuTrigger]="overflowMenu" [attr.aria-label]="_i18n().moreOptions">
       <svg class="mlv-bottom-nav__icon" lucideIcon="ellipsis" ... />
-      <span class="mlv-bottom-nav__label">More</span>
+      <span class="mlv-bottom-nav__label mlv-bottom-nav__label--always">{{ _i18n().more }}</span>
     </button>
 
-    <mlv-menu #overflowMenu label="More navigation">
-      @for (item of _overflowItems(); track item.label) {
-        <mlv-list-item mlvMenuItem (itemClick)="_navigateTo(item.route)">
+    <mlv-menu #overflowMenu [label]="_i18n().moreMenu">
+      @for (item of _overflowItems(); track item.label; let j = $index) {
+        <mlv-list-item mlvMenuItem
+                       [disabled]="!!item.disabled"
+                       [attr.aria-current]="_overflowActive()[j] ? 'page' : null"
+                       (itemClick)="_onOverflowItemClick(j)">
           <svg mlvListItemPrefix [lucideIcon]="item.icon" ... />
           {{ item.label }}
         </mlv-list-item>
       }
     </mlv-menu>
   }
-</nav>
+</div>
 ```
 
 - The single navigation landmark is the host element (`role="navigation"`). The inner bar is a plain `<div class="mlv-bottom-nav__bar">` — **not** a `<nav>` — to avoid duplicate nested landmarks.
-- Regular items are `<a>` elements with `routerLink` and `routerLinkActive`; `ariaCurrentWhenActive="page"` sets `aria-current="page"` on the active route link.
-- The "More" button is a `<button>` with `[mlvMenuTrigger]` that opens a `mlv-menu`.
-- Overflow menu items use `mlv-list-item[mlvMenuItem]` with programmatic navigation on click.
+- Regular items are `<a>` elements with `routerLink` and `routerLinkActive`; `ariaCurrentWhenActive="page"` sets `aria-current="page"` on the active route link. Disabled items and every managed-mode item render as `<button type="button">`.
+- The "More" button is a `<button>` with `[mlvMenuTrigger]` that opens a `mlv-menu`; it carries `--active` + `aria-current="true"` while the current destination is one of its rows.
+- Overflow menu items use `mlv-list-item[mlvMenuItem]`: `[disabled]` from the item, `aria-current="page"` on the current row, activation through `_onOverflowItemClick` (see _Overflow parity_ above).
 - Icons use `LucideDynamicIcon` (`[lucideIcon]`) with `aria-hidden="true"`.
 
 ---
 
 ## CSS Classes (BEM)
 
-| Class                                | Description                                                                                               |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `.mlv-bottom-nav`                    | Host element — fixed bar at bottom of viewport                                                            |
-| `.mlv-bottom-nav--horizontal`        | Modifier: horizontal stacking (items in row layout instead of column)                                     |
-| `.mlv-bottom-nav--label-active-only` | Modifier: labels hidden by default, revealed on the active item with smooth animation                     |
-| `.mlv-bottom-nav__bar`               | Inner flex row (`display: flex; justify-content: space-around`)                                           |
-| `.mlv-bottom-nav__item`              | Individual navigation link or button (flex column by default, flex row when horizontal)                   |
-| `.mlv-bottom-nav__item--active`      | Applied by `routerLinkActive` (router mode) or `activeIndex` match (managed mode)                         |
-| `.mlv-bottom-nav__item--disabled`    | Visually muted (`--mlv-disabled-opacity`) and non-interactive (`pointer-events: none`)                    |
-| `.mlv-bottom-nav__more`              | Additional class on the "More" overflow button                                                            |
-| `.mlv-bottom-nav__icon`              | Icon wrapper (`display: flex; align-items: center`)                                                       |
-| `.mlv-bottom-nav__label`             | Text label (xs font size, no wrap); animated via `max-height`/`max-width` + `opacity` in active-only mode |
-| `.mlv-bottom-nav__label--always`     | Forces label to stay visible regardless of `label-active-only` mode (used on "More" button)               |
+| Class                                | Description                                                                                                                                                                                                                                           |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.mlv-bottom-nav`                    | Host element — fixed bar at bottom of viewport                                                                                                                                                                                                        |
+| `.mlv-bottom-nav--horizontal`        | Modifier: horizontal stacking (items in row layout instead of column)                                                                                                                                                                                 |
+| `.mlv-bottom-nav--label-active-only` | Modifier: labels hidden by default, revealed on the active item with smooth animation                                                                                                                                                                 |
+| `.mlv-bottom-nav__bar`               | Inner flex row (`display: flex; justify-content: space-around`)                                                                                                                                                                                       |
+| `.mlv-bottom-nav__item`              | Individual navigation link or button (flex column by default, flex row when horizontal)                                                                                                                                                               |
+| `.mlv-bottom-nav__item--active`      | Applied by `routerLinkActive` (router mode) or `activeIndex` match (managed mode); on the "More" button while the current destination is an overflow row                                                                                              |
+| `.mlv-bottom-nav__item--disabled`    | Visually muted (`--mlv-disabled-opacity`) and non-interactive (`pointer-events: none`)                                                                                                                                                                |
+| `.mlv-bottom-nav__more`              | Additional class on the "More" overflow button                                                                                                                                                                                                        |
+| `.mlv-bottom-nav__icon`              | Icon wrapper (`display: flex; align-items: center`)                                                                                                                                                                                                   |
+| `.mlv-bottom-nav__label`             | Text label (xs font size, no wrap); animated via `max-height`/`max-width` + `opacity` in active-only mode                                                                                                                                             |
+| `.mlv-bottom-nav__label--always`     | Label that stays visible in `label-active-only` mode (the "More" label): the active-only hide rules exclude it with `:not(.mlv-bottom-nav__label--always)`. Before #343 a later override rule lost on specificity, so it was hidden in both stackings |
 
 ---
 
 ## Interactive States
 
-| State            | Visual feedback                                                  |
-| ---------------- | ---------------------------------------------------------------- |
-| `:hover`         | `--mlv-background-subtle` background, `--mlv-text-primary` color |
-| `:active`        | `--mlv-background-subtle` background, `scale(0.95)` transform    |
-| `--active`       | `--mlv-text-action` color (via `routerLinkActive`)               |
-| `:focus-visible` | `--mlv-border-focus` outline ring                                |
+| State            | Visual feedback                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| `:hover`         | `--mlv-background-subtle` background, `--mlv-text-primary` color                                            |
+| `:active`        | `--mlv-background-subtle` background, `scale(0.95)` transform                                               |
+| `--active`       | `--mlv-text-action` color (via `routerLinkActive`, `activeIndex`, or on "More" for an overflow destination) |
+| `:focus-visible` | `--mlv-border-focus` outline ring                                                                           |
 
 ---
 
@@ -166,7 +190,7 @@ Fixed bottom navigation bar for mobile contexts. Renders up to 5 navigation item
 | `--mlv-text-action`            | Active item color                        |
 | `--mlv-radius-m`               | Item border radius (focus/hover shape)   |
 | `--mlv-duration-fast`          | Color/background/transform transition    |
-| `--mlv-duration-s`             | Label reveal animation duration          |
+| `--mlv-duration-fast`          | Label reveal animation duration          |
 | `--mlv-ease-default`           | Transition easing                        |
 | `--mlv-stroke-width-medium`    | Focus ring width                         |
 | `--mlv-border-focus`           | Focus ring color                         |
@@ -248,7 +272,8 @@ readonly navItems: MlvNavItem[] = [
 
 - The host element is the sole `role="navigation"` landmark. The inner bar is a `<div>` (not a `<nav>`) so there is exactly one navigation landmark — nested `<nav>` inside a `role="navigation"` host would be a duplicate landmark.
 - `aria-label` defaults to `"Bottom navigation"` and can be customized via the `ariaLabel` input.
-- The active item is marked with `aria-current="page"`: router-mode links use `RouterLinkActive`'s `ariaCurrentWhenActive="page"`; managed-mode buttons bind `[attr.aria-current]="i === activeIndex() ? 'page' : null"`.
+- The active item is marked with `aria-current="page"`: router-mode links use `RouterLinkActive`'s `ariaCurrentWhenActive="page"`; managed-mode buttons bind `[attr.aria-current]="i === activeIndex() ? 'page' : null"`; an overflow row binds it from `_overflowActive()`. While that row is the current one, the "More" trigger carries `aria-current="true"` (current item in this set — not `"page"`, since More is not the page; `aria-current` is a global attribute, allowed on a `button`).
+- A disabled item is disabled in the "More" menu too: `aria-disabled="true"` on the `menuitem`, skipped by the menu's key manager, no activation. Chromium 153's AX tree exposes it as `disabled: true` (CDP `Accessibility.getFullAXTree`); CDP has no `current` property, so `aria-current` is asserted on the DOM.
 - All icons have `aria-hidden="true"` — the visible `<span>` label provides the accessible name.
 - Items have `:hover`, `:active`, and `:focus-visible` visual states for interactive feedback.
 - The "More" button has `aria-haspopup="menu"` and `aria-expanded` (via `MlvMenuTrigger`).
@@ -264,7 +289,7 @@ Strings resolve through `MLV_BOTTOM_NAV_I18N` (`@malva-ui/i18n`): `navigation` (
 ## Dependencies
 
 - `@angular/core`
-- `@angular/router` — `Router`, `RouterLink`, `RouterLinkActive`
+- `@angular/router` — `Router`, `ActivatedRoute` (optional), `RouterLink`, `RouterLinkActive`, `isActive`, `IsActiveMatchOptions`. Managed mode needs no router providers.
 - `@lucide/angular` — `LucideDynamicIcon`
 - `@malva-ui/cdk/utils` — `MlvNavItem` interface
 - `@malva-ui/core/menu` — `MlvMenu`, `MlvMenuItem`, `MlvMenuTrigger`
