@@ -1,1 +1,14 @@
-<ng-content />
+<!-- The label names the separator (#332). `role="separator"` takes its name
+     from the author only and its children are presentational: Chromium treats
+     a separator as a leaf and Firefox prunes one whose only child is a text
+     leaf, so a bare projected "OR" reached no assistive technology. The host
+     points `aria-labelledby` at this wrapper instead, which accname reads even
+     though it is `aria-hidden` (step 2A: a hidden node referenced directly
+     still contributes its text). Hidden on purpose: left visible, Chromium's
+     tree also carries the text as a StaticText child of the separator, and
+     Firefox exposes the nodes of a multi-node label as children. A focusable
+     control in here stays focusable but is hidden in both engines — never
+     project one. -->
+<span class="mlv-divider__label" [attr.id]="_labelId" aria-hidden="true"
+  ><ng-content
+/></span>

@@ -819,6 +819,7 @@ class SsrShellHost {
   template: `
     <mlv-card><p>Card body</p></mlv-card>
     <mlv-divider>OR</mlv-divider>
+    <mlv-divider [ariaLabel]="'Combine conditions'">AND</mlv-divider>
     <mlv-expand [(opened)]="expanded"><p>Expand body</p></mlv-expand>
 
     <mlv-accordion>
@@ -1900,6 +1901,57 @@ describe('@malva-ui/core SSR safety', () => {
         `the server-rendered stepper host carries aria-label: ${open}`,
       ).toBe(false);
     }
+  });
+
+  it('server-renders a projected divider label as the separator name', async () => {
+    const { html } = await renderAllHosts();
+
+    // #332. `role="separator"` takes its name from the author only, so the
+    // projected "OR" names the separator through `aria-labelledby` onto the
+    // label wrapper. Both are plain bindings, so the pre-hydration document
+    // must already carry them. `mlv-divider` does not nest, so a non-greedy
+    // match per element is exact.
+    const divider = (
+      html.match(/<mlv-divider[\s\S]*?<\/mlv-divider>/g) ?? []
+    ).find((markup) => />\s*OR\s*</.test(markup));
+    expect(
+      divider,
+      'no labelled divider in the server markup — the `OR` mlv-divider in ' +
+        'SsrShellHost did not render its content',
+    ).toBeTruthy();
+    const markup = divider as string;
+    const open = /<mlv-divider[^>]*>/.exec(markup)?.[0] ?? '';
+    expect(open).toContain('role="separator"');
+    const labelledBy = /\saria-labelledby="([^"]+)"/.exec(open)?.[1];
+    expect(
+      labelledBy,
+      `the server-rendered separator is not labelled by its label: ${open}`,
+    ).toBeTruthy();
+    expect(
+      new RegExp(`<span[^>]*\\sid="${labelledBy}"[^>]*>\\s*OR\\s*</span>`).test(
+        markup,
+      ),
+      `aria-labelledby="${labelledBy}" does not name the visible label: ${markup}`,
+    ).toBe(true);
+  });
+
+  it('server-renders a divider named through its ariaLabel input', async () => {
+    const { html } = await renderAllHosts();
+
+    // #332. `ariaLabel` is written by an `effect()`, not a host binding (a host
+    // `[attr.aria-label]` would wipe a consumer's own on the first render), so
+    // this pins that the effect runs on the server: the pre-hydration document
+    // carries the name, and no `aria-labelledby` onto the label outranks it.
+    const open = /<mlv-divider[^>]*>(?=\s*<span[^>]*>\s*AND\s*<\/span>)/.exec(
+      html,
+    )?.[0];
+    expect(
+      open,
+      'no `AND` mlv-divider in the server markup — SsrShellHost did not ' +
+        'render it',
+    ).toBeTruthy();
+    expect(open).toContain('aria-label="Combine conditions"');
+    expect(open).not.toContain('aria-labelledby');
   });
 
   it('server-renders each host into markup', async () => {
