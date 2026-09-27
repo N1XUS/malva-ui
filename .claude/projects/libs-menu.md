@@ -5,7 +5,7 @@
 
 ## Overview
 
-The Menu library (`@malva-ui/core/menu`) provides a dropdown action menu system with keyboard navigation, grouped items, separators, and nested submenu support. Submenus include triangle pointer tracking to prevent accidental closure when the user moves the cursor diagonally toward a submenu panel. The library also provides `mlv-menubar` — a horizontal File / Edit / View application menu bar that composes a row of `mlv-menu` dropdowns per the WAI-ARIA Menubar pattern.
+The Menu library (`@malva-ui/core/menu`) provides a dropdown action menu system with keyboard navigation, grouped items, separators, and nested submenu support. Submenus include a safe triangle — from the pointer on the parent item to the whole facing panel edge, on whichever side the panel opened — so a diagonal toward any row of the submenu, across the sibling rows in between, does not close it (see _Submenu Hover Intent_). The library also provides `mlv-menubar` — a horizontal File / Edit / View application menu bar that composes a row of `mlv-menu` dropdowns per the WAI-ARIA Menubar pattern.
 
 The menu panel is rendered inside a `mlv-popup` overlay using `[mlvPopupContent]` — no DOM manipulation is needed. `MlvMenuTrigger` uses `MlvPopupService.open()` with the popup's template, which naturally includes the `mlv-list` panel and projected `mlv-menu-item` children.
 
@@ -252,8 +252,8 @@ use the localized pending loader.
 - `[attr.role]` — `"menuitem"` when the trigger is a **menubar child**, otherwise `null` (standalone/submenu triggers keep their native/`MlvMenuItem` role)
 - `[attr.tabindex]` — roving tabindex (`_tabIndex()`) when a menubar child, otherwise `null`
 - `(click)` — toggles the menu (non-submenu mode)
-- `(mouseenter)` — menubar child: delegates to the bar's hover-follow; submenu trigger: opens the menu
-- `(mouseleave)` — schedules close with triangle check (submenu mode only)
+- `(mouseenter)` — menubar child: delegates to the bar's hover-follow; submenu trigger: opens the menu, unless the pointer is crossing its row inside an open sibling submenu's safe triangle (then it waits — see _Submenu Hover Intent_)
+- `(mouseleave)` — schedules close unless the pointer left inside the safe triangle (submenu mode only)
 - `(keydown)` — Enter/Space, ArrowDown/Up, ArrowRight (submenu), Escape keyboard support
 
 #### Methods
@@ -504,34 +504,73 @@ item's own handlers can stop it — and `fromEvent` forwards the options object 
 the identical `addEventListener` call, so the phase and the ordering among
 capture listeners are unchanged. The subscription belongs to one submenu-open
 generation and is released by `_removeMousemoveListener()` from the popup's
-`onClose` and from `destroy()` (wired to `DestroyRef.onDestroy`) rather than by
-`takeUntilDestroyed`, which would hold one listener per open for the
-controller's whole life. Intent is resolved by **what the pointer is
-over**, with geometry used only for the ambiguous space between the item and its
-panel:
+`onClose`, from the panel's `mouseenter` and from `destroy()` (wired to
+`DestroyRef.onDestroy`) rather than by `takeUntilDestroyed`, which would hold
+one listener per open for the controller's whole life.
 
-| Pointer is over                  | Result                                                                                                                                               |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The trigger item itself          | Stays open, whatever the trajectory. Resting the cursor makes no horizontal progress, so a cone-only rule would close it.                            |
-| A different row of the same menu | Closes. Unambiguous intent that no cone can express — the panel is tall, so from the far edge of the item the safe area covers most downward travel. |
-| Anything in between              | The safe cone decides, backed by a 150 ms grace timer.                                                                                               |
+**The safe triangle (#345).** Its apex is the last pointer position seen on the
+trigger item — re-based on every move over the item, or the exit point when the
+pointer left before any move reached the tracker — and its base is the **whole**
+panel edge facing the apex, top corner to bottom corner, edges inclusive. A
+straight path from the item to any row of the panel stays inside it, including
+the stretch that crosses the rows below (or above) the trigger on the way to a
+lower (or upper) panel row. The facing edge is derived from the geometry — the
+panel's left edge when the apex is to its left, its right edge when it is to
+its right — so a submenu that opened toward the inline end, one CDK moved to
+its `left-start` fallback and one mirrored in a scoped `[dir="rtl"]` all get the
+right side with no direction read: pointer and pane rect share physical
+viewport space, and only the rect knows which side CDK chose. The pane is
+measured at each decision, not once per open. An apex overlapping the panel
+horizontally has no facing edge and protects nothing.
 
-The cone requires at least `MIN_HORIZONTAL_PROGRESS` (2px) of travel **toward**
-the panel. Without it, `deltaX === 0` is not movement "away", so sliding straight
-down the item column registered as aiming at the submenu and held it open over a
-sibling row.
+| Pointer is over                                   | Result                                                                                                                                                   |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The trigger item itself                           | Stays open, whatever the trajectory; the apex moves with the pointer.                                                                                    |
+| Another row of the same menu, inside the triangle | Stays open while the pointer keeps moving. Every move restarts a 150 ms delay, so **resting** on the row closes the submenu and hands the row the hover. |
+| Anything else inside the triangle (the 8px gap)   | Stays open.                                                                                                                                              |
+| Another row of the same menu, outside it          | Closes at once.                                                                                                                                          |
+| Anything else outside it                          | Closes after 150 ms.                                                                                                                                     |
 
-The grace timer — not the cone — is what tolerates a 1px wobble and the 8px
-`SUBMENU_POSITIONS` gap between item and panel. Both re-entry points (the panel's
-`mouseenter` and the trigger's) cancel it, so crossing that gap in either
-direction is safe; the panel's `mouseleave` schedules rather than forces a close,
-because on the way back to the parent item the cursor traverses the gap where
-`relatedTarget` is the overlay container, never the trigger.
+**Sibling submenu triggers wait.** While an open submenu tracks the pointer, it is
+registered under its parent panel (`[role="menu"]`) in the module-level
+`aimingSubmenus` `WeakMap`; a sibling submenu trigger's `mouseenter` in the same
+panel finds it and, instead of opening a second panel over the rows the pointer
+is heading for, is held as that submenu's `_deferredSibling`. The next move
+decides: outside the triangle, or a 150 ms rest on the row, starts closing the
+open submenu and then opens the held one — its leave animation may overlap the
+new panel's entry; moving off the held row, reaching the open panel, or any
+other close drops it. The entry lives exactly as long as the listener, and a
+submenu opened from the keyboard registers like one opened by hover. One entry
+per panel keeps the levels of a nested menu apart: a third-level submenu aims
+under its second-level panel's entry, so it holds second-level sibling
+triggers and never a first-level one.
 
-This prevents the submenu from closing when the user moves the cursor diagonally from the parent item toward the submenu — a common UX problem in nested menus.
+Once the pointer leaves the trigger item the apex is **fixed**: it is re-based
+only while the pointer is on the item, never moved with each step outside it.
+Judging each step from the one before read a slow diagonal, a pause or a 1px
+jitter as not heading anywhere.
+Before #345 the rule was a per-step slope comparison — which reduced to "is the
+pointer's y within the panel's y range", a horizontal band, not a triangle — run
+only after a sibling-row check had already closed the submenu, against a side
+hard-coded to the right and a starting point of `(0, 0)`.
 
-The geometry calculation lives in the pure internal `submenu-aim.ts` module;
-the trigger directive owns event subscription and timer orchestration only.
+Both re-entry points (the panel's `mouseenter` and the trigger's) cancel a
+pending close, so crossing the gap in either direction is safe; the panel's
+`mouseleave` schedules rather than forces a close, because on the way back to
+the parent item the cursor traverses the gap where `relatedTarget` is the
+overlay container, never the trigger.
+
+The geometry lives in the pure internal `submenu-aim.ts` module
+(`isPointerInSafeTriangle`); `MlvMenuOverlayController` owns event subscription,
+timers and the sibling hand-off. Specs: `submenu-aim.spec.ts` (geometry) and
+`submenu-safe-triangle.spec.ts` (end to end over the real CDK connected
+strategy: LTR inline end, LTR `left-start` fallback, scoped `[dir="rtl"]`
+inline end and inline-start fallback — each asserting CDK's chosen side first;
+keyboard-opened submenus; three levels over the two inline-end placements).
+Not covered: a pointer moving from a second-level panel into its own
+third-level pane still closes the second level 150 ms later (the panel's
+`mouseleave` above), leaving the third level open — a pre-existing defect with
+its own follow-up.
 
 ---
 

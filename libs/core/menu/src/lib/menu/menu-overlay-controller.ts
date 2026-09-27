@@ -21,8 +21,28 @@ import {
 import type { MlvMenuAccessor } from './menu.types';
 import type { MlvMenubarAccessor, MlvMenubarItem } from './menubar.types';
 import type { MlvMenubarMenuController } from './menubar.types';
-import type { MlvSubmenuAimState } from './submenu-aim';
-import { isCursorHeadingToSubmenu } from './submenu-aim';
+import type { MlvSubmenuAimPoint, MlvSubmenuAimState } from './submenu-aim';
+import { isPointerInSafeTriangle } from './submenu-aim';
+
+/**
+ * How long, in milliseconds, a submenu survives once hover intent says it
+ * should close — and how long the pointer has to rest on another row of the
+ * parent menu, inside the safe triangle, before that row wins.
+ */
+const SUBMENU_CLOSE_DELAY = 150;
+
+/**
+ * Submenu controllers currently tracking a pointer on its way to their panel,
+ * keyed by the parent menu panel (`[role="menu"]`) their trigger row sits in.
+ *
+ * A sibling submenu trigger in the same panel reads it on hover: while the
+ * pointer crosses that row inside the open submenu's safe triangle, opening the
+ * sibling would stack a second panel over the rows the pointer is heading for,
+ * so it waits for the aiming controller's verdict instead. One entry per panel
+ * is enough — only one submenu of a panel can be open, and so aiming, at once.
+ * A `WeakMap` so a panel removed with an entry still set is not retained.
+ */
+const aimingSubmenus = new WeakMap<Element, MlvMenuOverlayController>();
 
 /**
  * Structural menu surface required by the overlay controller.
@@ -123,6 +143,23 @@ export class MlvMenuOverlayController {
   private _triangleState: MlvSubmenuAimState | null = null;
   private _closeTimer: ReturnType<typeof setTimeout> | null = null;
   private _mousemoveCleanup: (() => void) | null = null;
+
+  /**
+   * @private The parent menu panel this controller is registered under in
+   * `aimingSubmenus` while its hover-intent listener runs, so the entry can be
+   * removed even after the trigger row has left that panel.
+   */
+  private _aimPanel: Element | null = null;
+
+  /**
+   * @private A sibling submenu trigger whose hover arrived while the pointer
+   * crossed its row inside this submenu's safe triangle. It opens when this
+   * submenu closes for hover intent — the pointer rested on its row, or left
+   * the triangle while on it — and is dropped once the pointer moves off its
+   * row, reaches this panel, or this submenu closes any other way.
+   */
+  private _deferredSibling: MlvMenuOverlayController | null = null;
+
   private _destroyed = false;
 
   constructor(
@@ -304,16 +341,26 @@ export class MlvMenuOverlayController {
     }
     if (!this._config.isSubmenu() || this._config.isDisabled()) return;
     this._clearCloseTimer();
-    if (!this.isOpen()) {
-      this.open();
+    if (this.isOpen()) return;
+
+    // A sibling submenu is open and the pointer may be crossing this row on
+    // its way there: let that submenu's safe triangle decide. Its next
+    // `mousemove` either opens this one at once (the pointer left the
+    // triangle) or after the pointer rests here.
+    const aiming = this._findAimingSibling();
+    if (aiming) {
+      aiming._deferredSibling = this;
+      return;
     }
+    this.open();
   }
 
   /** Handles pointer exit for submenu triggers using triangle intent. */
   onMouseLeave(event: MouseEvent): void {
     if (!this._config.isSubmenu()) return;
 
-    if (this._triangleState?.cursorEnteredSubmenu) {
+    const state = this._triangleState;
+    if (state?.cursorEnteredSubmenu) {
       const overlayElement = this._overlayRef?.overlayRef.overlayElement;
       const entered = event.relatedTarget;
       const intoSubmenu =
@@ -323,13 +370,12 @@ export class MlvMenuOverlayController {
       return;
     }
 
-    if (this._triangleState) {
-      const heading = isCursorHeadingToSubmenu(
-        event.clientX,
-        event.clientY,
-        this._triangleState,
-      );
-      if (heading) return;
+    if (state) {
+      const point = { x: event.clientX, y: event.clientY };
+      // Left before any move over the row reached the tracker: the exit point
+      // is the best apex there is.
+      state.anchor ??= point;
+      if (this._isInSafeTriangle(point)) return;
     }
 
     this._scheduleClose();
@@ -362,13 +408,12 @@ export class MlvMenuOverlayController {
     setTimeout(() => {
       if (this._destroyed || !this._overlayRef || !this.isOpen()) return;
       const overlayElement = this._overlayRef.overlayRef.overlayElement;
-      this._triangleState = {
-        lastX: 0,
-        lastY: 0,
-        submenuRect: overlayElement.getBoundingClientRect(),
-        side: 'right',
-        cursorEnteredSubmenu: false,
-      };
+      // No side and no rect here: the pane is measured at each decision, and
+      // the side falls out of where it is relative to the apex (see
+      // `isPointerInSafeTriangle`), so a submenu CDK flips to its fallback
+      // side, mirrors in a `[dir="rtl"]` scope or repositions while open is
+      // judged against the panel as it now stands.
+      this._triangleState = { anchor: null, cursorEnteredSubmenu: false };
       this._installMousemoveListener();
       this._installSubmenuOverlayListeners(overlayElement);
     }, 0);
@@ -405,35 +450,47 @@ export class MlvMenuOverlayController {
     this._removeMousemoveListener();
 
     const handler = (event: MouseEvent) => {
-      if (!this._triangleState || !this.isOpen()) return;
-      if (this._triangleState.cursorEnteredSubmenu) return;
-
-      if (this._config.origin.nativeElement.contains(event.target as Node)) {
-        this._clearCloseTimer();
-        return;
-      }
-
-      if (this._isPointerOnSiblingItem(event.target)) {
-        this._ngZone.run(() => this._config.requestClose?.() ?? this.close());
-        return;
-      }
-
-      const { clientX, clientY } = event;
       const state = this._triangleState;
-      const heading = isCursorHeadingToSubmenu(clientX, clientY, state);
+      if (!state || !this.isOpen() || state.cursorEnteredSubmenu) return;
 
-      state.lastX = clientX;
-      state.lastY = clientY;
+      const target = event.target;
+      const point = { x: event.clientX, y: event.clientY };
 
-      if (heading) {
-        this._clearCloseTimer();
-      } else if (this._overlayRef) {
-        state.submenuRect =
-          this._overlayRef.overlayRef.overlayElement.getBoundingClientRect();
-        if (!isCursorHeadingToSubmenu(clientX, clientY, state)) {
-          this._scheduleClose();
-        }
+      // A deferred sibling is held only while the pointer is on its row.
+      const deferredOrigin =
+        this._deferredSibling?._config.origin.nativeElement;
+      if (
+        deferredOrigin &&
+        !(target instanceof Node && deferredOrigin.contains(target))
+      ) {
+        this._deferredSibling = null;
       }
+
+      if (this._config.origin.nativeElement.contains(target as Node)) {
+        // Still on the row that owns the panel: re-base the apex here.
+        state.anchor = point;
+        this._clearCloseTimer();
+        return;
+      }
+
+      const onSibling = this._isPointerOnSiblingItem(target);
+      if (this._isInSafeTriangle(point)) {
+        // On the way to the panel. Over another row of the parent menu that
+        // lasts only while the pointer keeps moving: every move restarts the
+        // delay, so resting on the row hands it the hover.
+        if (onSibling) {
+          this._scheduleClose();
+        } else {
+          this._clearCloseTimer();
+        }
+        return;
+      }
+
+      if (onSibling) {
+        this._closeForHoverIntent();
+        return;
+      }
+      this._scheduleClose();
     };
 
     // `{ capture: true }` is load-bearing: the hover-intent tracker has to
@@ -450,6 +507,64 @@ export class MlvMenuOverlayController {
         capture: true,
       }).subscribe(handler);
       this._mousemoveCleanup = () => subscription.unsubscribe();
+    });
+
+    // Registered for exactly as long as the listener runs, so sibling triggers
+    // defer to this submenu only while its triangle is being evaluated.
+    const panel = this._ownPanel();
+    if (panel) {
+      aimingSubmenus.set(panel, this);
+      this._aimPanel = panel;
+    }
+  }
+
+  /**
+   * @private Whether `point` is inside this submenu's safe triangle, measuring
+   * the pane now — it can move while open (a reposition, a scroll).
+   */
+  private _isInSafeTriangle(point: MlvSubmenuAimPoint): boolean {
+    const state = this._triangleState;
+    const overlayElement = this._overlayRef?.overlayRef.overlayElement;
+    if (!state?.anchor || !overlayElement) return false;
+    return isPointerInSafeTriangle(
+      point,
+      state.anchor,
+      overlayElement.getBoundingClientRect(),
+    );
+  }
+
+  /** @private The parent menu panel (`[role="menu"]`) the trigger row sits in. */
+  private _ownPanel(): Element | null {
+    return this._config.origin.nativeElement.closest('[role="menu"]');
+  }
+
+  /**
+   * @private The open submenu of the same parent panel whose safe triangle is
+   * being tracked, if it is not this one.
+   */
+  private _findAimingSibling(): MlvMenuOverlayController | null {
+    const panel = this._ownPanel();
+    const aiming = panel ? aimingSubmenus.get(panel) : undefined;
+    return aiming && aiming !== this && aiming.isOpen() ? aiming : null;
+  }
+
+  /**
+   * @private Closes this submenu because the pointer settled somewhere else,
+   * then opens the sibling submenu whose hover was held for it, if any — in
+   * that order: this panel starts its leave animation first, which may still
+   * be playing while the held one enters.
+   */
+  private _closeForHoverIntent(): void {
+    const sibling = this._deferredSibling;
+    this._clearCloseTimer();
+    this._removeMousemoveListener();
+    this._ngZone.run(() => {
+      if (this._config.requestClose) {
+        this._config.requestClose();
+      } else {
+        this.close();
+      }
+      sibling?.open();
     });
   }
 
@@ -468,13 +583,19 @@ export class MlvMenuOverlayController {
       this._mousemoveCleanup();
       this._mousemoveCleanup = null;
     }
+    if (this._aimPanel && aimingSubmenus.get(this._aimPanel) === this) {
+      aimingSubmenus.delete(this._aimPanel);
+    }
+    this._aimPanel = null;
+    this._deferredSibling = null;
   }
 
   private _scheduleClose(): void {
     this._clearCloseTimer();
-    this._closeTimer = setTimeout(() => {
-      this._ngZone.run(() => this._config.requestClose?.() ?? this.close());
-    }, 150);
+    this._closeTimer = setTimeout(
+      () => this._closeForHoverIntent(),
+      SUBMENU_CLOSE_DELAY,
+    );
   }
 
   private _clearCloseTimer(): void {

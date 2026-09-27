@@ -35,15 +35,20 @@ import type { MlvMenubarAccessor, MlvMenubarItem } from './menubar.types';
  * template and are rendered directly into the overlay — no DOM manipulation required.
  *
  * When used as a submenu trigger (`[isSubmenuTrigger]="true"`), the panel opens on
- * mouseenter and the triangle-pointer-tracking algorithm keeps it open while the
- * cursor moves diagonally toward it.
+ * mouseenter and a safe triangle keeps it open while the cursor travels toward
+ * it — the triangle from the last pointer position on the trigger item to the
+ * whole panel edge facing it, on whichever side the panel opened.
  *
- * Hover intent is resolved by what the pointer is over, with geometry used only
- * for the ambiguous space between item and panel:
+ * Hover intent while the submenu is open:
  * - over the trigger item — stays open, whatever the trajectory;
- * - over a different row of the same menu — closes;
- * - in between (including the 8px `SUBMENU_POSITIONS` gap) — the safe cone
- *   decides, and a short grace timer absorbs jitter and gap crossings.
+ * - inside the triangle, over another row of the same menu — stays open while
+ *   the pointer keeps moving; resting on the row for 150 ms closes the submenu
+ *   and hands that row the hover. A sibling submenu trigger crossed this way
+ *   does not open on the way;
+ * - inside the triangle anywhere else (the 8px `SUBMENU_POSITIONS` gap) —
+ *   stays open;
+ * - outside the triangle, over another row of the same menu — closes at once;
+ * - outside the triangle anywhere else — closes after 150 ms.
  *
  * Once the cursor enters the submenu panel, triangle tracking stops and the
  * panel's own `mouseleave` schedules the close.
@@ -139,8 +144,9 @@ export class MlvMenuTrigger {
 
   /**
    * When true, treats this trigger as a submenu trigger:
-   * - Opens the panel using submenu positions (right-of-parent).
-   * - Activates triangle pointer tracking while the submenu is open.
+   * - Opens the panel using submenu positions (inline end of the parent,
+   *   falling back to the inline start when that side does not fit).
+   * - Activates safe-triangle pointer tracking while the submenu is open.
    * - Opens on `mouseenter` in addition to `click`.
    */
   readonly isSubmenuTrigger = input<boolean, BooleanInput>(false, {
@@ -313,7 +319,9 @@ export class MlvMenuTrigger {
    *
    * - Menubar top-level item: delegates to the bar's hover-follow, which opens
    *   this item's menu only while another dropdown in the bar is already open.
-   * - Submenu trigger: opens the submenu on hover (triangle tracking).
+   * - Submenu trigger: opens the submenu on hover — unless the pointer is
+   *   crossing this row inside an open sibling submenu's safe triangle, when
+   *   it opens only once the pointer rests here or leaves that triangle.
    * - Standalone trigger: no-op (opens on click only).
    */
   protected _onTriggerMouseEnter(): void {
@@ -322,7 +330,7 @@ export class MlvMenuTrigger {
 
   /**
    * @protected Mouseleave handler — for submenu triggers, starts a delayed close
-   * unless the cursor is heading into the submenu triangle.
+   * unless the cursor left inside the submenu's safe triangle.
    * Once the cursor has entered the submenu panel, the submenu overlay's own
    * mouseleave listener handles closing — no triangle tracking needed here.
    */
